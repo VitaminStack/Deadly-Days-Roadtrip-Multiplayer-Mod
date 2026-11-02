@@ -99,6 +99,30 @@ Beim Client setzt der Spike die Kamera jede Sekunde, beim Host nimmt er jede Sek
 | `!finish` | Host | Ruft `FinishMission` auf |
 | `!round <n>` | Host | Ruft `TriggerEndRound` auf, Wert wie `ERoundChangeReason` |
 
+`Mission.cpp` lehnt `!finish` und `!round` auf einem verbundenen Client ab. Das sind Diagnosebefehle für den Host, kein UI-Sync.
+
+### Untersuchung `rundenende`: noch keine Client-Phasenanzeige
+
+Build `26187885`, ein PC, zwei Loopback-Instanzen mit getrennten Test-Spielständen, ausschliesslich `Start-Session.ps1` und CrashGuard, nie `-unattended`. Branch basiert auf `origin/main`, nicht auf einem ungemergten anderen Task.
+
+**Laufzeittest:** Über Menü/Ring/Routenkarte in die Mission. Host-`!finish`, Fortsetzen, Lager bestätigen: Host zeigt Rundenübersicht → Lager → Routenkarte, Client bleibt in Missionsansicht. Host-Route hat eine Mission und Index 0, Client keine und Index -1. `LastRoundChangeReason` wechselt nur beim Host auf `NewDay`; Sekunden stehen danach auf beiden Seiten bei 53. Keine Weiterreise mit dem bekannten Inventarfehler versucht.
+
+**Untersuchte Ansätze:**
+
+1. Bestehende Ereignisse/RPCs benutzen: `FinishMission`, `TriggerEndRound`, `SetFreezeTime` sind keine RPCs, die Endphasen-Delegates lokal. Es gibt darüber keine automatische Phasen-Nachricht.
+2. Den Ablauf beim Client nachspielen: verworfen, weil dort Route/Run-Persistenz fehlen und laut Architektur nur Anzeige laufen darf. Als sichere Befehlsgrenze werden Client-`!finish` und Client-`!round` nun abgewiesen. Nach Neubau in separater geschützter Sitzung beide Befehle negativ getestet: passende Logs, Client-Grund bleibt `NoReason`, beide weiter in MetaBase. Der unveränderte Host-`!finish`-Pfad wurde zuvor bis zur Routenkarte getestet.
+3. Den Zustand aus offenen UI-Objekten übernehmen: `AnimationContainer` war für die beobachteten Panels nicht lesbar (`null`/unbekannt), GameInstance-Widgets können Karten überleben. Präsenz eines Panelobjekts ist kein verlässliches Signal und wurde nicht als Sync implementiert.
+
+Lesendes Diagnosewerkzeug:
+
+```text
+py tools/spike/roundstate.py <host-pid> <client-pid>
+```
+
+Es zeigt tatsächliche Route-Längen/Indizes, Grund, Tag, Sekunden und Panelbeobachtungen. `scope=game_instance` oder `unresolved` und `open=null` dürfen nicht als aktuelle sichtbare Phase interpretiert werden. Rohdaten bleiben unter `research/local/`.
+
+**Ergebnis offen:** Ein eigener Host-geführter, versionierter und sequenzierter Phasenvertrag mit rein anzeigendem Client ist noch zu implementieren. Weder Client-Anzeige noch Eingabesperre oder deren Aufhebung beim Wechsel/Trennen sind getestet. `Mission.cpp` besitzt aktuell keinen gemeinsamen Patch-/Tick-Einstieg; andere Spike-Dateien wurden für diesen Task nicht geändert. MSVC-Build, Python-Syntaxprüfung und die beiden Client-Befehlsgrenzen sind geprüft, kein vollständiger Run oder Internet-Test. TODO bleibt offen.
+
 ## Bekannte Abweichungen
 
 Diese Punkte gehören zu Thema 6, sie stoppen die Technik nicht:
