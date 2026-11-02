@@ -4,8 +4,8 @@ Fan-Mod, die echtes Online-Coop für **Deadly Days: Roadtrip** ermöglichen soll
 Couch-Coop, online also nur über Steam Remote Play, bei dem der Host das Bild streamt. Mit der Mod läuft das Spiel bei
 jedem Spieler selbst.
 
-**Status:** Phase 0 – Projekt-Setup. Es existiert noch kein Mod-Code. Ob das Vorhaben technisch aufgeht, entscheidet
-sich an Gate G1 in [TODO.md](TODO.md).
+**Status:** Phase 1 – Analyse. Es gibt noch keine Mod, aber einen funktionierenden Spike: Zwei Instanzen spielen dieselbe Mission,
+der Client übersteht den Wechsel zu Tag 2 noch nicht. Ob das Vorhaben aufgeht, entscheidet sich an Gate G1 in [TODO.md](TODO.md).
 
 | | |
 |---|---|
@@ -21,7 +21,10 @@ sich an Gate G1 in [TODO.md](TODO.md).
 | [TODO.md](TODO.md) | Roadmap, Phasen, Gates und offene Aufgaben |
 | [docs/GAME_ANALYSIS.md](docs/GAME_ANALYSIS.md) | Was wir über das Spiel wissen, mit Belegen und Vertrauensgrad |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Technische Optionen, Entscheidungen, Modulgrenzen |
+| [docs/OFFSETS.md](docs/OFFSETS.md) | Offsets und Funktionsadressen des unterstützten Builds |
 | [docs/SETUP.md](docs/SETUP.md) | Entwicklungsumgebung einrichten |
+| [docs/TESTING.md](docs/TESTING.md) | Zwei Instanzen starten, Abstürze auswerten, Ergebnisse festhalten |
+| [research/spikes/a-connect/](research/spikes/a-connect/README.md) | Stand des Spikes, Patches, gescheiterte Ansätze |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Zusammenarbeit: Branches, PRs, Regeln für das Repo |
 
 ## Projektstruktur
@@ -44,7 +47,7 @@ sich an Gate G1 in [TODO.md](TODO.md).
 │  └─ UI/                  Lobby-Overlay, Statusanzeige
 ├─ tests/                  Tests für Code ohne Spielabhängigkeit
 ├─ third_party/            Abhängigkeiten (Hinweise, siehe README dort)
-└─ tools/                  Skripte (Deploy, SDK-Update, Log-Analyse)
+└─ tools/                  Skripte (Spike bauen und testen, später Deploy)
 ```
 
 Jedes Modul unter `src/` hat eine eigene `README.md` mit Aufgabe und Grenzen. So kann das Team parallel arbeiten, ohne
@@ -52,10 +55,12 @@ sich gegenseitig in dieselben Dateien zu schreiben (siehe [CONTRIBUTING.md](CONT
 
 ## Für neue Mitwirkende
 
+Die bisherige Analyse muss niemand wiederholen. Ergebnisse, Offsets, Patches und Testskripte liegen im Repo.
+
 1. Spiel in Steam installieren und auf die [unterstützte Version](docs/GAME_ANALYSIS.md#unterstützte-spielversion) bringen.
-2. [docs/SETUP.md](docs/SETUP.md) durcharbeiten.
-3. [CONTRIBUTING.md](CONTRIBUTING.md) lesen.
-4. Aufgabe aus [TODO.md](TODO.md) beziehungsweise den GitHub-Issues nehmen.
+2. [docs/SETUP.md](docs/SETUP.md) durcharbeiten, das dauert nur wenige Minuten.
+3. Eine Testsitzung nach [docs/TESTING.md](docs/TESTING.md) starten, dann läuft der aktuelle Stand bei dir.
+4. [CONTRIBUTING.md](CONTRIBUTING.md) lesen und eine Aufgabe aus [Wo kann ich anfangen?](TODO.md#wo-kann-ich-anfangen) nehmen.
 
 ## Rechtliches
 

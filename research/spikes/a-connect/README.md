@@ -10,7 +10,7 @@ Stand: 02.11.2026, Build `26187885`. Wegwerfcode, die Offsets gelten nur für di
 - `spike.cpp` wird als DLL in beide Instanzen geladen. Sie führt Konsolenbefehle aus einer Datei auf dem Game Thread aus.
   Der Game Thread wird über eine Nachricht an das Spielfenster erreicht.
 
-**Vor jedem Test den Crash-Reporter absichern, siehe [unten](#crash-reporter).**
+Gebaut und gestartet wird über die Skripte in `tools/spike/`, die auch den Crash-Reporter absichern, siehe [Testen](../../../docs/TESTING.md).
 
 ## Ergebnis
 
@@ -104,5 +104,5 @@ Das Spiel enthält den `CrashReportClient` mit einer Upload-Adresse von Pixelspl
 Minidump und einer Kopie des aktiven Spielstands. So gingen bei diesem Spike zwei Berichte raus.
 
 - `-unattended` niemals verwenden.
-- Während der Tests ein Skript laufen lassen, das `CrashReportClient.exe` sofort beendet. Das hat die weiteren Abstürze abgefangen.
+- Während der Tests läuft `tools/spike/CrashGuard.ps1`, das `CrashReportClient.exe` sofort beendet. Das hat die weiteren Abstürze abgefangen.
 - Ein Override von `DataRouterUrl` in der `Engine.ini` des `UserDir` wirkt nicht. Die Adresse stand trotzdem im Bericht.
