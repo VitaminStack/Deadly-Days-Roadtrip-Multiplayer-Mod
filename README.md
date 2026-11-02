@@ -41,6 +41,25 @@ Was im Einzelnen noch offen ist, zeigt die [Roadmap als Graph](docs/ROADMAP.md).
 | Zielbild | 2 Spieler online, Host-autoritativ, jeder mit eigener Spielkopie |
 | Technik | Native C++-DLL (Dumper-7-SDK + Hooks), siehe [Architektur](docs/ARCHITECTURE.md) |
 
+## Fortschritt
+
+Stand: 02.11.2026.
+
+Gezählt sind die Punkte aus [TODO.md](TODO.md), ohne optionale Optimierungen.
+
+| Phase | Ziel | Erledigt | Fortschritt |
+|---|---|---|---|
+| [0](TODO.md#phase-0--projekt-setup) | Gleiche Toolchain für alle | 4 von 11 | ████░░░░░░░ |
+| [1](TODO.md#phase-1--analyse-und-spikes) | Fakten für Gate G1 | 15 von 33 | █████░░░░░░ |
+| [2](TODO.md#phase-2--fundament) | Stabile Basis der Mod | 0 von 8 | ░░░░░░░░░░░ |
+| [3](TODO.md#phase-3--session-und-verbindung) | Verbinden über Steam | 0 von 5 | ░░░░░░░░░░░ |
+| [4](TODO.md#phase-4--vertical-slice) | Spielbarer Ausschnitt | 0 von 6 | ░░░░░░░░░░░ |
+| [5](TODO.md#phase-5--vollständiger-run) | Kompletter Run zu zweit | 0 von 9 | ░░░░░░░░░░░ |
+| [6](TODO.md#phase-6--release) | Veröffentlichung | 0 von 6 | ░░░░░░░░░░░ |
+| **Gesamt** | | **19 von 78** | ███░░░░░░░░ |
+
+Bisher gibt es nur den Spike, noch keinen Mod-Code unter `src/`. Die Punkte sind unterschiedlich groß, die Zahlen sagen also wenig über die verbleibende Zeit.
+
 ## Wo finde ich was?
 
 | Dokument | Inhalt |

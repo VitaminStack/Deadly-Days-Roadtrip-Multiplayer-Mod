@@ -4,24 +4,7 @@ Diese Seite zeigt, was bis zur fertigen und nutzbaren Mod noch offen ist. Führe
 
 **Fertig und nutzbar** heißt: Zwei Spieler finden sich über Steam, spielen einen kompletten Run online, und die Mod lässt sich installieren, ohne Spielstände oder Bestenlisten zu berühren. Dafür müssen alle Punkte mit P0 und P1 erledigt sein. P2 und [Optionale Optimierungen](../TODO.md#optionale-optimierungen) kommen danach.
 
-Stand: 02.11.2026.
-
-## Fortschritt je Phase
-
-Gezählt sind die Punkte aus [TODO.md](../TODO.md), ohne optionale Optimierungen.
-
-| Phase | Ziel | Erledigt | Fortschritt |
-|---|---|---|---|
-| [0](../TODO.md#phase-0--projekt-setup) | Gleiche Toolchain für alle | 4 von 11 | ████░░░░░░░ |
-| [1](../TODO.md#phase-1--analyse-und-spikes) | Fakten für Gate G1 | 15 von 33 | █████░░░░░░ |
-| [2](../TODO.md#phase-2--fundament) | Stabile Basis der Mod | 0 von 8 | ░░░░░░░░░░░ |
-| [3](../TODO.md#phase-3--session-und-verbindung) | Verbinden über Steam | 0 von 5 | ░░░░░░░░░░░ |
-| [4](../TODO.md#phase-4--vertical-slice) | Spielbarer Ausschnitt | 0 von 6 | ░░░░░░░░░░░ |
-| [5](../TODO.md#phase-5--vollständiger-run) | Kompletter Run zu zweit | 0 von 9 | ░░░░░░░░░░░ |
-| [6](../TODO.md#phase-6--release) | Veröffentlichung | 0 von 6 | ░░░░░░░░░░░ |
-| **Gesamt** | | **19 von 78** | ███░░░░░░░░ |
-
-Bisher gibt es nur den Spike, noch keinen Mod-Code unter `src/`. Die Punkte sind unterschiedlich groß, die Zahlen sagen also wenig über die verbleibende Zeit.
+Den Fortschritt je Phase zeigt das [README](../README.md#fortschritt).
 
 ## Gesamtweg
 
@@ -197,4 +180,4 @@ Unabhängig von den Gates kann das [Grundgerüst](../TODO.md#phase-2--fundament)
 
 ## Pflege
 
-Wer eine Aufgabe abschließt, ändert hier die Farbe des Knotens und die Zählung der Phase. Offene Teilpunkte aus `TODO.md`, die keinen eigenen Knoten haben, gehören zum thematisch passenden Knoten.
+Wer eine Aufgabe abschließt, ändert hier die Farbe des Knotens und im [README](../README.md#fortschritt) die Zählung der Phase. Offene Teilpunkte aus `TODO.md`, die keinen eigenen Knoten haben, gehören zum thematisch passenden Knoten.

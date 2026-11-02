@@ -38,5 +38,5 @@ Im eigenen Worktree arbeiten, nie im Hauptordner oder im Worktree eines anderen 
 ## Abschluss
 
 1. Ergebnisse festhalten, auch gescheiterte Versuche, siehe [Ergebnisse festhalten](docs/TESTING.md#ergebnisse-festhalten).
-2. In `TODO.md` nur die eigenen Zeilen ändern, das hält Konflikte klein. Ist die Aufgabe fertig, auch [docs/ROADMAP.md](docs/ROADMAP.md) anpassen.
+2. In `TODO.md` nur die eigenen Zeilen ändern, das hält Konflikte klein. Ist die Aufgabe fertig, auch [docs/ROADMAP.md](docs/ROADMAP.md) und den [Fortschritt im README](README.md#fortschritt) anpassen.
 3. Pull Request nach `main` öffnen und sagen, wie getestet wurde. Nur auf ausdrückliche Anweisung des Menschen mergen.
