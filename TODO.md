@@ -106,7 +106,7 @@ Ziel: Fakten für Gate G1 sammeln. Spike-Code ist Wegwerfcode und landet nicht i
 - [ ] P0 Coop-Ablauf nachvollziehen: Wie ruft das Spiel `SetCoopEnabled` und `SpawnLocalPlayer` auf, wie entsteht P2, und kommt der Code mit einem Controller ohne lokalen Spieler zurecht?
 - [ ] P0 Kamera entscheiden: Was macht `AllPlayerFramingCamera`, und wie wirkt sich das Spawning an den Viewport-Rändern bei getrennten Kameras aus?
 - [ ] P1 Technische Andockpunkte klären: geeignete Proxy-DLL, Hook-Weg über `ProcessEvent`, Signaturen für native Funktionen
-- [ ] P0 Karten-Erzeugung verstehen: Wer startet den `MapGenerator`, und ergibt derselbe Seed dieselbe Karte?
+- [x] P0 Karten-Erzeugung verstehen: Wer startet den `MapGenerator`, und ergibt derselbe Seed dieselbe Karte? Start über `MapGenProfileInjectorAndBuildTrigger` auf beiden Seiten. Gleicher Run-Seed und gleiche Mission ergeben dieselbe Karte. Der Client hat keine Missionsdaten, deshalb `MapSeed=1` und eine gescheiterte Karte, siehe [Karte und Seed](docs/GAME_ANALYSIS.md#karte-und-seed)
 - [ ] P0 Klären, wie Karte und replizierte Kartenobjekte beim Client ohne Duplikate entstehen
 - [ ] P1 Enemy-Spawning und `PoolManager` verstehen: Wie verhalten sich wiederverwendete Gegner bei Replikation?
 - [ ] P1 Pausen-Logik klären: Was passiert bei Level-up und Inventar, und was muss beim Client ankommen? (Hinweis: `UTimescaleManager`, `bBlocksGameplay`)
