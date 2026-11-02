@@ -19,16 +19,15 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 **Neue Befunde.**
 
 - `rundenende` zeigt: Das Spiel überträgt die Endphase nicht, und nachspielen lässt sie sich beim Client nicht. Nötig ist eine eigene Host-Nachricht, also ein Kontrollkanal, den es auch im Spike noch nicht gibt.
-- Die Ergebnisse von `rundenende` sind noch nicht eingereicht, der Branch enthält nur die Reservierung und liegt 14 Commits hinter `main`.
+- Die Ergebnisse von `rundenende` sind eingereicht, die Aufgabe bleibt offen: Die Phasenübertragung selbst fehlt, siehe [Untersuchung](GAME_ANALYSIS.md#rundenende-befund-und-offene-phasenübertragung-rundenende).
 - In `TODO.md` fehlten fünf Aufgaben, die jetzt eingetragen sind: Kontrollkanal, Übernahme der Spike-Patches, Umsetzung der Kamera, Pausen über den Kontrollkanal und der einmalige Absturz im Missions-Tick.
 
 **Reihenfolge.**
 
-1. `rundenende` einreichen, damit nichts verloren geht und `niederlage` frei wird.
-2. `tag3` lösen. Ohne diesen Schritt ist kein Run über Tag 2 hinaus möglich.
-3. `spawnedplayers`, danach `remote-p2`, und `karte-client`. Diese Aufgaben brauchen Spielzeit, und pro PC läuft nur eine Sitzung.
-4. Parallel ohne Spielzeit: `grundgeruest`, `tunnel` und `crash-reporter`.
-5. `last` messen und an Gate G1 entscheiden.
+1. `tag3` lösen. Ohne diesen Schritt ist kein Run über Tag 2 hinaus möglich.
+2. `spawnedplayers`, danach `remote-p2`, und `karte-client`. Diese Aufgaben brauchen Spielzeit, und pro PC läuft nur eine Sitzung.
+3. Parallel ohne Spielzeit: `grundgeruest`, `tunnel` und `crash-reporter`.
+4. `last` messen und an Gate G1 entscheiden.
 
 **Wartet auf das Team.**
 
