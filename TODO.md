@@ -98,7 +98,7 @@ Ziel: Fakten für Gate G1 sammeln. Spike-Code ist Wegwerfcode und landet nicht i
 - [x] P0 `bReplicates` der Blueprint-Actors prüfen: 218 von 482 Blueprint-Actor-Klassen replizieren, vor allem über ihre native Basisklasse
 - [x] P1 Klären, ob zur Laufzeit Iris oder die klassische Replikation aktiv ist: klassisch mit `ActorChannel`
 - [x] P0 Run-Ablauf nachvollziehen: `TriggerStartRun`, `FinalizeRunStart`, Ladebildschirm und Wechsel zwischen den Etappen, siehe [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf)
-- [ ] P0 Inventar beim Client lösen: `Slots` und `MyItems` enthalten beim zweiten Kartenwechsel `null`-Einträge, der Client stürzt an wechselnden Stellen ab. Ohne Lösung gibt es keinen Run über mehrere Tage
+- [ ] P0 Inventar beim Client lösen: Teilfix für fehlende Unterobjekt-Replikation in `Inventory.cpp`, ohne Null-Schutzsprünge zweimal bis Tag 2 getestet; Inventare beider Spieler vollständig und replizierte Werte identisch. Weiterreise auf Tag 3 endet noch beim Host im Callback `0x57CC395`/`0x57CC398`, Zusammenhang ungeklärt; kein kompletter Run belegt. Siehe [Inventar-Untersuchung](docs/GAME_ANALYSIS.md#inventar-unterobjekte-untersuchung-inventar)
 - [ ] P0 Rundenende, Lager und Routenkarte beim Client abbilden, bisher spielt er nach dem Missionsende einfach weiter
 - [ ] P0 Neue Remote-Controller nach jedem Kartenwechsel sauber in `SpawnedPlayers` eintragen, der Spike ersetzt den Eintrag nur direkt
 - [ ] P1 Client-Absturz beim Trennen klären (`0x5975A6A`), wenn der Host ins Hauptmenü geht
