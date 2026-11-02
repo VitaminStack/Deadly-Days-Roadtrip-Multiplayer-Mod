@@ -99,6 +99,55 @@ XP, Währungen, Reward-Ablauf, Pausen und Effekte aus Blueprints. Gebündelte Sn
 überlasten. Nach der Laufzeitprüfung ist das der wahrscheinlichste Ausgang, mit Weg A als deutlich größerem Anteil. Die Modulgrenzen unten
 lassen das zu.
 
+## Blueprint-Spielwirkung und Darstellung trennen
+
+Aufgabe `blueprint-logik`: Die [Stichprobe](../research/spikes/blueprint-logik/README.md)
+unterscheidet native Spawner-Konfiguration, replizierte Actors, lokale HUD-Events
+und gemischte Damage-/Reward-/Darstellungsgraphen. Ein Blueprint-Name oder RPC-Flag
+ist kein Beweis fuer einen funktionierenden Netzwerkpfad.
+
+Vorgeschlagene Regeln fuer die Umsetzung:
+
+- Gegner, Schaden, Loot und Itemmodifikationen bleiben host-autoritativ. Client
+  zeigt native replizierte Actors, startet keinen zweiten Spawner.
+- Bestehende Multicasts zuerst pruefen, nicht durch doppelte eigene Events ueberlagern.
+  Airdrop hat trotz RPC im Default keine Actor-Replikation; dessen persistenter
+  Oeffnungs-/Reward-Zustand braucht einen bestaetigten eigenen oder nativen Weg.
+- Explosion und Giftwolke nicht gleich behandeln: Explosion-Impact repliziert im
+  Default nicht, Giftwolken-Impact dagegen schon. Fehlende Darstellung als reine
+  VFX/Sound-Nachricht nachliefern, niemals einen Damage-Actor blind beim Client
+  nachspawnen. Replizierte Wirkungs-Actors nicht duplizieren.
+- Kurzlebige Kosmetik-Ereignisse von persistentem Offen-/Bereit-/Reward-Zustand
+  trennen. Ereignisse deduplizieren; bei Join/Travel Zustand neu aufbauen.
+- Client-HUD lokal aus replizierten und zusaetzlich synchronisierten Daten speisen,
+  keine Host-Widgetgraphen oder Prozesszeiger serialisieren.
+
+Diese Regeln sind ein Entwurf. Der Referenzscan rekonstruiert keine Guards oder
+Reihenfolge und ersetzt keine Tests konkreter Events auf Host und Client.
+## Pausen und blockierende UI (Untersuchung `pausen`)
+
+SDK und begrenzte Laufzeitmessung zeigen zwei Ebenen: lokale Request-/UI-Sitzungen
+und replizierte Welt-Properties. In einer Tutorialpause fehlte beim Client der
+lokale Zeitrequest samt Coop-UI-Sitzung, die Welt war dort trotzdem pausiert.
+Deshalb **nicht** pauschal einen zweiten Timescale-Sync über die native
+WorldSettings-Replikation legen. Details und Fehlversuche:
+[Pausen-Spike](../research/spikes/pausen/README.md).
+
+**Vorgeschlagener Sync-Vertrag, noch nicht implementiert:** Der Host entscheidet
+über globale Pausen und das Fortsetzen. Clients fragen UI-Aktionen an; der Host
+liefert zusätzlich Sitzung-ID, Revision, Anlass, Bedienberechtigung und
+Gameplay-Input-Sperre für die Anzeige und UI des Clients. Keine UObject-Zeiger,
+Geräte-IDs oder lokalen SessionStack-Speicher kopieren. Eine lokale Menüanzeige
+des Clients darf nicht eigenständig die globale Pause aufheben. Verschachtelte
+Requests müssen bis zur Freigabe des letzten maßgeblichen Requesters erhalten
+bleiben; Mapwechsel und Disconnect brauchen eine explizite Aufräumregel.
+
+`bBlocksGameplay` und `PauseGameWhileOpen` getrennt behandeln. Level-up muss an den
+autoritativen Reward-/Auswahlzustand gekoppelt werden, nicht nur an einen booleschen
+Pausenwert. Ob die native Weltpause auch unter Last und bei allen UI-Übergängen
+ausreicht, ist offen. Der direkt geladene, durch Tutorial blockierte Methodenversuch
+belegt keinen vollständigen Inventar- oder Level-up-Ablauf.
+
 ## Transport
 
 Die Exe enthält keinen Steam-NetDriver, aber den `IpNetDriver` und die Steamworks-Laufzeit. Geplant ist deshalb ein Tunnel:
