@@ -115,6 +115,21 @@ Für die frühen Spikes reicht eine direkte IP-Verbindung im LAN oder über Tail
 
 ## Module
 
+### Eigener Kontroll-Sync fuer nicht replizierte Spiellogik
+
+Aufgabe `sync-bedarf`: [Sync-Anforderungsmatrix](SYNC_REQUIREMENTS.md) legt fuer
+LevelSystem, Schrott, Reroll, beide Meta-Wallets und CoopInventoryCoordinator
+einen Weg fest. Der Entwurf verwendet Host-Snapshots fuer Werte/Anzeige und
+verlaessliche, validierte Anfragen fuer Kauf, Transfer, Claim und Reroll.
+UI-Sitzung und Reward-Zustand werden zusaetzlich zur nativen Replikation abgebildet.
+Das ist noch keine implementierte oder im Netz getestete Synchronisierung.
+
+Client-Anzeige darf keine `AddExperience`-/`AddAmount`-Replays und keine normalen
+Speicher-/Erfolgsroutinen ausloesen. Item-/Session-IDs, Run-Epoche, Revisionen und
+Anfrage-Deduplizierung sind verbindliche Anforderungen an die Umsetzung.
+Die Netzwerk-Transportbindung, XP-Einheit, gemeinsame Kontozuordnung und
+persistente Mitspieler-Meta-Belohnung sind noch zu klaeren.
+
 ```text
 Sync ──> Game ──> SDK (Dumper-7, nicht im Repo)
   │       │
