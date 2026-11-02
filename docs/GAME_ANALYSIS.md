@@ -52,6 +52,26 @@ vollständiges SDK für Build `26187885` erzeugt (02.11.2026), die Dateien `Basi
 
 ## Netzwerk
 
+### Technische Andockpunkte: neue statische Prüfung
+
+Aufgabe `andockpunkte`, Build `26187885`, 02.11.2026:
+
+- **[Belegt, statisch]** `VERSION.dll` ist regulärer Import mit
+  `GetFileVersionInfoW`, `GetFileVersionInfoSizeW` und `VerQueryValueW`.
+  `XINPUT1_4.dll` ist dagegen ein Delay-Import.
+- **[Belegt, statisch]** Die drei Byte-Signaturen des
+  [Audits](../research/spikes/andockpunkte/audit.py) treffen in ausführbaren
+  Sektionen jeweils genau die bereits bekannten RVAs für `ProcessEvent`,
+  `SetClientTravel` und `SeamlessTravelToLevel`. Keine neue Semantik/ABI hergeleitet.
+- **[Hypothese]** `version.dll` eignet sich als Mod-Loader im Spiel. Ein isoliertes
+  Windows-Testprogramm lädt den Proxy und erhält gültige Daten über alle drei
+  Exporte; das ist kein Test mit der Spiel-Exe. Fehlversuch und Grenzen stehen in
+  der [Versuchsbeschreibung](../research/spikes/andockpunkte/README.md).
+- Kein neuer Spieltest und keine Änderung an der Spielinstallation. Die bereits
+  vorhandene lokale `dwmapi.dll` bleibt unangetastet; Herkunft nicht untersucht.
+
+### Vorhandene Netzwerkbefunde
+
 - **[Belegt]** Die Exe enthält `IpNetDriver`, `IrisCore` (`net.Iris.*`) und `OnlineSubsystemSteam` mit Lobby-Code.
 - **[Belegt]** Die Strings `SteamNetDriver` und `SteamSocketsNetDriver` kommen in der Exe nicht vor. Vorhanden sind nur
   `SteamSocketsIP` und `SteamSocketsP2P`. Für Verbindungen über Steam ist also vermutlich ein eigener Tunnel nötig.
@@ -131,6 +151,24 @@ Direkt aus dem Speicher einer laufenden Solo-Mission gelesen, an den Default-Obj
   für Weg A als die RPC-Zahlen allein. Eigener Sync-Code wäre vor allem für die Komponenten oben und für Effekte auf Blueprint-Ebene nötig.
 - **[Hypothese]** Karte und zerstörbare Objekte können sich beißen: Der `MapGenerator` repliziert nicht, die von ihm erzeugten Objekte teils schon.
   Läuft er auf beiden Seiten, könnten replizierte Objekte beim Client doppelt vorhanden sein.
+
+### Ergaenzung: SDK-Schnittstellen fuer eigenen Sync
+
+Aufgabe `sync-bedarf`, lokales Mission-SDK von Build `26187885`:
+
+- **[Belegt, SDK]** `LevelSystemComponent` bietet XP-/Level-Delegates, Level-Getter
+  und Prozentanzeige, aber keinen reflektierten rohen XP-Wert. Die Bedeutung des
+  Delegate-XP-Werts wurde hier nicht dynamisch getestet.
+- **[Belegt, SDK]** `AbstractCurrency` besitzt `GetAmount`, `AddAmount`,
+  `OnCurrencyChanged`, SaveManager und SaveGame-Felder. Schrott und Reroll erben
+  zusaetzlich Run-/Travel-Persistenz, Meta- und RareMeta-Wallet die Save-Basis.
+- **[Belegt, SDK]** Reroll fuehrt Kontextzaehler. Der Coordinator hat Claim-,
+  Transfer-, Reroll- und UI-Closed-Funktionen sowie einen strukturierten Reward-Zustand
+  mit Auswahl, Quoten, Teilnehmern, Reroll-Lock und Queue-Zustand.
+- **[Hypothese]** Die ueber GameState und PlayerState erreichbaren Run-Konten sind
+  gemeinsam. Getter und Shared-Kontexthelfer reichen nicht als Identitaetsbeweis.
+- Vorgeschlagene Sync-Wege und verbleibende Fragen stehen in
+  [SYNC_REQUIREMENTS.md](SYNC_REQUIREMENTS.md). Kein neuer Laufzeit-Sync-Nachweis.
 
 ### Karte und Seed
 
