@@ -62,6 +62,20 @@ RVAs sind relativ zur Image-Base `0x140000000`. Die Patchstellen stehen als Kons
 
 In einem TSet ist ein freier Platz daran zu erkennen, dass der Wert hohe Bits gesetzt hat.
 
+## Felder fuer den eigenen Sync (SDK, `sync-bedarf`)
+
+| Klasse | Feld | Offset |
+|---|---|---|
+| `ADDMissionGameState` | LevelSystem, ScrapWallet, RerollCurrency | `0x3B8`, `0x3C0`, `0x3C8` |
+| `ADDMissionGameState` | MetaCurrencyWallet, RareMetaCurrencyWallet, CoopInventoryCoordinator | `0x3D0`, `0x3D8`, `0x3E0` |
+| `UAbstractCurrency` | OnCurrencyChanged, PaidReceipts, CurrencyAmount | `0xC8`, `0xF0`, `0x100` |
+| `URerollCurrency` | OnRerolled, RerollCountsPerContext | `0x148`, `0x158` |
+| `UCoopInventoryCoordinatorComponent` | OnRewardSessionChanged, RewardSession, QueuedRewards | `0xC0`, `0x170`, `0x268` |
+
+Nur SDK-Nachschlagewerte von Build `26187885`, hier nicht durch Mutation getestet.
+Fuer rohe XP-/Level-Interna ist kein neuer Offset bestimmt worden. Keine
+Speicherbereiche aus dem Padding als Protokollquelle behandeln.
+
 ## Enums
 
 `ERoundChangeReason`: `NoReason` 0, `NewDay` 1, `Win` 2, `Lose` 3.

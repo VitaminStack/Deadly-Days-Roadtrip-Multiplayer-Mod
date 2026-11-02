@@ -132,6 +132,24 @@ Direkt aus dem Speicher einer laufenden Solo-Mission gelesen, an den Default-Obj
 - **[Hypothese]** Karte und zerstörbare Objekte können sich beißen: Der `MapGenerator` repliziert nicht, die von ihm erzeugten Objekte teils schon.
   Läuft er auf beiden Seiten, könnten replizierte Objekte beim Client doppelt vorhanden sein.
 
+### Ergaenzung: SDK-Schnittstellen fuer eigenen Sync
+
+Aufgabe `sync-bedarf`, lokales Mission-SDK von Build `26187885`:
+
+- **[Belegt, SDK]** `LevelSystemComponent` bietet XP-/Level-Delegates, Level-Getter
+  und Prozentanzeige, aber keinen reflektierten rohen XP-Wert. Die Bedeutung des
+  Delegate-XP-Werts wurde hier nicht dynamisch getestet.
+- **[Belegt, SDK]** `AbstractCurrency` besitzt `GetAmount`, `AddAmount`,
+  `OnCurrencyChanged`, SaveManager und SaveGame-Felder. Schrott und Reroll erben
+  zusaetzlich Run-/Travel-Persistenz, Meta- und RareMeta-Wallet die Save-Basis.
+- **[Belegt, SDK]** Reroll fuehrt Kontextzaehler. Der Coordinator hat Claim-,
+  Transfer-, Reroll- und UI-Closed-Funktionen sowie einen strukturierten Reward-Zustand
+  mit Auswahl, Quoten, Teilnehmern, Reroll-Lock und Queue-Zustand.
+- **[Hypothese]** Die ueber GameState und PlayerState erreichbaren Run-Konten sind
+  gemeinsam. Getter und Shared-Kontexthelfer reichen nicht als Identitaetsbeweis.
+- Vorgeschlagene Sync-Wege und verbleibende Fragen stehen in
+  [SYNC_REQUIREMENTS.md](SYNC_REQUIREMENTS.md). Kein neuer Laufzeit-Sync-Nachweis.
+
 ### Karte und Seed
 
 - **[Belegt]** Der Seed liegt in `AMapGenerator::MapSeed` und `UMapGenerationState::Seed` und `BaseSeed`. Jeder Sub-Generator hat einen eigenen
