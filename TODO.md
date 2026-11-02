@@ -1,6 +1,6 @@
 # TODO und Roadmap
 
-Diese Datei ist die führende Aufgabenliste. Wer etwas übernimmt, reserviert es über einen Branch `task/<kennung>`, siehe [CONTRIBUTING.md](CONTRIBUTING.md#aufgaben-reservieren).
+Diese Datei ist die führende Aufgabenliste. Wer etwas übernimmt, reserviert es über einen Branch `task/<kennung>`, siehe [CONTRIBUTING.md](CONTRIBUTING.md#aufgaben-reservieren). Die Übersicht als Graph steht in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 **Vorgehen:** Das größte Risiko ist die Frage, ob native UE-Replikation im Spiel überhaupt noch funktioniert. Deshalb
 wird das zuerst mit kleinen Spikes geprüft (Phase 1), bevor echte Mod-Infrastruktur entsteht.
@@ -52,7 +52,7 @@ Die Reihenfolge ist die Arbeitsreihenfolge: Thema 1 entscheidet über den Weg, d
 | # | Thema | Geklärt, wenn | Stand |
 |---|---|---|---|
 | 1 | **Netzwerkcode** | Zwei Instanzen sind in derselben Welt, Bewegung und Schießen funktionieren, Iris oder klassisch steht fest | Technisch geklärt: klassische Replikation, zwei Spieler in derselben Mission, Bewegung beidseitig, Schüsse des Clients wirken beim Host (indirekt belegt). Nur mit Patches, siehe [Ergebnis](research/spikes/a-connect/README.md) |
-| 2 | **Run-Ablauf** | Der Weg vom Menü in die Mission und zurück ist beschrieben, inklusive dessen, was beim Client laufen darf | Weitgehend geklärt, siehe [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf). Hinweg läuft mit Patches, der Client überlebt Tag 2 noch nicht. Offen: echte Niederlage und Rückkehr in die `MetaBase` |
+| 2 | **Run-Ablauf** | Der Weg vom Menü in die Mission und zurück ist beschrieben, inklusive dessen, was beim Client laufen darf | Weitgehend geklärt, siehe [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf). Hinweg läuft mit Patches, der Client erreicht Tag 2, die Reise auf Tag 3 endet noch mit einem Host-Absturz. Offen: echte Niederlage und Rückkehr in die `MetaBase` |
 | 3 | **Karte** | Beide Seiten haben dieselbe Karte, ohne doppelte Objekte | Seed gefunden. Im echten Ablauf ist die Karte des Clients eine andere (17 statt 144 bis 167 `MapTile`). Bodenkacheln sind nicht repliziert und in der `MetaBase` je Seite verschieden, das bricht die Client-Bewegung ohne Fix |
 | 4 | **Remote-Spieler** | Ein Netzwerkspieler funktioniert in der Coop-Logik als P2 | Andockpunkte bekannt, Ablauf offen |
 | 5 | **Kamera und Sichtbereich** | Gemeinsame oder getrennte Kamera ist entschieden, und das Gegner-Spawning passt dazu | Gemeinsame Kamera läuft beim Client mit Patch. Entscheidung offen |
