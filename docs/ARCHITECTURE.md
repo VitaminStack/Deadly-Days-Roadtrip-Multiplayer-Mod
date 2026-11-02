@@ -124,6 +124,7 @@ Vorgeschlagene Regeln fuer die Umsetzung:
 
 Diese Regeln sind ein Entwurf. Der Referenzscan rekonstruiert keine Guards oder
 Reihenfolge und ersetzt keine Tests konkreter Events auf Host und Client.
+
 ## Pausen und blockierende UI (Untersuchung `pausen`)
 
 SDK und begrenzte Laufzeitmessung zeigen zwei Ebenen: lokale Request-/UI-Sitzungen
@@ -162,9 +163,7 @@ keine Portfreigabe, und Steam-Relays verbergen die IP-Adressen. Das ist bisher n
 
 Für die frühen Spikes reicht eine direkte IP-Verbindung im LAN oder über Tailscale oder ZeroTier.
 
-## Module
-
-### Eigener Kontroll-Sync fuer nicht replizierte Spiellogik
+## Eigener Kontroll-Sync fuer nicht replizierte Spiellogik
 
 Aufgabe `sync-bedarf`: [Sync-Anforderungsmatrix](SYNC_REQUIREMENTS.md) legt fuer
 LevelSystem, Schrott, Reroll, beide Meta-Wallets und CoopInventoryCoordinator
@@ -178,6 +177,8 @@ Speicher-/Erfolgsroutinen ausloesen. Item-/Session-IDs, Run-Epoche, Revisionen u
 Anfrage-Deduplizierung sind verbindliche Anforderungen an die Umsetzung.
 Die Netzwerk-Transportbindung, XP-Einheit, gemeinsame Kontozuordnung und
 persistente Mitspieler-Meta-Belohnung sind noch zu klaeren.
+
+## Module
 
 ```text
 Sync ──> Game ──> SDK (Dumper-7, nicht im Repo)
