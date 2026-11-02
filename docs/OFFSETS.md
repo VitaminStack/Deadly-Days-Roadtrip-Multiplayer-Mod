@@ -24,8 +24,11 @@ RVAs für `ProcessEvent`, `SetClientTravel` und `SeamlessTravelToLevel` werden v
 den drei Mustern in `research/spikes/andockpunkte/audit.py` jeweils eindeutig
 gefunden. Geprüfte Exe, SHA-256:
 `3afbf18e051fbceb1fec17a8da20165ba64e0f6c3c88cbe88cb046704a4eefb5`.
-Keine neuen RVAs und keine Bestätigung eines nativen C++-Prototyps. Nur dieser
-Build ist geprüft; vor einem Hook müssen auch die geladenen Originalbytes passen.
+Keine neuen RVAs und keine Bestätigung eines direkten nativen C++-Prototyps. Nur
+dieser Build ist geprüft. Nachtrag: alle drei Muster auch in den geladenen
+ausführbaren Sektionen auf Host und Client je eindeutig gefunden; der kleine
+ProcessEvent-VTable-Test mit Rückgabeprüfung und Slot-Wiederherstellung bestand.
+Fremde Änderungen an den Einsprungbytes müssen weiterhin zur Ablehnung führen.
 
 | Funktion | RVA |
 |---|---|

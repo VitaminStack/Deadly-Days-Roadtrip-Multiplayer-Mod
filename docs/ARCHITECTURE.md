@@ -18,9 +18,10 @@ Es existiert noch kein Mod-Code.
 | UE4SS | Keine Bestätigung für UE 5.8 gefunden. Später als Hilfswerkzeug prüfen |
 | Pak-Mod mit eigenem UE-5.8-Projekt | Nur als Ergänzung für neue Assets, reicht nicht für Netzwerklogik |
 
-Das Laden soll über eine Proxy-DLL neben der Exe erfolgen. `version.dll` ist nach
-Importprüfung und isoliertem Ladebeispiel der bevorzugte Kandidat; der Spieltest
-und der eigentliche Mod-Bootstrap stehen noch aus.
+Das Laden erfolgt im erprobten Beispiel über eine `version.dll`-Proxy-DLL neben
+der Exe. Wichtig: vollständige Exportoberfläche, nicht nur die drei direkten
+Imports. Der kleine Proxy-/ProcessEvent-End-to-End-Test auf Host und Client
+ist erfolgt; die produktive Loader-/Core-Implementierung ist weiterhin separat.
 
 ### Technische Andockpunkte (Build 26187885)
 
@@ -67,10 +68,22 @@ ersten Treffer patchen. In-Memory-Prüfung bleibt nötig, weil andere Hooks die 
 ändern können. Die sechs geprüften Anfangsbytes im vorhandenen Widget-Hook sind
 nicht mit einem eindeutigen Suchmuster gleichzusetzen.
 
-**Testgrenze:** Spiel-Build und Exe wurden statisch geprüft; MSVC-Build, isolierter
-Proxy-Test und sechs Scanner-Tests bestanden. Kein neues Spiel gestartet, kein
-Deployment, keine neuen Netzwerk- oder Mapwechseltests. Daher bleibt die
-Roadmap-Zeile bis zum geschützten Spieltest offen.
+**Nachgeholter End-to-End-Test:** Der Drei-Export-Proxy reichte im Spiel nicht;
+beide Prozesse beendeten sich vor dem Fenster mit Code 0. Die Vollvariante mit
+17 Weiterleitungen nach Name und Ordinal erreicht dagegen mit Host und Client
+die Mission. Ein vom Attach unabhängig von API-Aufrufen gestarteter Worker
+prüft die drei Live-Signaturen vor weiteren Spike-Patches. Über eine eigene
+Fensternachricht läuft der kleine Character-ProcessEvent-Test: genau eine
+Weiterleitung von `K2_GetActorLocation`, unveränderter Rückgabewert, Slot
+wiederhergestellt. Die drei Signaturen sind im geladenen Code je eindeutig.
+
+Der vollständig aufgelöste System-DLL-Pfad verhindert Selbstrekursion. Die
+Vollvariante benutzt ABI-erhaltende x64-Tailcalls auch für undokumentierte Exporte,
+statt deren Prototypen zu raten. Der Bootstrap wartet nie im Loader-Lock; die
+Produktivlösung braucht weiterhin Lebensdauer-/Thread-/Hook-Verwaltung. Die Tests
+liefen mit der vorgefundenen UE4SS-/Mod-Umgebung, nicht mit garantiert reinem
+Stock-Spiel. Der genehmigte eigene Proxy-Link wurde nach dem Test entfernt.
+Details, Fehlversuche und Belege stehen im [Nachtrag](../research/spikes/andockpunkte/README.md#nachtrag-vollstaendiger-exportproxy-und-end-to-end-test).
 
 ## Synchronisierung: zwei Wege
 

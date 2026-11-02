@@ -1,6 +1,10 @@
 // Isolierter Lade-Spike, keine Mod und kein Deployment ins Spiel.
 #include <windows.h>
 
+#ifdef ENTRY_PROBE
+void ScheduleEntryProbe();
+#endif
+
 namespace
 {
 INIT_ONCE Once = INIT_ONCE_STATIC_INIT;
@@ -22,6 +26,9 @@ template <typename T> T Resolve(const char* Name)
 {
     if (!InitOnceExecuteOnce(&Once, LoadSystemVersion, nullptr, nullptr))
         return nullptr;
+#ifdef ENTRY_PROBE
+    ScheduleEntryProbe();
+#endif
     return reinterpret_cast<T>(GetProcAddress(SystemVersion, Name));
 }
 }
@@ -56,5 +63,19 @@ extern "C" BOOL WINAPI ProxyVerQueryValueW(LPCVOID Block, LPCWSTR SubBlock, LPVO
     return FALSE;
 }
 
-// Kein LoadLibrary, Thread oder Spielzugriff unter dem Loader-Lock.
-BOOL WINAPI DllMain(HINSTANCE, DWORD, LPVOID) { return TRUE; }
+// Normaler Proxy: keine Initialisierung. Testvariante startet nur einen Thread;
+// niemals unter dem Loader-Lock auf ihn warten oder Engine-Aufrufe ausfuehren.
+BOOL WINAPI DllMain(HINSTANCE Module, DWORD Reason, LPVOID)
+{
+#ifdef ENTRY_PROBE
+    if (Reason == DLL_PROCESS_ATTACH)
+    {
+        DisableThreadLibraryCalls(Module);
+        ScheduleEntryProbe();
+    }
+#else
+    (void)Module;
+    (void)Reason;
+#endif
+    return TRUE;
+}

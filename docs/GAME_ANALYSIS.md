@@ -67,8 +67,16 @@ Aufgabe `andockpunkte`, Build `26187885`, 02.11.2026:
   Windows-Testprogramm lädt den Proxy und erhält gültige Daten über alle drei
   Exporte; das ist kein Test mit der Spiel-Exe. Fehlversuch und Grenzen stehen in
   der [Versuchsbeschreibung](../research/spikes/andockpunkte/README.md).
-- Kein neuer Spieltest und keine Änderung an der Spielinstallation. Die bereits
-  vorhandene lokale `dwmapi.dll` bleibt unangetastet; Herkunft nicht untersucht.
+- **[Belegt, nachgeholter Spieltest]** Vollständiger VERSION-Proxy mit 17 Exporten
+  lädt in beiden Spielinstanzen; beide erreichen `DDDynamic_Map`. Die drei
+  Signaturen treffen auch im geladenen Code eindeutig. Der temporäre
+  Character-ProcessEvent-Hook leitet `K2_GetActorLocation` genau einmal weiter,
+  erhält den Rückgabewert und wird danach zurückgebaut.
+- **[Belegt, Testaufbau]** Die vorgefundene Installation lädt zusätzlich UE4SS und
+  eine vorhandene Mod. Diese Dateien wurden nicht verändert. Ein genehmigter
+  eigener VERSION-Hardlink wurde nur während des Tests benutzt und danach
+  entfernt. Der Drei-Export-Proxy bestand nur isoliert, im Spiel nicht; siehe
+  [End-to-End-Nachtrag](../research/spikes/andockpunkte/README.md#nachtrag-vollstaendiger-exportproxy-und-end-to-end-test).
 
 ### Vorhandene Netzwerkbefunde
 
