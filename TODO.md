@@ -12,6 +12,21 @@ wird das zuerst mit kleinen Spikes geprüft (Phase 1), bevor echte Mod-Infrastru
 | P1 | Nötig für das nächste Gate |
 | P2 | Wichtig, aber später |
 
+## Grundthemen bis Gate G1
+
+Diese Themen müssen geklärt sein, bevor die eigentliche Umsetzung beginnt. Die einzelnen Aufgaben stehen in [Phase 1](#phase-1--analyse-und-spikes).
+Die Reihenfolge ist die Arbeitsreihenfolge: Thema 1 entscheidet über den Weg, die übrigen legen fest, wie gebaut wird.
+
+| # | Thema | Geklärt, wenn | Stand |
+|---|---|---|---|
+| 1 | **Netzwerkcode** | Zwei Instanzen sind in derselben Welt, Bewegung und Schießen funktionieren, Iris oder klassisch steht fest | Eingestellt, aber ungetestet |
+| 2 | **Run-Ablauf** | Der Weg vom Menü in die Mission und zurück ist beschrieben, inklusive dessen, was beim Client laufen darf | Offen |
+| 3 | **Karte** | Beide Seiten haben dieselbe Karte, ohne doppelte Objekte | Seed gefunden, Rest offen |
+| 4 | **Remote-Spieler** | Ein Netzwerkspieler funktioniert in der Coop-Logik als P2 | Andockpunkte bekannt, Ablauf offen |
+| 5 | **Kamera und Sichtbereich** | Gemeinsame oder getrennte Kamera ist entschieden, und das Gegner-Spawning passt dazu | Offen |
+| 6 | **Spiellogik ohne Replikation** | Für XP, Währungen, Rewards, Pausen und UI ist je ein Sync-Weg festgelegt | Lücken bekannt, Lösung offen |
+| 7 | **Technische Andockpunkte** | Proxy-DLL gewählt, Hook-Weg über `ProcessEvent` und Signaturen an einem Beispiel erprobt | Offen |
+
 ## Phase 0 – Projekt-Setup
 
 Ziel: Alle können auf demselben Spielstand und mit derselben Toolchain arbeiten.
@@ -39,7 +54,10 @@ Ziel: Fakten für Gate G1 sammeln. Spike-Code ist Wegwerfcode und landet nicht i
 - [x] P0 Replizierte Properties und `bReplicates` der Kernklassen erfassen: Der Kern repliziert, siehe [Analyse](docs/GAME_ANALYSIS.md#replikation-zur-laufzeit)
 - [x] P0 `bReplicates` der Blueprint-Actors prüfen: 218 von 482 Blueprint-Actor-Klassen replizieren, vor allem über ihre native Basisklasse
 - [ ] P1 Klären, ob zur Laufzeit Iris oder die klassische Replikation aktiv wäre (`net.Iris.UseIrisReplication`)
-- [ ] P1 Coop-Ablauf nachvollziehen: Wie ruft das Spiel `SetCoopEnabled` und `SpawnLocalPlayer` auf, wie entsteht P2, und wie wirkt sich das auf einen Remote-Controller aus?
+- [ ] P0 Run-Ablauf nachvollziehen: `TriggerStartRun`, `FinalizeRunStart`, Ladebildschirm und Wechsel zwischen den Etappen
+- [ ] P0 Coop-Ablauf nachvollziehen: Wie ruft das Spiel `SetCoopEnabled` und `SpawnLocalPlayer` auf, wie entsteht P2, und kommt der Code mit einem Controller ohne lokalen Spieler zurecht?
+- [ ] P0 Kamera entscheiden: Was macht `AllPlayerFramingCamera`, und wie wirkt sich das Spawning an den Viewport-Rändern bei getrennten Kameras aus?
+- [ ] P1 Technische Andockpunkte klären: geeignete Proxy-DLL, Hook-Weg über `ProcessEvent`, Signaturen für native Funktionen
 - [ ] P0 Karten-Erzeugung verstehen: Wer startet den `MapGenerator`, und ergibt derselbe Seed dieselbe Karte?
 - [ ] P0 Klären, wie Karte und replizierte Kartenobjekte beim Client ohne Duplikate entstehen
 - [ ] P1 Enemy-Spawning und `PoolManager` verstehen: Wie verhalten sich wiederverwendete Gegner bei Replikation?
