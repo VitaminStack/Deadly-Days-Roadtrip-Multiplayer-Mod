@@ -147,7 +147,9 @@ Direkt aus dem Speicher einer laufenden Solo-Mission gelesen, an den Default-Obj
   `EnemyCap=300`. `MaxSpawnedEnemies` lag beim aktiven Spawner bei 20.
 - **[Belegt]** Pausen laufen über `UTimescaleManager` (ein Subsystem der GameInstance), `UPauseScreenManager` und
   `ADDMissionGameState::SetFreezeTime`. Coop-UI-Sitzungen tragen dazu `bBlocksGameplay`.
-- **[Hypothese]** Der Timescale wirkt nur lokal. Pausen müssen also an den Client weitergegeben werden.
+- **[Hypothese, durch neue Messung eingeschränkt]** Die Requestverwaltung des TimescaleManagers ist lokal; daraus folgt nicht, dass ihre Weltwirkung lokal bleibt. `TimeDilation`, `CinematicTimeDilation` und `PauserPlayerState` sind im Engine-SDK als Netzwerk-Properties markiert.
+- **[Belegt, SDK und Laufzeit]** Aufgabe `pausen`: In einer direkt geladenen Mission mit aktivem Tutorialdialog hatte nur der Host einen `DialogComponent`-Zeitrequest und eine blockierende Coop-UI-Sitzung. Auf beiden Seiten waren aber `TimeDilation` etwa `0.0001` und ein `PauserPlayerState` vorhanden. Client-UI-Sitzung und Weltpause sind daher getrennt zu betrachten; die genaue Aufrufkette wurde nicht nachgewiesen.
+- **[Belegt, Default-Objekte]** Das native und Blueprint-Inventarpanel haben `bCoopBlocksGameplay=true`, aber `PauseGameWhileOpen=false`. Der eine Schalter ersetzt nicht den anderen. Der Inventar-Methodentest fand keinen Animationscontainer; `RequestLevelUp` kehrte ohne neue nachweisbare Sitzung zurück. Normaler Level-up und Inventarablauf bleiben offen, siehe [Versuche](../research/spikes/pausen/README.md).
 
 ## Lokales Coop
 
