@@ -10,7 +10,11 @@ bekommen ein eigenes `-UserDir`, der echte Spielstand bleibt also unberührt. Di
 ## Sitzung starten
 
 Voraussetzung ist die Einrichtung aus [SETUP.md](SETUP.md). Die Skripte prüfen die Build-ID und brechen bei einem anderen Build ab.
-`Start-Session.ps1` beendet alle laufenden Instanzen des Spiels, also auch ein normal gestartetes.
+
+**Pro PC läuft nur eine Sitzung**, auch über mehrere Klone und Worktrees hinweg. Sie belegt Port 7777, die Fenster, Maus und Tastatur.
+`Start-Session.ps1` bricht deshalb ab, wenn schon eine Sitzung läuft, und nennt den Ordner, aus dem sie stammt. Auch ein normal gestartetes Spiel muss vorher beendet sein.
+Die Skripte beenden nur die eigenen Instanzen. Mit `-Restart` ersetzt man die Sitzung aus dem eigenen Ordner. Nach einem Absturz gibt sich die Sperre von selbst frei.
+In einem Git-Worktree nutzen die Skripte `config/Local.props` aus dem Hauptordner.
 
 ```bash
 powershell -ExecutionPolicy Bypass -File tools/spike/Start-Session.ps1
@@ -28,7 +32,7 @@ powershell -ExecutionPolicy Bypass -File tools/spike/Send-Command.ps1 Host '!fin
 powershell -ExecutionPolicy Bypass -File tools/spike/Stop-Session.ps1
 ```
 
-Nach Änderungen an `spike.cpp` zuerst `Stop-Session.ps1`, dann `Build-Spike.ps1`. Die Befehle stehen in der
+Nach Änderungen am Spike zuerst `Stop-Session.ps1`, dann `Build-Spike.ps1`. Die Befehle stehen in der
 [Spike-Tabelle](../research/spikes/a-connect/README.md#patches). Alles andere läuft als Konsolenbefehl, etwa `open` oder `servertravel`.
 
 ## Mission über das Spielmenü

@@ -7,10 +7,28 @@ Stand: 02.11.2026, Build `26187885`. Wegwerfcode, die Offsets gelten nur für di
 - Zwei Instanzen auf einem PC unter demselben Steam-Konto, Verbindung über `127.0.0.1:7777`.
 - Die Exe wird direkt gestartet, mit den Umgebungsvariablen `SteamAppId` und `SteamGameId` sowie je einem eigenen `-UserDir=`.
   So bleibt der echte Spielstand unberührt.
-- `spike.cpp` wird als DLL in beide Instanzen geladen. Sie führt Konsolenbefehle aus einer Datei auf dem Game Thread aus.
+- Der Spike wird als DLL in beide Instanzen geladen. Sie führt Konsolenbefehle aus einer Datei auf dem Game Thread aus.
   Der Game Thread wird über eine Nachricht an das Spielfenster erreicht.
 
 Gebaut und gestartet wird über die Skripte in `tools/spike/`, die auch den Crash-Reporter absichern, siehe [Testen](../../../docs/TESTING.md).
+
+## Dateien
+
+Je Thema eine Datei, damit parallele Arbeit nicht in dieselbe Datei läuft. Neue Patches kommen in die passende Datei und werden in deren `Patch…`-Funktion eingehängt.
+
+| Datei | Inhalt |
+|---|---|
+| `Spike.h` | Gemeinsame Offsets und Schnittstellen |
+| `Core.cpp` | Log, Objektsuche, `CodeWriter` für Patches |
+| `Main.cpp` | Laden der DLL, Befehls-Schnittstelle, Sekunden-Tick |
+| `Players.cpp` | Spawn der Remote-Spieler, `SpawnedPlayers`, clientautoritative Position |
+| `Client.cpp` | Client-Stellen ohne Host-Objekte: Refresh, Attribute, Figurenkomponente, `ThreatLevel` |
+| `Camera.cpp` | Gemeinsame Kamera und Bodenfix |
+| `Inventory.cpp` | Schleifen über `MyItems` und `Slots` |
+| `Travel.cpp` | Umleitung der Reise in `servertravel` |
+| `Widgets.cpp` | Zurückhalten der HUD bis zum `GameState` |
+| `Mission.cpp` | Gegnerwelle, Missionsende, Rundenende |
+| `Trace.cpp` | Zähler für RPCs und Run-Funktionen |
 
 ## Ergebnis
 

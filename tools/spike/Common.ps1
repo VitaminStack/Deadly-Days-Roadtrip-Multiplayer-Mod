@@ -3,13 +3,23 @@ $script:SupportedBuild = '26187885'
 $script:RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $script:SessionDir = Join-Path $script:RepoRoot 'research\local\session'
 $script:CommandDir = Join-Path $env:TEMP 'ddspike'
+$script:LockFile = Join-Path $script:CommandDir 'session.lock'
+$script:GameProcess = 'DDSurvivors-Win64-Shipping'
+
+# In einem Git-Worktree fehlt die lokale Datei, dann gilt die aus dem Hauptordner.
+function Find-LocalProps {
+    $Props = Join-Path $script:RepoRoot 'config\Local.props'
+    if (Test-Path $Props) { return $Props }
+    try { $GitDir = & git -C $script:RepoRoot rev-parse --path-format=absolute --git-common-dir 2>$null } catch { $GitDir = $null }
+    if ($GitDir) {
+        $Props = Join-Path (Split-Path $GitDir) 'config\Local.props'
+        if (Test-Path $Props) { return $Props }
+    }
+    throw 'config\Local.props fehlt. config\Local.props.example kopieren und GameDir eintragen.'
+}
 
 function Get-GameDir {
-    $Props = Join-Path $script:RepoRoot 'config\Local.props'
-    if (-not (Test-Path $Props)) {
-        throw 'config\Local.props fehlt. config\Local.props.example kopieren und GameDir eintragen.'
-    }
-    $GameDir = ([xml](Get-Content $Props -Raw)).Project.PropertyGroup.GameDir
+    $GameDir = ([xml](Get-Content (Find-LocalProps) -Raw)).Project.PropertyGroup.GameDir
     if (-not (Test-Path $GameDir)) { throw "GameDir aus config\Local.props gibt es nicht: $GameDir" }
     $GameDir
 }
@@ -36,6 +46,54 @@ function Get-Session {
     $File = Join-Path $script:SessionDir 'session.json'
     if (-not (Test-Path $File)) { throw 'Keine Sitzung gefunden. Zuerst tools\spike\Start-Session.ps1 ausfuehren.' }
     Get-Content $File -Raw | ConvertFrom-Json
+}
+
+function Test-GameProcess([int]$ProcessId) {
+    $Process = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
+    [bool]($Process -and $Process.ProcessName -eq $script:GameProcess)
+}
+
+function Test-OwnSessionRunning {
+    $File = Join-Path $script:SessionDir 'session.json'
+    if (-not (Test-Path $File)) { return $false }
+    $Session = Get-Content $File -Raw | ConvertFrom-Json
+    (Test-GameProcess $Session.Host) -or (Test-GameProcess $Session.Client)
+}
+
+# Eine Testsitzung pro PC: Sie belegt Port 7777, Fenster, Maus und Tastatur. Die Sperre gilt ueber alle Klone und Worktrees.
+function Test-LockActive($Lock) {
+    if ($Lock.Host -eq 0) { return [bool](Get-Process -Id $Lock.Starter -ErrorAction SilentlyContinue) }
+    (Test-GameProcess $Lock.Host) -or (Test-GameProcess $Lock.Client)
+}
+
+function Write-SessionLock([int]$HostId, [int]$ClientId) {
+    @{ Owner = $script:RepoRoot; Starter = $PID; Host = $HostId; Client = $ClientId } | ConvertTo-Json
+}
+
+function Enter-SessionLock {
+    foreach ($Attempt in 1, 2) {
+        try {
+            $Bytes = [Text.Encoding]::ASCII.GetBytes((Write-SessionLock 0 0))
+            $Stream = [IO.File]::Open($script:LockFile, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write)
+            $Stream.Write($Bytes, 0, $Bytes.Length)
+            $Stream.Close()
+            return
+        }
+        catch [Management.Automation.MethodInvocationException] {
+            $Lock = Get-Content $script:LockFile -Raw | ConvertFrom-Json
+            if (Test-LockActive $Lock) {
+                throw "Testsitzung laeuft bereits aus $($Lock.Owner). Warten, bis sie dort mit Stop-Session.ps1 beendet ist."
+            }
+            Remove-Item $script:LockFile -Force
+        }
+    }
+    throw 'Sperre konnte nicht gesetzt werden.'
+}
+
+function Exit-SessionLock {
+    if (-not (Test-Path $script:LockFile)) { return }
+    $Lock = Get-Content $script:LockFile -Raw | ConvertFrom-Json
+    if ($Lock.Owner -eq $script:RepoRoot) { Remove-Item $script:LockFile -Force }
 }
 
 function Get-RolePid([string]$Role) {

@@ -22,17 +22,24 @@ erlaubt, aber diese Person macht dann das Review.
 
 ## Ablauf
 
-1. Issue nehmen oder anlegen und sich selbst zuweisen, damit niemand doppelt arbeitet.
-2. Branch von aktuellem `main` erstellen.
+1. [Aufgabe reservieren](#aufgaben-reservieren), damit niemand doppelt arbeitet.
+2. Branch von aktuellem `main` erstellen. Bei reservierten Aufgaben ist das `task/<kennung>`.
 3. Klein arbeiten und oft pushen.
 4. Pull Request öffnen und ein Review einholen.
 5. Per Squash mergen und den Branch löschen.
 
 `main` muss immer bauen. Direkte Pushes auf `main` sind nicht vorgesehen.
 
+### Aufgaben reservieren
+
+Jede freie Aufgabe hat in [TODO.md](TODO.md#wo-kann-ich-anfangen) eine Kennung. Reserviert ist, was einen Branch `task/<kennung>` auf GitHub hat.
+Der erste Push gewinnt, ein zweiter wird abgelehnt. Das gilt für Menschen und KI-Agenten, die genauen Befehle stehen in [CLAUDE.md](CLAUDE.md#vor-dem-start).
+Wer über einen Fork arbeitet, kann so nicht reservieren und legt stattdessen ein Issue an.
+
 ### Branches
 
 ```text
+task/<kennung>                          task/inventar
 feature/<bereich>-<kurzbeschreibung>    feature/net-steam-lobby
 fix/<bereich>-<kurzbeschreibung>        fix/core-hook-crash
 research/<thema>                        research/spike-listen-server

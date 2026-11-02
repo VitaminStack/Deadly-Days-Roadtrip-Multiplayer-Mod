@@ -1,6 +1,6 @@
 # TODO und Roadmap
 
-Diese Datei ist die führende Aufgabenliste. Wer etwas übernimmt, legt dazu ein GitHub-Issue an und weist es sich zu, damit niemand doppelt arbeitet.
+Diese Datei ist die führende Aufgabenliste. Wer etwas übernimmt, reserviert es über einen Branch `task/<kennung>`, siehe [CONTRIBUTING.md](CONTRIBUTING.md#aufgaben-reservieren).
 
 **Vorgehen:** Das größte Risiko ist die Frage, ob native UE-Replikation im Spiel überhaupt noch funktioniert. Deshalb
 wird das zuerst mit kleinen Spikes geprüft (Phase 1), bevor echte Mod-Infrastruktur entsteht.
@@ -20,17 +20,19 @@ wird das zuerst mit kleinen Spikes geprüft (Phase 1), bevor echte Mod-Infrastru
 Diese Aufgaben lassen sich unabhängig voneinander angehen. Oben stehen die, die die Spielbarkeit am meisten blockieren.
 Für alle reicht die [Einrichtung](docs/SETUP.md), wenn nichts anderes dabeisteht.
 
-| Aufgabe | Art | Einstieg |
-|---|---|---|
-| Inventar beim Client lösen | Reverse Engineering, Spike | [Offener Client-Absturz](research/spikes/a-connect/README.md#offener-client-absturz), [Abstürze auswerten](docs/TESTING.md#abstürze-auswerten) |
-| Rundenende, Lager und Routenkarte beim Client | Reverse Engineering, Spike | [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf), `!finish` |
-| Remote-Controller sauber in `SpawnedPlayers` eintragen | Spike | `tools/spike/players.py`, Spike-Patch für `0x58CEDC7` |
-| Coop-Ablauf: `SetCoopEnabled`, `SpawnLocalPlayer`, Controller ohne lokalen Spieler | Reverse Engineering, SDK nötig | [Thema 4](#grundthemen-bis-gate-g1) |
-| Karten-Erzeugung: Wer startet den `MapGenerator`, ergibt derselbe Seed dieselbe Karte? | Reverse Engineering | `CurrentRunInfo` in [Offsets](docs/OFFSETS.md), `tools/spike/objects.py` zählt `MapTile` |
-| Treffer des Clients direkt belegen | Spike | `AttributeSet` in [Offsets](docs/OFFSETS.md), Mission über das [Spielmenü](docs/TESTING.md#mission-über-das-spielmenü) |
-| Last messen (Spike D) | Test | Mission über das Menü, Bandbreite und Framerate bei voller Gegnerzahl |
-| Steam-Tunnel (Spike E) | C++, ohne Reverse Engineering, Steamworks SDK nötig | [Transport](docs/ARCHITECTURE.md#transport) |
-| Solution und Grundgerüst für `Loader` und `Core` | C++, ohne Spielwissen | [Phase 0](#phase-0--projekt-setup), [Phase 2](#phase-2--fundament) |
+**Spielzeit** sagt, wie sehr die Aufgabe laufende Testsitzungen braucht. Pro PC läuft nur eine Sitzung, Aufgaben mit „keine“ oder „wenig“ eignen sich also für parallele Arbeit.
+
+| Kennung | Aufgabe | Art | Spielzeit | Einstieg |
+|---|---|---|---|---|
+| `inventar` | Inventar beim Client lösen | Reverse Engineering, Spike | viel | [Offener Client-Absturz](research/spikes/a-connect/README.md#offener-client-absturz), [Abstürze auswerten](docs/TESTING.md#abstürze-auswerten), `Inventory.cpp` |
+| `rundenende` | Rundenende, Lager und Routenkarte beim Client | Reverse Engineering, Spike | viel | [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf), `!finish`, `Mission.cpp` |
+| `spawnedplayers` | Remote-Controller sauber in `SpawnedPlayers` eintragen | Spike | mittel | `tools/spike/players.py`, `Players.cpp` |
+| `coop-ablauf` | Coop-Ablauf: `SetCoopEnabled`, `SpawnLocalPlayer`, Controller ohne lokalen Spieler | Reverse Engineering, SDK nötig | wenig | [Thema 4](#grundthemen-bis-gate-g1) |
+| `karte` | Karten-Erzeugung: Wer startet den `MapGenerator`, ergibt derselbe Seed dieselbe Karte? | Reverse Engineering | wenig | `CurrentRunInfo` in [Offsets](docs/OFFSETS.md), `tools/spike/objects.py` zählt `MapTile` |
+| `treffer` | Treffer des Clients direkt belegen | Spike | mittel | `AttributeSet` in [Offsets](docs/OFFSETS.md), Mission über das [Spielmenü](docs/TESTING.md#mission-über-das-spielmenü) |
+| `last` | Last messen (Spike D) | Test | viel | Mission über das Menü, Bandbreite und Framerate bei voller Gegnerzahl |
+| `tunnel` | Steam-Tunnel (Spike E) | C++, ohne Reverse Engineering, Steamworks SDK nötig | wenig | [Transport](docs/ARCHITECTURE.md#transport) |
+| `grundgeruest` | Solution und Grundgerüst für `Loader` und `Core` | C++, ohne Spielwissen | keine | [Phase 0](#phase-0--projekt-setup), [Phase 2](#phase-2--fundament) |
 
 **Nicht erneut machen.** Das ist erledigt und dokumentiert:
 
