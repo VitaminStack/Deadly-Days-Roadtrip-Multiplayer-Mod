@@ -295,6 +295,39 @@ Stand: Disassembly und Laufzeit-Messung, Build `26187885`. Mission über das Spi
   Kritisch wäre es nur, wenn das Spiel dabei Zustand zurücksetzt, der nicht repliziert. Das trat in der Messung nicht auf.
 - **[Hypothese]** Mit zwei Spielern ist der Abstand zum Spieler beim Recycling nur gegen den zufällig gewählten Spieler geprüft. Gegner nahe dem anderen Spieler könnten also weggeholt werden. Das ist für die Spielbarkeit vermutlich nebensächlich.
 
+## Kamera und Sichtbereich
+
+Stand: Disassembly und Laufzeit, Build `26187885`. Mission über das Spielmenü mit dem Spike, Werte aus dem Speicher beider Instanzen. RVAs in [Offsets](OFFSETS.md#kamera).
+
+**Was `AllPlayerFramingCamera` macht**
+
+- **[Belegt]** `BP_PlayerCameraActor_C` (Basis `AAllPlayerFramingCamera`) ist eine Kamera für alle Spieler. Sie holt die Figuren aus `GameMode->SpawnedPlayers` und rahmt sie gemeinsam ein.
+  Werte der Mission: `MaxMovementDistance=250`, `UseZoomOutAtEdge=1`, `ZoomOutDistance=750`, Spring-Arm 8750, FOV 40, geglättete Position.
+- **[Belegt]** Am Kamera-Actor hängt `UInViewportMovementRestrictor`. Er bremst Spieler ab 60 % des Weges vom Bildmittelpunkt zum Rand und stoppt sie bei 90 %, in alle vier Richtungen. Die Spieler können sich also nicht weiter trennen, als ein Bild zeigt. Das ist der Kern des lokalen Coop.
+- **[Belegt]** Beim Host ist die gemeinsame Kamera das ViewTarget beider Controller. Der `PlayerCameraManager` des Remote-Controllers wird beim Host aber nicht berechnet (`POV` bleibt `(0, 0, 0)`).
+- **[Belegt]** Beim Client läuft eine eigene Instanz derselben Kamera auf den replizierten Figuren, mit dem Spike-Patch für den fehlenden `GameMode`. Sie stand im Test rund 490 Einheiten neben der des Hosts. Bei etwa 6000 Einheiten Bildhöhe sind das unter 10 % des Bildes, durch Glättung und Verzögerung der replizierten Positionen.
+
+**Spawnen an den Viewport-Rändern**
+
+- **[Belegt]** Beide `AEnemySpawner` der Mission haben `UseViewportEdgesForSpawningPositions=1` und keine Einschränkung der Ränder. Die Ränder kommen aus `CalculateViewportEdgesInWorldSpace` (`0x5B02DD0`).
+- **[Belegt]** Diese Funktion läuft über alle Controller in `SpawnedPlayers`, nimmt jeweils deren Kamera-Komponente und projiziert die vier Bildecken auf den Boden (`0x5B028D0`: `GetViewportSize` und viermal `DeprojectScreenPositionToWorld`).
+  Je Ecke behält sie die am weitesten außen liegende. Das Ergebnis ist also ungefähr die Vereinigung aller Spieler-Ansichten.
+- **[Belegt]** Die Projektion prüft nicht, ob es einen Viewport gibt. Für einen Remote-Controller ohne `LocalPlayer` liefert `GetViewportSize` nichts, und die Projektion scheitert.
+- **[Hypothese]** Für einen Remote-Controller entsteht deshalb kein sinnvoller Beitrag, und es zählt nur die Ansicht des Hosts. Bei gemeinsamer Kamera ist das egal, weil beide dasselbe Bild haben.
+  Bei getrennten Kameras spawnen Gegner nur an den Rändern des Host-Bildes. Beim Client können sie dann mitten im Bild erscheinen, oder er bekommt in seiner Gegend gar keine.
+- **[Belegt]** Die Spawn-Schleife wählt den Zielspieler zufällig aus `SpawnedPlayers` (siehe [Gegner-Spawning](#gegner-spawning-und-pooling)). Die Gegnerzahl (`MaxSpawnedEnemies`) gilt für beide Spieler zusammen.
+
+**Optionen** (Entscheidung durch das Team)
+
+| Option | Vorteile | Nachteile |
+|---|---|---|
+| A: Gemeinsame Kamera wie im lokalen Coop | Entspricht dem Spieldesign: Zoom, Bewegungsgrenze und Spawnen an den Rändern passen ohne Änderung. Läuft heute schon mit dem Spike-Patch. Kein zusätzlicher Netzwerkverkehr | Beide Spieler sind aneinander gebunden wie am selben Bildschirm. Die Client-Kamera ist eine eigene Berechnung und kann leicht abweichen. Wegen der Latenz sieht der Client den Rand anders als der Host |
+| B: Getrennte Kameras je Spieler | Volle Freiheit, jeder sieht seine Umgebung, mehr Platz auf der Karte | Bewegungsgrenze abschalten, Kamera beim Client und beim Host je Spieler neu bauen. Spawnen an den Rändern kennt nur den Host-Viewport, der Client müsste seine Ansicht melden (eigener Sync), oder das Spawnen bekommt einen eigenen Ersatz. Gegnerzahl und Schwierigkeit sind für einen gemeinsamen Bereich ausgelegt |
+| C: Gemeinsame Kamera mit gelockerter Grenze | Wenig Aufwand: Restrictor-Zonen und `ZoomOutDistance` anpassen, mehr Abstand möglich | Bleibt ein gemeinsames Bild. Stärkeres Herauszoomen macht alles kleiner, Spawnen und Sichtbarkeit bleiben an das gemeinsame Bild gebunden |
+
+**Empfehlung:** Option A für den ersten spielbaren Stand. Sie ist schon lauffähig, braucht keine neuen Systeme und passt zu Spawnen, Zoom und Bewegungsgrenze des Spiels.
+Den Abgleich der Client-Kamera mit der des Hosts nur angehen, falls die Abweichung im Spiel stört. Option C kann danach als Feinschliff kommen. Option B erst, wenn das Team ausdrücklich freie Bewegung will, denn sie zieht einen eigenen Sync der Viewports nach sich.
+
 ## Lokales Coop
 
 ### Blueprint-Stichprobe (`blueprint-logik`)
