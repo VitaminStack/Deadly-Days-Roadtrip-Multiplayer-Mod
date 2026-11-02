@@ -23,16 +23,43 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <Import Project="..\Common.props" />
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(RepoRoot)third_party\minhook\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+  </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Config.cpp" />
     <ClCompile Include="Dispatcher.cpp" />
+    <ClCompile Include="Hooks.cpp" />
     <ClCompile Include="Log.cpp" />
+    <ClCompile Include="Signature.cpp" />
     <ClCompile Include="Version.cpp" />
+  </ItemGroup>
+  <ItemGroup Label="MinHook">
+    <ClCompile Include="..\..\third_party\minhook\src\buffer.c">
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <TreatWarningAsError>false</TreatWarningAsError>
+    </ClCompile>
+    <ClCompile Include="..\..\third_party\minhook\src\hook.c">
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <TreatWarningAsError>false</TreatWarningAsError>
+    </ClCompile>
+    <ClCompile Include="..\..\third_party\minhook\src\trampoline.c">
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <TreatWarningAsError>false</TreatWarningAsError>
+    </ClCompile>
+    <ClCompile Include="..\..\third_party\minhook\src\hde\hde64.c">
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <TreatWarningAsError>false</TreatWarningAsError>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Config.h" />
     <ClInclude Include="Dispatcher.h" />
+    <ClInclude Include="Hooks.h" />
     <ClInclude Include="Log.h" />
+    <ClInclude Include="Signature.h" />
     <ClInclude Include="Version.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
