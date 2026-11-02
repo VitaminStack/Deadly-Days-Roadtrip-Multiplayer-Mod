@@ -199,6 +199,38 @@ flowchart TD
     classDef goal fill:#1565c0,stroke:#0d3c78,color:#ffffff
 ```
 
+## Zentral und parallel
+
+Türkis ist zentrale Arbeit, die nacheinander läuft. Grau sind Pakete, die daneben parallel laufen. Die Kennungen stehen in [Spätere Arbeitspakete](../TODO.md#spätere-arbeitspakete) und [Zentrale Arbeit](../TODO.md#zentrale-arbeit).
+
+```mermaid
+flowchart TD
+    GR["grundgeruest"]:::central --> W1["Welle 1<br/>overlay, deploy, ci"]:::open
+    GR --> GA["game-adapter"]:::central
+    G1{{"Gate G1"}}:::gate --> W2["Welle 2<br/>steam-lobby, transport,<br/>net-fehler"]:::open
+    GR --> W2
+    G1 --> GA
+    GA --> PT["patches"]:::central --> RS["remote-spieler"]:::central
+    GA --> W5["Welle 5<br/>online-sperren, telemetrie-aus,<br/>mod-saves, installer"]:::open
+    RS --> W3["Welle 3<br/>missionsstart, kamera-code, bewegung,<br/>eingaben, kampf, gegnertyp"]:::open
+    W1 --> IG["integration-g2"]:::central
+    W2 --> PR["protokoll"]:::central
+    W2 --> IG
+    W3 --> IG
+    IG --> G2{{"Gate G2"}}:::gate
+    PR --> W4["Welle 4<br/>gegner-alle, fortschritt, inventar-sync,<br/>inventar-ui, pausen-sync, tagesablauf,<br/>run-ende, vfx-sound, reconnect"]:::open
+    G2 --> W4
+    W4 --> IR["integration-run"]:::central
+    W5 --> IR
+    IR --> RL["release"]:::central
+    RL --> Z(["Mod fertig und nutzbar"]):::goal
+
+    classDef central fill:#00796b,stroke:#004d40,color:#ffffff
+    classDef open fill:#eceff1,stroke:#607d8b,color:#1a1a1a
+    classDef gate fill:#6a1b9a,stroke:#3e1163,color:#ffffff
+    classDef goal fill:#1565c0,stroke:#0d3c78,color:#ffffff
+```
+
 ## Legende
 
 | Farbe | Bedeutung |
@@ -210,6 +242,7 @@ flowchart TD
 | Orange | Wartet auf eine Entscheidung des Teams |
 | Lila | Gate |
 | Blau | Ziel |
+| Türkis | Zentrale Arbeit |
 
 Die Pfeile innerhalb einer Phase zeigen eine sinnvolle Reihenfolge. Sie sind eine Planung, keine belegten technischen Abhängigkeiten.
 

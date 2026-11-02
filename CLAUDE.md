@@ -9,7 +9,7 @@ Erst spielbar: Vorrang hat, dass zwei Spieler einen Run durchspielen können. Kl
 
 ## Vor dem Start
 
-1. [Wo kann ich anfangen?](TODO.md#wo-kann-ich-anfangen) lesen, auch die Liste „Nicht erneut machen“.
+1. [Wo kann ich anfangen?](TODO.md#wo-kann-ich-anfangen) lesen, auch die Liste „Nicht erneut machen“. [Spätere Arbeitspakete](TODO.md#spätere-arbeitspakete) erst nehmen, wenn ihre Voraussetzung auf `main` ist. [Zentrale Arbeit](TODO.md#zentrale-arbeit) nie aufteilen.
 2. Offene Reservierungen ansehen. Eine Aufgabe, deren Branch schon existiert, nicht übernehmen:
 
    ```bash
