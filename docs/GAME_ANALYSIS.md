@@ -191,6 +191,30 @@ Aufgabe `sync-bedarf`, lokales Mission-SDK von Build `26187885`:
 
 ## Lokales Coop
 
+### Blueprint-Stichprobe (`blueprint-logik`)
+
+Mission-SDK und lesende Pruefung geladener Klassen/Scriptreferenzen, Build `26187885`:
+
+- **[Belegt, SDK/Default]** `BP_EnemySpawner_C` hat keine eigenen Blueprint-
+  Funktionen, erbt native Spawner-Logik und repliziert im Default nicht.
+  `BP_Enemy_C` und `BP_Projectile_C` replizieren im Default.
+- **[Belegt, Default/Flags]** `BP_PowerUpCrate_C` repliziert und hat einen
+  verlaesslichen Multicast `ShowEffect`. `BP_Airdrop_Lootable_C` repliziert im
+  Default nicht, obwohl `StartFallDown` als nicht verlaesslicher Multicast
+  deklariert ist. Deklaration ist kein Zustellungsnachweis.
+- **[Belegt, SDK/Default]** Explosivschaden- und Giftwolken-Itemeffekte teilen den
+  Blueprint-Parent `BP_Effect_Add_ImpactEffect_Template_C`; die Default-Impact-
+  Klassen unterscheiden sich. Explosion: `RadialDamageImpactActor`, nicht
+  replizierend. Giftwolke: `AreaGameplayEffectImpactActor`, replizierend.
+- **[Belegt, begrenzter Referenzscan]** Der gemeinsame Itemeffekt-Graph referenziert
+  Add/RemoveImpactActor. Kisten-/Airdrop-Graphen referenzieren sowohl Spielwirkungen
+  als auch Sound/Animation/Effekte. Das ist noch kein Kontrollflussbeweis.
+- Eigene Verhaltensbeschreibungen, Sync-Folgerungen, Fehlansaetze und Grenzen:
+  [Blueprint-Untersuchung](../research/spikes/blueprint-logik/README.md).
+  Kein vollstaendiger Audit, keine neuen Treffer-/Event-Laufzeittests.
+
+### Lokale Coop-Schnittstellen
+
 - **[Belegt]** Zentrale Klassen laut Exe-Strings: `LocalCoopSubsystem`, `CoopInputRouterSubsystem`, `CoopInputPreProcessor`,
   `CoopGameViewportClient`, `CoopUISessionHost`, `CoopInventoryCoordinatorComponent`, `CoopPlayerPresentationComponent`,
   `CoopSpeakerAssignment`, `LocalCoopRunPersistData`.

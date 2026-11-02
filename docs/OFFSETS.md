@@ -80,6 +80,20 @@ Build ist geprüft; vor einem Hook müssen auch die geladenen Originalbytes pass
 
 In einem TSet ist ein freier Platz daran zu erkennen, dass der Wert hohe Bits gesetzt hat.
 
+## Blueprint-Referenzinventar (`blueprint-logik`)
+
+Ergaenzung aus Mission-SDK/lesender Pruefung von Build `26187885`:
+
+| Klasse | Feld | Offset |
+|---|---|---|
+| `UClass` | ClassDefaultObject | `0x118` |
+| `UStruct` | Script TArray: Data, Num | `0x60`, `0x68` |
+| `BP_Effect_Add_ImpactEffect_Template_C` und Kinder | ImpactActor (Default-Objekt) | `0x40` |
+
+Der Referenzscanner liest bekannte FunctionFlags (`UFunction+0xB0`) und das Script,
+gibt aber keine Rohbytes/Adressen aus. Keine neuen nativen RVAs. `ShowEffect` der
+PowerUpCrate: Flags `0x0C0040C0`; `StartFallDown` des Airdrops: `0x0C004040`.
+Das Vorhandensein eines Multicast-Flags beweist keine Zustellung.
 ## Pausenfelder (Mission-SDK, Aufgabe `pausen`)
 
 | Klasse | Feld | Offset |
