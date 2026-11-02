@@ -49,6 +49,53 @@ Ablauf siehe [Kamera und Sichtbereich](GAME_ANALYSIS.md#kamera-und-sichtbereich)
 | Bildecken eines Controllers auf den Boden projizieren | `0x5B028D0` | `GetViewportSize` (`0x2E722B0`), `DeprojectScreenPositionToWorld` (`0x2A6CD50`) |
 | Spawnort des Gegner-Spawners | `0x58AA0F0` | Prüft `UseViewportEdgesForSpawningPositions` |
 | Spieler der Kamera aus `SpawnedPlayers` | `0x5A0DA90` | Spike-Patch beim Client |
+### Gegner
+
+Ablauf siehe [Gegner-Spawning und Pooling](GAME_ANALYSIS.md#gegner-spawning-und-pooling).
+
+| Funktion | RVA | Hinweis |
+|---|---|---|
+| Spawn-Schleife des `AEnemySpawner` | `0x58CECE0` | Spielerwahl, `RecycleArray`, Spawn je Gegner |
+| `AEnemySpawner::TrySpawnFreshEnemy` | `0x58CE600` | Exec-Thunk `0x56EE100` |
+| `AEnemySpawner::SpawnSpecificEnemy` | `0x58C8A30` | Exec-Thunk `0x56ED7F0` |
+| `AEnemySpawner::ForceSpawnWave` | `0x58B2780` | Exec-Thunk `0x56E4C90` |
+| Initialisierung des Spawners, leert `RecycleArray` | `0x58A58E0` | VTable `0x94710D8`, Slot 213 |
+| `PlaceCharacterOnGroundAtPosition` | `0x5B12DB0` | Versetzt recycelte Gegner |
+| `PooledDestroy` (Blueprint-Helfer) | `0x5B12E10` | Exec-Thunk `0x5697410` |
+### Karte
+
+Ablauf siehe [Karte und Seed](GAME_ANALYSIS.md#karte-und-seed).
+
+| Funktion | RVA | Hinweis |
+|---|---|---|
+| Aufbau: Profil, `MapSeed`, Start | `0x58F7710` | Aufgerufen von `0x58D9F40`, VTable `0x9522280` (`MapGenProfileInjectorAndBuildTrigger`) Slot 125 |
+| `AMapGenerator::StartMapGeneration` | `0x59EF6D0` | Exec-Thunk `0x57560E0`, Zufalls-Seed bei `MapSeed == 0` (`0x59EF79A`) |
+| `AMapGenerator::StartMapGenerationWithRetryAttempts` | `0x59EFE00` | Exec-Thunk `0x5756100` |
+| `AMapGenerator::TryToRegenerate` | `0x59F4210` | Exec-Thunk `0x5756A60` |
+| `UDDMissionGameInstance::GetCurrentMissionSeed` | `0x58EABF0` | Exec-Thunk `0x56BC5E0` |
+| `UDDMissionGameInstance::DD_SetCurrentRunSeed` | `0x58E1B90` | Exec-Befehl, Exec-Thunk `0x56BAB80` |
+| `UDDMissionGameInstance::DD_ForceStartRunSeed` | `0x58DF7A0` | Exec-Befehl, Exec-Thunk `0x56BA490` |
+### Coop
+
+Funktionen von `ULocalCoopSubsystem` und ihre Aufrufer, Ablauf siehe [Coop-Ablauf](GAME_ANALYSIS.md#coop-ablauf).
+
+| Funktion | RVA | Hinweis |
+|---|---|---|
+| `SetCoopEnabled` | `0x59003E0` | Exec-Thunk `0x5735F10` |
+| `SetMaxLocalPlayers` | `0x5900770` | Exec-Thunk `0x57363C0` |
+| `SpawnLocalPlayer` | `0x5901E90` | Exec-Thunk `0x57374E0` |
+| `GetPlayerController(Index)` | `0x58EE0D0` | |
+| `GetPlayerIndex` | `0x58EE2A0` | Rückgriff ohne `LocalPlayer` |
+| `IsSecondaryPlayer` | `0x58F47C0` | Rückgriff ohne `LocalPlayer` |
+| `ApplyDeviceAssignmentDraftAndJoin` | `0x58D8AA0` | Ruft `SpawnLocalPlayer(1)` |
+| Run-Zustand laden (`IRunPersistable`) | `0x58F5330` | VTable des Subsystems `0x94ED340`, Slot 91 |
+| P2 nach Kartenwechsel neu anlegen | `0x58D9810` | VTable von `ADDMissionGameMode` `0x9430630`, Slot 111 |
+| Figur spawnen | `0x5901C60` | Gleiche VTable, Slot 234, Spike-Patch bei `0x5901CE8` |
+| Moduswechsel: Coop aus und Coop wieder an | `0x5914B30`, `0x593BCA0` | |
+| `APlayerController::GetLocalPlayer` | `0x2E706D0` | |
+| `UGameInstance::CreateLocalPlayer` | `0x2A6B5B0` | |
+| `UGameplayStatics::GetPlayerController` | `0x2A76140` | |
+| Tabelle `{Name, Exec-Thunk}` von `LocalCoopSubsystem` | um `0x94F6EE0` bis `0x94F7190` | Einträge `0x10` groß |
 
 ## Klassen
 
@@ -93,10 +140,48 @@ Ablauf siehe [Kamera und Sichtbereich](GAME_ANALYSIS.md#kamera-und-sichtbereich)
 | `APlayerController` | PlayerCameraManager | `0x360` |
 | `APlayerCameraManager` | ViewTarget.Target, ViewTarget.POV.Location | `0x340`, `0x350` |
 | `AEnemySpawner` | AutoSpawn, UseViewportEdgesForSpawningPositions, AllowedViewportEdgesForSpawning | `0x348`, `0x34A`, `0x358` |
+| `AActor` | Bits: `bHidden` (`0x58` Bit 7), `bActorEnableCollision` (`0x5D` Bit 0), `bActorIsBeingDestroyed` (`0x5D` Bit 1) | `0x58`, `0x5D` |
+| `AEnemySpawner` | CurrentSpawnedEnemiesCount, MaxSpawnedEnemies, EnemyCap, GameMode, RecycleArray | `0x2F8`, `0x36C`, `0x370`, `0x3C8`, `0x478` |
+| `UPoolManagerSubsystem` | PoolsInternal, AllFactoriesInternal | `0x38`, `0x48` |
+| `AMapGenerator` | MapGenProfile, MapSeed, MaxAttempts, MaxTilePosition, CycleTimeBudget, GenerateOnStart | `0x2B8`, `0x2D8`, `0x2DC`, `0x2E8`, `0x2F8`, `0x2FD` |
+| `AMapGenerator` | GenerationTags, CurrentGenData | `0x300`, `0x320` |
+| `UMapGenerationState` | Seed, BaseSeed, SpawnedActors, HasFailedGeneration, RetryAttemptsRemaining, RandomGeneratorLookup | `0x50`, `0x54`, `0x88`, `0x111`, `0x114`, `0x258` |
+| `ULocalCoopSubsystem` | ActivePlayers (TMap, Element `0x14`), bCoopEnabled, MaxLocalPlayers | `0x100`, `0x180`, `0x184` |
+| `ULocalCoopSubsystem` | Flag „P2 nach Kartenwechsel neu anlegen“ | `0x18A` |
 | `UThreatLevel` | FreezeThreatLevelManager | `0x190` |
 
 In einem TSet ist ein freier Platz daran zu erkennen, dass der Wert hohe Bits gesetzt hat.
 
+## Blueprint-Referenzinventar (`blueprint-logik`)
+
+Ergaenzung aus Mission-SDK/lesender Pruefung von Build `26187885`:
+
+| Klasse | Feld | Offset |
+|---|---|---|
+| `UClass` | ClassDefaultObject | `0x118` |
+| `UStruct` | Script TArray: Data, Num | `0x60`, `0x68` |
+| `BP_Effect_Add_ImpactEffect_Template_C` und Kinder | ImpactActor (Default-Objekt) | `0x40` |
+
+Der Referenzscanner liest bekannte FunctionFlags (`UFunction+0xB0`) und das Script,
+gibt aber keine Rohbytes/Adressen aus. Keine neuen nativen RVAs. `ShowEffect` der
+PowerUpCrate: Flags `0x0C0040C0`; `StartFallDown` des Airdrops: `0x0C004040`.
+Das Vorhandensein eines Multicast-Flags beweist keine Zustellung.
+## Pausenfelder (Mission-SDK, Aufgabe `pausen`)
+
+| Klasse | Feld | Offset |
+|---|---|---|
+| `UTimescaleManager` | ActiveRequester, TimeRequests | `0x40`, `0x48` |
+| `FTimeRequest` | timescale, Priority, PauseRegardlessOfTimescale | `0x00`, `0x04`, `0x08` (Größe `0x0C`) |
+| `UPauseScreenManager` | PauseScreen, TimeRequest, TimescaleManager | `0xD8`, `0xE4`, `0xF0` |
+| `UPauseScreenManager` | PauseScreenBlockers, PauseScreenRequests | `0x100`, `0x110` |
+| `UAbstractPanel` | bUseCoopUISession, bCoopBlocksGameplay, PauseGameWhileOpen | `0x348`, `0x349`, `0x34B` |
+| `UCoopInputRouterSubsystem` | SessionStack | `0xA8` |
+| `FCoopUISession` | SessionId, ParentSessionId, AuthorityPlayerIndex, bBlocksGameplay | `0x00`, `0x04`, `0x10`, `0x1A` (Größe `0x1C`) |
+| `AWorldSettings` | TimeDilation, CinematicTimeDilation, PauserPlayerState | `0x3E0`, `0x3E4`, `0x4A8` |
+
+Aus dem lokal erzeugten Mission-SDK von Build `26187885`; die genannten
+Timescale-/Sitzungs-/Weltzustände wurden lesend verglichen. Nicht alle
+Panel-Öffnungspfade und nicht jedes Feld wurden durch gezielte Änderung bestätigt.
 ## Felder fuer den eigenen Sync (SDK, `sync-bedarf`)
 
 | Klasse | Feld | Offset |

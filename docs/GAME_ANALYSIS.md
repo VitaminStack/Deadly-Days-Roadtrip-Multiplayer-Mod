@@ -36,6 +36,10 @@ vollständiges SDK für Build `26187885` erzeugt (02.11.2026), die Dateien `Basi
 - **Dump-Zeitpunkt:** Immer während einer laufenden Mission dumpen, denn Blueprint-Klassen werden nur erfasst, wenn sie geladen sind.
   Das Hauptmenü liefert 64.952 Objekte und 562 Blueprint-Klassen, eine Mission 110.688 Objekte und 925 Blueprint-Klassen plus 178 Widgets.
 - **Grenze:** Auch der Mission-Dump enthält nur, was in dieser einen Mission geladen war. Bosse fehlen zum Beispiel weitgehend.
+- **[Belegt] Dump in einer Testsitzung:** Dumper-7 lässt sich mit `inject.py` in den Host einer laufenden Sitzung laden, auch neben dem Spike. Die Instanz läuft danach weiter.
+  Mit `-Map /Game/Maps/DDDynamic_Map` kamen 77.801 Objekte zusammen, weniger als über das Spielmenü.
+- **[Belegt] Funktionsadressen:** Die Adressen in `Dumpspace/FunctionsInfo.json` sind unter UE 5.8 unbrauchbar. Zur Laufzeit zeigt `UFunction::ExecFunction` (`+0xD8`) nach `!flow` auf die Stubs des Spikes.
+  Verlässlich sind die statischen Tabellen `{const char* Name, FNativeFuncPtr}` in `.rdata`. Je Klasse gibt es zwei: eine mit den `Z_Construct_UFunction_*`-Funktionen, eine mit den Exec-Thunks. Der Thunk ruft am Ende die eigentliche Funktion auf.
 
 ## Technische Basis
 
@@ -177,7 +181,76 @@ Aufgabe `sync-bedarf`, lokales Mission-SDK von Build `26187885`:
 - **[Belegt]** `UDDMissionGameInstance` bietet `DD_ForceStartRunSeed`, `DD_SetCurrentRunSeed` und `GetCurrentMissionSeed`.
 - **[Belegt]** `GenerateOnStart` ist in der Mission aus. Die Generierung wird also von außen gestartet. Sie arbeitet mit Zeitbudget je Zyklus
   (`CycleTimeBudget`) und kann neu versuchen (`RetryAttemptsRemaining`).
-- **[Hypothese]** Derselbe Seed ergibt dieselbe Karte. Zeitbudget und Wiederholungen könnten das stören, das ist in Spike C zu prüfen.
+- ~~**[Hypothese]** Derselbe Seed ergibt dieselbe Karte.~~ Belegt, siehe unten.
+
+**Wer die Erzeugung startet** (Disassembly und Laufzeit, Build `26187885`, RVAs in [Offsets](OFFSETS.md#karte))
+
+- **[Belegt]** Der Starter ist die Komponente `MapGenProfileInjectorAndBuildTrigger` am `BP_MapGenerator_C` der Karte. Ihre virtuelle Funktion in VTable-Slot 125, vermutlich `BeginPlay`, ruft den Aufbau `0x58F7710` auf.
+  Weder Komponente noch Generator replizieren. Sie laufen also auf jeder Seite für sich, auch beim Client.
+- **[Belegt]** Der Aufbau liest die aktuelle Mission aus der GameInstance, lädt das passende `MapGenerationProfile` und setzt es in `MapGenProfile`. Danach setzt er
+  `MapSeed = GetCurrentMissionSeed() * 0x0BB38435 + 0x3619636B` (32 Bit), außerdem `MaxTilePosition` und `GenerationTags`.
+  Dann meldet er Seed und Profil an den Bug-Report (`SetDDMissionSeed`, `SetDDMapProfileName`) und ruft `StartMapGeneration` auf.
+  Lässt sich das Profil nicht laden, überspringt er Seed und Profil und startet den Generator mit dessen Standardwerten.
+- **[Belegt]** `GetCurrentMissionSeed` ist eine reine Hash-Funktion (`HashCombine`) aus dem Run-Seed (`GameInstance+0x2A0`) und einem 64-Bit-Wert der aktuellen Mission. Es gibt keinen Zufall.
+- **[Belegt]** `StartMapGeneration` nimmt `MapSeed`. Nur wenn dieser 0 ist, würfelt es mit `FMath::RandRange(0, 1000000)` einen Seed, also nicht reproduzierbar. Danach ruft es `StartMapGenerationWithRetryAttempts(Seed, MaxAttempts)` auf.
+  `TryToRegenerate` startet ebenfalls diesen Weg. Jeder Sub-Generator zieht aus seinem eigenen `FRandomStream` in `RandomGeneratorLookup`.
+- **[Belegt]** `DD_SetCurrentRunSeed <n>` (Exec-Befehl der GameInstance) setzt den Run-Seed und verwirft die gecachte Missionsstruktur. Die Routenkarte entsteht danach neu aus diesem Seed.
+  `DD_ForceStartRunSeed 4242` vor Run-Start ergab dagegen zweimal verschiedene Routen. Was der Befehl tut, ist nicht geklärt.
+
+**Derselbe Seed ergibt dieselbe Karte**
+
+Test über das Spielmenü mit dem Spike, Mission „Tag 1, oberer Knoten“, zwei getrennte Sitzungen, beide Male mit `RunSeed=20795`. In Lauf 2 wurde er über `DD_SetCurrentRunSeed` gesetzt:
+
+| | Lauf 1 Host | Lauf 2 Host | Client (beide Läufe) |
+|---|---|---|---|
+| Profil | `MGP_City_Chinatown` | `MGP_City_Chinatown` | `MGP_HQ8_Boss` (Standard) |
+| `MapSeed` | `-1868504954` | `-1868504954` | `1` |
+| `MapGenerationState` | Seed `MapSeed+25`, 102 Actors, nicht gescheitert | gleich | Seed 1, 19 Actors, gescheitert |
+| `MapTile` | 101 | 101, gleiche Klassen, Positionen und Drehungen | 17 unsichtbare Kacheln |
+
+- **[Belegt]** Gleicher Run-Seed und gleiche Mission ergeben über Prozessgrenzen hinweg dieselbe Routenkarte und dieselbe Karte. Zeitbudget (`CycleTimeBudget=0.006`) und Wiederholungen haben das Ergebnis nicht verändert.
+  Verglichen wurden die Klassen, Positionen und Drehungen aller `MapTile` sowie die Zahl der erzeugten Actors, nicht jedes einzelne Objekt auf der Karte.
+- **[Belegt]** Beim Client läuft die Erzeugung ebenfalls, aber ohne Missionsdaten: Er hat einen eigenen, zufälligen Run-Seed, kein Profil und `MapSeed=1`.
+  Die Erzeugung scheitert, übrig bleiben 17 Kacheln. Bei einer direkt geladenen `DDDynamic_Map` (`-Map`) gilt das auf beiden Seiten, daher die gleichen 17 Kacheln aus Spike C.
+- **[Hypothese]** Für dieselbe Karte beim Client reicht es, ihm vor dem Kartenwechsel Run-Seed und aktuelle Mission zu geben, oder direkt `MapSeed` und `MapGenProfile` vor `StartMapGeneration` zu setzen.
+  Wie sich das mit den replizierten Kartenobjekten verträgt, steht im nächsten Abschnitt.
+
+### Karte und replizierte Kartenobjekte
+
+Bestandsaufnahme aller Actors im `PersistentLevel`, Mission über das Spielmenü (`RunSeed=20795`, Tag 1 oben, `MGP_City_Chinatown`), Host und Client mit dem Spike, rund 25 Sekunden nach dem Start.
+Beim Client zählt `Role=Authority` als lokal erzeugt, `SimulatedProxy` und `AutonomousProxy` als übers Netz gekommen.
+
+| Gruppe | Host | Client lokal | Client übers Netz |
+|---|---|---|---|
+| Kacheln, Parzellen, Straßen, Nebel (`MapGenerationState.SpawnedActors`) | 102, nicht repliziert | 19 (eigene, gescheiterte Karte) | 0 |
+| `BP_EnvironmentObjectLootspot_C` | 36 | 0 | 25 |
+| Zerstörbare Objekte (`BPC_*Destructable*`, `BP_DEST_*`, `BPC_Explosive_*` und andere) | rund 190 | 0 | rund 120 |
+| `BP_PowerUpCrate_C` | 14 | 0 | 7 |
+| `BP_ChaosDestructable_PowerUp_C` | 14 | **7** | 7 |
+| Gegner, Figuren, Loot, `GameState` | wie gewohnt | 0 | relevante Teilmenge |
+
+- **[Belegt]** Der Generator erzeugt selbst nur nicht replizierte Actors: Kacheln, Parzellen, Straßen, Nebel und ein `BP_PCGVolume_C`.
+  Die replizierten Kartenobjekte stehen nicht in `SpawnedActors`. Sie heißen `…_GEN_VARIABLE_…_CAT`, sind also Child Actors von `ChildActorComponent`s an den erzeugten Parzellen und Fahrzeugen, etwa `CarLootspot`.
+  Alle diese Klassen replizieren schon im Default-Objekt (`bReplicates=1`).
+- **[Belegt]** Beim Client kommen diese Objekte heute nur übers Netz an, als eigenständige Actors ohne Eltern-Parzelle. Die Parzelle repliziert nicht und fehlt beim Client.
+  Weniger als beim Host kommen an, weil nur relevante Objekte innerhalb der Netz-Reichweite übertragen werden. Doppelte Objekte gibt es dabei nicht, weil die Karte des Clients scheitert und keine Child Actors erzeugt.
+- **[Belegt]** Es gibt schon heute Duplikate: Jede `BP_PowerUpCrate_C` erzeugt ihre `BP_ChaosDestructable_PowerUp_C` selbst (normaler Spawn, kein Child Actor). Beim Client tut das jede angekommene Kiste lokal, dazu kommt die replizierte vom Host.
+  Das ergibt 7 lokale plus 7 replizierte Exemplare.
+  Vermutlich läuft der Spawn in `BeginPlay` ohne Prüfung der Autorität (**[Hypothese]**). Möglicherweise hängt auch die Abweichung der Gegner-Zähler an solchen Spawns.
+- **[Hypothese]** Erzeugt der Client dieselbe Karte selbst (siehe [Karte und Seed](#karte-und-seed)), entstehen die replizierten Child Actors doppelt.
+  Die Parzellen sind beim Client lokal erzeugt und haben dort `Role=Authority`. Die Sperre der Engine für replizierte Child Actors auf Clients greift nur, wenn der Besitzer keine Autorität hat.
+  Belegt ist das nicht, weil der Client die Karte in keinem Test erzeugt hat.
+
+**Optionen** (Entscheidung offen)
+
+| Weg | Vorteile | Nachteile |
+|---|---|---|
+| A: Client erzeugt dieselbe Karte, lokale Child Actors und Spawns replizierter Klassen werden beim Client unterdrückt | Boden, Kollision und Navigation lokal und deckungsgleich, wenig Netzlast. Die Bodenkacheln passen zur Host-Position | Braucht Seed und Profil beim Client sowie einen Hook auf das Erzeugen von Child Actors und Spawns. Server-Kopien hängen nicht an einer Parzelle |
+| B: Host repliziert auch Kacheln und Parzellen | Kein Generator beim Client | Viele große Actors ohne stabile Namen. Die Kacheln sind `Movable`, das bricht heute schon die Bewegung. Hohe Last |
+| C: Wie heute, Client ohne Karte | Kein Aufwand | Falscher Boden, keine Kollision, Figur beim Client weit weg vom Bus |
+
+Empfehlung: Weg A. Nächster Schritt ist ein Spike, der beim Client vor `StartMapGeneration` `MapSeed` und `MapGenProfile` des Hosts setzt.
+Er zählt danach die Duplikate wie oben und unterdrückt im Erfolgsfall replizierte Klassen beim lokalen Erzeugen. Für `BP_PowerUpCrate_C` gilt dieselbe Sperre.
 
 ### Gegner und Pausen
 
@@ -185,7 +258,42 @@ Aufgabe `sync-bedarf`, lokales Mission-SDK von Build `26187885`:
   `EnemyCap=300`. `MaxSpawnedEnemies` lag beim aktiven Spawner bei 20.
 - **[Belegt]** Pausen laufen über `UTimescaleManager` (ein Subsystem der GameInstance), `UPauseScreenManager` und
   `ADDMissionGameState::SetFreezeTime`. Coop-UI-Sitzungen tragen dazu `bBlocksGameplay`.
-- **[Hypothese]** Der Timescale wirkt nur lokal. Pausen müssen also an den Client weitergegeben werden.
+- **[Hypothese, durch neue Messung eingeschränkt]** Die Requestverwaltung des TimescaleManagers ist lokal; daraus folgt nicht, dass ihre Weltwirkung lokal bleibt. `TimeDilation`, `CinematicTimeDilation` und `PauserPlayerState` sind im Engine-SDK als Netzwerk-Properties markiert.
+- **[Belegt, SDK und Laufzeit]** Aufgabe `pausen`: In einer direkt geladenen Mission mit aktivem Tutorialdialog hatte nur der Host einen `DialogComponent`-Zeitrequest und eine blockierende Coop-UI-Sitzung. Auf beiden Seiten waren aber `TimeDilation` etwa `0.0001` und ein `PauserPlayerState` vorhanden. Client-UI-Sitzung und Weltpause sind daher getrennt zu betrachten; die genaue Aufrufkette wurde nicht nachgewiesen.
+- **[Belegt, Default-Objekte]** Das native und Blueprint-Inventarpanel haben `bCoopBlocksGameplay=true`, aber `PauseGameWhileOpen=false`. Der eine Schalter ersetzt nicht den anderen. Der Inventar-Methodentest fand keinen Animationscontainer; `RequestLevelUp` kehrte ohne neue nachweisbare Sitzung zurück. Normaler Level-up und Inventarablauf bleiben offen, siehe [Versuche](../research/spikes/pausen/README.md).
+
+### Gegner-Spawning und Pooling
+
+Stand: Disassembly und Laufzeit-Messung, Build `26187885`. Mission über das Spielmenü, Host und Client mit dem Spike, Gegner aller 15 bis 18 Sekunden aus dem Speicher beider Seiten gezählt. RVAs in [Offsets](OFFSETS.md#gegner).
+
+**Zwei getrennte Mechanismen**
+
+- **[Belegt]** Gegner laufen nicht über den `PoolManager`, sondern über den `AEnemySpawner` selbst.
+  Die Spawn-Schleife `0x58CECE0` wählt per `FMath::RandRange` einen Spieler aus `SpawnedPlayers`. Dort liegt der bekannte `null`-Absturz bei `0x58CEDC7`.
+  Danach räumt sie ungültige und gerade zerstörte Einträge aus `RecycleArray` (`+0x478`) und bestimmt je Gegner einen Spawnort.
+  Ist `RecycleArray` nicht leer und der letzte Eintrag weiter vom Spieler entfernt als der neue Ort, nimmt sie diesen **lebenden** Gegner und versetzt ihn mit `PlaceCharacterOnGroundAtPosition` an den neuen Ort. Danach stößt sie seinen Controller neu an.
+  Sonst spawnt sie mit `TrySpawnFreshEnemy` einen neuen Gegner.
+- **[Belegt]** `RecycleArray` ist also kein Pool toter Gegner, sondern eine Liste zu weit entfernter Gegner, die nach vorn geholt werden. Wer Gegner einträgt, ist nicht gefunden: In `0x58A0000` bis `0x58D4000` schreibt nur die Initialisierung (`0x58A58E0`, VTable-Slot 213) in das Array, und die leert es.
+- **[Belegt]** Getötete Gegner werden zerstört. In der Messung verschwanden beim Host 10 Gegner-Objekte und 10 neue entstanden, ohne Wiederverwendung. `RecycleArray` blieb in zwei Messungen leer, obwohl die Host-Figur umherlief. Zusammen waren das gut 5 Minuten, teils durch Tutorial-Hinweise pausiert, in einer Mission mit `MaxSpawnedEnemies=20`.
+- **[Belegt]** Der `PoolManager` (World-Subsystem, auf beiden Seiten vorhanden) verwaltet Projektile, Schadenszahlen, Flächeneffekte, Drohnen und `EnemyChaosDestructionProxyActor`.
+  Beim Host bleiben Projektile nach dem Einsatz als versteckte Objekte (`bHidden`) bestehen und werden wiederverwendet. Beim Client hat der Pool keine Einträge.
+
+**Verhalten beim Client**
+
+| Messung | Host | Client |
+|---|---|---|
+| Gegner vor dem Tod von 10 Gegnern | 20 | 20 |
+| Rund 18 Sekunden danach | 20 (10 neu) | 30, davon 10 mit `bActorIsBeingDestroyed` |
+| Rund 34 Sekunden danach | 20 | 20 |
+| Projektile | 2, versteckt und wiederverwendet | 3 bis 4 Proxies, versteckt, 2 bleiben mit `bActorIsBeingDestroyed` über 9 Sekunden stehen |
+| `EnemyChaosDestructionProxyActor`, `DamageNumberActor` | Vorhanden, gepoolt | Fehlen |
+
+- **[Belegt]** Tote Gegner bleiben beim Client noch rund 15 Sekunden als Objekte stehen, markiert als „wird zerstört“. Das erklärt die abweichenden Gegner-Zähler (30 gegen 48) aus dem Spike.
+- **[Belegt]** Gepoolte Projektile kommen beim Client als `SimulatedProxy` an, ihr verstecktes Zurücklegen in den Pool repliziert über `bHidden`. Ein Projektil des Hosts bleibt also ein langlebiger Actor-Kanal und wird nicht für jeden Schuss neu angelegt.
+- **[Belegt]** Effekte beim Gegnertod und Schadenszahlen sind gepoolte, nicht replizierte Actors des Hosts. Darum sieht der Client sie nicht. Das ist die Ursache für „Blut- und Treffereffekte nur beim Host“.
+- **[Hypothese]** Das Versetzen lebender Gegner aus `RecycleArray` ist für die Replikation unkritisch: Es ist ein normaler Positionssprung eines replizierten Pawns, der Client sieht einen Teleport.
+  Kritisch wäre es nur, wenn das Spiel dabei Zustand zurücksetzt, der nicht repliziert. Das trat in der Messung nicht auf.
+- **[Hypothese]** Mit zwei Spielern ist der Abstand zum Spieler beim Recycling nur gegen den zufällig gewählten Spieler geprüft. Gegner nahe dem anderen Spieler könnten also weggeholt werden. Das ist für die Spielbarkeit vermutlich nebensächlich.
 
 ## Kamera und Sichtbereich
 
@@ -222,6 +330,30 @@ Den Abgleich der Client-Kamera mit der des Hosts nur angehen, falls die Abweichu
 
 ## Lokales Coop
 
+### Blueprint-Stichprobe (`blueprint-logik`)
+
+Mission-SDK und lesende Pruefung geladener Klassen/Scriptreferenzen, Build `26187885`:
+
+- **[Belegt, SDK/Default]** `BP_EnemySpawner_C` hat keine eigenen Blueprint-
+  Funktionen, erbt native Spawner-Logik und repliziert im Default nicht.
+  `BP_Enemy_C` und `BP_Projectile_C` replizieren im Default.
+- **[Belegt, Default/Flags]** `BP_PowerUpCrate_C` repliziert und hat einen
+  verlaesslichen Multicast `ShowEffect`. `BP_Airdrop_Lootable_C` repliziert im
+  Default nicht, obwohl `StartFallDown` als nicht verlaesslicher Multicast
+  deklariert ist. Deklaration ist kein Zustellungsnachweis.
+- **[Belegt, SDK/Default]** Explosivschaden- und Giftwolken-Itemeffekte teilen den
+  Blueprint-Parent `BP_Effect_Add_ImpactEffect_Template_C`; die Default-Impact-
+  Klassen unterscheiden sich. Explosion: `RadialDamageImpactActor`, nicht
+  replizierend. Giftwolke: `AreaGameplayEffectImpactActor`, replizierend.
+- **[Belegt, begrenzter Referenzscan]** Der gemeinsame Itemeffekt-Graph referenziert
+  Add/RemoveImpactActor. Kisten-/Airdrop-Graphen referenzieren sowohl Spielwirkungen
+  als auch Sound/Animation/Effekte. Das ist noch kein Kontrollflussbeweis.
+- Eigene Verhaltensbeschreibungen, Sync-Folgerungen, Fehlansaetze und Grenzen:
+  [Blueprint-Untersuchung](../research/spikes/blueprint-logik/README.md).
+  Kein vollstaendiger Audit, keine neuen Treffer-/Event-Laufzeittests.
+
+### Lokale Coop-Schnittstellen
+
 - **[Belegt]** Zentrale Klassen laut Exe-Strings: `LocalCoopSubsystem`, `CoopInputRouterSubsystem`, `CoopInputPreProcessor`,
   `CoopGameViewportClient`, `CoopUISessionHost`, `CoopInventoryCoordinatorComponent`, `CoopPlayerPresentationComponent`,
   `CoopSpeakerAssignment`, `LocalCoopRunPersistData`.
@@ -241,6 +373,56 @@ Den Abgleich der Client-Kamera mit der des Hosts nur angehen, falls die Abweichu
   `ClaimReward(PlayerIndex, Choice)`, `RerollRewardSession()`.
 - **[Hypothese]** Diese Funktionen eignen sich gut als Andockpunkt: Der Client schickt eine Anfrage, die Mod ruft sie beim Host auf.
 - **[Hypothese]** Weil `ActivePlayers` nur Controller speichert, könnte dort auch ein Remote-Controller stehen. Das ist in Phase 1 zu prüfen.
+
+### Coop-Ablauf
+
+Stand: Disassembly und Laufzeit-Speicher, Build `26187885`, SDK aus einer direkt geladenen Mission (02.11.2026). Die RVAs stehen in [Offsets](OFFSETS.md#coop).
+
+**Wie P2 entsteht**
+
+- **[Belegt]** `SetCoopEnabled(b)` legt keinen Spieler an. Es setzt nur `bCoopEnabled` (`+0x180`), feuert `OnCoopStateChanged` und meldet den Zustand weiter.
+  Einschalten geht nur, wenn eine Einstellung des Spiels Coop erlaubt. Ausschalten geht nur, wenn ein vorhandener P2 vorher entfernt werden kann.
+- **[Belegt]** P2 entsteht nur über `SpawnLocalPlayer(1)`. Die Funktion prüft `0 <= Index < MaxLocalPlayers` und, für Index 1, `IsPlayerExpected`.
+  Liefert `GetPlayerController(Index)` schon einen Controller, gibt sie diesen zurück und legt nichts an.
+  Sonst ruft sie `UGameInstance::CreateLocalPlayer(Index, Error, bSpawnPlayerController=true)` auf. P2 ist also ein echter zweiter `ULocalPlayer`, die Engine spawnt seinen Controller über den normalen Login-Weg des `GameMode`.
+  Danach trägt die Funktion ihn in `ActivePlayers` ein, setzt das Merkflag `+0x18A` („P2 nach Kartenwechsel neu anlegen“), feuert `OnPlayerJoined` und aktualisiert die Geräte.
+  Für Index 1 übernimmt sie vorher die Vorschau-Figur als gewählte Figur von P2, falls noch keine gewählt ist.
+- **[Belegt]** `SpawnLocalPlayer` hat drei Aufrufer: den Exec-Thunk (Blueprint), `ApplyDeviceAssignmentDraftAndJoin` und eine virtuelle Funktion von `ADDMissionGameMode` (VTable-Slot 111).
+- **[Belegt]** `ApplyDeviceAssignmentDraftAndJoin` ist der Beitritt über die Geräte-Zuordnung: Ein Draft für P2 muss eine Eingabe haben. Dann setzt die Funktion `MaxLocalPlayers=2` und ruft `SpawnLocalPlayer(1)` auf.
+  Scheitert das, stellt sie den alten Stand wieder her.
+- **[Belegt]** Der `GameMode`-Slot 111 legt P2 nach jedem Kartenwechsel neu an, wenn `bCoopEnabled` und `+0x18A` gesetzt sind und `GetPlayerController(1)` nichts liefert.
+  Wann der Slot läuft, ist nicht geprüft. Weil er den `GameState` liest, ist es vermutlich ein Start-Ereignis der Karte (**[Hypothese]**).
+- **[Belegt]** `SetCoopEnabled` hat drei native Aufrufer:
+  - Das Laden des Run-Zustands (`IRunPersistable` am Subsystem, VTable-Slot 91). Es setzt `MaxLocalPlayers=2`, stellt die Geräte-Zuordnung wieder her und übernimmt `bCoopEnabled` aus dem gespeicherten Run.
+  - Ein Moduswechsel, der sich `bCoopEnabled` merkt, P2 entfernt und `SetCoopEnabled(false)` aufruft.
+  - Sein Gegenstück, das `RestoreNormalSaveSlot` aufruft und Coop danach wieder einschaltet.
+  
+  Vermutlich ist das der Wechsel in einen Modus mit eigenem Spielstand-Slot, etwa die wöchentliche Herausforderung (**[Hypothese]**).
+- **[Belegt]** In den Blueprint-Klassen dieses Mission-Dumps ruft keine `SetCoopEnabled`, `SpawnLocalPlayer` oder `SetMaxLocalPlayers` auf, nur Abfragen wie `IsCoopEnabled` und `GetPlayerController`.
+  Der Beitritt läuft also in Widgets des Menüs oder der `MetaBase`, die in diesem Dump nicht geladen sind.
+
+**Controller ohne lokalen Spieler**
+
+- **[Belegt]** Beim Host steht im Feld `Player` (`+0x348`) des Remote-Controllers die `IpConnection`. `GetLocalPlayer()` liefert also `null`.
+  Im laufenden Spike gilt auf beiden Seiten `bCoopEnabled=0`, `MaxLocalPlayers=2`, `+0x18A=0`.
+  In `ActivePlayers` des Hosts steht nur ein veralteter schwacher Verweis aus der vorigen Karte. Das Subsystem lebt in der GameInstance und überdauert den Kartenwechsel.
+- **[Belegt]** Diese Funktionen kommen ohne lokalen Spieler zurecht:
+  - `GetPlayerIndex` und `IsSecondaryPlayer` fallen auf `UGameplayStatics::GetPlayerController(World, 0..1)` zurück. Beim Host liefert das für den Remote-Controller Index 1.
+  - `GetPlayerController(Index)` sucht zuerst in `ActivePlayers`. Danach liefert es Index 0 immer über `GetPlayerController(World, 0)`, Index 1 nur bei `bCoopEnabled` oder gesetztem `+0x18A`.
+- **[Belegt]** Im Spielcode gibt es 25 Aufrufe von `GetLocalPlayer()`. Fünf davon nutzen das Ergebnis ohne Prüfung:
+  - `GetLocalPlayerIndex` (`0x5B0A2E0`) und das Spawnen der Figur im `GameMode` (`0x5901CE3`, Slot 234) sind die beiden bekannten Host-Abstürze, der Spike patcht sie.
+  - Die übrigen drei liegen in der Figuren- und Haustier-Auswahl: `PetSelectionChanged` (`0x584C3B1`) und zwei Helfer (`0x583F364`, `0x584CD7D`).
+    Dort wird der Index über `GetLocalPlayer()->GetControllerId()` bestimmt, ein Remote-Controller ließe das Spiel abstürzen (**[Hypothese]**, nicht ausgelöst).
+- **[Belegt]** Die Figurenwahl hängt am Index des lokalen Spielers: Der `GameMode` holt die Figur in Slot 234 über `GetLocalPlayer()` und dessen Controller-ID. Fehlt er, nimmt der Spike-Patch den Standard-Pfad mit der Standardfigur.
+
+**Folgerungen** (**[Hypothese]**, nicht getestet)
+
+- `SpawnLocalPlayer(1)` darf beim Host nicht laufen, solange P2 ein Netzwerkspieler ist. Sonst entsteht ein zweiter lokaler Spieler neben dem Remote-Controller.
+  Der Weg über Geräte-Zuordnung und `GameMode`-Slot 111 bleibt aus, solange `+0x18A` nicht gesetzt ist.
+- Mit `SetCoopEnabled(true)` beim Host liefert `GetPlayerController(1)` den Remote-Controller, weil der Rückgriff auf `GetPlayerController(World, 1)` greift. Das ist der wahrscheinlich kleinste Weg, ihn als P2 in die Coop-Logik zu bringen.
+  Zusätzlich müsste die Mod ihn in `ActivePlayers` eintragen, ohne `CreateLocalPlayer` aufzurufen. Zu prüfen ist, was `bCoopEnabled` sonst noch einschaltet, etwa Coop-UI und Eingabe-Router.
+- Beim Client ist die eigene Figur lokaler Spieler 0, er hält sich also für P1. Die Felder für P1 und P2 (`CoopP1Field`, `P2Backpack`) müssen beim Client daher umgedreht oder von der Mod gesetzt werden.
+- Die Figuren- und Haustierwahl des Clients braucht einen eigenen Sync. Ohne lokalen Spieler beim Host bekommt P2 nur die Standardfigur.
 
 ## Run-Ablauf
 
