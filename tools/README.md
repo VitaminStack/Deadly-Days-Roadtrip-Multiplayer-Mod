@@ -19,6 +19,9 @@ Bauen und Testen des Spikes, die Anleitung steht in [docs/TESTING.md](../docs/TE
 | `netstate.py` | Welt, GameMode, GameState, Rolle, Spielerzahl |
 | `objects.py` | Objektzählung, Rollen und Positionen der Figuren |
 | `players.py` | `SpawnedPlayers` und `PlayerArray` beim Host |
+| `inventory.py` | Vergleicht die Inventare von Host und Client |
+| `pause_state.py` | Pausen, Zeitrequests und UI-Sitzungen je Instanz |
+| `blueprint_refs.py` | Referenzen geladener Blueprints, kein Decompiler |
 | `crashes.py` | Absturzberichte der Testinstanzen mit RVAs |
 | `gamethread.py` | Wo der Game Thread bei einem Hänger steht |
 | `callers.py` | Direkte Aufrufer einer Funktion in der Exe |

@@ -24,11 +24,11 @@ Für alle reicht die [Einrichtung](docs/SETUP.md), wenn nichts anderes dabeisteh
 
 | Kennung | Aufgabe | Art | Spielzeit | Einstieg |
 |---|---|---|---|---|
-| `inventar` | Inventar beim Client lösen | Reverse Engineering, Spike | viel | [Offener Client-Absturz](research/spikes/a-connect/README.md#offener-client-absturz), [Abstürze auswerten](docs/TESTING.md#abstürze-auswerten), `Inventory.cpp` |
+| `tag3` | Host-Absturz bei der Reise auf Tag 3 klären, danach Inventar beim Client abschließen | Reverse Engineering, Spike | viel | [Inventar](research/spikes/a-connect/README.md#inventar-ursache-teilfix-und-verbleibende-grenze), [Abstürze auswerten](docs/TESTING.md#abstürze-auswerten), `tools/spike/inventory.py` |
 | `rundenende` | Rundenende, Lager und Routenkarte beim Client | Reverse Engineering, Spike | viel | [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf), `!finish`, `Mission.cpp` |
 | `spawnedplayers` | Remote-Controller sauber in `SpawnedPlayers` eintragen | Spike | mittel | `tools/spike/players.py`, `Players.cpp` |
-| `coop-ablauf` | Coop-Ablauf: `SetCoopEnabled`, `SpawnLocalPlayer`, Controller ohne lokalen Spieler | Reverse Engineering, SDK nötig | wenig | [Thema 4](#grundthemen-bis-gate-g1) |
-| `karte` | Karten-Erzeugung: Wer startet den `MapGenerator`, ergibt derselbe Seed dieselbe Karte? | Reverse Engineering | wenig | `CurrentRunInfo` in [Offsets](docs/OFFSETS.md), `tools/spike/objects.py` zählt `MapTile` |
+| `remote-p2` | Remote-Controller als P2 testen | Spike | mittel | [Coop-Ablauf](docs/GAME_ANALYSIS.md#coop-ablauf) |
+| `karte-client` | Beim Client `MapSeed` und `MapGenProfile` des Hosts setzen, Duplikate zählen und unterdrücken | Spike | mittel | [Karte und replizierte Kartenobjekte](docs/GAME_ANALYSIS.md#karte-und-replizierte-kartenobjekte) |
 | `treffer` | Treffer des Clients direkt belegen | Spike | mittel | `AttributeSet` in [Offsets](docs/OFFSETS.md), Mission über das [Spielmenü](docs/TESTING.md#mission-über-das-spielmenü) |
 | `last` | Last messen (Spike D) | Test | viel | Mission über das Menü, Bandbreite und Framerate bei voller Gegnerzahl |
 | `tunnel` | Steam-Tunnel (Spike E) | C++, ohne Reverse Engineering, Steamworks SDK nötig | wenig | [Transport](docs/ARCHITECTURE.md#transport) |
@@ -40,6 +40,7 @@ Für alle reicht die [Einrichtung](docs/SETUP.md), wenn nichts anderes dabeisteh
 - Offsets und Patches für Build `26187885`, siehe [Offsets](docs/OFFSETS.md)
 - Verbindung, Spawn, Bewegung und Schießen laufen mit den Patches, siehe [Spike](research/spikes/a-connect/README.md#patches)
 - Weg vom Menü in die Mission, siehe [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf)
+- Coop-Ablauf, Karten-Erzeugung, Gegner-Pooling und Kamera-Optionen sind analysiert, siehe [Spielanalyse](docs/GAME_ANALYSIS.md)
 - Weitere Einzelprüfungen in den Inventar-Schleifen: Nach jeder stürzt der Client an der nächsten Stelle ab
 - Eine höhere `NetPriority` des `GameState` hilft nicht gegen den HUD-Hänger, `OnRep_Slots` zurückzuhalten hilft nicht beim Inventar
 

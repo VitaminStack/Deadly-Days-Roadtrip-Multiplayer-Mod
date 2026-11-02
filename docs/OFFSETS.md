@@ -49,6 +49,7 @@ Ablauf siehe [Kamera und Sichtbereich](GAME_ANALYSIS.md#kamera-und-sichtbereich)
 | Bildecken eines Controllers auf den Boden projizieren | `0x5B028D0` | `GetViewportSize` (`0x2E722B0`), `DeprojectScreenPositionToWorld` (`0x2A6CD50`) |
 | Spawnort des Gegner-Spawners | `0x58AA0F0` | Prüft `UseViewportEdgesForSpawningPositions` |
 | Spieler der Kamera aus `SpawnedPlayers` | `0x5A0DA90` | Spike-Patch beim Client |
+
 ### Gegner
 
 Ablauf siehe [Gegner-Spawning und Pooling](GAME_ANALYSIS.md#gegner-spawning-und-pooling).
@@ -62,6 +63,7 @@ Ablauf siehe [Gegner-Spawning und Pooling](GAME_ANALYSIS.md#gegner-spawning-und-
 | Initialisierung des Spawners, leert `RecycleArray` | `0x58A58E0` | VTable `0x94710D8`, Slot 213 |
 | `PlaceCharacterOnGroundAtPosition` | `0x5B12DB0` | Versetzt recycelte Gegner |
 | `PooledDestroy` (Blueprint-Helfer) | `0x5B12E10` | Exec-Thunk `0x5697410` |
+
 ### Karte
 
 Ablauf siehe [Karte und Seed](GAME_ANALYSIS.md#karte-und-seed).
@@ -75,6 +77,7 @@ Ablauf siehe [Karte und Seed](GAME_ANALYSIS.md#karte-und-seed).
 | `UDDMissionGameInstance::GetCurrentMissionSeed` | `0x58EABF0` | Exec-Thunk `0x56BC5E0` |
 | `UDDMissionGameInstance::DD_SetCurrentRunSeed` | `0x58E1B90` | Exec-Befehl, Exec-Thunk `0x56BAB80` |
 | `UDDMissionGameInstance::DD_ForceStartRunSeed` | `0x58DF7A0` | Exec-Befehl, Exec-Thunk `0x56BA490` |
+
 ### Coop
 
 Funktionen von `ULocalCoopSubsystem` und ihre Aufrufer, Ablauf siehe [Coop-Ablauf](GAME_ANALYSIS.md#coop-ablauf).
@@ -166,6 +169,7 @@ Der Referenzscanner liest bekannte FunctionFlags (`UFunction+0xB0`) und das Scri
 gibt aber keine Rohbytes/Adressen aus. Keine neuen nativen RVAs. `ShowEffect` der
 PowerUpCrate: Flags `0x0C0040C0`; `StartFallDown` des Airdrops: `0x0C004040`.
 Das Vorhandensein eines Multicast-Flags beweist keine Zustellung.
+
 ## Pausenfelder (Mission-SDK, Aufgabe `pausen`)
 
 | Klasse | Feld | Offset |
@@ -182,6 +186,7 @@ Das Vorhandensein eines Multicast-Flags beweist keine Zustellung.
 Aus dem lokal erzeugten Mission-SDK von Build `26187885`; die genannten
 Timescale-/Sitzungs-/Weltzustände wurden lesend verglichen. Nicht alle
 Panel-Öffnungspfade und nicht jedes Feld wurden durch gezielte Änderung bestätigt.
+
 ## Felder fuer den eigenen Sync (SDK, `sync-bedarf`)
 
 | Klasse | Feld | Offset |
