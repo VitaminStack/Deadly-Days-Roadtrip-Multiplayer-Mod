@@ -80,7 +80,7 @@ flowchart LR
         T3["Tag 3: Host-Absturz,<br/>Inventar abschließen<br/>(tag3)"]:::blocker
         RE["Rundenende, Lager,<br/>Routenkarte<br/>(rundenende)"]:::wip
         NI["Echte Niederlage,<br/>Rückkehr in die MetaBase<br/>(niederlage)"]:::open
-        TR["Client-Absturz<br/>beim Trennen<br/>(trennen)"]:::open
+        TR["Client-Absturz<br/>beim Trennen<br/>(trennen)"]:::done
         MT["Einmaliger Absturz<br/>im Missions-Tick"]:::open
         RE --> NI
     end
