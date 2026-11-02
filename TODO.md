@@ -34,14 +34,17 @@ Ziel: Fakten für Gate G1 sammeln. Spike-Code ist Wegwerfcode und landet nicht i
 
 **Analyse**
 
-- [ ] P0 Config aus den Paks lesen (FModel oder repak): `NetDriverDefinitions`, `DefaultPlatformService`, Iris-Einstellungen, Standard-Maps
+- [x] P0 Config aus den Paks lesen: `IpNetDriver`, `DefaultPlatformService=Steam`, Standard-Maps, siehe [Analyse](docs/GAME_ANALYSIS.md#konfiguration)
 - [x] P0 RPC-Liste aus dem neuen Dump gegen den Juli-Dump vergleichen: 3 RPCs entfernt, keiner hinzugekommen
-- [ ] P0 Replizierte Properties und `bReplicates` der Kernklassen erfassen (Character, Enemy, Projektil, Loot, GameState)
-- [ ] P1 Coop-Ablauf nachvollziehen: `LocalCoopSubsystem`, wie P2 entsteht, was `CoopAuthority` tatsächlich regelt
-- [ ] P1 Karten-Erzeugung verstehen: Ist die Map aus einem Seed reproduzierbar (`Map_Generation`)?
-- [ ] P1 Enemy-Spawning und `PoolManager` verstehen: Wie viele Actors, wie gepoolt?
-- [ ] P1 Pausen-Logik klären: Was passiert bei Level-up und Inventar? (Hinweis: `bCoopBlocksGameplay`)
-- [ ] P0 `bReplicates` der Blueprint-Actors prüfen (`BP_Enemy`, `BP_Projectile`, Loot), zum Beispiel an ihren Default-Objekten zur Laufzeit
+- [x] P0 Replizierte Properties und `bReplicates` der Kernklassen erfassen: Der Kern repliziert, siehe [Analyse](docs/GAME_ANALYSIS.md#replikation-zur-laufzeit)
+- [x] P0 `bReplicates` der Blueprint-Actors prüfen: 218 von 482 Blueprint-Actor-Klassen replizieren, vor allem über ihre native Basisklasse
+- [ ] P1 Klären, ob zur Laufzeit Iris oder die klassische Replikation aktiv wäre (`net.Iris.UseIrisReplication`)
+- [ ] P1 Coop-Ablauf nachvollziehen: Wie ruft das Spiel `SetCoopEnabled` und `SpawnLocalPlayer` auf, wie entsteht P2, und wie wirkt sich das auf einen Remote-Controller aus?
+- [ ] P0 Karten-Erzeugung verstehen: Wer startet den `MapGenerator`, und ergibt derselbe Seed dieselbe Karte?
+- [ ] P0 Klären, wie Karte und replizierte Kartenobjekte beim Client ohne Duplikate entstehen
+- [ ] P1 Enemy-Spawning und `PoolManager` verstehen: Wie verhalten sich wiederverwendete Gegner bei Replikation?
+- [ ] P1 Pausen-Logik klären: Was passiert bei Level-up und Inventar, und was muss beim Client ankommen? (Hinweis: `UTimescaleManager`, `bBlocksGameplay`)
+- [ ] P1 Sync-Bedarf der nicht replizierten Komponenten festlegen: `LevelSystemComponent`, Wallets, `RerollCurrency`, `CoopInventoryCoordinatorComponent`
 - [ ] P1 Blueprint-Logik auslesen: Was läuft dort bei Spawns, Effekten und Events, und was davon muss der Client sehen?
 - [ ] P1 Pixelsplit über das öffentliche Projekt informieren: Ist offizieller Online-Coop geplant, und wie stehen sie zu der Mod?
 
@@ -132,5 +135,6 @@ Ziel: Ein kompletter Run ist zu zweit online spielbar.
 | Logik liegt in Blueprints ohne Netzwerkcode | Viele Stellen brauchen eigene Hooks | Blueprint-Anteil früh abschätzen |
 | Coop setzt zwei lokale Spieler voraus | Remote-P2 passt nicht in die Coop-Logik | Coop-Ablauf in Phase 1 analysieren |
 | Viele Gegner überlasten das Netzwerk | Laggy oder unspielbar | Spike D; Gegner gebündelt synchronisieren |
+| Karte entsteht lokal, Objekte darauf replizieren | Doppelte Objekte oder abweichende Karte beim Client | Spike C; Seed übertragen, Generator oder Replikation gezielt einschränken |
 | Spiel-Updates (seit 1.0 am 29.10.2026 aktiv gepatcht) | Hooks und SDK veralten | Versionsprüfung, Update-Regel, Adapter-Schicht |
 | Offizieller Online-Coop erscheint | Mod wird überflüssig | Bei Pixelsplit nachfragen, bevor viel Aufwand fließt |
