@@ -197,7 +197,7 @@ Ziel: Alle können auf demselben Spielstand und mit derselben Toolchain arbeiten
 - [x] P0 SDK zusätzlich während einer laufenden Mission dumpen, damit die Blueprint-Klassen enthalten sind
 - [ ] P2 SDK auch in einem Bosskampf dumpen, weil diese Klassen im Mission-Dump weitgehend fehlen
 - [ ] P1 Dumper-7-Fix dem Dumper-7-Projekt vorschlagen, damit alle Helfer ihn ohne eigenen Patch bekommen
-- [ ] P0 Visual-Studio-Solution mit einem Projekt je Modul anlegen, `config/Local.props` einbinden
+- [x] P0 Visual-Studio-Solution mit einem Projekt je Modul anlegen, `config/Local.props` einbinden
 - [ ] P1 Festlegen, wie das Team mit Spiel-Updates umgeht ([Update-Regel](CONTRIBUTING.md#spiel-updates))
 - [ ] P1 Klären, ob alle das Spiel auf derselben Build-ID halten können
 
@@ -259,8 +259,8 @@ Ziel: Stabile Basis, auf der alle parallel arbeiten können. Ab hier sind die Ar
 
 - [ ] P0 `Loader`: Proxy-DLL lädt die Mod beim Spielstart
 - [ ] P0 `Core`: Logging in Datei, Config, Hook-Framework
-- [ ] P0 `Core`: Dispatcher für Aufrufe auf dem Game Thread
-- [ ] P0 `Core`: Versionsprüfung – bei unbekannter Build-ID Mod sauber deaktivieren statt abstürzen
+- [x] P0 `Core`: Dispatcher für Aufrufe auf dem Game Thread, `Drain` ruft erst `game-adapter` auf
+- [x] P0 `Core`: Versionsprüfung – bei unbekannter Build-ID Mod sauber deaktivieren statt abstürzen
 - [ ] P0 `Game`: Adapter-Schicht für die ersten Klassen
 - [ ] P1 `UI`: Einfaches Overlay mit Status, Lobby-Knöpfen und Debug-Anzeige
 - [ ] P1 `tools`: Deploy-Skript, das die Mod ins Spiel kopiert
