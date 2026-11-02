@@ -19,6 +19,14 @@ RVAs sind relativ zur Image-Base `0x140000000`. Die Patchstellen stehen als Kons
 
 ## Native Funktionen
 
+Statische Gegenprüfung durch Aufgabe `andockpunkte` (02.11.2026): Die bekannten
+RVAs für `ProcessEvent`, `SetClientTravel` und `SeamlessTravelToLevel` werden von
+den drei Mustern in `research/spikes/andockpunkte/audit.py` jeweils eindeutig
+gefunden. Geprüfte Exe, SHA-256:
+`3afbf18e051fbceb1fec17a8da20165ba64e0f6c3c88cbe88cb046704a4eefb5`.
+Keine neuen RVAs und keine Bestätigung eines nativen C++-Prototyps. Nur dieser
+Build ist geprüft; vor einem Hook müssen auch die geladenen Originalbytes passen.
+
 | Funktion | RVA |
 |---|---|
 | `SetClientTravel` | `0x3262830` |
@@ -89,6 +97,19 @@ Ablauf siehe [Karte und Seed](GAME_ANALYSIS.md#karte-und-seed).
 
 In einem TSet ist ein freier Platz daran zu erkennen, dass der Wert hohe Bits gesetzt hat.
 
+## Felder fuer den eigenen Sync (SDK, `sync-bedarf`)
+
+| Klasse | Feld | Offset |
+|---|---|---|
+| `ADDMissionGameState` | LevelSystem, ScrapWallet, RerollCurrency | `0x3B8`, `0x3C0`, `0x3C8` |
+| `ADDMissionGameState` | MetaCurrencyWallet, RareMetaCurrencyWallet, CoopInventoryCoordinator | `0x3D0`, `0x3D8`, `0x3E0` |
+| `UAbstractCurrency` | OnCurrencyChanged, PaidReceipts, CurrencyAmount | `0xC8`, `0xF0`, `0x100` |
+| `URerollCurrency` | OnRerolled, RerollCountsPerContext | `0x148`, `0x158` |
+| `UCoopInventoryCoordinatorComponent` | OnRewardSessionChanged, RewardSession, QueuedRewards | `0xC0`, `0x170`, `0x268` |
+
+Nur SDK-Nachschlagewerte von Build `26187885`, hier nicht durch Mutation getestet.
+Fuer rohe XP-/Level-Interna ist kein neuer Offset bestimmt worden. Keine
+Speicherbereiche aus dem Padding als Protokollquelle behandeln.
 `inventar`-Testgrenze: Reise auf Tag 3 führte zweimal beim Host in den Callback `0x57CC390` (Fehler bei `0x57CC395`/`0x57CC398`, indirekter Aufruf `+0x490`; nächster Stack-Eintrag `0x315A764`). Objektklasse unbekannt, **keine** neue Patchstelle. Ein nachfolgender Client-Absturz lag bei `0x57D080C`.
 
 ## Enums
