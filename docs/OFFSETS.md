@@ -80,6 +80,22 @@ Build ist geprüft; vor einem Hook müssen auch die geladenen Originalbytes pass
 
 In einem TSet ist ein freier Platz daran zu erkennen, dass der Wert hohe Bits gesetzt hat.
 
+## Pausenfelder (Mission-SDK, Aufgabe `pausen`)
+
+| Klasse | Feld | Offset |
+|---|---|---|
+| `UTimescaleManager` | ActiveRequester, TimeRequests | `0x40`, `0x48` |
+| `FTimeRequest` | timescale, Priority, PauseRegardlessOfTimescale | `0x00`, `0x04`, `0x08` (Größe `0x0C`) |
+| `UPauseScreenManager` | PauseScreen, TimeRequest, TimescaleManager | `0xD8`, `0xE4`, `0xF0` |
+| `UPauseScreenManager` | PauseScreenBlockers, PauseScreenRequests | `0x100`, `0x110` |
+| `UAbstractPanel` | bUseCoopUISession, bCoopBlocksGameplay, PauseGameWhileOpen | `0x348`, `0x349`, `0x34B` |
+| `UCoopInputRouterSubsystem` | SessionStack | `0xA8` |
+| `FCoopUISession` | SessionId, ParentSessionId, AuthorityPlayerIndex, bBlocksGameplay | `0x00`, `0x04`, `0x10`, `0x1A` (Größe `0x1C`) |
+| `AWorldSettings` | TimeDilation, CinematicTimeDilation, PauserPlayerState | `0x3E0`, `0x3E4`, `0x4A8` |
+
+Aus dem lokal erzeugten Mission-SDK von Build `26187885`; die genannten
+Timescale-/Sitzungs-/Weltzustände wurden lesend verglichen. Nicht alle
+Panel-Öffnungspfade und nicht jedes Feld wurden durch gezielte Änderung bestätigt.
 ## Felder fuer den eigenen Sync (SDK, `sync-bedarf`)
 
 | Klasse | Feld | Offset |

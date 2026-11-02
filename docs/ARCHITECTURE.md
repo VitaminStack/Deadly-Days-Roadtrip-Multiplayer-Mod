@@ -99,6 +99,30 @@ XP, Währungen, Reward-Ablauf, Pausen und Effekte aus Blueprints. Gebündelte Sn
 überlasten. Nach der Laufzeitprüfung ist das der wahrscheinlichste Ausgang, mit Weg A als deutlich größerem Anteil. Die Modulgrenzen unten
 lassen das zu.
 
+## Pausen und blockierende UI (Untersuchung `pausen`)
+
+SDK und begrenzte Laufzeitmessung zeigen zwei Ebenen: lokale Request-/UI-Sitzungen
+und replizierte Welt-Properties. In einer Tutorialpause fehlte beim Client der
+lokale Zeitrequest samt Coop-UI-Sitzung, die Welt war dort trotzdem pausiert.
+Deshalb **nicht** pauschal einen zweiten Timescale-Sync über die native
+WorldSettings-Replikation legen. Details und Fehlversuche:
+[Pausen-Spike](../research/spikes/pausen/README.md).
+
+**Vorgeschlagener Sync-Vertrag, noch nicht implementiert:** Der Host entscheidet
+über globale Pausen und das Fortsetzen. Clients fragen UI-Aktionen an; der Host
+liefert zusätzlich Sitzung-ID, Revision, Anlass, Bedienberechtigung und
+Gameplay-Input-Sperre für die Anzeige und UI des Clients. Keine UObject-Zeiger,
+Geräte-IDs oder lokalen SessionStack-Speicher kopieren. Eine lokale Menüanzeige
+des Clients darf nicht eigenständig die globale Pause aufheben. Verschachtelte
+Requests müssen bis zur Freigabe des letzten maßgeblichen Requesters erhalten
+bleiben; Mapwechsel und Disconnect brauchen eine explizite Aufräumregel.
+
+`bBlocksGameplay` und `PauseGameWhileOpen` getrennt behandeln. Level-up muss an den
+autoritativen Reward-/Auswahlzustand gekoppelt werden, nicht nur an einen booleschen
+Pausenwert. Ob die native Weltpause auch unter Last und bei allen UI-Übergängen
+ausreicht, ist offen. Der direkt geladene, durch Tutorial blockierte Methodenversuch
+belegt keinen vollständigen Inventar- oder Level-up-Ablauf.
+
 ## Transport
 
 Die Exe enthält keinen Steam-NetDriver, aber den `IpNetDriver` und die Steamworks-Laufzeit. Geplant ist deshalb ein Tunnel:
