@@ -52,6 +52,26 @@ vollständiges SDK für Build `26187885` erzeugt (02.11.2026), die Dateien `Basi
 
 ## Netzwerk
 
+### Technische Andockpunkte: neue statische Prüfung
+
+Aufgabe `andockpunkte`, Build `26187885`, 02.11.2026:
+
+- **[Belegt, statisch]** `VERSION.dll` ist regulärer Import mit
+  `GetFileVersionInfoW`, `GetFileVersionInfoSizeW` und `VerQueryValueW`.
+  `XINPUT1_4.dll` ist dagegen ein Delay-Import.
+- **[Belegt, statisch]** Die drei Byte-Signaturen des
+  [Audits](../research/spikes/andockpunkte/audit.py) treffen in ausführbaren
+  Sektionen jeweils genau die bereits bekannten RVAs für `ProcessEvent`,
+  `SetClientTravel` und `SeamlessTravelToLevel`. Keine neue Semantik/ABI hergeleitet.
+- **[Hypothese]** `version.dll` eignet sich als Mod-Loader im Spiel. Ein isoliertes
+  Windows-Testprogramm lädt den Proxy und erhält gültige Daten über alle drei
+  Exporte; das ist kein Test mit der Spiel-Exe. Fehlversuch und Grenzen stehen in
+  der [Versuchsbeschreibung](../research/spikes/andockpunkte/README.md).
+- Kein neuer Spieltest und keine Änderung an der Spielinstallation. Die bereits
+  vorhandene lokale `dwmapi.dll` bleibt unangetastet; Herkunft nicht untersucht.
+
+### Vorhandene Netzwerkbefunde
+
 - **[Belegt]** Die Exe enthält `IpNetDriver`, `IrisCore` (`net.Iris.*`) und `OnlineSubsystemSteam` mit Lobby-Code.
 - **[Belegt]** Die Strings `SteamNetDriver` und `SteamSocketsNetDriver` kommen in der Exe nicht vor. Vorhanden sind nur
   `SteamSocketsIP` und `SteamSocketsP2P`. Für Verbindungen über Steam ist also vermutlich ein eigener Tunnel nötig.
@@ -132,6 +152,24 @@ Direkt aus dem Speicher einer laufenden Solo-Mission gelesen, an den Default-Obj
 - **[Hypothese]** Karte und zerstörbare Objekte können sich beißen: Der `MapGenerator` repliziert nicht, die von ihm erzeugten Objekte teils schon.
   Läuft er auf beiden Seiten, könnten replizierte Objekte beim Client doppelt vorhanden sein.
 
+### Ergaenzung: SDK-Schnittstellen fuer eigenen Sync
+
+Aufgabe `sync-bedarf`, lokales Mission-SDK von Build `26187885`:
+
+- **[Belegt, SDK]** `LevelSystemComponent` bietet XP-/Level-Delegates, Level-Getter
+  und Prozentanzeige, aber keinen reflektierten rohen XP-Wert. Die Bedeutung des
+  Delegate-XP-Werts wurde hier nicht dynamisch getestet.
+- **[Belegt, SDK]** `AbstractCurrency` besitzt `GetAmount`, `AddAmount`,
+  `OnCurrencyChanged`, SaveManager und SaveGame-Felder. Schrott und Reroll erben
+  zusaetzlich Run-/Travel-Persistenz, Meta- und RareMeta-Wallet die Save-Basis.
+- **[Belegt, SDK]** Reroll fuehrt Kontextzaehler. Der Coordinator hat Claim-,
+  Transfer-, Reroll- und UI-Closed-Funktionen sowie einen strukturierten Reward-Zustand
+  mit Auswahl, Quoten, Teilnehmern, Reroll-Lock und Queue-Zustand.
+- **[Hypothese]** Die ueber GameState und PlayerState erreichbaren Run-Konten sind
+  gemeinsam. Getter und Shared-Kontexthelfer reichen nicht als Identitaetsbeweis.
+- Vorgeschlagene Sync-Wege und verbleibende Fragen stehen in
+  [SYNC_REQUIREMENTS.md](SYNC_REQUIREMENTS.md). Kein neuer Laufzeit-Sync-Nachweis.
+
 ### Karte und Seed
 
 - **[Belegt]** Der Seed liegt in `AMapGenerator::MapSeed` und `UMapGenerationState::Seed` und `BaseSeed`. Jeder Sub-Generator hat einen eigenen
@@ -147,7 +185,9 @@ Direkt aus dem Speicher einer laufenden Solo-Mission gelesen, an den Default-Obj
   `EnemyCap=300`. `MaxSpawnedEnemies` lag beim aktiven Spawner bei 20.
 - **[Belegt]** Pausen laufen über `UTimescaleManager` (ein Subsystem der GameInstance), `UPauseScreenManager` und
   `ADDMissionGameState::SetFreezeTime`. Coop-UI-Sitzungen tragen dazu `bBlocksGameplay`.
-- **[Hypothese]** Der Timescale wirkt nur lokal. Pausen müssen also an den Client weitergegeben werden.
+- **[Hypothese, durch neue Messung eingeschränkt]** Die Requestverwaltung des TimescaleManagers ist lokal; daraus folgt nicht, dass ihre Weltwirkung lokal bleibt. `TimeDilation`, `CinematicTimeDilation` und `PauserPlayerState` sind im Engine-SDK als Netzwerk-Properties markiert.
+- **[Belegt, SDK und Laufzeit]** Aufgabe `pausen`: In einer direkt geladenen Mission mit aktivem Tutorialdialog hatte nur der Host einen `DialogComponent`-Zeitrequest und eine blockierende Coop-UI-Sitzung. Auf beiden Seiten waren aber `TimeDilation` etwa `0.0001` und ein `PauserPlayerState` vorhanden. Client-UI-Sitzung und Weltpause sind daher getrennt zu betrachten; die genaue Aufrufkette wurde nicht nachgewiesen.
+- **[Belegt, Default-Objekte]** Das native und Blueprint-Inventarpanel haben `bCoopBlocksGameplay=true`, aber `PauseGameWhileOpen=false`. Der eine Schalter ersetzt nicht den anderen. Der Inventar-Methodentest fand keinen Animationscontainer; `RequestLevelUp` kehrte ohne neue nachweisbare Sitzung zurück. Normaler Level-up und Inventarablauf bleiben offen, siehe [Versuche](../research/spikes/pausen/README.md).
 
 ## Lokales Coop
 
@@ -218,7 +258,20 @@ Die Umleitung gilt nicht für das Hauptmenü: Dort stürzte der Host mit Umleitu
 
 - **Controller:** Die Engine ersetzt beide Controller. In `SpawnedPlayers` bleibt der alte Remote-Controller stehen, der neue kommt nie hinein. Nach der Garbage Collection steht dort `null`, und der Gegner-Spawner wählt daraus zufällig ein Ziel. Das erklärt einen nur manchmal auftretenden Host-Absturz.
 - **HUD:** Ab dem zweiten Wechsel wird die HUD des Clients gebaut, bevor der neue `GameState` da ist. `WP_UI` wartet in `PreConstruct` in einer Blueprint-Schleife auf ihn. Diese Schleife läuft auf dem Game Thread, der den `GameState` erst empfangen müsste, der Client hängt also für immer. Eine höhere `NetPriority` des `GameState` half nicht.
-- **Inventar:** `UInventoryComponent` hat replizierte Verweise auf `UBackpackSlot` und `UInventoryItemInstance`. Beim Client stehen in `Slots` und `MyItems` beim zweiten Wechsel `null`-Einträge, und mindestens vier Stellen durchlaufen sie ungeprüft. Vermutlich sind die Unterobjekte noch nicht aufgelöst, belegt ist das nicht. `OnRep_Slots` zurückzuhalten half nicht.
+- **Inventar:** Die Unterobjekte fehlen schon an Tag 1 dauerhaft, nicht erst kurz beim zweiten Wechsel. Ursache und Teilfix siehe unten. `OnRep_Slots` zurückzuhalten half nicht.
+
+### Inventar-Unterobjekte: Untersuchung `inventar`
+
+Build `26187885`, zwei Instanzen auf einem PC, Loopback, getrennte Test-Spielstände, Start ausschliesslich mit Crash-Schutz.
+
+- **[Belegt] Kontrolllauf nach erster Spike-Änderung:** Menüweg aus `TESTING.md` erneut ausgeführt. Bei frischem Teststand erschien zuerst die Erklärung zum Roadtrip, danach die Routenkarte. Der Routenknoten startete beide Instanzen in der Mission und Gegner erschienen selbständig. Host: je Spieler acht Slots und ein Item; Client: dieselben Array-Längen, aber ausschliesslich Null-Verweise. Auch nach längerer Wartezeit entstanden beim Client keine entsprechenden Unterobjekte. Beim nächsten Tageswechsel wieder Client-Absturz `0x59661C3`.
+- **[Belegt] Statischer Befund:** `UInventoryComponent::ReplicateSubobjects` existiert und sendet bereits `MyItems` und `Slots`. Die Komponente hat aber `bReplicateUsingRegisteredSubObjectList` gesetzt. Damit wird dieser klassische virtuelle Pfad ausgelassen. `UBackpackSlot` und `UInventoryItemInstance` verwenden ausserdem den UObject-Standard für `IsSupportedForNetworking`, statt dynamische Netzwerkobjekte ausdrücklich zu unterstützen.
+- **[Belegt] Versuch 1:** Nur Netzwerk-Support für beide Unterobjektklassen freischalten: weiterhin acht Null-Slots und ein Null-Item beim Client.
+- **[Belegt] Versuch 2:** Zusätzlich in den beiden Erzeugungsfunktionen auf den klassischen Pfad umschalten: An Tag 1 kommen sämtliche Objekte beim Client an. Tag 2 stürzt weiter bei `0x59661C3` ab. Neue Inventarkomponenten übernehmen dort die bestehenden Arrays, ohne die Erzeugungsfunktionen erneut aufzurufen. Die Umschaltung muss also für jede neue Komponente erfolgen, nicht nur beim Anlegen ihrer Inhalte.
+- **[Belegt] Teilfix:** `ReadyForReplication` jeder `UInventoryComponent` schaltet vor dem ursprünglichen Aufruf ausschliesslich diese Komponente auf ihren vorhandenen klassischen Pfad. Zwei klassenspezifische virtuelle Overrides erlauben Netzwerk-Support der Slots und Items. Keine Änderung an Outer, Persistenz oder globalen Engine-Einstellungen. Die ursprünglichen drei Null-Schutzsprünge sind vollständig entfernt.
+- **[Belegt] Zwei unabhängige Sitzungen mit Teilfix:** Menü → Tag 1 → `!finish` → Lager → Routenkarte → Tag 2. Host und Client bleiben verbunden; auf dem Client sind beide Inventare vollständig. An Tag 2 wurden Slot-Koordinaten, Belegung relativ zu `MyItems`, ItemData, Pivot, Turns und die replizierten Zustandsbits zwischen Host und Client verglichen: identisch. In der zweiten Sitzung zusätzlich derselbe Vergleich an Tag 1 und nach zehn weiteren Sekunden an Tag 2. Das Werkzeug dafür ist `tools/spike/inventory.py`.
+- **[Belegt] Grenze:** Beide Versuche der anschliessenden Reise auf Tag 3 endeten mit einem Host-Absturz im indirekten Callback bei `0x57CC395` beziehungsweise `0x57CC398` (nächster Stack-Eintrag `0x315A764`). Der Callback liest ein Objekt und springt über dessen Vtable bei `+0x490`; die Objektklasse und der Zusammenhang mit dem Inventar sind ungeklärt. In einer Sitzung folgte ein Client-Absturz bei `0x57D080C`. Keine Aussage, dass ein kompletter Run funktioniert oder diese Folgefehler unabhängig vom Teilfix sind.
+- **Nicht geprüft:** Inventarbedienung/RPCs des Clients, Belohnungen mit mehreren Items, Item-Effekte, Internet/Latenz/Paketverlust, vollständiger Run. `obj gc` wurde an beide Instanzen gesendet; dessen tatsächliche GC-Ausführung ist mit den vorhandenen Logs nicht belegt.
 
 ### Was beim Client laufen darf
 

@@ -1,0 +1,5 @@
+LIBRARY version
+EXPORTS
+    GetFileVersionInfoSizeW=ProxyGetFileVersionInfoSizeW
+    GetFileVersionInfoW=ProxyGetFileVersionInfoW
+    VerQueryValueW=ProxyVerQueryValueW

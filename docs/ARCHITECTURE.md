@@ -18,7 +18,59 @@ Es existiert noch kein Mod-Code.
 | UE4SS | Keine Bestätigung für UE 5.8 gefunden. Später als Hilfswerkzeug prüfen |
 | Pak-Mod mit eigenem UE-5.8-Projekt | Nur als Ergänzung für neue Assets, reicht nicht für Netzwerklogik |
 
-Das Laden erfolgt über eine Proxy-DLL neben der Exe. Welche DLL sich eignet, klärt Phase 2.
+Das Laden soll über eine Proxy-DLL neben der Exe erfolgen. `version.dll` ist nach
+Importprüfung und isoliertem Ladebeispiel der bevorzugte Kandidat; der Spieltest
+und der eigentliche Mod-Bootstrap stehen noch aus.
+
+### Technische Andockpunkte (Build 26187885)
+
+Stand 02.11.2026, Aufgabe `andockpunkte`. Reproduzierbarer Versuch:
+[Proxy- und Signatur-Spike](../research/spikes/andockpunkte/README.md).
+
+**Laden:** Die Exe importiert `VERSION.dll` regulär (nicht nur verzögert):
+`GetFileVersionInfoW`, `GetFileVersionInfoSizeW`, `VerQueryValueW`. Ein kleiner
+Proxy mit genau diesen Exporten wurde in einem separaten Testprogramm implizit
+geladen; alle drei Weiterleitungen lieferten gültige Versionsdaten. Das Original
+muss über den absoluten, mit `GetSystemDirectoryW` bestimmten Systempfad geladen
+werden. Nur der Basisname plus System32-Suchflag führte im Versuch zur Rekursion
+in den Proxy. `DllMain` enthält keine Engine-Aufrufe und kein `LoadLibrary`.
+
+`dwmapi.dll` und `dxgi.dll` sind ebenfalls reguläre Imports. In der untersuchten
+Installation existiert bereits eine lokale `dwmapi.dll`: nicht überschreiben,
+Ursprung unbekannt. `XINPUT1_4.dll` ist nur ein Delay-Import, deshalb kein
+verlässlicher früher Bootstrap. Die Wahl von `version.dll` ist vorläufig:
+Spiel-Laden, zusätzliche dynamisch abgefragte Exporte und andere Mods sind noch
+nicht geprüft. Der Beispielproxy lädt absichtlich noch keine Mod.
+
+**Hooks:** Für reflektierte Aufrufe ist `ProcessEvent(UObject*, UFunction*, void*)`
+der vorhandene Weg (Windows-x64-ABI, RVA `0x160C040`, VTable-Slot `0x4A`).
+`Widgets.cpp` zeigt den globalen Inline-Hook, `Trace.cpp` den Character-VTable-Hook.
+Letzterer verändert die gemeinsam verwendete Klassentabelle, nicht nur eine
+Instanz. Beide Wege sind im früheren Verbindungs-Spike erprobt, hier nicht erneut.
+Direkte native C++-Aufrufe können `ProcessEvent` umgehen. Für Blueprint-Aufrufe
+nativer Funktionen liefert `UFunction::Func` bei `+0xD8` einen separaten Exec-Thunk
+mit `(UObject*, FFrame*, void*)`; das ist **nicht** die Signatur der nativen Methode.
+
+Für die spätere Mod: eng nach Klasse/Funktion filtern, Original genau einmal
+weiterleiten, Reentranz behandeln und Game-Thread-Zugriffe absichern. Parameter
+nicht pauschal kopieren: Größe, Out-Parameter und Referenzen hängen von der
+UFunction ab. Verzögerte UObject-Zeiger brauchen eine Lebensdauerprüfung. Der
+derzeitige 8-Byte-Widget-Puffer ist kein allgemeiner Dispatcher. Unterbrechungsfreie
+Hook-Installation, Trampolin-Relokation und Rückbau sind noch zu lösen.
+
+**Signaturen:** Der Read-only-Audit findet `ProcessEvent`, `SetClientTravel` und
+`SeamlessTravelToLevel` je einmal an den bekannten RVAs; RIP-relative Daten im
+ProcessEvent-Muster sind maskiert. Nur ausführbare PE-Sektionen werden durchsucht.
+Das ist ein Byte-Signatur-Test, keine neue Bestätigung ihrer nativen C++-Prototypen.
+Unbekannten Build, keinen oder mehrere Treffer immer ablehnen; keinen beliebigen
+ersten Treffer patchen. In-Memory-Prüfung bleibt nötig, weil andere Hooks die Bytes
+ändern können. Die sechs geprüften Anfangsbytes im vorhandenen Widget-Hook sind
+nicht mit einem eindeutigen Suchmuster gleichzusetzen.
+
+**Testgrenze:** Spiel-Build und Exe wurden statisch geprüft; MSVC-Build, isolierter
+Proxy-Test und sechs Scanner-Tests bestanden. Kein neues Spiel gestartet, kein
+Deployment, keine neuen Netzwerk- oder Mapwechseltests. Daher bleibt die
+Roadmap-Zeile bis zum geschützten Spieltest offen.
 
 ## Synchronisierung: zwei Wege
 
@@ -72,6 +124,29 @@ Vorgeschlagene Regeln fuer die Umsetzung:
 
 Diese Regeln sind ein Entwurf. Der Referenzscan rekonstruiert keine Guards oder
 Reihenfolge und ersetzt keine Tests konkreter Events auf Host und Client.
+## Pausen und blockierende UI (Untersuchung `pausen`)
+
+SDK und begrenzte Laufzeitmessung zeigen zwei Ebenen: lokale Request-/UI-Sitzungen
+und replizierte Welt-Properties. In einer Tutorialpause fehlte beim Client der
+lokale Zeitrequest samt Coop-UI-Sitzung, die Welt war dort trotzdem pausiert.
+Deshalb **nicht** pauschal einen zweiten Timescale-Sync über die native
+WorldSettings-Replikation legen. Details und Fehlversuche:
+[Pausen-Spike](../research/spikes/pausen/README.md).
+
+**Vorgeschlagener Sync-Vertrag, noch nicht implementiert:** Der Host entscheidet
+über globale Pausen und das Fortsetzen. Clients fragen UI-Aktionen an; der Host
+liefert zusätzlich Sitzung-ID, Revision, Anlass, Bedienberechtigung und
+Gameplay-Input-Sperre für die Anzeige und UI des Clients. Keine UObject-Zeiger,
+Geräte-IDs oder lokalen SessionStack-Speicher kopieren. Eine lokale Menüanzeige
+des Clients darf nicht eigenständig die globale Pause aufheben. Verschachtelte
+Requests müssen bis zur Freigabe des letzten maßgeblichen Requesters erhalten
+bleiben; Mapwechsel und Disconnect brauchen eine explizite Aufräumregel.
+
+`bBlocksGameplay` und `PauseGameWhileOpen` getrennt behandeln. Level-up muss an den
+autoritativen Reward-/Auswahlzustand gekoppelt werden, nicht nur an einen booleschen
+Pausenwert. Ob die native Weltpause auch unter Last und bei allen UI-Übergängen
+ausreicht, ist offen. Der direkt geladene, durch Tutorial blockierte Methodenversuch
+belegt keinen vollständigen Inventar- oder Level-up-Ablauf.
 
 ## Transport
 
@@ -88,6 +163,21 @@ keine Portfreigabe, und Steam-Relays verbergen die IP-Adressen. Das ist bisher n
 Für die frühen Spikes reicht eine direkte IP-Verbindung im LAN oder über Tailscale oder ZeroTier.
 
 ## Module
+
+### Eigener Kontroll-Sync fuer nicht replizierte Spiellogik
+
+Aufgabe `sync-bedarf`: [Sync-Anforderungsmatrix](SYNC_REQUIREMENTS.md) legt fuer
+LevelSystem, Schrott, Reroll, beide Meta-Wallets und CoopInventoryCoordinator
+einen Weg fest. Der Entwurf verwendet Host-Snapshots fuer Werte/Anzeige und
+verlaessliche, validierte Anfragen fuer Kauf, Transfer, Claim und Reroll.
+UI-Sitzung und Reward-Zustand werden zusaetzlich zur nativen Replikation abgebildet.
+Das ist noch keine implementierte oder im Netz getestete Synchronisierung.
+
+Client-Anzeige darf keine `AddExperience`-/`AddAmount`-Replays und keine normalen
+Speicher-/Erfolgsroutinen ausloesen. Item-/Session-IDs, Run-Epoche, Revisionen und
+Anfrage-Deduplizierung sind verbindliche Anforderungen an die Umsetzung.
+Die Netzwerk-Transportbindung, XP-Einheit, gemeinsame Kontozuordnung und
+persistente Mitspieler-Meta-Belohnung sind noch zu klaeren.
 
 ```text
 Sync ──> Game ──> SDK (Dumper-7, nicht im Repo)
