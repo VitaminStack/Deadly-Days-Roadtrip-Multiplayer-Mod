@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Nach config\Local.props kopieren und Pfade anpassen. Local.props wird nicht committet. -->
+<Project>
+  <PropertyGroup>
+    <!-- Ordner mit dem Unterordner SDK\ aus dem Dumper-7-Dump -->
+    <Dumper7SdkRoot>C:\Dumper-7\HIER_VERSION_EINTRAGEN\CppSDK</Dumper7SdkRoot>
+    <!-- Installationsordner des Spiels -->
+    <GameDir>C:\Program Files (x86)\Steam\steamapps\common\Deadly Days Roadtrip</GameDir>
+    <!-- Entpacktes Steamworks SDK 1.64 -->
+    <SteamworksSdkRoot>C:\SDKs\steamworks_sdk_164\sdk</SteamworksSdkRoot>
+  </PropertyGroup>
+</Project>

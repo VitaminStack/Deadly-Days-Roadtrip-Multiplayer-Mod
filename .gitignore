@@ -1,0 +1,53 @@
+# Visual Studio und Build
+.vs/
+bin/
+obj/
+x64/
+Debug/
+Release/
+*.user
+*.suo
+*.VC.db
+*.VC.opendb
+*.ipch
+*.pdb
+*.ilk
+*.exp
+*.lib
+*.obj
+*.tlog
+
+# Lokale Konfiguration
+config/Local.props
+.env
+
+# Spieldateien
+*.exe
+*.dll
+*.pak
+*.ucas
+*.utoc
+*.uasset
+*.uexp
+*.ubulk
+*.bank
+
+# Generierte SDKs und Dumps
+CppSDK/
+Dumpspace/
+IDAMappings/
+Mappings/
+GObjects-Dump*.txt
+*.usmap
+
+# Steamworks SDK
+third_party/steamworks/
+
+# Abstürze, Logs, Spielstände
+*.dmp
+*.log
+logs/
+*.sav
+
+# Research: lokale Rohdaten
+research/local/

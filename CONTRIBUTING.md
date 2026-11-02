@@ -1,0 +1,87 @@
+# Zusammenarbeit
+
+## Arbeitsbereiche
+
+Damit alle parallel arbeiten können, hat jeder Bereich eine hauptverantwortliche Person. Änderungen in fremden Bereichen sind
+erlaubt, aber diese Person macht dann das Review.
+
+| Bereich | Ordner | Verantwortlich |
+|---|---|---|
+| Fundament | `src/Loader`, `src/Core`, `tools` | offen |
+| Netzwerk | `src/Net`, `tests` | offen |
+| Spieler und Kampf | `src/Sync/Players`, `src/Sync/Combat`, `src/Game` | offen |
+| Gegner und Welt | `src/Sync/Enemies`, `src/Sync/World`, `src/Game` | offen |
+| Inventar und UI | `src/Sync/Inventory`, `src/UI`, `src/Game` | offen |
+| Reverse Engineering | `research`, `docs/GAME_ANALYSIS.md` | offen |
+
+`src/Game` nutzen mehrere Bereiche gemeinsam. Deshalb liegt dort pro Spielsystem eine eigene Datei, etwa `PlayerAdapter`, `EnemyAdapter` und `InventoryAdapter`.
+
+## Ablauf
+
+1. Issue nehmen oder anlegen und sich selbst zuweisen, damit niemand doppelt arbeitet.
+2. Branch von aktuellem `main` erstellen.
+3. Klein arbeiten und oft pushen.
+4. Pull Request öffnen und ein Review einholen.
+5. Per Squash mergen und den Branch löschen.
+
+`main` muss immer bauen. Direkte Pushes auf `main` sind nicht vorgesehen.
+
+### Branches
+
+```text
+feature/<bereich>-<kurzbeschreibung>    feature/net-steam-lobby
+fix/<bereich>-<kurzbeschreibung>        fix/core-hook-crash
+research/<thema>                        research/spike-listen-server
+docs/<thema>                            docs/setup-steamworks
+```
+
+### Commits
+
+Kurz, im Imperativ, mit Bereich vorne. Sprache im Repo: Deutsch für Dokumentation, Englisch für Code und Bezeichner.
+
+```text
+net: add lobby invite handling
+core: fix dispatcher shutdown race
+docs: update RPC list for build 26187885
+```
+
+### Pull Requests
+
+- Eine Sache pro PR. Lieber drei kleine als einen großen.
+- Sagen, wie getestet wurde: Spiel-Build, ein oder zwei PCs, was funktioniert hat.
+- Änderungen am Netzwerkprotokoll erhöhen die Protokollversion.
+- Neue Erkenntnisse über das Spiel gehören in `docs/GAME_ANALYSIS.md`.
+
+## Regeln im Code
+
+Die Modulgrenzen stehen in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#module). Am wichtigsten:
+
+- SDK-Includes nur in `src/Game`.
+- Unreal-Objekte nur auf dem Game Thread anfassen.
+- C++20, Formatierung laut `.editorconfig`.
+- Abhängigkeiten nur nach Absprache hinzufügen und in `third_party/README.md` eintragen.
+
+## Was nie ins Repo darf
+
+- Spieldateien: `.exe`, `.pak`, `.ucas`, `.utoc`, `.uasset`, `.uexp`
+- Generierte SDKs und Dumps von Dumper-7
+- Decompilierter Spielcode und entpackte Assets
+- Steamworks-SDK-Dateien (Lizenz erlaubt keine freie Weitergabe)
+- Persönliche Pfade, Spielstände, Tokens, Steam-IDs
+
+Die `.gitignore` fängt das meiste ab, ersetzt aber nicht das Hinschauen vor dem Commit. Eigene Notizen wie Klassennamen, Hook-Listen oder
+Beschreibungen des Verhaltens sind in Ordnung. Das Repo bleibt privat, bis über eine Veröffentlichung entschieden ist.
+
+## Spiel-Updates
+
+Das Spiel wird noch aktiv gepatcht, und jedes Update kann Offsets und Klassen ändern.
+
+1. In Steam, falls möglich, unter Eigenschaften → Updates „nur beim Start aktualisieren“ wählen und das Spiel während der Entwicklung nicht unnötig starten.
+2. Nach einem Update meldet die RE-Person das im Team, erzeugt ein neues SDK und testet die Hooks auf einem Branch.
+3. Build-ID und Exe-Version in [docs/GAME_ANALYSIS.md](docs/GAME_ANALYSIS.md#unterstützte-spielversion) sowie die Versionsprüfung in `Core` aktualisieren.
+4. Erst dann ziehen alle anderen nach, weil alle denselben Build brauchen.
+
+## Fehler melden
+
+Das Issue-Template „Bug“ verwenden und Logs beider Spieler anhängen. Mod-Fehler **nie** über die Bug-Report-Funktion im Spiel oder an
+Pixelsplit melden. Falls sich nach einem Absturz mit Mod oder Dumper der Crash-Reporter meldet, nichts absenden. Vor Fehlermeldungen im Spiel-Forum die Mod deaktivieren und den Fehler ohne Mod nachstellen.
