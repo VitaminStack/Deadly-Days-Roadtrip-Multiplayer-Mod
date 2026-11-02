@@ -27,6 +27,28 @@ RVAs sind relativ zur Image-Base `0x140000000`. Die Patchstellen stehen als Kons
 | `LoadMapByInformation` | `0x5B11170` |
 | Exec-Thunks | `0x57359D0`, `0x5733B60`, `0x5694050`, `0x5694260`, `0x5734200`, `0x56C30B0` |
 
+### Coop
+
+Funktionen von `ULocalCoopSubsystem` und ihre Aufrufer, Ablauf siehe [Coop-Ablauf](GAME_ANALYSIS.md#coop-ablauf).
+
+| Funktion | RVA | Hinweis |
+|---|---|---|
+| `SetCoopEnabled` | `0x59003E0` | Exec-Thunk `0x5735F10` |
+| `SetMaxLocalPlayers` | `0x5900770` | Exec-Thunk `0x57363C0` |
+| `SpawnLocalPlayer` | `0x5901E90` | Exec-Thunk `0x57374E0` |
+| `GetPlayerController(Index)` | `0x58EE0D0` | |
+| `GetPlayerIndex` | `0x58EE2A0` | Rückgriff ohne `LocalPlayer` |
+| `IsSecondaryPlayer` | `0x58F47C0` | Rückgriff ohne `LocalPlayer` |
+| `ApplyDeviceAssignmentDraftAndJoin` | `0x58D8AA0` | Ruft `SpawnLocalPlayer(1)` |
+| Run-Zustand laden (`IRunPersistable`) | `0x58F5330` | VTable des Subsystems `0x94ED340`, Slot 91 |
+| P2 nach Kartenwechsel neu anlegen | `0x58D9810` | VTable von `ADDMissionGameMode` `0x9430630`, Slot 111 |
+| Figur spawnen | `0x5901C60` | Gleiche VTable, Slot 234, Spike-Patch bei `0x5901CE8` |
+| Moduswechsel: Coop aus und Coop wieder an | `0x5914B30`, `0x593BCA0` | |
+| `APlayerController::GetLocalPlayer` | `0x2E706D0` | |
+| `UGameInstance::CreateLocalPlayer` | `0x2A6B5B0` | |
+| `UGameplayStatics::GetPlayerController` | `0x2A76140` | |
+| Tabelle `{Name, Exec-Thunk}` von `LocalCoopSubsystem` | um `0x94F6EE0` bis `0x94F7190` | Einträge `0x10` groß |
+
 ## Klassen
 
 | Klasse | Feld | Offset |
@@ -58,6 +80,8 @@ RVAs sind relativ zur Image-Base `0x140000000`. Die Patchstellen stehen als Kons
 | GameInstance | PendingGameStateComponentTravelStates, LastRoundChangeReason | `0x248`, `0x299` |
 | GameInstance | CurrentRunInfo (Seed +0, CurrentRoute +8) | `0x2A0` |
 | `UInventoryComponent` | Slots, MyItems | `0x100`, `0x120` |
+| `ULocalCoopSubsystem` | ActivePlayers (TMap, Element `0x14`), bCoopEnabled, MaxLocalPlayers | `0x100`, `0x180`, `0x184` |
+| `ULocalCoopSubsystem` | Flag „P2 nach Kartenwechsel neu anlegen“ | `0x18A` |
 | `UThreatLevel` | FreezeThreatLevelManager | `0x190` |
 
 In einem TSet ist ein freier Platz daran zu erkennen, dass der Wert hohe Bits gesetzt hat.
