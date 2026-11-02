@@ -20,12 +20,12 @@ Erst spielbar: Vorrang hat, dass zwei Spieler einen Run durchspielen können. Kl
 
    ```bash
    git fetch origin
-   git worktree add -b task/<kennung> ../dd-<kennung> origin/main
-   git -C ../dd-<kennung> commit --allow-empty -m "task: claim <kennung> by <eigener-name>-$RANDOM"
-   git -C ../dd-<kennung> push origin task/<kennung>
+   git worktree add -b task/<kennung> .worktrees/<kennung> origin/main
+   git -C .worktrees/<kennung> commit --allow-empty -m "task: claim <kennung> by <eigener-name>-$RANDOM"
+   git -C .worktrees/<kennung> push origin task/<kennung>
    ```
 
-Im eigenen Worktree arbeiten, nie im Hauptordner oder im Worktree eines anderen Agenten. Wer die Reservierung aufgibt, löscht den Branch auf `origin`.
+Worktrees liegen immer unter `.worktrees/` im Repo-Ordner, keine neuen Ordner daneben anlegen. Im eigenen Worktree arbeiten, nie im Hauptordner oder im Worktree eines anderen Agenten. Wer die Reservierung aufgibt, löscht den Branch auf `origin`.
 
 ## Beim Arbeiten
 
