@@ -85,7 +85,7 @@ Seiteneffekte sind moeglich und bislang nicht voll untersucht. Deshalb native
 Client-Wallets nicht mit einem Differenzbetrag „angleichen“. Bei Bedarf das
 HUD-Getter-/ViewModel anbinden, nicht die Savedaten nachbauen.
 
-Die Reparatur von `Slots`/`MyItems` gehoert zur Aufgabe `inventar`, siehe [Teilfix](../research/spikes/a-connect/README.md#inventar-ursache-teilfix-und-verbleibende-grenze).
+Die Reparatur von `Slots`/`MyItems` gehoert zur Aufgabe `tag3`, siehe [Teilfix](../research/spikes/a-connect/README.md#inventar-ursache-teilfix-und-verbleibende-grenze).
 Der Sync-Entwurf heilt keine fehlenden Item-Unterobjekte. Auch nicht replizierte
 RewardChest-Actors duerfen nicht als garantiert clientseitig vorhanden gelten.
 
