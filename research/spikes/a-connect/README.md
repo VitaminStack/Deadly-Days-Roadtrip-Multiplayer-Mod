@@ -28,6 +28,9 @@ Stand: 02.11.2026, Build `26187885`. Wegwerfcode, die Offsets gelten nur für di
 | `servertravel /Game/Maps/DDDynamic_Map?listen` | Klappt, beide sind in derselben Mission, 17 `MapTile` auf beiden Seiten, Kartenbild am Start gleich |
 | Gegner | Mit `ForceSpawnWave` beim Host gestartet: Host `Authority`, Client `SimulatedProxy`, Bewegung sichtbar auf beiden Seiten |
 | Schießen | Schüsse des Clients sind beim Host sichtbar. Neben der Client-Figur sterben beim Host Gegner, die Host-Figur ist dort außer Reichweite |
+| Mission über das Spielmenü | Klappt mit Umleitung der Reise, beide in DDDynamic_Map, Gegner laufen von selbst. Karten verschieden: 144 bis 167 MapTile beim Host, 17 beim Client |
+| Missionsende, Routenkarte, Tag 2 | Host klappt. Client stürzt beim Ankommen an Tag 2 ab, Ursache im Inventar, siehe [Run-Ablauf](../../../docs/GAME_ANALYSIS.md#run-ablauf) |
+| Pausemenü ins Hauptmenü | Host klappt, Client stürzt beim Trennen bei `0x5975A6A` ab |
 
 Beim Host laufen in der `MetaBase` rund 150 bis 300 `ActorChannel`, und es gibt keine `EngineReplicationBridge`-Instanz. Aktiv ist also die klassische Replikation, nicht Iris.
 
@@ -54,10 +57,17 @@ Der Host-Absturz war immer derselbe Callstack. Das Spiel fragt beim Spawnen `Get
 | Client | `0x59635E6` | Eine Funktion erwartet ein Objekt in `this+0x370`, das beim Client fehlt | Aufruf bei `0x5A7350B` auslassen |
 | Client | `0x5A0DA90` | `AllPlayerFramingCamera` liest `GameMode->SpawnedPlayers`, der Client hat keinen `GameMode` | Ersatzfunktion liest die Figuren aus der `PlayerArray` |
 | Client | `0x59B7E17` | Tick sucht das AbilitySystem, bevor der `PlayerState` da ist | Diesen Tick auslassen |
+| Host | `0x5994BB0` | `MapLootSpawner` liest die Figur des ersten Spielers, die es beim Spawn noch nicht gibt | Vorhandener Pfad ohne `RootComponent` |
+| Host | `0x58CEDC7` | Gegner-Spawner nimmt einen `null`-Eintrag aus `SpawnedPlayers` | Spawn für diesen Tick auslassen |
+| Host | `0x5976AD0` | `SeamlessTravelToLevel` reist nur lokal | Umleitung in `servertravel`, nur wenn scharf und nicht ins Hauptmenü |
+| Beide | `0x160C040` | `WP_UI` wartet in `PreConstruct` auf den `GameState` | `ProcessEvent`-Hook hält `PreConstruct` und `Construct` zurück, bis er da ist |
+| Client | `0x593DAF3` | `ThreatLevel` nutzt beim Aufräumen `FreezeThreatLevelManager`, den nur der Host hat | Vorhandenes `je` springt ans Funktionsende |
+| Client | `0x58393CC` | Figurenkomponente erwartet einen Controller, die fremde Figur hat keinen | Funktion verlassen |
+| Client | `0x5963604`, `0x5A7E060`, `0x5965660` | Schleifen über `MyItems` und `Slots` lesen `null`-Einträge | Eintrag überspringen. Reicht nicht, siehe unten |
 
 Die Zuordnung der Funktionen stammt aus der Disassembly ohne Symbole. Die Kamera ist über Offsets im SDK belegt, die übrigen passen zu den Aufrufern.
 
-Dazu kommen Befehle für die Datei-Schnittstelle. `!cam` und `!authmove` müssen nach jedem `servertravel` neu laufen:
+Beim Client setzt der Spike die Kamera jede Sekunde, beim Host nimmt er jede Sekunde Client-Positionen an und ersetzt veraltete Einträge in `SpawnedPlayers`. Dazu kommen Befehle für die Datei-Schnittstelle:
 
 | Befehl | Seite | Wirkung |
 |---|---|---|
@@ -65,6 +75,10 @@ Dazu kommen Befehle für die Datei-Schnittstelle. `!cam` und `!authmove` müssen
 | `!authmove` | Host | Nimmt die Position von Remote-Figuren vom Client an |
 | `!trace` | Beide | Zählt Client- und Server-RPCs der Spielfigur |
 | `!wave` | Host | Startet die Gegner-Spawner |
+| `!flow` | Beide | Protokolliert die ersten Aufrufe der Run-Funktionen |
+| `!arm` | Host | Schaltet die Umleitung der Reise scharf |
+| `!finish` | Host | Ruft `FinishMission` auf |
+| `!round <n>` | Host | Ruft `TriggerEndRound` auf, Wert wie `ERoundChangeReason` |
 
 ## Bekannte Abweichungen
 
@@ -74,8 +88,15 @@ Diese Punkte gehören zu Thema 6, sie stoppen die Technik nicht:
 - Gegner-Zähler weichen ab, zuletzt 30 beim Host und 48 beim Client. Vermutlich bleiben beim Client tote Gegner als Objekte stehen, geprüft ist das nicht.
 - Blut- und Treffereffekte sowie die XP-Leiste erscheinen nur beim Host.
 - Tutorial-Hinweise laufen auf beiden Seiten getrennt.
-- Die direkt geladene Mission startet keine Gegner von selbst. Der echte Weg über das Spielmenü ist noch nicht mit Patches getestet.
+- Die direkt geladene Mission startet keine Gegner von selbst. Über das Spielmenü gestartet tut sie das.
+- Der Client stürzte einmal im Missions-Tick bei `0x5A17ACC` ab (Lesen von `0x2C8`). Das trat nur einmal auf, die Ursache ist offen.
+- An Tag 2 zeigt der Host ein anderes Figurenporträt mit violetter Leiste. Die Ursache ist offen.
 - Ob die Figuren automatisch feuern, ist unklar. Die Host-Figur schoss, ohne dass ihr Fenster Eingaben bekam.
+
+## Offener Client-Absturz
+
+Der Client überlebt den zweiten Kartenwechsel nicht. Nach jedem Schutz in den Inventar-Schleifen stürzte er an der nächsten Stelle derselben Klasse ab: `0x596362D`, `0x5A7E063`, `0x5965663`, zuletzt `0x59661C3`.
+Weitere Einzelprüfungen lohnen sich nicht. Das Inventar braucht beim Client eine echte Lösung, siehe [TODO](../../../TODO.md). Die Abstürze dort erzeugten teils keinen Bericht im `UserDir`, die Adresse steht dann nur im Windows-Ereignisprotokoll.
 
 ## Crash-Reporter
 

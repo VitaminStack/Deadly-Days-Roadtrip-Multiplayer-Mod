@@ -171,6 +171,47 @@ Direkt aus dem Speicher einer laufenden Solo-Mission gelesen, an den Default-Obj
 - **[Hypothese]** Diese Funktionen eignen sich gut als Andockpunkt: Der Client schickt eine Anfrage, die Mod ruft sie beim Host auf.
 - **[Hypothese]** Weil `ActivePlayers` nur Controller speichert, könnte dort auch ein Remote-Controller stehen. Das ist in Phase 1 zu prüfen.
 
+## Run-Ablauf
+
+Stand: Laufzeit-Trace und Disassembly, Build `26187885`. Der Ablauf gilt für zwei Instanzen mit dem [Spike](../research/spikes/a-connect/README.md). Ohne dessen Patches stürzt der Host schon beim Spawn ab.
+
+### Wege zwischen den Karten
+
+| Schritt | Auslöser | Weg im Spiel | Ergebnis mit Client |
+|---|---|---|---|
+| Menü nach `MetaBase` | Menüpunkt | Lokale Reise | Client folgt nur per `servertravel` |
+| `MetaBase` in Mission | Figur läuft auf den Ring links neben dem Bus, Klick auf die Routenkarte | `FinalizeRunStart`, `LoadMapByInformation`, `ULoadingSubSystem::SeamlessTravelToLevel` | Beide in `DDDynamic_Map`, Gegner laufen von selbst |
+| Missionsende | Bus oder `FinishMission` | `RoundEndPanel`, Lager, Routenkarte | Nur beim Host sichtbar, der Client spielt weiter |
+| Mission in nächste Mission | Klick auf die Routenkarte | Wieder `SeamlessTravelToLevel` | Host erreicht Tag 2, Client stürzt beim Ankommen ab |
+| Mission ins Hauptmenü | Pausemenü, `ReturnToMainMenu` | `SetClientTravel` | Host sauber im Hauptmenü, Client stürzt beim Trennen ab |
+
+`SeamlessTravelToLevel` reist nur lokal. Der Spike leitet die Reise in `servertravel <Karte>?listen` um, damit der Client folgt. Damit entfällt der Ladeablauf des Spiels, die Mission lief trotzdem normal.
+Die Umleitung gilt nicht für das Hauptmenü: Dort stürzte der Host mit Umleitung ab, im Original nicht. Eine Rückkehr in die `MetaBase` nach Run-Ende ist noch nicht getestet.
+
+`TriggerEndRound` meldet das Rundenende nur an die Persistenz und löst keine Reise aus. `FinishMission` zeigt das normale Tagesende, auch wenn vorher `Lose` gesetzt wurde. Der echte Weg bei einer Niederlage ist also noch offen.
+
+### Was beim Kartenwechsel passiert
+
+- **Controller:** Die Engine ersetzt beide Controller. In `SpawnedPlayers` bleibt der alte Remote-Controller stehen, der neue kommt nie hinein. Nach der Garbage Collection steht dort `null`, und der Gegner-Spawner wählt daraus zufällig ein Ziel. Das erklärt einen nur manchmal auftretenden Host-Absturz.
+- **HUD:** Ab dem zweiten Wechsel wird die HUD des Clients gebaut, bevor der neue `GameState` da ist. `WP_UI` wartet in `PreConstruct` in einer Blueprint-Schleife auf ihn. Diese Schleife läuft auf dem Game Thread, der den `GameState` erst empfangen müsste, der Client hängt also für immer. Eine höhere `NetPriority` des `GameState` half nicht.
+- **Inventar:** `UInventoryComponent` hat replizierte Verweise auf `UBackpackSlot` und `UInventoryItemInstance`. Beim Client stehen in `Slots` und `MyItems` beim zweiten Wechsel `null`-Einträge, und mindestens vier Stellen durchlaufen sie ungeprüft. Vermutlich sind die Unterobjekte noch nicht aufgelöst, belegt ist das nicht. `OnRep_Slots` zurückzuhalten half nicht.
+
+### Was beim Client laufen darf
+
+| Bereich | Host | Client |
+|---|---|---|
+| Run-Zustand, Seed, Route, Persistenz | Führt | Nicht ausführen. Der Client hat diesen Zustand nicht und braucht einen eigenen Sync |
+| Routenkarte, Rundenende, Lager | Führt | Nicht öffnen, Fortschritt nur anzeigen. Bisher sieht der Client davon nichts |
+| Kartenwechsel | Startet ihn für beide | Folgt nur, startet keinen eigenen |
+| Kartenerzeugung | Führt | Darf nicht frei laufen, siehe unten |
+| Gegner, Spawner, Loot, Missionsende | Führt | Nur replizierte Ergebnisse anzeigen |
+| Kamera | Führt | Läuft lokal auf den replizierten Spielern |
+| Eigene Figur | Nimmt die Position vom Client an | Führt Bewegung und Eingabe |
+| HUD | Normal | Erst bauen, wenn der `GameState` da ist |
+| Inventar | Führt | Darf erst laufen, wenn die replizierten Einträge da sind. Ohne Lösung kein Run über mehrere Tage |
+
+**Karte:** Im echten Ablauf erzeugt der Host 144 bis 167 `MapTile`, der Client bleibt bei 17 und zeigt eine andere Karte. Die Figur des Clients startet deshalb weit vom Bus entfernt, weil seine Position beim Host übernommen wird. Das ist der Einstieg in Thema 3.
+
 ## Systeme, die die Mod respektieren muss
 
 - **[Belegt]** Bestenlisten: `PixelLeaderboards`, `DDLeaderboardSettings`

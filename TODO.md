@@ -11,6 +11,10 @@ wird das zuerst mit kleinen Spikes geprüft (Phase 1), bevor echte Mod-Infrastru
 | P0 | Blockiert andere Aufgaben |
 | P1 | Nötig für das nächste Gate |
 | P2 | Wichtig, aber später |
+| Optional | Feinschliff, erst wenn die Mod lauffähig ist |
+
+**Fokus: erst spielbar.** Vorrang hat, dass zwei Spieler einen Run durchspielen können. Kleine Fehler, die das nicht verhindern, werden nur unter
+[Optionale Optimierungen](#optionale-optimierungen) festgehalten und erst behoben, wenn die Mod lauffähig ist.
 
 ## Grundthemen bis Gate G1
 
@@ -20,12 +24,24 @@ Die Reihenfolge ist die Arbeitsreihenfolge: Thema 1 entscheidet über den Weg, d
 | # | Thema | Geklärt, wenn | Stand |
 |---|---|---|---|
 | 1 | **Netzwerkcode** | Zwei Instanzen sind in derselben Welt, Bewegung und Schießen funktionieren, Iris oder klassisch steht fest | Technisch geklärt: klassische Replikation, zwei Spieler in derselben Mission, Bewegung beidseitig, Schüsse des Clients wirken beim Host (indirekt belegt). Nur mit Patches, siehe [Ergebnis](research/spikes/a-connect/README.md) |
-| 2 | **Run-Ablauf** | Der Weg vom Menü in die Mission und zurück ist beschrieben, inklusive dessen, was beim Client laufen darf | Offen |
-| 3 | **Karte** | Beide Seiten haben dieselbe Karte, ohne doppelte Objekte | Seed gefunden. Bodenkacheln sind nicht repliziert und in der `MetaBase` je Seite verschieden, das bricht die Client-Bewegung ohne Fix |
+| 2 | **Run-Ablauf** | Der Weg vom Menü in die Mission und zurück ist beschrieben, inklusive dessen, was beim Client laufen darf | Weitgehend geklärt, siehe [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf). Hinweg läuft mit Patches, der Client überlebt Tag 2 noch nicht. Offen: echte Niederlage und Rückkehr in die `MetaBase` |
+| 3 | **Karte** | Beide Seiten haben dieselbe Karte, ohne doppelte Objekte | Seed gefunden. Im echten Ablauf ist die Karte des Clients eine andere (17 statt 144 bis 167 `MapTile`). Bodenkacheln sind nicht repliziert und in der `MetaBase` je Seite verschieden, das bricht die Client-Bewegung ohne Fix |
 | 4 | **Remote-Spieler** | Ein Netzwerkspieler funktioniert in der Coop-Logik als P2 | Andockpunkte bekannt, Ablauf offen |
 | 5 | **Kamera und Sichtbereich** | Gemeinsame oder getrennte Kamera ist entschieden, und das Gegner-Spawning passt dazu | Gemeinsame Kamera läuft beim Client mit Patch. Entscheidung offen |
 | 6 | **Spiellogik ohne Replikation** | Für XP, Währungen, Rewards, Pausen und UI ist je ein Sync-Weg festgelegt | Lücken bekannt, Lösung offen |
 | 7 | **Technische Andockpunkte** | Proxy-DLL gewählt, Hook-Weg über `ProcessEvent` und Signaturen an einem Beispiel erprobt | Offen |
+
+## Optionale Optimierungen
+
+Bekannte kleine Fehler, die die Spielbarkeit nicht verhindern. Sie werden angegangen, sobald die Mod lauffähig ist.
+Rückt ein Punkt die Spielbarkeit doch in Gefahr, wandert er in die passende Phase.
+
+- [ ] Klären, warum der Host Remote-Figuren ohne clientautoritative Position fast nicht bewegt. Clientautoritative Position reicht für den Betrieb
+- [ ] `MovementSpeed` und Beschleunigung: Upgrades kommen beim Client nicht an (Host 819 und 2866, Client 600 und 2048)
+- [ ] Gegner-Zähler weichen ab (30 beim Host, 48 beim Client), vermutlich bleiben tote Gegner als Objekte stehen
+- [ ] Blut- und Treffereffekte erscheinen nur beim Host
+- [ ] Tutorial-Hinweise laufen auf beiden Seiten getrennt
+- [ ] Host zeigt an Tag 2 ein anderes Figurenporträt
 
 ## Phase 0 – Projekt-Setup
 
@@ -54,7 +70,12 @@ Ziel: Fakten für Gate G1 sammeln. Spike-Code ist Wegwerfcode und landet nicht i
 - [x] P0 Replizierte Properties und `bReplicates` der Kernklassen erfassen: Der Kern repliziert, siehe [Analyse](docs/GAME_ANALYSIS.md#replikation-zur-laufzeit)
 - [x] P0 `bReplicates` der Blueprint-Actors prüfen: 218 von 482 Blueprint-Actor-Klassen replizieren, vor allem über ihre native Basisklasse
 - [x] P1 Klären, ob zur Laufzeit Iris oder die klassische Replikation aktiv ist: klassisch mit `ActorChannel`
-- [ ] P0 Run-Ablauf nachvollziehen: `TriggerStartRun`, `FinalizeRunStart`, Ladebildschirm und Wechsel zwischen den Etappen
+- [x] P0 Run-Ablauf nachvollziehen: `TriggerStartRun`, `FinalizeRunStart`, Ladebildschirm und Wechsel zwischen den Etappen, siehe [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf)
+- [ ] P0 Inventar beim Client lösen: `Slots` und `MyItems` enthalten beim zweiten Kartenwechsel `null`-Einträge, der Client stürzt an wechselnden Stellen ab. Ohne Lösung gibt es keinen Run über mehrere Tage
+- [ ] P0 Rundenende, Lager und Routenkarte beim Client abbilden, bisher spielt er nach dem Missionsende einfach weiter
+- [ ] P0 Neue Remote-Controller nach jedem Kartenwechsel sauber in `SpawnedPlayers` eintragen, der Spike ersetzt den Eintrag nur direkt
+- [ ] P1 Client-Absturz beim Trennen klären (`0x5975A6A`), wenn der Host ins Hauptmenü geht
+- [ ] P1 Echte Niederlage nachvollziehen: Alle Spieler tot, Rundenende, Rückkehr in die `MetaBase`, dabei den Client mitnehmen
 - [ ] P0 Coop-Ablauf nachvollziehen: Wie ruft das Spiel `SetCoopEnabled` und `SpawnLocalPlayer` auf, wie entsteht P2, und kommt der Code mit einem Controller ohne lokalen Spieler zurecht?
 - [ ] P0 Kamera entscheiden: Was macht `AllPlayerFramingCamera`, und wie wirkt sich das Spawning an den Viewport-Rändern bei getrennten Kameras aus?
 - [ ] P1 Technische Andockpunkte klären: geeignete Proxy-DLL, Hook-Weg über `ProcessEvent`, Signaturen für native Funktionen
@@ -71,9 +92,7 @@ Ziel: Fakten für Gate G1 sammeln. Spike-Code ist Wegwerfcode und landet nicht i
 - [x] P0 **Spike A – Verbindung:** Beide kommen in dieselbe Welt, auch auf einem PC, siehe [Ergebnis](research/spikes/a-connect/README.md)
 - [x] P0 **Spike B – Spieler:** Client stabil in der Mission, Bewegung beidseitig, Client-Schüsse wirken beim Host, siehe [Ergebnis](research/spikes/a-connect/README.md)
 - [ ] P0 Treffer des Clients direkt belegen, etwa über die Lebenspunkte eines Gegners, bisher nur aus Sterbeort und Reichweite geschlossen
-- [ ] P1 Klären, warum der Host Remote-Figuren ohne clientautoritative Position fast nicht bewegt
-- [ ] P1 Abweichungen aus dem Spike prüfen: `MovementSpeed` nur beim Host erhöht, Gegner-Zähler und Treffereffekte weichen ab
-- [ ] P1 Mission über den echten Weg durch das Spielmenü mit den Patches starten, bisher nur direkt per `servertravel` getestet
+- [x] P1 Mission über den echten Weg durch das Spielmenü mit den Patches starten, siehe [Ergebnis](research/spikes/a-connect/README.md)
 - [ ] P0 Crash-Reporter im Mod- und Testbetrieb zuverlässig abschalten, bisher hilft nur ein Skript. Testabstürze dürfen nicht bei Pixelsplit landen
 - [ ] P1 **Spike C – Mission:** Lädt eine prozedurale Mission beim Client identisch? Direkt geladen: 17 `MapTile` je Seite und gleiches Bild am Start, kein Vergleich der ganzen Karte
 - [ ] P1 **Spike D – Last:** Bandbreite und Framerate bei voller Gegnerzahl messen

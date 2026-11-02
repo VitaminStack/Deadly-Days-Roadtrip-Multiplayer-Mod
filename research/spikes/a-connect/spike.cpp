@@ -8,6 +8,7 @@
 #include <initializer_list>
 #include <map>
 #include <string>
+#include <vector>
 
 namespace
 {
@@ -26,6 +27,7 @@ constexpr uintptr_t kAttributeLookupFunction = 0x4B68180;
 constexpr uintptr_t kAttributeTickExit = 0x59B858A;
 constexpr uintptr_t kArrayResizeGrow = 0x1272520;
 constexpr uintptr_t kWorldGameState = 0x1B0;
+constexpr uintptr_t kWorldGameInstance = 0x228;
 constexpr uintptr_t kGameStatePlayerArray = 0x2C0;
 constexpr uintptr_t kPlayerStatePawn = 0x320;
 constexpr uintptr_t kCharacterMovementBase = 0x350;
@@ -34,10 +36,32 @@ constexpr uintptr_t kActorReplicatesBits = 0x5B;
 constexpr uintptr_t kActorRemoteRole = 0x60;
 constexpr uintptr_t kCharacterMovement = 0x330;
 constexpr uintptr_t kMovementFlags = 0x579;
-constexpr uintptr_t kGameInstanceWorldContext = 0x30;
-constexpr uintptr_t kWorldContextTravelUrl = 0xA8;
+constexpr uintptr_t kFunctionFlags = 0xB0;
+constexpr uintptr_t kFunctionExec = 0xD8;
+constexpr uintptr_t kSetClientTravel = 0x3262830;
+constexpr uintptr_t kSeamlessTravelToLevel = 0x5976AD0;
+constexpr uintptr_t kLoadSettingsPackage = 0x10;
+constexpr uintptr_t kWorldGameMode = 0x1A8;
+constexpr uintptr_t kGameModeSpawnedPlayers = 0x388;
+constexpr uintptr_t kActorOwner = 0x158;
+constexpr uintptr_t kThreatFreezeBranch = 0x593DAF3;
+constexpr uintptr_t kProcessEventNative = 0x160C040;
+constexpr uintptr_t kItemsLoopRead = 0x5963604;
+constexpr uintptr_t kItemsLoopNext = 0x596365F;
+constexpr uintptr_t kSlotLoopRead = 0x5965660;
+constexpr uintptr_t kSlotLoopNext = 0x596572C;
+constexpr uintptr_t kComponentControllerRead = 0x58393CC;
+constexpr uintptr_t kComponentControllerExit = 0x5839540;
+constexpr uintptr_t kGridLoopRead = 0x5A7E060;
+constexpr uintptr_t kGridLoopNext = 0x5A7E091;
+constexpr uintptr_t kSpawnerPlayerRead = 0x58CEDC7;
+constexpr uintptr_t kSpawnerNoPlayerExit = 0x58CF2B7;
+constexpr uintptr_t kLootPawnRead = 0x5994BB0;
+constexpr uintptr_t kLootNoRootTarget = 0x5994BD1;
+constexpr uintptr_t kWorldNetDriver = 0x38;
+constexpr uintptr_t kDriverServerConnection = 0x100;
 constexpr UINT kRunCommand = WM_APP + 77;
-constexpr UINT_PTR kTravelTimer = 7701;
+constexpr UINT_PTR kSessionTimer = 7701;
 
 struct FString
 {
@@ -58,6 +82,12 @@ WNDPROC OriginalWndProc;
 std::wstring Pending;
 std::wstring LogPath;
 bool RedirectTravel = false;
+HWND GameWindow = nullptr;
+
+using SetClientTravelFn = void(__fastcall*)(uintptr_t, uintptr_t, const wchar_t*, uint32_t);
+SetClientTravelFn OriginalSetClientTravel;
+using SeamlessTravelFn = void(__fastcall*)(uintptr_t, uintptr_t);
+SeamlessTravelFn OriginalSeamlessTravel;
 
 void Log(const std::string& Line)
 {
@@ -71,9 +101,8 @@ void Log(const std::string& Line)
 
 template <typename T> T Read(uintptr_t Address) { return *reinterpret_cast<T*>(Address); }
 
-std::string NameOf(uintptr_t Object)
+std::string NameFromIndex(int32_t Index)
 {
-    const int32_t Index = Read<int32_t>(Object + 0x18);
     const uintptr_t Block = Read<uintptr_t>(Base + kNameBlocks + 8 * (Index >> 16));
     const uintptr_t Entry = Block + (Index & 0xFFFF) * 2;
     const uint16_t Header = Read<uint16_t>(Entry);
@@ -81,6 +110,8 @@ std::string NameOf(uintptr_t Object)
         return {};
     return std::string(reinterpret_cast<const char*>(Entry + 2), Header >> 6);
 }
+
+std::string NameOf(uintptr_t Object) { return NameFromIndex(Read<int32_t>(Object + 0x18)); }
 
 uintptr_t FindObject(const char* Name, const char* OuterName)
 {
@@ -141,32 +172,22 @@ void RunConsoleCommand(const std::wstring& Command)
     Log("ausgefuehrt");
 }
 
-void CallGameInstance(const char* FunctionName)
-{
-    const uintptr_t Instance = FindInstance("GI_DDMissionGameInstance_C");
-    const uintptr_t Function = FindObject(FunctionName, "DDMissionGameInstance");
-    if (!Instance || !Function)
-    {
-        Log(std::string("nicht gefunden: ") + FunctionName);
-        return;
-    }
-    using ProcessEventFn = void(__fastcall*)(uintptr_t, uintptr_t, void*);
-    char Params[16]{};
-    Read<ProcessEventFn*>(Instance)[kProcessEventIndex](Instance, Function, Params);
-    Log(std::string("aufgerufen: ") + FunctionName);
-}
-
 // Beim Client landet die gemeinsame Kamera nicht als ViewTarget, er schaut sonst vom Weltursprung aus.
 void ViewThroughSharedCamera()
 {
     const uintptr_t Camera = FindInstance("BP_PlayerCameraActor_C");
     const uintptr_t Controller = FindInstance("BP_DDPlayerController_C");
     const uintptr_t Function = FindObject("SetViewTargetWithBlend", "PlayerController");
+    // Beim Spawn wird das ViewTarget noch ueberschrieben, deshalb eine Weile lang wiederholen.
+    static uintptr_t LastCamera = 0;
+    static int Repeats = 0;
     if (!Camera || !Controller || !Function)
-    {
-        Log("Kamera: nicht gefunden");
         return;
-    }
+    if (Camera != LastCamera)
+        Repeats = 15;
+    LastCamera = Camera;
+    if (Repeats-- <= 0)
+        return;
     struct
     {
         uintptr_t Target;
@@ -196,10 +217,12 @@ void AcceptClientPositions()
         const uintptr_t Class = Read<uintptr_t>(Object + 0x10);
         if (!Class || NameOf(Class) != "BP_DD_Character_C" || Read<uint8_t>(Object + kActorRemoteRole) != 2)
             continue;
-        *reinterpret_cast<uint8_t*>(Read<uintptr_t>(Object + kCharacterMovement) + kMovementFlags) |= 0x0A;
-        ++Changed;
+        auto& Flags = *reinterpret_cast<uint8_t*>(Read<uintptr_t>(Object + kCharacterMovement) + kMovementFlags);
+        Changed += (Flags & 0x0A) != 0x0A;
+        Flags |= 0x0A;
     }
-    Log("Client-Positionen: " + std::to_string(Changed));
+    if (Changed)
+        Log("Client-Positionen: " + std::to_string(Changed));
 }
 
 // Host: Die direkt geladene Mission startet keine Gegner, fuer Trefferversuche werden sie hier angestossen.
@@ -240,6 +263,38 @@ void ForceEnemyWave()
 
 using ProcessEventFn = void(__fastcall*)(uintptr_t, uintptr_t, void*);
 ProcessEventFn OriginalProcessEvent;
+
+// Host: Beendet die Mission wie der abfahrende Bus, um den Rueckweg zu pruefen.
+void FinishMission()
+{
+    const uintptr_t World = Read<uintptr_t>(Base + kGWorld);
+    const uintptr_t GameState = World ? Read<uintptr_t>(World + kWorldGameState) : 0;
+    const uintptr_t Function = FindObject("FinishMission", "DDMissionGameState");
+    if (!GameState || !Function)
+    {
+        Log("Missionsende: nicht gefunden");
+        return;
+    }
+    uint32_t IsLoading = 0;
+    Read<ProcessEventFn*>(GameState)[kProcessEventIndex](GameState, Function, &IsLoading);
+    Log("Missionsende: ausgeloest");
+}
+
+// Host: Beendet den Run ueber die GameInstance, Grund wie ERoundChangeReason.
+void EndRound(uint8_t Reason)
+{
+    const uintptr_t World = Read<uintptr_t>(Base + kGWorld);
+    const uintptr_t GameInstance = World ? Read<uintptr_t>(World + kWorldGameInstance) : 0;
+    const uintptr_t Function = FindObject("TriggerEndRound", "DDMissionGameInstance");
+    if (!GameInstance || !Function)
+    {
+        Log("Rundenende: nicht gefunden");
+        return;
+    }
+    uint32_t Params = Reason;
+    Read<ProcessEventFn*>(GameInstance)[kProcessEventIndex](GameInstance, Function, &Params);
+    Log("Rundenende: ausgeloest");
+}
 std::map<std::string, int> RpcCounts;
 
 // RPCs laufen auf beiden Seiten durch ProcessEvent. Zaehlt alles, was nach Client- oder Server-RPC aussieht.
@@ -270,23 +325,199 @@ void TraceCharacterRpcs()
     Log("RPC-Zaehler: aktiv");
 }
 
-// Der Spielablauf reist ohne ?listen. Sobald TravelURL gesetzt ist, wird daraus ein servertravel mit ?listen.
-void RedirectPendingTravel()
-{
-    const uintptr_t Instance = FindInstance("GI_DDMissionGameInstance_C");
-    const uintptr_t Context = Instance ? Read<uintptr_t>(Instance + kGameInstanceWorldContext) : 0;
-    if (!Context)
-        return;
-    auto& TravelUrl = *reinterpret_cast<FString*>(Context + kWorldContextTravelUrl);
-    if (TravelUrl.Num <= 1 || !TravelUrl.Data)
-        return;
+using ExecFn = void(__fastcall*)(void*, void*, void*);
 
-    const std::wstring Url(TravelUrl.Data);
-    const_cast<wchar_t*>(TravelUrl.Data)[0] = 0;
-    TravelUrl.Num = 0;
-    RedirectTravel = false;
-    Log("TravelURL umgeleitet: " + std::string(Url.begin(), Url.end()));
-    RunConsoleCommand(L"servertravel " + Url + L"?listen");
+struct TracedFunction
+{
+    ExecFn Original;
+    std::string Name;
+    int Calls;
+};
+
+std::vector<TracedFunction> TracedFunctions;
+
+void __fastcall TraceExec(void* Context, void* Stack, void* Result, size_t Index)
+{
+    TracedFunction& Function = TracedFunctions[Index];
+    if (++Function.Calls <= 5)
+        Log(std::to_string(GetTickCount64()) + " " + Function.Name);
+    Function.Original(Context, Stack, Result);
+}
+
+// Blueprint-Aufrufe nativer Funktionen laufen ueber UFunction::Func. Pro Funktion leitet ein Stub durch TraceExec.
+void TraceRunFlow()
+{
+    const char* const Owners[] = {
+        "DDMissionGameInstance", "LoadingSubSystem", "RunPersistencyManager", "DDMissionGameMode", "DDMissionGameState",
+        "DDBlueprintHelperFunctions", "Bus", "BusPanel", "ExtractionPointBase", "MissionGenerationSubsystem",
+        "CharacterSelectionManager", "CharacterSelectPanel", "EndOfDayUpgradeManager", "RoundEndPanel", "MapGenerator",
+        "LocalCoopSubsystem", "PauseMenuWidget"};
+    if (!TracedFunctions.empty())
+        return;
+    TracedFunctions.reserve(4096);
+
+    auto* Stub = static_cast<uint8_t*>(VirtualAlloc(nullptr, 4096 * 24, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE));
+    const uintptr_t Chunks = Read<uintptr_t>(Base + kGObjects);
+    const int32_t Count = Read<int32_t>(Base + kGObjects + 8);
+    for (int32_t i = 0; i < Count && TracedFunctions.size() < 4096; ++i)
+    {
+        const uintptr_t Chunk = Read<uintptr_t>(Chunks + 8 * (i >> 16));
+        const uintptr_t Object = Chunk ? Read<uintptr_t>(Chunk + (i & 0xFFFF) * 0x18 + 8) : 0;
+        const uintptr_t Class = Object ? Read<uintptr_t>(Object + 0x10) : 0;
+        if (!Class || NameOf(Class) != "Function" || !(Read<uint32_t>(Object + kFunctionFlags) & 0x400))
+            continue;
+        const uintptr_t Outer = Read<uintptr_t>(Object + 0x20);
+        const std::string OuterName = Outer ? NameOf(Outer) : std::string();
+        bool Wanted = false;
+        for (const char* Owner : Owners)
+            Wanted = Wanted || OuterName == Owner;
+        if (!Wanted)
+            continue;
+
+        auto& Func = *reinterpret_cast<ExecFn*>(Object + kFunctionExec);
+        char Address[32]{};
+        sprintf_s(Address, "%llX", static_cast<unsigned long long>(reinterpret_cast<uintptr_t>(Func) - Base));
+        if (NameOf(Object).find("Load") != std::string::npos || NameOf(Object).find("Travel") != std::string::npos)
+            Log("Exec " + NameOf(Object) + " " + Address);
+        const uint64_t Index = TracedFunctions.size();
+        const uint64_t Hook = reinterpret_cast<uint64_t>(&TraceExec);
+        TracedFunctions.push_back({Func, OuterName + "." + NameOf(Object), 0});
+        Stub[0] = 0x49; Stub[1] = 0xB9;                     // mov r9,Index
+        memcpy(Stub + 2, &Index, 8);
+        Stub[10] = 0x48; Stub[11] = 0xB8;                   // mov rax,TraceExec
+        memcpy(Stub + 12, &Hook, 8);
+        Stub[20] = 0xFF; Stub[21] = 0xE0;                   // jmp rax
+        Func = reinterpret_cast<ExecFn>(Stub);
+        Stub += 24;
+    }
+    Log("Ablauf-Trace: " + std::to_string(TracedFunctions.size()) + " Funktionen");
+}
+
+// Der Spielablauf reist per SetClientTravel, das nimmt den Client nicht mit. Scharf geschaltet wird daraus servertravel.
+void __fastcall SetClientTravelHook(uintptr_t Engine, uintptr_t World, const wchar_t* Url, uint32_t Type)
+{
+    if (!RedirectTravel || wcsstr(Url, L"listen") || wcsstr(Url, L"MainMenu"))
+    {
+        OriginalSetClientTravel(Engine, World, Url, Type);
+        return;
+    }
+    const std::wstring Target(Url);
+    Log("Reise umgeleitet: " + std::string(Target.begin(), Target.end()));
+    Pending = L"servertravel " + Target + L"?listen";
+    PostMessageW(GameWindow, kRunCommand, 0, 0);
+}
+
+// Missionen laufen ueber SeamlessTravelToLevel, das reist nur lokal. Settings: Level ab +8, Paketname als FName ab +0x10.
+void __fastcall SeamlessTravelHook(uintptr_t Subsystem, uintptr_t Settings)
+{
+    const std::string Package = NameFromIndex(Read<int32_t>(Settings + kLoadSettingsPackage));
+    // Das Hauptmenue beendet die Sitzung, die Reise laeuft dort lokal und mit dem Ladeablauf des Spiels.
+    if (!RedirectTravel || Package.find("MainMenu") != std::string::npos)
+    {
+        OriginalSeamlessTravel(Subsystem, Settings);
+        return;
+    }
+    Log("Reise umgeleitet: " + Package);
+    Pending = L"servertravel " + std::wstring(Package.begin(), Package.end()) + L"?listen";
+    PostMessageW(GameWindow, kRunCommand, 0, 0);
+}
+
+// Laeuft jede Sekunde auf dem Game Thread und ersetzt die Befehle !cam und !authmove nach jedem Kartenwechsel.
+ProcessEventFn OriginalNativeProcessEvent;
+int32_t ConstructName = -1;
+int32_t PreConstructName = -1;
+
+struct FDeferredEvent
+{
+    uintptr_t Object;
+    uintptr_t Function;
+    uint64_t Params;
+};
+std::vector<FDeferredEvent> DeferredWidgetEvents;
+
+// Client: WP_UI wartet in PreConstruct in einer Schleife auf den GameState. Beim zweiten Kartenwechsel entsteht die HUD
+// vor ihm, und in der Schleife kann er nie ankommen. Beide Ereignisse werden zurueckgehalten, bis er da ist.
+void __fastcall ProcessEventHook(uintptr_t Object, uintptr_t Function, void* Params)
+{
+    const int32_t Name = Read<int32_t>(Function + 0x18);
+    if (Name == ConstructName || Name == PreConstructName)
+    {
+        const uintptr_t World = Read<uintptr_t>(Base + kGWorld);
+        const uintptr_t Driver = World ? Read<uintptr_t>(World + kWorldNetDriver) : 0;
+        const bool IsClient = Driver && Read<uintptr_t>(Driver + kDriverServerConnection);
+        if (IsClient && !Read<uintptr_t>(World + kWorldGameState) && NameOf(Read<uintptr_t>(Object + 0x10)) == "WP_UI_C")
+        {
+            DeferredWidgetEvents.push_back({Object, Function, Params ? Read<uint64_t>(reinterpret_cast<uintptr_t>(Params)) : 0});
+            Log("WP_UI: zurueckgehalten");
+            return;
+        }
+    }
+    OriginalNativeProcessEvent(Object, Function, Params);
+}
+
+void ReleaseDeferredWidgetEvents(uintptr_t World)
+{
+    if (DeferredWidgetEvents.empty() || !Read<uintptr_t>(World + kWorldGameState))
+        return;
+    const std::vector<FDeferredEvent> Events = std::move(DeferredWidgetEvents);
+    DeferredWidgetEvents.clear();
+    for (FDeferredEvent Event : Events)
+        OriginalNativeProcessEvent(Event.Object, Event.Function, &Event.Params);
+    Log("WP_UI: nachgeholt");
+}
+
+// Host: Der Seamless Travel ersetzt die Controller. In SpawnedPlayers bleibt der alte Remote-Controller stehen, nach der
+// naechsten Garbage Collection als null. Der Eintrag wird direkt ersetzt, der Hash passt dann nicht mehr. Das Spiel
+// durchlaeuft die Menge nur.
+void RepairSpawnedPlayers(uintptr_t World)
+{
+    const uintptr_t GameMode = Read<uintptr_t>(World + kWorldGameMode);
+    const uintptr_t GameState = Read<uintptr_t>(World + kWorldGameState);
+    if (!GameMode || !GameState)
+        return;
+    const uintptr_t States = Read<uintptr_t>(GameState + kGameStatePlayerArray);
+    const int32_t StateCount = Read<int32_t>(GameState + kGameStatePlayerArray + 8);
+    const uintptr_t Entries = Read<uintptr_t>(GameMode + kGameModeSpawnedPlayers);
+    const int32_t EntryCount = Read<int32_t>(GameMode + kGameModeSpawnedPlayers + 8);
+    const auto Entry = [&](int32_t Index) { return reinterpret_cast<uintptr_t*>(Entries + Index * 0x10); };
+    const auto IsCurrent = [&](uintptr_t Controller) {
+        for (int32_t i = 0; Controller && i < StateCount; ++i)
+            if (Read<uintptr_t>(Read<uintptr_t>(States + 8 * i) + kActorOwner) == Controller)
+                return true;
+        return false;
+    };
+    for (int32_t i = 0; i < StateCount; ++i)
+    {
+        const uintptr_t Controller = Read<uintptr_t>(Read<uintptr_t>(States + 8 * i) + kActorOwner);
+        bool Found = !Controller;
+        for (int32_t j = 0; j < EntryCount && !Found; ++j)
+            Found = *Entry(j) == Controller;
+        for (int32_t j = 0; j < EntryCount && !Found; ++j)
+        {
+            const bool IsFreeSlot = (*Entry(j) >> 47) != 0;
+            if (IsFreeSlot || IsCurrent(*Entry(j)))
+                continue;
+            *Entry(j) = Controller;
+            Found = true;
+            Log("SpawnedPlayers: Eintrag ersetzt");
+        }
+    }
+}
+
+void TickSession()
+{
+    const uintptr_t World = Read<uintptr_t>(Base + kGWorld);
+    const uintptr_t Driver = World ? Read<uintptr_t>(World + kWorldNetDriver) : 0;
+    if (!Driver)
+        return;
+    if (Read<uintptr_t>(Driver + kDriverServerConnection))
+    {
+        ReleaseDeferredWidgetEvents(World);
+        ViewThroughSharedCamera();
+        return;
+    }
+    AcceptClientPositions();
+    RepairSpawnedPlayers(World);
 }
 
 struct FPointerArray
@@ -458,6 +689,184 @@ void PatchRemoteSpawn()
     Emit({0xE9});                                           // jmp zurueck
     EmitRel(AttributeSite + 5);
     WriteJump(AttributeSite, AttributeCave);
+
+    // Host: Nach der Kartenerzeugung verteilt MapLootSpawner die Beute um die Figur des ersten Spielers. Beim Spawn
+    // mit zwei Spielern gibt es die noch nicht, dann gilt der vorhandene Pfad ohne RootComponent.
+    const uintptr_t LootSite = Base + kLootPawnRead;
+    const uint8_t LootExpected[] = {0x48, 0x8B, 0x83, 0xB8, 0x01, 0x00, 0x00};
+    if (memcmp(reinterpret_cast<void*>(LootSite), LootExpected, sizeof(LootExpected)) != 0)
+    {
+        Log("Patch: unerwartete Bytes im Loot-Spawner");
+        return;
+    }
+    uint8_t* LootCave = Out;
+    Emit({0x48, 0x85, 0xDB});                               // test rbx,rbx
+    Emit({0x0F, 0x84});                                     // je ohne Figur
+    EmitRel(Base + kLootNoRootTarget);
+    Emit({0x48, 0x8B, 0x83, 0xB8, 0x01, 0x00, 0x00});       // mov rax,[rbx+1B8h]
+    Emit({0xE9});                                           // jmp zurueck
+    EmitRel(LootSite + 7);
+    WriteJump(LootSite, LootCave);
+
+    const uintptr_t TravelSite = Base + kSetClientTravel;
+    const uint8_t TravelExpected[] = {0x48, 0x89, 0x5C, 0x24, 0x08};
+    if (memcmp(reinterpret_cast<void*>(TravelSite), TravelExpected, sizeof(TravelExpected)) != 0)
+    {
+        Log("Patch: unerwartete Bytes in SetClientTravel");
+        return;
+    }
+    OriginalSetClientTravel = reinterpret_cast<SetClientTravelFn>(Out);
+    Emit({0x48, 0x89, 0x5C, 0x24, 0x08});                   // mov [rsp+8],rbx
+    Emit({0xE9});                                           // jmp zurueck
+    EmitRel(TravelSite + 5);
+    uint8_t* TravelCave = Out;
+    Emit({0x48, 0xB8});                                     // mov rax,SetClientTravelHook
+    const uintptr_t TravelHook = reinterpret_cast<uintptr_t>(&SetClientTravelHook);
+    memcpy(Out, &TravelHook, 8);
+    Out += 8;
+    Emit({0xFF, 0xE0});                                     // jmp rax
+    WriteJump(TravelSite, TravelCave);
+
+    const uintptr_t SeamlessSite = Base + kSeamlessTravelToLevel;
+    const uint8_t SeamlessExpected[] = {0x48, 0x89, 0x5C, 0x24, 0x18};
+    if (memcmp(reinterpret_cast<void*>(SeamlessSite), SeamlessExpected, sizeof(SeamlessExpected)) != 0)
+    {
+        Log("Patch: unerwartete Bytes in SeamlessTravelToLevel");
+        return;
+    }
+    OriginalSeamlessTravel = reinterpret_cast<SeamlessTravelFn>(Out);
+    Emit({0x48, 0x89, 0x5C, 0x24, 0x18});                   // mov [rsp+18h],rbx
+    Emit({0xE9});                                           // jmp zurueck
+    EmitRel(SeamlessSite + 5);
+    uint8_t* SeamlessCave = Out;
+    Emit({0x48, 0xB8});                                     // mov rax,SeamlessTravelHook
+    const uintptr_t SeamlessHook = reinterpret_cast<uintptr_t>(&SeamlessTravelHook);
+    memcpy(Out, &SeamlessHook, 8);
+    Out += 8;
+    Emit({0xFF, 0xE0});                                     // jmp rax
+    WriteJump(SeamlessSite, SeamlessCave);
+
+    // Host: Der Spawner waehlt zufaellig einen Eintrag aus SpawnedPlayers, dort kann null stehen. Dann faellt der Spawn aus.
+    const uintptr_t SpawnerSite = Base + kSpawnerPlayerRead;
+    const uint8_t SpawnerExpected[] = {0x49, 0x8B, 0x86, 0xE8, 0x02, 0x00, 0x00};
+    if (memcmp(reinterpret_cast<void*>(SpawnerSite), SpawnerExpected, sizeof(SpawnerExpected)) != 0)
+    {
+        Log("Patch: unerwartete Bytes im Gegner-Spawner");
+        return;
+    }
+    uint8_t* SpawnerCave = Out;
+    Emit({0x4D, 0x85, 0xF6});                               // test r14,r14
+    Emit({0x0F, 0x84});                                     // je Spawn-Ende
+    EmitRel(Base + kSpawnerNoPlayerExit);
+    Emit({0x49, 0x8B, 0x86, 0xE8, 0x02, 0x00, 0x00});       // mov rax,[r14+2E8h]
+    Emit({0xE9});                                           // jmp zurueck
+    EmitRel(SpawnerSite + 7);
+    WriteJump(SpawnerSite, SpawnerCave);
+
+    // Client: Das Item-Array enthaelt nach dem Seamless Travel null, das Spiel prueft das nicht.
+    const uintptr_t ItemsSite = Base + kItemsLoopRead;
+    const uint8_t ItemsExpected[] = {0x48, 0x8B, 0x3B, 0x83, 0xFD, 0x05};
+    if (memcmp(reinterpret_cast<void*>(ItemsSite), ItemsExpected, sizeof(ItemsExpected)) != 0)
+    {
+        Log("Patch: unerwartete Bytes in der Item-Schleife");
+        return;
+    }
+    uint8_t* ItemsCave = Out;
+    Emit({0x48, 0x8B, 0x3B});                               // mov rdi,[rbx]
+    Emit({0x48, 0x85, 0xFF});                               // test rdi,rdi
+    Emit({0x0F, 0x84});                                     // je naechster Eintrag
+    EmitRel(Base + kItemsLoopNext);
+    Emit({0x83, 0xFD, 0x05});                               // cmp ebp,5
+    Emit({0xE9});                                           // jmp zurueck
+    EmitRel(ItemsSite + 6);
+    WriteJump(ItemsSite, ItemsCave);
+
+    // Client: Dasselbe Raster wird auch fuer seine Ausdehnung durchlaufen.
+    const uintptr_t GridSite = Base + kGridLoopRead;
+    const uint8_t GridExpected[] = {0x48, 0x8B, 0x0E, 0x44, 0x8B, 0x41, 0x28};
+    if (memcmp(reinterpret_cast<void*>(GridSite), GridExpected, sizeof(GridExpected)) != 0)
+    {
+        Log("Patch: unerwartete Bytes im Raster");
+        return;
+    }
+    uint8_t* GridCave = Out;
+    Emit({0x48, 0x8B, 0x0E});                               // mov rcx,[rsi]
+    Emit({0x48, 0x85, 0xC9});                               // test rcx,rcx
+    Emit({0x0F, 0x84});                                     // je naechster Eintrag
+    EmitRel(Base + kGridLoopNext);
+    Emit({0x44, 0x8B, 0x41, 0x28});                         // mov r8d,[rcx+28h]
+    Emit({0xE9});                                           // jmp zurueck
+    EmitRel(GridSite + 7);
+    WriteJump(GridSite, GridCave);
+
+    // Client: Eine Figurenkomponente holt im Tick den Controller. Die fremde Figur hat beim Client keinen.
+    const uintptr_t ControllerSite = Base + kComponentControllerRead;
+    const uint8_t ControllerExpected[] = {0x48, 0x8B, 0x07, 0x48, 0x8D, 0x54, 0x24, 0x60};
+    if (memcmp(reinterpret_cast<void*>(ControllerSite), ControllerExpected, sizeof(ControllerExpected)) != 0)
+    {
+        Log("Patch: unerwartete Bytes in der Figurenkomponente");
+        return;
+    }
+    uint8_t* ControllerCave = Out;
+    Emit({0x48, 0x85, 0xFF});                               // test rdi,rdi
+    Emit({0x0F, 0x84});                                     // je Funktionsende
+    EmitRel(Base + kComponentControllerExit);
+    Emit({0x48, 0x8B, 0x07, 0x48, 0x8D, 0x54, 0x24, 0x60}); // mov rax,[rdi]; lea rdx,[rsp+60h]
+    Emit({0xE9});                                           // jmp zurueck
+    EmitRel(ControllerSite + 8);
+    WriteJump(ControllerSite, ControllerCave);
+
+    // Client: Dritte Schleife ueber dieselben Eintraege.
+    const uintptr_t SlotSite = Base + kSlotLoopRead;
+    const uint8_t SlotExpected[] = {0x48, 0x8B, 0x07, 0x48, 0x8B, 0x58, 0x30};
+    if (memcmp(reinterpret_cast<void*>(SlotSite), SlotExpected, sizeof(SlotExpected)) != 0)
+    {
+        Log("Patch: unerwartete Bytes in der Slot-Schleife");
+        return;
+    }
+    uint8_t* SlotCave = Out;
+    Emit({0x48, 0x8B, 0x07});                               // mov rax,[rdi]
+    Emit({0x48, 0x85, 0xC0});                               // test rax,rax
+    Emit({0x0F, 0x84});                                     // je naechster Eintrag
+    EmitRel(Base + kSlotLoopNext);
+    Emit({0x48, 0x8B, 0x58, 0x30});                         // mov rbx,[rax+30h]
+    Emit({0xE9});                                           // jmp zurueck
+    EmitRel(SlotSite + 7);
+    WriteJump(SlotSite, SlotCave);
+
+    // Client: FreezeThreatLevelManager entsteht nur beim Host, beim Aufraeumen der Welt wird er trotzdem benutzt.
+    // Das vorhandene je springt dann direkt ans Funktionsende.
+    const auto ThreatBranch = reinterpret_cast<uint8_t*>(Base + kThreatFreezeBranch);
+    if (ThreatBranch[0] != 0x74 || ThreatBranch[1] != 0x15)
+    {
+        Log("Patch: unerwartete Bytes in ThreatLevel");
+        return;
+    }
+    DWORD ThreatOld = 0;
+    VirtualProtect(ThreatBranch, 2, PAGE_EXECUTE_READWRITE, &ThreatOld);
+    ThreatBranch[1] = 0x6A;
+    VirtualProtect(ThreatBranch, 2, ThreatOld, &ThreatOld);
+    FlushInstructionCache(GetCurrentProcess(), ThreatBranch, 2);
+    ConstructName = Read<int32_t>(FindObject("Construct", "UserWidget") + 0x18);
+    PreConstructName = Read<int32_t>(FindObject("PreConstruct", "UserWidget") + 0x18);
+    const uintptr_t EventSite = Base + kProcessEventNative;
+    const uint8_t EventExpected[] = {0x40, 0x55, 0x56, 0x57, 0x41, 0x54};
+    if (memcmp(reinterpret_cast<void*>(EventSite), EventExpected, sizeof(EventExpected)) != 0)
+    {
+        Log("Patch: unerwartete Bytes in ProcessEvent");
+        return;
+    }
+    OriginalNativeProcessEvent = reinterpret_cast<ProcessEventFn>(Out);
+    Emit({0x40, 0x55, 0x56, 0x57, 0x41, 0x54});             // push rbp,rsi,rdi,r12
+    Emit({0xE9});                                           // jmp zurueck
+    EmitRel(EventSite + 6);
+    uint8_t* EventCave = Out;
+    Emit({0x48, 0xB8});                                     // mov rax,ProcessEventHook
+    const uintptr_t EventHook = reinterpret_cast<uintptr_t>(&ProcessEventHook);
+    memcpy(Out, &EventHook, 8);
+    Out += 8;
+    Emit({0xFF, 0xE0});                                     // jmp rax
+    WriteJump(EventSite, EventCave);
     Log("Patch: aktiv");
 }
 
@@ -465,13 +874,7 @@ LRESULT CALLBACK WndProc(HWND Window, UINT Message, WPARAM WParam, LPARAM LParam
 {
     if (Message == kRunCommand)
     {
-        if (Pending == L"!startrun")
-        {
-            RedirectTravel = true;
-            CallGameInstance("TriggerStartRun");
-            RedirectPendingTravel();
-        }
-        else if (Pending == L"!arm")
+        if (Pending == L"!arm")
         {
             RedirectTravel = true;
         }
@@ -491,16 +894,27 @@ LRESULT CALLBACK WndProc(HWND Window, UINT Message, WPARAM WParam, LPARAM LParam
         {
             ForceEnemyWave();
         }
+        else if (Pending == L"!flow")
+        {
+            TraceRunFlow();
+        }
+        else if (Pending == L"!finish")
+        {
+            FinishMission();
+        }
+        else if (Pending.rfind(L"!round ", 0) == 0)
+        {
+            EndRound(static_cast<uint8_t>(_wtoi(Pending.c_str() + 7)));
+        }
         else
         {
             RunConsoleCommand(Pending);
         }
         return 0;
     }
-    if (Message == WM_TIMER && WParam == kTravelTimer)
+    if (Message == WM_TIMER && WParam == kSessionTimer)
     {
-        if (RedirectTravel)
-            RedirectPendingTravel();
+        TickSession();
         return 0;
     }
     return CallWindowProcW(OriginalWndProc, Window, Message, WParam, LParam);
@@ -539,7 +953,8 @@ DWORD WINAPI Worker(void*)
         Sleep(200);
     }
     OriginalWndProc = reinterpret_cast<WNDPROC>(SetWindowLongPtrW(Window, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(WndProc)));
-    SetTimer(Window, kTravelTimer, 1, nullptr);
+    GameWindow = Window;
+    SetTimer(Window, kSessionTimer, 1000, nullptr);
     Log("bereit");
     PatchRemoteSpawn();
 
