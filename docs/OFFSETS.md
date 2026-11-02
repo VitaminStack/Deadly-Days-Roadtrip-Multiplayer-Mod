@@ -7,6 +7,17 @@ Sie sind hier zum Nachschlagen gesammelt, damit niemand sie erneut suchen muss. 
 RVAs sind relativ zur Image-Base `0x140000000`. Die Patchstellen stehen als Konstanten am Anfang der jeweiligen
 [Spike-Datei](../research/spikes/a-connect/README.md#dateien), ihre Bedeutung in der [Patch-Tabelle](../research/spikes/a-connect/README.md#patches).
 
+## Fingerabdruck der Exe
+
+Daran erkennt die Versionsprüfung in `src/Core/Version.cpp` den Build, Werte aus dem PE-Header.
+
+| Feld | Wert |
+|---|---|
+| `TimeDateStamp` | `0x32C34474` |
+| `SizeOfImage` | `0x0B742000` |
+
+`TimeDateStamp` ist kein Datum, sondern ein Hash des deterministischen Builds.
+
 ## Globale Objekte
 
 | Name | RVA | Hinweis |
