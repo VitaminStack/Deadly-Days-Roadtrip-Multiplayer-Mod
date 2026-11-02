@@ -106,12 +106,12 @@ Ziel: Fakten für Gate G1 sammeln. Spike-Code ist Wegwerfcode und landet nicht i
 - [x] P0 Coop-Ablauf nachvollziehen: Wie ruft das Spiel `SetCoopEnabled` und `SpawnLocalPlayer` auf, wie entsteht P2, und kommt der Code mit einem Controller ohne lokalen Spieler zurecht? P2 ist ein zweiter `ULocalPlayer` aus `SpawnLocalPlayer(1)`. Index-Abfragen fallen ohne `LocalPlayer` sauber zurück, 5 Stellen nicht, siehe [Coop-Ablauf](docs/GAME_ANALYSIS.md#coop-ablauf)
 - [ ] P0 Remote-Controller als P2 testen: `SetCoopEnabled(true)` beim Host, Eintrag in `ActivePlayers` ohne `CreateLocalPlayer`, Wirkung auf Coop-UI und Eingabe-Router prüfen, siehe [Folgerungen](docs/GAME_ANALYSIS.md#coop-ablauf)
 - [ ] P0 Kamera entscheiden: Was macht `AllPlayerFramingCamera`, und wie wirkt sich das Spawning an den Viewport-Rändern bei getrennten Kameras aus?
-- [ ] P1 Technische Andockpunkte klären: geeignete Proxy-DLL, Hook-Weg über `ProcessEvent`, Signaturen für native Funktionen
+- [ ] P1 Technische Andockpunkte klären: geeignete Proxy-DLL, Hook-Weg über `ProcessEvent`, Signaturen für native Funktionen. `andockpunkte`: `version.dll` im isolierten Ladebeispiel und drei eindeutige Byte-Signaturen geprüft; Hook-Wege dokumentiert. Spiel-Laden und neuer Hook-Laufzeittest noch offen, siehe [Architektur](docs/ARCHITECTURE.md#technische-andockpunkte-build-26187885).
 - [ ] P0 Karten-Erzeugung verstehen: Wer startet den `MapGenerator`, und ergibt derselbe Seed dieselbe Karte?
 - [ ] P0 Klären, wie Karte und replizierte Kartenobjekte beim Client ohne Duplikate entstehen
 - [ ] P1 Enemy-Spawning und `PoolManager` verstehen: Wie verhalten sich wiederverwendete Gegner bei Replikation?
 - [ ] P1 Pausen-Logik klären: Was passiert bei Level-up und Inventar, und was muss beim Client ankommen? (Hinweis: `UTimescaleManager`, `bBlocksGameplay`)
-- [ ] P1 Sync-Bedarf der nicht replizierten Komponenten festlegen: `LevelSystemComponent`, Wallets, `RerollCurrency`, `CoopInventoryCoordinatorComponent`
+- [x] P1 Sync-Bedarf der nicht replizierten Komponenten festlegen: `LevelSystemComponent`, Wallets, `RerollCurrency`, `CoopInventoryCoordinatorComponent`. `sync-bedarf`: [Matrix und Kontrollvertrag](docs/SYNC_REQUIREMENTS.md) fuer alle Komponenten, XP, Waehrungen, Rewards, Pausen und UI festgelegt; Architekturentwurf, kein implementierter oder im Netz getesteter Sync. Offene Semantik-/Integrationsfragen sind dort benannt.
 - [ ] P1 Blueprint-Logik auslesen: Was läuft dort bei Spawns, Effekten und Events, und was davon muss der Client sehen?
 - [ ] P1 Pixelsplit über das öffentliche Projekt informieren: Ist offizieller Online-Coop geplant, und wie stehen sie zu der Mod?
 
