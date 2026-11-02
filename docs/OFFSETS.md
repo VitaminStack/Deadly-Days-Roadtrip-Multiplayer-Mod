@@ -39,6 +39,19 @@ Build ist geprüft; vor einem Hook müssen auch die geladenen Originalbytes pass
 | UObject-Standard `IsSupportedForNetworking` | `0x1512250`, Vtable `+0x200`; delegiert an `IsFullNameStableForNetworking` |
 | `CreateItemInstance`, `CreateSlotInstance` | `0x5959700`, `0x5959900`; nur im Diagnoseversuch gehookt, nicht im Teilfix |
 
+### Gegner
+
+Ablauf siehe [Gegner-Spawning und Pooling](GAME_ANALYSIS.md#gegner-spawning-und-pooling).
+
+| Funktion | RVA | Hinweis |
+|---|---|---|
+| Spawn-Schleife des `AEnemySpawner` | `0x58CECE0` | Spielerwahl, `RecycleArray`, Spawn je Gegner |
+| `AEnemySpawner::TrySpawnFreshEnemy` | `0x58CE600` | Exec-Thunk `0x56EE100` |
+| `AEnemySpawner::SpawnSpecificEnemy` | `0x58C8A30` | Exec-Thunk `0x56ED7F0` |
+| `AEnemySpawner::ForceSpawnWave` | `0x58B2780` | Exec-Thunk `0x56E4C90` |
+| Initialisierung des Spawners, leert `RecycleArray` | `0x58A58E0` | VTable `0x94710D8`, Slot 213 |
+| `PlaceCharacterOnGroundAtPosition` | `0x5B12DB0` | Versetzt recycelte Gegner |
+| `PooledDestroy` (Blueprint-Helfer) | `0x5B12E10` | Exec-Thunk `0x5697410` |
 ### Karte
 
 Ablauf siehe [Karte und Seed](GAME_ANALYSIS.md#karte-und-seed).
@@ -111,6 +124,9 @@ Funktionen von `ULocalCoopSubsystem` und ihre Aufrufer, Ablauf siehe [Coop-Ablau
 | `UInventoryItemInstance` | Vtable-RVA; ZeroPivotTile, Turns, ItemData | `0x94B46E8`; `0x28`, `0xD8`, `0xE0` |
 | `UInventoryItemInstance` | Broken, IsInBackpack, IsReward, IsTrash | `0x110`, `0x180`, `0x182`, `0x184` |
 | `APlayerState` | PlayerId (numerischer Replikationsschlüssel, keine Steam-ID) | `0x2AC` |
+| `AActor` | Bits: `bHidden` (`0x58` Bit 7), `bActorEnableCollision` (`0x5D` Bit 0), `bActorIsBeingDestroyed` (`0x5D` Bit 1) | `0x58`, `0x5D` |
+| `AEnemySpawner` | CurrentSpawnedEnemiesCount, MaxSpawnedEnemies, EnemyCap, GameMode, RecycleArray | `0x2F8`, `0x36C`, `0x370`, `0x3C8`, `0x478` |
+| `UPoolManagerSubsystem` | PoolsInternal, AllFactoriesInternal | `0x38`, `0x48` |
 | `AMapGenerator` | MapGenProfile, MapSeed, MaxAttempts, MaxTilePosition, CycleTimeBudget, GenerateOnStart | `0x2B8`, `0x2D8`, `0x2DC`, `0x2E8`, `0x2F8`, `0x2FD` |
 | `AMapGenerator` | GenerationTags, CurrentGenData | `0x300`, `0x320` |
 | `UMapGenerationState` | Seed, BaseSeed, SpawnedActors, HasFailedGeneration, RetryAttemptsRemaining, RandomGeneratorLookup | `0x50`, `0x54`, `0x88`, `0x111`, `0x114`, `0x258` |
