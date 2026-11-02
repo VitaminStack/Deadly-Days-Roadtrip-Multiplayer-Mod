@@ -11,7 +11,7 @@ erlaubt, aber diese Person macht dann das Review.
 
 | Bereich | Ordner | Verantwortlich |
 |---|---|---|
-| Fundament | `src/Loader`, `src/Core`, `tools` | offen |
+| Fundament | `src/Loader`, `src/Mod`, `src/Core`, `tools` | offen |
 | Netzwerk | `src/Net`, `tests` | offen |
 | Spieler und Kampf | `src/Sync/Players`, `src/Sync/Combat`, `src/Game` | offen |
 | Gegner und Welt | `src/Sync/Enemies`, `src/Sync/World`, `src/Game` | offen |

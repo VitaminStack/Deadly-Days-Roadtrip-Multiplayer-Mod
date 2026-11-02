@@ -10,9 +10,9 @@ Den Fortschritt je Phase zeigt das [README](../README.md#fortschritt).
 
 Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 
-**Was läuft.** Zwei Instanzen spielen im Spike dieselbe Mission, mit Bewegung und Schüssen beider Seiten. Der Client erreicht Tag 2. Die Analysen zu Coop, Karte, Gegnern, Kamera und Sync-Bedarf sind abgeschlossen.
+**Was läuft.** Zwei Instanzen spielen im Spike dieselbe Mission, mit Bewegung und Schüssen beider Seiten. Der Client erreicht Tag 2. Die Analysen zu Coop, Karte, Gegnern, Kamera und Sync-Bedarf sind abgeschlossen. Unter `src/` steht das Grundgerüst aus Solution, `Loader`, `Core` und Modul-Einstiegen.
 
-**Was fehlt.** Es gibt keinen kompletten Run, keine Mod unter `src/` und keine CI. Der Sync-Entwurf ist weder umgesetzt noch im Netz getestet. Getestet wurde bisher nur über Loopback auf einem PC, nicht über echtes Internet.
+**Was fehlt.** Es gibt keinen kompletten Run, keine CI und noch keinen Mod-Code mit Spielbezug. Der Loader lief noch nicht im Spiel. Der Sync-Entwurf ist weder umgesetzt noch im Netz getestet. Getestet wurde bisher nur über Loopback auf einem PC, nicht über echtes Internet.
 
 **Geprüft bei dieser Analyse.** Installiert ist weiterhin Build `26187885`. Seit dem letzten erfolgreichen Spike-Build änderte sich nur Dokumentation. Die Unit-Tests und alle relativen Links der Doku sind in Ordnung. Ein Spieltest gehörte nicht dazu.
 
@@ -140,8 +140,8 @@ flowchart TD
     G1{{"Gate G1"}}:::gate
 
     subgraph PH2["Phase 2: Fundament"]
-        L["Loader: Proxy-DLL"]:::open
-        C["Core: Logging, Hooks,<br/>Game Thread, Versionsprüfung"]:::open
+        L["Loader: Proxy-DLL"]:::wip
+        C["Core: Logging, Hooks,<br/>Game Thread, Versionsprüfung"]:::done
         GA["Game: Adapter-Schicht"]:::open
         U["UI: Overlay"]:::open
         W["Deploy-Skript, Tests, CI"]:::open
@@ -193,6 +193,8 @@ flowchart TD
 
     G1 --> PH2 --> PH3 --> PH4 --> G2 --> PH5 --> PH6 --> Z
 
+    classDef done fill:#2e7d32,stroke:#1b5e20,color:#ffffff
+    classDef wip fill:#f9a825,stroke:#b27a00,color:#1a1a1a
     classDef open fill:#eceff1,stroke:#607d8b,color:#1a1a1a
     classDef gate fill:#6a1b9a,stroke:#3e1163,color:#ffffff
     classDef goal fill:#1565c0,stroke:#0d3c78,color:#ffffff
