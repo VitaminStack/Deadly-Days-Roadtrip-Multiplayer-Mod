@@ -5,7 +5,34 @@ Couch-Coop, online also nur über Steam Remote Play, bei dem der Host das Bild s
 jedem Spieler selbst.
 
 **Status:** Phase 1 – Analyse. Es gibt noch keine Mod, aber einen funktionierenden Spike: Zwei Instanzen spielen dieselbe Mission,
-der Client übersteht den Wechsel zu Tag 2 noch nicht. Ob das Vorhaben aufgeht, entscheidet sich an Gate G1 in [TODO.md](TODO.md).
+der Client erreicht Tag 2, die Reise auf Tag 3 endet noch mit einem Host-Absturz. Ob das Vorhaben aufgeht, entscheidet sich an Gate G1 in [TODO.md](TODO.md).
+
+```mermaid
+flowchart TD
+    subgraph A["Klären, ob es geht"]
+        direction LR
+        P0["Setup"]:::wip --> P1["Analyse und Spikes"]:::wip --> G1{{"Gate G1"}}:::gate
+    end
+
+    subgraph B["Spielbar machen"]
+        direction LR
+        P2["Fundament"]:::open --> P3["Verbindung"]:::open --> P4["Vertical Slice"]:::open --> G2{{"Gate G2"}}:::gate
+    end
+
+    subgraph C["Fertigstellen"]
+        direction LR
+        P5["Vollständiger Run"]:::open --> P6["Release"]:::open --> Z(["Mod nutzbar"]):::goal
+    end
+
+    A --> B --> C
+
+    classDef wip fill:#f9a825,stroke:#b27a00,color:#1a1a1a
+    classDef open fill:#eceff1,stroke:#607d8b,color:#1a1a1a
+    classDef gate fill:#6a1b9a,stroke:#3e1163,color:#ffffff
+    classDef goal fill:#1565c0,stroke:#0d3c78,color:#ffffff
+```
+
+Was im Einzelnen noch offen ist, zeigt die [Roadmap als Graph](docs/ROADMAP.md).
 
 | | |
 |---|---|
@@ -19,6 +46,7 @@ der Client übersteht den Wechsel zu Tag 2 noch nicht. Ob das Vorhaben aufgeht, 
 | Dokument | Inhalt |
 |---|---|
 | [TODO.md](TODO.md) | Roadmap, Phasen, Gates und offene Aufgaben |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | Graph: Was bis zur fertigen Mod noch offen ist |
 | [docs/GAME_ANALYSIS.md](docs/GAME_ANALYSIS.md) | Was wir über das Spiel wissen, mit Belegen und Vertrauensgrad |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Technische Optionen, Entscheidungen, Modulgrenzen |
 | [docs/OFFSETS.md](docs/OFFSETS.md) | Offsets und Funktionsadressen des unterstützten Builds |
