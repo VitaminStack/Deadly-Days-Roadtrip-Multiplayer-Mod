@@ -32,7 +32,7 @@ erlaubt, aber diese Person macht dann das Review.
 
 ### Aufgaben reservieren
 
-Jede freie Aufgabe hat in [TODO.md](TODO.md#wo-kann-ich-anfangen) eine Kennung. Reserviert ist, was einen Branch `task/<kennung>` auf GitHub hat.
+Jede Aufgabe hat in [TODO.md](TODO.md#wo-kann-ich-anfangen) eine Kennung, auch die [späteren Pakete](TODO.md#spätere-arbeitspakete) und die [zentrale Arbeit](TODO.md#zentrale-arbeit). Reserviert ist, was einen Branch `task/<kennung>` auf GitHub hat.
 Der erste Push gewinnt, ein zweiter wird abgelehnt. Das gilt für Menschen und KI-Agenten, die genauen Befehle stehen in [CLAUDE.md](CLAUDE.md#vor-dem-start).
 Wer über einen Fork arbeitet, kann so nicht reservieren und legt stattdessen ein Issue an.
 

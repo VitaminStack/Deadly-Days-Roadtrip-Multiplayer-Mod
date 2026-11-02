@@ -22,23 +22,28 @@ Für alle reicht die [Einrichtung](docs/SETUP.md), wenn nichts anderes dabeisteh
 
 **Spielzeit** sagt, wie sehr die Aufgabe laufende Testsitzungen braucht. Pro PC läuft nur eine Sitzung, Aufgaben mit „keine“ oder „wenig“ eignen sich also für parallele Arbeit.
 
-| Kennung | Aufgabe | Art | Spielzeit | Einstieg |
-|---|---|---|---|---|
-| `tag3` | Host-Absturz bei der Reise auf Tag 3 klären, danach Inventar beim Client abschließen | Reverse Engineering, Spike | viel | [Inventar](research/spikes/a-connect/README.md#inventar-ursache-teilfix-und-verbleibende-grenze), [Abstürze auswerten](docs/TESTING.md#abstürze-auswerten), `tools/spike/inventory.py` |
-| `rundenende` | Rundenende, Lager und Routenkarte beim Client | Reverse Engineering, Spike | viel | [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf), `!finish`, `Mission.cpp` |
-| `spawnedplayers` | Remote-Controller sauber in `SpawnedPlayers` eintragen | Spike | mittel | `tools/spike/players.py`, `Players.cpp` |
-| `remote-p2` | Remote-Controller als P2 testen | Spike | mittel | [Coop-Ablauf](docs/GAME_ANALYSIS.md#coop-ablauf) |
-| `karte-client` | Beim Client `MapSeed` und `MapGenProfile` des Hosts setzen, Duplikate zählen und unterdrücken | Spike | mittel | [Karte und replizierte Kartenobjekte](docs/GAME_ANALYSIS.md#karte-und-replizierte-kartenobjekte) |
-| `treffer` | Treffer des Clients direkt belegen | Spike | mittel | `AttributeSet` in [Offsets](docs/OFFSETS.md), Mission über das [Spielmenü](docs/TESTING.md#mission-über-das-spielmenü) |
-| `last` | Last messen (Spike D) | Test | viel | Mission über das Menü, Bandbreite und Framerate bei voller Gegnerzahl |
-| `tunnel` | Steam-Tunnel (Spike E) | C++, ohne Reverse Engineering, Steamworks SDK nötig | wenig | [Transport](docs/ARCHITECTURE.md#transport) |
-| `grundgeruest` | Solution und Grundgerüst für `Loader` und `Core` | C++, ohne Spielwissen | keine | [Phase 0](#phase-0--projekt-setup), [Phase 2](#phase-2--fundament) |
-| `crash-reporter` | Crash-Reporter im Mod- und Testbetrieb zuverlässig abschalten | Reverse Engineering | wenig | [Crash-Reporter](research/spikes/a-connect/README.md#crash-reporter) |
-| `andockpunkte` | Proxy-DLL und Hook-Weg im laufenden Spiel erproben | C++, Spike | mittel | [Andockpunkte](docs/ARCHITECTURE.md#technische-andockpunkte-build-26187885), [Spike](research/spikes/andockpunkte/README.md) |
-| `pausen` | Pausen bei Level-up und Inventar nachweisen | Spike | mittel | [Pausen-Spike](research/spikes/pausen/README.md) |
-| `blueprint-logik` | Kontrollfluss und Events der Blueprints klären | Reverse Engineering | mittel | [Stichprobe](research/spikes/blueprint-logik/README.md) |
-| `trennen` | Client-Absturz beim Trennen klären (`0x5975A6A`) | Reverse Engineering, Spike | mittel | [Abstürze auswerten](docs/TESTING.md#abstürze-auswerten) |
-| `niederlage` | Echte Niederlage und Rückkehr in die `MetaBase`, erst nach `rundenende` | Spike | viel | [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf) |
+**Gruppe** fasst zusammen, was thematisch zusammengehört. Verschiedene Gruppen lassen sich gleichzeitig bearbeiten. Innerhalb einer Gruppe gilt: `niederlage` kommt nach `rundenende`, `remote-p2` nach `spawnedplayers`, weil beide `Players.cpp` ändern.
+
+Die Pakete für die Zeit nach Phase 1 stehen unter [Spätere Arbeitspakete](#spätere-arbeitspakete), alles, was nicht parallel geht, unter [Zentrale Arbeit](#zentrale-arbeit).
+
+| Kennung | Gruppe | Aufgabe | Art | Spielzeit | Einstieg |
+|---|---|---|---|---|---|
+| `tag3` | Run | Host-Absturz bei der Reise auf Tag 3 klären, danach Inventar beim Client abschließen | Reverse Engineering, Spike | viel | [Inventar](research/spikes/a-connect/README.md#inventar-ursache-teilfix-und-verbleibende-grenze), [Abstürze auswerten](docs/TESTING.md#abstürze-auswerten), `tools/spike/inventory.py` |
+| `rundenende` | Run | Rundenende, Lager und Routenkarte beim Client | Reverse Engineering, Spike | viel | [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf), `!finish`, `Mission.cpp` |
+| `spawnedplayers` | Spieler | Remote-Controller sauber in `SpawnedPlayers` eintragen | Spike | mittel | `tools/spike/players.py`, `Players.cpp` |
+| `remote-p2` | Spieler | Remote-Controller als P2 testen | Spike | mittel | [Coop-Ablauf](docs/GAME_ANALYSIS.md#coop-ablauf) |
+| `karte-client` | Welt | Beim Client `MapSeed` und `MapGenProfile` des Hosts setzen, Duplikate zählen und unterdrücken | Spike | mittel | [Karte und replizierte Kartenobjekte](docs/GAME_ANALYSIS.md#karte-und-replizierte-kartenobjekte) |
+| `treffer` | Spieler | Treffer des Clients direkt belegen | Spike | mittel | `AttributeSet` in [Offsets](docs/OFFSETS.md), Mission über das [Spielmenü](docs/TESTING.md#mission-über-das-spielmenü) |
+| `last` | Technik | Last messen (Spike D) | Test | viel | Mission über das Menü, Bandbreite und Framerate bei voller Gegnerzahl |
+| `tunnel` | Technik | Steam-Tunnel (Spike E) | C++, ohne Reverse Engineering, Steamworks SDK nötig | wenig | [Transport](docs/ARCHITECTURE.md#transport) |
+| `crash-reporter` | Technik | Crash-Reporter im Mod- und Testbetrieb zuverlässig abschalten | Reverse Engineering | wenig | [Crash-Reporter](research/spikes/a-connect/README.md#crash-reporter) |
+| `andockpunkte` | Technik | Proxy-DLL und Hook-Weg im laufenden Spiel erproben | C++, Spike | mittel | [Andockpunkte](docs/ARCHITECTURE.md#technische-andockpunkte-build-26187885), [Spike](research/spikes/andockpunkte/README.md) |
+| `pausen` | Logik | Pausen bei Level-up und Inventar nachweisen | Spike | mittel | [Pausen-Spike](research/spikes/pausen/README.md) |
+| `blueprint-logik` | Logik | Kontrollfluss und Events der Blueprints klären | Reverse Engineering | mittel | [Stichprobe](research/spikes/blueprint-logik/README.md) |
+| `trennen` | Run | Client-Absturz beim Trennen klären (`0x5975A6A`) | Reverse Engineering, Spike | mittel | [Abstürze auswerten](docs/TESTING.md#abstürze-auswerten) |
+| `niederlage` | Run | Echte Niederlage und Rückkehr in die `MetaBase`, erst nach `rundenende` | Spike | viel | [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf) |
+| `tick-absturz` | Technik | Einmaligen Client-Absturz im Missions-Tick klären (`0x5A17ACC`) | Reverse Engineering | viel | [Bekannte Abweichungen](research/spikes/a-connect/README.md#bekannte-abweichungen) |
+| `boss-dump` | Technik | SDK in einem Bosskampf dumpen | Reverse Engineering | mittel | [SDK-Erzeugung](docs/GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58) |
 
 **Nicht erneut machen.** Das ist erledigt und dokumentiert:
 
@@ -49,6 +54,109 @@ Für alle reicht die [Einrichtung](docs/SETUP.md), wenn nichts anderes dabeisteh
 - Coop-Ablauf, Karten-Erzeugung, Gegner-Pooling und Kamera-Optionen sind analysiert, siehe [Spielanalyse](docs/GAME_ANALYSIS.md)
 - Weitere Einzelprüfungen in den Inventar-Schleifen: Nach jeder stürzt der Client an der nächsten Stelle ab
 - Eine höhere `NetPriority` des `GameState` hilft nicht gegen den HUD-Hänger, `OnRep_Slots` zurückzuhalten hilft nicht beim Inventar
+
+## Spätere Arbeitspakete
+
+Diese Pakete laufen unabhängig voneinander, sobald ihre Voraussetzung auf `main` ist. Vorher nicht reservieren. Jedes Paket arbeitet in seinem eigenen Ordner.
+In `src/Game` bekommt jedes Paket eine eigene Adapter-Datei, siehe [Arbeitsbereiche](CONTRIBUTING.md#arbeitsbereiche). Die einzelnen Punkte stehen weiter in den Phasen unten.
+
+**Welle 1: nach `grundgeruest`**
+
+| Kennung | Paket | Ordner | Spielzeit |
+|---|---|---|---|
+| `overlay` | Overlay mit Status, Lobby-Knöpfen und Debug-Anzeige | `src/UI` | wenig |
+| `deploy` | Deploy-Skript, das die Mod ins Spiel kopiert | `tools` | wenig |
+| `ci` | Testprojekt und CI für Code ohne SDK-Abhängigkeit | `tests`, `.github` | keine |
+
+**Welle 2: nach Gate G1 und `grundgeruest`**
+
+| Kennung | Paket | Ordner | Spielzeit |
+|---|---|---|---|
+| `steam-lobby` | Lobby erstellen, Freunde einladen, beitreten | `src/Net` | wenig |
+| `transport` | Tunnel aus Spike E als richtiges Modul | `src/Net` | wenig |
+| `net-fehler` | Timeout, Abbruch, Host verlässt das Spiel, erst nach `transport` | `src/Net`, `src/UI` | wenig |
+
+**Welle 3: nach `patches` und `remote-spieler`, Ziel ist Gate G2**
+
+| Kennung | Paket | Ordner | Spielzeit |
+|---|---|---|---|
+| `missionsstart` | Gemeinsamer Missionsstart, gleiche Karte | `src/Sync/World` | viel |
+| `kamera-code` | Entschiedene Kamera umsetzen | `src/Sync/World`, `src/Game` | mittel |
+| `bewegung` | Bewegung, Dash und Blickrichtung | `src/Sync/Players` | mittel |
+| `eingaben` | Eingaben des `CoopInputRouter` vom Remote-Spieler trennen | `src/Sync/Players` | mittel |
+| `kampf` | Waffen, Projektile, Treffer, Schaden, Tod | `src/Sync/Combat` | mittel |
+| `gegnertyp` | Ein Gegnertyp inklusive Spawn und Tod | `src/Sync/Enemies` | mittel |
+
+`bewegung` und `eingaben` teilen sich einen Ordner, deshalb vorher die Dateien absprechen.
+
+**Welle 4: nach Gate G2, die Pakete mit Kontrollkanal erst nach `protokoll`**
+
+| Kennung | Paket | Ordner | Kontrollkanal | Spielzeit |
+|---|---|---|---|---|
+| `gegner-alle` | Alle Gegner, Bosse und Boss-Phasen | `src/Sync/Enemies` | nein | viel |
+| `fortschritt` | Loot, XP, Level-ups, Fähigkeiten, Status-Effekte | `src/Sync/Combat` | ja | viel |
+| `inventar-sync` | Rucksack, Stash, Werkbank, Reward-Queue | `src/Sync/Inventory` | ja | viel |
+| `inventar-ui` | Inventar-UI beim Remote-Spieler, erst nach `inventar-sync` | `src/Sync/Inventory`, `src/UI` | ja | mittel |
+| `pausen-sync` | Pausen und blockierende UI beider Spieler | `src/Sync/Players` | ja | mittel |
+| `tagesablauf` | Tageszyklus, Treibstoff, Missionsziele, Etappen | `src/Sync/World` | ja | viel |
+| `run-ende` | Run-Ende und Rückkehr zur Meta-Basis | `src/Sync/World` | ja | viel |
+| `vfx-sound` | VFX und Sound beim Client, P2 | `src/Sync/Combat` | nein | mittel |
+| `reconnect` | Wiederverbinden während eines Runs, P2 | `src/Net`, `src/Sync` | ja | viel |
+
+`tagesablauf` und `run-ende` teilen sich einen Ordner, deshalb vorher die Dateien absprechen.
+
+**Welle 5: vor dem Release, nach `game-adapter`**
+
+| Kennung | Paket | Ordner | Spielzeit |
+|---|---|---|---|
+| `online-sperren` | Bestenlisten und Erfolge online sperren | `src/Game` | wenig |
+| `telemetrie-aus` | Telemetrie, Bug- und Crash-Reports im Mod-Betrieb abschalten | `src/Game` | wenig |
+| `mod-saves` | Mod-Spielstände vom normalen Spielstand trennen | `src/Game` | mittel |
+| `installer` | Installer oder einfache Installationsanleitung | `tools`, `docs` | keine |
+
+Zwei P2-Punkte haben bewusst noch kein Paket: die Herausforderung `WeeklyMode`, weil zuerst das Team entscheidet, und mehr als 2 Spieler, das kommt erst nach dem Release.
+
+## Zentrale Arbeit
+
+Diese Arbeit eignet sich nicht für paralleles Abarbeiten. Sie legt Schnittstellen fest, greift ineinander oder lässt sich nur als Ganzes testen. Es arbeitet immer nur eine Person oder ein Agent daran, reserviert wird wie gewohnt.
+
+**Technik**
+
+| Kennung | Arbeit | Warum zentral | Blockiert |
+|---|---|---|---|
+| `grundgeruest` | Solution, `Loader` und `Core` mit Logging, Config, Hooks, Dispatcher und Versionsprüfung | Alle Module bauen auf Struktur und Schnittstellen auf | Allen Mod-Code |
+| `game-adapter` | SDK-Einbindung und Muster für die Adapter in `src/Game` | Einheitlicher Aufbau, den alle Adapter übernehmen | `patches`, Welle 3, Welle 5 |
+| `patches` | Spike-Patches als geprüfte Hooks übernehmen | Die Patches greifen ineinander, eine Mission läuft erst mit allen zusammen | Welle 3 |
+| `remote-spieler` | Remote-Spieler als P2 in die Coop-Logik einbinden | Grundlage für jeden Spieler-Sync, baut auf `remote-p2` auf | Welle 3 |
+| `protokoll` | Handshake, Kontrollkanal und Nachrichtenformat | Eine Protokollversion für alle, nach dem [Vertrag](docs/SYNC_REQUIREMENTS.md#kontrollkanal-und-datenmodell) | Welle 4 mit Kontrollkanal |
+| `integration-g2` | Vertical Slice zusammenführen und zehn Minuten zwischen zwei Haushalten testen | Prüft das Zusammenspiel aller Pakete, zwei Menschen nötig | Welle 4 |
+| `integration-run` | Kompletten Run zu zweit über Internet durchspielen und Fehler zuordnen | Prüft das Zusammenspiel aller Pakete | Release |
+| `release` | Versionierung, Abschlusstest und Veröffentlichung | Ein Stand, eine Freigabe | – |
+| `spiel-update` | Bei einem Spiel-Update Offsets, Signaturen und Patches anpassen | Betrifft alles auf einmal, alle Spieltests warten darauf | Alle Spieltests |
+
+**Entscheidungen und Außenwirkung**
+
+Das macht das Team selbst, dafür gibt es keine Reservierung.
+
+| Thema | Blockiert |
+|---|---|
+| Gate G1: Weg A, Weg B oder Stopp | Alles außer `grundgeruest` und Welle 1 |
+| Gate G2: Testrunde abnehmen | Welle 4 |
+| Kamera entscheiden | `kamera-code` |
+| Aufteilung auf die Arbeitsbereiche, danach `CODEOWNERS` | – |
+| Update-Regel und gemeinsame Build-ID | Verlässliche Spieltests |
+| Meta-Fortschritt: Wessen Stand zählt? | `run-ende` |
+| `WeeklyMode` unterstützen oder online sperren | – |
+| Pixelsplit informieren und Rückmeldung berücksichtigen | `release` |
+| Dumper-7-Fix dem Dumper-7-Projekt vorschlagen | – |
+
+**Gemeinsame Dateien**
+
+Diese Dateien nutzen alle, sie bleiben deshalb klein und ändern sich nur in kurzen eigenen PRs:
+
+- `research/spikes/a-connect/Spike.h` und `Main.cpp`
+- Öffentliche Schnittstellen in `src/Core` und `src/Net`
+- Protokollversion und Nachrichtenformat, nur über `protokoll`
 
 ## Grundthemen bis Gate G1
 
