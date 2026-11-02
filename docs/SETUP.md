@@ -1,30 +1,39 @@
 # Entwicklungsumgebung einrichten
 
-Die Solution existiert noch nicht (Phase 0 in [TODO.md](../TODO.md)). Diese Anleitung wird mit dem Projekt ergänzt.
+Die Solution der Mod existiert noch nicht (Phase 0 in [TODO.md](../TODO.md)). Gearbeitet wird bisher mit dem Spike, dafür reicht die Grundausstattung.
 
 ## Benötigt
+
+**Für Analyse und Spike:**
 
 | Werkzeug | Wofür |
 |---|---|
 | Deadly Days: Roadtrip (Steam) | Testen; jeder braucht eine eigene Kopie |
-| Visual Studio 2022 oder neuer mit „Desktopentwicklung mit C++“ | Bauen (x64, Release) |
+| Visual Studio 2022 oder neuer mit „Desktopentwicklung mit C++“ | Spike bauen, `dumpbin` für die Disassembly |
+| Python 3 mit Launcher `py` | Testskripte, nur Standardbibliothek |
 | Git | Versionsverwaltung |
-| Dumper-7 | SDK aus dem laufenden Spiel erzeugen |
+
+**Nur bei Bedarf:**
+
+| Werkzeug | Wofür |
+|---|---|
+| Dumper-7 | SDK zum Nachschlagen von Klassen, später Pflicht für `src/Game` |
 | Steamworks SDK 1.64 | Header für Steam-Funktionen (kostenloser Download für Steam-Partner-Konten, nicht im Repo) |
-| FModel oder repak | Paks und Configs auslesen (nur für Analyse) |
-| Steam-Konto je Testspieler | Online-Tests |
+| FModel oder repak | Paks und Configs auslesen |
+| Steam-Konto je Testspieler | Online-Tests. Für Tests auf einem PC reicht ein Konto |
 
 ## Einrichtung
 
 1. Repo klonen.
-2. `config/Local.props.example` nach `config/Local.props` kopieren und die eigenen Pfade eintragen. Die Datei bleibt lokal.
-3. SDK für die [unterstützte Version](GAME_ANALYSIS.md#unterstützte-spielversion) bereitstellen (siehe unten).
-4. Solution öffnen, `Release|x64` bauen.
-5. Mod mit dem Deploy-Skript aus `tools/` ins Spiel kopieren.
+2. `config/Local.props.example` nach `config/Local.props` kopieren und `GameDir` eintragen. Die Datei bleibt lokal.
+3. Spiel auf die [unterstützte Version](GAME_ANALYSIS.md#unterstützte-spielversion) bringen. Die Testskripte prüfen das.
+4. Mit [docs/TESTING.md](TESTING.md) eine Testsitzung starten. Der Spike wird dabei automatisch gebaut.
 
 ## SDK
 
-Das SDK wird aus dem Spiel erzeugt und liegt außerhalb des Repos, zum Beispiel unter `C:\Dumper-7\<Version>\CppSDK`.
+Der Spike braucht kein SDK, nur die [Offsets](OFFSETS.md). Das SDK hilft beim Nachschlagen von Klassen und wird ab der Mod selbst benötigt.
+
+Es wird aus dem Spiel erzeugt und liegt außerhalb des Repos, zum Beispiel unter `C:\Dumper-7\<Version>\CppSDK`.
 Alle im Team müssen ein SDK **desselben Spiel-Builds** verwenden.
 
 > **Wichtig:** Dumper-7 braucht für UE 5.8 einen Fix und das SDK eine kleine Nacharbeit,
@@ -34,6 +43,7 @@ Das Repo ist öffentlich, darum wird das SDK nicht darüber verteilt. Alle erzeu
 
 ## Testen
 
+Siehe [docs/TESTING.md](TESTING.md). Zwei Instanzen laufen auf einem PC.
+
 - Mod-Logs liegen später neben der Mod-DLL unter `logs/`. Bei Bug-Reports bitte Logs beider Spieler anhängen.
-- Ob zwei Instanzen auf einem PC laufen, ist noch nicht geklärt. Bis dahin sind zwei PCs einzuplanen.
-- Für Tests einen Zweit-Spielstand verwenden oder den eigenen vorher sichern. Der Speicherort wird hier ergänzt, sobald er geklärt ist.
+- Der echte Spielstand liegt unter `%LOCALAPPDATA%\DDSurvivors\Saved\SaveGames`. Die Testskripte nutzen ein eigenes `-UserDir` und berühren ihn nicht.

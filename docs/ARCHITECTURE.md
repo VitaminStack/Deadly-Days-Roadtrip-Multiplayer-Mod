@@ -29,8 +29,8 @@ Die Entscheidung fällt an Gate G1 in [TODO.md](../TODO.md).
 Der Host läuft als Listen-Server, der Client verbindet sich als normaler UE-Client. Die Mod schaltet Replikation frei und
 schließt Lücken.
 
-- **Dafür:** Die Exe enthält RPCs, `OnRep_*`-Funktionen, GAS und den `IpNetDriver`. Bewegung, Attribute und Fähigkeiten gäbe es fast geschenkt.
-- **Dagegen:** Der Code ist vielleicht veraltet. Die Coop-Logik erwartet zwei lokale Spieler auf einem PC. Viele Gegner könnten das Netz überlasten.
+- **Dafür:** Die Exe enthält RPCs, `OnRep_*`-Funktionen, GAS und den `IpNetDriver`. Spieler, Gegner, Projektile, Waffen und Loot haben `bReplicates` gesetzt, auch in ihren Blueprints. Bewegung, Attribute und Fähigkeiten gäbe es fast geschenkt.
+- **Dagegen:** Der Code ist vielleicht veraltet. Die Coop-Logik erwartet zwei lokale Spieler auf einem PC. Viele Gegner könnten das Netz überlasten. Die Blueprints enthalten fast keine eigenen RPCs. XP, Währungen und Reward-Ablauf replizieren nicht. Die Karte entsteht nicht repliziert, Objekte darauf teils schon.
 
 ### Weg B: Eigene Snapshot-Synchronisierung (Plan B)
 
@@ -42,8 +42,10 @@ Spieler, Gegner und Projektile als Stellvertreter-Objekte dar. Der Zustand kommt
 
 ### Hybrid
 
-Beide Wege schließen sich nicht aus. Denkbar ist native Replikation für Spieler und GAS, dazu gebündelte Snapshots für die Gegnermassen.
-Die Modulgrenzen unten lassen das zu.
+Beide Wege schließen sich nicht aus. Denkbar ist native Replikation als Grundlage, dazu eigener Sync-Code für das, was nicht repliziert:
+XP, Währungen, Reward-Ablauf, Pausen und Effekte aus Blueprints. Gebündelte Snapshots kämen nur dazu, falls die Gegnermassen das Netz
+überlasten. Nach der Laufzeitprüfung ist das der wahrscheinlichste Ausgang, mit Weg A als deutlich größerem Anteil. Die Modulgrenzen unten
+lassen das zu.
 
 ## Transport
 

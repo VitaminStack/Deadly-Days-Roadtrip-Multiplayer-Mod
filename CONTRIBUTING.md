@@ -54,7 +54,7 @@ docs: update RPC list for build 26187885
 - Eine Sache pro PR. Lieber drei kleine als einen großen.
 - Sagen, wie getestet wurde: Spiel-Build, ein oder zwei PCs, was funktioniert hat.
 - Änderungen am Netzwerkprotokoll erhöhen die Protokollversion.
-- Neue Erkenntnisse über das Spiel gehören in `docs/GAME_ANALYSIS.md`.
+- Neue Erkenntnisse über das Spiel gehören in `docs/GAME_ANALYSIS.md`, auch gescheiterte Versuche. Wohin was gehört, steht in [docs/TESTING.md](docs/TESTING.md#ergebnisse-festhalten).
 
 ## Regeln im Code
 
@@ -83,10 +83,10 @@ Das Spiel wird noch aktiv gepatcht, und jedes Update kann Offsets und Klassen ä
 
 1. In Steam, falls möglich, unter Eigenschaften → Updates „nur beim Start aktualisieren“ wählen und das Spiel während der Entwicklung nicht unnötig starten.
 2. Nach einem Update meldet die RE-Person das im Team, erzeugt ein neues SDK und testet die Hooks auf einem Branch.
-3. Build-ID und Exe-Version in [docs/GAME_ANALYSIS.md](docs/GAME_ANALYSIS.md#unterstützte-spielversion) sowie die Versionsprüfung in `Core` aktualisieren.
+3. Build-ID und Exe-Version in [docs/GAME_ANALYSIS.md](docs/GAME_ANALYSIS.md#unterstützte-spielversion), [docs/OFFSETS.md](docs/OFFSETS.md), `$SupportedBuild` in `tools/spike/Common.ps1` sowie die Versionsprüfung in `Core` aktualisieren.
 4. Erst dann ziehen alle anderen nach, weil alle denselben Build brauchen.
 
 ## Fehler melden
 
 Das Issue-Template „Bug“ verwenden und Logs beider Spieler anhängen. Mod-Fehler **nie** über die Bug-Report-Funktion im Spiel oder an
-Pixelsplit melden. Falls sich nach einem Absturz mit Mod oder Dumper der Crash-Reporter meldet, nichts absenden. Vor Fehlermeldungen im Spiel-Forum die Mod deaktivieren und den Fehler ohne Mod nachstellen.
+Pixelsplit melden. Tests mit dem Spike nur über `tools/spike/Start-Session.ps1` starten, weil es den Crash-Reporter abfängt. Falls sich nach einem Absturz mit Mod oder Dumper der Crash-Reporter meldet, nichts absenden. Vor Fehlermeldungen im Spiel-Forum die Mod deaktivieren und den Fehler ohne Mod nachstellen.

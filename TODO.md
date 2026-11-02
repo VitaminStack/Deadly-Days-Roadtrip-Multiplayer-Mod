@@ -1,7 +1,6 @@
 # TODO und Roadmap
 
-Sobald das GitHub-Repo steht, werden die Aufgaben als Issues angelegt, und GitHub Issues/Projects ist die führende Liste.
-Diese Datei hält dann nur noch Phasen und Gates fest.
+Diese Datei ist die führende Aufgabenliste. Wer etwas übernimmt, legt dazu ein GitHub-Issue an und weist es sich zu, damit niemand doppelt arbeitet.
 
 **Vorgehen:** Das größte Risiko ist die Frage, ob native UE-Replikation im Spiel überhaupt noch funktioniert. Deshalb
 wird das zuerst mit kleinen Spikes geprüft (Phase 1), bevor echte Mod-Infrastruktur entsteht.
@@ -11,6 +10,63 @@ wird das zuerst mit kleinen Spikes geprüft (Phase 1), bevor echte Mod-Infrastru
 | P0 | Blockiert andere Aufgaben |
 | P1 | Nötig für das nächste Gate |
 | P2 | Wichtig, aber später |
+| Optional | Feinschliff, erst wenn die Mod lauffähig ist |
+
+**Fokus: erst spielbar.** Vorrang hat, dass zwei Spieler einen Run durchspielen können. Kleine Fehler, die das nicht verhindern, werden nur unter
+[Optionale Optimierungen](#optionale-optimierungen) festgehalten und erst behoben, wenn die Mod lauffähig ist.
+
+## Wo kann ich anfangen?
+
+Diese Aufgaben lassen sich unabhängig voneinander angehen. Oben stehen die, die die Spielbarkeit am meisten blockieren.
+Für alle reicht die [Einrichtung](docs/SETUP.md), wenn nichts anderes dabeisteht.
+
+| Aufgabe | Art | Einstieg |
+|---|---|---|
+| Inventar beim Client lösen | Reverse Engineering, Spike | [Offener Client-Absturz](research/spikes/a-connect/README.md#offener-client-absturz), [Abstürze auswerten](docs/TESTING.md#abstürze-auswerten) |
+| Rundenende, Lager und Routenkarte beim Client | Reverse Engineering, Spike | [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf), `!finish` |
+| Remote-Controller sauber in `SpawnedPlayers` eintragen | Spike | `tools/spike/players.py`, Spike-Patch für `0x58CEDC7` |
+| Coop-Ablauf: `SetCoopEnabled`, `SpawnLocalPlayer`, Controller ohne lokalen Spieler | Reverse Engineering, SDK nötig | [Thema 4](#grundthemen-bis-gate-g1) |
+| Karten-Erzeugung: Wer startet den `MapGenerator`, ergibt derselbe Seed dieselbe Karte? | Reverse Engineering | `CurrentRunInfo` in [Offsets](docs/OFFSETS.md), `tools/spike/objects.py` zählt `MapTile` |
+| Treffer des Clients direkt belegen | Spike | `AttributeSet` in [Offsets](docs/OFFSETS.md), Mission über das [Spielmenü](docs/TESTING.md#mission-über-das-spielmenü) |
+| Last messen (Spike D) | Test | Mission über das Menü, Bandbreite und Framerate bei voller Gegnerzahl |
+| Steam-Tunnel (Spike E) | C++, ohne Reverse Engineering, Steamworks SDK nötig | [Transport](docs/ARCHITECTURE.md#transport) |
+| Solution und Grundgerüst für `Loader` und `Core` | C++, ohne Spielwissen | [Phase 0](#phase-0--projekt-setup), [Phase 2](#phase-2--fundament) |
+
+**Nicht erneut machen.** Das ist erledigt und dokumentiert:
+
+- Iris oder klassisch: klassische Replikation, siehe [Spike](research/spikes/a-connect/README.md#ergebnis)
+- Offsets und Patches für Build `26187885`, siehe [Offsets](docs/OFFSETS.md)
+- Verbindung, Spawn, Bewegung und Schießen laufen mit den Patches, siehe [Spike](research/spikes/a-connect/README.md#patches)
+- Weg vom Menü in die Mission, siehe [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf)
+- Weitere Einzelprüfungen in den Inventar-Schleifen: Nach jeder stürzt der Client an der nächsten Stelle ab
+- Eine höhere `NetPriority` des `GameState` hilft nicht gegen den HUD-Hänger, `OnRep_Slots` zurückzuhalten hilft nicht beim Inventar
+
+## Grundthemen bis Gate G1
+
+Diese Themen müssen geklärt sein, bevor die eigentliche Umsetzung beginnt. Die einzelnen Aufgaben stehen in [Phase 1](#phase-1--analyse-und-spikes).
+Die Reihenfolge ist die Arbeitsreihenfolge: Thema 1 entscheidet über den Weg, die übrigen legen fest, wie gebaut wird.
+
+| # | Thema | Geklärt, wenn | Stand |
+|---|---|---|---|
+| 1 | **Netzwerkcode** | Zwei Instanzen sind in derselben Welt, Bewegung und Schießen funktionieren, Iris oder klassisch steht fest | Technisch geklärt: klassische Replikation, zwei Spieler in derselben Mission, Bewegung beidseitig, Schüsse des Clients wirken beim Host (indirekt belegt). Nur mit Patches, siehe [Ergebnis](research/spikes/a-connect/README.md) |
+| 2 | **Run-Ablauf** | Der Weg vom Menü in die Mission und zurück ist beschrieben, inklusive dessen, was beim Client laufen darf | Weitgehend geklärt, siehe [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf). Hinweg läuft mit Patches, der Client überlebt Tag 2 noch nicht. Offen: echte Niederlage und Rückkehr in die `MetaBase` |
+| 3 | **Karte** | Beide Seiten haben dieselbe Karte, ohne doppelte Objekte | Seed gefunden. Im echten Ablauf ist die Karte des Clients eine andere (17 statt 144 bis 167 `MapTile`). Bodenkacheln sind nicht repliziert und in der `MetaBase` je Seite verschieden, das bricht die Client-Bewegung ohne Fix |
+| 4 | **Remote-Spieler** | Ein Netzwerkspieler funktioniert in der Coop-Logik als P2 | Andockpunkte bekannt, Ablauf offen |
+| 5 | **Kamera und Sichtbereich** | Gemeinsame oder getrennte Kamera ist entschieden, und das Gegner-Spawning passt dazu | Gemeinsame Kamera läuft beim Client mit Patch. Entscheidung offen |
+| 6 | **Spiellogik ohne Replikation** | Für XP, Währungen, Rewards, Pausen und UI ist je ein Sync-Weg festgelegt | Lücken bekannt, Lösung offen |
+| 7 | **Technische Andockpunkte** | Proxy-DLL gewählt, Hook-Weg über `ProcessEvent` und Signaturen an einem Beispiel erprobt | Offen |
+
+## Optionale Optimierungen
+
+Bekannte kleine Fehler, die die Spielbarkeit nicht verhindern. Sie werden angegangen, sobald die Mod lauffähig ist.
+Rückt ein Punkt die Spielbarkeit doch in Gefahr, wandert er in die passende Phase.
+
+- [ ] Klären, warum der Host Remote-Figuren ohne clientautoritative Position fast nicht bewegt. Clientautoritative Position reicht für den Betrieb
+- [ ] `MovementSpeed` und Beschleunigung: Upgrades kommen beim Client nicht an (Host 819 und 2866, Client 600 und 2048)
+- [ ] Gegner-Zähler weichen ab (30 beim Host, 48 beim Client), vermutlich bleiben tote Gegner als Objekte stehen
+- [ ] Blut- und Treffereffekte erscheinen nur beim Host
+- [ ] Tutorial-Hinweise laufen auf beiden Seiten getrennt
+- [ ] Host zeigt an Tag 2 ein anderes Figurenporträt
 
 ## Phase 0 – Projekt-Setup
 
@@ -18,10 +74,11 @@ Ziel: Alle können auf demselben Spielstand und mit derselben Toolchain arbeiten
 
 - [x] P0 Öffentliches GitHub-Repo anlegen
 - [ ] P0 Freunde als Mitwirkende einladen
-- [ ] P0 Branch-Schutz für `main` aktivieren: PR und ein Review verpflichtend
+- [x] P0 Branch-Schutz für `main` aktivieren
 - [ ] P0 Team-Aufteilung auf die [Arbeitsbereiche](CONTRIBUTING.md#arbeitsbereiche) festlegen, danach `CODEOWNERS` anlegen
 - [x] P0 SDK für UE 5.8 erstellen. Dumper-7 brauchte dafür einen Fix, siehe [Analyse](docs/GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58)
-- [ ] P0 SDK zusätzlich während einer laufenden Mission dumpen, damit die Blueprint-Klassen enthalten sind
+- [x] P0 SDK zusätzlich während einer laufenden Mission dumpen, damit die Blueprint-Klassen enthalten sind
+- [ ] P2 SDK auch in einem Bosskampf dumpen, weil diese Klassen im Mission-Dump weitgehend fehlen
 - [ ] P1 Dumper-7-Fix dem Dumper-7-Projekt vorschlagen, damit alle Helfer ihn ohne eigenen Patch bekommen
 - [ ] P0 Visual-Studio-Solution mit einem Projekt je Modul anlegen, `config/Local.props` einbinden
 - [ ] P1 Festlegen, wie das Team mit Spiel-Updates umgeht ([Update-Regel](CONTRIBUTING.md#spiel-updates))
@@ -33,24 +90,39 @@ Ziel: Fakten für Gate G1 sammeln. Spike-Code ist Wegwerfcode und landet nicht i
 
 **Analyse**
 
-- [ ] P0 Config aus den Paks lesen (FModel oder repak): `NetDriverDefinitions`, `DefaultPlatformService`, Iris-Einstellungen, Standard-Maps
+- [x] P0 Config aus den Paks lesen: `IpNetDriver`, `DefaultPlatformService=Steam`, Standard-Maps, siehe [Analyse](docs/GAME_ANALYSIS.md#konfiguration)
 - [x] P0 RPC-Liste aus dem neuen Dump gegen den Juli-Dump vergleichen: 3 RPCs entfernt, keiner hinzugekommen
-- [ ] P0 Replizierte Properties und `bReplicates` der Kernklassen erfassen (Character, Enemy, Projektil, Loot, GameState)
-- [ ] P1 Coop-Ablauf nachvollziehen: `LocalCoopSubsystem`, wie P2 entsteht, was `CoopAuthority` tatsächlich regelt
-- [ ] P1 Karten-Erzeugung verstehen: Ist die Map aus einem Seed reproduzierbar (`Map_Generation`)?
-- [ ] P1 Enemy-Spawning und `PoolManager` verstehen: Wie viele Actors, wie gepoolt?
-- [ ] P1 Pausen-Logik klären: Was passiert bei Level-up und Inventar? (Hinweis: `bCoopBlocksGameplay`)
-- [ ] P2 Blueprint-Anteil abschätzen: Welche Spiellogik liegt nur in Blueprints statt in nativem Code?
+- [x] P0 Replizierte Properties und `bReplicates` der Kernklassen erfassen: Der Kern repliziert, siehe [Analyse](docs/GAME_ANALYSIS.md#replikation-zur-laufzeit)
+- [x] P0 `bReplicates` der Blueprint-Actors prüfen: 218 von 482 Blueprint-Actor-Klassen replizieren, vor allem über ihre native Basisklasse
+- [x] P1 Klären, ob zur Laufzeit Iris oder die klassische Replikation aktiv ist: klassisch mit `ActorChannel`
+- [x] P0 Run-Ablauf nachvollziehen: `TriggerStartRun`, `FinalizeRunStart`, Ladebildschirm und Wechsel zwischen den Etappen, siehe [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf)
+- [ ] P0 Inventar beim Client lösen: `Slots` und `MyItems` enthalten beim zweiten Kartenwechsel `null`-Einträge, der Client stürzt an wechselnden Stellen ab. Ohne Lösung gibt es keinen Run über mehrere Tage
+- [ ] P0 Rundenende, Lager und Routenkarte beim Client abbilden, bisher spielt er nach dem Missionsende einfach weiter
+- [ ] P0 Neue Remote-Controller nach jedem Kartenwechsel sauber in `SpawnedPlayers` eintragen, der Spike ersetzt den Eintrag nur direkt
+- [ ] P1 Client-Absturz beim Trennen klären (`0x5975A6A`), wenn der Host ins Hauptmenü geht
+- [ ] P1 Echte Niederlage nachvollziehen: Alle Spieler tot, Rundenende, Rückkehr in die `MetaBase`, dabei den Client mitnehmen
+- [ ] P0 Coop-Ablauf nachvollziehen: Wie ruft das Spiel `SetCoopEnabled` und `SpawnLocalPlayer` auf, wie entsteht P2, und kommt der Code mit einem Controller ohne lokalen Spieler zurecht?
+- [ ] P0 Kamera entscheiden: Was macht `AllPlayerFramingCamera`, und wie wirkt sich das Spawning an den Viewport-Rändern bei getrennten Kameras aus?
+- [ ] P1 Technische Andockpunkte klären: geeignete Proxy-DLL, Hook-Weg über `ProcessEvent`, Signaturen für native Funktionen
+- [ ] P0 Karten-Erzeugung verstehen: Wer startet den `MapGenerator`, und ergibt derselbe Seed dieselbe Karte?
+- [ ] P0 Klären, wie Karte und replizierte Kartenobjekte beim Client ohne Duplikate entstehen
+- [ ] P1 Enemy-Spawning und `PoolManager` verstehen: Wie verhalten sich wiederverwendete Gegner bei Replikation?
+- [ ] P1 Pausen-Logik klären: Was passiert bei Level-up und Inventar, und was muss beim Client ankommen? (Hinweis: `UTimescaleManager`, `bBlocksGameplay`)
+- [ ] P1 Sync-Bedarf der nicht replizierten Komponenten festlegen: `LevelSystemComponent`, Wallets, `RerollCurrency`, `CoopInventoryCoordinatorComponent`
+- [ ] P1 Blueprint-Logik auslesen: Was läuft dort bei Spawns, Effekten und Events, und was davon muss der Client sehen?
 - [ ] P1 Pixelsplit über das öffentliche Projekt informieren: Ist offizieller Online-Coop geplant, und wie stehen sie zu der Mod?
 
 **Spikes**
 
-- [ ] P0 **Spike A – Verbindung:** Host über `?listen`, zweite Instanz per IP (LAN, Tailscale oder ZeroTier) verbinden. Kommen beide in dieselbe Welt?
-- [ ] P0 **Spike B – Spieler:** Sieht jeder den anderen Character, funktionieren Bewegung und Schießen?
-- [ ] P1 **Spike C – Mission:** Lädt eine prozedurale Mission beim Client identisch?
+- [x] P0 **Spike A – Verbindung:** Beide kommen in dieselbe Welt, auch auf einem PC, siehe [Ergebnis](research/spikes/a-connect/README.md)
+- [x] P0 **Spike B – Spieler:** Client stabil in der Mission, Bewegung beidseitig, Client-Schüsse wirken beim Host, siehe [Ergebnis](research/spikes/a-connect/README.md)
+- [ ] P0 Treffer des Clients direkt belegen, etwa über die Lebenspunkte eines Gegners, bisher nur aus Sterbeort und Reichweite geschlossen
+- [x] P1 Mission über den echten Weg durch das Spielmenü mit den Patches starten, siehe [Ergebnis](research/spikes/a-connect/README.md)
+- [ ] P0 Crash-Reporter im Mod- und Testbetrieb zuverlässig abschalten, bisher hilft nur ein Skript. Testabstürze dürfen nicht bei Pixelsplit landen
+- [ ] P1 **Spike C – Mission:** Lädt eine prozedurale Mission beim Client identisch? Direkt geladen: 17 `MapTile` je Seite und gleiches Bild am Start, kein Vergleich der ganzen Karte
 - [ ] P1 **Spike D – Last:** Bandbreite und Framerate bei voller Gegnerzahl messen
 - [ ] P1 **Spike E – Tunnel:** Spielverkehr über Steam P2P tunneln (siehe [Architektur](docs/ARCHITECTURE.md#transport))
-- [ ] P1 Testaufbau klären: Laufen zwei Instanzen auf einem PC, oder braucht jeder Test zwei PCs?
+- [x] P1 Testaufbau klären: Zwei Instanzen laufen auf einem PC unter demselben Steam-Konto, je mit eigenem `-UserDir=`
 
 ### Gate G1 – Technikentscheidung
 
@@ -130,5 +202,6 @@ Ziel: Ein kompletter Run ist zu zweit online spielbar.
 | Logik liegt in Blueprints ohne Netzwerkcode | Viele Stellen brauchen eigene Hooks | Blueprint-Anteil früh abschätzen |
 | Coop setzt zwei lokale Spieler voraus | Remote-P2 passt nicht in die Coop-Logik | Coop-Ablauf in Phase 1 analysieren |
 | Viele Gegner überlasten das Netzwerk | Laggy oder unspielbar | Spike D; Gegner gebündelt synchronisieren |
+| Karte entsteht lokal, Objekte darauf replizieren | Doppelte Objekte oder abweichende Karte beim Client | Spike C; Seed übertragen, Generator oder Replikation gezielt einschränken |
 | Spiel-Updates (seit 1.0 am 29.10.2026 aktiv gepatcht) | Hooks und SDK veralten | Versionsprüfung, Update-Regel, Adapter-Schicht |
 | Offizieller Online-Coop erscheint | Mod wird überflüssig | Bei Pixelsplit nachfragen, bevor viel Aufwand fließt |
