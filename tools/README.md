@@ -2,6 +2,16 @@
 
 Skripte für den Alltag. Pfade kommen aus `config/Local.props`, nie fest im Skript.
 
+## tasks.py
+
+Reserviert Aufgaben aus [TODO.md](../TODO.md#wo-kann-ich-anfangen), damit niemand doppelt arbeitet, siehe [Aufgaben reservieren](../CONTRIBUTING.md#aufgaben-reservieren).
+
+| Befehl | Aufgabe |
+|---|---|
+| `py tools/tasks.py list` | Alle Kennungen mit Status aus Branches und Pull Requests |
+| `py tools/tasks.py claim <kennung> <name>` | Worktree, Branch `task/<kennung>`, Push und Draft-PR |
+| `py tools/tasks.py release <kennung>` | Draft-PR schließen, Branch löschen, sauberen Worktree entfernen |
+
 ## spike/
 
 Bauen und Testen des Spikes, die Anleitung steht in [docs/TESTING.md](../docs/TESTING.md). Laufzeitdateien landen in
