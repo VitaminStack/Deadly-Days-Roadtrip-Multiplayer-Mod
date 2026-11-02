@@ -81,7 +81,7 @@ flowchart LR
         RE["Rundenende, Lager,<br/>Routenkarte<br/>(rundenende)"]:::wip
         NI["Echte Niederlage,<br/>Rückkehr in die MetaBase<br/>(niederlage)"]:::open
         TR["Client-Absturz<br/>beim Trennen<br/>(trennen)"]:::open
-        MT["Einmaliger Absturz<br/>im Missions-Tick"]:::open
+        MT["Einmaliger Absturz<br/>im Missions-Tick"]:::done
         RE --> NI
     end
 
