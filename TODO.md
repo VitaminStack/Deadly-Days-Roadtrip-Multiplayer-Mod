@@ -98,19 +98,19 @@ Ziel: Fakten für Gate G1 sammeln. Spike-Code ist Wegwerfcode und landet nicht i
 - [x] P0 `bReplicates` der Blueprint-Actors prüfen: 218 von 482 Blueprint-Actor-Klassen replizieren, vor allem über ihre native Basisklasse
 - [x] P1 Klären, ob zur Laufzeit Iris oder die klassische Replikation aktiv ist: klassisch mit `ActorChannel`
 - [x] P0 Run-Ablauf nachvollziehen: `TriggerStartRun`, `FinalizeRunStart`, Ladebildschirm und Wechsel zwischen den Etappen, siehe [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf)
-- [ ] P0 Inventar beim Client lösen: `Slots` und `MyItems` enthalten beim zweiten Kartenwechsel `null`-Einträge, der Client stürzt an wechselnden Stellen ab. Ohne Lösung gibt es keinen Run über mehrere Tage
+- [ ] P0 Inventar beim Client lösen: Teilfix für fehlende Unterobjekt-Replikation in `Inventory.cpp`, ohne Null-Schutzsprünge zweimal bis Tag 2 getestet; Inventare beider Spieler vollständig und replizierte Werte identisch. Weiterreise auf Tag 3 endet noch beim Host im Callback `0x57CC395`/`0x57CC398`, Zusammenhang ungeklärt; kein kompletter Run belegt. Siehe [Inventar-Untersuchung](docs/GAME_ANALYSIS.md#inventar-unterobjekte-untersuchung-inventar)
 - [ ] P0 Rundenende, Lager und Routenkarte beim Client abbilden, bisher spielt er nach dem Missionsende einfach weiter
 - [ ] P0 Neue Remote-Controller nach jedem Kartenwechsel sauber in `SpawnedPlayers` eintragen, der Spike ersetzt den Eintrag nur direkt
 - [ ] P1 Client-Absturz beim Trennen klären (`0x5975A6A`), wenn der Host ins Hauptmenü geht
 - [ ] P1 Echte Niederlage nachvollziehen: Alle Spieler tot, Rundenende, Rückkehr in die `MetaBase`, dabei den Client mitnehmen
 - [ ] P0 Coop-Ablauf nachvollziehen: Wie ruft das Spiel `SetCoopEnabled` und `SpawnLocalPlayer` auf, wie entsteht P2, und kommt der Code mit einem Controller ohne lokalen Spieler zurecht?
 - [ ] P0 Kamera entscheiden: Was macht `AllPlayerFramingCamera`, und wie wirkt sich das Spawning an den Viewport-Rändern bei getrennten Kameras aus?
-- [ ] P1 Technische Andockpunkte klären: geeignete Proxy-DLL, Hook-Weg über `ProcessEvent`, Signaturen für native Funktionen
+- [ ] P1 Technische Andockpunkte klären: geeignete Proxy-DLL, Hook-Weg über `ProcessEvent`, Signaturen für native Funktionen. `andockpunkte`: `version.dll` im isolierten Ladebeispiel und drei eindeutige Byte-Signaturen geprüft; Hook-Wege dokumentiert. Spiel-Laden und neuer Hook-Laufzeittest noch offen, siehe [Architektur](docs/ARCHITECTURE.md#technische-andockpunkte-build-26187885).
 - [ ] P0 Karten-Erzeugung verstehen: Wer startet den `MapGenerator`, und ergibt derselbe Seed dieselbe Karte?
 - [ ] P0 Klären, wie Karte und replizierte Kartenobjekte beim Client ohne Duplikate entstehen
 - [ ] P1 Enemy-Spawning und `PoolManager` verstehen: Wie verhalten sich wiederverwendete Gegner bei Replikation?
 - [ ] P1 Pausen-Logik klären: Was passiert bei Level-up und Inventar, und was muss beim Client ankommen? `pausen`: SDK und Tutorialpause gemessen; lokale UI-Sitzung fehlt beim Client, Weltpause ist auf beiden vorhanden. Inventar- und Level-up-Methodentests noch ohne isolierten Ablaufnachweis, siehe [Pausen-Spike](research/spikes/pausen/README.md).
-- [ ] P1 Sync-Bedarf der nicht replizierten Komponenten festlegen: `LevelSystemComponent`, Wallets, `RerollCurrency`, `CoopInventoryCoordinatorComponent`
+- [x] P1 Sync-Bedarf der nicht replizierten Komponenten festlegen: `LevelSystemComponent`, Wallets, `RerollCurrency`, `CoopInventoryCoordinatorComponent`. `sync-bedarf`: [Matrix und Kontrollvertrag](docs/SYNC_REQUIREMENTS.md) fuer alle Komponenten, XP, Waehrungen, Rewards, Pausen und UI festgelegt; Architekturentwurf, kein implementierter oder im Netz getesteter Sync. Offene Semantik-/Integrationsfragen sind dort benannt.
 - [ ] P1 Blueprint-Logik auslesen: Was läuft dort bei Spawns, Effekten und Events, und was davon muss der Client sehen?
 - [ ] P1 Pixelsplit über das öffentliche Projekt informieren: Ist offizieller Online-Coop geplant, und wie stehen sie zu der Mod?
 

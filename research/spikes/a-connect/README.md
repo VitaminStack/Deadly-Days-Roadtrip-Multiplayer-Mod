@@ -24,7 +24,7 @@ Je Thema eine Datei, damit parallele Arbeit nicht in dieselbe Datei läuft. Neue
 | `Players.cpp` | Spawn der Remote-Spieler, `SpawnedPlayers`, clientautoritative Position |
 | `Client.cpp` | Client-Stellen ohne Host-Objekte: Refresh, Attribute, Figurenkomponente, `ThreatLevel` |
 | `Camera.cpp` | Gemeinsame Kamera und Bodenfix |
-| `Inventory.cpp` | Schleifen über `MyItems` und `Slots` |
+| `Inventory.cpp` | Netzwerk-Support für Items/Slots und klassischer Unterobjekt-Replikationspfad je neuer Inventarkomponente |
 | `Travel.cpp` | Umleitung der Reise in `servertravel` |
 | `Widgets.cpp` | Zurückhalten der HUD bis zum `GameState` |
 | `Mission.cpp` | Gegnerwelle, Missionsende, Rundenende |
@@ -47,7 +47,7 @@ Je Thema eine Datei, damit parallele Arbeit nicht in dieselbe Datei läuft. Neue
 | Gegner | Mit `ForceSpawnWave` beim Host gestartet: Host `Authority`, Client `SimulatedProxy`, Bewegung sichtbar auf beiden Seiten |
 | Schießen | Schüsse des Clients sind beim Host sichtbar. Neben der Client-Figur sterben beim Host Gegner, die Host-Figur ist dort außer Reichweite |
 | Mission über das Spielmenü | Klappt mit Umleitung der Reise, beide in DDDynamic_Map, Gegner laufen von selbst. Karten verschieden: 144 bis 167 MapTile beim Host, 17 beim Client |
-| Missionsende, Routenkarte, Tag 2 | Host klappt. Client stürzt beim Ankommen an Tag 2 ab, Ursache im Inventar, siehe [Run-Ablauf](../../../docs/GAME_ANALYSIS.md#run-ablauf) |
+| Missionsende, Routenkarte, Tag 2 | Mit Inventar-Teilfix zweimal erreicht; vollständige replizierte Inventare auf beiden Seiten. Weiterreise auf Tag 3 endet noch mit Host-Absturz, siehe unten |
 | Pausemenü ins Hauptmenü | Host klappt, Client stürzt beim Trennen bei `0x5975A6A` ab |
 
 Beim Host laufen in der `MetaBase` rund 150 bis 300 `ActorChannel`, und es gibt keine `EngineReplicationBridge`-Instanz. Aktiv ist also die klassische Replikation, nicht Iris.
@@ -81,7 +81,8 @@ Der Host-Absturz war immer derselbe Callstack. Das Spiel fragt beim Spawnen `Get
 | Beide | `0x160C040` | `WP_UI` wartet in `PreConstruct` auf den `GameState` | `ProcessEvent`-Hook hält `PreConstruct` und `Construct` zurück, bis er da ist |
 | Client | `0x593DAF3` | `ThreatLevel` nutzt beim Aufräumen `FreezeThreatLevelManager`, den nur der Host hat | Vorhandenes `je` springt ans Funktionsende |
 | Client | `0x58393CC` | Figurenkomponente erwartet einen Controller, die fremde Figur hat keinen | Funktion verlassen |
-| Client | `0x5963604`, `0x5A7E060`, `0x5965660` | Schleifen über `MyItems` und `Slots` lesen `null`-Einträge | Eintrag überspringen. Reicht nicht, siehe unten |
+| Beide | Vtables `0x939CE08`, `0x94B46E8`, jeweils `+0x200` | Slots/Items benutzen den UObject-Standard für Netzwerk-Support | Nur für diese Klassen dynamische Netzwerkobjekte erlauben |
+| Beide | Vtable `0x94BA3F0`, `+0x3D8` | Inventarkomponente nutzt registrierte Liste statt ihres vorhandenen `ReplicateSubobjects` | In `ReadyForReplication` Bit 6 bei `+0x98` löschen, dann ursprüngliche Funktion aufrufen |
 
 Die Zuordnung der Funktionen stammt aus der Disassembly ohne Symbole. Die Kamera ist über Offsets im SDK belegt, die übrigen passen zu den Aufrufern.
 
@@ -111,10 +112,28 @@ Diese Punkte gehören zu Thema 6, sie stoppen die Technik nicht:
 - An Tag 2 zeigt der Host ein anderes Figurenporträt mit violetter Leiste. Die Ursache ist offen.
 - Ob die Figuren automatisch feuern, ist unklar. Die Host-Figur schoss, ohne dass ihr Fenster Eingaben bekam.
 
-## Offener Client-Absturz
+## Inventar: Ursache, Teilfix und verbleibende Grenze
 
-Der Client überlebt den zweiten Kartenwechsel nicht. Nach jedem Schutz in den Inventar-Schleifen stürzte er an der nächsten Stelle derselben Klasse ab: `0x596362D`, `0x5A7E063`, `0x5965663`, zuletzt `0x59661C3`.
-Weitere Einzelprüfungen lohnen sich nicht. Das Inventar braucht beim Client eine echte Lösung, siehe [TODO](../../../TODO.md). Die Abstürze dort erzeugten teils keinen Bericht im `UserDir`, die Adresse steht dann nur im Windows-Ereignisprotokoll.
+Historisch wanderten die Client-Abstürze nach jedem Null-Schutz zur nächsten Schleife: `0x596362D`, `0x5A7E063`, `0x5965663`, `0x59661C3`. Alle drei Schutzsprünge sind jetzt entfernt; es gibt keine weiteren Einzelprüfungen in den Spielschleifen.
+
+**Messung:** Schon an Tag 1 fehlten auf dem Client beide Inventare vollständig (je acht Null-Slots und ein Null-Item), während die Objekte auf dem Host existierten. Es war kein bloss kurzzeitig unaufgelöster Zustand. Die Spielklasse hat einen klassischen `ReplicateSubobjects`-Override, setzt aber die registrierte Unterobjektliste ein. Dazu fehlt den Item-/Slot-Klassen ausdrücklicher Netzwerk-Support.
+
+**Versuche:**
+
+1. Factory-Trace als erste Änderung; danach Menüweg erneut erfolgreich geprüft (Ring, bei frischem Stand Tutorial-Erklärung, Routenkarte, Mission mit automatisch startenden Gegnern). Kontrolllauf reproduzierte Client-Crash `0x59661C3` beim nächsten Tag.
+2. Nur Netzwerk-Support in beiden Unterobjektklassen: weiterhin Null-Verweise.
+3. Zusätzlich Umschaltung auf klassischen Pfad in den Factories: Tag 1 vollständig, Tag 2 wieder Crash. Beim Kopieren der Inventare laufen die Factories nicht erneut.
+4. Endstand: Umschaltung für jede Komponente in `ReadyForReplication`, Netzwerk-Support nur für die zwei Unterobjektklassen. Keine Outer-Änderung; keine zusätzliche Synchronisierung oder leere Ersatzinventare.
+
+**Getestet:** Build `26187885`, ein PC, Host/Client über Loopback mit getrennten Test-Spielständen, nur `Start-Session.ps1`/CrashGuard, ohne `-unattended`. Nach Build des Endstands zweimal unabhängig über das Menü bis Tag 2 gereist, Missionsende jeweils über Host-`!finish`, danach Fortsetzen, Lager bestätigen und den erreichbaren nächsten Routenknoten auswählen. Beide Seiten an Tag 2 verbunden, je Spieler acht gültige Slots und ein gültiges Item. Koordinaten, Belegungszuordnung, ItemData, Pivot, Turns und replizierte Zustandsbits stimmen überein. Vergleich in der zweiten Sitzung auch an Tag 1 und nach zusätzlicher Wartezeit an Tag 2.
+
+```text
+py tools/spike/inventory.py <host-pid> <client-pid>
+```
+
+Das Werkzeug liest nur Inventare der aktuellen `GameState.PlayerArray`, keine alten PlayerStates oder Blueprint-Vorlagen. Im ruhenden Zustand aufrufen; kein atomarer Snapshot. `complete` und `equal` müssen beide wahr sein. Ein leeres MetaBase-Inventar ist damit kein Beleg für ein funktionierendes Missionsinventar.
+
+**Noch offen:** Beide anschliessenden Reisen auf Tag 3 endeten beim Host im Callback `0x57CC390`, Fehler `0x57CC395` bzw. `0x57CC398`, nächster Stack-Eintrag `0x315A764`. Klasse des Callback-Objekts und Zusammenhang mit dem Teilfix nicht geklärt. Ein Folgeabsturz des Clients lag bei `0x57D080C`. Deshalb bleibt die TODO-Zeile offen; kein vollständiger Run belegt. Nicht getestet: Client-Inventarbedienung und RPCs, grössere/wechselnde Inventare, Belohnungen/Item-Effekte, Internet und Paketverlust. `obj gc` wurde gesendet, die tatsächliche GC-Ausführung aber nicht nachgewiesen. Rohmessungen und Absturzberichte bleiben unter `research/local/`.
 
 ## Crash-Reporter
 

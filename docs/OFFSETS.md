@@ -19,6 +19,14 @@ RVAs sind relativ zur Image-Base `0x140000000`. Die Patchstellen stehen als Kons
 
 ## Native Funktionen
 
+Statische Gegenprüfung durch Aufgabe `andockpunkte` (02.11.2026): Die bekannten
+RVAs für `ProcessEvent`, `SetClientTravel` und `SeamlessTravelToLevel` werden von
+den drei Mustern in `research/spikes/andockpunkte/audit.py` jeweils eindeutig
+gefunden. Geprüfte Exe, SHA-256:
+`3afbf18e051fbceb1fec17a8da20165ba64e0f6c3c88cbe88cb046704a4eefb5`.
+Keine neuen RVAs und keine Bestätigung eines nativen C++-Prototyps. Nur dieser
+Build ist geprüft; vor einem Hook müssen auch die geladenen Originalbytes passen.
+
 | Funktion | RVA |
 |---|---|
 | `SetClientTravel` | `0x3262830` |
@@ -26,6 +34,10 @@ RVAs sind relativ zur Image-Base `0x140000000`. Die Patchstellen stehen als Kons
 | `LoadLevelByObjectReference` | `0x596B9F0` |
 | `LoadMapByInformation` | `0x5B11170` |
 | Exec-Thunks | `0x57359D0`, `0x5733B60`, `0x5694050`, `0x5694260`, `0x5734200`, `0x56C30B0` |
+| `UInventoryComponent::ReplicateSubobjects` | `0x5974C30`, Vtable `+0x2D0`; sendet Items und Slots über `UActorChannel` |
+| `UInventoryComponent::ReadyForReplication` | `0x5969750`, Vtable `+0x3D8`; ursprünglicher Sprung nach `0x2819AA0` |
+| UObject-Standard `IsSupportedForNetworking` | `0x1512250`, Vtable `+0x200`; delegiert an `IsFullNameStableForNetworking` |
+| `CreateItemInstance`, `CreateSlotInstance` | `0x5959700`, `0x5959900`; nur im Diagnoseversuch gehookt, nicht im Teilfix |
 
 ## Klassen
 
@@ -58,6 +70,12 @@ RVAs sind relativ zur Image-Base `0x140000000`. Die Patchstellen stehen als Kons
 | GameInstance | PendingGameStateComponentTravelStates, LastRoundChangeReason | `0x248`, `0x299` |
 | GameInstance | CurrentRunInfo (Seed +0, CurrentRoute +8) | `0x2A0` |
 | `UInventoryComponent` | Slots, MyItems | `0x100`, `0x120` |
+| `UInventoryComponent` | Vtable-RVA | `0x94BA3F0` |
+| `UActorComponent` | `bReplicateUsingRegisteredSubObjectList` | `0x98`, Bit 6 (`0x40`) |
+| `UBackpackSlot` | Vtable-RVA; Coordinates, Occupier, ComponentOwnerPrivate | `0x939CE08`; `0x28`, `0x30`, `0x38` |
+| `UInventoryItemInstance` | Vtable-RVA; ZeroPivotTile, Turns, ItemData | `0x94B46E8`; `0x28`, `0xD8`, `0xE0` |
+| `UInventoryItemInstance` | Broken, IsInBackpack, IsReward, IsTrash | `0x110`, `0x180`, `0x182`, `0x184` |
+| `APlayerState` | PlayerId (numerischer Replikationsschlüssel, keine Steam-ID) | `0x2AC` |
 | `UThreatLevel` | FreezeThreatLevelManager | `0x190` |
 
 In einem TSet ist ein freier Platz daran zu erkennen, dass der Wert hohe Bits gesetzt hat.
@@ -78,6 +96,20 @@ In einem TSet ist ein freier Platz daran zu erkennen, dass der Wert hohe Bits ge
 Aus dem lokal erzeugten Mission-SDK von Build `26187885`; die genannten
 Timescale-/Sitzungs-/Weltzustände wurden lesend verglichen. Nicht alle
 Panel-Öffnungspfade und nicht jedes Feld wurden durch gezielte Änderung bestätigt.
+## Felder fuer den eigenen Sync (SDK, `sync-bedarf`)
+
+| Klasse | Feld | Offset |
+|---|---|---|
+| `ADDMissionGameState` | LevelSystem, ScrapWallet, RerollCurrency | `0x3B8`, `0x3C0`, `0x3C8` |
+| `ADDMissionGameState` | MetaCurrencyWallet, RareMetaCurrencyWallet, CoopInventoryCoordinator | `0x3D0`, `0x3D8`, `0x3E0` |
+| `UAbstractCurrency` | OnCurrencyChanged, PaidReceipts, CurrencyAmount | `0xC8`, `0xF0`, `0x100` |
+| `URerollCurrency` | OnRerolled, RerollCountsPerContext | `0x148`, `0x158` |
+| `UCoopInventoryCoordinatorComponent` | OnRewardSessionChanged, RewardSession, QueuedRewards | `0xC0`, `0x170`, `0x268` |
+
+Nur SDK-Nachschlagewerte von Build `26187885`, hier nicht durch Mutation getestet.
+Fuer rohe XP-/Level-Interna ist kein neuer Offset bestimmt worden. Keine
+Speicherbereiche aus dem Padding als Protokollquelle behandeln.
+`inventar`-Testgrenze: Reise auf Tag 3 führte zweimal beim Host in den Callback `0x57CC390` (Fehler bei `0x57CC395`/`0x57CC398`, indirekter Aufruf `+0x490`; nächster Stack-Eintrag `0x315A764`). Objektklasse unbekannt, **keine** neue Patchstelle. Ein nachfolgender Client-Absturz lag bei `0x57D080C`.
 
 ## Enums
 
