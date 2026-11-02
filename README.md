@@ -49,16 +49,16 @@ Gezählt sind die Punkte aus [TODO.md](TODO.md), ohne optionale Optimierungen.
 
 | Phase | Ziel | Erledigt | Fortschritt |
 |---|---|---|---|
-| [0](TODO.md#phase-0--projekt-setup) | Gleiche Toolchain für alle | 4 von 11 | ████░░░░░░░ |
-| [1](TODO.md#phase-1--analyse-und-spikes) | Fakten für Gate G1 | 15 von 33 | █████░░░░░░ |
+| [0](TODO.md#phase-0--projekt-setup) | Gleiche Toolchain für alle | 5 von 11 | █████░░░░░░ |
+| [1](TODO.md#phase-1--analyse-und-spikes) | Fakten für Gate G1 | 15 von 34 | █████░░░░░░ |
 | [2](TODO.md#phase-2--fundament) | Stabile Basis der Mod | 0 von 8 | ░░░░░░░░░░░ |
-| [3](TODO.md#phase-3--session-und-verbindung) | Verbinden über Steam | 0 von 5 | ░░░░░░░░░░░ |
-| [4](TODO.md#phase-4--vertical-slice) | Spielbarer Ausschnitt | 0 von 6 | ░░░░░░░░░░░ |
-| [5](TODO.md#phase-5--vollständiger-run) | Kompletter Run zu zweit | 0 von 9 | ░░░░░░░░░░░ |
+| [3](TODO.md#phase-3--session-und-verbindung) | Verbinden über Steam | 0 von 6 | ░░░░░░░░░░░ |
+| [4](TODO.md#phase-4--vertical-slice) | Spielbarer Ausschnitt | 0 von 8 | ░░░░░░░░░░░ |
+| [5](TODO.md#phase-5--vollständiger-run) | Kompletter Run zu zweit | 0 von 10 | ░░░░░░░░░░░ |
 | [6](TODO.md#phase-6--release) | Veröffentlichung | 0 von 6 | ░░░░░░░░░░░ |
-| **Gesamt** | | **19 von 78** | ███░░░░░░░░ |
+| **Gesamt** | | **20 von 83** | ███░░░░░░░░ |
 
-Bisher gibt es nur den Spike, noch keinen Mod-Code unter `src/`. Die Punkte sind unterschiedlich groß, die Zahlen sagen also wenig über die verbleibende Zeit.
+Bisher gibt es nur den Spike, noch keinen Mod-Code unter `src/`. Die Punkte sind unterschiedlich groß, die Zahlen sagen also wenig über die verbleibende Zeit. Stand, Engpässe und nächste Schritte stehen in der [Roadmap](docs/ROADMAP.md#stand-und-nächste-schritte).
 
 ## Wo finde ich was?
 

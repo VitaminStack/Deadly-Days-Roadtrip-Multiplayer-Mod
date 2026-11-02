@@ -33,6 +33,12 @@ Für alle reicht die [Einrichtung](docs/SETUP.md), wenn nichts anderes dabeisteh
 | `last` | Last messen (Spike D) | Test | viel | Mission über das Menü, Bandbreite und Framerate bei voller Gegnerzahl |
 | `tunnel` | Steam-Tunnel (Spike E) | C++, ohne Reverse Engineering, Steamworks SDK nötig | wenig | [Transport](docs/ARCHITECTURE.md#transport) |
 | `grundgeruest` | Solution und Grundgerüst für `Loader` und `Core` | C++, ohne Spielwissen | keine | [Phase 0](#phase-0--projekt-setup), [Phase 2](#phase-2--fundament) |
+| `crash-reporter` | Crash-Reporter im Mod- und Testbetrieb zuverlässig abschalten | Reverse Engineering | wenig | [Crash-Reporter](research/spikes/a-connect/README.md#crash-reporter) |
+| `andockpunkte` | Proxy-DLL und Hook-Weg im laufenden Spiel erproben | C++, Spike | mittel | [Andockpunkte](docs/ARCHITECTURE.md#technische-andockpunkte-build-26187885), [Spike](research/spikes/andockpunkte/README.md) |
+| `pausen` | Pausen bei Level-up und Inventar nachweisen | Spike | mittel | [Pausen-Spike](research/spikes/pausen/README.md) |
+| `blueprint-logik` | Kontrollfluss und Events der Blueprints klären | Reverse Engineering | mittel | [Stichprobe](research/spikes/blueprint-logik/README.md) |
+| `trennen` | Client-Absturz beim Trennen klären (`0x5975A6A`) | Reverse Engineering, Spike | mittel | [Abstürze auswerten](docs/TESTING.md#abstürze-auswerten) |
+| `niederlage` | Echte Niederlage und Rückkehr in die `MetaBase`, erst nach `rundenende` | Spike | viel | [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf) |
 
 **Nicht erneut machen.** Das ist erledigt und dokumentiert:
 
@@ -54,10 +60,10 @@ Die Reihenfolge ist die Arbeitsreihenfolge: Thema 1 entscheidet über den Weg, d
 | 1 | **Netzwerkcode** | Zwei Instanzen sind in derselben Welt, Bewegung und Schießen funktionieren, Iris oder klassisch steht fest | Technisch geklärt: klassische Replikation, zwei Spieler in derselben Mission, Bewegung beidseitig, Schüsse des Clients wirken beim Host (indirekt belegt). Nur mit Patches, siehe [Ergebnis](research/spikes/a-connect/README.md) |
 | 2 | **Run-Ablauf** | Der Weg vom Menü in die Mission und zurück ist beschrieben, inklusive dessen, was beim Client laufen darf | Weitgehend geklärt, siehe [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf). Hinweg läuft mit Patches, der Client erreicht Tag 2, die Reise auf Tag 3 endet noch mit einem Host-Absturz. Offen: echte Niederlage und Rückkehr in die `MetaBase` |
 | 3 | **Karte** | Beide Seiten haben dieselbe Karte, ohne doppelte Objekte | Seed gefunden. Im echten Ablauf ist die Karte des Clients eine andere (17 statt 144 bis 167 `MapTile`). Bodenkacheln sind nicht repliziert und in der `MetaBase` je Seite verschieden, das bricht die Client-Bewegung ohne Fix |
-| 4 | **Remote-Spieler** | Ein Netzwerkspieler funktioniert in der Coop-Logik als P2 | Andockpunkte bekannt, Ablauf offen |
-| 5 | **Kamera und Sichtbereich** | Gemeinsame oder getrennte Kamera ist entschieden, und das Gegner-Spawning passt dazu | Gemeinsame Kamera läuft beim Client mit Patch. Entscheidung offen |
-| 6 | **Spiellogik ohne Replikation** | Für XP, Währungen, Rewards, Pausen und UI ist je ein Sync-Weg festgelegt | Lücken bekannt, Lösung offen |
-| 7 | **Technische Andockpunkte** | Proxy-DLL gewählt, Hook-Weg über `ProcessEvent` und Signaturen an einem Beispiel erprobt | Offen |
+| 4 | **Remote-Spieler** | Ein Netzwerkspieler funktioniert in der Coop-Logik als P2 | Coop-Ablauf analysiert, der Test als P2 ist offen, siehe [Coop-Ablauf](docs/GAME_ANALYSIS.md#coop-ablauf) |
+| 5 | **Kamera und Sichtbereich** | Gemeinsame oder getrennte Kamera ist entschieden, und das Gegner-Spawning passt dazu | Analysiert, gemeinsame Kamera läuft beim Client mit Patch und ist die Empfehlung. Es fehlt nur die Entscheidung des Teams, siehe [Kamera](docs/GAME_ANALYSIS.md#kamera-und-sichtbereich) |
+| 6 | **Spiellogik ohne Replikation** | Für XP, Währungen, Rewards, Pausen und UI ist je ein Sync-Weg festgelegt | Als Entwurf festgelegt, siehe [Sync-Bedarf](docs/SYNC_REQUIREMENTS.md). Nichts davon ist umgesetzt oder im Netz getestet |
+| 7 | **Technische Andockpunkte** | Proxy-DLL gewählt, Hook-Weg über `ProcessEvent` und Signaturen an einem Beispiel erprobt | `version.dll` im isolierten Ladebeispiel und drei Signaturen geprüft. Laden im Spiel und Hook-Laufzeittest offen, siehe [Andockpunkte](docs/ARCHITECTURE.md#technische-andockpunkte-build-26187885) |
 
 ## Optionale Optimierungen
 
@@ -76,7 +82,7 @@ Rückt ein Punkt die Spielbarkeit doch in Gefahr, wandert er in die passende Pha
 Ziel: Alle können auf demselben Spielstand und mit derselben Toolchain arbeiten.
 
 - [x] P0 Öffentliches GitHub-Repo anlegen
-- [ ] P0 Freunde als Mitwirkende einladen
+- [x] P0 Freunde als Mitwirkende einladen
 - [x] P0 Branch-Schutz für `main` aktivieren
 - [ ] P0 Team-Aufteilung auf die [Arbeitsbereiche](CONTRIBUTING.md#arbeitsbereiche) festlegen, danach `CODEOWNERS` anlegen
 - [x] P0 SDK für UE 5.8 erstellen. Dumper-7 brauchte dafür einen Fix, siehe [Analyse](docs/GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58)
@@ -103,6 +109,7 @@ Ziel: Fakten für Gate G1 sammeln. Spike-Code ist Wegwerfcode und landet nicht i
 - [ ] P0 Rundenende, Lager und Routenkarte beim Client abbilden, bisher spielt er nach dem Missionsende einfach weiter
 - [ ] P0 Neue Remote-Controller nach jedem Kartenwechsel sauber in `SpawnedPlayers` eintragen, der Spike ersetzt den Eintrag nur direkt
 - [ ] P1 Client-Absturz beim Trennen klären (`0x5975A6A`), wenn der Host ins Hauptmenü geht
+- [ ] P1 Einmaligen Client-Absturz im Missions-Tick klären (`0x5A17ACC`, Lesen von `0x2C8`), trat bisher nur einmal auf
 - [ ] P1 Echte Niederlage nachvollziehen: Alle Spieler tot, Rundenende, Rückkehr in die `MetaBase`, dabei den Client mitnehmen
 - [x] P0 Coop-Ablauf nachvollziehen: Wie ruft das Spiel `SetCoopEnabled` und `SpawnLocalPlayer` auf, wie entsteht P2, und kommt der Code mit einem Controller ohne lokalen Spieler zurecht? P2 ist ein zweiter `ULocalPlayer` aus `SpawnLocalPlayer(1)`. Index-Abfragen fallen ohne `LocalPlayer` sauber zurück, 5 Stellen nicht, siehe [Coop-Ablauf](docs/GAME_ANALYSIS.md#coop-ablauf)
 - [ ] P0 Remote-Controller als P2 testen: `SetCoopEnabled(true)` beim Host, Eintrag in `ActivePlayers` ohne `CreateLocalPlayer`, Wirkung auf Coop-UI und Eingabe-Router prüfen, siehe [Folgerungen](docs/GAME_ANALYSIS.md#coop-ablauf)
@@ -158,6 +165,7 @@ Ziel: Zwei Spieler finden sich über Steam und verbinden sich ohne Portfreigabe.
 - [ ] P0 Steam-Lobby erstellen, Freunde einladen, beitreten (`OnlineSubsystemSteam` oder direkt Steamworks)
 - [ ] P0 Transport-Tunnel aus Spike E als richtiges Modul umsetzen
 - [ ] P0 Handshake: Spiel-Build und Mod-Version müssen bei beiden gleich sein
+- [ ] P0 Verlässlichen Kontrollkanal nach dem [Vertrag](docs/SYNC_REQUIREMENTS.md#kontrollkanal-und-datenmodell) bauen. Rundenende, Pausen, XP und Rewards brauchen ihn
 - [ ] P1 Saubere Fehlerbehandlung: Timeout, Abbruch, Host verlässt das Spiel
 - [ ] P2 Wiederverbinden während eines Runs (Hinweis: `OnCoopReconnectRequiredChanged`)
 
@@ -165,8 +173,10 @@ Ziel: Zwei Spieler finden sich über Steam und verbinden sich ohne Portfreigabe.
 
 Ziel: Ein spielbarer Ausschnitt von vorne bis hinten. Zwei Spieler starten eine Mission, kämpfen gegen einen Gegnertyp und sehen dasselbe.
 
+- [ ] P0 [Spike-Patches](research/spikes/a-connect/README.md#patches) als geprüfte Hooks nach `src/Game` übernehmen, ohne sie läuft keine Mission zu zweit
 - [ ] P0 Remote-Spieler als P2 in die Coop-Logik einbinden, obwohl er kein lokaler Spieler ist
 - [ ] P0 Gemeinsamer Missionsstart, gleiche Karte bei beiden
+- [ ] P0 Entschiedene Kamera umsetzen, auch beim Client
 - [ ] P0 Bewegung, Dash und Blickrichtung
 - [ ] P0 Waffen, Projektile, Treffer, Schaden, Tod
 - [ ] P0 Ein Gegnertyp inklusive Spawn und Tod
@@ -185,6 +195,7 @@ Ziel: Ein kompletter Run ist zu zweit online spielbar.
 - [ ] P0 Loot, XP, Level-ups, Fähigkeiten und Status-Effekte (GAS)
 - [ ] P0 Inventar: Rucksack, Stash, Werkbank, Reward-Queue (`CoopInventoryCoordinator`)
 - [ ] P0 Inventar-UI beim Remote-Spieler
+- [ ] P0 Pausen und blockierende UI beider Spieler über den Kontrollkanal abstimmen
 - [ ] P0 Tageszyklus, Treibstoff, Missionsziele, Fahrt zwischen den Etappen
 - [ ] P1 Run-Ende und Rückkehr zur Meta-Basis
 - [ ] P1 Vorgehen für Meta-Fortschritt: Wessen Stand zählt, was bekommt der Client?

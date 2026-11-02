@@ -6,6 +6,38 @@ Diese Seite zeigt, was bis zur fertigen und nutzbaren Mod noch offen ist. Führe
 
 Den Fortschritt je Phase zeigt das [README](../README.md#fortschritt).
 
+## Stand und nächste Schritte
+
+Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
+
+**Was läuft.** Zwei Instanzen spielen im Spike dieselbe Mission, mit Bewegung und Schüssen beider Seiten. Der Client erreicht Tag 2. Die Analysen zu Coop, Karte, Gegnern, Kamera und Sync-Bedarf sind abgeschlossen.
+
+**Was fehlt.** Es gibt keinen kompletten Run, keine Mod unter `src/` und keine CI. Der Sync-Entwurf ist weder umgesetzt noch im Netz getestet. Getestet wurde bisher nur über Loopback auf einem PC, nicht über echtes Internet.
+
+**Geprüft bei dieser Analyse.** Installiert ist weiterhin Build `26187885`. Seit dem letzten erfolgreichen Spike-Build änderte sich nur Dokumentation. Die Unit-Tests und alle relativen Links der Doku sind in Ordnung. Ein Spieltest gehörte nicht dazu.
+
+**Neue Befunde.**
+
+- `rundenende` zeigt: Das Spiel überträgt die Endphase nicht, und nachspielen lässt sie sich beim Client nicht. Nötig ist eine eigene Host-Nachricht, also ein Kontrollkanal, den es auch im Spike noch nicht gibt.
+- Die Ergebnisse von `rundenende` sind noch nicht eingereicht, der Branch enthält nur die Reservierung und liegt 14 Commits hinter `main`.
+- In `TODO.md` fehlten fünf Aufgaben, die jetzt eingetragen sind: Kontrollkanal, Übernahme der Spike-Patches, Umsetzung der Kamera, Pausen über den Kontrollkanal und der einmalige Absturz im Missions-Tick.
+
+**Reihenfolge.**
+
+1. `rundenende` einreichen, damit nichts verloren geht und `niederlage` frei wird.
+2. `tag3` lösen. Ohne diesen Schritt ist kein Run über Tag 2 hinaus möglich.
+3. `spawnedplayers`, danach `remote-p2`, und `karte-client`. Diese Aufgaben brauchen Spielzeit, und pro PC läuft nur eine Sitzung.
+4. Parallel ohne Spielzeit: `grundgeruest`, `tunnel` und `crash-reporter`.
+5. `last` messen und an Gate G1 entscheiden.
+
+**Wartet auf das Team.**
+
+- Kamera entscheiden
+- Aufteilung auf die Arbeitsbereiche festlegen
+- Update-Regel festlegen und klären, ob alle auf derselben Build-ID bleiben können. Das Spiel wird aktiv gepatcht, und jedes Update macht die Offsets ungültig
+- Pixelsplit über das Projekt informieren
+- Dumper-7-Fix dem Dumper-7-Projekt vorschlagen
+
 ## Gesamtweg
 
 ```mermaid
@@ -48,8 +80,9 @@ flowchart LR
     subgraph RUN["Run-Ablauf"]
         T3["Tag 3: Host-Absturz,<br/>Inventar abschließen<br/>(tag3)"]:::blocker
         RE["Rundenende, Lager,<br/>Routenkarte<br/>(rundenende)"]:::wip
-        NI["Echte Niederlage,<br/>Rückkehr in die MetaBase"]:::open
-        TR["Client-Absturz<br/>beim Trennen"]:::open
+        NI["Echte Niederlage,<br/>Rückkehr in die MetaBase<br/>(niederlage)"]:::open
+        TR["Client-Absturz<br/>beim Trennen<br/>(trennen)"]:::open
+        MT["Einmaliger Absturz<br/>im Missions-Tick"]:::open
         RE --> NI
     end
 
@@ -68,15 +101,15 @@ flowchart LR
     end
 
     subgraph LOGIK["Spiellogik"]
-        PA["Pausen bei Level-up<br/>und Inventar"]:::wip
-        BP["Blueprint-Logik:<br/>Kontrollfluss und Events"]:::wip
+        PA["Pausen bei Level-up<br/>und Inventar<br/>(pausen)"]:::wip
+        BP["Blueprint-Logik:<br/>Kontrollfluss und Events<br/>(blueprint-logik)"]:::wip
     end
 
     subgraph TECHNIK["Technik"]
         LA["Spike D: Last<br/>(last)"]:::open
         TU["Spike E: Steam-Tunnel<br/>(tunnel)"]:::open
-        AP["Andockpunkte:<br/>Test im Spiel"]:::wip
-        CR["Crash-Reporter<br/>zuverlässig aus"]:::open
+        AP["Andockpunkte:<br/>Test im Spiel<br/>(andockpunkte)"]:::wip
+        CR["Crash-Reporter<br/>zuverlässig aus<br/>(crash-reporter)"]:::open
     end
 
     BASIS --> RUN
@@ -122,16 +155,19 @@ flowchart TD
         TN["Transport-Tunnel"]:::open
         HS["Handshake: Build und Mod-Version"]:::open
         FE["Timeout, Abbruch,<br/>Host verlässt das Spiel"]:::open
-        LO --> TN --> HS --> FE
+        KK["Kontrollkanal"]:::open
+        LO --> TN --> HS --> KK --> FE
     end
 
     subgraph PH4["Phase 4: Vertical Slice"]
+        SH["Spike-Patches als Hooks<br/>übernehmen"]:::open
         R2["Remote-Spieler als P2"]:::open
         MS["Gemeinsamer Missionsstart,<br/>gleiche Karte"]:::open
+        KM["Entschiedene Kamera"]:::open
         KA["Bewegung, Waffen, Treffer, Tod"]:::open
         GT["Ein Gegnertyp"]:::open
         EI["Eingaben von Remote<br/>trennen"]:::open
-        R2 --> MS --> KA --> GT
+        SH --> R2 --> MS --> KM --> KA --> GT
         R2 --> EI
     end
 
@@ -141,6 +177,7 @@ flowchart TD
         GE["Alle Gegner und Bosse"]:::open
         XP["Loot, XP, Level-ups,<br/>Fähigkeiten"]:::open
         IV["Inventar, Reward-Queue,<br/>Inventar-UI"]:::open
+        PU["Pausen und blockierende UI"]:::open
         TG["Tageszyklus, Treibstoff,<br/>Etappen"]:::open
         ME["Run-Ende, Meta-Basis,<br/>Regel für Meta-Fortschritt"]:::open
     end
