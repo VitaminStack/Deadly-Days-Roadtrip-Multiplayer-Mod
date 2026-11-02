@@ -4,8 +4,8 @@ Alle Werte gelten nur für UE `5.8.1-56057345`, Steam-Build `26187885`, Exe `DDS
 Nach einem Spiel-Update müssen sie neu bestimmt werden, siehe [Spiel-Updates](../CONTRIBUTING.md#spiel-updates).
 Sie sind hier zum Nachschlagen gesammelt, damit niemand sie erneut suchen muss. Wer neue findet, trägt sie hier ein.
 
-RVAs sind relativ zur Image-Base `0x140000000`. Die Patchstellen stehen als Konstanten am Anfang von
-[spike.cpp](../research/spikes/a-connect/spike.cpp), ihre Bedeutung in der [Patch-Tabelle](../research/spikes/a-connect/README.md#patches).
+RVAs sind relativ zur Image-Base `0x140000000`. Die Patchstellen stehen als Konstanten am Anfang der jeweiligen
+[Spike-Datei](../research/spikes/a-connect/README.md#dateien), ihre Bedeutung in der [Patch-Tabelle](../research/spikes/a-connect/README.md#patches).
 
 ## Globale Objekte
 

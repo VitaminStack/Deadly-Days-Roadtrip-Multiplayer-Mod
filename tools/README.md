@@ -10,9 +10,9 @@ Bauen und Testen des Spikes, die Anleitung steht in [docs/TESTING.md](../docs/TE
 | Skript | Aufgabe |
 |---|---|
 | `Build-Spike.ps1` | Baut `spike.dll` |
-| `Start-Session.ps1` | Startet Crash-Schutz, Host und Client, verbindet sie und reist in eine Karte |
+| `Start-Session.ps1` | Setzt die Sperre, startet Crash-Schutz, Host und Client, verbindet sie und reist in eine Karte |
 | `Send-Command.ps1` | Schickt einen Befehl an `Host` oder `Client` und zeigt das Log |
-| `Stop-Session.ps1` | Beendet alle Spielinstanzen |
+| `Stop-Session.ps1` | Beendet die Instanzen dieses Ordners und gibt die Sperre frei |
 | `Focus-Window.ps1` | Holt ein Spielfenster nach vorn |
 | `Disassemble.ps1` | Zeigt einen RVA-Bereich der Exe |
 | `CrashGuard.ps1` | Crash-Schutz, wird von `Start-Session.ps1` gestartet |

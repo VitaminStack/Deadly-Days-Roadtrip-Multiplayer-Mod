@@ -3,13 +3,20 @@
 param(
     [string]$Map = '/Game/Maps/MetaBase',
     [int]$MenuDelaySeconds = 20,
-    [int]$TravelDelaySeconds = 40
+    [int]$TravelDelaySeconds = 40,
+    # Ersetzt eine laufende Sitzung aus diesem Ordner. Fremde Sitzungen bleiben unberuehrt.
+    [switch]$Restart
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Common.ps1')
 Initialize-SessionDir
 Assert-SupportedBuild
-& (Join-Path $PSScriptRoot 'Stop-Session.ps1')
+if ($Restart) { & (Join-Path $PSScriptRoot 'Stop-Session.ps1') }
+Enter-SessionLock
+if (Get-Process $script:GameProcess -ErrorAction SilentlyContinue) {
+    Exit-SessionLock
+    throw 'Das Spiel laeuft ausserhalb einer Testsitzung. Bitte zuerst selbst beenden.'
+}
 
 $Dll = Join-Path $script:SessionDir 'spike.dll'
 if (-not (Test-Path $Dll)) { & (Join-Path $PSScriptRoot 'Build-Spike.ps1') | Out-Null }
@@ -29,6 +36,7 @@ $GameHost = Start-Instance 'host' 0
 $Client = Start-Instance 'client' 820
 @{ Host = $GameHost.Id; Client = $Client.Id; Guard = $Guard.Id } | ConvertTo-Json |
     Set-Content (Join-Path $script:SessionDir 'session.json') -Encoding ascii
+Write-SessionLock $GameHost.Id $Client.Id | Set-Content $script:LockFile -Encoding ascii
 
 Start-Sleep -Seconds $MenuDelaySeconds
 foreach ($Instance in $GameHost, $Client) { & py (Join-Path $PSScriptRoot 'inject.py') $Instance.Id $Dll }
