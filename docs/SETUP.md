@@ -27,10 +27,10 @@ Die Solution existiert noch nicht (Phase 0 in [TODO.md](../TODO.md)). Diese Anle
 Das SDK wird aus dem Spiel erzeugt und liegt außerhalb des Repos, zum Beispiel unter `C:\Dumper-7\<Version>\CppSDK`.
 Alle im Team müssen ein SDK **desselben Spiel-Builds** verwenden.
 
-> **Aktuell blockiert:** Dumper-7 lässt die aktuelle Spielversion abstürzen,
-> siehe [Offene Blocker](GAME_ANALYSIS.md#offene-blocker).
+> **Wichtig:** Dumper-7 braucht für UE 5.8 einen Fix und das SDK eine kleine Nacharbeit,
+> siehe [SDK-Erzeugung unter UE 5.8](GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58).
 
-Der Austausch läuft privat im Team, etwa über einen gemeinsamen Cloud-Ordner, nicht über das Repo.
+Das Repo ist öffentlich, darum wird das SDK nicht darüber verteilt. Alle erzeugen es selbst aus der eigenen Spielkopie.
 
 ## Testen
 

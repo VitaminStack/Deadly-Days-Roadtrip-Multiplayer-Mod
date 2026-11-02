@@ -5,7 +5,6 @@ Stand: 02.11.2026. Neue Erkenntnisse bitte hier ergänzen, ausführliche Notizen
 Vertrauensgrad:
 
 - **[Belegt]** direkt an der aktuellen Installation geprüft
-- **[Alt]** aus dem Dump vom 23.07.2026 (UE 5.7), für die aktuelle Version nicht bestätigt
 - **[Hypothese]** Schlussfolgerung, noch nicht getestet
 
 ## Unterstützte Spielversion
@@ -14,32 +13,28 @@ Vertrauensgrad:
 |---|---|
 | Steam-AppID | `3026450` |
 | Steam-Build-ID | `26187885` |
-| Engine-Version der Exe | `++UE5+Release-5.8-CL-56057345` |
+| Engine-Version | `5.8.1-56057345+++UE5+Release-5.8` |
 | Spiel-Exe | `DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe` (179 MB) |
 
 Die Build-ID steht in `steamapps/appmanifest_3026450.acf`. Bei einem Spiel-Update siehe
 [Update-Regel](../CONTRIBUTING.md#spiel-updates).
 
-## Offene Blocker
+## SDK-Erzeugung unter UE 5.8
 
-### Dumper-7 stürzt bei der aktuellen Version ab
+Dumper-7 (auch der aktuelle Main-Stand vom November 2026) stürzte beim Lesen der Property-Klassennamen ab. Mit dem Fix unten ist ein
+vollständiges SDK für Build `26187885` erzeugt (02.11.2026), die Dateien `Basic`, `CoreUObject_functions`, `Engine_functions` und
+`DDSurvivors_functions` kompilieren mit MSVC.
 
-- **[Belegt]** Vier Abstürze am 02.11.2026 mit Dumper-7 7.0.1 auf Engine `5.8.1-56057345`, jeweils
-  `EXCEPTION_ACCESS_VIOLATION reading address 0x000000000000cdb0` im Spielcode (`Exe + 0x143d6d1`).
-- **[Belegt]** Aufrufkette: `ObjectArray::DumpObjectsWithProperties` → `UEProperty::GetPropClassName` →
-  `FName::ToWString` → Name-Funktion des Spiels. Beim Dump der Objekte ohne Properties tritt kein Fehler auf, der erste Absturz
-  kommt beim Auflösen eines Property-Klassennamens.
-- **[Belegt]** Berichte liegen unter `%LOCALAPPDATA%/DDSurvivors/Saved/Crashes` (Ordner `UECC-Windows-*`).
-- **[Hypothese]** Dumper-7 7.0.1 liest unter UE 5.8 ein falsches Layout für `FField`/`FFieldClass`
-  (`Off::FField`, `Off::FFieldClass::Name`), übergibt dadurch einen ungültigen FName. Die feste Adresse in allen Läufen spricht
-  für einen systematischen Layoutfehler statt für ein Timing-Problem. Bestätigt ist das noch nicht.
-- Nächste Schritte:
-  1. Prüfen, ob eine neuere Dumper-7-Version UE 5.8 bereits unterstützt.
-  2. Sonst den `FField`-/`FFieldClass`-Aufbau aus dem Spielspeicher ablesen und mit den Offsets in `Offsets.h` abgleichen.
-  3. Das Überspringen von `DumpObjectsWithProperties` löst das Problem vermutlich nicht, weil die SDK-Erzeugung dieselben
-     Property-Daten braucht.
-  4. Unabhängig davon: Die Paks sind unverschlüsselt, Teile lassen sich also statisch auslesen (FModel).
-- Bis dahin dient der Juli-Dump nur zur Orientierung. Offsets daraus sind für die aktuelle Exe **nicht** gültig.
+- **[Belegt] Ursache:** UE 5.8 hat vor dem Namen von `FFieldClass` einen zusätzlichen Zeiger. Dumper-7 las diesen als FName,
+  daher die feste Absturzadresse `0xCDB0` (`0x66D8 * 2`).
+- **[Belegt] Layout:** `Name` 0x08, `ClassFlags` 0x10, `Id` 0x18, `CastFlags` 0x20, `SuperClass` 0x28, Gesamtgröße 0x50.
+- **Fix in Dumper-7:** In `OffsetFinder::FixupFieldClassOffsets()` wird das Layout daran erkannt, dass die gefundenen `CastFlags`
+  nicht vor dem fest hinterlegten `SuperClass`-Offset liegen. Dann werden die vier Offsets oben gesetzt.
+- **Nacharbeit nach jedem Dump:** In `Assertions.inl` sind die Prüfungen für `UEngineReplicationBridge`,
+  `URepositionableTransformGizmo` und `UPolyEditPreviewMesh` abzuschalten. Sie schlagen sonst beim Kompilieren fehl.
+  Die Ursache ist nicht untersucht. Bei Nutzung von `UEngineReplicationBridge` deren Layout zuerst prüfen.
+- **Offen:** Der Dump entstand im Hauptmenü. Blueprint-Klassen werden nur erfasst, wenn sie geladen sind, darum fehlt noch ein
+  Dump während einer laufenden Mission.
 
 ## Technische Basis
 
@@ -61,18 +56,21 @@ Die Build-ID steht in `steamapps/appmanifest_3026450.acf`. Bei einem Spiel-Updat
   `SteamSocketsIP` und `SteamSocketsP2P`. Für Verbindungen über Steam ist also vermutlich ein eigener Tunnel nötig.
 - **[Belegt]** Die Exe enthält viele `OnRep_*`-Namen für Spielwerte: `OnRep_Health`, `OnRep_Armor`, `OnRep_Exp`,
   `OnRep_Level`, `OnRep_CurrentFuel`, `OnRep_DayNum`. Das passt zu Attributen im Gameplay Ability System.
-- **[Alt]** 47 native RPCs in Spielklassen (von 3251 Funktionen), unter anderem:
-  - `DDCharacter`: `StartFiring`, `FinishFiring`, `Server_SpawnBullet`, `ProxyRotateTowards`, `ProxySetAutoFire`
-  - `DDCharacterBase`: `Multi_OnDie`
-  - `Hands`: `ExecuteMeleeWeaponAttack`, `SetAutoFire`
-  - `InventoryComponent`: `AddToBackpack`, `RemoveFromBackpack`, `AddToInventory`, `RepairItem` und weitere
-  - `CharacterEffectManager`: `AddSpec`, `ApplyItemToBackpack`, `RemoveEffectsFromItem` und weitere
-  - `LevelSystemComponent`: `Server_CheckExpRecipient`
-  - `Crate`: `Multi_PlayOpenCrate`
-  - `Weapon`: `TriggerWeaponShotFX`
-  - `LootBase`: `Client_PlaySound`
-- **[Hypothese]** Das Spiel wurde zumindest anfangs netzwerkfähig angelegt. Ob dieser Code noch funktioniert, ist offen.
-  Er kann auch Altlast sein, die seit Monaten niemand mehr getestet hat.
+- **[Belegt]** 44 native RPCs in Spielklassen (von 3914 Funktionen im aktuellen SDK): 40 Server, 2 Client, 2 Multicast.
+  - `CharacterEffectManager` (15): `AddSpec`, `ApplyItemToBackpack`, `RemoveEffectsFromItem` und weitere
+  - `InventoryComponent` (11): `AddToBackpack`, `RemoveFromBackpack`, `AddToInventory`, `RepairItem` und weitere
+  - `InventoryItemInstance` (5): `UpdateIsInBackpack`, `UpdateIsReward` und weitere
+  - `DDCharacter` (5): `StartFiring`, `FinishFiring`, `Server_SpawnBullet`, `ProxyRotateTowards`, `ProxySetAutoFire`
+  - `DDPlayerController` (2), `Hands` (2), `LootBase`, `DDAbilitySystemComponent`, `DDCharacterBase` (`Multi_OnDie`), `Weapon`
+- **[Belegt]** Gegenüber dem Juli-Dump (47 RPCs) kam kein RPC hinzu. Entfernt wurden `Crate.Multi_PlayOpenCrate`,
+  `LevelSystemComponent.Server_CheckExpRecipient` und `LootAttractor.Client_SetExpEmissionHandlerRadius`.
+- **[Belegt]** Keine der neun Coop-Klassen hat einen RPC. Das Coop-System wurde also ohne Netzwerk gebaut.
+- **[Belegt]** Rund 79 replizierte Properties, vor allem in `UDDCharacterAttributeSet` (29), `UDDEnemyAttributeSet` (15) und
+  `UCommonAttributeSet` (10), dazu `UInventoryItemInstance`, `UInventoryComponent`, `UFuelMeter`, `UCharacterEffectManager`
+  und `ADDMissionGameState` (`SecondsSinceMissionStart`, `DayNum`).
+- **[Hypothese]** Der Netzwerkcode ist Altlast aus einer früheren Entwicklungsphase: Er wurde nicht ausgebaut, aber auch nicht
+  weiterentwickelt, wie die fehlenden RPCs bei neuen Systemen und die entfernten RPCs zeigen. Kampf, Attribute und Inventar sind
+  damit mögliche Grundlagen. Ob dieser Code noch läuft, ist offen.
 
 ## Lokales Coop
 
@@ -86,10 +84,13 @@ Die Build-ID steht in `steamapps/appmanifest_3026450.acf`. Bei einem Spiel-Updat
 - **[Belegt]** Es gibt Coop-Konsolenvariablen: `dd.Coop.UIAuthorityMode`, `dd.Coop.UIHandoffMode`, `dd.Coop.SplitBackpackView`.
 - **[Belegt]** Auch in Exe-Strings: `CoopDiagnostics.json`, `bEnableDevCoopButtons`, `OnCoopReconnectRequiredChanged`,
   `bCoopBlocksGameplay`. Was sie genau tun, ist noch offen.
-- **[Hypothese]** „Authority“ meint hier, welcher lokale Spieler die UI bedient, nicht die Netzwerk-Autorität.
-- **[Hypothese]** Das Anfrage-Muster im Inventar lässt sich gut auf Netzwerk-Anfragen übertragen.
-
-Der Juli-Dump kennt nur vier Coop-Klassen. Der Großteil davon kam also erst nach Juli dazu und ist **nicht** im vorhandenen SDK.
+- **[Belegt]** „Authority“ meint die UI-Bedienung, nicht die Netzwerk-Autorität: `UCoopInputRouterSubsystem` hat
+  `RequestUIAuthorityTransfer(PlayerIndex)` und `PushUISession(HostPanel, AuthorityPlayerIndex, bBlocksGameplay, ...)`.
+- **[Belegt]** `ULocalCoopSubsystem` führt die Spieler in `ActivePlayers` als Zuordnung von Index zu `APlayerController`.
+- **[Belegt]** Die Coop-Aktionen sind schmale, aufrufbare Funktionen: `UCoopInventoryCoordinatorComponent::TransferItem(Request)`,
+  `ClaimReward(PlayerIndex, Choice)`, `RerollRewardSession()`.
+- **[Hypothese]** Diese Funktionen eignen sich gut als Andockpunkt: Der Client schickt eine Anfrage, die Mod ruft sie beim Host auf.
+- **[Hypothese]** Weil `ActivePlayers` nur Controller speichert, könnte dort auch ein Remote-Controller stehen. Das ist in Phase 1 zu prüfen.
 
 ## Systeme, die die Mod respektieren muss
 

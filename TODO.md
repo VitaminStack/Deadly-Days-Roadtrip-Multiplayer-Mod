@@ -16,10 +16,13 @@ wird das zuerst mit kleinen Spikes geprüft (Phase 1), bevor echte Mod-Infrastru
 
 Ziel: Alle können auf demselben Spielstand und mit derselben Toolchain arbeiten.
 
-- [ ] P0 Privates GitHub-Repo anlegen (Name mit „DeadlyDays“ korrigieren), Freunde einladen
+- [x] P0 Öffentliches GitHub-Repo anlegen
+- [ ] P0 Freunde als Mitwirkende einladen
 - [ ] P0 Branch-Schutz für `main` aktivieren: PR und ein Review verpflichtend
 - [ ] P0 Team-Aufteilung auf die [Arbeitsbereiche](CONTRIBUTING.md#arbeitsbereiche) festlegen, danach `CODEOWNERS` anlegen
-- [ ] P0 **BLOCKER:** Aktuelles SDK erstellen. Dumper-7 7.0.1 stürzt bei UE 5.8 beim Lesen der Property-Klassennamen ab (vermutlich falsches `FField`-Layout, siehe [Analyse](docs/GAME_ANALYSIS.md#offene-blocker)). Der vorhandene Dump ist von Juli und UE 5.7
+- [x] P0 SDK für UE 5.8 erstellen. Dumper-7 brauchte dafür einen Fix, siehe [Analyse](docs/GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58)
+- [ ] P0 SDK zusätzlich während einer laufenden Mission dumpen, damit die Blueprint-Klassen enthalten sind
+- [ ] P1 Dumper-7-Fix dem Dumper-7-Projekt vorschlagen, damit alle Helfer ihn ohne eigenen Patch bekommen
 - [ ] P0 Visual-Studio-Solution mit einem Projekt je Modul anlegen, `config/Local.props` einbinden
 - [ ] P1 Festlegen, wie das Team mit Spiel-Updates umgeht ([Update-Regel](CONTRIBUTING.md#spiel-updates))
 - [ ] P1 Klären, ob alle das Spiel auf derselben Build-ID halten können
@@ -31,14 +34,14 @@ Ziel: Fakten für Gate G1 sammeln. Spike-Code ist Wegwerfcode und landet nicht i
 **Analyse**
 
 - [ ] P0 Config aus den Paks lesen (FModel oder repak): `NetDriverDefinitions`, `DefaultPlatformService`, Iris-Einstellungen, Standard-Maps
-- [ ] P0 RPC-Liste aus dem neuen Dump gegen den Juli-Dump vergleichen: Was ist seit dem Coop-Umbau weggefallen?
+- [x] P0 RPC-Liste aus dem neuen Dump gegen den Juli-Dump vergleichen: 3 RPCs entfernt, keiner hinzugekommen
 - [ ] P0 Replizierte Properties und `bReplicates` der Kernklassen erfassen (Character, Enemy, Projektil, Loot, GameState)
 - [ ] P1 Coop-Ablauf nachvollziehen: `LocalCoopSubsystem`, wie P2 entsteht, was `CoopAuthority` tatsächlich regelt
 - [ ] P1 Karten-Erzeugung verstehen: Ist die Map aus einem Seed reproduzierbar (`Map_Generation`)?
 - [ ] P1 Enemy-Spawning und `PoolManager` verstehen: Wie viele Actors, wie gepoolt?
 - [ ] P1 Pausen-Logik klären: Was passiert bei Level-up und Inventar? (Hinweis: `bCoopBlocksGameplay`)
 - [ ] P2 Blueprint-Anteil abschätzen: Welche Spiellogik liegt nur in Blueprints statt in nativem Code?
-- [ ] P2 Pixelsplit fragen, ob offizieller Online-Coop geplant ist und wie sie zu der Mod stehen
+- [ ] P1 Pixelsplit über das öffentliche Projekt informieren: Ist offizieller Online-Coop geplant, und wie stehen sie zu der Mod?
 
 **Spikes**
 
@@ -116,14 +119,14 @@ Ziel: Ein kompletter Run ist zu zweit online spielbar.
 - [ ] P0 **Telemetrie, Bug-Reports und Crash-Reports im Mod-Betrieb abschalten**, damit Pixelsplit keine Mod-Fehler als Spielfehler bekommt
 - [ ] P0 Mod-Spielstände vom normalen Spielstand trennen, damit kein Save beschädigt wird
 - [ ] P1 Installer oder einfache Installationsanleitung
-- [ ] P1 Vor einer öffentlichen Veröffentlichung Einverständnis von Pixelsplit einholen
+- [ ] P1 Vor dem ersten fertigen Release die Rückmeldung von Pixelsplit berücksichtigen
 - [ ] P2 Mehr als 2 Spieler prüfen (Coop-Logik ist fest auf P1 und P2 ausgelegt, daher aufwendig)
 
 ## Risiken
 
 | Risiko | Auswirkung | Gegenmaßnahme |
 |---|---|---|
-| RPCs sind nur Altlast aus dem Vor-Coop-Stand | Weg A fällt aus, deutlich mehr Eigenbau | Spike A und B zuerst; Weg B als Plan B |
+| RPCs sind nur Altlast aus dem Vor-Coop-Stand (Coop-Klassen haben keine RPCs) | Weg A fällt aus, deutlich mehr Eigenbau | Spike A und B zuerst; Weg B als Plan B |
 | Logik liegt in Blueprints ohne Netzwerkcode | Viele Stellen brauchen eigene Hooks | Blueprint-Anteil früh abschätzen |
 | Coop setzt zwei lokale Spieler voraus | Remote-P2 passt nicht in die Coop-Logik | Coop-Ablauf in Phase 1 analysieren |
 | Viele Gegner überlasten das Netzwerk | Laggy oder unspielbar | Spike D; Gegner gebündelt synchronisieren |

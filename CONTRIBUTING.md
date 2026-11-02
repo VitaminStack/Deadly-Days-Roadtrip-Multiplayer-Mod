@@ -1,5 +1,9 @@
 # Zusammenarbeit
 
+Beiträge sind willkommen, auch ohne Einladung ins Team. Wer keinen Schreibzugriff hat, erstellt einen Fork und öffnet von dort einen Pull
+Request. Größere Vorhaben bitte vorher in einem Issue abstimmen, damit keine Arbeit doppelt entsteht. Mit einem Beitrag stimmst du zu,
+dass er unter der [MIT-Lizenz](LICENSE) des Projekts steht.
+
 ## Arbeitsbereiche
 
 Damit alle parallel arbeiten können, hat jeder Bereich eine hauptverantwortliche Person. Änderungen in fremden Bereichen sind
@@ -70,7 +74,8 @@ Die Modulgrenzen stehen in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#module). 
 - Persönliche Pfade, Spielstände, Tokens, Steam-IDs
 
 Die `.gitignore` fängt das meiste ab, ersetzt aber nicht das Hinschauen vor dem Commit. Eigene Notizen wie Klassennamen, Hook-Listen oder
-Beschreibungen des Verhaltens sind in Ordnung. Das Repo bleibt privat, bis über eine Veröffentlichung entschieden ist.
+Beschreibungen des Verhaltens sind in Ordnung. Das Repo ist öffentlich: Alles, was hier landet, ist für alle sichtbar und bleibt in der
+Git-Historie, auch wenn es später gelöscht wird.
 
 ## Spiel-Updates
 

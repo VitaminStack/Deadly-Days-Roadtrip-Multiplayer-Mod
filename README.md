@@ -14,9 +14,6 @@ sich an Gate G1 in [TODO.md](TODO.md).
 | Zielbild | 2 Spieler online, Host-autoritativ, jeder mit eigener Spielkopie |
 | Technik | Native C++-DLL (Dumper-7-SDK + Hooks), siehe [Architektur](docs/ARCHITECTURE.md) |
 
-> Der Ordnername schreibt „DeadlyDeadRoadtrip“, das Spiel heißt aber „Deadly **Days**: Roadtrip“.
-> Das sollte beim Anlegen des GitHub-Repos korrigiert werden (siehe [TODO.md](TODO.md), P0).
-
 ## Wo finde ich was?
 
 | Dokument | Inhalt |
@@ -63,5 +60,6 @@ sich gegenseitig in dieselben Dateien zu schreiben (siehe [CONTRIBUTING.md](CONT
 ## Rechtliches
 
 Dies ist ein inoffizielles Fan-Projekt ohne Verbindung zu Pixelsplit oder dem Publisher. Jeder Spieler braucht eine
-eigene Kopie des Spiels. Spieldateien, entpackte Assets und generierte SDKs gehören **nicht** ins Repo
+eigene Kopie des Spiels. Der Code dieses Projekts steht unter der [MIT-Lizenz](LICENSE), das gilt nicht für das Spiel selbst.
+Spieldateien, entpackte Assets und generierte SDKs gehören **nicht** ins Repo
 (siehe [CONTRIBUTING.md](CONTRIBUTING.md#was-nie-ins-repo-darf)).
