@@ -264,7 +264,7 @@ Ziel: Stabile Basis, auf der alle parallel arbeiten können. Ab hier sind die Ar
 - [ ] P0 `Game`: Adapter-Schicht für die ersten Klassen
 - [ ] P1 `UI`: Einfaches Overlay mit Status, Lobby-Knöpfen und Debug-Anzeige
 - [ ] P1 `tools`: Deploy-Skript, das die Mod ins Spiel kopiert
-- [ ] P1 `tests`: Testprojekt und CI für Code ohne SDK-Abhängigkeit
+- [x] P1 `tests`: Testprojekt und CI für Code ohne SDK-Abhängigkeit
 
 ## Phase 3 – Session und Verbindung
 
