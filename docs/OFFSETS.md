@@ -19,6 +19,14 @@ RVAs sind relativ zur Image-Base `0x140000000`. Die Patchstellen stehen als Kons
 
 ## Native Funktionen
 
+Statische Gegenprüfung durch Aufgabe `andockpunkte` (02.11.2026): Die bekannten
+RVAs für `ProcessEvent`, `SetClientTravel` und `SeamlessTravelToLevel` werden von
+den drei Mustern in `research/spikes/andockpunkte/audit.py` jeweils eindeutig
+gefunden. Geprüfte Exe, SHA-256:
+`3afbf18e051fbceb1fec17a8da20165ba64e0f6c3c88cbe88cb046704a4eefb5`.
+Keine neuen RVAs und keine Bestätigung eines nativen C++-Prototyps. Nur dieser
+Build ist geprüft; vor einem Hook müssen auch die geladenen Originalbytes passen.
+
 | Funktion | RVA |
 |---|---|
 | `SetClientTravel` | `0x3262830` |

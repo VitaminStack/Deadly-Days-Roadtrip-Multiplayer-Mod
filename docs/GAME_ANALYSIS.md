@@ -52,6 +52,26 @@ vollständiges SDK für Build `26187885` erzeugt (02.11.2026), die Dateien `Basi
 
 ## Netzwerk
 
+### Technische Andockpunkte: neue statische Prüfung
+
+Aufgabe `andockpunkte`, Build `26187885`, 02.11.2026:
+
+- **[Belegt, statisch]** `VERSION.dll` ist regulärer Import mit
+  `GetFileVersionInfoW`, `GetFileVersionInfoSizeW` und `VerQueryValueW`.
+  `XINPUT1_4.dll` ist dagegen ein Delay-Import.
+- **[Belegt, statisch]** Die drei Byte-Signaturen des
+  [Audits](../research/spikes/andockpunkte/audit.py) treffen in ausführbaren
+  Sektionen jeweils genau die bereits bekannten RVAs für `ProcessEvent`,
+  `SetClientTravel` und `SeamlessTravelToLevel`. Keine neue Semantik/ABI hergeleitet.
+- **[Hypothese]** `version.dll` eignet sich als Mod-Loader im Spiel. Ein isoliertes
+  Windows-Testprogramm lädt den Proxy und erhält gültige Daten über alle drei
+  Exporte; das ist kein Test mit der Spiel-Exe. Fehlversuch und Grenzen stehen in
+  der [Versuchsbeschreibung](../research/spikes/andockpunkte/README.md).
+- Kein neuer Spieltest und keine Änderung an der Spielinstallation. Die bereits
+  vorhandene lokale `dwmapi.dll` bleibt unangetastet; Herkunft nicht untersucht.
+
+### Vorhandene Netzwerkbefunde
+
 - **[Belegt]** Die Exe enthält `IpNetDriver`, `IrisCore` (`net.Iris.*`) und `OnlineSubsystemSteam` mit Lobby-Code.
 - **[Belegt]** Die Strings `SteamNetDriver` und `SteamSocketsNetDriver` kommen in der Exe nicht vor. Vorhanden sind nur
   `SteamSocketsIP` und `SteamSocketsP2P`. Für Verbindungen über Steam ist also vermutlich ein eigener Tunnel nötig.
