@@ -18,10 +18,11 @@ Ziel: Alle können auf demselben Spielstand und mit derselben Toolchain arbeiten
 
 - [x] P0 Öffentliches GitHub-Repo anlegen
 - [ ] P0 Freunde als Mitwirkende einladen
-- [ ] P0 Branch-Schutz für `main` aktivieren: PR und ein Review verpflichtend
+- [x] P0 Branch-Schutz für `main` aktivieren
 - [ ] P0 Team-Aufteilung auf die [Arbeitsbereiche](CONTRIBUTING.md#arbeitsbereiche) festlegen, danach `CODEOWNERS` anlegen
 - [x] P0 SDK für UE 5.8 erstellen. Dumper-7 brauchte dafür einen Fix, siehe [Analyse](docs/GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58)
-- [ ] P0 SDK zusätzlich während einer laufenden Mission dumpen, damit die Blueprint-Klassen enthalten sind
+- [x] P0 SDK zusätzlich während einer laufenden Mission dumpen, damit die Blueprint-Klassen enthalten sind
+- [ ] P2 SDK auch in einem Bosskampf dumpen, weil diese Klassen im Mission-Dump weitgehend fehlen
 - [ ] P1 Dumper-7-Fix dem Dumper-7-Projekt vorschlagen, damit alle Helfer ihn ohne eigenen Patch bekommen
 - [ ] P0 Visual-Studio-Solution mit einem Projekt je Modul anlegen, `config/Local.props` einbinden
 - [ ] P1 Festlegen, wie das Team mit Spiel-Updates umgeht ([Update-Regel](CONTRIBUTING.md#spiel-updates))
@@ -40,7 +41,8 @@ Ziel: Fakten für Gate G1 sammeln. Spike-Code ist Wegwerfcode und landet nicht i
 - [ ] P1 Karten-Erzeugung verstehen: Ist die Map aus einem Seed reproduzierbar (`Map_Generation`)?
 - [ ] P1 Enemy-Spawning und `PoolManager` verstehen: Wie viele Actors, wie gepoolt?
 - [ ] P1 Pausen-Logik klären: Was passiert bei Level-up und Inventar? (Hinweis: `bCoopBlocksGameplay`)
-- [ ] P2 Blueprint-Anteil abschätzen: Welche Spiellogik liegt nur in Blueprints statt in nativem Code?
+- [ ] P0 `bReplicates` der Blueprint-Actors prüfen (`BP_Enemy`, `BP_Projectile`, Loot), zum Beispiel an ihren Default-Objekten zur Laufzeit
+- [ ] P1 Blueprint-Logik auslesen: Was läuft dort bei Spawns, Effekten und Events, und was davon muss der Client sehen?
 - [ ] P1 Pixelsplit über das öffentliche Projekt informieren: Ist offizieller Online-Coop geplant, und wie stehen sie zu der Mod?
 
 **Spikes**

@@ -30,7 +30,7 @@ Der Host läuft als Listen-Server, der Client verbindet sich als normaler UE-Cli
 schließt Lücken.
 
 - **Dafür:** Die Exe enthält RPCs, `OnRep_*`-Funktionen, GAS und den `IpNetDriver`. Bewegung, Attribute und Fähigkeiten gäbe es fast geschenkt.
-- **Dagegen:** Der Code ist vielleicht veraltet. Die Coop-Logik erwartet zwei lokale Spieler auf einem PC. Viele Gegner könnten das Netz überlasten.
+- **Dagegen:** Der Code ist vielleicht veraltet. Die Coop-Logik erwartet zwei lokale Spieler auf einem PC. Viele Gegner könnten das Netz überlasten. Die Blueprints enthalten fast keinen Netzwerkcode.
 
 ### Weg B: Eigene Snapshot-Synchronisierung (Plan B)
 
@@ -42,8 +42,9 @@ Spieler, Gegner und Projektile als Stellvertreter-Objekte dar. Der Zustand kommt
 
 ### Hybrid
 
-Beide Wege schließen sich nicht aus. Denkbar ist native Replikation für Spieler und GAS, dazu gebündelte Snapshots für die Gegnermassen.
-Die Modulgrenzen unten lassen das zu.
+Beide Wege schließen sich nicht aus. Denkbar ist native Replikation für Spieler und GAS, dazu gebündelte Snapshots für die Gegnermassen und
+für alles, was aus Blueprints kommt. Nach dem Mission-Dump ist das der wahrscheinlichste Ausgang, weil die Blueprints kaum Netzwerkcode
+enthalten. Die Modulgrenzen unten lassen das zu.
 
 ## Transport
 

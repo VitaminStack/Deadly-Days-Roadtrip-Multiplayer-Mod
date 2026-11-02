@@ -33,8 +33,9 @@ vollständiges SDK für Build `26187885` erzeugt (02.11.2026), die Dateien `Basi
 - **Nacharbeit nach jedem Dump:** In `Assertions.inl` sind die Prüfungen für `UEngineReplicationBridge`,
   `URepositionableTransformGizmo` und `UPolyEditPreviewMesh` abzuschalten. Sie schlagen sonst beim Kompilieren fehl.
   Die Ursache ist nicht untersucht. Bei Nutzung von `UEngineReplicationBridge` deren Layout zuerst prüfen.
-- **Offen:** Der Dump entstand im Hauptmenü. Blueprint-Klassen werden nur erfasst, wenn sie geladen sind, darum fehlt noch ein
-  Dump während einer laufenden Mission.
+- **Dump-Zeitpunkt:** Immer während einer laufenden Mission dumpen, denn Blueprint-Klassen werden nur erfasst, wenn sie geladen sind.
+  Das Hauptmenü liefert 64.952 Objekte und 562 Blueprint-Klassen, eine Mission 110.688 Objekte und 925 Blueprint-Klassen plus 178 Widgets.
+- **Grenze:** Auch der Mission-Dump enthält nur, was in dieser einen Mission geladen war. Bosse fehlen zum Beispiel weitgehend.
 
 ## Technische Basis
 
@@ -68,6 +69,12 @@ vollständiges SDK für Build `26187885` erzeugt (02.11.2026), die Dateien `Basi
 - **[Belegt]** Rund 79 replizierte Properties, vor allem in `UDDCharacterAttributeSet` (29), `UDDEnemyAttributeSet` (15) und
   `UCommonAttributeSet` (10), dazu `UInventoryItemInstance`, `UInventoryComponent`, `UFuelMeter`, `UCharacterEffectManager`
   und `ADDMissionGameState` (`SecondsSinceMissionStart`, `DayNum`).
+- **[Belegt]** Die Blueprint-Ebene ist fast ohne Netzwerkcode: In 925 geladenen Blueprint-Klassen gibt es nur 2 RPCs
+  (`BP_Airdrop_Lootable.StartFallDown`, `BP_PowerUpCrate.ShowEffect`) und 2 replizierte Properties (`BP_EnvironmentObjectLootspot`).
+- **[Belegt]** Gegner, Projektile, Spawner und Item-Effekte liegen als Blueprints vor, zum Beispiel `BP_Enemy`, `BP_StandardEnemy`,
+  `BP_EnemySpawner`, `BP_Projectile` und viele `BP_Effect_*`. Ob sie `bReplicates` setzen, zeigt das SDK nicht und ist noch offen.
+- **[Hypothese]** Native Replikation deckt Attribute und einen Teil von Kampf und Inventar ab, aber nicht die Blueprint-Logik. Was dort
+  entsteht (Effekte, Events, Spawns), bräuchte beim Client eigenen Sync-Code. Das spricht eher für den Hybrid aus Weg A und B.
 - **[Hypothese]** Der Netzwerkcode ist Altlast aus einer früheren Entwicklungsphase: Er wurde nicht ausgebaut, aber auch nicht
   weiterentwickelt, wie die fehlenden RPCs bei neuen Systemen und die entfernten RPCs zeigen. Kampf, Attribute und Inventar sind
   damit mögliche Grundlagen. Ob dieser Code noch läuft, ist offen.
