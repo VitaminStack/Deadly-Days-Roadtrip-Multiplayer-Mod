@@ -18,6 +18,8 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 
 **Neue Befunde.**
 
+- `tag3`, 03.11.2026: Unsicheren Next-Tick-Capture dem Achievement-Detektor zugeordnet und Timer-Cleanup bei EndPlay umgesetzt. Begrenzte direkte Traveltests überstehen den bisherigen Host-Callback; neuer Client-Absturz beim Lesen eines noch fehlenden AttributeSet bleibt offen. Kein echter Tag-3-/Run-Nachweis.
+
 - `rundenende` zeigt: Das Spiel überträgt die Endphase nicht, und nachspielen lässt sie sich beim Client nicht. Nötig ist eine eigene Host-Nachricht, also ein Kontrollkanal, den es auch im Spike noch nicht gibt.
 - Die Ergebnisse von `rundenende` sind eingereicht, die Aufgabe bleibt offen: Die Phasenübertragung selbst fehlt, siehe [Untersuchung](GAME_ANALYSIS.md#rundenende-befund-und-offene-phasenübertragung-rundenende).
 - In `TODO.md` fehlten fünf Aufgaben, die jetzt eingetragen sind: Kontrollkanal, Übernahme der Spike-Patches, Umsetzung der Kamera, Pausen über den Kontrollkanal und der einmalige Absturz im Missions-Tick.

@@ -232,7 +232,18 @@ Panel-Öffnungspfade und nicht jedes Feld wurden durch gezielte Änderung bestä
 Nur SDK-Nachschlagewerte von Build `26187885`, hier nicht durch Mutation getestet.
 Fuer rohe XP-/Level-Interna ist kein neuer Offset bestimmt worden. Keine
 Speicherbereiche aus dem Padding als Protokollquelle behandeln.
-`inventar`-Testgrenze: Reise auf Tag 3 führte zweimal beim Host in den Callback `0x57CC390` (Fehler bei `0x57CC395`/`0x57CC398`, indirekter Aufruf `+0x490`; nächster Stack-Eintrag `0x315A764`). Objektklasse unbekannt, **keine** neue Patchstelle. Ein nachfolgender Client-Absturz lag bei `0x57D080C`.
+`inventar`-Testgrenze: Reise auf Tag 3 führte zweimal beim Host in den Callback `0x57CC390` (Fehler bei `0x57CC395`/`0x57CC398`, indirekter Aufruf `+0x490`; nächster Stack-Eintrag `0x315A764`). `tag3` ordnet ihn nun `HitByEnemyTypeAchievementDetectorComponent` zu. Ein nachfolgender Client-Absturz lag bei `0x57D080C`; im neuen direkten Traveltest bei `0x178BA90` (Lesen `0x8C`).
+
+Timer-Lebensdauerfix `tag3`, nur Build `26187885`:
+
+| Stelle | RVA / Layout | Befund |
+|---|---|---|
+| Detector-Vtable | `0x94C1758`, BeginPlay `+0x3E8`, EndPlay `+0x3F0` | BeginPlay `0x57CB220`, EndPlay `0x57D0A40` |
+| Next-Tick-Timer registrieren | CALL `0x57CB3C5` → `0x314D4D0` | `(TimerManager*, uint64* ResultHandle, TFunction*)`, roher Capture bei `TFunction+0x18` |
+| FindTimer | `0x31471C0` | `(TimerManager*, const uint64* Handle)`; vollständigen Handle vor Clear prüfen |
+| Timer intern löschen | `0x314D0B0` | `(TimerManager*, uint64 Handle)`; nativer K2_ClearTimerHandle-Pfad |
+
+Neuer Client-Folgefehler: Spawner-Initialisierung `0x58A58E0`, Aufruf `0x58A6060` → Aggregationsschleife `0x58B4160`, dort Aufruf `0x58B41A6` → Attribut-Getter `0x178BA90`. `Character+0x7D8` wird ohne Prüfung genutzt, Attribut `+0x80`, Getter-Lesefeld `+0xC`; fehlendes AttributeSet ergibt `0x8C`. Nur Diagnose, keine neue Patchstelle.
 
 ## Enums
 

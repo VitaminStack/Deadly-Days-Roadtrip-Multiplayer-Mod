@@ -499,6 +499,19 @@ Build `26187885`, zwei Instanzen auf einem PC, Loopback, getrennte Test-Spielst�
 - **[Belegt] Grenze:** Beide Versuche der anschliessenden Reise auf Tag 3 endeten mit einem Host-Absturz im indirekten Callback bei `0x57CC395` beziehungsweise `0x57CC398` (nächster Stack-Eintrag `0x315A764`). Der Callback liest ein Objekt und springt über dessen Vtable bei `+0x490`; die Objektklasse und der Zusammenhang mit dem Inventar sind ungeklärt. In einer Sitzung folgte ein Client-Absturz bei `0x57D080C`. Keine Aussage, dass ein kompletter Run funktioniert oder diese Folgefehler unabhängig vom Teilfix sind.
 - **Nicht geprüft:** Inventarbedienung/RPCs des Clients, Belohnungen mit mehreren Items, Item-Effekte, Internet/Latenz/Paketverlust, vollständiger Run. `obj gc` wurde an beide Instanzen gesendet; dessen tatsächliche GC-Ausführung ist mit den vorhandenen Logs nicht belegt.
 
+#### Tag-3-Callback: Lebensdauer des Achievement-Detektors (`tag3`)
+
+Stand 03.11.2026, Build `26187885`. Kein weiterer Null-Schutz in Inventar-Schleifen.
+
+- **[Belegt, Disassembly und Laufzeit-Vtable]** Der einzige RIP-relative Verweis auf `0x57CC390` im untersuchten Codebereich kommt aus `0x57CB220`. Diese Funktion steht bei `HitByEnemyTypeAchievementDetectorComponent` im BeginPlay-Slot `+0x3E8`. Sie erzeugt einen Next-Tick-Timer mit einem **rohen Component-Zeiger** als TFunction-Capture. Der Callback liest diesen Zeiger und ruft virtuell `+0x490` auf.
+- **[Belegt, Disassembly]** Der dazugehörige EndPlay-Override `0x57D0A40` ruft die Basisklasse und räumt eine Delegate-Bindung auf. Den Next-Tick-Timer räumt er nicht auf. Ein UObject-gebundenes Delegate, dessen Lebensdauer die Engine prüfen könnte, wird für diesen Callback nicht benutzt.
+- **[Belegt, Gegenprobe]** Mit korrigierter `SpawnedPlayers`-Menge, aber unverändertem Timerpfad, reproduzierte ein direkter Wechsel nach zwei Missionstravels den Host-Absturz `0x57CC398`, Stack danach `0x315A764`. Eine intakte Controller-Menge alleine reicht also nicht.
+- **[Umgesetzt]** `Inventory.cpp` bewahrt nur für diesen Callsite den echten zurückgegebenen TimerHandle und TimerManager auf. Beim EndPlay dieser Component wird der Handle über den nativen FindTimer-Pfad geprüft und ein noch lebender Timer vor dem ursprünglichen EndPlay gelöscht. Die ursprünglichen BeginPlay-/EndPlay- und Callback-Inhalte bleiben erhalten; keine Objekt-Nullprüfung im abstürzenden Callback, kein Abschalten des Achievement-Systems, keine neue Inventar-/Outer-Manipulation.
+- **[Belegt, begrenzter Laufzeittest]** Byte-/Vtable-Prüfungen bestanden, Timer registriert und bei EndPlay wiederholt tatsächlich abgeräumt. MetaBase → Mission → Mission → MetaBase blieb verbunden; die Inventare waren nach dem zweiten Missionstravel vollständig und identisch. Beim folgenden Wechsel in die Mission blieb der Host am Leben, aber der Client stürzte neu bei `0x178BA90` ab (Lesen von `0x8C`, danach `0x58B41AB`, `0x58A6065`). Im lokalen Integrationstest mit `spawnedplayers` erneut reproduziert.
+- **[Statisch eingegrenzt, nicht behoben]** Der neue Client-Stack führt über die Spawner-Initialisierung `0x58A58E0` nach `0x58B4160`. Dessen Schleife prüft die Figur, aber nicht deren `AttributeSet` bei `Character+0x7D8`; sie übergibt `AttributeSet+0x80` an den Getter `0x178BA90`, der nochmals `+0xC` liest. Ein fehlendes AttributeSet erklärt exakt `0x8C`. Ob Replikationsreihenfolge oder ein falscher lokaler Initialisierungspfad zugrunde liegt, ist offen. Kein weiterer Null-Schutz eingefügt.
+
+**Einordnung:** Die Lebensdauerhypothese ist durch Capture, fehlenden Cleanup und den begrenzten Vergleich stark gestützt. Kein echter Menü-/Tagesablauf bis Tag 3 oder vollständiger Run mit dem neuen Fix belegt; die Inventar-Aufgabe bleibt offen. Direkte `servertravel`-Stresstests sind keine Tageswechsel über die Host-Route. Folgeabstürze und mögliche weitere unsichere Timer bleiben offen.
+
 ### Was beim Client laufen darf
 
 | Bereich | Host | Client |
