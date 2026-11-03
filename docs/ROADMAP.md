@@ -43,7 +43,7 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 flowchart TD
     subgraph A["Klären, ob es geht"]
         direction LR
-        P0["Phase 0<br/>Setup"]:::wip --> P1["Phase 1<br/>Analyse und Spikes"]:::wip --> G1{{"Gate G1<br/>Technikentscheidung"}}:::gate
+        P0["Phase 0<br/>Setup"]:::done --> P1["Phase 1<br/>Analyse und Spikes"]:::wip --> G1{{"Gate G1<br/>Technikentscheidung"}}:::gate
     end
 
     subgraph B["Spielbar machen"]
@@ -58,6 +58,7 @@ flowchart TD
 
     A --> B --> C
 
+    classDef done fill:#2e7d32,stroke:#1b5e20,color:#ffffff
     classDef wip fill:#f9a825,stroke:#b27a00,color:#1a1a1a
     classDef open fill:#eceff1,stroke:#607d8b,color:#1a1a1a
     classDef gate fill:#6a1b9a,stroke:#3e1163,color:#ffffff

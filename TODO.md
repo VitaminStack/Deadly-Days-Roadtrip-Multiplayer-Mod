@@ -144,7 +144,6 @@ Das macht das Team selbst, dafür gibt es keine Reservierung.
 | Gate G1: Weg A, Weg B oder Stopp | Alles außer `grundgeruest` und Welle 1 |
 | Gate G2: Testrunde abnehmen | Welle 4 |
 | Kamera entscheiden | `kamera-code` |
-| Update-Regel und gemeinsame Build-ID | Verlässliche Spieltests |
 | Meta-Fortschritt: Wessen Stand zählt? | `run-ende` |
 | `WeeklyMode` unterstützen oder online sperren | – |
 | Pixelsplit informieren und Rückmeldung berücksichtigen | `release` |
