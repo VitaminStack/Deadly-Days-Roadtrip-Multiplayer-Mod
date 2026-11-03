@@ -59,7 +59,7 @@ Gezählt sind die Punkte aus [TODO.md](TODO.md), ohne optionale Optimierungen.
 | [6](TODO.md#phase-6--release) | Veröffentlichung | 0 von 5 | ░░░░░░░░░░░ |
 | **Gesamt** | | **44 von 83** | ██████░░░░░ |
 
-Unter `src/` stehen Loader, Core und leere Modul-Einstiege, noch ohne Spiellogik. Die Punkte sind unterschiedlich groß, die Zahlen sagen also wenig über die verbleibende Zeit. Stand, Engpässe und nächste Schritte stehen in der [Roadmap](docs/ROADMAP.md#stand-und-nächste-schritte).
+Unter `src/` stehen Loader, Core, ein einfaches [Mod-Overlay](src/UI/README.md) und weitere Modul-Einstiege, noch ohne Spiellogik. Beim Overlay fehlt die sichtbare Spielabnahme, deshalb bleiben die Fortschrittszahlen unverändert. Die Punkte sind unterschiedlich groß, die Zahlen sagen also wenig über die verbleibende Zeit. Stand, Engpässe und nächste Schritte stehen in der [Roadmap](docs/ROADMAP.md#stand-und-nächste-schritte).
 
 ## Wo finde ich was?
 

@@ -260,7 +260,7 @@ Ziel: Stabile Basis, auf der alle parallel arbeiten können. Ab hier sind die Ar
 - [x] P0 `Core`: Dispatcher für Aufrufe auf dem Game Thread, `Drain` ruft erst `game-adapter` auf
 - [x] P0 `Core`: Versionsprüfung – bei unbekannter Build-ID Mod sauber deaktivieren statt abstürzen
 - [ ] P0 `Game`: Adapter-Schicht für die ersten Klassen
-- [ ] P1 `UI`: Einfaches Overlay mit Status, Lobby-Knöpfen und Debug-Anzeige
+- [ ] P1 `UI`: Einfaches Overlay mit Status, Lobby-Knöpfen und Debug-Anzeige (`overlay`): F8-Toolfenster, kopierter Status und geprüfte Game-Thread-Aktionen implementiert; ohne Netzwerkbackend bleiben Lobby-Knöpfe deaktiviert. Modell-/Fenster-Lebenszyklustests ohne Spiel vorhanden. Sichtbare Host-/Client-Abnahme noch offen, siehe [UI](src/UI/README.md)
 - [x] P1 `tools`: Deploy-Skript, das die Mod ins Spiel kopiert, `tools/Deploy-Mod.ps1`
 - [x] P1 `tests`: Testprojekt und CI für Code ohne SDK-Abhängigkeit
 

@@ -13,6 +13,8 @@ if ($LASTEXITCODE -ne 0) { throw 'Build fehlgeschlagen.' }
 if ($Test) {
     & (Join-Path $script:RepoRoot "bin\$Configuration\CoreTests.exe")
     if ($LASTEXITCODE -ne 0) { throw 'C++-Tests fehlgeschlagen.' }
+    & (Join-Path $script:RepoRoot "bin\$Configuration\UITests.exe")
+    if ($LASTEXITCODE -ne 0) { throw 'UI-Tests fehlgeschlagen.' }
     & py -B -m unittest discover -s (Join-Path $script:RepoRoot 'tests')
     if ($LASTEXITCODE -ne 0) { throw 'Python-Tests fehlgeschlagen.' }
 }

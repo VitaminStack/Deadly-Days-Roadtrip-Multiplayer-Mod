@@ -5,6 +5,7 @@ Tests für Code ohne SDK-Abhängigkeit. Sie laufen bei jedem Pull Request in Git
 | Was | Wo | Lokal starten |
 |---|---|---|
 | C++-Tests mit doctest | `tests/CoreTests` | `bin\Release\CoreTests.exe` nach dem Bauen der Solution |
+| Overlay-Modell und nativer Fenster-Lebenszyklus | `tests/UITests` | `bin\Release\UITests.exe`, auch Teil von `Build-Mod.ps1 -Test` und CI; ohne Spiel/SDK |
 | Python-Tests | `tests/test_*.py` | `py -B -m unittest discover -s tests` |
 
 `test_module_boundaries.py` prüft die [Modulgrenzen](../docs/ARCHITECTURE.md#module) an den Includes. Ein neuer Ordner unter `src/` braucht dort einen Eintrag.

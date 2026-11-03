@@ -21,6 +21,12 @@ Das baut Spike und Mod, installiert die Mod und startet die Sitzung. `Get-Status
 `Stop-Session.ps1` entfernt die Mod danach wieder, sonst lädt auch ein normaler Spielstart sie ohne Crash-Schutz. Ohne `-Mod` gilt:
 nach `Stop-Session.ps1` selbst `Deploy-Mod.ps1 -Remove` ausführen.
 
+### Mod-Overlay prüfen
+
+Nach einem Build mit dem Paket `overlay` zeigt **F8** im aktiven Spielfenster das Statusfenster; erneutes F8 oder dessen Schließen verbirgt es. Pro Prozess darf nur dessen eigenes Overlay erscheinen. Beim Wechsel zu einer anderen Anwendung und beim Minimieren muss es verschwinden; nach Rückkehr sichtbar bleiben, wenn es zuvor eingeschaltet war. Fenster verschieben und DPI/Lesbarkeit sowie Tab-Bedienung prüfen. Keine fremde Testsitzung dafür bedienen.
+
+Ohne Netzwerkbackend müssen die Lobby-Knöpfe deaktiviert bleiben und der Status „Netzwerk noch nicht angebunden“ lauten. Fenster- oder randlosen Modus verwenden, kein exklusives Vollbild. Das Overlay pausiert das Spiel nicht. Optionen in `ddcoop.ini`, API und bisherige Testgrenzen stehen in [src/UI](../src/UI/README.md). Der sichtbare Spieltest ist für den Phase-2-Abschluss noch offen; die CI prüft nur Modell und unsichtbaren Fenster-Lebenszyklus.
+
 ## Sitzung starten
 
 Voraussetzung ist die Einrichtung aus [SETUP.md](SETUP.md). Die Skripte prüfen die Build-ID und brechen bei einem anderen Build ab.
