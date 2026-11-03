@@ -2,6 +2,28 @@
 
 Skripte für den Alltag. Pfade kommen aus `config/Local.props`, nie fest im Skript.
 
+## tasks.py
+
+Reserviert Aufgaben aus [TODO.md](../TODO.md#wo-kann-ich-anfangen), damit niemand doppelt arbeitet, siehe [Aufgaben reservieren](../CONTRIBUTING.md#aufgaben-reservieren).
+
+| Befehl | Aufgabe |
+|---|---|
+| `py tools/tasks.py list` | Alle Kennungen mit Status aus Branches und Pull Requests |
+| `py tools/tasks.py claim <kennung> <name>` | Worktree, Branch `task/<kennung>`, Push und Draft-PR |
+| `py tools/tasks.py release <kennung>` | Draft-PR schließen, Branch löschen, sauberen Worktree entfernen |
+
+## dumper7/
+
+Baut Dumper-7 im getesteten Stand für UE 5.8, damit alle dasselbe SDK erzeugen. Hintergrund in [SDK-Erzeugung unter UE 5.8](../docs/GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58).
+
+```bash
+powershell -ExecutionPolicy Bypass -File tools/dumper7/Build-Dumper7.ps1 -OutputDir C:/Dumper-7
+```
+
+- Baut aus dem Submodul `third_party/Dumper-7` (upstream `2c1eae3` plus Fix) und lädt es bei Bedarf nach. Gebaut wird eine Kopie in `research/local/dumper7/`, das Submodul bleibt unverändert.
+- `-OutputDir` ist der Ordner für das SDK, Standard `C:/Dumper-7`. Dumper-7 entlädt sich nach dem Dump selbst.
+- Ergebnis ist `research/local/dumper7/out/Dumper-7.dll`. In den Host einer laufenden Mission laden: `py tools/spike/inject.py <host-pid> <dll>`.
+
 ## Test-Setup.ps1
 
 Prüft die Einrichtung aus [docs/SETUP.md](../docs/SETUP.md): Git, Python, Visual Studio mit C++, `config/Local.props`, Spielordner und Build. Ändert nichts.

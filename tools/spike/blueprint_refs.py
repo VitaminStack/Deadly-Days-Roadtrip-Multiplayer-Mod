@@ -1,7 +1,8 @@
-"""Read-only-Referenzinventar geladener Blueprints, nur Build 26187885.
+"""Read-only-Referenzinventar und begrenzter Bytecode-Audit, Build 26187885.
 
-Kein Decompiler: Gibt weder Scriptbytes noch Parameter, Spruenge oder eine
-rekonstruierte Ausfuehrungsreihenfolge aus. Token-Kandidaten sind kein CFG-Beweis.
+Kein Codeexport: keine Scriptbytes, Rohzeiger oder rekonstruierten Funktionskoerper.
+Token-Kandidaten und validierte Ausdrucks-/Sprunggrenzen werden getrennt gemeldet.
+Auch ein vollstaendig gelesener Graph ersetzt keinen Host-/Client-Ereignistest.
 """
 import argparse
 import json
@@ -29,6 +30,7 @@ def candidate_calls(script, functions):
 
 def main():
     from ddmem import Game  # Windows-Zugriff nur bei tatsaechlicher Prozessanalyse.
+    from kismet_audit import audit
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("pid", type=int)
@@ -61,13 +63,20 @@ def main():
                                          "BP_Effect_Add_Poison_Cloud_C"):
                     # ImpactActor aus dem gemeinsamen Blueprint-Parent, SDK-Offset.
                     owners[owner]["impact_actor_default"] = game.name(game.ptr(default + 0x40))
-        if kind != "Function":
+        if kind not in ("Function", "DelegateFunction", "SparseDelegateFunction"):
             continue
         owner = game.name(game.ptr(obj + 0x20))
         name = game.name(obj)
         functions[obj] = f"{owner}.{name}"
         if owner in owners:
             selected.append((obj, owner, name))
+    scripts = {}
+    for obj, owner, name in selected:
+        pointer, count = game.ptr(obj + 0x60), game.i32(obj + 0x68)
+        if 0 <= count <= 2_000_000:
+            script = game.read(pointer, count) if count else b""
+            if script is not None and len(script) == count:
+                scripts[f"{owner}.{name}"] = script
     for obj, owner, name in selected:
         flags = game.i32(obj + 0xB0)
         pointer, count = game.ptr(obj + 0x60), game.i32(obj + 0x68)
@@ -79,6 +88,7 @@ def main():
             if script is not None and len(script) == count:
                 row["read_complete"] = True
                 row["candidate_calls"] = candidate_calls(script, functions)
+                row["bytecode_audit"] = audit(script, functions, scripts)
         owners[owner]["functions"].append(row)
     print(json.dumps({"world": game.name(game.world()), "owners": owners}, indent=2))
 
