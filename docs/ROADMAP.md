@@ -100,7 +100,7 @@ flowchart LR
     end
 
     subgraph LOGIK["Spiellogik"]
-        PA["Pausen bei Level-up<br/>und Inventar<br/>(pausen)"]:::wip
+        PA["Pausen bei Level-up<br/>und Inventar analysiert<br/>(pausen)"]:::done
         BP["Blueprint-Logik:<br/>Kontrollfluss und Events<br/>(blueprint-logik)"]:::wip
     end
 
@@ -108,7 +108,7 @@ flowchart LR
         LA["Spike D: Last<br/>(last)"]:::open
         TU["Spike E: Steam-Tunnel<br/>(tunnel)"]:::open
         AP["Andockpunkte:<br/>Test im Spiel<br/>(andockpunkte)"]:::wip
-        CR["Crash-Reporter<br/>zuverlässig aus<br/>(crash-reporter)"]:::open
+        CR["Crash-Reporter<br/>zuverlässig aus<br/>(crash-reporter)"]:::done
     end
 
     BASIS --> RUN

@@ -84,6 +84,9 @@ void ReleaseDeferredWidgetEvents(uintptr_t World);
 // MapObjects.cpp
 bool PatchMapObjects(CodeWriter& Code);
 
+// CrashReports.cpp
+bool PatchCrashReports(CodeWriter& Code);
+
 // Mission.cpp
 void ForceEnemyWave();
 void FinishMission();

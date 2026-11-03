@@ -29,7 +29,16 @@ vollständiges SDK für Build `26187885` erzeugt (02.11.2026), die Dateien `Basi
   daher die feste Absturzadresse `0xCDB0` (`0x66D8 * 2`).
 - **[Belegt] Layout:** `Name` 0x08, `ClassFlags` 0x10, `Id` 0x18, `CastFlags` 0x20, `SuperClass` 0x28, Gesamtgröße 0x50.
 - **Fix in Dumper-7:** In `OffsetFinder::FixupFieldClassOffsets()` wird das Layout daran erkannt, dass die gefundenen `CastFlags`
-  nicht vor dem fest hinterlegten `SuperClass`-Offset liegen. Dann werden die vier Offsets oben gesetzt.
+  nicht vor dem fest hinterlegten `SuperClass`-Offset liegen. Dann werden die Offsets oben gesetzt.
+- **[Belegt] Gemeinsamer Stand (03.11.2026):** Upstream-`main` `2c1eae3` stürzt weiter ab. Getestet ist eine Variante des Fixes, die die
+  Offsets relativ zu `Id` und `CastFlags` berechnet und den UE-5.7-Pfad unverändert lässt. Mit ihr lief ein Dump im Host einer Mission
+  (über das Menü gestartet) vollständig durch: 2.636 SDK-Dateien, `FFieldClass` wie oben, `UInViewportMovementRestrictor`,
+  `UInventoryItemInstance` und `UInventoryComponent` gleich zum SDK vom 02.11. Der Host lief weiter. Diese Variante liegt als
+  Commit `1aae006` im Fork `VitaminStack/Dumper-7` (Branch `ddcoop-ue58`), eingebunden als Submodul `third_party/Dumper-7`,
+  gebaut wird sie mit [`Build-Dumper7.ps1`](../tools/README.md#dumper7).
+  Nicht geprüft: Kompilieren dieses SDK, andere Engine-Versionen.
+- **Upstream:** Der Fehler ist bei Dumper-7 als Issue #544 bekannt. Offen ist PR #576 mit einer Erkennung über Klassennamen. Er kompiliert
+  laut Codestand nicht (Aufruf der entfernten `FixupFieldClassOffsets()` in `Offsets.cpp`) und ist nicht von uns getestet. Ein Kommentar dazu ist noch nicht gepostet.
 - **Nacharbeit nach jedem Dump:** In `Assertions.inl` sind die Prüfungen für `UEngineReplicationBridge`,
   `URepositionableTransformGizmo` und `UPolyEditPreviewMesh` abzuschalten. Sie schlagen sonst beim Kompilieren fehl.
   Die Ursache ist nicht untersucht. Bei Nutzung von `UEngineReplicationBridge` deren Layout zuerst prüfen.
@@ -281,6 +290,14 @@ Nicht getestet: Zerbrechen einer Kiste und was der Client dabei sieht, das Einsa
 - **[Belegt, SDK und Laufzeit]** Aufgabe `pausen`: In einer direkt geladenen Mission mit aktivem Tutorialdialog hatte nur der Host einen `DialogComponent`-Zeitrequest und eine blockierende Coop-UI-Sitzung. Auf beiden Seiten waren aber `TimeDilation` etwa `0.0001` und ein `PauserPlayerState` vorhanden. Client-UI-Sitzung und Weltpause sind daher getrennt zu betrachten; die genaue Aufrufkette wurde nicht nachgewiesen.
 - **[Belegt, Default-Objekte]** Das native und Blueprint-Inventarpanel haben `bCoopBlocksGameplay=true`, aber `PauseGameWhileOpen=false`. Der eine Schalter ersetzt nicht den anderen. Der Inventar-Methodentest fand keinen Animationscontainer; `RequestLevelUp` kehrte ohne neue nachweisbare Sitzung zurück. Normaler Level-up und Inventarablauf bleiben offen, siehe [Versuche](../research/spikes/pausen/README.md).
 
+**Nachtrag `pausen`, 03.11.2026 (Build `26187885`):**
+
+- **[Belegt, isolierter Eingabeablauf]** Pausemenue → Inventar ansehen → Zurueck → Fortsetzen: Sitzungszahl auf der oeffnenden Seite `0 → 1 → 2 → 1 → 0`, Inventar ist Kind der Pausemenue-Sitzung. Auf Host und Client getrennt gemessen. Aktiver Zeitrequest bleibt beim `PauseScreenManager`; kein zweiter Inventar-Zeitrequest behauptet.
+- **[Belegt]** Host-Pause: Faktor etwa `0.0001` und Pauser auf beiden Seiten. Client-Pause: nur Client-Faktor etwa `0.0001`, kein Pauser, Host bleibt bei Faktor 1. UI-Sitzungen werden in keinem der beiden Wege auf die Gegenseite uebertragen.
+- **[Belegt]** Bei gleichzeitig offenen Pausemenues stellt Host-Fortsetzen den Client-Weltfaktor auf 1, obwohl dessen lokale blockierende Sitzung noch offen ist. Replizierte Weltpause ersetzt daher keine abgestimmte Verwaltung von Pausengruenden.
+- **[Belegt, kontrollierter Aufnahmeweg]** 200 testweise am Host-Pawn erzeugte XP werden aufgenommen: Host Level 1 / 0.10 → Level 2 / 0.547264; Client bleibt Level 1 / 0. Vorher/nachher kein Request, keine UI-Sitzung, Faktor 1 und kein Pauser auf beiden Seiten. Keine anhaltende Level-up-Pause oder Upgradeauswahl in diesem Ablauf; kurze Effekte zwischen Snapshots nicht ausgeschlossen. Kein Nachweis eines bestimmten Gegnertods.
+- **[Folgerung fuer die Umsetzung]** Client meldet Pausen-/UI-Wuensche an den Host; Host bestaetigt Gruende und gemeinsamen Weltzustand. Session-/Parent-IDs und blockierende Gruende getrennt von Weltzeit und XP/Level uebertragen. Disconnect-/Travel-Bereinigung bleibt Implementierungsarbeit. Details und abgegrenzte Fehlversuche im [Nachtrag](../research/spikes/pausen/README.md#nachtrag-03112026-isolierte-ablaeufe).
+
 ### Gegner-Spawning und Pooling
 
 Stand: Disassembly und Laufzeit-Messung, Build `26187885`. Mission über das Spielmenü, Host und Client mit dem Spike, Gegner aller 15 bis 18 Sekunden aus dem Speicher beider Seiten gezählt. RVAs in [Offsets](OFFSETS.md#gegner).
@@ -434,7 +451,7 @@ Stand: Disassembly und Laufzeit-Speicher, Build `26187885`, SDK aus einer direkt
   - Das Laden des Run-Zustands (`IRunPersistable` am Subsystem, VTable-Slot 91). Es setzt `MaxLocalPlayers=2`, stellt die Geräte-Zuordnung wieder her und übernimmt `bCoopEnabled` aus dem gespeicherten Run.
   - Ein Moduswechsel, der sich `bCoopEnabled` merkt, P2 entfernt und `SetCoopEnabled(false)` aufruft.
   - Sein Gegenstück, das `RestoreNormalSaveSlot` aufruft und Coop danach wieder einschaltet.
-  
+
   Vermutlich ist das der Wechsel in einen Modus mit eigenem Spielstand-Slot, etwa die wöchentliche Herausforderung (**[Hypothese]**).
 - **[Belegt]** In den Blueprint-Klassen dieses Mission-Dumps ruft keine `SetCoopEnabled`, `SpawnLocalPlayer` oder `SetMaxLocalPlayers` auf, nur Abfragen wie `IsCoopEnabled` und `GetPlayerController`.
   Der Beitritt läuft also in Widgets des Menüs oder der `MetaBase`, die in diesem Dump nicht geladen sind.
