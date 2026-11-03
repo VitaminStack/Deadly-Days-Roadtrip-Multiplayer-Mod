@@ -144,7 +144,6 @@ Das macht das Team selbst, dafür gibt es keine Reservierung.
 | Gate G1: Weg A, Weg B oder Stopp | Alles außer `grundgeruest` und Welle 1 |
 | Gate G2: Testrunde abnehmen | Welle 4 |
 | Kamera entscheiden | `kamera-code` |
-| Aufteilung auf die Arbeitsbereiche, danach `CODEOWNERS` | – |
 | Update-Regel und gemeinsame Build-ID | Verlässliche Spieltests |
 | Meta-Fortschritt: Wessen Stand zählt? | `run-ende` |
 | `WeeklyMode` unterstützen oder online sperren | – |
@@ -193,7 +192,7 @@ Ziel: Alle können auf demselben Spielstand und mit derselben Toolchain arbeiten
 - [x] P0 Öffentliches GitHub-Repo anlegen
 - [x] P0 Freunde als Mitwirkende einladen
 - [x] P0 Branch-Schutz für `main` aktivieren
-- [ ] P0 Team-Aufteilung auf die [Arbeitsbereiche](CONTRIBUTING.md#arbeitsbereiche) festlegen, danach `CODEOWNERS` anlegen
+- [x] P0 Team-Aufteilung auf die [Arbeitsbereiche](CONTRIBUTING.md#arbeitsbereiche) festlegen, danach `CODEOWNERS` anlegen. Entschieden: Keine festen Bereiche je Person und kein `CODEOWNERS`. Die Arbeit teilt sich über die [Reservierung](CONTRIBUTING.md#aufgaben-reservieren) per `tools/tasks.py`, wo das möglich ist
 - [x] P0 SDK für UE 5.8 erstellen. Dumper-7 brauchte dafür einen Fix, siehe [Analyse](docs/GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58)
 - [x] P0 SDK zusätzlich während einer laufenden Mission dumpen, damit die Blueprint-Klassen enthalten sind
 - [x] P2 SDK auch in einem Bosskampf dumpen, weil diese Klassen im Mission-Dump weitgehend fehlen. Ein echter Bosskampf war wegen des Host-Absturzes auf Tag 3 nicht erreichbar, die Klassen aller sechs Bosse sind deshalb in der Bosskarte gezielt geladen und gedumpt, siehe [Boss-Dump](docs/GAME_ANALYSIS.md#boss-dump-boss-dump)

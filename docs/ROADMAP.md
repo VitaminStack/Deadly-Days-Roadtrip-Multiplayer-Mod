@@ -34,7 +34,6 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 **Wartet auf das Team.**
 
 - Kamera entscheiden
-- Aufteilung auf die Arbeitsbereiche festlegen
 - Klären, ob alle auf derselben Build-ID bleiben können. Die [Update-Regel](../CONTRIBUTING.md#spiel-updates) steht: einfrieren und nur bei Bedarf nachziehen
 - Pixelsplit über das Projekt informieren
 - Dumper-7-Fix dem Dumper-7-Projekt vorschlagen

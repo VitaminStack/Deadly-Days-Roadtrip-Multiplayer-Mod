@@ -6,17 +6,17 @@ dass er unter der [MIT-Lizenz](LICENSE) des Projekts steht.
 
 ## Arbeitsbereiche
 
-Damit alle parallel arbeiten können, hat jeder Bereich eine hauptverantwortliche Person. Änderungen in fremden Bereichen sind
-erlaubt, aber diese Person macht dann das Review.
+Die Bereiche zeigen, welche Ordner zusammengehören. Feste Personen je Bereich und `CODEOWNERS` gibt es nicht. Die Arbeit teilt sich
+über die [Reservierung](#aufgaben-reservieren): Wer eine Aufgabe nimmt, reserviert sie und arbeitet dann in den Ordnern, die sie braucht.
 
-| Bereich | Ordner | Verantwortlich |
-|---|---|---|
-| Fundament | `src/Loader`, `src/Mod`, `src/Core`, `tools` | offen |
-| Netzwerk | `src/Net`, `tests` | offen |
-| Spieler und Kampf | `src/Sync/Players`, `src/Sync/Combat`, `src/Game` | offen |
-| Gegner und Welt | `src/Sync/Enemies`, `src/Sync/World`, `src/Game` | offen |
-| Inventar und UI | `src/Sync/Inventory`, `src/UI`, `src/Game` | offen |
-| Reverse Engineering | `research`, `docs/GAME_ANALYSIS.md` | offen |
+| Bereich | Ordner |
+|---|---|
+| Fundament | `src/Loader`, `src/Mod`, `src/Core`, `tools` |
+| Netzwerk | `src/Net`, `tests` |
+| Spieler und Kampf | `src/Sync/Players`, `src/Sync/Combat`, `src/Game` |
+| Gegner und Welt | `src/Sync/Enemies`, `src/Sync/World`, `src/Game` |
+| Inventar und UI | `src/Sync/Inventory`, `src/UI`, `src/Game` |
+| Reverse Engineering | `research`, `docs/GAME_ANALYSIS.md` |
 
 `src/Game` nutzen mehrere Bereiche gemeinsam. Deshalb liegt dort pro Spielsystem eine eigene Datei, etwa `PlayerAdapter`, `EnemyAdapter` und `InventoryAdapter`.
 
