@@ -16,13 +16,19 @@ HWND GameWindow = nullptr;
 void InstallPatches()
 {
     CodeWriter Code;
+    // Zuerst und unabhaengig vom Rest: Testabstuerze duerfen nie beim Hersteller landen.
+    PatchCrashReports(Code);
     if (!Code.Allocate())
     {
         Log("Patch: kein Speicher");
         return;
     }
-    if (PatchPlayers(Code) && PatchClient(Code) && PatchCamera(Code) && PatchInventory(Code) && PatchTravel(Code) && PatchWidgets(Code))
+    if (PatchPlayers(Code) && PatchClient(Code) && PatchCamera(Code) && PatchInventory(Code) && PatchTravel(Code) && PatchWidgets(Code) && PatchMapObjects(Code))
         Log("Patch: aktiv");
+    if (PatchMapGen(Code))
+        Log("Patch: Karte vom Host aktiv");
+    if (PatchPcg(Code))
+        Log("Patch: PCG vom Host aktiv");
 }
 
 // Laeuft jede Sekunde auf dem Game Thread und ersetzt die Befehle !cam und !authmove nach jedem Kartenwechsel.
@@ -32,12 +38,15 @@ void TickSession()
     const uintptr_t Driver = World ? Read<uintptr_t>(World + kWorldNetDriver) : 0;
     if (!Driver)
         return;
+    TickPcg();
     if (Read<uintptr_t>(Driver + kDriverServerConnection))
     {
         ReleaseDeferredWidgetEvents(World);
+        TickMapGen();
         ViewThroughSharedCamera();
         return;
     }
+    TickHits();
     AcceptClientPositions();
     RepairSpawnedPlayers(World);
 }
@@ -58,6 +67,10 @@ void RunPendingCommand()
         TraceRunFlow();
     else if (Pending == L"!finish")
         FinishMission();
+    else if (Pending == L"!cheats")
+        EnableCheats();
+    else if (Pending.rfind(L"!load ", 0) == 0)
+        LoadAssetCommand(Pending.substr(6));
     else if (Pending.rfind(L"!round ", 0) == 0)
         EndRound(static_cast<uint8_t>(_wtoi(Pending.c_str() + 7)));
     else

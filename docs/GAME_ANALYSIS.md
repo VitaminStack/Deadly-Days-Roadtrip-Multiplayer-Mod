@@ -13,11 +13,12 @@ Vertrauensgrad:
 |---|---|
 | Steam-AppID | `3026450` |
 | Steam-Build-ID | `26187885` |
+| Manifest-IDs | Depot `3026451`: `1832737755528485607`, Depot `3026452`: `7724756528743620812` |
 | Engine-Version | `5.8.1-56057345+++UE5+Release-5.8` |
 | Spiel-Exe | `DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe` (179 MB) |
 
-Die Build-ID steht in `steamapps/appmanifest_3026450.acf`. Bei einem Spiel-Update siehe
-[Update-Regel](../CONTRIBUTING.md#spiel-updates).
+Build-ID und Manifest-IDs stehen in `steamapps/appmanifest_3026450.acf`. Mit den Manifest-IDs lässt sich genau dieser Build über die
+Steam-Konsole neu laden. Bei einem Spiel-Update gilt die [Update-Regel](../CONTRIBUTING.md#spiel-updates): einfrieren und nur bei Bedarf nachziehen.
 
 ## SDK-Erzeugung unter UE 5.8
 
@@ -29,17 +30,63 @@ vollständiges SDK für Build `26187885` erzeugt (02.11.2026), die Dateien `Basi
   daher die feste Absturzadresse `0xCDB0` (`0x66D8 * 2`).
 - **[Belegt] Layout:** `Name` 0x08, `ClassFlags` 0x10, `Id` 0x18, `CastFlags` 0x20, `SuperClass` 0x28, Gesamtgröße 0x50.
 - **Fix in Dumper-7:** In `OffsetFinder::FixupFieldClassOffsets()` wird das Layout daran erkannt, dass die gefundenen `CastFlags`
-  nicht vor dem fest hinterlegten `SuperClass`-Offset liegen. Dann werden die vier Offsets oben gesetzt.
+  nicht vor dem fest hinterlegten `SuperClass`-Offset liegen. Dann werden die Offsets oben gesetzt.
+- **[Belegt] Gemeinsamer Stand (03.11.2026):** Upstream-`main` `2c1eae3` stürzt weiter ab. Getestet ist eine Variante des Fixes, die die
+  Offsets relativ zu `Id` und `CastFlags` berechnet und den UE-5.7-Pfad unverändert lässt. Mit ihr lief ein Dump im Host einer Mission
+  (über das Menü gestartet) vollständig durch: 2.636 SDK-Dateien, `FFieldClass` wie oben, `UInViewportMovementRestrictor`,
+  `UInventoryItemInstance` und `UInventoryComponent` gleich zum SDK vom 02.11. Der Host lief weiter. Diese Variante liegt als
+  Commit `1aae006` im Fork `VitaminStack/Dumper-7` (Branch `ddcoop-ue58`), eingebunden als Submodul `third_party/Dumper-7`,
+  gebaut wird sie mit [`Build-Dumper7.ps1`](../tools/README.md#dumper7).
+  Nicht geprüft: Kompilieren dieses SDK, andere Engine-Versionen.
+- **Upstream:** Der Fehler ist bei Dumper-7 als Issue #544 bekannt. Offen ist PR #576 mit einer Erkennung über Klassennamen. Er kompiliert
+  laut Codestand nicht (Aufruf der entfernten `FixupFieldClassOffsets()` in `Offsets.cpp`) und ist nicht von uns getestet. Ein Kommentar dazu ist noch nicht gepostet.
 - **Nacharbeit nach jedem Dump:** In `Assertions.inl` sind die Prüfungen für `UEngineReplicationBridge`,
   `URepositionableTransformGizmo` und `UPolyEditPreviewMesh` abzuschalten. Sie schlagen sonst beim Kompilieren fehl.
   Die Ursache ist nicht untersucht. Bei Nutzung von `UEngineReplicationBridge` deren Layout zuerst prüfen.
 - **Dump-Zeitpunkt:** Immer während einer laufenden Mission dumpen, denn Blueprint-Klassen werden nur erfasst, wenn sie geladen sind.
   Das Hauptmenü liefert 64.952 Objekte und 562 Blueprint-Klassen, eine Mission 110.688 Objekte und 925 Blueprint-Klassen plus 178 Widgets.
-- **Grenze:** Auch der Mission-Dump enthält nur, was in dieser einen Mission geladen war. Bosse fehlen zum Beispiel weitgehend.
+- **Grenze:** Auch der Mission-Dump enthält nur, was in dieser einen Mission geladen war. Für Bosse gibt es deshalb den [Boss-Dump](#boss-dump-boss-dump).
 - **[Belegt] Dump in einer Testsitzung:** Dumper-7 lässt sich mit `inject.py` in den Host einer laufenden Sitzung laden, auch neben dem Spike. Die Instanz läuft danach weiter.
+  Der DLL-Pfad muss absolut sein, `LoadLibraryW` sucht einen relativen Pfad im Arbeitsordner des Spiels und scheitert still. Aus Git Bash also `cygpath -wa`, nicht `cygpath -w`.
+  Die Ausgabe `LoadLibrary low32 0x0` ist kein sicheres Zeichen für einen Fehler, eine DLL kann auf einer Basis mit unteren 32 Bit 0 landen.
   Mit `-Map /Game/Maps/DDDynamic_Map` kamen 77.801 Objekte zusammen, weniger als über das Spielmenü.
 - **[Belegt] Funktionsadressen:** Die Adressen in `Dumpspace/FunctionsInfo.json` sind unter UE 5.8 unbrauchbar. Zur Laufzeit zeigt `UFunction::ExecFunction` (`+0xD8`) nach `!flow` auf die Stubs des Spikes.
   Verlässlich sind die statischen Tabellen `{const char* Name, FNativeFuncPtr}` in `.rdata`. Je Klasse gibt es zwei: eine mit den `Z_Construct_UFunction_*`-Funktionen, eine mit den Exec-Thunks. Der Thunk ruft am Ende die eigentliche Funktion auf.
+
+### Boss-Dump (`boss-dump`)
+
+Stand: 03.11.2026, Build `26187885`, Dumper-7 aus [`Build-Dumper7.ps1`](../tools/README.md#dumper7) (Submodul `1aae006`), Testsitzung mit Spike.
+
+**Ergebnis:** Ein SDK mit allen sechs Bossen: 2.571 Dateien, 90.209 Objekte, 973 Blueprint-Klassen. Der Dump vom 02.11. aus der direkt geladenen Mission hatte 2.353 Dateien, 77.805 Objekte und 868 Blueprint-Klassen. Neu sind 112 Pakete, darunter:
+
+| Bereich | Neue Pakete, Auswahl |
+|---|---|
+| Bosse | `BP_SpikeBoss`, `BP_FrankensteinBoss`, `BP_BlobBallBoss`, `BP_BallerinaBoss`, `BP_LazyBoss`, `BP_HQ_Endboss`, Basis `BP_BossEnemy`, `BP_BossProxy`, `BP_BossAIController` |
+| Spawnpunkte | `BP_<Boss>SpawnPoint` für alle sechs, Basis `BP_BossBaseSpawnPoint` |
+| Fähigkeiten und Effekte | `GA_SpikesRingAttack`, `GA_GroundPoundAttack`, `GA_BlobBallJumpAttack`, `GA_DropBigRobots`, `GE_GrantBossTag`, `GE_OverrideHealth` |
+| Endboss | `BP_Endboss_Drone`, `BP_Endboss_Shield`, `GA_Endboss_ShapeLaser_HalfCircle`, Sequenzen `LS_Endboss_*` |
+| KI | `BTD_*`, `BTT_*`, `EQS_*`, `NavArea_BossArea` |
+| UI | `WP_BaseBoss_HealthBar`, `WP_Boss_HealthBar_PhaseBased`, `WBP_BossIntroOverlay` |
+
+Nicht geprüft: Kompilieren dieses SDK.
+
+**Weg dorthin:** Ein echter Bosskampf ließ sich nicht erreichen, die Klassen sind deshalb gezielt geladen.
+
+- **[Belegt]** Ein Run hat 8 Tage („Tag 1/8“). Die Routenkarte zeigt rot gestreifte Knoten am Übergang zwischen zwei Gebieten nach Tag 4 und einen Endboss-Knoten am Ende. **[Vermutung]** Die gestreiften Knoten sind Torbosse.
+- **[Belegt]** Die Reise auf Tag 3 lässt den Host abstürzen, auch allein nach `disconnect` des Clients und auch mit abgeschaltetem `MapGen.cpp` und `Pcg.cpp`. Zweimal, auf zwei verschiedenen Routenkarten, je beim Laden von Tag 3:
+  Ein Timer (`0x315A7D6`) ruft im Kartengenerator `0x59F0C30` und von dort `0x59D9090` auf. Diese Funktion liest beim ersten `GetWorld` (`0x25E9870`) freigegebenen Speicher, Absturz bei `0x25E9889` beziehungsweise `0x59D9139`.
+  **[Vermutung]** Ein Timer des Kartengenerators überlebt den Kartenwechsel. Das ist eine andere Stelle als der Callback `0x57CC395` aus `tag3`.
+- **[Belegt]** Wird `DDDynamic_Map` direkt geladen (`servertravel`), nutzt der Generator sein Standardprofil `MGP_HQ8_Boss`: das Dach des HQ mit Arena und Bühnen des Endbosses (`BP_ManagerBoss_Stage*`, `DD_HQBoss_SurviveWaves`). Der Endboss selbst erschien auch nach `!wave` und vorgestellter Missionszeit nicht.
+- **[Belegt]** Die `DD_`-Befehle liegen fast alle in `UDDCheatManager`. Im Shipping-Build ist `APlayerController::CheatManager` leer, die Konsole verwirft sie still, etwa `DD_QuickFinishMission`. Der neue Spike-Befehl `!cheats` legt den Manager per `GameplayStatics.SpawnObject` an, danach wirkt etwa `DD_SetTimeSinceMissionStart`.
+- **[Belegt]** `DA_BossSpawnLookup` nennt alle sechs Bosse mit `EnemyType` und Spawnpunkt. Der `EnemyType` verweist in `EnemyBlueprint` (`+0x128`) auf die Gegnerklasse. `!load <Pfad>` lädt jedes davon.
+- **[Belegt]** Geladene, aber unbenutzte Klassen räumt die Garbage Collection nach etwa einer Minute wieder ab. Ein erster Dump acht Minuten nach dem Laden enthielt keine Boss-Klasse. Mit `gc.TimeBetweenPurgingPendingKillObjects 36000` vor dem Laden blieben sie erhalten.
+
+**Ablauf zum Wiederholen:**
+
+1. `Start-Session.ps1`, dann `servertravel /Game/Maps/DDDynamic_Map?listen` an den Host.
+2. An den Host: `gc.TimeBetweenPurgingPendingKillObjects 36000`.
+3. Für jeden Boss `!load` mit dem Pfad aus `DA_BossSpawnLookup`, etwa `/Game/DDSurvivors/Blueprints/Enemies/Bosses/BP_SpikeBoss.BP_SpikeBoss_C` und `.../BP_SpikeBossSpawnPoint.BP_SpikeBossSpawnPoint_C`. Der Endboss heißt `BP_HQ_Endboss`, sein Spawnpunkt `BP_HQBossSpawnPoint`.
+4. Dumper-7 mit absolutem Pfad per `inject.py` in den Host laden. Der Dump dauerte rund drei Minuten, der Host lief danach weiter.
 
 ## Technische Basis
 
@@ -71,8 +118,16 @@ Aufgabe `andockpunkte`, Build `26187885`, 02.11.2026:
   Windows-Testprogramm lädt den Proxy und erhält gültige Daten über alle drei
   Exporte; das ist kein Test mit der Spiel-Exe. Fehlversuch und Grenzen stehen in
   der [Versuchsbeschreibung](../research/spikes/andockpunkte/README.md).
-- Kein neuer Spieltest und keine Änderung an der Spielinstallation. Die bereits
-  vorhandene lokale `dwmapi.dll` bleibt unangetastet; Herkunft nicht untersucht.
+- **[Belegt, nachgeholter Spieltest]** Vollständiger VERSION-Proxy mit 17 Exporten
+  lädt in beiden Spielinstanzen; beide erreichen `DDDynamic_Map`. Die drei
+  Signaturen treffen auch im geladenen Code eindeutig. Der temporäre
+  Character-ProcessEvent-Hook leitet `K2_GetActorLocation` genau einmal weiter,
+  erhält den Rückgabewert und wird danach zurückgebaut.
+- **[Belegt, Testaufbau]** Die vorgefundene Installation lädt zusätzlich UE4SS und
+  eine vorhandene Mod. Diese Dateien wurden nicht verändert. Ein genehmigter
+  eigener VERSION-Hardlink wurde nur während des Tests benutzt und danach
+  entfernt. Der Drei-Export-Proxy bestand nur isoliert, im Spiel nicht; siehe
+  [End-to-End-Nachtrag](../research/spikes/andockpunkte/README.md#nachtrag-vollstaendiger-exportproxy-und-end-to-end-test).
 
 ### Vorhandene Netzwerkbefunde
 
@@ -126,8 +181,36 @@ Details stehen in [Spike A und B](../research/spikes/a-connect/README.md).
 - **[Belegt]** Gegner replizieren in der Mission, beim Client als `SimulatedProxy`. Bewegung läuft in beide Richtungen.
 - **[Belegt]** Bodenkacheln sind `Movable` und nicht repliziert. Auf ihnen sendet der Client Relativkoordinaten, die der Host nicht auflösen kann. Ohne Fix landet die Figur beim Host falsch.
 - **[Belegt]** Selbst mit Weltkoordinaten bewegt der Host die Client-Figur kaum. Clientautoritative Position löst das, die Ursache ist offen.
-- **[Hypothese]** Client-Schüsse treffen beim Host. Neben der Client-Figur sterben dort Gegner außerhalb der Reichweite der Host-Figur, ein direkter Messwert fehlt.
+- **[Belegt]** Client-Schüsse treffen beim Host, verursachen Schaden und töten Gegner. Gemessen über die Treffermeldung des Spiels, siehe [Treffer des Clients](#treffer-des-clients-treffer).
 - **[Hypothese]** Die Replikation trägt, aber die Spiellogik rechnet weder beim Host noch beim Client mit Netzwerkspielern. Die Fehler sind bisher klein und lokal, ihre Gesamtzahl ist unbekannt.
+
+#### Treffer des Clients (`treffer`)
+
+Stand: Spike `Hits.cpp`, Läufe über das Spielmenü am 03.11.2026, Build `26187885`, `RunSeed=20795`, Tag 1 oben. Ohne `MapGen.cpp`, die Karte des Clients war also eine andere.
+
+**Messweg:** Beim Host ruft das Spiel für jeden Treffer auf einen Gegner `UDDGameStatsSubsystem::OnEnemyHit(FDamageInformation)` auf, und zwar über `ProcessEvent`. Der Spike tauscht `ProcessEvent` in der VTable dieser Klasse und liest je Treffer:
+
+- `Damage`, das getroffene Ziel (`DamagedActor`), den Auslöser (`InstigatedBy`) und den Verursacher (`DamageCauser`) aus `FDamageInformation`
+- die Lebenspunkte des Ziels aus `CommonAttributeSet` (`ADDCharacterBase+0x700`, `Health` bei `+0xA0`). Die Meldung kommt nach dem Abzug, ein Wert von 0 ist also ein Kill.
+
+- **[Belegt]** Auslöser ist der `PlayerState` des Schützen, Verursacher das Projektil (`BP_Projectile_C`). Der Spike ordnet den Treffer über die Figur des PlayerStates zu: Beim Host ist die Figur des Clients `AutonomousProxy`, die eigene nicht. Ein erster Versuch über die Besitzerkette des Auslösers fand keine Figur und zählte alles als „Sonstige“.
+- **[Belegt]** Treffer des Clients ziehen beim Host Leben ab und töten. Ein `BP_StandardEnemy_C` hat 50 Leben, jeder Treffer nimmt 25, nach dem zweiten steht er bei 0.
+- **[Belegt]** Die Zuordnung trennt beide Spieler. In Lauf 3 meldete sie einen Treffer des Hosts.
+- **[Belegt]** In der Mission halten Tutorial-Hinweise das Spiel an, die Uhr bleibt etwa bei 00:08 stehen. Auf einen Hinweis folgt der nächste, das Sprinten löst einen weiteren aus. Für Messungen auf beiden Seiten mehrmals „Fortsetzen“ klicken, im 800×450-Fenster bei (227, 70).
+
+| Lauf | Tutorial | Treffer Client | Treffer Host | Kills des Clients |
+|---|---|---|---|---|
+| 1 | hielt das Spiel an | mindestens 5, noch als „Sonstige“ gezählt | – | – |
+| 2 | hielt das Spiel an | 1 | 0 | 0 |
+| 3 | hielt das Spiel an | 0 | 1 | – |
+| 4 | erster Hinweis weg, der zweite hielt an | 4 | 0 | 2 |
+| 5 | alle Hinweise weg, rund 2 Minuten | 50 (1.250 Schaden) | 0 | 25 |
+| 6 | wie 5, danach Eingabe beim Host, Ausdauer-Hinweis hielt an | 30 (750 Schaden) | 0 | 15 |
+
+Offen:
+
+- Warum die Host-Figur in den Läufen 5 und 6 nicht traf, ist nicht untersucht. **[Vermutung]** Ohne Eingaben in ihrem Fenster schießt sie nicht, oder es waren keine Gegner in ihrer Reichweite.
+- Nicht geprüft: XP und Loot für Kills des Clients, andere Waffen und Gegnertypen, Schadenszahlen beim Client (stehen unter den optionalen Optimierungen).
 
 ### Replikation zur Laufzeit
 
@@ -235,11 +318,10 @@ Beim Client zählt `Role=Authority` als lokal erzeugt, `SimulatedProxy` und `Aut
 - **[Belegt]** Beim Client kommen diese Objekte heute nur übers Netz an, als eigenständige Actors ohne Eltern-Parzelle. Die Parzelle repliziert nicht und fehlt beim Client.
   Weniger als beim Host kommen an, weil nur relevante Objekte innerhalb der Netz-Reichweite übertragen werden. Doppelte Objekte gibt es dabei nicht, weil die Karte des Clients scheitert und keine Child Actors erzeugt.
 - **[Belegt]** Es gibt schon heute Duplikate: Jede `BP_PowerUpCrate_C` erzeugt ihre `BP_ChaosDestructable_PowerUp_C` selbst (normaler Spawn, kein Child Actor). Beim Client tut das jede angekommene Kiste lokal, dazu kommt die replizierte vom Host.
-  Das ergibt 7 lokale plus 7 replizierte Exemplare.
-  Vermutlich läuft der Spawn in `BeginPlay` ohne Prüfung der Autorität (**[Hypothese]**). Möglicherweise hängt auch die Abweichung der Gegner-Zähler an solchen Spawns.
-- **[Hypothese]** Erzeugt der Client dieselbe Karte selbst (siehe [Karte und Seed](#karte-und-seed)), entstehen die replizierten Child Actors doppelt.
+  Das ergibt 7 lokale plus 7 replizierte Exemplare. Ursache und Spike-Patch stehen unter [Doppelte PowerUp-Objekte](#doppelte-powerup-objekte-powerup-duplikat).
+  Möglicherweise hängt auch die Abweichung der Gegner-Zähler an solchen Spawns.
+- **[Belegt]** Erzeugt der Client dieselbe Karte selbst, entstehen die replizierten Child Actors doppelt, siehe [Client erzeugt die Host-Karte](#client-erzeugt-die-host-karte-karte-client).
   Die Parzellen sind beim Client lokal erzeugt und haben dort `Role=Authority`. Die Sperre der Engine für replizierte Child Actors auf Clients greift nur, wenn der Besitzer keine Autorität hat.
-  Belegt ist das nicht, weil der Client die Karte in keinem Test erzeugt hat.
 
 **Optionen** (Entscheidung offen)
 
@@ -252,6 +334,98 @@ Beim Client zählt `Role=Authority` als lokal erzeugt, `SimulatedProxy` und `Aut
 Empfehlung: Weg A. Nächster Schritt ist ein Spike, der beim Client vor `StartMapGeneration` `MapSeed` und `MapGenProfile` des Hosts setzt.
 Er zählt danach die Duplikate wie oben und unterdrückt im Erfolgsfall replizierte Klassen beim lokalen Erzeugen. Für `BP_PowerUpCrate_C` gilt dieselbe Sperre.
 
+#### Client erzeugt die Host-Karte (`karte-client`)
+
+Stand: Spike `MapGen.cpp`, mehrere Läufe über das Spielmenü am 03.11.2026, Build `26187885`, `RunSeed=20795`, Tag 1 oben.
+
+**Was der Client vom Host braucht** (alles, was der Starter `0x58F7710` beim Host setzt):
+
+| Wert | Feld | Beim Client ohne Patch |
+|---|---|---|
+| Seed | `MapSeed` (`+0x2D8`) | `1` |
+| Profil | `MapGenProfile` (`+0x2B8`) | `MGP_HQ8_Boss`, oft ist das Profil der Mission gar nicht geladen |
+| Kartengröße | `MaxTilePosition` (`+0x2E8`) | `(3, 3)` statt zum Beispiel `(5, 5)` |
+| Tags | `GenerationTags` (`+0x300`) | leer, der Host hat etwa `Rain` und erzeugt damit `BP_Rain_C` |
+
+- **[Belegt]** Das Profil einer Mission folgt nicht allein aus dem Seed: Derselbe `MapSeed` ergab je nach Lauf `MGP_City_LittleIndia`, `MGP_GolfCourse` oder `MGP_Forest`. Es muss also mit übertragen werden.
+- **[Belegt]** Ist das Profil beim Client nicht geladen, lädt der Spike es wie der Starter des Spiels über einen Soft-Verweis: `MakeSoftObjectPath`, `Conv_SoftObjPathToSoftObjRef` und `LoadAsset_Blocking` der `KismetSystemLibrary`.
+- **[Belegt]** Tags gehen als Namen über, der FName-Index gilt nur je Prozess. Beim Client entsteht der Tag über `Conv_StringToName` und `BlueprintGameplayTagLibrary.AddGameplayTag`, so legt das Spiel den Speicher selbst an.
+- **Spike-Ersatz für den Kontrollkanal:** Der Host schreibt die Werte in `mapgen.txt` im Befehlsordner des Spikes, der Client auf demselben PC liest sie. Kommt der Client vorher an, wartet seine Erzeugung und startet aus dem Sekunden-Tick. Über das Netz geht das noch nicht.
+
+**Duplikate:** `UChildActorComponent::CreateChildActor` (`0x288B510`) lässt replizierte Child Actors nur aus, wenn der Besitzer keine Autorität hat (Prüfung mit `0x289DB60`). Beim Client sind die erzeugten Parzellen lokal und `Authority`.
+Der Spike setzt deshalb für genau diesen Aufruf die Rolle des Besitzers auf `SimulatedProxy`, wenn alles zutrifft: Client, die eigene Erzeugung läuft noch (`MapGenerationState` hat einen aktiven oder wartenden Sub-Generator), Besitzer nicht repliziert, Child-Klasse repliziert. Die Engine nimmt dann ihren eigenen Ausstieg.
+Ein erster Versuch ohne die Bedingung „Erzeugung läuft“ unterdrückte auch rund 300 Child Actors der fest gebauten `MetaBase`. Für die ist die lokale Erzeugung richtig, und danach kam der Host über das Menü nicht mehr in die Mission.
+
+| Lauf | Profil | Kacheln Host / Client | Erzeugte Actors Host / Client | Lokale Kopien replizierter Kartenobjekte beim Client |
+|---|---|---|---|---|
+| Ohne Patch | `MGP_Forest` (Host) | 46 / 17 | 47 / 19, Client gescheitert | – |
+| Seed und Profil, Profil beim Client nicht geladen | `MGP_City_LittleIndia` | 150 / 0, Client wartete | – | – |
+| Seed, Profil (nachgeladen), Größe | `MGP_GolfCourse` | 88 / 88, gleicher Fingerabdruck | 90 / 89, nur `BP_Rain_C` fehlt | – |
+| Dazu Tags | `MGP_GolfCourse` | 100 / 100, gleicher Fingerabdruck | 102 / 102 | Loot-Spots 51 lokal plus 31 übers Netz, Zerstörbares ebenso doppelt |
+| Dazu Sperre für Child Actors | `MGP_Forest` | 121 / 121, gleicher Fingerabdruck | 123 / 123 | **0**, außer 6 `BP_ChaosDestructable_PowerUp_C` aus den Kisten (Patch in `MapObjects.cpp`, PR #33) |
+
+Verglichen wurden Klasse, Position und Drehung aller `MapTile` und die Klassen aller vom Generator erzeugten Actors. Beim Client stehen Straße, Gehwege, Laternen und Fahrzeuge an denselben Stellen wie beim Host. Die Figur des Clients läuft darauf, der Host sieht dieselbe Position.
+
+Offen:
+
+- Bäume und Pflanzen aus PCG fehlten beim Client, gelöst in [PCG-Vegetation beim Client](#pcg-vegetation-beim-client-pcg).
+- Die Werte müssen über einen echten Kanal zum Client, im Spike geht es über eine Datei auf demselben PC.
+- Die Sperre zählte rund 1.400 unterdrückte Child Actors, der Host repliziert weniger Objekte. **[Vermutung]** Ein Teil der Komponenten wird mehrfach erzeugt oder per Zufall ersetzt (`RandomChildActorSwapWrapper`). Fehlende Objekte waren im Bestand nicht zu sehen. Was außer Reichweite liegt, kommt erst bei Annäherung übers Netz.
+- Nicht getestet: Tag 2 und spätere Karten, Bosskarten, ein Kartenwechsel per `servertravel` mit neuer Karte, Verbindungen über das Internet.
+
+#### Doppelte PowerUp-Objekte (`powerup-duplikat`)
+
+Stand: Blueprint-Referenzen, Disassembly und drei Spieltests am 03.11.2026, Build `26187885`.
+
+- **[Belegt]** `ExecuteUbergraph_BP_PowerUpCrate` ruft `GameplayStatics.BeginDeferredActorSpawnFromClass`, `FinishSpawningActor` und `Actor.K2_AttachToActor` auf und legt das Ergebnis in `DestructablePowerUp` (`+0x390`) ab. Das ist der Spawn aus `ReceiveBeginPlay`.
+- **[Belegt]** Die Kiste wird auf beiden Seiten gespawnt und hängt die neue `BP_ChaosDestructable_PowerUp_C` an sich. Beim Host repliziert das neue Objekt (`bReplicates=1`) zum Client. Beim Client spawnt die angekommene Kiste ein zweites, lokales Exemplar mit `Role=Authority`, das an keine Netzverbindung gebunden ist.
+- **[Belegt]** Ohne Patch lag beim Client ein lokales PowerUp ohne zugehörige Kiste in der Welt. **[Vermutung]** Seine Kiste hatte die Netz-Reichweite verlassen und wurde beim Client gelöscht, das lokale PowerUp blieb übrig.
+- **[Belegt]** Der Spike-Patch in `MapObjects.cpp` hängt sich in `UGameplayStatics::BeginDeferredActorSpawnFromClass` (`0x2A678F0`) ein. Beim Client gibt er für `BP_ChaosDestructable_PowerUp_C` aus einer `BP_PowerUpCrate_C` `null` zurück. `FinishSpawningActor` und `K2_AttachToActor` laufen dann ins Leere, `DestructablePowerUp` der Client-Kiste bleibt leer. Beim Host greift der Patch nie.
+
+| Lauf | Host | Client |
+|---|---|---|
+| Ohne Patch, Mission über das Menü | 11 Kisten, 11 PowerUps | 3 Kisten, 4 lokale plus 4 replizierte PowerUps, eins davon ohne Kiste |
+| Mit Patch, Mission über das Menü, danach Bewegung | 14 Kisten, 14 PowerUps, nichts unterdrückt | 1 Kiste, 1 repliziertes PowerUp, 1 lokale Kopie unterdrückt |
+| Mit Patch, zweiter Lauf mit Bewegung und `servertravel` | 4 Kisten, 4 PowerUps, nichts unterdrückt | 3 Kisten, 4 replizierte PowerUps, 7 lokale Kopien unterdrückt, kein lokales Exemplar |
+
+Im ersten Lauf mit Patch stürzte beim `servertravel` erst der Host bei `0x57CC398` und dann der Client bei `0x57D080C` ab. Das sind die bekannten Abstürze der Weiterreise, siehe [Inventar](../research/spikes/a-connect/README.md#inventar-ursache-teilfix-und-verbleibende-grenze). Im zweiten Lauf mit gleichem Ablauf trat kein Absturz auf. Ein Zusammenhang mit dem Patch ist deshalb nicht erkennbar, aber auch nicht ausgeschlossen.
+
+Nicht getestet: Zerbrechen einer Kiste und was der Client dabei sieht, das Einsammeln des PowerUps durch den Client, Kisten aus anderen Quellen (`BP_PowerUpCrateSpawner_C`, Airdrops). Ob die Client-Kiste ohne `DestructablePowerUp` etwas anders darstellt, ist offen (**[Vermutung]**: nein, Schaden und Zerbrechen laufen nur beim Host).
+
+#### PCG-Vegetation beim Client (`pcg`)
+
+Stand: Spike `Pcg.cpp` zusammen mit `MapGen.cpp`, Läufe über das Spielmenü am 03.11.2026, Build `26187885`, `RunSeed=20795`, Tag 1 oben.
+
+**Ablauf beim Host:** Bäume, Büsche und Pflanzen einer Waldkarte kommen aus PCG. Der Sub-Generator `BP_Foliage_PCGVolumeSubGenerator_C` (native Klasse `UPCGVolumeGenerator`, Vtable `0x95626D8`) arbeitet in zwei Schritten:
+
+1. Slot 85 (`0x59EE6A0`) spawnt `BP_PCGVolume_C` und wählt den Graphen. Er legt ihn als Soft-Verweis in `BiomeGraphToGenerate` (`+0x50`) ab.
+2. Slot 86 (`0x59D95E0`) lädt den Graphen asynchron, startet PCG und meldet sich danach per Callback beim Kartengenerator.
+
+- **[Belegt]** Mit `bUseGraphFromBiome` (`+0x28`) kommt der Graph aus dem Biom der aktuellen Route in der GameInstance. Die Route liegt ab `+0x2B0` (Einträge zu je `0x290` Bytes, Anzahl `+0x2B8`, Index `+0x2C0`), das Biom steht im Eintrag bei `+0x1A8`. Von dort nimmt der Generator `UBiomeDefinition::GraphToGenerate` (`+0x118`), Überschreibungen aus dem Generierungszustand und aus `BiomeMapGenerationOverrideProvider` haben Vorrang.
+  Beim Host war das `Biome_Woods` mit `PCG_ForestSpawner_v2`.
+- **[Belegt]** Beim Client ist die Route der GameInstance leer (Anzahl 0, Index −1). Slot 85 findet kein Biom, der Verweis bleibt leer, Slot 86 lädt nichts und PCG läuft nicht. Das Volume steht, aber ohne Instanzen.
+- **[Belegt]** Mit übertragenem Graphen stimmten Anzahl, Mesh und Position aller Instanzen überein, die Baumart an derselben Stelle aber nicht immer. Jede ISM-Komponente würfelt `InstancingRandomSeed` (`+0x734`) beim Erzeugen, auch zwei Läufe des Hosts unterscheiden sich darin. Das Material wählt damit die Art je Instanz.
+
+**Spike-Ersatz:**
+
+- **Graph:** Der Host schreibt nach Slot 85 Kartenseed und Graph in `pcg.txt` im Befehlsordner des Spikes. Der Client setzt nach Slot 85 denselben Verweis, wenn seiner leer ist und der Seed passt. In zwei Läufen kam der Client 390 und 516 ms vor dem Host an diese Stelle. Er wartet dann im Spielthread, höchstens 15 s.
+- **Seeds:** Nach der PCG-Erzeugung setzen beide Seiten den Seed jeder ISM-Komponente aus Mesh-Name, Instanzzahl und Summe der Positionen, unabhängig von der Reihenfolge der Instanzen. Danach `SetStaticMesh(nullptr)` und wieder `SetStaticMesh(Mesh)`, damit der Render-Zustand mit dem neuen Seed entsteht. Der Host sieht dadurch eine andere zufällige Verteilung der Arten als ohne Mod.
+
+| Lauf | Profil | PCG-Instanzen Host / Client | Baumarten an derselben Stelle |
+|---|---|---|---|
+| Ohne Patch | `MGP_Forest_Roadstops` | 50.701 / 0 | – |
+| Ohne Patch | `MGP_Forest_Campgrounds` | 90.414 / 0 | – |
+| Graph übertragen | `MGP_Forest_Roadstops` | 80.399 / 80.399, 7 Komponenten mit gleichem Mesh und gleichen Positionen | teils verschieden, Seeds verschieden |
+| Dazu Seeds | `MGP_Forest_Roadstops` | 77.590 / 77.590, gleiche Positionen | gleich, Seeds aller 7 Komponenten gleich |
+
+Die Instanzzahl schwankt zwischen den Läufen, weil der Host je Lauf eine andere Karte erzeugte. Die feste Vegetation der `MetaBase` (`PCGVolume`) war schon ohne Patch auf beiden Seiten gleich, je 39.502 Instanzen.
+
+Offen:
+
+- **[Vermutung]** Die leere Route betrifft beim Client auch andere Werte aus dem Biom, etwa den Texturtausch (`BiomeTextureSwappingGenerator`), Gegnermaterialien und Wetter-Tags. Geprüft ist nur PCG. Die Route selbst auf den Client zu bringen gehört zu `rundenende`.
+- Die Seeds wirken erst mit dem nächsten Sekunden-Tick, bis dahin können die Arten kurz abweichen. Die Kosten des neuen Render-Zustands sind nicht gemessen.
+- Nicht getestet: andere Biome, Tag 2 und später, Bosskarten, Internet.
+
 ### Gegner und Pausen
 
 - **[Belegt]** `AEnemySpawner` ist reine Host-Logik: Er repliziert nicht und nutzt Gegner über `RecycleArray` wieder. In der Testmission galt
@@ -261,6 +435,14 @@ Er zählt danach die Duplikate wie oben und unterdrückt im Erfolgsfall replizie
 - **[Hypothese, durch neue Messung eingeschränkt]** Die Requestverwaltung des TimescaleManagers ist lokal; daraus folgt nicht, dass ihre Weltwirkung lokal bleibt. `TimeDilation`, `CinematicTimeDilation` und `PauserPlayerState` sind im Engine-SDK als Netzwerk-Properties markiert.
 - **[Belegt, SDK und Laufzeit]** Aufgabe `pausen`: In einer direkt geladenen Mission mit aktivem Tutorialdialog hatte nur der Host einen `DialogComponent`-Zeitrequest und eine blockierende Coop-UI-Sitzung. Auf beiden Seiten waren aber `TimeDilation` etwa `0.0001` und ein `PauserPlayerState` vorhanden. Client-UI-Sitzung und Weltpause sind daher getrennt zu betrachten; die genaue Aufrufkette wurde nicht nachgewiesen.
 - **[Belegt, Default-Objekte]** Das native und Blueprint-Inventarpanel haben `bCoopBlocksGameplay=true`, aber `PauseGameWhileOpen=false`. Der eine Schalter ersetzt nicht den anderen. Der Inventar-Methodentest fand keinen Animationscontainer; `RequestLevelUp` kehrte ohne neue nachweisbare Sitzung zurück. Normaler Level-up und Inventarablauf bleiben offen, siehe [Versuche](../research/spikes/pausen/README.md).
+
+**Nachtrag `pausen`, 03.11.2026 (Build `26187885`):**
+
+- **[Belegt, isolierter Eingabeablauf]** Pausemenue → Inventar ansehen → Zurueck → Fortsetzen: Sitzungszahl auf der oeffnenden Seite `0 → 1 → 2 → 1 → 0`, Inventar ist Kind der Pausemenue-Sitzung. Auf Host und Client getrennt gemessen. Aktiver Zeitrequest bleibt beim `PauseScreenManager`; kein zweiter Inventar-Zeitrequest behauptet.
+- **[Belegt]** Host-Pause: Faktor etwa `0.0001` und Pauser auf beiden Seiten. Client-Pause: nur Client-Faktor etwa `0.0001`, kein Pauser, Host bleibt bei Faktor 1. UI-Sitzungen werden in keinem der beiden Wege auf die Gegenseite uebertragen.
+- **[Belegt]** Bei gleichzeitig offenen Pausemenues stellt Host-Fortsetzen den Client-Weltfaktor auf 1, obwohl dessen lokale blockierende Sitzung noch offen ist. Replizierte Weltpause ersetzt daher keine abgestimmte Verwaltung von Pausengruenden.
+- **[Belegt, kontrollierter Aufnahmeweg]** 200 testweise am Host-Pawn erzeugte XP werden aufgenommen: Host Level 1 / 0.10 → Level 2 / 0.547264; Client bleibt Level 1 / 0. Vorher/nachher kein Request, keine UI-Sitzung, Faktor 1 und kein Pauser auf beiden Seiten. Keine anhaltende Level-up-Pause oder Upgradeauswahl in diesem Ablauf; kurze Effekte zwischen Snapshots nicht ausgeschlossen. Kein Nachweis eines bestimmten Gegnertods.
+- **[Folgerung fuer die Umsetzung]** Client meldet Pausen-/UI-Wuensche an den Host; Host bestaetigt Gruende und gemeinsamen Weltzustand. Session-/Parent-IDs und blockierende Gruende getrennt von Weltzeit und XP/Level uebertragen. Disconnect-/Travel-Bereinigung bleibt Implementierungsarbeit. Details und abgegrenzte Fehlversuche im [Nachtrag](../research/spikes/pausen/README.md#nachtrag-03112026-isolierte-ablaeufe).
 
 ### Gegner-Spawning und Pooling
 
@@ -351,6 +533,15 @@ Folgerung für die Mod: Den Absturz verhindert, wer beim Client `MissionGameStat
 
 ### Blueprint-Stichprobe (`blueprint-logik`)
 
+**Nachtrag `blueprint-logik`, 03.11.2026:**
+
+- **[Belegt, begrenzter Bytecode-Audit]** Alle 42 ausgewaehlten Funktionen auf Host und Client vollstaendig als Ausdruecke gelesen; absolute statische Sprungziele und 25 konstante Ubergraph-Einspruenge gueltig, identische Ergebnisse. Kein exportierter Funktionskoerper, keine vollstaendige Semantik aller Zweige.
+- **[Belegt, kontrollierter Ereignistest]** Host-Kistenschaden erreicht Authority=true, `SpawnLoot` und FMOD-Aufruf. Client empfaengt `ShowEffect`, erzeugt im Test kein Loot. Client-ApplyDamage liefert 0 vor dem Schadensevent; kein erfundenes gemessenes Authority=false.
+- **[Belegt]** Host-Airdrop zur Laufzeit nicht repliziert, kein zugehoeriger Client-Actor. Fall-Callback erreicht latente Fortsetzung/Sound; Oeffnungs-Callback erreicht Authority=true und einmal `OpenAirdropChoices`. Kein erfolgreicher Reward-Claim damit bewiesen.
+- **[Belegt]** Frischer Explosions-Testeffekt: ApplyToSelf=false ohne native Eigenaenderung; true erreicht Add-/RemoveImpactActor. Fremditempfad erreicht dieselben Itemaenderungen. Beim Host und bei explizitem lokalem Client-Aufruf belegt, also keine reine kosmetische Wirkung.
+- **[Belegt, kontrollierter Projektiltest]** Lokales SetBulletSize(2) aendert Skala 1/1/1 zu 1.5/1.5/1. Nur Host SetBulletSize(3): Host 2.25/2.25/1, Client weiterhin 1/1/1 ohne entsprechenden Callback. Nicht-Net-BulletSize und Actor-Replikation ersetzen keinen geprueften Groessensync.
+- **[Belegt, lokale Ereignisse]** HUD-OnSecondChanged tritt auf beiden Seiten auf. Das Feld intseconds blieb bei explizitem Callback unveraendert; kein nachgewiesener visueller Setter. Alle Beobachtungen und Grenzen im [Ereignis-Nachtrag](../research/spikes/blueprint-logik/README.md#nachtrag-03112026-grenzpruefung-und-ereignistests). Die folgende Tabelle beschreibt den frueheren Referenzscan.
+
 Mission-SDK und lesende Pruefung geladener Klassen/Scriptreferenzen, Build `26187885`:
 
 - **[Belegt, SDK/Default]** `BP_EnemySpawner_C` hat keine eigenen Blueprint-
@@ -415,7 +606,7 @@ Stand: Disassembly und Laufzeit-Speicher, Build `26187885`, SDK aus einer direkt
   - Das Laden des Run-Zustands (`IRunPersistable` am Subsystem, VTable-Slot 91). Es setzt `MaxLocalPlayers=2`, stellt die Geräte-Zuordnung wieder her und übernimmt `bCoopEnabled` aus dem gespeicherten Run.
   - Ein Moduswechsel, der sich `bCoopEnabled` merkt, P2 entfernt und `SetCoopEnabled(false)` aufruft.
   - Sein Gegenstück, das `RestoreNormalSaveSlot` aufruft und Coop danach wieder einschaltet.
-  
+
   Vermutlich ist das der Wechsel in einen Modus mit eigenem Spielstand-Slot, etwa die wöchentliche Herausforderung (**[Hypothese]**).
 - **[Belegt]** In den Blueprint-Klassen dieses Mission-Dumps ruft keine `SetCoopEnabled`, `SpawnLocalPlayer` oder `SetMaxLocalPlayers` auf, nur Abfragen wie `IsCoopEnabled` und `GetPlayerController`.
   Der Beitritt läuft also in Widgets des Menüs oder der `MetaBase`, die in diesem Dump nicht geladen sind.
