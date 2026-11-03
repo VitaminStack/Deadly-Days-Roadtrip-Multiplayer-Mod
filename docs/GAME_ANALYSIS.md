@@ -45,11 +45,48 @@ vollständiges SDK für Build `26187885` erzeugt (02.11.2026), die Dateien `Basi
   Die Ursache ist nicht untersucht. Bei Nutzung von `UEngineReplicationBridge` deren Layout zuerst prüfen.
 - **Dump-Zeitpunkt:** Immer während einer laufenden Mission dumpen, denn Blueprint-Klassen werden nur erfasst, wenn sie geladen sind.
   Das Hauptmenü liefert 64.952 Objekte und 562 Blueprint-Klassen, eine Mission 110.688 Objekte und 925 Blueprint-Klassen plus 178 Widgets.
-- **Grenze:** Auch der Mission-Dump enthält nur, was in dieser einen Mission geladen war. Bosse fehlen zum Beispiel weitgehend.
+- **Grenze:** Auch der Mission-Dump enthält nur, was in dieser einen Mission geladen war. Für Bosse gibt es deshalb den [Boss-Dump](#boss-dump-boss-dump).
 - **[Belegt] Dump in einer Testsitzung:** Dumper-7 lässt sich mit `inject.py` in den Host einer laufenden Sitzung laden, auch neben dem Spike. Die Instanz läuft danach weiter.
+  Der DLL-Pfad muss absolut sein, `LoadLibraryW` sucht einen relativen Pfad im Arbeitsordner des Spiels und scheitert still. Aus Git Bash also `cygpath -wa`, nicht `cygpath -w`.
+  Die Ausgabe `LoadLibrary low32 0x0` ist kein sicheres Zeichen für einen Fehler, eine DLL kann auf einer Basis mit unteren 32 Bit 0 landen.
   Mit `-Map /Game/Maps/DDDynamic_Map` kamen 77.801 Objekte zusammen, weniger als über das Spielmenü.
 - **[Belegt] Funktionsadressen:** Die Adressen in `Dumpspace/FunctionsInfo.json` sind unter UE 5.8 unbrauchbar. Zur Laufzeit zeigt `UFunction::ExecFunction` (`+0xD8`) nach `!flow` auf die Stubs des Spikes.
   Verlässlich sind die statischen Tabellen `{const char* Name, FNativeFuncPtr}` in `.rdata`. Je Klasse gibt es zwei: eine mit den `Z_Construct_UFunction_*`-Funktionen, eine mit den Exec-Thunks. Der Thunk ruft am Ende die eigentliche Funktion auf.
+
+### Boss-Dump (`boss-dump`)
+
+Stand: 03.11.2026, Build `26187885`, Dumper-7 aus [`Build-Dumper7.ps1`](../tools/README.md#dumper7) (Submodul `1aae006`), Testsitzung mit Spike.
+
+**Ergebnis:** Ein SDK mit allen sechs Bossen: 2.571 Dateien, 90.209 Objekte, 973 Blueprint-Klassen. Der Dump vom 02.11. aus der direkt geladenen Mission hatte 2.353 Dateien, 77.805 Objekte und 868 Blueprint-Klassen. Neu sind 112 Pakete, darunter:
+
+| Bereich | Neue Pakete, Auswahl |
+|---|---|
+| Bosse | `BP_SpikeBoss`, `BP_FrankensteinBoss`, `BP_BlobBallBoss`, `BP_BallerinaBoss`, `BP_LazyBoss`, `BP_HQ_Endboss`, Basis `BP_BossEnemy`, `BP_BossProxy`, `BP_BossAIController` |
+| Spawnpunkte | `BP_<Boss>SpawnPoint` für alle sechs, Basis `BP_BossBaseSpawnPoint` |
+| Fähigkeiten und Effekte | `GA_SpikesRingAttack`, `GA_GroundPoundAttack`, `GA_BlobBallJumpAttack`, `GA_DropBigRobots`, `GE_GrantBossTag`, `GE_OverrideHealth` |
+| Endboss | `BP_Endboss_Drone`, `BP_Endboss_Shield`, `GA_Endboss_ShapeLaser_HalfCircle`, Sequenzen `LS_Endboss_*` |
+| KI | `BTD_*`, `BTT_*`, `EQS_*`, `NavArea_BossArea` |
+| UI | `WP_BaseBoss_HealthBar`, `WP_Boss_HealthBar_PhaseBased`, `WBP_BossIntroOverlay` |
+
+Nicht geprüft: Kompilieren dieses SDK.
+
+**Weg dorthin:** Ein echter Bosskampf ließ sich nicht erreichen, die Klassen sind deshalb gezielt geladen.
+
+- **[Belegt]** Ein Run hat 8 Tage („Tag 1/8“). Die Routenkarte zeigt rot gestreifte Knoten am Übergang zwischen zwei Gebieten nach Tag 4 und einen Endboss-Knoten am Ende. **[Vermutung]** Die gestreiften Knoten sind Torbosse.
+- **[Belegt]** Die Reise auf Tag 3 lässt den Host abstürzen, auch allein nach `disconnect` des Clients und auch mit abgeschaltetem `MapGen.cpp` und `Pcg.cpp`. Zweimal, auf zwei verschiedenen Routenkarten, je beim Laden von Tag 3:
+  Ein Timer (`0x315A7D6`) ruft im Kartengenerator `0x59F0C30` und von dort `0x59D9090` auf. Diese Funktion liest beim ersten `GetWorld` (`0x25E9870`) freigegebenen Speicher, Absturz bei `0x25E9889` beziehungsweise `0x59D9139`.
+  **[Vermutung]** Ein Timer des Kartengenerators überlebt den Kartenwechsel. Das ist eine andere Stelle als der Callback `0x57CC395` aus `tag3`.
+- **[Belegt]** Wird `DDDynamic_Map` direkt geladen (`servertravel`), nutzt der Generator sein Standardprofil `MGP_HQ8_Boss`: das Dach des HQ mit Arena und Bühnen des Endbosses (`BP_ManagerBoss_Stage*`, `DD_HQBoss_SurviveWaves`). Der Endboss selbst erschien auch nach `!wave` und vorgestellter Missionszeit nicht.
+- **[Belegt]** Die `DD_`-Befehle liegen fast alle in `UDDCheatManager`. Im Shipping-Build ist `APlayerController::CheatManager` leer, die Konsole verwirft sie still, etwa `DD_QuickFinishMission`. Der neue Spike-Befehl `!cheats` legt den Manager per `GameplayStatics.SpawnObject` an, danach wirkt etwa `DD_SetTimeSinceMissionStart`.
+- **[Belegt]** `DA_BossSpawnLookup` nennt alle sechs Bosse mit `EnemyType` und Spawnpunkt. Der `EnemyType` verweist in `EnemyBlueprint` (`+0x128`) auf die Gegnerklasse. `!load <Pfad>` lädt jedes davon.
+- **[Belegt]** Geladene, aber unbenutzte Klassen räumt die Garbage Collection nach etwa einer Minute wieder ab. Ein erster Dump acht Minuten nach dem Laden enthielt keine Boss-Klasse. Mit `gc.TimeBetweenPurgingPendingKillObjects 36000` vor dem Laden blieben sie erhalten.
+
+**Ablauf zum Wiederholen:**
+
+1. `Start-Session.ps1`, dann `servertravel /Game/Maps/DDDynamic_Map?listen` an den Host.
+2. An den Host: `gc.TimeBetweenPurgingPendingKillObjects 36000`.
+3. Für jeden Boss `!load` mit dem Pfad aus `DA_BossSpawnLookup`, etwa `/Game/DDSurvivors/Blueprints/Enemies/Bosses/BP_SpikeBoss.BP_SpikeBoss_C` und `.../BP_SpikeBossSpawnPoint.BP_SpikeBossSpawnPoint_C`. Der Endboss heißt `BP_HQ_Endboss`, sein Spawnpunkt `BP_HQBossSpawnPoint`.
+4. Dumper-7 mit absolutem Pfad per `inject.py` in den Host laden. Der Dump dauerte rund drei Minuten, der Host lief danach weiter.
 
 ## Technische Basis
 

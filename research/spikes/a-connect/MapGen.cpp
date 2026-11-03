@@ -99,6 +99,7 @@ struct FStringView
     int32_t Num;
     int32_t Max;
 };
+}
 
 // Wie der Starter des Spiels per LoadSynchronous, nur ueber die Blueprint-Bibliothek: Pfad, Soft-Verweis, Laden.
 uintptr_t LoadObjectByPath(const std::string& Path)
@@ -122,6 +123,9 @@ uintptr_t LoadObjectByPath(const std::string& Path)
     ProcessEvent(Library, Load, &LoadParams);
     return LoadParams.ReturnValue;
 }
+
+namespace
+{
 
 // Haengt einen Tag per BlueprintGameplayTagLibrary an, so legt das Spiel den Speicher des Arrays selbst an.
 bool AddTag(uintptr_t Container, const std::string& Tag)
