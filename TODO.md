@@ -148,7 +148,6 @@ Das macht das Team selbst, dafür gibt es keine Reservierung.
 | Meta-Fortschritt: Wessen Stand zählt? | `run-ende` |
 | `WeeklyMode` unterstützen oder online sperren | – |
 | Pixelsplit informieren und Rückmeldung berücksichtigen | `release` |
-| Dumper-7-PR #594 nachhalten, nach dem Merge Submodul auf upstream umstellen | – |
 
 **Gemeinsame Dateien**
 
@@ -196,8 +195,7 @@ Ziel: Alle können auf demselben Spielstand und mit derselben Toolchain arbeiten
 - [x] P0 SDK für UE 5.8 erstellen. Dumper-7 brauchte dafür einen Fix, siehe [Analyse](docs/GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58)
 - [x] P0 SDK zusätzlich während einer laufenden Mission dumpen, damit die Blueprint-Klassen enthalten sind
 - [x] P2 SDK auch in einem Bosskampf dumpen, weil diese Klassen im Mission-Dump weitgehend fehlen. Ein echter Bosskampf war wegen des Host-Absturzes auf Tag 3 nicht erreichbar, die Klassen aller sechs Bosse sind deshalb in der Bosskarte gezielt geladen und gedumpt, siehe [Boss-Dump](docs/GAME_ANALYSIS.md#boss-dump-boss-dump)
-- [x] P1 Dumper-7-Fix dem Dumper-7-Projekt vorschlagen, damit alle Helfer ihn ohne eigenen Patch bekommen. Eingereicht am 03.11.2026 als [PR #594](https://github.com/Encryqed/Dumper-7/pull/594) zu Issue #544, siehe [SDK-Erzeugung](docs/GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58)
-- [ ] P2 Nach dem Merge von Dumper-7-PR #594 das Submodul `third_party/Dumper-7` auf `Encryqed/Dumper-7` umstellen und `tools/dumper7/Build-Dumper7.ps1` sowie die Doku anpassen. Bis dahin bleibt der getestete Stand auf dem Fork-Branch `ddcoop-ue58`
+- [x] P1 Dumper-7-Fix für alle Helfer ohne eigenen Patch bereitstellen. Entschieden: kein Beitrag upstream, der Fix liegt dauerhaft auf `main` des eigenen Forks `VitaminStack/Dumper-7`, eingebunden als Submodul `third_party/Dumper-7`, siehe [SDK-Erzeugung](docs/GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58)
 - [x] P0 Visual-Studio-Solution mit einem Projekt je Modul anlegen, `config/Local.props` einbinden
 - [x] P1 Festlegen, wie das Team mit Spiel-Updates umgeht: einfrieren und nur bei Bedarf nachziehen ([Update-Regel](CONTRIBUTING.md#spiel-updates))
 - [ ] P1 Klären, ob alle das Spiel auf derselben Build-ID halten können
