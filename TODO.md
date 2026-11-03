@@ -257,13 +257,13 @@ Entscheiden und in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#entscheidungen) f
 
 Ziel: Stabile Basis, auf der alle parallel arbeiten können. Ab hier sind die Arbeitsbereiche weitgehend unabhängig.
 
-- [ ] P0 `Loader`: Proxy-DLL lädt die Mod beim Spielstart. Isoliert getestet, im Spiel noch nicht
+- [x] P0 `Loader`: Proxy-DLL lädt die Mod beim Spielstart. Im Spiel mit Host und Client geprüft
 - [x] P0 `Core`: Logging in Datei, Config, Hook-Framework
 - [x] P0 `Core`: Dispatcher für Aufrufe auf dem Game Thread, `Drain` ruft erst `game-adapter` auf
 - [x] P0 `Core`: Versionsprüfung – bei unbekannter Build-ID Mod sauber deaktivieren statt abstürzen
 - [ ] P0 `Game`: Adapter-Schicht für die ersten Klassen
 - [ ] P1 `UI`: Einfaches Overlay mit Status, Lobby-Knöpfen und Debug-Anzeige
-- [ ] P1 `tools`: Deploy-Skript, das die Mod ins Spiel kopiert
+- [x] P1 `tools`: Deploy-Skript, das die Mod ins Spiel kopiert, `tools/Deploy-Mod.ps1`
 - [x] P1 `tests`: Testprojekt und CI für Code ohne SDK-Abhängigkeit
 
 ## Phase 3 – Session und Verbindung
