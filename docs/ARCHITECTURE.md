@@ -139,6 +139,20 @@ Vorgeschlagene Regeln fuer die Umsetzung:
 Diese Regeln sind ein Entwurf. Der Referenzscan rekonstruiert keine Guards oder
 Reihenfolge und ersetzt keine Tests konkreter Events auf Host und Client.
 
+**Nachgetestet 03.11.2026:** Der begrenzte Kismet-Reader validiert nun fuer die
+Stichprobe 42 Funktionen samt statischen Sprunggrenzen und 25 Eventgraph-Einspruengen
+auf beiden Seiten. Gezielte Traces bestaetigen Kistenschaden → Host-Loot und
+Client-ShowEffect, Airdrop-Ankunft/Oeffnung ohne Client-Actor sowie Eigen-/Fremditem-
+Guards des Impact-Parents. Explizite Itemeffekt-Aufrufe aendern auch beim Client
+lokale Items: solche Graphen niemals als blossen Darstellungssync wiederholen.
+
+Ein weiterer kontrollierter Test aendert nur beim Host die Projektilgroesse;
+Client-Actor bleibt bei Ausgangsskalierung. Daher Groessen-/Darstellungszustand
+fuer Projektile mitplanen, den echten Schuss-/Poolpfad aber gesondert integrieren.
+HUD-Sekundenereignisse laufen lokal auf beiden Seiten. Keine vollstaendige
+Grafik-/Soundabnahme, kein Audit aller Blueprints, kein fertiger Sync. Details und
+Testgrenzen im [Nachtrag](../research/spikes/blueprint-logik/README.md#nachtrag-03112026-grenzpruefung-und-ereignistests).
+
 ## Pausen und blockierende UI (Untersuchung `pausen`)
 
 Nachgetestet am 03.11.2026: Host-Pause erreicht die Client-Welt, Client-Pause
