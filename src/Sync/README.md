@@ -13,3 +13,5 @@ Geplante Unterordner, jeweils mit eigener Zuständigkeit:
 | `Inventory/` | Rucksack, Stash, Rewards |
 
 Welche Teile die Engine selbst übernimmt, hängt von Gate G1 ab.
+
+Einstieg ist `Sync::Start` in `Sync/Sync.h`, noch ohne Inhalt. Darf `Core`, `Net` und `Game` nutzen, aber kein SDK einbinden.

@@ -1,7 +1,7 @@
 # Architektur
 
 Grundlage sind die Fakten aus [GAME_ANALYSIS.md](GAME_ANALYSIS.md). Dieses Dokument beschreibt den Plan, nicht den Ist-Stand:
-Es existiert noch kein Mod-Code.
+Von der Mod existiert bisher nur das Grundgerüst in `src/`.
 
 ## Zielbild
 
@@ -18,9 +18,8 @@ Es existiert noch kein Mod-Code.
 | UE4SS | Keine Bestätigung für UE 5.8 gefunden. Später als Hilfswerkzeug prüfen |
 | Pak-Mod mit eigenem UE-5.8-Projekt | Nur als Ergänzung für neue Assets, reicht nicht für Netzwerklogik |
 
-Das Laden soll über eine Proxy-DLL neben der Exe erfolgen. `version.dll` ist nach
-Importprüfung und isoliertem Ladebeispiel der bevorzugte Kandidat; der Spieltest
-und der eigentliche Mod-Bootstrap stehen noch aus.
+Das Laden erfolgt über die Proxy-DLL `version.dll` neben der Exe, siehe [Loader](../src/Loader/README.md).
+Sie ist isoliert getestet. Der Spieltest steht noch aus.
 
 ### Technische Andockpunkte (Build 26187885)
 
@@ -99,6 +98,32 @@ XP, Währungen, Reward-Ablauf, Pausen und Effekte aus Blueprints. Gebündelte Sn
 überlasten. Nach der Laufzeitprüfung ist das der wahrscheinlichste Ausgang, mit Weg A als deutlich größerem Anteil. Die Modulgrenzen unten
 lassen das zu.
 
+## Blueprint-Spielwirkung und Darstellung trennen
+
+Aufgabe `blueprint-logik`: Die [Stichprobe](../research/spikes/blueprint-logik/README.md)
+unterscheidet native Spawner-Konfiguration, replizierte Actors, lokale HUD-Events
+und gemischte Damage-/Reward-/Darstellungsgraphen. Ein Blueprint-Name oder RPC-Flag
+ist kein Beweis fuer einen funktionierenden Netzwerkpfad.
+
+Vorgeschlagene Regeln fuer die Umsetzung:
+
+- Gegner, Schaden, Loot und Itemmodifikationen bleiben host-autoritativ. Client
+  zeigt native replizierte Actors, startet keinen zweiten Spawner.
+- Bestehende Multicasts zuerst pruefen, nicht durch doppelte eigene Events ueberlagern.
+  Airdrop hat trotz RPC im Default keine Actor-Replikation; dessen persistenter
+  Oeffnungs-/Reward-Zustand braucht einen bestaetigten eigenen oder nativen Weg.
+- Explosion und Giftwolke nicht gleich behandeln: Explosion-Impact repliziert im
+  Default nicht, Giftwolken-Impact dagegen schon. Fehlende Darstellung als reine
+  VFX/Sound-Nachricht nachliefern, niemals einen Damage-Actor blind beim Client
+  nachspawnen. Replizierte Wirkungs-Actors nicht duplizieren.
+- Kurzlebige Kosmetik-Ereignisse von persistentem Offen-/Bereit-/Reward-Zustand
+  trennen. Ereignisse deduplizieren; bei Join/Travel Zustand neu aufbauen.
+- Client-HUD lokal aus replizierten und zusaetzlich synchronisierten Daten speisen,
+  keine Host-Widgetgraphen oder Prozesszeiger serialisieren.
+
+Diese Regeln sind ein Entwurf. Der Referenzscan rekonstruiert keine Guards oder
+Reihenfolge und ersetzt keine Tests konkreter Events auf Host und Client.
+
 ## Pausen und blockierende UI (Untersuchung `pausen`)
 
 SDK und begrenzte Laufzeitmessung zeigen zwei Ebenen: lokale Request-/UI-Sitzungen
@@ -137,9 +162,7 @@ keine Portfreigabe, und Steam-Relays verbergen die IP-Adressen. Das ist bisher n
 
 Für die frühen Spikes reicht eine direkte IP-Verbindung im LAN oder über Tailscale oder ZeroTier.
 
-## Module
-
-### Eigener Kontroll-Sync fuer nicht replizierte Spiellogik
+## Eigener Kontroll-Sync fuer nicht replizierte Spiellogik
 
 Aufgabe `sync-bedarf`: [Sync-Anforderungsmatrix](SYNC_REQUIREMENTS.md) legt fuer
 LevelSystem, Schrott, Reroll, beide Meta-Wallets und CoopInventoryCoordinator
@@ -154,6 +177,8 @@ Anfrage-Deduplizierung sind verbindliche Anforderungen an die Umsetzung.
 Die Netzwerk-Transportbindung, XP-Einheit, gemeinsame Kontozuordnung und
 persistente Mitspieler-Meta-Belohnung sind noch zu klaeren.
 
+## Module
+
 ```text
 Sync ──> Game ──> SDK (Dumper-7, nicht im Repo)
   │       │
@@ -166,6 +191,7 @@ UI ──> Net, Core
 | Modul | Aufgabe | Darf nicht |
 |---|---|---|
 | `Loader` | Proxy-DLL, startet die Mod | Spiellogik enthalten |
+| `Mod` | Mod-DLL, bindet die Module zusammen und startet sie | Eigene Logik enthalten |
 | `Core` | Logging, Config, Hooks, Game-Thread-Dispatcher, Versionsprüfung | Spielklassen kennen |
 | `Net` | Transport, Lobby, Session, Handshake, Serialisierung | SDK einbinden |
 | `Game` | Adapter auf Spielklassen und Hook-Definitionen | Netzwerklogik enthalten |
@@ -189,3 +215,6 @@ Jede größere Technikentscheidung bekommt hier eine Zeile.
 | 02.11.2026 | SDK nur im Modul `Game` | Spiel-Updates bleiben beherrschbar | Festgelegt |
 | 02.11.2026 | Weg A vor Weg B testen | RPCs sprechen dafür, ist deutlich weniger Arbeit | Vorläufig bis G1 |
 | 02.11.2026 | Ziel sind 2 Spieler | Coop-Logik fest auf P1 und P2 | Festgelegt |
+| 02.11.2026 | `version.dll` als Proxy, Mod in eigener `DDCoop.dll` | Der Proxy bleibt klein, die Modulgrenzen gelten | Vorläufig bis zum Spieltest |
+| 02.11.2026 | Build-Erkennung über den PE-Header der Exe | Steht im Speicher, das Steam-Manifest müsste die Mod erst suchen | Festgelegt |
+| 02.11.2026 | MinHook für Hooks, als Quellkopie im Repo | Klein, passt zu C++20, Klonen und CI brauchen keinen Zusatzschritt | Festgelegt |

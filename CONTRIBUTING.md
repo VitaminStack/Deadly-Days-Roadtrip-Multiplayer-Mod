@@ -11,7 +11,7 @@ erlaubt, aber diese Person macht dann das Review.
 
 | Bereich | Ordner | Verantwortlich |
 |---|---|---|
-| Fundament | `src/Loader`, `src/Core`, `tools` | offen |
+| Fundament | `src/Loader`, `src/Mod`, `src/Core`, `tools` | offen |
 | Netzwerk | `src/Net`, `tests` | offen |
 | Spieler und Kampf | `src/Sync/Players`, `src/Sync/Combat`, `src/Game` | offen |
 | Gegner und Welt | `src/Sync/Enemies`, `src/Sync/World`, `src/Game` | offen |
@@ -32,7 +32,7 @@ erlaubt, aber diese Person macht dann das Review.
 
 ### Aufgaben reservieren
 
-Jede freie Aufgabe hat in [TODO.md](TODO.md#wo-kann-ich-anfangen) eine Kennung. Reserviert ist, was einen Branch `task/<kennung>` auf GitHub hat.
+Jede Aufgabe hat in [TODO.md](TODO.md#wo-kann-ich-anfangen) eine Kennung, auch die [späteren Pakete](TODO.md#spätere-arbeitspakete) und die [zentrale Arbeit](TODO.md#zentrale-arbeit). Reserviert ist, was einen Branch `task/<kennung>` auf GitHub hat.
 Der erste Push gewinnt, ein zweiter wird abgelehnt. Das gilt für Menschen und KI-Agenten, die genauen Befehle stehen in [CLAUDE.md](CLAUDE.md#vor-dem-start).
 Wer über einen Fork arbeitet, kann so nicht reservieren und legt stattdessen ein Issue an.
 
@@ -90,7 +90,7 @@ Das Spiel wird noch aktiv gepatcht, und jedes Update kann Offsets und Klassen ä
 
 1. In Steam, falls möglich, unter Eigenschaften → Updates „nur beim Start aktualisieren“ wählen und das Spiel während der Entwicklung nicht unnötig starten.
 2. Nach einem Update meldet die RE-Person das im Team, erzeugt ein neues SDK und testet die Hooks auf einem Branch.
-3. Build-ID und Exe-Version in [docs/GAME_ANALYSIS.md](docs/GAME_ANALYSIS.md#unterstützte-spielversion), [docs/OFFSETS.md](docs/OFFSETS.md), `$SupportedBuild` in `tools/spike/Common.ps1` sowie die Versionsprüfung in `Core` aktualisieren.
+3. Build-ID und Exe-Version in [docs/GAME_ANALYSIS.md](docs/GAME_ANALYSIS.md#unterstützte-spielversion), [docs/OFFSETS.md](docs/OFFSETS.md), `$SupportedBuild` in `tools/spike/Common.ps1` sowie `SupportedBuilds` in `src/Core/Version.cpp` aktualisieren.
 4. Erst dann ziehen alle anderen nach, weil alle denselben Build brauchen.
 
 ## Fehler melden
