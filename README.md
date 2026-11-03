@@ -52,14 +52,14 @@ Gezählt sind die Punkte aus [TODO.md](TODO.md), ohne optionale Optimierungen.
 |---|---|---|---|
 | [0](TODO.md#phase-0--projekt-setup) | Gleiche Toolchain für alle | 11 von 11 | ███████████ |
 | [1](TODO.md#phase-1--analyse-und-spikes) | Fakten für Gate G1 | 27 von 35 | ████████░░░ |
-| [2](TODO.md#phase-2--fundament) | Stabile Basis der Mod | 6 von 8 | ████████░░░ |
+| [2](TODO.md#phase-2--fundament) | Stabile Basis der Mod | 7 von 8 | ██████████░ |
 | [3](TODO.md#phase-3--session-und-verbindung) | Verbinden über Steam | 0 von 6 | ░░░░░░░░░░░ |
 | [4](TODO.md#phase-4--vertical-slice) | Spielbarer Ausschnitt | 0 von 9 | ░░░░░░░░░░░ |
 | [5](TODO.md#phase-5--vollständiger-run) | Kompletter Run zu zweit | 0 von 10 | ░░░░░░░░░░░ |
 | [6](TODO.md#phase-6--release) | Veröffentlichung | 0 von 5 | ░░░░░░░░░░░ |
-| **Gesamt** | | **44 von 84** | ██████░░░░░ |
+| **Gesamt** | | **45 von 84** | ██████░░░░░ |
 
-Unter `src/` stehen Loader, Core, ein einfaches [Mod-Overlay](src/UI/README.md) und weitere Modul-Einstiege, noch ohne Spiellogik. Beim Overlay fehlt die sichtbare Spielabnahme, deshalb bleiben die Fortschrittszahlen unverändert. Die Punkte sind unterschiedlich groß, die Zahlen sagen also wenig über die verbleibende Zeit. Stand, Engpässe und nächste Schritte stehen in der [Roadmap](docs/ROADMAP.md#stand-und-nächste-schritte).
+Unter `src/` stehen Loader, Core, ein im Spiel geprüftes [Mod-Overlay](src/UI/README.md) und weitere Modul-Einstiege, noch ohne Spiellogik. In Phase 2 bleibt die Game-Adapter-Schicht offen; die Steam-Anbindung der Lobby-Knöpfe folgt in Phase 3. Die Punkte sind unterschiedlich groß, die Zahlen sagen also wenig über die verbleibende Zeit. Stand, Engpässe und nächste Schritte stehen in der [Roadmap](docs/ROADMAP.md#stand-und-nächste-schritte).
 
 ## Wo finde ich was?
 

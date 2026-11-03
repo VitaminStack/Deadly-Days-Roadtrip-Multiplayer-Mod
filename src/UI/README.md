@@ -35,10 +35,32 @@ Die Komposition in `src/Mod` kann später `UI::Overlay()` nutzen, ohne eine umge
 
 Das Modul bleibt auf `Core` und `Net` begrenzt. Der Game-Adapter ist dafür nicht geändert worden.
 
-## Tests und offene Spielabnahme
+## Tests
 
 `UITests` ist ein eigenes Projekt in der Solution und läuft über `Build-Mod.ps1 -Test` sowie in Debug-/Release-CI ohne SDK oder Spiel. Tests prüfen Zustands-/Rollenfreigaben, ungültige Lobby-IDs und Überlauf, begrenzte Aufträge (auch während der Ausführung), Dispatcher-Thread, Reentranz, Session-/Backendwechsel, konkurrierende Statusupdates und nativen Fensterstart/-schluss/-neustart. Der Fenstertest bedient die echten Edit-/Button-Controls gegen ein reines Testbackend, bleibt dabei unsichtbar und verändert keinen Benutzerfokus. Er prüft keine Grafikabnahme im Spiel.
 
 Lokal am 03.11.2026: Debug und Release jeweils erfolgreich gebaut, 18 Core-Tests (77 Assertions), 13 UI-Tests (1227 Assertions) und 58 Python-Tests bestanden. Dateilinks, Modulgrenzen und unveränderte Fortschrittszähler geprüft; kein Eingriff in die fremde Sitzung.
 
-**Noch offen:** sichtbarer Host-/Client-Test im Fenster-/randlosen Betrieb (F8, Fokuswechsel, Folgen beim Verschieben/Minimieren, Lesbarkeit/DPI und Tab-Bedienung). Beim Ausbau am 03.11.2026 belegte die fremde Aufgabe `tageswechsel` die Spielsitzung; sie blieb unberührt. Deshalb ist der Phase-2-Punkt noch nicht abgehakt. Kein Steam- oder Internet-Test und keine neue Laufzeitbehauptung.
+### Sichtbare Spielabnahme (03.11.2026)
+
+Nach Freigabe der vorher fremd belegten Sitzung eine eigene Sitzung ausschließlich mit `Start-Session.ps1 -Build -Mod`/CrashGuard gestartet, ohne `-unattended`. Verwendet wurde die geprüfte Entwicklungskopie von Build `26187885`, nur in der lokalen Worktree-Konfiguration aktiviert. UI-Code im getesteten Release-Build: `d9fcb36`; das danach übernommene `main` änderte daran nichts. Host und Client waren in der `MetaBase` verbunden, auf beiden Seiten `players=2`, beim Host `clients=1`. Beide Prozesspfade zeigten auf die eingefrorene Kopie; beide Mod-Logs bestätigten den Build, den gesperrten Crash-Reporter und „Overlay bereit“.
+
+| Prüfung, jeweils Host und Client | Ergebnis |
+|---|---|
+| F8 aus dem Spielfenster | Eigenes Overlay erscheint, ohne den Fokus zu übernehmen; das Overlay der anderen Instanz bleibt verborgen |
+| Klick in die Lobby-Eingabe, danach Tab | Fokus liegt auf der Eingabe; Tab überspringt die vier deaktivierten Lobby-Knöpfe und bleibt beim einzigen verfügbaren Eingabefeld |
+| F8 bei fokussiertem Overlay | Verbirgt das Overlay und gibt den Fokus an das eigene Spiel zurück; erneutes F8 öffnet wieder |
+| Tatsächlicher Klick auf das Fenster-X | Verbirgt nur das Overlay, Spiel bleibt aktiv und fokussiert; Wiederöffnen mit F8 funktioniert |
+| Wechsel Host ↔ Client | Nur das eingeschaltete Overlay der gerade aktiven Instanz ist sichtbar |
+| Fokus auf unabhängiges, eigens erzeugtes Testfenster | Beide Overlays verschwinden. F8 dort schaltet keines um; nach Rückkehr bleiben die vorher eingeschalteten Zustände erhalten |
+| Spielfenster verschieben | Overlay folgt der oberen rechten Ecke des Clientbereichs |
+| Minimieren und Wiederherstellen | Eigenes Overlay verschwindet und erscheint nach Wiederherstellung/Fokus erneut. Wird automatisch die andere Spielinstanz aktiv, darf deren eigenes eingeschaltetes Overlay erscheinen |
+| Wechsel zwischen Monitoren mit 150 % und 100 %, danach zurück | Beide Overlays bleiben passend positioniert und lesbar; Fensteraufnahmen bei beiden Skalierungen visuell geprüft, keine abgeschnittenen Steuerelemente. Die Spielprozesse melden 96 logische DPI, Windows skaliert auf dem 150-%-Monitor |
+| Zustand ohne Phase-3-Backend | „Netzwerk noch nicht angebunden“, Rolle „Keine“, unbekannter Ping/Lobby „-“. Alle vier Lobby-Knöpfe deaktiviert; kein vorgetäuschter Steam-Beitritt |
+| Zustand nach den Prüfungen | Beide Instanzen weiterhin in der `MetaBase` verbunden; keine Fehler in ihren Mod-Logs |
+
+Anschließend nur die eigene Sitzung mit `Stop-Session.ps1` beendet und die Test-Mod entfernt. `Test-Setup.ps1` bestand erneut, alle 54 eingefrorenen Originaldateien unverändert. Bilder, Fenster-/Prozessdaten und die lokalen Prüfscripte bleiben privat unter `research/local/session`, nicht im öffentlichen Repo. Der Phase-2-Overlay-Punkt ist damit abgeschlossen; die Game-Adapter-Schicht bleibt separat offen.
+
+**Messhinweise:** Erste `PrintWindow`-Aufnahmen waren wegen der DPI-Virtualisierung unvollständig und wurden nicht als visuelle Abnahme verwendet. Die geprüften Aufnahmen stammen anschließend ausschließlich aus dem sichtbaren Rechteck des eigenen Overlays mit DPI-korrekten Koordinaten. Eine anfangs zu strenge Minimier-Assertion erwartete beide Overlays verborgen; Windows aktivierte aber korrekt die andere Spielinstanz. Der Wiederholungstest prüfte daher gezielt das Overlay des minimierten Spiels und bestand. Keine Änderung am produktiven UI-Code erforderlich.
+
+**Nicht abgenommen:** exklusives Vollbild (nicht unterstützt), Steam-/Internet-Verbindung, ein echter Lobby-Backend-Aufruf oder eine blockierende Gameplay-Eingabesperre. Der Test war eine Overlay-Abnahme in der `MetaBase`, kein Missions-/Run-Nachweis und keine Bestätigung, dass der Spiel-Coop bereits im Netzwerkmodul der Mod umgesetzt ist.
