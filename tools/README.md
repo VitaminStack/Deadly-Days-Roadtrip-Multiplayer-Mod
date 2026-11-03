@@ -28,6 +28,14 @@ powershell -ExecutionPolicy Bypass -File tools/dumper7/Build-Dumper7.ps1 -Output
 
 Prüft die Einrichtung aus [docs/SETUP.md](../docs/SETUP.md): Git, Python, Visual Studio mit C++, `config/Local.props`, Spielordner und Build. Ändert nichts.
 
+## Build-Mod.ps1
+
+Baut `DeadlyDaysCoop.sln` wie die CI nach `bin/<Konfiguration>/`. Mit `-Test` laufen danach `CoreTests.exe` und die Python-Tests.
+
+```bash
+powershell -ExecutionPolicy Bypass -File tools/Build-Mod.ps1 -Test
+```
+
 ## Deploy-Mod.ps1
 
 Kopiert `version.dll` und `DDCoop/DDCoop.dll` aus `bin/<Konfiguration>/` neben die Spiel-Exe. Vorher die Solution bauen.
@@ -43,6 +51,7 @@ powershell -ExecutionPolicy Bypass -File tools/Deploy-Mod.ps1 -Remove
 
 > **Nach dem Testen entfernen.** Solange die Mod im Spielordner liegt, lädt auch jeder normale Start über Steam sie, ohne Crash-Schutz.
 > Getestet wird deshalb nur über `spike/Start-Session.ps1`, siehe [Testen](../docs/TESTING.md#mod-im-spiel-testen).
+> Am einfachsten mit `Start-Session.ps1 -Mod`: Das baut und installiert die Mod, `Stop-Session.ps1` entfernt sie wieder.
 
 ## spike/
 
@@ -52,9 +61,14 @@ Bauen und Testen des Spikes, die Anleitung steht in [docs/TESTING.md](../docs/TE
 | Skript | Aufgabe |
 |---|---|
 | `Build-Spike.ps1` | Baut `spike.dll` |
-| `Start-Session.ps1` | Setzt die Sperre, startet Crash-Schutz, Host und Client, verbindet sie und reist in eine Karte |
+| `Start-Session.ps1` | Setzt die Sperre, startet Crash-Schutz, Host und Client, verbindet sie und reist in eine Karte. `-Build` baut den Spike vorher neu, `-Mod` baut und installiert zusätzlich die Mod |
 | `Send-Command.ps1` | Schickt einen Befehl an `Host` oder `Client` und zeigt das Log |
-| `Stop-Session.ps1` | Beendet die Instanzen dieses Ordners und gibt die Sperre frei |
+| `Stop-Session.ps1` | Beendet die Instanzen dieses Ordners, gibt die Sperre frei und entfernt eine mit `-Mod` installierte Mod |
+| `Get-Status.ps1` | Prozesse, Netzzustand, letzte Log- und Mod-Logzeilen, Abstürze seit Sitzungsstart. `-Inventory` vergleicht die Inventare |
+| `Wait-Log.ps1` | Wartet auf eine neue passende Zeile im Spike-Log statt einer festen Pause |
+| `Game-Input.ps1` | Bild aus einem Spielfenster, Klick oder Taste, ohne Bildschirmaufnahme des Desktops |
+| `Start-Run.ps1` | Startet aus der `MetaBase` einen Run bis zur Routenkarte |
+| `Travel-Day.ps1` | Fährt einen Tag über die Routenkarte, prüft beide Instanzen und beendet ihn |
 | `Focus-Window.ps1` | Holt ein Spielfenster nach vorn |
 | `Disassemble.ps1` | Zeigt einen RVA-Bereich der Exe |
 | `CrashGuard.ps1` | Crash-Schutz, wird von `Start-Session.ps1` gestartet |
@@ -64,7 +78,7 @@ Bauen und Testen des Spikes, die Anleitung steht in [docs/TESTING.md](../docs/TE
 | `inventory.py` | Vergleicht die Inventare von Host und Client |
 | `pause_state.py` | Pausen, Zeitrequests und UI-Sitzungen je Instanz |
 | `blueprint_refs.py` | Referenzen geladener Blueprints, kein Decompiler |
-| `crashes.py` | Absturzberichte der Testinstanzen mit RVAs |
+| `crashes.py` | Absturzberichte der Testinstanzen mit RVAs, filterbar mit `--latest`, `--role` und `--session` |
 | `gamethread.py` | Wo der Game Thread bei einem Hänger steht |
 | `callers.py` | Direkte Aufrufer einer Funktion in der Exe |
 | `inject.py` | Lädt eine DLL in einen Prozess |
