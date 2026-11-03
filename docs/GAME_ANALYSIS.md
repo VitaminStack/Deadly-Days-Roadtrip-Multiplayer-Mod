@@ -360,6 +360,15 @@ Folgerung für die Mod: Den Absturz verhindert, wer beim Client `MissionGameStat
 
 ### Blueprint-Stichprobe (`blueprint-logik`)
 
+**Nachtrag `blueprint-logik`, 03.11.2026:**
+
+- **[Belegt, begrenzter Bytecode-Audit]** Alle 42 ausgewaehlten Funktionen auf Host und Client vollstaendig als Ausdruecke gelesen; absolute statische Sprungziele und 25 konstante Ubergraph-Einspruenge gueltig, identische Ergebnisse. Kein exportierter Funktionskoerper, keine vollstaendige Semantik aller Zweige.
+- **[Belegt, kontrollierter Ereignistest]** Host-Kistenschaden erreicht Authority=true, `SpawnLoot` und FMOD-Aufruf. Client empfaengt `ShowEffect`, erzeugt im Test kein Loot. Client-ApplyDamage liefert 0 vor dem Schadensevent; kein erfundenes gemessenes Authority=false.
+- **[Belegt]** Host-Airdrop zur Laufzeit nicht repliziert, kein zugehoeriger Client-Actor. Fall-Callback erreicht latente Fortsetzung/Sound; Oeffnungs-Callback erreicht Authority=true und einmal `OpenAirdropChoices`. Kein erfolgreicher Reward-Claim damit bewiesen.
+- **[Belegt]** Frischer Explosions-Testeffekt: ApplyToSelf=false ohne native Eigenaenderung; true erreicht Add-/RemoveImpactActor. Fremditempfad erreicht dieselben Itemaenderungen. Beim Host und bei explizitem lokalem Client-Aufruf belegt, also keine reine kosmetische Wirkung.
+- **[Belegt, kontrollierter Projektiltest]** Lokales SetBulletSize(2) aendert Skala 1/1/1 zu 1.5/1.5/1. Nur Host SetBulletSize(3): Host 2.25/2.25/1, Client weiterhin 1/1/1 ohne entsprechenden Callback. Nicht-Net-BulletSize und Actor-Replikation ersetzen keinen geprueften Groessensync.
+- **[Belegt, lokale Ereignisse]** HUD-OnSecondChanged tritt auf beiden Seiten auf. Das Feld intseconds blieb bei explizitem Callback unveraendert; kein nachgewiesener visueller Setter. Alle Beobachtungen und Grenzen im [Ereignis-Nachtrag](../research/spikes/blueprint-logik/README.md#nachtrag-03112026-grenzpruefung-und-ereignistests). Die folgende Tabelle beschreibt den frueheren Referenzscan.
+
 Mission-SDK und lesende Pruefung geladener Klassen/Scriptreferenzen, Build `26187885`:
 
 - **[Belegt, SDK/Default]** `BP_EnemySpawner_C` hat keine eigenen Blueprint-
