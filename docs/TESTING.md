@@ -56,7 +56,7 @@ In einem frischen `UserDir` kommen vorher Tutorial-Dialoge („Fortsetzen“ unt
 Danach öffnet sich direkt die Routenkarte, die Knoten für Tag 1 liegen in der linken Spalte, etwa bei (62, 113).
 Für eine reproduzierbare Karte vor dem Öffnen der Routenkarte `Send-Command.ps1 Host 'DD_SetCurrentRunSeed <n>'` senden, siehe [Karte und Seed](GAME_ANALYSIS.md#karte-und-seed).
 
-Das Pausemenü hat „Zurück zum Hauptmenü“ bei (226, 152). Mit `!finish` endet die Mission beim Host, danach kommt die Routenkarte für Tag 2.
+Das Pausemenü (`Esc`) hat „Zurück zum Hauptmenü“ bei (396, 266). Mit `!finish` endet die Mission beim Host, danach kommt die Routenkarte für Tag 2.
 Mit dem Inventar-Teilfix erreicht der Client Tag 2. Die Reise auf Tag 3 endet noch mit einem Host-Absturz, siehe [Inventar](../research/spikes/a-connect/README.md#inventar-ursache-teilfix-und-verbleibende-grenze).
 
 ## Abstürze auswerten
