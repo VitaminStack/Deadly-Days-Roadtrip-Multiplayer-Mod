@@ -90,10 +90,15 @@ bool PatchCrashReports(CodeWriter& Code);
 // MapGen.cpp
 bool PatchMapGen(CodeWriter& Code);
 void TickMapGen();
+uintptr_t LoadObjectByPath(const std::string& Path);
 
 // Pcg.cpp
 bool PatchPcg(CodeWriter& Code);
 void TickPcg();
+
+// Cheats.cpp
+void EnableCheats();
+void LoadAssetCommand(const std::wstring& Path);
 
 // Hits.cpp
 void TickHits();

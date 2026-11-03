@@ -111,6 +111,8 @@ Ablauf siehe [Karte und Seed](GAME_ANALYSIS.md#karte-und-seed).
 | `FSoftObjectPtr::LoadSynchronous` | `0x15E9550` | Lädt im Starter das Profil |
 | `UPCGVolumeGenerator`, Slot 85: PCG-Volume spawnen, Graph wählen | `0x59EE6A0` | Vtable `0x95626D8`, Spike-Patch |
 | `UPCGVolumeGenerator`, Slot 86: Graph laden, PCG starten | `0x59D95E0` | Asynchron mit Callback |
+| Kartengenerator: Erzeugung fortsetzen, aus einem Timer | `0x59F0C30` | Ruft `StartMapGeneration` und `0x59D9090` |
+| Kartengenerator: Schritt nach `StartMapGeneration` | `0x59D9090` | Absturzort nach der Reise auf Tag 3 |
 
 ### Coop
 
@@ -160,6 +162,9 @@ Ablauf siehe [Crash-Reporter](../research/spikes/a-connect/README.md#sperre-in-m
 | `AController` | Pawn | `0x2E8` |
 | `APlayerController` | Player, AcknowledgedPawn, NetConnection | `0x348`, `0x350`, `0x520` |
 | `APlayerState` | PawnPrivate | `0x320` |
+| `APlayerController` | CheatManager, CheatClass | `0x410`, `0x418` |
+| `UBossSpawnLookup` | BossSpawnInfos (je `0x68`: BossID `0x00`, IsEndBoss `0x08`, BossEnemyType `0x10`, SpawnPointClass `0x38`) | `0x28` |
+| `UEnemyType` | EnemyBlueprint (`TSoftClassPtr`) | `0x128` |
 | `ACharacter` | CharacterMovement, BasedMovement, ReplicatedMovement-Block | `0x330`, `0x340`, `0x398` |
 | `ACharacter` (Spiel) | AttributeSet | `0x7D8` |
 | `ADDCharacterBase` | CommonAttributeSet | `0x700` |
