@@ -18,6 +18,7 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 
 **Neue Befunde.**
 
+- `kamera-entscheidung`, 03.11.2026: Gemeinsame Kamera (Option A) für den ersten spielbaren Stand festgelegt, mit ursprünglichem Zoom und Bewegungsbegrenzung. Umsetzung bleibt `kamera-code`; getrennte Kameras sind nur ein optionales Zukunfts-TODO.
 - `tag3`, 03.11.2026: Der Host-Absturz bei der Reise auf Tag 3 kam von einem Kartengenerator-Lambda mit rohem Zeiger auf die alte Karte. Mit diesem Fix, dem Timer-Cleanup des Achievement-Detektors und der Exp-Aggregation kam der Run zweimal über die echte Route auf Tag 3, mit gleichen Inventaren. Der Client stürzt an Tag 4 noch ab, Folgeaufgabe `tag4`.
 - `spawnedplayers`, 03.11.2026: Hash-/SparseArray-korrekte Bereinigung und native TSet-Einfügung umgesetzt, synthetische Tests und begrenzte Traveltests bestanden. Den Registrierungshook auf der echten Route abzunehmen ist Folgeaufgabe `spawnedplayers-lauf`.
 - `build-id`, 03.11.2026: Geprüfte Entwicklungskopie außerhalb von Steam, keine Links zur automatisch aktualisierten Installation. Host/Client samt Mod aus Build `26187885` verbunden getestet. [Einrichtung](SETUP.md#gleiche-build-id-im-team), neue Build-Unterstützung bleibt eine eigene Aufgabe.
@@ -34,7 +35,6 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 
 **Wartet auf das Team.**
 
-- Kamera entscheiden
 - Pixelsplit über das Projekt informieren
 
 ## Gesamtweg
@@ -96,7 +96,7 @@ flowchart LR
     subgraph WELT["Karte und Kamera"]
         KC["Seed und Profil beim Client,<br/>Duplikate unterdrücken<br/>(karte-client)"]:::done
         SC["Spike C: gleiche<br/>Mission auf beiden Seiten"]:::open
-        KE["Kamera: Entscheidung<br/>des Teams"]:::decision
+        KE["Gemeinsame Kamera<br/>entschieden"]:::done
         KC --> SC
     end
 
@@ -163,7 +163,7 @@ flowchart TD
         SH["Spike-Patches als Hooks<br/>übernehmen"]:::open
         R2["Remote-Spieler als P2"]:::open
         MS["Gemeinsamer Missionsstart,<br/>gleiche Karte"]:::open
-        KM["Entschiedene Kamera"]:::open
+        KM["Gemeinsame Kamera<br/>umsetzen"]:::open
         KA["Bewegung, Waffen, Treffer, Tod"]:::open
         GT["Ein Gegnertyp"]:::open
         EI["Eingaben von Remote<br/>trennen"]:::open
