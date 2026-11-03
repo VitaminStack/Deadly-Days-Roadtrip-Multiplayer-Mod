@@ -7,6 +7,17 @@ Sie sind hier zum Nachschlagen gesammelt, damit niemand sie erneut suchen muss. 
 RVAs sind relativ zur Image-Base `0x140000000`. Die Patchstellen stehen als Konstanten am Anfang der jeweiligen
 [Spike-Datei](../research/spikes/a-connect/README.md#dateien), ihre Bedeutung in der [Patch-Tabelle](../research/spikes/a-connect/README.md#patches).
 
+## Fingerabdruck der Exe
+
+Daran erkennt die Versionsprüfung in `src/Core/Version.cpp` den Build, Werte aus dem PE-Header.
+
+| Feld | Wert |
+|---|---|
+| `TimeDateStamp` | `0x32C34474` |
+| `SizeOfImage` | `0x0B742000` |
+
+`TimeDateStamp` ist kein Datum, sondern ein Hash des deterministischen Builds.
+
 ## Globale Objekte
 
 | Name | RVA | Hinweis |
@@ -42,6 +53,17 @@ Fremde Änderungen an den Einsprungbytes müssen weiterhin zur Ablehnung führen
 | UObject-Standard `IsSupportedForNetworking` | `0x1512250`, Vtable `+0x200`; delegiert an `IsFullNameStableForNetworking` |
 | `CreateItemInstance`, `CreateSlotInstance` | `0x5959700`, `0x5959900`; nur im Diagnoseversuch gehookt, nicht im Teilfix |
 
+### Trennen
+
+Ablauf siehe [Trennen ins Hauptmenü](GAME_ANALYSIS.md#trennen-ins-hauptmenü-trennen).
+
+| Funktion | RVA | Hinweis |
+|---|---|---|
+| `AActor::EndPlay` | `0x25E3350` | Ruft `EndPlay` der gestarteten Komponenten (Vtable `+0x3F0`) |
+| `UInventoryComponent::EndPlay` | `0x595BBD0` | Vtable `0x94BA3F0` `+0x3F0`, Schleife über `MyItems` ab `0x595C01A` |
+| `UInventoryComponent::RemoveAllItemEffects` | `0x5971BB0` | Exec-Thunk `0x5717A90`, aufgerufen von `LoadMapByInformation` |
+| Zustandsobjekte eines Items durchgehen | `0x5975A40` | Ohne Null-Prüfung, Absturzstelle `0x5975A6A` liest `Item+0x340` |
+
 ### Kamera
 
 Ablauf siehe [Kamera und Sichtbereich](GAME_ANALYSIS.md#kamera-und-sichtbereich).
@@ -52,6 +74,9 @@ Ablauf siehe [Kamera und Sichtbereich](GAME_ANALYSIS.md#kamera-und-sichtbereich)
 | Bildecken eines Controllers auf den Boden projizieren | `0x5B028D0` | `GetViewportSize` (`0x2E722B0`), `DeprojectScreenPositionToWorld` (`0x2A6CD50`) |
 | Spawnort des Gegner-Spawners | `0x58AA0F0` | Prüft `UseViewportEdgesForSpawningPositions` |
 | Spieler der Kamera aus `SpawnedPlayers` | `0x5A0DA90` | Spike-Patch beim Client |
+| `UInViewportMovementRestrictor::PreProcessMovementInput` | `0x5A17AB0` | Interface-Vtable `0x94C8678` Slot 2, Absturzstelle `0x5A17ACC`; Exec-Thunk `0x57525C0` |
+| `UInViewportMovementRestrictor::BeginPlay` | `0x5A03C20` | Vtable `0x94C8138` Slot 129, setzt `MissionGameState` aus `World->GameState` |
+
 ### Gegner
 
 Ablauf siehe [Gegner-Spawning und Pooling](GAME_ANALYSIS.md#gegner-spawning-und-pooling).
@@ -65,6 +90,7 @@ Ablauf siehe [Gegner-Spawning und Pooling](GAME_ANALYSIS.md#gegner-spawning-und-
 | Initialisierung des Spawners, leert `RecycleArray` | `0x58A58E0` | VTable `0x94710D8`, Slot 213 |
 | `PlaceCharacterOnGroundAtPosition` | `0x5B12DB0` | Versetzt recycelte Gegner |
 | `PooledDestroy` (Blueprint-Helfer) | `0x5B12E10` | Exec-Thunk `0x5697410` |
+
 ### Karte
 
 Ablauf siehe [Karte und Seed](GAME_ANALYSIS.md#karte-und-seed).
@@ -78,6 +104,7 @@ Ablauf siehe [Karte und Seed](GAME_ANALYSIS.md#karte-und-seed).
 | `UDDMissionGameInstance::GetCurrentMissionSeed` | `0x58EABF0` | Exec-Thunk `0x56BC5E0` |
 | `UDDMissionGameInstance::DD_SetCurrentRunSeed` | `0x58E1B90` | Exec-Befehl, Exec-Thunk `0x56BAB80` |
 | `UDDMissionGameInstance::DD_ForceStartRunSeed` | `0x58DF7A0` | Exec-Befehl, Exec-Thunk `0x56BA490` |
+
 ### Coop
 
 Funktionen von `ULocalCoopSubsystem` und ihre Aufrufer, Ablauf siehe [Coop-Ablauf](GAME_ANALYSIS.md#coop-ablauf).
@@ -130,15 +157,21 @@ Funktionen von `ULocalCoopSubsystem` und ihre Aufrufer, Ablauf siehe [Coop-Ablau
 | TSet | Data, Num, FirstFree, NumFree, Element-Stride | `+0`, `+8`, `+0x30`, `+0x34`, `0x10` |
 | GameInstance | PendingGameStateComponentTravelStates, LastRoundChangeReason | `0x248`, `0x299` |
 | GameInstance | CurrentRunInfo (Seed +0, CurrentRoute +8) | `0x2A0` |
+| GameInstance / `FRoute` | `CurrentRoute.MissionChain` (TArray), Num; CurrentMissionIndex | `0x2B0`, `0x2B8`; `0x2C0` |
+| `ADDMissionGameState` | SecondsSinceMissionStart, DayNum | `0x38C`, `0x390` |
+| `UAbstractPanel` | AnimationContainer | `0x330`; im `rundenende`-Test nicht als zuverlässiger Phasenindikator lesbar |
+| `UPanelAnimationContainer` | IsOpen | `0x328`; nur lokaler Containerzustand, keine Netz-/Sichtbarkeitszusage |
 | `UInventoryComponent` | Slots, MyItems | `0x100`, `0x120` |
 | `UInventoryComponent` | Vtable-RVA | `0x94BA3F0` |
 | `UActorComponent` | `bReplicateUsingRegisteredSubObjectList` | `0x98`, Bit 6 (`0x40`) |
 | `UBackpackSlot` | Vtable-RVA; Coordinates, Occupier, ComponentOwnerPrivate | `0x939CE08`; `0x28`, `0x30`, `0x38` |
 | `UInventoryItemInstance` | Vtable-RVA; ZeroPivotTile, Turns, ItemData | `0x94B46E8`; `0x28`, `0xD8`, `0xE0` |
+| `UInventoryItemInstance` | StateObjectLookup (`TMap`, Belegungsbits-Anzahl bei `+0x340`) | `0x318` |
 | `UInventoryItemInstance` | Broken, IsInBackpack, IsReward, IsTrash | `0x110`, `0x180`, `0x182`, `0x184` |
 | `APlayerState` | PlayerId (numerischer Replikationsschlüssel, keine Steam-ID) | `0x2AC` |
 | `AAllPlayerFramingCamera` | Camera, MaxMovementDistance, UseZoomOutAtEdge, ZoomOutDistance, CameraSpringArm, GameMode | `0x2A8`, `0x2F0`, `0x2F4`, `0x2F8`, `0x310`, `0x318` |
 | `UInViewportMovementRestrictor` | SlowdownZone, FullStopZone (je 4 Floats L, R, D, U) | `0xD8`, `0xE8` |
+| `UInViewportMovementRestrictor` | Interface `IMovementPreProcessorInterface`, MovementInputPreprocessorSubsystem, MissionGameState | `0xC0`, `0x100`, `0x110` |
 | `USpringArmComponent`, `UCameraComponent` | TargetArmLength, FieldOfView | `0x250`, `0x250` |
 | `APlayerController` | PlayerCameraManager | `0x360` |
 | `APlayerCameraManager` | ViewTarget.Target, ViewTarget.POV.Location | `0x340`, `0x350` |
@@ -155,6 +188,8 @@ Funktionen von `ULocalCoopSubsystem` und ihre Aufrufer, Ablauf siehe [Coop-Ablau
 
 In einem TSet ist ein freier Platz daran zu erkennen, dass der Wert hohe Bits gesetzt hat.
 
+`CurrentRoute` ist eine **eingebettete Struktur**, kein UObject-Zeiger. Ihre ersten acht Bytes sind `RouteMissionStructureIdentifier`. Die Num bei `0x2B8` darf nicht aus einem vermeintlichen Zeiger bei `0x2A8` abgeleitet werden. Im `rundenende`-Test: Host Num 1 / Index 0, Client Num 0 / Index -1. Die reflektierten Funktionen `FinishMission`, `TriggerEndRound`, `SetFreezeTime` tragen kein `FUNC_Net` (`0x40`); ihre lokalen Aufrufe sind kein Client-Transport.
+
 ## Blueprint-Referenzinventar (`blueprint-logik`)
 
 Ergaenzung aus Mission-SDK/lesender Pruefung von Build `26187885`:
@@ -169,6 +204,7 @@ Der Referenzscanner liest bekannte FunctionFlags (`UFunction+0xB0`) und das Scri
 gibt aber keine Rohbytes/Adressen aus. Keine neuen nativen RVAs. `ShowEffect` der
 PowerUpCrate: Flags `0x0C0040C0`; `StartFallDown` des Airdrops: `0x0C004040`.
 Das Vorhandensein eines Multicast-Flags beweist keine Zustellung.
+
 ## Pausenfelder (Mission-SDK, Aufgabe `pausen`)
 
 | Klasse | Feld | Offset |
@@ -185,6 +221,7 @@ Das Vorhandensein eines Multicast-Flags beweist keine Zustellung.
 Aus dem lokal erzeugten Mission-SDK von Build `26187885`; die genannten
 Timescale-/Sitzungs-/Weltzustände wurden lesend verglichen. Nicht alle
 Panel-Öffnungspfade und nicht jedes Feld wurden durch gezielte Änderung bestätigt.
+
 ## Felder fuer den eigenen Sync (SDK, `sync-bedarf`)
 
 | Klasse | Feld | Offset |

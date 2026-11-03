@@ -7,6 +7,12 @@ bekommen ein eigenes `-UserDir`, der echte Spielstand bleibt also unberührt. Di
 > `Start-Session.ps1` startet deshalb immer den Crash-Schutz und bricht ab, wenn er nicht läuft. Die Exe also nicht von Hand mit
 > Spike starten, und `-unattended` niemals verwenden. Hintergrund im [Spike-Ergebnis](../research/spikes/a-connect/README.md#crash-reporter).
 
+## Mod im Spiel testen
+
+Die Mod unter `src/` kommt mit [tools/Deploy-Mod.ps1](../tools/README.md#deploy-modps1) ins Spiel und startet dann in beiden Instanzen einer Sitzung.
+Jede Instanz schreibt `DDSurvivors/Binaries/Win64/DDCoop/logs/ddcoop-<pid>.log`. Nach `Stop-Session.ps1` die Mod mit `-Remove` wieder entfernen,
+sonst lädt auch ein normaler Spielstart sie ohne Crash-Schutz.
+
 ## Sitzung starten
 
 Voraussetzung ist die Einrichtung aus [SETUP.md](SETUP.md). Die Skripte prüfen die Build-ID und brechen bei einem anderen Build ab.
@@ -50,8 +56,8 @@ In einem frischen `UserDir` kommen vorher Tutorial-Dialoge („Fortsetzen“ unt
 Danach öffnet sich direkt die Routenkarte, die Knoten für Tag 1 liegen in der linken Spalte, etwa bei (62, 113).
 Für eine reproduzierbare Karte vor dem Öffnen der Routenkarte `Send-Command.ps1 Host 'DD_SetCurrentRunSeed <n>'` senden, siehe [Karte und Seed](GAME_ANALYSIS.md#karte-und-seed).
 
-Das Pausemenü hat „Zurück zum Hauptmenü“ bei (226, 152). Mit `!finish` endet die Mission beim Host, danach kommt die Routenkarte für Tag 2.
-Dort stürzt der Client derzeit ab, das ist die offene Aufgabe zum [Inventar](../TODO.md#phase-1--analyse-und-spikes).
+Das Pausemenü (`Esc`) hat „Zurück zum Hauptmenü“ bei (396, 266). Mit `!finish` endet die Mission beim Host, danach kommt die Routenkarte für Tag 2.
+Mit dem Inventar-Teilfix erreicht der Client Tag 2. Die Reise auf Tag 3 endet noch mit einem Host-Absturz, siehe [Inventar](../research/spikes/a-connect/README.md#inventar-ursache-teilfix-und-verbleibende-grenze).
 
 ## Abstürze auswerten
 

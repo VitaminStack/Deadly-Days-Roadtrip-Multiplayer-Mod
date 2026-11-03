@@ -29,7 +29,16 @@ vollständiges SDK für Build `26187885` erzeugt (02.11.2026), die Dateien `Basi
   daher die feste Absturzadresse `0xCDB0` (`0x66D8 * 2`).
 - **[Belegt] Layout:** `Name` 0x08, `ClassFlags` 0x10, `Id` 0x18, `CastFlags` 0x20, `SuperClass` 0x28, Gesamtgröße 0x50.
 - **Fix in Dumper-7:** In `OffsetFinder::FixupFieldClassOffsets()` wird das Layout daran erkannt, dass die gefundenen `CastFlags`
-  nicht vor dem fest hinterlegten `SuperClass`-Offset liegen. Dann werden die vier Offsets oben gesetzt.
+  nicht vor dem fest hinterlegten `SuperClass`-Offset liegen. Dann werden die Offsets oben gesetzt.
+- **[Belegt] Gemeinsamer Stand (03.11.2026):** Upstream-`main` `2c1eae3` stürzt weiter ab. Getestet ist eine Variante des Fixes, die die
+  Offsets relativ zu `Id` und `CastFlags` berechnet und den UE-5.7-Pfad unverändert lässt. Mit ihr lief ein Dump im Host einer Mission
+  (über das Menü gestartet) vollständig durch: 2.636 SDK-Dateien, `FFieldClass` wie oben, `UInViewportMovementRestrictor`,
+  `UInventoryItemInstance` und `UInventoryComponent` gleich zum SDK vom 02.11. Der Host lief weiter. Diese Variante liegt als
+  Commit `1aae006` im Fork `VitaminStack/Dumper-7` (Branch `ddcoop-ue58`), eingebunden als Submodul `third_party/Dumper-7`,
+  gebaut wird sie mit [`Build-Dumper7.ps1`](../tools/README.md#dumper7).
+  Nicht geprüft: Kompilieren dieses SDK, andere Engine-Versionen.
+- **Upstream:** Der Fehler ist bei Dumper-7 als Issue #544 bekannt. Offen ist PR #576 mit einer Erkennung über Klassennamen. Er kompiliert
+  laut Codestand nicht (Aufruf der entfernten `FixupFieldClassOffsets()` in `Offsets.cpp`) und ist nicht von uns getestet. Ein Kommentar dazu ist noch nicht gepostet.
 - **Nacharbeit nach jedem Dump:** In `Assertions.inl` sind die Prüfungen für `UEngineReplicationBridge`,
   `URepositionableTransformGizmo` und `UPolyEditPreviewMesh` abzuschalten. Sie schlagen sonst beim Kompilieren fehl.
   Die Ursache ist nicht untersucht. Bei Nutzung von `UEngineReplicationBridge` deren Layout zuerst prüfen.
@@ -336,6 +345,25 @@ Stand: Disassembly und Laufzeit, Build `26187885`. Mission über das Spielmenü 
 **Empfehlung:** Option A für den ersten spielbaren Stand. Sie ist schon lauffähig, braucht keine neuen Systeme und passt zu Spawnen, Zoom und Bewegungsgrenze des Spiels.
 Den Abgleich der Client-Kamera mit der des Hosts nur angehen, falls die Abweichung im Spiel stört. Option C kann danach als Feinschliff kommen. Option B erst, wenn das Team ausdrücklich freie Bewegung will, denn sie zieht einen eigenen Sync der Viewports nach sich.
 
+### Client-Absturz im Restrictor (`tick-absturz`)
+
+Stand: Disassembly und Spieltest am 02.11.2026, Build `26187885`.
+
+- **[Belegt]** `0x5A17ACC` liegt in `UInViewportMovementRestrictor::PreProcessMovementInput` (`0x5A17AB0`), der Implementierung von `IMovementPreProcessorInterface` (Interface bei `+0xC0`). Die Funktion liest `this+0x50` über die Interface-Basis, das ist `MissionGameState` (`+0x110`). Danach vergleicht sie `PlayerArray.Num` (`GameState+0x2C8`) mit 1 und bremst nur bei mehr als einem Spieler. Eine Null-Prüfung fehlt. Ist `MissionGameState` null, gibt das genau den gemeldeten Lesefehler an `0x2C8`.
+- **[Belegt]** Der Restrictor setzt `MissionGameState` nur einmal, in `BeginPlay` (`0x5A03C20`, Vtable-Slot 129): Er castet `World->GameState` auf `ADDMissionGameState`, und ist der GameState leer oder hat eine andere Klasse, bleibt das Feld null. Vorher hat er sich schon beim `MovementInputPreprocessorSubsystem` angemeldet. Danach wird das Feld nie wieder aktualisiert.
+- **[Belegt]** Die Funktion läuft nur bei einer Bewegungseingabe des lokalen Spielers, nicht im Tick. Aufrufkette laut Absturzbericht: Eingabe der Figur (`0x5A0B530`) → Subsystem (`0x5A178C4`) → `ProcessEvent` → `execPreProcessMovementInput` (`0x57525C0`) → `0x5A17AB0`.
+- **[Belegt]** Die Kamera mit dem Restrictor (`BP_PlayerCameraActor_C`) ist auf beiden Seiten ein lokales Actor-Objekt in `PersistentLevel`, nicht repliziert (`Role` `Authority`). Der Client baut seinen Restrictor also selbst und braucht dafür seinen eigenen, replizierten GameState.
+- **[Vermutung]** Ursache des einmaligen Absturzes: Auf dem Client lief `BeginPlay` des Restrictors einmal, bevor der GameState repliziert war. Dass Spiellogik beim Client vor dem GameState loslaufen kann, ist schon belegt: Beim zweiten Kartenwechsel entsteht die HUD vor ihm, deshalb hält der Spike sie zurück (`Widgets.cpp`). Der Absturz kommt dann erst mit der ersten Bewegungseingabe des Clients. In den Tests bekommt der Client selten Eingaben, das passt zum seltenen Auftreten.
+- **[Vermutung]** Ein zweiter Weg zu null: Zerstört der Client seinen GameState, während die Mission weiterläuft, setzt die Garbage Collection den `TObjectPtr` auf null. Beobachtet ist das nicht.
+
+| Test | Ergebnis |
+|---|---|
+| `MissionGameState` beim Client nach dem Start der `MetaBase`, nach der Reise über das Menü und nach vier weiteren `servertravel` in die Mission | Fünfmal gleich dem aktuellen GameState, kein Absturz. Ein später GameState trat dabei nicht auf (keine zurückgehaltene HUD im Log) |
+| Feld beim Client testweise auf null gesetzt, 15 s ohne Eingabe | Kein Absturz |
+| Danach eine Bewegungseingabe (`D`) im Client-Fenster | Absturz `EXCEPTION_ACCESS_VIOLATION reading address 0x2C8` bei `0x5A17ACC`, genau wie gemeldet |
+
+Folgerung für die Mod: Den Absturz verhindert, wer beim Client `MissionGameState` des Restrictors nachträgt, sobald der GameState ankommt, ähnlich wie der Spike die HUD zurückhält. Ein Null-Schutz direkt in `0x5A17AB0` ginge auch, dann bremst der Restrictor aber bis zum Nachtragen nicht. Den späten GameState gezielt zu erzeugen, ist nicht gelungen; Netzwerk-Emulation ist im Shipping-Build nicht vorhanden (Vermutung, nicht geprüft).
+
 ## Lokales Coop
 
 ### Blueprint-Stichprobe (`blueprint-logik`)
@@ -443,13 +471,31 @@ Stand: Laufzeit-Trace und Disassembly, Build `26187885`. Der Ablauf gilt für zw
 | Menü nach `MetaBase` | Menüpunkt | Lokale Reise | Client folgt nur per `servertravel` |
 | `MetaBase` in Mission | Figur läuft auf den Ring links neben dem Bus, Klick auf die Routenkarte | `FinalizeRunStart`, `LoadMapByInformation`, `ULoadingSubSystem::SeamlessTravelToLevel` | Beide in `DDDynamic_Map`, Gegner laufen von selbst |
 | Missionsende | Bus oder `FinishMission` | `RoundEndPanel`, Lager, Routenkarte | Nur beim Host sichtbar, der Client spielt weiter |
-| Mission in nächste Mission | Klick auf die Routenkarte | Wieder `SeamlessTravelToLevel` | Host erreicht Tag 2, Client stürzt beim Ankommen ab |
-| Mission ins Hauptmenü | Pausemenü, `ReturnToMainMenu` | `SetClientTravel` | Host sauber im Hauptmenü, Client stürzt beim Trennen ab |
+| Mission in nächste Mission | Klick auf die Routenkarte | Wieder `SeamlessTravelToLevel` | Mit Inventar-Teilfix erreichen beide Tag 2, die Reise auf Tag 3 endet mit einem Host-Absturz |
+| Mission ins Hauptmenü | Pausemenü, `ReturnToMainMenu` | `SetClientTravel` | Mit Inventar-Teilfix beide sauber im Hauptmenü. Ohne ihn stürzt der Client beim Trennen ab, siehe [Trennen](#trennen-ins-hauptmenü-trennen) |
 
 `SeamlessTravelToLevel` reist nur lokal. Der Spike leitet die Reise in `servertravel <Karte>?listen` um, damit der Client folgt. Damit entfällt der Ladeablauf des Spiels, die Mission lief trotzdem normal.
 Die Umleitung gilt nicht für das Hauptmenü: Dort stürzte der Host mit Umleitung ab, im Original nicht. Eine Rückkehr in die `MetaBase` nach Run-Ende ist noch nicht getestet.
 
 `TriggerEndRound` meldet das Rundenende nur an die Persistenz und löst keine Reise aus. `FinishMission` zeigt das normale Tagesende, auch wenn vorher `Lose` gesetzt wurde. Der echte Weg bei einer Niederlage ist also noch offen.
+
+### Trennen ins Hauptmenü (`trennen`)
+
+Stand: Disassembly und zwei Spieltests am 02.11.2026, Build `26187885`.
+
+- **[Belegt]** Der Client-Absturz bei `0x5975A6A` ist eine Folge der fehlenden Inventar-Items, keine eigene Ursache beim Trennen. Er trat nur in Builds ohne den [Inventar-Teilfix](../research/spikes/a-connect/README.md#inventar-ursache-teilfix-und-verbleibende-grenze) auf.
+- **[Belegt]** Aufrufkette laut Absturzbericht: Der Client bekommt die Trennung und baut seine Welt ab. Dabei ruft `AActor::EndPlay` (`0x25E3350`) für jede gestartete Komponente `EndPlay` auf (Vtable `+0x3F0`). `UInventoryComponent::EndPlay` (`0x595BBD0`) läuft über `MyItems` (`+0x120`) und ruft für jedes Item `0x5975A40` auf.
+- **[Belegt]** `0x5975A40` geht durch `UInventoryItemInstance::StateObjectLookup` (`TMap` bei `+0x318`) und ruft für jedes Zustandsobjekt die virtuelle Funktion `+0x2A0` und `0x572FBE0` auf. Eine Null-Prüfung des Items fehlt. Die erste Anweisung liest `Item+0x340`, die Bitanzahl der Belegungsbits der Map. Bei einem Null-Item ergibt das genau den gemeldeten Lesefehler an Adresse `0x340`.
+- **[Belegt]** Dieselbe Schleife steckt in `RemoveAllItemEffects` (`0x5971BB0`). Das ruft unter anderem `LoadMapByInformation` (`0x5B11170`) für jeden Spieler auf. Fehlende Items können also auch dort abstürzen.
+
+| Test | Client-Inventar in der Mission | Host über Pausemenü ins Hauptmenü |
+|---|---|---|
+| Spike mit Inventar-Teilfix | `complete` und `equal` wahr | Beide Instanzen landen sauber in `MainMenu`, kein Absturzbericht |
+| Gegenprobe ohne Teilfix, lokal gebaut | `complete` und `equal` falsch | Client stürzt ab: `EXCEPTION_ACCESS_VIOLATION reading address 0x340` bei `0x5975A6A`, Rücksprung `0x595C039` in `UInventoryComponent::EndPlay` |
+
+Folgerung: Kein eigener Null-Schutz nötig. Der Absturz verschwindet mit dem Teilfix, weil der Client dann echte Items hat. Fehlt ein Item trotzdem einmal, etwa auf Tag 3 oder bevor die Replikation fertig ist, stürzt der Client an dieser Stelle wieder ab.
+
+Nicht getestet: Trennen an Tag 2 oder später, Trennen aus der `MetaBase`, Abbruch der Verbindung ohne Menü (Host beendet oder Netzwerkfehler). Mit Teilfix gab es nur einen Lauf.
 
 ### Was beim Kartenwechsel passiert
 
@@ -483,6 +529,19 @@ Build `26187885`, zwei Instanzen auf einem PC, Loopback, getrennte Test-Spielst�
 | Eigene Figur | Nimmt die Position vom Client an | Führt Bewegung und Eingabe |
 | HUD | Normal | Erst bauen, wenn der `GameState` da ist |
 | Inventar | Führt | Darf erst laufen, wenn die replizierten Einträge da sind. Ohne Lösung kein Run über mehrere Tage |
+
+### Rundenende: Befund und offene Phasenübertragung (`rundenende`)
+
+Build `26187885`, ein PC, zwei Loopback-Instanzen, getrennte Test-Spielstände und CrashGuard. Untersuchung auf eigenem Branch von `origin/main`, ohne den noch nicht gemergten Inventar-Teilfix.
+
+- **[Belegt] Menü-/Host-Ablauf erneut beobachtet:** Nach `!finish` Rundenübersicht, nach Fortsetzen Lager, nach Bestätigen Routenkarte. Der Client zeigt bei allen drei Schritten weiter die Mission, nicht diese Ansichten. Die Folge wurde bis zur Routenkarte geprüft, keine Weiterreise mit dem bekannten Inventarfehler ausgelöst.
+- **[Belegt] Zustandsgrenze:** Vor Missionsende Host `MissionChain.Num=1`, `CurrentMissionIndex=0`, Client `0` bzw. `-1`. Nach Missionsende Host `LastRoundChangeReason=1`, Client weiterhin `0`. `DayNum` und `SecondsSinceMissionStart` sind auf beiden Seiten vorhanden; nach Host-Ende lag der replizierte Sekundenwert bei 53 auf beiden Seiten. Gleiche Sekunden sind deshalb **kein** Beleg, dass der Client seine lokale Endphase verarbeitet.
+- **[Belegt] Ansatz Ereignis weiterreichen:** Die reflektierten Funktionen `FinishMission`, `TriggerEndRound` und `SetFreezeTime` sind keine Netzwerk-RPCs. `OnMissionFinishing`, `OnMissionFinished`, `OnBeforeMissionFinished` und die Freeze-Delegates sind lokale Delegates. Der vorhandene Aufruf allein transportiert die UI-Phase nicht.
+- **[Verworfener Ansatz] Host-Ablauf lokal wiederholen:** `TriggerEndRound` läuft über die GameInstance/Persistenz, und dem Client fehlt die Route. Entsprechend der bestehenden Trennung zwischen Host-Spiellogik und Client-Anzeige wurden diese Pfade nicht als Client-Sync ausgeführt. `Mission.cpp` weist nun die beiden Diagnosebefehle `!finish` und `!round` auf einem verbundenen Client ausdrücklich zurück. Negativtest in einer neuen geschützten Sitzung: beide Befehle abgelehnt, beide Prozesse weiter in MetaBase, Client-Grund unverändert `NoReason`.
+- **[Belegt] Ansatz UI-Phase aus Panels erkennen:** `UAbstractPanel::AnimationContainer` und `UPanelAnimationContainer::IsOpen` sind mögliche Andockpunkte, lieferten im Test aber bei den beobachteten Panels keinen lesbaren Containerzustand. Widgets können ausserdem an der GameInstance hängen und Karten überleben. Objektpräsenz oder Class-Namen allein sind deshalb kein zuverlässiger Phasenwechsel. Das lesende Werkzeug `tools/spike/roundstate.py` weist unbekannte Container und World-/GameInstance-/ungeklärte Outer-Zuordnung explizit aus; es behauptet keine sichtbare Phase.
+- **Offen, nicht implementiert:** Eigene Host-Nachricht für `Playing/RoundEnd/Stash/Route/Travel`, mit Welt-/Run-Generation, monotoner Sequenz und idempotenter Verarbeitung; Client nur anzeigend, keine Auswahl-/Inventar-/Reisebefugnis. Anzeige und Eingabesperre gemeinsam annehmen und beim gültigen Weltwechsel/Verbindungsende zurücksetzen. Der Anzeigenvertrag muss Tagesnummer, Runden-Grund und Host-Fortschritt enthalten, statt Client-Run-Persistenz zu erzeugen. Das ist ein nächster Entwurf, kein getesteter Netzwerkpfad.
+
+Die Aufgabe bleibt ungelöst. Getestet sind die Beobachtung und Befehlsgrenzen, **nicht** eine synchronisierte Endphase, Client-Eingabesperre, Spätbeitritt, Wiederholung/Reihenfolge von Nachrichten, Internet oder ein vollständiger Run. Der fehlende gemeinsame Initialisierungs-/Tick-Anschluss in `Mission.cpp` wurde nicht durch Änderungen in fremden Spike-Dateien umgangen.
 
 **Karte:** Im echten Ablauf erzeugt der Host 144 bis 167 `MapTile`, der Client bleibt bei 17 und zeigt eine andere Karte. Die Figur des Clients startet deshalb weit vom Bus entfernt, weil seine Position beim Host übernommen wird. Das ist der Einstieg in Thema 3.
 

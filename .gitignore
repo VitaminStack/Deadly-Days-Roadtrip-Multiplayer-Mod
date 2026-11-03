@@ -17,6 +17,9 @@ Release/
 *.obj
 *.tlog
 
+# Git-Worktrees der Aufgaben
+.worktrees/
+
 # Lokale Konfiguration
 config/Local.props
 .env

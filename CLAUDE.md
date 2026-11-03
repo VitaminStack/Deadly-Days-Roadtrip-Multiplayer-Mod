@@ -9,7 +9,7 @@ Erst spielbar: Vorrang hat, dass zwei Spieler einen Run durchspielen können. Kl
 
 ## Vor dem Start
 
-1. [Wo kann ich anfangen?](TODO.md#wo-kann-ich-anfangen) lesen, auch die Liste „Nicht erneut machen“.
+1. [Wo kann ich anfangen?](TODO.md#wo-kann-ich-anfangen) lesen, auch die Liste „Nicht erneut machen“. [Spätere Arbeitspakete](TODO.md#spätere-arbeitspakete) erst nehmen, wenn ihre Voraussetzung auf `main` ist. [Zentrale Arbeit](TODO.md#zentrale-arbeit) nie aufteilen.
 2. Offene Reservierungen ansehen. Eine Aufgabe, deren Branch schon existiert, nicht übernehmen:
 
    ```bash
@@ -20,12 +20,12 @@ Erst spielbar: Vorrang hat, dass zwei Spieler einen Run durchspielen können. Kl
 
    ```bash
    git fetch origin
-   git worktree add -b task/<kennung> ../dd-<kennung> origin/main
-   git -C ../dd-<kennung> commit --allow-empty -m "task: claim <kennung> by <eigener-name>-$RANDOM"
-   git -C ../dd-<kennung> push origin task/<kennung>
+   git worktree add -b task/<kennung> .worktrees/<kennung> origin/main
+   git -C .worktrees/<kennung> commit --allow-empty -m "task: claim <kennung> by <eigener-name>-$RANDOM"
+   git -C .worktrees/<kennung> push origin task/<kennung>
    ```
 
-Im eigenen Worktree arbeiten, nie im Hauptordner oder im Worktree eines anderen Agenten. Wer die Reservierung aufgibt, löscht den Branch auf `origin`.
+Worktrees liegen immer unter `.worktrees/` im Repo-Ordner, keine neuen Ordner daneben anlegen. Im eigenen Worktree arbeiten, nie im Hauptordner oder im Worktree eines anderen Agenten. Wer die Reservierung aufgibt, löscht den Branch auf `origin`.
 
 ## Beim Arbeiten
 
@@ -38,5 +38,5 @@ Im eigenen Worktree arbeiten, nie im Hauptordner oder im Worktree eines anderen 
 ## Abschluss
 
 1. Ergebnisse festhalten, auch gescheiterte Versuche, siehe [Ergebnisse festhalten](docs/TESTING.md#ergebnisse-festhalten).
-2. In `TODO.md` nur die eigenen Zeilen ändern, das hält Konflikte klein.
+2. In `TODO.md` nur die eigenen Zeilen ändern, das hält Konflikte klein. Ist die Aufgabe fertig, auch [docs/ROADMAP.md](docs/ROADMAP.md) und den [Fortschritt im README](README.md#fortschritt) anpassen.
 3. Pull Request nach `main` öffnen und sagen, wie getestet wurde. Nur auf ausdrückliche Anweisung des Menschen mergen.

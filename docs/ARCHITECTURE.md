@@ -1,7 +1,7 @@
 # Architektur
 
 Grundlage sind die Fakten aus [GAME_ANALYSIS.md](GAME_ANALYSIS.md). Dieses Dokument beschreibt den Plan, nicht den Ist-Stand:
-Es existiert noch kein Mod-Code.
+Von der Mod existiert bisher nur das Grundgerüst in `src/`.
 
 ## Zielbild
 
@@ -21,7 +21,8 @@ Es existiert noch kein Mod-Code.
 Das Laden erfolgt im erprobten Beispiel über eine `version.dll`-Proxy-DLL neben
 der Exe. Wichtig: vollständige Exportoberfläche, nicht nur die drei direkten
 Imports. Der kleine Proxy-/ProcessEvent-End-to-End-Test auf Host und Client
-ist erfolgt; die produktive Loader-/Core-Implementierung ist weiterhin separat.
+ist erfolgt. Das inzwischen separat entwickelte [Loader-Grundgerüst](../src/Loader/README.md)
+ist nicht Gegenstand dieses Spike-Nachweises.
 
 ### Technische Andockpunkte (Build 26187885)
 
@@ -137,6 +138,7 @@ Vorgeschlagene Regeln fuer die Umsetzung:
 
 Diese Regeln sind ein Entwurf. Der Referenzscan rekonstruiert keine Guards oder
 Reihenfolge und ersetzt keine Tests konkreter Events auf Host und Client.
+
 ## Pausen und blockierende UI (Untersuchung `pausen`)
 
 SDK und begrenzte Laufzeitmessung zeigen zwei Ebenen: lokale Request-/UI-Sitzungen
@@ -175,9 +177,7 @@ keine Portfreigabe, und Steam-Relays verbergen die IP-Adressen. Das ist bisher n
 
 Für die frühen Spikes reicht eine direkte IP-Verbindung im LAN oder über Tailscale oder ZeroTier.
 
-## Module
-
-### Eigener Kontroll-Sync fuer nicht replizierte Spiellogik
+## Eigener Kontroll-Sync fuer nicht replizierte Spiellogik
 
 Aufgabe `sync-bedarf`: [Sync-Anforderungsmatrix](SYNC_REQUIREMENTS.md) legt fuer
 LevelSystem, Schrott, Reroll, beide Meta-Wallets und CoopInventoryCoordinator
@@ -192,6 +192,8 @@ Anfrage-Deduplizierung sind verbindliche Anforderungen an die Umsetzung.
 Die Netzwerk-Transportbindung, XP-Einheit, gemeinsame Kontozuordnung und
 persistente Mitspieler-Meta-Belohnung sind noch zu klaeren.
 
+## Module
+
 ```text
 Sync ──> Game ──> SDK (Dumper-7, nicht im Repo)
   │       │
@@ -204,6 +206,7 @@ UI ──> Net, Core
 | Modul | Aufgabe | Darf nicht |
 |---|---|---|
 | `Loader` | Proxy-DLL, startet die Mod | Spiellogik enthalten |
+| `Mod` | Mod-DLL, bindet die Module zusammen und startet sie | Eigene Logik enthalten |
 | `Core` | Logging, Config, Hooks, Game-Thread-Dispatcher, Versionsprüfung | Spielklassen kennen |
 | `Net` | Transport, Lobby, Session, Handshake, Serialisierung | SDK einbinden |
 | `Game` | Adapter auf Spielklassen und Hook-Definitionen | Netzwerklogik enthalten |
@@ -227,3 +230,6 @@ Jede größere Technikentscheidung bekommt hier eine Zeile.
 | 02.11.2026 | SDK nur im Modul `Game` | Spiel-Updates bleiben beherrschbar | Festgelegt |
 | 02.11.2026 | Weg A vor Weg B testen | RPCs sprechen dafür, ist deutlich weniger Arbeit | Vorläufig bis G1 |
 | 02.11.2026 | Ziel sind 2 Spieler | Coop-Logik fest auf P1 und P2 | Festgelegt |
+| 02.11.2026 | `version.dll` als Proxy, Mod in eigener `DDCoop.dll` | Der Proxy bleibt klein, die Modulgrenzen gelten | Vorläufig bis zum Spieltest |
+| 02.11.2026 | Build-Erkennung über den PE-Header der Exe | Steht im Speicher, das Steam-Manifest müsste die Mod erst suchen | Festgelegt |
+| 02.11.2026 | MinHook für Hooks, als Quellkopie im Repo | Klein, passt zu C++20, Klonen und CI brauchen keinen Zusatzschritt | Festgelegt |
