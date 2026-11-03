@@ -802,9 +802,18 @@ Stand 03.11.2026, Build `26187885`. Getestet nur über `Start-Session.ps1`: Men�
   2. `0x59DFD61` über `0x59D8194` (ProcessEvent). Ein Kartengenerator-Schritt `0x59DFC70` nutzt `+0xC8`, das es nur beim Host gibt. Behoben mit `PatchMapGenHostObject`: bei null zum vorhandenen Ausgang `0x59DFE07`.
   3. **Offen:** wieder `0x4B68195`, Lesen `0x1080`, diesmal über die Rücksprungadresse `0x59A4B90`. Der Aufruf liegt vermutlich bei `0x59A4B8B`. Stack: `0x59A4B90`, `0x25DDABB`, `0x2D8CBEC`, `0x5801443`, `0x25E19AD`, `0x323576A`, `0x2A842DC`. Kurz davor im Client-Log: „Exp aggregate: awaiting character AttributeSet“ und die Übernahme von `MGP_Forest_Roadstops` durch den Kartengenerator. Die Patches 1 und 2 waren aktiv und meldeten keine Byte-Abweichung, ihre Abstürze traten in diesem Lauf nicht mehr auf. Belegt ist das nur mit einem Lauf.
 
-**Nächster Schritt (`tag4`):** Mit `tools/spike/Disassemble.ps1` zuerst `0x4B68180` ansehen. Damit ist das der dritte Aufrufer mit leerem Besitzer. Kann die Funktion selbst bei `rcx = 0` sauber null zurückgeben und prüfen alle Aufrufer das Ergebnis, reicht ein Schutz an einer Stelle. Sonst wie bei 1 einen vorhandenen Ausgang des Aufrufers um `0x59A4B8B` nehmen. Danach die Route ab Tag 4 weiterfahren (Tag 5 liegt auf der Routenkarte bei x≈400). Ziel bleibt ein Run bis zum Ende mit `complete` und `equal` an jedem Tag.
+**Nächster Schritt (`tageswechsel`):** Alle drei Client-Abstürze an Tag 4 kommen direkt nach `OnRep_DayNum` und betreffen Objekte, die nur der Host hat. Weitere Einzelpatches je Absturz würden den nächsten Tag an neuer Stelle abstürzen lassen, wie schon in den Inventar-Schleifen. Darum zuerst mit `tools/spike/Disassemble.ps1` `0x4B68180` und den Aufrufer um `0x59A4B8B` ansehen und klären, was der Client nach `OnRep_DayNum` überhaupt ausführt. Ziel ist ein Schutz an der gemeinsamen Stelle, der vom Objektzustand abhängt und nie von der Tagesnummer. Patch 1 und 2 dann darauf prüfen, ob sie noch nötig sind.
 
-**Nicht geprüft:** Tag 5 und später, Client-Inventarbedienung, Belohnungen mit mehreren Items, Internet. Ob Patch 1 und 2 nur Symptome abfangen oder der Client dort grundsätzlich einen Host-Pfad ausführt, ist offen.
+**Abnahme:** Ein Run über die echte Route durch alle 8 Tage, mit dem Gebietswechsel nach Tag 4 (gestreifte Knoten, vermutlich Torboss) und dem Endboss am Ende. Tag 5 liegt auf der Routenkarte bei x≈400. Danach den Endlosmodus starten und über mindestens zwei Gebietswechsel weiterfahren. An jedem Tag `inventory.py` mit `complete` und `equal`, kein Absturz auf beiden Seiten.
+
+**[Belegt, SDK] Endlosmodus**, nur statisch aus dem Dump, im Spiel nicht geprüft:
+
+- `UEndlessmodeSubsystem` ist ein GameInstance-Subsystem mit `StartEndlessMode`, `ResetEndlessMode`, `IsEndlessModeActive` und `IsEndlessModeUnlocked`. Die Freischaltung hängt an einem Content-Locker, der Zustand an der Run-Persistenz.
+- Tagesinhalte werden über den Tag innerhalb der Karte und `bIsEndlessMode` bestimmt, etwa Spezialruns und `RequiresGatewayBossForDay`. `GetNumDaysPerMissionMap` gibt die Tage je Karte vor.
+- Gegnerwerte skalieren mit dem absoluten Tag (`CalculateScaledValueForAbsoluteDay`). Ein Fix darf deshalb weder eine Obergrenze von 8 Tagen noch feste Tageswerte annehmen.
+- Offen: ob die Test-Spielstände den Endlosmodus freigeschaltet haben und wie der Wechsel vom Endboss in den Endlosmodus beim Client ankommt.
+
+**Nicht geprüft:** Tag 5 und später, Endlosmodus, Client-Inventarbedienung, Belohnungen mit mehreren Items, Internet. Ob Patch 1 und 2 nur Symptome abfangen oder der Client dort grundsätzlich einen Host-Pfad ausführt, ist offen.
 
 ### Was beim Client laufen darf
 
