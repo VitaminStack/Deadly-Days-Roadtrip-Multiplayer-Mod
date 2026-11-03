@@ -22,7 +22,7 @@ Je Thema eine Datei, damit parallele Arbeit nicht in dieselbe Datei läuft. Neue
 | `Core.cpp` | Log, Objektsuche, `CodeWriter` für Patches |
 | `Main.cpp` | Laden der DLL, Befehls-Schnittstelle, Sekunden-Tick |
 | `Players.cpp` | Spawn der Remote-Spieler, `SpawnedPlayers`, clientautoritative Position |
-| `Client.cpp` | Client-Stellen ohne Host-Objekte: Refresh, Attribute, Figurenkomponente, `ThreatLevel` |
+| `Client.cpp` | Client-Stellen ohne Host-Objekte: Refresh, Attribute, Figurenkomponente, `ThreatLevel`, Log für nicht angelegte Actors |
 | `Camera.cpp` | Gemeinsame Kamera und Bodenfix |
 | `Inventory.cpp` | Netzwerk-Support für Items/Slots und klassischer Unterobjekt-Replikationspfad je neuer Inventarkomponente |
 | `Travel.cpp` | Umleitung der Reise in `servertravel` |
@@ -226,7 +226,9 @@ Das Werkzeug liest nur Inventare der aktuellen `GameState.PlayerArray`, keine al
 
 **Echte Route, Übergabestand:** Der Host-Absturz bei der Reise auf Tag 3 kam von einem Kartengenerator-Lambda mit rohem Zeiger auf den alten Generator. `Inventory.cpp` lässt diesen Schritt aus, wenn der Generator nicht mehr zur aktuellen Welt gehört. `Client.cpp` wartet in der Exp-Aggregation auf fehlende AttributeSets (`0x178BA90`) und fängt zwei Client-Abstürze an Tag 4 ab. Zweimal Tag 3 über die echte Route erreicht, Inventare an Tag 1 bis 3 vollständig und gleich. Offen ist ein dritter Client-Absturz an Tag 4 (`0x4B68195` über `0x59A4B90`), Folgeaufgabe `tageswechsel`. Einzelheiten in der [Analyse](../../../docs/GAME_ANALYSIS.md#echte-route-bis-tag-4-tag3-übergabestand).
 
-**Noch offen:** Client-Absturz an Tag 4 und alles danach, historischer Client-Folgefehler `0x57D080C`. Nicht getestet: Client-Inventarbedienung und RPCs, grössere/wechselnde Inventare, Belohnungen/Item-Effekte, Internet und Paketverlust. `obj gc` wurde historisch gesendet, die tatsächliche GC-Ausführung aber nicht nachgewiesen. Rohmessungen und Absturzberichte bleiben unter `research/local/`.
+**Tageswechsel, Übergabestand:** `Client.cpp` prüft jetzt am Einstieg der AttributeSet-Suche `0x4B68180`, ob ein AbilitySystem da ist. Das ersetzt den Schutz nur nach `OnRep_DayNum`, der dritte Absturz an Tag 4 trat in drei Läufen nicht mehr auf. Die eigentliche Ursache liegt tiefer: Ab Tag 4 fehlen dem Client die PlayerStates, weil in seinem NetGUID-Cache die Einträge für Archetyp und Paket der PlayerState-Klasse fehlen. `SerializeNewActor` meldet das jetzt als `NewActor failed`. RootSet für Klassen, ein Patch am 90-s-Ablauf in `CleanReferences` und ein `servertravel`-Schnelltest mit GC in jedem Frame halfen nicht, Einzelheiten in der [Analyse](../../../docs/GAME_ANALYSIS.md#tageswechsel-client-verliert-die-playerstates-tageswechsel-übergabestand). Zuerst kommt `testumgebung`, danach `guidcache`.
+
+**Noch offen:** Fehlende PlayerStates ab Tag 4, Client-Absturz an Tag 5 (`0x56B16D9`) und alles danach, historischer Client-Folgefehler `0x57D080C`. Nicht getestet: Client-Inventarbedienung und RPCs, grössere/wechselnde Inventare, Belohnungen/Item-Effekte, Internet und Paketverlust. `obj gc` wurde historisch gesendet, die tatsächliche GC-Ausführung aber nicht nachgewiesen. Rohmessungen und Absturzberichte bleiben unter `research/local/`.
 
 ## Crash-Reporter
 

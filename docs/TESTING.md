@@ -97,7 +97,7 @@ Danach öffnet sich direkt die Routenkarte, die Knoten für Tag 1 liegen in der 
 Für eine reproduzierbare Karte vor dem Öffnen der Routenkarte `Send-Command.ps1 Host 'DD_SetCurrentRunSeed <n>'` senden, siehe [Karte und Seed](GAME_ANALYSIS.md#karte-und-seed).
 
 Das Pausemenü (`Esc`) hat „Zurück zum Hauptmenü“ bei (396, 266). Mit `!finish` endet die Mission beim Host, danach kommt die Routenkarte für Tag 2.
-Über die echte Route erreichen beide Instanzen Tag 4, dort stürzt der Client noch ab, siehe [Inventar](../research/spikes/a-connect/README.md#inventar-ursache-teilfix-und-verbleibende-grenze).
+Über die echte Route erreichen beide Instanzen Tag 4, dort fehlen dem Client aber die PlayerStates, an Tag 5 stürzt er ab, siehe [Tageswechsel](GAME_ANALYSIS.md#tageswechsel-client-verliert-die-playerstates-tageswechsel-übergabestand). Eine `servertravel`-Schleife ersetzt die echte Route dabei nicht.
 
 ## Abstürze auswerten
 
