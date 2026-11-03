@@ -2,6 +2,10 @@
 
 Skripte für den Alltag. Pfade kommen aus `config/Local.props`, nie fest im Skript.
 
+## Test-Setup.ps1
+
+Prüft die Einrichtung aus [docs/SETUP.md](../docs/SETUP.md): Git, Python, Visual Studio mit C++, `config/Local.props`, Spielordner und Build. Ändert nichts.
+
 ## Deploy-Mod.ps1
 
 Kopiert `version.dll` und `DDCoop/DDCoop.dll` aus `bin/<Konfiguration>/` neben die Spiel-Exe. Vorher die Solution bauen.
