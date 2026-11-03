@@ -29,5 +29,8 @@ jobs:
       - name: C++-Tests
         run: .\bin\${{ matrix.configuration }}\CoreTests.exe
 
+      - name: UI-Tests (ohne Spiel und SDK)
+        run: .\bin\${{ matrix.configuration }}\UITests.exe
+
       - name: Python-Tests
         run: python -B -m unittest discover -s tests

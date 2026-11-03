@@ -25,9 +25,11 @@
   <Import Project="..\Common.props" />
   <ItemGroup>
     <ClCompile Include="UI.cpp" />
+    <ClCompile Include="OverlayModel.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="UI.h" />
+    <ClInclude Include="OverlayModel.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">
