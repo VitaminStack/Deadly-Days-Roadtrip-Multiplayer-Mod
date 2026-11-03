@@ -6,14 +6,17 @@ keine Blueprint-Implementierungen oder SDK-Dateien im Repository.
 import json
 import struct
 import sys
+import time
 
-from ddmem import Game
-
-
-def snapshot(pid):
-    game = Game(pid)
-    result = {"world": game.name(game.world()), "timescale": [], "pause_screens": [],
-              "ui_sessions": [], "world_settings": [], "panel_defaults": [], "panels": []}
+def snapshot(pid, game_factory=None):
+    if game_factory is None:
+        from ddmem import Game
+        game_factory = Game
+    game = game_factory(pid)
+    result = {"pid": pid, "captured_at": time.time(),
+              "world": game.name(game.world()), "timescale": [], "pause_screens": [],
+              "ui_sessions": [], "world_settings": [], "panel_defaults": [], "panels": [],
+              "animation_containers": []}
     classes = {}
 
     def ancestors(cls):
@@ -48,6 +51,10 @@ def snapshot(pid):
             continue
         if flags & 0x20:  # Archetypen sind keine laufenden Komponenten.
             continue
+        if "PanelAnimationContainer" in chain:
+            result["animation_containers"].append({"name": game.name(obj),
+                "outer": game.name(game.ptr(obj + 0x20)),
+                "open": fields(obj + 0x328, "<?")})
         if "AbstractPanel" in chain:
             animation = game.ptr(obj + 0x330)
             result["panels"].append({"name": game.name(obj),
@@ -76,9 +83,9 @@ def snapshot(pid):
                 "time_dilation": fields(obj + 0x3E0, "<f"),
                 "cinematic_time_dilation": fields(obj + 0x3E4, "<f"),
                 "pauser": game.name(game.ptr(obj + 0x4A8))})
-    print(json.dumps(result, ensure_ascii=True))
+    return result
 
 
 if __name__ == "__main__":
     for process_id in sys.argv[1:]:
-        snapshot(int(process_id))
+        print(json.dumps(snapshot(int(process_id)), ensure_ascii=True))
