@@ -51,6 +51,7 @@ Alle im Team müssen ein SDK **desselben Spiel-Builds** verwenden.
 
 > **Wichtig:** Dumper-7 braucht für UE 5.8 einen Fix und das SDK eine kleine Nacharbeit,
 > siehe [SDK-Erzeugung unter UE 5.8](GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58).
+> Den getesteten Stand mit Fix baut jeder gleich mit [`tools/dumper7/Build-Dumper7.ps1`](../tools/README.md#dumper7), kein eigener Patch nötig.
 
 Das Repo ist öffentlich, darum wird das SDK nicht darüber verteilt. Alle erzeugen es selbst aus der eigenen Spielkopie.
 
