@@ -196,7 +196,7 @@ Stand: Spike `Hits.cpp`, Läufe über das Spielmenü am 03.11.2026, Build `26187
 - **[Belegt]** Auslöser ist der `PlayerState` des Schützen, Verursacher das Projektil (`BP_Projectile_C`). Der Spike ordnet den Treffer über die Figur des PlayerStates zu: Beim Host ist die Figur des Clients `AutonomousProxy`, die eigene nicht. Ein erster Versuch über die Besitzerkette des Auslösers fand keine Figur und zählte alles als „Sonstige“.
 - **[Belegt]** Treffer des Clients ziehen beim Host Leben ab und töten. Ein `BP_StandardEnemy_C` hat 50 Leben, jeder Treffer nimmt 25, nach dem zweiten steht er bei 0.
 - **[Belegt]** Die Zuordnung trennt beide Spieler. In Lauf 3 meldete sie einen Treffer des Hosts.
-- **[Belegt]** In der Mission halten Tutorial-Hinweise das Spiel an, die Uhr bleibt etwa bei 00:08 stehen. Auf einen Hinweis folgt der nächste, das Sprinten löst einen weiteren aus. Für Messungen auf beiden Seiten mehrmals „Fortsetzen“ klicken, im 800×450-Fenster bei (227, 70).
+- **[Belegt]** In der Mission halten Tutorial-Hinweise das Spiel an, die Uhr bleibt etwa bei 00:08 stehen. Auf einen Hinweis folgt der nächste, das Sprinten löst einen weiteren aus. Der Spike-Befehl `!notutorial` an beide Instanzen schaltet sie ab (`UTutorialStateSubsystem::SetForceSkipTutorials`).
 
 | Lauf | Tutorial | Treffer Client | Treffer Host | Kills des Clients |
 |---|---|---|---|---|
@@ -211,6 +211,37 @@ Offen:
 
 - Warum die Host-Figur in den Läufen 5 und 6 nicht traf, ist nicht untersucht. **[Vermutung]** Ohne Eingaben in ihrem Fenster schießt sie nicht, oder es waren keine Gegner in ihrer Reichweite.
 - Nicht geprüft: XP und Loot für Kills des Clients, andere Waffen und Gegnertypen, Schadenszahlen beim Client (stehen unter den optionalen Optimierungen).
+
+#### Last (Spike D, `last`)
+
+Stand: Spike `Load.cpp`, 03.11.2026, Build `26187885`, Host und Client auf einem PC über Loopback, Mission über das Spielmenü, `RunSeed=20795`, Tag 1 oben, mit `MapGen.cpp` und `Pcg.cpp`.
+
+**Messweg:** `Load.cpp` tauscht die IAT-Einträge der Exe für `sendto` und `recvfrom` (WS2_32, Ordinal 20 und 17) und zählt die UDP-Nutzdaten und Pakete. Die Framerate kommt aus `KismetSystemLibrary.GetFrameCount`. Jede Sekunde schreibt der Spike eine Zeile `Last:` ins Log. Gegner sind alle `EnemyBase`-Objekte laut `objects.py`, also auch gepoolte.
+
+| Phase | Gegner Host / Client | Host sendet | Host empfängt | Pakete je Richtung | Framerate Host / Client |
+|---|---|---|---|---|---|
+| A: `MetaBase`, 30 s | – | 3,0 KB/s | 5,2 KB/s | 58–59/s | 60 / 60 |
+| B: Mission, 40 s | 20 / 19 | 7,2 KB/s (max 9,4) | 1,1 KB/s | 59/s | 60 / 60 |
+| C: Nacht, Bedrohung 10, 60 s | 82–89 / 81–87 | **46,5 KB/s** (max 47,3) | 1,1 KB/s | 59/s | 60 / 60 (min 60) |
+
+Phase C entstand mit `!cheats`, dann `DD_ToggleInvincible`, `DD_ToggleFreezeTime 1`, `DD_SetThreatLevel 10` und `DD_SetTimeSinceMissionStart 300`. Im Bild drängt sich eine Horde um den Bus.
+
+- **[Belegt]** Mit rund 85 Gegnern sendet der Host knapp 47 KB/s, also etwa 370 kbit/s, an einen Client. Der Client sendet in der Mission konstant 1,1 KB/s.
+- **[Belegt]** Die ausgehandelte Rate liegt auf beiden Seiten bei 100.000 B/s (`CurrentNetSpeed`, `MaxClientRate`, `MaxInternetClientRate`). Die Last nutzt davon knapp die Hälfte. Der Listen-Server sendet einmal je Frame, `bClampListenServerTickRate` ist aus, daher rund 59 Pakete je Sekunde bei 60 fps.
+- **[Belegt]** Die Framerate blieb in allen Phasen bei 60 auf beiden Seiten. **[Vermutung]** Das ist die Grenze der Bildrate, die Messung sagt also nur, dass beide Instanzen zusammen auf diesem PC nicht unter 60 fallen.
+- **[Vermutung]** Je zusätzlichem Gegner kommen rund 0,6 KB/s hinzu ((46,5 − 7,2) KB/s für etwa 65 Gegner mehr). Dann wäre die Grenze von 100.000 B/s bei etwa 150 Gegnern erreicht. Ob es im späten Spiel so viele gleichzeitig gibt, ist nicht gemessen.
+- **Folgerung für Gate G1:** Für einen Client ist die Last tragbar, auch mit gewöhnlichem Upload. Sie spricht nicht gegen Weg A.
+
+Fehlversuche:
+
+- Die ersten Läufe hielten Tutorial-Hinweise an, Phase C maß dann einen stehenden Zustand. Danach `!notutorial`.
+- `DD_SetTimeSinceMissionStart 480` beendete den Tag. Weitergeklickte Hinweise führten ins Lager, gemessen wurde dort mit 0,7 KB/s.
+- Ein Client stürzte beim Laden der Mission in `TickPcg` ab (`spike.dll`+`0x18868`, `TickPcg`+`0xF8`). Die Schleife las den Besitzer `+0xA8` vor der Klassenprüfung an jedem Objekt. Behoben in `Pcg.cpp`, danach zwei Läufe ohne Absturz.
+
+Offen:
+
+- Nur ein PC über Loopback: keine Latenz, kein Paketverlust, die CPU teilen sich beide Instanzen. Eine Messung über das Internet fehlt.
+- Ohne Bildratengrenze und mit einem langsameren PC ist die Framerate nicht gemessen. Spätere Tage und Bosse sind nicht gemessen.
 
 ### Replikation zur Laufzeit
 
@@ -424,6 +455,7 @@ Offen:
 
 - **[Vermutung]** Die leere Route betrifft beim Client auch andere Werte aus dem Biom, etwa den Texturtausch (`BiomeTextureSwappingGenerator`), Gegnermaterialien und Wetter-Tags. Geprüft ist nur PCG. Die Route selbst auf den Client zu bringen gehört zu `rundenende`.
 - Die Seeds wirken erst mit dem nächsten Sekunden-Tick, bis dahin können die Arten kurz abweichen. Die Kosten des neuen Render-Zustands sind nicht gemessen.
+- **[Belegt]** Die erste Fassung von `TickPcg` las den Besitzer jedes Objekts vor der Klassenprüfung und ließ einmal einen Client abstürzen. Behoben in `last`, siehe [Last](#last-spike-d-last).
 - Nicht getestet: andere Biome, Tag 2 und später, Bosskarten, Internet.
 
 ### Gegner und Pausen

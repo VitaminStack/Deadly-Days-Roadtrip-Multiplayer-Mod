@@ -30,6 +30,8 @@ void InstallPatches()
         Log("Patch: Karte vom Host aktiv");
     if (PatchPcg(Code))
         Log("Patch: PCG vom Host aktiv");
+    if (PatchLoad())
+        Log("Patch: Lastmessung aktiv");
 }
 
 // Laeuft jede Sekunde auf dem Game Thread und ersetzt die Befehle !cam und !authmove nach jedem Kartenwechsel.
@@ -41,6 +43,7 @@ void TickSession()
     if (!Driver)
         return;
     TickPcg();
+    TickLoad();
     if (Read<uintptr_t>(Driver + kDriverServerConnection))
     {
         ReleaseDeferredWidgetEvents(World);
@@ -73,6 +76,8 @@ void RunPendingCommand()
         FinishMission();
     else if (Pending == L"!cheats")
         EnableCheats();
+    else if (Pending == L"!notutorial")
+        SkipTutorials();
     else if (Pending.rfind(L"!load ", 0) == 0)
         LoadAssetCommand(Pending.substr(6));
     else if (Pending.rfind(L"!round ", 0) == 0)

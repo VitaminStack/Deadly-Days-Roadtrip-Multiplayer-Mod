@@ -243,7 +243,7 @@ Ziel: Fakten für Gate G1 sammeln. Spike-Code ist Wegwerfcode und landet nicht i
 - [x] P1 Mission über den echten Weg durch das Spielmenü mit den Patches starten, siehe [Ergebnis](research/spikes/a-connect/README.md)
 - [x] P0 Crash-Reporter im Mod- und Testbetrieb zuverlässig abschalten, bisher hilft nur ein Skript. Testabstürze dürfen nicht bei Pixelsplit landen. Mod und Spike lassen den Start von `CrashReportClient.exe` scheitern, mit echten Abstürzen geprüft; `CrashGuard` bleibt erste Schicht für die Zeit vor dem Laden, siehe [Crash-Reporter](research/spikes/a-connect/README.md#sperre-in-mod-und-spike-crash-reporter)
 - [ ] P1 **Spike C – Mission:** Lädt eine prozedurale Mission beim Client identisch? Direkt geladen: 17 `MapTile` je Seite und gleiches Bild am Start, kein Vergleich der ganzen Karte
-- [ ] P1 **Spike D – Last:** Bandbreite und Framerate bei voller Gegnerzahl messen
+- [x] P1 **Spike D – Last:** Bandbreite und Framerate bei voller Gegnerzahl messen. Bei rund 85 Gegnern sendet der Host 47 KB/s an einen Client, knapp die Hälfte der ausgehandelten 100.000 B/s, beide Instanzen bei 60 fps. Nur ein PC über Loopback, siehe [Last](docs/GAME_ANALYSIS.md#last-spike-d-last)
 - [ ] P1 **Spike E – Tunnel:** Spielverkehr über Steam P2P tunneln (siehe [Architektur](docs/ARCHITECTURE.md#transport))
 - [x] P1 Testaufbau klären: Zwei Instanzen laufen auf einem PC unter demselben Steam-Konto, je mit eigenem `-UserDir=`
 
