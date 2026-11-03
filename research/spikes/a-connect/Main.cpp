@@ -23,7 +23,7 @@ void InstallPatches()
         Log("Patch: kein Speicher");
         return;
     }
-    if (PatchPlayers(Code) && PatchClient(Code) && PatchCamera(Code) && PatchInventory(Code) && PatchTravel(Code) && PatchWidgets(Code))
+    if (PatchPlayers(Code) && PatchClient(Code) && PatchCamera(Code) && PatchInventory(Code) && PatchTravel(Code) && PatchWidgets(Code) && PatchMapObjects(Code))
         Log("Patch: aktiv");
 }
 
