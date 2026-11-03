@@ -131,6 +131,8 @@ Es zeigt tatsächliche Route-Längen/Indizes, Grund, Tag, Sekunden und Panelbeob
 
 `powershell -File tests/Run-RoundPhase.ps1` baut und prüft den Kern ohne Spiel/SDK mit C++20 `/W4 /WX`. Testumfang und offene Integration stehen in der [Untersuchung](../../../docs/GAME_ANALYSIS.md#rundenende-befund-und-offene-phasenübertragung-rundenende). Die Schema-Version 1 gehört **nur zum Spike**, sie ersetzt weder das zentrale Produktionsprotokoll noch dessen Handshake/Authentisierung. `Session` muss pro neuer Verbindung frisch vergeben werden; die Bindung muss aus verifiziertem Transport-/Travel-Zustand stammen, nicht aus beliebigen Paketdaten.
 
+**Ergänzung 03.11.2026:** `Mission.cpp` enthält jetzt einen explizit aktivierbaren lokalen Testadapter: Publisher/Heartbeat, atomarer Dateitransport, Timeout, Textanzeige und Win32-Nachrichtenfilter. Tatsächlicher Adapter und Zwei-Testprozess-Transport ohne Spiel geprüft; `Main.cpp` verbindet Befehl, Tick und Filter, `!finish`/`!round` liefern ihre Hostaufrufe. Der globale Beobachter für normale Menü-/Busereignisse ist **noch nicht angeschlossen**; Lager/Route benötigen weiterhin manuelle Diagnosemarkierung, vollständiger UE-Inputblock und sichtbarer Laufzeitnachweis fehlen. Integration, Bedienung und Grenzen: [RoundPhaseRuntime.md](RoundPhaseRuntime.md). P0 bleibt offen.
+
 ### Weitere Abweichungen
 
 Diese Punkte gehören zu Thema 6, sie stoppen die Technik nicht:
