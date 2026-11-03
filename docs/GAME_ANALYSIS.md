@@ -60,7 +60,7 @@ zur Steam-Installation. Steam aktualisiert weiterhin seine eigene Installation, 
   Beide tatsächlichen Prozesspfade wurden gegen die eingefrorene Exe geprüft. Beide Mod-Logs bestätigen Build `26187885` und gesperrten Crash-Reporter.
 - `Stop-Session.ps1` beendet die eigene Sitzung und entfernt die Mod aus der Kopie. `Test-Setup.ps1` prüft danach wieder alle 54 Dateien erfolgreich.
 - Mit dem endgültigen Startweg ein zweites Mal verbunden; anschließend alle 54 Originaldateien der Steam-Quelle mit dem Ausgangsbeleg
-  verglichen: unverändert. Release-Build, 18 C++-Tests mit 77 Assertions und 57 Python-Tests erfolgreich.
+  verglichen: unverändert. Release-Build, 18 C++-Tests mit 77 Assertions und nach dem Review 58 Python-Tests erfolgreich.
 - Automatische Tests simulieren Änderungen an der Steam-Quelle: Die Kopie bleibt bytegleich und startseitig prüfbar. Veränderte Exe/DLL,
   fehlende Datei, zusätzliches Paket, ungültiger Beleg, falscher Build, Steam-Zielordner, Hardlinks und Änderungen während der Kopie werden abgewiesen.
   Das ist kein absichtlich ausgelöstes echtes Steam-Update; die installierten Spieldateien wurden nicht verändert.

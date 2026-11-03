@@ -165,6 +165,14 @@ class FrozenBuildTests(unittest.TestCase):
         self.assertFalse(self.destination.exists())
         self.assertEqual(list(self.root.glob('frozen.partial-*')), [])
 
+    def test_unreadable_subtree_aborts_instead_of_creating_partial_receipt(self):
+        def denied_walk(root, **options):
+            options['onerror'](PermissionError('unreadable subtree'))
+        with patch.object(build.os, 'walk', side_effect=denied_walk):
+            with self.assertRaises(PermissionError):
+                self.freeze()
+        self.assertFalse(self.destination.exists())
+
     @unittest.skipUnless(shutil.which('powershell'), 'Windows PowerShell erforderlich')
     def test_pinned_path_has_priority_and_never_falls_back(self):
         props = self.root / 'Local.props'

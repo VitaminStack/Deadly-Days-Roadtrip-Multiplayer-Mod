@@ -51,7 +51,10 @@ def independent_path(path):
 
 def inventory(root):
     result = {}
-    for directory, dirs, files in os.walk(root):
+    def fail_walk(error):
+        # os.walk ueberspringt sonst unlesbare Unterordner still: kein vollstaendiger Beleg.
+        raise error
+    for directory, dirs, files in os.walk(root, onerror=fail_walk):
         for name in dirs[:]:
             path = Path(directory) / name
             reject_link(path)
