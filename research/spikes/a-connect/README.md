@@ -32,6 +32,7 @@ Je Thema eine Datei, damit parallele Arbeit nicht in dieselbe Datei läuft. Neue
 | `Trace.cpp` | Zähler für RPCs und Run-Funktionen |
 | `CrashReports.cpp` | Sperre des Crash-Reporters, zweite Schicht neben `CrashGuard.ps1` |
 | `MapGen.cpp` | Client erzeugt die Karte mit den Werten des Hosts, lokale Kopien replizierter Child Actors unterdrückt |
+| `Pcg.cpp` | Client erzeugt die PCG-Vegetation mit dem Graphen des Hosts, gleiche Seeds der Instanz-Komponenten |
 
 ## Ergebnis
 
@@ -49,7 +50,7 @@ Je Thema eine Datei, damit parallele Arbeit nicht in dieselbe Datei läuft. Neue
 | `servertravel /Game/Maps/DDDynamic_Map?listen` | Klappt, beide sind in derselben Mission, 17 `MapTile` auf beiden Seiten, Kartenbild am Start gleich |
 | Gegner | Mit `ForceSpawnWave` beim Host gestartet: Host `Authority`, Client `SimulatedProxy`, Bewegung sichtbar auf beiden Seiten |
 | Schießen | Schüsse des Clients sind beim Host sichtbar. Neben der Client-Figur sterben beim Host Gegner, die Host-Figur ist dort außer Reichweite |
-| Mission über das Spielmenü | Klappt mit Umleitung der Reise, beide in DDDynamic_Map, Gegner laufen von selbst. Mit `MapGen.cpp` gleiche Karte auf beiden Seiten, siehe [Client erzeugt die Host-Karte](../../../docs/GAME_ANALYSIS.md#client-erzeugt-die-host-karte-karte-client) |
+| Mission über das Spielmenü | Klappt mit Umleitung der Reise, beide in DDDynamic_Map, Gegner laufen von selbst. Mit `MapGen.cpp` gleiche Karte auf beiden Seiten, siehe [Client erzeugt die Host-Karte](../../../docs/GAME_ANALYSIS.md#client-erzeugt-die-host-karte-karte-client). Mit `Pcg.cpp` auch gleiche Vegetation, siehe [PCG-Vegetation](../../../docs/GAME_ANALYSIS.md#pcg-vegetation-beim-client-pcg) |
 | Missionsende, Routenkarte, Tag 2 | Mit Inventar-Teilfix zweimal erreicht; vollständige replizierte Inventare auf beiden Seiten. Weiterreise auf Tag 3 endet noch mit Host-Absturz, siehe unten |
 | Pausemenü ins Hauptmenü | Mit Inventar-Teilfix klappt es für beide (ein Lauf). Ohne ihn stürzt der Client bei `0x5975A6A` ab, weil `UInventoryComponent::EndPlay` über Null-Items läuft, siehe [Trennen](../../../docs/GAME_ANALYSIS.md#trennen-ins-hauptmenü-trennen) |
 
@@ -89,6 +90,8 @@ Der Host-Absturz war immer derselbe Callstack. Das Spiel fragt beim Spawnen `Get
 | Client | `0x2A678F0` | `BP_PowerUpCrate_C` spawnt in `BeginPlay` ohne Autoritätsprüfung seine `BP_ChaosDestructable_PowerUp_C`, beim Client kommt dieselbe zusätzlich repliziert an | `BeginDeferredActorSpawnFromClass` gibt beim Client für diese Klasse aus einer Kiste `null` zurück |
 | Beide | `0x59EF6D0` | Der Client erzeugt die Karte ohne Missionsdaten und scheitert | Host schreibt Seed, Profil, Größe und Tags in eine Datei, der Client setzt sie vor `StartMapGeneration` und wartet notfalls |
 | Client | `0x288B510` | Lokale Parzellen sind `Authority` und erzeugen replizierte Child Actors ein zweites Mal | Während der eigenen Erzeugung gilt der Besitzer für den Aufruf als `SimulatedProxy` |
+| Beide | `0x59EE6A0` | Der Client hat keine Route und damit kein Biom, der PCG-Graph bleibt leer | Host schreibt den Graphen in eine Datei, der Client setzt ihn danach und wartet notfalls |
+| Beide | Sekunden-Tick | Jede ISM-Komponente würfelt `InstancingRandomSeed`, die Baumarten weichen ab | Seed aus Mesh und Instanzen setzen, Render-Zustand per `SetStaticMesh` neu |
 
 Die Zuordnung der Funktionen stammt aus der Disassembly ohne Symbole. Die Kamera ist über Offsets im SDK belegt, die übrigen passen zu den Aufrufern.
 

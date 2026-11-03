@@ -91,6 +91,10 @@ bool PatchCrashReports(CodeWriter& Code);
 bool PatchMapGen(CodeWriter& Code);
 void TickMapGen();
 
+// Pcg.cpp
+bool PatchPcg(CodeWriter& Code);
+void TickPcg();
+
 // Mission.cpp
 void ForceEnemyWave();
 void FinishMission();
