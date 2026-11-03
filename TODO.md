@@ -199,7 +199,7 @@ Ziel: Alle können auf demselben Spielstand und mit derselben Toolchain arbeiten
 - [ ] P1 Dumper-7-Fix dem Dumper-7-Projekt vorschlagen, damit alle Helfer ihn ohne eigenen Patch bekommen. Bis dahin liegt der getestete Stand als Submodul unter `third_party/Dumper-7`, gebaut mit `tools/dumper7/Build-Dumper7.ps1`, upstream ist der Fehler als Issue #544 bekannt, siehe [SDK-Erzeugung](docs/GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58)
 - [x] P0 Visual-Studio-Solution mit einem Projekt je Modul anlegen, `config/Local.props` einbinden
 - [x] P1 Festlegen, wie das Team mit Spiel-Updates umgeht: einfrieren und nur bei Bedarf nachziehen ([Update-Regel](CONTRIBUTING.md#spiel-updates))
-- [ ] P1 Klären, ob alle das Spiel auf derselben Build-ID halten können
+- [ ] P1 Klären, ob alle das Spiel auf derselben Build-ID halten können (`build-id`): lesend geprüft, `26187885` ist weiterhin öffentlich gelistet; kein allgemein zugänglicher Altversions-Zweig ausgewiesen. Dateireferenz und [Team-Abnahme](docs/SETUP.md#gleiche-build-id-im-team) dokumentiert. Offen bleiben Bestätigung je Team-PC und Wiederherstellung, kein Depot-Download oder Spielstart getestet
 
 ## Phase 1 – Analyse und Spikes
 

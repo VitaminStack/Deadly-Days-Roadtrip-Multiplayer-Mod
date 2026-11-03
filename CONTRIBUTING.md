@@ -97,10 +97,11 @@ auch wenn Steam schon einen neueren anbietet.
 ### Auf dem unterstützten Build bleiben
 
 1. In Steam unter Eigenschaften → Updates „Dieses Spiel nur beim Starten aktualisieren“ wählen.
-2. Das Spiel während der Entwicklung nur über `tools/spike/Start-Session.ps1` starten, nie über Steam. Das Skript startet die Exe direkt, dabei
-   aktualisiert Steam nicht. Es bricht ab, wenn ein anderer Build installiert ist.
+2. Das Spiel während der Entwicklung nur über `tools/spike/Start-Session.ps1` starten, nie über Steam. Das Skript startet die Exe direkt statt über
+   den Steam-Startknopf. Das ist keine dauerhafte Update-Sperre; ob eine alte Version nach einem Update weiter startet, ist noch nicht getestet.
+   Es bricht ab, wenn das Steam-Manifest einen anderen Build meldet. Ein Dateiabgleich ist das nicht.
 3. Eine Kopie des Spielordners außerhalb des Repos aufheben, etwa 1,8 GB. Kommt doch ein Update durch, ist das der schnellste Weg zurück.
-4. Ohne Kopie lässt sich der Build über die Steam-Konsole neu laden (`steam://open/console`), mit den Manifest-IDs aus der
+4. Ohne Kopie kommt ein Download über die Steam-Konsole infrage (`steam://open/console`), mit den Manifest-IDs aus der
    [Spielversion](docs/GAME_ANALYSIS.md#unterstützte-spielversion):
 
    ```text
@@ -108,7 +109,13 @@ auch wenn Steam schon einen neueren anbietet.
    download_depot 3026450 3026452 7724756528743620812
    ```
 
-   Steam legt die Dateien unter `steamapps/content/app_3026450/` ab, von dort kommen sie in den Spielordner. Dieser Weg ist noch nicht ausprobiert.
+   Erwartetes Ziel ist `steamapps/content/app_3026450/depot_<Depot-ID>/`. Dieser Weg ist noch nicht ausprobiert; bekannte Manifest-IDs allein
+   belegen weder Downloadberechtigung noch spätere Verfügbarkeit. Eine Wiederherstellung noch nicht durch blindes Zusammenkopieren versuchen:
+   alte und neue Dateien sowie das Steam-Manifest können danach auseinanderliegen. Die vorhandene Installation und Spielstände bleiben beim
+   ersten Test unangetastet, verglichen wird zunächst im separaten Downloadordner.
+
+**Stand und Abnahme:** Der gemeinsame Build ist aktuell öffentlich gelistet, ein dauerhaftes Festhalten für alle aber noch nicht belegt.
+Siehe [Build-Abgleich und offene Team-Prüfung](docs/SETUP.md#gleiche-build-id-im-team). Steam-Einstellungen und Downloads werden nicht automatisch geändert.
 
 ### Wenn ein Update erscheint
 

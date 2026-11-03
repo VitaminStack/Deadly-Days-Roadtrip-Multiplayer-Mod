@@ -34,7 +34,7 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 **Wartet auf das Team.**
 
 - Kamera entscheiden
-- Klären, ob alle auf derselben Build-ID bleiben können. Die [Update-Regel](../CONTRIBUTING.md#spiel-updates) steht: einfrieren und nur bei Bedarf nachziehen
+- Gemeinsame Build-ID: `26187885` ist weiterhin öffentlich gelistet, die lesende Prüfung und Dateireferenz liegen vor. [Bestätigung je Team-PC und Wiederherstellung](SETUP.md#gleiche-build-id-im-team) fehlen noch; die Update-Regel allein belegt keine dauerhafte Build-Sperre
 - Pixelsplit über das Projekt informieren
 - Dumper-7-Fix dem Dumper-7-Projekt vorschlagen
 
