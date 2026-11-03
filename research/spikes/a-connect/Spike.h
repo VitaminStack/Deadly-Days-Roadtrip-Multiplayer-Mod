@@ -99,6 +99,7 @@ void TickPcg();
 // Cheats.cpp
 void EnableCheats();
 void LoadAssetCommand(const std::wstring& Path);
+void SkipTutorials();
 
 // Hits.cpp
 void TickHits();
@@ -111,4 +112,9 @@ void EndRound(uint8_t Reason);
 // Trace.cpp
 void TraceCharacterRpcs();
 void TraceRunFlow();
+
+// Load.cpp
+bool PatchLoad();
+void TickLoad();
+
 }

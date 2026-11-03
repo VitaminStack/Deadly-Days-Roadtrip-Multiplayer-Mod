@@ -205,12 +205,13 @@ void TickPcg()
     {
         const uintptr_t Chunk = Read<uintptr_t>(Chunks + 8 * (i >> 16));
         const uintptr_t Object = Chunk ? Read<uintptr_t>(Chunk + (i & 0xFFFF) * 0x18 + 8) : 0;
-        if (!Object || (Read<uint32_t>(Object + 8) & 0x10) != 0 || Read<uintptr_t>(Object + kComponentOwner) != Volume)
+        if (!Object || (Read<uint32_t>(Object + 8) & 0x10) != 0)
             continue;
         bool IsInstanced = false;
         for (uintptr_t Class = Read<uintptr_t>(Object + 0x10); Class && !IsInstanced; Class = Read<uintptr_t>(Class + 0x40))
             IsInstanced = NameOf(Class) == "InstancedStaticMeshComponent";
-        if (!IsInstanced || Read<int32_t>(Object + kInstances + 8) <= 0)
+        // Besitzer und Instanzen erst lesen, wenn die Klasse passt. Kleinere Objekte enden vor diesen Feldern.
+        if (!IsInstanced || Read<uintptr_t>(Object + kComponentOwner) != Volume || Read<int32_t>(Object + kInstances + 8) <= 0)
             continue;
         *reinterpret_cast<int32_t*>(Object + kInstancingRandomSeed) = SeedFor(Object);
         Refresh(Object, SetStaticMesh);

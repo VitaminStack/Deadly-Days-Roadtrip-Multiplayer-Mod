@@ -109,6 +109,7 @@ Ablauf siehe [Karte und Seed](GAME_ANALYSIS.md#karte-und-seed).
 | Child-Klasse repliziert (Prüfung in `CreateChildActor`) | `0x289DB60` | Liest `bReplicates` am Default-Objekt von `ChildActorClass` |
 | `UChildActorComponent::SetChildActorClass` | `0x28A86C0` | Benennt die Vorlage `%s_%s_CAT` |
 | `FSoftObjectPtr::LoadSynchronous` | `0x15E9550` | Lädt im Starter das Profil |
+| IAT der Exe: WS2_32 `sendto` (Ordinal 20), `recvfrom` (Ordinal 17) | `0x82786F8`, `0x8278710` | Spike-Patch für die Lastmessung |
 | `UPCGVolumeGenerator`, Slot 85: PCG-Volume spawnen, Graph wählen | `0x59EE6A0` | Vtable `0x95626D8`, Spike-Patch |
 | `UPCGVolumeGenerator`, Slot 86: Graph laden, PCG starten | `0x59D95E0` | Asynchron mit Callback |
 | Kartengenerator: Erzeugung fortsetzen, aus einem Timer | `0x59F0C30` | Ruft `StartMapGeneration` und `0x59D9090` |
@@ -177,6 +178,9 @@ Ablauf siehe [Crash-Reporter](../research/spikes/a-connect/README.md#sperre-in-m
 | `UWorld` | NetDriver, GameMode, GameState, GameInstance | `0x38`, `0x1A8`, `0x1B0`, `0x228` |
 | `AGameStateBase` | PlayerArray | `0x2C0` |
 | `UNetDriver` | ServerConnection, ClientConnections | `0x100`, `0x108` |
+| `UNetDriver` | bClampListenServerTickRate (Bit 0), NetServerMaxTickRate, MaxNetTickRate, MaxInternetClientRate, MaxClientRate | `0xAC`, `0xB0`, `0xD0`, `0xD4`, `0xD8` |
+| `UPlayer` (auch `UNetConnection`) | CurrentNetSpeed, ConfiguredInternetSpeed, ConfiguredLanSpeed | `0x38`, `0x3C`, `0x40` |
+| `UTutorialStateSubsystem` | SkipTutorialFlag | `0xB8` |
 | `FWorldContext` | TravelURL | `0xA8` |
 | `ADDMissionGameMode` | SpawnedPlayers (TSet) | `0x388` |
 | TSet | Data, Num, FirstFree, NumFree, Element-Stride | `+0`, `+8`, `+0x30`, `+0x34`, `0x10` |
