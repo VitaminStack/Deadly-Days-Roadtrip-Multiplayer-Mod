@@ -34,6 +34,8 @@ Je Thema eine Datei, damit parallele Arbeit nicht in dieselbe Datei läuft. Neue
 | `MapGen.cpp` | Client erzeugt die Karte mit den Werten des Hosts, lokale Kopien replizierter Child Actors unterdrückt |
 | `Pcg.cpp` | Client erzeugt die PCG-Vegetation mit dem Graphen des Hosts, gleiche Seeds der Instanz-Komponenten |
 | `Hits.cpp` | Host: Treffer auf Gegner mit Schütze, Schaden und Lebenspunkten |
+| `Cheats.cpp` | Testhilfen: CheatManager für die `DD_`-Befehle, Laden einzelner Assets, Tutorial abschalten |
+| `Load.cpp` | Lastmessung: UDP-Bytes, Pakete und Framerate je Sekunde im Log |
 
 ## Ergebnis
 
@@ -96,7 +98,7 @@ Der Host-Absturz war immer derselbe Callstack. Das Spiel fragt beim Spawnen `Get
 
 Die Zuordnung der Funktionen stammt aus der Disassembly ohne Symbole. Die Kamera ist über Offsets im SDK belegt, die übrigen passen zu den Aufrufern.
 
-Beim Client setzt der Spike die Kamera jede Sekunde, beim Host nimmt er jede Sekunde Client-Positionen an und ersetzt veraltete Einträge in `SpawnedPlayers`. Dazu kommen Befehle für die Datei-Schnittstelle:
+Beim Client setzt der Spike die Kamera jede Sekunde, beim Host nimmt er jede Sekunde Client-Positionen an und gleicht `SpawnedPlayers` als echte Menge mit der aktuellen `GameState.PlayerArray` ab. Dazu kommen Befehle für die Datei-Schnittstelle:
 
 | Befehl | Seite | Wirkung |
 |---|---|---|
@@ -107,6 +109,9 @@ Beim Client setzt der Spike die Kamera jede Sekunde, beim Host nimmt er jede Sek
 | `!flow` | Beide | Protokolliert die ersten Aufrufe der Run-Funktionen |
 | `!arm` | Host | Schaltet die Umleitung der Reise scharf |
 | `!finish` | Host | Ruft `FinishMission` auf |
+| `!cheats` | Host | Legt einen `UDDCheatManager` an, danach wirken die `DD_`-Befehle des Spiels |
+| `!load <Pfad>` | Beide | Lädt ein Asset, etwa eine Blueprint-Klasse für einen SDK-Dump |
+| `!notutorial` | Beide | Schaltet die Tutorial-Hinweise ab, die sonst die Mission anhalten |
 | `!round <n>` | Host | Ruft `TriggerEndRound` auf, Wert wie `ERoundChangeReason` |
 
 `Mission.cpp` lehnt `!finish` und `!round` auf einem verbundenen Client ab. Das sind Diagnosebefehle für den Host, kein UI-Sync.
@@ -133,7 +138,35 @@ Es zeigt tatsächliche Route-Längen/Indizes, Grund, Tag, Sekunden und Panelbeob
 
 **Ergebnis offen:** Ein eigener Host-geführter, versionierter und sequenzierter Phasenvertrag mit rein anzeigendem Client ist noch zu implementieren. Weder Client-Anzeige noch Eingabesperre oder deren Aufhebung beim Wechsel/Trennen sind getestet. `Mission.cpp` besitzt aktuell keinen gemeinsamen Patch-/Tick-Einstieg; andere Spike-Dateien wurden für diesen Task nicht geändert. MSVC-Build, Python-Syntaxprüfung und die beiden Client-Befehlsgrenzen sind geprüft, kein vollständiger Run oder Internet-Test. TODO bleibt offen.
 
+## SpawnedPlayers: echte Mengeneinträge (`spawnedplayers`)
+
+Stand 03.11.2026, Build `26187885`. `Players.cpp` ersetzt keine Schlüssel mehr direkt. Es entfernt veraltete, durch GC auf null gesetzte und doppelte belegte Einträge mit korrekt ausgehängter Hash-Verkettung und dem nativen SparseArray-Entferner. Neue aktuelle Controller kommen über denselben nativen TSet-Add-Helfer hinein, den die Registrierung des Spiels verwendet. Der vollständige Registrierungsweg wird **nicht** erneut aufgerufen: Er würde zusätzlich Spiel-Delegates auslösen.
+
+Die Allokationsbits entscheiden über freie Plätze, nicht der Inhalt des ersten Zeigers. Entfernen nutzt den gespeicherten Bucket: Ein durch GC genullter Schlüssel hat nicht mehr seinen ursprünglichen Hash. Vor Änderungen werden Layout, Belegungszahl und alle Hash-Ketten geprüft; bei unvollständiger PlayerArray wird gewartet. Keine Controller- oder GameMode-Zeiger werden über Weltwechsel gespeichert.
+
+**Unmittelbarer Anschluss (03.11., noch ohne Laufzeittest):** Der native Registrierungsweg `0x58FB020` wird mit einem bytegeprüften Trampolin umschlossen. Erst läuft das Original unverändert, danach der Mengenabgleich, sofern das übergebene GameMode zur aktuellen Welt gehört. Kein zusätzlicher Delegate, kein Registrierungs-Replay. Wichtig: Ein Abgleich *vor* dem Original könnte dessen Contains-Prüfung erfolgreich machen und damit den legitimen Add/Broadcast-Zweig unterdrücken. Der Sekundentick bleibt als Rückfallebene, besonders bei einer noch unvollständigen PlayerArray und beim Trennen.
+
+Statische Grundlage: Vorliegende lokale Disassembly, Preferred Image Base `0x140000000`. `0x58FB020` sichert `rbx/rsi`, übernimmt `rdx` als Controller und `rcx` als GameMode, prüft die Controller-Klasse, sucht den Schlüssel im Set bei `GameMode+0x388`, ruft bei Fehlen `0x58F9C50`, dann `0x57BD5E0` (Callsite `0x58FB11D`) und schließlich den Broadcast-Helfer `0x24E9410` mit `GameMode+0x340` (Callsite `0x58FB133`). Vorhandene direkte Aufrufer: `0x58D9903` innerhalb der PlayerArray-Schleife ab `0x58D98CD` und Tailcall `0x58F9085` nach einem Basisaufruf bei `0x58F9070`. Deren Engine-Lifecycle-Namen und eine vollständige virtuelle Aufrufermenge sind mit dieser Disassembly **nicht** belegt. Deshalb kein erfundener HandleSeamlessTravelPlayer-/Travel-Ende-Hook und noch kein Vollständigkeitsnachweis für spätere Controller-Ersetzungen. Der Timer reicht dafür nicht als Beweis: Zwischen zwei WM_TIMER-Nachrichten können Spawner/Kamera bereits laufen; auch die maximale Zustellverzögerung ist nicht auf eine Sekunde begrenzt.
+
+**Abnahme durch den Hauptagenten:** Neue DLL bauen, nur über den dokumentierten Sitzungsweg testen. In beiden Logs `Patch: aktiv` und keine Byte-Abweichung verlangen. Im Hostlog muss nach Beitritt und nach *jedem* Weltwechsel ein `SpawnedPlayers: source=registration ... roster=2 valid=1` stehen; ein späteres `source=timer ... added=1`/`removed=1` belegt dagegen eine noch offene Lifecycle-Lücke. Anschließend `players.py <host-pid>`: `hash_valid=true`, `roster_equal=true`, zwei aktuelle Controller, keine alten Controller. Menü → MetaBase → Mission und mindestens zwei weitere Missionswechsel, außerdem Mission → MetaBase, Trennen (Audit mit `--expected-players 1`) und erneuter Beitritt prüfen. Broadcast-Zähler/Breakpoint bei `0x58FB133` bei Bedarf extern erfassen: Der Hook darf gegenüber dem Originalaufruf keinen weiteren Broadcast erzeugen. Ein reiner Audit nach dem Sekundentick beweist die unmittelbare Abdeckung nicht. Für den strikten Nachweis einen separaten Testbuild ohne den Aufruf `RepairSpawnedPlayers(World)` in `Main.cpp` verwenden (nicht dauerhaft entfernen); gleiche Travel-Folge muss mit ausschließlich `source=registration` konsistent bleiben. Falls dabei die Menge zurückbleibt: P0 offen lassen und den tatsächlich ausgeführten Controller-Ersetzungsweg separat statisch/dynamisch erfassen. Vollständiger Run bleibt zusätzlich erforderlich.
+
+Prüfen ohne Spiel/SDK: `powershell -File tests/Run-SpawnedPlayers.ps1`. Synthetische Fälle: freie Plätze mit Datenmüll, belegter Null-Schlüssel, Kollisionskette, Kopf-/Endentfernung, doppelte Schlüssel, ungültige Indizes, Zyklen und falsche Buckets. `py tools/spike/players.py <host-pid>` prüft zusätzlich tatsächliche Pointer-Hashes und genaue Übereinstimmung mit den aktuellen Controllern; Exitcode 0 nur bei konsistenter Menge und standardmäßig zwei Spielern (`--expected-players 1` für eine absichtliche Einzelspieler-/Trennungsmessung). Kein atomarer Laufzeit-Snapshot.
+
+**Offline-Abnahme des neuen Hooks:** `tests/Run-SpawnedPlayers.ps1` (C++ mit `/W4 /WX`, Mengentests und sieben Python-Audit-Tests) sowie `tools/spike/Build-Spike.ps1` erfolgreich. Diese Tests prüfen keine Engine-Callback-Ausführung. Beide Skripte nacheinander ausführen: Ihr gemeinsamer VS-Helfer verwendet dieselbe lokale `vsenv.cmd`.
+
+**Historische Laufzeit, vor dem neuen Registrierungshook:** Zwei Instanzen/Loopback, getrennte Test-Spielstände, CrashGuard. Mit diesem Branch nach MetaBase und zwei direkten Missionstravels jeweils zwei aktuelle Controller, konsistente Allokationsbits und Hash-Verkettung. Ein weiterer Wechsel in die MetaBase reproduzierte den bekannten Host-Callback-Absturz `0x57CC398`; die korrekte Menge allein behebt ihn nicht. Zusätzlicher Integrationstest mit dem Timer-Lebensdauerfix aus `tag3` in einer nur lokal zusammengesetzten DLL: Start in der Mission und zwei weitere Missionstravels verbunden, jeweils `hash_valid=true`, `roster_equal=true`, zwei belegte Plätze und identische vollständige Inventare beim letzten Vergleich. Beim nächsten Wechsel neuer Client-Absturz `0x178BA90`; Host bleibt aktiv. Nach der Trennung enthält die Menge korrekt nur noch den Host (ein belegter/ein freier Platz, gültiger Hash). Anschließend isolierten Branch erneut gebaut und Start in die Mission mit dem finalen GameMode-Klassenfilter geprüft; keine Menü-Layoutwarnungen mehr. Kein Nachweis für Remote-P2-/Coop-Subsystem-Integration, Internet oder vollständigen Run. Der Gegner-Spawn-Schutz während des Übergangs bleibt bestehen.
+
 ## Bekannte Abweichungen
+
+### Rundenphasen: Codec-/Empfängerkern (`rundenende`)
+
+`RoundPhase.h` ist eine noch **nicht an den Spielbetrieb angeschlossene** Teilumsetzung der rein anzeigenden Phasenübertragung. Er enthält weder Transport noch Host-Ereignishooks noch UI-/Eingabe-Engineaufrufe. `Presentation` hält Snapshot und Sperrentscheidung atomar auf Modellebene zusammen. Neue Weltbindungen warten zunächst gesperrt auf einen passenden Snapshot; alte Nachrichten und unbestätigte Generationswechsel werden abgelehnt. Disconnect löscht den eigenen Zustand.
+
+`powershell -File tests/Run-RoundPhase.ps1` baut und prüft den Kern ohne Spiel/SDK mit C++20 `/W4 /WX`. Testumfang und offene Integration stehen in der [Untersuchung](../../../docs/GAME_ANALYSIS.md#rundenende-befund-und-offene-phasenübertragung-rundenende). Die Schema-Version 1 gehört **nur zum Spike**, sie ersetzt weder das zentrale Produktionsprotokoll noch dessen Handshake/Authentisierung. `Session` muss pro neuer Verbindung frisch vergeben werden; die Bindung muss aus verifiziertem Transport-/Travel-Zustand stammen, nicht aus beliebigen Paketdaten.
+
+**Ergänzung 03.11.2026:** `Mission.cpp` enthält jetzt einen explizit aktivierbaren lokalen Testadapter: Publisher/Heartbeat, atomarer Dateitransport, Timeout, Textanzeige und Win32-Nachrichtenfilter. Tatsächlicher Adapter und Zwei-Testprozess-Transport ohne Spiel geprüft; `Main.cpp` verbindet Befehl, Tick und Filter, `!finish`/`!round` liefern ihre Hostaufrufe. Der globale Beobachter für normale Menü-/Busereignisse ist **noch nicht angeschlossen**; Lager/Route benötigen weiterhin manuelle Diagnosemarkierung, vollständiger UE-Inputblock und sichtbarer Laufzeitnachweis fehlen. Integration, Bedienung und Grenzen: [RoundPhaseRuntime.md](RoundPhaseRuntime.md). P0 bleibt offen.
+
+### Weitere Abweichungen
 
 Diese Punkte gehören zu Thema 6, sie stoppen die Technik nicht:
 
@@ -167,7 +200,13 @@ py tools/spike/inventory.py <host-pid> <client-pid>
 
 Das Werkzeug liest nur Inventare der aktuellen `GameState.PlayerArray`, keine alten PlayerStates oder Blueprint-Vorlagen. Im ruhenden Zustand aufrufen; kein atomarer Snapshot. `complete` und `equal` müssen beide wahr sein. Ein leeres MetaBase-Inventar ist damit kein Beleg für ein funktionierendes Missionsinventar.
 
-**Noch offen:** Beide anschliessenden Reisen auf Tag 3 endeten beim Host im Callback `0x57CC390`, Fehler `0x57CC395` bzw. `0x57CC398`, nächster Stack-Eintrag `0x315A764`. Klasse des Callback-Objekts und Zusammenhang mit dem Teilfix nicht geklärt. Ein Folgeabsturz des Clients lag bei `0x57D080C`. Deshalb bleibt die TODO-Zeile offen; kein vollständiger Run belegt. Nicht getestet: Client-Inventarbedienung und RPCs, grössere/wechselnde Inventare, Belohnungen/Item-Effekte, Internet und Paketverlust. `obj gc` wurde gesendet, die tatsächliche GC-Ausführung aber nicht nachgewiesen. Rohmessungen und Absturzberichte bleiben unter `research/local/`.
+**Folgeuntersuchung `tag3`, 03.11.2026:** Der Callback ist dem `HitByEnemyTypeAchievementDetectorComponent` zugeordnet. Dessen BeginPlay speichert einen rohen Component-Zeiger in einem Next-Tick-Timer, EndPlay löscht diesen Timer ursprünglich nicht. Der Spike bewahrt nun den echten TimerHandle auf und räumt einen noch lebenden Timer vor dem ursprünglichen EndPlay ab. Keine zusätzlichen Null-Schutzsprünge; die bisherigen Inventar-Patches bleiben unverändert. Byte-/Vtable-Checks vor dem Einbau. Details, Gegenprobe und Grenzen stehen in der [Analyse](../../../docs/GAME_ANALYSIS.md#tag-3-callback-lebensdauer-des-achievement-detektors-tag3).
+
+**Begrenzter neuer Test:** Start nur über `Start-Session.ps1`/CrashGuard; MetaBase → Mission → Mission → MetaBase verbunden, Inventare nach dem zweiten Missionstravel vollständig und gleich. Timer-Cleanup wiederholt im Log nachgewiesen. Beim anschließenden Missionstravel überlebte der Host; ein anderer Client-Absturz `0x178BA90` (Lesen `0x8C`) beendet den Test. Direkte Reisen, **kein** Menü-/Tagesablauf und kein vollständiger Run. Zusätzlicher lokaler Integrationstest mit `spawnedplayers`, nicht Teil dieses Branch-Builds: Start in Mission plus zwei weitere Missionstravels verbunden und Inventare vollständig/gleich; beim nächsten Wechsel erneut Client `0x178BA90`, Host bleibt aktiv. Damit ist auch der Folgefehler reproduzierbar.
+
+**Echte Route, Übergabestand:** Der Host-Absturz bei der Reise auf Tag 3 kam von einem Kartengenerator-Lambda mit rohem Zeiger auf den alten Generator. `Inventory.cpp` lässt diesen Schritt aus, wenn der Generator nicht mehr zur aktuellen Welt gehört. `Client.cpp` wartet in der Exp-Aggregation auf fehlende AttributeSets (`0x178BA90`) und fängt zwei Client-Abstürze an Tag 4 ab. Zweimal Tag 3 über die echte Route erreicht, Inventare an Tag 1 bis 3 vollständig und gleich. Offen ist ein dritter Client-Absturz an Tag 4 (`0x4B68195` über `0x59A4B90`), Folgeaufgabe `tag4`. Einzelheiten in der [Analyse](../../../docs/GAME_ANALYSIS.md#echte-route-bis-tag-4-tag3-übergabestand).
+
+**Noch offen:** Client-Absturz an Tag 4 und alles danach, historischer Client-Folgefehler `0x57D080C`. Nicht getestet: Client-Inventarbedienung und RPCs, grössere/wechselnde Inventare, Belohnungen/Item-Effekte, Internet und Paketverlust. `obj gc` wurde historisch gesendet, die tatsächliche GC-Ausführung aber nicht nachgewiesen. Rohmessungen und Absturzberichte bleiben unter `research/local/`.
 
 ## Crash-Reporter
 

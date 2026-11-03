@@ -13,11 +13,12 @@ Vertrauensgrad:
 |---|---|
 | Steam-AppID | `3026450` |
 | Steam-Build-ID | `26187885` |
+| Manifest-IDs | Depot `3026451`: `1832737755528485607`, Depot `3026452`: `7724756528743620812` |
 | Engine-Version | `5.8.1-56057345+++UE5+Release-5.8` |
 | Spiel-Exe | `DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe` (179 MB) |
 
-Die Build-ID steht in `steamapps/appmanifest_3026450.acf`. Bei einem Spiel-Update siehe
-[Update-Regel](../CONTRIBUTING.md#spiel-updates).
+Build-ID und Manifest-IDs stehen in `steamapps/appmanifest_3026450.acf`. Mit den Manifest-IDs lässt sich genau dieser Build über die
+Steam-Konsole neu laden. Bei einem Spiel-Update gilt die [Update-Regel](../CONTRIBUTING.md#spiel-updates): einfrieren und nur bei Bedarf nachziehen.
 
 ## SDK-Erzeugung unter UE 5.8
 
@@ -44,11 +45,48 @@ vollständiges SDK für Build `26187885` erzeugt (02.11.2026), die Dateien `Basi
   Die Ursache ist nicht untersucht. Bei Nutzung von `UEngineReplicationBridge` deren Layout zuerst prüfen.
 - **Dump-Zeitpunkt:** Immer während einer laufenden Mission dumpen, denn Blueprint-Klassen werden nur erfasst, wenn sie geladen sind.
   Das Hauptmenü liefert 64.952 Objekte und 562 Blueprint-Klassen, eine Mission 110.688 Objekte und 925 Blueprint-Klassen plus 178 Widgets.
-- **Grenze:** Auch der Mission-Dump enthält nur, was in dieser einen Mission geladen war. Bosse fehlen zum Beispiel weitgehend.
+- **Grenze:** Auch der Mission-Dump enthält nur, was in dieser einen Mission geladen war. Für Bosse gibt es deshalb den [Boss-Dump](#boss-dump-boss-dump).
 - **[Belegt] Dump in einer Testsitzung:** Dumper-7 lässt sich mit `inject.py` in den Host einer laufenden Sitzung laden, auch neben dem Spike. Die Instanz läuft danach weiter.
+  Der DLL-Pfad muss absolut sein, `LoadLibraryW` sucht einen relativen Pfad im Arbeitsordner des Spiels und scheitert still. Aus Git Bash also `cygpath -wa`, nicht `cygpath -w`.
+  Die Ausgabe `LoadLibrary low32 0x0` ist kein sicheres Zeichen für einen Fehler, eine DLL kann auf einer Basis mit unteren 32 Bit 0 landen.
   Mit `-Map /Game/Maps/DDDynamic_Map` kamen 77.801 Objekte zusammen, weniger als über das Spielmenü.
 - **[Belegt] Funktionsadressen:** Die Adressen in `Dumpspace/FunctionsInfo.json` sind unter UE 5.8 unbrauchbar. Zur Laufzeit zeigt `UFunction::ExecFunction` (`+0xD8`) nach `!flow` auf die Stubs des Spikes.
   Verlässlich sind die statischen Tabellen `{const char* Name, FNativeFuncPtr}` in `.rdata`. Je Klasse gibt es zwei: eine mit den `Z_Construct_UFunction_*`-Funktionen, eine mit den Exec-Thunks. Der Thunk ruft am Ende die eigentliche Funktion auf.
+
+### Boss-Dump (`boss-dump`)
+
+Stand: 03.11.2026, Build `26187885`, Dumper-7 aus [`Build-Dumper7.ps1`](../tools/README.md#dumper7) (Submodul `1aae006`), Testsitzung mit Spike.
+
+**Ergebnis:** Ein SDK mit allen sechs Bossen: 2.571 Dateien, 90.209 Objekte, 973 Blueprint-Klassen. Der Dump vom 02.11. aus der direkt geladenen Mission hatte 2.353 Dateien, 77.805 Objekte und 868 Blueprint-Klassen. Neu sind 112 Pakete, darunter:
+
+| Bereich | Neue Pakete, Auswahl |
+|---|---|
+| Bosse | `BP_SpikeBoss`, `BP_FrankensteinBoss`, `BP_BlobBallBoss`, `BP_BallerinaBoss`, `BP_LazyBoss`, `BP_HQ_Endboss`, Basis `BP_BossEnemy`, `BP_BossProxy`, `BP_BossAIController` |
+| Spawnpunkte | `BP_<Boss>SpawnPoint` für alle sechs, Basis `BP_BossBaseSpawnPoint` |
+| Fähigkeiten und Effekte | `GA_SpikesRingAttack`, `GA_GroundPoundAttack`, `GA_BlobBallJumpAttack`, `GA_DropBigRobots`, `GE_GrantBossTag`, `GE_OverrideHealth` |
+| Endboss | `BP_Endboss_Drone`, `BP_Endboss_Shield`, `GA_Endboss_ShapeLaser_HalfCircle`, Sequenzen `LS_Endboss_*` |
+| KI | `BTD_*`, `BTT_*`, `EQS_*`, `NavArea_BossArea` |
+| UI | `WP_BaseBoss_HealthBar`, `WP_Boss_HealthBar_PhaseBased`, `WBP_BossIntroOverlay` |
+
+Nicht geprüft: Kompilieren dieses SDK.
+
+**Weg dorthin:** Ein echter Bosskampf ließ sich nicht erreichen, die Klassen sind deshalb gezielt geladen.
+
+- **[Belegt]** Ein Run hat 8 Tage („Tag 1/8“). Die Routenkarte zeigt rot gestreifte Knoten am Übergang zwischen zwei Gebieten nach Tag 4 und einen Endboss-Knoten am Ende. **[Vermutung]** Die gestreiften Knoten sind Torbosse.
+- **[Belegt]** Die Reise auf Tag 3 lässt den Host abstürzen, auch allein nach `disconnect` des Clients und auch mit abgeschaltetem `MapGen.cpp` und `Pcg.cpp`. Zweimal, auf zwei verschiedenen Routenkarten, je beim Laden von Tag 3:
+  Ein Timer (`0x315A7D6`) ruft im Kartengenerator `0x59F0C30` und von dort `0x59D9090` auf. Diese Funktion liest beim ersten `GetWorld` (`0x25E9870`) freigegebenen Speicher, Absturz bei `0x25E9889` beziehungsweise `0x59D9139`.
+  **[Vermutung]** Ein Timer des Kartengenerators überlebt den Kartenwechsel. Das ist eine andere Stelle als der Callback `0x57CC395` aus `tag3`.
+- **[Belegt]** Wird `DDDynamic_Map` direkt geladen (`servertravel`), nutzt der Generator sein Standardprofil `MGP_HQ8_Boss`: das Dach des HQ mit Arena und Bühnen des Endbosses (`BP_ManagerBoss_Stage*`, `DD_HQBoss_SurviveWaves`). Der Endboss selbst erschien auch nach `!wave` und vorgestellter Missionszeit nicht.
+- **[Belegt]** Die `DD_`-Befehle liegen fast alle in `UDDCheatManager`. Im Shipping-Build ist `APlayerController::CheatManager` leer, die Konsole verwirft sie still, etwa `DD_QuickFinishMission`. Der neue Spike-Befehl `!cheats` legt den Manager per `GameplayStatics.SpawnObject` an, danach wirkt etwa `DD_SetTimeSinceMissionStart`.
+- **[Belegt]** `DA_BossSpawnLookup` nennt alle sechs Bosse mit `EnemyType` und Spawnpunkt. Der `EnemyType` verweist in `EnemyBlueprint` (`+0x128`) auf die Gegnerklasse. `!load <Pfad>` lädt jedes davon.
+- **[Belegt]** Geladene, aber unbenutzte Klassen räumt die Garbage Collection nach etwa einer Minute wieder ab. Ein erster Dump acht Minuten nach dem Laden enthielt keine Boss-Klasse. Mit `gc.TimeBetweenPurgingPendingKillObjects 36000` vor dem Laden blieben sie erhalten.
+
+**Ablauf zum Wiederholen:**
+
+1. `Start-Session.ps1`, dann `servertravel /Game/Maps/DDDynamic_Map?listen` an den Host.
+2. An den Host: `gc.TimeBetweenPurgingPendingKillObjects 36000`.
+3. Für jeden Boss `!load` mit dem Pfad aus `DA_BossSpawnLookup`, etwa `/Game/DDSurvivors/Blueprints/Enemies/Bosses/BP_SpikeBoss.BP_SpikeBoss_C` und `.../BP_SpikeBossSpawnPoint.BP_SpikeBossSpawnPoint_C`. Der Endboss heißt `BP_HQ_Endboss`, sein Spawnpunkt `BP_HQBossSpawnPoint`.
+4. Dumper-7 mit absolutem Pfad per `inject.py` in den Host laden. Der Dump dauerte rund drei Minuten, der Host lief danach weiter.
 
 ## Technische Basis
 
@@ -158,7 +196,7 @@ Stand: Spike `Hits.cpp`, Läufe über das Spielmenü am 03.11.2026, Build `26187
 - **[Belegt]** Auslöser ist der `PlayerState` des Schützen, Verursacher das Projektil (`BP_Projectile_C`). Der Spike ordnet den Treffer über die Figur des PlayerStates zu: Beim Host ist die Figur des Clients `AutonomousProxy`, die eigene nicht. Ein erster Versuch über die Besitzerkette des Auslösers fand keine Figur und zählte alles als „Sonstige“.
 - **[Belegt]** Treffer des Clients ziehen beim Host Leben ab und töten. Ein `BP_StandardEnemy_C` hat 50 Leben, jeder Treffer nimmt 25, nach dem zweiten steht er bei 0.
 - **[Belegt]** Die Zuordnung trennt beide Spieler. In Lauf 3 meldete sie einen Treffer des Hosts.
-- **[Belegt]** In der Mission halten Tutorial-Hinweise das Spiel an, die Uhr bleibt etwa bei 00:08 stehen. Auf einen Hinweis folgt der nächste, das Sprinten löst einen weiteren aus. Für Messungen auf beiden Seiten mehrmals „Fortsetzen“ klicken, im 800×450-Fenster bei (227, 70).
+- **[Belegt]** In der Mission halten Tutorial-Hinweise das Spiel an, die Uhr bleibt etwa bei 00:08 stehen. Auf einen Hinweis folgt der nächste, das Sprinten löst einen weiteren aus. Der Spike-Befehl `!notutorial` an beide Instanzen schaltet sie ab (`UTutorialStateSubsystem::SetForceSkipTutorials`).
 
 | Lauf | Tutorial | Treffer Client | Treffer Host | Kills des Clients |
 |---|---|---|---|---|
@@ -173,6 +211,37 @@ Offen:
 
 - Warum die Host-Figur in den Läufen 5 und 6 nicht traf, ist nicht untersucht. **[Vermutung]** Ohne Eingaben in ihrem Fenster schießt sie nicht, oder es waren keine Gegner in ihrer Reichweite.
 - Nicht geprüft: XP und Loot für Kills des Clients, andere Waffen und Gegnertypen, Schadenszahlen beim Client (stehen unter den optionalen Optimierungen).
+
+#### Last (Spike D, `last`)
+
+Stand: Spike `Load.cpp`, 03.11.2026, Build `26187885`, Host und Client auf einem PC über Loopback, Mission über das Spielmenü, `RunSeed=20795`, Tag 1 oben, mit `MapGen.cpp` und `Pcg.cpp`.
+
+**Messweg:** `Load.cpp` tauscht die IAT-Einträge der Exe für `sendto` und `recvfrom` (WS2_32, Ordinal 20 und 17) und zählt die UDP-Nutzdaten und Pakete. Die Framerate kommt aus `KismetSystemLibrary.GetFrameCount`. Jede Sekunde schreibt der Spike eine Zeile `Last:` ins Log. Gegner sind alle `EnemyBase`-Objekte laut `objects.py`, also auch gepoolte.
+
+| Phase | Gegner Host / Client | Host sendet | Host empfängt | Pakete je Richtung | Framerate Host / Client |
+|---|---|---|---|---|---|
+| A: `MetaBase`, 30 s | – | 3,0 KB/s | 5,2 KB/s | 58–59/s | 60 / 60 |
+| B: Mission, 40 s | 20 / 19 | 7,2 KB/s (max 9,4) | 1,1 KB/s | 59/s | 60 / 60 |
+| C: Nacht, Bedrohung 10, 60 s | 82–89 / 81–87 | **46,5 KB/s** (max 47,3) | 1,1 KB/s | 59/s | 60 / 60 (min 60) |
+
+Phase C entstand mit `!cheats`, dann `DD_ToggleInvincible`, `DD_ToggleFreezeTime 1`, `DD_SetThreatLevel 10` und `DD_SetTimeSinceMissionStart 300`. Im Bild drängt sich eine Horde um den Bus.
+
+- **[Belegt]** Mit rund 85 Gegnern sendet der Host knapp 47 KB/s, also etwa 370 kbit/s, an einen Client. Der Client sendet in der Mission konstant 1,1 KB/s.
+- **[Belegt]** Die ausgehandelte Rate liegt auf beiden Seiten bei 100.000 B/s (`CurrentNetSpeed`, `MaxClientRate`, `MaxInternetClientRate`). Die Last nutzt davon knapp die Hälfte. Der Listen-Server sendet einmal je Frame, `bClampListenServerTickRate` ist aus, daher rund 59 Pakete je Sekunde bei 60 fps.
+- **[Belegt]** Die Framerate blieb in allen Phasen bei 60 auf beiden Seiten. **[Vermutung]** Das ist die Grenze der Bildrate, die Messung sagt also nur, dass beide Instanzen zusammen auf diesem PC nicht unter 60 fallen.
+- **[Vermutung]** Je zusätzlichem Gegner kommen rund 0,6 KB/s hinzu ((46,5 − 7,2) KB/s für etwa 65 Gegner mehr). Dann wäre die Grenze von 100.000 B/s bei etwa 150 Gegnern erreicht. Ob es im späten Spiel so viele gleichzeitig gibt, ist nicht gemessen.
+- **Folgerung für Gate G1:** Für einen Client ist die Last tragbar, auch mit gewöhnlichem Upload. Sie spricht nicht gegen Weg A.
+
+Fehlversuche:
+
+- Die ersten Läufe hielten Tutorial-Hinweise an, Phase C maß dann einen stehenden Zustand. Danach `!notutorial`.
+- `DD_SetTimeSinceMissionStart 480` beendete den Tag. Weitergeklickte Hinweise führten ins Lager, gemessen wurde dort mit 0,7 KB/s.
+- Ein Client stürzte beim Laden der Mission in `TickPcg` ab (`spike.dll`+`0x18868`, `TickPcg`+`0xF8`). Die Schleife las den Besitzer `+0xA8` vor der Klassenprüfung an jedem Objekt. Behoben in `Pcg.cpp`, danach zwei Läufe ohne Absturz.
+
+Offen:
+
+- Nur ein PC über Loopback: keine Latenz, kein Paketverlust, die CPU teilen sich beide Instanzen. Eine Messung über das Internet fehlt.
+- Ohne Bildratengrenze und mit einem langsameren PC ist die Framerate nicht gemessen. Spätere Tage und Bosse sind nicht gemessen.
 
 ### Replikation zur Laufzeit
 
@@ -386,6 +455,7 @@ Offen:
 
 - **[Vermutung]** Die leere Route betrifft beim Client auch andere Werte aus dem Biom, etwa den Texturtausch (`BiomeTextureSwappingGenerator`), Gegnermaterialien und Wetter-Tags. Geprüft ist nur PCG. Die Route selbst auf den Client zu bringen gehört zu `rundenende`.
 - Die Seeds wirken erst mit dem nächsten Sekunden-Tick, bis dahin können die Arten kurz abweichen. Die Kosten des neuen Render-Zustands sind nicht gemessen.
+- **[Belegt]** Die erste Fassung von `TickPcg` las den Besitzer jedes Objekts vor der Klassenprüfung und ließ einmal einen Client abstürzen. Behoben in `last`, siehe [Last](#last-spike-d-last).
 - Nicht getestet: andere Biome, Tag 2 und später, Bosskarten, Internet.
 
 ### Gegner und Pausen
@@ -636,6 +706,7 @@ Nicht getestet: Trennen an Tag 2 oder später, Trennen aus der `MetaBase`, Abbru
 ### Was beim Kartenwechsel passiert
 
 - **Controller:** Die Engine ersetzt beide Controller. In `SpawnedPlayers` bleibt der alte Remote-Controller stehen, der neue kommt nie hinein. Nach der Garbage Collection steht dort `null`, und der Gegner-Spawner wählt daraus zufällig ein Ziel. Das erklärt einen nur manchmal auftretenden Host-Absturz.
+  `spawnedplayers`, 03.11.2026: Der Spike entfernt jetzt alte/null/doppelte belegte Einträge unter Erhalt von Hash und SparseArray-Buchhaltung und fügt aktuelle Controller über den nativen TSet-Helfer ein. Allokationsbits statt Zeiger-Sentinel; Prüfung im Game-Thread-Sekundentick. Das lesende `players.py` prüft Belegung, Pointer-Hash, Hash-Ketten und exakte PlayerArray-Übereinstimmung. Zwei direkte Missionstravels mit dem isolierten Fix waren konsistent; der bekannte Host-Callback `0x57CC398` trat beim folgenden Wechsel weiterhin auf. Einzelheiten und Testgrenzen im [Spike](../research/spikes/a-connect/README.md#spawnedplayers-echte-mengeneinträge-spawnedplayers).
 - **HUD:** Ab dem zweiten Wechsel wird die HUD des Clients gebaut, bevor der neue `GameState` da ist. `WP_UI` wartet in `PreConstruct` in einer Blueprint-Schleife auf ihn. Diese Schleife läuft auf dem Game Thread, der den `GameState` erst empfangen müsste, der Client hängt also für immer. Eine höhere `NetPriority` des `GameState` half nicht.
 - **Inventar:** Die Unterobjekte fehlen schon an Tag 1 dauerhaft, nicht erst kurz beim zweiten Wechsel. Ursache und Teilfix siehe unten. `OnRep_Slots` zurückzuhalten half nicht.
 
@@ -651,6 +722,37 @@ Build `26187885`, zwei Instanzen auf einem PC, Loopback, getrennte Test-Spielst�
 - **[Belegt] Zwei unabhängige Sitzungen mit Teilfix:** Menü → Tag 1 → `!finish` → Lager → Routenkarte → Tag 2. Host und Client bleiben verbunden; auf dem Client sind beide Inventare vollständig. An Tag 2 wurden Slot-Koordinaten, Belegung relativ zu `MyItems`, ItemData, Pivot, Turns und die replizierten Zustandsbits zwischen Host und Client verglichen: identisch. In der zweiten Sitzung zusätzlich derselbe Vergleich an Tag 1 und nach zehn weiteren Sekunden an Tag 2. Das Werkzeug dafür ist `tools/spike/inventory.py`.
 - **[Belegt] Grenze:** Beide Versuche der anschliessenden Reise auf Tag 3 endeten mit einem Host-Absturz im indirekten Callback bei `0x57CC395` beziehungsweise `0x57CC398` (nächster Stack-Eintrag `0x315A764`). Der Callback liest ein Objekt und springt über dessen Vtable bei `+0x490`; die Objektklasse und der Zusammenhang mit dem Inventar sind ungeklärt. In einer Sitzung folgte ein Client-Absturz bei `0x57D080C`. Keine Aussage, dass ein kompletter Run funktioniert oder diese Folgefehler unabhängig vom Teilfix sind.
 - **Nicht geprüft:** Inventarbedienung/RPCs des Clients, Belohnungen mit mehreren Items, Item-Effekte, Internet/Latenz/Paketverlust, vollständiger Run. `obj gc` wurde an beide Instanzen gesendet; dessen tatsächliche GC-Ausführung ist mit den vorhandenen Logs nicht belegt.
+
+#### Tag-3-Callback: Lebensdauer des Achievement-Detektors (`tag3`)
+
+Stand 03.11.2026, Build `26187885`. Kein weiterer Null-Schutz in Inventar-Schleifen.
+
+- **[Belegt, Disassembly und Laufzeit-Vtable]** Der einzige RIP-relative Verweis auf `0x57CC390` im untersuchten Codebereich kommt aus `0x57CB220`. Diese Funktion steht bei `HitByEnemyTypeAchievementDetectorComponent` im BeginPlay-Slot `+0x3E8`. Sie erzeugt einen Next-Tick-Timer mit einem **rohen Component-Zeiger** als TFunction-Capture. Der Callback liest diesen Zeiger und ruft virtuell `+0x490` auf.
+- **[Belegt, Disassembly]** Der dazugehörige EndPlay-Override `0x57D0A40` ruft die Basisklasse und räumt eine Delegate-Bindung auf. Den Next-Tick-Timer räumt er nicht auf. Ein UObject-gebundenes Delegate, dessen Lebensdauer die Engine prüfen könnte, wird für diesen Callback nicht benutzt.
+- **[Belegt, Gegenprobe]** Mit korrigierter `SpawnedPlayers`-Menge, aber unverändertem Timerpfad, reproduzierte ein direkter Wechsel nach zwei Missionstravels den Host-Absturz `0x57CC398`, Stack danach `0x315A764`. Eine intakte Controller-Menge alleine reicht also nicht.
+- **[Umgesetzt]** `Inventory.cpp` bewahrt nur für diesen Callsite den echten zurückgegebenen TimerHandle und TimerManager auf. Beim EndPlay dieser Component wird der Handle über den nativen FindTimer-Pfad geprüft und ein noch lebender Timer vor dem ursprünglichen EndPlay gelöscht. Die ursprünglichen BeginPlay-/EndPlay- und Callback-Inhalte bleiben erhalten; keine Objekt-Nullprüfung im abstürzenden Callback, kein Abschalten des Achievement-Systems, keine neue Inventar-/Outer-Manipulation.
+- **[Belegt, begrenzter Laufzeittest]** Byte-/Vtable-Prüfungen bestanden, Timer registriert und bei EndPlay wiederholt tatsächlich abgeräumt. MetaBase → Mission → Mission → MetaBase blieb verbunden; die Inventare waren nach dem zweiten Missionstravel vollständig und identisch. Beim folgenden Wechsel in die Mission blieb der Host am Leben, aber der Client stürzte neu bei `0x178BA90` ab (Lesen von `0x8C`, danach `0x58B41AB`, `0x58A6065`). Im lokalen Integrationstest mit `spawnedplayers` erneut reproduziert.
+- **[Statisch eingegrenzt, nicht behoben]** Der neue Client-Stack führt über die Spawner-Initialisierung `0x58A58E0` nach `0x58B4160`. Dessen Schleife prüft die Figur, aber nicht deren `AttributeSet` bei `Character+0x7D8`; sie übergibt `AttributeSet+0x80` an den Getter `0x178BA90`, der nochmals `+0xC` liest. Ein fehlendes AttributeSet erklärt exakt `0x8C`. Ob Replikationsreihenfolge oder ein falscher lokaler Initialisierungspfad zugrunde liegt, ist offen. Kein weiterer Null-Schutz eingefügt.
+
+**Einordnung:** Die Lebensdauerhypothese ist durch Capture, fehlenden Cleanup und den begrenzten Vergleich stark gestützt. Kein echter Menü-/Tagesablauf bis Tag 3 oder vollständiger Run mit dem neuen Fix belegt; die Inventar-Aufgabe bleibt offen. Direkte `servertravel`-Stresstests sind keine Tageswechsel über die Host-Route. Folgeabstürze und mögliche weitere unsichere Timer bleiben offen.
+
+#### Echte Route bis Tag 4 (`tag3`, Übergabestand)
+
+Stand 03.11.2026, Build `26187885`. Getestet nur über `Start-Session.ps1`: Menü → MetaBase → Run → Routenkarte, je Tag Knoten wählen, `!finish`, Lager bestätigen. Zwei Instanzen, Loopback.
+
+- **[Belegt] Host-Absturz bei der Reise auf Tag 3 war nicht der Timer.** Mit Timer-Fix stürzte der Host auf der echten Route weiterhin ab. Ursache ist ein Lambda-Delegate des `AMapGenerator` (Vtable `0x9613280`, Execute `0x59CAE70`, ExecuteIfSafe `0x59CB020`). Es speichert einen rohen Generator-Zeiger bei `+0x18` und `&CurrentGenData` bei `+0x20` und ruft den Generierungsschritt `0x59D9090` ungeprüft auf. Nach der Reise feuert es für den Generator der alten Karte.
+- **[Umgesetzt] `Inventory.cpp`:** Beide Vtable-Einträge prüfen, ob der Generator noch in `GUObjectArray` steht und zur aktuellen Welt gehört (Outer = Level, dessen Outer = `GWorld`). Sonst wird nur dieser Schritt ausgelassen und geloggt (`MapGen step: generator of an old world`).
+- **[Gescheitert, korrigiert]** Die erste Fassung der Prüfung las den alten Generator ohne Schutz. Auf dem Weg zu Tag 4 war dessen Speicher schon freigegeben, und die Prüfung selbst stürzte beim Host ab. Jetzt fängt SEH eine Zugriffsverletzung ab und wertet sie als „alt“.
+- **[Umgesetzt] `Client.cpp`, Absturz `0x178BA90`:** `ReadyExpAggregate` ersetzt den Einstieg `0x58B4160`. Fehlt bei einer Figur noch das AttributeSet (`Character+0x7D8`), gibt sie den bisherigen Wert bei `+0x314` zurück; der nächste Aufruf versucht es erneut. Keine Figuren übersprungen, keine Attribute erfunden. Die Entscheidung ist ohne Spiel getestet (`tests/Run-AttributeReadiness.ps1`). Auf der Route trat `0x178BA90` nicht mehr auf, im Log steht nur einige Male „awaiting character AttributeSet“.
+- **[Belegt, zweimal] Tag 3 erreicht.** Beide Läufe kamen über die echte Route auf Tag 3, mit je genau einem ausgelassenen Generator-Schritt. `inventory.py` ergab an Tag 1, 2 und 3 `complete: true` und `equal: true`. Beim Host gab es danach keinen Absturz mehr.
+- **[Belegt] Client-Abstürze an Tag 4**, jeweils direkt nach `OnRep_DayNum`. Der Client kennt dort Objekte nicht, die nur der Host hat:
+  1. `0x4B68195`, Lesen `0x1080`, über `0x5847AEB`. Die AbilitySystem-Suche `0x4B68180` bekommt einen leeren Besitzer. Behoben mit `PatchDayAttributeLookup`: bei leerem `rcx` den Rest bis `0x5847AF2` auslassen. Die Funktion hat `+0xC8` zuvor schon geleert, der nächste Aufruf versucht es also erneut.
+  2. `0x59DFD61` über `0x59D8194` (ProcessEvent). Ein Kartengenerator-Schritt `0x59DFC70` nutzt `+0xC8`, das es nur beim Host gibt. Behoben mit `PatchMapGenHostObject`: bei null zum vorhandenen Ausgang `0x59DFE07`.
+  3. **Offen:** wieder `0x4B68195`, Lesen `0x1080`, diesmal über die Rücksprungadresse `0x59A4B90`. Der Aufruf liegt vermutlich bei `0x59A4B8B`. Stack: `0x59A4B90`, `0x25DDABB`, `0x2D8CBEC`, `0x5801443`, `0x25E19AD`, `0x323576A`, `0x2A842DC`. Kurz davor im Client-Log: „Exp aggregate: awaiting character AttributeSet“ und die Übernahme von `MGP_Forest_Roadstops` durch den Kartengenerator. Die Patches 1 und 2 waren aktiv und meldeten keine Byte-Abweichung, ihre Abstürze traten in diesem Lauf nicht mehr auf. Belegt ist das nur mit einem Lauf.
+
+**Nächster Schritt (`tag4`):** Mit `tools/spike/Disassemble.ps1` zuerst `0x4B68180` ansehen. Damit ist das der dritte Aufrufer mit leerem Besitzer. Kann die Funktion selbst bei `rcx = 0` sauber null zurückgeben und prüfen alle Aufrufer das Ergebnis, reicht ein Schutz an einer Stelle. Sonst wie bei 1 einen vorhandenen Ausgang des Aufrufers um `0x59A4B8B` nehmen. Danach die Route ab Tag 4 weiterfahren (Tag 5 liegt auf der Routenkarte bei x≈400). Ziel bleibt ein Run bis zum Ende mit `complete` und `equal` an jedem Tag.
+
+**Nicht geprüft:** Tag 5 und später, Client-Inventarbedienung, Belohnungen mit mehreren Items, Internet. Ob Patch 1 und 2 nur Symptome abfangen oder der Client dort grundsätzlich einen Host-Pfad ausführt, ist offen.
 
 ### Was beim Client laufen darf
 
@@ -675,9 +777,13 @@ Build `26187885`, ein PC, zwei Loopback-Instanzen, getrennte Test-Spielstände u
 - **[Belegt] Ansatz Ereignis weiterreichen:** Die reflektierten Funktionen `FinishMission`, `TriggerEndRound` und `SetFreezeTime` sind keine Netzwerk-RPCs. `OnMissionFinishing`, `OnMissionFinished`, `OnBeforeMissionFinished` und die Freeze-Delegates sind lokale Delegates. Der vorhandene Aufruf allein transportiert die UI-Phase nicht.
 - **[Verworfener Ansatz] Host-Ablauf lokal wiederholen:** `TriggerEndRound` läuft über die GameInstance/Persistenz, und dem Client fehlt die Route. Entsprechend der bestehenden Trennung zwischen Host-Spiellogik und Client-Anzeige wurden diese Pfade nicht als Client-Sync ausgeführt. `Mission.cpp` weist nun die beiden Diagnosebefehle `!finish` und `!round` auf einem verbundenen Client ausdrücklich zurück. Negativtest in einer neuen geschützten Sitzung: beide Befehle abgelehnt, beide Prozesse weiter in MetaBase, Client-Grund unverändert `NoReason`.
 - **[Belegt] Ansatz UI-Phase aus Panels erkennen:** `UAbstractPanel::AnimationContainer` und `UPanelAnimationContainer::IsOpen` sind mögliche Andockpunkte, lieferten im Test aber bei den beobachteten Panels keinen lesbaren Containerzustand. Widgets können ausserdem an der GameInstance hängen und Karten überleben. Objektpräsenz oder Class-Namen allein sind deshalb kein zuverlässiger Phasenwechsel. Das lesende Werkzeug `tools/spike/roundstate.py` weist unbekannte Container und World-/GameInstance-/ungeklärte Outer-Zuordnung explizit aus; es behauptet keine sichtbare Phase.
-- **Offen, nicht implementiert:** Eigene Host-Nachricht für `Playing/RoundEnd/Stash/Route/Travel`, mit Welt-/Run-Generation, monotoner Sequenz und idempotenter Verarbeitung; Client nur anzeigend, keine Auswahl-/Inventar-/Reisebefugnis. Anzeige und Eingabesperre gemeinsam annehmen und beim gültigen Weltwechsel/Verbindungsende zurücksetzen. Der Anzeigenvertrag muss Tagesnummer, Runden-Grund und Host-Fortschritt enthalten, statt Client-Run-Persistenz zu erzeugen. Das ist ein nächster Entwurf, kein getesteter Netzwerkpfad.
+- **Teilumsetzung 03.11.2026, ohne Laufzeitanschluss:** `research/spikes/a-connect/RoundPhase.h` implementiert einen UE-unabhängigen Codec und Empfänger für `Playing/RoundEnd/Stash/Route/Travel`. Feste 48-Byte-Little-Endian-Snapshots enthalten Session, Run, Weltgeneration, Sequenz, Tag, Grund und Host-Fortschritt. Keine Objektzeiger, Befehle oder Run-Persistenz. Eine getrennt verifizierte Bindung muss vor Empfang Session/Run/Welt festlegen; eine Nachricht darf diese Bindung nicht selbst wechseln.
+- **[Belegt, synthetische Tests]** `tests/Run-RoundPhase.ps1` prüft den Ablauf, initiale Route, Win/Lose, vollständigen Spätbeitritt-Snapshot, Duplikate, widersprüchliche Wiederholungen, alte/fremde Session-/Run-/Welt-Nachrichten, rückläufige Phasen, Sequenzüberlauf, ungültige Felder und abgeschnittene Nachrichten. Der Empfänger übernimmt Anzeigedaten und `InputBlocked`-**Modell** gemeinsam; bei neuer verifizierter Welt wartet er gesperrt auf den ersten passenden Snapshot. Disconnect entfernt nur dieses Modell. Tests mit MSVC C++20 `/W4 /WX` bestanden; kein SDK/Spiel nötig.
+- **Weiter offen:** Autoritative Ereignisquelle am Host, tatsächlicher Transport/Handshake und Weltbindungsnachweis, sichtbare Client-Anzeige und Anwendung/Rücknahme der Sperre für Tastatur, Maus, Gamepad und bereits gehaltene Eingaben. Der Modellwert `InputBlocked` ist **keine im Spiel wirksame Eingabesperre**. Dafür sind geeignete Engine-/UI-Anschlüsse separat nachzuweisen. Im Spike ist der Header absichtlich noch nicht aktiviert; er darf nicht als funktionierender UI-Sync ausgegeben werden.
 
-Die Aufgabe bleibt ungelöst. Getestet sind die Beobachtung und Befehlsgrenzen, **nicht** eine synchronisierte Endphase, Client-Eingabesperre, Spätbeitritt, Wiederholung/Reihenfolge von Nachrichten, Internet oder ein vollständiger Run. Der fehlende gemeinsame Initialisierungs-/Tick-Anschluss in `Mission.cpp` wurde nicht durch Änderungen in fremden Spike-Dateien umgangen.
+Die Aufgabe bleibt ungelöst. Getestet sind Beobachtung, Befehlsgrenzen sowie Codec-/Empfängerregeln an künstlichen Nachrichten, **nicht** eine synchronisierte Endphase, wirksame Client-Eingabesperre, echter Spätbeitritt/Netzwerktransport, Internet oder vollständiger Run. Keine erneute lokale Ausführung der Host-Persistenz und keine Panelpräsenz als Phasensignal. Initialisierungs-/Tick-Anschluss in `Mission.cpp` und gemeinsame Schnittstellen bleiben ein eigener Integrationsschritt.
+
+**Nachtrag 03.11.2026, ohne Spielbetrieb:** Ein lokaler Adapter in `Mission.cpp` ergänzt den Modellkern um einen monotonen Host-Publisher, atomaren 48-Byte-Dateitransport, Heartbeat/Timeout und Client-Textausgabe/Win32-Nachrichtenfilter. Die tatsächliche Adapterimplementierung wurde gegen eigene Speicherpuffer geprüft, der Dateitransport zwischen zwei eigenen fensterlosen Testprozessen; C++20 `/W4 /WX` und vollständiger Spike-DLL-Build bestanden. `Main.cpp` verbindet Befehl/Tick/Filter, Host-`!finish`/`!round` liefern ihre Aufrufe; bis zur expliziten Diagnosebindung bleibt der Adapter inaktiv. Der globale Beobachter für normale Menü-/Busereignisse ist noch nicht eingehängt, Host-Rundenendeaufrufe sind noch nicht im Spiel beobachtet; Lager/Route werden ausschließlich manuell diagnostisch markiert. Keine automatische Panelerkennung behauptet, kein vollständiger UE-/Gamepad-Inputschutz, kein Internetkanal und kein P0-Abschluss. Siehe [konkrete Integration, Tests und verbleibende Nachweise](../research/spikes/a-connect/RoundPhaseRuntime.md).
 
 **Karte:** Im echten Ablauf erzeugt der Host 144 bis 167 `MapTile`, der Client bleibt bei 17 und zeigt eine andere Karte. Die Figur des Clients startet deshalb weit vom Bus entfernt, weil seine Position beim Host übernommen wird. Das ist der Einstieg in Thema 3.
 

@@ -109,8 +109,11 @@ Ablauf siehe [Karte und Seed](GAME_ANALYSIS.md#karte-und-seed).
 | Child-Klasse repliziert (Prüfung in `CreateChildActor`) | `0x289DB60` | Liest `bReplicates` am Default-Objekt von `ChildActorClass` |
 | `UChildActorComponent::SetChildActorClass` | `0x28A86C0` | Benennt die Vorlage `%s_%s_CAT` |
 | `FSoftObjectPtr::LoadSynchronous` | `0x15E9550` | Lädt im Starter das Profil |
+| IAT der Exe: WS2_32 `sendto` (Ordinal 20), `recvfrom` (Ordinal 17) | `0x82786F8`, `0x8278710` | Spike-Patch für die Lastmessung |
 | `UPCGVolumeGenerator`, Slot 85: PCG-Volume spawnen, Graph wählen | `0x59EE6A0` | Vtable `0x95626D8`, Spike-Patch |
 | `UPCGVolumeGenerator`, Slot 86: Graph laden, PCG starten | `0x59D95E0` | Asynchron mit Callback |
+| Kartengenerator: Erzeugung fortsetzen, aus einem Timer | `0x59F0C30` | Ruft `StartMapGeneration` und `0x59D9090` |
+| Kartengenerator: Schritt nach `StartMapGeneration` | `0x59D9090` | Absturzort nach der Reise auf Tag 3 |
 
 ### Coop
 
@@ -160,6 +163,9 @@ Ablauf siehe [Crash-Reporter](../research/spikes/a-connect/README.md#sperre-in-m
 | `AController` | Pawn | `0x2E8` |
 | `APlayerController` | Player, AcknowledgedPawn, NetConnection | `0x348`, `0x350`, `0x520` |
 | `APlayerState` | PawnPrivate | `0x320` |
+| `APlayerController` | CheatManager, CheatClass | `0x410`, `0x418` |
+| `UBossSpawnLookup` | BossSpawnInfos (je `0x68`: BossID `0x00`, IsEndBoss `0x08`, BossEnemyType `0x10`, SpawnPointClass `0x38`) | `0x28` |
+| `UEnemyType` | EnemyBlueprint (`TSoftClassPtr`) | `0x128` |
 | `ACharacter` | CharacterMovement, BasedMovement, ReplicatedMovement-Block | `0x330`, `0x340`, `0x398` |
 | `ACharacter` (Spiel) | AttributeSet | `0x7D8` |
 | `ADDCharacterBase` | CommonAttributeSet | `0x700` |
@@ -172,8 +178,17 @@ Ablauf siehe [Crash-Reporter](../research/spikes/a-connect/README.md#sperre-in-m
 | `UWorld` | NetDriver, GameMode, GameState, GameInstance | `0x38`, `0x1A8`, `0x1B0`, `0x228` |
 | `AGameStateBase` | PlayerArray | `0x2C0` |
 | `UNetDriver` | ServerConnection, ClientConnections | `0x100`, `0x108` |
+| `UNetDriver` | bClampListenServerTickRate (Bit 0), NetServerMaxTickRate, MaxNetTickRate, MaxInternetClientRate, MaxClientRate | `0xAC`, `0xB0`, `0xD0`, `0xD4`, `0xD8` |
+| `UPlayer` (auch `UNetConnection`) | CurrentNetSpeed, ConfiguredInternetSpeed, ConfiguredLanSpeed | `0x38`, `0x3C`, `0x40` |
+| `UTutorialStateSubsystem` | SkipTutorialFlag | `0xB8` |
 | `FWorldContext` | TravelURL | `0xA8` |
 | `ADDMissionGameMode` | SpawnedPlayers (TSet) | `0x388` |
+| Controller-TSet | Eintrag / HashNext / HashIndex | Stride `0x10`, Felder `+0`, `+8`, `+0xC` |
+| Controller-TSet | Allokationsbits / sekundäre Bits / Bitanzahl | Inline `+0x10`, Zeiger `+0x20`, Anzahl `+0x28` |
+| Controller-TSet | FirstFree / NumFree / Hash | `+0x30` / `+0x34`; Inline-Hash `+0x38`, sekundär `+0x40`, Größe `+0x48` |
+| Controller-TSet | Nativer Add-Helfer (RVA) | `0x57BD5E0`, `(Set*, int32* ResultIndex, Controller* const*, bool* AlreadyPresent)` |
+| `ADDMissionGameMode` | Nativer Controller-Registrierungsweg (RVA) | `0x58FB020`, `(GameMode*, Controller*)`; TSet-Add bei `0x58FB11D`, danach Broadcast bei `0x58FB133`. Spike hängt **nach** der Originalfunktion an; kein erneuter Registrierungsaufruf. Statisch belegt, Travel-Abdeckung des Hooks noch zu messen. |
+| Controller-TSet | Nativer SparseArray-RemoveAt-Helfer (RVA) | `0x12D6BA0`, `(Set*, int32 Index, int32 Count)`; Hash vorher aushängen |
 | TSet | Data, Num, FirstFree, NumFree, Element-Stride | `+0`, `+8`, `+0x30`, `+0x34`, `0x10` |
 | GameInstance | PendingGameStateComponentTravelStates, LastRoundChangeReason | `0x248`, `0x299` |
 | GameInstance | CurrentRunInfo (Seed +0, CurrentRoute +8) | `0x2A0` |
@@ -273,7 +288,30 @@ Panel-Öffnungspfade und nicht jedes Feld wurden durch gezielte Änderung bestä
 Nur SDK-Nachschlagewerte von Build `26187885`, hier nicht durch Mutation getestet.
 Fuer rohe XP-/Level-Interna ist kein neuer Offset bestimmt worden. Keine
 Speicherbereiche aus dem Padding als Protokollquelle behandeln.
-`inventar`-Testgrenze: Reise auf Tag 3 führte zweimal beim Host in den Callback `0x57CC390` (Fehler bei `0x57CC395`/`0x57CC398`, indirekter Aufruf `+0x490`; nächster Stack-Eintrag `0x315A764`). Objektklasse unbekannt, **keine** neue Patchstelle. Ein nachfolgender Client-Absturz lag bei `0x57D080C`.
+`inventar`-Testgrenze: Reise auf Tag 3 führte zweimal beim Host in den Callback `0x57CC390` (Fehler bei `0x57CC395`/`0x57CC398`, indirekter Aufruf `+0x490`; nächster Stack-Eintrag `0x315A764`). `tag3` ordnet ihn nun `HitByEnemyTypeAchievementDetectorComponent` zu. Ein nachfolgender Client-Absturz lag bei `0x57D080C`; im neuen direkten Traveltest bei `0x178BA90` (Lesen `0x8C`).
+
+Timer-Lebensdauerfix `tag3`, nur Build `26187885`:
+
+| Stelle | RVA / Layout | Befund |
+|---|---|---|
+| Detector-Vtable | `0x94C1758`, BeginPlay `+0x3E8`, EndPlay `+0x3F0` | BeginPlay `0x57CB220`, EndPlay `0x57D0A40` |
+| Next-Tick-Timer registrieren | CALL `0x57CB3C5` → `0x314D4D0` | `(TimerManager*, uint64* ResultHandle, TFunction*)`, roher Capture bei `TFunction+0x18` |
+| FindTimer | `0x31471C0` | `(TimerManager*, const uint64* Handle)`; vollständigen Handle vor Clear prüfen |
+| Timer intern löschen | `0x314D0B0` | `(TimerManager*, uint64 Handle)`; nativer K2_ClearTimerHandle-Pfad |
+
+Neuer Client-Folgefehler: Spawner-Initialisierung `0x58A58E0`, Aufruf `0x58A6060` → Aggregationsschleife `0x58B4160`, dort Aufruf `0x58B41A6` → Attribut-Getter `0x178BA90`. `Character+0x7D8` wird ohne Prüfung genutzt, Attribut `+0x80`, Getter-Lesefeld `+0xC`; fehlendes AttributeSet ergibt `0x8C`. Inzwischen behoben über den Einstieg `0x58B4160`, siehe unten.
+
+Route bis Tag 4, `tag3`, nur Build `26187885`:
+
+| Stelle | RVA / Layout | Befund |
+|---|---|---|
+| MapGen-Lambda | Vtable `0x9613280`, Execute `+0x0` = `0x59CAE70`, ExecuteIfSafe `+0x8` = `0x59CB020` | Capture: Generator `+0x18`, `&CurrentGenData` `+0x20`; Schritt `0x59D9090` |
+| Exp-Aggregation | `0x58B4160`, Figuren-Snapshot `0x5B07680`, Array freigeben `0x12F8400` | Ergebnis bei Handler `+0x314`; Aufrufer `0x58A6060` (BeginPlay), `0x58B0F6E` (Update) |
+| AbilitySystem-Suche | `0x4B68180` | liest `[rcx+0x1080]` ohne Prüfung |
+| Suche im Attribut-Tick | Call `0x59B7E17`, Ausgang `0x59B858A` | Client ohne PlayerState |
+| Suche nach `OnRep_DayNum` | Call `0x5847AE6`, Ausgang `0x5847AF2` | Tag 4, Client |
+| Kartengenerator-Schritt | Funktion `0x59DFC70`, Lesen `+0xC8` bei `0x59DFD5A`, Ausgang `0x59DFE07` | `+0xC8` nur beim Host |
+| Offener Aufrufer | Rücksprung `0x59A4B90` | dritter Aufrufer von `0x4B68180` mit leerem Besitzer, Tag 4 |
 
 ## Enums
 

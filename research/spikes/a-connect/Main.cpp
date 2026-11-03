@@ -1,6 +1,7 @@
 // Wegwerf-Spike: Fuehrt Konsolenbefehle im Spiel aus (Shipping-Build hat keine Konsole).
 // Befehle kommen als Datei %TEMP%\ddspike\<pid>.cmd und laufen auf dem Game Thread.
 #include "Spike.h"
+#include "RoundPhaseAdapter.h"
 
 namespace Spike
 {
@@ -29,16 +30,20 @@ void InstallPatches()
         Log("Patch: Karte vom Host aktiv");
     if (PatchPcg(Code))
         Log("Patch: PCG vom Host aktiv");
+    if (PatchLoad())
+        Log("Patch: Lastmessung aktiv");
 }
 
 // Laeuft jede Sekunde auf dem Game Thread und ersetzt die Befehle !cam und !authmove nach jedem Kartenwechsel.
 void TickSession()
 {
+    TickRoundPhase(GameWindow);
     const uintptr_t World = Read<uintptr_t>(Base + kGWorld);
     const uintptr_t Driver = World ? Read<uintptr_t>(World + kWorldNetDriver) : 0;
     if (!Driver)
         return;
     TickPcg();
+    TickLoad();
     if (Read<uintptr_t>(Driver + kDriverServerConnection))
     {
         ReleaseDeferredWidgetEvents(World);
@@ -53,6 +58,8 @@ void TickSession()
 
 void RunPendingCommand()
 {
+    if (RoundPhaseCommand(Pending))
+        return;
     if (Pending == L"!arm")
         ArmTravelRedirect();
     else if (Pending == L"!cam")
@@ -67,6 +74,12 @@ void RunPendingCommand()
         TraceRunFlow();
     else if (Pending == L"!finish")
         FinishMission();
+    else if (Pending == L"!cheats")
+        EnableCheats();
+    else if (Pending == L"!notutorial")
+        SkipTutorials();
+    else if (Pending.rfind(L"!load ", 0) == 0)
+        LoadAssetCommand(Pending.substr(6));
     else if (Pending.rfind(L"!round ", 0) == 0)
         EndRound(static_cast<uint8_t>(_wtoi(Pending.c_str() + 7)));
     else
@@ -85,6 +98,8 @@ LRESULT CALLBACK WndProc(HWND Window, UINT Message, WPARAM WParam, LPARAM LParam
         TickSession();
         return 0;
     }
+    if (RoundPhaseBlocksMessage(Window, Message, WParam, LParam))
+        return 0;
     return CallWindowProcW(OriginalWndProc, Window, Message, WParam, LParam);
 }
 
