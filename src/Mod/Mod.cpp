@@ -7,6 +7,7 @@
 #include <string>
 
 #include "Core/Config.h"
+#include "Core/CrashReports.h"
 #include "Core/Hooks.h"
 #include "Core/Log.h"
 #include "Core/Version.h"
@@ -47,6 +48,8 @@ void Start()
         return;
     if (!Core::Hooks::Initialize())
         return;
+    // Vor allem anderen: Abstürze mit Mod dürfen nie beim Hersteller landen.
+    Core::CrashReports::Block();
 
     Game::Start();
     Net::Start();

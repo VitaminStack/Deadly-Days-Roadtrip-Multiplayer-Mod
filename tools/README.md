@@ -2,6 +2,16 @@
 
 Skripte für den Alltag. Pfade kommen aus `config/Local.props`, nie fest im Skript.
 
+## tasks.py
+
+Reserviert Aufgaben aus [TODO.md](../TODO.md#wo-kann-ich-anfangen), damit niemand doppelt arbeitet, siehe [Aufgaben reservieren](../CONTRIBUTING.md#aufgaben-reservieren).
+
+| Befehl | Aufgabe |
+|---|---|
+| `py tools/tasks.py list` | Alle Kennungen mit Status aus Branches und Pull Requests |
+| `py tools/tasks.py claim <kennung> <name>` | Worktree, Branch `task/<kennung>`, Push und Draft-PR |
+| `py tools/tasks.py release <kennung>` | Draft-PR schließen, Branch löschen, sauberen Worktree entfernen |
+
 ## dumper7/
 
 Baut Dumper-7 im getesteten Stand für UE 5.8, damit alle dasselbe SDK erzeugen. Hintergrund in [SDK-Erzeugung unter UE 5.8](../docs/GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58).

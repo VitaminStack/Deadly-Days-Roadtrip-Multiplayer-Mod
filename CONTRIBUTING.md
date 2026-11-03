@@ -34,6 +34,10 @@ erlaubt, aber diese Person macht dann das Review.
 
 Jede Aufgabe hat in [TODO.md](TODO.md#wo-kann-ich-anfangen) eine Kennung, auch die [späteren Pakete](TODO.md#spätere-arbeitspakete) und die [zentrale Arbeit](TODO.md#zentrale-arbeit). Reserviert ist, was einen Branch `task/<kennung>` auf GitHub hat.
 Der erste Push gewinnt, ein zweiter wird abgelehnt. Das gilt für Menschen und KI-Agenten, die genauen Befehle stehen in [CLAUDE.md](CLAUDE.md#vor-dem-start).
+
+`py tools/tasks.py list` zeigt jede Kennung mit Status: frei, reserviert, in Arbeit, PR wartet auf Review oder erledigt.
+`py tools/tasks.py claim <kennung> <name>` reserviert und öffnet gleich einen Draft-PR `[WIP] <kennung>`. Wer gerade woran arbeitet,
+steht deshalb auf GitHub unter „Pull requests“. Für den Status aus den PRs braucht das Skript die angemeldete [GitHub CLI](https://cli.github.com/) (`gh auth login`), sonst sieht es nur die Branches.
 Wer über einen Fork arbeitet, kann so nicht reservieren und legt stattdessen ein Issue an.
 
 ### Branches

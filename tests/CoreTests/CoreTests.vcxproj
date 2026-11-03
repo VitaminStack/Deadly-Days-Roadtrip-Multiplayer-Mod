@@ -30,6 +30,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="ConfigTests.cpp" />
+    <ClCompile Include="CrashReportsTests.cpp" />
     <ClCompile Include="DispatcherTests.cpp" />
     <ClCompile Include="HookTests.cpp" />
     <ClCompile Include="LogTests.cpp" />

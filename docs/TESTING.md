@@ -6,6 +6,7 @@ bekommen ein eigenes `-UserDir`, der echte Spielstand bleibt also unberührt. Di
 > **Crash-Reporter:** Abstürze sind hier normal, und der `CrashReportClient` kann Berichte mit Spielstand an Pixelsplit schicken.
 > `Start-Session.ps1` startet deshalb immer den Crash-Schutz und bricht ab, wenn er nicht läuft. Die Exe also nicht von Hand mit
 > Spike starten, und `-unattended` niemals verwenden. Hintergrund im [Spike-Ergebnis](../research/spikes/a-connect/README.md#crash-reporter).
+> Mod und Spike sperren den Reporter zusätzlich selbst, `CrashGuard` bleibt trotzdem die erste Schicht, weil beide erst nach dem Spielstart greifen.
 
 ## Mod im Spiel testen
 
