@@ -124,6 +124,16 @@ Funktionen von `ULocalCoopSubsystem` und ihre Aufrufer, Ablauf siehe [Coop-Ablau
 | `UGameplayStatics::GetPlayerController` | `0x2A76140` | |
 | Tabelle `{Name, Exec-Thunk}` von `LocalCoopSubsystem` | um `0x94F6EE0` bis `0x94F7190` | Einträge `0x10` groß |
 
+### Absturzberichte
+
+Ablauf siehe [Crash-Reporter](../research/spikes/a-connect/README.md#sperre-in-mod-und-spike-crash-reporter).
+
+| Funktion | RVA | Hinweis |
+|---|---|---|
+| Start des Crash-Reporters nach einem Absturz | `0x145DD6E` | Baut die Kommandozeile, ` -Unattended` bei unattended oder `bImplicitSend` |
+| `FPlatformProcess::CreateProc` | `0x144D740` | Ruft `CreateProcessW` über den Import |
+| Import `KERNEL32!CreateProcessW` | `0x82774D8` | Eintrag in der Importtabelle, Spike-Patch |
+
 ## Klassen
 
 | Klasse | Feld | Offset |

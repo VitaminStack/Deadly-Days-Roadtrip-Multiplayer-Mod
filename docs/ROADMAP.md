@@ -108,7 +108,7 @@ flowchart LR
         LA["Spike D: Last<br/>(last)"]:::open
         TU["Spike E: Steam-Tunnel<br/>(tunnel)"]:::open
         AP["Andockpunkte:<br/>Test im Spiel<br/>(andockpunkte)"]:::wip
-        CR["Crash-Reporter<br/>zuverlässig aus<br/>(crash-reporter)"]:::open
+        CR["Crash-Reporter<br/>zuverlässig aus<br/>(crash-reporter)"]:::done
     end
 
     BASIS --> RUN

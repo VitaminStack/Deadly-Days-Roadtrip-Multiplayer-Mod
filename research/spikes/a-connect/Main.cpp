@@ -16,6 +16,8 @@ HWND GameWindow = nullptr;
 void InstallPatches()
 {
     CodeWriter Code;
+    // Zuerst und unabhaengig vom Rest: Testabstuerze duerfen nie beim Hersteller landen.
+    PatchCrashReports(Code);
     if (!Code.Allocate())
     {
         Log("Patch: kein Speicher");

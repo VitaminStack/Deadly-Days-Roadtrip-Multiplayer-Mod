@@ -81,6 +81,9 @@ void ArmTravelRedirect();
 bool PatchWidgets(CodeWriter& Code);
 void ReleaseDeferredWidgetEvents(uintptr_t World);
 
+// CrashReports.cpp
+bool PatchCrashReports(CodeWriter& Code);
+
 // Mission.cpp
 void ForceEnemyWave();
 void FinishMission();
