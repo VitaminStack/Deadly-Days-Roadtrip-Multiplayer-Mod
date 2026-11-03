@@ -196,7 +196,7 @@ Ziel: Alle können auf demselben Spielstand und mit derselben Toolchain arbeiten
 - [x] P0 SDK für UE 5.8 erstellen. Dumper-7 brauchte dafür einen Fix, siehe [Analyse](docs/GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58)
 - [x] P0 SDK zusätzlich während einer laufenden Mission dumpen, damit die Blueprint-Klassen enthalten sind
 - [ ] P2 SDK auch in einem Bosskampf dumpen, weil diese Klassen im Mission-Dump weitgehend fehlen
-- [ ] P1 Dumper-7-Fix dem Dumper-7-Projekt vorschlagen, damit alle Helfer ihn ohne eigenen Patch bekommen
+- [ ] P1 Dumper-7-Fix dem Dumper-7-Projekt vorschlagen, damit alle Helfer ihn ohne eigenen Patch bekommen. Bis dahin liegt der getestete Stand als Submodul unter `third_party/Dumper-7`, gebaut mit `tools/dumper7/Build-Dumper7.ps1`, upstream ist der Fehler als Issue #544 bekannt, siehe [SDK-Erzeugung](docs/GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58)
 - [x] P0 Visual-Studio-Solution mit einem Projekt je Modul anlegen, `config/Local.props` einbinden
 - [ ] P1 Festlegen, wie das Team mit Spiel-Updates umgeht ([Update-Regel](CONTRIBUTING.md#spiel-updates))
 - [ ] P1 Klären, ob alle das Spiel auf derselben Build-ID halten können
