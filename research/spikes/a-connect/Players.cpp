@@ -20,7 +20,39 @@ constexpr uintptr_t kCharacterMovement = 0x330;
 constexpr uintptr_t kMovementFlags = 0x579;
 constexpr uintptr_t kControllerSetAdd = 0x57BD5E0;
 constexpr uintptr_t kControllerSparseRemove = 0x12D6BA0;
+constexpr uintptr_t kRegisterController = 0x58FB020;
 bool ControllerSetFunctionsReady = false;
+using RegisterControllerFn = void(__fastcall*)(uintptr_t, uintptr_t);
+RegisterControllerFn OriginalRegisterController = nullptr;
+void ReconcileSpawnedPlayers(uintptr_t World, const char* Trigger);
+
+// The original must run FIRST: inserting its key beforehand would skip its legitimate broadcast.
+// Reconcile only after it returns, never call registration again or install another delegate.
+void __fastcall RegisterControllerHook(uintptr_t GameMode, uintptr_t Controller)
+{
+    OriginalRegisterController(GameMode, Controller);
+    const uintptr_t World = Read<uintptr_t>(Base + kGWorld);
+    if (World && Read<uintptr_t>(World + kWorldGameMode) == GameMode)
+        ReconcileSpawnedPlayers(World, "registration");
+}
+
+bool PatchControllerRegistration(CodeWriter& Code)
+{
+    if (OriginalRegisterController)
+        return true; // Do not chain a second hook/trampoline on repeated installation.
+    const uintptr_t Site = Base + kRegisterController;
+    // Complete first instruction (no RIP-relative operand), plus the add/broadcast call sites.
+    if (!Expect(Site, {0x48, 0x89, 0x5C, 0x24, 0x18}, "controller registration entry") ||
+        !Expect(Base + 0x58FB11D, {0xE8, 0xBE, 0x24, 0xEC, 0xFF}, "registration TSet add") ||
+        !Expect(Base + 0x58FB133, {0xE8, 0xD8, 0xE2, 0xBE, 0xFC}, "registration broadcast"))
+        return false;
+    OriginalRegisterController = reinterpret_cast<RegisterControllerFn>(Code.Here());
+    Code.Emit({0x48, 0x89, 0x5C, 0x24, 0x18}); // mov [rsp+18h],rbx
+    Code.Emit({0xE9});
+    Code.EmitRel(Site + 5);
+    WriteJump(Site, Code.EmitAbsoluteJump(reinterpret_cast<uintptr_t>(&RegisterControllerHook)));
+    return true;
+}
 
 // Beim Spawnen ruft das Spiel GetLocalPlayer()->...() ohne Nullpruefung auf. Ein Remote-Controller hat keinen
 // LocalPlayer, der Host stuerzt also ab. Der Patch springt in dem Fall in den vorhandenen Pfad ohne Coop-Subsystem.
@@ -108,7 +140,8 @@ bool PatchPlayers(CodeWriter& Code)
         Expect(Base + kControllerSparseRemove, {0x40, 0x53, 0x48, 0x8B, 0x19, 0x48, 0x8B, 0xC1}, "TSparseArray controller remove");
     if (!ControllerSetFunctionsReady)
         return false;
-    return PatchRemoteSpawn(Code) && PatchPlayerIndex(Code) && PatchLootSpawner(Code) && PatchEnemySpawner(Code);
+    return PatchRemoteSpawn(Code) && PatchPlayerIndex(Code) && PatchLootSpawner(Code) && PatchEnemySpawner(Code) &&
+        PatchControllerRegistration(Code);
 }
 
 // Host: Nimmt die Position von Remote-Figuren direkt vom Client an (bIgnoreClientMovementErrorChecksAndCorrection
@@ -137,7 +170,9 @@ void AcceptClientPositions()
 
 // Host/Game Thread: Reconcile the current PlayerArray with the real TSet, including its hash and sparse allocation.
 // No cached actor pointers survive travel. Do not invoke the full player-registration path (which broadcasts delegates).
-void RepairSpawnedPlayers(uintptr_t World)
+namespace
+{
+void ReconcileSpawnedPlayers(uintptr_t World, const char* Trigger)
 {
     if (!ControllerSetFunctionsReady || !World)
         return;
@@ -211,8 +246,15 @@ void RepairSpawnedPlayers(uintptr_t World)
             reinterpret_cast<AddFn>(Base + kControllerSetAdd)(&Set, &Index, &Controller, nullptr);
             ++Added;
         }
-    if (Removed || Added)
-        Log("SpawnedPlayers: removed=" + std::to_string(Removed) + " added=" + std::to_string(Added) +
+    if (Removed || Added || std::strcmp(Trigger, "registration") == 0)
+        Log(std::string("SpawnedPlayers: source=") + Trigger + " removed=" + std::to_string(Removed) +
+            " added=" + std::to_string(Added) + " roster=" + std::to_string(Controllers.size()) +
             " valid=" + std::to_string(Set.Valid()));
+}
+}
+
+void RepairSpawnedPlayers(uintptr_t World)
+{
+    ReconcileSpawnedPlayers(World, "timer");
 }
 }
