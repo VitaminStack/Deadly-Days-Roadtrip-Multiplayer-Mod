@@ -33,10 +33,6 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 3. Parallel ohne Spielzeit: `grundgeruest`, `tunnel` und `crash-reporter`.
 4. `last` messen und an Gate G1 entscheiden.
 
-**Wartet auf das Team.**
-
-- Pixelsplit über das Projekt informieren
-
 ## Gesamtweg
 
 ```mermaid
@@ -186,7 +182,6 @@ flowchart TD
         SB["Bestenlisten und<br/>Erfolge sperren"]:::open
         TE["Telemetrie und<br/>Crash-Reports aus"]:::open
         SV["Eigene Mod-Spielstände"]:::open
-        PS["Rückmeldung von Pixelsplit"]:::open
         IN["Installer oder Anleitung"]:::open
     end
 

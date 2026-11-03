@@ -146,7 +146,6 @@ Das macht das Team selbst, dafür gibt es keine Reservierung.
 | Gemeinsame Kamera entschieden (03.11.2026) | `kamera-code` |
 | Meta-Fortschritt: Wessen Stand zählt? | `run-ende` |
 | `WeeklyMode` unterstützen oder online sperren | – |
-| Pixelsplit informieren und Rückmeldung berücksichtigen | `release` |
 
 **Gemeinsame Dateien**
 
@@ -231,7 +230,6 @@ Ziel: Fakten für Gate G1 sammeln. Spike-Code ist Wegwerfcode und landet nicht i
 - [x] P1 Pausen-Logik klären: `pausen`: Inventar im Pausemenue auf Host und Client geoeffnet/geschlossen, verschachtelte Sitzungen und gleichzeitige Pausen gemessen; Host-Weltpause repliziert, Client-Wunsch nicht. Kontrollierte XP-Aufnahme bis Level 2 ohne anhaltende Pause; XP/Level bleiben beim Client unveraendert. Benoetigter Host-/Session-Sync und Testgrenzen im [Pausen-Spike](research/spikes/pausen/README.md#nachtrag-03112026-isolierte-ablaeufe). Analyse, kein implementierter Sync.
 - [x] P1 Sync-Bedarf der nicht replizierten Komponenten festlegen: `LevelSystemComponent`, Wallets, `RerollCurrency`, `CoopInventoryCoordinatorComponent`. `sync-bedarf`: [Matrix und Kontrollvertrag](docs/SYNC_REQUIREMENTS.md) fuer alle Komponenten, XP, Waehrungen, Rewards, Pausen und UI festgelegt; Architekturentwurf, kein implementierter oder im Netz getesteter Sync. Offene Semantik-/Integrationsfragen sind dort benannt.
 - [x] P1 Blueprint-Logik auslesen: `blueprint-logik`: repraesentative Spawn-/Effekt-/Eventpfade durch Bytecode-Grenzaudit (42 Funktionen, 25 Eventgraph-Einspruenge) und Host-/Client-Traces geklaert. Kisten-Multicast zugestellt, Airdrop ohne Client-Actor, Projektilgroesse nicht automatisch nachgeliefert, Itemeffekt-Guards und lokale HUD-Ereignisse belegt. Benoetigten Client-Zustand und verbleibende Integrationspruefungen im [Nachtrag](research/spikes/blueprint-logik/README.md#nachtrag-03112026-grenzpruefung-und-ereignistests) festgehalten; kein Audit aller Blueprints und kein implementierter Sync.
-- [ ] P1 Pixelsplit über das öffentliche Projekt informieren: Ist offizieller Online-Coop geplant, und wie stehen sie zu der Mod?
 
 **Spikes**
 
@@ -317,7 +315,6 @@ Ziel: Ein kompletter Run ist zu zweit online spielbar.
 - [ ] P0 **Telemetrie, Bug-Reports und Crash-Reports im Mod-Betrieb abschalten**, damit Pixelsplit keine Mod-Fehler als Spielfehler bekommt
 - [ ] P0 Mod-Spielstände vom normalen Spielstand trennen, damit kein Save beschädigt wird
 - [ ] P1 Installer oder einfache Installationsanleitung
-- [ ] P1 Vor dem ersten fertigen Release die Rückmeldung von Pixelsplit berücksichtigen
 - [ ] P2 Mehr als 2 Spieler prüfen (Coop-Logik ist fest auf P1 und P2 ausgelegt, daher aufwendig)
 
 ## Risiken
@@ -330,4 +327,3 @@ Ziel: Ein kompletter Run ist zu zweit online spielbar.
 | Viele Gegner überlasten das Netzwerk | Laggy oder unspielbar | Spike D; Gegner gebündelt synchronisieren |
 | Karte entsteht lokal, Objekte darauf replizieren | Doppelte Objekte oder abweichende Karte beim Client | Spike C; Seed übertragen, Generator oder Replikation gezielt einschränken |
 | Spiel-Updates (seit 1.0 am 29.10.2026 aktiv gepatcht) | Hooks und SDK veralten | Versionsprüfung, Update-Regel, Adapter-Schicht |
-| Offizieller Online-Coop erscheint | Mod wird überflüssig | Bei Pixelsplit nachfragen, bevor viel Aufwand fließt |
