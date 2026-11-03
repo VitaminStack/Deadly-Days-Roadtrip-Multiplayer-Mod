@@ -53,7 +53,7 @@ Diese Befehle öffnen selbst kein Hostpanel. Der Client darf weder Lager bestät
 
 ## Tests und offene Nachweise
 
-Nacheinander ausführen, da `Common.ps1` eine gemeinsame lokale `vsenv.cmd` schreibt:
+Seit `devtools` schreibt `Common.ps1` je Prozess eine eigene `vsenv-<pid>.cmd`, die Builds dürfen also auch parallel laufen:
 
 ```powershell
 powershell -NoProfile -File tests/Run-RoundPhase.ps1

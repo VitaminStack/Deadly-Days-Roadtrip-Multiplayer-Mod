@@ -5,13 +5,19 @@ param(
     [int]$MenuDelaySeconds = 20,
     [int]$TravelDelaySeconds = 40,
     # Ersetzt eine laufende Sitzung aus diesem Ordner. Fremde Sitzungen bleiben unberuehrt.
-    [switch]$Restart
+    [switch]$Restart,
+    # Baut spike.dll neu, vorher endet die eigene Sitzung wie bei -Restart.
+    [switch]$Build,
+    # Baut und installiert zusaetzlich die Mod aus src\. Stop-Session.ps1 entfernt sie wieder.
+    [switch]$Mod,
+    [ValidateSet('Release', 'Debug')]
+    [string]$Configuration = 'Release'
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Common.ps1')
 Initialize-SessionDir
 Assert-SupportedBuild
-if ($Restart) { & (Join-Path $PSScriptRoot 'Stop-Session.ps1') }
+if ($Restart -or $Build) { & (Join-Path $PSScriptRoot 'Stop-Session.ps1') }
 Enter-SessionLock
 if (Get-Process $script:GameProcess -ErrorAction SilentlyContinue) {
     Exit-SessionLock
@@ -19,11 +25,25 @@ if (Get-Process $script:GameProcess -ErrorAction SilentlyContinue) {
 }
 
 $Dll = Join-Path $script:SessionDir 'spike.dll'
-if (-not (Test-Path $Dll)) { & (Join-Path $PSScriptRoot 'Build-Spike.ps1') | Out-Null }
+try {
+    if ($Build -or -not (Test-Path $Dll)) { & (Join-Path $PSScriptRoot 'Build-Spike.ps1') | Out-Null }
+    if ($Mod) {
+        & (Join-Path $PSScriptRoot '..\Build-Mod.ps1') -Configuration $Configuration | Out-Null
+        & (Join-Path $PSScriptRoot '..\Deploy-Mod.ps1') -Configuration $Configuration
+    }
+}
+catch {
+    Exit-SessionLock
+    throw
+}
 
 $Guard = Start-Process powershell -WindowStyle Hidden -PassThru -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$(Join-Path $PSScriptRoot 'CrashGuard.ps1')`""
 Start-Sleep -Seconds 1
-if ($Guard.HasExited) { throw 'Crash-Schutz laeuft nicht, Abbruch.' }
+if ($Guard.HasExited) {
+    if ($Mod) { & (Join-Path $PSScriptRoot '..\Deploy-Mod.ps1') -Remove }
+    Exit-SessionLock
+    throw 'Crash-Schutz laeuft nicht, Abbruch.'
+}
 
 $env:SteamAppId = '3026450'
 $env:SteamGameId = '3026450'
@@ -34,7 +54,7 @@ function Start-Instance([string]$Name, [int]$X) {
 }
 $GameHost = Start-Instance 'host' 0
 $Client = Start-Instance 'client' 820
-@{ Host = $GameHost.Id; Client = $Client.Id; Guard = $Guard.Id } | ConvertTo-Json |
+@{ Host = $GameHost.Id; Client = $Client.Id; Guard = $Guard.Id; Mod = [bool]$Mod; Started = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() } | ConvertTo-Json |
     Set-Content (Join-Path $script:SessionDir 'session.json') -Encoding ascii
 Write-SessionLock $GameHost.Id $Client.Id | Set-Content $script:LockFile -Encoding ascii
 

@@ -112,7 +112,11 @@ function Invoke-InVsEnvironment([string]$CommandLine) {
     $Vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
     $Vs = & $Vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
     if (-not $Vs) { throw 'Visual Studio mit C++-Werkzeugen nicht gefunden.' }
-    $Script = Join-Path $script:SessionDir 'vsenv.cmd'
-    Set-Content -Path $Script -Encoding ascii -Value "@call `"$Vs\VC\Auxiliary\Build\vcvars64.bat`" >nul`r`n@$CommandLine"
-    & cmd /c "`"$Script`""
+    # Eigene Datei je Prozess, damit parallele Builds sich nicht ueberschreiben. vcvars ruft vswhere ohne Pfad auf.
+    New-Item -ItemType Directory -Force -Path $script:SessionDir | Out-Null
+    $Script = Join-Path $script:SessionDir "vsenv-$PID.cmd"
+    Set-Content -Path $Script -Encoding ascii -Value ("@set `"PATH=$(Split-Path $Vswhere);%PATH%`"`r`n" +
+        "@call `"$Vs\VC\Auxiliary\Build\vcvars64.bat`" >nul`r`n@$CommandLine")
+    try { & cmd /c "`"$Script`"" }
+    finally { Remove-Item $Script -Force -ErrorAction SilentlyContinue }
 }

@@ -11,7 +11,6 @@ if ($LASTEXITCODE -ne 0) { throw 'Runtime-/Transport-Tests fehlgeschlagen' }
 $AdapterSource = Join-Path $PSScriptRoot 'round_phase_adapter.cpp'
 $MissionSource = Join-Path $PSScriptRoot '..\research\spikes\a-connect\Mission.cpp'
 $AdapterExe = Join-Path $script:SessionDir 'round-phase-adapter-test.exe'
-# Common.ps1 writes one vsenv.cmd: build invocations in this worktree must run sequentially.
 Push-Location $script:SessionDir
 try {
     Invoke-InVsEnvironment "cl /nologo /std:c++20 /W4 /WX /EHsc /Fe:`"$AdapterExe`" `"$AdapterSource`" `"$MissionSource`" user32.lib"
