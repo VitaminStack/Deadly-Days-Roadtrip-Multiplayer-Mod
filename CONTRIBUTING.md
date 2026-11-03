@@ -96,12 +96,18 @@ auch wenn Steam schon einen neueren anbietet.
 
 ### Auf dem unterstützten Build bleiben
 
-1. In Steam unter Eigenschaften → Updates „Dieses Spiel nur beim Starten aktualisieren“ wählen.
-2. Das Spiel während der Entwicklung nur über `tools/spike/Start-Session.ps1` starten, nie über Steam. Das Skript startet die Exe direkt statt über
-   den Steam-Startknopf. Das ist keine dauerhafte Update-Sperre; ob eine alte Version nach einem Update weiter startet, ist noch nicht getestet.
-   Es bricht ab, wenn das Steam-Manifest einen anderen Build meldet. Ein Dateiabgleich ist das nicht.
-3. Eine Kopie des Spielordners außerhalb des Repos aufheben, etwa 1,8 GB. Kommt doch ein Update durch, ist das der schnellste Weg zurück.
-4. Ohne Kopie kommt ein Download über die Steam-Konsole infrage (`steam://open/console`), mit den Manifest-IDs aus der
+1. **Entwicklung von Steam trennen:** Solange der unterstützte Build installiert ist, einmal
+   `powershell -ExecutionPolicy Bypass -File tools/Freeze-GameBuild.ps1 -Activate` ausführen.
+   Das erstellt eine echte Kopie unter `%LOCALAPPDATA%/DDCoop/builds/26187885`, prüft sie und setzt `PinnedGameDir` in `config/Local.props`.
+   Das Ziel liegt außerhalb jeder `steamapps`-Struktur; Junctions, Symlinks und Hardlinks werden abgewiesen.
+2. Steam bleibt für die Anmeldung online und darf **seine Installation** aktualisieren. Die getrennte Entwicklungskopie wird dadurch nicht ersetzt.
+   Keine ACF-Schreibschutztricks, manipulierten Build-IDs, globalen Firewallregeln oder Steam-Offlinemodus nötig.
+3. Nur über `tools/spike/Start-Session.ps1` testen. Bei gesetztem `PinnedGameDir` prüfen Start und Deploy alle eingefrorenen Dateien gegen den
+   SHA-256-Beleg, unabhängig vom aktuellen Steam-Manifest. Fehlende/geänderte Dateien führen zum Abbruch, nie zum Rückfall auf die Steam-Kopie.
+   `GameDir` bleibt die Steam-Quelle für eine spätere, bewusst vorbereitete Update-Unterstützung. Ohne `PinnedGameDir` bleibt der alte
+   manifestbasierte Startweg aus Kompatibilitätsgründen erhalten; dieser ist **nicht eingefroren**.
+4. Die Entwicklungskopie privat sichern, nicht nur die Exe. Wer den Stand noch nicht besitzt, muss zuerst eine eigene passende Spielkopie beschaffen.
+   Ein Download über die Steam-Konsole kommt infrage (`steam://open/console`), mit den Manifest-IDs aus der
    [Spielversion](docs/GAME_ANALYSIS.md#unterstützte-spielversion):
 
    ```text
@@ -114,19 +120,24 @@ auch wenn Steam schon einen neueren anbietet.
    alte und neue Dateien sowie das Steam-Manifest können danach auseinanderliegen. Die vorhandene Installation und Spielstände bleiben beim
    ersten Test unangetastet, verglichen wird zunächst im separaten Downloadordner.
 
-**Stand und Abnahme:** Der gemeinsame Build ist aktuell öffentlich gelistet, ein dauerhaftes Festhalten für alle aber noch nicht belegt.
-Siehe [Build-Abgleich und offene Team-Prüfung](docs/SETUP.md#gleiche-build-id-im-team). Steam-Einstellungen und Downloads werden nicht automatisch geändert.
+**Stand und Abnahme:** Die Trennung ist mit angemeldetem Steam und Host/Client samt Mod aus der eingefrorenen Kopie getestet.
+Siehe [Einrichten und Grenzen](docs/SETUP.md#gleiche-build-id-im-team). Jedes Teammitglied erstellt seine eigene Kopie aus seinem lizenzierten Spiel;
+keine Weitergabe von Spieldateien. Steam-Einstellungen und Downloads werden nicht automatisch geändert.
 
 ### Wenn ein Update erscheint
 
-1. Wer es bemerkt, meldet es im Team mit der neuen Build-ID. Niemand aktualisiert, die Spieltests laufen auf dem alten Build weiter.
-2. Nachgezogen wird nur bei Bedarf: wenn das Update etwas bringt, das wir brauchen, zum Beispiel einen Fix für einen blockierenden Absturz.
-   Spätestens vor `integration-run` und `release`, weil Spieler immer den neuesten Build haben.
+1. Wer es bemerkt, meldet es im Team mit der neuen Build-ID. Die Steam-Installation darf aktuell werden, die Entwicklungskopie bleibt unverändert.
+   Spieltests laufen weiter auf dem eingefrorenen Build; kein automatisches Neu-Erstellen oder Umschalten auf den neuen Stand.
+2. Jeder neue Build bekommt bei Bedarf eigene Update-Unterstützung, zum Beispiel wenn er einen blockierenden Absturz behebt.
+   Das Team priorisiert die zentrale Aufgabe `spiel-update`; ein Steam-Update allein erzwingt keinen Entwicklungswechsel.
+   Vor `integration-run` und `release` legt das Team die konkret unterstützten und getesteten Builds fest.
 3. Das Nachziehen ist die zentrale Aufgabe `spiel-update`. Eine Person reserviert sie, aktualisiert ihr Spiel, erzeugt ein neues SDK und passt Offsets,
    Signaturen und Patches auf ihrem Branch an.
 4. Im selben PR Build-ID, Exe-Version und Manifest-IDs in [docs/GAME_ANALYSIS.md](docs/GAME_ANALYSIS.md#unterstützte-spielversion), die Werte in
-   [docs/OFFSETS.md](docs/OFFSETS.md), `$SupportedBuild` in `tools/spike/Common.ps1` sowie `SupportedBuilds` in `src/Core/Version.cpp` aktualisieren.
-5. Erst nach dem Merge aktualisieren alle anderen ihr Spiel, weil alle denselben Build brauchen. Die Kopie des alten Builds bleibt, bis der neue läuft.
+   [docs/OFFSETS.md](docs/OFFSETS.md), `$SupportedBuild` in `tools/spike/Common.ps1`, die Build-/Hash-Referenz in `tools/game_build.py` sowie
+   `SupportedBuilds` in `src/Core/Version.cpp` aktualisieren. Der neue Build bekommt einen eigenen Kopieordner, der alte wird nicht überschrieben.
+5. Erst nach dem Merge und einer ausdrücklichen Teamentscheidung wechseln alle ihre Entwicklungskopie, weil alle denselben Build brauchen.
+   Die alte Kopie und der dazu passende Mod-Branch bleiben verfügbar, bis der neue Stand läuft.
 
 ## Fehler melden
 

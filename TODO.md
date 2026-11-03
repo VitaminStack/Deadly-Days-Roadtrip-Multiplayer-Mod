@@ -200,7 +200,7 @@ Ziel: Alle können auf demselben Spielstand und mit derselben Toolchain arbeiten
 - [ ] P2 Nach dem Merge von Dumper-7-PR #594 das Submodul `third_party/Dumper-7` auf `Encryqed/Dumper-7` umstellen und `tools/dumper7/Build-Dumper7.ps1` sowie die Doku anpassen. Bis dahin bleibt der getestete Stand auf dem Fork-Branch `ddcoop-ue58`
 - [x] P0 Visual-Studio-Solution mit einem Projekt je Modul anlegen, `config/Local.props` einbinden
 - [x] P1 Festlegen, wie das Team mit Spiel-Updates umgeht: einfrieren und nur bei Bedarf nachziehen ([Update-Regel](CONTRIBUTING.md#spiel-updates))
-- [ ] P1 Klären, ob alle das Spiel auf derselben Build-ID halten können (`build-id`): lesend geprüft, `26187885` ist weiterhin öffentlich gelistet; kein allgemein zugänglicher Altversions-Zweig ausgewiesen. Dateireferenz und [Team-Abnahme](docs/SETUP.md#gleiche-build-id-im-team) dokumentiert. Offen bleiben Bestätigung je Team-PC und Wiederherstellung, kein Depot-Download oder Spielstart getestet
+- [x] P1 Gleiche Build-ID für die Entwicklung festhalten (`build-id`): geprüfte, echte Dateikopie außerhalb von Steam mit `Freeze-GameBuild.ps1 -Activate`; Start und Deploy nutzen ausschließlich `PinnedGameDir` und prüfen alle eingefrorenen Dateien per SHA-256. Host/Client samt Mod auf `26187885` aus der Kopie verbunden getestet; Steam-Updates bleiben auf die Steam-Installation beschränkt, neue Build-Unterstützung erfolgt separat über `spiel-update`. [Einrichtung und Grenzen](docs/SETUP.md#gleiche-build-id-im-team), kein Zwei-PC-/Depot-Redownload-Test
 
 ## Phase 1 – Analyse und Spikes
 

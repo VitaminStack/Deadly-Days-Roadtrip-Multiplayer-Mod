@@ -28,6 +28,22 @@ powershell -ExecutionPolicy Bypass -File tools/dumper7/Build-Dumper7.ps1 -Output
 
 Prüft die Einrichtung aus [docs/SETUP.md](../docs/SETUP.md): Git, Python, Visual Studio mit C++, `config/Local.props`, Spielordner und Build. Ändert nichts.
 
+## Freeze-GameBuild.ps1
+
+Isoliert die Mod-Entwicklung von Steam-Updates, siehe [gleiche Build-ID im Team](../docs/SETUP.md#gleiche-build-id-im-team).
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools/Freeze-GameBuild.ps1 -Activate
+```
+
+- Quelle bleibt `GameDir` aus `config/Local.props`, Standardziel ist `%LOCALAPPDATA%/DDCoop/builds/26187885`.
+- `-Destination <Ordner>` wählt ein anderes Ziel außerhalb aller `steamapps`-Ordner. Keine Hardlinks, Symlinks oder Junctions.
+- `-Activate` setzt `PinnedGameDir` in der gefundenen lokalen Konfiguration; in Worktrees ohne eigene `Local.props` ist das die gemeinsame Datei.
+  Alle Skripte dieses Standes bevorzugen dann die Kopie. Bereits ältere Branches müssen die neue Startlogik erst übernehmen; nur der Konfigurationseintrag reicht dort nicht.
+- Vorhandene Ziele werden geprüft und optional aktiviert, niemals überschrieben. Ohne `-Activate` wird nichts an der Konfiguration geändert.
+- `game_build.py` kopiert und prüft den vollständigen Dateibeleg. Steam bleibt online und darf seine eigene Installation aktualisieren.
+  Kein Download, keine Änderung an Steam-Einstellungen oder installierten Spieldateien.
+
 ## Build-Mod.ps1
 
 Baut `DeadlyDaysCoop.sln` wie die CI nach `bin/<Konfiguration>/`. Mit `-Test` laufen danach `CoreTests.exe` und die Python-Tests.

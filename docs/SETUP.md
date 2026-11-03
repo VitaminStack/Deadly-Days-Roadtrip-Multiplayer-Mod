@@ -24,7 +24,7 @@ Danach lässt sich die Mod bauen, testen und im Spiel starten. Das dauert wenige
 
 1. Repo mit Submodulen klonen: `git clone --recurse-submodules <url>`. Wer schon ohne geklont hat: `git submodule update --init`.
 2. `config/Local.props.example` nach `config/Local.props` kopieren und `GameDir` eintragen. Die Datei bleibt lokal. Worktrees unter `.worktrees/` nutzen die aus dem Hauptordner.
-3. Spiel auf die [unterstützte Version](GAME_ANALYSIS.md#unterstützte-spielversion) bringen.
+3. Spiel auf die [unterstützte Version](GAME_ANALYSIS.md#unterstützte-spielversion) bringen und eine [eingefrorene Entwicklungskopie](#gleiche-build-id-im-team) aktivieren.
 4. Einrichtung prüfen. Das Skript ändert nichts und nennt, was fehlt:
 
    ```bash
@@ -44,57 +44,51 @@ Dann eine Aufgabe nehmen und reservieren, siehe [Wo kann ich anfangen?](../TODO.
 
 ## Gleiche Build-ID im Team
 
-**Ergebnis der lesenden Prüfung vom 03.11.2026:** Build `26187885` und die bekannten Depot-Manifeste sind weiterhin öffentlich gelistet
-und lokal installiert. Für eine Zusage „alle können dauerhaft auf diesem Build bleiben“ fehlen Wiederherstellungs- und Team-Tests.
-Der Phase-0-Punkt bleibt deshalb offen, die [Update-Regel](../CONTRIBUTING.md#spiel-updates) gilt unverändert.
-Belege und Dateireferenz stehen in [Gemeinsame Build-ID](GAME_ANALYSIS.md#gemeinsame-build-id-lesende-prüfung-build-id).
+**Lösung:** Nicht Steam anhalten, sondern eine geprüfte Entwicklungskopie außerhalb seiner Bibliotheken verwenden. Steam darf seine
+Installation aktualisieren; die Mod-Entwicklung bleibt auf Build `26187885`, bis das Team die Unterstützung eines anderen Builds freigibt.
+Diese Trennung ist auf einem Windows-PC mit laufendem Steam, zwei verbundenen Instanzen und geladener Mod geprüft.
+Belege und Dateireferenz stehen in [Gemeinsame Build-ID](GAME_ANALYSIS.md#gemeinsame-build-id-build-id).
 
-### Jetzt auf jedem PC prüfen, ohne etwas zu ändern
+### Auf jedem Entwicklungs-PC einmal einrichten
 
-Im Repo-Ordner in PowerShell ausführen. Das liest nur lokale Dateien, startet kein Spiel und verändert Steam nicht:
+Voraussetzung: eigene lizenzierte Installation des unterstützten Builds, kein laufendes Spiel, ungefähr 1,9 GB freier Platz.
+`GameDir` in `config/Local.props` zeigt weiterhin auf die Steam-Installation. Im Repo-Ordner ausführen:
 
 ```powershell
-$ErrorActionPreference = 'Stop'
-. .\tools\spike\Common.ps1
-Assert-SupportedBuild
-$GameDir = Get-GameDir
-$Manifest = Join-Path $GameDir '..\..\appmanifest_3026450.acf'
-Select-String -LiteralPath $Manifest -Pattern '"buildid"', '"manifest"', '"AutoUpdateBehavior"'
-$Files = @('DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe')
-$Files += Get-ChildItem -LiteralPath (Join-Path $GameDir 'DDSurvivors/Content/Paks') -File |
-    Where-Object { $_.Extension -in '.pak', '.ucas', '.utoc' } |
-    ForEach-Object { 'DDSurvivors/Content/Paks/' + $_.Name }
-$Files | Sort-Object | ForEach-Object {
-    $Hash = (Get-FileHash -LiteralPath (Join-Path $GameDir $_) -Algorithm SHA256).Hash.ToLowerInvariant()
-    '{0}  {1}' -f $Hash, $_
-}
+powershell -ExecutionPolicy Bypass -File tools/Freeze-GameBuild.ps1 -Activate
+powershell -ExecutionPolicy Bypass -File tools/Test-Setup.ps1
 ```
 
-Erwartet: Build-ID `26187885`, Depot-Manifeste wie in der Spielversion, genau die sechs Dateien aus der Dateireferenz und deren Hashes.
-Weitere Container oder abweichende Hashes zuerst klären, nicht den Versionsschutz abschalten.
-`Select-String` zeigt lokale Dateipfade an: Diese Ausgabe, das ganze Steam-Manifest und Kontodaten nicht öffentlich posten.
-Für die Rückmeldung reichen Datum, Build-ID, „sechs Hashes gleich/abweichend“ und das Prüfergebnis; keine persönlichen Pfade oder Steam-IDs.
-Die Einstellung „nur beim Starten aktualisieren“ muss die jeweilige Person zusätzlich in Steam bestätigen; der Lesetest stellt sie nicht ein.
+Standardziel: `%LOCALAPPDATA%/DDCoop/builds/26187885`. Mit `-Destination <Ordner>` lässt sich ein anderes Ziel außerhalb jeder
+`steamapps`-Struktur wählen. Das Skript kopiert echte Dateien, keine Hardlinks, und akzeptiert keine Junctions oder Symlinks im Zielweg.
+Ein vorhandenes Ziel wird nur geprüft und gegebenenfalls aktiviert, **nie überschrieben oder repariert**.
+Ohne `-Activate` bleibt die Konfiguration unverändert. Das Skript verändert keine Steam-Einstellungen und lädt nichts herunter.
 
-### Was zum Abhaken noch fehlt
+Beim Erstellen müssen die sechs bekannten Exe-/Container-Hashes passen. Danach werden alle kopierten Dateien per SHA-256 in
+`.ddcoop-build.json` erfasst und gegen die Quelle sowie die Kopie geprüft. Ändert sich die Quelle währenddessen, wird keine Kopie veröffentlicht.
+Ausgenommen sind nur die eigenen Laufzeitdaten `DDSurvivors/Saved`, `DDSurvivors/Binaries/Win64/DDCoop` und die Mod-Proxydatei `version.dll`
+neben der Shipping-Exe. Diese werden nicht aus der Quelle übernommen; Logs und Mod-Deploy dürfen dort später schreiben.
 
-Jedes aktive Testmitglied bestätigt für die eigene lizenzierte Spielkopie:
+### Danach entwickeln und Updates getrennt bearbeiten
 
-1. Build-ID und sechs Vergleichsdateien stimmen; Update-Einstellung kontrolliert.
-2. Eine eigene Sicherung außerhalb der von Steam verwalteten Installation ist vorhanden. Nicht nur die Exe sichern;
-   Spielordner und zugehöriges Steam-Manifest privat aufheben. Nicht im Repo oder untereinander als Spielpaket verteilen.
-3. Eine Wiederherstellung aus dieser Sicherung ist separat geprüft: keine Mischung alter und neuer Dateien, passende Inhalte,
-   Start über den geschützten Testweg bei laufendem Steam. Das ist mit den aktuellen Skripten nicht automatisch für externe Kopien gelöst.
-4. Falls die Sicherung fehlt: die beiden `download_depot`-Befehle aus der Update-Regel im eigenen Konto separat testen,
-   erfolgreichen Abschluss und Dateiinhalte prüfen. Vorher nicht die bestehende Installation überschreiben. Auch ein erfolgreicher Download
-   des heutigen `public`-Builds garantiert keine spätere Abrufbarkeit, wenn der Publisher ihn ersetzt oder den Zugriff ändert.
+`PinnedGameDir` hat Vorrang vor `GameDir`. Start, Deploy, Status, Disassembly und Crash-Schutz nutzen damit dieselbe Entwicklungskopie.
+Vor Start und Deploy wird der vollständige Dateibeleg geprüft; beschädigte, fehlende und zusätzliche unveränderliche Dateien führen zum Abbruch.
+Es gibt keinen automatischen Rückfall auf die inzwischen vielleicht aktualisierte Steam-Installation. Vor der Spike-Injektion wird auch der
+tatsächliche Prozesspfad geprüft. Die Mod-Versionserkennung im Core bleibt zusätzlich aktiv.
 
-Ein erfolgreicher Test auf einem Konto ersetzt die Bestätigung der anderen nicht. Es gibt derzeit weder einen belegten Rückweg nach einem
-echten Update noch einen Nachweis für zwei PCs mit verschiedenen Konten. Kein Spielstart oder Download wurde für diese Untersuchung ausgeführt.
-Ein künftiger Online-Test darf sich nicht allein auf den Steam-Offlinemodus als Update-Sperre verlassen.
+Steam bleibt normal angemeldet. Getestet wird wie bisher ausschließlich mit `Start-Session.ps1`, zum Beispiel `-Build -Mod`;
+`Stop-Session.ps1` entfernt die Mod wieder aus der Entwicklungskopie. Niemals die eingefrorenen Dateien per Steam-Dateiprüfung aktualisieren,
+keinen Bibliotheksordner oder Link darauf einrichten und nicht manuell mit neueren Dateien vermischen. Die eigene Kopie zusätzlich privat sichern.
 
-**Falls jemand den Stand nicht halten oder wiederherstellen kann:** keine gemischten Builds testen. Das Team entscheidet über das gemeinsame
-Nachziehen mit der zentralen Aufgabe `spiel-update` oder fragt den Publisher nach einem stabilen Altversions-Zweig. Die Versionsprüfung bleibt an.
+Für einen neuen Spiel-Build wird `spiel-update` separat reserviert. Auf dessen Branch werden Offsets, Hooks, SDK und Hash-/Build-Referenzen
+angepasst und eine **neue** Entwicklungskopie getestet. Das bestehende Ziel wird nicht automatisch ersetzt. Erst nach Freigabe wechselt das Team.
+Ohne `PinnedGameDir` ist der bisherige Steam-Startweg weiter verfügbar, aber nicht vor automatischen Steam-Updates isoliert.
+
+**Grenzen:** Das ist eine Dateitrennung, kein DRM- oder Steam-Bypass und kein Schutz gegen absichtliche lokale Bearbeitung des Belegs.
+Jeder braucht seine eigene berechtigte Installation. Wer den alten Build noch nicht besitzt, braucht einen gesondert geprüften Beschaffungsweg;
+der bisher ungetestete Depot-Download wird nicht vorausgesetzt. Ein zukünftiger Steam-/Backendwechsel kann alte Versionen am Starten hindern und
+braucht dann eigene Untersuchung; er ersetzt aber nicht still die eingefrorenen Dateien. Zwei PCs mit verschiedenen Konten wurden hier nicht getestet.
+Für die Team-Rückmeldung reichen Build-ID, Anzahl geprüfter Dateien und Starttest; keine Spieldateien, persönlichen Pfade oder Steam-IDs posten.
 
 ## SDK
 
