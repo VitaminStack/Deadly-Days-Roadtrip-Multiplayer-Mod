@@ -36,7 +36,7 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 - Kamera entscheiden
 - Gemeinsame Build-ID: `26187885` ist weiterhin öffentlich gelistet, die lesende Prüfung und Dateireferenz liegen vor. [Bestätigung je Team-PC und Wiederherstellung](SETUP.md#gleiche-build-id-im-team) fehlen noch; die Update-Regel allein belegt keine dauerhafte Build-Sperre
 - Pixelsplit über das Projekt informieren
-- Dumper-7-Fix dem Dumper-7-Projekt vorschlagen
+- Dumper-7-PR #594 nachhalten, nach dem Merge Submodul auf upstream umstellen
 
 ## Gesamtweg
 

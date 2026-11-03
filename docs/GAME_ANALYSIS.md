@@ -75,7 +75,9 @@ vollständiges SDK für Build `26187885` erzeugt (02.11.2026), die Dateien `Basi
   gebaut wird sie mit [`Build-Dumper7.ps1`](../tools/README.md#dumper7).
   Nicht geprüft: Kompilieren dieses SDK, andere Engine-Versionen.
 - **Upstream:** Der Fehler ist bei Dumper-7 als Issue #544 bekannt. Offen ist PR #576 mit einer Erkennung über Klassennamen. Er kompiliert
-  laut Codestand nicht (Aufruf der entfernten `FixupFieldClassOffsets()` in `Offsets.cpp`) und ist nicht von uns getestet. Ein Kommentar dazu ist noch nicht gepostet.
+  laut Codestand nicht (Aufruf der entfernten `FixupFieldClassOffsets()` in `Offsets.cpp`) und ist nicht von uns getestet.
+  Unser Fix ist seit 03.11.2026 als [PR #594](https://github.com/Encryqed/Dumper-7/pull/594) eingereicht, ein Commit auf upstream `2c1eae3`.
+  Nach dem Merge soll das Submodul wieder auf upstream zeigen, siehe [TODO](../TODO.md).
 - **Nacharbeit nach jedem Dump:** In `Assertions.inl` sind die Prüfungen für `UEngineReplicationBridge`,
   `URepositionableTransformGizmo` und `UPolyEditPreviewMesh` abzuschalten. Sie schlagen sonst beim Kompilieren fehl.
   Die Ursache ist nicht untersucht. Bei Nutzung von `UEngineReplicationBridge` deren Layout zuerst prüfen.
