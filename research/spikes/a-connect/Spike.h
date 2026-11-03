@@ -87,6 +87,10 @@ bool PatchMapObjects(CodeWriter& Code);
 // CrashReports.cpp
 bool PatchCrashReports(CodeWriter& Code);
 
+// MapGen.cpp
+bool PatchMapGen(CodeWriter& Code);
+void TickMapGen();
+
 // Mission.cpp
 void ForceEnemyWave();
 void FinishMission();

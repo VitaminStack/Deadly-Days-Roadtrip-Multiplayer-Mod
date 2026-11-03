@@ -93,7 +93,7 @@ flowchart LR
     end
 
     subgraph WELT["Karte und Kamera"]
-        KC["Seed und Profil beim Client,<br/>Duplikate unterdrücken<br/>(karte-client)"]:::open
+        KC["Seed und Profil beim Client,<br/>Duplikate unterdrücken<br/>(karte-client)"]:::done
         SC["Spike C: gleiche<br/>Mission auf beiden Seiten"]:::open
         KE["Kamera: Entscheidung<br/>des Teams"]:::decision
         KC --> SC
