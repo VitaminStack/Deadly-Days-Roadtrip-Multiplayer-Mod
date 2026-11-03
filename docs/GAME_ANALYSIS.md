@@ -135,8 +135,36 @@ Details stehen in [Spike A und B](../research/spikes/a-connect/README.md).
 - **[Belegt]** Gegner replizieren in der Mission, beim Client als `SimulatedProxy`. Bewegung läuft in beide Richtungen.
 - **[Belegt]** Bodenkacheln sind `Movable` und nicht repliziert. Auf ihnen sendet der Client Relativkoordinaten, die der Host nicht auflösen kann. Ohne Fix landet die Figur beim Host falsch.
 - **[Belegt]** Selbst mit Weltkoordinaten bewegt der Host die Client-Figur kaum. Clientautoritative Position löst das, die Ursache ist offen.
-- **[Hypothese]** Client-Schüsse treffen beim Host. Neben der Client-Figur sterben dort Gegner außerhalb der Reichweite der Host-Figur, ein direkter Messwert fehlt.
+- **[Belegt]** Client-Schüsse treffen beim Host, verursachen Schaden und töten Gegner. Gemessen über die Treffermeldung des Spiels, siehe [Treffer des Clients](#treffer-des-clients-treffer).
 - **[Hypothese]** Die Replikation trägt, aber die Spiellogik rechnet weder beim Host noch beim Client mit Netzwerkspielern. Die Fehler sind bisher klein und lokal, ihre Gesamtzahl ist unbekannt.
+
+#### Treffer des Clients (`treffer`)
+
+Stand: Spike `Hits.cpp`, Läufe über das Spielmenü am 03.11.2026, Build `26187885`, `RunSeed=20795`, Tag 1 oben. Ohne `MapGen.cpp`, die Karte des Clients war also eine andere.
+
+**Messweg:** Beim Host ruft das Spiel für jeden Treffer auf einen Gegner `UDDGameStatsSubsystem::OnEnemyHit(FDamageInformation)` auf, und zwar über `ProcessEvent`. Der Spike tauscht `ProcessEvent` in der VTable dieser Klasse und liest je Treffer:
+
+- `Damage`, das getroffene Ziel (`DamagedActor`), den Auslöser (`InstigatedBy`) und den Verursacher (`DamageCauser`) aus `FDamageInformation`
+- die Lebenspunkte des Ziels aus `CommonAttributeSet` (`ADDCharacterBase+0x700`, `Health` bei `+0xA0`). Die Meldung kommt nach dem Abzug, ein Wert von 0 ist also ein Kill.
+
+- **[Belegt]** Auslöser ist der `PlayerState` des Schützen, Verursacher das Projektil (`BP_Projectile_C`). Der Spike ordnet den Treffer über die Figur des PlayerStates zu: Beim Host ist die Figur des Clients `AutonomousProxy`, die eigene nicht. Ein erster Versuch über die Besitzerkette des Auslösers fand keine Figur und zählte alles als „Sonstige“.
+- **[Belegt]** Treffer des Clients ziehen beim Host Leben ab und töten. Ein `BP_StandardEnemy_C` hat 50 Leben, jeder Treffer nimmt 25, nach dem zweiten steht er bei 0.
+- **[Belegt]** Die Zuordnung trennt beide Spieler. In Lauf 3 meldete sie einen Treffer des Hosts.
+- **[Belegt]** In der Mission halten Tutorial-Hinweise das Spiel an, die Uhr bleibt etwa bei 00:08 stehen. Auf einen Hinweis folgt der nächste, das Sprinten löst einen weiteren aus. Für Messungen auf beiden Seiten mehrmals „Fortsetzen“ klicken, im 800×450-Fenster bei (227, 70).
+
+| Lauf | Tutorial | Treffer Client | Treffer Host | Kills des Clients |
+|---|---|---|---|---|
+| 1 | hielt das Spiel an | mindestens 5, noch als „Sonstige“ gezählt | – | – |
+| 2 | hielt das Spiel an | 1 | 0 | 0 |
+| 3 | hielt das Spiel an | 0 | 1 | – |
+| 4 | erster Hinweis weg, der zweite hielt an | 4 | 0 | 2 |
+| 5 | alle Hinweise weg, rund 2 Minuten | 50 (1.250 Schaden) | 0 | 25 |
+| 6 | wie 5, danach Eingabe beim Host, Ausdauer-Hinweis hielt an | 30 (750 Schaden) | 0 | 15 |
+
+Offen:
+
+- Warum die Host-Figur in den Läufen 5 und 6 nicht traf, ist nicht untersucht. **[Vermutung]** Ohne Eingaben in ihrem Fenster schießt sie nicht, oder es waren keine Gegner in ihrer Reichweite.
+- Nicht geprüft: XP und Loot für Kills des Clients, andere Waffen und Gegnertypen, Schadenszahlen beim Client (stehen unter den optionalen Optimierungen).
 
 ### Replikation zur Laufzeit
 

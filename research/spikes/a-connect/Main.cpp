@@ -38,6 +38,7 @@ void TickSession()
         ViewThroughSharedCamera();
         return;
     }
+    TickHits();
     AcceptClientPositions();
     RepairSpawnedPlayers(World);
 }

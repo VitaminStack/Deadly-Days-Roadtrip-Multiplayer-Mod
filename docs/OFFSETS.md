@@ -142,6 +142,9 @@ Funktionen von `ULocalCoopSubsystem` und ihre Aufrufer, Ablauf siehe [Coop-Ablau
 | `APlayerState` | PawnPrivate | `0x320` |
 | `ACharacter` | CharacterMovement, BasedMovement, ReplicatedMovement-Block | `0x330`, `0x340`, `0x398` |
 | `ACharacter` (Spiel) | AttributeSet | `0x7D8` |
+| `ADDCharacterBase` | CommonAttributeSet | `0x700` |
+| `UCommonAttributeSet` | Health (`FGameplayAttributeData`, CurrentValue bei `+0xC`) | `0xA0` |
+| `FDamageInformation` | Damage, DamagedActor, InstigatedBy, DamageCauser (je `TWeakObjectPtr`) | `0x00`, `0x04`, `0x14`, `0x1C` |
 | `FBasedMovementInfo` | MovementBase, Location | `0x10`, `0x18` |
 | `UCharacterMovementComponent` | Velocity, MovementMode, MaxWalkSpeed | `0xD8`, `0x241`, `0x288` |
 | `UCharacterMovementComponent` | MaxAcceleration, Acceleration | `0x29C`, `0x338` |
