@@ -16,12 +16,14 @@ HWND GameWindow = nullptr;
 void InstallPatches()
 {
     CodeWriter Code;
+    // Zuerst und unabhaengig vom Rest: Testabstuerze duerfen nie beim Hersteller landen.
+    PatchCrashReports(Code);
     if (!Code.Allocate())
     {
         Log("Patch: kein Speicher");
         return;
     }
-    if (PatchPlayers(Code) && PatchClient(Code) && PatchCamera(Code) && PatchInventory(Code) && PatchTravel(Code) && PatchWidgets(Code))
+    if (PatchPlayers(Code) && PatchClient(Code) && PatchCamera(Code) && PatchInventory(Code) && PatchTravel(Code) && PatchWidgets(Code) && PatchMapObjects(Code))
         Log("Patch: aktiv");
     if (PatchMapGen(Code))
         Log("Patch: Karte vom Host aktiv");

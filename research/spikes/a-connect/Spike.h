@@ -81,6 +81,12 @@ void ArmTravelRedirect();
 bool PatchWidgets(CodeWriter& Code);
 void ReleaseDeferredWidgetEvents(uintptr_t World);
 
+// MapObjects.cpp
+bool PatchMapObjects(CodeWriter& Code);
+
+// CrashReports.cpp
+bool PatchCrashReports(CodeWriter& Code);
+
 // MapGen.cpp
 bool PatchMapGen(CodeWriter& Code);
 void TickMapGen();

@@ -41,12 +41,31 @@ void Perform(int Action)
         return;
     }
     auto* State = static_cast<SDK::ADDMissionGameState*>(World->GameState);
-    if (Action == 1)
+    if (Action == 6)
+    {
+        auto* Pawn = SDK::UGameplayStatics::GetPlayerPawn(World, 0);
+        auto* Exp = Instance<SDK::UExpSubsystem>();
+        if (!Pawn || !Exp)
+        {
+            Log("kein lokaler Pawn/ExpSubsystem; kein XP-Spawn");
+            return;
+        }
+        Exp->RequestExpSpawning(200, Pawn->K2_GetActorLocation());
+        Log("200 XP am lokalen Pawn angefordert; Aufnahme/Level gesondert pruefen");
+        return;
+    }
+    if (Action == 1 || Action == 4 || Action == 5)
     {
         if (auto* Level = State->GetLevelSystem())
         {
-            Level->RequestLevelUp();
-            Log("RequestLevelUp abgeschlossen");
+            if (Action == 1)
+                Level->RequestLevelUp();
+            else if (Action == 4)
+                Level->AddExperience(1);
+            char Buffer[128]{};
+            sprintf_s(Buffer, "level action=%d level=%d progress=%.6f", Action,
+                Level->GetCurrentLevel(), Level->GetExperiencePercentage());
+            Log(Buffer);
         }
         else
             Log("kein LevelSystem");
@@ -109,7 +128,7 @@ DWORD WINAPI Worker(void*)
         reinterpret_cast<LONG_PTR>(&WindowProc)));
     if (!Original)
         return 2;
-    Log("bereit; 1=levelup, 2=inventar-auf, 3=inventar-zu; kein Mapwechsel im Test");
+    Log("bereit; 1=levelup, 2=inventar-auf, 3=inventar-zu, 4=ein-XP, 5=level-lesen, 6=XP-Spawn; kein Mapwechsel im Test");
     for (;;)
     {
         Sleep(200);
@@ -120,7 +139,7 @@ DWORD WINAPI Worker(void*)
         const int Read = fscanf_s(File, "%d", &Action);
         fclose(File);
         DeleteFileW(Command.c_str());
-        if (Read == 1 && Action >= 1 && Action <= 3)
+        if (Read == 1 && Action >= 1 && Action <= 6)
             SendMessageW(Window, Message, static_cast<WPARAM>(Action), 0);
     }
 }
