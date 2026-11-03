@@ -307,11 +307,25 @@ Route bis Tag 4, `tag3`, nur Build `26187885`:
 |---|---|---|
 | MapGen-Lambda | Vtable `0x9613280`, Execute `+0x0` = `0x59CAE70`, ExecuteIfSafe `+0x8` = `0x59CB020` | Capture: Generator `+0x18`, `&CurrentGenData` `+0x20`; Schritt `0x59D9090` |
 | Exp-Aggregation | `0x58B4160`, Figuren-Snapshot `0x5B07680`, Array freigeben `0x12F8400` | Ergebnis bei Handler `+0x314`; Aufrufer `0x58A6060` (BeginPlay), `0x58B0F6E` (Update) |
-| AbilitySystem-Suche | `0x4B68180` | liest `[rcx+0x1080]` ohne Prüfung |
+| AbilitySystem-Suche | `0x4B68180`, Lesen `[rcx+0x1080]` bei `+0x15` | ohne Prüfung; `tageswechsel` prüft `rcx` am Einstieg |
 | Suche im Attribut-Tick | Call `0x59B7E17`, Ausgang `0x59B858A` | Client ohne PlayerState |
-| Suche nach `OnRep_DayNum` | Call `0x5847AE6`, Ausgang `0x5847AF2` | Tag 4, Client |
+| Suche nach `OnRep_DayNum` | Call `0x5847AE6`, Ausgang `0x5847AF2` | Tag 4, Client; Patch durch den Einstieg ersetzt |
 | Kartengenerator-Schritt | Funktion `0x59DFC70`, Lesen `+0xC8` bei `0x59DFD5A`, Ausgang `0x59DFE07` | `+0xC8` nur beim Host |
-| Offener Aufrufer | Rücksprung `0x59A4B90` | dritter Aufrufer von `0x4B68180` mit leerem Besitzer, Tag 4 |
+| Dritter Aufrufer | Rücksprung `0x59A4B90` | Aufrufer von `0x4B68180` mit leerem Besitzer, Tag 4; durch den Einstieg gedeckt |
+
+NetGUID-Cache und neue Actors, `tageswechsel`, nur Build `26187885`:
+
+| Stelle | RVA / Layout | Befund |
+|---|---|---|
+| `SerializeNewActor` | `0x2D09B90` (PackageMap-Vtable `+0x2C0`), Archetyp-Prüfung `0x2D0A426` (`cmp qword [rsp+38h],0`) | `Archive+0x28 & 1` = Laden; Spawn-Aufruf `0x2BFB580` |
+| `UActorChannel::ProcessBunch` | IsValid-Prüfung `0x2995F58`, Broken `0x2995F7B`, `NMT_ActorChannelFailure` `0x29A2310` | Host ignoriert die Meldung |
+| UChannel | Connection `+0x28`, Flags `+0x30` (OpenAcked `0x1`, Broken `0x20`, OpenedLocally `0x1000`), Index `+0x34` | UActorChannel: Actor `+0x68`, ActorNetGUID `+0x70` |
+| `FNetGUIDCache` | `NetDriver+0x1C8` = `PackageMapClient+0x310` (Connection `+0x68`) | ObjectLookup: Daten `+0x8`, Num `+0x10`, Max `+0x14`, Bitarray `+0x18` inline oder Zeiger `+0x28`; NetGUIDLookup `+0x58` |
+| ObjectLookup-Element | `0x40` Bytes | Schlüssel `+0x0` (Maske `0x3FFFFFFFFFFFFF`, statisch = ungerade), Weak-Pointer `+0x8` (Index, Serial), OuterGUID `+0x10`, Pfad-FName `+0x18`, Prüfsumme `+0x20`, Stempel `+0x28` (double), Flags `+0x30` (1 NoLoad, 2 IgnoreWhenMissing, 4 Pending, 8 Broken), HashNext `+0x38` |
+| `CleanReferences` | `0x2CF34B0`, Stempel lesen `0x2CF3622`, Ablauf `0x2CF362E`, Löschen `0x2CF363F`, Schleife weiter `0x2CF3C38`, Stempel setzen `0x2CF3C33` | Ablauf 90 s, Weak-Pointer gültig? `0x1643520` |
+| `ObjectLookup.Remove` | `0x2D05470`, Aufrufer `0x2D04C2D`, `0x2D04CB9` in `0x2D04BE0` | SparseArray `RemoveAt` `0x15B44B0` |
+| Einfügen mit Ersetzen | `0x2CE9BA0`, Ersetzen `0x2CE9D42`, Aufruf `0x2D04B94` | noch nicht untersucht |
+| GUObjectArray-Element | `0x18` Bytes | Flags `+0x0`, interne Flags `+0x4` (Garbage `0x00200000`, Unreachable `0x10000000`, RootSet `0x40000000`), Objekt `+0x8`, Serial `+0x10` |
 
 ## Enums
 

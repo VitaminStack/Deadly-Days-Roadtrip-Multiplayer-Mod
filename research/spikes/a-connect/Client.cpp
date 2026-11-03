@@ -11,8 +11,6 @@ constexpr uintptr_t kClientRefreshFunction = 0x5A8BAB0;
 constexpr uintptr_t kAttributeLookupCallSite = 0x59B7E17;
 constexpr uintptr_t kAttributeLookupFunction = 0x4B68180;
 constexpr uintptr_t kAttributeTickExit = 0x59B858A;
-constexpr uintptr_t kDayLookupCallSite = 0x5847AE6;
-constexpr uintptr_t kDayLookupExit = 0x5847AF2;
 constexpr uintptr_t kMapGenHostObjectRead = 0x59DFD5A;
 constexpr uintptr_t kMapGenHostObjectExit = 0x59DFE07;
 constexpr uintptr_t kComponentControllerRead = 0x58393CC;
@@ -47,6 +45,58 @@ float __fastcall ReadyExpAggregate(uintptr_t Handler)
         return AttributeReadiness::PendingValue(Read<float>(Handler + 0x314));
     }
     return OriginalExpAggregate(Handler);
+}
+
+constexpr uintptr_t kSerializeNewActor = 0x2D09B90;
+constexpr uintptr_t kNewActorArchetypeCheck = 0x2D0A426;
+using SerializeNewActorFn = bool(__fastcall*)(uintptr_t, uintptr_t, uintptr_t, uintptr_t*);
+SerializeNewActorFn OriginalSerializeNewActor = nullptr;
+uintptr_t SeenArchetype = 0;
+
+// Nur zur Diagnose: Actors, deren Archetyp der Client nicht aufloesen kann. Ihr Kanal bleibt fuer die Karte Broken.
+bool __fastcall LoggingSerializeNewActor(uintptr_t PackageMap, uintptr_t Archive, uintptr_t Channel, uintptr_t* Actor)
+{
+    SeenArchetype = 1;
+    const bool Spawned = OriginalSerializeNewActor(PackageMap, Archive, Channel, Actor);
+    if (!(Read<uint8_t>(Archive + 0x28) & 1) || *Actor) // Nur beim Lesen, der Host schreibt hier.
+        return Spawned;
+    static unsigned FailedCount = 0;
+    if (++FailedCount <= 32)
+    {
+        char Line[256];
+        sprintf_s(Line, "NewActor failed: guid=0x%llX ch=%d archetype=%s", Read<unsigned long long>(Channel + 0x70),
+            Read<int32_t>(Channel + 0x34), SeenArchetype > 1 ? NameOf(SeenArchetype).c_str() : (SeenArchetype ? "nicht erreicht" : "null"));
+        Log(Line);
+    }
+    return Spawned;
+}
+
+bool PatchNewActorLog(CodeWriter& Code)
+{
+    const uintptr_t Site = Base + kSerializeNewActor;
+    const uintptr_t Check = Base + kNewActorArchetypeCheck;
+    if (!Expect(Site, {0x40, 0x55, 0x53, 0x56, 0x57, 0x41, 0x55}, "SerializeNewActor") ||
+        !Expect(Check, {0x48, 0x83, 0x7C, 0x24, 0x38, 0x00, 0x0F, 0x84}, "Archetyp-Pruefung in SerializeNewActor"))
+        return false;
+    auto* Original = Code.Here();
+    Code.Emit({0x40, 0x55, 0x53, 0x56, 0x57, 0x41, 0x55});       // push rbp/rbx/rsi/rdi/r13
+    Code.Emit({0xE9});
+    Code.EmitRel(Site + 7);
+    OriginalSerializeNewActor = reinterpret_cast<SerializeNewActorFn>(Original);
+    WriteJump(Site, Code.EmitAbsoluteJump(reinterpret_cast<uintptr_t>(&LoggingSerializeNewActor)));
+
+    // Den aufgeloesten Archetyp dort merken, wo die Funktion ueber das Spawnen entscheidet.
+    uint8_t* Cave = Code.Here();
+    const uintptr_t Slot = reinterpret_cast<uintptr_t>(&SeenArchetype);
+    Code.Emit({0x48, 0x8B, 0x44, 0x24, 0x38});                   // mov rax,[rsp+38h]
+    Code.Emit({0x48, 0xA3});                                     // mov [Slot],rax
+    for (int Byte = 0; Byte < 8; ++Byte)
+        Code.Emit({static_cast<uint8_t>(Slot >> (8 * Byte))});
+    Code.Emit({0x48, 0x83, 0x7C, 0x24, 0x38, 0x00});             // cmp qword ptr [rsp+38h],0
+    Code.Emit({0xE9});                                           // jmp zurueck zum je
+    Code.EmitRel(Check + 6);
+    WriteJump(Check, Cave);
+    return true;
 }
 
 bool PatchExpReadiness(CodeWriter& Code)
@@ -107,14 +157,24 @@ bool PatchAttributeTick(CodeWriter& Code)
     return PatchAttributeLookup(Code, Base + kAttributeLookupCallSite, Base + kAttributeTickExit);
 }
 
-// Nach OnRep_DayNum an Tag 4 liefert die virtuelle Funktion +10h beim Client noch keinen Besitzer. Die Funktion hat
-// +C8h dann schon auf null gesetzt, der naechste Aufruf versucht es also erneut; nur +D0h bleibt bis dahin leer.
-bool PatchDayAttributeLookup(CodeWriter& Code)
+// Die AttributeSet-Suche selbst: Beim Client ist das AbilitySystem nach einem Kartenwechsel oft noch nicht da, ueber 30
+// Aufrufer reichen dann null herein. Ohne AbilitySystem gibt sie null zurueck wie fuer ein fehlendes Set, das pruefen
+// die Aufrufer schon. Ersetzt die frueheren Schutzstellen je Aufrufer nach OnRep_DayNum.
+bool PatchAttributeLookupEntry(CodeWriter& Code)
 {
-    if (!Expect(Base + kDayLookupCallSite - 3, {0x48, 0x8B, 0xCF, 0xE8, 0x95, 0x06, 0x32, 0xFF}, "AbilitySystem-Suche nach OnRep_DayNum") ||
-        !Expect(Base + kDayLookupExit, {0x48, 0x8B, 0x5C, 0x24, 0x38}, "Ende der AbilitySystem-Suche nach OnRep_DayNum"))
+    const uintptr_t Site = Base + kAttributeLookupFunction;
+    if (!Expect(Site, {0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18}, "Anfang der AttributeSet-Suche") ||
+        !Expect(Site + 0x15, {0x48, 0x8B, 0x99, 0x80, 0x10, 0x00, 0x00}, "Lesen der AttributeSets"))
         return false;
-    return PatchAttributeLookup(Code, Base + kDayLookupCallSite, Base + kDayLookupExit);
+    uint8_t* Cave = Code.Here();
+    Code.Emit({0x48, 0x85, 0xC9});                               // test rcx,rcx
+    Code.Emit({0x75, 0x03});                                     // jne original
+    Code.Emit({0x31, 0xC0, 0xC3});                               // xor eax,eax; ret
+    Code.Emit({0x48, 0x89, 0x5C, 0x24, 0x10});                   // mov [rsp+10h],rbx
+    Code.Emit({0xE9});                                           // jmp zurueck
+    Code.EmitRel(Site + 5);
+    WriteJump(Site, Cave);
+    return true;
 }
 
 // Ebenfalls nach OnRep_DayNum: ein Kartengenerator-Schritt (0x59DFC70) nutzt +C8h, das nur beim Host existiert.
@@ -171,7 +231,7 @@ bool PatchThreatLevel()
 
 bool PatchClient(CodeWriter& Code)
 {
-    return PatchClientRefresh(Code) && PatchAttributeTick(Code) && PatchDayAttributeLookup(Code) && PatchMapGenHostObject(Code) && PatchComponentController(Code) && PatchThreatLevel() &&
-        PatchExpReadiness(Code);
+    return PatchClientRefresh(Code) && PatchAttributeTick(Code) && PatchAttributeLookupEntry(Code) && PatchMapGenHostObject(Code) && PatchComponentController(Code) && PatchThreatLevel() &&
+        PatchExpReadiness(Code) && PatchNewActorLog(Code);
 }
 }
