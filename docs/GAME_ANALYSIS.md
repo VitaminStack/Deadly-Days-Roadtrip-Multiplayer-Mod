@@ -703,6 +703,24 @@ Stand 03.11.2026, Build `26187885`. Kein weiterer Null-Schutz in Inventar-Schlei
 
 **Einordnung:** Die Lebensdauerhypothese ist durch Capture, fehlenden Cleanup und den begrenzten Vergleich stark gestützt. Kein echter Menü-/Tagesablauf bis Tag 3 oder vollständiger Run mit dem neuen Fix belegt; die Inventar-Aufgabe bleibt offen. Direkte `servertravel`-Stresstests sind keine Tageswechsel über die Host-Route. Folgeabstürze und mögliche weitere unsichere Timer bleiben offen.
 
+#### Echte Route bis Tag 4 (`tag3`, Übergabestand)
+
+Stand 03.11.2026, Build `26187885`. Getestet nur über `Start-Session.ps1`: Menü → MetaBase → Run → Routenkarte, je Tag Knoten wählen, `!finish`, Lager bestätigen. Zwei Instanzen, Loopback.
+
+- **[Belegt] Host-Absturz bei der Reise auf Tag 3 war nicht der Timer.** Mit Timer-Fix stürzte der Host auf der echten Route weiterhin ab. Ursache ist ein Lambda-Delegate des `AMapGenerator` (Vtable `0x9613280`, Execute `0x59CAE70`, ExecuteIfSafe `0x59CB020`). Es speichert einen rohen Generator-Zeiger bei `+0x18` und `&CurrentGenData` bei `+0x20` und ruft den Generierungsschritt `0x59D9090` ungeprüft auf. Nach der Reise feuert es für den Generator der alten Karte.
+- **[Umgesetzt] `Inventory.cpp`:** Beide Vtable-Einträge prüfen, ob der Generator noch in `GUObjectArray` steht und zur aktuellen Welt gehört (Outer = Level, dessen Outer = `GWorld`). Sonst wird nur dieser Schritt ausgelassen und geloggt (`MapGen step: generator of an old world`).
+- **[Gescheitert, korrigiert]** Die erste Fassung der Prüfung las den alten Generator ohne Schutz. Auf dem Weg zu Tag 4 war dessen Speicher schon freigegeben, und die Prüfung selbst stürzte beim Host ab. Jetzt fängt SEH eine Zugriffsverletzung ab und wertet sie als „alt“.
+- **[Umgesetzt] `Client.cpp`, Absturz `0x178BA90`:** `ReadyExpAggregate` ersetzt den Einstieg `0x58B4160`. Fehlt bei einer Figur noch das AttributeSet (`Character+0x7D8`), gibt sie den bisherigen Wert bei `+0x314` zurück; der nächste Aufruf versucht es erneut. Keine Figuren übersprungen, keine Attribute erfunden. Die Entscheidung ist ohne Spiel getestet (`tests/Run-AttributeReadiness.ps1`). Auf der Route trat `0x178BA90` nicht mehr auf, im Log steht nur einige Male „awaiting character AttributeSet“.
+- **[Belegt, zweimal] Tag 3 erreicht.** Beide Läufe kamen über die echte Route auf Tag 3, mit je genau einem ausgelassenen Generator-Schritt. `inventory.py` ergab an Tag 1, 2 und 3 `complete: true` und `equal: true`. Beim Host gab es danach keinen Absturz mehr.
+- **[Belegt] Client-Abstürze an Tag 4**, jeweils direkt nach `OnRep_DayNum`. Der Client kennt dort Objekte nicht, die nur der Host hat:
+  1. `0x4B68195`, Lesen `0x1080`, über `0x5847AEB`. Die AbilitySystem-Suche `0x4B68180` bekommt einen leeren Besitzer. Behoben mit `PatchDayAttributeLookup`: bei leerem `rcx` den Rest bis `0x5847AF2` auslassen. Die Funktion hat `+0xC8` zuvor schon geleert, der nächste Aufruf versucht es also erneut.
+  2. `0x59DFD61` über `0x59D8194` (ProcessEvent). Ein Kartengenerator-Schritt `0x59DFC70` nutzt `+0xC8`, das es nur beim Host gibt. Behoben mit `PatchMapGenHostObject`: bei null zum vorhandenen Ausgang `0x59DFE07`.
+  3. **Offen:** wieder `0x4B68195`, Lesen `0x1080`, diesmal über die Rücksprungadresse `0x59A4B90`. Der Aufruf liegt vermutlich bei `0x59A4B8B`. Stack: `0x59A4B90`, `0x25DDABB`, `0x2D8CBEC`, `0x5801443`, `0x25E19AD`, `0x323576A`, `0x2A842DC`. Kurz davor im Client-Log: „Exp aggregate: awaiting character AttributeSet“ und die Übernahme von `MGP_Forest_Roadstops` durch den Kartengenerator. Die Patches 1 und 2 waren aktiv und meldeten keine Byte-Abweichung, ihre Abstürze traten in diesem Lauf nicht mehr auf. Belegt ist das nur mit einem Lauf.
+
+**Nächster Schritt (`tag4`):** Mit `tools/spike/Disassemble.ps1` zuerst `0x4B68180` ansehen. Damit ist das der dritte Aufrufer mit leerem Besitzer. Kann die Funktion selbst bei `rcx = 0` sauber null zurückgeben und prüfen alle Aufrufer das Ergebnis, reicht ein Schutz an einer Stelle. Sonst wie bei 1 einen vorhandenen Ausgang des Aufrufers um `0x59A4B8B` nehmen. Danach die Route ab Tag 4 weiterfahren (Tag 5 liegt auf der Routenkarte bei x≈400). Ziel bleibt ein Run bis zum Ende mit `complete` und `equal` an jedem Tag.
+
+**Nicht geprüft:** Tag 5 und später, Client-Inventarbedienung, Belohnungen mit mehreren Items, Internet. Ob Patch 1 und 2 nur Symptome abfangen oder der Client dort grundsätzlich einen Host-Pfad ausführt, ist offen.
+
 ### Was beim Client laufen darf
 
 | Bereich | Host | Client |
