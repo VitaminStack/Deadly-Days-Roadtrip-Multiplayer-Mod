@@ -2,6 +2,26 @@
 
 Skripte für den Alltag. Pfade kommen aus `config/Local.props`, nie fest im Skript.
 
+## Test-Setup.ps1
+
+Prüft die Einrichtung aus [docs/SETUP.md](../docs/SETUP.md): Git, Python, Visual Studio mit C++, `config/Local.props`, Spielordner und Build. Ändert nichts.
+
+## Deploy-Mod.ps1
+
+Kopiert `version.dll` und `DDCoop/DDCoop.dll` aus `bin/<Konfiguration>/` neben die Spiel-Exe. Vorher die Solution bauen.
+
+```bash
+powershell -ExecutionPolicy Bypass -File tools/Deploy-Mod.ps1
+powershell -ExecutionPolicy Bypass -File tools/Deploy-Mod.ps1 -Remove
+```
+
+- `-Configuration Debug` nimmt den Debug-Build, Standard ist `Release`.
+- Bricht ab, wenn das Spiel läuft, der Build nicht passt oder eine fremde `version.dll` dort liegt. Diese bleibt unberührt.
+- `-Remove` entfernt nur die beiden DLLs. Logs und `ddcoop.ini` bleiben in `DDCoop/`.
+
+> **Nach dem Testen entfernen.** Solange die Mod im Spielordner liegt, lädt auch jeder normale Start über Steam sie, ohne Crash-Schutz.
+> Getestet wird deshalb nur über `spike/Start-Session.ps1`, siehe [Testen](../docs/TESTING.md#mod-im-spiel-testen).
+
 ## spike/
 
 Bauen und Testen des Spikes, die Anleitung steht in [docs/TESTING.md](../docs/TESTING.md). Laufzeitdateien landen in

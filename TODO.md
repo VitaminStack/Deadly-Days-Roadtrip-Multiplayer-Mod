@@ -216,7 +216,7 @@ Ziel: Fakten für Gate G1 sammeln. Spike-Code ist Wegwerfcode und landet nicht i
 - [ ] P0 Inventar beim Client lösen: Teilfix für fehlende Unterobjekt-Replikation in `Inventory.cpp`, ohne Null-Schutzsprünge zweimal bis Tag 2 getestet; Inventare beider Spieler vollständig und replizierte Werte identisch. Weiterreise auf Tag 3 endet noch beim Host im Callback `0x57CC395`/`0x57CC398`, Zusammenhang ungeklärt; kein kompletter Run belegt. Siehe [Inventar-Untersuchung](docs/GAME_ANALYSIS.md#inventar-unterobjekte-untersuchung-inventar)
 - [ ] P0 Rundenende, Lager und Routenkarte beim Client abbilden: Host-Folge bis Routenkarte erneut geprüft; Client hat keine Route und erhält weder Rundengrund noch Endphasen-UI. Bestehende Funktionen sind keine RPCs, lokales Nachspielen und Panelpräsenz als Sync verworfen; Client-Diagnosebefehle jetzt gesperrt. Eigene rein anzeigende Phasenübertragung und Eingabesperre bleiben offen, siehe [Untersuchung](docs/GAME_ANALYSIS.md#rundenende-befund-und-offene-phasenübertragung-rundenende)
 - [ ] P0 Neue Remote-Controller nach jedem Kartenwechsel sauber in `SpawnedPlayers` eintragen, der Spike ersetzt den Eintrag nur direkt
-- [ ] P1 Client-Absturz beim Trennen klären (`0x5975A6A`), wenn der Host ins Hauptmenü geht
+- [x] P1 Client-Absturz beim Trennen klären (`0x5975A6A`), wenn der Host ins Hauptmenü geht: Folge fehlender Inventar-Items in `UInventoryComponent::EndPlay`. Mit Inventar-Teilfix kein Absturz, ohne ihn reproduziert, siehe [Trennen](docs/GAME_ANALYSIS.md#trennen-ins-hauptmenü-trennen)
 - [x] P1 Einmaligen Client-Absturz im Missions-Tick klären (`0x5A17ACC`, Lesen von `0x2C8`), trat bisher nur einmal auf: `MissionGameState` des Bewegungs-Restrictors war null, Absturz erst bei Bewegungseingabe, nachgestellt. Ursache des Null-Werts vermutlich ein später GameState, siehe [Restrictor](docs/GAME_ANALYSIS.md#client-absturz-im-restrictor-tick-absturz)
 - [ ] P1 Echte Niederlage nachvollziehen: Alle Spieler tot, Rundenende, Rückkehr in die `MetaBase`, dabei den Client mitnehmen
 - [x] P0 Coop-Ablauf nachvollziehen: Wie ruft das Spiel `SetCoopEnabled` und `SpawnLocalPlayer` auf, wie entsteht P2, und kommt der Code mit einem Controller ohne lokalen Spieler zurecht? P2 ist ein zweiter `ULocalPlayer` aus `SpawnLocalPlayer(1)`. Index-Abfragen fallen ohne `LocalPlayer` sauber zurück, 5 Stellen nicht, siehe [Coop-Ablauf](docs/GAME_ANALYSIS.md#coop-ablauf)
@@ -257,14 +257,14 @@ Entscheiden und in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#entscheidungen) f
 
 Ziel: Stabile Basis, auf der alle parallel arbeiten können. Ab hier sind die Arbeitsbereiche weitgehend unabhängig.
 
-- [ ] P0 `Loader`: Proxy-DLL lädt die Mod beim Spielstart. Isoliert getestet, im Spiel noch nicht
+- [x] P0 `Loader`: Proxy-DLL lädt die Mod beim Spielstart. Im Spiel mit Host und Client geprüft
 - [x] P0 `Core`: Logging in Datei, Config, Hook-Framework
 - [x] P0 `Core`: Dispatcher für Aufrufe auf dem Game Thread, `Drain` ruft erst `game-adapter` auf
 - [x] P0 `Core`: Versionsprüfung – bei unbekannter Build-ID Mod sauber deaktivieren statt abstürzen
 - [ ] P0 `Game`: Adapter-Schicht für die ersten Klassen
 - [ ] P1 `UI`: Einfaches Overlay mit Status, Lobby-Knöpfen und Debug-Anzeige
-- [ ] P1 `tools`: Deploy-Skript, das die Mod ins Spiel kopiert
-- [ ] P1 `tests`: Testprojekt und CI für Code ohne SDK-Abhängigkeit
+- [x] P1 `tools`: Deploy-Skript, das die Mod ins Spiel kopiert, `tools/Deploy-Mod.ps1`
+- [x] P1 `tests`: Testprojekt und CI für Code ohne SDK-Abhängigkeit
 
 ## Phase 3 – Session und Verbindung
 

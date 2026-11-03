@@ -50,6 +50,17 @@ Build ist geprüft; vor einem Hook müssen auch die geladenen Originalbytes pass
 | UObject-Standard `IsSupportedForNetworking` | `0x1512250`, Vtable `+0x200`; delegiert an `IsFullNameStableForNetworking` |
 | `CreateItemInstance`, `CreateSlotInstance` | `0x5959700`, `0x5959900`; nur im Diagnoseversuch gehookt, nicht im Teilfix |
 
+### Trennen
+
+Ablauf siehe [Trennen ins Hauptmenü](GAME_ANALYSIS.md#trennen-ins-hauptmenü-trennen).
+
+| Funktion | RVA | Hinweis |
+|---|---|---|
+| `AActor::EndPlay` | `0x25E3350` | Ruft `EndPlay` der gestarteten Komponenten (Vtable `+0x3F0`) |
+| `UInventoryComponent::EndPlay` | `0x595BBD0` | Vtable `0x94BA3F0` `+0x3F0`, Schleife über `MyItems` ab `0x595C01A` |
+| `UInventoryComponent::RemoveAllItemEffects` | `0x5971BB0` | Exec-Thunk `0x5717A90`, aufgerufen von `LoadMapByInformation` |
+| Zustandsobjekte eines Items durchgehen | `0x5975A40` | Ohne Null-Prüfung, Absturzstelle `0x5975A6A` liest `Item+0x340` |
+
 ### Kamera
 
 Ablauf siehe [Kamera und Sichtbereich](GAME_ANALYSIS.md#kamera-und-sichtbereich).
@@ -152,6 +163,7 @@ Funktionen von `ULocalCoopSubsystem` und ihre Aufrufer, Ablauf siehe [Coop-Ablau
 | `UActorComponent` | `bReplicateUsingRegisteredSubObjectList` | `0x98`, Bit 6 (`0x40`) |
 | `UBackpackSlot` | Vtable-RVA; Coordinates, Occupier, ComponentOwnerPrivate | `0x939CE08`; `0x28`, `0x30`, `0x38` |
 | `UInventoryItemInstance` | Vtable-RVA; ZeroPivotTile, Turns, ItemData | `0x94B46E8`; `0x28`, `0xD8`, `0xE0` |
+| `UInventoryItemInstance` | StateObjectLookup (`TMap`, Belegungsbits-Anzahl bei `+0x340`) | `0x318` |
 | `UInventoryItemInstance` | Broken, IsInBackpack, IsReward, IsTrash | `0x110`, `0x180`, `0x182`, `0x184` |
 | `APlayerState` | PlayerId (numerischer Replikationsschlüssel, keine Steam-ID) | `0x2AC` |
 | `AAllPlayerFramingCamera` | Camera, MaxMovementDistance, UseZoomOutAtEdge, ZoomOutDistance, CameraSpringArm, GameMode | `0x2A8`, `0x2F0`, `0x2F4`, `0x2F8`, `0x310`, `0x318` |

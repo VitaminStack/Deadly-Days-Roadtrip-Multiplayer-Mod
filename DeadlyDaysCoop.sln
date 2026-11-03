@@ -16,6 +16,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Loader", "src\Loader\Loader
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Mod", "src\Mod\Mod.vcxproj", "{6E1A5C10-2B7D-4E5C-9A11-0C1F3B7A1007}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CoreTests", "tests\CoreTests\CoreTests.vcxproj", "{6E1A5C10-2B7D-4E5C-9A11-0C1F3B7A1008}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -50,5 +52,9 @@ Global
 		{6E1A5C10-2B7D-4E5C-9A11-0C1F3B7A1007}.Debug|x64.Build.0 = Debug|x64
 		{6E1A5C10-2B7D-4E5C-9A11-0C1F3B7A1007}.Release|x64.ActiveCfg = Release|x64
 		{6E1A5C10-2B7D-4E5C-9A11-0C1F3B7A1007}.Release|x64.Build.0 = Release|x64
+		{6E1A5C10-2B7D-4E5C-9A11-0C1F3B7A1008}.Debug|x64.ActiveCfg = Debug|x64
+		{6E1A5C10-2B7D-4E5C-9A11-0C1F3B7A1008}.Debug|x64.Build.0 = Debug|x64
+		{6E1A5C10-2B7D-4E5C-9A11-0C1F3B7A1008}.Release|x64.ActiveCfg = Release|x64
+		{6E1A5C10-2B7D-4E5C-9A11-0C1F3B7A1008}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 EndGlobal
