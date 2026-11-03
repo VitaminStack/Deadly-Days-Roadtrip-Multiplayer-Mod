@@ -22,7 +22,7 @@ Für alle reicht die [Einrichtung](docs/SETUP.md), wenn nichts anderes dabeisteh
 
 **Spielzeit** sagt, wie sehr die Aufgabe laufende Testsitzungen braucht. Pro PC läuft nur eine Sitzung, Aufgaben mit „keine“ oder „wenig“ eignen sich also für parallele Arbeit.
 
-**Gruppe** fasst zusammen, was thematisch zusammengehört. Verschiedene Gruppen lassen sich gleichzeitig bearbeiten. Innerhalb einer Gruppe gilt: `niederlage` kommt nach `phasenadapter`, `remote-p2` nach `spawnedplayers-lauf`, weil beide `Players.cpp` ändern.
+**Gruppe** fasst zusammen, was thematisch zusammengehört. Verschiedene Gruppen lassen sich gleichzeitig bearbeiten. Innerhalb einer Gruppe gilt: `niederlage` kommt nach `phasenadapter`. `remote-p2` und `controller-tausch` nicht gleichzeitig, weil beide `Players.cpp` ändern.
 
 Die Pakete für die Zeit nach Phase 1 stehen unter [Spätere Arbeitspakete](#spätere-arbeitspakete), alles, was nicht parallel geht, unter [Zentrale Arbeit](#zentrale-arbeit).
 
@@ -30,7 +30,7 @@ Die Pakete für die Zeit nach Phase 1 stehen unter [Spätere Arbeitspakete](#sp�
 |---|---|---|---|---|---|
 | `tageswechsel` | Run | Jeden Tageswechsel beim Client tragfähig machen statt Abstürze Tag für Tag abzufangen: offenen Absturz an Tag 4 (`0x4B68195` über `0x59A4B90`) und die gemeinsame Ursache klären, dann alle 8 Tage bis zum Endboss und danach den Endlosmodus fahren, Inventar abschließen | Reverse Engineering, Spike | viel | Abschnitt „Echte Route bis Tag 4“ in [GAME_ANALYSIS](docs/GAME_ANALYSIS.md#inventar-unterobjekte-untersuchung-inventar), `tools/spike/inventory.py` |
 | `phasenadapter` | Run | Phasenadapter für Rundenende, Lager und Routenkarte im Spiel belegen: automatische Hostquellen, sichtbare Anzeige, vollständige Eingabesperre | Reverse Engineering, Spike | viel | `research/spikes/a-connect/RoundPhaseRuntime.md`, `Mission.cpp` |
-| `spawnedplayers-lauf` | Spieler | Registrierungshook für `SpawnedPlayers` auf der echten Route abnehmen, ohne Timer-Rückfall | Spike | mittel | Abschnitt „SpawnedPlayers“ in der [Spike-README](research/spikes/a-connect/README.md), `tools/spike/players.py` |
+| `controller-tausch` | Spieler | Den Weg finden, auf dem der Host nach einem Missionswechsel den Controller des Clients ersetzt, und dort `SpawnedPlayers` abgleichen, damit der Sekunden-Abgleich nichts mehr nachträgt | Reverse Engineering, Spike | mittel | Abschnitt „Abnahme auf der echten Route“ in der [Spike-README](research/spikes/a-connect/README.md#abnahme-auf-der-echten-route-spawnedplayers-lauf), `tools/spike/players.py` |
 | `remote-p2` | Spieler | Remote-Controller als P2 testen | Spike | mittel | [Coop-Ablauf](docs/GAME_ANALYSIS.md#coop-ablauf) |
 | `karte-client` | Welt | Beim Client `MapSeed` und `MapGenProfile` des Hosts setzen, Duplikate zählen und unterdrücken | Spike | mittel | [Karte und replizierte Kartenobjekte](docs/GAME_ANALYSIS.md#karte-und-replizierte-kartenobjekte) |
 | `pcg` | Welt | Bäume und Pflanzen aus PCG beim Client erzeugen | Reverse Engineering, Spike | mittel | [Client erzeugt die Host-Karte](docs/GAME_ANALYSIS.md#client-erzeugt-die-host-karte-karte-client) |
@@ -143,10 +143,9 @@ Das macht das Team selbst, dafür gibt es keine Reservierung.
 |---|---|
 | Gate G1: Weg A, Weg B oder Stopp | Alles außer `grundgeruest` und Welle 1 |
 | Gate G2: Testrunde abnehmen | Welle 4 |
-| Kamera entscheiden | `kamera-code` |
+| Gemeinsame Kamera entschieden (03.11.2026) | `kamera-code` |
 | Meta-Fortschritt: Wessen Stand zählt? | `run-ende` |
 | `WeeklyMode` unterstützen oder online sperren | – |
-| Pixelsplit informieren und Rückmeldung berücksichtigen | `release` |
 
 **Gemeinsame Dateien**
 
@@ -167,7 +166,7 @@ Die Reihenfolge ist die Arbeitsreihenfolge: Thema 1 entscheidet über den Weg, d
 | 2 | **Run-Ablauf** | Der Weg vom Menü in die Mission und zurück ist beschrieben, inklusive dessen, was beim Client laufen darf | Weitgehend geklärt, siehe [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf). Hinweg läuft mit Patches, der Client erreicht Tag 2, die Reise auf Tag 3 endet noch mit einem Host-Absturz. Offen: echte Niederlage und Rückkehr in die `MetaBase` |
 | 3 | **Karte** | Beide Seiten haben dieselbe Karte, ohne doppelte Objekte | Seed gefunden. Im echten Ablauf ist die Karte des Clients eine andere (17 statt 144 bis 167 `MapTile`). Bodenkacheln sind nicht repliziert und in der `MetaBase` je Seite verschieden, das bricht die Client-Bewegung ohne Fix |
 | 4 | **Remote-Spieler** | Ein Netzwerkspieler funktioniert in der Coop-Logik als P2 | Coop-Ablauf analysiert, der Test als P2 ist offen, siehe [Coop-Ablauf](docs/GAME_ANALYSIS.md#coop-ablauf) |
-| 5 | **Kamera und Sichtbereich** | Gemeinsame oder getrennte Kamera ist entschieden, und das Gegner-Spawning passt dazu | Analysiert, gemeinsame Kamera läuft beim Client mit Patch und ist die Empfehlung. Es fehlt nur die Entscheidung des Teams, siehe [Kamera](docs/GAME_ANALYSIS.md#kamera-und-sichtbereich) |
+| 5 | **Kamera und Sichtbereich** | Gemeinsame oder getrennte Kamera ist entschieden, und das Gegner-Spawning passt dazu | Gemeinsame Kamera für den ersten spielbaren Stand entschieden (03.11.2026). Ursprünglicher Zoom und Bewegungsbegrenzung bleiben erhalten; Umsetzung in der Mod noch offen (`kamera-code`), siehe [Kamera](docs/GAME_ANALYSIS.md#kamera-und-sichtbereich) |
 | 6 | **Spiellogik ohne Replikation** | Für XP, Währungen, Rewards, Pausen und UI ist je ein Sync-Weg festgelegt | Als Entwurf festgelegt, siehe [Sync-Bedarf](docs/SYNC_REQUIREMENTS.md). Nichts davon ist umgesetzt oder im Netz getestet |
 | 7 | **Technische Andockpunkte** | Proxy-DLL gewählt, Hook-Weg über `ProcessEvent` und Signaturen an einem Beispiel erprobt | Vollständiger VERSION-Proxy, drei Live-Signaturen und kleiner ProcessEvent-Hook auf Host und Client erprobt, siehe [Andockpunkte](docs/ARCHITECTURE.md#technische-andockpunkte-build-26187885) |
 
@@ -182,6 +181,7 @@ Rückt ein Punkt die Spielbarkeit doch in Gefahr, wandert er in die passende Pha
 - [ ] Blut- und Treffereffekte erscheinen nur beim Host
 - [ ] Tutorial-Hinweise laufen auf beiden Seiten getrennt
 - [ ] Host zeigt an Tag 2 ein anderes Figurenporträt
+- [ ] Optional getrennte Kameras je Spieler ermöglichen, erst nach dem ersten spielbaren Stand: Bewegungsbegrenzung anpassen, Host-/Client-Sichtbereiche für das Gegner-Spawning synchronisieren oder die Spawn-Logik ersetzen und Gegnerverteilung/Schwierigkeit prüfen. Keine Voraussetzung für den gemeinsamen Kameramodus, siehe [Kamera](docs/GAME_ANALYSIS.md#kamera-und-sichtbereich)
 
 ## Phase 0 – Projekt-Setup
 
@@ -213,13 +213,13 @@ Ziel: Fakten für Gate G1 sammeln. Spike-Code ist Wegwerfcode und landet nicht i
 - [x] P0 Run-Ablauf nachvollziehen: `TriggerStartRun`, `FinalizeRunStart`, Ladebildschirm und Wechsel zwischen den Etappen, siehe [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf)
 - [ ] P0 Inventar beim Client lösen, für jeden Tag und den Endlosmodus: Unterobjekt-Teilfix, dazu aus `tag3` Achievement-Timer, Kartengenerator-Lambda und Exp-Aggregation. Tag 3 zweimal über die echte Route erreicht, Inventare an Tag 1 bis 3 vollständig und gleich, an Tag 4 stürzt der Client noch ab. Fertig erst, wenn kein Fix an einen bestimmten Tag gebunden ist, ein Run alle 8 Tage samt Gebietswechsel und Endboss schafft und der Endlosmodus danach über mindestens zwei Gebietswechsel weiterläuft, an jedem Tag mit `complete` und `equal`. Folgeaufgabe `tageswechsel`, siehe [Untersuchung](docs/GAME_ANALYSIS.md#inventar-unterobjekte-untersuchung-inventar)
 - [ ] P0 Rundenende, Lager und Routenkarte beim Client abbilden: Snapshot-Codec, Empfänger und lokaler Laufzeitadapter in `Mission.cpp` (Heartbeat, Dateitransport, Timeout, Textanzeige, Win32-Nachrichtenfilter) ohne Spiel getestet, bis `!phase bind` inaktiv. Automatische Hostquellen für Rundenübersicht, Lager und Route, sichtbarer Lauf und vollständige Eingabesperre fehlen, Folgeaufgabe `phasenadapter`, siehe [Untersuchung](docs/GAME_ANALYSIS.md#rundenende-befund-und-offene-phasenübertragung-rundenende)
-- [ ] P0 Neue Remote-Controller nach jedem Kartenwechsel sauber in `SpawnedPlayers` eintragen: echte TSet-Einfügung und SparseArray-Entfernung statt Schlüsselersetzung, nach zwei Missionstravels konsistent, synthetische Mengentests bestanden. Anschluss an den nativen Registrierungsweg ist gebaut, aber noch nicht im Spiel belegt, Folgeaufgabe `spawnedplayers-lauf`, siehe [Spike](research/spikes/a-connect/README.md)
+- [ ] P0 Neue Remote-Controller nach jedem Kartenwechsel sauber in `SpawnedPlayers` eintragen: echte TSet-Einfügung und SparseArray-Entfernung statt Schlüsselersetzung, nach zwei Missionstravels konsistent, synthetische Mengentests bestanden. Der Registrierungshook ist auf der echten Route belegt, deckt aber den Austausch des Client-Controllers nach einem Missionswechsel nicht ab, dort trägt der Sekunden-Abgleich nach. Folgeaufgabe `controller-tausch`, siehe [Spike](research/spikes/a-connect/README.md#abnahme-auf-der-echten-route-spawnedplayers-lauf)
 - [x] P1 Client-Absturz beim Trennen klären (`0x5975A6A`), wenn der Host ins Hauptmenü geht: Folge fehlender Inventar-Items in `UInventoryComponent::EndPlay`. Mit Inventar-Teilfix kein Absturz, ohne ihn reproduziert, siehe [Trennen](docs/GAME_ANALYSIS.md#trennen-ins-hauptmenü-trennen)
 - [x] P1 Einmaligen Client-Absturz im Missions-Tick klären (`0x5A17ACC`, Lesen von `0x2C8`), trat bisher nur einmal auf: `MissionGameState` des Bewegungs-Restrictors war null, Absturz erst bei Bewegungseingabe, nachgestellt. Ursache des Null-Werts vermutlich ein später GameState, siehe [Restrictor](docs/GAME_ANALYSIS.md#client-absturz-im-restrictor-tick-absturz)
 - [ ] P1 Echte Niederlage nachvollziehen: Alle Spieler tot, Rundenende, Rückkehr in die `MetaBase`, dabei den Client mitnehmen
 - [x] P0 Coop-Ablauf nachvollziehen: Wie ruft das Spiel `SetCoopEnabled` und `SpawnLocalPlayer` auf, wie entsteht P2, und kommt der Code mit einem Controller ohne lokalen Spieler zurecht? P2 ist ein zweiter `ULocalPlayer` aus `SpawnLocalPlayer(1)`. Index-Abfragen fallen ohne `LocalPlayer` sauber zurück, 5 Stellen nicht, siehe [Coop-Ablauf](docs/GAME_ANALYSIS.md#coop-ablauf)
 - [ ] P0 Remote-Controller als P2 testen: `SetCoopEnabled(true)` beim Host, Eintrag in `ActivePlayers` ohne `CreateLocalPlayer`, Wirkung auf Coop-UI und Eingabe-Router prüfen, siehe [Folgerungen](docs/GAME_ANALYSIS.md#coop-ablauf)
-- [ ] P0 Kamera entscheiden: Was macht `AllPlayerFramingCamera`, und wie wirkt sich das Spawning an den Viewport-Rändern bei getrennten Kameras aus? Analyse und Optionen stehen in [Kamera und Sichtbereich](docs/GAME_ANALYSIS.md#kamera-und-sichtbereich), Empfehlung: gemeinsame Kamera. Offen ist nur noch die Entscheidung des Teams
+- [x] P0 Kamera entscheiden (03.11.2026): Gemeinsame Kamera (Option A) für den ersten spielbaren Stand festgelegt, mit ursprünglichem Zoom und Bewegungsbegrenzung. Analyse von `AllPlayerFramingCamera` und Viewport-Rand-Spawning in [Kamera und Sichtbereich](docs/GAME_ANALYSIS.md#kamera-und-sichtbereich). Umsetzung bleibt `kamera-code`; getrennte Kameras sind nur ein optionales Zukunfts-TODO
 - [x] P1 Technische Andockpunkte klären: `andockpunkte`: vollständiger VERSION-Exportproxy, drei eindeutige Live-Signaturen und kleiner ProcessEvent-Hook auf Host und Client bis in die Mission erprobt (ein Originalaufruf, unveränderte Rückgabe, Slot wiederhergestellt). Grenzen und Fehlversuche in [Architektur](docs/ARCHITECTURE.md#technische-andockpunkte-build-26187885); kein fertiges Loader-/Core-Framework.
 - [x] P0 Karten-Erzeugung verstehen: Wer startet den `MapGenerator`, und ergibt derselbe Seed dieselbe Karte? Start über `MapGenProfileInjectorAndBuildTrigger` auf beiden Seiten. Gleicher Run-Seed und gleiche Mission ergeben dieselbe Karte. Der Client hat keine Missionsdaten, deshalb `MapSeed=1` und eine gescheiterte Karte, siehe [Karte und Seed](docs/GAME_ANALYSIS.md#karte-und-seed)
 - [x] P0 Klären, wie Karte und replizierte Kartenobjekte beim Client ohne Duplikate entstehen. Replizierte Kartenobjekte sind Child Actors der nicht replizierten Parzellen. Empfehlung: Client erzeugt die Karte selbst und unterdrückt lokale Kopien replizierter Klassen, siehe [Karte und replizierte Kartenobjekte](docs/GAME_ANALYSIS.md#karte-und-replizierte-kartenobjekte)
@@ -230,7 +230,6 @@ Ziel: Fakten für Gate G1 sammeln. Spike-Code ist Wegwerfcode und landet nicht i
 - [x] P1 Pausen-Logik klären: `pausen`: Inventar im Pausemenue auf Host und Client geoeffnet/geschlossen, verschachtelte Sitzungen und gleichzeitige Pausen gemessen; Host-Weltpause repliziert, Client-Wunsch nicht. Kontrollierte XP-Aufnahme bis Level 2 ohne anhaltende Pause; XP/Level bleiben beim Client unveraendert. Benoetigter Host-/Session-Sync und Testgrenzen im [Pausen-Spike](research/spikes/pausen/README.md#nachtrag-03112026-isolierte-ablaeufe). Analyse, kein implementierter Sync.
 - [x] P1 Sync-Bedarf der nicht replizierten Komponenten festlegen: `LevelSystemComponent`, Wallets, `RerollCurrency`, `CoopInventoryCoordinatorComponent`. `sync-bedarf`: [Matrix und Kontrollvertrag](docs/SYNC_REQUIREMENTS.md) fuer alle Komponenten, XP, Waehrungen, Rewards, Pausen und UI festgelegt; Architekturentwurf, kein implementierter oder im Netz getesteter Sync. Offene Semantik-/Integrationsfragen sind dort benannt.
 - [x] P1 Blueprint-Logik auslesen: `blueprint-logik`: repraesentative Spawn-/Effekt-/Eventpfade durch Bytecode-Grenzaudit (42 Funktionen, 25 Eventgraph-Einspruenge) und Host-/Client-Traces geklaert. Kisten-Multicast zugestellt, Airdrop ohne Client-Actor, Projektilgroesse nicht automatisch nachgeliefert, Itemeffekt-Guards und lokale HUD-Ereignisse belegt. Benoetigten Client-Zustand und verbleibende Integrationspruefungen im [Nachtrag](research/spikes/blueprint-logik/README.md#nachtrag-03112026-grenzpruefung-und-ereignistests) festgehalten; kein Audit aller Blueprints und kein implementierter Sync.
-- [ ] P1 Pixelsplit über das öffentliche Projekt informieren: Ist offizieller Online-Coop geplant, und wie stehen sie zu der Mod?
 
 **Spikes**
 
@@ -283,7 +282,7 @@ Ziel: Ein spielbarer Ausschnitt von vorne bis hinten. Zwei Spieler starten eine 
 - [ ] P0 [Spike-Patches](research/spikes/a-connect/README.md#patches) als geprüfte Hooks nach `src/Game` übernehmen, ohne sie läuft keine Mission zu zweit
 - [ ] P0 Remote-Spieler als P2 in die Coop-Logik einbinden, obwohl er kein lokaler Spieler ist
 - [ ] P0 Gemeinsamer Missionsstart, gleiche Karte bei beiden
-- [ ] P0 Entschiedene Kamera umsetzen, auch beim Client
+- [ ] P0 Gemeinsame Kamera (Option A) umsetzen, auch beim Client (`kamera-code`): ursprünglichen Zoom und Bewegungsbegrenzung erhalten
 - [ ] P0 Bewegung, Dash und Blickrichtung
 - [ ] P0 Waffen, Projektile, Treffer, Schaden, Tod
 - [ ] P0 Ein Gegnertyp inklusive Spawn und Tod
@@ -316,7 +315,6 @@ Ziel: Ein kompletter Run ist zu zweit online spielbar.
 - [ ] P0 **Telemetrie, Bug-Reports und Crash-Reports im Mod-Betrieb abschalten**, damit Pixelsplit keine Mod-Fehler als Spielfehler bekommt
 - [ ] P0 Mod-Spielstände vom normalen Spielstand trennen, damit kein Save beschädigt wird
 - [ ] P1 Installer oder einfache Installationsanleitung
-- [ ] P1 Vor dem ersten fertigen Release die Rückmeldung von Pixelsplit berücksichtigen
 - [ ] P2 Mehr als 2 Spieler prüfen (Coop-Logik ist fest auf P1 und P2 ausgelegt, daher aufwendig)
 
 ## Risiken
@@ -329,4 +327,3 @@ Ziel: Ein kompletter Run ist zu zweit online spielbar.
 | Viele Gegner überlasten das Netzwerk | Laggy oder unspielbar | Spike D; Gegner gebündelt synchronisieren |
 | Karte entsteht lokal, Objekte darauf replizieren | Doppelte Objekte oder abweichende Karte beim Client | Spike C; Seed übertragen, Generator oder Replikation gezielt einschränken |
 | Spiel-Updates (seit 1.0 am 29.10.2026 aktiv gepatcht) | Hooks und SDK veralten | Versionsprüfung, Update-Regel, Adapter-Schicht |
-| Offizieller Online-Coop erscheint | Mod wird überflüssig | Bei Pixelsplit nachfragen, bevor viel Aufwand fließt |

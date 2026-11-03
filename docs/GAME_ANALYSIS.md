@@ -583,7 +583,9 @@ Stand: Disassembly und Laufzeit, Build `26187885`. Mission über das Spielmenü 
   Bei getrennten Kameras spawnen Gegner nur an den Rändern des Host-Bildes. Beim Client können sie dann mitten im Bild erscheinen, oder er bekommt in seiner Gegend gar keine.
 - **[Belegt]** Die Spawn-Schleife wählt den Zielspieler zufällig aus `SpawnedPlayers` (siehe [Gegner-Spawning](#gegner-spawning-und-pooling)). Die Gegnerzahl (`MaxSpawnedEnemies`) gilt für beide Spieler zusammen.
 
-**Optionen** (Entscheidung durch das Team)
+**Entscheidung vom 03.11.2026:** Auf ausdrückliche Vorgabe des Projektverantwortlichen gilt vorerst **Option A: gemeinsame Kamera** für den ersten spielbaren Stand. Ursprünglicher Zoom und Bewegungsbegrenzung bleiben erhalten. Das ist eine Designentscheidung, keine abgeschlossene Umsetzung in der Mod; diese bleibt die Aufgabe `kamera-code`. Getrennte Kameras (Option B) sind als optionales Zukunfts-TODO erfasst und keine Voraussetzung für diesen Stand.
+
+**Bewertete Optionen**
 
 | Option | Vorteile | Nachteile |
 |---|---|---|
