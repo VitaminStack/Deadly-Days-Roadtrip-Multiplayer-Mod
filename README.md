@@ -50,13 +50,13 @@ Gezählt sind die Punkte aus [TODO.md](TODO.md), ohne optionale Optimierungen.
 | Phase | Ziel | Erledigt | Fortschritt |
 |---|---|---|---|
 | [0](TODO.md#phase-0--projekt-setup) | Gleiche Toolchain für alle | 6 von 11 | ██████░░░░░ |
-| [1](TODO.md#phase-1--analyse-und-spikes) | Fakten für Gate G1 | 16 von 34 | █████░░░░░░ |
+| [1](TODO.md#phase-1--analyse-und-spikes) | Fakten für Gate G1 | 17 von 34 | ██████░░░░░ |
 | [2](TODO.md#phase-2--fundament) | Stabile Basis der Mod | 6 von 8 | ████████░░░ |
 | [3](TODO.md#phase-3--session-und-verbindung) | Verbinden über Steam | 0 von 6 | ░░░░░░░░░░░ |
-| [4](TODO.md#phase-4--vertical-slice) | Spielbarer Ausschnitt | 0 von 8 | ░░░░░░░░░░░ |
+| [4](TODO.md#phase-4--vertical-slice) | Spielbarer Ausschnitt | 0 von 9 | ░░░░░░░░░░░ |
 | [5](TODO.md#phase-5--vollständiger-run) | Kompletter Run zu zweit | 0 von 10 | ░░░░░░░░░░░ |
 | [6](TODO.md#phase-6--release) | Veröffentlichung | 0 von 6 | ░░░░░░░░░░░ |
-| **Gesamt** | | **28 von 83** | ████░░░░░░░ |
+| **Gesamt** | | **29 von 84** | ████░░░░░░░ |
 
 Unter `src/` stehen Loader, Core und leere Modul-Einstiege, noch ohne Spiellogik. Die Punkte sind unterschiedlich groß, die Zahlen sagen also wenig über die verbleibende Zeit. Stand, Engpässe und nächste Schritte stehen in der [Roadmap](docs/ROADMAP.md#stand-und-nächste-schritte).
 

@@ -71,6 +71,8 @@ Ablauf siehe [Kamera und Sichtbereich](GAME_ANALYSIS.md#kamera-und-sichtbereich)
 | Bildecken eines Controllers auf den Boden projizieren | `0x5B028D0` | `GetViewportSize` (`0x2E722B0`), `DeprojectScreenPositionToWorld` (`0x2A6CD50`) |
 | Spawnort des Gegner-Spawners | `0x58AA0F0` | Prüft `UseViewportEdgesForSpawningPositions` |
 | Spieler der Kamera aus `SpawnedPlayers` | `0x5A0DA90` | Spike-Patch beim Client |
+| `UInViewportMovementRestrictor::PreProcessMovementInput` | `0x5A17AB0` | Interface-Vtable `0x94C8678` Slot 2, Absturzstelle `0x5A17ACC`; Exec-Thunk `0x57525C0` |
+| `UInViewportMovementRestrictor::BeginPlay` | `0x5A03C20` | Vtable `0x94C8138` Slot 129, setzt `MissionGameState` aus `World->GameState` |
 
 ### Gegner
 
@@ -166,6 +168,7 @@ Funktionen von `ULocalCoopSubsystem` und ihre Aufrufer, Ablauf siehe [Coop-Ablau
 | `APlayerState` | PlayerId (numerischer Replikationsschlüssel, keine Steam-ID) | `0x2AC` |
 | `AAllPlayerFramingCamera` | Camera, MaxMovementDistance, UseZoomOutAtEdge, ZoomOutDistance, CameraSpringArm, GameMode | `0x2A8`, `0x2F0`, `0x2F4`, `0x2F8`, `0x310`, `0x318` |
 | `UInViewportMovementRestrictor` | SlowdownZone, FullStopZone (je 4 Floats L, R, D, U) | `0xD8`, `0xE8` |
+| `UInViewportMovementRestrictor` | Interface `IMovementPreProcessorInterface`, MovementInputPreprocessorSubsystem, MissionGameState | `0xC0`, `0x100`, `0x110` |
 | `USpringArmComponent`, `UCameraComponent` | TargetArmLength, FieldOfView | `0x250`, `0x250` |
 | `APlayerController` | PlayerCameraManager | `0x360` |
 | `APlayerCameraManager` | ViewTarget.Target, ViewTarget.POV.Location | `0x340`, `0x350` |
