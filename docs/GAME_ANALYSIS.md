@@ -13,11 +13,12 @@ Vertrauensgrad:
 |---|---|
 | Steam-AppID | `3026450` |
 | Steam-Build-ID | `26187885` |
+| Manifest-IDs | Depot `3026451`: `1832737755528485607`, Depot `3026452`: `7724756528743620812` |
 | Engine-Version | `5.8.1-56057345+++UE5+Release-5.8` |
 | Spiel-Exe | `DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe` (179 MB) |
 
-Die Build-ID steht in `steamapps/appmanifest_3026450.acf`. Bei einem Spiel-Update siehe
-[Update-Regel](../CONTRIBUTING.md#spiel-updates).
+Build-ID und Manifest-IDs stehen in `steamapps/appmanifest_3026450.acf`. Mit den Manifest-IDs lässt sich genau dieser Build über die
+Steam-Konsole neu laden. Bei einem Spiel-Update gilt die [Update-Regel](../CONTRIBUTING.md#spiel-updates): einfrieren und nur bei Bedarf nachziehen.
 
 ## SDK-Erzeugung unter UE 5.8
 
