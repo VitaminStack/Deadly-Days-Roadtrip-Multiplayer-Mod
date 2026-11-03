@@ -23,6 +23,8 @@ void InstallPatches()
     }
     if (PatchPlayers(Code) && PatchClient(Code) && PatchCamera(Code) && PatchInventory(Code) && PatchTravel(Code) && PatchWidgets(Code))
         Log("Patch: aktiv");
+    if (PatchMapGen(Code))
+        Log("Patch: Karte vom Host aktiv");
 }
 
 // Laeuft jede Sekunde auf dem Game Thread und ersetzt die Befehle !cam und !authmove nach jedem Kartenwechsel.
@@ -35,6 +37,7 @@ void TickSession()
     if (Read<uintptr_t>(Driver + kDriverServerConnection))
     {
         ReleaseDeferredWidgetEvents(World);
+        TickMapGen();
         ViewThroughSharedCamera();
         return;
     }

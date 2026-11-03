@@ -81,6 +81,10 @@ void ArmTravelRedirect();
 bool PatchWidgets(CodeWriter& Code);
 void ReleaseDeferredWidgetEvents(uintptr_t World);
 
+// MapGen.cpp
+bool PatchMapGen(CodeWriter& Code);
+void TickMapGen();
+
 // Mission.cpp
 void ForceEnemyWave();
 void FinishMission();
