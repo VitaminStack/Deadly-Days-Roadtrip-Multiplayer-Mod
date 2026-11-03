@@ -1,6 +1,7 @@
 // Wegwerf-Spike: Fuehrt Konsolenbefehle im Spiel aus (Shipping-Build hat keine Konsole).
 // Befehle kommen als Datei %TEMP%\ddspike\<pid>.cmd und laufen auf dem Game Thread.
 #include "Spike.h"
+#include "RoundPhaseAdapter.h"
 
 namespace Spike
 {
@@ -34,6 +35,7 @@ void InstallPatches()
 // Laeuft jede Sekunde auf dem Game Thread und ersetzt die Befehle !cam und !authmove nach jedem Kartenwechsel.
 void TickSession()
 {
+    TickRoundPhase(GameWindow);
     const uintptr_t World = Read<uintptr_t>(Base + kGWorld);
     const uintptr_t Driver = World ? Read<uintptr_t>(World + kWorldNetDriver) : 0;
     if (!Driver)
@@ -53,6 +55,8 @@ void TickSession()
 
 void RunPendingCommand()
 {
+    if (RoundPhaseCommand(Pending))
+        return;
     if (Pending == L"!arm")
         ArmTravelRedirect();
     else if (Pending == L"!cam")
@@ -89,6 +93,8 @@ LRESULT CALLBACK WndProc(HWND Window, UINT Message, WPARAM WParam, LPARAM LParam
         TickSession();
         return 0;
     }
+    if (RoundPhaseBlocksMessage(Window, Message, WParam, LParam))
+        return 0;
     return CallWindowProcW(OriginalWndProc, Window, Message, WParam, LParam);
 }
 
