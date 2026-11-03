@@ -22,4 +22,4 @@ labels: bug
 
 ## Logs
 
-<!-- Logs beider Spieler anhängen. Vorher persönliche Daten entfernen. -->
+<!-- DDSurvivors/Binaries/Win64/DDCoop/logs/ddcoop-<pid>.log beider Spieler anhängen. Vorher persönliche Daten entfernen. -->

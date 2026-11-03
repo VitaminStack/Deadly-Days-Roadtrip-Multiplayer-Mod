@@ -12,7 +12,7 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 
 **Was läuft.** Zwei Instanzen spielen im Spike dieselbe Mission, mit Bewegung und Schüssen beider Seiten. Der Client erreicht Tag 2. Die Analysen zu Coop, Karte, Gegnern, Kamera und Sync-Bedarf sind abgeschlossen. Unter `src/` steht das Grundgerüst aus Solution, `Loader`, `Core` und Modul-Einstiegen.
 
-**Was fehlt.** Es gibt keinen kompletten Run, keine CI und noch keinen Mod-Code mit Spielbezug. Der Loader lief noch nicht im Spiel. Der Sync-Entwurf ist weder umgesetzt noch im Netz getestet. Getestet wurde bisher nur über Loopback auf einem PC, nicht über echtes Internet.
+**Was fehlt.** Es gibt keinen kompletten Run und noch keinen Mod-Code mit Spielbezug. Der Sync-Entwurf ist weder umgesetzt noch im Netz getestet. Getestet wurde bisher nur über Loopback auf einem PC, nicht über echtes Internet.
 
 **Geprüft bei dieser Analyse.** Installiert ist weiterhin Build `26187885`. Seit dem letzten erfolgreichen Spike-Build änderte sich nur Dokumentation. Die Unit-Tests und alle relativen Links der Doku sind in Ordnung. Ein Spieltest gehörte nicht dazu.
 
@@ -140,11 +140,11 @@ flowchart TD
     G1{{"Gate G1"}}:::gate
 
     subgraph PH2["Phase 2: Fundament"]
-        L["Loader: Proxy-DLL"]:::wip
+        L["Loader: Proxy-DLL"]:::done
         C["Core: Logging, Hooks,<br/>Game Thread, Versionsprüfung"]:::done
         GA["Game: Adapter-Schicht"]:::open
         U["UI: Overlay"]:::open
-        W["Deploy-Skript, Tests, CI"]:::open
+        W["Deploy-Skript, Tests, CI"]:::done
         L --> C --> GA
         C --> U
     end
