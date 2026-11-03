@@ -1,5 +1,6 @@
-# Baut Dumper-7 im getesteten Stand fuer UE 5.8: upstream-Commit 2c1eae3 plus ue58-fieldclass.patch.
-# Der Quellcode kommt von GitHub nach research\local\dumper7, im Repo liegt nur der Patch (Dumper-7 hat keine Lizenz).
+# Baut Dumper-7 im getesteten Stand fuer UE 5.8 aus dem Submodul third_party\Dumper-7.
+# Das Submodul zeigt auf den Fork mit dem FFieldClass-Fix. Gebaut wird eine Kopie in research\local\dumper7,
+# damit die Einstellungen unten das Submodul nicht veraendern.
 param(
     # Wohin Dumper-7 das SDK schreibt. Standard ist der von Dumper-7.
     [string]$OutputDir = 'C:/Dumper-7'
@@ -8,20 +9,17 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '..\spike\Common.ps1')
 Initialize-SessionDir
 
-$Upstream = 'https://github.com/Encryqed/Dumper-7.git'
-$Commit = '2c1eae303f3d775f6f59aee6e95990d9ce2e1966'
+$Submodule = Join-Path $script:RepoRoot 'third_party\Dumper-7'
 $Source = Join-Path $script:RepoRoot 'research\local\dumper7'
-$Patch = Join-Path $PSScriptRoot 'ue58-fieldclass.patch'
 $OutputDir = $OutputDir.Replace('\', '/').TrimEnd('/')
 
-# Immer frisch aus dem festen Commit, damit alle denselben Stand bauen.
+# Holt das Submodul nach, wenn ohne --recurse-submodules geklont wurde oder in einem neuen Worktree.
+git -C $script:RepoRoot submodule update --init third_party/Dumper-7
+if ($LASTEXITCODE -ne 0) { throw 'Submodul third_party/Dumper-7 konnte nicht geladen werden.' }
+
+# Immer frisch aus dem Submodul, damit alle denselben Stand bauen.
 if (Test-Path $Source) { Remove-Item -Recurse -Force $Source }
-git -c core.autocrlf=false clone --quiet $Upstream $Source
-if ($LASTEXITCODE -ne 0) { throw 'Klonen von Dumper-7 fehlgeschlagen.' }
-git -C $Source -c advice.detachedHead=false checkout --quiet $Commit
-if ($LASTEXITCODE -ne 0) { throw "Commit $Commit nicht gefunden." }
-git -C $Source apply $Patch
-if ($LASTEXITCODE -ne 0) { throw 'Patch passt nicht auf den Commit.' }
+Copy-Item -Recurse (Join-Path $Submodule 'Dumper') (Join-Path $Source 'Dumper')
 
 # Ausgabeordner und automatisches Entladen nach dem Dump, sonst wartet Dumper-7 auf F6.
 $Settings = Join-Path $Source 'Dumper\Settings.h'

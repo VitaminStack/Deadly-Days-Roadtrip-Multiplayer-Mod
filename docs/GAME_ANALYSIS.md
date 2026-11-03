@@ -34,7 +34,8 @@ vollständiges SDK für Build `26187885` erzeugt (02.11.2026), die Dateien `Basi
   Offsets relativ zu `Id` und `CastFlags` berechnet und den UE-5.7-Pfad unverändert lässt. Mit ihr lief ein Dump im Host einer Mission
   (über das Menü gestartet) vollständig durch: 2.636 SDK-Dateien, `FFieldClass` wie oben, `UInViewportMovementRestrictor`,
   `UInventoryItemInstance` und `UInventoryComponent` gleich zum SDK vom 02.11. Der Host lief weiter. Diese Variante liegt als
-  `tools/dumper7/ue58-fieldclass.patch`, gebaut wird sie mit [`Build-Dumper7.ps1`](../tools/README.md#dumper7).
+  Commit `1aae006` im Fork `VitaminStack/Dumper-7` (Branch `ddcoop-ue58`), eingebunden als Submodul `third_party/Dumper-7`,
+  gebaut wird sie mit [`Build-Dumper7.ps1`](../tools/README.md#dumper7).
   Nicht geprüft: Kompilieren dieses SDK, andere Engine-Versionen.
 - **Upstream:** Der Fehler ist bei Dumper-7 als Issue #544 bekannt. Offen ist PR #576 mit einer Erkennung über Klassennamen. Er kompiliert
   laut Codestand nicht (Aufruf der entfernten `FixupFieldClassOffsets()` in `Offsets.cpp`) und ist nicht von uns getestet. Ein Kommentar dazu ist noch nicht gepostet.
