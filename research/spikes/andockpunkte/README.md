@@ -1,7 +1,9 @@
 # Spike: technische Andockpunkte
 
-Build `26187885`, Untersuchung am 02.11.2026. Kein Deployment und kein neuer
-Spieltest. Beispiele und Ausgabe bleiben ausserhalb der Spielinstallation.
+Build `26187885`, Untersuchung am 02.11.2026. Der End-to-End-Spieltest ist inzwischen
+erfolgt, siehe Nachtrag unten. Das Minimalbeispiel allein ist **nicht** der
+spielgeeignete Proxy. Ausgaben bleiben lokal; der temporaere Link in der
+Spielinstallation wurde nach dem Test entfernt.
 
 ## Reproduzieren
 
@@ -63,3 +65,69 @@ Aktuell wurde wegen der Vorgabe, nicht auf das Systemlaufwerk zu schreiben,
 kein Spiel gestartet: `-UserDir` und umgeleitetes `TEMP` reichen nicht als Nachweis,
 dass Betriebssystem-Crashberichte und Drittanbieter ebenfalls dort nichts ablegen.
 Die kleine Test-Exe ist keine fertig deploybare Mod-Loader-Loesung.
+
+## Nachtrag: vollstaendiger Exportproxy und End-to-End-Test
+
+Die zuvor genannten fehlenden **kleinen Andockpunkt-Tests** wurden nachgeholt.
+Der Abschnitt „Noch erforderlich“ beschreibt die Grenze der ersten Untersuchung,
+nicht mehr den Abschlussstand dieser Aufgabe.
+
+### Entscheidender Fehlversuch
+
+Der Proxy mit nur den drei direkt von der Exe importierten Funktionen bestand
+den isolierten Test, reichte aber fuer den Spielstart nicht: Beide gestarteten
+Instanzen beendeten sich mit Exit-Code 0 vor dem Spielfenster. Auch anderes
+Arbeitsverzeichnis und die separate Spielkopie loesten das nicht. Kein Absturz
+oder konkrete fehlende Funktion wurde daraus behauptet. Auch ein erst durch
+API-Aufrufe gestarteter Bootstrap ist nicht zuverlaessig: Die Exporte muessen
+nicht vor dem benoetigten Bootstrap-Zeitpunkt benutzt werden.
+
+`FullVersionProxy.*` bietet stattdessen alle 17 Exporte der untersuchten
+System-VERSION.dll, einschliesslich Namen/Ordinalen, an. MASM-Stubs erhalten die
+vier Integer- und XMM-Argumentregister sowie Stackparameter und springen nach
+Aufloesung in die Originalfunktion. Insbesondere wird fuer den undokumentierten
+ByHandle-Export **keine** C++-Signatur geraten. Das Original wird ueber den
+absoluten Systempfad geladen; der Resolver erhaelt den eingehenden LastError.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File research/spikes/andockpunkte/Test-FullProxy.ps1 -WithEntryProbe
+```
+
+Das Skript baut und prueft nur lokal. Es installiert nichts ins Spiel.
+Ein gesonderter, ausdruecklich genehmigter temporaerer Hardlink neben der
+installierten Spiel-Exe ermoeglichte den echten Ladeversuch. Der Dateiinhalte
+blieben im lokalen Buildordner. Vorhandene Dateien/Mods wurden nicht ersetzt.
+
+### Erfolgreicher Spieltest
+
+- Start ausschliesslich ueber `Start-Session.ps1`, mit Crash-Schutz und getrennten
+  UserDirs. Zwei Instanzen auf einem PC, Loopback, Mission `DDDynamic_Map`.
+- Die Testvariante startet im Attach nur einen Worker und wartet dort **nicht**
+  auf ihn. Engine-Zugriffe erfolgen erst spaeter ueber eine Fensternachricht.
+- **Host und Client:** Proxy-Bootstrap aktiv, alle drei Signaturen in den
+  ausfuehrbaren **geladenen** PE-Sektionen eindeutig und an den erwarteten RVAs.
+- **Host und Client:** Die Probe fuehrt `Actor.K2_GetActorLocation` vor dem Hook
+  und durch den temporaeren Character-ProcessEvent-Hook aus. Der Hook leitet
+  genau einmal an das vorherige Original weiter. Rueckgabewert unveraendert,
+  Slot danach wiederhergestellt. Protokoll je Seite:
+
+```text
+Live-Signatur ProcessEvent: hits=1 expected=yes
+Live-Signatur SetClientTravel: hits=1 expected=yes
+Live-Signatur SeamlessTravelToLevel: hits=1 expected=yes
+Probe: Fensterthread bestaetigt
+ProcessEvent probe: calls=1 same-result=yes restored=yes
+```
+
+Die Spielinstallation hatte zusaetzlich UE4SS mit einer vorhandenen Mod geladen.
+Das wurde weder deaktiviert noch als reine Stock-Umgebung ausgegeben. Bestaetigt
+ist die Kompatibilitaet **dieses kleinen Beispiels** mit dem vorgefundenen Aufbau,
+nicht mit beliebigen Mods. Der globale Widget-Hook des Verbindungs-Spikes bleibt
+in der Weiterleitungskette. Die kleine Probe ist kein generisches Hook-Framework:
+keine Parameterverzoegerung, kein Hot-Unload und kein allgemeiner Thread-Dispatcher.
+
+Damit sind Proxy-Kandidat, ProcessEvent-Weg und drei native Byte-Signaturen am
+kleinen Beispiel erprobt. Die spaetere produktive Loader-/Core-Implementierung,
+andere Windows-Exporttabellen, weitere Builds und ein voller Run bleiben eigene
+Aufgaben. Bei Exporttabellenabweichungen oder fremd geaenderten Einsprungbytes
+muss die Implementierung ablehnen statt die hier geprueften Werte zu uebernehmen.
