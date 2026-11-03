@@ -1,4 +1,12 @@
 # Tests
 
-Tests für Code ohne SDK-Abhängigkeit, vor allem `Net` (Serialisierung, Protokoll, Handshake). Solche Tests können auch in GitHub
-Actions laufen. Code, der das SDK braucht, lässt sich dort nicht bauen, weil das SDK nicht im Repo liegt.
+Tests für Code ohne SDK-Abhängigkeit. Sie laufen bei jedem Pull Request in GitHub Actions, ohne Spiel und ohne SDK. Code, der das SDK braucht, lässt sich dort nicht bauen, weil das SDK nicht im Repo liegt.
+
+| Was | Wo | Lokal starten |
+|---|---|---|
+| C++-Tests mit doctest | `tests/CoreTests` | `bin\Release\CoreTests.exe` nach dem Bauen der Solution |
+| Python-Tests | `tests/test_*.py` | `py -B -m unittest discover -s tests` |
+
+`test_module_boundaries.py` prüft die [Modulgrenzen](../docs/ARCHITECTURE.md#module) an den Includes. Ein neuer Ordner unter `src/` braucht dort einen Eintrag.
+
+Neue Module bekommen ein eigenes Testprojekt nach dem Muster von `CoreTests`, zuerst `Net` für Serialisierung, Protokoll und Handshake.

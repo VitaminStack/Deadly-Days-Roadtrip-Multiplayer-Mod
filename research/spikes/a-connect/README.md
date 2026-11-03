@@ -48,7 +48,7 @@ Je Thema eine Datei, damit parallele Arbeit nicht in dieselbe Datei läuft. Neue
 | Schießen | Schüsse des Clients sind beim Host sichtbar. Neben der Client-Figur sterben beim Host Gegner, die Host-Figur ist dort außer Reichweite |
 | Mission über das Spielmenü | Klappt mit Umleitung der Reise, beide in DDDynamic_Map, Gegner laufen von selbst. Karten verschieden: 144 bis 167 MapTile beim Host, 17 beim Client |
 | Missionsende, Routenkarte, Tag 2 | Mit Inventar-Teilfix zweimal erreicht; vollständige replizierte Inventare auf beiden Seiten. Weiterreise auf Tag 3 endet noch mit Host-Absturz, siehe unten |
-| Pausemenü ins Hauptmenü | Host klappt, Client stürzt beim Trennen bei `0x5975A6A` ab |
+| Pausemenü ins Hauptmenü | Mit Inventar-Teilfix klappt es für beide (ein Lauf). Ohne ihn stürzt der Client bei `0x5975A6A` ab, weil `UInventoryComponent::EndPlay` über Null-Items läuft, siehe [Trennen](../../../docs/GAME_ANALYSIS.md#trennen-ins-hauptmenü-trennen) |
 
 Beim Host laufen in der `MetaBase` rund 150 bis 300 `ActorChannel`, und es gibt keine `EngineReplicationBridge`-Instanz. Aktiv ist also die klassische Replikation, nicht Iris.
 
@@ -132,7 +132,7 @@ Diese Punkte gehören zu Thema 6, sie stoppen die Technik nicht:
 - Blut- und Treffereffekte sowie die XP-Leiste erscheinen nur beim Host.
 - Tutorial-Hinweise laufen auf beiden Seiten getrennt.
 - Die direkt geladene Mission startet keine Gegner von selbst. Über das Spielmenü gestartet tut sie das.
-- Der Client stürzte einmal im Missions-Tick bei `0x5A17ACC` ab (Lesen von `0x2C8`). Das trat nur einmal auf, die Ursache ist offen.
+- Der Client stürzte einmal bei `0x5A17ACC` ab (Lesen von `0x2C8`). Das war kein Tick: Der Bewegungs-Restrictor der Kamera hatte keinen `MissionGameState` und stürzt bei der ersten Bewegungseingabe ab. Mit dem Feld auf null nachgestellt, siehe [Restrictor](../../../docs/GAME_ANALYSIS.md#client-absturz-im-restrictor-tick-absturz).
 - An Tag 2 zeigt der Host ein anderes Figurenporträt mit violetter Leiste. Die Ursache ist offen.
 - Ob die Figuren automatisch feuern, ist unklar. Die Host-Figur schoss, ohne dass ihr Fenster Eingaben bekam.
 
