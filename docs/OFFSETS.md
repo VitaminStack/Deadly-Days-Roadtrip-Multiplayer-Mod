@@ -278,7 +278,30 @@ Panel-Öffnungspfade und nicht jedes Feld wurden durch gezielte Änderung bestä
 Nur SDK-Nachschlagewerte von Build `26187885`, hier nicht durch Mutation getestet.
 Fuer rohe XP-/Level-Interna ist kein neuer Offset bestimmt worden. Keine
 Speicherbereiche aus dem Padding als Protokollquelle behandeln.
-`inventar`-Testgrenze: Reise auf Tag 3 führte zweimal beim Host in den Callback `0x57CC390` (Fehler bei `0x57CC395`/`0x57CC398`, indirekter Aufruf `+0x490`; nächster Stack-Eintrag `0x315A764`). Objektklasse unbekannt, **keine** neue Patchstelle. Ein nachfolgender Client-Absturz lag bei `0x57D080C`.
+`inventar`-Testgrenze: Reise auf Tag 3 führte zweimal beim Host in den Callback `0x57CC390` (Fehler bei `0x57CC395`/`0x57CC398`, indirekter Aufruf `+0x490`; nächster Stack-Eintrag `0x315A764`). `tag3` ordnet ihn nun `HitByEnemyTypeAchievementDetectorComponent` zu. Ein nachfolgender Client-Absturz lag bei `0x57D080C`; im neuen direkten Traveltest bei `0x178BA90` (Lesen `0x8C`).
+
+Timer-Lebensdauerfix `tag3`, nur Build `26187885`:
+
+| Stelle | RVA / Layout | Befund |
+|---|---|---|
+| Detector-Vtable | `0x94C1758`, BeginPlay `+0x3E8`, EndPlay `+0x3F0` | BeginPlay `0x57CB220`, EndPlay `0x57D0A40` |
+| Next-Tick-Timer registrieren | CALL `0x57CB3C5` → `0x314D4D0` | `(TimerManager*, uint64* ResultHandle, TFunction*)`, roher Capture bei `TFunction+0x18` |
+| FindTimer | `0x31471C0` | `(TimerManager*, const uint64* Handle)`; vollständigen Handle vor Clear prüfen |
+| Timer intern löschen | `0x314D0B0` | `(TimerManager*, uint64 Handle)`; nativer K2_ClearTimerHandle-Pfad |
+
+Neuer Client-Folgefehler: Spawner-Initialisierung `0x58A58E0`, Aufruf `0x58A6060` → Aggregationsschleife `0x58B4160`, dort Aufruf `0x58B41A6` → Attribut-Getter `0x178BA90`. `Character+0x7D8` wird ohne Prüfung genutzt, Attribut `+0x80`, Getter-Lesefeld `+0xC`; fehlendes AttributeSet ergibt `0x8C`. Inzwischen behoben über den Einstieg `0x58B4160`, siehe unten.
+
+Route bis Tag 4, `tag3`, nur Build `26187885`:
+
+| Stelle | RVA / Layout | Befund |
+|---|---|---|
+| MapGen-Lambda | Vtable `0x9613280`, Execute `+0x0` = `0x59CAE70`, ExecuteIfSafe `+0x8` = `0x59CB020` | Capture: Generator `+0x18`, `&CurrentGenData` `+0x20`; Schritt `0x59D9090` |
+| Exp-Aggregation | `0x58B4160`, Figuren-Snapshot `0x5B07680`, Array freigeben `0x12F8400` | Ergebnis bei Handler `+0x314`; Aufrufer `0x58A6060` (BeginPlay), `0x58B0F6E` (Update) |
+| AbilitySystem-Suche | `0x4B68180` | liest `[rcx+0x1080]` ohne Prüfung |
+| Suche im Attribut-Tick | Call `0x59B7E17`, Ausgang `0x59B858A` | Client ohne PlayerState |
+| Suche nach `OnRep_DayNum` | Call `0x5847AE6`, Ausgang `0x5847AF2` | Tag 4, Client |
+| Kartengenerator-Schritt | Funktion `0x59DFC70`, Lesen `+0xC8` bei `0x59DFD5A`, Ausgang `0x59DFE07` | `+0xC8` nur beim Host |
+| Offener Aufrufer | Rücksprung `0x59A4B90` | dritter Aufrufer von `0x4B68180` mit leerem Besitzer, Tag 4 |
 
 ## Enums
 
