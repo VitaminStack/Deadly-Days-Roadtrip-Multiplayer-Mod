@@ -1,4 +1,4 @@
 [submodule "third_party/Dumper-7"]
 	path = third_party/Dumper-7
 	url = https://github.com/VitaminStack/Dumper-7.git
-	branch = ddcoop-ue58
+	branch = main

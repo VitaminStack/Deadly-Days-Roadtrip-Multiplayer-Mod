@@ -34,14 +34,13 @@ vollständiges SDK für Build `26187885` erzeugt (02.11.2026), die Dateien `Basi
 - **[Belegt] Gemeinsamer Stand (03.11.2026):** Upstream-`main` `2c1eae3` stürzt weiter ab. Getestet ist eine Variante des Fixes, die die
   Offsets relativ zu `Id` und `CastFlags` berechnet und den UE-5.7-Pfad unverändert lässt. Mit ihr lief ein Dump im Host einer Mission
   (über das Menü gestartet) vollständig durch: 2.636 SDK-Dateien, `FFieldClass` wie oben, `UInViewportMovementRestrictor`,
-  `UInventoryItemInstance` und `UInventoryComponent` gleich zum SDK vom 02.11. Der Host lief weiter. Diese Variante liegt als
-  Commit `1aae006` im Fork `VitaminStack/Dumper-7` (Branch `ddcoop-ue58`), eingebunden als Submodul `third_party/Dumper-7`,
-  gebaut wird sie mit [`Build-Dumper7.ps1`](../tools/README.md#dumper7).
+  `UInventoryItemInstance` und `UInventoryComponent` gleich zum SDK vom 02.11. Der Host lief weiter. Diese Variante ist Commit
+  `1aae006`. Sie liegt auf `main` des eigenen Forks [`VitaminStack/Dumper-7`](https://github.com/VitaminStack/Dumper-7) (Merge `2570b5b`,
+  Dateistand gleich `1aae006`), eingebunden als Submodul `third_party/Dumper-7`, gebaut wird sie mit [`Build-Dumper7.ps1`](../tools/README.md#dumper7).
   Nicht geprüft: Kompilieren dieses SDK, andere Engine-Versionen.
-- **Upstream:** Der Fehler ist bei Dumper-7 als Issue #544 bekannt. Offen ist PR #576 mit einer Erkennung über Klassennamen. Er kompiliert
-  laut Codestand nicht (Aufruf der entfernten `FixupFieldClassOffsets()` in `Offsets.cpp`) und ist nicht von uns getestet.
-  Unser Fix ist seit 03.11.2026 als [PR #594](https://github.com/Encryqed/Dumper-7/pull/594) eingereicht, ein Commit auf upstream `2c1eae3`.
-  Nach dem Merge soll das Submodul wieder auf upstream zeigen, siehe [TODO](../TODO.md).
+- **Upstream:** Der Fehler ist bei Dumper-7 als Issue #544 bekannt, offen ist dort PR #576 (nicht von uns getestet). Entschieden am
+  03.11.2026: Wir reichen nichts upstream ein, der Fork bleibt dauerhaft die Quelle für die Mod. Neue Upstream-Stände werden nur bei
+  Bedarf in den Fork übernommen und vor dem Umstellen des Submoduls mit einem Dump geprüft.
 - **Nacharbeit nach jedem Dump:** In `Assertions.inl` sind die Prüfungen für `UEngineReplicationBridge`,
   `URepositionableTransformGizmo` und `UPolyEditPreviewMesh` abzuschalten. Sie schlagen sonst beim Kompilieren fehl.
   Die Ursache ist nicht untersucht. Bei Nutzung von `UEngineReplicationBridge` deren Layout zuerst prüfen.
