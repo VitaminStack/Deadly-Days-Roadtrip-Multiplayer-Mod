@@ -93,14 +93,14 @@ flowchart LR
     end
 
     subgraph WELT["Karte und Kamera"]
-        KC["Seed und Profil beim Client,<br/>Duplikate unterdrücken<br/>(karte-client)"]:::open
+        KC["Seed und Profil beim Client,<br/>Duplikate unterdrücken<br/>(karte-client)"]:::done
         SC["Spike C: gleiche<br/>Mission auf beiden Seiten"]:::open
         KE["Kamera: Entscheidung<br/>des Teams"]:::decision
         KC --> SC
     end
 
     subgraph LOGIK["Spiellogik"]
-        PA["Pausen bei Level-up<br/>und Inventar<br/>(pausen)"]:::wip
+        PA["Pausen bei Level-up<br/>und Inventar analysiert<br/>(pausen)"]:::done
         BP["Blueprint-Logik:<br/>Kontrollfluss und Events<br/>(blueprint-logik)"]:::wip
     end
 
@@ -108,7 +108,7 @@ flowchart LR
         LA["Spike D: Last<br/>(last)"]:::open
         TU["Spike E: Steam-Tunnel<br/>(tunnel)"]:::open
         AP["Andockpunkte:<br/>Test im Spiel bestanden<br/>(andockpunkte)"]:::done
-        CR["Crash-Reporter<br/>zuverlässig aus<br/>(crash-reporter)"]:::open
+        CR["Crash-Reporter<br/>zuverlässig aus<br/>(crash-reporter)"]:::done
     end
 
     BASIS --> RUN

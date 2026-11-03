@@ -141,6 +141,15 @@ Reihenfolge und ersetzt keine Tests konkreter Events auf Host und Client.
 
 ## Pausen und blockierende UI (Untersuchung `pausen`)
 
+Nachgetestet am 03.11.2026: Host-Pause erreicht die Client-Welt, Client-Pause
+stoppt den Host dagegen nicht. Inventar im Pausemenue erzeugt eine blockierende
+Kind-Sitzung, keinen nachgewiesenen eigenen Zeitrequest. Host-Fortsetzen kann den
+Client-Weltzustand trotz noch offener Client-Sitzung freigeben. Deshalb braucht
+die Umsetzung eine host-autoritativ bestaetigte Menge von Gruenden je Session,
+nicht nur ein repliziertes Pause-Bit. XP-Aufnahme bis Level 2 erzeugte im
+getesteten Ablauf keine anhaltende Pause; Fortschritt separat synchronisieren.
+Siehe [Ablauftests](../research/spikes/pausen/README.md#nachtrag-03112026-isolierte-ablaeufe).
+
 SDK und begrenzte Laufzeitmessung zeigen zwei Ebenen: lokale Request-/UI-Sitzungen
 und replizierte Welt-Properties. In einer Tutorialpause fehlte beim Client der
 lokale Zeitrequest samt Coop-UI-Sitzung, die Welt war dort trotzdem pausiert.
