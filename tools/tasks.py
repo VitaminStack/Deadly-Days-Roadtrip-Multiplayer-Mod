@@ -156,10 +156,15 @@ def cmd_claim(kennung, name):
 def cmd_release(kennung):
     root = repo_root()
     pr = (pull_requests() or {}).get(kennung)
+    # Nur eine Reservierung aufgeben, nie einen fertigen PR: Das Loeschen des Branches wuerde ihn ebenfalls schliessen.
+    if pr and pr['state'] == 'OPEN' and not pr['isDraft']:
+        sys.exit(f"PR #{pr['number']} wartet auf Review und ist keine reine Reservierung. Nichts geaendert.")
     if pr and pr['state'] == 'OPEN':
         run('gh', 'pr', 'close', str(pr['number']), '--comment', 'Reservierung aufgegeben.')
-    git('push', '-q', 'origin', '--delete', f'task/{kennung}')
-    print(f'task/{kennung} auf origin geloescht.')
+    if git('push', '-q', 'origin', '--delete', f'task/{kennung}', check=False).returncode == 0:
+        print(f'task/{kennung} auf origin geloescht.')
+    else:
+        print(f'task/{kennung} war auf origin schon geloescht.')
     path = os.path.join(root, '.worktrees', kennung)
     if os.path.isdir(path):
         if git('-C', root, 'worktree', 'remove', path, check=False).returncode == 0:
