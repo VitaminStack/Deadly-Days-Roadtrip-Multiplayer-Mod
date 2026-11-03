@@ -223,6 +223,13 @@ In einem TSet ist ein freier Platz daran zu erkennen, dass der Wert hohe Bits ge
 
 ## Blueprint-Referenzinventar (`blueprint-logik`)
 
+Nachtrag 03.11.2026: Grenzpruefung fuer 42 Funktionen und 25 Eventgraph-Einspruenge
+sowie gezielte Runtime-Traces bestanden; keine neuen nativen RVAs. Zusaetzlich
+im Mission-SDK nachgeschlagen: `Projectile.BulletSize` bei `0x2FC` (nicht Net),
+`BP_Effect_Add_ImpactEffect_Template.ApplyToSelf` bei `0x48`. Der Effekt-Guard wurde
+am frisch erzeugten Testobjekt mit beiden Werten ausgefuehrt. Keine SDK-Dateien
+oder Script-Rohbytes gespeichert; [Testgrenzen](../research/spikes/blueprint-logik/README.md#nachtrag-03112026-grenzpruefung-und-ereignistests).
+
 Ergaenzung aus Mission-SDK/lesender Pruefung von Build `26187885`:
 
 | Klasse | Feld | Offset |

@@ -101,7 +101,7 @@ flowchart LR
 
     subgraph LOGIK["Spiellogik"]
         PA["Pausen bei Level-up<br/>und Inventar analysiert<br/>(pausen)"]:::done
-        BP["Blueprint-Logik:<br/>Kontrollfluss und Events<br/>(blueprint-logik)"]:::wip
+        BP["Blueprint-Logik:<br/>typische Pfade geprueft<br/>(blueprint-logik)"]:::done
     end
 
     subgraph TECHNIK["Technik"]
