@@ -21,6 +21,7 @@ constexpr uintptr_t kMovementFlags = 0x579;
 constexpr uintptr_t kControllerSetAdd = 0x57BD5E0;
 constexpr uintptr_t kControllerSparseRemove = 0x12D6BA0;
 constexpr uintptr_t kRegisterController = 0x58FB020;
+constexpr uintptr_t kControllerNetConnection = 0x520;
 bool ControllerSetFunctionsReady = false;
 using RegisterControllerFn = void(__fastcall*)(uintptr_t, uintptr_t);
 RegisterControllerFn OriginalRegisterController = nullptr;
@@ -220,6 +221,7 @@ void ReconcileSpawnedPlayers(uintptr_t World, const char* Trigger)
         return;
     }
     int Removed = 0, Added = 0;
+    std::string Detail; // Which side changed: remote controllers own a NetConnection.
     for (int32_t i = 0; i < Set.Num; ++i)
     {
         if (!Set.Allocated(i))
@@ -233,6 +235,7 @@ void ReconcileSpawnedPlayers(uintptr_t World, const char* Trigger)
                 Current = false;
         if (!Current)
         {
+            Detail += Set.Data[i].Controller ? " removed:alive" : " removed:null";
             if (!Set.Remove(i, reinterpret_cast<ControllerSet::RemoveSparseFn>(Base + kControllerSparseRemove)))
                 return;
             ++Removed;
@@ -244,12 +247,13 @@ void ReconcileSpawnedPlayers(uintptr_t World, const char* Trigger)
         {
             int32_t Index = -1;
             reinterpret_cast<AddFn>(Base + kControllerSetAdd)(&Set, &Index, &Controller, nullptr);
+            Detail += Read<uintptr_t>(Controller + kControllerNetConnection) ? " added:remote" : " added:local";
             ++Added;
         }
     if (Removed || Added || std::strcmp(Trigger, "registration") == 0)
         Log(std::string("SpawnedPlayers: source=") + Trigger + " removed=" + std::to_string(Removed) +
             " added=" + std::to_string(Added) + " roster=" + std::to_string(Controllers.size()) +
-            " valid=" + std::to_string(Set.Valid()));
+            " valid=" + std::to_string(Set.Valid()) + Detail);
 }
 }
 

@@ -153,6 +153,27 @@ Statische Grundlage: Vorliegende lokale Disassembly, Preferred Image Base `0x140
 Prüfen ohne Spiel/SDK: `powershell -File tests/Run-SpawnedPlayers.ps1`. Synthetische Fälle: freie Plätze mit Datenmüll, belegter Null-Schlüssel, Kollisionskette, Kopf-/Endentfernung, doppelte Schlüssel, ungültige Indizes, Zyklen und falsche Buckets. `py tools/spike/players.py <host-pid>` prüft zusätzlich tatsächliche Pointer-Hashes und genaue Übereinstimmung mit den aktuellen Controllern; Exitcode 0 nur bei konsistenter Menge und standardmäßig zwei Spielern (`--expected-players 1` für eine absichtliche Einzelspieler-/Trennungsmessung). Kein atomarer Laufzeit-Snapshot.
 
 **Offline-Abnahme des neuen Hooks:** `tests/Run-SpawnedPlayers.ps1` (C++ mit `/W4 /WX`, Mengentests und sieben Python-Audit-Tests) sowie `tools/spike/Build-Spike.ps1` erfolgreich. Diese Tests prüfen keine Engine-Callback-Ausführung.
+### Abnahme auf der echten Route (`spawnedplayers-lauf`)
+
+Stand 03.11.2026, Build `26187885`, ein PC über Loopback, nur `Start-Session.ps1` mit CrashGuard. Route über das Spielmenü mit `Start-Run.ps1 -Seed 20795` und `Travel-Day.ps1 -Stay`, Tutorials mit `!notutorial` aus. Zwei Läufe: MetaBase → Tag 1 → Tag 2, dann mit Diagnose MetaBase → Tag 1 → Trennen → erneuter Beitritt. Die Log-Zeile nennt jetzt, welche Seite sich geändert hat: `added:local` oder `added:remote` (der Controller hat eine `NetConnection`), `removed:alive` oder `removed:null`.
+
+| Schritt | Hostlog | `players.py` |
+|---|---|---|
+| Beitritt in der MetaBase | `source=registration ... roster=2 valid=1`, kein Timer | konsistent, 2 Controller |
+| MetaBase → Tag 1 | `registration ... added=1 ... added:local`, danach `source=timer removed=1 added=1 ... removed:alive added:remote` | konsistent, erst nach dem Timer |
+| Tag 1 → Tag 2 (erster Lauf, ohne Diagnose) | gleiches Muster wie Tag 1 | konsistent, erst nach dem Timer |
+| Trennen (`disconnect` beim Client) | keine Zeile, das Spiel entfernt den Eintrag selbst | konsistent mit `--expected-players 1` |
+| Erneuter Beitritt in der Mission | `source=registration ... roster=2 valid=1`, kein Timer | konsistent, 2 Controller |
+
+Kein Absturz, die Inventare waren nach jeder Ankunft vollständig und gleich.
+
+- **[Belegt]** Beitritt und erneuter Beitritt laufen vollständig über den Registrierungshook.
+- **[Belegt]** Nach jedem Missionswechsel bleibt eine Lücke: Die Registrierung läuft, solange der Client noch seinen alten Controller hat. Danach ersetzt der Host ihn durch einen neuen, ohne `0x58FB020` zu rufen. Bis zum nächsten Sekunden-Tick steht der alte, noch lebende Controller in der Menge und der neue fehlt. Der Sekunden-Abgleich ist also weiter nötig.
+- **[Vermutung]** Der Austausch ist `HandleSeamlessTravelPlayer` der Engine, wenn der Client die neue Welt geladen hat. Nicht geprüft.
+- **Nicht gemacht:** Mission → MetaBase, dort stürzt der Host bekannt bei `0x57CC398` ab. Der strenge Testbuild ohne `RepairSpawnedPlayers` ist nicht nötig, das Ergebnis zeigt das Log schon: Der neue Client-Controller käme nie in die Menge. Kein Broadcast-Zähler bei `0x58FB133`.
+
+Folgeaufgabe `controller-tausch`: den Austauschweg finden und dort abgleichen. Ob der alte Controller in dieser Sekunde etwas stört, etwa beim Gegner-Spawn oder bei der Kamera, ist nicht geprüft. Der Spawn-Schutz bei `0x58CEDC7` greift nur bei `null`-Einträgen.
+
 **Historische Laufzeit, vor dem neuen Registrierungshook:** Zwei Instanzen/Loopback, getrennte Test-Spielstände, CrashGuard. Mit diesem Branch nach MetaBase und zwei direkten Missionstravels jeweils zwei aktuelle Controller, konsistente Allokationsbits und Hash-Verkettung. Ein weiterer Wechsel in die MetaBase reproduzierte den bekannten Host-Callback-Absturz `0x57CC398`; die korrekte Menge allein behebt ihn nicht. Zusätzlicher Integrationstest mit dem Timer-Lebensdauerfix aus `tag3` in einer nur lokal zusammengesetzten DLL: Start in der Mission und zwei weitere Missionstravels verbunden, jeweils `hash_valid=true`, `roster_equal=true`, zwei belegte Plätze und identische vollständige Inventare beim letzten Vergleich. Beim nächsten Wechsel neuer Client-Absturz `0x178BA90`; Host bleibt aktiv. Nach der Trennung enthält die Menge korrekt nur noch den Host (ein belegter/ein freier Platz, gültiger Hash). Anschließend isolierten Branch erneut gebaut und Start in die Mission mit dem finalen GameMode-Klassenfilter geprüft; keine Menü-Layoutwarnungen mehr. Kein Nachweis für Remote-P2-/Coop-Subsystem-Integration, Internet oder vollständigen Run. Der Gegner-Spawn-Schutz während des Übergangs bleibt bestehen.
 
 ## Bekannte Abweichungen
@@ -203,7 +224,7 @@ Das Werkzeug liest nur Inventare der aktuellen `GameState.PlayerArray`, keine al
 
 **Begrenzter neuer Test:** Start nur über `Start-Session.ps1`/CrashGuard; MetaBase → Mission → Mission → MetaBase verbunden, Inventare nach dem zweiten Missionstravel vollständig und gleich. Timer-Cleanup wiederholt im Log nachgewiesen. Beim anschließenden Missionstravel überlebte der Host; ein anderer Client-Absturz `0x178BA90` (Lesen `0x8C`) beendet den Test. Direkte Reisen, **kein** Menü-/Tagesablauf und kein vollständiger Run. Zusätzlicher lokaler Integrationstest mit `spawnedplayers`, nicht Teil dieses Branch-Builds: Start in Mission plus zwei weitere Missionstravels verbunden und Inventare vollständig/gleich; beim nächsten Wechsel erneut Client `0x178BA90`, Host bleibt aktiv. Damit ist auch der Folgefehler reproduzierbar.
 
-**Echte Route, Übergabestand:** Der Host-Absturz bei der Reise auf Tag 3 kam von einem Kartengenerator-Lambda mit rohem Zeiger auf den alten Generator. `Inventory.cpp` lässt diesen Schritt aus, wenn der Generator nicht mehr zur aktuellen Welt gehört. `Client.cpp` wartet in der Exp-Aggregation auf fehlende AttributeSets (`0x178BA90`) und fängt zwei Client-Abstürze an Tag 4 ab. Zweimal Tag 3 über die echte Route erreicht, Inventare an Tag 1 bis 3 vollständig und gleich. Offen ist ein dritter Client-Absturz an Tag 4 (`0x4B68195` über `0x59A4B90`), Folgeaufgabe `tag4`. Einzelheiten in der [Analyse](../../../docs/GAME_ANALYSIS.md#echte-route-bis-tag-4-tag3-übergabestand).
+**Echte Route, Übergabestand:** Der Host-Absturz bei der Reise auf Tag 3 kam von einem Kartengenerator-Lambda mit rohem Zeiger auf den alten Generator. `Inventory.cpp` lässt diesen Schritt aus, wenn der Generator nicht mehr zur aktuellen Welt gehört. `Client.cpp` wartet in der Exp-Aggregation auf fehlende AttributeSets (`0x178BA90`) und fängt zwei Client-Abstürze an Tag 4 ab. Zweimal Tag 3 über die echte Route erreicht, Inventare an Tag 1 bis 3 vollständig und gleich. Offen ist ein dritter Client-Absturz an Tag 4 (`0x4B68195` über `0x59A4B90`), Folgeaufgabe `tageswechsel`. Einzelheiten in der [Analyse](../../../docs/GAME_ANALYSIS.md#echte-route-bis-tag-4-tag3-übergabestand).
 
 **Noch offen:** Client-Absturz an Tag 4 und alles danach, historischer Client-Folgefehler `0x57D080C`. Nicht getestet: Client-Inventarbedienung und RPCs, grössere/wechselnde Inventare, Belohnungen/Item-Effekte, Internet und Paketverlust. `obj gc` wurde historisch gesendet, die tatsächliche GC-Ausführung aber nicht nachgewiesen. Rohmessungen und Absturzberichte bleiben unter `research/local/`.
 
