@@ -125,6 +125,14 @@ Es zeigt tatsächliche Route-Längen/Indizes, Grund, Tag, Sekunden und Panelbeob
 
 ## Bekannte Abweichungen
 
+### Rundenphasen: Codec-/Empfängerkern (`rundenende`)
+
+`RoundPhase.h` ist eine noch **nicht an den Spielbetrieb angeschlossene** Teilumsetzung der rein anzeigenden Phasenübertragung. Er enthält weder Transport noch Host-Ereignishooks noch UI-/Eingabe-Engineaufrufe. `Presentation` hält Snapshot und Sperrentscheidung atomar auf Modellebene zusammen. Neue Weltbindungen warten zunächst gesperrt auf einen passenden Snapshot; alte Nachrichten und unbestätigte Generationswechsel werden abgelehnt. Disconnect löscht den eigenen Zustand.
+
+`powershell -File tests/Run-RoundPhase.ps1` baut und prüft den Kern ohne Spiel/SDK mit C++20 `/W4 /WX`. Testumfang und offene Integration stehen in der [Untersuchung](../../../docs/GAME_ANALYSIS.md#rundenende-befund-und-offene-phasenübertragung-rundenende). Die Schema-Version 1 gehört **nur zum Spike**, sie ersetzt weder das zentrale Produktionsprotokoll noch dessen Handshake/Authentisierung. `Session` muss pro neuer Verbindung frisch vergeben werden; die Bindung muss aus verifiziertem Transport-/Travel-Zustand stammen, nicht aus beliebigen Paketdaten.
+
+### Weitere Abweichungen
+
 Diese Punkte gehören zu Thema 6, sie stoppen die Technik nicht:
 
 - `MovementSpeed` und Beschleunigung weichen ab: Host 819 und 2866, Client 600 und 2048. Upgrades kommen beim Client also nicht an.
