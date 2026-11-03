@@ -43,7 +43,7 @@ Was im Einzelnen noch offen ist, zeigt die [Roadmap als Graph](docs/ROADMAP.md).
 
 ## Fortschritt
 
-Stand: 02.11.2026.
+Stand: 03.11.2026.
 
 Gezählt sind die Punkte aus [TODO.md](TODO.md), ohne optionale Optimierungen.
 
