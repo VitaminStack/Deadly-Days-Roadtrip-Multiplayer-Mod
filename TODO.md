@@ -22,15 +22,15 @@ Für alle reicht die [Einrichtung](docs/SETUP.md), wenn nichts anderes dabeisteh
 
 **Spielzeit** sagt, wie sehr die Aufgabe laufende Testsitzungen braucht. Pro PC läuft nur eine Sitzung, Aufgaben mit „keine“ oder „wenig“ eignen sich also für parallele Arbeit.
 
-**Gruppe** fasst zusammen, was thematisch zusammengehört. Verschiedene Gruppen lassen sich gleichzeitig bearbeiten. Innerhalb einer Gruppe gilt: `niederlage` kommt nach `rundenende`, `remote-p2` nach `spawnedplayers`, weil beide `Players.cpp` ändern.
+**Gruppe** fasst zusammen, was thematisch zusammengehört. Verschiedene Gruppen lassen sich gleichzeitig bearbeiten. Innerhalb einer Gruppe gilt: `niederlage` kommt nach `phasenadapter`, `remote-p2` nach `spawnedplayers-lauf`, weil beide `Players.cpp` ändern.
 
 Die Pakete für die Zeit nach Phase 1 stehen unter [Spätere Arbeitspakete](#spätere-arbeitspakete), alles, was nicht parallel geht, unter [Zentrale Arbeit](#zentrale-arbeit).
 
 | Kennung | Gruppe | Aufgabe | Art | Spielzeit | Einstieg |
 |---|---|---|---|---|---|
-| `tag3` | Run | Host-Absturz bei der Reise auf Tag 3 klären, danach Inventar beim Client abschließen | Reverse Engineering, Spike | viel | [Inventar](research/spikes/a-connect/README.md#inventar-ursache-teilfix-und-verbleibende-grenze), [Abstürze auswerten](docs/TESTING.md#abstürze-auswerten), `tools/spike/inventory.py` |
-| `rundenende` | Run | Rundenende, Lager und Routenkarte beim Client | Reverse Engineering, Spike | viel | [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf), `!finish`, `Mission.cpp` |
-| `spawnedplayers` | Spieler | Remote-Controller sauber in `SpawnedPlayers` eintragen | Spike | mittel | `tools/spike/players.py`, `Players.cpp` |
+| `tag4` | Run | Client-Absturz an Tag 4 beheben (`0x4B68195` über `0x59A4B90`), dann den Run bis zum Ende fahren und das Inventar abschließen | Reverse Engineering, Spike | viel | Abschnitt „Echte Route bis Tag 4“ in [GAME_ANALYSIS](docs/GAME_ANALYSIS.md#inventar-unterobjekte-untersuchung-inventar), `tools/spike/inventory.py` |
+| `phasenadapter` | Run | Phasenadapter für Rundenende, Lager und Routenkarte im Spiel belegen: automatische Hostquellen, sichtbare Anzeige, vollständige Eingabesperre | Reverse Engineering, Spike | viel | `research/spikes/a-connect/RoundPhaseRuntime.md`, `Mission.cpp` |
+| `spawnedplayers-lauf` | Spieler | Registrierungshook für `SpawnedPlayers` auf der echten Route abnehmen, ohne Timer-Rückfall | Spike | mittel | Abschnitt „SpawnedPlayers“ in der [Spike-README](research/spikes/a-connect/README.md), `tools/spike/players.py` |
 | `remote-p2` | Spieler | Remote-Controller als P2 testen | Spike | mittel | [Coop-Ablauf](docs/GAME_ANALYSIS.md#coop-ablauf) |
 | `karte-client` | Welt | Beim Client `MapSeed` und `MapGenProfile` des Hosts setzen, Duplikate zählen und unterdrücken | Spike | mittel | [Karte und replizierte Kartenobjekte](docs/GAME_ANALYSIS.md#karte-und-replizierte-kartenobjekte) |
 | `pcg` | Welt | Bäume und Pflanzen aus PCG beim Client erzeugen | Reverse Engineering, Spike | mittel | [Client erzeugt die Host-Karte](docs/GAME_ANALYSIS.md#client-erzeugt-die-host-karte-karte-client) |
@@ -42,7 +42,7 @@ Die Pakete für die Zeit nach Phase 1 stehen unter [Spätere Arbeitspakete](#sp�
 | `pausen` | Logik | Pausen bei Level-up und Inventar nachweisen | Spike | mittel | [Pausen-Spike](research/spikes/pausen/README.md) |
 | `blueprint-logik` | Logik | Kontrollfluss und Events der Blueprints klären | Reverse Engineering | mittel | [Stichprobe](research/spikes/blueprint-logik/README.md) |
 | `trennen` | Run | Client-Absturz beim Trennen klären (`0x5975A6A`) | Reverse Engineering, Spike | mittel | [Abstürze auswerten](docs/TESTING.md#abstürze-auswerten) |
-| `niederlage` | Run | Echte Niederlage und Rückkehr in die `MetaBase`, erst nach `rundenende` | Spike | viel | [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf) |
+| `niederlage` | Run | Echte Niederlage und Rückkehr in die `MetaBase`, erst nach `phasenadapter` | Spike | viel | [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf) |
 | `tick-absturz` | Technik | Einmaligen Client-Absturz im Missions-Tick klären (`0x5A17ACC`) | Reverse Engineering | viel | [Bekannte Abweichungen](research/spikes/a-connect/README.md#bekannte-abweichungen) |
 | `boss-dump` | Technik | SDK in einem Bosskampf dumpen | Reverse Engineering | mittel | [SDK-Erzeugung](docs/GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58) |
 
@@ -214,9 +214,9 @@ Ziel: Fakten für Gate G1 sammeln. Spike-Code ist Wegwerfcode und landet nicht i
 - [x] P0 `bReplicates` der Blueprint-Actors prüfen: 218 von 482 Blueprint-Actor-Klassen replizieren, vor allem über ihre native Basisklasse
 - [x] P1 Klären, ob zur Laufzeit Iris oder die klassische Replikation aktiv ist: klassisch mit `ActorChannel`
 - [x] P0 Run-Ablauf nachvollziehen: `TriggerStartRun`, `FinalizeRunStart`, Ladebildschirm und Wechsel zwischen den Etappen, siehe [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf)
-- [ ] P0 Inventar beim Client lösen: Unterobjekt-Teilfix zweimal bis Tag 2 mit identischen Inventaren geprüft. `tag3`: Callback `0x57CC395`/`0x57CC398` als roher Next-Tick-Timer des Achievement-Detektors identifiziert, Cleanup bei EndPlay umgesetzt und in direkten Kartenwechseln geprüft. Neuer Client-Absturz `0x178BA90` offen; Tag 3 über echte Route und kompletter Run weiterhin nicht belegt. Siehe [Untersuchung](docs/GAME_ANALYSIS.md#tag-3-callback-lebensdauer-des-achievement-detektors-tag3).
-- [ ] P0 Rundenende, Lager und Routenkarte beim Client abbilden: Host-Folge bis Routenkarte erneut geprüft; Client hat keine Route und erhält weder Rundengrund noch Endphasen-UI. Bestehende Funktionen sind keine RPCs, lokales Nachspielen und Panelpräsenz als Sync verworfen; Client-Diagnosebefehle jetzt gesperrt. Eigene rein anzeigende Phasenübertragung und Eingabesperre bleiben offen, siehe [Untersuchung](docs/GAME_ANALYSIS.md#rundenende-befund-und-offene-phasenübertragung-rundenende)
-- [ ] P0 Neue Remote-Controller nach jedem Kartenwechsel sauber in `SpawnedPlayers` eintragen, der Spike ersetzt den Eintrag nur direkt
+- [ ] P0 Inventar beim Client lösen: Unterobjekt-Teilfix zweimal bis Tag 2 mit identischen Inventaren geprüft. `tag3` sicherte den Achievement-Timer, ein Kartengenerator-Lambda mit Zeiger auf die alte Karte und die Exp-Aggregation ab. Tag 3 zweimal über die echte Route erreicht, Inventare an Tag 1 bis 3 vollständig und gleich. Der Client stürzt an Tag 4 noch ab, Folgeaufgabe `tag4`. Kein kompletter Run, siehe [Untersuchung](docs/GAME_ANALYSIS.md#inventar-unterobjekte-untersuchung-inventar)
+- [ ] P0 Rundenende, Lager und Routenkarte beim Client abbilden: Snapshot-Codec, Empfänger und lokaler Laufzeitadapter in `Mission.cpp` (Heartbeat, Dateitransport, Timeout, Textanzeige, Win32-Nachrichtenfilter) ohne Spiel getestet, bis `!phase bind` inaktiv. Automatische Hostquellen für Rundenübersicht, Lager und Route, sichtbarer Lauf und vollständige Eingabesperre fehlen, Folgeaufgabe `phasenadapter`, siehe [Untersuchung](docs/GAME_ANALYSIS.md#rundenende-befund-und-offene-phasenübertragung-rundenende)
+- [ ] P0 Neue Remote-Controller nach jedem Kartenwechsel sauber in `SpawnedPlayers` eintragen: echte TSet-Einfügung und SparseArray-Entfernung statt Schlüsselersetzung, nach zwei Missionstravels konsistent, synthetische Mengentests bestanden. Anschluss an den nativen Registrierungsweg ist gebaut, aber noch nicht im Spiel belegt, Folgeaufgabe `spawnedplayers-lauf`, siehe [Spike](research/spikes/a-connect/README.md)
 - [x] P1 Client-Absturz beim Trennen klären (`0x5975A6A`), wenn der Host ins Hauptmenü geht: Folge fehlender Inventar-Items in `UInventoryComponent::EndPlay`. Mit Inventar-Teilfix kein Absturz, ohne ihn reproduziert, siehe [Trennen](docs/GAME_ANALYSIS.md#trennen-ins-hauptmenü-trennen)
 - [x] P1 Einmaligen Client-Absturz im Missions-Tick klären (`0x5A17ACC`, Lesen von `0x2C8`), trat bisher nur einmal auf: `MissionGameState` des Bewegungs-Restrictors war null, Absturz erst bei Bewegungseingabe, nachgestellt. Ursache des Null-Werts vermutlich ein später GameState, siehe [Restrictor](docs/GAME_ANALYSIS.md#client-absturz-im-restrictor-tick-absturz)
 - [ ] P1 Echte Niederlage nachvollziehen: Alle Spieler tot, Rundenende, Rückkehr in die `MetaBase`, dabei den Client mitnehmen
