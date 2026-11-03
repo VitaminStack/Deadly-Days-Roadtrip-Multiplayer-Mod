@@ -143,7 +143,7 @@ Das macht das Team selbst, dafür gibt es keine Reservierung.
 |---|---|
 | Gate G1: Weg A, Weg B oder Stopp | Alles außer `grundgeruest` und Welle 1 |
 | Gate G2: Testrunde abnehmen | Welle 4 |
-| Kamera entscheiden | `kamera-code` |
+| Gemeinsame Kamera entschieden (03.11.2026) | `kamera-code` |
 | Meta-Fortschritt: Wessen Stand zählt? | `run-ende` |
 | `WeeklyMode` unterstützen oder online sperren | – |
 | Pixelsplit informieren und Rückmeldung berücksichtigen | `release` |
@@ -167,7 +167,7 @@ Die Reihenfolge ist die Arbeitsreihenfolge: Thema 1 entscheidet über den Weg, d
 | 2 | **Run-Ablauf** | Der Weg vom Menü in die Mission und zurück ist beschrieben, inklusive dessen, was beim Client laufen darf | Weitgehend geklärt, siehe [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf). Hinweg läuft mit Patches, der Client erreicht Tag 2, die Reise auf Tag 3 endet noch mit einem Host-Absturz. Offen: echte Niederlage und Rückkehr in die `MetaBase` |
 | 3 | **Karte** | Beide Seiten haben dieselbe Karte, ohne doppelte Objekte | Seed gefunden. Im echten Ablauf ist die Karte des Clients eine andere (17 statt 144 bis 167 `MapTile`). Bodenkacheln sind nicht repliziert und in der `MetaBase` je Seite verschieden, das bricht die Client-Bewegung ohne Fix |
 | 4 | **Remote-Spieler** | Ein Netzwerkspieler funktioniert in der Coop-Logik als P2 | Coop-Ablauf analysiert, der Test als P2 ist offen, siehe [Coop-Ablauf](docs/GAME_ANALYSIS.md#coop-ablauf) |
-| 5 | **Kamera und Sichtbereich** | Gemeinsame oder getrennte Kamera ist entschieden, und das Gegner-Spawning passt dazu | Analysiert, gemeinsame Kamera läuft beim Client mit Patch und ist die Empfehlung. Es fehlt nur die Entscheidung des Teams, siehe [Kamera](docs/GAME_ANALYSIS.md#kamera-und-sichtbereich) |
+| 5 | **Kamera und Sichtbereich** | Gemeinsame oder getrennte Kamera ist entschieden, und das Gegner-Spawning passt dazu | Gemeinsame Kamera für den ersten spielbaren Stand entschieden (03.11.2026). Ursprünglicher Zoom und Bewegungsbegrenzung bleiben erhalten; Umsetzung in der Mod noch offen (`kamera-code`), siehe [Kamera](docs/GAME_ANALYSIS.md#kamera-und-sichtbereich) |
 | 6 | **Spiellogik ohne Replikation** | Für XP, Währungen, Rewards, Pausen und UI ist je ein Sync-Weg festgelegt | Als Entwurf festgelegt, siehe [Sync-Bedarf](docs/SYNC_REQUIREMENTS.md). Nichts davon ist umgesetzt oder im Netz getestet |
 | 7 | **Technische Andockpunkte** | Proxy-DLL gewählt, Hook-Weg über `ProcessEvent` und Signaturen an einem Beispiel erprobt | Vollständiger VERSION-Proxy, drei Live-Signaturen und kleiner ProcessEvent-Hook auf Host und Client erprobt, siehe [Andockpunkte](docs/ARCHITECTURE.md#technische-andockpunkte-build-26187885) |
 
@@ -182,6 +182,7 @@ Rückt ein Punkt die Spielbarkeit doch in Gefahr, wandert er in die passende Pha
 - [ ] Blut- und Treffereffekte erscheinen nur beim Host
 - [ ] Tutorial-Hinweise laufen auf beiden Seiten getrennt
 - [ ] Host zeigt an Tag 2 ein anderes Figurenporträt
+- [ ] Optional getrennte Kameras je Spieler ermöglichen, erst nach dem ersten spielbaren Stand: Bewegungsbegrenzung anpassen, Host-/Client-Sichtbereiche für das Gegner-Spawning synchronisieren oder die Spawn-Logik ersetzen und Gegnerverteilung/Schwierigkeit prüfen. Keine Voraussetzung für den gemeinsamen Kameramodus, siehe [Kamera](docs/GAME_ANALYSIS.md#kamera-und-sichtbereich)
 
 ## Phase 0 – Projekt-Setup
 
@@ -219,7 +220,7 @@ Ziel: Fakten für Gate G1 sammeln. Spike-Code ist Wegwerfcode und landet nicht i
 - [ ] P1 Echte Niederlage nachvollziehen: Alle Spieler tot, Rundenende, Rückkehr in die `MetaBase`, dabei den Client mitnehmen
 - [x] P0 Coop-Ablauf nachvollziehen: Wie ruft das Spiel `SetCoopEnabled` und `SpawnLocalPlayer` auf, wie entsteht P2, und kommt der Code mit einem Controller ohne lokalen Spieler zurecht? P2 ist ein zweiter `ULocalPlayer` aus `SpawnLocalPlayer(1)`. Index-Abfragen fallen ohne `LocalPlayer` sauber zurück, 5 Stellen nicht, siehe [Coop-Ablauf](docs/GAME_ANALYSIS.md#coop-ablauf)
 - [ ] P0 Remote-Controller als P2 testen: `SetCoopEnabled(true)` beim Host, Eintrag in `ActivePlayers` ohne `CreateLocalPlayer`, Wirkung auf Coop-UI und Eingabe-Router prüfen, siehe [Folgerungen](docs/GAME_ANALYSIS.md#coop-ablauf)
-- [ ] P0 Kamera entscheiden: Was macht `AllPlayerFramingCamera`, und wie wirkt sich das Spawning an den Viewport-Rändern bei getrennten Kameras aus? Analyse und Optionen stehen in [Kamera und Sichtbereich](docs/GAME_ANALYSIS.md#kamera-und-sichtbereich), Empfehlung: gemeinsame Kamera. Offen ist nur noch die Entscheidung des Teams
+- [x] P0 Kamera entscheiden (03.11.2026): Gemeinsame Kamera (Option A) für den ersten spielbaren Stand festgelegt, mit ursprünglichem Zoom und Bewegungsbegrenzung. Analyse von `AllPlayerFramingCamera` und Viewport-Rand-Spawning in [Kamera und Sichtbereich](docs/GAME_ANALYSIS.md#kamera-und-sichtbereich). Umsetzung bleibt `kamera-code`; getrennte Kameras sind nur ein optionales Zukunfts-TODO
 - [x] P1 Technische Andockpunkte klären: `andockpunkte`: vollständiger VERSION-Exportproxy, drei eindeutige Live-Signaturen und kleiner ProcessEvent-Hook auf Host und Client bis in die Mission erprobt (ein Originalaufruf, unveränderte Rückgabe, Slot wiederhergestellt). Grenzen und Fehlversuche in [Architektur](docs/ARCHITECTURE.md#technische-andockpunkte-build-26187885); kein fertiges Loader-/Core-Framework.
 - [x] P0 Karten-Erzeugung verstehen: Wer startet den `MapGenerator`, und ergibt derselbe Seed dieselbe Karte? Start über `MapGenProfileInjectorAndBuildTrigger` auf beiden Seiten. Gleicher Run-Seed und gleiche Mission ergeben dieselbe Karte. Der Client hat keine Missionsdaten, deshalb `MapSeed=1` und eine gescheiterte Karte, siehe [Karte und Seed](docs/GAME_ANALYSIS.md#karte-und-seed)
 - [x] P0 Klären, wie Karte und replizierte Kartenobjekte beim Client ohne Duplikate entstehen. Replizierte Kartenobjekte sind Child Actors der nicht replizierten Parzellen. Empfehlung: Client erzeugt die Karte selbst und unterdrückt lokale Kopien replizierter Klassen, siehe [Karte und replizierte Kartenobjekte](docs/GAME_ANALYSIS.md#karte-und-replizierte-kartenobjekte)
@@ -283,7 +284,7 @@ Ziel: Ein spielbarer Ausschnitt von vorne bis hinten. Zwei Spieler starten eine 
 - [ ] P0 [Spike-Patches](research/spikes/a-connect/README.md#patches) als geprüfte Hooks nach `src/Game` übernehmen, ohne sie läuft keine Mission zu zweit
 - [ ] P0 Remote-Spieler als P2 in die Coop-Logik einbinden, obwohl er kein lokaler Spieler ist
 - [ ] P0 Gemeinsamer Missionsstart, gleiche Karte bei beiden
-- [ ] P0 Entschiedene Kamera umsetzen, auch beim Client
+- [ ] P0 Gemeinsame Kamera (Option A) umsetzen, auch beim Client (`kamera-code`): ursprünglichen Zoom und Bewegungsbegrenzung erhalten
 - [ ] P0 Bewegung, Dash und Blickrichtung
 - [ ] P0 Waffen, Projektile, Treffer, Schaden, Tod
 - [ ] P0 Ein Gegnertyp inklusive Spawn und Tod
