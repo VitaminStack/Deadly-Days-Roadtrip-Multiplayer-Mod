@@ -174,6 +174,24 @@ Kein Absturz, die Inventare waren nach jeder Ankunft vollständig und gleich.
 
 Folgeaufgabe `controller-tausch`: den Austauschweg finden und dort abgleichen. Ob der alte Controller in dieser Sekunde etwas stört, etwa beim Gegner-Spawn oder bei der Kamera, ist nicht geprüft. Der Spawn-Schutz bei `0x58CEDC7` greift nur bei `null`-Einträgen.
 
+### Controller-Tausch nach dem Missionswechsel (`controller-tausch`)
+
+Stand 04.11.2026, Build `26187885`. Der Host ersetzt nach einem Missionswechsel die Controller, wenn ein Spieler die neue Welt geladen hat. Die Log-Texte der Engine dazu fehlen im Shipping-Build. Am Ende des Tauschs ruft die Engine aber das Blueprint-Ereignis `K2_OnSwapPlayerControllers(OldPC, NewPC)` am GameMode auf, und das läuft immer über `ProcessEvent`.
+
+`Players.cpp` tauscht deshalb `ProcessEvent` in der vtable von `Default__DDMissionGameMode`, die Blueprint-Unterklassen teilen sie. Nach dem Original entfernt der Spike `OldPC` aus `SpawnedPlayers` und fügt `NewPC` mit dem nativen Add-Helfer ein, sofern er noch fehlt. Einen vollen Abgleich über die `PlayerArray` macht er hier nicht, sie kann in diesem Moment noch unvollständig sein. Log: `SpawnedPlayers: source=swap ...`.
+
+Test: ein PC über Loopback, `Start-Session.ps1` mit CrashGuard, Route über das Spielmenü mit Seed `20795`, MetaBase → Tag 1 → Tag 2.
+
+| Wechsel | Hostlog | `players.py` |
+|---|---|---|
+| MetaBase → Tag 1 | `swap ... added:local`, zweimal `registration ... roster=2`, `swap removed=1 added=1 ... added:remote` | konsistent |
+| Tag 1 → Tag 2 | gleiches Muster | konsistent |
+
+- **[Belegt]** Im ganzen Lauf gab es keine Zeile `source=timer`. Der Sekunden-Abgleich bleibt als Rückfallebene im Code, hatte aber nichts mehr zu tun. Kein Absturz, die Inventare waren nach jeder Ankunft vollständig und gleich.
+- **[Belegt]** Auch der Host-Controller wird nach dem Missionswechsel getauscht, sein Tausch kommt vor der Registrierung.
+- **[Vermutung]** Ein Delegate-Broadcast des Spiels geht dabei nicht verloren: Schon vorher kamen beide neuen Controller nicht über den nativen Registrierungsweg in die Menge, sondern über den Spike. Gezählt ist das nicht.
+- Nicht geprüft: Mission → MetaBase, dort stürzt der Host bekannt bei `0x57CC398` ab. Trennen und erneuter Beitritt sind unverändert, siehe oben.
+
 **Historische Laufzeit, vor dem neuen Registrierungshook:** Zwei Instanzen/Loopback, getrennte Test-Spielstände, CrashGuard. Mit diesem Branch nach MetaBase und zwei direkten Missionstravels jeweils zwei aktuelle Controller, konsistente Allokationsbits und Hash-Verkettung. Ein weiterer Wechsel in die MetaBase reproduzierte den bekannten Host-Callback-Absturz `0x57CC398`; die korrekte Menge allein behebt ihn nicht. Zusätzlicher Integrationstest mit dem Timer-Lebensdauerfix aus `tag3` in einer nur lokal zusammengesetzten DLL: Start in der Mission und zwei weitere Missionstravels verbunden, jeweils `hash_valid=true`, `roster_equal=true`, zwei belegte Plätze und identische vollständige Inventare beim letzten Vergleich. Beim nächsten Wechsel neuer Client-Absturz `0x178BA90`; Host bleibt aktiv. Nach der Trennung enthält die Menge korrekt nur noch den Host (ein belegter/ein freier Platz, gültiger Hash). Anschließend isolierten Branch erneut gebaut und Start in die Mission mit dem finalen GameMode-Klassenfilter geprüft; keine Menü-Layoutwarnungen mehr. Kein Nachweis für Remote-P2-/Coop-Subsystem-Integration, Internet oder vollständigen Run. Der Gegner-Spawn-Schutz während des Übergangs bleibt bestehen.
 
 ## Bekannte Abweichungen
