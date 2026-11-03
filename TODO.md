@@ -166,7 +166,7 @@ Die Reihenfolge ist die Arbeitsreihenfolge: Thema 1 entscheidet über den Weg, d
 
 | # | Thema | Geklärt, wenn | Stand |
 |---|---|---|---|
-| 1 | **Netzwerkcode** | Zwei Instanzen sind in derselben Welt, Bewegung und Schießen funktionieren, Iris oder klassisch steht fest | Technisch geklärt: klassische Replikation, zwei Spieler in derselben Mission, Bewegung beidseitig, Schüsse des Clients wirken beim Host (indirekt belegt). Nur mit Patches, siehe [Ergebnis](research/spikes/a-connect/README.md) |
+| 1 | **Netzwerkcode** | Zwei Instanzen sind in derselben Welt, Bewegung und Schießen funktionieren, Iris oder klassisch steht fest | Technisch geklärt: klassische Replikation, zwei Spieler in derselben Mission, Bewegung beidseitig, Schüsse des Clients wirken beim Host (direkt belegt). Nur mit Patches, siehe [Ergebnis](research/spikes/a-connect/README.md) |
 | 2 | **Run-Ablauf** | Der Weg vom Menü in die Mission und zurück ist beschrieben, inklusive dessen, was beim Client laufen darf | Weitgehend geklärt, siehe [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf). Hinweg läuft mit Patches, der Client erreicht Tag 2, die Reise auf Tag 3 endet noch mit einem Host-Absturz. Offen: echte Niederlage und Rückkehr in die `MetaBase` |
 | 3 | **Karte** | Beide Seiten haben dieselbe Karte, ohne doppelte Objekte | Seed gefunden. Im echten Ablauf ist die Karte des Clients eine andere (17 statt 144 bis 167 `MapTile`). Bodenkacheln sind nicht repliziert und in der `MetaBase` je Seite verschieden, das bricht die Client-Bewegung ohne Fix |
 | 4 | **Remote-Spieler** | Ein Netzwerkspieler funktioniert in der Coop-Logik als P2 | Coop-Ablauf analysiert, der Test als P2 ist offen, siehe [Coop-Ablauf](docs/GAME_ANALYSIS.md#coop-ablauf) |
@@ -239,7 +239,7 @@ Ziel: Fakten für Gate G1 sammeln. Spike-Code ist Wegwerfcode und landet nicht i
 
 - [x] P0 **Spike A – Verbindung:** Beide kommen in dieselbe Welt, auch auf einem PC, siehe [Ergebnis](research/spikes/a-connect/README.md)
 - [x] P0 **Spike B – Spieler:** Client stabil in der Mission, Bewegung beidseitig, Client-Schüsse wirken beim Host, siehe [Ergebnis](research/spikes/a-connect/README.md)
-- [ ] P0 Treffer des Clients direkt belegen, etwa über die Lebenspunkte eines Gegners, bisher nur aus Sterbeort und Reichweite geschlossen
+- [x] P0 Treffer des Clients direkt belegen, etwa über die Lebenspunkte eines Gegners, bisher nur aus Sterbeort und Reichweite geschlossen. `Hits.cpp` liest beim Host jede Treffermeldung: Projektile des Clients ziehen Leben ab und töten, 50 Treffer und 25 Kills in rund 2 Minuten, siehe [Treffer des Clients](docs/GAME_ANALYSIS.md#treffer-des-clients-treffer)
 - [x] P1 Mission über den echten Weg durch das Spielmenü mit den Patches starten, siehe [Ergebnis](research/spikes/a-connect/README.md)
 - [x] P0 Crash-Reporter im Mod- und Testbetrieb zuverlässig abschalten, bisher hilft nur ein Skript. Testabstürze dürfen nicht bei Pixelsplit landen. Mod und Spike lassen den Start von `CrashReportClient.exe` scheitern, mit echten Abstürzen geprüft; `CrashGuard` bleibt erste Schicht für die Zeit vor dem Laden, siehe [Crash-Reporter](research/spikes/a-connect/README.md#sperre-in-mod-und-spike-crash-reporter)
 - [ ] P1 **Spike C – Mission:** Lädt eine prozedurale Mission beim Client identisch? Direkt geladen: 17 `MapTile` je Seite und gleiches Bild am Start, kein Vergleich der ganzen Karte
