@@ -11,7 +11,7 @@ der Client erreicht Tag 2, die Reise auf Tag 3 endet noch mit einem Host-Absturz
 flowchart TD
     subgraph A["Klären, ob es geht"]
         direction LR
-        P0["Setup"]:::wip --> P1["Analyse und Spikes"]:::wip --> G1{{"Gate G1"}}:::gate
+        P0["Setup"]:::done --> P1["Analyse und Spikes"]:::wip --> G1{{"Gate G1"}}:::gate
     end
 
     subgraph B["Spielbar machen"]
@@ -26,6 +26,7 @@ flowchart TD
 
     A --> B --> C
 
+    classDef done fill:#2e7d32,stroke:#1b5e20,color:#ffffff
     classDef wip fill:#f9a825,stroke:#b27a00,color:#1a1a1a
     classDef open fill:#eceff1,stroke:#607d8b,color:#1a1a1a
     classDef gate fill:#6a1b9a,stroke:#3e1163,color:#ffffff
@@ -49,14 +50,14 @@ Gezählt sind die Punkte aus [TODO.md](TODO.md), ohne optionale Optimierungen.
 
 | Phase | Ziel | Erledigt | Fortschritt |
 |---|---|---|---|
-| [0](TODO.md#phase-0--projekt-setup) | Gleiche Toolchain für alle | 9 von 11 | █████████░░ |
+| [0](TODO.md#phase-0--projekt-setup) | Gleiche Toolchain für alle | 11 von 11 | ███████████ |
 | [1](TODO.md#phase-1--analyse-und-spikes) | Fakten für Gate G1 | 26 von 35 | ████████░░░ |
 | [2](TODO.md#phase-2--fundament) | Stabile Basis der Mod | 6 von 8 | ████████░░░ |
 | [3](TODO.md#phase-3--session-und-verbindung) | Verbinden über Steam | 0 von 6 | ░░░░░░░░░░░ |
 | [4](TODO.md#phase-4--vertical-slice) | Spielbarer Ausschnitt | 0 von 9 | ░░░░░░░░░░░ |
 | [5](TODO.md#phase-5--vollständiger-run) | Kompletter Run zu zweit | 0 von 10 | ░░░░░░░░░░░ |
 | [6](TODO.md#phase-6--release) | Veröffentlichung | 0 von 6 | ░░░░░░░░░░░ |
-| **Gesamt** | | **41 von 85** | █████░░░░░░ |
+| **Gesamt** | | **43 von 85** | █████░░░░░░ |
 
 Unter `src/` stehen Loader, Core und leere Modul-Einstiege, noch ohne Spiellogik. Die Punkte sind unterschiedlich groß, die Zahlen sagen also wenig über die verbleibende Zeit. Stand, Engpässe und nächste Schritte stehen in der [Roadmap](docs/ROADMAP.md#stand-und-nächste-schritte).
 

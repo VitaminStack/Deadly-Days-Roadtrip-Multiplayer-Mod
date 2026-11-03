@@ -21,8 +21,8 @@ try { $Props = Find-LocalProps } catch { $Props = $null }
 Report 'config\Local.props' ([bool]$Props) 'config\Local.props.example nach config\Local.props kopieren'
 if ($Props) {
     $Values = ([xml](Get-Content $Props -Raw)).Project.PropertyGroup
-    $GameOk = [bool]$Values.GameDir -and (Test-Path (Join-Path $Values.GameDir 'DDSurvivors\Binaries\Win64\DDSurvivors-Win64-Shipping.exe'))
-    Report 'GameDir' $GameOk 'GameDir in config\Local.props auf den Installationsordner des Spiels setzen'
+    try { $GameOk = Test-Path (Get-GameExe) } catch { $GameOk = $false }
+    Report 'Aktiver Spielordner' $GameOk 'GameDir bzw. PinnedGameDir in config\Local.props pruefen (kein automatischer Rueckfall)'
     if ($GameOk) {
         try { Assert-SupportedBuild; $BuildOk = $true; $BuildHint = '' } catch { $BuildOk = $false; $BuildHint = $_.Exception.Message }
         Report "Spiel-Build $script:SupportedBuild" $BuildOk $BuildHint

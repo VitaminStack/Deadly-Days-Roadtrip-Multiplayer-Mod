@@ -21,6 +21,7 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 - `tag3`, 03.11.2026: Der Host-Absturz bei der Reise auf Tag 3 kam von einem Kartengenerator-Lambda mit rohem Zeiger auf die alte Karte. Mit diesem Fix, dem Timer-Cleanup des Achievement-Detektors und der Exp-Aggregation kam der Run zweimal über die echte Route auf Tag 3, mit gleichen Inventaren. Der Client stürzt an Tag 4 noch ab, Folgeaufgabe `tag4`.
 - `spawnedplayers`, 03.11.2026: Hash-/SparseArray-korrekte Bereinigung und native TSet-Einfügung umgesetzt, synthetische Tests und begrenzte Traveltests bestanden. Den Registrierungshook auf der echten Route abzunehmen ist Folgeaufgabe `spawnedplayers-lauf`.
 - `spawnedplayers-lauf`, 03.11.2026: Der Hook greift bei Beitritt, erneutem Beitritt und Missionswechsel. Nach jedem Missionswechsel ersetzt der Host aber den Controller des Clients ohne Registrierung, bis zu einer Sekunde lang steht dann ein alter Controller in der Menge. Folgeaufgabe `controller-tausch`.
+- `build-id`, 03.11.2026: Geprüfte Entwicklungskopie außerhalb von Steam, keine Links zur automatisch aktualisierten Installation. Host/Client samt Mod aus Build `26187885` verbunden getestet. [Einrichtung](SETUP.md#gleiche-build-id-im-team), neue Build-Unterstützung bleibt eine eigene Aufgabe.
 - `rundenende` zeigt: Das Spiel überträgt die Endphase nicht, und nachspielen lässt sie sich beim Client nicht. Nötig ist eine eigene Host-Nachricht, also ein Kontrollkanal, den es auch im Spike noch nicht gibt.
 - `rundenende`, 03.11.2026: Codec, Empfänger und lokaler Laufzeitadapter ohne Spiel getestet. Automatische Hostquellen, sichtbarer Lauf und vollständige Eingabesperre fehlen, Folgeaufgabe `phasenadapter`.
 - In `TODO.md` fehlten fünf Aufgaben, die jetzt eingetragen sind: Kontrollkanal, Übernahme der Spike-Patches, Umsetzung der Kamera, Pausen über den Kontrollkanal und der einmalige Absturz im Missions-Tick.
@@ -35,7 +36,6 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 **Wartet auf das Team.**
 
 - Kamera entscheiden
-- Klären, ob alle auf derselben Build-ID bleiben können. Die [Update-Regel](../CONTRIBUTING.md#spiel-updates) steht: einfrieren und nur bei Bedarf nachziehen
 - Pixelsplit über das Projekt informieren
 
 ## Gesamtweg
@@ -44,7 +44,7 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 flowchart TD
     subgraph A["Klären, ob es geht"]
         direction LR
-        P0["Phase 0<br/>Setup"]:::wip --> P1["Phase 1<br/>Analyse und Spikes"]:::wip --> G1{{"Gate G1<br/>Technikentscheidung"}}:::gate
+        P0["Phase 0<br/>Setup"]:::done --> P1["Phase 1<br/>Analyse und Spikes"]:::wip --> G1{{"Gate G1<br/>Technikentscheidung"}}:::gate
     end
 
     subgraph B["Spielbar machen"]
@@ -59,6 +59,7 @@ flowchart TD
 
     A --> B --> C
 
+    classDef done fill:#2e7d32,stroke:#1b5e20,color:#ffffff
     classDef wip fill:#f9a825,stroke:#b27a00,color:#1a1a1a
     classDef open fill:#eceff1,stroke:#607d8b,color:#1a1a1a
     classDef gate fill:#6a1b9a,stroke:#3e1163,color:#ffffff

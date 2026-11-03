@@ -59,7 +59,14 @@ $Client = Start-Instance 'client' 820
 Write-SessionLock $GameHost.Id $Client.Id | Set-Content $script:LockFile -Encoding ascii
 
 Start-Sleep -Seconds $MenuDelaySeconds
-foreach ($Instance in $GameHost, $Client) { & py (Join-Path $PSScriptRoot 'inject.py') $Instance.Id $Dll }
+foreach ($Instance in $GameHost, $Client) {
+    # Falls Steam einen Neustart in seiner Installation erzwingt, dort niemals den Spike injizieren.
+    $Running = Get-Process -Id $Instance.Id -ErrorAction Stop
+    if (-not $Running.Path -or $Running.Path -ne $Exe) {
+        throw 'Unerwarteter Spielpfad. Kein Spike geladen; eigene Sitzung mit Stop-Session.ps1 beenden.'
+    }
+    & py (Join-Path $PSScriptRoot 'inject.py') $Instance.Id $Dll
+}
 Start-Sleep -Seconds 3
 Send-SpikeCommand $GameHost.Id 'open /Game/Maps/MainMenu?listen'
 Start-Sleep -Seconds 12
