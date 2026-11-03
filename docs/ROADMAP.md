@@ -88,7 +88,7 @@ flowchart LR
     subgraph SPIELER["Remote-Spieler"]
         SP["Remote-Controller in<br/>SpawnedPlayers<br/>(spawnedplayers)"]:::open
         RP["Remote-Controller als P2<br/>(remote-p2)"]:::open
-        TF["Treffer des Clients<br/>direkt belegen<br/>(treffer)"]:::open
+        TF["Treffer des Clients<br/>direkt belegen<br/>(treffer)"]:::done
         SP --> RP
     end
 

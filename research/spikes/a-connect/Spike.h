@@ -95,6 +95,9 @@ void TickMapGen();
 bool PatchPcg(CodeWriter& Code);
 void TickPcg();
 
+// Hits.cpp
+void TickHits();
+
 // Mission.cpp
 void ForceEnemyWave();
 void FinishMission();
