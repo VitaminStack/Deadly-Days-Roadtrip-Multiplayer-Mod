@@ -1,74 +1,58 @@
-// Client: Die Inventar-Schleifen lesen nach dem Seamless Travel null-Eintraege. Reicht nicht, siehe README.
+// Inventar-Unterobjekte ueber den vorhandenen klassischen Replikationspfad senden.
+// Build 26187885. Keine Schutzspruenge mehr in den Inventar-Schleifen.
 #include "Spike.h"
 
 namespace Spike
 {
 namespace
 {
-constexpr uintptr_t kItemsLoopRead = 0x5963604;
-constexpr uintptr_t kItemsLoopNext = 0x596365F;
-constexpr uintptr_t kGridLoopRead = 0x5A7E060;
-constexpr uintptr_t kGridLoopNext = 0x5A7E091;
-constexpr uintptr_t kSlotLoopRead = 0x5965660;
-constexpr uintptr_t kSlotLoopNext = 0x596572C;
+constexpr uintptr_t kInventoryVtable = 0x94BA3F0;
+constexpr uintptr_t kSlotVtable = 0x939CE08;
+constexpr uintptr_t kItemVtable = 0x94B46E8;
+constexpr uintptr_t kSupportedForNetworking = 0x200;
+constexpr uintptr_t kReadyForReplication = 0x3D8;
+constexpr uintptr_t kDefaultNetworkingSupport = 0x1512250;
+constexpr uintptr_t kInventoryReadyForReplication = 0x5969750;
+constexpr uintptr_t kComponentReplicationFlags = 0x98;
+constexpr uint8_t kUseRegisteredSubobjectList = 0x40;
 
-// Das Item-Array enthaelt nach dem Seamless Travel null, das Spiel prueft das nicht.
-bool PatchItemsLoop(CodeWriter& Code)
+bool __fastcall SupportsInventoryNetworking(uintptr_t) { return true; }
+
+void __fastcall InventoryReadyForReplication(uintptr_t Inventory)
 {
-    const uintptr_t Site = Base + kItemsLoopRead;
-    if (!Expect(Site, {0x48, 0x8B, 0x3B, 0x83, 0xFD, 0x05}, "in der Item-Schleife"))
-        return false;
-    uint8_t* Cave = Code.Here();
-    Code.Emit({0x48, 0x8B, 0x3B});                               // mov rdi,[rbx]
-    Code.Emit({0x48, 0x85, 0xFF});                               // test rdi,rdi
-    Code.Emit({0x0F, 0x84});                                     // je naechster Eintrag
-    Code.EmitRel(Base + kItemsLoopNext);
-    Code.Emit({0x83, 0xFD, 0x05});                               // cmp ebp,5
-    Code.Emit({0xE9});                                           // jmp zurueck
-    Code.EmitRel(Site + 6);
-    WriteJump(Site, Cave);
-    return true;
+    // Auch beim Kopieren ueber Kartenwechsel: dort laufen die Item-/Slot-Factories nicht.
+    // ReplicateSubobjects der Spielklasse sendet bereits beide Arrays, wird mit der Liste aber ausgelassen.
+    *reinterpret_cast<uint8_t*>(Inventory + kComponentReplicationFlags) &= ~kUseRegisteredSubobjectList;
+    reinterpret_cast<void(__fastcall*)(uintptr_t)>(Base + kInventoryReadyForReplication)(Inventory);
+    Log("Inventory: classical subobject replication ready");
 }
 
-// Dasselbe Raster wird auch fuer seine Ausdehnung durchlaufen.
-bool PatchGridLoop(CodeWriter& Code)
+bool HasVirtual(uintptr_t Vtable, uintptr_t Offset, uintptr_t Expected)
 {
-    const uintptr_t Site = Base + kGridLoopRead;
-    if (!Expect(Site, {0x48, 0x8B, 0x0E, 0x44, 0x8B, 0x41, 0x28}, "im Raster"))
-        return false;
-    uint8_t* Cave = Code.Here();
-    Code.Emit({0x48, 0x8B, 0x0E});                               // mov rcx,[rsi]
-    Code.Emit({0x48, 0x85, 0xC9});                               // test rcx,rcx
-    Code.Emit({0x0F, 0x84});                                     // je naechster Eintrag
-    Code.EmitRel(Base + kGridLoopNext);
-    Code.Emit({0x44, 0x8B, 0x41, 0x28});                         // mov r8d,[rcx+28h]
-    Code.Emit({0xE9});                                           // jmp zurueck
-    Code.EmitRel(Site + 7);
-    WriteJump(Site, Cave);
-    return true;
+    if (Read<uintptr_t>(Base + Vtable + Offset) == Base + Expected) return true;
+    Log("Inventory: unexpected virtual function, patch refused");
+    return false;
 }
 
-// Dritte Schleife ueber dieselben Eintraege.
-bool PatchSlotLoop(CodeWriter& Code)
+bool SetVirtual(uintptr_t Vtable, uintptr_t Offset, uintptr_t Function)
 {
-    const uintptr_t Site = Base + kSlotLoopRead;
-    if (!Expect(Site, {0x48, 0x8B, 0x07, 0x48, 0x8B, 0x58, 0x30}, "in der Slot-Schleife"))
-        return false;
-    uint8_t* Cave = Code.Here();
-    Code.Emit({0x48, 0x8B, 0x07});                               // mov rax,[rdi]
-    Code.Emit({0x48, 0x85, 0xC0});                               // test rax,rax
-    Code.Emit({0x0F, 0x84});                                     // je naechster Eintrag
-    Code.EmitRel(Base + kSlotLoopNext);
-    Code.Emit({0x48, 0x8B, 0x58, 0x30});                         // mov rbx,[rax+30h]
-    Code.Emit({0xE9});                                           // jmp zurueck
-    Code.EmitRel(Site + 7);
-    WriteJump(Site, Cave);
-    return true;
+    const uintptr_t Entry = Base + Vtable + Offset;
+    DWORD Old;
+    if (!VirtualProtect(reinterpret_cast<void*>(Entry), sizeof(uintptr_t), PAGE_READWRITE, &Old)) return false;
+    *reinterpret_cast<uintptr_t*>(Entry) = Function;
+    DWORD Ignored;
+    return VirtualProtect(reinterpret_cast<void*>(Entry), sizeof(uintptr_t), Old, &Ignored) != FALSE;
 }
 }
 
-bool PatchInventory(CodeWriter& Code)
+bool PatchInventory(CodeWriter&)
 {
-    return PatchItemsLoop(Code) && PatchGridLoop(Code) && PatchSlotLoop(Code);
+    // Nur diese drei Klassen, kein globaler UObject- oder ActorComponent-Patch.
+    if (!HasVirtual(kSlotVtable, kSupportedForNetworking, kDefaultNetworkingSupport) ||
+        !HasVirtual(kItemVtable, kSupportedForNetworking, kDefaultNetworkingSupport) ||
+        !HasVirtual(kInventoryVtable, kReadyForReplication, kInventoryReadyForReplication)) return false;
+    return SetVirtual(kSlotVtable, kSupportedForNetworking, reinterpret_cast<uintptr_t>(&SupportsInventoryNetworking)) &&
+        SetVirtual(kItemVtable, kSupportedForNetworking, reinterpret_cast<uintptr_t>(&SupportsInventoryNetworking)) &&
+        SetVirtual(kInventoryVtable, kReadyForReplication, reinterpret_cast<uintptr_t>(&InventoryReadyForReplication));
 }
 }

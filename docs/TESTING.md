@@ -46,6 +46,10 @@ Die Fenster sind 800 × 450 groß, der Host links, der Client rechts. Eingaben g
 4. Einen Routenknoten anklicken. Die Lage ändert sich je Run.
 5. Beide Instanzen landen in `DDDynamic_Map`, Gegner erscheinen von selbst.
 
+In einem frischen `UserDir` kommen vorher Tutorial-Dialoge („Fortsetzen“ unter der Sprechblase) und die Seite „So wird gespielt“ (Knopf bei (398, 417)).
+Danach öffnet sich direkt die Routenkarte, die Knoten für Tag 1 liegen in der linken Spalte, etwa bei (62, 113).
+Für eine reproduzierbare Karte vor dem Öffnen der Routenkarte `Send-Command.ps1 Host 'DD_SetCurrentRunSeed <n>'` senden, siehe [Karte und Seed](GAME_ANALYSIS.md#karte-und-seed).
+
 Das Pausemenü hat „Zurück zum Hauptmenü“ bei (226, 152). Mit `!finish` endet die Mission beim Host, danach kommt die Routenkarte für Tag 2.
 Dort stürzt der Client derzeit ab, das ist die offene Aufgabe zum [Inventar](../TODO.md#phase-1--analyse-und-spikes).
 
