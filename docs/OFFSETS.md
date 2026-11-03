@@ -105,6 +105,8 @@ Ablauf siehe [Karte und Seed](GAME_ANALYSIS.md#karte-und-seed).
 | Child-Klasse repliziert (Prüfung in `CreateChildActor`) | `0x289DB60` | Liest `bReplicates` am Default-Objekt von `ChildActorClass` |
 | `UChildActorComponent::SetChildActorClass` | `0x28A86C0` | Benennt die Vorlage `%s_%s_CAT` |
 | `FSoftObjectPtr::LoadSynchronous` | `0x15E9550` | Lädt im Starter das Profil |
+| `UPCGVolumeGenerator`, Slot 85: PCG-Volume spawnen, Graph wählen | `0x59EE6A0` | Vtable `0x95626D8`, Spike-Patch |
+| `UPCGVolumeGenerator`, Slot 86: Graph laden, PCG starten | `0x59D95E0` | Asynchron mit Callback |
 
 ### Coop
 
@@ -186,6 +188,13 @@ Funktionen von `ULocalCoopSubsystem` und ihre Aufrufer, Ablauf siehe [Coop-Ablau
 | `UMapGenerationState` | QueuedSubGenerators, QueuedPostGenerators, CurrentSubGenerator | `0x60`, `0x70`, `0x80` |
 | `UChildActorComponent` | ChildActorClass | `0x250` |
 | `UActorComponent` | OwnerPrivate | `0xA8` |
+| `UPCGVolumeGenerator` | bUseGraphFromBiome, GraphToGenerate, PCGActor, PCGComponent, BiomeGraphToGenerate | `0x28`, `0x30`, `0x40`, `0x48`, `0x50` |
+| `UDDMissionGameInstance` | Route: Einträge (je `0x290`), Anzahl, Index; Biom im Eintrag | `0x2B0`, `0x2B8`, `0x2C0`; `0x1A8` |
+| `UBiomeDefinition` | GraphToGenerate | `0x118` |
+| `ABP_PCGVolume_C` | PCG_Component | `0x2B0` |
+| `UPCGComponent` | Seed, bGenerated | `0xC8`, `0x6F8` |
+| `UStaticMeshComponent` | StaticMesh | `0x5E8` |
+| `UInstancedStaticMeshComponent` | PerInstanceSMData (je `0x80`), InstancingRandomSeed | `0x6A8`, `0x734` |
 | `ULocalCoopSubsystem` | ActivePlayers (TMap, Element `0x14`), bCoopEnabled, MaxLocalPlayers | `0x100`, `0x180`, `0x184` |
 | `ULocalCoopSubsystem` | Flag „P2 nach Kartenwechsel neu anlegen“ | `0x18A` |
 | `UThreatLevel` | FreezeThreatLevelManager | `0x190` |

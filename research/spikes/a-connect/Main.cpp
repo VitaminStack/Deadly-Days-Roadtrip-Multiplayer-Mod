@@ -25,6 +25,8 @@ void InstallPatches()
         Log("Patch: aktiv");
     if (PatchMapGen(Code))
         Log("Patch: Karte vom Host aktiv");
+    if (PatchPcg(Code))
+        Log("Patch: PCG vom Host aktiv");
 }
 
 // Laeuft jede Sekunde auf dem Game Thread und ersetzt die Befehle !cam und !authmove nach jedem Kartenwechsel.
@@ -34,6 +36,7 @@ void TickSession()
     const uintptr_t Driver = World ? Read<uintptr_t>(World + kWorldNetDriver) : 0;
     if (!Driver)
         return;
+    TickPcg();
     if (Read<uintptr_t>(Driver + kDriverServerConnection))
     {
         ReleaseDeferredWidgetEvents(World);
