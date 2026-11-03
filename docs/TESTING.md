@@ -7,6 +7,12 @@ bekommen ein eigenes `-UserDir`, der echte Spielstand bleibt also unberührt. Di
 > `Start-Session.ps1` startet deshalb immer den Crash-Schutz und bricht ab, wenn er nicht läuft. Die Exe also nicht von Hand mit
 > Spike starten, und `-unattended` niemals verwenden. Hintergrund im [Spike-Ergebnis](../research/spikes/a-connect/README.md#crash-reporter).
 
+## Mod im Spiel testen
+
+Die Mod unter `src/` kommt mit [tools/Deploy-Mod.ps1](../tools/README.md#deploy-modps1) ins Spiel und startet dann in beiden Instanzen einer Sitzung.
+Jede Instanz schreibt `DDSurvivors/Binaries/Win64/DDCoop/logs/ddcoop-<pid>.log`. Nach `Stop-Session.ps1` die Mod mit `-Remove` wieder entfernen,
+sonst lädt auch ein normaler Spielstart sie ohne Crash-Schutz.
+
 ## Sitzung starten
 
 Voraussetzung ist die Einrichtung aus [SETUP.md](SETUP.md). Die Skripte prüfen die Build-ID und brechen bei einem anderen Build ab.
