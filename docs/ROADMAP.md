@@ -32,7 +32,6 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 **Wartet auf das Team.**
 
 - Kamera entscheiden
-- Aufteilung auf die Arbeitsbereiche festlegen
 - Update-Regel festlegen und klären, ob alle auf derselben Build-ID bleiben können. Das Spiel wird aktiv gepatcht, und jedes Update macht die Offsets ungültig
 - Pixelsplit über das Projekt informieren
 - Dumper-7-Fix dem Dumper-7-Projekt vorschlagen
