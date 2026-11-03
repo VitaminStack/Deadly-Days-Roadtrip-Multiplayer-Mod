@@ -34,6 +34,10 @@ erlaubt, aber diese Person macht dann das Review.
 
 Jede Aufgabe hat in [TODO.md](TODO.md#wo-kann-ich-anfangen) eine Kennung, auch die [späteren Pakete](TODO.md#spätere-arbeitspakete) und die [zentrale Arbeit](TODO.md#zentrale-arbeit). Reserviert ist, was einen Branch `task/<kennung>` auf GitHub hat.
 Der erste Push gewinnt, ein zweiter wird abgelehnt. Das gilt für Menschen und KI-Agenten, die genauen Befehle stehen in [CLAUDE.md](CLAUDE.md#vor-dem-start).
+
+`py tools/tasks.py list` zeigt jede Kennung mit Status: frei, reserviert, in Arbeit, PR wartet auf Review oder erledigt.
+`py tools/tasks.py claim <kennung> <name>` reserviert und öffnet gleich einen Draft-PR `[WIP] <kennung>`. Wer gerade woran arbeitet,
+steht deshalb auf GitHub unter „Pull requests“. Für den Status aus den PRs braucht das Skript die angemeldete [GitHub CLI](https://cli.github.com/) (`gh auth login`), sonst sieht es nur die Branches.
 Wer über einen Fork arbeitet, kann so nicht reservieren und legt stattdessen ein Issue an.
 
 ### Branches
@@ -86,12 +90,36 @@ Git-Historie, auch wenn es später gelöscht wird.
 
 ## Spiel-Updates
 
-Das Spiel wird noch aktiv gepatcht, und jedes Update kann Offsets und Klassen ändern.
+Das Spiel wird noch aktiv gepatcht, und jedes Update kann Offsets und Klassen ändern. Deshalb gilt seit dem 03.11.2026:
+**einfrieren und nur bei Bedarf nachziehen.** Alle arbeiten auf dem [unterstützten Build](docs/GAME_ANALYSIS.md#unterstützte-spielversion),
+auch wenn Steam schon einen neueren anbietet.
 
-1. In Steam, falls möglich, unter Eigenschaften → Updates „nur beim Start aktualisieren“ wählen und das Spiel während der Entwicklung nicht unnötig starten.
-2. Nach einem Update meldet die RE-Person das im Team, erzeugt ein neues SDK und testet die Hooks auf einem Branch.
-3. Build-ID und Exe-Version in [docs/GAME_ANALYSIS.md](docs/GAME_ANALYSIS.md#unterstützte-spielversion), [docs/OFFSETS.md](docs/OFFSETS.md), `$SupportedBuild` in `tools/spike/Common.ps1` sowie `SupportedBuilds` in `src/Core/Version.cpp` aktualisieren.
-4. Erst dann ziehen alle anderen nach, weil alle denselben Build brauchen.
+### Auf dem unterstützten Build bleiben
+
+1. In Steam unter Eigenschaften → Updates „Dieses Spiel nur beim Starten aktualisieren“ wählen.
+2. Das Spiel während der Entwicklung nur über `tools/spike/Start-Session.ps1` starten, nie über Steam. Das Skript startet die Exe direkt, dabei
+   aktualisiert Steam nicht. Es bricht ab, wenn ein anderer Build installiert ist.
+3. Eine Kopie des Spielordners außerhalb des Repos aufheben, etwa 1,8 GB. Kommt doch ein Update durch, ist das der schnellste Weg zurück.
+4. Ohne Kopie lässt sich der Build über die Steam-Konsole neu laden (`steam://open/console`), mit den Manifest-IDs aus der
+   [Spielversion](docs/GAME_ANALYSIS.md#unterstützte-spielversion):
+
+   ```text
+   download_depot 3026450 3026451 1832737755528485607
+   download_depot 3026450 3026452 7724756528743620812
+   ```
+
+   Steam legt die Dateien unter `steamapps/content/app_3026450/` ab, von dort kommen sie in den Spielordner. Dieser Weg ist noch nicht ausprobiert.
+
+### Wenn ein Update erscheint
+
+1. Wer es bemerkt, meldet es im Team mit der neuen Build-ID. Niemand aktualisiert, die Spieltests laufen auf dem alten Build weiter.
+2. Nachgezogen wird nur bei Bedarf: wenn das Update etwas bringt, das wir brauchen, zum Beispiel einen Fix für einen blockierenden Absturz.
+   Spätestens vor `integration-run` und `release`, weil Spieler immer den neuesten Build haben.
+3. Das Nachziehen ist die zentrale Aufgabe `spiel-update`. Eine Person reserviert sie, aktualisiert ihr Spiel, erzeugt ein neues SDK und passt Offsets,
+   Signaturen und Patches auf ihrem Branch an.
+4. Im selben PR Build-ID, Exe-Version und Manifest-IDs in [docs/GAME_ANALYSIS.md](docs/GAME_ANALYSIS.md#unterstützte-spielversion), die Werte in
+   [docs/OFFSETS.md](docs/OFFSETS.md), `$SupportedBuild` in `tools/spike/Common.ps1` sowie `SupportedBuilds` in `src/Core/Version.cpp` aktualisieren.
+5. Erst nach dem Merge aktualisieren alle anderen ihr Spiel, weil alle denselben Build brauchen. Die Kopie des alten Builds bleibt, bis der neue läuft.
 
 ## Fehler melden
 

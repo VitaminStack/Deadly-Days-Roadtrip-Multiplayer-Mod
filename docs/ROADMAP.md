@@ -35,7 +35,7 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 
 - Kamera entscheiden
 - Aufteilung auf die Arbeitsbereiche festlegen
-- Update-Regel festlegen und klären, ob alle auf derselben Build-ID bleiben können. Das Spiel wird aktiv gepatcht, und jedes Update macht die Offsets ungültig
+- Klären, ob alle auf derselben Build-ID bleiben können. Die [Update-Regel](../CONTRIBUTING.md#spiel-updates) steht: einfrieren und nur bei Bedarf nachziehen
 - Pixelsplit über das Projekt informieren
 - Dumper-7-Fix dem Dumper-7-Projekt vorschlagen
 
@@ -90,27 +90,27 @@ flowchart LR
     subgraph SPIELER["Remote-Spieler"]
         SP["Remote-Controller in<br/>SpawnedPlayers<br/>(spawnedplayers)"]:::wip
         RP["Remote-Controller als P2<br/>(remote-p2)"]:::open
-        TF["Treffer des Clients<br/>direkt belegen<br/>(treffer)"]:::open
+        TF["Treffer des Clients<br/>direkt belegen<br/>(treffer)"]:::done
         SP --> RP
     end
 
     subgraph WELT["Karte und Kamera"]
-        KC["Seed und Profil beim Client,<br/>Duplikate unterdrücken<br/>(karte-client)"]:::open
+        KC["Seed und Profil beim Client,<br/>Duplikate unterdrücken<br/>(karte-client)"]:::done
         SC["Spike C: gleiche<br/>Mission auf beiden Seiten"]:::open
         KE["Kamera: Entscheidung<br/>des Teams"]:::decision
         KC --> SC
     end
 
     subgraph LOGIK["Spiellogik"]
-        PA["Pausen bei Level-up<br/>und Inventar<br/>(pausen)"]:::wip
-        BP["Blueprint-Logik:<br/>Kontrollfluss und Events<br/>(blueprint-logik)"]:::wip
+        PA["Pausen bei Level-up<br/>und Inventar analysiert<br/>(pausen)"]:::done
+        BP["Blueprint-Logik:<br/>typische Pfade geprueft<br/>(blueprint-logik)"]:::done
     end
 
     subgraph TECHNIK["Technik"]
         LA["Spike D: Last<br/>(last)"]:::open
         TU["Spike E: Steam-Tunnel<br/>(tunnel)"]:::open
-        AP["Andockpunkte:<br/>Test im Spiel<br/>(andockpunkte)"]:::wip
-        CR["Crash-Reporter<br/>zuverlässig aus<br/>(crash-reporter)"]:::open
+        AP["Andockpunkte:<br/>Test im Spiel bestanden<br/>(andockpunkte)"]:::done
+        CR["Crash-Reporter<br/>zuverlässig aus<br/>(crash-reporter)"]:::done
     end
 
     BASIS --> RUN

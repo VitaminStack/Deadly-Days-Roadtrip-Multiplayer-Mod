@@ -27,8 +27,14 @@ Je Thema eine Datei, damit parallele Arbeit nicht in dieselbe Datei läuft. Neue
 | `Inventory.cpp` | Netzwerk-Support für Items/Slots und klassischer Unterobjekt-Replikationspfad je neuer Inventarkomponente |
 | `Travel.cpp` | Umleitung der Reise in `servertravel` |
 | `Widgets.cpp` | Zurückhalten der HUD bis zum `GameState` |
+| `MapObjects.cpp` | Client: lokale Kopien replizierter Kartenobjekte unterdrücken |
 | `Mission.cpp` | Gegnerwelle, Missionsende, Rundenende |
 | `Trace.cpp` | Zähler für RPCs und Run-Funktionen |
+| `CrashReports.cpp` | Sperre des Crash-Reporters, zweite Schicht neben `CrashGuard.ps1` |
+| `MapGen.cpp` | Client erzeugt die Karte mit den Werten des Hosts, lokale Kopien replizierter Child Actors unterdrückt |
+| `Pcg.cpp` | Client erzeugt die PCG-Vegetation mit dem Graphen des Hosts, gleiche Seeds der Instanz-Komponenten |
+| `Hits.cpp` | Host: Treffer auf Gegner mit Schütze, Schaden und Lebenspunkten |
+| `Cheats.cpp` | Testhilfen: CheatManager für die `DD_`-Befehle, Laden einzelner Assets |
 
 ## Ergebnis
 
@@ -45,8 +51,8 @@ Je Thema eine Datei, damit parallele Arbeit nicht in dieselbe Datei läuft. Neue
 | Bewegung Client → Host | Klappt nur mit Bodenfix und clientautoritativer Position, siehe unten. Dann Abweichung rund 10 Einheiten während des Laufens |
 | `servertravel /Game/Maps/DDDynamic_Map?listen` | Klappt, beide sind in derselben Mission, 17 `MapTile` auf beiden Seiten, Kartenbild am Start gleich |
 | Gegner | Mit `ForceSpawnWave` beim Host gestartet: Host `Authority`, Client `SimulatedProxy`, Bewegung sichtbar auf beiden Seiten |
-| Schießen | Schüsse des Clients sind beim Host sichtbar. Neben der Client-Figur sterben beim Host Gegner, die Host-Figur ist dort außer Reichweite |
-| Mission über das Spielmenü | Klappt mit Umleitung der Reise, beide in DDDynamic_Map, Gegner laufen von selbst. Karten verschieden: 144 bis 167 MapTile beim Host, 17 beim Client |
+| Schießen | Schüsse des Clients treffen beim Host, ziehen Leben ab und töten, gemessen mit `Hits.cpp`, siehe [Treffer des Clients](../../../docs/GAME_ANALYSIS.md#treffer-des-clients-treffer) |
+| Mission über das Spielmenü | Klappt mit Umleitung der Reise, beide in DDDynamic_Map, Gegner laufen von selbst. Mit `MapGen.cpp` gleiche Karte auf beiden Seiten, siehe [Client erzeugt die Host-Karte](../../../docs/GAME_ANALYSIS.md#client-erzeugt-die-host-karte-karte-client). Mit `Pcg.cpp` auch gleiche Vegetation, siehe [PCG-Vegetation](../../../docs/GAME_ANALYSIS.md#pcg-vegetation-beim-client-pcg) |
 | Missionsende, Routenkarte, Tag 2 | Mit Inventar-Teilfix zweimal erreicht; vollständige replizierte Inventare auf beiden Seiten. Weiterreise auf Tag 3 endet noch mit Host-Absturz, siehe unten |
 | Pausemenü ins Hauptmenü | Mit Inventar-Teilfix klappt es für beide (ein Lauf). Ohne ihn stürzt der Client bei `0x5975A6A` ab, weil `UInventoryComponent::EndPlay` über Null-Items läuft, siehe [Trennen](../../../docs/GAME_ANALYSIS.md#trennen-ins-hauptmenü-trennen) |
 
@@ -83,6 +89,11 @@ Der Host-Absturz war immer derselbe Callstack. Das Spiel fragt beim Spawnen `Get
 | Client | `0x58393CC` | Figurenkomponente erwartet einen Controller, die fremde Figur hat keinen | Funktion verlassen |
 | Beide | Vtables `0x939CE08`, `0x94B46E8`, jeweils `+0x200` | Slots/Items benutzen den UObject-Standard für Netzwerk-Support | Nur für diese Klassen dynamische Netzwerkobjekte erlauben |
 | Beide | Vtable `0x94BA3F0`, `+0x3D8` | Inventarkomponente nutzt registrierte Liste statt ihres vorhandenen `ReplicateSubobjects` | In `ReadyForReplication` Bit 6 bei `+0x98` löschen, dann ursprüngliche Funktion aufrufen |
+| Client | `0x2A678F0` | `BP_PowerUpCrate_C` spawnt in `BeginPlay` ohne Autoritätsprüfung seine `BP_ChaosDestructable_PowerUp_C`, beim Client kommt dieselbe zusätzlich repliziert an | `BeginDeferredActorSpawnFromClass` gibt beim Client für diese Klasse aus einer Kiste `null` zurück |
+| Beide | `0x59EF6D0` | Der Client erzeugt die Karte ohne Missionsdaten und scheitert | Host schreibt Seed, Profil, Größe und Tags in eine Datei, der Client setzt sie vor `StartMapGeneration` und wartet notfalls |
+| Client | `0x288B510` | Lokale Parzellen sind `Authority` und erzeugen replizierte Child Actors ein zweites Mal | Während der eigenen Erzeugung gilt der Besitzer für den Aufruf als `SimulatedProxy` |
+| Beide | `0x59EE6A0` | Der Client hat keine Route und damit kein Biom, der PCG-Graph bleibt leer | Host schreibt den Graphen in eine Datei, der Client setzt ihn danach und wartet notfalls |
+| Beide | Sekunden-Tick | Jede ISM-Komponente würfelt `InstancingRandomSeed`, die Baumarten weichen ab | Seed aus Mesh und Instanzen setzen, Render-Zustand per `SetStaticMesh` neu |
 
 Die Zuordnung der Funktionen stammt aus der Disassembly ohne Symbole. Die Kamera ist über Offsets im SDK belegt, die übrigen passen zu den Aufrufern.
 
@@ -97,6 +108,8 @@ Beim Client setzt der Spike die Kamera jede Sekunde, beim Host nimmt er jede Sek
 | `!flow` | Beide | Protokolliert die ersten Aufrufe der Run-Funktionen |
 | `!arm` | Host | Schaltet die Umleitung der Reise scharf |
 | `!finish` | Host | Ruft `FinishMission` auf |
+| `!cheats` | Host | Legt einen `UDDCheatManager` an, danach wirken die `DD_`-Befehle des Spiels |
+| `!load <Pfad>` | Beide | Lädt ein Asset, etwa eine Blueprint-Klasse für einen SDK-Dump |
 | `!round <n>` | Host | Ruft `TriggerEndRound` auf, Wert wie `ERoundChangeReason` |
 
 `Mission.cpp` lehnt `!finish` und `!round` auf einem verbundenen Client ab. Das sind Diagnosebefehle für den Host, kein UI-Sync.
@@ -185,3 +198,25 @@ Minidump und einer Kopie des aktiven Spielstands. So gingen bei diesem Spike zwe
 - `-unattended` niemals verwenden.
 - Während der Tests läuft `tools/spike/CrashGuard.ps1`, das `CrashReportClient.exe` sofort beendet. Das hat die weiteren Abstürze abgefangen.
 - Ein Override von `DataRouterUrl` in der `Engine.ini` des `UserDir` wirkt nicht. Die Adresse stand trotzdem im Bericht.
+
+### Sperre in Mod und Spike (`crash-reporter`)
+
+Stand: Disassembly und Spieltests am 03.11.2026, Build `26187885`.
+
+- **[Belegt] Einziger Startweg:** Nach einem Absturz schreibt das Spiel den Bericht nach `Saved/Crashes` und baut dann ab `0x145DD6E` die Kommandozeile für `CrashReportClient.exe`. Ist das Spiel unattended oder `bImplicitSend` gesetzt, hängt es ` -Unattended` an, dann lädt der Reporter ohne Rückfrage hoch. Gestartet wird über `FPlatformProcess::CreateProc` (`0x144D740`) und den Import `CreateProcessW`. Der zweite Aufrufer von `CreateProc` öffnet nur URLs.
+- **[Belegt] Scheitert der Start,** zeigt das Spiel nur „has crashed and will close“ (ohne `-Unattended`) und beendet sich. Es wird nichts gesendet, der lokale Bericht bleibt.
+- **Mod:** `Core::CrashReports::Block()` hängt sich per MinHook in `kernelbase!CreateProcessW` und lässt nur den Start von `CrashReportClient.exe` scheitern. Unabhängig von Spiel-Offsets, aktiv sobald die Mod läuft, also nicht bei `enabled=false` oder unbekanntem Build.
+- **Spike:** `CrashReports.cpp` ersetzt den Eintrag `CreateProcessW` in der Importtabelle der Exe. Greift erst ab dem Laden des Spikes, deshalb bleibt `CrashGuard.ps1` die erste Schicht.
+- **Gescheiterter erster Versuch im Spike:** Nur der Parameter `lpApplicationName` wurde geprüft. Unreal übergibt dort `null` und setzt das Programm vorne in die Kommandozeile, der Reporter startete. Jetzt zählt das erste Token der Kommandozeile.
+
+Ausgelöst wurde ein echter Spielabsturz: `MissionGameState` des Restrictors auf null, dann eine Bewegungseingabe, siehe [Restrictor](../../../docs/GAME_ANALYSIS.md#client-absturz-im-restrictor-tick-absturz). `debug crash` ist im Shipping-Build wirkungslos. Ein Prozess-Wächter prüfte alle 10 ms auf `CrashReportClient`.
+
+| Lauf | Absturz | Reporter-Prozess | Log |
+|---|---|---|---|
+| Mod, Client | `0x5A17ACC` | keiner | „Start des Crash-Reporters verhindert“ |
+| Mod, Host | `0x5A17ACC` | keiner | „Start des Crash-Reporters verhindert“ |
+| Ohne Mod, Spike ohne Sperre (Gegenprobe) | `0x5A17ACC` | gestartet, von `CrashGuard` beendet | – |
+| Spike mit Sperre, erster Versuch | `0x5A17ACC` | gestartet, von `CrashGuard` beendet | – |
+| Spike mit Sperre, korrigiert | `0x5A17ACC` | keiner | „Start des Crash-Reporters verhindert“ |
+
+Nicht abgedeckt: Abstürze vor dem Laden der Mod oder des Spikes, Telemetrie und Bug-Reports (Phase 6), andere Spiel-Builds für den Spike-Patch. Ob sich der Netzwerkverkehr zum Hersteller ganz vermeiden lässt, ist nicht gemessen; ohne Reporter-Prozess gibt es aber keinen Upload-Weg für den Bericht (**[Vermutung]**, das Spiel selbst lädt keine Berichte hoch).

@@ -35,8 +35,11 @@ RVAs für `ProcessEvent`, `SetClientTravel` und `SeamlessTravelToLevel` werden v
 den drei Mustern in `research/spikes/andockpunkte/audit.py` jeweils eindeutig
 gefunden. Geprüfte Exe, SHA-256:
 `3afbf18e051fbceb1fec17a8da20165ba64e0f6c3c88cbe88cb046704a4eefb5`.
-Keine neuen RVAs und keine Bestätigung eines nativen C++-Prototyps. Nur dieser
-Build ist geprüft; vor einem Hook müssen auch die geladenen Originalbytes passen.
+Keine neuen RVAs und keine Bestätigung eines direkten nativen C++-Prototyps. Nur
+dieser Build ist geprüft. Nachtrag: alle drei Muster auch in den geladenen
+ausführbaren Sektionen auf Host und Client je eindeutig gefunden; der kleine
+ProcessEvent-VTable-Test mit Rückgabeprüfung und Slot-Wiederherstellung bestand.
+Fremde Änderungen an den Einsprungbytes müssen weiterhin zur Ablehnung führen.
 
 | Funktion | RVA |
 |---|---|
@@ -101,6 +104,15 @@ Ablauf siehe [Karte und Seed](GAME_ANALYSIS.md#karte-und-seed).
 | `UDDMissionGameInstance::GetCurrentMissionSeed` | `0x58EABF0` | Exec-Thunk `0x56BC5E0` |
 | `UDDMissionGameInstance::DD_SetCurrentRunSeed` | `0x58E1B90` | Exec-Befehl, Exec-Thunk `0x56BAB80` |
 | `UDDMissionGameInstance::DD_ForceStartRunSeed` | `0x58DF7A0` | Exec-Befehl, Exec-Thunk `0x56BA490` |
+| `UGameplayStatics::BeginDeferredActorSpawnFromClass` | `0x2A678F0` | Exec-Thunk `0x2A95230`; Spike-Patch beim Client gegen doppelte PowerUp-Objekte |
+| `UChildActorComponent::CreateChildActor` | `0x288B510` | Vtable `0x87DAC90` Slot 202, Spike-Patch beim Client |
+| Child-Klasse repliziert (Prüfung in `CreateChildActor`) | `0x289DB60` | Liest `bReplicates` am Default-Objekt von `ChildActorClass` |
+| `UChildActorComponent::SetChildActorClass` | `0x28A86C0` | Benennt die Vorlage `%s_%s_CAT` |
+| `FSoftObjectPtr::LoadSynchronous` | `0x15E9550` | Lädt im Starter das Profil |
+| `UPCGVolumeGenerator`, Slot 85: PCG-Volume spawnen, Graph wählen | `0x59EE6A0` | Vtable `0x95626D8`, Spike-Patch |
+| `UPCGVolumeGenerator`, Slot 86: Graph laden, PCG starten | `0x59D95E0` | Asynchron mit Callback |
+| Kartengenerator: Erzeugung fortsetzen, aus einem Timer | `0x59F0C30` | Ruft `StartMapGeneration` und `0x59D9090` |
+| Kartengenerator: Schritt nach `StartMapGeneration` | `0x59D9090` | Absturzort nach der Reise auf Tag 3 |
 
 ### Coop
 
@@ -124,6 +136,16 @@ Funktionen von `ULocalCoopSubsystem` und ihre Aufrufer, Ablauf siehe [Coop-Ablau
 | `UGameplayStatics::GetPlayerController` | `0x2A76140` | |
 | Tabelle `{Name, Exec-Thunk}` von `LocalCoopSubsystem` | um `0x94F6EE0` bis `0x94F7190` | Einträge `0x10` groß |
 
+### Absturzberichte
+
+Ablauf siehe [Crash-Reporter](../research/spikes/a-connect/README.md#sperre-in-mod-und-spike-crash-reporter).
+
+| Funktion | RVA | Hinweis |
+|---|---|---|
+| Start des Crash-Reporters nach einem Absturz | `0x145DD6E` | Baut die Kommandozeile, ` -Unattended` bei unattended oder `bImplicitSend` |
+| `FPlatformProcess::CreateProc` | `0x144D740` | Ruft `CreateProcessW` über den Import |
+| Import `KERNEL32!CreateProcessW` | `0x82774D8` | Eintrag in der Importtabelle, Spike-Patch |
+
 ## Klassen
 
 | Klasse | Feld | Offset |
@@ -140,8 +162,14 @@ Funktionen von `ULocalCoopSubsystem` und ihre Aufrufer, Ablauf siehe [Coop-Ablau
 | `AController` | Pawn | `0x2E8` |
 | `APlayerController` | Player, AcknowledgedPawn, NetConnection | `0x348`, `0x350`, `0x520` |
 | `APlayerState` | PawnPrivate | `0x320` |
+| `APlayerController` | CheatManager, CheatClass | `0x410`, `0x418` |
+| `UBossSpawnLookup` | BossSpawnInfos (je `0x68`: BossID `0x00`, IsEndBoss `0x08`, BossEnemyType `0x10`, SpawnPointClass `0x38`) | `0x28` |
+| `UEnemyType` | EnemyBlueprint (`TSoftClassPtr`) | `0x128` |
 | `ACharacter` | CharacterMovement, BasedMovement, ReplicatedMovement-Block | `0x330`, `0x340`, `0x398` |
 | `ACharacter` (Spiel) | AttributeSet | `0x7D8` |
+| `ADDCharacterBase` | CommonAttributeSet | `0x700` |
+| `UCommonAttributeSet` | Health (`FGameplayAttributeData`, CurrentValue bei `+0xC`) | `0xA0` |
+| `FDamageInformation` | Damage, DamagedActor, InstigatedBy, DamageCauser (je `TWeakObjectPtr`) | `0x00`, `0x04`, `0x14`, `0x1C` |
 | `FBasedMovementInfo` | MovementBase, Location | `0x10`, `0x18` |
 | `UCharacterMovementComponent` | Velocity, MovementMode, MaxWalkSpeed | `0xD8`, `0x241`, `0x288` |
 | `UCharacterMovementComponent` | MaxAcceleration, Acceleration | `0x29C`, `0x338` |
@@ -179,12 +207,23 @@ Funktionen von `ULocalCoopSubsystem` und ihre Aufrufer, Ablauf siehe [Coop-Ablau
 | `APlayerController` | PlayerCameraManager | `0x360` |
 | `APlayerCameraManager` | ViewTarget.Target, ViewTarget.POV.Location | `0x340`, `0x350` |
 | `AEnemySpawner` | AutoSpawn, UseViewportEdgesForSpawningPositions, AllowedViewportEdgesForSpawning | `0x348`, `0x34A`, `0x358` |
+| `BP_PowerUpCrate_C` | DestructablePowerUp | `0x390` |
 | `AActor` | Bits: `bHidden` (`0x58` Bit 7), `bActorEnableCollision` (`0x5D` Bit 0), `bActorIsBeingDestroyed` (`0x5D` Bit 1) | `0x58`, `0x5D` |
 | `AEnemySpawner` | CurrentSpawnedEnemiesCount, MaxSpawnedEnemies, EnemyCap, GameMode, RecycleArray | `0x2F8`, `0x36C`, `0x370`, `0x3C8`, `0x478` |
 | `UPoolManagerSubsystem` | PoolsInternal, AllFactoriesInternal | `0x38`, `0x48` |
 | `AMapGenerator` | MapGenProfile, MapSeed, MaxAttempts, MaxTilePosition, CycleTimeBudget, GenerateOnStart | `0x2B8`, `0x2D8`, `0x2DC`, `0x2E8`, `0x2F8`, `0x2FD` |
 | `AMapGenerator` | GenerationTags, CurrentGenData | `0x300`, `0x320` |
 | `UMapGenerationState` | Seed, BaseSeed, SpawnedActors, HasFailedGeneration, RetryAttemptsRemaining, RandomGeneratorLookup | `0x50`, `0x54`, `0x88`, `0x111`, `0x114`, `0x258` |
+| `UMapGenerationState` | QueuedSubGenerators, QueuedPostGenerators, CurrentSubGenerator | `0x60`, `0x70`, `0x80` |
+| `UChildActorComponent` | ChildActorClass | `0x250` |
+| `UActorComponent` | OwnerPrivate | `0xA8` |
+| `UPCGVolumeGenerator` | bUseGraphFromBiome, GraphToGenerate, PCGActor, PCGComponent, BiomeGraphToGenerate | `0x28`, `0x30`, `0x40`, `0x48`, `0x50` |
+| `UDDMissionGameInstance` | Route: Einträge (je `0x290`), Anzahl, Index; Biom im Eintrag | `0x2B0`, `0x2B8`, `0x2C0`; `0x1A8` |
+| `UBiomeDefinition` | GraphToGenerate | `0x118` |
+| `ABP_PCGVolume_C` | PCG_Component | `0x2B0` |
+| `UPCGComponent` | Seed, bGenerated | `0xC8`, `0x6F8` |
+| `UStaticMeshComponent` | StaticMesh | `0x5E8` |
+| `UInstancedStaticMeshComponent` | PerInstanceSMData (je `0x80`), InstancingRandomSeed | `0x6A8`, `0x734` |
 | `ULocalCoopSubsystem` | ActivePlayers (TMap, Element `0x14`), bCoopEnabled, MaxLocalPlayers | `0x100`, `0x180`, `0x184` |
 | `ULocalCoopSubsystem` | Flag „P2 nach Kartenwechsel neu anlegen“ | `0x18A` |
 | `UThreatLevel` | FreezeThreatLevelManager | `0x190` |
@@ -194,6 +233,13 @@ In einem TSet ist ein freier Platz daran zu erkennen, dass der Wert hohe Bits ge
 `CurrentRoute` ist eine **eingebettete Struktur**, kein UObject-Zeiger. Ihre ersten acht Bytes sind `RouteMissionStructureIdentifier`. Die Num bei `0x2B8` darf nicht aus einem vermeintlichen Zeiger bei `0x2A8` abgeleitet werden. Im `rundenende`-Test: Host Num 1 / Index 0, Client Num 0 / Index -1. Die reflektierten Funktionen `FinishMission`, `TriggerEndRound`, `SetFreezeTime` tragen kein `FUNC_Net` (`0x40`); ihre lokalen Aufrufe sind kein Client-Transport.
 
 ## Blueprint-Referenzinventar (`blueprint-logik`)
+
+Nachtrag 03.11.2026: Grenzpruefung fuer 42 Funktionen und 25 Eventgraph-Einspruenge
+sowie gezielte Runtime-Traces bestanden; keine neuen nativen RVAs. Zusaetzlich
+im Mission-SDK nachgeschlagen: `Projectile.BulletSize` bei `0x2FC` (nicht Net),
+`BP_Effect_Add_ImpactEffect_Template.ApplyToSelf` bei `0x48`. Der Effekt-Guard wurde
+am frisch erzeugten Testobjekt mit beiden Werten ausgefuehrt. Keine SDK-Dateien
+oder Script-Rohbytes gespeichert; [Testgrenzen](../research/spikes/blueprint-logik/README.md#nachtrag-03112026-grenzpruefung-und-ereignistests).
 
 Ergaenzung aus Mission-SDK/lesender Pruefung von Build `26187885`:
 

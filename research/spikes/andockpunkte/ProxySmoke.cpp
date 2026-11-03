@@ -18,6 +18,23 @@ int wmain()
         std::puts("FAIL: lokaler Proxy wurde nicht geladen");
         return 2;
     }
+    const char* Exports[] = {"GetFileVersionInfoA", "GetFileVersionInfoByHandle",
+        "GetFileVersionInfoExA", "GetFileVersionInfoExW", "GetFileVersionInfoSizeA",
+        "GetFileVersionInfoSizeExA", "GetFileVersionInfoSizeExW", "GetFileVersionInfoSizeW",
+        "GetFileVersionInfoW", "VerFindFileA", "VerFindFileW", "VerInstallFileA",
+        "VerInstallFileW", "VerLanguageNameA", "VerLanguageNameW", "VerQueryValueA", "VerQueryValueW"};
+    // Das Minimalbeispiel hat nur drei Exporte. Vollvariante separat erkennen.
+    if (GetProcAddress(GetModuleHandleW(L"version.dll"), Exports[0]))
+    {
+        for (unsigned i = 0; i < sizeof(Exports) / sizeof(Exports[0]); ++i)
+        {
+            const auto ByName = GetProcAddress(GetModuleHandleW(L"version.dll"), Exports[i]);
+            const auto ByOrdinal = GetProcAddress(GetModuleHandleW(L"version.dll"), MAKEINTRESOURCEA(i + 1));
+            if (!ByName || ByName != ByOrdinal)
+                return 6;
+        }
+        std::puts("PASS: alle 17 Exporte nach Name und Ordinal aufloesbar");
+    }
     const std::wstring Target = std::wstring(System) + L"\\kernel32.dll";
     DWORD Handle = 0;
     const DWORD Size = GetFileVersionInfoSizeW(Target.c_str(), &Handle);

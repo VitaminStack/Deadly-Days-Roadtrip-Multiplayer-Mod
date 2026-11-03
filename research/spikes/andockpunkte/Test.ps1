@@ -1,4 +1,5 @@
 # Baut und testet nur das isolierte Beispiel, startet niemals das Spiel.
+param([switch]$WithEntryProbe)
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '..\..\..\tools\spike\Common.ps1')
 $Output = Join-Path $script:RepoRoot 'research\local\andockpunkte'
@@ -9,7 +10,8 @@ $env:TMP = $env:TEMP
 $script:SessionDir = $Output
 Push-Location $Output
 try {
-    Invoke-InVsEnvironment "cl /nologo /std:c++20 /W4 /WX /EHsc /LD /Fe:version.dll `"$PSScriptRoot\VersionProxy.cpp`" /link /DEF:`"$PSScriptRoot\VersionProxy.def`" /IMPLIB:proxy-import.lib"
+    $Extra = if ($WithEntryProbe) { "/DENTRY_PROBE `"$PSScriptRoot\EntryProbe.cpp`" `"$PSScriptRoot\..\a-connect\Core.cpp`" user32.lib" } else { '' }
+    Invoke-InVsEnvironment "cl /nologo /std:c++20 /W4 /WX /EHsc /LD /Fe:version.dll `"$PSScriptRoot\VersionProxy.cpp`" $Extra /link /DEF:`"$PSScriptRoot\VersionProxy.def`" /IMPLIB:proxy-import.lib"
     if ($LASTEXITCODE -ne 0) { throw 'Proxy-Build fehlgeschlagen' }
     Invoke-InVsEnvironment "cl /nologo /std:c++20 /W4 /WX /EHsc /Fe:ProxySmoke.exe `"$PSScriptRoot\ProxySmoke.cpp`" version.lib"
     if ($LASTEXITCODE -ne 0) { throw 'Test-Build fehlgeschlagen' }

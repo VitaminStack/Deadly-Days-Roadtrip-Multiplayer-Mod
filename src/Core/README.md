@@ -70,6 +70,10 @@ Core::Hooks::Install(reinterpret_cast<ProcessEventFn>(Target), &Detour, &Origina
 - `Original` steht fest, bevor der Hook aktiv wird.
 - Detours laufen auf dem Thread des Aufrufers. Eng filtern und das Original genau einmal rufen, siehe [Andockpunkte](../../docs/ARCHITECTURE.md#technische-andockpunkte-build-26187885).
 
+## Absturzberichte: `Core/CrashReports.h`
+
+`Block` lässt im eigenen Prozess jeden Start von `CrashReportClient.exe` scheitern, damit Abstürze mit Mod nie beim Hersteller landen. Der Start der Mod ruft es direkt nach `Hooks::Initialize` auf. Der lokale Bericht unter `Saved/Crashes` bleibt erhalten. Hintergrund in der [Spike-README](../../research/spikes/a-connect/README.md#sperre-in-mod-und-spike-crash-reporter).
+
 ## Signaturen: `Core/Signature.h`
 
 ```cpp

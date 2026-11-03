@@ -10,22 +10,21 @@ Erst spielbar: Vorrang hat, dass zwei Spieler einen Run durchspielen können. Kl
 ## Vor dem Start
 
 1. [Wo kann ich anfangen?](TODO.md#wo-kann-ich-anfangen) lesen, auch die Liste „Nicht erneut machen“. [Spätere Arbeitspakete](TODO.md#spätere-arbeitspakete) erst nehmen, wenn ihre Voraussetzung auf `main` ist. [Zentrale Arbeit](TODO.md#zentrale-arbeit) nie aufteilen.
-2. Offene Reservierungen ansehen. Eine Aufgabe, deren Branch schon existiert, nicht übernehmen:
+2. Status aller Aufgaben ansehen. Nur Aufgaben mit Status `frei` nehmen:
 
    ```bash
-   git ls-remote --heads origin "task/*"
+   py tools/tasks.py list
    ```
 
-3. Aufgabe reservieren. Lehnt `push` ab, hat jemand anderes sie gerade genommen, dann eine andere wählen:
+3. Aufgabe reservieren. Das legt den Worktree `.worktrees/<kennung>` und den Branch `task/<kennung>` an, pusht ihn und öffnet einen Draft-PR `[WIP] <kennung>`, an dem alle auf GitHub sehen, wer woran arbeitet. Lehnt das Skript ab, hat jemand anderes die Aufgabe gerade genommen, dann eine andere wählen:
 
    ```bash
-   git fetch origin
-   git worktree add -b task/<kennung> .worktrees/<kennung> origin/main
-   git -C .worktrees/<kennung> commit --allow-empty -m "task: claim <kennung> by <eigener-name>-$RANDOM"
-   git -C .worktrees/<kennung> push origin task/<kennung>
+   py tools/tasks.py claim <kennung> <eigener-name>
    ```
 
-Worktrees liegen immer unter `.worktrees/` im Repo-Ordner, keine neuen Ordner daneben anlegen. Im eigenen Worktree arbeiten, nie im Hauptordner oder im Worktree eines anderen Agenten. Wer die Reservierung aufgibt, löscht den Branch auf `origin`.
+Nie von Hand reservieren und nie eine Aufgabe übernehmen, die nicht `frei` ist. Steht dort „erst nachfragen“, ist die Reservierung seit mehreren Tagen ohne Commit. Dann den Menschen fragen, der sie im Team klärt. Eine Zeile ohne Kennung bekommt eine kurze eigene Kennung aus Kleinbuchstaben.
+
+Worktrees liegen immer unter `.worktrees/` im Repo-Ordner, keine neuen Ordner daneben anlegen. Im eigenen Worktree arbeiten, nie im Hauptordner oder im Worktree eines anderen Agenten. Wer die Reservierung aufgibt, ruft `py tools/tasks.py release <kennung>` auf. Das schließt den Draft-PR und löscht den Branch.
 
 ## Beim Arbeiten
 
@@ -39,4 +38,9 @@ Worktrees liegen immer unter `.worktrees/` im Repo-Ordner, keine neuen Ordner da
 
 1. Ergebnisse festhalten, auch gescheiterte Versuche, siehe [Ergebnisse festhalten](docs/TESTING.md#ergebnisse-festhalten).
 2. In `TODO.md` nur die eigenen Zeilen ändern, das hält Konflikte klein. Ist die Aufgabe fertig, auch [docs/ROADMAP.md](docs/ROADMAP.md) und den [Fortschritt im README](README.md#fortschritt) anpassen.
-3. Pull Request nach `main` öffnen und sagen, wie getestet wurde. Nur auf ausdrückliche Anweisung des Menschen mergen.
+3. Den Draft-PR fertigstellen, keinen zweiten öffnen: Titel und Beschreibung ersetzen, dabei sagen, wie getestet wurde, dann auf „Ready for review“ stellen. Nur auf ausdrückliche Anweisung des Menschen mergen.
+
+   ```bash
+   gh pr edit task/<kennung> --title "<kennung>: <Ergebnis>" --body-file <datei>
+   gh pr ready task/<kennung>
+   ```

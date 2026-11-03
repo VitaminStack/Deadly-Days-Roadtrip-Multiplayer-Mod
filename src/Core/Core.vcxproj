@@ -30,6 +30,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Config.cpp" />
+    <ClCompile Include="CrashReports.cpp" />
     <ClCompile Include="Dispatcher.cpp" />
     <ClCompile Include="Hooks.cpp" />
     <ClCompile Include="Log.cpp" />
@@ -56,6 +57,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Config.h" />
+    <ClInclude Include="CrashReports.h" />
     <ClInclude Include="Dispatcher.h" />
     <ClInclude Include="Hooks.h" />
     <ClInclude Include="Log.h" />
