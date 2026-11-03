@@ -86,7 +86,7 @@ Der Host-Absturz war immer derselbe Callstack. Das Spiel fragt beim Spawnen `Get
 
 Die Zuordnung der Funktionen stammt aus der Disassembly ohne Symbole. Die Kamera ist über Offsets im SDK belegt, die übrigen passen zu den Aufrufern.
 
-Beim Client setzt der Spike die Kamera jede Sekunde, beim Host nimmt er jede Sekunde Client-Positionen an und ersetzt veraltete Einträge in `SpawnedPlayers`. Dazu kommen Befehle für die Datei-Schnittstelle:
+Beim Client setzt der Spike die Kamera jede Sekunde, beim Host nimmt er jede Sekunde Client-Positionen an und gleicht `SpawnedPlayers` als echte Menge mit der aktuellen `GameState.PlayerArray` ab. Dazu kommen Befehle für die Datei-Schnittstelle:
 
 | Befehl | Seite | Wirkung |
 |---|---|---|
@@ -122,6 +122,16 @@ py tools/spike/roundstate.py <host-pid> <client-pid>
 Es zeigt tatsächliche Route-Längen/Indizes, Grund, Tag, Sekunden und Panelbeobachtungen. `scope=game_instance` oder `unresolved` und `open=null` dürfen nicht als aktuelle sichtbare Phase interpretiert werden. Rohdaten bleiben unter `research/local/`.
 
 **Ergebnis offen:** Ein eigener Host-geführter, versionierter und sequenzierter Phasenvertrag mit rein anzeigendem Client ist noch zu implementieren. Weder Client-Anzeige noch Eingabesperre oder deren Aufhebung beim Wechsel/Trennen sind getestet. `Mission.cpp` besitzt aktuell keinen gemeinsamen Patch-/Tick-Einstieg; andere Spike-Dateien wurden für diesen Task nicht geändert. MSVC-Build, Python-Syntaxprüfung und die beiden Client-Befehlsgrenzen sind geprüft, kein vollständiger Run oder Internet-Test. TODO bleibt offen.
+
+## SpawnedPlayers: echte Mengeneinträge (`spawnedplayers`)
+
+Stand 03.11.2026, Build `26187885`. `Players.cpp` ersetzt keine Schlüssel mehr direkt. Es entfernt veraltete, durch GC auf null gesetzte und doppelte belegte Einträge mit korrekt ausgehängter Hash-Verkettung und dem nativen SparseArray-Entferner. Neue aktuelle Controller kommen über denselben nativen TSet-Add-Helfer hinein, den die Registrierung des Spiels verwendet. Der vollständige Registrierungsweg wird **nicht** erneut aufgerufen: Er würde zusätzlich Spiel-Delegates auslösen.
+
+Die Allokationsbits entscheiden über freie Plätze, nicht der Inhalt des ersten Zeigers. Entfernen nutzt den gespeicherten Bucket: Ein durch GC genullter Schlüssel hat nicht mehr seinen ursprünglichen Hash. Vor Änderungen werden Layout, Belegungszahl und alle Hash-Ketten geprüft; bei unvollständiger PlayerArray wird gewartet. Keine Controller- oder GameMode-Zeiger werden über Weltwechsel gespeichert. Der bestehende Game-Thread-Sekundentick bleibt der Anschluss; das ist keine sofortige Registrierung im Engine-Travel-Callback.
+
+Prüfen ohne Spiel/SDK: `powershell -File tests/Run-SpawnedPlayers.ps1`. Synthetische Fälle: freie Plätze mit Datenmüll, belegter Null-Schlüssel, Kollisionskette, Kopf-/Endentfernung, doppelte Schlüssel, ungültige Indizes, Zyklen und falsche Buckets. `py tools/spike/players.py <host-pid>` prüft zusätzlich tatsächliche Pointer-Hashes und genaue Übereinstimmung mit den aktuellen Controllern; Exitcode 0 nur bei konsistenter Menge und standardmäßig zwei Spielern (`--expected-players 1` für eine absichtliche Einzelspieler-/Trennungsmessung). Kein atomarer Laufzeit-Snapshot.
+
+**Laufzeit:** Zwei Instanzen/Loopback, getrennte Test-Spielstände, CrashGuard. Mit diesem Branch nach MetaBase und zwei direkten Missionstravels jeweils zwei aktuelle Controller, konsistente Allokationsbits und Hash-Verkettung. Ein weiterer Wechsel in die MetaBase reproduzierte den bekannten Host-Callback-Absturz `0x57CC398`; die korrekte Menge allein behebt ihn nicht. Zusätzlicher Integrationstest mit dem Timer-Lebensdauerfix aus `tag3` in einer nur lokal zusammengesetzten DLL: Start in der Mission und zwei weitere Missionstravels verbunden, jeweils `hash_valid=true`, `roster_equal=true`, zwei belegte Plätze und identische vollständige Inventare beim letzten Vergleich. Beim nächsten Wechsel neuer Client-Absturz `0x178BA90`; Host bleibt aktiv. Nach der Trennung enthält die Menge korrekt nur noch den Host (ein belegter/ein freier Platz, gültiger Hash). Anschließend isolierten Branch erneut gebaut und Start in die Mission mit dem finalen GameMode-Klassenfilter geprüft; keine Menü-Layoutwarnungen mehr. Kein Nachweis für Remote-P2-/Coop-Subsystem-Integration, Internet oder vollständigen Run. Der Gegner-Spawn-Schutz während des Übergangs bleibt bestehen.
 
 ## Bekannte Abweichungen
 

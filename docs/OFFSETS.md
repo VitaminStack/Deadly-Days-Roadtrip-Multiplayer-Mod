@@ -151,6 +151,11 @@ Funktionen von `ULocalCoopSubsystem` und ihre Aufrufer, Ablauf siehe [Coop-Ablau
 | `UNetDriver` | ServerConnection, ClientConnections | `0x100`, `0x108` |
 | `FWorldContext` | TravelURL | `0xA8` |
 | `ADDMissionGameMode` | SpawnedPlayers (TSet) | `0x388` |
+| Controller-TSet | Eintrag / HashNext / HashIndex | Stride `0x10`, Felder `+0`, `+8`, `+0xC` |
+| Controller-TSet | Allokationsbits / sekundäre Bits / Bitanzahl | Inline `+0x10`, Zeiger `+0x20`, Anzahl `+0x28` |
+| Controller-TSet | FirstFree / NumFree / Hash | `+0x30` / `+0x34`; Inline-Hash `+0x38`, sekundär `+0x40`, Größe `+0x48` |
+| Controller-TSet | Nativer Add-Helfer (RVA) | `0x57BD5E0`, `(Set*, int32* ResultIndex, Controller* const*, bool* AlreadyPresent)` |
+| Controller-TSet | Nativer SparseArray-RemoveAt-Helfer (RVA) | `0x12D6BA0`, `(Set*, int32 Index, int32 Count)`; Hash vorher aushängen |
 | TSet | Data, Num, FirstFree, NumFree, Element-Stride | `+0`, `+8`, `+0x30`, `+0x34`, `0x10` |
 | GameInstance | PendingGameStateComponentTravelStates, LastRoundChangeReason | `0x248`, `0x299` |
 | GameInstance | CurrentRunInfo (Seed +0, CurrentRoute +8) | `0x2A0` |
