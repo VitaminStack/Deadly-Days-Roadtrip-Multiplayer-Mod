@@ -1,8 +1,8 @@
 """Begrenzter In-Memory-Kismet-Reader fuer Build 26187885, kein Codeexport.
 
 Validiert Ausdrucksgrenzen und statische Sprungziele. Unbekannte/mehrdeutige
-Formate werden abgelehnt. Die Ausgabe enthaelt nur Pruefsummen in Form von
-Zaehlern und symbolische Aufrufmengen, keine Funktionskoerper oder Rohzeiger.
+Formate werden abgelehnt. Die Ausgabe enthaelt nur Pruefzaehler und symbolische
+Aufrufmengen, keine Funktionskoerper oder Rohzeiger.
 Token-Bezeichnungen: oeffentliche UAssetAPI-EExprToken-Dokumentation.
 """
 from collections import Counter

@@ -265,6 +265,6 @@ Die Testobjekte und Hooks enden mit der eigenen Sitzung; alle Sitzungen beendet.
 
 Lokale Belege: `events-{host,client}-final.log`, `event-summary.jsonl`,
 `{host,client}-boundary-audit.json`; Fehlversuche und fruehere Sitzungen separat.
-**21 synthetische Python-Tests bestanden**, davon sieben fuer den Grenzaudit
+**25 synthetische Python-Tests bestanden**, davon sieben fuer den Grenzaudit
 und sechs fuer die Trennung von Hook-Installation und beobachteter Ausfuehrung.
 Native Probe mit lokalem Mission-SDK gebaut. Keine dieser Spieldaten im PR.
