@@ -17,8 +17,59 @@ Vertrauensgrad:
 | Engine-Version | `5.8.1-56057345+++UE5+Release-5.8` |
 | Spiel-Exe | `DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe` (179 MB) |
 
-Build-ID und Manifest-IDs stehen in `steamapps/appmanifest_3026450.acf`. Mit den Manifest-IDs lässt sich genau dieser Build über die
-Steam-Konsole neu laden. Bei einem Spiel-Update gilt die [Update-Regel](../CONTRIBUTING.md#spiel-updates): einfrieren und nur bei Bedarf nachziehen.
+Build-ID und Manifest-IDs stehen in `steamapps/appmanifest_3026450.acf`. Die Manifest-IDs benennen die gewünschten Depotstände;
+ein erneuter Download über die Steam-Konsole ist noch nicht getestet. Bei einem Spiel-Update gilt die
+[Update-Regel](../CONTRIBUTING.md#spiel-updates): einfrieren und nur bei Bedarf nachziehen.
+
+### Gemeinsame Build-ID (`build-id`)
+
+Stand: 03.11.2026, ein Windows-PC. Erst lesend geprüft, danach eine getrennte Entwicklungskopie erstellt und im Spiel getestet.
+Keine Steam-Bedienung oder Downloads, keine Änderung an Steam-Einstellungen, installierten Spieldateien oder echten Spielständen.
+
+- **[Belegt, lokale Dateien]** Das installierte Steam-Manifest nennt `26187885` und die beiden oben stehenden Depot-Manifeste.
+  `AutoUpdateBehavior` steht auf `0`; die Einstellung wurde nicht umgestellt und ist für die neue, getrennte Kopie nicht maßgeblich.
+- **[Belegt, öffentliche Metadaten]** [api.steamcmd.net](https://api.steamcmd.net/v1/info/3026450) listet weiterhin nur den öffentlichen Zweig
+  `public` mit Build `26187885`. `privatebranches=1` ist gesetzt: Private Zweige können existieren, ihre Zugänglichkeit für das Team ist unbekannt.
+  Ein allgemein zugänglicher Altversions-Zweig ist in dieser Antwort nicht ausgewiesen. Die API ist ein Drittanbieter, kein Nachweis der Kontoberechtigung.
+- **[Belegt, öffentliche Metadaten]** Depot `3026451` ist leer; Depot `3026452` enthält die Windows-Dateien, Größe `1886116738` Byte,
+  Downloadgröße `1605871856` Byte. Die Manifest-IDs stimmen mit der lokalen Installation überein. Ein aufgelistetes Manifest ist noch kein erfolgreicher Download.
+- **[Belegt, Quellcode und Exe-Header]** Der bisherige Steam-Startweg in `Assert-SupportedBuild` liest nur `buildid` aus dem Steam-Manifest.
+  Die Core-Prüfung nutzt dagegen PE-`TimeDateStamp` und `SizeOfImage`; lokal passen `0x32C34474` und `0x0B742000` zu `SupportedBuilds`.
+  Diese beiden Prüfungen vergleichen keine Inhaltsdateien. Der neue `PinnedGameDir`-Startweg verwendet deshalb stattdessen den vollständigen
+  SHA-256-Beleg der Entwicklungskopie; die Core-Prüfung bleibt zusätzlich aktiv. Kein gefälschtes Steam-Manifest nötig.
+
+**Dateireferenz:** SHA-256 der lokalen Exe und der fünf Container unter `DDSurvivors/Content/Paks`, rein lesend ermittelt.
+Das sind Vergleichswerte der vorhandenen Testinstallation, keine unabhängig durch einen frischen Depot-Download bestätigte Steam-Referenz.
+Sie belegen bei Übereinstimmung nur diese sechs Dateien, nicht alle DLLs, zusätzliche Mods oder die Startfähigkeit.
+
+| Datei | SHA-256 |
+|---|---|
+| `DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe` | `3afbf18e051fbceb1fec17a8da20165ba64e0f6c3c88cbe88cb046704a4eefb5` |
+| `DDSurvivors/Content/Paks/DDSurvivors-Windows.pak` | `68e6272f63219e928667c85938663e1044c3e7d5ffa1dc279ecc3e640001e3fa` |
+| `DDSurvivors/Content/Paks/DDSurvivors-Windows.ucas` | `e9d5d3d978db4e6beb34078dfded4b602059345b1084dd783a4faae8d4653ab7` |
+| `DDSurvivors/Content/Paks/DDSurvivors-Windows.utoc` | `e9dfef912c120fec38c66ed2f13ed5e7e95b3342fbe0d455aab036bb5a6ec2e9` |
+| `DDSurvivors/Content/Paks/global.ucas` | `22eb9df449492c0cacf5cb5e1f8584bf23ee5e655d96f01fb8b5159c45440d4e` |
+| `DDSurvivors/Content/Paks/global.utoc` | `ece14ac99e2787b2cbea14444c285ae1c403750b1386bdc892fa341d3ec99e9a` |
+
+**Lösung und Laufzeitnachweis:** `Freeze-GameBuild.ps1 -Activate` erstellt echte Dateikopien außerhalb der Steam-Bibliothek und setzt
+`PinnedGameDir` in der lokalen Konfiguration. Es wurden 54 unveränderliche Dateien kopiert und vollständig gehasht; der Beleg enthält nur
+relative Dateinamen, Größen und Hashes. Ein bestehendes Ziel wird nie ersetzt. Der getrennte Ordner hat keine Hardlinks, Junctions oder Symlinks
+zur Steam-Installation. Steam aktualisiert weiterhin seine eigene Installation, nicht diese Entwicklungskopie.
+
+- `Start-Session.ps1 -Build -Mod`: Host und Client starten aus der Kopie, in der `MetaBase` verbunden, Host `clients=1`, auf beiden Seiten `players=2`.
+  Beide tatsächlichen Prozesspfade wurden gegen die eingefrorene Exe geprüft. Beide Mod-Logs bestätigen Build `26187885` und gesperrten Crash-Reporter.
+- `Stop-Session.ps1` beendet die eigene Sitzung und entfernt die Mod aus der Kopie. `Test-Setup.ps1` prüft danach wieder alle 54 Dateien erfolgreich.
+- Mit dem endgültigen Startweg ein zweites Mal verbunden; anschließend alle 54 Originaldateien der Steam-Quelle mit dem Ausgangsbeleg
+  verglichen: unverändert. Release-Build, 18 C++-Tests mit 77 Assertions und nach dem Review 58 Python-Tests erfolgreich.
+- Automatische Tests simulieren Änderungen an der Steam-Quelle: Die Kopie bleibt bytegleich und startseitig prüfbar. Veränderte Exe/DLL,
+  fehlende Datei, zusätzliches Paket, ungültiger Beleg, falscher Build, Steam-Zielordner, Hardlinks und Änderungen während der Kopie werden abgewiesen.
+  Das ist kein absichtlich ausgelöstes echtes Steam-Update; die installierten Spieldateien wurden nicht verändert.
+
+**Grenzen:** Das Team kann nach der [Valve-Dokumentation zu Branches](https://partner.steamgames.com/doc/store/application/branches) keinen
+eigenen Steam-Altversions-Zweig bereitstellen. Deshalb wird ein solcher Zweig nicht vorausgesetzt. Die technische Build-Trennung ist belegt;
+jedes Teammitglied richtet sie aus seiner eigenen lizenzierten Kopie ein, siehe [Einrichtung](SETUP.md#gleiche-build-id-im-team).
+Nicht getestet: zwei PCs/Konten, Depot-Redownload oder Start nach einem künftigen Steam-/Backendwechsel. Keine DRM-Umgehung und keine Garantie
+gegen Änderungen am Steam-Dienst; diese können einen eigenen Anpassungsfall ergeben, aktualisieren aber nicht automatisch die eingefrorenen Dateien.
 
 ## SDK-Erzeugung unter UE 5.8
 

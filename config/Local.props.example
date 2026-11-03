@@ -4,8 +4,11 @@
   <PropertyGroup>
     <!-- Ordner mit dem Unterordner SDK\ aus dem Dumper-7-Dump -->
     <Dumper7SdkRoot>C:\Dumper-7\HIER_VERSION_EINTRAGEN\CppSDK</Dumper7SdkRoot>
-    <!-- Installationsordner des Spiels -->
+    <!-- Steam-Installation als Quelle, bleibt fuer spaetere Update-Unterstuetzung erhalten -->
     <GameDir>C:\Program Files (x86)\Steam\steamapps\common\Deadly Days Roadtrip</GameDir>
+    <!-- Optional: Mit tools/Freeze-GameBuild.ps1 -Activate erzeugte Entwicklungskopie ausserhalb von Steam.
+         Wenn gesetzt, nutzen Tests und Deploy nur diese Kopie, niemals ersatzweise GameDir. -->
+    <PinnedGameDir></PinnedGameDir>
     <!-- Entpacktes Steamworks SDK 1.64 -->
     <SteamworksSdkRoot>C:\SDKs\steamworks_sdk_164\sdk</SteamworksSdkRoot>
   </PropertyGroup>

@@ -198,7 +198,7 @@ Ziel: Alle können auf demselben Spielstand und mit derselben Toolchain arbeiten
 - [x] P1 Dumper-7-Fix für alle Helfer ohne eigenen Patch bereitstellen. Entschieden: kein Beitrag upstream, der Fix liegt dauerhaft auf `main` des eigenen Forks `VitaminStack/Dumper-7`, eingebunden als Submodul `third_party/Dumper-7`, siehe [SDK-Erzeugung](docs/GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58)
 - [x] P0 Visual-Studio-Solution mit einem Projekt je Modul anlegen, `config/Local.props` einbinden
 - [x] P1 Festlegen, wie das Team mit Spiel-Updates umgeht: einfrieren und nur bei Bedarf nachziehen ([Update-Regel](CONTRIBUTING.md#spiel-updates))
-- [ ] P1 Klären, ob alle das Spiel auf derselben Build-ID halten können
+- [x] P1 Gleiche Build-ID für die Entwicklung festhalten (`build-id`): geprüfte, echte Dateikopie außerhalb von Steam mit `Freeze-GameBuild.ps1 -Activate`; Start und Deploy nutzen ausschließlich `PinnedGameDir` und prüfen alle eingefrorenen Dateien per SHA-256. Host/Client samt Mod auf `26187885` aus der Kopie verbunden getestet; Steam-Updates bleiben auf die Steam-Installation beschränkt, neue Build-Unterstützung erfolgt separat über `spiel-update`. [Einrichtung und Grenzen](docs/SETUP.md#gleiche-build-id-im-team), kein Zwei-PC-/Depot-Redownload-Test
 
 ## Phase 1 – Analyse und Spikes
 

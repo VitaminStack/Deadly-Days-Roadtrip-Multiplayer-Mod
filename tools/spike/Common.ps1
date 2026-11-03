@@ -19,8 +19,9 @@ function Find-LocalProps {
 }
 
 function Get-GameDir {
-    $GameDir = ([xml](Get-Content (Find-LocalProps) -Raw)).Project.PropertyGroup.GameDir
-    if (-not (Test-Path $GameDir)) { throw "GameDir aus config\Local.props gibt es nicht: $GameDir" }
+    $Values = ([xml](Get-Content (Find-LocalProps) -Raw)).Project.PropertyGroup
+    $GameDir = if ($Values.PinnedGameDir) { [string]$Values.PinnedGameDir } else { [string]$Values.GameDir }
+    if (-not (Test-Path -LiteralPath $GameDir -PathType Container)) { throw "Aktiver Spielordner aus config\Local.props fehlt: $GameDir" }
     $GameDir
 }
 
@@ -30,6 +31,12 @@ function Get-GameExe {
 
 # Offsets und Patches gelten nur fuer einen Build. Auf einem anderen laufen sie ins Leere oder stuerzen ab.
 function Assert-SupportedBuild {
+    $Values = ([xml](Get-Content (Find-LocalProps) -Raw)).Project.PropertyGroup
+    if ($Values.PinnedGameDir) {
+        & py (Join-Path $script:RepoRoot 'tools\game_build.py') verify --directory (Get-GameDir) --build $script:SupportedBuild
+        if ($LASTEXITCODE -ne 0) { throw 'Entwicklungskopie ungueltig. Kein Rueckfall auf die Steam-Installation.' }
+        return
+    }
     $Manifest = Join-Path (Get-GameDir) '..\..\appmanifest_3026450.acf'
     if (-not (Test-Path $Manifest)) { throw "Steam-Manifest nicht gefunden: $Manifest" }
     $Match = [regex]::Match((Get-Content $Manifest -Raw), '"buildid"\s+"(\d+)"')
