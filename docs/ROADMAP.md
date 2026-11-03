@@ -19,7 +19,7 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 **Neue Befunde.**
 
 - `kamera-entscheidung`, 03.11.2026: Gemeinsame Kamera (Option A) für den ersten spielbaren Stand festgelegt, mit ursprünglichem Zoom und Bewegungsbegrenzung. Umsetzung bleibt `kamera-code`; getrennte Kameras sind nur ein optionales Zukunfts-TODO.
-- `tag3`, 03.11.2026: Der Host-Absturz bei der Reise auf Tag 3 kam von einem Kartengenerator-Lambda mit rohem Zeiger auf die alte Karte. Mit diesem Fix, dem Timer-Cleanup des Achievement-Detektors und der Exp-Aggregation kam der Run zweimal über die echte Route auf Tag 3, mit gleichen Inventaren. Der Client stürzt an Tag 4 noch ab, Folgeaufgabe `tag4`.
+- `tag3`, 03.11.2026: Der Host-Absturz bei der Reise auf Tag 3 kam von einem Kartengenerator-Lambda mit rohem Zeiger auf die alte Karte. Mit diesem Fix, dem Timer-Cleanup des Achievement-Detektors und der Exp-Aggregation kam der Run zweimal über die echte Route auf Tag 3, mit gleichen Inventaren. Der Client stürzt an Tag 4 noch ab, Folgeaufgabe `tageswechsel`.
 - `spawnedplayers`, 03.11.2026: Hash-/SparseArray-korrekte Bereinigung und native TSet-Einfügung umgesetzt, synthetische Tests und begrenzte Traveltests bestanden. Den Registrierungshook auf der echten Route abzunehmen ist Folgeaufgabe `spawnedplayers-lauf`.
 - `spawnedplayers-lauf`, 03.11.2026: Der Hook greift bei Beitritt, erneutem Beitritt und Missionswechsel. Nach jedem Missionswechsel ersetzt der Host aber den Controller des Clients ohne Registrierung, bis zu einer Sekunde lang steht dann ein alter Controller in der Menge. Folgeaufgabe `controller-tausch`.
 - `build-id`, 03.11.2026: Geprüfte Entwicklungskopie außerhalb von Steam, keine Links zur automatisch aktualisierten Installation. Host/Client samt Mod aus Build `26187885` verbunden getestet. [Einrichtung](SETUP.md#gleiche-build-id-im-team), neue Build-Unterstützung bleibt eine eigene Aufgabe.
@@ -29,7 +29,7 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 
 **Reihenfolge.**
 
-1. `tag4` lösen. Ohne diesen Schritt ist kein Run über Tag 3 hinaus möglich.
+1. `tageswechsel` lösen, für jeden Tag und den Endlosmodus, nicht nur für Tag 4. Ohne diesen Schritt ist kein Run über Tag 3 hinaus möglich.
 2. `remote-p2` oder `controller-tausch`, nicht gleichzeitig, und `karte-client`. Diese Aufgaben brauchen Spielzeit, und pro PC läuft nur eine Sitzung.
 3. Parallel ohne Spielzeit: `grundgeruest`, `tunnel` und `crash-reporter`.
 4. `last` messen und an Gate G1 entscheiden.
@@ -75,7 +75,7 @@ flowchart LR
     end
 
     subgraph RUN["Run-Ablauf"]
-        T3["Tag 3: Host-Absturz,<br/>Inventar abschließen<br/>(tag3)"]:::blocker
+        T3["Alle Tage und Endlosmodus,<br/>Inventar abschließen<br/>(tageswechsel)"]:::blocker
         RE["Rundenende, Lager,<br/>Routenkarte<br/>(rundenende)"]:::wip
         NI["Echte Niederlage,<br/>Rückkehr in die MetaBase<br/>(niederlage)"]:::open
         TR["Client-Absturz<br/>beim Trennen<br/>(trennen)"]:::done
