@@ -10,6 +10,7 @@ labels: task
 
 ## Bereich und Phase
 
+- Kennung: <!-- Branch task/<kennung>, siehe TODO.md -->
 - Bereich:
 - Phase:
 - Priorität: P0 / P1 / P2

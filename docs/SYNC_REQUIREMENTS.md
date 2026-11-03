@@ -38,7 +38,7 @@ Keine zwei unabhaengigen XP-/Waehrungssimulationen einfuehren.
 - **Pausen:** Weltpause und UI-Sitzung getrennt betrachten. Engine-WorldSettings
   koennen bereits replizieren; zusaetzlicher Kontroll-Sync liefert Anlass,
   Revision, Bedienberechtigung und Input-Sperre. Keine zweite freie Client-Pause.
-  Die Untersuchung in PR #4 ist ein separates, noch nicht gemergtes Teilergebnis.
+  Die Untersuchung steht im [Pausen-Spike](../research/spikes/pausen/README.md).
 - **UI:** Client zeigt denselben Host-Zustand mit erlaubten Aktionen. `AuthorityPlayerIndex`
   ist UI-Bedienrecht, nicht Netzwerkautoritaet. Eingabe geht als Anfrage an den Host,
   nie als selbst behaupteter Spielerindex oder fertiges Reward-Ergebnis.
@@ -85,7 +85,7 @@ Seiteneffekte sind moeglich und bislang nicht voll untersucht. Deshalb native
 Client-Wallets nicht mit einem Differenzbetrag „angleichen“. Bei Bedarf das
 HUD-Getter-/ViewModel anbinden, nicht die Savedaten nachbauen.
 
-Die Reparatur von `Slots`/`MyItems` gehoert zur reservierten Aufgabe `inventar`.
+Die Reparatur von `Slots`/`MyItems` gehoert zur Aufgabe `tag3`, siehe [Teilfix](../research/spikes/a-connect/README.md#inventar-ursache-teilfix-und-verbleibende-grenze).
 Der Sync-Entwurf heilt keine fehlenden Item-Unterobjekte. Auch nicht replizierte
 RewardChest-Actors duerfen nicht als garantiert clientseitig vorhanden gelten.
 

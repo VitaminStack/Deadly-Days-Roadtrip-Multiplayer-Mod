@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Gemeinsame Einstellungen aller Module. Wird von jedem Projekt nach Microsoft.Cpp.props eingebunden. -->
+<Project>
+  <PropertyGroup>
+    <RepoRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..'))\</RepoRoot>
+    <!-- Worktrees liegen unter .worktrees\<kennung>, dann gilt die Datei aus dem Hauptordner. -->
+    <LocalProps Condition="Exists('$(RepoRoot)config\Local.props')">$(RepoRoot)config\Local.props</LocalProps>
+    <LocalProps Condition="'$(LocalProps)' == '' And Exists('$(RepoRoot)..\..\config\Local.props')">$(RepoRoot)..\..\config\Local.props</LocalProps>
+  </PropertyGroup>
+  <Import Project="$(LocalProps)" Condition="'$(LocalProps)' != ''" />
+  <PropertyGroup>
+    <OutDir>$(RepoRoot)bin\$(Configuration)\</OutDir>
+    <IntDir>$(RepoRoot)obj\$(MSBuildProjectName)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <WarningLevel>Level4</WarningLevel>
+      <TreatWarningAsError>true</TreatWarningAsError>
+      <ConformanceMode>true</ConformanceMode>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalIncludeDirectories>$(RepoRoot)src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <!-- Statische Laufzeit, damit Mitspieler kein VC-Redistributable brauchen. -->
+  <ItemDefinitionGroup Condition="'$(Configuration)' == 'Debug'">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)' == 'Release'">
+    <ClCompile>
+      <Optimization>MaxSpeed</Optimization>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+    </ClCompile>
+  </ItemDefinitionGroup>
+</Project>
