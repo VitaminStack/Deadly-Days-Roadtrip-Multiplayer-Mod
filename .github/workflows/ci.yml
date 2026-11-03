@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration: [Debug, Release]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Solution bauen
+        shell: pwsh
+        run: |
+          $Vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $MSBuild = & $Vswhere -latest -requires Microsoft.Component.MSBuild -find 'MSBuild\**\Bin\MSBuild.exe' | Select-Object -First 1
+          & $MSBuild DeadlyDaysCoop.sln /m /nologo /v:m "/p:Configuration=${{ matrix.configuration }};Platform=x64"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: C++-Tests
+        run: .\bin\${{ matrix.configuration }}\CoreTests.exe
+
+      - name: Python-Tests
+        run: python -B -m unittest discover -s tests
