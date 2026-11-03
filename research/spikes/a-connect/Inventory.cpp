@@ -75,6 +75,51 @@ void __fastcall InventoryReadyForReplication(uintptr_t Inventory)
     Log("Inventory: classical subobject replication ready");
 }
 
+// Lambda delegate of AMapGenerator: captures a raw generator at +18h and &CurrentGenData at +20h, then calls
+// the generation step 0x59D9090 unchecked. After the travel to day 3 it fires for the generator of the old map.
+constexpr uintptr_t kMapGenLambdaVtable = 0x9613280;
+constexpr uintptr_t kMapGenLambdaExecute = 0x59CAE70;
+constexpr uintptr_t kMapGenLambdaExecuteIfSafe = 0x59CB020;
+using LambdaExecuteFn = void(__fastcall*)(uintptr_t);
+using LambdaExecuteIfSafeFn = bool(__fastcall*)(uintptr_t);
+
+// True while the object is still registered in GUObjectArray and belongs to the current world (Outer = Level, its Outer = World).
+bool IsGeneratorInCurrentWorldUnsafe(uintptr_t Generator)
+{
+    if (!Generator) return false;
+    const int32_t Index = Read<int32_t>(Generator + 0xC);
+    if (Index < 0 || Index >= Read<int32_t>(Base + kGObjects + 8)) return false;
+    const uintptr_t Chunk = Read<uintptr_t>(Read<uintptr_t>(Base + kGObjects) + 8 * (Index >> 16));
+    if (!Chunk || Read<uintptr_t>(Chunk + (Index & 0xFFFF) * 0x18 + 8) != Generator) return false;
+    const uintptr_t Level = Read<uintptr_t>(Generator + 0x20);
+    return Level && Read<uintptr_t>(Level + 0x20) == Read<uintptr_t>(Base + kGWorld);
+}
+
+// The old generator may already be returned to the OS; an access violation also means stale.
+bool IsGeneratorInCurrentWorld(uintptr_t Generator)
+{
+    __try { return IsGeneratorInCurrentWorldUnsafe(Generator); }
+    __except (GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) { return false; }
+}
+
+bool SkipStaleMapGenStep(uintptr_t Lambda)
+{
+    if (IsGeneratorInCurrentWorld(Read<uintptr_t>(Lambda + 0x18))) return false;
+    static unsigned Skipped = 0;
+    if (++Skipped <= 16) Log("MapGen step: generator of an old world, call skipped, count=" + std::to_string(Skipped));
+    return true;
+}
+
+void __fastcall MapGenLambdaExecute(uintptr_t Lambda)
+{
+    if (!SkipStaleMapGenStep(Lambda)) reinterpret_cast<LambdaExecuteFn>(Base + kMapGenLambdaExecute)(Lambda);
+}
+
+bool __fastcall MapGenLambdaExecuteIfSafe(uintptr_t Lambda)
+{
+    return !SkipStaleMapGenStep(Lambda) && reinterpret_cast<LambdaExecuteIfSafeFn>(Base + kMapGenLambdaExecuteIfSafe)(Lambda);
+}
+
 bool HasVirtual(uintptr_t Vtable, uintptr_t Offset, uintptr_t Expected)
 {
     if (Read<uintptr_t>(Base + Vtable + Offset) == Base + Expected) return true;
@@ -100,6 +145,9 @@ bool PatchInventory(CodeWriter& Code)
         !HasVirtual(kItemVtable, kSupportedForNetworking, kDefaultNetworkingSupport) ||
         !HasVirtual(kInventoryVtable, kReadyForReplication, kInventoryReadyForReplication) ||
         !HasVirtual(kDetectorVtable, kEndPlaySlot, kDetectorEndPlay) ||
+        !HasVirtual(kMapGenLambdaVtable, 0, kMapGenLambdaExecute) ||
+        !HasVirtual(kMapGenLambdaVtable, 8, kMapGenLambdaExecuteIfSafe) ||
+        !Expect(Base + kMapGenLambdaExecute, {0x48, 0x8B, 0x51, 0x20, 0x48, 0x8B, 0x49, 0x18, 0xE9}, "map generator lambda") ||
         !Expect(Base + kScheduleCall, {0xE8, 0x06, 0x21, 0x98, 0xFD}, "detector next-tick timer") ||
         !Expect(Base + kSetNextTick, {0x40, 0x55, 0x53, 0x48, 0x8D, 0x6C, 0x24, 0xB1}, "set next tick") ||
         !Expect(Base + kFindTimer, {0x4C, 0x8B, 0x0A, 0x4C, 0x8B, 0xD1}, "find timer") ||
@@ -113,7 +161,9 @@ bool PatchInventory(CodeWriter& Code)
     DWORD Ignored;
     VirtualProtect(reinterpret_cast<void*>(Site), 5, Old, &Ignored);
     FlushInstructionCache(GetCurrentProcess(), reinterpret_cast<void*>(Site), 5);
-    if (!SetVirtual(kDetectorVtable, kEndPlaySlot, reinterpret_cast<uintptr_t>(&DetectorEndPlay))) return false;
+    if (!SetVirtual(kDetectorVtable, kEndPlaySlot, reinterpret_cast<uintptr_t>(&DetectorEndPlay)) ||
+        !SetVirtual(kMapGenLambdaVtable, 0, reinterpret_cast<uintptr_t>(&MapGenLambdaExecute)) ||
+        !SetVirtual(kMapGenLambdaVtable, 8, reinterpret_cast<uintptr_t>(&MapGenLambdaExecuteIfSafe))) return false;
     return SetVirtual(kSlotVtable, kSupportedForNetworking, reinterpret_cast<uintptr_t>(&SupportsInventoryNetworking)) &&
         SetVirtual(kItemVtable, kSupportedForNetworking, reinterpret_cast<uintptr_t>(&SupportsInventoryNetworking)) &&
         SetVirtual(kInventoryVtable, kReadyForReplication, reinterpret_cast<uintptr_t>(&InventoryReadyForReplication));
