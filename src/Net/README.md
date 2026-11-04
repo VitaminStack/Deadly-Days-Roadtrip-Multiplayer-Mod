@@ -98,7 +98,7 @@ Build `26187885`, ein PC, ein Konto, `Start-Session.ps1 -Mod -Tunnel Lobby` mit 
 | `Start-Run.ps1 -Seed 20795`, `Travel-Day.ps1 62 213` | Beide in `DDDynamic_Map` mit 2 Spielern, Inventare vollständig und gleich, zurück auf der Routenkarte |
 | Verkehr | rund 10 000 Pakete je Richtung, Ping 0 ms, Qualität 1,00, verworfen 0. Keine Fehler im Mod-Log |
 
-Nicht geprüft: Einladung über das Steam-Overlay und `GameLobbyJoinRequested` (brauchen ein zweites Konto), Beitritt per P2P im
+Nicht geprüft, das übernimmt `lobby-live`: Einladung über das Steam-Overlay und `GameLobbyJoinRequested` (brauchen ein zweites Konto), Beitritt per P2P im
 Spiel, Start über `+connect_lobby`, Verlassen und Abbruch im Spiel (nur in `SessionTests`). Ohne die Spike-Patches stürzt der
 Beitritt im Spiel ab, für Spieler ohne Spike ist die Lobby also erst mit `patches` nutzbar.
 
