@@ -902,7 +902,9 @@ Wichtiger Übergabestand für Build `26187885`:
 
 #### Tutorial-Pause hält den Run an (`testumgebung`)
 
-Ein offener Tutorial-Hinweis pausiert die Welt für beide Seiten über eine Zeitanfrage seiner DialogComponent. In der Testumgebung verfälscht das Ladezeiten und Positionen, im Coop hält es den Partner an. `UTutorialStateSubsystem::SetForceSkipTutorials(true)` schaltet alle Hinweise ab. Das Flag liegt bei `+0xB8`, steht nicht im Spielstand und ist nach jedem Start wieder aus. Der Spike setzt es deshalb auf beiden Seiten, sobald das Subsystem da ist, und prüft es jede Sekunde (`Cheats.cpp`, `SkipTutorials`). `!notutorial` meldet den Stand. Für die Mod ist das Aufgabe `tutorial-aus`.
+Ein offener Tutorial-Hinweis pausiert die Welt für beide Seiten über eine Zeitanfrage seiner DialogComponent. In der Testumgebung verfälscht das Ladezeiten und Positionen, im Coop hält es den Partner an. `UTutorialStateSubsystem::SetForceSkipTutorials(true)` schaltet alle Hinweise ab. Das Flag liegt bei `+0xB8`, steht nicht im Spielstand und ist nach jedem Start wieder aus. Der Spike setzt es deshalb auf beiden Seiten, sobald das Subsystem da ist, und prüft es jede Sekunde (`Cheats.cpp`, `SkipTutorials`). `!notutorial` meldet den Stand.
+
+Die Mod macht dasselbe in `src/Game/TutorialAdapter.cpp` (`tutorial-aus`): Als Host oder Client ruft sie einmal je Sekunde `SetForceSkipTutorials(true)`, solange der Schalter nicht steht. Allein, also ohne NetDriver, bleibt das Tutorial an. Geprüft am 04.11.2026 mit einem Spike ohne eigenes Abschalten: Der Host schaltet im Hauptmenü ab, der Client direkt nach dem Verbinden. `Start-Run.ps1` kam ohne Dialoge bis zur Routenkarte, und in der Mission an Tag 1 lief die Uhr ohne offenen Hinweis. Der Schalter blieb über den Kartenwechsel stehen, es gab keinen zweiten Aufruf.
 
 ### Was beim Client laufen darf
 

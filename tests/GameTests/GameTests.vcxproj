@@ -23,6 +23,7 @@
   <ItemGroup>
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="GameThreadTests.cpp" />
+    <ClCompile Include="TutorialAdapterTests.cpp" />
     <ClCompile Include="WorldAdapterTests.cpp" />
   </ItemGroup>
   <ItemGroup>

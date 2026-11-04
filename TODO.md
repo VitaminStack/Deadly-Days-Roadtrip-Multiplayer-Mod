@@ -39,7 +39,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `mod-saves` | P0 | [6](#phase-6--release) | parallel | mittel |
 | `online-sperren` | P0 | [6](#phase-6--release) | parallel | wenig |
 | `telemetrie-aus` | P0 | [6](#phase-6--release) | parallel | wenig |
-| `tutorial-aus` | P0 | [6](#phase-6--release) | parallel | wenig |
 | `tunnel` | P1 | [1](#phase-1--analyse-und-spikes) | parallel | wenig |
 | `installer` | P1 | [6](#phase-6--release) | parallel | keine |
 
@@ -149,7 +148,6 @@ Ziel: Die Mod lässt sich installieren, ohne Spielstände oder Bestenlisten zu b
 
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
-| `tutorial-aus` | P0 | Tutorial-Hinweise im Coop-Betrieb auf beiden Seiten dauerhaft abschalten wie der Spike: `UTutorialStateSubsystem::SetForceSkipTutorials(true)`, sobald das Subsystem existiert, danach jede Sekunde prüfen. Vorrang, weil ein offener Hinweis die Welt für beide pausiert. Ordner `src/Game`. **Einstieg:** [Tutorial-Pause](docs/GAME_ANALYSIS.md#tutorial-pause-hält-den-run-an-testumgebung) | `game-adapter` | parallel | wenig |
 | `online-sperren` | P0 | Bestenlisten und Erfolge online sperren, damit Mod-Runs keine Ranglisten verfälschen. Ordner `src/Game` | `game-adapter` | parallel | wenig |
 | `telemetrie-aus` | P0 | Telemetrie, Bug-Reports und Crash-Reports im Mod-Betrieb abschalten, damit Pixelsplit keine Mod-Fehler als Spielfehler bekommt. Ordner `src/Game` | `game-adapter` | parallel | wenig |
 | `mod-saves` | P0 | Mod-Spielstände vom normalen Spielstand trennen, damit kein Save beschädigt wird. Ordner `src/Game` | `game-adapter` | parallel | mittel |
@@ -230,6 +228,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `tick-absturz` | 1 | Restrictor-Absturz `0x5A17ACC` nachgestellt, Laufzeitfix ist `restrictor`, siehe [Restrictor](docs/GAME_ANALYSIS.md#client-absturz-im-restrictor-tick-absturz) |
 | `treffer` | 1 | Projektile des Clients ziehen beim Host Leben ab und töten (`Hits.cpp`), siehe [Treffer](docs/GAME_ANALYSIS.md#treffer-des-clients-treffer) |
 | `trennen` | 1 | Client-Absturz beim Trennen war eine Folge fehlender Inventar-Items, mit Teilfix kein Absturz, siehe [Trennen](docs/GAME_ANALYSIS.md#trennen-ins-hauptmenü-trennen) |
+| `tutorial-aus` | 6 | Die Mod schaltet die Tutorial-Hinweise als Host und Client automatisch ab und prüft das jede Sekunde (`src/Game/TutorialAdapter`), siehe [Tutorial-Pause](docs/GAME_ANALYSIS.md#tutorial-pause-hält-den-run-an-testumgebung) |
 | `update-regel` | 0 | Spiel-Updates: einfrieren und nur bei Bedarf nachziehen, siehe [Update-Regel](CONTRIBUTING.md#spiel-updates) |
 
 ## Risiken
