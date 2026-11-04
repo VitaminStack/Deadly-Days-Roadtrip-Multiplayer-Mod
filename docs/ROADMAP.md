@@ -18,6 +18,7 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 
 **Neue Befunde.**
 
+- `layerapps-sperre`, 04.11.2026: Das Spiel fragt beim Run-Ende `deadlydays.layerapps.com` an. Die Mod sperrt den Namen jetzt wie `pixelsplit.games`, ohne den Inhalt zu untersuchen. Mod-Runs senden keine unnötigen Daten. Run-Ende und neuer Run liefen mit der Sperre normal.
 - `patches`, 04.11.2026: Die 25 Spielfehler-Fixes aus dem Spike stehen als geprüfte Patches in `src/Game/*Patches.cpp`. Die Mod prüft beim Start alle Stellen und setzt dann alle oder keinen. Mit der Mod setzt der Spike seine eigenen Fassungen nicht mehr und meldet seinen Phasenbeobachter bei der Mod an. Karte, PCG, Testhilfen und Messung bleiben im Spike. Mit `-Mod` lief die echte Route von der MetaBase bis Tag 5 ohne Absturz, die Inventare waren nach jedem Wechsel gleich. Danach kamen nach einer Niederlage beide in die MetaBase zurück. [Patches](../src/Game/README.md#patches).
 
 - `remote-p2`, 04.11.2026: Die Phase-1-Frage ist geklärt: aktuelle schwache `ActivePlayers`-Bindungen und native Coop-Aktivierung machen den Remote-Controller beim Host zu P2, ohne zweiten lokalen Spieler. Ein gezielter Guard nimmt nur die lokale P2-Gerätepflicht aus; native Join-Meldung und Aufräumen veralteter Bindungen separat geprüft. Bewegung und Controller-Tausch funktionieren in der Probe, die lokale UI-Kontrollübergabe im Lager dagegen nicht über das Netz. `remote-spieler`, `eingaben` und Inventar-/UI-Sync bleiben Umsetzungsaufgaben. [Nachweise, Gegenprobe und Grenzen](../research/spikes/a-connect/RemoteP2.md).
