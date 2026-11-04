@@ -86,6 +86,22 @@ Client: Einladung annehmen oder Lobby-ID -> Lobby betreten -> Besitzer der Lobby
 Mit `-ddcoop_transport=...` bleibt die Lobby aus, beide nutzen dieselben Ports. `Start-Session.ps1 -Mod -Tunnel Lobby` setzt die
 Schalter, liest die Lobby-ID aus dem Log des Hosts und startet den Client damit, siehe [Testen](../../docs/TESTING.md).
 
+### Lobby im Spiel (04.11.2026)
+
+Build `26187885`, ein PC, ein Konto, `Start-Session.ps1 -Mod -Tunnel Lobby` mit Spike und CrashGuard, Release-Build der Mod.
+
+| Schritt | Ergebnis |
+|---|---|
+| Lobby erstellen | Nach etwa 0,3 s erstellt, Host-Tunnel lauscht, `ExecuteConsoleCommand` macht den Host zum Listen-Server in der MetaBase |
+| Beitritt per Lobby-ID, ohne Spike beim Beitritt | Lobby betreten, Besitzer ist das eigene Konto, Weg über 127.0.0.1, Tunnel nach 20 ms, Client lädt die MetaBase. Dann Absturz: erst Host `0x5901CE8`, im zweiten Lauf Client `0x56B16D9`. Beides sind bekannte Abstürze, die der Spike patcht, Übernahme in die Mod ist `patches` |
+| Mit `-ddcoop_lobby_delay`, Spike vor dem Beitritt | Beide in der MetaBase mit 2 Spielern, ohne Spike-Befehl verbunden |
+| `Start-Run.ps1 -Seed 20795`, `Travel-Day.ps1 62 213` | Beide in `DDDynamic_Map` mit 2 Spielern, Inventare vollständig und gleich, zurück auf der Routenkarte |
+| Verkehr | rund 10 000 Pakete je Richtung, Ping 0 ms, Qualität 1,00, verworfen 0. Keine Fehler im Mod-Log |
+
+Nicht geprüft: Einladung über das Steam-Overlay und `GameLobbyJoinRequested` (brauchen ein zweites Konto), Beitritt per P2P im
+Spiel, Start über `+connect_lobby`, Verlassen und Abbruch im Spiel (nur in `SessionTests`). Ohne die Spike-Patches stürzt der
+Beitritt im Spiel ab, für Spieler ohne Spike ist die Lobby also erst mit `patches` nutzbar.
+
 ## Tests
 
 `tests/NetTests` prüft den Tunnel ohne Spiel und ohne Steam: Ein nachgebautes Steam Networking verbindet mehrere Konten im
