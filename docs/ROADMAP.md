@@ -193,7 +193,7 @@ flowchart TD
     end
 
     subgraph PH6["Phase 6: Release"]
-        SB["Bestenlisten und<br/>Erfolge sperren"]:::open
+        SB["Bestenlisten und<br/>Erfolge sperren"]:::done
         TE["Telemetrie und<br/>Crash-Reports aus"]:::open
         SV["Eigene Mod-Spielstände"]:::open
         IN["Installer oder Anleitung"]:::open

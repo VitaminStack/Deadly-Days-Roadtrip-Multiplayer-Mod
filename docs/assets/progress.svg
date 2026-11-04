@@ -69,20 +69,20 @@
       <path d="M0 388H1000" stroke="#d1d5db"/>
       <text x="20" y="370">6</text>
       <text x="125" y="370">Veröffentlichung</text>
-      <text x="490" y="370">1 von 6</text>
+      <text x="490" y="370">2 von 6</text>
       <rect x="630" y="355" width="200" height="18" rx="4" fill="#e5e7eb"/>
-      <rect x="630" y="355" width="33" height="18" rx="4" fill="#64748b"/>
-      <text x="846" y="370">16 %</text>
+      <rect x="630" y="355" width="66" height="18" rx="4" fill="#64748b"/>
+      <text x="846" y="370">33 %</text>
     </g>
     <g id="phase-gesamt">
       <rect y="388" width="1000" height="48" fill="#f3f4f6"/>
       <path d="M0 436H1000" stroke="#d1d5db"/>
       <text x="20" y="418">Gesamt</text>
       <text x="125" y="418"></text>
-      <text x="490" y="418">53 von 87</text>
+      <text x="490" y="418">54 von 87</text>
       <rect x="630" y="403" width="200" height="18" rx="4" fill="#e5e7eb"/>
-      <rect x="630" y="403" width="121" height="18" rx="4" fill="#64748b"/>
-      <text x="846" y="418">60 %</text>
+      <rect x="630" y="403" width="124" height="18" rx="4" fill="#64748b"/>
+      <text x="846" y="418">62 %</text>
     </g>
   </g>
 </svg>

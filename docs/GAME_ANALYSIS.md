@@ -969,10 +969,22 @@ Die Aufgabe bleibt ungelöst. Getestet sind Beobachtung, Befehlsgrenzen sowie Co
 
 ## Systeme, die die Mod respektieren muss
 
-- **[Belegt]** Bestenlisten: `PixelLeaderboards`, `DDLeaderboardSettings`
+- **[Belegt]** Bestenlisten und Erfolge: `PixelLeaderboards`, `DDLeaderboardSettings`, `PixelAchievements`, im Mod-Betrieb gesperrt, siehe unten
 - **[Belegt]** Telemetrie und Berichte: `DDBalanceTelemetrySettings`, `DDCorruptedSaveAutoReportSettings`, `DDBugReportForm`, `PixelsplitFeedbackForm`
 - **[Belegt]** Spielstände: `PixelsplitSaveSystem`, `LocalPlayerSaveGame`
 - **[Belegt]** Zeitsteuerung: `PixelsplitTimescaleSystem`. Für Online-Spiel relevant, weil Pausen bei beiden gelten müssen.
+
+### Erfolge und Bestenlisten (`online-sperren`)
+
+Stand 04.11.2026, Build `26187885`, Steamworks-Laufzeit 1.64.
+
+- **[Belegt]** Die Exe importiert `steam_api64.dll` nicht statisch. Das Online-Subsystem lädt sie zur Laufzeit und holt sich die Schnittstellen über ihre Versionsnamen, für Erfolge, Statistiken und Bestenlisten `STEAMUSERSTATS_INTERFACE_VERSION013`. Alle Schreibwege enden dort, die Methoden liegen in `steamclient64.dll`.
+- **Mod:** `Core::SteamStats` sperrt die schreibenden Methoden von `ISteamUserStats`, unabhängig von Spiel-Offsets: `SetAchievement`, `IndicateAchievementProgress`, `SetStatInt32`, `SetStatFloat`, `UpdateAvgRateStat`, `StoreStats`, `UploadLeaderboardScore`, `AttachLeaderboardUGC`. Den vtable-Platz jeder Methode liest die Mod zur Laufzeit aus dem Code der flachen Exporte (`SteamAPI_ISteamUserStats_*`) und hängt sich mit MinHook an die Methode selbst. Lesen und Bestenlisten anzeigen bleibt erlaubt.
+- **[Belegt]** Steam ist beim Start der Mod noch nicht bereit. Ein Hintergrund-Thread versucht es alle 50 ms. Der zwischengespeicherte Zugriff `SteamAPI_SteamUserStats_v013` blieb dabei einmal dauerhaft leer, wohl weil ein Aufruf in die Initialisierung fiel. Die Mod nutzt deshalb `SteamInternal_FindOrCreateUserInterface` ohne Zwischenspeicher.
+- **Test:** zwei Instanzen auf einem PC mit `Start-Session.ps1 -Mod`, Route mit Seed `20795` bis zum Rundenende an Tag 1. Auf beiden Seiten war die Sperre rund 0,4 s nach dem Start der Mod aktiv, vor dem ersten Schreibversuch. Der Host versuchte rund 4 s später, die Statistiken zu speichern (`StoreStats`), und wurde abgewiesen. Im Lauf gab es keine weiteren Schreibversuche, das Spiel lief normal, kein Absturz.
+- **Nicht geprüft:** ein echter Erfolg und ein Bestenlisten-Eintrag am Run-Ende. Absichtlich ausgelöst habe ich keinen: Wäre die Sperre unwirksam, stünde der Erfolg dauerhaft im Steam-Konto.
+- **[Vermutung]** Das Spiel speichert seinen Erfolgsfortschritt auch im eigenen Spielstand (`AchievementSubsystem`, `PersistedAchievementData`). Läuft ein Mod-Run auf dem normalen Spielstand, könnte das Spiel solche Erfolge später ohne Mod nachmelden. Das trennt `mod-saves`.
+- **Nicht gesperrt:** die Weekly-Challenge über `ddrweekly.deadlydays.com`. Ob sie unterstützt oder gesperrt wird, entscheidet das Team unter `weeklymode`.
 
 ## Allgemeines
 

@@ -35,6 +35,7 @@
     <ClCompile Include="Hooks.cpp" />
     <ClCompile Include="Log.cpp" />
     <ClCompile Include="Signature.cpp" />
+    <ClCompile Include="SteamStats.cpp" />
     <ClCompile Include="Version.cpp" />
   </ItemGroup>
   <ItemGroup Label="MinHook">
@@ -62,6 +63,7 @@
     <ClInclude Include="Hooks.h" />
     <ClInclude Include="Log.h" />
     <ClInclude Include="Signature.h" />
+    <ClInclude Include="SteamStats.h" />
     <ClInclude Include="Version.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

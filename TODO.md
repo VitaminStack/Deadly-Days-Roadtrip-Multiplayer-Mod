@@ -39,7 +39,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `transport` | P0 | [3](#phase-3--session-und-verbindung) | parallel | wenig |
 | `patches` | P0 | [4](#phase-4--vertical-slice) | zentral | viel |
 | `mod-saves` | P0 | [6](#phase-6--release) | parallel | mittel |
-| `online-sperren` | P0 | [6](#phase-6--release) | parallel | wenig |
 | `telemetrie-aus` | P0 | [6](#phase-6--release) | parallel | wenig |
 | `niederlage` | P1 | [1](#phase-1--analyse-und-spikes) | parallel | viel |
 | `tunnel-p2p` | P1 | [1](#phase-1--analyse-und-spikes) | parallel | wenig |
@@ -149,7 +148,6 @@ Ziel: Die Mod lässt sich installieren, ohne Spielstände oder Bestenlisten zu b
 
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
-| `online-sperren` | P0 | Bestenlisten und Erfolge online sperren, damit Mod-Runs keine Ranglisten verfälschen. Ordner `src/Game` | `game-adapter` | parallel | wenig |
 | `telemetrie-aus` | P0 | Telemetrie, Bug-Reports und Crash-Reports im Mod-Betrieb abschalten, damit Pixelsplit keine Mod-Fehler als Spielfehler bekommt. Ordner `src/Game` | `game-adapter` | parallel | wenig |
 | `mod-saves` | P0 | Mod-Spielstände vom normalen Spielstand trennen, damit kein Save beschädigt wird. Ordner `src/Game` | `game-adapter` | parallel | mittel |
 | `installer` | P1 | Installer oder einfache Installationsanleitung. Ordner `tools`, `docs` | `game-adapter` | parallel | keine |
@@ -211,6 +209,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `last` | 1 | Spike D: bei rund 85 Gegnern 47 KB/s vom Host, beide Instanzen 60 fps, nur Loopback, siehe [Last](docs/GAME_ANALYSIS.md#last-spike-d-last) |
 | `menue-weg` | 1 | Mission über den echten Weg durch das Spielmenü mit den Patches gestartet, siehe [Spike](research/spikes/a-connect/README.md) |
 | `mitwirkende` | 0 | Freunde als Mitwirkende eingeladen |
+| `online-sperren` | 6 | Die Mod sperrt die schreibenden Steam-Methoden für Erfolge, Statistiken und Bestenlisten (`Core::SteamStats`), lesen bleibt erlaubt, siehe [Erfolge und Bestenlisten](docs/GAME_ANALYSIS.md#erfolge-und-bestenlisten-online-sperren) |
 | `overlay` | 2 | F8-Overlay mit Status und Debug-Anzeige, sichtbare Host-/Client-Abnahme bestanden, siehe [UI](src/UI/README.md#sichtbare-spielabnahme-03112026) |
 | `pausen` | 1 | Pausen-Logik gemessen, Host-Weltpause repliziert, Client-Wunsch nicht, siehe [Pausen-Spike](research/spikes/pausen/README.md#nachtrag-03112026-isolierte-ablaeufe) |
 | `pcg` | 1 | Client erzeugt die PCG-Vegetation mit dem Graphen des Hosts (`Pcg.cpp`), siehe [PCG-Vegetation](docs/GAME_ANALYSIS.md#pcg-vegetation-beim-client-pcg) |

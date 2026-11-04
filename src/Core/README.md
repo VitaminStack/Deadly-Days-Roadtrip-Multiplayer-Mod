@@ -74,6 +74,10 @@ Core::Hooks::Install(reinterpret_cast<ProcessEventFn>(Target), &Detour, &Origina
 
 `Block` lässt im eigenen Prozess jeden Start von `CrashReportClient.exe` scheitern, damit Abstürze mit Mod nie beim Hersteller landen. Der Start der Mod ruft es direkt nach `Hooks::Initialize` auf. Der lokale Bericht unter `Saved/Crashes` bleibt erhalten. Hintergrund in der [Spike-README](../../research/spikes/a-connect/README.md#sperre-in-mod-und-spike-crash-reporter).
 
+## Erfolge und Bestenlisten: `Core/SteamStats.h`
+
+`Block` sperrt die schreibenden Methoden von `ISteamUserStats` (Erfolge, Statistiken, Bestenlisten-Einträge), damit Mod-Runs nichts in Steam verändern. Lesen bleibt erlaubt. Der Start der Mod ruft es direkt nach `CrashReports::Block` auf. Ist Steam noch nicht bereit, versucht es ein Hintergrund-Thread alle 50 ms bis zu 120 s lang. Die vtable-Plätze kommen aus dem Code der flachen Steam-Exporte, nicht aus Spiel-Offsets. Hintergrund in [Erfolge und Bestenlisten](../../docs/GAME_ANALYSIS.md#erfolge-und-bestenlisten-online-sperren).
+
 ## Signaturen: `Core/Signature.h`
 
 ```cpp
