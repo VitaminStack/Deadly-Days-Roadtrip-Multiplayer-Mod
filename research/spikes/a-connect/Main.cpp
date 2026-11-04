@@ -34,6 +34,8 @@ void InstallPatches()
         Log("Patch: Busplatz schont Spielerfiguren");
     if (PatchHealthBars(Code))
         Log("Patch: Lebensleisten beim Client aktiv");
+    if (PatchRunEnd(Code))
+        Log("Patch: Run-Ende ohne LocalPlayer aktiv");
     if (PatchLoad())
         Log("Patch: Lastmessung aktiv");
 }

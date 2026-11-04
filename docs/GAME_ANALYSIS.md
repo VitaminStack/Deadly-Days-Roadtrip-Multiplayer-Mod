@@ -756,9 +756,21 @@ Stand: Laufzeit-Trace und Disassembly, Build `26187885`. Der Ablauf gilt für zw
 | Mission ins Hauptmenü | Pausemenü, `ReturnToMainMenu` | `SetClientTravel` | Mit Inventar-Teilfix beide sauber im Hauptmenü. Ohne ihn stürzt der Client beim Trennen ab, siehe [Trennen](#trennen-ins-hauptmenü-trennen) |
 
 `SeamlessTravelToLevel` reist nur lokal. Der Spike leitet die Reise in `servertravel <Karte>?listen` um, damit der Client folgt. Damit entfällt der Ladeablauf des Spiels, die Mission lief trotzdem normal.
-Die Umleitung gilt nicht für das Hauptmenü: Dort stürzte der Host mit Umleitung ab, im Original nicht. Eine Rückkehr in die `MetaBase` nach Run-Ende ist noch nicht getestet.
+Die Umleitung gilt nicht für das Hauptmenü: Dort stürzte der Host mit Umleitung ab, im Original nicht. Die Rückkehr in die `MetaBase` nach einer Niederlage läuft mit derselben Umleitung, siehe [Niederlage](#niederlage-niederlage).
 
-`TriggerEndRound` meldet das Rundenende nur an die Persistenz und löst keine Reise aus. `FinishMission` zeigt das normale Tagesende, auch wenn vorher `Lose` gesetzt wurde. Der echte Weg bei einer Niederlage ist also noch offen.
+`TriggerEndRound` meldet das Rundenende nur an die Persistenz und löst keine Reise aus. `FinishMission` zeigt das normale Tagesende, auch wenn vorher `Lose` gesetzt wurde. Der echte Weg bei einer Niederlage steht unten.
+
+### Niederlage (`niederlage`)
+
+Stand 04.11.2026, Build `26187885`. Zwei Instanzen auf einem PC mit `Start-Session.ps1` und CrashGuard, ohne Godmode, Route mit Seed `20795` bis in die Mission an Tag 1. Beide Figuren starben über `!cheats` und `DD_DamagePlayerAtIndex 1000 <Index>` beim Host.
+
+- **[Belegt] Ablauf beim Host:** Stirbt der letzte Spieler, ruft das Spiel `DDMissionGameInstance.TriggerEndRound` mit Niederlage auf, danach öffnet sich „Du bist gestorben!“ (`WP_Round_Stats_C`, `RoundEndPanel` mit Run-Wertung). Nach der Wertung erscheint „Zurück zur Basis“. Der Klick reist über `SeamlessTravelToLevel` in die `MetaBase`, die vorhandene Spike-Umleitung macht daraus `servertravel /Game/Maps/MetaBase?listen`.
+- **[Belegt] Client:** Der Phasenadapter meldet „Rundenübersicht, Eingabe gesperrt“. Die Wertung selbst sieht nur der Host. Nach der Reise folgt der Client in die `MetaBase`.
+- **[Belegt] Absturz ohne Patch:** Nach dem Klick stürzte der Host ab: `EXCEPTION_ACCESS_VIOLATION reading address 0x0` bei `0x584CD85`. Der Handler `0x584CD20` läuft beim Run-Ende für jeden Controller, ausgelöst über eine Delegate-Kette aus dem Inventarbereich (`0x5956E00`, `0x596DA03`). Er prüft den Besitzer bei `this+0xA8` auf die Controller-Klasse, ruft `APlayerController::GetLocalPlayer` (`0x2E706D0`) und ohne Nullprüfung `+0x330` auf dem Ergebnis auf. Der Remote-Controller hat keinen `LocalPlayer`. Das ist dieselbe Annahme wie bei den Spawn-Patches.
+- **Spike-Patch** (`RunEnd.cpp`): Ohne `LocalPlayer` gilt wie im Spieler-Index-Helfer Index 1 (P2), danach läuft die Funktion normal weiter.
+- **[Belegt] Mit Patch:** kein Absturz. Beide stehen mit 2 Spielern und vollen HP in der `MetaBase`, beide Controller werden getauscht (`source=swap`). Danach startete ein neuer Run mit `Start-Run.ps1` über Routenkarte bis in die Mission an Tag 1, mit vollständigen und gleichen Inventaren.
+- **Nebenbefund:** In der `MetaBase` zeigt der Client seinen eigenen Meta-Stand (andere Zähler und Gebäude als der Host). Das ist das Thema `meta-fortschritt`, über das das Team entscheidet.
+- **Nicht geprüft:** Niederlage an späteren Tagen oder in Bosskämpfen, nur ein Spieler tot (der andere lebt weiter), Niederlage über das Internet. Je Variante ein Lauf.
 
 ### Trennen ins Hauptmenü (`trennen`)
 
