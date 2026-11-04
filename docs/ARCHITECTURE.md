@@ -189,7 +189,8 @@ belegt keinen vollständigen Inventar- oder Level-up-Ablauf.
 
 ## Transport
 
-Die Exe enthält keinen Steam-NetDriver, aber den `IpNetDriver` und die Steamworks-Laufzeit. Geplant ist deshalb ein Tunnel:
+Die Exe enthält keinen Steam-NetDriver, aber den `IpNetDriver` und die Steamworks-Laufzeit. Deshalb ein Tunnel, umgesetzt in
+[`src/Net/Transport.h`](../src/Net/README.md#transport-transport):
 
 ```text
 Client-Spiel                                         Host-Spiel
@@ -198,8 +199,9 @@ IpNetDriver ─ UDP ─ 127.0.0.1 ─ Tunnel ─ Steam P2P ─ Tunnel ─ 127.0.
 
 Das Spiel glaubt, lokal per IP zu sprechen. Die Mod leitet die Pakete über die Steam-Networking-API weiter. Vorteil: kein eigener NetDriver,
 keine Portfreigabe, und Steam-Relays verbergen die IP-Adressen. Spike E hat den Weg bestätigt: Mit `Tunnel.cpp` spielten zwei Instanzen über
-`ISteamNetworkingSockets` aus der Steam-Laufzeit des Spiels von der MetaBase bis Tag 2, ohne Steamworks-SDK. P2P zwischen zwei Konten ist noch
-offen, siehe [Steam-Tunnel](../research/spikes/a-connect/README.md#spike-e-steam-tunnel-tunnel).
+`ISteamNetworkingSockets` aus der Steam-Laufzeit des Spiels von der MetaBase bis Tag 2, ohne Steamworks-SDK, und `tunnel-p2p` per P2P
+zwischen zwei Konten auf zwei PCs bis in die Mission, siehe [Steam-Tunnel](../research/spikes/a-connect/README.md#spike-e-steam-tunnel-tunnel).
+Die Mod holt die Steam-Schnittstelle auf dem Game Thread, von einem eigenen Thread liefert die Steam-Laufzeit des Spiels `nullptr`.
 
 Für die frühen Spikes reicht eine direkte IP-Verbindung im LAN oder über Tailscale oder ZeroTier.
 

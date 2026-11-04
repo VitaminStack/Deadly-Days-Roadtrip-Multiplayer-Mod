@@ -34,10 +34,11 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 <!-- frei:start -->
 | Kennung | Prio | Phase | Bearbeitung | Spielzeit |
 |---|---|---|---|---|
+| `protokoll` | P0 | [3](#phase-3--session-und-verbindung) | zentral | wenig |
 | `steam-lobby` | P0 | [3](#phase-3--session-und-verbindung) | parallel | wenig |
-| `transport` | P0 | [3](#phase-3--session-und-verbindung) | parallel | wenig |
 | `patches` | P0 | [4](#phase-4--vertical-slice) | zentral | viel |
 | `mod-saves` | P0 | [6](#phase-6--release) | parallel | mittel |
+| `net-fehler` | P1 | [3](#phase-3--session-und-verbindung) | parallel | wenig |
 | `installer` | P1 | [6](#phase-6--release) | parallel | keine |
 
 **Wartet auf das Team:** `meta-fortschritt`, `weeklymode`, `spiel-update`.
@@ -92,7 +93,6 @@ Ziel: Zwei Spieler finden sich über Steam und verbinden sich ohne Portfreigabe.
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
 | `steam-lobby` | P0 | Steam-Lobby erstellen, Freunde einladen, beitreten, über `OnlineSubsystemSteam` oder direkt Steamworks. Ordner `src/Net` | `gate-g1` | parallel | wenig |
-| `transport` | P0 | Transport-Tunnel aus Spike E als richtiges Modul. Ordner `src/Net` | `gate-g1`, `tunnel` | parallel | wenig |
 | `protokoll` | P0 | Handshake (Spiel-Build und Mod-Version gleich) und verlässlicher Kontrollkanal mit Nachrichtenformat nach dem [Vertrag](docs/SYNC_REQUIREMENTS.md#kontrollkanal-und-datenmodell). Rundenende, Pausen, XP und Rewards brauchen ihn | `transport` | zentral | wenig |
 | `net-fehler` | P1 | Saubere Fehlerbehandlung: Timeout, Abbruch, Host verlässt das Spiel. Ordner `src/Net`, `src/UI` | `transport` | parallel | wenig |
 
@@ -223,6 +223,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `testaufbau` | 1 | Zwei Instanzen auf einem PC unter demselben Steam-Konto, je mit eigenem `-UserDir=` |
 | `testumgebung` | 1 | Tag 1 bis 4 laden sauber mit Spawn am Bus und je 2 PlayerStates, Prüfskript und fester Routenlauf, siehe [Pausierte Welt und Busplatz](docs/GAME_ANALYSIS.md#pausierte-welt-und-busplatz-testumgebung) |
 | `tick-absturz` | 1 | Restrictor-Absturz `0x5A17ACC` nachgestellt, Laufzeitfix ist `restrictor`, siehe [Restrictor](docs/GAME_ANALYSIS.md#client-absturz-im-restrictor-tick-absturz) |
+| `transport` | 3 | Tunnel aus Spike E als Modul `src/Net/Transport` mit Tests ohne Spiel; im Spiel über den Tunnel der Mod bis Tag 1, Inventare gleich, siehe [Net](src/Net/README.md#transport-transport) |
 | `treffer` | 1 | Projektile des Clients ziehen beim Host Leben ab und töten (`Hits.cpp`), siehe [Treffer](docs/GAME_ANALYSIS.md#treffer-des-clients-treffer) |
 | `trennen` | 1 | Client-Absturz beim Trennen war eine Folge fehlender Inventar-Items, mit Teilfix kein Absturz, siehe [Trennen](docs/GAME_ANALYSIS.md#trennen-ins-hauptmenü-trennen) |
 | `tunnel` | 1 | Der Spielverkehr läuft über `ISteamNetworkingSockets` aus der Steam-Laufzeit des Spiels, zwei Instanzen spielten so bis Tag 2 (`Tunnel.cpp`); P2P mit zwei Konten ist `tunnel-p2p`, siehe [Steam-Tunnel](research/spikes/a-connect/README.md#spike-e-steam-tunnel-tunnel) |
