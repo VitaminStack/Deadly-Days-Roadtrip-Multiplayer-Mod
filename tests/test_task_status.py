@@ -1,6 +1,7 @@
 """Aufgabentabellen in TODO.md, Abhaengigkeiten, Reservierungsschutz und README-Fortschritt."""
 from contextlib import redirect_stdout
 from io import StringIO
+import os
 from pathlib import Path
 import unittest
 import xml.etree.ElementTree as ET
@@ -212,6 +213,75 @@ class ReservationTests(unittest.TestCase):
         self.assertIn('blockiert', row)
         self.assertIn('frei', next(line for line in lines if line.strip().startswith('open ')))
         self.assertIn('Team', next(line for line in lines if line.strip().startswith('vote ')))
+
+
+class PairReservationTests(unittest.TestCase):
+    """Aufgaben "zu zweit": je eine Person als host und als client, Branch task/<kennung>/<rolle>."""
+    ROWS = ('| `pair` | P1 | Test auf zwei PCs | – | zu zweit | wenig |\n'
+            '| `solo` | P1 | Text | – | parallel | wenig |\n')
+
+    def claim(self, name, role=None, branches=frozenset(), prs=None):
+        """Ergebnis von cmd_claim: Abbruchtext oder die Git-Aufrufe einer erfolgreichen Reservierung."""
+        text = todo(self.ROWS)
+        with patch.object(tasks, 'git') as git, patch.object(tasks, 'run') as run, \
+                patch.object(tasks, 'todo_text', return_value=text), \
+                patch.object(tasks, 'remote_branches', return_value=set(branches)), \
+                patch.object(tasks, 'pull_requests', return_value=prs), \
+                patch.object(tasks, 'repo_root', return_value='root'), \
+                patch.object(tasks, 'claim_info', return_value=('other-agent', 0)), redirect_stdout(StringIO()):
+            git.return_value.returncode = 0
+            run.return_value.returncode = 0
+            try:
+                tasks.cmd_claim(name, 'test', role)
+            except SystemExit as raised:
+                return str(raised)
+        return git.call_args_list
+
+    def test_mode_is_valid(self):
+        self.assertEqual(source.parse(todo(self.ROWS))['pair'].mode, 'zu zweit')
+
+    def test_role_claim_uses_role_branch_and_worktree(self):
+        calls = self.claim('pair', 'host')
+        self.assertIn(call('-C', 'root', 'worktree', 'add', '-q', '-b', 'task/pair/host',
+                           os.path.join('root', '.worktrees', 'pair-host'), 'origin/main'), calls)
+        self.assertIn(call('-C', os.path.join('root', '.worktrees', 'pair-host'), 'push', '-q', '-u', 'origin',
+                           'task/pair/host', check=False), calls)
+
+    def test_second_person_takes_other_role(self):
+        self.assertIsInstance(self.claim('pair', 'client', branches={'pair/host'}), list)
+
+    def test_same_role_twice_rejected(self):
+        self.assertIn('Rolle host ist vergeben', self.claim('pair', 'host', branches={'pair/host'}))
+
+    def test_role_with_open_pr_rejected(self):
+        prs = {'pair/client': {'number': 9, 'state': 'OPEN', 'isDraft': True}}
+        self.assertIn('Rolle client ist vergeben', self.claim('pair', 'client', prs=prs))
+
+    def test_whole_claim_blocks_roles_and_roles_block_whole_claim(self):
+        self.assertIn('existiert schon', self.claim('pair', 'host', branches={'pair'}))
+        self.assertIn('Nur die freie Rolle', self.claim('pair', branches={'pair/client'}))
+
+    def test_one_person_may_take_both_roles(self):
+        self.assertIsInstance(self.claim('pair'), list)
+
+    def test_role_only_for_pair_tasks(self):
+        self.assertIn('keine Aufgabe "zu zweit"', self.claim('solo', 'host'))
+        self.assertIn('Rolle muss host oder client sein', self.claim('pair', 'beide'))
+
+    def test_status_shows_both_roles(self):
+        parsed = source.parse(todo(self.ROWS))
+        with patch.object(tasks, 'claim_info', return_value=('anna', 0)):
+            self.assertEqual(tasks.status('pair', {'pair/host'}, None, parsed),
+                             'zu zweit: host reserviert (anna), client frei')
+            prs = {'pair/client': {'number': 9, 'state': 'OPEN', 'isDraft': False}}
+            self.assertEqual(tasks.status('pair', {'pair/host', 'pair/client'}, prs, parsed),
+                             'zu zweit: host reserviert (anna), client PR #9 wartet auf Review')
+        self.assertEqual(tasks.status('pair', set(), None, parsed), 'frei')
+
+    def test_role_branches_are_not_unknown_ids(self):
+        self.assertEqual(tasks.split_branch('pair/host'), ('pair', 'host'))
+        self.assertEqual(tasks.split_branch('pair'), ('pair', None))
+        self.assertEqual(tasks.split_branch('pair/other'), ('pair/other', None))
 
 
 if __name__ == '__main__':

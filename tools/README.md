@@ -10,7 +10,8 @@ Reserviert Aufgaben aus [TODO.md](../TODO.md#wo-kann-ich-anfangen), damit nieman
 |---|---|
 | `py tools/tasks.py list` | Offene Aufgaben aus `TODO.md` auf `origin/main` mit Status: frei, blockiert, Team, reserviert, Review |
 | `py tools/tasks.py claim <kennung> <name>` | Worktree, Branch `task/<kennung>`, Push und Draft-PR |
-| `py tools/tasks.py release <kennung>` | Draft-PR schließen, Branch löschen, sauberen Worktree entfernen |
+| `py tools/tasks.py claim <kennung> <name> host\|client` | Bei Aufgaben „zu zweit“ nur eine Rolle: Branch `task/<kennung>/<rolle>`, Worktree `.worktrees/<kennung>-<rolle>`, siehe [Test auf zwei PCs](../docs/TESTING.md#test-auf-zwei-pcs) |
+| `py tools/tasks.py release <kennung> [<rolle>]` | Draft-PR schließen, Branch löschen, sauberen Worktree entfernen |
 
 Erledigte, blockierte und Team-Aufgaben sind nicht reservierbar, auch ohne `gh`. Offene Aufgaben werden nicht allein wegen eines gemergten Teil-PRs abgeschlossen. Kurze Wartung ohne Eintrag in `TODO.md` ist weiterhin reservierbar.
 
@@ -90,7 +91,9 @@ Bauen und Testen des Spikes, die Anleitung steht in [docs/TESTING.md](../docs/TE
 | Skript | Aufgabe |
 |---|---|
 | `Build-Spike.ps1` | Baut `spike.dll` |
-| `Start-Session.ps1` | Setzt die Sperre, startet Crash-Schutz, Host und Client, verbindet sie und reist in eine Karte. `-Build` baut den Spike vorher neu, `-Mod` baut und installiert zusätzlich die Mod |
+| `Start-Session.ps1` | Setzt die Sperre, startet Crash-Schutz, Host und Client, verbindet sie und reist in eine Karte. `-Build` baut den Spike vorher neu, `-Mod` baut und installiert zusätzlich die Mod. `-Role Host` oder `-Role Client -Peer <SteamID>` startet nur eine Seite für den Test auf zwei PCs |
+| `Test-TwoPc.ps1` | Test auf zwei PCs über Steam-P2P, je PC eine Rolle: verbinden, Run bis in die Mission an Tag 1, messen, Tunnel-Bericht |
+| `tunnel_report.py` | Fasst die Tunnel-Zeilen eines Spike-Logs zusammen: Ping, Pakete, Qualität, Route, Abbrüche; SteamIDs und IPs maskiert |
 | `Send-Command.ps1` | Schickt einen Befehl an `Host` oder `Client` und zeigt das Log |
 | `Stop-Session.ps1` | Beendet die Instanzen dieses Ordners, gibt die Sperre frei und entfernt eine mit `-Mod` installierte Mod |
 | `Get-Status.ps1` | Prozesse, Netzzustand, letzte Log- und Mod-Logzeilen, Abstürze seit Sitzungsstart. `-Inventory` vergleicht die Inventare |

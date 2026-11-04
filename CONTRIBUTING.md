@@ -40,6 +40,10 @@ Der erste Push gewinnt, ein zweiter wird abgelehnt. Das gilt für Menschen und K
 steht deshalb auf GitHub unter „Pull requests“. **Erledigt** ist, was in `TODO.md` auf `origin/main` unter [Erledigt](TODO.md#erledigt) steht, auch ohne GitHub CLI und nach dem Löschen eines Branches. Für ergänzende Review-/PR-Informationen braucht das Skript die angemeldete [GitHub CLI](https://cli.github.com/) (`gh auth login`); ohne sie bleiben diese Informationen unbekannt, der TODO-Abschluss bleibt erhalten. Ein gemergter PR bei noch offener Aufgabe verlangt Klärung statt automatischer Freigabe.
 Wer über einen Fork arbeitet, kann so nicht reservieren und legt stattdessen ein Issue an.
 
+Aufgaben mit der Bearbeitung **zu zweit** sind Tests auf zwei PCs. Dort dürfen zwei Personen je eine Rolle nehmen:
+`py tools/tasks.py claim <kennung> <name> host` und `... client` legen `task/<kennung>/host` und `task/<kennung>/client` an.
+Wer beide PCs selbst bedient, reserviert ohne Rolle. Ablauf und Abschluss stehen in [Test auf zwei PCs](docs/TESTING.md#test-auf-zwei-pcs).
+
 ### Aufgabe abschließen und Fortschritt pflegen
 
 Die Schritte stehen in [Aufgabe abschließen](TODO.md#aufgabe-abschließen). Kurz:
@@ -53,6 +57,7 @@ Die Schritte stehen in [Aufgabe abschließen](TODO.md#aufgabe-abschließen). Kur
 
 ```text
 task/<kennung>                          task/inventar
+task/<kennung>/<rolle>                  task/tunnel-p2p/host (nur Aufgaben „zu zweit“)
 feature/<bereich>-<kurzbeschreibung>    feature/net-steam-lobby
 fix/<bereich>-<kurzbeschreibung>        fix/core-hook-crash
 research/<thema>                        research/spike-listen-server

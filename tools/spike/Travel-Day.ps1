@@ -14,7 +14,7 @@ $Session = Get-Session
 $GameInput = Join-Path $PSScriptRoot 'Game-Input.ps1'
 
 function Assert-Alive {
-    foreach ($Role in 'Host', 'Client') {
+    foreach ($Role in Get-LocalRoles) {
         if (-not (Test-GameProcess (Get-RolePid $Role))) {
             Write-Output "$Role ist abgestuerzt."
             & py (Join-Path $PSScriptRoot 'crashes.py') --session --latest 1
@@ -26,8 +26,12 @@ function Assert-Alive {
 & $GameInput Host click $X $Y
 Start-Sleep -Seconds $WaitSeconds
 Assert-Alive
-& py (Join-Path $PSScriptRoot 'netstate.py') $Session.Host $Session.Client | Select-Object -Last 2
-& py (Join-Path $PSScriptRoot 'inventory.py') $Session.Host $Session.Client | Select-String '"complete"|"equal"'
+$Local = @(Get-LocalRoles | ForEach-Object { Get-RolePid $_ })
+& py (Join-Path $PSScriptRoot 'netstate.py') $Local | Select-Object -Last 2
+# Beim Test auf zwei PCs fehlt die Gegenseite, dann kein Inventarvergleich.
+if ($Local.Count -eq 2) {
+    & py (Join-Path $PSScriptRoot 'inventory.py') $Session.Host $Session.Client | Select-String '"complete"|"equal"'
+}
 & $GameInput Host shot (Join-Path $script:SessionDir 'day.png') | Out-Null
 if ($Stay) { return }
 
