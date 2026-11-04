@@ -1,14 +1,27 @@
-# Client-Darstellung: Projektile, XP-Orbs und Partikeleffekte
+# Client-Darstellung: Projektile, XP-Orbs, Airdrops und Partikeleffekte
 
 Aufgabe `client-visuell`, auf Nutzerwunsch vorgezogen, Build `26187885`.
 **In Arbeit, kein fertiger Produktionsfix und keine bestandene visuelle Abnahme.**
 
 ## Ziel und Grenze
 
-Der Client soll dieselben Projektile, XP-Orbs und Kampfpartikel wie der Host sehen:
-Spawn, Bewegung, Größe, Treffer, Einsammeln und Verschwinden. Schaden, Loot und
+Der Client soll dieselben Projektile, XP-Orbs, Airdrops und Kampfpartikel wie der Host sehen:
+Spawn, Bewegung, Größe, Treffer, Einsammeln, Airdrop-Ankunft/-Öffnung und Verschwinden. Schaden, Loot und
 XP-Vergabe bleiben ausschließlich beim Host. Bereits replizierte Actors werden
 nicht zusätzlich lokal erzeugt. `kampf`, `fortschritt` und `vfx-sound` bleiben offen.
+
+**Nutzerergänzung vom 04.11.2026:** Airdrops sind im Client nicht sichtbar.
+Dieser zusätzliche Fehler ist hier aufgenommen, aber in dieser Sitzung noch nicht
+erneut nachgestellt. Die frühere [Airdrop-Probe](../blueprint-logik/README.md#konkrete-befunde)
+hat bereits einen nicht replizierten Host-Airdrop ohne entsprechenden Client-Actor
+belegt. Seine Öffnungslogik erzeugt Rewards; ein vollständiges Nachspielen beim
+Client wäre daher kein sicherer Darstellungsfix.
+
+**XP-Regel, vom Nutzer festgelegt:** Egal, wer einen Orb einsammelt, sein XP-Wert
+zählt genau einmal zum gemeinsamen Run-Fortschritt. Beide Spieler sehen denselben
+bestätigten XP-/Levelstand. Zwei Spieler am selben Orb oder eine wiederholte
+Nachricht dürfen keinen zweiten Gewinn auslösen. Das ist eine gewünschte Mod-Regel,
+kein neuer Nachweis des unveränderten Spiels; die Umsetzung gehört zu `fortschritt`.
 
 ## Beobachtungen vom 04.11.2026
 
@@ -76,6 +89,14 @@ erfolgreich. Diese Fehlversuche sind keine Spielabstürze.
 4. Treffer-/Todeseffekte separat rein kosmetisch ausgeben, replizierte Flächen-/Gift-
    Actors nicht duplizieren. Danach kontrollierte Aufnahmen vor/nach dem Fix,
    Pool-Reuse, Kartenwechsel, Trennen und erneuter Verbindung prüfen.
+5. Airdrop-Darstellung für Ankunft, Landung, ungeöffnet/offen und Entfernen aus dem
+   bestätigten Host-Zustand herstellen; auch bereits gelandete/geöffnete Airdrops
+   bei spätem Beitritt richtig anzeigen. Belohnungserzeugung und Öffnungsfreigabe
+   bleiben beim Host, keine zweite `OpenAirdropChoices`-Ausführung beim Client.
+6. Zusammen mit `fortschritt` getrennte Aufnahmefälle prüfen: nur Host sammelt,
+   nur Client sammelt, beide gleichzeitig am selben Orb, wiederholte Nachricht,
+   verspätete Nachricht nach Reise. Erwartung jeweils ein gemeinsamer Gewinn und
+   gleiche XP-/Levelanzeigen, kein mehrfacher Level-up durch Darstellungsereignisse.
 
 ## Werkzeuge
 

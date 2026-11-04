@@ -10,7 +10,7 @@ import math
 import struct
 
 ROOTS = {'Projectile', 'ExpEmissionHandler', 'Orb', 'DamageNumberActor',
-         'EnemyChaosDestructionProxyActor', 'ProjectileImpactActor'}
+         'EnemyChaosDestructionProxyActor', 'ProjectileImpactActor', 'BP_Airdrop_Lootable_C'}
 
 
 def array_header(data):
