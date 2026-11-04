@@ -42,18 +42,20 @@
       <path d="M0 244H1000" stroke="#d1d5db"/>
       <text x="20" y="226">3</text>
       <text x="125" y="226">Verbinden über Steam</text>
-      <text x="490" y="226">0 von 4</text>
+      <text x="490" y="226">1 von 4</text>
       <rect x="630" y="211" width="200" height="18" rx="4" fill="#e5e7eb"/>
-      <text x="846" y="226">0 %</text>
+      <rect x="630" y="211" width="50" height="18" rx="4" fill="#64748b"/>
+      <text x="846" y="226">25 %</text>
     </g>
     <g id="phase-4">
       <rect y="244" width="1000" height="48" fill="#ffffff"/>
       <path d="M0 292H1000" stroke="#d1d5db"/>
       <text x="20" y="274">4</text>
       <text x="125" y="274">Spielbarer Ausschnitt</text>
-      <text x="490" y="274">0 von 10</text>
+      <text x="490" y="274">1 von 10</text>
       <rect x="630" y="259" width="200" height="18" rx="4" fill="#e5e7eb"/>
-      <text x="846" y="274">0 %</text>
+      <rect x="630" y="259" width="20" height="18" rx="4" fill="#64748b"/>
+      <text x="846" y="274">10 %</text>
     </g>
     <g id="phase-5">
       <rect y="292" width="1000" height="48" fill="#ffffff"/>
@@ -79,10 +81,10 @@
       <path d="M0 436H1000" stroke="#d1d5db"/>
       <text x="20" y="418">Gesamt</text>
       <text x="125" y="418"></text>
-      <text x="490" y="418">59 von 88</text>
+      <text x="490" y="418">61 von 88</text>
       <rect x="630" y="403" width="200" height="18" rx="4" fill="#e5e7eb"/>
-      <rect x="630" y="403" width="134" height="18" rx="4" fill="#64748b"/>
-      <text x="846" y="418">67 %</text>
+      <rect x="630" y="403" width="138" height="18" rx="4" fill="#64748b"/>
+      <text x="846" y="418">69 %</text>
     </g>
   </g>
 </svg>

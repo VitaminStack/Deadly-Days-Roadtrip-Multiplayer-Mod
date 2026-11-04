@@ -19,8 +19,20 @@ powershell -ExecutionPolicy Bypass -File tools/spike/Start-Session.ps1 -Build -M
 ```
 
 Das baut Spike und Mod, installiert die Mod und startet die Sitzung. `Get-Status.ps1` zeigt die Mod-Logs beider Instanzen.
+Mit der Mod kommen die Spielfehler-Fixes von ihr, der Spike lässt seine aus (Spike-Log: `Patch: Spielfehler-Fixes kommen von der Mod`), siehe [Patches](../src/Game/README.md#patches).
 `Stop-Session.ps1` entfernt die Mod danach wieder, sonst lädt auch ein normaler Spielstart sie ohne Crash-Schutz. Ohne `-Mod` gilt:
 nach `Stop-Session.ps1` selbst `Deploy-Mod.ps1 -Remove` ausführen.
+
+### Tunnel der Mod prüfen
+
+```bash
+powershell -ExecutionPolicy Bypass -File tools/spike/Start-Session.ps1 -Mod -Tunnel Mod
+```
+
+Statt des Spike-Tunnels verbindet dann der Transport der Mod aus `src/Net`. Der Host startet mit `-ddcoop_transport=host`, der Client
+mit `-ddcoop_transport=loopback`, auf zwei PCs mit `-Role Client -Tunnel Mod -Peer <SteamID64 des Hosts>`. Sobald im Mod-Log des
+Clients `Transport: verbunden` steht, öffnet der Spike `127.0.0.1:7778`. Die Statistik steht alle 30 s im Mod-Log, siehe
+[Net](../src/Net/README.md#transport-transport).
 
 ### Mod-Overlay prüfen
 

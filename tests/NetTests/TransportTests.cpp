@@ -1,0 +1,292 @@
+#include <winsock2.h>
+#include <ws2tcpip.h>
+
+#include <doctest.h>
+
+#include <chrono>
+#include <functional>
+#include <string>
+#include <thread>
+
+#include "FakeSteam.h"
+#include "Net/Transport.h"
+
+#pragma comment(lib, "ws2_32.lib")
+
+using namespace Net;
+
+namespace
+{
+constexpr uint64_t kHostId = 1001;
+constexpr uint64_t kClientId = 2002;
+
+// Eigene Ports, damit ein laufendes Spiel oder ein zweiter Testlauf nicht stört.
+TransportOptions TestPorts(uint16_t Base)
+{
+    TransportOptions Options;
+    Options.GamePort = Base;
+    Options.ClientPort = static_cast<uint16_t>(Base + 1);
+    Options.LoopbackPort = static_cast<uint16_t>(Base + 2);
+    Options.StatsIntervalMs = 100;
+    return Options;
+}
+
+bool WaitFor(const std::function<bool()>& Condition, int Milliseconds = 3000)
+{
+    const auto Deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(Milliseconds);
+    while (std::chrono::steady_clock::now() < Deadline)
+    {
+        if (Condition())
+            return true;
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    return Condition();
+}
+
+// UDP-Socket wie das Spiel: Host auf dem Spielport, Client auf einem freien Port.
+struct GameSocket
+{
+    explicit GameSocket(uint16_t Port)
+    {
+        WSADATA Data;
+        WSAStartup(MAKEWORD(2, 2), &Data);
+        Socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+        sockaddr_in Address{};
+        Address.sin_family = AF_INET;
+        Address.sin_port = htons(Port);
+        Address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+        Bound = bind(Socket, reinterpret_cast<sockaddr*>(&Address), sizeof(Address)) == 0;
+        u_long NonBlocking = 1;
+        ioctlsocket(Socket, FIONBIO, &NonBlocking);
+    }
+    ~GameSocket()
+    {
+        closesocket(Socket);
+        WSACleanup();
+    }
+
+    void SendTo(uint16_t Port, const std::string& Text)
+    {
+        sockaddr_in Address{};
+        Address.sin_family = AF_INET;
+        Address.sin_port = htons(Port);
+        Address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+        sendto(Socket, Text.data(), static_cast<int>(Text.size()), 0, reinterpret_cast<sockaddr*>(&Address), sizeof(Address));
+    }
+
+    void Reply(const std::string& Text)
+    {
+        sendto(Socket, Text.data(), static_cast<int>(Text.size()), 0, reinterpret_cast<sockaddr*>(&LastFrom), sizeof(LastFrom));
+    }
+
+    std::string Receive()
+    {
+        char Buffer[2048];
+        int Size = sizeof(LastFrom);
+        const int Length = recvfrom(Socket, Buffer, sizeof(Buffer), 0, reinterpret_cast<sockaddr*>(&LastFrom), &Size);
+        return Length > 0 ? std::string(Buffer, Length) : std::string();
+    }
+
+    std::string WaitReceive()
+    {
+        std::string Text;
+        WaitFor([&] { return !(Text = Receive()).empty(); });
+        return Text;
+    }
+
+    SOCKET Socket = INVALID_SOCKET;
+    sockaddr_in LastFrom{};
+    bool Bound = false;
+};
+
+// Schickt, bis die Gegenseite antwortet: Pakete vor dem Aufbau verwirft der Tunnel wie bei echtem UDP.
+std::string Exchange(GameSocket& From, uint16_t Port, const std::string& Text, GameSocket& To)
+{
+    std::string Got;
+    WaitFor([&] {
+        From.SendTo(Port, Text);
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        Got = To.Receive();
+        return !Got.empty();
+    });
+    return Got;
+}
+}
+
+TEST_CASE("Testschalter aus der Kommandozeile")
+{
+    CHECK_FALSE(ParseTransportRequest(L"DDSurvivors.exe -windowed").has_value());
+
+    const auto Host = ParseTransportRequest(L"game.exe -windowed -ddcoop_transport=host -nosplash");
+    REQUIRE(Host);
+    CHECK(Host->Role == TransportRequest::Kind::Host);
+
+    const auto Loopback = ParseTransportRequest(L"game.exe -ddcoop_transport=loopback");
+    REQUIRE(Loopback);
+    CHECK(Loopback->Role == TransportRequest::Kind::Loopback);
+
+    const auto Client = ParseTransportRequest(L"\"game.exe\" -ddcoop_transport=76561190000000001 -UserDir=\"x\"");
+    REQUIRE(Client);
+    CHECK(Client->Role == TransportRequest::Kind::Client);
+    CHECK(Client->HostSteamId == 76561190000000001ull);
+
+    CHECK_FALSE(ParseTransportRequest(L"game.exe -ddcoop_transport=").has_value());
+    CHECK_FALSE(ParseTransportRequest(L"game.exe -ddcoop_transport=gast").has_value());
+    CHECK_FALSE(ParseTransportRequest(L"game.exe -ddcoop_transport=0").has_value());
+    CHECK_FALSE(ParseTransportRequest(L"game.exe -ddcoop_transport=123456789012345678901").has_value());
+}
+
+TEST_CASE("Adressen werden maskiert, die Route wird kurz zusammengefasst")
+{
+    CHECK(MaskAddresses("Primary router: fra#364 (155.133.1.2:27126) via 127.0.0.1") ==
+          "Primary router: fra#364 (<ip>:27126) via 127.0.0.1");
+    CHECK(MaskAddresses("keine Adresse") == "keine Adresse");
+    CHECK(RouteSummary("Ping:44ms\nPrimary router: fra#364 (<ip>:27126)\nBackup router: ams#86") == "Relay fra");
+    CHECK(RouteSummary("Ping:3ms\nTransport: direct") == "ohne Relay");
+    CHECK(RouteSummary("") == "unbekannt");
+}
+
+TEST_CASE("Host und Client tunneln Spielpakete per P2P in beide Richtungen")
+{
+    auto Network = std::make_shared<FakeSteamNetwork>();
+    const TransportOptions Options = TestPorts(47710);
+    GameSocket HostGame(Options.GamePort);
+    GameSocket ClientGame(0);
+    REQUIRE(HostGame.Bound);
+
+    Transport Host(Network->Account(kHostId), Options);
+    Transport Client(Network->Account(kClientId), Options);
+    REQUIRE(Host.StartHost());
+    CHECK(Host.Stats().State == TransportState::Listening);
+    REQUIRE(Client.StartClient(kHostId));
+
+    CHECK(WaitFor([&] { return Client.Stats().State == TransportState::Connected; }));
+    CHECK(WaitFor([&] { return Host.Stats().State == TransportState::Connected; }));
+
+    CHECK(Exchange(ClientGame, Options.ClientPort, "hallo host", HostGame) == "hallo host");
+    HostGame.Reply("hallo client");
+    CHECK(ClientGame.WaitReceive() == "hallo client");
+
+    CHECK(WaitFor([&] { return Client.Stats().PacketsFromSteam >= 1 && Host.Stats().Connections == 1; }));
+    const TransportStats Stats = Client.Stats();
+    CHECK(Stats.PingMs == 42);
+    CHECK(Stats.Route == "Relay fra");
+    CHECK_FALSE(Stats.IsHost);
+    CHECK(Host.Stats().IsHost);
+}
+
+TEST_CASE("Zwei Instanzen auf einem PC verbinden sich über 127.0.0.1")
+{
+    auto Network = std::make_shared<FakeSteamNetwork>();
+    const TransportOptions Options = TestPorts(47720);
+    GameSocket HostGame(Options.GamePort);
+    GameSocket ClientGame(0);
+
+    Transport Host(Network->Account(kHostId), Options);
+    Transport Client(Network->Account(kClientId), Options);
+    REQUIRE(Host.StartHost());
+    REQUIRE(Client.StartLoopbackClient());
+    CHECK(WaitFor([&] { return Client.Stats().State == TransportState::Connected; }));
+    CHECK(Exchange(ClientGame, Options.ClientPort, "loopback", HostGame) == "loopback");
+}
+
+TEST_CASE("Abgelehnte Verbindungen melden Failed und geben den Port frei")
+{
+    auto Network = std::make_shared<FakeSteamNetwork>();
+    const TransportOptions Options = TestPorts(47730);
+
+    SUBCASE("P2P zum eigenen Konto lehnt Steam ab")
+    {
+        Transport Host(Network->Account(kHostId), Options);
+        REQUIRE(Host.StartHost());
+        Transport Self(Network->Account(kHostId + 1), Options);
+        CHECK_FALSE(Self.StartClient(kHostId + 1));
+        CHECK(Self.Stats().State == TransportState::Failed);
+        CHECK(Self.Stats().Message == "Steam hat die Verbindung abgelehnt");
+    }
+    SUBCASE("Ohne Host")
+    {
+        Transport Client(Network->Account(kClientId), Options);
+        CHECK_FALSE(Client.StartClient(kHostId));
+        CHECK(Client.Stats().State == TransportState::Failed);
+    }
+    SUBCASE("SteamID 0")
+    {
+        Transport Client(Network->Account(kClientId), Options);
+        CHECK_FALSE(Client.StartClient(0));
+    }
+    // Nach jedem Fall ist der Client-Port wieder frei.
+    GameSocket Probe(Options.ClientPort);
+    CHECK(Probe.Bound);
+}
+
+TEST_CASE("Belegter Client-Port bricht den Start ab")
+{
+    auto Network = std::make_shared<FakeSteamNetwork>();
+    const TransportOptions Options = TestPorts(47740);
+    GameSocket Blocker(Options.ClientPort);
+    REQUIRE(Blocker.Bound);
+    Transport Host(Network->Account(kHostId), Options);
+    REQUIRE(Host.StartHost());
+    Transport Client(Network->Account(kClientId), Options);
+    CHECK_FALSE(Client.StartClient(kHostId));
+    CHECK(Client.Stats().State == TransportState::Failed);
+    CHECK_FALSE(Client.Running());
+}
+
+TEST_CASE("Ende der Verbindung: Client meldet Failed, Host wartet weiter")
+{
+    auto Network = std::make_shared<FakeSteamNetwork>();
+    const TransportOptions Options = TestPorts(47750);
+    Transport Host(Network->Account(kHostId), Options);
+    REQUIRE(Host.StartHost());
+
+    SUBCASE("Host geht")
+    {
+        Transport Client(Network->Account(kClientId), Options);
+        REQUIRE(Client.StartClient(kHostId));
+        REQUIRE(WaitFor([&] { return Client.Stats().State == TransportState::Connected; }));
+        Host.Stop();
+        CHECK(Host.Stats().State == TransportState::Stopped);
+        CHECK(WaitFor([&] { return Client.Stats().State == TransportState::Failed; }));
+        CHECK(Client.Stats().Message == "Der Host hat die Verbindung beendet");
+    }
+    SUBCASE("Client geht")
+    {
+        {
+            Transport Client(Network->Account(kClientId), Options);
+            REQUIRE(Client.StartClient(kHostId));
+            REQUIRE(WaitFor([&] { return Host.Stats().Connections == 1; }));
+        }
+        CHECK(WaitFor([&] { return Host.Stats().State == TransportState::Listening && Host.Stats().Connections == 0; }));
+        // Ein neuer Client kommt wieder herein.
+        Transport Again(Network->Account(kClientId), Options);
+        REQUIRE(Again.StartClient(kHostId));
+        CHECK(WaitFor([&] { return Host.Stats().Connections == 1; }));
+    }
+}
+
+TEST_CASE("Stop ist wiederholbar und ein Neustart danach möglich")
+{
+    auto Network = std::make_shared<FakeSteamNetwork>();
+    const TransportOptions Options = TestPorts(47760);
+    Transport Host(Network->Account(kHostId), Options);
+    Transport Client(Network->Account(kClientId), Options);
+    REQUIRE(Host.StartHost());
+    CHECK_FALSE(Host.StartHost());
+    REQUIRE(Client.StartClient(kHostId));
+    REQUIRE(WaitFor([&] { return Client.Stats().State == TransportState::Connected; }));
+    Client.Stop();
+    Client.Stop();
+    CHECK_FALSE(Client.Running());
+    CHECK(Client.Stats().State == TransportState::Stopped);
+    REQUIRE(Client.StartClient(kHostId));
+    CHECK(WaitFor([&] { return Client.Stats().State == TransportState::Connected; }));
+}
+
+TEST_CASE("Ohne Steam startet nichts")
+{
+    Transport Missing(nullptr);
+    CHECK_FALSE(Missing.StartHost());
+    CHECK_FALSE(Missing.Running());
+}
