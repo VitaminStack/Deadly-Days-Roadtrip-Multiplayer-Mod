@@ -57,6 +57,13 @@ bool PatchWidgets(CodeWriter& Code)
     return true;
 }
 
+bool ObserveEventsThroughMod(HMODULE Mod)
+{
+    using ObserveFn = bool (*)(void(__fastcall*)(uintptr_t, uintptr_t, void*));
+    const auto Observe = reinterpret_cast<ObserveFn>(GetProcAddress(Mod, "DDCoopObserveProcessEvent"));
+    return Observe && Observe(&ObserveRoundPhaseEvent);
+}
+
 void ReleaseDeferredWidgetEvents(uintptr_t World)
 {
     if (DeferredWidgetEvents.empty() || !Read<uintptr_t>(World + kWorldGameState))

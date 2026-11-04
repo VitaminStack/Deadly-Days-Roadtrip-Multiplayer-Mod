@@ -14,6 +14,21 @@ WNDPROC OriginalWndProc;
 std::wstring Pending;
 HWND GameWindow = nullptr;
 
+// Hat die Mod ihre Patches gesetzt (DDCoopPatchState 1, oder 3 fuer einen Teil), setzt der Spike seine Fassungen nicht.
+// Die Mod entscheidet beim Spielstart, der Spike kommt spaeter; zur Sicherheit wartet er kurz auf ihre Entscheidung.
+bool DetectModPatches(HMODULE& Mod)
+{
+    Mod = GetModuleHandleW(L"DDCoop.dll");
+    const auto State = Mod ? reinterpret_cast<int (*)()>(GetProcAddress(Mod, "DDCoopPatchState")) : nullptr;
+    if (!State)
+        return false;
+    for (int Try = 0; Try < 100 && State() == 0; ++Try)
+        Sleep(100);
+    const int Value = State();
+    Log("Mod gefunden, Patch-Zustand " + std::to_string(Value));
+    return Value == 1 || Value == 3;
+}
+
 void InstallPatches()
 {
     CodeWriter Code;
@@ -24,17 +39,26 @@ void InstallPatches()
         Log("Patch: kein Speicher");
         return;
     }
-    if (PatchPlayers(Code) && PatchClient(Code) && PatchCamera(Code) && PatchInventory(Code) && PatchTravel(Code) && PatchWidgets(Code) && PatchMapObjects(Code))
+    HMODULE Mod = nullptr;
+    ModOwnsPatches = DetectModPatches(Mod);
+    if (ModOwnsPatches)
+    {
+        // Spielfehler-Fixes liegen in src/Game/*Patches.cpp. Hier bleiben Karte, PCG, Testhilfen und Messung.
+        Log("Patch: Spielfehler-Fixes kommen von der Mod");
+        if (!ObserveEventsThroughMod(Mod))
+            Log("Patch: Phasenbeobachter nicht bei der Mod angemeldet");
+    }
+    else if (PatchPlayers(Code) && PatchClient(Code) && PatchCamera(Code) && PatchInventory(Code) && PatchTravel(Code) && PatchWidgets(Code) && PatchMapObjects(Code))
         Log("Patch: aktiv");
     if (PatchMapGen(Code))
         Log("Patch: Karte vom Host aktiv");
     if (PatchPcg(Code))
         Log("Patch: PCG vom Host aktiv");
-    if (PatchTestEnv(Code))
+    if (!ModOwnsPatches && PatchTestEnv(Code))
         Log("Patch: Busplatz schont Spielerfiguren");
-    if (PatchHealthBars(Code))
+    if (!ModOwnsPatches && PatchHealthBars(Code))
         Log("Patch: Lebensleisten beim Client aktiv");
-    if (PatchRunEnd(Code))
+    if (!ModOwnsPatches && PatchRunEnd(Code))
         Log("Patch: Run-Ende ohne LocalPlayer aktiv");
     if (PatchLoad())
         Log("Patch: Lastmessung aktiv");
@@ -55,15 +79,21 @@ void TickSession()
     TickLoad();
     if (Read<uintptr_t>(Driver + kDriverServerConnection))
     {
-        ReleaseDeferredWidgetEvents(World);
         TickMapGen();
-        ViewThroughSharedCamera();
+        if (!ModOwnsPatches)
+        {
+            ReleaseDeferredWidgetEvents(World);
+            ViewThroughSharedCamera();
+        }
         return;
     }
     TickTestEnv();
     TickHits();
-    AcceptClientPositions();
-    RepairSpawnedPlayers(World);
+    if (!ModOwnsPatches)
+    {
+        AcceptClientPositions();
+        RepairSpawnedPlayers(World);
+    }
 }
 
 void RunPendingCommand()
@@ -72,7 +102,10 @@ void RunPendingCommand()
         return;
     if (RemoteP2Command(Pending))
         return;
-    if (Pending == L"!arm")
+    // Mit der Mod reist der Host von selbst per servertravel, Kamera und Positionen gleicht die Mod jede Sekunde ab.
+    if (ModOwnsPatches && (Pending == L"!arm" || Pending == L"!cam" || Pending == L"!authmove"))
+        Log("Befehl uebernimmt die Mod");
+    else if (Pending == L"!arm")
         ArmTravelRedirect();
     else if (Pending == L"!cam")
         ViewThroughSharedCamera();
