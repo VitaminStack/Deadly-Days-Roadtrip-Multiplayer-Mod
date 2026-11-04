@@ -37,6 +37,13 @@ bool ReadBytes(uintptr_t Address, void* Out, size_t Size)
     return CopyGuarded(reinterpret_cast<const void*>(Address), Out, Size);
 }
 
+bool WriteBytes(uintptr_t Address, const void* Data, size_t Size)
+{
+    if (!Address || !Data)
+        return false;
+    return CopyGuarded(Data, reinterpret_cast<void*>(Address), Size);
+}
+
 std::optional<uintptr_t> ReadPointer(uintptr_t Address)
 {
     const auto Value = Read<uintptr_t>(Address);

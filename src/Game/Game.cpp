@@ -2,6 +2,7 @@
 
 #include "Core/Log.h"
 #include "Game/GameThread.h"
+#include "Game/TelemetryAdapter.h"
 #include "Game/TutorialAdapter.h"
 #include "Game/WorldAdapter.h"
 
@@ -16,6 +17,7 @@ void Start()
 #endif
     GameThread::AddTick(TickWorld);
     GameThread::AddTick(TickTutorials);
+    GameThread::AddTick(TickTelemetry);
     GameThread::Start();
 }
 }

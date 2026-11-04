@@ -194,7 +194,7 @@ flowchart TD
 
     subgraph PH6["Phase 6: Release"]
         SB["Bestenlisten und<br/>Erfolge sperren"]:::done
-        TE["Telemetrie und<br/>Crash-Reports aus"]:::open
+        TE["Telemetrie und<br/>Crash-Reports aus"]:::done
         SV["Eigene Mod-Spielstände"]:::open
         IN["Installer oder Anleitung"]:::open
     end
