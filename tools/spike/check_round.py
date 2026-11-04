@@ -145,7 +145,8 @@ def instance_report(game, log_name):
     }
     if driver:
         num, rows = guidcache.entries(game)
-        report['guid_entries'] = num
+        report['guid_slots'] = num  # SparseArray high-water mark, not the live entry count.
+        report['guid_entries'] = len(rows)
         report['guid_player'] = sorted(
             f'{key:#x}' for key in rows
             if key & 1 and any(p in guidcache.full_path(rows, key) for p in GUID_PATTERNS))
@@ -204,8 +205,8 @@ def evaluate(host, client, previous, expected_world):
     failed = client['new_actor_failed']
     if failed is not None and failed > previous.get('new_actor_failed', 0):
         problems.append(f'client: {failed - previous.get("new_actor_failed", 0)} neue NewActor failed')
-    if previous.get('guid_entries') and client.get('guid_entries', 0) < previous['guid_entries']:
-        problems.append(f'client: NetGUID-Cache schrumpft {previous["guid_entries"]} -> {client["guid_entries"]}')
+    # Shrinking alone is normal cleanup of dynamic/NoLoad records. Required identities and new actor failures above
+    # remain acceptance failures; keeping every old actor GUID is neither necessary nor desirable.
     return problems
 
 

@@ -84,6 +84,9 @@ Ablauf siehe [Gegner-Spawning und Pooling](GAME_ANALYSIS.md#gegner-spawning-und-
 | Funktion | RVA | Hinweis |
 |---|---|---|
 | Spawn-Schleife des `AEnemySpawner` | `0x58CECE0` | Spielerwahl, `RecycleArray`, Spawn je Gegner |
+| Blockaden-Laden abgeschlossen | `0x58BB360` | Gemeinsames `UBlockadeEventComponent::OnLoadingFinished`, Exec-Thunk `0x5666F90`; legt Timer an `+0x118` an. Client darf hier keinen Host-Ablauf starten (`guidcache`) |
+| Verzögerter Blockadenstart | `0x58AA5F0` | Timeradapter ruft VTable-Byteoffset `0x4E8`; Highway-Implementierung `0x58B4E40`, spezifischer Spawn `0x58C9180` |
+| GameMode-Mengen-Kopie im Spawner | `0x58CED42`, `0x58CED70`, `0x58CED7B` | Lädt `EnemySpawner+0x3C8`, addiert `SpawnedPlayers+0x388`, ruft Kopierer `0x56B16C0`. Null-GameMode führt bei `0x56B16D9` zu Lesen `0x3D0` |
 | `AEnemySpawner::TrySpawnFreshEnemy` | `0x58CE600` | Exec-Thunk `0x56EE100` |
 | `AEnemySpawner::SpawnSpecificEnemy` | `0x58C8A30` | Exec-Thunk `0x56ED7F0` |
 | `AEnemySpawner::ForceSpawnWave` | `0x58B2780` | Exec-Thunk `0x56E4C90` |
@@ -346,6 +349,10 @@ NetGUID-Cache und neue Actors, `tageswechsel`, nur Build `26187885`:
 | `FNetGUIDCache` | `NetDriver+0x1C8` = `PackageMapClient+0x310` (Connection `+0x68`) | ObjectLookup: Daten `+0x8`, Num `+0x10`, Max `+0x14`, Bitarray `+0x18` inline oder Zeiger `+0x28`; NetGUIDLookup `+0x58` |
 | ObjectLookup-Element | `0x40` Bytes | Schlüssel `+0x0` (Maske `0x3FFFFFFFFFFFFF`, statisch = ungerade), Weak-Pointer `+0x8` (Index, Serial), OuterGUID `+0x10`, Pfad-FName `+0x18`, Prüfsumme `+0x20`, Stempel `+0x28` (double), Flags `+0x30` (1 NoLoad, 2 IgnoreWhenMissing, 4 Pending, 8 Broken), HashNext `+0x38` |
 | `CleanReferences` | `0x2CF34B0`, Stempel lesen `0x2CF3622`, Ablauf `0x2CF362E`, Löschen `0x2CF363F`, Schleife weiter `0x2CF3C38`, Stempel setzen `0x2CF3C33` | Ablauf 90 s, Weak-Pointer gültig? `0x1643520` |
+| Test-Invincibility | `DDCharacter.DD_ToggleInvincible` Exec `0x56BB350`, Implementierung `0x5809390`; Tag `0xAC61FE8` | Laufzeitdekodierung ergibt `State.Invincible`; Character-ASC `+0x6E0`, Tag-Interface `ASC+0x148`, Query-VTable `+0x18`; Loose-Tag-Delta `0x4B7D7D0(ASC, Tag*, Delta, 0)`. Nur Spike-Testhilfe, nicht allgemeiner Damage-Fix |
+| `FNetGUIDCache` eigener NetDriver | `+0x150` | Laufzeitbeobachtung mit identischem Driver wie `World+0x38`; Rückverweis über `Driver+0x1C8` prüfen. `GWorld` kann während Travel-GC null sein und eignet sich dann nicht zur Cache-Rollenprüfung |
+| `SneakApproachComponent` Tick / Zustandsabfrage | `0x58CBBB0`, `0x58C5D40` | Tick-VTable `0x95D1428`, Slot 128; Zustandsabfrage dereferenziert PlayerCharacterMesh bei `0x58C5D8B` (`+0xA8`) |
+| Sneak-Zielinitialisierung / Wiederverwendung | `0x58A51F0`, Same-Target-Zweig `0x58A5266` | CachedPlayer `+0xE0`, Mesh `+0xE8`, PlayerState `+0xD8`; normale Initialisierung `0x58A526C`, vollständiger Erfolg `0x58A530D`. Wiederverwendung muss die Abhängigkeiten erneut prüfen |
 | `ObjectLookup.Remove` | `0x2D05470`, Aufrufer `0x2D04C2D`, `0x2D04CB9` in `0x2D04BE0` | SparseArray `RemoveAt` `0x15B44B0` |
 | Einfügen mit Ersetzen | `0x2CE9BA0`, Ersetzen `0x2CE9D42`, Aufruf `0x2D04B94` | noch nicht untersucht |
 | GUObjectArray-Element | `0x18` Bytes | Flags `+0x0`, interne Flags `+0x4` (Garbage `0x00200000`, Unreachable `0x10000000`, RootSet `0x40000000`), Objekt `+0x8`, Serial `+0x10` |

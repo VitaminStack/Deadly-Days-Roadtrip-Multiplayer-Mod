@@ -1,6 +1,9 @@
 // Client: Stellen, die Objekte erwarten, die es nur beim Host gibt oder die noch nicht repliziert sind.
 #include "Spike.h"
 #include "AttributeReadiness.h"
+#include "BlockadeAuthority.h"
+#include "NetGuidExpiryGuard.h"
+#include "SneakTargetReadiness.h"
 
 namespace Spike
 {
@@ -19,6 +22,80 @@ constexpr uintptr_t kThreatFreezeBranch = 0x593DAF3;
 constexpr uintptr_t kExpAggregate = 0x58B4160;
 constexpr uintptr_t kGetPlayerCharacters = 0x5B07680;
 constexpr uintptr_t kFreeArray = 0x12F8400;
+constexpr uintptr_t kBlockadeLoadingFinished = 0x58BB360;
+using BlockadeLoadingFinishedFn = void(__fastcall*)(uintptr_t);
+BlockadeLoadingFinishedFn OriginalBlockadeLoadingFinished = nullptr;
+
+// OnLoadingFinished only schedules the delayed virtual blockade start (timer +118h). That start creates objectives
+// and spawns enemies through a cached authoritative GameMode. It is not component BeginPlay or replicated visuals.
+// Gate the common base entry, not one day/biome/subclass, and do not manufacture a GameMode on the client.
+void __fastcall AuthorityBlockadeLoadingFinished(uintptr_t Component)
+{
+    const uintptr_t World = Read<uintptr_t>(Base + kGWorld);
+    const uintptr_t Driver = World ? Read<uintptr_t>(World + kWorldNetDriver) : 0;
+    const bool ServerConnection = Driver && Read<uintptr_t>(Driver + kDriverServerConnection);
+    if (!BlockadeAuthority::MayStart(World != 0, Driver != 0, ServerConnection))
+    {
+        Log("Blockade: lokaler Autoritaetsablauf unterdrueckt, Klasse=" + NameOf(Read<uintptr_t>(Component + 0x10)));
+        return;
+    }
+    OriginalBlockadeLoadingFinished(Component);
+}
+
+bool PatchBlockadeAuthority(CodeWriter& Code)
+{
+    if (OriginalBlockadeLoadingFinished)
+        return true;
+    const uintptr_t Site = Base + kBlockadeLoadingFinished;
+    if (!Expect(Site, {0x40, 0x53, 0x48, 0x81, 0xEC, 0xB0, 0x00, 0x00, 0x00}, "Blockade OnLoadingFinished") ||
+        !Expect(Base + 0x5666FA5, {0xE9, 0xB6, 0x43, 0x25, 0x00}, "Blockade reflected entry") ||
+        !Expect(Base + 0x58AA5F0, {0x48, 0x8B, 0x09, 0x48, 0x8B, 0x01, 0x48, 0xFF, 0xA0, 0xE8, 0x04, 0x00, 0x00}, "Blockade delayed virtual start"))
+        return false;
+    OriginalBlockadeLoadingFinished = reinterpret_cast<BlockadeLoadingFinishedFn>(Code.Here());
+    Code.Emit({0x40, 0x53, 0x48, 0x81, 0xEC, 0xB0, 0x00, 0x00, 0x00}); // Whole, non-RIP-relative prologue.
+    Code.Emit({0xE9});
+    Code.EmitRel(Site + 9);
+    WriteJump(Site, Code.EmitAbsoluteJump(reinterpret_cast<uintptr_t>(&AuthorityBlockadeLoadingFinished)));
+    return true;
+}
+
+// The server keeps using ACKed static path GUIDs across our non-seamless travels. Expiring reloadable aliases on the
+// client loses that agreed identity, even after the package is loaded again. Keep just those path records until the
+// connection's cache dies, not dynamic GUIDs, NoLoad level actors, broken entries or strong UObject references.
+// Crucially, retain ReadOnlyTimestamp: clearing it re-enters the duplicate-object canonicalization path.
+bool PatchReloadableGuidExpiry(CodeWriter& Code)
+{
+    const uintptr_t Site = Base + 0x2CF362E;
+    if (!Expect(Site, {0x0F, 0x28, 0xC6, 0xF2, 0x0F, 0x5C, 0xC1}, "NetGUID expiry arithmetic") ||
+        !Expect(Site + 7, {0x66, 0x0F, 0x2F, 0xC7}, "NetGUID expiry comparison"))
+        return false;
+    const auto Original = reinterpret_cast<uintptr_t>(Code.Here());
+    Code.Emit({0x0F, 0x28, 0xC6, 0xF2, 0x0F, 0x5C, 0xC1});
+    Code.Emit({0xE9});
+    Code.EmitRel(Site + 7);
+    auto* Guard = Code.Here();
+    NetGuidPolicy::EmitExpiryGuard(Code, Original, Base + 0x2CF3C38);
+    WriteJump(Site, Guard);
+    Log("NetGUID: Client-Pfadidentitaeten bleiben bei Ablauf erhalten; Weak-Pointer und ReadOnly-Stempel unveraendert");
+    return true;
+}
+
+// SneakApproach caches the selected pawn before its directional mesh/PlayerState may have replicated. The next tick
+// used to return success just because the pawn is unchanged, then dereferenced the still-null cached mesh.
+// Retry the original initialization until both dependencies exist; do not suppress all client enemy behavior.
+bool PatchSneakTargetReadiness(CodeWriter& Code)
+{
+    const uintptr_t Site = Base + 0x58A5266;
+    if (!Expect(Site - 3, {0x48, 0x3B, 0xC3, 0x0F, 0x84, 0xA1, 0x00, 0x00, 0x00}, "SneakApproach same target") ||
+        !Expect(Base + 0x58A52FE, {0x48, 0x83, 0xBF, 0xE8, 0x00, 0x00, 0x00, 0x00}, "SneakApproach dependency check"))
+        return false;
+    auto* Guard = Code.Here();
+    SneakTargetReadiness::Emit(Code, Base + 0x58A526C, Base + 0x58A530D);
+    WriteJump(Site, Guard);
+    Log("SneakApproach: gleiches Ziel wird erst mit Mesh und PlayerState wiederverwendet");
+    return true;
+}
+
 using ExpAggregateFn = float(__fastcall*)(uintptr_t);
 ExpAggregateFn OriginalExpAggregate = nullptr;
 
@@ -232,6 +309,7 @@ bool PatchThreatLevel()
 bool PatchClient(CodeWriter& Code)
 {
     return PatchClientRefresh(Code) && PatchAttributeTick(Code) && PatchAttributeLookupEntry(Code) && PatchMapGenHostObject(Code) && PatchComponentController(Code) && PatchThreatLevel() &&
-        PatchExpReadiness(Code) && PatchNewActorLog(Code);
+        PatchExpReadiness(Code) && PatchNewActorLog(Code) && PatchBlockadeAuthority(Code) && PatchReloadableGuidExpiry(Code) &&
+        PatchSneakTargetReadiness(Code);
 }
 }

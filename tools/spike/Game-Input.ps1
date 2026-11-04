@@ -3,12 +3,15 @@
 #   Game-Input.ps1 Host click <x> <y>        Klick in Fensterkoordinaten (800 x 450)
 #   Game-Input.ps1 Host key <taste> [sek]    Taste druecken oder halten, etwa A, Esc, Enter oder einen VK-Code
 #   Game-Input.ps1 Host pixel <x> <y>        Farbe eines Punkts im Fensterinhalt als RRGGBB
+#   Game-Input.ps1 Host drag <x> <y> <ziel-x> <ziel-y>  Inventargegenstand ablegen
 # Klick und Taste holen das Fenster kurz nach vorn und bewegen die Maus, waehrenddessen nicht selbst tippen.
 param(
     [Parameter(Mandatory)][ValidateSet('Host', 'Client')][string]$Role,
-    [Parameter(Mandatory)][ValidateSet('shot', 'click', 'key', 'pixel')][string]$Action,
+    [Parameter(Mandatory)][ValidateSet('shot', 'click', 'key', 'pixel', 'drag')][string]$Action,
     [string]$Arg1,
-    [string]$Arg2
+    [string]$Arg2,
+    [string]$Arg3,
+    [string]$Arg4
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Common.ps1')
@@ -39,6 +42,20 @@ public static class SpikeInput {
         POINT Point; Point.X = X; Point.Y = Y; ClientToScreen(Window, ref Point);
         SetCursorPos(Point.X, Point.Y); Thread.Sleep(80);
         mouse_event(2, 0, 0, 0, UIntPtr.Zero); Thread.Sleep(60); mouse_event(4, 0, 0, 0, UIntPtr.Zero);
+    }
+    public static void Drag(IntPtr Window, int X, int Y, int ToX, int ToY) {
+        Focus(Window);
+        POINT Start; Start.X = X; Start.Y = Y; ClientToScreen(Window, ref Start);
+        POINT End; End.X = ToX; End.Y = ToY; ClientToScreen(Window, ref End);
+        SetCursorPos(Start.X, Start.Y); Thread.Sleep(100);
+        mouse_event(2, 0, 0, 0, UIntPtr.Zero);
+        try {
+            for (int Step = 1; Step <= 16; ++Step) {
+                SetCursorPos(Start.X + (End.X - Start.X) * Step / 16, Start.Y + (End.Y - Start.Y) * Step / 16);
+                Thread.Sleep(25);
+            }
+        }
+        finally { mouse_event(4, 0, 0, 0, UIntPtr.Zero); }
     }
     public static string Pixel(IntPtr Window, int X, int Y) {
         if (IsIconic(Window)) { ShowWindow(Window, 4); Thread.Sleep(300); }
@@ -92,6 +109,10 @@ switch ($Action) {
     }
     'pixel' { [SpikeInput]::Pixel($Window, [int]$Arg1, [int]$Arg2) }
     'click' { [SpikeInput]::Click($Window, [int]$Arg1, [int]$Arg2) }
+    'drag' {
+        if (-not $Arg1 -or -not $Arg2 -or -not $Arg3 -or -not $Arg4) { throw 'drag braucht vier Koordinaten.' }
+        [SpikeInput]::Drag($Window, [int]$Arg1, [int]$Arg2, [int]$Arg3, [int]$Arg4)
+    }
     'key' {
         $Seconds = if ($Arg2) { [double]$Arg2 } else { 0.1 }
         [SpikeInput]::Key($Window, (ConvertTo-VirtualKey $Arg1), [int]($Seconds * 1000))

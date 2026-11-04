@@ -98,6 +98,8 @@ void TickPcg();
 
 // Cheats.cpp
 void EnableCheats();
+void TickTestGodmode();
+void SetTestGodmode(bool Enabled);
 void LoadAssetCommand(const std::wstring& Path);
 // Setzt den Tutorial-Schalter, falls noch nicht gesetzt. Report meldet auch, wenn nichts zu tun war.
 void SkipTutorials(bool Report);
