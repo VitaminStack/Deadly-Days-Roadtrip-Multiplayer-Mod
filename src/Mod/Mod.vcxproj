@@ -28,6 +28,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ClCompile Include="Mod.cpp" />
+    <ClCompile Include="Lobby.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

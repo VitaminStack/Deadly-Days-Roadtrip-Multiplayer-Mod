@@ -34,8 +34,8 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 <!-- frei:start -->
 | Kennung | Prio | Phase | Bearbeitung | Spielzeit |
 |---|---|---|---|---|
+| `lobby-live` | P0 | [3](#phase-3--session-und-verbindung) | zu zweit | wenig |
 | `protokoll` | P0 | [3](#phase-3--session-und-verbindung) | zentral | wenig |
-| `steam-lobby` | P0 | [3](#phase-3--session-und-verbindung) | parallel | wenig |
 | `remote-spieler` | P0 | [4](#phase-4--vertical-slice) | zentral | mittel |
 | `mod-saves` | P0 | [6](#phase-6--release) | parallel | mittel |
 | `net-fehler` | P1 | [3](#phase-3--session-und-verbindung) | parallel | wenig |
@@ -124,7 +124,7 @@ Ziel: Zwei Spieler finden sich über Steam und verbinden sich ohne Portfreigabe.
 
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
-| `steam-lobby` | P0 | Steam-Lobby erstellen, Freunde einladen, beitreten, über `OnlineSubsystemSteam` oder direkt Steamworks. Ordner `src/Net` | `gate-g1` | parallel | wenig |
+| `lobby-live` | P0 | Steam-Lobby der Mod mit zwei Konten auf zwei PCs prüfen: Einladung über das Steam-Overlay annehmen, Beitritt per P2P, Start über `+connect_lobby` bei geschlossenem Spiel, Verlassen beider Seiten. **Fertig, wenn** der Client nur über die Einladung bis in die MetaBase kommt. **Einstieg:** [Steam-Lobby](src/Net/README.md#steam-lobby-steam-lobby), [Test auf zwei PCs](docs/TESTING.md#test-auf-zwei-pcs) | `steam-lobby` | zu zweit | wenig |
 | `protokoll` | P0 | Handshake (Spiel-Build und Mod-Version gleich) und verlässlicher Kontrollkanal mit Nachrichtenformat nach dem [Vertrag](docs/SYNC_REQUIREMENTS.md#kontrollkanal-und-datenmodell). Rundenende, Pausen, XP und Rewards brauchen ihn | `transport` | zentral | wenig |
 | `net-fehler` | P1 | Saubere Fehlerbehandlung: Timeout, Abbruch, Host verlässt das Spiel. Ordner `src/Net`, `src/UI` | `transport` | parallel | wenig |
 
@@ -142,7 +142,7 @@ Ziel: Zwei Spieler starten eine Mission, kämpfen gegen einen Gegnertyp und sehe
 | `gegnertyp` | P0 | Ein Gegnertyp inklusive Spawn und Tod. Ordner `src/Sync/Enemies` | `remote-spieler` | parallel | mittel |
 | `eingaben` | P1 | Eingaben aus dem lokalen `CoopInputRouter` sauber vom Remote-Spieler trennen. Ordner `src/Sync/Players`, Dateien mit `bewegung` absprechen | `remote-spieler` | parallel | mittel |
 | `restrictor` | P1 | Beim Client `MissionGameState` des `InViewportMovementRestrictor` nachtragen, wenn der GameState erst nach dessen `BeginPlay` ankommt, sonst Absturz bei `0x5A17ACC`. **Einstieg:** [Restrictor](docs/GAME_ANALYSIS.md#client-absturz-im-restrictor-tick-absturz) | `patches` | parallel | wenig |
-| `integration-g2` | P0 | Gate G2: Vertical Slice zusammenführen und zehn Minuten über echtes Internet zwischen zwei Haushalten spielen. Zwei Menschen nötig. **Fertig, wenn** die Runde stabil, ohne Desync und spielbar ist. Sonst Ursachen beheben, bevor weitere Inhalte synchronisiert werden | `missionsstart`, `kamera-code`, `bewegung`, `kampf`, `gegnertyp`, `eingaben`, `restrictor`, `steam-lobby`, `transport`, `net-fehler` | zentral | viel |
+| `integration-g2` | P0 | Gate G2: Vertical Slice zusammenführen und zehn Minuten über echtes Internet zwischen zwei Haushalten spielen. Zwei Menschen nötig. **Fertig, wenn** die Runde stabil, ohne Desync und spielbar ist. Sonst Ursachen beheben, bevor weitere Inhalte synchronisiert werden | `missionsstart`, `kamera-code`, `bewegung`, `kampf`, `gegnertyp`, `eingaben`, `restrictor`, `steam-lobby`, `lobby-live`, `transport`, `net-fehler` | zentral | viel |
 
 ## Phase 5 – Vollständiger Run
 
@@ -250,6 +250,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `spike-a` | 1 | Spike A: Beide Instanzen kommen in dieselbe Welt, auch auf einem PC, siehe [Ergebnis](research/spikes/a-connect/README.md) |
 | `spike-b` | 1 | Spike B: Client stabil in der Mission, Bewegung beidseitig, Schüsse wirken beim Host, siehe [Ergebnis](research/spikes/a-connect/README.md) |
 | `spike-c` | 1 | Spike C: Mit `karte-client` und `pcg` ist die Mission beim Client gleich, `check_round.py` zählt an Tag 1 bis 4 gleich viele `MapTile`s, siehe [Pausierte Welt und Busplatz](docs/GAME_ANALYSIS.md#pausierte-welt-und-busplatz-testumgebung) |
+| `steam-lobby` | 3 | Steam-Lobby nur für Freunde direkt über Steamworks (`Net::Session`, `src/Mod/Lobby.cpp`, Overlay-Knöpfe); auf einem PC erstellt, per Lobby-ID beigetreten und bis Tag 1 gespielt, Test mit zwei Konten ist `lobby-live`, siehe [Steam-Lobby](src/Net/README.md#steam-lobby-steam-lobby) |
 | `sync-bedarf` | 1 | Sync-Weg für XP, Währungen, Rewards, Pausen und UI als Entwurf festgelegt, siehe [Sync-Bedarf](docs/SYNC_REQUIREMENTS.md) |
 | `team-aufteilung` | 0 | Keine festen Bereiche je Person und kein `CODEOWNERS`, die Arbeit teilt sich über `tools/tasks.py` |
 | `telemetrie-aus` | 6 | Die Mod schaltet Balance-Telemetrie und automatische Spielstand-Berichte ab und sperrt die Namensauflösung für `codecks.io` und `pixelsplit.games` (`Game::TelemetryAdapter`, `Core::ReportHosts`), siehe [Telemetrie und Berichte](docs/GAME_ANALYSIS.md#telemetrie-und-berichte-telemetrie-aus) |

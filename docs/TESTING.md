@@ -34,6 +34,20 @@ mit `-ddcoop_transport=loopback`, auf zwei PCs mit `-Role Client -Tunnel Mod -Pe
 Clients `Transport: verbunden` steht, öffnet der Spike `127.0.0.1:7778`. Die Statistik steht alle 30 s im Mod-Log, siehe
 [Net](../src/Net/README.md#transport-transport).
 
+### Steam-Lobby der Mod prüfen
+
+```bash
+powershell -ExecutionPolicy Bypass -File tools/spike/Start-Session.ps1 -Mod -Tunnel Lobby
+```
+
+Der Host startet mit `-ddcoop_lobby=create`, erstellt die Lobby und wird selbst Listen-Server in der MetaBase. Das Skript liest
+die Lobby-ID aus dem Mod-Log des Hosts und startet den Client mit `-ddcoop_lobby=<Lobby-ID>`; der verbindet sich ohne Spike-Befehl.
+Beide warten mit `-ddcoop_lobby_delay`, bis der Spike geladen ist: Ohne seine Patches stürzen beim Beitritt der Host (`0x5901CE8`)
+und der Client (`0x56B16D9`) ab, beides belegt am 04.11.2026.
+Auf zwei PCs: Host mit `-Role Host -Tunnel Lobby`, die Ausgabe nennt die Lobby-ID, Client mit `-Role Client -Tunnel Lobby -Peer <Lobby-ID>`.
+Die Lobby-ID gehört zu keinem Konto und verfällt mit der Lobby. Einladungen über Steam prüft man nur mit zwei Konten: Overlay
+mit **F8**, „Einladen“, Freund wählen, beim Freund „Spiel beitreten“. Siehe [Net](../src/Net/README.md#steam-lobby-steam-lobby).
+
 ### Mod-Overlay prüfen
 
 Nach einem Build mit dem Paket `overlay` zeigt **F8** im aktiven Spielfenster das Statusfenster; erneutes F8 oder dessen Schließen verbirgt es. Pro Prozess darf nur dessen eigenes Overlay erscheinen. Beim Wechsel zu einer anderen Anwendung und beim Minimieren muss es verschwinden; nach Rückkehr sichtbar bleiben, wenn es zuvor eingeschaltet war. Fenster verschieben und DPI/Lesbarkeit sowie Tab-Bedienung prüfen. Keine fremde Testsitzung dafür bedienen.
