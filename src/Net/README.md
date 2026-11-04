@@ -56,3 +56,18 @@ das Client-Spiel mit `open 127.0.0.1:7778`, siehe [Testen](../../docs/TESTING.md
 Speicher, das UDP zum Spiel ist echt (Ports ab 47710). Geprüft sind Pakete in beide Richtungen, P2P und 127.0.0.1, abgelehnte
 Verbindungen, belegter Port, Ende der Verbindung auf beiden Seiten, wiederholtes `Stop` mit Neustart, die Testschalter und das
 Maskieren von Adressen. Läuft über `Build-Mod.ps1 -Test` und in der CI.
+
+### Im Spiel (04.11.2026)
+
+Build `26187885`, ein PC, ein Konto, `Start-Session.ps1 -Mod -Tunnel Mod` mit Spike und CrashGuard, Release-Build der Mod.
+
+| Schritt | Ergebnis |
+|---|---|
+| Erster Versuch | Kein Steam: `SteamAPI_SteamNetworkingSockets_SteamAPI_v012` lieferte vom eigenen Thread des Transports 120 s lang `nullptr` |
+| Schnittstelle auf dem Game Thread geholt | Sofort da. Host lauscht per P2P und über 127.0.0.1, Client verbindet über 127.0.0.1, Route `ohne Relay` |
+| MetaBase über den Tunnel der Mod | Host `clients: 1`, beide 2 Spieler |
+| `Start-Run.ps1 -Seed 20795`, `Travel-Day.ps1 62 213` | Beide in `DDDynamic_Map` mit 2 Spielern, Inventare vollständig und gleich, Tag beendet, zurück auf der Routenkarte |
+| Verkehr | rund 15 000 und 16 000 Pakete je Richtung, Ping 0 ms, Qualität 1,00, verworfen 0. Keine Fehler im Mod-Log |
+
+Nicht geprüft: P2P mit dem Transport der Mod auf zwei PCs (der Spike-Tunnel ist dort belegt, siehe `tunnel-p2p`), Abbruch und
+Neuaufbau im Spiel, mehr als ein Client. Das kommt mit `steam-lobby` und `net-fehler`.

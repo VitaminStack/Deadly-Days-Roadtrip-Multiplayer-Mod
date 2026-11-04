@@ -5,6 +5,7 @@
 #include <mutex>
 #include <thread>
 
+#include "Core/Dispatcher.h"
 #include "Core/Log.h"
 
 namespace Net
@@ -20,13 +21,32 @@ constexpr int kClientAttempts = 24;
 
 void StartTransport(TransportRequest Request)
 {
+    // Die Zugriffsfunktionen der Steam-Laufzeit liefern die Schnittstelle nur auf dem Thread, der Steam initialisiert hat.
+    // Von einem eigenen Thread kam im Spiel nullptr, im Spike auf dem Game Thread nicht. Danach gilt sie überall.
+    struct Result
+    {
+        std::mutex Lock;
+        std::shared_ptr<SteamSockets> Sockets;
+        std::string Reason = "Game Thread noch nicht bereit";
+        bool Done = false;
+    };
     std::shared_ptr<SteamSockets> Sockets;
     std::string Reason;
     for (int Second = 0; Second < kSteamWaitSeconds && !Sockets; ++Second)
     {
-        Sockets = LoadSteamSockets(&Reason);
-        if (!Sockets)
-            Sleep(1000);
+        auto Shared = std::make_shared<Result>();
+        Core::GameThread().Post([Shared] {
+            std::string Why;
+            auto Loaded = LoadSteamSockets(&Why);
+            std::lock_guard Guard(Shared->Lock);
+            Shared->Sockets = std::move(Loaded);
+            Shared->Reason = std::move(Why);
+            Shared->Done = true;
+        });
+        Sleep(1000);
+        std::lock_guard Guard(Shared->Lock);
+        Sockets = Shared->Sockets;
+        Reason = Shared->Reason;
     }
     if (!Sockets)
     {
