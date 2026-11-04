@@ -3,6 +3,7 @@
 #include "Core/CrashReports.h"
 #include "Core/Log.h"
 #include "Core/ReportHosts.h"
+#include "Core/SteamStats.h"
 
 namespace Core::Protection
 {
@@ -25,6 +26,8 @@ bool Install()
         {"Sperre des Crash-Reporters", &CrashReports::Block},
         // Ebenso Telemetrie, Bug-Reports und automatische Berichte: Mod-Fehler sollen nie als Spielfehler gemeldet werden.
         {"Sperre der Berichtsziele", &ReportHosts::Block},
+        // Mod-Runs dürfen keine Steam-Erfolge, -Statistiken oder -Bestenlisten verändern.
+        {"Sperre der Steam-Erfolge und -Bestenlisten", &SteamStats::Block},
     };
     return InstallAll(Steps);
 }

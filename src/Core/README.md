@@ -76,11 +76,15 @@ Core::Hooks::Install(reinterpret_cast<ProcessEventFn>(Target), &Detour, &Origina
 
 ## Schutz beim Start: `Core/Protection.h`
 
-`Install` richtet nach `Hooks::Initialize` alle Sperren gegen Daten an den Hersteller ein: Crash-Reporter, dann Berichtsziele. Scheitert eine davon, loggt es den Schritt und liefert falsch. Dann startet die Mod nicht, Game, Net, Sync und UI bleiben aus. Neue Sperren kommen als weiterer Schritt hinzu.
+`Install` richtet nach `Hooks::Initialize` alle Sperren gegen Daten an den Hersteller ein: Crash-Reporter, Berichtsziele, dann Steam-Erfolge und -Bestenlisten. Scheitert eine davon, loggt es den Schritt und liefert falsch. Dann startet die Mod nicht, Game, Net, Sync und UI bleiben aus. Neue Sperren kommen als weiterer Schritt hinzu.
 
 ## Telemetrie und Berichte: `Core/ReportHosts.h`
 
 `Block` lässt im eigenen Prozess die Namensauflösung für die Berichtsziele des Spiels scheitern: Hooks auf `getaddrinfo`, `GetAddrInfoW` und `GetAddrInfoExW` in `ws2_32`, unabhängig von Spiel-Offsets. Gesperrt sind `codecks.io` (Bug-Reports, Berichte über beschädigte Spielstände) und `pixelsplit.games` (Telemetrie, Spielstand-Analytics) samt Subdomains, `Add` sperrt weitere Hosts. `Protection::Install` ruft es direkt nach `CrashReports::Block` auf, danach prüft ein Selbsttest, dass `api.codecks.io` ohne Netzanfrage scheitert. Jeder aufgelöste Name steht einmal im Log, IP-Adressen nicht. Hintergrund in [Telemetrie und Berichte](../../docs/GAME_ANALYSIS.md#telemetrie-und-berichte-telemetrie-aus).
+
+## Erfolge und Bestenlisten: `Core/SteamStats.h`
+
+`Block` sperrt die schreibenden Methoden von `ISteamUserStats` (Erfolge, Statistiken, Bestenlisten-Einträge), damit Mod-Runs nichts in Steam verändern. Lesen bleibt erlaubt. `Protection::Install` ruft es nach den Berichtssperren auf. Die Sperre greift in `SteamInternal_FindOrCreateUserInterface`, bevor das Spiel die Schnittstelle bekommt; ist `steam_api64.dll` noch nicht geladen, beim Laden über einen Hook auf `LoadLibraryExW`. Ohne Sperre bekommt das Spiel keine Statistik-Schnittstelle oder kein Steam, die Mod startet nicht, wenn die Sperre beim Start scheitert. Die vtable-Plätze kommen aus dem Code der flachen Steam-Exporte, nicht aus Spiel-Offsets. `Testing` erlaubt Tests mit nachgebauter Steam-Laufzeit. Hintergrund in [Erfolge und Bestenlisten](../../docs/GAME_ANALYSIS.md#erfolge-und-bestenlisten-online-sperren).
 
 ## Signaturen: `Core/Signature.h`
 

@@ -691,14 +691,6 @@ Mission-SDK und lesende Pruefung geladener Klassen/Scriptreferenzen, Build `2618
 - **[Hypothese]** Diese Funktionen eignen sich gut als Andockpunkt: Der Client schickt eine Anfrage, die Mod ruft sie beim Host auf.
 - **[Hypothese]** Weil `ActivePlayers` nur Controller speichert, könnte dort auch ein Remote-Controller stehen. Das ist in Phase 1 zu prüfen.
 
-### Remote-P2: geprüfte Anbindung und Grenze der lokalen UI
-
-Stand 04.11.2026, Build `26187885`, nur Spike und Loopback. Die frühere Hypothese ist für den Host bestätigt: `ActivePlayers[0/1]` kann die aktuellen lokalen/Remote-Controller als schwache Verweise führen, `SetCoopEnabled(true)` liefert danach P2 und zwei aktive Spieler, ohne zweiten `ULocalPlayer`.
-
-**Zusätzlich nötig und beobachtet:** Die native Prüfung eines lokalen P2-Geräts öffnet sonst ein blockierendes Controller-Beitrittsfenster. Ein auf den vollständigen aktuellen Listen-Host-Roster begrenzter Guard bei `0x59072AA` umgeht nur diese lokale P2-Gerätepflicht; P1-Geräteprüfung und Solo-Verlustpfad bleiben erhalten. Eine getrennt gesendete native `OnPlayerJoined`-Meldung aktualisiert die P2-Darstellung. Ein eigener veralteter Map-Eintrag wird bei fehlendem Remote-Roster mit dem nativen SparseArray-Entferner aufgeräumt und beim erneuten Beitritt ersetzt.
-
-**Keine vollständige Coop-UI:** Rundenstatistik und Lager zeigen beim Host beide Spieler, die lokale Kontrollübergabe im Lager blockiert aber weiterhin. Der Client bleibt lokal Index 0; Host-Coop-Zustand/Router werden nicht repliziert. Netzwerk-P2 muss deshalb von lokaler Geräteidentität getrennt werden; UI-Anfragen und Ergebnisse brauchen den geplanten Kontrollkanal. Die Aufgaben `remote-spieler`, `eingaben`, `inventar-sync` und `inventar-ui` bleiben offen. Die Phase-1-Frage nach Tragfähigkeit und nötigen Patches ist beantwortet; kein neuer Vollrun-/Internet-Nachweis. [Probe, Gegenversuche, Tests und Übernahmegrenzen](../research/spikes/a-connect/RemoteP2.md).
-
 ### Coop-Ablauf
 
 Stand: Disassembly und Laufzeit-Speicher, Build `26187885`, SDK aus einer direkt geladenen Mission (02.11.2026). Die RVAs stehen in [Offsets](OFFSETS.md#coop).
@@ -740,7 +732,7 @@ Stand: Disassembly und Laufzeit-Speicher, Build `26187885`, SDK aus einer direkt
     Dort wird der Index über `GetLocalPlayer()->GetControllerId()` bestimmt, ein Remote-Controller ließe das Spiel abstürzen (**[Hypothese]**, nicht ausgelöst).
 - **[Belegt]** Die Figurenwahl hängt am Index des lokalen Spielers: Der `GameMode` holt die Figur in Slot 234 über `GetLocalPlayer()` und dessen Controller-ID. Fehlt er, nimmt der Spike-Patch den Standard-Pfad mit der Standardfigur.
 
-**Folgerungen der damaligen Analyse** (Stand 02.11.; die Host-Anbindung und die lokale Geräte-/UI-Grenze sind inzwischen [geprüft](#remote-p2-geprüfte-anbindung-und-grenze-der-lokalen-ui))
+**Folgerungen** (**[Hypothese]**, nicht getestet)
 
 - `SpawnLocalPlayer(1)` darf beim Host nicht laufen, solange P2 ein Netzwerkspieler ist. Sonst entsteht ein zweiter lokaler Spieler neben dem Remote-Controller.
   Der Weg über Geräte-Zuordnung und `GameMode`-Slot 111 bleibt aus, solange `+0x18A` nicht gesetzt ist.
@@ -989,10 +981,23 @@ Die Aufgabe bleibt ungelöst. Getestet sind Beobachtung, Befehlsgrenzen sowie Co
 
 ## Systeme, die die Mod respektieren muss
 
-- **[Belegt]** Bestenlisten: `PixelLeaderboards`, `DDLeaderboardSettings`
+- **[Belegt]** Bestenlisten und Erfolge: `PixelLeaderboards`, `DDLeaderboardSettings`, `PixelAchievements`, im Mod-Betrieb gesperrt, siehe unten
 - **[Belegt]** Telemetrie und Berichte: `DDBalanceTelemetrySettings`, `DDCorruptedSaveAutoReportSettings`, `DDBugReportForm`, `PixelsplitFeedbackForm`, im Mod-Betrieb abgeschaltet, siehe unten
 - **[Belegt]** Spielstände: `PixelsplitSaveSystem`, `LocalPlayerSaveGame`
 - **[Belegt]** Zeitsteuerung: `PixelsplitTimescaleSystem`. Für Online-Spiel relevant, weil Pausen bei beiden gelten müssen.
+
+### Erfolge und Bestenlisten (`online-sperren`)
+
+Stand 04.11.2026, Build `26187885`, Steamworks-Laufzeit 1.64.
+
+- **[Belegt]** Die Exe importiert `steam_api64.dll` nicht statisch. Das Online-Subsystem lädt sie zur Laufzeit und holt sich die Schnittstellen über ihre Versionsnamen, für Erfolge, Statistiken und Bestenlisten `STEAMUSERSTATS_INTERFACE_VERSION013`. Alle Schreibwege enden dort, die Methoden liegen in `steamclient64.dll`.
+- **Mod:** `Core::SteamStats` sperrt die schreibenden Methoden von `ISteamUserStats`, unabhängig von Spiel-Offsets: `SetAchievement`, `IndicateAchievementProgress`, `SetStatInt32`, `SetStatFloat`, `UpdateAvgRateStat`, `StoreStats`, `UploadLeaderboardScore`, `AttachLeaderboardUGC`. Den vtable-Platz jeder Methode liest die Mod aus dem Code der flachen Exporte (`SteamAPI_ISteamUserStats_*`) und hängt sich mit MinHook an die Methode selbst. Lesen und Bestenlisten anzeigen bleibt erlaubt.
+- **Zeitpunkt:** Die Mod hängt sich an `SteamInternal_FindOrCreateUserInterface`, über das das Spiel die Schnittstelle anfordert. Jede Statistik-Schnittstelle ist gesperrt, bevor das Spiel sie bekommt; scheitert das Sperren oder ist die Version unbekannt, bekommt das Spiel keine. Ist `steam_api64.dll` beim Start der Mod noch nicht geladen, richtet ein Hook auf `LoadLibraryExW` das beim Laden ein; scheitert es dort, schlägt das Laden fehl, das Spiel läuft dann ohne Steam. Gibt es die Schnittstelle schon, sperrt die Mod sie sofort. Steht die Sperre beim Start nicht, startet die Mod nicht (`Core::Protection`). Der Start von Steam wird nie aufgehalten.
+- **Gescheiterter erster Ansatz:** Ein Hintergrund-Thread versuchte alle 50 ms, die Schnittstelle zu holen und zu sperren. Dazwischen hätten Schreibaufrufe durchrutschen können, und bei Fehlern lief die Mod ungeschützt weiter (Review zu #75). Der zwischengespeicherte Zugriff `SteamAPI_SteamUserStats_v013` blieb dabei einmal dauerhaft leer.
+- **Test:** zwei Instanzen auf einem PC mit `Start-Session.ps1 -Mod`, Route mit Seed `20795` bis zum Rundenende an Tag 1. Auf beiden Seiten lud das Spiel `steam_api64.dll` rund 80 ms nach dem Start der Mod, die Sperre stand beim Laden. Der Host versuchte rund 7 s später, die Statistiken zu speichern (`StoreStats`), und wurde abgewiesen. Das Spiel lief normal, kein Absturz. Ob es vor dem Start der Mod Schreibversuche gab, ist nicht gemessen; die Mod sieht nur Aufrufe ab ihrer Sperre. Unit-Tests mit nachgebauter Steam-Laufzeit decken späten Steam-Start, den ersten Schreibaufruf, eine schon vorhandene Schnittstelle, gescheiterte Hooks, unbekannte Einsprünge und fremde Versionen ab.
+- **Nicht geprüft:** ein echter Erfolg und ein Bestenlisten-Eintrag am Run-Ende. Absichtlich ausgelöst habe ich keinen: Wäre die Sperre unwirksam, stünde der Erfolg dauerhaft im Steam-Konto.
+- **[Vermutung]** Das Spiel speichert seinen Erfolgsfortschritt auch im eigenen Spielstand (`AchievementSubsystem`, `PersistedAchievementData`). Läuft ein Mod-Run auf dem normalen Spielstand, könnte das Spiel solche Erfolge später ohne Mod nachmelden. Das trennt `mod-saves`.
+- **Nicht gesperrt:** die Weekly-Challenge über `ddrweekly.deadlydays.com`. Ob sie unterstützt oder gesperrt wird, entscheidet das Team unter `weeklymode`.
 
 ### Telemetrie und Berichte (`telemetrie-aus`)
 
