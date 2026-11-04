@@ -36,12 +36,13 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 |---|---|---|---|---|
 | `remote-p2` | P0 | [1](#phase-1--analyse-und-spikes) | parallel | mittel |
 | `steam-lobby` | P0 | [3](#phase-3--session-und-verbindung) | parallel | wenig |
+| `transport` | P0 | [3](#phase-3--session-und-verbindung) | parallel | wenig |
 | `patches` | P0 | [4](#phase-4--vertical-slice) | zentral | viel |
 | `mod-saves` | P0 | [6](#phase-6--release) | parallel | mittel |
 | `online-sperren` | P0 | [6](#phase-6--release) | parallel | wenig |
 | `telemetrie-aus` | P0 | [6](#phase-6--release) | parallel | wenig |
 | `niederlage` | P1 | [1](#phase-1--analyse-und-spikes) | parallel | viel |
-| `tunnel` | P1 | [1](#phase-1--analyse-und-spikes) | parallel | wenig |
+| `tunnel-p2p` | P1 | [1](#phase-1--analyse-und-spikes) | parallel | wenig |
 | `installer` | P1 | [6](#phase-6--release) | parallel | keine |
 
 **Wartet auf das Team:** `meta-fortschritt`, `weeklymode`, `spiel-update`.
@@ -85,7 +86,7 @@ Ziel: Fakten für Gate G1. Spike-Code ist Wegwerfcode und liegt unter `research/
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
 | `remote-p2` | P0 | Remote-Controller als P2 testen: `SetCoopEnabled(true)` beim Host, Eintrag in `ActivePlayers` ohne `CreateLocalPlayer`, Wirkung auf Coop-UI und Eingabe-Router prüfen. **Fertig, wenn** feststeht, ob und mit welchen Patches der Remote-Spieler als P2 läuft. **Einstieg:** [Coop-Ablauf](docs/GAME_ANALYSIS.md#coop-ablauf) | – | parallel | mittel |
-| `tunnel` | P1 | Spike E: Spielverkehr über Steam P2P tunneln. C++ ohne Reverse Engineering, Steamworks SDK nötig. **Fertig, wenn** zwei Instanzen über den Tunnel verbunden spielen. **Einstieg:** [Transport](docs/ARCHITECTURE.md#transport) | – | parallel | wenig |
+| `tunnel-p2p` | P1 | Steam-Tunnel aus Spike E per P2P zwischen zwei Steam-Konten auf zwei PCs prüfen (`!tunnel host`, `!tunnel join <steamid>`). Ein Konto kann sich nicht selbst per P2P erreichen. **Fertig, wenn** zwei Spieler über P2P bis in eine Mission verbunden spielen und Ping und Route im Log stehen. **Einstieg:** [Steam-Tunnel](research/spikes/a-connect/README.md#spike-e-steam-tunnel-tunnel) | – | parallel | wenig |
 | `niederlage` | P1 | Echte Niederlage nachvollziehen: alle Spieler tot, Rundenende, Rückkehr in die `MetaBase`, dabei den Client mitnehmen. **Fertig, wenn** beide nach einer Niederlage in der `MetaBase` stehen und ein neuer Run startet. **Einstieg:** [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf) | `phasenadapter` | parallel | viel |
 
 ## Phase 2 – Fundament
@@ -233,6 +234,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `tick-absturz` | 1 | Restrictor-Absturz `0x5A17ACC` nachgestellt, Laufzeitfix ist `restrictor`, siehe [Restrictor](docs/GAME_ANALYSIS.md#client-absturz-im-restrictor-tick-absturz) |
 | `treffer` | 1 | Projektile des Clients ziehen beim Host Leben ab und töten (`Hits.cpp`), siehe [Treffer](docs/GAME_ANALYSIS.md#treffer-des-clients-treffer) |
 | `trennen` | 1 | Client-Absturz beim Trennen war eine Folge fehlender Inventar-Items, mit Teilfix kein Absturz, siehe [Trennen](docs/GAME_ANALYSIS.md#trennen-ins-hauptmenü-trennen) |
+| `tunnel` | 1 | Der Spielverkehr läuft über `ISteamNetworkingSockets` aus der Steam-Laufzeit des Spiels, zwei Instanzen spielten so bis Tag 2 (`Tunnel.cpp`); P2P mit zwei Konten ist `tunnel-p2p`, siehe [Steam-Tunnel](research/spikes/a-connect/README.md#spike-e-steam-tunnel-tunnel) |
 | `tutorial-aus` | 6 | Die Mod schaltet die Tutorial-Hinweise als Host und Client automatisch ab und prüft das jede Sekunde (`src/Game/TutorialAdapter`), siehe [Tutorial-Pause](docs/GAME_ANALYSIS.md#tutorial-pause-hält-den-run-an-testumgebung) |
 | `update-regel` | 0 | Spiel-Updates: einfrieren und nur bei Bedarf nachziehen, siehe [Update-Regel](CONTRIBUTING.md#spiel-updates) |
 
