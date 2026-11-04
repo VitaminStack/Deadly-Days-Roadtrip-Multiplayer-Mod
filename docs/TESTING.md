@@ -136,6 +136,8 @@ Das Pausemenü (`Esc`) hat „Zurück zum Hauptmenü“ bei (396, 266). Mit `!fi
 Manches lässt sich auf einem PC nicht prüfen: Steam lehnt P2P zum eigenen Konto ab, siehe [Steam-Tunnel](../research/spikes/a-connect/README.md#spike-e-steam-tunnel-tunnel).
 Dafür laufen Host und Client auf zwei PCs mit zwei Steam-Konten, je PC nur eine Instanz. Solche Aufgaben haben in
 [TODO.md](../TODO.md) die Bearbeitung **zu zweit**, etwa `tunnel-p2p`.
+Solche Tests lassen sich in einem gemeinsamen Termin bündeln. Als Planungshilfe dienen die Hinweise unter
+[Live-Sitzungen zu zweit](../TODO.md#live-sitzungen-zu-zweit).
 
 ### Reservieren zu zweit
 

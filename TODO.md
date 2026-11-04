@@ -62,6 +62,37 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 - Öffentliche Schnittstellen in `src/Core` und `src/Net`
 - Protokollversion und Nachrichtenformat, nur über `protokoll`
 
+## Live-Sitzungen zu zweit
+
+Manche Abnahmen brauchen zwei Menschen gleichzeitig: zwei Steam-Konten, zwei PCs, echtes Internet. Solche Termine sind knapp.
+Es bietet sich an, diese Prüfungen zu sammeln und **in einer Sitzung nacheinander abzuarbeiten**, statt für jede Aufgabe einen
+eigenen Termin anzusetzen. Die Liste unten ist eine Planungshilfe, keine zusätzliche Pflicht oder neue Freigaberegel.
+
+- **Offene Tests sammeln.** Bleibt nur noch ein Test zu zweit, kann er nach [Aufgabe abschließen](#aufgabe-abschließen), Punkt 3,
+  als eigene Kennung weitergeführt und hier ergänzt werden. Bestehende Abnahmen und Abhängigkeiten bleiben dabei erhalten.
+- **Gemeinsam vorbereiten.** Ein gemeinsamer Stand auf `main` und derselbe Build erleichtern den Termin. Ablauf und Aufbau stehen
+  in [Testen](docs/TESTING.md#test-auf-zwei-pcs). Nach dem Verbinden lassen sich passende Punkte oft ohne Neustart kombinieren.
+- **Hinweis zur Reservierung.** `host` und `client` sind nur für Aufgaben mit Bearbeitung „zu zweit“ vorgesehen. Zentrale Aufgaben
+  behalten einen Verantwortlichen ohne Rolle; die zweite Person hilft beim Test. Für eine Gegenprobe erledigter Arbeit ist keine
+  neue Reservierung nötig.
+- **Ergebnisse zuordnen.** Ein kurzer Vermerk je Kennung hilft beim Überblick; offene Prüfungen können in einen späteren Termin.
+
+Mögliche Punkte und Reihenfolge, je nach Bereitschaft:
+
+1. `lobby-live`: Einladung über das Steam-Overlay, Beitritt per P2P, Start über `+connect_lobby`, Verlassen. Verbindet die
+   beiden gleich für die folgenden Punkte. Möglich, sobald `steam-lobby` auf `main` ist.
+2. `net-fehler`, nur zur Gegenprobe über das Internet: Host verlässt das Spiel, Leitung bricht ab. Umsetzung und Abnahme gehen allein.
+3. `integration-g2`: zehn Minuten Vertical Slice zwischen zwei Haushalten, erst wenn alle Voraussetzungen erledigt sind.
+4. `integration-run`: kompletter Run über das Internet, Phase 5.
+5. `release`: Abschlusstest vor der Veröffentlichung.
+
+Die Team-Entscheidungen `meta-fortschritt` und `weeklymode` brauchen kein Spiel, passen aber in denselben Termin.
+
+**Ohne zweite Person.** Alles andere geht allein auf einem PC: zwei Instanzen unter einem Konto über 127.0.0.1, siehe
+[Sitzung starten](docs/TESTING.md#sitzung-starten). Dazu gehören `protokoll`, `net-fehler`, `remote-spieler`, `missionsstart`,
+`kamera-code`, `bewegung`, `kampf`, `gegnertyp`, `eingaben`, `restrictor`, `mod-saves`, `installer` und die Sync-Aufgaben aus
+Phase 5. Dafür ist normalerweise kein gemeinsamer Termin nötig; die jeweiligen Abnahmen gelten weiterhin.
+
 ## Aufgabe abschließen
 
 1. Ergebnis und Testgrenzen in der Doku festhalten, auch gescheiterte Versuche, siehe [Ergebnisse festhalten](docs/TESTING.md#ergebnisse-festhalten).
