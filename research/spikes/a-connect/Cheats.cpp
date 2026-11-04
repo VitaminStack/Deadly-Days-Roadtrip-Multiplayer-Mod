@@ -52,30 +52,75 @@ void LoadAssetCommand(const std::wstring& Path)
     const uintptr_t Object = LoadObjectByPath(Narrow);
     Log(std::string("Laden: ") + (Object ? NameOf(Object) + " (" + NameOf(Read<uintptr_t>(Object + 0x10)) + ")" : "fehlgeschlagen") + " " + Narrow);
 }
-// Tutorial-Hinweise halten die Mission an und stoeren jede Messung. Das Spiel hat dafuer einen eigenen Schalter.
-void SkipTutorials()
+// Tutorial-Hinweise pausieren die ganze Welt ueber den PauserPlayerState, auch beim Client. Ein Hinweis, der beim
+// Kartenwechsel offen bleibt, haelt jede weitere Runde an: Niemand steigt am Bus aus, die Uhr steht bei 00:00.
+// Das Spiel hat dafuer einen eigenen Schalter, der Tick setzt ihn in jeder Instanz, sobald das Subsystem existiert.
+namespace
 {
-    const uintptr_t Function = FindObject("SetForceSkipTutorials", "TutorialStateSubsystem");
+constexpr uintptr_t kTutorialSkipFlag = 0xB8; // UTutorialStateSubsystem::SkipTutorialFlag
+uintptr_t TutorialSubsystem = 0;
+int32_t TutorialSubsystemIndex = -1;
+
+uintptr_t FindTutorialSubsystem()
+{
     const uintptr_t Chunks = Read<uintptr_t>(Base + kGObjects);
+    // Das Subsystem lebt mit der GameInstance. Solange der Platz im Objekt-Array dasselbe Objekt haelt, gilt der Treffer.
+    if (TutorialSubsystem && TutorialSubsystemIndex >= 0)
+    {
+        const uintptr_t Chunk = Read<uintptr_t>(Chunks + 8 * (TutorialSubsystemIndex >> 16));
+        if (Chunk && Read<uintptr_t>(Chunk + (TutorialSubsystemIndex & 0xFFFF) * 0x18 + 8) == TutorialSubsystem)
+            return TutorialSubsystem;
+    }
+    TutorialSubsystem = 0;
     const int32_t Count = Read<int32_t>(Base + kGObjects + 8);
-    uintptr_t Tutorials = 0;
-    for (int32_t i = 0; i < Count && Function && !Tutorials; ++i)
+    for (int32_t i = 0; i < Count; ++i)
     {
         const uintptr_t Chunk = Read<uintptr_t>(Chunks + 8 * (i >> 16));
         const uintptr_t Object = Chunk ? Read<uintptr_t>(Chunk + (i & 0xFFFF) * 0x18 + 8) : 0;
         if (!Object || (Read<uint32_t>(Object + 8) & 0x10) != 0)
             continue;
-        for (uintptr_t Class = Read<uintptr_t>(Object + 0x10); Class && !Tutorials; Class = Read<uintptr_t>(Class + 0x40))
+        for (uintptr_t Class = Read<uintptr_t>(Object + 0x10); Class; Class = Read<uintptr_t>(Class + 0x40))
             if (NameOf(Class) == "TutorialStateSubsystem")
-                Tutorials = Object;
+            {
+                TutorialSubsystem = Object;
+                TutorialSubsystemIndex = i;
+                return Object;
+            }
     }
+    return 0;
+}
+}
+
+void SkipTutorials(bool Report)
+{
+    const uintptr_t Tutorials = FindTutorialSubsystem();
     if (!Tutorials)
     {
-        Log("Tutorial: Subsystem nicht gefunden");
+        if (Report)
+            Log("Tutorial: Subsystem nicht gefunden");
+        return;
+    }
+    // Einmal festhalten, ob der Schalter einen Neustart ueberlebt, also im Spielstand liegt.
+    static bool FirstCheck = true;
+    if (FirstCheck)
+    {
+        FirstCheck = false;
+        Log(Read<bool>(Tutorials + kTutorialSkipFlag) ? "Tutorial: Schalter beim Start schon gesetzt" : "Tutorial: Schalter beim Start aus");
+    }
+    if (Read<bool>(Tutorials + kTutorialSkipFlag))
+    {
+        if (Report)
+            Log("Tutorial: Hinweise sind abgeschaltet");
+        return;
+    }
+    static const uintptr_t Function = FindObject("SetForceSkipTutorials", "TutorialStateSubsystem");
+    if (!Function)
+    {
+        Log("Tutorial: SetForceSkipTutorials nicht gefunden");
         return;
     }
     struct { bool bSkip; } Params{true};
     Read<ProcessEventFn*>(Tutorials)[kProcessEventIndex](Tutorials, Function, &Params);
-    Log("Tutorial: Hinweise abgeschaltet");
+    Log(Read<bool>(Tutorials + kTutorialSkipFlag) ? "Tutorial: Hinweise abgeschaltet" : "Tutorial: Schalter nicht gesetzt");
 }
 }

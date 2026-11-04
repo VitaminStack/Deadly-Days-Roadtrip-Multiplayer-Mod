@@ -18,6 +18,7 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 
 **Neue Befunde.**
 
+- `testumgebung`, 04.11.2026: Das „seltsame Laden“ ab Tag 2 war eine pausierte Welt: Die Spike-Umleitung übersprang das Abräumen der Zeitanfragen, die Pause aus `FinishMission` blieb stehen. Dazu zerstörte das Freiräumen am Busplatz die Figur des Clients. Beides ist im Spike behoben, Tag 1 bis 4 laden sauber mit je 2 PlayerStates am Bus. Der PlayerState-Verlust an Tag 4 tritt damit nicht mehr auf, der Client-Absturz an Tag 5 bleibt für `guidcache`. Prüfskript `check_round.py` und fester Routenlauf `Run-Route.ps1` liegen im Repo.
 - `aufgabenstatus`, 04.11.2026: Abschlussstatus kommt verbindlich aus den Checkboxen in `TODO.md`; erledigte Pakete stehen getrennt vom offenen Einstiegskatalog. README-Zahlen und Balken werden mit `tools/task_status.py update` daraus aktualisiert und in CI geprüft. Reservierungsbranches und Teil-PRs ersetzen keine Abnahme; fehlendes `gh` macht erledigte Pakete nicht wieder frei. Keine neuen Spielabnahmen und keine Änderung an den gezählten Abschlüssen (45/84).
 
 - `overlay`, 03.11.2026: Phase-2-UI als F8-Toolfenster mit Status-/Debug-Anzeige und vorbereiteten Lobby-Aktionen umgesetzt. Sichtbare Host-/Client-Abnahme auf Build `26187885` bei 100 % und 150 % Skalierung bestanden (F8, Tab, Schließen, Fokuswechsel, Verschieben, Minimieren/Wiederherstellen). Ohne Phase-3-Backend bleiben Lobby-Aktionen gesperrt. [Abnahme und Grenzen](../src/UI/README.md#sichtbare-spielabnahme-03112026).
@@ -34,7 +35,7 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 
 **Reihenfolge.**
 
-1. `testumgebung` belegen: Jede Runde lädt sauber, beide Spieler erscheinen am Bus. Danach `guidcache` lösen, für jeden Tag und den Endlosmodus. Ohne diese Schritte ist kein Run über Tag 3 hinaus möglich.
+1. `guidcache` lösen: Client-Absturz an Tag 5, danach alle Tage und den Endlosmodus. `testumgebung` ist erledigt, Tag 1 bis 4 laden sauber. Ohne diesen Schritt ist kein Run über Tag 4 hinaus möglich.
 2. `remote-p2` und `karte-client`. Diese Aufgaben brauchen Spielzeit, und pro PC läuft nur eine Sitzung.
 3. Parallel ohne Spielzeit: `grundgeruest`, `tunnel` und `crash-reporter`.
 4. `last` messen und an Gate G1 entscheiden.
@@ -80,9 +81,9 @@ flowchart LR
     end
 
     subgraph RUN["Run-Ablauf"]
-        TU["Saubere Testumgebung,<br/>Laden und Spawn am Bus<br/>(testumgebung)"]:::blocker
+        TE["Saubere Testumgebung,<br/>Laden und Spawn am Bus<br/>(testumgebung)"]:::done
         T3["Alle Tage und Endlosmodus,<br/>Inventar abschließen<br/>(guidcache)"]:::blocker
-        TU --> T3
+        TE --> T3
         RE["Rundenende, Lager,<br/>Routenkarte<br/>(rundenende)"]:::wip
         NI["Echte Niederlage,<br/>Rückkehr in die MetaBase<br/>(niederlage)"]:::open
         TR["Client-Absturz<br/>beim Trennen<br/>(trennen)"]:::done

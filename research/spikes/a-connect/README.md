@@ -25,7 +25,7 @@ Je Thema eine Datei, damit parallele Arbeit nicht in dieselbe Datei läuft. Neue
 | `Client.cpp` | Client-Stellen ohne Host-Objekte: Refresh, Attribute, Figurenkomponente, `ThreatLevel`, Log für nicht angelegte Actors |
 | `Camera.cpp` | Gemeinsame Kamera und Bodenfix |
 | `Inventory.cpp` | Netzwerk-Support für Items/Slots und klassischer Unterobjekt-Replikationspfad je neuer Inventarkomponente |
-| `Travel.cpp` | Umleitung der Reise in `servertravel` |
+| `Travel.cpp` | Umleitung der Reise in `servertravel`, vorher Zeitanfragen des `UTimescaleManager` abräumen |
 | `Widgets.cpp` | Zurückhalten der HUD bis zum `GameState` |
 | `MapObjects.cpp` | Client: lokale Kopien replizierter Kartenobjekte unterdrücken |
 | `Mission.cpp` | Gegnerwelle, Missionsende, Rundenende |
@@ -36,6 +36,7 @@ Je Thema eine Datei, damit parallele Arbeit nicht in dieselbe Datei läuft. Neue
 | `Hits.cpp` | Host: Treffer auf Gegner mit Schütze, Schaden und Lebenspunkten |
 | `Cheats.cpp` | Testhilfen: CheatManager für die `DD_`-Befehle, Laden einzelner Assets, Tutorial abschalten |
 | `Load.cpp` | Lastmessung: UDP-Bytes, Pakete und Framerate je Sekunde im Log |
+| `TestEnv.cpp` | Host: Busplatz schont alle Spielerfiguren, Diagnose-Log für `EndPlay` jeder Figur mit Stapel |
 
 ## Ergebnis
 
@@ -84,7 +85,8 @@ Der Host-Absturz war immer derselbe Callstack. Das Spiel fragt beim Spawnen `Get
 | Client | `0x59B7E17` | Tick sucht das AbilitySystem, bevor der `PlayerState` da ist | Diesen Tick auslassen |
 | Host | `0x5994BB0` | `MapLootSpawner` liest die Figur des ersten Spielers, die es beim Spawn noch nicht gibt | Vorhandener Pfad ohne `RootComponent` |
 | Host | `0x58CEDC7` | Gegner-Spawner nimmt einen `null`-Eintrag aus `SpawnedPlayers` | Spawn für diesen Tick auslassen |
-| Host | `0x5976AD0` | `SeamlessTravelToLevel` reist nur lokal | Umleitung in `servertravel`, nur wenn scharf und nicht ins Hauptmenü |
+| Host | `0x5976AD0` | `SeamlessTravelToLevel` reist nur lokal | Umleitung in `servertravel`, nur wenn scharf und nicht ins Hauptmenü. Vorher `ClearAllRequests`, sonst bleibt die Pause aus `FinishMission` stehen |
+| Host | `0x5991B70` | Freiräumen am Busplatz zerstört die Remote-Figur, die auf der Host-Figur steht | Schonliste um alle Figuren der `PlayerArray` ergänzen |
 | Beide | `0x160C040` | `WP_UI` wartet in `PreConstruct` auf den `GameState` | `ProcessEvent`-Hook hält `PreConstruct` und `Construct` zurück, bis er da ist |
 | Client | `0x593DAF3` | `ThreatLevel` nutzt beim Aufräumen `FreezeThreatLevelManager`, den nur der Host hat | Vorhandenes `je` springt ans Funktionsende |
 | Client | `0x58393CC` | Figurenkomponente erwartet einen Controller, die fremde Figur hat keinen | Funktion verlassen |
@@ -111,7 +113,7 @@ Beim Client setzt der Spike die Kamera jede Sekunde, beim Host nimmt er jede Sek
 | `!finish` | Host | Ruft `FinishMission` auf |
 | `!cheats` | Host | Legt einen `UDDCheatManager` an, danach wirken die `DD_`-Befehle des Spiels |
 | `!load <Pfad>` | Beide | Lädt ein Asset, etwa eine Blueprint-Klasse für einen SDK-Dump |
-| `!notutorial` | Beide | Schaltet die Tutorial-Hinweise ab, die sonst die Mission anhalten |
+| `!notutorial` | Beide | Meldet den Stand der Tutorial-Sperre. Der Spike schaltet die Hinweise ohnehin auf beiden Seiten selbst ab, sie halten sonst die Mission an |
 | `!round <n>` | Host | Ruft `TriggerEndRound` auf, Wert wie `ERoundChangeReason` |
 
 `Mission.cpp` lehnt `!finish` und `!round` auf einem verbundenen Client ab. Das sind Diagnosebefehle für den Host, kein UI-Sync.

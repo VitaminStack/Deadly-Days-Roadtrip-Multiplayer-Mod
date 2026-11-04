@@ -18,6 +18,9 @@ def entries(game):
     chunks = game.ptr(game.base + GOBJECTS)
     rows = {}
     for slot in range(maximum):
+        # Der Cache aendert sich waehrend des Lesens, ein abgeschnittener Block zaehlt als Ende.
+        if slot >> 3 >= len(bits) or (slot + 1) * ENTRY_SIZE > len(raw):
+            break
         if not (bits[slot >> 3] >> (slot & 7)) & 1:
             continue
         entry = raw[slot * ENTRY_SIZE:(slot + 1) * ENTRY_SIZE]
@@ -38,11 +41,12 @@ def full_path(rows, key, depth=0):
     return (full_path(rows, row[2], depth + 1) + '.' if row[2] else '') + row[3]
 
 
-game = Game(int(sys.argv[1]))
-pattern = sys.argv[2] if len(sys.argv) > 2 else ''
-num, rows = entries(game)
-print('Eintraege', num, 'statisch', sum(1 for key in rows if key & 1))
-for key, (index, live, outer, name, flags, stamp) in sorted(rows.items()):
-    path = full_path(rows, key)
-    if pattern in path:
-        print(f'{key:#x} {path} obj={live}:{index} flags={flags:#x} stempel={stamp:.0f}')
+if __name__ == '__main__':
+    game = Game(int(sys.argv[1]))
+    pattern = sys.argv[2] if len(sys.argv) > 2 else ''
+    num, rows = entries(game)
+    print('Eintraege', num, 'statisch', sum(1 for key in rows if key & 1))
+    for key, (index, live, outer, name, flags, stamp) in sorted(rows.items()):
+        path = full_path(rows, key)
+        if pattern in path:
+            print(f'{key:#x} {path} obj={live}:{index} flags={flags:#x} stempel={stamp:.0f}')
