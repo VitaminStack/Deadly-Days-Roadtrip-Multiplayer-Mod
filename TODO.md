@@ -152,6 +152,7 @@ Ziel: Ein kompletter Run ist zu zweit online spielbar.
 |---|---|---|---|---|---|
 | `gegner-alle` | P0 | Alle Gegner, Bosse und Boss-Phasen. Ordner `src/Sync/Enemies` | `integration-g2` | parallel | viel |
 | `fortschritt` | P0 | Loot, XP, Level-ups, Fähigkeiten und Status-Effekte (GAS). Ordner `src/Sync/Combat` | `integration-g2`, `protokoll` | parallel | viel |
+| `xp-baelle` | P1 | Der Client sieht die XP-Bälle nicht. Sie sind lokale Niagara-Partikel des `AExpEmissionHandler`, nur der Host erzeugt sie. Host meldet `RequestExpSpawning` (Menge, Ort), Client zeigt sie nur an, `ReceiveExp` beim Client gesperrt. **Fertig, wenn** der Client dieselben Bälle sieht, sie beim Aufsammeln verschwinden und XP nicht doppelt zählen. Ordner `src/Sync/Combat`. **Einstieg:** [XP-Bälle](docs/GAME_ANALYSIS.md#xp-bälle-beim-client-xp-baelle) | `protokoll` | parallel | mittel |
 | `inventar-sync` | P0 | Rucksack, Stash, Werkbank, Reward-Queue (`CoopInventoryCoordinator`). Ordner `src/Sync/Inventory` | `integration-g2`, `protokoll`, `guidcache` | parallel | viel |
 | `inventar-ui` | P0 | Inventar-UI beim Remote-Spieler. Ordner `src/Sync/Inventory`, `src/UI` | `inventar-sync` | parallel | mittel |
 | `pausen-sync` | P0 | Pausen und blockierende UI beider Spieler über den Kontrollkanal abstimmen. Ordner `src/Sync/Players`. **Einstieg:** [Pausen-Spike](research/spikes/pausen/README.md) | `integration-g2`, `protokoll` | parallel | mittel |
