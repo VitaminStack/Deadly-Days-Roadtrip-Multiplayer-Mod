@@ -48,6 +48,8 @@ Stand: 04.11.2026.
 
 Gezählt sind die Punkte aus [TODO.md](TODO.md), ohne optionale Optimierungen.
 
+Die Checkboxen in Phase 0–6 sind die verbindliche Fortschrittsquelle. `py tools/task_status.py update` aktualisiert Zahlen und Balken dieser Tabelle; `py tools/task_status.py check` und die CI verhindern abweichende Angaben. Reservierungen und PRs werden separat geführt und ändern den Abschlussstatus nicht automatisch.
+
 | Phase | Ziel | Erledigt | Fortschritt |
 |---|---|---|---|
 | [0](TODO.md#phase-0--projekt-setup) | Gleiche Toolchain für alle | 11 von 11 | ███████████ |

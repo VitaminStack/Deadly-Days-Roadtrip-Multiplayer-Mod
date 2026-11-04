@@ -18,6 +18,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: TODO-Aufgaben und README-Fortschritt pruefen
+        run: python -B tools/task_status.py check
+
       - name: Solution bauen
         shell: pwsh
         run: |
