@@ -115,7 +115,8 @@ public:
         {
             if (Value.Sequence == State.Host.Sequence)
                 return Value == State.Host ? Result::Duplicate : Result::Rejected;
-            if (Value.Sequence < State.Host.Sequence || Value.Day != State.Host.Day || Value.Stage < State.Host.Stage)
+            // The sequence orders phases. A phase may go back, e.g. route map closed with "Zurueck".
+            if (Value.Sequence < State.Host.Sequence || Value.Day != State.Host.Day)
                 return Result::Rejected;
         }
         // One commit for both display and input policy; no UE function or persistence can be invoked here.

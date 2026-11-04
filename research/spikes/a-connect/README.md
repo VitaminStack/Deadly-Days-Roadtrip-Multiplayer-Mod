@@ -26,9 +26,9 @@ Je Thema eine Datei, damit parallele Arbeit nicht in dieselbe Datei läuft. Neue
 | `Camera.cpp` | Gemeinsame Kamera und Bodenfix |
 | `Inventory.cpp` | Netzwerk-Support für Items/Slots und klassischer Unterobjekt-Replikationspfad je neuer Inventarkomponente |
 | `Travel.cpp` | Umleitung der Reise in `servertravel`, vorher Zeitanfragen des `UTimescaleManager` abräumen |
-| `Widgets.cpp` | Zurückhalten der HUD bis zum `GameState` |
+| `Widgets.cpp` | Zurückhalten der HUD bis zum `GameState`, nach jedem `ProcessEvent` der Phasenbeobachter aus `Mission.cpp` |
 | `MapObjects.cpp` | Client: lokale Kopien replizierter Kartenobjekte unterdrücken |
-| `Mission.cpp` | Gegnerwelle, Missionsende, Rundenende |
+| `Mission.cpp` | Gegnerwelle, Missionsende, Rundenphasen vom Host zum Client mit Anzeige und Eingabesperre |
 | `Trace.cpp` | Zähler für RPCs und Run-Funktionen |
 | `CrashReports.cpp` | Sperre des Crash-Reporters, zweite Schicht neben `CrashGuard.ps1` |
 | `MapGen.cpp` | Client erzeugt die Karte mit den Werten des Hosts, lokale Kopien replizierter Child Actors unterdrückt |
@@ -115,6 +115,7 @@ Beim Client setzt der Spike die Kamera jede Sekunde, beim Host nimmt er jede Sek
 | `!load <Pfad>` | Beide | Lädt ein Asset, etwa eine Blueprint-Klasse für einen SDK-Dump |
 | `!notutorial` | Beide | Meldet den Stand der Tutorial-Sperre. Der Spike schaltet die Hinweise ohnehin auf beiden Seiten selbst ab, sie halten sonst die Mission an |
 | `!round <n>` | Host | Ruft `TriggerEndRound` auf, Wert wie `ERoundChangeReason` |
+| `!phase status\|scan\|filter on\|filter off\|stop\|auto` | Beide | Diagnose des Phasenadapters, siehe [Rundenphasen](RoundPhaseRuntime.md#diagnosebefehle) |
 
 `Mission.cpp` lehnt `!finish` und `!round` auf einem verbundenen Client ab. Das sind Diagnosebefehle für den Host, kein UI-Sync.
 
@@ -205,6 +206,8 @@ Test: ein PC über Loopback, `Start-Session.ps1` mit CrashGuard, Route über das
 `powershell -File tests/Run-RoundPhase.ps1` baut und prüft den Kern ohne Spiel/SDK mit C++20 `/W4 /WX`. Testumfang und offene Integration stehen in der [Untersuchung](../../../docs/GAME_ANALYSIS.md#rundenende-befund-und-offene-phasenübertragung-rundenende). Die Schema-Version 1 gehört **nur zum Spike**, sie ersetzt weder das zentrale Produktionsprotokoll noch dessen Handshake/Authentisierung. `Session` muss pro neuer Verbindung frisch vergeben werden; die Bindung muss aus verifiziertem Transport-/Travel-Zustand stammen, nicht aus beliebigen Paketdaten.
 
 **Ergänzung 03.11.2026:** `Mission.cpp` enthält jetzt einen explizit aktivierbaren lokalen Testadapter: Publisher/Heartbeat, atomarer Dateitransport, Timeout, Textanzeige und Win32-Nachrichtenfilter. Tatsächlicher Adapter und Zwei-Testprozess-Transport ohne Spiel geprüft; `Main.cpp` verbindet Befehl, Tick und Filter, `!finish`/`!round` liefern ihre Hostaufrufe. Der globale Beobachter für normale Menü-/Busereignisse ist **noch nicht angeschlossen**; Lager/Route benötigen weiterhin manuelle Diagnosemarkierung, vollständiger UE-Inputblock und sichtbarer Laufzeitnachweis fehlen. Integration, Bedienung und Grenzen: [RoundPhaseRuntime.md](RoundPhaseRuntime.md). P0 bleibt offen.
+
+**Abschluss `phasenadapter`, 04.11.2026:** Der Adapter läuft jetzt automatisch. Der Host erkennt Rundenübersicht, Lager und Routenkarte an `AbstractPanel.OnOpenStateChanged` der Panels und an `FinishMission`/`TriggerEndRound`. Der Client folgt, zeigt ein Banner und sperrt die Eingabe über `DisableInput` und den Nachrichtenfilter. Im Spiel an der ersten Route und an drei Rundenenden geprüft. Ablauf, Tests und Grenzen: [RoundPhaseRuntime.md](RoundPhaseRuntime.md).
 
 ### Weitere Abweichungen
 
