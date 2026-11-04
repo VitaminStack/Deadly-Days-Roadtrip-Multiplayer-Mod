@@ -40,7 +40,7 @@ Core::GameThread().Post([Value] { /* läuft auf dem Game Thread */ });
 
 - `Post` darf jeder Thread aufrufen, die Aufgabe läuft später, ohne dass der Aufrufer wartet. Aufgaben laufen in Reihenfolge.
 - Aufgaben kopieren Daten hinein. UObject-Zeiger können bis zur Ausführung ungültig werden.
-- `Drain` ruft ein Hook auf dem Game Thread auf. Diesen Hook liefert `game-adapter`, bis dahin läuft keine Aufgabe.
+- `Drain` ruft der Game-Thread-Takt aus `src/Game` (`Game::GameThread`) etwa alle 16 ms auf, sobald das Spielfenster da ist.
 - `IsDrainThread` ist für Prüfungen da und bleibt falsch, bis `Drain` einmal lief.
 - Eine Ausnahme in einer Aufgabe wird geloggt, die übrigen Aufgaben laufen weiter.
 

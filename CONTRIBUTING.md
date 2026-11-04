@@ -143,7 +143,7 @@ keine Weitergabe von Spieldateien. Steam-Einstellungen und Downloads werden nich
 3. Das Nachziehen ist die zentrale Aufgabe `spiel-update`. Eine Person reserviert sie, aktualisiert ihr Spiel, erzeugt ein neues SDK und passt Offsets,
    Signaturen und Patches auf ihrem Branch an.
 4. Im selben PR Build-ID, Exe-Version und Manifest-IDs in [docs/GAME_ANALYSIS.md](docs/GAME_ANALYSIS.md#unterstützte-spielversion), die Werte in
-   [docs/OFFSETS.md](docs/OFFSETS.md), `$SupportedBuild` in `tools/spike/Common.ps1`, die Build-/Hash-Referenz in `tools/game_build.py` sowie
+   [docs/OFFSETS.md](docs/OFFSETS.md) und `src/Game/Offsets.h` (mit neuem SDK bauen, dann prüft `SdkChecks.cpp` jeden Wert), `$SupportedBuild` in `tools/spike/Common.ps1`, die Build-/Hash-Referenz in `tools/game_build.py` sowie
    `SupportedBuilds` in `src/Core/Version.cpp` aktualisieren. Der neue Build bekommt einen eigenen Kopieordner, der alte wird nicht überschrieben.
 5. Erst nach dem Merge und einer ausdrücklichen Teamentscheidung wechseln alle ihre Entwicklungskopie, weil alle denselben Build brauchen.
    Die alte Kopie und der dazu passende Mod-Branch bleiben verfügbar, bis der neue Stand läuft.

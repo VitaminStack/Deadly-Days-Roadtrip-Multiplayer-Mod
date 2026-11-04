@@ -175,6 +175,8 @@ Ablauf siehe [Pausierte Welt und Busplatz](GAME_ANALYSIS.md#pausierte-welt-und-b
 
 ## Klassen
 
+Was die Mod nutzt, steht zusätzlich in `src/Game/Offsets.h` und wird dort beim Bauen gegen das SDK geprüft, siehe [Game](../src/Game/README.md#sdk).
+
 | Klasse | Feld | Offset |
 |---|---|---|
 | `UObject` | Flags, Index, Class, Name, Outer | `0x08`, `0x0C`, `0x10`, `0x18`, `0x20` |
@@ -201,7 +203,7 @@ Ablauf siehe [Pausierte Welt und Busplatz](GAME_ANALYSIS.md#pausierte-welt-und-b
 | `UCharacterMovementComponent` | Velocity, MovementMode, MaxWalkSpeed | `0xD8`, `0x241`, `0x288` |
 | `UCharacterMovementComponent` | MaxAcceleration, Acceleration | `0x29C`, `0x338` |
 | `UCharacterMovementComponent` | Flags: Bit 1 `bIgnoreClientMovementErrorChecksAndCorrection`, Bit 3 `bServerAcceptClientAuthoritativePosition` | `0x579` |
-| `UWorld` | NetDriver, GameMode, GameState, GameInstance | `0x38`, `0x1A8`, `0x1B0`, `0x228` |
+| `UWorld` | PersistentLevel, NetDriver, GameMode, GameState, GameInstance | `0x30`, `0x38`, `0x1A8`, `0x1B0`, `0x228` |
 | `AGameStateBase` | PlayerArray | `0x2C0` |
 | `UNetDriver` | ServerConnection, ClientConnections | `0x100`, `0x108` |
 | `UNetDriver` | bClampListenServerTickRate (Bit 0), NetServerMaxTickRate, MaxNetTickRate, MaxInternetClientRate, MaxClientRate | `0xAC`, `0xB0`, `0xD0`, `0xD4`, `0xD8` |

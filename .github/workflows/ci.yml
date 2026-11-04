@@ -35,6 +35,9 @@ jobs:
       - name: UI-Tests (ohne Spiel und SDK)
         run: .\bin\${{ matrix.configuration }}\UITests.exe
 
+      - name: Game-Tests (ohne Spiel und SDK)
+        run: .\bin\${{ matrix.configuration }}\GameTests.exe
+
       - name: Python-Tests
         run: python -B -m unittest discover -s tests
 

@@ -92,7 +92,7 @@ Für die Team-Rückmeldung reichen Build-ID, Anzahl geprüfter Dateien und Start
 
 ## SDK
 
-Solution, Tests und Spike brauchen kein SDK, der Spike kommt mit den [Offsets](OFFSETS.md) aus. Das SDK hilft beim Nachschlagen von Klassen und wird für `src/Game` benötigt.
+Solution, Tests und Spike brauchen kein SDK, Mod und Spike kommen mit den [Offsets](OFFSETS.md) aus. Das SDK hilft beim Nachschlagen von Klassen. Ist es eingetragen, prüft der Build von `src/Game` die Werte aus `Offsets.h` gegen das SDK, das Log meldet dann „Offsets beim Bauen gegen das SDK geprüft“. Die CI baut ohne.
 
 Es wird aus dem Spiel erzeugt und liegt außerhalb des Repos, zum Beispiel unter `C:\Dumper-7\<Version>\CppSDK`. Den Pfad trägt man als `Dumper7SdkRoot` in `config/Local.props` ein.
 Alle im Team müssen ein SDK **desselben Spiel-Builds** verwenden.
