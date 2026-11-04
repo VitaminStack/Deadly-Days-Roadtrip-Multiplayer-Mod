@@ -11,6 +11,8 @@ Invoke-InVsEnvironment "msbuild `"$Solution`" /m /nologo /v:m /p:Configuration=$
     Where-Object { $_ -match '\b(error|warning)\b|->' }
 if ($LASTEXITCODE -ne 0) { throw 'Build fehlgeschlagen.' }
 if ($Test) {
+    & py -B (Join-Path $script:RepoRoot 'tools/task_status.py') check
+    if ($LASTEXITCODE -ne 0) { throw 'TODO-Aufgaben oder README-Fortschritt inkonsistent.' }
     & (Join-Path $script:RepoRoot "bin\$Configuration\CoreTests.exe")
     if ($LASTEXITCODE -ne 0) { throw 'C++-Tests fehlgeschlagen.' }
     & (Join-Path $script:RepoRoot "bin\$Configuration\UITests.exe")

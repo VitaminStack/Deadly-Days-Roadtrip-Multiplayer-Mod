@@ -44,9 +44,11 @@ Was im Einzelnen noch offen ist, zeigt die [Roadmap als Graph](docs/ROADMAP.md).
 
 ## Fortschritt
 
-Stand: 03.11.2026.
+Stand: 04.11.2026.
 
 Gezählt sind die Punkte aus [TODO.md](TODO.md), ohne optionale Optimierungen.
+
+Die Checkboxen in Phase 0–6 sind die verbindliche Fortschrittsquelle. `py tools/task_status.py update` aktualisiert Zahlen und Balken dieser Tabelle; `py tools/task_status.py check` und die CI verhindern abweichende Angaben. Reservierungen und PRs werden separat geführt und ändern den Abschlussstatus nicht automatisch.
 
 | Phase | Ziel | Erledigt | Fortschritt |
 |---|---|---|---|
