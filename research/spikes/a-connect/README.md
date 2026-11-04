@@ -104,7 +104,7 @@ Beim Client setzt der Spike die Kamera jede Sekunde, beim Host nimmt er jede Sek
 
 | Befehl | Seite | Wirkung |
 |---|---|---|
-| `!cam` | Client | Setzt die gemeinsame Kamera als ViewTarget, sonst schaut der Client vom Weltursprung aus. Ohne den Befehl sprang auch die eigene Figur zum Ursprung, vermutlich durch die Sichtbereich-Begrenzung |
+| `!cam` | Client | Setzt die gemeinsame Kamera als ViewTarget, sonst schaut der Client aus der eigenen Figur. Läuft auch automatisch jede Sekunde und setzt nur, wenn das ViewTarget abweicht, siehe [ViewTarget](../../../docs/GAME_ANALYSIS.md#viewtarget-beim-client-kamera-viewtarget). Ohne den Befehl sprang auch die eigene Figur zum Ursprung, vermutlich durch die Sichtbereich-Begrenzung |
 | `!authmove` | Host | Nimmt die Position von Remote-Figuren vom Client an |
 | `!trace` | Beide | Zählt Client- und Server-RPCs der Spielfigur |
 | `!wave` | Host | Startet die Gegner-Spawner |
