@@ -90,7 +90,7 @@ flowchart LR
         T3["Run bis Endlos-Tag 13,<br/>zwei Biomwechsel akzeptiert<br/>(guidcache)"]:::done
         TE --> T3
         RE["Rundenende, Lager,<br/>Routenkarte<br/>(rundenende, phasenadapter)"]:::done
-        NI["Echte Niederlage,<br/>Rückkehr in die MetaBase<br/>(niederlage)"]:::open
+        NI["Echte Niederlage,<br/>Rückkehr in die MetaBase<br/>(niederlage)"]:::done
         TR["Client-Absturz<br/>beim Trennen<br/>(trennen)"]:::done
         MT["Einmaliger Absturz<br/>im Missions-Tick"]:::done
         RE --> NI
