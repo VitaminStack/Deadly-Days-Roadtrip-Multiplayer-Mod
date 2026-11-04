@@ -88,9 +88,9 @@ Details, Fehlversuche und Belege stehen im [Nachtrag](../research/spikes/andockp
 
 ## Synchronisierung: zwei Wege
 
-Die Entscheidung fällt an Gate G1 in [TODO.md](../TODO.md).
+**Gate G1 ist am 04.11.2026 durch den Nutzer entschieden:** Weg A (native UE-Replikation) ist die verbindliche Grundlage. Ein eigener Kontroll-/Sync-Kanal ergänzt XP, Währungen, Rewards, Pausen und UI, die das Spiel nicht ausreichend repliziert. Diese Ergänzungen machen die Architektur zum unten beschriebenen Hybrid; sie ersetzen nicht die native Replikation durch Weg B. Siehe [Entscheidungen](#entscheidungen) und [TODO.md](../TODO.md#erledigt).
 
-### Weg A: Native UE-Replikation (bevorzugt)
+### Weg A: Native UE-Replikation (festgelegt)
 
 Der Host läuft als Listen-Server, der Client verbindet sich als normaler UE-Client. Die Mod schaltet Replikation frei und
 schließt Lücken.
@@ -108,10 +108,11 @@ Spieler, Gegner und Projektile als Stellvertreter-Objekte dar. Der Zustand kommt
 
 ### Hybrid
 
-Beide Wege schließen sich nicht aus. Denkbar ist native Replikation als Grundlage, dazu eigener Sync-Code für das, was nicht repliziert:
+Festgelegt ist native Replikation als Grundlage, dazu eigener Sync-Code für das, was nicht repliziert:
 XP, Währungen, Reward-Ablauf, Pausen und Effekte aus Blueprints. Gebündelte Snapshots kämen nur dazu, falls die Gegnermassen das Netz
-überlasten. Nach der Laufzeitprüfung ist das der wahrscheinlichste Ausgang, mit Weg A als deutlich größerem Anteil. Die Modulgrenzen unten
-lassen das zu.
+überlasten; sie sind kein parallel zu bauender zweiter Gesamtweg. Weg B bleibt nur eine Rückfalloption bei neuen konkreten technischen Gegenbefunden. Die Modulgrenzen unten lassen die gezielten Ergänzungen zu. Protokoll, Transport und konkrete UI-Umsetzung bleiben ihren eigenen Aufgaben zugeordnet.
+
+Grundlage für G1 sind die erfolgreichen Verbindungs-/Spieler-Spikes A/B, der tragbare Loopback-Lasttest (etwa 47 KB/s bei rund 85 Gegnern) und der akzeptierte Run-/Endlos-Stand bis Tag 13 mit zwei weiteren Biomwechseln. Diese Architekturentscheidung behauptet weder einen Internet-Nachweis noch bereits implementierten vollständigen Sync; Gate G2 und die Integrationsabnahmen bleiben offen.
 
 ## Blueprint-Spielwirkung und Darstellung trennen
 
@@ -251,8 +252,9 @@ Jede größere Technikentscheidung bekommt hier eine Zeile.
 |---|---|---|---|
 | 02.11.2026 | Mod als native C++-DLL | Volle Kontrolle, UE4SS für 5.8 unbestätigt | Festgelegt |
 | 02.11.2026 | SDK nur im Modul `Game` | Spiel-Updates bleiben beherrschbar | Festgelegt |
-| 02.11.2026 | Weg A vor Weg B testen | RPCs sprechen dafür, ist deutlich weniger Arbeit | Vorläufig bis G1 |
+| 02.11.2026 | Weg A vor Weg B testen | RPCs sprechen dafür, ist deutlich weniger Arbeit | Durch G1-Entscheidung vom 04.11.2026 abgelöst |
 | 02.11.2026 | Ziel sind 2 Spieler | Coop-Logik fest auf P1 und P2 | Festgelegt |
 | 02.11.2026 | `version.dll` als Proxy, Mod in eigener `DDCoop.dll` | Der Proxy bleibt klein, die Modulgrenzen gelten | Vorläufig bis zum Spieltest |
 | 02.11.2026 | Build-Erkennung über den PE-Header der Exe | Steht im Speicher, das Steam-Manifest müsste die Mod erst suchen | Festgelegt |
 | 02.11.2026 | MinHook für Hooks, als Quellkopie im Repo | Klein, passt zu C++20, Klonen und CI brauchen keinen Zusatzschritt | Festgelegt |
+| 04.11.2026 | Gate G1: Weg A als Grundlage, eigener Kontroll-/Sync-Kanal für XP, Währungen, Rewards, Pausen und UI (gezielter Hybrid) | Spikes A/B funktionieren, Loopback-Last ist tragbar, Run-/Endlos-Stand akzeptiert; deutlich weniger Eigenbau als Weg B | Vom Nutzer verbindlich bestätigt; `gate-g1` abgeschlossen |

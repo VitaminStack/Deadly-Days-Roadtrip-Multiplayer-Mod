@@ -19,6 +19,7 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 **Neue Befunde.**
 
 - `phasenadapter`, 04.11.2026: Der Client sieht bei jedem Rundenende dieselbe Phase wie der Host (Rundenübersicht, Lager, Routenkarte) und ist dort gesperrt. Der Host erkennt die Phasen an den Panels über `ProcessEvent`, der Client sperrt mit `DisableInput` und zeigt ein Banner. Im Spiel an der ersten Route und an drei Rundenenden geprüft. Transport ist noch eine Datei auf einem PC, über das Netz trägt ihn `transport`/`protokoll`. [Details](../research/spikes/a-connect/RoundPhaseRuntime.md).
+- `gate-g1`, 04.11.2026: Nutzer bestätigt verbindlich Weg A als Grundlage, ergänzt um gezielten eigenen Sync für XP, Währungen, Rewards, Pausen und UI. Architekturentscheidung und G1 abgeschlossen; Weg B bleibt nur Rückfalloption bei neuen Gegenbefunden. Transport/Protokoll und konkrete Umsetzung bleiben eigene Aufgaben, Gate G2 und Internet-Abnahme sind dadurch nicht erledigt. [Entscheidung](ARCHITECTURE.md#entscheidungen).
 - `game-adapter`, 04.11.2026: Phase 2 ist abgeschlossen. `src/Game` hängt einen Takt an die Fensterprozedur des `UnrealWindow` und ruft darüber `Core::GameThread().Drain()` und die Adapter-Ticks auf dem Game Thread. Offsets stehen SDK-frei in `Offsets.h` und werden beim Bauen gegen ein lokales Dumper-7-SDK geprüft; die CI baut ohne. Der `WorldAdapter` ist das Muster für alle weiteren Adapter. Host und Client bis Tag 1 ohne Fehler geprüft.
 - `guidcache`, 04.11.2026: Blockaden-Clientablauf, Ablauf nachladbarer NetGUID-Pfade während Travel-GC und unvollständige Sneak-Zielwiederverwendung behoben. Test-Godmode für beide Spieler samt Schadens-/Replikationsprobe. Übergangslauf bis Endlos-Tag 13 mit zwei weiteren Biomwechseln; Nutzer akzeptiert den Stand als Abschluss, vorerst keine weiteren Detailtests. Neue konkrete Probleme aus künftigem Testing erhalten ein neues TODO. Testgrenzen (Godmode/`!finish`, kein natürlicher Bosskampf) bleiben dokumentiert, siehe [Abschluss](GAME_ANALYSIS.md#abschluss-und-akzeptierter-testumfang-guidcache).
 - `todo-struktur`, 04.11.2026: `TODO.md` neu aufgebaut. Jede Aufgabe steht genau einmal, offen in der Tabelle ihrer Phase mit Prio, Voraussetzungen („Braucht“), Bearbeitungsart und Spielzeit, erledigt alphabetisch unter „Erledigt“. Checkboxen und tasks-Marker entfallen. „Wo kann ich anfangen?“ wird erzeugt, `tasks.py claim` lehnt blockierte und Team-Aufgaben ab. Spike C ist mit `karte-client` und `pcg` erledigt. Gezählt sind jetzt 45 von 84 Aufgaben.
@@ -42,7 +43,7 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 1. `guidcache` ist mit akzeptiertem Run-/Endlos-Stand abgeschlossen. Keine weiteren Detailtests einplanen; bei einem neuen konkreten Fehler ein neues TODO anlegen.
 2. `remote-p2` und `karte-client`. Diese Aufgaben brauchen Spielzeit, und pro PC läuft nur eine Sitzung.
 3. Parallel ohne Spielzeit: `grundgeruest`, `tunnel` und `crash-reporter`.
-4. `last` messen und an Gate G1 entscheiden.
+4. Gate G1 ist entschieden: Weg A mit gezielten Sync-Ergänzungen umsetzen. `steam-lobby`, `transport` und `patches` sind durch G1 nicht mehr blockiert; ihre übrigen Voraussetzungen gelten weiter.
 
 ## Gesamtweg
 
@@ -50,7 +51,7 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 flowchart TD
     subgraph A["Klären, ob es geht"]
         direction LR
-        P0["Phase 0<br/>Setup"]:::done --> P1["Phase 1<br/>Analyse und Spikes"]:::wip --> G1{{"Gate G1<br/>Technikentscheidung"}}:::gate
+        P0["Phase 0<br/>Setup"]:::done --> P1["Phase 1<br/>Analyse und Spikes"]:::wip --> G1{{"Gate G1<br/>Weg A + gezielter Sync"}}:::done
     end
 
     subgraph B["Spielbar machen"]
@@ -133,7 +134,7 @@ flowchart LR
     LOGIK --> G1
     TECHNIK --> G1
 
-    G1{{"Gate G1:<br/>Weg A, Weg B oder Stopp"}}:::gate
+    G1{{"Gate G1:<br/>Weg A + gezielter Sync"}}:::done
 
     classDef done fill:#2e7d32,stroke:#1b5e20,color:#ffffff
     classDef wip fill:#f9a825,stroke:#b27a00,color:#1a1a1a
@@ -147,7 +148,7 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    G1{{"Gate G1"}}:::gate
+    G1{{"Gate G1: Weg A festgelegt"}}:::done
 
     subgraph PH2["Phase 2: Fundament"]
         L["Loader: Proxy-DLL"]:::done
@@ -217,7 +218,7 @@ Türkis ist zentrale Arbeit, die nacheinander läuft. Grau sind Pakete, die dane
 flowchart TD
     GR["grundgeruest"]:::central --> W1["Welle 1<br/>overlay, deploy, ci"]:::open
     GR --> GA["game-adapter"]:::central
-    G1{{"Gate G1"}}:::gate --> W2["Welle 2<br/>steam-lobby, transport,<br/>net-fehler"]:::open
+    G1{{"Gate G1: Weg A festgelegt"}}:::done --> W2["Welle 2<br/>steam-lobby, transport,<br/>net-fehler"]:::open
     GR --> W2
     G1 --> GA
     GA --> PT["patches"]:::central --> RS["remote-spieler"]:::central
@@ -256,7 +257,7 @@ flowchart TD
 
 Die Pfeile innerhalb einer Phase zeigen eine sinnvolle Reihenfolge. Sie sind eine Planung, keine belegten technischen Abhängigkeiten.
 
-Unabhängig von den Gates kann das [Grundgerüst](../TODO.md#phase-2--fundament) (`grundgeruest`) schon parallel entstehen. An G1 kann der Weg noch kippen: Bei Weg B wächst Phase 5 deutlich, bei einem Stopp entfallen die Phasen danach.
+Gate G1 ist mit Weg A und gezielten Sync-Ergänzungen abgeschlossen. Ein Wechsel zu Weg B oder eine Verkleinerung wäre nur bei neuen konkreten Gegenbefunden erneut vom Team zu entscheiden; derzeit ist dafür keine zusätzliche Aufgabe geplant.
 
 ## Pflege
 
