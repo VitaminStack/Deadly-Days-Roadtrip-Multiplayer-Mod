@@ -1,4 +1,4 @@
-Microsoft Visual Studio Solution File, Format Version 12.00
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
@@ -21,6 +21,8 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "UITests", "tests\UITests\UITests.vcxproj", "{B355A6D9-DB84-46FC-BE81-14B4486C20A5}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "GameTests", "tests\GameTests\GameTests.vcxproj", "{7B21234E-C16C-4A93-9F5F-BA188F01AE07}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "NetTests", "tests\NetTests\NetTests.vcxproj", "{6E1A5C10-2B7D-4E5C-9A11-0C1F3B7A1009}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -68,5 +70,9 @@ Global
 		{6E1A5C10-2B7D-4E5C-9A11-0C1F3B7A1008}.Debug|x64.Build.0 = Debug|x64
 		{6E1A5C10-2B7D-4E5C-9A11-0C1F3B7A1008}.Release|x64.ActiveCfg = Release|x64
 		{6E1A5C10-2B7D-4E5C-9A11-0C1F3B7A1008}.Release|x64.Build.0 = Release|x64
+		{6E1A5C10-2B7D-4E5C-9A11-0C1F3B7A1009}.Debug|x64.ActiveCfg = Debug|x64
+		{6E1A5C10-2B7D-4E5C-9A11-0C1F3B7A1009}.Debug|x64.Build.0 = Debug|x64
+		{6E1A5C10-2B7D-4E5C-9A11-0C1F3B7A1009}.Release|x64.ActiveCfg = Release|x64
+		{6E1A5C10-2B7D-4E5C-9A11-0C1F3B7A1009}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 EndGlobal
