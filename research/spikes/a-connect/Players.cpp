@@ -26,6 +26,7 @@ bool ControllerSetFunctionsReady = false;
 using RegisterControllerFn = void(__fastcall*)(uintptr_t, uintptr_t);
 RegisterControllerFn OriginalRegisterController = nullptr;
 void ReconcileSpawnedPlayers(uintptr_t World, const char* Trigger);
+bool PatchControllerSwap();
 
 // The original must run FIRST: inserting its key beforehand would skip its legitimate broadcast.
 // Reconcile only after it returns, never call registration again or install another delegate.
@@ -142,7 +143,7 @@ bool PatchPlayers(CodeWriter& Code)
     if (!ControllerSetFunctionsReady)
         return false;
     return PatchRemoteSpawn(Code) && PatchPlayerIndex(Code) && PatchLootSpawner(Code) && PatchEnemySpawner(Code) &&
-        PatchControllerRegistration(Code);
+        PatchControllerRegistration(Code) && PatchControllerSwap();
 }
 
 // Host: Nimmt die Position von Remote-Figuren direkt vom Client an (bIgnoreClientMovementErrorChecksAndCorrection
@@ -254,6 +255,85 @@ void ReconcileSpawnedPlayers(uintptr_t World, const char* Trigger)
         Log(std::string("SpawnedPlayers: source=") + Trigger + " removed=" + std::to_string(Removed) +
             " added=" + std::to_string(Added) + " roster=" + std::to_string(Controllers.size()) +
             " valid=" + std::to_string(Set.Valid()) + Detail);
+}
+
+// After a mission travel the host replaces the client's controller once the client has loaded the new world, after the
+// registration above and without calling it. The engine reports the swap through the Blueprint event
+// K2_OnSwapPlayerControllers(OldPC, NewPC) on the GameMode, which always goes through ProcessEvent.
+ProcessEventFn OriginalGameModeProcessEvent = nullptr;
+uintptr_t SwapControllersFunction = 0;
+
+bool IsPlayerController(uintptr_t Controller)
+{
+    if (!Controller || (Read<uint32_t>(Controller + 8) & 0x30))
+        return false;
+    for (uintptr_t Class = Read<uintptr_t>(Controller + 0x10); Class; Class = Read<uintptr_t>(Class + 0x40))
+        if (NameOf(Class) == "DDPlayerController")
+            return true;
+    return false;
+}
+
+// Replace the old key by the new one right away. The PlayerArray may still be in flux here, so no full reconciliation.
+void SwapSpawnedController(uintptr_t GameMode, uintptr_t OldController, uintptr_t NewController)
+{
+    const uintptr_t World = Read<uintptr_t>(Base + kGWorld);
+    if (!World || Read<uintptr_t>(World + kWorldGameMode) != GameMode || !IsPlayerController(NewController))
+        return;
+    auto& Set = *reinterpret_cast<ControllerSet*>(GameMode + kGameModeSpawnedPlayers);
+    if (!Set.Valid())
+    {
+        Log("SpawnedPlayers: invalid set layout/hash; swap refused");
+        return;
+    }
+    int Removed = 0, Added = 0;
+    for (int32_t i = 0; i < Set.Num; ++i)
+        if (Set.Allocated(i) && Set.Data[i].Controller == OldController)
+        {
+            if (!Set.Remove(i, reinterpret_cast<ControllerSet::RemoveSparseFn>(Base + kControllerSparseRemove)))
+                return;
+            ++Removed;
+        }
+    if (!Set.Contains(NewController))
+    {
+        using AddFn = int32_t*(__fastcall*)(ControllerSet*, int32_t*, const uintptr_t*, bool*);
+        int32_t Index = -1;
+        reinterpret_cast<AddFn>(Base + kControllerSetAdd)(&Set, &Index, &NewController, nullptr);
+        ++Added;
+    }
+    Log("SpawnedPlayers: source=swap removed=" + std::to_string(Removed) + " added=" + std::to_string(Added) +
+        " valid=" + std::to_string(Set.Valid()) +
+        (Read<uintptr_t>(NewController + kControllerNetConnection) ? " added:remote" : " added:local"));
+}
+
+void __fastcall GameModeProcessEvent(uintptr_t Object, uintptr_t Function, void* Params)
+{
+    OriginalGameModeProcessEvent(Object, Function, Params);
+    if (Function == SwapControllersFunction && Params)
+    {
+        const auto* Controllers = static_cast<const uintptr_t*>(Params); // OldPC, NewPC
+        SwapSpawnedController(Object, Controllers[0], Controllers[1]);
+    }
+}
+
+// Swaps ProcessEvent in the vtable of the native mission GameMode. Its Blueprint subclasses share that vtable.
+bool PatchControllerSwap()
+{
+    if (OriginalGameModeProcessEvent)
+        return true;
+    const uintptr_t Defaults = FindObject("Default__DDMissionGameMode", nullptr);
+    SwapControllersFunction = FindObject("K2_OnSwapPlayerControllers", "GameModeBase");
+    if (!Defaults || !SwapControllersFunction)
+    {
+        Log("SpawnedPlayers: mission GameMode or swap event not found");
+        return false;
+    }
+    auto* Slot = &Read<ProcessEventFn*>(Defaults)[kProcessEventIndex];
+    DWORD Old = 0;
+    VirtualProtect(Slot, sizeof(*Slot), PAGE_READWRITE, &Old);
+    OriginalGameModeProcessEvent = *Slot;
+    *Slot = GameModeProcessEvent;
+    VirtualProtect(Slot, sizeof(*Slot), Old, &Old);
+    return true;
 }
 }
 

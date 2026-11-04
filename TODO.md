@@ -24,7 +24,7 @@ Für alle reicht die [Einrichtung](docs/SETUP.md), wenn nichts anderes dabeisteh
 
 **Spielzeit** sagt, wie sehr die Aufgabe laufende Testsitzungen braucht. Pro PC läuft nur eine Sitzung, Aufgaben mit „keine“ oder „wenig“ eignen sich also für parallele Arbeit.
 
-**Gruppe** fasst zusammen, was thematisch zusammengehört. Verschiedene Gruppen lassen sich gleichzeitig bearbeiten. Innerhalb einer Gruppe gilt: `niederlage` kommt nach `phasenadapter`, `guidcache` nach `testumgebung`. `remote-p2` und `controller-tausch` nicht gleichzeitig, weil beide `Players.cpp` ändern.
+**Gruppe** fasst zusammen, was thematisch zusammengehört. Verschiedene Gruppen lassen sich gleichzeitig bearbeiten. Innerhalb einer Gruppe gilt: `niederlage` kommt nach `phasenadapter`, `guidcache` nach `testumgebung`. `controller-tausch` ist abgeschlossen; neue Änderungen an `Players.cpp` weiterhin mit laufenden Spieler-Aufgaben abstimmen.
 
 Die Pakete für die Zeit nach Phase 1 stehen unter [Spätere Arbeitspakete](#spätere-arbeitspakete), alles, was nicht parallel geht, unter [Zentrale Arbeit](#zentrale-arbeit).
 
@@ -33,7 +33,6 @@ Die Pakete für die Zeit nach Phase 1 stehen unter [Spätere Arbeitspakete](#sp�
 | `testumgebung` | Run | Saubere Testumgebung belegen, bevor die Tageswechsel-Suche weitergeht: Jede Runde lädt vollständig, beide Spieler erscheinen am Bus, auf beiden Seiten 2 PlayerStates. Ein Prüfskript für jeden Wechsel (Welt, `PlayerArray`, Figurenpositionen am Bus, `guidcache.py`, `NewActor failed` im Log) und einen festen Routenlauf mit Seed ins Repo bringen. Läufe mit seltsamem Laden festhalten und klären, ob sie mit den fehlenden PlayerStates zusammenhängen | Spike, Test | viel | Abschnitt „Tageswechsel“ in [GAME_ANALYSIS](docs/GAME_ANALYSIS.md#tageswechsel-client-verliert-die-playerstates-tageswechsel-übergabestand), `tools/spike/Travel-Day.ps1`, `objects.py`, `guidcache.py` |
 | `guidcache` | Run | Klären, wo dem Client an Tag 4 die NetGUID-Einträge `0x125` und `0x127` der PlayerState-Klasse verloren gehen, und das für jede Klasse, jeden Tag und den Endlosmodus beheben. Danach alle 8 Tage bis zum Endboss und den Endlosmodus über mindestens zwei Gebietswechsel fahren, Inventar abschließen | Reverse Engineering, Spike | viel | Offene Spuren im Abschnitt „Tageswechsel“ in [GAME_ANALYSIS](docs/GAME_ANALYSIS.md#tageswechsel-client-verliert-die-playerstates-tageswechsel-übergabestand), Layout in [OFFSETS](docs/OFFSETS.md) |
 | `phasenadapter` | Run | Phasenadapter für Rundenende, Lager und Routenkarte im Spiel belegen: automatische Hostquellen, sichtbare Anzeige, vollständige Eingabesperre | Reverse Engineering, Spike | viel | `research/spikes/a-connect/RoundPhaseRuntime.md`, `Mission.cpp` |
-| `controller-tausch` | Spieler | Den Weg finden, auf dem der Host nach einem Missionswechsel den Controller des Clients ersetzt, und dort `SpawnedPlayers` abgleichen, damit der Sekunden-Abgleich nichts mehr nachträgt | Reverse Engineering, Spike | mittel | Abschnitt „Abnahme auf der echten Route“ in der [Spike-README](research/spikes/a-connect/README.md#abnahme-auf-der-echten-route-spawnedplayers-lauf), `tools/spike/players.py` |
 | `remote-p2` | Spieler | Remote-Controller als P2 testen | Spike | mittel | [Coop-Ablauf](docs/GAME_ANALYSIS.md#coop-ablauf) |
 | `tunnel` | Technik | Steam-Tunnel (Spike E) | C++, ohne Reverse Engineering, Steamworks SDK nötig | wenig | [Transport](docs/ARCHITECTURE.md#transport) |
 | `niederlage` | Run | Echte Niederlage und Rückkehr in die `MetaBase`, erst nach `phasenadapter` | Spike | viel | [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf) |
@@ -163,6 +162,7 @@ Nicht erneut reservieren. Die Nachweise und verbindlichen Checkboxen bleiben in 
 | Kennung | Aufgabe |
 |---|---|
 | `boss-dump` | Bossklassen gezielt geladen und gedumpt (Phase 0) |
+| `controller-tausch` | Controller-Tausch über zwei Missionswechsel sofort abgeglichen, ohne Timer-Nachtrag (Phase 1); Mission → MetaBase nicht abgenommen |
 | `karte-client` | Host-Karte beim Client ohne replizierte Duplikate erzeugt (Phase 1) |
 | `pcg` | PCG-Vegetation beim Client erzeugt (Phase 1) |
 | `treffer` | Treffer des Clients direkt belegt (Phase 1) |
@@ -240,7 +240,7 @@ Ziel: Fakten für Gate G1 sammeln. Spike-Code ist Wegwerfcode und landet nicht i
 <!-- tasks: phasenadapter -->
 - [ ] P0 Rundenende, Lager und Routenkarte beim Client abbilden: Snapshot-Codec, Empfänger und lokaler Laufzeitadapter in `Mission.cpp` (Heartbeat, Dateitransport, Timeout, Textanzeige, Win32-Nachrichtenfilter) ohne Spiel getestet, bis `!phase bind` inaktiv. Automatische Hostquellen für Rundenübersicht, Lager und Route, sichtbarer Lauf und vollständige Eingabesperre fehlen, Folgeaufgabe `phasenadapter`, siehe [Untersuchung](docs/GAME_ANALYSIS.md#rundenende-befund-und-offene-phasenübertragung-rundenende)
 <!-- tasks: controller-tausch -->
-- [ ] P0 Neue Remote-Controller nach jedem Kartenwechsel sauber in `SpawnedPlayers` eintragen: echte TSet-Einfügung und SparseArray-Entfernung statt Schlüsselersetzung, nach zwei Missionstravels konsistent, synthetische Mengentests bestanden. Der Registrierungshook ist auf der echten Route belegt, deckt aber den Austausch des Client-Controllers nach einem Missionswechsel nicht ab, dort trägt der Sekunden-Abgleich nach. Folgeaufgabe `controller-tausch`, siehe [Spike](research/spikes/a-connect/README.md#abnahme-auf-der-echten-route-spawnedplayers-lauf)
+- [x] P0 Neue Remote-Controller nach jedem Kartenwechsel sauber in `SpawnedPlayers` eintragen: echte TSet-Einfügung und SparseArray-Entfernung statt Schlüsselersetzung, synthetische Mengentests bestanden. Beitritt und erneuter Beitritt laufen über den Registrierungshook, der Controller-Tausch nach einem Missionswechsel über `K2_OnSwapPlayerControllers`. Auf der echten Route über zwei Missionswechsel musste der Sekunden-Abgleich nichts mehr nachtragen. Mission → MetaBase ist wegen des bekannten Host-Absturzes nicht geprüft, siehe [Spike](research/spikes/a-connect/README.md#controller-tausch-nach-dem-missionswechsel-controller-tausch)
 <!-- tasks: trennen -->
 - [x] P1 Client-Absturz beim Trennen klären (`0x5975A6A`), wenn der Host ins Hauptmenü geht: Folge fehlender Inventar-Items in `UInventoryComponent::EndPlay`. Mit Inventar-Teilfix kein Absturz, ohne ihn reproduziert, siehe [Trennen](docs/GAME_ANALYSIS.md#trennen-ins-hauptmenü-trennen)
 <!-- tasks: tick-absturz -->
