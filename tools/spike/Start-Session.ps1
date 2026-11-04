@@ -15,8 +15,8 @@ param(
     # Testhilfe fuer beide Rollen; bleibt im Spike ueber Kartenwechsel aktiv, nicht im Spielstand.
     [switch]$Godmode,
     # Client verbindet ueber den Steam-Tunnel aus Tunnel.cpp statt direkt: P2p zur eigenen SteamID oder Ip ueber 127.0.0.1.
-    # Mit -Role Client geht P2p zur SteamID aus -Peer.
-    [ValidateSet('None', 'Ip', 'P2p')]
+    # Mit -Role Client geht P2p zur SteamID aus -Peer. Mod: Tunnel der Mod aus src\Net statt des Spikes, braucht -Mod.
+    [ValidateSet('None', 'Ip', 'P2p', 'Mod')]
     [string]$Tunnel = 'None',
     # Both: Host und Client auf diesem PC. Host oder Client: nur diese Instanz, die Gegenseite laeuft auf einem anderen PC.
     [ValidateSet('Both', 'Host', 'Client')]
@@ -33,6 +33,8 @@ $ErrorActionPreference = 'Stop'
 if ($Role -eq 'Client' -and -not $Peer) { throw '-Role Client braucht -Peer: SteamID64 des Hosts (mit -Tunnel P2p) oder Adresse:Port.' }
 if ($Role -ne 'Client' -and $Peer) { throw '-Peer gilt nur mit -Role Client.' }
 if ($Role -ne 'Both' -and $Tunnel -eq 'Ip') { throw '-Tunnel Ip verbindet nur auf einem PC. Fuer zwei PCs -Tunnel P2p verwenden.' }
+if ($Tunnel -eq 'Mod' -and -not $Mod) { throw '-Tunnel Mod braucht -Mod.' }
+if ($Tunnel -eq 'Mod' -and $Role -eq 'Client' -and $Peer -notmatch '^\d{17}$') { throw '-Tunnel Mod mit -Role Client braucht -Peer mit der SteamID64 des Hosts.' }
 Initialize-SessionDir
 Assert-SupportedBuild
 if ($Restart -or $Build) { & (Join-Path $PSScriptRoot 'Stop-Session.ps1') }
@@ -66,9 +68,36 @@ if ($Guard.HasExited) {
 $env:SteamAppId = '3026450'
 $env:SteamGameId = '3026450'
 $Exe = Get-GameExe
+# Testschalter fuer den Tunnel der Mod, siehe src\Net\README.md.
+function Get-TransportArgument([string]$Name) {
+    if ($Tunnel -ne 'Mod') { return @() }
+    if ($Name -eq 'host') { return @('-ddcoop_transport=host') }
+    if ($Role -eq 'Both') { return @('-ddcoop_transport=loopback') }
+    @("-ddcoop_transport=$Peer")
+}
 function Start-Instance([string]$Name, [int]$X) {
     $UserDir = Join-Path $script:SessionDir "ud_$Name"
-    Start-Process $Exe -PassThru -ArgumentList '-windowed', '-ResX=800', '-ResY=450', "-WinX=$X", '-WinY=0', '-nosplash', "-UserDir=`"$UserDir`""
+    $Arguments = @('-windowed', '-ResX=800', '-ResY=450', "-WinX=$X", '-WinY=0', '-nosplash', "-UserDir=`"$UserDir`"") + (Get-TransportArgument $Name)
+    Start-Process $Exe -PassThru -ArgumentList $Arguments
+}
+# Wartet auf eine Zeile im Log der Mod, liefert sie oder $null.
+function Wait-ModLog([int]$ProcessId, [string]$Pattern, [int]$TimeoutSeconds) {
+    $Log = Join-Path (Split-Path $Exe) "DDCoop\logs\ddcoop-$ProcessId.log"
+    $Deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ((Get-Date) -lt $Deadline) {
+        if (Test-Path $Log) {
+            $Hit = Select-String -Path $Log -Pattern $Pattern | Select-Object -Last 1
+            if ($Hit) { return $Hit.Line }
+        }
+        Start-Sleep -Seconds 1
+    }
+    $null
+}
+function Connect-ModTransport([int]$ProcessId) {
+    $Seen = Wait-ModLog $ProcessId 'Transport: verbunden|keine Verbindung zum Host|Start fehlgeschlagen|Steam nicht verf' 150
+    if ("$Seen" -notmatch 'Transport: verbunden') { throw "Tunnel der Mod nicht aufgebaut: $Seen" }
+    Write-Output "Tunnel der Mod: $($Seen -replace '^.*Transport: ', '')"
+    Send-SpikeCommand $ProcessId 'open 127.0.0.1:7778'
 }
 $GameHost = if ($Role -ne 'Client') { Start-Instance 'host' 0 }
 $Client = if ($Role -ne 'Host') { Start-Instance 'client' $(if ($Role -eq 'Both') { 820 } else { 0 }) }
@@ -125,6 +154,9 @@ if ($Role -eq 'Both') {
     if ($Tunnel -eq 'None') {
         Send-SpikeCommand $Client.Id 'open 127.0.0.1:7777'
     }
+    elseif ($Tunnel -eq 'Mod') {
+        Connect-ModTransport $Client.Id
+    }
     else {
         Send-SpikeCommand $GameHost.Id '!tunnel host'
         Start-Sleep -Seconds 2
@@ -143,6 +175,10 @@ elseif ($Role -eq 'Host') {
         # Nur lokal anzeigen, nie ins Repo: Die Gegenseite braucht sie fuer -Peer.
         Write-Output "Host bereit. SteamID fuer -Peer auf dem Client-PC: $($Own.Matches[0].Groups[1].Value)"
     }
+    elseif ($Tunnel -eq 'Mod') {
+        # Die Mod loggt keine SteamIDs. Die SteamID64 steht im eigenen Steam-Profil.
+        Write-Output 'Host bereit, Tunnel der Mod wartet. Client-PC: -Tunnel Mod -Peer <SteamID64 dieses Kontos>.'
+    }
     else {
         Write-Output 'Host bereit, wartet auf direkte Verbindung auf Port 7777.'
     }
@@ -159,6 +195,9 @@ else {
             throw "Tunnel zum Host nicht aufgebaut: $Seen Stimmt die SteamID, laeuft der Host schon mit -Tunnel P2p?"
         }
         Send-SpikeCommand $Client.Id 'open 127.0.0.1:7778'
+    }
+    elseif ($Tunnel -eq 'Mod') {
+        Connect-ModTransport $Client.Id
     }
     else {
         Send-SpikeCommand $Client.Id "open $Peer"

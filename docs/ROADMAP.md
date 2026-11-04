@@ -167,7 +167,7 @@ flowchart TD
 
     subgraph PH3["Phase 3: Session und Verbindung"]
         LO["Steam-Lobby"]:::open
-        TN["Transport-Tunnel"]:::open
+        TN["Transport-Tunnel<br/>(transport)"]:::done
         HS["Handshake: Build und Mod-Version"]:::open
         FE["Timeout, Abbruch,<br/>Host verlässt das Spiel"]:::open
         KK["Kontrollkanal"]:::open

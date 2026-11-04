@@ -19,6 +19,8 @@ if ($Test) {
     if ($LASTEXITCODE -ne 0) { throw 'UI-Tests fehlgeschlagen.' }
     & (Join-Path $script:RepoRoot "bin\$Configuration\GameTests.exe")
     if ($LASTEXITCODE -ne 0) { throw 'Game-Tests fehlgeschlagen.' }
+    & (Join-Path $script:RepoRoot "bin\$Configuration\NetTests.exe")
+    if ($LASTEXITCODE -ne 0) { throw 'Net-Tests fehlgeschlagen.' }
     & py -B -m unittest discover -s (Join-Path $script:RepoRoot 'tests')
     if ($LASTEXITCODE -ne 0) { throw 'Python-Tests fehlgeschlagen.' }
 }

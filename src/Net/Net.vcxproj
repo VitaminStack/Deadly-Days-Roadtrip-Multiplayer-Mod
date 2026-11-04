@@ -25,9 +25,13 @@
   <Import Project="..\Common.props" />
   <ItemGroup>
     <ClCompile Include="Net.cpp" />
+    <ClCompile Include="SteamSockets.cpp" />
+    <ClCompile Include="Transport.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Net.h" />
+    <ClInclude Include="SteamSockets.h" />
+    <ClInclude Include="Transport.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">
