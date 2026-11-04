@@ -39,7 +39,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `transport` | P0 | [3](#phase-3--session-und-verbindung) | parallel | wenig |
 | `patches` | P0 | [4](#phase-4--vertical-slice) | zentral | viel |
 | `mod-saves` | P0 | [6](#phase-6--release) | parallel | mittel |
-| `niederlage` | P1 | [1](#phase-1--analyse-und-spikes) | parallel | viel |
 | `tunnel-p2p` | P1 | [1](#phase-1--analyse-und-spikes) | parallel | wenig |
 | `installer` | P1 | [6](#phase-6--release) | parallel | keine |
 
@@ -85,7 +84,6 @@ Ziel: Fakten für Gate G1. Spike-Code ist Wegwerfcode und liegt unter `research/
 |---|---|---|---|---|---|
 | `remote-p2` | P0 | Remote-Controller als P2 testen: `SetCoopEnabled(true)` beim Host, Eintrag in `ActivePlayers` ohne `CreateLocalPlayer`, Wirkung auf Coop-UI und Eingabe-Router prüfen. **Fertig, wenn** feststeht, ob und mit welchen Patches der Remote-Spieler als P2 läuft. **Einstieg:** [Coop-Ablauf](docs/GAME_ANALYSIS.md#coop-ablauf) | – | parallel | mittel |
 | `tunnel-p2p` | P1 | Steam-Tunnel aus Spike E per P2P zwischen zwei Steam-Konten auf zwei PCs prüfen (`!tunnel host`, `!tunnel join <steamid>`). Ein Konto kann sich nicht selbst per P2P erreichen. **Fertig, wenn** zwei Spieler über P2P bis in eine Mission verbunden spielen und Ping und Route im Log stehen. **Einstieg:** [Steam-Tunnel](research/spikes/a-connect/README.md#spike-e-steam-tunnel-tunnel) | – | parallel | wenig |
-| `niederlage` | P1 | Echte Niederlage nachvollziehen: alle Spieler tot, Rundenende, Rückkehr in die `MetaBase`, dabei den Client mitnehmen. **Fertig, wenn** beide nach einer Niederlage in der `MetaBase` stehen und ein neuer Run startet. **Einstieg:** [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf) | `phasenadapter` | parallel | viel |
 
 ## Phase 2 – Fundament
 
@@ -207,6 +205,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `last` | 1 | Spike D: bei rund 85 Gegnern 47 KB/s vom Host, beide Instanzen 60 fps, nur Loopback, siehe [Last](docs/GAME_ANALYSIS.md#last-spike-d-last) |
 | `menue-weg` | 1 | Mission über den echten Weg durch das Spielmenü mit den Patches gestartet, siehe [Spike](research/spikes/a-connect/README.md) |
 | `mitwirkende` | 0 | Freunde als Mitwirkende eingeladen |
+| `niederlage` | 1 | Nach einer Niederlage kehren Host und Client über „Zurück zur Basis“ in die `MetaBase` zurück, und ein neuer Run startet; der Host-Absturz im Run-Ende-Handler ohne `LocalPlayer` ist im Spike behoben (`RunEnd.cpp`), siehe [Niederlage](docs/GAME_ANALYSIS.md#niederlage-niederlage) |
 | `online-sperren` | 6 | Die Mod sperrt die schreibenden Steam-Methoden für Erfolge, Statistiken und Bestenlisten (`Core::SteamStats`), lesen bleibt erlaubt, siehe [Erfolge und Bestenlisten](docs/GAME_ANALYSIS.md#erfolge-und-bestenlisten-online-sperren) |
 | `overlay` | 2 | F8-Overlay mit Status und Debug-Anzeige, sichtbare Host-/Client-Abnahme bestanden, siehe [UI](src/UI/README.md#sichtbare-spielabnahme-03112026) |
 | `pausen` | 1 | Pausen-Logik gemessen, Host-Weltpause repliziert, Client-Wunsch nicht, siehe [Pausen-Spike](research/spikes/pausen/README.md#nachtrag-03112026-isolierte-ablaeufe) |
