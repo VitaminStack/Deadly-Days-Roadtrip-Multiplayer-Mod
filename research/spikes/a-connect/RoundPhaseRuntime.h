@@ -24,7 +24,7 @@ public:
         Next.Stage = Stage;
         Next.EndReason = EndReason;
         Next.HostProgress = Progress;
-        if (!Active || Stage < State.Stage || !Valid(Next))
+        if (!Active || !Valid(Next))
             return false;
         State = Next;
         return true;

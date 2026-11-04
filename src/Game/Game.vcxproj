@@ -41,14 +41,18 @@
     <ClCompile Include="Game.cpp" />
     <ClCompile Include="GameThread.cpp" />
     <ClCompile Include="Memory.cpp" />
+    <ClCompile Include="Objects.cpp" />
     <ClCompile Include="SdkChecks.cpp" />
+    <ClCompile Include="TutorialAdapter.cpp" />
     <ClCompile Include="WorldAdapter.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Game.h" />
     <ClInclude Include="GameThread.h" />
     <ClInclude Include="Memory.h" />
+    <ClInclude Include="Objects.h" />
     <ClInclude Include="Offsets.h" />
+    <ClInclude Include="TutorialAdapter.h" />
     <ClInclude Include="WorldAdapter.h" />
   </ItemGroup>
   <ItemGroup>

@@ -74,21 +74,43 @@ bool PatchCamera(CodeWriter& Code)
     return true;
 }
 
-// Beim Client landet die gemeinsame Kamera nicht als ViewTarget, er schaut sonst vom Weltursprung aus.
+// Beim Client landet die gemeinsame Kamera nicht als ViewTarget, er schaut sonst aus der eigenen Figur.
+// Nur der lokale Controller (mit LocalPlayer) und die Kamera der aktuellen Welt zaehlen: Nach einem Kartenwechsel
+// leben die alten Objekte noch eine Weile. Das Spiel setzt das ViewTarget beim Possess wieder auf die Figur,
+// deshalb jede Sekunde pruefen statt eine feste Zahl von Wiederholungen.
 void ViewThroughSharedCamera()
 {
-    const uintptr_t Camera = FindInstance("BP_PlayerCameraActor_C");
-    const uintptr_t Controller = FindInstance("BP_DDPlayerController_C");
-    const uintptr_t Function = FindObject("SetViewTargetWithBlend", "PlayerController");
-    // Beim Spawn wird das ViewTarget noch ueberschrieben, deshalb eine Weile lang wiederholen.
-    static uintptr_t LastCamera = 0;
-    static int Repeats = 0;
-    if (!Camera || !Controller || !Function)
+    constexpr uintptr_t kControllerPlayer = 0x348;
+    constexpr uintptr_t kControllerCameraManager = 0x360;
+    constexpr uintptr_t kCameraManagerViewTarget = 0x340;
+    constexpr uintptr_t kWorldPersistentLevel = 0x30;
+    const uintptr_t World = Read<uintptr_t>(Base + kGWorld);
+    const uintptr_t Level = World ? Read<uintptr_t>(World + kWorldPersistentLevel) : 0;
+    if (!Level)
         return;
-    if (Camera != LastCamera)
-        Repeats = 15;
-    LastCamera = Camera;
-    if (Repeats-- <= 0)
+    uintptr_t Camera = 0, Controller = 0;
+    const uintptr_t Chunks = Read<uintptr_t>(Base + kGObjects);
+    const int32_t Count = Read<int32_t>(Base + kGObjects + 8);
+    for (int32_t i = 0; i < Count && !(Camera && Controller); ++i)
+    {
+        const uintptr_t Chunk = Read<uintptr_t>(Chunks + 8 * (i >> 16));
+        const uintptr_t Object = Chunk ? Read<uintptr_t>(Chunk + (i & 0xFFFF) * 0x18 + 8) : 0;
+        if (!Object || (Read<uint32_t>(Object + 8) & 0x10) || Read<uintptr_t>(Object + 0x20) != Level)
+            continue;
+        const std::string Class = NameOf(Read<uintptr_t>(Object + 0x10));
+        if (!Camera && Class == "BP_PlayerCameraActor_C")
+            Camera = Object;
+        else if (!Controller && Class == "BP_DDPlayerController_C" && Read<uintptr_t>(Object + kControllerPlayer))
+            Controller = Object;
+    }
+    const uintptr_t Manager = Controller ? Read<uintptr_t>(Controller + kControllerCameraManager) : 0;
+    if (!Camera || !Manager)
+        return;
+    const uintptr_t Current = Read<uintptr_t>(Manager + kCameraManagerViewTarget);
+    if (Current == Camera)
+        return;
+    static const uintptr_t Function = FindObject("SetViewTargetWithBlend", "PlayerController");
+    if (!Function)
         return;
     struct
     {
@@ -99,6 +121,6 @@ void ViewThroughSharedCamera()
         bool LockOutgoing;
     } Params{Camera, 0.f, 0, 0.f, false};
     Read<ProcessEventFn*>(Controller)[kProcessEventIndex](Controller, Function, &Params);
-    Log("Kamera: gesetzt");
+    Log("Kamera: gesetzt, vorher " + (Current ? NameOf(Current) : std::string("keins")));
 }
 }

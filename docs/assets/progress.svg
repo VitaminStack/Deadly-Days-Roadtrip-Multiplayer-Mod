@@ -22,10 +22,10 @@
       <path d="M0 148H1000" stroke="#d1d5db"/>
       <text x="20" y="130">1</text>
       <text x="125" y="130">Fakten für Gate G1</text>
-      <text x="490" y="130">32 von 36</text>
+      <text x="490" y="130">35 von 38</text>
       <rect x="630" y="115" width="200" height="18" rx="4" fill="#e5e7eb"/>
-      <rect x="630" y="115" width="177" height="18" rx="4" fill="#64748b"/>
-      <text x="846" y="130">88 %</text>
+      <rect x="630" y="115" width="184" height="18" rx="4" fill="#64748b"/>
+      <text x="846" y="130">92 %</text>
     </g>
     <g id="phase-2">
       <rect y="148" width="1000" height="48" fill="#dcfce7"/>
@@ -69,19 +69,20 @@
       <path d="M0 388H1000" stroke="#d1d5db"/>
       <text x="20" y="370">6</text>
       <text x="125" y="370">Veröffentlichung</text>
-      <text x="490" y="370">0 von 6</text>
+      <text x="490" y="370">1 von 6</text>
       <rect x="630" y="355" width="200" height="18" rx="4" fill="#e5e7eb"/>
-      <text x="846" y="370">0 %</text>
+      <rect x="630" y="355" width="33" height="18" rx="4" fill="#64748b"/>
+      <text x="846" y="370">16 %</text>
     </g>
     <g id="phase-gesamt">
       <rect y="388" width="1000" height="48" fill="#f3f4f6"/>
       <path d="M0 436H1000" stroke="#d1d5db"/>
       <text x="20" y="418">Gesamt</text>
       <text x="125" y="418"></text>
-      <text x="490" y="418">48 von 84</text>
+      <text x="490" y="418">52 von 86</text>
       <rect x="630" y="403" width="200" height="18" rx="4" fill="#e5e7eb"/>
-      <rect x="630" y="403" width="114" height="18" rx="4" fill="#64748b"/>
-      <text x="846" y="418">57 %</text>
+      <rect x="630" y="403" width="120" height="18" rx="4" fill="#64748b"/>
+      <text x="846" y="418">60 %</text>
     </g>
   </g>
 </svg>

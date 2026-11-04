@@ -322,6 +322,17 @@ Direkt aus dem Speicher einer laufenden Solo-Mission gelesen, an den Default-Obj
 - **[Hypothese]** Karte und zerstörbare Objekte können sich beißen: Der `MapGenerator` repliziert nicht, die von ihm erzeugten Objekte teils schon.
   Läuft er auf beiden Seiten, könnten replizierte Objekte beim Client doppelt vorhanden sein.
 
+### Lebensleisten beim Client (`hp-leisten`)
+
+Stand: Spieltest am 04.11.2026, Build `26187885`, ein PC über Loopback, Route über das Spielmenü mit Seed `20795`. Schaden über `!cheats` und `DD_DamagePlayerAtIndex` beim Host.
+
+- **[Belegt]** Die HP selbst replizieren richtig, beide Seiten hatten gleiche Werte. Die große HUD-Leiste unten zeigte beim Client seinen eigenen Wert richtig.
+- **[Belegt]** Die kleinen Leisten über den Figuren (`WP_World_Player_HealthBar_C`) blieben beim Client auf ihrem Startwert stehen: die eigene auf 0 % (sie entstand vor der Replikation), die des Host-Spielers auf 100 %. Bei 70 und dann 50 HP zeigte der Host 70 % und 50 %, der Client weiter 100 %.
+- **[Belegt]** Die Leisten melden sich über `ListenToHealthChange` an `UCommonAttributeSet::OnHealthChanged` (`+0xC0`) an, beim Client genauso wie beim Host (je ein Eintrag `WP_HealthBar_AutoGenFunc`). Das Spiel löst dieses Ereignis aber nur beim Host aus. Beim Client läuft für einen neuen Wert nur `OnRep_Health` (`0x57DC840`), das ist das Standard-Makro von GAS: `GetOwningAbilitySystemComponent`, dann `SetBaseAttributeValueFromReplication` an `ASC+0x8D8`, kein eigener Broadcast. Gleich gebaut ist `OnRep_MaxHealth` (`0x57DCEA0`) für `OnMaxHealthChanged` (`+0x40`).
+- **Fix im Spike (`HealthBars.cpp`):** Beide OnRep-Funktionen sind umschlossen. Nach dem Original ruft der Spike jeden Empfänger des passenden Delegates mit dem neuen `CurrentValue` über `ProcessEvent` auf: schwacher Zeiger über das Objekt-Array mit Prüfung der Seriennummer, Funktion über ihren `FName` in der Klassenkette. Beim Host laufen die OnRep-Funktionen nicht, der Patch wirkt also nur beim Client.
+- **[Belegt]** Mit dem Fix starteten beide Leisten beim Client bei 100 %. Nach Schaden zeigten Host und Client dieselben Werte: 40 % und 70 %, dann 50 %, nach dem Wechsel auf Tag 2 75 %. Kein Absturz.
+- Nicht geprüft: Rüstung (`OnArmorChanged`, `OnMaxArmorChanged` liegen im abgeleiteten Charakter-Set) und die Überheilung. Ob weitere Empfänger dieser Delegates beim Client jetzt zusätzlich laufen sollten, ist nicht geprüft, gefunden war nur die Leiste. Internet nicht geprüft.
+
 ### Ergaenzung: SDK-Schnittstellen fuer eigenen Sync
 
 Aufgabe `sync-bedarf`, lokales Mission-SDK von Build `26187885`:
@@ -595,6 +606,16 @@ Stand: Disassembly und Laufzeit, Build `26187885`. Mission über das Spielmenü 
 
 **Empfehlung:** Option A für den ersten spielbaren Stand. Sie ist schon lauffähig, braucht keine neuen Systeme und passt zu Spawnen, Zoom und Bewegungsgrenze des Spiels.
 Den Abgleich der Client-Kamera mit der des Hosts nur angehen, falls die Abweichung im Spiel stört. Option C kann danach als Feinschliff kommen. Option B erst, wenn das Team ausdrücklich freie Bewegung will, denn sie zieht einen eigenen Sync der Viewports nach sich.
+
+### ViewTarget beim Client (`kamera-viewtarget`)
+
+Stand: Spieltest am 04.11.2026, Build `26187885`, ein PC über Loopback, Route über das Spielmenü mit Seed `20795`.
+
+- **[Belegt]** Vorher schaute der Client in der Mission nicht durch die gemeinsame Kamera, sondern aus der eigenen Figur: ViewTarget des lokalen Controllers war `BP_DD_Character_C`, die Blickposition lag 64 Einheiten über der Figur. Im Bild sah man nur Boden aus der Nähe. Der Host schaute die ganze Zeit korrekt durch `BP_PlayerCameraActor_C`.
+- **[Belegt]** Ursache im Spike: `ViewThroughSharedCamera` nahm den ersten `BP_DDPlayerController_C` im Objekt-Array. Kurz nach einem Kartenwechsel lebt der alte Controller ohne `LocalPlayer` noch und steht davor. Die 15 Wiederholungen landeten an ihm, das Log meldete trotzdem „Kamera: gesetzt“. Danach griff auch `!cam` nicht mehr, weil nur eine neue Kamera die Wiederholungen neu startete.
+- **Fix in `Camera.cpp`:** nur Controller mit `LocalPlayer` (`+0x348`) und die Kamera aus `PersistentLevel` der aktuellen Welt. Jede Sekunde prüft der Spike das ViewTarget (`PlayerCameraManager+0x340`) und setzt es nur, wenn es nicht die Kamera ist. Das Log nennt das vorherige Ziel.
+- **[Belegt]** Mit dem Fix: Je Weltwechsel genau ein „Kamera: gesetzt, vorher BP_DD_Character_C“, also beim Betreten von MetaBase, Tag 1 und Tag 2. Danach blieb das ViewTarget die Kamera. Die Blickposition des Clients war gleich der des Hosts, die Bilder fast gleich. Lief die Client-Figur 2,5 s, folgte die Client-Kamera ruhig und lag höchstens rund 10 Einheiten neben der des Hosts.
+- Nicht geprüft: weitere Tage, Internet, Mission → MetaBase.
 
 ### Client-Absturz im Restrictor (`tick-absturz`)
 
@@ -902,14 +923,16 @@ Wichtiger Übergabestand für Build `26187885`:
 
 #### Tutorial-Pause hält den Run an (`testumgebung`)
 
-Ein offener Tutorial-Hinweis pausiert die Welt für beide Seiten über eine Zeitanfrage seiner DialogComponent. In der Testumgebung verfälscht das Ladezeiten und Positionen, im Coop hält es den Partner an. `UTutorialStateSubsystem::SetForceSkipTutorials(true)` schaltet alle Hinweise ab. Das Flag liegt bei `+0xB8`, steht nicht im Spielstand und ist nach jedem Start wieder aus. Der Spike setzt es deshalb auf beiden Seiten, sobald das Subsystem da ist, und prüft es jede Sekunde (`Cheats.cpp`, `SkipTutorials`). `!notutorial` meldet den Stand. Für die Mod ist das Aufgabe `tutorial-aus`.
+Ein offener Tutorial-Hinweis pausiert die Welt für beide Seiten über eine Zeitanfrage seiner DialogComponent. In der Testumgebung verfälscht das Ladezeiten und Positionen, im Coop hält es den Partner an. `UTutorialStateSubsystem::SetForceSkipTutorials(true)` schaltet alle Hinweise ab. Das Flag liegt bei `+0xB8`, steht nicht im Spielstand und ist nach jedem Start wieder aus. Der Spike setzt es deshalb auf beiden Seiten, sobald das Subsystem da ist, und prüft es jede Sekunde (`Cheats.cpp`, `SkipTutorials`). `!notutorial` meldet den Stand.
+
+Die Mod macht dasselbe in `src/Game/TutorialAdapter.cpp` (`tutorial-aus`): Als Host oder Client ruft sie einmal je Sekunde `SetForceSkipTutorials(true)`, solange der Schalter nicht steht. Allein, also ohne NetDriver, bleibt das Tutorial an. Geprüft am 04.11.2026 mit einem Spike ohne eigenes Abschalten: Der Host schaltet im Hauptmenü ab, der Client direkt nach dem Verbinden. `Start-Run.ps1` kam ohne Dialoge bis zur Routenkarte, und in der Mission an Tag 1 lief die Uhr ohne offenen Hinweis. Der Schalter blieb über den Kartenwechsel stehen, es gab keinen zweiten Aufruf.
 
 ### Was beim Client laufen darf
 
 | Bereich | Host | Client |
 |---|---|---|
 | Run-Zustand, Seed, Route, Persistenz | Führt | Nicht ausführen. Der Client hat diesen Zustand nicht und braucht einen eigenen Sync |
-| Routenkarte, Rundenende, Lager | Führt | Nicht öffnen, Fortschritt nur anzeigen. Bisher sieht der Client davon nichts |
+| Routenkarte, Rundenende, Lager | Führt | Nicht öffnen, Phase nur anzeigen und Eingabe sperren, im Spike umgesetzt (`phasenadapter`) |
 | Kartenwechsel | Startet ihn für beide | Folgt nur, startet keinen eigenen |
 | Kartenerzeugung | Führt | Darf nicht frei laufen, siehe unten |
 | Gegner, Spawner, Loot, Missionsende | Führt | Nur replizierte Ergebnisse anzeigen |
@@ -934,6 +957,13 @@ Build `26187885`, ein PC, zwei Loopback-Instanzen, getrennte Test-Spielstände u
 Die Aufgabe bleibt ungelöst. Getestet sind Beobachtung, Befehlsgrenzen sowie Codec-/Empfängerregeln an künstlichen Nachrichten, **nicht** eine synchronisierte Endphase, wirksame Client-Eingabesperre, echter Spätbeitritt/Netzwerktransport, Internet oder vollständiger Run. Keine erneute lokale Ausführung der Host-Persistenz und keine Panelpräsenz als Phasensignal. Initialisierungs-/Tick-Anschluss in `Mission.cpp` und gemeinsame Schnittstellen bleiben ein eigener Integrationsschritt.
 
 **Nachtrag 03.11.2026, ohne Spielbetrieb:** Ein lokaler Adapter in `Mission.cpp` ergänzt den Modellkern um einen monotonen Host-Publisher, atomaren 48-Byte-Dateitransport, Heartbeat/Timeout und Client-Textausgabe/Win32-Nachrichtenfilter. Die tatsächliche Adapterimplementierung wurde gegen eigene Speicherpuffer geprüft, der Dateitransport zwischen zwei eigenen fensterlosen Testprozessen; C++20 `/W4 /WX` und vollständiger Spike-DLL-Build bestanden. `Main.cpp` verbindet Befehl/Tick/Filter, Host-`!finish`/`!round` liefern ihre Aufrufe; bis zur expliziten Diagnosebindung bleibt der Adapter inaktiv. Der globale Beobachter für normale Menü-/Busereignisse ist noch nicht eingehängt, Host-Rundenendeaufrufe sind noch nicht im Spiel beobachtet; Lager/Route werden ausschließlich manuell diagnostisch markiert. Keine automatische Panelerkennung behauptet, kein vollständiger UE-/Gamepad-Inputschutz, kein Internetkanal und kein P0-Abschluss. Siehe [konkrete Integration, Tests und verbleibende Nachweise](../research/spikes/a-connect/RoundPhaseRuntime.md).
+
+**Abschluss `phasenadapter`, 04.11.2026:** Die Phase läuft jetzt automatisch vom Host zum Client. Damit ist die Aufgabe für einen PC gelöst.
+
+- **[Belegt] Hostquellen:** Jedes Panel meldet sich über `AbstractPanel.OnOpenStateChanged(bOpen)`, das durch `ProcessEvent` läuft. Rundenübersicht ist `WP_Round_Stats_C`, Lager `WP_Inventory_Panel_C`, Routenkarte `WI_MissionChoicePanel_C`, auch die erste Route in der MetaBase. Dazu kommen `FinishMission` und `TriggerEndRound`, beide ebenfalls über `ProcessEvent`. Das Inventar-Panel öffnet sich auch bei der Belohnungsauswahl mitten in der Mission und gilt deshalb nur nach einem Rundenende als Lager.
+- **[Belegt] Eingabesperre:** `AActor::DisableInput(PC)` auf Controller und Figur des Clients nimmt beide aus dem Input-Stack. Nur damit bewegte sich die Client-Figur bei gedrückter Taste nicht, Esc öffnete kein Pausenmenü. Ohne Sperre ging beides. Der Fensterfilter kommt dazu, lässt aber Loslassen-Nachrichten durch.
+- **[Belegt] Lauf:** Erste Route und Rundenende an Tag 1, 2 und 3, beim Client jeweils dieselbe Folge wie beim Host, danach in der neuen Welt wieder frei. Fällt der Host weg, gibt der Client nach 5 s frei.
+- **Offen, mit eigener Aufgabe:** Transport über das Netz (`transport`, `protokoll`). Natürliches Tagesende und Gamepad sind nicht im Spiel geprüft, siehe [Grenzen](../research/spikes/a-connect/RoundPhaseRuntime.md#grenzen).
 
 **Karte:** Im echten Ablauf erzeugt der Host 144 bis 167 `MapTile`, der Client bleibt bei 17 und zeigt eine andere Karte. Die Figur des Clients startet deshalb weit vom Bus entfernt, weil seine Position beim Host übernommen wird. Das ist der Einstieg in Thema 3.
 

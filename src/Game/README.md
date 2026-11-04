@@ -13,6 +13,8 @@ Einzige Schicht mit Spielzugriff. Enthält Adapter auf Spielklassen und später 
 | `Memory.h` | Geschützte Lesezugriffe (`Read<T>`, `ReadPointer`) und Objektnamen (`NameOf`) |
 | `SdkChecks.cpp` | Prüft `Offsets.h` beim Bauen gegen das Dumper-7-SDK, ohne SDK leer |
 | `WorldAdapter.h` | Muster-Adapter: Karte, Rolle (allein, Host, Client) und Spielerzahl |
+| `Objects.h` | Suche im Objekt-Array (`FindInstance`, `FindObject`, `IsA`) und Aufruf über `ProcessEvent` |
+| `TutorialAdapter.h` | Schaltet die Tutorial-Hinweise als Host und Client ab, Prüfung einmal je Sekunde |
 
 ## Game Thread
 
