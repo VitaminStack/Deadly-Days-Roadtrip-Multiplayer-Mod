@@ -8,22 +8,22 @@ Reserviert Aufgaben aus [TODO.md](../TODO.md#wo-kann-ich-anfangen), damit nieman
 
 | Befehl | Aufgabe |
 |---|---|
-| `py tools/tasks.py list` | Abschluss aus TODO-Checkboxen auf `origin/main`, Reservierung/Review aus Branches und Pull Requests |
+| `py tools/tasks.py list` | Offene Aufgaben aus `TODO.md` auf `origin/main` mit Status: frei, blockiert, Team, reserviert, Review |
 | `py tools/tasks.py claim <kennung> <name>` | Worktree, Branch `task/<kennung>`, Push und Draft-PR |
 | `py tools/tasks.py release <kennung>` | Draft-PR schließen, Branch löschen, sauberen Worktree entfernen |
 
-Erledigte Kennungen sind auch ohne `gh` nicht erneut reservierbar. Offene Checkboxen werden nicht allein wegen eines gemergten Teil-PRs abgeschlossen. Neue einmalige Wartungsaufgaben ohne Katalogeintrag sind weiterhin reservierbar; bereits bekannte Kennungen dürfen so nicht umgangen werden.
+Erledigte, blockierte und Team-Aufgaben sind nicht reservierbar, auch ohne `gh`. Offene Aufgaben werden nicht allein wegen eines gemergten Teil-PRs abgeschlossen. Kurze Wartung ohne Eintrag in `TODO.md` ist weiterhin reservierbar.
 
 ## task_status.py
 
-Lokale, netzwerkfreie Konsistenzprüfung im aktuellen Checkout. `TODO.md` ist die einzige Abschlussquelle, das README die daraus abgeleitete Fortschrittsanzeige.
+Lokale, netzwerkfreie Prüfung im aktuellen Checkout. `TODO.md` ist die einzige Aufgabenquelle, „Wo kann ich anfangen?“ und der Fortschritt im README sind daraus erzeugt.
 
 | Befehl | Aufgabe |
 |---|---|
-| `py tools/task_status.py check` | Checkbox-Zuordnungen, Katalogabschnitte und README-Tabelle prüfen, bei Abweichung Fehlercode |
-| `py tools/task_status.py update` | Zahlen und 11-stellige Balken im README aus den Phasen 0–6 aktualisieren |
+| `py tools/task_status.py check` | Tabellen, Kennungen, „Braucht“ und erzeugte Abschnitte prüfen, bei Abweichung Fehlercode |
+| `py tools/task_status.py update` | „Wo kann ich anfangen?“ in `TODO.md` sowie Zahlen und Balken im README neu erzeugen |
 
-`<!-- tasks: kennung -->` steht direkt vor der zugehörigen Checkbox. Mehrere Checkboxen eines Pakets müssen alle erledigt sein. Die CI und `Build-Mod.ps1 -Test` führen `check` aus; Regressionstests decken insbesondere gelöschte Branches und fehlende GitHub CLI ab. Fortschrittszahlen zählen nur Phasen-Checkboxen, weder optionale Optimierungen noch separate Meilensteine.
+Geprüft wird: eindeutige Kennungen, bekannte Kennungen und keine Kreise unter „Braucht“, gültige Werte für Prio, Bearbeitung und Spielzeit, alphabetische Tabelle „Erledigt“, keine alten Checkboxen. Die CI und `Build-Mod.ps1 -Test` führen `check` aus. Der Fortschritt zählt je Phase die erledigten gegen alle Aufgaben, ohne Wartung und optionale Optimierungen.
 
 ## dumper7/
 

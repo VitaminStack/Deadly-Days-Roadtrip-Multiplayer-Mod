@@ -18,6 +18,7 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 
 **Neue Befunde.**
 
+- `todo-struktur`, 04.11.2026: `TODO.md` neu aufgebaut. Jede Aufgabe steht genau einmal, offen in der Tabelle ihrer Phase mit Prio, Voraussetzungen („Braucht“), Bearbeitungsart und Spielzeit, erledigt alphabetisch unter „Erledigt“. Checkboxen und tasks-Marker entfallen. „Wo kann ich anfangen?“ wird erzeugt, `tasks.py claim` lehnt blockierte und Team-Aufgaben ab. Spike C ist mit `karte-client` und `pcg` erledigt. Gezählt sind jetzt 45 von 84 Aufgaben.
 - `testumgebung`, 04.11.2026: Das „seltsame Laden“ ab Tag 2 war eine pausierte Welt: Die Spike-Umleitung übersprang das Abräumen der Zeitanfragen, die Pause aus `FinishMission` blieb stehen. Dazu zerstörte das Freiräumen am Busplatz die Figur des Clients. Beides ist im Spike behoben, Tag 1 bis 4 laden sauber mit je 2 PlayerStates am Bus. Der PlayerState-Verlust an Tag 4 tritt damit nicht mehr auf, der Client-Absturz an Tag 5 bleibt für `guidcache`. Prüfskript `check_round.py` und fester Routenlauf `Run-Route.ps1` liegen im Repo.
 - `aufgabenstatus`, 04.11.2026: Abschlussstatus kommt verbindlich aus den Checkboxen in `TODO.md`; erledigte Pakete stehen getrennt vom offenen Einstiegskatalog. README-Zahlen und Balken werden mit `tools/task_status.py update` daraus aktualisiert und in CI geprüft. Reservierungsbranches und Teil-PRs ersetzen keine Abnahme; fehlendes `gh` macht erledigte Pakete nicht wieder frei. Keine neuen Spielabnahmen und keine Änderung an den gezählten Abschlüssen (45/84).
 
@@ -70,7 +71,7 @@ flowchart TD
 
 ## Weg bis Gate G1
 
-Hier liegt die aktuelle Arbeit. Die Kennungen in Klammern stehen in [Wo kann ich anfangen?](../TODO.md#wo-kann-ich-anfangen), reserviert wird wie dort beschrieben.
+Hier liegt die aktuelle Arbeit. Die Kennungen in Klammern stehen in [TODO.md](../TODO.md), was gerade frei ist, zeigt [Wo kann ich anfangen?](../TODO.md#wo-kann-ich-anfangen).
 
 ```mermaid
 flowchart LR
@@ -100,7 +101,7 @@ flowchart LR
 
     subgraph WELT["Karte und Kamera"]
         KC["Seed und Profil beim Client,<br/>Duplikate unterdrücken<br/>(karte-client)"]:::done
-        SC["Spike C: gleiche<br/>Mission auf beiden Seiten"]:::open
+        SC["Spike C: gleiche<br/>Mission auf beiden Seiten<br/>(spike-c)"]:::done
         KE["Gemeinsame Kamera<br/>entschieden"]:::done
         KC --> SC
     end
@@ -207,7 +208,7 @@ flowchart TD
 
 ## Zentral und parallel
 
-Türkis ist zentrale Arbeit, die nacheinander läuft. Grau sind Pakete, die daneben parallel laufen. Die Kennungen stehen in [Spätere Arbeitspakete](../TODO.md#spätere-arbeitspakete) und [Zentrale Arbeit](../TODO.md#zentrale-arbeit).
+Türkis ist zentrale Arbeit, die nacheinander läuft. Grau sind Pakete, die daneben parallel laufen. Die Kennungen und ihre genauen Abhängigkeiten (Spalte „Braucht“) stehen in [TODO.md](../TODO.md).
 
 ```mermaid
 flowchart TD
@@ -217,7 +218,7 @@ flowchart TD
     GR --> W2
     G1 --> GA
     GA --> PT["patches"]:::central --> RS["remote-spieler"]:::central
-    GA --> W5["Welle 5<br/>online-sperren, telemetrie-aus,<br/>mod-saves, installer"]:::open
+    GA --> W5["Welle 5<br/>tutorial-aus, online-sperren,<br/>telemetrie-aus, mod-saves, installer"]:::open
     RS --> W3["Welle 3<br/>missionsstart, kamera-code, bewegung,<br/>eingaben, kampf, gegnertyp"]:::open
     W1 --> IG["integration-g2"]:::central
     W2 --> PR["protokoll"]:::central
@@ -256,4 +257,4 @@ Unabhängig von den Gates kann das [Grundgerüst](../TODO.md#phase-2--fundament)
 
 ## Pflege
 
-Wer eine Aufgabe abschließt, ändert hier die Farbe des Knotens und im [README](../README.md#fortschritt) die Zählung der Phase. Offene Teilpunkte aus `TODO.md`, die keinen eigenen Knoten haben, gehören zum thematisch passenden Knoten.
+Wer eine Aufgabe abschließt, ändert hier die Farbe des Knotens. Die Zählung im [README](../README.md#fortschritt) erzeugt `py tools/task_status.py update`. Aufgaben ohne eigenen Knoten gehören zum thematisch passenden Knoten. Die Wellen fassen Aufgaben mit gleichen Voraussetzungen zusammen, verbindlich ist die Spalte „Braucht“ in `TODO.md`.

@@ -3,7 +3,7 @@
 Grundfunktionen für alle Module: Logging, Config, Hook-Framework, Game-Thread-Dispatcher und Versionsprüfung.
 Kennt keine Spielklassen und bindet kein SDK ein. Includes laufen über den Modulordner, etwa `#include "Core/Log.h"`.
 
-Die Schnittstellen hier nutzen alle Module. Änderungen daran gehen in kurzen eigenen Pull Requests, siehe [Gemeinsame Dateien](../../TODO.md#zentrale-arbeit).
+Die Schnittstellen hier nutzen alle Module. Änderungen daran gehen in kurzen eigenen Pull Requests, siehe [Gemeinsame Dateien](../../TODO.md#wo-kann-ich-anfangen).
 
 ## Logging: `Core/Log.h`
 

@@ -32,20 +32,22 @@ Die Bereiche zeigen, welche Ordner zusammengehören. Feste Personen je Bereich u
 
 ### Aufgaben reservieren
 
-Jede Aufgabe hat in [TODO.md](TODO.md#wo-kann-ich-anfangen) eine Kennung, auch die [späteren Pakete](TODO.md#spätere-arbeitspakete) und die [zentrale Arbeit](TODO.md#zentrale-arbeit). Reserviert ist, was einen Branch `task/<kennung>` auf GitHub hat.
+Jede Aufgabe hat in [TODO.md](TODO.md) eine Kennung, eine Zeile in der Tabelle ihrer Phase und unter „Braucht“ ihre Voraussetzungen. Nehmen darf man nur, was dort `frei` ist, siehe [Wo kann ich anfangen?](TODO.md#wo-kann-ich-anfangen). Reserviert ist, was einen Branch `task/<kennung>` auf GitHub hat.
 Der erste Push gewinnt, ein zweiter wird abgelehnt. Das gilt für Menschen und KI-Agenten, die genauen Befehle stehen in [CLAUDE.md](CLAUDE.md#vor-dem-start).
 
-`py tools/tasks.py list` zeigt jede Kennung mit Status: frei, reserviert, in Arbeit, PR wartet auf Review oder erledigt.
+`py tools/tasks.py list` zeigt jede offene Kennung mit Status: frei, blockiert, Team, reserviert, in Arbeit oder PR wartet auf Review. Blockierte und Team-Aufgaben lehnt `claim` ab.
 `py tools/tasks.py claim <kennung> <name>` reserviert und öffnet gleich einen Draft-PR `[WIP] <kennung>`. Wer gerade woran arbeitet,
-steht deshalb auf GitHub unter „Pull requests“. **Erledigt** kommt immer aus den zugeordneten Checkboxen in `TODO.md` auf `origin/main`, auch ohne GitHub CLI und nach dem Löschen eines Branches. Für ergänzende Review-/PR-Informationen braucht das Skript die angemeldete [GitHub CLI](https://cli.github.com/) (`gh auth login`); ohne sie bleiben diese Informationen unbekannt, der TODO-Abschluss bleibt erhalten. Ein gemergter PR bei noch offener Checkbox verlangt Klärung statt automatischer Freigabe.
+steht deshalb auf GitHub unter „Pull requests“. **Erledigt** ist, was in `TODO.md` auf `origin/main` unter [Erledigt](TODO.md#erledigt) steht, auch ohne GitHub CLI und nach dem Löschen eines Branches. Für ergänzende Review-/PR-Informationen braucht das Skript die angemeldete [GitHub CLI](https://cli.github.com/) (`gh auth login`); ohne sie bleiben diese Informationen unbekannt, der TODO-Abschluss bleibt erhalten. Ein gemergter PR bei noch offener Aufgabe verlangt Klärung statt automatischer Freigabe.
 Wer über einen Fork arbeitet, kann so nicht reservieren und legt stattdessen ein Issue an.
 
 ### Aufgabe abschließen und Fortschritt pflegen
 
-1. Ergebnis und Testgrenzen am zugehörigen Phasen-Punkt in `TODO.md` festhalten. Nur bei erfüllter Abnahme abhaken, den `<!-- tasks: kennung -->`-Marker direkt vor der Checkbox erhalten. Mehrere Marker derselben Kennung bündeln mehrere Pflichtpunkte; alle müssen fertig sein. Erledigte Analyse ist nicht automatisch fertige Umsetzung.
-2. Fertiges Paket aus der Einstiegstabelle nach „Abgeschlossene Pakete“ verschieben. Keine zweite Statusspalte pflegen; die Checkboxen bleiben die einzige Abschlussquelle. Neue Pakete bekommen ebenfalls einen Marker; übergreifende, nicht mitgezählte Meilensteine stehen separat in `TODO.md`.
-3. `py tools/task_status.py update` aktualisiert die Fortschrittstabelle im README aus den Checkboxen der Phasen 0–6. Optionale Optimierungen und übergreifende Meilensteine werden nicht gezählt. Zahlen nicht von Hand schätzen.
-4. `py tools/task_status.py check` und `py -B -m unittest discover -s tests` ausführen. Die CI erkennt fehlende Zuordnungen, falsch einsortierte Pakete und abweichende README-Zahlen/Balken. Roadmap und PR mit Nachweisen aktualisieren; erst nach dem Merge zeigt `tasks.py list` den neuen Stand von `origin/main`.
+Die Schritte stehen in [Aufgabe abschließen](TODO.md#aufgabe-abschließen). Kurz:
+
+1. Ergebnis und Testgrenzen in der Doku festhalten. Erledigte Analyse ist nicht automatisch fertige Umsetzung.
+2. Nur bei erfüllter Abnahme die Zeile aus der Phasentabelle nach [Erledigt](TODO.md#erledigt) verschieben, alphabetisch, mit einem Satz Ergebnis. Neue Aufgaben bekommen eine Zeile in ihrer Phase mit „Braucht“.
+3. `py tools/task_status.py update` erneuert „Wo kann ich anfangen?“ und die Fortschrittstabelle im README. Zahlen nicht von Hand schätzen.
+4. `py tools/task_status.py check` und `py -B -m unittest discover -s tests` ausführen. Die CI erkennt doppelte oder unbekannte Kennungen, Kreise in „Braucht“, falsche Werte und veraltete erzeugte Abschnitte. Erst nach dem Merge zeigt `tasks.py list` den neuen Stand von `origin/main`.
 
 ### Branches
 

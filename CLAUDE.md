@@ -9,8 +9,8 @@ Erst spielbar: Vorrang hat, dass zwei Spieler einen Run durchspielen können. Kl
 
 ## Vor dem Start
 
-1. [Wo kann ich anfangen?](TODO.md#wo-kann-ich-anfangen) lesen, auch die Liste „Nicht erneut machen“. [Spätere Arbeitspakete](TODO.md#spätere-arbeitspakete) erst nehmen, wenn ihre Voraussetzung auf `main` ist. [Zentrale Arbeit](TODO.md#zentrale-arbeit) nie aufteilen.
-2. Status aller Aufgaben ansehen. Nur Aufgaben mit Status `frei` nehmen:
+1. [Wo kann ich anfangen?](TODO.md#wo-kann-ich-anfangen) lesen, auch die Liste „Nicht erneut machen“. Jede Aufgabe nennt unter „Braucht“ ihre Voraussetzungen und unter „Bearbeitung“, ob sie parallel läuft, zentral ist (nie aufteilen) oder das Team entscheidet.
+2. Status aller Aufgaben ansehen. Nur Aufgaben mit Status `frei` nehmen, `blockiert` und `Team` lehnt das Skript ab:
 
    ```bash
    py tools/tasks.py list
@@ -22,7 +22,7 @@ Erst spielbar: Vorrang hat, dass zwei Spieler einen Run durchspielen können. Kl
    py tools/tasks.py claim <kennung> <eigener-name>
    ```
 
-Nie von Hand reservieren und nie eine Aufgabe übernehmen, die nicht `frei` ist. Steht dort „erst nachfragen“, ist die Reservierung seit mehreren Tagen ohne Commit. Dann den Menschen fragen, der sie im Team klärt. Eine Zeile ohne Kennung bekommt eine kurze eigene Kennung aus Kleinbuchstaben.
+Nie von Hand reservieren und nie eine Aufgabe übernehmen, die nicht `frei` ist. Steht dort „erst nachfragen“, ist die Reservierung seit mehreren Tagen ohne Commit. Dann den Menschen fragen, der sie im Team klärt. Neue Arbeit bekommt vorher eine eigene Zeile mit Kennung in der passenden Phase.
 
 Worktrees liegen immer unter `.worktrees/` im Repo-Ordner, keine neuen Ordner daneben anlegen. Im eigenen Worktree arbeiten, nie im Hauptordner oder im Worktree eines anderen Agenten. Wer die Reservierung aufgibt, ruft `py tools/tasks.py release <kennung>` auf. Das schließt den Draft-PR und löscht den Branch.
 
@@ -37,7 +37,7 @@ Worktrees liegen immer unter `.worktrees/` im Repo-Ordner, keine neuen Ordner da
 ## Abschluss
 
 1. Ergebnisse festhalten, auch gescheiterte Versuche, siehe [Ergebnisse festhalten](docs/TESTING.md#ergebnisse-festhalten).
-2. In `TODO.md` nur die eigenen Zeilen ändern, das hält Konflikte klein. Die zugeordneten Checkboxen sind die Abschlussquelle (`<!-- tasks: kennung -->` direkt davor erhalten). Ein Teil-PR reicht nicht zum Abhaken. Fertige Pakete aus der Einstiegstabelle nach „Abgeschlossene Pakete“ verschieben und [docs/ROADMAP.md](docs/ROADMAP.md) anpassen. Den [Fortschritt im README](README.md#fortschritt) mit `py tools/task_status.py update` aus den Phasen-Checkboxen erzeugen; `py tools/task_status.py check` muss vor dem PR bestehen. Branch-Löschung oder fehlende GitHub CLI dürfen nie als „Aufgabe frei“ interpretiert werden.
+2. Abschließen wie in [Aufgabe abschließen](TODO.md#aufgabe-abschließen): nur bei erfüllter Abnahme die eigene Zeile nach „Erledigt“ verschieben, alphabetisch. Ein Teil-PR reicht nicht. In `TODO.md` nur die eigenen Zeilen ändern, das hält Konflikte klein. Danach `py tools/task_status.py update`; `py tools/task_status.py check` muss vor dem PR bestehen. [docs/ROADMAP.md](docs/ROADMAP.md) anpassen. Branch-Löschung oder fehlende GitHub CLI dürfen nie als „Aufgabe frei“ interpretiert werden.
 3. Den Draft-PR fertigstellen, keinen zweiten öffnen: Titel und Beschreibung ersetzen, dabei sagen, wie getestet wurde, dann auf „Ready for review“ stellen. Nur auf ausdrückliche Anweisung des Menschen mergen.
 
    ```bash
