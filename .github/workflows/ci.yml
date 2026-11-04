@@ -44,3 +44,7 @@ jobs:
       - name: Spike-Autoritaet und Readiness (ohne Spiel und SDK)
         shell: pwsh
         run: ./tests/Run-BlockadeAuthority.ps1
+
+      - name: Remote-P2-Map und Geraete-Guard (ohne Spiel und SDK)
+        shell: pwsh
+        run: ./tests/Run-RemoteP2.ps1

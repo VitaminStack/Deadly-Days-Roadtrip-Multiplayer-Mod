@@ -128,6 +128,11 @@ Funktionen von `ULocalCoopSubsystem` und ihre Aufrufer, Ablauf siehe [Coop-Ablau
 | `SetMaxLocalPlayers` | `0x5900770` | Exec-Thunk `0x57363C0` |
 | `SpawnLocalPlayer` | `0x5901E90` | Exec-Thunk `0x57374E0` |
 | `GetPlayerController(Index)` | `0x58EE0D0` | |
+| `GetActivePlayerCount` | `0x58E8890` | Zählt die nichtleeren Ergebnisse von `GetPlayerController(0/1)`, nicht die Map-Slots |
+| `ActivePlayers`: natives Map-Add | `0x58D1940` | `Map, int32*-Schlüssel, WeakController*-Wert`; benutzt in `SpawnLocalPlayer` bei `0x590214E` |
+| `ActivePlayers`: nativer SparseArray-Entferner | `0x1344470` | Elemente `0x14` Byte, `Map, Index, Count`; Hash-Link vorher aushängen, nicht der `SpawnedPlayers`-Entferner für `0x10`-Byte-Elemente |
+| Lokale P2-Gerätepflicht im Reconnect-Update | `0x59072AA` | Probe ersetzt nur fehlende P2-Bindung bei echtem aktuellem Remote-P2; P1-Test davor, Solo-Verlusttest ab `0x59072AF`, Reconnect-Pfad ab `0x59072B4` |
+| Script-Multicast-Broadcast | `0x24E9410` | `OnPlayerJoined`: Delegate an `LocalCoopSubsystem+0x38`, Parameter Index bei `+0`, Controller bei `+8`, Größe `0x10`; [Probe](../research/spikes/a-connect/RemoteP2.md) |
 | `GetPlayerIndex` | `0x58EE2A0` | Rückgriff ohne `LocalPlayer` |
 | `IsSecondaryPlayer` | `0x58F47C0` | Rückgriff ohne `LocalPlayer` |
 | `ApplyDeviceAssignmentDraftAndJoin` | `0x58D8AA0` | Ruft `SpawnLocalPlayer(1)` |
@@ -269,6 +274,7 @@ Was die Mod nutzt, steht zusätzlich in `src/Game/Offsets.h` und wird dort beim 
 | `UInstancedStaticMeshComponent` | PerInstanceSMData (je `0x80`), InstancingRandomSeed | `0x6A8`, `0x734` |
 | `ULocalCoopSubsystem` | ActivePlayers (TMap, Element `0x14`), bCoopEnabled, MaxLocalPlayers | `0x100`, `0x180`, `0x184` |
 | `ULocalCoopSubsystem` | Flag „P2 nach Kartenwechsel neu anlegen“ | `0x18A` |
+| `ULocalCoopSubsystem` | OnPlayerJoined (Script-Delegate), Gerätebindungen (TArray), ReconnectRequired | `0x38`, `0x150` (Element `0x38`), `0x189`; reine lokale Zustände, kein Netzwerk-Sync |
 | `UThreatLevel` | FreezeThreatLevelManager | `0x190` |
 
 In einem TSet ist ein freier Platz daran zu erkennen, dass der Wert hohe Bits gesetzt hat.
