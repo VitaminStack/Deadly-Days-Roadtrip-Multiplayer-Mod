@@ -333,6 +333,24 @@ Stand: Spieltest am 04.11.2026, Build `26187885`, ein PC über Loopback, Route �
 - **[Belegt]** Mit dem Fix starteten beide Leisten beim Client bei 100 %. Nach Schaden zeigten Host und Client dieselben Werte: 40 % und 70 %, dann 50 %, nach dem Wechsel auf Tag 2 75 %. Kein Absturz.
 - Nicht geprüft: Rüstung (`OnArmorChanged`, `OnMaxArmorChanged` liegen im abgeleiteten Charakter-Set) und die Überheilung. Ob weitere Empfänger dieser Delegates beim Client jetzt zusätzlich laufen sollten, ist nicht geprüft, gefunden war nur die Leiste. Internet nicht geprüft.
 
+### XP-Bälle beim Client (`xp-baelle`)
+
+Stand 04.11.2026, Build `26187885`. Beim Spieltest fiel auf: Der Client sieht die XP-Bälle nicht. Ursache bisher nur aus dem lokalen SDK abgeleitet, im Spiel nicht gemessen.
+
+- **[Belegt, SDK]** Die XP-Bälle sind keine replizierten Actors.
+  - Angezeigt werden sie von `AExpEmissionHandler`, einem Niagara-Partikelsystem.
+  - Position, Ziel, Wert und Farbe jedes Balls stehen in Listen des Handlers (`ExpData`, `SpawnLocationsInNiagara`, `OrbValuesInNiagara`, `OrbColorsInNiagara`).
+  - Die Klasse `BP_EXPOrb_C` (`AOrb`, Feld `OrbExpValue`) gibt es zusätzlich.
+- **[Belegt, SDK]** Bälle entstehen über `UExpSubsystem::RequestExpSpawning(ExpAmount, Location)`, das Aufsammeln läuft über `ReceiveExp(ExpAmount, Recipient)`. Beides ist kein RPC.
+- **Vermutung:**
+  - Gegner sterben beim Host, also ruft nur er `RequestExpSpawning` auf. Der Handler des Clients bekommt nie Daten.
+  - Die XP selbst zählen trotzdem: Der Host sammelt auch mit der Figur des Clients ein, und die XP sind gemeinsam. Der Client sieht nur nicht, wo die Bälle liegen.
+- **Möglicher Weg:**
+  - Der Host meldet jeden Aufruf von `RequestExpSpawning` (Menge, Ort) über den Kontrollkanal.
+  - Der Client erzeugt damit nur die Anzeige.
+  - Beim Client wird `ReceiveExp` gesperrt, damit nichts doppelt zählt.
+- **Offen:** Das alles im Spiel belegen. Dazu prüfen, ob die Partikel des Clients beim Aufsammeln mit denen des Hosts gleich verschwinden.
+
 ### Ergaenzung: SDK-Schnittstellen fuer eigenen Sync
 
 Aufgabe `sync-bedarf`, lokales Mission-SDK von Build `26187885`:
