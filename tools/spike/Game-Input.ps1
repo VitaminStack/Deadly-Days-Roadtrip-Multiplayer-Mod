@@ -30,10 +30,24 @@ public static class SpikeInput {
     [DllImport("user32.dll")] static extern void keybd_event(byte Key, byte Scan, uint Flags, UIntPtr Extra);
     [DllImport("user32.dll")] static extern uint MapVirtualKey(uint Code, uint Type);
     [DllImport("user32.dll")] static extern bool PrintWindow(IntPtr Window, IntPtr Dc, uint Flags);
+    [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr Window, out RECT Rect);
+    [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr Window, IntPtr After, int X, int Y, int Width, int Height, uint Flags);
+
+    // Alle Koordinaten gelten fuer 800 x 450. Das Spiel oeffnet sich trotz -ResX/-ResY manchmal groesser, etwa
+    // 1215 x 683 im Zwei-PC-Test; dann Klicks und Farbproben daneben. Darum vorher auf diese Groesse zuruecksetzen.
+    public static void Fit(IntPtr Window) {
+        RECT Client; GetClientRect(Window, out Client);
+        if (Client.Right == 800 && Client.Bottom == 450) return;
+        RECT Outer; GetWindowRect(Window, out Outer);
+        int Width = 800 + (Outer.Right - Outer.Left) - Client.Right, Height = 450 + (Outer.Bottom - Outer.Top) - Client.Bottom;
+        SetWindowPos(Window, IntPtr.Zero, 0, 0, Width, Height, 0x2 | 0x4);
+        Thread.Sleep(1000);
+    }
 
     // Windows erlaubt den Fensterwechsel nur nach einer Tastatureingabe, Alt reicht dafuer.
     public static void Focus(IntPtr Window) {
         if (IsIconic(Window)) ShowWindow(Window, 9);
+        Fit(Window);
         keybd_event(0x12, 0, 0, UIntPtr.Zero); keybd_event(0x12, 0, 2, UIntPtr.Zero);
         SetForegroundWindow(Window); Thread.Sleep(250);
     }
@@ -59,6 +73,7 @@ public static class SpikeInput {
     }
     public static string Pixel(IntPtr Window, int X, int Y) {
         if (IsIconic(Window)) { ShowWindow(Window, 4); Thread.Sleep(300); }
+        Fit(Window);
         RECT Rect; GetClientRect(Window, out Rect);
         using (var Image = new Bitmap(Rect.Right, Rect.Bottom))
         using (var Graphics = System.Drawing.Graphics.FromImage(Image)) {
@@ -76,6 +91,7 @@ public static class SpikeInput {
     // PrintWindow mit PW_CLIENTONLY | PW_RENDERFULLCONTENT liest nur dieses Fenster, auch wenn es verdeckt ist.
     public static void Shot(IntPtr Window, string Path) {
         if (IsIconic(Window)) { ShowWindow(Window, 4); Thread.Sleep(300); }
+        Fit(Window);
         RECT Rect; GetClientRect(Window, out Rect);
         using (var Image = new Bitmap(Rect.Right, Rect.Bottom))
         using (var Graphics = System.Drawing.Graphics.FromImage(Image)) {
