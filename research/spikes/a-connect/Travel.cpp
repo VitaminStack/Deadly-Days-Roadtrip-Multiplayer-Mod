@@ -8,6 +8,9 @@ namespace
 constexpr uintptr_t kSetClientTravel = 0x3262830;
 constexpr uintptr_t kSeamlessTravelToLevel = 0x5976AD0;
 constexpr uintptr_t kLoadSettingsPackage = 0x10;
+constexpr uintptr_t kLoadingTimescaleManager = 0xE0; // ULoadingSubSystem::TimescaleManager
+constexpr uintptr_t kTimescaleRequestCount = 0x50;   // UTimescaleManager::TimeRequests, Elementzahl der SparseArray
+constexpr uintptr_t kTimescaleRequestFree = 0x7C;    // davon freie Plaetze
 
 using SetClientTravelFn = void(__fastcall*)(uintptr_t, uintptr_t, const wchar_t*, uint32_t);
 using SeamlessTravelFn = void(__fastcall*)(uintptr_t, uintptr_t);
@@ -28,6 +31,25 @@ void __fastcall SetClientTravelHook(uintptr_t Engine, uintptr_t World, const wch
     QueueCommand(L"servertravel " + Target + L"?listen");
 }
 
+// Das Original startet den Ladeablauf (0x595C910): eigene Pause, dann TimescaleManager::ClearAllRequests. Die Umleitung
+// ueberspringt das, die Freeze-Anfrage aus FinishMission bliebe stehen und pausierte jede weitere Runde ueber den
+// PauserPlayerState. Niemand steigt dann am Bus aus, die Uhr steht bei 00:00. Darum hier dasselbe Abraeumen.
+void ClearTimeRequests(uintptr_t LoadingSubsystem)
+{
+    const uintptr_t Timescale = Read<uintptr_t>(LoadingSubsystem + kLoadingTimescaleManager);
+    static const uintptr_t Function = FindObject("ClearAllRequests", "TimescaleManager");
+    if (!Timescale || !Function)
+    {
+        Log("Reise: Zeitanfragen nicht abgeraeumt, TimescaleManager fehlt");
+        return;
+    }
+    const int32_t Before = Read<int32_t>(Timescale + kTimescaleRequestCount) - Read<int32_t>(Timescale + kTimescaleRequestFree);
+    struct { uintptr_t Data; int32_t Num; int32_t Max; } Exclude{};
+    Read<ProcessEventFn*>(Timescale)[kProcessEventIndex](Timescale, Function, &Exclude);
+    const int32_t After = Read<int32_t>(Timescale + kTimescaleRequestCount) - Read<int32_t>(Timescale + kTimescaleRequestFree);
+    Log("Reise: Zeitanfragen abgeraeumt " + std::to_string(Before) + " -> " + std::to_string(After));
+}
+
 // Missionen laufen ueber SeamlessTravelToLevel, das reist nur lokal. Settings: Level ab +8, Paketname als FName ab +0x10.
 void __fastcall SeamlessTravelHook(uintptr_t Subsystem, uintptr_t Settings)
 {
@@ -39,6 +61,7 @@ void __fastcall SeamlessTravelHook(uintptr_t Subsystem, uintptr_t Settings)
         return;
     }
     Log("Reise umgeleitet: " + Package);
+    ClearTimeRequests(Subsystem);
     QueueCommand(L"servertravel " + std::wstring(Package.begin(), Package.end()) + L"?listen");
 }
 }

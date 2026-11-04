@@ -38,6 +38,7 @@ void InstallPatches()
 void TickSession()
 {
     TickRoundPhase(GameWindow);
+    SkipTutorials(false);
     const uintptr_t World = Read<uintptr_t>(Base + kGWorld);
     const uintptr_t Driver = World ? Read<uintptr_t>(World + kWorldNetDriver) : 0;
     if (!Driver)
@@ -77,7 +78,7 @@ void RunPendingCommand()
     else if (Pending == L"!cheats")
         EnableCheats();
     else if (Pending == L"!notutorial")
-        SkipTutorials();
+        SkipTutorials(true);
     else if (Pending.rfind(L"!load ", 0) == 0)
         LoadAssetCommand(Pending.substr(6));
     else if (Pending.rfind(L"!round ", 0) == 0)

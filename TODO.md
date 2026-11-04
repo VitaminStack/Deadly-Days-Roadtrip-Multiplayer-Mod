@@ -114,6 +114,7 @@ In `src/Game` bekommt jedes Paket eine eigene Adapter-Datei, siehe [Arbeitsberei
 |---|---|---|---|
 | `online-sperren` | Bestenlisten und Erfolge online sperren | `src/Game` | wenig |
 | `telemetrie-aus` | Telemetrie, Bug- und Crash-Reports im Mod-Betrieb abschalten | `src/Game` | wenig |
+| `tutorial-aus` | Tutorial-Hinweise im Coop-Betrieb auf beiden Seiten dauerhaft abschalten, wie der Spike: `UTutorialStateSubsystem::SetForceSkipTutorials(true)`, sobald das Subsystem existiert, danach jede Sekunde prüfen. Vorrang in dieser Welle, weil ein offener Hinweis die Welt für beide pausiert, siehe [Tutorial-Pause](docs/GAME_ANALYSIS.md#tutorial-pause-hält-den-run-an-testumgebung) | `src/Game` | wenig |
 | `mod-saves` | Mod-Spielstände vom normalen Spielstand trennen | `src/Game` | mittel |
 | `installer` | Installer oder einfache Installationsanleitung | `tools`, `docs` | keine |
 

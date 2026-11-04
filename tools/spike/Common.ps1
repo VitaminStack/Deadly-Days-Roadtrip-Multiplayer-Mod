@@ -108,7 +108,13 @@ function Get-RolePid([string]$Role) {
     if ($Role -eq 'Host') { [int]$Session.Host } else { [int]$Session.Client }
 }
 
-function Send-SpikeCommand([int]$ProcessId, [string]$Command) {
+# Der Spike liest die Befehlsdatei einmal pro Sekunde. Ein zweiter Befehl darf sie erst ersetzen, wenn der erste abgeholt ist,
+# sonst geht der erste still verloren.
+function Send-SpikeCommand([int]$ProcessId, [string]$Command, [int]$TimeoutSeconds = 5) {
+    $Pending = Join-Path $script:CommandDir "$ProcessId.cmd"
+    $Deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ((Test-Path $Pending) -and (Get-Date) -lt $Deadline) { Start-Sleep -Milliseconds 100 }
+    if (Test-Path $Pending) { throw "Spike in $ProcessId holt Befehle nicht ab, '$Command' nicht gesendet." }
     $Temp = Join-Path $script:CommandDir "$ProcessId.tmp"
     Set-Content -Path $Temp -Value $Command -NoNewline -Encoding ascii
     Move-Item $Temp (Join-Path $script:CommandDir "$ProcessId.cmd") -Force

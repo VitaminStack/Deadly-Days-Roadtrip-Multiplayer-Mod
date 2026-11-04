@@ -99,7 +99,8 @@ void TickPcg();
 // Cheats.cpp
 void EnableCheats();
 void LoadAssetCommand(const std::wstring& Path);
-void SkipTutorials();
+// Setzt den Tutorial-Schalter, falls noch nicht gesetzt. Report meldet auch, wenn nichts zu tun war.
+void SkipTutorials(bool Report);
 
 // Hits.cpp
 void TickHits();
