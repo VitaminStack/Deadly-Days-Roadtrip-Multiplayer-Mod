@@ -10,6 +10,7 @@
 #include "Core/CrashReports.h"
 #include "Core/Hooks.h"
 #include "Core/Log.h"
+#include "Core/ReportHosts.h"
 #include "Core/Version.h"
 #include "Game/Game.h"
 #include "Net/Net.h"
@@ -50,6 +51,8 @@ void Start()
         return;
     // Vor allem anderen: Abstürze mit Mod dürfen nie beim Hersteller landen.
     Core::CrashReports::Block();
+    // Ebenso Telemetrie, Bug-Reports und automatische Berichte: Mod-Fehler sollen nie als Spielfehler beim Hersteller landen.
+    Core::ReportHosts::Block();
 
     Game::Start();
     Net::Start();

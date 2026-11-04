@@ -74,6 +74,10 @@ Core::Hooks::Install(reinterpret_cast<ProcessEventFn>(Target), &Detour, &Origina
 
 `Block` lässt im eigenen Prozess jeden Start von `CrashReportClient.exe` scheitern, damit Abstürze mit Mod nie beim Hersteller landen. Der Start der Mod ruft es direkt nach `Hooks::Initialize` auf. Der lokale Bericht unter `Saved/Crashes` bleibt erhalten. Hintergrund in der [Spike-README](../../research/spikes/a-connect/README.md#sperre-in-mod-und-spike-crash-reporter).
 
+## Telemetrie und Berichte: `Core/ReportHosts.h`
+
+`Block` lässt im eigenen Prozess die Namensauflösung für die Berichtsziele des Spiels scheitern: Hooks auf `getaddrinfo`, `GetAddrInfoW` und `GetAddrInfoExW` in `ws2_32`, unabhängig von Spiel-Offsets. Gesperrt sind `codecks.io` (Bug-Reports, Berichte über beschädigte Spielstände) und `pixelsplit.games` (Telemetrie, Spielstand-Analytics) samt Subdomains, `Add` sperrt weitere Hosts. Der Start der Mod ruft es direkt nach `CrashReports::Block` auf, danach prüft ein Selbsttest, dass `api.codecks.io` ohne Netzanfrage scheitert. Jeder aufgelöste Name steht einmal im Log, IP-Adressen nicht. Hintergrund in [Telemetrie und Berichte](../../docs/GAME_ANALYSIS.md#telemetrie-und-berichte-telemetrie-aus).
+
 ## Signaturen: `Core/Signature.h`
 
 ```cpp

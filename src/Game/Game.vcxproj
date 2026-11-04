@@ -43,6 +43,7 @@
     <ClCompile Include="Memory.cpp" />
     <ClCompile Include="Objects.cpp" />
     <ClCompile Include="SdkChecks.cpp" />
+    <ClCompile Include="TelemetryAdapter.cpp" />
     <ClCompile Include="TutorialAdapter.cpp" />
     <ClCompile Include="WorldAdapter.cpp" />
   </ItemGroup>
@@ -52,6 +53,7 @@
     <ClInclude Include="Memory.h" />
     <ClInclude Include="Objects.h" />
     <ClInclude Include="Offsets.h" />
+    <ClInclude Include="TelemetryAdapter.h" />
     <ClInclude Include="TutorialAdapter.h" />
     <ClInclude Include="WorldAdapter.h" />
   </ItemGroup>

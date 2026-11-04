@@ -970,9 +970,27 @@ Die Aufgabe bleibt ungelöst. Getestet sind Beobachtung, Befehlsgrenzen sowie Co
 ## Systeme, die die Mod respektieren muss
 
 - **[Belegt]** Bestenlisten: `PixelLeaderboards`, `DDLeaderboardSettings`
-- **[Belegt]** Telemetrie und Berichte: `DDBalanceTelemetrySettings`, `DDCorruptedSaveAutoReportSettings`, `DDBugReportForm`, `PixelsplitFeedbackForm`
+- **[Belegt]** Telemetrie und Berichte: `DDBalanceTelemetrySettings`, `DDCorruptedSaveAutoReportSettings`, `DDBugReportForm`, `PixelsplitFeedbackForm`, im Mod-Betrieb abgeschaltet, siehe unten
 - **[Belegt]** Spielstände: `PixelsplitSaveSystem`, `LocalPlayerSaveGame`
 - **[Belegt]** Zeitsteuerung: `PixelsplitTimescaleSystem`. Für Online-Spiel relevant, weil Pausen bei beiden gelten müssen.
+
+### Telemetrie und Berichte (`telemetrie-aus`)
+
+Stand 04.11.2026, Build `26187885`. Neben dem Crash-Reporter (siehe [Crash-Reporter](../research/spikes/a-connect/README.md#sperre-in-mod-und-spike-crash-reporter)) schickt das Spiel Daten über das eingebaute libcurl an diese Ziele:
+
+| Weg | Ziel | Schalter |
+|---|---|---|
+| Balance-Telemetrie (`BalanceTelemetrySubsystem`, Bosskämpfe und Runden) | `ServerBaseURL` aus `DDBalanceTelemetrySettings`, im Spiel `pixelsplit.games` | `bEnabled`, `bAttachSaveFile` |
+| Spielstand-Analytics | `https://pixelsplit.games/gamelytics/ddr/save_analytics.php` (POST) | – |
+| Bug-Report-Formular (`DDBugReportForm`, `FeedbackManagerSubsystem`) | `https://api.codecks.io/user-report/v1/create-report` | – |
+| Automatische Berichte über beschädigte Spielstände (`DDCorruptedSaveReportSubsystem`) | Codecks | `bEnableAutomaticCorruptedSaveReports` |
+
+- **[Belegt]** Alle drei Schalter stehen ab Werk auf an.
+- **[Belegt]** Die Mod schaltet sie am Klassen-Defaultobjekt ab (`Game::TelemetryAdapter`) und lässt zusätzlich die Namensauflösung für `codecks.io` und `pixelsplit.games` scheitern (`Core::ReportHosts`). Die zweite Schicht hängt nicht an Spiel-Offsets und deckt auch Analytics und Bug-Report-Formular ab, die keinen Schalter haben.
+- **[Belegt]** Die HTTP-Anfragen des Spiels laufen über diese Namensauflösung: Im Menü fragt das Spiel `ddrweekly.deadlydays.com` an, und der Hook sieht es.
+- **Nicht gesperrt:** `ddrweekly.deadlydays.com` (Weekly-Challenge, Thema von `online-sperren` und `weeklymode`), `deadlydays.layerapps.com` (nicht angefragt, Zweck unbekannt), Twitch-Anbindung (nur auf Wunsch des Spielers).
+
+Test: ein PC, zwei Instanzen mit `Start-Session.ps1 -Mod`, MetaBase und Tag 1 bis zum Rundenende. Auf beiden Seiten meldete die Mod den bestandenen Selbsttest (`api.codecks.io` scheitert ohne Netzanfrage) und die drei abgeschalteten Schalter. Weitere Anfragen gab es im Lauf nicht, das Spiel lief normal weiter, kein Absturz. Das Bug-Report-Formular habe ich bewusst nicht abgeschickt: Wäre die Sperre unwirksam, ginge ein Bericht an Pixelsplit.
 
 ## Allgemeines
 

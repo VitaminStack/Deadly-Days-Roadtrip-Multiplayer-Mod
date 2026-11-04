@@ -39,7 +39,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `patches` | P0 | [4](#phase-4--vertical-slice) | zentral | viel |
 | `mod-saves` | P0 | [6](#phase-6--release) | parallel | mittel |
 | `online-sperren` | P0 | [6](#phase-6--release) | parallel | wenig |
-| `telemetrie-aus` | P0 | [6](#phase-6--release) | parallel | wenig |
 | `niederlage` | P1 | [1](#phase-1--analyse-und-spikes) | parallel | viel |
 | `tunnel` | P1 | [1](#phase-1--analyse-und-spikes) | parallel | wenig |
 | `installer` | P1 | [6](#phase-6--release) | parallel | keine |
@@ -149,7 +148,6 @@ Ziel: Die Mod lässt sich installieren, ohne Spielstände oder Bestenlisten zu b
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
 | `online-sperren` | P0 | Bestenlisten und Erfolge online sperren, damit Mod-Runs keine Ranglisten verfälschen. Ordner `src/Game` | `game-adapter` | parallel | wenig |
-| `telemetrie-aus` | P0 | Telemetrie, Bug-Reports und Crash-Reports im Mod-Betrieb abschalten, damit Pixelsplit keine Mod-Fehler als Spielfehler bekommt. Ordner `src/Game` | `game-adapter` | parallel | wenig |
 | `mod-saves` | P0 | Mod-Spielstände vom normalen Spielstand trennen, damit kein Save beschädigt wird. Ordner `src/Game` | `game-adapter` | parallel | mittel |
 | `installer` | P1 | Installer oder einfache Installationsanleitung. Ordner `tools`, `docs` | `game-adapter` | parallel | keine |
 | `release` | P0 | Versionierung, Abschlusstest und Veröffentlichung. Ein Stand, eine Freigabe | `integration-run`, `tutorial-aus`, `online-sperren`, `telemetrie-aus`, `mod-saves`, `installer` | zentral | wenig |
@@ -228,6 +226,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `spike-c` | 1 | Spike C: Mit `karte-client` und `pcg` ist die Mission beim Client gleich, `check_round.py` zählt an Tag 1 bis 4 gleich viele `MapTile`s, siehe [Pausierte Welt und Busplatz](docs/GAME_ANALYSIS.md#pausierte-welt-und-busplatz-testumgebung) |
 | `sync-bedarf` | 1 | Sync-Weg für XP, Währungen, Rewards, Pausen und UI als Entwurf festgelegt, siehe [Sync-Bedarf](docs/SYNC_REQUIREMENTS.md) |
 | `team-aufteilung` | 0 | Keine festen Bereiche je Person und kein `CODEOWNERS`, die Arbeit teilt sich über `tools/tasks.py` |
+| `telemetrie-aus` | 6 | Die Mod schaltet Balance-Telemetrie und automatische Spielstand-Berichte ab und sperrt die Namensauflösung für `codecks.io` und `pixelsplit.games` (`Game::TelemetryAdapter`, `Core::ReportHosts`), siehe [Telemetrie und Berichte](docs/GAME_ANALYSIS.md#telemetrie-und-berichte-telemetrie-aus) |
 | `testaufbau` | 1 | Zwei Instanzen auf einem PC unter demselben Steam-Konto, je mit eigenem `-UserDir=` |
 | `testumgebung` | 1 | Tag 1 bis 4 laden sauber mit Spawn am Bus und je 2 PlayerStates, Prüfskript und fester Routenlauf, siehe [Pausierte Welt und Busplatz](docs/GAME_ANALYSIS.md#pausierte-welt-und-busplatz-testumgebung) |
 | `tick-absturz` | 1 | Restrictor-Absturz `0x5A17ACC` nachgestellt, Laufzeitfix ist `restrictor`, siehe [Restrictor](docs/GAME_ANALYSIS.md#client-absturz-im-restrictor-tick-absturz) |

@@ -25,6 +25,10 @@ template <typename T> std::optional<T> Read(uintptr_t Address)
     return Value;
 }
 
+// Schreibt Size Bytes nach Address. Falsch bei Address 0 oder einem Zugriffsfehler. Nur für Werte in Objekten,
+// nie für Code: Seitenschutz wird nicht geändert.
+bool WriteBytes(uintptr_t Address, const void* Data, size_t Size);
+
 // Zeiger an Address, nullopt bei Lesefehler oder Nullzeiger.
 std::optional<uintptr_t> ReadPointer(uintptr_t Address);
 
