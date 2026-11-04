@@ -7,9 +7,9 @@
 #include <string>
 
 #include "Core/Config.h"
-#include "Core/CrashReports.h"
 #include "Core/Hooks.h"
 #include "Core/Log.h"
+#include "Core/Protection.h"
 #include "Core/Version.h"
 #include "Game/Game.h"
 #include "Net/Net.h"
@@ -48,8 +48,9 @@ void Start()
         return;
     if (!Core::Hooks::Initialize())
         return;
-    // Vor allem anderen: Abstürze mit Mod dürfen nie beim Hersteller landen.
-    Core::CrashReports::Block();
+    // Ohne alle Sperren gegen Berichte an den Hersteller bleibt die Mod aus, Game, Net, Sync und UI starten nicht.
+    if (!Core::Protection::Install())
+        return;
 
     Game::Start();
     Net::Start();

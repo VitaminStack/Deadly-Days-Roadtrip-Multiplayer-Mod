@@ -174,6 +174,8 @@ Ablauf siehe [Pausierte Welt und Busplatz](GAME_ANALYSIS.md#pausierte-welt-und-b
 | `ULoadingSubSystem` | TimescaleManager | `0xE0` |
 | `UTimescaleManager` | TimeRequests: Num, freie Plätze | `0x50`, `0x7C`; ein Mapelement ist `0x1C` groß: Weak-Zeiger auf den Anfragenden, dann `FTimeRequest` |
 | `UTutorialStateSubsystem` | SkipTutorialFlag | `0xB8`, `int32`, nicht im Spielstand, nach jedem Start aus. In `src/Game/Offsets.h` |
+| `UDDBalanceTelemetrySettings` | bEnabled, ServerBaseURL (`FString`), bAttachSaveFile | `0x38`, `0x40`, `0x60`, am Klassen-Defaultobjekt, ab Werk an. In `src/Game/Offsets.h` |
+| `UDDCorruptedSaveAutoReportSettings` | bEnableAutomaticCorruptedSaveReports | `0x38`, am Klassen-Defaultobjekt, ab Werk an. In `src/Game/Offsets.h` |
 | `USceneComponent` | Weltposition (Translation von ComponentToWorld) | `0x210`; `RelativeLocation` `0x148` ist bei angehängten Actors relativ |
 | `APlayerState` | PawnPrivate | `0x320` |
 | `APawn` | Controller | `0x2D8` |
@@ -221,6 +223,8 @@ Was die Mod nutzt, steht zusätzlich in `src/Game/Offsets.h` und wird dort beim 
 | `UNetDriver` | bClampListenServerTickRate (Bit 0), NetServerMaxTickRate, MaxNetTickRate, MaxInternetClientRate, MaxClientRate | `0xAC`, `0xB0`, `0xD0`, `0xD4`, `0xD8` |
 | `UPlayer` (auch `UNetConnection`) | CurrentNetSpeed, ConfiguredInternetSpeed, ConfiguredLanSpeed | `0x38`, `0x3C`, `0x40` |
 | `UTutorialStateSubsystem` | SkipTutorialFlag | `0xB8` |
+| `UDDBalanceTelemetrySettings` | bEnabled, ServerBaseURL, bAttachSaveFile | `0x38`, `0x40`, `0x60` |
+| `UDDCorruptedSaveAutoReportSettings` | bEnableAutomaticCorruptedSaveReports | `0x38` |
 | `FWorldContext` | TravelURL | `0xA8` |
 | `ADDMissionGameMode` | SpawnedPlayers (TSet) | `0x388` |
 | Controller-TSet | Eintrag / HashNext / HashIndex | Stride `0x10`, Felder `+0`, `+8`, `+0xC` |

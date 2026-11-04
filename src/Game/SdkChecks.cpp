@@ -44,6 +44,12 @@ static_assert(UNetDriver::ClientConnections == offsetof(SDK::UNetDriver, ClientC
 static_assert(AGameStateBase::PlayerArray == offsetof(SDK::AGameStateBase, PlayerArray));
 
 static_assert(UTutorialStateSubsystem::SkipTutorialFlag == offsetof(SDK::UTutorialStateSubsystem, SkipTutorialFlag));
+
+static_assert(UDDBalanceTelemetrySettings::Enabled == offsetof(SDK::UDDBalanceTelemetrySettings, bEnabled));
+static_assert(UDDBalanceTelemetrySettings::ServerBaseURL == offsetof(SDK::UDDBalanceTelemetrySettings, ServerBaseURL));
+static_assert(UDDBalanceTelemetrySettings::AttachSaveFile == offsetof(SDK::UDDBalanceTelemetrySettings, bAttachSaveFile));
+static_assert(UDDCorruptedSaveAutoReportSettings::EnableAutomaticReports ==
+              offsetof(SDK::UDDCorruptedSaveAutoReportSettings, bEnableAutomaticCorruptedSaveReports));
 }
 
 #endif

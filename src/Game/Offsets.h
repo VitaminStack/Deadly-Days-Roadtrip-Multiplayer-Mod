@@ -64,4 +64,17 @@ namespace UTutorialStateSubsystem
 {
 inline constexpr uintptr_t SkipTutorialFlag = 0xB8; // int32, nach jedem Spielstart wieder 0
 }
+
+// Einstellungen der Telemetrie und der automatischen Berichte, gelesen am Klassen-Defaultobjekt.
+namespace UDDBalanceTelemetrySettings
+{
+inline constexpr uintptr_t Enabled = 0x38;        // bool
+inline constexpr uintptr_t ServerBaseURL = 0x40;  // FString
+inline constexpr uintptr_t AttachSaveFile = 0x60; // bool
+}
+
+namespace UDDCorruptedSaveAutoReportSettings
+{
+inline constexpr uintptr_t EnableAutomaticReports = 0x38; // bool
+}
 }
