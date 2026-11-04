@@ -596,6 +596,16 @@ Stand: Disassembly und Laufzeit, Build `26187885`. Mission über das Spielmenü 
 **Empfehlung:** Option A für den ersten spielbaren Stand. Sie ist schon lauffähig, braucht keine neuen Systeme und passt zu Spawnen, Zoom und Bewegungsgrenze des Spiels.
 Den Abgleich der Client-Kamera mit der des Hosts nur angehen, falls die Abweichung im Spiel stört. Option C kann danach als Feinschliff kommen. Option B erst, wenn das Team ausdrücklich freie Bewegung will, denn sie zieht einen eigenen Sync der Viewports nach sich.
 
+### ViewTarget beim Client (`kamera-viewtarget`)
+
+Stand: Spieltest am 04.11.2026, Build `26187885`, ein PC über Loopback, Route über das Spielmenü mit Seed `20795`.
+
+- **[Belegt]** Vorher schaute der Client in der Mission nicht durch die gemeinsame Kamera, sondern aus der eigenen Figur: ViewTarget des lokalen Controllers war `BP_DD_Character_C`, die Blickposition lag 64 Einheiten über der Figur. Im Bild sah man nur Boden aus der Nähe. Der Host schaute die ganze Zeit korrekt durch `BP_PlayerCameraActor_C`.
+- **[Belegt]** Ursache im Spike: `ViewThroughSharedCamera` nahm den ersten `BP_DDPlayerController_C` im Objekt-Array. Kurz nach einem Kartenwechsel lebt der alte Controller ohne `LocalPlayer` noch und steht davor. Die 15 Wiederholungen landeten an ihm, das Log meldete trotzdem „Kamera: gesetzt“. Danach griff auch `!cam` nicht mehr, weil nur eine neue Kamera die Wiederholungen neu startete.
+- **Fix in `Camera.cpp`:** nur Controller mit `LocalPlayer` (`+0x348`) und die Kamera aus `PersistentLevel` der aktuellen Welt. Jede Sekunde prüft der Spike das ViewTarget (`PlayerCameraManager+0x340`) und setzt es nur, wenn es nicht die Kamera ist. Das Log nennt das vorherige Ziel.
+- **[Belegt]** Mit dem Fix: Je Weltwechsel genau ein „Kamera: gesetzt, vorher BP_DD_Character_C“, also beim Betreten von MetaBase, Tag 1 und Tag 2. Danach blieb das ViewTarget die Kamera. Die Blickposition des Clients war gleich der des Hosts, die Bilder fast gleich. Lief die Client-Figur 2,5 s, folgte die Client-Kamera ruhig und lag höchstens rund 10 Einheiten neben der des Hosts.
+- Nicht geprüft: weitere Tage, Internet, Mission → MetaBase.
+
 ### Client-Absturz im Restrictor (`tick-absturz`)
 
 Stand: Disassembly und Spieltest am 02.11.2026, Build `26187885`.
