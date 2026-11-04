@@ -79,10 +79,29 @@ powershell -ExecutionPolicy Bypass -File tools/spike/Game-Input.ps1 Host click 3
 powershell -ExecutionPolicy Bypass -File tools/spike/Game-Input.ps1 Host key A 1.6
 ```
 
-Ohne Dateinamen landen Bilder unter `research/local/session/shots/`. Für den Ablauf über die Route gibt es zwei Skripte. `Start-Run.ps1 [-Seed <n>]` geht
-aus der `MetaBase` bis zur Routenkarte und legt `research/local/session/route.png` ab. `Travel-Day.ps1 <x> <y>` klickt den Knoten, prüft nach der Ankunft
+Ohne Dateinamen landen Bilder unter `research/local/session/shots/`. `Game-Input.ps1 Host pixel <x> <y>` gibt die Farbe eines Punkts als `RRGGBB` aus.
+Für den Ablauf über die Route gibt es drei Skripte. `Start-Run.ps1 [-Seed <n>]` geht aus der `MetaBase` bis zur Routenkarte und legt
+`research/local/session/route.png` ab. Es liest die Position des Hosts, läuft in einem Zug in den Ring, erkennt die Routenkarte am grünen Banner
+und versucht es bis zu dreimal. `Travel-Day.ps1 <x> <y>` klickt den Knoten, prüft nach der Ankunft
 Prozesse, Netzzustand und Inventare, beendet den Tag mit `!finish`, bestätigt das Lager und legt die nächste `route.png` ab. Mit `-Stay` bleibt es
-in der Mission. Stürzt eine Instanz ab, endet es mit Exitcode 2 und dem neuesten Bericht. Beide Skripte setzen ein `UserDir` ohne Tutorial-Dialoge voraus.
+in der Mission. Stürzt eine Instanz ab, endet es mit Exitcode 2 und dem neuesten Bericht. Tutorial-Hinweise schaltet der Spike auf beiden Seiten selbst ab.
+
+### Fester Routenlauf
+
+```bash
+powershell -ExecutionPolicy Bypass -File tools/spike/Run-Route.ps1 -Start
+```
+
+Das startet die Sitzung neu (`-Start`), geht mit Seed `20795` auf die Route und fährt die Knoten (62, 213), (160, 213), (255, 213), (352, 112), (448, 230).
+`-Days`, `-Seed` und `-Nodes` ändern den Lauf, `-StayLast` bleibt am letzten Tag in der Mission. Nach jedem Wechsel prüft `check_round.py`:
+Welt, `PlayerArray` und PlayerStates (je 2), Figuren am Bus, Pause in `WorldSettings`, `MapTile`s, statische NetGUIDs der Spielerklassen
+gegen den Host und neue `NewActor failed` im Log. Jede Zeile endet mit `sauber` oder `ABWEICHUNG` und den Gründen. Ergebnisse und Bilder
+(3, 8 und 15 s nach dem Klick, dann nach der Prüfung) liegen unter `research/local/session/runs/<Zeit>/`, die Prüfungen in `checks.jsonl`.
+Exitcode 0 heißt alles sauber, 1 Abweichung, 2 Instanz beendet. Eine einzelne Prüfung geht auch von Hand:
+
+```bash
+py tools/spike/check_round.py <host-pid> <client-pid>
+```
 
 Von Hand geht es so:
 
@@ -97,7 +116,7 @@ Danach öffnet sich direkt die Routenkarte, die Knoten für Tag 1 liegen in der 
 Für eine reproduzierbare Karte vor dem Öffnen der Routenkarte `Send-Command.ps1 Host 'DD_SetCurrentRunSeed <n>'` senden, siehe [Karte und Seed](GAME_ANALYSIS.md#karte-und-seed).
 
 Das Pausemenü (`Esc`) hat „Zurück zum Hauptmenü“ bei (396, 266). Mit `!finish` endet die Mission beim Host, danach kommt die Routenkarte für Tag 2.
-Über die echte Route erreichen beide Instanzen Tag 4, dort fehlen dem Client aber die PlayerStates, an Tag 5 stürzt er ab, siehe [Tageswechsel](GAME_ANALYSIS.md#tageswechsel-client-verliert-die-playerstates-tageswechsel-übergabestand). Eine `servertravel`-Schleife ersetzt die echte Route dabei nicht.
+Über die echte Route laden Tag 1 bis 4 sauber, an Tag 5 stürzt der Client ab, siehe [Pausierte Welt und Busplatz](GAME_ANALYSIS.md#pausierte-welt-und-busplatz-testumgebung). Eine `servertravel`-Schleife ersetzt die echte Route dabei nicht.
 
 ## Abstürze auswerten
 

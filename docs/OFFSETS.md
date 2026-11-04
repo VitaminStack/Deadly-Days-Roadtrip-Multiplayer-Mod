@@ -147,6 +147,29 @@ Ablauf siehe [Crash-Reporter](../research/spikes/a-connect/README.md#sperre-in-m
 | `FPlatformProcess::CreateProc` | `0x144D740` | Ruft `CreateProcessW` über den Import |
 | Import `KERNEL32!CreateProcessW` | `0x82774D8` | Eintrag in der Importtabelle, Spike-Patch |
 
+### Laden, Zeitanfragen und Busplatz (`testumgebung`)
+
+Ablauf siehe [Pausierte Welt und Busplatz](GAME_ANALYSIS.md#pausierte-welt-und-busplatz-testumgebung).
+
+| Funktion | RVA | Hinweis |
+|---|---|---|
+| Ladestart von `ULoadingSubSystem` | `0x595C910` | Fordert eigene Pause an (Priorität 1000) und ruft `ClearAllRequests(Exclude=[self])`. Aufrufer `0x596BB14`, `0x596BB2E`, `0x5976BF4`, `0x5976C0E` |
+| `UTimescaleManager::ClearAllRequests(TArray<UObject*>)` | `0x46A5320` | Exec-Thunk `0x46A4830` |
+| `UTimescaleManager::RequestTimescale` | `0x46A5980` | |
+| `BusSpawnPositionGenerator`, Bus und Figuren setzen | `0x59A6CE0` | VTable-Slot 86, indirekt aus dem Timer `0x59D9090` |
+| Spawnplatz freiräumen | `0x5991B70` | `(const TArray<AActor*>* Keep, ctx)`, schont Keep und deren Besitzer-Kette über `AActor+0x158`. Spike-Hook, Einsprung `48 89 5C 24 18` |
+
+| Klasse | Feld | Offset |
+|---|---|---|
+| `ULoadingSubSystem` | TimescaleManager | `0xE0` |
+| `UTimescaleManager` | TimeRequests: Num, freie Plätze | `0x50`, `0x7C`; ein Mapelement ist `0x1C` groß: Weak-Zeiger auf den Anfragenden, dann `FTimeRequest` |
+| `UTutorialStateSubsystem` | SkipTutorialFlag | `0xB8`, nicht im Spielstand, nach jedem Start aus |
+| `USceneComponent` | Weltposition (Translation von ComponentToWorld) | `0x210`; `RelativeLocation` `0x148` ist bei angehängten Actors relativ |
+| `APlayerState` | PawnPrivate | `0x320` |
+| `APawn` | Controller | `0x2D8` |
+| `APlayerController` | NetConnection | `0x520` |
+| `FUObjectItem` | Flags, interne Flags, Objekt, Serial | `+0`, `+4` (Garbage `0x00200000`, Unreachable `0x10000000`), `+8`, `+0x10` |
+
 ## Klassen
 
 | Klasse | Feld | Offset |

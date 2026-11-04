@@ -24,14 +24,13 @@ Für alle reicht die [Einrichtung](docs/SETUP.md), wenn nichts anderes dabeisteh
 
 **Spielzeit** sagt, wie sehr die Aufgabe laufende Testsitzungen braucht. Pro PC läuft nur eine Sitzung, Aufgaben mit „keine“ oder „wenig“ eignen sich also für parallele Arbeit.
 
-**Gruppe** fasst zusammen, was thematisch zusammengehört. Verschiedene Gruppen lassen sich gleichzeitig bearbeiten. Innerhalb einer Gruppe gilt: `niederlage` kommt nach `phasenadapter`, `guidcache` nach `testumgebung`. `controller-tausch` ist abgeschlossen; neue Änderungen an `Players.cpp` weiterhin mit laufenden Spieler-Aufgaben abstimmen.
+**Gruppe** fasst zusammen, was thematisch zusammengehört. Verschiedene Gruppen lassen sich gleichzeitig bearbeiten. Innerhalb einer Gruppe gilt: `niederlage` kommt nach `phasenadapter`. `controller-tausch` ist abgeschlossen; neue Änderungen an `Players.cpp` weiterhin mit laufenden Spieler-Aufgaben abstimmen.
 
 Die Pakete für die Zeit nach Phase 1 stehen unter [Spätere Arbeitspakete](#spätere-arbeitspakete), alles, was nicht parallel geht, unter [Zentrale Arbeit](#zentrale-arbeit).
 
 | Kennung | Gruppe | Aufgabe | Art | Spielzeit | Einstieg |
 |---|---|---|---|---|---|
-| `testumgebung` | Run | Saubere Testumgebung belegen, bevor die Tageswechsel-Suche weitergeht: Jede Runde lädt vollständig, beide Spieler erscheinen am Bus, auf beiden Seiten 2 PlayerStates. Ein Prüfskript für jeden Wechsel (Welt, `PlayerArray`, Figurenpositionen am Bus, `guidcache.py`, `NewActor failed` im Log) und einen festen Routenlauf mit Seed ins Repo bringen. Läufe mit seltsamem Laden festhalten und klären, ob sie mit den fehlenden PlayerStates zusammenhängen | Spike, Test | viel | Abschnitt „Tageswechsel“ in [GAME_ANALYSIS](docs/GAME_ANALYSIS.md#tageswechsel-client-verliert-die-playerstates-tageswechsel-übergabestand), `tools/spike/Travel-Day.ps1`, `objects.py`, `guidcache.py` |
-| `guidcache` | Run | Klären, wo dem Client an Tag 4 die NetGUID-Einträge `0x125` und `0x127` der PlayerState-Klasse verloren gehen, und das für jede Klasse, jeden Tag und den Endlosmodus beheben. Danach alle 8 Tage bis zum Endboss und den Endlosmodus über mindestens zwei Gebietswechsel fahren, Inventar abschließen | Reverse Engineering, Spike | viel | Offene Spuren im Abschnitt „Tageswechsel“ in [GAME_ANALYSIS](docs/GAME_ANALYSIS.md#tageswechsel-client-verliert-die-playerstates-tageswechsel-übergabestand), Layout in [OFFSETS](docs/OFFSETS.md) |
+| `guidcache` | Run | Client-Absturz an Tag 5 bei `0x56B16D9` beheben. Mit sauberem Laden fehlen die PlayerStates und die NetGUID-Einträge `0x125`, `0x127` an Tag 4 nicht mehr; prüfen, ob sie an späteren Tagen oder im Endlosmodus wieder verloren gehen, und das für jede Klasse beheben. Danach alle 8 Tage bis zum Endboss und den Endlosmodus über mindestens zwei Gebietswechsel fahren, Inventar abschließen | Reverse Engineering, Spike | viel | [Pausierte Welt und Busplatz](docs/GAME_ANALYSIS.md#pausierte-welt-und-busplatz-testumgebung), `tools/spike/Run-Route.ps1`, offene Spuren unter „Tageswechsel“ in [GAME_ANALYSIS](docs/GAME_ANALYSIS.md#tageswechsel-client-verliert-die-playerstates-tageswechsel-übergabestand) |
 | `phasenadapter` | Run | Phasenadapter für Rundenende, Lager und Routenkarte im Spiel belegen: automatische Hostquellen, sichtbare Anzeige, vollständige Eingabesperre | Reverse Engineering, Spike | viel | `research/spikes/a-connect/RoundPhaseRuntime.md`, `Mission.cpp` |
 | `remote-p2` | Spieler | Remote-Controller als P2 testen | Spike | mittel | [Coop-Ablauf](docs/GAME_ANALYSIS.md#coop-ablauf) |
 | `tunnel` | Technik | Steam-Tunnel (Spike E) | C++, ohne Reverse Engineering, Steamworks SDK nötig | wenig | [Transport](docs/ARCHITECTURE.md#transport) |
@@ -47,6 +46,7 @@ Die Pakete für die Zeit nach Phase 1 stehen unter [Spätere Arbeitspakete](#sp�
 - Weitere Einzelprüfungen in den Inventar-Schleifen: Nach jeder stürzt der Client an der nächsten Stelle ab
 - Eine höhere `NetPriority` des `GameState` hilft nicht gegen den HUD-Hänger, `OnRep_Slots` zurückzuhalten hilft nicht beim Inventar
 - Gegen die fehlenden PlayerStates ab Tag 4 helfen weder Klassen im RootSet noch ein Patch am 90-s-Ablauf in `CleanReferences`, und eine `servertravel`-Schleife mit GC in jedem Frame stellt den Fehler nicht nach, siehe [Tageswechsel](docs/GAME_ANALYSIS.md#tageswechsel-client-verliert-die-playerstates-tageswechsel-übergabestand)
+- Pause ab Tag 2 und fehlende Client-Figur am Bus sind im Spike behoben (Zeitanfragen vor der Reise abräumen, Busplatz schont Spielerfiguren). Ein Lauf mit seltsamem Laden heißt zuerst `Run-Route.ps1` und `check_round.py` prüfen, siehe [Pausierte Welt und Busplatz](docs/GAME_ANALYSIS.md#pausierte-welt-und-busplatz-testumgebung)
 
 ## Spätere Arbeitspakete
 
@@ -163,6 +163,7 @@ Nicht erneut reservieren. Die Nachweise und verbindlichen Checkboxen bleiben in 
 | Kennung | Aufgabe |
 |---|---|
 | `boss-dump` | Bossklassen gezielt geladen und gedumpt (Phase 0) |
+| `testumgebung` | Saubere Testumgebung: Tag 1 bis 4 laden vollständig, Spawn am Bus, je 2 PlayerStates; Prüfskript und fester Routenlauf (Phase 1). Absturz an Tag 5 bleibt `guidcache` |
 | `controller-tausch` | Controller-Tausch über zwei Missionswechsel sofort abgeglichen, ohne Timer-Nachtrag (Phase 1); Mission → MetaBase nicht abgenommen |
 | `karte-client` | Host-Karte beim Client ohne replizierte Duplikate erzeugt (Phase 1) |
 | `pcg` | PCG-Vegetation beim Client erzeugt (Phase 1) |
@@ -235,9 +236,9 @@ Ziel: Fakten für Gate G1 sammeln. Spike-Code ist Wegwerfcode und landet nicht i
 - [x] P1 Klären, ob zur Laufzeit Iris oder die klassische Replikation aktiv ist: klassisch mit `ActorChannel`
 - [x] P0 Run-Ablauf nachvollziehen: `TriggerStartRun`, `FinalizeRunStart`, Ladebildschirm und Wechsel zwischen den Etappen, siehe [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf)
 <!-- tasks: guidcache -->
-- [ ] P0 Inventar beim Client lösen, für jeden Tag und den Endlosmodus: Unterobjekt-Teilfix, dazu aus `tag3` Achievement-Timer, Kartengenerator-Lambda und Exp-Aggregation. `tageswechsel` deckt alle Aufrufer der AttributeSet-Suche am Einstieg ab. Inventare an Tag 1 bis 3 vollständig und gleich. Ab Tag 4 fehlen dem Client die PlayerStates, weil seinem NetGUID-Cache die Einträge der PlayerState-Klasse fehlen, an Tag 5 stürzt er ab. Fertig erst, wenn kein Fix an einen bestimmten Tag gebunden ist, ein Run alle 8 Tage samt Gebietswechsel und Endboss schafft und der Endlosmodus danach über mindestens zwei Gebietswechsel weiterläuft, an jedem Tag mit `complete` und `equal`. Folgeaufgaben `testumgebung`, dann `guidcache`, siehe [Tageswechsel](docs/GAME_ANALYSIS.md#tageswechsel-client-verliert-die-playerstates-tageswechsel-übergabestand)
+- [ ] P0 Inventar beim Client lösen, für jeden Tag und den Endlosmodus: Unterobjekt-Teilfix, dazu aus `tag3` Achievement-Timer, Kartengenerator-Lambda und Exp-Aggregation. `tageswechsel` deckt alle Aufrufer der AttributeSet-Suche am Einstieg ab. Inventare an Tag 1 bis 3 vollständig und gleich. Mit sauberem Laden (`testumgebung`) sind Tag 1 bis 4 vollständig, an Tag 5 stürzt der Client ab. Fertig erst, wenn kein Fix an einen bestimmten Tag gebunden ist, ein Run alle 8 Tage samt Gebietswechsel und Endboss schafft und der Endlosmodus danach über mindestens zwei Gebietswechsel weiterläuft, an jedem Tag mit `complete` und `equal`. Folgeaufgabe `guidcache`, siehe [Tageswechsel](docs/GAME_ANALYSIS.md#tageswechsel-client-verliert-die-playerstates-tageswechsel-übergabestand)
 <!-- tasks: testumgebung -->
-- [ ] P0 Saubere Testumgebung für den Run belegen: Jede Runde lädt vollständig, beide Spieler erscheinen am Bus, auf beiden Seiten 2 PlayerStates, mit Prüfskript für jeden Wechsel. Aufgabe `testumgebung`
+- [x] P0 Saubere Testumgebung für den Run belegen: Jede Runde lädt vollständig, beide Spieler erscheinen am Bus, auf beiden Seiten 2 PlayerStates, mit Prüfskript für jeden Wechsel. Aufgabe `testumgebung`: Tag 1 bis 4 sauber mit `Run-Route.ps1`, Absturz an Tag 5 geht an `guidcache`, siehe [Pausierte Welt und Busplatz](docs/GAME_ANALYSIS.md#pausierte-welt-und-busplatz-testumgebung)
 <!-- tasks: phasenadapter -->
 - [ ] P0 Rundenende, Lager und Routenkarte beim Client abbilden: Snapshot-Codec, Empfänger und lokaler Laufzeitadapter in `Mission.cpp` (Heartbeat, Dateitransport, Timeout, Textanzeige, Win32-Nachrichtenfilter) ohne Spiel getestet, bis `!phase bind` inaktiv. Automatische Hostquellen für Rundenübersicht, Lager und Route, sichtbarer Lauf und vollständige Eingabesperre fehlen, Folgeaufgabe `phasenadapter`, siehe [Untersuchung](docs/GAME_ANALYSIS.md#rundenende-befund-und-offene-phasenübertragung-rundenende)
 <!-- tasks: controller-tausch -->
@@ -386,6 +387,8 @@ Ziel: Ein kompletter Run ist zu zweit online spielbar.
 - [ ] P0 **Bestenlisten und Erfolge online sperren**, damit Mod-Runs keine Ranglisten verfälschen
 <!-- tasks: telemetrie-aus -->
 - [ ] P0 **Telemetrie, Bug-Reports und Crash-Reports im Mod-Betrieb abschalten**, damit Pixelsplit keine Mod-Fehler als Spielfehler bekommt
+<!-- tasks: tutorial-aus -->
+- [ ] P0 **Tutorial-Hinweise im Coop-Betrieb auf beiden Seiten abschalten**, damit kein offener Hinweis die Welt für beide pausiert
 <!-- tasks: mod-saves -->
 - [ ] P0 Mod-Spielstände vom normalen Spielstand trennen, damit kein Save beschädigt wird
 <!-- tasks: installer -->

@@ -95,8 +95,8 @@ Bauen und Testen des Spikes, die Anleitung steht in [docs/TESTING.md](../docs/TE
 | `Stop-Session.ps1` | Beendet die Instanzen dieses Ordners, gibt die Sperre frei und entfernt eine mit `-Mod` installierte Mod |
 | `Get-Status.ps1` | Prozesse, Netzzustand, letzte Log- und Mod-Logzeilen, Abstürze seit Sitzungsstart. `-Inventory` vergleicht die Inventare |
 | `Wait-Log.ps1` | Wartet auf eine neue passende Zeile im Spike-Log statt einer festen Pause |
-| `Game-Input.ps1` | Bild aus einem Spielfenster, Klick oder Taste, ohne Bildschirmaufnahme des Desktops |
-| `Start-Run.ps1` | Startet aus der `MetaBase` einen Run bis zur Routenkarte |
+| `Game-Input.ps1` | Bild aus einem Spielfenster, Farbe eines Punkts (`pixel`), Klick oder Taste, ohne Bildschirmaufnahme des Desktops |
+| `Start-Run.ps1` | Startet aus der `MetaBase` einen Run bis zur Routenkarte: Position lesen, in einem Zug in den Ring, Karte am Banner erkennen, bis zu drei Versuche |
 | `Travel-Day.ps1` | Fährt einen Tag über die Routenkarte, prüft beide Instanzen und beendet ihn |
 | `Run-Route.ps1` | Fester Routenlauf mit Seed `20795` über mehrere Tage, nach jedem Wechsel `check_round.py`, Bilder während und nach dem Laden unter `research/local/session/runs/` |
 | `check_round.py` | Prüft nach einem Kartenwechsel World, `PlayerArray`, PlayerStates, Figuren am Bus, gleiche Positionen bei Host und Client, NetGUIDs und `NewActor failed` |
