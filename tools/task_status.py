@@ -7,6 +7,7 @@ Jede Aufgabe steht genau einmal in TODO.md: offen in der Tabelle ihrer Phase, er
 """
 from dataclasses import dataclass, field
 from pathlib import Path
+from html import escape
 import re
 import sys
 
@@ -241,27 +242,69 @@ def update_readme(tasks, readme):
     return ''.join(lines)
 
 
+def progress_svg(tasks, readme):
+    """GitHub entfernt Tabellen-CSS; eine lokale SVG kann ganze abgeschlossene Zeilen gruen hinterlegen."""
+    readme = update_readme(tasks, readme)
+    counts = phase_counts(tasks)
+    rows = []
+    for line in readme.splitlines():
+        match = re.match(r'^\| \[([0-6])\]\(TODO.md#phase-', line)
+        if match:
+            phase = int(match[1])
+            rows.append((str(phase), cells(line)[1], *counts[phase]))
+    rows.append(('Gesamt', '', sum(v[0] for v in counts.values()), sum(v[1] for v in counts.values())))
+    height = 52 + 48 * len(rows)
+    svg = [f'<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="{height}" viewBox="0 0 1000 {height}" role="img" aria-labelledby="title desc">',
+           '  <title id="title">Projektfortschritt je Phase</title>',
+           '  <desc id="desc">Vollständig abgeschlossene Phasen haben einen grünen Hintergrund. Die verlinkte Texttabelle steht im README.</desc>',
+           '  <g font-family="Segoe UI, sans-serif" font-size="16" fill="#111827">',
+           '    <rect width="1000" height="52" fill="#1f2937"/>']
+    for x, label in ((20, 'Phase'), (125, 'Ziel'), (490, 'Erledigt'), (630, 'Fortschritt')):
+        svg.append(f'    <text x="{x}" y="33" fill="#ffffff" font-weight="600">{label}</text>')
+    for index, (phase, goal, done, total) in enumerate(rows):
+        y = 52 + index * 48
+        complete = done == total
+        background = '#dcfce7' if complete else '#f3f4f6' if phase == 'Gesamt' else '#ffffff'
+        bar = '#15803d' if complete else '#64748b'
+        status = 'Abgeschlossen' if complete else f'{done * 100 // total} %'
+        svg += [f'    <g id="phase-{phase.lower()}">',
+                f'      <rect y="{y}" width="1000" height="48" fill="{background}"/>',
+                f'      <path d="M0 {y + 48}H1000" stroke="#d1d5db"/>']
+        for x, label in ((20, phase), (125, goal), (490, f'{done} von {total}')):
+            svg.append(f'      <text x="{x}" y="{y + 30}">{escape(label)}</text>')
+        svg.append(f'      <rect x="630" y="{y + 15}" width="200" height="18" rx="4" fill="#e5e7eb"/>')
+        if done:
+            svg.append(f'      <rect x="630" y="{y + 15}" width="{200 * done // total}" height="18" rx="4" fill="{bar}"/>')
+        svg += [f'      <text x="846" y="{y + 30}">{status}</text>', '    </g>']
+    return '\n'.join(svg + ['  </g>', '</svg>', ''])
+
+
 def main():
     if sys.argv[1:] not in (['check'], ['update']):
         sys.exit('Aufruf: py tools/task_status.py check|update')
     sys.stdout.reconfigure(encoding='utf-8')
     root = Path(__file__).resolve().parents[1]
     todo_path, readme_path = root / 'TODO.md', root / 'README.md'
+    svg_path = root / 'docs/assets/progress.svg'
     todo = todo_path.read_bytes().decode('utf-8')
     readme = readme_path.read_bytes().decode('utf-8')
     try:
         tasks = parse(todo)
         expected_todo = update_todo(todo, tasks)
         expected_readme = update_readme(tasks, readme)
+        expected_svg = progress_svg(tasks, expected_readme)
     except ValueError as error:
         sys.exit(f'TODO.md ungueltig: {error}')
-    stale = [p for p, old, new in ((todo_path, todo, expected_todo), (readme_path, readme, expected_readme)) if old != new]
+    outputs = ((todo_path, todo, expected_todo), (readme_path, readme, expected_readme),
+               (svg_path, svg_path.read_text(encoding='utf-8') if svg_path.exists() else '', expected_svg))
+    stale = [p for p, old, new in outputs if old != new]
     if not stale:
-        print('TODO.md und README-Fortschritt sind konsistent.')
+        print('TODO.md, README-Fortschritt und SVG sind konsistent.')
     elif sys.argv[1] == 'check':
         sys.exit('Veraltet: ' + ', '.join(p.name for p in stale) + '. py tools/task_status.py update ausfuehren.')
     else:
-        for path, new in ((todo_path, expected_todo), (readme_path, expected_readme)):
+        for path, _, new in outputs:
+            path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(new.encode('utf-8'))
         print('Aktualisiert: ' + ', '.join(p.name for p in stale))
 

@@ -3,6 +3,7 @@ from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
 import unittest
+import xml.etree.ElementTree as ET
 from unittest.mock import call, patch
 
 from tools import task_status as source
@@ -32,6 +33,8 @@ class ParseTests(unittest.TestCase):
         parsed = source.parse(text)
         self.assertEqual(source.update_todo(text, parsed), text)
         self.assertEqual(source.update_readme(parsed, readme), readme)
+        self.assertEqual(source.progress_svg(parsed, readme),
+                         (ROOT / 'docs/assets/progress.svg').read_text(encoding='utf-8'))
         for name in ('crash-reporter', 'overlay', 'deploy', 'ci', 'grundgeruest', 'testumgebung'):
             self.assertTrue(parsed[name].done, name)
 
@@ -125,6 +128,33 @@ class DerivedTests(unittest.TestCase):
         self.assertEqual(source.progress_bar(0, 8), '░' * 11)
         self.assertEqual(source.progress_bar(8, 8), '█' * 11)
         self.assertEqual(source.progress_bar(7, 8), '██████████░')
+
+    def test_svg_only_completed_phases_have_green_background(self):
+        parsed = source.parse(todo('| `a` | P0 | Text | – | parallel | wenig |\n'))
+        readme = ''.join(f'| [{p}](TODO.md#phase-{p}) | Ziel & Test | 0 von 9 | x |\n' for p in range(7))
+        readme += '| **Gesamt** | | **0 von 99** | x |\n'
+        svg = source.progress_svg(parsed, readme)
+        root = ET.fromstring(svg)
+        ns = {'s': 'http://www.w3.org/2000/svg'}
+        for phase in range(7):
+            row = root.find(f'.//s:g[@id="phase-{phase}"]', ns)
+            self.assertEqual(row.find('s:rect', ns).get('fill'), '#ffffff' if phase == 1 else '#dcfce7')
+            text = ''.join(row.itertext())
+            self.assertIn('1 von 2' if phase == 1 else '1 von 1', text)
+            self.assertEqual('Abgeschlossen' in text, phase != 1)
+        self.assertIn('Ziel &amp; Test', svg)
+        self.assertNotIn('#dcfce7', ET.tostring(root.find('.//s:g[@id="phase-gesamt"]', ns)).decode())
+        self.assertEqual(svg, source.progress_svg(parsed, source.update_readme(parsed, readme)))
+
+    def test_svg_all_done_includes_green_total(self):
+        parsed = source.parse(todo())
+        readme = ''.join(f'| [{p}](TODO.md#phase-{p}) | Ziel | 0 von 9 | x |\n' for p in range(7))
+        readme += '| **Gesamt** | | **0 von 99** | x |\n'
+        root = ET.fromstring(source.progress_svg(parsed, readme))
+        ns = {'s': 'http://www.w3.org/2000/svg'}
+        row = root.find('.//s:g[@id="phase-gesamt"]', ns)
+        self.assertEqual(row.find('s:rect', ns).get('fill'), '#dcfce7')
+        self.assertIn('7 von 7', ''.join(row.itertext()))
 
 
 class ReservationTests(unittest.TestCase):
