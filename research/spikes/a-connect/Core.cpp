@@ -4,6 +4,7 @@
 namespace Spike
 {
 uintptr_t Base;
+bool ModOwnsPatches = false;
 
 namespace
 {
