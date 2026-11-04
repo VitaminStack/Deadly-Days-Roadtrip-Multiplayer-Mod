@@ -39,6 +39,8 @@ struct LobbyState
     // Lobby aus +connect_lobby oder dem Testschalter, sobald Steam bereit ist.
     uint64_t StartJoin = 0;
     bool StartCreate = false;
+    // Testschalter -ddcoop_lobby_delay=<s>: Erstellen oder Beitreten erst nach dieser Zeit, etwa bis der Spike geladen ist.
+    Clock::time_point StartAfter{};
 };
 
 LobbyState& State()
@@ -55,16 +57,26 @@ std::string Narrow(const std::wstring& Text)
     return Result;
 }
 
-// Testschalter -ddcoop_lobby=create oder -ddcoop_lobby=<Lobby-ID>.
-void ParseLobbySwitch(const std::string& CommandLine, LobbyState& Lobby)
+// Wert eines Schalters -name=wert, leer ohne.
+std::string SwitchValue(const std::string& CommandLine, std::string_view Key)
 {
-    constexpr std::string_view Key = "-ddcoop_lobby=";
     const auto At = CommandLine.find(Key);
     if (At == std::string::npos)
-        return;
+        return {};
     const auto Start = At + Key.size();
     const auto End = CommandLine.find_first_of(" \t\"", Start);
-    const std::string Value = CommandLine.substr(Start, End == std::string::npos ? std::string::npos : End - Start);
+    return CommandLine.substr(Start, End == std::string::npos ? std::string::npos : End - Start);
+}
+
+// Testschalter -ddcoop_lobby=create oder -ddcoop_lobby=<Lobby-ID>, dazu -ddcoop_lobby_delay=<s>.
+void ParseLobbySwitch(const std::string& CommandLine, LobbyState& Lobby)
+{
+    const std::string Delay = SwitchValue(CommandLine, "-ddcoop_lobby_delay=");
+    if (!Delay.empty() && Delay.size() <= 4 && Delay.find_first_not_of("0123456789") == std::string::npos)
+        Lobby.StartAfter = Clock::now() + std::chrono::seconds(std::stoi(Delay));
+    const std::string Value = SwitchValue(CommandLine, "-ddcoop_lobby=");
+    if (Value.empty())
+        return;
     if (Value == "create")
         Lobby.StartCreate = true;
     else
@@ -184,7 +196,7 @@ void Tick()
             return;
     }
     // Ein Start über eine Einladung oder den Testschalter wartet auf eine geladene Welt, vorher gibt es keine Konsole.
-    if ((Lobby.StartCreate || Lobby.StartJoin) && Game::ReadWorld())
+    if ((Lobby.StartCreate || Lobby.StartJoin) && Now >= Lobby.StartAfter && Game::ReadWorld())
     {
         if (Lobby.StartCreate)
             Lobby.Session->Create();

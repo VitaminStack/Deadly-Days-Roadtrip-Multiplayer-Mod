@@ -203,6 +203,10 @@ keine Portfreigabe, und Steam-Relays verbergen die IP-Adressen. Spike E hat den 
 zwischen zwei Konten auf zwei PCs bis in die Mission, siehe [Steam-Tunnel](../research/spikes/a-connect/README.md#spike-e-steam-tunnel-tunnel).
 Die Mod holt die Steam-Schnittstelle auf dem Game Thread, von einem eigenen Thread liefert die Steam-Laufzeit des Spiels `nullptr`.
 
+Gestartet wird der Tunnel über eine Steam-Lobby nur für Freunde, direkt über Steamworks statt `OnlineSubsystemSteam`
+([`src/Net/Session.h`](../src/Net/README.md#steam-lobby-steam-lobby)). Wer beitritt, verbindet sich mit dem Besitzer der Lobby,
+niemand tauscht SteamIDs aus. Listen-Server und Beitritt löst `src/Mod/Lobby.cpp` über Konsolenbefehle des Spiels aus.
+
 Für die frühen Spikes reicht eine direkte IP-Verbindung im LAN oder über Tailscale oder ZeroTier.
 
 ## Eigener Kontroll-Sync fuer nicht replizierte Spiellogik
@@ -234,7 +238,7 @@ UI ──> Net, Core
 | Modul | Aufgabe | Darf nicht |
 |---|---|---|
 | `Loader` | Proxy-DLL, startet die Mod | Spiellogik enthalten |
-| `Mod` | Mod-DLL, bindet die Module zusammen und startet sie | Eigene Logik enthalten |
+| `Mod` | Mod-DLL, bindet die Module zusammen und startet sie, verdrahtet die Lobby mit Overlay und Spiel | Eigene Spiel- oder Netzwerklogik enthalten |
 | `Core` | Logging, Config, Hooks, Game-Thread-Dispatcher, Versionsprüfung | Spielklassen kennen |
 | `Net` | Transport, Lobby, Session, Handshake, Serialisierung | SDK einbinden |
 | `Game` | Adapter auf Spielklassen und Hook-Definitionen | Netzwerklogik enthalten |
