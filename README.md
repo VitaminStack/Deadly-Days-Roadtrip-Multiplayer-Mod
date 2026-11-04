@@ -4,19 +4,19 @@ Fan-Mod, die echtes Online-Coop für **Deadly Days: Roadtrip** ermöglichen soll
 Couch-Coop, online also nur über Steam Remote Play, bei dem der Host das Bild streamt. Mit der Mod läuft das Spiel bei
 jedem Spieler selbst.
 
-**Status:** Phase 1 – Analyse. Es gibt noch keine Mod, aber einen funktionierenden Spike: Zwei Instanzen spielen dieselbe Mission,
-der Client erreicht Tag 2, die Reise auf Tag 3 endet noch mit einem Host-Absturz. Ob das Vorhaben aufgeht, entscheidet sich an Gate G1 in [TODO.md](TODO.md).
+**Status:** Die Mod-Basis (Phase 2) ist abgeschlossen; weitere Analyse- und Integrationsaufgaben sind offen.
+Der Spike erreicht den akzeptierten Endlos-Stand bis Tag 13. Gate G1 ist entschieden: native UE-Replikation mit gezielten Sync-Ergänzungen, siehe [TODO.md](TODO.md).
 
 ```mermaid
 flowchart TD
     subgraph A["Klären, ob es geht"]
         direction LR
-        P0["Setup"]:::done --> P1["Analyse und Spikes"]:::wip --> G1{{"Gate G1"}}:::gate
+        P0["Setup"]:::done --> P1["Analyse und Spikes"]:::wip --> G1{{"Gate G1"}}:::done
     end
 
     subgraph B["Spielbar machen"]
         direction LR
-        P2["Fundament"]:::open --> P3["Verbindung"]:::open --> P4["Vertical Slice"]:::open --> G2{{"Gate G2"}}:::gate
+        P2["Fundament"]:::done --> P3["Verbindung"]:::open --> P4["Vertical Slice"]:::open --> G2{{"Gate G2"}}:::gate
     end
 
     subgraph C["Fertigstellen"]
@@ -48,7 +48,13 @@ Stand: 04.11.2026.
 
 Gezählt sind die Aufgaben je Phase aus [TODO.md](TODO.md), ohne Wartung und optionale Optimierungen.
 
-Erledigt ist, was in `TODO.md` unter „Erledigt“ steht. `py tools/task_status.py update` aktualisiert Zahlen und Balken dieser Tabelle; `py tools/task_status.py check` und die CI verhindern abweichende Angaben. Reservierungen und PRs ändern den Abschlussstatus nicht.
+Erledigt ist, was in `TODO.md` unter „Erledigt“ steht. **Vollständig abgeschlossene Phasen sind grün hinterlegt.** `py tools/task_status.py update` aktualisiert Grafik und Texttabelle; `py tools/task_status.py check` und die CI verhindern abweichende Angaben. Reservierungen und PRs ändern den Abschlussstatus nicht.
+
+![Projektfortschritt je Phase; vollständig abgeschlossene Phasen sind grün hinterlegt.](docs/assets/progress.svg)
+
+<details>
+<summary>Fortschritt als Texttabelle mit Links zu den Phasen</summary>
+
 
 | Phase | Ziel | Erledigt | Fortschritt |
 |---|---|---|---|
@@ -60,6 +66,8 @@ Erledigt ist, was in `TODO.md` unter „Erledigt“ steht. `py tools/task_status
 | [5](TODO.md#phase-5--vollständiger-run) | Kompletter Run zu zweit | 0 von 12 | ░░░░░░░░░░░ |
 | [6](TODO.md#phase-6--release) | Veröffentlichung | 1 von 6 | ██░░░░░░░░░ |
 | **Gesamt** | | **52 von 86** | ███████░░░░ |
+
+</details>
 
 Unter `src/` stehen Loader, Core, ein im Spiel geprüftes [Mod-Overlay](src/UI/README.md) und die [Game-Adapter-Schicht](src/Game/README.md) mit Game-Thread-Takt, die bisher nur liest. Phase 2 ist damit abgeschlossen; die Steam-Anbindung der Lobby-Knöpfe folgt in Phase 3. Die Punkte sind unterschiedlich groß, die Zahlen sagen also wenig über die verbleibende Zeit. Stand, Engpässe und nächste Schritte stehen in der [Roadmap](docs/ROADMAP.md#stand-und-nächste-schritte).
 
