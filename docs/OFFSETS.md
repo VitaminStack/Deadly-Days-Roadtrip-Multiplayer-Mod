@@ -189,6 +189,9 @@ Was die Mod nutzt, steht zusätzlich in `src/Game/Offsets.h` und wird dort beim 
 | `UActorComponent` | bIsActive | `0x9A` |
 | `APawn` | PlayerState, Controller | `0x2C8`, `0x2D8` |
 | `AController` | Pawn | `0x2E8` |
+| `UGameInstance` | LocalPlayers (`TArray`) | `0x38` |
+| `UPlayer` | PlayerController | `0x30` |
+| `UAbstractPanel` | Parameter von `OnOpenStateChanged`: `bOpen` | `0x00` |
 | `APlayerController` | Player, AcknowledgedPawn, NetConnection | `0x348`, `0x350`, `0x520` |
 | `APlayerState` | PawnPrivate | `0x320` |
 | `APlayerController` | CheatManager, CheatClass | `0x410`, `0x418` |

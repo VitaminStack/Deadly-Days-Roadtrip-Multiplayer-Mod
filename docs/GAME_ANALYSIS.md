@@ -909,7 +909,7 @@ Ein offener Tutorial-Hinweis pausiert die Welt für beide Seiten über eine Zeit
 | Bereich | Host | Client |
 |---|---|---|
 | Run-Zustand, Seed, Route, Persistenz | Führt | Nicht ausführen. Der Client hat diesen Zustand nicht und braucht einen eigenen Sync |
-| Routenkarte, Rundenende, Lager | Führt | Nicht öffnen, Fortschritt nur anzeigen. Bisher sieht der Client davon nichts |
+| Routenkarte, Rundenende, Lager | Führt | Nicht öffnen, Phase nur anzeigen und Eingabe sperren, im Spike umgesetzt (`phasenadapter`) |
 | Kartenwechsel | Startet ihn für beide | Folgt nur, startet keinen eigenen |
 | Kartenerzeugung | Führt | Darf nicht frei laufen, siehe unten |
 | Gegner, Spawner, Loot, Missionsende | Führt | Nur replizierte Ergebnisse anzeigen |
@@ -934,6 +934,13 @@ Build `26187885`, ein PC, zwei Loopback-Instanzen, getrennte Test-Spielstände u
 Die Aufgabe bleibt ungelöst. Getestet sind Beobachtung, Befehlsgrenzen sowie Codec-/Empfängerregeln an künstlichen Nachrichten, **nicht** eine synchronisierte Endphase, wirksame Client-Eingabesperre, echter Spätbeitritt/Netzwerktransport, Internet oder vollständiger Run. Keine erneute lokale Ausführung der Host-Persistenz und keine Panelpräsenz als Phasensignal. Initialisierungs-/Tick-Anschluss in `Mission.cpp` und gemeinsame Schnittstellen bleiben ein eigener Integrationsschritt.
 
 **Nachtrag 03.11.2026, ohne Spielbetrieb:** Ein lokaler Adapter in `Mission.cpp` ergänzt den Modellkern um einen monotonen Host-Publisher, atomaren 48-Byte-Dateitransport, Heartbeat/Timeout und Client-Textausgabe/Win32-Nachrichtenfilter. Die tatsächliche Adapterimplementierung wurde gegen eigene Speicherpuffer geprüft, der Dateitransport zwischen zwei eigenen fensterlosen Testprozessen; C++20 `/W4 /WX` und vollständiger Spike-DLL-Build bestanden. `Main.cpp` verbindet Befehl/Tick/Filter, Host-`!finish`/`!round` liefern ihre Aufrufe; bis zur expliziten Diagnosebindung bleibt der Adapter inaktiv. Der globale Beobachter für normale Menü-/Busereignisse ist noch nicht eingehängt, Host-Rundenendeaufrufe sind noch nicht im Spiel beobachtet; Lager/Route werden ausschließlich manuell diagnostisch markiert. Keine automatische Panelerkennung behauptet, kein vollständiger UE-/Gamepad-Inputschutz, kein Internetkanal und kein P0-Abschluss. Siehe [konkrete Integration, Tests und verbleibende Nachweise](../research/spikes/a-connect/RoundPhaseRuntime.md).
+
+**Abschluss `phasenadapter`, 04.11.2026:** Die Phase läuft jetzt automatisch vom Host zum Client. Damit ist die Aufgabe für einen PC gelöst.
+
+- **[Belegt] Hostquellen:** Jedes Panel meldet sich über `AbstractPanel.OnOpenStateChanged(bOpen)`, das durch `ProcessEvent` läuft. Rundenübersicht ist `WP_Round_Stats_C`, Lager `WP_Inventory_Panel_C`, Routenkarte `WI_MissionChoicePanel_C`, auch die erste Route in der MetaBase. Dazu kommen `FinishMission` und `TriggerEndRound`, beide ebenfalls über `ProcessEvent`. Das Inventar-Panel öffnet sich auch bei der Belohnungsauswahl mitten in der Mission und gilt deshalb nur nach einem Rundenende als Lager.
+- **[Belegt] Eingabesperre:** `AActor::DisableInput(PC)` auf Controller und Figur des Clients nimmt beide aus dem Input-Stack. Nur damit bewegte sich die Client-Figur bei gedrückter Taste nicht, Esc öffnete kein Pausenmenü. Ohne Sperre ging beides. Der Fensterfilter kommt dazu, lässt aber Loslassen-Nachrichten durch.
+- **[Belegt] Lauf:** Erste Route und Rundenende an Tag 1, 2 und 3, beim Client jeweils dieselbe Folge wie beim Host, danach in der neuen Welt wieder frei. Fällt der Host weg, gibt der Client nach 5 s frei.
+- **Offen, mit eigener Aufgabe:** Transport über das Netz (`transport`, `protokoll`). Natürliches Tagesende und Gamepad sind nicht im Spiel geprüft, siehe [Grenzen](../research/spikes/a-connect/RoundPhaseRuntime.md#grenzen).
 
 **Karte:** Im echten Ablauf erzeugt der Host 144 bis 167 `MapTile`, der Client bleibt bei 17 und zeigt eine andere Karte. Die Figur des Clients startet deshalb weit vom Bus entfernt, weil seine Position beim Host übernommen wird. Das ist der Einstieg in Thema 3.
 
