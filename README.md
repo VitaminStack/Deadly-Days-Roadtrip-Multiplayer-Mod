@@ -58,8 +58,8 @@ Erledigt ist, was in `TODO.md` unter „Erledigt“ steht. `py tools/task_status
 | [3](TODO.md#phase-3--session-und-verbindung) | Verbinden über Steam | 0 von 4 | ░░░░░░░░░░░ |
 | [4](TODO.md#phase-4--vertical-slice) | Spielbarer Ausschnitt | 0 von 10 | ░░░░░░░░░░░ |
 | [5](TODO.md#phase-5--vollständiger-run) | Kompletter Run zu zweit | 0 von 12 | ░░░░░░░░░░░ |
-| [6](TODO.md#phase-6--release) | Veröffentlichung | 0 von 6 | ░░░░░░░░░░░ |
-| **Gesamt** | | **49 von 84** | ██████░░░░░ |
+| [6](TODO.md#phase-6--release) | Veröffentlichung | 1 von 6 | ██░░░░░░░░░ |
+| **Gesamt** | | **50 von 84** | ███████░░░░ |
 
 Unter `src/` stehen Loader, Core, ein im Spiel geprüftes [Mod-Overlay](src/UI/README.md) und die [Game-Adapter-Schicht](src/Game/README.md) mit Game-Thread-Takt, die bisher nur liest. Phase 2 ist damit abgeschlossen; die Steam-Anbindung der Lobby-Knöpfe folgt in Phase 3. Die Punkte sind unterschiedlich groß, die Zahlen sagen also wenig über die verbleibende Zeit. Stand, Engpässe und nächste Schritte stehen in der [Roadmap](docs/ROADMAP.md#stand-und-nächste-schritte).
 

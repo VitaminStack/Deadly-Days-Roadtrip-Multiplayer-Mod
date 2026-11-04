@@ -166,11 +166,12 @@ Ablauf siehe [Pausierte Welt und Busplatz](GAME_ANALYSIS.md#pausierte-welt-und-b
 |---|---|---|
 | `ULoadingSubSystem` | TimescaleManager | `0xE0` |
 | `UTimescaleManager` | TimeRequests: Num, freie Plätze | `0x50`, `0x7C`; ein Mapelement ist `0x1C` groß: Weak-Zeiger auf den Anfragenden, dann `FTimeRequest` |
-| `UTutorialStateSubsystem` | SkipTutorialFlag | `0xB8`, nicht im Spielstand, nach jedem Start aus |
+| `UTutorialStateSubsystem` | SkipTutorialFlag | `0xB8`, `int32`, nicht im Spielstand, nach jedem Start aus. In `src/Game/Offsets.h` |
 | `USceneComponent` | Weltposition (Translation von ComponentToWorld) | `0x210`; `RelativeLocation` `0x148` ist bei angehängten Actors relativ |
 | `APlayerState` | PawnPrivate | `0x320` |
 | `APawn` | Controller | `0x2D8` |
 | `APlayerController` | NetConnection | `0x520` |
+| `UObject` | Flags (Klassen-Defaultobjekt `0x10`); `UStruct::SuperStruct` | `0x08`; `0x40`. In `src/Game/Offsets.h` |
 | `FUObjectItem` | Flags, interne Flags, Objekt, Serial | `+0`, `+4` (Garbage `0x00200000`, Unreachable `0x10000000`), `+8`, `+0x10` |
 
 ## Klassen
