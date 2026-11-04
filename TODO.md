@@ -35,12 +35,12 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | Kennung | Prio | Phase | Bearbeitung | Spielzeit |
 |---|---|---|---|---|
 | `steam-lobby` | P0 | [3](#phase-3--session-und-verbindung) | parallel | wenig |
+| `transport` | P0 | [3](#phase-3--session-und-verbindung) | parallel | wenig |
 | `patches` | P0 | [4](#phase-4--vertical-slice) | zentral | viel |
 | `mod-saves` | P0 | [6](#phase-6--release) | parallel | mittel |
 | `online-sperren` | P0 | [6](#phase-6--release) | parallel | wenig |
 | `telemetrie-aus` | P0 | [6](#phase-6--release) | parallel | wenig |
-| `niederlage` | P1 | [1](#phase-1--analyse-und-spikes) | parallel | viel |
-| `tunnel` | P1 | [1](#phase-1--analyse-und-spikes) | parallel | wenig |
+| `tunnel-p2p` | P1 | [1](#phase-1--analyse-und-spikes) | parallel | wenig |
 | `installer` | P1 | [6](#phase-6--release) | parallel | keine |
 
 **Wartet auf das Team:** `meta-fortschritt`, `weeklymode`, `spiel-update`.
@@ -83,8 +83,7 @@ Ziel: Fakten für Gate G1. Spike-Code ist Wegwerfcode und liegt unter `research/
 
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
-| `tunnel` | P1 | Spike E: Spielverkehr über Steam P2P tunneln. C++ ohne Reverse Engineering, Steamworks SDK nötig. **Fertig, wenn** zwei Instanzen über den Tunnel verbunden spielen. **Einstieg:** [Transport](docs/ARCHITECTURE.md#transport) | – | parallel | wenig |
-| `niederlage` | P1 | Echte Niederlage nachvollziehen: alle Spieler tot, Rundenende, Rückkehr in die `MetaBase`, dabei den Client mitnehmen. **Fertig, wenn** beide nach einer Niederlage in der `MetaBase` stehen und ein neuer Run startet. **Einstieg:** [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf) | `phasenadapter` | parallel | viel |
+| `tunnel-p2p` | P1 | Steam-Tunnel aus Spike E per P2P zwischen zwei Steam-Konten auf zwei PCs prüfen (`!tunnel host`, `!tunnel join <steamid>`). Ein Konto kann sich nicht selbst per P2P erreichen. **Fertig, wenn** zwei Spieler über P2P bis in eine Mission verbunden spielen und Ping und Route im Log stehen. **Einstieg:** [Steam-Tunnel](research/spikes/a-connect/README.md#spike-e-steam-tunnel-tunnel) | – | parallel | wenig |
 
 ## Phase 2 – Fundament
 
@@ -208,6 +207,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `last` | 1 | Spike D: bei rund 85 Gegnern 47 KB/s vom Host, beide Instanzen 60 fps, nur Loopback, siehe [Last](docs/GAME_ANALYSIS.md#last-spike-d-last) |
 | `menue-weg` | 1 | Mission über den echten Weg durch das Spielmenü mit den Patches gestartet, siehe [Spike](research/spikes/a-connect/README.md) |
 | `mitwirkende` | 0 | Freunde als Mitwirkende eingeladen |
+| `niederlage` | 1 | Nach einer Niederlage kehren Host und Client über „Zurück zur Basis“ in die `MetaBase` zurück, und ein neuer Run startet; der Host-Absturz im Run-Ende-Handler ohne `LocalPlayer` ist im Spike behoben (`RunEnd.cpp`), siehe [Niederlage](docs/GAME_ANALYSIS.md#niederlage-niederlage) |
 | `overlay` | 2 | F8-Overlay mit Status und Debug-Anzeige, sichtbare Host-/Client-Abnahme bestanden, siehe [UI](src/UI/README.md#sichtbare-spielabnahme-03112026) |
 | `pausen` | 1 | Pausen-Logik gemessen, Host-Weltpause repliziert, Client-Wunsch nicht, siehe [Pausen-Spike](research/spikes/pausen/README.md#nachtrag-03112026-isolierte-ablaeufe) |
 | `pcg` | 1 | Client erzeugt die PCG-Vegetation mit dem Graphen des Hosts (`Pcg.cpp`), siehe [PCG-Vegetation](docs/GAME_ANALYSIS.md#pcg-vegetation-beim-client-pcg) |
@@ -232,6 +232,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `tick-absturz` | 1 | Restrictor-Absturz `0x5A17ACC` nachgestellt, Laufzeitfix ist `restrictor`, siehe [Restrictor](docs/GAME_ANALYSIS.md#client-absturz-im-restrictor-tick-absturz) |
 | `treffer` | 1 | Projektile des Clients ziehen beim Host Leben ab und töten (`Hits.cpp`), siehe [Treffer](docs/GAME_ANALYSIS.md#treffer-des-clients-treffer) |
 | `trennen` | 1 | Client-Absturz beim Trennen war eine Folge fehlender Inventar-Items, mit Teilfix kein Absturz, siehe [Trennen](docs/GAME_ANALYSIS.md#trennen-ins-hauptmenü-trennen) |
+| `tunnel` | 1 | Der Spielverkehr läuft über `ISteamNetworkingSockets` aus der Steam-Laufzeit des Spiels, zwei Instanzen spielten so bis Tag 2 (`Tunnel.cpp`); P2P mit zwei Konten ist `tunnel-p2p`, siehe [Steam-Tunnel](research/spikes/a-connect/README.md#spike-e-steam-tunnel-tunnel) |
 | `tutorial-aus` | 6 | Die Mod schaltet die Tutorial-Hinweise als Host und Client automatisch ab und prüft das jede Sekunde (`src/Game/TutorialAdapter`), siehe [Tutorial-Pause](docs/GAME_ANALYSIS.md#tutorial-pause-hält-den-run-an-testumgebung) |
 | `update-regel` | 0 | Spiel-Updates: einfrieren und nur bei Bedarf nachziehen, siehe [Update-Regel](CONTRIBUTING.md#spiel-updates) |
 

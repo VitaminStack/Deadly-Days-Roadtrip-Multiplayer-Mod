@@ -36,6 +36,8 @@ Je Thema eine Datei, damit parallele Arbeit nicht in dieselbe Datei läuft. Neue
 | `Pcg.cpp` | Client erzeugt die PCG-Vegetation mit dem Graphen des Hosts, gleiche Seeds der Instanz-Komponenten |
 | `Hits.cpp` | Host: Treffer auf Gegner mit Schütze, Schaden und Lebenspunkten |
 | `HealthBars.cpp` | Client: Lebensleisten über den Figuren nach replizierten HP aktualisieren |
+| `RunEnd.cpp` | Niederlage: Run-Ende-Handler ohne `LocalPlayer` des Remote-Controllers |
+| `Tunnel.cpp` | Spike E: UDP-Verkehr des Spiels über Steam Networking tunneln (`!tunnel`) |
 | `Cheats.cpp` | Testhilfen: CheatManager für die `DD_`-Befehle, Laden einzelner Assets, Tutorial abschalten |
 | `Load.cpp` | Lastmessung: UDP-Bytes, Pakete und Framerate je Sekunde im Log |
 | `TestEnv.cpp` | Host: Busplatz schont alle Spielerfiguren, Diagnose-Log für `EndPlay` jeder Figur mit Stapel |
@@ -97,6 +99,7 @@ Der Host-Absturz war immer derselbe Callstack. Das Spiel fragt beim Spawnen `Get
 | Client | `0x2A678F0` | `BP_PowerUpCrate_C` spawnt in `BeginPlay` ohne Autoritätsprüfung seine `BP_ChaosDestructable_PowerUp_C`, beim Client kommt dieselbe zusätzlich repliziert an | `BeginDeferredActorSpawnFromClass` gibt beim Client für diese Klasse aus einer Kiste `null` zurück |
 | Beide | `0x59EF6D0` | Der Client erzeugt die Karte ohne Missionsdaten und scheitert | Host schreibt Seed, Profil, Größe und Tags in eine Datei, der Client setzt sie vor `StartMapGeneration` und wartet notfalls |
 | Client | `0x288B510` | Lokale Parzellen sind `Authority` und erzeugen replizierte Child Actors ein zweites Mal | Während der eigenen Erzeugung gilt der Besitzer für den Aufruf als `SimulatedProxy` |
+| Host | `0x584CD82` | Run-Ende nach Niederlage: Handler je Controller ruft `GetLocalPlayer()->...()` ohne Prüfung | Ohne `LocalPlayer` gilt Index 1, also P2 |
 | Beide | `0x59EE6A0` | Der Client hat keine Route und damit kein Biom, der PCG-Graph bleibt leer | Host schreibt den Graphen in eine Datei, der Client setzt ihn danach und wartet notfalls |
 | Beide | Sekunden-Tick | Jede ISM-Komponente würfelt `InstancingRandomSeed`, die Baumarten weichen ab | Seed aus Mesh und Instanzen setzen, Render-Zustand per `SetStaticMesh` neu |
 
@@ -199,6 +202,35 @@ Test: ein PC über Loopback, `Start-Session.ps1` mit CrashGuard, Route über das
 - Nicht geprüft: Mission → MetaBase, dort stürzt der Host bekannt bei `0x57CC398` ab. Trennen und erneuter Beitritt sind unverändert, siehe oben.
 
 **Historische Laufzeit, vor dem neuen Registrierungshook:** Zwei Instanzen/Loopback, getrennte Test-Spielstände, CrashGuard. Mit diesem Branch nach MetaBase und zwei direkten Missionstravels jeweils zwei aktuelle Controller, konsistente Allokationsbits und Hash-Verkettung. Ein weiterer Wechsel in die MetaBase reproduzierte den bekannten Host-Callback-Absturz `0x57CC398`; die korrekte Menge allein behebt ihn nicht. Zusätzlicher Integrationstest mit dem Timer-Lebensdauerfix aus `tag3` in einer nur lokal zusammengesetzten DLL: Start in der Mission und zwei weitere Missionstravels verbunden, jeweils `hash_valid=true`, `roster_equal=true`, zwei belegte Plätze und identische vollständige Inventare beim letzten Vergleich. Beim nächsten Wechsel neuer Client-Absturz `0x178BA90`; Host bleibt aktiv. Nach der Trennung enthält die Menge korrekt nur noch den Host (ein belegter/ein freier Platz, gültiger Hash). Anschließend isolierten Branch erneut gebaut und Start in die Mission mit dem finalen GameMode-Klassenfilter geprüft; keine Menü-Layoutwarnungen mehr. Kein Nachweis für Remote-P2-/Coop-Subsystem-Integration, Internet oder vollständigen Run. Der Gegner-Spawn-Schutz während des Übergangs bleibt bestehen.
+
+## Spike E: Steam-Tunnel (`tunnel`)
+
+Stand 04.11.2026, Build `26187885`. `Tunnel.cpp` leitet den UDP-Verkehr des `IpNetDriver` unverändert über `ISteamNetworkingSockets` weiter. Das Spiel selbst merkt davon nichts:
+
+```text
+Client-Spiel ─ UDP 127.0.0.1:7778 ─ Tunnel ─ Steam Networking ─ Tunnel ─ UDP 127.0.0.1:7777 ─ Host-Spiel
+```
+
+- **[Belegt]** Das Spiel bringt die Steamworks-Laufzeit 1.64 mit (`Engine/Binaries/ThirdParty/Steamworks/Steamv164`) und initialisiert Steam selbst. Der Spike holt sich die Funktionen der flachen C-Schnittstelle (`SteamAPI_ISteamNetworkingSockets_*`, Schnittstelle `v012`) per `GetProcAddress` aus der geladenen `steam_api64.dll`. Ein Steamworks-SDK ist nicht nötig, die wenigen Strukturen sind im Spike nachgebildet und mit `static_assert` auf ihre Größe geprüft.
+- Der Tunnel läuft in einem eigenen Thread mit `RunCallbacks`, Statusänderungen kommen über den Callback in der Verbindungsoption, Pakete gehen unzuverlässig ohne Nagle (`UnreliableNoNagle`), die Zuverlässigkeit macht die Engine selbst.
+- Host: `!tunnel host` lauscht per P2P (virtueller Port 0) und per IP auf `127.0.0.1:7790` und nimmt jede eingehende Verbindung an. Je Verbindung öffnet er einen eigenen UDP-Socket zum Spiel, der Host sieht also jeden Client unter einer eigenen Adresse.
+- Client: `!tunnel join <steamid>` (P2P), `!tunnel join self` (P2P zum eigenen Konto) oder `!tunnel join ip`, danach `open 127.0.0.1:7778`. `Start-Session.ps1 -Tunnel Ip` macht das automatisch.
+- Alle 5 s schreibt der Tunnel `Tunnel: Verbindung ... Pakete/B, verworfen, Ping, Qualitaet` ins Log.
+
+Test: ein PC, ein Steam-Konto, `Start-Session.ps1 -Tunnel ...` mit CrashGuard, Route über das Spielmenü mit Seed `20795`.
+
+| Schritt | Ergebnis |
+|---|---|
+| `-Tunnel P2p`: P2P zur eigenen SteamID | **[Belegt]** Steam lehnt ab, `ConnectP2P` liefert Handle `0`. Auf einem PC mit einem Konto ist P2P nicht testbar |
+| `-Tunnel Ip`: Verbindung über Steam Networking per IP | Aufgebaut und bei Steam angemeldet, beide Seiten nennen die SteamID der Gegenseite. Ping 0 ms, Qualität 1,0, nichts verworfen |
+| MetaBase über den Tunnel | 2 Spieler auf beiden Seiten, Client `role: client` |
+| MetaBase → Tag 1 → Tag 2 | Beide Kartenwechsel über dieselbe Steam-Verbindung, Inventare jeweils vollständig und gleich |
+| Bewegung an Tag 2 | Client- und Host-Figur laufen, beide Seiten melden danach dieselben Positionen |
+| Kampf und Schaden | Schüsse des Clients zählen beim Host (168 Treffer, 56 Kills), 30 Schaden am Client ergeben auf beiden Seiten 70 HP und 70 % in der Leiste |
+| Verkehr gesamt | rund 22 000 Pakete je Richtung, Host → Client rund 4,1 MB, Client → Host rund 1,3 MB. Kein Absturz |
+
+- **[Vermutung]** Über P2P mit zwei Konten verhält sich der Tunnel gleich, denn nur der Verbindungsaufbau unterscheidet sich (`ConnectP2P` statt `ConnectByIPAddress`). Ungeprüft sind damit Steam-Relays, NAT, echte Latenz und Paketverlust. Das braucht zwei PCs mit zwei Konten.
+- Nicht geprüft: Abbruch und Neuaufbau des Tunnels, mehr als ein Client, Mission → MetaBase.
 
 ## Bekannte Abweichungen
 

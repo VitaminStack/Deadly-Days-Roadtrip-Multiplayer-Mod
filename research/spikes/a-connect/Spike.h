@@ -124,9 +124,15 @@ void TraceRunFlow();
 
 // Load.cpp
 bool PatchLoad();
+void TickLoad();
 
 // HealthBars.cpp
 bool PatchHealthBars(CodeWriter& Code);
-void TickLoad();
+
+// Tunnel.cpp
+void TunnelCommand(const std::wstring& Arguments);
+
+// RunEnd.cpp
+bool PatchRunEnd(CodeWriter& Code);
 
 }
