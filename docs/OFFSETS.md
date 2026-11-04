@@ -159,6 +159,7 @@ Ablauf siehe [Pausierte Welt und Busplatz](GAME_ANALYSIS.md#pausierte-welt-und-b
 | Ladestart von `ULoadingSubSystem` | `0x595C910` | Fordert eigene Pause an (Priorität 1000) und ruft `ClearAllRequests(Exclude=[self])`. Aufrufer `0x596BB14`, `0x596BB2E`, `0x5976BF4`, `0x5976C0E` |
 | `UTimescaleManager::ClearAllRequests(TArray<UObject*>)` | `0x46A5320` | Exec-Thunk `0x46A4830` |
 | `UTimescaleManager::RequestTimescale` | `0x46A5980` | |
+| `UCommonAttributeSet::OnRep_Health`, `OnRep_MaxHealth` | `0x57DC840`, `0x57DCEA0` | Implementierungen hinter den exec-Thunks `0x5696760`, `0x56968C0`; Spike-Hook `HealthBars.cpp` |
 | `BusSpawnPositionGenerator`, Bus und Figuren setzen | `0x59A6CE0` | VTable-Slot 86, indirekt aus dem Timer `0x59D9090` |
 | Spawnplatz freiräumen | `0x5991B70` | `(const TArray<AActor*>* Keep, ctx)`, schont Keep und deren Besitzer-Kette über `AActor+0x158`. Spike-Hook, Einsprung `48 89 5C 24 18` |
 
@@ -202,6 +203,7 @@ Was die Mod nutzt, steht zusätzlich in `src/Game/Offsets.h` und wird dort beim 
 | `ACharacter` (Spiel) | AttributeSet | `0x7D8` |
 | `ADDCharacterBase` | CommonAttributeSet | `0x700` |
 | `UCommonAttributeSet` | Health (`FGameplayAttributeData`, CurrentValue bei `+0xC`) | `0xA0` |
+| `UCommonAttributeSet` | MaxHealth, OnMaxHealthChanged, OnHealthChanged (Multicast, Einträge je `0x10`: schwacher Zeiger, `FName`) | `0x30`, `0x40`, `0xC0` |
 | `FDamageInformation` | Damage, DamagedActor, InstigatedBy, DamageCauser (je `TWeakObjectPtr`) | `0x00`, `0x04`, `0x14`, `0x1C` |
 | `FBasedMovementInfo` | MovementBase, Location | `0x10`, `0x18` |
 | `UCharacterMovementComponent` | Velocity, MovementMode, MaxWalkSpeed | `0xD8`, `0x241`, `0x288` |
