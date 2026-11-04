@@ -22,6 +22,7 @@ Je Thema eine Datei, damit parallele Arbeit nicht in dieselbe Datei läuft. Neue
 | `Core.cpp` | Log, Objektsuche, `CodeWriter` für Patches |
 | `Main.cpp` | Laden der DLL, Befehls-Schnittstelle, Sekunden-Tick |
 | `Players.cpp` | Spawn der Remote-Spieler, `SpawnedPlayers`, clientautoritative Position |
+| `RemoteP2.cpp` | Ausdrücklich einschaltbare Phase-1-Probe: schwache `ActivePlayers`-Bindungen, native Coop-Aktivierung, gezielter Geräte-Guard und getrennte Beitrittsmeldung; [Ergebnis und Grenzen](RemoteP2.md) |
 | `Client.cpp` | Client-Stellen ohne Host-Objekte: Refresh, Attribute, Figurenkomponente, `ThreatLevel`, Blockaden-Autoritätsablauf, Log für nicht angelegte Actors |
 | `Camera.cpp` | Gemeinsame Kamera und Bodenfix |
 | `Inventory.cpp` | Netzwerk-Support für Items/Slots und klassischer Unterobjekt-Replikationspfad je neuer Inventarkomponente |
@@ -107,6 +108,7 @@ Beim Client setzt der Spike die Kamera jede Sekunde, beim Host nimmt er jede Sek
 |---|---|---|
 | `!cam` | Client | Setzt die gemeinsame Kamera als ViewTarget, sonst schaut der Client aus der eigenen Figur. Läuft auch automatisch jede Sekunde und setzt nur, wenn das ViewTarget abweicht, siehe [ViewTarget](../../../docs/GAME_ANALYSIS.md#viewtarget-beim-client-kamera-viewtarget). Ohne den Befehl sprang auch die eigene Figur zum Ursprung, vermutlich durch die Sichtbereich-Begrenzung |
 | `!authmove` | Host | Nimmt die Position von Remote-Figuren vom Client an |
+| `!p2 on`, `!p2 status`, `!p2 joined` | Host | Diagnoseprobe für Remote-P2; standardmäßig aus, **kein fertiger UI-/Inventar-Sync**. [Ablauf, Rücksetzen und Grenzen](RemoteP2.md) |
 | `!trace` | Beide | Zählt Client- und Server-RPCs der Spielfigur |
 | `!wave` | Host | Startet die Gegner-Spawner |
 | `!flow` | Beide | Protokolliert die ersten Aufrufe der Run-Funktionen |

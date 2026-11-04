@@ -44,6 +44,7 @@ void TickSession()
     TickRoundPhase(GameWindow);
     SkipTutorials(false);
     TickTestGodmode(); // Both roles, including newly replicated pawns after travel.
+    TickRemoteP2(); // Explicit !p2 on only; Phase-1 experiment, never CreateLocalPlayer.
     const uintptr_t World = Read<uintptr_t>(Base + kGWorld);
     const uintptr_t Driver = World ? Read<uintptr_t>(World + kWorldNetDriver) : 0;
     if (!Driver)
@@ -66,6 +67,8 @@ void TickSession()
 void RunPendingCommand()
 {
     if (RoundPhaseCommand(Pending))
+        return;
+    if (RemoteP2Command(Pending))
         return;
     if (Pending == L"!arm")
         ArmTravelRedirect();

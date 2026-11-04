@@ -11,6 +11,8 @@
 
 namespace Spike
 {
+void TickRemoteP2();
+bool RemoteP2Command(const std::wstring& Command);
 constexpr uintptr_t kGObjects = 0x0AA61B00;
 constexpr uintptr_t kNameBlocks = 0x0A993AC0 + 0x10;
 constexpr uintptr_t kGWorld = 0x0AAE46F0;

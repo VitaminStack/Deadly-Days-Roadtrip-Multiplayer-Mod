@@ -691,6 +691,14 @@ Mission-SDK und lesende Pruefung geladener Klassen/Scriptreferenzen, Build `2618
 - **[Hypothese]** Diese Funktionen eignen sich gut als Andockpunkt: Der Client schickt eine Anfrage, die Mod ruft sie beim Host auf.
 - **[Hypothese]** Weil `ActivePlayers` nur Controller speichert, könnte dort auch ein Remote-Controller stehen. Das ist in Phase 1 zu prüfen.
 
+### Remote-P2: geprüfte Anbindung und Grenze der lokalen UI
+
+Stand 04.11.2026, Build `26187885`, nur Spike und Loopback. Die frühere Hypothese ist für den Host bestätigt: `ActivePlayers[0/1]` kann die aktuellen lokalen/Remote-Controller als schwache Verweise führen, `SetCoopEnabled(true)` liefert danach P2 und zwei aktive Spieler, ohne zweiten `ULocalPlayer`.
+
+**Zusätzlich nötig und beobachtet:** Die native Prüfung eines lokalen P2-Geräts öffnet sonst ein blockierendes Controller-Beitrittsfenster. Ein auf den vollständigen aktuellen Listen-Host-Roster begrenzter Guard bei `0x59072AA` umgeht nur diese lokale P2-Gerätepflicht; P1-Geräteprüfung und Solo-Verlustpfad bleiben erhalten. Eine getrennt gesendete native `OnPlayerJoined`-Meldung aktualisiert die P2-Darstellung. Ein eigener veralteter Map-Eintrag wird bei fehlendem Remote-Roster mit dem nativen SparseArray-Entferner aufgeräumt und beim erneuten Beitritt ersetzt.
+
+**Keine vollständige Coop-UI:** Rundenstatistik und Lager zeigen beim Host beide Spieler, die lokale Kontrollübergabe im Lager blockiert aber weiterhin. Der Client bleibt lokal Index 0; Host-Coop-Zustand/Router werden nicht repliziert. Netzwerk-P2 muss deshalb von lokaler Geräteidentität getrennt werden; UI-Anfragen und Ergebnisse brauchen den geplanten Kontrollkanal. Die Aufgaben `remote-spieler`, `eingaben`, `inventar-sync` und `inventar-ui` bleiben offen. Die Phase-1-Frage nach Tragfähigkeit und nötigen Patches ist beantwortet; kein neuer Vollrun-/Internet-Nachweis. [Probe, Gegenversuche, Tests und Übernahmegrenzen](../research/spikes/a-connect/RemoteP2.md).
+
 ### Coop-Ablauf
 
 Stand: Disassembly und Laufzeit-Speicher, Build `26187885`, SDK aus einer direkt geladenen Mission (02.11.2026). Die RVAs stehen in [Offsets](OFFSETS.md#coop).
@@ -732,7 +740,7 @@ Stand: Disassembly und Laufzeit-Speicher, Build `26187885`, SDK aus einer direkt
     Dort wird der Index über `GetLocalPlayer()->GetControllerId()` bestimmt, ein Remote-Controller ließe das Spiel abstürzen (**[Hypothese]**, nicht ausgelöst).
 - **[Belegt]** Die Figurenwahl hängt am Index des lokalen Spielers: Der `GameMode` holt die Figur in Slot 234 über `GetLocalPlayer()` und dessen Controller-ID. Fehlt er, nimmt der Spike-Patch den Standard-Pfad mit der Standardfigur.
 
-**Folgerungen** (**[Hypothese]**, nicht getestet)
+**Folgerungen der damaligen Analyse** (Stand 02.11.; die Host-Anbindung und die lokale Geräte-/UI-Grenze sind inzwischen [geprüft](#remote-p2-geprüfte-anbindung-und-grenze-der-lokalen-ui))
 
 - `SpawnLocalPlayer(1)` darf beim Host nicht laufen, solange P2 ein Netzwerkspieler ist. Sonst entsteht ein zweiter lokaler Spieler neben dem Remote-Controller.
   Der Weg über Geräte-Zuordnung und `GameMode`-Slot 111 bleibt aus, solange `+0x18A` nicht gesetzt ist.

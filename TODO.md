@@ -34,7 +34,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 <!-- frei:start -->
 | Kennung | Prio | Phase | Bearbeitung | Spielzeit |
 |---|---|---|---|---|
-| `remote-p2` | P0 | [1](#phase-1--analyse-und-spikes) | parallel | mittel |
 | `steam-lobby` | P0 | [3](#phase-3--session-und-verbindung) | parallel | wenig |
 | `patches` | P0 | [4](#phase-4--vertical-slice) | zentral | viel |
 | `mod-saves` | P0 | [6](#phase-6--release) | parallel | mittel |
@@ -84,7 +83,6 @@ Ziel: Fakten für Gate G1. Spike-Code ist Wegwerfcode und liegt unter `research/
 
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
-| `remote-p2` | P0 | Remote-Controller als P2 testen: `SetCoopEnabled(true)` beim Host, Eintrag in `ActivePlayers` ohne `CreateLocalPlayer`, Wirkung auf Coop-UI und Eingabe-Router prüfen. **Fertig, wenn** feststeht, ob und mit welchen Patches der Remote-Spieler als P2 läuft. **Einstieg:** [Coop-Ablauf](docs/GAME_ANALYSIS.md#coop-ablauf) | – | parallel | mittel |
 | `tunnel` | P1 | Spike E: Spielverkehr über Steam P2P tunneln. C++ ohne Reverse Engineering, Steamworks SDK nötig. **Fertig, wenn** zwei Instanzen über den Tunnel verbunden spielen. **Einstieg:** [Transport](docs/ARCHITECTURE.md#transport) | – | parallel | wenig |
 | `niederlage` | P1 | Echte Niederlage nachvollziehen: alle Spieler tot, Rundenende, Rückkehr in die `MetaBase`, dabei den Client mitnehmen. **Fertig, wenn** beide nach einer Niederlage in der `MetaBase` stehen und ein neuer Run startet. **Einstieg:** [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf) | `phasenadapter` | parallel | viel |
 
@@ -216,6 +214,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `phasen-farbe` | Wartung | Vollständig abgeschlossene Phasen im README mit grünem Zeilenhintergrund in einer lokal erzeugten SVG; verlinkte Texttabelle bleibt aufklappbar. Generator, Konsistenzprüfung und Regressionstests halten Farben und Zahlen synchron. |
 | `phasenadapter` | 1 | Client sieht Rundenübersicht, Lager und Routenkarte des Hosts und ist dort gesperrt, siehe [Rundenphasen](research/spikes/a-connect/RoundPhaseRuntime.md) |
 | `powerup-duplikat` | 1 | Lokale Kopie von `BP_ChaosDestructable_PowerUp_C` beim Client unterdrückt, siehe [PowerUp-Objekte](docs/GAME_ANALYSIS.md#doppelte-powerup-objekte-powerup-duplikat) |
+| `remote-p2` | 1 | Phase-1-Frage geklärt: Host-P2 über schwache `ActivePlayers`, native Coop-Aktivierung, gezielten P2-Geräte-Guard und Join-Meldung ohne zweiten `LocalPlayer`; Laufzeit-/UI-Gegenproben zeigen, dass der lokale Lager-Handoff den geplanten Kontrollkanal braucht. Produktionsanbindung und UI-Sync bleiben eigene Aufgaben, [Nachweise und Grenzen](research/spikes/a-connect/RemoteP2.md) |
 | `replikation-blueprint` | 1 | 218 von 482 Blueprint-Actor-Klassen replizieren, vor allem über ihre native Basisklasse |
 | `replikation-kern` | 1 | Replizierte Properties der Kernklassen erfasst, der Kern repliziert, siehe [Replikation](docs/GAME_ANALYSIS.md#replikation-zur-laufzeit) |
 | `rpc-vergleich` | 1 | RPC-Liste gegen den Juli-Dump: 3 RPCs entfernt, keiner hinzugekommen |
