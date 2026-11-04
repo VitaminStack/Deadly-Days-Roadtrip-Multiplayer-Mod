@@ -18,14 +18,14 @@
       <text x="846" y="82">Abgeschlossen</text>
     </g>
     <g id="phase-1">
-      <rect y="100" width="1000" height="48" fill="#ffffff"/>
+      <rect y="100" width="1000" height="48" fill="#dcfce7"/>
       <path d="M0 148H1000" stroke="#d1d5db"/>
       <text x="20" y="130">1</text>
       <text x="125" y="130">Fakten für Gate G1</text>
-      <text x="490" y="130">38 von 39</text>
+      <text x="490" y="130">39 von 39</text>
       <rect x="630" y="115" width="200" height="18" rx="4" fill="#e5e7eb"/>
-      <rect x="630" y="115" width="194" height="18" rx="4" fill="#64748b"/>
-      <text x="846" y="130">97 %</text>
+      <rect x="630" y="115" width="200" height="18" rx="4" fill="#15803d"/>
+      <text x="846" y="130">Abgeschlossen</text>
     </g>
     <g id="phase-2">
       <rect y="148" width="1000" height="48" fill="#dcfce7"/>
@@ -79,10 +79,10 @@
       <path d="M0 436H1000" stroke="#d1d5db"/>
       <text x="20" y="418">Gesamt</text>
       <text x="125" y="418"></text>
-      <text x="490" y="418">57 von 87</text>
+      <text x="490" y="418">58 von 87</text>
       <rect x="630" y="403" width="200" height="18" rx="4" fill="#e5e7eb"/>
-      <rect x="630" y="403" width="131" height="18" rx="4" fill="#64748b"/>
-      <text x="846" y="418">65 %</text>
+      <rect x="630" y="403" width="133" height="18" rx="4" fill="#64748b"/>
+      <text x="846" y="418">66 %</text>
     </g>
   </g>
 </svg>

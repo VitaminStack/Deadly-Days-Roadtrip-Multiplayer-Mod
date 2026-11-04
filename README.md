@@ -11,7 +11,7 @@ Der Spike erreicht den akzeptierten Endlos-Stand bis Tag 13. Gate G1 ist entschi
 flowchart TD
     subgraph A["Klären, ob es geht"]
         direction LR
-        P0["Setup"]:::done --> P1["Analyse und Spikes"]:::wip --> G1{{"Gate G1"}}:::done
+        P0["Setup"]:::done --> P1["Analyse und Spikes"]:::done --> G1{{"Gate G1"}}:::done
     end
 
     subgraph B["Spielbar machen"]
@@ -59,13 +59,13 @@ Erledigt ist, was in `TODO.md` unter „Erledigt“ steht. **Vollständig abgesc
 | Phase | Ziel | Erledigt | Fortschritt |
 |---|---|---|---|
 | [0](TODO.md#phase-0--projekt-setup) | Gleiche Toolchain für alle | 11 von 11 | ███████████ |
-| [1](TODO.md#phase-1--analyse-und-spikes) | Fakten für Gate G1 | 38 von 39 | ███████████ |
+| [1](TODO.md#phase-1--analyse-und-spikes) | Fakten für Gate G1 | 39 von 39 | ███████████ |
 | [2](TODO.md#phase-2--fundament) | Stabile Basis der Mod | 5 von 5 | ███████████ |
 | [3](TODO.md#phase-3--session-und-verbindung) | Verbinden über Steam | 0 von 4 | ░░░░░░░░░░░ |
 | [4](TODO.md#phase-4--vertical-slice) | Spielbarer Ausschnitt | 0 von 10 | ░░░░░░░░░░░ |
 | [5](TODO.md#phase-5--vollständiger-run) | Kompletter Run zu zweit | 0 von 12 | ░░░░░░░░░░░ |
 | [6](TODO.md#phase-6--release) | Veröffentlichung | 3 von 6 | ██████░░░░░ |
-| **Gesamt** | | **57 von 87** | ███████░░░░ |
+| **Gesamt** | | **58 von 87** | ███████░░░░ |
 
 </details>
 

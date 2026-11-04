@@ -38,7 +38,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `transport` | P0 | [3](#phase-3--session-und-verbindung) | parallel | wenig |
 | `patches` | P0 | [4](#phase-4--vertical-slice) | zentral | viel |
 | `mod-saves` | P0 | [6](#phase-6--release) | parallel | mittel |
-| `tunnel-p2p` | P1 | [1](#phase-1--analyse-und-spikes) | zu zweit | wenig |
 | `installer` | P1 | [6](#phase-6--release) | parallel | keine |
 
 **Wartet auf das Team:** `meta-fortschritt`, `weeklymode`, `spiel-update`.
@@ -77,11 +76,7 @@ Ziel: Alle arbeiten auf demselben Spielstand und mit derselben Toolchain. Alle A
 
 ## Phase 1 – Analyse und Spikes
 
-Ziel: Fakten für Gate G1. Spike-Code ist Wegwerfcode und liegt unter `research/spikes/`, nicht in `src/`.
-
-| Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
-|---|---|---|---|---|---|
-| `tunnel-p2p` | P1 | Steam-Tunnel aus Spike E per P2P zwischen zwei Steam-Konten auf zwei PCs prüfen (`!tunnel host`, `!tunnel join <steamid>`). Ein Konto kann sich nicht selbst per P2P erreichen. Automatisch mit `Test-TwoPc.ps1` je PC. **Fertig, wenn** zwei Spieler über P2P bis in eine Mission verbunden spielen und Ping und Route im Log stehen. **Einstieg:** [Test auf zwei PCs](docs/TESTING.md#test-auf-zwei-pcs), [Steam-Tunnel](research/spikes/a-connect/README.md#spike-e-steam-tunnel-tunnel) | `zwei-pc-test` | zu zweit | wenig |
+Ziel: Fakten für Gate G1. Spike-Code ist Wegwerfcode und liegt unter `research/spikes/`, nicht in `src/`. Alle Aufgaben sind erledigt.
 
 ## Phase 2 – Fundament
 
@@ -231,6 +226,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `treffer` | 1 | Projektile des Clients ziehen beim Host Leben ab und töten (`Hits.cpp`), siehe [Treffer](docs/GAME_ANALYSIS.md#treffer-des-clients-treffer) |
 | `trennen` | 1 | Client-Absturz beim Trennen war eine Folge fehlender Inventar-Items, mit Teilfix kein Absturz, siehe [Trennen](docs/GAME_ANALYSIS.md#trennen-ins-hauptmenü-trennen) |
 | `tunnel` | 1 | Der Spielverkehr läuft über `ISteamNetworkingSockets` aus der Steam-Laufzeit des Spiels, zwei Instanzen spielten so bis Tag 2 (`Tunnel.cpp`); P2P mit zwei Konten ist `tunnel-p2p`, siehe [Steam-Tunnel](research/spikes/a-connect/README.md#spike-e-steam-tunnel-tunnel) |
+| `tunnel-p2p` | 1 | Zwei PCs mit zwei Steam-Konten spielten über den P2P-Tunnel bis in die Mission an Tag 1, 120 s ohne Absturz, Ping 41 ms im Median über ein Steam-Relay, nichts verworfen, siehe [Steam-Tunnel](research/spikes/a-connect/README.md#p2p-auf-zwei-pcs-tunnel-p2p) |
 | `tutorial-aus` | 6 | Die Mod schaltet die Tutorial-Hinweise als Host und Client automatisch ab und prüft das jede Sekunde (`src/Game/TutorialAdapter`), siehe [Tutorial-Pause](docs/GAME_ANALYSIS.md#tutorial-pause-hält-den-run-an-testumgebung) |
 | `update-regel` | 0 | Spiel-Updates: einfrieren und nur bei Bedarf nachziehen, siehe [Update-Regel](CONTRIBUTING.md#spiel-updates) |
 | `zwei-pc-test` | Wartung | Tests auf zwei PCs: `Test-TwoPc.ps1` fährt je PC eine Rolle automatisch bis in die Mission und schreibt einen Tunnel-Bericht, `Start-Session.ps1 -Role`, Aufgaben „zu zweit“ mit Rollen-Reservierung in `tasks.py`, siehe [Test auf zwei PCs](docs/TESTING.md#test-auf-zwei-pcs) |
