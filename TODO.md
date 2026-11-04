@@ -36,6 +36,8 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 |---|---|---|---|---|
 | `phasenadapter` | P0 | [1](#phase-1--analyse-und-spikes) | parallel | viel |
 | `remote-p2` | P0 | [1](#phase-1--analyse-und-spikes) | parallel | mittel |
+| `steam-lobby` | P0 | [3](#phase-3--session-und-verbindung) | parallel | wenig |
+| `patches` | P0 | [4](#phase-4--vertical-slice) | zentral | viel |
 | `mod-saves` | P0 | [6](#phase-6--release) | parallel | mittel |
 | `online-sperren` | P0 | [6](#phase-6--release) | parallel | wenig |
 | `telemetrie-aus` | P0 | [6](#phase-6--release) | parallel | wenig |
@@ -43,7 +45,7 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `tunnel` | P1 | [1](#phase-1--analyse-und-spikes) | parallel | wenig |
 | `installer` | P1 | [6](#phase-6--release) | parallel | keine |
 
-**Wartet auf das Team:** `gate-g1`, `meta-fortschritt`, `weeklymode`, `spiel-update`.
+**Wartet auf das Team:** `meta-fortschritt`, `weeklymode`, `spiel-update`.
 <!-- frei:end -->
 
 **Nicht erneut machen.** Das ist erledigt und dokumentiert:
@@ -85,7 +87,6 @@ Ziel: Fakten für Gate G1. Spike-Code ist Wegwerfcode und liegt unter `research/
 |---|---|---|---|---|---|
 | `phasenadapter` | P0 | Rundenende, Lager und Routenkarte beim Client abbilden. Codec, Empfänger und lokaler Laufzeitadapter in `Mission.cpp` sind ohne Spiel getestet. Es fehlen automatische Hostquellen für Rundenübersicht, Lager und Route, ein sichtbarer Lauf und die vollständige Eingabesperre. **Fertig, wenn** der Client bei jedem Rundenende dieselbe Phase sieht wie der Host und dort nichts auslösen kann. **Einstieg:** `research/spikes/a-connect/RoundPhaseRuntime.md`, [Rundenende](docs/GAME_ANALYSIS.md#rundenende-befund-und-offene-phasenübertragung-rundenende) | – | parallel | viel |
 | `remote-p2` | P0 | Remote-Controller als P2 testen: `SetCoopEnabled(true)` beim Host, Eintrag in `ActivePlayers` ohne `CreateLocalPlayer`, Wirkung auf Coop-UI und Eingabe-Router prüfen. **Fertig, wenn** feststeht, ob und mit welchen Patches der Remote-Spieler als P2 läuft. **Einstieg:** [Coop-Ablauf](docs/GAME_ANALYSIS.md#coop-ablauf) | – | parallel | mittel |
-| `gate-g1` | P0 | Gate G1 entscheiden und in [ARCHITECTURE](docs/ARCHITECTURE.md#entscheidungen) festhalten: **Weg A** (native Replikation), wenn Spike A und B funktionieren und Spike D tragbar ist; **Weg B** (eigene Snapshot-Synchronisierung), wenn native Replikation unbrauchbar ist; **Stopp oder verkleinern**, wenn keiner trägt. Spike A, B und D sind erledigt, Weg A steht vorläufig | – | Team | keine |
 | `tunnel` | P1 | Spike E: Spielverkehr über Steam P2P tunneln. C++ ohne Reverse Engineering, Steamworks SDK nötig. **Fertig, wenn** zwei Instanzen über den Tunnel verbunden spielen. **Einstieg:** [Transport](docs/ARCHITECTURE.md#transport) | – | parallel | wenig |
 | `niederlage` | P1 | Echte Niederlage nachvollziehen: alle Spieler tot, Rundenende, Rückkehr in die `MetaBase`, dabei den Client mitnehmen. **Fertig, wenn** beide nach einer Niederlage in der `MetaBase` stehen und ein neuer Run startet. **Einstieg:** [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf) | `phasenadapter` | parallel | viel |
 
@@ -197,6 +198,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `deploy` | 2 | Deploy-Skript `tools/Deploy-Mod.ps1` |
 | `dumper-fix` | 0 | Dumper-7-Fix liegt im eigenen Fork, eingebunden als Submodul `third_party/Dumper-7`, siehe [SDK-Erzeugung](docs/GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58) |
 | `game-adapter` | 2 | Game-Thread-Takt am Spielfenster ruft `Drain` und die Adapter-Ticks; `Offsets.h` mit geschützten Lesezugriffen, beim Bauen gegen ein lokales Dumper-7-SDK geprüft; `WorldAdapter` als Muster liest Karte, Rolle und Spielerzahl. Mit Host und Client bis Tag 1 geprüft, [Muster](src/Game/README.md) |
+| `gate-g1` | 1 | Am 04.11.2026 vom Nutzer verbindlich entschieden: Weg A (native UE-Replikation) als Grundlage, ergänzt durch eigenen Kontroll-/Sync-Kanal für XP, Währungen, Rewards, Pausen und UI; Weg B nur Rückfalloption. [Architekturentscheidung](docs/ARCHITECTURE.md#entscheidungen) |
 | `gegner-pooling` | 1 | Tote Gegner werden zerstört, nicht gepoolt, der `PoolManager` betrifft Projektile und Effekte, siehe [Gegner-Spawning](docs/GAME_ANALYSIS.md#gegner-spawning-und-pooling) |
 | `github-repo` | 0 | Öffentliches GitHub-Repo angelegt |
 | `grundgeruest` | 2 | `Loader` als Proxy-DLL, `Core` mit Logging, Config, Hooks, Dispatcher und Versionsprüfung, mit Host und Client geprüft |
