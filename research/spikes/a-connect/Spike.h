@@ -130,4 +130,7 @@ bool PatchHealthBars(CodeWriter& Code);
 // Tunnel.cpp
 void TunnelCommand(const std::wstring& Arguments);
 
+// RunEnd.cpp
+bool PatchRunEnd(CodeWriter& Code);
+
 }

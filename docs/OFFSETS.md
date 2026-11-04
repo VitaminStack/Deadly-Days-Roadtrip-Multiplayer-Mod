@@ -136,6 +136,7 @@ Funktionen von `ULocalCoopSubsystem` und ihre Aufrufer, Ablauf siehe [Coop-Ablau
 | Figur spawnen | `0x5901C60` | Gleiche VTable, Slot 234, Spike-Patch bei `0x5901CE8` |
 | Moduswechsel: Coop aus und Coop wieder an | `0x5914B30`, `0x593BCA0` | |
 | `APlayerController::GetLocalPlayer` | `0x2E706D0` | |
+| Handler je Controller beim Run-Ende | `0x584CD20` | `GetLocalPlayer()` und `+0x330` ohne Nullprüfung bei `0x584CD82`, weiter bei `0x584CD90`. Spike-Patch `RunEnd.cpp` |
 | `UGameInstance::CreateLocalPlayer` | `0x2A6B5B0` | |
 | `UGameplayStatics::GetPlayerController` | `0x2A76140` | |
 | Tabelle `{Name, Exec-Thunk}` von `LocalCoopSubsystem` | um `0x94F6EE0` bis `0x94F7190` | Einträge `0x10` groß |
