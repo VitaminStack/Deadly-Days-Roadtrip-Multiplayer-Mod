@@ -125,7 +125,7 @@ Ziel: Zwei Spieler finden sich über Steam und verbinden sich ohne Portfreigabe.
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
 | `lobby-live` | P0 | Steam-Lobby der Mod mit zwei Konten auf zwei PCs prüfen: Einladung über das Steam-Overlay annehmen, Beitritt per P2P, Start über `+connect_lobby` bei geschlossenem Spiel, Verlassen beider Seiten. **Fertig, wenn** der Client nur über die Einladung bis in die MetaBase kommt. **Einstieg:** [Steam-Lobby](src/Net/README.md#steam-lobby-steam-lobby), [Test auf zwei PCs](docs/TESTING.md#test-auf-zwei-pcs) | `steam-lobby` | zu zweit | wenig |
-| `protokoll` | P0 | Handshake (Spiel-Build und Mod-Version gleich) und verlässlicher Kontrollkanal mit Nachrichtenformat nach dem [Vertrag](docs/SYNC_REQUIREMENTS.md#kontrollkanal-und-datenmodell). Rundenende, Pausen, XP und Rewards brauchen ihn | `transport` | zentral | wenig |
+| `protokoll` | P0 | Handshake (Spiel-Build und Mod-Version gleich) und verlässlicher Kontrollkanal mit Nachrichtenformat nach dem [Vertrag](docs/SYNC_REQUIREMENTS.md#kontrollkanal-und-datenmodell). Implementiert: typisierte Steam-Rahmen, Versions-/Rollenprüfung und begrenzte Game-Thread-Queues mit Verbindungstoken; 23 Net-Tests bestanden. Spielgegenprobe und Fehlertests noch offen, [Format und API](docs/CONTROL_PROTOCOL.md). Rundenende, Pausen, XP und Rewards brauchen ihn | `transport` | zentral | wenig |
 | `net-fehler` | P1 | Saubere Fehlerbehandlung: Timeout, Abbruch, Host verlässt das Spiel. Ordner `src/Net`, `src/UI` | `transport` | parallel | wenig |
 
 ## Phase 4 – Vertical Slice

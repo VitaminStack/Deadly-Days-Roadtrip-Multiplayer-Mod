@@ -11,9 +11,11 @@
 #include <vector>
 
 #include "Net/SteamSockets.h"
+#include "Net/Protocol.h"
 
 // Transport-Tunnel: Der IpNetDriver des Spiels spricht weiter UDP auf 127.0.0.1, der Tunnel leitet jedes Paket
-// unverändert über Steam Networking weiter. Keine Portfreigabe, Steam vermittelt und nutzt notfalls Relays.
+// in einem typisierten Rahmen über Steam Networking weiter. Der UE-Inhalt bleibt unverändert.
+// Handshake und Kontrollnachrichten laufen zuverlässig, UE bleibt unzuverlässig. Siehe docs/CONTROL_PROTOCOL.md.
 //
 //   Client-Spiel -> UDP 127.0.0.1:7778 -> Tunnel -> Steam -> Tunnel -> UDP 127.0.0.1:7777 -> Host-Spiel
 //
@@ -32,6 +34,8 @@ struct TransportOptions
     int VirtualPort = 0;
     // Abstand der Statistikzeilen im Log.
     unsigned StatsIntervalMs = 30000;
+    Protocol::Identity Identity;
+    unsigned HandshakeTimeoutMs = 5000;
 };
 
 enum class TransportState
@@ -65,6 +69,14 @@ struct TransportStats
 
 std::string_view ToString(TransportState State);
 
+// Lokales Verbindungstoken, nicht SteamID oder vom Client behaupteter Spielerindex.
+// Nach Disconnect/Neustart niemals wiederverwenden. Spielzuordnung liegt beim Host.
+struct ControlMessage
+{
+    uint64_t Peer = 0;
+    Protocol::Control Value;
+};
+
 class Transport
 {
 public:
@@ -84,6 +96,11 @@ public:
 
     TransportStats Stats() const;
     bool Running() const { return Active; }
+    std::vector<uint64_t> ControlPeers() const;
+    // Nur bereits gepruefte Verbindung; false bei Disconnect, vollem Puffer oder falschem Format.
+    bool SendControl(uint64_t Peer, const Protocol::Control& Value);
+    // Auf dem Game Thread abholen; der Netzwerkthread fasst keine Spielobjekte an.
+    std::vector<ControlMessage> TakeControlMessages();
 
 private:
     struct Link;
@@ -102,6 +119,8 @@ private:
     void Close(uint32_t Connection);
     void Publish(TransportState State, std::string Message);
     void UpdateTotals();
+    void Reject(Link& Entry, const char* Reason);
+    bool ReceiveFrame(Link& Entry, std::span<const uint8_t> Bytes);
 
     std::shared_ptr<SteamSockets> Sockets;
     TransportOptions Options;
@@ -115,6 +134,11 @@ private:
 
     mutable std::mutex StatsLock;
     TransportStats Current;
+    mutable std::mutex ControlLock;
+    std::vector<uint64_t> Peers;
+    struct PendingControl { uint64_t Peer; std::vector<uint8_t> Bytes; };
+    std::vector<PendingControl> Outgoing;
+    std::vector<ControlMessage> Incoming;
 };
 
 // Testschalter aus der Kommandozeile des Spiels: -ddcoop_transport=host, =loopback oder =<SteamID64 des Hosts>.

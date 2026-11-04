@@ -137,6 +137,11 @@ struct FakeSteamNetwork::Endpoint final : SteamSockets
         return true;
     }
 
+    bool SendReliable(SteamConnection Connection, std::span<const uint8_t> Data) override
+    {
+        return Send(Connection, Data);
+    }
+
     int Receive(SteamConnection Connection, int Max, const std::function<void(std::span<const uint8_t>)>& Sink) override
     {
         std::vector<std::vector<uint8_t>> Taken;

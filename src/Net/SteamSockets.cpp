@@ -203,6 +203,12 @@ public:
         return Api.Send(Self, Connection, Data.data(), static_cast<uint32_t>(Data.size()), kSendUnreliableNoNagle, nullptr) == 1;
     }
 
+    bool SendReliable(SteamConnection Connection, std::span<const uint8_t> Data) override
+    {
+        // k_nSteamNetworkingSend_Reliable | k_nSteamNetworkingSend_NoNagle.
+        return Api.Send(Self, Connection, Data.data(), static_cast<uint32_t>(Data.size()), 8 | 1, nullptr) == 1;
+    }
+
     int Receive(SteamConnection Connection, int Max, const std::function<void(std::span<const uint8_t>)>& Sink) override
     {
         SteamNetworkingMessage* Messages[64];
