@@ -34,7 +34,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 <!-- frei:start -->
 | Kennung | Prio | Phase | Bearbeitung | Spielzeit |
 |---|---|---|---|---|
-| `guidcache` | P0 | [1](#phase-1--analyse-und-spikes) | parallel | viel |
 | `phasenadapter` | P0 | [1](#phase-1--analyse-und-spikes) | parallel | viel |
 | `remote-p2` | P0 | [1](#phase-1--analyse-und-spikes) | parallel | mittel |
 | `game-adapter` | P0 | [2](#phase-2--fundament) | zentral | wenig |
@@ -51,7 +50,7 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 - Coop-Ablauf, Karten-Erzeugung, Gegner-Pooling, Kamera, Pausen und Sync-Bedarf sind analysiert, siehe [Spielanalyse](docs/GAME_ANALYSIS.md) und [Sync-Bedarf](docs/SYNC_REQUIREMENTS.md)
 - Weitere Einzelprüfungen in den Inventar-Schleifen: Nach jeder stürzt der Client an der nächsten Stelle ab
 - Eine höhere `NetPriority` des `GameState` hilft nicht gegen den HUD-Hänger, `OnRep_Slots` zurückzuhalten hilft nicht beim Inventar
-- Gegen fehlende PlayerStates helfen weder Klassen im RootSet noch ein Patch am 90-s-Ablauf in `CleanReferences`, eine `servertravel`-Schleife stellt den Tageswechsel nicht nach, siehe [Tageswechsel](docs/GAME_ANALYSIS.md#tageswechsel-client-verliert-die-playerstates-tageswechsel-übergabestand)
+- Gegen fehlende PlayerStates keine Klassen im RootSet pinnen oder Read-only-Zeitstempel blind zurücksetzen. Der abgeschlossene `guidcache`-Fix erhält gezielt nachladbare Pfadidentitäten und prüft den Cache-eigenen Driver auch bei nullem `GWorld`. Eine `servertravel`-Schleife ersetzt den echten Routenlauf nicht; [Nachweise und akzeptierter Abschluss](docs/GAME_ANALYSIS.md#abschluss-und-akzeptierter-testumfang-guidcache). Run/Endlos bis Tag 13 mit zwei Biomwechseln ist vorerst ausreichend abgesichert; nur neue konkrete Fehler bekommen ein neues TODO.
 - Pause ab Tag 2 und fehlende Client-Figur am Bus sind im Spike behoben. Bei seltsamem Laden zuerst `Run-Route.ps1` und `check_round.py` prüfen, siehe [Pausierte Welt und Busplatz](docs/GAME_ANALYSIS.md#pausierte-welt-und-busplatz-testumgebung)
 
 **Gemeinsame Dateien.** Diese Dateien nutzen alle. Sie bleiben klein und ändern sich nur in kurzen eigenen PRs:
@@ -80,7 +79,6 @@ Ziel: Fakten für Gate G1. Spike-Code ist Wegwerfcode und liegt unter `research/
 
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
-| `guidcache` | P0 | Client-Absturz an Tag 5 bei `0x56B16D9` beheben (Lesen `0x3D0`, über `0x58CED80`). Prüfen, ob die NetGUID-Einträge der PlayerState-Klasse an späteren Tagen oder im Endlosmodus wieder verloren gehen, und das für jede Klasse beheben. Inventar abschließen: kein Fix an einen Tag gebunden. **Fertig, wenn** ein Run mit `Run-Route.ps1` alle 8 Tage samt Gebietswechsel und Endboss schafft und der Endlosmodus danach zwei Gebietswechsel weiterläuft, an jedem Tag `sauber`, Inventare `complete` und `equal`. **Einstieg:** [Pausierte Welt und Busplatz](docs/GAME_ANALYSIS.md#pausierte-welt-und-busplatz-testumgebung), offene Spuren unter [Tageswechsel](docs/GAME_ANALYSIS.md#tageswechsel-client-verliert-die-playerstates-tageswechsel-übergabestand) | – | parallel | viel |
 | `phasenadapter` | P0 | Rundenende, Lager und Routenkarte beim Client abbilden. Codec, Empfänger und lokaler Laufzeitadapter in `Mission.cpp` sind ohne Spiel getestet. Es fehlen automatische Hostquellen für Rundenübersicht, Lager und Route, ein sichtbarer Lauf und die vollständige Eingabesperre. **Fertig, wenn** der Client bei jedem Rundenende dieselbe Phase sieht wie der Host und dort nichts auslösen kann. **Einstieg:** `research/spikes/a-connect/RoundPhaseRuntime.md`, [Rundenende](docs/GAME_ANALYSIS.md#rundenende-befund-und-offene-phasenübertragung-rundenende) | – | parallel | viel |
 | `remote-p2` | P0 | Remote-Controller als P2 testen: `SetCoopEnabled(true)` beim Host, Eintrag in `ActivePlayers` ohne `CreateLocalPlayer`, Wirkung auf Coop-UI und Eingabe-Router prüfen. **Fertig, wenn** feststeht, ob und mit welchen Patches der Remote-Spieler als P2 läuft. **Einstieg:** [Coop-Ablauf](docs/GAME_ANALYSIS.md#coop-ablauf) | – | parallel | mittel |
 | `gate-g1` | P0 | Gate G1 entscheiden und in [ARCHITECTURE](docs/ARCHITECTURE.md#entscheidungen) festhalten: **Weg A** (native Replikation), wenn Spike A und B funktionieren und Spike D tragbar ist; **Weg B** (eigene Snapshot-Synchronisierung), wenn native Replikation unbrauchbar ist; **Stopp oder verkleinern**, wenn keiner trägt. Spike A, B und D sind erledigt, Weg A steht vorläufig | – | Team | keine |
@@ -198,6 +196,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `gegner-pooling` | 1 | Tote Gegner werden zerstört, nicht gepoolt, der `PoolManager` betrifft Projektile und Effekte, siehe [Gegner-Spawning](docs/GAME_ANALYSIS.md#gegner-spawning-und-pooling) |
 | `github-repo` | 0 | Öffentliches GitHub-Repo angelegt |
 | `grundgeruest` | 2 | `Loader` als Proxy-DLL, `Core` mit Logging, Config, Hooks, Dispatcher und Versionsprüfung, mit Host und Client geprüft |
+| `guidcache` | 1 | Blockaden-Autorität, NetGUID-Pfadlebensdauer und Sneak-Zielbereitschaft korrigiert; Test-Godmode für beide Spieler, Lauf bis Endlos-Tag 13 mit zwei Biomwechseln. Am 04.11.2026 vom Nutzer als abgeschlossen akzeptiert; vorerst keine weiteren Detailtests, neue konkrete Probleme erhalten ein neues TODO. [Nachweise und Testgrenzen](docs/GAME_ANALYSIS.md#abschluss-und-akzeptierter-testumfang-guidcache) |
 | `iris` | 1 | Zur Laufzeit ist die klassische Replikation mit `ActorChannel` aktiv, nicht Iris |
 | `kamera-entscheidung` | 1 | Gemeinsame Kamera (Option A) mit ursprünglichem Zoom und Bewegungsbegrenzung, siehe [Kamera](docs/GAME_ANALYSIS.md#kamera-und-sichtbereich) |
 | `karte-analyse` | 1 | Replizierte Kartenobjekte sind Child Actors der nicht replizierten Parzellen, siehe [Kartenobjekte](docs/GAME_ANALYSIS.md#karte-und-replizierte-kartenobjekte) |

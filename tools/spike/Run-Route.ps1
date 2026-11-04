@@ -59,6 +59,16 @@ function Invoke-Check([string]$Label, [string[]]$Extra, $Process) {
         exit 2
     }
     if ($Code -ne 0) { $script:Failed = $true }
+    if ($Result.ok -and $Label -ne 'metabase') {
+        $InventoryPath = Join-Path $RunDir "$Label-inventory.json"
+        & py (Join-Path $PSScriptRoot 'inventory.py') $Session.Host $Session.Client |
+            Set-Content $InventoryPath -Encoding utf8
+        if ($LASTEXITCODE -ne 0) {
+            Write-Output "         - Inventar nicht vollstaendig/gleich, siehe $InventoryPath"
+            $script:Failed = $true
+        }
+        else { Write-Output '         Inventar complete=true equal=true' }
+    }
 }
 
 # Ausgangslage: beide in der MetaBase, Vergleichsstand zuruecksetzen.

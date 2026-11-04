@@ -10,6 +10,8 @@ param(
     [switch]$Build,
     # Baut und installiert zusaetzlich die Mod aus src\. Stop-Session.ps1 entfernt sie wieder.
     [switch]$Mod,
+    # Testhilfe fuer beide Rollen; bleibt im Spike ueber Kartenwechsel aktiv, nicht im Spielstand.
+    [switch]$Godmode,
     [ValidateSet('Release', 'Debug')]
     [string]$Configuration = 'Release'
 )
@@ -68,6 +70,11 @@ foreach ($Instance in $GameHost, $Client) {
     & py (Join-Path $PSScriptRoot 'inject.py') $Instance.Id $Dll
 }
 Start-Sleep -Seconds 3
+if ($Godmode) {
+    Send-SpikeCommand $GameHost.Id '!god on'
+    Send-SpikeCommand $Client.Id '!god on'
+    Start-Sleep -Seconds 1
+}
 Send-SpikeCommand $GameHost.Id 'open /Game/Maps/MainMenu?listen'
 Start-Sleep -Seconds 12
 Send-SpikeCommand $Client.Id 'open 127.0.0.1:7777'

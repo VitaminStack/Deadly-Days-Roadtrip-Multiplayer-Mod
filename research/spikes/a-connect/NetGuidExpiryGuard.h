@@ -1,0 +1,34 @@
+#pragma once
+#include <cstdint>
+
+namespace NetGuidPolicy
+{
+// At the checked expiry site: rdi = cache value (key is rdi-8), [rsp+68h] = iterated ObjectLookup.
+// Only rax is scratch; no calls, pushes or writes, and no change to weak references/read-only timestamps.
+template <typename Writer>
+void EmitExpiryGuard(Writer& Code, uintptr_t Original, uintptr_t Next)
+{
+    Code.Emit({0x48, 0x83, 0x7F, 0xF8, 0x01, 0x0F, 0x86}); // key <= 1
+    Code.EmitRel(Original);
+    Code.Emit({0xF6, 0x47, 0xF8, 0x01, 0x0F, 0x84}); // dynamic GUID
+    Code.EmitRel(Original);
+    Code.Emit({0xF6, 0x47, 0x28, 0x09, 0x0F, 0x85}); // NoLoad or Broken
+    Code.EmitRel(Original);
+    Code.Emit({0x83, 0x7F, 0x10, 0x00, 0x0F, 0x84}); // no path
+    Code.EmitRel(Original);
+    // GWorld is null during travel GC. Use the iterated cache's own driver instead, then verify the backlink.
+    Code.Emit({0x48, 0x8B, 0x44, 0x24, 0x68}); // ObjectLookup = cache+8
+    Code.Emit({0x48, 0x85, 0xC0, 0x0F, 0x84});
+    Code.EmitRel(Original);
+    Code.Emit({0x48, 0x8B, 0x80, 0x48, 0x01, 0x00, 0x00, 0x48, 0x85, 0xC0, 0x0F, 0x84}); // cache+150h NetDriver
+    Code.EmitRel(Original);
+    Code.Emit({0x48, 0x83, 0xB8, 0x00, 0x01, 0x00, 0x00, 0x00, 0x0F, 0x84}); // ServerConnection
+    Code.EmitRel(Original);
+    Code.Emit({0x48, 0x8B, 0x80, 0xC8, 0x01, 0x00, 0x00, 0x48, 0x85, 0xC0, 0x0F, 0x84}); // GUID cache
+    Code.EmitRel(Original);
+    Code.Emit({0x48, 0x83, 0xC0, 0x08, 0x48, 0x3B, 0x44, 0x24, 0x68, 0x0F, 0x85}); // same ObjectLookup
+    Code.EmitRel(Original);
+    Code.Emit({0xE9});
+    Code.EmitRel(Next);
+}
+}

@@ -41,6 +41,7 @@ void TickSession()
 {
     TickRoundPhase(GameWindow);
     SkipTutorials(false);
+    TickTestGodmode(); // Both roles, including newly replicated pawns after travel.
     const uintptr_t World = Read<uintptr_t>(Base + kGWorld);
     const uintptr_t Driver = World ? Read<uintptr_t>(World + kWorldNetDriver) : 0;
     if (!Driver)
@@ -80,6 +81,10 @@ void RunPendingCommand()
         FinishMission();
     else if (Pending == L"!cheats")
         EnableCheats();
+    else if (Pending == L"!god on")
+        SetTestGodmode(true);
+    else if (Pending == L"!god off")
+        SetTestGodmode(false);
     else if (Pending == L"!notutorial")
         SkipTutorials(true);
     else if (Pending.rfind(L"!load ", 0) == 0)

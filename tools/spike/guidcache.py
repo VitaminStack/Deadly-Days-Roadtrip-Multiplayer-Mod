@@ -13,11 +13,12 @@ ENTRY_SIZE = 0x40
 def entries(game):
     cache = game.ptr(game.ptr(game.world() + 0x38) + DRIVER_GUID_CACHE)
     data, num, maximum = struct.unpack('<Qii', game.read(cache + 8, 16))
-    raw = game.read(data, maximum * ENTRY_SIZE) or b''
-    bits = game.read(game.ptr(cache + 0x28) or (cache + 0x18), (maximum + 7) // 8) or b''
+    slots = min(num, maximum)  # Allocation capacity is not an initialized SparseArray slot range.
+    raw = game.read(data, slots * ENTRY_SIZE) or b''
+    bits = game.read(game.ptr(cache + 0x28) or (cache + 0x18), (slots + 7) // 8) or b''
     chunks = game.ptr(game.base + GOBJECTS)
     rows = {}
-    for slot in range(maximum):
+    for slot in range(slots):
         # Der Cache aendert sich waehrend des Lesens, ein abgeschnittener Block zaehlt als Ende.
         if slot >> 3 >= len(bits) or (slot + 1) * ENTRY_SIZE > len(raw):
             break
@@ -45,7 +46,7 @@ if __name__ == '__main__':
     game = Game(int(sys.argv[1]))
     pattern = sys.argv[2] if len(sys.argv) > 2 else ''
     num, rows = entries(game)
-    print('Eintraege', num, 'statisch', sum(1 for key in rows if key & 1))
+    print('Eintraege', len(rows), 'Slots', num, 'statisch', sum(1 for key in rows if key & 1))
     for key, (index, live, outer, name, flags, stamp) in sorted(rows.items()):
         path = full_path(rows, key)
         if pattern in path:

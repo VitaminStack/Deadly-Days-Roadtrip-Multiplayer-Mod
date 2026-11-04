@@ -37,3 +37,7 @@ jobs:
 
       - name: Python-Tests
         run: python -B -m unittest discover -s tests
+
+      - name: Spike-Autoritaet und Readiness (ohne Spiel und SDK)
+        shell: pwsh
+        run: ./tests/Run-BlockadeAuthority.ps1
