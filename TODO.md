@@ -1,6 +1,8 @@
 # TODO und Roadmap
 
-Diese Datei ist die führende Aufgabenliste. Wer etwas übernimmt, reserviert es über einen Branch `task/<kennung>`, siehe [CONTRIBUTING.md](CONTRIBUTING.md#aufgaben-reservieren). Die Übersicht als Graph steht in [docs/ROADMAP.md](docs/ROADMAP.md).
+Diese Datei ist die führende Aufgabenliste. **Die Checkboxen sind die verbindliche Quelle für offen/erledigt**, nicht vorhandene oder gelöschte Branches. Wer etwas übernimmt, reserviert es über einen Branch `task/<kennung>`, siehe [CONTRIBUTING.md](CONTRIBUTING.md#aufgaben-reservieren). Die Übersicht als Graph steht in [docs/ROADMAP.md](docs/ROADMAP.md).
+
+Der [Fortschritt im README](README.md#fortschritt) zählt ausschließlich die Checkboxen der Phasen 0–6, ohne optionale Optimierungen und übergreifende Meilensteine. Nach jeder Änderung mit `py tools/task_status.py update` aktualisieren und mit `py tools/task_status.py check` prüfen; die CI prüft dies ebenfalls. Die unsichtbaren `<!-- tasks: kennung -->`-Marker direkt vor den Checkboxen ordnen die Pakete eindeutig zu. Umfasst ein Paket mehrere Checkboxen, ist es erst erledigt, wenn alle abgehakt sind. Neue Katalogeinträge brauchen eine solche Zuordnung. Ein gemergter Teil-PR schließt keinen noch offenen Punkt automatisch ab.
 
 **Vorgehen:** Das größte Risiko ist die Frage, ob native UE-Replikation im Spiel überhaupt noch funktioniert. Deshalb
 wird das zuerst mit kleinen Spikes geprüft (Phase 1), bevor echte Mod-Infrastruktur entsteht.
@@ -33,19 +35,8 @@ Die Pakete für die Zeit nach Phase 1 stehen unter [Spätere Arbeitspakete](#sp�
 | `phasenadapter` | Run | Phasenadapter für Rundenende, Lager und Routenkarte im Spiel belegen: automatische Hostquellen, sichtbare Anzeige, vollständige Eingabesperre | Reverse Engineering, Spike | viel | `research/spikes/a-connect/RoundPhaseRuntime.md`, `Mission.cpp` |
 | `controller-tausch` | Spieler | Den Weg finden, auf dem der Host nach einem Missionswechsel den Controller des Clients ersetzt, und dort `SpawnedPlayers` abgleichen, damit der Sekunden-Abgleich nichts mehr nachträgt | Reverse Engineering, Spike | mittel | Abschnitt „Abnahme auf der echten Route“ in der [Spike-README](research/spikes/a-connect/README.md#abnahme-auf-der-echten-route-spawnedplayers-lauf), `tools/spike/players.py` |
 | `remote-p2` | Spieler | Remote-Controller als P2 testen | Spike | mittel | [Coop-Ablauf](docs/GAME_ANALYSIS.md#coop-ablauf) |
-| `karte-client` | Welt | Beim Client `MapSeed` und `MapGenProfile` des Hosts setzen, Duplikate zählen und unterdrücken | Spike | mittel | [Karte und replizierte Kartenobjekte](docs/GAME_ANALYSIS.md#karte-und-replizierte-kartenobjekte) |
-| `pcg` | Welt | Bäume und Pflanzen aus PCG beim Client erzeugen | Reverse Engineering, Spike | mittel | [Client erzeugt die Host-Karte](docs/GAME_ANALYSIS.md#client-erzeugt-die-host-karte-karte-client) |
-| `treffer` | Spieler | Treffer des Clients direkt belegen | Spike | mittel | `AttributeSet` in [Offsets](docs/OFFSETS.md), Mission über das [Spielmenü](docs/TESTING.md#mission-über-das-spielmenü) |
-| `last` | Technik | Last messen (Spike D) | Test | viel | Mission über das Menü, Bandbreite und Framerate bei voller Gegnerzahl |
 | `tunnel` | Technik | Steam-Tunnel (Spike E) | C++, ohne Reverse Engineering, Steamworks SDK nötig | wenig | [Transport](docs/ARCHITECTURE.md#transport) |
-| `crash-reporter` | Technik | Crash-Reporter im Mod- und Testbetrieb zuverlässig abschalten | Reverse Engineering | wenig | [Crash-Reporter](research/spikes/a-connect/README.md#crash-reporter) |
-| `andockpunkte` | Technik | Proxy-DLL und Hook-Weg im laufenden Spiel erproben | C++, Spike | mittel | [Andockpunkte](docs/ARCHITECTURE.md#technische-andockpunkte-build-26187885), [Spike](research/spikes/andockpunkte/README.md) |
-| `pausen` | Logik | Pausen bei Level-up und Inventar nachweisen | Spike | mittel | [Pausen-Spike](research/spikes/pausen/README.md) |
-| `blueprint-logik` | Logik | Kontrollfluss und Events der Blueprints klären | Reverse Engineering | mittel | [Stichprobe](research/spikes/blueprint-logik/README.md) |
-| `trennen` | Run | Client-Absturz beim Trennen klären (`0x5975A6A`) | Reverse Engineering, Spike | mittel | [Abstürze auswerten](docs/TESTING.md#abstürze-auswerten) |
 | `niederlage` | Run | Echte Niederlage und Rückkehr in die `MetaBase`, erst nach `phasenadapter` | Spike | viel | [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf) |
-| `tick-absturz` | Technik | Einmaligen Client-Absturz im Missions-Tick klären (`0x5A17ACC`) | Reverse Engineering | viel | [Bekannte Abweichungen](research/spikes/a-connect/README.md#bekannte-abweichungen) |
-| `boss-dump` | Technik | SDK in einem Bosskampf dumpen | Reverse Engineering | mittel | [SDK-Erzeugung](docs/GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58) |
 
 **Nicht erneut machen.** Das ist erledigt und dokumentiert:
 
@@ -63,13 +54,7 @@ Die Pakete für die Zeit nach Phase 1 stehen unter [Spätere Arbeitspakete](#sp�
 Diese Pakete laufen unabhängig voneinander, sobald ihre Voraussetzung auf `main` ist. Vorher nicht reservieren. Jedes Paket arbeitet in seinem eigenen Ordner.
 In `src/Game` bekommt jedes Paket eine eigene Adapter-Datei, siehe [Arbeitsbereiche](CONTRIBUTING.md#arbeitsbereiche). Die einzelnen Punkte stehen weiter in den Phasen unten.
 
-**Welle 1: nach `grundgeruest`**
-
-| Kennung | Paket | Ordner | Spielzeit |
-|---|---|---|---|
-| `overlay` | Overlay mit Status, Lobby-Knöpfen und Debug-Anzeige | `src/UI` | wenig |
-| `deploy` | Deploy-Skript, das die Mod ins Spiel kopiert | `tools` | wenig |
-| `ci` | Testprojekt und CI für Code ohne SDK-Abhängigkeit | `tests`, `.github` | keine |
+**Welle 1 ist abgeschlossen:** `overlay`, `deploy` und `ci`, siehe [Abgeschlossene Pakete](#abgeschlossene-pakete). Nicht erneut reservieren.
 
 **Welle 2: nach Gate G1 und `grundgeruest`**
 
@@ -127,7 +112,6 @@ Diese Arbeit eignet sich nicht für paralleles Abarbeiten. Sie legt Schnittstell
 
 | Kennung | Arbeit | Warum zentral | Blockiert |
 |---|---|---|---|
-| `grundgeruest` | Solution, `Loader` und `Core` mit Logging, Config, Hooks, Dispatcher und Versionsprüfung | Alle Module bauen auf Struktur und Schnittstellen auf | Allen Mod-Code |
 | `game-adapter` | SDK-Einbindung und Muster für die Adapter in `src/Game` | Einheitlicher Aufbau, den alle Adapter übernehmen | `patches`, Welle 3, Welle 5 |
 | `patches` | Spike-Patches als geprüfte Hooks übernehmen | Die Patches greifen ineinander, eine Mission läuft erst mit allen zusammen | Welle 3 |
 | `remote-spieler` | Remote-Spieler als P2 in die Coop-Logik einbinden | Grundlage für jeden Spieler-Sync, baut auf `remote-p2` auf | Welle 3 |
@@ -172,6 +156,41 @@ Die Reihenfolge ist die Arbeitsreihenfolge: Thema 1 entscheidet über den Weg, d
 | 6 | **Spiellogik ohne Replikation** | Für XP, Währungen, Rewards, Pausen und UI ist je ein Sync-Weg festgelegt | Als Entwurf festgelegt, siehe [Sync-Bedarf](docs/SYNC_REQUIREMENTS.md). Nichts davon ist umgesetzt oder im Netz getestet |
 | 7 | **Technische Andockpunkte** | Proxy-DLL gewählt, Hook-Weg über `ProcessEvent` und Signaturen an einem Beispiel erprobt | Vollständiger VERSION-Proxy, drei Live-Signaturen und kleiner ProcessEvent-Hook auf Host und Client erprobt, siehe [Andockpunkte](docs/ARCHITECTURE.md#technische-andockpunkte-build-26187885) |
 
+## Abgeschlossene Pakete
+
+Nicht erneut reservieren. Die Nachweise und verbindlichen Checkboxen bleiben in den Phasen unten erhalten. Die Tabelle ist ein Katalog, kein zweiter Abschlussstatus. Beim Abschluss ein Paket aus der Einstiegstabelle hierher verschieben; `tasks.py` liest unabhängig davon immer die zugeordneten Checkboxen.
+
+| Kennung | Aufgabe |
+|---|---|
+| `boss-dump` | Bossklassen gezielt geladen und gedumpt (Phase 0) |
+| `karte-client` | Host-Karte beim Client ohne replizierte Duplikate erzeugt (Phase 1) |
+| `pcg` | PCG-Vegetation beim Client erzeugt (Phase 1) |
+| `treffer` | Treffer des Clients direkt belegt (Phase 1) |
+| `last` | Loopback-Last gemessen (Phase 1), kein Internet-Nachweis |
+| `crash-reporter` | Reporter in Mod und Spike gesperrt, CrashGuard bleibt vorgeschaltet (Phase 1) |
+| `andockpunkte` | Proxy und Hook-Weg im Spiel erprobt (Phase 1) |
+| `pausen` | Pausen-Logik analysiert (Phase 1), Umsetzung bleibt `pausen-sync` |
+| `blueprint-logik` | Repräsentative Blueprint-Pfade analysiert (Phase 1) |
+| `trennen` | Trennungsabsturz eingegrenzt (Phase 1) |
+| `tick-absturz` | Restrictor-Absturz nachgestellt (Phase 1), Laufzeitfix bleibt Phase 4 |
+| `grundgeruest` | Loader und Core einschließlich Dispatcher und Versionsprüfung (Phase 2) |
+| `overlay` | Sichtbare Host-/Client-Abnahme bestanden (Phase 2) |
+| `deploy` | Deploy-Skript vorhanden (Phase 2) |
+| `ci` | SDK-freie Tests und CI vorhanden (Phase 2) |
+
+## Übergreifende Meilensteine und Wartung
+
+Diese Pakete haben keine eigene gezählte Phasen-Checkbox. Ihr Abschluss wird hier festgehalten; sie erhöhen die Fortschrittszahlen im README nicht zusätzlich.
+
+<!-- tasks: integration-g2 -->
+- [ ] `integration-g2`: Gate G2 mit zehn Minuten zwischen zwei Haushalten abnehmen.
+<!-- tasks: integration-run -->
+- [ ] `integration-run`: Vollständigen Run zu zweit über Internet abnehmen.
+<!-- tasks: release -->
+- [ ] `release`: Versionierung, Abschlusstest und Veröffentlichung freigeben.
+<!-- tasks: spiel-update -->
+- [ ] `spiel-update`: Wartung nur bei einem konkret beschlossenen neuen Spiel-Build. Keine laufende Update-Aufgabe und keine Voraussetzung für den eingefrorenen Build.
+
 ## Optionale Optimierungen
 
 Bekannte kleine Fehler, die die Spielbarkeit nicht verhindern. Sie werden angegangen, sobald die Mod lauffähig ist.
@@ -195,6 +214,7 @@ Ziel: Alle können auf demselben Spielstand und mit derselben Toolchain arbeiten
 - [x] P0 Team-Aufteilung auf die [Arbeitsbereiche](CONTRIBUTING.md#arbeitsbereiche) festlegen, danach `CODEOWNERS` anlegen. Entschieden: Keine festen Bereiche je Person und kein `CODEOWNERS`. Die Arbeit teilt sich über die [Reservierung](CONTRIBUTING.md#aufgaben-reservieren) per `tools/tasks.py`, wo das möglich ist
 - [x] P0 SDK für UE 5.8 erstellen. Dumper-7 brauchte dafür einen Fix, siehe [Analyse](docs/GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58)
 - [x] P0 SDK zusätzlich während einer laufenden Mission dumpen, damit die Blueprint-Klassen enthalten sind
+<!-- tasks: boss-dump -->
 - [x] P2 SDK auch in einem Bosskampf dumpen, weil diese Klassen im Mission-Dump weitgehend fehlen. Ein echter Bosskampf war wegen des Host-Absturzes auf Tag 3 nicht erreichbar, die Klassen aller sechs Bosse sind deshalb in der Bosskarte gezielt geladen und gedumpt, siehe [Boss-Dump](docs/GAME_ANALYSIS.md#boss-dump-boss-dump)
 - [x] P1 Dumper-7-Fix für alle Helfer ohne eigenen Patch bereitstellen. Entschieden: kein Beitrag upstream, der Fix liegt dauerhaft auf `main` des eigenen Forks `VitaminStack/Dumper-7`, eingebunden als Submodul `third_party/Dumper-7`, siehe [SDK-Erzeugung](docs/GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58)
 - [x] P0 Visual-Studio-Solution mit einem Projekt je Modul anlegen, `config/Local.props` einbinden
@@ -213,36 +233,53 @@ Ziel: Fakten für Gate G1 sammeln. Spike-Code ist Wegwerfcode und landet nicht i
 - [x] P0 `bReplicates` der Blueprint-Actors prüfen: 218 von 482 Blueprint-Actor-Klassen replizieren, vor allem über ihre native Basisklasse
 - [x] P1 Klären, ob zur Laufzeit Iris oder die klassische Replikation aktiv ist: klassisch mit `ActorChannel`
 - [x] P0 Run-Ablauf nachvollziehen: `TriggerStartRun`, `FinalizeRunStart`, Ladebildschirm und Wechsel zwischen den Etappen, siehe [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf)
+<!-- tasks: guidcache -->
 - [ ] P0 Inventar beim Client lösen, für jeden Tag und den Endlosmodus: Unterobjekt-Teilfix, dazu aus `tag3` Achievement-Timer, Kartengenerator-Lambda und Exp-Aggregation. `tageswechsel` deckt alle Aufrufer der AttributeSet-Suche am Einstieg ab. Inventare an Tag 1 bis 3 vollständig und gleich. Ab Tag 4 fehlen dem Client die PlayerStates, weil seinem NetGUID-Cache die Einträge der PlayerState-Klasse fehlen, an Tag 5 stürzt er ab. Fertig erst, wenn kein Fix an einen bestimmten Tag gebunden ist, ein Run alle 8 Tage samt Gebietswechsel und Endboss schafft und der Endlosmodus danach über mindestens zwei Gebietswechsel weiterläuft, an jedem Tag mit `complete` und `equal`. Folgeaufgaben `testumgebung`, dann `guidcache`, siehe [Tageswechsel](docs/GAME_ANALYSIS.md#tageswechsel-client-verliert-die-playerstates-tageswechsel-übergabestand)
+<!-- tasks: testumgebung -->
 - [ ] P0 Saubere Testumgebung für den Run belegen: Jede Runde lädt vollständig, beide Spieler erscheinen am Bus, auf beiden Seiten 2 PlayerStates, mit Prüfskript für jeden Wechsel. Aufgabe `testumgebung`
+<!-- tasks: phasenadapter -->
 - [ ] P0 Rundenende, Lager und Routenkarte beim Client abbilden: Snapshot-Codec, Empfänger und lokaler Laufzeitadapter in `Mission.cpp` (Heartbeat, Dateitransport, Timeout, Textanzeige, Win32-Nachrichtenfilter) ohne Spiel getestet, bis `!phase bind` inaktiv. Automatische Hostquellen für Rundenübersicht, Lager und Route, sichtbarer Lauf und vollständige Eingabesperre fehlen, Folgeaufgabe `phasenadapter`, siehe [Untersuchung](docs/GAME_ANALYSIS.md#rundenende-befund-und-offene-phasenübertragung-rundenende)
+<!-- tasks: controller-tausch -->
 - [ ] P0 Neue Remote-Controller nach jedem Kartenwechsel sauber in `SpawnedPlayers` eintragen: echte TSet-Einfügung und SparseArray-Entfernung statt Schlüsselersetzung, nach zwei Missionstravels konsistent, synthetische Mengentests bestanden. Der Registrierungshook ist auf der echten Route belegt, deckt aber den Austausch des Client-Controllers nach einem Missionswechsel nicht ab, dort trägt der Sekunden-Abgleich nach. Folgeaufgabe `controller-tausch`, siehe [Spike](research/spikes/a-connect/README.md#abnahme-auf-der-echten-route-spawnedplayers-lauf)
+<!-- tasks: trennen -->
 - [x] P1 Client-Absturz beim Trennen klären (`0x5975A6A`), wenn der Host ins Hauptmenü geht: Folge fehlender Inventar-Items in `UInventoryComponent::EndPlay`. Mit Inventar-Teilfix kein Absturz, ohne ihn reproduziert, siehe [Trennen](docs/GAME_ANALYSIS.md#trennen-ins-hauptmenü-trennen)
+<!-- tasks: tick-absturz -->
 - [x] P1 Einmaligen Client-Absturz im Missions-Tick klären (`0x5A17ACC`, Lesen von `0x2C8`), trat bisher nur einmal auf: `MissionGameState` des Bewegungs-Restrictors war null, Absturz erst bei Bewegungseingabe, nachgestellt. Ursache des Null-Werts vermutlich ein später GameState, siehe [Restrictor](docs/GAME_ANALYSIS.md#client-absturz-im-restrictor-tick-absturz)
+<!-- tasks: niederlage -->
 - [ ] P1 Echte Niederlage nachvollziehen: Alle Spieler tot, Rundenende, Rückkehr in die `MetaBase`, dabei den Client mitnehmen
 - [x] P0 Coop-Ablauf nachvollziehen: Wie ruft das Spiel `SetCoopEnabled` und `SpawnLocalPlayer` auf, wie entsteht P2, und kommt der Code mit einem Controller ohne lokalen Spieler zurecht? P2 ist ein zweiter `ULocalPlayer` aus `SpawnLocalPlayer(1)`. Index-Abfragen fallen ohne `LocalPlayer` sauber zurück, 5 Stellen nicht, siehe [Coop-Ablauf](docs/GAME_ANALYSIS.md#coop-ablauf)
+<!-- tasks: remote-p2 -->
 - [ ] P0 Remote-Controller als P2 testen: `SetCoopEnabled(true)` beim Host, Eintrag in `ActivePlayers` ohne `CreateLocalPlayer`, Wirkung auf Coop-UI und Eingabe-Router prüfen, siehe [Folgerungen](docs/GAME_ANALYSIS.md#coop-ablauf)
 - [x] P0 Kamera entscheiden (03.11.2026): Gemeinsame Kamera (Option A) für den ersten spielbaren Stand festgelegt, mit ursprünglichem Zoom und Bewegungsbegrenzung. Analyse von `AllPlayerFramingCamera` und Viewport-Rand-Spawning in [Kamera und Sichtbereich](docs/GAME_ANALYSIS.md#kamera-und-sichtbereich). Umsetzung bleibt `kamera-code`; getrennte Kameras sind nur ein optionales Zukunfts-TODO
+<!-- tasks: andockpunkte -->
 - [x] P1 Technische Andockpunkte klären: `andockpunkte`: vollständiger VERSION-Exportproxy, drei eindeutige Live-Signaturen und kleiner ProcessEvent-Hook auf Host und Client bis in die Mission erprobt (ein Originalaufruf, unveränderte Rückgabe, Slot wiederhergestellt). Grenzen und Fehlversuche in [Architektur](docs/ARCHITECTURE.md#technische-andockpunkte-build-26187885); kein fertiges Loader-/Core-Framework.
 - [x] P0 Karten-Erzeugung verstehen: Wer startet den `MapGenerator`, und ergibt derselbe Seed dieselbe Karte? Start über `MapGenProfileInjectorAndBuildTrigger` auf beiden Seiten. Gleicher Run-Seed und gleiche Mission ergeben dieselbe Karte. Der Client hat keine Missionsdaten, deshalb `MapSeed=1` und eine gescheiterte Karte, siehe [Karte und Seed](docs/GAME_ANALYSIS.md#karte-und-seed)
 - [x] P0 Klären, wie Karte und replizierte Kartenobjekte beim Client ohne Duplikate entstehen. Replizierte Kartenobjekte sind Child Actors der nicht replizierten Parzellen. Empfehlung: Client erzeugt die Karte selbst und unterdrückt lokale Kopien replizierter Klassen, siehe [Karte und replizierte Kartenobjekte](docs/GAME_ANALYSIS.md#karte-und-replizierte-kartenobjekte)
+<!-- tasks: karte-client -->
 - [x] P0 Spike: Beim Client `MapSeed` und `MapGenProfile` des Hosts setzen, Duplikate zählen und lokale Kopien replizierter Klassen unterdrücken. `MapGen.cpp` überträgt Seed, Profil, Größe und Tags, die Karte ist auf beiden Seiten gleich, lokale Kopien replizierter Child Actors gibt es nicht mehr, siehe [Client erzeugt die Host-Karte](docs/GAME_ANALYSIS.md#client-erzeugt-die-host-karte-karte-client)
+<!-- tasks: pcg -->
 - [x] P1 Beim Client fehlen Bäume und Pflanzen aus PCG (`BP_PCGVolume_C`), obwohl die Karte gleich ist. Klären, warum PCG dort nicht erzeugt. Der Graph kommt aus dem Biom der Route in der GameInstance, die beim Client leer ist. `Pcg.cpp` überträgt den Graphen und setzt die Seeds der Instanz-Komponenten, Vegetation und Baumarten sind auf beiden Seiten gleich, siehe [PCG-Vegetation](docs/GAME_ANALYSIS.md#pcg-vegetation-beim-client-pcg)
 - [x] P1 Doppelte `BP_ChaosDestructable_PowerUp_C` beim Client: Jede Kiste spawnt sie auch lokal. Spike-Patch in `MapObjects.cpp` unterdrückt die lokale Kopie, beim Client bleibt nur die replizierte, siehe [Doppelte PowerUp-Objekte](docs/GAME_ANALYSIS.md#doppelte-powerup-objekte-powerup-duplikat)
 - [x] P1 Enemy-Spawning und `PoolManager` verstehen: Wie verhalten sich wiederverwendete Gegner bei Replikation? Tote Gegner werden zerstört, nicht gepoolt. `RecycleArray` versetzt lebende, entfernte Gegner. Der `PoolManager` betrifft Projektile und Effekte, siehe [Gegner-Spawning und Pooling](docs/GAME_ANALYSIS.md#gegner-spawning-und-pooling)
+<!-- tasks: pausen -->
 - [x] P1 Pausen-Logik klären: `pausen`: Inventar im Pausemenue auf Host und Client geoeffnet/geschlossen, verschachtelte Sitzungen und gleichzeitige Pausen gemessen; Host-Weltpause repliziert, Client-Wunsch nicht. Kontrollierte XP-Aufnahme bis Level 2 ohne anhaltende Pause; XP/Level bleiben beim Client unveraendert. Benoetigter Host-/Session-Sync und Testgrenzen im [Pausen-Spike](research/spikes/pausen/README.md#nachtrag-03112026-isolierte-ablaeufe). Analyse, kein implementierter Sync.
 - [x] P1 Sync-Bedarf der nicht replizierten Komponenten festlegen: `LevelSystemComponent`, Wallets, `RerollCurrency`, `CoopInventoryCoordinatorComponent`. `sync-bedarf`: [Matrix und Kontrollvertrag](docs/SYNC_REQUIREMENTS.md) fuer alle Komponenten, XP, Waehrungen, Rewards, Pausen und UI festgelegt; Architekturentwurf, kein implementierter oder im Netz getesteter Sync. Offene Semantik-/Integrationsfragen sind dort benannt.
+<!-- tasks: blueprint-logik -->
 - [x] P1 Blueprint-Logik auslesen: `blueprint-logik`: repraesentative Spawn-/Effekt-/Eventpfade durch Bytecode-Grenzaudit (42 Funktionen, 25 Eventgraph-Einspruenge) und Host-/Client-Traces geklaert. Kisten-Multicast zugestellt, Airdrop ohne Client-Actor, Projektilgroesse nicht automatisch nachgeliefert, Itemeffekt-Guards und lokale HUD-Ereignisse belegt. Benoetigten Client-Zustand und verbleibende Integrationspruefungen im [Nachtrag](research/spikes/blueprint-logik/README.md#nachtrag-03112026-grenzpruefung-und-ereignistests) festgehalten; kein Audit aller Blueprints und kein implementierter Sync.
 
 **Spikes**
 
 - [x] P0 **Spike A – Verbindung:** Beide kommen in dieselbe Welt, auch auf einem PC, siehe [Ergebnis](research/spikes/a-connect/README.md)
 - [x] P0 **Spike B – Spieler:** Client stabil in der Mission, Bewegung beidseitig, Client-Schüsse wirken beim Host, siehe [Ergebnis](research/spikes/a-connect/README.md)
+<!-- tasks: treffer -->
 - [x] P0 Treffer des Clients direkt belegen, etwa über die Lebenspunkte eines Gegners, bisher nur aus Sterbeort und Reichweite geschlossen. `Hits.cpp` liest beim Host jede Treffermeldung: Projektile des Clients ziehen Leben ab und töten, 50 Treffer und 25 Kills in rund 2 Minuten, siehe [Treffer des Clients](docs/GAME_ANALYSIS.md#treffer-des-clients-treffer)
 - [x] P1 Mission über den echten Weg durch das Spielmenü mit den Patches starten, siehe [Ergebnis](research/spikes/a-connect/README.md)
+<!-- tasks: crash-reporter -->
 - [x] P0 Crash-Reporter im Mod- und Testbetrieb zuverlässig abschalten, bisher hilft nur ein Skript. Testabstürze dürfen nicht bei Pixelsplit landen. Mod und Spike lassen den Start von `CrashReportClient.exe` scheitern, mit echten Abstürzen geprüft; `CrashGuard` bleibt erste Schicht für die Zeit vor dem Laden, siehe [Crash-Reporter](research/spikes/a-connect/README.md#sperre-in-mod-und-spike-crash-reporter)
 - [ ] P1 **Spike C – Mission:** Lädt eine prozedurale Mission beim Client identisch? Direkt geladen: 17 `MapTile` je Seite und gleiches Bild am Start, kein Vergleich der ganzen Karte
+<!-- tasks: last -->
 - [x] P1 **Spike D – Last:** Bandbreite und Framerate bei voller Gegnerzahl messen. Bei rund 85 Gegnern sendet der Host 47 KB/s an einen Client, knapp die Hälfte der ausgehandelten 100.000 B/s, beide Instanzen bei 60 fps. Nur ein PC über Loopback, siehe [Last](docs/GAME_ANALYSIS.md#last-spike-d-last)
+<!-- tasks: tunnel -->
 - [ ] P1 **Spike E – Tunnel:** Spielverkehr über Steam P2P tunneln (siehe [Architektur](docs/ARCHITECTURE.md#transport))
 - [x] P1 Testaufbau klären: Zwei Instanzen laufen auf einem PC unter demselben Steam-Konto, je mit eigenem `-UserDir=`
 
@@ -258,37 +295,59 @@ Entscheiden und in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#entscheidungen) f
 
 Ziel: Stabile Basis, auf der alle parallel arbeiten können. Ab hier sind die Arbeitsbereiche weitgehend unabhängig.
 
+<!-- tasks: grundgeruest -->
 - [x] P0 `Loader`: Proxy-DLL lädt die Mod beim Spielstart. Im Spiel mit Host und Client geprüft
+<!-- tasks: grundgeruest -->
 - [x] P0 `Core`: Logging in Datei, Config, Hook-Framework
+<!-- tasks: grundgeruest -->
 - [x] P0 `Core`: Dispatcher für Aufrufe auf dem Game Thread, `Drain` ruft erst `game-adapter` auf
+<!-- tasks: grundgeruest -->
 - [x] P0 `Core`: Versionsprüfung – bei unbekannter Build-ID Mod sauber deaktivieren statt abstürzen
+<!-- tasks: game-adapter -->
 - [ ] P0 `Game`: Adapter-Schicht für die ersten Klassen
+<!-- tasks: overlay -->
 - [x] P1 `UI`: Einfaches Overlay mit Status, Lobby-Knöpfen und Debug-Anzeige (`overlay`): F8-Toolfenster, kopierter Status und geprüfte Game-Thread-Aktionen implementiert; ohne Netzwerkbackend bleiben Lobby-Knöpfe deaktiviert. Modell-/Fenster-Lebenszyklustests sowie sichtbare Host-/Client-Abnahme bei 100 % und 150 % Skalierung bestanden: F8, Tab, Schließen, Fokuswechsel, Verschieben und Minimieren/Wiederherstellen. Steam-Anbindung bleibt Phase 3, siehe [UI](src/UI/README.md#sichtbare-spielabnahme-03112026)
+<!-- tasks: deploy -->
 - [x] P1 `tools`: Deploy-Skript, das die Mod ins Spiel kopiert, `tools/Deploy-Mod.ps1`
+<!-- tasks: ci -->
 - [x] P1 `tests`: Testprojekt und CI für Code ohne SDK-Abhängigkeit
 
 ## Phase 3 – Session und Verbindung
 
 Ziel: Zwei Spieler finden sich über Steam und verbinden sich ohne Portfreigabe.
 
+<!-- tasks: steam-lobby -->
 - [ ] P0 Steam-Lobby erstellen, Freunde einladen, beitreten (`OnlineSubsystemSteam` oder direkt Steamworks)
+<!-- tasks: transport -->
 - [ ] P0 Transport-Tunnel aus Spike E als richtiges Modul umsetzen
+<!-- tasks: protokoll -->
 - [ ] P0 Handshake: Spiel-Build und Mod-Version müssen bei beiden gleich sein
+<!-- tasks: protokoll -->
 - [ ] P0 Verlässlichen Kontrollkanal nach dem [Vertrag](docs/SYNC_REQUIREMENTS.md#kontrollkanal-und-datenmodell) bauen. Rundenende, Pausen, XP und Rewards brauchen ihn
+<!-- tasks: net-fehler -->
 - [ ] P1 Saubere Fehlerbehandlung: Timeout, Abbruch, Host verlässt das Spiel
+<!-- tasks: reconnect -->
 - [ ] P2 Wiederverbinden während eines Runs (Hinweis: `OnCoopReconnectRequiredChanged`)
 
 ## Phase 4 – Vertical Slice
 
 Ziel: Ein spielbarer Ausschnitt von vorne bis hinten. Zwei Spieler starten eine Mission, kämpfen gegen einen Gegnertyp und sehen dasselbe.
 
+<!-- tasks: patches -->
 - [ ] P0 [Spike-Patches](research/spikes/a-connect/README.md#patches) als geprüfte Hooks nach `src/Game` übernehmen, ohne sie läuft keine Mission zu zweit
+<!-- tasks: remote-spieler -->
 - [ ] P0 Remote-Spieler als P2 in die Coop-Logik einbinden, obwohl er kein lokaler Spieler ist
+<!-- tasks: missionsstart -->
 - [ ] P0 Gemeinsamer Missionsstart, gleiche Karte bei beiden
+<!-- tasks: kamera-code -->
 - [ ] P0 Gemeinsame Kamera (Option A) umsetzen, auch beim Client (`kamera-code`): ursprünglichen Zoom und Bewegungsbegrenzung erhalten
+<!-- tasks: bewegung -->
 - [ ] P0 Bewegung, Dash und Blickrichtung
+<!-- tasks: kampf -->
 - [ ] P0 Waffen, Projektile, Treffer, Schaden, Tod
+<!-- tasks: gegnertyp -->
 - [ ] P0 Ein Gegnertyp inklusive Spawn und Tod
+<!-- tasks: eingaben -->
 - [ ] P1 Eingaben aus dem lokalen `CoopInputRouter` sauber vom Remote-Spieler trennen
 - [ ] P1 Beim Client `MissionGameState` des `InViewportMovementRestrictor` nachtragen, wenn der GameState erst nach dessen `BeginPlay` ankommt, sonst Absturz bei `0x5A17ACC`, siehe [Restrictor](docs/GAME_ANALYSIS.md#client-absturz-im-restrictor-tick-absturz)
 
@@ -301,22 +360,34 @@ Falls nicht, Ursachen beheben, bevor weitere Spielinhalte synchronisiert werden.
 
 Ziel: Ein kompletter Run ist zu zweit online spielbar.
 
+<!-- tasks: gegner-alle -->
 - [ ] P0 Alle Gegner, Bosse und Boss-Phasen
+<!-- tasks: fortschritt -->
 - [ ] P0 Loot, XP, Level-ups, Fähigkeiten und Status-Effekte (GAS)
+<!-- tasks: inventar-sync -->
 - [ ] P0 Inventar: Rucksack, Stash, Werkbank, Reward-Queue (`CoopInventoryCoordinator`)
+<!-- tasks: inventar-ui -->
 - [ ] P0 Inventar-UI beim Remote-Spieler
+<!-- tasks: pausen-sync -->
 - [ ] P0 Pausen und blockierende UI beider Spieler über den Kontrollkanal abstimmen
+<!-- tasks: tagesablauf -->
 - [ ] P0 Tageszyklus, Treibstoff, Missionsziele, Fahrt zwischen den Etappen
+<!-- tasks: run-ende -->
 - [ ] P1 Run-Ende und Rückkehr zur Meta-Basis
 - [ ] P1 Vorgehen für Meta-Fortschritt: Wessen Stand zählt, was bekommt der Client?
+<!-- tasks: vfx-sound -->
 - [ ] P2 VFX und Sound beim Client (FMOD)
 - [ ] P2 Wöchentliche Herausforderung (WeeklyMode) entweder unterstützen oder online sperren
 
 ## Phase 6 – Release
 
+<!-- tasks: online-sperren -->
 - [ ] P0 **Bestenlisten und Erfolge online sperren**, damit Mod-Runs keine Ranglisten verfälschen
+<!-- tasks: telemetrie-aus -->
 - [ ] P0 **Telemetrie, Bug-Reports und Crash-Reports im Mod-Betrieb abschalten**, damit Pixelsplit keine Mod-Fehler als Spielfehler bekommt
+<!-- tasks: mod-saves -->
 - [ ] P0 Mod-Spielstände vom normalen Spielstand trennen, damit kein Save beschädigt wird
+<!-- tasks: installer -->
 - [ ] P1 Installer oder einfache Installationsanleitung
 - [ ] P2 Mehr als 2 Spieler prüfen (Coop-Logik ist fest auf P1 und P2 ausgelegt, daher aufwendig)
 

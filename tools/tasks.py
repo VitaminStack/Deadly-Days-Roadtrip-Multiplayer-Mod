@@ -4,8 +4,8 @@
   py tools/tasks.py claim <kennung> <name>   Reservieren: Worktree, Branch, Push, Draft-PR
   py tools/tasks.py release <kennung>        Reservierung aufgeben: Draft-PR schliessen, Branch loeschen
 
-Quelle der Kennungen sind die Tabellen in TODO.md auf origin/main. Der Status kommt aus den Branches task/<kennung>
-und, wenn die GitHub CLI angemeldet ist, aus den Pull Requests. Ohne gh sieht man nur die Branches.
+Quelle der Kennungen und Abschluesse ist TODO.md auf origin/main. Branches task/<kennung>
+und Pull Requests ergaenzen nur Reservierung und Review, nicht den Checkbox-Abschluss.
 """
 import json
 import os
@@ -14,6 +14,11 @@ import re
 import subprocess
 import sys
 import time
+
+if __package__:
+    from .task_status import validate_tasks
+else:
+    from task_status import validate_tasks
 
 STALE_DAYS = 3
 
@@ -35,10 +40,14 @@ def repo_root():
     return os.path.dirname(common)
 
 
-def todo_tasks():
+def todo_text():
+    return git('show', 'origin/main:TODO.md').stdout
+
+
+def todo_tasks(text=None):
     """Kennung -> (Abschnitt, Beschreibung) aus allen Tabellen mit Spalte Kennung."""
     tasks, section, in_table, column = {}, '', False, 1
-    for line in git('show', 'origin/main:TODO.md').stdout.splitlines():
+    for line in (todo_text() if text is None else text).splitlines():
         if line.startswith('## '):
             section, in_table = line[3:].strip(), False
         elif line.startswith('| Kennung |'):
@@ -84,13 +93,17 @@ def claim_info(kennung):
     return who, (time.time() - last) / 86400
 
 
-def status(kennung, branches, prs):
+def status(kennung, branches, prs, states):
+    if kennung not in states:
+        return 'Status ungeklärt (Checkbox-Zuordnung fehlt)'
+    if states[kennung]:
+        return 'erledigt (TODO.md)' + (' (Branch noch vorhanden)' if kennung in branches else '')
     pr = prs.get(kennung) if prs else None
     if pr and pr['state'] == 'OPEN':
         who, _ = claim_info(kennung) if kennung in branches else ('?', 0)
         return f"in Arbeit, Draft-PR #{pr['number']} ({who})" if pr['isDraft'] else f"PR #{pr['number']} wartet auf Review"
     if pr and pr['state'] == 'MERGED':
-        return f"erledigt, PR #{pr['number']}" + (' (Branch nicht geloescht)' if kennung in branches else '')
+        return f"erst nachfragen: PR #{pr['number']} gemergt, TODO noch offen"
     if kennung in branches:
         who, days = claim_info(kennung)
         stale = f', seit {days:.0f} Tagen ohne Commit, erst nachfragen' if days >= STALE_DAYS else ''
@@ -100,30 +113,41 @@ def status(kennung, branches, prs):
 
 def cmd_list():
     git('fetch', '-q', '--prune', 'origin')
-    tasks, branches, prs = todo_tasks(), remote_branches(), pull_requests()
+    text = todo_text()
+    tasks, states = todo_tasks(text), validate_tasks(text)
+    branches, prs = remote_branches(), pull_requests()
     if prs is None:
-        print('Hinweis: GitHub CLI fehlt oder ist nicht angemeldet, Status nur aus Branches.\n')
+        print('Hinweis: GitHub CLI fehlt oder ist nicht angemeldet. Abschluss aus TODO.md, Reservierungen aus Branches; PR-Status unbekannt.\n')
     section = None
     for kennung, (sec, text) in tasks.items():
         if sec != section:
             print(f'\n{sec}')
             section = sec
-        print(f'  {kennung:<18} {status(kennung, branches, prs):<44} {text}')
+        print(f'  {kennung:<18} {status(kennung, branches, prs, states):<44} {text}')
     extra = sorted(branches - set(tasks))
     if extra:
         print('\nBranches ohne Kennung in TODO.md')
         for kennung in extra:
-            print(f'  {kennung:<18} {status(kennung, branches, prs)}')
+            print(f'  {kennung:<18} {status(kennung, branches, prs, states)}')
 
 
 def cmd_claim(kennung, name):
     if not re.fullmatch(r'[a-z0-9][a-z0-9-]*', kennung):
         sys.exit('Kennung nur aus Kleinbuchstaben, Ziffern und Bindestrich.')
     git('fetch', '-q', '--prune', 'origin')
-    tasks, branches = todo_tasks(), remote_branches()
+    text = todo_text()
+    tasks, states = todo_tasks(text), validate_tasks(text)
+    branches, prs = remote_branches(), pull_requests()
+    if states.get(kennung):
+        sys.exit(f'{kennung} ist laut TODO.md erledigt. Keine neue Reservierung.')
+    pr = prs.get(kennung) if prs else None
+    if pr and pr['state'] in ('OPEN', 'MERGED'):
+        sys.exit(f'{kennung}: {status(kennung, branches, prs, states)}. Keine neue Reservierung.')
     if kennung in branches:
-        sys.exit(f'task/{kennung} existiert schon: {status(kennung, branches, pull_requests())}. Andere Aufgabe waehlen.')
+        sys.exit(f'task/{kennung} existiert schon: {status(kennung, branches, prs, states)}. Andere Aufgabe waehlen.')
     if kennung not in tasks:
+        if kennung in states:
+            sys.exit(f'{kennung} hat keinen Katalogeintrag. Erst TODO.md korrigieren.')
         print(f'Hinweis: {kennung} steht in keiner Tabelle in TODO.md.')
     elif tasks[kennung][0] == 'Spätere Arbeitspakete':
         print('Hinweis: Spaeteres Arbeitspaket, nur nehmen, wenn seine Voraussetzung auf main ist.')
@@ -176,14 +200,17 @@ def cmd_release(kennung):
 def main():
     sys.stdout.reconfigure(encoding='utf-8')
     args = sys.argv[1:]
-    if args[:1] == ['list'] and len(args) == 1:
-        cmd_list()
-    elif args[:1] == ['claim'] and len(args) == 3:
-        cmd_claim(args[1], args[2])
-    elif args[:1] == ['release'] and len(args) == 2:
-        cmd_release(args[1])
-    else:
-        sys.exit(__doc__)
+    try:
+        if args[:1] == ['list'] and len(args) == 1:
+            cmd_list()
+        elif args[:1] == ['claim'] and len(args) == 3:
+            cmd_claim(args[1], args[2])
+        elif args[:1] == ['release'] and len(args) == 2:
+            cmd_release(args[1])
+        else:
+            sys.exit(__doc__)
+    except ValueError as error:
+        sys.exit(f'TODO.md ungueltig: {error}')
 
 
 if __name__ == '__main__':
