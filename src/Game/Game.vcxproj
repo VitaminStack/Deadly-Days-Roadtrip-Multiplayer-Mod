@@ -42,6 +42,7 @@
     <ClCompile Include="ClientPatches.cpp" />
     <ClCompile Include="CodeCave.cpp" />
     <ClCompile Include="Game.cpp" />
+    <ClCompile Include="ConsoleAdapter.cpp" />
     <ClCompile Include="GameThread.cpp" />
     <ClCompile Include="HealthBarPatches.cpp" />
     <ClCompile Include="InventoryPatches.cpp" />
@@ -60,6 +61,7 @@
   <ItemGroup>
     <ClInclude Include="CodeCave.h" />
     <ClInclude Include="Game.h" />
+    <ClInclude Include="ConsoleAdapter.h" />
     <ClInclude Include="PatchPolicy.h" />
     <ClInclude Include="PatchRuntime.h" />
     <ClInclude Include="Patches.h" />

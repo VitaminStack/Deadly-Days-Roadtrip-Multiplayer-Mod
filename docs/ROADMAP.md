@@ -19,6 +19,7 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 **Neue Befunde.**
 
 - `client-visuell`, 04.11.2026, auf Nutzerwunsch vorgezogen und noch offen: Projektile, XP-Orbs, Airdrops und Partikeleffekte im Host-/Client-Vergleich. Erste Messung zeigt fehlende XP-Niagara-Darstellungsdaten beim Client; reines Einschalten der Projektil-Bewegungsreplikation ist kein abgenommener Fix. Nutzerergänzung: Airdrops fehlen beim Client, XP-Aufnahmen sollen einmal für beide Spieler zum gemeinsamen Run-Fortschritt zählen. Kein Produktionscode geändert, [Befunde, Fehlversuch und nächste Schritte](../research/spikes/client-visuell/README.md).
+- Update-Verwaltung, 04.11.2026: Auf Nutzerwunsch nur als optionale Zukunftsarbeit eingeplant: lokale Mod-/Spiel-Prüfung mit sichtbarer Ablehnung vor dem Laden, danach geprüfte Releaseinformationen und erst später ein optionaler Auto-Updater. Die Aufgaben und Abnahmen stehen ausschließlich in [TODO.md](../TODO.md#optionale-optimierungen). Build `26187885` bleibt erzwungen; keine zusätzliche Voraussetzung für den aktuellen Release, keine Umsetzung und keine neue Spielabnahme.
 
 - `layerapps-sperre`, 04.11.2026: Das Spiel fragt beim Run-Ende `deadlydays.layerapps.com` an. Die Mod sperrt den Namen jetzt wie `pixelsplit.games`, ohne den Inhalt zu untersuchen. Mod-Runs senden keine unnötigen Daten. Run-Ende und neuer Run liefen mit der Sperre normal.
 - `patches`, 04.11.2026: Die 25 Spielfehler-Fixes aus dem Spike stehen als geprüfte Patches in `src/Game/*Patches.cpp`. Die Mod prüft beim Start alle Stellen und setzt dann alle oder keinen. Mit der Mod setzt der Spike seine eigenen Fassungen nicht mehr und meldet seinen Phasenbeobachter bei der Mod an. Karte, PCG, Testhilfen und Messung bleiben im Spike. Mit `-Mod` lief die echte Route von der MetaBase bis Tag 5 ohne Absturz, die Inventare waren nach jedem Wechsel gleich. Danach kamen nach einer Niederlage beide in die MetaBase zurück. [Patches](../src/Game/README.md#patches).
@@ -169,12 +170,14 @@ flowchart TD
     end
 
     subgraph PH3["Phase 3: Session und Verbindung"]
-        LO["Steam-Lobby"]:::open
+        LO["Steam-Lobby<br/>(steam-lobby)"]:::done
+        LL["Lobby mit zwei Konten<br/>(lobby-live, zu zweit)"]:::open
         TN["Transport-Tunnel<br/>(transport)"]:::done
         HS["Handshake: Build und Mod-Version"]:::open
         FE["Timeout, Abbruch,<br/>Host verlässt das Spiel"]:::open
         KK["Kontrollkanal"]:::open
         LO --> TN --> HS --> KK --> FE
+        LO --> LL
     end
 
     subgraph PH4["Phase 4: Vertical Slice"]

@@ -11,6 +11,8 @@ Einstieg ist `Net::Start` in `Net/Net.h`. Darf `Core` nutzen. Daten für den Gam
 |---|---|
 | `SteamSockets.h` | Schmale Sicht auf `ISteamNetworkingSockets`. `LoadSteamSockets` nutzt die Steam-Laufzeit des Spiels, Tests eine nachgebaute |
 | `Transport.h` | Tunnel zwischen dem UDP des Spiels und Steam Networking, Host und Client |
+| `SteamLobbyApi.h` | Schmale Sicht auf Matchmaking, Friends und Utils für die Lobby. `LoadSteamLobbyApi` nutzt die Steam-Laufzeit des Spiels |
+| `Session.h` | Ablauf einer Sitzung: Lobby erstellen, einladen, beitreten, Transport starten, Spiel verbinden |
 | `Net.h` | `Start` und der laufende Transport |
 
 ## Transport (`transport`)
@@ -38,7 +40,7 @@ Die Steam-Funktionen kommen über die flache C-Schnittstelle aus der `steam_api6
 
 ### Testschalter
 
-Bis die Steam-Lobby den Transport startet, geht das über die Kommandozeile des Spiels:
+Ohne Lobby lässt sich der Transport für Tests direkt über die Kommandozeile des Spiels starten:
 
 | Schalter | Wirkung |
 |---|---|
@@ -50,12 +52,64 @@ Bis die Steam-Lobby den Transport startet, geht das über die Kommandozeile des 
 weil beide Seiten im Test gleichzeitig starten. `Start-Session.ps1 -Mod -Tunnel Mod` setzt die Schalter und verbindet danach
 das Client-Spiel mit `open 127.0.0.1:7778`, siehe [Testen](../../docs/TESTING.md).
 
+## Steam-Lobby (`steam-lobby`)
+
+Direkt über Steamworks, ohne `OnlineSubsystemSteam`: Das Spiel bringt keinen Steam-NetDriver mit, die Lobby braucht nur
+Matchmaking und Friends aus derselben `steam_api64.dll` wie der Transport. Niemand tauscht SteamIDs von Hand aus.
+
+```text
+Host:   Erstellen -> Lobby nur für Freunde -> Transport-Host -> Spiel wird Listen-Server in der MetaBase -> Einladen
+Client: Einladung annehmen oder Lobby-ID -> Lobby betreten -> Besitzer der Lobby -> Transport-Client -> open 127.0.0.1:7778
+```
+
+- `Session` kennt keine Unreal-Objekte. Was im Spiel passieren soll, kommt über `SessionHooks`; `src/Mod/Lobby.cpp` verdrahtet sie
+  mit Konsolenbefehlen (`Game::ExecuteConsoleCommand`), dem Overlay (`UI::Overlay`) und dem Game-Thread-Takt.
+- Die Lobby trägt `ddcoop=<Version>` in den Lobby-Daten. Ohne den Wert oder mit anderer Version bricht der Beitritt ab und verlässt die Lobby.
+- Einladungen: „Einladen“ im Overlay öffnet die Freundesliste im Steam-Overlay. Nimmt ein Freund an, während das Spiel läuft,
+  kommt `GameLobbyJoinRequested_t`; die laufende Sitzung endet, dann folgt der Beitritt. Bei geschlossenem Spiel startet Steam
+  es mit `+connect_lobby <id>`, die Mod tritt bei, sobald die erste Welt geladen ist.
+- Beitritt per Lobby-ID: Feld im Overlay. Der Host schreibt die ID ins Mod-Log, sie gilt nur, solange die Lobby lebt, und gehört
+  zu keinem Konto. SteamIDs und Adressen stehen weiter nirgends im Log.
+- Zwei Instanzen auf einem PC laufen unter einem Konto. Ist der Besitzer der Lobby das eigene Konto, nimmt der Client den Weg
+  über 127.0.0.1, sonst P2P.
+- Verlassen schließt Transport und Lobby, der Client trennt im Spiel mit `disconnect`. Endet der Tunnel des Clients, meldet die
+  Sitzung `Failed` mit Grund und verlässt die Lobby. Danach sind Erstellen und Beitreten wieder möglich.
+- Alle Aufrufe laufen auf dem Game Thread. Dort ruft das Spiel `SteamAPI_RunCallbacks` auf, dort kommen Callbacks und
+  Ergebnisse von Steam an, und nur dort liefert die Steam-Laufzeit ihre Schnittstellen (siehe Transport).
+
+| Schalter | Wirkung |
+|---|---|
+| `-ddcoop_lobby=create` | Lobby erstellen, sobald eine Welt geladen ist |
+| `-ddcoop_lobby=<Lobby-ID>` | Der Lobby beitreten, sobald eine Welt geladen ist |
+| `-ddcoop_lobby_delay=<s>` | Erstellen oder Beitreten frühestens so viele Sekunden nach dem Start, im Test bis der Spike geladen ist |
+
+Mit `-ddcoop_transport=...` bleibt die Lobby aus, beide nutzen dieselben Ports. `Start-Session.ps1 -Mod -Tunnel Lobby` setzt die
+Schalter, liest die Lobby-ID aus dem Log des Hosts und startet den Client damit, siehe [Testen](../../docs/TESTING.md).
+
+### Lobby im Spiel (04.11.2026)
+
+Build `26187885`, ein PC, ein Konto, `Start-Session.ps1 -Mod -Tunnel Lobby` mit Spike und CrashGuard, Release-Build der Mod.
+
+| Schritt | Ergebnis |
+|---|---|
+| Lobby erstellen | Nach etwa 0,3 s erstellt, Host-Tunnel lauscht, `ExecuteConsoleCommand` macht den Host zum Listen-Server in der MetaBase |
+| Beitritt per Lobby-ID, ohne Spike beim Beitritt | Lobby betreten, Besitzer ist das eigene Konto, Weg über 127.0.0.1, Tunnel nach 20 ms, Client lädt die MetaBase. Dann Absturz: erst Host `0x5901CE8`, im zweiten Lauf Client `0x56B16D9`. Beides sind bekannte Abstürze, die der Spike patcht, Übernahme in die Mod ist `patches` |
+| Mit `-ddcoop_lobby_delay`, Spike vor dem Beitritt | Beide in der MetaBase mit 2 Spielern, ohne Spike-Befehl verbunden |
+| `Start-Run.ps1 -Seed 20795`, `Travel-Day.ps1 62 213` | Beide in `DDDynamic_Map` mit 2 Spielern, Inventare vollständig und gleich, zurück auf der Routenkarte |
+| Verkehr | rund 10 000 Pakete je Richtung, Ping 0 ms, Qualität 1,00, verworfen 0. Keine Fehler im Mod-Log |
+
+Nicht geprüft, das übernimmt `lobby-live`: Einladung über das Steam-Overlay und `GameLobbyJoinRequested` (brauchen ein zweites Konto), Beitritt per P2P im
+Spiel, Start über `+connect_lobby`, Verlassen und Abbruch im Spiel (nur in `SessionTests`). Ohne die Spike-Patches stürzte der
+Beitritt im Spiel ab. Seit `patches` setzt die Mod diese Fixes selbst, ein Beitritt ohne Spike ist damit noch nicht geprüft.
+
 ## Tests
 
 `tests/NetTests` prüft den Tunnel ohne Spiel und ohne Steam: Ein nachgebautes Steam Networking verbindet mehrere Konten im
 Speicher, das UDP zum Spiel ist echt (Ports ab 47710). Geprüft sind Pakete in beide Richtungen, P2P und 127.0.0.1, abgelehnte
 Verbindungen, belegter Port, Ende der Verbindung auf beiden Seiten, wiederholtes `Stop` mit Neustart, die Testschalter und das
-Maskieren von Adressen. Läuft über `Build-Mod.ps1 -Test` und in der CI.
+Maskieren von Adressen. `SessionTests.cpp` prüft die Sitzung mit nachgebauten Lobbys und dem echten Transport: Erstellen,
+Einladen, Beitritt per P2P und über 127.0.0.1, Verlassen von beiden Seiten, fremde Lobby, andere Version, Host antwortet nicht,
+abgelehntes Erstellen, angenommene Einladung während einer Sitzung, `+connect_lobby`. Läuft über `Build-Mod.ps1 -Test` und in der CI.
 
 ### Im Spiel (04.11.2026)
 
