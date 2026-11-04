@@ -17,11 +17,27 @@ inline constexpr int ProcessEventIndex = 0x4A;
 inline constexpr uintptr_t NameBlocks = 0x10;
 inline constexpr int NameStride = 2;
 
+// GObjects (TUObjectArray): Zeiger auf die Chunks, dann die Anzahl. Je Chunk 0x10000 Einträge, im Eintrag liegt das Objekt bei +8.
+namespace ObjectArray
+{
+inline constexpr uintptr_t NumElements = 0x08;
+inline constexpr int ElementsPerChunk = 0x10000;
+inline constexpr uintptr_t ItemSize = 0x18;
+inline constexpr uintptr_t ItemObject = 0x08;
+}
+
 namespace UObject
 {
+inline constexpr uintptr_t Flags = 0x08;
+inline constexpr uint32_t ClassDefaultObjectFlag = 0x10;
 inline constexpr uintptr_t Class = 0x10;
 inline constexpr uintptr_t Name = 0x18;
 inline constexpr uintptr_t Outer = 0x20;
+}
+
+namespace UStruct
+{
+inline constexpr uintptr_t SuperStruct = 0x40;
 }
 
 namespace UWorld
@@ -42,5 +58,10 @@ inline constexpr uintptr_t ClientConnections = 0x108;
 namespace AGameStateBase
 {
 inline constexpr uintptr_t PlayerArray = 0x2C0;
+}
+
+namespace UTutorialStateSubsystem
+{
+inline constexpr uintptr_t SkipTutorialFlag = 0xB8; // int32, nach jedem Spielstart wieder 0
 }
 }
