@@ -30,6 +30,8 @@ void InstallPatches()
         Log("Patch: Karte vom Host aktiv");
     if (PatchPcg(Code))
         Log("Patch: PCG vom Host aktiv");
+    if (PatchTestEnv(Code))
+        Log("Patch: Busplatz schont Spielerfiguren");
     if (PatchLoad())
         Log("Patch: Lastmessung aktiv");
 }
@@ -52,6 +54,7 @@ void TickSession()
         ViewThroughSharedCamera();
         return;
     }
+    TickTestEnv();
     TickHits();
     AcceptClientPositions();
     RepairSpawnedPlayers(World);

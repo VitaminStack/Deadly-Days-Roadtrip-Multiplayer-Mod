@@ -26,6 +26,7 @@ COMPONENT_TO_WORLD_TRANSLATION = 0x210
 ROOTS = {'DDCharacter', 'DDPlayerState', 'DDPlayerController', 'MapTile', 'Bus', 'WorldSettings'}
 WORLD_SETTINGS_PAUSER = 0x4A8
 PLAYER_STATE_PAWN = 0x320
+PLAYER_CONTROLLER_NET_CONNECTION = 0x520
 # Statische NetGUIDs (Klassen, Archetypen, Pakete) dieser Pfade muss der Client behalten, sonst scheitern neue Actors.
 GUID_PATTERNS = ('DDPlayerState', 'DDPlayerController', 'DDCharacter')
 STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'research', 'local', 'session',
@@ -236,7 +237,21 @@ def main():
     parser.add_argument('--log')
     parser.add_argument('--world', default=MISSION_WORLD, help='erwartete World, Standard DDDynamic_Map')
     parser.add_argument('--reset', action='store_true', help='Vergleichsstand der letzten Pruefung verwerfen')
+    parser.add_argument('--local-position', action='store_true', help='nur die Position der Host-Figur ausgeben, x y z')
     args = parser.parse_args()
+    if args.local_position:
+        game = Game(args.host)
+        state = game.ptr(game.world() + 0x1B0)
+        states = game.ptr(state + 0x2C0)
+        for i in range(game.i32(state + 0x2C8)):
+            player_state = game.ptr(states + 8 * i)
+            controller = game.ptr(player_state + 0x158)
+            if controller and not game.ptr(controller + PLAYER_CONTROLLER_NET_CONNECTION):
+                position = location(game, game.ptr(player_state + PLAYER_STATE_PAWN))
+                print(' '.join(str(round(v)) for v in position) if position else 'none')
+                return
+        print('none')
+        return
     previous = {} if args.reset else load_state()
     if previous.get('pids') != [args.host, args.client]:
         previous = {}

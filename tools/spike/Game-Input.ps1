@@ -2,10 +2,11 @@
 #   Game-Input.ps1 Host shot [datei.png]     Bild des Fensterinhalts, ohne Bildschirmaufnahme des Desktops
 #   Game-Input.ps1 Host click <x> <y>        Klick in Fensterkoordinaten (800 x 450)
 #   Game-Input.ps1 Host key <taste> [sek]    Taste druecken oder halten, etwa A, Esc, Enter oder einen VK-Code
+#   Game-Input.ps1 Host pixel <x> <y>        Farbe eines Punkts im Fensterinhalt als RRGGBB
 # Klick und Taste holen das Fenster kurz nach vorn und bewegen die Maus, waehrenddessen nicht selbst tippen.
 param(
     [Parameter(Mandatory)][ValidateSet('Host', 'Client')][string]$Role,
-    [Parameter(Mandatory)][ValidateSet('shot', 'click', 'key')][string]$Action,
+    [Parameter(Mandatory)][ValidateSet('shot', 'click', 'key', 'pixel')][string]$Action,
     [string]$Arg1,
     [string]$Arg2
 )
@@ -38,6 +39,16 @@ public static class SpikeInput {
         POINT Point; Point.X = X; Point.Y = Y; ClientToScreen(Window, ref Point);
         SetCursorPos(Point.X, Point.Y); Thread.Sleep(80);
         mouse_event(2, 0, 0, 0, UIntPtr.Zero); Thread.Sleep(60); mouse_event(4, 0, 0, 0, UIntPtr.Zero);
+    }
+    public static string Pixel(IntPtr Window, int X, int Y) {
+        if (IsIconic(Window)) { ShowWindow(Window, 4); Thread.Sleep(300); }
+        RECT Rect; GetClientRect(Window, out Rect);
+        using (var Image = new Bitmap(Rect.Right, Rect.Bottom))
+        using (var Graphics = System.Drawing.Graphics.FromImage(Image)) {
+            IntPtr Dc = Graphics.GetHdc(); PrintWindow(Window, Dc, 3); Graphics.ReleaseHdc(Dc);
+            Color C = Image.GetPixel(X, Y);
+            return C.R.ToString("X2") + C.G.ToString("X2") + C.B.ToString("X2");
+        }
     }
     // Mit Scancode, sonst ignoriert die Engine die Taste.
     public static void Key(IntPtr Window, byte Key, int Milliseconds) {
@@ -79,6 +90,7 @@ switch ($Action) {
         [SpikeInput]::Shot($Window, [IO.Path]::GetFullPath($Path))
         Write-Output $Path
     }
+    'pixel' { [SpikeInput]::Pixel($Window, [int]$Arg1, [int]$Arg2) }
     'click' { [SpikeInput]::Click($Window, [int]$Arg1, [int]$Arg2) }
     'key' {
         $Seconds = if ($Arg2) { [double]$Arg2 } else { 0.1 }

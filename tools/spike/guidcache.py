@@ -18,6 +18,9 @@ def entries(game):
     chunks = game.ptr(game.base + GOBJECTS)
     rows = {}
     for slot in range(maximum):
+        # Der Cache aendert sich waehrend des Lesens, ein abgeschnittener Block zaehlt als Ende.
+        if slot >> 3 >= len(bits) or (slot + 1) * ENTRY_SIZE > len(raw):
+            break
         if not (bits[slot >> 3] >> (slot & 7)) & 1:
             continue
         entry = raw[slot * ENTRY_SIZE:(slot + 1) * ENTRY_SIZE]

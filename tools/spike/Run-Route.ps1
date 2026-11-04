@@ -18,7 +18,8 @@ $ErrorActionPreference = 'Stop'
 $GameInput = Join-Path $PSScriptRoot 'Game-Input.ps1'
 $Check = Join-Path $PSScriptRoot 'check_round.py'
 if ($Days -gt $Nodes.Count) { throw "Nur $($Nodes.Count) Knoten bekannt, -Nodes ergaenzen." }
-if ($Start) { & (Join-Path $PSScriptRoot 'Start-Session.ps1') | Select-Object -Last 1 }
+# -Restart ersetzt nur eine laufende Sitzung dieses Ordners, fremde bleiben unberuehrt.
+if ($Start) { & (Join-Path $PSScriptRoot 'Start-Session.ps1') -Restart | Select-Object -Last 1 }
 $Session = Get-Session
 $RunDir = Join-Path $script:SessionDir ("runs\{0:yyyyMMdd-HHmmss}" -f (Get-Date))
 New-Item -ItemType Directory -Force -Path $RunDir | Out-Null

@@ -101,6 +101,10 @@ void EnableCheats();
 void LoadAssetCommand(const std::wstring& Path);
 // Setzt den Tutorial-Schalter, falls noch nicht gesetzt. Report meldet auch, wenn nichts zu tun war.
 void SkipTutorials(bool Report);
+// Testumgebung: protokolliert beim Host das Ende jeder Spielerfigur mit Aufrufstapel.
+void TickTestEnv();
+// Testumgebung: Spielerfiguren beim Freiraeumen des Busplatzes schonen.
+bool PatchTestEnv(CodeWriter& Code);
 
 // Hits.cpp
 void TickHits();
