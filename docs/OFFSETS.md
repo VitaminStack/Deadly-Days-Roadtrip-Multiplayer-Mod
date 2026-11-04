@@ -284,6 +284,24 @@ In einem TSet ist ein freier Platz daran zu erkennen, dass der Wert hohe Bits ge
 
 ## Blueprint-Referenzinventar (`blueprint-logik`)
 
+### Darstellungsdiagnose (`client-visuell`)
+
+Ergänzung vom 04.11.2026 für Build `26187885`, aus dem lokalen SDK und begrenzten
+lesenden Laufzeitvergleichen. Keine zusätzlichen Produktionspatches.
+
+| Klasse | Feld | Offset |
+|---|---|---|
+| `AActor` | bReplicateMovement, bHidden | `0x58`, Masken `0x10`, `0x80` |
+| `AActor` | bActorIsBeingDestroyed | `0x5D`, Maske `0x02` |
+| `AProjectile` | ProjectileVisualComponent | `0x400` |
+| `AExpEmissionHandler` | ExpEmitter | `0x2F8` |
+| `AExpEmissionHandler` | ExpData, PendingExpData (TArray) | `0x378`, `0x388` |
+| `AExpEmissionHandler` | SpawnLocationsInNiagara, EndLocationsInNiagara (TArray) | `0x398`, `0x3A8` |
+| `AExpEmissionHandler` | OrbValuesInNiagara, OrbColorsInNiagara (TArray) | `0x3B8`, `0x3C8` |
+
+Arraygrößen sind gespeicherte CPU-Daten, keine lebenden GPU-Partikelzahlen.
+[Beobachtungen und verworfener Schalterversuch](../research/spikes/client-visuell/README.md).
+
 Nachtrag 03.11.2026: Grenzpruefung fuer 42 Funktionen und 25 Eventgraph-Einspruenge
 sowie gezielte Runtime-Traces bestanden; keine neuen nativen RVAs. Zusaetzlich
 im Mission-SDK nachgeschlagen: `Projectile.BulletSize` bei `0x2FC` (nicht Net),

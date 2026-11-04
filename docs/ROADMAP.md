@@ -18,6 +18,8 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 
 **Neue Befunde.**
 
+- `client-visuell`, 04.11.2026, auf Nutzerwunsch vorgezogen und noch offen: Projektile, XP-Orbs und Partikeleffekte im kontrollierten Host-/Client-Vergleich. Erste Messung zeigt fehlende XP-Niagara-Darstellungsdaten beim Client; reines Einschalten der Projektil-Bewegungsreplikation ist kein abgenommener Fix. Kein Produktionscode geändert, [Befunde, Fehlversuch und nächste Schritte](../research/spikes/client-visuell/README.md).
+
 - `layerapps-sperre`, 04.11.2026: Das Spiel fragt beim Run-Ende `deadlydays.layerapps.com` an. Die Mod sperrt den Namen jetzt wie `pixelsplit.games`, ohne den Inhalt zu untersuchen. Mod-Runs senden keine unnötigen Daten. Run-Ende und neuer Run liefen mit der Sperre normal.
 - `patches`, 04.11.2026: Die 25 Spielfehler-Fixes aus dem Spike stehen als geprüfte Patches in `src/Game/*Patches.cpp`. Die Mod prüft beim Start alle Stellen und setzt dann alle oder keinen. Mit der Mod setzt der Spike seine eigenen Fassungen nicht mehr und meldet seinen Phasenbeobachter bei der Mod an. Karte, PCG, Testhilfen und Messung bleiben im Spike. Mit `-Mod` lief die echte Route von der MetaBase bis Tag 5 ohne Absturz, die Inventare waren nach jedem Wechsel gleich. Danach kamen nach einer Niederlage beide in die MetaBase zurück. [Patches](../src/Game/README.md#patches).
 
