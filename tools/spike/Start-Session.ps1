@@ -16,7 +16,8 @@ param(
     [switch]$Godmode,
     # Client verbindet ueber den Steam-Tunnel aus Tunnel.cpp statt direkt: P2p zur eigenen SteamID oder Ip ueber 127.0.0.1.
     # Mit -Role Client geht P2p zur SteamID aus -Peer. Mod: Tunnel der Mod aus src\Net statt des Spikes, braucht -Mod.
-    [ValidateSet('None', 'Ip', 'P2p', 'Mod')]
+    # Lobby: Steam-Lobby der Mod, der Host erstellt sie, der Client tritt mit der Lobby-ID bei (-Peer bei -Role Client).
+    [ValidateSet('None', 'Ip', 'P2p', 'Mod', 'Lobby')]
     [string]$Tunnel = 'None',
     # Both: Host und Client auf diesem PC. Host oder Client: nur diese Instanz, die Gegenseite laeuft auf einem anderen PC.
     [ValidateSet('Both', 'Host', 'Client')]
@@ -33,7 +34,8 @@ $ErrorActionPreference = 'Stop'
 if ($Role -eq 'Client' -and -not $Peer) { throw '-Role Client braucht -Peer: SteamID64 des Hosts (mit -Tunnel P2p) oder Adresse:Port.' }
 if ($Role -ne 'Client' -and $Peer) { throw '-Peer gilt nur mit -Role Client.' }
 if ($Role -ne 'Both' -and $Tunnel -eq 'Ip') { throw '-Tunnel Ip verbindet nur auf einem PC. Fuer zwei PCs -Tunnel P2p verwenden.' }
-if ($Tunnel -eq 'Mod' -and -not $Mod) { throw '-Tunnel Mod braucht -Mod.' }
+if ($Tunnel -in 'Mod', 'Lobby' -and -not $Mod) { throw "-Tunnel $Tunnel braucht -Mod." }
+if ($Tunnel -eq 'Lobby' -and $Role -eq 'Client' -and $Peer -notmatch '^\d{1,20}$') { throw '-Tunnel Lobby mit -Role Client braucht -Peer mit der Lobby-ID aus der Ausgabe des Hosts.' }
 if ($Tunnel -eq 'Mod' -and $Role -eq 'Client' -and $Peer -notmatch '^\d{17}$') { throw '-Tunnel Mod mit -Role Client braucht -Peer mit der SteamID64 des Hosts.' }
 Initialize-SessionDir
 Assert-SupportedBuild
@@ -69,15 +71,22 @@ $env:SteamAppId = '3026450'
 $env:SteamGameId = '3026450'
 $Exe = Get-GameExe
 # Testschalter fuer den Tunnel der Mod, siehe src\Net\README.md.
-function Get-TransportArgument([string]$Name) {
+function Get-TransportArgument([string]$Name, [string]$Lobby) {
+    if ($Tunnel -eq 'Lobby') {
+        # Erst nach dem Spike erstellen oder beitreten: Ohne seine Patches stuerzen Host (0x5901CE8) und Client (0x56B16D9)
+        # beim Beitritt ab, siehe research\spikes\a-connect\README.md.
+        $Delay = "-ddcoop_lobby_delay=$($MenuDelaySeconds + 10)"
+        if ($Name -eq 'host') { return @('-ddcoop_lobby=create', $Delay) }
+        return @("-ddcoop_lobby=$Lobby", $Delay)
+    }
     if ($Tunnel -ne 'Mod') { return @() }
     if ($Name -eq 'host') { return @('-ddcoop_transport=host') }
     if ($Role -eq 'Both') { return @('-ddcoop_transport=loopback') }
     @("-ddcoop_transport=$Peer")
 }
-function Start-Instance([string]$Name, [int]$X) {
+function Start-Instance([string]$Name, [int]$X, [string]$Lobby) {
     $UserDir = Join-Path $script:SessionDir "ud_$Name"
-    $Arguments = @('-windowed', '-ResX=800', '-ResY=450', "-WinX=$X", '-WinY=0', '-nosplash', "-UserDir=`"$UserDir`"") + (Get-TransportArgument $Name)
+    $Arguments = @('-windowed', '-ResX=800', '-ResY=450', "-WinX=$X", '-WinY=0', '-nosplash', "-UserDir=`"$UserDir`"") + (Get-TransportArgument $Name $Lobby)
     Start-Process $Exe -PassThru -ArgumentList $Arguments
 }
 # Wartet auf eine Zeile im Log der Mod, liefert sie oder $null.
@@ -99,8 +108,36 @@ function Connect-ModTransport([int]$ProcessId) {
     Write-Output "Tunnel der Mod: $($Seen -replace '^.*Transport: ', '')"
     Send-SpikeCommand $ProcessId 'open 127.0.0.1:7778'
 }
+# Lobby-ID, die der Host ins Log der Mod schreibt. Sie gilt nur, solange die Lobby lebt, und gehoert zu keinem Konto.
+function Wait-LobbyId([int]$ProcessId) {
+    $Seen = Wait-ModLog $ProcessId 'Sitzung: Lobby \d+ erstellt|Sitzung: .*(abgelehnt|nicht|konnte)' 150
+    if ("$Seen" -notmatch 'Sitzung: Lobby (\d+) erstellt') { throw "Lobby nicht erstellt: $Seen" }
+    $Matches[1]
+}
+# Mit der Lobby macht die Mod den Host selbst zum Listen-Server und verbindet den Client.
+function Connect-ModLobby([int]$ProcessId) {
+    $Seen = Wait-ModLog $ProcessId 'Sitzung: Tunnel steht|Sitzung: .*(abgelehnt|nicht|verloren|beendet|Version|unbekannt)' 180
+    if ("$Seen" -notmatch 'Tunnel steht') { throw "Beitritt zur Lobby gescheitert: $Seen" }
+    Write-Output 'Lobby beigetreten, Spiel verbindet sich ueber den Tunnel der Mod.'
+}
+function Add-Spike($Instance) {
+    # Falls Steam einen Neustart in seiner Installation erzwingt, dort niemals den Spike injizieren.
+    $Running = Get-Process -Id $Instance.Id -ErrorAction Stop
+    if (-not $Running.Path -or $Running.Path -ne $Exe) {
+        throw 'Unerwarteter Spielpfad. Kein Spike geladen; eigene Sitzung mit Stop-Session.ps1 beenden.'
+    }
+    & py (Join-Path $PSScriptRoot 'inject.py') $Instance.Id $Dll
+}
 $GameHost = if ($Role -ne 'Client') { Start-Instance 'host' 0 }
-$Client = if ($Role -ne 'Host') { Start-Instance 'client' $(if ($Role -eq 'Both') { 820 } else { 0 }) }
+if ($GameHost -and $Tunnel -eq 'Lobby') {
+    # Schon jetzt eintragen, damit Stop-Session.ps1 den Host auch findet, wenn das Warten auf die Lobby scheitert.
+    @{ Host = $GameHost.Id; Client = 0; Role = $Role; Guard = $Guard.Id; Mod = [bool]$Mod; Started = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() } |
+        ConvertTo-Json | Set-Content (Join-Path $script:SessionDir 'session.json') -Encoding ascii
+    Write-SessionLock $GameHost.Id 0 | Set-Content $script:LockFile -Encoding ascii
+}
+$LobbyId = if ($Tunnel -eq 'Lobby') { if ($GameHost) { Wait-LobbyId $GameHost.Id } else { $Peer } }
+if ($GameHost -and $LobbyId) { Write-Output "Lobby erstellt: $LobbyId" }
+$Client = if ($Role -ne 'Host') { Start-Instance 'client' $(if ($Role -eq 'Both') { 820 } else { 0 }) $LobbyId }
 $Local = @($GameHost, $Client) | Where-Object { $_ }
 # Die Rolle, die auf einem anderen PC laeuft, steht mit Prozess-ID 0 in der Sitzung.
 $HostId = if ($GameHost) { $GameHost.Id } else { 0 }
@@ -110,14 +147,7 @@ $ClientId = if ($Client) { $Client.Id } else { 0 }
 Write-SessionLock $HostId $ClientId | Set-Content $script:LockFile -Encoding ascii
 
 Start-Sleep -Seconds $MenuDelaySeconds
-foreach ($Instance in $Local) {
-    # Falls Steam einen Neustart in seiner Installation erzwingt, dort niemals den Spike injizieren.
-    $Running = Get-Process -Id $Instance.Id -ErrorAction Stop
-    if (-not $Running.Path -or $Running.Path -ne $Exe) {
-        throw 'Unerwarteter Spielpfad. Kein Spike geladen; eigene Sitzung mit Stop-Session.ps1 beenden.'
-    }
-    & py (Join-Path $PSScriptRoot 'inject.py') $Instance.Id $Dll
-}
+foreach ($Instance in $Local) { Add-Spike $Instance }
 Start-Sleep -Seconds 3
 if ($Godmode) {
     foreach ($Instance in $Local) { Send-SpikeCommand $Instance.Id '!god on' }
@@ -146,7 +176,7 @@ function Wait-Until([scriptblock]$Condition, [string]$What) {
     throw "Zeitablauf nach $JoinTimeoutSeconds s: $What"
 }
 
-if ($GameHost) {
+if ($GameHost -and $Tunnel -ne 'Lobby') {
     Send-SpikeCommand $GameHost.Id 'open /Game/Maps/MainMenu?listen'
     Start-Sleep -Seconds 12
 }
@@ -156,6 +186,10 @@ if ($Role -eq 'Both') {
     }
     elseif ($Tunnel -eq 'Mod') {
         Connect-ModTransport $Client.Id
+    }
+    elseif ($Tunnel -eq 'Lobby') {
+        Connect-ModLobby $Client.Id
+        Wait-Until { (Get-NetState $GameHost.Id).clients -ge 1 } 'Client nicht beim Host angekommen'
     }
     else {
         Send-SpikeCommand $GameHost.Id '!tunnel host'
@@ -179,6 +213,9 @@ elseif ($Role -eq 'Host') {
         # Die Mod loggt keine SteamIDs. Die SteamID64 steht im eigenen Steam-Profil.
         Write-Output 'Host bereit, Tunnel der Mod wartet. Client-PC: -Tunnel Mod -Peer <SteamID64 dieses Kontos>.'
     }
+    elseif ($Tunnel -eq 'Lobby') {
+        Write-Output "Host bereit. Client-PC: -Tunnel Lobby -Peer $LobbyId oder Einladung ueber das Overlay der Mod."
+    }
     else {
         Write-Output 'Host bereit, wartet auf direkte Verbindung auf Port 7777.'
     }
@@ -198,6 +235,9 @@ else {
     }
     elseif ($Tunnel -eq 'Mod') {
         Connect-ModTransport $Client.Id
+    }
+    elseif ($Tunnel -eq 'Lobby') {
+        Connect-ModLobby $Client.Id
     }
     else {
         Send-SpikeCommand $Client.Id "open $Peer"

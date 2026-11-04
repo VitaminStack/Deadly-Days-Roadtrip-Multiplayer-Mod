@@ -25,11 +25,15 @@
   <Import Project="..\Common.props" />
   <ItemGroup>
     <ClCompile Include="Net.cpp" />
+    <ClCompile Include="Session.cpp" />
+    <ClCompile Include="SteamLobbyApi.cpp" />
     <ClCompile Include="SteamSockets.cpp" />
     <ClCompile Include="Transport.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Net.h" />
+    <ClInclude Include="Session.h" />
+    <ClInclude Include="SteamLobbyApi.h" />
     <ClInclude Include="SteamSockets.h" />
     <ClInclude Include="Transport.h" />
   </ItemGroup>

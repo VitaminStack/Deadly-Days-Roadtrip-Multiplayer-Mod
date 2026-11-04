@@ -1,6 +1,6 @@
 # Mod
 
-Die eigentliche Mod-DLL `DDCoop.dll`. Bindet alle Module zusammen und enthält sonst nichts. Der Loader kann das nicht übernehmen, weil er laut [Modulgrenzen](../../docs/ARCHITECTURE.md#module) nichts außer dem Start kennt.
+Die eigentliche Mod-DLL `DDCoop.dll`. Bindet alle Module zusammen. Dazu gehört `Lobby.cpp`, das als einzige Stelle Net, Game und UI für die Steam-Lobby verbindet. Der Loader kann das nicht übernehmen, weil er laut [Modulgrenzen](../../docs/ARCHITECTURE.md#module) nichts außer dem Start kennt.
 
 ## Ablauf von `ModStart`
 
@@ -11,7 +11,8 @@ Läuft einmal auf dem Thread des Loaders:
 3. Mit `enabled=false` hier aufhören.
 4. Versionsprüfung, bei unbekanntem Build oder fremdem Prozess hier aufhören.
 5. Hooks vorbereiten.
-6. `Game::Start`, `Net::Start`, `Sync::Start` und `UI::Start` aufrufen.
+6. `Mod::Lobby::Install` hängt den Lobby-Tick an den Game-Thread-Takt, das geht nur vor `Game::Start`.
+7. `Game::Start`, `Net::Start`, `Sync::Start` und `UI::Start` aufrufen.
 
 Keine Ausnahme verlässt `ModStart`. Das Spiel läuft in jedem Fall normal weiter, nur ohne Mod.
 

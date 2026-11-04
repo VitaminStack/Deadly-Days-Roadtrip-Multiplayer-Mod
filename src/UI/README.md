@@ -21,11 +21,14 @@ overlay_visible=false
 
 Standard: aktiv, zunächst verborgen. `overlay_enabled=false` startet keinen Fensterthread. `overlay_visible=true` zeigt das Fenster beim nächsten Fokus auf das Spiel, ohne sich den Fokus zu holen. Die Konfiguration wird wie bisher beim Mod-Start gelesen, nicht laufend neu geladen.
 
-## Lobby-Anbindung für Phase 3
+## Lobby-Anbindung
 
-Erstellen, Beitreten (dezimal eingegebene Steam-Lobby-ID), Einladen und Verlassen sind vorbereitet, **aber ohne echtes Backend deaktiviert**. Der derzeitige `Net::Start` liefert noch keines: Standardstatus ist ausdrücklich „Netzwerk noch nicht angebunden“, keine fingierte Verbindung. Das Aktivieren der Steam-Funktionen bleibt Phase 3.
+Erstellen, Beitreten (dezimal eingegebene Steam-Lobby-ID), Einladen und Verlassen laufen seit `steam-lobby` über die Steam-Lobby
+der Mod: `src/Mod/Lobby.cpp` bindet die Knöpfe an `Net::Session` und veröffentlicht deren Status alle 200 ms. Bis Steam bereit ist,
+steht dort „Wartet auf Steam“ und alle Knöpfe bleiben aus. Mit dem Testschalter `-ddcoop_transport=...` bleibt die Lobby aus.
+Ablauf und Grenzen in [Net](../Net/README.md#steam-lobby-steam-lobby).
 
-Die Komposition in `src/Mod` kann später `UI::Overlay()` nutzen, ohne eine umgekehrte Abhängigkeit `Net -> UI` einzuführen:
+Die Komposition in `src/Mod` nutzt `UI::Overlay()`, ohne eine umgekehrte Abhängigkeit `Net -> UI` einzuführen:
 
 - `Bind(ActionHandler)` setzt einen Handler. Er läuft ausschließlich aus `Core::GameThread().Drain`, niemals auf dem Fensterthread. Erst nach vorhandenem Dispatcher-/Netzwerkanschluss binden. Captures müssen bis zum Ende bereits laufender Aufrufe gültig bleiben, z. B. durch eigene Shared-Ownership; bloße UObject-Zeiger sind ungeeignet.
 - `Publish(OverlayStatus)` übernimmt einen vollständigen, kopierten Status inklusive der vom Backend freigegebenen Aktionen. Thread-sicher, keine Engine-/Steam-Aufrufe. `Message` ist UTF-8, die Darstellung ist auf 2048 Bytes begrenzt; unbekannten Ping durch `HasPing=false` kennzeichnen. `LobbyRequest::LobbyId` enthält das Beitrittsziel bei `Join`, sonst 0.
