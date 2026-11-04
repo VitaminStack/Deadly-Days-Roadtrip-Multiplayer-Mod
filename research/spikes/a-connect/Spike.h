@@ -27,6 +27,10 @@ using ProcessEventFn = void(__fastcall*)(uintptr_t, uintptr_t, void*);
 
 extern uintptr_t Base;
 
+// Wahr, wenn die Mod (DDCoop.dll) die Spielfehler-Fixes selbst gesetzt hat. Dann setzt der Spike seine Fassungen nicht,
+// siehe README "Mod und Spike".
+extern bool ModOwnsPatches;
+
 template <typename T> T Read(uintptr_t Address) { return *reinterpret_cast<T*>(Address); }
 
 // Core.cpp
@@ -82,6 +86,8 @@ void ArmTravelRedirect();
 // Widgets.cpp
 bool PatchWidgets(CodeWriter& Code);
 void ReleaseDeferredWidgetEvents(uintptr_t World);
+// Hält die Mod ProcessEvent, meldet sich der Phasenbeobachter dort an.
+bool ObserveEventsThroughMod(HMODULE Mod);
 
 // MapObjects.cpp
 bool PatchMapObjects(CodeWriter& Code);

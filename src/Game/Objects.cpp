@@ -67,6 +67,15 @@ uintptr_t FindObject(std::string_view Name, std::string_view OuterName)
     return 0;
 }
 
+uintptr_t FindNamed(std::string_view Name)
+{
+    const int32_t Total = Count();
+    for (int32_t i = 0; i < Total; ++i)
+        if (const uintptr_t Object = At(i); Object && Memory::NameOf(Object) == Name)
+            return Object;
+    return 0;
+}
+
 void ProcessEvent(uintptr_t Object, uintptr_t Function, void* Params)
 {
     using ProcessEventFn = void(__fastcall*)(uintptr_t, uintptr_t, void*);
