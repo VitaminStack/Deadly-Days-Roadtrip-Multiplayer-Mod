@@ -197,7 +197,9 @@ IpNetDriver ─ UDP ─ 127.0.0.1 ─ Tunnel ─ Steam P2P ─ Tunnel ─ 127.0.
 ```
 
 Das Spiel glaubt, lokal per IP zu sprechen. Die Mod leitet die Pakete über die Steam-Networking-API weiter. Vorteil: kein eigener NetDriver,
-keine Portfreigabe, und Steam-Relays verbergen die IP-Adressen. Das ist bisher nur ein Plan und wird in Spike E geprüft.
+keine Portfreigabe, und Steam-Relays verbergen die IP-Adressen. Spike E hat den Weg bestätigt: Mit `Tunnel.cpp` spielten zwei Instanzen über
+`ISteamNetworkingSockets` aus der Steam-Laufzeit des Spiels von der MetaBase bis Tag 2, ohne Steamworks-SDK. P2P zwischen zwei Konten ist noch
+offen, siehe [Steam-Tunnel](../research/spikes/a-connect/README.md#spike-e-steam-tunnel-tunnel).
 
 Für die frühen Spikes reicht eine direkte IP-Verbindung im LAN oder über Tailscale oder ZeroTier.
 

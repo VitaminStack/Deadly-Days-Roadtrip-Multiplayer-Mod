@@ -117,7 +117,7 @@ flowchart LR
 
     subgraph TECHNIK["Technik"]
         LA["Spike D: Last<br/>(last)"]:::done
-        TU["Spike E: Steam-Tunnel<br/>(tunnel)"]:::open
+        TU["Spike E: Steam-Tunnel<br/>(tunnel)"]:::done
         AP["Andockpunkte:<br/>Test im Spiel bestanden<br/>(andockpunkte)"]:::done
         CR["Crash-Reporter<br/>zuverlässig aus<br/>(crash-reporter)"]:::done
     end

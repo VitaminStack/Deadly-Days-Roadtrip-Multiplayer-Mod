@@ -91,6 +91,8 @@ void RunPendingCommand()
         SkipTutorials(true);
     else if (Pending.rfind(L"!load ", 0) == 0)
         LoadAssetCommand(Pending.substr(6));
+    else if (Pending.rfind(L"!tunnel ", 0) == 0)
+        TunnelCommand(Pending.substr(8));
     else if (Pending.rfind(L"!round ", 0) == 0)
         EndRound(static_cast<uint8_t>(_wtoi(Pending.c_str() + 7)));
     else
