@@ -1021,7 +1021,8 @@ Stand 04.11.2026, Build `26187885`. Neben dem Crash-Reporter (siehe [Crash-Repor
 - **[Belegt]** Alle drei Schalter stehen ab Werk auf an.
 - **[Belegt]** Die Mod schaltet sie am Klassen-Defaultobjekt ab (`Game::TelemetryAdapter`) und lässt zusätzlich die Namensauflösung für `codecks.io` und `pixelsplit.games` scheitern (`Core::ReportHosts`). Die zweite Schicht hängt nicht an Spiel-Offsets und deckt auch Analytics und Bug-Report-Formular ab, die keinen Schalter haben.
 - **[Belegt]** Die HTTP-Anfragen des Spiels laufen über diese Namensauflösung: Im Menü fragt das Spiel `ddrweekly.deadlydays.com` an, und der Hook sieht es.
-- **Nicht gesperrt:** `ddrweekly.deadlydays.com` (Weekly-Challenge, Thema von `online-sperren` und `weeklymode`), `deadlydays.layerapps.com` (nicht angefragt, Zweck unbekannt), Twitch-Anbindung (nur auf Wunsch des Spielers).
+- **Nicht gesperrt:** `ddrweekly.deadlydays.com` (Weekly-Challenge, Thema von `online-sperren` und `weeklymode`), `deadlydays.layerapps.com` (Zweck unbekannt), Twitch-Anbindung (nur auf Wunsch des Spielers).
+  - **[Belegt]** Nachtrag aus `patches` (04.11.2026): Der Host löste `deadlydays.layerapps.com` direkt beim Run-Ende nach einer Niederlage auf, kurz vor dem gesperrten `pixelsplit.games`. **Vermutung:** eine Meldung des Run-Ergebnisses. Was gesendet wird, ist nicht untersucht; ob der Host gesperrt wird, ist eine eigene Aufgabe.
 
 Test: ein PC, zwei Instanzen mit `Start-Session.ps1 -Mod`, MetaBase und Tag 1 bis zum Rundenende. Auf beiden Seiten meldete die Mod den bestandenen Selbsttest (`api.codecks.io` scheitert ohne Netzanfrage) und die drei abgeschalteten Schalter. Weitere Anfragen gab es im Lauf nicht, das Spiel lief normal weiter, kein Absturz. Das Bug-Report-Formular habe ich bewusst nicht abgeschickt: Wäre die Sperre unwirksam, ginge ein Bericht an Pixelsplit.
 

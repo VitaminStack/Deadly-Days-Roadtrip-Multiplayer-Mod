@@ -38,19 +38,33 @@
     <ExternalIncludePath>$(Dumper7SdkRoot);$(ExternalIncludePath)</ExternalIncludePath>
   </PropertyGroup>
   <ItemGroup>
+    <ClCompile Include="CameraPatches.cpp" />
+    <ClCompile Include="ClientPatches.cpp" />
+    <ClCompile Include="CodeCave.cpp" />
     <ClCompile Include="Game.cpp" />
     <ClCompile Include="ConsoleAdapter.cpp" />
     <ClCompile Include="GameThread.cpp" />
+    <ClCompile Include="HealthBarPatches.cpp" />
+    <ClCompile Include="InventoryPatches.cpp" />
     <ClCompile Include="Memory.cpp" />
     <ClCompile Include="Objects.cpp" />
+    <ClCompile Include="PatchPolicy.cpp" />
+    <ClCompile Include="Patches.cpp" />
+    <ClCompile Include="PlayerPatches.cpp" />
+    <ClCompile Include="TravelPatches.cpp" />
+    <ClCompile Include="WidgetPatches.cpp" />
     <ClCompile Include="SdkChecks.cpp" />
     <ClCompile Include="TelemetryAdapter.cpp" />
     <ClCompile Include="TutorialAdapter.cpp" />
     <ClCompile Include="WorldAdapter.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="CodeCave.h" />
     <ClInclude Include="Game.h" />
     <ClInclude Include="ConsoleAdapter.h" />
+    <ClInclude Include="PatchPolicy.h" />
+    <ClInclude Include="PatchRuntime.h" />
+    <ClInclude Include="Patches.h" />
     <ClInclude Include="GameThread.h" />
     <ClInclude Include="Memory.h" />
     <ClInclude Include="Objects.h" />

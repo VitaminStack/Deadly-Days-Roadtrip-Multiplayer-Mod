@@ -1,0 +1,37 @@
+#pragma once
+
+#include <cstdint>
+#include <span>
+
+#include "Game/Patches.h"
+#include "Game/WorldAdapter.h"
+
+// Gemeinsames der Patch-Dateien. Nur innerhalb von src/Game benutzen.
+namespace Game::Patches
+{
+// Image-Base plus RVA.
+uintptr_t At(uintptr_t Rva);
+
+// Aktuelle Welt und Rolle, auch aus Hooks heraus, also ohne Prüfung auf den Drain-Thread. Lesen ist abgesichert.
+uintptr_t CurrentWorld();
+NetRole CurrentRole();
+
+// Klasse von Object heißt ClassName oder erbt davon.
+bool IsA(uintptr_t Object, const char* ClassName);
+
+// Patchlisten und Ticks je Datei.
+std::span<const Patch> PlayerPatches();
+std::span<const Patch> ClientPatches();
+std::span<const Patch> CameraPatches();
+std::span<const Patch> InventoryPatches();
+std::span<const Patch> TravelPatches();
+std::span<const Patch> WidgetPatches();
+std::span<const Patch> HealthBarPatches();
+
+void TickPlayers(NetRole Role, bool Second);
+void TickCamera(NetRole Role, bool Second);
+void TickWidgets(NetRole Role);
+
+// Beobachter nach jedem ProcessEvent, aus WidgetPatches.cpp.
+void NotifyEventObservers(uintptr_t Object, uintptr_t Function, void* Params);
+}
