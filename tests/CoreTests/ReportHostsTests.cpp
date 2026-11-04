@@ -12,6 +12,14 @@ TEST_CASE("ReportHosts sperrt die Berichtsziele des Spiels samt Subdomains")
     CHECK(IsBlocked(L"codecks.io"));
     CHECK(IsBlocked(L"pixelsplit.games"));
     CHECK(IsBlocked(L"pixelsplit.games."));
+    CHECK(IsBlocked(L"deadlydays.layerapps.com"));
+    CHECK(IsBlocked(L"DeadlyDays.LayerApps.com"));
+}
+
+TEST_CASE("ReportHosts sperrt bei layerapps nur den Dienst des Spiels")
+{
+    CHECK_FALSE(IsBlocked(L"layerapps.com"));
+    CHECK_FALSE(IsBlocked(L"other.layerapps.com"));
 }
 
 TEST_CASE("ReportHosts lässt andere Ziele durch")

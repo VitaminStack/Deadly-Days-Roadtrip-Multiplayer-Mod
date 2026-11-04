@@ -196,6 +196,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `karte-client` | 1 | Client erzeugt die Host-Karte ohne replizierte Duplikate (`MapGen.cpp`), siehe [Client erzeugt die Host-Karte](docs/GAME_ANALYSIS.md#client-erzeugt-die-host-karte-karte-client) |
 | `karten-erzeugung` | 1 | Gleicher Run-Seed und gleiche Mission ergeben dieselbe Karte, siehe [Karte und Seed](docs/GAME_ANALYSIS.md#karte-und-seed) |
 | `last` | 1 | Spike D: bei rund 85 Gegnern 47 KB/s vom Host, beide Instanzen 60 fps, nur Loopback, siehe [Last](docs/GAME_ANALYSIS.md#last-spike-d-last) |
+| `layerapps-sperre` | 6 | Die Mod sperrt auch `deadlydays.layerapps.com`, das das Spiel beim Run-Ende anfragt (`Core::ReportHosts`). Run-Ende und neuer Run laufen normal, siehe [Telemetrie und Berichte](docs/GAME_ANALYSIS.md#telemetrie-und-berichte-telemetrie-aus) |
 | `menue-weg` | 1 | Mission über den echten Weg durch das Spielmenü mit den Patches gestartet, siehe [Spike](research/spikes/a-connect/README.md) |
 | `mitwirkende` | 0 | Freunde als Mitwirkende eingeladen |
 | `niederlage` | 1 | Nach einer Niederlage kehren Host und Client über „Zurück zur Basis“ in die `MetaBase` zurück, und ein neuer Run startet; der Host-Absturz im Run-Ende-Handler ohne `LocalPlayer` ist im Spike behoben (`RunEnd.cpp`), siehe [Niederlage](docs/GAME_ANALYSIS.md#niederlage-niederlage) |
