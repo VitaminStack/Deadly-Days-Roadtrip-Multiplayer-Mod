@@ -20,12 +20,18 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CoreTests", "tests\CoreTest
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "UITests", "tests\UITests\UITests.vcxproj", "{B355A6D9-DB84-46FC-BE81-14B4486C20A5}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "GameTests", "tests\GameTests\GameTests.vcxproj", "{7B21234E-C16C-4A93-9F5F-BA188F01AE07}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
 		Release|x64 = Release|x64
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{7B21234E-C16C-4A93-9F5F-BA188F01AE07}.Debug|x64.ActiveCfg = Debug|x64
+		{7B21234E-C16C-4A93-9F5F-BA188F01AE07}.Debug|x64.Build.0 = Debug|x64
+		{7B21234E-C16C-4A93-9F5F-BA188F01AE07}.Release|x64.ActiveCfg = Release|x64
+		{7B21234E-C16C-4A93-9F5F-BA188F01AE07}.Release|x64.Build.0 = Release|x64
 		{B355A6D9-DB84-46FC-BE81-14B4486C20A5}.Debug|x64.ActiveCfg = Debug|x64
 		{B355A6D9-DB84-46FC-BE81-14B4486C20A5}.Debug|x64.Build.0 = Debug|x64
 		{B355A6D9-DB84-46FC-BE81-14B4486C20A5}.Release|x64.ActiveCfg = Release|x64

@@ -36,8 +36,12 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 |---|---|---|---|---|
 | `phasenadapter` | P0 | [1](#phase-1--analyse-und-spikes) | parallel | viel |
 | `remote-p2` | P0 | [1](#phase-1--analyse-und-spikes) | parallel | mittel |
-| `game-adapter` | P0 | [2](#phase-2--fundament) | zentral | wenig |
+| `mod-saves` | P0 | [6](#phase-6--release) | parallel | mittel |
+| `online-sperren` | P0 | [6](#phase-6--release) | parallel | wenig |
+| `telemetrie-aus` | P0 | [6](#phase-6--release) | parallel | wenig |
+| `tutorial-aus` | P0 | [6](#phase-6--release) | parallel | wenig |
 | `tunnel` | P1 | [1](#phase-1--analyse-und-spikes) | parallel | wenig |
+| `installer` | P1 | [6](#phase-6--release) | parallel | keine |
 
 **Wartet auf das Team:** `gate-g1`, `meta-fortschritt`, `weeklymode`, `spiel-update`.
 <!-- frei:end -->
@@ -91,7 +95,6 @@ Ziel: Stabile Basis der Mod, auf der alle parallel arbeiten können.
 
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
-| `game-adapter` | P0 | SDK-Einbindung und Adapter-Schicht für die ersten Klassen in `src/Game`, als Muster für alle weiteren Adapter. Danach ruft `Drain` des Dispatchers den Adapter auf. **Einstieg:** [Arbeitsbereiche](CONTRIBUTING.md#arbeitsbereiche), `src/Game/README.md` | – | zentral | wenig |
 
 ## Phase 3 – Session und Verbindung
 
@@ -193,6 +196,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `crash-reporter` | 1 | Mod und Spike lassen den Start von `CrashReportClient.exe` scheitern, `CrashGuard` bleibt erste Schicht, siehe [Crash-Reporter](research/spikes/a-connect/README.md#sperre-in-mod-und-spike-crash-reporter) |
 | `deploy` | 2 | Deploy-Skript `tools/Deploy-Mod.ps1` |
 | `dumper-fix` | 0 | Dumper-7-Fix liegt im eigenen Fork, eingebunden als Submodul `third_party/Dumper-7`, siehe [SDK-Erzeugung](docs/GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58) |
+| `game-adapter` | 2 | Game-Thread-Takt am Spielfenster ruft `Drain` und die Adapter-Ticks; `Offsets.h` mit geschützten Lesezugriffen, beim Bauen gegen ein lokales Dumper-7-SDK geprüft; `WorldAdapter` als Muster liest Karte, Rolle und Spielerzahl. Mit Host und Client bis Tag 1 geprüft, [Muster](src/Game/README.md) |
 | `gegner-pooling` | 1 | Tote Gegner werden zerstört, nicht gepoolt, der `PoolManager` betrifft Projektile und Effekte, siehe [Gegner-Spawning](docs/GAME_ANALYSIS.md#gegner-spawning-und-pooling) |
 | `github-repo` | 0 | Öffentliches GitHub-Repo angelegt |
 | `grundgeruest` | 2 | `Loader` als Proxy-DLL, `Core` mit Logging, Config, Hooks, Dispatcher und Versionsprüfung, mit Host und Client geprüft |

@@ -23,11 +23,33 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <Import Project="..\Common.props" />
+  <!-- Dumper-7-SDK nur, wenn es lokal unter Dumper7SdkRoot (config\Local.props) liegt. Die CI baut ohne.
+       Genutzt werden nur Header, SdkChecks.cpp prüft damit Offsets.h. Warnungen aus dem SDK sind abgeschaltet. -->
+  <PropertyGroup>
+    <DDCoopWithSdk Condition="'$(Dumper7SdkRoot)' != '' And Exists('$(Dumper7SdkRoot)\SDK\Basic.hpp')">true</DDCoopWithSdk>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(DDCoopWithSdk)' == 'true'">
+    <ClCompile>
+      <PreprocessorDefinitions>DDCOOP_WITH_SDK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <PropertyGroup Condition="'$(DDCoopWithSdk)' == 'true'">
+    <ExternalIncludePath>$(Dumper7SdkRoot);$(ExternalIncludePath)</ExternalIncludePath>
+  </PropertyGroup>
   <ItemGroup>
     <ClCompile Include="Game.cpp" />
+    <ClCompile Include="GameThread.cpp" />
+    <ClCompile Include="Memory.cpp" />
+    <ClCompile Include="SdkChecks.cpp" />
+    <ClCompile Include="WorldAdapter.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Game.h" />
+    <ClInclude Include="GameThread.h" />
+    <ClInclude Include="Memory.h" />
+    <ClInclude Include="Offsets.h" />
+    <ClInclude Include="WorldAdapter.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">
