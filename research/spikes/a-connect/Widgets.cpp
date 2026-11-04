@@ -1,5 +1,6 @@
 // Client: Haelt die HUD zurueck, bis der GameState angekommen ist.
 #include "Spike.h"
+#include "RoundPhaseAdapter.h"
 
 namespace Spike
 {
@@ -37,6 +38,7 @@ void __fastcall ProcessEventHook(uintptr_t Object, uintptr_t Function, void* Par
         }
     }
     OriginalNativeProcessEvent(Object, Function, Params);
+    ObserveRoundPhaseEvent(Object, Function, Params);
 }
 }
 

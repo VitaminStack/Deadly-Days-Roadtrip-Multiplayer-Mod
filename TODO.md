@@ -34,12 +34,12 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 <!-- frei:start -->
 | Kennung | Prio | Phase | Bearbeitung | Spielzeit |
 |---|---|---|---|---|
-| `phasenadapter` | P0 | [1](#phase-1--analyse-und-spikes) | parallel | viel |
 | `remote-p2` | P0 | [1](#phase-1--analyse-und-spikes) | parallel | mittel |
 | `mod-saves` | P0 | [6](#phase-6--release) | parallel | mittel |
 | `online-sperren` | P0 | [6](#phase-6--release) | parallel | wenig |
 | `telemetrie-aus` | P0 | [6](#phase-6--release) | parallel | wenig |
 | `tutorial-aus` | P0 | [6](#phase-6--release) | parallel | wenig |
+| `niederlage` | P1 | [1](#phase-1--analyse-und-spikes) | parallel | viel |
 | `tunnel` | P1 | [1](#phase-1--analyse-und-spikes) | parallel | wenig |
 | `installer` | P1 | [6](#phase-6--release) | parallel | keine |
 
@@ -83,7 +83,6 @@ Ziel: Fakten für Gate G1. Spike-Code ist Wegwerfcode und liegt unter `research/
 
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
-| `phasenadapter` | P0 | Rundenende, Lager und Routenkarte beim Client abbilden. Codec, Empfänger und lokaler Laufzeitadapter in `Mission.cpp` sind ohne Spiel getestet. Es fehlen automatische Hostquellen für Rundenübersicht, Lager und Route, ein sichtbarer Lauf und die vollständige Eingabesperre. **Fertig, wenn** der Client bei jedem Rundenende dieselbe Phase sieht wie der Host und dort nichts auslösen kann. **Einstieg:** `research/spikes/a-connect/RoundPhaseRuntime.md`, [Rundenende](docs/GAME_ANALYSIS.md#rundenende-befund-und-offene-phasenübertragung-rundenende) | – | parallel | viel |
 | `remote-p2` | P0 | Remote-Controller als P2 testen: `SetCoopEnabled(true)` beim Host, Eintrag in `ActivePlayers` ohne `CreateLocalPlayer`, Wirkung auf Coop-UI und Eingabe-Router prüfen. **Fertig, wenn** feststeht, ob und mit welchen Patches der Remote-Spieler als P2 läuft. **Einstieg:** [Coop-Ablauf](docs/GAME_ANALYSIS.md#coop-ablauf) | – | parallel | mittel |
 | `gate-g1` | P0 | Gate G1 entscheiden und in [ARCHITECTURE](docs/ARCHITECTURE.md#entscheidungen) festhalten: **Weg A** (native Replikation), wenn Spike A und B funktionieren und Spike D tragbar ist; **Weg B** (eigene Snapshot-Synchronisierung), wenn native Replikation unbrauchbar ist; **Stopp oder verkleinern**, wenn keiner trägt. Spike A, B und D sind erledigt, Weg A steht vorläufig | – | Team | keine |
 | `tunnel` | P1 | Spike E: Spielverkehr über Steam P2P tunneln. C++ ohne Reverse Engineering, Steamworks SDK nötig. **Fertig, wenn** zwei Instanzen über den Tunnel verbunden spielen. **Einstieg:** [Transport](docs/ARCHITECTURE.md#transport) | – | parallel | wenig |
@@ -212,6 +211,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `overlay` | 2 | F8-Overlay mit Status und Debug-Anzeige, sichtbare Host-/Client-Abnahme bestanden, siehe [UI](src/UI/README.md#sichtbare-spielabnahme-03112026) |
 | `pausen` | 1 | Pausen-Logik gemessen, Host-Weltpause repliziert, Client-Wunsch nicht, siehe [Pausen-Spike](research/spikes/pausen/README.md#nachtrag-03112026-isolierte-ablaeufe) |
 | `pcg` | 1 | Client erzeugt die PCG-Vegetation mit dem Graphen des Hosts (`Pcg.cpp`), siehe [PCG-Vegetation](docs/GAME_ANALYSIS.md#pcg-vegetation-beim-client-pcg) |
+| `phasenadapter` | 1 | Client sieht Rundenübersicht, Lager und Routenkarte des Hosts und ist dort gesperrt, siehe [Rundenphasen](research/spikes/a-connect/RoundPhaseRuntime.md) |
 | `powerup-duplikat` | 1 | Lokale Kopie von `BP_ChaosDestructable_PowerUp_C` beim Client unterdrückt, siehe [PowerUp-Objekte](docs/GAME_ANALYSIS.md#doppelte-powerup-objekte-powerup-duplikat) |
 | `replikation-blueprint` | 1 | 218 von 482 Blueprint-Actor-Klassen replizieren, vor allem über ihre native Basisklasse |
 | `replikation-kern` | 1 | Replizierte Properties der Kernklassen erfasst, der Kern repliziert, siehe [Replikation](docs/GAME_ANALYSIS.md#replikation-zur-laufzeit) |

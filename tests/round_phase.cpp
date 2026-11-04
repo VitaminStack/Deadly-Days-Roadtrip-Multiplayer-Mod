@@ -27,9 +27,8 @@ int main()
     }
     const auto Last = Client.View().Host;
     Host.Stage = Phase::Playing;
-    ++Host.Sequence;
     assert(Encode(Host, Bytes));
-    assert(Client.Receive(Bytes.data(), Bytes.size()) == Result::Rejected); // No local resume in same world.
+    assert(Client.Receive(Bytes.data(), Bytes.size()) == Result::Rejected); // Same sequence, other phase.
     Host = Last;
     Host.HostProgress = 50;
     assert(Encode(Host, Bytes));
@@ -61,6 +60,13 @@ int main()
         assert(Client.Receive(Bytes.data(), Bytes.size()) == Result::Rejected);
         assert(Client.View().Host == Last && Client.View().InputBlocked);
     }
+    Host = Last;
+    Host.Stage = Phase::Playing; // Route closed with "Zurueck": a newer sequence may go back.
+    Host.EndReason = Reason::NoReason;
+    ++Host.Sequence;
+    assert(Encode(Host, Bytes));
+    assert(Client.Receive(Bytes.data(), Bytes.size()) == Result::Applied);
+    assert(!Client.View().InputBlocked);
     assert(!Client.Bind(11, 1, 1));
     assert(!Client.Bind(12, 1, 2)); // A packet/session change is not a handshake.
     assert(Client.Bind(11, 1, 2));

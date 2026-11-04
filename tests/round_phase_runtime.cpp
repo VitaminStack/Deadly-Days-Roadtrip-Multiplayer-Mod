@@ -45,7 +45,8 @@ int wmain(int Argc, wchar_t** Argv)
         assert(Client.Receive(Bytes.data(), Bytes.size(), 3600) == Result::Applied);
         assert(Client.View().InputBlocked && Client.View().Host.Stage == Stage);
     }
-    assert(!Host.Observe(Phase::Playing, Reason::NoReason));
+    assert(Host.Observe(Phase::Playing, Reason::NoReason)); // Route closed, back to the mission.
+    assert(Host.Observe(Phase::Travel, Reason::NewDay));
     assert(!Host.Observe(Phase::Travel, Reason::NewDay, 101));
     assert(!Host.Bind(9, 1, 2, 4));
     assert(Host.Bind(1234567, 1, 2, 4));
