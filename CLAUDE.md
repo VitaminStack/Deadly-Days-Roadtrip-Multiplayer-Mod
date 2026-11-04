@@ -33,7 +33,7 @@ Worktrees liegen immer unter `.worktrees/` im Repo-Ordner, keine neuen Ordner da
 - Bei Spieltests gilt: **eine Sitzung pro PC.** `Start-Session.ps1` bricht ab, wenn eine andere läuft. Dann warten oder ohne Spiel weiterarbeiten, nie fremde Instanzen beenden.
 - Die Exe nie von Hand mit dem Spike starten und nie `-unattended` verwenden, sonst können Absturzberichte bei Pixelsplit landen, siehe [Testen](docs/TESTING.md).
 - Im Spike nur die Datei des eigenen Themas ändern, die Aufteilung steht in der [Spike-README](research/spikes/a-connect/README.md#dateien).
-- Tests, die zwei Menschen live brauchen, blockieren keine Aufgabe: Rest als eigene Kennung „zu zweit“ abspalten und in [Live-Sitzungen zu zweit](TODO.md#live-sitzungen-zu-zweit) sammeln.
+- Tests, die zwei Menschen live brauchen, lassen sich in einem Termin bündeln. Hinweise und mögliche Punkte stehen unter [Live-Sitzungen zu zweit](TODO.md#live-sitzungen-zu-zweit); daraus entsteht keine zusätzliche Pflicht.
 - Offsets gelten nur für den unterstützten Build. Neue Werte in [docs/OFFSETS.md](docs/OFFSETS.md) eintragen.
 - Spieldateien, SDKs, decompilierter Code, persönliche Pfade und IDs gehören nie ins Repo, siehe [CONTRIBUTING.md](CONTRIBUTING.md#was-nie-ins-repo-darf). Das Repo ist öffentlich.
 

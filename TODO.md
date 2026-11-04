@@ -63,20 +63,19 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 ## Live-Sitzungen zu zweit
 
 Manche Abnahmen brauchen zwei Menschen gleichzeitig: zwei Steam-Konten, zwei PCs, echtes Internet. Solche Termine sind knapp.
-Darum werden diese Prüfungen gesammelt und **in einer Sitzung nacheinander abgearbeitet**, statt für jede Aufgabe einen eigenen
-Termin anzusetzen.
+Es bietet sich an, diese Prüfungen zu sammeln und **in einer Sitzung nacheinander abzuarbeiten**, statt für jede Aufgabe einen
+eigenen Termin anzusetzen. Die Liste unten ist eine Planungshilfe, keine zusätzliche Pflicht oder neue Freigaberegel.
 
-- **Nicht darauf warten.** Bleibt von einer Aufgabe nur noch ein Test zu zweit, wird der Rest abgeschlossen und der Test bekommt
-  eine eigene Kennung mit Bearbeitung „zu zweit“, wie unter [Aufgabe abschließen](#aufgabe-abschließen), Punkt 3. Die Kennung
-  kommt in die Liste unten.
-- **Vorbereiten.** Vor dem Termin alle Punkte, deren Voraussetzungen erledigt sind, auf `main` bringen und einen Build für beide
-  bauen. Pro Punkt steht der Ablauf in [Testen](docs/TESTING.md#test-auf-zwei-pcs). Einmal starten und verbinden, dann die Punkte
-  der Reihe nach, ohne zwischendurch neu zu starten, wo das geht.
-- **Reservieren.** Wer hostet, reserviert jeden Punkt des Termins mit `host`, die Gegenseite mit `client`:
-  `py tools/tasks.py claim <kennung> <name> host|client`.
-- **Festhalten.** Ergebnis je Kennung dokumentieren. Was scheitert, bleibt offen und kommt in den nächsten Termin.
+- **Offene Tests sammeln.** Bleibt nur noch ein Test zu zweit, kann er nach [Aufgabe abschließen](#aufgabe-abschließen), Punkt 3,
+  als eigene Kennung weitergeführt und hier ergänzt werden. Bestehende Abnahmen und Abhängigkeiten bleiben dabei erhalten.
+- **Gemeinsam vorbereiten.** Ein gemeinsamer Stand auf `main` und derselbe Build erleichtern den Termin. Ablauf und Aufbau stehen
+  in [Testen](docs/TESTING.md#test-auf-zwei-pcs). Nach dem Verbinden lassen sich passende Punkte oft ohne Neustart kombinieren.
+- **Hinweis zur Reservierung.** `host` und `client` sind nur für Aufgaben mit Bearbeitung „zu zweit“ vorgesehen. Zentrale Aufgaben
+  behalten einen Verantwortlichen ohne Rolle; die zweite Person hilft beim Test. Für eine Gegenprobe erledigter Arbeit ist keine
+  neue Reservierung nötig.
+- **Ergebnisse zuordnen.** Ein kurzer Vermerk je Kennung hilft beim Überblick; offene Prüfungen können in einen späteren Termin.
 
-Gesammelte Punkte, in der Reihenfolge einer Sitzung:
+Mögliche Punkte und Reihenfolge, je nach Bereitschaft:
 
 1. `lobby-live`: Einladung über das Steam-Overlay, Beitritt per P2P, Start über `+connect_lobby`, Verlassen. Verbindet die
    beiden gleich für die folgenden Punkte. Möglich, sobald `steam-lobby` auf `main` ist.
@@ -90,7 +89,7 @@ Die Team-Entscheidungen `meta-fortschritt` und `weeklymode` brauchen kein Spiel,
 **Ohne zweite Person.** Alles andere geht allein auf einem PC: zwei Instanzen unter einem Konto über 127.0.0.1, siehe
 [Sitzung starten](docs/TESTING.md#sitzung-starten). Dazu gehören `protokoll`, `net-fehler`, `remote-spieler`, `missionsstart`,
 `kamera-code`, `bewegung`, `kampf`, `gegnertyp`, `eingaben`, `restrictor`, `mod-saves`, `installer` und die Sync-Aufgaben aus
-Phase 5. Diese Aufgaben warten nie auf einen Termin zu zweit.
+Phase 5. Dafür ist normalerweise kein gemeinsamer Termin nötig; die jeweiligen Abnahmen gelten weiterhin.
 
 ## Aufgabe abschließen
 
