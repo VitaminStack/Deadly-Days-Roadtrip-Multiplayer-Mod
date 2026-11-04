@@ -12,6 +12,7 @@
 #include "Core/Protection.h"
 #include "Core/Version.h"
 #include "Game/Game.h"
+#include "Mod/Lobby.h"
 #include "Net/Net.h"
 #include "Sync/Sync.h"
 #include "UI/UI.h"
@@ -52,6 +53,8 @@ void Start()
     if (!Core::Protection::Install())
         return;
 
+    // Die Lobby hängt einen Game-Thread-Tick an, das geht nur vor Game::Start.
+    Mod::Lobby::Install();
     Game::Start();
     Net::Start();
     Sync::Start();

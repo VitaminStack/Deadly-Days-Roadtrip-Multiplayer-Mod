@@ -39,6 +39,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ClCompile Include="Game.cpp" />
+    <ClCompile Include="ConsoleAdapter.cpp" />
     <ClCompile Include="GameThread.cpp" />
     <ClCompile Include="Memory.cpp" />
     <ClCompile Include="Objects.cpp" />
@@ -49,6 +50,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Game.h" />
+    <ClInclude Include="ConsoleAdapter.h" />
     <ClInclude Include="GameThread.h" />
     <ClInclude Include="Memory.h" />
     <ClInclude Include="Objects.h" />
