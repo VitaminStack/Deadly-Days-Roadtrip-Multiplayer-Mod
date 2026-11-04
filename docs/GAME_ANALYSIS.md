@@ -322,6 +322,17 @@ Direkt aus dem Speicher einer laufenden Solo-Mission gelesen, an den Default-Obj
 - **[Hypothese]** Karte und zerstörbare Objekte können sich beißen: Der `MapGenerator` repliziert nicht, die von ihm erzeugten Objekte teils schon.
   Läuft er auf beiden Seiten, könnten replizierte Objekte beim Client doppelt vorhanden sein.
 
+### Lebensleisten beim Client (`hp-leisten`)
+
+Stand: Spieltest am 04.11.2026, Build `26187885`, ein PC über Loopback, Route über das Spielmenü mit Seed `20795`. Schaden über `!cheats` und `DD_DamagePlayerAtIndex` beim Host.
+
+- **[Belegt]** Die HP selbst replizieren richtig, beide Seiten hatten gleiche Werte. Die große HUD-Leiste unten zeigte beim Client seinen eigenen Wert richtig.
+- **[Belegt]** Die kleinen Leisten über den Figuren (`WP_World_Player_HealthBar_C`) blieben beim Client auf ihrem Startwert stehen: die eigene auf 0 % (sie entstand vor der Replikation), die des Host-Spielers auf 100 %. Bei 70 und dann 50 HP zeigte der Host 70 % und 50 %, der Client weiter 100 %.
+- **[Belegt]** Die Leisten melden sich über `ListenToHealthChange` an `UCommonAttributeSet::OnHealthChanged` (`+0xC0`) an, beim Client genauso wie beim Host (je ein Eintrag `WP_HealthBar_AutoGenFunc`). Das Spiel löst dieses Ereignis aber nur beim Host aus. Beim Client läuft für einen neuen Wert nur `OnRep_Health` (`0x57DC840`), das ist das Standard-Makro von GAS: `GetOwningAbilitySystemComponent`, dann `SetBaseAttributeValueFromReplication` an `ASC+0x8D8`, kein eigener Broadcast. Gleich gebaut ist `OnRep_MaxHealth` (`0x57DCEA0`) für `OnMaxHealthChanged` (`+0x40`).
+- **Fix im Spike (`HealthBars.cpp`):** Beide OnRep-Funktionen sind umschlossen. Nach dem Original ruft der Spike jeden Empfänger des passenden Delegates mit dem neuen `CurrentValue` über `ProcessEvent` auf: schwacher Zeiger über das Objekt-Array mit Prüfung der Seriennummer, Funktion über ihren `FName` in der Klassenkette. Beim Host laufen die OnRep-Funktionen nicht, der Patch wirkt also nur beim Client.
+- **[Belegt]** Mit dem Fix starteten beide Leisten beim Client bei 100 %. Nach Schaden zeigten Host und Client dieselben Werte: 40 % und 70 %, dann 50 %, nach dem Wechsel auf Tag 2 75 %. Kein Absturz.
+- Nicht geprüft: Rüstung (`OnArmorChanged`, `OnMaxArmorChanged` liegen im abgeleiteten Charakter-Set) und die Überheilung. Ob weitere Empfänger dieser Delegates beim Client jetzt zusätzlich laufen sollten, ist nicht geprüft, gefunden war nur die Leiste. Internet nicht geprüft.
+
 ### Ergaenzung: SDK-Schnittstellen fuer eigenen Sync
 
 Aufgabe `sync-bedarf`, lokales Mission-SDK von Build `26187885`:

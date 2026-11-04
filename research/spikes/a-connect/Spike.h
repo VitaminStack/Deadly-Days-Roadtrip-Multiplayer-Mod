@@ -122,6 +122,9 @@ void TraceRunFlow();
 
 // Load.cpp
 bool PatchLoad();
+
+// HealthBars.cpp
+bool PatchHealthBars(CodeWriter& Code);
 void TickLoad();
 
 }
