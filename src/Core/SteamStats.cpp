@@ -4,9 +4,12 @@
 
 #include <atomic>
 #include <cstring>
+#include <cwctype>
 #include <iterator>
+#include <mutex>
+#include <set>
 #include <string>
-#include <thread>
+#include <string_view>
 
 #include "Core/Hooks.h"
 #include "Core/Log.h"
@@ -15,8 +18,11 @@ namespace Core::SteamStats
 {
 namespace
 {
+// Die Methodenplätze stammen aus den flachen Exporten von Steamworks 1.64 und gelten für diese Version der Schnittstelle.
+constexpr std::string_view StatsInterface = "STEAMUSERSTATS_INTERFACE_VERSION";
+constexpr std::string_view SupportedVersion = "STEAMUSERSTATS_INTERFACE_VERSION013";
+
 std::atomic<int> Blocked = 0;
-std::atomic<bool> Active = false;
 
 // Jede Art nur einmal loggen, Statistiken schreibt das Spiel oft.
 void Note(std::atomic<bool>& Reported, const char* What)
@@ -78,13 +84,13 @@ uint64_t __fastcall AttachLeaderboardUGC(void*, uint64_t, uint64_t)
     return 0;
 }
 
-struct Target
+struct Method
 {
     const char* Export;
     void* Detour;
 };
 
-const Target Targets[] = {
+const Method Methods[] = {
     {"SteamAPI_ISteamUserStats_SetAchievement", reinterpret_cast<void*>(&SetAchievement)},
     {"SteamAPI_ISteamUserStats_IndicateAchievementProgress", reinterpret_cast<void*>(&IndicateAchievementProgress)},
     {"SteamAPI_ISteamUserStats_SetStatInt32", reinterpret_cast<void*>(&SetStatInt32)},
@@ -95,74 +101,85 @@ const Target Targets[] = {
     {"SteamAPI_ISteamUserStats_AttachLeaderboardUGC", reinterpret_cast<void*>(&AttachLeaderboardUGC)},
 };
 
-std::string ModuleOf(const void* Address)
+using FindFn = void* (*)(int32_t, const char*);
+using UserFn = int32_t (*)();
+using LoadFn = HMODULE(WINAPI*)(LPCWSTR, HANDLE, DWORD);
+
+// Rekursiv: Das Laden der DLL und eine Anfrage der Schnittstelle können auf demselben Thread ineinander laufen.
+std::recursive_mutex Lock;
+Testing::Environment Env{};
+std::atomic<bool> Attached = false;
+uint32_t Offsets[std::size(Methods)] = {};
+std::set<void*> Hooked;
+FindFn OriginalFind = nullptr;
+void* FindTarget = nullptr;
+LoadFn OriginalLoad = nullptr;
+
+// Sperrt die Methoden einer Schnittstelle. Alle Instanzen teilen die Funktionen, gesperrte werden übersprungen.
+bool Protect(void* Interface)
 {
-    HMODULE Module = nullptr;
-    char Path[MAX_PATH] = {};
-    if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                            static_cast<const char*>(Address), &Module) ||
-        !GetModuleFileNameA(Module, Path, MAX_PATH))
-        return "?";
-    // Nur der Dateiname, keine lokalen Pfade ins Log.
-    const char* Name = strrchr(Path, '\\');
-    return Name ? Name + 1 : Path;
+    std::lock_guard Guard(Lock);
+    void* const* Vtable = *static_cast<void* const* const*>(Interface);
+    for (size_t Index = 0; Index < std::size(Methods); ++Index)
+    {
+        void* Function = Vtable[Offsets[Index] / sizeof(void*)];
+        if (Hooked.contains(Function))
+            continue;
+        void* Original = nullptr;
+        if (!Env.Install || !Env.Install(Function, Methods[Index].Detour, &Original))
+        {
+            Log::Error("Online: {} ließ sich nicht sperren", Methods[Index].Export);
+            return false;
+        }
+        Hooked.insert(Function);
+    }
+    return true;
 }
 
-enum class Attempt
+void* FindDetour(int32_t User, const char* Version)
 {
-    NotReady,
-    Failed,
-    Done
-};
+    return Testing::OnInterface(Version, OriginalFind(User, Version));
+}
 
-Attempt TryBlock()
+std::string ModuleName(HMODULE Module)
 {
-    const HMODULE Api = GetModuleHandleW(L"steam_api64.dll");
-    if (!Api)
-        return Attempt::NotReady;
-    // Nicht über SteamAPI_SteamUserStats_v013: Dessen Zwischenspeicher behält einen Nullwert, wenn der Aufruf in die
-    // Initialisierung von Steam fällt. Das passierte im Test mit 50-ms-Takt, danach blieb die Sperre 120 s aus.
-    using UserFn = int32_t (*)();
-    using FindFn = void* (*)(int32_t, const char*);
-    const auto User = reinterpret_cast<UserFn>(GetProcAddress(Api, "SteamAPI_GetHSteamUser"));
-    const auto Find = reinterpret_cast<FindFn>(GetProcAddress(Api, "SteamInternal_FindOrCreateUserInterface"));
-    if (!User || !Find)
-    {
-        Log::Error("Online: Steam-Exporte fehlen, Steam-Version passt nicht");
-        return Attempt::Failed;
-    }
-    const int32_t SteamUser = User();
-    void* Interface = SteamUser ? Find(SteamUser, "STEAMUSERSTATS_INTERFACE_VERSION013") : nullptr;
-    if (!Interface)
-        return Attempt::NotReady;
-    const auto* Vtable = *static_cast<void* const* const*>(Interface);
+    wchar_t Path[MAX_PATH] = {};
+    const DWORD Length = GetModuleFileNameW(Module, Path, MAX_PATH);
+    std::wstring_view Name(Path, Length);
+    const size_t Slash = Name.find_last_of(L"\\/");
+    if (Slash != std::wstring_view::npos)
+        Name = Name.substr(Slash + 1);
+    std::string Out;
+    for (wchar_t Character : Name)
+        Out.push_back(static_cast<char>(towlower(Character)));
+    return Out;
+}
 
-    int Hooked = 0;
-    std::string Module;
-    for (const Target& Entry : Targets)
-    {
-        const auto* Thunk = reinterpret_cast<const uint8_t*>(GetProcAddress(Api, Entry.Export));
-        const auto Offset = Thunk ? VtableOffsetFromThunk(Thunk, 16) : std::nullopt;
-        if (!Offset || *Offset % sizeof(void*) != 0 || *Offset > 0x400)
-        {
-            Log::Error("Online: Einsprung {} nicht erkannt", Entry.Export);
-            continue;
-        }
-        void* Function = Vtable[*Offset / sizeof(void*)];
-        void* Original = nullptr;
-        if (!Hooks::Install(Function, Entry.Detour, &Original))
-            continue;
-        Module = ModuleOf(Function);
-        ++Hooked;
-    }
-    if (Hooked != static_cast<int>(std::size(Targets)))
-    {
-        Log::Error("Online: nur {} von {} Steam-Schreibfunktionen gesperrt", Hooked, std::size(Targets));
-        return Attempt::Failed;
-    }
-    Log::Info("Online: Steam-Erfolge, -Statistiken und -Bestenlisten gesperrt ({} Funktionen in {}), bisher {} Schreibversuche", Hooked,
-              Module, Blocked.load());
-    return Attempt::Done;
+void* RealExport(const char* Name)
+{
+    const HMODULE Module = GetModuleHandleW(L"steam_api64.dll");
+    return Module ? reinterpret_cast<void*>(GetProcAddress(Module, Name)) : nullptr;
+}
+
+bool RealInstall(void* Target, void* Detour, void** Original)
+{
+    return Hooks::Install(Target, Detour, Original);
+}
+
+// Läuft bei jedem LoadLibrary im Prozess. Nach der Sperre nur noch ein Flag.
+HMODULE WINAPI LoadDetour(LPCWSTR File, HANDLE Reserved, DWORD Flags)
+{
+    const HMODULE Module = OriginalLoad(File, Reserved, Flags);
+    constexpr DWORD DataOnly = LOAD_LIBRARY_AS_DATAFILE | LOAD_LIBRARY_AS_DATAFILE_EXCLUSIVE | LOAD_LIBRARY_AS_IMAGE_RESOURCE;
+    if (!Module || Attached.load() || (Flags & DataOnly) || ModuleName(Module) != "steam_api64.dll")
+        return Module;
+    if (Testing::Attach(Env))
+        return Module;
+    // Ohne Sperre kein Steam: Das Spiel läuft dann ohne Online-Subsystem, schreiben kann es nichts.
+    Log::Error("Online: Sperre beim Laden von steam_api64.dll gescheitert, Steam bleibt für diesen Start aus");
+    FreeLibrary(Module);
+    SetLastError(ERROR_ACCESS_DENIED);
+    return nullptr;
 }
 }
 
@@ -198,23 +215,99 @@ int BlockedCalls()
     return Blocked.load();
 }
 
-void Block()
+namespace Testing
 {
-    if (Active.exchange(true))
-        return;
-    const Attempt First = TryBlock();
-    if (First != Attempt::NotReady)
-        return;
-    // Steam lädt das Spiel über sein Online-Subsystem, das kann nach dem Start der Mod passieren.
-    std::thread([] {
-        // Kurzer Takt, damit zwischen Steam-Start und Sperre möglichst kein Schreibversuch durchrutscht.
-        for (int Try = 0; Try < 2400; ++Try)
+bool Attach(const Environment& NewEnv)
+{
+    std::lock_guard Guard(Lock);
+    if (Attached.load())
+        return true;
+    Env = NewEnv;
+    if (!Env.Export || !Env.Install)
+        return false;
+    for (size_t Index = 0; Index < std::size(Methods); ++Index)
+    {
+        const auto* Thunk = static_cast<const uint8_t*>(Env.Export(Methods[Index].Export));
+        const auto Offset = Thunk ? VtableOffsetFromThunk(Thunk, 16) : std::nullopt;
+        if (!Offset || *Offset % sizeof(void*) != 0 || *Offset > 0x400)
         {
-            Sleep(50);
-            if (TryBlock() != Attempt::NotReady)
-                return;
+            Log::Error("Online: Einsprung {} nicht erkannt", Methods[Index].Export);
+            return false;
         }
-        Log::Error("Online: Steam nach 120 s nicht bereit, Erfolge und Bestenlisten nicht gesperrt");
-    }).detach();
+        Offsets[Index] = *Offset;
+    }
+    void* Find = Env.Export("SteamInternal_FindOrCreateUserInterface");
+    if (!Find || !Env.Install(Find, reinterpret_cast<void*>(&FindDetour), reinterpret_cast<void**>(&OriginalFind)))
+    {
+        Log::Error("Online: SteamInternal_FindOrCreateUserInterface ließ sich nicht umleiten");
+        return false;
+    }
+    FindTarget = Find;
+    Attached = true;
+    // Ist Steam schon gestartet, kann die Schnittstelle bereits ausgegeben sein. Dann gleich sperren.
+    const auto User = reinterpret_cast<UserFn>(Env.Export("SteamAPI_GetHSteamUser"));
+    const int32_t SteamUser = User ? User() : 0;
+    if (SteamUser)
+    {
+        void* Existing = OriginalFind(SteamUser, SupportedVersion.data());
+        if (Existing && !Protect(Existing))
+            return false;
+    }
+    Log::Info("Online: Steam-Erfolge, -Statistiken und -Bestenlisten gesperrt, bevor das Spiel die Schnittstelle bekommt");
+    return true;
+}
+
+void* OnInterface(const char* Version, void* Interface)
+{
+    if (!Version || !std::string_view(Version).starts_with(StatsInterface))
+        return Interface;
+    if (!Interface)
+        return nullptr;
+    if (std::string_view(Version) != SupportedVersion)
+    {
+        Log::Error("Online: unbekannte Schnittstelle {}, Spiel bekommt keine Statistiken", Version);
+        return nullptr;
+    }
+    if (Protect(Interface))
+        return Interface;
+    Log::Error("Online: Sperre gescheitert, Spiel bekommt keine Statistiken");
+    return nullptr;
+}
+
+void Reset()
+{
+    std::lock_guard Guard(Lock);
+    for (void* Function : Hooked)
+        Hooks::Remove(Function);
+    if (FindTarget)
+        Hooks::Remove(FindTarget);
+    Attached = false;
+    Hooked.clear();
+    OriginalFind = nullptr;
+    FindTarget = nullptr;
+    Env = {};
+}
+}
+
+bool Block()
+{
+    // Zuerst LoadLibrary, damit eine DLL, die genau jetzt geladen wird, nicht durchrutscht.
+    const HMODULE KernelBase = GetModuleHandleW(L"kernelbase.dll");
+    auto* Load = KernelBase ? reinterpret_cast<LoadFn>(GetProcAddress(KernelBase, "LoadLibraryExW")) : nullptr;
+    {
+        std::lock_guard Guard(Lock);
+        Env = {&RealExport, &RealInstall};
+    }
+    if (!Load || !Hooks::Install(Load, &LoadDetour, &OriginalLoad))
+    {
+        Log::Error("Online: LoadLibraryExW ließ sich nicht umleiten");
+        return false;
+    }
+    if (!GetModuleHandleW(L"steam_api64.dll"))
+    {
+        Log::Info("Online: steam_api64.dll noch nicht geladen, Sperre folgt beim Laden");
+        return true;
+    }
+    return Testing::Attach({&RealExport, &RealInstall});
 }
 }

@@ -16,7 +16,7 @@ struct Step
 // und das Ergebnis ist falsch. Ohne Schritte ist nichts zu schützen, das Ergebnis ist wahr.
 bool InstallAll(std::span<const Step> Steps);
 
-// Alle Sperren der Mod: Crash-Reporter, Telemetrie und Berichte. Braucht Hooks::Initialize.
+// Alle Sperren der Mod: Crash-Reporter, Telemetrie und Berichte, Steam-Erfolge und -Bestenlisten. Braucht Hooks::Initialize.
 // Falsch heißt: Die Mod darf nicht starten.
 bool Install();
 }
