@@ -37,7 +37,7 @@ Worktrees liegen immer unter `.worktrees/` im Repo-Ordner, keine neuen Ordner da
 ## Abschluss
 
 1. Ergebnisse festhalten, auch gescheiterte Versuche, siehe [Ergebnisse festhalten](docs/TESTING.md#ergebnisse-festhalten).
-2. In `TODO.md` nur die eigenen Zeilen ändern, das hält Konflikte klein. Ist die Aufgabe fertig, auch [docs/ROADMAP.md](docs/ROADMAP.md) und den [Fortschritt im README](README.md#fortschritt) anpassen.
+2. In `TODO.md` nur die eigenen Zeilen ändern, das hält Konflikte klein. Die zugeordneten Checkboxen sind die Abschlussquelle (`<!-- tasks: kennung -->` direkt davor erhalten). Ein Teil-PR reicht nicht zum Abhaken. Fertige Pakete aus der Einstiegstabelle nach „Abgeschlossene Pakete“ verschieben und [docs/ROADMAP.md](docs/ROADMAP.md) anpassen. Den [Fortschritt im README](README.md#fortschritt) mit `py tools/task_status.py update` aus den Phasen-Checkboxen erzeugen; `py tools/task_status.py check` muss vor dem PR bestehen. Branch-Löschung oder fehlende GitHub CLI dürfen nie als „Aufgabe frei“ interpretiert werden.
 3. Den Draft-PR fertigstellen, keinen zweiten öffnen: Titel und Beschreibung ersetzen, dabei sagen, wie getestet wurde, dann auf „Ready for review“ stellen. Nur auf ausdrückliche Anweisung des Menschen mergen.
 
    ```bash
