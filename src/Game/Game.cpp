@@ -2,6 +2,7 @@
 
 #include "Core/Log.h"
 #include "Game/GameThread.h"
+#include "Game/TutorialAdapter.h"
 #include "Game/WorldAdapter.h"
 
 namespace Game
@@ -14,6 +15,7 @@ void Start()
     Core::Log::Info("Game: ohne SDK gebaut, Offsets ungeprüft");
 #endif
     GameThread::AddTick(TickWorld);
+    GameThread::AddTick(TickTutorials);
     GameThread::Start();
 }
 }
