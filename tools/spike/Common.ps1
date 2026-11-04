@@ -69,7 +69,8 @@ function Test-OwnSessionRunning {
 
 # Eine Testsitzung pro PC: Sie belegt Port 7777, Fenster, Maus und Tastatur. Die Sperre gilt ueber alle Klone und Worktrees.
 function Test-LockActive($Lock) {
-    if ($Lock.Host -eq 0) { return [bool](Get-Process -Id $Lock.Starter -ErrorAction SilentlyContinue) }
+    # Beide 0: Die Sitzung startet noch. Nur eine 0: Test auf zwei PCs, die andere Rolle laeuft woanders.
+    if ($Lock.Host -eq 0 -and $Lock.Client -eq 0) { return [bool](Get-Process -Id $Lock.Starter -ErrorAction SilentlyContinue) }
     (Test-GameProcess $Lock.Host) -or (Test-GameProcess $Lock.Client)
 }
 
@@ -105,7 +106,15 @@ function Exit-SessionLock {
 
 function Get-RolePid([string]$Role) {
     $Session = Get-Session
-    if ($Role -eq 'Host') { [int]$Session.Host } else { [int]$Session.Client }
+    $ProcessId = if ($Role -eq 'Host') { [int]$Session.Host } else { [int]$Session.Client }
+    if (-not $ProcessId) { throw "$Role laeuft nicht auf diesem PC (Test auf zwei PCs, Sitzung mit -Role $($Session.Role))." }
+    $ProcessId
+}
+
+# Rollen, die auf diesem PC laufen. Beim Test auf zwei PCs ist es nur eine.
+function Get-LocalRoles {
+    $Session = Get-Session
+    @('Host', 'Client') | Where-Object { [int]$Session.$_ }
 }
 
 # Der Spike liest die Befehlsdatei einmal pro Sekunde. Ein zweiter Befehl darf sie erst ersetzen, wenn der erste abgeholt ist,

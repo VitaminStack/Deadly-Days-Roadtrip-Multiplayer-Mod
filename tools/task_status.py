@@ -16,7 +16,7 @@ DONE_HEADER = '| Kennung | Phase | Ergebnis |'
 DONE_SECTION = 'Erledigt'
 EXTRA_SECTIONS = {'Wartung': 'Wartung', 'Optionale Optimierungen': 'Optional'}
 PRIOS = ('P0', 'P1', 'P2')
-MODES = ('parallel', 'zentral', 'Team')
+MODES = ('parallel', 'zentral', 'zu zweit', 'Team')
 PLAYTIMES = ('keine', 'wenig', 'mittel', 'viel')
 PHASES = tuple(str(n) for n in range(7))
 FREE_START = '<!-- frei:start -->'
@@ -98,7 +98,7 @@ def parse(todo):
             if prio not in PRIOS:
                 raise ValueError(f'{where}: {name}: Prio muss P0, P1 oder P2 sein')
             if mode not in MODES:
-                raise ValueError(f'{where}: {name}: Bearbeitung muss parallel, zentral oder Team sein')
+                raise ValueError(f'{where}: {name}: Bearbeitung muss parallel, zentral, zu zweit oder Team sein')
             if playtime not in PLAYTIMES:
                 raise ValueError(f'{where}: {name}: Spielzeit muss keine, wenig, mittel oder viel sein')
             if needs == '–':

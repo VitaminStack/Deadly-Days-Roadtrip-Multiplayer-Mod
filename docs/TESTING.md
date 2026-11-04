@@ -2,6 +2,7 @@
 
 Host und Client laufen auf einem PC unter einem Steam-Konto, ein zweiter PC ist für die Analyse nicht nötig. Beide Instanzen
 bekommen ein eigenes `-UserDir`, der echte Spielstand bleibt also unberührt. Die Skripte stehen in [tools/](../tools/README.md).
+Nur was zwei Steam-Konten braucht, etwa Steam-P2P, läuft auf zwei PCs, siehe [Test auf zwei PCs](#test-auf-zwei-pcs).
 
 > **Crash-Reporter:** Abstürze sind hier normal, und der `CrashReportClient` kann Berichte mit Spielstand an Pixelsplit schicken.
 > `Start-Session.ps1` startet deshalb immer den Crash-Schutz und bricht ab, wenn er nicht läuft. Die Exe also nicht von Hand mit
@@ -117,6 +118,99 @@ Für eine reproduzierbare Karte vor dem Öffnen der Routenkarte `Send-Command.ps
 
 Das Pausemenü (`Esc`) hat „Zurück zum Hauptmenü“ bei (396, 266). Mit `!finish` endet die Mission beim Host, danach kommt die Routenkarte für Tag 2.
 Über die echte Route laden Tag 1 bis 4 sauber, an Tag 5 stürzt der Client ab, siehe [Pausierte Welt und Busplatz](GAME_ANALYSIS.md#pausierte-welt-und-busplatz-testumgebung). Eine `servertravel`-Schleife ersetzt die echte Route dabei nicht.
+
+## Test auf zwei PCs
+
+Manches lässt sich auf einem PC nicht prüfen: Steam lehnt P2P zum eigenen Konto ab, siehe [Steam-Tunnel](../research/spikes/a-connect/README.md#spike-e-steam-tunnel-tunnel).
+Dafür laufen Host und Client auf zwei PCs mit zwei Steam-Konten, je PC nur eine Instanz. Solche Aufgaben haben in
+[TODO.md](../TODO.md) die Bearbeitung **zu zweit**, etwa `tunnel-p2p`.
+
+### Reservieren zu zweit
+
+Zwei Personen teilen sich die Aufgabe, je eine Rolle. Jede reserviert ihre Rolle auf ihrem PC:
+
+```bash
+py tools/tasks.py claim tunnel-p2p <eigener-name> host
+```
+
+```bash
+py tools/tasks.py claim tunnel-p2p <eigener-name> client
+```
+
+Das legt je Rolle den Branch `task/<kennung>/<rolle>`, den Worktree `.worktrees/<kennung>-<rolle>` und einen Draft-PR an.
+`tasks.py list` zeigt beide Rollen, etwa `zu zweit: host reserviert (anna), client frei`. Wer beide PCs selbst bedient,
+reserviert ohne Rolle wie sonst auch. Eine Rolle gibt man mit `py tools/tasks.py release <kennung> <rolle>` frei.
+
+Abschluss: Der **Host-PR schließt die Aufgabe ab**. Er bringt die Doku, die TODO-Zeile und beide Berichte. Der Client-PR
+enthält nur Änderungen, die auf der Client-Seite nötig waren, und seinen Bericht in der Beschreibung. Hat der Client nichts
+geändert, kommt sein Bericht als Kommentar in den Host-PR, danach gibt er seine Rolle mit `release` frei. Beide arbeiten
+auf demselben Stand von `main`: vor dem Test `git rev-parse --short HEAD` vergleichen.
+
+### Vorbereitung auf beiden PCs
+
+1. Einrichtung nach [SETUP.md](SETUP.md), Spiel-Build `26187885`. `Start-Session.ps1` bricht bei einem anderen Build ab.
+2. Zwei verschiedene Steam-Konten, beide besitzen das Spiel, Steam läuft und ist online. Freundschaft ist nicht nötig.
+3. Kein Port muss freigegeben werden: Steam vermittelt die Verbindung und leitet sie notfalls über eigene Relays. Fragt die
+   Windows-Firewall beim ersten Start nach dem Spiel, reicht „Abbrechen“, der Tunnel spricht mit dem Spiel nur über `127.0.0.1`.
+4. Auf jedem PC läuft nur diese eine Sitzung, kein anderes Spiel und keine zweite Testsitzung.
+5. Absprache über einen Chat außerhalb des Spiels, etwa Discord: Der Host-PC zeigt beim Start seine SteamID, der Client braucht sie für `-Peer`.
+   Die SteamID nie ins Repo, in Commits oder in PR-Texte schreiben.
+
+### Automatischer Ablauf
+
+Erst den Host starten, dann den Client. Jede Seite wartet bis zu 15 Minuten auf die andere (`-JoinTimeoutSeconds`).
+
+Auf dem Host-PC:
+
+```bash
+powershell -ExecutionPolicy Bypass -File tools/spike/Test-TwoPc.ps1 -Role Host
+```
+
+Auf dem Client-PC, mit der SteamID aus der Zeile `Host bereit. SteamID fuer -Peer ...`:
+
+```bash
+powershell -ExecutionPolicy Bypass -File tools/spike/Test-TwoPc.ps1 -Role Client -Peer <SteamID>
+```
+
+Danach läuft alles ohne Eingriff:
+
+| Schritt | Host-PC | Client-PC |
+|---|---|---|
+| Start | Spiel mit Spike und Crash-Schutz, Listen-Server, `!tunnel host`, zeigt die SteamID | Spiel mit Spike und Crash-Schutz, `!tunnel join <SteamID>`, dann `open 127.0.0.1:7778` |
+| Verbinden | wartet, bis der Client im Spiel ist, dann `servertravel` in die `MetaBase` | wartet, bis der Host in die `MetaBase` reist |
+| Run | `Start-Run.ps1 -Seed 20795`, dann `Travel-Day.ps1 62 213 -Stay` in die Mission an Tag 1 | `!notutorial`, wartet auf `DDDynamic_Map` |
+| Messen | 120 s in der Mission, prüft alle 10 s, ob die Instanz läuft | ebenso |
+| Bericht | `research/local/session/tunnel-host.txt` | `research/local/session/tunnel-client.txt` |
+
+Die Sitzung läuft danach weiter, man kann also selbst weiterspielen. `Stop-Session.ps1` beendet sie, `-Stop` macht das gleich
+am Ende. Weitere Schalter: `-Mod` und `-Build` wie bei `Start-Session.ps1`, `-Godmode`, `-MissionSeconds`, und für eine andere
+Route `-Seed`, `-NodeX`, `-NodeY`. Exitcode 0 heißt Ping und Route stehen im Log, 1 heißt nicht belegt oder Abbruch.
+
+Der Bericht kommt aus `tools/spike/tunnel_report.py`: Verbindung, Ping (Minimum, Median, Maximum), Pakete und verworfene Pakete,
+Qualität, die Routenzeilen von Steam (direkt oder über Relay) und Abbrüche. SteamIDs und IP-Adressen sind darin maskiert, er darf
+so in den PR. Von Hand geht es auch: `py tools/spike/tunnel_report.py <spike-log> --role Host`.
+
+### Von Hand oder in Teilen
+
+`Start-Session.ps1` kennt dafür `-Role`. Ohne `-Role` oder mit `-Role Both` läuft alles wie bisher auf einem PC.
+
+```bash
+powershell -ExecutionPolicy Bypass -File tools/spike/Start-Session.ps1 -Role Host -Tunnel P2p
+```
+
+```bash
+powershell -ExecutionPolicy Bypass -File tools/spike/Start-Session.ps1 -Role Client -Tunnel P2p -Peer <SteamID>
+```
+
+Danach gehen `Send-Command.ps1`, `Wait-Log.ps1`, `Game-Input.ps1` und `Get-Status.ps1` nur für die eigene Rolle; für die andere
+melden sie, dass sie auf diesem PC nicht läuft. Den Run steuert der Host mit `Start-Run.ps1` und `Travel-Day.ps1` wie gewohnt.
+Ohne Tunnel verbindet `-Role Client -Peer <Adresse>:7777` direkt, dafür muss der Host-PC UDP 7777 erreichbar machen.
+
+### Grenzen
+
+- `Run-Route.ps1`, `check_round.py` und der Inventarvergleich lesen beide Instanzen aus dem Speicher und gehen nur auf einem PC.
+  Auf zwei PCs vergleicht man Inventare und Zustand über Bildschirmfotos (`Game-Input.ps1 <Rolle> shot`) und die Logs.
+- Stürzt eine Seite ab, wertet sie `crashes.py --session` auf ihrem eigenen PC aus und schickt das Ergebnis der anderen.
 
 ## Abstürze auswerten
 

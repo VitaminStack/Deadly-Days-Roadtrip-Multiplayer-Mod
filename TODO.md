@@ -14,7 +14,7 @@ Den Überblick als Graph zeigt [docs/ROADMAP.md](docs/ROADMAP.md), den Fortschri
 | **Prio** | **P0** blockiert andere Aufgaben oder den Run, **P1** nötig für das nächste Gate oder den Release, **P2** wichtig, aber später |
 | **Aufgabe** | Was zu tun ist, **Fertig, wenn** nennt die Abnahme, **Einstieg** die Unterlagen |
 | **Braucht** | Kennungen, die vorher erledigt sein müssen. `–` heißt keine Voraussetzung |
-| **Bearbeitung** | **parallel**: läuft neben anderen Aufgaben. **zentral**: legt gemeinsame Schnittstellen fest oder lässt sich nur als Ganzes testen, immer nur eine Person, nie aufteilen. **Team**: Entscheidung oder Abnahme durch die Menschen im Team, keine Reservierung |
+| **Bearbeitung** | **parallel**: läuft neben anderen Aufgaben. **zentral**: legt gemeinsame Schnittstellen fest oder lässt sich nur als Ganzes testen, immer nur eine Person, nie aufteilen. **zu zweit**: Test auf zwei PCs, zwei Personen dürfen je eine Rolle `host` oder `client` reservieren, siehe [Test auf zwei PCs](docs/TESTING.md#test-auf-zwei-pcs). **Team**: Entscheidung oder Abnahme durch die Menschen im Team, keine Reservierung |
 | **Spielzeit** | Wie sehr die Aufgabe Testsitzungen braucht: keine, wenig, mittel, viel. Pro PC läuft nur eine Sitzung |
 
 Daraus ergibt sich der Status, den `py tools/tasks.py list` anzeigt:
@@ -38,7 +38,7 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `transport` | P0 | [3](#phase-3--session-und-verbindung) | parallel | wenig |
 | `patches` | P0 | [4](#phase-4--vertical-slice) | zentral | viel |
 | `mod-saves` | P0 | [6](#phase-6--release) | parallel | mittel |
-| `tunnel-p2p` | P1 | [1](#phase-1--analyse-und-spikes) | parallel | wenig |
+| `tunnel-p2p` | P1 | [1](#phase-1--analyse-und-spikes) | zu zweit | wenig |
 | `installer` | P1 | [6](#phase-6--release) | parallel | keine |
 
 **Wartet auf das Team:** `meta-fortschritt`, `weeklymode`, `spiel-update`.
@@ -81,7 +81,7 @@ Ziel: Fakten für Gate G1. Spike-Code ist Wegwerfcode und liegt unter `research/
 
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
-| `tunnel-p2p` | P1 | Steam-Tunnel aus Spike E per P2P zwischen zwei Steam-Konten auf zwei PCs prüfen (`!tunnel host`, `!tunnel join <steamid>`). Ein Konto kann sich nicht selbst per P2P erreichen. **Fertig, wenn** zwei Spieler über P2P bis in eine Mission verbunden spielen und Ping und Route im Log stehen. **Einstieg:** [Steam-Tunnel](research/spikes/a-connect/README.md#spike-e-steam-tunnel-tunnel) | – | parallel | wenig |
+| `tunnel-p2p` | P1 | Steam-Tunnel aus Spike E per P2P zwischen zwei Steam-Konten auf zwei PCs prüfen (`!tunnel host`, `!tunnel join <steamid>`). Ein Konto kann sich nicht selbst per P2P erreichen. Automatisch mit `Test-TwoPc.ps1` je PC. **Fertig, wenn** zwei Spieler über P2P bis in eine Mission verbunden spielen und Ping und Route im Log stehen. **Einstieg:** [Test auf zwei PCs](docs/TESTING.md#test-auf-zwei-pcs), [Steam-Tunnel](research/spikes/a-connect/README.md#spike-e-steam-tunnel-tunnel) | `zwei-pc-test` | zu zweit | wenig |
 
 ## Phase 2 – Fundament
 
@@ -233,6 +233,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `tunnel` | 1 | Der Spielverkehr läuft über `ISteamNetworkingSockets` aus der Steam-Laufzeit des Spiels, zwei Instanzen spielten so bis Tag 2 (`Tunnel.cpp`); P2P mit zwei Konten ist `tunnel-p2p`, siehe [Steam-Tunnel](research/spikes/a-connect/README.md#spike-e-steam-tunnel-tunnel) |
 | `tutorial-aus` | 6 | Die Mod schaltet die Tutorial-Hinweise als Host und Client automatisch ab und prüft das jede Sekunde (`src/Game/TutorialAdapter`), siehe [Tutorial-Pause](docs/GAME_ANALYSIS.md#tutorial-pause-hält-den-run-an-testumgebung) |
 | `update-regel` | 0 | Spiel-Updates: einfrieren und nur bei Bedarf nachziehen, siehe [Update-Regel](CONTRIBUTING.md#spiel-updates) |
+| `zwei-pc-test` | Wartung | Tests auf zwei PCs: `Test-TwoPc.ps1` fährt je PC eine Rolle automatisch bis in die Mission und schreibt einen Tunnel-Bericht, `Start-Session.ps1 -Role`, Aufgaben „zu zweit“ mit Rollen-Reservierung in `tasks.py`, siehe [Test auf zwei PCs](docs/TESTING.md#test-auf-zwei-pcs) |
 
 ## Risiken
 

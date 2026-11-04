@@ -22,6 +22,8 @@ Erst spielbar: Vorrang hat, dass zwei Spieler einen Run durchspielen können. Kl
    py tools/tasks.py claim <kennung> <eigener-name>
    ```
 
+Bei Bearbeitung „zu zweit“ (Test auf zwei PCs) reserviert jede Person nur ihre Rolle: `claim <kennung> <name> host` oder `client`, ein freier Rest steht dann als `client frei` oder `host frei` in der Liste, siehe [Test auf zwei PCs](docs/TESTING.md#test-auf-zwei-pcs).
+
 Nie von Hand reservieren und nie eine Aufgabe übernehmen, die nicht `frei` ist. Steht dort „erst nachfragen“, ist die Reservierung seit mehreren Tagen ohne Commit. Dann den Menschen fragen, der sie im Team klärt. Neue Arbeit bekommt vorher eine eigene Zeile mit Kennung in der passenden Phase.
 
 Worktrees liegen immer unter `.worktrees/` im Repo-Ordner, keine neuen Ordner daneben anlegen. Im eigenen Worktree arbeiten, nie im Hauptordner oder im Worktree eines anderen Agenten. Wer die Reservierung aufgibt, ruft `py tools/tasks.py release <kennung>` auf. Das schließt den Draft-PR und löscht den Branch.
