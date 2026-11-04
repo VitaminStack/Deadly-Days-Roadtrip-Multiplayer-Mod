@@ -170,15 +170,18 @@ class ReservationTests(unittest.TestCase):
         self.assertEqual(tasks.status('missing', set(), None, parsed), 'nicht in TODO.md')
 
     def test_list_without_github_hides_done_and_shows_status(self):
-        text = (ROOT / 'TODO.md').read_text(encoding='utf-8')
+        # Project tasks become unblocked as gates close; test rendering against stable fixture dependencies.
+        text = todo(self.ROWS)
         with patch.object(tasks, 'git'), patch.object(tasks, 'todo_text', return_value=text), \
                 patch.object(tasks, 'remote_branches', return_value=set()), \
                 patch.object(tasks, 'pull_requests', return_value=None), redirect_stdout(StringIO()) as out:
             tasks.cmd_list()
         lines = out.getvalue().splitlines()
-        self.assertFalse(any(line.strip().startswith('crash-reporter ') for line in lines))
-        row = next(line for line in lines if line.strip().startswith('patches '))
+        self.assertFalse(any(line.strip().startswith('base1 ') for line in lines))
+        row = next(line for line in lines if line.strip().startswith('blocked '))
         self.assertIn('blockiert', row)
+        self.assertIn('frei', next(line for line in lines if line.strip().startswith('open ')))
+        self.assertIn('Team', next(line for line in lines if line.strip().startswith('vote ')))
 
 
 if __name__ == '__main__':
