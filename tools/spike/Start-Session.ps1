@@ -12,6 +12,9 @@ param(
     [switch]$Mod,
     # Testhilfe fuer beide Rollen; bleibt im Spike ueber Kartenwechsel aktiv, nicht im Spielstand.
     [switch]$Godmode,
+    # Client verbindet ueber den Steam-Tunnel aus Tunnel.cpp statt direkt: P2p zur eigenen SteamID oder Ip ueber 127.0.0.1.
+    [ValidateSet('None', 'Ip', 'P2p')]
+    [string]$Tunnel = 'None',
     [ValidateSet('Release', 'Debug')]
     [string]$Configuration = 'Release'
 )
@@ -77,7 +80,16 @@ if ($Godmode) {
 }
 Send-SpikeCommand $GameHost.Id 'open /Game/Maps/MainMenu?listen'
 Start-Sleep -Seconds 12
-Send-SpikeCommand $Client.Id 'open 127.0.0.1:7777'
+if ($Tunnel -eq 'None') {
+    Send-SpikeCommand $Client.Id 'open 127.0.0.1:7777'
+}
+else {
+    Send-SpikeCommand $GameHost.Id '!tunnel host'
+    Start-Sleep -Seconds 2
+    Send-SpikeCommand $Client.Id $(if ($Tunnel -eq 'Ip') { '!tunnel join ip' } else { '!tunnel join self' })
+    Start-Sleep -Seconds 8
+    Send-SpikeCommand $Client.Id 'open 127.0.0.1:7778'
+}
 Start-Sleep -Seconds 10
 Send-SpikeCommand $GameHost.Id "servertravel $Map`?listen"
 Start-Sleep -Seconds $TravelDelaySeconds
