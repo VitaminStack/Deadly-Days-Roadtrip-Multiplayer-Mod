@@ -46,20 +46,20 @@ Was im Einzelnen noch offen ist, zeigt die [Roadmap als Graph](docs/ROADMAP.md).
 
 Stand: 04.11.2026.
 
-Gezählt sind die Punkte aus [TODO.md](TODO.md), ohne optionale Optimierungen.
+Gezählt sind die Aufgaben je Phase aus [TODO.md](TODO.md), ohne Wartung und optionale Optimierungen.
 
-Die Checkboxen in Phase 0–6 sind die verbindliche Fortschrittsquelle. `py tools/task_status.py update` aktualisiert Zahlen und Balken dieser Tabelle; `py tools/task_status.py check` und die CI verhindern abweichende Angaben. Reservierungen und PRs werden separat geführt und ändern den Abschlussstatus nicht automatisch.
+Erledigt ist, was in `TODO.md` unter „Erledigt“ steht. `py tools/task_status.py update` aktualisiert Zahlen und Balken dieser Tabelle; `py tools/task_status.py check` und die CI verhindern abweichende Angaben. Reservierungen und PRs ändern den Abschlussstatus nicht.
 
 | Phase | Ziel | Erledigt | Fortschritt |
 |---|---|---|---|
 | [0](TODO.md#phase-0--projekt-setup) | Gleiche Toolchain für alle | 11 von 11 | ███████████ |
-| [1](TODO.md#phase-1--analyse-und-spikes) | Fakten für Gate G1 | 29 von 35 | █████████░░ |
-| [2](TODO.md#phase-2--fundament) | Stabile Basis der Mod | 7 von 8 | ██████████░ |
-| [3](TODO.md#phase-3--session-und-verbindung) | Verbinden über Steam | 0 von 6 | ░░░░░░░░░░░ |
-| [4](TODO.md#phase-4--vertical-slice) | Spielbarer Ausschnitt | 0 von 9 | ░░░░░░░░░░░ |
-| [5](TODO.md#phase-5--vollständiger-run) | Kompletter Run zu zweit | 0 von 10 | ░░░░░░░░░░░ |
+| [1](TODO.md#phase-1--analyse-und-spikes) | Fakten für Gate G1 | 30 von 36 | █████████░░ |
+| [2](TODO.md#phase-2--fundament) | Stabile Basis der Mod | 4 von 5 | █████████░░ |
+| [3](TODO.md#phase-3--session-und-verbindung) | Verbinden über Steam | 0 von 4 | ░░░░░░░░░░░ |
+| [4](TODO.md#phase-4--vertical-slice) | Spielbarer Ausschnitt | 0 von 10 | ░░░░░░░░░░░ |
+| [5](TODO.md#phase-5--vollständiger-run) | Kompletter Run zu zweit | 0 von 12 | ░░░░░░░░░░░ |
 | [6](TODO.md#phase-6--release) | Veröffentlichung | 0 von 6 | ░░░░░░░░░░░ |
-| **Gesamt** | | **47 von 85** | ██████░░░░░ |
+| **Gesamt** | | **45 von 84** | ██████░░░░░ |
 
 Unter `src/` stehen Loader, Core, ein im Spiel geprüftes [Mod-Overlay](src/UI/README.md) und weitere Modul-Einstiege, noch ohne Spiellogik. In Phase 2 bleibt die Game-Adapter-Schicht offen; die Steam-Anbindung der Lobby-Knöpfe folgt in Phase 3. Die Punkte sind unterschiedlich groß, die Zahlen sagen also wenig über die verbleibende Zeit. Stand, Engpässe und nächste Schritte stehen in der [Roadmap](docs/ROADMAP.md#stand-und-nächste-schritte).
 

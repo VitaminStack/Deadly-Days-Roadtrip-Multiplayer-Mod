@@ -1,56 +1,213 @@
-"""Lokale TODO-Quelle fuer Aufgabenstatus und README-Fortschritt, ohne GitHub."""
+"""Liest die Aufgabentabellen aus TODO.md, prueft sie und erzeugt die abgeleiteten Abschnitte.
+
+  py tools/task_status.py check    Format, Abhaengigkeiten und erzeugte Abschnitte pruefen
+  py tools/task_status.py update   "Jetzt bearbeitbar" in TODO.md und den Fortschritt im README neu erzeugen
+
+Jede Aufgabe steht genau einmal in TODO.md: offen in der Tabelle ihrer Phase, erledigt in der Tabelle "Erledigt".
+"""
+from dataclasses import dataclass, field
 from pathlib import Path
 import re
 import sys
 
+OPEN_HEADER = '| Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |'
+DONE_HEADER = '| Kennung | Phase | Ergebnis |'
+DONE_SECTION = 'Erledigt'
+EXTRA_SECTIONS = {'Wartung': 'Wartung', 'Optionale Optimierungen': 'Optional'}
+PRIOS = ('P0', 'P1', 'P2')
+MODES = ('parallel', 'zentral', 'Team')
+PLAYTIMES = ('keine', 'wenig', 'mittel', 'viel')
+PHASES = tuple(str(n) for n in range(7))
+FREE_START = '<!-- frei:start -->'
+FREE_END = '<!-- frei:end -->'
+ID_PATTERN = r'[a-z0-9][a-z0-9-]*'
 
-def task_states(text):
-    """Explizite tasks-Marker gelten fuer die unmittelbar folgende Checkbox.
 
-    Ein Paket kann mehrere Punkte umfassen; fertig ist es erst, wenn alle fertig sind.
-    Marker ausserhalb der Phasen zaehlen nicht zum README-Fortschritt.
-    """
-    states = {}
-    pending = None
-    for line in text.splitlines():
-        marker = re.fullmatch(r'<!-- tasks: ([a-z0-9 -]+) -->', line)
-        if marker:
-            if pending is not None:
-                raise ValueError('Aufgabenmarker ohne folgende Checkbox')
-            pending = marker[1].split()
-            if len(pending) != len(set(pending)):
-                raise ValueError('Doppelte Kennung im Aufgabenmarker')
+@dataclass
+class Task:
+    name: str
+    phase: str
+    section: str
+    done: bool
+    text: str
+    prio: str = ''
+    needs: list = field(default_factory=list)
+    mode: str = ''
+    playtime: str = ''
+
+
+def slug(heading):
+    """GitHub-Anker einer Ueberschrift."""
+    text = re.sub(r'[^\w\- ]', '', heading.strip().lower())
+    return text.replace(' ', '-')
+
+
+def cells(line):
+    return [c.strip() for c in line.strip().strip('|').split('|')]
+
+
+def parse(todo):
+    """Kennung -> Task. Wirft ValueError bei jedem Formatfehler."""
+    tasks, sections = {}, {}
+    section, phase, table, in_free = '', None, None, False
+    for number, line in enumerate(todo.splitlines(), 1):
+        where = f'TODO.md Zeile {number}'
+        if line == FREE_START:
+            in_free = True
             continue
-        if pending is not None:
-            box = re.match(r'^- \[([ x])\] ', line)
-            if not box:
-                raise ValueError('Aufgabenmarker muss direkt vor einer Checkbox stehen')
-            for name in pending:
-                states[name] = states.get(name, True) and box[1] == 'x'
-            pending = None
-    if pending is not None:
-        raise ValueError('Aufgabenmarker ohne folgende Checkbox')
-    return states
-
-
-def phase_counts(text):
-    counts = {}
-    phase = None
-    for line in text.splitlines():
+        if line == FREE_END:
+            in_free = False
+            continue
+        if in_free:
+            continue
+        if re.match(r'^- \[[ xX]\] ', line) or '<!-- tasks:' in line:
+            raise ValueError(f'{where}: Checkboxen und tasks-Marker gibt es nicht mehr, Aufgaben stehen in Tabellen')
         if line.startswith('## '):
-            match = re.match(r'^## Phase ([0-6]) – ', line)
-            phase = int(match[1]) if match else None
+            section = line[3:].strip()
+            match = re.match(r'^Phase ([0-6]) – ', section)
+            phase = match[1] if match else EXTRA_SECTIONS.get(section)
             if phase is not None:
-                if phase in counts:
-                    raise ValueError('Doppelte Phase')
-                counts[phase] = [0, 0]
-        box = re.match(r'^- \[([ x])\] ', line)
-        if phase is not None and box:
-            counts[phase][0] += box[1] == 'x'
-            counts[phase][1] += 1
-    if set(counts) != set(range(7)) or any(total == 0 for _, total in counts.values()):
-        raise ValueError('Phasen 0 bis 6 muessen vollstaendig vorhanden sein')
+                sections[phase] = section
+            table = None
+            continue
+        if line.startswith('| Kennung |'):
+            if line == OPEN_HEADER and phase is not None:
+                table = 'open'
+            elif line == DONE_HEADER and section == DONE_SECTION:
+                table = 'done'
+            else:
+                raise ValueError(f'{where}: Aufgabentabelle mit falschem Kopf oder im falschen Abschnitt')
+            continue
+        if not line.startswith('|'):
+            table = None
+            continue
+        if table is None or re.match(r'^\|[-| ]+\|$', line):
+            continue
+        row = cells(line)
+        match = re.fullmatch(rf'`({ID_PATTERN})`', row[0])
+        if not match:
+            raise ValueError(f'{where}: Kennung fehlt oder ist ungueltig')
+        name = match[1]
+        if name in tasks:
+            raise ValueError(f'{where}: Kennung {name} steht mehrfach in TODO.md')
+        if table == 'open':
+            if len(row) != 6:
+                raise ValueError(f'{where}: {name} braucht 6 Spalten')
+            _, prio, text, needs, mode, playtime = row
+            if prio not in PRIOS:
+                raise ValueError(f'{where}: {name}: Prio muss P0, P1 oder P2 sein')
+            if mode not in MODES:
+                raise ValueError(f'{where}: {name}: Bearbeitung muss parallel, zentral oder Team sein')
+            if playtime not in PLAYTIMES:
+                raise ValueError(f'{where}: {name}: Spielzeit muss keine, wenig, mittel oder viel sein')
+            if needs == '–':
+                need_list = []
+            else:
+                need_list = [n.strip() for n in needs.split(',')]
+                if not all(re.fullmatch(rf'`{ID_PATTERN}`', n) for n in need_list):
+                    raise ValueError(f'{where}: {name}: Braucht ist "–" oder eine Liste wie `a`, `b`')
+                need_list = [n.strip('`') for n in need_list]
+            tasks[name] = Task(name, phase, section, False, text, prio, need_list, mode, playtime)
+        else:
+            if len(row) != 3:
+                raise ValueError(f'{where}: {name} braucht 3 Spalten')
+            _, done_phase, text = row
+            if done_phase not in PHASES + tuple(EXTRA_SECTIONS.values()):
+                raise ValueError(f'{where}: {name}: Phase muss 0 bis 6, Wartung oder Optional sein')
+            tasks[name] = Task(name, done_phase, DONE_SECTION, True, text)
+    missing = [p for p in PHASES if p not in sections]
+    if missing:
+        raise ValueError('Phasen fehlen in TODO.md: ' + ', '.join(missing))
+    validate_graph(tasks)
+    validate_done_order(todo)
+    return tasks
+
+
+def validate_graph(tasks):
+    for task in tasks.values():
+        for need in task.needs:
+            if need not in tasks:
+                raise ValueError(f'{task.name}: braucht unbekannte Kennung {need}')
+            if need == task.name:
+                raise ValueError(f'{task.name}: braucht sich selbst')
+    state = {}
+
+    def visit(name, path):
+        if state.get(name) == 'done':
+            return
+        if state.get(name) == 'active':
+            raise ValueError('Kreis in Braucht: ' + ' -> '.join(path + [name]))
+        state[name] = 'active'
+        for need in tasks[name].needs:
+            visit(need, path + [name])
+        state[name] = 'done'
+
+    for name in tasks:
+        visit(name, [])
+
+
+def validate_done_order(todo):
+    names, section = [], ''
+    for line in todo.splitlines():
+        if line.startswith('## '):
+            section = line[3:].strip()
+        elif section == DONE_SECTION:
+            match = re.match(rf'^\| `({ID_PATTERN})` \|', line)
+            if match:
+                names.append(match[1])
+    if names != sorted(names):
+        wrong = next(a for a, b in zip(names, sorted(names)) if a != b)
+        raise ValueError(f'Erledigt ist nicht alphabetisch sortiert, zuerst falsch: {wrong}')
+
+
+def blockers(task, tasks):
+    return [n for n in task.needs if not tasks[n].done]
+
+
+def phase_counts(tasks):
+    counts = {int(p): [0, 0] for p in PHASES}
+    for task in tasks.values():
+        if task.phase in PHASES:
+            counts[int(task.phase)][0] += task.done
+            counts[int(task.phase)][1] += 1
+    empty = [str(p) for p, (_, total) in counts.items() if total == 0]
+    if empty:
+        raise ValueError('Phasen ohne Aufgaben: ' + ', '.join(empty))
     return counts
+
+
+def free_block(todo, tasks):
+    """Inhalt zwischen den frei-Markern: offene Aufgaben, deren Voraussetzungen erledigt sind."""
+    anchors = {}
+    for line in todo.splitlines():
+        if line.startswith('## '):
+            heading = line[3:].strip()
+            match = re.match(r'^Phase ([0-6]) – ', heading)
+            key = match[1] if match else EXTRA_SECTIONS.get(heading)
+            if key:
+                anchors[key] = slug(heading)
+    ready = [t for t in tasks.values() if not t.done and not blockers(t, tasks)]
+    order = {p: i for i, p in enumerate(PHASES + tuple(EXTRA_SECTIONS.values()))}
+    ready.sort(key=lambda t: (PRIOS.index(t.prio), order[t.phase], t.name))
+    work = [t for t in ready if t.mode != 'Team']
+    team = [t for t in ready if t.mode == 'Team']
+    lines = ['| Kennung | Prio | Phase | Bearbeitung | Spielzeit |', '|---|---|---|---|---|']
+    for t in work:
+        lines.append(f'| `{t.name}` | {t.prio} | [{t.phase}](#{anchors[t.phase]}) | {t.mode} | {t.playtime} |')
+    if not work:
+        lines.append('| – | | | | |')
+    lines.append('')
+    lines.append('**Wartet auf das Team:** ' + (', '.join(f'`{t.name}`' for t in team) if team else 'nichts') + '.')
+    return '\n'.join(lines)
+
+
+def update_todo(todo, tasks):
+    start, end = todo.find(FREE_START), todo.find(FREE_END)
+    if start < 0 or end < start or todo.count(FREE_START) != 1 or todo.count(FREE_END) != 1:
+        raise ValueError('TODO.md braucht genau einen Block zwischen <!-- frei:start --> und <!-- frei:end -->')
+    newline = '\r\n' if '\r\n' in todo else '\n'
+    block = free_block(todo, tasks).replace('\n', newline)
+    return todo[:start + len(FREE_START)] + newline + block + newline + todo[end:]
 
 
 def progress_bar(done, total):
@@ -58,8 +215,8 @@ def progress_bar(done, total):
     return '█' * filled + '░' * (11 - filled)
 
 
-def update_readme(todo, readme):
-    counts = phase_counts(todo)
+def update_readme(tasks, readme):
+    counts = phase_counts(tasks)
     counts['total'] = [sum(v[0] for v in counts.values()), sum(v[1] for v in counts.values())]
     seen = set()
     lines = []
@@ -70,62 +227,43 @@ def update_readme(todo, readme):
             if key in seen:
                 raise ValueError('Doppelte README-Fortschrittszeile')
             seen.add(key)
-            cells = line.rstrip('\r\n').split('|')
-            if len(cells) != 6:
+            row = line.rstrip('\r\n').split('|')
+            if len(row) != 6:
                 raise ValueError('Unerwartetes README-Tabellenformat')
             done, total = counts[key]
             value = f'{done} von {total}'
-            cells[3] = f' **{value}** ' if key == 'total' else f' {value} '
-            cells[4] = f' {progress_bar(done, total)} '
-            line = '|'.join(cells) + ('\n' if line.endswith('\n') else '')
+            row[3] = f' **{value}** ' if key == 'total' else f' {value} '
+            row[4] = f' {progress_bar(done, total)} '
+            line = '|'.join(row) + line[len(line.rstrip('\r\n')):]
         lines.append(line)
     if seen != set(counts):
         raise ValueError('README-Fortschrittstabelle unvollstaendig')
     return ''.join(lines)
 
 
-def validate_tasks(todo):
-    states = task_states(todo)
-    names = re.findall(r'^\| `([a-z0-9-]+)` \|', todo, re.M)
-    if len(names) != len(set(names)):
-        raise ValueError('Kennung mehrfach im Aufgabenkatalog')
-    missing = set(names) - states.keys()
-    if missing:
-        raise ValueError('Checkbox-Zuordnung fehlt: ' + ', '.join(sorted(missing)))
-    orphaned = states.keys() - set(names)
-    if orphaned:
-        raise ValueError('Katalogeintrag fehlt: ' + ', '.join(sorted(orphaned)))
-    section = ''
-    for line in todo.splitlines():
-        if line.startswith('## '):
-            section = line[3:]
-        row = re.match(r'^\| `([a-z0-9-]+)` \|', line)
-        if row:
-            name = row[1]
-            if states[name] != (section == 'Abgeschlossene Pakete'):
-                raise ValueError(f'{name}: Katalogabschnitt widerspricht Checkbox-Status')
-    return states
-
-
 def main():
     if sys.argv[1:] not in (['check'], ['update']):
         sys.exit('Aufruf: py tools/task_status.py check|update')
+    sys.stdout.reconfigure(encoding='utf-8')
     root = Path(__file__).resolve().parents[1]
-    todo = (root / 'TODO.md').read_text(encoding='utf-8')
-    path = root / 'README.md'
-    readme = path.read_text(encoding='utf-8')
+    todo_path, readme_path = root / 'TODO.md', root / 'README.md'
+    todo = todo_path.read_bytes().decode('utf-8')
+    readme = readme_path.read_bytes().decode('utf-8')
     try:
-        validate_tasks(todo)
-        expected = update_readme(todo, readme)
+        tasks = parse(todo)
+        expected_todo = update_todo(todo, tasks)
+        expected_readme = update_readme(tasks, readme)
     except ValueError as error:
-        sys.exit(str(error))
-    if expected != readme:
-        if sys.argv[1] == 'check':
-            sys.exit('README-Fortschritt veraltet: py tools/task_status.py update ausfuehren.')
-        path.write_text(expected, encoding='utf-8')
-        print('README-Fortschritt aus TODO.md aktualisiert.')
+        sys.exit(f'TODO.md ungueltig: {error}')
+    stale = [p for p, old, new in ((todo_path, todo, expected_todo), (readme_path, readme, expected_readme)) if old != new]
+    if not stale:
+        print('TODO.md und README-Fortschritt sind konsistent.')
+    elif sys.argv[1] == 'check':
+        sys.exit('Veraltet: ' + ', '.join(p.name for p in stale) + '. py tools/task_status.py update ausfuehren.')
     else:
-        print('TODO-Aufgaben und README-Fortschritt konsistent.')
+        for path, new in ((todo_path, expected_todo), (readme_path, expected_readme)):
+            path.write_bytes(new.encode('utf-8'))
+        print('Aktualisiert: ' + ', '.join(p.name for p in stale))
 
 
 if __name__ == '__main__':
