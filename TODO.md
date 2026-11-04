@@ -39,6 +39,7 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `patches` | P0 | [4](#phase-4--vertical-slice) | zentral | viel |
 | `mod-saves` | P0 | [6](#phase-6--release) | parallel | mittel |
 | `installer` | P1 | [6](#phase-6--release) | parallel | keine |
+| `karte-tunnel` | P1 | [Wartung](#wartung) | zu zweit | wenig |
 
 **Wartet auf das Team:** `meta-fortschritt`, `weeklymode`, `spiel-update`.
 <!-- frei:end -->
@@ -148,6 +149,7 @@ Zählt nicht zum Fortschritt.
 
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
+| `karte-tunnel` | P1 | Beim Test auf zwei PCs fielen die Figuren durch den Boden: Der Client bekam die Host-Karte nicht, `mapgen.txt` gab es nur auf dem Host-PC. Der Steam-Tunnel trägt die Karte jetzt mit (`Tunnel.cpp`). **Fertig, wenn** der Client auf einem zweiten PC dieselbe Karte erzeugt und beide Figuren in der Mission auf dem Boden stehen. **Einstieg:** [Host-Karte über den Tunnel](research/spikes/a-connect/README.md#host-karte-über-den-tunnel-karte-tunnel) | `tunnel-p2p` | zu zweit | wenig |
 | `spiel-update` | P2 | Nur wenn das Team einen neuen Spiel-Build beschließt: Offsets, Signaturen und Patches anpassen. Betrifft alles auf einmal, alle Spieltests warten darauf. **Einstieg:** [Update-Regel](CONTRIBUTING.md#spiel-updates) | – | Team | viel |
 
 ## Optionale Optimierungen

@@ -184,7 +184,7 @@ Danach läuft alles ohne Eingriff:
 
 Die Sitzung läuft danach weiter, man kann also selbst weiterspielen. `Stop-Session.ps1` beendet sie, `-Stop` macht das gleich
 am Ende. Weitere Schalter: `-Mod` und `-Build` wie bei `Start-Session.ps1`, `-Godmode`, `-MissionSeconds`, und für eine andere
-Route `-Seed`, `-NodeX`, `-NodeY`. Exitcode 0 heißt Ping und Route stehen im Log, 1 heißt nicht belegt oder Abbruch.
+Route `-Seed`, `-NodeX`, `-NodeY`. Exitcode 0 heißt Ping und Route stehen im Log und der Client hat die Host-Karte übernommen (`MapGen: Client uebernimmt`), 1 heißt nicht belegt oder Abbruch. Ohne Host-Karte hat der Client keinen Boden, siehe [Host-Karte über den Tunnel](../research/spikes/a-connect/README.md#host-karte-über-den-tunnel-karte-tunnel).
 
 Der Bericht kommt aus `tools/spike/tunnel_report.py`: Verbindung, Ping (Minimum, Median, Maximum), Pakete und verworfene Pakete,
 Qualität, die Routenzeilen von Steam (direkt oder über Relay) und Abbrüche. SteamIDs und IP-Adressen sind darin maskiert, er darf

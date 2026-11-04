@@ -9,6 +9,10 @@
 //          !tunnel join <steamid>  Client verbindet per P2P zu einem anderen Konto
 //          !tunnel join ip         Client verbindet ueber Steam Networking per IP zu 127.0.0.1:7790, ohne P2P-Vermittlung
 // Danach beim Client: open 127.0.0.1:7778
+//
+// Jede Steam-Nachricht beginnt mit einem Typ-Byte: 0 ist ein Spielpaket, 1 die Host-Karte. Die Host-Karte ist der Inhalt
+// von mapgen.txt (MapGen.cpp): Der Host-Tunnel schickt die Datei, sobald der Host sie neu schreibt, der Client-Tunnel
+// schreibt sie bei sich. So bekommt der Client die Karte auch auf einem anderen PC. Beide Seiten brauchen deshalb denselben Spike.
 // winsock2.h muss vor windows.h aus Spike.h stehen.
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -16,7 +20,9 @@
 #include "Spike.h"
 
 #include <atomic>
+#include <fstream>
 #include <mutex>
+#include <sstream>
 #include <thread>
 
 #pragma comment(lib, "ws2_32.lib")
@@ -111,6 +117,12 @@ constexpr int32_t kStateConnected = 3;
 constexpr int32_t kStateClosedByPeer = 4;
 constexpr int32_t kStateProblemDetectedLocally = 5;
 constexpr int kSendUnreliableNoNagle = 1;
+constexpr int kSendReliable = 8;
+
+constexpr char kKindGame = 0;
+constexpr char kKindMap = 1;
+// Wie MapGen.cpp: Aeltere Werte passen zu einer anderen Karte.
+constexpr ULONGLONG kMaxMapAgeMs = 120000;
 
 using StatusCallback = void(__cdecl*)(SteamNetConnectionStatusChanged*);
 
@@ -245,6 +257,8 @@ struct Link
     sockaddr_in GameAddress{};
     bool HasGameAddress = false;
     bool Connected = false;
+    // Nur Host: Die aktuelle Host-Karte ist ueber diese Verbindung geschickt.
+    bool MapSent = false;
     uint64_t PacketsToSteam = 0, BytesToSteam = 0, PacketsFromSteam = 0, BytesFromSteam = 0, Dropped = 0;
 };
 
@@ -257,6 +271,80 @@ enum class Mode
 
 std::atomic<bool> Running = false;
 std::vector<Link> Links;
+
+// Dieselbe Datei wie in MapGen.cpp.
+std::wstring MapFile()
+{
+    wchar_t Temp[MAX_PATH]{};
+    GetTempPathW(MAX_PATH, Temp);
+    return std::wstring(Temp) + L"ddspike\\mapgen.txt";
+}
+
+bool MapWriteTime(uint64_t& Out)
+{
+    WIN32_FILE_ATTRIBUTE_DATA Info;
+    if (!GetFileAttributesExW(MapFile().c_str(), GetFileExInfoStandard, &Info))
+        return false;
+    Out = (static_cast<uint64_t>(Info.ftLastWriteTime.dwHighDateTime) << 32) | Info.ftLastWriteTime.dwLowDateTime;
+    return true;
+}
+
+std::string ReadMapFile()
+{
+    std::ifstream Input(MapFile(), std::ios::binary);
+    std::ostringstream Text;
+    Text << Input.rdbuf();
+    return Text.str();
+}
+
+// Host: zuletzt gesehene Fassung der Datei. Beim Start zaehlt die vorhandene Datei als gesehen, sie gehoert zu einer alten Karte.
+uint64_t MapSeenTime = 0;
+std::string HostMap;
+ULONGLONG HostMapTick = 0;
+
+void WatchHostMap()
+{
+    uint64_t Time = 0;
+    if (!MapWriteTime(Time) || Time == MapSeenTime)
+        return;
+    MapSeenTime = Time;
+    HostMap = ReadMapFile();
+    HostMapTick = GetTickCount64();
+    for (Link& Entry : Links)
+        Entry.MapSent = false;
+}
+
+void SendHostMap(Link& Entry)
+{
+    if (Entry.MapSent || !Entry.Connected || HostMap.empty() || GetTickCount64() - HostMapTick > kMaxMapAgeMs)
+        return;
+    const std::string Message = kKindMap + HostMap;
+    const int Result = Api.Send(Sockets, Entry.Connection, Message.data(), static_cast<uint32_t>(Message.size()), kSendReliable, nullptr);
+    Entry.MapSent = Result == 1;
+    Log("Tunnel: Host-Karte an Verbindung " + std::to_string(Entry.Connection) + " geschickt, Ergebnis " + std::to_string(Result));
+}
+
+// Client: Host-Karte als mapgen.txt ablegen. Auf einem PC hat der Host dieselbe Datei gerade selbst geschrieben, dann
+// bleibt sie unberuehrt, sonst saehe der Host-Tunnel eine neue Fassung und schickte sie erneut.
+void ReceiveHostMap(const char* Data, int Size)
+{
+    const std::string Map(Data, Size);
+    uint64_t Time = 0;
+    FILETIME Now;
+    GetSystemTimeAsFileTime(&Now);
+    const uint64_t NowTicks = (static_cast<uint64_t>(Now.dwHighDateTime) << 32) | Now.dwLowDateTime;
+    if (MapWriteTime(Time) && (NowTicks - Time) / 10000 < kMaxMapAgeMs / 2 && ReadMapFile() == Map)
+    {
+        Log("Tunnel: Host-Karte empfangen, mapgen.txt ist schon aktuell");
+        return;
+    }
+    std::wstring Directory = MapFile();
+    Directory.resize(Directory.rfind(L'\\'));
+    CreateDirectoryW(Directory.c_str(), nullptr);
+    std::ofstream(MapFile(), std::ios::binary) << Map;
+    std::string Line = Map.substr(0, Map.find('\n'));
+    Log("Tunnel: Host-Karte empfangen und in mapgen.txt geschrieben: " + Line);
+}
 
 Link* FindLink(HSteamNetConnection Connection)
 {
@@ -341,13 +429,15 @@ void HandleEvents(Mode Role, SOCKET ClientUdp)
 
 void Pump(Link& Entry)
 {
-    char Buffer[4096];
+    // Platz 0 bekommt das Typ-Byte.
+    char Buffer[4097];
+    Buffer[0] = kKindGame;
     // Spiel -> Steam
     for (;;)
     {
         sockaddr_in From{};
         int FromSize = sizeof(From);
-        const int Size = recvfrom(Entry.Udp, Buffer, sizeof(Buffer), 0, reinterpret_cast<sockaddr*>(&From), &FromSize);
+        const int Size = recvfrom(Entry.Udp, Buffer + 1, sizeof(Buffer) - 1, 0, reinterpret_cast<sockaddr*>(&From), &FromSize);
         if (Size <= 0)
             break;
         if (!Entry.HasGameAddress)
@@ -362,7 +452,7 @@ void Pump(Link& Entry)
             ++Entry.Dropped;
             continue;
         }
-        Api.Send(Sockets, Entry.Connection, Buffer, static_cast<uint32_t>(Size), kSendUnreliableNoNagle, nullptr);
+        Api.Send(Sockets, Entry.Connection, Buffer, static_cast<uint32_t>(Size + 1), kSendUnreliableNoNagle, nullptr);
         ++Entry.PacketsToSteam;
         Entry.BytesToSteam += Size;
     }
@@ -375,11 +465,22 @@ void Pump(Link& Entry)
             break;
         for (int Index = 0; Index < Count; ++Index)
         {
-            if (Entry.HasGameAddress)
-                sendto(Entry.Udp, static_cast<const char*>(Messages[Index]->Data), Messages[Index]->Size, 0,
-                       reinterpret_cast<const sockaddr*>(&Entry.GameAddress), sizeof(Entry.GameAddress));
-            ++Entry.PacketsFromSteam;
-            Entry.BytesFromSteam += Messages[Index]->Size;
+            const char* Data = static_cast<const char*>(Messages[Index]->Data);
+            const int Size = Messages[Index]->Size;
+            if (Size >= 1 && Data[0] == kKindGame)
+            {
+                if (Entry.HasGameAddress)
+                    sendto(Entry.Udp, Data + 1, Size - 1, 0, reinterpret_cast<const sockaddr*>(&Entry.GameAddress), sizeof(Entry.GameAddress));
+                ++Entry.PacketsFromSteam;
+                Entry.BytesFromSteam += Size - 1;
+            }
+            else if (Size >= 1 && Data[0] == kKindMap)
+                ReceiveHostMap(Data + 1, Size - 1);
+            else
+            {
+                // Anderer Spike-Stand auf der Gegenseite, ohne Typ-Byte.
+                ++Entry.Dropped;
+            }
             Api.Release(Messages[Index]);
         }
     }
@@ -426,6 +527,7 @@ void Run(Mode Role, uint64_t Remote)
         const HSteamListenSocket Ip = Api.ListenIp(Sockets, Loopback(kSteamIpPort), 2, Options);
         Log("Tunnel: Host lauscht, P2P " + std::to_string(P2P) + ", IP " + std::to_string(Ip) + " auf 127.0.0.1:" +
             std::to_string(kSteamIpPort) + ", leitet an UDP " + std::to_string(kGamePort));
+        MapWriteTime(MapSeenTime);
     }
     else
     {
@@ -463,10 +565,21 @@ void Run(Mode Role, uint64_t Remote)
     }
 
     ULONGLONG NextStats = GetTickCount64() + 5000;
+    ULONGLONG NextMapCheck = 0;
     while (Running)
     {
         Api.RunCallbacks(Sockets);
         HandleEvents(Role, ClientUdp);
+        if (Role == Mode::Host)
+        {
+            if (GetTickCount64() >= NextMapCheck)
+            {
+                NextMapCheck = GetTickCount64() + 250;
+                WatchHostMap();
+            }
+            for (Link& Entry : Links)
+                SendHostMap(Entry);
+        }
 
         fd_set Readable;
         FD_ZERO(&Readable);

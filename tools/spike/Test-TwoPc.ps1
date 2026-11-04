@@ -69,9 +69,15 @@ for ($Waited = 0; $Waited -lt $MissionSeconds; $Waited += 10) {
 Step "$MissionSeconds s in der Mission ohne Absturz: $(Get-World)"
 
 $Log = Join-Path $script:CommandDir "$ProcessId.log"
+# Ohne Host-Karte erzeugt der Client keinen Boden, die Figuren fallen durch. Verbindung und Ping sagen darueber nichts.
+$MapOk = $true
+if ($Role -eq 'Client') {
+    $MapOk = [bool](Select-String -Path $Log -Pattern 'MapGen: Client uebernimmt' -SimpleMatch -Quiet)
+    Step $(if ($MapOk) { 'Host-Karte uebernommen.' } else { 'FEHLER: keine Host-Karte, der Client hat keinen Boden.' })
+}
 $Report = Join-Path $script:SessionDir "tunnel-$($Role.ToLower()).txt"
 $Text = & py (Join-Path $PSScriptRoot 'tunnel_report.py') $Log --role $Role
-$Ok = $LASTEXITCODE -eq 0
+$Ok = $LASTEXITCODE -eq 0 -and $MapOk
 # Ablauf und Bericht ohne SteamIDs oder Adressen, so kann beides in den PR.
 @('Ablauf') + ($Steps | ForEach-Object { "  $_" }) + @('') + $Text | Set-Content $Report -Encoding utf8
 Get-Content $Report
