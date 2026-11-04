@@ -52,7 +52,7 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 flowchart TD
     subgraph A["Klären, ob es geht"]
         direction LR
-        P0["Phase 0<br/>Setup"]:::done --> P1["Phase 1<br/>Analyse und Spikes"]:::wip --> G1{{"Gate G1<br/>Weg A + gezielter Sync"}}:::done
+        P0["Phase 0<br/>Setup"]:::done --> P1["Phase 1<br/>Analyse und Spikes"]:::done --> G1{{"Gate G1<br/>Weg A + gezielter Sync"}}:::done
     end
 
     subgraph B["Spielbar machen"]
@@ -119,6 +119,8 @@ flowchart LR
     subgraph TECHNIK["Technik"]
         LA["Spike D: Last<br/>(last)"]:::done
         TU["Spike E: Steam-Tunnel<br/>(tunnel)"]:::done
+        TP["P2P auf zwei PCs<br/>(tunnel-p2p)"]:::done
+        TU --> TP
         AP["Andockpunkte:<br/>Test im Spiel bestanden<br/>(andockpunkte)"]:::done
         CR["Crash-Reporter<br/>zuverlässig aus<br/>(crash-reporter)"]:::done
     end

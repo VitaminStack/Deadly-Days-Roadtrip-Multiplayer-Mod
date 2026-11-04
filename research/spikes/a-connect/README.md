@@ -229,8 +229,26 @@ Test: ein PC, ein Steam-Konto, `Start-Session.ps1 -Tunnel ...` mit CrashGuard, R
 | Kampf und Schaden | Schüsse des Clients zählen beim Host (168 Treffer, 56 Kills), 30 Schaden am Client ergeben auf beiden Seiten 70 HP und 70 % in der Leiste |
 | Verkehr gesamt | rund 22 000 Pakete je Richtung, Host → Client rund 4,1 MB, Client → Host rund 1,3 MB. Kein Absturz |
 
-- **[Vermutung]** Über P2P mit zwei Konten verhält sich der Tunnel gleich, denn nur der Verbindungsaufbau unterscheidet sich (`ConnectP2P` statt `ConnectByIPAddress`). Ungeprüft sind damit Steam-Relays, NAT, echte Latenz und Paketverlust. Das braucht zwei PCs mit zwei Konten.
 - Nicht geprüft: Abbruch und Neuaufbau des Tunnels, mehr als ein Client, Mission → MetaBase.
+
+### P2P auf zwei PCs (`tunnel-p2p`)
+
+Stand 04.11.2026, Build `26187885`, `main` auf `0607feb`. Zwei PCs, zwei Steam-Konten, je PC eine Instanz mit Spike und CrashGuard,
+`Test-TwoPc.ps1 -Role Host` und `-Role Client -Peer <SteamID>`, siehe [Test auf zwei PCs](../../../docs/TESTING.md#test-auf-zwei-pcs).
+
+| Schritt | Ergebnis |
+|---|---|
+| `!tunnel join <steamid>` zum anderen Konto | **[Belegt]** `ConnectP2P` baut die Verbindung auf, Steam vermittelt ohne Portfreigabe und ohne Freundschaft |
+| MetaBase über den Tunnel | 2 Spieler, Host `clients: 1`, Client `role: client` |
+| Run mit Seed `20795`, Mission an Tag 1 | Beide in `DDDynamic_Map` mit 2 Spielern, 120 s ohne Absturz auf beiden Seiten |
+| Ping | Host 39 / 41 / 44 ms (min / Median / max, 75 Messungen), Client 39 / 41 / 43 ms (66 Messungen) |
+| Verkehr | Host rund 24 000 Pakete gesendet und 22 000 empfangen, verworfen 0, Qualität 1,00 auf beiden Seiten |
+| Route | **[Belegt]** Nicht direkt, sondern über ein Steam-Relay in Frankfurt (`fra`), Ersatz Amsterdam (`ams`). Der Client meldet 25 ms zum Relay |
+
+- **[Belegt]** Der Tunnel verhält sich über P2P wie per IP, nur der Verbindungsaufbau unterscheidet sich. Die Vermutung aus dem Ein-PC-Test stimmt.
+- Auf der Client-Seite war keine Änderung nötig. Auf dem Host-PC öffnete sich das Spielfenster mit 1215 x 683 statt 800 x 450, darum
+  trafen die Klicks von `Start-Run.ps1` daneben. `Game-Input.ps1` setzt das Fenster seitdem vor jedem Klick, jeder Taste und jedem Bild auf 800 x 450.
+- Nicht geprüft: Verbindung ohne Relay (direkt), Paketverlust unter Last, Abbruch und Neuaufbau über P2P, Tag 2 und weiter über zwei PCs.
 
 ## Bekannte Abweichungen
 
