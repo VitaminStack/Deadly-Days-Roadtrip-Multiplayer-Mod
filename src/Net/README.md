@@ -48,6 +48,9 @@ Ohne Lobby lässt sich der Transport für Tests direkt über die Kommandozeile d
 | `-ddcoop_transport=loopback` | Client über 127.0.0.1, Host auf demselben PC |
 | `-ddcoop_transport=<SteamID64>` | Client per P2P zum Konto des Hosts |
 
+Der Testschalter ist ein Testmodus ohne Lobby: Der Host öffnet 127.0.0.1 und nimmt per P2P jedes von Steam bestätigte Konto an,
+siehe [Zugriffskontrolle](#zugriffskontrolle-lobby-auth). Nie für öffentliche Sitzungen verwenden.
+
 `Net::Start` wartet bis zu 120 s, bis das Spiel Steam initialisiert hat. Der Client versucht es 24-mal im Abstand von etwa 5 s,
 weil beide Seiten im Test gleichzeitig starten. `Start-Session.ps1 -Mod -Tunnel Mod` setzt die Schalter und verbindet danach
 das Client-Spiel mit `open 127.0.0.1:7778`, siehe [Testen](../../docs/TESTING.md).
@@ -151,6 +154,41 @@ Mod-Log; die Host-Seite wertet VitaminStack getrennt aus.
 
 Kein Absturz auf beiden Seiten. Nicht geprüft: Einladung über das Steam-Overlay und `+connect_lobby` (bleibt `lobby-live`), eine gemeinsame
 Mission mit gleicher Karte.
+
+## Zugriffskontrolle (`lobby-auth`)
+
+Der Versions-Handshake prüft nur, ob beide Seiten zusammenpassen (Build, Mod-Version, Rolle). Wer überhaupt verbinden darf,
+entscheidet der Host vorher, noch vor `AcceptConnection`:
+
+1. **Identität von Steam:** `SteamStatusChange::RemoteSteamId` kommt aus `SteamNetConnectionInfo::IdentityRemote`, nur bei Typ
+   SteamID und einem einzelnen Konto im öffentlichen Universum (`IsIndividualSteamId`). Eine SteamID aus Paketen oder dem
+   Handshake zählt nie. Ohne bestätigte Identität: abgelehnt.
+2. **Lobby-Mitglied:** Die Sitzung liest jeden Tick die Mitglieder der eigenen Lobby (`SteamLobbyApi::Members`, über
+   `GetLobbyMemberByIndex`) und gibt sie mit `Transport::SetLobbyMembers` an den Netzwerkthread. Ohne Lobby wird jede
+   P2P-Verbindung abgelehnt, das eigene Konto ebenso.
+3. **Kurz warten, nie freigeben:** Meldet Steam den Beitritt erst nach dem Verbindungsversuch, wartet die Verbindung bis zu
+   `AuthorizeWaitMs` (5 s) unangenommen. Sie belegt keinen Platz und keinen UDP-Port. Höchstens vier warten gleichzeitig, ein
+   Konto nur einmal; danach Ablehnung mit Grund 1005.
+4. **Platz:** Erst ein berechtigtes Konto bekommt den einzigen Remote-Platz, ein zweites bekommt `Busy` (1004).
+5. **Bindung an die Verbindung:** Die SteamID hängt am `Link`. Fehlt das Konto länger als `RevokeAfterMs` (10 s) in der
+   Lobby, trennt der Host mit 1005. Jede neue Verbindung wird neu geprüft.
+
+Der Client sieht bei 1005 „Der Host hat die Verbindung abgelehnt: nicht Mitglied seiner Lobby“. Logs nennen nur den Grund,
+keine SteamID und keine Adresse.
+
+**127.0.0.1 nur im Testmodus:** Dort prüft Steam keine Identität. Der Host lauscht darauf nur mit `-ddcoop_localtest`
+(zwei Instanzen unter einem Konto, setzt `Start-Session.ps1 -Tunnel Lobby` ohne `-Role` selbst) oder mit dem Testschalter
+`-ddcoop_transport`. Welcher Listen-Socket die Verbindung bekam, entscheidet, welcher Weg gilt.
+
+| Schalter | Wirkung |
+|---|---|
+| `-ddcoop_localtest` | Host der Lobby nimmt zusätzlich 127.0.0.1 ohne Steam-Identität an, Warnung im Log |
+
+Geprüft in `AuthorizationTests.cpp` und `SessionTests.cpp` mit nachgebautem Steam: Mitglied verbindet, Fremder, fehlende
+Identität, keine Lobby, verspätete Mitgliedschaft, Fremder vor dem Freund, zweites Mitglied, Verlassen der Lobby, erneuter
+Beitritt, falsche Mod-Version, 127.0.0.1 mit und ohne Testmodus, viele Fremdversuche. Im Spiel am 05.11.2026 mit
+`Start-Session.ps1 -Mod -Tunnel Lobby -NoSpike`: Host meldet den Testmodus, nimmt den Client über 127.0.0.1 an, beide in der
+MetaBase. Offen ist der Test mit getrennten Steam-Konten, siehe `lobby-auth-live`.
 
 ## Fehlerbehandlung (`net-fehler`)
 

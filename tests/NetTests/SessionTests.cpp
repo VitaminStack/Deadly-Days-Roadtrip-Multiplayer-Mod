@@ -91,6 +91,13 @@ public:
         const auto Found = Service->Lobbies.find(Lobby);
         return Found == Service->Lobbies.end() ? 0 : static_cast<int>(Found->second.Members.size());
     }
+    std::vector<uint64_t> Members(uint64_t Lobby) override
+    {
+        const auto Found = Service->Lobbies.find(Lobby);
+        if (Found == Service->Lobbies.end() || !Found->second.Members.count(Account))
+            return {};
+        return {Found->second.Members.begin(), Found->second.Members.end()};
+    }
     bool SetLobbyData(uint64_t Lobby, const std::string& Key, const std::string& Value) override
     {
         auto Found = Service->Lobbies.find(Lobby);
@@ -302,18 +309,81 @@ TEST_CASE("Zweite Instanz unter demselben Konto verbindet sich über 127.0.0.1")
 {
     auto Service = std::make_shared<FakeLobbyService>();
     auto Network = std::make_shared<FakeSteamNetwork>();
-    const TransportOptions Options = SessionPorts(47830);
+    TransportOptions Options = SessionPorts(47830);
     // Beide Spiele laufen unter demselben Steam-Konto. Die Sockets des Hosts liegen unter einer anderen Kennung, P2P zum
     // Konto der Lobby fände also niemanden, nur der Weg über 127.0.0.1 kommt an.
-    Player Host(Service, Network, kHostId, 9009, Options);
-    Player Client(Service, Network, kHostId, kClientId, Options);
+    SUBCASE("Mit -ddcoop_localtest")
+    {
+        Options.AllowLoopback = true;
+        Player Host(Service, Network, kHostId, 9009, Options);
+        Player Client(Service, Network, kHostId, kClientId, Options);
 
+        REQUIRE(Host.Run.Create());
+        REQUIRE(TickUntil({&Host.Run}, [&] { return Host.Run.Status().Phase == SessionPhase::Hosting; }));
+        REQUIRE(Client.Run.Join(Host.Run.Status().Lobby));
+        CHECK(TickUntil({&Host.Run, &Client.Run}, [&] {
+            return Client.Run.Status().Phase == SessionPhase::Playing && Host.Run.Status().Phase == SessionPhase::Playing;
+        }));
+    }
+    SUBCASE("Ohne Testmodus lauscht der Host nicht auf 127.0.0.1")
+    {
+        Player Host(Service, Network, kHostId, 9009, Options);
+        Player Client(Service, Network, kHostId, kClientId, Options);
+
+        REQUIRE(Host.Run.Create());
+        REQUIRE(TickUntil({&Host.Run}, [&] { return Host.Run.Status().Phase == SessionPhase::Hosting; }));
+        REQUIRE(Client.Run.Join(Host.Run.Status().Lobby));
+        REQUIRE(TickUntil({&Host.Run, &Client.Run}, [&] { return Client.Run.Status().Phase == SessionPhase::Failed; }));
+        CHECK(Host.Run.Status().Phase == SessionPhase::Hosting);
+        CHECK(Client.Game.Connects.empty());
+    }
+}
+
+TEST_CASE("Host nimmt nur Mitglieder seiner Lobby an")
+{
+    auto Service = std::make_shared<FakeLobbyService>();
+    auto Network = std::make_shared<FakeSteamNetwork>();
+    TransportOptions Options = SessionPorts(47835);
+    Options.AuthorizeWaitMs = 300;
+    Options.RevokeAfterMs = 200;
+    Player Host(Service, Network, kHostId, kHostId, Options);
     REQUIRE(Host.Run.Create());
     REQUIRE(TickUntil({&Host.Run}, [&] { return Host.Run.Status().Phase == SessionPhase::Hosting; }));
-    REQUIRE(Client.Run.Join(Host.Run.Status().Lobby));
-    CHECK(TickUntil({&Host.Run, &Client.Run}, [&] {
+    const uint64_t Lobby = Host.Run.Status().Lobby;
+
+    // Kennt die SteamID des Hosts, ist aber nie der Lobby beigetreten.
+    constexpr uint64_t kStranger = 5005;
+    TransportOptions StrangerPorts = Options;
+    StrangerPorts.ClientPort = static_cast<uint16_t>(Options.ClientPort + 10);
+    Transport Stranger(Network->Account(kStranger), StrangerPorts);
+    REQUIRE(Stranger.StartClient(kHostId));
+    REQUIRE(TickUntil({&Host.Run}, [&] { return Stranger.Stats().State == TransportState::Failed; }));
+    CHECK(Stranger.Stats().Message == "Der Host hat die Verbindung abgelehnt: nicht Mitglied seiner Lobby");
+    Stranger.Stop();
+
+    // Der Platz ist danach frei für den eingeladenen Freund.
+    Player Client(Service, Network, kClientId, kClientId, Options);
+    REQUIRE(Client.Run.Join(Lobby));
+    REQUIRE(TickUntil({&Host.Run, &Client.Run}, [&] {
         return Client.Run.Status().Phase == SessionPhase::Playing && Host.Run.Status().Phase == SessionPhase::Playing;
     }));
+
+    SUBCASE("Verlässt der Mitspieler die Lobby, trennt der Host ihn")
+    {
+        Service->Leave(kClientId, Lobby);
+        REQUIRE(TickUntil({&Host.Run, &Client.Run}, [&] { return Client.Run.Status().Phase == SessionPhase::Failed; }));
+        CHECK(Client.Run.Status().Message == "Der Host hat die Verbindung abgelehnt: nicht Mitglied seiner Lobby");
+        CHECK(TickUntil({&Host.Run}, [&] { return Host.Run.Status().Phase == SessionPhase::Hosting; }));
+    }
+    SUBCASE("Nach erneutem Beitritt prüft der Host wieder")
+    {
+        Client.Run.Leave();
+        REQUIRE(TickUntil({&Host.Run}, [&] { return Host.Run.Status().Phase == SessionPhase::Hosting; }));
+        REQUIRE(Client.Run.Join(Lobby));
+        CHECK(TickUntil({&Host.Run, &Client.Run}, [&] {
+            return Client.Run.Status().Phase == SessionPhase::Playing && Host.Run.Status().Phase == SessionPhase::Playing;
+        }));
+    }
 }
 
 TEST_CASE("Beitritt scheitert sauber")

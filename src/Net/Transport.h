@@ -24,6 +24,15 @@
 // verbindet, entscheidet der Aufrufer.
 namespace Net
 {
+// Wer sich beim Host per P2P verbinden darf.
+enum class PeerPolicy
+{
+    // Nur Konten, die die Sitzung über SetLobbyMembers als Mitglieder der eigenen Steam-Lobby meldet.
+    Lobby,
+    // Jedes von Steam bestätigte Konto. Nur für den Testschalter -ddcoop_transport=host ohne Lobby.
+    AnyAccount,
+};
+
 struct TransportOptions
 {
     // Port des Listen-Servers im Host-Spiel.
@@ -32,6 +41,14 @@ struct TransportOptions
     uint16_t ClientPort = 7778;
     // Steam Networking per IP über 127.0.0.1, nur für zwei Instanzen auf einem PC mit einem Konto.
     uint16_t LoopbackPort = 7790;
+    // Testmodus: Der Host lauscht zusätzlich auf LoopbackPort. Dort prüft Steam keine Identität, darum nie in normalen
+    // Sitzungen. Nur mit -ddcoop_localtest oder dem Testschalter -ddcoop_transport.
+    bool AllowLoopback = false;
+    PeerPolicy Peers = PeerPolicy::Lobby;
+    // Kommt die Verbindung, bevor Steam dem Host den Beitritt zur Lobby meldet, wartet der Host höchstens so lange.
+    unsigned AuthorizeWaitMs = 5000;
+    // Fehlt ein verbundener Mitspieler so lange in der Lobby, trennt der Host ihn.
+    unsigned RevokeAfterMs = 10000;
     int VirtualPort = 0;
     // Abstand der Statistikzeilen im Log.
     unsigned StatsIntervalMs = 30000;
@@ -105,6 +122,10 @@ public:
     TransportStats Stats() const;
     bool Running() const { return Active; }
     std::vector<uint64_t> ControlPeers() const;
+    // Host: SteamIDs der aktuellen Lobby-Mitglieder, vom Game Thread. Erst danach nimmt der Host P2P-Verbindungen an,
+    // und nur von diesen Konten. ClearLobbyMembers heißt: keine Lobby, alle P2P-Verbindungen werden abgelehnt.
+    void SetLobbyMembers(std::vector<uint64_t> SteamIds);
+    void ClearLobbyMembers();
     // Nur bereits gepruefte Verbindung; false bei Disconnect, vollem Puffer oder falschem Format.
     bool SendControl(uint64_t Peer, const Protocol::Control& Value);
     // Auf dem Game Thread abholen; der Netzwerkthread fasst keine Spielobjekte an.
@@ -132,6 +153,18 @@ private:
     void AttachSim(Link& Entry);
     void FlushSim(Link& Entry, uint64_t NowMs);
     void SendGame(Link& Entry, std::span<const uint8_t> Bytes);
+    enum class Admission
+    {
+        Accept,
+        Wait,
+        Refuse,
+    };
+    Admission Admit(uint64_t SteamId, std::string& Why) const;
+    void HandleIncoming(const SteamStatusChange& Change);
+    void AcceptIncoming(SteamConnection Connection, uint64_t SteamId);
+    void Refuse(SteamConnection Connection, int32_t Reason, const std::string& Why);
+    void CheckPending();
+    void CheckMembership();
 
     std::shared_ptr<SteamSockets> Sockets;
     TransportOptions Options;
@@ -140,6 +173,18 @@ private:
     Mode Role = Mode::Host;
     SteamListenSocket ListenP2P = 0;
     SteamListenSocket ListenLoopback = 0;
+    uint64_t OwnSteamId = 0;
+    // Host: eingehende P2P-Verbindungen, deren Konto Steam noch nicht als Lobby-Mitglied meldet. Belegen keinen Platz.
+    struct PendingPeer
+    {
+        SteamConnection Connection = 0;
+        uint64_t SteamId = 0;
+        uint64_t Since = 0;
+    };
+    std::vector<PendingPeer> PendingPeers;
+    mutable std::mutex AuthLock;
+    bool LobbyKnown = false;
+    std::vector<uint64_t> LobbyMembers;
     std::unique_ptr<std::vector<Link>> Links;
     uint64_t ClosedPacketsTo = 0, ClosedPacketsFrom = 0, ClosedBytesTo = 0, ClosedBytesFrom = 0, ClosedDropped = 0;
 

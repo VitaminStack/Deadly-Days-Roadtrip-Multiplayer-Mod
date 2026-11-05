@@ -40,7 +40,8 @@ Clients `Transport: verbunden` steht, öffnet der Spike `127.0.0.1:7778`. Die St
 powershell -ExecutionPolicy Bypass -File tools/spike/Start-Session.ps1 -Mod -Tunnel Lobby
 ```
 
-Beide Instanzen starten gleichzeitig ohne Lobby-Schalter. Sobald der Spike geladen ist, erstellt der Host die Lobby über
+Beide Instanzen starten gleichzeitig ohne Lobby-Schalter, der Host mit `-ddcoop_localtest`: Nur damit nimmt er den Client
+unter demselben Konto über 127.0.0.1 an, siehe [Zugriffskontrolle](../src/Net/README.md#zugriffskontrolle-lobby-auth). Sobald der Spike geladen ist, erstellt der Host die Lobby über
 das Overlay der Mod und wird selbst Listen-Server in der MetaBase, der Client tritt ebenso mit der Lobby-ID bei (`Overlay.ps1`).
 Die Abstürze beim Beitritt ohne Spike (Host `0x5901CE8`, Client `0x56B16D9`, 04.11.2026) verhindert inzwischen die Mod selbst,
 siehe [Nur Mod, ohne Spike](#nur-mod-ohne-spike). Die Schalter `-ddcoop_lobby` und `-ddcoop_lobby_delay` der Mod gibt es weiter, das Skript braucht sie nicht.
