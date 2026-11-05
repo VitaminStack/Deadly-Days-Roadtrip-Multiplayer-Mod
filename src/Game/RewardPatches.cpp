@@ -84,6 +84,8 @@ struct
     int32_t Level = 0;
     std::optional<uint32_t> ClientPick;
     uintptr_t HeldPanel = 0;
+    int ReplayCount = 0;        // Versuche, das zurückgehaltene Bestätigen nachzuholen
+    ULONGLONG NextReplay = 0;
 } Host;
 // Host: zuletzt für den Client angelegte Wahl, bis seine Ablage im Rucksack kommt (auch nach Ende der Sitzung).
 struct
@@ -765,17 +767,32 @@ void Tick()
         return;
     }
     // Zurückgehaltenes Bestätigen nachholen, sobald der Client gewählt hat oder nicht mehr verbunden ist.
+    // HandleConfirmButton ignoriert den Aufruf während eines Drags (+0x790) oder ohne Koop-Autorität. Dann wäre der
+    // Klick verloren und der Host müsste erneut bestätigen. Deshalb nicht im Drag nachholen und, solange die Sitzung
+    // offen bleibt, alle 500 ms erneut, höchstens zehnmal.
+    const auto SessionOpen = [] { return std::any_of(Host.Items.begin(), Host.Items.end(), [](uintptr_t Item) { return IsReward(Item) && InInventory(Host.Inventory, Item); }); };
     if (Host.HeldPanel && (Host.ClientPick || !RemoteReady.load()))
     {
-        const uintptr_t Panel = std::exchange(Host.HeldPanel, 0);
-        if (Alive(Panel) && Objects::IsA(Panel, "InventoryPanel"))
+        const uintptr_t Panel = Host.HeldPanel;
+        const ULONGLONG Now = GetTickCount64();
+        if (!Alive(Panel) || !Objects::IsA(Panel, "InventoryPanel") || Host.ReplayCount >= 10)
         {
-            Core::Log::Info("Airdrop-Auswahl: Bestätigen des Hosts nachgeholt");
+            if (Host.ReplayCount >= 10)
+                Core::Log::Warn("Airdrop-Auswahl: Bestätigen des Hosts nach 10 Versuchen nicht übernommen, Host muss selbst bestätigen");
+            Host.HeldPanel = 0;
+        }
+        else if (Now >= Host.NextReplay && !Memory::Read<uint8_t>(Panel + PanelIsDragging).value_or(1))
+        {
+            ++Host.ReplayCount;
+            Host.NextReplay = Now + 500;
+            Core::Log::Info("Airdrop-Auswahl: Bestätigen des Hosts nachgeholt (Versuch {})", Host.ReplayCount);
             OriginalConfirm(Panel);
+            if (!SessionOpen())
+                Host.HeldPanel = 0;
         }
     }
     // Ende: keine Choice mehr als Belohnung im Inventar des Hosts, das Panel hat bestätigt.
-    if (std::none_of(Host.Items.begin(), Host.Items.end(), [](uintptr_t Item) { return IsReward(Item) && InInventory(Host.Inventory, Item); }))
+    if (!SessionOpen())
         EndHostSession("Host hat bestätigt");
 }
 

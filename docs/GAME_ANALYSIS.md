@@ -906,9 +906,25 @@ der Mod, Tag 1, Level-up-Airdrops. Rohdaten und Probe auf `task/client-visuell`.
   `TimescaleManager` (`active_requester=WP_Inventory_Panel`) und eine UI-Sitzung mit
   `blocks_gameplay`; die Spielzeit steht. Wählt der Client zuerst, bleibt sie bis zum
   Bestätigen des Hosts stehen.
-- **[Offen]** Bestätigt der Host zuerst, läuft die Runde laut Nutzer weiter, obwohl
-  die Mod `HandleConfirmButton` zurückhält. Vermutlich gibt der Knopf im Blueprint
-  die Zeitanfrage oder UI-Sitzung selbst frei (`airdrop-warten`).
+- **[Belegt] Host bestätigt zuerst (`airdrop-warten`, 05.11.2026):** Gemessen alle 200 ms
+  auf beiden Seiten an vier Airdrops (Zeitanfragen des `TimescaleManager`, UI-Sitzungen,
+  `TimeDilation` und `PauserPlayerState` der WorldSettings, `SecondsSinceMissionStart` und
+  `FreezeTimeManager` des `DDMissionGameState`). Hält die Mod das Bestätigen zurück, bleiben
+  Zeitanfrage und UI-Sitzung des Host-Panels stehen, die Rundenuhr stand auf beiden Seiten
+  bis zur Wahl des Clients (etwa 37 s lang auf 324). Die Uhr-Sperre `FreezeTimeManager`
+  bleibt bei Airdrops leer. Der Eindruck „die Uhr läuft weiter“ war im Speicher nicht zu sehen.
+- **[Belegt] Verlorener Klick:** Das nachgeholte Bestätigen schloss das Host-Panel einmal
+  nicht, der Host musste erneut klicken. `HandleConfirmButton` (`0x5A6CB20`) kehrt ohne Wirkung
+  zurück, wenn gerade ein Item gezogen wird (`+0x790`) oder die Prüfung der Koop-Autorität
+  scheitert. Die Mod holte das Bestätigen nur einmal nach. Jetzt wartet sie den Drag ab und
+  versucht es alle 500 ms erneut, bis die Sitzung endet, höchstens zehnmal. Danach endete das
+  Host-Panel beim ersten Versuch, ohne zweiten Klick; der Drag-Fall ist nur im Code abgesichert.
+- **[Belegt] Client:** Nach seinem Bestätigen setzt der Client lokal `TimeDilation=1,0`,
+  solange der Host noch wählt. Er bleibt trotzdem stehen, weil der replizierte
+  `PauserPlayerState` die Welt beim Client pausiert. Wählt der Client zuerst, stand die Uhr
+  ebenfalls bis zum Bestätigen des Hosts.
+- Nebenbei: Öffnet der Client sein Pausenmenü, läuft der Host weiter (Uhr 451 bis 466). Das
+  ist die bekannte getrennte Pause, Aufgabe `pausen-sync`.
 
 ### Coop-Ablauf
 

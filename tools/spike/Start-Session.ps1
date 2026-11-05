@@ -83,6 +83,12 @@ try {
         $Deployed = & (Join-Path $PSScriptRoot '..\Deploy-Mod.ps1') -Configuration $Configuration
         if (-not $Brief) { $Deployed }
     }
+    elseif (Test-Path (Join-Path (Split-Path (Get-GameExe)) 'DDCoop\DDCoop.dll')) {
+        # Eine fest installierte Mod laedt sonst mit. Mit ihren Patches laesst der Spike die Karte aus, ohne Tunnel
+        # der Mod kaeme beim Client keine an und die Figuren fielen durch den Boden (missionsstart).
+        & (Join-Path $PSScriptRoot '..\Deploy-Mod.ps1') -Remove | Out-Null
+        Write-Warning 'Installierte Mod fuer diese Sitzung ohne -Mod entfernt. Danach bei Bedarf tools\Deploy-Mod.ps1 ausfuehren.'
+    }
 }
 catch {
     Exit-SessionLock
