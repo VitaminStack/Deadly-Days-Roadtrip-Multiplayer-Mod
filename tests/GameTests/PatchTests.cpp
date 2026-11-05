@@ -8,6 +8,7 @@
 #include "Game/CodeCave.h"
 #include "Game/PatchPolicy.h"
 #include "Game/Patches.h"
+#include "Game/RemoteP2Policy.h"
 
 using namespace Game;
 using namespace Game::Patches;
@@ -323,4 +324,100 @@ TEST_CASE("Patches: Beobachter nach ProcessEvent werden je einmal angemeldet")
     CHECK(AddEventObserver(First));
     CHECK(AddEventObserver(First));
     CHECK_FALSE(AddEventObserver(nullptr));
+}
+
+namespace
+{
+void RemoveActivePlayer(ActivePlayersMap* Map, int32_t Index, int32_t Count)
+{
+    REQUIRE(Count == 1);
+    ++Map->NumFree;
+    Map->InlineBits[0] &= ~(1u << Index);
+    Map->FirstFree = Index;
+}
+
+bool __fastcall RemotePresent(uintptr_t Value)
+{
+    return Value == 1;
+}
+}
+
+TEST_CASE("RemoteP2: ActivePlayers mit freiem Platz, falschen Ketten und Entfernen")
+{
+    ActivePlayerEntry Entries[] = {{0, {10, 20}, -1, 0}, {1, {11, 21}, 0, 0}, {99, {}, -1, 0}};
+    ActivePlayersMap Map{};
+    Map.Data = Entries;
+    Map.Num = Map.Max = Map.NumBits = Map.MaxBits = 3;
+    Map.NumFree = 1;
+    Map.InlineBits[0] = 3;
+    Map.HashSize = 1;
+    Map.InlineHash[0] = 1;
+    CHECK(Map.Valid()); // freier Platz mit fremden Bytes ist kein Spieler
+    CHECK(Map.Find(1) == 1);
+    CHECK(Map.Find(2) == -1);
+    Entries[1].Key = 0;
+    CHECK_FALSE(Map.Valid()); // doppelter Schlüssel
+    Entries[1].Key = 1;
+    Entries[0].HashNext = 1;
+    CHECK_FALSE(Map.Valid()); // Kette mit Schleife
+    Entries[0].HashNext = -1;
+    Entries[1].HashIndex = 1;
+    CHECK_FALSE(Map.Valid());
+    Entries[1].HashIndex = 0;
+    Map.InlineHash[0] = 2;
+    CHECK_FALSE(Map.Valid()); // Kette zeigt auf freien Platz
+    Map.InlineHash[0] = 1;
+    Map.NumFree = 0;
+    CHECK_FALSE(Map.Valid());
+    Map.NumFree = 1;
+    REQUIRE(Map.Valid());
+    CHECK(Map.Remove(1, RemoveActivePlayer));
+    CHECK((Map.Valid() && Map.InlineHash[0] == 0 && Map.NumFree == 2));
+    CHECK_FALSE(Map.Remove(1, RemoveActivePlayer));
+    CHECK(Map.Remove(0, RemoveActivePlayer));
+    CHECK((Map.Valid() && Map.InlineHash[0] == -1 && Map.NumFree == 3));
+    CHECK(ActivePlayersMap{}.Valid());
+}
+
+TEST_CASE("RemoteP2: Beitrittsmeldung nur einmal je Welt und Controller")
+{
+    CHECK(SameRemoteNotification(100, {10, 20}, 100, {10, 20}));
+    CHECK_FALSE(SameRemoteNotification(101, {10, 20}, 100, {10, 20}));
+    CHECK_FALSE(SameRemoteNotification(100, {11, 20}, 100, {10, 20}));
+    CHECK_FALSE(SameRemoteNotification(100, {10, 21}, 100, {10, 20}));
+}
+
+TEST_CASE("RemoteP2: Geräte-Wächter im erzeugten Code nimmt nur die lokale P2-Pflicht aus")
+{
+    ExecutableBuffer Memory;
+    REQUIRE(Memory.Data);
+    uint8_t* const Solo = Memory.Data + 0x200;
+    uint8_t* const Reconnect = Memory.Data + 0x300;
+    Code::Writer Code(Memory.Data, 0x200);
+    // Nachbau der echten Stelle: RDI Subsystem (hier: Remote-P2 vorhanden), RBX lokales P2-Gerät, BPL Solo-Verlust,
+    // R9B P1-Gerät. Nichtflüchtige Register sichern, Stack wie im Spiel ausgerichtet.
+    using ProbeFn = bool(__fastcall*)(uintptr_t, uintptr_t, bool, bool);
+    const auto Probe = reinterpret_cast<ProbeFn>(Code.Here());
+    Code.Emit({0x53, 0x57, 0x55, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x8B, 0xF9, 0x48, 0x8B, 0xDA, 0x41, 0x8A, 0xE8});
+    Code.Emit({0x45, 0x84, 0xC9, 0x0F, 0x84}); // native P1-Geräteprüfung davor
+    Code.EmitRel(reinterpret_cast<uintptr_t>(Reconnect));
+    EmitRemoteDeviceGuard(Code, reinterpret_cast<uintptr_t>(&RemotePresent), reinterpret_cast<uintptr_t>(Solo),
+                          reinterpret_cast<uintptr_t>(Reconnect));
+    REQUIRE_FALSE(Code.Failed());
+    Code::Writer Tail(Solo, 0x200);
+    Tail.Emit({0x40, 0x84, 0xED, 0x0F, 0x85}); // native Solo-Verlustprüfung danach
+    Tail.EmitRel(reinterpret_cast<uintptr_t>(Reconnect));
+    Tail.Emit({0x31, 0xC0, 0x48, 0x83, 0xC4, 0x20, 0x5D, 0x5F, 0x5B, 0xC3});
+    Code::Writer Need(Reconnect, 0x100);
+    Need.Emit({0xB8, 1, 0, 0, 0, 0x48, 0x83, 0xC4, 0x20, 0x5D, 0x5F, 0x5B, 0xC3});
+    REQUIRE_FALSE(Tail.Failed());
+    REQUIRE_FALSE(Need.Failed());
+    Memory.Flush();
+    bool AllMatch = true;
+    for (int Remote = 0; Remote < 2; ++Remote)
+        for (int LocalP2 = 0; LocalP2 < 2; ++LocalP2)
+            for (int SoloLoss = 0; SoloLoss < 2; ++SoloLoss)
+                for (int P1 = 0; P1 < 2; ++P1)
+                    AllMatch = AllMatch && Probe(Remote, LocalP2, SoloLoss != 0, P1 != 0) == (!P1 || (!Remote && !LocalP2) || SoloLoss);
+    CHECK(AllMatch);
 }

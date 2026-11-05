@@ -29,11 +29,13 @@ std::span<const Patch> WidgetPatches();
 std::span<const Patch> HealthBarPatches();
 std::span<const Patch> AirdropPatches();
 std::span<const Patch> ExpPatches();
+std::span<const Patch> RemoteP2Patches();
 
 void TickPlayers(NetRole Role, bool Second);
 void TickCamera(NetRole Role, bool Second);
 void TickWidgets(NetRole Role);
 void TickProjectiles(NetRole Role, bool Second);
+void TickRemoteP2(NetRole Role);
 
 // Beobachter nach jedem ProcessEvent, aus WidgetPatches.cpp.
 void NotifyEventObservers(uintptr_t Object, uintptr_t Function, void* Params);

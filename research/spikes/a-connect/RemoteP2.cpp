@@ -143,7 +143,7 @@ void Status()
 
 void TickRemoteP2()
 {
-    if (!Enabled || !FunctionsReady)
+    if (ModOwnsPatches || !Enabled || !FunctionsReady)
         return;
     const auto R = CurrentRoster();
     if (!R.Coop || !R.Host || R.Host == R.Remote)
@@ -211,6 +211,12 @@ bool RemoteP2Command(const std::wstring& Command)
 {
     if (Command != L"!p2 status" && Command != L"!p2 on" && Command != L"!p2 joined")
         return false;
+    // Mit der Mod bindet sie selbst P2 und meldet den Beitritt (src/Game/RemoteP2Patches.cpp), die Probe bliebe ein zweiter Schreiber.
+    if (ModOwnsPatches)
+    {
+        Log("RemoteP2: uebernimmt die Mod");
+        return true;
+    }
     if (Command == L"!p2 on")
     {
         const auto R = CurrentRoster();

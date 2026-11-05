@@ -30,6 +30,14 @@ void Tick();
 using EventObserver = void (*)(uintptr_t Object, uintptr_t Function, void* Params);
 bool AddEventObserver(EventObserver Observer);
 
+// Host: Der Remote-Spieler steht als P2 in ActivePlayers des Coop-Subsystems, ohne zweiten LocalPlayer. Nur Game Thread.
+bool RemoteP2Bound();
+
+// Host: Ab jetzt zusätzlich den nativen Koop-Modus für den Remote-Spieler einschalten und seinen Beitritt melden. Standard
+// ist aus, weil Lager und Airdrop-Auswahl im Koop-Modus auf eine lokale Eingabe von P2 warten. Für airdrop-auswahl und
+// inventar-ui, sobald sie diese Eingaben übers Netz liefern. Zurückschalten ist nicht vorgesehen.
+void AllowRemoteCoop();
+
 struct Patch
 {
     const char* Name;
