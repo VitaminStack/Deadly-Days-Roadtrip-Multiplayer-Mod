@@ -1,4 +1,6 @@
 // Client: gemeinsame Kamera ohne GameMode, Bodenfix für die Bewegung und die Kamera als ViewTarget. Aus Spike Camera.cpp.
+#include <windows.h>
+
 #include <string>
 
 #include "Core/Hooks.h"
@@ -99,25 +101,8 @@ bool ApplyCamera(Code::Writer&)
 
 // Beim Client landet die gemeinsame Kamera nicht als ViewTarget, er schaut sonst aus der eigenen Figur. Nur der lokale
 // Controller (mit LocalPlayer) und die Kamera der aktuellen Welt zählen, alte Objekte leben nach der Reise noch.
-void ViewThroughSharedCamera()
+void ViewThroughSharedCamera(uintptr_t Camera, uintptr_t Controller)
 {
-    const uintptr_t World = CurrentWorld();
-    const uintptr_t Level = World ? Memory::ReadPointer(World + Offsets::UWorld::PersistentLevel).value_or(0) : 0;
-    if (!Level)
-        return;
-    uintptr_t Camera = 0, Controller = 0;
-    const int32_t Total = Objects::Count();
-    for (int32_t i = 0; i < Total && !(Camera && Controller); ++i)
-    {
-        const uintptr_t Object = Objects::At(i);
-        if (!Object || Memory::ReadPointer(Object + Offsets::UObject::Outer).value_or(0) != Level)
-            continue;
-        const std::string Class = Memory::NameOf(Memory::ReadPointer(Object + Offsets::UObject::Class).value_or(0));
-        if (!Camera && Class == "BP_PlayerCameraActor_C")
-            Camera = Object;
-        else if (!Controller && Class == "BP_DDPlayerController_C" && Memory::ReadPointer(Object + ControllerPlayer))
-            Controller = Object;
-    }
     const uintptr_t Manager = Controller ? Memory::ReadPointer(Controller + ControllerCameraManager).value_or(0) : 0;
     if (!Camera || !Manager)
         return;
@@ -145,7 +130,8 @@ bool CheckRestrictor()
                         "im Bewegungs-Restrictor");
 }
 
-// Ohne MissionGameState stürzt die erste Bewegungseingabe ab. So bremst der Restrictor nur, bis der GameState nachgetragen ist.
+// Ohne MissionGameState stürzt die erste Bewegungseingabe ab. Mit dem Wächter bremst der Restrictor dann nicht, bis die Mod den
+// GameState nachgetragen hat (TickClientCamera).
 bool ApplyRestrictor(Code::Writer& Code)
 {
     uint8_t* Cave = Code.Here();
@@ -153,32 +139,76 @@ bool ApplyRestrictor(Code::Writer& Code)
     return !Code.Failed() && Code::WriteJump(At(RestrictorCountSite), Cave);
 }
 
+// Restrictor der aktuellen Welt, damit nicht jede Sekunde danach gesucht wird. Gilt, solange Welt und Platz im Objekt-Array passen.
+struct RestrictorCache
+{
+    uintptr_t World = 0;
+    uintptr_t Object = 0;
+    int32_t Index = -1;
+    // Welt ohne Restrictor (etwa MetaBase): erst nach ein paar Sekunden erneut suchen.
+    ULONGLONG RetryAt = 0;
+} Restrictor;
+
+bool RestrictorKnown(uintptr_t World)
+{
+    return Restrictor.World == World && Restrictor.Index >= 0 && Objects::At(Restrictor.Index) == Restrictor.Object;
+}
+
 // Client: Der Restrictor liest den GameState nur in BeginPlay. Kam der GameState später, trägt die Mod ihn nach, sobald er da
-// ist, damit die Kamera-Bremse wieder greift. Nur Restrictoren an Actors der aktuellen Welt.
-void RepairRestrictors()
+// ist, damit die Kamera-Bremse wieder greift. Bis dahin bremst er dank des Wächters nicht.
+// Das Feld ist ein TObjectPtr. Der rohe Schreibzugriff ist hier unbedenklich, weil die Welt denselben GameState ohnehin hält
+// und die Speicherbereinigung ihn deshalb nie über dieses Feld allein am Leben halten muss.
+void RepairRestrictor(uintptr_t GameState)
+{
+    if (!Restrictor.Object || !GameState || !IsA(GameState, "DDMissionGameState"))
+        return;
+    const uintptr_t Current = Memory::ReadPointer(Restrictor.Object + RestrictorMissionGameState).value_or(0);
+    if (Current == GameState)
+        return;
+    if (Memory::WriteBytes(Restrictor.Object + RestrictorMissionGameState, &GameState, sizeof(GameState)))
+        Core::Log::Info("Restrictor: MissionGameState nachgetragen, vorher {}", Current ? "veraltet" : "leer");
+}
+
+// Ein Durchlauf über das Objekt-Array je Sekunde: Kamera und lokaler Controller liegen direkt im PersistentLevel, der Restrictor
+// ist eine Komponente eines Actors dort. Den Klassennamen holt die Schleife erst nach der billigen Outer-Prüfung, den
+// Restrictor sucht sie nur, solange er für diese Welt noch nicht bekannt ist.
+void TickClientCamera()
 {
     const uintptr_t World = CurrentWorld();
     const uintptr_t Level = World ? Memory::ReadPointer(World + Offsets::UWorld::PersistentLevel).value_or(0) : 0;
-    const uintptr_t GameState = World ? Memory::ReadPointer(World + Offsets::UWorld::GameState).value_or(0) : 0;
-    if (!Level || !GameState || !IsA(GameState, "DDMissionGameState"))
+    if (!Level)
         return;
+    bool FindRestrictor = !RestrictorKnown(World) && (Restrictor.World != World || GetTickCount64() >= Restrictor.RetryAt);
+    if (FindRestrictor)
+        Restrictor = {World, 0, -1, GetTickCount64() + 5000};
+    uintptr_t Camera = 0, Controller = 0;
     const int32_t Total = Objects::Count();
-    for (int32_t i = 0; i < Total; ++i)
+    for (int32_t i = 0; i < Total && !(Camera && Controller && !FindRestrictor); ++i)
     {
         const uintptr_t Object = Objects::At(i);
-        if (!Object || (Memory::Read<uint32_t>(Object + Offsets::UObject::Flags).value_or(0) & Offsets::UObject::ClassDefaultObjectFlag))
+        const uintptr_t Outer = Object ? Memory::ReadPointer(Object + Offsets::UObject::Outer).value_or(0) : 0;
+        if (!Outer)
             continue;
-        if (Memory::NameOf(Memory::ReadPointer(Object + Offsets::UObject::Class).value_or(0)) != "InViewportMovementRestrictor")
-            continue;
-        const uintptr_t Owner = Memory::ReadPointer(Object + Offsets::UObject::Outer).value_or(0);
-        if (!Owner || Memory::ReadPointer(Owner + Offsets::UObject::Outer).value_or(0) != Level)
-            continue;
-        const uintptr_t Current = Memory::ReadPointer(Object + RestrictorMissionGameState).value_or(0);
-        if (Current == GameState)
-            continue;
-        if (Memory::WriteBytes(Object + RestrictorMissionGameState, &GameState, sizeof(GameState)))
-            Core::Log::Info("Restrictor: MissionGameState nachgetragen, vorher {}", Current ? "veraltet" : "leer");
+        if (Outer == Level)
+        {
+            if (Camera && Controller)
+                continue;
+            const std::string Class = Memory::NameOf(Memory::ReadPointer(Object + Offsets::UObject::Class).value_or(0));
+            if (!Camera && Class == "BP_PlayerCameraActor_C")
+                Camera = Object;
+            else if (!Controller && Class == "BP_DDPlayerController_C" && Memory::ReadPointer(Object + ControllerPlayer))
+                Controller = Object;
+        }
+        else if (FindRestrictor && Memory::ReadPointer(Outer + Offsets::UObject::Outer).value_or(0) == Level &&
+                 !(Memory::Read<uint32_t>(Object + Offsets::UObject::Flags).value_or(0) & Offsets::UObject::ClassDefaultObjectFlag) &&
+                 Memory::NameOf(Memory::ReadPointer(Object + Offsets::UObject::Class).value_or(0)) == "InViewportMovementRestrictor")
+        {
+            Restrictor = {World, Object, i, 0};
+            FindRestrictor = false;
+        }
     }
+    ViewThroughSharedCamera(Camera, Controller);
+    RepairRestrictor(Memory::ReadPointer(World + Offsets::UWorld::GameState).value_or(0));
 }
 
 const Patch List[] = {
@@ -196,9 +226,6 @@ void TickCamera(NetRole Role, bool Second)
 {
     // Das Spiel setzt das ViewTarget beim Possess wieder auf die Figur, deshalb jede Sekunde.
     if (Role == NetRole::Client && Second)
-    {
-        ViewThroughSharedCamera();
-        RepairRestrictors();
-    }
+        TickClientCamera();
 }
 }
