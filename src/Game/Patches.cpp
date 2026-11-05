@@ -115,5 +115,6 @@ void Tick()
     TickRemoteP2(Role);
     TickCamera(Role, Second);
     TickProjectiles(Role, Second);
+    TickMovement(Role, Second);
 }
 }

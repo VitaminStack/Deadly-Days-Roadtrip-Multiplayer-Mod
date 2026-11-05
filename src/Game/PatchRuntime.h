@@ -35,6 +35,7 @@ void TickPlayers(NetRole Role, bool Second);
 void TickCamera(NetRole Role, bool Second);
 void TickWidgets(NetRole Role);
 void TickProjectiles(NetRole Role, bool Second);
+void TickMovement(NetRole Role, bool Second);
 void TickRemoteP2(NetRole Role);
 
 // Beobachter nach jedem ProcessEvent, aus WidgetPatches.cpp.

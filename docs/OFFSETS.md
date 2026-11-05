@@ -270,6 +270,11 @@ Was die Mod nutzt, steht zusätzlich in `src/Game/Offsets.h` und wird dort beim 
 | `APlayerState` | PlayerId (numerischer Replikationsschlüssel, keine Steam-ID) | `0x2AC` |
 | `AAllPlayerFramingCamera` | Camera, MaxMovementDistance, UseZoomOutAtEdge, ZoomOutDistance, CameraSpringArm, GameMode | `0x2A8`, `0x2F0`, `0x2F4`, `0x2F8`, `0x310`, `0x318` |
 | `UInViewportMovementRestrictor` | SlowdownZone, FullStopZone (je 4 Floats L, R, D, U) | `0xD8`, `0xE8` |
+| `UCharacterMovementComponent` | Velocity, GravityScale, MovementMode, GroundFriction (`bewegung`) | `0xD8`, `0x1A8`, `0x241`, `0x244` |
+| `ACharacter` | ReplicatedBasedMovement (`FBasedMovementInfo`: Flags `+0x02`, MovementBase `+0x10`), ReplicatedMovementMode (gepackt) | `0x398`, `0x472` |
+| `AActor` | ReplicatedMovement (`FRepMovement`: LinearVelocity `+0x00`, Location `+0x30`), RootComponent, Role | `0xD0`, `0x1B8`, `0x168` |
+| `USceneComponent` | RelativeLocation | `0x148` |
+| `UClass` | ClassDefaultObject | `0x118` |
 | `UInViewportMovementRestrictor` | Interface `IMovementPreProcessorInterface`, MovementInputPreprocessorSubsystem, MissionGameState | `0xC0`, `0x100`, `0x110` |
 | `USpringArmComponent`, `UCameraComponent` | TargetArmLength, FieldOfView | `0x250`, `0x250` |
 | `APlayerController` | PlayerCameraManager | `0x360` |
