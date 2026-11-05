@@ -125,6 +125,72 @@ normalen Einzelspieler-Panel.
 den Host. **Offen:** Bestätigt der Host zuerst, läuft die Runde trotz zurückgehaltenem Bestätigen weiter (`airdrop-warten`). Die Wahl des
 Clients landet im Lager statt im Rucksack: Er merkt sich die Ablage, sie kommt aber nicht beim Host an (`airdrop-rucksack`).
 
+**Nachprüfung `airdrop-rucksack` (05.11.2026).** `TickClient` konsumierte die Ablage vor dem
+Senden der Wahl, auch wenn noch keine Sitzungskennung vorlag. Jetzt wird zuerst die Wahl gesendet,
+danach nur die Ablage derselben bestätigten Sitzung; fehlgeschlagene Sendeversuche behalten die Nachricht.
+Die Game-Schicht bindet die gemerkte lokale Instanz zusätzlich an die Sitzung.
+
+Im laufenden Tag-1-Test wurden die ersten zwei Choices beim Host tatsächlich in den Rucksack gelegt.
+Der dritte Versuch scheiterte an einem für den Host noch belegten Feld `(1, 1)`. Screenshot und
+Inventarvergleich bestätigten Client-Geisterdarstellung sowie einen abweichenden Pivot des vorher
+verschobenen Revolvers. Ursache im Auswahl-Lebenszyklus: `AddToInventory` läuft schon beim
+Drag-Beginn. Die Mod bestätigte daraufhin automatisch und entfernte lokale Instanzen, obwohl
+das native Panel `HandleConfirmButton` mit gesetztem `IsDragging` (`+0x790`) sofort abbricht.
+Die Entfernung lief damit während eines noch aktiven Drags.
+
+Die automatische Bestätigung ist entfernt: Erst der echte Bestätigen-Klick veröffentlicht die
+Wahl. Während eines Drags wird auch die Mod-Bestätigung verworfen. Die Host-Ablage nutzt die
+nativen Setter für Drehung und Pivot statt direkter Feldschreibzugriffe. **Noch nicht live geprüft:**
+dieser zweite Fix, erneutes Umsortieren und die Wirkung des gewählten Items im Kampf. Die Abnahme
+bleibt offen; laufende Nutzerinstanzen wurden nicht ungefragt neu gestartet. Ein unabhängiger
+Upstream-Sync der Pivot-/Drehungswerte bereits vorhandener Items ist hiermit nicht nachgewiesen.
+
+**Zweite Gegenprobe:** Der Nutzer bestätigte die Wirkung des Revolvers im Kampf. Nach dem ersten
+Airdrop meldeten beide Desync-Messungen wieder vollständige Gleichheit. Beim Öffnen des zweiten
+Airdrops fehlte der Revolver dagegen im Client-Rucksackbild. Lesender Vergleich im offenen Panel:
+Item, `IsInBackpack`, Pivot `(0, 1)` und beide belegten Slots waren korrekt vorhanden. Die echte
+replizierte Instanz hatte aber `CachedBackpackLocalPosition=(0, 0)`, die lokale Anzeigeinstanz der
+ersten Wahl `(0, 66)`. Dieser Pixelpositions-Cache ist nicht repliziert. `SetupInventory` verwendet
+ihn zum Zeichnen; damit überlagert die Pistole den Revolver. `SetZeroPivotTile` schreibt nativ nur
+das Pivot-Feld und repariert den Cache entgegen der ersten Annahme nicht.
+
+Der Client-Hook nach `SetupInventory` richtet deshalb echte ausgerüstete Items mit vorhandener
+Repräsentation über das native `SnapRepresentationToTile` aus ihren replizierten Pivot-Feldern aus.
+Das setzt UI und Cache gemeinsam, ohne Slots, Itembesitz, Effekte oder Host-Inventar zu verändern.
+Lokale Reward-Choices, fremde Inventare und laufende Drags bleiben unberührt. Sichtbare Gegenprobe
+dieses zusätzlichen UI-Fixes steht noch aus. Der erste geführte Test wurde mit der gemeldeten
+Abweichung beendet, nicht als bestanden gewertet.
+
+Build und automatisierte Tests nach dem zusätzlichen UI-Hook bestanden: Core 36, UI 15,
+Game 28, Net 62 und Python 124; auch Diff- und Aufgabenstatus-Prüfung sind sauber.
+Das belegt noch nicht die native Anzeige im erneut geöffneten Airdrop-Panel.
+
+**Dritte Gegenprobe:** Der Nutzer bestätigt den jetzt sichtbaren Revolver beim zweiten Airdrop,
+meldet aber fehlende Nutzung im Kampf sowie abweichende/neue Equipmentfelder. Lesende Messung
+im offenen zweiten Panel: Die Host-Waffeninstanz des Client-Inventars besitzt einen WeaponActor;
+ihre nativen Zähler stehen auf 6 Angriffen und 5 Treffern. Das belegt bisherige hostseitige Nutzung,
+nicht die Sichtbarkeit beim Client oder fortgesetzte Nutzung nach dem zweiten Panel. Die Getter
+`WeaponInstanceBase.GetTimesAttacked/GetTimesHit` lesen `+0xB8/+0xBC`.
+
+Die acht aktuellen Slot-Koordinaten und ihre Belegung für den Client-Spieler stimmen auf Host
+und Client überein. `InventoryComponent.PlacedBagWrappers` (`+0x150`) ist dagegen nicht repliziert:
+Host-Clientinventar 8 Wrapper, lokales Clientinventar 1 Wrapper; `HasCreatedDefaultBackpack`
+(`+0x148`) ist beim Host gesetzt, beim Client nicht. Die Hintergrunddarstellung ist daher nicht
+mit der logischen Feldmenge gleichzusetzen. Ein frischer Bag-Drop mit anschließendem Vergleich
+der neu angelegten Slots und ihrer Nutzbarkeit steht noch aus. Nicht als rein optisch abgenommen.
+
+**Rückmeldung und Feld-Gegenprobe:** Der Nutzer korrigiert die Waffenmeldung: Der Revolver wird
+im Kampf korrekt angezeigt. Kein weiterer Waffen-Fix aus diesem Bericht nötig. Neue Equipmentfelder
+bleiben fehlerhaft. Im offenen fünften Airdrop hat dasselbe Client-Inventar auf dem Host 17 Slots,
+auf dem Client 14; die zusätzlichen Host-Koordinaten sind `(3, -1)`, `(2, 0)`, `(3, 0)`.
+Die Auswahl ist dabei noch nicht bestätigt: Ob diese Differenz danach aufgelöst wird, ist offen.
+Sitzung 2 vergab einen Rucksack als normales Lager-Item ohne Placement-Nachricht. Die Feldanlage
+läuft separat über `Server_CreateSlotsFromBagItem`, nicht über den sitzungsgebundenen Wahl-/Ablagepfad.
+Damit fehlt eine gemeinsame Transaktion für Bag-Verbrauch, Feldanlage und bestätigtes Client-Bild.
+Weitere reine Pixelkorrekturen schließen diese Lücke nicht. Zielgrenze: lokale UI/Vorschau,
+ein zusammengehöriger bestätigter Inventarvorgang mit stabilen Item-Identitäten und anschließender
+Zustandsabstimmung; Effekte und Vergabe bleiben hostautoritativ. Das ist noch kein implementierter Fix.
+
 **Verworfen:** Zuerst nutzte die Mod die native Koop-Reward-Sitzung (Koop-Modus nur für den Airdrop, Client wählt im Overlay, Host ruft
 `ClaimReward(1, …)`). Das Host-Panel zeigte beide Rucksäcke, nach dem Claim des Clients ging die UI-Autorität an P1 und der Host hing.
 Die Auswahl im Overlay gefiel nicht, der Nutzer wollte für beide das normale Panel.

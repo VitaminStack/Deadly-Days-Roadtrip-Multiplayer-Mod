@@ -78,3 +78,55 @@ TEST_CASE("Reward names are clipped on UTF-8 boundaries")
     CHECK(Clipped.size() == MaxName - 1);
     CHECK(Clip("kurz") == "kurz");
 }
+
+TEST_CASE("Reward placement is not consumed before its choice is sent")
+{
+    PlacementDelivery Delivery;
+    unsigned Taken = 0, Sent = 0;
+    const Placement Value{5, 1, 2, 3, {{2, 3}, {3, 3}}};
+    auto Take = [&](uint64_t Session) -> std::optional<Placement>
+    {
+        CHECK(Session == Value.Session);
+        ++Taken;
+        return Value;
+    };
+    auto Send = [&](const Placement& Out)
+    {
+        CHECK(Out == Value);
+        ++Sent;
+        return true;
+    };
+    Delivery.Flush(0, Take, Send);
+    CHECK(Taken == 0);
+    CHECK(Sent == 0);
+    Delivery.Flush(Value.Session, Take, Send);
+    CHECK(Taken == 1);
+    CHECK(Sent == 1);
+    CHECK_FALSE(Delivery.Pending);
+}
+
+TEST_CASE("Reward placement survives send failure and a closed offer")
+{
+    PlacementDelivery Delivery;
+    unsigned Taken = 0, Attempts = 0;
+    const Placement Value{5, 2, 1, 4, {{1, 4}}};
+    auto Take = [&](uint64_t) -> std::optional<Placement>
+    {
+        ++Taken;
+        return Value;
+    };
+    auto Send = [&](const Placement& Out)
+    {
+        CHECK(Out == Value);
+        return ++Attempts == 2;
+    };
+    Delivery.Flush(5, Take, Send);
+    REQUIRE(Delivery.Pending);
+    CHECK(*Delivery.Pending == Value);
+    Delivery.Flush(0, Take, Send); // Das Panel des Hosts ist inzwischen geschlossen.
+    CHECK(Taken == 1);
+    CHECK(Attempts == 2);
+    CHECK_FALSE(Delivery.Pending);
+    Delivery.Flush(0, Take, Send);
+    CHECK(Attempts == 2);
+}

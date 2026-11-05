@@ -31,6 +31,7 @@ namespace
 {
 constexpr uintptr_t SetRewardItems = 0x5979B30;
 constexpr uintptr_t PanelConfirm = 0x5A6CB20;
+constexpr uintptr_t PanelSetupInventory = 0x5A8BAB0;
 // UInventoryComponent::CreateItemInstance, nativ. Die UFunction ist BlueprintAuthorityOnly, ProcessEvent überspringt
 // sie beim Client.
 constexpr uintptr_t CreateItemInstance = 0x5959700;
@@ -67,6 +68,7 @@ using CreateFn = uintptr_t(__fastcall*)(uintptr_t, uintptr_t, bool, uintptr_t);
 using FreeFn = void(__fastcall*)(void*);
 SetRewardsFn OriginalSetRewards = nullptr;
 ConfirmFn OriginalConfirm = nullptr;
+ConfirmFn OriginalSetupInventory = nullptr;
 
 std::atomic<bool> RemoteReady = false;
 
@@ -108,11 +110,13 @@ std::vector<uintptr_t> Stale;
 ULONGLONG StaleUntil = 0;
 // Client: gewählte lokale Instanz und ihre Ablage aus OccupyBackpackSlots/ForceEquipItemInBackpack.
 uintptr_t PickedItem = 0, PlacedItem = 0;
+uint64_t PickedSession = 0;
 std::optional<Game::Rewards::Placement> PickedPlacement;
 constexpr uintptr_t ItemPivotTile = 0x28, ItemTurns = 0xD8, SlotCoordinates = 0x28;
 constexpr size_t MaxSlots = 32;
 constexpr uint32_t FuncNet = 0x40;
 constexpr uintptr_t FunctionFlags = 0xB0, FunctionParmsSize = 0xB6;
+constexpr uintptr_t PanelIsDragging = 0x790;
 
 bool Alive(uintptr_t Object)
 {
@@ -325,6 +329,7 @@ void DropLocal()
     if (Shown.Pick && *Shown.Pick < Shown.Items.size())
     {
         PickedItem = Shown.Items[*Shown.Pick];
+        PickedSession = Shown.Session;
         Core::Log::Info("Airdrop-Auswahl: gewählte lokale Instanz {:#x}", PickedItem);
         if (PlacedItem != PickedItem)
             PickedPlacement.reset();
@@ -338,22 +343,6 @@ void DropLocal()
     ClientShowing = false;
 }
 
-// Das angezeigte InventoryPanel: Neben ihm gibt es Vorlagen ohne Unter-Widgets; HandleConfirmButton liest sofort
-// das Widget bei 0x7A0.
-uintptr_t LivePanel()
-{
-    constexpr uintptr_t PanelConfirmWidget = 0x7A0;
-    const int32_t Total = Objects::Count();
-    for (int32_t i = 0; i < Total; ++i)
-    {
-        const uintptr_t Object = Objects::At(i);
-        if (Object && Alive(Object) && Pointer(Object + PanelConfirmWidget) && Objects::IsA(Object, "InventoryPanel") &&
-            !Memory::NameOf(Object).starts_with("Default__"))
-            return Object;
-    }
-    return 0;
-}
-
 std::string FunctionName(uintptr_t Function)
 {
     return Memory::NameOf(Function);
@@ -363,6 +352,10 @@ bool ClientConfirm(uintptr_t Panel)
 {
     if (Shown.Items.empty())
         return false;
+    // HandleConfirmButton selbst ignoriert Bestätigen während eines Drags. In diesem
+    // Fall darf auch die Mod noch keine Instanz entfernen oder Wahl veröffentlichen.
+    if (Memory::Read<uint8_t>(Panel + PanelIsDragging).value_or(1))
+        return true;
     if (Shown.Taken)
     {
         OriginalConfirm(Panel); // RPCs mit lokalen Instanzen hält FilterRewardEvent zurück
@@ -411,6 +404,70 @@ void __fastcall ConfirmHook(uintptr_t Panel)
     OriginalConfirm(Panel);
 }
 
+// CachedBackpackLocalPosition (+0x150) ist NICHT repliziert. Die echte Instanz
+// aus dem Host-Inventar kommt daher mit (0, 0), obwohl ZeroPivotTile und Slots
+// korrekt replizieren. SetupInventory zeichnet sonst Revolver und Pistole
+// übereinander. Den nativen UI-Snap nutzen, nicht Inventar oder Pixelraster erfinden.
+void RestoreBackpackVisuals(uintptr_t Panel)
+{
+    if (CurrentRole() != NetRole::Client || !Alive(Panel) || Memory::Read<uint8_t>(Panel + PanelIsDragging).value_or(1))
+        return;
+    constexpr uintptr_t PanelInventory = 0x370;
+    const uintptr_t Inventory = Pointer(Panel + PanelInventory);
+    const uintptr_t Controller = LocalController();
+    if (!Alive(Inventory) || !Controller || Pointer(Inventory + InventoryPlayerState) != Pointer(Controller + ControllerPlayerState))
+        return;
+    static uintptr_t GetContainer = 0, GetRepresentation = 0, Snap = 0;
+    if (!Function(GetContainer, "GetBackpackContainer", "InventoryPanel") ||
+        !Function(GetRepresentation, "TryGetItemRepresentation", "InventoryPanel") ||
+        !Function(Snap, "SnapRepresentationToTile", "InventoryPanel"))
+        return;
+    uintptr_t Container = 0;
+    Objects::ProcessEvent(Panel, GetContainer, &Container);
+    if (!Alive(Container))
+        return;
+    const uintptr_t Data = Pointer(Inventory + InventoryItems);
+    const int32_t Count = Memory::Read<int32_t>(Inventory + InventoryItems + 8).value_or(-1);
+    if (!Data || Count <= 0 || Count > 4096)
+        return;
+    unsigned Restored = 0;
+    for (int32_t i = 0; i < Count; ++i)
+    {
+        const uintptr_t Item = Pointer(Data + 8 * i);
+        if (!Alive(Item) || IsReward(Item) || !Memory::Read<uint8_t>(Item + ItemInBackpack).value_or(0))
+            continue;
+        struct
+        {
+            uintptr_t Item, Representation;
+            bool Found;
+            uint8_t Pad[7];
+        } Lookup{Item, 0, false, {}};
+        static_assert(sizeof(Lookup) == 0x18);
+        Objects::ProcessEvent(Panel, GetRepresentation, &Lookup);
+        if (!Lookup.Found || !Alive(Lookup.Representation))
+            continue;
+        struct
+        {
+            uintptr_t Representation;
+            int32_t X, Y;
+            uintptr_t Container;
+        } Params{Lookup.Representation, 0, 0, Container};
+        static_assert(sizeof(Params) == 0x18);
+        if (!Memory::ReadBytes(Item + ItemPivotTile, &Params.X, 8))
+            continue;
+        Objects::ProcessEvent(Panel, Snap, &Params);
+        ++Restored;
+    }
+    if (Restored)
+        Core::Log::Info("Airdrop-Auswahl: {} Rucksack-Anzeige(n) aus replizierten Pivot-Feldern positioniert", Restored);
+}
+
+void __fastcall SetupInventoryHook(uintptr_t Panel)
+{
+    OriginalSetupInventory(Panel);
+    RestoreBackpackVisuals(Panel);
+}
+
 bool CheckSetRewards()
 {
     return Code::Expect(At(SetRewardItems), {0x48, 0x89, 0x5C, 0x24, 0x18, 0x48, 0x89, 0x54, 0x24, 0x10}, "InventoryComponent.SetRewardItems");
@@ -432,9 +489,19 @@ bool ApplyConfirm(Code::Writer&)
     return Core::Hooks::Install(reinterpret_cast<void*>(At(PanelConfirm)), reinterpret_cast<void*>(&ConfirmHook),
                                 reinterpret_cast<void**>(&OriginalConfirm));
 }
+bool CheckSetupInventory()
+{
+    return Code::Expect(At(PanelSetupInventory), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18}, "InventoryPanel.SetupInventory");
+}
+bool ApplySetupInventory(Code::Writer&)
+{
+    return Core::Hooks::Install(reinterpret_cast<void*>(At(PanelSetupInventory)), reinterpret_cast<void*>(&SetupInventoryHook),
+                                reinterpret_cast<void**>(&OriginalSetupInventory));
+}
 const Patch List[] = {
     {"Airdrop-Auswahl: Choices des Hosts mitlesen", CheckSetRewards, ApplySetRewards},
     {"Airdrop-Auswahl: Bestätigen bis zur Wahl des Partners halten", CheckConfirm, ApplyConfirm},
+    {"Airdrop-Auswahl: Rucksack-Anzeige aus replizierten Feldern aufbauen", CheckSetupInventory, ApplySetupInventory},
 };
 }
 
@@ -604,9 +671,10 @@ bool PlaceForClient(uint64_t SessionId, const Placement& Value)
     if (CurrentRole() != NetRole::Host || !SessionId || SessionId != ClientItem.Session || !Alive(ClientItem.Item) ||
         !Alive(ClientItem.Inventory) || Value.Slots.empty() || Value.Slots.size() > MaxSlots)
         return false;
-    static uintptr_t TryGet = 0, AddToBackpack = 0, Occupy = 0;
+    static uintptr_t TryGet = 0, AddToBackpack = 0, Occupy = 0, SetTurns = 0, SetPivot = 0;
     if (!Function(TryGet, "TryGetSlotWithCoordinates", "InventoryComponent") || !Function(AddToBackpack, "AddToBackpack", "InventoryComponent") ||
-        !Function(Occupy, "OccupyBackpackSlots", "InventoryComponent"))
+        !Function(Occupy, "OccupyBackpackSlots", "InventoryComponent") ||
+        !Function(SetTurns, "SetTurns", "InventoryItemInstance") || !Function(SetPivot, "SetZeroPivotTile", "InventoryItemInstance"))
         return false;
     std::vector<uintptr_t> Slots;
     for (const auto& [X, Y] : Value.Slots)
@@ -631,9 +699,12 @@ bool PlaceForClient(uint64_t SessionId, const Placement& Value)
     (void)Session;
     // Wie das Panel beim Client: Drehung und Pivot an der Instanz, dann AddToBackpack und OccupyBackpackSlots. Beim
     // Host laufen die Server-RPCs direkt, Turns und ZeroPivotTile replizieren.
-    Memory::WriteBytes(Item + ItemTurns, &Value.Turns, sizeof(Value.Turns));
-    const int32_t Pivot[2]{Value.PivotX, Value.PivotY};
-    Memory::WriteBytes(Item + ItemPivotTile, Pivot, sizeof(Pivot));
+    // Replizierte Werte über die nativen Setter. Der nicht replizierte
+    // Pixelpositions-Cache wird separat beim Client-Panelaufbau wiederhergestellt.
+    struct { int32_t Turns; bool Instant; uint8_t Pad[3]; } TurnsParams{Value.Turns, true, {}};
+    Objects::ProcessEvent(Item, SetTurns, &TurnsParams);
+    int32_t Pivot[2]{Value.PivotX, Value.PivotY};
+    Objects::ProcessEvent(Item, SetPivot, Pivot);
     uintptr_t AddParams = Item;
     Objects::ProcessEvent(Inventory, AddToBackpack, &AddParams);
     struct
@@ -763,23 +834,16 @@ void CloseForClient()
 
 std::optional<uint32_t> TakeClientPick()
 {
-    // Abgelegt, aber das Panel nicht bestätigt (Knopf wartet auf die Antwort des Servers): Panel selbst schließen.
-    if (Shown.Taken && !Shown.Items.empty())
-    {
-        const uintptr_t Panel = LivePanel();
-        Core::Log::Info("Airdrop-Auswahl: Wahl {} abgelegt, Panel {}", *Shown.Taken, Panel ? "wird geschlossen" : "nicht gefunden");
-        if (!Panel || !ClientConfirm(Panel))
-        {
-            Shown.Pick = std::exchange(Shown.Taken, std::nullopt);
-            DropLocal();
-        }
-    }
+    // AddToInventory läuft bereits beim Aufnehmen mit der Maus, vor dem Ablegen.
+    // Nicht automatisch bestätigen: Sonst ignoriert das native Panel den Aufruf
+    // (IsDragging), während die Mod seine noch verwendeten Instanzen schon entfernt.
+    // Erst der echte Bestätigen-Klick in ClientConfirm veröffentlicht die Wahl.
     return std::exchange(Shown.Pick, std::nullopt);
 }
 
-std::optional<Placement> TakeClientPlacement()
+std::optional<Placement> TakeClientPlacement(uint64_t Session)
 {
-    if (!PickedPlacement)
+    if (!Session || Session != PickedSession || !PickedPlacement)
         return std::nullopt;
     if (!PickedItem || PlacedItem != PickedItem)
     {
@@ -789,6 +853,7 @@ std::optional<Placement> TakeClientPlacement()
         return std::nullopt;
     }
     PickedItem = PlacedItem = 0;
+    PickedSession = 0;
     return std::exchange(PickedPlacement, std::nullopt);
 }
 }

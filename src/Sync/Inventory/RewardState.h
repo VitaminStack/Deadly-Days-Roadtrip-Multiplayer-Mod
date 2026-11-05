@@ -160,6 +160,22 @@ struct Placement
     bool operator==(const Placement&) const = default;
 };
 
+// Take leert die lokale Ablage. Ohne bestätigte Wahl niemals konsumieren;
+// bei Backpressure bleibt die bereits abgeholte Nachricht erhalten.
+struct PlacementDelivery
+{
+    std::optional<Placement> Pending;
+
+    template <typename Take, typename Send>
+    void Flush(uint64_t ChosenSession, Take&& TakePlacement, Send&& SendPlacement)
+    {
+        if (!Pending && ChosenSession)
+            Pending = TakePlacement(ChosenSession);
+        if (Pending && SendPlacement(*Pending))
+            Pending.reset();
+    }
+};
+
 inline std::vector<uint8_t> Encode(const Placement& Value)
 {
     if (!Value.Session || Value.Slots.empty() || Value.Slots.size() > MaxSlots)
