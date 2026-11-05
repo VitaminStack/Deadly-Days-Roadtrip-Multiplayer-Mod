@@ -68,7 +68,6 @@ der [Patch-Tabelle des Spikes](../../research/spikes/a-connect/README.md#patches
 | `WidgetPatches.cpp` | Client | `WP_UI` wartet auf den GameState; Beobachter nach jedem `ProcessEvent` |
 | `RemoteP2Patches.cpp` | Host | Remote-Spieler als P2 in `ActivePlayers` des Coop-Subsystems, ohne zweiten `LocalPlayer`; beim Verlassen nur die eigene Bindung entfernen; lokale P2-Gerätepflicht nur bei vollständiger Bindung ausnehmen. Koop-Modus erst nach `AllowRemoteCoop()`, siehe [Remote-Spieler](#remote-spieler-als-p2) |
 | `HealthBarPatches.cpp` | Client | Lebensleisten nach repliziertem `OnRep_Health` und `OnRep_MaxHealth` |
-| `ReaperPatches.cpp` | beide | Sensenmann ohne GameMode beim Client, leere Spielereinträge in seiner Abstandsschleife, siehe [Rundenende und Sensenmann](../../docs/GAME_ANALYSIS.md#rundenende-und-sensenmann-rundenende-absturz) |
 
 **Alle oder keiner.** `Patches::Install` läuft in `Game::Start` vor dem ersten Takt. Es prüft zuerst jede Stelle (Bytes, vtable-Einträge)
 und setzt erst dann alle Patches. Passt eine Stelle nicht, setzt es keinen und protokolliert die Stelle; das Spiel läuft dann wie ohne Mod.
@@ -125,7 +124,7 @@ normalen Einzelspieler-Panel.
 
 **Geprüft** (05.11.2026, ein PC, Lobby-Tunnel, Tag 1, vom Nutzer eingesammelt): Beide sehen ihre Auswahl, ob Host oder Client die Kiste
 öffnet; mehrere Airdrops nacheinander öffnen sich wieder; ohne Absturz, Inventare gleich. Wählt der Client zuerst, wartet das Spiel auf
-den Host. **Offen:** Bestätigt der Host zuerst, läuft die Runde trotz zurückgehaltenem Bestätigen weiter (`airdrop-warten`). Die Wahl des
+den Host. Bestätigt der Host zuerst, bleibt das Spiel bis zur Wahl des Clients pausiert; das nachgeholte Bestätigen wartet einen Drag ab und wird wiederholt, bis das Panel schließt (`airdrop-warten`). Die Wahl des
 Clients landet im Lager statt im Rucksack: Er merkt sich die Ablage, sie kommt aber nicht beim Host an (`airdrop-rucksack`).
 
 **Nachprüfung `airdrop-rucksack` (05.11.2026).** `TickClient` konsumierte die Ablage vor dem

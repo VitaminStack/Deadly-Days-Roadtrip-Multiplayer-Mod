@@ -20,8 +20,9 @@ powershell -ExecutionPolicy Bypass -File tools/spike/Start-Session.ps1 -Build -M
 
 Das baut Spike und Mod, installiert die Mod und startet die Sitzung. `Get-Status.ps1` zeigt die Mod-Logs beider Instanzen.
 Mit der Mod kommen die Spielfehler-Fixes von ihr, der Spike lässt seine aus (Spike-Log: `Patch: Spielfehler-Fixes kommen von der Mod`), siehe [Patches](../src/Game/README.md#patches).
-`Stop-Session.ps1` entfernt die Mod danach wieder, sonst lädt auch ein normaler Spielstart sie ohne Crash-Schutz. Ohne `-Mod` gilt:
-nach `Stop-Session.ps1` selbst `Deploy-Mod.ps1 -Remove` ausführen.
+`Stop-Session.ps1` entfernt die Mod danach wieder, sonst lädt auch ein normaler Spielstart sie ohne Crash-Schutz. Ohne `-Mod` nimmt
+`Start-Session.ps1` eine fest installierte Mod vorher heraus und warnt: Mit ihren Patches ließe der Spike die Karte aus, und ohne Tunnel
+der Mod fielen die Figuren durch den Boden. Wer die Mod danach wieder fest im Spiel haben will, führt `Deploy-Mod.ps1` aus.
 
 ### Tunnel der Mod prüfen
 

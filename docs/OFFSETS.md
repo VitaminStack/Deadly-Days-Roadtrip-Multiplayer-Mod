@@ -507,12 +507,8 @@ NetGUID-Cache und neue Actors, `tageswechsel`, nur Build `26187885`:
 
 `ERoundChangeReason`: `NoReason` 0, `NewDay` 1, `Win` 2, `Lose` 3.
 
-## Sensenmann und Tank (`rundenende-absturz`)
+## Tank (`rundenende-absturz`)
 
 | Stelle | Wert |
 |---|---|
-| `UReaperComponent` | `Players` `0x178`, `GameMode` `0x188` |
-| `ADDMissionGameMode` | `OnNewPlayerSpawned` `0x340`, `OnPlayerDespawned` `0x350` |
-| Reaper-Start: Bindung an den GameMode | `0x586F780` (`lea rcx,[rbx+340h]`), weiter bei `0x586F7BB` |
-| Reaper-Abstandsschleife | `0x5897A20` (`mov rax,[rcx]; mov rdx,[rax+1B8h]`), nächster Eintrag `0x5897A70` |
 | `UFuelMeter` | `MaxRequiredFuel` `0xF4`, `CurrentFuel` `0xF8` (Net) |

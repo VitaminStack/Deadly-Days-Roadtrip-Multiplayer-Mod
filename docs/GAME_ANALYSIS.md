@@ -699,7 +699,7 @@ Stand: Disassembly und Laufzeit, Build `26187885`. Mission über das Spielmenü 
   Bei getrennten Kameras spawnen Gegner nur an den Rändern des Host-Bildes. Beim Client können sie dann mitten im Bild erscheinen, oder er bekommt in seiner Gegend gar keine.
 - **[Belegt]** Die Spawn-Schleife wählt den Zielspieler zufällig aus `SpawnedPlayers` (siehe [Gegner-Spawning](#gegner-spawning-und-pooling)). Die Gegnerzahl (`MaxSpawnedEnemies`) gilt für beide Spieler zusammen.
 
-**Entscheidung vom 03.11.2026:** Auf ausdrückliche Vorgabe des Projektverantwortlichen gilt vorerst **Option A: gemeinsame Kamera** für den ersten spielbaren Stand. Ursprünglicher Zoom und Bewegungsbegrenzung bleiben erhalten. Das ist eine Designentscheidung, keine abgeschlossene Umsetzung in der Mod; diese bleibt die Aufgabe `kamera-code`. Getrennte Kameras (Option B) sind als optionales Zukunfts-TODO erfasst und keine Voraussetzung für diesen Stand.
+**Entscheidung vom 03.11.2026:** Auf ausdrückliche Vorgabe des Projektverantwortlichen gilt vorerst **Option A: gemeinsame Kamera** für den ersten spielbaren Stand. Ursprünglicher Zoom und Bewegungsbegrenzung bleiben erhalten. Umgesetzt und geprüft mit `kamera-code`, siehe [Gemeinsame Kamera in der Mod](#gemeinsame-kamera-in-der-mod-kamera-code). Getrennte Kameras (Option B) sind als optionales Zukunfts-TODO erfasst und keine Voraussetzung für diesen Stand.
 
 **Bewertete Optionen**
 
@@ -711,6 +711,25 @@ Stand: Disassembly und Laufzeit, Build `26187885`. Mission über das Spielmenü 
 
 **Empfehlung:** Option A für den ersten spielbaren Stand. Sie ist schon lauffähig, braucht keine neuen Systeme und passt zu Spawnen, Zoom und Bewegungsgrenze des Spiels.
 Den Abgleich der Client-Kamera mit der des Hosts nur angehen, falls die Abweichung im Spiel stört. Option C kann danach als Feinschliff kommen. Option B erst, wenn das Team ausdrücklich freie Bewegung will, denn sie zieht einen eigenen Sync der Viewports nach sich.
+
+### Gemeinsame Kamera in der Mod (`kamera-code`)
+
+Stand 05.11.2026, Build `26187885`, ein PC, Lobby und Tunnel der Mod, Tag 1, nur Mod-Patches (`CameraPatches.cpp`: Kamera-Spieler aus der
+`PlayerArray`, gemeinsame Kamera als ViewTarget, Restrictor mit nachgetragenem GameState). Gemessen alle 0,25 s auf beiden Seiten:
+Figuren, `BP_PlayerCameraActor_C`, Spring-Arm-Länge und Sichtfeld. Die Figuren liefen per Tastendruck auseinander, jeweils eine Seite
+nach der anderen.
+
+| Lauf | Kamera Host / Client | Bewegungsgrenze | Zoom |
+|---|---|---|---|
+| Ohne Netzprofil | höchstens 21 Einheiten auseinander | Client-Figur hielt 1.620 Einheiten neben der Kameramitte, Host-Figur 1.621 in der Gegenrichtung | Arm 8000, Sichtfeld 40 auf beiden Seiten |
+| Netzprofil Internet (120 ms ±30, 2 % Verlust) | höchstens 28 Einheiten auseinander | quer wieder ±1.620, hoch und runter beide bei ±850; Abstand der Figuren auf beiden Seiten bis auf 21 Einheiten gleich | unverändert, auf beiden Seiten gleich |
+
+- **[Belegt]** Der Restrictor stoppt die Figur des Clients beim Client und die des Hosts beim Host, symmetrisch zur gemeinsamen
+  Kameramitte. Keiner kann aus dem gemeinsamen Bild laufen. Im Spielbild zeigen beide Seiten denselben Ausschnitt.
+- **[Belegt]** Ein eigener Abgleich der Client-Kamera mit dem Host ist nicht nötig: Die Abweichung bleibt auch mit Latenz unter 30 Einheiten
+  bei rund 3.300 Einheiten Abstand der Figuren.
+- Nicht gesondert beobachtet: das Herauszoomen am Rand (`UseZoomOutAtEdge`), der Arm blieb in beiden Läufen bei 8000. Nicht geprüft: zwei
+  PCs, spätere Tage. Kleine Bildunterschiede sind Kartendetails (`opt-karte-details`) und Host-Effekte (`opt-blut`).
 
 ### ViewTarget beim Client (`kamera-viewtarget`)
 
@@ -906,9 +925,25 @@ der Mod, Tag 1, Level-up-Airdrops. Rohdaten und Probe auf `task/client-visuell`.
   `TimescaleManager` (`active_requester=WP_Inventory_Panel`) und eine UI-Sitzung mit
   `blocks_gameplay`; die Spielzeit steht. Wählt der Client zuerst, bleibt sie bis zum
   Bestätigen des Hosts stehen.
-- **[Offen]** Bestätigt der Host zuerst, läuft die Runde laut Nutzer weiter, obwohl
-  die Mod `HandleConfirmButton` zurückhält. Vermutlich gibt der Knopf im Blueprint
-  die Zeitanfrage oder UI-Sitzung selbst frei (`airdrop-warten`).
+- **[Belegt] Host bestätigt zuerst (`airdrop-warten`, 05.11.2026):** Gemessen alle 200 ms
+  auf beiden Seiten an vier Airdrops (Zeitanfragen des `TimescaleManager`, UI-Sitzungen,
+  `TimeDilation` und `PauserPlayerState` der WorldSettings, `SecondsSinceMissionStart` und
+  `FreezeTimeManager` des `DDMissionGameState`). Hält die Mod das Bestätigen zurück, bleiben
+  Zeitanfrage und UI-Sitzung des Host-Panels stehen, die Rundenuhr stand auf beiden Seiten
+  bis zur Wahl des Clients (etwa 37 s lang auf 324). Die Uhr-Sperre `FreezeTimeManager`
+  bleibt bei Airdrops leer. Der Eindruck „die Uhr läuft weiter“ war im Speicher nicht zu sehen.
+- **[Belegt] Verlorener Klick:** Das nachgeholte Bestätigen schloss das Host-Panel einmal
+  nicht, der Host musste erneut klicken. `HandleConfirmButton` (`0x5A6CB20`) kehrt ohne Wirkung
+  zurück, wenn gerade ein Item gezogen wird (`+0x790`) oder die Prüfung der Koop-Autorität
+  scheitert. Die Mod holte das Bestätigen nur einmal nach. Jetzt wartet sie den Drag ab und
+  versucht es alle 500 ms erneut, bis die Sitzung endet, höchstens zehnmal. Danach endete das
+  Host-Panel beim ersten Versuch, ohne zweiten Klick; der Drag-Fall ist nur im Code abgesichert.
+- **[Belegt] Client:** Nach seinem Bestätigen setzt der Client lokal `TimeDilation=1,0`,
+  solange der Host noch wählt. Er bleibt trotzdem stehen, weil der replizierte
+  `PauserPlayerState` die Welt beim Client pausiert. Wählt der Client zuerst, stand die Uhr
+  ebenfalls bis zum Bestätigen des Hosts.
+- Nebenbei: Öffnet der Client sein Pausenmenü, läuft der Host weiter (Uhr 451 bis 466). Das
+  ist die bekannte getrennte Pause, Aufgabe `pausen-sync`.
 
 ### Coop-Ablauf
 
@@ -1172,28 +1207,20 @@ Die Mod macht dasselbe in `src/Game/TutorialAdapter.cpp` (`tutorial-aus`): Als H
 | HUD | Normal | Erst bauen, wenn der `GameState` da ist |
 | Inventar | Führt | Darf erst laufen, wenn die replizierten Einträge da sind. Ohne Lösung kein Run über mehrere Tage |
 
-### Rundenende und Sensenmann (`rundenende-absturz`)
+### Rundenende über Tank und Bus (`rundenende-absturz`)
 
 Stand 05.11.2026, Build `26187885`, ein PC, Mod mit Spike über die Lobby, Seed `20795`, Tag 1.
 
-- **[Belegt] Der Absturz „12,5 Minuten nach Missionsstart“ ist kein Rundenende.** Das reguläre Rundenende kommt, wenn der Tank voll
-  ist und die Spieler mit dem Bus flüchten (Nutzerangabe). Läuft vorher die Zeit ab, erscheint der Sensenmann (`UReaperComponent`).
-  Reproduziert ohne Eingabe: Client nach rund 14 Minuten, Host 30 s später, beide mit denselben Stapeln wie im
-  [Desync-Lauf](DESYNC.md#langzeitmessung-im-spiel-05112026-nach-merge-von-main).
-- **[Belegt] Client, Lesen `0x348`:** Beim Start bindet die Komponente `OnNewPlayerSpawned` (`+0x340`) und `OnPlayerDespawned` (`+0x350`)
-  des `ADDMissionGameMode`, den sie in `GameMode` (`+0x188`) hält. Den GameMode gibt es beim Client nicht. Absturz in der Engine-Funktion
-  für Delegate-Bindungen (`0x4698380`), Aufrufer `0x586F78D`.
-- **[Belegt] Host, Lesen `0x1B8`:** Eine Abstandsschleife (`0x5897A20`) liest `RootComponent` jeder Figur aus `Players` (`+0x178`). Nach dem
-  Absturz des Clients war dessen Figur weg und der Eintrag leer. Dasselbe droht bei jeder Trennung, während der Sensenmann läuft.
-- **Fix `ReaperPatches.cpp`:** Ohne GameMode springt der Client über beide Bindungen. Sound, Kontrast und Sättigung des Sensenmanns laufen
-  lokal weiter. Leere Einträge in `Players` überspringt die Schleife auf beiden Seiten. Mit vorhandenen Objekten ändert sich nichts.
+- **Rundenende:** Eine Runde endet regulär, wenn der Tank voll ist und die Spieler mit dem Bus flüchten (Nutzerangabe). Der Absturz
+  „rund 12,5 Minuten nach Missionsstart“ aus dem [Desync-Lauf](DESYNC.md#langzeitmessung-im-spiel-05112026-nach-merge-von-main) lag
+  davor und war deshalb kein Rundenende.
 - **[Belegt] Rundenende über den Bus:** Tank beim Host per Speicherschreiben auf 118 von 120 (`UFuelMeter.CurrentFuel` am
   `GS_DDMissionState_C`, `+0xF8`), der Client übernahm den Wert über die Replikation. Der Nutzer sammelte einen Kanister (128) und flüchtete
-  mit dem Bus. Host mit „Ende der Runde“, Client mit Spielansicht und Phasenhinweis, kein Absturz. Danach Lager, Routenkarte und Reise zu
-  Tag 2: `check_round.py` sauber, 63 Kacheln auf beiden Seiten, Figuren am Bus.
+  mit dem Bus. Host mit „Ende der Runde“, Client mit Spielansicht und Phasenhinweis, kein Absturz, Desync-Melder OK. Danach Lager,
+  Routenkarte und Reise zu Tag 2: `check_round.py` sauber, 63 Kacheln auf beiden Seiten, Figuren am Bus.
 - `DD_QuickFinishMission` beendet die Runde ohne Tank und Bus, wie `!finish`. Es ersetzt den Busablauf nicht.
-- **Nicht geprüft:** Zeitablauf mit Sensenmann **mit** dem Fix (Folgeaufgabe `reaper-live`). Der Tank ist je Teilnehmer getrennt
-  gewertet, jeder PlayerState hat einen eigenen `UFuelMeter` (Maximum 100), Folgeaufgabe `tank-gemeinsam`.
+- **Offen:** Der Tank ist je Teilnehmer getrennt gewertet, jeder PlayerState hat einen eigenen `UFuelMeter` (Maximum 100). Nach
+  Nutzervorgabe ist er ein Gruppenwert, Folgeaufgabe `tank-gemeinsam`.
 
 ### Rundenende: Befund und offene Phasenübertragung (`rundenende`)
 
