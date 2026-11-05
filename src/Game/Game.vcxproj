@@ -43,6 +43,7 @@
     <ClCompile Include="CodeCave.cpp" />
     <ClCompile Include="Game.cpp" />
     <ClCompile Include="ProgressAdapter.cpp" />
+    <ClCompile Include="DesyncAdapter.cpp" />
     <ClCompile Include="AirdropAdapter.cpp" />
     <ClCompile Include="AirdropPatches.cpp" />
     <ClCompile Include="ExpPatches.cpp" />
@@ -68,6 +69,8 @@
     <ClInclude Include="CodeCave.h" />
     <ClInclude Include="Game.h" />
     <ClInclude Include="ProgressAdapter.h" />
+    <ClInclude Include="DesyncAdapter.h" />
+    <ClInclude Include="DesyncSnapshot.h" />
     <ClInclude Include="AirdropAdapter.h" />
     <ClInclude Include="AirdropPolicy.h" />
     <ClInclude Include="ExpAdapter.h" />

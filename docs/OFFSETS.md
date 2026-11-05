@@ -8,6 +8,24 @@ RVAs sind relativ zur Image-Base `0x140000000`. Die Patchstellen stehen als Kons
 [Spike-Datei](../research/spikes/a-connect/README.md#dateien), ihre Bedeutung in der [Patch-Tabelle](../research/spikes/a-connect/README.md#patches).
 Die Spielfehler-Fixes nutzt auch die Mod, mit denselben Werten am Anfang von `src/Game/*Patches.cpp`, siehe [Patches der Mod](../src/Game/README.md#patches).
 
+## Diagnoseadapter (`desync-melder`)
+
+Quelle: Felddeklarationen des lokalen Dumper-7-SDK für denselben Build. Optionale
+`DDCOOP_WITH_SDK`-Assertions in `DesyncAdapter.cpp` prüfen die Offsets beim Bauen.
+Neue Messung noch nicht im Spiel abgenommen, siehe [Testgrenzen](DESYNC.md).
+
+| Klasse/Feld | Offset | Verwendung |
+|---|---|---|
+| DDPlayerState.HealthAttributeSet | `0x380` | aktuelle/maximale HP |
+| CommonAttributeSet.Health / MaxHealth | `0xA0` / `0x30` | FGameplayAttributeData.CurrentValue jeweils `+0xC` |
+| InventoryComponent.Slots / MyItems | `0x100` / `0x120` | replizierte Arrays |
+| BackpackSlot.Coordinates / Occupier | `0x28` / `0x30` | Inhalt und Position |
+| InventoryItemInstance.ZeroPivotTile / Turns / ItemData | `0x28` / `0xD8` / `0xE0` | kanonischer Iteminhalt |
+| InventoryItemInstance.Broken / IsInBackpack / IsReward / IsTrash | `0x110` / `0x180` / `0x182` / `0x184` | replizierte bool-Felder |
+| Level.Actors / WorldSettings | `0xA0` / `0x2B8` | Gegnerzählung und Pause |
+| WorldSettings.TimeDilation / PauserPlayerState | `0x3E0` / `0x4A8` | Diagnosephase 0/1 |
+| Actor-Flagbyte, Hidden-Maske | `0x58`, `0x80` | versteckte Pool-Actors ausnehmen, wie AirdropAdapter |
+
 ## Fingerabdruck der Exe
 
 Daran erkennt die Versionsprüfung in `src/Core/Version.cpp` den Build, Werte aus dem PE-Header.

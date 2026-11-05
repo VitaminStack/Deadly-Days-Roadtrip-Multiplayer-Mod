@@ -39,6 +39,7 @@ struct OverlaySnapshot
     OverlayStatus Status;
     bool HasBackend = false;
     bool Pending = false;
+    std::string Diagnostics = "Desync: wartet auf Kontrollkanal/Missionswelt";
 };
 
 // No SDK or engine pointers. Producer publishes copied values; actions only run in Dispatcher::Drain.
@@ -49,6 +50,7 @@ public:
     explicit OverlayModel(Core::Dispatcher& Dispatcher = Core::GameThread());
     void Bind(ActionHandler Handler);
     void Publish(OverlayStatus Status);
+    void PublishDiagnostics(std::string Text);
     OverlaySnapshot Snapshot() const;
     bool Submit(LobbyRequest Request);
     static bool CanSubmit(const OverlaySnapshot& Snapshot, LobbyRequest Request);
