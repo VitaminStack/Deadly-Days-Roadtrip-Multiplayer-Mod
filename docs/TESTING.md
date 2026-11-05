@@ -74,15 +74,18 @@ Pro PC läuft nur eine Sitzung, Spielzeit ist der Engpass. Darum:
 
 ### Mensch und Skript zusammen
 
-Was per Skript umständlich ist (Menüs, Kämpfe, Einladungen, Optik, zwei PCs), erledigt ein Mensch meist schneller. Damit das Ergebnis
-trotzdem prüfbar ist, schreibt der Agent eine Schrittdatei und der Mensch arbeitet sie mit `Guided-Test.ps1` ab:
+Arbeitsteilung: Alles, was sich über Konsole, Befehle oder Skripte lesen oder steuern lässt, erledigt der Agent selbst, auch die Prüfungen
+(Overlay, Logs, Netzzustand, Lobby, Reisen, Run-Start). Der Mensch übernimmt nur Spielaktionen: mit der Figur laufen, kämpfen,
+Belohnungen wählen. Er springt dort ein, wo der Agent sonst erst eine Schnittstelle oder ein Skript bauen müsste. Dafür schreibt der Agent
+eine Schrittdatei, und der Mensch arbeitet sie mit `Guided-Test.ps1` ab:
 
 ```bash
 powershell -ExecutionPolicy Bypass -File tools/spike/Guided-Test.ps1 -Steps tools/spike/guided/tag-1.txt -Start -Shots
 ```
 
-Eine Zeile je Schritt, `Aktion | Erwartung` für den Menschen, `> Skript.ps1 ...` für einen automatischen Schritt aus `tools/spike`.
-Der Mensch bestätigt mit Enter oder tippt die Abweichung ein. Das Skript hält je Schritt Dauer, neue Zeilen der Mod-Logs, Overlay-
+Eine Zeile je Schritt: `Aktion | Erwartung` für eine Spielaktion des Menschen, `> Skript.ps1 ...` für einen automatischen Schritt aus
+`tools/spike`. `> Skript.ps1 ... | Muster` prüft automatisch und wiederholt bis zu 30 s, bis die Ausgabe zum Muster passt. Der Mensch
+bestätigt seine Schritte mit Enter oder tippt die Abweichung ein. Das Skript hält je Schritt Dauer, neue Zeilen der Mod-Logs, Overlay-
 und Netzzustand, neue Abstürze und mit `-Shots` Bilder beider Fenster fest und schreibt `research/local/guided/<Name>-<Zeit>/report.md`.
 Den Pfad gibt der Mensch dem Agenten, der den Bericht auswertet. Beispiele liegen in `tools/spike/guided/`.
 

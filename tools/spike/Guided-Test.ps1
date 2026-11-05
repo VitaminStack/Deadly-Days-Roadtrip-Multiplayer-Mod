@@ -1,9 +1,11 @@
 # Gefuehrter Spieltest: Ein Mensch bedient das Spiel, das Skript fuehrt durch die Schritte und haelt fest, was passiert.
-# Gedacht fuer alles, was per Skript zu umstaendlich ist (Menues, Kaempfe, Einladungen), und fuer Tests auf zwei PCs.
+# Der Mensch uebernimmt nur Spielaktionen (Figur laufen lassen, kaempfen, im Spiel handeln). Alles, was sich ueber Skripte
+# lesen oder steuern laesst, laeuft als automatischer Schritt, auch die Pruefungen.
 #   Guided-Test.ps1 -Steps tools\spike\guided\net-ende.txt [-Start] [-Shots]
 # Schrittdatei, eine Zeile je Schritt, # fuer Kommentare:
 #   Aktion | Erwartung                     Mensch handelt im Spiel, bestaetigt mit Enter
 #   > Overlay.ps1 Host leave               fuehrt ein Skript aus tools\spike aus, ohne Rueckfrage
+#   > Overlay.ps1 Client status | Im Spiel  wie oben, wiederholt bis zu -CheckSeconds, bis die Ausgabe zum Muster passt
 # Je Schritt: Enter = wie erwartet, Text = Abweichung (zaehlt als Fehlschlag), s = uebersprungen, q = abbrechen.
 # Notiert werden Dauer, neue Zeilen der Mod-Logs (Sitzung, Transport, Lobby, Welt, Warnungen, Fehler), Overlay-Zustand,
 # neue Abstuerze und mit -Shots Bilder beider Fenster. Bericht unter research\local\guided\<Name>-<Zeit>\report.md.
@@ -12,7 +14,9 @@ param(
     # Startet vorher Start-Session.ps1 -Mod -Tunnel Lobby -Restart.
     [switch]$Start,
     # Nach jedem Schritt ein Bild beider Spielfenster (Game-Input.ps1 shot).
-    [switch]$Shots
+    [switch]$Shots,
+    # Wie lange ein automatischer Schritt mit Erwartung wiederholt wird.
+    [int]$CheckSeconds = 30
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Common.ps1')
@@ -58,17 +62,28 @@ for ($Index = 0; $Index -lt $Plan.Count; $Index++) {
     foreach ($Role in $Roles) { $Since[$Role] = Get-LogCount $Role }
     $Timer = [Diagnostics.Stopwatch]::StartNew()
     if ($Line.StartsWith('>')) {
-        $Command = $Line.Substring(1).Trim()
-        $Action = $Command; $Expect = '-'
+        # > Skript.ps1 args | Erwartung: Mit Erwartung (regulaerer Ausdruck) wird bis zu $CheckSeconds s wiederholt, bis die Ausgabe passt.
+        $Parts = $Line.Substring(1) -split '\s\|\s', 2
+        $Command = $Parts[0].Trim()
+        $Action = $Command
+        $Expect = if ($Parts.Count -gt 1) { $Parts[1].Trim() } else { '-' }
         $Script = ($Command -split '\s+')[0]
         if ($Script -notmatch '^[\w-]+\.ps1$' -or -not (Test-Path (Join-Path $PSScriptRoot $Script))) {
             $Result = "Skript $Script nicht in tools\spike"; $Failed++
         }
         else {
             Write-Host "[$Number/$($Plan.Count)] automatisch: $Command" -ForegroundColor Cyan
-            $Output = powershell -NoProfile -ExecutionPolicy Bypass -Command "& '$(Join-Path $PSScriptRoot $Script)' $($Command.Substring($Script.Length))" 2>&1 | Out-String
+            $Deadline = (Get-Date).AddSeconds($CheckSeconds)
+            do {
+                $Output = powershell -NoProfile -ExecutionPolicy Bypass -Command "& '$(Join-Path $PSScriptRoot $Script)' $($Command.Substring($Script.Length))" 2>&1 | Out-String
+                $Code = $LASTEXITCODE
+                $Matched = $Expect -eq '-' -or $Output -match $Expect
+                if ($Matched -or $Code) { break }
+                Start-Sleep -Seconds 1
+            } while ((Get-Date) -lt $Deadline)
             Write-Host $Output.TrimEnd()
-            $Result = if ($LASTEXITCODE) { $Failed++; "Exitcode $LASTEXITCODE" } else { 'ok' }
+            $Result = if ($Code) { $Failed++; "Exitcode $Code" } elseif (-not $Matched) { $Failed++; "Erwartung nicht erfuellt nach $CheckSeconds s" } else { 'ok' }
+            Write-Host "    $Result" -ForegroundColor $(if ($Result -eq 'ok') { 'Green' } else { 'Red' })
             $Details += @("### $Number. ``$Command``", '', '```text', $Output.TrimEnd(), '```', '')
         }
     }
