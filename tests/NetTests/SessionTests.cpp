@@ -422,11 +422,17 @@ struct Pair
     {
     }
 
+    // Lobby erstellen und beitreten, ohne auf die Verbindung zu warten.
+    bool Start()
+    {
+        return Host.Run.Create() &&
+               TickUntil({&Host.Run}, [&] { return Host.Run.Status().Phase == SessionPhase::Hosting; }) &&
+               Client.Run.Join(Host.Run.Status().Lobby);
+    }
+
     bool Connect()
     {
-        if (!Host.Run.Create() ||
-            !TickUntil({&Host.Run}, [&] { return Host.Run.Status().Phase == SessionPhase::Hosting; }) ||
-            !Client.Run.Join(Host.Run.Status().Lobby))
+        if (!Start())
             return false;
         return TickUntil({&Host.Run, &Client.Run}, [&] {
             return Client.Run.Status().Phase == SessionPhase::Playing && Host.Run.Status().Phase == SessionPhase::Playing;
@@ -523,10 +529,12 @@ TEST_CASE("Client erkennt, wenn das Spiel selbst die Verbindung zum Host verlier
     SUBCASE("Spiel verbindet sich nie")
     {
         Game.Client.Game.InGame = false;
-        REQUIRE(Game.Connect());
+        // Das Zeitlimit kann ablaufen, bevor der Host den Mitspieler zählt, darum nur bis zum Fehler des Clients ticken.
+        REQUIRE(Game.Start());
         REQUIRE(TickUntil({&Game.Host.Run, &Game.Client.Run},
                           [&] { return Game.Client.Run.Status().Phase == SessionPhase::Failed; }));
         CHECK(Game.Client.Run.Status().Message == "Das Spiel konnte sich nicht mit dem Host verbinden");
+        CHECK(Game.Client.Game.Connects.size() == 1);
         CHECK(Game.Client.Game.Disconnects == 1);
     }
     SUBCASE("Spiel verliert den Host und kommt nicht zurück")
