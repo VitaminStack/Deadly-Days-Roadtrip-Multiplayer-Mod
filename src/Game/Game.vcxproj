@@ -58,6 +58,7 @@
     <ClCompile Include="PatchPolicy.cpp" />
     <ClCompile Include="Patches.cpp" />
     <ClCompile Include="PlayerPatches.cpp" />
+    <ClCompile Include="RemoteP2Patches.cpp" />
     <ClCompile Include="TravelPatches.cpp" />
     <ClCompile Include="WidgetPatches.cpp" />
     <ClCompile Include="SdkChecks.cpp" />
@@ -79,6 +80,7 @@
     <ClInclude Include="PatchPolicy.h" />
     <ClInclude Include="PatchRuntime.h" />
     <ClInclude Include="Patches.h" />
+    <ClInclude Include="RemoteP2Policy.h" />
     <ClInclude Include="GameThread.h" />
     <ClInclude Include="Memory.h" />
     <ClInclude Include="Objects.h" />

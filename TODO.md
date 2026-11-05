@@ -35,18 +35,22 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | Kennung | Prio | Phase | Bearbeitung | Spielzeit |
 |---|---|---|---|---|
 | `lobby-live` | P0 | [3](#phase-3--session-und-verbindung) | zu zweit | wenig |
-| `ohne-spike` | P0 | [4](#phase-4--vertical-slice) | zentral | mittel |
-| `remote-spieler` | P0 | [4](#phase-4--vertical-slice) | zentral | mittel |
+| `bewegung` | P0 | [4](#phase-4--vertical-slice) | parallel | mittel |
+| `gegnertyp` | P0 | [4](#phase-4--vertical-slice) | parallel | mittel |
+| `kamera-code` | P0 | [4](#phase-4--vertical-slice) | parallel | mittel |
+| `kampf` | P0 | [4](#phase-4--vertical-slice) | parallel | mittel |
+| `missionsstart` | P0 | [4](#phase-4--vertical-slice) | parallel | viel |
 | `airdrop-auswahl` | P0 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `mod-saves` | P0 | [6](#phase-6--release) | parallel | mittel |
 | `desync-melder` | P1 | [4](#phase-4--vertical-slice) | parallel | mittel |
-| `latenz-test` | P1 | [4](#phase-4--vertical-slice) | parallel | wenig |
+| `eingaben` | P1 | [4](#phase-4--vertical-slice) | parallel | mittel |
 | `restrictor` | P1 | [4](#phase-4--vertical-slice) | parallel | wenig |
 | `xp-baelle` | P1 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `installer` | P1 | [6](#phase-6--release) | parallel | keine |
 | `weekly-sperre` | P1 | [6](#phase-6--release) | parallel | wenig |
 | `mod-steuerung` | P1 | [Wartung](#wartung) | parallel | wenig |
 | `doku-verweise` | P2 | [Wartung](#wartung) | parallel | keine |
+| `opt-ladezeit-messung` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
 
 **Wartet auf das Team:** `meta-fortschritt`, `spiel-update`.
 <!-- frei:end -->
@@ -138,7 +142,6 @@ Ziel: Zwei Spieler starten eine Mission, kämpfen gegen einen Gegnertyp und sehe
 
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
-| `remote-spieler` | P0 | Remote-Spieler als P2 in die Coop-Logik einbinden, obwohl er kein lokaler Spieler ist. Grundlage für jeden Spieler-Sync | `patches`, `remote-p2` | zentral | mittel |
 | `missionsstart` | P0 | Gemeinsamer Missionsstart, gleiche Karte bei beiden. Ordner `src/Sync/World` | `remote-spieler` | parallel | viel |
 | `kamera-code` | P0 | Gemeinsame Kamera (Option A) auch beim Client umsetzen, ursprünglichen Zoom und Bewegungsbegrenzung erhalten. Ordner `src/Sync/World`, `src/Game`. **Einstieg:** [Kamera](docs/GAME_ANALYSIS.md#kamera-und-sichtbereich) | `remote-spieler` | parallel | mittel |
 | `bewegung` | P0 | Bewegung, Dash und Blickrichtung. Ordner `src/Sync/Players`, Dateien mit `eingaben` absprechen | `remote-spieler` | parallel | mittel |
@@ -146,8 +149,6 @@ Ziel: Zwei Spieler starten eine Mission, kämpfen gegen einen Gegnertyp und sehe
 | `gegnertyp` | P0 | Ein Gegnertyp inklusive Spawn und Tod. Ordner `src/Sync/Enemies` | `remote-spieler` | parallel | mittel |
 | `eingaben` | P1 | Eingaben aus dem lokalen `CoopInputRouter` sauber vom Remote-Spieler trennen. Ordner `src/Sync/Players`, Dateien mit `bewegung` absprechen | `remote-spieler` | parallel | mittel |
 | `restrictor` | P1 | Beim Client `MissionGameState` des `InViewportMovementRestrictor` nachtragen, wenn der GameState erst nach dessen `BeginPlay` ankommt, sonst Absturz bei `0x5A17ACC`. **Einstieg:** [Restrictor](docs/GAME_ANALYSIS.md#client-absturz-im-restrictor-tick-absturz) | `patches` | parallel | wenig |
-| `ohne-spike` | P0 | Die Mod ohne Spike lauffähig machen. Heute laufen fast alle Tests mit Spike und Mod zusammen, im Release gibt es keinen Spike. Ohne seine Patches stürzen etwa beim Lobby-Beitritt Host (`0x5901CE8`) und Client (`0x56B16D9`) ab, siehe [Steam-Lobby prüfen](docs/TESTING.md#steam-lobby-der-mod-prüfen). Alle Spike-Eingriffe auflisten, die für den Betrieb nötig sind (nicht Messung und Testhilfen), fehlende nach `src/Game` übernehmen und `Start-Session.ps1` einen Schalter für „Mod ohne Spike“ geben, Crash-Schutz bleibt. **Fertig, wenn** Lobby-Beitritt, MetaBase und Mission an Tag 1 mit der Mod ohne `spike.dll` auf einem PC ohne Absturz laufen und die Liste der nur im Spike verbliebenen Eingriffe in [Game](src/Game/README.md) steht. Ordner `src/Game`, `tools/spike` | `patches`, `steam-lobby` | zentral | mittel |
-| `latenz-test` | P1 | Latenz und Paketverlust in Tests auf einem PC simulieren. Bisher lief fast alles über Loopback mit 0 ms, über das Internet sind 40 bis 150 ms und Verluste normal. Zuerst prüfen, ob Unreals `Net PktLag`/`PktLoss` im Shipping-Build verfügbar ist, sonst Verzögerung, Schwankung und Verlust im Transport der Mod einbauen (Startschalter, nur für Tests). `Start-Session.ps1` und `Run-Route.ps1` bekommen ein Profil, etwa 120 ms, ±30 ms, 2 % Verlust. **Fertig, wenn** ein Routenlauf bis Tag 1 mit Profil läuft, die gemessenen Werte im Mod-Log stehen und [Testen](docs/TESTING.md) beschreibt, wann Abnahmen das Profil nutzen. Ordner `src/Net`, `tools/spike` | `transport` | parallel | wenig |
 | `desync-melder` | P1 | Abweichungen zwischen Host und Client früh sichtbar machen. Host und Client tauschen alle paar Sekunden über den Kontrollkanal eine kleine Zustandssumme aus (Tag, Phase, Spielerzahl, HP, Gegnerzahl, Inventar-Hash), Abweichungen kommen ins Mod-Log und ins F8-Overlay. Bekannte Abweichungen aus [Optionale Optimierungen](#optionale-optimierungen) lassen sich einzeln ausnehmen. **Fertig, wenn** ein absichtlich erzeugter Unterschied (etwa ein Item nur beim Host) gemeldet wird und gleiche Zustände zehn Minuten ohne Fehlalarm bleiben. Ordner `src/Sync`, `src/UI`, Nachricht über `protokoll` anmelden | `protokoll` | parallel | mittel |
 | `integration-g2` | P0 | Gate G2: Vertical Slice zusammenführen und zehn Minuten über echtes Internet zwischen zwei Haushalten spielen. Zwei Menschen nötig. **Fertig, wenn** die Runde stabil, ohne Desync und spielbar ist. Sonst Ursachen beheben, bevor weitere Inhalte synchronisiert werden | `missionsstart`, `kamera-code`, `bewegung`, `kampf`, `gegnertyp`, `eingaben`, `restrictor`, `steam-lobby`, `lobby-live`, `transport`, `net-fehler`, `ohne-spike`, `latenz-test`, `desync-melder` | zentral | viel |
 
@@ -211,6 +212,7 @@ Auch die zukünftige Update-Verwaltung bleibt vorerst optional: Wir erzwingen Bu
 | `opt-kameras` | P2 | Getrennte Kameras je Spieler ermöglichen: Bewegungsbegrenzung anpassen, Sichtbereiche für das Gegner-Spawning synchronisieren oder die Spawn-Logik ersetzen, Gegnerverteilung prüfen. Keine Voraussetzung für die gemeinsame Kamera, siehe [Kamera](docs/GAME_ANALYSIS.md#kamera-und-sichtbereich) | `integration-run` | parallel | viel |
 | `opt-trennen-absturz` | P2 | Client stürzt beim `disconnect` aus der Mission manchmal mit „uobject leaks (world leaks)“ ab (`ReferenceChainSearch.cpp` Zeile 2061), einmal in zwei Versuchen nach „Verlassen“ des Clients. Der Client wollte ohnehin gehen, der Host spielt weiter. Ursache klären, etwa mit einem Build, der die Referenzkette loggt. **Einstieg:** [Im Spiel (05.11.2026)](src/Net/README.md#im-spiel-05112026) | `integration-run` | parallel | mittel |
 | `opt-beitritt-absturz` | P2 | Host stürzt beim Lobby-Beitritt des Clients manchmal ab (`EXCEPTION_ACCESS_VIOLATION` an Adresse 0, Stack beginnt `5901ce8 2a8bfc4 2a8be06 2a7bb50`), einmal in zwei Starts mit `Start-Session.ps1 -Mod -Tunnel Lobby` am 05.11.2026. Ein zweiter Start lief durch. Ursache klären, etwa Stack gegen den Mod-Tunnel und das Overlay prüfen. **Einstieg:** `py tools/spike/crashes.py` | `integration-run` | parallel | mittel |
+| `opt-ladezeit-messung` | P2 | `check_round.py --wait` meldet keine Ladezeit (`load_seconds` leer): Während des Ladens liefert `world()` 0, `alive()` hält das für eine beendete Instanz und `wait_new_world` gibt sofort auf. Die Prüfung danach stimmt trotzdem, weil `Run-Route.ps1` vorher Bilder macht und wartet. Seit mindestens 05.11.2026 in allen Routenläufen, auch ohne Netzprofil. **Einstieg:** `tools/spike/check_round.py`, `wait_new_world` | – | parallel | wenig |
 | `mehr-spieler` | P2 | Mehr als 2 Spieler prüfen. Die Coop-Logik ist fest auf P1 und P2 ausgelegt, daher aufwendig | `release` | parallel | viel |
 | `coop-spielstand` | P2 | Der Host speichert einen Coop-Run und setzt ihn später mit demselben Client fort. **Fertig, wenn** nach Speichern, Beenden beider Spiele und erneutem Laden beim Host der Client beitritt und der Run mit gleichem Tag, gleicher Route und gleichen Inventaren weiterläuft | `integration-run`, `mod-saves` | parallel | viel |
 | `update-startpruefung` | P2 | Mod-/Spiel-Kompatibilität vor dem Laden prüfen: gemeinsame Quelle für Mod-Version, Protokollversion, unterstützte Game-Builds, Kompatibilitätsprofil und Datei-Hashes; Starter prüft die tatsächlich gestartete Installation (auch eingefrorene Kopien, Exe und relevante Inhaltscontainer), nicht nur das Steam-Manifest. Bei direktem Steam-Start prüft der `version.dll`-Loader erneut vor dem Laden von `DDCoop.dll`; die interne Prüfung bleibt bestehen. **Fertig, wenn** unbekannte/veränderte Builds und widersprüchliche Paketangaben die Mod nicht laden, ein sichtbarer Hinweis Mod-Version, gefundenen/erwarteten Build und Grund nennt und Abbrechen oder ein nachweislich modfreier Start möglich sind; keine Meldung unter dem Loader-Lock. Eine ältere, weiterhin kompatible Mod bleibt erlaubt; Internet ist für die lokale Freigabe nicht nötig. Pflicht-Patch-/Adapterfehler verhindern die Coop-Freigabe, Teilinstallation darf nicht als erfolgreicher Start gelten. Positiv-, Negativ- und Direktstarttests dokumentieren. **Einstieg:** `src/Loader/Loader.cpp`, `src/Core/Version.cpp`, `src/Mod/Mod.cpp`, `src/Game/Patches.cpp`, `tools/game_build.py` | `integration-run`, `installer` | zentral | wenig |
@@ -251,11 +253,13 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `karte-client` | 1 | Client erzeugt die Host-Karte ohne replizierte Duplikate (`MapGen.cpp`), siehe [Client erzeugt die Host-Karte](docs/GAME_ANALYSIS.md#client-erzeugt-die-host-karte-karte-client) |
 | `karten-erzeugung` | 1 | Gleicher Run-Seed und gleiche Mission ergeben dieselbe Karte, siehe [Karte und Seed](docs/GAME_ANALYSIS.md#karte-und-seed) |
 | `last` | 1 | Spike D: bei rund 85 Gegnern 47 KB/s vom Host, beide Instanzen 60 fps, nur Loopback, siehe [Last](docs/GAME_ANALYSIS.md#last-spike-d-last) |
+| `latenz-test` | 4 | Netzsimulation im Tunnel der Mod (`-ddcoop_netsim`, `-NetProfile Internet`), Routenlauf bis Tag 1 mit Profil sauber, [Latenz simulieren](docs/TESTING.md#latenz-simulieren) |
 | `layerapps-sperre` | 6 | Die Mod sperrt auch `deadlydays.layerapps.com`, das das Spiel beim Run-Ende anfragt (`Core::ReportHosts`). Run-Ende und neuer Run laufen normal, siehe [Telemetrie und Berichte](docs/GAME_ANALYSIS.md#telemetrie-und-berichte-telemetrie-aus) |
 | `menue-weg` | 1 | Mission über den echten Weg durch das Spielmenü mit den Patches gestartet, siehe [Spike](research/spikes/a-connect/README.md) |
 | `mitwirkende` | 0 | Freunde als Mitwirkende eingeladen |
 | `net-fehler` | 3 | Jedes Sitzungsende (Verlassen beider Seiten, Abbruch, Steam- und Sitzungszeitlimits) erscheint mit eigenem Grund als lesbare Meldung in Overlay und Log, danach sind Erstellen und Beitreten wieder frei; im Spiel geprüft, siehe [Fehlerbehandlung](src/Net/README.md#fehlerbehandlung-net-fehler) |
 | `niederlage` | 1 | Nach einer Niederlage kehren Host und Client über „Zurück zur Basis“ in die `MetaBase` zurück, und ein neuer Run startet; der Host-Absturz im Run-Ende-Handler ohne `LocalPlayer` ist im Spike behoben (`RunEnd.cpp`), siehe [Niederlage](docs/GAME_ANALYSIS.md#niederlage-niederlage) |
+| `ohne-spike` | 4 | Mod läuft ohne Spike bis Mission Tag 1 und zurück zur Basis, Start-Session.ps1 -NoSpike, Liste der Spike-Eingriffe in src/Game/README.md |
 | `online-sperren` | 6 | Die Mod sperrt die schreibenden Steam-Methoden für Erfolge, Statistiken und Bestenlisten (`Core::SteamStats`), lesen bleibt erlaubt, siehe [Erfolge und Bestenlisten](docs/GAME_ANALYSIS.md#erfolge-und-bestenlisten-online-sperren) |
 | `overlay` | 2 | F8-Overlay mit Status und Debug-Anzeige, sichtbare Host-/Client-Abnahme bestanden, siehe [UI](src/UI/README.md#sichtbare-spielabnahme-03112026) |
 | `patches` | 4 | Die 25 Spielfehler-Fixes des Spikes stehen geprüft in `src/Game/*Patches.cpp`, alle oder keiner; mit der Mod lässt der Spike seine Fassungen aus. Route MetaBase bis Tag 5 und Niederlage mit Rückkehr in die MetaBase ohne Absturz, siehe [Patches](src/Game/README.md#patches) |
@@ -266,6 +270,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `powerup-duplikat` | 1 | Lokale Kopie von `BP_ChaosDestructable_PowerUp_C` beim Client unterdrückt, siehe [PowerUp-Objekte](docs/GAME_ANALYSIS.md#doppelte-powerup-objekte-powerup-duplikat) |
 | `protokoll` | 3 | Handshake mit Spiel-Build, Mod-Version und Rolle sowie zuverlässiger Kontrollkanal im selben Steam-Socket wie die UE-Pakete, Nachrichten mit Run-ID, Epoche und Revision nach dem Vertrag; 24 Net-Tests, im Spiel bis Tag 1 mit XP-Anzeige darüber geprüft. Der Internet-Test mit zwei Konten gehört zu `lobby-live` bzw. `integration-g2`, siehe [Kontrollkanal](docs/CONTROL_PROTOCOL.md) |
 | `remote-p2` | 1 | Phase-1-Frage geklärt: Host-P2 über schwache `ActivePlayers`, native Coop-Aktivierung, gezielten P2-Geräte-Guard und Join-Meldung ohne zweiten `LocalPlayer`; Laufzeit-/UI-Gegenproben zeigen, dass der lokale Lager-Handoff den geplanten Kontrollkanal braucht. Produktionsanbindung und UI-Sync bleiben eigene Aufgaben, [Nachweise und Grenzen](research/spikes/a-connect/RemoteP2.md) |
+| `remote-spieler` | 4 | Host trägt den Remote-Spieler dauerhaft als P2 in die Coop-Logik ein, ohne zweiten LocalPlayer und vorerst ohne Koop-Modus, siehe [Remote-Spieler als P2](src/Game/README.md#remote-spieler-als-p2) |
 | `replikation-blueprint` | 1 | 218 von 482 Blueprint-Actor-Klassen replizieren, vor allem über ihre native Basisklasse |
 | `replikation-kern` | 1 | Replizierte Properties der Kernklassen erfasst, der Kern repliziert, siehe [Replikation](docs/GAME_ANALYSIS.md#replikation-zur-laufzeit) |
 | `rpc-vergleich` | 1 | RPC-Liste gegen den Juli-Dump: 3 RPCs entfernt, keiner hinzugekommen |

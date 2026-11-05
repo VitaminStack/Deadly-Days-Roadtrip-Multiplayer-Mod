@@ -717,6 +717,17 @@ Stand 04.11.2026, Build `26187885`, nur Spike und Loopback. Die frühere Hypothe
 
 **Keine vollständige Coop-UI:** Rundenstatistik und Lager zeigen beim Host beide Spieler, die lokale Kontrollübergabe im Lager blockiert aber weiterhin. Der Client bleibt lokal Index 0; Host-Coop-Zustand/Router werden nicht repliziert. Netzwerk-P2 muss deshalb von lokaler Geräteidentität getrennt werden; UI-Anfragen und Ergebnisse brauchen den geplanten Kontrollkanal. Die Aufgaben `remote-spieler`, `eingaben`, `inventar-sync` und `inventar-ui` bleiben offen. Die Phase-1-Frage nach Tragfähigkeit und nötigen Patches ist beantwortet; kein neuer Vollrun-/Internet-Nachweis. [Probe, Gegenversuche, Tests und Übernahmegrenzen](../research/spikes/a-connect/RemoteP2.md).
 
+**In der Mod (`remote-spieler`, 05.11.2026):** Die Bindung läuft jetzt ohne Befehl in `src/Game/RemoteP2Patches.cpp`, siehe
+[Remote-Spieler als P2](../src/Game/README.md#remote-spieler-als-p2).
+
+- **[Belegt]** Ohne `bCoopEnabled` genügen die `ActivePlayers`-Einträge: `GetPlayerController(1)` liefert den Remote-Controller,
+  `GetActivePlayerCount()` 2. Lager, Routenkarte und ein Level-up-Airdrop laufen dabei wie ohne Mod.
+- **[Belegt]** Mit `bCoopEnabled` hängt das Lager am Tagesende: beide Rucksäcke, „Bestätigen & Wechseln“, die Kontrolle geht nicht an P2.
+  Mit dem Airdrop-Befund unten heißt das: Den Koop-Modus erst einschalten, wenn `airdrop-auswahl` und `inventar-ui` die Eingaben von P2
+  über den Kontrollkanal liefern (`Patches::AllowRemoteCoop()`).
+- **[Belegt]** Verlassen und harter Abbruch des Clients entfernen nur die eigene P2-Bindung, `IsReconnectRequired` bleibt falsch; der
+  Neubeitritt bindet den neuen Controller.
+
 ### Airdrop-Auswahl für beide Spieler (`airdrop-auswahl`)
 
 Stand 05.11.2026, Build `26187885`, zwei Instanzen auf einem PC über die Steam-Lobby

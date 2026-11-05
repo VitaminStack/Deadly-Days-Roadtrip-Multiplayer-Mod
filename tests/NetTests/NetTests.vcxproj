@@ -28,6 +28,7 @@
     <ClCompile Include="ProtocolTests.cpp" />
     <ClCompile Include="ProgressTests.cpp" />
     <ClCompile Include="DesyncTests.cpp" />
+    <ClCompile Include="NetSimTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="FakeSteam.h" />

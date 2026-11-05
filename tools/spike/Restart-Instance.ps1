@@ -38,6 +38,8 @@ $Exe = Get-GameExe
 $UserDir = Join-Path $script:SessionDir 'ud_client'
 $Arguments = @('-windowed', '-ResX=800', '-ResY=450', '-WinX=820', '-WinY=0', '-nosplash', "-UserDir=`"$UserDir`"")
 if ($Tunnel -eq 'Mod') { $Arguments += '-ddcoop_transport=loopback' }
+# Gleiches Netzprofil wie beim Start der Sitzung.
+if ($Session.PSObject.Properties['NetSim'] -and $Session.NetSim) { $Arguments += "-ddcoop_netsim=$($Session.NetSim)" }
 $Client = Start-Process $Exe -PassThru -ArgumentList $Arguments
 $Session.Client = $Client.Id
 $Session | ConvertTo-Json | Set-Content $File -Encoding ascii
@@ -47,11 +49,18 @@ Wait-MainMenu $Client.Id
 Start-Sleep -Seconds 2
 $Running = Get-Process -Id $Client.Id -ErrorAction Stop
 if (-not $Running.Path -or $Running.Path -ne $Exe) { throw 'Unerwarteter Spielpfad. Kein Spike geladen.' }
-$Injected = & py (Join-Path $PSScriptRoot 'inject.py') $Client.Id (Join-Path $script:SessionDir 'spike.dll')
-if ($LASTEXITCODE) { throw "Spike nicht geladen: $Injected" }
-if (-not $Brief) { $Injected }
-Start-Sleep -Seconds 3
-Write-Step "Client $($Client.Id) mit Spike im Hauptmenue"
+$WithSpike = Test-SessionSpike
+if ($WithSpike) {
+    $Injected = & py (Join-Path $PSScriptRoot 'inject.py') $Client.Id (Join-Path $script:SessionDir 'spike.dll')
+    if ($LASTEXITCODE) { throw "Spike nicht geladen: $Injected" }
+    if (-not $Brief) { $Injected }
+    Start-Sleep -Seconds 3
+    Write-Step "Client $($Client.Id) mit Spike im Hauptmenue"
+}
+else {
+    Assert-NoSpikeLoaded $Client.Id
+    Write-Step "Client $($Client.Id) ohne Spike im Hauptmenue"
+}
 if ($NoConnect) { return }
 
 if ($Tunnel -eq 'Lobby') {
@@ -73,7 +82,7 @@ Wait-Condition {
 Write-Step "Client in $World verbunden"
 # Dieselben Spike-Hilfen wie in Start-Session.ps1 fuer den Client.
 Start-Sleep -Seconds 3
-foreach ($Command in '!cam', '!trace', '!flow') {
+foreach ($Command in @(if ($WithSpike) { '!cam', '!trace', '!flow' })) {
     Send-SpikeCommand $Client.Id $Command
     Start-Sleep -Milliseconds 800
 }

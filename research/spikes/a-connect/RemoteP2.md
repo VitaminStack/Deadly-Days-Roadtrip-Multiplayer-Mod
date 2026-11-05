@@ -1,5 +1,8 @@
 # Remote-Controller als P2 (`remote-p2`)
 
+> **Mit der Mod:** Die Bindung übernimmt seit `remote-spieler` die Mod (`src/Game/RemoteP2Patches.cpp`), ohne Koop-Modus. Ist die Mod
+> geladen, antwortet `!p2 …` nur „uebernimmt die Mod“. Diese Probe bleibt für Sitzungen ohne Mod.
+
 Stand 04.11.2026, eingefrorener Build `26187885`, nur Spike. **Analyse-Abnahme:** Der Remote-Controller kann beim Listen-Host P2 sein, ohne einen zweiten `ULocalPlayer` anzulegen. Welche Anpassungen nötig sind und wo native Coop-Logik nicht genügt, ist damit geklärt. Das ist kein Abschluss von `remote-spieler`, `eingaben`, `inventar-sync` oder `inventar-ui` und kein vollständiger Coop-Run mit eingeschaltetem nativen Coop.
 
 ## Belegter Weg und Gegenprobe

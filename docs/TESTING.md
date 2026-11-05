@@ -42,11 +42,27 @@ powershell -ExecutionPolicy Bypass -File tools/spike/Start-Session.ps1 -Mod -Tun
 
 Beide Instanzen starten gleichzeitig ohne Lobby-Schalter. Sobald der Spike geladen ist, erstellt der Host die Lobby über
 das Overlay der Mod und wird selbst Listen-Server in der MetaBase, der Client tritt ebenso mit der Lobby-ID bei (`Overlay.ps1`).
-Erst nach dem Spike, denn ohne seine Patches stürzen beim Beitritt der Host (`0x5901CE8`) und der Client (`0x56B16D9`) ab,
-beides belegt am 04.11.2026. Die Schalter `-ddcoop_lobby` und `-ddcoop_lobby_delay` der Mod gibt es weiter, das Skript braucht sie nicht.
+Die Abstürze beim Beitritt ohne Spike (Host `0x5901CE8`, Client `0x56B16D9`, 04.11.2026) verhindert inzwischen die Mod selbst,
+siehe [Nur Mod, ohne Spike](#nur-mod-ohne-spike). Die Schalter `-ddcoop_lobby` und `-ddcoop_lobby_delay` der Mod gibt es weiter, das Skript braucht sie nicht.
 Auf zwei PCs: Host mit `-Role Host -Tunnel Lobby`, die Ausgabe nennt die Lobby-ID, Client mit `-Role Client -Tunnel Lobby -Peer <Lobby-ID>`.
 Die Lobby-ID gehört zu keinem Konto und verfällt mit der Lobby. Einladungen über Steam prüft man nur mit zwei Konten: Overlay
 mit **F8**, „Einladen“, Freund wählen, beim Freund „Spiel beitreten“. Siehe [Net](../src/Net/README.md#steam-lobby-steam-lobby).
+
+### Nur Mod, ohne Spike
+
+```bash
+powershell -ExecutionPolicy Bypass -File tools/spike/Start-Session.ps1 -Mod -Tunnel Lobby -NoSpike -Brief
+powershell -ExecutionPolicy Bypass -File tools/spike/Run-Route.ps1 -Start -NoSpike -Days 1 -StayLast
+```
+
+So läuft das Spiel wie im Release: nur `DDCoop.dll`, kein `spike.dll`. Crash-Schutz, eigene `UserDir` und Sperre bleiben gleich.
+Das Skript prüft nach dem Hauptmenü und am Ende, dass `spike.dll` nicht geladen ist. Ohne Spike gibt es keine Konsolenbefehle,
+also nur `-Tunnel Lobby` und die MetaBase als Ziel, kein `-Godmode`, kein fester Seed und kein `!finish`. `Run-Route.ps1` endet darum
+in der ersten Mission. Ein frischer Test-Spielstand fährt nach „So wird gespielt“ ohne Routenkarte direkt los, sonst sucht das Skript den
+Knoten für Tag 1 in der linken Spalte. `Send-SpikeCommand` bricht in so einer Sitzung mit einer klaren Meldung ab.
+
+Erwartet ist heute Exitcode 1 mit „Figur nicht am Bus“ und verschiedenen Kachelzahlen: Die Karte vom Host gibt es nur im Spike,
+siehe [Ohne Spike](../src/Game/README.md#ohne-spike). Abstürze enden wie sonst mit Exitcode 2.
 
 ### Mod-Overlay prüfen
 
@@ -199,6 +215,33 @@ Für eine reproduzierbare Karte vor dem Öffnen der Routenkarte `Send-Command.ps
 
 Das Pausemenü (`Esc`) hat „Zurück zum Hauptmenü“ bei (396, 266). Mit `!finish` endet die Mission beim Host, danach kommt die Routenkarte für Tag 2.
 Über die echte Route laden Tag 1 bis 4 sauber, an Tag 5 stürzt der Client ab, siehe [Pausierte Welt und Busplatz](GAME_ANALYSIS.md#pausierte-welt-und-busplatz-testumgebung). Eine `servertravel`-Schleife ersetzt die echte Route dabei nicht.
+
+### Latenz simulieren
+
+Auf einem PC läuft alles über Loopback mit 0 ms, über das Internet sind 40 bis 150 ms und Verluste normal. Der Tunnel der Mod kann
+Ping, Schwankung und Paketverlust simulieren, Einzelheiten in [Netzsimulation](../src/Net/README.md#netzsimulation-latenz-test):
+
+```bash
+powershell -ExecutionPolicy Bypass -File tools/spike/Start-Session.ps1 -Mod -Tunnel Lobby -NetProfile Internet -Brief
+```
+
+```bash
+powershell -ExecutionPolicy Bypass -File tools/spike/Run-Route.ps1 -Start -NetProfile Internet -Days 1 -StayLast
+```
+
+| Profil | Ping | Schwankung | Verlust je Richtung |
+|---|---|---|---|
+| `Internet` | 120 ms | ±30 ms | 2 % |
+| `Schlecht` | 250 ms | ±80 ms | 5 % |
+| eigene Werte, etwa `80,10,1` | 80 ms | ±10 ms | 1 % |
+
+Das Profil wirkt nur im Tunnel der Mod, also mit `-Mod -Tunnel Lobby` oder `-Tunnel Mod`. `Restart-Instance.ps1` übernimmt es aus der
+Sitzung, `Get-Status.ps1 -Brief` zeigt je Instanz die letzte Messzeile aus dem Mod-Log.
+
+**Wann mit Profil:** Abnahmen von Aufgaben, die Zustand zwischen Host und Client abgleichen (Bewegung, Kampf, Gegner, Eingaben,
+Belohnungen, Kontrollnachrichten, Sitzungsende), laufen zusätzlich mit `-NetProfile Internet`. Wer Timing-Fehler sucht, nimmt `Schlecht`.
+Ohne Profil bleiben Tests, die nur Start, Build oder Darstellung auf einer Seite prüfen, und alles, was Zeiten misst, die mit Latenz
+nicht vergleichbar wären. Den Test über echtes Internet zwischen zwei Haushalten ersetzt das Profil nicht.
 
 ## Test auf zwei PCs
 
