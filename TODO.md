@@ -43,7 +43,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `rundenende-absturz` | P0 | [4](#phase-4--vertical-slice) | parallel | mittel |
 | `airdrop-auswahl` | P0 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `mod-saves` | P0 | [6](#phase-6--release) | parallel | mittel |
-| `lobby-bereit` | P1 | [3](#phase-3--session-und-verbindung) | parallel | wenig |
 | `eingaben` | P1 | [4](#phase-4--vertical-slice) | parallel | mittel |
 | `restrictor` | P1 | [4](#phase-4--vertical-slice) | parallel | wenig |
 | `xp-baelle` | P1 | [5](#phase-5--vollständiger-run) | parallel | mittel |
@@ -137,7 +136,6 @@ Ziel: Zwei Spieler finden sich über Steam und verbinden sich ohne Portfreigabe.
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
 | `lobby-live` | P0 | Steam-Lobby der Mod mit zwei Konten auf zwei PCs prüfen: Einladung über das Steam-Overlay annehmen, Beitritt per P2P, Start über `+connect_lobby` bei geschlossenem Spiel, Verlassen beider Seiten. **Fertig, wenn** der Client nur über die Einladung bis in die MetaBase kommt und der Handshake des [Kontrollkanals](docs/CONTROL_PROTOCOL.md) dabei über das Internet bestätigt ist. **Einstieg:** [Steam-Lobby](src/Net/README.md#steam-lobby-steam-lobby), [Test auf zwei PCs](docs/TESTING.md#test-auf-zwei-pcs) | `steam-lobby` | zu zweit | wenig |
-| `lobby-bereit` | P1 | Lobby nur anbieten, solange das Spiel des Hosts wirklich hostet. Gemessen am 05.11.2026 auf zwei PCs, nur Mod: Steht der Host im Hauptmenü, bleibt seine Lobby offen und Tunnel samt Handshake stehen, aber die Engine des Clients findet keinen Server. Sie wartet etwa 18 s, lädt die MetaBase ohne Verbindung und fällt ohne Meldung ins Hauptmenü. Wechselt der Host über das Spielmenü ins Hauptmenü, bleibt die Lobby ebenso offen; der Client erfährt das erst nach 30 s als „Verbindung zum Host verloren“ statt sofort „Der Host hat die Sitzung verlassen“. **Fertig, wenn** ein Beitritt bei einem Host ohne Listen-Server sofort mit einem Hinweis im Overlay endet, ein Host beim Wechsel ins Hauptmenü die Sitzung mit Grund beendet und der Client das wie bei „Verlassen“ in unter 1 s meldet. Ordner `src/Net`, `src/Mod`. **Einstieg:** [Zwei PCs, nur Mod](src/Net/README.md#zwei-pcs-nur-mod-05112026) | `steam-lobby`, `net-fehler` | parallel | wenig |
 
 ## Phase 4 – Vertical Slice
 
@@ -260,6 +258,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `last` | 1 | Spike D: bei rund 85 Gegnern 47 KB/s vom Host, beide Instanzen 60 fps, nur Loopback, siehe [Last](docs/GAME_ANALYSIS.md#last-spike-d-last) |
 | `latenz-test` | 4 | Netzsimulation im Tunnel der Mod (`-ddcoop_netsim`, `-NetProfile Internet`), Routenlauf bis Tag 1 mit Profil sauber, [Latenz simulieren](docs/TESTING.md#latenz-simulieren) |
 | `layerapps-sperre` | 6 | Die Mod sperrt auch `deadlydays.layerapps.com`, das das Spiel beim Run-Ende anfragt (`Core::ReportHosts`). Run-Ende und neuer Run laufen normal, siehe [Telemetrie und Berichte](docs/GAME_ANALYSIS.md#telemetrie-und-berichte-telemetrie-aus) |
+| `lobby-bereit` | 3 | Host schließt die Lobby im Hauptmenü oder ohne Listen-Server, Client erfährt es sofort, siehe [Lobby nur mit Server](src/Net/README.md#lobby-nur-mit-server-lobby-bereit) |
 | `menue-weg` | 1 | Mission über den echten Weg durch das Spielmenü mit den Patches gestartet, siehe [Spike](research/spikes/a-connect/README.md) |
 | `mitwirkende` | 0 | Freunde als Mitwirkende eingeladen |
 | `net-fehler` | 3 | Jedes Sitzungsende (Verlassen beider Seiten, Abbruch, Steam- und Sitzungszeitlimits) erscheint mit eigenem Grund als lesbare Meldung in Overlay und Log, danach sind Erstellen und Beitreten wieder frei; im Spiel geprüft, siehe [Fehlerbehandlung](src/Net/README.md#fehlerbehandlung-net-fehler) |

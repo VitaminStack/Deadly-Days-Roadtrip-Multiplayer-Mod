@@ -174,11 +174,13 @@ struct GameCalls
     int Disconnects = 0;
     // Verbindung des Spiels zum Host, wie sie die Mod aus der Welt liest. nullopt: unbekannt, etwa beim Laden.
     std::optional<bool> InGame;
+    // Host: Bietet das Spiel einen Server an. Standard wie im Spiel nach dem Erstellen: Listen-Server.
+    std::optional<bool> Hosting = true;
 
     SessionHooks Hooks()
     {
         return {[this] { ++Listen; }, [this](uint16_t Port) { Connects.push_back(Port); }, [this] { ++Disconnects; },
-                [this] { return InGame; }};
+                [this] { return InGame; }, [this] { return Hosting; }};
     }
 };
 
@@ -325,7 +327,7 @@ TEST_CASE("Beitritt scheitert sauber")
     {
         REQUIRE(Client.Run.Join(12345));
         REQUIRE(TickUntil({&Client.Run}, [&] { return Client.Run.Status().Phase == SessionPhase::Failed; }));
-        CHECK(Client.Run.Status().Message == "Beitritt abgelehnt (Antwort 2)");
+        CHECK(Client.Run.Status().Message == "Die Lobby gibt es nicht mehr, der Host hat sie geschlossen");
     }
     SUBCASE("Andere Mod-Version")
     {
@@ -577,4 +579,69 @@ TEST_CASE("Lobby-ID aus +connect_lobby")
     CHECK(ParseConnectLobby("+connect_lobby") == 0);
     CHECK(ParseConnectLobby("+connect_lobby abc") == 0);
     CHECK(ParseConnectLobby("") == 0);
+}
+
+TEST_CASE("Host schließt die Lobby, wenn sein Spiel im Hauptmenü steht")
+{
+    SessionTimeouts Short;
+    Short.HostGameLost = std::chrono::milliseconds(200);
+    Short.HostListen = std::chrono::milliseconds(300);
+
+    SUBCASE("Host geht mit Mitspieler ins Hauptmenü: Client erfährt es sofort")
+    {
+        Pair Game(47960);
+        Game.Host.Run.SetTimeouts(Short);
+        Game.Client.Game.InGame = true;
+        REQUIRE(Game.Connect());
+        Game.Host.Game.Hosting = false;
+        REQUIRE(TickUntil({&Game.Host.Run, &Game.Client.Run},
+                          [&] { return Game.Host.Run.Status().Phase == SessionPhase::Failed &&
+                                       Game.Client.Run.Status().Phase == SessionPhase::Failed; }));
+        CHECK(Game.Host.Run.Status().Message == "Lobby geschlossen: Das Spiel ist im Hauptmenü. Neue Lobby in der MetaBase erstellen");
+        CHECK(Game.Client.Run.Status().Message == "Der Host hat die Sitzung verlassen");
+        CHECK(Game.Client.Game.Disconnects == 1);
+    }
+    SUBCASE("Kurz unbekannt oder kurz im Hauptmenü bleibt offen")
+    {
+        Pair Game(47970);
+        Game.Host.Run.SetTimeouts(Short);
+        Game.Client.Game.InGame = true;
+        REQUIRE(Game.Connect());
+        Game.Host.Game.Hosting = std::nullopt; // Reise
+        TickUntil({&Game.Host.Run, &Game.Client.Run}, [] { return false; }, 400);
+        Game.Host.Game.Hosting = false;
+        TickUntil({&Game.Host.Run, &Game.Client.Run}, [] { return false; }, 60);
+        Game.Host.Game.Hosting = true;
+        TickUntil({&Game.Host.Run, &Game.Client.Run}, [] { return false; }, 300);
+        CHECK(Game.Host.Run.Status().Phase == SessionPhase::Playing);
+        CHECK(Game.Client.Run.Status().Phase == SessionPhase::Playing);
+    }
+    SUBCASE("Erstellt im Hauptmenü, wird nie Listen-Server")
+    {
+        auto Service = std::make_shared<FakeLobbyService>();
+        auto Network = std::make_shared<FakeSteamNetwork>();
+        Player Host(Service, Network, kHostId, kHostId, SessionPorts(47980));
+        Host.Run.SetTimeouts(Short);
+        Host.Game.Hosting = false;
+        REQUIRE(Host.Run.Create());
+        // Solange das Spiel noch nie gehostet hat, zählt das Hauptmenü nicht als geschlossen, erst das Zeitlimit.
+        REQUIRE(TickUntil({&Host.Run}, [&] { return Host.Run.Status().Phase == SessionPhase::Hosting; }));
+        REQUIRE(TickUntil({&Host.Run}, [&] { return Host.Run.Status().Phase == SessionPhase::Failed; }));
+        CHECK(Host.Run.Status().Message == "Lobby geschlossen: Das Spiel wurde kein Listen-Server");
+        CHECK(Service->Lobbies.empty());
+    }
+    SUBCASE("Erstellt im Hauptmenü, Spiel lädt die MetaBase als Listen-Server")
+    {
+        auto Service = std::make_shared<FakeLobbyService>();
+        auto Network = std::make_shared<FakeSteamNetwork>();
+        Player Host(Service, Network, kHostId, kHostId, SessionPorts(47990));
+        Host.Run.SetTimeouts(Short);
+        Host.Game.Hosting = false;
+        REQUIRE(Host.Run.Create());
+        REQUIRE(TickUntil({&Host.Run}, [&] { return Host.Run.Status().Phase == SessionPhase::Hosting; }));
+        TickUntil({&Host.Run}, [] { return false; }, 150);
+        Host.Game.Hosting = true;
+        TickUntil({&Host.Run}, [] { return false; }, 400);
+        CHECK(Host.Run.Status().Phase == SessionPhase::Hosting);
+    }
 }
