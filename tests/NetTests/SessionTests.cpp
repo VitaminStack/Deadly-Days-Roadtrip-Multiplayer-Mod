@@ -539,8 +539,8 @@ TEST_CASE("Client erkennt, wenn das Spiel selbst die Verbindung zum Host verlier
     }
     SUBCASE("Spiel verliert den Host und kommt nicht zurück")
     {
-        REQUIRE(Game.Connect());
         Game.Client.Game.InGame = true;
+        REQUIRE(Game.Connect());
         TickUntil({&Game.Host.Run, &Game.Client.Run}, [] { return false; }, 50);
         Game.Client.Game.InGame = false;
         REQUIRE(TickUntil({&Game.Host.Run, &Game.Client.Run},
@@ -552,8 +552,8 @@ TEST_CASE("Client erkennt, wenn das Spiel selbst die Verbindung zum Host verlier
     }
     SUBCASE("Kurz ohne Host oder unbekannt beim Laden bleibt verbunden")
     {
-        REQUIRE(Game.Connect());
         Game.Client.Game.InGame = true;
+        REQUIRE(Game.Connect());
         TickUntil({&Game.Host.Run, &Game.Client.Run}, [] { return false; }, 50);
         Game.Client.Game.InGame = false;
         TickUntil({&Game.Host.Run, &Game.Client.Run}, [] { return false; }, 60);
