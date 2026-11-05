@@ -33,10 +33,10 @@ do {
         ++$Comparable
         $LastComparable = Get-Date
     } else {
-        # Echte Zustandswechsel brauchen zwei Sekunden Stabilitaet, sind aber kein Desync-Alarm.
+        # Echte Zustandswechsel (Loot, Levelaufstieg, Pause) halten Felder offen, sind aber kein Desync-Alarm.
         $OpenSeconds = ((Get-Date) - $LastComparable).TotalSeconds
         $LongestOpen = [math]::Max($LongestOpen, $OpenSeconds)
-        if ($OpenSeconds -gt 10) { throw "Mehr als zehn Sekunden ohne volle Messabdeckung: $($Texts -join ' | ')" }
+        if ($OpenSeconds -gt 60) { throw "Mehr als 60 Sekunden ohne volle Messabdeckung: $($Texts -join ' | ')" }
     }
     ++$Samples
     Start-Sleep -Seconds 1

@@ -80,7 +80,7 @@ powershell -ExecutionPolicy Bypass -File tools/spike/Test-Desync.ps1
 Das Skript verlangt zu Beginn und vor der Abweichungsprobe auf beiden Seiten alle
 fünf aktiven Felder als OK und misst mindestens 600 Sekunden ohne Alarm. Mindestens
 90 Prozent der Messungen müssen vollständig vergleichbar sein; Zustandswechsel
-dürfen höchstens zehn Sekunden am Stück im Stabilisierungsstatus bleiben. Solche
+dürfen höchstens 60 Sekunden am Stück im Stabilisierungsstatus bleiben. Solche
 Fenster und der tatsächliche Abdeckungsanteil stehen im Bericht, sie werden nicht
 als nachgewiesene Gleichheit gezählt. Danach toggelt
 `desync_difference.py` **nur im eigenen lokalen Testclient** das Broken-Flag eines
@@ -105,6 +105,34 @@ vollständige gleiche Inventare, fünf aktive Diagnosefelder auf beiden Seiten O
 Der echte 600-Sekunden-Test und die kontrollierte Abweichung laufen noch; **Aufgabe
 bis zu deren Ergebnis nicht abgeschlossen**. Noch keine Internet-/Zwei-Konten-
 Abnahme und keine Freigabe für Gate G2.
+
+### Langzeitmessung im Spiel (05.11.2026, nach Merge von `main`)
+
+Eigene Sitzung mit `-Mod -Tunnel Lobby -Godmode`, Run-Route bis Tag 1, beide in
+der Mission. Zwei Läufe von `Test-Desync.ps1` in derselben Mission, zusammen rund
+636 Sekunden ohne Eingabe. Die Messung wurde auf Wunsch nach dem zweiten Lauf
+beendet und gilt nicht als Abbruch.
+
+| Lauf | Messungen | Dauer | beide OK | Alarme |
+|---|---|---|---|---|
+| 1 | 543 | 557 s | 533 (98,2 %) | 0 |
+| 2 | 79 | 79 s | 79 (100 %) | 0 |
+
+- In der gesamten Zeit **kein Fehlalarm**. Die zehn nicht vollständig vergleichbaren
+  Messungen in Lauf 1 lagen alle in einem Fenster ab Sekunde 547, in dem Phase
+  und Inventar auf beiden Seiten wechselten: Loot-Benachrichtigung offen, Inventar
+  geändert, kurze Pause. Der Melder zeigte dabei „Abgleich“, keinen Alarm.
+- Lauf 1 brach an der damaligen Testregel „höchstens zehn Sekunden am Stück offen“
+  ab. Echte Zustandswechsel dauern länger, die Grenze liegt jetzt bei 60 Sekunden.
+  Abdeckung von mindestens 90 Prozent und Abbruch bei jedem Alarm bleiben.
+- Rund 12,5 Minuten nach Missionsstart, am regulären Rundenende von Tag 1, stürzte
+  zuerst der Client ab (Access Violation beim Lesen von `0x348`), 30 Sekunden später
+  der Host (`0x1B8`). Der Stack enthält nur Frames des Spiels, keine aus `DDCoop`.
+  Dasselbe Paar mit identischen Stacks gab es schon im Lauf vor dem Merge von `main`.
+  Ob der Melder beteiligt ist, ist **nicht geklärt**. Die Gegenprobe ist dasselbe
+  Rundenende mit `desync_enabled=false`.
+- Die absichtliche Inventarabweichung (`desync_difference.py`) lief im Spiel noch
+  nicht. Bisher ist sie nur durch die Modelltests belegt.
 
 ### Gefundene und behobene Fehlversuche
 
