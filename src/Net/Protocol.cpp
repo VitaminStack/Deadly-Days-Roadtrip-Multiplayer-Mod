@@ -55,6 +55,29 @@ bool Matches(std::span<const uint8_t> Bytes, Identity Local)
            Bytes[8] == (Local.Host ? 0 : 1);
 }
 
+std::string Explain(std::span<const uint8_t> Bytes, Identity Local)
+{
+    if (Bytes.size() < 8 || Bytes[0] != 'D' || Bytes[1] != 'D' || Bytes[2] != 'C' || Bytes[3] != 'P')
+        return "Mitspieler sendet ohne Mod-Protokoll, vermutlich eine aeltere Mod-Version. Beide denselben Stand installieren";
+    if (const auto Theirs = Get(Bytes, 4, 2); Theirs != Version)
+        return "Mitspieler hat Protokollversion " + std::to_string(Theirs) + ", du " + std::to_string(Version) +
+               ". Beide denselben Mod-Stand installieren";
+    const auto Frame = Decode(Bytes);
+    if (!Frame)
+        return "Ungueltige Nachricht vom Mitspieler (beschaedigter Rahmen)";
+    if (Frame->Type != Kind::Hello || Frame->Payload.size() != 9)
+        return "Ungueltige oder unerwartete Kontrollnachricht vom Mitspieler";
+    const auto Build = Get(Frame->Payload, 0, 4), Mod = Get(Frame->Payload, 4, 4);
+    if (Build != Local.Build)
+        return "Mitspieler hat Spiel-Build " + std::to_string(Build) + ", du " + std::to_string(Local.Build);
+    if (Mod != Local.Mod)
+        return "Mitspieler hat Mod-Version " + std::to_string(Mod) + ", du " + std::to_string(Local.Mod) +
+               ". Beide denselben Mod-Stand installieren";
+    if ((Frame->Payload[8] == 1) == Local.Host)
+        return Local.Host ? "Beide Seiten sind Host" : "Beide Seiten sind Client";
+    return "Ungueltige oder unerwartete Kontrollnachricht vom Mitspieler";
+}
+
 std::vector<uint8_t> EncodeControl(const Control& Value)
 {
     if (!Value.Run || !Value.Epoch || !Value.Revision || !Value.Type || Value.Payload.size() > MaxPayload - 26)

@@ -426,7 +426,7 @@ void Transport::Pump(Link& Entry)
         return; // Accept kann vor dem folgenden Connected-Callback schon Nachrichten bereitstellen.
     Sockets->Receive(Entry.Connection, 64, [this, &Entry](std::span<const uint8_t> Message) {
         if (!Entry.Rejected && !ReceiveFrame(Entry, Message))
-            Reject(Entry, "Ungueltige oder inkompatible Kontrollnachricht");
+            Reject(Entry, Protocol::Explain(Message, Options.Identity));
     });
 }
 
@@ -463,7 +463,7 @@ void Transport::FlushSim(Link& Entry, uint64_t NowMs)
     });
 }
 
-void Transport::Reject(Link& Entry, const char* Reason)
+void Transport::Reject(Link& Entry, const std::string& Reason)
 {
     Entry.Rejected = true;
     Core::Log::Warn("Protokoll: {}", Reason);

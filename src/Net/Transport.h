@@ -127,7 +127,7 @@ private:
     void Close(uint32_t Connection, int32_t Reason);
     void Publish(TransportState State, std::string Message);
     void UpdateTotals();
-    void Reject(Link& Entry, const char* Reason);
+    void Reject(Link& Entry, const std::string& Reason);
     bool ReceiveFrame(Link& Entry, std::span<const uint8_t> Bytes);
     void AttachSim(Link& Entry);
     void FlushSim(Link& Entry, uint64_t NowMs);
