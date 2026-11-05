@@ -1172,6 +1172,29 @@ Die Mod macht dasselbe in `src/Game/TutorialAdapter.cpp` (`tutorial-aus`): Als H
 | HUD | Normal | Erst bauen, wenn der `GameState` da ist |
 | Inventar | Führt | Darf erst laufen, wenn die replizierten Einträge da sind. Ohne Lösung kein Run über mehrere Tage |
 
+### Rundenende und Sensenmann (`rundenende-absturz`)
+
+Stand 05.11.2026, Build `26187885`, ein PC, Mod mit Spike über die Lobby, Seed `20795`, Tag 1.
+
+- **[Belegt] Der Absturz „12,5 Minuten nach Missionsstart“ ist kein Rundenende.** Das reguläre Rundenende kommt, wenn der Tank voll
+  ist und die Spieler mit dem Bus flüchten (Nutzerangabe). Läuft vorher die Zeit ab, erscheint der Sensenmann (`UReaperComponent`).
+  Reproduziert ohne Eingabe: Client nach rund 14 Minuten, Host 30 s später, beide mit denselben Stapeln wie im
+  [Desync-Lauf](DESYNC.md#langzeitmessung-im-spiel-05112026-nach-merge-von-main).
+- **[Belegt] Client, Lesen `0x348`:** Beim Start bindet die Komponente `OnNewPlayerSpawned` (`+0x340`) und `OnPlayerDespawned` (`+0x350`)
+  des `ADDMissionGameMode`, den sie in `GameMode` (`+0x188`) hält. Den GameMode gibt es beim Client nicht. Absturz in der Engine-Funktion
+  für Delegate-Bindungen (`0x4698380`), Aufrufer `0x586F78D`.
+- **[Belegt] Host, Lesen `0x1B8`:** Eine Abstandsschleife (`0x5897A20`) liest `RootComponent` jeder Figur aus `Players` (`+0x178`). Nach dem
+  Absturz des Clients war dessen Figur weg und der Eintrag leer. Dasselbe droht bei jeder Trennung, während der Sensenmann läuft.
+- **Fix `ReaperPatches.cpp`:** Ohne GameMode springt der Client über beide Bindungen. Sound, Kontrast und Sättigung des Sensenmanns laufen
+  lokal weiter. Leere Einträge in `Players` überspringt die Schleife auf beiden Seiten. Mit vorhandenen Objekten ändert sich nichts.
+- **[Belegt] Rundenende über den Bus:** Tank beim Host per Speicherschreiben auf 118 von 120 (`UFuelMeter.CurrentFuel` am
+  `GS_DDMissionState_C`, `+0xF8`), der Client übernahm den Wert über die Replikation. Der Nutzer sammelte einen Kanister (128) und flüchtete
+  mit dem Bus. Host mit „Ende der Runde“, Client mit Spielansicht und Phasenhinweis, kein Absturz. Danach Lager, Routenkarte und Reise zu
+  Tag 2: `check_round.py` sauber, 63 Kacheln auf beiden Seiten, Figuren am Bus.
+- `DD_QuickFinishMission` beendet die Runde ohne Tank und Bus, wie `!finish`. Es ersetzt den Busablauf nicht.
+- **Nicht geprüft:** Zeitablauf mit Sensenmann **mit** dem Fix (Folgeaufgabe `reaper-live`). Der Tank ist je Teilnehmer getrennt
+  gewertet, jeder PlayerState hat einen eigenen `UFuelMeter` (Maximum 100), Folgeaufgabe `tank-gemeinsam`.
+
 ### Rundenende: Befund und offene Phasenübertragung (`rundenende`)
 
 Build `26187885`, ein PC, zwei Loopback-Instanzen, getrennte Test-Spielstände und CrashGuard. Untersuchung auf eigenem Branch von `origin/main`, ohne den noch nicht gemergten Inventar-Teilfix.

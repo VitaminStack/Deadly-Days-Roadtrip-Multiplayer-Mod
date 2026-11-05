@@ -62,10 +62,10 @@ Erledigt ist, was in `TODO.md` unter „Erledigt“ steht. **Vollständig abgesc
 | [1](TODO.md#phase-1--analyse-und-spikes) | Fakten für Gate G1 | 39 von 39 | ███████████ |
 | [2](TODO.md#phase-2--fundament) | Stabile Basis der Mod | 5 von 5 | ███████████ |
 | [3](TODO.md#phase-3--session-und-verbindung) | Verbinden über Steam | 7 von 9 | █████████░░ |
-| [4](TODO.md#phase-4--vertical-slice) | Spielbarer Ausschnitt | 11 von 16 | ████████░░░ |
-| [5](TODO.md#phase-5--vollständiger-run) | Kompletter Run zu zweit | 3 von 18 | ██░░░░░░░░░ |
+| [4](TODO.md#phase-4--vertical-slice) | Spielbarer Ausschnitt | 12 von 16 | ████████░░░ |
+| [5](TODO.md#phase-5--vollständiger-run) | Kompletter Run zu zweit | 3 von 20 | ██░░░░░░░░░ |
 | [6](TODO.md#phase-6--release) | Veröffentlichung | 4 von 9 | █████░░░░░░ |
-| **Gesamt** | | **80 von 107** | ████████░░░ |
+| **Gesamt** | | **81 von 109** | ████████░░░ |
 
 </details>
 

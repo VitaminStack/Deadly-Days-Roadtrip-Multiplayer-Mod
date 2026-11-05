@@ -68,6 +68,7 @@ der [Patch-Tabelle des Spikes](../../research/spikes/a-connect/README.md#patches
 | `WidgetPatches.cpp` | Client | `WP_UI` wartet auf den GameState; Beobachter nach jedem `ProcessEvent` |
 | `RemoteP2Patches.cpp` | Host | Remote-Spieler als P2 in `ActivePlayers` des Coop-Subsystems, ohne zweiten `LocalPlayer`; beim Verlassen nur die eigene Bindung entfernen; lokale P2-Gerätepflicht nur bei vollständiger Bindung ausnehmen. Koop-Modus erst nach `AllowRemoteCoop()`, siehe [Remote-Spieler](#remote-spieler-als-p2) |
 | `HealthBarPatches.cpp` | Client | Lebensleisten nach repliziertem `OnRep_Health` und `OnRep_MaxHealth` |
+| `ReaperPatches.cpp` | beide | Sensenmann ohne GameMode beim Client, leere Spielereinträge in seiner Abstandsschleife, siehe [Rundenende und Sensenmann](../../docs/GAME_ANALYSIS.md#rundenende-und-sensenmann-rundenende-absturz) |
 
 **Alle oder keiner.** `Patches::Install` läuft in `Game::Start` vor dem ersten Takt. Es prüft zuerst jede Stelle (Bytes, vtable-Einträge)
 und setzt erst dann alle Patches. Passt eine Stelle nicht, setzt es keinen und protokolliert die Stelle; das Spiel läuft dann wie ohne Mod.
