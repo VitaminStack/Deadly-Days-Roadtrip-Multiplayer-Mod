@@ -32,8 +32,8 @@ Je Thema eine Datei, damit parallele Arbeit nicht in dieselbe Datei läuft. Neue
 | `Mission.cpp` | Gegnerwelle, Missionsende, Rundenphasen vom Host zum Client mit Anzeige und Eingabesperre |
 | `Trace.cpp` | Zähler für RPCs und Run-Funktionen |
 | `CrashReports.cpp` | Sperre des Crash-Reporters, zweite Schicht neben `CrashGuard.ps1` |
-| `MapGen.cpp` | Client erzeugt die Karte mit den Werten des Hosts, lokale Kopien replizierter Child Actors unterdrückt |
-| `Pcg.cpp` | Client erzeugt die PCG-Vegetation mit dem Graphen des Hosts, gleiche Seeds der Instanz-Komponenten |
+| `MapGen.cpp` | Client erzeugt die Karte mit den Werten des Hosts, lokale Kopien replizierter Child Actors unterdrückt. Mit der Mod aus, die das über ihren Kontrollkanal macht (`missionsstart`) |
+| `Pcg.cpp` | Client erzeugt die PCG-Vegetation mit dem Graphen des Hosts, gleiche Seeds der Instanz-Komponenten. Mit der Mod aus wie `MapGen.cpp` |
 | `Hits.cpp` | Host: Treffer auf Gegner mit Schütze, Schaden und Lebenspunkten |
 | `HealthBars.cpp` | Client: Lebensleisten über den Figuren nach replizierten HP aktualisieren |
 | `RunEnd.cpp` | Niederlage: Run-Ende-Handler ohne `LocalPlayer` des Remote-Controllers |
@@ -108,7 +108,7 @@ Ist `DDCoop.dll` geladen und meldet über `DDCoopPatchState`, dass sie ihre Patc
 Ausgelassen werden dann `PatchPlayers`, `PatchClient` (samt Diagnose `NewActor failed`), `PatchCamera`, `PatchInventory`, `PatchTravel`,
 `PatchWidgets`, `PatchMapObjects`, der Busplatz aus `PatchTestEnv`, `PatchHealthBars` und `PatchRunEnd`, dazu im Sekunden-Tick Kamera,
 Client-Positionen, `SpawnedPlayers` und die zurückgehaltene HUD. `!arm`, `!cam` und `!authmove` melden dann nur, dass die Mod das übernimmt.
-Der Phasenbeobachter meldet sich über `DDCoopObserveProcessEvent` bei der Mod an. Karte (`MapGen.cpp`), PCG, Testhilfen und Messung bleiben im Spike.
+Der Phasenbeobachter meldet sich über `DDCoopObserveProcessEvent` bei der Mod an. Seit `missionsstart` lässt der Spike dann auch Karte (`MapGen.cpp`) und PCG (`Pcg.cpp`) aus; die Mod bringt die Werte über ihren Kontrollkanal. Ohne Tunnel der Mod, also mit `-Mod` und `-Tunnel Ip`, `P2p` oder `None`, bekommt der Client dann keine Host-Karte. Testhilfen und Messung bleiben im Spike.
 Ohne Mod ändert sich nichts.
 
 Die Zuordnung der Funktionen stammt aus der Disassembly ohne Symbole. Die Kamera ist über Offsets im SDK belegt, die übrigen passen zu den Aufrufern.

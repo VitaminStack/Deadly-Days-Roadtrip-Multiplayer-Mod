@@ -6,6 +6,7 @@
 #include <cstring>
 
 #include "Game/CodeCave.h"
+#include "Game/MapPolicy.h"
 #include "Game/MovementPolicy.h"
 #include "Game/PatchPolicy.h"
 #include "Game/Patches.h"
@@ -501,4 +502,15 @@ TEST_CASE("Bewegung: unbekannte Unterlage und weiches Folgen")
     CHECK(ExtrapolationSeconds(5000) == doctest::Approx(0.15));
     CHECK(FollowShare(66) == doctest::Approx(1.0));
     CHECK(FollowShare(500) == doctest::Approx(1.0));
+}
+
+TEST_CASE("Karte: Client wartet auf die Werte des Hosts, aber nicht ewig")
+{
+    CHECK(ClientMapStart(false, false, 0, 0) == MapStart::Wait);
+    CHECK(ClientMapStart(false, false, HostMapWaitMs - 1, 0) == MapStart::Wait);
+    CHECK(ClientMapStart(false, false, HostMapWaitMs, 0) == MapStart::Own);
+    CHECK(ClientMapStart(true, true, 0, 0) == MapStart::HostValues);
+    CHECK(ClientMapStart(true, false, 0, 0) == MapStart::Wait);
+    CHECK(ClientMapStart(true, false, HostMapWaitMs * 2, HostGraphWaitMs - 1) == MapStart::Wait);
+    CHECK(ClientMapStart(true, false, 0, HostGraphWaitMs) == MapStart::HostValues);
 }

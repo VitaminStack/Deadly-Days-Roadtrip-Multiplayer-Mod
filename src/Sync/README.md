@@ -16,5 +16,5 @@ Welche Teile die Engine selbst übernimmt, hängt von Gate G1 ab.
 
 Einstieg ist `Sync::Start` in `Sync/Sync.h`. Darf `Core`, `Net` und `Game` nutzen, aber kein SDK einbinden.
 `Sync.cpp` leert den Kontrollkanal einmal pro Tick und verteilt die Nachrichten
-an Progress und Desync. Diagnoseanzeige wird als Callback aus Mod angebunden,
+an Progress, Desync, Reward und die Karte (`World/MapSync.cpp`, gleiche Karte bei beiden, `missionsstart`). Diagnoseanzeige wird als Callback aus Mod angebunden,
 keine direkte Abhängigkeit zum UI. [Desync-Melder, Konfiguration und offene Spielabnahme](../../docs/DESYNC.md).

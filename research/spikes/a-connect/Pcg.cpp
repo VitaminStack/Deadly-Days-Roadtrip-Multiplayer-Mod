@@ -190,6 +190,8 @@ void Refresh(uintptr_t Component, uintptr_t SetStaticMesh)
 // je Instanz. Beide Seiten setzen ihn deshalb nach der PCG-Erzeugung aus Mesh und Instanzen.
 void TickPcg()
 {
+    if (ModOwnsPatches)
+        return;
     const uintptr_t Volume = FindInstance("BP_PCGVolume_C");
     const uintptr_t Pcg = Volume ? Read<uintptr_t>(Volume + kVolumePcgComponent) : 0;
     if (!Pcg || !Read<uint8_t>(Pcg + kPcgGenerated) || Volume == SeededVolume)
@@ -220,8 +222,11 @@ void TickPcg()
     Log("Pcg: Seeds fuer " + std::to_string(Seeded) + " ISM-Komponenten gesetzt");
 }
 
+// Mit den Patches der Mod setzt sie Graph und Seeds selbst (src/Game/MapPatches.cpp).
 bool PatchPcg(CodeWriter& Code)
 {
+    if (ModOwnsPatches)
+        return false;
     const uintptr_t Site = Base + kSetupPcgVolume;
     if (!Expect(Site, {0x48, 0x89, 0x5C, 0x24, 0x18, 0x55}, "in UPCGVolumeGenerator Slot 85"))
         return false;

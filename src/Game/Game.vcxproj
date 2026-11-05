@@ -61,6 +61,7 @@
     <ClCompile Include="MovementPatches.cpp" />
     <ClCompile Include="PlayerPatches.cpp" />
     <ClCompile Include="RemoteP2Patches.cpp" />
+    <ClCompile Include="MapPatches.cpp" />
     <ClCompile Include="TravelPatches.cpp" />
     <ClCompile Include="WidgetPatches.cpp" />
     <ClCompile Include="SdkChecks.cpp" />
@@ -80,6 +81,8 @@
     <ClInclude Include="ExpAdapter.h" />
     <ClInclude Include="NetworkObjects.h" />
     <ClInclude Include="ConsoleAdapter.h" />
+    <ClInclude Include="MapAdapter.h" />
+    <ClInclude Include="MapPolicy.h" />
     <ClInclude Include="MovementPolicy.h" />
     <ClInclude Include="PatchPolicy.h" />
     <ClInclude Include="PatchRuntime.h" />
