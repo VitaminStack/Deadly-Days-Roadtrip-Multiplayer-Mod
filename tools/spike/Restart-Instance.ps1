@@ -38,6 +38,8 @@ $Exe = Get-GameExe
 $UserDir = Join-Path $script:SessionDir 'ud_client'
 $Arguments = @('-windowed', '-ResX=800', '-ResY=450', '-WinX=820', '-WinY=0', '-nosplash', "-UserDir=`"$UserDir`"")
 if ($Tunnel -eq 'Mod') { $Arguments += '-ddcoop_transport=loopback' }
+# Gleiches Netzprofil wie beim Start der Sitzung.
+if ($Session.PSObject.Properties['NetSim'] -and $Session.NetSim) { $Arguments += "-ddcoop_netsim=$($Session.NetSim)" }
 $Client = Start-Process $Exe -PassThru -ArgumentList $Arguments
 $Session.Client = $Client.Id
 $Session | ConvertTo-Json | Set-Content $File -Encoding ascii

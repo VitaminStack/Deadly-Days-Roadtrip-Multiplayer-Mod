@@ -370,6 +370,46 @@ TEST_CASE("Ohne Steam startet nichts")
     CHECK_FALSE(Missing.Running());
 }
 
+TEST_CASE("Netzsimulation verzögert Spielpakete und Kontrollnachrichten im Tunnel")
+{
+    auto Network = std::make_shared<FakeSteamNetwork>();
+    TransportOptions Options = TestPorts(47950);
+    Options.Sim = {200, 0, 0};
+    GameSocket HostGame(Options.GamePort);
+    GameSocket ClientGame(0);
+    REQUIRE(HostGame.Bound);
+
+    Transport Host(Network->Account(kHostId), Options);
+    Transport Client(Network->Account(kClientId), Options);
+    REQUIRE(Host.StartHost());
+    REQUIRE(Client.StartClient(kHostId));
+    REQUIRE(WaitFor([&] { return Client.Stats().State == TransportState::Connected; }));
+    REQUIRE(Exchange(ClientGame, Options.ClientPort, "erstes", HostGame) == "erstes");
+    // Exchange sendet alle 10 ms, weitere Kopien liegen noch in der Verzögerung.
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    while (!HostGame.Receive().empty()) {}
+
+    // Hin und zurück: je Seite 100 ms.
+    const auto Start = std::chrono::steady_clock::now();
+    ClientGame.SendTo(Options.ClientPort, "ping");
+    REQUIRE(HostGame.WaitReceive() == "ping");
+    HostGame.Reply("pong");
+    REQUIRE(ClientGame.WaitReceive() == "pong");
+    const auto RoundTrip = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - Start);
+    CHECK(RoundTrip.count() >= 195);
+    CHECK(RoundTrip.count() < 1000);
+
+    REQUIRE(WaitFor([&] { return Host.ControlPeers().size() == 1; }));
+    const Protocol::Control Value{1, 1, 1, 9, {4, 2}};
+    const auto Sent = std::chrono::steady_clock::now();
+    REQUIRE(Host.SendControl(Host.ControlPeers()[0], Value));
+    std::vector<ControlMessage> Got;
+    REQUIRE(WaitFor([&] { Got = Client.TakeControlMessages(); return !Got.empty(); }));
+    const auto OneWay = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - Sent);
+    CHECK(Got[0].Value == Value);
+    CHECK(OneWay.count() >= 95);
+}
+
 TEST_CASE("Kontrollkanal funktioniert ohne Spieladresse und bleibt von UDP getrennt")
 {
     auto Network = std::make_shared<FakeSteamNetwork>();

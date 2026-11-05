@@ -200,6 +200,33 @@ Für eine reproduzierbare Karte vor dem Öffnen der Routenkarte `Send-Command.ps
 Das Pausemenü (`Esc`) hat „Zurück zum Hauptmenü“ bei (396, 266). Mit `!finish` endet die Mission beim Host, danach kommt die Routenkarte für Tag 2.
 Über die echte Route laden Tag 1 bis 4 sauber, an Tag 5 stürzt der Client ab, siehe [Pausierte Welt und Busplatz](GAME_ANALYSIS.md#pausierte-welt-und-busplatz-testumgebung). Eine `servertravel`-Schleife ersetzt die echte Route dabei nicht.
 
+### Latenz simulieren
+
+Auf einem PC läuft alles über Loopback mit 0 ms, über das Internet sind 40 bis 150 ms und Verluste normal. Der Tunnel der Mod kann
+Ping, Schwankung und Paketverlust simulieren, Einzelheiten in [Netzsimulation](../src/Net/README.md#netzsimulation-latenz-test):
+
+```bash
+powershell -ExecutionPolicy Bypass -File tools/spike/Start-Session.ps1 -Mod -Tunnel Lobby -NetProfile Internet -Brief
+```
+
+```bash
+powershell -ExecutionPolicy Bypass -File tools/spike/Run-Route.ps1 -Start -NetProfile Internet -Days 1 -StayLast
+```
+
+| Profil | Ping | Schwankung | Verlust je Richtung |
+|---|---|---|---|
+| `Internet` | 120 ms | ±30 ms | 2 % |
+| `Schlecht` | 250 ms | ±80 ms | 5 % |
+| eigene Werte, etwa `80,10,1` | 80 ms | ±10 ms | 1 % |
+
+Das Profil wirkt nur im Tunnel der Mod, also mit `-Mod -Tunnel Lobby` oder `-Tunnel Mod`. `Restart-Instance.ps1` übernimmt es aus der
+Sitzung, `Get-Status.ps1 -Brief` zeigt je Instanz die letzte Messzeile aus dem Mod-Log.
+
+**Wann mit Profil:** Abnahmen von Aufgaben, die Zustand zwischen Host und Client abgleichen (Bewegung, Kampf, Gegner, Eingaben,
+Belohnungen, Kontrollnachrichten, Sitzungsende), laufen zusätzlich mit `-NetProfile Internet`. Wer Timing-Fehler sucht, nimmt `Schlecht`.
+Ohne Profil bleiben Tests, die nur Start, Build oder Darstellung auf einer Seite prüfen, und alles, was Zeiten misst, die mit Latenz
+nicht vergleichbar wären. Den Test über echtes Internet zwischen zwei Haushalten ersetzt das Profil nicht.
+
 ## Test auf zwei PCs
 
 Manches lässt sich auf einem PC nicht prüfen: Steam lehnt P2P zum eigenen Konto ab, siehe [Steam-Tunnel](../research/spikes/a-connect/README.md#spike-e-steam-tunnel-tunnel).

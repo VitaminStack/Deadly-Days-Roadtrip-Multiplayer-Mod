@@ -180,7 +180,8 @@ bool TryLoad(LobbyState& Lobby)
         return false;
     }
     Sockets->InitRelayNetworkAccess();
-    const Net::TransportOptions Options;
+    Net::TransportOptions Options;
+    Options.Sim = Net::NetSimFromCommandLine(GetCommandLineW());
     Lobby.Session = std::make_unique<Net::Session>(
         Api, [Sockets, Options] { return std::make_shared<Net::Transport>(Sockets, Options); },
         Net::SessionHooks{BecomeListenServer, ConnectToLocalPort, Disconnect, GameConnectedToHost}, Options);

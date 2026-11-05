@@ -26,6 +26,8 @@ struct Transport::Link
     uint64_t Peer = 0;
     ULONGLONG HandshakeStarted = 0;
     uint64_t PacketsToSteam = 0, BytesToSteam = 0, PacketsFromSteam = 0, BytesFromSteam = 0, Dropped = 0;
+    // Nur mit TransportOptions::Sim, ausgehende Richtung.
+    std::shared_ptr<NetSimQueue> Sim;
 };
 
 namespace
@@ -169,6 +171,8 @@ bool Transport::Begin(Mode RoleIn, uint64_t Remote)
         WSACleanup();
         return false;
     }
+    if (Options.Sim.Enabled())
+        Core::Log::Warn("Netzsimulation aktiv, nur für Tests: {}", Describe(Options.Sim));
     Active = true;
     Worker = std::thread(&Transport::Run, this);
     return true;
@@ -211,6 +215,7 @@ bool Transport::Open(Mode RoleIn, uint64_t Remote)
     Link Entry;
     Entry.Connection = Connection;
     Entry.Udp = Udp;
+    AttachSim(Entry);
     Links->push_back(Entry);
     Core::Log::Info("Transport: Client verbindet über {}, Spiel auf UDP {}", RoleIn == Mode::ClientP2P ? "P2P" : "127.0.0.1",
                     Options.ClientPort);
@@ -346,6 +351,7 @@ void Transport::HandleChanges()
             }
             NewLink.GameAddress = LoopbackUdp(Options.GamePort);
             NewLink.HasGameAddress = true;
+            AttachSim(NewLink);
             Links->push_back(NewLink);
             Core::Log::Info("Transport: eingehende Verbindung angenommen, {} Client(s)", Links->size());
         }
@@ -409,13 +415,11 @@ void Transport::Pump(Link& Entry)
         }
         const auto Bytes = Protocol::Encode(Protocol::Kind::Game,
             {reinterpret_cast<const uint8_t*>(Buffer), static_cast<size_t>(Size)});
-        if (!Sockets->Send(Entry.Connection, Bytes))
-        {
-            ++Entry.Dropped;
-            continue;
-        }
-        ++Entry.PacketsToSteam;
-        Entry.BytesToSteam += Size;
+        // Mit Netzsimulation geht das Paket erst in FlushSim an Steam, oder gar nicht.
+        if (Entry.Sim)
+            Entry.Sim->Push(GetTickCount64(), Bytes, false);
+        else
+            SendGame(Entry, Bytes);
     }
     // Steam -> Spiel
     if (!Entry.Connected || Entry.Rejected)
@@ -423,6 +427,39 @@ void Transport::Pump(Link& Entry)
     Sockets->Receive(Entry.Connection, 64, [this, &Entry](std::span<const uint8_t> Message) {
         if (!Entry.Rejected && !ReceiveFrame(Entry, Message))
             Reject(Entry, "Ungueltige oder inkompatible Kontrollnachricht");
+    });
+}
+
+void Transport::AttachSim(Link& Entry)
+{
+    if (Options.Sim.Enabled())
+        Entry.Sim = std::make_shared<NetSimQueue>(Options.Sim, static_cast<uint32_t>(GetTickCount64()) ^ Entry.Connection);
+}
+
+void Transport::SendGame(Link& Entry, std::span<const uint8_t> Bytes)
+{
+    if (!Sockets->Send(Entry.Connection, Bytes))
+    {
+        ++Entry.Dropped;
+        return;
+    }
+    ++Entry.PacketsToSteam;
+    // Ohne den Rahmen des Tunnels, wie bisher.
+    if (const auto Frame = Protocol::Decode(Bytes))
+        Entry.BytesToSteam += Frame->Payload.size();
+}
+
+void Transport::FlushSim(Link& Entry, uint64_t NowMs)
+{
+    if (!Entry.Sim)
+        return;
+    Entry.Sim->PopReady(NowMs, [this, &Entry](std::span<const uint8_t> Bytes, bool Reliable) {
+        if (Entry.Rejected)
+            return;
+        if (!Reliable)
+            SendGame(Entry, Bytes);
+        else if (!Sockets->SendReliable(Entry.Connection, Bytes))
+            Reject(Entry, "Kontrollnachricht konnte nicht gesendet werden");
     });
 }
 
@@ -547,11 +584,19 @@ void Transport::Run()
             std::lock_guard Guard(ControlLock);
             Pending.swap(Outgoing);
         }
+        const uint64_t SimNow = GetTickCount64();
         for (const auto& Item : Pending)
             for (Link& Entry : *Links)
-                if (Entry.Peer == Item.Peer && Entry.Ready && !Entry.Rejected &&
-                    !Sockets->SendReliable(Entry.Connection, Item.Bytes))
+            {
+                if (Entry.Peer != Item.Peer || !Entry.Ready || Entry.Rejected)
+                    continue;
+                if (Entry.Sim)
+                    Entry.Sim->Push(SimNow, Item.Bytes, true);
+                else if (!Sockets->SendReliable(Entry.Connection, Item.Bytes))
                     Reject(Entry, "Kontrollnachricht konnte nicht gesendet werden");
+            }
+        for (Link& Entry : *Links)
+            FlushSim(Entry, SimNow);
         std::vector<uint32_t> Rejected;
         for (const Link& Entry : *Links)
             if (Entry.Rejected)
@@ -574,6 +619,11 @@ void Transport::Run()
                                 "Pakete/{} B, verworfen {}",
                                 Snapshot.Connections, Snapshot.PingMs, Snapshot.Quality, Snapshot.PacketsToSteam,
                                 Snapshot.BytesToSteam, Snapshot.PacketsFromSteam, Snapshot.BytesFromSteam, Snapshot.Dropped);
+            // Gemessene Werte der Simulation seit der letzten Zeile, ausgehende Richtung dieser Instanz.
+            for (Link& Entry : *Links)
+                if (Entry.Sim && Entry.Ready)
+                    Core::Log::Info("Netzsimulation: {}, Steam-Ping {} ms", Describe(Entry.Sim->TakeStats()),
+                                    Snapshot.PingMs);
         }
     }
 }

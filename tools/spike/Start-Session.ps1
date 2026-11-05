@@ -35,7 +35,10 @@ param(
     [ValidateSet('Release', 'Debug')]
     [string]$Configuration = 'Release',
     # Kurze Ausgabe: Zeit je Schritt und eine Zeile je Instanz, ohne Build-, Injektions- und Zustandsdetails.
-    [switch]$Brief
+    [switch]$Brief,
+    # Simulierte Latenz im Tunnel der Mod: Internet (120 ms +-30, 2 % Verlust), Schlecht oder "Ping,Schwankung,Verlust".
+    # Braucht -Mod mit -Tunnel Lobby oder Mod. Profile in Common.ps1, Messwerte im Mod-Log ("Netzsimulation:").
+    [string]$NetProfile
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Common.ps1')
@@ -45,6 +48,8 @@ if ($Role -ne 'Both' -and $Tunnel -eq 'Ip') { throw '-Tunnel Ip verbindet nur au
 if ($Tunnel -in 'Mod', 'Lobby' -and -not $Mod) { throw "-Tunnel $Tunnel braucht -Mod." }
 if ($Tunnel -eq 'Lobby' -and $Role -eq 'Client' -and $Peer -notmatch '^\d{1,20}$') { throw '-Tunnel Lobby mit -Role Client braucht -Peer mit der Lobby-ID aus der Ausgabe des Hosts.' }
 if ($Tunnel -eq 'Mod' -and $Role -eq 'Client' -and $Peer -notmatch '^\d{17}$') { throw '-Tunnel Mod mit -Role Client braucht -Peer mit der SteamID64 des Hosts.' }
+$NetSim = Resolve-NetProfile $NetProfile
+if ($NetSim -and $Tunnel -notin 'Mod', 'Lobby') { throw '-NetProfile wirkt nur im Tunnel der Mod: -Mod mit -Tunnel Lobby oder Mod.' }
 $Timer = [Diagnostics.Stopwatch]::StartNew()
 function Write-Step([string]$Text) { Write-Host ('[{0,4:n0} s] {1}' -f $Timer.Elapsed.TotalSeconds, $Text) }
 Initialize-SessionDir
@@ -72,7 +77,7 @@ catch {
     Exit-SessionLock
     throw
 }
-Write-Step 'Build fertig'
+Write-Step $(if ($NetSim) { "Build fertig, Netzprofil $NetSim (Ping, Schwankung, Verlust)" } else { 'Build fertig' })
 
 $Guard = Start-Process powershell -WindowStyle Hidden -PassThru -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$(Join-Path $PSScriptRoot 'CrashGuard.ps1')`""
 Start-Sleep -Seconds 1
@@ -95,6 +100,7 @@ function Get-TransportArgument([string]$Name) {
 function Start-Instance([string]$Name, [int]$X) {
     $UserDir = Join-Path $script:SessionDir "ud_$Name"
     $Arguments = @('-windowed', '-ResX=800', '-ResY=450', "-WinX=$X", '-WinY=0', '-nosplash', "-UserDir=`"$UserDir`"") + (Get-TransportArgument $Name)
+    if ($NetSim) { $Arguments += "-ddcoop_netsim=$NetSim" }
     Start-Process $Exe -PassThru -ArgumentList $Arguments
 }
 # Wartet auf eine Zeile im Log der Mod, liefert sie oder $null.
@@ -140,7 +146,7 @@ $LocalIds = @($Local | ForEach-Object { $_.Id })
 # Die Rolle, die auf einem anderen PC laeuft, steht mit Prozess-ID 0 in der Sitzung.
 $HostId = if ($GameHost) { $GameHost.Id } else { 0 }
 $ClientId = if ($Client) { $Client.Id } else { 0 }
-@{ Host = $HostId; Client = $ClientId; Role = $Role; Guard = $Guard.Id; Mod = [bool]$Mod; Tunnel = $Tunnel; Map = $Map; Started = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() } | ConvertTo-Json |
+@{ Host = $HostId; Client = $ClientId; Role = $Role; Guard = $Guard.Id; Mod = [bool]$Mod; Tunnel = $Tunnel; NetSim = $NetSim; Map = $Map; Started = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() } | ConvertTo-Json |
     Set-Content (Join-Path $script:SessionDir 'session.json') -Encoding ascii
 Write-SessionLock $HostId $ClientId | Set-Content $script:LockFile -Encoding ascii
 
