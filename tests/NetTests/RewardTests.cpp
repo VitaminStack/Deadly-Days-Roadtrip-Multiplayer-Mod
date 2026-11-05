@@ -54,6 +54,21 @@ TEST_CASE("Reward choice is exact and bounded")
     CHECK_FALSE(DecodeChoice(std::span(Bytes).first(16)));
 }
 
+TEST_CASE("Reward placement round-trips and is bounded")
+{
+    const Placement Value{5, 1, -2, 3, {{0, 1}, {1, 1}, {-1, 7}}};
+    const auto Bytes = Encode(Value);
+    REQUIRE(Bytes.size() == 21 + 3 * 8);
+    CHECK(DecodePlacement(Bytes) == Value);
+    CHECK_FALSE(DecodePlacement(std::span(Bytes).first(Bytes.size() - 1)));
+    CHECK(Encode(Placement{0, 0, 0, 0, {{0, 0}}}).empty());
+    CHECK(Encode(Placement{5, 0, 0, 0, {}}).empty());
+    CHECK(Encode(Placement{5, 0, 0, 0, std::vector<std::pair<int32_t, int32_t>>(MaxSlots + 1)}).empty());
+    auto Bad = Bytes;
+    Bad[20] = 0;
+    CHECK_FALSE(DecodePlacement(Bad));
+}
+
 TEST_CASE("Reward names are clipped on UTF-8 boundaries")
 {
     std::string Long(MaxName - 1, 'a');

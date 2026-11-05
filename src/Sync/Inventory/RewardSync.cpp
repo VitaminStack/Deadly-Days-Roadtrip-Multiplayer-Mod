@@ -65,13 +65,25 @@ Reward::Offer ToWire(const std::optional<Game::Rewards::Offer>& Value)
 void TickHost(Net::Transport& Transport, std::span<const Net::ControlMessage> Messages)
 {
     for (const auto& Message : Messages)
-        if (Message.Peer == R.Peer && Message.Value.Type == Reward::ChoiceType)
+    {
+        if (Message.Peer != R.Peer)
+            continue;
+        if (Message.Value.Type == Reward::ChoiceType)
+        {
             if (const auto Choice = Reward::DecodeChoice(Message.Value.Payload))
             {
                 if (!Game::Rewards::ClaimForClient(Choice->Session, Choice->Revision, Choice->Index))
                     Core::Log::Warn("Airdrop-Auswahl: Wahl {} für Sitzung {} passt nicht mehr, verworfen", Choice->Index, Choice->Session);
                 R.NextResend = 0; // neues Bild sofort
             }
+        }
+        else if (Message.Value.Type == Reward::PlacementType)
+        {
+            if (const auto Value = Reward::DecodePlacement(Message.Value.Payload))
+                if (!Game::Rewards::PlaceForClient(Value->Session, {Value->Turns, Value->PivotX, Value->PivotY, Value->Slots}))
+                    Core::Log::Warn("Airdrop-Auswahl: Ablage für Sitzung {} nicht übernommen, Wahl bleibt im Lager", Value->Session);
+        }
+    }
     const auto Offer = ToWire(Game::Rewards::ReadOffer());
     const uint64_t Now = NowMs();
     if (!R.Sent || *R.Sent != Offer || Now >= R.NextResend)
@@ -104,6 +116,13 @@ void TickClient(Net::Transport& Transport, std::span<const Net::ControlMessage> 
                 R.Latest = std::move(*Offer);
                 R.LatestAt = NowMs();
             }
+    // Ablage im Rucksack kommt erst nach dem Schließen des Panels, auch wenn der Host die Sitzung schon beendet hat.
+    if (const auto Placed = Game::Rewards::TakeClientPlacement(); Placed && R.Chosen.Session)
+    {
+        const Reward::Placement Value{R.Chosen.Session, Placed->Turns, Placed->PivotX, Placed->PivotY, Placed->Slots};
+        if (Send(Transport, Reward::PlacementType, Reward::Encode(Value)))
+            Core::Log::Info("Airdrop-Auswahl: Ablage im Rucksack ({} Felder) an den Host gesendet", Value.Slots.size());
+    }
     // Ohne frisches Bild (Verbindung weg, Host ohne Mod-Sitzung) keine Auswahl anzeigen.
     if (!R.Latest || !R.Latest->Session || NowMs() - R.LatestAt > 5000)
     {

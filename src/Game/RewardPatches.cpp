@@ -83,6 +83,12 @@ struct
     std::optional<uint32_t> ClientPick;
     uintptr_t HeldPanel = 0;
 } Host;
+// Host: zuletzt für den Client angelegte Wahl, bis seine Ablage im Rucksack kommt (auch nach Ende der Sitzung).
+struct
+{
+    uint64_t Session = 0;
+    uintptr_t Item = 0, Inventory = 0;
+} ClientItem;
 
 // Client: Anzeige der Host-Choices im nativen Panel, nur lokale Instanzen. Das Inventar arbeitet über Server-RPCs;
 // mit einer lokalen Instanz bekäme der Host einen Null-Zeiger (Absturz in AddToBackpack). Die Mod hält solche RPCs
@@ -100,6 +106,11 @@ std::atomic<bool> ClientShowing = false;
 // bleiben deshalb noch eine Weile gefiltert.
 std::vector<uintptr_t> Stale;
 ULONGLONG StaleUntil = 0;
+// Client: gewählte lokale Instanz und ihre Ablage aus OccupyBackpackSlots/ForceEquipItemInBackpack.
+uintptr_t PickedItem = 0, PlacedItem = 0;
+std::optional<Game::Rewards::Placement> PickedPlacement;
+constexpr uintptr_t ItemPivotTile = 0x28, ItemTurns = 0xD8, SlotCoordinates = 0x28;
+constexpr size_t MaxSlots = 32;
 constexpr uint32_t FuncNet = 0x40;
 constexpr uintptr_t FunctionFlags = 0xB0, FunctionParmsSize = 0xB6;
 
@@ -311,6 +322,12 @@ void DropLocal()
     }
     if (Kept != Count)
         Memory::WriteBytes(Array + 8, &Kept, sizeof(Kept));
+    if (Shown.Pick && *Shown.Pick < Shown.Items.size())
+    {
+        PickedItem = Shown.Items[*Shown.Pick];
+        if (PlacedItem != PickedItem)
+            PickedPlacement.reset();
+    }
     if (!Shown.Items.empty())
     {
         Stale = Shown.Items;
@@ -446,6 +463,34 @@ bool NullItemRpc(uintptr_t Function, void* Params)
     return false;
 }
 
+// Client: Ablage einer Choice im Rucksack aus OccupyBackpackSlots (Item, Slots) oder ForceEquipItemInBackpack
+// (Item, CenterPosition, Slots) merken. Drehung und Pivot stehen da schon in der lokalen Instanz.
+void RememberPlacement(const std::string& Name, uintptr_t Params)
+{
+    const uintptr_t SlotsAt = Name == "OccupyBackpackSlots" ? 0x8 : Name == "ForceEquipItemInBackpack" ? 0x18 : 0;
+    const uintptr_t Item = SlotsAt ? Pointer(Params) : 0;
+    if (!Item)
+        return;
+    const uintptr_t Data = Pointer(Params + SlotsAt);
+    const int32_t Count = Memory::Read<int32_t>(Params + SlotsAt + 8).value_or(0);
+    if (!Data || Count <= 0 || Count > static_cast<int32_t>(MaxSlots))
+        return;
+    Game::Rewards::Placement Value;
+    Value.Turns = Memory::Read<int32_t>(Item + ItemTurns).value_or(0);
+    Value.PivotX = Memory::Read<int32_t>(Item + ItemPivotTile).value_or(0);
+    Value.PivotY = Memory::Read<int32_t>(Item + ItemPivotTile + 4).value_or(0);
+    for (int32_t i = 0; i < Count; ++i)
+    {
+        const uintptr_t Slot = Pointer(Data + 8 * i);
+        if (!Slot)
+            return;
+        Value.Slots.emplace_back(Memory::Read<int32_t>(Slot + SlotCoordinates).value_or(0), Memory::Read<int32_t>(Slot + SlotCoordinates + 4).value_or(0));
+    }
+    Core::Log::Info("Airdrop-Auswahl: Ablage im Rucksack gemerkt, {} Felder, Drehung {}", Value.Slots.size(), Value.Turns);
+    PlacedItem = Item;
+    PickedPlacement = std::move(Value);
+}
+
 bool FilterRewardEvent(uintptr_t Object, uintptr_t Function, void* Params)
 {
     if (CurrentRole() == NetRole::Host)
@@ -463,7 +508,9 @@ bool FilterRewardEvent(uintptr_t Object, uintptr_t Function, void* Params)
                 Index = i;
         if (!Index && Recent && Value && std::find(Stale.begin(), Stale.end(), Value) != Stale.end())
         {
-            Core::Log::Info("Airdrop-Auswahl: RPC {} mit geschlossener lokaler Choice zurückgehalten", FunctionName(Function));
+            const std::string Name = FunctionName(Function);
+            Core::Log::Info("Airdrop-Auswahl: RPC {} mit geschlossener lokaler Choice zurückgehalten", Name);
+            RememberPlacement(Name, reinterpret_cast<uintptr_t>(Params));
             return true;
         }
     }
@@ -474,6 +521,7 @@ bool FilterRewardEvent(uintptr_t Object, uintptr_t Function, void* Params)
     Core::Log::Info("Airdrop-Auswahl: RPC {} mit lokaler Choice {} zurückgehalten{}", Name, *Index, Placed && !Shown.Taken ? ", gilt als Wahl" : "");
     if (Placed && !Shown.Taken)
         Shown.Taken = Index;
+    RememberPlacement(Name, reinterpret_cast<uintptr_t>(Params));
     (void)Object;
     return true;
 }
@@ -545,7 +593,57 @@ bool ClaimForClient(uint64_t SessionId, uint64_t Expected, uint32_t Index)
     if (!Add.Result)
         return false;
     Host.ClientPick = Index;
+    ClientItem = {Host.Session, Add.Result, Inventory};
     return true;
+}
+
+bool PlaceForClient(uint64_t SessionId, const Placement& Value)
+{
+    if (CurrentRole() != NetRole::Host || !SessionId || SessionId != ClientItem.Session || !Alive(ClientItem.Item) ||
+        !Alive(ClientItem.Inventory) || Value.Slots.empty() || Value.Slots.size() > MaxSlots)
+        return false;
+    static uintptr_t TryGet = 0, AddToBackpack = 0, Occupy = 0;
+    if (!Function(TryGet, "TryGetSlotWithCoordinates", "InventoryComponent") || !Function(AddToBackpack, "AddToBackpack", "InventoryComponent") ||
+        !Function(Occupy, "OccupyBackpackSlots", "InventoryComponent"))
+        return false;
+    std::vector<uintptr_t> Slots;
+    for (const auto& [X, Y] : Value.Slots)
+    {
+        struct
+        {
+            int32_t X, Y;
+            uintptr_t Slot;
+            bool Found;
+            uint8_t Pad[7];
+        } Params{X, Y, 0, false, {}};
+        static_assert(sizeof(Params) == 0x18);
+        Objects::ProcessEvent(ClientItem.Inventory, TryGet, &Params);
+        if (!Params.Found || !Params.Slot || Pointer(Params.Slot + 0x30))
+        {
+            Core::Log::Warn("Airdrop-Auswahl: Feld ({}, {}) im Rucksack des Clients {}, Wahl bleibt im Lager", X, Y, Params.Slot ? "belegt" : "fehlt");
+            return false;
+        }
+        Slots.push_back(Params.Slot);
+    }
+    const auto [Session, Item, Inventory] = std::exchange(ClientItem, {});
+    (void)Session;
+    // Wie das Panel beim Client: Drehung und Pivot an der Instanz, dann AddToBackpack und OccupyBackpackSlots. Beim
+    // Host laufen die Server-RPCs direkt, Turns und ZeroPivotTile replizieren.
+    Memory::WriteBytes(Item + ItemTurns, &Value.Turns, sizeof(Value.Turns));
+    const int32_t Pivot[2]{Value.PivotX, Value.PivotY};
+    Memory::WriteBytes(Item + ItemPivotTile, Pivot, sizeof(Pivot));
+    uintptr_t AddParams = Item;
+    Objects::ProcessEvent(Inventory, AddToBackpack, &AddParams);
+    struct
+    {
+        uintptr_t Item;
+        ItemArray Slots;
+    } OccupyParams{Item, {Slots.data(), static_cast<int32_t>(Slots.size()), static_cast<int32_t>(Slots.size())}};
+    static_assert(sizeof(OccupyParams) == 0x18);
+    Objects::ProcessEvent(Inventory, Occupy, &OccupyParams);
+    const bool InBackpack = Memory::Read<uint8_t>(Item + ItemInBackpack).value_or(0) != 0;
+    Core::Log::Info("Airdrop-Auswahl: Wahl des Clients in seinen Rucksack gelegt, {} Felder, im Rucksack={}", Slots.size(), InBackpack);
+    return InBackpack;
 }
 
 // Kisten laufen über die RewardQueue der öffnenden Figur. Das Panel bestätigt nur in der Queue des Hosts
@@ -675,5 +773,13 @@ std::optional<uint32_t> TakeClientPick()
         }
     }
     return std::exchange(Shown.Pick, std::nullopt);
+}
+
+std::optional<Placement> TakeClientPlacement()
+{
+    if (!PickedItem || PlacedItem != PickedItem || !PickedPlacement)
+        return std::nullopt;
+    PickedItem = PlacedItem = 0;
+    return std::exchange(PickedPlacement, std::nullopt);
 }
 }

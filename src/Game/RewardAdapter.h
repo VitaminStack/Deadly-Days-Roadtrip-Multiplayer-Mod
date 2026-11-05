@@ -54,4 +54,17 @@ void CloseForClient();
 
 // Client: Index der im Panel bestätigten Choice, einmalig nach dem Bestätigen.
 std::optional<uint32_t> TakeClientPick();
+
+// Ablage der gewählten Choice im Rucksack: Drehung, Pivot-Feld und belegte Felder (UBackpackSlot.Coordinates).
+struct Placement
+{
+    int32_t Turns = 0, PivotX = 0, PivotY = 0;
+    std::vector<std::pair<int32_t, int32_t>> Slots;
+};
+
+// Client: Ablage der zuletzt gewählten Choice, einmalig, sobald das Panel sie in den Rucksack gelegt hat.
+std::optional<Placement> TakeClientPlacement();
+
+// Host: Wahl des Clients aus der Sitzung wie beim Client in seinen Rucksack legen. Ohne Ablage bleibt sie im Lager.
+bool PlaceForClient(uint64_t Session, const Placement& Value);
 }

@@ -10,8 +10,8 @@
 // Client zeigt es im nativen Reward-Panel und antwortet nur mit seiner Wahl. Little-Endian, Texte UTF-8 und begrenzt.
 namespace Sync::Reward
 {
-inline constexpr uint16_t OfferType = 0x300, ChoiceType = 0x301;
-inline constexpr size_t MaxChoices = 4, MaxName = 120;
+inline constexpr uint16_t OfferType = 0x300, ChoiceType = 0x301, PlacementType = 0x302;
+inline constexpr size_t MaxChoices = 4, MaxName = 120, MaxSlots = 32;
 
 // Eine Choice: lesbarer Name für Log und Overlay, Objektnamen von UInventoryItemData und URarity, mit denen der Client
 // eine eigene Anzeige-Instanz anlegt.
@@ -147,6 +147,48 @@ inline std::optional<Choice> DecodeChoice(std::span<const uint8_t> In)
         return std::nullopt;
     Choice Value{Detail::Get(In, 0, 8), Detail::Get(In, 8, 8), In[16]};
     if (!Value.Session || !Value.Revision || Value.Index >= MaxChoices)
+        return std::nullopt;
+    return Value;
+}
+
+// Ablage der gewählten Choice im Rucksack des Clients, nach der Wahl. Ohne diese Nachricht bleibt sie im Lager.
+struct Placement
+{
+    uint64_t Session = 0;
+    int32_t Turns = 0, PivotX = 0, PivotY = 0;
+    std::vector<std::pair<int32_t, int32_t>> Slots;
+    bool operator==(const Placement&) const = default;
+};
+
+inline std::vector<uint8_t> Encode(const Placement& Value)
+{
+    if (!Value.Session || Value.Slots.empty() || Value.Slots.size() > MaxSlots)
+        return {};
+    std::vector<uint8_t> Out;
+    Detail::Put(Out, Value.Session, 8);
+    for (const int32_t Field : {Value.Turns, Value.PivotX, Value.PivotY})
+        Detail::Put(Out, static_cast<uint32_t>(Field), 4);
+    Out.push_back(static_cast<uint8_t>(Value.Slots.size()));
+    for (const auto& [X, Y] : Value.Slots)
+    {
+        Detail::Put(Out, static_cast<uint32_t>(X), 4);
+        Detail::Put(Out, static_cast<uint32_t>(Y), 4);
+    }
+    return Out;
+}
+
+inline std::optional<Placement> DecodePlacement(std::span<const uint8_t> In)
+{
+    if (In.size() < 21 || !In[20] || In[20] > MaxSlots || In.size() != 21 + size_t(In[20]) * 8)
+        return std::nullopt;
+    Placement Value;
+    Value.Session = Detail::Get(In, 0, 8);
+    Value.Turns = static_cast<int32_t>(Detail::Get(In, 8, 4));
+    Value.PivotX = static_cast<int32_t>(Detail::Get(In, 12, 4));
+    Value.PivotY = static_cast<int32_t>(Detail::Get(In, 16, 4));
+    for (size_t i = 0; i < In[20]; ++i)
+        Value.Slots.emplace_back(static_cast<int32_t>(Detail::Get(In, 21 + 8 * i, 4)), static_cast<int32_t>(Detail::Get(In, 25 + 8 * i, 4)));
+    if (!Value.Session)
         return std::nullopt;
     return Value;
 }
