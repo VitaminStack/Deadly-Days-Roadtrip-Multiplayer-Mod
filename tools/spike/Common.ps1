@@ -279,3 +279,22 @@ function Join-OverlayLobby([int]$ClientId, [string]$LobbyId, [int]$TimeoutSecond
     } 'Beitritt des Clients' $TimeoutSeconds @($ClientId) 500
     $script:JoinState
 }
+
+# Bringt den Client in die Lobby des Hosts, beide auf diesem PC. Hat der Host keine Lobby oder ist sie weg, erstellt er
+# ueber sein Overlay eine neue. Ein Konto auf einem PC: Verlaesst der Client, loest Steam die Lobby auf (Antwort 2).
+function Join-HostLobby([int]$HostId, [int]$ClientId) {
+    $LobbyId = (Get-OverlayState $HostId).LobbyId
+    if ($LobbyId) {
+        $Joined = Join-OverlayLobby $ClientId $LobbyId
+        if ($Joined.State -eq 'Im Spiel') { return $LobbyId }
+        Write-Host "Beitritt abgelehnt: $($Joined.Message). Host erstellt eine neue Lobby."
+        if ((Get-OverlayState $HostId).CanLeave) {
+            Invoke-OverlayAction $HostId Leave
+            Wait-Condition { (Get-OverlayState $HostId).CanCreate } 'Host wieder frei' 20 @($HostId) 500
+        }
+    }
+    $LobbyId = New-OverlayLobby $HostId
+    $Joined = Join-OverlayLobby $ClientId $LobbyId
+    if ($Joined.State -ne 'Im Spiel') { throw "Beitritt gescheitert: $($Joined.Message)" }
+    $LobbyId
+}
