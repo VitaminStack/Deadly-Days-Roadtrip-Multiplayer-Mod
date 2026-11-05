@@ -1,7 +1,7 @@
 # Client-Darstellung: Projektile, XP-Orbs, Airdrops und Partikeleffekte
 
 Aufgabe `client-visuell`, auf Nutzerwunsch vorgezogen, Build `26187885`.
-**In Arbeit. XP-/Levelanzeige, XP-Bälle und Projektilbewegung sind in der Mod angebunden; Größe, Treffer-/Partikeleffekte und die gesamte visuelle Abnahme sind offen.**
+**Abgeschlossen am 05.11.2026 auf Nutzerentscheidung.** XP-/Levelanzeige, XP-Bälle, Projektilbewegung und Airdrops sind in der Mod angebunden. Größe, Treffer-/Partikeleffekte und Randfälle stehen in `opt-client-visuell`.
 
 ## Umsetzung vom 05.11.2026: XP-Bälle und Projektile beim Client
 
