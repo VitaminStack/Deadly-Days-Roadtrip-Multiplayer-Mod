@@ -91,7 +91,12 @@ Bauen und Testen des Spikes, die Anleitung steht in [docs/TESTING.md](../docs/TE
 | Skript | Aufgabe |
 |---|---|
 | `Build-Spike.ps1` | Baut `spike.dll` |
-| `Start-Session.ps1` | Setzt die Sperre, startet Crash-Schutz, Host und Client, verbindet sie und reist in eine Karte. `-Build` baut den Spike vorher neu, `-Mod` baut und installiert zusätzlich die Mod. `-Role Host` oder `-Role Client -Peer <SteamID>` startet nur eine Seite für den Test auf zwei PCs. `-Mod -Tunnel Mod` verbindet über den Transport der Mod statt über den Spike, `-Mod -Tunnel Lobby` über die Steam-Lobby der Mod |
+| `Start-Session.ps1` | Setzt die Sperre, startet Crash-Schutz, Host und Client parallel, verbindet sie und reist in eine Karte. Wartet auf Zustände statt fest zu schlafen und nennt die Zeit je Schritt (MetaBase etwa 30 bis 40 s). `-Wait <s>` wartet auf eine fremde Sitzung statt abzubrechen. `-Build` baut den Spike vorher neu, `-Mod` baut und installiert zusätzlich die Mod. `-Role Host` oder `-Role Client -Peer <SteamID>` startet nur eine Seite für den Test auf zwei PCs. `-Mod -Tunnel Mod` verbindet über den Transport der Mod statt über den Spike, `-Mod -Tunnel Lobby` über die Steam-Lobby der Mod, erstellt und betreten über das Overlay |
+| `Restart-Instance.ps1` | Startet nur den Client neu und verbindet ihn wieder, der Host läuft weiter (etwa 20 s statt eines vollen Neustarts) |
+| `Overlay.ps1` | Bedient das Overlay der Mod ohne Maus: `status`, `create`, `join [<id>]`, `leave`, `invite`. `-Json` für Skripte |
+| `Watch-Net.ps1` | Zeigt Änderungen an Overlay, Prozess und Mod-Log (Sitzung, Transport, Lobby, Welt) beider Instanzen mit Zeit, `-Until <Muster>` endet beim ersten Treffer |
+| `Test-NetEnd.ps1` | Prüft Sitzungsende ohne Handarbeit: Host und Client verlassen, Client und Host hart beendet, Neubeitritt. Zeit bis zur Meldung, Bericht unter `research/local/` |
+| `Guided-Test.ps1` | Führt einen Menschen durch Schritte im Spiel und hält Dauer, Mod-Logs, Overlay, Abstürze und mit `-Shots` Bilder fest. Schrittdateien in `spike/guided/`, siehe [Testen](../docs/TESTING.md#spielzeit-sparen) |
 | `Test-TwoPc.ps1` | Test auf zwei PCs über Steam-P2P, je PC eine Rolle: verbinden, Run bis in die Mission an Tag 1, messen, Tunnel-Bericht |
 | `tunnel_report.py` | Fasst die Tunnel-Zeilen eines Spike-Logs zusammen: Ping, Pakete, Qualität, Route, Abbrüche; SteamIDs und IPs maskiert |
 | `Send-Command.ps1` | Schickt einen Befehl an `Host` oder `Client` und zeigt das Log |

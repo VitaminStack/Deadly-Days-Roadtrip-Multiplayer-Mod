@@ -1,0 +1,8 @@
+# Sitzungsende mit Mensch und Skript gemischt. Start: Guided-Test.ps1 -Steps tools\spike\guided\net-ende.txt -Start
+> Overlay.ps1 Host status
+Im Client-Fenster F8 drücken und das Overlay ansehen | „Im Spiel“, „Verbunden mit dem Host“, Ping in ms
+> Overlay.ps1 Host leave
+Client-Fenster ansehen, Overlay mit F8 öffnen | Hauptmenü, Overlay „Der Host hat die Sitzung verlassen“
+> Overlay.ps1 Host create
+> Overlay.ps1 Client join
+Mit beiden Figuren in der MetaBase ein paar Schritte laufen | Beide Figuren bewegen sich in beiden Fenstern gleich

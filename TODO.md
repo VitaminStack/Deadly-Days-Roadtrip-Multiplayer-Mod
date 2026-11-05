@@ -46,7 +46,7 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `xp-baelle` | P1 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `installer` | P1 | [6](#phase-6--release) | parallel | keine |
 | `weekly-sperre` | P1 | [6](#phase-6--release) | parallel | wenig |
-| `test-tempo` | P1 | [Wartung](#wartung) | parallel | wenig |
+| `mod-steuerung` | P1 | [Wartung](#wartung) | parallel | wenig |
 | `doku-verweise` | P2 | [Wartung](#wartung) | parallel | keine |
 
 **Wartet auf das Team:** `meta-fortschritt`, `spiel-update`.
@@ -193,7 +193,7 @@ Zählt nicht zum Fortschritt.
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
 | `doku-verweise` | P2 | Veraltete Querverweise verhindern: `task_status.py check` meldet Sätze wie „folgt mit“, „kommt mit“ oder „bis `<kennung>`“, deren Kennung schon erledigt ist. Dabei die bekannten Stellen korrigieren: Overlay-Absatz in [Testen](docs/TESTING.md#mod-overlay-prüfen) (Lobby-Knöpfe), Phase-3-Satz im [README](README.md), „Das kommt mit `steam-lobby`“ in [Net](src/Net/README.md), Welle 2 in der [Roadmap](docs/ROADMAP.md), und im Abschnitt [Test auf zwei PCs](docs/TESTING.md#test-auf-zwei-pcs) den Weg über `-Tunnel Lobby` ergänzen. **Fertig, wenn** die Prüfung in der CI läuft und auf `main` nichts meldet | – | parallel | keine |
-| `test-tempo` | P1 | Spielzeit sparen: `Start-Session.ps1` wartet auf Zustände statt fest zu schlafen und überspringt unnötige Reisen, wartet mit `-Wait` auf eine fremde Sitzung statt abzubrechen, startet mit `Restart-Instance.ps1` nur eine Instanz neu. Netzwerkzeuge für Overlay und Sitzungsende (`Overlay.ps1`, `Watch-Net.ps1`, `Test-NetEnd.ps1`) und `Guided-Test.ps1`, mit dem ein Mensch Schritte im Spiel schnell abarbeitet, während das Skript Zeiten, Logs und Abstürze festhält. **Fertig, wenn** ein Sitzungsstart messbar kürzer ist, die Fälle aus [Im Spiel (05.11.2026)](src/Net/README.md#im-spiel-05112026) ohne Handarbeit durchlaufen und ein geführter Test einen Bericht schreibt. **Einstieg:** [tools/spike](tools/README.md), [Testen](docs/TESTING.md) | – | parallel | wenig |
+| `mod-steuerung` | P1 | Steuerkanal in der Mod für Testskripte: Befehle mit Antwort über eine lokale Named Pipe je Prozess, nur mit Testschalter aktiv. Mindestens Zustand als JSON (Welt, Rolle, Spieler, Sitzung, Overlay), Lobby erstellen, beitreten, verlassen, Konsolenbefehl und Reise. Ersetzt die Befehlsdatei des Spikes (`Send-SpikeCommand`, eine Sekunde Abfrage, keine Antwort) und das Auslesen per `netstate.py` und Overlay-Fenster. **Fertig, wenn** `Start-Session.ps1`, `Restart-Instance.ps1` und `Test-NetEnd.ps1` ohne Spike-Befehle auskommen und gleich schnell oder schneller sind. **Einstieg:** [Spielzeit sparen](docs/TESTING.md#spielzeit-sparen), `tools/spike/Common.ps1` | `test-tempo` | parallel | wenig |
 | `spiel-update` | P2 | Nur wenn das Team einen neuen Spiel-Build beschließt: Offsets, Signaturen und Patches anpassen. Betrifft alles auf einmal, alle Spieltests warten darauf. **Einstieg:** [Update-Regel](CONTRIBUTING.md#spiel-updates) | – | Team | viel |
 
 ## Optionale Optimierungen
@@ -280,6 +280,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `sync-bedarf` | 1 | Sync-Weg für XP, Währungen, Rewards, Pausen und UI als Entwurf festgelegt, siehe [Sync-Bedarf](docs/SYNC_REQUIREMENTS.md) |
 | `team-aufteilung` | 0 | Keine festen Bereiche je Person und kein `CODEOWNERS`, die Arbeit teilt sich über `tools/tasks.py` |
 | `telemetrie-aus` | 6 | Die Mod schaltet Balance-Telemetrie und automatische Spielstand-Berichte ab und sperrt die Namensauflösung für `codecks.io` und `pixelsplit.games` (`Game::TelemetryAdapter`, `Core::ReportHosts`), siehe [Telemetrie und Berichte](docs/GAME_ANALYSIS.md#telemetrie-und-berichte-telemetrie-aus) |
+| `test-tempo` | Wartung | Sitzungsstart wartet auf Zustände statt fest zu schlafen (Lobby 28 s statt 220 s, direkt 42 s statt 100 s), `-Wait`, Einzelneustart des Clients, Netzwerkzeuge mit `Test-NetEnd.ps1` (Fälle a bis e in 58 s) und `Guided-Test.ps1` für Tests mit Menschen, siehe [Spielzeit sparen](docs/TESTING.md#spielzeit-sparen) |
 | `testaufbau` | 1 | Zwei Instanzen auf einem PC unter demselben Steam-Konto, je mit eigenem `-UserDir=` |
 | `testumgebung` | 1 | Tag 1 bis 4 laden sauber mit Spawn am Bus und je 2 PlayerStates, Prüfskript und fester Routenlauf, siehe [Pausierte Welt und Busplatz](docs/GAME_ANALYSIS.md#pausierte-welt-und-busplatz-testumgebung) |
 | `tick-absturz` | 1 | Restrictor-Absturz `0x5A17ACC` nachgestellt, Laufzeitfix ist `restrictor`, siehe [Restrictor](docs/GAME_ANALYSIS.md#client-absturz-im-restrictor-tick-absturz) |

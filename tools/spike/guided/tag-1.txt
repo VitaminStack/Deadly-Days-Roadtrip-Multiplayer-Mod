@@ -1,0 +1,6 @@
+# Ein Tag Mission von Hand gespielt, schneller als per Skript. Start: Guided-Test.ps1 -Steps tools\spike\guided\tag-1.txt -Start -Shots
+Im Host-Fenster mit der Figur in den Startring links neben dem Bus laufen und den Run starten | Routenkarte in beiden Fenstern
+Auf der Routenkarte den ersten Missionsknoten wählen | Beide Fenster laden die Mission, beide Figuren am Bus
+Etwa zwei Minuten spielen, mit beiden Figuren Gegner treffen | Gegner, Treffer, XP-Bälle und Level-up bei beiden sichtbar
+Die Mission bis zum Ende spielen oder im Host-Fenster mit F8 nichts tun und warten, bis der Tag endet | Lager oder Rundenende bei beiden
+> Get-Status.ps1 -Inventory
