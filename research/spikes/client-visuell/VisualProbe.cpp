@@ -2,6 +2,8 @@
 // 1: Nur beim Host Bewegungsreplikation existierender Projektile einschalten.
 // Keine neuen Actors, kein Schaden und keine XP-Vergabe. Kein Hot-Unload.
 #include "../a-connect/Spike.h"
+#include <cstring>
+#include <vector>
 
 #ifndef PROBE_DIR
 #define PROBE_DIR L"ddvisual\\"
@@ -126,6 +128,138 @@ void Perform(int Action)
     if (!Driver || Read<uintptr_t>(Driver + kDriverServerConnection))
     {
         Log("abgelehnt: nur Listen-Host");
+        return;
+    }
+    if (Action == 12 || Action == 13)
+    {
+        // 12: aktuellen Sitzungszustand an offene Inventar-Panels melden, 13: AcknowledgeRewardUIClosed.
+        const uintptr_t Coordinator = State ? Read<uintptr_t>(State + 0x3E0) : 0;
+        if (!Coordinator)
+            return;
+        if (Action == 13)
+        {
+            bool Result = false;
+            Invoke(Coordinator, "CoopInventoryCoordinatorComponent", "AcknowledgeRewardUIClosed", &Result);
+            Log("ack-ui-closed result=" + std::to_string(Result));
+            return;
+        }
+        alignas(16) uint8_t Session[0xF8];
+        memcpy(Session, reinterpret_cast<void*>(Coordinator + 0x170), sizeof(Session)); // flache Kopie, Aufgerufener liest nur
+        const uintptr_t Chunks = Read<uintptr_t>(Base + kGObjects);
+        const int32_t Count = Read<int32_t>(Base + kGObjects + 8);
+        int Notified = 0;
+        for (int32_t i = 0; i < Count; ++i)
+        {
+            const uintptr_t Chunk = Read<uintptr_t>(Chunks + 8 * (i >> 16));
+            const uintptr_t Panel = Chunk ? Read<uintptr_t>(Chunk + (i & 0xffff) * 0x18 + 8) : 0;
+            if (!Panel || Read<uint32_t>(Panel + 8) & 0x30 || !IsA(Panel, "InventoryPanel") || !Read<uintptr_t>(Panel + 0x3C0))
+                continue;
+            Notified += Invoke(Panel, "InventoryPanel", "HandleCoopRewardSessionChanged", Session);
+        }
+        Log("session-changed notified=" + std::to_string(Notified));
+        return;
+    }
+    if (Action == 11)
+    {
+        // Host legt fuer Spieler 1 eine Wahl der wartenden Koop-Sitzung in freie P2-Slots und beansprucht sie.
+        const uintptr_t Coordinator = State ? Read<uintptr_t>(State + 0x3E0) : 0;
+        const uintptr_t Session = Coordinator + 0x170;
+        const uintptr_t Players = State ? Read<uintptr_t>(State + kGameStatePlayerArray) : 0;
+        uintptr_t Pawn = 0;
+        if (!Coordinator || Read<uint8_t>(Session + 0xF0) != 2 || !Players ||
+            !Invoke(Read<uintptr_t>(Players + 8), "PlayerState", "GetPawn", &Pawn) || !Pawn)
+        {
+            Log("transfer-p2: keine wartende Sitzung oder keine P2-Figur");
+            return;
+        }
+        uintptr_t Inventory = 0;
+        const uintptr_t Chunks = Read<uintptr_t>(Base + kGObjects);
+        const int32_t Count = Read<int32_t>(Base + kGObjects + 8);
+        for (int32_t i = 0; i < Count && !Inventory; ++i)
+        {
+            const uintptr_t Chunk = Read<uintptr_t>(Chunks + 8 * (i >> 16));
+            const uintptr_t Object = Chunk ? Read<uintptr_t>(Chunk + (i & 0xffff) * 0x18 + 8) : 0;
+            if (Object && !(Read<uint32_t>(Object + 8) & 0x30) && IsA(Object, "InventoryComponent") && Read<uintptr_t>(Object + 0x220) == Pawn)
+                Inventory = Object;
+        }
+        if (!Inventory)
+        {
+            Log("transfer-p2: kein P2-Inventar");
+            return;
+        }
+        struct Slot { uintptr_t Object; int32_t X, Y; };
+        std::vector<Slot> Free;
+        const uintptr_t SlotData = Read<uintptr_t>(Inventory + 0x100);
+        for (int32_t i = 0; SlotData && i < Read<int32_t>(Inventory + 0x108) && i < 256; ++i)
+        {
+            const uintptr_t S = Read<uintptr_t>(SlotData + 8 * i);
+            if (S && !Read<uintptr_t>(S + 0x30))
+                Free.push_back({S, Read<int32_t>(S + 0x28), Read<int32_t>(S + 0x2C)});
+        }
+        Log("transfer-p2: freie P2-Slots=" + std::to_string(Free.size()));
+        struct Location { uint8_t Type; uint8_t Pad[7]{}; uintptr_t Container = 0; int32_t Player = 1; uint32_t Pad2 = 0; uintptr_t Data = 0; int32_t Num = 0, Max = 0; };
+        static_assert(sizeof(Location) == 0x28);
+        struct Params
+        {
+            uintptr_t Item; Location Source, Destination; int32_t Turns = 0; bool Overflow = false; uint8_t Pad[3]{};
+            bool Success = false; uint8_t Error = 0; uint8_t Pad3[6]{}; uint8_t Message[0x10]{};
+        };
+        static_assert(sizeof(Params) == 0x78);
+        const uintptr_t Choices = Read<uintptr_t>(Session + 0x8);
+        const int32_t ChoiceCount = Read<int32_t>(Session + 0x10);
+        for (int32_t c = 0; c < ChoiceCount && c < 8; ++c)
+            for (int Shape = 0; Shape < 3; ++Shape)
+                for (const auto& First : Free)
+                {
+                    uintptr_t Cells[2]{First.Object, 0};
+                    int32_t Cells_Num = 1;
+                    if (Shape > 0)
+                    {
+                        for (const auto& Other : Free)
+                            if ((Shape == 1 && Other.X == First.X && Other.Y == First.Y + 1) || (Shape == 2 && Other.Y == First.Y && Other.X == First.X + 1))
+                                Cells[1] = Other.Object;
+                        if (!Cells[1])
+                            continue;
+                        Cells_Num = 2;
+                    }
+                    Params Request{Read<uintptr_t>(Choices + 8 * c)};
+                    Request.Source.Type = 5;
+                    Request.Destination.Type = 1;
+                    Request.Destination.Container = Inventory;
+                    Request.Destination.Data = reinterpret_cast<uintptr_t>(Cells);
+                    Request.Destination.Num = Request.Destination.Max = Cells_Num;
+                    Invoke(Coordinator, "CoopInventoryCoordinatorComponent", "TransferItem", &Request);
+                    if (!Request.Success)
+                    {
+                        if (First.Object == Free.front().Object)
+                            Log("transfer-p2 choice=" + std::to_string(c) + " shape=" + std::to_string(Shape) + " error=" + std::to_string(Request.Error));
+                        continue;
+                    }
+                    struct { int32_t Player = 1; uint32_t Pad = 0; uintptr_t Choice; bool Result = false; uint8_t Tail[7]{}; } Claim{1, 0, Request.Item};
+                    Invoke(Coordinator, "CoopInventoryCoordinatorComponent", "ClaimReward", &Claim);
+                    Log("transfer-p2 ok choice=" + std::to_string(c) + " " + NameOf(Read<uintptr_t>(Request.Item + 0xE0)) + " at " +
+                        std::to_string(First.X) + "," + std::to_string(First.Y) + " shape=" + std::to_string(Shape) +
+                        " claim=" + std::to_string(Claim.Result) + " claimed-now=" + std::to_string(Read<int32_t>(Session + 0xD0)) +
+                        " state=" + std::to_string(Read<uint8_t>(Session + 0xF0)));
+                    return;
+                }
+        Log("transfer-p2: keine Platzierung gefunden");
+        return;
+    }
+    if (Action == 10)
+    {
+        // Host beansprucht fuer Spieler 1 die erste Wahl der laufenden nativen Koop-Reward-Sitzung.
+        const uintptr_t Coordinator = State ? Read<uintptr_t>(State + 0x3E0) : 0;
+        const uintptr_t Choices = Coordinator ? Read<uintptr_t>(Coordinator + 0x170 + 0x8) : 0;
+        if (!Choices || Read<int32_t>(Coordinator + 0x170 + 0x10) < 1 || Read<uint8_t>(Coordinator + 0x170 + 0xF0) != 2)
+        {
+            Log("claim-p2: keine wartende Sitzung");
+            return;
+        }
+        struct { int32_t Player = 1; uint32_t Pad = 0; uintptr_t Choice; bool Result = false; uint8_t Tail[7]{}; } Claim{1, 0, Read<uintptr_t>(Choices)};
+        static_assert(sizeof(Claim) == 0x18);
+        const bool Called = Invoke(Coordinator, "CoopInventoryCoordinatorComponent", "ClaimReward", &Claim);
+        Log("claim-p2 called=" + std::to_string(Called) + " result=" + std::to_string(Claim.Result));
         return;
     }
     if (Action == 3 || Action == 4)
@@ -259,7 +393,7 @@ LRESULT CALLBACK WindowProc(HWND Window, UINT Msg, WPARAM W, LPARAM L)
 {
     if (Msg == Message)
     {
-        if (W >= 1 && W <= 9)
+        if (W >= 1 && W <= 13)
             Perform(static_cast<int>(W));
         return 0;
     }
@@ -297,7 +431,7 @@ DWORD WINAPI Worker(void*)
     Previous = reinterpret_cast<WNDPROC>(SetWindowLongPtrW(Window, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&WindowProc)));
     if (!Previous)
         return 2;
-    Log("bereit; 1=Bewegungsreplikation, 2=XP lesen, 3/4=Host-XP-Quelle am Spieler 0/1, 5=Test-Airdrop, 6/8=Host-Airdrop mit Spieler 0/1 oeffnen, 7=Reward-Sitzung lesen, 9=Panels und Reward-Queues lesen");
+    Log("bereit; 1=Bewegungsreplikation, 2=XP lesen, 3/4=Host-XP-Quelle am Spieler 0/1, 5=Test-Airdrop, 6/8=Host-Airdrop mit Spieler 0/1 oeffnen, 7=Reward-Sitzung lesen, 9=Panels und Reward-Queues lesen, 10=Host beansprucht erste Wahl fuer P2, 11=Host legt Wahl in P2-Rucksack und beansprucht, 12=Sitzung an Panels melden, 13=AcknowledgeRewardUIClosed");
     for (;;)
     {
         Sleep(200);
@@ -308,7 +442,7 @@ DWORD WINAPI Worker(void*)
         const int Parsed = fscanf_s(File, "%d", &Action);
         fclose(File);
         DeleteFileW(Command.c_str());
-        if (Parsed == 1 && Action >= 1 && Action <= 9)
+        if (Parsed == 1 && Action >= 1 && Action <= 13)
             SendMessageW(Window, Message, static_cast<WPARAM>(Action), 0);
     }
 }

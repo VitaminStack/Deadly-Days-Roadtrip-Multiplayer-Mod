@@ -86,7 +86,7 @@ und `inventory.py`, dazu Bilder beider Fenster.
 | Auswahl beim Client | keine | keine |
 | Reward-Queue beim Host | – | `CurrentRewardObject` an der **Client-Figur** |
 | Pause | Host: Requester `WP_Inventory_Panel`, blockierende UI-Sitzung. Beide Welten `TimeDilation≈0.0001` mit Pauser | gleich |
-| Belohnung nach Bestätigen | Inventar der Host-Figur | ebenfalls Inventar der **Host-Figur** |
+| Belohnung nach Bestätigen | beide neuen Items im selben Inventar (PlayerId 258) | |
 
 - Die native Koop-Reward-Sitzung `UCoopInventoryCoordinatorComponent::RewardSession`
   blieb in beiden Fällen leer (`state=0`, keine Choices, `RequiredClaims=2` nur als
@@ -96,14 +96,64 @@ und `inventory.py`, dazu Bilder beider Fenster.
 - Die Weltpause erreicht den Client schon heute über die replizierten
   WorldSettings. Es fehlen eine eigene Auswahl beim Client und ein Host-Grund,
   der die Pause bis zur Bestätigung des Clients hält.
-- **Fehler:** Eine vom Client eingesammelte Belohnung landet beim Host. Beide neuen
-  Items lagen danach im selben replizierten Inventar, Host- und Clientbild gleich.
-  Zuordnung zur Host-Figur über die Panel-Figur (`CharacterReference` = Spieler 0);
-  die PlayerId-Zuordnung des Inventars wurde nicht getrennt geprüft.
+- **Fehler:** Egal wer einsammelt, wählt nur der Host-Spieler, und beide neuen Items
+  lagen danach im selben replizierten Inventar (Host- und Clientbild gleich). Die
+  Panel-Figur war Spieler 0. Das Inventar trug PlayerId 258; in der Folgesitzung
+  gehörte 258 zum Remote-Client (PlayerArray-Index 1). Ob die IDs in beiden
+  Sitzungen gleich vergeben waren, wurde nicht geprüft, die Zuordnung ist daher
+  **nicht eindeutig**.
+- Nach einer vom Client eingesammelten Kiste blieb `CurrentRewardObject` der
+  Client-Reward-Queue auf dieser Kiste stehen. Der nächste Airdrop wurde bei
+  Berührung durch den Client als `opened=1` markiert, ohne Auswahl, und ließ sich
+  danach auch vom Host nicht mehr öffnen. Hängende Client-Queue ist naheliegend,
+  aber nicht bewiesen.
 - Der Client-Rucksack ist host-autoritativ repliziert. Ein lokales Hinzufügen beim
   Client wäre kein gültiger Weg: Die gewählte Belohnung und ihre Rasterposition
   müssen beim Host im Inventar der Client-Figur entstehen. Das berührt die
   Reward-Queue aus `inventar-sync`.
+
+### Native Koop-Auswahl mit Remote-P2 (wie beim lokalen Koop/Remote Play Together)
+
+Neue eigene Sitzung, gleicher Aufbau. Vor dem ersten Airdrop beim Host der Spike-
+Befehl `!p2 on` und `!p2 joined` ([Remote-P2](../a-connect/RemoteP2.md)): Remote-
+Controller als P2 in `ActivePlayers`, `SetCoopEnabled(true)`, aktive Spieler 2.
+
+1. **Host sammelt ein:** Die native Koop-Reward-Sitzung startet:
+   `state=2` (`AwaitingClaims`), 3 Choices, `eligible=[0,1]`, `RequiredClaims=2`,
+   `opener=0`. Das Host-Panel zeigt beide Rucksäcke nebeneinander, die Pause wirkt
+   wie oben auf beide Welten.
+2. **Host legt ein Item in den P2-Rucksack und bestätigt:** Das Item steht im
+   Inventar von PlayerArray-Index 1 (Remote-Client). Die Sitzung zählt den Claim
+   aber als **Spieler 0** (`claimed=[0]`, `eligible=[1]`, 2 Choices übrig) und
+   bleibt `AwaitingClaims`, die Pause bleibt. Der Host wählt damit für den Client;
+   pro Spieler und Kiste gibt es genau einen Claim.
+3. **Code-Claim für Spieler 1:** `ClaimReward(1, Choices[0])` beim Host liefert
+   `true`; Sitzung `state=3` (`Completed`), `claimed=[0,1]`. Ohne Platzierung landete
+   das Item (`FireShoes`) im Reservebereich („Lager“) von Inventar PlayerId 257
+   (Index 0), nicht im P2-Rucksack.
+4. **Panel hängt danach:** Das Host-Panel blieb offen mit ausgegrautem
+   „Wähle eine Belohnung“, keine Eingabe möglich, Timescale-Request
+   `WP_Inventory_Panel` und Pause blieben. Weder ein direkter Aufruf
+   `InventoryPanel.HandleCoopRewardSessionChanged(Sitzung)` noch
+   `AcknowledgeRewardUIClosed` (`false`) löste das. Sitzung danach verworfen.
+5. **Fehlversuch `TransferItem`:** Quelle `RewardChoice`, Ziel `P2Backpack` mit dem
+   P2-Inventar und freien P2-Slots (1×1, 1×2, 2×1) ergab für alle Choices
+   `InvalidRequest`, vor und nach dem Host-Claim. Der Aufbau des Requests ist also
+   noch falsch oder dieser Weg ist für Reward-Choices nicht vorgesehen.
+
+**Folgerung:** Das lokale Koop-System übernimmt das Schwierige bereits nativ:
+eine gemeinsame Sitzung pro Kiste, ein Claim je Spieler, Pause bis zum letzten
+Claim, Platzierung in den richtigen Rucksack. Für den Online-Koop fehlen noch:
+
+- dauerhafte Remote-P2-Bindung in der Mod statt nur im Spike (`remote-spieler`),
+- Host-Panel auf die eigene Hälfte (Spieler 0) begrenzen,
+- beim Client eine Auswahl aus dem Host-Sitzungsbild (Choices, Level, offene
+  Claims) mit lokaler Platzierung,
+- Client-Wahl und Rasterposition über den Kontrollkanal; der Host platziert im
+  P2-Rucksack und ruft `ClaimReward(1, …)` auf,
+- der native Weg, wie das Panel nach dem P2-Claim schließt, vermutlich die
+  Übergabe der UI-Autorität an P2 (`RequestUIAuthorityTransfer`), die laut
+  Remote-P2-Befund ohne lokales P2-Gerät noch blockiert.
 
 ## Ziel und Grenze
 
@@ -220,7 +270,7 @@ Bewegungsschalterversuch, `2` = native XP-/Shared-Identität lesen, `3`/`4` = je
 `FinishSpawningActor` für Actor-/Bewegungsreplikation anmelden, `6`/`8` = einen
 ungeöffneten Airdrop beim Host mit der Figur von Spieler 0/1 öffnen, `7` =
 Koop-Reward-Sitzung lesen, `9` = Inventar-Panels und Reward-Queues lesen.
-`2`, `7` und `9` sind beim Client erlaubt; die übrigen Befehle brauchen den Listen-Host.
+`10` = `ClaimReward(1, erste Wahl)`, `11` = Wahl per `TransferItem` in freie P2-Slots legen und beanspruchen, `12` = Sitzung an offene Inventar-Panels melden, `13` = `AcknowledgeRewardUIClosed`. `2`, `7` und `9` sind beim Client erlaubt; die übrigen Befehle brauchen den Listen-Host.
 Eine zweite Kopie für eine bereits laufende Sitzung lässt sich mit anderem
 `PROBE_DIR` bauen, damit nicht zwei Probes dieselbe Befehlsdatei lesen. `5` ruft keine
 Reward-Öffnung auf und ist noch kein Produktionsfix. Danach die Sitzung beenden,
