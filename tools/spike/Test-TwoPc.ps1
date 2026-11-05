@@ -24,6 +24,9 @@ param(
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Common.ps1')
 if ($Role -eq 'Client' -and -not $Peer) { throw '-Role Client braucht -Peer mit der SteamID, die der Host-PC anzeigt.' }
+# Mit der Mod kommt die Host-Karte ueber ihren Kontrollkanal, den der Spike-Tunnel nicht traegt. Der Client erzeugte dann
+# nach 60 s eine eigene Karte. Zwei PCs mit Mod gehen ueber die Lobby im Overlay, siehe docs\TESTING.md.
+if ($Mod) { throw '-Mod geht hier nicht: Die Karte braucht den Tunnel der Mod. Zwei PCs mit Mod ueber die Lobby im Overlay testen.' }
 
 $Start = @{ Role = $Role; Tunnel = 'P2p'; JoinTimeoutSeconds = $JoinTimeoutSeconds; Mod = $Mod; Build = $Build; Godmode = $Godmode }
 if ($Role -eq 'Client') { $Start.Peer = $Peer }

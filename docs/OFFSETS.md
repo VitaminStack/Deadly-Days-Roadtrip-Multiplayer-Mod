@@ -129,7 +129,7 @@ Ablauf siehe [Karte und Seed](GAME_ANALYSIS.md#karte-und-seed).
 | `UDDMissionGameInstance::DD_ForceStartRunSeed` | `0x58DF7A0` | Exec-Befehl, Exec-Thunk `0x56BA490` |
 | `UGameplayStatics::BeginDeferredActorSpawnFromClass` | `0x2A678F0` | Exec-Thunk `0x2A95230`; Spike-Patch beim Client gegen doppelte PowerUp-Objekte |
 | `UChildActorComponent::CreateChildActor` | `0x288B510` | Vtable `0x87DAC90` Slot 202, Spike-Patch beim Client |
-| Child-Klasse repliziert (Prüfung in `CreateChildActor`) | `0x289DB60` | Liest `bReplicates` am Default-Objekt von `ChildActorClass` |
+| Child-Klasse repliziert (Prüfung in `CreateChildActor`) | `0x289DB60` | Wahr, wenn das Default-Objekt von `ChildActorClass` (`+0x250`) oder die Vorlage `ChildActorTemplate` (`+0x260`, gleiche Klasse) `bReplicates` hat |
 | `UChildActorComponent::SetChildActorClass` | `0x28A86C0` | Benennt die Vorlage `%s_%s_CAT` |
 | `FSoftObjectPtr::LoadSynchronous` | `0x15E9550` | Lädt im Starter das Profil |
 | IAT der Exe: WS2_32 `sendto` (Ordinal 20), `recvfrom` (Ordinal 17) | `0x82786F8`, `0x8278710` | Spike-Patch für die Lastmessung |
@@ -308,7 +308,7 @@ Was die Mod nutzt, steht zusätzlich in `src/Game/Offsets.h` und wird dort beim 
 | `AMapGenerator` | GenerationTags, CurrentGenData | `0x300`, `0x320` |
 | `UMapGenerationState` | Seed, BaseSeed, SpawnedActors, HasFailedGeneration, RetryAttemptsRemaining, RandomGeneratorLookup | `0x50`, `0x54`, `0x88`, `0x111`, `0x114`, `0x258` |
 | `UMapGenerationState` | QueuedSubGenerators, QueuedPostGenerators, CurrentSubGenerator | `0x60`, `0x70`, `0x80` |
-| `UChildActorComponent` | ChildActorClass | `0x250` |
+| `UChildActorComponent` | ChildActorClass, ChildActorTemplate | `0x250`, `0x260` |
 | `UActorComponent` | OwnerPrivate | `0xA8` |
 | `UPCGVolumeGenerator` | bUseGraphFromBiome, GraphToGenerate, PCGActor, PCGComponent, BiomeGraphToGenerate | `0x28`, `0x30`, `0x40`, `0x48`, `0x50` |
 | `UDDMissionGameInstance` | Route: Einträge (je `0x290`), Anzahl, Index; Biom im Eintrag | `0x2B0`, `0x2B8`, `0x2C0`; `0x1A8` |

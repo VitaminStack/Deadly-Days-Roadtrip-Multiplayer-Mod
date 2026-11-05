@@ -31,6 +31,7 @@ std::span<const Patch> AirdropPatches();
 std::span<const Patch> ExpPatches();
 std::span<const Patch> RemoteP2Patches();
 std::span<const Patch> RewardPatches();
+std::span<const Patch> MapPatches();
 // Host: Figur, die bei RewardChest.OpenAirdropChoices die native Auswahl bekommt (die des Hosts statt des Remote-P2).
 uintptr_t RewardCharacter(uintptr_t Character);
 // Client: Wahr, wenn ProcessEvent einen Server-RPC mit einer lokalen Anzeige-Instanz der Airdrop-Auswahl nicht senden soll.
@@ -45,6 +46,7 @@ void TickWidgets(NetRole Role);
 void TickProjectiles(NetRole Role, bool Second);
 void TickMovement(NetRole Role, bool Second);
 void TickRemoteP2(NetRole Role);
+void TickMap(NetRole Role, bool Second);
 
 // Beobachter nach jedem ProcessEvent, aus WidgetPatches.cpp.
 void NotifyEventObservers(uintptr_t Object, uintptr_t Function, void* Params);

@@ -485,7 +485,7 @@ Verglichen wurden Klasse, Position und Drehung aller `MapTile` und die Klassen a
 Offen:
 
 - Bäume und Pflanzen aus PCG fehlten beim Client, gelöst in [PCG-Vegetation beim Client](#pcg-vegetation-beim-client-pcg).
-- Die Werte müssen über einen echten Kanal zum Client, im Spike geht es über eine Datei auf demselben PC.
+- ~~Die Werte müssen über einen echten Kanal zum Client.~~ Erledigt, siehe [Gleiche Karte in der Mod](#gleiche-karte-in-der-mod-missionsstart).
 - Die Sperre zählte rund 1.400 unterdrückte Child Actors, der Host repliziert weniger Objekte. **[Vermutung]** Ein Teil der Komponenten wird mehrfach erzeugt oder per Zufall ersetzt (`RandomChildActorSwapWrapper`). Fehlende Objekte waren im Bestand nicht zu sehen. Was außer Reichweite liegt, kommt erst bei Annäherung übers Netz.
 - Nicht getestet: Tag 2 und spätere Karten, Bosskarten, ein Kartenwechsel per `servertravel` mit neuer Karte, Verbindungen über das Internet.
 
@@ -542,6 +542,39 @@ Offen:
 - Die Seeds wirken erst mit dem nächsten Sekunden-Tick, bis dahin können die Arten kurz abweichen. Die Kosten des neuen Render-Zustands sind nicht gemessen.
 - **[Belegt]** Die erste Fassung von `TickPcg` las den Besitzer jedes Objekts vor der Klassenprüfung und ließ einmal einen Client abstürzen. Behoben in `last`, siehe [Last](#last-spike-d-last).
 - Nicht getestet: andere Biome, Tag 2 und später, Bosskarten, Internet.
+
+#### Gleiche Karte in der Mod (`missionsstart`)
+
+Stand 05.11.2026, Build `26187885`, ein PC, zwei Instanzen, Lobby und Tunnel der Mod (`Run-Route.ps1 -Start`). Die Eingriffe aus
+`MapGen.cpp` und `Pcg.cpp` stehen jetzt in `src/Game/MapPatches.cpp`. Die Werte gehen über den Kontrollkanal statt über Dateien
+(`src/Sync/World/MapSync.cpp`, Typ `0x400`).
+
+- **Host:** Nach `StartMapGeneration` liest er Seed, Profil (Paket und Name), Größe und Tags und vergibt eine zufällige Kennung. Nach
+  Slot 85 des PCG-Generators kommt der Graph dazu oder „kein Graph“. Der Kontrollkanal schickt den Stand bei jeder Änderung und jede
+  Sekunde; nach einem Kartenwechsel ohne neue Erzeugung schickt er „keine Karte“.
+- **Client:** `StartMapGeneration` wartet, bis Werte mit einer noch nicht übernommenen Kennung da sind, und höchstens 5 s länger auf den
+  Graphen. Jede Kennung gilt nur einmal, alte Werte passen so nie zur nächsten Karte. Ausnahme: Versucht das Spiel die Erzeugung in derselben Welt mit demselben Generator neu (`StartMapGenerationWithRetryAttempts`, `TryToRegenerate`), nimmt der Client dieselben Werte noch einmal. Kommen 60 s lang keine Werte, erzeugt der Client
+  eine eigene Karte (Log `Karte: nach 60 s keine Werte vom Host`), statt ewig zu laden.
+- **Child Actors und PCG-Seeds** wie im Spike. Die Seeds setzt die Mod nur zu zweit, allein bleibt die Vegetation wie ohne Mod.
+
+| Lauf | Profil | Warten beim Client | Kacheln Host / Client | Ergebnis |
+|---|---|---|---|---|
+| Netzprofil Internet (120 ms ±30, 2 % Verlust), Tag 1 | `MGP_City_LittleItaly`, Tag `Rain` | 1.610 ms, davon die meiste Zeit auf den Graphen | 159 / 159 | `check_round` sauber, Inventare gleich, PCG-Graph und 7 Seeds übernommen |
+| Ohne Netzprofil, Tag 1 | dasselbe | 2.015 ms | 159 / 159 | sauber |
+| Netzprofil Internet, Tag 1 und 2 | Tag 2 `MGP_City` | 1.485 und 438 ms | 159 / 159, 63 / 63 | sauber, die zweite Karte mit neuer Kennung |
+| Nur Spike zum Vergleich | `MGP_City_LittleItaly` | – | 159 / 159 | sauber |
+| Nur Mod, ohne `spike.dll` (`-NoSpike`), Zufalls-Seed | `MGP_GolfCourse`, Profil beim Client nachgeladen | 1.109 ms | 96 / 96 | sauber, Wald und Baumarten im Spielbild gleich |
+
+- **[Belegt]** Nicht replizierte Actors gleich bis auf Host-Logik (`BP_ChestLootSpot_C`, Loot-Kisten, `SeekingAIController`) und
+  Laternen. Die Laternen fehlten im Abgleich teils beim Client, eine Minute später gab es auf keiner Seite mehr Laternen-Instanzen. Der
+  Abgleich ist also ein Schnappschuss laufender Objekte, kein Unterschied der Erzeugung. Replizierte Objekte unterscheiden sich nur
+  nach Netz-Reichweite.
+- **[Belegt]** Im Spielbild stimmen Straßen, Gebäude, Fahrzeuge und Bus überein. Kleine Abweichungen blieben: ein Baum in anderer Art,
+  ein anderes Dach, ein Pickup nur beim Client. **[Vermutung]** Zufällige Varianten einzelner Child Actors (`RandomChildActorSwapWrapper`)
+  oder ein Objekt, das beim Host schon zerstört war. Kleine Fehler, siehe `opt-karte-details`.
+- **Nicht geprüft:** zwei PCs, Bosskarten, Biome außer Stadt und Wald.
+- Mit `-Mod` und dem Tunnel des Spikes (`-Tunnel Ip`, `P2p`, `None`) fehlt der Kontrollkanal, der Client erzeugt dann nach 60 s eine
+  eigene Karte. `Start-Session.ps1` warnt davor, `Test-TwoPc.ps1 -Mod` bricht ab.
 
 ### Gegner und Pausen
 

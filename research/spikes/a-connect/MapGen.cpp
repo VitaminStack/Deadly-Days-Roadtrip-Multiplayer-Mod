@@ -285,8 +285,14 @@ bool PatchChildActors(CodeWriter& Code)
 }
 }
 
+// Mit den Patches der Mod kommt die Karte ueber ihren Kontrollkanal (src/Game/MapPatches.cpp), nicht ueber die Datei.
 bool PatchMapGen(CodeWriter& Code)
 {
+    if (ModOwnsPatches)
+    {
+        Log("MapGen: Karte vom Host kommt von der Mod");
+        return false;
+    }
     if (!PatchChildActors(Code))
         return false;
     const uintptr_t Site = Base + kStartMapGeneration;
