@@ -298,6 +298,36 @@ lesenden Laufzeitvergleichen. Keine zusätzlichen Produktionspatches.
 | `AExpEmissionHandler` | ExpData, PendingExpData (TArray) | `0x378`, `0x388` |
 | `AExpEmissionHandler` | SpawnLocationsInNiagara, EndLocationsInNiagara (TArray) | `0x398`, `0x3A8` |
 | `AExpEmissionHandler` | OrbValuesInNiagara, OrbColorsInNiagara (TArray) | `0x3B8`, `0x3C8` |
+| `ADDMissionGameState` | DayNum, LevelSystem | `0x390`, `0x3B8` |
+| `UDDWidgetController` | PlayerState | `0x30` |
+| `WP_PlayerOverlay_C` | ExperienceProgressBar, ExperienceProgress, TargetExpProgress | `0x3D0`, `0x3E8`, `0x3F0` |
+| `WP_PlayerOverlay_C` | OverlayWidgetController | `0x418` |
+
+Ergänzung 05.11.2026: XP-Anzeige liest native Levelsystem-Getter und ändert nur
+HUD-Zustand. Gegen stale Widgets werden PlayerState-Zugehörigkeit zur aktuellen
+GameState-PlayerArray sowie lokale Objektindex-/Serial-Identität geprüft. Letztere
+bleibt lokal. Die Weltzuordnung im Snapshot verwendet die originale GameState-
+NetGUID aus dem unten beschriebenen Cache; vor dessen Verfügbarkeit kein Apply.
+Die neuen SDK-Felder haben optionale `static_assert`s in `ProgressAdapter.cpp`.
+
+Airdrop-Anbindung, Build `26187885`, 05.11.2026: lokale SDK-Deklarationen und
+begrenzte Laufzeitprüfung der nativen Einstiegspunkte; keine generierten Körper
+übernommen. `AirdropAdapter.cpp` prüft die SDK-Felder optional beim Bauen.
+
+| Objekt | Feld / Funktion | Offset / RVA |
+|---|---|---|
+| `ACrate` | bIsOpened, bMapLootDistributionReady | `0x2A8`, `0x2A9` |
+| `ARewardChest` | CanBeOpened | `0x2E1` |
+| `BP_Airdrop_Lootable_C` | SK_AirDropAnimMerged, LootableReady | `0x358`, `0x360` |
+| `ARewardChest` | OpenCrate, nativer virtueller Einstieg | `0x5A43400` |
+| `ARewardChest` | OpenAirdropChoices, nativer Einstieg | `0x5A42F50` |
+
+Hook-Präfixe: OpenCrate `48 89 5C 24 08 48 89 6C 24 10`, OpenChoices
+`48 89 5C 24 08 57 48 83 EC 20`. Beide werden vor der Installation geprüft.
+Hooks unterdrücken nur Airdrop-Gameplay auf Netzwerkclients bzw. Nichtautorität;
+andere Kistentypen bleiben unverändert. Anzeige verwendet `Crate.SetIsOpened`,
+nicht `OpenCrate`/`OpenAirdropChoices`. Fehlende Host-Actors werden nur verborgen,
+nicht zur Erzeugung von Rewards oder künstlichen Öffnungsereignissen benutzt.
 
 Arraygrößen sind gespeicherte CPU-Daten, keine lebenden GPU-Partikelzahlen.
 [Beobachtungen und verworfener Schalterversuch](../research/spikes/client-visuell/README.md).

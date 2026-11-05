@@ -2,5 +2,6 @@
 
 namespace Sync
 {
-void Start() {}
+void InstallProgressSync();
+void Start() { InstallProgressSync(); }
 }

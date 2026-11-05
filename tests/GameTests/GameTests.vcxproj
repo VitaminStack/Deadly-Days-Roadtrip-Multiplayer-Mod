@@ -24,6 +24,7 @@
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="GameThreadTests.cpp" />
     <ClCompile Include="PatchTests.cpp" />
+    <ClCompile Include="AirdropTests.cpp" />
     <ClCompile Include="TelemetryAdapterTests.cpp" />
     <ClCompile Include="TutorialAdapterTests.cpp" />
     <ClCompile Include="WorldAdapterTests.cpp" />

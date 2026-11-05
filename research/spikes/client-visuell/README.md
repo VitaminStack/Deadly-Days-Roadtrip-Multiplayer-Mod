@@ -1,18 +1,83 @@
 # Client-Darstellung: Projektile, XP-Orbs, Airdrops und Partikeleffekte
 
 Aufgabe `client-visuell`, auf Nutzerwunsch vorgezogen, Build `26187885`.
-**In Arbeit, kein fertiger Produktionsfix und keine bestandene visuelle Abnahme.**
+**In Arbeit. XP-/Levelanzeige ist jetzt in der Mod angebunden; die gesamte visuelle Abnahme ist noch offen.**
+
+## Umsetzung vom 05.11.2026: gemeinsamer XP-Anzeigestand
+
+- `src/Net/Protocol.*` und der erweiterte Transport liefern den reservierten
+  Kontrollkanal aus `protokoll`, kein Dateisync und kein zweiter UDP-Kanal.
+  Handshake, Build-/Mod-Version und Gegenrolle werden vor dem Spielverkehr geprüft.
+  Die Lobby und der Testschalter stellen denselben Transport für Sync bereit.
+- `Game/ProgressAdapter.*` liest beim Host ausschließlich die nativen Getter des
+  gemeinsamen Levelsystems. Beim Client werden nur die aktuelle Spieler-HUD und
+  ihr Fortschrittsbalken aktualisiert. **Kein `AddExperience`, `ReceiveExp`,
+  `RequestLevelUp`, Reward- oder Save-Aufruf beim Client.**
+- `Sync/ProgressState.h` / `ProgressSync.cpp` übertragen vollständige, absolute
+  Bilder mit Host-Run, Epoche, monotoner Revision und einer clientseitigen
+  Anforderungskennung pro lokaler Welt-/Sitzungslebensdauer. Der GameState wird
+  zusätzlich über seine bestehende **UE-NetGUID** gebunden, nicht über ähnlich
+  benannte Actors oder lokale FName-/Objektindizes. Alte und doppelte Bilder,
+  fremde Verbindungstoken und Antworten für eine andere Welt werden verworfen.
+- Bestätigter nativer Befund in der geschützten Tag-1-Sitzung: Beide PlayerStates
+  des Hosts liefern exakt dasselbe Levelsystem wie der GameState. Der Client hat
+  dagegen eine lokale Instanz mit altem Stand. Die Mod behebt die daraus falsche
+  Anzeige, statt zwei Gewinne in das gemeinsame Host-System zu buchen.
+- In der ersten Gegenprobe über `-Mod -Tunnel Mod` kamen laufende XP-/Level-
+  Änderungen in der Client-HUD an. Nach kontrollierten XP-Quellen an den beiden
+  serverseitigen Spielerpositionen zeigten beide HUDs Level 5. Die Quellen liefen
+  nur beim Host; der native Client-Levelsystemstand wurde nicht manipuliert.
+  Wegen gleichzeitigem Kampf und möglicherweise überlappenden Sammelbereichen ist
+  dies **kein isolierter Nachweis, welcher Spieler welchen Orb einsammelte**.
+- Vollständiger Build/Testlauf bestanden, einschließlich Tests für ungültige,
+   doppelte, verspätete und weltfremde XP-Snapshots. NetGUID-Bindung und reguläre
+   Lobby-Anbindung wurden anschließend ebenfalls im Spiel bestätigt.
+
+Die native Client-Levelsystem-/Upgrade- und Reward-Steuerung bleibt Gegenstand von
+`fortschritt`. Diese Anzeigeanbindung macht weder dessen komplette Abnahme noch
+ die noch fehlenden Orb-, Projektil- und Partikeldarstellungen fertig.
+
+## Einfache Airdrop-Replikation vom 05.11.2026
+
+- `Game/AirdropAdapter.*` aktiviert beim Host die eingebaute Actor- und
+  Bewegungsreplikation für vorhandene Airdrops. Keine zweite lokale Kiste.
+  Kleine vollständige Snapshots ergänzen Öffnungs-, Bereitschafts-, Sichtbarkeits-
+  und Animationszustand, zugeordnet über UE-NetGUID. Animation-Seeking löst keine
+  Notifies aus. Client-Kopien erhalten keine eigene Kollisions-/Reward-Ausführung.
+- Reguläre Steam-Lobby, zwei geschützte Instanzen auf einem PC: Ein normaler
+  Level-up-Airdrop erschien sichtbar beim Client, an der Host-Position bis auf
+  normale Replikationsquantisierung. Ein manuell erzeugter Testactor wurde nicht
+  als Nachweis des normalen Lebenszyklus gewertet.
+- Eine frühere Gegenprobe zeigte eine zurückgebliebene geschlossene Client-Kopie
+  nach Host-Entfernung. Deshalb blendet die Mod zuvor verwaltete Kopien aus und
+  deaktiviert ihre Kollision, sobald sie im vollständigen Host-Bild fehlen.
+- Abschließende Gegenprobe: Auf beiden Seiten derselbe normale, bereite,
+  sichtbare Airdrop. Native Host-Öffnung meldete `opened=1`; anschließend gab es
+  auf beiden Seiten keinen lebenden Airdrop mehr. Kein sichtbarer Ghost in dieser
+  Actor-Prüfung. Ob der ergänzende Hide-Fallback dabei zum Einsatz kam oder UE
+  die Kopie direkt entfernte, ist nicht nachgewiesen.
+- Build/Test: 100 C++-Testfälle (36 Core, 13 UI, 23 Game, 28 Net) und 118
+  Python-Tests bestanden. Das ist keine vollständige visuelle Animationsabnahme,
+  kein Zwei-PC-Test und kein Nachweis vollständiger Client-Reward-Auswahl.
+
+**Vereinfachung auf Nutzerwunsch:** Eine zusätzliche lokale Client-Belohnung wäre
+vorerst akzeptabel. Für die bisher geprüfte Sichtbarkeit und Host-Öffnung war sie
+nicht nötig; die Schutz-Hooks bleiben deshalb aktiv. Selbständiges Client-Öffnen
+und synchronisierte Belohnungsauswahl sind damit noch nicht implementiert.
+Ohne etablierten Mod-Kontrollkanal oder aktive Schutzpatches bleibt die Anbindung
+inaktiv. Die Gesamtaufgabe bleibt offen.
 
 ## Ziel und Grenze
 
 Der Client soll dieselben Projektile, XP-Orbs, Airdrops und Kampfpartikel wie der Host sehen:
 Spawn, Bewegung, Größe, Treffer, Einsammeln, Airdrop-Ankunft/-Öffnung und Verschwinden. Schaden, Loot und
-XP-Vergabe bleiben ausschließlich beim Host. Bereits replizierte Actors werden
+XP-Vergabe bleiben ausschließlich beim Host (Airdrop-Ausnahme vorerst vom Nutzer
+erlaubt, aber bislang nicht benötigt). Bereits replizierte Actors werden
 nicht zusätzlich lokal erzeugt. `kampf`, `fortschritt` und `vfx-sound` bleiben offen.
 
 **Nutzerergänzung vom 04.11.2026:** Airdrops sind im Client nicht sichtbar.
-Dieser zusätzliche Fehler ist hier aufgenommen, aber in dieser Sitzung noch nicht
-erneut nachgestellt. Die frühere [Airdrop-Probe](../blueprint-logik/README.md#konkrete-befunde)
+Dieser zusätzliche Fehler wurde inzwischen nachgestellt und wie oben beschrieben
+angebunden. Die frühere [Airdrop-Probe](../blueprint-logik/README.md#konkrete-befunde)
 hat bereits einen nicht replizierten Host-Airdrop ohne entsprechenden Client-Actor
 belegt. Seine Öffnungslogik erzeugt Rewards; ein vollständiges Nachspielen beim
 Client wäre daher kein sicherer Darstellungsfix.
@@ -62,8 +127,8 @@ Beobachtung von aktivem Schuss, Pool-Rückgabe und Wiederverwendung ist weder
 Synchronität noch ein erfolgreicher Fix belegt. Die extremen Pool-Parkpositionen
 sind ein weiterer Grund, den Schalter nicht pauschal in die Mod zu übernehmen.
 
-**Konsequenz:** Dieser Versuch wird nicht automatisch installiert und verändert
-keinen Produktionscode. Die eigene Sitzung wurde danach vollständig beendet und
+**Konsequenz für den Schalterversuch vom 04.11.:** Dieser Versuch wird nicht automatisch installiert und verändert
+keinen Produktionscode. Die damalige eigene Sitzung wurde danach vollständig beendet und
 die Test-Mod mit `Stop-Session.ps1` entfernt. Kein Hot-Unload der Probe.
 
 Ein erster Sitzungsstart wurde nach 120 Sekunden vom ausführenden Werkzeug
@@ -81,11 +146,10 @@ erfolgreich. Diese Fehlversuche sind keine Spielabstürze.
    `BP_EXPOrb`-Actors. Hostseitige Erzeugung, Zielbewegung und Abschluss müssen als
    zusammenhängender Lebenszyklus nachgeliefert werden; der Client darf dabei
    `ReceiveExp` oder die Belohnungslogik nicht erneut ausführen.
-3. Für tatsächlich fehlende Host-Daten den vorgesehenen Kontroll-/Sync-Kanal aus
-   `protokoll` anbinden. Der vorhandene Transport tunnelt nur UE-Pakete unverändert;
-   es gibt noch keine öffentliche Schnittstelle für eigene kosmetische Daten.
-   Kein zweites Ad-hoc-Protokoll und keine gemeinsame Datei als vermeintliche
-   Internet-Lösung einführen. Diese Integration ist noch offen.
+3. Den jetzt implementierten [Kontrollkanal](../../../docs/CONTROL_PROTOCOL.md)
+   für die noch fehlenden kosmetischen Zustandsfamilien nutzen. Die vorhandene
+   NetGUID-Auflösung erlaubt die eindeutige Zuordnung bereits replizierter
+   Actors; sie erzeugt selbst keine neuen Actors und keine kosmetischen Events.
 4. Treffer-/Todeseffekte separat rein kosmetisch ausgeben, replizierte Flächen-/Gift-
    Actors nicht duplizieren. Danach kontrollierte Aufnahmen vor/nach dem Fix,
    Pool-Reuse, Kartenwechsel, Trennen und erneuter Verbindung prüfen.
@@ -112,8 +176,13 @@ zerstörende Actors bleiben ausdrücklich unterscheidbar. Kein Vergleich absolut
 Prozessadressen und keine Behauptung framegenauer Gleichheit.
 
 Die optionale Probe nur in eine **eigene geschützte Sitzung** mit absolutem
-DLL-Pfad laden. Befehl `1` über `<TEMP>/ddvisual/<host-pid>.cmd`; beim Client wird
-die Änderung abgelehnt. Danach die Sitzung beenden, nicht die DLL heiß entladen.
+DLL-Pfad laden. Befehle über `<TEMP>/ddvisual/<pid>.cmd`: `1` = verworfener
+Bewegungsschalterversuch, `2` = native XP-/Shared-Identität lesen, `3`/`4` = je
+200 XP am serverseitigen Spieler 0/1 anfordern, `5` = einen Test-Airdrop vor
+`FinishSpawningActor` für Actor-/Bewegungsreplikation anmelden. Nur `2` ist beim
+Client erlaubt; die übrigen Befehle brauchen den Listen-Host. `5` ruft keine
+Reward-Öffnung auf und ist noch kein Produktionsfix. Danach die Sitzung beenden,
+nicht die DLL heiß entladen.
 Rohberichte, Bilder und Binärdateien bleiben unter `research/local` bzw. im
 temporären Probe-Verzeichnis; keine Spieldaten oder SDK-Dateien im Repository.
 

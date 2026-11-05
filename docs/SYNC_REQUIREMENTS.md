@@ -109,6 +109,17 @@ RewardChest-Actors duerfen nicht als garantiert clientseitig vorhanden gelten.
 
 ## Beleg- und Testgrenze
 
+**Umsetzungsnachtrag 05.11.2026:** `client-visuell` bindet inzwischen die
+gemeinsame XP-/Levelanzeige über den [Kontrollkanal](CONTROL_PROTOCOL.md) an.
+Host-Getter liefern absolute Anzeigen, der Client aktualisiert nur seine HUD.
+Native Probe: Beide Host-PlayerStates teilen das GameState-Levelsystem; die
+abweichende lokale Client-Instanz erklärt die bisher falsche Anzeige. Gegen
+Spät-/Doppelzustellung schützen Peer, Client-Anforderungskennung, Run/Epoche,
+Revision und GameState-NetGUID. Keine lokale `AddExperience`-/Reward-Ausführung.
+Das implementiert **nicht** die komplette Level-up-/Reward-/Währungssteuerung
+von `fortschritt`. Die folgenden Punkte beschreiben weiterhin den ursprünglichen
+Analyseabschluss von `sync-bedarf`, nicht den aktuellen Umfang des Transports.
+
 - Gegen das lokal erzeugte SDK nachgeschlagen: alle sechs Komponenten,
   Currency-Vererbung, Delegates, Getter und Reward-Sitzungsfelder.
 - Fruehere Replikationsbefunde wurden nicht als neuer Laufzeittest ausgegeben.
