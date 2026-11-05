@@ -42,11 +42,27 @@ powershell -ExecutionPolicy Bypass -File tools/spike/Start-Session.ps1 -Mod -Tun
 
 Beide Instanzen starten gleichzeitig ohne Lobby-Schalter. Sobald der Spike geladen ist, erstellt der Host die Lobby über
 das Overlay der Mod und wird selbst Listen-Server in der MetaBase, der Client tritt ebenso mit der Lobby-ID bei (`Overlay.ps1`).
-Erst nach dem Spike, denn ohne seine Patches stürzen beim Beitritt der Host (`0x5901CE8`) und der Client (`0x56B16D9`) ab,
-beides belegt am 04.11.2026. Die Schalter `-ddcoop_lobby` und `-ddcoop_lobby_delay` der Mod gibt es weiter, das Skript braucht sie nicht.
+Die Abstürze beim Beitritt ohne Spike (Host `0x5901CE8`, Client `0x56B16D9`, 04.11.2026) verhindert inzwischen die Mod selbst,
+siehe [Nur Mod, ohne Spike](#nur-mod-ohne-spike). Die Schalter `-ddcoop_lobby` und `-ddcoop_lobby_delay` der Mod gibt es weiter, das Skript braucht sie nicht.
 Auf zwei PCs: Host mit `-Role Host -Tunnel Lobby`, die Ausgabe nennt die Lobby-ID, Client mit `-Role Client -Tunnel Lobby -Peer <Lobby-ID>`.
 Die Lobby-ID gehört zu keinem Konto und verfällt mit der Lobby. Einladungen über Steam prüft man nur mit zwei Konten: Overlay
 mit **F8**, „Einladen“, Freund wählen, beim Freund „Spiel beitreten“. Siehe [Net](../src/Net/README.md#steam-lobby-steam-lobby).
+
+### Nur Mod, ohne Spike
+
+```bash
+powershell -ExecutionPolicy Bypass -File tools/spike/Start-Session.ps1 -Mod -Tunnel Lobby -NoSpike -Brief
+powershell -ExecutionPolicy Bypass -File tools/spike/Run-Route.ps1 -Start -NoSpike -Days 1 -StayLast
+```
+
+So läuft das Spiel wie im Release: nur `DDCoop.dll`, kein `spike.dll`. Crash-Schutz, eigene `UserDir` und Sperre bleiben gleich.
+Das Skript prüft nach dem Hauptmenü und am Ende, dass `spike.dll` nicht geladen ist. Ohne Spike gibt es keine Konsolenbefehle,
+also nur `-Tunnel Lobby` und die MetaBase als Ziel, kein `-Godmode`, kein fester Seed und kein `!finish`. `Run-Route.ps1` endet darum
+in der ersten Mission. Ein frischer Test-Spielstand fährt nach „So wird gespielt“ ohne Routenkarte direkt los, sonst sucht das Skript den
+Knoten für Tag 1 in der linken Spalte. `Send-SpikeCommand` bricht in so einer Sitzung mit einer klaren Meldung ab.
+
+Erwartet ist heute Exitcode 1 mit „Figur nicht am Bus“ und verschiedenen Kachelzahlen: Die Karte vom Host gibt es nur im Spike,
+siehe [Ohne Spike](../src/Game/README.md#ohne-spike). Abstürze enden wie sonst mit Exitcode 2.
 
 ### Mod-Overlay prüfen
 
