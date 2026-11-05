@@ -104,3 +104,36 @@ TEST_CASE("Airdrops sind absolute netGUID-gebundene Anzeigezustaende, keine Rewa
     REQUIRE(Decode(Encode(Value)));
     CHECK(Decode(Encode(Value))->AirdropsKnown);
 }
+
+TEST_CASE("XP-Baelle: Ausstoss-Bild ist begrenzt und gebunden")
+{
+    const OrbBatch Value{10, 11, 668, 1, {{5, {1.5, -2, 100}, {1.5, -2, 100}, {1, 0.5f, 0, 1}, 0.25, -1.f}, {200}}};
+    const auto Bytes = EncodeOrbs(Value);
+    REQUIRE(DecodeOrbs(Bytes));
+    CHECK(*DecodeOrbs(Bytes) == Value);
+    for (size_t Size = 0; Size < Bytes.size(); ++Size)
+        CHECK_FALSE(DecodeOrbs(std::span(Bytes).first(Size)));
+    auto Bad = Value;
+    Bad.Spawns[0].Amount = 0;
+    CHECK(EncodeOrbs(Bad).empty());
+    Bad = Value;
+    Bad.Spawns[0].End[2] = std::numeric_limits<double>::quiet_NaN();
+    CHECK(EncodeOrbs(Bad).empty());
+    Bad = Value;
+    Bad.Spawns.assign(MaxOrbs + 1, {1});
+    CHECK(EncodeOrbs(Bad).empty());
+    Bad.Spawns.clear();
+    CHECK(EncodeOrbs(Bad).empty());
+
+    Mirror View;
+    View.Bind(7, 10, 11);
+    const Net::Protocol::Control Message{3, 1, 5, Orbs, Bytes};
+    CHECK_FALSE(View.AcceptOrbs(8, Message, 1, 668));          // fremde Verbindung
+    CHECK_FALSE(View.AcceptOrbs(7, Message, 2, 668));          // anderer Tag
+    CHECK_FALSE(View.AcceptOrbs(7, Message, 1, 669));          // anderer GameState
+    REQUIRE(View.AcceptOrbs(7, Message, 1, 668));
+    CHECK(View.AcceptOrbs(7, Message, 1, 668) == std::nullopt); // Wiederholung
+    View.Bind(7, 10, 12);
+    const Net::Protocol::Control Later{3, 1, 6, Orbs, Bytes};
+    CHECK_FALSE(View.AcceptOrbs(7, Later, 1, 668));            // alte Lebensdauer des Clients
+}

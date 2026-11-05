@@ -1,9 +1,11 @@
 #include "Sync/ProgressState.h"
 
 #include <chrono>
+#include <cstdint>
 #include <random>
 #include "Core/Log.h"
 #include "Game/GameThread.h"
+#include "Game/ExpAdapter.h"
 #include "Game/ProgressAdapter.h"
 #include "Net/Net.h"
 
@@ -45,6 +47,7 @@ void TickProgress()
         ++Nonce;
         Mirror.Bind(Peer, Run, Nonce);
         ClientRun = ClientNonce = 0;
+        Game::TakeExpSpawns(SIZE_MAX); // Baelle der alten Welt nicht in die neue tragen.
     }
     if (!Transport)
         return;
@@ -76,14 +79,33 @@ void TickProgress()
                 Transport->SendControl(Peer, {Run, Epoch, ++Revision, Progress::Snapshot, Payload});
             // Ein fehlgeschlagener Send verliert keinen Gewinn: naechster Tick liefert wieder das Vollbild.
         }
+        // XP-Baelle sind Ereignisse, nur Anzeige. Ohne Abonnenten verfallen sie, statt sich anzustauen.
+        auto Spawns = Game::TakeExpSpawns(Progress::MaxOrbs);
+        if (ClientRun && !Spawns.empty())
+        {
+            const auto Payload = Progress::EncodeOrbs({ClientRun, ClientNonce, Context->StateGuid, Context->Day, std::move(Spawns)});
+            if (!Payload.empty())
+                Transport->SendControl(Peer, {Run, Epoch, ++Revision, Progress::Orbs, Payload});
+        }
     }
     else if (Context->Role == Game::NetRole::Client && !Transport->Stats().IsHost)
     {
         // Nach Join/Travel wiederholen, bis ein Snapshot fuer die aktuelle lokale Lebensdauer vorliegt.
         Transport->SendControl(Peer, {Run, 1, Nonce, Progress::Subscribe, {}});
         bool Updated = false;
+        unsigned Orbs = 0;
         for (const auto& Message : Messages)
+        {
             Updated |= Mirror.Accept(Message.Peer, Message.Value, Context->Map, Context->Day, Context->StateGuid);
+            if (const auto Spawns = Mirror.AcceptOrbs(Message.Peer, Message.Value, Context->Day, Context->StateGuid))
+                Orbs += Game::ReplayExpSpawns(*Spawns);
+        }
+        static unsigned OrbLogs = 0;
+        if (Orbs && OrbLogs < 5)
+        {
+            ++OrbLogs;
+            Core::Log::Info("XP-Baelle: {} Host-Ausstoss(e) angezeigt", Orbs);
+        }
         if (Mirror.Value && Mirror.Value->Day == Context->Day && Mirror.Value->Map == Context->Map)
         {
             const auto& Value = *Mirror.Value;

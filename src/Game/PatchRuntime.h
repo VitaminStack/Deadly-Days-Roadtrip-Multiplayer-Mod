@@ -28,6 +28,7 @@ std::span<const Patch> TravelPatches();
 std::span<const Patch> WidgetPatches();
 std::span<const Patch> HealthBarPatches();
 std::span<const Patch> AirdropPatches();
+std::span<const Patch> ExpPatches();
 
 void TickPlayers(NetRole Role, bool Second);
 void TickCamera(NetRole Role, bool Second);
