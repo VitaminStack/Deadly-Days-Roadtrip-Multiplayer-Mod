@@ -78,8 +78,11 @@ function Write-SessionLock([int]$HostId, [int]$ClientId) {
     @{ Owner = $script:RepoRoot; Starter = $PID; Host = $HostId; Client = $ClientId } | ConvertTo-Json
 }
 
-function Enter-SessionLock {
-    foreach ($Attempt in 1, 2) {
+# Mit WaitSeconds > 0 wartet der Aufruf, bis eine fremde Sitzung endet, statt abzubrechen. Fremde Instanzen bleiben unberuehrt.
+function Enter-SessionLock([int]$WaitSeconds = 0) {
+    $Deadline = (Get-Date).AddSeconds($WaitSeconds)
+    $Announced = $false
+    while ($true) {
         try {
             $Bytes = [Text.Encoding]::ASCII.GetBytes((Write-SessionLock 0 0))
             $Stream = [IO.File]::Open($script:LockFile, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write)
@@ -88,14 +91,17 @@ function Enter-SessionLock {
             return
         }
         catch [Management.Automation.MethodInvocationException] {
-            $Lock = Get-Content $script:LockFile -Raw | ConvertFrom-Json
-            if (Test-LockActive $Lock) {
-                throw "Testsitzung laeuft bereits aus $($Lock.Owner). Warten, bis sie dort mit Stop-Session.ps1 beendet ist."
+            $Lock = $null
+            try { $Lock = Get-Content $script:LockFile -Raw -ErrorAction Stop | ConvertFrom-Json } catch { continue }
+            if (-not (Test-LockActive $Lock)) { Remove-Item $script:LockFile -Force -ErrorAction SilentlyContinue; continue }
+            if ((Get-Date) -ge $Deadline) {
+                $Hint = if ($WaitSeconds) { "Nach $WaitSeconds s noch belegt." } else { 'Mit -Wait <Sekunden> warten oder ohne Spiel weiterarbeiten.' }
+                throw "Testsitzung laeuft bereits aus $($Lock.Owner). $Hint"
             }
-            Remove-Item $script:LockFile -Force
+            if (-not $Announced) { Write-Output "Warte auf die Sitzung aus $($Lock.Owner) ..."; $Announced = $true }
+            Start-Sleep -Seconds 5
         }
     }
-    throw 'Sperre konnte nicht gesetzt werden.'
 }
 
 function Exit-SessionLock {
@@ -141,4 +147,135 @@ function Invoke-InVsEnvironment([string]$CommandLine) {
         "@call `"$Vs\VC\Auxiliary\Build\vcvars64.bat`" >nul`r`n@$CommandLine")
     try { & cmd /c "`"$Script`"" }
     finally { Remove-Item $Script -Force -ErrorAction SilentlyContinue }
+}
+
+# Netzzustand einer Instanz aus netstate.py, etwa @{ world = 'MetaBase'; players = 2; clients = 1 }. Leer, solange nichts lesbar ist.
+function Get-NetState([int]$ProcessId) {
+    $Line = & py (Join-Path $PSScriptRoot 'netstate.py') $ProcessId 2>$null | Select-Object -Last 1
+    $State = @{ line = $Line }
+    foreach ($Match in [regex]::Matches([string]$Line, "'(\w+)': (?:'([^']*)'|(-?\d+))")) {
+        $State[$Match.Groups[1].Value] = if ($Match.Groups[2].Success) { $Match.Groups[2].Value } else { [int]$Match.Groups[3].Value }
+    }
+    $State
+}
+
+# Wartet, bis die Bedingung gilt, statt fest zu schlafen. Bricht ab, wenn eine der Instanzen endet.
+function Wait-Condition([scriptblock]$Condition, [string]$What, [int]$TimeoutSeconds, [int[]]$ProcessIds = @(), [int]$PollMilliseconds = 1000) {
+    $Deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ((Get-Date) -lt $Deadline) {
+        foreach ($ProcessId in $ProcessIds) {
+            if ($ProcessId -and -not (Test-GameProcess $ProcessId)) { throw "Instanz $ProcessId ist beendet ($What). Siehe tools\spike\crashes.py." }
+        }
+        if (& $Condition) { return }
+        Start-Sleep -Milliseconds $PollMilliseconds
+    }
+    throw "Zeitablauf nach $TimeoutSeconds s: $What"
+}
+
+# Bereit fuer den Spike: Das Hauptmenue ist geladen. Frueher galt dafuer ein fester Schlaf von 20 s.
+function Wait-MainMenu([int]$ProcessId, [int]$TimeoutSeconds = 90) {
+    Wait-Condition { (Get-NetState $ProcessId).world -eq 'MainMenu' } "Hauptmenue von $ProcessId" $TimeoutSeconds @($ProcessId)
+}
+
+# Overlay der Mod (Fenster DDCoop.Overlay der Instanz). Knoepfe und Felder wie in src\UI\UI.cpp.
+$script:OverlayIds = @{ Create = 101; Join = 102; Invite = 103; Leave = 104; Lobby = 105 }
+if (-not ('DDCoopOverlay' -as [type])) {
+    Add-Type @"
+using System; using System.Text; using System.Collections.Generic; using System.Runtime.InteropServices;
+public static class DDCoopOverlay {
+    delegate bool EnumProc(IntPtr Window, IntPtr Data);
+    [DllImport("user32.dll")] static extern bool EnumWindows(EnumProc Proc, IntPtr Data);
+    [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr Window, out uint Process);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassName(IntPtr Window, StringBuilder Name, int Size);
+    [DllImport("user32.dll")] static extern IntPtr GetDlgItem(IntPtr Window, int Id);
+    [DllImport("user32.dll")] static extern IntPtr GetWindow(IntPtr Window, uint Command);
+    [DllImport("user32.dll")] static extern bool IsWindowEnabled(IntPtr Window);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr SendMessage(IntPtr Window, uint Message, IntPtr W, StringBuilder L);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr SendMessage(IntPtr Window, uint Message, IntPtr W, string L);
+    [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr Window, uint Message, IntPtr W, IntPtr L);
+    public static IntPtr Find(uint Process) {
+        IntPtr Found = IntPtr.Zero;
+        EnumWindows((Window, Data) => {
+            uint Owner; GetWindowThreadProcessId(Window, out Owner);
+            if (Owner != Process) return true;
+            var Name = new StringBuilder(64); GetClassName(Window, Name, 64);
+            if (Name.ToString() != "DDCoop.Overlay") return true;
+            Found = Window; return false;
+        }, IntPtr.Zero);
+        return Found;
+    }
+    static string Text(IntPtr Window) { var Buffer = new StringBuilder(4096); SendMessage(Window, 0x0D, (IntPtr)4096, Buffer); return Buffer.ToString(); }
+    // Texte aller Steuerelemente in Reihenfolge: Status, Meldung, Debug, Hinweis, Knoepfe.
+    public static string[] Texts(IntPtr Window) {
+        var Result = new List<string>();
+        for (IntPtr Child = GetWindow(Window, 5); Child != IntPtr.Zero; Child = GetWindow(Child, 2)) Result.Add(Text(Child));
+        return Result.ToArray();
+    }
+    public static bool Enabled(IntPtr Window, int Id) { return IsWindowEnabled(GetDlgItem(Window, Id)); }
+    // Wie ein Klick: WM_COMMAND mit BN_CLICKED an das Overlay, ohne Maus und ohne sichtbares Fenster.
+    public static void Click(IntPtr Window, int Id) { SendMessage(Window, 0x111, (IntPtr)Id, GetDlgItem(Window, Id)); }
+    public static void SetText(IntPtr Window, int Id, string Value) { SendMessage(GetDlgItem(Window, Id), 0x0C, IntPtr.Zero, Value); }
+}
+"@
+}
+
+function Get-OverlayWindow([int]$ProcessId, [int]$TimeoutSeconds = 0) {
+    $Deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    do {
+        $Window = [DDCoopOverlay]::Find([uint32]$ProcessId)
+        if ($Window -ne [IntPtr]::Zero) { return $Window }
+        Start-Sleep -Milliseconds 500
+    } while ((Get-Date) -lt $Deadline)
+    throw "Kein Overlay in $ProcessId. Laeuft die Mod, und steht overlay_enabled in ddcoop.ini nicht auf false?"
+}
+
+# Zustand des Overlays: State, Message, Role, LobbyId, Ping und welche Knoepfe frei sind.
+function Get-OverlayState([int]$ProcessId) {
+    $Window = Get-OverlayWindow $ProcessId 5
+    $Texts = [DDCoopOverlay]::Texts($Window)
+    $Debug = [string]$Texts[2]
+    $Lobby = [regex]::Match($Debug, 'Lobby: (\d+)')
+    [pscustomobject]@{
+        State = ([string]$Texts[0]) -replace '^DDCoop \| ', ''
+        Message = [string]$Texts[1]
+        Role = [regex]::Match($Debug, 'Rolle: (\w+)').Groups[1].Value
+        LobbyId = if ($Lobby.Success) { $Lobby.Groups[1].Value } else { '' }
+        Ping = [regex]::Match($Debug, 'Ping: ([^\r\n]+?)(\r|\n|$)').Groups[1].Value
+        CanCreate = [DDCoopOverlay]::Enabled($Window, $script:OverlayIds.Create)
+        CanJoin = [DDCoopOverlay]::Enabled($Window, $script:OverlayIds.Join)
+        CanLeave = [DDCoopOverlay]::Enabled($Window, $script:OverlayIds.Leave)
+    }
+}
+
+# Loest einen Overlay-Knopf aus wie ein Klick. Join setzt vorher die Lobby-ID ins Feld.
+function Invoke-OverlayAction([int]$ProcessId, [ValidateSet('Create', 'Join', 'Invite', 'Leave')][string]$Action, [string]$LobbyId) {
+    $Window = Get-OverlayWindow $ProcessId 5
+    if ($Action -eq 'Join') {
+        if ($LobbyId -notmatch '^\d{1,20}$') { throw 'Join braucht eine Lobby-ID.' }
+        [DDCoopOverlay]::SetText($Window, $script:OverlayIds.Lobby, $LobbyId)
+        Start-Sleep -Milliseconds 300
+    }
+    [DDCoopOverlay]::Click($Window, $script:OverlayIds[$Action])
+}
+
+# Erstellt beim Host eine Lobby ueber das Overlay und liefert ihre ID.
+function New-OverlayLobby([int]$HostId, [int]$TimeoutSeconds = 30) {
+    Wait-Condition { (Get-OverlayState $HostId).CanCreate } 'Overlay des Hosts bereit zum Erstellen' 30 @($HostId) 500
+    Invoke-OverlayAction $HostId Create
+    $script:NewLobby = $null
+    Wait-Condition { $script:NewLobby = Get-OverlayState $HostId; $script:NewLobby.LobbyId -and $script:NewLobby.State -ne 'Verbindung wird aufgebaut' } 'Lobby beim Host erstellt' $TimeoutSeconds @($HostId) 500
+    $script:NewLobby.LobbyId
+}
+
+# Tritt beim Client ueber das Overlay bei und wartet, bis die Sitzung steht oder scheitert. Liefert den Overlay-Zustand.
+function Join-OverlayLobby([int]$ClientId, [string]$LobbyId, [int]$TimeoutSeconds = 60) {
+    Get-OverlayWindow $ClientId 30 | Out-Null
+    Invoke-OverlayAction $ClientId Join $LobbyId
+    Start-Sleep -Milliseconds 500
+    $script:JoinState = $null
+    Wait-Condition {
+        $script:JoinState = Get-OverlayState $ClientId
+        $script:JoinState.State -in 'Im Spiel', 'Verbindungsfehler', 'Offline'
+    } 'Beitritt des Clients' $TimeoutSeconds @($ClientId) 500
+    $script:JoinState
 }
