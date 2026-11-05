@@ -11,6 +11,12 @@
 // unter research/spikes/a-connect, Belege in docs/GAME_ANALYSIS.md.
 namespace Game::Patches
 {
+// Client-Proxies haben keine ItemData; auch lokale Authority-Kopien dürfen keine Items vergeben.
+constexpr bool ItemLootMayGrant(uint8_t ActorRole, NetRole WorldRole)
+{
+    return ActorRole == 3 && WorldRole != NetRole::Client;
+}
+
 // ADDMissionGameMode::SpawnedPlayers, ein TSet<APlayerController*>. Layout aus Build 26187885, der Speicher gehört dem Spiel.
 struct ControllerSetEntry
 {

@@ -53,6 +53,7 @@ Fremde Änderungen an den Einsprungbytes müssen weiterhin zur Ablehnung führen
 | `UInventoryComponent::ReadyForReplication` | `0x5969750`, Vtable `+0x3D8`; ursprünglicher Sprung nach `0x2819AA0` |
 | UObject-Standard `IsSupportedForNetworking` | `0x1512250`, Vtable `+0x200`; delegiert an `IsFullNameStableForNetworking` |
 | `CreateItemInstance`, `CreateSlotInstance` | `0x5959700`, `0x5959900`; nur im Diagnoseversuch gehookt, nicht im Teilfix |
+| `AItemLoot::Loot` (nativer Interface-Pfad) | `0x59AB040`; `this` ist `Actor+0x2A8`, ItemData bei `Actor+0x2E0`, Role bei `Actor+0x168`. Exec-Thunk `0x57145E0`, Item-Erzeugung bei `0x59AB0AE`. Bytegeprüfter Hook in `InventoryPatches.cpp`, [Befund](../research/spikes/itemsack-absturz/README.md) |
 
 ### Trennen
 
