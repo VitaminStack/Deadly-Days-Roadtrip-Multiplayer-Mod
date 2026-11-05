@@ -103,6 +103,33 @@ danach Niederlage und „Zurück zur Basis“. Kein Absturz, die Inventare waren
 Controller-Tausch, Client-Position, Kamera, PowerUp, Lebensleisten. Die übrigen Schutzstellen (HUD, Exp, Blockade, alter Kartengenerator)
 wurden in diesem Lauf nicht gebraucht; ihre Logik ist mit `tests/GameTests/PatchTests.cpp` und aus den Spike-Läufen belegt.
 
+### Airdrop-Auswahl
+
+Aufgabe `airdrop-auswahl`, Code in `RewardPatches.cpp` und `src/Sync/Inventory/RewardSync.cpp`, Format in
+[Kontrollkanal](../../docs/CONTROL_PROTOCOL.md#airdrop-auswahl-mod-kompatibilität-3). Der Koop-Modus bleibt aus, jeder wählt im
+normalen Einzelspieler-Panel.
+
+- **Host:** `RewardChest.OpenAirdropChoices` gibt eine vom Remote-Spieler geöffnete Kiste an die Figur des Hosts (`RewardCharacter`).
+  Der Hook auf `InventoryComponent.SetRewardItems` liest die Choices mit, `RewardSync` schickt sie als Sitzungsbild. Drückt der Host
+  „Bestätigen“, hält der Hook auf `InventoryPanel.HandleConfirmButton` das Bestätigen zurück, bis der Client gewählt hat. Die Wahl des
+  Clients legt der Host mit `CreateAndAddItem` in dessen Inventar, mit der gemeldeten Ablage (`0x302`) per `AddToBackpack` und
+  `OccupyBackpackSlots` auf dieselben Rucksackfelder.
+- **Client:** Die Mod legt lokale Anzeige-Instanzen über den nativen `CreateItemInstance` an (die UFunction ist `BlueprintAuthorityOnly`,
+  über `ProcessEvent` liefert sie beim Client nichts) und öffnet das native Panel mit `SetRewardItems`. Inventar-RPCs mit diesen Instanzen
+  hält `FilterRewardEvent` zurück; das erste Ablegen einer Choice gilt als Wahl, die lokalen Instanzen fliegen direkt aus `MyItems`.
+- **Reward-Queue:** Kisten laufen über die `RewardQueue` der öffnenden Figur, das Panel schaltet aber nur die Queue des Hosts weiter.
+  Ohne Eingriff blieb die Queue von P2 nach einer vom Client geöffneten Kiste belegt, danach ging keine Kiste mehr auf. Die Mod ruft
+  beim Host ohne offene Auswahl jede Sekunde `OpenNextReward` für P2 auf.
+
+**Geprüft** (05.11.2026, ein PC, Lobby-Tunnel, Tag 1, vom Nutzer eingesammelt): Beide sehen ihre Auswahl, ob Host oder Client die Kiste
+öffnet; mehrere Airdrops nacheinander öffnen sich wieder; ohne Absturz, Inventare gleich. Wählt der Client zuerst, wartet das Spiel auf
+den Host. **Offen:** Bestätigt der Host zuerst, läuft die Runde trotz zurückgehaltenem Bestätigen weiter (`airdrop-warten`). Die Wahl des
+Clients landet im Lager statt im Rucksack: Er merkt sich die Ablage, sie kommt aber nicht beim Host an (`airdrop-rucksack`).
+
+**Verworfen:** Zuerst nutzte die Mod die native Koop-Reward-Sitzung (Koop-Modus nur für den Airdrop, Client wählt im Overlay, Host ruft
+`ClaimReward(1, …)`). Das Host-Panel zeigte beide Rucksäcke, nach dem Claim des Clients ging die UI-Autorität an P1 und der Host hing.
+Die Auswahl im Overlay gefiel nicht, der Nutzer wollte für beide das normale Panel.
+
 ## Ohne Spike
 
 Im Release gibt es keinen Spike. Stand `ohne-spike` (05.11.2026, Build `26187885`): Die Mod läuft allein, Lobby-Beitritt, MetaBase und
