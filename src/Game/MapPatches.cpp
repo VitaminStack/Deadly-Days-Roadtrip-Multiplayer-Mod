@@ -68,7 +68,8 @@ struct
     // Client
     std::optional<Map::HostMap> Received;
     ULONGLONG ReceivedAt = 0;
-    uint64_t UsedId = 0; // jede Erzeugung des Hosts nur einmal übernehmen
+    uint64_t UsedId = 0; // jede Erzeugung des Hosts nur einmal übernehmen, außer bei einem neuen Versuch in derselben Welt
+    uintptr_t UsedWorld = 0;
     uintptr_t PendingGenerator = 0, PendingWorld = 0;
     ULONGLONG PendingSince = 0;
     uintptr_t Generator = 0, GeneratorWorld = 0; // laufende eigene Erzeugung, nur dann Child Actors unterdrücken
@@ -234,9 +235,11 @@ void PublishHostGraph(uintptr_t PcgGenerator)
 
 // ---- Client ----
 
-bool FreshValues()
+// Neue Werte, oder dieselben noch einmal, wenn das Spiel die Erzeugung in derselben Welt neu versucht
+// (StartMapGenerationWithRetryAttempts, TryToRegenerate). Sonst wartete der Client 60 s und baute eine eigene Karte.
+bool FreshValues(uintptr_t Generator)
 {
-    return S.Received && S.Received->Id != S.UsedId;
+    return S.Received && (S.Received->Id != S.UsedId || (CurrentWorld() == S.UsedWorld && Generator == S.Generator));
 }
 
 // Falsch, wenn die Werte unbrauchbar sind. Dann erzeugt der Client wie ohne Patch, statt endlos zu warten.
@@ -272,7 +275,7 @@ void StartClientGeneration(uintptr_t Generator)
 bool TryStartClient(uintptr_t Generator, ULONGLONG Since)
 {
     const ULONGLONG Now = GetTickCount64();
-    const bool Fresh = FreshValues();
+    const bool Fresh = FreshValues(Generator);
     const bool GraphKnown = Fresh && S.Received->GraphState != Map::Graph::Unknown;
     switch (ClientMapStart(Fresh, GraphKnown, Now - Since, Fresh ? Now - S.ReceivedAt : 0))
     {
@@ -283,6 +286,7 @@ bool TryStartClient(uintptr_t Generator, ULONGLONG Since)
         break;
     case MapStart::HostValues:
         S.UsedId = S.Received->Id;
+        S.UsedWorld = CurrentWorld();
         if (ApplyHostMap(Generator, *S.Received))
             Core::Log::Info("Karte: Client übernimmt {} {} nach {} ms", S.Received->Seed, S.Received->Profile, Now - Since);
         break;

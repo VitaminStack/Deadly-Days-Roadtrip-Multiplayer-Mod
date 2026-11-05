@@ -553,7 +553,7 @@ Stand 05.11.2026, Build `26187885`, ein PC, zwei Instanzen, Lobby und Tunnel der
   Slot 85 des PCG-Generators kommt der Graph dazu oder „kein Graph“. Der Kontrollkanal schickt den Stand bei jeder Änderung und jede
   Sekunde; nach einem Kartenwechsel ohne neue Erzeugung schickt er „keine Karte“.
 - **Client:** `StartMapGeneration` wartet, bis Werte mit einer noch nicht übernommenen Kennung da sind, und höchstens 5 s länger auf den
-  Graphen. Jede Kennung gilt nur einmal, alte Werte passen so nie zur nächsten Karte. Kommen 60 s lang keine Werte, erzeugt der Client
+  Graphen. Jede Kennung gilt nur einmal, alte Werte passen so nie zur nächsten Karte. Ausnahme: Versucht das Spiel die Erzeugung in derselben Welt mit demselben Generator neu (`StartMapGenerationWithRetryAttempts`, `TryToRegenerate`), nimmt der Client dieselben Werte noch einmal. Kommen 60 s lang keine Werte, erzeugt der Client
   eine eigene Karte (Log `Karte: nach 60 s keine Werte vom Host`), statt ewig zu laden.
 - **Child Actors und PCG-Seeds** wie im Spike. Die Seeds setzt die Mod nur zu zweit, allein bleibt die Vegetation wie ohne Mod.
 
