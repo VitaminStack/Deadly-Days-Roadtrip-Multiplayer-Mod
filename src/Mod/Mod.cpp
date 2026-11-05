@@ -61,6 +61,14 @@ void Start()
 
     // Die Lobby hängt einen Game-Thread-Tick an, das geht nur vor Game::Start.
     Mod::Lobby::Install();
+    Sync::SetRewardSink([](std::optional<Sync::RewardPrompt> Prompt)
+    {
+        if (!Prompt)
+            return UI::Overlay().PublishReward(std::nullopt);
+        UI::Overlay().PublishReward(UI::RewardPrompt{Prompt->Session, Prompt->Revision, std::move(Prompt->Choices),
+                                                     std::move(Prompt->Status), Prompt->Selectable});
+    });
+    UI::Overlay().BindReward([](uint64_t Session, uint64_t Revision, uint32_t Index) { Sync::ChooseReward(Session, Revision, Index); });
     Sync::Start(Config, [](std::string Text) { UI::Overlay().PublishDiagnostics(std::move(Text)); });
     Started = true;
     Game::Start();

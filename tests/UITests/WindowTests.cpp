@@ -82,11 +82,12 @@ TEST_CASE("Native overlay lifecycle works without game SDK, Steam, focus changes
     SendMessageW(Window, WM_TIMER, 1, 0);
     std::vector<std::wstring> Texts;
     EnumChildWindows(Window, ReadStaticText, reinterpret_cast<LPARAM>(&Texts));
-    REQUIRE(Texts.size() == 5);
+    REQUIRE(Texts.size() == 6); // the sixth is the hidden airdrop prompt
     CHECK(Texts[0].find(L"DDCoop | ") == 0);
     CHECK(Texts[1] == L"Lobby test message");
     CHECK(Texts[2].find(L"Rolle:") != std::wstring::npos);
     CHECK(Texts[4] == L"Desync: test diagnostics");
+    CHECK(Texts[5].empty());
     CHECK(IsWindowEnabled(GetDlgItem(Window, 101)));
     CHECK_FALSE(IsWindowEnabled(GetDlgItem(Window, 106))); // Nothing to copy without a lobby.
     CHECK_FALSE(IsWindowEnabled(GetDlgItem(Window, 102)));

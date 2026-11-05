@@ -9,6 +9,7 @@
 #include "Game/Memory.h"
 #include "Game/Offsets.h"
 #include "Game/PatchRuntime.h"
+#include "Game/RewardAdapter.h"
 
 namespace Game::Patches
 {
@@ -74,7 +75,7 @@ bool Install()
 {
     std::vector<Patch> All;
     for (const auto List : {PlayerPatches(), ClientPatches(), CameraPatches(), InventoryPatches(), TravelPatches(), WidgetPatches(),
-                            HealthBarPatches(), AirdropPatches(), ExpPatches(), RemoteP2Patches()})
+                            HealthBarPatches(), AirdropPatches(), ExpPatches(), RemoteP2Patches(), RewardPatches()})
         All.insert(All.end(), List.begin(), List.end());
 
     if (!Caves.AllocateNear(Memory::ImageBase()))
@@ -113,6 +114,7 @@ void Tick()
     TickWidgets(Role);
     TickPlayers(Role, Second);
     TickRemoteP2(Role);
+    Rewards::Tick();
     TickCamera(Role, Second);
     TickProjectiles(Role, Second);
 }

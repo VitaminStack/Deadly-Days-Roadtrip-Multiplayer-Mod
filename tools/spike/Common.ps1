@@ -268,6 +268,9 @@ function Get-OverlayState([int]$ProcessId) {
         State = ([string]$Texts[0]) -replace '^DDCoop \| ', ''
         Message = [string]$Texts[1]
         Diagnostics = if ($Texts.Length -gt 4) { [string]$Texts[4] } else { '' }
+        # Airdrop-Auswahl: Hinweis und Knoepfe nach den Lobby-Knoepfen, siehe src/UI/UI.cpp.
+        Reward = if ($Texts.Length -gt 11) { [string]$Texts[11] } else { '' }
+        RewardChoices = @(if ($Texts.Length -gt 12) { $Texts[12..($Texts.Length - 1)] | Where-Object { $_ } })
         Role = [regex]::Match($Debug, 'Rolle: (\w+)').Groups[1].Value
         LobbyId = if ($Lobby.Success) { $Lobby.Groups[1].Value } else { '' }
         Ping = [regex]::Match($Debug, 'Ping: ([^\r\n]+?)(\r|\n|$)').Groups[1].Value

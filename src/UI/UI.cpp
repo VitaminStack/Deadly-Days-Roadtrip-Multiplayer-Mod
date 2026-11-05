@@ -3,6 +3,7 @@
 #include <windows.h>
 #include <commctrl.h>
 
+#include <algorithm>
 #include <atomic>
 #include <cstring>
 #include <exception>
@@ -22,6 +23,8 @@ namespace
 {
 constexpr wchar_t WindowClass[] = L"DDCoop.Overlay";
 constexpr int CreateId = 101, JoinId = 102, InviteId = 103, LeaveId = 104, LobbyId = 105, CopyId = 106;
+// Airdrop-Auswahl: Knopf je Choice, RewardId + Index.
+constexpr int RewardId = 111, RewardButtons = 4;
 std::mutex Lifecycle;
 HANDLE Thread = nullptr;
 std::atomic<bool> Stopping = false;
@@ -32,6 +35,11 @@ struct WindowState
     HWND Owner = nullptr;
     HWND Status = nullptr, Message = nullptr, Debug = nullptr, Hint = nullptr, Diagnostics = nullptr;
     HWND Create = nullptr, Join = nullptr, Invite = nullptr, Leave = nullptr, Lobby = nullptr, Copy = nullptr;
+    HWND RewardText = nullptr;
+    HWND Reward[RewardButtons]{};
+    int RewardRows = -1; // -1 = keine Auswahl angezeigt
+    uint64_t RewardSession = 0;
+    bool RewardShownWindow = false;
     bool KeyDown = false;
     ULONGLONG CopiedAt = 0;
     int Dpi = 0;
@@ -104,7 +112,7 @@ HWND Control(HWND Window, const wchar_t* Class, const wchar_t* Label, DWORD Styl
     return Result;
 }
 
-void Layout(WindowState& State, HWND Window, int Dpi)
+void Layout(WindowState& State, HWND Window, int Dpi, int RewardRows)
 {
     const auto Scale = [Dpi](int Value) { return MulDiv(Value, Dpi, 96); };
     if (State.Font)
@@ -127,7 +135,25 @@ void Layout(WindowState& State, HWND Window, int Dpi)
     Place(State.Copy, 12, 234, 160, 28);
     Place(State.Diagnostics, 12, 270, 416, 64);
     Place(State.Hint, 12, 342, 416, 44);
-    RECT Rect{ 0, 0, Scale(440), Scale(396) };
+    // Airdrop-Auswahl unten anhängen, nur solange sie offen ist.
+    int Height = 396;
+    ShowWindow(State.RewardText, RewardRows >= 0 ? SW_SHOW : SW_HIDE);
+    if (RewardRows >= 0)
+    {
+        Place(State.RewardText, 12, 396, 416, 40);
+        Height = 440;
+    }
+    for (int i = 0; i < RewardButtons; ++i)
+    {
+        ShowWindow(State.Reward[i], i < RewardRows ? SW_SHOW : SW_HIDE);
+        if (i < RewardRows)
+        {
+            Place(State.Reward[i], 12, Height, 416, 30);
+            Height += 34;
+        }
+    }
+    State.RewardRows = RewardRows;
+    RECT Rect{ 0, 0, Scale(440), Scale(Height + 4) };
     AdjustWindowRectExForDpi(&Rect, WS_POPUP | WS_CAPTION | WS_SYSMENU, FALSE, WS_EX_TOOLWINDOW, static_cast<UINT>(Dpi));
     SetWindowPos(Window, nullptr, 0, 0, Rect.right - Rect.left, Rect.bottom - Rect.top,
         SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
@@ -191,6 +217,38 @@ void UpdateControls(WindowState& State)
     EnableWindow(State.Copy, Status.LobbyId != 0);
     const bool Copied = State.CopiedAt && GetTickCount64() - State.CopiedAt < 1500;
     Text(State.Copy, Copied ? L"Kopiert" : L"Lobby-ID kopieren");
+
+    const auto& Reward = View.Reward;
+    const int Rows = !Reward ? -1 : Reward->Selectable ? static_cast<int>(std::min<size_t>(Reward->Choices.size(), RewardButtons)) : 0;
+    if (Reward)
+    {
+        Text(State.RewardText, Widen(Reward->Status));
+        for (int i = 0; i < Rows; ++i)
+        {
+            Text(State.Reward[i], std::to_wstring(i + 1) + L": " + Widen(Reward->Choices[static_cast<size_t>(i)]));
+            EnableWindow(State.Reward[i], TRUE);
+        }
+    }
+    if (Rows != State.RewardRows && State.Dpi)
+        Layout(State, GetParent(State.Status), State.Dpi, Rows);
+    // Neue Auswahl zeigt das Overlay von selbst, nach dem Ende wird es wieder verborgen, wenn es nur dafür offen war.
+    if (Reward && Reward->Session != State.RewardSession)
+    {
+        State.RewardSession = Reward->Session;
+        if (!Visible.load())
+        {
+            UI::SetVisible(true);
+            State.RewardShownWindow = true;
+        }
+    }
+    else if (!Reward && State.RewardShownWindow)
+    {
+        State.RewardShownWindow = false;
+        State.RewardSession = 0;
+        UI::SetVisible(false);
+    }
+    else if (!Reward)
+        State.RewardSession = 0;
 }
 
 void Refresh(WindowState& State, HWND Window)
@@ -225,7 +283,7 @@ void Refresh(WindowState& State, HWND Window)
     }
     const int Dpi = static_cast<int>(GetDpiForWindow(Owner));
     if (Dpi != State.Dpi)
-        Layout(State, Window, Dpi ? Dpi : 96);
+        Layout(State, Window, Dpi ? Dpi : 96, State.RewardRows);
     RECT Bounds{}, Size{};
     GetClientRect(Owner, &Bounds);
     POINT Corner{ Bounds.right, Bounds.top };
@@ -267,9 +325,13 @@ LRESULT CALLBACK WindowProc(HWND Window, UINT Message, WPARAM WParam, LPARAM LPa
             SendMessageW(State->Lobby, EM_SETCUEBANNER, FALSE, reinterpret_cast<LPARAM>(L"Steam-Lobby-ID"));
             State->Join = Control(Window, L"BUTTON", L"Beitreten", WS_TABSTOP, JoinId);
             State->Copy = Control(Window, L"BUTTON", L"Lobby-ID kopieren", WS_TABSTOP, CopyId);
+            // Nach allen bisherigen STATICs, damit die Reihenfolge fuer Common.ps1 gleich bleibt.
+            State->RewardText = Control(Window, L"STATIC", L"", SS_LEFT);
+            for (int i = 0; i < RewardButtons; ++i)
+                State->Reward[i] = Control(Window, L"BUTTON", L"", WS_TABSTOP, RewardId + i);
             for (HWND Button : { State->Create, State->Join, State->Invite, State->Leave, State->Copy })
                 EnableWindow(Button, FALSE);
-            Layout(*State, Window, 96);
+            Layout(*State, Window, 96, -1);
             if (!SetTimer(Window, 1, 100, nullptr))
                 return -1;
             return 0;
@@ -285,6 +347,10 @@ LRESULT CALLBACK WindowProc(HWND Window, UINT Message, WPARAM WParam, LPARAM LPa
                 case JoinId: UI::Overlay().Submit({ UI::LobbyAction::Join, JoinTarget(State->Lobby) }); break;
                 case InviteId: UI::Overlay().Submit({ UI::LobbyAction::Invite }); break;
                 case LeaveId: UI::Overlay().Submit({ UI::LobbyAction::Leave }); break;
+                case RewardId: case RewardId + 1: case RewardId + 2: case RewardId + 3:
+                    if (UI::Overlay().ChooseReward(static_cast<uint32_t>(LOWORD(WParam) - RewardId)))
+                        UpdateControls(*State);
+                    break;
                 case CopyId:
                     // Clipboard only, no backend action: stays on the window thread.
                     if (CopyLobbyId(Window, UI::Overlay().Snapshot().Status.LobbyId))

@@ -30,6 +30,10 @@ std::span<const Patch> HealthBarPatches();
 std::span<const Patch> AirdropPatches();
 std::span<const Patch> ExpPatches();
 std::span<const Patch> RemoteP2Patches();
+std::span<const Patch> RewardPatches();
+
+// Host mit vollständiger P2-Bindung des Remote-Spielers: Coop-Subsystem, lokaler und Remote-Controller.
+bool BoundRemoteP2(uintptr_t& Coop, uintptr_t& Host, uintptr_t& Remote);
 
 void TickPlayers(NetRole Role, bool Second);
 void TickCamera(NetRole Role, bool Second);
