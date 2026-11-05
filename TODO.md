@@ -42,6 +42,7 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `missionsstart` | P0 | [4](#phase-4--vertical-slice) | parallel | viel |
 | `airdrop-auswahl` | P0 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `mod-saves` | P0 | [6](#phase-6--release) | parallel | mittel |
+| `lobby-bereit` | P1 | [3](#phase-3--session-und-verbindung) | parallel | wenig |
 | `desync-melder` | P1 | [4](#phase-4--vertical-slice) | parallel | mittel |
 | `eingaben` | P1 | [4](#phase-4--vertical-slice) | parallel | mittel |
 | `restrictor` | P1 | [4](#phase-4--vertical-slice) | parallel | wenig |
@@ -50,6 +51,7 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `weekly-sperre` | P1 | [6](#phase-6--release) | parallel | wenig |
 | `mod-steuerung` | P1 | [Wartung](#wartung) | parallel | wenig |
 | `doku-verweise` | P2 | [Wartung](#wartung) | parallel | keine |
+| `versions-meldung` | P2 | [Wartung](#wartung) | parallel | wenig |
 | `opt-ladezeit-messung` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
 
 **Wartet auf das Team:** `meta-fortschritt`, `spiel-update`.
@@ -135,6 +137,7 @@ Ziel: Zwei Spieler finden sich über Steam und verbinden sich ohne Portfreigabe.
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
 | `lobby-live` | P0 | Steam-Lobby der Mod mit zwei Konten auf zwei PCs prüfen: Einladung über das Steam-Overlay annehmen, Beitritt per P2P, Start über `+connect_lobby` bei geschlossenem Spiel, Verlassen beider Seiten. **Fertig, wenn** der Client nur über die Einladung bis in die MetaBase kommt und der Handshake des [Kontrollkanals](docs/CONTROL_PROTOCOL.md) dabei über das Internet bestätigt ist. **Einstieg:** [Steam-Lobby](src/Net/README.md#steam-lobby-steam-lobby), [Test auf zwei PCs](docs/TESTING.md#test-auf-zwei-pcs) | `steam-lobby` | zu zweit | wenig |
+| `lobby-bereit` | P1 | Lobby nur anbieten, solange das Spiel des Hosts wirklich hostet. Gemessen am 05.11.2026 auf zwei PCs, nur Mod: Steht der Host im Hauptmenü, bleibt seine Lobby offen und Tunnel samt Handshake stehen, aber die Engine des Clients findet keinen Server. Sie wartet etwa 18 s, lädt die MetaBase ohne Verbindung und fällt ohne Meldung ins Hauptmenü. Wechselt der Host über das Spielmenü ins Hauptmenü, bleibt die Lobby ebenso offen; der Client erfährt das erst nach 30 s als „Verbindung zum Host verloren“ statt sofort „Der Host hat die Sitzung verlassen“. **Fertig, wenn** ein Beitritt bei einem Host ohne Listen-Server sofort mit einem Hinweis im Overlay endet, ein Host beim Wechsel ins Hauptmenü die Sitzung mit Grund beendet und der Client das wie bei „Verlassen“ in unter 1 s meldet. Ordner `src/Net`, `src/Mod`. **Einstieg:** [Zwei PCs, nur Mod](src/Net/README.md#zwei-pcs-nur-mod-05112026) | `steam-lobby`, `net-fehler` | parallel | wenig |
 
 ## Phase 4 – Vertical Slice
 
@@ -194,6 +197,7 @@ Zählt nicht zum Fortschritt.
 | `doku-verweise` | P2 | Veraltete Querverweise verhindern: `task_status.py check` meldet Sätze wie „folgt mit“, „kommt mit“ oder „bis `<kennung>`“, deren Kennung schon erledigt ist. Dabei die bekannten Stellen korrigieren: Overlay-Absatz in [Testen](docs/TESTING.md#mod-overlay-prüfen) (Lobby-Knöpfe), Phase-3-Satz im [README](README.md), „Das kommt mit `steam-lobby`“ in [Net](src/Net/README.md), Welle 2 in der [Roadmap](docs/ROADMAP.md), und im Abschnitt [Test auf zwei PCs](docs/TESTING.md#test-auf-zwei-pcs) den Weg über `-Tunnel Lobby` ergänzen. **Fertig, wenn** die Prüfung in der CI läuft und auf `main` nichts meldet | – | parallel | keine |
 | `mod-steuerung` | P1 | Steuerkanal in der Mod für Testskripte: Befehle mit Antwort über eine lokale Named Pipe je Prozess, nur mit Testschalter aktiv. Mindestens Zustand als JSON (Welt, Rolle, Spieler, Sitzung, Overlay), Lobby erstellen, beitreten, verlassen, Konsolenbefehl und Reise. Ersetzt die Befehlsdatei des Spikes (`Send-SpikeCommand`, eine Sekunde Abfrage, keine Antwort) und das Auslesen per `netstate.py` und Overlay-Fenster. **Fertig, wenn** `Start-Session.ps1`, `Restart-Instance.ps1` und `Test-NetEnd.ps1` ohne Spike-Befehle auskommen und gleich schnell oder schneller sind. **Einstieg:** [Spielzeit sparen](docs/TESTING.md#spielzeit-sparen), `tools/spike/Common.ps1` | `test-tempo` | parallel | wenig |
 | `spiel-update` | P2 | Nur wenn das Team einen neuen Spiel-Build beschließt: Offsets, Signaturen und Patches anpassen. Betrifft alles auf einmal, alle Spieltests warten darauf. **Einstieg:** [Update-Regel](CONTRIBUTING.md#spiel-updates) | – | Team | viel |
+| `versions-meldung` | P2 | Bei verschiedenen Mod-Ständen meldet die Mod nur „Ungueltige oder inkompatible Kontrollnachricht“ und trennt. Am 05.11.2026 auf zwei PCs so passiert, bis beide denselben Stand hatten. **Fertig, wenn** die Meldung in Log und Overlay sagt, dass der Mitspieler eine andere Protokoll- oder Mod-Version hat, mit beiden Werten, und kaputte Daten weiter als solche gemeldet werden. Ordner `src/Net`. **Einstieg:** [Protokoll](docs/CONTROL_PROTOCOL.md), [Zwei PCs, nur Mod](src/Net/README.md#zwei-pcs-nur-mod-05112026) | `protokoll` | parallel | wenig |
 
 ## Optionale Optimierungen
 
