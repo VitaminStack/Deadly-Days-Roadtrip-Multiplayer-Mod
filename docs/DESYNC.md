@@ -102,8 +102,7 @@ synthetischer Bilder ist ausdrücklich **keine zehnminütige Spielabnahme**.
 Spielstart zunächst durch die fremde Sitzung `ohne-spike` abgewiesen. Nach Warten
 eigene Sitzung mit Lobbytransport und echter Route nach Tag 1: zwei Spieler,
 vollständige gleiche Inventare, fünf aktive Diagnosefelder auf beiden Seiten OK.
-Der echte 600-Sekunden-Test und die kontrollierte Abweichung laufen noch; **Aufgabe
-bis zu deren Ergebnis nicht abgeschlossen**. Noch keine Internet-/Zwei-Konten-
+Ergebnisse der Spielabnahme in den folgenden Abschnitten. Noch keine Internet-/Zwei-Konten-
 Abnahme und keine Freigabe für Gate G2.
 
 ### Langzeitmessung im Spiel (05.11.2026, nach Merge von `main`)
@@ -131,8 +130,22 @@ beendet und gilt nicht als Abbruch.
   Dasselbe Paar mit identischen Stacks gab es schon im Lauf vor dem Merge von `main`.
   Ob der Melder beteiligt ist, ist **nicht geklärt**. Die Gegenprobe ist dasselbe
   Rundenende mit `desync_enabled=false`.
-- Die absichtliche Inventarabweichung (`desync_difference.py`) lief im Spiel noch
-  nicht. Bisher ist sie nur durch die Modelltests belegt.
+- Weiterverfolgt als eigene Aufgabe `rundenende-absturz`.
+
+### Absichtliche Abweichung im Spiel (05.11.2026)
+
+Neue Sitzung, Tag 1, `Test-Desync.ps1 -Seconds 10`. Die zehn Sekunden Gleichheit
+davor waren vollständig vergleichbar. Der Helfer setzte beim Client das
+Broken-Flag eines Items. Nach rund acht Sekunden zeigten Host und Client
+„ABWEICHUNG Inventar“, nach der Rücksetzung wieder „OK“ (`result.json`:
+`hostAlert`, `clientAlert` und `recovered` jeweils `true`). Kein Absturz.
+
+Beim ersten Versuch meldete das Skript einen Fehler des Helfers, obwohl dieser
+erfolgreich war: Nach `Start-Process -PassThru` bleibt `ExitCode` ohne vorherigen
+Zugriff auf `Handle` leer. Das ist im Skript behoben.
+
+**Abnahme erfüllt:** gleiche Zustände ohne Fehlalarm (rund 636 s, auf Wunsch
+nicht weiter verlängert) und absichtliche Abweichung auf beiden Seiten gemeldet.
 
 ### Gefundene und behobene Fehlversuche
 

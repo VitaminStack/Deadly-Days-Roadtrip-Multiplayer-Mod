@@ -49,6 +49,8 @@ $Helper = Join-Path $PSScriptRoot 'desync_difference.py'
 $Out = Join-Path $ReportDir 'difference.txt'
 $Err = Join-Path $ReportDir 'difference-error.txt'
 $Process = Start-Process py -PassThru -WindowStyle Hidden -ArgumentList '-B', "`"$Helper`"", '--hold-seconds', '14' -RedirectStandardOutput $Out -RedirectStandardError $Err
+# Ohne Handle-Zugriff liefert ExitCode nach Start-Process -PassThru $null.
+$null = $Process.Handle
 $HostAlert = $false
 $ClientAlert = $false
 try {

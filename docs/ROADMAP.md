@@ -18,7 +18,7 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 
 **Neue Befunde.**
 
-- `desync-melder`, 05.11.2026: Diagnose über Kontrollkanal mit sechs Messfeldern, feldweiser Stabilisierung und Host-bestätigten Abweichungen in Log/F8 implementiert. Gegnerzahl standardmäßig ausgenommen. Nach zunächst belegter Sitzung eigene Lobby-Sitzung über echte Route bis Tag 1: alle fünf aktiven Felder vergleichbar und gleich. **Noch offen:** Ergebnis des laufenden Zehn-Minuten-/Abweichungstests. [Messumfang und Abnahmegrenzen](DESYNC.md). Kein Aufgabenabschluss durch synthetische Modelltests.
+- `desync-melder`, 05.11.2026: Diagnose über den Kontrollkanal mit sechs Messfeldern, feldweiser Stabilisierung und vom Host bestätigten Abweichungen in Log und F8. Gegnerzahl standardmäßig ausgenommen. Im Spiel an Tag 1 rund 636 s ohne Fehlalarm, eine absichtliche Inventarabweichung beim Client auf beiden Seiten erkannt und nach Rücksetzung wieder OK. Dabei gefunden: Absturz am Rundenende von Tag 1, jetzt `rundenende-absturz`. [Messumfang und Abnahme](DESYNC.md)
 
 - `itemsack-absturz`, 05.11.2026: **Abgeschlossen.** Der Client versuchte beim Aufsammeln aus nicht replizierter `ItemData` ein Inventaritem zu erzeugen und stürzte ab. `InventoryPatches.cpp` belässt den vollständigen Vergabepfad beim Host. In einer Lobby-Sitzung auf einem PC nach echter Route bis Tag 1 drei natürliche Remote-Aufsammlungen mit jeweils exakt einem Item nur beim Remote-Spieler, unverändertem Host-Inventar und gleichen replizierten Inventaren geprüft. Client-Negativaufruf ohne Gewinn/Absturz, isolierte Host-Vergabe ebenfalls geprüft; [Befund, Fehlversuche und Grenzen](../research/spikes/itemsack-absturz/README.md).
 
@@ -207,7 +207,7 @@ flowchart TD
         EI["Eingaben von Remote<br/>trennen"]:::open
         OS["Mod ohne Spike<br/>(ohne-spike)"]:::done
         LT["Latenz simulieren<br/>(latenz-test)"]:::done
-        DM["Desync-Melder<br/>(desync-melder)"]:::open
+        DM["Desync-Melder<br/>(desync-melder)"]:::done
         SH --> R2 --> MS --> KM --> KA --> GT
         R2 --> EI
     end
@@ -268,7 +268,7 @@ flowchart TD
     W4 --> IR["integration-run"]:::central
     W5 --> IR
     RV["Vorbeugung<br/>ohne-spike, latenz-test"]:::open --> IG
-    PR --> DS["desync-melder"]:::open --> IG
+    PR --> DS["desync-melder"]:::done --> IG
     IG --> DL["dauerlauf"]:::open --> IR
     W5 --> W6["weekly-sperre, virenscanner"]:::open --> RL
     IR --> RL["release"]:::central
