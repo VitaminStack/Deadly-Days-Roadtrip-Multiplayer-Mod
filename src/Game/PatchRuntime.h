@@ -32,6 +32,7 @@ std::span<const Patch> ExpPatches();
 std::span<const Patch> RemoteP2Patches();
 std::span<const Patch> RewardPatches();
 std::span<const Patch> MapPatches();
+std::span<const Patch> ReaperPatches();
 // Host: Figur, die bei RewardChest.OpenAirdropChoices die native Auswahl bekommt (die des Hosts statt des Remote-P2).
 uintptr_t RewardCharacter(uintptr_t Character);
 // Client: Wahr, wenn ProcessEvent einen Server-RPC mit einer lokalen Anzeige-Instanz der Airdrop-Auswahl nicht senden soll.

@@ -75,7 +75,8 @@ bool Install()
 {
     std::vector<Patch> All;
     for (const auto List : {PlayerPatches(), ClientPatches(), CameraPatches(), InventoryPatches(), TravelPatches(), WidgetPatches(),
-                            HealthBarPatches(), AirdropPatches(), ExpPatches(), RemoteP2Patches(), RewardPatches(), MapPatches()})
+                            HealthBarPatches(), AirdropPatches(), ExpPatches(), RemoteP2Patches(), RewardPatches(), MapPatches(),
+                            ReaperPatches()})
         All.insert(All.end(), List.begin(), List.end());
 
     if (!Caves.AllocateNear(Memory::ImageBase()))
