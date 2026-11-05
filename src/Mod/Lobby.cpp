@@ -195,6 +195,10 @@ bool TryLoad(LobbyState& Lobby)
     Sockets->InitRelayNetworkAccess();
     Net::TransportOptions Options;
     Options.Sim = Net::NetSimFromCommandLine(GetCommandLineW());
+    // Zwei Instanzen unter einem Konto auf einem PC brauchen 127.0.0.1 ohne Steam-Identität. Nur ausdrücklich im Test.
+    Options.AllowLoopback = Narrow(GetCommandLineW()).find("-ddcoop_localtest") != std::string::npos;
+    if (Options.AllowLoopback)
+        Core::Log::Warn("Sitzung: lokaler Testmodus (-ddcoop_localtest), Host nimmt auch 127.0.0.1 ohne Steam-Identität an");
     Lobby.Session = std::make_unique<Net::Session>(
         Api, [Sockets, Options] { return std::make_shared<Net::Transport>(Sockets, Options); },
         Net::SessionHooks{BecomeListenServer, ConnectToLocalPort, Disconnect, GameConnectedToHost, GameHosting}, Options);

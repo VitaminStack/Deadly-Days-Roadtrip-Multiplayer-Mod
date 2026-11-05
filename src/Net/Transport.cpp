@@ -24,6 +24,10 @@ struct Transport::Link
     bool Ready = false;
     bool Rejected = false;
     uint64_t Peer = 0;
+    // Von Steam bestätigtes Konto der Gegenseite beim Host, 0 über 127.0.0.1.
+    uint64_t SteamId = 0;
+    // Seit wann das Konto in der Lobby fehlt, 0 solange es Mitglied ist.
+    uint64_t MissingSince = 0;
     ULONGLONG HandshakeStarted = 0;
     uint64_t PacketsToSteam = 0, BytesToSteam = 0, PacketsFromSteam = 0, BytesFromSteam = 0, Dropped = 0;
     // Nur mit TransportOptions::Sim, ausgehende Richtung.
@@ -34,6 +38,8 @@ namespace
 {
 std::atomic<uint64_t> NextPeer = 1;
 constexpr size_t MaxControlQueue = 128;
+// Mehr wartende Fremdverbindungen nimmt der Host nicht an, damit Versuche in Serie nichts aufstauen.
+constexpr size_t MaxPendingPeers = 4;
 sockaddr_in LoopbackUdp(uint16_t Port)
 {
     sockaddr_in Address{};
@@ -80,6 +86,9 @@ std::string EndMessage(bool Host, SteamConnectionState State, int32_t Reason, bo
                         : "Der Host hat die Verbindung abgelehnt (andere Mod-Version oder anderer Spiel-Build)";
         case EndReason::Busy:
             return "Der Host hat schon einen Mitspieler";
+        case EndReason::NotAuthorized:
+            return Host ? "Der Mitspieler ist nicht mehr in der Lobby"
+                        : "Der Host hat die Verbindung abgelehnt: nicht Mitglied seiner Lobby";
         default:
             return Host ? "Der Mitspieler hat die Verbindung beendet" : "Der Host hat die Verbindung beendet";
         }
@@ -183,15 +192,20 @@ bool Transport::Open(Mode RoleIn, uint64_t Remote)
     Sockets->InitRelayNetworkAccess();
     if (RoleIn == Mode::Host)
     {
+        OwnSteamId = Sockets->OwnSteamId();
         ListenP2P = Sockets->ListenP2P(Options.VirtualPort);
-        ListenLoopback = Sockets->ListenLoopback(Options.LoopbackPort);
+        // 127.0.0.1 ohne Steam-Authentifizierung nur im ausdrücklichen Testmodus.
+        ListenLoopback = Options.AllowLoopback ? Sockets->ListenLoopback(Options.LoopbackPort) : 0;
         if (!ListenP2P && !ListenLoopback)
         {
             Publish(TransportState::Failed, "Steam nimmt keine Verbindungen an");
             return false;
         }
-        Core::Log::Info("Transport: Host wartet auf Clients (P2P {}, 127.0.0.1:{} {}), leitet an UDP {}",
-                        ListenP2P ? "bereit" : "abgelehnt", Options.LoopbackPort, ListenLoopback ? "bereit" : "abgelehnt",
+        Core::Log::Info("Transport: Host wartet auf Clients (P2P {}, nur {}, 127.0.0.1:{} {}), leitet an UDP {}",
+                        ListenP2P ? "bereit" : "abgelehnt",
+                        Options.Peers == PeerPolicy::Lobby ? "Lobby-Mitglieder" : "bestätigte Steam-Konten (Testschalter)",
+                        Options.LoopbackPort,
+                        !Options.AllowLoopback ? "aus" : ListenLoopback ? "bereit (Testmodus)" : "abgelehnt",
                         Options.GamePort);
         Publish(TransportState::Listening, "Wartet auf Clients");
         return true;
@@ -238,6 +252,10 @@ void Transport::Stop()
             closesocket(Entry.Udp);
     }
     Links->clear();
+    for (const PendingPeer& Waiting : PendingPeers)
+        Sockets->Close(Waiting.Connection, Reason);
+    PendingPeers.clear();
+    ClearLobbyMembers();
     {
         std::lock_guard Guard(ControlLock);
         Peers.clear();
@@ -276,6 +294,174 @@ bool Transport::SendControl(uint64_t Peer, const Protocol::Control& Value)
         return false;
     Outgoing.push_back({Peer, std::move(Bytes)});
     return true;
+}
+
+void Transport::SetLobbyMembers(std::vector<uint64_t> SteamIds)
+{
+    std::lock_guard Guard(AuthLock);
+    LobbyKnown = true;
+    LobbyMembers = std::move(SteamIds);
+}
+
+void Transport::ClearLobbyMembers()
+{
+    std::lock_guard Guard(AuthLock);
+    LobbyKnown = false;
+    LobbyMembers.clear();
+}
+
+// Zugriffskontrolle vor Accept. Der Versions-Handshake danach prüft nur die Kompatibilität, nie die Berechtigung.
+Transport::Admission Transport::Admit(uint64_t SteamId, std::string& Why) const
+{
+    if (!SteamId)
+    {
+        Why = "ohne von Steam bestätigte Identität";
+        return Admission::Refuse;
+    }
+    if (SteamId == OwnSteamId)
+    {
+        Why = "vom eigenen Konto";
+        return Admission::Refuse;
+    }
+    if (Options.Peers == PeerPolicy::AnyAccount)
+        return Admission::Accept;
+    std::lock_guard Guard(AuthLock);
+    if (!LobbyKnown)
+    {
+        Why = "ohne offene Lobby";
+        return Admission::Refuse;
+    }
+    if (std::find(LobbyMembers.begin(), LobbyMembers.end(), SteamId) != LobbyMembers.end())
+        return Admission::Accept;
+    Why = "von einem Konto außerhalb der Lobby";
+    return Admission::Wait;
+}
+
+void Transport::Refuse(SteamConnection Connection, int32_t Reason, const std::string& Why)
+{
+    // Keine SteamID und keine Adresse ins Log, nur der Grund.
+    Core::Log::Warn("Transport: eingehende Verbindung abgelehnt, {}", Why);
+    Sockets->Close(Connection, Reason);
+}
+
+void Transport::AcceptIncoming(SteamConnection Connection, uint64_t SteamId)
+{
+    if (!Links->empty())
+    {
+        Refuse(Connection, EndReason::Busy, "es gibt schon einen Mitspieler");
+        return; // Genau ein Remote-Spieler. Kein frei behaupteter Spielerindex.
+    }
+    if (!Sockets->Accept(Connection))
+    {
+        Refuse(Connection, EndReason::Generic, "Steam hat das Annehmen abgelehnt");
+        return;
+    }
+    Link NewLink;
+    NewLink.Connection = Connection;
+    NewLink.SteamId = SteamId;
+    NewLink.Udp = OpenUdp(0);
+    if (NewLink.Udp == INVALID_SOCKET)
+    {
+        Sockets->Close(Connection, EndReason::Generic);
+        return;
+    }
+    NewLink.GameAddress = LoopbackUdp(Options.GamePort);
+    NewLink.HasGameAddress = true;
+    AttachSim(NewLink);
+    Links->push_back(NewLink);
+    Core::Log::Info("Transport: eingehende Verbindung {} angenommen, {} Client(s)",
+                    SteamId ? "eines berechtigten Kontos" : "über 127.0.0.1 (Testmodus)", Links->size());
+}
+
+void Transport::HandleIncoming(const SteamStatusChange& Change)
+{
+    if (ListenLoopback && Change.ListenSocket == ListenLoopback)
+    {
+        // Nur offen, wenn AllowLoopback gesetzt ist. Steam prüft dort keine Identität.
+        AcceptIncoming(Change.Connection, 0);
+        return;
+    }
+    if (!ListenP2P || Change.ListenSocket != ListenP2P)
+    {
+        Refuse(Change.Connection, EndReason::NotAuthorized, "an unbekanntem Listen-Socket");
+        return;
+    }
+    std::string Why;
+    switch (Admit(Change.RemoteSteamId, Why))
+    {
+    case Admission::Accept:
+        AcceptIncoming(Change.Connection, Change.RemoteSteamId);
+        return;
+    case Admission::Refuse:
+        Refuse(Change.Connection, EndReason::NotAuthorized, Why);
+        return;
+    case Admission::Wait:
+        break;
+    }
+    // Steam meldet dem Host den Beitritt zur Lobby eventuell erst nach dem Verbindungsversuch. Kurz warten, nie freigeben.
+    const bool Again = std::any_of(PendingPeers.begin(), PendingPeers.end(),
+                                   [&](const PendingPeer& Waiting) { return Waiting.SteamId == Change.RemoteSteamId; });
+    if (Again || PendingPeers.size() >= MaxPendingPeers)
+    {
+        Refuse(Change.Connection, EndReason::NotAuthorized, Again ? "Konto wartet schon" : "zu viele wartende Verbindungen");
+        return;
+    }
+    PendingPeers.push_back({Change.Connection, Change.RemoteSteamId, GetTickCount64()});
+    Core::Log::Info("Transport: Verbindung {}, warte bis zu {} ms auf die Lobby", Why, Options.AuthorizeWaitMs);
+}
+
+void Transport::CheckPending()
+{
+    const uint64_t Now = GetTickCount64();
+    std::vector<PendingPeer> Waiting;
+    Waiting.swap(PendingPeers);
+    for (const PendingPeer& Entry : Waiting)
+    {
+        std::string Why;
+        const Admission Verdict = Admit(Entry.SteamId, Why);
+        if (Verdict == Admission::Accept)
+            AcceptIncoming(Entry.Connection, Entry.SteamId);
+        else if (Verdict == Admission::Refuse || Now - Entry.Since >= Options.AuthorizeWaitMs)
+            Refuse(Entry.Connection, EndReason::NotAuthorized, Why);
+        else
+            PendingPeers.push_back(Entry);
+    }
+}
+
+// Verlässt ein verbundenes Konto die Lobby, verliert es die Berechtigung. Kurze Lücken in der Mitgliederliste von Steam
+// trennen niemanden.
+void Transport::CheckMembership()
+{
+    if (Options.Peers != PeerPolicy::Lobby)
+        return;
+    const uint64_t Now = GetTickCount64();
+    std::vector<uint32_t> Revoked;
+    for (Link& Entry : *Links)
+    {
+        if (!Entry.SteamId || Entry.Rejected)
+            continue;
+        std::string Why;
+        if (Admit(Entry.SteamId, Why) == Admission::Accept)
+        {
+            Entry.MissingSince = 0;
+            continue;
+        }
+        if (!Entry.MissingSince)
+            Entry.MissingSince = Now;
+        else if (Now - Entry.MissingSince >= Options.RevokeAfterMs)
+            Revoked.push_back(Entry.Connection);
+    }
+    for (const uint32_t Connection : Revoked)
+    {
+        Core::Log::Warn("Transport: Mitspieler ist nicht mehr in der Lobby, Verbindung getrennt");
+        Close(Connection, EndReason::NotAuthorized);
+        bool AnyConnected = false;
+        for (const Link& Other : *Links)
+            AnyConnected |= Other.Ready;
+        Publish(AnyConnected ? TransportState::Connected : TransportState::Listening,
+                AnyConnected ? "Verbunden"
+                             : EndMessage(true, SteamConnectionState::ClosedByPeer, EndReason::NotAuthorized, true));
+    }
 }
 
 std::vector<ControlMessage> Transport::TakeControlMessages()
@@ -327,33 +513,18 @@ void Transport::HandleChanges()
             if (Candidate.Connection == Change.Connection)
                 Entry = &Candidate;
 
-        if (Change.State == SteamConnectionState::Connecting && Change.ListenSocket && Role == Mode::Host && !Entry)
+        const auto Pending = std::find_if(PendingPeers.begin(), PendingPeers.end(),
+                                          [&](const PendingPeer& Waiting) { return Waiting.Connection == Change.Connection; });
+        if (Change.State == SteamConnectionState::Connecting && Change.ListenSocket && Role == Mode::Host && !Entry &&
+            Pending == PendingPeers.end())
         {
-            if (!Links->empty())
-            {
-                Core::Log::Warn("Transport: weitere Verbindung abgelehnt, es gibt schon einen Mitspieler");
-                Sockets->Close(Change.Connection, EndReason::Busy);
-                continue; // Genau ein Remote-Spieler. Kein frei behaupteter Spielerindex.
-            }
-            if (!Sockets->Accept(Change.Connection))
-            {
-                Core::Log::Warn("Transport: eingehende Verbindung nicht angenommen");
-                Sockets->Close(Change.Connection, EndReason::Generic);
-                continue;
-            }
-            Link NewLink;
-            NewLink.Connection = Change.Connection;
-            NewLink.Udp = OpenUdp(0);
-            if (NewLink.Udp == INVALID_SOCKET)
-            {
-                Sockets->Close(Change.Connection, EndReason::Generic);
-                continue;
-            }
-            NewLink.GameAddress = LoopbackUdp(Options.GamePort);
-            NewLink.HasGameAddress = true;
-            AttachSim(NewLink);
-            Links->push_back(NewLink);
-            Core::Log::Info("Transport: eingehende Verbindung angenommen, {} Client(s)", Links->size());
+            HandleIncoming(Change);
+        }
+        else if (IsEnd(Change.State) && Pending != PendingPeers.end())
+        {
+            // Die Gegenseite hat aufgegeben, bevor die Lobby sie bestätigt hat. Handle bei Steam freigeben.
+            Sockets->Close(Change.Connection, EndReason::Generic);
+            PendingPeers.erase(Pending);
         }
         else if (Change.State == SteamConnectionState::Connected && Entry)
         {
@@ -559,6 +730,11 @@ void Transport::Run()
     {
         Sockets->RunCallbacks();
         HandleChanges();
+        if (Role == Mode::Host)
+        {
+            CheckPending();
+            CheckMembership();
+        }
 
         fd_set Readable;
         FD_ZERO(&Readable);

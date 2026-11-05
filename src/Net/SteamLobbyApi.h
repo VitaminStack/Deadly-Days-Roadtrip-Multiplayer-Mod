@@ -40,6 +40,8 @@ public:
     virtual void LeaveLobby(uint64_t Lobby) = 0;
     virtual uint64_t LobbyOwner(uint64_t Lobby) = 0;
     virtual int MemberCount(uint64_t Lobby) = 0;
+    // SteamIDs aller Mitglieder, eigenes Konto eingeschlossen. Leer, wenn das eigene Konto nicht in der Lobby ist.
+    virtual std::vector<uint64_t> Members(uint64_t Lobby) = 0;
     virtual bool SetLobbyData(uint64_t Lobby, const std::string& Key, const std::string& Value) = 0;
     virtual std::string LobbyData(uint64_t Lobby, const std::string& Key) = 0;
     // Steam-Overlay mit der Freundesliste zum Einladen.

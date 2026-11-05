@@ -36,6 +36,8 @@ constexpr int32_t ClientLeft = 1002;
 constexpr int32_t Rejected = 1003;
 // Der Host hat schon einen Mitspieler.
 constexpr int32_t Busy = 1004;
+// Das Konto ist kein Mitglied der Lobby des Hosts, oder Steam hat keine Identität bestätigt.
+constexpr int32_t NotAuthorized = 1005;
 }
 
 struct SteamStatusChange
@@ -47,7 +49,13 @@ struct SteamStatusChange
     SteamConnectionState OldState = SteamConnectionState::None;
     int32_t EndReason = 0;
     std::string EndDebug;
+    // Von Steam bestätigte SteamID64 der Gegenseite (SteamNetConnectionInfo::IdentityRemote), 0 ohne gültige
+    // Steam-Identität, etwa über 127.0.0.1. Nie eine ID aus Paketen der Gegenseite dafür nehmen.
+    uint64_t RemoteSteamId = 0;
 };
+
+// Einzelnes Konto im öffentlichen Steam-Universum: Universum 1, Kontotyp 1, Konto-Nummer nicht 0.
+bool IsIndividualSteamId(uint64_t SteamId);
 
 struct SteamQuality
 {

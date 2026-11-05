@@ -25,6 +25,7 @@
     <ClCompile Include="FakeSteam.cpp" />
     <ClCompile Include="SessionTests.cpp" />
     <ClCompile Include="TransportTests.cpp" />
+    <ClCompile Include="AuthorizationTests.cpp" />
     <ClCompile Include="ProtocolTests.cpp" />
     <ClCompile Include="ProgressTests.cpp" />
     <ClCompile Include="DesyncTests.cpp" />

@@ -112,6 +112,8 @@ function Start-Instance([string]$Name, [int]$X) {
     $UserDir = Join-Path $script:SessionDir "ud_$Name"
     $Arguments = @('-windowed', '-ResX=800', '-ResY=450', "-WinX=$X", '-WinY=0', '-nosplash', "-UserDir=`"$UserDir`"") + (Get-TransportArgument $Name)
     if ($NetSim) { $Arguments += "-ddcoop_netsim=$NetSim" }
+    # Beide Instanzen laufen unter einem Konto, der Client kommt nur ueber 127.0.0.1. Das erlaubt der Host nur im Testmodus.
+    if ($Tunnel -eq 'Lobby' -and $Role -eq 'Both' -and $Name -eq 'host') { $Arguments += '-ddcoop_localtest' }
     Start-Process $Exe -PassThru -ArgumentList $Arguments
 }
 # Wartet auf eine Zeile im Log der Mod, liefert sie oder $null.

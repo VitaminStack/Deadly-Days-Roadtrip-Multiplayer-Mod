@@ -162,6 +162,15 @@ void Session::StartTransportClient(uint64_t Owner)
     StepSince = Clock::now();
 }
 
+// Host: Nur wer laut Steam gerade in der eigenen Lobby ist, darf sich per P2P verbinden. Die Liste kommt jeden Tick
+// frisch von Steam, verlässt jemand die Lobby, verliert er die Berechtigung.
+void Session::SyncLobbyMembers()
+{
+    if (!Tunnel || !Current.IsHost || !Current.Lobby)
+        return;
+    Tunnel->SetLobbyMembers(Api->Members(Current.Lobby));
+}
+
 bool Session::Expired(std::chrono::milliseconds Limit) const
 {
     return Clock::now() - StepSince >= Limit;
@@ -273,6 +282,7 @@ void Session::Tick()
                 break;
             }
             UseSessionTransport(Tunnel);
+            SyncLobbyMembers();
             StepSince = Clock::now();
             if (Hooks.BecomeListenServer)
                 Hooks.BecomeListenServer();
@@ -320,6 +330,8 @@ void Session::Tick()
     case SessionPhase::Hosting:
         if (Tunnel)
         {
+            if (Current.IsHost)
+                SyncLobbyMembers();
             const TransportStats Stats = Tunnel->Stats();
             Current.PingMs = Stats.PingMs;
             Current.Route = Stats.Route;

@@ -56,6 +56,11 @@ void StartTransport(TransportRequest Request)
     }
     TransportOptions Options;
     Options.Sim = NetSimFromCommandLine(GetCommandLineW());
+    // Testschalter ohne Lobby: 127.0.0.1 offen und jedes von Steam bestätigte Konto per P2P. Nie in normalen Sitzungen.
+    Options.AllowLoopback = true;
+    Options.Peers = PeerPolicy::AnyAccount;
+    if (Request.Role == TransportRequest::Kind::Host)
+        Core::Log::Warn("Transport: Testmodus ohne Lobby, nur für Tests verwenden");
     auto Tunnel = std::make_shared<Transport>(Sockets, Options);
     if (Request.Role == TransportRequest::Kind::Host)
     {

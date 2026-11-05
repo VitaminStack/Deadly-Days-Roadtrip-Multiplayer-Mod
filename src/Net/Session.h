@@ -115,6 +115,7 @@ private:
     void Fail(std::string Message);
     void StartTransportClient(uint64_t Owner);
     void CloseLobby();
+    void SyncLobbyMembers();
     void WatchGame();
     void WatchHostGame();
     bool Expired(std::chrono::milliseconds Limit) const;

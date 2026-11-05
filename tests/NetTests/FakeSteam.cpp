@@ -57,7 +57,10 @@ struct FakeSteamNetwork::Endpoint final : SteamSockets
         Pipes[Local] = {Remote, Far, false, {}};
         Remote->Pipes[Far] = {this, Local, false, {}};
         Changes.push_back({Local, 0, SteamConnectionState::Connecting, SteamConnectionState::None, 0, {}});
-        Remote->Changes.push_back({Far, ListenSocket, SteamConnectionState::Connecting, SteamConnectionState::None, 0, {}});
+        // Wie Steam: P2P trägt die bestätigte SteamID der Gegenseite, 127.0.0.1 ohne Authentifizierung keine.
+        const uint64_t Identity = ListenSocket == 100 && !Network->Hidden[SteamId] ? SteamId : 0;
+        Remote->Changes.push_back(
+            {Far, ListenSocket, SteamConnectionState::Connecting, SteamConnectionState::None, 0, {}, Identity});
         return Local;
     }
 

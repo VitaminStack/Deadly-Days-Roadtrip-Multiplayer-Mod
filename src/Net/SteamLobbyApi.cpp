@@ -85,6 +85,7 @@ struct FlatApi
     void (*LeaveLobby)(void*, uint64_t);
     uint64_t (*GetLobbyOwner)(void*, uint64_t);
     int (*GetNumLobbyMembers)(void*, uint64_t);
+    uint64_t (*GetLobbyMemberByIndex)(void*, uint64_t, int);
     bool (*SetLobbyData)(void*, uint64_t, const char*, const char*);
     const char* (*GetLobbyData)(void*, uint64_t, const char*);
     void (*InviteDialog)(void*, uint64_t);
@@ -129,6 +130,15 @@ public:
     void LeaveLobby(uint64_t Lobby) override { Api.LeaveLobby(Matchmaking, Lobby); }
     uint64_t LobbyOwner(uint64_t Lobby) override { return Api.GetLobbyOwner(Matchmaking, Lobby); }
     int MemberCount(uint64_t Lobby) override { return Api.GetNumLobbyMembers(Matchmaking, Lobby); }
+    std::vector<uint64_t> Members(uint64_t Lobby) override
+    {
+        std::vector<uint64_t> Result;
+        const int Count = Api.GetNumLobbyMembers(Matchmaking, Lobby);
+        for (int Index = 0; Index < Count && Index < 64; ++Index)
+            if (const uint64_t Member = Api.GetLobbyMemberByIndex(Matchmaking, Lobby, Index))
+                Result.push_back(Member);
+        return Result;
+    }
 
     bool SetLobbyData(uint64_t Lobby, const std::string& Key, const std::string& Value) override
     {
@@ -232,6 +242,7 @@ std::shared_ptr<SteamLobbyApi> LoadSteamLobbyApi(std::string* Reason)
     Resolve(Module, "SteamAPI_ISteamMatchmaking_LeaveLobby", Api.LeaveLobby, Missing);
     Resolve(Module, "SteamAPI_ISteamMatchmaking_GetLobbyOwner", Api.GetLobbyOwner, Missing);
     Resolve(Module, "SteamAPI_ISteamMatchmaking_GetNumLobbyMembers", Api.GetNumLobbyMembers, Missing);
+    Resolve(Module, "SteamAPI_ISteamMatchmaking_GetLobbyMemberByIndex", Api.GetLobbyMemberByIndex, Missing);
     Resolve(Module, "SteamAPI_ISteamMatchmaking_SetLobbyData", Api.SetLobbyData, Missing);
     Resolve(Module, "SteamAPI_ISteamMatchmaking_GetLobbyData", Api.GetLobbyData, Missing);
     Resolve(Module, "SteamAPI_ISteamFriends_ActivateGameOverlayInviteDialog", Api.InviteDialog, Missing);

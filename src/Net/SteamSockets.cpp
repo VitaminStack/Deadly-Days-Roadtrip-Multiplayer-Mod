@@ -126,6 +126,10 @@ void __cdecl OnStatusChanged(SteamNetConnectionStatusChanged* Change)
     Entry.OldState = static_cast<SteamConnectionState>(Change->OldState);
     Entry.EndReason = Change->Info.EndReason;
     Entry.EndDebug.assign(Change->Info.EndDebug, strnlen(Change->Info.EndDebug, sizeof(Change->Info.EndDebug)));
+    // Steam füllt IdentityRemote bei P2P nach der Authentifizierung. Alles andere (IP ohne Auth, ungültig) bleibt 0.
+    const SteamNetworkingIdentity& Remote = Change->Info.IdentityRemote;
+    if (Remote.Type == kIdentitySteamId && Remote.Size == 8 && IsIndividualSteamId(Remote.SteamId64))
+        Entry.RemoteSteamId = Remote.SteamId64;
     std::lock_guard Guard(ChangeLock);
     Changes.push_back(std::move(Entry));
 }
@@ -298,6 +302,11 @@ std::shared_ptr<SteamSockets> LoadSteamSockets(std::string* Reason)
     if (Loaded.exchange(true))
         return Fail("Steam Networking ist schon in Benutzung");
     return std::make_shared<RealSockets>(Api, Interface);
+}
+
+bool IsIndividualSteamId(uint64_t SteamId)
+{
+    return (SteamId >> 56) == 1 && ((SteamId >> 52) & 0xF) == 1 && (SteamId & 0xFFFFFFFFull) != 0;
 }
 
 std::string MaskAddresses(const std::string& Text)
