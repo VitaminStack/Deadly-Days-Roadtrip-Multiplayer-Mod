@@ -25,6 +25,7 @@
     <ClCompile Include="GameThreadTests.cpp" />
     <ClCompile Include="PatchTests.cpp" />
     <ClCompile Include="AirdropTests.cpp" />
+    <ClCompile Include="ExpBoundsTests.cpp" />
     <ClCompile Include="TelemetryAdapterTests.cpp" />
     <ClCompile Include="TutorialAdapterTests.cpp" />
     <ClCompile Include="WorldAdapterTests.cpp" />
