@@ -88,6 +88,7 @@ TEST_CASE("Native overlay lifecycle works without game SDK, Steam, focus changes
     CHECK(Texts[2].find(L"Rolle:") != std::wstring::npos);
     CHECK(Texts[4] == L"Desync: test diagnostics");
     CHECK(IsWindowEnabled(GetDlgItem(Window, 101)));
+    CHECK_FALSE(IsWindowEnabled(GetDlgItem(Window, 106))); // Nothing to copy without a lobby.
     CHECK_FALSE(IsWindowEnabled(GetDlgItem(Window, 102)));
     SetWindowTextW(GetDlgItem(Window, 105), L"18446744073709551616");
     SendMessageW(Window, WM_TIMER, 1, 0);
@@ -109,6 +110,11 @@ TEST_CASE("Native overlay lifecycle works without game SDK, Steam, focus changes
     SendMessageW(Window, WM_TIMER, 1, 0);
     CHECK_FALSE(IsWindowEnabled(GetDlgItem(Window, 101)));
     CHECK_FALSE(IsWindowVisible(Window));
+    // Only the enable state; clicking would overwrite the user's clipboard.
+    Status.LobbyId = 109775240000000042;
+    UI::Overlay().Publish(Status);
+    SendMessageW(Window, WM_TIMER, 1, 0);
+    CHECK(IsWindowEnabled(GetDlgItem(Window, 106)));
     UI::Overlay().Bind({});
     SendMessageW(Window, WM_CLOSE, 0, 0);
     CHECK(IsWindow(Window)); // Closing hides, does not stop the game's message loop.
