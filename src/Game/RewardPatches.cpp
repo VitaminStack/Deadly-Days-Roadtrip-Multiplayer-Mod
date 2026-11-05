@@ -51,6 +51,9 @@ constexpr uintptr_t GameInstanceLocalPlayers = 0x38;
 constexpr uintptr_t PlayerController = 0x30;
 constexpr uintptr_t ControllerPlayerState = 0x2B0;
 constexpr uintptr_t ControllerPawn = 0x2E8;
+// BP_DD_Character_C.RewardQueue, URewardQueueComponent: Byte +0x108 = Kiste offen (OpenNextReward setzt/löscht)
+constexpr uintptr_t CharacterRewardQueue = 0x980;
+constexpr uintptr_t QueueBusy = 0x108;
 constexpr uint32_t GarbageOrUnreachableFlags = 0x30;
 
 struct ItemArray
@@ -545,10 +548,46 @@ bool ClaimForClient(uint64_t SessionId, uint64_t Expected, uint32_t Index)
     return true;
 }
 
+// Kisten laufen über die RewardQueue der öffnenden Figur. Das Panel bestätigt nur in der Queue des Hosts
+// (InventoryPanel.HandleConfirmButton ruft OpenNextReward der eigenen Queue). Die Queue von P2 bliebe nach einer
+// vom Client geöffneten Kiste belegt (+0x108 gesetzt, CurrentRewardObject zerstört), und RegisterReward gibt keine
+// weitere Kiste mehr frei. OpenNextReward ändert nichts, solange die aktuelle Kiste lebt und nicht fertig ist.
+void AdvanceRemoteQueue()
+{
+    static ULONGLONG Next = 0;
+    const ULONGLONG Now = GetTickCount64();
+    if (Now < Next)
+        return;
+    Next = Now + 1000;
+    uintptr_t Coop = 0, HostController = 0, Remote = 0;
+    if (!BoundRemoteP2(Coop, HostController, Remote))
+        return;
+    const uintptr_t Pawn = Pointer(Remote + ControllerPawn);
+    const uintptr_t Queue = Alive(Pawn) ? Pointer(Pawn + CharacterRewardQueue) : 0;
+    static uintptr_t Open = 0;
+    if (!Alive(Queue) || !Memory::Read<uint8_t>(Queue + QueueBusy).value_or(0) ||
+        !Function(Open, "OpenNextReward", "RewardQueueComponent"))
+        return;
+    struct
+    {
+        bool Opened;
+        uint8_t Pad[7];
+    } Params{};
+    Objects::ProcessEvent(Queue, Open, &Params);
+    if (!Memory::Read<uint8_t>(Queue + QueueBusy).value_or(1) || Params.Opened)
+        Core::Log::Info("Airdrop-Auswahl: RewardQueue des Remote-Spielers weitergeschaltet, nächste Kiste {}",
+                        Params.Opened ? "freigegeben" : "keine");
+}
+
 void Tick()
 {
-    if (CurrentRole() != NetRole::Host || !Host.Active)
+    if (CurrentRole() != NetRole::Host)
         return;
+    if (!Host.Active)
+    {
+        AdvanceRemoteQueue();
+        return;
+    }
     if (!Alive(Host.Inventory))
     {
         EndHostSession("Inventar weg");
