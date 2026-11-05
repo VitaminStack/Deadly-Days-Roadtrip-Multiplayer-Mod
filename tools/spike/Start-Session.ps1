@@ -2,12 +2,17 @@
 # Beide laufen mit eigenem -UserDir, der echte Spielstand bleibt unberuehrt. -unattended niemals verwenden.
 # Test auf zwei PCs: -Role Host auf dem einen, -Role Client -Peer <SteamID des Hosts> auf dem anderen, beide mit -Tunnel P2p.
 # Ablauf und Vorbereitung in docs\TESTING.md, Abschnitt "Test auf zwei PCs".
+# Das Skript wartet auf Zustaende (Hauptmenue, verbunden, Karte geladen) statt fest zu schlafen und nennt die Zeit je Schritt.
 param(
     [string]$Map = '/Game/Maps/MetaBase',
-    [int]$MenuDelaySeconds = 20,
-    [int]$TravelDelaySeconds = 40,
+    # Hoechstens so lange auf das Hauptmenue warten, bevor der Spike geladen wird.
+    [int]$MenuTimeoutSeconds = 90,
+    # Hoechstens so lange auf die Reise in -Map warten.
+    [int]$TravelTimeoutSeconds = 180,
     # Ersetzt eine laufende Sitzung aus diesem Ordner. Fremde Sitzungen bleiben unberuehrt.
     [switch]$Restart,
+    # Laeuft schon eine fremde Sitzung, so viele Sekunden auf ihr Ende warten statt abzubrechen.
+    [int]$Wait = 0,
     # Baut spike.dll neu, vorher endet die eigene Sitzung wie bei -Restart.
     [switch]$Build,
     # Baut und installiert zusaetzlich die Mod aus src\. Stop-Session.ps1 entfernt sie wieder.
@@ -16,7 +21,8 @@ param(
     [switch]$Godmode,
     # Client verbindet ueber den Steam-Tunnel aus Tunnel.cpp statt direkt: P2p zur eigenen SteamID oder Ip ueber 127.0.0.1.
     # Mit -Role Client geht P2p zur SteamID aus -Peer. Mod: Tunnel der Mod aus src\Net statt des Spikes, braucht -Mod.
-    # Lobby: Steam-Lobby der Mod, der Host erstellt sie, der Client tritt mit der Lobby-ID bei (-Peer bei -Role Client).
+    # Lobby: Steam-Lobby der Mod. Nach dem Laden des Spikes erstellt der Host sie ueber das Overlay, der Client tritt
+    # ebenso mit der Lobby-ID bei (-Peer bei -Role Client).
     [ValidateSet('None', 'Ip', 'P2p', 'Mod', 'Lobby')]
     [string]$Tunnel = 'None',
     # Both: Host und Client auf diesem PC. Host oder Client: nur diese Instanz, die Gegenseite laeuft auf einem anderen PC.
@@ -37,10 +43,12 @@ if ($Role -ne 'Both' -and $Tunnel -eq 'Ip') { throw '-Tunnel Ip verbindet nur au
 if ($Tunnel -in 'Mod', 'Lobby' -and -not $Mod) { throw "-Tunnel $Tunnel braucht -Mod." }
 if ($Tunnel -eq 'Lobby' -and $Role -eq 'Client' -and $Peer -notmatch '^\d{1,20}$') { throw '-Tunnel Lobby mit -Role Client braucht -Peer mit der Lobby-ID aus der Ausgabe des Hosts.' }
 if ($Tunnel -eq 'Mod' -and $Role -eq 'Client' -and $Peer -notmatch '^\d{17}$') { throw '-Tunnel Mod mit -Role Client braucht -Peer mit der SteamID64 des Hosts.' }
+$Timer = [Diagnostics.Stopwatch]::StartNew()
+function Write-Step([string]$Text) { Write-Host ('[{0,4:n0} s] {1}' -f $Timer.Elapsed.TotalSeconds, $Text) }
 Initialize-SessionDir
 Assert-SupportedBuild
 if ($Restart -or $Build) { & (Join-Path $PSScriptRoot 'Stop-Session.ps1') }
-Enter-SessionLock
+Enter-SessionLock $Wait
 if (Get-Process $script:GameProcess -ErrorAction SilentlyContinue) {
     Exit-SessionLock
     throw 'Das Spiel laeuft ausserhalb einer Testsitzung. Bitte zuerst selbst beenden.'
@@ -58,6 +66,7 @@ catch {
     Exit-SessionLock
     throw
 }
+Write-Step 'Build fertig'
 
 $Guard = Start-Process powershell -WindowStyle Hidden -PassThru -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$(Join-Path $PSScriptRoot 'CrashGuard.ps1')`""
 Start-Sleep -Seconds 1
@@ -70,23 +79,16 @@ if ($Guard.HasExited) {
 $env:SteamAppId = '3026450'
 $env:SteamGameId = '3026450'
 $Exe = Get-GameExe
-# Testschalter fuer den Tunnel der Mod, siehe src\Net\README.md.
-function Get-TransportArgument([string]$Name, [string]$Lobby) {
-    if ($Tunnel -eq 'Lobby') {
-        # Erst nach dem Spike erstellen oder beitreten: Ohne seine Patches stuerzen Host (0x5901CE8) und Client (0x56B16D9)
-        # beim Beitritt ab, siehe research\spikes\a-connect\README.md.
-        $Delay = "-ddcoop_lobby_delay=$($MenuDelaySeconds + 10)"
-        if ($Name -eq 'host') { return @('-ddcoop_lobby=create', $Delay) }
-        return @("-ddcoop_lobby=$Lobby", $Delay)
-    }
+# Testschalter fuer den Tunnel der Mod, siehe src\Net\README.md. Die Lobby laeuft ueber das Overlay, ohne Schalter.
+function Get-TransportArgument([string]$Name) {
     if ($Tunnel -ne 'Mod') { return @() }
     if ($Name -eq 'host') { return @('-ddcoop_transport=host') }
     if ($Role -eq 'Both') { return @('-ddcoop_transport=loopback') }
     @("-ddcoop_transport=$Peer")
 }
-function Start-Instance([string]$Name, [int]$X, [string]$Lobby) {
+function Start-Instance([string]$Name, [int]$X) {
     $UserDir = Join-Path $script:SessionDir "ud_$Name"
-    $Arguments = @('-windowed', '-ResX=800', '-ResY=450', "-WinX=$X", '-WinY=0', '-nosplash', "-UserDir=`"$UserDir`"") + (Get-TransportArgument $Name $Lobby)
+    $Arguments = @('-windowed', '-ResX=800', '-ResY=450', "-WinX=$X", '-WinY=0', '-nosplash', "-UserDir=`"$UserDir`"") + (Get-TransportArgument $Name)
     Start-Process $Exe -PassThru -ArgumentList $Arguments
 }
 # Wartet auf eine Zeile im Log der Mod, liefert sie oder $null.
@@ -108,16 +110,11 @@ function Connect-ModTransport([int]$ProcessId) {
     Write-Output "Tunnel der Mod: $($Seen -replace '^.*Transport: ', '')"
     Send-SpikeCommand $ProcessId 'open 127.0.0.1:7778'
 }
-# Lobby-ID, die der Host ins Log der Mod schreibt. Sie gilt nur, solange die Lobby lebt, und gehoert zu keinem Konto.
-function Wait-LobbyId([int]$ProcessId) {
-    $Seen = Wait-ModLog $ProcessId 'Sitzung: Lobby \d+ erstellt|Sitzung: .*(abgelehnt|nicht|konnte)' 150
-    if ("$Seen" -notmatch 'Sitzung: Lobby (\d+) erstellt') { throw "Lobby nicht erstellt: $Seen" }
-    $Matches[1]
-}
-# Mit der Lobby macht die Mod den Host selbst zum Listen-Server und verbindet den Client.
-function Connect-ModLobby([int]$ProcessId) {
-    $Seen = Wait-ModLog $ProcessId 'Sitzung: Tunnel steht|Sitzung: .*(abgelehnt|nicht|verloren|beendet|Version|unbekannt)' 180
-    if ("$Seen" -notmatch 'Tunnel steht') { throw "Beitritt zur Lobby gescheitert: $Seen" }
+# Erst nach dem Spike erstellen oder beitreten: Ohne seine Patches stuerzen Host (0x5901CE8) und Client (0x56B16D9)
+# beim Beitritt ab, siehe research\spikes\a-connect\README.md.
+function Join-Lobby([int]$ProcessId, [string]$LobbyId) {
+    $State = Join-OverlayLobby $ProcessId $LobbyId
+    if ($State.State -ne 'Im Spiel') { throw "Beitritt zur Lobby gescheitert: $($State.Message)" }
     Write-Output 'Lobby beigetreten, Spiel verbindet sich ueber den Tunnel der Mod.'
 }
 function Add-Spike($Instance) {
@@ -129,56 +126,38 @@ function Add-Spike($Instance) {
     & py (Join-Path $PSScriptRoot 'inject.py') $Instance.Id $Dll
 }
 $GameHost = if ($Role -ne 'Client') { Start-Instance 'host' 0 }
-if ($GameHost -and $Tunnel -eq 'Lobby') {
-    # Schon jetzt eintragen, damit Stop-Session.ps1 den Host auch findet, wenn das Warten auf die Lobby scheitert.
-    @{ Host = $GameHost.Id; Client = 0; Role = $Role; Guard = $Guard.Id; Mod = [bool]$Mod; Started = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() } |
-        ConvertTo-Json | Set-Content (Join-Path $script:SessionDir 'session.json') -Encoding ascii
-    Write-SessionLock $GameHost.Id 0 | Set-Content $script:LockFile -Encoding ascii
-}
-$LobbyId = if ($Tunnel -eq 'Lobby') { if ($GameHost) { Wait-LobbyId $GameHost.Id } else { $Peer } }
-if ($GameHost -and $LobbyId) { Write-Output "Lobby erstellt: $LobbyId" }
-$Client = if ($Role -ne 'Host') { Start-Instance 'client' $(if ($Role -eq 'Both') { 820 } else { 0 }) $LobbyId }
+$Client = if ($Role -ne 'Host') { Start-Instance 'client' $(if ($Role -eq 'Both') { 820 } else { 0 }) }
 $Local = @($GameHost, $Client) | Where-Object { $_ }
+$LocalIds = @($Local | ForEach-Object { $_.Id })
 # Die Rolle, die auf einem anderen PC laeuft, steht mit Prozess-ID 0 in der Sitzung.
 $HostId = if ($GameHost) { $GameHost.Id } else { 0 }
 $ClientId = if ($Client) { $Client.Id } else { 0 }
-@{ Host = $HostId; Client = $ClientId; Role = $Role; Guard = $Guard.Id; Mod = [bool]$Mod; Started = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() } | ConvertTo-Json |
+@{ Host = $HostId; Client = $ClientId; Role = $Role; Guard = $Guard.Id; Mod = [bool]$Mod; Tunnel = $Tunnel; Map = $Map; Started = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() } | ConvertTo-Json |
     Set-Content (Join-Path $script:SessionDir 'session.json') -Encoding ascii
 Write-SessionLock $HostId $ClientId | Set-Content $script:LockFile -Encoding ascii
 
-Start-Sleep -Seconds $MenuDelaySeconds
+foreach ($Instance in $Local) { Wait-MainMenu $Instance.Id $MenuTimeoutSeconds }
+Write-Step 'Hauptmenue geladen'
+Start-Sleep -Seconds 2
 foreach ($Instance in $Local) { Add-Spike $Instance }
 Start-Sleep -Seconds 3
+Write-Step 'Spike geladen'
 if ($Godmode) {
     foreach ($Instance in $Local) { Send-SpikeCommand $Instance.Id '!god on' }
     Start-Sleep -Seconds 1
 }
 
-# Netzzustand einer Instanz aus netstate.py, etwa @{ package = 'MetaBase'; clients = 1 }.
-function Get-NetState([int]$ProcessId) {
-    $Line = & py (Join-Path $PSScriptRoot 'netstate.py') $ProcessId | Select-Object -Last 1
-    $State = @{ line = $Line }
-    foreach ($Match in [regex]::Matches([string]$Line, "'(\w+)': (?:'([^']*)'|(-?\d+))")) {
-        $State[$Match.Groups[1].Value] = if ($Match.Groups[2].Success) { $Match.Groups[2].Value } else { [int]$Match.Groups[3].Value }
-    }
-    $State
-}
+$HostHasClient = { (Get-NetState $GameHost.Id).clients -ge 1 }
 
-function Wait-Until([scriptblock]$Condition, [string]$What) {
-    $Deadline = (Get-Date).AddSeconds($JoinTimeoutSeconds)
-    while ((Get-Date) -lt $Deadline) {
-        foreach ($Instance in $Local) {
-            if ($Instance.HasExited) { throw 'Eine Instanz ist abgestuerzt, siehe tools\spike\crashes.py.' }
-        }
-        if (& $Condition) { return }
-        Start-Sleep -Seconds 2
-    }
-    throw "Zeitablauf nach $JoinTimeoutSeconds s: $What"
-}
-
-if ($GameHost -and $Tunnel -ne 'Lobby') {
+if ($GameHost -and $Tunnel -notin 'Lobby') {
     Send-SpikeCommand $GameHost.Id 'open /Game/Maps/MainMenu?listen'
-    Start-Sleep -Seconds 12
+    Wait-Condition { (Get-NetState $GameHost.Id).role -eq 'host' } 'Host lauscht' 60 $LocalIds
+    Start-Sleep -Seconds 2
+}
+$LobbyId = $null
+if ($GameHost -and $Tunnel -eq 'Lobby') {
+    $LobbyId = New-OverlayLobby $GameHost.Id
+    Write-Output "Lobby erstellt: $LobbyId"
 }
 if ($Role -eq 'Both') {
     if ($Tunnel -eq 'None') {
@@ -188,8 +167,7 @@ if ($Role -eq 'Both') {
         Connect-ModTransport $Client.Id
     }
     elseif ($Tunnel -eq 'Lobby') {
-        Connect-ModLobby $Client.Id
-        Wait-Until { (Get-NetState $GameHost.Id).clients -ge 1 } 'Client nicht beim Host angekommen'
+        Join-Lobby $Client.Id $LobbyId
     }
     else {
         Send-SpikeCommand $GameHost.Id '!tunnel host'
@@ -198,7 +176,9 @@ if ($Role -eq 'Both') {
         Start-Sleep -Seconds 8
         Send-SpikeCommand $Client.Id 'open 127.0.0.1:7778'
     }
-    Start-Sleep -Seconds 10
+    Wait-Condition $HostHasClient 'Client beim Host angekommen' 120 $LocalIds
+    Wait-Condition { (Get-NetState $Client.Id).players -ge 2 } 'Client sieht beide Spieler' 60 $LocalIds
+    Write-Step 'verbunden'
 }
 elseif ($Role -eq 'Host') {
     if ($Tunnel -eq 'P2p') {
@@ -220,9 +200,9 @@ elseif ($Role -eq 'Host') {
         Write-Output 'Host bereit, wartet auf direkte Verbindung auf Port 7777.'
     }
     Write-Output "Warte bis zu $JoinTimeoutSeconds s auf den Client ..."
-    Wait-Until { (Get-NetState $GameHost.Id).clients -ge 1 } 'kein Client verbunden'
+    Wait-Condition $HostHasClient 'kein Client verbunden' $JoinTimeoutSeconds $LocalIds 2000
     Write-Output 'Client verbunden.'
-    Start-Sleep -Seconds 10
+    Start-Sleep -Seconds 5
 }
 else {
     if ($Tunnel -eq 'P2p') {
@@ -237,19 +217,31 @@ else {
         Connect-ModTransport $Client.Id
     }
     elseif ($Tunnel -eq 'Lobby') {
-        Connect-ModLobby $Client.Id
+        Join-Lobby $Client.Id $Peer
     }
     else {
         Send-SpikeCommand $Client.Id "open $Peer"
     }
     $Target = ($Map -split '/')[-1]
     Write-Output "Warte bis zu $JoinTimeoutSeconds s, bis der Host nach $Target reist ..."
-    Wait-Until { $State = Get-NetState $Client.Id; $State.world -eq $Target -or $State.package -like "*$Target" } "Client nicht in $Target"
+    Wait-Condition { $State = Get-NetState $Client.Id; ($State.world -eq $Target -or $State.package -like "*$Target") -and $State.players -ge 2 } "Client nicht in $Target" $JoinTimeoutSeconds $LocalIds 2000
 }
-if ($GameHost) {
+
+# Reise nur, wenn der Host nicht schon dort ist. Die Lobby macht ihn selbst zum Listen-Server in der MetaBase.
+$Target = ($Map -split '/')[-1]
+if ($GameHost -and (Get-NetState $GameHost.Id).world -ne $Target) {
     Send-SpikeCommand $GameHost.Id "servertravel $Map`?listen"
+    Wait-Condition {
+        $HostState = Get-NetState $GameHost.Id
+        if ($HostState.world -ne $Target -or $HostState.players -lt 2) { return $false }
+        if (-not $Client) { return $true }
+        $ClientState = Get-NetState $Client.Id
+        $ClientState.world -eq $Target -and $ClientState.players -ge 2
+    } "Reise nach $Target" $TravelTimeoutSeconds $LocalIds
+    Write-Step "in $Target"
 }
-Start-Sleep -Seconds $TravelDelaySeconds
+# Kurz Zeit fuer Controller-Tausch und Spawn, frueher 40 s fest.
+Start-Sleep -Seconds 5
 
 if (@($Local | Where-Object { $_.HasExited }).Count) { throw 'Eine Instanz ist abgestuerzt, siehe tools\spike\crashes.py.' }
 if ($Client) {
@@ -270,5 +262,6 @@ if ($GameHost) {
     Send-SpikeCommand $GameHost.Id '!arm'
     Start-Sleep -Seconds 1
 }
-& py (Join-Path $PSScriptRoot 'netstate.py') @($Local | ForEach-Object { $_.Id })
+& py (Join-Path $PSScriptRoot 'netstate.py') $LocalIds
+Write-Step 'Sitzung bereit'
 Write-Output "Logs: $(($Local | ForEach-Object { Join-Path $script:CommandDir "$($_.Id).log" }) -join ' und ')"
