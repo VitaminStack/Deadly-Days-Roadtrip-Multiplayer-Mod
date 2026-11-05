@@ -81,16 +81,22 @@ Pro PC läuft nur eine Sitzung, Spielzeit ist der Engpass. Darum:
 
 Arbeitsteilung: Alles, was sich über Konsole, Befehle oder Skripte lesen oder steuern lässt, erledigt der Agent selbst, auch die Prüfungen
 (Overlay, Logs, Netzzustand, Lobby, Reisen, Run-Start). Der Mensch übernimmt nur Spielaktionen: mit der Figur laufen, kämpfen,
-Belohnungen wählen. Er springt dort ein, wo der Agent sonst erst eine Schnittstelle oder ein Skript bauen müsste. Dafür schreibt der Agent
-eine Schrittdatei, und der Mensch arbeitet sie mit `Guided-Test.ps1` ab:
+Belohnungen wählen. Er springt dort ein, wo der Agent sonst erst eine Schnittstelle oder ein Skript bauen müsste.
+
+**Der Mensch bedient keine Konsole.** Er schaut zu oder spielt, Rückmeldung gibt er im Chat. Starten, Schritte bestätigen, Prüfen und
+Auswerten macht der Agent. Am 05.11.2026 wartete ein Tag-1-Test bei Schritt 3 auf Enter in der Konsole des Menschen, das ist so nicht
+gewollt. Bis `Guided-Test.ps1` Schritte ohne Konsoleneingabe bestätigen kann, startet der Agent Sitzung und automatische Schritte selbst,
+sagt dem Menschen im Chat, was er spielen soll, und prüft danach mit `Get-Status.ps1 -Brief` und den Logs.
+
+Die Schrittdatei und `Guided-Test.ps1` sehen so aus:
 
 ```bash
 powershell -ExecutionPolicy Bypass -File tools/spike/Guided-Test.ps1 -Steps tools/spike/guided/tag-1.txt -Start -Shots
 ```
 
 Eine Zeile je Schritt: `Aktion | Erwartung` für eine Spielaktion des Menschen, `> Skript.ps1 ...` für einen automatischen Schritt aus
-`tools/spike`. `> Skript.ps1 ... | Muster` prüft automatisch und wiederholt bis zu 30 s, bis die Ausgabe zum Muster passt. Der Mensch
-bestätigt seine Schritte mit Enter oder tippt die Abweichung ein. Das Skript hält je Schritt Dauer, neue Zeilen der Mod-Logs, Overlay-
+`tools/spike`. `> Skript.ps1 ... | Muster` prüft automatisch und wiederholt bis zu 30 s, bis die Ausgabe zum Muster passt. Spielschritte
+werden derzeit mit Enter oder einer getippten Abweichung bestätigt, siehe oben. Das Skript hält je Schritt Dauer, neue Zeilen der Mod-Logs, Overlay-
 und Netzzustand, neue Abstürze und mit `-Shots` Bilder beider Fenster fest und schreibt `research/local/guided/<Name>-<Zeit>/report.md`.
 Den Pfad gibt der Mensch dem Agenten, der den Bericht auswertet. Beispiele liegen in `tools/spike/guided/`.
 
