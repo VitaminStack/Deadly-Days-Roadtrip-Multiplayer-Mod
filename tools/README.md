@@ -93,7 +93,7 @@ Bauen und Testen des Spikes, die Anleitung steht in [docs/TESTING.md](../docs/TE
 | Skript | Aufgabe |
 |---|---|
 | `Build-Spike.ps1` | Baut `spike.dll` |
-| `Start-Session.ps1` | Setzt die Sperre, startet Crash-Schutz, Host und Client parallel, verbindet sie und reist in eine Karte. Wartet auf Zustände statt fest zu schlafen und nennt die Zeit je Schritt (MetaBase etwa 30 bis 40 s). `-Wait <s>` wartet auf eine fremde Sitzung statt abzubrechen. `-Build` baut den Spike vorher neu, `-Mod` baut und installiert zusätzlich die Mod. `-Role Host` oder `-Role Client -Peer <SteamID>` startet nur eine Seite für den Test auf zwei PCs. `-Mod -Tunnel Mod` verbindet über den Transport der Mod statt über den Spike, `-Mod -Tunnel Lobby` über die Steam-Lobby der Mod, erstellt und betreten über das Overlay. `-Brief`: nur Zeit je Schritt und eine Zeile je Instanz |
+| `Start-Session.ps1` | Setzt die Sperre, startet Crash-Schutz, Host und Client parallel, verbindet sie und reist in eine Karte. Wartet auf Zustände statt fest zu schlafen und nennt die Zeit je Schritt (MetaBase etwa 30 bis 40 s). `-Wait <s>` wartet auf eine fremde Sitzung statt abzubrechen. `-Build` baut den Spike vorher neu, `-Mod` baut und installiert zusätzlich die Mod. `-Role Host` oder `-Role Client -Peer <SteamID>` startet nur eine Seite für den Test auf zwei PCs. `-Mod -Tunnel Mod` verbindet über den Transport der Mod statt über den Spike, `-Mod -Tunnel Lobby` über die Steam-Lobby der Mod, erstellt und betreten über das Overlay. `-Brief`: nur Zeit je Schritt und eine Zeile je Instanz. `-NetProfile Internet` simuliert Latenz im Tunnel der Mod, siehe [Latenz simulieren](../docs/TESTING.md#latenz-simulieren) |
 | `Restart-Instance.ps1` | Startet nur den Client neu und verbindet ihn wieder, der Host läuft weiter (etwa 20 s statt eines vollen Neustarts). `-Brief` für kurze Ausgabe |
 | `Overlay.ps1` | Bedient das Overlay der Mod ohne Maus: `status`, `create`, `join [<id>]`, `leave`, `invite`. `-Json` für Skripte |
 | `Watch-Net.ps1` | Zeigt Änderungen an Overlay, Prozess und Mod-Log (Sitzung, Transport, Lobby, Welt) beider Instanzen mit Zeit, `-Until <Muster>` endet beim ersten Treffer |
@@ -109,7 +109,7 @@ Bauen und Testen des Spikes, die Anleitung steht in [docs/TESTING.md](../docs/TE
 | `Game-Input.ps1` | Bild aus einem Spielfenster, Farbe eines Punkts (`pixel`), Klick oder Taste, ohne Bildschirmaufnahme des Desktops |
 | `Start-Run.ps1` | Startet aus der `MetaBase` einen Run bis zur Routenkarte: Position lesen, in einem Zug in den Ring, Karte am Banner erkennen, bis zu drei Versuche. `-Brief`: eine Zeile |
 | `Travel-Day.ps1` | Fährt einen Tag über die Routenkarte, wartet auf die neue Karte, prüft beide Instanzen und beendet ihn. `-Brief`: eine Zeile je Instanz und Inventar |
-| `Run-Route.ps1` | Fester Routenlauf mit Seed `20795` über mehrere Tage, nach jedem Wechsel `check_round.py`, Bilder während und nach dem Laden unter `research/local/session/runs/` |
+| `Run-Route.ps1` | Fester Routenlauf mit Seed `20795` über mehrere Tage, nach jedem Wechsel `check_round.py`, Bilder während und nach dem Laden unter `research/local/session/runs/`. Mit `-Start -NetProfile Internet` in einer Lobby-Sitzung mit simulierter Latenz |
 | `check_round.py` | Prüft nach einem Kartenwechsel World, `PlayerArray`, PlayerStates, Figuren am Bus, gleiche Positionen bei Host und Client, NetGUIDs und `NewActor failed` |
 | `Focus-Window.ps1` | Holt ein Spielfenster nach vorn |
 | `Disassemble.ps1` | Zeigt einen RVA-Bereich der Exe |

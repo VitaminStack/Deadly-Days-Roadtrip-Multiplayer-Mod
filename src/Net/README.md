@@ -52,6 +52,20 @@ Ohne Lobby lässt sich der Transport für Tests direkt über die Kommandozeile d
 weil beide Seiten im Test gleichzeitig starten. `Start-Session.ps1 -Mod -Tunnel Mod` setzt die Schalter und verbindet danach
 das Client-Spiel mit `open 127.0.0.1:7778`, siehe [Testen](../../docs/TESTING.md).
 
+### Netzsimulation (`latenz-test`)
+
+Unreals `Net PktLag`/`PktLoss` fehlt im Shipping-Build: Die Exe enthält nur die Reflexionsnamen von `PacketSimulationSettings`,
+nicht die Befehlstexte, die `DO_ENABLE_NET_TEST` mitbringt. Darum simuliert der Tunnel der Mod selbst ([NetSim.h](NetSim.h)).
+Der Schalter `-ddcoop_netsim=<Ping>,<Schwankung>,<Verlust>` gilt für Lobby und Testschalter gleichermaßen:
+
+- Jede Instanz verzögert ihre ausgehenden Spielpakete um den halben Ping ± die halbe Schwankung. Mit beiden Seiten ergibt sich der
+  Ping des Profils. Spielpakete können sich dabei überholen und gehen je Richtung mit dem angegebenen Anteil verloren.
+- Kontrollnachrichten werden nur verzögert und behalten ihre Reihenfolge. Das Hello bleibt unverzögert.
+- Alle 30 s steht im Mod-Log `Netzsimulation: <n> Pakete verzögert, Mittel <ms> (<min> bis <max> ms), <k> verloren (<%>), Steam-Ping <ms>`.
+  Der Steam-Ping enthält die Simulation nicht.
+
+`Start-Session.ps1 -NetProfile Internet` setzt den Schalter, siehe [Latenz simulieren](../../docs/TESTING.md#latenz-simulieren).
+
 ## Steam-Lobby (`steam-lobby`)
 
 Direkt über Steamworks, ohne `OnlineSubsystemSteam`: Das Spiel bringt keinen Steam-NetDriver mit, die Lobby braucht nur
