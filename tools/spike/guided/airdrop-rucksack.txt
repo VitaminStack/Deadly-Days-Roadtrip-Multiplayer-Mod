@@ -1,0 +1,8 @@
+# Agent startet vorher die geschützte Mod-/Lobby-Sitzung mit Godmode; Antworten nur im Chat.
+> Run-Route.ps1 -Days 1 -StayLast
+Mit dem Client einen Airdrop öffnen und ein Item in den Rucksack ziehen. Noch NICHT Bestätigen drücken. Kurz warten und im Chat melden, ob Item und Panel stabil bleiben | Das Panel bleibt offen; die Wahl wird nicht schon beim Drag-Beginn an den Host geschickt; kein Geister-Item
+> Get-Status.ps1 -Inventory -Brief
+Im Client Bestätigen drücken, danach beim Host wählen und bestätigen. Das gewählte Client-Item im Kampf ausprobieren | Panel schließt; Ablage wird nach der Wahl zum Host gesendet; das Item bleibt im Rucksack und wirkt beim Client
+> Get-Status.ps1 -Inventory
+Einen weiteren Airdrop mit dem Client öffnen. Ein bestehendes Item umsortieren, dann ein neues Item auf ein freies Feld legen und beide Auswahlen bestätigen | Keine Geisterdarstellung und keine Ablehnung eines tatsächlich freien Felds; bestehendes und neues Item bleiben korrekt platziert
+> Get-Status.ps1 -Inventory

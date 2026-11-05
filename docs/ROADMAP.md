@@ -18,6 +18,7 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 
 **Neue Befunde.**
 
+- `airdrop-rucksack`, 05.11.2026, Teilstand: Wahl und Ablage des Clients kommen beim Host im Rucksack an, das Item wirkt beim Client (live bestätigt). Die automatische Bestätigung beim Drag ist entfernt, die Client-Anzeige richtet sich nach `SetupInventory` an den replizierten Pivot-Feldern aus. Diese beiden Fixes, Umsortieren und ein zweiter Airdrop stehen als `airdrop-rucksack-live`. [Befund](../src/Game/README.md#airdrop-auswahl)
 - `xp-baelle`, 05.11.2026, Teilstand: Dem Client fehlt der GameMode, darum berechnete er die Sichtgrenzen der XP-Bälle zu schmal. Die Grenzen kommen jetzt beim Client aus der lokalen Kamera, Host und XP-Vergabe bleiben unverändert. Build und Tests bestehen, die sichtbare Gegenprobe fehlt und steht als `xp-baelle-live`. [Befund](GAME_ANALYSIS.md#xp-bälle-beim-client-xp-baelle)
 - `todo-wartbarkeit`, 05.11.2026: Ergänzt `client-lokal-audit` um Updateresistenz und Aufräumen. Neu unter Wartung:
   `reflexion-felder` (P1, Feldzugriffe zur Laufzeit über die Engine-Reflexion statt fester Offsets, früh, damit der Sync-Code
@@ -287,7 +288,7 @@ flowchart TD
     W2 --> IG
     W3 --> IG
     IG --> G2{{"Gate G2"}}:::gate
-    PR --> W4["Welle 4<br/>gegner-alle, fortschritt, inventar-sync,<br/>airdrop-rucksack, airdrop-warten,<br/>inventar-ui, pausen-sync, tagesablauf,<br/>run-ende, vfx-sound, reconnect"]:::open
+    PR --> W4["Welle 4<br/>gegner-alle, fortschritt, inventar-sync,<br/>airdrop-rucksack-live, airdrop-warten,<br/>inventar-ui, pausen-sync, tagesablauf,<br/>run-ende, vfx-sound, reconnect"]:::open
     G2 --> W4
     W4 --> IR["integration-run"]:::central
     W5 --> IR

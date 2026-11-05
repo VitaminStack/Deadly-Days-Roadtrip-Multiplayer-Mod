@@ -63,7 +63,7 @@ struct Placement
 };
 
 // Client: Ablage der zuletzt gewählten Choice, einmalig, sobald das Panel sie in den Rucksack gelegt hat.
-std::optional<Placement> TakeClientPlacement();
+std::optional<Placement> TakeClientPlacement(uint64_t Session);
 
 // Host: Wahl des Clients aus der Sitzung wie beim Client in seinen Rucksack legen. Ohne Ablage bleibt sie im Lager.
 bool PlaceForClient(uint64_t Session, const Placement& Value);

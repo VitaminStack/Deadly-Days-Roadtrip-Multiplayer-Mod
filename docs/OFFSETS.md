@@ -146,7 +146,10 @@ Aufgabe `airdrop-auswahl`, Ablauf in [Airdrop-Auswahl](GAME_ANALYSIS.md#airdrop-
 |---|---|---|
 | `RewardChest.OpenAirdropChoices` | `0x5A42F50` | Hook in `AirdropPatches.cpp` |
 | `InventoryComponent::SetRewardItems` | `0x5979B30` | `(this, TArray*, Level)`, öffnet das Panel |
-| `InventoryPanel.HandleConfirmButton` | `0x5A6CB20` | liest `+0x7A0`, dann `+0x3E0`; ruft `OpenNextReward` der Queue `+0x6B8` |
+| `InventoryPanel.HandleConfirmButton` | `0x5A6CB20` | liest `+0x7A0`, dann `+0x3E0`; bricht bei `IsDragging` (`+0x790`) ab; ruft `OpenNextReward` der Queue `+0x6B8` |
+| `InventoryPanel.SetupInventory` | `0x5A8BAB0` | liest `InventoryComponent` bei `+0x370`; positioniert aus `InventoryItemInstance.CachedBackpackLocalPosition` (`+0x150`, FVector2D, nicht repliziert) |
+| `InventoryPanel.SnapRepresentationToTile` | `0x5A92030` | richtet UI und Pixelpositions-Cache aus einem Pivot-Feld aus; reflektierte Parameter: ItemRepresentation `+0`, FIntVector2 `+8`, CanvasPanel `+0x10`, Größe `0x18` |
+| `InventoryItemInstance.SetZeroPivotTile` | `0x5979ED0` | schreibt ausschließlich `+0x28`; berechnet den Pixelpositions-Cache nicht neu |
 | `InventoryComponent::CreateItemInstance` | `0x5959700` | `(this, ItemData, FlagAsNew, Rarity)`, nativ; UFunction `BlueprintAuthorityOnly` |
 | `URewardQueueComponent::OpenNextReward` | `0x59ADAC0` | Exec-Thunk `0x57975F0` |
 | `URewardQueueComponent::RegisterReward` | `0x59B07B0` | Exec-Thunk `0x5797F10` |

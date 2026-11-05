@@ -25,6 +25,7 @@ struct
     Reward::Choice Chosen;
     uint64_t ChosenAt = 0;
     uint64_t NextShow = 0; // nach einem gescheiterten Öffnen des Panels erst später erneut
+    Reward::PlacementDelivery PlacementDelivery;
 } R;
 
 uint64_t NowMs()
@@ -105,6 +106,26 @@ bool Send(Net::Transport& Transport, const Reward::Choice& Choice)
     return true;
 }
 
+void SendPlacement(Net::Transport& Transport)
+{
+    // Take ist destruktiv: erst nach erfolgreichem Senden der zugehörigen Wahl abholen.
+    // Die Game-Schicht bindet die Ablage zusätzlich an die bestätigte Sitzung.
+    R.PlacementDelivery.Flush(R.Chosen.Session,
+        [](uint64_t Session) -> std::optional<Reward::Placement>
+        {
+            if (const auto Placed = Game::Rewards::TakeClientPlacement(Session))
+                return Reward::Placement{Session, Placed->Turns, Placed->PivotX, Placed->PivotY, Placed->Slots};
+            return std::nullopt;
+        },
+        [&](const Reward::Placement& Value)
+        {
+            if (!Send(Transport, Reward::PlacementType, Reward::Encode(Value)))
+                return false;
+            Core::Log::Info("Airdrop-Auswahl: Ablage im Rucksack ({} Felder) an den Host gesendet", Value.Slots.size());
+            return true;
+        });
+}
+
 void TickClient(Net::Transport& Transport, std::span<const Net::ControlMessage> Messages)
 {
     for (const auto& Message : Messages)
@@ -116,16 +137,10 @@ void TickClient(Net::Transport& Transport, std::span<const Net::ControlMessage> 
                 R.Latest = std::move(*Offer);
                 R.LatestAt = NowMs();
             }
-    // Ablage im Rucksack kommt erst nach dem Schließen des Panels, auch wenn der Host die Sitzung schon beendet hat.
-    if (const auto Placed = Game::Rewards::TakeClientPlacement(); Placed && R.Chosen.Session)
-    {
-        const Reward::Placement Value{R.Chosen.Session, Placed->Turns, Placed->PivotX, Placed->PivotY, Placed->Slots};
-        if (Send(Transport, Reward::PlacementType, Reward::Encode(Value)))
-            Core::Log::Info("Airdrop-Auswahl: Ablage im Rucksack ({} Felder) an den Host gesendet", Value.Slots.size());
-    }
     // Ohne frisches Bild (Verbindung weg, Host ohne Mod-Sitzung) keine Auswahl anzeigen.
     if (!R.Latest || !R.Latest->Session || NowMs() - R.LatestAt > 5000)
     {
+        SendPlacement(Transport); // auch nach dem Ende des Host-Panels
         Game::Rewards::CloseForClient();
         return;
     }
@@ -138,6 +153,7 @@ void TickClient(Net::Transport& Transport, std::span<const Net::ControlMessage> 
         else
             Core::Log::Warn("Airdrop-Auswahl: Wahl {} nicht gesendet, Panel öffnet erneut", *Pick);
     }
+    SendPlacement(Transport); // Wahl (0x301) muss vor Ablage (0x302) beim Host ankommen.
     const bool Sent = R.Chosen.Session == Offer.Session && R.Chosen.Revision == Offer.Revision && NowMs() - R.ChosenAt < 4000;
     if (Offer.ClientClaimed)
         Game::Rewards::CloseForClient();
@@ -164,6 +180,7 @@ void TickReward(std::span<const Net::ControlMessage> Messages)
         R.Sent.reset();
         R.Latest.reset();
         R.Chosen = {};
+        R.PlacementDelivery = {};
     }
     Game::Rewards::SetRemoteReady(Host && Peer);
     if (!Transport || !Peer)
