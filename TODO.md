@@ -37,7 +37,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `lobby-auth-live` | P0 | [3](#phase-3--session-und-verbindung) | zu zweit | wenig |
 | `lobby-live` | P0 | [3](#phase-3--session-und-verbindung) | zu zweit | wenig |
 | `gegnertyp` | P0 | [4](#phase-4--vertical-slice) | parallel | mittel |
-| `kamera-code` | P0 | [4](#phase-4--vertical-slice) | parallel | mittel |
 | `rundenende-absturz` | P0 | [4](#phase-4--vertical-slice) | parallel | mittel |
 | `airdrop-rucksack-live` | P0 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `mod-saves` | P0 | [6](#phase-6--release) | parallel | mittel |
@@ -144,7 +143,6 @@ Ziel: Zwei Spieler starten eine Mission, kämpfen gegen einen Gegnertyp und sehe
 
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
-| `kamera-code` | P0 | Gemeinsame Kamera (Option A) auch beim Client umsetzen, ursprünglichen Zoom und Bewegungsbegrenzung erhalten. Ordner `src/Sync/World`, `src/Game`. **Einstieg:** [Kamera](docs/GAME_ANALYSIS.md#kamera-und-sichtbereich) | `remote-spieler` | parallel | mittel |
 | `gegnertyp` | P0 | Ein Gegnertyp inklusive Spawn und Tod. Ordner `src/Sync/Enemies` | `remote-spieler` | parallel | mittel |
 | `eingaben` | P1 | Eingaben aus dem lokalen `CoopInputRouter` sauber vom Remote-Spieler trennen. Ordner `src/Sync/Players`, Dateien mit `bewegung` absprechen | `remote-spieler` | parallel | mittel |
 | `rundenende-absturz` | P0 | Beim regulären Rundenende von Tag 1 (rund 12,5 Minuten nach Missionsstart, mit `-Godmode`) stürzt zuerst der Client ab (Access Violation beim Lesen von `0x348`), 30 Sekunden später der Host (`0x1B8`). Zweimal mit identischen Stacks beobachtet, nur Frames des Spiels. Erste Gegenprobe: dasselbe Rundenende mit `desync_enabled=false`. **Fertig, wenn** beide Instanzen das Rundenende von Tag 1 ohne Absturz überstehen. **Einstieg:** [Desync-Melder, Langzeitmessung](docs/DESYNC.md#langzeitmessung-im-spiel-05112026-nach-merge-von-main) | `phasenadapter` | parallel | mittel |
@@ -256,6 +254,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `hp-leisten` | 1 | Spike-Fix: Die Lebensleisten über den Figuren blieben beim Client auf dem Startwert, weil das Spiel `OnHealthChanged` nur beim Host auslöst. Jetzt ruft der Spike die Empfänger nach `OnRep_Health` und `OnRep_MaxHealth` auf, siehe [Lebensleisten](docs/GAME_ANALYSIS.md#lebensleisten-beim-client-hp-leisten) |
 | `iris` | 1 | Zur Laufzeit ist die klassische Replikation mit `ActorChannel` aktiv, nicht Iris |
 | `itemsack-absturz` | 4 | Itemsack-Vergabe nur beim Host; drei natürliche Client-Aufsammlungen ohne Absturz mit exakt +1 Item beim Remote-Spieler und gleichen Inventaren geprüft. [Befund und Abnahme](research/spikes/itemsack-absturz/README.md) |
+| `kamera-code` | 4 | Gemeinsame Kamera beim Client nachgewiesen: Kamera bei Host und Client auch mit Netzprofil Internet höchstens 28 Einheiten auseinander, gleicher Zoom, Bewegungsgrenze stoppt beide Figuren symmetrisch am Bildrand, siehe [Gemeinsame Kamera in der Mod](docs/GAME_ANALYSIS.md#gemeinsame-kamera-in-der-mod-kamera-code) |
 | `kamera-entscheidung` | 1 | Gemeinsame Kamera (Option A) mit ursprünglichem Zoom und Bewegungsbegrenzung, siehe [Kamera](docs/GAME_ANALYSIS.md#kamera-und-sichtbereich) |
 | `kamera-viewtarget` | 1 | Spike-Fix: Der Client schaute nach Kartenwechseln aus der eigenen Figur, weil die Kamera am alten Controller landete. Jetzt nur der lokale Controller der aktuellen Welt, Prüfung jede Sekunde, siehe [Kamera](docs/GAME_ANALYSIS.md#viewtarget-beim-client-kamera-viewtarget) |
 | `kampf` | 4 | Projektilgröße und -bewegung ab dem ersten Schuss über native Replikation, Treffer, Schaden und Tod beider Spieler mit 120 ms Ping geprüft, siehe [Kampf beim Client](docs/GAME_ANALYSIS.md#kampf-beim-client-kampf) |

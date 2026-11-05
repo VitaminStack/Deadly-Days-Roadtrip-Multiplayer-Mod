@@ -699,7 +699,7 @@ Stand: Disassembly und Laufzeit, Build `26187885`. Mission über das Spielmenü 
   Bei getrennten Kameras spawnen Gegner nur an den Rändern des Host-Bildes. Beim Client können sie dann mitten im Bild erscheinen, oder er bekommt in seiner Gegend gar keine.
 - **[Belegt]** Die Spawn-Schleife wählt den Zielspieler zufällig aus `SpawnedPlayers` (siehe [Gegner-Spawning](#gegner-spawning-und-pooling)). Die Gegnerzahl (`MaxSpawnedEnemies`) gilt für beide Spieler zusammen.
 
-**Entscheidung vom 03.11.2026:** Auf ausdrückliche Vorgabe des Projektverantwortlichen gilt vorerst **Option A: gemeinsame Kamera** für den ersten spielbaren Stand. Ursprünglicher Zoom und Bewegungsbegrenzung bleiben erhalten. Das ist eine Designentscheidung, keine abgeschlossene Umsetzung in der Mod; diese bleibt die Aufgabe `kamera-code`. Getrennte Kameras (Option B) sind als optionales Zukunfts-TODO erfasst und keine Voraussetzung für diesen Stand.
+**Entscheidung vom 03.11.2026:** Auf ausdrückliche Vorgabe des Projektverantwortlichen gilt vorerst **Option A: gemeinsame Kamera** für den ersten spielbaren Stand. Ursprünglicher Zoom und Bewegungsbegrenzung bleiben erhalten. Umgesetzt und geprüft mit `kamera-code`, siehe [Gemeinsame Kamera in der Mod](#gemeinsame-kamera-in-der-mod-kamera-code). Getrennte Kameras (Option B) sind als optionales Zukunfts-TODO erfasst und keine Voraussetzung für diesen Stand.
 
 **Bewertete Optionen**
 
@@ -711,6 +711,25 @@ Stand: Disassembly und Laufzeit, Build `26187885`. Mission über das Spielmenü 
 
 **Empfehlung:** Option A für den ersten spielbaren Stand. Sie ist schon lauffähig, braucht keine neuen Systeme und passt zu Spawnen, Zoom und Bewegungsgrenze des Spiels.
 Den Abgleich der Client-Kamera mit der des Hosts nur angehen, falls die Abweichung im Spiel stört. Option C kann danach als Feinschliff kommen. Option B erst, wenn das Team ausdrücklich freie Bewegung will, denn sie zieht einen eigenen Sync der Viewports nach sich.
+
+### Gemeinsame Kamera in der Mod (`kamera-code`)
+
+Stand 05.11.2026, Build `26187885`, ein PC, Lobby und Tunnel der Mod, Tag 1, nur Mod-Patches (`CameraPatches.cpp`: Kamera-Spieler aus der
+`PlayerArray`, gemeinsame Kamera als ViewTarget, Restrictor mit nachgetragenem GameState). Gemessen alle 0,25 s auf beiden Seiten:
+Figuren, `BP_PlayerCameraActor_C`, Spring-Arm-Länge und Sichtfeld. Die Figuren liefen per Tastendruck auseinander, jeweils eine Seite
+nach der anderen.
+
+| Lauf | Kamera Host / Client | Bewegungsgrenze | Zoom |
+|---|---|---|---|
+| Ohne Netzprofil | höchstens 21 Einheiten auseinander | Client-Figur hielt 1.620 Einheiten neben der Kameramitte, Host-Figur 1.621 in der Gegenrichtung | Arm 8000, Sichtfeld 40 auf beiden Seiten |
+| Netzprofil Internet (120 ms ±30, 2 % Verlust) | höchstens 28 Einheiten auseinander | quer wieder ±1.620, hoch und runter beide bei ±850; Abstand der Figuren auf beiden Seiten bis auf 21 Einheiten gleich | unverändert, auf beiden Seiten gleich |
+
+- **[Belegt]** Der Restrictor stoppt die Figur des Clients beim Client und die des Hosts beim Host, symmetrisch zur gemeinsamen
+  Kameramitte. Keiner kann aus dem gemeinsamen Bild laufen. Im Spielbild zeigen beide Seiten denselben Ausschnitt.
+- **[Belegt]** Ein eigener Abgleich der Client-Kamera mit dem Host ist nicht nötig: Die Abweichung bleibt auch mit Latenz unter 30 Einheiten
+  bei rund 3.300 Einheiten Abstand der Figuren.
+- Nicht gesondert beobachtet: das Herauszoomen am Rand (`UseZoomOutAtEdge`), der Arm blieb in beiden Läufen bei 8000. Nicht geprüft: zwei
+  PCs, spätere Tage. Kleine Bildunterschiede sind Kartendetails (`opt-karte-details`) und Host-Effekte (`opt-blut`).
 
 ### ViewTarget beim Client (`kamera-viewtarget`)
 
