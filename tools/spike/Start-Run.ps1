@@ -1,12 +1,14 @@
 # Startet aus der MetaBase einen Run bis zur Routenkarte: Host laeuft in den Startring links neben dem Bus, dann den Startdialog bestaetigen.
 # Gilt fuer ein UserDir ohne Tutorial-Dialoge, siehe docs/TESTING.md. Optional vorher einen festen Seed setzen.
-#   Start-Run.ps1 [-Seed 20795]
+#   Start-Run.ps1 [-Seed 20795] [-Brief]
 # Der Ring loest nur beim Hineinlaufen aus. Steht die Figur schon darin, etwa nach einem Tod, geht sie erst hinaus.
 param(
     [int]$Seed,
     # Mitte des Startrings in der MetaBase, Build 26187885. A laeuft auf dem Bildschirm nach links, also zu kleinerem Y.
     [int]$RingY = -684,
-    [int]$RingRadius = 250
+    [int]$RingRadius = 250,
+    # Nur eine Zeile: Routenkarte offen oder nicht.
+    [switch]$Brief
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Common.ps1')
@@ -46,5 +48,6 @@ for ($Attempt = 1; $Attempt -le 3; $Attempt++) {
     & $GameInput Host click 398 417
     if (Wait-RouteMap 6) { break }
 }
-& $GameInput Host shot (Join-Path $script:SessionDir 'route.png')
+$Shot = & $GameInput Host shot (Join-Path $script:SessionDir 'route.png')
 if (-not (Test-RouteMap)) { throw 'Routenkarte nicht offen, siehe research\local\session\route.png.' }
+if ($Brief) { 'Routenkarte offen, Bild: research\local\session\route.png' } else { $Shot }

@@ -7,7 +7,9 @@ param(
     [ValidateSet('Client')][string]$Role = 'Client',
     # Nur starten und den Spike laden, nicht verbinden.
     [switch]$NoConnect,
-    [int]$TimeoutSeconds = 120
+    [int]$TimeoutSeconds = 120,
+    # Nur Zeit je Schritt und eine Zeile je Instanz.
+    [switch]$Brief
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Common.ps1')
@@ -45,7 +47,9 @@ Wait-MainMenu $Client.Id
 Start-Sleep -Seconds 2
 $Running = Get-Process -Id $Client.Id -ErrorAction Stop
 if (-not $Running.Path -or $Running.Path -ne $Exe) { throw 'Unerwarteter Spielpfad. Kein Spike geladen.' }
-& py (Join-Path $PSScriptRoot 'inject.py') $Client.Id (Join-Path $script:SessionDir 'spike.dll')
+$Injected = & py (Join-Path $PSScriptRoot 'inject.py') $Client.Id (Join-Path $script:SessionDir 'spike.dll')
+if ($LASTEXITCODE) { throw "Spike nicht geladen: $Injected" }
+if (-not $Brief) { $Injected }
 Start-Sleep -Seconds 3
 Write-Step "Client $($Client.Id) mit Spike im Hauptmenue"
 if ($NoConnect) { return }
@@ -73,4 +77,5 @@ foreach ($Command in '!cam', '!trace', '!flow') {
     Send-SpikeCommand $Client.Id $Command
     Start-Sleep -Milliseconds 800
 }
-& py (Join-Path $PSScriptRoot 'netstate.py') $HostId $Client.Id
+if ($Brief) { Format-NetBrief $HostId 'Host'; Format-NetBrief $Client.Id 'Client' }
+else { & py (Join-Path $PSScriptRoot 'netstate.py') $HostId $Client.Id }

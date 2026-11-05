@@ -33,7 +33,9 @@ param(
     # Nur mit -Role Host oder Client: so lange auf die Gegenseite warten.
     [int]$JoinTimeoutSeconds = 900,
     [ValidateSet('Release', 'Debug')]
-    [string]$Configuration = 'Release'
+    [string]$Configuration = 'Release',
+    # Kurze Ausgabe: Zeit je Schritt und eine Zeile je Instanz, ohne Build-, Injektions- und Zustandsdetails.
+    [switch]$Brief
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Common.ps1')
@@ -47,7 +49,10 @@ $Timer = [Diagnostics.Stopwatch]::StartNew()
 function Write-Step([string]$Text) { Write-Host ('[{0,4:n0} s] {1}' -f $Timer.Elapsed.TotalSeconds, $Text) }
 Initialize-SessionDir
 Assert-SupportedBuild
-if ($Restart -or $Build) { & (Join-Path $PSScriptRoot 'Stop-Session.ps1') }
+if ($Restart -or $Build) {
+    $Stopped = & (Join-Path $PSScriptRoot 'Stop-Session.ps1')
+    if (-not $Brief) { $Stopped }
+}
 Enter-SessionLock $Wait
 if (Get-Process $script:GameProcess -ErrorAction SilentlyContinue) {
     Exit-SessionLock
@@ -59,7 +64,8 @@ try {
     if ($Build -or -not (Test-Path $Dll)) { & (Join-Path $PSScriptRoot 'Build-Spike.ps1') | Out-Null }
     if ($Mod) {
         & (Join-Path $PSScriptRoot '..\Build-Mod.ps1') -Configuration $Configuration | Out-Null
-        & (Join-Path $PSScriptRoot '..\Deploy-Mod.ps1') -Configuration $Configuration
+        $Deployed = & (Join-Path $PSScriptRoot '..\Deploy-Mod.ps1') -Configuration $Configuration
+        if (-not $Brief) { $Deployed }
     }
 }
 catch {
@@ -123,7 +129,9 @@ function Add-Spike($Instance) {
     if (-not $Running.Path -or $Running.Path -ne $Exe) {
         throw 'Unerwarteter Spielpfad. Kein Spike geladen; eigene Sitzung mit Stop-Session.ps1 beenden.'
     }
-    & py (Join-Path $PSScriptRoot 'inject.py') $Instance.Id $Dll
+    $Injected = & py (Join-Path $PSScriptRoot 'inject.py') $Instance.Id $Dll
+    if ($LASTEXITCODE) { throw "Spike nicht geladen in $($Instance.Id): $Injected" }
+    if (-not $Brief) { $Injected }
 }
 $GameHost = if ($Role -ne 'Client') { Start-Instance 'host' 0 }
 $Client = if ($Role -ne 'Host') { Start-Instance 'client' $(if ($Role -eq 'Both') { 820 } else { 0 }) }
@@ -261,6 +269,12 @@ Start-Sleep -Milliseconds 800
 if ($GameHost) {
     Send-SpikeCommand $GameHost.Id '!arm'
     Start-Sleep -Seconds 1
+}
+if ($Brief) {
+    if ($GameHost) { Format-NetBrief $GameHost.Id 'Host' }
+    if ($Client) { Format-NetBrief $Client.Id 'Client' }
+    Write-Step 'Sitzung bereit'
+    return
 }
 & py (Join-Path $PSScriptRoot 'netstate.py') $LocalIds
 Write-Step 'Sitzung bereit'
