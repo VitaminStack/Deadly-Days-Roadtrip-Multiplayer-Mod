@@ -11,6 +11,8 @@ namespace Net
 // Kehrt sofort zurück, das Warten auf Steam läuft im Hintergrund.
 void Start();
 
-// Laufender Transport oder nullptr.
+// Laufender Lobby- oder Testtransport oder nullptr. Gestoppte Sitzungen werden nicht geliefert.
 std::shared_ptr<Transport> CurrentTransport();
+// Die Lobby registriert ihren Transport, ohne ihm hier einen zweiten Besitzer zu geben.
+void UseSessionTransport(const std::shared_ptr<Transport>& Value);
 }

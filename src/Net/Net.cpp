@@ -14,6 +14,7 @@ namespace
 {
 std::mutex Lock;
 std::shared_ptr<Transport> Active;
+std::weak_ptr<Transport> SessionTransport;
 
 // Das Spiel initialisiert Steam erst nach dem Laden der Mod. So lange wartet der Transport darauf.
 constexpr int kSteamWaitSeconds = 120;
@@ -104,6 +105,14 @@ void Start()
 std::shared_ptr<Transport> CurrentTransport()
 {
     std::lock_guard Guard(Lock);
-    return Active;
+    if (auto Session = SessionTransport.lock(); Session && Session->Running())
+        return Session;
+    return Active && Active->Running() ? Active : nullptr;
+}
+
+void UseSessionTransport(const std::shared_ptr<Transport>& Value)
+{
+    std::lock_guard Guard(Lock);
+    SessionTransport = Value;
 }
 }

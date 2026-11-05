@@ -29,6 +29,7 @@
     <ClCompile Include="SteamLobbyApi.cpp" />
     <ClCompile Include="SteamSockets.cpp" />
     <ClCompile Include="Transport.cpp" />
+    <ClCompile Include="Protocol.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Net.h" />
@@ -36,6 +37,7 @@
     <ClInclude Include="SteamLobbyApi.h" />
     <ClInclude Include="SteamSockets.h" />
     <ClInclude Include="Transport.h" />
+    <ClInclude Include="Protocol.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

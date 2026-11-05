@@ -10,6 +10,7 @@
 
 #include "FakeSteam.h"
 #include "Net/Transport.h"
+#include "Net/Net.h"
 
 #pragma comment(lib, "ws2_32.lib")
 
@@ -289,4 +290,96 @@ TEST_CASE("Ohne Steam startet nichts")
     Transport Missing(nullptr);
     CHECK_FALSE(Missing.StartHost());
     CHECK_FALSE(Missing.Running());
+}
+
+TEST_CASE("Kontrollkanal funktioniert ohne Spieladresse und bleibt von UDP getrennt")
+{
+    auto Network = std::make_shared<FakeSteamNetwork>();
+    const auto Options = TestPorts(47770);
+    GameSocket HostGame(Options.GamePort);
+    Transport Host(Network->Account(kHostId), Options);
+    Transport Client(Network->Account(kClientId), Options);
+    CHECK_FALSE(Client.SendControl(1, {1, 1, 1, 1}));
+    REQUIRE(Host.StartHost());
+    REQUIRE(Client.StartClient(kHostId));
+    REQUIRE(WaitFor([&] { return Host.ControlPeers().size() == 1 && Client.ControlPeers().size() == 1; }));
+    const auto HostPeer = Host.ControlPeers()[0];
+    const auto ClientPeer = Client.ControlPeers()[0];
+    const Protocol::Control Value{10, 2, 3, 7, {0, 255, 0, 17}};
+    CHECK_FALSE(Host.SendControl(HostPeer + 100, Value));
+    REQUIRE(Host.SendControl(HostPeer, Value));
+    std::vector<ControlMessage> Got;
+    REQUIRE(WaitFor([&] { Got = Client.TakeControlMessages(); return !Got.empty(); }));
+    REQUIRE(Got.size() == 1);
+    CHECK(Got[0].Value == Value);
+    CHECK(Got[0].Peer == ClientPeer);
+    CHECK(HostGame.Receive().empty());
+    REQUIRE(Client.SendControl(ClientPeer, Value));
+    REQUIRE(WaitFor([&] { Got = Host.TakeControlMessages(); return !Got.empty(); }));
+    CHECK(Got[0].Peer == HostPeer);
+    CHECK(Got[0].Value == Value);
+    Client.Stop();
+    REQUIRE(WaitFor([&] { return Host.ControlPeers().empty(); }));
+    CHECK_FALSE(Host.SendControl(HostPeer, Value));
+    REQUIRE(Client.StartClient(kHostId));
+    REQUIRE(WaitFor([&] { return !Host.ControlPeers().empty(); }));
+    CHECK(Host.ControlPeers()[0] != HostPeer);
+    CHECK(Client.TakeControlMessages().empty());
+}
+
+TEST_CASE("Falscher Build oder Mod darf keine Spielpakete weiterleiten")
+{
+    auto Network = std::make_shared<FakeSteamNetwork>();
+    auto Options = TestPorts(47780);
+    auto BadOptions = Options;
+    SUBCASE("Spiel-Build") { ++BadOptions.Identity.Build; }
+    SUBCASE("Mod-Version") { ++BadOptions.Identity.Mod; }
+    GameSocket HostGame(Options.GamePort);
+    GameSocket ClientGame(0);
+    Transport Host(Network->Account(kHostId), Options);
+    Transport Client(Network->Account(kClientId), BadOptions);
+    REQUIRE(Host.StartHost());
+    REQUIRE(Client.StartClient(kHostId));
+    REQUIRE(WaitFor([&] { return Client.Stats().State == TransportState::Failed; }));
+    CHECK(Host.ControlPeers().empty());
+    CHECK(Client.ControlPeers().empty());
+    ClientGame.SendTo(Options.ClientPort, "kein ungeprueftes UE-Paket");
+    std::this_thread::sleep_for(std::chrono::milliseconds(30));
+    CHECK(HostGame.Receive().empty());
+}
+
+TEST_CASE("Fehlendes Hello laeuft aus, danach kann ein kompatibler Client verbinden")
+{
+    auto Network = std::make_shared<FakeSteamNetwork>();
+    auto Options = TestPorts(47790);
+    Options.HandshakeTimeoutMs = 50;
+    Transport Host(Network->Account(kHostId), Options);
+    REQUIRE(Host.StartHost());
+    auto OldClient = Network->Account(kClientId);
+    const auto Connection = OldClient->ConnectP2P(kHostId, Options.VirtualPort);
+    REQUIRE(Connection != 0);
+    REQUIRE(WaitFor([&] { return Host.Stats().Message == "Zeitlimit beim Versions-Handshake"; }));
+    CHECK(Host.ControlPeers().empty());
+    OldClient.reset();
+    Options.HandshakeTimeoutMs = 5000;
+    Transport Client(Network->Account(kClientId + 1), Options);
+    REQUIRE(WaitFor([&] { return Client.StartClient(kHostId); }));
+    REQUIRE(WaitFor([&] { return !Host.ControlPeers().empty(); }));
+}
+
+TEST_CASE("Sync findet den Lobbytransport ohne ihn nach Sitzungsende am Leben zu halten")
+{
+    auto Network = std::make_shared<FakeSteamNetwork>();
+    auto Host = std::make_shared<Transport>(Network->Account(kHostId), TestPorts(47800));
+    REQUIRE(Host->StartHost());
+    UseSessionTransport(Host);
+    CHECK(CurrentTransport() == Host);
+    Host->Stop();
+    CHECK_FALSE(CurrentTransport());
+    REQUIRE(Host->StartHost());
+    CHECK(CurrentTransport() == Host);
+    std::weak_ptr<Transport> Weak = Host;
+    Host.reset();
+    CHECK(Weak.expired());
+    CHECK_FALSE(CurrentTransport());
 }

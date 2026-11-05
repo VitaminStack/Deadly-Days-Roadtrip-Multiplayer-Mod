@@ -5,6 +5,7 @@
 #include "Net/Transport.h"
 
 #include <cwchar>
+#include <algorithm>
 #include <vector>
 
 #include "Core/Log.h"
@@ -20,11 +21,17 @@ struct Transport::Link
     sockaddr_in GameAddress{};
     bool HasGameAddress = false;
     bool Connected = false;
+    bool Ready = false;
+    bool Rejected = false;
+    uint64_t Peer = 0;
+    ULONGLONG HandshakeStarted = 0;
     uint64_t PacketsToSteam = 0, BytesToSteam = 0, PacketsFromSteam = 0, BytesFromSteam = 0, Dropped = 0;
 };
 
 namespace
 {
+std::atomic<uint64_t> NextPeer = 1;
+constexpr size_t MaxControlQueue = 128;
 sockaddr_in LoopbackUdp(uint16_t Port)
 {
     sockaddr_in Address{};
@@ -114,6 +121,7 @@ bool Transport::Begin(Mode RoleIn, uint64_t Remote)
     WSADATA Data;
     WSAStartup(MAKEWORD(2, 2), &Data);
     Role = RoleIn;
+    Options.Identity.Host = Role == Mode::Host;
     {
         std::lock_guard Guard(StatsLock);
         Current = {};
@@ -198,6 +206,12 @@ void Transport::Stop()
             closesocket(Entry.Udp);
     }
     Links->clear();
+    {
+        std::lock_guard Guard(ControlLock);
+        Peers.clear();
+        Incoming.clear();
+        Outgoing.clear();
+    }
     if (ListenP2P)
         Sockets->CloseListen(ListenP2P);
     if (ListenLoopback)
@@ -214,6 +228,32 @@ TransportStats Transport::Stats() const
     return Current;
 }
 
+std::vector<uint64_t> Transport::ControlPeers() const
+{
+    std::lock_guard Guard(ControlLock);
+    return Peers;
+}
+
+bool Transport::SendControl(uint64_t Peer, const Protocol::Control& Value)
+{
+    auto Bytes = Protocol::EncodeControl(Value);
+    if (Bytes.empty())
+        return false;
+    std::lock_guard Guard(ControlLock);
+    if (!Active || Outgoing.size() >= MaxControlQueue || std::find(Peers.begin(), Peers.end(), Peer) == Peers.end())
+        return false;
+    Outgoing.push_back({Peer, std::move(Bytes)});
+    return true;
+}
+
+std::vector<ControlMessage> Transport::TakeControlMessages()
+{
+    std::lock_guard Guard(ControlLock);
+    std::vector<ControlMessage> Result;
+    Result.swap(Incoming);
+    return Result;
+}
+
 void Transport::Publish(TransportState State, std::string Message)
 {
     std::lock_guard Guard(StatsLock);
@@ -226,6 +266,13 @@ void Transport::Close(uint32_t Connection)
     for (auto It = Links->begin(); It != Links->end(); ++It)
         if (It->Connection == Connection)
         {
+            {
+                std::lock_guard Guard(ControlLock);
+                const uint64_t Peer = It->Peer;
+                std::erase(Peers, Peer);
+                std::erase_if(Incoming, [Peer](const auto& Item) { return Item.Peer == Peer; });
+                std::erase_if(Outgoing, [Peer](const auto& Item) { return Item.Peer == Peer; });
+            }
             Sockets->Close(Connection);
             if (It->Udp != INVALID_SOCKET)
                 closesocket(It->Udp);
@@ -250,23 +297,37 @@ void Transport::HandleChanges()
 
         if (Change.State == SteamConnectionState::Connecting && Change.ListenSocket && Role == Mode::Host && !Entry)
         {
+            if (!Links->empty())
+            {
+                Sockets->Close(Change.Connection);
+                continue; // Genau ein Remote-Spieler. Kein frei behaupteter Spielerindex.
+            }
             if (!Sockets->Accept(Change.Connection))
             {
                 Core::Log::Warn("Transport: eingehende Verbindung nicht angenommen");
                 Sockets->Close(Change.Connection);
                 continue;
             }
-            Link Incoming;
-            Incoming.Connection = Change.Connection;
-            Incoming.Udp = OpenUdp(0);
-            Incoming.GameAddress = LoopbackUdp(Options.GamePort);
-            Incoming.HasGameAddress = true;
-            Links->push_back(Incoming);
+            Link NewLink;
+            NewLink.Connection = Change.Connection;
+            NewLink.Udp = OpenUdp(0);
+            if (NewLink.Udp == INVALID_SOCKET)
+            {
+                Sockets->Close(Change.Connection);
+                continue;
+            }
+            NewLink.GameAddress = LoopbackUdp(Options.GamePort);
+            NewLink.HasGameAddress = true;
+            Links->push_back(NewLink);
             Core::Log::Info("Transport: eingehende Verbindung angenommen, {} Client(s)", Links->size());
         }
         else if (Change.State == SteamConnectionState::Connected && Entry)
         {
             Entry->Connected = true;
+            Entry->HandshakeStarted = GetTickCount64();
+            Entry->Peer = NextPeer.fetch_add(1);
+            if (!Sockets->SendReliable(Entry->Connection, Protocol::Hello(Options.Identity)))
+                Reject(*Entry, "Handshake konnte nicht gesendet werden");
             const std::string Detail = Sockets->DetailedStatus(Change.Connection);
             const std::string Route = RouteSummary(Detail);
             {
@@ -274,7 +335,7 @@ void Transport::HandleChanges()
                 Current.Route = Route;
             }
             Core::Log::Info("Transport: verbunden, Route {}", Route);
-            Publish(TransportState::Connected, "Verbunden");
+            // Erst nach geprueftem Hello als verbunden veroeffentlichen.
         }
         else if (IsEnd(Change.State) && Entry)
         {
@@ -288,7 +349,7 @@ void Transport::HandleChanges()
             {
                 bool AnyConnected = false;
                 for (const Link& Other : *Links)
-                    AnyConnected |= Other.Connected;
+                    AnyConnected |= Other.Ready;
                 Publish(AnyConnected ? TransportState::Connected : TransportState::Listening,
                         AnyConnected ? "Verbunden" : "Client gegangen, wartet auf Clients");
             }
@@ -313,25 +374,80 @@ void Transport::Pump(Link& Entry)
             Entry.GameAddress = From;
             Entry.HasGameAddress = true;
         }
-        if (!Entry.Connected)
+        if (!Entry.Ready || Entry.Rejected)
         {
             ++Entry.Dropped;
             continue;
         }
-        Sockets->Send(Entry.Connection, {reinterpret_cast<const uint8_t*>(Buffer), static_cast<size_t>(Size)});
+        const auto Bytes = Protocol::Encode(Protocol::Kind::Game,
+            {reinterpret_cast<const uint8_t*>(Buffer), static_cast<size_t>(Size)});
+        if (!Sockets->Send(Entry.Connection, Bytes))
+        {
+            ++Entry.Dropped;
+            continue;
+        }
         ++Entry.PacketsToSteam;
         Entry.BytesToSteam += Size;
     }
     // Steam -> Spiel
-    while (Sockets->Receive(Entry.Connection, 64, [&Entry](std::span<const uint8_t> Message) {
-        if (Entry.HasGameAddress)
-            sendto(Entry.Udp, reinterpret_cast<const char*>(Message.data()), static_cast<int>(Message.size()), 0,
-                   reinterpret_cast<const sockaddr*>(&Entry.GameAddress), sizeof(Entry.GameAddress));
-        ++Entry.PacketsFromSteam;
-        Entry.BytesFromSteam += Message.size();
-    }) > 0)
+    if (!Entry.Connected || Entry.Rejected)
+        return; // Accept kann vor dem folgenden Connected-Callback schon Nachrichten bereitstellen.
+    Sockets->Receive(Entry.Connection, 64, [this, &Entry](std::span<const uint8_t> Message) {
+        if (!Entry.Rejected && !ReceiveFrame(Entry, Message))
+            Reject(Entry, "Ungueltige oder inkompatible Kontrollnachricht");
+    });
+}
+
+void Transport::Reject(Link& Entry, const char* Reason)
+{
+    Entry.Rejected = true;
+    Core::Log::Warn("Protokoll: {}", Reason);
+    Publish(Role == Mode::Host ? TransportState::Listening : TransportState::Failed, Reason);
+}
+
+bool Transport::ReceiveFrame(Link& Entry, std::span<const uint8_t> Bytes)
+{
+    const auto Frame = Protocol::Decode(Bytes);
+    if (!Frame)
+        return false;
+    if (Frame->Type == Protocol::Kind::Hello)
     {
+        if (!Entry.Connected || Entry.Ready || !Protocol::Matches(Frame->Payload, Options.Identity))
+            return false;
+        Entry.Ready = true;
+        {
+            std::lock_guard Guard(ControlLock);
+            Peers.push_back(Entry.Peer);
+        }
+        Core::Log::Info("Protokoll: Build, Mod-Version und Gegenrolle bestaetigt");
+        Publish(TransportState::Connected, "Verbunden");
+        return true;
     }
+    if (!Entry.Ready)
+    {
+        // Unreliable-Spielpakete duerfen das reliable Hello ueberholen, aber nie zum Spiel gelangen.
+        ++Entry.Dropped;
+        return Frame->Type == Protocol::Kind::Game;
+    }
+    if (Frame->Type == Protocol::Kind::Control)
+    {
+        auto Value = Protocol::DecodeControl(Frame->Payload);
+        if (!Value)
+            return false;
+        std::lock_guard Guard(ControlLock);
+        if (Incoming.size() >= MaxControlQueue)
+            return false; // Nicht still einen verlaesslichen Zustand verlieren.
+        Incoming.push_back({Entry.Peer, std::move(*Value)});
+        return true;
+    }
+    if (Frame->Payload.empty() || Frame->Payload.size() > 4096)
+        return false;
+    if (Entry.HasGameAddress)
+        sendto(Entry.Udp, reinterpret_cast<const char*>(Frame->Payload.data()), static_cast<int>(Frame->Payload.size()), 0,
+               reinterpret_cast<const sockaddr*>(&Entry.GameAddress), sizeof(Entry.GameAddress));
+    ++Entry.PacketsFromSteam;
+    Entry.BytesFromSteam += Frame->Payload.size();
+    return true;
 }
 
 void Transport::UpdateTotals()
@@ -351,7 +467,7 @@ void Transport::UpdateTotals()
         Totals.BytesToSteam += Entry.BytesToSteam;
         Totals.BytesFromSteam += Entry.BytesFromSteam;
         Totals.Dropped += Entry.Dropped;
-        if (Entry.Connected)
+        if (Entry.Ready && !Entry.Rejected)
         {
             ++Connected;
             const SteamQuality Quality = Sockets->Quality(Entry.Connection);
@@ -391,7 +507,29 @@ void Transport::Run()
             Sleep(1);
         for (Link& Entry : *Links)
             if (Entry.Udp != INVALID_SOCKET)
+            {
                 Pump(Entry);
+                if (Entry.Connected && !Entry.Ready && !Entry.Rejected &&
+                    GetTickCount64() - Entry.HandshakeStarted >= Options.HandshakeTimeoutMs)
+                    Reject(Entry, "Zeitlimit beim Versions-Handshake");
+            }
+
+        std::vector<PendingControl> Pending;
+        {
+            std::lock_guard Guard(ControlLock);
+            Pending.swap(Outgoing);
+        }
+        for (const auto& Item : Pending)
+            for (Link& Entry : *Links)
+                if (Entry.Peer == Item.Peer && Entry.Ready && !Entry.Rejected &&
+                    !Sockets->SendReliable(Entry.Connection, Item.Bytes))
+                    Reject(Entry, "Kontrollnachricht konnte nicht gesendet werden");
+        std::vector<uint32_t> Rejected;
+        for (const Link& Entry : *Links)
+            if (Entry.Rejected)
+                Rejected.push_back(Entry.Connection);
+        for (const uint32_t Connection : Rejected)
+            Close(Connection);
 
         const ULONGLONG Now = GetTickCount64();
         if (Now >= NextTotals)

@@ -60,6 +60,8 @@ public:
     virtual void CloseListen(SteamListenSocket Socket) = 0;
     // Unzuverlässig und ohne Nagle: Die Engine sorgt selbst für Zuverlässigkeit.
     virtual bool Send(SteamConnection Connection, std::span<const uint8_t> Data) = 0;
+    // Geordnete, zuverlässige Steam-Nachrichten für Handshake und Kontrollzustand.
+    virtual bool SendReliable(SteamConnection Connection, std::span<const uint8_t> Data) = 0;
     // Ruft Sink je empfangener Nachricht auf, liefert ihre Zahl. Höchstens Max Nachrichten.
     virtual int Receive(SteamConnection Connection, int Max, const std::function<void(std::span<const uint8_t>)>& Sink) = 0;
     virtual void RunCallbacks() = 0;
