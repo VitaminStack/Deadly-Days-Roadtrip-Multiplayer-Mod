@@ -4,6 +4,7 @@
 
 #include <chrono>
 #include <memory>
+#include <optional>
 #include <string>
 
 #include "Core/Log.h"
@@ -109,6 +110,15 @@ void Disconnect()
     Game::ExecuteConsoleCommand(L"disconnect");
 }
 
+// Client: Hat die Welt eine Verbindung zum Server? Ohne lesbare Welt, etwa beim Laden, unbekannt.
+std::optional<bool> GameConnectedToHost()
+{
+    const auto World = Game::ReadWorld();
+    if (!World)
+        return std::nullopt;
+    return World->Role == Game::NetRole::Client;
+}
+
 UI::OverlayStatus ToOverlay(const Net::SessionStatus& Status)
 {
     UI::OverlayStatus Result;
@@ -173,7 +183,7 @@ bool TryLoad(LobbyState& Lobby)
     const Net::TransportOptions Options;
     Lobby.Session = std::make_unique<Net::Session>(
         Api, [Sockets, Options] { return std::make_shared<Net::Transport>(Sockets, Options); },
-        Net::SessionHooks{BecomeListenServer, ConnectToLocalPort, Disconnect}, Options);
+        Net::SessionHooks{BecomeListenServer, ConnectToLocalPort, Disconnect, GameConnectedToHost}, Options);
     if (const uint64_t Invited = Net::ParseConnectLobby(Api->LaunchCommandLine()))
         Lobby.StartJoin = Invited;
     UI::Overlay().Bind(OnAction);

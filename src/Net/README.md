@@ -102,6 +102,63 @@ Nicht geprüft, das übernimmt `lobby-live`: Einladung über das Steam-Overlay u
 Spiel, Start über `+connect_lobby`, Verlassen und Abbruch im Spiel (nur in `SessionTests`). Ohne die Spike-Patches stürzte der
 Beitritt im Spiel ab. Seit `patches` setzt die Mod diese Fixes selbst, ein Beitritt ohne Spike ist damit noch nicht geprüft.
 
+## Fehlerbehandlung (`net-fehler`)
+
+Jedes Ende einer Sitzung landet als lesbare Meldung im Overlay (F8) und im Mod-Log, ohne IDs und Adressen. Danach sind
+Erstellen und Beitreten wieder möglich, der Client trennt sein Spiel mit `disconnect`.
+
+**Gründe beim Schließen.** Wer bewusst geht, schließt die Steam-Verbindung mit einem eigenen Grund aus `EndReason`
+(Bereich `k_ESteamNetConnectionEnd_App_*`). Die Gegenseite sieht ihn als `ClosedByPeer` und kann unterscheiden:
+
+| Ende | Client sieht | Host sieht |
+|---|---|---|
+| Host verlässt die Sitzung (`HostLeft`) | Der Host hat die Sitzung verlassen | – |
+| Client verlässt die Sitzung (`ClientLeft`) | – | Der Mitspieler hat die Sitzung verlassen |
+| Handshake abgelehnt (`Rejected`) | Der Host hat die Verbindung abgelehnt (andere Mod-Version oder anderer Spiel-Build) | Der Mitspieler hat die Verbindung abgelehnt |
+| Host hat schon einen Mitspieler (`Busy`) | Der Host hat schon einen Mitspieler | – |
+| Gegenseite schließt ohne eigenen Grund, etwa beim Beenden des Spiels | Der Host hat die Verbindung beendet | Der Mitspieler hat die Verbindung beendet |
+| Steam gibt nach seinem Zeitlimit auf (`ProblemDetectedLocally`) | Verbindung zum Host verloren, vor dem Aufbau: Host nicht erreichbar | Verbindung zum Mitspieler verloren |
+
+Der Host bleibt danach offen, das Overlay sagt bis zum nächsten Mitspieler, warum der letzte gegangen ist.
+
+**Zeitlimits der Sitzung** (`SessionTimeouts`). Steam und die Engine haben eigene, diese greifen, wenn von dort nichts mehr kommt:
+
+| Schritt | Zeitlimit | Meldung |
+|---|---|---|
+| Steam bestätigt Erstellen der Lobby nicht | 15 s | Zeitlimit: Steam hat die Lobby nicht erstellt |
+| Steam bestätigt den Beitritt nicht | 15 s | Zeitlimit: Steam hat den Beitritt nicht bestätigt |
+| Tunnel und Versions-Handshake zum Host | 20 s | Zeitlimit: keine Verbindung zum Host |
+| Spiel lädt nach `open 127.0.0.1:7778` die Welt des Hosts | 90 s | Das Spiel konnte sich nicht mit dem Host verbinden |
+| Spiel läuft ohne Host, obwohl der Tunnel steht | 30 s | Das Spiel hat die Verbindung zum Host verloren |
+
+Die letzten beiden fragen über den Hook `GameConnectedToHost` die Rolle der Welt ab (`Game::ReadWorld`). Ohne lesbare Welt,
+etwa beim Laden einer Karte, zählt das nicht als getrennt. 30 s sind großzügig, damit ein Kartenwechsel nicht auslöst.
+
+### Im Spiel (05.11.2026)
+
+Build `26187885`, ein PC, ein Konto, `Start-Session.ps1 -Build -Mod -Tunnel Lobby` mit Spike und CrashGuard, Release-Build der Mod.
+„Verlassen“, „Lobby erstellen“ und „Beitreten“ im Overlay wurden per `WM_COMMAND` an das Overlay-Fenster ausgelöst, die Meldung
+im Overlay alle 0,5 s ausgelesen. Zeiten ab der Aktion.
+
+| Fall | Ort | Ergebnis |
+|---|---|---|
+| a) Host „Verlassen“ | MetaBase | Client: Grund 1001, nach 0,02 s „Der Host hat die Sitzung verlassen“, `disconnect`, nach 0,3 s im Hauptmenü |
+| a) Host „Verlassen“ | `DDDynamic_Map`, Tag 1 | Gleich, nach 0,4 s im Hauptmenü, kein Absturz |
+| b) Client „Verlassen“ | MetaBase | Host: Grund 1002, nach 0,3 s „Der Mitspieler hat die Sitzung verlassen. Lobby offen, Freunde über Einladen holen“. P2 nach 0,03 s aus der Welt (1 Spieler), die Engine entfernt ihn sofort, nicht erst nach ihrem Timeout |
+| b) Client „Verlassen“ | `DDDynamic_Map` | Host wie oben. **Client stürzt einmal ab** beim `disconnect`: `LowLevelFatalError` in `ReferenceChainSearch.cpp` Zeile 2061, „Crashing due to uobject leaks (world leaks)“, Stack `15e8981 324c67f 325c726 324b595 32654ce 2a4a2b3 46859f4 …`. Im zweiten Versuch, ebenfalls nach angezeigten XP-Bällen, kein Absturz. Das Shipping-Spiel schreibt keine Referenzkette, siehe `opt-trennen-absturz` |
+| c) Host-Prozess hart beendet | MetaBase | Client: Grund 5003 „Connection dropped“ nach 10,6 s, „Verbindung zum Host verloren“, `disconnect`, im Hauptmenü, Erstellen und Beitreten wieder frei |
+| d) Client-Prozess hart beendet | MetaBase | Host: Grund 5003 nach 10,6 s, „Verbindung zum Mitspieler verloren. Lobby offen …“, P2 zugleich entfernt |
+| e) Beitritt per Lobby-ID | MetaBase | Host „Lobby erstellen“ nach a), Client tritt per ID bei: nach 1,1 s beide „Im Spiel“, „Mitspieler verbunden“ |
+| f) Kartenwechsel | MetaBase → `DDDynamic_Map` | `Start-Run.ps1 -Seed 20795`, `Travel-Day.ps1 62 213 -Stay`: keine falsche Meldung „Das Spiel hat die Verbindung zum Host verloren“, Inventare gleich |
+
+Fehlschlag mit einem Konto: Nach b) lehnt Steam den erneuten Beitritt in dieselbe Lobby mit Antwort 2 ab (Lobby existiert
+nicht), obwohl der Host noch „Lobby offen“ zeigt. Vermutlich verlässt mit dem Client das gemeinsame Konto die Lobby, und Steam
+löst sie auf. Mit zwei Konten bleibt der Host Mitglied; das gehört zu `lobby-live`. Neuer Beitritt nach a) mit frisch erstellter
+Lobby klappt.
+
+Nicht geprüft: Zeitlimits Lobby, Connect und GameJoin im Spiel (nur in `SessionTests`), `Busy` mit einem zweiten Client,
+Gegenprobe über das Internet (Live-Sitzung zu zweit).
+
 ## Tests
 
 `tests/NetTests` prüft den Tunnel ohne Spiel und ohne Steam: Ein nachgebautes Steam Networking verbindet mehrere Konten im

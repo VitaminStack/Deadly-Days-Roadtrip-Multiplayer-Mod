@@ -250,7 +250,7 @@ TEST_CASE("Ende der Verbindung: Client meldet Failed, Host wartet weiter")
         Host.Stop();
         CHECK(Host.Stats().State == TransportState::Stopped);
         CHECK(WaitFor([&] { return Client.Stats().State == TransportState::Failed; }));
-        CHECK(Client.Stats().Message == "Der Host hat die Verbindung beendet");
+        CHECK(Client.Stats().Message == "Der Host hat die Sitzung verlassen");
     }
     SUBCASE("Client geht")
     {
@@ -260,11 +260,89 @@ TEST_CASE("Ende der Verbindung: Client meldet Failed, Host wartet weiter")
             REQUIRE(WaitFor([&] { return Host.Stats().Connections == 1; }));
         }
         CHECK(WaitFor([&] { return Host.Stats().State == TransportState::Listening && Host.Stats().Connections == 0; }));
+        CHECK(Host.Stats().Message == "Der Mitspieler hat die Sitzung verlassen");
         // Ein neuer Client kommt wieder herein.
         Transport Again(Network->Account(kClientId), Options);
         REQUIRE(Again.StartClient(kHostId));
         CHECK(WaitFor([&] { return Host.Stats().Connections == 1; }));
     }
+}
+
+TEST_CASE("Abbruch der Leitung: beide Seiten melden den Verlust, der Host nimmt danach neue Clients an")
+{
+    auto Network = std::make_shared<FakeSteamNetwork>();
+    const TransportOptions Options = TestPorts(47870);
+    Transport Host(Network->Account(kHostId), Options);
+    REQUIRE(Host.StartHost());
+    {
+        Transport Client(Network->Account(kClientId), Options);
+        REQUIRE(Client.StartClient(kHostId));
+        REQUIRE(WaitFor([&] { return Host.Stats().Connections == 1 && Client.Stats().State == TransportState::Connected; }));
+        Network->LoseConnectionsOf(kClientId);
+        REQUIRE(WaitFor([&] { return Client.Stats().State == TransportState::Failed; }));
+        CHECK(Client.Stats().Message == "Verbindung zum Host verloren");
+        CHECK(Client.ControlPeers().empty());
+        REQUIRE(WaitFor([&] { return Host.Stats().State == TransportState::Listening && Host.Stats().Connections == 0; }));
+        CHECK(Host.Stats().Message == "Verbindung zum Mitspieler verloren");
+        CHECK(Host.ControlPeers().empty());
+    }
+    Transport Again(Network->Account(kClientId + 1), Options);
+    REQUIRE(Again.StartClient(kHostId));
+    CHECK(WaitFor([&] { return Again.Stats().State == TransportState::Connected && Host.Stats().Connections == 1; }));
+}
+
+TEST_CASE("Host antwortet nie: Abbruch vor dem Aufbau heißt Host nicht erreichbar")
+{
+    auto Network = std::make_shared<FakeSteamNetwork>();
+    const TransportOptions Options = TestPorts(47880);
+    Transport Host(Network->Account(kHostId), Options);
+    REQUIRE(Host.StartHost());
+    Network->SilenceAccount(kHostId);
+    Transport Client(Network->Account(kClientId), Options);
+    REQUIRE(Client.StartClient(kHostId));
+    std::this_thread::sleep_for(std::chrono::milliseconds(30));
+    CHECK(Client.Stats().State == TransportState::Connecting);
+    CHECK(Host.Stats().Connections == 0);
+    Network->LoseConnectionsOf(kClientId);
+    REQUIRE(WaitFor([&] { return Client.Stats().State == TransportState::Failed; }));
+    CHECK(Client.Stats().Message == "Host nicht erreichbar");
+}
+
+TEST_CASE("Ein zweiter Client wird mit Grund abgewiesen, der erste bleibt verbunden")
+{
+    auto Network = std::make_shared<FakeSteamNetwork>();
+    const TransportOptions Options = TestPorts(47890);
+    TransportOptions SecondPorts = Options;
+    SecondPorts.ClientPort = static_cast<uint16_t>(Options.ClientPort + 3);
+    Transport Host(Network->Account(kHostId), Options);
+    Transport First(Network->Account(kClientId), Options);
+    Transport Second(Network->Account(kClientId + 1), SecondPorts);
+    REQUIRE(Host.StartHost());
+    REQUIRE(First.StartClient(kHostId));
+    REQUIRE(WaitFor([&] { return Host.Stats().Connections == 1; }));
+    REQUIRE(Second.StartClient(kHostId));
+    REQUIRE(WaitFor([&] { return Second.Stats().State == TransportState::Failed; }));
+    CHECK(Second.Stats().Message == "Der Host hat schon einen Mitspieler");
+    std::this_thread::sleep_for(std::chrono::milliseconds(30));
+    CHECK(First.Stats().State == TransportState::Connected);
+    CHECK(Host.Stats().Connections == 1);
+}
+
+TEST_CASE("Meldungen zum Ende einer Verbindung")
+{
+    using State = SteamConnectionState;
+    CHECK(EndMessage(false, State::ClosedByPeer, EndReason::HostLeft, true) == "Der Host hat die Sitzung verlassen");
+    CHECK(EndMessage(true, State::ClosedByPeer, EndReason::ClientLeft, true) == "Der Mitspieler hat die Sitzung verlassen");
+    CHECK(EndMessage(false, State::ClosedByPeer, EndReason::Busy, false) == "Der Host hat schon einen Mitspieler");
+    CHECK(EndMessage(false, State::ClosedByPeer, EndReason::Rejected, true) ==
+          "Der Host hat die Verbindung abgelehnt (andere Mod-Version oder anderer Spiel-Build)");
+    CHECK(EndMessage(true, State::ClosedByPeer, EndReason::Rejected, true) == "Der Mitspieler hat die Verbindung abgelehnt");
+    // Andere Gründe, etwa wenn Steam beim Beenden des Spiels schließt.
+    CHECK(EndMessage(false, State::ClosedByPeer, 0, true) == "Der Host hat die Verbindung beendet");
+    CHECK(EndMessage(true, State::ClosedByPeer, 5001, true) == "Der Mitspieler hat die Verbindung beendet");
+    CHECK(EndMessage(false, State::ProblemDetectedLocally, 5003, true) == "Verbindung zum Host verloren");
+    CHECK(EndMessage(false, State::ProblemDetectedLocally, 4001, false) == "Host nicht erreichbar");
+    CHECK(EndMessage(true, State::ProblemDetectedLocally, 5003, true) == "Verbindung zum Mitspieler verloren");
 }
 
 TEST_CASE("Stop ist wiederholbar und ein Neustart danach möglich")

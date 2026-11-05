@@ -69,6 +69,10 @@ struct TransportStats
 
 std::string_view ToString(TransportState State);
 
+// Lesbare Meldung zum Ende einer Verbindung, ohne IDs und Adressen. Reason aus EndReason, WasConnected: Steam hatte die
+// Verbindung schon aufgebaut. Unterscheidet bewusstes Verlassen, Ablehnung, Abbruch der Leitung und nie erreichten Host.
+std::string EndMessage(bool Host, SteamConnectionState State, int32_t Reason, bool WasConnected);
+
 // Lokales Verbindungstoken, nicht SteamID oder vom Client behaupteter Spielerindex.
 // Nach Disconnect/Neustart niemals wiederverwenden. Spielzuordnung liegt beim Host.
 struct ControlMessage
@@ -116,7 +120,7 @@ private:
     void Run();
     void HandleChanges();
     void Pump(Link& Entry);
-    void Close(uint32_t Connection);
+    void Close(uint32_t Connection, int32_t Reason);
     void Publish(TransportState State, std::string Message);
     void UpdateTotals();
     void Reject(Link& Entry, const char* Reason);

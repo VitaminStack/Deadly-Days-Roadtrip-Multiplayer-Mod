@@ -63,6 +63,31 @@ bool IsEnd(SteamConnectionState State)
 }
 }
 
+std::string EndMessage(bool Host, SteamConnectionState State, int32_t Reason, bool WasConnected)
+{
+    if (State == SteamConnectionState::ClosedByPeer)
+    {
+        switch (Reason)
+        {
+        case EndReason::HostLeft:
+            return "Der Host hat die Sitzung verlassen";
+        case EndReason::ClientLeft:
+            return "Der Mitspieler hat die Sitzung verlassen";
+        case EndReason::Rejected:
+            return Host ? "Der Mitspieler hat die Verbindung abgelehnt"
+                        : "Der Host hat die Verbindung abgelehnt (andere Mod-Version oder anderer Spiel-Build)";
+        case EndReason::Busy:
+            return "Der Host hat schon einen Mitspieler";
+        default:
+            return Host ? "Der Mitspieler hat die Verbindung beendet" : "Der Host hat die Verbindung beendet";
+        }
+    }
+    // Steam hat selbst aufgegeben, meist nach seinem Zeitlimit ohne Antwort der Gegenseite.
+    if (Host)
+        return "Verbindung zum Mitspieler verloren";
+    return WasConnected ? "Verbindung zum Host verloren" : "Host nicht erreichbar";
+}
+
 std::string_view ToString(TransportState State)
 {
     switch (State)
@@ -131,7 +156,7 @@ bool Transport::Begin(Mode RoleIn, uint64_t Remote)
     {
         for (Link& Entry : *Links)
         {
-            Sockets->Close(Entry.Connection);
+            Sockets->Close(Entry.Connection, EndReason::Generic);
             if (Entry.Udp != INVALID_SOCKET)
                 closesocket(Entry.Udp);
         }
@@ -199,9 +224,11 @@ void Transport::Stop()
         return;
     if (Worker.joinable())
         Worker.join();
+    // Die Gegenseite erfährt so, dass jemand bewusst gegangen ist, und nicht nur die Leitung fehlt.
+    const int32_t Reason = Role == Mode::Host ? EndReason::HostLeft : EndReason::ClientLeft;
     for (Link& Entry : *Links)
     {
-        Sockets->Close(Entry.Connection);
+        Sockets->Close(Entry.Connection, Reason);
         if (Entry.Udp != INVALID_SOCKET)
             closesocket(Entry.Udp);
     }
@@ -261,7 +288,7 @@ void Transport::Publish(TransportState State, std::string Message)
     Current.Message = std::move(Message);
 }
 
-void Transport::Close(uint32_t Connection)
+void Transport::Close(uint32_t Connection, int32_t Reason)
 {
     for (auto It = Links->begin(); It != Links->end(); ++It)
         if (It->Connection == Connection)
@@ -273,7 +300,7 @@ void Transport::Close(uint32_t Connection)
                 std::erase_if(Incoming, [Peer](const auto& Item) { return Item.Peer == Peer; });
                 std::erase_if(Outgoing, [Peer](const auto& Item) { return Item.Peer == Peer; });
             }
-            Sockets->Close(Connection);
+            Sockets->Close(Connection, Reason);
             if (It->Udp != INVALID_SOCKET)
                 closesocket(It->Udp);
             ClosedPacketsTo += It->PacketsToSteam;
@@ -299,13 +326,14 @@ void Transport::HandleChanges()
         {
             if (!Links->empty())
             {
-                Sockets->Close(Change.Connection);
+                Core::Log::Warn("Transport: weitere Verbindung abgelehnt, es gibt schon einen Mitspieler");
+                Sockets->Close(Change.Connection, EndReason::Busy);
                 continue; // Genau ein Remote-Spieler. Kein frei behaupteter Spielerindex.
             }
             if (!Sockets->Accept(Change.Connection))
             {
                 Core::Log::Warn("Transport: eingehende Verbindung nicht angenommen");
-                Sockets->Close(Change.Connection);
+                Sockets->Close(Change.Connection, EndReason::Generic);
                 continue;
             }
             Link NewLink;
@@ -313,7 +341,7 @@ void Transport::HandleChanges()
             NewLink.Udp = OpenUdp(0);
             if (NewLink.Udp == INVALID_SOCKET)
             {
-                Sockets->Close(Change.Connection);
+                Sockets->Close(Change.Connection, EndReason::Generic);
                 continue;
             }
             NewLink.GameAddress = LoopbackUdp(Options.GamePort);
@@ -340,18 +368,18 @@ void Transport::HandleChanges()
         else if (IsEnd(Change.State) && Entry)
         {
             Core::Log::Warn("Transport: Verbindung beendet, Grund {} {}", Change.EndReason, MaskAddresses(Change.EndDebug));
-            Close(Change.Connection);
+            const std::string Message = EndMessage(Role == Mode::Host, Change.State, Change.EndReason, Entry->Connected);
+            Close(Change.Connection, EndReason::Generic);
+            Core::Log::Info("Transport: {}", Message);
             if (Role != Mode::Host)
-                Publish(TransportState::Failed, Change.State == SteamConnectionState::ClosedByPeer
-                                                    ? "Der Host hat die Verbindung beendet"
-                                                    : "Verbindung zum Host verloren");
+                Publish(TransportState::Failed, Message);
             else
             {
                 bool AnyConnected = false;
                 for (const Link& Other : *Links)
                     AnyConnected |= Other.Ready;
                 Publish(AnyConnected ? TransportState::Connected : TransportState::Listening,
-                        AnyConnected ? "Verbunden" : "Client gegangen, wartet auf Clients");
+                        AnyConnected ? "Verbunden" : Message);
             }
         }
     }
@@ -529,7 +557,7 @@ void Transport::Run()
             if (Entry.Rejected)
                 Rejected.push_back(Entry.Connection);
         for (const uint32_t Connection : Rejected)
-            Close(Connection);
+            Close(Connection, EndReason::Rejected);
 
         const ULONGLONG Now = GetTickCount64();
         if (Now >= NextTotals)
