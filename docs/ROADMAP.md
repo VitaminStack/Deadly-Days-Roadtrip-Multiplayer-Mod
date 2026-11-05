@@ -18,6 +18,7 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 
 **Neue Befunde.**
 
+- `xp-baelle`, 05.11.2026, Teilstand: Dem Client fehlt der GameMode, darum berechnete er die Sichtgrenzen der XP-Bälle zu schmal. Die Grenzen kommen jetzt beim Client aus der lokalen Kamera, Host und XP-Vergabe bleiben unverändert. Build und Tests bestehen, die sichtbare Gegenprobe fehlt und steht als `xp-baelle-live`. [Befund](GAME_ANALYSIS.md#xp-bälle-beim-client-xp-baelle)
 - `client-lokal-audit`, 05.11.2026: Projektweite Nutzervorgabe **lokal zuerst, minimal synchronisieren**
   in Agenten-/Architekturregeln aufgenommen. Quellcode-Audit findet zuerst Handlungsbedarf an
   Inventar-/Bag-Transaktionen, lokalen UI-/globalen Phasengrenzen und Kamera-/XP-Projektion;

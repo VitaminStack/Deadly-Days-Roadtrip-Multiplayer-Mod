@@ -74,7 +74,8 @@ void RepairClientBounds(uintptr_t Handler)
     const uintptr_t Camera = CameraActor ? Pointer(CameraActor + 0x2A8) : 0;
     const uintptr_t Emitter = Pointer(Handler + 0x2F8);
     static uintptr_t SetVector = 0;
-    if (!Controller || !Camera || !Emitter || !Objects::IsA(Camera, "CameraComponent"))
+    if (!Controller || !Camera || !Emitter || !Objects::IsA(Camera, "CameraComponent") ||
+        !Objects::IsA(Emitter, "NiagaraComponent"))
         return;
     if (!SetVector)
         SetVector = Objects::FindObject("SetVariableVec3", "NiagaraComponent");

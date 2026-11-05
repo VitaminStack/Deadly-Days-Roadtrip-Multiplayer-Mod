@@ -43,7 +43,7 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `airdrop-warten` | P0 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `mod-saves` | P0 | [6](#phase-6--release) | parallel | mittel |
 | `eingaben` | P1 | [4](#phase-4--vertical-slice) | parallel | mittel |
-| `xp-baelle` | P1 | [5](#phase-5--vollständiger-run) | parallel | mittel |
+| `xp-baelle-live` | P1 | [5](#phase-5--vollständiger-run) | parallel | wenig |
 | `installer` | P1 | [6](#phase-6--release) | parallel | keine |
 | `weekly-sperre` | P1 | [6](#phase-6--release) | parallel | wenig |
 | `karte-tunnel` | P1 | [Wartung](#wartung) | zu zweit | wenig |
@@ -156,7 +156,7 @@ Ziel: Ein kompletter Run ist zu zweit online spielbar.
 |---|---|---|---|---|---|
 | `gegner-alle` | P0 | Alle Gegner, Bosse und Boss-Phasen. Ordner `src/Sync/Enemies` | `integration-g2` | parallel | viel |
 | `fortschritt` | P0 | Loot, XP, Level-ups, Fähigkeiten und Status-Effekte (GAS). Ordner `src/Sync/Combat` | `integration-g2`, `protokoll` | parallel | viel |
-| `xp-baelle` | P1 | Spawn-Übertragung vorhanden; beim Client fehlen weiter entfernte Bälle wegen falscher nativer Viewport-Grenzen (GameMode fehlt). Client-Bounds aus der lokalen Kamera korrigiert, sichtbare Gegenprobe mit neuem Build steht aus. **Fertig, wenn** der Client dieselben Bälle auch am Bildschirmrand sieht, sie beim Aufsammeln verschwinden und XP nicht doppelt zählen. **Einstieg:** [XP-Bälle](docs/GAME_ANALYSIS.md#xp-bälle-beim-client-xp-baelle) | `protokoll` | parallel | mittel |
+| `xp-baelle-live` | P1 | Rest aus `xp-baelle`: Die Sichtgrenzen der XP-Bälle kommen beim Client jetzt aus der lokalen Kamera (`ExpPatches.cpp`), weil ihm der GameMode fehlt. Die sichtbare Gegenprobe im Spiel fehlt noch. **Fertig, wenn** der Client dieselben Bälle auch am Bildschirmrand sieht, sie beim Aufsammeln verschwinden und XP nicht doppelt zählen. Ordner `src/Game`. **Einstieg:** [XP-Bälle](docs/GAME_ANALYSIS.md#xp-bälle-beim-client-xp-baelle) | `protokoll` | parallel | wenig |
 | `airdrop-rucksack` | P0 | Rest aus `airdrop-auswahl`: Die Wahl des Clients landet beim Host im Lager statt im Rucksack und lässt sich nicht nutzen. Der Client merkt sich Drehung und Felder aus `OccupyBackpackSlots`, die Nachricht `0x302` kam im Test aber nicht beim Host an (kein „gesendet“ im Log, obwohl gewählte und abgelegte Instanz gleich waren). Senden prüfen, dann legt der Host die Wahl per `AddToBackpack` und `OccupyBackpackSlots` auf dieselben Felder. **Fertig, wenn** ein vom Client gewähltes und in den Rucksack gelegtes Item bei Host und Client im Rucksack liegt und beim Client im Spiel wirkt. Ordner `src/Sync/Inventory`, `src/Game/RewardPatches.cpp`. **Einstieg:** [Airdrop-Auswahl](src/Game/README.md#airdrop-auswahl) | `protokoll` | parallel | mittel |
 | `airdrop-warten` | P0 | Rest aus `airdrop-auswahl`: Bestätigt der Host zuerst, läuft die Runde weiter, obwohl die Mod `HandleConfirmButton` bis zur Wahl des Clients zurückhält. Die Pause kommt über die Zeitanfrage des Panels beim `TimescaleManager` und eine UI-Sitzung mit `blocks_gameplay`; herausfinden, was sie beim Klick freigibt, und sie halten, bis auch der Client bestätigt hat. Wählt der Client zuerst, wartet das Spiel schon richtig. **Fertig, wenn** bei einem Airdrop das Spiel für beide steht, bis beide bestätigt haben, egal wer zuerst bestätigt. Ordner `src/Game/RewardPatches.cpp`. **Einstieg:** [Airdrop-Auswahl](docs/GAME_ANALYSIS.md#airdrop-auswahl-für-beide-spieler-airdrop-auswahl) | `protokoll` | parallel | mittel |
 | `inventar-sync` | P0 | Rucksack, Stash, Werkbank, Reward-Queue (`CoopInventoryCoordinator`). Ordner `src/Sync/Inventory` | `integration-g2`, `protokoll`, `guidcache` | parallel | viel |
@@ -305,6 +305,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `update-regel` | 0 | Spiel-Updates: einfrieren und nur bei Bedarf nachziehen, siehe [Update-Regel](CONTRIBUTING.md#spiel-updates) |
 | `versions-meldung` | Wartung | Abgelehnte erste Nachricht nennt den Grund mit beiden Werten (alte Mod, Protokoll, Build, Mod-Version, Rolle), siehe [Handshake](docs/CONTROL_PROTOCOL.md#handshake) |
 | `weeklymode` | 5 | Team-Entscheidung vom 05.11.2026: Die Weekly-Challenge wird nicht unterstützt und ist gesperrt, solange die Mod geladen ist, auch solo, wie Erfolge und Bestenlisten. Umsetzung ist `weekly-sperre` |
+| `xp-baelle` | 5 | Client-Sichtgrenzen der XP-Bälle aus der lokalen Kamera statt aus dem fehlenden GameMode, Live-Gegenprobe in `xp-baelle-live`, siehe [XP-Bälle](docs/GAME_ANALYSIS.md#xp-bälle-beim-client-xp-baelle) |
 | `zwei-pc-test` | Wartung | Tests auf zwei PCs: `Test-TwoPc.ps1` fährt je PC eine Rolle automatisch bis in die Mission und schreibt einen Tunnel-Bericht, `Start-Session.ps1 -Role`, Aufgaben „zu zweit“ mit Rollen-Reservierung in `tasks.py`, siehe [Test auf zwei PCs](docs/TESTING.md#test-auf-zwei-pcs) |
 
 ## Risiken
