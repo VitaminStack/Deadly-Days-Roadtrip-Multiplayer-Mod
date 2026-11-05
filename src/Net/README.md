@@ -83,8 +83,8 @@ Client: Einladung annehmen oder Lobby-ID -> Lobby betreten -> Besitzer der Lobby
 | `-ddcoop_lobby=<Lobby-ID>` | Der Lobby beitreten, sobald eine Welt geladen ist |
 | `-ddcoop_lobby_delay=<s>` | Erstellen oder Beitreten frühestens so viele Sekunden nach dem Start, im Test bis der Spike geladen ist |
 
-Mit `-ddcoop_transport=...` bleibt die Lobby aus, beide nutzen dieselben Ports. `Start-Session.ps1 -Mod -Tunnel Lobby` setzt die
-Schalter, liest die Lobby-ID aus dem Log des Hosts und startet den Client damit, siehe [Testen](../../docs/TESTING.md).
+Mit `-ddcoop_transport=...` bleibt die Lobby aus, beide nutzen dieselben Ports. `Start-Session.ps1 -Mod -Tunnel Lobby` braucht die
+Schalter nicht mehr: Es erstellt und betritt die Lobby nach dem Laden des Spikes über das Overlay, siehe [Testen](../../docs/TESTING.md).
 
 ### Lobby im Spiel (04.11.2026)
 

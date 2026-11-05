@@ -1,0 +1,7 @@
+# Ein Missionstag: Skript startet und reist, Mensch spielt. Start: Guided-Test.ps1 -Steps tools\spike\guided\tag-1.txt -Start -Shots
+> Start-Run.ps1 -Seed 20795
+> Travel-Day.ps1 62 213 -Stay | "equal": true
+Etwa zwei Minuten spielen: mit beiden Figuren laufen, Gegner treffen, XP-Bälle einsammeln | Treffer, XP-Bälle und Level-up in beiden Fenstern sichtbar
+Bei einem Level-up eine Belohnung wählen, mit Host und Client je einmal | Auswahl erscheint, Spiel läuft danach bei beiden weiter
+> Get-Status.ps1 -Inventory | "equal": true
+> Send-Command.ps1 Host !finish

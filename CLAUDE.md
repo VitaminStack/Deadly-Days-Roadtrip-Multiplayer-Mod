@@ -30,7 +30,7 @@ Worktrees liegen immer unter `.worktrees/` im Repo-Ordner, keine neuen Ordner da
 
 ## Beim Arbeiten
 
-- Bei Spieltests gilt: **eine Sitzung pro PC.** `Start-Session.ps1` bricht ab, wenn eine andere läuft. Dann warten oder ohne Spiel weiterarbeiten, nie fremde Instanzen beenden.
+- Bei Spieltests gilt: **eine Sitzung pro PC.** `Start-Session.ps1` bricht ab, wenn eine andere läuft. Dann mit `-Wait <Sekunden>` einreihen oder ohne Spiel weiterarbeiten, nie fremde Instanzen beenden. Spieltests bündeln, siehe [Spielzeit sparen](docs/TESTING.md#spielzeit-sparen).
 - Die Exe nie von Hand mit dem Spike starten und nie `-unattended` verwenden, sonst können Absturzberichte bei Pixelsplit landen, siehe [Testen](docs/TESTING.md).
 - Im Spike nur die Datei des eigenen Themas ändern, die Aufteilung steht in der [Spike-README](research/spikes/a-connect/README.md#dateien).
 - Tests, die zwei Menschen live brauchen, lassen sich in einem Termin bündeln. Hinweise und mögliche Punkte stehen unter [Live-Sitzungen zu zweit](TODO.md#live-sitzungen-zu-zweit); daraus entsteht keine zusätzliche Pflicht.

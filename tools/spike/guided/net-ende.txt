@@ -1,0 +1,9 @@
+# Sitzungsende: Skript prüft, Mensch spielt nur. Start: Guided-Test.ps1 -Steps tools\spike\guided\net-ende.txt -Start
+> Overlay.ps1 Client status | Im Spiel
+> Overlay.ps1 Host leave
+> Overlay.ps1 Client status | Der Host hat die Sitzung verlassen
+> Get-Status.ps1 | 'world': 'MainMenu'
+> Overlay.ps1 Host create
+> Overlay.ps1 Client join | Im Spiel
+Mit beiden Figuren in der MetaBase ein paar Schritte in verschiedene Richtungen laufen | Beide Figuren bewegen sich in beiden Fenstern gleich
+> Get-Status.ps1 -Inventory | "equal": true
