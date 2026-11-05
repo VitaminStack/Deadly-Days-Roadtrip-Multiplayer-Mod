@@ -30,6 +30,14 @@ std::span<const Patch> HealthBarPatches();
 std::span<const Patch> AirdropPatches();
 std::span<const Patch> ExpPatches();
 std::span<const Patch> RemoteP2Patches();
+std::span<const Patch> RewardPatches();
+// Host: Figur, die bei RewardChest.OpenAirdropChoices die native Auswahl bekommt (die des Hosts statt des Remote-P2).
+uintptr_t RewardCharacter(uintptr_t Character);
+// Client: Wahr, wenn ProcessEvent einen Server-RPC mit einer lokalen Anzeige-Instanz der Airdrop-Auswahl nicht senden soll.
+bool FilterRewardEvent(uintptr_t Object, uintptr_t Function, void* Params);
+
+// Host mit vollständiger P2-Bindung des Remote-Spielers: Coop-Subsystem, lokaler und Remote-Controller.
+bool BoundRemoteP2(uintptr_t& Coop, uintptr_t& Host, uintptr_t& Remote);
 
 void TickPlayers(NetRole Role, bool Second);
 void TickCamera(NetRole Role, bool Second);

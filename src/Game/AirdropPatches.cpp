@@ -30,7 +30,7 @@ void __fastcall CrateHook(uintptr_t Actor, uintptr_t Character)
 void __fastcall ChoicesHook(uintptr_t Actor, uintptr_t Character)
 {
     if (!ClientAirdrop(Actor))
-        OriginalChoices(Actor, Character);
+        OriginalChoices(Actor, RewardCharacter(Character));
     else if (LocalChoiceAttempts.fetch_add(1) < 3)
         Core::Log::Info("Airdrop: lokale Client-Reward-Erzeugung ausgelassen");
 }

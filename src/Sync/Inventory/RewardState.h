@@ -1,0 +1,195 @@
+#pragma once
+
+#include <cstdint>
+#include <optional>
+#include <span>
+#include <string>
+#include <vector>
+
+// Airdrop-Auswahl über den Kontrollkanal (airdrop-auswahl). Host schickt das Bild der nativen Koop-Reward-Sitzung,
+// Client zeigt es im nativen Reward-Panel und antwortet nur mit seiner Wahl. Little-Endian, Texte UTF-8 und begrenzt.
+namespace Sync::Reward
+{
+inline constexpr uint16_t OfferType = 0x300, ChoiceType = 0x301, PlacementType = 0x302;
+inline constexpr size_t MaxChoices = 4, MaxName = 120, MaxSlots = 32;
+
+// Eine Choice: lesbarer Name für Log und Overlay, Objektnamen von UInventoryItemData und URarity, mit denen der Client
+// eine eigene Anzeige-Instanz anlegt.
+struct Item
+{
+    std::string Name, Data, Rarity;
+    bool Broken = false;
+    bool operator==(const Item&) const = default;
+};
+
+struct Offer
+{
+    uint64_t Session = 0; // 0 = keine offene Sitzung, Client schließt die Auswahl
+    uint64_t Revision = 0;
+    int32_t Level = 0;
+    bool ClientClaimed = false, HostClaimed = false, HostWaiting = false;
+    std::vector<Item> Choices;
+    bool operator==(const Offer&) const = default;
+};
+
+struct Choice
+{
+    uint64_t Session = 0, Revision = 0;
+    uint8_t Index = 0;
+    bool operator==(const Choice&) const = default;
+};
+
+namespace Detail
+{
+inline void Put(std::vector<uint8_t>& Out, uint64_t Value, unsigned Bytes)
+{
+    for (unsigned i = 0; i < Bytes; ++i)
+        Out.push_back(static_cast<uint8_t>(Value >> (8 * i)));
+}
+inline uint64_t Get(std::span<const uint8_t> In, size_t At, unsigned Bytes)
+{
+    uint64_t Value = 0;
+    for (unsigned i = 0; i < Bytes; ++i)
+        Value |= uint64_t(In[At + i]) << (8 * i);
+    return Value;
+}
+}
+
+inline std::string Clip(std::string Name)
+{
+    if (Name.size() <= MaxName)
+        return Name;
+    size_t End = MaxName;
+    while (End && (static_cast<uint8_t>(Name[End]) & 0xC0) == 0x80) // nicht mitten in einem UTF-8-Zeichen trennen
+        --End;
+    Name.resize(End);
+    return Name;
+}
+
+inline bool Valid(const Offer& Value)
+{
+    if (Value.Choices.size() > MaxChoices)
+        return false;
+    for (const auto& Choice : Value.Choices)
+        if (Choice.Name.size() > MaxName || Choice.Data.size() > MaxName || Choice.Rarity.size() > MaxName)
+            return false;
+    return Value.Session ? Value.Revision != 0 : Value.Choices.empty();
+}
+
+inline std::vector<uint8_t> Encode(const Offer& Value)
+{
+    if (!Valid(Value))
+        return {};
+    std::vector<uint8_t> Out;
+    Detail::Put(Out, Value.Session, 8);
+    Detail::Put(Out, Value.Revision, 8);
+    Detail::Put(Out, static_cast<uint32_t>(Value.Level), 4);
+    Out.push_back(static_cast<uint8_t>((Value.ClientClaimed ? 1 : 0) | (Value.HostClaimed ? 2 : 0) | (Value.HostWaiting ? 4 : 0)));
+    Out.push_back(static_cast<uint8_t>(Value.Choices.size()));
+    for (const auto& Choice : Value.Choices)
+    {
+        Out.push_back(Choice.Broken ? 1 : 0);
+        for (const std::string* Text : {&Choice.Name, &Choice.Data, &Choice.Rarity})
+        {
+            Out.push_back(static_cast<uint8_t>(Text->size()));
+            Out.insert(Out.end(), Text->begin(), Text->end());
+        }
+    }
+    return Out;
+}
+
+inline std::optional<Offer> DecodeOffer(std::span<const uint8_t> In)
+{
+    if (In.size() < 22 || In[20] > 7 || In[21] > MaxChoices)
+        return std::nullopt;
+    Offer Value;
+    Value.Session = Detail::Get(In, 0, 8);
+    Value.Revision = Detail::Get(In, 8, 8);
+    Value.Level = static_cast<int32_t>(Detail::Get(In, 16, 4));
+    Value.ClientClaimed = In[20] & 1;
+    Value.HostClaimed = In[20] & 2;
+    Value.HostWaiting = In[20] & 4;
+    size_t At = 22;
+    for (uint8_t i = 0; i < In[21]; ++i)
+    {
+        if (At >= In.size() || In[At] > 1)
+            return std::nullopt;
+        Item Choice;
+        Choice.Broken = In[At++] != 0;
+        for (std::string* Text : {&Choice.Name, &Choice.Data, &Choice.Rarity})
+        {
+            if (At >= In.size() || In[At] > MaxName || At + 1 + In[At] > In.size())
+                return std::nullopt;
+            Text->assign(reinterpret_cast<const char*>(In.data() + At + 1), In[At]);
+            At += 1 + In[At];
+        }
+        Value.Choices.push_back(std::move(Choice));
+    }
+    if (At != In.size() || !Valid(Value))
+        return std::nullopt;
+    return Value;
+}
+
+inline std::vector<uint8_t> Encode(const Choice& Value)
+{
+    if (!Value.Session || !Value.Revision || Value.Index >= MaxChoices)
+        return {};
+    std::vector<uint8_t> Out;
+    Detail::Put(Out, Value.Session, 8);
+    Detail::Put(Out, Value.Revision, 8);
+    Out.push_back(Value.Index);
+    return Out;
+}
+
+inline std::optional<Choice> DecodeChoice(std::span<const uint8_t> In)
+{
+    if (In.size() != 17)
+        return std::nullopt;
+    Choice Value{Detail::Get(In, 0, 8), Detail::Get(In, 8, 8), In[16]};
+    if (!Value.Session || !Value.Revision || Value.Index >= MaxChoices)
+        return std::nullopt;
+    return Value;
+}
+
+// Ablage der gewählten Choice im Rucksack des Clients, nach der Wahl. Ohne diese Nachricht bleibt sie im Lager.
+struct Placement
+{
+    uint64_t Session = 0;
+    int32_t Turns = 0, PivotX = 0, PivotY = 0;
+    std::vector<std::pair<int32_t, int32_t>> Slots;
+    bool operator==(const Placement&) const = default;
+};
+
+inline std::vector<uint8_t> Encode(const Placement& Value)
+{
+    if (!Value.Session || Value.Slots.empty() || Value.Slots.size() > MaxSlots)
+        return {};
+    std::vector<uint8_t> Out;
+    Detail::Put(Out, Value.Session, 8);
+    for (const int32_t Field : {Value.Turns, Value.PivotX, Value.PivotY})
+        Detail::Put(Out, static_cast<uint32_t>(Field), 4);
+    Out.push_back(static_cast<uint8_t>(Value.Slots.size()));
+    for (const auto& [X, Y] : Value.Slots)
+    {
+        Detail::Put(Out, static_cast<uint32_t>(X), 4);
+        Detail::Put(Out, static_cast<uint32_t>(Y), 4);
+    }
+    return Out;
+}
+
+inline std::optional<Placement> DecodePlacement(std::span<const uint8_t> In)
+{
+    if (In.size() < 21 || !In[20] || In[20] > MaxSlots || In.size() != 21 + size_t(In[20]) * 8)
+        return std::nullopt;
+    Placement Value;
+    Value.Session = Detail::Get(In, 0, 8);
+    Value.Turns = static_cast<int32_t>(Detail::Get(In, 8, 4));
+    Value.PivotX = static_cast<int32_t>(Detail::Get(In, 12, 4));
+    Value.PivotY = static_cast<int32_t>(Detail::Get(In, 16, 4));
+    for (size_t i = 0; i < In[20]; ++i)
+        Value.Slots.emplace_back(static_cast<int32_t>(Detail::Get(In, 21 + 8 * i, 4)), static_cast<int32_t>(Detail::Get(In, 25 + 8 * i, 4)));
+    if (!Value.Session)
+        return std::nullopt;
+    return Value;
+}
+}

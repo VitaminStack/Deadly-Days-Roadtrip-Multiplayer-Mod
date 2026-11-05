@@ -268,15 +268,26 @@ void AllowRemoteCoop()
     Bound.CoopAllowed = true;
 }
 
-bool RemoteP2Bound()
+bool BoundRemoteP2(uintptr_t& Coop, uintptr_t& Host, uintptr_t& Remote)
 {
     const Roster R = CurrentRoster();
-    if (!R.Coop || !R.Remote || !Bound.Slot.Index)
+    if (!R.Coop || !R.Host || !R.Remote || !Bound.Slot.Index)
         return false;
-    WeakController Remote{};
+    WeakController Weak{};
     const ActivePlayersMap& Map = ActivePlayers(R.Coop);
     const int32_t Slot = Map.Valid() ? Map.Find(1) : -1;
-    return WeakFor(R.Remote, Remote) && Slot >= 0 && SameRemoteNotification(0, Map.Data[Slot].Controller, 0, Remote);
+    if (!WeakFor(R.Remote, Weak) || Slot < 0 || !SameRemoteNotification(0, Map.Data[Slot].Controller, 0, Weak))
+        return false;
+    Coop = R.Coop;
+    Host = R.Host;
+    Remote = R.Remote;
+    return true;
+}
+
+bool RemoteP2Bound()
+{
+    uintptr_t Coop = 0, Host = 0, Remote = 0;
+    return BoundRemoteP2(Coop, Host, Remote);
 }
 
 void TickRemoteP2(NetRole Role)

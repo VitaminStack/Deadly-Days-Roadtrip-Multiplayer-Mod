@@ -138,6 +138,26 @@ Ablauf siehe [Karte und Seed](GAME_ANALYSIS.md#karte-und-seed).
 | Kartengenerator: Erzeugung fortsetzen, aus einem Timer | `0x59F0C30` | Ruft `StartMapGeneration` und `0x59D9090` |
 | Kartengenerator: Schritt nach `StartMapGeneration` | `0x59D9090` | Absturzort nach der Reise auf Tag 3 |
 
+### Airdrop-Auswahl
+
+Aufgabe `airdrop-auswahl`, Ablauf in [Airdrop-Auswahl](GAME_ANALYSIS.md#airdrop-auswahl-für-beide-spieler-airdrop-auswahl).
+
+| Funktion oder Feld | RVA oder Offset | Hinweis |
+|---|---|---|
+| `RewardChest.OpenAirdropChoices` | `0x5A42F50` | Hook in `AirdropPatches.cpp` |
+| `InventoryComponent::SetRewardItems` | `0x5979B30` | `(this, TArray*, Level)`, öffnet das Panel |
+| `InventoryPanel.HandleConfirmButton` | `0x5A6CB20` | liest `+0x7A0`, dann `+0x3E0`; ruft `OpenNextReward` der Queue `+0x6B8` |
+| `InventoryComponent::CreateItemInstance` | `0x5959700` | `(this, ItemData, FlagAsNew, Rarity)`, nativ; UFunction `BlueprintAuthorityOnly` |
+| `URewardQueueComponent::OpenNextReward` | `0x59ADAC0` | Exec-Thunk `0x57975F0` |
+| `URewardQueueComponent::RegisterReward` | `0x59B07B0` | Exec-Thunk `0x5797F10` |
+| `BP_DD_Character_C.RewardQueue` | `+0x980` | |
+| `URewardQueueComponent` Kiste offen, aktuelle Kiste | `+0x108`, `+0x10C` | Byte; schwacher Zeiger |
+| `ARewardChest.CanBeOpened` | `+0x2E1` | |
+| `UInventoryItemInstance` `ZeroPivotTile`, `Turns`, `IsInBackpack`, `IsReward` | `+0x28`, `+0xD8`, `+0x180`, `+0x182` | |
+| `UBackpackSlot` `Coordinates`, `Occupier` | `+0x28`, `+0x30` | |
+| `UFunction` `FunctionFlags`, `ParmsSize` | `+0xB0`, `+0xB6` | `FUNC_Net` = `0x40` |
+| `AController` `PlayerState`, `Pawn` | `+0x2B0`, `+0x2E8` | |
+
 ### Coop
 
 Funktionen von `ULocalCoopSubsystem` und ihre Aufrufer, Ablauf siehe [Coop-Ablauf](GAME_ANALYSIS.md#coop-ablauf).
