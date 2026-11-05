@@ -18,6 +18,7 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 
 **Neue Befunde.**
 
+- `protokoll`, 05.11.2026: Handshake mit Spiel-Build, Mod-Version und Rolle sowie zuverlässiger Kontrollkanal im selben Steam-Socket stehen in `src/Net`, Format und API in [Kontrollkanal](CONTROL_PROTOCOL.md). 24 Net-Tests, im Spiel bis Tag 1 geprüft, die XP-Anzeige aus `client-visuell` läuft schon darüber. Der Internet-Test mit zwei Konten gehört zu `lobby-live` bzw. `integration-g2`. Damit sind die Pakete der Welle 4 nicht mehr durch `protokoll` blockiert.
 - `todo-risiken`, 05.11.2026: Vorbeugende Aufgaben gegen spätere Probleme eingeplant. Vor Gate G2: `ohne-spike` (Mod läuft ohne Spike), `latenz-test` (Latenz und Verlust auf einem PC simulieren), `desync-melder` (Zustandssumme über den Kontrollkanal). Vor `integration-run`: `dauerlauf`. Vor `release`: `weekly-sperre` und `virenscanner`. Dazu `doku-verweise` (Wartung) und `coop-spielstand` (optional). Team-Entscheidung `weeklymode`: Die Weekly-Challenge wird mit Mod immer gesperrt, auch solo. Absturzberichte, Telemetrie, Erfolge und Bestenlisten sperrt die Mod schon. Keine Spielabnahme.
 - Update-Verwaltung, 04.11.2026: Auf Nutzerwunsch nur als optionale Zukunftsarbeit eingeplant: lokale Mod-/Spiel-Prüfung mit sichtbarer Ablehnung vor dem Laden, danach geprüfte Releaseinformationen und erst später ein optionaler Auto-Updater. Die Aufgaben und Abnahmen stehen ausschließlich in [TODO.md](../TODO.md#optionale-optimierungen). Build `26187885` bleibt erzwungen; keine zusätzliche Voraussetzung für den aktuellen Release, keine Umsetzung und keine neue Spielabnahme.
 
@@ -242,7 +243,7 @@ flowchart TD
     GA --> W5["Welle 5<br/>tutorial-aus, online-sperren,<br/>telemetrie-aus, mod-saves, installer"]:::open
     RS --> W3["Welle 3<br/>missionsstart, kamera-code, bewegung,<br/>eingaben, kampf, gegnertyp"]:::open
     W1 --> IG["integration-g2"]:::central
-    W2 --> PR["protokoll"]:::central
+    W2 --> PR["protokoll"]:::done
     W2 --> IG
     W3 --> IG
     IG --> G2{{"Gate G2"}}:::gate
@@ -257,6 +258,7 @@ flowchart TD
     IR --> RL["release"]:::central
     RL --> Z(["Mod fertig und nutzbar"]):::goal
 
+    classDef done fill:#2e7d32,stroke:#1b5e20,color:#ffffff
     classDef central fill:#00796b,stroke:#004d40,color:#ffffff
     classDef open fill:#eceff1,stroke:#607d8b,color:#1a1a1a
     classDef gate fill:#6a1b9a,stroke:#3e1163,color:#ffffff
