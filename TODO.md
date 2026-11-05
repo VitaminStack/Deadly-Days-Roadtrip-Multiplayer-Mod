@@ -35,11 +35,16 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | Kennung | Prio | Phase | Bearbeitung | Spielzeit |
 |---|---|---|---|---|
 | `lobby-live` | P0 | [3](#phase-3--session-und-verbindung) | zu zweit | wenig |
+| `bewegung` | P0 | [4](#phase-4--vertical-slice) | parallel | mittel |
+| `gegnertyp` | P0 | [4](#phase-4--vertical-slice) | parallel | mittel |
+| `kamera-code` | P0 | [4](#phase-4--vertical-slice) | parallel | mittel |
+| `kampf` | P0 | [4](#phase-4--vertical-slice) | parallel | mittel |
+| `missionsstart` | P0 | [4](#phase-4--vertical-slice) | parallel | viel |
 | `ohne-spike` | P0 | [4](#phase-4--vertical-slice) | zentral | mittel |
-| `remote-spieler` | P0 | [4](#phase-4--vertical-slice) | zentral | mittel |
 | `airdrop-auswahl` | P0 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `mod-saves` | P0 | [6](#phase-6--release) | parallel | mittel |
 | `desync-melder` | P1 | [4](#phase-4--vertical-slice) | parallel | mittel |
+| `eingaben` | P1 | [4](#phase-4--vertical-slice) | parallel | mittel |
 | `restrictor` | P1 | [4](#phase-4--vertical-slice) | parallel | wenig |
 | `xp-baelle` | P1 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `installer` | P1 | [6](#phase-6--release) | parallel | keine |
@@ -138,7 +143,6 @@ Ziel: Zwei Spieler starten eine Mission, kämpfen gegen einen Gegnertyp und sehe
 
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
-| `remote-spieler` | P0 | Remote-Spieler als P2 in die Coop-Logik einbinden, obwohl er kein lokaler Spieler ist. Grundlage für jeden Spieler-Sync | `patches`, `remote-p2` | zentral | mittel |
 | `missionsstart` | P0 | Gemeinsamer Missionsstart, gleiche Karte bei beiden. Ordner `src/Sync/World` | `remote-spieler` | parallel | viel |
 | `kamera-code` | P0 | Gemeinsame Kamera (Option A) auch beim Client umsetzen, ursprünglichen Zoom und Bewegungsbegrenzung erhalten. Ordner `src/Sync/World`, `src/Game`. **Einstieg:** [Kamera](docs/GAME_ANALYSIS.md#kamera-und-sichtbereich) | `remote-spieler` | parallel | mittel |
 | `bewegung` | P0 | Bewegung, Dash und Blickrichtung. Ordner `src/Sync/Players`, Dateien mit `eingaben` absprechen | `remote-spieler` | parallel | mittel |
@@ -267,6 +271,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `powerup-duplikat` | 1 | Lokale Kopie von `BP_ChaosDestructable_PowerUp_C` beim Client unterdrückt, siehe [PowerUp-Objekte](docs/GAME_ANALYSIS.md#doppelte-powerup-objekte-powerup-duplikat) |
 | `protokoll` | 3 | Handshake mit Spiel-Build, Mod-Version und Rolle sowie zuverlässiger Kontrollkanal im selben Steam-Socket wie die UE-Pakete, Nachrichten mit Run-ID, Epoche und Revision nach dem Vertrag; 24 Net-Tests, im Spiel bis Tag 1 mit XP-Anzeige darüber geprüft. Der Internet-Test mit zwei Konten gehört zu `lobby-live` bzw. `integration-g2`, siehe [Kontrollkanal](docs/CONTROL_PROTOCOL.md) |
 | `remote-p2` | 1 | Phase-1-Frage geklärt: Host-P2 über schwache `ActivePlayers`, native Coop-Aktivierung, gezielten P2-Geräte-Guard und Join-Meldung ohne zweiten `LocalPlayer`; Laufzeit-/UI-Gegenproben zeigen, dass der lokale Lager-Handoff den geplanten Kontrollkanal braucht. Produktionsanbindung und UI-Sync bleiben eigene Aufgaben, [Nachweise und Grenzen](research/spikes/a-connect/RemoteP2.md) |
+| `remote-spieler` | 4 | Host trägt den Remote-Spieler dauerhaft als P2 in die Coop-Logik ein, ohne zweiten LocalPlayer und vorerst ohne Koop-Modus, siehe [Remote-Spieler als P2](src/Game/README.md#remote-spieler-als-p2) |
 | `replikation-blueprint` | 1 | 218 von 482 Blueprint-Actor-Klassen replizieren, vor allem über ihre native Basisklasse |
 | `replikation-kern` | 1 | Replizierte Properties der Kernklassen erfasst, der Kern repliziert, siehe [Replikation](docs/GAME_ANALYSIS.md#replikation-zur-laufzeit) |
 | `rpc-vergleich` | 1 | RPC-Liste gegen den Juli-Dump: 3 RPCs entfernt, keiner hinzugekommen |
