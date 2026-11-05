@@ -262,6 +262,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `ohne-spike` | 4 | Mod läuft ohne Spike bis Mission Tag 1 und zurück zur Basis, Start-Session.ps1 -NoSpike, Liste der Spike-Eingriffe in src/Game/README.md |
 | `online-sperren` | 6 | Die Mod sperrt die schreibenden Steam-Methoden für Erfolge, Statistiken und Bestenlisten (`Core::SteamStats`), lesen bleibt erlaubt, siehe [Erfolge und Bestenlisten](docs/GAME_ANALYSIS.md#erfolge-und-bestenlisten-online-sperren) |
 | `overlay` | 2 | F8-Overlay mit Status und Debug-Anzeige, sichtbare Host-/Client-Abnahme bestanden, siehe [UI](src/UI/README.md#sichtbare-spielabnahme-03112026) |
+| `overlay-fokus` | 3 | F8-Overlay bleibt beim Fokuswechsel sichtbar, Knopf „Lobby-ID kopieren“, siehe [UI](src/UI/README.md#stand-overlay) |
 | `patches` | 4 | Die 25 Spielfehler-Fixes des Spikes stehen geprüft in `src/Game/*Patches.cpp`, alle oder keiner; mit der Mod lässt der Spike seine Fassungen aus. Route MetaBase bis Tag 5 und Niederlage mit Rückkehr in die MetaBase ohne Absturz, siehe [Patches](src/Game/README.md#patches) |
 | `pausen` | 1 | Pausen-Logik gemessen, Host-Weltpause repliziert, Client-Wunsch nicht, siehe [Pausen-Spike](research/spikes/pausen/README.md#nachtrag-03112026-isolierte-ablaeufe) |
 | `pcg` | 1 | Client erzeugt die PCG-Vegetation mit dem Graphen des Hosts (`Pcg.cpp`), siehe [PCG-Vegetation](docs/GAME_ANALYSIS.md#pcg-vegetation-beim-client-pcg) |
