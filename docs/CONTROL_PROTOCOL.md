@@ -80,6 +80,8 @@ Sync-Abonnenten am Leben. Die API ist somit nicht auf den Testschalter beschrän
 - Zwei geschützte Spielinstanzen mit `-Mod -Tunnel Mod`: Handshake bestätigt,
   MetaBase, echter Routenweg nach Tag 1 und gleiche Inventare. Anschließend lief
   darüber die XP-Anzeigeanbindung aus `client-visuell`, ohne einen zweiten Kanal.
+- Aufgabe `protokoll` damit abgeschlossen. Die Internet-/Zwei-Konten-Prüfung des
+  Handshakes gehört zu `lobby-live` bzw. `integration-g2`.
 - Noch keine Internet-/Zwei-Konten-Abnahme und keine zugesicherte Gameplay-
   Transaktionssemantik. Die Familien für Requests, Snapshots und Rewards müssen
   ihre jeweilige fachliche Validierung selbst liefern.

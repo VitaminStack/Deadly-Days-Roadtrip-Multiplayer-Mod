@@ -23,6 +23,8 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 - `client-visuell`, 05.11.2026: Erste Produktionsanbindung statt nur Diagnose: gemeinsame XP-/Levelanzeige als absoluter Host-Snapshot, ohne lokale XP-/Reward-Gutschrift. Der neue Kontrollkanal aus `protokoll` ist auch am Lobbytransport verfügbar. Beide Host-PlayerStates teilen nachweislich dasselbe Levelsystem; die Client-HUD zeigte im Test ebenfalls Level 5. NetGUID-, Nonce- und Revisionsbindung gegen alte Welten/Nachrichten. Orb-/Projektil-/Partikeldarstellung und komplette Abnahme bleiben offen, [aktueller Stand](../research/spikes/client-visuell/README.md#umsetzung-vom-05112026-gemeinsamer-xp-anzeigestand).
 
 - `client-visuell`, 04.11.2026, auf Nutzerwunsch vorgezogen und noch offen: Projektile, XP-Orbs, Airdrops und Partikeleffekte im Host-/Client-Vergleich. Erste Messung zeigt fehlende XP-Niagara-Darstellungsdaten beim Client; reines Einschalten der Projektil-Bewegungsreplikation ist kein abgenommener Fix. Nutzerergänzung: Airdrops fehlen beim Client, XP-Aufnahmen sollen einmal für beide Spieler zum gemeinsamen Run-Fortschritt zählen. Kein Produktionscode geändert, [Befunde, Fehlversuch und nächste Schritte](../research/spikes/client-visuell/README.md).
+- `protokoll`, 05.11.2026: Handshake mit Spiel-Build, Mod-Version und Rolle sowie zuverlässiger Kontrollkanal im selben Steam-Socket stehen in `src/Net`, Format und API in [Kontrollkanal](CONTROL_PROTOCOL.md). 24 Net-Tests, im Spiel bis Tag 1 geprüft, die XP-Anzeige aus `client-visuell` läuft schon darüber. Der Internet-Test mit zwei Konten gehört zu `lobby-live` bzw. `integration-g2`. Damit sind die Pakete der Welle 4 nicht mehr durch `protokoll` blockiert.
+- `todo-risiken`, 05.11.2026: Vorbeugende Aufgaben gegen spätere Probleme eingeplant. Vor Gate G2: `ohne-spike` (Mod läuft ohne Spike), `latenz-test` (Latenz und Verlust auf einem PC simulieren), `desync-melder` (Zustandssumme über den Kontrollkanal). Vor `integration-run`: `dauerlauf`. Vor `release`: `weekly-sperre` und `virenscanner`. Dazu `doku-verweise` (Wartung) und `coop-spielstand` (optional). Team-Entscheidung `weeklymode`: Die Weekly-Challenge wird mit Mod immer gesperrt, auch solo. Absturzberichte, Telemetrie, Erfolge und Bestenlisten sperrt die Mod schon. Keine Spielabnahme.
 - Update-Verwaltung, 04.11.2026: Auf Nutzerwunsch nur als optionale Zukunftsarbeit eingeplant: lokale Mod-/Spiel-Prüfung mit sichtbarer Ablehnung vor dem Laden, danach geprüfte Releaseinformationen und erst später ein optionaler Auto-Updater. Die Aufgaben und Abnahmen stehen ausschließlich in [TODO.md](../TODO.md#optionale-optimierungen). Build `26187885` bleibt erzwungen; keine zusätzliche Voraussetzung für den aktuellen Release, keine Umsetzung und keine neue Spielabnahme.
 
 - `layerapps-sperre`, 04.11.2026: Das Spiel fragt beim Run-Ende `deadlydays.layerapps.com` an. Die Mod sperrt den Namen jetzt wie `pixelsplit.games`, ohne den Inhalt zu untersuchen. Mod-Runs senden keine unnötigen Daten. Run-Ende und neuer Run liefen mit der Sperre normal.
@@ -192,6 +194,9 @@ flowchart TD
         KA["Bewegung, Waffen, Treffer, Tod"]:::open
         GT["Ein Gegnertyp"]:::open
         EI["Eingaben von Remote<br/>trennen"]:::open
+        OS["Mod ohne Spike<br/>(ohne-spike)"]:::open
+        LT["Latenz simulieren<br/>(latenz-test)"]:::open
+        DM["Desync-Melder<br/>(desync-melder)"]:::open
         SH --> R2 --> MS --> KM --> KA --> GT
         R2 --> EI
     end
@@ -205,6 +210,7 @@ flowchart TD
         PU["Pausen und blockierende UI"]:::open
         TG["Tageszyklus, Treibstoff,<br/>Etappen"]:::open
         ME["Run-Ende, Meta-Basis,<br/>Regel für Meta-Fortschritt"]:::open
+        DL["Dauerlauf über viele Tage<br/>(dauerlauf)"]:::open
     end
 
     subgraph PH6["Phase 6: Release"]
@@ -212,6 +218,8 @@ flowchart TD
         TE["Telemetrie und<br/>Crash-Reports aus"]:::done
         SV["Eigene Mod-Spielstände"]:::open
         IN["Installer oder Anleitung"]:::open
+        WS["Weekly-Challenge sperren<br/>(weekly-sperre)"]:::open
+        VS["Virenscanner und Proton<br/>(virenscanner)"]:::open
     end
 
     Z(["Mod fertig und nutzbar"]):::goal
@@ -240,17 +248,22 @@ flowchart TD
     GA --> W5["Welle 5<br/>tutorial-aus, online-sperren,<br/>telemetrie-aus, mod-saves, installer"]:::open
     RS --> W3["Welle 3<br/>missionsstart, kamera-code, bewegung,<br/>eingaben, kampf, gegnertyp"]:::open
     W1 --> IG["integration-g2"]:::central
-    W2 --> PR["protokoll"]:::central
+    W2 --> PR["protokoll"]:::done
     W2 --> IG
     W3 --> IG
     IG --> G2{{"Gate G2"}}:::gate
-    PR --> W4["Welle 4<br/>gegner-alle, fortschritt, inventar-sync,<br/>inventar-ui, pausen-sync, tagesablauf,<br/>run-ende, vfx-sound, reconnect"]:::open
+    PR --> W4["Welle 4<br/>gegner-alle, fortschritt, inventar-sync,<br/>airdrop-auswahl, inventar-ui, pausen-sync, tagesablauf,<br/>run-ende, vfx-sound, reconnect"]:::open
     G2 --> W4
     W4 --> IR["integration-run"]:::central
     W5 --> IR
+    RV["Vorbeugung<br/>ohne-spike, latenz-test"]:::open --> IG
+    PR --> DS["desync-melder"]:::open --> IG
+    IG --> DL["dauerlauf"]:::open --> IR
+    W5 --> W6["weekly-sperre, virenscanner"]:::open --> RL
     IR --> RL["release"]:::central
     RL --> Z(["Mod fertig und nutzbar"]):::goal
 
+    classDef done fill:#2e7d32,stroke:#1b5e20,color:#ffffff
     classDef central fill:#00796b,stroke:#004d40,color:#ffffff
     classDef open fill:#eceff1,stroke:#607d8b,color:#1a1a1a
     classDef gate fill:#6a1b9a,stroke:#3e1163,color:#ffffff
