@@ -1,4 +1,4 @@
-#include "Sync/Inventory/RewardState.h"
+﻿#include "Sync/Inventory/RewardState.h"
 
 #include <chrono>
 #include <random>
@@ -24,6 +24,8 @@ struct
     std::optional<Reward::Offer> Latest;
     uint64_t LatestAt = 0;
     Reward::Choice Chosen;
+    uint64_t ChosenAt = 0;
+    uint64_t NextShow = 0; // nach einem gescheiterten Öffnen des Panels erst später erneut
     std::optional<RewardPrompt> Shown;
     bool Published = false;
 } R;
@@ -66,7 +68,10 @@ Reward::Offer ToWire(const std::optional<Game::Rewards::Offer>& Value)
     Out.HostClaimed = Value->HostClaimed;
     Out.HostWaiting = Value->HostWaiting;
     for (size_t i = 0; i < Value->Choices.size() && i < Reward::MaxChoices; ++i)
-        Out.Choices.push_back(Reward::Clip(Value->Choices[i]));
+    {
+        const auto& Choice = Value->Choices[i];
+        Out.Choices.push_back({Reward::Clip(Choice.Name), Reward::Clip(Choice.Data), Reward::Clip(Choice.Rarity), Choice.Broken});
+    }
     return Out;
 }
 
@@ -96,7 +101,16 @@ void TickHost(Net::Transport& Transport, std::span<const Net::ControlMessage> Me
         Present(std::nullopt);
 }
 
-void TickClient(Net::Transport&, std::span<const Net::ControlMessage> Messages)
+bool Send(Net::Transport& Transport, const Reward::Choice& Choice)
+{
+    if (!Send(Transport, Reward::ChoiceType, Reward::Encode(Choice)))
+        return false;
+    R.Chosen = Choice;
+    R.ChosenAt = NowMs(); // ohne Bestätigung im Bild nach 4 s wieder wählbar
+    return true;
+}
+
+void TickClient(Net::Transport& Transport, std::span<const Net::ControlMessage> Messages)
 {
     for (const auto& Message : Messages)
         if (Message.Peer == R.Peer && Message.Value.Type == Reward::OfferType)
@@ -110,21 +124,36 @@ void TickClient(Net::Transport&, std::span<const Net::ControlMessage> Messages)
     // Ohne frisches Bild (Verbindung weg, Host ohne Mod-Sitzung) keine Auswahl anzeigen.
     if (!R.Latest || !R.Latest->Session || NowMs() - R.LatestAt > 5000)
     {
+        Game::Rewards::CloseForClient();
         Present(std::nullopt);
         return;
     }
     const auto& Offer = *R.Latest;
+    if (const auto Pick = Game::Rewards::TakeClientPick())
+    {
+        const Reward::Choice Choice{Offer.Session, Offer.Revision, static_cast<uint8_t>(*Pick)};
+        if (*Pick < Offer.Choices.size() && Send(Transport, Choice))
+            Core::Log::Info("Airdrop-Auswahl: Wahl {} ({}) an den Host gesendet", *Pick, Offer.Choices[*Pick].Name);
+        else
+            Core::Log::Warn("Airdrop-Auswahl: Wahl {} nicht gesendet, Panel öffnet erneut", *Pick);
+    }
+    const bool Sent = R.Chosen.Session == Offer.Session && R.Chosen.Revision == Offer.Revision && NowMs() - R.ChosenAt < 4000;
     RewardPrompt Prompt{Offer.Session, Offer.Revision, Offer.Level, {}, {}, false};
     if (Offer.ClientClaimed)
+    {
+        Game::Rewards::CloseForClient();
         Prompt.Status = Offer.HostClaimed ? "Airdrop: Belohnung erhalten." : "Airdrop: Gewählt, warte auf den Host.";
-    else if (R.Chosen.Session == Offer.Session && R.Chosen.Revision == Offer.Revision)
+    }
+    else if (Sent)
         Prompt.Status = "Airdrop: Wahl gesendet, warte auf den Host.";
     else
     {
-        Prompt.Choices = Offer.Choices;
-        Prompt.Selectable = true;
-        Prompt.Status = "Airdrop (Stufe " + std::to_string(Offer.Level) + "): Wähle 1 Belohnung." +
-                        (Offer.HostWaiting ? " Der Host wartet auf dich." : "");
+        std::vector<Game::Rewards::ChoiceItem> Items;
+        for (const auto& Choice : Offer.Choices)
+            Items.push_back({Choice.Name, Choice.Data, Choice.Rarity, Choice.Broken});
+        if (NowMs() >= R.NextShow && !Game::Rewards::ShowForClient(Offer.Session, Offer.Revision, Offer.Level, Items))
+            R.NextShow = NowMs() + 5000;
+        Prompt.Status = std::string("Airdrop: Wähle im Spiel 1 Belohnung.") + (Offer.HostWaiting ? " Der Host wartet auf dich." : "");
     }
     Present(std::move(Prompt));
 }
@@ -133,22 +162,6 @@ void TickClient(Net::Transport&, std::span<const Net::ControlMessage> Messages)
 void SetRewardSink(RewardSink Value)
 {
     Sink = std::move(Value);
-}
-
-void ChooseReward(uint64_t Session, uint64_t Revision, uint32_t Index)
-{
-    const auto Transport = Net::CurrentTransport();
-    if (!Transport || Transport->Stats().IsHost || !R.Peer || !R.Latest || R.Latest->Session != Session ||
-        R.Latest->Revision != Revision || R.Latest->ClientClaimed || Index >= R.Latest->Choices.size())
-        return;
-    const Reward::Choice Choice{Session, Revision, static_cast<uint8_t>(Index)};
-    if (Send(*Transport, Reward::ChoiceType, Reward::Encode(Choice)))
-    {
-        R.Chosen = Choice;
-        Core::Log::Info("Airdrop-Auswahl: Wahl {} ({}) an den Host gesendet", Index, R.Latest->Choices[Index]);
-    }
-    else
-        R.Published = false; // Overlay wieder wählbar machen
 }
 
 void TickReward(std::span<const Net::ControlMessage> Messages)

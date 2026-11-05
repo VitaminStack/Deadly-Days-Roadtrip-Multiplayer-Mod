@@ -7,11 +7,20 @@
 #include <vector>
 
 // Airdrop-Auswahl über den Kontrollkanal (airdrop-auswahl). Host schickt das Bild der nativen Koop-Reward-Sitzung,
-// Client antwortet nur mit seiner Wahl. Little-Endian, Namen UTF-8 und begrenzt.
+// Client zeigt es im nativen Reward-Panel und antwortet nur mit seiner Wahl. Little-Endian, Texte UTF-8 und begrenzt.
 namespace Sync::Reward
 {
 inline constexpr uint16_t OfferType = 0x300, ChoiceType = 0x301;
 inline constexpr size_t MaxChoices = 4, MaxName = 120;
+
+// Eine Choice: lesbarer Name für Log und Overlay, Objektnamen von UInventoryItemData und URarity, mit denen der Client
+// eine eigene Anzeige-Instanz anlegt.
+struct Item
+{
+    std::string Name, Data, Rarity;
+    bool Broken = false;
+    bool operator==(const Item&) const = default;
+};
 
 struct Offer
 {
@@ -19,7 +28,7 @@ struct Offer
     uint64_t Revision = 0;
     int32_t Level = 0;
     bool ClientClaimed = false, HostClaimed = false, HostWaiting = false;
-    std::vector<std::string> Choices;
+    std::vector<Item> Choices;
     bool operator==(const Offer&) const = default;
 };
 
@@ -61,8 +70,8 @@ inline bool Valid(const Offer& Value)
 {
     if (Value.Choices.size() > MaxChoices)
         return false;
-    for (const auto& Name : Value.Choices)
-        if (Name.size() > MaxName)
+    for (const auto& Choice : Value.Choices)
+        if (Choice.Name.size() > MaxName || Choice.Data.size() > MaxName || Choice.Rarity.size() > MaxName)
             return false;
     return Value.Session ? Value.Revision != 0 : Value.Choices.empty();
 }
@@ -77,10 +86,14 @@ inline std::vector<uint8_t> Encode(const Offer& Value)
     Detail::Put(Out, static_cast<uint32_t>(Value.Level), 4);
     Out.push_back(static_cast<uint8_t>((Value.ClientClaimed ? 1 : 0) | (Value.HostClaimed ? 2 : 0) | (Value.HostWaiting ? 4 : 0)));
     Out.push_back(static_cast<uint8_t>(Value.Choices.size()));
-    for (const auto& Name : Value.Choices)
+    for (const auto& Choice : Value.Choices)
     {
-        Out.push_back(static_cast<uint8_t>(Name.size()));
-        Out.insert(Out.end(), Name.begin(), Name.end());
+        Out.push_back(Choice.Broken ? 1 : 0);
+        for (const std::string* Text : {&Choice.Name, &Choice.Data, &Choice.Rarity})
+        {
+            Out.push_back(static_cast<uint8_t>(Text->size()));
+            Out.insert(Out.end(), Text->begin(), Text->end());
+        }
     }
     return Out;
 }
@@ -99,10 +112,18 @@ inline std::optional<Offer> DecodeOffer(std::span<const uint8_t> In)
     size_t At = 22;
     for (uint8_t i = 0; i < In[21]; ++i)
     {
-        if (At >= In.size() || In[At] > MaxName || At + 1 + In[At] > In.size())
+        if (At >= In.size() || In[At] > 1)
             return std::nullopt;
-        Value.Choices.emplace_back(reinterpret_cast<const char*>(In.data() + At + 1), In[At]);
-        At += 1 + In[At];
+        Item Choice;
+        Choice.Broken = In[At++] != 0;
+        for (std::string* Text : {&Choice.Name, &Choice.Data, &Choice.Rarity})
+        {
+            if (At >= In.size() || In[At] > MaxName || At + 1 + In[At] > In.size())
+                return std::nullopt;
+            Text->assign(reinterpret_cast<const char*>(In.data() + At + 1), In[At]);
+            At += 1 + In[At];
+        }
+        Value.Choices.push_back(std::move(Choice));
     }
     if (At != In.size() || !Valid(Value))
         return std::nullopt;

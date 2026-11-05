@@ -5,7 +5,9 @@ using namespace Sync::Reward;
 
 TEST_CASE("Reward offer round-trips with names and flags")
 {
-    Offer Value{5, 77, 3, true, false, true, {"Feuerschuhe (Selten)", "Kugel", "\xC3\x9C" "berlebenspaket"}};
+    Offer Value{5, 77, 3, true, false, true, {{"Feuerschuhe (Selten)", "DA_FireShoes", "Rare", false},
+                                       {"Kugel", "DA_Ball", "", true},
+                                       {"\xC3\x9C" "berlebenspaket", "DA_Kit", "Common", false}}};
     const auto Bytes = Encode(Value);
     REQUIRE_FALSE(Bytes.empty());
     const auto Back = DecodeOffer(Bytes);
@@ -19,15 +21,20 @@ TEST_CASE("Reward offer round-trips with names and flags")
 
 TEST_CASE("Reward offer rejects malformed payloads")
 {
-    Offer Value{5, 77, 3, false, false, false, {"A", "B"}};
+    Offer Value{5, 77, 3, false, false, false, {{"A", "DA", "R"}, {"B", "DB", "R"}}};
     auto Bytes = Encode(Value);
     CHECK_FALSE(DecodeOffer(std::span(Bytes).first(Bytes.size() - 1)));
     Bytes.push_back(0);
     CHECK_FALSE(DecodeOffer(Bytes));
-    CHECK(Encode(Offer{5, 0, 1, false, false, false, {"A"}}).empty());          // session without revision
-    CHECK(Encode(Offer{0, 0, 1, false, false, false, {"A"}}).empty());          // choices without session
-    CHECK(Encode(Offer{5, 1, 1, false, false, false, {"A", "B", "C", "D", "E"}}).empty());
-    CHECK(Encode(Offer{5, 1, 1, false, false, false, {std::string(MaxName + 1, 'x')}}).empty());
+    const Item A{"A", "DA", "R"};
+    CHECK(Encode(Offer{5, 0, 1, false, false, false, {A}}).empty()); // session without revision
+    CHECK(Encode(Offer{0, 0, 1, false, false, false, {A}}).empty()); // choices without session
+    CHECK(Encode(Offer{5, 1, 1, false, false, false, {A, A, A, A, A}}).empty());
+    CHECK(Encode(Offer{5, 1, 1, false, false, false, {{std::string(MaxName + 1, 'x'), "DA", "R"}}}).empty());
+    CHECK(Encode(Offer{5, 1, 1, false, false, false, {{"A", std::string(MaxName + 1, 'x'), "R"}}}).empty());
+    auto BadBroken = Encode(Value);
+    BadBroken[22] = 2; // broken flag of the first choice
+    CHECK_FALSE(DecodeOffer(BadBroken));
     auto Flags = Encode(Value);
     Flags[20] = 8;
     CHECK_FALSE(DecodeOffer(Flags));

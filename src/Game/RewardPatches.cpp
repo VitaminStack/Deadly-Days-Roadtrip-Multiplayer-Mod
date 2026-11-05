@@ -1,19 +1,21 @@
-// Host: Airdrop-Auswahl für beide Spieler über die native Koop-Reward-Sitzung, siehe src/Game/README.md#airdrop-auswahl.
+// Airdrop-Auswahl für Host und Client ohne Koop-Modus, siehe src/Game/README.md#airdrop-auswahl.
 //
-// 1. Beim Öffnen einer Kiste entscheidet UCoopInventoryCoordinatorComponent (0x596EB30) über bCoopEnabled des
-//    Coop-Subsystems: gesetzt, startet eine Sitzung mit einem Claim je Spieler und Pause bis zum letzten Claim, sonst
-//    die Solo-Auswahl. Die Mod setzt das Byte nur für diese Sitzung, ohne SetCoopEnabled, damit das Lager am Tagesende
-//    wie ohne Koop-Modus läuft.
-// 2. Bestätigt der Host zuerst, übergäbe das Panel die UI-Autorität an P2 und wartete auf dessen lokale Eingabe. Die Mod
-//    hält das Bestätigen deshalb zurück, bis der Client gewählt hat, und holt es dann nach. Der letzte Claim läuft so
-//    immer über das native Panel, das danach schließt.
-// 3. Die Wahl des Clients landet nativ im Inventar des Hosts; die Mod legt sie nach der Sitzung in das Inventar des
-//    Clients.
+// Host: Die Kiste läuft wie im Solo-Spiel, öffnet sie der Remote-Spieler, bekommt die Figur des Hosts die Auswahl.
+// UInventoryComponent::SetRewardItems (0x5979B30) zeigt die Choices im nativen Panel; die Mod merkt sie sich als
+// Sitzung und schickt sie über den Kontrollkanal an den Client. Das Bestätigen des Hosts (InventoryPanel.
+// HandleConfirmButton, 0x5A6CB20) hält die Mod zurück, bis der Client gewählt hat; so lange bleibt das Spiel pausiert.
+// Die Wahl des Clients legt der Host neu in dessen repliziertes Inventar.
+//
+// Client: Die Mod legt lokale Instanzen derselben Items an und zeigt sie über SetRewardItems im nativen Panel. Nach dem
+// Bestätigen ist die gewählte Instanz keine Belohnung mehr; ihren Index schickt der Client an den Host und entfernt die
+// lokalen Instanzen wieder.
 #include <windows.h>
 
 #include <algorithm>
 #include <atomic>
+#include <optional>
 #include <string>
+#include <utility>
 
 #include "Core/Hooks.h"
 #include "Core/Log.h"
@@ -27,52 +29,76 @@ namespace Game::Patches
 {
 namespace
 {
-constexpr uintptr_t BeginCoopReward = 0x596EB30;
+constexpr uintptr_t SetRewardItems = 0x5979B30;
 constexpr uintptr_t PanelConfirm = 0x5A6CB20;
+// UInventoryComponent::CreateItemInstance, nativ. Die UFunction ist BlueprintAuthorityOnly, ProcessEvent überspringt
+// sie beim Client.
+constexpr uintptr_t CreateItemInstance = 0x5959700;
 constexpr uintptr_t MemoryFree = 0x12F8400;
 
-// ULocalCoopSubsystem
-constexpr uintptr_t CoopEnabled = 0x180;
-// UCoopInventoryCoordinatorComponent, RewardSession ab 0x170
-constexpr uintptr_t Session = 0x170;
-constexpr uintptr_t SessionChoices = Session + 0x08;
-constexpr uintptr_t SessionEligible = Session + 0x68;
-constexpr uintptr_t SessionClaimed = Session + 0xC8;
-constexpr uintptr_t SessionLevel = Session + 0xE0;
-constexpr uintptr_t SessionState = Session + 0xF0;
-constexpr uintptr_t QueuedRewards = 0x268;
-constexpr uint8_t AwaitingClaims = 2, Completed = 3;
-// UInventoryItemInstance, UInventoryItemData, URarity, UInventoryComponent, APlayerState
+// UInventoryItemInstance, UInventoryItemData, URarity, UInventoryComponent
 constexpr uintptr_t ItemData = 0xE0;
 constexpr uintptr_t ItemBroken = 0x110;
 constexpr uintptr_t ItemRarity = 0x118;
+constexpr uintptr_t ItemInBackpack = 0x180;
+constexpr uintptr_t ItemIsReward = 0x182;
 constexpr uintptr_t DataName = 0x40;
 constexpr uintptr_t RarityName = 0x28;
 constexpr uintptr_t InventoryPlayerState = 0x228;
-constexpr uintptr_t PlayerStateOwner = 0x158;
+constexpr uintptr_t InventoryItems = 0x120;
+// UGameInstance.LocalPlayers, UPlayer.PlayerController, AController.PlayerState, AController.Pawn
+constexpr uintptr_t GameInstanceLocalPlayers = 0x38;
+constexpr uintptr_t PlayerController = 0x30;
+constexpr uintptr_t ControllerPlayerState = 0x2B0;
+constexpr uintptr_t ControllerPawn = 0x2E8;
 constexpr uint32_t GarbageOrUnreachableFlags = 0x30;
 
-using BeginFn = bool(__fastcall*)(uintptr_t, uintptr_t, uintptr_t);
+struct ItemArray
+{
+    uintptr_t* Data;
+    int32_t Count, Max;
+};
+using SetRewardsFn = void(__fastcall*)(uintptr_t, ItemArray*, int32_t);
 using ConfirmFn = void(__fastcall*)(uintptr_t);
+using CreateFn = uintptr_t(__fastcall*)(uintptr_t, uintptr_t, bool, uintptr_t);
 using FreeFn = void(__fastcall*)(void*);
-BeginFn OriginalBegin = nullptr;
+SetRewardsFn OriginalSetRewards = nullptr;
 ConfirmFn OriginalConfirm = nullptr;
 
 std::atomic<bool> RemoteReady = false;
 
+// Host: aktuelle Auswahl.
 struct
 {
-    uintptr_t Coordinator = 0, Coop = 0, Chest = 0;
-    bool ForcedCoop = false;
-    uint64_t Session = 0;
+    uint64_t Session = 0; // Zähler, 0 vor der ersten Auswahl
+    bool Active = false;
+    uintptr_t Inventory = 0;
+    std::vector<uintptr_t> Items;
+    std::vector<Game::Rewards::ChoiceItem> Choices;
+    std::vector<std::pair<uintptr_t, uintptr_t>> Data; // ItemData, Rarity je Choice
+    int32_t Level = 0;
+    std::optional<uint32_t> ClientPick;
     uintptr_t HeldPanel = 0;
-    uint64_t HeldSession = 0;
-    uintptr_t ClientChoice = 0;
-    uint64_t ClientSession = 0;
-    ULONGLONG CompletedSince = 0;
-    bool Acknowledged = false;
-    std::vector<std::pair<uintptr_t, std::string>> Names;
-} Reward;
+} Host;
+
+// Client: Anzeige der Host-Choices im nativen Panel, nur lokale Instanzen. Das Inventar arbeitet über Server-RPCs;
+// mit einer lokalen Instanz bekäme der Host einen Null-Zeiger (Absturz in AddToBackpack). Die Mod hält solche RPCs
+// zurück und nimmt das erste Ablegen einer Choice als Wahl.
+struct
+{
+    uint64_t Session = 0, Revision = 0;
+    uintptr_t Inventory = 0;
+    std::vector<uintptr_t> Items;
+    std::optional<uint32_t> Taken; // per RPC abgelegt, noch nicht gemeldet
+    std::optional<uint32_t> Pick;  // gemeldet an die Sync-Schicht
+} Shown;
+std::atomic<bool> ClientShowing = false;
+// Nach dem Schließen schickt das Panel noch RPCs für die gewählte Instanz (Ablegen im Rucksack). Die alten Instanzen
+// bleiben deshalb noch eine Weile gefiltert.
+std::vector<uintptr_t> Stale;
+ULONGLONG StaleUntil = 0;
+constexpr uint32_t FuncNet = 0x40;
+constexpr uintptr_t FunctionFlags = 0xB0, FunctionParmsSize = 0xB6;
 
 bool Alive(uintptr_t Object)
 {
@@ -84,55 +110,21 @@ uintptr_t Pointer(uintptr_t Address)
     return Memory::ReadPointer(Address).value_or(0);
 }
 
-std::vector<int32_t> Ints(uintptr_t Array)
-{
-    std::vector<int32_t> Result;
-    const uintptr_t Data = Pointer(Array);
-    const int32_t Count = Memory::Read<int32_t>(Array + 8).value_or(0);
-    for (int32_t i = 0; Data && i < std::min(Count, 8); ++i)
-        Result.push_back(Memory::Read<int32_t>(Data + 4 * i).value_or(-1));
-    return Result;
-}
-
-std::vector<uintptr_t> Choices(uintptr_t Coordinator)
-{
-    std::vector<uintptr_t> Result;
-    const uintptr_t Data = Pointer(Coordinator + SessionChoices);
-    const int32_t Count = Memory::Read<int32_t>(Coordinator + SessionChoices + 8).value_or(0);
-    for (int32_t i = 0; Data && i < std::min(Count, 8); ++i)
-        Result.push_back(Pointer(Data + 8 * i));
-    return Result;
-}
-
-bool Contains(const std::vector<int32_t>& Values, int32_t Value)
-{
-    return std::find(Values.begin(), Values.end(), Value) != Values.end();
-}
-
-std::string Join(const std::vector<int32_t>& Values)
-{
-    std::string Text;
-    for (const int32_t Value : Values)
-        Text += (Text.empty() ? "" : ",") + std::to_string(Value);
-    return "[" + Text + "]";
-}
-
-uint8_t QueueState(uintptr_t Coordinator)
-{
-    return Memory::Read<uint8_t>(Coordinator + SessionState).value_or(0);
-}
-
-bool Current(uintptr_t Coordinator)
-{
-    return Alive(Coordinator) && IsA(Coordinator, "CoopInventoryCoordinatorComponent");
-}
-
 uint64_t Revision(const std::vector<uintptr_t>& Items)
 {
     uint64_t Hash = 1469598103934665603ull;
     for (const uintptr_t Item : Items)
         Hash = (Hash ^ Item) * 1099511628211ull;
     return Hash ? Hash : 1;
+}
+
+// Nur einmal suchen, auch wenn nicht gefunden (1 = fehlt): läuft in jedem ProcessEvent.
+uintptr_t Function_(uintptr_t& Cache, const char* Name)
+{
+    if (!Cache)
+        if (!(Cache = Objects::FindObject(Name, "InventoryComponent")))
+            Cache = 1;
+    return Cache;
 }
 
 uintptr_t Function(uintptr_t& Cache, const char* Name, const char* Outer)
@@ -172,84 +164,15 @@ std::string TextAt(uintptr_t Address)
     return Result;
 }
 
-std::string ItemName(uintptr_t Item)
+std::string ItemName(uintptr_t Data, uintptr_t Rarity)
 {
-    for (const auto& [Known, Name] : Reward.Names)
-        if (Known == Item)
-            return Name;
-    const uintptr_t Data = Pointer(Item + ItemData);
     std::string Name = Data ? TextAt(Data + DataName) : std::string{};
     if (Name.empty())
         Name = Data ? Memory::NameOf(Data) : "?";
-    if (const uintptr_t Rarity = Pointer(Item + ItemRarity))
+    if (Rarity)
         if (const std::string Text = TextAt(Rarity + RarityName); !Text.empty())
             Name += " (" + Text + ")";
-    Reward.Names.emplace_back(Item, Name);
     return Name;
-}
-
-// Nur für die aktuelle Sitzung der Mod, mit Koop-Modus von ihr gesetzt.
-bool OwnSession()
-{
-    return Reward.ForcedCoop && Current(Reward.Coordinator);
-}
-
-// Bestätigen des Hosts zurückhalten, solange er zuerst wäre: beide Spieler haben noch nicht geclaimt.
-bool HoldConfirm()
-{
-    if (!OwnSession() || QueueState(Reward.Coordinator) != AwaitingClaims || !RemoteReady.load())
-        return false;
-    const auto Eligible = Ints(Reward.Coordinator + SessionEligible);
-    return Contains(Eligible, 0) && Contains(Eligible, 1);
-}
-
-bool __fastcall BeginHook(uintptr_t Coordinator, uintptr_t Chest, uintptr_t Opener)
-{
-    uintptr_t Coop = 0, Host = 0, Remote = 0;
-    bool Forced = false;
-    if (CurrentRole() == NetRole::Host && RemoteReady.load() && BoundRemoteP2(Coop, Host, Remote) &&
-        !Memory::Read<uint8_t>(Coop + CoopEnabled).value_or(1))
-    {
-        const uint8_t On = 1;
-        Forced = Memory::WriteBytes(Coop + CoopEnabled, &On, 1);
-    }
-    const bool Result = OriginalBegin(Coordinator, Chest, Opener);
-    if (!Forced)
-        return Result;
-    if (!Reward.ForcedCoop)
-    {
-        Reward.ForcedCoop = true;
-        Reward.Coop = Coop;
-    }
-    Reward.Coordinator = Coordinator;
-    Core::Log::Info("Airdrop-Auswahl: Kiste geöffnet, Koop-Sitzung {} state={} eligible={} warteschlange={}", Result ? "gestartet" : "nicht gestartet",
-                    QueueState(Coordinator), Join(Ints(Coordinator + SessionEligible)), Memory::Read<int32_t>(Coordinator + QueuedRewards + 8).value_or(-1));
-    return Result;
-}
-
-void __fastcall ConfirmHook(uintptr_t Panel)
-{
-    if (CurrentRole() == NetRole::Host && HoldConfirm())
-    {
-        if (Reward.HeldPanel != Panel || Reward.HeldSession != Reward.Session)
-            Core::Log::Info("Airdrop-Auswahl: Host hat bestätigt, wartet auf die Wahl des Clients");
-        Reward.HeldPanel = Panel;
-        Reward.HeldSession = Reward.Session;
-        return;
-    }
-    OriginalConfirm(Panel);
-}
-
-uintptr_t PlayerStateOf(uintptr_t Controller)
-{
-    const uintptr_t World = CurrentWorld();
-    const uintptr_t GameState = World ? Pointer(World + Offsets::UWorld::GameState) : 0;
-    const uintptr_t States = GameState ? Pointer(GameState + Offsets::AGameStateBase::PlayerArray) : 0;
-    const int32_t Count = GameState ? Memory::Read<int32_t>(GameState + Offsets::AGameStateBase::PlayerArray + 8).value_or(0) : 0;
-    for (int32_t i = 0; States && i < std::min(Count, 4); ++i)
-        if (const uintptr_t PlayerState = Pointer(States + 8 * i); PlayerState && Pointer(PlayerState + PlayerStateOwner) == Controller)
-            return PlayerState;
-    return 0;
 }
 
 uintptr_t InventoryOf(uintptr_t PlayerState)
@@ -260,10 +183,25 @@ uintptr_t InventoryOf(uintptr_t PlayerState)
     for (int32_t i = 0; i < Total; ++i)
     {
         const uintptr_t Object = Objects::At(i);
-        if (Object && Pointer(Object + InventoryPlayerState) == PlayerState && Alive(Object) && Objects::IsA(Object, "InventoryComponent"))
+        if (Object && (Pointer(Object + InventoryPlayerState) == PlayerState || Pointer(Object + Offsets::UObject::Outer) == PlayerState) &&
+            Alive(Object) && Objects::IsA(Object, "InventoryComponent"))
             return Object;
     }
     return 0;
+}
+
+uintptr_t InventoryOfController(uintptr_t Controller)
+{
+    return InventoryOf(Controller ? Pointer(Controller + ControllerPlayerState) : 0);
+}
+
+uintptr_t LocalController()
+{
+    const uintptr_t World = CurrentWorld();
+    const uintptr_t Instance = World ? Pointer(World + Offsets::UWorld::OwningGameInstance) : 0;
+    const uintptr_t Players = Instance ? Pointer(Instance + GameInstanceLocalPlayers) : 0;
+    const uintptr_t Local = Players ? Pointer(Players) : 0;
+    return Local ? Pointer(Local + PlayerController) : 0;
 }
 
 bool InInventory(uintptr_t Inventory, uintptr_t Item)
@@ -280,78 +218,193 @@ bool InInventory(uintptr_t Inventory, uintptr_t Item)
     return Params.Result;
 }
 
-// Die Wahl des Clients liegt nach ClaimReward(1) beim Host. Neu im Inventar des Clients anlegen, beim Host entfernen.
-void MoveClientChoice()
+bool IsReward(uintptr_t Item)
 {
-    const uintptr_t Item = Reward.ClientChoice;
-    Reward.ClientChoice = 0;
-    uintptr_t Coop = 0, Host = 0, Remote = 0;
-    if (!Alive(Item) || !BoundRemoteP2(Coop, Host, Remote))
-    {
-        Core::Log::Warn("Airdrop-Auswahl: Wahl des Clients nicht mehr greifbar, nicht verschoben");
-        return;
-    }
-    const uintptr_t HostInventory = InventoryOf(PlayerStateOf(Host)), ClientInventory = InventoryOf(PlayerStateOf(Remote));
-    if (InInventory(ClientInventory, Item))
-    {
-        Core::Log::Info("Airdrop-Auswahl: Wahl liegt schon im Inventar des Clients");
-        return;
-    }
-    if (!ClientInventory || !InInventory(HostInventory, Item))
-    {
-        Core::Log::Warn("Airdrop-Auswahl: Wahl des Clients weder bei Host noch Client gefunden (Inventare {} {})", HostInventory != 0,
-                        ClientInventory != 0);
-        return;
-    }
-    static uintptr_t Create = 0, Remove = 0;
-    if (!Function(Create, "CreateAndAddItem", "InventoryComponent") || !Function(Remove, "RemoveFromInventory", "InventoryComponent"))
-        return;
-    struct
-    {
-        uintptr_t Data, Rarity;
-        bool Broken, FlagAsNew, SystemAdd;
-        uint8_t Pad;
-        int32_t Position;
-        bool AllowP2Reserve;
-        uint8_t Pad2[7];
-        uintptr_t Result;
-    } Add{Pointer(Item + ItemData), Pointer(Item + ItemRarity), Memory::Read<uint8_t>(Item + ItemBroken).value_or(0) != 0, true, true, 0, -1,
-          false, {}, 0};
-    static_assert(sizeof(Add) == 0x28);
-    if (!Add.Data)
-        return;
-    Objects::ProcessEvent(ClientInventory, Create, &Add);
-    if (!Add.Result)
-    {
-        Core::Log::Warn("Airdrop-Auswahl: CreateAndAddItem beim Client fehlgeschlagen, Wahl bleibt beim Host");
-        return;
-    }
-    struct
-    {
-        uintptr_t Item;
-        uint8_t Context;
-        bool Destroy;
-        uint8_t Pad[6];
-    } Drop{Item, 0, true, {}};
-    static_assert(sizeof(Drop) == 0x10);
-    Objects::ProcessEvent(HostInventory, Remove, &Drop);
-    Core::Log::Info("Airdrop-Auswahl: {} ins Inventar des Clients gelegt, beim Host {}", ItemName(Item),
-                    InInventory(HostInventory, Item) ? "noch vorhanden" : "entfernt");
+    return Alive(Item) && Memory::Read<uint8_t>(Item + ItemIsReward).value_or(0);
 }
 
-bool CheckBegin()
+// Datenobjekte der Choices über ihre Objektnamen, ein Durchlauf über das Objekt-Array.
+std::vector<std::pair<uintptr_t, uintptr_t>> ResolveChoices(const std::vector<Game::Rewards::ChoiceItem>& Choices)
 {
-    return Code::Expect(At(BeginCoopReward), {0x48, 0x89, 0x5C, 0x24, 0x18, 0x48, 0x89, 0x74, 0x24, 0x20}, "Koop-Reward-Sitzung beginnen");
+    std::vector<std::pair<uintptr_t, uintptr_t>> Result(Choices.size());
+    size_t Missing = 0;
+    for (const auto& Choice : Choices)
+        Missing += 1 + !Choice.Rarity.empty();
+    const int32_t Total = Objects::Count();
+    for (int32_t i = 0; i < Total && Missing; ++i)
+    {
+        const uintptr_t Object = Objects::At(i);
+        if (!Object)
+            continue;
+        const std::string Name = Memory::NameOf(Object);
+        for (size_t c = 0; c < Choices.size(); ++c)
+        {
+            if (!Result[c].first && Name == Choices[c].Data && Objects::IsA(Object, "InventoryItemData"))
+            {
+                Result[c].first = Object;
+                --Missing;
+            }
+            if (!Result[c].second && !Choices[c].Rarity.empty() && Name == Choices[c].Rarity && Objects::IsA(Object, "Rarity"))
+            {
+                Result[c].second = Object;
+                --Missing;
+            }
+        }
+    }
+    return Result;
+}
+
+void EndHostSession(const char* Why)
+{
+    if (!Host.Active)
+        return;
+    if (!Host.ClientPick && RemoteReady.load())
+        Core::Log::Warn("Airdrop-Auswahl: Sitzung {} endet ohne Wahl des Clients ({})", Host.Session, Why);
+    else
+        Core::Log::Info("Airdrop-Auswahl: Sitzung {} beendet ({})", Host.Session, Why);
+    const uint64_t Last = Host.Session;
+    Host = {};
+    Host.Session = Last;
+}
+
+void __fastcall SetRewardsHook(uintptr_t Inventory, ItemArray* Items, int32_t Level)
+{
+    if (CurrentRole() == NetRole::Host && Items && Items->Data && Items->Count > 0 && Items->Count <= 8)
+    {
+        EndHostSession("neue Auswahl");
+        Host.Active = true;
+        ++Host.Session;
+        Host.Inventory = Inventory;
+        Host.Level = Level;
+        for (int32_t i = 0; i < Items->Count; ++i)
+        {
+            const uintptr_t Item = Items->Data[i];
+            const uintptr_t Data = Item ? Pointer(Item + ItemData) : 0, Rarity = Item ? Pointer(Item + ItemRarity) : 0;
+            Host.Items.push_back(Item);
+            Host.Data.emplace_back(Data, Rarity);
+            Host.Choices.push_back({ItemName(Data, Rarity), Data ? Memory::NameOf(Data) : std::string{}, Rarity ? Memory::NameOf(Rarity) : std::string{},
+                                    Item && Memory::Read<uint8_t>(Item + ItemBroken).value_or(0) != 0});
+        }
+        Core::Log::Info("Airdrop-Auswahl: Sitzung {} mit {} Choices, Stufe {}", Host.Session, Host.Items.size(), Level);
+    }
+    OriginalSetRewards(Inventory, Items, Level);
+}
+
+// Lokale Instanzen direkt aus MyItems nehmen, ohne RemoveFromInventory (Server-RPC).
+void DropLocal()
+{
+    const uintptr_t Array = Shown.Inventory + InventoryItems;
+    const uintptr_t Data = Alive(Shown.Inventory) ? Pointer(Array) : 0;
+    const int32_t Count = Data ? Memory::Read<int32_t>(Array + 8).value_or(0) : 0;
+    int32_t Kept = 0;
+    for (int32_t i = 0; i < Count && Count <= 4096; ++i)
+    {
+        const uintptr_t Item = Pointer(Data + 8 * i);
+        if (std::find(Shown.Items.begin(), Shown.Items.end(), Item) != Shown.Items.end())
+            continue;
+        if (Kept != i)
+            Memory::WriteBytes(Data + 8 * Kept, &Item, sizeof(Item));
+        ++Kept;
+    }
+    if (Kept != Count)
+        Memory::WriteBytes(Array + 8, &Kept, sizeof(Kept));
+    if (!Shown.Items.empty())
+    {
+        Stale = Shown.Items;
+        StaleUntil = GetTickCount64() + 10000;
+    }
+    Shown.Items.clear();
+    ClientShowing = false;
+}
+
+// Das angezeigte InventoryPanel: Neben ihm gibt es Vorlagen ohne Unter-Widgets; HandleConfirmButton liest sofort
+// das Widget bei 0x7A0.
+uintptr_t LivePanel()
+{
+    constexpr uintptr_t PanelConfirmWidget = 0x7A0;
+    const int32_t Total = Objects::Count();
+    for (int32_t i = 0; i < Total; ++i)
+    {
+        const uintptr_t Object = Objects::At(i);
+        if (Object && Alive(Object) && Pointer(Object + PanelConfirmWidget) && Objects::IsA(Object, "InventoryPanel") &&
+            !Memory::NameOf(Object).starts_with("Default__"))
+            return Object;
+    }
+    return 0;
+}
+
+std::string FunctionName(uintptr_t Function)
+{
+    return Memory::NameOf(Function);
+}
+
+bool ClientConfirm(uintptr_t Panel)
+{
+    if (Shown.Items.empty())
+        return false;
+    if (Shown.Taken)
+    {
+        OriginalConfirm(Panel); // RPCs mit lokalen Instanzen hält FilterRewardEvent zurück
+        Shown.Pick = std::exchange(Shown.Taken, std::nullopt);
+        Core::Log::Info("Airdrop-Auswahl: Client bestätigt im Panel, Wahl={}", *Shown.Pick);
+        DropLocal();
+        return true;
+    }
+    if (Shown.Items.empty())
+        return false;
+    auto Flags = [&]
+    {
+        std::string Text;
+        for (const uintptr_t Item : Shown.Items)
+            Text += std::to_string(InInventory(Shown.Inventory, Item)) + "/" + std::to_string(Memory::Read<uint8_t>(Item + ItemIsReward).value_or(9)) +
+                    "/" + std::to_string(Memory::Read<uint8_t>(Item + ItemInBackpack).value_or(9)) + " ";
+        return Text;
+    };
+    const std::string Before = Flags();
+    OriginalConfirm(Panel);
+    // Gewählt ist die Instanz, die nach dem Bestätigen im Inventar liegt und keine Belohnung mehr ist.
+    std::optional<uint32_t> Pick;
+    for (uint32_t i = 0; i < Shown.Items.size() && !Pick; ++i)
+        if (Alive(Shown.Items[i]) && InInventory(Shown.Inventory, Shown.Items[i]) && !IsReward(Shown.Items[i]))
+            Pick = i;
+    Core::Log::Info("Airdrop-Auswahl: Client bestätigt im Panel, Wahl={} (im Inventar/Belohnung/Rucksack vorher {}nachher {})",
+                    Pick ? std::to_string(*Pick) : std::string("keine"), Before, Flags());
+    if (!Pick)
+        return true;
+    Shown.Pick = Pick;
+    DropLocal();
+    return true;
+}
+
+void __fastcall ConfirmHook(uintptr_t Panel)
+{
+    if (CurrentRole() == NetRole::Client && ClientConfirm(Panel))
+        return;
+    if (CurrentRole() == NetRole::Host && Host.Active && !Host.ClientPick && RemoteReady.load())
+    {
+        if (Host.HeldPanel != Panel)
+            Core::Log::Info("Airdrop-Auswahl: Host hat bestätigt, wartet auf die Wahl des Clients");
+        Host.HeldPanel = Panel;
+        return;
+    }
+    OriginalConfirm(Panel);
+}
+
+bool CheckSetRewards()
+{
+    return Code::Expect(At(SetRewardItems), {0x48, 0x89, 0x5C, 0x24, 0x18, 0x48, 0x89, 0x54, 0x24, 0x10}, "InventoryComponent.SetRewardItems");
 }
 bool CheckConfirm()
 {
+    if (!Code::Expect(At(CreateItemInstance), {0x48, 0x89, 0x5C, 0x24, 0x08, 0x55, 0x56, 0x57, 0x48, 0x81, 0xEC}, "InventoryComponent::CreateItemInstance"))
+        return false;
     return Code::Expect(At(PanelConfirm), {0x40, 0x57, 0x48, 0x83, 0xEC, 0x50, 0x48, 0x8B, 0xF9}, "InventoryPanel.HandleConfirmButton") &&
            Code::Expect(At(MemoryFree), {0x48, 0x85, 0xC9, 0x74, 0x2E}, "FMemory::Free");
 }
-bool ApplyBegin(Code::Writer&)
+bool ApplySetRewards(Code::Writer&)
 {
-    return Core::Hooks::Install(reinterpret_cast<void*>(At(BeginCoopReward)), reinterpret_cast<void*>(&BeginHook),
-                                reinterpret_cast<void**>(&OriginalBegin));
+    return Core::Hooks::Install(reinterpret_cast<void*>(At(SetRewardItems)), reinterpret_cast<void*>(&SetRewardsHook),
+                                reinterpret_cast<void**>(&OriginalSetRewards));
 }
 bool ApplyConfirm(Code::Writer&)
 {
@@ -359,14 +412,79 @@ bool ApplyConfirm(Code::Writer&)
                                 reinterpret_cast<void**>(&OriginalConfirm));
 }
 const Patch List[] = {
-    {"Airdrop-Auswahl: Koop-Sitzung für den Remote-Spieler", CheckBegin, ApplyBegin},
-    {"Airdrop-Auswahl: Host-Bestätigen bis zur Client-Wahl halten", CheckConfirm, ApplyConfirm},
+    {"Airdrop-Auswahl: Choices des Hosts mitlesen", CheckSetRewards, ApplySetRewards},
+    {"Airdrop-Auswahl: Bestätigen bis zur Wahl des Partners halten", CheckConfirm, ApplyConfirm},
 };
 }
 
 std::span<const Patch> RewardPatches()
 {
     return List;
+}
+
+// Aus RewardChest.OpenAirdropChoices beim Host: Öffnet die Figur des Remote-Spielers die Kiste, bekommt die Figur des
+// Hosts die native Auswahl, der Client seine über den Kontrollkanal.
+// Host: Inventar-RPCs eines Clients mit einer Instanz, die es beim Host nicht gibt, kommen mit Null an. Die nativen
+// Implementierungen lesen sie ungeprüft (Absturz in AddToBackpack). Solche Aufrufe verwirft die Mod.
+bool NullItemRpc(uintptr_t Function, void* Params)
+{
+    static uintptr_t Cache[5]{};
+    static const char* const Names[5]{"AddToBackpack", "AddToInventory", "RemoveFromInventory", "OccupyBackpackSlots", "ForceEquipItemInBackpack"};
+    for (size_t i = 0; i < 5; ++i)
+        if (Function && Function == Function_(Cache[i], Names[i]))
+        {
+            if (Params && !Memory::Read<uintptr_t>(reinterpret_cast<uintptr_t>(Params)).value_or(1))
+            {
+                Core::Log::Warn("Airdrop-Auswahl: {} ohne Item vom Client verworfen", Names[i]);
+                return true;
+            }
+            return false;
+        }
+    return false;
+}
+
+bool FilterRewardEvent(uintptr_t Object, uintptr_t Function, void* Params)
+{
+    if (CurrentRole() == NetRole::Host)
+        return RemoteReady.load(std::memory_order_relaxed) && NullItemRpc(Function, Params);
+    const bool Recent = !Stale.empty() && GetTickCount64() < StaleUntil;
+    if ((!ClientShowing.load(std::memory_order_relaxed) && !Recent) || !Params || !(Memory::Read<uint32_t>(Function + FunctionFlags).value_or(0) & FuncNet))
+        return false;
+    const uint16_t Size = Memory::Read<uint16_t>(Function + FunctionParmsSize).value_or(0);
+    std::optional<uint32_t> Index;
+    for (uint16_t At = 0; At + 8 <= Size && At < 0x100 && !Index; At += 8)
+    {
+        const uintptr_t Value = Memory::Read<uintptr_t>(reinterpret_cast<uintptr_t>(Params) + At).value_or(0);
+        for (uint32_t i = 0; i < Shown.Items.size(); ++i)
+            if (Value && Shown.Items[i] == Value)
+                Index = i;
+        if (!Index && Recent && Value && std::find(Stale.begin(), Stale.end(), Value) != Stale.end())
+        {
+            Core::Log::Info("Airdrop-Auswahl: RPC {} mit geschlossener lokaler Choice zurückgehalten", FunctionName(Function));
+            return true;
+        }
+    }
+    if (!Index)
+        return false;
+    const std::string Name = FunctionName(Function);
+    const bool Placed = Name == "AddToBackpack" || Name == "AddToInventory" || Name == "OccupyBackpackSlots" || Name == "ForceEquipItemInBackpack";
+    Core::Log::Info("Airdrop-Auswahl: RPC {} mit lokaler Choice {} zurückgehalten{}", Name, *Index, Placed && !Shown.Taken ? ", gilt als Wahl" : "");
+    if (Placed && !Shown.Taken)
+        Shown.Taken = Index;
+    (void)Object;
+    return true;
+}
+
+uintptr_t RewardCharacter(uintptr_t Character)
+{
+    uintptr_t Coop = 0, HostController = 0, Remote = 0;
+    if (CurrentRole() != NetRole::Host || !RemoteReady.load() || !BoundRemoteP2(Coop, HostController, Remote))
+        return Character;
+    const uintptr_t RemotePawn = Pointer(Remote + ControllerPawn), HostPawn = Pointer(HostController + ControllerPawn);
+    if (Character != RemotePawn || !HostPawn)
+        return Character;
+    Core::Log::Info("Airdrop-Auswahl: Kiste vom Remote-Spieler geöffnet, Auswahl über die Figur des Hosts");
+    return HostPawn;
 }
 }
 
@@ -377,125 +495,146 @@ using namespace Game::Patches;
 void SetRemoteReady(bool Ready)
 {
     if (RemoteReady.exchange(Ready) != Ready)
-        Core::Log::Info("Airdrop-Auswahl: Client mit Mod {}", Ready ? "verbunden, Koop-Sitzung bei Airdrops an" : "fehlt, Solo-Auswahl");
+        Core::Log::Info("Airdrop-Auswahl: Client mit Mod {}", Ready ? "verbunden, Airdrop-Auswahl für beide" : "fehlt, Auswahl nur beim Host");
 }
 
 std::optional<Offer> ReadOffer()
 {
-    if (!OwnSession() || QueueState(Reward.Coordinator) != AwaitingClaims)
+    if (CurrentRole() != NetRole::Host || !Host.Active)
         return std::nullopt;
-    const auto Items = Choices(Reward.Coordinator);
-    const auto Eligible = Ints(Reward.Coordinator + SessionEligible);
     Offer Result;
-    Result.Session = Reward.Session;
-    Result.Revision = Revision(Items);
-    Result.Level = Memory::Read<int32_t>(Reward.Coordinator + SessionLevel).value_or(0);
-    for (const uintptr_t Item : Items)
-        Result.Choices.push_back(Item ? ItemName(Item) : "?");
-    Result.ClientClaimed = !Contains(Eligible, 1);
-    Result.HostClaimed = !Contains(Eligible, 0);
-    Result.HostWaiting = Reward.HeldPanel && Reward.HeldSession == Reward.Session;
+    Result.Session = Host.Session;
+    Result.Revision = Revision(Host.Items);
+    Result.Level = Host.Level;
+    Result.Choices = Host.Choices;
+    Result.ClientClaimed = Host.ClientPick.has_value();
+    Result.HostClaimed = false;
+    Result.HostWaiting = Host.HeldPanel != 0;
     return Result;
 }
 
 bool ClaimForClient(uint64_t SessionId, uint64_t Expected, uint32_t Index)
 {
-    if (!OwnSession() || SessionId != Reward.Session || QueueState(Reward.Coordinator) != AwaitingClaims ||
-        !Contains(Ints(Reward.Coordinator + SessionEligible), 1))
+    if (CurrentRole() != NetRole::Host || !Host.Active || SessionId != Host.Session || Host.ClientPick || Revision(Host.Items) != Expected ||
+        Index >= Host.Data.size() || !Host.Data[Index].first)
         return false;
-    const auto Items = Choices(Reward.Coordinator);
-    if (Revision(Items) != Expected || Index >= Items.size() || !Items[Index])
+    uintptr_t Coop = 0, HostController = 0, Remote = 0;
+    const uintptr_t Inventory = BoundRemoteP2(Coop, HostController, Remote) ? InventoryOfController(Remote) : 0;
+    static uintptr_t Create = 0;
+    if (!Inventory || !Function(Create, "CreateAndAddItem", "InventoryComponent"))
+    {
+        Core::Log::Warn("Airdrop-Auswahl: Inventar des Clients nicht gefunden, Wahl {} verworfen", Index);
         return false;
-    static uintptr_t Claim = 0;
-    if (!Function(Claim, "ClaimReward", "CoopInventoryCoordinatorComponent"))
-        return false;
+    }
     struct
     {
-        int32_t Player;
-        uint32_t Pad;
-        uintptr_t Choice;
-        bool Result;
+        uintptr_t Data, Rarity;
+        bool Broken, FlagAsNew, SystemAdd;
+        uint8_t Pad;
+        int32_t Position;
+        bool AllowP2Reserve;
         uint8_t Pad2[7];
-    } Params{1, 0, Items[Index], false, {}};
-    static_assert(sizeof(Params) == 0x18);
-    const std::string Name = ItemName(Items[Index]);
-    Objects::ProcessEvent(Reward.Coordinator, Claim, &Params);
-    Core::Log::Info("Airdrop-Auswahl: Client wählt {} ({}), ClaimReward(1)={} state={} eligible={}", Index, Name, Params.Result,
-                    QueueState(Reward.Coordinator), Join(Ints(Reward.Coordinator + SessionEligible)));
-    if (Params.Result)
-    {
-        Reward.ClientChoice = Items[Index];
-        Reward.ClientSession = SessionId;
-    }
-    return Params.Result;
+        uintptr_t Result;
+    } Add{Host.Data[Index].first, Host.Data[Index].second, Host.Choices[Index].Broken, true, true, 0, -1, false, {}, 0};
+    static_assert(sizeof(Add) == 0x28);
+    Objects::ProcessEvent(Inventory, Create, &Add);
+    Core::Log::Info("Airdrop-Auswahl: Client wählt {} ({}), ins Inventar des Clients gelegt={}", Index, Host.Choices[Index].Name, Add.Result != 0);
+    if (!Add.Result)
+        return false;
+    Host.ClientPick = Index;
+    return true;
 }
 
 void Tick()
 {
-    if (CurrentRole() != NetRole::Host || !Reward.ForcedCoop)
+    if (CurrentRole() != NetRole::Host || !Host.Active)
         return;
-    if (!Current(Reward.Coordinator))
+    if (!Alive(Host.Inventory))
     {
-        // Welt gewechselt: Koop-Byte am Subsystem (GameInstance) trotzdem zurücksetzen.
-        Core::Log::Warn("Airdrop-Auswahl: Koordinator weg, Koop-Modus zurückgesetzt");
-        const uint8_t Off = 0;
-        Memory::WriteBytes(Reward.Coop + CoopEnabled, &Off, 1);
-        Reward = {};
+        EndHostSession("Inventar weg");
         return;
     }
-    const uint8_t Now = QueueState(Reward.Coordinator);
-    const uintptr_t Chest = Pointer(Reward.Coordinator + Session);
-    if (Now == AwaitingClaims && Chest != Reward.Chest)
+    // Zurückgehaltenes Bestätigen nachholen, sobald der Client gewählt hat oder nicht mehr verbunden ist.
+    if (Host.HeldPanel && (Host.ClientPick || !RemoteReady.load()))
     {
-        Reward.Chest = Chest;
-        ++Reward.Session;
-        Reward.Names.clear();
-        Reward.CompletedSince = 0;
-        Reward.Acknowledged = false;
-        Core::Log::Info("Airdrop-Auswahl: Sitzung {} level={} choices={}", Reward.Session,
-                        Memory::Read<int32_t>(Reward.Coordinator + SessionLevel).value_or(0), Choices(Reward.Coordinator).size());
-    }
-    // Zurückgehaltenes Bestätigen nachholen, sobald der Client geclaimt hat.
-    if (Reward.HeldPanel && (Reward.HeldSession != Reward.Session || Now != AwaitingClaims || !HoldConfirm()))
-    {
-        const uintptr_t Panel = Reward.HeldPanel;
-        Reward.HeldPanel = 0;
-        if (Now == AwaitingClaims && Reward.HeldSession == Reward.Session && Alive(Panel) && IsA(Panel, "InventoryPanel"))
+        const uintptr_t Panel = std::exchange(Host.HeldPanel, 0);
+        if (Alive(Panel) && Objects::IsA(Panel, "InventoryPanel"))
         {
-            Core::Log::Info("Airdrop-Auswahl: Client hat gewählt, Bestätigen des Hosts nachgeholt");
+            Core::Log::Info("Airdrop-Auswahl: Bestätigen des Hosts nachgeholt");
             OriginalConfirm(Panel);
-            Core::Log::Info("Airdrop-Auswahl: nach dem Host-Claim state={} claimed={}", QueueState(Reward.Coordinator),
-                            Join(Ints(Reward.Coordinator + SessionClaimed)));
         }
     }
-    // Rückfall, falls das Panel nach dem letzten Claim nicht selbst abschließt.
-    if (Now == Completed)
+    // Ende: keine Choice mehr als Belohnung im Inventar des Hosts, das Panel hat bestätigt.
+    if (std::none_of(Host.Items.begin(), Host.Items.end(), [](uintptr_t Item) { return IsReward(Item) && InInventory(Host.Inventory, Item); }))
+        EndHostSession("Host hat bestätigt");
+}
+
+bool ShowForClient(uint64_t SessionId, uint64_t Expected, int32_t Level, const std::vector<ChoiceItem>& Items)
+{
+    if (CurrentRole() != NetRole::Client)
+        return false;
+    if (Shown.Session == SessionId && Shown.Revision == Expected && (!Shown.Items.empty() || Shown.Pick))
+        return true;
+    CloseForClient();
+    static uintptr_t SetRewards = 0;
+    const uintptr_t Inventory = InventoryOfController(LocalController());
+    if (!Inventory || Items.empty() || !Function(SetRewards, "SetRewardItems", "InventoryComponent"))
     {
-        const ULONGLONG Tick = GetTickCount64();
-        if (!Reward.CompletedSince)
-            Reward.CompletedSince = Tick;
-        else if (!Reward.Acknowledged && Tick - Reward.CompletedSince > 3000)
+        Core::Log::Warn("Airdrop-Auswahl: Panel beim Client nicht möglich (Inventar {})", Inventory != 0);
+        return false;
+    }
+    const auto Resolved = ResolveChoices(Items);
+    std::vector<uintptr_t> Instances;
+    for (size_t i = 0; i < Items.size(); ++i)
+    {
+        const uintptr_t Instance =
+            Resolved[i].first ? reinterpret_cast<CreateFn>(At(CreateItemInstance))(Inventory, Resolved[i].first, false, Resolved[i].second) : 0;
+        if (!Instance)
         {
-            Reward.Acknowledged = true;
-            static uintptr_t Ack = 0;
-            bool Result = false;
-            if (Function(Ack, "AcknowledgeRewardUIClosed", "CoopInventoryCoordinatorComponent"))
-                Objects::ProcessEvent(Reward.Coordinator, Ack, &Result);
-            Core::Log::Warn("Airdrop-Auswahl: Sitzung blieb abgeschlossen offen, AcknowledgeRewardUIClosed={}", Result);
+            Core::Log::Warn("Airdrop-Auswahl: Choice {} ({}) beim Client nicht anlegbar, Daten={}@{:#x} Seltenheit={}@{:#x}", i, Items[i].Name, Items[i].Data,
+                            Resolved[i].first, Items[i].Rarity, Resolved[i].second);
+            return false;
+        }
+        const uint8_t Broken = Items[i].Broken;
+        Memory::WriteBytes(Instance + ItemBroken, &Broken, 1);
+        Instances.push_back(Instance);
+    }
+    ItemArray Array{Instances.data(), static_cast<int32_t>(Instances.size()), static_cast<int32_t>(Instances.size())};
+    struct
+    {
+        ItemArray Items;
+        int32_t Level;
+        uint8_t Pad[4];
+    } Params{Array, Level, {}};
+    static_assert(sizeof(Params) == 0x18);
+    Objects::ProcessEvent(Inventory, SetRewards, &Params);
+    Shown = {SessionId, Expected, Inventory, Instances, std::nullopt, std::nullopt};
+    ClientShowing = true;
+    Core::Log::Info("Airdrop-Auswahl: Panel beim Client mit {} Choices geöffnet (Sitzung {})", Instances.size(), SessionId);
+    return true;
+}
+
+void CloseForClient()
+{
+    if (!Shown.Items.empty())
+        Core::Log::Info("Airdrop-Auswahl: Panel beim Client geschlossen, Sitzung {}", Shown.Session);
+    DropLocal();
+    Shown = {};
+}
+
+std::optional<uint32_t> TakeClientPick()
+{
+    // Abgelegt, aber das Panel nicht bestätigt (Knopf wartet auf die Antwort des Servers): Panel selbst schließen.
+    if (Shown.Taken && !Shown.Items.empty())
+    {
+        const uintptr_t Panel = LivePanel();
+        Core::Log::Info("Airdrop-Auswahl: Wahl {} abgelegt, Panel {}", *Shown.Taken, Panel ? "wird geschlossen" : "nicht gefunden");
+        if (!Panel || !ClientConfirm(Panel))
+        {
+            Shown.Pick = std::exchange(Shown.Taken, std::nullopt);
+            DropLocal();
         }
     }
-    else
-        Reward.CompletedSince = 0;
-    if (Now == 0 && Memory::Read<int32_t>(Reward.Coordinator + QueuedRewards + 8).value_or(0) == 0)
-    {
-        if (Reward.ClientChoice)
-            MoveClientChoice();
-        const uint8_t Off = 0;
-        Memory::WriteBytes(Reward.Coop + CoopEnabled, &Off, 1);
-        Core::Log::Info("Airdrop-Auswahl: Sitzung beendet, Koop-Modus wieder aus");
-        const uint64_t Last = Reward.Session;
-        Reward = {};
-        Reward.Session = Last;
-    }
+    return std::exchange(Shown.Pick, std::nullopt);
 }
 }

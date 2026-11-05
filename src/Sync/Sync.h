@@ -25,6 +25,4 @@ struct RewardPrompt
 // Läuft auf dem Game Thread, nullopt schließt die Auswahl. Vor Start setzen.
 using RewardSink = std::function<void(std::optional<RewardPrompt>)>;
 void SetRewardSink(RewardSink Sink);
-// Client: Wahl an den Host schicken. Nur Game Thread.
-void ChooseReward(uint64_t Session, uint64_t Revision, uint32_t Index);
 }
