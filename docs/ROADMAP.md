@@ -250,8 +250,8 @@ flowchart TD
     G2 --> W4
     W4 --> IR["integration-run"]:::central
     W5 --> IR
-    RV["Vorbeugung<br/>ohne-spike, latenz-test, desync-melder"]:::open --> IG
-    PR --> RV
+    RV["Vorbeugung<br/>ohne-spike, latenz-test"]:::open --> IG
+    PR --> DS["desync-melder"]:::open --> IG
     IG --> DL["dauerlauf"]:::open --> IR
     W5 --> W6["weekly-sperre, virenscanner"]:::open --> RL
     IR --> RL["release"]:::central
