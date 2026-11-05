@@ -124,7 +124,7 @@ Mod-Log; die Host-Seite wertet VitaminStack getrennt aus.
 
 | Schritt | Ergebnis |
 |---|---|
-| Beitritt mit verschiedenen Mod-Ständen | Tunnel steht über das Relay `fra`, die erste Nachricht des Hosts wird sofort abgelehnt: „Ungueltige oder inkompatible Kontrollnachricht“, dreimal. **Vermutung:** Host noch vor `protokoll`. Nach dem Update beider auf denselben Stand bestätigt der Handshake. Klarere Meldung: `versions-meldung` |
+| Beitritt mit verschiedenen Mod-Ständen | Tunnel steht über das Relay `fra`, die erste Nachricht des Hosts wird sofort abgelehnt: „Ungueltige oder inkompatible Kontrollnachricht“, dreimal. **Vermutung:** Host noch mit Mod-Version 1, vor `desync-melder` (#98, Mod-Version 2). Nach dem Update beider auf denselben Stand bestätigt der Handshake. Seit `versions-meldung` nennt die Meldung beide Versionen |
 | Beitritt, Host im Hauptmenü | Tunnel und Handshake stehen, die Engine meldet nie „mit dem Host verbunden“. Nach 18 s lädt der Client die MetaBase ohne Verbindung und fällt 2,6 s später ins Hauptmenü. Zweimal so, siehe `lobby-bereit` |
 | Beitritt, Host in der MetaBase | Nach 0,4 bis 1,4 s verbunden, MetaBase mit 2 Spielern, gemeinsame Kamera, XP-Anzeige |
 | Reise in die Mission | Ohne Absturz, XP-Bälle und XP-Anzeige kommen an. Ping 32 bis 36 ms, Qualität 1,00, verworfen 0. **Die Karten sind verschieden**, die Figuren stehen nicht zusammen: Ohne Spike überträgt noch niemand Karte und PCG des Hosts, das ist `missionsstart` (im Spike `karte-tunnel`) |

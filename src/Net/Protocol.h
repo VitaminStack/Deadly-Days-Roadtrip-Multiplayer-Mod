@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <optional>
 #include <span>
+#include <string>
 #include <vector>
 
 // Explizites Little-Endian-Drahtformat, keine C++-Strukturen oder Spielzeiger.
@@ -37,6 +38,10 @@ std::vector<uint8_t> Encode(Kind Type, std::span<const uint8_t> Payload);
 std::optional<Frame> Decode(std::span<const uint8_t> Bytes);
 std::vector<uint8_t> Hello(Identity Value);
 bool Matches(std::span<const uint8_t> Bytes, Identity Local);
+// Lesbarer Grund, warum eine empfangene Nachricht abgelehnt wird, für Log und Overlay. Unterscheidet eine Mod ohne dieses
+// Protokoll, eine andere Protokollversion, einen anderen Spiel-Build, eine andere Mod-Version und dieselbe Rolle auf beiden
+// Seiten von kaputten Daten. Bytes ist die ganze Nachricht, Local die eigene Identität.
+std::string Explain(std::span<const uint8_t> Bytes, Identity Local);
 std::vector<uint8_t> EncodeControl(const Control& Value);
 std::optional<Control> DecodeControl(std::span<const uint8_t> Bytes);
 }
