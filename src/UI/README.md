@@ -4,9 +4,9 @@ Overlay der Mod: Lobby, Einladungen, Verbindungsstatus und Debug-Anzeige. Änder
 
 ## Stand (`overlay`)
 
-`UI::Start` startet nach der Versionsprüfung ein eigenes Win32-Toolfenster im Spielprozess. **F8** zeigt oder verbirgt es, solange das zugehörige Spielfenster oder das Overlay im Vordergrund ist. Es wird ohne Fokuswechsel eingeblendet; erst ein Klick gibt ihm den Tastaturfokus. Schließen verbirgt das Fenster, beendet aber weder Spiel noch Mod. Andere Anwendungen, minimierte Spiele und die zweite Spielinstanz werden nicht überlagert. Der Ziel-Viewport wird nur unter sichtbaren Hauptfenstern der eigenen Prozess-ID gesucht, auch nach einem Fensterwechsel.
+`UI::Start` startet nach der Versionsprüfung ein eigenes Win32-Toolfenster im Spielprozess. **F8** zeigt oder verbirgt es, solange das zugehörige Spielfenster oder das Overlay im Vordergrund ist. Es wird ohne Fokuswechsel eingeblendet; erst ein Klick gibt ihm den Tastaturfokus. Schließen verbirgt das Fenster, beendet aber weder Spiel noch Mod. Seit `overlay-fokus` bleibt ein eingeschaltetes Overlay auch sichtbar, wenn das Spiel den Fokus verliert, etwa beim Wechsel zu Discord oder Browser. Es wird dann nur mitbewegt, nicht nach vorn geholt: Als Fenster im Besitz des Spielfensters liegt es über dem Spiel, andere Anwendungen können beide verdecken. Bei minimiertem Spiel verschwindet es. F8 schaltet weiterhin nur bei Fokus auf Spiel oder Overlay um. Der Ziel-Viewport wird nur unter sichtbaren Hauptfenstern der eigenen Prozess-ID gesucht, auch nach einem Fensterwechsel.
 
-Das Fenster zeigt Verbindungszustand, Meldung, Rolle, Spielerzahl, Lobby-ID, Ping (nur wenn bekannt) und Prozess-ID. Es folgt der oberen rechten Ecke des Spiel-Clientbereichs; Schrift und Steuerelemente werden mit dessen DPI skaliert. Tab bedient die Steuerelemente. Es gibt keinen global registrierten Hotkey, keinen Renderer-/WndProc-Hook und keinen SDK-Zugriff.
+Das Fenster zeigt Verbindungszustand, Meldung, Rolle, Spielerzahl, Lobby-ID, Ping (nur wenn bekannt) und Prozess-ID. Der Knopf „Lobby-ID kopieren“ legt die aktuelle Lobby-ID als Text in die Zwischenablage und zeigt kurz „Kopiert“; ohne Lobby ist er deaktiviert. Er läuft nur im Fensterthread und löst keine Backend-Aktion aus. Es folgt der oberen rechten Ecke des Spiel-Clientbereichs; Schrift und Steuerelemente werden mit dessen DPI skaliert. Tab bedient die Steuerelemente. Es gibt keinen global registrierten Hotkey, keinen Renderer-/WndProc-Hook und keinen SDK-Zugriff.
 
 **Grenze:** Das ist ein einfaches, überlagertes Windows-Fenster für Fenster-/randlosen Betrieb, kein in den D3D-Framebuffer gezeichnetes HUD. Exklusives Vollbild ist nicht unterstützt. F8 wird nicht aus der Spieleingabe entfernt. Das Overlay pausiert das Spiel nicht und ersetzt keine Gameplay-Eingabesperre bei Inventar-/Reward-Dialogen.
 
@@ -44,6 +44,21 @@ Das Modul bleibt auf `Core` und `Net` begrenzt. Der Game-Adapter ist dafür nich
 
 Lokal am 03.11.2026: Debug und Release jeweils erfolgreich gebaut, 18 Core-Tests (77 Assertions), 13 UI-Tests (1227 Assertions) und 58 Python-Tests bestanden. Dateilinks, Modulgrenzen und unveränderte Fortschrittszähler geprüft; kein Eingriff in die fremde Sitzung.
 
+### Fokuswechsel und Kopierknopf im Spiel (05.11.2026, `overlay-fokus`)
+
+Sitzung mit `Start-Session.ps1 -Build -Mod -Tunnel Lobby -NoSpike -Brief`, Host und Client in der MetaBase verbunden, geprüft beim Host per Skript (F8 über `Game-Input.ps1`, Fokus auf ein eigenes Testfenster, Knopf per `BM_CLICK`, Zwischenablage vorher gesichert und danach wiederhergestellt):
+
+| Prüfung | Ergebnis |
+|---|---|
+| F8 im Spiel | Overlay erscheint |
+| Fokus auf eigenes Testfenster | Overlay bleibt sichtbar |
+| F8 im Testfenster | Schaltet nicht um |
+| „Lobby-ID kopieren“ mit Lobby | Aktiv; Zwischenablage enthält genau die Lobby-ID, Knopf zeigt „Kopiert“ |
+| Minimieren, Wiederherstellen | Verborgen, danach wieder sichtbar |
+| F8 im Spiel | Verbirgt das Overlay |
+
+Danach Sitzung mit `Stop-Session.ps1` beendet. Nicht geprüft: Verdecken durch andere Anwendungen nur per Fensterlogik, kein Bildvergleich.
+
 ### Sichtbare Spielabnahme (03.11.2026)
 
 Nach Freigabe der vorher fremd belegten Sitzung eine eigene Sitzung ausschließlich mit `Start-Session.ps1 -Build -Mod`/CrashGuard gestartet, ohne `-unattended`. Verwendet wurde die geprüfte Entwicklungskopie von Build `26187885`, nur in der lokalen Worktree-Konfiguration aktiviert. UI-Code im getesteten Release-Build: `d9fcb36`; das danach übernommene `main` änderte daran nichts. Host und Client waren in der `MetaBase` verbunden, auf beiden Seiten `players=2`, beim Host `clients=1`. Beide Prozesspfade zeigten auf die eingefrorene Kopie; beide Mod-Logs bestätigten den Build, den gesperrten Crash-Reporter und „Overlay bereit“.
@@ -55,7 +70,7 @@ Nach Freigabe der vorher fremd belegten Sitzung eine eigene Sitzung ausschließl
 | F8 bei fokussiertem Overlay | Verbirgt das Overlay und gibt den Fokus an das eigene Spiel zurück; erneutes F8 öffnet wieder |
 | Tatsächlicher Klick auf das Fenster-X | Verbirgt nur das Overlay, Spiel bleibt aktiv und fokussiert; Wiederöffnen mit F8 funktioniert |
 | Wechsel Host ↔ Client | Nur das eingeschaltete Overlay der gerade aktiven Instanz ist sichtbar |
-| Fokus auf unabhängiges, eigens erzeugtes Testfenster | Beide Overlays verschwinden. F8 dort schaltet keines um; nach Rückkehr bleiben die vorher eingeschalteten Zustände erhalten |
+| Fokus auf unabhängiges, eigens erzeugtes Testfenster | Damals: beide Overlays verschwinden (seit `overlay-fokus` bleiben sie sichtbar). F8 dort schaltet keines um; nach Rückkehr bleiben die vorher eingeschalteten Zustände erhalten |
 | Spielfenster verschieben | Overlay folgt der oberen rechten Ecke des Clientbereichs |
 | Minimieren und Wiederherstellen | Eigenes Overlay verschwindet und erscheint nach Wiederherstellung/Fokus erneut. Wird automatisch die andere Spielinstanz aktiv, darf deren eigenes eingeschaltetes Overlay erscheinen |
 | Wechsel zwischen Monitoren mit 150 % und 100 %, danach zurück | Beide Overlays bleiben passend positioniert und lesbar; Fensteraufnahmen bei beiden Skalierungen visuell geprüft, keine abgeschnittenen Steuerelemente. Die Spielprozesse melden 96 logische DPI, Windows skaliert auf dem 150-%-Monitor |
