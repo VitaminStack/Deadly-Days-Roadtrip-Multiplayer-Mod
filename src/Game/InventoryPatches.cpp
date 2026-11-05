@@ -6,7 +6,9 @@
 #include <map>
 
 #include "Core/Log.h"
+#include "Core/Hooks.h"
 #include "Game/Memory.h"
+#include "Game/PatchPolicy.h"
 #include "Game/Offsets.h"
 #include "Game/PatchRuntime.h"
 
@@ -23,6 +25,35 @@ constexpr uintptr_t DefaultNetworkingSupport = 0x1512250;
 constexpr uintptr_t InventoryReadyForReplication = 0x5969750;
 constexpr uintptr_t ComponentReplicationFlags = 0x98;
 constexpr uint8_t UseRegisteredSubobjectList = 0x40;
+
+// AItemLoot::Loot bekommt das ILootableInterface-Teilobjekt, nicht den Actor.
+// Auch Blueprint-Aufrufe erreichen diesen virtuellen nativen Pfad.
+constexpr uintptr_t ItemLoot = 0x59AB040;
+constexpr uintptr_t LootableInterface = 0x2A8;
+using ItemLootFn = void(__fastcall*)(uintptr_t, uintptr_t);
+ItemLootFn OriginalItemLoot = nullptr;
+std::atomic<unsigned> ClientItemLootAttempts = 0;
+
+void __fastcall ItemLootHook(uintptr_t Interface, uintptr_t Looter)
+{
+    const uintptr_t Actor = Interface >= LootableInterface ? Interface - LootableInterface : 0;
+    const uint8_t Role = Actor ? Memory::Read<uint8_t>(Actor + 0x168).value_or(0) : 0;
+    if (ItemLootMayGrant(Role, CurrentRole()))
+        OriginalItemLoot(Interface, Looter);
+    else if (ClientItemLootAttempts.fetch_add(1) < 3)
+        Core::Log::Info("Itemsack: lokale Item-Vergabe ausgelassen; Vergabe bleibt beim Host");
+}
+
+bool CheckItemLoot()
+{
+    return Code::Expect(At(ItemLoot), {0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x6C, 0x24, 0x10}, "ItemLoot.Loot");
+}
+
+bool ApplyItemLoot(Code::Writer&)
+{
+    return Core::Hooks::Install(reinterpret_cast<void*>(At(ItemLoot)), reinterpret_cast<void*>(&ItemLootHook),
+                                reinterpret_cast<void**>(&OriginalItemLoot));
+}
 
 // Der Callback nach der Reise auf Tag 3 gehört nicht zum Inventar: Der Achievement-Detektor legt in BeginPlay einen
 // Timer mit rohem this an und löscht ihn in EndPlay nicht.
@@ -184,6 +215,7 @@ bool ApplyMapGenLambda(Code::Writer&)
 }
 
 const Patch List[] = {
+    {"Itemsack-Vergabe nur beim Host", &CheckItemLoot, &ApplyItemLoot},
     {"Inventar-Unterobjekte replizieren", &CheckInventory, &ApplyInventory},
     {"Timer des Achievement-Detektors beim EndPlay löschen", &CheckDetector, &ApplyDetector},
     {"Kartengenerator-Schritt nur für die aktuelle Welt", &CheckMapGenLambda, &ApplyMapGenLambda},

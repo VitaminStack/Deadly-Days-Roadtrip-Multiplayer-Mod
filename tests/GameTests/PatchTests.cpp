@@ -12,6 +12,19 @@
 using namespace Game;
 using namespace Game::Patches;
 
+TEST_CASE("Itemsack: Vergabe nur durch Authority ausserhalb einer Client-Welt")
+{
+    CHECK(ItemLootMayGrant(3, NetRole::Standalone));
+    CHECK(ItemLootMayGrant(3, NetRole::Host));
+    for (uint8_t Role = 0; Role <= 3; ++Role)
+        CHECK_FALSE(ItemLootMayGrant(Role, NetRole::Client));
+    for (uint8_t Role = 0; Role < 3; ++Role)
+    {
+        CHECK_FALSE(ItemLootMayGrant(Role, NetRole::Host));
+        CHECK_FALSE(ItemLootMayGrant(Role, NetRole::Standalone));
+    }
+}
+
 namespace
 {
 // Ausführbarer Puffer für erzeugten Code. Es läuft nur eigener Testcode, nie Code aus dem Spiel.
