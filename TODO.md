@@ -38,7 +38,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `gegnertyp` | P0 | [4](#phase-4--vertical-slice) | parallel | mittel |
 | `kamera-code` | P0 | [4](#phase-4--vertical-slice) | parallel | mittel |
 | `kampf` | P0 | [4](#phase-4--vertical-slice) | parallel | mittel |
-| `missionsstart` | P0 | [4](#phase-4--vertical-slice) | parallel | viel |
 | `rundenende-absturz` | P0 | [4](#phase-4--vertical-slice) | parallel | mittel |
 | `airdrop-rucksack` | P0 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `airdrop-warten` | P0 | [5](#phase-5--vollständiger-run) | parallel | mittel |
@@ -142,7 +141,6 @@ Ziel: Zwei Spieler starten eine Mission, kämpfen gegen einen Gegnertyp und sehe
 
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
-| `missionsstart` | P0 | Gemeinsamer Missionsstart, gleiche Karte bei beiden. Ordner `src/Sync/World` | `remote-spieler` | parallel | viel |
 | `kamera-code` | P0 | Gemeinsame Kamera (Option A) auch beim Client umsetzen, ursprünglichen Zoom und Bewegungsbegrenzung erhalten. Ordner `src/Sync/World`, `src/Game`. **Einstieg:** [Kamera](docs/GAME_ANALYSIS.md#kamera-und-sichtbereich) | `remote-spieler` | parallel | mittel |
 | `kampf` | P0 | Waffen, Projektile, Treffer, Schaden, Tod. Ordner `src/Sync/Combat` | `remote-spieler` | parallel | mittel |
 | `gegnertyp` | P0 | Ein Gegnertyp inklusive Spawn und Tod. Ordner `src/Sync/Enemies` | `remote-spieler` | parallel | mittel |
@@ -260,6 +258,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `layerapps-sperre` | 6 | Die Mod sperrt auch `deadlydays.layerapps.com`, das das Spiel beim Run-Ende anfragt (`Core::ReportHosts`). Run-Ende und neuer Run laufen normal, siehe [Telemetrie und Berichte](docs/GAME_ANALYSIS.md#telemetrie-und-berichte-telemetrie-aus) |
 | `lobby-bereit` | 3 | Host schließt die Lobby im Hauptmenü oder ohne Listen-Server, Client erfährt es sofort, siehe [Lobby nur mit Server](src/Net/README.md#lobby-nur-mit-server-lobby-bereit) |
 | `menue-weg` | 1 | Mission über den echten Weg durch das Spielmenü mit den Patches gestartet, siehe [Spike](research/spikes/a-connect/README.md) |
+| `missionsstart` | 4 | Gleiche Karte bei Host und Client über den Kontrollkanal der Mod, die Erzeugung des Clients wartet auf die Werte des Hosts; auf einem PC mit Netzprofil Internet und ohne Spike geprüft, siehe [Gleiche Karte in der Mod](docs/GAME_ANALYSIS.md#gleiche-karte-in-der-mod-missionsstart) |
 | `mitwirkende` | 0 | Freunde als Mitwirkende eingeladen |
 | `net-fehler` | 3 | Jedes Sitzungsende (Verlassen beider Seiten, Abbruch, Steam- und Sitzungszeitlimits) erscheint mit eigenem Grund als lesbare Meldung in Overlay und Log, danach sind Erstellen und Beitreten wieder frei; im Spiel geprüft, siehe [Fehlerbehandlung](src/Net/README.md#fehlerbehandlung-net-fehler) |
 | `niederlage` | 1 | Nach einer Niederlage kehren Host und Client über „Zurück zur Basis“ in die `MetaBase` zurück, und ein neuer Run startet; der Host-Absturz im Run-Ende-Handler ohne `LocalPlayer` ist im Spike behoben (`RunEnd.cpp`), siehe [Niederlage](docs/GAME_ANALYSIS.md#niederlage-niederlage) |
