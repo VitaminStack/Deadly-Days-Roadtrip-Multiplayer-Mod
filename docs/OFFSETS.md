@@ -340,6 +340,10 @@ lesenden Laufzeitvergleichen. Keine zusätzlichen Produktionspatches.
 |---|---|---|
 | `AActor` | bReplicateMovement, bHidden | `0x58`, Masken `0x10`, `0x80` |
 | `AActor` | bActorIsBeingDestroyed | `0x5D`, Maske `0x02` |
+| `AActor` | RootComponent | `0x1B8` |
+| `UActorComponent` | bReplicates | `0x98`, Maske `0x80` (`kampf`) |
+| `USceneComponent` | RelativeScale3D (Net, RepNotify) | `0x178` |
+| `ULevel` | Actors (TArray) | `0xA0` |
 | `AProjectile` | ProjectileVisualComponent | `0x400` |
 | `AExpEmissionHandler` | ExpEmitter | `0x2F8` |
 | `AExpEmissionHandler` | ExpBoundsBuffer / ExpBoundsName | `0x2D0` / `0x2E0` |
@@ -399,7 +403,9 @@ in ihrer Bedeutung offen und werden bitgenau übertragen. Hook-Präfixe: Spawn-A
 
 Projektile: `AProjectile.OnTakeFromPool_BP` läuft bei jeder Pool-Entnahme über ProcessEvent,
 auch ohne Blueprint-Implementierung. Daran schaltet der Host `Actor.SetReplicateMovement(true)`
-einmal je Actor ein. Keine neue RVA.
+einmal je Actor ein. Keine neue RVA. **Korrektur 05.11.2026 (`kampf`):** Beim Host wurde der Aufruf über
+ProcessEvent nie gesehen. Der Host erfasst neue Projektile stattdessen am Ende von `Level->Actors`, siehe
+[Kampf beim Client](GAME_ANALYSIS.md#kampf-beim-client-kampf).
 
 Arraygrößen sind gespeicherte CPU-Daten, keine lebenden GPU-Partikelzahlen.
 [Beobachtungen und verworfener Schalterversuch](../research/spikes/client-visuell/README.md).

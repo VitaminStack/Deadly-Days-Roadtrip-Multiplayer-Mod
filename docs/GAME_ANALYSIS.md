@@ -264,6 +264,33 @@ Offen:
 - Warum die Host-Figur in den Läufen 5 und 6 nicht traf, ist nicht untersucht. **[Vermutung]** Ohne Eingaben in ihrem Fenster schießt sie nicht, oder es waren keine Gegner in ihrer Reichweite.
 - Nicht geprüft: XP und Loot für Kills des Clients, andere Waffen und Gegnertypen, Schadenszahlen beim Client (stehen unter den optionalen Optimierungen).
 
+#### Kampf beim Client (`kampf`)
+
+Stand 05.11.2026, Build `26187885`, ein PC, `Run-Route.ps1 -Start -NetProfile Internet -Days 1 -StayLast`
+(gemessen 59 ms je Richtung, 2,0 bis 2,5 % Verlust), Mod mit Spike, Seed `20795`, Tag 1.
+
+Lokal zuerst: Der Client simuliert keine Projektile und keinen Schaden. Der Host schaltet nur zwei native
+Replikationen ein, siehe `ProjectilePatches.cpp`:
+
+- **Größe:** `SetBulletSize` skaliert beim Host die Root-Komponente, `BulletSize` selbst ist kein Net-Feld.
+  `RelativeScale3D` ist eins. Der Host setzt deshalb `bReplicates` der Root-Komponente, auf den Klassen-Defaultobjekten
+  und als Rückfall an lebenden Actors. Ort und Drehung der Root lässt die Engine bei `bReplicateMovement` weg.
+- **[Belegt]** Die Root-Komponente neuer Actors erbt `bReplicates` von der Vorlage im Defaultobjekt. `bReplicateMovement`
+  am Actor erbt sie **nicht**: Alle 28 Projektil-Defaultobjekte hatten das Bit, die ersten zwei Projektile der Mission
+  trotzdem nicht. Darum prüft der Host je Tick die neu ans `Level->Actors`-Array (`0xA0`) angehängten Actors.
+  Danach meldete das Log nur noch „neu sofort“, der Sekunden-Abgleich fand nichts mehr.
+- **[Belegt] Größe beim Client:** 40 s Abtastung je rund 30 ms. Fliegende Projektile hatten beim Host und beim Client
+  dieselbe Skalierung `(0.75, 0.75, 1)`, versteckte im Pool beide `(1, 1, 1)`. Der Client ruft `SetBulletSize` nicht auf
+  ([Blueprint-Probe](../research/spikes/blueprint-logik/README.md#konkrete-befunde)), der Wechsel kommt also aus der
+  Replikation. Vorher blieb der Client bei `(1, 1, 1)`.
+- **[Belegt] Treffer:** Der Treffer-Zähler des Spikes (`OnEnemyHit` beim Host) zählte nach rund 4 Minuten 90 Treffer, Client 43
+  (32 Kills), Host 47 (12 Kills), je 25 Schaden.
+- **[Belegt] Schaden an Spielern:** `DD_DamagePlayerAtIndex 20 0` und `35 1` beim Host. Beide Seiten zeigen danach HP 80 und 65,
+  in anderer Reihenfolge der `PlayerArray`. Der Desync-Melder meldete kurz „offen HP“ und nach rund 5 s wieder „OK“.
+- **Nicht belegt:** Schaden durch einen Gegnerangriff. An Tag 1 töteten die automatischen Waffen auch nach `!wave` alle
+  Gegner, bevor sie zuschlugen, auch als beide Figuren per Skript hineinliefen. Upgrades mit anderer Größe, andere Waffen
+  als `BP_Projectile_C`, Treffer- und Todeseffekte (`opt-blut`, `vfx-sound`).
+
 #### Last (Spike D, `last`)
 
 Stand: Spike `Load.cpp`, 03.11.2026, Build `26187885`, Host und Client auf einem PC über Loopback, Mission über das Spielmenü, `RunSeed=20795`, Tag 1 oben, mit `MapGen.cpp` und `Pcg.cpp`.

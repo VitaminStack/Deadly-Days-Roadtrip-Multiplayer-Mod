@@ -6,9 +6,9 @@
 // - bReplicateMovement: Ort und Tempo des Projektils.
 // - bReplicates der Root-Komponente: RelativeScale3D ist ein Net-Feld, damit kommt die Groesse ohne eigene Nachricht an.
 //   Ort und Drehung der Root-Komponente laesst die Engine bei bReplicateMovement weg, es gibt keine Doppelung.
-// Beides setzt der Host auf den Klassen-Defaultobjekten, neue Pool-Actors erben es damit ab dem ersten Schuss.
-// Ein Abgleich je Sekunde faengt Actors ab, die vorher entstanden sind oder deren Root kein Default-Subobjekt ist.
-// Schaden, Treffer und Pool bleiben beim Host unveraendert.
+// Die Root-Komponente erbt bReplicates von der Vorlage im Klassen-Defaultobjekt. bReplicateMovement am Actor erbt sie
+// nicht (05.11.2026 gemessen: Defaultobjekt gesetzt, neue Actors trotzdem ohne). Darum prueft der Host je Tick nur die
+// neu ans Level angehaengten Actors und je Sekunde alle als Rueckfall. Schaden, Treffer und Pool bleiben beim Host.
 #include <windows.h>
 
 #include "Core/Log.h"
@@ -27,8 +27,18 @@ constexpr uintptr_t DestroyingByte = 0x5D; // AActor::bActorIsBeingDestroyed, Ma
 constexpr uintptr_t RootComponent = 0x1B8; // AActor::RootComponent
 constexpr uintptr_t ComponentReplicatesByte = 0x98; // UActorComponent::bReplicates, Maske 0x80
 constexpr uint8_t ComponentReplicatesMask = 0x80;
+constexpr uintptr_t LevelActors = 0xA0; // ULevel::Actors (TArray<AActor*>)
+constexpr int32_t MaxLevelActors = 200000;
 constexpr uint32_t ClassDefaultObject = 0x10; // RF_ClassDefaultObject
 constexpr uint32_t ArchetypeObject = 0x20; // RF_ArchetypeObject
+
+struct
+{
+    uintptr_t SetReplicateMovement = 0, SetIsReplicated = 0, ForceNetUpdate = 0;
+    uintptr_t Level = 0;
+    int32_t SeenActors = 0;
+    unsigned Moving = 0, Sized = 0, Defaults = 0, Fresh = 0, Logs = 0;
+} P;
 
 bool HasBit(uintptr_t Address, uint8_t Mask)
 {
@@ -45,8 +55,18 @@ bool SetBit(uintptr_t Address, uint8_t Mask)
     return Memory::WriteBytes(Address, &Next, 1);
 }
 
+bool Resolve()
+{
+    if (P.SetReplicateMovement && P.SetIsReplicated)
+        return true;
+    P.SetReplicateMovement = Objects::FindObject("SetReplicateMovement", "Actor");
+    P.SetIsReplicated = Objects::FindObject("SetIsReplicated", "ActorComponent");
+    P.ForceNetUpdate = Objects::FindObject("ForceNetUpdate", "Actor");
+    return P.SetReplicateMovement && P.SetIsReplicated;
+}
+
 // Klassen-Defaultobjekt: Bits direkt schreiben. Dort laufen keine Replikationsfunktionen.
-bool PrepareDefault(uintptr_t Default)
+void PrepareDefault(uintptr_t Default)
 {
     bool Changed = false;
     if (!HasBit(Default + ReplicateMovementByte, ReplicateMovementMask))
@@ -54,28 +74,56 @@ bool PrepareDefault(uintptr_t Default)
     const uintptr_t Root = Memory::ReadPointer(Default + RootComponent).value_or(0);
     if (Root && !HasBit(Root + ComponentReplicatesByte, ComponentReplicatesMask))
         Changed |= SetBit(Root + ComponentReplicatesByte, ComponentReplicatesMask);
-    return Changed;
-}
+    P.Defaults += Changed;
 }
 
-void TickProjectiles(NetRole Role, bool Second)
+// Lebender Projektil-Actor im aktuellen Level: Replikation ueber die Engine-Setter einschalten. Wahr, wenn geaendert.
+bool PrepareActor(uintptr_t Actor)
 {
-    if (Role != NetRole::Host || !Second)
-        return;
-    static uintptr_t SetReplicateMovement = 0, SetIsReplicated = 0, ForceNetUpdate = 0;
-    if (!SetReplicateMovement || !SetIsReplicated)
+    const bool NeedsMovement = !HasBit(Actor + ReplicateMovementByte, ReplicateMovementMask);
+    const uintptr_t Root = Memory::ReadPointer(Actor + RootComponent).value_or(0);
+    const bool NeedsRoot = Root && !HasBit(Root + ComponentReplicatesByte, ComponentReplicatesMask);
+    if ((!NeedsMovement && !NeedsRoot) || HasBit(Actor + DestroyingByte, 2) || !IsA(Actor, "Projectile"))
+        return false;
+    bool Replicate = true;
+    if (NeedsMovement)
     {
-        SetReplicateMovement = Objects::FindObject("SetReplicateMovement", "Actor");
-        SetIsReplicated = Objects::FindObject("SetIsReplicated", "ActorComponent");
-        ForceNetUpdate = Objects::FindObject("ForceNetUpdate", "Actor");
-        if (!SetReplicateMovement || !SetIsReplicated)
-            return;
+        Objects::ProcessEvent(Actor, P.SetReplicateMovement, &Replicate);
+        ++P.Moving;
     }
-    const uintptr_t World = CurrentWorld();
-    const uintptr_t Level = World ? Memory::ReadPointer(World + Offsets::UWorld::PersistentLevel).value_or(0) : 0;
-    if (!Level)
+    if (NeedsRoot)
+    {
+        Replicate = true;
+        Objects::ProcessEvent(Root, P.SetIsReplicated, &Replicate);
+        ++P.Sized;
+    }
+    if (P.ForceNetUpdate)
+        Objects::ProcessEvent(Actor, P.ForceNetUpdate, nullptr);
+    return true;
+}
+
+// Je Tick: nur die seit dem letzten Tick angehaengten Eintraege von Level->Actors. Schrumpft das Array oder wechselt
+// das Level, beginnt die Zaehlung neu.
+void TickFresh(uintptr_t Level)
+{
+    const uintptr_t Data = Memory::ReadPointer(Level + LevelActors).value_or(0);
+    const int32_t Count = Memory::Read<int32_t>(Level + LevelActors + 8).value_or(-1);
+    if (!Data || Count < 0 || Count > MaxLevelActors)
         return;
-    unsigned Moving = 0, Sized = 0, Defaults = 0;
+    if (Level != P.Level || Count < P.SeenActors)
+    {
+        P.Level = Level;
+        P.SeenActors = Count; // Der Bestand gehoert dem Sekunden-Abgleich.
+        return;
+    }
+    for (int32_t Index = P.SeenActors; Index < Count; ++Index)
+        if (const uintptr_t Actor = Memory::ReadPointer(Data + Index * sizeof(uintptr_t)).value_or(0))
+            P.Fresh += PrepareActor(Actor);
+    P.SeenActors = Count;
+}
+
+void TickAll(uintptr_t Level)
+{
     for (int32_t Index = 0, Total = Objects::Count(); Index < Total; ++Index)
     {
         const uintptr_t Actor = Objects::At(Index);
@@ -84,38 +132,37 @@ void TickProjectiles(NetRole Role, bool Second)
         const uint32_t Flags = Memory::Read<uint32_t>(Actor + Offsets::UObject::Flags).value_or(ArchetypeObject);
         if (Flags & ClassDefaultObject)
         {
-            if (IsA(Actor, "Projectile") && PrepareDefault(Actor))
-                ++Defaults;
+            if (IsA(Actor, "Projectile"))
+                PrepareDefault(Actor);
             continue;
         }
-        if ((Flags & ArchetypeObject) || Memory::ReadPointer(Actor + Offsets::UObject::Outer).value_or(0) != Level)
-            continue;
-        const bool NeedsMovement = !HasBit(Actor + ReplicateMovementByte, ReplicateMovementMask);
-        const uintptr_t Root = Memory::ReadPointer(Actor + RootComponent).value_or(0);
-        const bool NeedsRoot = Root && !HasBit(Root + ComponentReplicatesByte, ComponentReplicatesMask);
-        if ((!NeedsMovement && !NeedsRoot) || HasBit(Actor + DestroyingByte, 2) || !IsA(Actor, "Projectile"))
-            continue;
-        if (NeedsMovement)
-        {
-            bool Replicate = true;
-            Objects::ProcessEvent(Actor, SetReplicateMovement, &Replicate);
-            ++Moving;
-        }
-        if (NeedsRoot)
-        {
-            bool Replicate = true;
-            Objects::ProcessEvent(Root, SetIsReplicated, &Replicate);
-            ++Sized;
-        }
-        if (ForceNetUpdate)
-            Objects::ProcessEvent(Actor, ForceNetUpdate, nullptr);
+        if (!(Flags & ArchetypeObject) && Memory::ReadPointer(Actor + Offsets::UObject::Outer).value_or(0) == Level)
+            PrepareActor(Actor);
     }
-    static unsigned Logs = 0;
-    if ((Moving || Sized || Defaults) && Logs < 8)
+}
+}
+
+void TickProjectiles(NetRole Role, bool Second)
+{
+    if (Role != NetRole::Host || !Resolve())
+        return;
+    const uintptr_t World = CurrentWorld();
+    const uintptr_t Level = World ? Memory::ReadPointer(World + Offsets::UWorld::PersistentLevel).value_or(0) : 0;
+    if (!Level)
+        return;
+    TickFresh(Level);
+    if (!Second)
+        return;
+    const unsigned FreshBefore = P.Fresh;
+    P.Moving = P.Sized = P.Defaults = 0;
+    TickAll(Level);
+    // Fresh zaehlt seit der letzten Meldung, die anderen nur den Sekunden-Abgleich (Rueckfall).
+    if ((P.Moving || P.Sized || P.Defaults || FreshBefore) && P.Logs < 12)
     {
-        ++Logs;
-        Core::Log::Info("Projektile: {} Klassen vorbereitet, Bewegung fuer {}, Groesse fuer {} weitere(s) repliziert",
-                        Defaults, Moving, Sized);
+        ++P.Logs;
+        Core::Log::Info("Projektile: {} neu sofort, Abgleich: {} Klassen, Bewegung {}, Groesse {}", FreshBefore,
+                        P.Defaults, P.Moving, P.Sized);
     }
+    P.Fresh = 0;
 }
 }
