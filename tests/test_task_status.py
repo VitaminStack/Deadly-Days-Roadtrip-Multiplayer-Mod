@@ -284,5 +284,52 @@ class PairReservationTests(unittest.TestCase):
         self.assertEqual(tasks.split_branch('pair/other'), ('pair/other', None))
 
 
+class MarkDoneTests(unittest.TestCase):
+    ROW = '| `zeta` | P1 | Text | `base1` | parallel | wenig |\n| `alpha` | P0 | Text | – | parallel | keine |\n'
+
+    def test_moves_row_alphabetically_with_phase(self):
+        text = source.mark_done(todo(self.ROW), 'alpha', 'Fertig, siehe [Doku](docs/x.md)')
+        parsed = source.parse(text)
+        self.assertTrue(parsed['alpha'].done)
+        self.assertEqual(parsed['alpha'].phase, '1')
+        self.assertEqual(parsed['alpha'].text, 'Fertig, siehe [Doku](docs/x.md)')
+        self.assertFalse(parsed['zeta'].done)
+        self.assertEqual(text.count('`alpha`'), 1)
+        self.assertLess(text.index('| `alpha` | 1 |'), text.index('| `base0` |'))
+
+    def test_appends_after_last_done_row(self):
+        text = source.mark_done(todo(self.ROW), 'zeta', 'Ergebnis')
+        self.assertTrue(text.rstrip().endswith('| `zeta` | 1 | Ergebnis |'))
+        source.parse(text)
+
+    def test_keeps_crlf(self):
+        text = source.mark_done(todo(self.ROW).replace('\n', '\r\n'), 'alpha', 'Ergebnis')
+        self.assertNotIn('\n', text.replace('\r\n', ''))
+        self.assertTrue(source.parse(text)['alpha'].done)
+
+    def test_ignores_free_list_row(self):
+        base = todo(self.ROW)
+        free = base.replace('<!-- frei:end -->', '| `alpha` | P0 | [1](#x) | parallel | keine |\n<!-- frei:end -->')
+        text = source.mark_done(free, 'alpha', 'Ergebnis')
+        self.assertIn('| `alpha` | P0 | [1](#x) |', text)
+        self.assertTrue(source.parse(text)['alpha'].done)
+
+    def test_rejects_bad_input(self):
+        base = todo(self.ROW)
+        for name, result, message in (('nope', 'x', 'nicht in TODO'), ('base1', 'x', 'schon erledigt'),
+                                      ('alpha', 'a | b', 'ohne |'), ('alpha', ' ', 'ohne |'), ('alpha', 'a\nb', 'ohne |')):
+            with self.subTest(name=name, result=result), self.assertRaisesRegex(ValueError, message):
+                source.mark_done(base, name, result)
+
+    def test_describe_open_and_done(self):
+        parsed = source.parse(todo(self.ROW))
+        lines = tasks.describe(parsed['zeta'], parsed, 'frei')
+        self.assertEqual(lines[0], 'zeta: P1, Phase 1 – Test, parallel, Spielzeit wenig')
+        self.assertEqual(lines[2], 'Braucht: base1 (erledigt)')
+        parsed['zeta'].text = 'Siehe [Doku](docs/x.md) **fett**'
+        self.assertEqual(tasks.describe(parsed['zeta'], parsed, 'frei')[3], 'Siehe Doku (docs/x.md) fett')
+        self.assertEqual(tasks.describe(parsed['base1'], parsed, '')[0], 'base1: erledigt (Phase 1)')
+
+
 if __name__ == '__main__':
     unittest.main()
