@@ -10,6 +10,7 @@
 
 #include "FakeSteam.h"
 #include "Net/Transport.h"
+#include "Net/Net.h"
 
 #pragma comment(lib, "ws2_32.lib")
 
@@ -364,4 +365,21 @@ TEST_CASE("Fehlendes Hello laeuft aus, danach kann ein kompatibler Client verbin
     Transport Client(Network->Account(kClientId + 1), Options);
     REQUIRE(WaitFor([&] { return Client.StartClient(kHostId); }));
     REQUIRE(WaitFor([&] { return !Host.ControlPeers().empty(); }));
+}
+
+TEST_CASE("Sync findet den Lobbytransport ohne ihn nach Sitzungsende am Leben zu halten")
+{
+    auto Network = std::make_shared<FakeSteamNetwork>();
+    auto Host = std::make_shared<Transport>(Network->Account(kHostId), TestPorts(47800));
+    REQUIRE(Host->StartHost());
+    UseSessionTransport(Host);
+    CHECK(CurrentTransport() == Host);
+    Host->Stop();
+    CHECK_FALSE(CurrentTransport());
+    REQUIRE(Host->StartHost());
+    CHECK(CurrentTransport() == Host);
+    std::weak_ptr<Transport> Weak = Host;
+    Host.reset();
+    CHECK(Weak.expired());
+    CHECK_FALSE(CurrentTransport());
 }
