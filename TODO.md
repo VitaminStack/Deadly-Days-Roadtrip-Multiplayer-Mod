@@ -39,7 +39,7 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `kamera-code` | P0 | [4](#phase-4--vertical-slice) | parallel | mittel |
 | `kampf` | P0 | [4](#phase-4--vertical-slice) | parallel | mittel |
 | `rundenende-absturz` | P0 | [4](#phase-4--vertical-slice) | parallel | mittel |
-| `airdrop-rucksack` | P0 | [5](#phase-5--vollständiger-run) | parallel | mittel |
+| `airdrop-rucksack-live` | P0 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `airdrop-warten` | P0 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `mod-saves` | P0 | [6](#phase-6--release) | parallel | mittel |
 | `eingaben` | P1 | [4](#phase-4--vertical-slice) | parallel | mittel |
@@ -156,8 +156,8 @@ Ziel: Ein kompletter Run ist zu zweit online spielbar.
 |---|---|---|---|---|---|
 | `gegner-alle` | P0 | Alle Gegner, Bosse und Boss-Phasen. Ordner `src/Sync/Enemies` | `integration-g2` | parallel | viel |
 | `fortschritt` | P0 | Loot, XP, Level-ups, Fähigkeiten und Status-Effekte (GAS). Ordner `src/Sync/Combat` | `integration-g2`, `protokoll` | parallel | viel |
+| `airdrop-rucksack-live` | P0 | Rest aus `airdrop-rucksack`: Wahl und Ablage des Clients erreichen den Host, das Item wirkt beim Client (live bestätigt). Nicht live geprüft: Bestätigen nur per echtem Klick statt automatisch beim Drag, Rucksack-Anzeige des Clients nach `SetupInventory` aus replizierten Pivot-Feldern, erneutes Umsortieren und ein zweiter Airdrop. **Fertig, wenn** nach zwei Airdrops mit Umsortieren alle Items bei Host und Client auf denselben Feldern liegen, die Client-Anzeige ohne Überlagerung oder Geister-Items stimmt und gewählte Items beim Client wirken. Ordner `src/Game/RewardPatches.cpp`. **Einstieg:** [Airdrop-Auswahl](src/Game/README.md#airdrop-auswahl), `tools/spike/guided/airdrop-rucksack.txt` | `protokoll` | parallel | mittel |
 | `xp-baelle` | P1 | Der Client sieht die XP-Bälle nicht. Sie sind lokale Niagara-Partikel des `AExpEmissionHandler`, nur der Host erzeugt sie. Host meldet `RequestExpSpawning` (Menge, Ort), Client zeigt sie nur an, `ReceiveExp` beim Client gesperrt. **Fertig, wenn** der Client dieselben Bälle sieht, sie beim Aufsammeln verschwinden und XP nicht doppelt zählen. Ordner `src/Sync/Combat`. **Einstieg:** [XP-Bälle](docs/GAME_ANALYSIS.md#xp-bälle-beim-client-xp-baelle) | `protokoll` | parallel | mittel |
-| `airdrop-rucksack` | P0 | Nachricht `0x302` kommt nach korrigierter Sendereihenfolge beim Host an; erste zwei Ablagen im Spiel bestätigt. Folgefehler: automatische Bestätigung beim Drag-Beginn entfernte die noch bedienten lokalen Instanzen (Geister-Items, dritte Ablage auf hostseitig belegtes Feld). Automatik entfernt, nur echter Bestätigen-Klick; zweiter Fix und Umsortieren noch live prüfen. **Fertig, wenn** ein vom Client gewähltes und in den Rucksack gelegtes Item bei Host und Client im Rucksack liegt und beim Client im Spiel wirkt, ohne veraltete lokale Darstellung. Ordner `src/Sync/Inventory`, `src/Game/RewardPatches.cpp`. **Einstieg:** [Airdrop-Auswahl](src/Game/README.md#airdrop-auswahl) | `protokoll` | parallel | mittel |
 | `airdrop-warten` | P0 | Rest aus `airdrop-auswahl`: Bestätigt der Host zuerst, läuft die Runde weiter, obwohl die Mod `HandleConfirmButton` bis zur Wahl des Clients zurückhält. Die Pause kommt über die Zeitanfrage des Panels beim `TimescaleManager` und eine UI-Sitzung mit `blocks_gameplay`; herausfinden, was sie beim Klick freigibt, und sie halten, bis auch der Client bestätigt hat. Wählt der Client zuerst, wartet das Spiel schon richtig. **Fertig, wenn** bei einem Airdrop das Spiel für beide steht, bis beide bestätigt haben, egal wer zuerst bestätigt. Ordner `src/Game/RewardPatches.cpp`. **Einstieg:** [Airdrop-Auswahl](docs/GAME_ANALYSIS.md#airdrop-auswahl-für-beide-spieler-airdrop-auswahl) | `protokoll` | parallel | mittel |
 | `inventar-sync` | P0 | Rucksack, Stash, Werkbank, Reward-Queue (`CoopInventoryCoordinator`). Ordner `src/Sync/Inventory` | `integration-g2`, `protokoll`, `guidcache` | parallel | viel |
 | `inventar-ui` | P0 | Inventar-UI beim Remote-Spieler. Ordner `src/Sync/Inventory`, `src/UI` | `inventar-sync` | parallel | mittel |
@@ -224,6 +224,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 
 | Kennung | Phase | Ergebnis |
 |---|---|---|
+| `airdrop-rucksack` | 5 | Wahl und Ablage des Clients kommen beim Host im Rucksack an, keine Auto-Bestätigung beim Drag, Client-Anzeige aus replizierten Pivot-Feldern; Live-Rest in `airdrop-rucksack-live`, siehe [Airdrop-Auswahl](src/Game/README.md#airdrop-auswahl) |
 | `andockpunkte` | 1 | VERSION-Proxy, drei Live-Signaturen und ProcessEvent-Hook auf Host und Client erprobt, siehe [Andockpunkte](docs/ARCHITECTURE.md#technische-andockpunkte-build-26187885) |
 | `bewegung` | 4 | Dodge beim Client repariert: eigene Figur bekommt Reibung und Schwerkraft zurück, Host-Figur folgt bei unbekannter Unterlage dem replizierten Ort, siehe [Dodge beim Client](docs/GAME_ANALYSIS.md#dodge-beim-client-bewegung) |
 | `blueprint-logik` | 1 | Repräsentative Spawn-, Effekt- und Eventpfade per Bytecode-Audit und Traces geklärt, siehe [Nachtrag](research/spikes/blueprint-logik/README.md#nachtrag-03112026-grenzpruefung-und-ereignistests) |

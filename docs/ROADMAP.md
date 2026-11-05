@@ -18,6 +18,7 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 
 **Neue Befunde.**
 
+- `airdrop-rucksack`, 05.11.2026, Teilstand: Wahl und Ablage des Clients kommen beim Host im Rucksack an, das Item wirkt beim Client (live bestätigt). Die automatische Bestätigung beim Drag ist entfernt, die Client-Anzeige richtet sich nach `SetupInventory` an den replizierten Pivot-Feldern aus. Diese beiden Fixes, Umsortieren und ein zweiter Airdrop stehen als `airdrop-rucksack-live`. [Befund](../src/Game/README.md#airdrop-auswahl)
 - `client-lokal-audit`, 05.11.2026: Projektweite Nutzervorgabe **lokal zuerst, minimal synchronisieren**
   in Agenten-/Architekturregeln aufgenommen. Quellcode-Audit findet zuerst Handlungsbedarf an
   Inventar-/Bag-Transaktionen, lokalen UI-/globalen Phasengrenzen und Kamera-/XP-Projektion;
@@ -280,7 +281,7 @@ flowchart TD
     W2 --> IG
     W3 --> IG
     IG --> G2{{"Gate G2"}}:::gate
-    PR --> W4["Welle 4<br/>gegner-alle, fortschritt, inventar-sync,<br/>airdrop-rucksack, airdrop-warten,<br/>inventar-ui, pausen-sync, tagesablauf,<br/>run-ende, vfx-sound, reconnect"]:::open
+    PR --> W4["Welle 4<br/>gegner-alle, fortschritt, inventar-sync,<br/>airdrop-rucksack-live, airdrop-warten,<br/>inventar-ui, pausen-sync, tagesablauf,<br/>run-ende, vfx-sound, reconnect"]:::open
     G2 --> W4
     W4 --> IR["integration-run"]:::central
     W5 --> IR
