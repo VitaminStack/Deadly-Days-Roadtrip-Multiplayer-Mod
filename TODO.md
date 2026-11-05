@@ -37,8 +37,8 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `lobby-auth-live` | P0 | [3](#phase-3--session-und-verbindung) | zu zweit | wenig |
 | `lobby-live` | P0 | [3](#phase-3--session-und-verbindung) | zu zweit | wenig |
 | `gegnertyp` | P0 | [4](#phase-4--vertical-slice) | parallel | mittel |
-| `rundenende-absturz` | P0 | [4](#phase-4--vertical-slice) | parallel | mittel |
 | `airdrop-rucksack-live` | P0 | [5](#phase-5--vollständiger-run) | parallel | mittel |
+| `tank-gemeinsam` | P0 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `mod-saves` | P0 | [6](#phase-6--release) | parallel | mittel |
 | `eingaben` | P1 | [4](#phase-4--vertical-slice) | parallel | mittel |
 | `xp-baelle-live` | P1 | [5](#phase-5--vollständiger-run) | parallel | wenig |
@@ -145,7 +145,6 @@ Ziel: Zwei Spieler starten eine Mission, kämpfen gegen einen Gegnertyp und sehe
 |---|---|---|---|---|---|
 | `gegnertyp` | P0 | Ein Gegnertyp inklusive Spawn und Tod. Ordner `src/Sync/Enemies` | `remote-spieler` | parallel | mittel |
 | `eingaben` | P1 | Eingaben aus dem lokalen `CoopInputRouter` sauber vom Remote-Spieler trennen. Ordner `src/Sync/Players`, Dateien mit `bewegung` absprechen | `remote-spieler` | parallel | mittel |
-| `rundenende-absturz` | P0 | Beim regulären Rundenende von Tag 1 (rund 12,5 Minuten nach Missionsstart, mit `-Godmode`) stürzt zuerst der Client ab (Access Violation beim Lesen von `0x348`), 30 Sekunden später der Host (`0x1B8`). Zweimal mit identischen Stacks beobachtet, nur Frames des Spiels. Erste Gegenprobe: dasselbe Rundenende mit `desync_enabled=false`. **Fertig, wenn** beide Instanzen das Rundenende von Tag 1 ohne Absturz überstehen. **Einstieg:** [Desync-Melder, Langzeitmessung](docs/DESYNC.md#langzeitmessung-im-spiel-05112026-nach-merge-von-main) | `phasenadapter` | parallel | mittel |
 | `integration-g2` | P0 | Gate G2: Vertical Slice zusammenführen und zehn Minuten über echtes Internet zwischen zwei Haushalten spielen. Zwei Menschen nötig. **Fertig, wenn** die Runde stabil, ohne Desync und spielbar ist. Sonst Ursachen beheben, bevor weitere Inhalte synchronisiert werden | `missionsstart`, `kamera-code`, `bewegung`, `kampf`, `gegnertyp`, `eingaben`, `restrictor`, `steam-lobby`, `lobby-live`, `transport`, `net-fehler`, `ohne-spike`, `latenz-test`, `desync-melder` | zentral | viel |
 
 ## Phase 5 – Vollständiger Run
@@ -162,6 +161,7 @@ Ziel: Ein kompletter Run ist zu zweit online spielbar.
 | `inventar-ui` | P0 | Inventar-UI beim Remote-Spieler. Ordner `src/Sync/Inventory`, `src/UI` | `inventar-sync` | parallel | mittel |
 | `pausen-sync` | P0 | Pausen und blockierende UI beider Spieler über den Kontrollkanal abstimmen. Ordner `src/Sync/Players`. **Einstieg:** [Pausen-Spike](research/spikes/pausen/README.md) | `integration-g2`, `protokoll` | parallel | mittel |
 | `tagesablauf` | P0 | Tageszyklus, Treibstoff, Missionsziele, Fahrt zwischen den Etappen. Ordner `src/Sync/World`, Dateien mit `run-ende` absprechen | `integration-g2`, `protokoll`, `guidcache`, `phasenadapter` | parallel | viel |
+| `tank-gemeinsam` | P0 | Nutzervorgabe 05.11.2026: Der Tank ist ein Gruppenwert. Jeder eingesammelte Treibstoff zählt genau einmal für alle Teilnehmer, beide sehen denselben Stand, und das Rundenende über den Bus hängt an diesem gemeinsamen Tank. Derzeit wird er je Teilnehmer getrennt gewertet: Neben dem Tank am GameState (`GS_DDMissionState_C`, Maximum 120) hat jeder PlayerState einen eigenen `UFuelMeter` (Maximum 100). Lokal zuerst: native Replikation von `CurrentFuel` nutzen, keine zweite Zählung beim Client. **Fertig, wenn** Host und Client je einen Kanister sammeln und beide Anzeigen denselben Gesamtstand zeigen, der volle Tank bei beiden die Busflucht freigibt und nichts doppelt zählt. Ordner `src/Game`, `src/Sync/World`. **Einstieg:** [Rundenende](docs/GAME_ANALYSIS.md#rundenende-über-tank-und-bus-rundenende-absturz) | `remote-spieler` | parallel | mittel |
 | `meta-fortschritt` | P1 | Entscheiden, wessen Meta-Fortschritt zählt und was der Client bekommt | – | Team | keine |
 | `run-ende` | P1 | Run-Ende und Rückkehr zur Meta-Basis. Ordner `src/Sync/World`, Dateien mit `tagesablauf` absprechen | `integration-g2`, `protokoll`, `niederlage`, `meta-fortschritt` | parallel | viel |
 | `dauerlauf` | P1 | Automatischer Dauerlauf mit der Mod auf einem PC: `Run-Route.ps1` über viele Tage mit Latenzprofil, je Tag Speicher, Objektzahl und Größe des NetGUID-Caches beider Instanzen protokollieren. Ersetzt nicht den Spike-Lauf aus `guidcache`, sondern prüft den Sync-Code der Mod über die Laufzeit. **Fertig, wenn** ein Lauf über mindestens 13 Tage ohne Absturz läuft oder jeder Absturz eine eigene Kennung hat und das Wachstum je Tag dokumentiert ist. Ordner `tools/spike` | `integration-g2`, `latenz-test` | parallel | viel |
@@ -289,6 +289,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `restrictor` | 4 | Null-Schutz an 0x5A17ACC und Nachtrag des GameState beim Client, im Spiel mit genulltem Feld ohne Absturz, siehe [Restrictor](docs/GAME_ANALYSIS.md#client-absturz-im-restrictor-tick-absturz) |
 | `rpc-vergleich` | 1 | RPC-Liste gegen den Juli-Dump: 3 RPCs entfernt, keiner hinzugekommen |
 | `run-ablauf` | 1 | `TriggerStartRun`, `FinalizeRunStart`, Ladebildschirm und Etappenwechsel nachvollzogen, siehe [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf) |
+| `rundenende-absturz` | 4 | Echtes Rundenende über Tank und Bus bis Tag 2 ohne Absturz geprüft, Tank zählt noch je Teilnehmer (`tank-gemeinsam`), siehe [Rundenende](docs/GAME_ANALYSIS.md#rundenende-über-tank-und-bus-rundenende-absturz) |
 | `sdk` | 0 | SDK für UE 5.8 erzeugt, siehe [SDK-Erzeugung](docs/GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58) |
 | `sdk-mission` | 0 | SDK zusätzlich während einer Mission gedumpt, mit Blueprint-Klassen |
 | `solution` | 0 | Visual-Studio-Solution mit einem Projekt je Modul, `config/Local.props` eingebunden |

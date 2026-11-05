@@ -1207,6 +1207,21 @@ Die Mod macht dasselbe in `src/Game/TutorialAdapter.cpp` (`tutorial-aus`): Als H
 | HUD | Normal | Erst bauen, wenn der `GameState` da ist |
 | Inventar | Führt | Darf erst laufen, wenn die replizierten Einträge da sind. Ohne Lösung kein Run über mehrere Tage |
 
+### Rundenende über Tank und Bus (`rundenende-absturz`)
+
+Stand 05.11.2026, Build `26187885`, ein PC, Mod mit Spike über die Lobby, Seed `20795`, Tag 1.
+
+- **Rundenende:** Eine Runde endet regulär, wenn der Tank voll ist und die Spieler mit dem Bus flüchten (Nutzerangabe). Der Absturz
+  „rund 12,5 Minuten nach Missionsstart“ aus dem [Desync-Lauf](DESYNC.md#langzeitmessung-im-spiel-05112026-nach-merge-von-main) lag
+  davor und war deshalb kein Rundenende.
+- **[Belegt] Rundenende über den Bus:** Tank beim Host per Speicherschreiben auf 118 von 120 (`UFuelMeter.CurrentFuel` am
+  `GS_DDMissionState_C`, `+0xF8`), der Client übernahm den Wert über die Replikation. Der Nutzer sammelte einen Kanister (128) und flüchtete
+  mit dem Bus. Host mit „Ende der Runde“, Client mit Spielansicht und Phasenhinweis, kein Absturz, Desync-Melder OK. Danach Lager,
+  Routenkarte und Reise zu Tag 2: `check_round.py` sauber, 63 Kacheln auf beiden Seiten, Figuren am Bus.
+- `DD_QuickFinishMission` beendet die Runde ohne Tank und Bus, wie `!finish`. Es ersetzt den Busablauf nicht.
+- **Offen:** Der Tank ist je Teilnehmer getrennt gewertet, jeder PlayerState hat einen eigenen `UFuelMeter` (Maximum 100). Nach
+  Nutzervorgabe ist er ein Gruppenwert, Folgeaufgabe `tank-gemeinsam`.
+
 ### Rundenende: Befund und offene Phasenübertragung (`rundenende`)
 
 Build `26187885`, ein PC, zwei Loopback-Instanzen, getrennte Test-Spielstände und CrashGuard. Untersuchung auf eigenem Branch von `origin/main`, ohne den noch nicht gemergten Inventar-Teilfix.

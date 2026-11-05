@@ -506,3 +506,9 @@ NetGUID-Cache und neue Actors, `tageswechsel`, nur Build `26187885`:
 ## Enums
 
 `ERoundChangeReason`: `NoReason` 0, `NewDay` 1, `Win` 2, `Lose` 3.
+
+## Tank (`rundenende-absturz`)
+
+| Stelle | Wert |
+|---|---|
+| `UFuelMeter` | `MaxRequiredFuel` `0xF4`, `CurrentFuel` `0xF8` (Net) |
