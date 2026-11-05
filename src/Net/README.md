@@ -102,6 +102,38 @@ Nicht geprüft, das übernimmt `lobby-live`: Einladung über das Steam-Overlay u
 Spiel, Start über `+connect_lobby`, Verlassen und Abbruch im Spiel (nur in `SessionTests`). Ohne die Spike-Patches stürzte der
 Beitritt im Spiel ab. Seit `patches` setzt die Mod diese Fixes selbst, ein Beitritt ohne Spike ist damit noch nicht geprüft.
 
+## Fehlerbehandlung (`net-fehler`)
+
+Jedes Ende einer Sitzung landet als lesbare Meldung im Overlay (F8) und im Mod-Log, ohne IDs und Adressen. Danach sind
+Erstellen und Beitreten wieder möglich, der Client trennt sein Spiel mit `disconnect`.
+
+**Gründe beim Schließen.** Wer bewusst geht, schließt die Steam-Verbindung mit einem eigenen Grund aus `EndReason`
+(Bereich `k_ESteamNetConnectionEnd_App_*`). Die Gegenseite sieht ihn als `ClosedByPeer` und kann unterscheiden:
+
+| Ende | Client sieht | Host sieht |
+|---|---|---|
+| Host verlässt die Sitzung (`HostLeft`) | Der Host hat die Sitzung verlassen | – |
+| Client verlässt die Sitzung (`ClientLeft`) | – | Der Mitspieler hat die Sitzung verlassen |
+| Handshake abgelehnt (`Rejected`) | Der Host hat die Verbindung abgelehnt (andere Mod-Version oder anderer Spiel-Build) | Der Mitspieler hat die Verbindung abgelehnt |
+| Host hat schon einen Mitspieler (`Busy`) | Der Host hat schon einen Mitspieler | – |
+| Gegenseite schließt ohne eigenen Grund, etwa beim Beenden des Spiels | Der Host hat die Verbindung beendet | Der Mitspieler hat die Verbindung beendet |
+| Steam gibt nach seinem Zeitlimit auf (`ProblemDetectedLocally`) | Verbindung zum Host verloren, vor dem Aufbau: Host nicht erreichbar | Verbindung zum Mitspieler verloren |
+
+Der Host bleibt danach offen, das Overlay sagt bis zum nächsten Mitspieler, warum der letzte gegangen ist.
+
+**Zeitlimits der Sitzung** (`SessionTimeouts`). Steam und die Engine haben eigene, diese greifen, wenn von dort nichts mehr kommt:
+
+| Schritt | Zeitlimit | Meldung |
+|---|---|---|
+| Steam bestätigt Erstellen der Lobby nicht | 15 s | Zeitlimit: Steam hat die Lobby nicht erstellt |
+| Steam bestätigt den Beitritt nicht | 15 s | Zeitlimit: Steam hat den Beitritt nicht bestätigt |
+| Tunnel und Versions-Handshake zum Host | 20 s | Zeitlimit: keine Verbindung zum Host |
+| Spiel lädt nach `open 127.0.0.1:7778` die Welt des Hosts | 90 s | Das Spiel konnte sich nicht mit dem Host verbinden |
+| Spiel läuft ohne Host, obwohl der Tunnel steht | 30 s | Das Spiel hat die Verbindung zum Host verloren |
+
+Die letzten beiden fragen über den Hook `GameConnectedToHost` die Rolle der Welt ab (`Game::ReadWorld`). Ohne lesbare Welt,
+etwa beim Laden einer Karte, zählt das nicht als getrennt. 30 s sind großzügig, damit ein Kartenwechsel nicht auslöst.
+
 ## Tests
 
 `tests/NetTests` prüft den Tunnel ohne Spiel und ohne Steam: Ein nachgebautes Steam Networking verbindet mehrere Konten im
