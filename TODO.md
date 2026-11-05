@@ -46,6 +46,7 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `xp-baelle` | P1 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `installer` | P1 | [6](#phase-6--release) | parallel | keine |
 | `weekly-sperre` | P1 | [6](#phase-6--release) | parallel | wenig |
+| `test-tempo` | P1 | [Wartung](#wartung) | parallel | wenig |
 | `doku-verweise` | P2 | [Wartung](#wartung) | parallel | keine |
 
 **Wartet auf das Team:** `meta-fortschritt`, `spiel-update`.
@@ -192,6 +193,7 @@ Zählt nicht zum Fortschritt.
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
 | `doku-verweise` | P2 | Veraltete Querverweise verhindern: `task_status.py check` meldet Sätze wie „folgt mit“, „kommt mit“ oder „bis `<kennung>`“, deren Kennung schon erledigt ist. Dabei die bekannten Stellen korrigieren: Overlay-Absatz in [Testen](docs/TESTING.md#mod-overlay-prüfen) (Lobby-Knöpfe), Phase-3-Satz im [README](README.md), „Das kommt mit `steam-lobby`“ in [Net](src/Net/README.md), Welle 2 in der [Roadmap](docs/ROADMAP.md), und im Abschnitt [Test auf zwei PCs](docs/TESTING.md#test-auf-zwei-pcs) den Weg über `-Tunnel Lobby` ergänzen. **Fertig, wenn** die Prüfung in der CI läuft und auf `main` nichts meldet | – | parallel | keine |
+| `test-tempo` | P1 | Spielzeit sparen: `Start-Session.ps1` wartet auf Zustände statt fest zu schlafen und überspringt unnötige Reisen, wartet mit `-Wait` auf eine fremde Sitzung statt abzubrechen, startet mit `Restart-Instance.ps1` nur eine Instanz neu. Netzwerkzeuge für Overlay und Sitzungsende (`Overlay.ps1`, `Watch-Net.ps1`, `Test-NetEnd.ps1`) und `Guided-Test.ps1`, mit dem ein Mensch Schritte im Spiel schnell abarbeitet, während das Skript Zeiten, Logs und Abstürze festhält. **Fertig, wenn** ein Sitzungsstart messbar kürzer ist, die Fälle aus [Im Spiel (05.11.2026)](src/Net/README.md#im-spiel-05112026) ohne Handarbeit durchlaufen und ein geführter Test einen Bericht schreibt. **Einstieg:** [tools/spike](tools/README.md), [Testen](docs/TESTING.md) | – | parallel | wenig |
 | `spiel-update` | P2 | Nur wenn das Team einen neuen Spiel-Build beschließt: Offsets, Signaturen und Patches anpassen. Betrifft alles auf einmal, alle Spieltests warten darauf. **Einstieg:** [Update-Regel](CONTRIBUTING.md#spiel-updates) | – | Team | viel |
 
 ## Optionale Optimierungen
