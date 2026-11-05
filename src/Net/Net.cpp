@@ -54,7 +54,9 @@ void StartTransport(TransportRequest Request)
         Core::Log::Error("Transport: Steam nicht verfügbar, {}", Reason);
         return;
     }
-    auto Tunnel = std::make_shared<Transport>(Sockets);
+    TransportOptions Options;
+    Options.Sim = NetSimFromCommandLine(GetCommandLineW());
+    auto Tunnel = std::make_shared<Transport>(Sockets, Options);
     if (Request.Role == TransportRequest::Kind::Host)
     {
         if (!Tunnel->StartHost())

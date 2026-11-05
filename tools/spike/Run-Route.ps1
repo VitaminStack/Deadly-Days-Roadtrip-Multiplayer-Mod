@@ -1,6 +1,7 @@
 # Fester Routenlauf fuer Tests ueber mehrere Tage: gleicher Seed, gleiche Knoten, nach jedem Kartenwechsel check_round.py.
 # Startet in der MetaBase einer laufenden Sitzung, mit -Start vorher ueber Start-Session.ps1. Nie die Exe von Hand starten.
-#   Run-Route.ps1 [-Days 4] [-Seed 20795] [-Start] [-StayLast]
+#   Run-Route.ps1 [-Days 4] [-Seed 20795] [-Start] [-StayLast] [-NetProfile Internet]
+# -NetProfile startet mit -Start eine Sitzung mit Mod und Lobby und simulierter Latenz, siehe Start-Session.ps1.
 # Ergebnis unter research\local\session\runs\<zeit>\: checks.jsonl, Bilder beider Fenster waehrend und nach dem Laden.
 # Exitcode 0 alle Pruefungen sauber, 1 Abweichung, 2 Instanz abgestuerzt.
 param(
@@ -11,7 +12,9 @@ param(
     [switch]$Start,
     # Bleibt am letzten Tag in der Mission, statt ihn zu beenden.
     [switch]$StayLast,
-    [int]$Settle = 10
+    [int]$Settle = 10,
+    # Nur mit -Start: Netzprofil fuer Start-Session.ps1, etwa Internet.
+    [string]$NetProfile
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Common.ps1')
@@ -19,7 +22,11 @@ $GameInput = Join-Path $PSScriptRoot 'Game-Input.ps1'
 $Check = Join-Path $PSScriptRoot 'check_round.py'
 if ($Days -gt $Nodes.Count) { throw "Nur $($Nodes.Count) Knoten bekannt, -Nodes ergaenzen." }
 # -Restart ersetzt nur eine laufende Sitzung dieses Ordners, fremde bleiben unberuehrt.
-if ($Start) { & (Join-Path $PSScriptRoot 'Start-Session.ps1') -Restart | Select-Object -Last 1 }
+if ($NetProfile -and -not $Start) { throw '-NetProfile gilt nur mit -Start. Laufende Sitzung: Profil steht in session.json.' }
+if ($Start -and $NetProfile) {
+    & (Join-Path $PSScriptRoot 'Start-Session.ps1') -Restart -Mod -Tunnel Lobby -NetProfile $NetProfile -Brief | Out-Host
+}
+elseif ($Start) { & (Join-Path $PSScriptRoot 'Start-Session.ps1') -Restart | Select-Object -Last 1 }
 $Session = Get-Session
 $RunDir = Join-Path $script:SessionDir ("runs\{0:yyyyMMdd-HHmmss}" -f (Get-Date))
 New-Item -ItemType Directory -Force -Path $RunDir | Out-Null

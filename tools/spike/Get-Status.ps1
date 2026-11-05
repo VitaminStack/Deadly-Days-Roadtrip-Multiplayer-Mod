@@ -16,6 +16,9 @@ if ($Brief) {
     if ($Inventory -and $Roles.Count -eq 2 -and (Test-GameProcess $Session.Host) -and (Test-GameProcess $Session.Client)) {
         Format-InventoryBrief $Session.Host $Session.Client
     }
+    if ($Session.PSObject.Properties['NetSim'] -and $Session.NetSim) {
+        foreach ($Role in $Roles) { Format-NetSimBrief (Get-RolePid $Role) $Role }
+    }
     Format-CrashBrief
     return
 }

@@ -322,3 +322,25 @@ function Format-CrashBrief {
     if (-not $Lines.Count -or $Lines[0] -match 'Keine') { return 'Abstuerze: keine' }
     "Abstuerze: $(@($Lines | Where-Object { $_ -match '^UECC|^\S+ (host|client) ' }).Count), neuester: $($Lines[0].Substring(0, [Math]::Min(120, $Lines[0].Length)))"
 }
+
+# Netzprofile fuer -NetProfile: Ping hin und zurueck in ms, Schwankung +- ms, Verlust je Richtung in Prozent.
+# Wirkt nur im Tunnel der Mod (-Mod mit -Tunnel Lobby oder Mod), siehe docs\TESTING.md, Abschnitt Latenz.
+$script:NetProfiles = [ordered]@{
+    Internet = '120,30,2'
+    Schlecht = '250,80,5'
+}
+
+# Liefert den Wert fuer -ddcoop_netsim= oder $null ohne Profil. Name aus $NetProfiles oder eigene Werte "Ping,Schwankung,Verlust".
+function Resolve-NetProfile([string]$Name) {
+    if (-not $Name -or $Name -eq 'Aus') { return $null }
+    foreach ($Key in $script:NetProfiles.Keys) { if ($Key -eq $Name) { return $script:NetProfiles[$Key] } }
+    if ($Name -match '^\d+(\.\d+)?(,\d+(\.\d+)?){0,2}$') { return $Name }
+    throw "Unbekanntes Netzprofil '$Name'. Bekannt: $($script:NetProfiles.Keys -join ', '), Aus oder Werte wie 120,30,2."
+}
+
+# Letzte Messzeile der Netzsimulation aus dem Mod-Log, eine Zeile je Instanz.
+function Format-NetSimBrief([int]$ProcessId, [string]$Role) {
+    $Log = Join-Path (Split-Path (Get-GameExe)) "DDCoop\logs\ddcoop-$ProcessId.log"
+    $Hit = if (Test-Path $Log) { Select-String -Path $Log -Pattern 'Netzsimulation: (\d+ Pakete.*)$' | Select-Object -Last 1 }
+    if ($Hit) { "$Role Netzsimulation: $($Hit.Matches[0].Groups[1].Value)" } else { "$Role Netzsimulation: noch keine Messung" }
+}

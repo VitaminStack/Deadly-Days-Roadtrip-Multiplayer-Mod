@@ -10,6 +10,7 @@
 #include <thread>
 #include <vector>
 
+#include "Net/NetSim.h"
 #include "Net/SteamSockets.h"
 #include "Net/Protocol.h"
 
@@ -36,6 +37,9 @@ struct TransportOptions
     unsigned StatsIntervalMs = 30000;
     Protocol::Identity Identity;
     unsigned HandshakeTimeoutMs = 5000;
+    // Nur für Tests: verzögert ausgehende Spielpakete und Kontrollnachrichten, verwirft Spielpakete. Das Hello bleibt
+    // unverzögert. Aus -ddcoop_netsim, siehe NetSim.h.
+    NetSimProfile Sim;
 };
 
 enum class TransportState
@@ -125,6 +129,9 @@ private:
     void UpdateTotals();
     void Reject(Link& Entry, const char* Reason);
     bool ReceiveFrame(Link& Entry, std::span<const uint8_t> Bytes);
+    void AttachSim(Link& Entry);
+    void FlushSim(Link& Entry, uint64_t NowMs);
+    void SendGame(Link& Entry, std::span<const uint8_t> Bytes);
 
     std::shared_ptr<SteamSockets> Sockets;
     TransportOptions Options;
