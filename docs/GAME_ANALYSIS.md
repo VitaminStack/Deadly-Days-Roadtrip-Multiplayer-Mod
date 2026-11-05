@@ -652,6 +652,15 @@ Stand: Disassembly und Spieltest am 02.11.2026, Build `26187885`.
 | Feld beim Client testweise auf null gesetzt, 15 s ohne Eingabe | Kein Absturz |
 | Danach eine Bewegungseingabe (`D`) im Client-Fenster | Absturz `EXCEPTION_ACCESS_VIOLATION reading address 0x2C8` bei `0x5A17ACC`, genau wie gemeldet |
 
+**In der Mod (`restrictor`, 05.11.2026):** Beides umgesetzt in `src/Game/CameraPatches.cpp`. Ein Null-Schutz an `0x5A17ACC` behandelt
+einen fehlenden GameState wie einen Spieler (keine Bremse, Sprung nach `0x5A17B88`), und der Client trägt jede Sekunde den aktuellen
+`ADDMissionGameState` in jeden Restrictor der aktuellen Welt nach („Restrictor: MissionGameState nachgetragen“).
+
+| Test (ein PC, Mod mit Lobby, Netzprofil Internet, Tag 1) | Ergebnis |
+|---|---|
+| Feld beim Client dreimal auf null, sofort `D` für 1 s | Kein Absturz, Feld jeweils binnen 1 s nachgetragen |
+| Feld 5 s lang immer wieder auf null (7-mal), dabei `D` 4 s gehalten | Kein Absturz, beide Instanzen laufen weiter |
+
 Folgerung für die Mod: Den Absturz verhindert, wer beim Client `MissionGameState` des Restrictors nachträgt, sobald der GameState ankommt, ähnlich wie der Spike die HUD zurückhält. Ein Null-Schutz direkt in `0x5A17AB0` ginge auch, dann bremst der Restrictor aber bis zum Nachtragen nicht. Den späten GameState gezielt zu erzeugen, ist nicht gelungen; Netzwerk-Emulation ist im Shipping-Build nicht vorhanden (Vermutung, nicht geprüft).
 
 ## Lokales Coop

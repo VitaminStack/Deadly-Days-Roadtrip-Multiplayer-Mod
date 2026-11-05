@@ -6,6 +6,7 @@
 #include "Game/Memory.h"
 #include "Game/Objects.h"
 #include "Game/Offsets.h"
+#include "Game/PatchPolicy.h"
 #include "Game/PatchRuntime.h"
 
 namespace Game::Patches
@@ -25,6 +26,11 @@ constexpr uint8_t ReplicatesBit = 0x08;
 constexpr uintptr_t ControllerPlayer = 0x348;
 constexpr uintptr_t ControllerCameraManager = 0x360;
 constexpr uintptr_t CameraManagerViewTarget = 0x340;
+// UInViewportMovementRestrictor::PreProcessMovementInput: PlayerArray.Num über MissionGameState ohne Null-Prüfung.
+constexpr uintptr_t RestrictorCountSite = 0x5A17ACC;
+constexpr uintptr_t RestrictorSkip = 0x5A17B88;
+constexpr uintptr_t RestrictorContinue = 0x5A17AD9;
+constexpr uintptr_t RestrictorMissionGameState = 0x110;
 
 struct PointerArray
 {
@@ -133,8 +139,51 @@ void ViewThroughSharedCamera()
     Core::Log::Info("Kamera: gemeinsame Kamera gesetzt, vorher {}", Current ? Memory::NameOf(Current) : std::string("keine"));
 }
 
+bool CheckRestrictor()
+{
+    return Code::Expect(At(RestrictorCountSite), {0x83, 0xB8, 0xC8, 0x02, 0x00, 0x00, 0x01, 0x0F, 0x8E, 0xAF, 0x00, 0x00, 0x00},
+                        "im Bewegungs-Restrictor");
+}
+
+// Ohne MissionGameState stürzt die erste Bewegungseingabe ab. So bremst der Restrictor nur, bis der GameState nachgetragen ist.
+bool ApplyRestrictor(Code::Writer& Code)
+{
+    uint8_t* Cave = Code.Here();
+    EmitRestrictorGuard(Code, At(RestrictorSkip), At(RestrictorContinue));
+    return !Code.Failed() && Code::WriteJump(At(RestrictorCountSite), Cave);
+}
+
+// Client: Der Restrictor liest den GameState nur in BeginPlay. Kam der GameState später, trägt die Mod ihn nach, sobald er da
+// ist, damit die Kamera-Bremse wieder greift. Nur Restrictoren an Actors der aktuellen Welt.
+void RepairRestrictors()
+{
+    const uintptr_t World = CurrentWorld();
+    const uintptr_t Level = World ? Memory::ReadPointer(World + Offsets::UWorld::PersistentLevel).value_or(0) : 0;
+    const uintptr_t GameState = World ? Memory::ReadPointer(World + Offsets::UWorld::GameState).value_or(0) : 0;
+    if (!Level || !GameState || !IsA(GameState, "DDMissionGameState"))
+        return;
+    const int32_t Total = Objects::Count();
+    for (int32_t i = 0; i < Total; ++i)
+    {
+        const uintptr_t Object = Objects::At(i);
+        if (!Object || (Memory::Read<uint32_t>(Object + Offsets::UObject::Flags).value_or(0) & Offsets::UObject::ClassDefaultObjectFlag))
+            continue;
+        if (Memory::NameOf(Memory::ReadPointer(Object + Offsets::UObject::Class).value_or(0)) != "InViewportMovementRestrictor")
+            continue;
+        const uintptr_t Owner = Memory::ReadPointer(Object + Offsets::UObject::Outer).value_or(0);
+        if (!Owner || Memory::ReadPointer(Owner + Offsets::UObject::Outer).value_or(0) != Level)
+            continue;
+        const uintptr_t Current = Memory::ReadPointer(Object + RestrictorMissionGameState).value_or(0);
+        if (Current == GameState)
+            continue;
+        if (Memory::WriteBytes(Object + RestrictorMissionGameState, &GameState, sizeof(GameState)))
+            Core::Log::Info("Restrictor: MissionGameState nachgetragen, vorher {}", Current ? "veraltet" : "leer");
+    }
+}
+
 const Patch List[] = {
     {"Kamera ohne GameMode", &CheckCamera, &ApplyCamera},
+    {"Bewegungs-Restrictor ohne GameState", &CheckRestrictor, &ApplyRestrictor},
 };
 }
 
@@ -147,6 +196,9 @@ void TickCamera(NetRole Role, bool Second)
 {
     // Das Spiel setzt das ViewTarget beim Possess wieder auf die Figur, deshalb jede Sekunde.
     if (Role == NetRole::Client && Second)
+    {
         ViewThroughSharedCamera();
+        RepairRestrictors();
+    }
 }
 }
