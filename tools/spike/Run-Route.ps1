@@ -14,7 +14,10 @@ param(
     [switch]$StayLast,
     [int]$Settle = 10,
     # Nur mit -Start: Netzprofil fuer Start-Session.ps1, etwa Internet.
-    [string]$NetProfile
+    [string]$NetProfile,
+    # Nur mit -Start: Sitzung allein mit der Mod, ohne spike.dll (Start-Session.ps1 -NoSpike). Dann nur -Days 1 -StayLast,
+    # Zufalls-Seed, und der erste Knoten wird gesucht statt aus -Nodes genommen.
+    [switch]$NoSpike
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Common.ps1')
@@ -23,11 +26,17 @@ $Check = Join-Path $PSScriptRoot 'check_round.py'
 if ($Days -gt $Nodes.Count) { throw "Nur $($Nodes.Count) Knoten bekannt, -Nodes ergaenzen." }
 # -Restart ersetzt nur eine laufende Sitzung dieses Ordners, fremde bleiben unberuehrt.
 if ($NetProfile -and -not $Start) { throw '-NetProfile gilt nur mit -Start. Laufende Sitzung: Profil steht in session.json.' }
-if ($Start -and $NetProfile) {
-    & (Join-Path $PSScriptRoot 'Start-Session.ps1') -Restart -Mod -Tunnel Lobby -NetProfile $NetProfile -Brief | Out-Host
+if ($NoSpike -and -not $Start) { throw '-NoSpike gilt nur mit -Start. Laufende Sitzung: steht in session.json.' }
+if ($Start -and ($NetProfile -or $NoSpike)) {
+    $Options = @{ Restart = $true; Mod = $true; Tunnel = 'Lobby'; Brief = $true; NoSpike = [bool]$NoSpike }
+    if ($NetProfile) { $Options.NetProfile = $NetProfile }
+    & (Join-Path $PSScriptRoot 'Start-Session.ps1') @Options | Out-Host
 }
 elseif ($Start) { & (Join-Path $PSScriptRoot 'Start-Session.ps1') -Restart | Select-Object -Last 1 }
 $Session = Get-Session
+$WithSpike = Test-SessionSpike
+# Ohne Spike gibt es kein !finish, der Lauf endet also in der ersten Mission.
+if (-not $WithSpike -and -not ($Days -eq 1 -and $StayLast)) { throw 'Ohne Spike nur -Days 1 -StayLast: Missionsende braucht !finish aus dem Spike.' }
 $RunDir = Join-Path $script:SessionDir ("runs\{0:yyyyMMdd-HHmmss}" -f (Get-Date))
 New-Item -ItemType Directory -Force -Path $RunDir | Out-Null
 $Log = Join-Path $RunDir 'checks.jsonl'
@@ -80,14 +89,29 @@ function Invoke-Check([string]$Label, [string[]]$Extra, $Process) {
 
 # Ausgangslage: beide in der MetaBase, Vergleichsstand zuruecksetzen.
 Invoke-Check 'metabase' @('--world', 'MetaBase', '--reset')
-Send-SpikeCommand $Session.Host '!notutorial'
-Send-SpikeCommand $Session.Client '!notutorial'
-& (Join-Path $PSScriptRoot 'Start-Run.ps1') -Seed $Seed | Out-Null
-Copy-Item (Join-Path $script:SessionDir 'route.png') (Join-Path $RunDir 'route-1.png')
+# Ohne Spike schaltet die Mod die Tutorial-Hinweise selbst ab (TutorialAdapter), einen festen Seed gibt es dann nicht.
+if ($WithSpike) {
+    Send-SpikeCommand $Session.Host '!notutorial'
+    Send-SpikeCommand $Session.Client '!notutorial'
+    & (Join-Path $PSScriptRoot 'Start-Run.ps1') -Seed $Seed | Out-Null
+}
+else { & (Join-Path $PSScriptRoot 'Start-Run.ps1') | Out-Null }
+Copy-Item (Join-Path $script:SessionDir 'route.png') (Join-Path $RunDir 'route-1.png') -ErrorAction SilentlyContinue
 
 for ($Day = 1; $Day -le $Days; $Day++) {
-    $X, $Y = $Nodes[$Day - 1] -split ','
-    & $GameInput Host click $X $Y
+    if ($WithSpike) {
+        $X, $Y = $Nodes[$Day - 1] -split ','
+        & $GameInput Host click $X $Y
+    }
+    elseif (-not (Test-HostInMission)) {
+        # Zufalls-Seed: Die Knoten fuer Tag 1 liegen in der linken Spalte, ihre Hoehe wechselt je Run. Ein Klick daneben tut nichts.
+        foreach ($Y in 113, 163, 213, 263, 313, 363) {
+            & $GameInput Host click 62 $Y
+            Start-Sleep -Seconds 2
+            if (-not (Test-RouteMap)) { break }
+        }
+        if (Test-RouteMap) { throw 'Kein Knoten fuer Tag 1 gefunden, siehe Bild der Routenkarte.' }
+    }
     $Pending = Start-Check "tag$Day" @('--wait', '--settle', $Settle)
     # Bilder waehrend des Ladens, um seltsames Laden spaeter nachvollziehen zu koennen.
     $Elapsed = 0

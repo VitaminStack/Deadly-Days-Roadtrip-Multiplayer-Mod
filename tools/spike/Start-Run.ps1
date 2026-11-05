@@ -21,16 +21,10 @@ function Get-HostY {
 }
 if ($Seed) { Send-SpikeCommand $HostId "DD_SetCurrentRunSeed $Seed" }
 
-# Die Routenkarte erkennt man am gruenen Banner "Felder" oben rechts.
-function Test-RouteMap {
-    $Color = & $GameInput Host pixel 700 13
-    $R, $G, $B = [Convert]::ToInt32($Color.Substring(0, 2), 16), [Convert]::ToInt32($Color.Substring(2, 2), 16), [Convert]::ToInt32($Color.Substring(4, 2), 16)
-    [Math]::Abs($R - 0x3C) -lt 16 -and [Math]::Abs($G - 0x5F) -lt 16 -and [Math]::Abs($B - 0x3C) -lt 16
-}
-
+# Auch ein direkter Missionsstart zaehlt: Ein frischer Spielstand faehrt nach "So wird gespielt" ohne Routenkarte los.
 function Wait-RouteMap([int]$Seconds) {
-    for ($Wait = 0; $Wait -lt $Seconds -and -not (Test-RouteMap); $Wait++) { Start-Sleep -Seconds 1 }
-    Test-RouteMap
+    for ($Wait = 0; $Wait -lt $Seconds -and -not (Test-RouteMap) -and -not (Test-HostInMission); $Wait++) { Start-Sleep -Seconds 1 }
+    (Test-RouteMap) -or (Test-HostInMission)
 }
 
 # Kurz nach dem Laden der MetaBase reagiert der Ring manchmal nicht, darum bis zu drei Anlaeufe.
@@ -47,6 +41,10 @@ for ($Attempt = 1; $Attempt -le 3; $Attempt++) {
     # wenn die Karte ausbleibt, sonst traefe der Klick "Zurueck" auf der Routenkarte.
     & $GameInput Host click 398 417
     if (Wait-RouteMap 6) { break }
+}
+if (Test-HostInMission) {
+    'Mission direkt gestartet (frischer Spielstand, keine Routenkarte)'
+    return
 }
 $Shot = & $GameInput Host shot (Join-Path $script:SessionDir 'route.png')
 if (-not (Test-RouteMap)) { throw 'Routenkarte nicht offen, siehe research\local\session\route.png.' }
