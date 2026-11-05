@@ -333,6 +333,24 @@ Stand: Spieltest am 04.11.2026, Build `26187885`, ein PC über Loopback, Route �
 - **[Belegt]** Mit dem Fix starteten beide Leisten beim Client bei 100 %. Nach Schaden zeigten Host und Client dieselben Werte: 40 % und 70 %, dann 50 %, nach dem Wechsel auf Tag 2 75 %. Kein Absturz.
 - Nicht geprüft: Rüstung (`OnArmorChanged`, `OnMaxArmorChanged` liegen im abgeleiteten Charakter-Set) und die Überheilung. Ob weitere Empfänger dieser Delegates beim Client jetzt zusätzlich laufen sollten, ist nicht geprüft, gefunden war nur die Leiste. Internet nicht geprüft.
 
+### XP-Bälle beim Client (`xp-baelle`)
+
+Stand 04.11.2026, Build `26187885`. Beim Spieltest fiel auf: Der Client sieht die XP-Bälle nicht. Ursache bisher nur aus dem lokalen SDK abgeleitet, im Spiel nicht gemessen.
+
+- **[Belegt, SDK]** Die XP-Bälle sind keine replizierten Actors.
+  - Angezeigt werden sie von `AExpEmissionHandler`, einem Niagara-Partikelsystem.
+  - Position, Ziel, Wert und Farbe jedes Balls stehen in Listen des Handlers (`ExpData`, `SpawnLocationsInNiagara`, `OrbValuesInNiagara`, `OrbColorsInNiagara`).
+  - Die Klasse `BP_EXPOrb_C` (`AOrb`, Feld `OrbExpValue`) gibt es zusätzlich.
+- **[Belegt, SDK]** Bälle entstehen über `UExpSubsystem::RequestExpSpawning(ExpAmount, Location)`, das Aufsammeln läuft über `ReceiveExp(ExpAmount, Recipient)`. Beides ist kein RPC.
+- **Vermutung:**
+  - Gegner sterben beim Host, also ruft nur er `RequestExpSpawning` auf. Der Handler des Clients bekommt nie Daten.
+  - Die XP selbst zählen trotzdem: Der Host sammelt auch mit der Figur des Clients ein, und die XP sind gemeinsam. Der Client sieht nur nicht, wo die Bälle liegen.
+- **Möglicher Weg:**
+  - Der Host meldet jeden Aufruf von `RequestExpSpawning` (Menge, Ort) über den Kontrollkanal.
+  - Der Client erzeugt damit nur die Anzeige.
+  - Beim Client wird `ReceiveExp` gesperrt, damit nichts doppelt zählt.
+- **Offen:** Das alles im Spiel belegen. Dazu prüfen, ob die Partikel des Clients beim Aufsammeln mit denen des Hosts gleich verschwinden.
+
 ### Ergaenzung: SDK-Schnittstellen fuer eigenen Sync
 
 Aufgabe `sync-bedarf`, lokales Mission-SDK von Build `26187885`:
@@ -698,6 +716,33 @@ Stand 04.11.2026, Build `26187885`, nur Spike und Loopback. Die frühere Hypothe
 **Zusätzlich nötig und beobachtet:** Die native Prüfung eines lokalen P2-Geräts öffnet sonst ein blockierendes Controller-Beitrittsfenster. Ein auf den vollständigen aktuellen Listen-Host-Roster begrenzter Guard bei `0x59072AA` umgeht nur diese lokale P2-Gerätepflicht; P1-Geräteprüfung und Solo-Verlustpfad bleiben erhalten. Eine getrennt gesendete native `OnPlayerJoined`-Meldung aktualisiert die P2-Darstellung. Ein eigener veralteter Map-Eintrag wird bei fehlendem Remote-Roster mit dem nativen SparseArray-Entferner aufgeräumt und beim erneuten Beitritt ersetzt.
 
 **Keine vollständige Coop-UI:** Rundenstatistik und Lager zeigen beim Host beide Spieler, die lokale Kontrollübergabe im Lager blockiert aber weiterhin. Der Client bleibt lokal Index 0; Host-Coop-Zustand/Router werden nicht repliziert. Netzwerk-P2 muss deshalb von lokaler Geräteidentität getrennt werden; UI-Anfragen und Ergebnisse brauchen den geplanten Kontrollkanal. Die Aufgaben `remote-spieler`, `eingaben`, `inventar-sync` und `inventar-ui` bleiben offen. Die Phase-1-Frage nach Tragfähigkeit und nötigen Patches ist beantwortet; kein neuer Vollrun-/Internet-Nachweis. [Probe, Gegenversuche, Tests und Übernahmegrenzen](../research/spikes/a-connect/RemoteP2.md).
+
+### Airdrop-Auswahl für beide Spieler (`airdrop-auswahl`)
+
+Stand 05.11.2026, Build `26187885`, zwei Instanzen auf einem PC über die Steam-Lobby
+der Mod, Tag 1, Level-up-Airdrops. Rohdaten und Probe auf `task/client-visuell`.
+
+- **[Belegt] Ohne Koop-Modus:** Egal wer einsammelt, öffnet nur der Host das normale
+  Inventar-Panel („Nimm 1 von 3 Items“), der Client sieht keine Auswahl. Die Weltpause
+  kommt über die replizierten WorldSettings auch beim Client an. Die native
+  Koop-Reward-Sitzung bleibt leer. Nach einer vom Client eingesammelten Kiste kann
+  dessen Reward-Queue beim Host auf der alten Kiste hängen bleiben; der nächste
+  Airdrop öffnete sich dann ohne Auswahl.
+- **[Belegt] Mit Remote-Client als P2** (Spike `!p2 on`, siehe oben): Beim Airdrop
+  startet die native Koop-Sitzung von `UCoopInventoryCoordinatorComponent`:
+  `AwaitingClaims`, `eligible=[0,1]`, `RequiredClaims=2`, Host-Panel mit beiden
+  Rucksäcken. Nach dem ersten Bestätigen wartet sie auf den Claim von Spieler 1, die
+  Pause bleibt. Ein Host-Aufruf `ClaimReward(1, Choice)` schließt die Sitzung
+  (`Completed`, `claimed=[0,1]`).
+- **[Belegt] Grenzen:** Das Host-Panel zählt seine Bestätigung als Spieler 0, auch
+  wenn das Item im P2-Rucksack liegt. Nach dem Code-Claim für Spieler 1 blieb das
+  Host-Panel ohne Bedienmöglichkeit offen, und die Pause blieb;
+  `AcknowledgeRewardUIClosed` lieferte `false`. Ohne Platzierung landete die
+  P2-Wahl im Lager von Spieler 0. `TransferItem` mit Quelle `RewardChoice` und Ziel
+  `P2Backpack` endete mit `InvalidRequest`.
+- **[Hypothese]** Das Panel schließt nativ erst nach Übergabe der UI-Autorität an
+  P2 (`RequestUIAuthorityTransfer`), die ohne lokales P2-Gerät blockiert, siehe
+  Remote-P2.
 
 ### Coop-Ablauf
 

@@ -36,13 +36,17 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 |---|---|---|---|---|
 | `lobby-live` | P0 | [3](#phase-3--session-und-verbindung) | zu zweit | wenig |
 | `protokoll` | P0 | [3](#phase-3--session-und-verbindung) | zentral | wenig |
+| `ohne-spike` | P0 | [4](#phase-4--vertical-slice) | zentral | mittel |
 | `remote-spieler` | P0 | [4](#phase-4--vertical-slice) | zentral | mittel |
 | `mod-saves` | P0 | [6](#phase-6--release) | parallel | mittel |
 | `net-fehler` | P1 | [3](#phase-3--session-und-verbindung) | parallel | wenig |
+| `latenz-test` | P1 | [4](#phase-4--vertical-slice) | parallel | wenig |
 | `restrictor` | P1 | [4](#phase-4--vertical-slice) | parallel | wenig |
 | `installer` | P1 | [6](#phase-6--release) | parallel | keine |
+| `weekly-sperre` | P1 | [6](#phase-6--release) | parallel | wenig |
+| `doku-verweise` | P2 | [Wartung](#wartung) | parallel | keine |
 
-**Wartet auf das Team:** `meta-fortschritt`, `weeklymode`, `spiel-update`.
+**Wartet auf das Team:** `meta-fortschritt`, `spiel-update`.
 <!-- frei:end -->
 
 **Nicht erneut machen.** Das ist erledigt und dokumentiert:
@@ -86,12 +90,12 @@ Mögliche Punkte und Reihenfolge, je nach Bereitschaft:
 4. `integration-run`: kompletter Run über das Internet, Phase 5.
 5. `release`: Abschlusstest vor der Veröffentlichung.
 
-Die Team-Entscheidungen `meta-fortschritt` und `weeklymode` brauchen kein Spiel, passen aber in denselben Termin.
+Die Team-Entscheidung `meta-fortschritt` braucht kein Spiel, passt aber in denselben Termin.
 
 **Ohne zweite Person.** Alles andere geht allein auf einem PC: zwei Instanzen unter einem Konto über 127.0.0.1, siehe
 [Sitzung starten](docs/TESTING.md#sitzung-starten). Dazu gehören `protokoll`, `net-fehler`, `remote-spieler`, `missionsstart`,
-`kamera-code`, `bewegung`, `kampf`, `gegnertyp`, `eingaben`, `restrictor`, `mod-saves`, `installer` und die Sync-Aufgaben aus
-Phase 5. Dafür ist normalerweise kein gemeinsamer Termin nötig; die jeweiligen Abnahmen gelten weiterhin.
+`kamera-code`, `bewegung`, `kampf`, `gegnertyp`, `eingaben`, `restrictor`, `ohne-spike`, `latenz-test`, `desync-melder`,
+`dauerlauf`, `weekly-sperre`, `mod-saves`, `installer` und die Sync-Aufgaben aus Phase 5. Dafür ist normalerweise kein gemeinsamer Termin nötig; die jeweiligen Abnahmen gelten weiterhin.
 
 ## Aufgabe abschließen
 
@@ -142,7 +146,10 @@ Ziel: Zwei Spieler starten eine Mission, kämpfen gegen einen Gegnertyp und sehe
 | `gegnertyp` | P0 | Ein Gegnertyp inklusive Spawn und Tod. Ordner `src/Sync/Enemies` | `remote-spieler` | parallel | mittel |
 | `eingaben` | P1 | Eingaben aus dem lokalen `CoopInputRouter` sauber vom Remote-Spieler trennen. Ordner `src/Sync/Players`, Dateien mit `bewegung` absprechen | `remote-spieler` | parallel | mittel |
 | `restrictor` | P1 | Beim Client `MissionGameState` des `InViewportMovementRestrictor` nachtragen, wenn der GameState erst nach dessen `BeginPlay` ankommt, sonst Absturz bei `0x5A17ACC`. **Einstieg:** [Restrictor](docs/GAME_ANALYSIS.md#client-absturz-im-restrictor-tick-absturz) | `patches` | parallel | wenig |
-| `integration-g2` | P0 | Gate G2: Vertical Slice zusammenführen und zehn Minuten über echtes Internet zwischen zwei Haushalten spielen. Zwei Menschen nötig. **Fertig, wenn** die Runde stabil, ohne Desync und spielbar ist. Sonst Ursachen beheben, bevor weitere Inhalte synchronisiert werden | `missionsstart`, `kamera-code`, `bewegung`, `kampf`, `gegnertyp`, `eingaben`, `restrictor`, `steam-lobby`, `lobby-live`, `transport`, `net-fehler` | zentral | viel |
+| `ohne-spike` | P0 | Die Mod ohne Spike lauffähig machen. Heute laufen fast alle Tests mit Spike und Mod zusammen, im Release gibt es keinen Spike. Ohne seine Patches stürzen etwa beim Lobby-Beitritt Host (`0x5901CE8`) und Client (`0x56B16D9`) ab, siehe [Steam-Lobby prüfen](docs/TESTING.md#steam-lobby-der-mod-prüfen). Alle Spike-Eingriffe auflisten, die für den Betrieb nötig sind (nicht Messung und Testhilfen), fehlende nach `src/Game` übernehmen und `Start-Session.ps1` einen Schalter für „Mod ohne Spike“ geben, Crash-Schutz bleibt. **Fertig, wenn** Lobby-Beitritt, MetaBase und Mission an Tag 1 mit der Mod ohne `spike.dll` auf einem PC ohne Absturz laufen und die Liste der nur im Spike verbliebenen Eingriffe in [Game](src/Game/README.md) steht. Ordner `src/Game`, `tools/spike` | `patches`, `steam-lobby` | zentral | mittel |
+| `latenz-test` | P1 | Latenz und Paketverlust in Tests auf einem PC simulieren. Bisher lief fast alles über Loopback mit 0 ms, über das Internet sind 40 bis 150 ms und Verluste normal. Zuerst prüfen, ob Unreals `Net PktLag`/`PktLoss` im Shipping-Build verfügbar ist, sonst Verzögerung, Schwankung und Verlust im Transport der Mod einbauen (Startschalter, nur für Tests). `Start-Session.ps1` und `Run-Route.ps1` bekommen ein Profil, etwa 120 ms, ±30 ms, 2 % Verlust. **Fertig, wenn** ein Routenlauf bis Tag 1 mit Profil läuft, die gemessenen Werte im Mod-Log stehen und [Testen](docs/TESTING.md) beschreibt, wann Abnahmen das Profil nutzen. Ordner `src/Net`, `tools/spike` | `transport` | parallel | wenig |
+| `desync-melder` | P1 | Abweichungen zwischen Host und Client früh sichtbar machen. Host und Client tauschen alle paar Sekunden über den Kontrollkanal eine kleine Zustandssumme aus (Tag, Phase, Spielerzahl, HP, Gegnerzahl, Inventar-Hash), Abweichungen kommen ins Mod-Log und ins F8-Overlay. Bekannte Abweichungen aus [Optionale Optimierungen](#optionale-optimierungen) lassen sich einzeln ausnehmen. **Fertig, wenn** ein absichtlich erzeugter Unterschied (etwa ein Item nur beim Host) gemeldet wird und gleiche Zustände zehn Minuten ohne Fehlalarm bleiben. Ordner `src/Sync`, `src/UI`, Nachricht über `protokoll` anmelden | `protokoll` | parallel | mittel |
+| `integration-g2` | P0 | Gate G2: Vertical Slice zusammenführen und zehn Minuten über echtes Internet zwischen zwei Haushalten spielen. Zwei Menschen nötig. **Fertig, wenn** die Runde stabil, ohne Desync und spielbar ist. Sonst Ursachen beheben, bevor weitere Inhalte synchronisiert werden | `missionsstart`, `kamera-code`, `bewegung`, `kampf`, `gegnertyp`, `eingaben`, `restrictor`, `steam-lobby`, `lobby-live`, `transport`, `net-fehler`, `ohne-spike`, `latenz-test`, `desync-melder` | zentral | viel |
 
 ## Phase 5 – Vollständiger Run
 
@@ -152,16 +159,18 @@ Ziel: Ein kompletter Run ist zu zweit online spielbar.
 |---|---|---|---|---|---|
 | `gegner-alle` | P0 | Alle Gegner, Bosse und Boss-Phasen. Ordner `src/Sync/Enemies` | `integration-g2` | parallel | viel |
 | `fortschritt` | P0 | Loot, XP, Level-ups, Fähigkeiten und Status-Effekte (GAS). Ordner `src/Sync/Combat` | `integration-g2`, `protokoll` | parallel | viel |
+| `xp-baelle` | P1 | Der Client sieht die XP-Bälle nicht. Sie sind lokale Niagara-Partikel des `AExpEmissionHandler`, nur der Host erzeugt sie. Host meldet `RequestExpSpawning` (Menge, Ort), Client zeigt sie nur an, `ReceiveExp` beim Client gesperrt. **Fertig, wenn** der Client dieselben Bälle sieht, sie beim Aufsammeln verschwinden und XP nicht doppelt zählen. Ordner `src/Sync/Combat`. **Einstieg:** [XP-Bälle](docs/GAME_ANALYSIS.md#xp-bälle-beim-client-xp-baelle) | `protokoll` | parallel | mittel |
+| `airdrop-auswahl` | P0 | Airdrop-Belohnungen für beide Spieler mit möglichst wenig Aufwand, damit ein Run spielbar wird. Das native lokale Koop-System nutzen statt eines eigenen Inventar-Syncs: Host trägt den Remote-Client als P2 ein (Weg aus `remote-p2`, P2-Bindung mit `remote-spieler` absprechen), dann gibt es pro Kiste eine Koop-Sitzung mit einem Claim je Spieler und Pause bis zum letzten Claim. Host-Panel auf die eigene Hälfte begrenzen. Der Client bekommt aus dem Host-Sitzungsbild eine einfache Auswahl der Choices und meldet nur seine Wahl über den Kontrollkanal; der Host ruft `ClaimReward(1, …)` auf und legt das Item automatisch in den P2-Rucksack, ersatzweise ins Lager. Eigene Rasterplatzierung beim Client und Reroll erst später unter `inventar-ui`. **Fertig, wenn** bei einem von Host oder Client eingesammelten Airdrop beide ihre Auswahl sehen, beide bestätigen müssen, das Spiel bis dahin für beide steht, danach für beide weiterläuft und jeder genau seine Wahl erhält. Ordner `src/Sync/Inventory`. **Einstieg:** [Airdrop-Auswahl](docs/GAME_ANALYSIS.md#airdrop-auswahl-für-beide-spieler-airdrop-auswahl) | `protokoll` | parallel | mittel |
 | `inventar-sync` | P0 | Rucksack, Stash, Werkbank, Reward-Queue (`CoopInventoryCoordinator`). Ordner `src/Sync/Inventory` | `integration-g2`, `protokoll`, `guidcache` | parallel | viel |
 | `inventar-ui` | P0 | Inventar-UI beim Remote-Spieler. Ordner `src/Sync/Inventory`, `src/UI` | `inventar-sync` | parallel | mittel |
 | `pausen-sync` | P0 | Pausen und blockierende UI beider Spieler über den Kontrollkanal abstimmen. Ordner `src/Sync/Players`. **Einstieg:** [Pausen-Spike](research/spikes/pausen/README.md) | `integration-g2`, `protokoll` | parallel | mittel |
 | `tagesablauf` | P0 | Tageszyklus, Treibstoff, Missionsziele, Fahrt zwischen den Etappen. Ordner `src/Sync/World`, Dateien mit `run-ende` absprechen | `integration-g2`, `protokoll`, `guidcache`, `phasenadapter` | parallel | viel |
 | `meta-fortschritt` | P1 | Entscheiden, wessen Meta-Fortschritt zählt und was der Client bekommt | – | Team | keine |
 | `run-ende` | P1 | Run-Ende und Rückkehr zur Meta-Basis. Ordner `src/Sync/World`, Dateien mit `tagesablauf` absprechen | `integration-g2`, `protokoll`, `niederlage`, `meta-fortschritt` | parallel | viel |
-| `integration-run` | P0 | Kompletten Run zu zweit über Internet durchspielen und Fehler den Aufgaben zuordnen. **Fertig, wenn** ein Run von der `MetaBase` bis zum Endboss ohne Absturz und Desync läuft | `gegner-alle`, `fortschritt`, `inventar-sync`, `inventar-ui`, `pausen-sync`, `tagesablauf`, `run-ende` | zentral | viel |
+| `dauerlauf` | P1 | Automatischer Dauerlauf mit der Mod auf einem PC: `Run-Route.ps1` über viele Tage mit Latenzprofil, je Tag Speicher, Objektzahl und Größe des NetGUID-Caches beider Instanzen protokollieren. Ersetzt nicht den Spike-Lauf aus `guidcache`, sondern prüft den Sync-Code der Mod über die Laufzeit. **Fertig, wenn** ein Lauf über mindestens 13 Tage ohne Absturz läuft oder jeder Absturz eine eigene Kennung hat und das Wachstum je Tag dokumentiert ist. Ordner `tools/spike` | `integration-g2`, `latenz-test` | parallel | viel |
+| `integration-run` | P0 | Kompletten Run zu zweit über Internet durchspielen und Fehler den Aufgaben zuordnen. **Fertig, wenn** ein Run von der `MetaBase` bis zum Endboss ohne Absturz und Desync läuft | `gegner-alle`, `fortschritt`, `inventar-sync`, `inventar-ui`, `pausen-sync`, `tagesablauf`, `run-ende`, `dauerlauf` | zentral | viel |
 | `vfx-sound` | P2 | VFX und Sound (FMOD) beim Client. Ordner `src/Sync/Combat` | `integration-g2` | parallel | mittel |
 | `reconnect` | P2 | Wiederverbinden während eines Runs, Hinweis: `OnCoopReconnectRequiredChanged`. Ordner `src/Net`, `src/Sync` | `integration-g2`, `protokoll`, `net-fehler` | parallel | viel |
-| `weeklymode` | P2 | Entscheiden, ob die wöchentliche Herausforderung (`WeeklyMode`) unterstützt oder online gesperrt wird. Die Umsetzung bekommt danach eine eigene Kennung | – | Team | keine |
 
 ## Phase 6 – Release
 
@@ -171,7 +180,9 @@ Ziel: Die Mod lässt sich installieren, ohne Spielstände oder Bestenlisten zu b
 |---|---|---|---|---|---|
 | `mod-saves` | P0 | Mod-Spielstände vom normalen Spielstand trennen, damit kein Save beschädigt wird. Ordner `src/Game` | `game-adapter` | parallel | mittel |
 | `installer` | P1 | Installer oder einfache Installationsanleitung. Ordner `tools`, `docs` | `game-adapter` | parallel | keine |
-| `release` | P0 | Versionierung, Abschlusstest und Veröffentlichung. Ein Stand, eine Freigabe | `integration-run`, `tutorial-aus`, `online-sperren`, `telemetrie-aus`, `mod-saves`, `installer` | zentral | wenig |
+| `weekly-sperre` | P1 | Die Weekly-Challenge sperren, solange die Mod geladen ist, auch solo, wie Erfolge und Bestenlisten (Entscheidung `weeklymode`). `ddrweekly.deadlydays.com` in `Core::ReportHosts` aufnehmen und vorher prüfen, wie das Menü reagiert: Hängt oder stürzt der Weekly-Eintrag ohne Antwort, ihn sperren oder mit Hinweis versehen. **Fertig, wenn** mit Mod nichts an den Weekly-Server geht, das Menü normal bedienbar bleibt und ohne Mod alles unverändert ist. **Einstieg:** [Telemetrie und Berichte](docs/GAME_ANALYSIS.md#telemetrie-und-berichte-telemetrie-aus). Ordner `src/Core`, `src/Game` | `weeklymode`, `telemetrie-aus` | parallel | wenig |
+| `virenscanner` | P1 | Das Release-Paket gegen Windows Defender und weitere Scanner prüfen: Proxy-DLL und Hooks sehen für Scanner verdächtig aus. Fehlalarme bei den Herstellern melden, Hinweise in die Installationsanleitung. Steam Deck und Proton prüfen (`WINEDLLOVERRIDES="version=n,b" %command%`) oder als nicht unterstützt kennzeichnen. Nur das eigene Paket hochladen, nie Spieldateien. **Fertig, wenn** Defender das Paket nicht meldet oder der Umgang mit Fehlalarmen dokumentiert ist und der Stand zu Proton in der Anleitung steht. Ordner `docs`, `tools` | `installer` | parallel | keine |
+| `release` | P0 | Versionierung, Abschlusstest und Veröffentlichung. Ein Stand, eine Freigabe | `integration-run`, `tutorial-aus`, `online-sperren`, `telemetrie-aus`, `mod-saves`, `installer`, `weekly-sperre`, `virenscanner` | zentral | wenig |
 
 ## Wartung
 
@@ -179,6 +190,7 @@ Zählt nicht zum Fortschritt.
 
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
+| `doku-verweise` | P2 | Veraltete Querverweise verhindern: `task_status.py check` meldet Sätze wie „folgt mit“, „kommt mit“ oder „bis `<kennung>`“, deren Kennung schon erledigt ist. Dabei die bekannten Stellen korrigieren: Overlay-Absatz in [Testen](docs/TESTING.md#mod-overlay-prüfen) (Lobby-Knöpfe), Phase-3-Satz im [README](README.md), „Das kommt mit `steam-lobby`“ in [Net](src/Net/README.md), Welle 2 in der [Roadmap](docs/ROADMAP.md), und im Abschnitt [Test auf zwei PCs](docs/TESTING.md#test-auf-zwei-pcs) den Weg über `-Tunnel Lobby` ergänzen. **Fertig, wenn** die Prüfung in der CI läuft und auf `main` nichts meldet | – | parallel | keine |
 | `spiel-update` | P2 | Nur wenn das Team einen neuen Spiel-Build beschließt: Offsets, Signaturen und Patches anpassen. Betrifft alles auf einmal, alle Spieltests warten darauf. **Einstieg:** [Update-Regel](CONTRIBUTING.md#spiel-updates) | – | Team | viel |
 
 ## Optionale Optimierungen
@@ -196,6 +208,7 @@ Auch die zukünftige Update-Verwaltung bleibt vorerst optional: Wir erzwingen Bu
 | `opt-portraet` | P2 | Host zeigt an Tag 2 ein anderes Figurenporträt | `integration-run` | parallel | wenig |
 | `opt-kameras` | P2 | Getrennte Kameras je Spieler ermöglichen: Bewegungsbegrenzung anpassen, Sichtbereiche für das Gegner-Spawning synchronisieren oder die Spawn-Logik ersetzen, Gegnerverteilung prüfen. Keine Voraussetzung für die gemeinsame Kamera, siehe [Kamera](docs/GAME_ANALYSIS.md#kamera-und-sichtbereich) | `integration-run` | parallel | viel |
 | `mehr-spieler` | P2 | Mehr als 2 Spieler prüfen. Die Coop-Logik ist fest auf P1 und P2 ausgelegt, daher aufwendig | `release` | parallel | viel |
+| `coop-spielstand` | P2 | Der Host speichert einen Coop-Run und setzt ihn später mit demselben Client fort. **Fertig, wenn** nach Speichern, Beenden beider Spiele und erneutem Laden beim Host der Client beitritt und der Run mit gleichem Tag, gleicher Route und gleichen Inventaren weiterläuft | `integration-run`, `mod-saves` | parallel | viel |
 | `update-startpruefung` | P2 | Mod-/Spiel-Kompatibilität vor dem Laden prüfen: gemeinsame Quelle für Mod-Version, Protokollversion, unterstützte Game-Builds, Kompatibilitätsprofil und Datei-Hashes; Starter prüft die tatsächlich gestartete Installation (auch eingefrorene Kopien, Exe und relevante Inhaltscontainer), nicht nur das Steam-Manifest. Bei direktem Steam-Start prüft der `version.dll`-Loader erneut vor dem Laden von `DDCoop.dll`; die interne Prüfung bleibt bestehen. **Fertig, wenn** unbekannte/veränderte Builds und widersprüchliche Paketangaben die Mod nicht laden, ein sichtbarer Hinweis Mod-Version, gefundenen/erwarteten Build und Grund nennt und Abbrechen oder ein nachweislich modfreier Start möglich sind; keine Meldung unter dem Loader-Lock. Eine ältere, weiterhin kompatible Mod bleibt erlaubt; Internet ist für die lokale Freigabe nicht nötig. Pflicht-Patch-/Adapterfehler verhindern die Coop-Freigabe, Teilinstallation darf nicht als erfolgreicher Start gelten. Positiv-, Negativ- und Direktstarttests dokumentieren. **Einstieg:** `src/Loader/Loader.cpp`, `src/Core/Version.cpp`, `src/Mod/Mod.cpp`, `src/Game/Patches.cpp`, `tools/game_build.py` | `integration-run`, `installer` | zentral | wenig |
 | `update-releasefeed` | P2 | Vertrauenswürdig prüfbare Release-/Kompatibilitätsinformationen anbieten: signierte Metadaten mit Mod-Version, unterstützten Build-/Profilidentitäten, Protokollversion, Paket-Hashes und ausdrücklichen Rücknahmen kritischer Releases. Zunächst nur nach einem passenden Update suchen und es anbieten, nichts automatisch installieren. **Fertig, wenn** nur ausdrücklich freigegebene Pakete für den tatsächlich geprüften Game-Build angeboten werden, Signatur/Schema sowie veraltete oder zurückgespielte Metadaten geprüft werden und ungültige Antworten keine Freigabe bewirken; Offlinebetrieb nutzt die lokale Kompatibilitätsprüfung und kennzeichnet den Update-Status als unbekannt. Bekannte gültige Rücknahmen werden nicht durch Offlinebetrieb vergessen; eine bloß ältere kompatible Mod wird nicht gesperrt. Kein automatischer Support durch gefundene Signaturen. Tests für passende/unpassende Releases, Rücknahmen, ungültige Signaturen, veraltete Antworten und Netzausfall bestehen | `update-startpruefung` | zentral | keine |
 | `update-autoupdater` | P2 | Später optionales automatisches Mod-Update auf dem Releasefeed aufbauen, nur nach ausdrücklicher Aktivierung. **Fertig, wenn** ein für den vorhandenen Game-Build freigegebenes Paket zunächst separat heruntergeladen, anhand signierter Metadaten und Hashes geprüft und ausschließlich bei beendetem Spiel transaktional installiert wird; Archive dürfen keine fremden Pfade überschreiben. Abbruch, beschädigter Download, Dateisperren und Installationsfehler lassen das alte vollständige Paket erhalten oder stellen es wieder her. Vorversion und Rückkehrmöglichkeit bleiben verfügbar, Konfiguration und Saves bleiben erhalten; Save-Kompatibilität vor Rückkehr prüfen. Keine Game-Updates, keine Änderung eingefrorener Spielkopien und kein Austausch geladener DLLs. Tests für Fehlerfälle, Wiederanlauf und Rückkehr dokumentieren | `update-releasefeed`, `installer`, `mod-saves` | zentral | wenig |
@@ -269,6 +282,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `tunnel-p2p` | 1 | Zwei PCs mit zwei Steam-Konten spielten über den P2P-Tunnel bis in die Mission an Tag 1, 120 s ohne Absturz, Ping 41 ms im Median über ein Steam-Relay, nichts verworfen, siehe [Steam-Tunnel](research/spikes/a-connect/README.md#p2p-auf-zwei-pcs-tunnel-p2p) |
 | `tutorial-aus` | 6 | Die Mod schaltet die Tutorial-Hinweise als Host und Client automatisch ab und prüft das jede Sekunde (`src/Game/TutorialAdapter`), siehe [Tutorial-Pause](docs/GAME_ANALYSIS.md#tutorial-pause-hält-den-run-an-testumgebung) |
 | `update-regel` | 0 | Spiel-Updates: einfrieren und nur bei Bedarf nachziehen, siehe [Update-Regel](CONTRIBUTING.md#spiel-updates) |
+| `weeklymode` | 5 | Team-Entscheidung vom 05.11.2026: Die Weekly-Challenge wird nicht unterstützt und ist gesperrt, solange die Mod geladen ist, auch solo, wie Erfolge und Bestenlisten. Umsetzung ist `weekly-sperre` |
 | `zwei-pc-test` | Wartung | Tests auf zwei PCs: `Test-TwoPc.ps1` fährt je PC eine Rolle automatisch bis in die Mission und schreibt einen Tunnel-Bericht, `Start-Session.ps1 -Role`, Aufgaben „zu zweit“ mit Rollen-Reservierung in `tasks.py`, siehe [Test auf zwei PCs](docs/TESTING.md#test-auf-zwei-pcs) |
 
 ## Risiken
@@ -281,3 +295,10 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | Viele Gegner überlasten das Netzwerk | Laggy oder unspielbar | Spike D; Gegner gebündelt synchronisieren |
 | Karte entsteht lokal, Objekte darauf replizieren | Doppelte Objekte oder abweichende Karte beim Client | Seed übertragen, lokale Kopien replizierter Klassen unterdrücken (`karte-client`) |
 | Spiel-Updates (seit 1.0 am 29.10.2026 aktiv gepatcht) | Hooks und SDK veralten | Versionsprüfung, Update-Regel, Adapter-Schicht |
+| Tests laufen fast nur mit Spike und Mod zusammen | Im Release fehlen Eingriffe, die nur der Spike macht, das Spiel stürzt ab | `ohne-spike` vor Gate G2 |
+| Tests laufen über Loopback mit 0 ms | Timing-Fehler zeigen sich erst über das Internet, vermischt in `integration-g2` | `latenz-test`, Abnahmen mit Latenzprofil |
+| Rein lokale Zustände weichen still ab (wie die XP-Bälle) | Desyncs fallen spät und schwer zuordenbar auf | `desync-melder` vor Gate G2 |
+| Fehler wachsen mit der Laufzeit (Timer, NetGUIDs, Speicher) | Abstürze erst spät im Run | `dauerlauf` vor `integration-run` |
+| Mod-Runs landen beim Hersteller oder in Steam | Absturzberichte belasten Pixelsplit, Erfolge und Bestenlisten werden verfälscht | Sperren in `Core::Protection` (erledigt), dazu `weekly-sperre` |
+| Virenscanner melden Proxy-DLL und Hooks | Spieler können die Mod nicht installieren | `virenscanner` vor `release` |
+| Doku veraltet, weil viele parallel arbeiten | Agenten folgen falschen Anleitungen | `doku-verweise` |
