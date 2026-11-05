@@ -32,6 +32,8 @@ schaltet beim Host einmal je Projektil-Actor im PersistentLevel `SetReplicateMov
   Live-Vergleich dieselben Projektile in beiden Fenstern.
 - Grenzen: Das erste Geschoss eines neuen Pool-Actors kann bis zu 1 s ohne Bewegung erscheinen.
   `BulletSize` wird weiterhin nicht übertragen. Treffer- und Todeseffekte sind nicht angebunden.
+- **Nachtrag `kampf`, 05.11.2026:** Größe und erste Bewegung sind gelöst, siehe
+  [Kampf](../../../docs/GAME_ANALYSIS.md#kampf-beim-client-kampf). Treffer- und Todeseffekte bleiben offen.
 
 ## Umsetzung vom 05.11.2026: gemeinsamer XP-Anzeigestand
 
