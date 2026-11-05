@@ -40,10 +40,10 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `kamera-code` | P0 | [4](#phase-4--vertical-slice) | parallel | mittel |
 | `kampf` | P0 | [4](#phase-4--vertical-slice) | parallel | mittel |
 | `missionsstart` | P0 | [4](#phase-4--vertical-slice) | parallel | viel |
+| `rundenende-absturz` | P0 | [4](#phase-4--vertical-slice) | parallel | mittel |
 | `airdrop-auswahl` | P0 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `mod-saves` | P0 | [6](#phase-6--release) | parallel | mittel |
 | `lobby-bereit` | P1 | [3](#phase-3--session-und-verbindung) | parallel | wenig |
-| `desync-melder` | P1 | [4](#phase-4--vertical-slice) | parallel | mittel |
 | `eingaben` | P1 | [4](#phase-4--vertical-slice) | parallel | mittel |
 | `restrictor` | P1 | [4](#phase-4--vertical-slice) | parallel | wenig |
 | `xp-baelle` | P1 | [5](#phase-5--vollständiger-run) | parallel | mittel |
@@ -152,7 +152,7 @@ Ziel: Zwei Spieler starten eine Mission, kämpfen gegen einen Gegnertyp und sehe
 | `gegnertyp` | P0 | Ein Gegnertyp inklusive Spawn und Tod. Ordner `src/Sync/Enemies` | `remote-spieler` | parallel | mittel |
 | `eingaben` | P1 | Eingaben aus dem lokalen `CoopInputRouter` sauber vom Remote-Spieler trennen. Ordner `src/Sync/Players`, Dateien mit `bewegung` absprechen | `remote-spieler` | parallel | mittel |
 | `restrictor` | P1 | Beim Client `MissionGameState` des `InViewportMovementRestrictor` nachtragen, wenn der GameState erst nach dessen `BeginPlay` ankommt, sonst Absturz bei `0x5A17ACC`. **Einstieg:** [Restrictor](docs/GAME_ANALYSIS.md#client-absturz-im-restrictor-tick-absturz) | `patches` | parallel | wenig |
-| `desync-melder` | P1 | Abweichungen zwischen Host und Client früh sichtbar machen. Host und Client tauschen alle paar Sekunden über den Kontrollkanal eine kleine Zustandssumme aus (Tag, Phase, Spielerzahl, HP, Gegnerzahl, Inventar-Hash), Abweichungen kommen ins Mod-Log und ins F8-Overlay. Bekannte Abweichungen aus [Optionale Optimierungen](#optionale-optimierungen) lassen sich einzeln ausnehmen. **Fertig, wenn** ein absichtlich erzeugter Unterschied (etwa ein Item nur beim Host) gemeldet wird und gleiche Zustände zehn Minuten ohne Fehlalarm bleiben. Ordner `src/Sync`, `src/UI`, Nachricht über `protokoll` anmelden | `protokoll` | parallel | mittel |
+| `rundenende-absturz` | P0 | Beim regulären Rundenende von Tag 1 (rund 12,5 Minuten nach Missionsstart, mit `-Godmode`) stürzt zuerst der Client ab (Access Violation beim Lesen von `0x348`), 30 Sekunden später der Host (`0x1B8`). Zweimal mit identischen Stacks beobachtet, nur Frames des Spiels. Erste Gegenprobe: dasselbe Rundenende mit `desync_enabled=false`. **Fertig, wenn** beide Instanzen das Rundenende von Tag 1 ohne Absturz überstehen. **Einstieg:** [Desync-Melder, Langzeitmessung](docs/DESYNC.md#langzeitmessung-im-spiel-05112026-nach-merge-von-main) | `phasenadapter` | parallel | mittel |
 | `integration-g2` | P0 | Gate G2: Vertical Slice zusammenführen und zehn Minuten über echtes Internet zwischen zwei Haushalten spielen. Zwei Menschen nötig. **Fertig, wenn** die Runde stabil, ohne Desync und spielbar ist. Sonst Ursachen beheben, bevor weitere Inhalte synchronisiert werden | `missionsstart`, `kamera-code`, `bewegung`, `kampf`, `gegnertyp`, `eingaben`, `restrictor`, `steam-lobby`, `lobby-live`, `transport`, `net-fehler`, `ohne-spike`, `latenz-test`, `desync-melder` | zentral | viel |
 
 ## Phase 5 – Vollständiger Run
@@ -241,6 +241,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `coop-ablauf` | 1 | P2 ist ein zweiter `ULocalPlayer` aus `SpawnLocalPlayer(1)`, 5 Stellen kommen ohne `LocalPlayer` nicht zurecht, siehe [Coop-Ablauf](docs/GAME_ANALYSIS.md#coop-ablauf) |
 | `crash-reporter` | 1 | Mod und Spike lassen den Start von `CrashReportClient.exe` scheitern, `CrashGuard` bleibt erste Schicht, siehe [Crash-Reporter](research/spikes/a-connect/README.md#sperre-in-mod-und-spike-crash-reporter) |
 | `deploy` | 2 | Deploy-Skript `tools/Deploy-Mod.ps1` |
+| `desync-melder` | 4 | Zustandssumme über den Kontrollkanal, Abweichungen in Mod-Log und F8, im Spiel rund 636 s ohne Fehlalarm, absichtliche Inventarabweichung auf beiden Seiten erkannt |
 | `dumper-fix` | 0 | Dumper-7-Fix liegt im eigenen Fork, eingebunden als Submodul `third_party/Dumper-7`, siehe [SDK-Erzeugung](docs/GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58) |
 | `game-adapter` | 2 | Game-Thread-Takt am Spielfenster ruft `Drain` und die Adapter-Ticks; `Offsets.h` mit geschützten Lesezugriffen, beim Bauen gegen ein lokales Dumper-7-SDK geprüft; `WorldAdapter` als Muster liest Karte, Rolle und Spielerzahl. Mit Host und Client bis Tag 1 geprüft, [Muster](src/Game/README.md) |
 | `gate-g1` | 1 | Am 04.11.2026 vom Nutzer verbindlich entschieden: Weg A (native UE-Replikation) als Grundlage, ergänzt durch eigenen Kontroll-/Sync-Kanal für XP, Währungen, Rewards, Pausen und UI; Weg B nur Rückfalloption. [Architekturentscheidung](docs/ARCHITECTURE.md#entscheidungen) |

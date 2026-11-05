@@ -61,7 +61,7 @@ void Start()
 
     // Die Lobby hängt einen Game-Thread-Tick an, das geht nur vor Game::Start.
     Mod::Lobby::Install();
-    Sync::Start(); // Alle Game-Thread-Ticks vor dem Start registrieren.
+    Sync::Start(Config, [](std::string Text) { UI::Overlay().PublishDiagnostics(std::move(Text)); });
     Started = true;
     Game::Start();
     Net::Start();

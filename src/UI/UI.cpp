@@ -30,7 +30,7 @@ std::atomic<bool> Visible = false;
 struct WindowState
 {
     HWND Owner = nullptr;
-    HWND Status = nullptr, Message = nullptr, Debug = nullptr, Hint = nullptr;
+    HWND Status = nullptr, Message = nullptr, Debug = nullptr, Hint = nullptr, Diagnostics = nullptr;
     HWND Create = nullptr, Join = nullptr, Invite = nullptr, Leave = nullptr, Lobby = nullptr, Copy = nullptr;
     bool KeyDown = false;
     ULONGLONG CopiedAt = 0;
@@ -125,8 +125,9 @@ void Layout(WindowState& State, HWND Window, int Dpi)
     Place(State.Join, 292, 128, 136, 28);
     Place(State.Debug, 12, 166, 416, 64);
     Place(State.Copy, 12, 234, 160, 28);
-    Place(State.Hint, 12, 270, 416, 44);
-    RECT Rect{ 0, 0, Scale(440), Scale(324) };
+    Place(State.Diagnostics, 12, 270, 416, 64);
+    Place(State.Hint, 12, 342, 416, 44);
+    RECT Rect{ 0, 0, Scale(440), Scale(396) };
     AdjustWindowRectExForDpi(&Rect, WS_POPUP | WS_CAPTION | WS_SYSMENU, FALSE, WS_EX_TOOLWINDOW, static_cast<UINT>(Dpi));
     SetWindowPos(Window, nullptr, 0, 0, Rect.right - Rect.left, Rect.bottom - Rect.top,
         SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
@@ -173,6 +174,7 @@ void UpdateControls(WindowState& State)
     const auto& Status = View.Status;
     Text(State.Status, std::wstring(L"DDCoop | ") + StateName(Status.State));
     Text(State.Message, Widen(Status.Message));
+    Text(State.Diagnostics, Widen(View.Diagnostics));
     const wchar_t* Role = Status.Role == UI::SessionRole::Host ? L"Host" :
         Status.Role == UI::SessionRole::Client ? L"Client" : L"Keine";
     Text(State.Debug, std::wstring(L"Rolle: ") + Role + L" | Spieler: " + std::to_wstring(Status.Players) +
@@ -254,6 +256,8 @@ LRESULT CALLBACK WindowProc(HWND Window, UINT Message, WPARAM WParam, LPARAM LPa
             State->Message = Control(Window, L"STATIC", L"", SS_LEFT);
             State->Debug = Control(Window, L"STATIC", L"", SS_LEFT);
             State->Hint = Control(Window, L"STATIC", L"", SS_LEFT);
+            // Bestehende STATIC-Reihenfolge fuer tools/spike/Common.ps1 erhalten.
+            State->Diagnostics = Control(Window, L"STATIC", L"Desync: wartet", SS_LEFT);
             State->Create = Control(Window, L"BUTTON", L"Lobby erstellen", WS_TABSTOP, CreateId);
             State->Invite = Control(Window, L"BUTTON", L"Freunde einladen", WS_TABSTOP, InviteId);
             State->Leave = Control(Window, L"BUTTON", L"Verlassen", WS_TABSTOP, LeaveId);

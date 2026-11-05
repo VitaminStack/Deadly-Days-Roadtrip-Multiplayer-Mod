@@ -267,6 +267,7 @@ function Get-OverlayState([int]$ProcessId) {
     [pscustomobject]@{
         State = ([string]$Texts[0]) -replace '^DDCoop \| ', ''
         Message = [string]$Texts[1]
+        Diagnostics = if ($Texts.Length -gt 4) { [string]$Texts[4] } else { '' }
         Role = [regex]::Match($Debug, 'Rolle: (\w+)').Groups[1].Value
         LobbyId = if ($Lobby.Success) { $Lobby.Groups[1].Value } else { '' }
         Ping = [regex]::Match($Debug, 'Ping: ([^\r\n]+?)(\r|\n|$)').Groups[1].Value

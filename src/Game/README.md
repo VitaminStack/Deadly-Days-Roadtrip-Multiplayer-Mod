@@ -13,6 +13,7 @@ Einzige Schicht mit Spielzugriff. Enthält Adapter auf Spielklassen und später 
 | `Memory.h` | Geschützte Lesezugriffe (`Read<T>`, `ReadPointer`), Schreiben von Werten (`WriteBytes`) und Objektnamen (`NameOf`) |
 | `SdkChecks.cpp` | Prüft `Offsets.h` beim Bauen gegen das Dumper-7-SDK, ohne SDK leer |
 | `WorldAdapter.h` | Muster-Adapter: Karte, Rolle (allein, Host, Client) und Spielerzahl |
+| `DesyncAdapter.h` / `DesyncSnapshot.h` | Lesende Diagnosebilder, kanonische HP-/Inventar-Hashes, explizit unbekannte Felder; [Messumfang und offene Abnahme](../../docs/DESYNC.md) |
 | `Objects.h` | Suche im Objekt-Array (`FindInstance`, `FindObject`, `IsA`) und Aufruf über `ProcessEvent` |
 | `TutorialAdapter.h` | Schaltet die Tutorial-Hinweise als Host und Client ab, Prüfung einmal je Sekunde |
 | `TelemetryAdapter.h` | Schaltet im Mod-Betrieb Balance-Telemetrie und automatische Berichte über beschädigte Spielstände ab und sperrt die Telemetrie-Adresse über `Core::ReportHosts` |

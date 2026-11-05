@@ -1,6 +1,5 @@
 #include "Sync/ProgressState.h"
 
-#include <chrono>
 #include <cstdint>
 #include <random>
 #include "Core/Log.h"
@@ -8,6 +7,7 @@
 #include "Game/ExpAdapter.h"
 #include "Game/ProgressAdapter.h"
 #include "Net/Net.h"
+#include "Sync/ControlDispatch.h"
 
 namespace Sync
 {
@@ -20,13 +20,10 @@ uint64_t NewRun()
     return Value ? Value : 1;
 }
 
-void TickProgress()
+}
+
+void TickProgress(std::span<const Net::ControlMessage> Messages)
 {
-    using Clock = std::chrono::steady_clock;
-    static auto Next = Clock::now();
-    if (Clock::now() < Next)
-        return;
-    Next = Clock::now() + std::chrono::milliseconds(250);
     static const uint64_t Run = NewRun();
     static uint64_t World = 0, State = 0, Epoch = 0, Revision = 0, Nonce = 0, Peer = 0;
     static uint64_t ClientRun = 0, ClientNonce = 0;
@@ -51,7 +48,6 @@ void TickProgress()
     }
     if (!Transport)
         return;
-    const auto Messages = Transport->TakeControlMessages();
     if (!Context || !Peer)
         return;
     if (Context->Role == Game::NetRole::Host && Transport->Stats().IsHost)
@@ -130,11 +126,5 @@ void TickProgress()
         else if (Mirror.Value)
             Mirror.Bind(Peer, Run, ++Nonce);
     }
-}
-}
-
-void InstallProgressSync()
-{
-    Game::GameThread::AddTick(TickProgress);
 }
 }

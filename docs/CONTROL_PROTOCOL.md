@@ -71,7 +71,35 @@ Legacy-Tunnel des Wegwerf-Spikes.
 Die Registrierung ist schwach: Verlassen/Stop hält keine Sitzung wegen eines
 Sync-Abonnenten am Leben. Die API ist somit nicht auf den Testschalter beschränkt.
 
-## Bisher geprüft (05.11.2026)
+## Diagnosefamilie (Mod-Kompatibilität 2)
+
+Rahmenversion bleibt 1; Mod-Kompatibilitätsversion ist für die neue Familie 2.
+Beide Seiten müssen dieselbe Mod-Version benutzen. Zentraler Queue-Drain und
+Details der Messung: [Desync-Melder](DESYNC.md). Typen `0x200` (Client-Probe)
+und `0x201` (Host-Ergebnis), jeweils exakt 84 Nutzlastbytes:
+
+| Offset | Bytes | Inhalt |
+|---:|---:|---|
+| 0 | 8 | Client-Run-ID, im Ergebnis Echo |
+| 8 | 8 | Client-Lebensdauer-Nonce, im Ergebnis Echo |
+| 16 | 8 | Client-Probensequenz, im Ergebnis Echo |
+| 24 | 8 | NetGUID des aktuellen MissionGameState |
+| 32 | 1 | Known-Bitmaske |
+| 33 | 1 | Stable-Bitmaske, Teilmenge von Known |
+| 34 | 1 | Ignored-Bitmaske, nur vom Host |
+| 35 | 1 | bestätigte Alerts, stabil und nicht ausgenommen, nur vom Host |
+| 36 | 48 | Sechs uint64: Tag, Phase, Spieler, HP-Hash, Gegner, Inventar-Hash |
+
+Nur die unteren sechs Maskenbits sind gültig. Unbekannte Feldwerte müssen null
+sein. Tag höchstens 100000, Phase 0/1, Spieler höchstens 2, Gegner höchstens
+20000. Alle vier Payload-Kennungen ungleich null; NetGUID höchstens 54 Bit.
+Probe-Envelope: Run/Nonce/Sequence identisch zur Payload. Ergebnis-Envelope:
+Host-Run, Host-Lebensdauer-Nonce, monoton steigende Antwortrevision. Payload-
+Echo und Peer binden die Antwort zusätzlich an die aktuell offene Client-Probe.
+Client-Proben enthalten weder Ausnahmen noch Alarme. Ausgenommene Felder sind
+kein Gleichheitsnachweis. Noch keine Spielabnahme dieser Familie.
+
+## Bisher geprüft (05.11.2026, Kontrollkanal vor Diagnoseerweiterung)
 
 - Build und alle Tests bestanden, darunter 24 Net-Testfälle: binäre UE-Pakete in
   beide Richtungen, exakte Rahmengrenzen, falsche Build-/Mod-Version, fehlendes
