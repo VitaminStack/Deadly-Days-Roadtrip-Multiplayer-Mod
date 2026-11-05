@@ -19,6 +19,13 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 **Neue Befunde.**
 
 - `airdrop-rucksack`, 05.11.2026, Teilstand: Wahl und Ablage des Clients kommen beim Host im Rucksack an, das Item wirkt beim Client (live bestätigt). Die automatische Bestätigung beim Drag ist entfernt, die Client-Anzeige richtet sich nach `SetupInventory` an den replizierten Pivot-Feldern aus. Diese beiden Fixes, Umsortieren und ein zweiter Airdrop stehen als `airdrop-rucksack-live`. [Befund](../src/Game/README.md#airdrop-auswahl)
+- `xp-baelle`, 05.11.2026, Teilstand: Dem Client fehlt der GameMode, darum berechnete er die Sichtgrenzen der XP-Bälle zu schmal. Die Grenzen kommen jetzt beim Client aus der lokalen Kamera, Host und XP-Vergabe bleiben unverändert. Build und Tests bestehen, die sichtbare Gegenprobe fehlt und steht als `xp-baelle-live`. [Befund](GAME_ANALYSIS.md#xp-bälle-beim-client-xp-baelle)
+- `todo-wartbarkeit`, 05.11.2026: Ergänzt `client-lokal-audit` um Updateresistenz und Aufräumen. Neu unter Wartung:
+  `reflexion-felder` (P1, Feldzugriffe zur Laufzeit über die Engine-Reflexion statt fester Offsets, früh, damit der Sync-Code
+  der Phasen 4 und 5 darauf aufbaut), `patch-signaturen` (P2, Byte-Signatur je Patch-Adresse) und `sdk-vergleich` (P2, SDK-Diff
+  für `spiel-update`). `opt-ladezeit-messung` wandert als Testwerkzeug nach Wartung, `sync-aufraeumen` (optional, nach
+  `integration-run`) entfernt doppelte Synchronisierung. Ein Befehl für Bauen und Starten existiert mit `Start-Session.ps1 -Mod` schon.
+  Keine Laufzeitänderung.
 - `client-lokal-audit`, 05.11.2026: Projektweite Nutzervorgabe **lokal zuerst, minimal synchronisieren**
   in Agenten-/Architekturregeln aufgenommen. Quellcode-Audit findet zuerst Handlungsbedarf an
   Inventar-/Bag-Transaktionen, lokalen UI-/globalen Phasengrenzen und Kamera-/XP-Projektion;
