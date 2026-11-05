@@ -33,6 +33,7 @@ std::span<const Patch> ExpPatches();
 void TickPlayers(NetRole Role, bool Second);
 void TickCamera(NetRole Role, bool Second);
 void TickWidgets(NetRole Role);
+void TickProjectiles(NetRole Role, bool Second);
 
 // Beobachter nach jedem ProcessEvent, aus WidgetPatches.cpp.
 void NotifyEventObservers(uintptr_t Object, uintptr_t Function, void* Params);

@@ -46,6 +46,7 @@
     <ClCompile Include="AirdropAdapter.cpp" />
     <ClCompile Include="AirdropPatches.cpp" />
     <ClCompile Include="ExpPatches.cpp" />
+    <ClCompile Include="ProjectilePatches.cpp" />
     <ClCompile Include="NetworkObjects.cpp" />
     <ClCompile Include="ConsoleAdapter.cpp" />
     <ClCompile Include="GameThread.cpp" />

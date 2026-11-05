@@ -113,5 +113,6 @@ void Tick()
     TickWidgets(Role);
     TickPlayers(Role, Second);
     TickCamera(Role, Second);
+    TickProjectiles(Role, Second);
 }
 }
