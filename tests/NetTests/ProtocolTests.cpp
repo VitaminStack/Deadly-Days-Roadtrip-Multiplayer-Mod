@@ -65,3 +65,32 @@ TEST_CASE("Kontrollzustand hat feste Identitaet und Grenzen, keine rohen Prozess
     Large.Payload.push_back(0);
     CHECK(EncodeControl(Large).empty());
 }
+
+TEST_CASE("Ablehnungsgrund nennt alte Mod, Protokoll, Build, Mod-Version und Rolle")
+{
+    const Identity Client{GameBuild, ModVersion, false};
+    const std::vector<uint8_t> RawUe{0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80, 0x90, 0xA0, 0xB0, 0xC0};
+    CHECK(Explain(RawUe, Client).find("ohne Mod-Protokoll") != std::string::npos);
+    CHECK(Explain({}, Client).find("ohne Mod-Protokoll") != std::string::npos);
+
+    auto OtherProtocol = Hello({GameBuild, ModVersion, true});
+    OtherProtocol[4] = static_cast<uint8_t>(Version + 1);
+    CHECK(Explain(OtherProtocol, Client) == "Mitspieler hat Protokollversion " + std::to_string(Version + 1) + ", du " +
+                                                std::to_string(Version) + ". Beide denselben Mod-Stand installieren");
+
+    CHECK(Explain(Hello({GameBuild + 1, ModVersion, true}), Client) ==
+          "Mitspieler hat Spiel-Build " + std::to_string(GameBuild + 1) + ", du " + std::to_string(GameBuild));
+    CHECK(Explain(Hello({GameBuild, ModVersion + 1, true}), Client) ==
+          "Mitspieler hat Mod-Version " + std::to_string(ModVersion + 1) + ", du " + std::to_string(ModVersion) +
+              ". Beide denselben Mod-Stand installieren");
+    CHECK(Explain(Hello({GameBuild, ModVersion, false}), Client) == "Beide Seiten sind Client");
+    CHECK(Explain(Hello({GameBuild, ModVersion, true}), {GameBuild, ModVersion, true}) == "Beide Seiten sind Host");
+
+    auto Broken = Hello({GameBuild, ModVersion, true});
+    Broken.push_back(0); // Länge passt nicht mehr zum Kopf
+    CHECK(Explain(Broken, Client).find("beschaedigt") != std::string::npos);
+    const auto BadControl = Encode(Kind::Control, std::vector<uint8_t>{1, 2, 3});
+    CHECK(Explain(BadControl, Client).find("Ungueltige") != std::string::npos);
+    // Ein passender Hello ist kein Ablehnungsgrund, falls er doch hier landet (etwa doppelt).
+    CHECK(Explain(Hello({GameBuild, ModVersion, true}), Client).find("Ungueltige") != std::string::npos);
+}

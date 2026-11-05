@@ -50,7 +50,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `weekly-sperre` | P1 | [6](#phase-6--release) | parallel | wenig |
 | `mod-steuerung` | P1 | [Wartung](#wartung) | parallel | wenig |
 | `doku-verweise` | P2 | [Wartung](#wartung) | parallel | keine |
-| `versions-meldung` | P2 | [Wartung](#wartung) | parallel | wenig |
 | `opt-ladezeit-messung` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
 
 **Wartet auf das Team:** `meta-fortschritt`, `spiel-update`.
@@ -195,7 +194,6 @@ Zählt nicht zum Fortschritt.
 | `doku-verweise` | P2 | Veraltete Querverweise verhindern: `task_status.py check` meldet Sätze wie „folgt mit“, „kommt mit“ oder „bis `<kennung>`“, deren Kennung schon erledigt ist. Dabei die bekannten Stellen korrigieren: Overlay-Absatz in [Testen](docs/TESTING.md#mod-overlay-prüfen) (Lobby-Knöpfe), Phase-3-Satz im [README](README.md), „Das kommt mit `steam-lobby`“ in [Net](src/Net/README.md), Welle 2 in der [Roadmap](docs/ROADMAP.md), und im Abschnitt [Test auf zwei PCs](docs/TESTING.md#test-auf-zwei-pcs) den Weg über `-Tunnel Lobby` ergänzen. **Fertig, wenn** die Prüfung in der CI läuft und auf `main` nichts meldet | – | parallel | keine |
 | `mod-steuerung` | P1 | Steuerkanal in der Mod für Testskripte: Befehle mit Antwort über eine lokale Named Pipe je Prozess, nur mit Testschalter aktiv. Mindestens Zustand als JSON (Welt, Rolle, Spieler, Sitzung, Overlay), Lobby erstellen, beitreten, verlassen, Konsolenbefehl und Reise. Ersetzt die Befehlsdatei des Spikes (`Send-SpikeCommand`, eine Sekunde Abfrage, keine Antwort) und das Auslesen per `netstate.py` und Overlay-Fenster. **Fertig, wenn** `Start-Session.ps1`, `Restart-Instance.ps1` und `Test-NetEnd.ps1` ohne Spike-Befehle auskommen und gleich schnell oder schneller sind. **Einstieg:** [Spielzeit sparen](docs/TESTING.md#spielzeit-sparen), `tools/spike/Common.ps1` | `test-tempo` | parallel | wenig |
 | `spiel-update` | P2 | Nur wenn das Team einen neuen Spiel-Build beschließt: Offsets, Signaturen und Patches anpassen. Betrifft alles auf einmal, alle Spieltests warten darauf. **Einstieg:** [Update-Regel](CONTRIBUTING.md#spiel-updates) | – | Team | viel |
-| `versions-meldung` | P2 | Bei verschiedenen Mod-Ständen meldet die Mod nur „Ungueltige oder inkompatible Kontrollnachricht“ und trennt. Am 05.11.2026 auf zwei PCs so passiert, bis beide denselben Stand hatten. **Fertig, wenn** die Meldung in Log und Overlay sagt, dass der Mitspieler eine andere Protokoll- oder Mod-Version hat, mit beiden Werten, und kaputte Daten weiter als solche gemeldet werden. Ordner `src/Net`. **Einstieg:** [Protokoll](docs/CONTROL_PROTOCOL.md), [Zwei PCs, nur Mod](src/Net/README.md#zwei-pcs-nur-mod-05112026) | `protokoll` | parallel | wenig |
 
 ## Optionale Optimierungen
 
@@ -302,6 +300,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `tunnel-p2p` | 1 | Zwei PCs mit zwei Steam-Konten spielten über den P2P-Tunnel bis in die Mission an Tag 1, 120 s ohne Absturz, Ping 41 ms im Median über ein Steam-Relay, nichts verworfen, siehe [Steam-Tunnel](research/spikes/a-connect/README.md#p2p-auf-zwei-pcs-tunnel-p2p) |
 | `tutorial-aus` | 6 | Die Mod schaltet die Tutorial-Hinweise als Host und Client automatisch ab und prüft das jede Sekunde (`src/Game/TutorialAdapter`), siehe [Tutorial-Pause](docs/GAME_ANALYSIS.md#tutorial-pause-hält-den-run-an-testumgebung) |
 | `update-regel` | 0 | Spiel-Updates: einfrieren und nur bei Bedarf nachziehen, siehe [Update-Regel](CONTRIBUTING.md#spiel-updates) |
+| `versions-meldung` | Wartung | Abgelehnte erste Nachricht nennt den Grund mit beiden Werten (alte Mod, Protokoll, Build, Mod-Version, Rolle), siehe [Handshake](docs/CONTROL_PROTOCOL.md#handshake) |
 | `weeklymode` | 5 | Team-Entscheidung vom 05.11.2026: Die Weekly-Challenge wird nicht unterstützt und ist gesperrt, solange die Mod geladen ist, auch solo, wie Erfolge und Bestenlisten. Umsetzung ist `weekly-sperre` |
 | `zwei-pc-test` | Wartung | Tests auf zwei PCs: `Test-TwoPc.ps1` fährt je PC eine Rolle automatisch bis in die Mission und schreibt einen Tunnel-Bericht, `Start-Session.ps1 -Role`, Aufgaben „zu zweit“ mit Rollen-Reservierung in `tasks.py`, siehe [Test auf zwei PCs](docs/TESTING.md#test-auf-zwei-pcs) |
 
