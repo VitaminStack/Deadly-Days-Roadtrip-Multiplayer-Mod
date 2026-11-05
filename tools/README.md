@@ -98,7 +98,8 @@ Bauen und Testen des Spikes, die Anleitung steht in [docs/TESTING.md](../docs/TE
 | `Overlay.ps1` | Bedient das Overlay der Mod ohne Maus: `status`, `create`, `join [<id>]`, `leave`, `invite`. `-Json` für Skripte |
 | `Watch-Net.ps1` | Zeigt Änderungen an Overlay, Prozess und Mod-Log (Sitzung, Transport, Lobby, Welt) beider Instanzen mit Zeit, `-Until <Muster>` endet beim ersten Treffer |
 | `Test-NetEnd.ps1` | Prüft Sitzungsende ohne Handarbeit: Host und Client verlassen, Client und Host hart beendet, Neubeitritt. Zeit bis zur Meldung, Bericht unter `research/local/` |
-| `Guided-Test.ps1` | Führt einen Menschen durch Schritte im Spiel und hält Dauer, Mod-Logs, Overlay, Abstürze und mit `-Shots` Bilder fest. Schrittdateien in `spike/guided/`, siehe [Testen](../docs/TESTING.md#spielzeit-sparen) |
+| `Guided-Test.ps1` | Läuft beim Agenten im Hintergrund, der Mensch spielt nur. Wartet bei Spielschritten auf `Guided-Answer.ps1` und hält Dauer, Mod-Logs, Overlay, Abstürze und mit `-Shots` Bilder fest. Schrittdateien in `spike/guided/`, siehe [Testen](../docs/TESTING.md#spielzeit-sparen) |
+| `Guided-Answer.ps1` | Beantwortet den wartenden Spielschritt nach der Rückmeldung des Menschen im Chat: `ok`, `"<Abweichung>"`, `skip`, `quit`, `status` |
 | `Test-TwoPc.ps1` | Test auf zwei PCs über Steam-P2P, je PC eine Rolle: verbinden, Run bis in die Mission an Tag 1, messen, Tunnel-Bericht |
 | `tunnel_report.py` | Fasst die Tunnel-Zeilen eines Spike-Logs zusammen: Ping, Pakete, Qualität, Route, Abbrüche; SteamIDs und IPs maskiert |
 | `Send-Command.ps1` | Schickt einen Befehl an `Host` oder `Client` und zeigt das Log |

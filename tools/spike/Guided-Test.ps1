@@ -1,12 +1,14 @@
-# Gefuehrter Spieltest: Ein Mensch bedient das Spiel, das Skript fuehrt durch die Schritte und haelt fest, was passiert.
-# Der Mensch uebernimmt nur Spielaktionen (Figur laufen lassen, kaempfen, im Spiel handeln). Alles, was sich ueber Skripte
-# lesen oder steuern laesst, laeuft als automatischer Schritt, auch die Pruefungen.
-#   Guided-Test.ps1 -Steps tools\spike\guided\net-ende.txt [-Start] [-Shots]
+# Gefuehrter Spieltest: Ein Mensch spielt, das Skript fuehrt durch die Schritte und haelt fest, was passiert.
+# Der Mensch uebernimmt nur Spielaktionen (Figur laufen lassen, kaempfen, im Spiel handeln) und bedient keine Konsole.
+# Der Agent startet das Skript im Hintergrund, sagt dem Menschen im Chat, was er spielen soll, und gibt dessen
+# Rueckmeldung mit Guided-Answer.ps1 weiter. Alles, was sich ueber Skripte pruefen laesst, laeuft als automatischer Schritt.
+#   Guided-Test.ps1 -Steps tools\spike\guided\net-ende.txt [-Start] [-Shots] [-AnswerMinutes 30]
 # Schrittdatei, eine Zeile je Schritt, # fuer Kommentare:
-#   Aktion | Erwartung                     Mensch handelt im Spiel, bestaetigt mit Enter
+#   Aktion | Erwartung                     Mensch handelt im Spiel, Skript wartet auf Guided-Answer.ps1
 #   > Overlay.ps1 Host leave               fuehrt ein Skript aus tools\spike aus, ohne Rueckfrage
 #   > Overlay.ps1 Client status | Im Spiel  wie oben, wiederholt bis zu -CheckSeconds, bis die Ausgabe zum Muster passt
-# Je Schritt: Enter = wie erwartet, Text = Abweichung (zaehlt als Fehlschlag), s = uebersprungen, q = abbrechen.
+# Spielschritt: Ausgabe "WARTET [n/m] ...", dann Guided-Answer.ps1 ok | skip | quit | "<Abweichung>" (zaehlt als Fehlschlag).
+# Endet eine Instanz oder kommt nach -AnswerMinutes keine Antwort, bricht der Test ab.
 # Notiert werden Dauer, neue Zeilen der Mod-Logs (Sitzung, Transport, Lobby, Welt, Warnungen, Fehler), Overlay-Zustand,
 # neue Abstuerze und mit -Shots Bilder beider Fenster. Bericht unter research\local\guided\<Name>-<Zeit>\report.md.
 param(
@@ -16,14 +18,16 @@ param(
     # Nach jedem Schritt ein Bild beider Spielfenster (Game-Input.ps1 shot).
     [switch]$Shots,
     # Wie lange ein automatischer Schritt mit Erwartung wiederholt wird.
-    [int]$CheckSeconds = 30
+    [int]$CheckSeconds = 30,
+    # Wie lange ein Spielschritt auf Guided-Answer.ps1 wartet.
+    [int]$AnswerMinutes = 30
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Common.ps1')
 if (-not (Test-Path $Steps)) { throw "Schrittdatei fehlt: $Steps" }
 $Plan = @(Get-Content $Steps -Encoding utf8 | ForEach-Object { $_.Trim() } | Where-Object { $_ -and -not $_.StartsWith('#') })
 if (-not $Plan.Count) { throw "Keine Schritte in $Steps." }
-if ($Start) { & (Join-Path $PSScriptRoot 'Start-Session.ps1') -Mod -Tunnel Lobby -Restart | Out-Host }
+if ($Start) { & (Join-Path $PSScriptRoot 'Start-Session.ps1') -Mod -Tunnel Lobby -Restart -Brief | Out-Host }
 if (-not (Test-OwnSessionRunning)) { throw 'Keine laufende Sitzung aus diesem Ordner. Mit -Start oder vorher Start-Session.ps1.' }
 
 $Name = [IO.Path]::GetFileNameWithoutExtension($Steps)
@@ -31,6 +35,25 @@ $RunDir = Join-Path $script:RepoRoot ("research\local\guided\{0}-{1}" -f $Name, 
 New-Item -ItemType Directory -Force -Path $RunDir | Out-Null
 $Logs = Join-Path (Split-Path (Get-GameExe)) 'DDCoop\logs'
 $Roles = @(Get-LocalRoles)
+# Wartender Spielschritt und Antwort darauf, geschrieben von Guided-Answer.ps1.
+$GuidedDir = Join-Path $script:RepoRoot 'research\local\guided'
+$PendingFile = Join-Path $GuidedDir 'pending.txt'
+$AnswerFile = Join-Path $GuidedDir 'answer.txt'
+function Wait-Answer([string]$Prompt) {
+    Remove-Item $AnswerFile -ErrorAction SilentlyContinue
+    Set-Content -Path $PendingFile -Value $Prompt -Encoding utf8
+    $Deadline = (Get-Date).AddMinutes($AnswerMinutes)
+    try {
+        while (-not (Test-Path $AnswerFile)) {
+            $Dead = @($Roles | Where-Object { -not (Test-GameProcess (Get-RolePid $_)) })
+            if ($Dead.Count) { return "q:$($Dead -join ', ') beendet" }
+            if ((Get-Date) -gt $Deadline) { return "q:keine Antwort nach $AnswerMinutes min" }
+            Start-Sleep -Milliseconds 500
+        }
+        (Get-Content $AnswerFile -Raw -Encoding utf8).Trim()
+    }
+    finally { Remove-Item $PendingFile, $AnswerFile -ErrorAction SilentlyContinue }
+}
 function Get-LogCount([string]$Role) {
     $Log = Join-Path $Logs "ddcoop-$(Get-RolePid $Role).log"
     if (Test-Path $Log) { @(Get-Content $Log).Count } else { 0 }
@@ -91,16 +114,17 @@ for ($Index = 0; $Index -lt $Plan.Count; $Index++) {
         $Parts = $Line -split '\|', 2
         $Action = $Parts[0].Trim()
         $Expect = if ($Parts.Count -gt 1) { $Parts[1].Trim() } else { '-' }
-        Write-Host ''
-        Write-Host "[$Number/$($Plan.Count)] $Action" -ForegroundColor Yellow
-        if ($Expect -ne '-') { Write-Host "    Erwartet: $Expect" }
-        $Answer = Read-Host '    Enter = wie erwartet, Text = Abweichung, s = ueberspringen, q = abbrechen'
+        $Prompt = "[$Number/$($Plan.Count)] $Action | Erwartet: $Expect"
+        Write-Host "WARTET $Prompt" -ForegroundColor Yellow
+        $Answer = Wait-Answer $Prompt
         $Result = switch -Regex ($Answer) {
-            '^$' { 'ok' }
-            '^s$' { 'uebersprungen' }
-            '^q$' { 'abgebrochen' }
+            '^(ok)?$' { 'ok' }
+            '^skip$' { 'uebersprungen' }
+            '^quit$' { 'abgebrochen' }
+            '^q:' { $Failed++; "abgebrochen: $($Answer.Substring(2))" }
             default { $Failed++; "Abweichung: $Answer" }
         }
+        Write-Host "    $Result" -ForegroundColor $(if ($Result -eq 'ok') { 'Green' } else { 'Red' })
     }
     $Seconds = '{0:n0} s' -f $Timer.Elapsed.TotalSeconds
     $States = @($Roles | ForEach-Object { Get-StateLine $_ })
@@ -112,7 +136,7 @@ for ($Index = 0; $Index -lt $Plan.Count; $Index++) {
     }
     $Report += "| $Number | $($Action -replace '\|', '/') | $($Expect -replace '\|', '/') | $($Result -replace '\|', '/') | $Seconds | $(($States -join '<br>') -replace '\|', '/') |"
     if ($NewLines.Count) { $Details += @("### $Number. Mod-Logs", '', '```text') + $NewLines + @('```', '') }
-    if ($Result -eq 'abgebrochen') { break }
+    if ($Result -like 'abgebrochen*') { break }
 }
 $CrashesAfter = Get-CrashLine
 $Report += @('', "Fehlschlaege: $Failed. Abstuerze: $(if ($CrashesAfter -eq $Crashes) { 'keine neuen' } else { $CrashesAfter })", '', '## Einzelheiten', '') + $Details
