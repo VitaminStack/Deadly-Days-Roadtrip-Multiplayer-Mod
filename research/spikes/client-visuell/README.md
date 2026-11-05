@@ -67,6 +67,44 @@ und synchronisierte Belohnungsauswahl sind damit noch nicht implementiert.
 Ohne etablierten Mod-Kontrollkanal oder aktive Schutzpatches bleibt die Anbindung
 inaktiv. Die Gesamtaufgabe bleibt offen.
 
+## Airdrop-Auswahl für beide Spieler: Befund vom 05.11.2026
+
+Nutzerwunsch: Egal, wer einen Airdrop einsammelt, bei **beiden** öffnet sich die
+Item-Auswahl. Beide bestätigen, erst dann läuft das Spiel weiter, und jeder erhält
+seine eigene Belohnung. Noch nicht umgesetzt; dies ist der gemessene Ausgangsstand.
+
+Eigene Sitzung `Start-Session.ps1 -Mod -Tunnel Lobby -Godmode`, zwei Instanzen auf
+einem PC, Tag 1 über `Run-Route.ps1 -Days 1 -StayLast` (Seed 20795, Inventare
+`complete=true`, `equal=true`). Level-up-Airdrops über die normale XP-Quelle
+(Probe `3`), eingesammelt durch Hineinlaufen des Nutzers, einmal mit der Host- und
+einmal mit der Client-Figur. Lesend gemessen mit Probe `7`/`9`, `pause_state.py`
+und `inventory.py`, dazu Bilder beider Fenster.
+
+| | Host sammelt ein | Client sammelt ein |
+|---|---|---|
+| Auswahl beim Host | Inventar-Panel der Host-Figur, „Nimm 1 von 3 Items“ | ebenfalls Panel der **Host-Figur**, 3 Belohnungen |
+| Auswahl beim Client | keine | keine |
+| Reward-Queue beim Host | – | `CurrentRewardObject` an der **Client-Figur** |
+| Pause | Host: Requester `WP_Inventory_Panel`, blockierende UI-Sitzung. Beide Welten `TimeDilation≈0.0001` mit Pauser | gleich |
+| Belohnung nach Bestätigen | Inventar der Host-Figur | ebenfalls Inventar der **Host-Figur** |
+
+- Die native Koop-Reward-Sitzung `UCoopInventoryCoordinatorComponent::RewardSession`
+  blieb in beiden Fällen leer (`state=0`, keine Choices, `RequiredClaims=2` nur als
+  Default). Die Auswahl läuft über die `RewardQueueComponent` der Figur und das
+  normale `InventoryPanel` (`TriggerRewardDisplay`/`SetupRewardChoices`), nicht über
+  `ClaimReward`.
+- Die Weltpause erreicht den Client schon heute über die replizierten
+  WorldSettings. Es fehlen eine eigene Auswahl beim Client und ein Host-Grund,
+  der die Pause bis zur Bestätigung des Clients hält.
+- **Fehler:** Eine vom Client eingesammelte Belohnung landet beim Host. Beide neuen
+  Items lagen danach im selben replizierten Inventar, Host- und Clientbild gleich.
+  Zuordnung zur Host-Figur über die Panel-Figur (`CharacterReference` = Spieler 0);
+  die PlayerId-Zuordnung des Inventars wurde nicht getrennt geprüft.
+- Der Client-Rucksack ist host-autoritativ repliziert. Ein lokales Hinzufügen beim
+  Client wäre kein gültiger Weg: Die gewählte Belohnung und ihre Rasterposition
+  müssen beim Host im Inventar der Client-Figur entstehen. Das berührt die
+  Reward-Queue aus `inventar-sync`.
+
 ## Ziel und Grenze
 
 Der Client soll dieselben Projektile, XP-Orbs, Airdrops und Kampfpartikel wie der Host sehen:
@@ -179,8 +217,12 @@ Die optionale Probe nur in eine **eigene geschützte Sitzung** mit absolutem
 DLL-Pfad laden. Befehle über `<TEMP>/ddvisual/<pid>.cmd`: `1` = verworfener
 Bewegungsschalterversuch, `2` = native XP-/Shared-Identität lesen, `3`/`4` = je
 200 XP am serverseitigen Spieler 0/1 anfordern, `5` = einen Test-Airdrop vor
-`FinishSpawningActor` für Actor-/Bewegungsreplikation anmelden. Nur `2` ist beim
-Client erlaubt; die übrigen Befehle brauchen den Listen-Host. `5` ruft keine
+`FinishSpawningActor` für Actor-/Bewegungsreplikation anmelden, `6`/`8` = einen
+ungeöffneten Airdrop beim Host mit der Figur von Spieler 0/1 öffnen, `7` =
+Koop-Reward-Sitzung lesen, `9` = Inventar-Panels und Reward-Queues lesen.
+`2`, `7` und `9` sind beim Client erlaubt; die übrigen Befehle brauchen den Listen-Host.
+Eine zweite Kopie für eine bereits laufende Sitzung lässt sich mit anderem
+`PROBE_DIR` bauen, damit nicht zwei Probes dieselbe Befehlsdatei lesen. `5` ruft keine
 Reward-Öffnung auf und ist noch kein Produktionsfix. Danach die Sitzung beenden,
 nicht die DLL heiß entladen.
 Rohberichte, Bilder und Binärdateien bleiben unter `research/local` bzw. im

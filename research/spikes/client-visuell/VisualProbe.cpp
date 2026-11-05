@@ -3,6 +3,10 @@
 // Keine neuen Actors, kein Schaden und keine XP-Vergabe. Kein Hot-Unload.
 #include "../a-connect/Spike.h"
 
+#ifndef PROBE_DIR
+#define PROBE_DIR L"ddvisual\\"
+#endif
+
 namespace
 {
 using namespace Spike;
@@ -33,6 +37,37 @@ void Perform(int Action)
 {
     const uintptr_t World = Read<uintptr_t>(Base + kGWorld);
     const uintptr_t State = World ? Read<uintptr_t>(World + kWorldGameState) : 0;
+    if (Action == 9)
+    {
+        // Nur lesen: offene Inventar-Panels und Reward-Queues beider Figuren.
+        const uintptr_t Players = State ? Read<uintptr_t>(State + kGameStatePlayerArray) : 0;
+        const int32_t PlayerCount = State ? Read<int32_t>(State + kGameStatePlayerArray + 8) : 0;
+        uintptr_t Pawns[2]{};
+        for (int32_t i = 0; Players && i < PlayerCount && i < 2; ++i)
+        {
+            Invoke(Read<uintptr_t>(Players + 8 * i), "PlayerState", "GetPawn", &Pawns[i]);
+            const uintptr_t Queue = Pawns[i] ? Read<uintptr_t>(Pawns[i] + 0x980) : 0;
+            Log("player=" + std::to_string(i) + " pawn=" + NameOf(Pawns[i]) + " queue=" + std::to_string(Queue != 0) +
+                " current-reward-index=" + std::to_string(Queue ? Read<int32_t>(Queue + 0x10C) : -1));
+        }
+        auto Index = [&](uintptr_t Pawn) { return Pawn == Pawns[0] && Pawn ? 0 : Pawn == Pawns[1] && Pawn ? 1 : -1; };
+        const uintptr_t Chunks = Read<uintptr_t>(Base + kGObjects);
+        const int32_t Count = Read<int32_t>(Base + kGObjects + 8);
+        for (int32_t i = 0; i < Count; ++i)
+        {
+            const uintptr_t Chunk = Read<uintptr_t>(Chunks + 8 * (i >> 16));
+            const uintptr_t Panel = Chunk ? Read<uintptr_t>(Chunk + (i & 0xffff) * 0x18 + 8) : 0;
+            if (!Panel || Read<uint32_t>(Panel + 8) & 0x30 || !IsA(Panel, "InventoryPanel"))
+                continue;
+            const uintptr_t Character = Read<uintptr_t>(Panel + 0x3C0);
+            const uintptr_t Inventory = Read<uintptr_t>(Panel + 0x370);
+            const uintptr_t Owner = Inventory ? Read<uintptr_t>(Inventory + 0x20) : 0;
+            Log("panel=" + NameOf(Panel) + " character=" + std::to_string(Index(Character)) + " inventory-owner=" +
+                std::to_string(Index(Owner)) + " rewards=" + std::to_string(Read<int32_t>(Panel + 0x660)) + " selected=" +
+                std::to_string(Read<uintptr_t>(Panel + 0x6C0) != 0) + " viewing=" + std::to_string(Read<int32_t>(Panel + 0x380)));
+        }
+        return;
+    }
     if (Action == 2)
     {
         if (!State || !IsA(State, "DDMissionGameState"))
@@ -53,6 +88,38 @@ void Perform(int Action)
             if (Invoke(PS, "DDPlayerState", "GetLevelSystemComponent", &PlayerLevel))
                 Log("player=" + std::to_string(i) + " shares-level-system=" + std::to_string(PlayerLevel == Level));
         }
+        return;
+    }
+    if (Action == 7)
+    {
+        // Nur lesen: native Koop-Reward-Sitzung am GameState (nicht repliziert).
+        if (!State || !IsA(State, "DDMissionGameState"))
+            return;
+        const uintptr_t Coordinator = Read<uintptr_t>(State + 0x3E0);
+        if (!Coordinator)
+        {
+            Log("reward-session: kein Coordinator");
+            return;
+        }
+        const uintptr_t Session = Coordinator + 0x170;
+        auto Ints = [](uintptr_t Array) {
+            std::string Text = "[";
+            const uintptr_t Data = Read<uintptr_t>(Array);
+            const int32_t Count = Read<int32_t>(Array + 8);
+            for (int32_t i = 0; Data && i < Count && i < 8; ++i)
+                Text += (i ? "," : "") + std::to_string(Read<int32_t>(Data + 4 * i));
+            return Text + "]";
+        };
+        const uintptr_t Choices = Read<uintptr_t>(Session + 0x8);
+        const int32_t ChoiceCount = Read<int32_t>(Session + 0x10);
+        std::string Names;
+        for (int32_t i = 0; Choices && i < ChoiceCount && i < 8; ++i)
+            Names += " " + NameOf(Read<uintptr_t>(Choices + 8 * i));
+        Log("reward-session chest=" + std::to_string(Read<uintptr_t>(Session) != 0) + " state=" +
+            std::to_string(Read<uint8_t>(Session + 0xF0)) + " choices=" + std::to_string(ChoiceCount) + Names +
+            " eligible=" + Ints(Session + 0x68) + " claimed=" + Ints(Session + 0xC8) + " required=" +
+            std::to_string(Read<int32_t>(Session + 0xD8)) + " level=" + std::to_string(Read<int32_t>(Session + 0xE0)) +
+            " opener=" + std::to_string(Read<int32_t>(Session + 0xE4)) + " queued=" + std::to_string(Read<int32_t>(Coordinator + 0x270)));
         return;
     }
     const uintptr_t Driver = World ? Read<uintptr_t>(World + kWorldNetDriver) : 0;
@@ -132,12 +199,16 @@ void Perform(int Action)
         Log("controlled-replicated-airdrop success=" + std::to_string(Finish.Result != 0));
         return;
     }
-    if (Action == 6)
+    if (Action == 6 || Action == 8)
     {
+        // 8: wie 6, aber als oeffnende Figur die des zweiten PlayerStates (Remote-Client beim Host).
         const uintptr_t Level = World ? Read<uintptr_t>(World + 0x30) : 0;
         const uintptr_t Players = State ? Read<uintptr_t>(State + kGameStatePlayerArray) : 0;
+        const int32_t PlayerCount = State ? Read<int32_t>(State + kGameStatePlayerArray + 8) : 0;
+        const int32_t Opener = Action == 8 ? 1 : 0;
         uintptr_t Pawn = 0;
-        if (!Level || !Players || !Invoke(Read<uintptr_t>(Players), "PlayerState", "GetPawn", &Pawn) || !IsA(Pawn, "DDCharacter"))
+        if (!Level || !Players || PlayerCount <= Opener ||
+            !Invoke(Read<uintptr_t>(Players + 8 * Opener), "PlayerState", "GetPawn", &Pawn) || !IsA(Pawn, "DDCharacter"))
             return;
         const uintptr_t Chunks = Read<uintptr_t>(Base + kGObjects);
         const int32_t Count = Read<int32_t>(Base + kGObjects + 8);
@@ -149,7 +220,7 @@ void Perform(int Action)
                 !IsA(Actor, "BP_Airdrop_Lootable_C") || Read<uint8_t>(Actor + 0x5D) & 2 || Read<uint8_t>(Actor + 0x2A8))
                 continue;
             const bool Called = Invoke(Actor, "Crate", "OpenCrate", &Pawn);
-            Log("controlled-host-open called=" + std::to_string(Called) + " opened=" + std::to_string(Read<uint8_t>(Actor + 0x2A8)));
+            Log("controlled-host-open opener=" + std::to_string(Opener) + " called=" + std::to_string(Called) + " opened=" + std::to_string(Read<uint8_t>(Actor + 0x2A8)));
             return;
         }
         Log("controlled-host-open: kein ungeoeffneter Airdrop im aktuellen Level");
@@ -188,7 +259,7 @@ LRESULT CALLBACK WindowProc(HWND Window, UINT Msg, WPARAM W, LPARAM L)
 {
     if (Msg == Message)
     {
-        if (W >= 1 && W <= 6)
+        if (W >= 1 && W <= 9)
             Perform(static_cast<int>(W));
         return 0;
     }
@@ -214,7 +285,7 @@ DWORD WINAPI Worker(void*)
     Base = reinterpret_cast<uintptr_t>(GetModuleHandleW(nullptr));
     wchar_t Temp[MAX_PATH]{};
     GetTempPathW(MAX_PATH, Temp);
-    const auto Root = std::wstring(Temp) + L"ddvisual\\";
+    const auto Root = std::wstring(Temp) + PROBE_DIR;
     CreateDirectoryW(Root.c_str(), nullptr);
     const auto Id = std::to_wstring(GetCurrentProcessId());
     SetLogPath(Root + Id + L".log");
@@ -226,7 +297,7 @@ DWORD WINAPI Worker(void*)
     Previous = reinterpret_cast<WNDPROC>(SetWindowLongPtrW(Window, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&WindowProc)));
     if (!Previous)
         return 2;
-    Log("bereit; 1=Bewegungsreplikation, 2=XP lesen, 3/4=Host-XP-Quelle am Spieler 0/1, 5=Test-Airdrop, 6=Host-Airdrop oeffnen");
+    Log("bereit; 1=Bewegungsreplikation, 2=XP lesen, 3/4=Host-XP-Quelle am Spieler 0/1, 5=Test-Airdrop, 6/8=Host-Airdrop mit Spieler 0/1 oeffnen, 7=Reward-Sitzung lesen, 9=Panels und Reward-Queues lesen");
     for (;;)
     {
         Sleep(200);
@@ -237,7 +308,7 @@ DWORD WINAPI Worker(void*)
         const int Parsed = fscanf_s(File, "%d", &Action);
         fclose(File);
         DeleteFileW(Command.c_str());
-        if (Parsed == 1 && Action >= 1 && Action <= 6)
+        if (Parsed == 1 && Action >= 1 && Action <= 9)
             SendMessageW(Window, Message, static_cast<WPARAM>(Action), 0);
     }
 }
