@@ -754,6 +754,29 @@ der Mod, Tag 1, Level-up-Airdrops. Rohdaten und Probe auf `task/client-visuell`.
 - **[Hypothese]** Das Panel schließt nativ erst nach Übergabe der UI-Autorität an
   P2 (`RequestUIAuthorityTransfer`), die ohne lokales P2-Gerät blockiert, siehe
   Remote-P2.
+- **[Belegt] Reward-Queue je Figur:** `URewardQueueComponent` hängt an der Figur
+  (`BP_DD_Character_C.RewardQueue`, `+0x980`). `RegisterReward` reiht eine Kiste ein
+  und ruft `OpenNextReward` nur, wenn `+0x108` (Kiste offen) 0 ist. `OpenNextReward`
+  gibt die nächste Kiste mit `SetRewardCanBeOpened(true)` frei; solange die aktuelle
+  (`CurrentRewardObject`, schwacher Zeiger `+0x10C`) lebt und nicht fertig ist,
+  ändert es nichts. `InventoryPanel.HandleConfirmButton` ruft es nur für die Queue des
+  Panels (`+0x6B8`), also die des Hosts. Nach einer vom Client geöffneten Kiste blieb
+  deshalb die Queue von P2 belegt, mit zerstörter Kiste als aktueller; alle weiteren
+  Kisten hatten `CanBeOpened=false`.
+- **[Belegt] Client-Panel:** `CreateItemInstance` ist `BlueprintAuthorityOnly`
+  (Flags `0x4020405`), `ProcessEvent` überspringt es beim Client; der native Aufruf
+  geht. Die Inventarfunktionen (`AddToInventory`, `AddToBackpack`,
+  `OccupyBackpackSlots`, `RemoveFromInventory` …) sind Server-RPCs. Eine nur lokale
+  Instanz kommt beim Host als Null an, `AddToBackpack` stürzt dann ab
+  (`0x5708419`). Beim Wählen schickt das Panel zuerst `AddToInventory` (Wahl), nach
+  „Bestätigen“ `AddToBackpack` und `OccupyBackpackSlots` mit den Feldern.
+- **[Belegt] Pause:** Das offene Auswahl-Panel des Hosts setzt eine Zeitanfrage beim
+  `TimescaleManager` (`active_requester=WP_Inventory_Panel`) und eine UI-Sitzung mit
+  `blocks_gameplay`; die Spielzeit steht. Wählt der Client zuerst, bleibt sie bis zum
+  Bestätigen des Hosts stehen.
+- **[Offen]** Bestätigt der Host zuerst, läuft die Runde laut Nutzer weiter, obwohl
+  die Mod `HandleConfirmButton` zurückhält. Vermutlich gibt der Knopf im Blueprint
+  die Zeitanfrage oder UI-Sitzung selbst frei (`airdrop-warten`).
 
 ### Coop-Ablauf
 

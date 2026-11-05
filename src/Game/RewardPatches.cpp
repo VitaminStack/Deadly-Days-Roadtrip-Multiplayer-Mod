@@ -325,6 +325,7 @@ void DropLocal()
     if (Shown.Pick && *Shown.Pick < Shown.Items.size())
     {
         PickedItem = Shown.Items[*Shown.Pick];
+        Core::Log::Info("Airdrop-Auswahl: gewählte lokale Instanz {:#x}", PickedItem);
         if (PlacedItem != PickedItem)
             PickedPlacement.reset();
     }
@@ -486,7 +487,8 @@ void RememberPlacement(const std::string& Name, uintptr_t Params)
             return;
         Value.Slots.emplace_back(Memory::Read<int32_t>(Slot + SlotCoordinates).value_or(0), Memory::Read<int32_t>(Slot + SlotCoordinates + 4).value_or(0));
     }
-    Core::Log::Info("Airdrop-Auswahl: Ablage im Rucksack gemerkt, {} Felder, Drehung {}", Value.Slots.size(), Value.Turns);
+    Core::Log::Info("Airdrop-Auswahl: Ablage im Rucksack gemerkt, {} Felder, Drehung {}, Instanz {:#x}, gewählt {:#x}", Value.Slots.size(),
+                    Value.Turns, Item, PickedItem);
     PlacedItem = Item;
     PickedPlacement = std::move(Value);
 }
@@ -777,8 +779,15 @@ std::optional<uint32_t> TakeClientPick()
 
 std::optional<Placement> TakeClientPlacement()
 {
-    if (!PickedItem || PlacedItem != PickedItem || !PickedPlacement)
+    if (!PickedPlacement)
         return std::nullopt;
+    if (!PickedItem || PlacedItem != PickedItem)
+    {
+        static uintptr_t Reported = 0;
+        if (std::exchange(Reported, PlacedItem) != PlacedItem)
+            Core::Log::Warn("Airdrop-Auswahl: Ablage gehört nicht zur Wahl (Instanz {:#x}, gewählt {:#x})", PlacedItem, PickedItem);
+        return std::nullopt;
+    }
     PickedItem = PlacedItem = 0;
     return std::exchange(PickedPlacement, std::nullopt);
 }

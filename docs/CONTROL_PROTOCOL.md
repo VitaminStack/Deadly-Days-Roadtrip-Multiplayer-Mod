@@ -114,11 +114,18 @@ abgelehnt. Code in `src/Sync/Inventory`, Envelope-Run je Prozess, Epoche 1, Revi
 | 16 | 4 | Airdrop-Stufe |
 | 20 | 1 | Bits: 0 Client hat gewählt, 1 Host hat gewählt, 2 Host wartet auf den Client |
 | 21 | 1 | Anzahl Choices, höchstens 4, ohne Sitzung 0 |
-| 22 | … | je Choice 1 Byte Länge und höchstens 120 Byte UTF-8-Name |
+| 22 | … | je Choice: 1 Byte beschädigt (0 oder 1), dann lesbarer Name, Objektname der `UInventoryItemData` und der `URarity`, je 1 Byte Länge und höchstens 120 Byte UTF-8 |
+
+Der Client sucht `ItemData` und `Rarity` über die Objektnamen und legt damit eigene Anzeige-Instanzen an.
 
 `0x301` Wahl, Client an Host, genau 17 Bytes: Sitzung (8), Revision (8), Index (1, kleiner 4). Der Host nimmt sie nur an,
-wenn Sitzung und Revision zur offenen Sitzung passen und Spieler 1 noch nicht gewählt hat; sonst verwirft er sie und das nächste
+wenn Sitzung und Revision zur offenen Sitzung passen und der Client noch nicht gewählt hat; sonst verwirft er sie und das nächste
 Bild zeigt den Stand. Keine Objektzeiger auf dem Draht, die Revision ist nur eine Prüfsumme.
+
+`0x302` Ablage im Rucksack, Client an Host, nach der Wahl: Sitzung (8), Drehung `Turns` (4), Pivot-Feld X und Y (je 4),
+Anzahl Felder (1, 1 bis 32), je Feld X und Y (je 4). Der Host legt die zuletzt für diese Sitzung angelegte Wahl auf diese Felder,
+sonst bleibt sie im Lager. Stand 05.11.2026: Der Client merkt sich die Ablage, im Test kam die Nachricht beim Host nicht an
+(`airdrop-rucksack`).
 
 ## Bisher geprüft (05.11.2026, Kontrollkanal vor Diagnoseerweiterung)
 
