@@ -1,4 +1,5 @@
 #include "Net/Session.h"
+#include "Net/Net.h"
 
 #include "Core/Log.h"
 
@@ -142,6 +143,7 @@ void Session::StartTransportClient(uint64_t Owner)
         return;
     }
     Core::Log::Info("Sitzung: Lobby betreten, verbinde mit dem Host über {}", SameAccount ? "127.0.0.1" : "P2P");
+    UseSessionTransport(Tunnel);
     Current.Phase = SessionPhase::ConnectingTransport;
     Current.Message = "Verbindet mit dem Host";
 }
@@ -185,6 +187,7 @@ void Session::Tick()
                 Fail("Tunnel für Clients nicht gestartet");
                 break;
             }
+            UseSessionTransport(Tunnel);
             if (Hooks.BecomeListenServer)
                 Hooks.BecomeListenServer();
             Current.Message = "Lobby offen, Freunde über Einladen holen";

@@ -66,3 +66,20 @@ Client-Anfragen. Der Transport erfindet keine Gameplay-Semantik.
 Direktverbindung ohne Mod-Tunnel (`open 127.0.0.1:7777`) hat keinen Kontrollkanal.
 Für Sync-Tests deshalb den Mod-Tunnel verwenden, nicht den unveränderten
 Legacy-Tunnel des Wegwerf-Spikes.
+
+`CurrentTransport()` liefert auch den von `Session` gestarteten Lobbytransport.
+Die Registrierung ist schwach: Verlassen/Stop hält keine Sitzung wegen eines
+Sync-Abonnenten am Leben. Die API ist somit nicht auf den Testschalter beschränkt.
+
+## Bisher geprüft (05.11.2026)
+
+- Build und alle Tests bestanden, darunter 24 Net-Testfälle: binäre UE-Pakete in
+  beide Richtungen, exakte Rahmengrenzen, falsche Build-/Mod-Version, fehlendes
+  Hello/Timeout, getrennte Control-Nachrichten vor der ersten Spieladresse,
+  Disconnect/Neustart ohne Token-Wiederverwendung und schwache Lobbyregistrierung.
+- Zwei geschützte Spielinstanzen mit `-Mod -Tunnel Mod`: Handshake bestätigt,
+  MetaBase, echter Routenweg nach Tag 1 und gleiche Inventare. Anschließend lief
+  darüber die XP-Anzeigeanbindung aus `client-visuell`, ohne einen zweiten Kanal.
+- Noch keine Internet-/Zwei-Konten-Abnahme und keine zugesicherte Gameplay-
+  Transaktionssemantik. Die Familien für Requests, Snapshots und Rewards müssen
+  ihre jeweilige fachliche Validierung selbst liefern.
