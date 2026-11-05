@@ -103,6 +103,14 @@ Der Host-Absturz war immer derselbe Callstack. Das Spiel fragt beim Spawnen `Get
 | Beide | `0x59EE6A0` | Der Client hat keine Route und damit kein Biom, der PCG-Graph bleibt leer | Host schreibt den Graphen in eine Datei, der Client setzt ihn danach und wartet notfalls |
 | Beide | Sekunden-Tick | Jede ISM-Komponente würfelt `InstancingRandomSeed`, die Baumarten weichen ab | Seed aus Mesh und Instanzen setzen, Render-Zustand per `SetStaticMesh` neu |
 
+**Mit der Mod** (`patches`, 04.11.2026): Diese Fixes stehen auch geprüft in `src/Game/*Patches.cpp`, siehe [Patches der Mod](../../../src/Game/README.md#patches).
+Ist `DDCoop.dll` geladen und meldet über `DDCoopPatchState`, dass sie ihre Patches gesetzt hat, setzt der Spike seine eigenen nicht.
+Ausgelassen werden dann `PatchPlayers`, `PatchClient` (samt Diagnose `NewActor failed`), `PatchCamera`, `PatchInventory`, `PatchTravel`,
+`PatchWidgets`, `PatchMapObjects`, der Busplatz aus `PatchTestEnv`, `PatchHealthBars` und `PatchRunEnd`, dazu im Sekunden-Tick Kamera,
+Client-Positionen, `SpawnedPlayers` und die zurückgehaltene HUD. `!arm`, `!cam` und `!authmove` melden dann nur, dass die Mod das übernimmt.
+Der Phasenbeobachter meldet sich über `DDCoopObserveProcessEvent` bei der Mod an. Karte (`MapGen.cpp`), PCG, Testhilfen und Messung bleiben im Spike.
+Ohne Mod ändert sich nichts.
+
 Die Zuordnung der Funktionen stammt aus der Disassembly ohne Symbole. Die Kamera ist über Offsets im SDK belegt, die übrigen passen zu den Aufrufern.
 
 Beim Client setzt der Spike die Kamera jede Sekunde, beim Host nimmt er jede Sekunde Client-Positionen an und gleicht `SpawnedPlayers` als echte Menge mit der aktuellen `GameState.PlayerArray` ab. Dazu kommen Befehle für die Datei-Schnittstelle:

@@ -1,12 +1,14 @@
 # Startet aus der MetaBase einen Run bis zur Routenkarte: Host laeuft in den Startring links neben dem Bus, dann den Startdialog bestaetigen.
 # Gilt fuer ein UserDir ohne Tutorial-Dialoge, siehe docs/TESTING.md. Optional vorher einen festen Seed setzen.
-#   Start-Run.ps1 [-Seed 20795]
+#   Start-Run.ps1 [-Seed 20795] [-Brief]
 # Der Ring loest nur beim Hineinlaufen aus. Steht die Figur schon darin, etwa nach einem Tod, geht sie erst hinaus.
 param(
     [int]$Seed,
     # Mitte des Startrings in der MetaBase, Build 26187885. A laeuft auf dem Bildschirm nach links, also zu kleinerem Y.
     [int]$RingY = -684,
-    [int]$RingRadius = 250
+    [int]$RingRadius = 250,
+    # Nur eine Zeile: Routenkarte offen oder nicht.
+    [switch]$Brief
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Common.ps1')
@@ -19,16 +21,10 @@ function Get-HostY {
 }
 if ($Seed) { Send-SpikeCommand $HostId "DD_SetCurrentRunSeed $Seed" }
 
-# Die Routenkarte erkennt man am gruenen Banner "Felder" oben rechts.
-function Test-RouteMap {
-    $Color = & $GameInput Host pixel 700 13
-    $R, $G, $B = [Convert]::ToInt32($Color.Substring(0, 2), 16), [Convert]::ToInt32($Color.Substring(2, 2), 16), [Convert]::ToInt32($Color.Substring(4, 2), 16)
-    [Math]::Abs($R - 0x3C) -lt 16 -and [Math]::Abs($G - 0x5F) -lt 16 -and [Math]::Abs($B - 0x3C) -lt 16
-}
-
+# Auch ein direkter Missionsstart zaehlt: Ein frischer Spielstand faehrt nach "So wird gespielt" ohne Routenkarte los.
 function Wait-RouteMap([int]$Seconds) {
-    for ($Wait = 0; $Wait -lt $Seconds -and -not (Test-RouteMap); $Wait++) { Start-Sleep -Seconds 1 }
-    Test-RouteMap
+    for ($Wait = 0; $Wait -lt $Seconds -and -not (Test-RouteMap) -and -not (Test-HostInMission); $Wait++) { Start-Sleep -Seconds 1 }
+    (Test-RouteMap) -or (Test-HostInMission)
 }
 
 # Kurz nach dem Laden der MetaBase reagiert der Ring manchmal nicht, darum bis zu drei Anlaeufe.
@@ -46,5 +42,10 @@ for ($Attempt = 1; $Attempt -le 3; $Attempt++) {
     & $GameInput Host click 398 417
     if (Wait-RouteMap 6) { break }
 }
-& $GameInput Host shot (Join-Path $script:SessionDir 'route.png')
+if (Test-HostInMission) {
+    'Mission direkt gestartet (frischer Spielstand, keine Routenkarte)'
+    return
+}
+$Shot = & $GameInput Host shot (Join-Path $script:SessionDir 'route.png')
 if (-not (Test-RouteMap)) { throw 'Routenkarte nicht offen, siehe research\local\session\route.png.' }
+if ($Brief) { 'Routenkarte offen, Bild: research\local\session\route.png' } else { $Shot }

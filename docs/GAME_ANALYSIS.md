@@ -333,6 +333,24 @@ Stand: Spieltest am 04.11.2026, Build `26187885`, ein PC über Loopback, Route �
 - **[Belegt]** Mit dem Fix starteten beide Leisten beim Client bei 100 %. Nach Schaden zeigten Host und Client dieselben Werte: 40 % und 70 %, dann 50 %, nach dem Wechsel auf Tag 2 75 %. Kein Absturz.
 - Nicht geprüft: Rüstung (`OnArmorChanged`, `OnMaxArmorChanged` liegen im abgeleiteten Charakter-Set) und die Überheilung. Ob weitere Empfänger dieser Delegates beim Client jetzt zusätzlich laufen sollten, ist nicht geprüft, gefunden war nur die Leiste. Internet nicht geprüft.
 
+### XP-Bälle beim Client (`xp-baelle`)
+
+Stand 04.11.2026, Build `26187885`. Beim Spieltest fiel auf: Der Client sieht die XP-Bälle nicht. Ursache bisher nur aus dem lokalen SDK abgeleitet, im Spiel nicht gemessen.
+
+- **[Belegt, SDK]** Die XP-Bälle sind keine replizierten Actors.
+  - Angezeigt werden sie von `AExpEmissionHandler`, einem Niagara-Partikelsystem.
+  - Position, Ziel, Wert und Farbe jedes Balls stehen in Listen des Handlers (`ExpData`, `SpawnLocationsInNiagara`, `OrbValuesInNiagara`, `OrbColorsInNiagara`).
+  - Die Klasse `BP_EXPOrb_C` (`AOrb`, Feld `OrbExpValue`) gibt es zusätzlich.
+- **[Belegt, SDK]** Bälle entstehen über `UExpSubsystem::RequestExpSpawning(ExpAmount, Location)`, das Aufsammeln läuft über `ReceiveExp(ExpAmount, Recipient)`. Beides ist kein RPC.
+- **Vermutung:**
+  - Gegner sterben beim Host, also ruft nur er `RequestExpSpawning` auf. Der Handler des Clients bekommt nie Daten.
+  - Die XP selbst zählen trotzdem: Der Host sammelt auch mit der Figur des Clients ein, und die XP sind gemeinsam. Der Client sieht nur nicht, wo die Bälle liegen.
+- **Möglicher Weg:**
+  - Der Host meldet jeden Aufruf von `RequestExpSpawning` (Menge, Ort) über den Kontrollkanal.
+  - Der Client erzeugt damit nur die Anzeige.
+  - Beim Client wird `ReceiveExp` gesperrt, damit nichts doppelt zählt.
+- **Offen:** Das alles im Spiel belegen. Dazu prüfen, ob die Partikel des Clients beim Aufsammeln mit denen des Hosts gleich verschwinden.
+
 ### Ergaenzung: SDK-Schnittstellen fuer eigenen Sync
 
 Aufgabe `sync-bedarf`, lokales Mission-SDK von Build `26187885`:
@@ -621,6 +639,42 @@ Stand: Spieltest am 04.11.2026, Build `26187885`, ein PC über Loopback, Route �
 - **[Belegt]** Mit dem Fix: Je Weltwechsel genau ein „Kamera: gesetzt, vorher BP_DD_Character_C“, also beim Betreten von MetaBase, Tag 1 und Tag 2. Danach blieb das ViewTarget die Kamera. Die Blickposition des Clients war gleich der des Hosts, die Bilder fast gleich. Lief die Client-Figur 2,5 s, folgte die Client-Kamera ruhig und lag höchstens rund 10 Einheiten neben der des Hosts.
 - Nicht geprüft: weitere Tage, Internet, Mission → MetaBase.
 
+### Dodge beim Client (`bewegung`)
+
+Stand 05.11.2026, Build `26187885`, ein PC, Mod über die Lobby, Netzprofil Internet (120 ms, 2 % Verlust), Tag 1. Gemessen mit
+lokalen, nur lesenden Testskripten alle 20 ms, die Dodges hat ein Mensch in beiden Fenstern ausgelöst.
+
+- **[Belegt]** Der Dodge ist `GA_Dash_C` (`LocalPredicted`, eine Instanz je Ausführung). Für etwa 0,12 bis 0,16 s setzt er an der
+  Bewegungskomponente `GroundFriction` 0 und `GravityScale` 20, schiebt die Figur mit Tempo 6500 an
+  (`UAbilityTask_ApplyRootMotionConstantForce`) und stellt beides danach zurück (`RestoreBeforeDashSettings`).
+- **[Belegt] Client ohne Trägheit:** Beim Host kamen die Werte nach jedem Dodge zurück. Beim Client nach drei Dodges nicht mehr: Reibung 0
+  und Schwerkraft 20 blieben stehen, jeder weitere Dodge rutschte bis zu 2,3 s mit sinkendem Tempo weiter. In einer zweiten Messung trat
+  das nicht auf. Beim Host lief der Dodge des Clients jeweils mit (Spec-ActiveCount 0/1), seine Kopie der Client-Figur änderte die
+  Werte aber nie. **Vermutung:** Endet die vorhergesagte Fähigkeit beim Client über eine Bestätigung oder Ablehnung des Hosts statt über
+  ihre Aufgabe, fehlt das Zurückstellen; mit Ping häufiger.
+- **[Belegt] Host-Figur friert beim Client ein:** Nach einem Dodge des Hosts stand seine Kopie beim Client in `MOVE_None` oder
+  `MOVE_Falling` mit Tempo 6500 und bewegte sich nicht mehr, obwohl `ReplicatedMovement.Location` den richtigen Host-Ort trug. Ursache: Der
+  Host stand danach auf `BP_Fog_Edge_BASE_C`, einer beweglichen, nicht replizierten Unterlage. Die Engine repliziert den Ort dann relativ
+  zur Unterlage (`ReplicatedBasedMovement`, `bServerHasBaseComponent`=1); beim Client ist `MovementBase` leer, und die Kopie wartet ohne
+  Ende darauf. Zeitlich fiel das zweimal mit einer Weltpause durch ein Item-Panel zusammen; **Vermutung:** Der Dodge schob den Host an
+  den Rand, die Pause selbst ist nicht die Ursache.
+- **[Belegt] Nebenbei:** Beim Client stehen `MaxWalkSpeed` und `MaxAcceleration` beider Figuren auf 600 und 2048, beim Host auf 630 und
+  2205 (`opt-tempo-upgrades`). Beim Host hatte die Kopie der Client-Figur zeitweise nur ein Zehntel davon.
+
+**In der Mod** (`src/Game/MovementPatches.cpp`, nur Client, jeder Frame, Figurenliste je Sekunde):
+
+| Fall | Reparatur |
+|---|---|
+| Eigene Figur länger als 0,75 s auf Reibung 0 und Schwerkraft 20 | Werte aus dem Klassen-Defaultobjekt der Bewegungskomponente zurück |
+| Fremde Figur steht auf einer Unterlage, die der Client nicht kennt | Jeden Frame weich zum replizierten Ort, mit dem replizierten Tempo höchstens 150 ms vorausgerechnet; Tempo und Modus übernommen, ab 6 m Abstand Sprung |
+| Fremde Figur 0,5 s in `MOVE_None` oder mehr als 3 m neben dem replizierten Ort | Ort, Tempo und Modus aus der Replikation |
+
+Im Spiel danach: Der Host dodgte an den Rand und in Items, seine Figur folgte beim Client (Log „folge dem Host-Ort“, „Engine übernimmt“,
+wenn die Unterlage wieder bekannt ist). Mit Vorausberechnung bestätigt der Mensch „passt“, vorher „etwas laggy“. Kein Absturz, Inventare
+gleich. **Nicht geprüft:** zwei PCs, Blickrichtung gesondert (nur im Spielbild mitgesehen). Sauberer wäre, wenn der Host bei einer nicht
+replizierten Unterlage gleich absolut repliziert; dann übernähme die Glättung der Engine. Das braucht einen Eingriff in die Replikation
+des Characters und ist nicht umgesetzt.
+
 ### Client-Absturz im Restrictor (`tick-absturz`)
 
 Stand: Disassembly und Spieltest am 02.11.2026, Build `26187885`.
@@ -637,6 +691,15 @@ Stand: Disassembly und Spieltest am 02.11.2026, Build `26187885`.
 | `MissionGameState` beim Client nach dem Start der `MetaBase`, nach der Reise über das Menü und nach vier weiteren `servertravel` in die Mission | Fünfmal gleich dem aktuellen GameState, kein Absturz. Ein später GameState trat dabei nicht auf (keine zurückgehaltene HUD im Log) |
 | Feld beim Client testweise auf null gesetzt, 15 s ohne Eingabe | Kein Absturz |
 | Danach eine Bewegungseingabe (`D`) im Client-Fenster | Absturz `EXCEPTION_ACCESS_VIOLATION reading address 0x2C8` bei `0x5A17ACC`, genau wie gemeldet |
+
+**In der Mod (`restrictor`, 05.11.2026):** Beides umgesetzt in `src/Game/CameraPatches.cpp`. Ein Null-Schutz an `0x5A17ACC` behandelt
+einen fehlenden GameState wie einen Spieler (keine Bremse, Sprung nach `0x5A17B88`), und der Client trägt jede Sekunde den aktuellen
+`ADDMissionGameState` in jeden Restrictor der aktuellen Welt nach („Restrictor: MissionGameState nachgetragen“).
+
+| Test (ein PC, Mod mit Lobby, Netzprofil Internet, Tag 1) | Ergebnis |
+|---|---|
+| Feld beim Client dreimal auf null, sofort `D` für 1 s | Kein Absturz, Feld jeweils binnen 1 s nachgetragen |
+| Feld 5 s lang immer wieder auf null (7-mal), dabei `D` 4 s gehalten | Kein Absturz, beide Instanzen laufen weiter |
 
 Folgerung für die Mod: Den Absturz verhindert, wer beim Client `MissionGameState` des Restrictors nachträgt, sobald der GameState ankommt, ähnlich wie der Spike die HUD zurückhält. Ein Null-Schutz direkt in `0x5A17AB0` ginge auch, dann bremst der Restrictor aber bis zum Nachtragen nicht. Den späten GameState gezielt zu erzeugen, ist nicht gelungen; Netzwerk-Emulation ist im Shipping-Build nicht vorhanden (Vermutung, nicht geprüft).
 
@@ -702,6 +765,67 @@ Stand 04.11.2026, Build `26187885`, nur Spike und Loopback. Die frühere Hypothe
 **Zusätzlich nötig und beobachtet:** Die native Prüfung eines lokalen P2-Geräts öffnet sonst ein blockierendes Controller-Beitrittsfenster. Ein auf den vollständigen aktuellen Listen-Host-Roster begrenzter Guard bei `0x59072AA` umgeht nur diese lokale P2-Gerätepflicht; P1-Geräteprüfung und Solo-Verlustpfad bleiben erhalten. Eine getrennt gesendete native `OnPlayerJoined`-Meldung aktualisiert die P2-Darstellung. Ein eigener veralteter Map-Eintrag wird bei fehlendem Remote-Roster mit dem nativen SparseArray-Entferner aufgeräumt und beim erneuten Beitritt ersetzt.
 
 **Keine vollständige Coop-UI:** Rundenstatistik und Lager zeigen beim Host beide Spieler, die lokale Kontrollübergabe im Lager blockiert aber weiterhin. Der Client bleibt lokal Index 0; Host-Coop-Zustand/Router werden nicht repliziert. Netzwerk-P2 muss deshalb von lokaler Geräteidentität getrennt werden; UI-Anfragen und Ergebnisse brauchen den geplanten Kontrollkanal. Die Aufgaben `remote-spieler`, `eingaben`, `inventar-sync` und `inventar-ui` bleiben offen. Die Phase-1-Frage nach Tragfähigkeit und nötigen Patches ist beantwortet; kein neuer Vollrun-/Internet-Nachweis. [Probe, Gegenversuche, Tests und Übernahmegrenzen](../research/spikes/a-connect/RemoteP2.md).
+
+**In der Mod (`remote-spieler`, 05.11.2026):** Die Bindung läuft jetzt ohne Befehl in `src/Game/RemoteP2Patches.cpp`, siehe
+[Remote-Spieler als P2](../src/Game/README.md#remote-spieler-als-p2).
+
+- **[Belegt]** Ohne `bCoopEnabled` genügen die `ActivePlayers`-Einträge: `GetPlayerController(1)` liefert den Remote-Controller,
+  `GetActivePlayerCount()` 2. Lager, Routenkarte und ein Level-up-Airdrop laufen dabei wie ohne Mod.
+- **[Belegt]** Mit `bCoopEnabled` hängt das Lager am Tagesende: beide Rucksäcke, „Bestätigen & Wechseln“, die Kontrolle geht nicht an P2.
+  Mit dem Airdrop-Befund unten heißt das: Den Koop-Modus erst einschalten, wenn `airdrop-auswahl` und `inventar-ui` die Eingaben von P2
+  über den Kontrollkanal liefern (`Patches::AllowRemoteCoop()`).
+- **[Belegt]** Verlassen und harter Abbruch des Clients entfernen nur die eigene P2-Bindung, `IsReconnectRequired` bleibt falsch; der
+  Neubeitritt bindet den neuen Controller.
+
+### Airdrop-Auswahl für beide Spieler (`airdrop-auswahl`)
+
+Stand 05.11.2026, Build `26187885`, zwei Instanzen auf einem PC über die Steam-Lobby
+der Mod, Tag 1, Level-up-Airdrops. Rohdaten und Probe auf `task/client-visuell`.
+
+- **[Belegt] Ohne Koop-Modus:** Egal wer einsammelt, öffnet nur der Host das normale
+  Inventar-Panel („Nimm 1 von 3 Items“), der Client sieht keine Auswahl. Die Weltpause
+  kommt über die replizierten WorldSettings auch beim Client an. Die native
+  Koop-Reward-Sitzung bleibt leer. Nach einer vom Client eingesammelten Kiste kann
+  dessen Reward-Queue beim Host auf der alten Kiste hängen bleiben; der nächste
+  Airdrop öffnete sich dann ohne Auswahl.
+- **[Belegt] Mit Remote-Client als P2** (Spike `!p2 on`, siehe oben): Beim Airdrop
+  startet die native Koop-Sitzung von `UCoopInventoryCoordinatorComponent`:
+  `AwaitingClaims`, `eligible=[0,1]`, `RequiredClaims=2`, Host-Panel mit beiden
+  Rucksäcken. Nach dem ersten Bestätigen wartet sie auf den Claim von Spieler 1, die
+  Pause bleibt. Ein Host-Aufruf `ClaimReward(1, Choice)` schließt die Sitzung
+  (`Completed`, `claimed=[0,1]`).
+- **[Belegt] Grenzen:** Das Host-Panel zählt seine Bestätigung als Spieler 0, auch
+  wenn das Item im P2-Rucksack liegt. Nach dem Code-Claim für Spieler 1 blieb das
+  Host-Panel ohne Bedienmöglichkeit offen, und die Pause blieb;
+  `AcknowledgeRewardUIClosed` lieferte `false`. Ohne Platzierung landete die
+  P2-Wahl im Lager von Spieler 0. `TransferItem` mit Quelle `RewardChoice` und Ziel
+  `P2Backpack` endete mit `InvalidRequest`.
+- **[Hypothese]** Das Panel schließt nativ erst nach Übergabe der UI-Autorität an
+  P2 (`RequestUIAuthorityTransfer`), die ohne lokales P2-Gerät blockiert, siehe
+  Remote-P2.
+- **[Belegt] Reward-Queue je Figur:** `URewardQueueComponent` hängt an der Figur
+  (`BP_DD_Character_C.RewardQueue`, `+0x980`). `RegisterReward` reiht eine Kiste ein
+  und ruft `OpenNextReward` nur, wenn `+0x108` (Kiste offen) 0 ist. `OpenNextReward`
+  gibt die nächste Kiste mit `SetRewardCanBeOpened(true)` frei; solange die aktuelle
+  (`CurrentRewardObject`, schwacher Zeiger `+0x10C`) lebt und nicht fertig ist,
+  ändert es nichts. `InventoryPanel.HandleConfirmButton` ruft es nur für die Queue des
+  Panels (`+0x6B8`), also die des Hosts. Nach einer vom Client geöffneten Kiste blieb
+  deshalb die Queue von P2 belegt, mit zerstörter Kiste als aktueller; alle weiteren
+  Kisten hatten `CanBeOpened=false`.
+- **[Belegt] Client-Panel:** `CreateItemInstance` ist `BlueprintAuthorityOnly`
+  (Flags `0x4020405`), `ProcessEvent` überspringt es beim Client; der native Aufruf
+  geht. Die Inventarfunktionen (`AddToInventory`, `AddToBackpack`,
+  `OccupyBackpackSlots`, `RemoveFromInventory` …) sind Server-RPCs. Eine nur lokale
+  Instanz kommt beim Host als Null an, `AddToBackpack` stürzt dann ab
+  (`0x5708419`). Beim Wählen schickt das Panel zuerst `AddToInventory` (Wahl), nach
+  „Bestätigen“ `AddToBackpack` und `OccupyBackpackSlots` mit den Feldern.
+- **[Belegt] Pause:** Das offene Auswahl-Panel des Hosts setzt eine Zeitanfrage beim
+  `TimescaleManager` (`active_requester=WP_Inventory_Panel`) und eine UI-Sitzung mit
+  `blocks_gameplay`; die Spielzeit steht. Wählt der Client zuerst, bleibt sie bis zum
+  Bestätigen des Hosts stehen.
+- **[Offen]** Bestätigt der Host zuerst, läuft die Runde laut Nutzer weiter, obwohl
+  die Mod `HandleConfirmButton` zurückhält. Vermutlich gibt der Knopf im Blueprint
+  die Zeitanfrage oder UI-Sitzung selbst frei (`airdrop-warten`).
 
 ### Coop-Ablauf
 
@@ -1023,9 +1147,14 @@ Stand 04.11.2026, Build `26187885`. Neben dem Crash-Reporter (siehe [Crash-Repor
 | Automatische Berichte über beschädigte Spielstände (`DDCorruptedSaveReportSubsystem`) | Codecks | `bEnableAutomaticCorruptedSaveReports` |
 
 - **[Belegt]** Alle drei Schalter stehen ab Werk auf an.
-- **[Belegt]** Die Mod schaltet sie am Klassen-Defaultobjekt ab (`Game::TelemetryAdapter`) und lässt zusätzlich die Namensauflösung für `codecks.io` und `pixelsplit.games` scheitern (`Core::ReportHosts`). Die zweite Schicht hängt nicht an Spiel-Offsets und deckt auch Analytics und Bug-Report-Formular ab, die keinen Schalter haben.
+- **[Belegt]** Die Mod schaltet sie am Klassen-Defaultobjekt ab (`Game::TelemetryAdapter`) und lässt zusätzlich die Namensauflösung für `codecks.io`, `pixelsplit.games` und `deadlydays.layerapps.com` scheitern (`Core::ReportHosts`). Die zweite Schicht hängt nicht an Spiel-Offsets und deckt auch Analytics und Bug-Report-Formular ab, die keinen Schalter haben.
 - **[Belegt]** Die HTTP-Anfragen des Spiels laufen über diese Namensauflösung: Im Menü fragt das Spiel `ddrweekly.deadlydays.com` an, und der Hook sieht es.
-- **Nicht gesperrt:** `ddrweekly.deadlydays.com` (Weekly-Challenge, Thema von `online-sperren` und `weeklymode`), `deadlydays.layerapps.com` (nicht angefragt, Zweck unbekannt), Twitch-Anbindung (nur auf Wunsch des Spielers).
+- **Nicht gesperrt:** `ddrweekly.deadlydays.com` (Weekly-Challenge, Thema von `online-sperren` und `weeklymode`), Twitch-Anbindung (nur auf Wunsch des Spielers).
+- **Gesperrt seit `layerapps-sperre` (04.11.2026):** `deadlydays.layerapps.com`.
+  - **[Belegt]** Der Host fragt den Dienst direkt beim Run-Ende an, kurz vor `pixelsplit.games`. Gesehen beim Test zu `patches` nach einer Niederlage.
+  - **Vermutung:** Das Spiel meldet dort das Run-Ergebnis. Was es sendet, ist nicht untersucht. Die Sperre folgt der Regel, dass Mod-Runs keine unnötigen Daten senden.
+  - Gesperrt ist nur dieser Name samt Unternamen, nicht `layerapps.com` insgesamt.
+  - **[Belegt]** Mit der Sperre lief das Run-Ende normal (Niederlage an Tag 1, „Zurück zur Basis“, beide in der MetaBase), danach startete ein neuer Run bis in die Mission.
 
 Test: ein PC, zwei Instanzen mit `Start-Session.ps1 -Mod`, MetaBase und Tag 1 bis zum Rundenende. Auf beiden Seiten meldete die Mod den bestandenen Selbsttest (`api.codecks.io` scheitert ohne Netzanfrage) und die drei abgeschalteten Schalter. Weitere Anfragen gab es im Lauf nicht, das Spiel lief normal weiter, kein Absturz. Das Bug-Report-Formular habe ich bewusst nicht abgeschickt: Wäre die Sperre unwirksam, ginge ein Bericht an Pixelsplit.
 

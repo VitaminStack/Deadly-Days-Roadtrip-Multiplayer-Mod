@@ -18,6 +18,36 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 
 **Neue Befunde.**
 
+- `desync-melder`, 05.11.2026: Diagnose über den Kontrollkanal mit sechs Messfeldern, feldweiser Stabilisierung und vom Host bestätigten Abweichungen in Log und F8. Gegnerzahl standardmäßig ausgenommen. Im Spiel an Tag 1 rund 636 s ohne Fehlalarm, eine absichtliche Inventarabweichung beim Client auf beiden Seiten erkannt und nach Rücksetzung wieder OK. Dabei gefunden: Absturz am Rundenende von Tag 1, jetzt `rundenende-absturz`. [Messumfang und Abnahme](DESYNC.md)
+
+- `itemsack-absturz`, 05.11.2026: **Abgeschlossen.** Der Client versuchte beim Aufsammeln aus nicht replizierter `ItemData` ein Inventaritem zu erzeugen und stürzte ab. `InventoryPatches.cpp` belässt den vollständigen Vergabepfad beim Host. In einer Lobby-Sitzung auf einem PC nach echter Route bis Tag 1 drei natürliche Remote-Aufsammlungen mit jeweils exakt einem Item nur beim Remote-Spieler, unverändertem Host-Inventar und gleichen replizierten Inventaren geprüft. Client-Negativaufruf ohne Gewinn/Absturz, isolierte Host-Vergabe ebenfalls geprüft; [Befund, Fehlversuche und Grenzen](../research/spikes/itemsack-absturz/README.md).
+
+- `client-visuell`, XP-Bälle und Projektile 05.11.2026: Der Host zeichnet die nativen XP-Ausstöße auf und sendet sie über den Kontrollkanal, der Client spielt sie nur zur Anzeige nach (`ReceiveExp` gesperrt). Gepoolte Projektile replizieren beim Host jetzt mit Bewegung. Beides über die Lobby im Spiel geprüft, Projektile vom Nutzer live bestätigt. **Abgeschlossen** auf Nutzerentscheidung; Projektilgröße, Treffer-/Partikeleffekte und XP-Randfälle in `opt-client-visuell`. Neu gefunden: Client-Absturz beim Aufsammeln eines Itemsacks, jetzt `itemsack-absturz` (P0).
+- `client-visuell`, Airdrop-Nachtrag 05.11.2026: Einfache eingebaute Actor-/Bewegungsreplikation plus NetGUID-gebundene Anzeigezustände umgesetzt. Normaler Level-up-Airdrop im Client sichtbar; kontrollierte native Host-Öffnung und anschließende Entfernung auf beiden Seiten bestätigt. Hide-Fallback gegen zurückgebliebene Kopien ergänzt, sein tatsächlicher Einsatz im Abschlusstest bleibt unbekannt. Client-Reward-Auswahl und restliche visuelle Abnahme bleiben offen; doppelte Client-Belohnung ist vorerst erlaubt, wurde aber nicht benötigt.
+
+- `client-visuell`, 05.11.2026: Erste Produktionsanbindung statt nur Diagnose: gemeinsame XP-/Levelanzeige als absoluter Host-Snapshot, ohne lokale XP-/Reward-Gutschrift. Der neue Kontrollkanal aus `protokoll` ist auch am Lobbytransport verfügbar. Beide Host-PlayerStates teilen nachweislich dasselbe Levelsystem; die Client-HUD zeigte im Test ebenfalls Level 5. NetGUID-, Nonce- und Revisionsbindung gegen alte Welten/Nachrichten. Orb-/Projektil-/Partikeldarstellung und komplette Abnahme bleiben offen, [aktueller Stand](../research/spikes/client-visuell/README.md#umsetzung-vom-05112026-gemeinsamer-xp-anzeigestand).
+
+- `client-visuell`, 04.11.2026, auf Nutzerwunsch vorgezogen und noch offen: Projektile, XP-Orbs, Airdrops und Partikeleffekte im Host-/Client-Vergleich. Erste Messung zeigt fehlende XP-Niagara-Darstellungsdaten beim Client; reines Einschalten der Projektil-Bewegungsreplikation ist kein abgenommener Fix. Nutzerergänzung: Airdrops fehlen beim Client, XP-Aufnahmen sollen einmal für beide Spieler zum gemeinsamen Run-Fortschritt zählen. Kein Produktionscode geändert, [Befunde, Fehlversuch und nächste Schritte](../research/spikes/client-visuell/README.md).
+- `protokoll`, 05.11.2026: Handshake mit Spiel-Build, Mod-Version und Rolle sowie zuverlässiger Kontrollkanal im selben Steam-Socket stehen in `src/Net`, Format und API in [Kontrollkanal](CONTROL_PROTOCOL.md). 24 Net-Tests, im Spiel bis Tag 1 geprüft, die XP-Anzeige aus `client-visuell` läuft schon darüber. Der Internet-Test mit zwei Konten gehört zu `lobby-live` bzw. `integration-g2`. Damit sind die Pakete der Welle 4 nicht mehr durch `protokoll` blockiert.
+- `bewegung`, 05.11.2026: Dodge beim Client repariert. Die eigene Figur rutschte ohne Trägheit, weil `GA_Dash` Reibung 0 und Schwerkraft 20 manchmal nicht zurückstellte; die Mod setzt die Werte nach 0,75 s zurück. Die Host-Figur fror nach seinem Dodge beim Client ein, weil der Host auf einer nicht replizierten, beweglichen Unterlage stand (Nebelrand) und die Engine relativ dazu repliziert; die Kopie folgt jetzt dem absoluten Host-Ort mit Vorausberechnung. Im Spiel mit Netzprofil Internet geprüft, siehe [Dodge beim Client](GAME_ANALYSIS.md#dodge-beim-client-bewegung).
+- `restrictor`, 05.11.2026: Der Bewegungs-Restrictor der Kamera stürzt beim Client nicht mehr ab, wenn der GameState nach seinem `BeginPlay` ankommt. Ein Null-Schutz an `0x5A17ACC` lässt ihn bis dahin ohne Bremse laufen, und die Mod trägt den GameState jede Sekunde nach. Im Spiel mit wiederholt genulltem Feld und gehaltener Bewegungstaste kein Absturz, siehe [Restrictor](GAME_ANALYSIS.md#client-absturz-im-restrictor-tick-absturz).
+- `lobby-bereit`, 05.11.2026: Der Host schließt seine Lobby, sobald sein Spiel 2 s im Hauptmenü steht oder nach dem Erstellen nie Listen-Server wird. Der Client erfährt das sofort als „Host hat die Sitzung verlassen“ statt nach 30 s, ein Beitritt in eine geschlossene Lobby sagt das direkt. Im Spiel auf einem PC geprüft, siehe [Lobby nur mit Server](../src/Net/README.md#lobby-nur-mit-server-lobby-bereit).
+- `versions-meldung`, 05.11.2026: Lehnt die Mod die erste Nachricht des Mitspielers ab, nennt sie jetzt in Log und Overlay den Grund: Mod ohne Protokoll, andere Protokoll- oder Mod-Version oder anderer Spiel-Build mit beiden Werten, gleiche Rolle auf beiden Seiten. Nur bei wirklich kaputten Daten bleibt es bei „ungültige Nachricht“. Beim Zwei-PC-Test war das wahrscheinlich Mod-Version 1 gegen 2, siehe [Handshake](CONTROL_PROTOCOL.md#handshake).
+- Zwei-PC-Test nur mit Mod, 05.11.2026: Erstmals zwei PCs ohne Spike über die Steam-Lobby der Mod und das Relay `fra`. Handshake, Beitritt aus der MetaBase, Reise in die Mission und XP-Darstellung laufen ohne Absturz. Die Missionskarte ist beim Client eine andere, weil die Karte des Hosts erst mit `missionsstart` übertragen wird. Neue Aufgaben: `lobby-bereit` (Beitritt hängt, solange der Host im Hauptmenü ist; Wechsel ins Hauptmenü wird erst nach 30 s erkannt) und `versions-meldung`. [Bericht](../src/Net/README.md#zwei-pcs-nur-mod-05112026).
+- `airdrop-auswahl`, 05.11.2026, Teilstand: Host und Client wählen beim Airdrop je im normalen Panel, egal wer die Kiste öffnet. Der Client sieht die Host-Choices als lokale Instanzen, seine Wahl legt der Host in sein Inventar. Mehrere Airdrops nacheinander öffnen sich wieder, seit der Host die Reward-Queue von P2 weiterschaltet. Der Weg über die native Koop-Sitzung mit Auswahl im Overlay ist verworfen. Offen als `airdrop-warten` (Host bestätigt zuerst, Runde läuft weiter) und `airdrop-rucksack` (Wahl des Clients liegt im Lager), siehe [Airdrop-Auswahl](../src/Game/README.md#airdrop-auswahl).
+- `remote-spieler`, 05.11.2026: Die Mod trägt beim Host den Remote-Spieler in jedem Takt als P2 in `ActivePlayers` ein, ohne zweiten `LocalPlayer`, und entfernt beim Verlassen nur die eigene Bindung. `GetPlayerController(1)` und zwei aktive Spieler stimmen damit, die Folgeaufgaben aus Phase 4 sind frei. Der native Koop-Modus bleibt aus: Mit ihm hing im Spiel das Lager am Tagesende, und die Airdrop-Auswahl wartet auf P2. Ihn schalten `airdrop-auswahl` und `inventar-ui` mit `Patches::AllowRemoteCoop()` ein. Ohne Koop-Modus liefen MetaBase, Tag 1 bis 3 mit Lager und ein Airdrop sauber, siehe [Remote-Spieler als P2](../src/Game/README.md#remote-spieler-als-p2).
+- `overlay-fokus`, 05.11.2026: Das F8-Overlay bleibt sichtbar, wenn das Spiel den Fokus verliert, und hat einen Knopf „Lobby-ID kopieren“. Build und UI-Tests bestanden, im Spiel beim Host per Skript geprüft (Fokuswechsel, F8, Kopieren, Minimieren), siehe [UI](../src/UI/README.md#fokuswechsel-und-kopierknopf-im-spiel-05112026-overlay-fokus).
+- `net-fehler`, 05.11.2026: Jedes Sitzungsende kommt mit eigenem Grund (Host oder Client verlässt, abgelehnt, belegt, Steam-Zeitlimit) und Sitzungszeitlimits als lesbare Meldung in Overlay und Log. Im Spiel auf einem PC geprüft: Verlassen wirkt in unter 1 s, harter Prozessabbruch nach 10,6 s, Neubeitritt per Lobby-ID, kein Fehlalarm beim Kartenwechsel. Einmal stürzte der Client beim Trennen aus der Mission mit „world leaks“ ab, offen als `opt-trennen-absturz`, siehe [Fehlerbehandlung](../src/Net/README.md#im-spiel-05112026).
+- `test-tempo`, 05.11.2026: Spielzeit ist der Engpass, nicht die Zahl der Agenten. Sitzungsstart wartet jetzt auf Zustände (Lobby 28 s statt 220 s, direkt 42 s statt 100 s), Clients lassen sich einzeln neu starten, das Sitzungsende prüft `Test-NetEnd.ps1` in einer Minute, und `Guided-Test.ps1` bindet Menschen für Schritte ein, die per Skript umständlich sind. Nächster Schritt `mod-steuerung`: Steuerkanal mit Antworten in der Mod statt Befehlsdatei des Spikes, siehe [Spielzeit sparen](TESTING.md#spielzeit-sparen).
+- `token-sparen`, 05.11.2026: Weniger Kontext je Schritt. `tasks.py show` liest eine Aufgabe statt der ganzen `TODO.md`, `tasks.py done` schließt sie ab, und die Testskripte geben mit `-Brief` eine Zeile je Instanz aus. `Travel-Day.ps1` wartet auf die neue Karte statt fest 35 s, siehe [Spielzeit sparen](TESTING.md#spielzeit-sparen).
+- `ohne-spike`, 05.11.2026: Die Mod läuft allein, ohne `spike.dll`: Lobby-Beitritt, MetaBase und Mission an Tag 1 auf einem PC ohne Absturz (`Start-Session.ps1 -NoSpike`, `Run-Route.ps1 -Start -NoSpike -Days 1 -StayLast`). Alle Betriebs-Fixes des Spikes stehen in der Mod. Nur im Spike sind noch Karte und PCG vom Host (ohne sie erzeugt der Client eine eigene, gescheiterte Karte und startet abseits vom Bus) und die Rundenphasen beim Client. Beides läuft dort über Dateien auf einem PC und gehört zu `missionsstart` bzw. `pausen-sync`/`tagesablauf`, siehe [Ohne Spike](../src/Game/README.md#ohne-spike).
+- `latenz-test`, 05.11.2026: Unreals `Net PktLag` fehlt im Shipping-Build, darum simuliert der Tunnel der Mod Ping, Schwankung und Verlust (`-ddcoop_netsim`, `Start-Session.ps1 -NetProfile Internet`). Routenlauf bis Tag 1 mit 120 ms ±30 ms und 2 % Verlust sauber, im Mod-Log 59 bis 60 ms je Richtung und 1,8 bis 2,3 % Verlust. Abnahmen mit Zustandsabgleich laufen künftig zusätzlich mit Profil, siehe [Latenz simulieren](TESTING.md#latenz-simulieren).
+- `todo-risiken`, 05.11.2026: Vorbeugende Aufgaben gegen spätere Probleme eingeplant. Vor Gate G2: `ohne-spike` (Mod läuft ohne Spike), `latenz-test` (Latenz und Verlust auf einem PC simulieren), `desync-melder` (Zustandssumme über den Kontrollkanal). Vor `integration-run`: `dauerlauf`. Vor `release`: `weekly-sperre` und `virenscanner`. Dazu `doku-verweise` (Wartung) und `coop-spielstand` (optional). Team-Entscheidung `weeklymode`: Die Weekly-Challenge wird mit Mod immer gesperrt, auch solo. Absturzberichte, Telemetrie, Erfolge und Bestenlisten sperrt die Mod schon. Keine Spielabnahme.
+- Update-Verwaltung, 04.11.2026: Auf Nutzerwunsch nur als optionale Zukunftsarbeit eingeplant: lokale Mod-/Spiel-Prüfung mit sichtbarer Ablehnung vor dem Laden, danach geprüfte Releaseinformationen und erst später ein optionaler Auto-Updater. Die Aufgaben und Abnahmen stehen ausschließlich in [TODO.md](../TODO.md#optionale-optimierungen). Build `26187885` bleibt erzwungen; keine zusätzliche Voraussetzung für den aktuellen Release, keine Umsetzung und keine neue Spielabnahme.
+
+- `layerapps-sperre`, 04.11.2026: Das Spiel fragt beim Run-Ende `deadlydays.layerapps.com` an. Die Mod sperrt den Namen jetzt wie `pixelsplit.games`, ohne den Inhalt zu untersuchen. Mod-Runs senden keine unnötigen Daten. Run-Ende und neuer Run liefen mit der Sperre normal.
+- `patches`, 04.11.2026: Die 25 Spielfehler-Fixes aus dem Spike stehen als geprüfte Patches in `src/Game/*Patches.cpp`. Die Mod prüft beim Start alle Stellen und setzt dann alle oder keinen. Mit der Mod setzt der Spike seine eigenen Fassungen nicht mehr und meldet seinen Phasenbeobachter bei der Mod an. Karte, PCG, Testhilfen und Messung bleiben im Spike. Mit `-Mod` lief die echte Route von der MetaBase bis Tag 5 ohne Absturz, die Inventare waren nach jedem Wechsel gleich. Danach kamen nach einer Niederlage beide in die MetaBase zurück. [Patches](../src/Game/README.md#patches).
+
 - `remote-p2`, 04.11.2026: Die Phase-1-Frage ist geklärt: aktuelle schwache `ActivePlayers`-Bindungen und native Coop-Aktivierung machen den Remote-Controller beim Host zu P2, ohne zweiten lokalen Spieler. Ein gezielter Guard nimmt nur die lokale P2-Gerätepflicht aus; native Join-Meldung und Aufräumen veralteter Bindungen separat geprüft. Bewegung und Controller-Tausch funktionieren in der Probe, die lokale UI-Kontrollübergabe im Lager dagegen nicht über das Netz. `remote-spieler`, `eingaben` und Inventar-/UI-Sync bleiben Umsetzungsaufgaben. [Nachweise, Gegenprobe und Grenzen](../research/spikes/a-connect/RemoteP2.md).
 - `phasenadapter`, 04.11.2026: Der Client sieht bei jedem Rundenende dieselbe Phase wie der Host (Rundenübersicht, Lager, Routenkarte) und ist dort gesperrt. Der Host erkennt die Phasen an den Panels über `ProcessEvent`, der Client sperrt mit `DisableInput` und zeigt ein Banner. Im Spiel an der ersten Route und an drei Rundenenden geprüft. Transport ist noch eine Datei auf einem PC, über das Netz trägt ihn `transport`/`protokoll`. [Details](../research/spikes/a-connect/RoundPhaseRuntime.md).
 - `gate-g1`, 04.11.2026: Nutzer bestätigt verbindlich Weg A als Grundlage, ergänzt um gezielten eigenen Sync für XP, Währungen, Rewards, Pausen und UI. Architekturentscheidung und G1 abgeschlossen; Weg B bleibt nur Rückfalloption bei neuen Gegenbefunden. Transport/Protokoll und konkrete Umsetzung bleiben eigene Aufgaben, Gate G2 und Internet-Abnahme sind dadurch nicht erledigt. [Entscheidung](ARCHITECTURE.md#entscheidungen).
@@ -164,22 +194,27 @@ flowchart TD
     end
 
     subgraph PH3["Phase 3: Session und Verbindung"]
-        LO["Steam-Lobby"]:::open
-        TN["Transport-Tunnel"]:::open
+        LO["Steam-Lobby<br/>(steam-lobby)"]:::done
+        LL["Lobby mit zwei Konten<br/>(lobby-live, zu zweit)"]:::open
+        TN["Transport-Tunnel<br/>(transport)"]:::done
         HS["Handshake: Build und Mod-Version"]:::open
-        FE["Timeout, Abbruch,<br/>Host verlässt das Spiel"]:::open
+        FE["Timeout, Abbruch,<br/>Host verlässt das Spiel<br/>(net-fehler)"]:::done
         KK["Kontrollkanal"]:::open
         LO --> TN --> HS --> KK --> FE
+        LO --> LL
     end
 
     subgraph PH4["Phase 4: Vertical Slice"]
-        SH["Spike-Patches als Hooks<br/>übernehmen"]:::open
+        SH["Spike-Patches als Hooks<br/>übernehmen"]:::done
         R2["Remote-Spieler als P2"]:::open
         MS["Gemeinsamer Missionsstart,<br/>gleiche Karte"]:::open
         KM["Gemeinsame Kamera<br/>umsetzen"]:::open
         KA["Bewegung, Waffen, Treffer, Tod"]:::open
         GT["Ein Gegnertyp"]:::open
         EI["Eingaben von Remote<br/>trennen"]:::open
+        OS["Mod ohne Spike<br/>(ohne-spike)"]:::done
+        LT["Latenz simulieren<br/>(latenz-test)"]:::done
+        DM["Desync-Melder<br/>(desync-melder)"]:::done
         SH --> R2 --> MS --> KM --> KA --> GT
         R2 --> EI
     end
@@ -193,6 +228,7 @@ flowchart TD
         PU["Pausen und blockierende UI"]:::open
         TG["Tageszyklus, Treibstoff,<br/>Etappen"]:::open
         ME["Run-Ende, Meta-Basis,<br/>Regel für Meta-Fortschritt"]:::open
+        DL["Dauerlauf über viele Tage<br/>(dauerlauf)"]:::open
     end
 
     subgraph PH6["Phase 6: Release"]
@@ -200,6 +236,8 @@ flowchart TD
         TE["Telemetrie und<br/>Crash-Reports aus"]:::done
         SV["Eigene Mod-Spielstände"]:::open
         IN["Installer oder Anleitung"]:::open
+        WS["Weekly-Challenge sperren<br/>(weekly-sperre)"]:::open
+        VS["Virenscanner und Proton<br/>(virenscanner)"]:::open
     end
 
     Z(["Mod fertig und nutzbar"]):::goal
@@ -221,24 +259,29 @@ Türkis ist zentrale Arbeit, die nacheinander läuft. Grau sind Pakete, die dane
 flowchart TD
     GR["grundgeruest"]:::central --> W1["Welle 1<br/>overlay, deploy, ci"]:::open
     GR --> GA["game-adapter"]:::central
-    G1{{"Gate G1: Weg A festgelegt"}}:::done --> W2["Welle 2<br/>steam-lobby, transport,<br/>net-fehler"]:::open
+    G1{{"Gate G1: Weg A festgelegt"}}:::done --> W2["Welle 2<br/>steam-lobby, transport,<br/>net-fehler"]:::done
     GR --> W2
     G1 --> GA
     GA --> PT["patches"]:::central --> RS["remote-spieler"]:::central
     GA --> W5["Welle 5<br/>tutorial-aus, online-sperren,<br/>telemetrie-aus, mod-saves, installer"]:::open
     RS --> W3["Welle 3<br/>missionsstart, kamera-code, bewegung,<br/>eingaben, kampf, gegnertyp"]:::open
     W1 --> IG["integration-g2"]:::central
-    W2 --> PR["protokoll"]:::central
+    W2 --> PR["protokoll"]:::done
     W2 --> IG
     W3 --> IG
     IG --> G2{{"Gate G2"}}:::gate
-    PR --> W4["Welle 4<br/>gegner-alle, fortschritt, inventar-sync,<br/>inventar-ui, pausen-sync, tagesablauf,<br/>run-ende, vfx-sound, reconnect"]:::open
+    PR --> W4["Welle 4<br/>gegner-alle, fortschritt, inventar-sync,<br/>airdrop-rucksack, airdrop-warten,<br/>inventar-ui, pausen-sync, tagesablauf,<br/>run-ende, vfx-sound, reconnect"]:::open
     G2 --> W4
     W4 --> IR["integration-run"]:::central
     W5 --> IR
+    RV["Vorbeugung<br/>ohne-spike, latenz-test"]:::open --> IG
+    PR --> DS["desync-melder"]:::done --> IG
+    IG --> DL["dauerlauf"]:::open --> IR
+    W5 --> W6["weekly-sperre, virenscanner"]:::open --> RL
     IR --> RL["release"]:::central
     RL --> Z(["Mod fertig und nutzbar"]):::goal
 
+    classDef done fill:#2e7d32,stroke:#1b5e20,color:#ffffff
     classDef central fill:#00796b,stroke:#004d40,color:#ffffff
     classDef open fill:#eceff1,stroke:#607d8b,color:#1a1a1a
     classDef gate fill:#6a1b9a,stroke:#3e1163,color:#ffffff

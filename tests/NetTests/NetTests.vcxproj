@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64"><Configuration>Debug</Configuration><Platform>x64</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64"><Configuration>Release</Configuration><Platform>x64</Platform></ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{6E1A5C10-2B7D-4E5C-9A11-0C1F3B7A1009}</ProjectGuid>
+    <RootNamespace>NetTests</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <Import Project="..\..\src\Common.props" />
+  <ItemDefinitionGroup>
+    <ClCompile><AdditionalIncludeDirectories>$(RepoRoot)third_party\doctest;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories></ClCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="Main.cpp" />
+    <ClCompile Include="FakeSteam.cpp" />
+    <ClCompile Include="SessionTests.cpp" />
+    <ClCompile Include="TransportTests.cpp" />
+    <ClCompile Include="ProtocolTests.cpp" />
+    <ClCompile Include="ProgressTests.cpp" />
+    <ClCompile Include="DesyncTests.cpp" />
+    <ClCompile Include="RewardTests.cpp" />
+    <ClCompile Include="NetSimTests.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="FakeSteam.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Net\Net.vcxproj"><Project>{6E1A5C10-2B7D-4E5C-9A11-0C1F3B7A1002}</Project></ProjectReference>
+    <ProjectReference Include="..\..\src\Core\Core.vcxproj"><Project>{6E1A5C10-2B7D-4E5C-9A11-0C1F3B7A1001}</Project></ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

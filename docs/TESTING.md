@@ -19,14 +19,111 @@ powershell -ExecutionPolicy Bypass -File tools/spike/Start-Session.ps1 -Build -M
 ```
 
 Das baut Spike und Mod, installiert die Mod und startet die Sitzung. `Get-Status.ps1` zeigt die Mod-Logs beider Instanzen.
+Mit der Mod kommen die Spielfehler-Fixes von ihr, der Spike lässt seine aus (Spike-Log: `Patch: Spielfehler-Fixes kommen von der Mod`), siehe [Patches](../src/Game/README.md#patches).
 `Stop-Session.ps1` entfernt die Mod danach wieder, sonst lädt auch ein normaler Spielstart sie ohne Crash-Schutz. Ohne `-Mod` gilt:
 nach `Stop-Session.ps1` selbst `Deploy-Mod.ps1 -Remove` ausführen.
 
+### Tunnel der Mod prüfen
+
+```bash
+powershell -ExecutionPolicy Bypass -File tools/spike/Start-Session.ps1 -Mod -Tunnel Mod
+```
+
+Statt des Spike-Tunnels verbindet dann der Transport der Mod aus `src/Net`. Der Host startet mit `-ddcoop_transport=host`, der Client
+mit `-ddcoop_transport=loopback`, auf zwei PCs mit `-Role Client -Tunnel Mod -Peer <SteamID64 des Hosts>`. Sobald im Mod-Log des
+Clients `Transport: verbunden` steht, öffnet der Spike `127.0.0.1:7778`. Die Statistik steht alle 30 s im Mod-Log, siehe
+[Net](../src/Net/README.md#transport-transport).
+
+### Steam-Lobby der Mod prüfen
+
+```bash
+powershell -ExecutionPolicy Bypass -File tools/spike/Start-Session.ps1 -Mod -Tunnel Lobby
+```
+
+Beide Instanzen starten gleichzeitig ohne Lobby-Schalter. Sobald der Spike geladen ist, erstellt der Host die Lobby über
+das Overlay der Mod und wird selbst Listen-Server in der MetaBase, der Client tritt ebenso mit der Lobby-ID bei (`Overlay.ps1`).
+Die Abstürze beim Beitritt ohne Spike (Host `0x5901CE8`, Client `0x56B16D9`, 04.11.2026) verhindert inzwischen die Mod selbst,
+siehe [Nur Mod, ohne Spike](#nur-mod-ohne-spike). Die Schalter `-ddcoop_lobby` und `-ddcoop_lobby_delay` der Mod gibt es weiter, das Skript braucht sie nicht.
+Auf zwei PCs: Host mit `-Role Host -Tunnel Lobby`, die Ausgabe nennt die Lobby-ID, Client mit `-Role Client -Tunnel Lobby -Peer <Lobby-ID>`.
+Die Lobby-ID gehört zu keinem Konto und verfällt mit der Lobby. Einladungen über Steam prüft man nur mit zwei Konten: Overlay
+mit **F8**, „Einladen“, Freund wählen, beim Freund „Spiel beitreten“. Siehe [Net](../src/Net/README.md#steam-lobby-steam-lobby).
+
+### Nur Mod, ohne Spike
+
+```bash
+powershell -ExecutionPolicy Bypass -File tools/spike/Start-Session.ps1 -Mod -Tunnel Lobby -NoSpike -Brief
+powershell -ExecutionPolicy Bypass -File tools/spike/Run-Route.ps1 -Start -NoSpike -Days 1 -StayLast
+```
+
+So läuft das Spiel wie im Release: nur `DDCoop.dll`, kein `spike.dll`. Crash-Schutz, eigene `UserDir` und Sperre bleiben gleich.
+Das Skript prüft nach dem Hauptmenü und am Ende, dass `spike.dll` nicht geladen ist. Ohne Spike gibt es keine Konsolenbefehle,
+also nur `-Tunnel Lobby` und die MetaBase als Ziel, kein `-Godmode`, kein fester Seed und kein `!finish`. `Run-Route.ps1` endet darum
+in der ersten Mission. Ein frischer Test-Spielstand fährt nach „So wird gespielt“ ohne Routenkarte direkt los, sonst sucht das Skript den
+Knoten für Tag 1 in der linken Spalte. `Send-SpikeCommand` bricht in so einer Sitzung mit einer klaren Meldung ab.
+
+Erwartet ist heute Exitcode 1 mit „Figur nicht am Bus“ und verschiedenen Kachelzahlen: Die Karte vom Host gibt es nur im Spike,
+siehe [Ohne Spike](../src/Game/README.md#ohne-spike). Abstürze enden wie sonst mit Exitcode 2.
+
 ### Mod-Overlay prüfen
 
-Nach einem Build mit dem Paket `overlay` zeigt **F8** im aktiven Spielfenster das Statusfenster; erneutes F8 oder dessen Schließen verbirgt es. Pro Prozess darf nur dessen eigenes Overlay erscheinen. Beim Wechsel zu einer anderen Anwendung und beim Minimieren muss es verschwinden; nach Rückkehr sichtbar bleiben, wenn es zuvor eingeschaltet war. Fenster verschieben und DPI/Lesbarkeit sowie Tab-Bedienung prüfen. Keine fremde Testsitzung dafür bedienen.
+Nach einem Build mit dem Paket `overlay` zeigt **F8** im aktiven Spielfenster das Statusfenster; erneutes F8 oder dessen Schließen verbirgt es. Pro Prozess darf nur dessen eigenes Overlay erscheinen. Beim Wechsel zu einer anderen Anwendung bleibt ein eingeschaltetes Overlay über dem Spielfenster sichtbar (seit `overlay-fokus`), beim Minimieren verschwindet es und kommt nach Wiederherstellen zurück. „Lobby-ID kopieren“ ist nur mit Lobby aktiv und legt die ID in die Zwischenablage. Fenster verschieben und DPI/Lesbarkeit sowie Tab-Bedienung prüfen. Keine fremde Testsitzung dafür bedienen.
 
 Ohne Netzwerkbackend müssen die Lobby-Knöpfe deaktiviert bleiben und der Status „Netzwerk noch nicht angebunden“ lauten. Fenster- oder randlosen Modus verwenden, kein exklusives Vollbild. Das Overlay pausiert das Spiel nicht. Optionen in `ddcoop.ini`, API und Testgrenzen stehen in [src/UI](../src/UI/README.md). Die [sichtbare Host-/Client-Abnahme vom 03.11.2026](../src/UI/README.md#sichtbare-spielabnahme-03112026) ist bestanden; die CI prüft weiterhin nur Modell und unsichtbaren Fenster-Lebenszyklus, keine Spielgrafik.
+
+## Spielzeit sparen
+
+Pro PC läuft nur eine Sitzung, Spielzeit ist der Engpass. Darum:
+
+- **Code und Spieltest trennen.** Code und `Build-Mod.ps1 -Test` laufen ohne Spiel und parallel. Spieltests sammeln und in einem Block
+  fahren, die Sitzung dabei weiterverwenden statt sie je Prüfung neu zu starten.
+- **Warten statt abbrechen.** `Start-Session.ps1 -Wait 1800` reiht sich hinter eine fremde Sitzung ein und startet, sobald sie endet.
+- **Nur neu starten, was nötig ist.** `Restart-Instance.ps1` startet nur den Client neu (etwa 20 s). `-Build` nur, wenn sich der Spike geändert hat.
+  Hält der Host direkt nach dem Beenden noch die alte Verbindung („Der Host hat schon einen Mitspieler“), erstellt er eine neue Lobby und
+  der Client tritt ihr bei, das macht das Skript selbst.
+- **Kurz ausgeben.** `Start-Session.ps1`, `Restart-Instance.ps1`, `Get-Status.ps1`, `Start-Run.ps1` und `Travel-Day.ps1` kennen `-Brief`:
+  eine Zeile je Instanz (Karte, Spieler, Rolle), eine für Inventar und eine für Abstürze. Volle Ausgabe und Bilder nur ansehen, wenn
+  etwas nicht stimmt. `Travel-Day.ps1` wartet auf die neue Karte mit beiden Spielern statt fest 35 s, meist reichen 10 s.
+- **Skripte statt Klicks.** `Overlay.ps1` bedient das Overlay, `Watch-Net.ps1` zeigt Meldungen mit Zeit, `Test-NetEnd.ps1` prüft das
+  Sitzungsende in rund einer Minute. Wer eine Prüfung zum zweiten Mal von Hand macht, schreibt dafür ein Skript.
+
+| Start (05.11.2026, ein PC) | Vorher | Jetzt |
+|---|---|---|
+| `-Mod -Tunnel Lobby` bis MetaBase | 220 s (mit erstem Mod-Build) | 28 s |
+| `-Mod` bis MetaBase | 100 s | 42 s |
+| `-Map /Game/Maps/DDDynamic_Map` ohne Mod | – | 37 s |
+| Client nach Absturz wieder verbunden | voller Neustart | 20 s |
+
+### Mensch und Skript zusammen
+
+Arbeitsteilung: Alles, was sich über Konsole, Befehle oder Skripte lesen oder steuern lässt, erledigt der Agent selbst, auch die Prüfungen
+(Overlay, Logs, Netzzustand, Lobby, Reisen, Run-Start). Der Mensch übernimmt nur Spielaktionen: mit der Figur laufen, kämpfen,
+Belohnungen wählen. Er springt dort ein, wo der Agent sonst erst eine Schnittstelle oder ein Skript bauen müsste.
+
+**Der Mensch bedient keine Konsole.** Er schaut zu oder spielt, Rückmeldung gibt er im Chat. Starten, Schritte bestätigen, Prüfen und
+Auswerten macht der Agent. Am 05.11.2026 wartete ein Tag-1-Test bei Schritt 3 auf Enter in der Konsole des Menschen. Seitdem bestätigt
+der Agent die Spielschritte selbst:
+
+1. Der Agent startet `Guided-Test.ps1` im Hintergrund und beobachtet die Ausgabe.
+2. Bei einem Spielschritt gibt das Skript `WARTET [n/m] Aktion | Erwartet: …` aus. Der Agent sagt dem Menschen im Chat, was er spielen
+   soll, und wertet währenddessen Logs und Zustand aus.
+3. Meldet der Mensch im Chat, wie es lief, antwortet der Agent mit `Guided-Answer.ps1 ok`, `Guided-Answer.ps1 "<Abweichung>"`, `skip`
+   oder `quit`. `Guided-Answer.ps1 status` zeigt den wartenden Schritt.
+
+Endet eine Instanz oder kommt nach `-AnswerMinutes` (30) keine Antwort, bricht der Test ab und schreibt den Bericht.
+
+```bash
+powershell -ExecutionPolicy Bypass -File tools/spike/Guided-Test.ps1 -Steps tools/spike/guided/tag-1.txt -Start -Shots
+```
+
+```bash
+powershell -ExecutionPolicy Bypass -File tools/spike/Guided-Answer.ps1 ok
+```
+
+Aufbau der Schrittdatei: eine Zeile je Schritt, `Aktion | Erwartung` für eine Spielaktion des Menschen, `> Skript.ps1 ...` für einen
+automatischen Schritt aus `tools/spike`. `> Skript.ps1 ... | Muster` prüft automatisch und wiederholt bis zu 30 s, bis die Ausgabe zum
+Muster passt. Das Skript hält je Schritt Dauer, neue Zeilen der Mod-Logs, Overlay- und Netzzustand, neue Abstürze und mit `-Shots` Bilder
+beider Fenster fest und schreibt `research/local/guided/<Name>-<Zeit>/report.md`, den der Agent auswertet. Beispiele liegen in
+`tools/spike/guided/`.
 
 ## Sitzung starten
 
@@ -119,11 +216,40 @@ Für eine reproduzierbare Karte vor dem Öffnen der Routenkarte `Send-Command.ps
 Das Pausemenü (`Esc`) hat „Zurück zum Hauptmenü“ bei (396, 266). Mit `!finish` endet die Mission beim Host, danach kommt die Routenkarte für Tag 2.
 Über die echte Route laden Tag 1 bis 4 sauber, an Tag 5 stürzt der Client ab, siehe [Pausierte Welt und Busplatz](GAME_ANALYSIS.md#pausierte-welt-und-busplatz-testumgebung). Eine `servertravel`-Schleife ersetzt die echte Route dabei nicht.
 
+### Latenz simulieren
+
+Auf einem PC läuft alles über Loopback mit 0 ms, über das Internet sind 40 bis 150 ms und Verluste normal. Der Tunnel der Mod kann
+Ping, Schwankung und Paketverlust simulieren, Einzelheiten in [Netzsimulation](../src/Net/README.md#netzsimulation-latenz-test):
+
+```bash
+powershell -ExecutionPolicy Bypass -File tools/spike/Start-Session.ps1 -Mod -Tunnel Lobby -NetProfile Internet -Brief
+```
+
+```bash
+powershell -ExecutionPolicy Bypass -File tools/spike/Run-Route.ps1 -Start -NetProfile Internet -Days 1 -StayLast
+```
+
+| Profil | Ping | Schwankung | Verlust je Richtung |
+|---|---|---|---|
+| `Internet` | 120 ms | ±30 ms | 2 % |
+| `Schlecht` | 250 ms | ±80 ms | 5 % |
+| eigene Werte, etwa `80,10,1` | 80 ms | ±10 ms | 1 % |
+
+Das Profil wirkt nur im Tunnel der Mod, also mit `-Mod -Tunnel Lobby` oder `-Tunnel Mod`. `Restart-Instance.ps1` übernimmt es aus der
+Sitzung, `Get-Status.ps1 -Brief` zeigt je Instanz die letzte Messzeile aus dem Mod-Log.
+
+**Wann mit Profil:** Abnahmen von Aufgaben, die Zustand zwischen Host und Client abgleichen (Bewegung, Kampf, Gegner, Eingaben,
+Belohnungen, Kontrollnachrichten, Sitzungsende), laufen zusätzlich mit `-NetProfile Internet`. Wer Timing-Fehler sucht, nimmt `Schlecht`.
+Ohne Profil bleiben Tests, die nur Start, Build oder Darstellung auf einer Seite prüfen, und alles, was Zeiten misst, die mit Latenz
+nicht vergleichbar wären. Den Test über echtes Internet zwischen zwei Haushalten ersetzt das Profil nicht.
+
 ## Test auf zwei PCs
 
 Manches lässt sich auf einem PC nicht prüfen: Steam lehnt P2P zum eigenen Konto ab, siehe [Steam-Tunnel](../research/spikes/a-connect/README.md#spike-e-steam-tunnel-tunnel).
 Dafür laufen Host und Client auf zwei PCs mit zwei Steam-Konten, je PC nur eine Instanz. Solche Aufgaben haben in
 [TODO.md](../TODO.md) die Bearbeitung **zu zweit**, etwa `tunnel-p2p`.
+Solche Tests lassen sich in einem gemeinsamen Termin bündeln. Als Planungshilfe dienen die Hinweise unter
+[Live-Sitzungen zu zweit](../TODO.md#live-sitzungen-zu-zweit).
 
 ### Reservieren zu zweit
 

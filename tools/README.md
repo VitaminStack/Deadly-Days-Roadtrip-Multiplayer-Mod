@@ -12,6 +12,8 @@ Reserviert Aufgaben aus [TODO.md](../TODO.md#wo-kann-ich-anfangen), damit nieman
 | `py tools/tasks.py claim <kennung> <name>` | Worktree, Branch `task/<kennung>`, Push und Draft-PR |
 | `py tools/tasks.py claim <kennung> <name> host\|client` | Bei Aufgaben „zu zweit“ nur eine Rolle: Branch `task/<kennung>/<rolle>`, Worktree `.worktrees/<kennung>-<rolle>`, siehe [Test auf zwei PCs](../docs/TESTING.md#test-auf-zwei-pcs) |
 | `py tools/tasks.py release <kennung> [<rolle>]` | Draft-PR schließen, Branch löschen, sauberen Worktree entfernen |
+| `py tools/tasks.py show <kennung>` | Nur diese Aufgabe: Phase, Status, Braucht, Bearbeitung, Abnahme. Spart das Lesen der ganzen `TODO.md` |
+| `py tools/tasks.py done <kennung> "<Ergebnis>"` | Auf `task/<kennung>`: Zeile alphabetisch nach „Erledigt“ verschieben, `task_status.py update` und `check` |
 
 Erledigte, blockierte und Team-Aufgaben sind nicht reservierbar, auch ohne `gh`. Offene Aufgaben werden nicht allein wegen eines gemergten Teil-PRs abgeschlossen. Kurze Wartung ohne Eintrag in `TODO.md` ist weiterhin reservierbar.
 
@@ -91,17 +93,24 @@ Bauen und Testen des Spikes, die Anleitung steht in [docs/TESTING.md](../docs/TE
 | Skript | Aufgabe |
 |---|---|
 | `Build-Spike.ps1` | Baut `spike.dll` |
-| `Start-Session.ps1` | Setzt die Sperre, startet Crash-Schutz, Host und Client, verbindet sie und reist in eine Karte. `-Build` baut den Spike vorher neu, `-Mod` baut und installiert zusätzlich die Mod. `-Role Host` oder `-Role Client -Peer <SteamID>` startet nur eine Seite für den Test auf zwei PCs |
+| `Start-Session.ps1` | Setzt die Sperre, startet Crash-Schutz, Host und Client parallel, verbindet sie und reist in eine Karte. Wartet auf Zustände statt fest zu schlafen und nennt die Zeit je Schritt (MetaBase etwa 30 bis 40 s). `-Wait <s>` wartet auf eine fremde Sitzung statt abzubrechen. `-Build` baut den Spike vorher neu, `-Mod` baut und installiert zusätzlich die Mod. `-Role Host` oder `-Role Client -Peer <SteamID>` startet nur eine Seite für den Test auf zwei PCs. `-Mod -Tunnel Mod` verbindet über den Transport der Mod statt über den Spike, `-Mod -Tunnel Lobby` über die Steam-Lobby der Mod, erstellt und betreten über das Overlay. `-Brief`: nur Zeit je Schritt und eine Zeile je Instanz. `-NetProfile Internet` simuliert Latenz im Tunnel der Mod, siehe [Latenz simulieren](../docs/TESTING.md#latenz-simulieren). `-Mod -Tunnel Lobby -NoSpike` startet nur mit der Mod wie im Release, siehe [Nur Mod, ohne Spike](../docs/TESTING.md#nur-mod-ohne-spike) |
+| `Restart-Instance.ps1` | Startet nur den Client neu und verbindet ihn wieder, der Host läuft weiter (etwa 20 s statt eines vollen Neustarts). `-Brief` für kurze Ausgabe |
+| `Overlay.ps1` | Bedient das Overlay der Mod ohne Maus: `status`, `create`, `join [<id>]`, `leave`, `invite`. `-Json` für Skripte |
+| `Watch-Net.ps1` | Zeigt Änderungen an Overlay, Prozess und Mod-Log (Sitzung, Transport, Lobby, Welt) beider Instanzen mit Zeit, `-Until <Muster>` endet beim ersten Treffer |
+| `Test-NetEnd.ps1` | Prüft Sitzungsende ohne Handarbeit: Host und Client verlassen, Client und Host hart beendet, Neubeitritt. Zeit bis zur Meldung, Bericht unter `research/local/` |
+| `Test-Desync.ps1` | Eigene laufende Tag-1-Sitzung: 600 s fünf aktive Diagnosefelder gleich, dann kontrollierte Client-Inventarabweichung durch `desync_difference.py` mit Rücksetzung; beide Overlaymodelle müssen Alarm und Erholung zeigen. `-Seconds` nur für kurze Vorproben. [Ablauf und Grenzen](../docs/DESYNC.md) |
+| `Guided-Test.ps1` | Läuft beim Agenten im Hintergrund, der Mensch spielt nur. Wartet bei Spielschritten auf `Guided-Answer.ps1` und hält Dauer, Mod-Logs, Overlay, Abstürze und mit `-Shots` Bilder fest. Schrittdateien in `spike/guided/`, siehe [Testen](../docs/TESTING.md#spielzeit-sparen) |
+| `Guided-Answer.ps1` | Beantwortet den wartenden Spielschritt nach der Rückmeldung des Menschen im Chat: `ok`, `"<Abweichung>"`, `skip`, `quit`, `status` |
 | `Test-TwoPc.ps1` | Test auf zwei PCs über Steam-P2P, je PC eine Rolle: verbinden, Run bis in die Mission an Tag 1, messen, Tunnel-Bericht |
 | `tunnel_report.py` | Fasst die Tunnel-Zeilen eines Spike-Logs zusammen: Ping, Pakete, Qualität, Route, Abbrüche; SteamIDs und IPs maskiert |
 | `Send-Command.ps1` | Schickt einen Befehl an `Host` oder `Client` und zeigt das Log |
 | `Stop-Session.ps1` | Beendet die Instanzen dieses Ordners, gibt die Sperre frei und entfernt eine mit `-Mod` installierte Mod |
-| `Get-Status.ps1` | Prozesse, Netzzustand, letzte Log- und Mod-Logzeilen, Abstürze seit Sitzungsstart. `-Inventory` vergleicht die Inventare |
+| `Get-Status.ps1` | Prozesse, Netzzustand, letzte Log- und Mod-Logzeilen, Abstürze seit Sitzungsstart. `-Inventory` vergleicht die Inventare. `-Brief`: je eine Zeile für Instanzen, Inventar und Abstürze |
 | `Wait-Log.ps1` | Wartet auf eine neue passende Zeile im Spike-Log statt einer festen Pause |
 | `Game-Input.ps1` | Bild aus einem Spielfenster, Farbe eines Punkts (`pixel`), Klick oder Taste, ohne Bildschirmaufnahme des Desktops |
-| `Start-Run.ps1` | Startet aus der `MetaBase` einen Run bis zur Routenkarte: Position lesen, in einem Zug in den Ring, Karte am Banner erkennen, bis zu drei Versuche |
-| `Travel-Day.ps1` | Fährt einen Tag über die Routenkarte, prüft beide Instanzen und beendet ihn |
-| `Run-Route.ps1` | Fester Routenlauf mit Seed `20795` über mehrere Tage, nach jedem Wechsel `check_round.py`, Bilder während und nach dem Laden unter `research/local/session/runs/` |
+| `Start-Run.ps1` | Startet aus der `MetaBase` einen Run bis zur Routenkarte: Position lesen, in einem Zug in den Ring, Karte am Banner erkennen, bis zu drei Versuche. Ein frischer Spielstand, der ohne Routenkarte direkt in die Mission fährt, zählt auch. `-Brief`: eine Zeile |
+| `Travel-Day.ps1` | Fährt einen Tag über die Routenkarte, wartet auf die neue Karte, prüft beide Instanzen und beendet ihn. `-Brief`: eine Zeile je Instanz und Inventar |
+| `Run-Route.ps1` | Fester Routenlauf mit Seed `20795` über mehrere Tage, nach jedem Wechsel `check_round.py`, Bilder während und nach dem Laden unter `research/local/session/runs/`. Mit `-Start -NetProfile Internet` in einer Lobby-Sitzung mit simulierter Latenz, mit `-Start -NoSpike -Days 1 -StayLast` nur mit der Mod |
 | `check_round.py` | Prüft nach einem Kartenwechsel World, `PlayerArray`, PlayerStates, Figuren am Bus, gleiche Positionen bei Host und Client, NetGUIDs und `NewActor failed` |
 | `Focus-Window.ps1` | Holt ein Spielfenster nach vorn |
 | `Disassemble.ps1` | Zeigt einen RVA-Bereich der Exe |

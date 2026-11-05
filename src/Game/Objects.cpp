@@ -61,9 +61,20 @@ uintptr_t FindObject(std::string_view Name, std::string_view OuterName)
         const uintptr_t Object = At(i);
         if (!Object || Memory::NameOf(Object) != Name)
             continue;
+        if (OuterName.empty())
+            return Object;
         if (const auto Outer = Memory::ReadPointer(Object + Offsets::UObject::Outer); Outer && Memory::NameOf(*Outer) == OuterName)
             return Object;
     }
+    return 0;
+}
+
+uintptr_t FindNamed(std::string_view Name)
+{
+    const int32_t Total = Count();
+    for (int32_t i = 0; i < Total; ++i)
+        if (const uintptr_t Object = At(i); Object && Memory::NameOf(Object) == Name)
+            return Object;
     return 0;
 }
 

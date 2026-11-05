@@ -4,6 +4,7 @@
 #include <commctrl.h>
 
 #include <atomic>
+#include <cstring>
 #include <exception>
 #include <filesystem>
 #include <mutex>
@@ -20,7 +21,7 @@
 namespace
 {
 constexpr wchar_t WindowClass[] = L"DDCoop.Overlay";
-constexpr int CreateId = 101, JoinId = 102, InviteId = 103, LeaveId = 104, LobbyId = 105;
+constexpr int CreateId = 101, JoinId = 102, InviteId = 103, LeaveId = 104, LobbyId = 105, CopyId = 106;
 std::mutex Lifecycle;
 HANDLE Thread = nullptr;
 std::atomic<bool> Stopping = false;
@@ -29,9 +30,10 @@ std::atomic<bool> Visible = false;
 struct WindowState
 {
     HWND Owner = nullptr;
-    HWND Status = nullptr, Message = nullptr, Debug = nullptr, Hint = nullptr;
-    HWND Create = nullptr, Join = nullptr, Invite = nullptr, Leave = nullptr, Lobby = nullptr;
+    HWND Status = nullptr, Message = nullptr, Debug = nullptr, Hint = nullptr, Diagnostics = nullptr;
+    HWND Create = nullptr, Join = nullptr, Invite = nullptr, Leave = nullptr, Lobby = nullptr, Copy = nullptr;
     bool KeyDown = false;
+    ULONGLONG CopiedAt = 0;
     int Dpi = 0;
     HFONT Font = nullptr;
 };
@@ -121,9 +123,11 @@ void Layout(WindowState& State, HWND Window, int Dpi)
     Place(State.Leave, 300, 88, 128, 30);
     Place(State.Lobby, 12, 128, 272, 28);
     Place(State.Join, 292, 128, 136, 28);
-    Place(State.Debug, 12, 166, 416, 76);
-    Place(State.Hint, 12, 246, 416, 44);
-    RECT Rect{ 0, 0, Scale(440), Scale(300) };
+    Place(State.Debug, 12, 166, 416, 64);
+    Place(State.Copy, 12, 234, 160, 28);
+    Place(State.Diagnostics, 12, 270, 416, 64);
+    Place(State.Hint, 12, 342, 416, 44);
+    RECT Rect{ 0, 0, Scale(440), Scale(396) };
     AdjustWindowRectExForDpi(&Rect, WS_POPUP | WS_CAPTION | WS_SYSMENU, FALSE, WS_EX_TOOLWINDOW, static_cast<UINT>(Dpi));
     SetWindowPos(Window, nullptr, 0, 0, Rect.right - Rect.left, Rect.bottom - Rect.top,
         SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
@@ -139,12 +143,38 @@ uint64_t JoinTarget(HWND Edit)
     return Target;
 }
 
+bool CopyLobbyId(HWND Window, uint64_t Lobby)
+{
+    if (!Lobby || !OpenClipboard(Window))
+        return false;
+    const std::wstring Value = std::to_wstring(Lobby);
+    bool Copied = false;
+    if (EmptyClipboard())
+    {
+        const size_t Bytes = (Value.size() + 1) * sizeof(wchar_t);
+        if (HGLOBAL Memory = GlobalAlloc(GMEM_MOVEABLE, Bytes))
+        {
+            if (void* Target = GlobalLock(Memory))
+            {
+                memcpy(Target, Value.c_str(), Bytes);
+                GlobalUnlock(Memory);
+                Copied = SetClipboardData(CF_UNICODETEXT, Memory) != nullptr;
+            }
+            if (!Copied)
+                GlobalFree(Memory);
+        }
+    }
+    CloseClipboard();
+    return Copied;
+}
+
 void UpdateControls(WindowState& State)
 {
     const auto View = UI::Overlay().Snapshot();
     const auto& Status = View.Status;
     Text(State.Status, std::wstring(L"DDCoop | ") + StateName(Status.State));
     Text(State.Message, Widen(Status.Message));
+    Text(State.Diagnostics, Widen(View.Diagnostics));
     const wchar_t* Role = Status.Role == UI::SessionRole::Host ? L"Host" :
         Status.Role == UI::SessionRole::Client ? L"Client" : L"Keine";
     Text(State.Debug, std::wstring(L"Rolle: ") + Role + L" | Spieler: " + std::to_wstring(Status.Players) +
@@ -158,6 +188,9 @@ void UpdateControls(WindowState& State)
     EnableWindow(State.Join, UI::OverlayModel::CanSubmit(View, { UI::LobbyAction::Join, JoinTarget(State.Lobby) }));
     EnableWindow(State.Invite, UI::OverlayModel::CanSubmit(View, { UI::LobbyAction::Invite }));
     EnableWindow(State.Leave, UI::OverlayModel::CanSubmit(View, { UI::LobbyAction::Leave }));
+    EnableWindow(State.Copy, Status.LobbyId != 0);
+    const bool Copied = State.CopiedAt && GetTickCount64() - State.CopiedAt < 1500;
+    Text(State.Copy, Copied ? L"Kopiert" : L"Lobby-ID kopieren");
 }
 
 void Refresh(WindowState& State, HWND Window)
@@ -177,11 +210,12 @@ void Refresh(WindowState& State, HWND Window)
     }
     const HWND Foreground = GetForegroundWindow();
     const bool Focused = Owner && (Foreground == Owner || Foreground == Window);
+    // F8 only toggles while the game or overlay has focus, but focus loss does not hide the overlay.
     const bool Down = (GetAsyncKeyState(VK_F8) & 0x8000) != 0;
     if (Focused && Down && !State.KeyDown)
         UI::SetVisible(!Visible.load());
     State.KeyDown = Down;
-    if (!Owner || !Focused || IsIconic(Owner) || !Visible.load())
+    if (!Owner || IsIconic(Owner) || !Visible.load())
     {
         const bool HadFocus = Foreground == Window;
         ShowWindow(Window, SW_HIDE);
@@ -197,8 +231,9 @@ void Refresh(WindowState& State, HWND Window)
     POINT Corner{ Bounds.right, Bounds.top };
     ClientToScreen(Owner, &Corner);
     GetWindowRect(Window, &Size);
+    // Without focus only move: the owned window stays above its game, other apps may cover both.
     SetWindowPos(Window, HWND_TOP, Corner.x - (Size.right - Size.left) - 12, Corner.y + 12, 0, 0,
-        SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+        SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW | (Focused ? 0 : SWP_NOZORDER));
 
 }
 
@@ -221,6 +256,8 @@ LRESULT CALLBACK WindowProc(HWND Window, UINT Message, WPARAM WParam, LPARAM LPa
             State->Message = Control(Window, L"STATIC", L"", SS_LEFT);
             State->Debug = Control(Window, L"STATIC", L"", SS_LEFT);
             State->Hint = Control(Window, L"STATIC", L"", SS_LEFT);
+            // Bestehende STATIC-Reihenfolge fuer tools/spike/Common.ps1 erhalten.
+            State->Diagnostics = Control(Window, L"STATIC", L"Desync: wartet", SS_LEFT);
             State->Create = Control(Window, L"BUTTON", L"Lobby erstellen", WS_TABSTOP, CreateId);
             State->Invite = Control(Window, L"BUTTON", L"Freunde einladen", WS_TABSTOP, InviteId);
             State->Leave = Control(Window, L"BUTTON", L"Verlassen", WS_TABSTOP, LeaveId);
@@ -229,7 +266,8 @@ LRESULT CALLBACK WindowProc(HWND Window, UINT Message, WPARAM WParam, LPARAM LPa
             SendMessageW(State->Lobby, EM_SETLIMITTEXT, 21, 0);
             SendMessageW(State->Lobby, EM_SETCUEBANNER, FALSE, reinterpret_cast<LPARAM>(L"Steam-Lobby-ID"));
             State->Join = Control(Window, L"BUTTON", L"Beitreten", WS_TABSTOP, JoinId);
-            for (HWND Button : { State->Create, State->Join, State->Invite, State->Leave })
+            State->Copy = Control(Window, L"BUTTON", L"Lobby-ID kopieren", WS_TABSTOP, CopyId);
+            for (HWND Button : { State->Create, State->Join, State->Invite, State->Leave, State->Copy })
                 EnableWindow(Button, FALSE);
             Layout(*State, Window, 96);
             if (!SetTimer(Window, 1, 100, nullptr))
@@ -247,6 +285,14 @@ LRESULT CALLBACK WindowProc(HWND Window, UINT Message, WPARAM WParam, LPARAM LPa
                 case JoinId: UI::Overlay().Submit({ UI::LobbyAction::Join, JoinTarget(State->Lobby) }); break;
                 case InviteId: UI::Overlay().Submit({ UI::LobbyAction::Invite }); break;
                 case LeaveId: UI::Overlay().Submit({ UI::LobbyAction::Leave }); break;
+                case CopyId:
+                    // Clipboard only, no backend action: stays on the window thread.
+                    if (CopyLobbyId(Window, UI::Overlay().Snapshot().Status.LobbyId))
+                        State->CopiedAt = GetTickCount64();
+                    else
+                        Core::Log::Error("Overlay: Lobby-ID konnte nicht kopiert werden: {}", GetLastError());
+                    UpdateControls(*State);
+                    break;
                 }
             }
             return 0;

@@ -258,3 +258,47 @@ TEST_CASE("Concurrent publishers and readers only exchange copied snapshots")
     Writer.join();
     CHECK(Model.Snapshot().Status.Players == 999);
 }
+
+TEST_CASE("Diagnostics remain independent of lobby refreshes and pending actions")
+{
+    Core::Dispatcher Dispatcher;
+    UI::OverlayModel Model(Dispatcher);
+    int Calls = 0;
+    Model.Bind([&](UI::LobbyRequest) { ++Calls; });
+    Model.Publish(Offline());
+    REQUIRE(Model.Submit({UI::LobbyAction::Create}));
+    Model.PublishDiagnostics("Desync: ABWEICHUNG Inventar");
+    auto Status = Offline();
+    Status.Message = "Lobby refresh";
+    Model.Publish(Status);
+    const auto View = Model.Snapshot();
+    CHECK(View.Diagnostics == "Desync: ABWEICHUNG Inventar");
+    CHECK(View.Status.Message == "Lobby refresh");
+    CHECK(View.Pending);
+    Dispatcher.Drain();
+    CHECK(Calls == 1);
+    Model.PublishDiagnostics(std::string(600, 'x'));
+    CHECK(Model.Snapshot().Diagnostics.size() == 512);
+    CHECK(View.Diagnostics == "Desync: ABWEICHUNG Inventar");
+}
+
+TEST_CASE("Concurrent diagnostics and lobby producers do not overwrite each other")
+{
+    Core::Dispatcher Dispatcher;
+    UI::OverlayModel Model(Dispatcher);
+    std::thread Diagnostics([&] { for (unsigned i = 0; i < 1000; ++i) Model.PublishDiagnostics(std::to_string(i)); });
+    std::thread Lobby([&]
+    {
+        for (unsigned i = 0; i < 1000; ++i)
+        {
+            auto Status = Offline();
+            Status.PingMs = i;
+            Model.Publish(Status);
+        }
+    });
+    for (unsigned i = 0; i < 1000; ++i) CHECK(Model.Snapshot().Diagnostics.size() <= 512);
+    Diagnostics.join();
+    Lobby.join();
+    CHECK(Model.Snapshot().Diagnostics == "999");
+    CHECK(Model.Snapshot().Status.PingMs == 999);
+}

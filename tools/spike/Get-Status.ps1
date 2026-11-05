@@ -1,14 +1,27 @@
 # Zustand der laufenden Sitzung auf einen Blick: Prozesse, Netzzustand, letzte Logzeilen, Abstuerze seit dem Start und Mod-Logs.
-#   Get-Status.ps1 [-Lines 5] [-Inventory]
+#   Get-Status.ps1 [-Lines 5] [-Inventory] [-Brief]
+# -Brief: eine Zeile je Instanz, Inventar und Abstuerze in je einer Zeile, keine Logs.
 param(
     [int]$Lines = 5,
     # Vergleicht zusaetzlich die Inventare, braucht eine Mission oder MetaBase mit beiden Spielern.
-    [switch]$Inventory
+    [switch]$Inventory,
+    [switch]$Brief
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Common.ps1')
 $Session = Get-Session
 $Roles = @(Get-LocalRoles)
+if ($Brief) {
+    foreach ($Role in $Roles) { Format-NetBrief (Get-RolePid $Role) $Role }
+    if ($Inventory -and $Roles.Count -eq 2 -and (Test-GameProcess $Session.Host) -and (Test-GameProcess $Session.Client)) {
+        Format-InventoryBrief $Session.Host $Session.Client
+    }
+    if ($Session.PSObject.Properties['NetSim'] -and $Session.NetSim) {
+        foreach ($Role in $Roles) { Format-NetSimBrief (Get-RolePid $Role) $Role }
+    }
+    Format-CrashBrief
+    return
+}
 $Alive = @{}
 foreach ($Role in $Roles) {
     $ProcessId = Get-RolePid $Role

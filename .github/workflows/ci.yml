@@ -38,6 +38,9 @@ jobs:
       - name: Game-Tests (ohne Spiel und SDK)
         run: .\bin\${{ matrix.configuration }}\GameTests.exe
 
+      - name: Net-Tests (ohne Spiel und Steam)
+        run: .\bin\${{ matrix.configuration }}\NetTests.exe
+
       - name: Python-Tests
         run: python -B -m unittest discover -s tests
 

@@ -1,5 +1,6 @@
 #include <doctest.h>
 #include <windows.h>
+#include <vector>
 
 #include "UI/UI.h"
 
@@ -34,6 +35,17 @@ struct Shutdown
 {
     ~Shutdown() { UI::Stop(); }
 };
+BOOL CALLBACK ReadStaticText(HWND Window, LPARAM Result)
+{
+    wchar_t Class[32]{}, Text[1024]{};
+    GetClassNameW(Window, Class, 32);
+    if (std::wstring(Class) == L"Static")
+    {
+        GetWindowTextW(Window, Text, 1024);
+        reinterpret_cast<std::vector<std::wstring>*>(Result)->emplace_back(Text);
+    }
+    return TRUE;
+}
 }
 
 TEST_CASE("Native overlay lifecycle works without game SDK, Steam, focus changes or renderer hooks")
@@ -55,6 +67,8 @@ TEST_CASE("Native overlay lifecycle works without game SDK, Steam, focus changes
     UI::OverlayStatus Status;
     Status.State = UI::SessionState::Offline;
     Status.CanCreate = Status.CanJoin = true;
+    Status.Message = "Lobby test message";
+    UI::Overlay().PublishDiagnostics("Desync: test diagnostics");
     int Calls = 0;
     uint64_t Target = 0;
     UI::Overlay().Bind([&](UI::LobbyRequest Request)
@@ -66,7 +80,15 @@ TEST_CASE("Native overlay lifecycle works without game SDK, Steam, focus changes
     });
     UI::Overlay().Publish(Status);
     SendMessageW(Window, WM_TIMER, 1, 0);
+    std::vector<std::wstring> Texts;
+    EnumChildWindows(Window, ReadStaticText, reinterpret_cast<LPARAM>(&Texts));
+    REQUIRE(Texts.size() == 5);
+    CHECK(Texts[0].find(L"DDCoop | ") == 0);
+    CHECK(Texts[1] == L"Lobby test message");
+    CHECK(Texts[2].find(L"Rolle:") != std::wstring::npos);
+    CHECK(Texts[4] == L"Desync: test diagnostics");
     CHECK(IsWindowEnabled(GetDlgItem(Window, 101)));
+    CHECK_FALSE(IsWindowEnabled(GetDlgItem(Window, 106))); // Nothing to copy without a lobby.
     CHECK_FALSE(IsWindowEnabled(GetDlgItem(Window, 102)));
     SetWindowTextW(GetDlgItem(Window, 105), L"18446744073709551616");
     SendMessageW(Window, WM_TIMER, 1, 0);
@@ -88,6 +110,11 @@ TEST_CASE("Native overlay lifecycle works without game SDK, Steam, focus changes
     SendMessageW(Window, WM_TIMER, 1, 0);
     CHECK_FALSE(IsWindowEnabled(GetDlgItem(Window, 101)));
     CHECK_FALSE(IsWindowVisible(Window));
+    // Only the enable state; clicking would overwrite the user's clipboard.
+    Status.LobbyId = 109775240000000042;
+    UI::Overlay().Publish(Status);
+    SendMessageW(Window, WM_TIMER, 1, 0);
+    CHECK(IsWindowEnabled(GetDlgItem(Window, 106)));
     UI::Overlay().Bind({});
     SendMessageW(Window, WM_CLOSE, 0, 0);
     CHECK(IsWindow(Window)); // Closing hides, does not stop the game's message loop.

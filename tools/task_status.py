@@ -3,6 +3,8 @@
   py tools/task_status.py check    Format, Abhaengigkeiten und erzeugte Abschnitte pruefen
   py tools/task_status.py update   "Jetzt bearbeitbar" in TODO.md und den Fortschritt im README neu erzeugen
 
+Zum Abschliessen einer Aufgabe gibt es "py tools/tasks.py done <kennung> <ergebnis>", das mark_done nutzt.
+
 Jede Aufgabe steht genau einmal in TODO.md: offen in der Tabelle ihrer Phase, erledigt in der Tabelle "Erledigt".
 """
 from dataclasses import dataclass, field
@@ -279,35 +281,82 @@ def progress_svg(tasks, readme):
     return '\n'.join(svg + ['  </g>', '</svg>', ''])
 
 
-def main():
-    if sys.argv[1:] not in (['check'], ['update']):
-        sys.exit('Aufruf: py tools/task_status.py check|update')
-    sys.stdout.reconfigure(encoding='utf-8')
-    root = Path(__file__).resolve().parents[1]
+def mark_done(todo, name, result):
+    """Verschiebt die offene Zeile von name alphabetisch nach Erledigt, mit Phase und Ergebnis. Liefert den neuen Text."""
+    task = parse(todo).get(name)
+    if task is None:
+        raise ValueError(f'{name} steht nicht in TODO.md')
+    if task.done:
+        raise ValueError(f'{name} ist schon erledigt')
+    result = result.strip()
+    if not result or '|' in result or '\n' in result or '\r' in result:
+        raise ValueError('Ergebnis ist ein Satz ohne | und ohne Zeilenumbruch')
+    newline = '\r\n' if '\r\n' in todo else '\n'
+    lines = todo.split(newline)
+    prefix = f'| `{name}` |'
+    section, in_free, open_index = '', False, None
+    for index, line in enumerate(lines):
+        if line == FREE_START:
+            in_free = True
+        elif line == FREE_END:
+            in_free = False
+        elif line.startswith('## '):
+            section = line[3:].strip()
+        elif not in_free and section != DONE_SECTION and line.startswith(prefix):
+            open_index = index
+    if open_index is None:
+        raise ValueError(f'Offene Zeile von {name} nicht gefunden')
+    del lines[open_index]
+    section, insert_at, last_row = '', None, None
+    for index, line in enumerate(lines):
+        if line.startswith('## '):
+            section = line[3:].strip()
+            continue
+        match = re.match(rf'^\| `({ID_PATTERN})` \|', line) if section == DONE_SECTION else None
+        if match:
+            last_row = index
+            if insert_at is None and match[1] > name:
+                insert_at = index
+    if last_row is None:
+        raise ValueError('Tabelle Erledigt nicht gefunden')
+    lines.insert(insert_at if insert_at is not None else last_row + 1, f'| `{name}` | {task.phase} | {result} |')
+    return newline.join(lines)
+
+
+def regenerate(root, check=False):
+    """Erneuert die abgeleiteten Abschnitte. Liefert die veralteten Dateien; mit check wird nichts geschrieben."""
     todo_path, readme_path = root / 'TODO.md', root / 'README.md'
     svg_path = root / 'docs/assets/progress.svg'
     todo = todo_path.read_bytes().decode('utf-8')
     readme = readme_path.read_bytes().decode('utf-8')
-    try:
-        tasks = parse(todo)
-        expected_todo = update_todo(todo, tasks)
-        expected_readme = update_readme(tasks, readme)
-        expected_svg = progress_svg(tasks, expected_readme)
-    except ValueError as error:
-        sys.exit(f'TODO.md ungueltig: {error}')
+    tasks = parse(todo)
+    expected_todo = update_todo(todo, tasks)
+    expected_readme = update_readme(tasks, readme)
+    expected_svg = progress_svg(tasks, expected_readme)
     outputs = ((todo_path, todo, expected_todo), (readme_path, readme, expected_readme),
                (svg_path, svg_path.read_text(encoding='utf-8') if svg_path.exists() else '', expected_svg))
     stale = [p for p, old, new in outputs if old != new]
+    if stale and not check:
+        for path, _, new in outputs:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(new.encode('utf-8'))
+    return stale
+
+
+def main():
+    if sys.argv[1:] not in (['check'], ['update']):
+        sys.exit('Aufruf: py tools/task_status.py check|update')
+    sys.stdout.reconfigure(encoding='utf-8')
+    try:
+        stale = regenerate(Path(__file__).resolve().parents[1], check=sys.argv[1] == 'check')
+    except ValueError as error:
+        sys.exit(f'TODO.md ungueltig: {error}')
     if not stale:
         print('TODO.md, README-Fortschritt und SVG sind konsistent.')
     elif sys.argv[1] == 'check':
         sys.exit('Veraltet: ' + ', '.join(p.name for p in stale) + '. py tools/task_status.py update ausfuehren.')
     else:
-        for path, _, new in outputs:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(new.encode('utf-8'))
         print('Aktualisiert: ' + ', '.join(p.name for p in stale))
-
 
 if __name__ == '__main__':
     main()
