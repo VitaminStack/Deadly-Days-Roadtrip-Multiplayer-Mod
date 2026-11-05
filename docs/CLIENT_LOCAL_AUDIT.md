@@ -141,6 +141,17 @@ Bewegung/Pool/Kollision sind dafür noch kein nachgewiesen deterministischer Ver
 **Abnahme:** Wiederverwendung, Größe, erste Bewegung, einmalige Treffer-/Soundeffekte bei Latenz,
 unveränderte Treffer/HP. **Zuständig:** `kampf`, `vfx-sound`, `opt-client-visuell`, `opt-blut`.
 
+**Ergänzung 05.11.2026 (`kampf`):** Drei weitere lokale Wege, alle ohne neue Spielwirkung beim Client:
+
+- **Schadenszahlen und Treffereffekte aus `OnRep_Health`.** Der Client sieht jede HP-Änderung schon über
+  `HealthBarPatches.cpp`. Aus der Differenz kann er Schadenszahl und Treffer-VFX aus seinem eigenen Pool zeigen,
+  ohne eine Nachricht. Nie einen Damage-Actor nachspawnen. **Zuständig:** `opt-blut`, `vfx-sound`.
+- **Tote Gegner sofort ausblenden.** Beim Client bleiben sie rund 15 s als Objekte stehen. Bei HP 0 lokal
+  verstecken und Kollision lösen, das Zerstören bleibt Sache der Replikation. **Zuständig:** `gegnertyp`, `opt-gegnerzahl`.
+- **Eigene Schüsse sofort anzeigen.** Eine rein kosmetische Vorhersage des eigenen Projektils beim Client, bis das
+  replizierte eintrifft. Nur, wenn der Latenztest (`-NetProfile Internet`) die Verzögerung als störend zeigt;
+  Treffer bleiben beim Host. **Zuständig:** `opt-client-visuell`.
+
 ### 7. Bewegung und Upgrade-Parameter — prüfen, nicht pauschal auslagern
 
 **Quellen:** [MovementPatches.cpp](../src/Game/MovementPatches.cpp), `RestoreDashSettings`
