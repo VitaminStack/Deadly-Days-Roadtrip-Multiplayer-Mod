@@ -3,6 +3,10 @@
   py tools/tasks.py list                              Offene Kennungen mit Status
   py tools/tasks.py claim <kennung> <name> [<rolle>]   Reservieren: Worktree, Branch, Push, Draft-PR
   py tools/tasks.py release <kennung> [<rolle>]        Reservierung aufgeben: Draft-PR schliessen, Branch loeschen
+  py tools/tasks.py show <kennung>                     Nur diese Aufgabe: Text, Braucht, Bearbeitung, Status
+  py tools/tasks.py done <kennung> "<ergebnis>"        Im eigenen Worktree: Zeile nach Erledigt, Status erneuern, pruefen
+
+show und done ersparen das Lesen der ganzen TODO.md. done nur bei erfuellter Abnahme, das Ergebnis ist ein Satz mit Link.
 
 Quelle der Kennungen, Abhaengigkeiten und Abschluesse ist TODO.md auf origin/main. Branches task/<kennung>
 und Pull Requests ergaenzen nur Reservierung und Review. Blockierte und Team-Aufgaben lassen sich nicht reservieren.
@@ -18,10 +22,12 @@ import subprocess
 import sys
 import time
 
+from pathlib import Path
+
 if __package__:
-    from .task_status import blockers, parse
+    from .task_status import blockers, mark_done, parse, regenerate
 else:
-    from task_status import blockers, parse
+    from task_status import blockers, mark_done, parse, regenerate
 
 STALE_DAYS = 3
 ROLES = ('host', 'client')
@@ -267,12 +273,62 @@ def cmd_release(kennung, role=None):
             print(f'Worktree {path} hat Aenderungen und bleibt erhalten.')
 
 
+def worktree_root():
+    return Path(git('rev-parse', '--show-toplevel').stdout.strip())
+
+
+def describe(task, tasks, state):
+    """Kurzbeschreibung einer Aufgabe fuer die Konsole. Links behalten ihr Ziel, damit man gezielt weiterlesen kann."""
+    def linked(text):
+        return re.sub(r'\[([^\]]*)\]\(([^)]*)\)', r'\1 (\2)', text).replace('**', '')
+    if task.done:
+        return [f'{task.name}: erledigt (Phase {task.phase})', linked(task.text)]
+    needs = ', '.join(f"{n} ({'erledigt' if tasks[n].done else 'offen'})" for n in task.needs) or '–'
+    return [f'{task.name}: {task.prio}, {task.section}, {task.mode}, Spielzeit {task.playtime}',
+            f'Status: {state}', f'Braucht: {needs}', linked(task.text)]
+
+
+def cmd_show(kennung):
+    git('fetch', '-q', '--prune', 'origin')
+    tasks, source = todo_tasks(), 'origin/main'
+    if kennung not in tasks:
+        # Neu angelegte Aufgaben stehen erst im eigenen Branch.
+        tasks, source = parse((worktree_root() / 'TODO.md').read_text(encoding='utf-8')), 'lokaler TODO.md'
+    task = tasks.get(kennung)
+    if task is None:
+        sys.exit(f'{kennung} steht weder auf origin/main noch im lokalen TODO.md.')
+    branches, prs = remote_branches(), pull_requests()
+    for line in describe(task, tasks, status(kennung, branches, prs, tasks)):
+        print(line)
+    if source != 'origin/main':
+        print(f'(aus {source}, noch nicht auf main)')
+
+
+def cmd_done(kennung, result):
+    root = worktree_root()
+    branch = git('rev-parse', '--abbrev-ref', 'HEAD').stdout.strip()
+    if branch.split('/')[:2] != ['task', kennung]:
+        sys.exit(f'Nur im eigenen Worktree auf task/{kennung}, hier ist {branch}.')
+    path = root / 'TODO.md'
+    text = path.read_bytes().decode('utf-8')
+    path.write_bytes(mark_done(text, kennung, result).encode('utf-8'))
+    stale = regenerate(root)
+    if regenerate(root, check=True):
+        sys.exit('task_status check schlaegt nach dem Erneuern fehl.')
+    print(f'{kennung} steht unter Erledigt. Erneuert: ' + (', '.join(p.name for p in stale) or 'nichts weiter'))
+    print('Weiter: docs/ROADMAP.md anpassen, committen, PR fertigstellen.')
+
+
 def main():
     sys.stdout.reconfigure(encoding='utf-8')
     args = sys.argv[1:]
     try:
         if args[:1] == ['list'] and len(args) == 1:
             cmd_list()
+        elif args[:1] == ['show'] and len(args) == 2:
+            cmd_show(args[1])
+        elif args[:1] == ['done'] and len(args) == 3:
+            cmd_done(args[1], args[2])
         elif args[:1] == ['claim'] and len(args) in (3, 4):
             cmd_claim(*args[1:])
         elif args[:1] == ['release'] and len(args) in (2, 3):

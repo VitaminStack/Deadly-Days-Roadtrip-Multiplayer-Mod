@@ -1,4 +1,4 @@
-# Sitzungsende: Skript prüft, Mensch spielt nur. Start: Guided-Test.ps1 -Steps tools\spike\guided\net-ende.txt -Start
+# Sitzungsende: Skript prüft, Mensch spielt nur, Agent bestaetigt mit Guided-Answer.ps1. Start: Guided-Test.ps1 -Steps tools\spike\guided\net-ende.txt -Start
 > Overlay.ps1 Client status | Im Spiel
 > Overlay.ps1 Host leave
 > Overlay.ps1 Client status | Der Host hat die Sitzung verlassen

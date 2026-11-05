@@ -62,6 +62,11 @@ Pro PC läuft nur eine Sitzung, Spielzeit ist der Engpass. Darum:
   fahren, die Sitzung dabei weiterverwenden statt sie je Prüfung neu zu starten.
 - **Warten statt abbrechen.** `Start-Session.ps1 -Wait 1800` reiht sich hinter eine fremde Sitzung ein und startet, sobald sie endet.
 - **Nur neu starten, was nötig ist.** `Restart-Instance.ps1` startet nur den Client neu (etwa 20 s). `-Build` nur, wenn sich der Spike geändert hat.
+  Hält der Host direkt nach dem Beenden noch die alte Verbindung („Der Host hat schon einen Mitspieler“), erstellt er eine neue Lobby und
+  der Client tritt ihr bei, das macht das Skript selbst.
+- **Kurz ausgeben.** `Start-Session.ps1`, `Restart-Instance.ps1`, `Get-Status.ps1`, `Start-Run.ps1` und `Travel-Day.ps1` kennen `-Brief`:
+  eine Zeile je Instanz (Karte, Spieler, Rolle), eine für Inventar und eine für Abstürze. Volle Ausgabe und Bilder nur ansehen, wenn
+  etwas nicht stimmt. `Travel-Day.ps1` wartet auf die neue Karte mit beiden Spielern statt fest 35 s, meist reichen 10 s.
 - **Skripte statt Klicks.** `Overlay.ps1` bedient das Overlay, `Watch-Net.ps1` zeigt Meldungen mit Zeit, `Test-NetEnd.ps1` prüft das
   Sitzungsende in rund einer Minute. Wer eine Prüfung zum zweiten Mal von Hand macht, schreibt dafür ein Skript.
 
@@ -76,18 +81,33 @@ Pro PC läuft nur eine Sitzung, Spielzeit ist der Engpass. Darum:
 
 Arbeitsteilung: Alles, was sich über Konsole, Befehle oder Skripte lesen oder steuern lässt, erledigt der Agent selbst, auch die Prüfungen
 (Overlay, Logs, Netzzustand, Lobby, Reisen, Run-Start). Der Mensch übernimmt nur Spielaktionen: mit der Figur laufen, kämpfen,
-Belohnungen wählen. Er springt dort ein, wo der Agent sonst erst eine Schnittstelle oder ein Skript bauen müsste. Dafür schreibt der Agent
-eine Schrittdatei, und der Mensch arbeitet sie mit `Guided-Test.ps1` ab:
+Belohnungen wählen. Er springt dort ein, wo der Agent sonst erst eine Schnittstelle oder ein Skript bauen müsste.
+
+**Der Mensch bedient keine Konsole.** Er schaut zu oder spielt, Rückmeldung gibt er im Chat. Starten, Schritte bestätigen, Prüfen und
+Auswerten macht der Agent. Am 05.11.2026 wartete ein Tag-1-Test bei Schritt 3 auf Enter in der Konsole des Menschen. Seitdem bestätigt
+der Agent die Spielschritte selbst:
+
+1. Der Agent startet `Guided-Test.ps1` im Hintergrund und beobachtet die Ausgabe.
+2. Bei einem Spielschritt gibt das Skript `WARTET [n/m] Aktion | Erwartet: …` aus. Der Agent sagt dem Menschen im Chat, was er spielen
+   soll, und wertet währenddessen Logs und Zustand aus.
+3. Meldet der Mensch im Chat, wie es lief, antwortet der Agent mit `Guided-Answer.ps1 ok`, `Guided-Answer.ps1 "<Abweichung>"`, `skip`
+   oder `quit`. `Guided-Answer.ps1 status` zeigt den wartenden Schritt.
+
+Endet eine Instanz oder kommt nach `-AnswerMinutes` (30) keine Antwort, bricht der Test ab und schreibt den Bericht.
 
 ```bash
 powershell -ExecutionPolicy Bypass -File tools/spike/Guided-Test.ps1 -Steps tools/spike/guided/tag-1.txt -Start -Shots
 ```
 
-Eine Zeile je Schritt: `Aktion | Erwartung` für eine Spielaktion des Menschen, `> Skript.ps1 ...` für einen automatischen Schritt aus
-`tools/spike`. `> Skript.ps1 ... | Muster` prüft automatisch und wiederholt bis zu 30 s, bis die Ausgabe zum Muster passt. Der Mensch
-bestätigt seine Schritte mit Enter oder tippt die Abweichung ein. Das Skript hält je Schritt Dauer, neue Zeilen der Mod-Logs, Overlay-
-und Netzzustand, neue Abstürze und mit `-Shots` Bilder beider Fenster fest und schreibt `research/local/guided/<Name>-<Zeit>/report.md`.
-Den Pfad gibt der Mensch dem Agenten, der den Bericht auswertet. Beispiele liegen in `tools/spike/guided/`.
+```bash
+powershell -ExecutionPolicy Bypass -File tools/spike/Guided-Answer.ps1 ok
+```
+
+Aufbau der Schrittdatei: eine Zeile je Schritt, `Aktion | Erwartung` für eine Spielaktion des Menschen, `> Skript.ps1 ...` für einen
+automatischen Schritt aus `tools/spike`. `> Skript.ps1 ... | Muster` prüft automatisch und wiederholt bis zu 30 s, bis die Ausgabe zum
+Muster passt. Das Skript hält je Schritt Dauer, neue Zeilen der Mod-Logs, Overlay- und Netzzustand, neue Abstürze und mit `-Shots` Bilder
+beider Fenster fest und schreibt `research/local/guided/<Name>-<Zeit>/report.md`, den der Agent auswertet. Beispiele liegen in
+`tools/spike/guided/`.
 
 ## Sitzung starten
 

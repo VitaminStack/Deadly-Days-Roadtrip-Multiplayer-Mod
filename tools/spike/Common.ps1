@@ -298,3 +298,27 @@ function Join-HostLobby([int]$HostId, [int]$ClientId) {
     if ($Joined.State -ne 'Im Spiel') { throw "Beitritt gescheitert: $($Joined.Message)" }
     $LobbyId
 }
+
+# Kurzform fuer -Brief: eine Zeile je Instanz statt der ganzen Zustaende aus netstate.py.
+function Format-NetBrief([int]$ProcessId, [string]$Role) {
+    if (-not (Test-GameProcess $ProcessId)) { return "$Role ${ProcessId}: beendet" }
+    $State = Get-NetState $ProcessId
+    if (-not $State.world) { return "$Role ${ProcessId}: nicht lesbar" }
+    $Clients = if ($State.role -eq 'host') { ", $($State.clients) Client(s)" } else { '' }
+    "$Role ${ProcessId}: $($State.world), $($State.players) Spieler, $($State.role)$Clients"
+}
+
+# Inventarvergleich in einer Zeile.
+function Format-InventoryBrief([int]$HostId, [int]$ClientId) {
+    $Text = (& py (Join-Path $PSScriptRoot 'inventory.py') $HostId $ClientId) -join "`n"
+    $Complete = $Text -match '"complete": true'
+    $Equal = $Text -match '"equal": true'
+    "Inventar: $(if ($Complete) { 'vollstaendig' } else { 'UNVOLLSTAENDIG' }), $(if ($Equal) { 'gleich' } else { 'UNGLEICH' })"
+}
+
+# Neue Abstuerze seit Sitzungsstart in einer Zeile.
+function Format-CrashBrief {
+    $Lines = @(& py (Join-Path $PSScriptRoot 'crashes.py') --session)
+    if (-not $Lines.Count -or $Lines[0] -match 'Keine') { return 'Abstuerze: keine' }
+    "Abstuerze: $(@($Lines | Where-Object { $_ -match '^UECC|^\S+ (host|client) ' }).Count), neuester: $($Lines[0].Substring(0, [Math]::Min(120, $Lines[0].Length)))"
+}
