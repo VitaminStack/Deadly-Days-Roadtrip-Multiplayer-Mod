@@ -421,3 +421,28 @@ TEST_CASE("RemoteP2: Geräte-Wächter im erzeugten Code nimmt nur die lokale P2-
                     AllMatch = AllMatch && Probe(Remote, LocalP2, SoloLoss != 0, P1 != 0) == (!P1 || (!Remote && !LocalP2) || SoloLoss);
     CHECK(AllMatch);
 }
+
+TEST_CASE("Patches: Restrictor-Wächter bremst ohne GameState nicht und stürzt nicht ab")
+{
+    ExecutableBuffer Memory;
+    REQUIRE(Memory.Data);
+    Code::Writer Code(Memory.Data, 4096);
+    const auto Skip = reinterpret_cast<uintptr_t>(Code.Here());
+    Code.Emit({0x31, 0xC0, 0xC3}); // xor eax,eax; ret
+    const auto Continue = reinterpret_cast<uintptr_t>(Code.Here());
+    Code.Emit({0xB8, 0x01, 0x00, 0x00, 0x00, 0xC3}); // mov eax,1; ret
+    using GuardFn = int(__fastcall*)(const void*);
+    const auto Guard = reinterpret_cast<GuardFn>(Code.Here());
+    Code.Emit({0x48, 0x89, 0xC8}); // mov rax,rcx (an der echten Stelle steht MissionGameState in RAX)
+    EmitRestrictorGuard(Code, Skip, Continue);
+    REQUIRE_FALSE(Code.Failed());
+    Memory.Flush();
+
+    alignas(8) uint8_t GameState[0x300]{};
+    CHECK(Guard(nullptr) == 0); // früher Absturz beim Lesen von 0x2C8
+    for (int32_t Players : {-1, 0, 1, 2, 3})
+    {
+        *reinterpret_cast<int32_t*>(GameState + 0x2C8) = Players;
+        CHECK(Guard(GameState) == (Players > 1 ? 1 : 0));
+    }
+}
