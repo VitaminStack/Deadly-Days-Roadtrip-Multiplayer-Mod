@@ -635,6 +635,42 @@ Stand: Spieltest am 04.11.2026, Build `26187885`, ein PC über Loopback, Route �
 - **[Belegt]** Mit dem Fix: Je Weltwechsel genau ein „Kamera: gesetzt, vorher BP_DD_Character_C“, also beim Betreten von MetaBase, Tag 1 und Tag 2. Danach blieb das ViewTarget die Kamera. Die Blickposition des Clients war gleich der des Hosts, die Bilder fast gleich. Lief die Client-Figur 2,5 s, folgte die Client-Kamera ruhig und lag höchstens rund 10 Einheiten neben der des Hosts.
 - Nicht geprüft: weitere Tage, Internet, Mission → MetaBase.
 
+### Dodge beim Client (`bewegung`)
+
+Stand 05.11.2026, Build `26187885`, ein PC, Mod über die Lobby, Netzprofil Internet (120 ms, 2 % Verlust), Tag 1. Gemessen mit
+lokalen, nur lesenden Testskripten alle 20 ms, die Dodges hat ein Mensch in beiden Fenstern ausgelöst.
+
+- **[Belegt]** Der Dodge ist `GA_Dash_C` (`LocalPredicted`, eine Instanz je Ausführung). Für etwa 0,12 bis 0,16 s setzt er an der
+  Bewegungskomponente `GroundFriction` 0 und `GravityScale` 20, schiebt die Figur mit Tempo 6500 an
+  (`UAbilityTask_ApplyRootMotionConstantForce`) und stellt beides danach zurück (`RestoreBeforeDashSettings`).
+- **[Belegt] Client ohne Trägheit:** Beim Host kamen die Werte nach jedem Dodge zurück. Beim Client nach drei Dodges nicht mehr: Reibung 0
+  und Schwerkraft 20 blieben stehen, jeder weitere Dodge rutschte bis zu 2,3 s mit sinkendem Tempo weiter. In einer zweiten Messung trat
+  das nicht auf. Beim Host lief der Dodge des Clients jeweils mit (Spec-ActiveCount 0/1), seine Kopie der Client-Figur änderte die
+  Werte aber nie. **Vermutung:** Endet die vorhergesagte Fähigkeit beim Client über eine Bestätigung oder Ablehnung des Hosts statt über
+  ihre Aufgabe, fehlt das Zurückstellen; mit Ping häufiger.
+- **[Belegt] Host-Figur friert beim Client ein:** Nach einem Dodge des Hosts stand seine Kopie beim Client in `MOVE_None` oder
+  `MOVE_Falling` mit Tempo 6500 und bewegte sich nicht mehr, obwohl `ReplicatedMovement.Location` den richtigen Host-Ort trug. Ursache: Der
+  Host stand danach auf `BP_Fog_Edge_BASE_C`, einer beweglichen, nicht replizierten Unterlage. Die Engine repliziert den Ort dann relativ
+  zur Unterlage (`ReplicatedBasedMovement`, `bServerHasBaseComponent`=1); beim Client ist `MovementBase` leer, und die Kopie wartet ohne
+  Ende darauf. Zeitlich fiel das zweimal mit einer Weltpause durch ein Item-Panel zusammen; **Vermutung:** Der Dodge schob den Host an
+  den Rand, die Pause selbst ist nicht die Ursache.
+- **[Belegt] Nebenbei:** Beim Client stehen `MaxWalkSpeed` und `MaxAcceleration` beider Figuren auf 600 und 2048, beim Host auf 630 und
+  2205 (`opt-tempo-upgrades`). Beim Host hatte die Kopie der Client-Figur zeitweise nur ein Zehntel davon.
+
+**In der Mod** (`src/Game/MovementPatches.cpp`, nur Client, jeder Frame, Figurenliste je Sekunde):
+
+| Fall | Reparatur |
+|---|---|
+| Eigene Figur länger als 0,75 s auf Reibung 0 und Schwerkraft 20 | Werte aus dem Klassen-Defaultobjekt der Bewegungskomponente zurück |
+| Fremde Figur steht auf einer Unterlage, die der Client nicht kennt | Jeden Frame weich zum replizierten Ort, mit dem replizierten Tempo höchstens 150 ms vorausgerechnet; Tempo und Modus übernommen, ab 6 m Abstand Sprung |
+| Fremde Figur 0,5 s in `MOVE_None` oder mehr als 3 m neben dem replizierten Ort | Ort, Tempo und Modus aus der Replikation |
+
+Im Spiel danach: Der Host dodgte an den Rand und in Items, seine Figur folgte beim Client (Log „folge dem Host-Ort“, „Engine übernimmt“,
+wenn die Unterlage wieder bekannt ist). Mit Vorausberechnung bestätigt der Mensch „passt“, vorher „etwas laggy“. Kein Absturz, Inventare
+gleich. **Nicht geprüft:** zwei PCs, Blickrichtung gesondert (nur im Spielbild mitgesehen). Sauberer wäre, wenn der Host bei einer nicht
+replizierten Unterlage gleich absolut repliziert; dann übernähme die Glättung der Engine. Das braucht einen Eingriff in die Replikation
+des Characters und ist nicht umgesetzt.
+
 ### Client-Absturz im Restrictor (`tick-absturz`)
 
 Stand: Disassembly und Spieltest am 02.11.2026, Build `26187885`.

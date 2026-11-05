@@ -35,7 +35,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | Kennung | Prio | Phase | Bearbeitung | Spielzeit |
 |---|---|---|---|---|
 | `lobby-live` | P0 | [3](#phase-3--session-und-verbindung) | zu zweit | wenig |
-| `bewegung` | P0 | [4](#phase-4--vertical-slice) | parallel | mittel |
 | `gegnertyp` | P0 | [4](#phase-4--vertical-slice) | parallel | mittel |
 | `kamera-code` | P0 | [4](#phase-4--vertical-slice) | parallel | mittel |
 | `kampf` | P0 | [4](#phase-4--vertical-slice) | parallel | mittel |
@@ -144,7 +143,6 @@ Ziel: Zwei Spieler starten eine Mission, kämpfen gegen einen Gegnertyp und sehe
 |---|---|---|---|---|---|
 | `missionsstart` | P0 | Gemeinsamer Missionsstart, gleiche Karte bei beiden. Ordner `src/Sync/World` | `remote-spieler` | parallel | viel |
 | `kamera-code` | P0 | Gemeinsame Kamera (Option A) auch beim Client umsetzen, ursprünglichen Zoom und Bewegungsbegrenzung erhalten. Ordner `src/Sync/World`, `src/Game`. **Einstieg:** [Kamera](docs/GAME_ANALYSIS.md#kamera-und-sichtbereich) | `remote-spieler` | parallel | mittel |
-| `bewegung` | P0 | Bewegung, Dash und Blickrichtung. Ordner `src/Sync/Players`, Dateien mit `eingaben` absprechen | `remote-spieler` | parallel | mittel |
 | `kampf` | P0 | Waffen, Projektile, Treffer, Schaden, Tod. Ordner `src/Sync/Combat` | `remote-spieler` | parallel | mittel |
 | `gegnertyp` | P0 | Ein Gegnertyp inklusive Spawn und Tod. Ordner `src/Sync/Enemies` | `remote-spieler` | parallel | mittel |
 | `eingaben` | P1 | Eingaben aus dem lokalen `CoopInputRouter` sauber vom Remote-Spieler trennen. Ordner `src/Sync/Players`, Dateien mit `bewegung` absprechen | `remote-spieler` | parallel | mittel |
@@ -226,6 +224,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | Kennung | Phase | Ergebnis |
 |---|---|---|
 | `andockpunkte` | 1 | VERSION-Proxy, drei Live-Signaturen und ProcessEvent-Hook auf Host und Client erprobt, siehe [Andockpunkte](docs/ARCHITECTURE.md#technische-andockpunkte-build-26187885) |
+| `bewegung` | 4 | Dodge beim Client repariert: eigene Figur bekommt Reibung und Schwerkraft zurück, Host-Figur folgt bei unbekannter Unterlage dem replizierten Ort, siehe [Dodge beim Client](docs/GAME_ANALYSIS.md#dodge-beim-client-bewegung) |
 | `blueprint-logik` | 1 | Repräsentative Spawn-, Effekt- und Eventpfade per Bytecode-Audit und Traces geklärt, siehe [Nachtrag](research/spikes/blueprint-logik/README.md#nachtrag-03112026-grenzpruefung-und-ereignistests) |
 | `boss-dump` | 0 | Klassen aller sechs Bosse gezielt geladen und gedumpt, siehe [Boss-Dump](docs/GAME_ANALYSIS.md#boss-dump-boss-dump) |
 | `branch-schutz` | 0 | Branch-Schutz für `main` aktiv |

@@ -117,5 +117,6 @@ void Tick()
     Rewards::Tick();
     TickCamera(Role, Second);
     TickProjectiles(Role, Second);
+    TickMovement(Role, Second);
 }
 }
