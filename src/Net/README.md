@@ -116,6 +116,24 @@ Nicht geprüft, das übernimmt `lobby-live`: Einladung über das Steam-Overlay u
 Spiel, Start über `+connect_lobby`, Verlassen und Abbruch im Spiel (nur in `SessionTests`). Ohne die Spike-Patches stürzte der
 Beitritt im Spiel ab. Seit `patches` setzt die Mod diese Fixes selbst, ein Beitritt ohne Spike ist damit noch nicht geprüft.
 
+### Lobby nur mit Server (`lobby-bereit`)
+
+Der Host schließt seine Lobby selbst, sobald sein Spiel keinen Server mehr anbietet. Sonst laufen Beitritte ins Leere: Tunnel und
+Handshake stehen, aber die Engine des Clients findet keinen Listen-Server.
+
+- **Hook `GameHosting`:** Die Mod meldet `true` für einen Listen-Server, `false` nur im Hauptmenü, sonst unbekannt (Laden, Reise).
+- **Hauptmenü:** War das Spiel schon Listen-Server und steht es 2 s im Hauptmenü (`HostGameLost`), endet die Sitzung mit „Lobby
+  geschlossen: Das Spiel ist im Hauptmenü“. Der Tunnel schickt dabei Grund 1001, der Client meldet sofort „Der Host hat die Sitzung
+  verlassen“.
+- **Nie Listen-Server:** Wird das Spiel nach dem Erstellen binnen 60 s kein Listen-Server (`HostListen`), schließt die Lobby ebenso.
+  Erstellen im Hauptmenü bleibt möglich, die Mod lädt dann die MetaBase als Listen-Server.
+- **Geschlossene Lobby:** Ein Beitritt endet mit „Die Lobby gibt es nicht mehr, der Host hat sie geschlossen“ (Steam-Antwort 2).
+
+Im Spiel (05.11.2026, ein PC, `Start-Session.ps1 -Build -Mod -Tunnel Lobby`): Host per Konsole `open /Game/Maps/MainMenu` aus der
+MetaBase. Lobby nach 2,0 s geschlossen, Client 2 ms danach „Der Host hat die Sitzung verlassen“ statt nach 30 s „Verbindung verloren“.
+Beitritt in die alte Lobby: sofort die neue Meldung in beiden Overlays. Neue Lobby im Hauptmenü erstellt: Host wird Listen-Server, die
+Lobby bleibt offen, Client wieder in der MetaBase mit 2 Spielern. Kein Absturz.
+
 ### Zwei PCs, nur Mod (05.11.2026)
 
 Build `26187885`, zwei PCs mit eigenen Steam-Konten, beide normal über Steam gestartet, nur `DDCoop.dll` aus `main` `64acf6f`
@@ -125,10 +143,10 @@ Mod-Log; die Host-Seite wertet VitaminStack getrennt aus.
 | Schritt | Ergebnis |
 |---|---|
 | Beitritt mit verschiedenen Mod-Ständen | Tunnel steht über das Relay `fra`, die erste Nachricht des Hosts wird sofort abgelehnt: „Ungueltige oder inkompatible Kontrollnachricht“, dreimal. **Vermutung:** Host noch mit Mod-Version 1, vor `desync-melder` (#98, Mod-Version 2). Nach dem Update beider auf denselben Stand bestätigt der Handshake. Seit `versions-meldung` nennt die Meldung beide Versionen |
-| Beitritt, Host im Hauptmenü | Tunnel und Handshake stehen, die Engine meldet nie „mit dem Host verbunden“. Nach 18 s lädt der Client die MetaBase ohne Verbindung und fällt 2,6 s später ins Hauptmenü. Zweimal so, siehe `lobby-bereit` |
+| Beitritt, Host im Hauptmenü | Tunnel und Handshake stehen, die Engine meldet nie „mit dem Host verbunden“. Nach 18 s lädt der Client die MetaBase ohne Verbindung und fällt 2,6 s später ins Hauptmenü. Zweimal so. Seit `lobby-bereit` schließt der Host die Lobby im Hauptmenü, siehe [Lobby nur mit Server](#lobby-nur-mit-server-lobby-bereit) |
 | Beitritt, Host in der MetaBase | Nach 0,4 bis 1,4 s verbunden, MetaBase mit 2 Spielern, gemeinsame Kamera, XP-Anzeige |
 | Reise in die Mission | Ohne Absturz, XP-Bälle und XP-Anzeige kommen an. Ping 32 bis 36 ms, Qualität 1,00, verworfen 0. **Die Karten sind verschieden**, die Figuren stehen nicht zusammen: Ohne Spike überträgt noch niemand Karte und PCG des Hosts, das ist `missionsstart` (im Spike `karte-tunnel`) |
-| Host geht über das Spielmenü ins Hauptmenü | Client fällt sofort ins Hauptmenü, die Mod wartet 30 s und meldet dann „Verbindung zum Host verloren“ statt „Der Host hat die Sitzung verlassen“, siehe `lobby-bereit` |
+| Host geht über das Spielmenü ins Hauptmenü | Client fällt sofort ins Hauptmenü, die Mod wartet 30 s und meldet dann „Verbindung zum Host verloren“ statt „Der Host hat die Sitzung verlassen“. Seit `lobby-bereit` nach rund 2 s mit Grund |
 | Host „Verlassen“ im Overlay | Client meldet sofort „Der Host hat die Sitzung verlassen“ (Grund 1001) |
 
 Kein Absturz auf beiden Seiten. Nicht geprüft: Einladung über das Steam-Overlay und `+connect_lobby` (bleibt `lobby-live`), eine gemeinsame

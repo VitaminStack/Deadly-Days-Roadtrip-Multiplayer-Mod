@@ -119,6 +119,19 @@ std::optional<bool> GameConnectedToHost()
     return World->Role == Game::NetRole::Client;
 }
 
+// Host: Listen-Server ja, im Hauptmenü sicher nein. Während Laden und Reise unbekannt, das zählt nicht als geschlossen.
+std::optional<bool> GameHosting()
+{
+    const auto World = Game::ReadWorld();
+    if (!World)
+        return std::nullopt;
+    if (World->Role == Game::NetRole::Host)
+        return true;
+    if (World->Map == "MainMenu")
+        return false;
+    return std::nullopt;
+}
+
 UI::OverlayStatus ToOverlay(const Net::SessionStatus& Status)
 {
     UI::OverlayStatus Result;
@@ -184,7 +197,7 @@ bool TryLoad(LobbyState& Lobby)
     Options.Sim = Net::NetSimFromCommandLine(GetCommandLineW());
     Lobby.Session = std::make_unique<Net::Session>(
         Api, [Sockets, Options] { return std::make_shared<Net::Transport>(Sockets, Options); },
-        Net::SessionHooks{BecomeListenServer, ConnectToLocalPort, Disconnect, GameConnectedToHost}, Options);
+        Net::SessionHooks{BecomeListenServer, ConnectToLocalPort, Disconnect, GameConnectedToHost, GameHosting}, Options);
     if (const uint64_t Invited = Net::ParseConnectLobby(Api->LaunchCommandLine()))
         Lobby.StartJoin = Invited;
     UI::Overlay().Bind(OnAction);
