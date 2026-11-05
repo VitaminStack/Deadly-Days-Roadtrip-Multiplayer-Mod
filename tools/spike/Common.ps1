@@ -55,6 +55,21 @@ function Get-Session {
     Get-Content $File -Raw | ConvertFrom-Json
 }
 
+# Laeuft die Sitzung mit Spike? Nein nur bei Start-Session.ps1 -NoSpike, also wie im Release allein mit der Mod.
+function Test-SessionSpike {
+    $File = Join-Path $script:SessionDir 'session.json'
+    if (-not (Test-Path $File)) { return $true }
+    $Session = Get-Content $File -Raw | ConvertFrom-Json
+    -not ($Session.PSObject.Properties['NoSpike'] -and $Session.NoSpike)
+}
+
+# Wirft, falls spike.dll im Prozess geladen ist. Beleg fuer Laeufe mit -NoSpike.
+function Assert-NoSpikeLoaded([int]$ProcessId) {
+    $Modules = (Get-Process -Id $ProcessId -ErrorAction Stop).Modules | ForEach-Object { $_.ModuleName }
+    if ($Modules -contains 'spike.dll') { throw "spike.dll ist in $ProcessId geladen, obwohl die Sitzung ohne Spike laeuft." }
+    if ($Modules -notcontains 'DDCoop.dll') { throw "DDCoop.dll ist in $ProcessId nicht geladen." }
+}
+
 function Test-GameProcess([int]$ProcessId) {
     $Process = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
     [bool]($Process -and $Process.ProcessName -eq $script:GameProcess)
@@ -126,6 +141,7 @@ function Get-LocalRoles {
 # Der Spike liest die Befehlsdatei einmal pro Sekunde. Ein zweiter Befehl darf sie erst ersetzen, wenn der erste abgeholt ist,
 # sonst geht der erste still verloren.
 function Send-SpikeCommand([int]$ProcessId, [string]$Command, [int]$TimeoutSeconds = 5) {
+    if (-not (Test-SessionSpike)) { throw "Sitzung ohne Spike (-NoSpike): '$Command' braucht den Spike." }
     $Pending = Join-Path $script:CommandDir "$ProcessId.cmd"
     $Deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     while ((Test-Path $Pending) -and (Get-Date) -lt $Deadline) { Start-Sleep -Milliseconds 100 }
@@ -173,6 +189,19 @@ function Wait-Condition([scriptblock]$Condition, [string]$What, [int]$TimeoutSec
 }
 
 # Bereit fuer den Spike: Das Hauptmenue ist geladen. Frueher galt dafuer ein fester Schlaf von 20 s.
+# Die Routenkarte erkennt man am gruenen Banner "Felder" oben rechts im Host-Fenster.
+function Test-RouteMap {
+    $Color = & (Join-Path $PSScriptRoot 'Game-Input.ps1') Host pixel 700 13
+    $R, $G, $B = [Convert]::ToInt32($Color.Substring(0, 2), 16), [Convert]::ToInt32($Color.Substring(2, 2), 16), [Convert]::ToInt32($Color.Substring(4, 2), 16)
+    [Math]::Abs($R - 0x3C) -lt 16 -and [Math]::Abs($G - 0x5F) -lt 16 -and [Math]::Abs($B - 0x3C) -lt 16
+}
+
+# Host ist schon in der Mission oder reist dorthin. Ein frischer Spielstand startet den ersten Run ohne Routenkarte.
+function Test-HostInMission {
+    $State = Get-NetState (Get-RolePid 'Host')
+    $State.world -eq 'DDDynamic_Map' -or $State.package -like '*DDDynamic_Map'
+}
+
 function Wait-MainMenu([int]$ProcessId, [int]$TimeoutSeconds = 90) {
     Wait-Condition { (Get-NetState $ProcessId).world -eq 'MainMenu' } "Hauptmenue von $ProcessId" $TimeoutSeconds @($ProcessId)
 }
