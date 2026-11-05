@@ -302,29 +302,3 @@ TEST_CASE("Concurrent diagnostics and lobby producers do not overwrite each othe
     CHECK(Model.Snapshot().Diagnostics == "999");
     CHECK(Model.Snapshot().Status.PingMs == 999);
 }
-
-TEST_CASE("Reward choice runs once on the dispatcher with session and revision")
-{
-    Core::Dispatcher Dispatcher;
-    UI::OverlayModel Model(Dispatcher);
-    uint64_t Session = 0, Revision = 0;
-    uint32_t Index = 99;
-    int Calls = 0;
-    Model.BindReward([&](uint64_t S, uint64_t R, uint32_t I) { Session = S; Revision = R; Index = I; ++Calls; });
-    CHECK_FALSE(Model.ChooseReward(0)); // nothing open
-    Model.PublishReward(UI::RewardPrompt{7, 9, {"A", "B", "C"}, "waehle", true});
-    CHECK_FALSE(Model.ChooseReward(3));
-    CHECK(Model.ChooseReward(1));
-    CHECK_FALSE(Model.ChooseReward(2)); // no double click until the backend publishes again
-    CHECK_FALSE(Model.Snapshot().Reward->Selectable);
-    CHECK(Calls == 0);
-    CHECK(Dispatcher.Drain() == 1);
-    CHECK(Calls == 1);
-    CHECK(Session == 7);
-    CHECK(Revision == 9);
-    CHECK(Index == 1);
-    Model.PublishReward(UI::RewardPrompt{7, 9, {"A"}, "nur Hinweis", false});
-    CHECK_FALSE(Model.ChooseReward(0));
-    Model.PublishReward(std::nullopt);
-    CHECK_FALSE(Model.Snapshot().Reward);
-}

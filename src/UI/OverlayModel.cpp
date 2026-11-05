@@ -15,8 +15,6 @@ struct OverlayModel::SharedState
     uint64_t Ticket = 0;
     bool Pending = false;
     std::string Diagnostics = "Desync: wartet auf Kontrollkanal/Missionswelt";
-    std::optional<RewardPrompt> Reward;
-    RewardHandler OnReward;
 };
 
 OverlayModel::OverlayModel(Core::Dispatcher& InDispatcher)
@@ -44,46 +42,7 @@ void OverlayModel::Publish(OverlayStatus Status)
 OverlaySnapshot OverlayModel::Snapshot() const
 {
     const std::lock_guard Lock(State->Mutex);
-    return { State->Status, static_cast<bool>(State->Handler), State->Pending, State->Diagnostics, State->Reward };
-}
-
-void OverlayModel::PublishReward(std::optional<RewardPrompt> Prompt)
-{
-    const std::lock_guard Lock(State->Mutex);
-    State->Reward = std::move(Prompt);
-}
-
-void OverlayModel::BindReward(RewardHandler Handler)
-{
-    const std::lock_guard Lock(State->Mutex);
-    State->OnReward = std::move(Handler);
-}
-
-bool OverlayModel::ChooseReward(uint32_t Index)
-{
-    uint64_t Session = 0, Revision = 0;
-    {
-        const std::lock_guard Lock(State->Mutex);
-        if (!State->OnReward || !State->Reward || !State->Reward->Selectable || Index >= State->Reward->Choices.size())
-            return false;
-        Session = State->Reward->Session;
-        Revision = State->Reward->Revision;
-        // Kein Doppelklick: bis zum nächsten Bild des Backends nicht mehr wählbar.
-        State->Reward->Selectable = false;
-        State->Reward->Status = "Airdrop: Wahl wird gesendet ...";
-    }
-    const auto Shared = State;
-    Dispatcher.Post([Shared, Session, Revision, Index]
-    {
-        RewardHandler Handler;
-        {
-            const std::lock_guard Lock(Shared->Mutex);
-            Handler = Shared->OnReward;
-        }
-        if (Handler)
-            Handler(Session, Revision, Index);
-    });
-    return true;
+    return { State->Status, static_cast<bool>(State->Handler), State->Pending, State->Diagnostics };
 }
 
 void OverlayModel::PublishDiagnostics(std::string Text)

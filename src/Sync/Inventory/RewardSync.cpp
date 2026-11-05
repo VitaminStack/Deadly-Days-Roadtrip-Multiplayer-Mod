@@ -13,7 +13,6 @@ namespace Sync
 {
 namespace
 {
-RewardSink Sink;
 struct
 {
     uint64_t Run = 0, Revision = 0, Peer = 0;
@@ -26,24 +25,12 @@ struct
     Reward::Choice Chosen;
     uint64_t ChosenAt = 0;
     uint64_t NextShow = 0; // nach einem gescheiterten Öffnen des Panels erst später erneut
-    std::optional<RewardPrompt> Shown;
-    bool Published = false;
 } R;
 
 uint64_t NowMs()
 {
     return static_cast<uint64_t>(
         std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
-}
-
-void Present(std::optional<RewardPrompt> Prompt)
-{
-    if (R.Published && Prompt == R.Shown)
-        return;
-    R.Shown = Prompt;
-    R.Published = true;
-    if (Sink)
-        Sink(std::move(Prompt));
 }
 
 bool Send(Net::Transport& Transport, uint16_t Type, std::vector<uint8_t> Payload)
@@ -95,10 +82,6 @@ void TickHost(Net::Transport& Transport, std::span<const Net::ControlMessage> Me
             R.Sent = Offer;
             R.NextResend = Now + 1000;
         }
-    if (Offer.Session && Offer.HostWaiting && !Offer.ClientClaimed)
-        Present(RewardPrompt{Offer.Session, Offer.Revision, Offer.Level, {}, "Airdrop: Warte auf die Wahl deines Mitspielers.", false});
-    else
-        Present(std::nullopt);
 }
 
 bool Send(Net::Transport& Transport, const Reward::Choice& Choice)
@@ -125,7 +108,6 @@ void TickClient(Net::Transport& Transport, std::span<const Net::ControlMessage> 
     if (!R.Latest || !R.Latest->Session || NowMs() - R.LatestAt > 5000)
     {
         Game::Rewards::CloseForClient();
-        Present(std::nullopt);
         return;
     }
     const auto& Offer = *R.Latest;
@@ -138,30 +120,17 @@ void TickClient(Net::Transport& Transport, std::span<const Net::ControlMessage> 
             Core::Log::Warn("Airdrop-Auswahl: Wahl {} nicht gesendet, Panel öffnet erneut", *Pick);
     }
     const bool Sent = R.Chosen.Session == Offer.Session && R.Chosen.Revision == Offer.Revision && NowMs() - R.ChosenAt < 4000;
-    RewardPrompt Prompt{Offer.Session, Offer.Revision, Offer.Level, {}, {}, false};
     if (Offer.ClientClaimed)
-    {
         Game::Rewards::CloseForClient();
-        Prompt.Status = Offer.HostClaimed ? "Airdrop: Belohnung erhalten." : "Airdrop: Gewählt, warte auf den Host.";
-    }
-    else if (Sent)
-        Prompt.Status = "Airdrop: Wahl gesendet, warte auf den Host.";
-    else
+    else if (!Sent)
     {
         std::vector<Game::Rewards::ChoiceItem> Items;
         for (const auto& Choice : Offer.Choices)
             Items.push_back({Choice.Name, Choice.Data, Choice.Rarity, Choice.Broken});
         if (NowMs() >= R.NextShow && !Game::Rewards::ShowForClient(Offer.Session, Offer.Revision, Offer.Level, Items))
             R.NextShow = NowMs() + 5000;
-        Prompt.Status = std::string("Airdrop: Wähle im Spiel 1 Belohnung.") + (Offer.HostWaiting ? " Der Host wartet auf dich." : "");
     }
-    Present(std::move(Prompt));
 }
-}
-
-void SetRewardSink(RewardSink Value)
-{
-    Sink = std::move(Value);
 }
 
 void TickReward(std::span<const Net::ControlMessage> Messages)
@@ -179,10 +148,7 @@ void TickReward(std::span<const Net::ControlMessage> Messages)
     }
     Game::Rewards::SetRemoteReady(Host && Peer);
     if (!Transport || !Peer)
-    {
-        Present(std::nullopt);
         return;
-    }
     if (Host)
         TickHost(*Transport, Messages);
     else
