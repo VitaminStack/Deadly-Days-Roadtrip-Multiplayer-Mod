@@ -124,7 +124,7 @@ normalen Einzelspieler-Panel.
 
 **Geprüft** (05.11.2026, ein PC, Lobby-Tunnel, Tag 1, vom Nutzer eingesammelt): Beide sehen ihre Auswahl, ob Host oder Client die Kiste
 öffnet; mehrere Airdrops nacheinander öffnen sich wieder; ohne Absturz, Inventare gleich. Wählt der Client zuerst, wartet das Spiel auf
-den Host. **Offen:** Bestätigt der Host zuerst, läuft die Runde trotz zurückgehaltenem Bestätigen weiter (`airdrop-warten`). Die Wahl des
+den Host. Bestätigt der Host zuerst, bleibt das Spiel bis zur Wahl des Clients pausiert; das nachgeholte Bestätigen wartet einen Drag ab und wird wiederholt, bis das Panel schließt (`airdrop-warten`). Die Wahl des
 Clients landet im Lager statt im Rucksack: Er merkt sich die Ablage, sie kommt aber nicht beim Host an (`airdrop-rucksack`).
 
 **Nachprüfung `airdrop-rucksack` (05.11.2026).** `TickClient` konsumierte die Ablage vor dem
