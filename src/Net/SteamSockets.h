@@ -25,6 +25,19 @@ enum class SteamConnectionState : int32_t
     ProblemDetectedLocally = 5,
 };
 
+// Eigene Gründe beim Schließen, Bereich k_ESteamNetConnectionEnd_App_* (1000 bis 1999). Die Gegenseite bekommt sie mit
+// ClosedByPeer als EndReason und kann so eine passende Meldung zeigen.
+namespace EndReason
+{
+constexpr int32_t Generic = 1000;
+constexpr int32_t HostLeft = 1001;
+constexpr int32_t ClientLeft = 1002;
+// Build, Mod-Version oder Rolle passen nicht, oder der Handshake kam nicht rechtzeitig.
+constexpr int32_t Rejected = 1003;
+// Der Host hat schon einen Mitspieler.
+constexpr int32_t Busy = 1004;
+}
+
 struct SteamStatusChange
 {
     SteamConnection Connection = 0;
@@ -56,7 +69,8 @@ public:
     virtual SteamConnection ConnectP2P(uint64_t SteamId, int VirtualPort) = 0;
     virtual SteamConnection ConnectLoopback(uint16_t Port) = 0;
     virtual bool Accept(SteamConnection Connection) = 0;
-    virtual void Close(SteamConnection Connection) = 0;
+    // Reason aus EndReason, die Gegenseite sieht ihn in ihrer Statusänderung.
+    virtual void Close(SteamConnection Connection, int32_t Reason) = 0;
     virtual void CloseListen(SteamListenSocket Socket) = 0;
     // Unzuverlässig und ohne Nagle: Die Engine sorgt selbst für Zuverlässigkeit.
     virtual bool Send(SteamConnection Connection, std::span<const uint8_t> Data) = 0;

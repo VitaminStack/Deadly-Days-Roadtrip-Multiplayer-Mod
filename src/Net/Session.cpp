@@ -55,6 +55,8 @@ bool Session::Create()
     }
     Current.Phase = SessionPhase::CreatingLobby;
     Current.Message = "Lobby wird erstellt";
+    StepSince = Clock::now();
+    HostNotice.clear();
     Core::Log::Info("Sitzung: Lobby wird erstellt");
     Tick();
     return true;
@@ -74,6 +76,7 @@ bool Session::Join(uint64_t Lobby)
     }
     Current.Phase = SessionPhase::JoiningLobby;
     Current.Message = "Tritt der Lobby bei";
+    StepSince = Clock::now();
     Core::Log::Info("Sitzung: tritt Lobby {} bei", Lobby);
     Tick();
     return true;
@@ -96,6 +99,9 @@ void Session::Leave()
     if (GameConnected && !Current.IsHost && Hooks.Disconnect)
         Hooks.Disconnect();
     GameConnected = false;
+    GameSeen = false;
+    GameMissingSince.reset();
+    HostNotice.clear();
     CloseLobby();
     Current = {};
     Current.Message = "Sitzung verlassen";
@@ -118,6 +124,9 @@ void Session::Fail(std::string Message)
     if (GameConnected && !Current.IsHost && Hooks.Disconnect)
         Hooks.Disconnect();
     GameConnected = false;
+    GameSeen = false;
+    GameMissingSince.reset();
+    HostNotice.clear();
     CloseLobby();
     const bool WasHost = Current.IsHost;
     Current = {};
@@ -146,6 +155,46 @@ void Session::StartTransportClient(uint64_t Owner)
     UseSessionTransport(Tunnel);
     Current.Phase = SessionPhase::ConnectingTransport;
     Current.Message = "Verbindet mit dem Host";
+    StepSince = Clock::now();
+}
+
+bool Session::Expired(std::chrono::milliseconds Limit) const
+{
+    return Clock::now() - StepSince >= Limit;
+}
+
+void Session::WatchGame()
+{
+    if (!Hooks.GameConnectedToHost)
+        return;
+    const std::optional<bool> Connected = Hooks.GameConnectedToHost();
+    if (Connected == true)
+    {
+        if (!GameSeen)
+            Core::Log::Info("Sitzung: Spiel ist mit dem Host verbunden");
+        GameSeen = true;
+        GameMissingSince.reset();
+        return;
+    }
+    if (!GameSeen)
+    {
+        // Nach open lädt das Spiel erst die Welt des Hosts. Kommt es nie an, bleibt sonst eine Sitzung ohne Spiel.
+        if (Expired(Timeouts.GameJoin))
+            Fail("Das Spiel konnte sich nicht mit dem Host verbinden");
+        return;
+    }
+    // Unbekannt, etwa während eine Karte lädt, zählt nicht als getrennt.
+    if (Connected != false)
+        return;
+    const auto Now = Clock::now();
+    if (!GameMissingSince)
+    {
+        GameMissingSince = Now;
+        Core::Log::Info("Sitzung: Spiel läuft ohne Host, warte bis zu {} s", Timeouts.GameLost.count() / 1000);
+        return;
+    }
+    if (Now - *GameMissingSince >= Timeouts.GameLost)
+        Fail("Das Spiel hat die Verbindung zum Host verloren");
 }
 
 void Session::Tick()
@@ -192,6 +241,8 @@ void Session::Tick()
                 Hooks.BecomeListenServer();
             Current.Message = "Lobby offen, Freunde über Einladen holen";
         }
+        else if (Expired(Timeouts.Lobby))
+            Fail("Zeitlimit: Steam hat die Lobby nicht erstellt");
         break;
     case SessionPhase::JoiningLobby:
         if (const auto Entered = Api->PollEntered(PendingCall))
@@ -218,6 +269,12 @@ void Session::Tick()
             }
             StartTransportClient(Owner);
         }
+        else if (Expired(Timeouts.Lobby))
+        {
+            // Kommt die Antwort doch noch, wäre der Spieler sonst Mitglied ohne Sitzung.
+            Api->LeaveLobby(Current.Lobby);
+            Fail("Zeitlimit: Steam hat den Beitritt nicht bestätigt");
+        }
         break;
     case SessionPhase::ConnectingTransport:
     case SessionPhase::Playing:
@@ -235,17 +292,39 @@ void Session::Tick()
             if (!Current.IsHost && Stats.State == TransportState::Connected && !GameConnected)
             {
                 GameConnected = true;
+                StepSince = Clock::now();
                 if (Hooks.ConnectToLocalPort)
                     Hooks.ConnectToLocalPort(Options.ClientPort);
                 Current.Phase = SessionPhase::Playing;
                 Current.Message = "Verbunden mit dem Host";
                 Core::Log::Info("Sitzung: Tunnel steht, Spiel verbindet sich");
             }
+            if (!Current.IsHost && !GameConnected && Expired(Timeouts.Connect))
+            {
+                Fail("Zeitlimit: keine Verbindung zum Host");
+                break;
+            }
+            if (!Current.IsHost && GameConnected)
+            {
+                WatchGame();
+                if (Current.Phase == SessionPhase::Failed)
+                    break;
+            }
             if (Current.IsHost)
             {
                 const bool Clients = Stats.Connections > 0;
+                // Ging der Mitspieler, sagt der Host warum, bis ein neuer kommt.
+                if (Current.Phase == SessionPhase::Playing && !Clients)
+                {
+                    HostNotice = Stats.Message;
+                    Core::Log::Info("Sitzung: {}", HostNotice);
+                }
+                if (Clients)
+                    HostNotice.clear();
                 Current.Phase = Clients ? SessionPhase::Playing : SessionPhase::Hosting;
-                Current.Message = Clients ? "Mitspieler verbunden" : "Lobby offen, Freunde über Einladen holen";
+                Current.Message = Clients              ? "Mitspieler verbunden"
+                                  : HostNotice.empty() ? "Lobby offen, Freunde über Einladen holen"
+                                                       : HostNotice + ". Lobby offen, Freunde über Einladen holen";
             }
         }
         if (Current.Lobby)

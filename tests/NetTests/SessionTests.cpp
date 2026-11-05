@@ -4,6 +4,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <thread>
@@ -42,6 +43,8 @@ struct FakeLobbyService
     uint64_t NextLobby = 109775240000000001ull;
     bool RejectCreate = false;
     bool FailCreate = false;
+    // Steam antwortet nicht auf Erstellen oder Beitreten.
+    bool NoAnswer = false;
     int InviteDialogs = 0;
 
     void Leave(uint64_t Account, uint64_t Id)
@@ -113,6 +116,8 @@ public:
     }
     std::optional<LobbyCreatedResult> PollCreated(SteamApiCall Id) override
     {
+        if (Service->NoAnswer)
+            return std::nullopt;
         const auto Found = Service->Calls.find(Id);
         if (Found == Service->Calls.end() || !Found->second.Create)
             return std::nullopt;
@@ -125,6 +130,8 @@ public:
     }
     std::optional<LobbyEnteredResult> PollEntered(SteamApiCall Id) override
     {
+        if (Service->NoAnswer)
+            return std::nullopt;
         const auto Found = Service->Calls.find(Id);
         if (Found == Service->Calls.end() || Found->second.Create)
             return std::nullopt;
@@ -165,10 +172,13 @@ struct GameCalls
     int Listen = 0;
     std::vector<uint16_t> Connects;
     int Disconnects = 0;
+    // Verbindung des Spiels zum Host, wie sie die Mod aus der Welt liest. nullopt: unbekannt, etwa beim Laden.
+    std::optional<bool> InGame;
 
     SessionHooks Hooks()
     {
-        return {[this] { ++Listen; }, [this](uint16_t Port) { Connects.push_back(Port); }, [this] { ++Disconnects; }};
+        return {[this] { ++Listen; }, [this](uint16_t Port) { Connects.push_back(Port); }, [this] { ++Disconnects; },
+                [this] { return InGame; }};
     }
 };
 
@@ -271,13 +281,16 @@ TEST_CASE("Client tritt bei und verbindet sich per P2P mit dem Besitzer der Lobb
         CHECK(Client.Game.Disconnects == 1);
         CHECK(Service->Lobbies[Lobby].Members.size() == 1);
         CHECK(TickUntil({&Host.Run}, [&] { return Host.Run.Status().Phase == SessionPhase::Hosting; }));
+        CHECK(Host.Run.Status().Message ==
+              "Der Mitspieler hat die Sitzung verlassen. Lobby offen, Freunde über Einladen holen");
+        CHECK(Host.Run.Status().CanInvite);
     }
     SUBCASE("Host beendet die Sitzung")
     {
         Host.Run.Leave();
         REQUIRE(TickUntil({&Client.Run}, [&] { return Client.Run.Status().Phase == SessionPhase::Failed; }));
         CHECK(Client.Game.Disconnects == 1);
-        CHECK(Client.Run.Status().Message == "Der Host hat die Verbindung beendet");
+        CHECK(Client.Run.Status().Message == "Der Host hat die Sitzung verlassen");
         CHECK(Client.Run.Status().CanJoin);
         CHECK(Service->Lobbies.empty());
     }
@@ -396,6 +409,157 @@ TEST_CASE("Eine angenommene Einladung verlässt die alte Sitzung und tritt der n
     CHECK_FALSE(Client.Run.Status().IsHost);
     CHECK(Client.Run.Status().Lobby == Host.Run.Status().Lobby);
     CHECK(Service->Lobbies.count(Own) == 0);
+}
+
+namespace
+{
+// Host und Client im Spiel, für die Fälle nach dem Aufbau.
+struct Pair
+{
+    explicit Pair(uint16_t Base)
+        : Service(std::make_shared<FakeLobbyService>()), Network(std::make_shared<FakeSteamNetwork>()), Options(SessionPorts(Base)),
+          Host(Service, Network, kHostId, kHostId, Options), Client(Service, Network, kClientId, kClientId, Options)
+    {
+    }
+
+    bool Connect()
+    {
+        if (!Host.Run.Create() ||
+            !TickUntil({&Host.Run}, [&] { return Host.Run.Status().Phase == SessionPhase::Hosting; }) ||
+            !Client.Run.Join(Host.Run.Status().Lobby))
+            return false;
+        return TickUntil({&Host.Run, &Client.Run}, [&] {
+            return Client.Run.Status().Phase == SessionPhase::Playing && Host.Run.Status().Phase == SessionPhase::Playing;
+        });
+    }
+
+    std::shared_ptr<FakeLobbyService> Service;
+    std::shared_ptr<FakeSteamNetwork> Network;
+    TransportOptions Options;
+    Player Host;
+    Player Client;
+};
+}
+
+TEST_CASE("Abbruch der Leitung: Client trennt das Spiel, Host bleibt offen und sagt warum")
+{
+    Pair Game(47900);
+    REQUIRE(Game.Connect());
+    Game.Network->LoseConnectionsOf(kClientId);
+    REQUIRE(TickUntil({&Game.Host.Run, &Game.Client.Run}, [&] {
+        return Game.Client.Run.Status().Phase == SessionPhase::Failed && Game.Host.Run.Status().Phase == SessionPhase::Hosting;
+    }));
+    CHECK(Game.Client.Run.Status().Message == "Verbindung zum Host verloren");
+    CHECK(Game.Client.Game.Disconnects == 1);
+    CHECK(Game.Client.Run.Status().CanJoin);
+    CHECK(Game.Host.Run.Status().Message ==
+          "Verbindung zum Mitspieler verloren. Lobby offen, Freunde über Einladen holen");
+    CHECK(Game.Host.Game.Disconnects == 0);
+
+    // Der Client kann derselben Lobby wieder beitreten, die Meldung beim Host verschwindet.
+    REQUIRE(Game.Client.Run.Join(Game.Host.Run.Status().Lobby));
+    REQUIRE(TickUntil({&Game.Host.Run, &Game.Client.Run}, [&] {
+        return Game.Client.Run.Status().Phase == SessionPhase::Playing && Game.Host.Run.Status().Phase == SessionPhase::Playing;
+    }));
+    CHECK(Game.Host.Run.Status().Message == "Mitspieler verbunden");
+}
+
+TEST_CASE("Zeitlimits, wenn Steam oder der Host nicht antworten")
+{
+    auto Service = std::make_shared<FakeLobbyService>();
+    auto Network = std::make_shared<FakeSteamNetwork>();
+    const TransportOptions Options = SessionPorts(47910);
+    SessionTimeouts Short;
+    Short.Lobby = std::chrono::milliseconds(100);
+    Short.Connect = std::chrono::milliseconds(150);
+
+    SUBCASE("Lobby erstellen")
+    {
+        Player Host(Service, Network, kHostId, kHostId, Options);
+        Host.Run.SetTimeouts(Short);
+        Service->NoAnswer = true;
+        REQUIRE(Host.Run.Create());
+        REQUIRE(TickUntil({&Host.Run}, [&] { return Host.Run.Status().Phase == SessionPhase::Failed; }));
+        CHECK(Host.Run.Status().Message == "Zeitlimit: Steam hat die Lobby nicht erstellt");
+        CHECK(Host.Game.Listen == 0);
+        CHECK(Host.Run.Status().CanCreate);
+    }
+    SUBCASE("Lobby beitreten")
+    {
+        Player Client(Service, Network, kClientId, kClientId, Options);
+        Client.Run.SetTimeouts(Short);
+        Service->NoAnswer = true;
+        REQUIRE(Client.Run.Join(4242));
+        REQUIRE(TickUntil({&Client.Run}, [&] { return Client.Run.Status().Phase == SessionPhase::Failed; }));
+        CHECK(Client.Run.Status().Message == "Zeitlimit: Steam hat den Beitritt nicht bestätigt");
+        CHECK(Client.Run.Status().CanJoin);
+    }
+    SUBCASE("Host antwortet nicht auf die Verbindung")
+    {
+        Player Host(Service, Network, kHostId, kHostId, Options);
+        Player Client(Service, Network, kClientId, kClientId, Options);
+        Client.Run.SetTimeouts(Short);
+        REQUIRE(Host.Run.Create());
+        REQUIRE(TickUntil({&Host.Run}, [&] { return Host.Run.Status().Phase == SessionPhase::Hosting; }));
+        const uint64_t Lobby = Host.Run.Status().Lobby;
+        Network->SilenceAccount(kHostId);
+        REQUIRE(Client.Run.Join(Lobby));
+        REQUIRE(TickUntil({&Host.Run, &Client.Run}, [&] { return Client.Run.Status().Phase == SessionPhase::Failed; }));
+        CHECK(Client.Run.Status().Message == "Zeitlimit: keine Verbindung zum Host");
+        CHECK(Client.Game.Connects.empty());
+        CHECK(Client.Game.Disconnects == 0);
+        CHECK(Service->Lobbies[Lobby].Members.size() == 1);
+    }
+}
+
+TEST_CASE("Client erkennt, wenn das Spiel selbst die Verbindung zum Host verliert")
+{
+    Pair Game(47920);
+    SessionTimeouts Short;
+    Short.GameJoin = std::chrono::milliseconds(200);
+    Short.GameLost = std::chrono::milliseconds(400);
+    Game.Client.Run.SetTimeouts(Short);
+
+    SUBCASE("Spiel verbindet sich nie")
+    {
+        Game.Client.Game.InGame = false;
+        REQUIRE(Game.Connect());
+        REQUIRE(TickUntil({&Game.Host.Run, &Game.Client.Run},
+                          [&] { return Game.Client.Run.Status().Phase == SessionPhase::Failed; }));
+        CHECK(Game.Client.Run.Status().Message == "Das Spiel konnte sich nicht mit dem Host verbinden");
+        CHECK(Game.Client.Game.Disconnects == 1);
+    }
+    SUBCASE("Spiel verliert den Host und kommt nicht zurück")
+    {
+        REQUIRE(Game.Connect());
+        Game.Client.Game.InGame = true;
+        TickUntil({&Game.Host.Run, &Game.Client.Run}, [] { return false; }, 50);
+        Game.Client.Game.InGame = false;
+        REQUIRE(TickUntil({&Game.Host.Run, &Game.Client.Run},
+                          [&] { return Game.Client.Run.Status().Phase == SessionPhase::Failed; }));
+        CHECK(Game.Client.Run.Status().Message == "Das Spiel hat die Verbindung zum Host verloren");
+        CHECK(Game.Client.Game.Disconnects == 1);
+        // Der Client hat den Tunnel geschlossen, der Host wartet wieder.
+        CHECK(TickUntil({&Game.Host.Run}, [&] { return Game.Host.Run.Status().Phase == SessionPhase::Hosting; }));
+    }
+    SUBCASE("Kurz ohne Host oder unbekannt beim Laden bleibt verbunden")
+    {
+        REQUIRE(Game.Connect());
+        Game.Client.Game.InGame = true;
+        TickUntil({&Game.Host.Run, &Game.Client.Run}, [] { return false; }, 50);
+        Game.Client.Game.InGame = false;
+        TickUntil({&Game.Host.Run, &Game.Client.Run}, [] { return false; }, 60);
+        Game.Client.Game.InGame = std::nullopt;
+        TickUntil({&Game.Host.Run, &Game.Client.Run}, [] { return false; }, 300);
+        Game.Client.Game.InGame = true;
+        TickUntil({&Game.Host.Run, &Game.Client.Run}, [] { return false; }, 50);
+        Game.Client.Game.InGame = false;
+        TickUntil({&Game.Host.Run, &Game.Client.Run}, [] { return false; }, 60);
+        Game.Client.Game.InGame = true;
+        TickUntil({&Game.Host.Run, &Game.Client.Run}, [] { return false; }, 200);
+        CHECK(Game.Client.Run.Status().Phase == SessionPhase::Playing);
+        CHECK(Game.Client.Game.Disconnects == 0);
+    }
 }
 
 TEST_CASE("Lobby-ID aus +connect_lobby")

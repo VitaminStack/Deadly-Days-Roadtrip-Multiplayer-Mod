@@ -1,8 +1,10 @@
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -57,6 +59,23 @@ struct SessionHooks
     std::function<void(uint16_t Port)> ConnectToLocalPort;
     // Client: Verbindung zum Host im Spiel trennen.
     std::function<void()> Disconnect;
+    // Client: Ist das Spiel mit dem Host verbunden? true verbunden, false läuft ohne Host, nullopt unbekannt (etwa beim
+    // Laden einer Karte). Ohne Hook prüft die Sitzung nur den Tunnel.
+    std::function<std::optional<bool>()> GameConnectedToHost;
+};
+
+// Zeitlimits der Sitzung. Steam und die Engine haben eigene, diese greifen, wenn von dort nichts mehr kommt.
+struct SessionTimeouts
+{
+    // Steam bestätigt Erstellen oder Beitritt der Lobby nicht.
+    std::chrono::milliseconds Lobby{15000};
+    // Tunnel und Versions-Handshake zum Host. Steam gibt nach etwa 10 s selbst auf, der Handshake hat 5 s.
+    std::chrono::milliseconds Connect{20000};
+    // Nach open 127.0.0.1:7778 lädt das Spiel die Welt des Hosts.
+    std::chrono::milliseconds GameJoin{90000};
+    // Das Spiel läuft ohne Host, obwohl der Tunnel steht, etwa nach einem Abbruch durch die Engine. Großzügig, weil ein
+    // Kartenwechsel kurz ohne Verbindung aussehen kann.
+    std::chrono::milliseconds GameLost{30000};
 };
 
 // Erzeugt den Transport. Austauschbar für Tests.
@@ -81,11 +100,16 @@ public:
     void Tick();
 
     SessionStatus Status() const;
+    void SetTimeouts(SessionTimeouts Value) { Timeouts = Value; }
 
 private:
+    using Clock = std::chrono::steady_clock;
+
     void Fail(std::string Message);
     void StartTransportClient(uint64_t Owner);
     void CloseLobby();
+    void WatchGame();
+    bool Expired(std::chrono::milliseconds Limit) const;
 
     std::shared_ptr<SteamLobbyApi> Api;
     TransportFactory MakeTransport;
@@ -97,5 +121,13 @@ private:
     SteamApiCall PendingCall = 0;
     std::shared_ptr<Transport> Tunnel;
     bool GameConnected = false;
+    SessionTimeouts Timeouts;
+    // Beginn des aktuellen Schritts für die Zeitlimits.
+    Clock::time_point StepSince{};
+    // Client: Das Spiel war schon einmal mit dem Host verbunden, und seit wann es ohne Host läuft.
+    bool GameSeen = false;
+    std::optional<Clock::time_point> GameMissingSince;
+    // Host: Grund, warum der letzte Mitspieler gegangen ist, bis ein neuer kommt.
+    std::string HostNotice;
 };
 }

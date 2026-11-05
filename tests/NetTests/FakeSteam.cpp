@@ -47,6 +47,13 @@ struct FakeSteamNetwork::Endpoint final : SteamSockets
             return 0;
         const SteamConnection Local = Network->NextHandle++;
         const SteamConnection Far = Network->NextHandle++;
+        if (Network->Silent[Remote->SteamId])
+        {
+            // Keine Antwort: Die Gegenseite erfährt nichts, die eigene Seite bleibt in Connecting.
+            Pipes[Local] = {nullptr, 0, false, {}};
+            Changes.push_back({Local, 0, SteamConnectionState::Connecting, SteamConnectionState::None, 0, {}});
+            return Local;
+        }
         Pipes[Local] = {Remote, Far, false, {}};
         Remote->Pipes[Far] = {this, Local, false, {}};
         Changes.push_back({Local, 0, SteamConnectionState::Connecting, SteamConnectionState::None, 0, {}});
@@ -94,7 +101,7 @@ struct FakeSteamNetwork::Endpoint final : SteamSockets
         return true;
     }
 
-    void CloseLocked(SteamConnection Connection)
+    void CloseLocked(SteamConnection Connection, int32_t Reason = EndReason::Generic)
     {
         const auto It = Pipes.find(Connection);
         if (It == Pipes.end())
@@ -106,15 +113,28 @@ struct FakeSteamNetwork::Endpoint final : SteamSockets
         {
             Peer->Pipes[Far].Connected = false;
             Peer->Pipes[Far].Peer = nullptr;
-            Peer->Changes.push_back({Far, 0, SteamConnectionState::ClosedByPeer, SteamConnectionState::Connected, 1000,
-                                     "closed by peer 10.1.2.3"});
+            Peer->Changes.push_back({Far, 0, SteamConnectionState::ClosedByPeer, SteamConnectionState::Connected,
+                                     Reason ? Reason : EndReason::Generic, "closed by peer 10.1.2.3"});
         }
     }
 
-    void Close(SteamConnection Connection) override
+    void Close(SteamConnection Connection, int32_t Reason) override
     {
         std::lock_guard Guard(Network->Lock);
-        CloseLocked(Connection);
+        LastCloseReason = Reason;
+        CloseLocked(Connection, Reason);
+    }
+
+    // Wie nach dem Zeitlimit von Steam: Diese Seite meldet einen lokalen Fehler, die Leitung ist weg.
+    void LoseLocked(SteamConnection Connection)
+    {
+        const auto It = Pipes.find(Connection);
+        if (It == Pipes.end())
+            return;
+        It->second.Connected = false;
+        It->second.Peer = nullptr;
+        Changes.push_back({Connection, 0, SteamConnectionState::ProblemDetectedLocally, SteamConnectionState::Connected, 5003,
+                           "timed out 10.1.2.3"});
     }
 
     void CloseListen(SteamListenSocket Socket) override
@@ -185,6 +205,7 @@ struct FakeSteamNetwork::Endpoint final : SteamSockets
     std::map<SteamConnection, Pipe> Pipes;
     std::vector<SteamStatusChange> Changes;
     int Sent = 0;
+    int32_t LastCloseReason = 0;
 };
 
 std::shared_ptr<SteamSockets> FakeSteamNetwork::Account(uint64_t SteamId)
@@ -207,4 +228,21 @@ void FakeSteamNetwork::DropPeerOf(uint64_t SteamId)
             Far.emplace_back(Pipe.Peer, Pipe.PeerHandle);
     for (auto& [Peer, Handle] : Far)
         Peer->CloseLocked(Handle);
+}
+
+void FakeSteamNetwork::LoseConnectionsOf(uint64_t SteamId)
+{
+    std::lock_guard Guard(Lock);
+    const auto It = Accounts.find(SteamId);
+    if (It == Accounts.end())
+        return;
+    std::vector<std::pair<Endpoint*, SteamConnection>> Ends;
+    for (auto& [Handle, Pipe] : It->second->Pipes)
+    {
+        if (Pipe.Peer)
+            Ends.emplace_back(Pipe.Peer, Pipe.PeerHandle);
+        Ends.emplace_back(It->second, Handle);
+    }
+    for (auto& [Owner, Handle] : Ends)
+        Owner->LoseLocked(Handle);
 }

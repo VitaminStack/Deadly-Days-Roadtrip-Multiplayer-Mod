@@ -194,7 +194,7 @@ public:
 
     bool Accept(SteamConnection Connection) override { return Api.Accept(Self, Connection) == 1; }
 
-    void Close(SteamConnection Connection) override { Api.Close(Self, Connection, 0, "ddcoop", false); }
+    void Close(SteamConnection Connection, int32_t Reason) override { Api.Close(Self, Connection, Reason, "ddcoop", false); }
 
     void CloseListen(SteamListenSocket Socket) override { Api.CloseListen(Self, Socket); }
 
