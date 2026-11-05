@@ -717,6 +717,33 @@ Stand 04.11.2026, Build `26187885`, nur Spike und Loopback. Die frühere Hypothe
 
 **Keine vollständige Coop-UI:** Rundenstatistik und Lager zeigen beim Host beide Spieler, die lokale Kontrollübergabe im Lager blockiert aber weiterhin. Der Client bleibt lokal Index 0; Host-Coop-Zustand/Router werden nicht repliziert. Netzwerk-P2 muss deshalb von lokaler Geräteidentität getrennt werden; UI-Anfragen und Ergebnisse brauchen den geplanten Kontrollkanal. Die Aufgaben `remote-spieler`, `eingaben`, `inventar-sync` und `inventar-ui` bleiben offen. Die Phase-1-Frage nach Tragfähigkeit und nötigen Patches ist beantwortet; kein neuer Vollrun-/Internet-Nachweis. [Probe, Gegenversuche, Tests und Übernahmegrenzen](../research/spikes/a-connect/RemoteP2.md).
 
+### Airdrop-Auswahl für beide Spieler (`airdrop-auswahl`)
+
+Stand 05.11.2026, Build `26187885`, zwei Instanzen auf einem PC über die Steam-Lobby
+der Mod, Tag 1, Level-up-Airdrops. Rohdaten und Probe auf `task/client-visuell`.
+
+- **[Belegt] Ohne Koop-Modus:** Egal wer einsammelt, öffnet nur der Host das normale
+  Inventar-Panel („Nimm 1 von 3 Items“), der Client sieht keine Auswahl. Die Weltpause
+  kommt über die replizierten WorldSettings auch beim Client an. Die native
+  Koop-Reward-Sitzung bleibt leer. Nach einer vom Client eingesammelten Kiste kann
+  dessen Reward-Queue beim Host auf der alten Kiste hängen bleiben; der nächste
+  Airdrop öffnete sich dann ohne Auswahl.
+- **[Belegt] Mit Remote-Client als P2** (Spike `!p2 on`, siehe oben): Beim Airdrop
+  startet die native Koop-Sitzung von `UCoopInventoryCoordinatorComponent`:
+  `AwaitingClaims`, `eligible=[0,1]`, `RequiredClaims=2`, Host-Panel mit beiden
+  Rucksäcken. Nach dem ersten Bestätigen wartet sie auf den Claim von Spieler 1, die
+  Pause bleibt. Ein Host-Aufruf `ClaimReward(1, Choice)` schließt die Sitzung
+  (`Completed`, `claimed=[0,1]`).
+- **[Belegt] Grenzen:** Das Host-Panel zählt seine Bestätigung als Spieler 0, auch
+  wenn das Item im P2-Rucksack liegt. Nach dem Code-Claim für Spieler 1 blieb das
+  Host-Panel ohne Bedienmöglichkeit offen, und die Pause blieb;
+  `AcknowledgeRewardUIClosed` lieferte `false`. Ohne Platzierung landete die
+  P2-Wahl im Lager von Spieler 0. `TransferItem` mit Quelle `RewardChoice` und Ziel
+  `P2Backpack` endete mit `InvalidRequest`.
+- **[Hypothese]** Das Panel schließt nativ erst nach Übergabe der UI-Autorität an
+  P2 (`RequestUIAuthorityTransfer`), die ohne lokales P2-Gerät blockiert, siehe
+  Remote-P2.
+
 ### Coop-Ablauf
 
 Stand: Disassembly und Laufzeit-Speicher, Build `26187885`, SDK aus einer direkt geladenen Mission (02.11.2026). Die RVAs stehen in [Offsets](OFFSETS.md#coop).

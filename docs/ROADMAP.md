@@ -246,7 +246,7 @@ flowchart TD
     W2 --> IG
     W3 --> IG
     IG --> G2{{"Gate G2"}}:::gate
-    PR --> W4["Welle 4<br/>gegner-alle, fortschritt, inventar-sync,<br/>inventar-ui, pausen-sync, tagesablauf,<br/>run-ende, vfx-sound, reconnect"]:::open
+    PR --> W4["Welle 4<br/>gegner-alle, fortschritt, inventar-sync,<br/>airdrop-auswahl, inventar-ui, pausen-sync, tagesablauf,<br/>run-ende, vfx-sound, reconnect"]:::open
     G2 --> W4
     W4 --> IR["integration-run"]:::central
     W5 --> IR
