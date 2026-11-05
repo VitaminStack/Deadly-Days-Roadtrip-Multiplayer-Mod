@@ -18,6 +18,7 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 
 **Neue Befunde.**
 
+- `kampf`, 05.11.2026: Lokal zuerst, ohne eigene Nachricht. Der Host schaltet die native Replikation von Projektilbewegung und Root-Komponente ein, damit kommen Größe (`RelativeScale3D`) und Bewegung ab dem ersten Schuss beim Client an; neue Projektile erfasst er je Tick am Ende von `Level->Actors`. Mit 120 ms Ping und 2 % Verlust geprüft: gleiche Skalierung auf beiden Seiten, Treffer und Kills beider Spieler beim Host, Gegner verletzen beide Figuren (Client bis 0 HP), Desync-Melder nach 3 bis 5 s wieder OK, kein Absturz. Effekte bleiben `opt-blut`/`vfx-sound`, [Befund](GAME_ANALYSIS.md#kampf-beim-client-kampf).
 - `airdrop-rucksack`, 05.11.2026, Teilstand: Wahl und Ablage des Clients kommen beim Host im Rucksack an, das Item wirkt beim Client (live bestätigt). Die automatische Bestätigung beim Drag ist entfernt, die Client-Anzeige richtet sich nach `SetupInventory` an den replizierten Pivot-Feldern aus. Diese beiden Fixes, Umsortieren und ein zweiter Airdrop stehen als `airdrop-rucksack-live`. [Befund](../src/Game/README.md#airdrop-auswahl)
 - `xp-baelle`, 05.11.2026, Teilstand: Dem Client fehlt der GameMode, darum berechnete er die Sichtgrenzen der XP-Bälle zu schmal. Die Grenzen kommen jetzt beim Client aus der lokalen Kamera, Host und XP-Vergabe bleiben unverändert. Build und Tests bestehen, die sichtbare Gegenprobe fehlt und steht als `xp-baelle-live`. [Befund](GAME_ANALYSIS.md#xp-bälle-beim-client-xp-baelle)
 - `todo-wartbarkeit`, 05.11.2026: Ergänzt `client-lokal-audit` um Updateresistenz und Aufräumen. Neu unter Wartung:
@@ -228,7 +229,7 @@ flowchart TD
         R2["Remote-Spieler als P2"]:::open
         MS["Gemeinsamer Missionsstart,<br/>gleiche Karte"]:::open
         KM["Gemeinsame Kamera<br/>umsetzen"]:::open
-        KA["Bewegung, Waffen, Treffer, Tod"]:::open
+        KA["Bewegung, Waffen, Treffer, Tod"]:::done
         GT["Ein Gegnertyp"]:::open
         EI["Eingaben von Remote<br/>trennen"]:::open
         OS["Mod ohne Spike<br/>(ohne-spike)"]:::done

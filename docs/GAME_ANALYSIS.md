@@ -287,9 +287,12 @@ Replikationen ein, siehe `ProjectilePatches.cpp`:
   (32 Kills), Host 47 (12 Kills), je 25 Schaden.
 - **[Belegt] Schaden an Spielern:** `DD_DamagePlayerAtIndex 20 0` und `35 1` beim Host. Beide Seiten zeigen danach HP 80 und 65,
   in anderer Reihenfolge der `PlayerArray`. Der Desync-Melder meldete kurz „offen HP“ und nach rund 5 s wieder „OK“.
-- **Nicht belegt:** Schaden durch einen Gegnerangriff. An Tag 1 töteten die automatischen Waffen auch nach `!wave` alle
-  Gegner, bevor sie zuschlugen, auch als beide Figuren per Skript hineinliefen. Upgrades mit anderer Größe, andere Waffen
-  als `BP_Projectile_C`, Treffer- und Todeseffekte (`opt-blut`, `vfx-sound`).
+- **[Belegt] Gegnerangriffe, Mensch am Spiel:** Per Skript liefen die Figuren nicht nah genug heran, die Waffen töteten
+  auch nach `!wave` alle Gegner vorher. Der Nutzer lief mit der Client-Figur in eine Gruppe: HP 65 → 5 → 0, danach mit der
+  Host-Figur: 80 → 60. Host und Client zeigten jeweils dieselben Werte (Abtastung je 0,5 s), der Desync-Melder war nach
+  3 bis 4 s wieder „OK“. Der Tod der Client-Figur bei lebender Host-Figur lief ohne Absturz, die Runde ging weiter.
+- **Nicht geprüft:** Upgrades mit anderer Größe, andere Waffen als `BP_Projectile_C`, Treffer- und Todeseffekte
+  (`opt-blut`, `vfx-sound`), echtes Internet zwischen zwei PCs (Gate G2).
 
 #### Last (Spike D, `last`)
 
