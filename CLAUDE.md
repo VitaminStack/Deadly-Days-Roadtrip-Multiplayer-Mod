@@ -10,7 +10,7 @@ Erst spielbar: Vorrang hat, dass zwei Spieler einen Run durchspielen können. Kl
 ## Vor dem Start
 
 1. [Wo kann ich anfangen?](TODO.md#wo-kann-ich-anfangen) lesen, auch die Liste „Nicht erneut machen“. Jede Aufgabe nennt unter „Braucht“ ihre Voraussetzungen und unter „Bearbeitung“, ob sie parallel läuft, zentral ist (nie aufteilen) oder das Team entscheidet.
-2. Status aller Aufgaben ansehen. Nur Aufgaben mit Status `frei` nehmen, `blockiert` und `Team` lehnt das Skript ab:
+2. Status aller Aufgaben ansehen, Einzelheiten einer Aufgabe mit `py tools/tasks.py show <kennung>` statt der ganzen `TODO.md`. Nur Aufgaben mit Status `frei` nehmen, `blockiert` und `Team` lehnt das Skript ab:
 
    ```bash
    py tools/tasks.py list
@@ -30,7 +30,7 @@ Worktrees liegen immer unter `.worktrees/` im Repo-Ordner, keine neuen Ordner da
 
 ## Beim Arbeiten
 
-- Bei Spieltests gilt: **eine Sitzung pro PC.** `Start-Session.ps1` bricht ab, wenn eine andere läuft. Dann mit `-Wait <Sekunden>` einreihen oder ohne Spiel weiterarbeiten, nie fremde Instanzen beenden. Spieltests bündeln, siehe [Spielzeit sparen](docs/TESTING.md#spielzeit-sparen).
+- Bei Spieltests gilt: **eine Sitzung pro PC.** `Start-Session.ps1` bricht ab, wenn eine andere läuft. Dann mit `-Wait <Sekunden>` einreihen oder ohne Spiel weiterarbeiten, nie fremde Instanzen beenden. Spieltests bündeln und Skripte mit `-Brief` aufrufen, Bilder nur bei Bedarf ansehen, siehe [Spielzeit sparen](docs/TESTING.md#spielzeit-sparen).
 - Die Exe nie von Hand mit dem Spike starten und nie `-unattended` verwenden, sonst können Absturzberichte bei Pixelsplit landen, siehe [Testen](docs/TESTING.md).
 - Im Spike nur die Datei des eigenen Themas ändern, die Aufteilung steht in der [Spike-README](research/spikes/a-connect/README.md#dateien).
 - Tests, die zwei Menschen live brauchen, lassen sich in einem Termin bündeln. Hinweise und mögliche Punkte stehen unter [Live-Sitzungen zu zweit](TODO.md#live-sitzungen-zu-zweit); daraus entsteht keine zusätzliche Pflicht.
@@ -40,7 +40,7 @@ Worktrees liegen immer unter `.worktrees/` im Repo-Ordner, keine neuen Ordner da
 ## Abschluss
 
 1. Ergebnisse festhalten, auch gescheiterte Versuche, siehe [Ergebnisse festhalten](docs/TESTING.md#ergebnisse-festhalten).
-2. Abschließen wie in [Aufgabe abschließen](TODO.md#aufgabe-abschließen): nur bei erfüllter Abnahme die eigene Zeile nach „Erledigt“ verschieben, alphabetisch. Ein Teil-PR reicht nicht. In `TODO.md` nur die eigenen Zeilen ändern, das hält Konflikte klein. Danach `py tools/task_status.py update`; `py tools/task_status.py check` muss vor dem PR bestehen. [docs/ROADMAP.md](docs/ROADMAP.md) anpassen. Branch-Löschung oder fehlende GitHub CLI dürfen nie als „Aufgabe frei“ interpretiert werden.
+2. Abschließen wie in [Aufgabe abschließen](TODO.md#aufgabe-abschließen): nur bei erfüllter Abnahme die eigene Zeile nach „Erledigt“ verschieben, alphabetisch, am einfachsten mit `py tools/tasks.py done <kennung> "<Ergebnis>"`. Ein Teil-PR reicht nicht. In `TODO.md` nur die eigenen Zeilen ändern, das hält Konflikte klein. Danach `py tools/task_status.py update` (macht `done` selbst); `py tools/task_status.py check` muss vor dem PR bestehen. [docs/ROADMAP.md](docs/ROADMAP.md) anpassen. Branch-Löschung oder fehlende GitHub CLI dürfen nie als „Aufgabe frei“ interpretiert werden.
 3. Den Draft-PR fertigstellen, keinen zweiten öffnen: Titel und Beschreibung ersetzen, dabei sagen, wie getestet wurde, dann auf „Ready for review“ stellen. Nur auf ausdrückliche Anweisung des Menschen mergen.
 
    ```bash

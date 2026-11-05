@@ -62,6 +62,11 @@ Pro PC läuft nur eine Sitzung, Spielzeit ist der Engpass. Darum:
   fahren, die Sitzung dabei weiterverwenden statt sie je Prüfung neu zu starten.
 - **Warten statt abbrechen.** `Start-Session.ps1 -Wait 1800` reiht sich hinter eine fremde Sitzung ein und startet, sobald sie endet.
 - **Nur neu starten, was nötig ist.** `Restart-Instance.ps1` startet nur den Client neu (etwa 20 s). `-Build` nur, wenn sich der Spike geändert hat.
+  Hält der Host direkt nach dem Beenden noch die alte Verbindung („Der Host hat schon einen Mitspieler“), erstellt er eine neue Lobby und
+  der Client tritt ihr bei, das macht das Skript selbst.
+- **Kurz ausgeben.** `Start-Session.ps1`, `Restart-Instance.ps1`, `Get-Status.ps1`, `Start-Run.ps1` und `Travel-Day.ps1` kennen `-Brief`:
+  eine Zeile je Instanz (Karte, Spieler, Rolle), eine für Inventar und eine für Abstürze. Volle Ausgabe und Bilder nur ansehen, wenn
+  etwas nicht stimmt. `Travel-Day.ps1` wartet auf die neue Karte mit beiden Spielern statt fest 35 s, meist reichen 10 s.
 - **Skripte statt Klicks.** `Overlay.ps1` bedient das Overlay, `Watch-Net.ps1` zeigt Meldungen mit Zeit, `Test-NetEnd.ps1` prüft das
   Sitzungsende in rund einer Minute. Wer eine Prüfung zum zweiten Mal von Hand macht, schreibt dafür ein Skript.
 

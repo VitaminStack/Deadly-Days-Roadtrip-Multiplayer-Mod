@@ -48,7 +48,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `weekly-sperre` | P1 | [6](#phase-6--release) | parallel | wenig |
 | `mod-steuerung` | P1 | [Wartung](#wartung) | parallel | wenig |
 | `doku-verweise` | P2 | [Wartung](#wartung) | parallel | keine |
-| `token-sparen` | P2 | [Wartung](#wartung) | parallel | wenig |
 
 **Wartet auf das Team:** `meta-fortschritt`, `spiel-update`.
 <!-- frei:end -->
@@ -195,7 +194,6 @@ Zählt nicht zum Fortschritt.
 |---|---|---|---|---|---|
 | `doku-verweise` | P2 | Veraltete Querverweise verhindern: `task_status.py check` meldet Sätze wie „folgt mit“, „kommt mit“ oder „bis `<kennung>`“, deren Kennung schon erledigt ist. Dabei die bekannten Stellen korrigieren: Overlay-Absatz in [Testen](docs/TESTING.md#mod-overlay-prüfen) (Lobby-Knöpfe), Phase-3-Satz im [README](README.md), „Das kommt mit `steam-lobby`“ in [Net](src/Net/README.md), Welle 2 in der [Roadmap](docs/ROADMAP.md), und im Abschnitt [Test auf zwei PCs](docs/TESTING.md#test-auf-zwei-pcs) den Weg über `-Tunnel Lobby` ergänzen. **Fertig, wenn** die Prüfung in der CI läuft und auf `main` nichts meldet | – | parallel | keine |
 | `mod-steuerung` | P1 | Steuerkanal in der Mod für Testskripte: Befehle mit Antwort über eine lokale Named Pipe je Prozess, nur mit Testschalter aktiv. Mindestens Zustand als JSON (Welt, Rolle, Spieler, Sitzung, Overlay), Lobby erstellen, beitreten, verlassen, Konsolenbefehl und Reise. Ersetzt die Befehlsdatei des Spikes (`Send-SpikeCommand`, eine Sekunde Abfrage, keine Antwort) und das Auslesen per `netstate.py` und Overlay-Fenster. **Fertig, wenn** `Start-Session.ps1`, `Restart-Instance.ps1` und `Test-NetEnd.ps1` ohne Spike-Befehle auskommen und gleich schnell oder schneller sind. **Einstieg:** [Spielzeit sparen](docs/TESTING.md#spielzeit-sparen), `tools/spike/Common.ps1` | `test-tempo` | parallel | wenig |
-| `token-sparen` | P2 | Weniger Kontext je Agent: `tasks.py show <kennung>` und `tasks.py done <kennung> "<Ergebnis>"` statt `TODO.md` ganz zu lesen und von Hand umzusortieren, Kurzausgabe `-Brief` der Testskripte statt ganzer Zustände und Logs. **Fertig, wenn** `show` und `done` getestet sind und die Kurzausgabe in einer Testsitzung geprüft ist. **Einstieg:** [tools](tools/README.md), [Spielzeit sparen](docs/TESTING.md#spielzeit-sparen) | – | parallel | wenig |
 | `spiel-update` | P2 | Nur wenn das Team einen neuen Spiel-Build beschließt: Offsets, Signaturen und Patches anpassen. Betrifft alles auf einmal, alle Spieltests warten darauf. **Einstieg:** [Update-Regel](CONTRIBUTING.md#spiel-updates) | – | Team | viel |
 
 ## Optionale Optimierungen
@@ -286,6 +284,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `testaufbau` | 1 | Zwei Instanzen auf einem PC unter demselben Steam-Konto, je mit eigenem `-UserDir=` |
 | `testumgebung` | 1 | Tag 1 bis 4 laden sauber mit Spawn am Bus und je 2 PlayerStates, Prüfskript und fester Routenlauf, siehe [Pausierte Welt und Busplatz](docs/GAME_ANALYSIS.md#pausierte-welt-und-busplatz-testumgebung) |
 | `tick-absturz` | 1 | Restrictor-Absturz `0x5A17ACC` nachgestellt, Laufzeitfix ist `restrictor`, siehe [Restrictor](docs/GAME_ANALYSIS.md#client-absturz-im-restrictor-tick-absturz) |
+| `token-sparen` | Wartung | `tasks.py show`/`done` und `-Brief` für die Testskripte, im Spiel geprüft, [Spielzeit sparen](docs/TESTING.md#spielzeit-sparen) |
 | `transport` | 3 | Tunnel aus Spike E als Modul `src/Net/Transport` mit Tests ohne Spiel; im Spiel über den Tunnel der Mod bis Tag 1, Inventare gleich, siehe [Net](src/Net/README.md#transport-transport) |
 | `treffer` | 1 | Projektile des Clients ziehen beim Host Leben ab und töten (`Hits.cpp`), siehe [Treffer](docs/GAME_ANALYSIS.md#treffer-des-clients-treffer) |
 | `trennen` | 1 | Client-Absturz beim Trennen war eine Folge fehlender Inventar-Items, mit Teilfix kein Absturz, siehe [Trennen](docs/GAME_ANALYSIS.md#trennen-ins-hauptmenü-trennen) |
