@@ -7,6 +7,13 @@ Schnittstellen und reflektierte Felder, nicht die gesamte native Implementierung
 
 ## Befunde und festgelegter Weg pro Komponente
 
+**Projektweite Präzisierung vom 05.11.2026:** [Lokal zuerst, minimal synchronisieren](ARCHITECTURE.md#projektweite-nutzervorgabe-vom-05112026).
+„Client-Spiegel“ bedeutet bestätigte gemeinsame Daten, nicht ausschließliche Fernsteuerung seiner UI.
+Native lokale UI-/Inventar-Vorprüfung, Layout, Vorschau und Kosmetik sollen weiterlaufen;
+Vergabe, Verbrauch, Kosten und Effekte müssen genau einmal bestätigt werden. Abgeleitete lokale
+Caches nach Übernahme neu aufbauen, nicht als Host-Speicher kopieren. Die Matrix unten bleibt
+ein Vertrag für gemeinsame Wirkung, kein Verbot lokaler Berechnung. [Audit und Folgearbeit](CLIENT_LOCAL_AUDIT.md).
+
 | Komponente | Beleg im SDK | Vorgeschlagener Sync-Weg | Trigger und Client-Verhalten |
 |---|---|---|---|
 | `LevelSystemComponent` | `AddExperience`, `RequestLevelUp`, `OnExperienceChanged`, `OnLevelChanged`, `GetCurrentLevel`, `GetExperiencePercentage`; Run-/Travel-Interfaces | Host-Snapshot fuer gemeinsame Run-XP/Level plus getrennten Reward-Zustand. Keine XP-Simulation beim Client | Delegates nach autoritativer Aenderung beobachten; Vollbild nach Join/Travel. Client aktualisiert nur ein Mod-/HUD-Anzeigemodell, kein `AddExperience`-Replay |

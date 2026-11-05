@@ -482,7 +482,11 @@ Stand: Spike `MapGen.cpp`, mehrere Läufe über das Spielmenü am 03.11.2026, Bu
 - **[Belegt]** Das Profil einer Mission folgt nicht allein aus dem Seed: Derselbe `MapSeed` ergab je nach Lauf `MGP_City_LittleIndia`, `MGP_GolfCourse` oder `MGP_Forest`. Es muss also mit übertragen werden.
 - **[Belegt]** Ist das Profil beim Client nicht geladen, lädt der Spike es wie der Starter des Spiels über einen Soft-Verweis: `MakeSoftObjectPath`, `Conv_SoftObjPathToSoftObjRef` und `LoadAsset_Blocking` der `KismetSystemLibrary`.
 - **[Belegt]** Tags gehen als Namen über, der FName-Index gilt nur je Prozess. Beim Client entsteht der Tag über `Conv_StringToName` und `BlueprintGameplayTagLibrary.AddGameplayTag`, so legt das Spiel den Speicher selbst an.
-- **Spike-Ersatz für den Kontrollkanal:** Der Host schreibt die Werte in `mapgen.txt` im Befehlsordner des Spikes, der Client auf demselben PC liest sie. Kommt der Client vorher an, wartet seine Erzeugung und startet aus dem Sekunden-Tick. Über das Netz geht das noch nicht.
+- **Spike-Ersatz für den Kontrollkanal:** Der Host schreibt die Werte in `mapgen.txt` im Befehlsordner des Spikes, der Client auf demselben PC liest sie. Kommt der Client vorher an, wartet seine Erzeugung und startet aus dem Sekunden-Tick.
+- **Über das Netz (`karte-tunnel`):** Mit dem Steam-Tunnel schickt der Host-Tunnel jede neue Fassung von `mapgen.txt` zuverlässig an den Client-Tunnel, der sie bei sich ablegt, siehe [Steam-Tunnel](../research/spikes/a-connect/README.md#spike-e-steam-tunnel-tunnel).
+  - **[Belegt]** Ohne das blieb der Client beim Test auf zwei PCs (04.11.2026) bei `MapGen: Client wartet auf die Host-Karte` stehen. Er erzeugte keine Karte, und die Figuren fielen in der Mission durch den Boden. Der Tunnel-Bericht war trotzdem grün, weil er nur Verbindung, Ping und Absturzfreiheit prüft.
+  - **[Belegt]** Auf einem PC mit `-Tunnel Ip` kam die Karte über den Tunnel an (`Tunnel: Host-Karte empfangen`), der Client übernahm Seed und Profil, Inventare an Tag 1 gleich, 0 verworfene Pakete.
+  - Ohne Tunnel, also bei direkter Verbindung über `-Peer <Adresse>:7777`, geht die Karte weiterhin nur auf einem PC. Das löst der Kontrollkanal (`protokoll`).
 
 **Duplikate:** `UChildActorComponent::CreateChildActor` (`0x288B510`) lässt replizierte Child Actors nur aus, wenn der Besitzer keine Autorität hat (Prüfung mit `0x289DB60`). Beim Client sind die erzeugten Parzellen lokal und `Authority`.
 Der Spike setzt deshalb für genau diesen Aufruf die Rolle des Besitzers auf `SimulatedProxy`, wenn alles zutrifft: Client, die eigene Erzeugung läuft noch (`MapGenerationState` hat einen aktiven oder wartenden Sub-Generator), Besitzer nicht repliziert, Child-Klasse repliziert. Die Engine nimmt dann ihren eigenen Ausstieg.
@@ -501,7 +505,7 @@ Verglichen wurden Klasse, Position und Drehung aller `MapTile` und die Klassen a
 Offen:
 
 - Bäume und Pflanzen aus PCG fehlten beim Client, gelöst in [PCG-Vegetation beim Client](#pcg-vegetation-beim-client-pcg).
-- Die Werte müssen über einen echten Kanal zum Client, im Spike geht es über eine Datei auf demselben PC.
+- ~~Die Werte müssen über einen echten Kanal zum Client.~~ Erledigt, siehe [Gleiche Karte in der Mod](#gleiche-karte-in-der-mod-missionsstart).
 - Die Sperre zählte rund 1.400 unterdrückte Child Actors, der Host repliziert weniger Objekte. **[Vermutung]** Ein Teil der Komponenten wird mehrfach erzeugt oder per Zufall ersetzt (`RandomChildActorSwapWrapper`). Fehlende Objekte waren im Bestand nicht zu sehen. Was außer Reichweite liegt, kommt erst bei Annäherung übers Netz.
 - Nicht getestet: Tag 2 und spätere Karten, Bosskarten, ein Kartenwechsel per `servertravel` mit neuer Karte, Verbindungen über das Internet.
 
@@ -558,6 +562,39 @@ Offen:
 - Die Seeds wirken erst mit dem nächsten Sekunden-Tick, bis dahin können die Arten kurz abweichen. Die Kosten des neuen Render-Zustands sind nicht gemessen.
 - **[Belegt]** Die erste Fassung von `TickPcg` las den Besitzer jedes Objekts vor der Klassenprüfung und ließ einmal einen Client abstürzen. Behoben in `last`, siehe [Last](#last-spike-d-last).
 - Nicht getestet: andere Biome, Tag 2 und später, Bosskarten, Internet.
+
+#### Gleiche Karte in der Mod (`missionsstart`)
+
+Stand 05.11.2026, Build `26187885`, ein PC, zwei Instanzen, Lobby und Tunnel der Mod (`Run-Route.ps1 -Start`). Die Eingriffe aus
+`MapGen.cpp` und `Pcg.cpp` stehen jetzt in `src/Game/MapPatches.cpp`. Die Werte gehen über den Kontrollkanal statt über Dateien
+(`src/Sync/World/MapSync.cpp`, Typ `0x400`).
+
+- **Host:** Nach `StartMapGeneration` liest er Seed, Profil (Paket und Name), Größe und Tags und vergibt eine zufällige Kennung. Nach
+  Slot 85 des PCG-Generators kommt der Graph dazu oder „kein Graph“. Der Kontrollkanal schickt den Stand bei jeder Änderung und jede
+  Sekunde; nach einem Kartenwechsel ohne neue Erzeugung schickt er „keine Karte“.
+- **Client:** `StartMapGeneration` wartet, bis Werte mit einer noch nicht übernommenen Kennung da sind, und höchstens 5 s länger auf den
+  Graphen. Jede Kennung gilt nur einmal, alte Werte passen so nie zur nächsten Karte. Ausnahme: Versucht das Spiel die Erzeugung in derselben Welt mit demselben Generator neu (`StartMapGenerationWithRetryAttempts`, `TryToRegenerate`), nimmt der Client dieselben Werte noch einmal. Kommen 60 s lang keine Werte, erzeugt der Client
+  eine eigene Karte (Log `Karte: nach 60 s keine Werte vom Host`), statt ewig zu laden.
+- **Child Actors und PCG-Seeds** wie im Spike. Die Seeds setzt die Mod nur zu zweit, allein bleibt die Vegetation wie ohne Mod.
+
+| Lauf | Profil | Warten beim Client | Kacheln Host / Client | Ergebnis |
+|---|---|---|---|---|
+| Netzprofil Internet (120 ms ±30, 2 % Verlust), Tag 1 | `MGP_City_LittleItaly`, Tag `Rain` | 1.610 ms, davon die meiste Zeit auf den Graphen | 159 / 159 | `check_round` sauber, Inventare gleich, PCG-Graph und 7 Seeds übernommen |
+| Ohne Netzprofil, Tag 1 | dasselbe | 2.015 ms | 159 / 159 | sauber |
+| Netzprofil Internet, Tag 1 und 2 | Tag 2 `MGP_City` | 1.485 und 438 ms | 159 / 159, 63 / 63 | sauber, die zweite Karte mit neuer Kennung |
+| Nur Spike zum Vergleich | `MGP_City_LittleItaly` | – | 159 / 159 | sauber |
+| Nur Mod, ohne `spike.dll` (`-NoSpike`), Zufalls-Seed | `MGP_GolfCourse`, Profil beim Client nachgeladen | 1.109 ms | 96 / 96 | sauber, Wald und Baumarten im Spielbild gleich |
+
+- **[Belegt]** Nicht replizierte Actors gleich bis auf Host-Logik (`BP_ChestLootSpot_C`, Loot-Kisten, `SeekingAIController`) und
+  Laternen. Die Laternen fehlten im Abgleich teils beim Client, eine Minute später gab es auf keiner Seite mehr Laternen-Instanzen. Der
+  Abgleich ist also ein Schnappschuss laufender Objekte, kein Unterschied der Erzeugung. Replizierte Objekte unterscheiden sich nur
+  nach Netz-Reichweite.
+- **[Belegt]** Im Spielbild stimmen Straßen, Gebäude, Fahrzeuge und Bus überein. Kleine Abweichungen blieben: ein Baum in anderer Art,
+  ein anderes Dach, ein Pickup nur beim Client. **[Vermutung]** Zufällige Varianten einzelner Child Actors (`RandomChildActorSwapWrapper`)
+  oder ein Objekt, das beim Host schon zerstört war. Kleine Fehler, siehe `opt-karte-details`.
+- **Nicht geprüft:** zwei PCs, Bosskarten, Biome außer Stadt und Wald.
+- Mit `-Mod` und dem Tunnel des Spikes (`-Tunnel Ip`, `P2p`, `None`) fehlt der Kontrollkanal, der Client erzeugt dann nach 60 s eine
+  eigene Karte. `Start-Session.ps1` warnt davor, `Test-TwoPc.ps1 -Mod` bricht ab.
 
 ### Gegner und Pausen
 
@@ -654,6 +691,42 @@ Stand: Spieltest am 04.11.2026, Build `26187885`, ein PC über Loopback, Route �
 - **Fix in `Camera.cpp`:** nur Controller mit `LocalPlayer` (`+0x348`) und die Kamera aus `PersistentLevel` der aktuellen Welt. Jede Sekunde prüft der Spike das ViewTarget (`PlayerCameraManager+0x340`) und setzt es nur, wenn es nicht die Kamera ist. Das Log nennt das vorherige Ziel.
 - **[Belegt]** Mit dem Fix: Je Weltwechsel genau ein „Kamera: gesetzt, vorher BP_DD_Character_C“, also beim Betreten von MetaBase, Tag 1 und Tag 2. Danach blieb das ViewTarget die Kamera. Die Blickposition des Clients war gleich der des Hosts, die Bilder fast gleich. Lief die Client-Figur 2,5 s, folgte die Client-Kamera ruhig und lag höchstens rund 10 Einheiten neben der des Hosts.
 - Nicht geprüft: weitere Tage, Internet, Mission → MetaBase.
+
+### Dodge beim Client (`bewegung`)
+
+Stand 05.11.2026, Build `26187885`, ein PC, Mod über die Lobby, Netzprofil Internet (120 ms, 2 % Verlust), Tag 1. Gemessen mit
+lokalen, nur lesenden Testskripten alle 20 ms, die Dodges hat ein Mensch in beiden Fenstern ausgelöst.
+
+- **[Belegt]** Der Dodge ist `GA_Dash_C` (`LocalPredicted`, eine Instanz je Ausführung). Für etwa 0,12 bis 0,16 s setzt er an der
+  Bewegungskomponente `GroundFriction` 0 und `GravityScale` 20, schiebt die Figur mit Tempo 6500 an
+  (`UAbilityTask_ApplyRootMotionConstantForce`) und stellt beides danach zurück (`RestoreBeforeDashSettings`).
+- **[Belegt] Client ohne Trägheit:** Beim Host kamen die Werte nach jedem Dodge zurück. Beim Client nach drei Dodges nicht mehr: Reibung 0
+  und Schwerkraft 20 blieben stehen, jeder weitere Dodge rutschte bis zu 2,3 s mit sinkendem Tempo weiter. In einer zweiten Messung trat
+  das nicht auf. Beim Host lief der Dodge des Clients jeweils mit (Spec-ActiveCount 0/1), seine Kopie der Client-Figur änderte die
+  Werte aber nie. **Vermutung:** Endet die vorhergesagte Fähigkeit beim Client über eine Bestätigung oder Ablehnung des Hosts statt über
+  ihre Aufgabe, fehlt das Zurückstellen; mit Ping häufiger.
+- **[Belegt] Host-Figur friert beim Client ein:** Nach einem Dodge des Hosts stand seine Kopie beim Client in `MOVE_None` oder
+  `MOVE_Falling` mit Tempo 6500 und bewegte sich nicht mehr, obwohl `ReplicatedMovement.Location` den richtigen Host-Ort trug. Ursache: Der
+  Host stand danach auf `BP_Fog_Edge_BASE_C`, einer beweglichen, nicht replizierten Unterlage. Die Engine repliziert den Ort dann relativ
+  zur Unterlage (`ReplicatedBasedMovement`, `bServerHasBaseComponent`=1); beim Client ist `MovementBase` leer, und die Kopie wartet ohne
+  Ende darauf. Zeitlich fiel das zweimal mit einer Weltpause durch ein Item-Panel zusammen; **Vermutung:** Der Dodge schob den Host an
+  den Rand, die Pause selbst ist nicht die Ursache.
+- **[Belegt] Nebenbei:** Beim Client stehen `MaxWalkSpeed` und `MaxAcceleration` beider Figuren auf 600 und 2048, beim Host auf 630 und
+  2205 (`opt-tempo-upgrades`). Beim Host hatte die Kopie der Client-Figur zeitweise nur ein Zehntel davon.
+
+**In der Mod** (`src/Game/MovementPatches.cpp`, nur Client, jeder Frame, Figurenliste je Sekunde):
+
+| Fall | Reparatur |
+|---|---|
+| Eigene Figur länger als 0,75 s auf Reibung 0 und Schwerkraft 20 | Werte aus dem Klassen-Defaultobjekt der Bewegungskomponente zurück |
+| Fremde Figur steht auf einer Unterlage, die der Client nicht kennt | Jeden Frame weich zum replizierten Ort, mit dem replizierten Tempo höchstens 150 ms vorausgerechnet; Tempo und Modus übernommen, ab 6 m Abstand Sprung |
+| Fremde Figur 0,5 s in `MOVE_None` oder mehr als 3 m neben dem replizierten Ort | Ort, Tempo und Modus aus der Replikation |
+
+Im Spiel danach: Der Host dodgte an den Rand und in Items, seine Figur folgte beim Client (Log „folge dem Host-Ort“, „Engine übernimmt“,
+wenn die Unterlage wieder bekannt ist). Mit Vorausberechnung bestätigt der Mensch „passt“, vorher „etwas laggy“. Kein Absturz, Inventare
+gleich. **Nicht geprüft:** zwei PCs, Blickrichtung gesondert (nur im Spielbild mitgesehen). Sauberer wäre, wenn der Host bei einer nicht
+replizierten Unterlage gleich absolut repliziert; dann übernähme die Glättung der Engine. Das braucht einen Eingriff in die Replikation
+des Characters und ist nicht umgesetzt.
 
 ### Client-Absturz im Restrictor (`tick-absturz`)
 

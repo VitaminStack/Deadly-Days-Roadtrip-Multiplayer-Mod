@@ -6,6 +6,8 @@
 #include <cstring>
 
 #include "Game/CodeCave.h"
+#include "Game/MapPolicy.h"
+#include "Game/MovementPolicy.h"
 #include "Game/PatchPolicy.h"
 #include "Game/Patches.h"
 #include "Game/RemoteP2Policy.h"
@@ -445,4 +447,70 @@ TEST_CASE("Patches: Restrictor-Wächter bremst ohne GameState nicht und stürzt 
         *reinterpret_cast<int32_t*>(GameState + 0x2C8) = Players;
         CHECK(Guard(GameState) == (Players > 1 ? 1 : 0));
     }
+}
+
+TEST_CASE("Bewegung: Dodge-Werte und Figur ohne Bewegungsmodus erkennen")
+{
+    CHECK(DashSettingsLeft(0.f, 20.f));
+    CHECK_FALSE(DashSettingsLeft(8.f, 1.f));
+    CHECK_FALSE(DashSettingsLeft(0.f, 1.f));  // andere Ursache, etwa Eis, nicht anfassen
+    CHECK_FALSE(DashSettingsLeft(8.f, 20.f));
+    CHECK(ProxyMovementStopped(0, 1));       // None, Host meldet Walking
+    CHECK(ProxyMovementStopped(0, 0x23));    // Custom-Modus 2 im oberen Nibble, MovementMode 3
+    CHECK_FALSE(ProxyMovementStopped(1, 1));
+    CHECK_FALSE(ProxyMovementStopped(0, 0)); // Host meldet selbst None
+    CHECK(PackedMovementMode(0x23) == 3);
+    CHECK(PackedCustomMode(0x23) == 2);
+}
+
+TEST_CASE("Bewegung: erst ein Zustand am Stück über der Grenze löst aus")
+{
+    StuckTimer Timer;
+    CHECK_FALSE(Timer.Update(true, 1000, 750));
+    CHECK_FALSE(Timer.Update(true, 1700, 750));
+    CHECK(Timer.Update(true, 1750, 750));
+    CHECK_FALSE(Timer.Update(false, 1760, 750)); // laufender Dodge endete normal
+    CHECK_FALSE(Timer.Update(true, 1800, 750));
+    CHECK_FALSE(Timer.Update(true, 2549, 750));
+    CHECK(Timer.Update(true, 2550, 750));
+    StuckTimer AtZero;
+    CHECK_FALSE(AtZero.Update(true, 0, 10)); // Zeit 0 gilt als gestartet, nicht als „nie“
+    CHECK_FALSE(AtZero.Update(true, 9, 10));
+    CHECK(AtZero.Update(true, 10, 10));
+}
+
+TEST_CASE("Bewegung: fremde Figur gilt erst ab 3 m neben dem Host-Ort als abgehängt")
+{
+    CHECK_FALSE(ProxyDrifted(0, 0));
+    CHECK_FALSE(ProxyDrifted(200, 200)); // 2,8 m, etwa Glättung während eines Dodges
+    CHECK(ProxyDrifted(250, 4555 - 4507 + 200));
+    CHECK(ProxyDrifted(-1722, 1545)); // gemessen: Kopie bei (1837,4430), Host bei (116,5975)
+}
+
+TEST_CASE("Bewegung: unbekannte Unterlage und weiches Folgen")
+{
+    int Dummy = 0;
+    const auto Some = reinterpret_cast<uintptr_t>(&Dummy);
+    CHECK(BaseUnresolved(0x01, 0));
+    CHECK(BaseUnresolved(0x07, 0));
+    CHECK_FALSE(BaseUnresolved(0x01, Some)); // Unterlage beim Client bekannt
+    CHECK_FALSE(BaseUnresolved(0x00, 0));    // Host steht auf nichts Beweglichem
+    CHECK(FollowShare(0) == doctest::Approx(0.05));
+    CHECK(FollowShare(16) == doctest::Approx(16.0 / 40.0));
+    CHECK(ExtrapolationSeconds(0) == doctest::Approx(0.0));
+    CHECK(ExtrapolationSeconds(80) == doctest::Approx(0.08));
+    CHECK(ExtrapolationSeconds(5000) == doctest::Approx(0.15));
+    CHECK(FollowShare(66) == doctest::Approx(1.0));
+    CHECK(FollowShare(500) == doctest::Approx(1.0));
+}
+
+TEST_CASE("Karte: Client wartet auf die Werte des Hosts, aber nicht ewig")
+{
+    CHECK(ClientMapStart(false, false, 0, 0) == MapStart::Wait);
+    CHECK(ClientMapStart(false, false, HostMapWaitMs - 1, 0) == MapStart::Wait);
+    CHECK(ClientMapStart(false, false, HostMapWaitMs, 0) == MapStart::Own);
+    CHECK(ClientMapStart(true, true, 0, 0) == MapStart::HostValues);
+    CHECK(ClientMapStart(true, false, 0, 0) == MapStart::Wait);
+    CHECK(ClientMapStart(true, false, HostMapWaitMs * 2, HostGraphWaitMs - 1) == MapStart::Wait);
+    CHECK(ClientMapStart(true, false, 0, HostGraphWaitMs) == MapStart::HostValues);
 }

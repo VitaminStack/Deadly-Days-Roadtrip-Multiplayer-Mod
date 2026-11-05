@@ -32,8 +32,8 @@ Je Thema eine Datei, damit parallele Arbeit nicht in dieselbe Datei läuft. Neue
 | `Mission.cpp` | Gegnerwelle, Missionsende, Rundenphasen vom Host zum Client mit Anzeige und Eingabesperre |
 | `Trace.cpp` | Zähler für RPCs und Run-Funktionen |
 | `CrashReports.cpp` | Sperre des Crash-Reporters, zweite Schicht neben `CrashGuard.ps1` |
-| `MapGen.cpp` | Client erzeugt die Karte mit den Werten des Hosts, lokale Kopien replizierter Child Actors unterdrückt |
-| `Pcg.cpp` | Client erzeugt die PCG-Vegetation mit dem Graphen des Hosts, gleiche Seeds der Instanz-Komponenten |
+| `MapGen.cpp` | Client erzeugt die Karte mit den Werten des Hosts, lokale Kopien replizierter Child Actors unterdrückt. Mit der Mod aus, die das über ihren Kontrollkanal macht (`missionsstart`) |
+| `Pcg.cpp` | Client erzeugt die PCG-Vegetation mit dem Graphen des Hosts, gleiche Seeds der Instanz-Komponenten. Mit der Mod aus wie `MapGen.cpp` |
 | `Hits.cpp` | Host: Treffer auf Gegner mit Schütze, Schaden und Lebenspunkten |
 | `HealthBars.cpp` | Client: Lebensleisten über den Figuren nach replizierten HP aktualisieren |
 | `RunEnd.cpp` | Niederlage: Run-Ende-Handler ohne `LocalPlayer` des Remote-Controllers |
@@ -108,7 +108,7 @@ Ist `DDCoop.dll` geladen und meldet über `DDCoopPatchState`, dass sie ihre Patc
 Ausgelassen werden dann `PatchPlayers`, `PatchClient` (samt Diagnose `NewActor failed`), `PatchCamera`, `PatchInventory`, `PatchTravel`,
 `PatchWidgets`, `PatchMapObjects`, der Busplatz aus `PatchTestEnv`, `PatchHealthBars` und `PatchRunEnd`, dazu im Sekunden-Tick Kamera,
 Client-Positionen, `SpawnedPlayers` und die zurückgehaltene HUD. `!arm`, `!cam` und `!authmove` melden dann nur, dass die Mod das übernimmt.
-Der Phasenbeobachter meldet sich über `DDCoopObserveProcessEvent` bei der Mod an. Karte (`MapGen.cpp`), PCG, Testhilfen und Messung bleiben im Spike.
+Der Phasenbeobachter meldet sich über `DDCoopObserveProcessEvent` bei der Mod an. Seit `missionsstart` lässt der Spike dann auch Karte (`MapGen.cpp`) und PCG (`Pcg.cpp`) aus; die Mod bringt die Werte über ihren Kontrollkanal. Ohne Tunnel der Mod, also mit `-Mod` und `-Tunnel Ip`, `P2p` oder `None`, bekommt der Client dann keine Host-Karte. Testhilfen und Messung bleiben im Spike.
 Ohne Mod ändert sich nichts.
 
 Die Zuordnung der Funktionen stammt aus der Disassembly ohne Symbole. Die Kamera ist über Offsets im SDK belegt, die übrigen passen zu den Aufrufern.
@@ -257,6 +257,21 @@ Stand 04.11.2026, Build `26187885`, `main` auf `0607feb`. Zwei PCs, zwei Steam-K
 - Auf der Client-Seite war keine Änderung nötig. Auf dem Host-PC öffnete sich das Spielfenster mit 1215 x 683 statt 800 x 450, darum
   trafen die Klicks von `Start-Run.ps1` daneben. `Game-Input.ps1` setzt das Fenster seitdem vor jedem Klick, jeder Taste und jedem Bild auf 800 x 450.
 - Nicht geprüft: Verbindung ohne Relay (direkt), Paketverlust unter Last, Abbruch und Neuaufbau über P2P, Tag 2 und weiter über zwei PCs.
+- **[Belegt]** In der Mission fielen die Figuren durch den Boden. Der Client hatte keine Karte: `MapGen.cpp` liest die Host-Karte aus `mapgen.txt`, die es nur auf dem Host-PC gab. Das Log endete bei `MapGen: Client wartet auf die Host-Karte`. Der Bericht von `Test-TwoPc.ps1` prüft das nicht. Behoben mit `karte-tunnel`, siehe unten.
+
+### Host-Karte über den Tunnel (`karte-tunnel`)
+
+Stand 04.11.2026, Build `26187885`. Der Tunnel trägt neben dem Spielverkehr die Host-Karte, damit der Client sie auch auf einem anderen PC bekommt.
+
+- Jede Steam-Nachricht beginnt mit einem Typ-Byte: `0` Spielpaket, `1` Host-Karte. **Beide PCs brauchen deshalb denselben Spike-Stand**, ein alter Spike auf der Gegenseite verwirft die Pakete (`verworfen` im Log steigt).
+- Host-Tunnel: prüft alle 250 ms, ob `mapgen.txt` neu geschrieben wurde, und schickt den Inhalt zuverlässig (`Reliable`) an jeden verbundenen Client. Eine Datei, die schon vor `!tunnel host` da war, gilt als alt und geht nicht raus. Werte älter als 120 s gehen auch an neue Verbindungen nicht mehr.
+- Client-Tunnel: legt den Inhalt als eigene `mapgen.txt` ab, `MapGen.cpp` liest sie wie bisher. Steht dieselbe Fassung schon frisch dort, weil Host und Client auf einem PC laufen, bleibt die Datei unberührt.
+- Log: `Tunnel: Host-Karte an Verbindung ... geschickt` beim Host, `Tunnel: Host-Karte empfangen ...` beim Client.
+
+| Test | Ergebnis |
+|---|---|
+| Ein PC, `-Tunnel Ip`, Seed `20795`, Tag 1 | **[Belegt]** Host schickt die Karte, Client empfängt sie (`schon aktuell`), übernimmt Seed und Profil, Inventare gleich, 0 verworfene Pakete |
+| Zwei PCs, P2P | Offen, braucht den zweiten PC |
 
 ## Bekannte Abweichungen
 

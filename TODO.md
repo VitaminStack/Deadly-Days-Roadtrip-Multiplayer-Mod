@@ -35,11 +35,9 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | Kennung | Prio | Phase | Bearbeitung | Spielzeit |
 |---|---|---|---|---|
 | `lobby-live` | P0 | [3](#phase-3--session-und-verbindung) | zu zweit | wenig |
-| `bewegung` | P0 | [4](#phase-4--vertical-slice) | parallel | mittel |
 | `gegnertyp` | P0 | [4](#phase-4--vertical-slice) | parallel | mittel |
 | `kamera-code` | P0 | [4](#phase-4--vertical-slice) | parallel | mittel |
 | `kampf` | P0 | [4](#phase-4--vertical-slice) | parallel | mittel |
-| `missionsstart` | P0 | [4](#phase-4--vertical-slice) | parallel | viel |
 | `rundenende-absturz` | P0 | [4](#phase-4--vertical-slice) | parallel | mittel |
 | `airdrop-rucksack` | P0 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `airdrop-warten` | P0 | [5](#phase-5--vollständiger-run) | parallel | mittel |
@@ -48,6 +46,7 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `xp-baelle` | P1 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `installer` | P1 | [6](#phase-6--release) | parallel | keine |
 | `weekly-sperre` | P1 | [6](#phase-6--release) | parallel | wenig |
+| `karte-tunnel` | P1 | [Wartung](#wartung) | zu zweit | wenig |
 | `mod-steuerung` | P1 | [Wartung](#wartung) | parallel | wenig |
 | `doku-verweise` | P2 | [Wartung](#wartung) | parallel | keine |
 | `opt-ladezeit-messung` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
@@ -142,9 +141,7 @@ Ziel: Zwei Spieler starten eine Mission, kämpfen gegen einen Gegnertyp und sehe
 
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
-| `missionsstart` | P0 | Gemeinsamer Missionsstart, gleiche Karte bei beiden. Ordner `src/Sync/World` | `remote-spieler` | parallel | viel |
 | `kamera-code` | P0 | Gemeinsame Kamera (Option A) auch beim Client umsetzen, ursprünglichen Zoom und Bewegungsbegrenzung erhalten. Ordner `src/Sync/World`, `src/Game`. **Einstieg:** [Kamera](docs/GAME_ANALYSIS.md#kamera-und-sichtbereich) | `remote-spieler` | parallel | mittel |
-| `bewegung` | P0 | Bewegung, Dash und Blickrichtung. Ordner `src/Sync/Players`, Dateien mit `eingaben` absprechen | `remote-spieler` | parallel | mittel |
 | `kampf` | P0 | Waffen, Projektile, Treffer, Schaden, Tod. Ordner `src/Sync/Combat` | `remote-spieler` | parallel | mittel |
 | `gegnertyp` | P0 | Ein Gegnertyp inklusive Spawn und Tod. Ordner `src/Sync/Enemies` | `remote-spieler` | parallel | mittel |
 | `eingaben` | P1 | Eingaben aus dem lokalen `CoopInputRouter` sauber vom Remote-Spieler trennen. Ordner `src/Sync/Players`, Dateien mit `bewegung` absprechen | `remote-spieler` | parallel | mittel |
@@ -193,6 +190,7 @@ Zählt nicht zum Fortschritt.
 |---|---|---|---|---|---|
 | `doku-verweise` | P2 | Veraltete Querverweise verhindern: `task_status.py check` meldet Sätze wie „folgt mit“, „kommt mit“ oder „bis `<kennung>`“, deren Kennung schon erledigt ist. Dabei die bekannten Stellen korrigieren: Overlay-Absatz in [Testen](docs/TESTING.md#mod-overlay-prüfen) (Lobby-Knöpfe), Phase-3-Satz im [README](README.md), „Das kommt mit `steam-lobby`“ in [Net](src/Net/README.md), Welle 2 in der [Roadmap](docs/ROADMAP.md), und im Abschnitt [Test auf zwei PCs](docs/TESTING.md#test-auf-zwei-pcs) den Weg über `-Tunnel Lobby` ergänzen. **Fertig, wenn** die Prüfung in der CI läuft und auf `main` nichts meldet | – | parallel | keine |
 | `mod-steuerung` | P1 | Steuerkanal in der Mod für Testskripte: Befehle mit Antwort über eine lokale Named Pipe je Prozess, nur mit Testschalter aktiv. Mindestens Zustand als JSON (Welt, Rolle, Spieler, Sitzung, Overlay), Lobby erstellen, beitreten, verlassen, Konsolenbefehl und Reise. Ersetzt die Befehlsdatei des Spikes (`Send-SpikeCommand`, eine Sekunde Abfrage, keine Antwort) und das Auslesen per `netstate.py` und Overlay-Fenster. **Fertig, wenn** `Start-Session.ps1`, `Restart-Instance.ps1` und `Test-NetEnd.ps1` ohne Spike-Befehle auskommen und gleich schnell oder schneller sind. **Einstieg:** [Spielzeit sparen](docs/TESTING.md#spielzeit-sparen), `tools/spike/Common.ps1` | `test-tempo` | parallel | wenig |
+| `karte-tunnel` | P1 | Beim Test auf zwei PCs fielen die Figuren durch den Boden: Der Client bekam die Host-Karte nicht, `mapgen.txt` gab es nur auf dem Host-PC. Der Steam-Tunnel trägt die Karte jetzt mit (`Tunnel.cpp`, in `main` seit #81, auf einem PC geprüft). Offen ist nur noch der Test zu zweit. **Fertig, wenn** der Client auf einem zweiten PC dieselbe Karte erzeugt und beide Figuren in der Mission auf dem Boden stehen. **Einstieg:** [Host-Karte über den Tunnel](research/spikes/a-connect/README.md#host-karte-über-den-tunnel-karte-tunnel) | `tunnel-p2p` | zu zweit | wenig |
 | `spiel-update` | P2 | Nur wenn das Team einen neuen Spiel-Build beschließt: Offsets, Signaturen und Patches anpassen. Betrifft alles auf einmal, alle Spieltests warten darauf. **Einstieg:** [Update-Regel](CONTRIBUTING.md#spiel-updates) | – | Team | viel |
 
 ## Optionale Optimierungen
@@ -213,6 +211,7 @@ Auch die zukünftige Update-Verwaltung bleibt vorerst optional: Wir erzwingen Bu
 | `opt-trennen-absturz` | P2 | Client stürzt beim `disconnect` aus der Mission manchmal mit „uobject leaks (world leaks)“ ab (`ReferenceChainSearch.cpp` Zeile 2061), einmal in zwei Versuchen nach „Verlassen“ des Clients. Der Client wollte ohnehin gehen, der Host spielt weiter. Ursache klären, etwa mit einem Build, der die Referenzkette loggt. **Einstieg:** [Im Spiel (05.11.2026)](src/Net/README.md#im-spiel-05112026) | `integration-run` | parallel | mittel |
 | `opt-beitritt-absturz` | P2 | Host stürzt beim Lobby-Beitritt des Clients manchmal ab (`EXCEPTION_ACCESS_VIOLATION` an Adresse 0, Stack beginnt `5901ce8 2a8bfc4 2a8be06 2a7bb50`), einmal in zwei Starts mit `Start-Session.ps1 -Mod -Tunnel Lobby` am 05.11.2026. Ein zweiter Start lief durch. Ursache klären, etwa Stack gegen den Mod-Tunnel und das Overlay prüfen. **Einstieg:** `py tools/spike/crashes.py` | `integration-run` | parallel | mittel |
 | `opt-ladezeit-messung` | P2 | `check_round.py --wait` meldet keine Ladezeit (`load_seconds` leer): Während des Ladens liefert `world()` 0, `alive()` hält das für eine beendete Instanz und `wait_new_world` gibt sofort auf. Die Prüfung danach stimmt trotzdem, weil `Run-Route.ps1` vorher Bilder macht und wartet. Seit mindestens 05.11.2026 in allen Routenläufen, auch ohne Netzprofil. **Einstieg:** `tools/spike/check_round.py`, `wait_new_world` | – | parallel | wenig |
+| `opt-karte-details` | P2 | Mit übertragener Karte stimmen Kacheln, Straßen, Gebäude und PCG-Vegetation, im Spielbild wichen aber einzelne Details ab: ein Baum in anderer Art, ein anderes Dach, ein Pickup nur beim Client. Klären, ob zufällige Varianten einzelner Child Actors (`RandomChildActorSwapWrapper`) dahinterstecken, und sie dann aus der Position würfeln wie die PCG-Seeds. **Einstieg:** [Gleiche Karte in der Mod](docs/GAME_ANALYSIS.md#gleiche-karte-in-der-mod-missionsstart) | `integration-run` | parallel | mittel |
 | `mehr-spieler` | P2 | Mehr als 2 Spieler prüfen. Die Coop-Logik ist fest auf P1 und P2 ausgelegt, daher aufwendig | `release` | parallel | viel |
 | `coop-spielstand` | P2 | Der Host speichert einen Coop-Run und setzt ihn später mit demselben Client fort. **Fertig, wenn** nach Speichern, Beenden beider Spiele und erneutem Laden beim Host der Client beitritt und der Run mit gleichem Tag, gleicher Route und gleichen Inventaren weiterläuft | `integration-run`, `mod-saves` | parallel | viel |
 | `update-startpruefung` | P2 | Mod-/Spiel-Kompatibilität vor dem Laden prüfen: gemeinsame Quelle für Mod-Version, Protokollversion, unterstützte Game-Builds, Kompatibilitätsprofil und Datei-Hashes; Starter prüft die tatsächlich gestartete Installation (auch eingefrorene Kopien, Exe und relevante Inhaltscontainer), nicht nur das Steam-Manifest. Bei direktem Steam-Start prüft der `version.dll`-Loader erneut vor dem Laden von `DDCoop.dll`; die interne Prüfung bleibt bestehen. **Fertig, wenn** unbekannte/veränderte Builds und widersprüchliche Paketangaben die Mod nicht laden, ein sichtbarer Hinweis Mod-Version, gefundenen/erwarteten Build und Grund nennt und Abbrechen oder ein nachweislich modfreier Start möglich sind; keine Meldung unter dem Loader-Lock. Eine ältere, weiterhin kompatible Mod bleibt erlaubt; Internet ist für die lokale Freigabe nicht nötig. Pflicht-Patch-/Adapterfehler verhindern die Coop-Freigabe, Teilinstallation darf nicht als erfolgreicher Start gelten. Positiv-, Negativ- und Direktstarttests dokumentieren. **Einstieg:** `src/Loader/Loader.cpp`, `src/Core/Version.cpp`, `src/Mod/Mod.cpp`, `src/Game/Patches.cpp`, `tools/game_build.py` | `integration-run`, `installer` | zentral | wenig |
@@ -226,11 +225,13 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | Kennung | Phase | Ergebnis |
 |---|---|---|
 | `andockpunkte` | 1 | VERSION-Proxy, drei Live-Signaturen und ProcessEvent-Hook auf Host und Client erprobt, siehe [Andockpunkte](docs/ARCHITECTURE.md#technische-andockpunkte-build-26187885) |
+| `bewegung` | 4 | Dodge beim Client repariert: eigene Figur bekommt Reibung und Schwerkraft zurück, Host-Figur folgt bei unbekannter Unterlage dem replizierten Ort, siehe [Dodge beim Client](docs/GAME_ANALYSIS.md#dodge-beim-client-bewegung) |
 | `blueprint-logik` | 1 | Repräsentative Spawn-, Effekt- und Eventpfade per Bytecode-Audit und Traces geklärt, siehe [Nachtrag](research/spikes/blueprint-logik/README.md#nachtrag-03112026-grenzpruefung-und-ereignistests) |
 | `boss-dump` | 0 | Klassen aller sechs Bosse gezielt geladen und gedumpt, siehe [Boss-Dump](docs/GAME_ANALYSIS.md#boss-dump-boss-dump) |
 | `branch-schutz` | 0 | Branch-Schutz für `main` aktiv |
 | `build-id` | 0 | Geprüfte Kopie von Build `26187885` außerhalb von Steam, Start und Deploy prüfen alle Dateien, siehe [Einrichtung](docs/SETUP.md#gleiche-build-id-im-team) |
 | `ci` | 2 | SDK-freie Tests und CI vorhanden |
+| `client-lokal-audit` | Wartung | Projektweite Regel lokal zuerst/minimal synchronisieren in CLAUDE.md, Architektur und Sync-Vertrag festgehalten; zehn Prüfbereiche mit Fundstellen, bestehenden Aufgaben und Abnahmen im [Audit](docs/CLIENT_LOCAL_AUDIT.md), keine Laufzeitänderung oder neue Spielabnahme |
 | `client-visuell` | 4 | Client sieht XP-/Levelstand, XP-Bälle, Projektilbewegung und Airdrops wie der Host, ohne doppelte XP oder Rewards; Feinschliff in `opt-client-visuell`, siehe [Client-Darstellung](research/spikes/client-visuell/README.md) |
 | `config-paks` | 1 | Config aus den Paks gelesen: `IpNetDriver`, `DefaultPlatformService=Steam`, Standard-Maps, siehe [Konfiguration](docs/GAME_ANALYSIS.md#konfiguration) |
 | `controller-tausch` | 1 | Controller-Tausch nach dem Missionswechsel über `K2_OnSwapPlayerControllers` sofort in `SpawnedPlayers` abgeglichen, siehe [Spike](research/spikes/a-connect/README.md#controller-tausch-nach-dem-missionswechsel-controller-tausch) |
@@ -258,6 +259,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `layerapps-sperre` | 6 | Die Mod sperrt auch `deadlydays.layerapps.com`, das das Spiel beim Run-Ende anfragt (`Core::ReportHosts`). Run-Ende und neuer Run laufen normal, siehe [Telemetrie und Berichte](docs/GAME_ANALYSIS.md#telemetrie-und-berichte-telemetrie-aus) |
 | `lobby-bereit` | 3 | Host schließt die Lobby im Hauptmenü oder ohne Listen-Server, Client erfährt es sofort, siehe [Lobby nur mit Server](src/Net/README.md#lobby-nur-mit-server-lobby-bereit) |
 | `menue-weg` | 1 | Mission über den echten Weg durch das Spielmenü mit den Patches gestartet, siehe [Spike](research/spikes/a-connect/README.md) |
+| `missionsstart` | 4 | Gleiche Karte bei Host und Client über den Kontrollkanal der Mod, die Erzeugung des Clients wartet auf die Werte des Hosts; auf einem PC mit Netzprofil Internet und ohne Spike geprüft, siehe [Gleiche Karte in der Mod](docs/GAME_ANALYSIS.md#gleiche-karte-in-der-mod-missionsstart) |
 | `mitwirkende` | 0 | Freunde als Mitwirkende eingeladen |
 | `net-fehler` | 3 | Jedes Sitzungsende (Verlassen beider Seiten, Abbruch, Steam- und Sitzungszeitlimits) erscheint mit eigenem Grund als lesbare Meldung in Overlay und Log, danach sind Erstellen und Beitreten wieder frei; im Spiel geprüft, siehe [Fehlerbehandlung](src/Net/README.md#fehlerbehandlung-net-fehler) |
 | `niederlage` | 1 | Nach einer Niederlage kehren Host und Client über „Zurück zur Basis“ in die `MetaBase` zurück, und ein neuer Run startet; der Host-Absturz im Run-Ende-Handler ohne `LocalPlayer` ist im Spike behoben (`RunEnd.cpp`), siehe [Niederlage](docs/GAME_ANALYSIS.md#niederlage-niederlage) |
