@@ -25,9 +25,11 @@
   <Import Project="..\Common.props" />
   <ItemGroup>
     <ClCompile Include="Sync.cpp" />
+    <ClCompile Include="ProgressSync.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Sync.h" />
+    <ClInclude Include="ProgressState.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

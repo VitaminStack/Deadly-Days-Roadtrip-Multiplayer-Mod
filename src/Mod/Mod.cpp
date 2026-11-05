@@ -61,10 +61,10 @@ void Start()
 
     // Die Lobby hängt einen Game-Thread-Tick an, das geht nur vor Game::Start.
     Mod::Lobby::Install();
+    Sync::Start(); // Alle Game-Thread-Ticks vor dem Start registrieren.
     Started = true;
     Game::Start();
     Net::Start();
-    Sync::Start();
     UI::Start();
     Core::Log::Info("Mod gestartet, Spiel-Build {}", *Build);
 }

@@ -22,6 +22,24 @@ fuer gemeinsame Run-Daten. **Hypothese:** gemeinsame Run-Konten; vor Implementie
 mit zwei echten Spielern die Objektidentitaet und Wirkung der Getter bestaetigen.
 Keine zwei unabhaengigen XP-/Waehrungssimulationen einfuehren.
 
+### Nutzervorgabe: gemeinsame Run-XP (04.11.2026)
+
+Unabhaengig davon, welcher Spieler einen XP-Orb einsammelt, zaehlt der Gewinn
+genau einmal zum gemeinsamen Run-XP-Fortschritt. Beide Spieler erhalten denselben
+bestaetigten Fortschritt und sehen denselben XP-/Levelstand. Keine doppelte
+Gutschrift bei gleichzeitiger Aufnahme, wiederholten Nachrichten oder erneut
+abgespielten visuellen Effekten. Die Vergabe entscheidet der Host; der Client
+uebernimmt den bestaetigten Zustand, ohne `AddExperience`/`ReceiveExp` lokal
+noch einmal auszufuehren. Die technische Zuordnung der nativen Objekte bleibt zu
+pruefen; die gewuenschte Mod-Regel ist damit entschieden. Daraus folgt keine
+Entscheidung ueber Meta-Fortschritt oder identische persoenliche Reward-Auswahlen.
+
+Abnahme fuer `fortschritt`: Aufnahme nur durch Host, nur durch Client sowie
+gleichzeitig durch beide testen. Beispiel: ein Orb mit Wert 10 bedeutet einen
+gemeinsamen Gewinn von 10, nicht 20; beide HUDs zeigen den neuen gemeinsamen
+Stand. Doppelte/verspaetete Zustellung, Level-up, Reise und erneuter Beitritt
+duerfen weder Gewinn wiederholen noch alte Anzeigen zurueckschreiben.
+
 ## Was Thema 6 zusaetzlich braucht
 
 - **XP:** Wert, Level und Fortschrittsanzeige nachliefern. GAS-Attribute mit
@@ -90,6 +108,17 @@ Der Sync-Entwurf heilt keine fehlenden Item-Unterobjekte. Auch nicht replizierte
 RewardChest-Actors duerfen nicht als garantiert clientseitig vorhanden gelten.
 
 ## Beleg- und Testgrenze
+
+**Umsetzungsnachtrag 05.11.2026:** `client-visuell` bindet inzwischen die
+gemeinsame XP-/Levelanzeige über den [Kontrollkanal](CONTROL_PROTOCOL.md) an.
+Host-Getter liefern absolute Anzeigen, der Client aktualisiert nur seine HUD.
+Native Probe: Beide Host-PlayerStates teilen das GameState-Levelsystem; die
+abweichende lokale Client-Instanz erklärt die bisher falsche Anzeige. Gegen
+Spät-/Doppelzustellung schützen Peer, Client-Anforderungskennung, Run/Epoche,
+Revision und GameState-NetGUID. Keine lokale `AddExperience`-/Reward-Ausführung.
+Das implementiert **nicht** die komplette Level-up-/Reward-/Währungssteuerung
+von `fortschritt`. Die folgenden Punkte beschreiben weiterhin den ursprünglichen
+Analyseabschluss von `sync-bedarf`, nicht den aktuellen Umfang des Transports.
 
 - Gegen das lokal erzeugte SDK nachgeschlagen: alle sechs Komponenten,
   Currency-Vererbung, Delegates, Getter und Reward-Sitzungsfelder.

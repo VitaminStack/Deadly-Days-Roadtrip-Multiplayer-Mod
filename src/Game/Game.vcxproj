@@ -42,6 +42,12 @@
     <ClCompile Include="ClientPatches.cpp" />
     <ClCompile Include="CodeCave.cpp" />
     <ClCompile Include="Game.cpp" />
+    <ClCompile Include="ProgressAdapter.cpp" />
+    <ClCompile Include="AirdropAdapter.cpp" />
+    <ClCompile Include="AirdropPatches.cpp" />
+    <ClCompile Include="ExpPatches.cpp" />
+    <ClCompile Include="ProjectilePatches.cpp" />
+    <ClCompile Include="NetworkObjects.cpp" />
     <ClCompile Include="ConsoleAdapter.cpp" />
     <ClCompile Include="GameThread.cpp" />
     <ClCompile Include="HealthBarPatches.cpp" />
@@ -61,6 +67,11 @@
   <ItemGroup>
     <ClInclude Include="CodeCave.h" />
     <ClInclude Include="Game.h" />
+    <ClInclude Include="ProgressAdapter.h" />
+    <ClInclude Include="AirdropAdapter.h" />
+    <ClInclude Include="AirdropPolicy.h" />
+    <ClInclude Include="ExpAdapter.h" />
+    <ClInclude Include="NetworkObjects.h" />
     <ClInclude Include="ConsoleAdapter.h" />
     <ClInclude Include="PatchPolicy.h" />
     <ClInclude Include="PatchRuntime.h" />

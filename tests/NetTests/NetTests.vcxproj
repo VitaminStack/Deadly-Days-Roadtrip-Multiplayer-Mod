@@ -26,6 +26,7 @@
     <ClCompile Include="SessionTests.cpp" />
     <ClCompile Include="TransportTests.cpp" />
     <ClCompile Include="ProtocolTests.cpp" />
+    <ClCompile Include="ProgressTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="FakeSteam.h" />
