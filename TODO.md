@@ -231,6 +231,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `branch-schutz` | 0 | Branch-Schutz für `main` aktiv |
 | `build-id` | 0 | Geprüfte Kopie von Build `26187885` außerhalb von Steam, Start und Deploy prüfen alle Dateien, siehe [Einrichtung](docs/SETUP.md#gleiche-build-id-im-team) |
 | `ci` | 2 | SDK-freie Tests und CI vorhanden |
+| `client-lokal-audit` | Wartung | Projektweite Regel lokal zuerst/minimal synchronisieren in CLAUDE.md, Architektur und Sync-Vertrag festgehalten; zehn Prüfbereiche mit Fundstellen, bestehenden Aufgaben und Abnahmen im [Audit](docs/CLIENT_LOCAL_AUDIT.md), keine Laufzeitänderung oder neue Spielabnahme |
 | `client-visuell` | 4 | Client sieht XP-/Levelstand, XP-Bälle, Projektilbewegung und Airdrops wie der Host, ohne doppelte XP oder Rewards; Feinschliff in `opt-client-visuell`, siehe [Client-Darstellung](research/spikes/client-visuell/README.md) |
 | `config-paks` | 1 | Config aus den Paks gelesen: `IpNetDriver`, `DefaultPlatformService=Steam`, Standard-Maps, siehe [Konfiguration](docs/GAME_ANALYSIS.md#konfiguration) |
 | `controller-tausch` | 1 | Controller-Tausch nach dem Missionswechsel über `K2_OnSwapPlayerControllers` sofort in `SpawnedPlayers` abgeglichen, siehe [Spike](research/spikes/a-connect/README.md#controller-tausch-nach-dem-missionswechsel-controller-tausch) |

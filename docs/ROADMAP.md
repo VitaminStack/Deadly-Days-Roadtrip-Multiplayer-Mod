@@ -18,6 +18,14 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 
 **Neue Befunde.**
 
+- `client-lokal-audit`, 05.11.2026: Projektweite Nutzervorgabe **lokal zuerst, minimal synchronisieren**
+  in Agenten-/Architekturregeln aufgenommen. Quellcode-Audit findet zuerst Handlungsbedarf an
+  Inventar-/Bag-Transaktionen, lokalen UI-/globalen Phasengrenzen und Kamera-/XP-Projektion;
+  anschließend gezielte Kandidaten für weniger wiederholte Anzeige-/Animationsbilder.
+  Karte, lokale XP-Partikel und native Replikation bleiben bewährte Grundlagen.
+  [Fundstellen, bestehende Aufgaben und Abnahmen](CLIENT_LOCAL_AUDIT.md); keine Laufzeitänderung
+  und keine neue Spielabnahme.
+
 - `desync-melder`, 05.11.2026: Diagnose über den Kontrollkanal mit sechs Messfeldern, feldweiser Stabilisierung und vom Host bestätigten Abweichungen in Log und F8. Gegnerzahl standardmäßig ausgenommen. Im Spiel an Tag 1 rund 636 s ohne Fehlalarm, eine absichtliche Inventarabweichung beim Client auf beiden Seiten erkannt und nach Rücksetzung wieder OK. Dabei gefunden: Absturz am Rundenende von Tag 1, jetzt `rundenende-absturz`. [Messumfang und Abnahme](DESYNC.md)
 
 - `itemsack-absturz`, 05.11.2026: **Abgeschlossen.** Der Client versuchte beim Aufsammeln aus nicht replizierter `ItemData` ein Inventaritem zu erzeugen und stürzte ab. `InventoryPatches.cpp` belässt den vollständigen Vergabepfad beim Host. In einer Lobby-Sitzung auf einem PC nach echter Route bis Tag 1 drei natürliche Remote-Aufsammlungen mit jeweils exakt einem Item nur beim Remote-Spieler, unverändertem Host-Inventar und gleichen replizierten Inventaren geprüft. Client-Negativaufruf ohne Gewinn/Absturz, isolierte Host-Vergabe ebenfalls geprüft; [Befund, Fehlversuche und Grenzen](../research/spikes/itemsack-absturz/README.md).
