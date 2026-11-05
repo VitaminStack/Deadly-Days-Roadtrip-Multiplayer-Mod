@@ -60,8 +60,10 @@ der [Patch-Tabelle des Spikes](../../research/spikes/a-connect/README.md#patches
 |---|---|---|
 | `PlayerPatches.cpp` | Host | Spawn und Spielerindex ohne `LocalPlayer`, Loot- und Gegner-Spawner ohne Spieler, `SpawnedPlayers` bei Registrierung und Controller-Tausch, Abgleich je Sekunde als Rückfall, Client-Position annehmen, Busplatz schont alle Spielerfiguren, Run-Ende ohne `LocalPlayer` |
 | `ClientPatches.cpp` | Client | Refresh, Attribut-Tick, AttributeSet-Suche, Kartengenerator-Schritt, Figurenkomponente und ThreatLevel ohne Host-Objekte; Exp-Aggregation wartet auf AttributeSets; Blockaden nur beim Host; NetGUID-Pfade bleiben; SneakApproach wartet auf Mesh und PlayerState; keine lokale PowerUp-Kopie |
+| `MovementPatches.cpp` | Client | Nach dem Dodge: eigene Figur bekommt Reibung und Schwerkraft zurück, fremde Figur folgt dem replizierten Ort, wenn ihre Unterlage beim Client fehlt oder sie ohne Modus hängt, siehe [Dodge beim Client](../../docs/GAME_ANALYSIS.md#dodge-beim-client-bewegung) |
 | `CameraPatches.cpp` | Client | Kamera-Spieler aus der `PlayerArray` statt aus dem GameMode, Bodenfix, gemeinsame Kamera als ViewTarget je Sekunde; Bewegungs-Restrictor ohne GameState stürzt nicht ab und bekommt ihn nachgetragen, siehe [Restrictor](../../docs/GAME_ANALYSIS.md#client-absturz-im-restrictor-tick-absturz) |
 | `InventoryPatches.cpp` | beide | Inventar-Unterobjekte über den klassischen Replikationspfad, Timer des Achievement-Detektors beim `EndPlay` löschen, Kartengenerator-Schritt nur für die aktuelle Welt; [Itemsack-Vergabe](../../research/spikes/itemsack-absturz/README.md) nur auf Authority außerhalb einer Client-Welt |
+| `MapPatches.cpp` | beide | Gleiche Karte: Der Host meldet Seed, Profil, Größe, Tags und PCG-Graph seiner Erzeugung, der Kontrollkanal bringt sie zum Client (`Sync/World/MapSync.cpp`), dessen Erzeugung wartet darauf; lokale Kopien replizierter Child Actors unterdrückt, gleiche Seeds der PCG-Instanzen. Siehe [Gleiche Karte in der Mod](../../docs/GAME_ANALYSIS.md#gleiche-karte-in-der-mod-missionsstart) |
 | `TravelPatches.cpp` | Host | Reise ins Spiel wird `servertravel`, vorher Zeitanfragen abräumen; allein und ins Hauptmenü reist das Spiel wie gewohnt |
 | `WidgetPatches.cpp` | Client | `WP_UI` wartet auf den GameState; Beobachter nach jedem `ProcessEvent` |
 | `RemoteP2Patches.cpp` | Host | Remote-Spieler als P2 in `ActivePlayers` des Coop-Subsystems, ohne zweiten `LocalPlayer`; beim Verlassen nur die eigene Bindung entfernen; lokale P2-Gerätepflicht nur bei vollständiger Bindung ausnehmen. Koop-Modus erst nach `AllowRemoteCoop()`, siehe [Remote-Spieler](#remote-spieler-als-p2) |
@@ -73,8 +75,8 @@ Ganze Funktionen hängt `Core::Hooks` (MinHook) ein, Stellen mitten in einer Fun
 Was Spielobjekte braucht (`Default__DDMissionGameMode`, Funktionsnamen), holt `Patches::Tick` auf dem Game Thread nach.
 
 **Mod und Spike.** Die Mod exportiert `DDCoopPatchState` (0 offen, 1 alle gesetzt, 2 keiner, 3 ein Teil). Findet der Spike die Mod mit 1 oder 3,
-setzt er seine eigenen Fassungen nicht und meldet seinen Phasenbeobachter über `DDCoopObserveProcessEvent` an. Karte und PCG vom Host,
-Testhilfen und Messung bleiben im Spike, sie gehören zu späteren Aufgaben (`missionsstart`).
+setzt er seine eigenen Fassungen nicht und meldet seinen Phasenbeobachter über `DDCoopObserveProcessEvent` an. Seit `missionsstart`
+gilt das auch für Karte und PCG (`MapGen.cpp`, `Pcg.cpp`). Testhilfen und Messung bleiben im Spike.
 
 ### Remote-Spieler als P2
 
@@ -202,19 +204,17 @@ Mission an Tag 1 ohne Absturz, geprüft mit `Start-Session.ps1 -NoSpike` und `Ru
 siehe [Nur Mod, ohne Spike](../../docs/TESTING.md#nur-mod-ohne-spike). Der Absturz beim Beitritt ohne Spike (Host `0x5901CE8`,
 Client `0x56B16D9`) stammte aus der Zeit vor `patches`, heute setzt die Mod beide Fixes beim Spielstart.
 
-**Für den Betrieb nötig, aber nur im Spike.** Beide laufen dort über Dateien in `%TEMP%\ddspike`, also nur auf einem PC. In die Mod
-gehören sie mit Übertragung über den [Kontrollkanal](../../docs/CONTROL_PROTOCOL.md), das ist Arbeit der genannten Aufgaben, nicht ein
+**Für den Betrieb nötig, aber nur im Spike.** Das läuft dort über Dateien in `%TEMP%\ddspike`, also nur auf einem PC. In die Mod
+gehört es mit Übertragung über den [Kontrollkanal](../../docs/CONTROL_PROTOCOL.md), das ist Arbeit der genannten Aufgaben, nicht ein
 Kopieren des Spike-Codes.
 
 | Spike-Datei | Eingriff | Ohne ihn | Aufgabe |
 |---|---|---|---|
-| `MapGen.cpp` | Client erzeugt die Karte mit Seed, Profil, Größe und Tags des Hosts (`0x59EF6D0`), lokale Kopien replizierter Child Actors unterdrückt (`0x288B510`) | Client erzeugt eine eigene Karte ohne Missionsdaten, sie scheitert (17 statt 42 bis 138 Kacheln). Seine Figur startet abseits vom Bus und läuft auf anderem Boden, im ersten Lauf sah er die Host-Figur nicht | `missionsstart` |
-| `Pcg.cpp` | PCG-Graph des Hosts beim Client (`0x59EE6A0`), gleiche Seeds der ISM-Komponenten im Sekunden-Tick | Andere Vegetation beim Client | `missionsstart` |
 | `Mission.cpp`, `RoundPhase*.h`, Beobachter in `Widgets.cpp` | Rundenübersicht, Lager und Routenkarte des Hosts beim Client mit Anzeige und Eingabesperre | Client bleibt in der Missionsansicht, während der Host im Lager oder auf der Routenkarte ist | `pausen-sync`, `tagesablauf` |
 
 **Schon in der Mod**, der Spike lässt seine Fassung aus, sobald `DDCoopPatchState` 1 meldet: `Players.cpp`, `Client.cpp`, `Camera.cpp`,
 `Inventory.cpp`, `Travel.cpp`, `Widgets.cpp` (HUD wartet auf den GameState), `MapObjects.cpp` (PowerUp-Kiste), Busplatz aus `TestEnv.cpp`,
-`HealthBars.cpp`, `RunEnd.cpp`. Dazu ohne Gegenstück im Spike-Schalter: Sperre des Crash-Reporters (`Core/CrashReports`) und
+`HealthBars.cpp`, `RunEnd.cpp`, `MapGen.cpp` und `Pcg.cpp` (Werte über den Kontrollkanal statt über Dateien). Dazu ohne Gegenstück im Spike-Schalter: Sperre des Crash-Reporters (`Core/CrashReports`) und
 Tutorial-Hinweise (`TutorialAdapter`, im Spike `Cheats.cpp`). `Tunnel.cpp` ersetzt der Transport aus `src/Net`.
 
 **Nur Testhilfe oder Messung**, kommt nicht in die Mod: Befehlsdatei und Konsolenbefehle (`Main.cpp`, etwa `open`, `servertravel`,

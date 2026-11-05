@@ -49,6 +49,8 @@ if ($Role -eq 'Client' -and -not $Peer) { throw '-Role Client braucht -Peer: Ste
 if ($Role -ne 'Client' -and $Peer) { throw '-Peer gilt nur mit -Role Client.' }
 if ($Role -ne 'Both' -and $Tunnel -eq 'Ip') { throw '-Tunnel Ip verbindet nur auf einem PC. Fuer zwei PCs -Tunnel P2p verwenden.' }
 if ($Tunnel -in 'Mod', 'Lobby' -and -not $Mod) { throw "-Tunnel $Tunnel braucht -Mod." }
+# Mit der Mod kommt die Host-Karte ueber ihren Kontrollkanal (missionsstart), nicht ueber die Datei des Spikes.
+if ($Mod -and $Tunnel -notin 'Mod', 'Lobby') { Write-Warning "Ohne Tunnel der Mod bekommt der Client keine Host-Karte und erzeugt nach 60 s eine eigene. Fuer die Mission -Tunnel Lobby verwenden." }
 if ($Tunnel -eq 'Lobby' -and $Role -eq 'Client' -and $Peer -notmatch '^\d{1,20}$') { throw '-Tunnel Lobby mit -Role Client braucht -Peer mit der Lobby-ID aus der Ausgabe des Hosts.' }
 if ($Tunnel -eq 'Mod' -and $Role -eq 'Client' -and $Peer -notmatch '^\d{17}$') { throw '-Tunnel Mod mit -Role Client braucht -Peer mit der SteamID64 des Hosts.' }
 $NetSim = Resolve-NetProfile $NetProfile

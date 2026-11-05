@@ -7,6 +7,30 @@ Online-Coop-Mod für Deadly Days: Roadtrip, unterstützter Build `26187885`. Meh
 Erst spielbar: Vorrang hat, dass zwei Spieler einen Run durchspielen können. Kleine Fehler, die das nicht verhindern, kommen nur unter
 [Optionale Optimierungen](TODO.md#optionale-optimierungen) und werden nicht behoben.
 
+## Verbindliches Architekturprinzip: lokal zuerst, minimal synchronisieren
+
+Nutzervorgabe vom 05.11.2026, projektweit: **Möglichst viel vorhandene Logik und Darstellung lokal
+beim Client ausführen und nur das für Multiplayer notwendige Minimum zwischen Host und Clients teilen.**
+Ziel sind weniger Sonderfälle, Fehler und Entwicklungsaufwand, nicht bloß möglichst wenige Bytes.
+
+- Native lokale Abläufe wiederverwenden: UI, Drag/Rotation, Platzierungsvorschau, Layout, Kamera,
+  Animation, VFX/Sound und aus bestätigten Daten ableitbare Zustände brauchen keinen Host-Fernsteuerpfad.
+- Pro gemeinsamem Spielzustand genau eine verbindliche Zuständigkeit behalten. Vergabe/Verbrauch,
+  gemeinsame XP/Währungen, Schaden, Gegner und Weltfortschritt nicht unabhängig auf beiden Seiten buchen.
+  Lokale Vorhersage/Vorprüfung ist erlaubt, ein bestätigtes Ergebnis muss sie abgleichen oder zurücknehmen.
+- Zuerst vorhandene native Replikation nutzen. Eigene Nachrichten nur für nachgewiesene Lücken;
+  keine parallele zweite Autorität oder zweite Replikation desselben Zustands aufbauen.
+- Zusammengehörige Änderungen als einen fachlichen Vorgang behandeln, etwa Itemwahl, Rucksackverbrauch
+  und neue Felder. Stabile IDs, Sitzung/Revision und Bestätigung statt Objektzeigern oder Widgetzuständen.
+- Unveränderte ableitbare Anzeige nicht ständig übertragen. Änderungen/Ereignisse und nötige
+  Start-/Wiederherstellungsbilder reichen, sofern Verlust, Join, Travel und Reconnect abgesichert bleiben.
+- Vor jedem neuen Sync-/Hook-Pfad festhalten: Was bleibt lokal? Was muss geteilt werden und warum?
+  Wer entscheidet? Welcher bestehende Weg wird wiederverwendet/ersetzt? Wie werden Ablehnung,
+  Wiederholung und Zustandsneuaufbau getestet? Kein breiter Umbau ohne belegten Nutzen.
+
+Grenzen und priorisierte Fundstellen: [Client-lokal-Audit](docs/CLIENT_LOCAL_AUDIT.md).
+Die native Replikationsgrundlage aus Gate G1 und die gemeinsame Kamera bleiben bestehen.
+
 ## Vor dem Start
 
 1. [Wo kann ich anfangen?](TODO.md#wo-kann-ich-anfangen) lesen, auch die Liste „Nicht erneut machen“. Jede Aufgabe nennt unter „Braucht“ ihre Voraussetzungen und unter „Bearbeitung“, ob sie parallel läuft, zentral ist (nie aufteilen) oder das Team entscheidet.

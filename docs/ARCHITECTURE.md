@@ -1,14 +1,44 @@
 # Architektur
 
-Grundlage sind die Fakten aus [GAME_ANALYSIS.md](GAME_ANALYSIS.md). Dieses Dokument beschreibt den Plan, nicht den Ist-Stand:
-Von der Mod existiert bisher nur das Grundgerüst in `src/`.
+Grundlage sind die Fakten aus [GAME_ANALYSIS.md](GAME_ANALYSIS.md). Dieses Dokument enthält
+Zielarchitektur und datierte historische Untersuchungen; deren damalige Testgrenzen bleiben erhalten.
+`src/` enthält inzwischen produktive Adapter, Patches und Kontroll-Sync, nicht nur ein Grundgerüst.
 
 ## Zielbild
 
 - **2 Spieler** online. Mehr ist aufwendig, weil die Coop-Logik fest auf P1 und P2 ausgelegt ist.
-- **Host-autoritativ:** Der Host berechnet das Spiel, der Client fragt Aktionen an und zeigt den Zustand an.
+- **Lokal zuerst, minimal synchronisieren:** Der Client nutzt möglichst viel vorhandene lokale Logik;
+  nur notwendige Multiplayer-Aktionen und gemeinsame Zustände werden übertragen.
+- **Eindeutige Spielautorität:** Der Host bestätigt gemeinsame Spielwirkungen; lokale UI,
+  Vorprüfung, Vorhersage und Darstellung sind keine bloßen fernbedienten Host-Widgets.
 - **Eigene Kopie:** Jeder Spieler braucht das Spiel und dieselbe Mod-Version.
 - **Verbindung über Steam:** Einladung über Freunde, keine Portfreigabe.
+
+## Projektweite Nutzervorgabe vom 05.11.2026
+
+**Möglichst viel in den Client auslagern, nur das für Multiplayer nötige Minimum teilen.**
+Entscheidend ist weniger Gesamtkomplexität und Fehlerfläche, nicht die kleinste Nachricht um jeden Preis.
+Vorhandene native Funktionen und Replikation haben Vorrang vor neu geschriebener Ersatzlogik.
+Dies präzisiert Weg A/Hybrid, ersetzt die G1-Entscheidung aber nicht durch Weg B oder unabhängige Simulationen.
+
+| Bereich | Lokal beim Client | Gemeinsam verbindlich / zu übertragen |
+|---|---|---|
+| Inventar und Equipment | Drag, Rotation, Vorschau, Vorprüfung, Layout und lokale Darstellung aus bestätigten Daten | Itemidentität/Besitz, genehmigter Transfer, Verbrauch, neue Feldgeometrie und Revision als zusammengehöriger Vorgang |
+| Kamera und HUD | Kamera, Sichtprojektion, Layout, Glättung und Tooltips | bestätigte Spieler-/Run-Daten; keine Pixelkoordinaten oder Kameramatrizen ohne belegte Notwendigkeit |
+| Karte und Kosmetik | vorhandene Kartenerzeugung aus gleichem Vertrag, Animation, Partikel, Sound | Seed/Profil/spielrelevante Konfiguration; fehlende bestätigte Effekt-/Lebenszyklusereignisse |
+| Bewegung | lokale Eingabe und bewährte native Vorhersage; fremde Figuren interpolieren | native Bewegungs-/Fähigkeitsnachrichten und Korrekturen, bestätigte spielwirksame Parameter |
+| Kampf und Fortschritt | Darstellung und ausdrücklich abgeglichene Vorhersage | genau einmal Schaden, Loot, XP, Währungen und gemeinsame Weltentscheidungen; keine zweite Gutschrift |
+| Pausen und Phasen | eigene Menüs, Fokus, UI-Navigation und lokale Eingabesperren | globale Phase, erforderliche Bereitschaft und Gründe für Pause/Fortsetzen |
+
+Eine lokale Vorschau darf sich sofort ändern. Sie muss jedoch von bestätigtem Bestand unterscheidbar
+bleiben und bei Ablehnung/Timeout korrigiert werden. Gleiche Voraussetzungen dürfen lokal identisch
+geprüft werden; voneinander unabhängige Gewinnerzeugung/Verbrauch ist keine Vorhersage.
+Snapshots für Join, Travel, Reconnect und Reparatur sind notwendig und kein Verstoß gegen „minimal“.
+Gleicher Seed allein beweist keine deterministische Spielwirkung oder gleiche Kollision.
+
+Prüfliste für neue Änderungen steht in [CLAUDE.md](../CLAUDE.md#verbindliches-architekturprinzip-lokal-zuerst-minimal-synchronisieren).
+Der [projektweite Quellcode-Audit](CLIENT_LOCAL_AUDIT.md) nennt konkrete Fundstellen,
+bestehende Aufgaben und Testbedingungen. Die Umsetzung bleibt bei diesen Aufgaben; kein Big-Bang-Umbau.
 
 ## Mod-Form
 
