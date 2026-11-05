@@ -339,6 +339,10 @@ lesenden Laufzeitvergleichen. Keine zusätzlichen Produktionspatches.
 | `AActor` | bActorIsBeingDestroyed | `0x5D`, Maske `0x02` |
 | `AProjectile` | ProjectileVisualComponent | `0x400` |
 | `AExpEmissionHandler` | ExpEmitter | `0x2F8` |
+| `AExpEmissionHandler` | ExpBoundsBuffer / ExpBoundsName | `0x2D0` / `0x2E0` |
+| `AExpEmissionHandler` | berechnete Sicht-Halbausdehnung / Spielerzentrum (FVector) | `0x320` / `0x338` |
+| `AExpEmissionHandler` | PlayerCameraWorldSubsystem | `0x3E8` |
+| `UPlayerCameraWorldSubsystem` / `ABasePlayerCameraActor` | CurrentPlayerCamera / Camera | `0x38` / `0x2A8` |
 | `AExpEmissionHandler` | ExpData, PendingExpData (TArray) | `0x378`, `0x388` |
 | `AExpEmissionHandler` | SpawnLocationsInNiagara, EndLocationsInNiagara (TArray) | `0x398`, `0x3A8` |
 | `AExpEmissionHandler` | OrbValuesInNiagara, OrbColorsInNiagara (TArray) | `0x3B8`, `0x3C8` |
@@ -380,6 +384,9 @@ XP-Bälle, Build `26187885`, 05.11.2026, aus Aufrufzielen und Laufzeitprüfung:
 | `UExpSubsystem` | Spawn-Anfrage, gemeinsamer Kern aller Ausstöße (rcx Subsystem, rdx Anfrage) | `0x58C1030` |
 | `UExpSubsystem` | RequestExpSpawning, nativer Einstieg (ruft `0x58C1030`) | `0x58C1260` |
 | `UExpSubsystem` | ReceiveExp, nativer Einstieg | `0x58BE8B0` |
+| `AExpEmissionHandler` | Sichtbereich aktualisieren (CPU-Grenze und Niagara-Variable) | `0x58BE7C0` |
+| `DDBlueprintHelperFunctions` | native vier Viewport-Bodenecken; rcx Ausgabe (4 FVector), rdx Controller, r8 CameraComponent, r9 Ausgabe Spielerposition | `0x5B028D0` |
+| `DDBlueprintHelperFunctions` | Mehrspieler-Viewport-Ecken über GameMode.SpawnedPlayers / BoundsAroundPlayers | `0x5B02DD0` / `0x5B0C210` |
 | `UExpSubsystem` | exec-Thunks RequestExpSpawning / ReceiveExp | `0x56EAD70` / `0x56EA930` |
 
 Spawn-Anfrage, 0x58 Byte: Menge `int32` @0x00, Start `3×double` @0x08, Ziel `3×double` @0x20,

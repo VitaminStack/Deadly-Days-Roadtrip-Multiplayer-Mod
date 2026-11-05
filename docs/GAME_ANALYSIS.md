@@ -351,6 +351,26 @@ Stand 04.11.2026, Build `26187885`. Beim Spieltest fiel auf: Der Client sieht di
   - Beim Client wird `ReceiveExp` gesperrt, damit nichts doppelt zählt.
 - **Offen:** Das alles im Spiel belegen. Dazu prüfen, ob die Partikel des Clients beim Aufsammeln mit denen des Hosts gleich verschwinden.
 
+**Nachprüfung des Entfernungsfehlers (05.11.2026, Build `26187885`).** Die Spawn-Übertragung aus
+`client-visuell` enthält keinen Radiusfilter. In einer geschützten Lobby-/Tag-1-Sitzung waren die
+nativen Sicht-Halbausdehnungen des Handlers beim Host `(4370.42, 4851.49)`, beim Client dagegen
+`(1050, 5750)`, trotz nahezu gleichem Spielerzentrum. Das begrenzt insbesondere die Breite der Anzeige.
+SDK und gezielte Disassembly mit dem vorhandenen MSVC-Dumpbin zeigen: Die Bounds-Berechnung geht
+über `GameMode.SpawnedPlayers`; der Netzwerkclient hat keinen GameMode und fällt auf Ersatzecken
+zurück. Ghidra über REA war wegen eines nicht mehr vorhandenen konfigurierten JDK-Pfads nicht verfügbar;
+die Serverkonfiguration wurde nicht geändert.
+
+`ExpPatches.cpp` korrigiert jetzt ausschließlich beim Client den nativen Bounds-Update:
+Der vorhandene Einzelcontroller-Helper bekommt den lokalen PlayerController und die aktuelle
+CameraComponent aus dem PlayerCameraWorldSubsystem. Aus den vier Bodenecken und dem originalen
+`ExpBoundsBuffer` entstehen CPU-Grenze und dieselbe Niagara-Variable. Host, Solo, Sammelradius und
+XP-Vergabe bleiben unverändert. Bei neuen Spawn-Nachrichten wird eine zu früh fehlende Kamera
+erneut geprüft. Ungültige/degenerierte Projektionen werden nicht übernommen.
+
+**Testgrenze:** Geometrie-Regressionstests und Build prüfen die Umsetzung; ein sichtbarer
+Host-/Client-Vergleich mit diesem neuen Hook sowie die vollständige Einsammel-Abnahme stehen noch aus.
+Die laufende Sitzung des Nutzers wurde dafür nicht neu gestartet. `xp-baelle` bleibt offen.
+
 ### Ergaenzung: SDK-Schnittstellen fuer eigenen Sync
 
 Aufgabe `sync-bedarf`, lokales Mission-SDK von Build `26187885`:

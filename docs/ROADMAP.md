@@ -18,6 +18,7 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 
 **Neue Befunde.**
 
+- `xp-baelle`, 05.11.2026, Teilstand: Dem Client fehlt der GameMode, darum berechnete er die Sichtgrenzen der XP-Bälle zu schmal. Die Grenzen kommen jetzt beim Client aus der lokalen Kamera, Host und XP-Vergabe bleiben unverändert. Build und Tests bestehen, die sichtbare Gegenprobe fehlt und steht als `xp-baelle-live`. [Befund](GAME_ANALYSIS.md#xp-bälle-beim-client-xp-baelle)
 - `todo-wartbarkeit`, 05.11.2026: Ergänzt `client-lokal-audit` um Updateresistenz und Aufräumen. Neu unter Wartung:
   `reflexion-felder` (P1, Feldzugriffe zur Laufzeit über die Engine-Reflexion statt fester Offsets, früh, damit der Sync-Code
   der Phasen 4 und 5 darauf aufbaut), `patch-signaturen` (P2, Byte-Signatur je Patch-Adresse) und `sdk-vergleich` (P2, SDK-Diff
