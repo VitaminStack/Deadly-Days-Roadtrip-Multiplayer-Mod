@@ -329,6 +329,24 @@ andere Kistentypen bleiben unverändert. Anzeige verwendet `Crate.SetIsOpened`,
 nicht `OpenCrate`/`OpenAirdropChoices`. Fehlende Host-Actors werden nur verborgen,
 nicht zur Erzeugung von Rewards oder künstlichen Öffnungsereignissen benutzt.
 
+XP-Bälle, Build `26187885`, 05.11.2026, aus Aufrufzielen und Laufzeitprüfung:
+
+| Objekt | Funktion | RVA |
+|---|---|---|
+| `UExpSubsystem` | Spawn-Anfrage, gemeinsamer Kern aller Ausstöße (rcx Subsystem, rdx Anfrage) | `0x58C1030` |
+| `UExpSubsystem` | RequestExpSpawning, nativer Einstieg (ruft `0x58C1030`) | `0x58C1260` |
+| `UExpSubsystem` | ReceiveExp, nativer Einstieg | `0x58BE8B0` |
+| `UExpSubsystem` | exec-Thunks RequestExpSpawning / ReceiveExp | `0x56EAD70` / `0x56EA930` |
+
+Spawn-Anfrage, 0x58 Byte: Menge `int32` @0x00, Start `3×double` @0x08, Ziel `3×double` @0x20,
+Farbe `4×float` @0x38, Zusatz `double` @0x48, Zusatz `float` @0x50. Die beiden Zusatzwerte sind
+in ihrer Bedeutung offen und werden bitgenau übertragen. Hook-Präfixe: Spawn-Anfrage
+`48 89 5C 24 08 48 89 6C 24 10`, ReceiveExp `48 89 5C 24 18 55 56 57 48 83 EC 30`.
+
+Projektile: `AProjectile.OnTakeFromPool_BP` läuft bei jeder Pool-Entnahme über ProcessEvent,
+auch ohne Blueprint-Implementierung. Daran schaltet der Host `Actor.SetReplicateMovement(true)`
+einmal je Actor ein. Keine neue RVA.
+
 Arraygrößen sind gespeicherte CPU-Daten, keine lebenden GPU-Partikelzahlen.
 [Beobachtungen und verworfener Schalterversuch](../research/spikes/client-visuell/README.md).
 

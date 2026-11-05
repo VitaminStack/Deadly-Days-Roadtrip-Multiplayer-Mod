@@ -1,7 +1,37 @@
 # Client-Darstellung: Projektile, XP-Orbs, Airdrops und Partikeleffekte
 
 Aufgabe `client-visuell`, auf Nutzerwunsch vorgezogen, Build `26187885`.
-**In Arbeit. XP-/Levelanzeige ist jetzt in der Mod angebunden; die gesamte visuelle Abnahme ist noch offen.**
+**In Arbeit. XP-/Levelanzeige, XP-Bälle und Projektilbewegung sind in der Mod angebunden; Größe, Treffer-/Partikeleffekte und die gesamte visuelle Abnahme sind offen.**
+
+## Umsetzung vom 05.11.2026: XP-Bälle und Projektile beim Client
+
+**XP-Bälle.** `Game/ExpPatches.cpp` hängt am gemeinsamen Kern aller Ausstöße von
+`UExpSubsystem` (Spawn-Anfrage, RVA in [OFFSETS](../../../docs/OFFSETS.md)). Der Host ruft das
+Original auf und zeichnet die Anfrage auf: Menge, Start, Ziel, Farbe und zwei Zusatzwerte.
+`ProgressSync` sendet sie als Kontrollnachricht `Orbs` (0x102), höchstens 256 je Tick, gebunden an
+Client-Lebensdauer, Tag und GameState-GUID. Der Client verwirft eigene native Ausstöße und spielt die
+Host-Anfragen über das Original nur zur Anzeige nach. `ReceiveExp` ist beim Client gesperrt, sein
+XP-/Levelstand kommt weiter nur als Host-Snapshot.
+
+- Fehlversuch: Der erste Hook auf `RequestExpSpawning` (0x58C1260) erfasste nur den
+  Blueprint-Pfad. Natürliche Gegnertode laufen nativ direkt in den inneren Kern 0x58C1030.
+- **[Beobachtet, Lobby, Tag 1]** Nach natürlichen Kills zeigt der Client die Bälle an derselben
+  Stelle wie der Host („XP-Baelle: 1 Host-Ausstoss(e) angezeigt“). Die Client-HUD folgt dem
+  Host-Level (1 → 2), kein eigener Gewinn. Die Bilder entstanden nacheinander, nicht im selben Frame.
+- Nicht geprüft: Verschwinden beim Einsammeln durch den Client im Einzelfall, Kartenwechsel
+  mitten im Flug, Verlust einer Nachricht. Überschneidet sich mit der offenen Aufgabe `xp-baelle`.
+
+**Projektile.** Gepoolte `AProjectile` replizieren als Actor, aber ohne Bewegung. Der Client sah
+seine Proxies versteckt, mit eigener Startgeschwindigkeit weit weggeflogen. `Game/ProjectilePatches.cpp`
+schaltet beim Host einmal je Projektil-Actor im PersistentLevel `SetReplicateMovement(true)` und
+`ForceNetUpdate` ein, Abgleich je Sekunde. Der Pool behält den Actor und damit das Flag.
+
+- Fehlversuch: Ein Beobachter auf `OnTakeFromPool_BP` nach ProcessEvent sah den Aufruf beim Host
+  nie. Das Flag blieb aus, das Ereignis läuft für diese Klassen offenbar nicht über ProcessEvent.
+- **[Beobachtet, Lobby, erste Runde]** Das Flag kommt beim Client an. Der Nutzer bestätigte im
+  Live-Vergleich dieselben Projektile in beiden Fenstern.
+- Grenzen: Das erste Geschoss eines neuen Pool-Actors kann bis zu 1 s ohne Bewegung erscheinen.
+  `BulletSize` wird weiterhin nicht übertragen. Treffer- und Todeseffekte sind nicht angebunden.
 
 ## Umsetzung vom 05.11.2026: gemeinsamer XP-Anzeigestand
 
