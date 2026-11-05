@@ -62,6 +62,9 @@ struct SessionHooks
     // Client: Ist das Spiel mit dem Host verbunden? true verbunden, false läuft ohne Host, nullopt unbekannt (etwa beim
     // Laden einer Karte). Ohne Hook prüft die Sitzung nur den Tunnel.
     std::function<std::optional<bool>()> GameConnectedToHost;
+    // Host: Bietet das Spiel noch einen Server an? true Listen-Server, false sicher nicht (Hauptmenü), nullopt unbekannt
+    // (Laden, Reise). Ohne Hook bleibt die Lobby offen, bis der Host sie verlässt.
+    std::function<std::optional<bool>()> GameHosting;
 };
 
 // Zeitlimits der Sitzung. Steam und die Engine haben eigene, diese greifen, wenn von dort nichts mehr kommt.
@@ -76,6 +79,10 @@ struct SessionTimeouts
     // Das Spiel läuft ohne Host, obwohl der Tunnel steht, etwa nach einem Abbruch durch die Engine. Großzügig, weil ein
     // Kartenwechsel kurz ohne Verbindung aussehen kann.
     std::chrono::milliseconds GameLost{30000};
+    // Host: Das Spiel war Listen-Server und steht jetzt im Hauptmenü. Dann schließt die Sitzung die Lobby.
+    std::chrono::milliseconds HostGameLost{2000};
+    // Host: Nach dem Erstellen wird das Spiel nicht Listen-Server.
+    std::chrono::milliseconds HostListen{60000};
 };
 
 // Erzeugt den Transport. Austauschbar für Tests.
@@ -109,6 +116,7 @@ private:
     void StartTransportClient(uint64_t Owner);
     void CloseLobby();
     void WatchGame();
+    void WatchHostGame();
     bool Expired(std::chrono::milliseconds Limit) const;
 
     std::shared_ptr<SteamLobbyApi> Api;
@@ -127,6 +135,9 @@ private:
     // Client: Das Spiel war schon einmal mit dem Host verbunden, und seit wann es ohne Host läuft.
     bool GameSeen = false;
     std::optional<Clock::time_point> GameMissingSince;
+    // Host: Das Spiel war schon Listen-Server, und seit wann es im Hauptmenü steht.
+    bool HostGameSeen = false;
+    std::optional<Clock::time_point> HostGameMissingSince;
     // Host: Grund, warum der letzte Mitspieler gegangen ist, bis ein neuer kommt.
     std::string HostNotice;
 };

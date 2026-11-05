@@ -101,6 +101,8 @@ void Session::Leave()
     GameConnected = false;
     GameSeen = false;
     GameMissingSince.reset();
+    HostGameSeen = false;
+    HostGameMissingSince.reset();
     HostNotice.clear();
     CloseLobby();
     Current = {};
@@ -126,6 +128,8 @@ void Session::Fail(std::string Message)
     GameConnected = false;
     GameSeen = false;
     GameMissingSince.reset();
+    HostGameSeen = false;
+    HostGameMissingSince.reset();
     HostNotice.clear();
     CloseLobby();
     const bool WasHost = Current.IsHost;
@@ -197,6 +201,38 @@ void Session::WatchGame()
         Fail("Das Spiel hat die Verbindung zum Host verloren");
 }
 
+// Host: Eine Lobby ohne Server lässt Beitritte ins Leere laufen. Steht das Spiel im Hauptmenü, endet die Sitzung, der Tunnel
+// sagt dem Client dabei „Host hat die Sitzung verlassen“.
+void Session::WatchHostGame()
+{
+    if (!Hooks.GameHosting)
+        return;
+    const std::optional<bool> Hosting = Hooks.GameHosting();
+    if (Hosting == true)
+    {
+        HostGameSeen = true;
+        HostGameMissingSince.reset();
+        return;
+    }
+    if (!HostGameSeen)
+    {
+        // Nach dem Erstellen lädt das Spiel erst die MetaBase als Listen-Server.
+        if (Expired(Timeouts.HostListen))
+            Fail("Lobby geschlossen: Das Spiel wurde kein Listen-Server");
+        return;
+    }
+    if (Hosting != false)
+        return;
+    const auto Now = Clock::now();
+    if (!HostGameMissingSince)
+    {
+        HostGameMissingSince = Now;
+        return;
+    }
+    if (Now - *HostGameMissingSince >= Timeouts.HostGameLost)
+        Fail("Lobby geschlossen: Das Spiel ist im Hauptmenü. Neue Lobby in der MetaBase erstellen");
+}
+
 void Session::Tick()
 {
     for (const uint64_t Requested : Api->TakeJoinRequests())
@@ -237,6 +273,7 @@ void Session::Tick()
                 break;
             }
             UseSessionTransport(Tunnel);
+            StepSince = Clock::now();
             if (Hooks.BecomeListenServer)
                 Hooks.BecomeListenServer();
             Current.Message = "Lobby offen, Freunde über Einladen holen";
@@ -250,7 +287,9 @@ void Session::Tick()
             PendingCall = 0;
             if (!Entered->Ok)
             {
-                Fail("Beitritt abgelehnt (Antwort " + std::to_string(Entered->Response) + ")");
+                // 2: k_EChatRoomEnterResponseDoesntExist, die Lobby ist zu.
+                Fail(Entered->Response == 2 ? "Die Lobby gibt es nicht mehr, der Host hat sie geschlossen"
+                                            : "Beitritt abgelehnt (Antwort " + std::to_string(Entered->Response) + ")");
                 break;
             }
             // Ab hier ist der Spieler Mitglied. Fail verlässt die Lobby wieder.
@@ -312,6 +351,9 @@ void Session::Tick()
             }
             if (Current.IsHost)
             {
+                WatchHostGame();
+                if (Current.Phase == SessionPhase::Failed)
+                    break;
                 const bool Clients = Stats.Connections > 0;
                 // Ging der Mitspieler, sagt der Host warum, bis ein neuer kommt.
                 if (Current.Phase == SessionPhase::Playing && !Clients)

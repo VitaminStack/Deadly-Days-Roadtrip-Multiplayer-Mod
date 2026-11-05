@@ -60,7 +60,7 @@ der [Patch-Tabelle des Spikes](../../research/spikes/a-connect/README.md#patches
 |---|---|---|
 | `PlayerPatches.cpp` | Host | Spawn und Spielerindex ohne `LocalPlayer`, Loot- und Gegner-Spawner ohne Spieler, `SpawnedPlayers` bei Registrierung und Controller-Tausch, Abgleich je Sekunde als Rückfall, Client-Position annehmen, Busplatz schont alle Spielerfiguren, Run-Ende ohne `LocalPlayer` |
 | `ClientPatches.cpp` | Client | Refresh, Attribut-Tick, AttributeSet-Suche, Kartengenerator-Schritt, Figurenkomponente und ThreatLevel ohne Host-Objekte; Exp-Aggregation wartet auf AttributeSets; Blockaden nur beim Host; NetGUID-Pfade bleiben; SneakApproach wartet auf Mesh und PlayerState; keine lokale PowerUp-Kopie |
-| `CameraPatches.cpp` | Client | Kamera-Spieler aus der `PlayerArray` statt aus dem GameMode, Bodenfix, gemeinsame Kamera als ViewTarget je Sekunde |
+| `CameraPatches.cpp` | Client | Kamera-Spieler aus der `PlayerArray` statt aus dem GameMode, Bodenfix, gemeinsame Kamera als ViewTarget je Sekunde; Bewegungs-Restrictor ohne GameState stürzt nicht ab und bekommt ihn nachgetragen, siehe [Restrictor](../../docs/GAME_ANALYSIS.md#client-absturz-im-restrictor-tick-absturz) |
 | `InventoryPatches.cpp` | beide | Inventar-Unterobjekte über den klassischen Replikationspfad, Timer des Achievement-Detektors beim `EndPlay` löschen, Kartengenerator-Schritt nur für die aktuelle Welt; [Itemsack-Vergabe](../../research/spikes/itemsack-absturz/README.md) nur auf Authority außerhalb einer Client-Welt |
 | `TravelPatches.cpp` | Host | Reise ins Spiel wird `servertravel`, vorher Zeitanfragen abräumen; allein und ins Hauptmenü reist das Spiel wie gewohnt |
 | `WidgetPatches.cpp` | Client | `WP_UI` wartet auf den GameState; Beobachter nach jedem `ProcessEvent` |

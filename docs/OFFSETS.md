@@ -94,7 +94,7 @@ Ablauf siehe [Kamera und Sichtbereich](GAME_ANALYSIS.md#kamera-und-sichtbereich)
 | Bildecken eines Controllers auf den Boden projizieren | `0x5B028D0` | `GetViewportSize` (`0x2E722B0`), `DeprojectScreenPositionToWorld` (`0x2A6CD50`) |
 | Spawnort des Gegner-Spawners | `0x58AA0F0` | Prüft `UseViewportEdgesForSpawningPositions` |
 | Spieler der Kamera aus `SpawnedPlayers` | `0x5A0DA90` | Spike-Patch beim Client |
-| `UInViewportMovementRestrictor::PreProcessMovementInput` | `0x5A17AB0` | Interface-Vtable `0x94C8678` Slot 2, Absturzstelle `0x5A17ACC`; Exec-Thunk `0x57525C0` |
+| `UInViewportMovementRestrictor::PreProcessMovementInput` | `0x5A17AB0` | Interface-Vtable `0x94C8678` Slot 2, Absturzstelle `0x5A17ACC` (`cmp [rax+2C8h],1; jle 0x5A17B88`, weiter bei `0x5A17AD9`), Mod-Wächter dort; Exec-Thunk `0x57525C0` |
 | `UInViewportMovementRestrictor::BeginPlay` | `0x5A03C20` | Vtable `0x94C8138` Slot 129, setzt `MissionGameState` aus `World->GameState` |
 
 ### Gegner

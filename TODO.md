@@ -44,15 +44,12 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `airdrop-rucksack` | P0 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `airdrop-warten` | P0 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `mod-saves` | P0 | [6](#phase-6--release) | parallel | mittel |
-| `lobby-bereit` | P1 | [3](#phase-3--session-und-verbindung) | parallel | wenig |
 | `eingaben` | P1 | [4](#phase-4--vertical-slice) | parallel | mittel |
-| `restrictor` | P1 | [4](#phase-4--vertical-slice) | parallel | wenig |
 | `xp-baelle` | P1 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `installer` | P1 | [6](#phase-6--release) | parallel | keine |
 | `weekly-sperre` | P1 | [6](#phase-6--release) | parallel | wenig |
 | `mod-steuerung` | P1 | [Wartung](#wartung) | parallel | wenig |
 | `doku-verweise` | P2 | [Wartung](#wartung) | parallel | keine |
-| `versions-meldung` | P2 | [Wartung](#wartung) | parallel | wenig |
 | `opt-ladezeit-messung` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
 
 **Wartet auf das Team:** `meta-fortschritt`, `spiel-update`.
@@ -138,7 +135,6 @@ Ziel: Zwei Spieler finden sich über Steam und verbinden sich ohne Portfreigabe.
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
 | `lobby-live` | P0 | Steam-Lobby der Mod mit zwei Konten auf zwei PCs prüfen: Einladung über das Steam-Overlay annehmen, Beitritt per P2P, Start über `+connect_lobby` bei geschlossenem Spiel, Verlassen beider Seiten. **Fertig, wenn** der Client nur über die Einladung bis in die MetaBase kommt und der Handshake des [Kontrollkanals](docs/CONTROL_PROTOCOL.md) dabei über das Internet bestätigt ist. **Einstieg:** [Steam-Lobby](src/Net/README.md#steam-lobby-steam-lobby), [Test auf zwei PCs](docs/TESTING.md#test-auf-zwei-pcs) | `steam-lobby` | zu zweit | wenig |
-| `lobby-bereit` | P1 | Lobby nur anbieten, solange das Spiel des Hosts wirklich hostet. Gemessen am 05.11.2026 auf zwei PCs, nur Mod: Steht der Host im Hauptmenü, bleibt seine Lobby offen und Tunnel samt Handshake stehen, aber die Engine des Clients findet keinen Server. Sie wartet etwa 18 s, lädt die MetaBase ohne Verbindung und fällt ohne Meldung ins Hauptmenü. Wechselt der Host über das Spielmenü ins Hauptmenü, bleibt die Lobby ebenso offen; der Client erfährt das erst nach 30 s als „Verbindung zum Host verloren“ statt sofort „Der Host hat die Sitzung verlassen“. **Fertig, wenn** ein Beitritt bei einem Host ohne Listen-Server sofort mit einem Hinweis im Overlay endet, ein Host beim Wechsel ins Hauptmenü die Sitzung mit Grund beendet und der Client das wie bei „Verlassen“ in unter 1 s meldet. Ordner `src/Net`, `src/Mod`. **Einstieg:** [Zwei PCs, nur Mod](src/Net/README.md#zwei-pcs-nur-mod-05112026) | `steam-lobby`, `net-fehler` | parallel | wenig |
 
 ## Phase 4 – Vertical Slice
 
@@ -152,7 +148,6 @@ Ziel: Zwei Spieler starten eine Mission, kämpfen gegen einen Gegnertyp und sehe
 | `kampf` | P0 | Waffen, Projektile, Treffer, Schaden, Tod. Ordner `src/Sync/Combat` | `remote-spieler` | parallel | mittel |
 | `gegnertyp` | P0 | Ein Gegnertyp inklusive Spawn und Tod. Ordner `src/Sync/Enemies` | `remote-spieler` | parallel | mittel |
 | `eingaben` | P1 | Eingaben aus dem lokalen `CoopInputRouter` sauber vom Remote-Spieler trennen. Ordner `src/Sync/Players`, Dateien mit `bewegung` absprechen | `remote-spieler` | parallel | mittel |
-| `restrictor` | P1 | Beim Client `MissionGameState` des `InViewportMovementRestrictor` nachtragen, wenn der GameState erst nach dessen `BeginPlay` ankommt, sonst Absturz bei `0x5A17ACC`. **Einstieg:** [Restrictor](docs/GAME_ANALYSIS.md#client-absturz-im-restrictor-tick-absturz) | `patches` | parallel | wenig |
 | `rundenende-absturz` | P0 | Beim regulären Rundenende von Tag 1 (rund 12,5 Minuten nach Missionsstart, mit `-Godmode`) stürzt zuerst der Client ab (Access Violation beim Lesen von `0x348`), 30 Sekunden später der Host (`0x1B8`). Zweimal mit identischen Stacks beobachtet, nur Frames des Spiels. Erste Gegenprobe: dasselbe Rundenende mit `desync_enabled=false`. **Fertig, wenn** beide Instanzen das Rundenende von Tag 1 ohne Absturz überstehen. **Einstieg:** [Desync-Melder, Langzeitmessung](docs/DESYNC.md#langzeitmessung-im-spiel-05112026-nach-merge-von-main) | `phasenadapter` | parallel | mittel |
 | `integration-g2` | P0 | Gate G2: Vertical Slice zusammenführen und zehn Minuten über echtes Internet zwischen zwei Haushalten spielen. Zwei Menschen nötig. **Fertig, wenn** die Runde stabil, ohne Desync und spielbar ist. Sonst Ursachen beheben, bevor weitere Inhalte synchronisiert werden | `missionsstart`, `kamera-code`, `bewegung`, `kampf`, `gegnertyp`, `eingaben`, `restrictor`, `steam-lobby`, `lobby-live`, `transport`, `net-fehler`, `ohne-spike`, `latenz-test`, `desync-melder` | zentral | viel |
 
@@ -199,7 +194,6 @@ Zählt nicht zum Fortschritt.
 | `doku-verweise` | P2 | Veraltete Querverweise verhindern: `task_status.py check` meldet Sätze wie „folgt mit“, „kommt mit“ oder „bis `<kennung>`“, deren Kennung schon erledigt ist. Dabei die bekannten Stellen korrigieren: Overlay-Absatz in [Testen](docs/TESTING.md#mod-overlay-prüfen) (Lobby-Knöpfe), Phase-3-Satz im [README](README.md), „Das kommt mit `steam-lobby`“ in [Net](src/Net/README.md), Welle 2 in der [Roadmap](docs/ROADMAP.md), und im Abschnitt [Test auf zwei PCs](docs/TESTING.md#test-auf-zwei-pcs) den Weg über `-Tunnel Lobby` ergänzen. **Fertig, wenn** die Prüfung in der CI läuft und auf `main` nichts meldet | – | parallel | keine |
 | `mod-steuerung` | P1 | Steuerkanal in der Mod für Testskripte: Befehle mit Antwort über eine lokale Named Pipe je Prozess, nur mit Testschalter aktiv. Mindestens Zustand als JSON (Welt, Rolle, Spieler, Sitzung, Overlay), Lobby erstellen, beitreten, verlassen, Konsolenbefehl und Reise. Ersetzt die Befehlsdatei des Spikes (`Send-SpikeCommand`, eine Sekunde Abfrage, keine Antwort) und das Auslesen per `netstate.py` und Overlay-Fenster. **Fertig, wenn** `Start-Session.ps1`, `Restart-Instance.ps1` und `Test-NetEnd.ps1` ohne Spike-Befehle auskommen und gleich schnell oder schneller sind. **Einstieg:** [Spielzeit sparen](docs/TESTING.md#spielzeit-sparen), `tools/spike/Common.ps1` | `test-tempo` | parallel | wenig |
 | `spiel-update` | P2 | Nur wenn das Team einen neuen Spiel-Build beschließt: Offsets, Signaturen und Patches anpassen. Betrifft alles auf einmal, alle Spieltests warten darauf. **Einstieg:** [Update-Regel](CONTRIBUTING.md#spiel-updates) | – | Team | viel |
-| `versions-meldung` | P2 | Bei verschiedenen Mod-Ständen meldet die Mod nur „Ungueltige oder inkompatible Kontrollnachricht“ und trennt. Am 05.11.2026 auf zwei PCs so passiert, bis beide denselben Stand hatten. **Fertig, wenn** die Meldung in Log und Overlay sagt, dass der Mitspieler eine andere Protokoll- oder Mod-Version hat, mit beiden Werten, und kaputte Daten weiter als solche gemeldet werden. Ordner `src/Net`. **Einstieg:** [Protokoll](docs/CONTROL_PROTOCOL.md), [Zwei PCs, nur Mod](src/Net/README.md#zwei-pcs-nur-mod-05112026) | `protokoll` | parallel | wenig |
 
 ## Optionale Optimierungen
 
@@ -262,6 +256,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `last` | 1 | Spike D: bei rund 85 Gegnern 47 KB/s vom Host, beide Instanzen 60 fps, nur Loopback, siehe [Last](docs/GAME_ANALYSIS.md#last-spike-d-last) |
 | `latenz-test` | 4 | Netzsimulation im Tunnel der Mod (`-ddcoop_netsim`, `-NetProfile Internet`), Routenlauf bis Tag 1 mit Profil sauber, [Latenz simulieren](docs/TESTING.md#latenz-simulieren) |
 | `layerapps-sperre` | 6 | Die Mod sperrt auch `deadlydays.layerapps.com`, das das Spiel beim Run-Ende anfragt (`Core::ReportHosts`). Run-Ende und neuer Run laufen normal, siehe [Telemetrie und Berichte](docs/GAME_ANALYSIS.md#telemetrie-und-berichte-telemetrie-aus) |
+| `lobby-bereit` | 3 | Host schließt die Lobby im Hauptmenü oder ohne Listen-Server, Client erfährt es sofort, siehe [Lobby nur mit Server](src/Net/README.md#lobby-nur-mit-server-lobby-bereit) |
 | `menue-weg` | 1 | Mission über den echten Weg durch das Spielmenü mit den Patches gestartet, siehe [Spike](research/spikes/a-connect/README.md) |
 | `mitwirkende` | 0 | Freunde als Mitwirkende eingeladen |
 | `net-fehler` | 3 | Jedes Sitzungsende (Verlassen beider Seiten, Abbruch, Steam- und Sitzungszeitlimits) erscheint mit eigenem Grund als lesbare Meldung in Overlay und Log, danach sind Erstellen und Beitreten wieder frei; im Spiel geprüft, siehe [Fehlerbehandlung](src/Net/README.md#fehlerbehandlung-net-fehler) |
@@ -281,6 +276,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `remote-spieler` | 4 | Host trägt den Remote-Spieler dauerhaft als P2 in die Coop-Logik ein, ohne zweiten LocalPlayer und vorerst ohne Koop-Modus, siehe [Remote-Spieler als P2](src/Game/README.md#remote-spieler-als-p2) |
 | `replikation-blueprint` | 1 | 218 von 482 Blueprint-Actor-Klassen replizieren, vor allem über ihre native Basisklasse |
 | `replikation-kern` | 1 | Replizierte Properties der Kernklassen erfasst, der Kern repliziert, siehe [Replikation](docs/GAME_ANALYSIS.md#replikation-zur-laufzeit) |
+| `restrictor` | 4 | Null-Schutz an 0x5A17ACC und Nachtrag des GameState beim Client, im Spiel mit genulltem Feld ohne Absturz, siehe [Restrictor](docs/GAME_ANALYSIS.md#client-absturz-im-restrictor-tick-absturz) |
 | `rpc-vergleich` | 1 | RPC-Liste gegen den Juli-Dump: 3 RPCs entfernt, keiner hinzugekommen |
 | `run-ablauf` | 1 | `TriggerStartRun`, `FinalizeRunStart`, Ladebildschirm und Etappenwechsel nachvollzogen, siehe [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf) |
 | `sdk` | 0 | SDK für UE 5.8 erzeugt, siehe [SDK-Erzeugung](docs/GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58) |
@@ -305,6 +301,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `tunnel-p2p` | 1 | Zwei PCs mit zwei Steam-Konten spielten über den P2P-Tunnel bis in die Mission an Tag 1, 120 s ohne Absturz, Ping 41 ms im Median über ein Steam-Relay, nichts verworfen, siehe [Steam-Tunnel](research/spikes/a-connect/README.md#p2p-auf-zwei-pcs-tunnel-p2p) |
 | `tutorial-aus` | 6 | Die Mod schaltet die Tutorial-Hinweise als Host und Client automatisch ab und prüft das jede Sekunde (`src/Game/TutorialAdapter`), siehe [Tutorial-Pause](docs/GAME_ANALYSIS.md#tutorial-pause-hält-den-run-an-testumgebung) |
 | `update-regel` | 0 | Spiel-Updates: einfrieren und nur bei Bedarf nachziehen, siehe [Update-Regel](CONTRIBUTING.md#spiel-updates) |
+| `versions-meldung` | Wartung | Abgelehnte erste Nachricht nennt den Grund mit beiden Werten (alte Mod, Protokoll, Build, Mod-Version, Rolle), siehe [Handshake](docs/CONTROL_PROTOCOL.md#handshake) |
 | `weeklymode` | 5 | Team-Entscheidung vom 05.11.2026: Die Weekly-Challenge wird nicht unterstützt und ist gesperrt, solange die Mod geladen ist, auch solo, wie Erfolge und Bestenlisten. Umsetzung ist `weekly-sperre` |
 | `zwei-pc-test` | Wartung | Tests auf zwei PCs: `Test-TwoPc.ps1` fährt je PC eine Rolle automatisch bis in die Mission und schreibt einen Tunnel-Bericht, `Start-Session.ps1 -Role`, Aufgaben „zu zweit“ mit Rollen-Reservierung in `tasks.py`, siehe [Test auf zwei PCs](docs/TESTING.md#test-auf-zwei-pcs) |
 

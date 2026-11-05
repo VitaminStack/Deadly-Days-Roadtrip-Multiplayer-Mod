@@ -19,6 +19,11 @@ oder Bedeutung müssen sie erhöhen. Der Core-Buildschutz prüft separat, ob das
 lokale Spiel tatsächlich unterstützt ist. Lobby-Metadaten ersetzen diesen
 Verbindungs-Handshake nicht.
 
+**Ablehnungsgrund.** Passt die erste Nachricht nicht, nennt `Protocol::Explain` in Log und Overlay den Grund (`versions-meldung`):
+Mitspieler ohne Mod-Protokoll (Mod vor `protokoll`), andere Protokollversion, anderer Spiel-Build, andere Mod-Version jeweils mit
+beiden Werten, beide Seiten Host oder beide Client. Erst wenn nichts davon zutrifft, heißt es „Ungueltige … Kontrollnachricht“, dann sind
+die Daten wirklich kaputt. Die Gegenseite sieht weiter Grund 1003 („Der Host hat die Verbindung abgelehnt“).
+
 ## Format
 
 Alle Ganzzahlen explizit Little Endian, keine nativen Structs:

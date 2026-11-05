@@ -198,4 +198,18 @@ bool ShouldRedirectTravel(NetRole Role, std::string_view Target);
 // die neue Länge; Added zählt die ergänzten Figuren. Doppelte und Null-Figuren kommen nicht dazu.
 size_t MergeKeepList(const uintptr_t* Keep, size_t KeepCount, const uintptr_t* Pawns, size_t PawnCount, uintptr_t* Out,
                      size_t Capacity, size_t& Added);
+// UInViewportMovementRestrictor::PreProcessMovementInput liest PlayerArray.Num über MissionGameState (RAX) ohne
+// Null-Prüfung. Ohne GameState gilt dasselbe wie bei einem Spieler: keine Bremse (Skip). Sonst das Original
+// cmp dword [rax+2C8h],1; jle Skip, danach weiter bei Continue.
+template <typename WriterT> void EmitRestrictorGuard(WriterT& Code, uintptr_t Skip, uintptr_t Continue)
+{
+    Code.Emit({0x48, 0x85, 0xC0}); // test rax,rax
+    Code.Emit({0x0F, 0x84});       // je Skip
+    Code.EmitRel(Skip);
+    Code.Emit({0x83, 0xB8, 0xC8, 0x02, 0x00, 0x00, 0x01}); // cmp dword [rax+2C8h],1
+    Code.Emit({0x0F, 0x8E});                               // jle Skip
+    Code.EmitRel(Skip);
+    Code.Emit({0xE9}); // jmp Continue
+    Code.EmitRel(Continue);
+}
 }
