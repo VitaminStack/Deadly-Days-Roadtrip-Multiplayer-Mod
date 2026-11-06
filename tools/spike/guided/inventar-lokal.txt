@@ -1,0 +1,10 @@
+# inventar-lokal: Client bearbeitet sein Inventar lokal, Host übernimmt beim Bestätigen einen Edit.
+# Agent startet vorher Start-Session.ps1 -Build -Mod -Godmode -Tunnel Lobby mit DDCOOP_TRACE_INVENTORY=1; Antworten nur im Chat.
+> Run-Route.ps1 -Days 1 -StayLast
+Mit dem Client einen Airdrop öffnen. Gibt es einen Rucksack, ihn an den Rand legen und drehen, sonst ein bestehendes Item verschieben und drehen. Noch NICHT bestätigen | Neue Felder bzw. die neue Lage erscheinen sofort beim Client, nichts springt zurück
+Beim Client ein Item auf ein neues Feld oder an eine neue Stelle legen, dann Bestätigen drücken, danach beim Host wählen und bestätigen | Panel schließt beim Client ohne Zurückspringen; Log "Edit … übernommen"
+> Get-Status.ps1 -Inventory
+Zweiten Airdrop mit dem Client öffnen, ein bestehendes Item umsortieren und ein Item wählen, dann beide bestätigen | Alte und neue Felder und Items stehen beim Client an derselben Stelle wie vorher; keine Geister
+> Get-Status.ps1 -Inventory
+Bus volltanken und mit beiden Figuren in den nächsten Tag reisen, dort kurz kämpfen | Kein Absturz; Client-Items und Felder nach der Reise unverändert, gewählte Waffe wirkt
+> Get-Status.ps1 -Inventory

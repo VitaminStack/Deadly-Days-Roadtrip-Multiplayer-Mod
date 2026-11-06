@@ -123,6 +123,8 @@ abgelehnt. Code in `src/Sync/Inventory`, Envelope-Run je Prozess, Epoche 1, Revi
 
 Der Client sucht `ItemData` und `Rarity` über die Objektnamen und legt damit eigene Anzeige-Instanzen an.
 
+`0x301` und `0x302` sind seit Mod-Version 4 ersetzt, siehe [Inventar lokal](#inventar-lokal-mod-kompatibilität-4). Bis dahin:
+
 `0x301` Wahl, Client an Host, genau 17 Bytes: Sitzung (8), Revision (8), Index (1, kleiner 4). Der Host nimmt sie nur an,
 wenn Sitzung und Revision zur offenen Sitzung passen und der Client noch nicht gewählt hat; sonst verwirft er sie und das nächste
 Bild zeigt den Stand. Keine Objektzeiger auf dem Draht, die Revision ist nur eine Prüfsumme.
@@ -131,6 +133,31 @@ Bild zeigt den Stand. Keine Objektzeiger auf dem Draht, die Revision ist nur ein
 Anzahl Felder (1, 1 bis 32), je Feld X und Y (je 4). Der Host legt die zuletzt für diese Sitzung angelegte Wahl auf diese Felder,
 sonst bleibt sie im Lager. Stand 05.11.2026: Der Client merkt sich die Ablage, im Test kam die Nachricht beim Host nicht an
 (`airdrop-rucksack`).
+
+## Inventar lokal (Mod-Kompatibilität 4)
+
+Aufgabe `inventar-lokal`, Ablauf in [Inventar lokal bearbeiten](../src/Game/README.md#inventar-lokal-bearbeiten). Mod-Version 4,
+weil Wahl und Ablage nicht mehr als `0x301`/`0x302` kommen; ein Client mit Version 3 könnte nicht mehr wählen. `0x300` bleibt.
+Ganzzahlen little-endian, Felder als X und Y mit je 4 Byte (vorzeichenbehaftet).
+
+`0x303` Edit, Client an Host, beim Bestätigen und bis zur Antwort jede Sekunde erneut:
+
+| Offset | Bytes | Inhalt |
+|---:|---:|---|
+| 0 | 8 | Kennung des Edits, ungleich 0 |
+| 8 | 8 | Sitzung der Auswahl, mit Wahl ungleich 0 |
+| 16 | 8 | Revision der Auswahl |
+| 24 | 1 | Index der Wahl, kleiner 8, `0xFF` = keine |
+| 25 | 1 | Anzahl neuer Felder, höchstens 64 |
+| 26 | 8 je | neue Felder |
+| … | 1 | Anzahl Items, höchstens 96 |
+| … | je Item | Index im Ausgangsbild (2, `0xFFFF` = die Wahl), Prüfsumme des `ItemData`-Objektnamens (4, FNV-1a), Bits (1: 0 vorhanden, 1 im Rucksack, 2 Papierkorb, 3 Rucksackeffekt auslösen), Kontext von `RemoveFromInventory` (1), `Turns` (4), Pivot (8), Anzahl Felder (1, höchstens 32), je Feld 8 |
+
+Nur geänderte Items, jeweils der Endzustand. Der Host lehnt ab, wenn die Form nicht stimmt (doppelte Quelle oder Felder, Felder
+ohne Rucksack, Belohnung ohne Wahl), die Wahl nicht zur offenen Sitzung passt, ein Item fehlt oder ein Zielfeld weder frei noch neu ist.
+
+`0x304` Antwort, Host an Client, genau 9 Bytes: Kennung (8), übernommen (1, 0 oder 1). Kommt eine Kennung erneut, schickt der Host
+nur die Antwort noch einmal.
 
 ## Bisher geprüft (05.11.2026, Kontrollkanal vor Diagnoseerweiterung)
 

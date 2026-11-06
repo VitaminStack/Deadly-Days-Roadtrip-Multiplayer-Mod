@@ -52,6 +52,9 @@ void TickMap(NetRole Role, bool Second);
 // Inventar-, Item-, Rucksackfeld- oder Inventar-Panel-Funktion eine Logzeile. Sonst ohne Wirkung.
 void TraceInventoryEvent(uintptr_t Object, uintptr_t Function, void* Params);
 
+// Server-RPC beim Client lokal ausführen statt senden (inventar-lokal), aus WidgetPatches.cpp. Nur Game Thread.
+void ProcessEventLocal(uintptr_t Object, uintptr_t Function, void* Params);
+
 // Beobachter nach jedem ProcessEvent, aus WidgetPatches.cpp.
 void NotifyEventObservers(uintptr_t Object, uintptr_t Function, void* Params);
 }
