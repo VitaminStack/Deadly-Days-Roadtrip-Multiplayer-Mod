@@ -134,6 +134,19 @@ constexpr bool BlockadeMayStart(bool HasWorld, bool HasDriver, bool HasServerCon
     return HasWorld && (!HasDriver || !HasServerConnection);
 }
 
+// Die Busabfahrt entscheidet nur der Host. Dem Client fehlt der GameMode, seine Prüfung „alle Spieler am Bus“ schlug
+// mit nur einer Figur an und beendete die Runde allein beim Client (bus-ende).
+constexpr bool BusTakeOffMayDecide(bool IsNetClient)
+{
+    return !IsNetClient;
+}
+
+// FinishMission beendet die Runde. Beim Client nur der Aufruf beim Laden, das Rundenende selbst kommt vom Host.
+constexpr bool MissionFinishAllowed(bool IsNetClient, bool IsLoading)
+{
+    return !IsNetClient || IsLoading;
+}
+
 // Beim Client bleiben ablaufende statische Pfad-GUIDs erhalten, keine dynamischen, NoLoad- oder kaputten Einträge.
 constexpr bool RetainNetGuidPath(bool CurrentClientCache, uint64_t Guid, uint32_t PathName, uint8_t Flags)
 {

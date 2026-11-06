@@ -32,6 +32,8 @@ constexpr uintptr_t SneakSameTarget = 0x58A5266;
 constexpr uintptr_t SneakRetry = 0x58A526C;
 constexpr uintptr_t SneakReady = 0x58A530D;
 constexpr uintptr_t BeginDeferredActorSpawnFromClass = 0x2A678F0;
+constexpr uintptr_t CanBusTakeOff = 0x59C3E10;
+constexpr uintptr_t FinishMission = 0x58E84C0;
 
 constexpr uintptr_t CharacterAttributeSet = 0x7D8;
 constexpr uintptr_t ExpHandlerResult = 0x314;
@@ -58,6 +60,39 @@ void __fastcall BlockadeLoadingFinishedHook(uintptr_t Component)
         return;
     }
     OriginalBlockadeLoadingFinished(Component);
+}
+
+using CanBusTakeOffFn = bool(__fastcall*)(uintptr_t, uint8_t*);
+CanBusTakeOffFn OriginalCanBusTakeOff = nullptr;
+std::atomic<int> BusTakeOffSkipped = 0;
+
+// ExtractionPointBase.CanBusTakeOff, nativ aus CheckTakeOffCondition und aus dem Bus-Blueprint. Beim Client immer nein,
+// Grund None, damit keine falsche Meldung erscheint. Abfahrt und Rundenende erreichen ihn über den Host.
+bool __fastcall CanBusTakeOffHook(uintptr_t ExtractionPoint, uint8_t* OutReason)
+{
+    if (!BusTakeOffMayDecide(CurrentRole() == NetRole::Client))
+    {
+        NoteOnce(BusTakeOffSkipped, "Bus: Abfahrtsprüfung beim Client unterdrückt, der Host entscheidet");
+        if (OutReason)
+            *OutReason = 0;
+        return false;
+    }
+    return OriginalCanBusTakeOff(ExtractionPoint, OutReason);
+}
+
+using FinishMissionFn = void(__fastcall*)(uintptr_t, bool);
+FinishMissionFn OriginalFinishMission = nullptr;
+std::atomic<int> FinishMissionSkipped = 0;
+
+// DDMissionGameState.FinishMission(IsLoading). Zweite Sperre für jeden anderen lokalen Weg zum Rundenende beim Client.
+void __fastcall FinishMissionHook(uintptr_t GameState, bool IsLoading)
+{
+    if (!MissionFinishAllowed(CurrentRole() == NetRole::Client, IsLoading))
+    {
+        NoteOnce(FinishMissionSkipped, "Rundenende: FinishMission beim Client unterdrückt, der Host entscheidet");
+        return;
+    }
+    OriginalFinishMission(GameState, IsLoading);
 }
 
 using ExpAggregateFn = float(__fastcall*)(uintptr_t);
@@ -284,6 +319,22 @@ bool ApplySneak(Code::Writer& Code)
     return !Code.Failed() && Code::WriteJump(At(SneakSameTarget), Guard);
 }
 
+bool CheckBusTakeOff()
+{
+    return Code::Expect(At(CanBusTakeOff), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x20, 0x55, 0x57, 0x41, 0x56},
+                        "ExtractionPointBase.CanBusTakeOff") &&
+           Code::Expect(At(0x59C494F), {0xE8, 0xBC, 0xF4, 0xFF, 0xFF}, "CanBusTakeOff aus CheckTakeOffCondition") &&
+           Code::Expect(At(FinishMission), {0x48, 0x89, 0x5C, 0x24, 0x20, 0x55, 0x56, 0x57, 0x48, 0x83, 0xEC, 0x30}, "DDMissionGameState.FinishMission");
+}
+
+bool ApplyBusTakeOff(Code::Writer&)
+{
+    return Core::Hooks::Install(reinterpret_cast<void*>(At(CanBusTakeOff)), reinterpret_cast<void*>(&CanBusTakeOffHook),
+                                reinterpret_cast<void**>(&OriginalCanBusTakeOff)) &&
+           Core::Hooks::Install(reinterpret_cast<void*>(At(FinishMission)), reinterpret_cast<void*>(&FinishMissionHook),
+                                reinterpret_cast<void**>(&OriginalFinishMission));
+}
+
 bool CheckPowerUp()
 {
     return Code::Expect(At(BeginDeferredActorSpawnFromClass), {0x40, 0x53, 0x55, 0x57, 0x41, 0x54}, "in BeginDeferredActorSpawnFromClass");
@@ -307,6 +358,7 @@ const Patch List[] = {
     {"NetGUID-Pfade bleiben beim Client", &CheckNetGuid, &ApplyNetGuid},
     {"SneakApproach wartet auf Mesh und PlayerState", &CheckSneak, &ApplySneak},
     {"PowerUp ohne lokale Kopie", &CheckPowerUp, &ApplyPowerUp},
+    {"Busabfahrt und Rundenende nur beim Host", &CheckBusTakeOff, &ApplyBusTakeOff},
 };
 }
 

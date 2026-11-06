@@ -514,3 +514,13 @@ TEST_CASE("Karte: Client wartet auf die Werte des Hosts, aber nicht ewig")
     CHECK(ClientMapStart(true, false, HostMapWaitMs * 2, HostGraphWaitMs - 1) == MapStart::Wait);
     CHECK(ClientMapStart(true, false, 0, HostGraphWaitMs) == MapStart::HostValues);
 }
+
+TEST_CASE("Busabfahrt und Rundenende entscheidet nur der Host")
+{
+    CHECK(BusTakeOffMayDecide(false));
+    CHECK_FALSE(BusTakeOffMayDecide(true));
+    CHECK(MissionFinishAllowed(false, false));
+    CHECK(MissionFinishAllowed(false, true));
+    CHECK(MissionFinishAllowed(true, true));
+    CHECK_FALSE(MissionFinishAllowed(true, false));
+}
