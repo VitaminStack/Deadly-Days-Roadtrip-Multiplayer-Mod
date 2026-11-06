@@ -159,6 +159,14 @@ ohne Rucksack, Belohnung ohne Wahl), die Wahl nicht zur offenen Sitzung passt, e
 `0x304` Antwort, Host an Client, genau 9 Bytes: Kennung (8), übernommen (1, 0 oder 1). Kommt eine Kennung erneut, schickt der Host
 nur die Antwort noch einmal.
 
+## Rundenende (`rundenende-client`)
+
+`0x401` Host an Client, neben der Karte `0x400` aus `missionsstart` (`src/Sync/World`). Genau 16 Bytes: Karten-Id der Mission
+(`HostMap::Id`, 8) und Id des Rundenendes (8), beide zufällig und ungleich 0. Zweimal 0 heißt kein Rundenende. Der Host schickt die
+Nachricht bei jeder Änderung und sonst jede Sekunde, bis er die Welt verlässt. Der Client beendet seine Runde nur, wenn die Karten-Id zu
+der Karte passt, die er in dieser Welt vom Host übernommen hat, und jede Id nur einmal. Ohne Mod-Versionswechsel: Eine ältere Gegenseite
+kennt `0x401` nicht, dann bleibt der Client wie bisher in der Mission und folgt der Reise.
+
 ## Bisher geprüft (05.11.2026, Kontrollkanal vor Diagnoseerweiterung)
 
 - Build und alle Tests bestanden, darunter 24 Net-Testfälle: binäre UE-Pakete in

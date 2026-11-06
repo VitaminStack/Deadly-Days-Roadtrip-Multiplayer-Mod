@@ -75,13 +75,12 @@ struct
     ULONGLONG PendingSince = 0;
     uintptr_t Generator = 0, GeneratorWorld = 0; // laufende eigene Erzeugung, nur dann Child Actors unterdrücken
     int Suppressed = 0;
-    // Rundenende (rundenende-client). Host: eigenes Ende in EndedWorld. Client: letztes Ende des Hosts, das zuletzt
-    // nachgezogene und ob die Reise danach noch aussteht.
+    // Rundenende (rundenende-client). Host: eigenes Ende in EndedWorld. Client: letztes Ende des Hosts und das zuletzt
+    // nachgezogene.
     std::optional<Map::RoundEnd> Ended;
     uintptr_t EndedWorld = 0;
     std::optional<Map::RoundEnd> HostEnd;
     uint64_t FollowedEnd = 0;
-    bool FollowTravelPending = false;
     // Beide: PCG-Volume, dessen Instanzen noch einen festen Seed brauchen
     uintptr_t PcgWorld = 0;
     ULONGLONG PcgSince = 0;
@@ -506,13 +505,6 @@ void NoteHostRoundEnd()
         Core::Log::Warn("Rundenende: Host beendet die Runde ohne eigene Kartenwerte, der Client bleibt in der Mission");
 }
 
-bool TakeClientRoundEndTravel()
-{
-    const bool Pending = S.FollowTravelPending;
-    S.FollowTravelPending = false;
-    return Pending;
-}
-
 // Client: Das Rundenende des Hosts einmal lokal nachziehen, sobald es zur gespielten Karte passt.
 void FollowRoundEnd()
 {
@@ -523,10 +515,7 @@ void FollowRoundEnd()
         return;
     S.FollowedEnd = S.HostEnd->Id;
     if (FollowHostRoundEnd())
-    {
-        S.FollowTravelPending = true;
         Core::Log::Info("Rundenende: Host hat die Runde beendet, Client öffnet Rundenübersicht und Lager selbst");
-    }
     else
         Core::Log::Warn("Rundenende: Client ohne Missions-GameState, folgt nur der Reise");
 }

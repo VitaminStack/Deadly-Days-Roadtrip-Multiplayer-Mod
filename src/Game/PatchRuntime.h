@@ -53,11 +53,6 @@ void NoteHostRoundEnd();
 // Client, aus ClientPatches.cpp: lokales FinishMission wie beim Bus, damit Rundenübersicht, Lager und Routenkarte beim
 // Client selbst aufgehen. Falsch ohne Missions-GameState. Nur Game Thread.
 bool FollowHostRoundEnd();
-// Aus TravelPatches.cpp: alle Zeitanfragen abräumen, wie der Ladestart von SeamlessTravelToLevel. FinishMission legt eine
-// Pause an, die sonst über die Reise stehen bleibt.
-void ClearTimeRequests(uintptr_t LoadingSubsystem);
-// Client: Seit dem letzten Rundenende des Hosts lokal nachgezogen und noch nicht gereist (aus MapPatches.cpp).
-bool TakeClientRoundEndTravel();
 
 // Diagnose für inventar-transaktion: Mit der Umgebungsvariable DDCOOP_TRACE_INVENTORY=1 protokolliert jeder Aufruf einer
 // Inventar-, Item-, Rucksackfeld- oder Inventar-Panel-Funktion eine Logzeile. Sonst ohne Wirkung.
