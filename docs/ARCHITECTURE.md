@@ -251,8 +251,11 @@ Das ist noch keine implementierte oder im Netz getestete Synchronisierung.
 Client-Anzeige darf keine `AddExperience`-/`AddAmount`-Replays und keine normalen
 Speicher-/Erfolgsroutinen ausloesen. Item-/Session-IDs, Run-Epoche, Revisionen und
 Anfrage-Deduplizierung sind verbindliche Anforderungen an die Umsetzung.
-Die Netzwerk-Transportbindung, XP-Einheit, gemeinsame Kontozuordnung und
-persistente Mitspieler-Meta-Belohnung sind noch zu klaeren.
+Die Netzwerk-Transportbindung, XP-Einheit und gemeinsame Kontozuordnung sind
+noch zu klaeren. Fuer Meta-Fortschritt gilt seit der Nutzervorgabe vom 06.11.2026
+der Stand des Hosts fuer beide Spieler im gemeinsamen Run, ohne dauerhafte
+Meta-Gutschrift oder Profiluebernahme beim Client. Entscheidung und noch offene
+Umsetzung: [Meta-Fortschritt des Hosts](SYNC_REQUIREMENTS.md#nutzervorgabe-meta-fortschritt-des-hosts-06112026).
 
 ## Module
 

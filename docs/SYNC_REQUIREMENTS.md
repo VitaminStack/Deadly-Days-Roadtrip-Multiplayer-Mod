@@ -39,13 +39,40 @@ abgespielten visuellen Effekten. Die Vergabe entscheidet der Host; der Client
 uebernimmt den bestaetigten Zustand, ohne `AddExperience`/`ReceiveExp` lokal
 noch einmal auszufuehren. Die technische Zuordnung der nativen Objekte bleibt zu
 pruefen; die gewuenschte Mod-Regel ist damit entschieden. Daraus folgt keine
-Entscheidung ueber Meta-Fortschritt oder identische persoenliche Reward-Auswahlen.
+Entscheidung ueber identische persoenliche Reward-Auswahlen. Fuer Meta-Fortschritt
+gilt die folgende Nutzervorgabe.
 
 Abnahme fuer `fortschritt`: Aufnahme nur durch Host, nur durch Client sowie
 gleichzeitig durch beide testen. Beispiel: ein Orb mit Wert 10 bedeutet einen
 gemeinsamen Gewinn von 10, nicht 20; beide HUDs zeigen den neuen gemeinsamen
 Stand. Doppelte/verspaetete Zustellung, Level-up, Reise und erneuter Beitritt
 duerfen weder Gewinn wiederholen noch alte Anzeigen zurueckschreiben.
+
+### Nutzervorgabe: Meta-Fortschritt des Hosts (06.11.2026)
+
+Entscheidung des Nutzers fuer Phase 5 (`meta-fortschritt`): **Im gemeinsamen
+Run gilt der Meta-Fortschritt des Hosts.** Seine Freischaltungen und dauerhaften
+Meta-Verbesserungen bilden die Grundlage fuer beide Spieler; der persoenliche
+Meta-Stand des Clients wird weder eingemischt noch zur Voraussetzung fuer den
+Beitritt. Das ersetzt nicht die persoenliche Itemwahl und den gemeinsamen
+Run-XP-Fortschritt.
+
+- Der Host entscheidet ueber Meta-Kosten, Freischaltungen und Meta-Auszahlungen.
+  Dauerhafter Fortschritt aus dem Coop-Run gehoert zum Mod-Spielstand des Hosts.
+- Der Client nutzt den fuer die Sitzung bestaetigten Host-Stand. Er bekommt
+  keine automatische Meta-Gutschrift und keine Uebernahme der Host-Freischaltungen
+  in sein persoenliches Profil. Nach dem Verlassen gilt wieder sein eigener Stand.
+- UI, Darstellung und aus bestaetigten Daten ableitbare Wirkungen laufen lokal.
+  Zuerst native Replikation verwenden; nur nachgewiesene Luecken synchronisieren.
+  Keine kompletten Save-Dateien kopieren und keine lokalen Wallet-Buchungen als
+  Anzeigeabgleich ausfuehren.
+- Normale Spielstaende bleiben getrennt (`mod-saves`). Die technische Umsetzung
+  und die Pruefung von Join/Reconnect, Run-Ende, Niederlage, Reise und genau
+  einmaliger Auszahlung liegen bei `fortschritt`, `run-ende` und `mod-saves`.
+
+Damit ist die Produktentscheidung abgeschlossen, **nicht** ihre Implementierung
+oder Spielabnahme. Besonders das bereits beobachtete lokale Speichern durch
+`FinishMission` beim Client muss `mod-saves` absichern.
 
 ## Was Thema 6 zusaetzlich braucht
 
@@ -100,10 +127,11 @@ Netzwerk-Backend:
 
 ## Persistenz und Konfliktgrenzen
 
-Vorgeschlagener sicherer Anfang: Der Host besitzt Run, Auswahl und gemeinsame
-Run-Konten. Der Client behaelt seine normalen Saves unveraendert; Mod-Spielstaende
-sind getrennt. Ob ein Mitspieler spaeter Meta-Fortschritt erhaelt, ist eine eigene
-Produktentscheidung aus Phase 5 und wird hier nicht als geloest abgehakt.
+Verbindlicher Weg: Der Host besitzt Run, Auswahl und gemeinsame Run-Konten.
+Es gilt sein Meta-Fortschritt, ohne dauerhafte Meta-Gutschrift beim Client, siehe
+[Nutzervorgabe](#nutzervorgabe-meta-fortschritt-des-hosts-06112026). Der Client
+behaelt seine normalen Saves unveraendert; Mod-Spielstaende sind getrennt.
+Die Umsetzung dieser Speichergrenze ist weiterhin `mod-saves`, kein belegter Ist-Zustand.
 
 `AbstractCurrency::AddAmount` ist keine reine UI-Setter-Funktion. Save-/Delegate-
 Seiteneffekte sind moeglich und bislang nicht voll untersucht. Deshalb native

@@ -18,6 +18,8 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 
 **Neue Befunde.**
 
+- `dodge-client-live`, 06.11.2026, offen: Archiviertes Client-Log enthaelt 29 Ruecksetzungen der Dodge-Werte; der Fix fehlt nicht. Die bisherige Host-Meldung belegt auch bei Nullrichtung nur erfolgreiches Schreiben. Diagnose je Client-Aktivierung ergaenzt, keine Aenderung der Dodge-/Ausdauerlogik. Fuer die Ursache fehlen zeitgleiche Logs beider Seiten und die Zehn-Dodge-Abnahme auf zwei PCs. [Diagnose](GAME_ANALYSIS.md#dodge-im-zwei-pc-test-diagnose-offen-dodge-client-live)
+- `meta-fortschritt`, 06.11.2026: Vom Nutzer entschieden: Im gemeinsamen Run gilt der Meta-Fortschritt des Hosts fuer beide Spieler. Der Client nutzt ihn nur fuer die Sitzung, ohne dauerhafte Meta-Gutschrift oder Uebernahme ins persoenliche Profil. Umsetzung und Speichertrennung bleiben `fortschritt`, `run-ende` und `mod-saves`; keine neue Laufzeitfunktion behauptet. [Regel](SYNC_REQUIREMENTS.md#nutzervorgabe-meta-fortschritt-des-hosts-06112026)
 - `werkbank-client`, 06.11.2026: Der Client wertet Items im nativen Panel auf, per Ablegen auf ein gleiches Item und an der Werkbank. Vorher ging das beim Client nie, weil die Seltenheit der Items nicht repliziert; jetzt schickt der Host sie für das Clientinventar (`0x308`). Die Aufwertung läuft beim Client lokal, der Edit meldet sie, der Host prüft sie gegen die Regel fürs Ablegen oder ein Rezept aus `DT_RecipeTable` und ruft `UpgradeItems` selbst auf. Im Lager beginnt die erste Aufwertung eine lokale Bearbeitung bis zum Bestätigen. Mod-Version 7. Im Lager an Tag 1 und 2 geprüft (Ablegen, Werkbank, beides in einem Edit), nach der Reise Inventare gleich; Airdrop und Lager ohne Aufwertung wie bisher. [Befund](../src/Game/README.md#werkbank-und-aufwerten-beim-client)
 - `livetest-befunde`, 06.11.2026: Erster Live-Test auf zwei PCs über das Internet bis Tag 2, abgebrochen durch einen Absturz des Clients im Lager. Beim Client wirkten getauschte Waffen nicht, das Inventar wich dauerhaft ab, Aufwerten fehlt (`werkbank-client`), der Dodge-Fix wirkte laut Nutzer nicht. Neu: `lager-absturz-client`, `waffe-client-auswahl`, `inventar-client-abweichung`, `dodge-client-live`. [Befund](GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-06112026-livetest-befunde)
 - `xp-baelle-live`, 06.11.2026: Im Spiel gegengeprüft, ohne Code-Änderung. Beim Client sind die Sichtgrenzen der XP-Bälle jetzt dieselben wie beim Host (4370/4851 statt vorher 1050/5750). Auch bei weit auseinanderstehenden Figuren lagen die Bälle am linken und am rechten Bildrand auf beiden Seiten gleich. Eingesammelte Bälle verschwanden auf beiden Seiten. Level und XP blieben bis Level 6 gleich, es wurde nichts doppelt gezählt. Gegenproben Bewegung, Dodge, zwei Airdrops und Lager bestanden, kein Absturz. [Befund](GAME_ANALYSIS.md#xp-bälle-beim-client-xp-baelle)
@@ -272,7 +274,9 @@ flowchart TD
         WB["Werkbank beim Client<br/>(werkbank-client)"]:::open
         PU["Pausen und blockierende UI"]:::open
         TG["Tageszyklus, Treibstoff,<br/>Etappen"]:::open
-        ME["Run-Ende, Meta-Basis,<br/>Regel für Meta-Fortschritt"]:::open
+        MF["Meta-Fortschritt des Hosts<br/>(meta-fortschritt: entschieden)"]:::done
+        ME["Run-Ende, Meta-Basis<br/>(run-ende)"]:::open
+        MF --> ME
         DL["Dauerlauf über viele Tage<br/>(dauerlauf)"]:::open
     end
 
