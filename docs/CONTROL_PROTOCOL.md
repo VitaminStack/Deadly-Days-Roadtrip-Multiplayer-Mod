@@ -172,6 +172,19 @@ heißt jetzt zugleich „Host ist bereit“.
 `0x305` Bereit, Client an Host, genau 17 Bytes: Sitzung (8, ungleich 0), Revision (8), bereit (1, 0 oder 1). Der Client schickt es bei
 jeder Änderung und alle 500 ms erneut, bis das Sitzungsbild den Stand zeigt. Der Host nimmt es nur für die offene Sitzung an, solange
 der Client noch nicht gewählt hat; eine neue Revision (Reroll) braucht ein neues Bereit.
+## Lager am Rundenende (Mod-Kompatibilität 6)
+
+Aufgabe `bestaetigen-rundenende`. Mod-Version 6, weil der Host im Lager am Rundenende ab dann auf das Bereit des Clients wartet; ein
+Client mit Version 5 meldet es nie. Bestätigen im Lager markiert wie in [Alle bestätigen](#alle-bestätigen-mod-kompatibilität-5) nur
+bereit. Die Id ist die des Rundenendes aus `0x401`.
+
+`0x306` Client an Host, genau 9 Bytes: Id des Rundenendes (8, ungleich 0), das der Client selbst geöffnet hat, und bereit (1, 0 oder 1).
+Alle 500 ms, solange der Client in diesem Rundenende ist. Ohne diese Meldung wartet der Host nicht.
+
+`0x307` Host an Client, genau 9 Bytes: Id des Rundenendes (8, 0 = keins) und Flags (1): Bit 0 Host bereit, Bit 1 Host hat das Bereit des
+Clients. Ohne Rundenende sind die Flags 0, andere Bits sind ungültig. Bei Änderung sofort, sonst jede Sekunde. Der Client wartet nur
+mit einem höchstens 5 s alten Stand für dasselbe Rundenende und bestätigt, sobald beide Bits gesetzt sind oder der Stand fehlt.
+
 ## Rundenende (`rundenende-client`)
 
 `0x401` Host an Client, neben der Karte `0x400` aus `missionsstart` (`src/Sync/World`). Genau 16 Bytes: Karten-Id der Mission

@@ -30,6 +30,11 @@ struct
     uint64_t DoneSession = 0; // Sitzung, deren Wahl der Host übernommen hat
     uint64_t NextReadySend = 0;
     bool ReadySent = false;
+    // Lager am Rundenende (bestaetigen-rundenende)
+    std::optional<Reward::RoundEndStatus> SentEnd; // Host
+    uint64_t NextEndResend = 0;
+    std::optional<Reward::RoundEndStatus> LatestEnd; // Client
+    uint64_t LatestEndAt = 0, NextEndClientSend = 0;
 } R;
 
 uint64_t NowMs()
@@ -68,10 +73,49 @@ Reward::Offer ToWire(const std::optional<Game::Rewards::Offer>& Value)
     return Out;
 }
 
+// Host: Stand im Lager bei Änderung sofort, sonst jede Sekunde.
+void SendRoundEndStatus(Net::Transport& Transport)
+{
+    const auto State = Game::Rewards::HostRoundEnd();
+    const Reward::RoundEndStatus Status{State.Id, State.HostReady, State.ClientReady};
+    const uint64_t Now = NowMs();
+    if (R.SentEnd && *R.SentEnd == Status && Now < R.NextEndResend)
+        return;
+    if (Send(Transport, Reward::RoundEndStatusType, Reward::Encode(Status)))
+    {
+        R.SentEnd = Status;
+        R.NextEndResend = Now + 1000;
+    }
+}
+
+// Client: eigenes Rundenende und Bereit alle 500 ms; den Stand des Hosts nur frisch (5 s) weitergeben.
+void TickClientRoundEnd(Net::Transport& Transport)
+{
+    const uint64_t Now = NowMs();
+    if (const auto Own = Game::Rewards::ClientRoundEnd(); Own && Now >= R.NextEndClientSend &&
+                                                         Send(Transport, Reward::RoundEndClientType, Reward::Encode(Reward::RoundEndClient{Own->Id, Own->Ready})))
+        R.NextEndClientSend = Now + 500;
+    if (R.LatestEnd && Now - R.LatestEndAt <= 5000)
+        Game::Rewards::SetHostRoundEndStatus(Game::Rewards::RoundEndState{R.LatestEnd->Id, R.LatestEnd->HostReady, R.LatestEnd->ClientReady});
+    else
+        Game::Rewards::SetHostRoundEndStatus(std::nullopt);
+}
+
 void TickHost(Net::Transport& Transport, std::span<const Net::ControlMessage> Messages)
 {
     for (const auto& Message : Messages)
     {
+        if (Message.Peer == R.Peer && Message.Value.Type == Reward::RoundEndClientType)
+        {
+            if (const auto Client = Reward::DecodeRoundEndClient(Message.Value.Payload))
+            {
+                Game::Rewards::SetRoundEndClient(Client->Id, Client->Ready);
+                R.NextEndResend = 0; // Stand sofort zurück
+            }
+            else
+                Core::Log::Warn("Lager: Stand des Clients nicht lesbar ({} Byte)", Message.Value.Payload.size());
+            continue;
+        }
         if (Message.Peer == R.Peer && Message.Value.Type == Reward::ReadyType)
         {
             if (const auto Ready = Reward::DecodeReady(Message.Value.Payload))
@@ -99,6 +143,7 @@ void TickHost(Net::Transport& Transport, std::span<const Net::ControlMessage> Me
             Core::Log::Warn("Inventar lokal: Antwort zu Edit {} nicht gesendet", Edit->Id);
         R.NextResend = 0; // neues Bild sofort
     }
+    SendRoundEndStatus(Transport);
     const auto Offer = ToWire(Game::Rewards::ReadOffer());
     const uint64_t Now = NowMs();
     if (!R.Sent || *R.Sent != Offer || Now >= R.NextResend)
@@ -154,7 +199,17 @@ void TickClient(Net::Transport& Transport, std::span<const Net::ControlMessage> 
     {
         if (Message.Peer != R.Peer)
             continue;
-        if (Message.Value.Type == Reward::OfferType)
+        if (Message.Value.Type == Reward::RoundEndStatusType)
+        {
+            if (const auto Status = Reward::DecodeRoundEndStatus(Message.Value.Payload))
+            {
+                R.LatestEnd = *Status;
+                R.LatestEndAt = NowMs();
+            }
+            else
+                Core::Log::Warn("Lager: Stand des Hosts nicht lesbar ({} Byte)", Message.Value.Payload.size());
+        }
+        else if (Message.Value.Type == Reward::OfferType)
         {
             if (auto Offer = Reward::DecodeOffer(Message.Value.Payload))
             {
@@ -176,6 +231,7 @@ void TickClient(Net::Transport& Transport, std::span<const Net::ControlMessage> 
                 Game::Rewards::ResolveClientEdit(Result->Id, Result->Accepted);
             }
     }
+    TickClientRoundEnd(Transport);
     SendEdit(Transport); // auch nach dem Ende des Host-Panels
     // Ohne frisches Bild (Verbindung weg, Host ohne Mod-Sitzung) keine Auswahl anzeigen.
     if (!R.Latest || !R.Latest->Session || NowMs() - R.LatestAt > 5000)
@@ -214,11 +270,18 @@ void TickReward(std::span<const Net::ControlMessage> Messages)
         R.Latest.reset();
         R.EditSentId = 0;
         R.LastEdit = 0;
+        R.SentEnd.reset();
+        R.LatestEnd.reset();
         Game::Rewards::AbortClientEdit();
     }
     Game::Rewards::SetRemoteReady(Host && Peer);
     if (!Transport || !Peer)
+    {
+        // Ohne Gegenseite wartet niemand im Lager: Host vergisst den Client, der Client löst sein Bestätigen aus.
+        Game::Rewards::SetRoundEndClient(0, false);
+        Game::Rewards::SetHostRoundEndStatus(std::nullopt);
         return;
+    }
     if (Host)
         TickHost(*Transport, Messages);
     else

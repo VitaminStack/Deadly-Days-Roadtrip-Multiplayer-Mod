@@ -82,4 +82,34 @@ void ResolveClientEdit(uint64_t Id, bool Accepted);
 
 // Client: Verbindung weg, offenen Edit verwerfen und Ausgangsstand wiederherstellen.
 void AbortClientEdit();
+
+// Lager am Rundenende (bestaetigen-rundenende). Bestätigen im Lager markiert wie beim Airdrop nur bereit (Knopf gelb); erst wenn
+// Host und Client bereit sind, laufen beide nativen Bestätigen und der Host kommt zur Routenkarte. Ids sind
+// Game::Map::RoundEnd::Id, 0 heißt kein Rundenende.
+
+// Beide, je Takt aus den Kartenpatches: Host sein eigenes Rundenende in dieser Welt, Client das selbst geöffnete.
+void SetRoundEnd(uint64_t Id);
+
+// Host: Stand des Clients aus 0x306.
+void SetRoundEndClient(uint64_t Id, bool Ready);
+
+// Stand des Hosts für den Client (0x307).
+struct RoundEndState
+{
+    uint64_t Id = 0;
+    bool HostReady = false, ClientReady = false;
+};
+RoundEndState HostRoundEnd();
+
+// Client: eigenes Rundenende und Bereit für 0x306, nullopt ohne Rundenende.
+struct RoundEndOwn
+{
+    uint64_t Id = 0;
+    bool Ready = false;
+};
+std::optional<RoundEndOwn> ClientRoundEnd();
+
+// Client: neuester Stand des Hosts, nullopt ohne frischen Stand. Löst ein zurückgehaltenes Bestätigen aus, wenn beide
+// bereit sind oder der Stand nicht mehr passt.
+void SetHostRoundEndStatus(std::optional<RoundEndState> Status);
 }

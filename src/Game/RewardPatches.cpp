@@ -24,6 +24,7 @@
 #include "Game/Objects.h"
 #include "Game/InventoryEditRuntime.h"
 #include "Game/Offsets.h"
+#include "Game/PatchPolicy.h"
 #include "Game/PatchRuntime.h"
 #include "Game/RewardAdapter.h"
 
@@ -101,6 +102,15 @@ struct
     uintptr_t Panel = 0; // Panel, in dem der Client Bestätigen gedrückt hat
     bool Ready = false;  // Bestätigen gedrückt, wartet auf alle (bestaetigen-alle)
 } Shown;
+// Lager am Rundenende (bestaetigen-rundenende), beide Rollen. Id kommt je Takt aus den Kartenpatches.
+struct
+{
+    uint64_t Id = 0;
+    uint64_t Done = 0;        // Bestätigen für dieses Rundenende ist nativ gelaufen
+    uintptr_t HeldPanel = 0;  // zurückgehaltenes Bestätigen
+    uint64_t ClientIn = 0, ClientReady = 0; // Host: Stand des Clients aus 0x306
+    uint64_t HostStatusId = 0; // Client: Rundenende im frischen Stand des Hosts, 0 ohne
+} End;
 // Client: gesendeter Edit bis zur Antwort des Hosts.
 std::optional<Game::InventoryEdit::Edit> ClientPending;
 constexpr uintptr_t ItemPivotTile = 0x28;
@@ -388,6 +398,52 @@ bool ClientConfirm(uintptr_t Panel)
     return true;
 }
 
+// bestaetigen-rundenende: Bestätigen im Lager am Rundenende zurückhalten (Knopf gelb), bis beide bereit sind. Falsch, wenn das
+// native Bestätigen laufen soll; dann gilt das Rundenende als bestätigt. Im Drag bleibt es nativ, dort ist es ohne Wirkung.
+bool HoldRoundEndConfirm(uintptr_t Panel)
+{
+    const NetRole Role = CurrentRole();
+    if (!End.Id || End.Done == End.Id || Role == NetRole::Standalone || Memory::Read<uint8_t>(Panel + PanelIsDragging).value_or(1))
+        return false;
+    if (End.HeldPanel == Panel)
+        return true; // schon bereit, weitere Klicks ändern nichts
+    const bool Hold = Role == NetRole::Host ? HostHoldsRoundEndConfirm(End.Id, End.Done, RemoteReady.load(), End.ClientIn, End.ClientReady)
+                                            : ClientHoldsRoundEndConfirm(End.Id, End.Done, End.HostStatusId);
+    if (!Hold)
+    {
+        End.Done = End.Id;
+        Core::Log::Info("Lager: {} bestätigt, alle bereit", Role == NetRole::Host ? "Host" : "Client");
+        return false;
+    }
+    End.HeldPanel = Panel;
+    SetReadyTint(Panel, true);
+    Core::Log::Info("Lager: {} bereit, wartet auf {}", Role == NetRole::Host ? "Host" : "Client", Role == NetRole::Host ? "den Client" : "den Host");
+    return true;
+}
+
+// Zurückgehaltenes Bestätigen im Lager nativ nachholen. Einmal: Bleibt es ohne Wirkung, bestätigt der Spieler erneut, dann
+// läuft es direkt nativ. Ist das Panel weg, nur die Farbe vergessen.
+void ReleaseRoundEndConfirm(const char* Why)
+{
+    const uintptr_t Panel = End.HeldPanel;
+    if (!Panel)
+        return;
+    if (!Alive(Panel) || !Objects::IsA(Panel, "InventoryPanel"))
+    {
+        End.HeldPanel = 0;
+        Tinted = 0;
+        Core::Log::Warn("Lager: Panel weg, zurückgehaltenes Bestätigen verworfen ({})", Why);
+        return;
+    }
+    if (Memory::Read<uint8_t>(Panel + PanelIsDragging).value_or(1))
+        return; // nach dem Drag erneut
+    End.HeldPanel = 0;
+    End.Done = End.Id;
+    SetReadyTint(Panel, false);
+    Core::Log::Info("Lager: Bestätigen nachgeholt ({})", Why);
+    OriginalConfirm(Panel);
+}
+
 // bestaetigen-alle: Bestätigen schließt das Panel nicht sofort, sondern markiert den Spieler als bereit (Knopf gelb). Weitere
 // Klicks ändern nichts; ein Zurücknehmen hob im Spieltest das Bereit wieder auf, wenn der andere gerade bestätigte. Erst wenn
 // Host und Client bereit sind, löst der Client sein natives Bestätigen aus und schickt den Edit; danach holt der Host sein
@@ -415,6 +471,8 @@ void __fastcall ConfirmHook(uintptr_t Panel)
         SetReadyTint(Panel, true);
         return;
     }
+    if (HoldRoundEndConfirm(Panel))
+        return;
     OriginalConfirm(Panel);
 }
 
@@ -786,6 +844,9 @@ void Tick()
 {
     if (CurrentRole() != NetRole::Host)
         return;
+    // Lager am Rundenende: nachholen, sobald der Client bereit oder nicht mehr verbunden ist.
+    if (End.HeldPanel && (End.ClientReady == End.Id || !RemoteReady.load() || End.ClientIn != End.Id))
+        ReleaseRoundEndConfirm(End.ClientReady == End.Id ? "Client bereit" : "Client nicht mehr im Lager");
     if (!Host.Active)
     {
         AdvanceRemoteQueue();
@@ -936,5 +997,53 @@ void AbortClientEdit()
         return;
     ClientPending.reset();
     Game::InventoryEdit::RevertClient("Verbindung zum Host weg");
+}
+
+void SetRoundEnd(uint64_t Id)
+{
+    if (Id == End.Id)
+        return;
+    if (End.HeldPanel && Alive(End.HeldPanel))
+        SetReadyTint(End.HeldPanel, false);
+    if (Id)
+        Core::Log::Info("Lager: neues Rundenende, Bestätigen wartet auf alle");
+    else
+        Core::Log::Info("Lager: Rundenende vorbei");
+    End = {};
+    End.Id = Id;
+}
+
+void SetRoundEndClient(uint64_t Id, bool Ready)
+{
+    if (CurrentRole() != NetRole::Host)
+        return;
+    if (End.ClientIn != Id || (Ready && End.ClientReady != Id))
+        Core::Log::Info("Lager: Client {} (eigenes Rundenende {})", Ready ? "bereit" : "im Lager", Id == End.Id ? "passt" : "passt nicht");
+    End.ClientIn = Id;
+    if (Ready)
+        End.ClientReady = Id;
+}
+
+RoundEndState HostRoundEnd()
+{
+    if (CurrentRole() != NetRole::Host || !End.Id)
+        return {};
+    return {End.Id, End.HeldPanel != 0 || End.Done == End.Id, End.ClientReady == End.Id};
+}
+
+std::optional<RoundEndOwn> ClientRoundEnd()
+{
+    if (CurrentRole() != NetRole::Client || !End.Id)
+        return std::nullopt;
+    return RoundEndOwn{End.Id, End.HeldPanel != 0 || End.Done == End.Id};
+}
+
+void SetHostRoundEndStatus(std::optional<RoundEndState> Status)
+{
+    if (CurrentRole() != NetRole::Client)
+        return;
+    End.HostStatusId = Status ? Status->Id : 0;
+    if (End.HeldPanel && ClientMayReleaseRoundEnd(End.Id, End.HostStatusId, Status && Status->HostReady, Status && Status->ClientReady))
+        ReleaseRoundEndConfirm(End.HostStatusId == End.Id ? "alle bereit" : "kein passender Stand vom Host");
 }
 }
