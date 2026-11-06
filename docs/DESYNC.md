@@ -13,7 +13,7 @@ der Adapter nur Speicher. Er läuft ausschließlich auf dem Game Thread.
 | Phase | 0 = laufend, 1 = pausiert (`TimeDilation`/`PauserPlayerState`) | Keine Unterscheidung von Lager, Route oder Rundenübersicht |
 | Spieler | Anzahl gültiger `DDPlayerState`s im PlayerArray | Höchstens zwei; fehlende NetGUIDs machen das Feld unbekannt |
 | HP | NetGUID, aktuelle/maximale HP je Spieler, auf Zehntel gerundet | Keine vollständigen Attribute/Buffs |
-| Gegner | Sichtbare `EnemyBase`-Actors des PersistentLevel | Keine Streaming-Level; wegen `opt-gegnerzahl` standardmäßig ausgenommen |
+| Gegner | Sichtbare `EnemyBase`-Actors in `Level->Actors` des PersistentLevel, ohne gerade zerstörte | Keine Streaming-Level; seit `gegnertyp` im Abgleich, bei Wellen kurz „offen Gegner“, [Befund](GAME_ANALYSIS.md#ein-gegnertyp-synchron-gegnertyp) |
 | Inventar | Replizierte Items und BackpackSlots je Spieler | Kein Stash, Buff-/Effektzustand, Rarität oder nicht replizierte ItemInstanceId |
 
 Items enthalten den vollständigen Asset-Pfad von ItemData, Pivot, Drehung und die
@@ -37,7 +37,8 @@ nicht geraten. Damit kann die Inventarprüfung offen bleiben; das ist kein OK.
   Sekunden gewartet, statt sie nach zwei Sekunden ungültig zu machen.
 - Ein Feld muss lokal auf beiden Seiten mindestens zwei Sekunden unverändert
   sein. Erst drei aufeinanderfolgende Proben mit demselben abweichenden Wertepaar
-  bestätigen einen Alarm. Änderungen, unbekannte Werte und Sequenzlücken setzen
+  bestätigen einen Alarm, bei der Gegnerzahl acht (rund 16 s), weil einzelne Spawns unter
+  Wellenlast bis rund 8 s später beim Client ankommen. Änderungen, unbekannte Werte und Sequenzlücken setzen
   die Bestätigungen zurück. Das ist kein zeitlich atomarer Snapshot beider PCs.
 - Host entscheidet die Ausnahmen und bestätigt das Ergebnis. Client prüft
   Peer, lokale Run-ID/Nonce, Probensequenz, NetGUID, Host-Run/Epoche/Revision und
@@ -61,7 +62,7 @@ desync_ignore_day=false
 desync_ignore_phase=false
 desync_ignore_players=false
 desync_ignore_health=false
-desync_ignore_enemies=true
+desync_ignore_enemies=false
 desync_ignore_inventory=false
 ```
 

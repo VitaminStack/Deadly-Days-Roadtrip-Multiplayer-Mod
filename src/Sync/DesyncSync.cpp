@@ -17,7 +17,7 @@ namespace
 using namespace Desync;
 bool Enabled = true;
 DiagnosticSink PublishDiagnostics;
-uint8_t Ignored = Bit(Game::Desync::Enemies); // opt-gegnerzahl ist ein bekannter, noch offener Befund.
+uint8_t Ignored = DefaultIgnored;
 uint64_t NowMs()
 {
     return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -92,7 +92,7 @@ void ConfigureDesync(const Core::Config& Config, DiagnosticSink Diagnostics)
                              "desync_ignore_health", "desync_ignore_enemies", "desync_ignore_inventory"};
     Ignored = 0;
     for (unsigned i = 0; i < Count; ++i)
-        if (Config.GetBool(Keys[i], i == Game::Desync::Enemies)) Ignored |= Bit(i);
+        if (Config.GetBool(Keys[i], (DefaultIgnored & Bit(i)) != 0)) Ignored |= Bit(i);
     Core::Log::Info("Desync: {} (diagnostisch, keine Zustandskorrektur); ausgenommen: {}",
                     Enabled ? "aktiv" : "aus", Fields(Ignored));
     if (!Enabled && PublishDiagnostics) PublishDiagnostics("Desync: deaktiviert (ddcoop.ini)");

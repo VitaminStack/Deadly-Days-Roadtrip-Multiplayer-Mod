@@ -153,6 +153,9 @@ unveränderte Treffer/HP. **Zuständig:** `kampf`, `vfx-sound`, `opt-client-visu
   ohne eine Nachricht. Nie einen Damage-Actor nachspawnen. **Zuständig:** `opt-blut`, `vfx-sound`.
 - **Tote Gegner sofort ausblenden.** Beim Client bleiben sie rund 15 s als Objekte stehen. Bei HP 0 lokal
   verstecken und Kollision lösen, das Zerstören bleibt Sache der Replikation. **Zuständig:** `gegnertyp`, `opt-gegnerzahl`.
+  **Ergebnis `gegnertyp` (06.11.2026): nicht nötig.** Die stehenden Objekte haben schon `bActorIsBeingDestroyed`, sind aus
+  `Level->Actors` entfernt und unsichtbar; der Host behält seine genauso bis zur Garbage Collection. Gegner-HP repliziert beim
+  Client gar nicht (dort 0/0), ein HP-0-Auslöser wäre also falsch. [Befund](GAME_ANALYSIS.md#ein-gegnertyp-synchron-gegnertyp)
 - **Eigene Schüsse sofort anzeigen.** Eine rein kosmetische Vorhersage des eigenen Projektils beim Client, bis das
   replizierte eintrifft. Nur, wenn der Latenztest (`-NetProfile Internet`) die Verzögerung als störend zeigt;
   Treffer bleiben beim Host. **Zuständig:** `opt-client-visuell`.

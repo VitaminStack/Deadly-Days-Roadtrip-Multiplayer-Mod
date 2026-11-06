@@ -137,7 +137,8 @@ TEST_CASE("Desync: jede bekannte Ausnahme ist einzeln abschaltbar, andere Unters
         Host.Image.Values[i] ^= 1;
         for (unsigned j = 0; j < 4; ++j) CHECK(M.Compare(Host, Client, Bit(i)).Alerts == 0);
         Comparison Last;
-        for (unsigned j = 0; j < 3; ++j) Last = M.Compare(Host, Client, 0);
+        for (unsigned j = 1; j < ConfirmationsFor(i); ++j) CHECK(M.Compare(Host, Client, 0).Alerts == 0);
+        Last = M.Compare(Host, Client, 0);
         CHECK(Last.Alerts == Bit(i));
     }
 }
@@ -212,4 +213,49 @@ TEST_CASE("Kontrollkanal: Diagnose und Progress erhalten dieselben Nachrichten, 
         [&](auto In) { REQUIRE(In.size() == 2); Desync += In[1].Value.Type == Probe; });
     CHECK(Progress == 1);
     CHECK(Desync == 1);
+}
+
+TEST_CASE("Desync: Gegnerzahl ist standardmaessig im Abgleich, Wellen bestaetigen keinen Alarm (gegnertyp)")
+{
+    CHECK(DefaultIgnored == 0);
+    CHECK(ConfirmationsFor(Game::Desync::Enemies) == EnemyConfirmations);
+    CHECK(ConfirmationsFor(Game::Desync::Inventory) == Confirmations);
+    CHECK((DefaultIgnored & Bit(Game::Desync::Enemies)) == 0);
+    // Wie im Spiel: Jede Seite misst je Sekunde, ein Feld gilt erst nach zwei Sekunden ohne Aenderung als stabil.
+    // Waehrend einer Welle aendert sich die Zahl auf beiden Seiten laufend, der Client sieht sie etwas spaeter.
+    Stability HostStability, ClientStability;
+    Monitor M;
+    auto Host = Example(), Client = Host;
+    uint64_t Now = 0;
+    const auto Step = [&](uint64_t HostEnemies, uint64_t ClientEnemies)
+    {
+        Host.Image.Values[Game::Desync::Enemies] = HostEnemies;
+        Client.Image.Values[Game::Desync::Enemies] = ClientEnemies;
+        Now += 1000;
+        Host.Stable = HostStability.Update(Host.Image, Now);
+        Client.Stable = ClientStability.Update(Client.Image, Now);
+        return M.Compare(Host, Client, DefaultIgnored);
+    };
+    for (unsigned i = 0; i < 4; ++i) Step(20, 20);
+    CHECK(Step(20, 20).Comparable == All);
+    for (uint64_t Enemies = 20; Enemies < 45; ++Enemies)
+    {
+        const auto C = Step(Enemies + 1, Enemies);
+        CHECK(C.Alerts == 0);
+        CHECK((C.Comparable & Bit(Game::Desync::Enemies)) == 0);
+    }
+    Step(45, 45); Step(45, 45);
+    const auto Settled = Step(45, 45);
+    CHECK(Settled.Comparable == All);
+    CHECK(Settled.Different == 0);
+    CHECK(Settled.Alerts == 0);
+    // Ein spaet replizierter Gegner (im Spiel bis rund 8 s) loest noch keinen Alarm aus.
+    for (unsigned i = 0; i < 8; ++i) CHECK(Step(45, 44).Alerts == 0);
+    CHECK(Step(45, 45).Alerts == 0);
+    Step(45, 45); Step(45, 45);
+    // Ein bleibender Unterschied (etwa ein Gegner nur beim Client) wird nach EnemyConfirmations stabilen Proben gemeldet.
+    for (unsigned i = 0; i < 2; ++i) Step(45, 46);
+    for (unsigned i = 1; i < EnemyConfirmations; ++i) CHECK(Step(45, 46).Alerts == 0);
+    CHECK(Step(45, 46).Alerts == Bit(Game::Desync::Enemies));
+    CHECK(Step(45, 45).Alerts == 0);
 }

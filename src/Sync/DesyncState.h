@@ -13,6 +13,17 @@ using Game::Desync::Bit;
 inline constexpr uint16_t Probe = 0x200, Result = 0x201;
 inline constexpr uint64_t IntervalMs = 2000, StableMs = 2000, FreshMs = 10000;
 inline constexpr unsigned Confirmations = 3;
+// Standard-Ausnahmen, wenn ddcoop.ini nichts angibt. Die Gegnerzahl ist seit gegnertyp dabei: Sie zaehlt nur
+// sichtbare EnemyBase-Actors in Level->Actors, also ohne die erst bei der Garbage Collection entfernten Objekte,
+// die opt-gegnerzahl auf beiden Seiten gezaehlt hatte. Wellen machen das Feld nur kurz instabil, nicht abweichend.
+inline constexpr uint8_t DefaultIgnored = 0;
+// Unter Wellenlast kommen einzelne neue Gegner bis rund 8 s spaeter beim Client an (gegnertyp, 06.11.2026), mit drei
+// Bestaetigungen ergab das einen kurzen Fehlalarm. Ein echter Gegner-Desync bleibt bestehen, darum hier rund 16 s.
+inline constexpr unsigned EnemyConfirmations = 8;
+constexpr unsigned ConfirmationsFor(unsigned Field)
+{
+    return Field == Game::Desync::Enemies ? EnemyConfirmations : Confirmations;
+}
 
 // Kleine absolute Messung. Echo-Kennungen binden die Antwort an genau eine lokale Probe.
 struct Packet
@@ -98,8 +109,8 @@ public:
                 Out.Different |= Bit(i);
                 if (LastHost[i] != Host.Image.Values[i] || LastClient[i] != Client.Image.Values[i]) Strikes[i] = 0;
                 LastHost[i] = Host.Image.Values[i]; LastClient[i] = Client.Image.Values[i];
-                if (Strikes[i] < Confirmations) ++Strikes[i];
-                if (Strikes[i] >= Confirmations) Out.Alerts |= Bit(i);
+                if (Strikes[i] < ConfirmationsFor(i)) ++Strikes[i];
+                if (Strikes[i] >= ConfirmationsFor(i)) Out.Alerts |= Bit(i);
             }
         }
         return Out;
