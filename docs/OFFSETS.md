@@ -161,6 +161,9 @@ Aufgabe `airdrop-auswahl`, Ablauf in [Airdrop-Auswahl](GAME_ANALYSIS.md#airdrop-
 | `UInventoryItemInstance` `IsInStash`, `IsTrash` | `+0x181`, `+0x184` | `IsInStash` nicht repliziert |
 | `UBackpackSlot` `Coordinates`, `Occupier` | `+0x28`, `+0x30` | |
 | `UInventoryComponent.PlacedBagWrappers` | `+0x150` | nicht repliziert |
+| `UInventoryComponent` Feld-Delegate | `+0x110` | nativer Multicast-Delegate ohne SDK-Namen, an ihm hängen die Feld-Widgets des Panels |
+| `InventoryComponent.OnRep_Slots` | `0x596D970`, Exec-Thunk `0x5716370` | ruft nur `Broadcast` des Delegates `+0x110`; Parameter TArray OldValue, Größe `0x10` (`ausruestung-felder`) |
+| `InventoryComponent.Server_CreateSlotsFromBagItem` | Exec-Thunk `0x57192F0` | Implementierung über die Vtable `+0x510`; löst `OnRep_Slots` nicht aus |
 | `InventoryComponent.RemoveFromInventory` Parameter | Item `+0`, Context `+8`, Destroy `+9`, Größe `0x10` | `inventar-lokal` |
 | `InventoryComponent.AddToInventory` Parameter | Item `+0`, SystemAdd `+8`, Position `+0xC`, AllowP2Reserve `+0x10`, Größe `0x18` | |
 | `InventoryComponent.OccupyBackpackSlots` Parameter | Item `+0`, TArray Slots `+8`, Größe `0x18` | |
