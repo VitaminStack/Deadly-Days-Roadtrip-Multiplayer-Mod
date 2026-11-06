@@ -52,6 +52,8 @@ struct TransportOptions
     int VirtualPort = 0;
     // Abstand der Statistikzeilen im Log.
     unsigned StatsIntervalMs = 30000;
+    // Abstand, in dem Stats() Zähler, Verbindungen und Ping neu bekommt. Tests verkürzen ihn, statt darauf zu warten.
+    unsigned TotalsIntervalMs = 500;
     Protocol::Identity Identity;
     unsigned HandshakeTimeoutMs = 5000;
     // Nur für Tests: verzögert ausgehende Spielpakete und Kontrollnachrichten, verwirft Spielpakete. Das Hello bleibt

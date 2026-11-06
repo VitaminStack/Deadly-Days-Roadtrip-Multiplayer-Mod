@@ -27,6 +27,7 @@ TransportOptions LobbyPorts(uint16_t Base)
     Options.ClientPort = static_cast<uint16_t>(Base + 1);
     Options.LoopbackPort = static_cast<uint16_t>(Base + 2);
     Options.StatsIntervalMs = 100;
+    Options.TotalsIntervalMs = 20;
     Options.AuthorizeWaitMs = 300;
     Options.RevokeAfterMs = 200;
     return Options;
@@ -143,7 +144,8 @@ TEST_CASE("Zugriff: Fremder Versuch vor dem Freund belegt keinen Platz")
 {
     auto Network = std::make_shared<FakeSteamNetwork>();
     TransportOptions Options = LobbyPorts(47980);
-    Options.AuthorizeWaitMs = 2000;
+    // Lang genug, dass der Freund sicher verbindet, solange der Fremde noch wartet.
+    Options.AuthorizeWaitMs = 800;
     Transport Host(Network->Account(kHostId), Options);
     REQUIRE(Host.StartHost());
     Host.SetLobbyMembers({kHostId, kFriendId});
