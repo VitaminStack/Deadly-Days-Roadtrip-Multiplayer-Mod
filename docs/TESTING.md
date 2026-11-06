@@ -76,6 +76,13 @@ Ohne Netzwerkbackend müssen die Lobby-Knöpfe deaktiviert bleiben und der Statu
 
 Pro PC läuft nur eine Sitzung, Spielzeit ist der Engpass. Darum:
 
+- **Bestätigungstests bündeln.** `py tools/tasks.py tests plan` zeigt verfügbare ausstehende
+  Prüfungen mit ihren ursprünglichen Abnahmen und lässt aktive fremde Arbeit aus. In einer
+  Sitzung nacheinander abarbeiten; je Kennung Build/Mod-Stand, Beobachtung und Beleg notieren.
+  Teststände mit `tests update`, nur vollständig bestandene Abnahmen mit `tests pass` im
+  eigenen Wartungs-Worktree aktualisieren. Das braucht keine Entwicklungsreservierung je Test
+  und macht wartende Tests nicht zu „in Arbeit“. [Befehle](../tools/README.md#bestätigungstests).
+
 - **Code und Spieltest trennen.** Code und `Build-Mod.ps1 -Test` laufen ohne Spiel und parallel. Spieltests sammeln und in einem Block
   fahren, die Sitzung dabei weiterverwenden statt sie je Prüfung neu zu starten.
 - **Warten statt abbrechen.** `Start-Session.ps1 -Wait 1800` reiht sich hinter eine fremde Sitzung ein und startet, sobald sie endet.

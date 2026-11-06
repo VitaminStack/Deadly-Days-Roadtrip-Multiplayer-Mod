@@ -1,6 +1,13 @@
 """Reservierung von Aufgaben, damit niemand doppelt arbeitet.
 
   py tools/tasks.py list                              Offene Kennungen mit Status
+  py tools/tasks.py list --active                     Nur aktiv reservierte Entwicklungsaufgaben
+  py tools/tasks.py tests [list|plan] [<kennung> ...]  Bestaetigungstests getrennt anzeigen oder buendeln
+  py tools/tasks.py tests pending <kennung> --note "Stand"   Auf Bestaetigungstest setzen
+  py tools/tasks.py tests update <kennungen> --note "Stand"  Teststand aktualisieren
+  py tools/tasks.py tests pass <kennungen> --note "Beleg"    Nach echter Abnahme abschliessen
+  py tools/tasks.py tests reopen <kennungen> --note "Befund" Zurueck zur Entwicklungsaufgabe
+  Statt Kennungen: --all (ausser pending); aktive fremde Aufgaben werden dabei ausgelassen.
   py tools/tasks.py claim <kennung> <name> [<rolle>]   Reservieren: Worktree, Branch, Push, Draft-PR
   py tools/tasks.py release <kennung> [<rolle>]        Reservierung aufgeben: Draft-PR schliessen, Branch loeschen
   py tools/tasks.py show <kennung>                     Nur diese Aufgabe: Text, Braucht, Bearbeitung, Status
@@ -14,6 +21,7 @@ und Pull Requests ergaenzen nur Reservierung und Review. Blockierte und Team-Auf
 Aufgaben mit Bearbeitung "zu zweit" (Test auf zwei PCs) duerfen zwei Personen nehmen, je eine Rolle host oder client:
 Branch task/<kennung>/<rolle>, Worktree .worktrees/<kennung>-<rolle>. Ohne Rolle nimmt eine Person beide Seiten.
 """
+import argparse
 import json
 import os
 import random
@@ -25,9 +33,9 @@ import time
 from pathlib import Path
 
 if __package__:
-    from .task_status import blockers, mark_done, parse, regenerate
+    from .task_status import blockers, confirmation_update, mark_done, parse, regenerate
 else:
-    from task_status import blockers, mark_done, parse, regenerate
+    from task_status import blockers, confirmation_update, mark_done, parse, regenerate
 
 STALE_DAYS = 3
 ROLES = ('host', 'client')
@@ -141,6 +149,9 @@ def status(kennung, branches, prs, tasks):
     roles = role_branches(kennung, branches)
     if task and task.done:
         return 'erledigt' + (' (Branch noch vorhanden)' if kennung in branches or roles else '')
+    if task and task.confirmation:
+        waiting = blockers(task, tasks)
+        return 'Bestätigungstest ausstehend' + (', braucht ' + ', '.join(waiting) if waiting else '')
     if roles:
         return pair_status(kennung, branches, prs)
     pr = prs.get(kennung) if prs else None
@@ -163,7 +174,20 @@ def status(kennung, branches, prs, tasks):
     return 'frei'
 
 
-def cmd_list():
+def active_work(kennung, branches, prs, own_branch=None):
+    """Offene PRs/Reservierungen schuetzen; gemergte Altbranches sind keine aktive Arbeit."""
+    for name in [kennung] + [branch_name(kennung, role) for role in ROLES]:
+        if own_branch == f'task/{name}':
+            continue
+        pr = prs.get(name) if prs else None
+        if pr and pr['state'] == 'OPEN':
+            return True
+        if name in branches and (pr is None or pr['state'] != 'MERGED'):
+            return True
+    return False
+
+
+def cmd_list(active_only=False):
     git('fetch', '-q', '--prune', 'origin')
     tasks = todo_tasks()
     branches, prs = remote_branches(), pull_requests()
@@ -172,16 +196,23 @@ def cmd_list():
               'Reservierungen aus Branches; PR-Status unbekannt.')
     section = None
     for kennung, task in tasks.items():
-        if task.done:
+        if task.done or task.confirmation:
+            continue
+        if active_only and not active_work(kennung, branches, prs):
             continue
         if task.section != section:
             print(f'\n{task.section}')
             section = task.section
         print(f'  {kennung:<20} {status(kennung, branches, prs, tasks):<44} {plain(task.text)[:70]}')
+    pending = [t for t in tasks.values() if t.confirmation]
+    if pending and not active_only:
+        print('\nBestätigungstests ausstehend (nicht in Arbeit)')
+        for task in pending:
+            print(f'  {task.name:<20} {status(task.name, branches, prs, tasks):<44} {plain(task.confirmation)}')
     done = sum(task.done for task in tasks.values())
     print(f'\nErledigt: {done} Aufgaben, siehe TODO.md#erledigt')
     extra = sorted({split_branch(name)[0] for name in branches} - set(tasks))
-    if extra:
+    if extra and not active_only:
         print('\nBranches ohne Kennung in TODO.md')
         for kennung in extra:
             print(f'  {kennung:<20} {status(kennung, branches, prs, tasks)}')
@@ -198,6 +229,9 @@ def cmd_claim(kennung, name, role=None):
     task = tasks.get(kennung)
     if task and task.done:
         sys.exit(f'{kennung} ist laut TODO.md erledigt. Keine neue Reservierung.')
+    if task and task.confirmation:
+        sys.exit(f'{kennung}: Bestätigungstest ausstehend, nicht in Arbeit. Mit "tasks.py tests" planen/aktualisieren; '
+                 'bei fehlgeschlagener Abnahme erst mit "tests reopen" wieder oeffnen.')
     if role and (task is None or task.mode != PAIR_MODE):
         sys.exit(f'{kennung} ist keine Aufgabe "{PAIR_MODE}". Ohne Rolle reservieren.')
     pr = prs.get(kennung) if prs else None
@@ -319,12 +353,92 @@ def cmd_done(kennung, result):
     print('Weiter: docs/ROADMAP.md anpassen, committen, PR fertigstellen.')
 
 
+def cmd_tests(args):
+    parser = argparse.ArgumentParser(prog='tasks.py tests', description='Bestaetigungstests ohne Entwicklungsreservierung buendeln.')
+    parser.add_argument('action', nargs='?', default='list', choices=('list', 'plan', 'pending', 'update', 'pass', 'reopen'))
+    parser.add_argument('names', nargs='*')
+    parser.add_argument('--all', action='store_true', help='Alle verfuegbaren ausstehenden Tests, aktive fremde Arbeit auslassen')
+    parser.add_argument('--note', help='Letzter Stand bzw. nachgewiesenes Ergebnis, keine automatische Spielabnahme')
+    parser.add_argument('--local', action='store_true', help='Bei list/plan den eigenen TODO.md statt origin/main lesen')
+    options = parser.parse_args(args)
+    reading = options.action in ('list', 'plan')
+    if options.all and (options.names or options.action == 'pending'):
+        parser.error('--all nicht mit Kennungen oder pending kombinieren')
+    if not reading and (not options.note or (not options.names and not options.all)):
+        parser.error('Aenderungen brauchen Kennungen oder --all sowie --note')
+    if not reading and options.local:
+        parser.error('--local ist nur fuer list/plan')
+    git('fetch', '-q', '--prune', 'origin')
+    branches, prs = remote_branches(), pull_requests()
+    if not reading and prs is None:
+        sys.exit('PR-Status unbekannt. Aktive fremde Arbeit kann nicht ausgeschlossen werden; nichts geaendert.')
+    if reading and prs is None:
+        print('Hinweis: PR-Status unbekannt; Verfuegbarkeit vor dem Termin erneut pruefen.')
+    root = worktree_root()
+    path = root / 'TODO.md'
+    todo = path.read_bytes().decode('utf-8') if not reading or options.local else todo_text()
+    selected_tasks = parse(todo)
+    own_branch = None if reading else git('rev-parse', '--abbrev-ref', 'HEAD').stdout.strip()
+    if not reading and not own_branch.startswith('task/'):
+        sys.exit('Nur im eigenen task/-Worktree aendern, nie auf main. Testplanung braucht keine Reservierung der getesteten Aufgaben.')
+    names = options.names or [t.name for t in selected_tasks.values() if t.confirmation]
+    available, excluded = [], []
+    for name in names:
+        task = selected_tasks.get(name)
+        if task is None or task.done or (options.action != 'pending' and not task.confirmation):
+            sys.exit(f'{name}: kein passender offener Bestaetigungstest')
+        reason = ('aktive fremde Arbeit' if active_work(name, branches, prs, own_branch) else
+                  'blockiert, braucht ' + ', '.join(blockers(task, selected_tasks)) if blockers(task, selected_tasks) and
+                  (reading or options.action == 'pending') else '')
+        if reason:
+            if options.names and not reading:
+                sys.exit(f'{name}: {reason}. Gesamter Batch unveraendert.')
+            excluded.append(f'{name}: {reason}')
+        else:
+            available.append(name)
+    if options.all and options.action == 'pass':
+        # Ein Batch darf gemeinsam Abhaengigkeiten abschliessen. Fehlt ein benoetigter Test (etwa weil aktiv
+        # reserviert), dessen ganze abhaengige Kette ebenfalls auslassen, nicht einen halben Abschluss versuchen.
+        while True:
+            blocked = [name for name in available if any(n not in available for n in blockers(selected_tasks[name], selected_tasks))]
+            if not blocked:
+                break
+            for name in blocked:
+                available.remove(name)
+                excluded.append(f'{name}: blockiert, braucht ' + ', '.join(blockers(selected_tasks[name], selected_tasks)))
+    if reading:
+        print('Bestätigungstests ausstehend (nicht in Arbeit; kein Spielstart)')
+        for name in available:
+            task = selected_tasks[name]
+            if options.action == 'plan':
+                print('\n' + '\n'.join(describe(task, selected_tasks, 'Bestätigungstest ausstehend')))
+            else:
+                print(f'  {name:<24} Phase {task.phase}: {plain(task.confirmation)}')
+        print(f'\n{len(available)} verfuegbar, {len(excluded)} ausgeschlossen.')
+    elif available:
+        # Erst alle Kennungen pruefen, dann einmal schreiben; nie einen halben Batch bei falschen Kennungen anwenden.
+        updated = confirmation_update(todo, available, options.action, options.note)
+        path.write_bytes(updated.encode('utf-8'))
+        regenerate(root)
+        if regenerate(root, check=True):
+            sys.exit('task_status check schlaegt nach dem Erneuern fehl.')
+        print(f'{options.action}: ' + ', '.join(available) + '. Nur lokal geaendert; Doku pruefen, committen und PR verwenden.')
+    else:
+        print('Keine verfuegbaren Bestaetigungstests, nichts geaendert.')
+    for reason in excluded:
+        print('Ausgeschlossen: ' + reason)
+
+
 def main():
     sys.stdout.reconfigure(encoding='utf-8')
     args = sys.argv[1:]
     try:
         if args[:1] == ['list'] and len(args) == 1:
             cmd_list()
+        elif args == ['list', '--active']:
+            cmd_list(active_only=True)
+        elif args[:1] == ['tests']:
+            cmd_tests(args[1:])
         elif args[:1] == ['show'] and len(args) == 2:
             cmd_show(args[1])
         elif args[:1] == ['done'] and len(args) == 3:

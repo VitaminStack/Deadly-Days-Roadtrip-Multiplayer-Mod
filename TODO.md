@@ -41,7 +41,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `waffe-client-auswahl` | P0 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `mod-saves` | P0 | [6](#phase-6--release) | parallel | mittel |
 | `airdrop-dodge-absturz` | P1 | [5](#phase-5--vollständiger-run) | parallel | mittel |
-| `dodge-client-live` | P1 | [5](#phase-5--vollständiger-run) | parallel | wenig |
 | `virenscanner` | P1 | [6](#phase-6--release) | parallel | keine |
 | `weekly-sperre` | P1 | [6](#phase-6--release) | parallel | wenig |
 | `karte-tunnel` | P1 | [Wartung](#wartung) | zu zweit | wenig |
@@ -53,6 +52,8 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `sdk-vergleich` | P2 | [Wartung](#wartung) | parallel | keine |
 
 **Wartet auf das Team:** `spiel-update`.
+
+**Bestätigungstest ausstehend (nicht in Arbeit):** `dodge-client-live`.
 <!-- frei:end -->
 
 **Nicht erneut machen.** Das ist erledigt und dokumentiert:
@@ -77,6 +78,15 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 Manche Abnahmen brauchen zwei Menschen gleichzeitig: zwei Steam-Konten, zwei PCs, echtes Internet. Solche Termine sind knapp.
 Es bietet sich an, diese Prüfungen zu sammeln und **in einer Sitzung nacheinander abzuarbeiten**, statt für jede Aufgabe einen
 eigenen Termin anzusetzen. Die Liste unten ist eine Planungshilfe, keine zusätzliche Pflicht oder neue Freigaberegel.
+
+**Bestätigungstest ausstehend** zählt nicht als „in Arbeit“ und nicht als erledigt. Solche
+Aufgaben stehen separat in `tasks.py list`, bleiben aber bis zur echten Abnahme offen.
+Mit `py tools/tasks.py tests plan` die verfügbaren Tests samt Abnahmen für einen Termin bündeln;
+aktive fremde Aufgaben werden ausgeschlossen. `tests update <kennungen> --note "Stand"`
+aktualisiert mehrere Teststände, `tests pass <kennungen> --note "Ergebnis mit Beleg"` schließt
+sie erst nach bestandenem Test ab. Ohne Kennung geht `update --all` für alle verfügbaren
+Bestätigungstests. Keine neue Reservierung je Test, Änderungen nur im eigenen Wartungs-Worktree
+über einen PR. [Befehle und Grenzen](tools/README.md#bestätigungstests).
 
 - **Offene Tests sammeln.** Bleibt nur noch ein Test zu zweit, kann er nach [Aufgabe abschließen](#aufgabe-abschließen), Punkt 3,
   als eigene Kennung weitergeführt und hier ergänzt werden. Bestehende Abnahmen und Abhängigkeiten bleiben dabei erhalten.
@@ -160,7 +170,7 @@ Ziel: Ein kompletter Run ist zu zweit online spielbar.
 | `lager-absturz-client` | P0 | Gefunden im Live-Test am 06.11.2026 (zwei PCs): Der Client stürzte im Lager am Ende von Tag 2 ab, rund 77 s nach „Client im Lager“. Der Host bestätigte danach allein („alle bereit“) und reiste nach Tag 3, obwohl der Client nicht mehr antwortete. In der zweiten Sitzung stürzte der Client ab, als der Host im Lager das Spiel beendete: Nullzeiger `UItemRepresentation.ItemInstance` bei `0x5AB513A`. **Fertig, wenn** die Absturzursache aus Client-Log und Absturzbericht erklärt und behoben ist, zwei Rundenenden zu zweit ohne Absturz durchlaufen und der Host bei stummem Client nicht als „alle bereit“ weiterreist; auch ein Ende des Hosts im Lager lässt den Client ohne Absturz ins Hauptmenü. Ordner `src/Game`. **Einstieg:** [Live-Test 06.11.](docs/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-06112026-livetest-befunde) | `rundenende-client` | parallel | mittel |
 | `waffe-client-auswahl` | P0 | Gefunden im Live-Test am 06.11.2026: Der Client tauschte in der Itemauswahl seine Waffe, im Spiel wirkte sie nicht. Beim Host lagen Pistolen und Messer des Clients außerhalb des Rucksacks, ausgerüstet war nur die MP. Verdacht: verworfene fremde Server-RPCs während der Bearbeitung und `ForceRemoveAllEffects` beim Umlegen ohne erneutes `ApplyAddToBackpackEffect`. **Fertig, wenn** der Client in der Itemauswahl eine Waffe ablegt, tauscht und verschiebt und beim Host danach genau die Waffen im Rucksack ausgerüstet sind (`EquippedWeapons`), die der Client sieht, auch Passiv-Items wirken. Ordner `src/Game`. **Einstieg:** [Live-Test 06.11.](docs/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-06112026-livetest-befunde) | `inventar-lokal` | parallel | mittel |
 | `inventar-client-abweichung` | P0 | Gefunden im Live-Test am 06.11.2026: Ab der fünften Wahl blieb der Desync-Melder dauerhaft auf `ABWEICHUNG Inventar`, beim Client waren Items unsichtbar, obwohl der Host jeden Edit vollständig übernahm. **Fertig, wenn** die Ursache erklärt ist (abgegrenzt gegen `opt-desync-pivot`) und nach zehn Airdrops mit Rucksäcken und Waffen sowie einem Rundenende beide Inventare gleich sind und der Client alle Items sieht. Ordner `src/Game`, `src/Sync/Inventory`. **Einstieg:** [Live-Test 06.11.](docs/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-06112026-livetest-befunde) | `inventar-lokal` | parallel | mittel |
-| `dodge-client-live` | P1 | Gefunden im Live-Test am 06.11.2026: Laut Nutzer wirkt die Dodge-Reparatur beim Client nicht mehr. Log-Auswertung: Client-Rueckfall greift 29-mal; die alte Host-Meldung belegt auch bei Nullrichtung nur einen Schreibzugriff. Diagnose je Aktivierung vorbereitet, Ursache noch offen; braucht zeitgleiche Host-/Client-Logs derselben Sitzung. **Fertig, wenn** aus dem Client-Log erklärt ist, was fehlt, und der Client auf zwei PCs zehnmal dodgt, ohne zu rutschen, mit Ausdauerverbrauch wie beim Host. Ordner `src/Game`. **Einstieg:** [Diagnose und Testplan](docs/GAME_ANALYSIS.md#dodge-im-zwei-pc-test-diagnose-offen-dodge-client-live) | `ausweichen-client` | parallel | wenig |
+| `dodge-client-live` | P1 | **Bestätigungstest ausstehend:** PR #141 ist gemergt; Bestaetigungstest auf zwei PCs mit zehn Client-Dodges und zeitgleichen Host-/Client-Logs steht aus. Bisher nur Diagnose, Ursache und Gameplay-Fix noch unbestaetigt. **Aufgabe und Abnahme:** Gefunden im Live-Test am 06.11.2026: Laut Nutzer wirkt die Dodge-Reparatur beim Client nicht mehr. Log-Auswertung: Client-Rueckfall greift 29-mal; die alte Host-Meldung belegt auch bei Nullrichtung nur einen Schreibzugriff. Diagnose je Aktivierung vorbereitet, Ursache noch offen; braucht zeitgleiche Host-/Client-Logs derselben Sitzung. **Fertig, wenn** aus dem Client-Log erklärt ist, was fehlt, und der Client auf zwei PCs zehnmal dodgt, ohne zu rutschen, mit Ausdauerverbrauch wie beim Host. Ordner `src/Game`. **Einstieg:** [Diagnose und Testplan](docs/GAME_ANALYSIS.md#dodge-im-zwei-pc-test-diagnose-offen-dodge-client-live) | `ausweichen-client` | parallel | wenig |
 | `run-ende` | P1 | Run-Ende und Rückkehr zur Meta-Basis. Ordner `src/Sync/World`, Dateien mit `tagesablauf` absprechen | `integration-g2`, `protokoll`, `niederlage`, `meta-fortschritt` | parallel | viel |
 | `dauerlauf` | P1 | Automatischer Dauerlauf mit der Mod auf einem PC: `Run-Route.ps1` über viele Tage mit Latenzprofil, je Tag Speicher, Objektzahl und Größe des NetGUID-Caches beider Instanzen protokollieren. Ersetzt nicht den Spike-Lauf aus `guidcache`, sondern prüft den Sync-Code der Mod über die Laufzeit. **Fertig, wenn** ein Lauf über mindestens 13 Tage ohne Absturz läuft oder jeder Absturz eine eigene Kennung hat und das Wachstum je Tag dokumentiert ist. Ordner `tools/spike` | `integration-g2`, `latenz-test` | parallel | viel |
 | `integration-run` | P0 | Kompletten Run zu zweit über Internet durchspielen und Fehler den Aufgaben zuordnen. **Fertig, wenn** ein Run von der `MetaBase` bis zum Endboss ohne Absturz und Desync läuft | `gegner-alle`, `fortschritt`, `werkbank-client`, `pausen-sync`, `tagesablauf`, `run-ende`, `dauerlauf` | zentral | viel |
@@ -234,6 +244,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `ausweichen-client` | 5 | Der Client weicht so weit aus und bremst so ab wie der Host, Ausdauer wird verbraucht: Die Mod trägt beim Host die aus dem Ort geschätzte Laufrichtung direkt vor GA_Dash ein, der Host führt den Dodge nativ aus |
 | `bestaetigen-alle` | 5 | Bestätigen beim Airdrop markiert bereit (Knopf gelb), weiter erst wenn Host und Client bereit sind, in beiden Reihenfolgen live geprüft; Rundenende als `bestaetigen-rundenende`, siehe [Alle bestätigen](src/Game/README.md#airdrop-auswahl) |
 | `bestaetigen-rundenende` | 5 | Im Lager am Rundenende markiert Bestätigen nur bereit (Knopf gelb), der Host wählt den Tag erst, wenn auch der Client bestätigt hat, in beiden Reihenfolgen geprüft, siehe [Lager am Rundenende](src/Game/README.md#airdrop-auswahl) |
+| `bestaetigungstests` | Wartung | Eigener Wartezustand und Batch-Befehle fuer Bestaetigungstests, aktive fremde Arbeit ausgeschlossen; siehe [Ablauf](tools/README.md#bestätigungstests) |
 | `bewegung` | 4 | Dodge beim Client repariert: eigene Figur bekommt Reibung und Schwerkraft zurück, Host-Figur folgt bei unbekannter Unterlage dem replizierten Ort, siehe [Dodge beim Client](docs/GAME_ANALYSIS.md#dodge-beim-client-bewegung) |
 | `blueprint-logik` | 1 | Repräsentative Spawn-, Effekt- und Eventpfade per Bytecode-Audit und Traces geklärt, siehe [Nachtrag](research/spikes/blueprint-logik/README.md#nachtrag-03112026-grenzpruefung-und-ereignistests) |
 | `boss-dump` | 0 | Klassen aller sechs Bosse gezielt geladen und gedumpt, siehe [Boss-Dump](docs/GAME_ANALYSIS.md#boss-dump-boss-dump) |
