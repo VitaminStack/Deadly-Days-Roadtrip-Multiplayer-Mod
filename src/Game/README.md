@@ -62,7 +62,7 @@ der [Patch-Tabelle des Spikes](../../research/spikes/a-connect/README.md#patches
 | `ClientPatches.cpp` | Client | Refresh, Attribut-Tick, AttributeSet-Suche, Kartengenerator-Schritt, Figurenkomponente und ThreatLevel ohne Host-Objekte; Exp-Aggregation wartet auf AttributeSets; Blockaden nur beim Host; NetGUID-Pfade bleiben; SneakApproach wartet auf Mesh und PlayerState; keine lokale PowerUp-Kopie |
 | `MovementPatches.cpp` | Client | Nach dem Dodge: eigene Figur bekommt Reibung und Schwerkraft zurück, fremde Figur folgt dem replizierten Ort, wenn ihre Unterlage beim Client fehlt oder sie ohne Modus hängt, siehe [Dodge beim Client](../../docs/GAME_ANALYSIS.md#dodge-beim-client-bewegung) |
 | `CameraPatches.cpp` | Client | Kamera-Spieler aus der `PlayerArray` statt aus dem GameMode, Bodenfix, gemeinsame Kamera als ViewTarget je Sekunde; Bewegungs-Restrictor ohne GameState stürzt nicht ab und bekommt ihn nachgetragen, siehe [Restrictor](../../docs/GAME_ANALYSIS.md#client-absturz-im-restrictor-tick-absturz) |
-| `InventoryPatches.cpp` | beide | Inventar-Unterobjekte über den klassischen Replikationspfad, Timer des Achievement-Detektors beim `EndPlay` löschen, Kartengenerator-Schritt nur für die aktuelle Welt; [Itemsack-Vergabe](../../research/spikes/itemsack-absturz/README.md) nur auf Authority außerhalb einer Client-Welt |
+| `InventoryPatches.cpp` | beide | Inventar-Unterobjekte über den klassischen Replikationspfad, Timer des Achievement-Detektors beim `EndPlay` löschen, Kartengenerator-Schritt nur für die aktuelle Welt; [Itemsack-Vergabe](../../research/spikes/itemsack-absturz/README.md) nur auf Authority außerhalb einer Client-Welt, beim Host [für alle Spieler](#itemsack-für-alle-spieler); abschaltbare Inventar-Diagnose in `RewardPatches.cpp` |
 | `MapPatches.cpp` | beide | Gleiche Karte: Der Host meldet Seed, Profil, Größe, Tags und PCG-Graph seiner Erzeugung, der Kontrollkanal bringt sie zum Client (`Sync/World/MapSync.cpp`), dessen Erzeugung wartet darauf; lokale Kopien replizierter Child Actors unterdrückt, gleiche Seeds der PCG-Instanzen. Siehe [Gleiche Karte in der Mod](../../docs/GAME_ANALYSIS.md#gleiche-karte-in-der-mod-missionsstart) |
 | `TravelPatches.cpp` | Host | Reise ins Spiel wird `servertravel`, vorher Zeitanfragen abräumen; allein und ins Hauptmenü reist das Spiel wie gewohnt |
 | `WidgetPatches.cpp` | Client | `WP_UI` wartet auf den GameState; Beobachter nach jedem `ProcessEvent` |
@@ -196,6 +196,24 @@ Zustandsabstimmung; Effekte und Vergabe bleiben hostautoritativ. Das ist noch ke
 **Verworfen:** Zuerst nutzte die Mod die native Koop-Reward-Sitzung (Koop-Modus nur für den Airdrop, Client wählt im Overlay, Host ruft
 `ClaimReward(1, …)`). Das Host-Panel zeigte beide Rucksäcke, nach dem Claim des Clients ging die UI-Autorität an P1 und der Host hing.
 Die Auswahl im Overlay gefiel nicht, der Nutzer wollte für beide das normale Panel.
+
+### Itemsack für alle Spieler
+
+Nutzervorgabe 06.11.2026: Ein aufgesammelter Itemsack zählt wie ein Airdrop für alle, jeder Spieler bekommt das Item. Die Vergabe bleibt
+beim Host, der Client lässt seine lokale Vergabe weiter aus. `ItemLootHook` (`InventoryPatches.cpp`) merkt sich beim Host vor der nativen
+Vergabe die Items aller Spielerinventare (über die `PlayerArray` und `UInventoryComponent.OwningPlayerState`, `+0x228`). Danach bekommt
+jedes andere Inventar eine Kopie jedes neuen Items über `CreateAndAddItem`, mit derselben `ItemData`, Seltenheit und Beschädigung wie das
+Original, wie `ClaimForClient` bei der Airdrop-Auswahl. Das Item repliziert nativ. Nur wenn genau ein Inventar etwas bekommen hat
+(`ShareItemLoot` in `PatchPolicy.h`, mit Tests), damit nichts doppelt verteilt wird.
+
+**Geprüft** (06.11.2026, Build `26187885`, Lobby, ein PC, Godmode): Host sammelte einen Rucksack-Block, der Client Rollerblades, beide
+landeten bei beiden Spielern (`Itemsack: … auch an Spieler i vergeben, angelegt=true`). Im Lager nach der Busflucht lieferte
+`inventory.py` für Host- und Client-Sicht `complete` und `equal`. Über die Reise in den nächsten Tag ist es nicht geprüft.
+
+**Diagnose für `inventar-lokal`:** Mit der Umgebungsvariable `DDCOOP_TRACE_INVENTORY=1` schreibt die Mod jeden `ProcessEvent`-Aufruf an
+Inventar, Item, Rucksackfeld, Reward-Queue und Inventar-Widgets als `InvTrace C|H Klasse.Funktion [Net]` ins Log, ohne Animations- und
+Abfrageaufrufe, höchstens 20000 Zeilen. Ohne die Variable kostet sie nur einen Vergleich je Aufruf. Erste Spur: Schon beim Öffnen der
+Airdrop-Auswahl ruft der Client an jeder Choice `UpdateIsReward` als Server-RPC.
 
 ## Ohne Spike
 

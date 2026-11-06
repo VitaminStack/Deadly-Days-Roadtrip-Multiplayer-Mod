@@ -17,6 +17,13 @@ constexpr bool ItemLootMayGrant(uint8_t ActorRole, NetRole WorldRole)
     return ActorRole == 3 && WorldRole != NetRole::Client;
 }
 
+// Nutzervorgabe 06.11.2026: Ein Itemsack zählt wie ein Airdrop für alle. Der Host gibt jedem anderen Spieler eine Kopie
+// jedes neuen Items, aber nur, wenn genau ein Inventar beim Aufsammeln etwas bekommen hat.
+constexpr bool ShareItemLoot(NetRole WorldRole, size_t Inventories, size_t GainedInventories)
+{
+    return WorldRole == NetRole::Host && Inventories > 1 && GainedInventories == 1;
+}
+
 // ADDMissionGameMode::SpawnedPlayers, ein TSet<APlayerController*>. Layout aus Build 26187885, der Speicher gehört dem Spiel.
 struct ControllerSetEntry
 {
@@ -132,6 +139,19 @@ inline float PendingAttributeValue(float LastComplete)
 constexpr bool BlockadeMayStart(bool HasWorld, bool HasDriver, bool HasServerConnection)
 {
     return HasWorld && (!HasDriver || !HasServerConnection);
+}
+
+// Die Busabfahrt entscheidet nur der Host. Dem Client fehlt der GameMode, seine Prüfung „alle Spieler am Bus“ schlug
+// mit nur einer Figur an und beendete die Runde allein beim Client (bus-ende).
+constexpr bool BusTakeOffMayDecide(bool IsNetClient)
+{
+    return !IsNetClient;
+}
+
+// FinishMission beendet die Runde. Beim Client nur der Aufruf beim Laden, das Rundenende selbst kommt vom Host.
+constexpr bool MissionFinishAllowed(bool IsNetClient, bool IsLoading)
+{
+    return !IsNetClient || IsLoading;
 }
 
 // Beim Client bleiben ablaufende statische Pfad-GUIDs erhalten, keine dynamischen, NoLoad- oder kaputten Einträge.

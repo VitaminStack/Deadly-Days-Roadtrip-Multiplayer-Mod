@@ -48,6 +48,10 @@ void TickMovement(NetRole Role, bool Second);
 void TickRemoteP2(NetRole Role);
 void TickMap(NetRole Role, bool Second);
 
+// Diagnose für inventar-transaktion: Mit der Umgebungsvariable DDCOOP_TRACE_INVENTORY=1 protokolliert jeder Aufruf einer
+// Inventar-, Item-, Rucksackfeld- oder Inventar-Panel-Funktion eine Logzeile. Sonst ohne Wirkung.
+void TraceInventoryEvent(uintptr_t Object, uintptr_t Function, void* Params);
+
 // Beobachter nach jedem ProcessEvent, aus WidgetPatches.cpp.
 void NotifyEventObservers(uintptr_t Object, uintptr_t Function, void* Params);
 }
