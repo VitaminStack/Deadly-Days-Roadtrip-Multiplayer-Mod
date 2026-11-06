@@ -10,7 +10,7 @@
 #include "Core/ReportHosts.h"
 #include "Game/Memory.h"
 #include "Game/Objects.h"
-#include "Game/Offsets.h"
+#include "Game/Reflection.h"
 
 namespace Game
 {
@@ -19,20 +19,24 @@ namespace
 constexpr ULONGLONG CheckIntervalMs = 1000;
 constexpr std::string_view Package = "/Script/DDSurvivors";
 
+constexpr std::string_view TelemetryClass = "DDBalanceTelemetrySettings";
+constexpr std::string_view ReportClass = "DDCorruptedSaveAutoReportSettings";
+
 struct Setting
 {
     const char* Object;
-    uintptr_t Offset;
+    Reflection::FieldSpec Field;
     const char* Label;
 };
 
 // Der erste Eintrag ist das Telemetrie-Objekt, daraus kommt auch die Server-Adresse.
 constexpr Setting Settings[] = {
-    {"Default__DDBalanceTelemetrySettings", Offsets::UDDBalanceTelemetrySettings::Enabled, "Balance-Telemetrie"},
-    {"Default__DDBalanceTelemetrySettings", Offsets::UDDBalanceTelemetrySettings::AttachSaveFile, "Spielstand an Telemetrie"},
-    {"Default__DDCorruptedSaveAutoReportSettings", Offsets::UDDCorruptedSaveAutoReportSettings::EnableAutomaticReports,
+    {"Default__DDBalanceTelemetrySettings", {Package, TelemetryClass, "bEnabled", "BoolProperty", 1}, "Balance-Telemetrie"},
+    {"Default__DDBalanceTelemetrySettings", {Package, TelemetryClass, "bAttachSaveFile", "BoolProperty", 1}, "Spielstand an Telemetrie"},
+    {"Default__DDCorruptedSaveAutoReportSettings", {Package, ReportClass, "bEnableAutomaticCorruptedSaveReports", "BoolProperty", 1},
      "Automatische Berichte über beschädigte Spielstände"},
 };
+constexpr Reflection::FieldSpec ServerBaseUrlField{Package, TelemetryClass, "ServerBaseURL", "StrProperty", 0x10};
 
 // FString: Zeiger auf UTF-16, dann Anzahl der Zeichen samt Nullzeichen.
 std::wstring ReadString(uintptr_t Address)
@@ -52,8 +56,11 @@ void BlockTelemetryServer(uintptr_t TelemetrySettings)
     static bool Done = false;
     if (Done || !TelemetrySettings)
         return;
+    const auto Url = Reflection::Property(ServerBaseUrlField);
+    if (!Url)
+        return;
     Done = true;
-    const std::wstring Host = Core::ReportHosts::HostFromUrl(ReadString(TelemetrySettings + Offsets::UDDBalanceTelemetrySettings::ServerBaseURL));
+    const std::wstring Host = Core::ReportHosts::HostFromUrl(ReadString(TelemetrySettings + Url->Offset));
     if (Host.empty())
         Core::Log::Info("Telemetrie: keine Server-Adresse eingetragen");
     else
@@ -86,11 +93,16 @@ void TickTelemetry()
             continue;
         if (Index == 0)
             BlockTelemetryServer(Object);
-        const auto Flag = Memory::Read<uint8_t>(Object + Entry.Offset);
+        // Fehlt das Feld oder passt es nicht, bleibt nur dieser Schalter unberührt; Reflection hat das einmal geloggt.
+        const auto Field = Reflection::Property(Entry.Field);
+        if (!Field)
+            continue;
+        const uintptr_t Address = Object + Field->Offset;
+        const auto Flag = Memory::Read<uint8_t>(Address);
         if (!ShouldClear(Flag))
             continue;
         const uint8_t Off = 0;
-        if (Memory::WriteBytes(Object + Entry.Offset, &Off, 1))
+        if (Memory::WriteBytes(Address, &Off, 1))
             Core::Log::Info("Telemetrie: {} abgeschaltet", Entry.Label);
         else
             Core::Log::Error("Telemetrie: {} ließ sich nicht abschalten", Entry.Label);
