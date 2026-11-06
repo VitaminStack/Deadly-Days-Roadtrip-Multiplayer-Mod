@@ -18,7 +18,8 @@ Vertrauensgrad:
 | Spiel-Exe | `DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe` (179 MB) |
 
 Build-ID und Manifest-IDs stehen in `steamapps/appmanifest_3026450.acf`. Die Manifest-IDs benennen die gewünschten Depotstände;
-ein erneuter Download über die Steam-Konsole ist noch nicht getestet. Bei einem Spiel-Update gilt die
+ein erneuter Download über die Steam-Konsole ist getestet (07.11.2026): `download_depot 3026450 3026452 7724756528743620812` liefert
+alle 52 Dateien, die Prüfsummen von `tools/game_build.py` passen; Depot `3026451` hatte beim Update auf `26495302` denselben Stand. Bei einem Spiel-Update gilt die
 [Update-Regel](../CONTRIBUTING.md#spiel-updates): einfrieren und nur bei Bedarf nachziehen.
 
 ### Gemeinsame Build-ID (`build-id`)
@@ -1637,11 +1638,17 @@ Stand 07.11.2026, Build `26187885`, ein PC, Mod mit Spike über die Lobby, Godmo
   `SaveSlot_DDR_0_tmp.sav`, löschte `SaveSlot_DDR_0.sav` und verschob `_tmp` darauf, alles im Mod-Ordner (3093 → 7866 Bytes, wie der Befund
   unter [Rundenende](#rundenübersicht-und-lager-beim-client-rundenende-client), dort noch im normalen Stand). Der Host schrieb seinen Stand im
   Mod-Ordner (19228 → 26373 Bytes). Alle sechs normalen Dateien beider Instanzen blieben Byte für Byte gleich, mit unveränderten Zeitstempeln.
-- **Nicht geprüft:** Ein zweiter Start, der die von der Mod geschriebenen Stände wieder lädt (gelesen wurden im Lauf nur die frisch kopierten), und
-  ein Gegenlauf ohne Mod. Direkt nach dem Lauf hat Steam das Spiel auf Build `26495302` aktualisiert; eine eingefrorene Kopie gab es auf
-  diesem PC nicht. Ohne Mod-DLL setzt nichts die Hooks, das Spiel nutzt also seine eigenen Pfade; das ist am Code abgeleitet, nicht gemessen.
-  Rennen beim Start: Die Mod startet auf dem Thread des Loaders parallel zum Spiel. Ein Lesen vor den Hooks wäre harmlos, ein Schreiben in den
-  normalen Stand vor den Hooks ist nicht beobachtet und nicht ausgeschlossen.
+- **[Belegt] Wiederladen:** Zweiter Start mit Mod (nach dem Steam-Update aus der eingefrorenen Kopie, siehe [Spielversion](#unterstützte-spielversion)):
+  beide meldeten „Mod-Ordner vorhanden“, kopierten nichts und lasen `Management_SaveSlot_0.sav`, `SaveSlot_DDR_0.sav` und
+  `WeeklyChallenge.sav` nur aus dem Mod-Ordner, also die von der Mod geschriebenen Stände (Client 7866, Host 26373 Bytes). Kein Zugriff
+  außerhalb, normale Dateien unverändert.
+- **[Belegt] Ohne Mod:** `Start-Session.ps1 -Restart -Godmode -Brief` ohne `-Mod` (keine `DDCoop.dll`, kein `version.dll`, kein Mod-Log):
+  Das Spiel schrieb wie im Original in den normalen Ordner (Host `SaveSlot_DDR_0.sav` 19228 → 19433 Bytes, Sicherungen rückten auf
+  `_bak`/`_bak2`). Der Mod-Ordner blieb Byte für Byte gleich.
+- **Nicht geprüft:** Rennen beim Start: Die Mod startet auf dem Thread des Loaders parallel zum Spiel. In allen Läufen saßen die Hooks rund
+  2 s vor dem ersten Zugriff. Ein Lesen vor den Hooks wäre harmlos, ein Schreiben in den normalen Stand vor den Hooks ist nicht beobachtet
+  und nicht ausgeschlossen. Solo-Spiel mit Mod nur über denselben Codeweg abgeleitet (die Umleitung kennt keine Rolle). Ein echter
+  Spielstand unter `%LOCALAPPDATA%` wurde absichtlich nicht berührt.
 
 ## Allgemeines
 
