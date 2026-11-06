@@ -2,13 +2,16 @@
 // auf Tag 3 (Timer des Achievement-Detektors, Schritt eines alten Kartengenerators). Aus Spike Inventory.cpp.
 #include <windows.h>
 
+#include <algorithm>
 #include <atomic>
 #include <map>
+#include <vector>
 
 #include "Core/Log.h"
 #include "Core/Hooks.h"
 #include "Game/Memory.h"
 #include "Game/PatchPolicy.h"
+#include "Game/Objects.h"
 #include "Game/Offsets.h"
 #include "Game/PatchRuntime.h"
 
@@ -34,14 +37,137 @@ using ItemLootFn = void(__fastcall*)(uintptr_t, uintptr_t);
 ItemLootFn OriginalItemLoot = nullptr;
 std::atomic<unsigned> ClientItemLootAttempts = 0;
 
+// UInventoryComponent.MyItems, UInventoryItemInstance.ItemData/Broken/Rarity, UInventoryComponent.OwningPlayerState
+constexpr uintptr_t InventoryItems = 0x120;
+constexpr uintptr_t ItemDataOffset = 0xE0, ItemBroken = 0x110, ItemRarity = 0x118;
+constexpr uintptr_t InventoryPlayerState = 0x228;
+constexpr uint32_t GarbageOrUnreachable = 0x30;
+
+bool Alive(uintptr_t Object)
+{
+    return Object && !(Memory::Read<uint32_t>(Object + Offsets::UObject::Flags).value_or(GarbageOrUnreachable) & GarbageOrUnreachable);
+}
+
+std::vector<uintptr_t> ItemsOf(uintptr_t Inventory)
+{
+    std::vector<uintptr_t> Items;
+    const uintptr_t Data = Memory::ReadPointer(Inventory + InventoryItems).value_or(0);
+    const int32_t Count = Memory::Read<int32_t>(Inventory + InventoryItems + 8).value_or(0);
+    for (int32_t i = 0; Data && i < Count && Count <= 4096; ++i)
+        if (const uintptr_t Item = Memory::ReadPointer(Data + 8 * i).value_or(0))
+            Items.push_back(Item);
+    return Items;
+}
+
+// Inventare aller Spieler der aktuellen Welt, über die PlayerStates der PlayerArray. Gemerkt, solange sie leben und
+// zum selben PlayerState gehören, sonst einmal neu über das Objekt-Array gesucht.
+std::vector<uintptr_t> PlayerInventories()
+{
+    static std::vector<std::pair<uintptr_t, uintptr_t>> Cache; // PlayerState, Inventar
+    const uintptr_t World = CurrentWorld();
+    const uintptr_t State = World ? Memory::ReadPointer(World + Offsets::UWorld::GameState).value_or(0) : 0;
+    const uintptr_t Array = State ? Memory::ReadPointer(State + Offsets::AGameStateBase::PlayerArray).value_or(0) : 0;
+    const int32_t Count = State ? Memory::Read<int32_t>(State + Offsets::AGameStateBase::PlayerArray + 8).value_or(0) : 0;
+    std::vector<uintptr_t> States;
+    for (int32_t i = 0; Array && i < Count && i < 8; ++i)
+        if (const uintptr_t PlayerState = Memory::ReadPointer(Array + 8 * i).value_or(0))
+            States.push_back(PlayerState);
+    std::erase_if(Cache, [](const std::pair<uintptr_t, uintptr_t>& Entry)
+                  { return !Alive(Entry.second) || Memory::ReadPointer(Entry.second + InventoryPlayerState).value_or(0) != Entry.first; });
+    const auto Cached = [](uintptr_t PlayerState)
+    { return std::any_of(Cache.begin(), Cache.end(), [&](const auto& Entry) { return Entry.first == PlayerState; }); };
+    if (!std::all_of(States.begin(), States.end(), Cached))
+    {
+        const int32_t Total = Objects::Count();
+        for (int32_t i = 0; i < Total; ++i)
+        {
+            const uintptr_t Object = Objects::At(i);
+            const uintptr_t Owner = Object ? Memory::ReadPointer(Object + InventoryPlayerState).value_or(0) : 0;
+            if (Owner && std::find(States.begin(), States.end(), Owner) != States.end() && !Cached(Owner) && Alive(Object) &&
+                IsA(Object, "InventoryComponent"))
+                Cache.emplace_back(Owner, Object);
+        }
+    }
+    std::vector<uintptr_t> Result;
+    for (const uintptr_t PlayerState : States)
+        for (const auto& [Owner, Inventory] : Cache)
+            if (Owner == PlayerState)
+                Result.push_back(Inventory);
+    return Result;
+}
+
+// Wie ClaimForClient der Airdrop-Auswahl: UInventoryComponent.CreateAndAddItem beim Host, das Item repliziert.
+bool AddCopy(uintptr_t Inventory, uintptr_t Source)
+{
+    static uintptr_t Create = 0;
+    if (!Create)
+        Create = Objects::FindObject("CreateAndAddItem", "InventoryComponent");
+    const uintptr_t Data = Memory::ReadPointer(Source + ItemDataOffset).value_or(0);
+    if (!Create || !Data)
+        return false;
+    struct
+    {
+        uintptr_t Data, Rarity;
+        bool Broken, FlagAsNew, SystemAdd;
+        uint8_t Pad;
+        int32_t Position;
+        bool AllowP2Reserve;
+        uint8_t Pad2[7];
+        uintptr_t Result;
+    } Add{Data, Memory::ReadPointer(Source + ItemRarity).value_or(0), Memory::Read<uint8_t>(Source + ItemBroken).value_or(0) != 0, true, true, 0, -1, false,
+          {}, 0};
+    static_assert(sizeof(Add) == 0x28);
+    Objects::ProcessEvent(Inventory, Create, &Add);
+    return Add.Result != 0;
+}
+
+// Host: Nach der nativen Vergabe an den Sammler bekommt jeder andere Spieler dieselben neuen Items.
+void ShareLoot(const std::vector<uintptr_t>& Inventories, const std::vector<std::vector<uintptr_t>>& Before)
+{
+    std::vector<uintptr_t> Gained;
+    size_t Looter = 0, GainedInventories = 0;
+    for (size_t i = 0; i < Inventories.size(); ++i)
+    {
+        std::vector<uintptr_t> New;
+        for (const uintptr_t Item : ItemsOf(Inventories[i]))
+            if (std::find(Before[i].begin(), Before[i].end(), Item) == Before[i].end())
+                New.push_back(Item);
+        if (!New.empty())
+        {
+            ++GainedInventories;
+            Looter = i;
+            Gained = std::move(New);
+        }
+    }
+    if (!ShareItemLoot(CurrentRole(), Inventories.size(), GainedInventories))
+        return;
+    for (size_t i = 0; i < Inventories.size(); ++i)
+        if (i != Looter)
+            for (const uintptr_t Item : Gained)
+            {
+                const bool Added = AddCopy(Inventories[i], Item);
+                Core::Log::Info("Itemsack: {} auch an Spieler {} vergeben, angelegt={}",
+                                Memory::NameOf(Memory::ReadPointer(Item + ItemDataOffset).value_or(0)), i, Added);
+            }
+}
+
 void __fastcall ItemLootHook(uintptr_t Interface, uintptr_t Looter)
 {
     const uintptr_t Actor = Interface >= LootableInterface ? Interface - LootableInterface : 0;
     const uint8_t Role = Actor ? Memory::Read<uint8_t>(Actor + 0x168).value_or(0) : 0;
-    if (ItemLootMayGrant(Role, CurrentRole()))
-        OriginalItemLoot(Interface, Looter);
-    else if (ClientItemLootAttempts.fetch_add(1) < 3)
-        Core::Log::Info("Itemsack: lokale Item-Vergabe ausgelassen; Vergabe bleibt beim Host");
+    if (!ItemLootMayGrant(Role, CurrentRole()))
+    {
+        if (ClientItemLootAttempts.fetch_add(1) < 3)
+            Core::Log::Info("Itemsack: lokale Item-Vergabe ausgelassen; Vergabe bleibt beim Host");
+        return;
+    }
+    const std::vector<uintptr_t> Inventories = CurrentRole() == NetRole::Host ? PlayerInventories() : std::vector<uintptr_t>{};
+    std::vector<std::vector<uintptr_t>> Before;
+    for (const uintptr_t Inventory : Inventories)
+        Before.push_back(ItemsOf(Inventory));
+    OriginalItemLoot(Interface, Looter);
+    if (Inventories.size() > 1)
+        ShareLoot(Inventories, Before);
 }
 
 bool CheckItemLoot()
@@ -215,7 +341,7 @@ bool ApplyMapGenLambda(Code::Writer&)
 }
 
 const Patch List[] = {
-    {"Itemsack-Vergabe nur beim Host", &CheckItemLoot, &ApplyItemLoot},
+    {"Itemsack-Vergabe nur beim Host, für alle Spieler", &CheckItemLoot, &ApplyItemLoot},
     {"Inventar-Unterobjekte replizieren", &CheckInventory, &ApplyInventory},
     {"Timer des Achievement-Detektors beim EndPlay löschen", &CheckDetector, &ApplyDetector},
     {"Kartengenerator-Schritt nur für die aktuelle Welt", &CheckMapGenLambda, &ApplyMapGenLambda},

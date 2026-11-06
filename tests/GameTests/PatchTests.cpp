@@ -514,3 +514,13 @@ TEST_CASE("Karte: Client wartet auf die Werte des Hosts, aber nicht ewig")
     CHECK(ClientMapStart(true, false, HostMapWaitMs * 2, HostGraphWaitMs - 1) == MapStart::Wait);
     CHECK(ClientMapStart(true, false, 0, HostGraphWaitMs) == MapStart::HostValues);
 }
+
+TEST_CASE("Itemsack zählt beim Host für alle Spieler")
+{
+    CHECK(ShareItemLoot(NetRole::Host, 2, 1));
+    CHECK_FALSE(ShareItemLoot(NetRole::Host, 1, 1));
+    CHECK_FALSE(ShareItemLoot(NetRole::Host, 2, 0));
+    CHECK_FALSE(ShareItemLoot(NetRole::Host, 2, 2));
+    CHECK_FALSE(ShareItemLoot(NetRole::Client, 2, 1));
+    CHECK_FALSE(ShareItemLoot(NetRole::Standalone, 2, 1));
+}
