@@ -1559,6 +1559,9 @@ sind das Mod-Log und der Speicher des Hosts, nur lesend; das Client-Log lag bei 
   (`UInventoryItemInstance +0xE0`). Darunter UMG/Slate und die Blueprint-VM, also ein Inventar-Widget, dessen Item beim Verbindungsabbau
   schon weg ist. Verdacht: derselbe Weg wie beim ersten Absturz im Lager, sobald dort ein Item-Widget sein Item verliert; vergleiche
   [Trennen](#trennen-ins-hauptmenü-trennen), wo ein fehlendes Item in `EndPlay` abstürzte.
+  **[Belegt, Disassembly]** `0x5AB5120` ist eine `void`-Funktion, die nur die Größe des Widgets aus der Itemform setzt (je 66 px minus
+  3), neun direkte Aufrufer. `lager-absturz-client` überspringt sie ohne Item, und der Host wartet bei stummem Client bis zum
+  Verbindungsabbau, siehe [Lager am Rundenende](../src/Game/README.md).
 
 ## Systeme, die die Mod respektieren muss
 

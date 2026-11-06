@@ -150,6 +150,7 @@ Aufgabe `airdrop-auswahl`, Ablauf in [Airdrop-Auswahl](GAME_ANALYSIS.md#airdrop-
 | `InventoryPanel.SetupInventory` | `0x5A8BAB0` | liest `InventoryComponent` bei `+0x370`; positioniert aus `InventoryItemInstance.CachedBackpackLocalPosition` (`+0x150`, FVector2D, nicht repliziert) |
 | `DefaultFocusableButton.ParentPanel` | `+0x3A8` | Panel des Knopfs (UUserWidget); der Bestätigen-Knopf des Inventar-Panels heißt `MainButton`, gefärbt über `UserWidget.SetColorAndOpacity` (`bestaetigen-alle`) |
 | `InventoryPanel.SnapRepresentationToTile` | `0x5A92030` | richtet UI und Pixelpositions-Cache aus einem Pivot-Feld aus; reflektierte Parameter: ItemRepresentation `+0`, FIntVector2 `+8`, CanvasPanel `+0x10`, Größe `0x18` |
+| `UItemRepresentation`, Größe aus der Itemform | `0x5AB5120` | `void(this)`; liest `ItemInstance` (`+0xA28`), davon `ItemData` (`+0xE0`) und Form (`+0xE8`) ohne Prüfung, setzt die Größe des Canvas-Slots (`+0x30`) auf je 66 px minus 3; neun direkte Aufrufer. Hook in `InventoryPatches.cpp` (`lager-absturz-client`) |
 | `InventoryItemInstance.SetZeroPivotTile` | `0x5979ED0` | schreibt ausschließlich `+0x28`; berechnet den Pixelpositions-Cache nicht neu |
 | `InventoryComponent::CreateItemInstance` | `0x5959700` | `(this, ItemData, FlagAsNew, Rarity)`, nativ; UFunction `BlueprintAuthorityOnly` |
 | `URewardQueueComponent::OpenNextReward` | `0x59ADAC0` | Exec-Thunk `0x57975F0` |
