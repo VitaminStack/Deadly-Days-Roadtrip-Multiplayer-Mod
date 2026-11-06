@@ -52,20 +52,20 @@
       <path d="M0 292H1000" stroke="#d1d5db"/>
       <text x="20" y="274">4</text>
       <text x="125" y="274">Spielbarer Ausschnitt</text>
-      <text x="490" y="274">13 von 16</text>
+      <text x="490" y="274">15 von 16</text>
       <rect x="630" y="259" width="200" height="18" rx="4" fill="#e5e7eb"/>
-      <rect x="630" y="259" width="162" height="18" rx="4" fill="#64748b"/>
-      <text x="846" y="274">81 %</text>
+      <rect x="630" y="259" width="187" height="18" rx="4" fill="#64748b"/>
+      <text x="846" y="274">93 %</text>
     </g>
     <g id="phase-5">
       <rect y="292" width="1000" height="48" fill="#ffffff"/>
       <path d="M0 340H1000" stroke="#d1d5db"/>
       <text x="20" y="322">5</text>
       <text x="125" y="322">Kompletter Run zu zweit</text>
-      <text x="490" y="322">14 von 29</text>
+      <text x="490" y="322">16 von 29</text>
       <rect x="630" y="307" width="200" height="18" rx="4" fill="#e5e7eb"/>
-      <rect x="630" y="307" width="96" height="18" rx="4" fill="#64748b"/>
-      <text x="846" y="322">48 %</text>
+      <rect x="630" y="307" width="110" height="18" rx="4" fill="#64748b"/>
+      <text x="846" y="322">55 %</text>
     </g>
     <g id="phase-6">
       <rect y="340" width="1000" height="48" fill="#ffffff"/>
@@ -82,10 +82,10 @@
       <path d="M0 436H1000" stroke="#d1d5db"/>
       <text x="20" y="418">Gesamt</text>
       <text x="125" y="418"></text>
-      <text x="490" y="418">93 von 118</text>
+      <text x="490" y="418">97 von 118</text>
       <rect x="630" y="403" width="200" height="18" rx="4" fill="#e5e7eb"/>
-      <rect x="630" y="403" width="157" height="18" rx="4" fill="#64748b"/>
-      <text x="846" y="418">78 %</text>
+      <rect x="630" y="403" width="164" height="18" rx="4" fill="#64748b"/>
+      <text x="846" y="418">82 %</text>
     </g>
   </g>
 </svg>

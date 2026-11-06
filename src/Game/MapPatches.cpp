@@ -13,6 +13,7 @@
 #include "Game/Memory.h"
 #include "Game/Objects.h"
 #include "Game/PatchRuntime.h"
+#include "Game/RewardAdapter.h"
 
 namespace Game::Patches
 {
@@ -81,6 +82,7 @@ struct
     uintptr_t EndedWorld = 0;
     std::optional<Map::RoundEnd> HostEnd;
     uint64_t FollowedEnd = 0;
+    uintptr_t FollowedWorld = 0; // Welt, in der der Client Rundenübersicht und Lager geöffnet hat, 0 ohne
     // Beide: PCG-Volume, dessen Instanzen noch einen festen Seed brauchen
     uintptr_t PcgWorld = 0;
     ULONGLONG PcgSince = 0;
@@ -514,8 +516,12 @@ void FollowRoundEnd()
     if (!ClientMayFollowRoundEnd(S.HostEnd->MapId, ClientMapId, S.FollowedEnd == S.HostEnd->Id))
         return;
     S.FollowedEnd = S.HostEnd->Id;
+    S.FollowedWorld = 0;
     if (FollowHostRoundEnd())
+    {
+        S.FollowedWorld = CurrentWorld();
         Core::Log::Info("Rundenende: Host hat die Runde beendet, Client öffnet Rundenübersicht und Lager selbst");
+    }
     else
         Core::Log::Warn("Rundenende: Client ohne Missions-GameState, folgt nur der Reise");
 }
@@ -526,6 +532,11 @@ void TickMap(NetRole Role, bool Second)
         FollowRoundEnd();
     else if (S.Ended && S.EndedWorld != CurrentWorld())
         S.Ended.reset();
+    // bestaetigen-rundenende: Bestätigen im Lager wartet auf alle, solange beide in diesem Rundenende sind.
+    if (Role == NetRole::Client)
+        Rewards::SetRoundEnd(S.FollowedWorld && S.FollowedWorld == CurrentWorld() ? S.FollowedEnd : 0);
+    else
+        Rewards::SetRoundEnd(Role == NetRole::Host && S.Ended && S.EndedWorld == CurrentWorld() ? S.Ended->Id : 0);
     if (Role != NetRole::Client)
     {
         if (S.Published && S.PublishedWorld != CurrentWorld())

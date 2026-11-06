@@ -14,7 +14,7 @@ Geplante Unterordner, jeweils mit eigener Zuständigkeit:
 |---|---|
 | `Players/` | Beitritt, Bewegung, Status der Spieler |
 | `Combat/` | Waffen, Projektile, Treffer, Fähigkeiten |
-| `Enemies/` | Spawn, Position und Tod der Gegner, Bosse |
+| `Enemies/` | Spawn, Position und Tod der Gegner, Bosse. Ein Gegnertyp läuft nativ, ohne eigenen Code, siehe [Enemies](Enemies/README.md) |
 | `World/` | Karte, Tageszyklus, Missionen, Loot |
 | `Inventory/` | Airdrop-Auswahl und Edit des Clients (Rucksack, Rewards) |
 
