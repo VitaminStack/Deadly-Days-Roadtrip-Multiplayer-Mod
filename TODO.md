@@ -52,7 +52,7 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `patch-signaturen` | P2 | [Wartung](#wartung) | parallel | wenig |
 | `sdk-vergleich` | P2 | [Wartung](#wartung) | parallel | keine |
 
-**Wartet auf das Team:** `meta-fortschritt`, `spiel-update`.
+**Wartet auf das Team:** `spiel-update`.
 <!-- frei:end -->
 
 **Nicht erneut machen.** Das ist erledigt und dokumentiert:
@@ -96,7 +96,8 @@ Mögliche Punkte und Reihenfolge, je nach Bereitschaft:
 4. `integration-run`: kompletter Run über das Internet, Phase 5.
 5. `release`: Abschlusstest vor der Veröffentlichung.
 
-Die Team-Entscheidung `meta-fortschritt` braucht kein Spiel, passt aber in denselben Termin.
+Die Entscheidung `meta-fortschritt` ist getroffen: Im gemeinsamen Run gilt der Host-Stand,
+ohne dauerhafte Meta-Gutschrift beim Client, siehe [Regel](docs/SYNC_REQUIREMENTS.md#nutzervorgabe-meta-fortschritt-des-hosts-06112026).
 
 **Ohne zweite Person.** Alles andere geht allein auf einem PC: zwei Instanzen unter einem Konto über 127.0.0.1, siehe
 [Sitzung starten](docs/TESTING.md#sitzung-starten). Dazu gehören `protokoll`, `net-fehler`, `remote-spieler`, `missionsstart`,
@@ -160,7 +161,6 @@ Ziel: Ein kompletter Run ist zu zweit online spielbar.
 | `waffe-client-auswahl` | P0 | Gefunden im Live-Test am 06.11.2026: Der Client tauschte in der Itemauswahl seine Waffe, im Spiel wirkte sie nicht. Beim Host lagen Pistolen und Messer des Clients außerhalb des Rucksacks, ausgerüstet war nur die MP. Verdacht: verworfene fremde Server-RPCs während der Bearbeitung und `ForceRemoveAllEffects` beim Umlegen ohne erneutes `ApplyAddToBackpackEffect`. **Fertig, wenn** der Client in der Itemauswahl eine Waffe ablegt, tauscht und verschiebt und beim Host danach genau die Waffen im Rucksack ausgerüstet sind (`EquippedWeapons`), die der Client sieht, auch Passiv-Items wirken. Ordner `src/Game`. **Einstieg:** [Live-Test 06.11.](docs/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-06112026-livetest-befunde) | `inventar-lokal` | parallel | mittel |
 | `inventar-client-abweichung` | P0 | Gefunden im Live-Test am 06.11.2026: Ab der fünften Wahl blieb der Desync-Melder dauerhaft auf `ABWEICHUNG Inventar`, beim Client waren Items unsichtbar, obwohl der Host jeden Edit vollständig übernahm. **Fertig, wenn** die Ursache erklärt ist (abgegrenzt gegen `opt-desync-pivot`) und nach zehn Airdrops mit Rucksäcken und Waffen sowie einem Rundenende beide Inventare gleich sind und der Client alle Items sieht. Ordner `src/Game`, `src/Sync/Inventory`. **Einstieg:** [Live-Test 06.11.](docs/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-06112026-livetest-befunde) | `inventar-lokal` | parallel | mittel |
 | `dodge-client-live` | P1 | Gefunden im Live-Test am 06.11.2026: Laut Nutzer wirkt die Dodge-Reparatur beim Client nicht mehr, beim Host wird die Laufrichtung weiter eingetragen. **Fertig, wenn** aus dem Client-Log erklärt ist, was fehlt, und der Client auf zwei PCs zehnmal dodgt, ohne zu rutschen, mit Ausdauerverbrauch wie beim Host. Ordner `src/Game`. **Einstieg:** [Live-Test 06.11.](docs/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-06112026-livetest-befunde) | `ausweichen-client` | parallel | wenig |
-| `meta-fortschritt` | P1 | Entscheiden, wessen Meta-Fortschritt zählt und was der Client bekommt | – | Team | keine |
 | `run-ende` | P1 | Run-Ende und Rückkehr zur Meta-Basis. Ordner `src/Sync/World`, Dateien mit `tagesablauf` absprechen | `integration-g2`, `protokoll`, `niederlage`, `meta-fortschritt` | parallel | viel |
 | `dauerlauf` | P1 | Automatischer Dauerlauf mit der Mod auf einem PC: `Run-Route.ps1` über viele Tage mit Latenzprofil, je Tag Speicher, Objektzahl und Größe des NetGUID-Caches beider Instanzen protokollieren. Ersetzt nicht den Spike-Lauf aus `guidcache`, sondern prüft den Sync-Code der Mod über die Laufzeit. **Fertig, wenn** ein Lauf über mindestens 13 Tage ohne Absturz läuft oder jeder Absturz eine eigene Kennung hat und das Wachstum je Tag dokumentiert ist. Ordner `tools/spike` | `integration-g2`, `latenz-test` | parallel | viel |
 | `integration-run` | P0 | Kompletten Run zu zweit über Internet durchspielen und Fehler den Aufgaben zuordnen. **Fertig, wenn** ein Run von der `MetaBase` bis zum Endboss ohne Absturz und Desync läuft | `gegner-alle`, `fortschritt`, `werkbank-client`, `pausen-sync`, `tagesablauf`, `run-ende`, `dauerlauf` | zentral | viel |
@@ -282,6 +282,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `lobby-auth` | 3 | Host nimmt P2P nur von Steam bestätigten Mitgliedern seiner Lobby an, vor AcceptConnection, ohne Platz zu belegen; 127.0.0.1 nur im Testmodus; 10 Net-Tests mit nachgebautem Steam, auf einem PC im Spiel geprüft, Test mit zwei Konten ist `lobby-auth-live`, siehe [Zugriffskontrolle](src/Net/README.md#zugriffskontrolle-lobby-auth) |
 | `lobby-bereit` | 3 | Host schließt die Lobby im Hauptmenü oder ohne Listen-Server, Client erfährt es sofort, siehe [Lobby nur mit Server](src/Net/README.md#lobby-nur-mit-server-lobby-bereit) |
 | `menue-weg` | 1 | Mission über den echten Weg durch das Spielmenü mit den Patches gestartet, siehe [Spike](research/spikes/a-connect/README.md) |
+| `meta-fortschritt` | 5 | Nutzerentscheidung: Im gemeinsamen Run gilt der Meta-Fortschritt des Hosts, Client nur sitzungsweise ohne dauerhafte Meta-Gutschrift; Umsetzung bleibt offen, siehe [Regel](docs/SYNC_REQUIREMENTS.md#nutzervorgabe-meta-fortschritt-des-hosts-06112026) |
 | `missionsstart` | 4 | Gleiche Karte bei Host und Client über den Kontrollkanal der Mod, die Erzeugung des Clients wartet auf die Werte des Hosts; auf einem PC mit Netzprofil Internet und ohne Spike geprüft, siehe [Gleiche Karte in der Mod](docs/GAME_ANALYSIS.md#gleiche-karte-in-der-mod-missionsstart) |
 | `mitwirkende` | 0 | Freunde als Mitwirkende eingeladen |
 | `net-fehler` | 3 | Jedes Sitzungsende (Verlassen beider Seiten, Abbruch, Steam- und Sitzungszeitlimits) erscheint mit eigenem Grund als lesbare Meldung in Overlay und Log, danach sind Erstellen und Beitreten wieder frei; im Spiel geprüft, siehe [Fehlerbehandlung](src/Net/README.md#fehlerbehandlung-net-fehler) |
