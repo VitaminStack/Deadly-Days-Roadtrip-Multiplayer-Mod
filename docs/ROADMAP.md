@@ -18,6 +18,7 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 
 **Neue Befunde.**
 
+- `installer`, 06.11.2026: Release-Paket `dist/DDCoop-<Version>.zip` aus `tools/New-ReleasePackage.ps1` mit `Install.cmd`/`Uninstall.cmd`. Der Installer findet das Spiel in allen Steam-Bibliotheken, prüft Build `26187885` über das Steam-Manifest, laufendes Spiel und fremde `version.dll` und kopiert nur Loader und Mod; `ddcoop.ini`, Logs und Spielstände bleiben. `Deploy-Mod.ps1` nutzt denselben Installer. 11 Tests mit nachgebautem Steam-Ordner, echtes Paket an der Steam-Installation installiert und wieder entfernt, ohne Spielstart. Defender und Proton bleiben `virenscanner`. [Installation für Spieler](INSTALL.md)
 - `ausweichen-client`, 06.11.2026: Der Client weicht so weit aus und bremst so ab wie der Host, Ausdauer wird verbraucht. Ursache: Beim Host stand die Laufrichtung des Client-Controllers immer auf (0, 0), sein Dodge brach vor Kosten und Schub ab, und der Client rollte die Kosten zurück. Die Mod schätzt die Richtung beim Host aus dem replizierten Ort und trägt sie direkt vor dem Start von `GA_Dash` ein, der Host führt den Dodge nativ aus. Ohne eigene Nachricht, mit Netzprofil Internet vom Nutzer abgenommen. Nebenbei bestätigt: Spielertod und Rundenende erst, wenn alle tot sind. Neu: `airdrop-dodge-absturz`. [Befund](GAME_ANALYSIS.md#dodge-des-clients-beim-host-ausweichen-client)
 - `bestaetigen-alle`, 06.11.2026: Beim Airdrop schließt Bestätigen das Panel nicht mehr sofort, sondern markiert den Spieler als bereit, der Knopf leuchtet gelb. Erst wenn Host und Client bereit sind, bestätigt der Client nativ, der Host übernimmt den Edit und holt sein Bestätigen nach, das Spiel läuft weiter. Neue Nachricht `0x305`, Mod-Version 5. Zwei Airdrops in beiden Reihenfolgen live geprüft. Neu: `bestaetigen-rundenende` für das Lager am Rundenende. [Befund](../src/Game/README.md#airdrop-auswahl)
 - `rundenende-client`, 06.11.2026: Beendet der Host die Runde, öffnet der Client Rundenübersicht und Lager selbst (natives `FinishMission` nach einer Meldung über den Kontrollkanal) und ordnet dort sein Inventar. Reisen startet nur der Host. Mit `!finish` bis Tag 2 geprüft, Inventare gleich, kein Absturz. Befund für `mod-saves`: Das lokale Rundenende schreibt den Spielstand des Clients. [Befund](GAME_ANALYSIS.md#rundenübersicht-und-lager-beim-client-rundenende-client)
@@ -268,7 +269,7 @@ flowchart TD
         SB["Bestenlisten und<br/>Erfolge sperren"]:::done
         TE["Telemetrie und<br/>Crash-Reports aus"]:::done
         SV["Eigene Mod-Spielstände"]:::open
-        IN["Installer oder Anleitung"]:::open
+        IN["Installer oder Anleitung"]:::done
         WS["Weekly-Challenge sperren<br/>(weekly-sperre)"]:::open
         VS["Virenscanner und Proton<br/>(virenscanner)"]:::open
     end

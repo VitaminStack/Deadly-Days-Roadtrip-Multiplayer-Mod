@@ -43,7 +43,7 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `eingaben` | P1 | [4](#phase-4--vertical-slice) | parallel | mittel |
 | `airdrop-dodge-absturz` | P1 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `xp-baelle-live` | P1 | [5](#phase-5--vollständiger-run) | parallel | wenig |
-| `installer` | P1 | [6](#phase-6--release) | parallel | keine |
+| `virenscanner` | P1 | [6](#phase-6--release) | parallel | keine |
 | `weekly-sperre` | P1 | [6](#phase-6--release) | parallel | wenig |
 | `karte-tunnel` | P1 | [Wartung](#wartung) | zu zweit | wenig |
 | `mod-steuerung` | P1 | [Wartung](#wartung) | parallel | wenig |
@@ -178,7 +178,6 @@ Ziel: Die Mod lässt sich installieren, ohne Spielstände oder Bestenlisten zu b
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
 | `mod-saves` | P0 | Mod-Spielstände vom normalen Spielstand trennen, damit kein Save beschädigt wird. Ordner `src/Game` | `game-adapter` | parallel | mittel |
-| `installer` | P1 | Installer oder einfache Installationsanleitung. Ordner `tools`, `docs` | `game-adapter` | parallel | keine |
 | `weekly-sperre` | P1 | Die Weekly-Challenge sperren, solange die Mod geladen ist, auch solo, wie Erfolge und Bestenlisten (Entscheidung `weeklymode`). `ddrweekly.deadlydays.com` in `Core::ReportHosts` aufnehmen und vorher prüfen, wie das Menü reagiert: Hängt oder stürzt der Weekly-Eintrag ohne Antwort, ihn sperren oder mit Hinweis versehen. **Fertig, wenn** mit Mod nichts an den Weekly-Server geht, das Menü normal bedienbar bleibt und ohne Mod alles unverändert ist. **Einstieg:** [Telemetrie und Berichte](docs/GAME_ANALYSIS.md#telemetrie-und-berichte-telemetrie-aus). Ordner `src/Core`, `src/Game` | `weeklymode`, `telemetrie-aus` | parallel | wenig |
 | `virenscanner` | P1 | Das Release-Paket gegen Windows Defender und weitere Scanner prüfen: Proxy-DLL und Hooks sehen für Scanner verdächtig aus. Fehlalarme bei den Herstellern melden, Hinweise in die Installationsanleitung. Steam Deck und Proton prüfen (`WINEDLLOVERRIDES="version=n,b" %command%`) oder als nicht unterstützt kennzeichnen. Nur das eigene Paket hochladen, nie Spieldateien. **Fertig, wenn** Defender das Paket nicht meldet oder der Umgang mit Fehlalarmen dokumentiert ist und der Stand zu Proton in der Anleitung steht. Ordner `docs`, `tools` | `installer` | parallel | keine |
 | `release` | P0 | Versionierung, Abschlusstest und Veröffentlichung. Ein Stand, eine Freigabe | `integration-run`, `tutorial-aus`, `online-sperren`, `telemetrie-aus`, `mod-saves`, `installer`, `weekly-sperre`, `virenscanner` | zentral | wenig |
@@ -261,6 +260,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `grundgeruest` | 2 | `Loader` als Proxy-DLL, `Core` mit Logging, Config, Hooks, Dispatcher und Versionsprüfung, mit Host und Client geprüft |
 | `guidcache` | 1 | Blockaden-Autorität, NetGUID-Pfadlebensdauer und Sneak-Zielbereitschaft korrigiert; Test-Godmode für beide Spieler, Lauf bis Endlos-Tag 13 mit zwei Biomwechseln. Am 04.11.2026 vom Nutzer als abgeschlossen akzeptiert; vorerst keine weiteren Detailtests, neue konkrete Probleme erhalten ein neues TODO. [Nachweise und Testgrenzen](docs/GAME_ANALYSIS.md#abschluss-und-akzeptierter-testumfang-guidcache) |
 | `hp-leisten` | 1 | Spike-Fix: Die Lebensleisten über den Figuren blieben beim Client auf dem Startwert, weil das Spiel `OnHealthChanged` nur beim Host auslöst. Jetzt ruft der Spike die Empfänger nach `OnRep_Health` und `OnRep_MaxHealth` auf, siehe [Lebensleisten](docs/GAME_ANALYSIS.md#lebensleisten-beim-client-hp-leisten) |
+| `installer` | 6 | Release-Paket mit Install.cmd/Uninstall.cmd und Anleitung docs/INSTALL.md; findet Steam-Bibliotheken, prüft Build und fremde version.dll, Deploy-Mod nutzt denselben Installer |
 | `inventar-lokal` | 5 | Client bearbeitet sein Inventar in der Itemauswahl lokal, der Host übernimmt beim Bestätigen einen Edit oder lehnt ab; zwei Airdrops, Umsortieren und Rundenende bis Tag 2 ohne Absturz, Inventare gleich ([Befund](src/Game/README.md#inventar-lokal-bearbeiten)) |
 | `inventar-transaktion` | 5 | Ein Itemsack gibt jedem Spieler das Item, der Host vergibt Kopien; Client-lokales Inventar als `inventar-lokal`, siehe [Itemsack für alle](src/Game/README.md#itemsack-für-alle-spieler) |
 | `iris` | 1 | Zur Laufzeit ist die klassische Replikation mit `ActorChannel` aktiv, nicht Iris |

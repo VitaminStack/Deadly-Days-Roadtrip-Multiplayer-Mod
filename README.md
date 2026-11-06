@@ -62,8 +62,8 @@ Erledigt ist, was in `TODO.md` unter „Erledigt“ steht. **Vollständig abgesc
 | [3](TODO.md#phase-3--session-und-verbindung) | Verbinden über Steam | 7 von 9 | █████████░░ |
 | [4](TODO.md#phase-4--vertical-slice) | Spielbarer Ausschnitt | 13 von 16 | █████████░░ |
 | [5](TODO.md#phase-5--vollständiger-run) | Kompletter Run zu zweit | 12 von 28 | █████░░░░░░ |
-| [6](TODO.md#phase-6--release) | Veröffentlichung | 4 von 9 | █████░░░░░░ |
-| **Gesamt** | | **91 von 117** | █████████░░ |
+| [6](TODO.md#phase-6--release) | Veröffentlichung | 5 von 9 | ██████░░░░░ |
+| **Gesamt** | | **92 von 117** | █████████░░ |
 
 </details>
 
@@ -105,7 +105,7 @@ Unter `src/` stehen Loader, Core, die Netzschicht über Steam, ein im Spiel gepr
 │  └─ UI/                  Lobby-Overlay, Statusanzeige
 ├─ tests/                  Tests für Code ohne Spielabhängigkeit
 ├─ third_party/            Abhängigkeiten (Hinweise, siehe README dort)
-└─ tools/                  Skripte (Spike bauen und testen, später Deploy)
+└─ tools/                  Skripte (Bauen, Testen, Deploy, Installer)
 ```
 
 Jedes Modul unter `src/` hat eine eigene `README.md` mit Aufgabe und Grenzen. So kann das Team parallel arbeiten, ohne

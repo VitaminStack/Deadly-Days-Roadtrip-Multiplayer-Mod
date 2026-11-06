@@ -38,7 +38,7 @@ Danach lässt sich die Mod bauen, testen und im Spiel starten. Das dauert wenige
    ```
 
 6. Tests ausführen, wie in [tests/README.md](../tests/README.md) beschrieben. Dieselben Tests laufen bei jedem Pull Request in GitHub Actions.
-7. Im Spiel testen mit [docs/TESTING.md](TESTING.md#mod-im-spiel-testen): Die Mod kommt mit `tools/Deploy-Mod.ps1` ins Spiel, die Sitzung startet `tools/spike/Start-Session.ps1`. Danach die Mod mit `-Remove` wieder entfernen.
+7. Im Spiel testen mit [docs/TESTING.md](TESTING.md#mod-im-spiel-testen): Die Mod kommt mit `tools/Deploy-Mod.ps1` ins Spiel, die Sitzung startet `tools/spike/Start-Session.ps1`. Danach die Mod mit `-Remove` wieder entfernen. Spieler installieren stattdessen das Release-Paket, siehe [Installation für Spieler](INSTALL.md).
 
 Dann eine Aufgabe nehmen und reservieren, siehe [Wo kann ich anfangen?](../TODO.md#wo-kann-ich-anfangen) und [Aufgaben reservieren](../CONTRIBUTING.md#aufgaben-reservieren).
 

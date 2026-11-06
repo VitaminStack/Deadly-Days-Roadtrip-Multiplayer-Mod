@@ -71,6 +71,7 @@ powershell -ExecutionPolicy Bypass -File tools/Build-Mod.ps1 -Test
 ## Deploy-Mod.ps1
 
 Kopiert `version.dll` und `DDCoop/DDCoop.dll` aus `bin/<Konfiguration>/` neben die Spiel-Exe. Vorher die Solution bauen.
+Prüfen und Kopieren übernimmt derselbe [Installer](#installer) wie im Release-Paket, den Spielordner und die Build-Prüfung `config/Local.props` und `spike/Common.ps1`.
 
 ```bash
 powershell -ExecutionPolicy Bypass -File tools/Deploy-Mod.ps1
@@ -84,6 +85,30 @@ powershell -ExecutionPolicy Bypass -File tools/Deploy-Mod.ps1 -Remove
 > **Nach dem Testen entfernen.** Solange die Mod im Spielordner liegt, lädt auch jeder normale Start über Steam sie, ohne Crash-Schutz.
 > Getestet wird deshalb nur über `spike/Start-Session.ps1`, siehe [Testen](../docs/TESTING.md#mod-im-spiel-testen).
 > Am einfachsten mit `Start-Session.ps1 -Mod`: Das baut und installiert die Mod, `Stop-Session.ps1` entfernt sie wieder.
+
+## installer/
+
+Installer für Spieler, liegt unverändert im Release-Paket. Anleitung für Spieler in [docs/INSTALL.md](../docs/INSTALL.md).
+
+| Datei | Aufgabe |
+|---|---|
+| `Install-DDCoop.ps1` | Sucht das Spiel in den Steam-Bibliotheken (`-GameDir` überschreibt), prüft Build über das Steam-Manifest, laufendes Spiel und fremde `version.dll`, kopiert Mod und Loader. `-Uninstall` entfernt beide DLLs, `-Purge` dazu den Ordner `DDCoop` |
+| `Install.cmd`, `Uninstall.cmd` | Doppelklick-Starter, `-ExecutionPolicy Bypass` nur für diesen Aufruf |
+| `LIESMICH.txt` | Kurzanleitung im Paket |
+
+`-Source`, `-SteamPath`, `-SkipBuildCheck` und `-GameProcess` sind für `Deploy-Mod.ps1` und die Tests in `tests/test_installer.py`.
+
+## New-ReleasePackage.ps1
+
+Baut `Release` und packt das Paket für Spieler nach `dist/DDCoop-<Version>.zip`: Loader, Mod, Installer, `LIESMICH.txt`, Lizenzen
+(eigene und MinHook) und `SHA256SUMS.txt`. Keine PDBs, keine Spieldateien.
+
+```bash
+powershell -ExecutionPolicy Bypass -File tools/New-ReleasePackage.ps1 -Version <version>
+```
+
+- Ohne `-Version` heißt das Paket `dev-<commit>`, die Versionsvergabe gehört zur Aufgabe `release`.
+- `-Bin <Ordner>` nimmt fertige DLLs statt neu zu bauen, `-OutputDir` wählt ein anderes Ziel als `dist/`.
 
 ## spike/
 
