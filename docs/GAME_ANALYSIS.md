@@ -896,6 +896,14 @@ die bisherige Richtungsregel bleiben unveraendert. Die Meldung
 `Client-Dodge beim Host vorbereitet` bedeutet ausdruecklich **nicht erfolgreich
 ausgefuehrt**.
 
+**Ohne Spiel geprueft:** Release-Build mit `Build-Mod.ps1 -Test`: 192 C++-Tests
+(davon 59 Game-Tests) und 140 Python-Tests bestanden. Die neue reine Diagnose-
+Regel prueft insbesondere gueltige Richtung bei 200 ms, veraltete Richtung ab
+201 ms, fehlende Bewegung und Uebereinstimmung mit dem geschriebenen Vektor.
+`task_status.py check` und `git diff --check` bestehen. Der erste Gesamtaufruf
+wurde nach erfolgreichem Build am 120-s-Werkzeuglimit abgebrochen; der erneute
+vollstaendige Lauf mit groesserem Zeitbudget bestand. Keine neue Spielabnahme.
+
 **Naechste Abnahme auf zwei PCs:** identischen Arbeitsstand verwenden und beide
 Logs derselben Sitzung sichern. Zuerst zehn getrennte Dodges beim Client mit
 vorheriger Bewegung, dazwischen Ausdauer nachladen lassen; danach Gegenprobe
