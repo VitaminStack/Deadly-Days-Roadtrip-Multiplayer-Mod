@@ -18,6 +18,7 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 
 **Neue Befunde.**
 
+- `gegnertyp`, 06.11.2026: Spawn und Tod von `BP_StandardEnemy` laufen über die native Replikation synchron, ohne eigenen Code; Tode kommen beim Client im Median sofort an, höchstens 2,9 s später. Die abweichenden Gegnerzähler von `opt-gegnerzahl` sind auf beiden Seiten nur zerstörte Objekte vor der Garbage Collection, Gegner-HP repliziert beim Client nicht. Der Desync-Melder vergleicht die Gegnerzahl jetzt standardmäßig, mit 8 Bestätigungen gegen spät replizierte Spawns; 7 min mit zwei Wellen ohne Alarm und Absturz. Neu: `opt-gegner-spawnverzug`. [Befund](GAME_ANALYSIS.md#ein-gegnertyp-synchron-gegnertyp)
 - `ausweichen-client`, 06.11.2026: Der Client weicht so weit aus und bremst so ab wie der Host, Ausdauer wird verbraucht. Ursache: Beim Host stand die Laufrichtung des Client-Controllers immer auf (0, 0), sein Dodge brach vor Kosten und Schub ab, und der Client rollte die Kosten zurück. Die Mod schätzt die Richtung beim Host aus dem replizierten Ort und trägt sie direkt vor dem Start von `GA_Dash` ein, der Host führt den Dodge nativ aus. Ohne eigene Nachricht, mit Netzprofil Internet vom Nutzer abgenommen. Nebenbei bestätigt: Spielertod und Rundenende erst, wenn alle tot sind. Neu: `airdrop-dodge-absturz`. [Befund](GAME_ANALYSIS.md#dodge-des-clients-beim-host-ausweichen-client)
 - `bestaetigen-alle`, 06.11.2026: Beim Airdrop schließt Bestätigen das Panel nicht mehr sofort, sondern markiert den Spieler als bereit, der Knopf leuchtet gelb. Erst wenn Host und Client bereit sind, bestätigt der Client nativ, der Host übernimmt den Edit und holt sein Bestätigen nach, das Spiel läuft weiter. Neue Nachricht `0x305`, Mod-Version 5. Zwei Airdrops in beiden Reihenfolgen live geprüft. Neu: `bestaetigen-rundenende` für das Lager am Rundenende. [Befund](../src/Game/README.md#airdrop-auswahl)
 - `tank-gemeinsam`, 06.11.2026: Der Tank am GameState ist schon nativ ein Gruppenwert, ohne Code-Änderung. Je ein Kanister von Host und Client zählte einmal und auf beiden Seiten gleich, der volle Tank gab die Busflucht frei, und der Client öffnete danach selbst die Rundenübersicht. [Befund](GAME_ANALYSIS.md#tank-als-gruppenwert-tank-gemeinsam)
@@ -246,7 +247,7 @@ flowchart TD
         MS["Gemeinsamer Missionsstart,<br/>gleiche Karte"]:::open
         KM["Gemeinsame Kamera<br/>umsetzen"]:::open
         KA["Bewegung, Waffen, Treffer, Tod"]:::done
-        GT["Ein Gegnertyp"]:::open
+        GT["Ein Gegnertyp"]:::done
         EI["Eingaben von Remote<br/>trennen"]:::open
         OS["Mod ohne Spike<br/>(ohne-spike)"]:::done
         LT["Latenz simulieren<br/>(latenz-test)"]:::done

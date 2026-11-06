@@ -677,6 +677,37 @@ Stand: Disassembly und Laufzeit-Messung, Build `26187885`. Mission über das Spi
   Kritisch wäre es nur, wenn das Spiel dabei Zustand zurücksetzt, der nicht repliziert. Das trat in der Messung nicht auf.
 - **[Hypothese]** Mit zwei Spielern ist der Abstand zum Spieler beim Recycling nur gegen den zufällig gewählten Spieler geprüft. Gegner nahe dem anderen Spieler könnten also weggeholt werden. Das ist für die Spielbarkeit vermutlich nebensächlich.
 
+### Ein Gegnertyp synchron (`gegnertyp`)
+
+Stand 06.11.2026, Build `26187885`, eine Sitzung `Start-Session.ps1 -Mod -Tunnel Lobby -Godmode` und `Run-Route.ps1 -Days 1 -StayLast`,
+Tag 1 mit `BP_StandardEnemy_C` als einzigem Gegnertyp. Gemessen lesend mit `tools/spike/enemy_sync.py` (je Viertelsekunde,
+Objektliste je Sekunde neu) und dem Desync-Melder.
+
+- **[Belegt]** Spawn und Tod laufen über die native Actor-Replikation, ohne eigenen Code. Der Host entscheidet allein
+  (`AEnemySpawner`, Schaden, Tod), der Client sieht die Gegner als `SimulatedProxy`. Bildpaar Host/Client: dieselben Gegner an
+  denselben Orten; beim Client fehlen nur die gepoolten Tod-Effekte (`opt-blut`, `vfx-sound`).
+- **[Belegt]** Tod: In fünf Messungen von 90 bis 360 s starben beim Host 48, 155, 111, 139 und 186 Gegner, beim Client 48, 150,
+  111, 139 und 178. Zugeordnete Tode kommen beim Client im Median ohne messbare Verzögerung an (unter 0,25 s), höchstens 2,9 s später.
+- **[Belegt]** Spawn: Ohne Welle kommen neue Gegner im selben Messschritt an (70 von 70 zugeordnet, keiner über 2 s). Unter
+  `!wave`-Last erscheinen einzelne neue Gegner beim Client bis rund 8 s später, sie spawnen am Rand des Bildes. Das steht als
+  `opt-gegner-spawnverzug`. Fehlende Zuordnungen und Tode in der Zählung des Werkzeugs sind vor allem Gegner, die zwischen zwei
+  Neuaufnahmen der Objektliste entstehen und sterben; die Proben beider Seiten liegen nicht im selben Frame.
+- **[Belegt]** Gegner-HP repliziert beim Client nicht: `CommonAttributeSet` (`Actor+0x700`) steht dort auf 0/0, beim Host auf 50/50.
+  `OnRep_Health` läuft für Gegner also nie, ein lokaler Auslöser „HP 0“ wäre falsch. Lebensleisten, Treffer und Tod brauchen den
+  Wert beim Client bisher nicht.
+- **[Belegt] Ursache von `opt-gegnerzahl`:** Getötete Gegner tragen auf **beiden** Seiten bis zur Garbage Collection noch
+  `bActorIsBeingDestroyed` (Host zum Beispiel 11, Client 12 gleichzeitig). Sie sind schon aus `Level->Actors` entfernt und
+  unsichtbar. Zählungen über das Objekt-Array (`objects.py`) schließen sie ein und schwanken mit dem GC-Zeitpunkt. Die Zählung
+  des Desync-Melders über `Level->Actors` war in 24 von 40 Halbsekunden-Proben gleich, in ruhigen Phasen durchgehend (25/25).
+  Ausblenden toter Gegner ist darum nicht nötig.
+- **[Belegt] Desync-Melder mit Gegnerzahl:** Im Lauf mit `desync_ignore_enemies=false` (rund 6 min, eine Welle) kein Alarm,
+  „offen Gegner“ jeweils wenige Sekunden. Ein zweiter Lauf (rund 6 min, eine Welle) bestätigte einmal 31 zu 30 Gegner für etwa
+  2 s, dann wieder OK: ein spät replizierter Spawn. Seitdem ist die Gegnerzahl standardmäßig im Abgleich und braucht 8 statt
+  3 Bestätigungen (rund 16 s). Abnahmelauf damit: rund 7 min, zwei Wellen, 221 Spawns und 186 Tode beim Host, kein Alarm, kein
+  Absturz, auf beiden Seiten 25-mal „OK … Gegner“ im Log.
+- Nicht geprüft: andere Gegnertypen, Bosse und Boss-Phasen (`gegner-alle`), Latenz über das Internet, Reconnect. Eigene
+  Nachrichten oder Dateien in `src/Sync/Enemies` gibt es nicht, die Entscheidung steht in dessen README.
+
 ## Kamera und Sichtbereich
 
 Stand: Disassembly und Laufzeit, Build `26187885`. Mission über das Spielmenü mit dem Spike, Werte aus dem Speicher beider Instanzen. RVAs in [Offsets](OFFSETS.md#kamera).
