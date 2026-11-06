@@ -1,0 +1,35 @@
+Deadly Days: Roadtrip - Online-Coop-Mod
+=======================================
+
+Inoffizielles Fan-Projekt ohne Verbindung zu Pixelsplit oder dem Publisher.
+Jeder Spieler braucht eine eigene Kopie des Spiels auf Steam.
+
+Voraussetzung
+-------------
+- Windows, Spiel ueber Steam installiert.
+- Spiel-Build 26187885. Andere Builds lehnt der Installer ab, und die Mod
+  schaltet sich dort von selbst ab.
+- Das Spiel ist beendet.
+
+Installieren
+------------
+1. Die ZIP-Datei vollstaendig in einen beliebigen Ordner entpacken.
+2. Install.cmd doppelklicken. Der Spielordner wird in Steam gefunden.
+   Liegt das Spiel woanders:  Install.cmd -GameDir "D:\Spiele\Deadly Days Roadtrip"
+3. Spiel normal aus Steam starten.
+
+Entfernen
+---------
+Uninstall.cmd doppelklicken. Logs und Einstellungen bleiben im Ordner DDCoop
+neben der Spiel-Exe, mit  Uninstall.cmd -Purge  wird auch er geloescht.
+
+Was der Installer aendert
+-------------------------
+Nur zwei Dateien in DDSurvivors\Binaries\Win64 im Spielordner:
+  version.dll           startet die Mod
+  DDCoop\DDCoop.dll     die Mod selbst
+Spielstaende, Steam-Einstellungen und andere Spieldateien bleiben unberuehrt.
+Eine version.dll einer anderen Mod wird nie ueberschrieben.
+
+Ausfuehrliche Anleitung und Hilfe bei Fehlermeldungen:
+https://github.com/VitaminStack/Deadly-Days-Roadtrip-Multiplayer-Mod/blob/main/docs/INSTALL.md

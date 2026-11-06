@@ -17,6 +17,9 @@ Release/
 *.obj
 *.tlog
 
+# Release-Pakete
+dist/
+
 # Git-Worktrees der Aufgaben
 .worktrees/
 

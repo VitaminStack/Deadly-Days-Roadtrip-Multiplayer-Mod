@@ -62,8 +62,8 @@ Erledigt ist, was in `TODO.md` unter „Erledigt“ steht. **Vollständig abgesc
 | [3](TODO.md#phase-3--session-und-verbindung) | Verbinden über Steam | 7 von 9 | █████████░░ |
 | [4](TODO.md#phase-4--vertical-slice) | Spielbarer Ausschnitt | 15 von 16 | ██████████░ |
 | [5](TODO.md#phase-5--vollständiger-run) | Kompletter Run zu zweit | 16 von 29 | ██████░░░░░ |
-| [6](TODO.md#phase-6--release) | Veröffentlichung | 4 von 9 | █████░░░░░░ |
-| **Gesamt** | | **97 von 118** | █████████░░ |
+| [6](TODO.md#phase-6--release) | Veröffentlichung | 5 von 9 | ██████░░░░░ |
+| **Gesamt** | | **98 von 118** | █████████░░ |
 
 </details>
 

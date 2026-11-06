@@ -18,6 +18,7 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 
 **Neue Befunde.**
 
+- `installer`, 06.11.2026: Release-Paket `dist/DDCoop-<Version>.zip` aus `tools/New-ReleasePackage.ps1` mit `Install.cmd`/`Uninstall.cmd`. Der Installer findet das Spiel in allen Steam-Bibliotheken, prüft Build `26187885` über das Steam-Manifest, laufendes Spiel und fremde `version.dll` und kopiert nur Loader und Mod; `ddcoop.ini`, Logs und Spielstände bleiben. `Deploy-Mod.ps1` nutzt denselben Installer. 11 Tests mit nachgebautem Steam-Ordner, echtes Paket an der Steam-Installation installiert und wieder entfernt, ohne Spielstart. Defender und Proton bleiben `virenscanner`. [Installation für Spieler](INSTALL.md)
 - `inventar-sync` und `inventar-ui`, 06.11.2026: Ohne eigene Umsetzung geschlossen, weil andere Aufgaben sie abdecken. Den Weg über den nativen `CoopInventoryCoordinator` hat das Projekt verworfen. Rucksack: `inventar-lokal` und `ausruestung-felder`. Lager: `rundenende-client`. Reward-Queue: `airdrop-warten` und `bestaetigen-alle`. Itemsäcke: `inventar-transaktion`. Der Client bedient sein Inventar im nativen Panel. Die Werkbank (Items aufwerten) ist im Coop nicht getestet und steht jetzt als `werkbank-client`.
 - `eingaben`, 06.11.2026: Host und Client steuern nur ihre eigene Figur; Bewegung, Dodge, Zielen und Menütasten wirkten schon ohne Änderung getrennt. Die verbleibende Lücke war der native lokale Koop: Ein lokales Gerät hätte an P2 gebunden werden können, der beim Host der Remote-Spieler ist, und beim Client hätte `SpawnLocalPlayer(1)` einen zweiten lokalen Spieler angelegt. Im Netzwerkspiel lehnt die Mod das jetzt an drei nativen Einstiegen ab, ohne Nachricht und ohne Folgen für den Solo-Koop. Im Spiel per Probe belegt; Gegenproben Bewegung, Dodge, Airdrop und Lager bestanden. [Befund](GAME_ANALYSIS.md#eingaben-getrennt-eingaben)
 - `gegnertyp`, 06.11.2026: Spawn und Tod von `BP_StandardEnemy` laufen über die native Replikation synchron, ohne eigenen Code; Tode kommen beim Client im Median sofort an, höchstens 2,9 s später. Die abweichenden Gegnerzähler von `opt-gegnerzahl` sind auf beiden Seiten nur zerstörte Objekte vor der Garbage Collection, Gegner-HP repliziert beim Client nicht. Der Desync-Melder vergleicht die Gegnerzahl jetzt standardmäßig, mit 8 Bestätigungen gegen spät replizierte Spawns; 7 min mit zwei Wellen ohne Alarm und Absturz. Neu: `opt-gegner-spawnverzug`. [Befund](GAME_ANALYSIS.md#ein-gegnertyp-synchron-gegnertyp)
@@ -275,7 +276,7 @@ flowchart TD
         SB["Bestenlisten und<br/>Erfolge sperren"]:::done
         TE["Telemetrie und<br/>Crash-Reports aus"]:::done
         SV["Eigene Mod-Spielstände"]:::open
-        IN["Installer oder Anleitung"]:::open
+        IN["Installer oder Anleitung"]:::done
         WS["Weekly-Challenge sperren<br/>(weekly-sperre)"]:::open
         VS["Virenscanner und Proton<br/>(virenscanner)"]:::open
     end
