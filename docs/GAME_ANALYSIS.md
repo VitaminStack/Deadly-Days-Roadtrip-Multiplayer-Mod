@@ -1222,6 +1222,23 @@ Stand 05.11.2026, Build `26187885`, ein PC, Mod mit Spike über die Lobby, Seed 
 - **Offen:** Der Tank ist je Teilnehmer getrennt gewertet, jeder PlayerState hat einen eigenen `UFuelMeter` (Maximum 100). Nach
   Nutzervorgabe ist er ein Gruppenwert, Folgeaufgabe `tank-gemeinsam`.
 
+### Tank als Gruppenwert, Zwischenstand (`tank-gemeinsam`)
+
+Stand 06.11.2026, Build `26187885`, ein PC, Mod mit Spike über die Lobby, Godmode, Tag 1, noch ohne Code-Änderung.
+
+- **[Belegt] Tankanzeigen zur Laufzeit:** In der Mission hat jede Seite einen `UFuelMeter` am `GS_DDMissionState_C` (Maximum 120) und
+  je Spieler einen am `BP_DDPlayerState_C` (Maximum 100), alle mit Stand 0. Dazu kommen die Vorlagen der Klassen. Gelesen mit
+  `fuel.py` und einer Zuordnung über den Outer.
+- **[Belegt] Reflektierte Funktionen:** `DDMissionGameState.GetFuelMeter`, `FuelMeter.IncreaseFuel`, `GetLastLootClaimer`,
+  `OnRep_CurrentFuel`, `FuelLoot.Loot`, `LootBlueprintFunctionLibrary.DropRequiredFuel`. Einen Cheat für Treibstoff gibt es nicht.
+- **[Belegt] Kanister:** Nach `DD_OpenAllLootSpots` (nach `!cheats`) lagen rund 30 `BP_FuelLoot_C` über die ganze Karte verteilt.
+- **Vermutung:** Der Tank am GameState ist schon der gemeinsame Wert: Der Bus liest ihn, und er repliziert nativ (siehe
+  `rundenende-absturz`: 118 per Speicher beim Host, der Client übernahm, ein Kanister führte zum Busende). Offen ist, ob ein Kanister
+  des Clients beim Host auf diesen Tank zählt und ob der Client lokal zusätzlich zählt. Ebenso offen ist, wozu die Tanks an den
+  PlayerStates dienen.
+- **Nächster Schritt:** Host und Client sammeln je einen Kanister, mit `fuel.py` auf beiden Seiten vorher und nachher. Erst danach
+  entscheiden, ob ein Hook nötig ist.
+
 ### Busabfahrt nur beim Host (`bus-ende`)
 
 Stand 06.11.2026, Build `26187885`, ein PC, Mod mit Spike über die Lobby, Godmode, Tank per Speicherschreiben fast voll.
