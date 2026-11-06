@@ -616,12 +616,17 @@ void TraceInventoryEvent(uintptr_t Object, uintptr_t Function, void* Params)
         const bool Wanted = Owner == "InventoryComponent" || Owner == "InventoryItemInstance" || Owner == "BackpackSlot" ||
                             Owner == "InventoryPanel" || Owner == "RewardQueueComponent" || Owner == "CoopInventoryCoordinatorComponent" ||
                             Owner.starts_with("WP_Inventory") || Owner.starts_with("WP_Backpack") || Owner.starts_with("WP_Item");
-        It = Names.emplace(Function, Wanted ? Owner + "." + Memory::NameOf(Function) : std::string{}).first;
+        const std::string Name = Memory::NameOf(Function);
+        // Animation und Abfragen je Bild nicht, sie verdrängen die eigentlichen Vorgänge.
+        const bool Noise = Name.starts_with("ApplyEasing") || Name.starts_with("OnYoyo") || Name.starts_with("OnLoop") ||
+                           Name == "GetAnimationContainer" || Name.ends_with("Tick") || Name.starts_with("Get") || Name.starts_with("Is") ||
+                           Name.starts_with("Can") || Name.starts_with("Has");
+        It = Names.emplace(Function, Wanted && !Noise ? Owner + "." + Name : std::string{}).first;
     }
     if (It->second.empty())
         return;
     static unsigned Lines = 0;
-    if (++Lines > 4000)
+    if (++Lines > 20000)
         return;
     const uint32_t Flags = Memory::Read<uint32_t>(Function + FunctionFlags).value_or(0);
     const uintptr_t First = Params ? Memory::Read<uintptr_t>(reinterpret_cast<uintptr_t>(Params)).value_or(0) : 0;
