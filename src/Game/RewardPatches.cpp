@@ -6,9 +6,9 @@
 // HandleConfirmButton, 0x5A6CB20) hält die Mod zurück, bis der Client gewählt hat; so lange bleibt das Spiel pausiert.
 // Die Wahl des Clients legt der Host neu in dessen repliziertes Inventar.
 //
-// Client: Die Mod legt lokale Instanzen derselben Items an und zeigt sie über SetRewardItems im nativen Panel. Nach dem
-// Bestätigen ist die gewählte Instanz keine Belohnung mehr; ihren Index schickt der Client an den Host und entfernt die
-// lokalen Instanzen wieder.
+// Client: Die Mod legt lokale Instanzen derselben Items an und zeigt sie über SetRewardItems im nativen Panel. Das Panel
+// bearbeitet das Inventar nur lokal (InventoryEdit.cpp). Nach dem Bestätigen ist die gewählte Instanz keine Belohnung
+// mehr; Wahl und Endstand gehen als ein Edit an den Host (inventar-lokal).
 #include <windows.h>
 
 #include <algorithm>
@@ -22,6 +22,7 @@
 #include "Core/Log.h"
 #include "Game/Memory.h"
 #include "Game/Objects.h"
+#include "Game/InventoryEditRuntime.h"
 #include "Game/Offsets.h"
 #include "Game/PatchRuntime.h"
 #include "Game/RewardAdapter.h"
@@ -88,37 +89,19 @@ struct
     int ReplayCount = 0;        // Versuche, das zurückgehaltene Bestätigen nachzuholen
     ULONGLONG NextReplay = 0;
 } Host;
-// Host: zuletzt für den Client angelegte Wahl, bis seine Ablage im Rucksack kommt (auch nach Ende der Sitzung).
-struct
-{
-    uint64_t Session = 0;
-    uintptr_t Item = 0, Inventory = 0;
-} ClientItem;
-
-// Client: Anzeige der Host-Choices im nativen Panel, nur lokale Instanzen. Das Inventar arbeitet über Server-RPCs;
-// mit einer lokalen Instanz bekäme der Host einen Null-Zeiger (Absturz in AddToBackpack). Die Mod hält solche RPCs
-// zurück und nimmt das erste Ablegen einer Choice als Wahl.
+// Client: Anzeige der Host-Choices im nativen Panel, nur lokale Instanzen. Ihre Inventar-RPCs laufen während der
+// Bearbeitung lokal (InventoryEdit::RouteClientRpc); beim Host kämen sie als Null-Zeiger an (Absturz in AddToBackpack).
 struct
 {
     uint64_t Session = 0, Revision = 0;
     uintptr_t Inventory = 0;
     std::vector<uintptr_t> Items;
-    std::optional<uint32_t> Taken; // per RPC abgelegt, noch nicht gemeldet
-    std::optional<uint32_t> Pick;  // gemeldet an die Sync-Schicht
 } Shown;
-std::atomic<bool> ClientShowing = false;
-// Nach dem Schließen schickt das Panel noch RPCs für die gewählte Instanz (Ablegen im Rucksack). Die alten Instanzen
-// bleiben deshalb noch eine Weile gefiltert.
-std::vector<uintptr_t> Stale;
-ULONGLONG StaleUntil = 0;
-// Client: gewählte lokale Instanz und ihre Ablage aus OccupyBackpackSlots/ForceEquipItemInBackpack.
-uintptr_t PickedItem = 0, PlacedItem = 0;
-uint64_t PickedSession = 0;
-std::optional<Game::Rewards::Placement> PickedPlacement;
-constexpr uintptr_t ItemPivotTile = 0x28, ItemTurns = 0xD8, SlotCoordinates = 0x28;
-constexpr size_t MaxSlots = 32;
+// Client: gesendeter Edit bis zur Antwort des Hosts.
+std::optional<Game::InventoryEdit::Edit> ClientPending;
+constexpr uintptr_t ItemPivotTile = 0x28;
 constexpr uint32_t FuncNet = 0x40;
-constexpr uintptr_t FunctionFlags = 0xB0, FunctionParmsSize = 0xB6;
+constexpr uintptr_t FunctionFlags = 0xB0;
 constexpr uintptr_t PanelIsDragging = 0x790;
 
 bool Alive(uintptr_t Object)
@@ -311,85 +294,32 @@ void __fastcall SetRewardsHook(uintptr_t Inventory, ItemArray* Items, int32_t Le
     OriginalSetRewards(Inventory, Items, Level);
 }
 
-// Lokale Instanzen direkt aus MyItems nehmen, ohne RemoveFromInventory (Server-RPC).
-void DropLocal()
-{
-    const uintptr_t Array = Shown.Inventory + InventoryItems;
-    const uintptr_t Data = Alive(Shown.Inventory) ? Pointer(Array) : 0;
-    const int32_t Count = Data ? Memory::Read<int32_t>(Array + 8).value_or(0) : 0;
-    int32_t Kept = 0;
-    for (int32_t i = 0; i < Count && Count <= 4096; ++i)
-    {
-        const uintptr_t Item = Pointer(Data + 8 * i);
-        if (std::find(Shown.Items.begin(), Shown.Items.end(), Item) != Shown.Items.end())
-            continue;
-        if (Kept != i)
-            Memory::WriteBytes(Data + 8 * Kept, &Item, sizeof(Item));
-        ++Kept;
-    }
-    if (Kept != Count)
-        Memory::WriteBytes(Array + 8, &Kept, sizeof(Kept));
-    if (Shown.Pick && *Shown.Pick < Shown.Items.size())
-    {
-        PickedItem = Shown.Items[*Shown.Pick];
-        PickedSession = Shown.Session;
-        Core::Log::Info("Airdrop-Auswahl: gewählte lokale Instanz {:#x}", PickedItem);
-        if (PlacedItem != PickedItem)
-            PickedPlacement.reset();
-    }
-    if (!Shown.Items.empty())
-    {
-        Stale = Shown.Items;
-        StaleUntil = GetTickCount64() + 10000;
-    }
-    Shown.Items.clear();
-    ClientShowing = false;
-}
-
-std::string FunctionName(uintptr_t Function)
-{
-    return Memory::NameOf(Function);
-}
-
 bool ClientConfirm(uintptr_t Panel)
 {
-    if (Shown.Items.empty())
+    if (Shown.Items.empty() || !Game::InventoryEdit::ClientEditing())
         return false;
-    // HandleConfirmButton selbst ignoriert Bestätigen während eines Drags. In diesem
-    // Fall darf auch die Mod noch keine Instanz entfernen oder Wahl veröffentlichen.
+    // HandleConfirmButton selbst ignoriert Bestätigen während eines Drags. Dann auch keinen Edit abschließen.
     if (Memory::Read<uint8_t>(Panel + PanelIsDragging).value_or(1))
         return true;
-    if (Shown.Taken)
+    OriginalConfirm(Panel); // entfernt die übrigen Choices, lokal
+    // Gewählt ist die Instanz, die keine Belohnung mehr ist, bevorzugt die im Inventar (ein Rucksack kann schon verbraucht sein).
+    std::optional<uint32_t> Pick;
+    for (int Pass = 0; Pass < 2 && !Pick; ++Pass)
+        for (uint32_t i = 0; i < Shown.Items.size() && !Pick; ++i)
+            if (Alive(Shown.Items[i]) && !IsReward(Shown.Items[i]) && (Pass == 1 || InInventory(Shown.Inventory, Shown.Items[i])))
+                Pick = i;
+    const bool Open = std::any_of(Shown.Items.begin(), Shown.Items.end(),
+                                  [](uintptr_t Item) { return IsReward(Item) && InInventory(Shown.Inventory, Item); });
+    if (!Pick && Open)
     {
-        OriginalConfirm(Panel); // RPCs mit lokalen Instanzen hält FilterRewardEvent zurück
-        Shown.Pick = std::exchange(Shown.Taken, std::nullopt);
-        Core::Log::Info("Airdrop-Auswahl: Client bestätigt im Panel, Wahl={}", *Shown.Pick);
-        DropLocal();
+        Core::Log::Info("Airdrop-Auswahl: Bestätigen ohne Wahl, Panel bleibt offen");
         return true;
     }
-    if (Shown.Items.empty())
-        return false;
-    auto Flags = [&]
-    {
-        std::string Text;
-        for (const uintptr_t Item : Shown.Items)
-            Text += std::to_string(InInventory(Shown.Inventory, Item)) + "/" + std::to_string(Memory::Read<uint8_t>(Item + ItemIsReward).value_or(9)) +
-                    "/" + std::to_string(Memory::Read<uint8_t>(Item + ItemInBackpack).value_or(9)) + " ";
-        return Text;
-    };
-    const std::string Before = Flags();
-    OriginalConfirm(Panel);
-    // Gewählt ist die Instanz, die nach dem Bestätigen im Inventar liegt und keine Belohnung mehr ist.
-    std::optional<uint32_t> Pick;
-    for (uint32_t i = 0; i < Shown.Items.size() && !Pick; ++i)
-        if (Alive(Shown.Items[i]) && InInventory(Shown.Inventory, Shown.Items[i]) && !IsReward(Shown.Items[i]))
-            Pick = i;
-    Core::Log::Info("Airdrop-Auswahl: Client bestätigt im Panel, Wahl={} (im Inventar/Belohnung/Rucksack vorher {}nachher {})",
-                    Pick ? std::to_string(*Pick) : std::string("keine"), Before, Flags());
-    if (!Pick)
-        return true;
-    Shown.Pick = Pick;
-    DropLocal();
+    Core::Log::Info("Airdrop-Auswahl: Client bestätigt im Panel, Wahl={}", Pick ? std::to_string(*Pick) : std::string("keine"));
+    ClientPending = Game::InventoryEdit::FinishClient(Shown.Session, Shown.Revision,
+                                                      Pick ? std::optional<uint8_t>(static_cast<uint8_t>(*Pick)) : std::nullopt,
+                                                      Pick ? Shown.Items[*Pick] : 0);
+    Shown.Items.clear();
     return true;
 }
 
@@ -519,9 +449,10 @@ std::span<const Patch> RewardPatches()
 // Implementierungen lesen sie ungeprüft (Absturz in AddToBackpack). Solche Aufrufe verwirft die Mod.
 bool NullItemRpc(uintptr_t Function, void* Params)
 {
-    static uintptr_t Cache[5]{};
-    static const char* const Names[5]{"AddToBackpack", "AddToInventory", "RemoveFromInventory", "OccupyBackpackSlots", "ForceEquipItemInBackpack"};
-    for (size_t i = 0; i < 5; ++i)
+    static uintptr_t Cache[6]{};
+    static const char* const Names[6]{"AddToBackpack",       "AddToInventory",           "RemoveFromInventory",
+                                      "OccupyBackpackSlots", "ForceEquipItemInBackpack", "ApplyAddToBackpackEffect"};
+    for (size_t i = 0; i < 6; ++i)
         if (Function && Function == Function_(Cache[i], Names[i]))
         {
             if (Params && !Memory::Read<uintptr_t>(reinterpret_cast<uintptr_t>(Params)).value_or(1))
@@ -534,68 +465,11 @@ bool NullItemRpc(uintptr_t Function, void* Params)
     return false;
 }
 
-// Client: Ablage einer Choice im Rucksack aus OccupyBackpackSlots (Item, Slots) oder ForceEquipItemInBackpack
-// (Item, CenterPosition, Slots) merken. Drehung und Pivot stehen da schon in der lokalen Instanz.
-void RememberPlacement(const std::string& Name, uintptr_t Params)
-{
-    const uintptr_t SlotsAt = Name == "OccupyBackpackSlots" ? 0x8 : Name == "ForceEquipItemInBackpack" ? 0x18 : 0;
-    const uintptr_t Item = SlotsAt ? Pointer(Params) : 0;
-    if (!Item)
-        return;
-    const uintptr_t Data = Pointer(Params + SlotsAt);
-    const int32_t Count = Memory::Read<int32_t>(Params + SlotsAt + 8).value_or(0);
-    if (!Data || Count <= 0 || Count > static_cast<int32_t>(MaxSlots))
-        return;
-    Game::Rewards::Placement Value;
-    Value.Turns = Memory::Read<int32_t>(Item + ItemTurns).value_or(0);
-    Value.PivotX = Memory::Read<int32_t>(Item + ItemPivotTile).value_or(0);
-    Value.PivotY = Memory::Read<int32_t>(Item + ItemPivotTile + 4).value_or(0);
-    for (int32_t i = 0; i < Count; ++i)
-    {
-        const uintptr_t Slot = Pointer(Data + 8 * i);
-        if (!Slot)
-            return;
-        Value.Slots.emplace_back(Memory::Read<int32_t>(Slot + SlotCoordinates).value_or(0), Memory::Read<int32_t>(Slot + SlotCoordinates + 4).value_or(0));
-    }
-    Core::Log::Info("Airdrop-Auswahl: Ablage im Rucksack gemerkt, {} Felder, Drehung {}, Instanz {:#x}, gewählt {:#x}", Value.Slots.size(),
-                    Value.Turns, Item, PickedItem);
-    PlacedItem = Item;
-    PickedPlacement = std::move(Value);
-}
-
 bool FilterRewardEvent(uintptr_t Object, uintptr_t Function, void* Params)
 {
     if (CurrentRole() == NetRole::Host)
         return RemoteReady.load(std::memory_order_relaxed) && NullItemRpc(Function, Params);
-    const bool Recent = !Stale.empty() && GetTickCount64() < StaleUntil;
-    if ((!ClientShowing.load(std::memory_order_relaxed) && !Recent) || !Params || !(Memory::Read<uint32_t>(Function + FunctionFlags).value_or(0) & FuncNet))
-        return false;
-    const uint16_t Size = Memory::Read<uint16_t>(Function + FunctionParmsSize).value_or(0);
-    std::optional<uint32_t> Index;
-    for (uint16_t At = 0; At + 8 <= Size && At < 0x100 && !Index; At += 8)
-    {
-        const uintptr_t Value = Memory::Read<uintptr_t>(reinterpret_cast<uintptr_t>(Params) + At).value_or(0);
-        for (uint32_t i = 0; i < Shown.Items.size(); ++i)
-            if (Value && Shown.Items[i] == Value)
-                Index = i;
-        if (!Index && Recent && Value && std::find(Stale.begin(), Stale.end(), Value) != Stale.end())
-        {
-            const std::string Name = FunctionName(Function);
-            Core::Log::Info("Airdrop-Auswahl: RPC {} mit geschlossener lokaler Choice zurückgehalten", Name);
-            RememberPlacement(Name, reinterpret_cast<uintptr_t>(Params));
-            return true;
-        }
-    }
-    if (!Index)
-        return false;
-    const std::string Name = FunctionName(Function);
-    const bool Placed = Name == "AddToBackpack" || Name == "AddToInventory" || Name == "OccupyBackpackSlots" || Name == "ForceEquipItemInBackpack";
-    Core::Log::Info("Airdrop-Auswahl: RPC {} mit lokaler Choice {} zurückgehalten{}", Name, *Index, Placed && !Shown.Taken ? ", gilt als Wahl" : "");
-    if (Placed && !Shown.Taken)
-        Shown.Taken = Index;
-    RememberPlacement(Name, reinterpret_cast<uintptr_t>(Params));
-    (void)Object;
-    return true;
+    return Game::InventoryEdit::RouteClientRpc(Object, Function, Params);
 }
 
 void TraceInventoryEvent(uintptr_t Object, uintptr_t Function, void* Params)
@@ -673,19 +547,15 @@ std::optional<Offer> ReadOffer()
     return Result;
 }
 
-bool ClaimForClient(uint64_t SessionId, uint64_t Expected, uint32_t Index)
+// Host: Wahl des Clients in sein Inventar legen (CreateAndAddItem), das Item repliziert. 0, wenn sie nicht passt.
+uintptr_t ClaimForClient(uintptr_t Inventory, uint64_t SessionId, uint64_t Expected, uint32_t Index)
 {
     if (CurrentRole() != NetRole::Host || !Host.Active || SessionId != Host.Session || Host.ClientPick || Revision(Host.Items) != Expected ||
         Index >= Host.Data.size() || !Host.Data[Index].first)
-        return false;
-    uintptr_t Coop = 0, HostController = 0, Remote = 0;
-    const uintptr_t Inventory = BoundRemoteP2(Coop, HostController, Remote) ? InventoryOfController(Remote) : 0;
+        return 0;
     static uintptr_t Create = 0;
     if (!Inventory || !Function(Create, "CreateAndAddItem", "InventoryComponent"))
-    {
-        Core::Log::Warn("Airdrop-Auswahl: Inventar des Clients nicht gefunden, Wahl {} verworfen", Index);
-        return false;
-    }
+        return 0;
     struct
     {
         uintptr_t Data, Rarity;
@@ -699,64 +569,94 @@ bool ClaimForClient(uint64_t SessionId, uint64_t Expected, uint32_t Index)
     static_assert(sizeof(Add) == 0x28);
     Objects::ProcessEvent(Inventory, Create, &Add);
     Core::Log::Info("Airdrop-Auswahl: Client wählt {} ({}), ins Inventar des Clients gelegt={}", Index, Host.Choices[Index].Name, Add.Result != 0);
-    if (!Add.Result)
-        return false;
-    Host.ClientPick = Index;
-    ClientItem = {Host.Session, Add.Result, Inventory};
-    return true;
+    if (Add.Result)
+        Host.ClientPick = Index;
+    return Add.Result;
 }
 
-bool PlaceForClient(uint64_t SessionId, const Placement& Value)
+bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
 {
-    if (CurrentRole() != NetRole::Host || !SessionId || SessionId != ClientItem.Session || !Alive(ClientItem.Item) ||
-        !Alive(ClientItem.Inventory) || Value.Slots.empty() || Value.Slots.size() > MaxSlots)
+    using namespace Game::InventoryEdit;
+    if (CurrentRole() != NetRole::Host)
         return false;
-    static uintptr_t TryGet = 0, AddToBackpack = 0, Occupy = 0, SetTurns = 0, SetPivot = 0;
-    if (!Function(TryGet, "TryGetSlotWithCoordinates", "InventoryComponent") || !Function(AddToBackpack, "AddToBackpack", "InventoryComponent") ||
-        !Function(Occupy, "OccupyBackpackSlots", "InventoryComponent") ||
-        !Function(SetTurns, "SetTurns", "InventoryItemInstance") || !Function(SetPivot, "SetZeroPivotTile", "InventoryItemInstance"))
-        return false;
-    std::vector<uintptr_t> Slots;
-    for (const auto& [X, Y] : Value.Slots)
+    if (!WellFormed(Value))
     {
-        struct
+        Core::Log::Warn("Inventar lokal: Edit {} ungültig, abgelehnt", Value.Id);
+        return false;
+    }
+    uintptr_t Coop = 0, HostController = 0, Remote = 0;
+    const uintptr_t Inventory = BoundRemoteP2(Coop, HostController, Remote) ? InventoryOfController(Remote) : 0;
+    if (!Inventory)
+    {
+        Core::Log::Warn("Inventar lokal: Inventar des Clients nicht gefunden, Edit {} abgelehnt", Value.Id);
+        return false;
+    }
+    if (Value.Choice && (!Host.Active || Value.Session != Host.Session || Host.ClientPick || Revision(Host.Items) != Value.Revision ||
+                         *Value.Choice >= Host.Data.size()))
+    {
+        Core::Log::Warn("Inventar lokal: Edit {} mit Wahl {} passt nicht zur Sitzung {}, abgelehnt", Value.Id, *Value.Choice, Host.Session);
+        return false;
+    }
+    // Items über Index und Datenname zuordnen; weicht der Index ab, das erste unbenutzte Item mit demselben Namen.
+    const std::vector<uintptr_t> Items = ItemsOf(Inventory);
+    std::vector<uintptr_t> Resolved(Value.Items.size());
+    const auto Free = [&](uintptr_t Candidate) { return std::find(Resolved.begin(), Resolved.end(), Candidate) == Resolved.end(); };
+    size_t ChoiceAt = Value.Items.size();
+    for (size_t i = 0; i < Value.Items.size(); ++i)
+    {
+        const ItemState& Item = Value.Items[i];
+        if (Item.Source == ChoiceSource)
         {
-            int32_t X, Y;
-            uintptr_t Slot;
-            bool Found;
-            uint8_t Pad[7];
-        } Params{X, Y, 0, false, {}};
-        static_assert(sizeof(Params) == 0x18);
-        Objects::ProcessEvent(ClientItem.Inventory, TryGet, &Params);
-        if (!Params.Found || !Params.Slot || Pointer(Params.Slot + 0x30))
+            ChoiceAt = i;
+            continue;
+        }
+        if (Item.Source < Items.size() && DataHashOf(Items[Item.Source]) == Item.DataHash && Free(Items[Item.Source]))
+            Resolved[i] = Items[Item.Source];
+        else
+            for (const uintptr_t Candidate : Items)
+                if (!Resolved[i] && DataHashOf(Candidate) == Item.DataHash && Free(Candidate))
+                    Resolved[i] = Candidate;
+        if (!Resolved[i])
         {
-            Core::Log::Warn("Airdrop-Auswahl: Feld ({}, {}) im Rucksack des Clients {}, Wahl bleibt im Lager", X, Y, Params.Slot ? "belegt" : "fehlt");
+            Core::Log::Warn("Inventar lokal: Item {} des Edits {} nicht im Inventar des Clients, abgelehnt", Item.Source, Value.Id);
             return false;
         }
-        Slots.push_back(Params.Slot);
     }
-    const auto [Session, Item, Inventory] = std::exchange(ClientItem, {});
-    (void)Session;
-    // Wie das Panel beim Client: Drehung und Pivot an der Instanz, dann AddToBackpack und OccupyBackpackSlots. Beim
-    // Host laufen die Server-RPCs direkt, Turns und ZeroPivotTile replizieren.
-    // Replizierte Werte über die nativen Setter. Der nicht replizierte
-    // Pixelpositions-Cache wird separat beim Client-Panelaufbau wiederhergestellt.
-    struct { int32_t Turns; bool Instant; uint8_t Pad[3]; } TurnsParams{Value.Turns, true, {}};
-    Objects::ProcessEvent(Item, SetTurns, &TurnsParams);
-    int32_t Pivot[2]{Value.PivotX, Value.PivotY};
-    Objects::ProcessEvent(Item, SetPivot, Pivot);
-    uintptr_t AddParams = Item;
-    Objects::ProcessEvent(Inventory, AddToBackpack, &AddParams);
-    struct
+    const std::vector<SlotInfo> Slots = SlotsOf(Inventory);
+    std::vector<Tile> Existing, Others;
+    for (const SlotInfo& Slot : Slots)
     {
-        uintptr_t Item;
-        ItemArray Slots;
-    } OccupyParams{Item, {Slots.data(), static_cast<int32_t>(Slots.size()), static_cast<int32_t>(Slots.size())}};
-    static_assert(sizeof(OccupyParams) == 0x18);
-    Objects::ProcessEvent(Inventory, Occupy, &OccupyParams);
-    const bool InBackpack = Memory::Read<uint8_t>(Item + ItemInBackpack).value_or(0) != 0;
-    Core::Log::Info("Airdrop-Auswahl: Wahl des Clients in seinen Rucksack gelegt, {} Felder, im Rucksack={}", Slots.size(), InBackpack);
-    return InBackpack;
+        Existing.push_back(Slot.At);
+        if (Slot.Occupier && std::find(Resolved.begin(), Resolved.end(), Slot.Occupier) == Resolved.end())
+            Others.push_back(Slot.At);
+    }
+    if (!Fits(Value, Existing, Others))
+    {
+        Core::Log::Warn("Inventar lokal: Edit {} passt nicht in den Rucksack des Clients, abgelehnt", Value.Id);
+        return false;
+    }
+    if (ChoiceAt < Value.Items.size())
+    {
+        Resolved[ChoiceAt] = ClaimForClient(Inventory, Value.Session, Value.Revision, *Value.Choice);
+        if (!Resolved[ChoiceAt])
+        {
+            Core::Log::Warn("Inventar lokal: Wahl {} des Edits {} nicht angelegt, abgelehnt", *Value.Choice, Value.Id);
+            return false;
+        }
+        if (DataHashOf(Resolved[ChoiceAt]) != Value.Items[ChoiceAt].DataHash)
+            Core::Log::Warn("Inventar lokal: Wahl {} hat beim Client ein anderes Item", *Value.Choice);
+    }
+    std::vector<Tile> Create;
+    for (const Tile& At : Value.NewSlots)
+        if (std::find(Existing.begin(), Existing.end(), At) == Existing.end())
+            Create.push_back(At);
+    const std::vector<SlotInfo> Now = SlotsOf(Inventory);
+    std::vector<ItemState> Current;
+    for (size_t i = 0; i < Resolved.size(); ++i)
+        Current.push_back(ReadItem(Resolved[i], Now, Value.Items[i].Source));
+    const bool Ok = Apply(Inventory, Resolved, Current, Value.Items, Create, {}, false);
+    Core::Log::Info("Inventar lokal: Edit {} übernommen, {} Items, {} neue Felder, vollständig={}", Value.Id, Resolved.size(), Create.size(), Ok);
+    return true;
 }
 
 // Kisten laufen über die RewardQueue der öffnenden Figur. Das Panel bestätigt nur in der Queue des Hosts
@@ -838,8 +738,10 @@ bool ShowForClient(uint64_t SessionId, uint64_t Expected, int32_t Level, const s
 {
     if (CurrentRole() != NetRole::Client)
         return false;
-    if (Shown.Session == SessionId && Shown.Revision == Expected && (!Shown.Items.empty() || Shown.Pick))
+    if (Shown.Session == SessionId && Shown.Revision == Expected && !Shown.Items.empty())
         return true;
+    if (ClientPending)
+        return false;
     CloseForClient();
     static uintptr_t SetRewards = 0;
     const uintptr_t Inventory = InventoryOfController(LocalController());
@@ -864,6 +766,7 @@ bool ShowForClient(uint64_t SessionId, uint64_t Expected, int32_t Level, const s
         Memory::WriteBytes(Instance + ItemBroken, &Broken, 1);
         Instances.push_back(Instance);
     }
+    Game::InventoryEdit::BeginClient(Inventory, Instances);
     ItemArray Array{Instances.data(), static_cast<int32_t>(Instances.size()), static_cast<int32_t>(Instances.size())};
     struct
     {
@@ -873,8 +776,7 @@ bool ShowForClient(uint64_t SessionId, uint64_t Expected, int32_t Level, const s
     } Params{Array, Level, {}};
     static_assert(sizeof(Params) == 0x18);
     Objects::ProcessEvent(Inventory, SetRewards, &Params);
-    Shown = {SessionId, Expected, Inventory, Instances, std::nullopt, std::nullopt};
-    ClientShowing = true;
+    Shown = {SessionId, Expected, Inventory, Instances};
     Core::Log::Info("Airdrop-Auswahl: Panel beim Client mit {} Choices geöffnet (Sitzung {})", Instances.size(), SessionId);
     return true;
 }
@@ -883,32 +785,32 @@ void CloseForClient()
 {
     if (!Shown.Items.empty())
         Core::Log::Info("Airdrop-Auswahl: Panel beim Client geschlossen, Sitzung {}", Shown.Session);
-    DropLocal();
+    if (Game::InventoryEdit::ClientEditing())
+        Game::InventoryEdit::RevertClient("Auswahl geschlossen");
     Shown = {};
 }
 
-std::optional<uint32_t> TakeClientPick()
+std::optional<Game::InventoryEdit::Edit> PendingClientEdit()
 {
-    // AddToInventory läuft bereits beim Aufnehmen mit der Maus, vor dem Ablegen.
-    // Nicht automatisch bestätigen: Sonst ignoriert das native Panel den Aufruf
-    // (IsDragging), während die Mod seine noch verwendeten Instanzen schon entfernt.
-    // Erst der echte Bestätigen-Klick in ClientConfirm veröffentlicht die Wahl.
-    return std::exchange(Shown.Pick, std::nullopt);
+    return ClientPending;
 }
 
-std::optional<Placement> TakeClientPlacement(uint64_t Session)
+void ResolveClientEdit(uint64_t Id, bool Accepted)
 {
-    if (!Session || Session != PickedSession || !PickedPlacement)
-        return std::nullopt;
-    if (!PickedItem || PlacedItem != PickedItem)
-    {
-        static uintptr_t Reported = 0;
-        if (std::exchange(Reported, PlacedItem) != PlacedItem)
-            Core::Log::Warn("Airdrop-Auswahl: Ablage gehört nicht zur Wahl (Instanz {:#x}, gewählt {:#x})", PlacedItem, PickedItem);
-        return std::nullopt;
-    }
-    PickedItem = PlacedItem = 0;
-    PickedSession = 0;
-    return std::exchange(PickedPlacement, std::nullopt);
+    if (!ClientPending || ClientPending->Id != Id)
+        return;
+    ClientPending.reset();
+    if (Accepted)
+        Game::InventoryEdit::ForgetClient();
+    else
+        Game::InventoryEdit::RevertClient("vom Host abgelehnt");
+}
+
+void AbortClientEdit()
+{
+    if (!ClientPending)
+        return;
+    ClientPending.reset();
+    Game::InventoryEdit::RevertClient("Verbindung zum Host weg");
 }
 }

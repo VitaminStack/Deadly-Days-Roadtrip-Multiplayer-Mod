@@ -113,11 +113,10 @@ normalen Einzelspieler-Panel.
 - **Host:** `RewardChest.OpenAirdropChoices` gibt eine vom Remote-Spieler geöffnete Kiste an die Figur des Hosts (`RewardCharacter`).
   Der Hook auf `InventoryComponent.SetRewardItems` liest die Choices mit, `RewardSync` schickt sie als Sitzungsbild. Drückt der Host
   „Bestätigen“, hält der Hook auf `InventoryPanel.HandleConfirmButton` das Bestätigen zurück, bis der Client gewählt hat. Die Wahl des
-  Clients legt der Host mit `CreateAndAddItem` in dessen Inventar, mit der gemeldeten Ablage (`0x302`) per `AddToBackpack` und
-  `OccupyBackpackSlots` auf dieselben Rucksackfelder.
+  Clients kommt seit `inventar-lokal` als Teil eines Inventar-Edits (`0x303`), siehe [Inventar lokal bearbeiten](#inventar-lokal-bearbeiten).
 - **Client:** Die Mod legt lokale Anzeige-Instanzen über den nativen `CreateItemInstance` an (die UFunction ist `BlueprintAuthorityOnly`,
-  über `ProcessEvent` liefert sie beim Client nichts) und öffnet das native Panel mit `SetRewardItems`. Inventar-RPCs mit diesen Instanzen
-  hält `FilterRewardEvent` zurück; das erste Ablegen einer Choice gilt als Wahl, die lokalen Instanzen fliegen direkt aus `MyItems`.
+  über `ProcessEvent` liefert sie beim Client nichts) und öffnet das native Panel mit `SetRewardItems`. Solange es offen ist, laufen
+  Inventar-RPCs lokal, siehe [Inventar lokal bearbeiten](#inventar-lokal-bearbeiten).
 - **Reward-Queue:** Kisten laufen über die `RewardQueue` der öffnenden Figur, das Panel schaltet aber nur die Queue des Hosts weiter.
   Ohne Eingriff blieb die Queue von P2 nach einer vom Client geöffneten Kiste belegt, danach ging keine Kiste mehr auf. Die Mod ruft
   beim Host ohne offene Auswahl jede Sekunde `OpenNextReward` für P2 auf.
@@ -196,6 +195,35 @@ Zustandsabstimmung; Effekte und Vergabe bleiben hostautoritativ. Das ist noch ke
 **Verworfen:** Zuerst nutzte die Mod die native Koop-Reward-Sitzung (Koop-Modus nur für den Airdrop, Client wählt im Overlay, Host ruft
 `ClaimReward(1, …)`). Das Host-Panel zeigte beide Rucksäcke, nach dem Claim des Clients ging die UI-Autorität an P1 und der Host hing.
 Die Auswahl im Overlay gefiel nicht, der Nutzer wollte für beide das normale Panel.
+
+### Inventar lokal bearbeiten
+
+Aufgabe `inventar-lokal`, Code in `InventoryEdit.cpp` (Laufzeit), `InventoryEditPlan.h` (reine Logik mit Tests in
+`tests/GameTests/InventoryEditTests.cpp`), `RewardPatches.cpp` (Bestätigen und Host-Übernahme) und `src/Sync/Inventory/RewardSync.cpp`,
+Format in [Kontrollkanal](../../docs/CONTROL_PROTOCOL.md#inventar-lokal-mod-kompatibilität-4). Ersetzt die Fernsteuerung über Wahl
+(`0x301`) und Ablage (`0x302`).
+
+- **Lokal beim Client:** Solange das Airdrop-Panel offen ist, führt `RouteClientRpc` die Server-RPCs des Inventars (`AddToBackpack`,
+  `AddToInventory`, `OccupyBackpackSlots`, `UnoccupyBackpackSlots`, `RemoveFromBackpack`, `RemoveFromInventory`,
+  `Server_CreateSlotsFromBagItem`) und der Items (`SetZeroPivotTile`, `UpdateIsInBackpack`, `UpdateIsInStash`, `UpdateIsReward`,
+  `UpdateIsTrash`) mit der nativen Logik lokal aus: `ProcessEventLocal` nimmt für den Aufruf `FUNC_Net` weg. Ablegen, Drehen, Sortieren,
+  Rucksackteile und neue Felder sind damit sofort sichtbar. `RemoveFromInventory` zerstört beim Client nie, damit sich ein verbrauchter
+  Rucksack zurücklegen lässt. Andere Net-Funktionen (Reparieren, Effekte, Standardrucksack) gehen weiter an den Host.
+- **Geteilt:** Beim Bestätigen ein Edit: nur die geänderten Items als Endzustand (Index im Ausgangsbild und Prüfsumme des
+  `ItemData`-Namens, vorhanden, im Rucksack, Papierkorb, Drehung, Pivot, Felder), die gewählte Belohnung und die neu entstandenen
+  Felder, dazu Sitzung und Revision der Auswahl. Keine Objektzeiger, keine Zwischenschritte.
+- **Entscheidet:** Der Host. Er ordnet die Items über Index und Prüfsumme dem Clientinventar zu, prüft Form, Sitzung und freie oder
+  neue Felder, legt die Wahl mit `CreateAndAddItem` an und führt den Plan (`Plan`) in einem Durchgang mit den nativen Funktionen aus:
+  erst aus dem Rucksack nehmen, entfernen, Felder anlegen, dann ablegen. Das Ergebnis repliziert nativ zum Client.
+- **Ablehnung und Abbruch:** Der Client hält das Ausgangsbild, bis die Antwort (`0x304`) kommt. Bei Ablehnung, geschlossenem Panel
+  ohne Wahl oder Verbindungsverlust rollt `RevertClient` mit demselben Plan lokal zurück: verbrauchte Items wieder hinein, lokale
+  Belohnungen und neue Felder (`DestroySlotInstance`) wieder hinaus. Bis zur Antwort wiederholt der Client den Edit jede Sekunde, der
+  Host übernimmt jede Kennung nur einmal.
+- **Diagnose:** Logzeilen `Inventar lokal: …`, mit `DDCOOP_TRACE_INVENTORY=1` jeder einzelne Aufruf.
+
+**Stand 06.11.2026:** Build und Tests bestanden (Game 45, Net 73 Testfälle). Noch nicht im Spiel geprüft, offen sind vor allem
+Autoritätsprüfungen in den nativen `_Implementation`s beim Client, lokales `CreateSlotInstance` und das Überschreiben durch die
+Replikation nach der Host-Übernahme.
 
 ### Itemsack für alle Spieler
 

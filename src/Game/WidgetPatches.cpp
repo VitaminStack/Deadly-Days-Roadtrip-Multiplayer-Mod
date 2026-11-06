@@ -99,6 +99,21 @@ std::span<const Patch> WidgetPatches()
     return List;
 }
 
+void ProcessEventLocal(uintptr_t Object, uintptr_t Function, void* Params)
+{
+    // UFunction.FunctionFlags, FUNC_Net. Ohne das Bit liefert GetFunctionCallspace Local, das native _Implementation
+    // läuft direkt. Danach den alten Wert zurück, auch bei verschachtelten Aufrufen derselben Funktion.
+    constexpr uintptr_t FunctionFlags = 0xB0;
+    constexpr uint32_t FuncNet = 0x40;
+    const uint32_t Flags = Memory::Read<uint32_t>(Function + FunctionFlags).value_or(0);
+    const uint32_t Local = Flags & ~FuncNet;
+    if (Flags != Local)
+        Memory::WriteBytes(Function + FunctionFlags, &Local, sizeof(Local));
+    OriginalProcessEvent(Object, Function, Params);
+    if (Flags != Local)
+        Memory::WriteBytes(Function + FunctionFlags, &Flags, sizeof(Flags));
+}
+
 void NotifyEventObservers(uintptr_t Object, uintptr_t Function, void* Params)
 {
     for (auto& Slot : Observers)

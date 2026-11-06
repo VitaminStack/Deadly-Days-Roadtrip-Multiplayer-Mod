@@ -59,6 +59,11 @@ Vergleichen: Besitz, Verbrauch, Feldkoordinaten, Belegung und Itemeffekte; keine
 **Zuständig:** `airdrop-rucksack`, danach bestehende `inventar-sync` und `inventar-ui`.
 Kein neuer paralleler Inventar-Sync neben diesen Aufgaben.
 
+**Umgesetzt in `inventar-lokal` (06.11.2026, noch ohne Spieltest):** Server-RPCs des Inventars laufen bei offenem Panel lokal,
+beim Bestätigen geht ein Edit mit dem Endzustand der geänderten Items, der Wahl und den neuen Feldern an den Host, der ihn ganz
+übernimmt oder ablehnt; der Client rollt bei Ablehnung zurück. `DropLocal`, `RememberPlacement` und `PlaceForClient` sind entfernt.
+Ablauf: [Inventar lokal bearbeiten](../src/Game/README.md#inventar-lokal-bearbeiten).
+
 ### 2. Pause, Rundenphasen und blockierende UI — P0/P1, fehlende Integration
 
 **Quellen:** [Game-README](../src/Game/README.md), Tabelle der Spike-Restpfade;

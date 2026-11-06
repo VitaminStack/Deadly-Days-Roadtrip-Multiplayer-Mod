@@ -5,6 +5,8 @@
 #include <string>
 #include <vector>
 
+#include "Game/InventoryEditPlan.h"
+
 // Airdrop-Auswahl für beide Spieler (airdrop-auswahl), nur beim Host. Die native Koop-Reward-Sitzung des
 // UCoopInventoryCoordinatorComponent wartet auf einen Claim je Spieler und hält so lange die Pause. Die Mod setzt den
 // Koop-Modus nur für die Dauer dieser Sitzung, der Client wählt über den Kontrollkanal, der Host ruft ClaimReward(1, …).
@@ -38,8 +40,9 @@ void SetRemoteReady(bool Ready);
 // Host: Aktuelle Sitzung, nullopt ohne aktive Sitzung der Mod.
 std::optional<Offer> ReadOffer();
 
-// Host: Wahl des Clients eintragen. Falsch, wenn Sitzung, Revision oder Index nicht mehr passen.
-bool ClaimForClient(uint64_t Session, uint64_t Revision, uint32_t Index);
+// Host: Edit des Clients übernehmen (inventar-lokal): gewählte Belohnung anlegen, geänderte Items und neue Felder mit den
+// nativen Funktionen setzen. Falsch, wenn er nicht passt; dann bleibt das Inventar des Clients unverändert.
+bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value);
 
 // Host: Aufräumen je Takt: zurückgehaltenes Bestätigen nachholen, Koop-Modus nach der Sitzung zurücksetzen, die Wahl
 // des Clients in sein Inventar legen.
@@ -52,19 +55,12 @@ bool ShowForClient(uint64_t Session, uint64_t Revision, int32_t Level, const std
 // Client: Anzeige schließen, lokale Instanzen aus dem Inventar nehmen.
 void CloseForClient();
 
-// Client: Index der im Panel bestätigten Choice, einmalig nach dem Bestätigen.
-std::optional<uint32_t> TakeClientPick();
+// Client: Edit nach dem Bestätigen, bis der Host antwortet (zum wiederholten Senden).
+std::optional<Game::InventoryEdit::Edit> PendingClientEdit();
 
-// Ablage der gewählten Choice im Rucksack: Drehung, Pivot-Feld und belegte Felder (UBackpackSlot.Coordinates).
-struct Placement
-{
-    int32_t Turns = 0, PivotX = 0, PivotY = 0;
-    std::vector<std::pair<int32_t, int32_t>> Slots;
-};
+// Client: Antwort des Hosts. Bei Ablehnung stellt der Client seinen Ausgangsstand wieder her.
+void ResolveClientEdit(uint64_t Id, bool Accepted);
 
-// Client: Ablage der zuletzt gewählten Choice, einmalig, sobald das Panel sie in den Rucksack gelegt hat.
-std::optional<Placement> TakeClientPlacement(uint64_t Session);
-
-// Host: Wahl des Clients aus der Sitzung wie beim Client in seinen Rucksack legen. Ohne Ablage bleibt sie im Lager.
-bool PlaceForClient(uint64_t Session, const Placement& Value);
+// Client: Verbindung weg, offenen Edit verwerfen und Ausgangsstand wiederherstellen.
+void AbortClientEdit();
 }

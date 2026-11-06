@@ -157,7 +157,14 @@ Aufgabe `airdrop-auswahl`, Ablauf in [Airdrop-Auswahl](GAME_ANALYSIS.md#airdrop-
 | `URewardQueueComponent` Kiste offen, aktuelle Kiste | `+0x108`, `+0x10C` | Byte; schwacher Zeiger |
 | `ARewardChest.CanBeOpened` | `+0x2E1` | |
 | `UInventoryItemInstance` `ZeroPivotTile`, `Turns`, `IsInBackpack`, `IsReward` | `+0x28`, `+0xD8`, `+0x180`, `+0x182` | |
+| `UInventoryItemInstance` `Broken`, `Rarity`, `ItemInstanceId` | `+0x110`, `+0x118`, `+0x120` | `ItemInstanceId` ist eine FGuid, nicht repliziert |
+| `UInventoryItemInstance` `IsInStash`, `IsTrash` | `+0x181`, `+0x184` | `IsInStash` nicht repliziert |
 | `UBackpackSlot` `Coordinates`, `Occupier` | `+0x28`, `+0x30` | |
+| `UInventoryComponent.PlacedBagWrappers` | `+0x150` | nicht repliziert |
+| `InventoryComponent.RemoveFromInventory` Parameter | Item `+0`, Context `+8`, Destroy `+9`, Größe `0x10` | `inventar-lokal` |
+| `InventoryComponent.AddToInventory` Parameter | Item `+0`, SystemAdd `+8`, Position `+0xC`, AllowP2Reserve `+0x10`, Größe `0x18` | |
+| `InventoryComponent.OccupyBackpackSlots` Parameter | Item `+0`, TArray Slots `+8`, Größe `0x18` | |
+| `InventoryComponent.TryGetSlotWithCoordinates` Parameter | X `+0`, Y `+4`, Slot `+8`, Found `+0x10`, Größe `0x18` | |
 | `UFunction` `FunctionFlags`, `ParmsSize` | `+0xB0`, `+0xB6` | `FUNC_Net` = `0x40` |
 | `AController` `PlayerState`, `Pawn` | `+0x2B0`, `+0x2E8` | |
 

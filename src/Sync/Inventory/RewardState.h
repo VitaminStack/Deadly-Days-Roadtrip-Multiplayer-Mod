@@ -6,12 +6,15 @@
 #include <string>
 #include <vector>
 
-// Airdrop-Auswahl über den Kontrollkanal (airdrop-auswahl). Host schickt das Bild der nativen Koop-Reward-Sitzung,
-// Client zeigt es im nativen Reward-Panel und antwortet nur mit seiner Wahl. Little-Endian, Texte UTF-8 und begrenzt.
+#include "Game/InventoryEditPlan.h"
+
+// Airdrop-Auswahl über den Kontrollkanal (airdrop-auswahl, inventar-lokal). Host schickt das Sitzungsbild, der Client
+// bearbeitet sein Inventar im nativen Panel lokal und antwortet mit einem Edit (Wahl und Endstand), der Host mit dem
+// Ergebnis. Little-Endian, Texte UTF-8 und begrenzt.
 namespace Sync::Reward
 {
-inline constexpr uint16_t OfferType = 0x300, ChoiceType = 0x301, PlacementType = 0x302;
-inline constexpr size_t MaxChoices = 4, MaxName = 120, MaxSlots = 32;
+inline constexpr uint16_t OfferType = 0x300, EditType = 0x303, ResultType = 0x304;
+inline constexpr size_t MaxChoices = 4, MaxName = 120;
 
 // Eine Choice: lesbarer Name für Log und Overlay, Objektnamen von UInventoryItemData und URarity, mit denen der Client
 // eine eigene Anzeige-Instanz anlegt.
@@ -30,13 +33,6 @@ struct Offer
     bool ClientClaimed = false, HostClaimed = false, HostWaiting = false;
     std::vector<Item> Choices;
     bool operator==(const Offer&) const = default;
-};
-
-struct Choice
-{
-    uint64_t Session = 0, Revision = 0;
-    uint8_t Index = 0;
-    bool operator==(const Choice&) const = default;
 };
 
 namespace Detail
@@ -130,82 +126,114 @@ inline std::optional<Offer> DecodeOffer(std::span<const uint8_t> In)
     return Value;
 }
 
-inline std::vector<uint8_t> Encode(const Choice& Value)
+namespace Detail
 {
-    if (!Value.Session || !Value.Revision || Value.Index >= MaxChoices)
+inline void PutTile(std::vector<uint8_t>& Out, const Game::InventoryEdit::Tile& At)
+{
+    Put(Out, static_cast<uint32_t>(At.first), 4);
+    Put(Out, static_cast<uint32_t>(At.second), 4);
+}
+inline Game::InventoryEdit::Tile GetTile(std::span<const uint8_t> In, size_t At)
+{
+    return {static_cast<int32_t>(Get(In, At, 4)), static_cast<int32_t>(Get(In, At + 4, 4))};
+}
+}
+
+// Edit, Client an Host: Kopf 26 Byte (Id 8, Sitzung 8, Revision 8, Wahl 1 mit 0xFF = keine, Anzahl neuer Felder 1), je neues
+// Feld 8 Byte, dann Anzahl Items (1) und je Item 21 Byte plus 8 je belegtem Feld.
+inline std::vector<uint8_t> Encode(const Game::InventoryEdit::Edit& Value)
+{
+    if (!Value.Id || !Game::InventoryEdit::WellFormed(Value))
         return {};
     std::vector<uint8_t> Out;
+    Detail::Put(Out, Value.Id, 8);
     Detail::Put(Out, Value.Session, 8);
     Detail::Put(Out, Value.Revision, 8);
-    Out.push_back(Value.Index);
+    Out.push_back(Value.Choice ? *Value.Choice : uint8_t{0xFF});
+    Out.push_back(static_cast<uint8_t>(Value.NewSlots.size()));
+    for (const auto& At : Value.NewSlots)
+        Detail::PutTile(Out, At);
+    Out.push_back(static_cast<uint8_t>(Value.Items.size()));
+    for (const auto& Item : Value.Items)
+    {
+        Detail::Put(Out, Item.Source, 2);
+        Detail::Put(Out, Item.DataHash, 4);
+        Out.push_back(static_cast<uint8_t>((Item.Present ? 1 : 0) | (Item.InBackpack ? 2 : 0) | (Item.Trash ? 4 : 0)));
+        Out.push_back(Item.RemoveContext);
+        Detail::Put(Out, static_cast<uint32_t>(Item.Turns), 4);
+        Detail::PutTile(Out, Item.Pivot);
+        Out.push_back(static_cast<uint8_t>(Item.Tiles.size()));
+        for (const auto& At : Item.Tiles)
+            Detail::PutTile(Out, At);
+    }
     return Out;
 }
 
-inline std::optional<Choice> DecodeChoice(std::span<const uint8_t> In)
+inline std::optional<Game::InventoryEdit::Edit> DecodeEdit(std::span<const uint8_t> In)
 {
-    if (In.size() != 17)
+    using namespace Game::InventoryEdit;
+    if (In.size() < 26)
         return std::nullopt;
-    Choice Value{Detail::Get(In, 0, 8), Detail::Get(In, 8, 8), In[16]};
-    if (!Value.Session || !Value.Revision || Value.Index >= MaxChoices)
+    Edit Value;
+    Value.Id = Detail::Get(In, 0, 8);
+    Value.Session = Detail::Get(In, 8, 8);
+    Value.Revision = Detail::Get(In, 16, 8);
+    if (In[24] != 0xFF)
+        Value.Choice = In[24];
+    size_t At = 26;
+    if (In[25] > MaxNewSlots || At + 8 * size_t(In[25]) + 1 > In.size())
+        return std::nullopt;
+    for (uint8_t i = 0; i < In[25]; ++i, At += 8)
+        Value.NewSlots.push_back(Detail::GetTile(In, At));
+    const uint8_t Count = In[At++];
+    if (Count > MaxItems)
+        return std::nullopt;
+    for (uint8_t i = 0; i < Count; ++i)
+    {
+        if (At + 21 > In.size() || In[At + 6] > 7 || In[At + 20] > MaxItemTiles || At + 21 + 8 * size_t(In[At + 20]) > In.size())
+            return std::nullopt;
+        ItemState Item;
+        Item.Source = static_cast<uint16_t>(Detail::Get(In, At, 2));
+        Item.DataHash = static_cast<uint32_t>(Detail::Get(In, At + 2, 4));
+        Item.Present = In[At + 6] & 1;
+        Item.InBackpack = In[At + 6] & 2;
+        Item.Trash = In[At + 6] & 4;
+        Item.RemoveContext = In[At + 7];
+        Item.Turns = static_cast<int32_t>(Detail::Get(In, At + 8, 4));
+        Item.Pivot = Detail::GetTile(In, At + 12);
+        const uint8_t Tiles = In[At + 20];
+        At += 21;
+        for (uint8_t t = 0; t < Tiles; ++t, At += 8)
+            Item.Tiles.push_back(Detail::GetTile(In, At));
+        Value.Items.push_back(std::move(Item));
+    }
+    if (At != In.size() || !Value.Id || !WellFormed(Value))
         return std::nullopt;
     return Value;
 }
 
-// Ablage der gewählten Choice im Rucksack des Clients, nach der Wahl. Ohne diese Nachricht bleibt sie im Lager.
-struct Placement
+// Ergebnis, Host an Client, genau 9 Byte: Id des Edits (8), 1 übernommen oder 0 abgelehnt.
+struct Result
 {
-    uint64_t Session = 0;
-    int32_t Turns = 0, PivotX = 0, PivotY = 0;
-    std::vector<std::pair<int32_t, int32_t>> Slots;
-    bool operator==(const Placement&) const = default;
+    uint64_t Id = 0;
+    bool Accepted = false;
+    bool operator==(const Result&) const = default;
 };
 
-// Take leert die lokale Ablage. Ohne bestätigte Wahl niemals konsumieren;
-// bei Backpressure bleibt die bereits abgeholte Nachricht erhalten.
-struct PlacementDelivery
+inline std::vector<uint8_t> Encode(const Result& Value)
 {
-    std::optional<Placement> Pending;
-
-    template <typename Take, typename Send>
-    void Flush(uint64_t ChosenSession, Take&& TakePlacement, Send&& SendPlacement)
-    {
-        if (!Pending && ChosenSession)
-            Pending = TakePlacement(ChosenSession);
-        if (Pending && SendPlacement(*Pending))
-            Pending.reset();
-    }
-};
-
-inline std::vector<uint8_t> Encode(const Placement& Value)
-{
-    if (!Value.Session || Value.Slots.empty() || Value.Slots.size() > MaxSlots)
+    if (!Value.Id)
         return {};
     std::vector<uint8_t> Out;
-    Detail::Put(Out, Value.Session, 8);
-    for (const int32_t Field : {Value.Turns, Value.PivotX, Value.PivotY})
-        Detail::Put(Out, static_cast<uint32_t>(Field), 4);
-    Out.push_back(static_cast<uint8_t>(Value.Slots.size()));
-    for (const auto& [X, Y] : Value.Slots)
-    {
-        Detail::Put(Out, static_cast<uint32_t>(X), 4);
-        Detail::Put(Out, static_cast<uint32_t>(Y), 4);
-    }
+    Detail::Put(Out, Value.Id, 8);
+    Out.push_back(Value.Accepted ? 1 : 0);
     return Out;
 }
 
-inline std::optional<Placement> DecodePlacement(std::span<const uint8_t> In)
+inline std::optional<Result> DecodeResult(std::span<const uint8_t> In)
 {
-    if (In.size() < 21 || !In[20] || In[20] > MaxSlots || In.size() != 21 + size_t(In[20]) * 8)
+    if (In.size() != 9 || In[8] > 1 || !Detail::Get(In, 0, 8))
         return std::nullopt;
-    Placement Value;
-    Value.Session = Detail::Get(In, 0, 8);
-    Value.Turns = static_cast<int32_t>(Detail::Get(In, 8, 4));
-    Value.PivotX = static_cast<int32_t>(Detail::Get(In, 12, 4));
-    Value.PivotY = static_cast<int32_t>(Detail::Get(In, 16, 4));
-    for (size_t i = 0; i < In[20]; ++i)
-        Value.Slots.emplace_back(static_cast<int32_t>(Detail::Get(In, 21 + 8 * i, 4)), static_cast<int32_t>(Detail::Get(In, 25 + 8 * i, 4)));
-    if (!Value.Session)
-        return std::nullopt;
-    return Value;
+    return Result{Detail::Get(In, 0, 8), In[8] == 1};
 }
 }
