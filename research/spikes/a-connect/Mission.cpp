@@ -272,6 +272,16 @@ bool ReadAnnounce(uint64_t& Session, uint64_t& Run, uint64_t& World)
     return Good;
 }
 
+// Mit der Mod oeffnet der Client Rundenuebersicht, Lager und Routenkarte selbst und ordnet sein Inventar dort. Die Mod
+// laesst ihn nicht selbst reisen, der Host waehlt den Tag (rundenende-client). Gesperrt bleibt nur Warten und Reise.
+RoundPhase::Presentation ClientView()
+{
+    auto View = PhaseClient.View();
+    if (ModOwnsPatches && !View.Waiting && View.Host.Stage != RoundPhase::Phase::Playing)
+        View.InputBlocked = View.Host.Stage == RoundPhase::Phase::Travel;
+    return View;
+}
+
 void TickClient(HWND GameWindow, uintptr_t World, uintptr_t Driver, uintptr_t Connection)
 {
     const uint64_t Now = GetTickCount64();
@@ -308,7 +318,8 @@ void TickClient(HWND GameWindow, uintptr_t World, uintptr_t Driver, uintptr_t Co
     if (RoundPhase::ReadLocal(PhasePath, Bytes))
         PhaseClient.Receive(Bytes.data(), Bytes.size(), Now);
     PhaseClient.Tick(Now);
-    const auto View = PhaseClient.View();
+    const auto View = ClientView();
+    const bool ModRoundEnd = ModOwnsPatches && !View.Waiting && View.Host.Stage != RoundPhase::Phase::Playing;
     if (ClientLogPending || View.InputBlocked != LastLoggedBlocked || (!View.Waiting && View.Host.Stage != LastLoggedStage))
     {
         ClientLogPending = false;
@@ -326,6 +337,7 @@ void TickClient(HWND GameWindow, uintptr_t World, uintptr_t Driver, uintptr_t Co
     }
     SetGameInput(World, false);
     const std::wstring Text = View.Waiting ? std::wstring(L"Coop: warte auf den Host") :
+        ModRoundEnd ? std::wstring(L"Coop: Host reist weiter (Tag ") + std::to_wstring(View.Host.Day) + L")" :
         std::wstring(L"Coop: Host ist in ") + StageLabel(View.Host.Stage) + L" (Tag " +
         std::to_wstring(View.Host.Day) + L"), Eingabe gesperrt";
     ShowBanner(GameWindow, Text);
@@ -367,7 +379,7 @@ bool RoundPhaseCommand(const std::wstring& Command)
         const auto& Host = PhaseIsClient ? PhaseClient.View().Host : PhaseHost.View();
         Log(std::string("Phase: ") + (PhaseWorld ? (PhaseIsClient ? "Client" : "Host") : "ungebunden") +
             ", Welt " + std::to_string(Host.World) + ", " + Narrow(StageLabel(Host.Stage)) +
-            ", Sperre " + (PhaseIsClient && PhaseClient.View().InputBlocked ? "an" : "aus"));
+            ", Sperre " + (PhaseIsClient && ClientView().InputBlocked ? "an" : "aus"));
     }
     else
         Log("Phase: !phase scan|stop|auto|filter on|filter off|status");
@@ -447,7 +459,7 @@ void TickRoundPhase(HWND GameWindow)
 
 bool RoundPhaseBlocksMessage(HWND Window, UINT Message, WPARAM WParam, LPARAM LParam)
 {
-    if (!PhaseFilter || !PhaseWorld || !PhaseIsClient || !PhaseClient.View().InputBlocked)
+    if (!PhaseFilter || !PhaseWorld || !PhaseIsClient || !ClientView().InputBlocked)
         return false;
     if (Message == WM_INPUT)
     {

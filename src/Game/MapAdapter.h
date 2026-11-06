@@ -34,4 +34,19 @@ std::optional<HostMap> CurrentHostMap();
 
 // Client: Neueste Werte des Hosts, nullopt, wenn der Host gerade keine Karte hat oder die Verbindung fehlt.
 void SetHostMap(std::optional<HostMap> Value);
+
+// Rundenende des Hosts (rundenende-client). Der Client beendet seine Runde damit lokal und sieht Rundenübersicht und
+// Lager selbst. MapId bindet es an die Karte, die beide gerade spielen, damit kein altes Ende eine neue Mission beendet.
+struct RoundEnd
+{
+    uint64_t MapId = 0; // HostMap::Id der Mission, nie 0
+    uint64_t Id = 0;    // zufällig je Rundenende, nie 0
+    bool operator==(const RoundEnd&) const = default;
+};
+
+// Host: Rundenende in der aktuellen Welt, nullopt ohne.
+std::optional<RoundEnd> CurrentRoundEnd();
+
+// Client: Neuestes Rundenende des Hosts, nullopt ohne oder ohne Verbindung.
+void SetHostRoundEnd(std::optional<RoundEnd> Value);
 }

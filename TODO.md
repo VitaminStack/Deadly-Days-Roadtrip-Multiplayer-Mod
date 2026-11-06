@@ -37,7 +37,7 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `lobby-auth-live` | P0 | [3](#phase-3--session-und-verbindung) | zu zweit | wenig |
 | `lobby-live` | P0 | [3](#phase-3--session-und-verbindung) | zu zweit | wenig |
 | `gegnertyp` | P0 | [4](#phase-4--vertical-slice) | parallel | mittel |
-| `rundenende-client` | P0 | [5](#phase-5--vollständiger-run) | parallel | mittel |
+| `bestaetigen-rundenende` | P0 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `tank-gemeinsam` | P0 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `mod-saves` | P0 | [6](#phase-6--release) | parallel | mittel |
 | `eingaben` | P1 | [4](#phase-4--vertical-slice) | parallel | mittel |
@@ -156,7 +156,6 @@ Ziel: Ein kompletter Run ist zu zweit online spielbar.
 |---|---|---|---|---|---|
 | `gegner-alle` | P0 | Alle Gegner, Bosse und Boss-Phasen. Ordner `src/Sync/Enemies` | `integration-g2` | parallel | viel |
 | `fortschritt` | P0 | Loot, XP, Level-ups, Fähigkeiten und Status-Effekte (GAS). Ordner `src/Sync/Combat` | `integration-g2`, `protokoll` | parallel | viel |
-| `rundenende-client` | P0 | Nutzervorgabe 06.11.2026: Beim Rundenende sieht auch der Client Rundenübersicht und Lager mit seinem eigenen Inventar und kann es dort ordnen. Den nächsten Tag wählt nur der Host. Bisher zeigt der Client nur das Banner des Phasenadapters und ist gesperrt. Ansatz: Der Host meldet das Rundenende über den Kontrollkanal, der Client ruft daraufhin sein natives `FinishMission` auf (die Sperre aus `bus-ende` lässt nur diesen Weg zu). Der Fehler aus `bus-ende` zeigte, dass der Client damit Rundenübersicht, Lager und Routenkarte selbst öffnet. Die Routenkarte bleibt beim Client gesperrt („warte auf den Host“), die Eingabesperre des Phasenadapters gilt nur noch dort. Zu klären, ob der lokale Aufruf Persistenz oder Run-Zustand des Clients verändert, siehe [Rundenende](docs/GAME_ANALYSIS.md#rundenende-befund-und-offene-phasenübertragung-rundenende). **Fertig, wenn** der Client nach jeder Busflucht Rundenübersicht und Lager sieht, die Routenkarte nicht bedienen kann, beide danach im nächsten Tag sind und die Inventare samt Itemsäcken gleich bleiben. Ordner `src/Game`, `src/Sync/World`, `research/spikes/a-connect/Mission.cpp` | `bus-ende` | parallel | mittel |
 | `bestaetigen-rundenende` | P0 | Rest aus `bestaetigen-alle`: Am Rundenende mit Rundenübersicht und Lager soll wie beim Airdrop jeder Spieler Bestätigen drücken (Knopf gelb), erst wenn alle samt Host bestätigt haben, wählt der Host den nächsten Tag. Den Airdrop-Teil (`0x305`, `MainButton` gelb, Host holt sein Bestätigen nach) wiederverwenden, siehe [Alle bestätigen](src/Game/README.md#airdrop-auswahl). **Fertig, wenn** der Client nach der Busflucht im Lager bestätigt, sein Knopf gelb ist und der Host erst danach weiterkommt. Ordner `src/Game`, `src/Sync/Inventory` | `rundenende-client` | parallel | mittel |
 | `xp-baelle-live` | P1 | Rest aus `xp-baelle`: Die Sichtgrenzen der XP-Bälle kommen beim Client jetzt aus der lokalen Kamera (`ExpPatches.cpp`), weil ihm der GameMode fehlt. Die sichtbare Gegenprobe im Spiel fehlt noch. **Fertig, wenn** der Client dieselben Bälle auch am Bildschirmrand sieht, sie beim Aufsammeln verschwinden und XP nicht doppelt zählen. Ordner `src/Game`. **Einstieg:** [XP-Bälle](docs/GAME_ANALYSIS.md#xp-bälle-beim-client-xp-baelle) | `protokoll` | parallel | wenig |
 | `inventar-sync` | P0 | Rucksack, Stash, Werkbank, Reward-Queue (`CoopInventoryCoordinator`). Ordner `src/Sync/Inventory` | `integration-g2`, `protokoll`, `guidcache` | parallel | viel |
@@ -301,6 +300,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `rpc-vergleich` | 1 | RPC-Liste gegen den Juli-Dump: 3 RPCs entfernt, keiner hinzugekommen |
 | `run-ablauf` | 1 | `TriggerStartRun`, `FinalizeRunStart`, Ladebildschirm und Etappenwechsel nachvollzogen, siehe [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf) |
 | `rundenende-absturz` | 4 | Echtes Rundenende über Tank und Bus bis Tag 2 ohne Absturz geprüft, Tank zählt noch je Teilnehmer (`tank-gemeinsam`), siehe [Rundenende](docs/GAME_ANALYSIS.md#rundenende-über-tank-und-bus-rundenende-absturz) |
+| `rundenende-client` | 5 | Client sieht nach dem Rundenende des Hosts Rundenübersicht und Lager selbst, ordnet dort sein Inventar, nur der Host reist, siehe [Rundenübersicht beim Client](docs/GAME_ANALYSIS.md#rundenübersicht-und-lager-beim-client-rundenende-client) |
 | `sdk` | 0 | SDK für UE 5.8 erzeugt, siehe [SDK-Erzeugung](docs/GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58) |
 | `sdk-mission` | 0 | SDK zusätzlich während einer Mission gedumpt, mit Blueprint-Klassen |
 | `solution` | 0 | Visual-Studio-Solution mit einem Projekt je Modul, `config/Local.props` eingebunden |

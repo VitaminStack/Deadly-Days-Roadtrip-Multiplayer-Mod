@@ -207,8 +207,9 @@ Stand im Code:
   lokal (`ClientConfirm`), das Spiel läuft weiter, sobald der Host bestätigt. Es gibt keine gelbe Markierung und keine Anzeige, wer schon
   bestätigt hat. Der Client sieht nach seinem Bestätigen nur das pausierte Spiel.
 - **Nur ein Client:** `RemoteReady`, `Host.ClientPick` und `ClientPending` gibt es je einmal, gewartet wird nur auf P2.
-- **Rundenende, fehlt:** Der Client sieht Rundenübersicht und Lager noch nicht, das baut `rundenende-client`. Das native
-  „Bestätigen & Wechseln“ des Koop-Modus wartet zwar auf P2, hängt aber mit dem Remote-Spieler, darum bleibt der Koop-Modus aus.
+- **Rundenende, fehlt:** Zum Zeitpunkt der Prüfung sah der Client Rundenübersicht und Lager noch nicht; das liefert inzwischen
+  `rundenende-client`, das gemeinsame Bestätigen dort folgt als `bestaetigen-rundenende`. Das native „Bestätigen & Wechseln“ des
+  Koop-Modus wartet zwar auf P2, hängt aber mit dem Remote-Spieler, darum bleibt der Koop-Modus aus.
 
 **Alle bestätigen (`bestaetigen-alle`, 06.11.2026).** Ersetzt beim Airdrop das sofortige Schließen. Format in
 [Kontrollkanal](../../docs/CONTROL_PROTOCOL.md#alle-bestätigen-mod-kompatibilität-5), Mod-Version 5.
