@@ -1050,7 +1050,7 @@ und `ausweichen-client` bleiben unberührt.
   „Eingaben“-Zeile und kein Fehler im Log, kein Absturz.
 - Nicht geprüft: ein echtes Gamepad (keins am Test-PC) und das Beitrittsmenü des Spiels; der Weg dorthin endet in denselben drei
   Funktionen. Nebenbefund: `Run-Route.ps1` und `Travel-Day.ps1` bestätigen das Lager nur beim Host und bleiben deshalb seit
-  `bestaetigen-rundenende` vor dem zweiten Tag stehen, bis der Client bestätigt.
+  `bestaetigen-rundenende` vor dem zweiten Tag stehen, bis der Client bestätigt. Behoben mit `skripte-rundenende`.
 
 ### Coop-Ablauf
 

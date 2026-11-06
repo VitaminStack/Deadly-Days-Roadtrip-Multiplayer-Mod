@@ -196,6 +196,29 @@ function Test-RouteMap {
     [Math]::Abs($R - 0x3C) -lt 16 -and [Math]::Abs($G - 0x5F) -lt 16 -and [Math]::Abs($B - 0x3C) -lt 16
 }
 
+# Beendet den Tag: !finish beim Host, dann bei jeder lokalen Instanz Fortsetzen (Rundenuebersicht) und Bestaetigen (Lager).
+# Seit bestaetigen-rundenende wartet der Host im Lager, bis auch der Client bestaetigt hat; erst dann oeffnet er die Routenkarte.
+# Der Host bestaetigt zuerst, der Client loest dann fuer beide aus. Beim Test auf zwei PCs bestaetigt der Client am anderen PC.
+# Liefert $true, sobald der Host auf der Routenkarte ist, $false nach -TimeoutSeconds.
+function Complete-RoundEnd([int]$TimeoutSeconds = 30) {
+    $GameInput = Join-Path $PSScriptRoot 'Game-Input.ps1'
+    $Roles = @(Get-LocalRoles)
+    Send-SpikeCommand (Get-RolePid 'Host') '!finish'
+    Start-Sleep -Seconds 6
+    foreach ($Role in $Roles) { & $GameInput $Role click 410 426 | Out-Null }
+    Start-Sleep -Seconds 4
+    foreach ($Role in $Roles) {
+        & $GameInput $Role click 633 422 | Out-Null
+        Start-Sleep -Seconds 1
+    }
+    $Deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ((Get-Date) -lt $Deadline) {
+        if (Test-RouteMap) { return $true }
+        Start-Sleep -Seconds 1
+    }
+    $false
+}
+
 # Host ist schon in der Mission oder reist dorthin. Ein frischer Spielstand startet den ersten Run ohne Routenkarte.
 function Test-HostInMission {
     $State = Get-NetState (Get-RolePid 'Host')

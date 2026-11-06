@@ -183,7 +183,8 @@ Ohne Dateinamen landen Bilder unter `research/local/session/shots/`. `Game-Input
 Für den Ablauf über die Route gibt es drei Skripte. `Start-Run.ps1 [-Seed <n>]` geht aus der `MetaBase` bis zur Routenkarte und legt
 `research/local/session/route.png` ab. Es liest die Position des Hosts, läuft in einem Zug in den Ring, erkennt die Routenkarte am grünen Banner
 und versucht es bis zu dreimal. `Travel-Day.ps1 <x> <y>` klickt den Knoten, prüft nach der Ankunft
-Prozesse, Netzzustand und Inventare, beendet den Tag mit `!finish`, bestätigt das Lager und legt die nächste `route.png` ab. Mit `-Stay` bleibt es
+Prozesse, Netzzustand und Inventare, beendet den Tag mit `!finish`, klickt bei jeder lokalen Instanz Fortsetzen und Bestätigen im Lager
+(`Complete-RoundEnd` in `Common.ps1`; der Host wartet seit `bestaetigen-rundenende` auf den Client) und legt die nächste `route.png` ab. Mit `-Stay` bleibt es
 in der Mission. Stürzt eine Instanz ab, endet es mit Exitcode 2 und dem neuesten Bericht. Tutorial-Hinweise schaltet der Spike auf beiden Seiten selbst ab.
 
 ### Fester Routenlauf
@@ -331,7 +332,8 @@ powershell -ExecutionPolicy Bypass -File tools/spike/Start-Session.ps1 -Role Cli
 ```
 
 Danach gehen `Send-Command.ps1`, `Wait-Log.ps1`, `Game-Input.ps1` und `Get-Status.ps1` nur für die eigene Rolle; für die andere
-melden sie, dass sie auf diesem PC nicht läuft. Den Run steuert der Host mit `Start-Run.ps1` und `Travel-Day.ps1` wie gewohnt.
+melden sie, dass sie auf diesem PC nicht läuft. Den Run steuert der Host mit `Start-Run.ps1` und `Travel-Day.ps1` wie gewohnt. Am Rundenende muss der Client am eigenen PC
+Fortsetzen und Bestätigen klicken; `Travel-Day.ps1` wartet bis zu 120 s darauf, dass der Host die Routenkarte zeigt.
 Ohne Tunnel verbindet `-Role Client -Peer <Adresse>:7777` direkt, dafür muss der Host-PC UDP 7777 erreichbar machen.
 
 ### Grenzen
