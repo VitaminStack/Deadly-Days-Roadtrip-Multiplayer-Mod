@@ -1,12 +1,24 @@
 name: CI
 
+# Reine Doku-Änderungen bauen nicht. TODO.md, README und Fortschrittsbild prüft der Workflow „Doku“ bei jeder Änderung.
 on:
   pull_request:
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
   push:
     branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
 
 permissions:
   contents: read
+
+# Ein neuer Push auf denselben PR bricht den überholten Lauf ab. Auf main läuft jeder Commit zu Ende.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build-and-test:
@@ -15,19 +27,64 @@ jobs:
       fail-fast: false
       matrix:
         configuration: [Debug, Release]
+    env:
+      CCACHE_DIR: ${{ github.workspace }}\.ccache
+      CCACHE_MAXSIZE: 500M
     steps:
       - uses: actions/checkout@v4
 
-      - name: TODO-Aufgaben und README-Fortschritt pruefen
-        run: python -B tools/task_status.py check
+      # ccache sitzt als cl.exe vor dem echten Compiler. Dafür ruft MSBuild den Compiler je Datei auf (MultiToolTask),
+      # und src/Common.props stellt mit DdcoopCompilerCache auf /Z7 und eine Objektdatei je Quelle um.
+      - name: Compiler-Cache laden
+        uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: ccache-${{ matrix.configuration }}-${{ github.sha }}
+          restore-keys: ccache-${{ matrix.configuration }}-
+
+      - name: Compiler-Cache einrichten
+        shell: pwsh
+        run: |
+          $Version = '4.10.2'
+          $Zip = Join-Path $env:RUNNER_TEMP 'ccache.zip'
+          Invoke-WebRequest "https://github.com/ccache/ccache/releases/download/v$Version/ccache-$Version-windows-x86_64.zip" -OutFile $Zip
+          $Hash = (Get-FileHash $Zip -Algorithm SHA256).Hash
+          if ($Hash -ne '6252F081876A9A9F700FAE13A5AEC5D0D486B28261D7F1F72AC11C7AD9DF4DA9') { throw "ccache.zip unerwartet: $Hash" }
+          Expand-Archive $Zip -DestinationPath $env:RUNNER_TEMP
+          $Bin = Join-Path $env:RUNNER_TEMP 'ccache-bin'
+          New-Item -ItemType Directory -Force $Bin | Out-Null
+          # Als cl.exe ruft MSBuild es auf, unter eigenem Namen nimmt es Befehle wie --show-stats an.
+          $Exe = Join-Path $env:RUNNER_TEMP "ccache-$Version-windows-x86_64\ccache.exe"
+          Copy-Item $Exe (Join-Path $Bin 'cl.exe')
+          Copy-Item $Exe (Join-Path $Bin 'ccache.exe')
+          $Vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $Vs = & $Vswhere -latest -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          $ToolsVersion = (Get-Content (Join-Path $Vs 'VC\Auxiliary\Build\Microsoft.VCToolsVersion.default.txt')).Trim()
+          $Cl = Join-Path $Vs "VC\Tools\MSVC\$ToolsVersion\bin\Hostx64\x64\cl.exe"
+          if (-not (Test-Path $Cl)) { throw "cl.exe fehlt: $Cl" }
+          "CCACHE_BIN=$Bin" >> $env:GITHUB_ENV
+          "CCACHE_COMPILER=$Cl" >> $env:GITHUB_ENV
+          # Die Runner wechseln zwischen Images mit demselben Compiler, aber anderer Dateizeit von cl.exe. Die
+          # Standardprüfung über die Dateizeit verwirft dann den ganzen Cache, die Toolset-Version nicht.
+          "CCACHE_COMPILERCHECK=string:$ToolsVersion" >> $env:GITHUB_ENV
+          $env:CCACHE_COMPILER = $Cl
+          & (Join-Path $Bin 'ccache.exe') --zero-stats
 
       - name: Solution bauen
         shell: pwsh
         run: |
           $Vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
           $MSBuild = & $Vswhere -latest -requires Microsoft.Component.MSBuild -find 'MSBuild\**\Bin\MSBuild.exe' | Select-Object -First 1
-          & $MSBuild DeadlyDaysCoop.sln /m /nologo /v:m "/p:Configuration=${{ matrix.configuration }};Platform=x64"
+          & $MSBuild DeadlyDaysCoop.sln /m /nologo /v:m `
+            "/p:Configuration=${{ matrix.configuration }};Platform=x64" `
+            "/p:DdcoopCompilerCache=true;CLToolPath=$env:CCACHE_BIN;CLToolExe=cl.exe" `
+            /p:UseMultiToolTask=true /p:EnforceProcessCountAcrossBuilds=true /p:TrackFileAccess=false
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Compiler-Cache Statistik
+        if: always()
+        shell: pwsh
+        run: '& "$env:CCACHE_BIN\ccache.exe" --show-stats'
 
       - name: C++-Tests
         run: .\bin\${{ matrix.configuration }}\CoreTests.exe
@@ -40,6 +97,12 @@ jobs:
 
       - name: Net-Tests (ohne Spiel und Steam)
         run: .\bin\${{ matrix.configuration }}\NetTests.exe
+
+  # Hängt nicht von Debug/Release ab, darum einmal und parallel zum Build.
+  scripts:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Python-Tests
         run: python -B -m unittest discover -s tests

@@ -724,7 +724,7 @@ void Transport::UpdateTotals()
 
 void Transport::Run()
 {
-    ULONGLONG NextTotals = GetTickCount64() + 500;
+    ULONGLONG NextTotals = GetTickCount64() + Options.TotalsIntervalMs;
     ULONGLONG NextLog = GetTickCount64() + Options.StatsIntervalMs;
     while (Active)
     {
@@ -783,7 +783,7 @@ void Transport::Run()
         const ULONGLONG Now = GetTickCount64();
         if (Now >= NextTotals)
         {
-            NextTotals = Now + 500;
+            NextTotals = Now + Options.TotalsIntervalMs;
             UpdateTotals();
         }
         if (Now >= NextLog)

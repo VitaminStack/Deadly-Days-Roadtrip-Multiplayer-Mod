@@ -170,6 +170,7 @@ TransportOptions SessionPorts(uint16_t Base)
     Options.ClientPort = static_cast<uint16_t>(Base + 1);
     Options.LoopbackPort = static_cast<uint16_t>(Base + 2);
     Options.StatsIntervalMs = 100;
+    Options.TotalsIntervalMs = 20;
     return Options;
 }
 

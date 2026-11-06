@@ -26,6 +26,14 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
+  <!-- Nur in der CI mit /p:DdcoopCompilerCache=true: ccache braucht Debug-Infos in der .obj (/Z7 statt /Zi) und einen
+       festen Namen je Objektdatei. Lokale Builds bleiben unverändert. -->
+  <ItemDefinitionGroup Condition="'$(DdcoopCompilerCache)' == 'true'">
+    <ClCompile>
+      <DebugInformationFormat>OldStyle</DebugInformationFormat>
+      <ObjectFileName>$(IntDir)%(Filename).obj</ObjectFileName>
+    </ClCompile>
+  </ItemDefinitionGroup>
   <!-- Statische Laufzeit, damit Mitspieler kein VC-Redistributable brauchen. -->
   <ItemDefinitionGroup Condition="'$(Configuration)' == 'Debug'">
     <ClCompile>
