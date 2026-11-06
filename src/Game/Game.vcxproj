@@ -47,6 +47,7 @@
     <ClCompile Include="AirdropAdapter.cpp" />
     <ClCompile Include="AirdropPatches.cpp" />
     <ClCompile Include="RewardPatches.cpp" />
+    <ClCompile Include="InventoryEdit.cpp" />
     <ClCompile Include="ExpPatches.cpp" />
     <ClCompile Include="ProjectilePatches.cpp" />
     <ClCompile Include="NetworkObjects.cpp" />
@@ -77,6 +78,8 @@
     <ClInclude Include="DesyncSnapshot.h" />
     <ClInclude Include="AirdropAdapter.h" />
     <ClInclude Include="RewardAdapter.h" />
+    <ClInclude Include="InventoryEditPlan.h" />
+    <ClInclude Include="InventoryEditRuntime.h" />
     <ClInclude Include="AirdropPolicy.h" />
     <ClInclude Include="ExpAdapter.h" />
     <ClInclude Include="NetworkObjects.h" />

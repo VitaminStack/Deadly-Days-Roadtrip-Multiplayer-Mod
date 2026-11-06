@@ -8,7 +8,8 @@
 #include "Sync/ControlDispatch.h"
 #include "Sync/Sync.h"
 
-// Airdrop-Auswahl: Host schickt das Sitzungsbild, Client wählt im Overlay, Host trägt die Wahl als Claim von P2 ein.
+// Airdrop-Auswahl: Host schickt das Sitzungsbild, der Client bearbeitet sein Inventar lokal und schickt beim Bestätigen einen
+// Edit, der Host übernimmt ihn oder lehnt ab (inventar-lokal).
 namespace Sync
 {
 namespace
@@ -19,13 +20,14 @@ struct
     // Host
     std::optional<Reward::Offer> Sent;
     uint64_t NextResend = 0;
+    uint64_t LastEdit = 0; // zuletzt beantworteter Edit
+    bool LastAccepted = false;
     // Client
     std::optional<Reward::Offer> Latest;
     uint64_t LatestAt = 0;
-    Reward::Choice Chosen;
-    uint64_t ChosenAt = 0;
     uint64_t NextShow = 0; // nach einem gescheiterten Öffnen des Panels erst später erneut
-    Reward::PlacementDelivery PlacementDelivery;
+    uint64_t EditSentId = 0, NextEditSend = 0;
+    uint64_t DoneSession = 0; // Sitzung, deren Wahl der Host übernommen hat
 } R;
 
 uint64_t NowMs()
@@ -67,23 +69,23 @@ void TickHost(Net::Transport& Transport, std::span<const Net::ControlMessage> Me
 {
     for (const auto& Message : Messages)
     {
-        if (Message.Peer != R.Peer)
+        if (Message.Peer != R.Peer || Message.Value.Type != Reward::EditType)
             continue;
-        if (Message.Value.Type == Reward::ChoiceType)
+        const auto Edit = Reward::DecodeEdit(Message.Value.Payload);
+        if (!Edit)
         {
-            if (const auto Choice = Reward::DecodeChoice(Message.Value.Payload))
-            {
-                if (!Game::Rewards::ClaimForClient(Choice->Session, Choice->Revision, Choice->Index))
-                    Core::Log::Warn("Airdrop-Auswahl: Wahl {} für Sitzung {} passt nicht mehr, verworfen", Choice->Index, Choice->Session);
-                R.NextResend = 0; // neues Bild sofort
-            }
+            Core::Log::Warn("Inventar lokal: Edit vom Client nicht lesbar ({} Byte)", Message.Value.Payload.size());
+            continue;
         }
-        else if (Message.Value.Type == Reward::PlacementType)
+        // Wiederholung: nur die Antwort erneut, nicht noch einmal übernehmen.
+        if (Edit->Id != R.LastEdit)
         {
-            if (const auto Value = Reward::DecodePlacement(Message.Value.Payload))
-                if (!Game::Rewards::PlaceForClient(Value->Session, {Value->Turns, Value->PivotX, Value->PivotY, Value->Slots}))
-                    Core::Log::Warn("Airdrop-Auswahl: Ablage für Sitzung {} nicht übernommen, Wahl bleibt im Lager", Value->Session);
+            R.LastAccepted = Game::Rewards::ApplyClientEdit(*Edit);
+            R.LastEdit = Edit->Id;
         }
+        if (!Send(Transport, Reward::ResultType, Reward::Encode(Reward::Result{Edit->Id, R.LastAccepted})))
+            Core::Log::Warn("Inventar lokal: Antwort zu Edit {} nicht gesendet", Edit->Id);
+        R.NextResend = 0; // neues Bild sofort
     }
     const auto Offer = ToWire(Game::Rewards::ReadOffer());
     const uint64_t Now = NowMs();
@@ -97,39 +99,35 @@ void TickHost(Net::Transport& Transport, std::span<const Net::ControlMessage> Me
         }
 }
 
-bool Send(Net::Transport& Transport, const Reward::Choice& Choice)
+// Client: offenen Edit senden, bis die Antwort kommt (jede Sekunde erneut, der Host übernimmt ihn nur einmal).
+void SendEdit(Net::Transport& Transport)
 {
-    if (!Send(Transport, Reward::ChoiceType, Reward::Encode(Choice)))
-        return false;
-    R.Chosen = Choice;
-    R.ChosenAt = NowMs(); // ohne Bestätigung im Bild nach 4 s wieder wählbar
-    return true;
-}
-
-void SendPlacement(Net::Transport& Transport)
-{
-    // Take ist destruktiv: erst nach erfolgreichem Senden der zugehörigen Wahl abholen.
-    // Die Game-Schicht bindet die Ablage zusätzlich an die bestätigte Sitzung.
-    R.PlacementDelivery.Flush(R.Chosen.Session,
-        [](uint64_t Session) -> std::optional<Reward::Placement>
-        {
-            if (const auto Placed = Game::Rewards::TakeClientPlacement(Session))
-                return Reward::Placement{Session, Placed->Turns, Placed->PivotX, Placed->PivotY, Placed->Slots};
-            return std::nullopt;
-        },
-        [&](const Reward::Placement& Value)
-        {
-            if (!Send(Transport, Reward::PlacementType, Reward::Encode(Value)))
-                return false;
-            Core::Log::Info("Airdrop-Auswahl: Ablage im Rucksack ({} Felder) an den Host gesendet", Value.Slots.size());
-            return true;
-        });
+    const auto Edit = Game::Rewards::PendingClientEdit();
+    if (!Edit)
+        return;
+    const uint64_t Now = NowMs();
+    if (Edit->Id == R.EditSentId && Now < R.NextEditSend)
+        return;
+    if (!Send(Transport, Reward::EditType, Reward::Encode(*Edit)))
+    {
+        Core::Log::Warn("Inventar lokal: Edit {} nicht gesendet, neuer Versuch", Edit->Id);
+        R.NextEditSend = Now + 250;
+        return;
+    }
+    if (Edit->Id != R.EditSentId)
+        Core::Log::Info("Inventar lokal: Edit {} an den Host gesendet ({} Items)", Edit->Id, Edit->Items.size());
+    R.EditSentId = Edit->Id;
+    R.NextEditSend = Now + 1000;
 }
 
 void TickClient(Net::Transport& Transport, std::span<const Net::ControlMessage> Messages)
 {
     for (const auto& Message : Messages)
-        if (Message.Peer == R.Peer && Message.Value.Type == Reward::OfferType)
+    {
+        if (Message.Peer != R.Peer)
+            continue;
+        if (Message.Value.Type == Reward::OfferType)
+        {
             if (auto Offer = Reward::DecodeOffer(Message.Value.Payload))
             {
                 if (Offer->Session && (!R.Latest || R.Latest->Session != Offer->Session))
@@ -137,27 +135,30 @@ void TickClient(Net::Transport& Transport, std::span<const Net::ControlMessage> 
                 R.Latest = std::move(*Offer);
                 R.LatestAt = NowMs();
             }
+        }
+        else if (Message.Value.Type == Reward::ResultType)
+            if (const auto Result = Reward::DecodeResult(Message.Value.Payload))
+            {
+                const auto Pending = Game::Rewards::PendingClientEdit();
+                if (!Pending || Pending->Id != Result->Id)
+                    continue;
+                Core::Log::Info("Inventar lokal: Host hat Edit {} {}", Result->Id, Result->Accepted ? "übernommen" : "abgelehnt");
+                if (Result->Accepted && Pending->Choice)
+                    R.DoneSession = Pending->Session;
+                Game::Rewards::ResolveClientEdit(Result->Id, Result->Accepted);
+            }
+    }
+    SendEdit(Transport); // auch nach dem Ende des Host-Panels
     // Ohne frisches Bild (Verbindung weg, Host ohne Mod-Sitzung) keine Auswahl anzeigen.
     if (!R.Latest || !R.Latest->Session || NowMs() - R.LatestAt > 5000)
     {
-        SendPlacement(Transport); // auch nach dem Ende des Host-Panels
         Game::Rewards::CloseForClient();
         return;
     }
     const auto& Offer = *R.Latest;
-    if (const auto Pick = Game::Rewards::TakeClientPick())
-    {
-        const Reward::Choice Choice{Offer.Session, Offer.Revision, static_cast<uint8_t>(*Pick)};
-        if (*Pick < Offer.Choices.size() && Send(Transport, Choice))
-            Core::Log::Info("Airdrop-Auswahl: Wahl {} ({}) an den Host gesendet", *Pick, Offer.Choices[*Pick].Name);
-        else
-            Core::Log::Warn("Airdrop-Auswahl: Wahl {} nicht gesendet, Panel öffnet erneut", *Pick);
-    }
-    SendPlacement(Transport); // Wahl (0x301) muss vor Ablage (0x302) beim Host ankommen.
-    const bool Sent = R.Chosen.Session == Offer.Session && R.Chosen.Revision == Offer.Revision && NowMs() - R.ChosenAt < 4000;
-    if (Offer.ClientClaimed)
+    if (Offer.ClientClaimed || Offer.Session == R.DoneSession)
         Game::Rewards::CloseForClient();
-    else if (!Sent)
+    else if (!Game::Rewards::PendingClientEdit())
     {
         std::vector<Game::Rewards::ChoiceItem> Items;
         for (const auto& Choice : Offer.Choices)
@@ -179,8 +180,9 @@ void TickReward(std::span<const Net::ControlMessage> Messages)
         R.Peer = Peer;
         R.Sent.reset();
         R.Latest.reset();
-        R.Chosen = {};
-        R.PlacementDelivery = {};
+        R.EditSentId = 0;
+        R.LastEdit = 0;
+        Game::Rewards::AbortClientEdit();
     }
     Game::Rewards::SetRemoteReady(Host && Peer);
     if (!Transport || !Peer)

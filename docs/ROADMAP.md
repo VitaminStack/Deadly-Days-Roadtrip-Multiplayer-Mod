@@ -18,6 +18,7 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 
 **Neue Befunde.**
 
+- `inventar-lokal`, 06.11.2026: Der Client bearbeitet sein Inventar in der Itemauswahl rein lokal (Ablegen, Drehen, Rucksackteile, neue Felder) und schickt beim Bestätigen einen Edit, den der Host ganz übernimmt oder ablehnt. Mit zwei Airdrops, Umsortieren und echtem Rundenende bis Tag 2 geprüft, Inventare gleich, kein Absturz. Erfüllt `ausruestung-felder` und `airdrop-rucksack-live`. [Befund](../src/Game/README.md#inventar-lokal-bearbeiten)
 - `inventar-transaktion`, 06.11.2026, Teilstand: Ein aufgesammelter Itemsack gibt jedem Spieler das Item, der Host vergibt Kopien, im Lager auf beiden Seiten gleich. Neu: `inventar-lokal` (Client bearbeitet sein Inventar lokal und bestätigt einmal beim Host) und `rundenende-client` (Client sieht Rundenübersicht und Lager, nur der Host wählt den Tag). [Befund](../src/Game/README.md#itemsack-für-alle-spieler)
 - `bus-ende`, 06.11.2026: Busabfahrt und `FinishMission` laufen nur noch beim Host, der Client folgt. Mit dem Bus bis Tag 2 geprüft, Desync-Melder OK. [Befund](GAME_ANALYSIS.md#busabfahrt-nur-beim-host-bus-ende)
 - Coop-Test 06.11.2026 (Lobby, ein PC, Godmode, Mensch spielt beide Figuren): kein Absturz, Airdrop-Auswahl des Clients auf beiden Seiten gleich. Neu: `bus-ende` (P0, nur der Client beendete die Runde, Sitzung danach kaputt), `ausruestung-felder` (P0), `ausweichen-client` (P1) und `opt-desync-pivot`.
