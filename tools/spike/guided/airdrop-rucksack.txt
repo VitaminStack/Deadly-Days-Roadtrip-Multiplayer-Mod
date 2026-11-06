@@ -1,8 +1,10 @@
-# Agent startet vorher die geschützte Mod-/Lobby-Sitzung mit Godmode; Antworten nur im Chat.
+# airdrop-rucksack-live: zwei Airdrops mit Umsortieren, Anzeige beim Client, gewählte Items wirken beim Client.
+# Agent startet vorher Start-Session.ps1 -Build -Mod -Godmode -Tunnel Lobby -Brief; Antworten nur im Chat.
 > Run-Route.ps1 -Days 1 -StayLast
-Mit dem Client einen Airdrop öffnen und ein Item in den Rucksack ziehen. Noch NICHT Bestätigen drücken. Kurz warten und im Chat melden, ob Item und Panel stabil bleiben | Das Panel bleibt offen; die Wahl wird nicht schon beim Drag-Beginn an den Host geschickt; kein Geister-Item
+Mit dem Client einen Airdrop öffnen und ein Item in den Rucksack ziehen. Noch NICHT Bestätigen drücken, kurz warten | Panel bleibt offen, nichts wird automatisch bestätigt, kein Geister-Item, nichts springt zurück
+Im Client Bestätigen drücken, danach beim Host wählen und bestätigen | Panel schließt beim Client; das Item bleibt im Rucksack; Log "Edit … übernommen"
 > Get-Status.ps1 -Inventory -Brief
-Im Client Bestätigen drücken, danach beim Host wählen und bestätigen. Das gewählte Client-Item im Kampf ausprobieren | Panel schließt; Ablage wird nach der Wahl zum Host gesendet; das Item bleibt im Rucksack und wirkt beim Client
-> Get-Status.ps1 -Inventory
-Einen weiteren Airdrop mit dem Client öffnen. Ein bestehendes Item umsortieren, dann ein neues Item auf ein freies Feld legen und beide Auswahlen bestätigen | Keine Geisterdarstellung und keine Ablehnung eines tatsächlich freien Felds; bestehendes und neues Item bleiben korrekt platziert
-> Get-Status.ps1 -Inventory
+Mit dem Client kämpfen und dabei das gewählte Item benutzen (Waffe angreifen bzw. Effekt sichtbar) | Das gewählte Item wirkt beim Client
+Zweiten Airdrop mit dem Client öffnen. Vor jeder Änderung prüfen: alle Items stehen wie vorher, nichts überlagert sich. Dann ein bestehendes Item umsortieren, ein neues Item auf ein freies Feld legen und beide bestätigen | Keine Überlagerung, keine Geister, kein Ablehnen eines freien Felds; altes und neues Item bleiben an ihrer Stelle
+> Get-Status.ps1 -Inventory -Brief
+Mit dem Client erneut kämpfen und das neue Item benutzen | Auch das zweite gewählte Item wirkt beim Client

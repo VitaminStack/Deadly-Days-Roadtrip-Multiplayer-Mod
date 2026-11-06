@@ -148,6 +148,7 @@ Aufgabe `airdrop-auswahl`, Ablauf in [Airdrop-Auswahl](GAME_ANALYSIS.md#airdrop-
 | `InventoryComponent::SetRewardItems` | `0x5979B30` | `(this, TArray*, Level)`, öffnet das Panel |
 | `InventoryPanel.HandleConfirmButton` | `0x5A6CB20` | liest `+0x7A0`, dann `+0x3E0`; bricht bei `IsDragging` (`+0x790`) ab; ruft `OpenNextReward` der Queue `+0x6B8` |
 | `InventoryPanel.SetupInventory` | `0x5A8BAB0` | liest `InventoryComponent` bei `+0x370`; positioniert aus `InventoryItemInstance.CachedBackpackLocalPosition` (`+0x150`, FVector2D, nicht repliziert) |
+| `DefaultFocusableButton.ParentPanel` | `+0x3A8` | Panel des Knopfs (UUserWidget); der Bestätigen-Knopf des Inventar-Panels heißt `MainButton`, gefärbt über `UserWidget.SetColorAndOpacity` (`bestaetigen-alle`) |
 | `InventoryPanel.SnapRepresentationToTile` | `0x5A92030` | richtet UI und Pixelpositions-Cache aus einem Pivot-Feld aus; reflektierte Parameter: ItemRepresentation `+0`, FIntVector2 `+8`, CanvasPanel `+0x10`, Größe `0x18` |
 | `InventoryItemInstance.SetZeroPivotTile` | `0x5979ED0` | schreibt ausschließlich `+0x28`; berechnet den Pixelpositions-Cache nicht neu |
 | `InventoryComponent::CreateItemInstance` | `0x5959700` | `(this, ItemData, FlagAsNew, Rarity)`, nativ; UFunction `BlueprintAuthorityOnly` |
@@ -257,6 +258,10 @@ Was die Mod nutzt, steht zusätzlich in `src/Game/Offsets.h` und wird dort beim 
 | `UAbstractPanel` | Parameter von `OnOpenStateChanged`: `bOpen` | `0x00` |
 | `APlayerController` | Player, AcknowledgedPawn, NetConnection | `0x348`, `0x350`, `0x520` |
 | `APlayerState` | PawnPrivate | `0x320` |
+| `ADDPlayerController` | LastMovementInput (`FVector2D`, Doubles, gelesen von `GetLastNormalizedMovementInput`; beim Host für Client-Controller jeden Frame (0, 0), `ausweichen-client`) | `0x910` |
+| `GA_Dash_C` | CachedCharacter, laufende `ApplyRootMotionConstantForce`-Aufgabe (erst nach dem Start gesetzt) | `0x3B0`, `0x400` |
+| `UAbilityTask_ApplyRootMotionConstantForce` | FinishVelocityMode, WorldDirection, Strength, Duration | `0x88`, `0xD0`, `0xE8`, `0xEC` |
+| `BP_DD_Character_C` | Attributset mit Ausdauer; darin MaxStamina, Stamina (`FGameplayAttributeData`, CurrentValue je `+0x0C`) | `0x7D8`; `0x30`, `0x50` |
 | `APlayerController` | CheatManager, CheatClass | `0x410`, `0x418` |
 | `UBossSpawnLookup` | BossSpawnInfos (je `0x68`: BossID `0x00`, IsEndBoss `0x08`, BossEnemyType `0x10`, SpawnPointClass `0x38`) | `0x28` |
 | `UEnemyType` | EnemyBlueprint (`TSoftClassPtr`) | `0x128` |

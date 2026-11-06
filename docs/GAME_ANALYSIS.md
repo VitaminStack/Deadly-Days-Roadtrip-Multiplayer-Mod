@@ -777,6 +777,39 @@ gleich. **Nicht geprüft:** zwei PCs, Blickrichtung gesondert (nur im Spielbild 
 replizierten Unterlage gleich absolut repliziert; dann übernähme die Glättung der Engine. Das braucht einen Eingriff in die Replikation
 des Characters und ist nicht umgesetzt.
 
+### Dodge des Clients beim Host (`ausweichen-client`)
+
+Stand 06.11.2026, Build `26187885`, ein PC, Mod über die Lobby, Netzprofil Internet (120 ms, 2 % Verlust), Tag 1. Gemessen mit
+lokalen, nur lesenden Testskripten und einem vorübergehenden Protokoll in der Mod, die Dodges hat ein Mensch ausgelöst.
+
+- **[Belegt] Symptom:** Ein kurzer Druck auf die Leertaste lief beim Client wie beim Host. Bei gehaltener Leertaste rutschte die Figur
+  weit wie auf Eis, und der Client konnte ohne Grenze ausweichen, obwohl jeder Spieler nur zwei Ladungen Ausdauer hat, die sich langsam
+  wieder füllen. Die Anzeige sprang kurz nach unten und sofort wieder voll.
+- **[Belegt] Ursache:** `GA_Dash_C` liest die Laufrichtung über `DDPlayerController.GetLastNormalizedMovementInput`
+  (`+0x910`). Die setzt nur die lokale Eingabe. Beim Host steht sie für den Controller des Clients immer auf (0, 0), sein eigener
+  Controller-Code überschreibt sie jeden Frame. Der Dodge bricht beim Host darum vor Kosten (`GE_DashCost`) und Schub ab. Beim Client
+  rollt die Vorhersage die Kosten zurück: unbegrenzte Ausdauer. Gehaltene Leertaste kettet vorhergesagte Dodges, deren
+  „Vorher“-Werte schon die Dodge-Werte (Reibung 0, Schwerkraft 20) sind, daher das Rutschen.
+- **[Belegt]** Beim Host sind Tempo und Beschleunigung der Client-Figur fast immer 0. Verlässlich ist nur ihr replizierter Ort.
+- **[Belegt]** Ein Dodge aus dem Stand bricht auch beim Host ab (Eingabe 0). Das ist das normale Verhalten und bleibt so.
+- **Gescheitert:** Die Laufrichtung jeden Frame in `+0x910` schreiben. Der Host überschrieb sie im selben Frame wieder mit (0, 0), der
+  Dodge des Clients brach weiter ab (Protokoll „activate … task=false input=(0.00,0.00)“).
+
+**In der Mod** (`src/Game/MovementPatches.cpp`, nur Host): Je Tick misst die Mod alle 50 ms die Ortsänderung jeder Figur, die ein
+Client steuert. Startet `GA_Dash_C.K2_ActivateAbility` für diese Figur, trägt der ProcessEvent-Hook direkt vorher die daraus
+geschätzte, normierte Laufrichtung in `+0x910` ein (Eingabe (X, Y) läuft in Weltrichtung (Y, X)). Das Tempo muss über 50 Einheiten
+je Sekunde liegen und gilt noch 200 ms, weil der Ort in Schüben ankommt. Danach führt der Host den Dodge nativ aus: Kosten, Schub, Ende.
+Die Ausdauer des Clients repliziert wie gewohnt, eine eigene Nachricht gibt es nicht. Die Figur der Fähigkeit erkennt die Mod am
+Outer der Instanz (Figur oder ihr PlayerState).
+
+Im Spiel danach: Protokoll beim Host 5 von 5 Client-Dodges mit Aufgabe und Richtung. Der Mensch bestätigt: Weite und Abbremsen wie
+beim Host, Ausdauer wird verbraucht und lädt nach, gehaltene Leertaste rutscht nicht mehr. **Nicht geprüft:** zwei PCs, mehr als
+ein Client.
+
+- **[Beobachtet] Nebenbei:** Der Tod einzelner Spieler funktioniert, die Runde endet erst, wenn alle Spieler tot sind.
+- **[Beobachtet] Nebenbei:** Dodgt der Client in einen Airdrop, stürzt er manchmal in `InventoryPanel.SetupInventory` ab
+  (`InventoryComponent` an `+0x370` leer), nicht reproduzierbar. Steht als `airdrop-dodge-absturz`.
+
 ### Client-Absturz im Restrictor (`tick-absturz`)
 
 Stand: Disassembly und Spieltest am 02.11.2026, Build `26187885`.
@@ -1255,8 +1288,37 @@ Stand 06.11.2026, Build `26187885`, ein PC, Mod mit Spike über die Lobby, Godmo
 - **[Belegt] Lauf:** Der Client meldete dreimal „Abfahrtsprüfung beim Client unterdrückt“, der Host beendete die Runde mit dem Bus.
   Host über Rundenübersicht, Lager und Routenkarte nach Tag 2 (Welt 3), der Client folgte in dieselbe Welt mit 2 Spielern.
   Desync-Melder danach zweimal OK, kein Absturz.
-- **Offen:** Der Client sieht Rundenübersicht und Lager nur als gesperrtes Banner des Phasenadapters. Eigene Panels beim Client sind die
-  Aufgabe `rundenende-client`.
+- **Nachtrag:** Rundenübersicht und Lager sieht der Client seit `rundenende-client` selbst, siehe
+  [Rundenübersicht und Lager beim Client](#rundenübersicht-und-lager-beim-client-rundenende-client).
+
+### Rundenübersicht und Lager beim Client (`rundenende-client`)
+
+Stand 06.11.2026, Build `26187885`, ein PC, Mod mit Spike über die Lobby, Godmode, Seed `20795`.
+
+- **Ablauf:** Was lokal bleibt: Rundenübersicht, Lager, Routenkarte und das Ordnen des eigenen Inventars, alles mit dem nativen
+  `FinishMission` des Clients. Geteilt wird nur, dass der Host die Runde beendet hat: `FinishMissionHook` merkt sich beim Host das
+  Ende der aktuellen Welt, der Kontrollkanal bringt es als `0x401` zum Client, siehe [Kontrollkanal](CONTROL_PROTOCOL.md#rundenende-rundenende-client).
+  Der Client ruft `FinishMission(false)` einmal selbst auf, vorbei an der Sperre aus `bus-ende`, nur wenn die Karten-Id zu seiner
+  übernommenen Karte passt (`ClientMayFollowRoundEnd`). Das Ziel wählt weiter nur der Host: `SeamlessTravelToLevel` reist beim
+  Client nicht mehr, außer ins Hauptmenü (`ClientMayStartTravel`). Die Inventaränderungen im Lager laufen über die nativen Server-RPCs,
+  der Host entscheidet, das Ergebnis repliziert. Code in `MapPatches.cpp`, `ClientPatches.cpp`, `TravelPatches.cpp`, `MapSync.cpp`.
+- **Spike:** Mit der Mod sperrt der Phasenadapter (`Mission.cpp`) den Client nur noch beim Warten auf den Host und während der Reise,
+  nicht mehr in Rundenübersicht, Lager und Routenkarte.
+- **[Belegt] Lauf:** Host-`!finish` an Tag 1. Der Client meldete 280 ms später „Client öffnet Rundenübersicht und Lager selbst“ und
+  zeigte „Ende der Runde“, nach „Fortsetzen“ sein Lager mit eigenem Inventar. Er legte seine Pistole ins Lager, bestätigte und stand
+  auf einer Routenkarte ohne wählbaren Knoten. Klicks auf Knotenposition und „Zurück“ lösten nichts aus. Danach Host über Lager und
+  Routenkarte nach Tag 2: beide in derselben Welt mit 2 Spielern, Karte vom Host übernommen, `Get-Status -Inventory` vollständig und
+  gleich, die Pistole des Clients auf beiden Seiten im Lager. Desync-Melder an Tag 2 dreimal OK, Uhr des Clients läuft, kein Absturz.
+- **[Belegt] Zwischenstand im Lager:** Solange der Client sein Lager offen hatte, meldeten Desync-Melder und `inventory.py` das Inventar
+  ungleich. Der Host hatte die Ablage übernommen (Pistole nicht mehr im Rucksack), beim Client stand sie noch mit lokalem Pivot im
+  Rucksack. Nach der Reise war es gleich. Das ist die lokale Anzeige des offenen Panels, wie bei der offenen Airdrop-Auswahl.
+- **[Belegt] Spielstand des Clients:** Das lokale `FinishMission` schreibt den Spielstand des Clients (`SaveSlot_DDR_0.sav` im
+  Test-`UserDir`, 3093 → 7867 Bytes zum selben Zeitpunkt) mit eigenem Run-Seed, Tag 0, `EndOfDay` und dem Inventar. Der Client hatte
+  den Spielstand schon beim Beitritt geschrieben. Ob dabei ein laufender eigener Run eines echten Spielstands verloren geht, ist nicht
+  geprüft (Vermutung: ja, der Run-Slot wird überschrieben). Das gehört zu `mod-saves` (Mod-Spielstände vom normalen trennen).
+- **Nicht geprüft:** Rundenende über den echten Bus (der Host ruft dort dasselbe `FinishMission`, siehe `bus-ende`), mehrere
+  Rundenenden hintereinander, Itemsäcke im Lager, ein Client, der den Host im Lager überholt. Die Reisesperre des Clients griff im Lauf
+  nicht, weil seine Routenkarte keinen Knoten anbot; sie ist nur in Tests belegt.
 
 ### Rundenende: Befund und offene Phasenübertragung (`rundenende`)
 

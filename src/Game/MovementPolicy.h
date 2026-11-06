@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cmath>
 #include <cstdint>
 
 // Reine Regeln der Bewegungs-Reparaturen beim Client, ohne Spielzugriff, damit tests/GameTests sie prüfen kann. Befund:
@@ -52,6 +53,41 @@ constexpr double FollowShare(uint64_t ElapsedMs)
 constexpr double ExtrapolationSeconds(uint64_t SinceUpdateMs)
 {
     return (SinceUpdateMs > 150 ? 150 : SinceUpdateMs) / 1000.0;
+}
+
+// Host: GA_Dash liest die Laufrichtung über DDPlayerController.GetLastNormalizedMovementInput. Die setzt nur die lokale
+// Eingabe, beim Controller des Clients bleibt sie (0, 0), und der Dodge bricht beim Host vor Kosten und Schub ab. Die
+// Mod schätzt sie aus der Bewegung, die der Client ohnehin schickt. Tempo und Beschleunigung der Figur sind beim Host
+// fast immer 0, verlässlich ist nur ihr Ort: Aus der Ortsänderung je RemoteSampleMs entsteht das Tempo. Ort kommt in
+// Schüben an, darum gilt das letzte Tempo über einer Mindestgeschwindigkeit noch RemoteMoveHoldMs lang.
+struct PlanarDirection
+{
+    double X = 0, Y = 0;
+};
+
+inline constexpr uint64_t RemoteSampleMs = 50;
+inline constexpr uint64_t RemoteMoveHoldMs = 200;
+inline constexpr double RemoteInputMinSpeed = 50.0;
+
+// Tempo aus zwei Orten, in Einheiten je Sekunde.
+constexpr PlanarDirection PlanarVelocity(PlanarDirection From, PlanarDirection To, uint64_t ElapsedMs)
+{
+    return ElapsedMs ? PlanarDirection{(To.X - From.X) * 1000.0 / ElapsedMs, (To.Y - From.Y) * 1000.0 / ElapsedMs} : PlanarDirection{};
+}
+
+inline bool PlanarMoving(PlanarDirection Velocity)
+{
+    return Velocity.X * Velocity.X + Velocity.Y * Velocity.Y > RemoteInputMinSpeed * RemoteInputMinSpeed;
+}
+
+// Eingabe des Clients als normierter Vektor aus dem letzten Tempo, das schnell genug war. Gemessen: Eingabe (X, Y) läuft
+// in Weltrichtung (Y, X). Steht die Figur länger, ist die Eingabe (0, 0) wie beim Client.
+inline PlanarDirection RemoteMovementInput(PlanarDirection LastMoving, uint64_t SinceLastMovingMs)
+{
+    if (SinceLastMovingMs > RemoteMoveHoldMs || !PlanarMoving(LastMoving))
+        return {};
+    const double Length = std::sqrt(LastMoving.X * LastMoving.X + LastMoving.Y * LastMoving.Y);
+    return {LastMoving.Y / Length, LastMoving.X / Length};
 }
 
 constexpr uint8_t PackedMovementMode(uint8_t Packed)

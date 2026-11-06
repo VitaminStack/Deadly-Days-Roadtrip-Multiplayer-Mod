@@ -159,6 +159,27 @@ ohne Rucksack, Belohnung ohne Wahl), die Wahl nicht zur offenen Sitzung passt, e
 `0x304` Antwort, Host an Client, genau 9 Bytes: Kennung (8), übernommen (1, 0 oder 1). Kommt eine Kennung erneut, schickt der Host
 nur die Antwort noch einmal.
 
+## Alle bestätigen (Mod-Kompatibilität 5)
+
+Aufgabe `bestaetigen-alle`. Mod-Version 5, weil der Host ab dann mit dem Schließen der Auswahl wartet, bis der Client bereit ist;
+ein Client mit Version 4 meldet das nie und würde die Auswahl blockieren. Bestätigen markiert einen Spieler nur als bereit (Knopf
+gelb, weitere Klicks ändern nichts). Erst wenn der Host bereit ist und das Bereit des Clients hat, löst der Client sein
+natives Bestätigen aus und schickt den Edit (`0x303`), danach schließt der Host sein Panel.
+
+`0x300` bekommt Bit 3 im Flag-Byte (Offset 20): der Host hat das Bereit des Clients für genau diese Revision. Bit 2 „Host wartet“
+heißt jetzt zugleich „Host ist bereit“.
+
+`0x305` Bereit, Client an Host, genau 17 Bytes: Sitzung (8, ungleich 0), Revision (8), bereit (1, 0 oder 1). Der Client schickt es bei
+jeder Änderung und alle 500 ms erneut, bis das Sitzungsbild den Stand zeigt. Der Host nimmt es nur für die offene Sitzung an, solange
+der Client noch nicht gewählt hat; eine neue Revision (Reroll) braucht ein neues Bereit.
+## Rundenende (`rundenende-client`)
+
+`0x401` Host an Client, neben der Karte `0x400` aus `missionsstart` (`src/Sync/World`). Genau 16 Bytes: Karten-Id der Mission
+(`HostMap::Id`, 8) und Id des Rundenendes (8), beide zufällig und ungleich 0. Zweimal 0 heißt kein Rundenende. Der Host schickt die
+Nachricht bei jeder Änderung und sonst jede Sekunde, bis er die Welt verlässt. Der Client beendet seine Runde nur, wenn die Karten-Id zu
+der Karte passt, die er in dieser Welt vom Host übernommen hat, und jede Id nur einmal. Ohne Mod-Versionswechsel: Eine ältere Gegenseite
+kennt `0x401` nicht, dann bleibt der Client wie bisher in der Mission und folgt der Reise.
+
 ## Bisher geprüft (05.11.2026, Kontrollkanal vor Diagnoseerweiterung)
 
 - Build und alle Tests bestanden, darunter 24 Net-Testfälle: binäre UE-Pakete in

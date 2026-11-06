@@ -5,6 +5,7 @@
 #include "Core/Hooks.h"
 #include "Core/Log.h"
 #include "Game/Memory.h"
+#include "Game/Offsets.h"
 #include "Game/PatchPolicy.h"
 #include "Game/PatchRuntime.h"
 
@@ -84,14 +85,20 @@ using FinishMissionFn = void(__fastcall*)(uintptr_t, bool);
 FinishMissionFn OriginalFinishMission = nullptr;
 std::atomic<int> FinishMissionSkipped = 0;
 
-// DDMissionGameState.FinishMission(IsLoading). Zweite Sperre für jeden anderen lokalen Weg zum Rundenende beim Client.
+bool FollowingHost = false; // nur Game Thread
+
+// DDMissionGameState.FinishMission(IsLoading). Zweite Sperre für jeden anderen lokalen Weg zum Rundenende beim Client. Der
+// Host meldet sein Rundenende dem Client, der es dann mit FollowHostRoundEnd lokal nachzieht (rundenende-client).
 void __fastcall FinishMissionHook(uintptr_t GameState, bool IsLoading)
 {
-    if (!MissionFinishAllowed(CurrentRole() == NetRole::Client, IsLoading))
+    const NetRole Role = CurrentRole();
+    if (!MissionFinishAllowed(Role == NetRole::Client, IsLoading || FollowingHost))
     {
         NoteOnce(FinishMissionSkipped, "Rundenende: FinishMission beim Client unterdrückt, der Host entscheidet");
         return;
     }
+    if (Role == NetRole::Host && !IsLoading)
+        NoteHostRoundEnd();
     OriginalFinishMission(GameState, IsLoading);
 }
 
@@ -365,5 +372,17 @@ const Patch List[] = {
 std::span<const Patch> ClientPatches()
 {
     return List;
+}
+
+bool FollowHostRoundEnd()
+{
+    const uintptr_t World = CurrentWorld();
+    const uintptr_t GameState = World ? Memory::ReadPointer(World + Offsets::UWorld::GameState).value_or(0) : 0;
+    if (!OriginalFinishMission || !GameState || !IsA(GameState, "DDMissionGameState"))
+        return false;
+    FollowingHost = true;
+    OriginalFinishMission(GameState, false);
+    FollowingHost = false;
+    return true;
 }
 }

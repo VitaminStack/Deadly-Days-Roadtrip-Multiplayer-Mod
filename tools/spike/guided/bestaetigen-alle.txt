@@ -1,0 +1,9 @@
+# bestaetigen-alle: Bestätigen markiert nur bereit (Knopf gelb), erst wenn alle bereit sind, geht es weiter.
+# Agent startet vorher Start-Session.ps1 -Build -Mod -Godmode -Tunnel Lobby -Brief; Antworten nur im Chat.
+> Run-Route.ps1 -Days 1 -StayLast
+Airdrop öffnen. Beim Client ein Item wählen und Bestätigen drücken | Client-Panel bleibt offen, Knopf leuchtet gelb, Spiel bleibt pausiert
+Beim Client erneut Bestätigen drücken | Nichts ändert sich, Knopf bleibt gelb, Panel bleibt offen
+Beim Host ein Item wählen und Bestätigen drücken | Host-Knopf kurz gelb, dann schließen beide Panels, Spiel läuft weiter; gewähltes Item liegt beim Client im Rucksack
+> Get-Status.ps1 -Inventory -Brief
+Nächsten Airdrop öffnen, diesmal zuerst beim Host wählen und bestätigen, kurz warten, dann beim Client wählen und bestätigen | Host-Knopf gelb, Host-Panel bleibt offen bis der Client bestätigt; danach schließen beide und das Spiel läuft weiter
+> Get-Status.ps1 -Inventory -Brief

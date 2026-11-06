@@ -107,6 +107,12 @@ void ClearTimeRequests(uintptr_t LoadingSubsystem)
 void __fastcall SeamlessTravelHook(uintptr_t Subsystem, uintptr_t Settings)
 {
     const std::string Package = Memory::NameFromIndex(Memory::Read<int32_t>(Settings + LoadSettingsPackage).value_or(-1));
+    if (!ClientMayStartTravel(CurrentRole() == NetRole::Client, Package))
+    {
+        // Etwa ein Klick auf die eigene Routenkarte nach dem Rundenende. Der Host wählt den Tag (rundenende-client).
+        Core::Log::Info("Reise: Client wollte selbst nach {} reisen, unterdrückt, der Host wählt", Package);
+        return;
+    }
     if (!ShouldRedirectTravel(CurrentRole(), Package))
     {
         OriginalSeamlessTravel(Subsystem, Settings);
