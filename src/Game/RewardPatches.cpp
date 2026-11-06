@@ -86,6 +86,8 @@ struct
     int32_t Level = 0;
     std::optional<uint32_t> ClientPick;
     uintptr_t HeldPanel = 0;
+    bool ClientReady = false; // Client hat Bestätigen gedrückt (bestaetigen-alle), für ReadyRevision
+    uint64_t ReadyRevision = 0;
     int ReplayCount = 0;        // Versuche, das zurückgehaltene Bestätigen nachzuholen
     ULONGLONG NextReplay = 0;
 } Host;
@@ -96,6 +98,8 @@ struct
     uint64_t Session = 0, Revision = 0;
     uintptr_t Inventory = 0;
     std::vector<uintptr_t> Items;
+    uintptr_t Panel = 0; // Panel, in dem der Client Bestätigen gedrückt hat
+    bool Ready = false;  // Bestätigen gedrückt, wartet auf alle (bestaetigen-alle)
 } Shown;
 // Client: gesendeter Edit bis zur Antwort des Hosts.
 std::optional<Game::InventoryEdit::Edit> ClientPending;
@@ -103,6 +107,8 @@ constexpr uintptr_t ItemPivotTile = 0x28;
 constexpr uint32_t FuncNet = 0x40;
 constexpr uintptr_t FunctionFlags = 0xB0;
 constexpr uintptr_t PanelIsDragging = 0x790;
+// UDefaultFocusableButton.ParentPanel; der Bestätigen-Knopf des Inventar-Panels heißt im Widget-Baum MainButton.
+constexpr uintptr_t ButtonParentPanel = 0x3A8;
 
 bool Alive(uintptr_t Object)
 {
@@ -258,10 +264,69 @@ std::vector<std::pair<uintptr_t, uintptr_t>> ResolveChoices(const std::vector<Ga
     return Result;
 }
 
+// Bestätigen-Knopf eines Inventar-Panels: DefaultFocusableButton mit diesem ParentPanel, Name MainButton. Nur beim Klick
+// gesucht, ein Durchlauf über das Objekt-Array. Fehlt er, stehen die Knöpfe des Panels einmal im Log.
+uintptr_t ConfirmButtonOf(uintptr_t Panel)
+{
+    static uintptr_t CachedPanel = 0, CachedButton = 0;
+    if (Panel == CachedPanel && Alive(CachedButton) && Pointer(CachedButton + ButtonParentPanel) == Panel)
+        return CachedButton;
+    CachedPanel = Panel;
+    CachedButton = 0;
+    std::string Others;
+    const int32_t Total = Objects::Count();
+    for (int32_t i = 0; i < Total; ++i)
+    {
+        const uintptr_t Object = Objects::At(i);
+        if (!Object || Pointer(Object + ButtonParentPanel) != Panel || !Alive(Object) || !Objects::IsA(Object, "DefaultFocusableButton"))
+            continue;
+        const std::string Name = Memory::NameOf(Object);
+        // Im Spieltest 06.11.2026 hatte das Panel genau einen MainButton; ConfirmButton gehört zum Rezept-Panel.
+        if (Name == "MainButton")
+        {
+            Core::Log::Info("Bestätigen: Knopf {} im Panel gefunden ({})", Name, Memory::NameOf(Pointer(Object + Offsets::UObject::Outer)));
+            return CachedButton = Object;
+        }
+        Others += Others.empty() ? Name : ", " + Name;
+    }
+    static bool Logged = false;
+    if (!std::exchange(Logged, true))
+        Core::Log::Warn("Bestätigen: Knopf MainButton im Panel nicht gefunden, Knöpfe: {}", Others.empty() ? "keine" : Others);
+    return 0;
+}
+
+uintptr_t Tinted = 0; // gelb gefärbter Knopf
+
+// Knopf gelb (bereit) oder wieder normal, über UUserWidget.SetColorAndOpacity. Die Farbe ist rein lokal.
+void SetReadyTint(uintptr_t Panel, bool Ready)
+{
+    static uintptr_t SetColor = 0;
+    const uintptr_t Button = Ready ? ConfirmButtonOf(Panel) : Tinted;
+    if (!Alive(Button) || !Function(SetColor, "SetColorAndOpacity", "UserWidget"))
+    {
+        if (!Ready)
+            Tinted = 0;
+        return;
+    }
+    struct
+    {
+        float R, G, B, A;
+    } Color = Ready ? decltype(Color){1.0f, 0.82f, 0.1f, 1.0f} : decltype(Color){1.0f, 1.0f, 1.0f, 1.0f};
+    Objects::ProcessEvent(Button, SetColor, &Color);
+    Tinted = Ready ? Button : 0;
+}
+
+void ClearReadyTint()
+{
+    if (Tinted)
+        SetReadyTint(0, false);
+}
+
 void EndHostSession(const char* Why)
 {
     if (!Host.Active)
         return;
+    ClearReadyTint();
     if (!Host.ClientPick && RemoteReady.load())
         Core::Log::Warn("Airdrop-Auswahl: Sitzung {} endet ohne Wahl des Clients ({})", Host.Session, Why);
     else
@@ -323,15 +388,31 @@ bool ClientConfirm(uintptr_t Panel)
     return true;
 }
 
+// bestaetigen-alle: Bestätigen schließt das Panel nicht sofort, sondern markiert den Spieler als bereit (Knopf gelb). Weitere
+// Klicks ändern nichts; ein Zurücknehmen hob im Spieltest das Bereit wieder auf, wenn der andere gerade bestätigte. Erst wenn
+// Host und Client bereit sind, löst der Client sein natives Bestätigen aus und schickt den Edit; danach holt der Host sein
+// Bestätigen nach (Tick).
 void __fastcall ConfirmHook(uintptr_t Panel)
 {
+    if (CurrentRole() == NetRole::Client && !Shown.Items.empty() && !ClientPending && Game::InventoryEdit::ClientEditing())
+    {
+        if (Shown.Ready || Memory::Read<uint8_t>(Panel + PanelIsDragging).value_or(1))
+            return; // schon bereit; im Drag nativ auch ohne Wirkung
+        Shown.Ready = true;
+        Shown.Panel = Panel;
+        SetReadyTint(Panel, true);
+        Core::Log::Info("Bestätigen: Client bereit, wartet auf alle (Sitzung {})", Shown.Session);
+        return;
+    }
     if (CurrentRole() == NetRole::Client && ClientConfirm(Panel))
         return;
     if (CurrentRole() == NetRole::Host && Host.Active && !Host.ClientPick && RemoteReady.load())
     {
-        if (Host.HeldPanel != Panel)
-            Core::Log::Info("Airdrop-Auswahl: Host hat bestätigt, wartet auf die Wahl des Clients");
+        if (Host.HeldPanel == Panel || Memory::Read<uint8_t>(Panel + PanelIsDragging).value_or(1))
+            return;
+        Core::Log::Info("Bestätigen: Host bereit, wartet auf den Client (bereit={})", Host.ClientReady);
         Host.HeldPanel = Panel;
+        SetReadyTint(Panel, true);
         return;
     }
     OriginalConfirm(Panel);
@@ -544,7 +625,18 @@ std::optional<Offer> ReadOffer()
     Result.ClientClaimed = Host.ClientPick.has_value();
     Result.HostClaimed = false;
     Result.HostWaiting = Host.HeldPanel != 0;
+    Result.ClientReady = Host.ClientReady && Host.ReadyRevision == Result.Revision;
     return Result;
+}
+
+void SetClientReady(uint64_t Session, uint64_t Expected, bool Ready)
+{
+    if (CurrentRole() != NetRole::Host || !Host.Active || Session != Host.Session || Host.ClientPick)
+        return;
+    if (Host.ClientReady != Ready || Host.ReadyRevision != Expected)
+        Core::Log::Info("Bestätigen: Client {} (Sitzung {}, Host bereit={})", Ready ? "bereit" : "nicht mehr bereit", Session, Host.HeldPanel != 0);
+    Host.ClientReady = Ready;
+    Host.ReadyRevision = Expected;
 }
 
 // Host: Wahl des Clients in sein Inventar legen (CreateAndAddItem), das Item repliziert. 0, wenn sie nicht passt.
@@ -783,11 +875,43 @@ bool ShowForClient(uint64_t SessionId, uint64_t Expected, int32_t Level, const s
 
 void CloseForClient()
 {
+    ClearReadyTint();
     if (!Shown.Items.empty())
         Core::Log::Info("Airdrop-Auswahl: Panel beim Client geschlossen, Sitzung {}", Shown.Session);
     if (Game::InventoryEdit::ClientEditing())
         Game::InventoryEdit::RevertClient("Auswahl geschlossen");
     Shown = {};
+}
+
+std::optional<ReadyState> ClientReadyState()
+{
+    if (CurrentRole() != NetRole::Client || Shown.Items.empty() || ClientPending)
+        return std::nullopt;
+    return ReadyState{Shown.Session, Shown.Revision, Shown.Ready};
+}
+
+void FinishClientIfAllReady(bool AllReady)
+{
+    if (CurrentRole() != NetRole::Client || !AllReady || !Shown.Ready || ClientPending || Shown.Items.empty())
+        return;
+    const uintptr_t Panel = Shown.Panel;
+    if (!Alive(Panel) || !Objects::IsA(Panel, "InventoryPanel"))
+    {
+        Core::Log::Warn("Bestätigen: Panel des Clients weg, Bereit zurückgenommen");
+        Shown.Ready = false;
+        Tinted = 0;
+        return;
+    }
+    if (Memory::Read<uint8_t>(Panel + PanelIsDragging).value_or(1))
+        return; // nach dem Drag erneut
+    Core::Log::Info("Bestätigen: alle bereit, Client bestätigt (Sitzung {})", Shown.Session);
+    SetReadyTint(Panel, false);
+    ClientConfirm(Panel);
+    if (!ClientPending && !Shown.Items.empty())
+    {
+        Shown.Ready = false; // ohne Wahl bleibt das Panel offen
+        Core::Log::Info("Bestätigen: Client ohne Wahl, Bereit zurückgenommen");
+    }
 }
 
 std::optional<Game::InventoryEdit::Edit> PendingClientEdit()

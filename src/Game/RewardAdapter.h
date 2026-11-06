@@ -31,7 +31,26 @@ struct Offer
     bool HostClaimed = false;
     // Der Host hat bestätigt, die Mod hält sein Bestätigen bis zur Wahl des Clients zurück.
     bool HostWaiting = false;
+    // Der Client hat für diese Revision Bestätigen gedrückt (bestaetigen-alle).
+    bool ClientReady = false;
 };
+
+// Bereit-Stand des Clients für eine angezeigte Auswahl (bestaetigen-alle).
+struct ReadyState
+{
+    uint64_t Session = 0, Revision = 0;
+    bool Ready = false;
+};
+
+// Host: Bereit des Clients übernehmen. Ohne Wirkung, wenn die Sitzung nicht offen ist.
+void SetClientReady(uint64_t Session, uint64_t Revision, bool Ready);
+
+// Client: Bereit-Stand der angezeigten Auswahl, nullopt ohne Auswahl oder nach dem Bestätigen.
+std::optional<ReadyState> ClientReadyState();
+
+// Client: Haben alle bestätigt (Host wartet und hat das Bereit des Clients), löst die Mod das native Bestätigen aus. Der Edit
+// geht danach wie bisher an den Host. Fehlt die Wahl, nimmt sie das Bereit zurück.
+void FinishClientIfAllReady(bool AllReady);
 
 // Host: Ein Client mit der Mod ist über den Kontrollkanal verbunden. Nur dann setzt die Mod beim Öffnen einer Kiste
 // den Koop-Modus. Sonst bleibt alles wie ohne Mod.

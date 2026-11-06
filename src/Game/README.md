@@ -207,8 +207,30 @@ Stand im Code:
   lokal (`ClientConfirm`), das Spiel läuft weiter, sobald der Host bestätigt. Es gibt keine gelbe Markierung und keine Anzeige, wer schon
   bestätigt hat. Der Client sieht nach seinem Bestätigen nur das pausierte Spiel.
 - **Nur ein Client:** `RemoteReady`, `Host.ClientPick` und `ClientPending` gibt es je einmal, gewartet wird nur auf P2.
-- **Rundenende, fehlt:** Der Client sieht Rundenübersicht und Lager noch nicht, das baut `rundenende-client`. Das native
-  „Bestätigen & Wechseln“ des Koop-Modus wartet zwar auf P2, hängt aber mit dem Remote-Spieler, darum bleibt der Koop-Modus aus.
+- **Rundenende, fehlt:** Zum Zeitpunkt der Prüfung sah der Client Rundenübersicht und Lager noch nicht; das liefert inzwischen
+  `rundenende-client`, das gemeinsame Bestätigen dort folgt als `bestaetigen-rundenende`. Das native „Bestätigen & Wechseln“ des
+  Koop-Modus wartet zwar auf P2, hängt aber mit dem Remote-Spieler, darum bleibt der Koop-Modus aus.
+
+**Alle bestätigen (`bestaetigen-alle`, 06.11.2026).** Ersetzt beim Airdrop das sofortige Schließen. Format in
+[Kontrollkanal](../../docs/CONTROL_PROTOCOL.md#alle-bestätigen-mod-kompatibilität-5), Mod-Version 5.
+
+- **Lokal:** Bestätigen markiert den Spieler nur als bereit. `ConfirmHook` ruft das native `HandleConfirmButton` nicht auf, färbt den
+  Bestätigen-Knopf (`MainButton`, ein `DefaultFocusableButton` mit `ParentPanel` `+0x3A8` = Panel) über `UserWidget.SetColorAndOpacity`
+  gelb, das Panel bleibt offen und bedienbar. Weitere Klicks ändern nichts. Ein Zurücknehmen per zweitem Klick gab es im ersten
+  Lauf; ohne sichtbare Färbung klickte der Host erneut und hob sein Bereit auf, während der Client gerade bestätigte. Darum entfernt.
+- **Geteilt:** Nur das Bereit des Clients (`0x305`, Sitzung und Revision) und dessen Echo im Sitzungsbild (Bit 3). Das Bereit des
+  Hosts ist das vorhandene „Host wartet“ (Bit 2).
+- **Entscheidet:** Der Host. Erst wenn das Sitzungsbild „Host wartet“ und das eigene Bereit zeigt, löst der Client sein natives
+  Bestätigen aus und schickt den Edit (`inventar-lokal`). Nach der Übernahme holt der Host sein zurückgehaltenes Bestätigen nach
+  (`airdrop-warten`), beide Panels schließen, das Spiel läuft weiter. Ohne Mod beim Client bleibt alles wie im Solo-Spiel.
+- **Abbruch:** Eine neue Revision (Reroll) braucht ein neues Bereit; fehlt beim Auslösen die Wahl, nimmt der Client sein Bereit zurück.
+  Schließt die Sitzung, setzt die Mod die Farbe zurück.
+
+**Geprüft** (06.11.2026, Build `26187885`, ein PC, Lobby, Godmode, `tools/spike/guided/bestaetigen-alle.txt`): Zwei Airdrops, einmal
+Host zuerst, einmal Client zuerst. Beide Knöpfe gelb, das Spiel blieb pausiert, bis beide bestätigt hatten, danach schlossen beide
+Panels ohne weiteren Klick (`Bestätigen des Hosts nachgeholt (Versuch 1)`), Edits übernommen, darunter einer mit 3 neuen Feldern. Der
+Nutzer bestätigte den Ablauf. Nicht geprüft: Reroll während eines Bereit, mehr als ein Client (es gibt nur P2). Das Rundenende mit
+Lager folgt als `bestaetigen-rundenende`, sobald `rundenende-client` dem Client das Lager zeigt.
 
 **Verworfen:** Zuerst nutzte die Mod die native Koop-Reward-Sitzung (Koop-Modus nur für den Airdrop, Client wählt im Overlay, Host ruft
 `ClaimReward(1, …)`). Das Host-Panel zeigte beide Rucksäcke, nach dem Claim des Clients ging die UI-Autorität an P1 und der Host hing.

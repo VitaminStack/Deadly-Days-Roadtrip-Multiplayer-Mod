@@ -37,7 +37,7 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `lobby-auth-live` | P0 | [3](#phase-3--session-und-verbindung) | zu zweit | wenig |
 | `lobby-live` | P0 | [3](#phase-3--session-und-verbindung) | zu zweit | wenig |
 | `gegnertyp` | P0 | [4](#phase-4--vertical-slice) | parallel | mittel |
-| `bestaetigen-alle` | P0 | [5](#phase-5--vollständiger-run) | parallel | mittel |
+| `bestaetigen-rundenende` | P0 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `tank-gemeinsam` | P0 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `mod-saves` | P0 | [6](#phase-6--release) | parallel | mittel |
 | `eingaben` | P1 | [4](#phase-4--vertical-slice) | parallel | mittel |
@@ -156,7 +156,7 @@ Ziel: Ein kompletter Run ist zu zweit online spielbar.
 |---|---|---|---|---|---|
 | `gegner-alle` | P0 | Alle Gegner, Bosse und Boss-Phasen. Ordner `src/Sync/Enemies` | `integration-g2` | parallel | viel |
 | `fortschritt` | P0 | Loot, XP, Level-ups, Fähigkeiten und Status-Effekte (GAS). Ordner `src/Sync/Combat` | `integration-g2`, `protokoll` | parallel | viel |
-| `bestaetigen-alle` | P0 | Nutzervorgabe 06.11.2026: Bei jeder Itemauswahl (Airdrop, später Rundenende mit Lager) drücken alle Spieler Bestätigen, ihr Knopf leuchtet danach gelb; erst wenn alle samt Host bestätigt haben, setzt der Host das Spiel bzw. die nächste Runde fort. Bisher wartet beim Airdrop nur der Host auf den Client, das Panel des Clients schließt sofort, es gibt keine Anzeige, siehe [Bestätigen-Logik](src/Game/README.md#airdrop-auswahl). Das Rundenende folgt, sobald `rundenende-client` dem Client das Lager zeigt. **Fertig, wenn** beim Airdrop beide Panels bis zum Bestätigen aller offen bleiben, der Knopf eines Bestätigten gelb ist und das Spiel erst danach weiterläuft. Ordner `src/Game/RewardPatches.cpp`, `src/Sync/Inventory/RewardSync.cpp` | `airdrop-warten` | parallel | mittel |
+| `bestaetigen-rundenende` | P0 | Rest aus `bestaetigen-alle`: Am Rundenende mit Rundenübersicht und Lager soll wie beim Airdrop jeder Spieler Bestätigen drücken (Knopf gelb), erst wenn alle samt Host bestätigt haben, wählt der Host den nächsten Tag. Den Airdrop-Teil (`0x305`, `MainButton` gelb, Host holt sein Bestätigen nach) wiederverwenden, siehe [Alle bestätigen](src/Game/README.md#airdrop-auswahl). **Fertig, wenn** der Client nach der Busflucht im Lager bestätigt, sein Knopf gelb ist und der Host erst danach weiterkommt. Ordner `src/Game`, `src/Sync/Inventory` | `rundenende-client` | parallel | mittel |
 | `xp-baelle-live` | P1 | Rest aus `xp-baelle`: Die Sichtgrenzen der XP-Bälle kommen beim Client jetzt aus der lokalen Kamera (`ExpPatches.cpp`), weil ihm der GameMode fehlt. Die sichtbare Gegenprobe im Spiel fehlt noch. **Fertig, wenn** der Client dieselben Bälle auch am Bildschirmrand sieht, sie beim Aufsammeln verschwinden und XP nicht doppelt zählen. Ordner `src/Game`. **Einstieg:** [XP-Bälle](docs/GAME_ANALYSIS.md#xp-bälle-beim-client-xp-baelle) | `protokoll` | parallel | wenig |
 | `inventar-sync` | P0 | Rucksack, Stash, Werkbank, Reward-Queue (`CoopInventoryCoordinator`). Ordner `src/Sync/Inventory` | `integration-g2`, `protokoll`, `guidcache` | parallel | viel |
 | `inventar-ui` | P0 | Inventar-UI beim Remote-Spieler. Ordner `src/Sync/Inventory`, `src/UI` | `inventar-sync` | parallel | mittel |
@@ -235,6 +235,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `airdrop-warten` | 5 | Bestätigt der Host zuerst, steht das Spiel für beide bis zur Wahl des Clients (im Speicher gemessen); das nachgeholte Bestätigen wartet einen Drag ab und wird wiederholt, kein zweiter Klick, siehe [Airdrop-Auswahl](docs/GAME_ANALYSIS.md#airdrop-auswahl-für-beide-spieler-airdrop-auswahl) |
 | `andockpunkte` | 1 | VERSION-Proxy, drei Live-Signaturen und ProcessEvent-Hook auf Host und Client erprobt, siehe [Andockpunkte](docs/ARCHITECTURE.md#technische-andockpunkte-build-26187885) |
 | `ausruestung-felder` | 5 | Neue Ausrüstungsfelder des Clients erscheinen sofort: Der Client löst nach lokaler Feldanlage und Zurückrollen OnRep_Slots selbst aus, Host-Übernahme mit 3 neuen Feldern geprüft, Inventare gleich ([Befund](src/Game/README.md#inventar-lokal-bearbeiten)) |
+| `bestaetigen-alle` | 5 | Bestätigen beim Airdrop markiert bereit (Knopf gelb), weiter erst wenn Host und Client bereit sind, in beiden Reihenfolgen live geprüft; Rundenende als `bestaetigen-rundenende`, siehe [Alle bestätigen](src/Game/README.md#airdrop-auswahl) |
 | `bewegung` | 4 | Dodge beim Client repariert: eigene Figur bekommt Reibung und Schwerkraft zurück, Host-Figur folgt bei unbekannter Unterlage dem replizierten Ort, siehe [Dodge beim Client](docs/GAME_ANALYSIS.md#dodge-beim-client-bewegung) |
 | `blueprint-logik` | 1 | Repräsentative Spawn-, Effekt- und Eventpfade per Bytecode-Audit und Traces geklärt, siehe [Nachtrag](research/spikes/blueprint-logik/README.md#nachtrag-03112026-grenzpruefung-und-ereignistests) |
 | `boss-dump` | 0 | Klassen aller sechs Bosse gezielt geladen und gedumpt, siehe [Boss-Dump](docs/GAME_ANALYSIS.md#boss-dump-boss-dump) |

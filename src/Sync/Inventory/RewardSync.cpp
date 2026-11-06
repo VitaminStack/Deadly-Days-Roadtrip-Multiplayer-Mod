@@ -28,6 +28,8 @@ struct
     uint64_t NextShow = 0; // nach einem gescheiterten Öffnen des Panels erst später erneut
     uint64_t EditSentId = 0, NextEditSend = 0;
     uint64_t DoneSession = 0; // Sitzung, deren Wahl der Host übernommen hat
+    uint64_t NextReadySend = 0;
+    bool ReadySent = false;
 } R;
 
 uint64_t NowMs()
@@ -57,6 +59,7 @@ Reward::Offer ToWire(const std::optional<Game::Rewards::Offer>& Value)
     Out.ClientClaimed = Value->ClientClaimed;
     Out.HostClaimed = Value->HostClaimed;
     Out.HostWaiting = Value->HostWaiting;
+    Out.ClientReady = Value->ClientReady;
     for (size_t i = 0; i < Value->Choices.size() && i < Reward::MaxChoices; ++i)
     {
         const auto& Choice = Value->Choices[i];
@@ -69,6 +72,15 @@ void TickHost(Net::Transport& Transport, std::span<const Net::ControlMessage> Me
 {
     for (const auto& Message : Messages)
     {
+        if (Message.Peer == R.Peer && Message.Value.Type == Reward::ReadyType)
+        {
+            if (const auto Ready = Reward::DecodeReady(Message.Value.Payload))
+            {
+                Game::Rewards::SetClientReady(Ready->Session, Ready->Revision, Ready->Value);
+                R.NextResend = 0; // Stand sofort im Bild zurück
+            }
+            continue;
+        }
         if (Message.Peer != R.Peer || Message.Value.Type != Reward::EditType)
             continue;
         const auto Edit = Reward::DecodeEdit(Message.Value.Payload);
@@ -120,6 +132,22 @@ void SendEdit(Net::Transport& Transport)
     R.NextEditSend = Now + 1000;
 }
 
+// Client: eigenes Bereit senden, solange das Sitzungsbild einen anderen Stand zeigt (alle 500 ms erneut).
+void SendReady(Net::Transport& Transport, const Reward::Offer& Offer)
+{
+    const auto Own = Game::Rewards::ClientReadyState();
+    if (!Own || Own->Session != Offer.Session || Own->Revision != Offer.Revision || Own->Ready == Offer.ClientReady)
+        return;
+    const uint64_t Now = NowMs();
+    if (Now < R.NextReadySend && Own->Ready == R.ReadySent)
+        return;
+    if (Send(Transport, Reward::ReadyType, Reward::Encode(Reward::Ready{Own->Session, Own->Revision, Own->Ready})))
+    {
+        R.ReadySent = Own->Ready;
+        R.NextReadySend = Now + 500;
+    }
+}
+
 void TickClient(Net::Transport& Transport, std::span<const Net::ControlMessage> Messages)
 {
     for (const auto& Message : Messages)
@@ -165,6 +193,10 @@ void TickClient(Net::Transport& Transport, std::span<const Net::ControlMessage> 
             Items.push_back({Choice.Name, Choice.Data, Choice.Rarity, Choice.Broken});
         if (NowMs() >= R.NextShow && !Game::Rewards::ShowForClient(Offer.Session, Offer.Revision, Offer.Level, Items))
             R.NextShow = NowMs() + 5000;
+        SendReady(Transport, Offer);
+        // bestaetigen-alle: erst wenn der Host wartet und das eigene Bereit bestätigt zurückkommt.
+        if (const auto Own = Game::Rewards::ClientReadyState(); Own && Own->Ready && Own->Session == Offer.Session && Own->Revision == Offer.Revision)
+            Game::Rewards::FinishClientIfAllReady(Offer.HostWaiting && Offer.ClientReady);
     }
 }
 }

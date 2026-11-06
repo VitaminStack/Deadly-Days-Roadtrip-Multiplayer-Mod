@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <doctest.h>
 #include "Sync/Inventory/RewardState.h"
 
@@ -36,8 +37,38 @@ TEST_CASE("Reward offer rejects malformed payloads")
     BadBroken[22] = 2; // broken flag of the first choice
     CHECK_FALSE(DecodeOffer(BadBroken));
     auto Flags = Encode(Value);
-    Flags[20] = 8;
+    Flags[20] = 16;
     CHECK_FALSE(DecodeOffer(Flags));
+}
+
+TEST_CASE("Reward offer carries the client ready flag")
+{
+    Offer Value{5, 77, 3, false, false, true, {{"A", "DA", "R"}}};
+    Value.ClientReady = true;
+    const auto Bytes = Encode(Value);
+    REQUIRE_FALSE(Bytes.empty());
+    CHECK(Bytes[20] == 12);
+    const auto Back = DecodeOffer(Bytes);
+    REQUIRE(Back);
+    CHECK(Back->ClientReady);
+    CHECK(*Back == Value);
+}
+
+TEST_CASE("Reward ready round-trips and rejects malformed payloads")
+{
+    const Ready Value{5, 77, true};
+    const auto Bytes = Encode(Value);
+    REQUIRE(Bytes.size() == 17);
+    CHECK(DecodeReady(Bytes) == Value);
+    CHECK(DecodeReady(Encode(Ready{5, 77, false})) == Ready{5, 77, false});
+    CHECK(Encode(Ready{0, 77, true}).empty());
+    CHECK_FALSE(DecodeReady(std::span(Bytes).first(16)));
+    auto Bad = Bytes;
+    Bad[16] = 2;
+    CHECK_FALSE(DecodeReady(Bad));
+    auto NoSession = Bytes;
+    std::fill(NoSession.begin(), NoSession.begin() + 8, uint8_t{0});
+    CHECK_FALSE(DecodeReady(NoSession));
 }
 
 namespace
