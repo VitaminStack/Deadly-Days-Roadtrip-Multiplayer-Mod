@@ -1222,6 +1222,25 @@ Stand 05.11.2026, Build `26187885`, ein PC, Mod mit Spike über die Lobby, Seed 
 - **Offen:** Der Tank ist je Teilnehmer getrennt gewertet, jeder PlayerState hat einen eigenen `UFuelMeter` (Maximum 100). Nach
   Nutzervorgabe ist er ein Gruppenwert, Folgeaufgabe `tank-gemeinsam`.
 
+### Busabfahrt nur beim Host (`bus-ende`)
+
+Stand 06.11.2026, Build `26187885`, ein PC, Mod mit Spike über die Lobby, Godmode, Tank per Speicherschreiben fast voll.
+
+- **[Belegt] Fehlerbild:** Im Coop-Test endete die Runde nur beim Client. Laut Spike-Trace rief der Client selbst
+  `ExtractionPointBase.CanBusTakeOff` und 3 s später `DDMissionGameState.FinishMission` auf und stand danach auf einer Routenkarte, auf
+  der er keinen Tag wählen konnte. Der Host blieb in der Mission.
+- **[Belegt] Native Funktionen:** Über die `FNameNativePtrPair`-Tabelle gefunden. `CanBusTakeOff(EBusCantLeaveReason&)` liegt bei
+  `0x59C3E10` (Thunk `0x56E3A70`), `CheckTakeOffCondition` bei `0x59C4930` ruft es bei `+0x1F` auf. `FinishMission(bool IsLoading)` liegt
+  bei `0x58E84C0` (Thunk `0x56BB8C0`). Beide laufen nicht über `ProcessEvent`, deshalb ein Funktions-Hook.
+- **Umsetzung** (`ClientPatches.cpp`, Patch „Busabfahrt und Rundenende nur beim Host“): Beim Netz-Client liefert `CanBusTakeOff` immer
+  `false` mit Grund `None`, und `FinishMission` läuft nur noch mit `IsLoading`. Der Host entscheidet, der Client folgt über die Reise.
+  Regeln `BusTakeOffMayDecide` und `MissionFinishAllowed` in `PatchPolicy.h`, mit Tests.
+- **[Belegt] Lauf:** Der Client meldete dreimal „Abfahrtsprüfung beim Client unterdrückt“, der Host beendete die Runde mit dem Bus.
+  Host über Rundenübersicht, Lager und Routenkarte nach Tag 2 (Welt 3), der Client folgte in dieselbe Welt mit 2 Spielern.
+  Desync-Melder danach zweimal OK, kein Absturz.
+- **Offen:** Der Client sieht Rundenübersicht und Lager nur als gesperrtes Banner des Phasenadapters. Eigene Panels beim Client sind die
+  Aufgabe `rundenende-client`.
+
 ### Rundenende: Befund und offene Phasenübertragung (`rundenende`)
 
 Build `26187885`, ein PC, zwei Loopback-Instanzen, getrennte Test-Spielstände und CrashGuard. Untersuchung auf eigenem Branch von `origin/main`, ohne den noch nicht gemergten Inventar-Teilfix.

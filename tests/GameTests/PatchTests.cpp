@@ -524,3 +524,13 @@ TEST_CASE("Itemsack zählt beim Host für alle Spieler")
     CHECK_FALSE(ShareItemLoot(NetRole::Client, 2, 1));
     CHECK_FALSE(ShareItemLoot(NetRole::Standalone, 2, 1));
 }
+
+TEST_CASE("Busabfahrt und Rundenende entscheidet nur der Host")
+{
+    CHECK(BusTakeOffMayDecide(false));
+    CHECK_FALSE(BusTakeOffMayDecide(true));
+    CHECK(MissionFinishAllowed(false, false));
+    CHECK(MissionFinishAllowed(false, true));
+    CHECK(MissionFinishAllowed(true, true));
+    CHECK_FALSE(MissionFinishAllowed(true, false));
+}
