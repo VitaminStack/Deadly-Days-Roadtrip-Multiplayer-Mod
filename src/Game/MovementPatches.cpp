@@ -7,6 +7,10 @@
 //    beim Client stehen, in MOVE_None oder MOVE_Falling mit Dodge-Tempo. Ort und Modus kommen weiter an, werden aber nicht
 //    mehr angewendet. Hängt die Kopie ohne Modus oder weit neben dem replizierten Ort, setzt die Mod Ort, Tempo und Modus
 //    aus der Replikation.
+// 3. Host: GA_Dash des Clients bricht beim Host vor Ausdauerkosten und Schub ab, weil die Laufrichtung des Client-
+//    Controllers dort (0, 0) bleibt. Der Client bucht die Kosten nur vorhergesagt, der Host nimmt sie zurück: Der Client
+//    dodgt ohne Grenze und reiht Dodges aneinander. Die Mod trägt beim Host die Laufrichtung aus der Bewegung ein, die
+//    der Client ohnehin schickt; dann läuft der native Dodge beim Host mit Kosten, Schub und Ende durch.
 #include <windows.h>
 
 #include <cstddef>
@@ -39,6 +43,11 @@ constexpr uintptr_t MovementGravityScale = 0x1A8;
 constexpr uintptr_t MovementMode = 0x241;
 constexpr uintptr_t MovementGroundFriction = 0x244;
 constexpr uintptr_t ClassDefaultObject = 0x118;
+constexpr uintptr_t ActorRemoteRole = 0x60;
+constexpr uint8_t RoleAutonomousProxy = 2;
+constexpr uintptr_t PawnController = 0x2D8;
+constexpr uintptr_t PlayerStatePawn = 0x320;
+constexpr uintptr_t ControllerLastMovementInput = 0x910; // DDPlayerController, FVector2D, gelesen von GetLastNormalizedMovementInput
 constexpr uint64_t DashLimitMs = 750;
 constexpr uint64_t ProxyLimitMs = 500;
 
@@ -54,6 +63,11 @@ struct Figure
         double X = 0, Y = 0, Z = 0;
     } LastReplicated;
     uint64_t ReplicatedAt = 0;
+    PlanarDirection SampleLocation;
+    uint64_t SampleAt = 0;
+    PlanarDirection LastMoving;
+    uint64_t LastMovingAt = 0;
+    bool RemoteInputLogged = false;
 };
 
 struct State
@@ -191,6 +205,32 @@ bool ApplyReplicatedMode(uintptr_t Component, uint8_t Packed)
     return true;
 }
 
+// Host: Bewegung der Client-Figur aus ihrem Ort messen. Tempo und Beschleunigung sind beim Host fast immer 0.
+void SampleRemoteMovement(Figure& Entry, uint64_t Now)
+{
+    const uintptr_t Controller = Memory::ReadPointer(Entry.Character + PawnController).value_or(0);
+    const uintptr_t Root = Memory::ReadPointer(Entry.Character + ActorRootComponent).value_or(0);
+    if (!Alive(Controller) || !Root || Memory::Read<uint8_t>(Controller + ActorRemoteRole).value_or(0) != RoleAutonomousProxy)
+        return;
+    const auto Location = Memory::Read<Vector>(Root + SceneRelativeLocation);
+    if (!Location)
+        return;
+    const PlanarDirection Here{Location->X, Location->Y};
+    if (Entry.SampleAt && Now - Entry.SampleAt < RemoteSampleMs)
+        return;
+    const PlanarDirection Moved = PlanarVelocity(Entry.SampleLocation, Here, Entry.SampleAt ? Now - Entry.SampleAt : 0);
+    if (PlanarMoving(Moved))
+    {
+        Entry.LastMoving = Moved;
+        Entry.LastMovingAt = Now;
+    }
+    Entry.SampleLocation = Here;
+    Entry.SampleAt = Now;
+}
+
+// GA_Dash_C.K2_ActivateAbility, je Welt neu gesucht. Der Controller des Hosts überschreibt die Laufrichtung des Client-
+// Controllers jeden Frame mit (0, 0), darum setzt die Mod sie erst direkt vor dem Start des Dodges.
+uintptr_t DashActivateFunction = 0;
 void CheckFigure(Figure& Entry, uint64_t Now)
 {
     const uintptr_t Component = Memory::ReadPointer(Entry.Character + CharacterMovement).value_or(0);
@@ -242,21 +282,54 @@ void CheckFigure(Figure& Entry, uint64_t Now)
 }
 }
 
+void PrepareRemoteDash(uintptr_t Object, uintptr_t Function)
+{
+    if (!Object || !Function || Function != DashActivateFunction)
+        return;
+    // Eine Fähigkeit je Ausführung entsteht mit dem Besitzer ihres AbilitySystems als Outer: Figur oder ihr PlayerState.
+    const uintptr_t Outer = Memory::ReadPointer(Object + Offsets::UObject::Outer).value_or(0);
+    const uintptr_t OuterPawn = Outer ? Memory::ReadPointer(Outer + PlayerStatePawn).value_or(0) : 0;
+    for (Figure& Entry : Movement.Figures)
+    {
+        if (Entry.Character != Outer && Entry.Character != OuterPawn)
+            continue;
+        const uintptr_t Controller = Memory::ReadPointer(Entry.Character + PawnController).value_or(0);
+        if (!Alive(Controller) || Memory::Read<uint8_t>(Controller + ActorRemoteRole).value_or(0) != RoleAutonomousProxy)
+            return;
+        const uint64_t Now = GetTickCount64();
+        const PlanarDirection Input = RemoteMovementInput(Entry.LastMoving, Entry.LastMovingAt ? Now - Entry.LastMovingAt : UINT64_MAX);
+        const double Raw[2]{Input.X, Input.Y};
+        if (Memory::WriteBytes(Controller + ControllerLastMovementInput, Raw, sizeof(Raw)) && !Entry.RemoteInputLogged)
+        {
+            Entry.RemoteInputLogged = true;
+            Core::Log::Info("Bewegung: Laufrichtung der Client-Figur für den Dodge beim Host eingetragen");
+        }
+        return;
+    }
+}
+
 void TickMovement(NetRole Role, bool Second)
 {
-    if (Role != NetRole::Client)
+    static NetRole LastRole = NetRole::Standalone;
+    if (Role == NetRole::Standalone || Role != LastRole || CurrentWorld() != Movement.World)
+        DashActivateFunction = 0;
+    if (Role == NetRole::Standalone || Role != LastRole)
     {
+        LastRole = Role;
         Movement = {};
-        return;
+        if (Role == NetRole::Standalone)
+            return;
     }
     const uintptr_t World = CurrentWorld();
     if (!World)
         return;
     if (Second || World != Movement.World)
         RefreshFigures(World);
+    if (Role == NetRole::Host && Second && !DashActivateFunction)
+        DashActivateFunction = Objects::FindObject("K2_ActivateAbility", "GA_Dash_C");
     const uint64_t Now = GetTickCount64();
     for (Figure& Entry : Movement.Figures)
         if (Alive(Entry.Character))
-            CheckFigure(Entry, Now);
+            Role == NetRole::Client ? CheckFigure(Entry, Now) : SampleRemoteMovement(Entry, Now);
 }
 }

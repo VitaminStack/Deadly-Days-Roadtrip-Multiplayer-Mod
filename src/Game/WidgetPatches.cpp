@@ -46,6 +46,7 @@ bool HasGameState()
 void __fastcall ProcessEventHook(uintptr_t Object, uintptr_t Function, void* Params)
 {
     TraceInventoryEvent(Object, Function, Params);
+    PrepareRemoteDash(Object, Function);
     if (FilterRewardEvent(Object, Function, Params))
         return;
     const int32_t Name = Memory::Read<int32_t>(Function + Offsets::UObject::Name).value_or(-1);
