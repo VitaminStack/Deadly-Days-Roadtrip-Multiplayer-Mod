@@ -9,6 +9,7 @@ Reserviert Aufgaben aus [TODO.md](../TODO.md#wo-kann-ich-anfangen), damit nieman
 | Befehl | Aufgabe |
 |---|---|
 | `py tools/tasks.py list` | Offene Aufgaben aus `TODO.md` auf `origin/main` mit Status: frei, blockiert, Team, reserviert, Review |
+| `py tools/tasks.py list --active` | Nur aktive Entwicklungsreservierungen/PRs, ohne ausstehende Bestätigungstests |
 | `py tools/tasks.py claim <kennung> <name>` | Worktree, Branch `task/<kennung>`, Push und Draft-PR |
 | `py tools/tasks.py claim <kennung> <name> host\|client` | Bei Aufgaben „zu zweit“ nur eine Rolle: Branch `task/<kennung>/<rolle>`, Worktree `.worktrees/<kennung>-<rolle>`, siehe [Test auf zwei PCs](../docs/TESTING.md#test-auf-zwei-pcs) |
 | `py tools/tasks.py release <kennung> [<rolle>]` | Draft-PR schließen, Branch löschen, sauberen Worktree entfernen |
@@ -16,6 +17,51 @@ Reserviert Aufgaben aus [TODO.md](../TODO.md#wo-kann-ich-anfangen), damit nieman
 | `py tools/tasks.py done <kennung> "<Ergebnis>"` | Auf `task/<kennung>`: Zeile alphabetisch nach „Erledigt“ verschieben, `task_status.py update` und `check` |
 
 Erledigte, blockierte und Team-Aufgaben sind nicht reservierbar, auch ohne `gh`. Offene Aufgaben werden nicht allein wegen eines gemergten Teil-PRs abgeschlossen. Kurze Wartung ohne Eintrag in `TODO.md` ist weiterhin reservierbar.
+
+### Bestätigungstests
+
+**Bestätigungstest ausstehend** ist ein eigener Status: nicht „in Arbeit“, nicht frei zur
+erneuten Entwicklungsreservierung und nicht erledigt. Die offene Aufgabe bleibt in ihrer
+Phase, mit ursprünglicher Abnahme und Abhängigkeiten; abhängige Aufgaben und Fortschrittsbalken
+warten weiter auf das tatsächliche Bestehen. In `TODO.md` steht der Status ausdrücklich im
+Aufgabentext, nicht nur in einer PR-Beschreibung oder einem Branch.
+
+```bash
+py tools/tasks.py tests pending dodge-client-live --note "Diagnose integriert, zehn Dodges auf zwei PCs noch offen"
+py tools/tasks.py tests
+py tools/tasks.py tests plan
+py tools/tasks.py tests plan dodge-client-live karte-tunnel
+py tools/tasks.py tests update dodge-client-live --note "Termin verschoben; bisher keine neue Abnahme"
+py tools/tasks.py tests update --all --note "Gemeinsamer Termin geplant; noch nicht bestanden"
+```
+
+`list` (Standard) und `plan` lesen `origin/main`. Mit `--local` sieht man vor dem Merge die
+Änderungen im eigenen Worktree. `plan` bündelt verfügbare Tests mit vollständigen Anforderungen;
+es startet kein Spiel und behauptet kein Ergebnis. Die Tests nacheinander in derselben
+geschützten Sitzung spielen, die Einzelbefunde mit Build/Mod-Stand im Testbericht festhalten.
+Keine zusätzliche Reservierung der getesteten Aufgaben: Änderungen an Testständen erfolgen
+im eigenen reservierten Wartungs-Worktree und mit PR, nicht auf `main` oder in fremden Worktrees.
+
+Nach **wirklich bestandener vollständiger Abnahme** können mehrere Tests mit einem gemeinsamen
+Bericht abgeschlossen werden. Der Bericht muss für jede Kennung das Ergebnis belegen:
+
+```bash
+py tools/tasks.py tests pass dodge-client-live karte-tunnel --note "Beide Abnahmen bestanden, siehe [Bericht](docs/TESTING.md)"
+```
+
+Das Beispiel zeigt die Syntax, keinen tatsächlich bestandenen Test. `pass` verschiebt die
+gewählten Aufgaben alphabetisch nach „Erledigt“ und erneuert den Fortschritt. Ein Teiltest,
+eine Diagnose oder ein verschobener Termin bekommt nur `update`, niemals `pass`. Scheitert
+eine Abnahme und braucht Code-Arbeit, setzt `tests reopen <kennung> --note "Befund"` die Aufgabe
+wieder auf Entwicklung; ein alter gemergter PR bleibt dann bewusst „erst nachfragen“, bis die
+weitere Arbeit mit dem Menschen geklärt ist. Es werden keine Branches oder PRs gelöscht/geöffnet.
+
+**Schutz fremder Arbeit:** Offene PRs, Rollen-Reservierungen und unbestätigte Branches werden
+bei `plan` und `--all` ausgelassen und ausdrücklich genannt. Bei expliziten Kennungen bricht
+eine Kollision den ganzen Änderungsbatch unverändert ab. Die eigene Aufgabe darf man selbst
+auf „Bestätigungstest ausstehend“ setzen. Ist der GitHub-PR-Status unbekannt, werden keine
+Teststände geändert. Falsche/erledigte/doppelte Kennungen und leere Ergebnisse lehnt der Batch
+vor dem Schreiben ab. Alle Änderungen bleiben lokal bis Commit und Merge.
 
 ## task_status.py
 

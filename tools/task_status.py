@@ -24,6 +24,8 @@ PHASES = tuple(str(n) for n in range(7))
 FREE_START = '<!-- frei:start -->'
 FREE_END = '<!-- frei:end -->'
 ID_PATTERN = r'[a-z0-9][a-z0-9-]*'
+CONFIRMATION_PREFIX = '**Bestätigungstest ausstehend:** '
+CONFIRMATION_TASK = ' **Aufgabe und Abnahme:** '
 
 
 @dataclass
@@ -37,6 +39,7 @@ class Task:
     needs: list = field(default_factory=list)
     mode: str = ''
     playtime: str = ''
+    confirmation: str = ''
 
 
 def slug(heading):
@@ -110,7 +113,12 @@ def parse(todo):
                 if not all(re.fullmatch(rf'`{ID_PATTERN}`', n) for n in need_list):
                     raise ValueError(f'{where}: {name}: Braucht ist "–" oder eine Liste wie `a`, `b`')
                 need_list = [n.strip('`') for n in need_list]
-            tasks[name] = Task(name, phase, section, False, text, prio, need_list, mode, playtime)
+            confirmation = ''
+            if text.startswith(CONFIRMATION_PREFIX):
+                confirmation, separator, original = text[len(CONFIRMATION_PREFIX):].partition(CONFIRMATION_TASK)
+                if not confirmation.strip() or not separator or not original.strip():
+                    raise ValueError(f'{where}: {name}: Bestaetigungstest braucht Stand sowie Aufgabe und Abnahme')
+            tasks[name] = Task(name, phase, section, False, text, prio, need_list, mode, playtime, confirmation)
         else:
             if len(row) != 3:
                 raise ValueError(f'{where}: {name} braucht 3 Spalten')
@@ -192,8 +200,8 @@ def free_block(todo, tasks):
     ready = [t for t in tasks.values() if not t.done and not blockers(t, tasks)]
     order = {p: i for i, p in enumerate(PHASES + tuple(EXTRA_SECTIONS.values()))}
     ready.sort(key=lambda t: (PRIOS.index(t.prio), order[t.phase], t.name))
-    work = [t for t in ready if t.mode != 'Team']
-    team = [t for t in ready if t.mode == 'Team']
+    work = [t for t in ready if t.mode != 'Team' and not t.confirmation]
+    team = [t for t in ready if t.mode == 'Team' and not t.confirmation]
     lines = ['| Kennung | Prio | Phase | Bearbeitung | Spielzeit |', '|---|---|---|---|---|']
     for t in work:
         lines.append(f'| `{t.name}` | {t.prio} | [{t.phase}](#{anchors[t.phase]}) | {t.mode} | {t.playtime} |')
@@ -201,6 +209,10 @@ def free_block(todo, tasks):
         lines.append('| – | | | | |')
     lines.append('')
     lines.append('**Wartet auf das Team:** ' + (', '.join(f'`{t.name}`' for t in team) if team else 'nichts') + '.')
+    pending = [t for t in tasks.values() if t.confirmation]
+    lines.append('')
+    lines.append('**Bestätigungstest ausstehend (nicht in Arbeit):** ' +
+                 (', '.join(f'`{t.name}`' for t in pending) if pending else 'nichts') + '.')
     return '\n'.join(lines)
 
 
@@ -292,7 +304,11 @@ def mark_done(todo, name, result):
     if not result or '|' in result or '\n' in result or '\r' in result:
         raise ValueError('Ergebnis ist ein Satz ohne | und ohne Zeilenumbruch')
     newline = '\r\n' if '\r\n' in todo else '\n'
-    lines = todo.split(newline)
+    # Patch-Werkzeuge koennen einzelne LF-Zeilen in eine CRLF-Datei einfuegen. Auch diese Aufgabe finden,
+    # statt beim Abschliessen irrtuemlich nur die generierte Liste oder gar keine offene Zeile zu sehen.
+    lines = todo.splitlines()
+    if todo.endswith(('\n', '\r')):
+        lines.append('')
     prefix = f'| `{name}` |'
     section, in_free, open_index = '', False, None
     for index, line in enumerate(lines):
@@ -321,6 +337,56 @@ def mark_done(todo, name, result):
         raise ValueError('Tabelle Erledigt nicht gefunden')
     lines.insert(insert_at if insert_at is not None else last_row + 1, f'| `{name}` | {task.phase} | {result} |')
     return newline.join(lines)
+
+
+def confirmation_update(todo, names, action, note):
+    """Batch nur im Speicher validieren; Abnahme bleibt beim Warten offen und blockiert Abhaengigkeiten."""
+    if action not in ('pending', 'update', 'pass', 'reopen'):
+        raise ValueError('Unbekannte Bestaetigungstest-Aktion')
+    if not names or len(names) != len(set(names)):
+        raise ValueError('Mindestens eine Kennung, keine doppelten Kennungen')
+    note = note.strip()
+    if not note or any(c in note for c in ('|', '\n', '\r', CONFIRMATION_PREFIX.strip(), CONFIRMATION_TASK.strip())):
+        raise ValueError('Stand/Ergebnis ist ein Satz ohne |, Zeilenumbruch oder Statusmarker')
+    tasks = parse(todo)
+    for name in names:
+        task = tasks.get(name)
+        if task is None or task.done:
+            raise ValueError(f'{name}: keine offene Aufgabe')
+        if task.mode == 'Team':
+            raise ValueError(f'{name}: Teamentscheidung, kein Bestaetigungstest')
+        if action != 'pending' and not task.confirmation:
+            raise ValueError(f'{name}: kein ausstehender Bestaetigungstest')
+        if action in ('pending', 'pass'):
+            waiting = [n for n in blockers(task, tasks) if action != 'pass' or n not in names]
+            if waiting:
+                raise ValueError(f'{name}: blockiert, braucht ' + ', '.join(waiting))
+    if action == 'pass':
+        for name in names:
+            todo = mark_done(todo, name, note)
+        return todo
+    replacements = {}
+    for name in names:
+        task = tasks[name]
+        original = task.text.partition(CONFIRMATION_TASK)[2] if task.confirmation else task.text
+        text = (f'{original} **Letzter Bestätigungstest:** {note}' if action == 'reopen' else
+                f'{CONFIRMATION_PREFIX}{note}{CONFIRMATION_TASK}{original}')
+        replacements[name] = f'| `{name}` | {task.prio} | {text} | ' + (
+            ', '.join(f'`{n}`' for n in task.needs) or '–') + f' | {task.mode} | {task.playtime} |'
+    in_free = False
+    lines = []
+    for line in todo.splitlines(keepends=True):
+        if line.rstrip('\r\n') == FREE_START:
+            in_free = True
+        elif line.rstrip('\r\n') == FREE_END:
+            in_free = False
+        match = re.match(rf'^\| `({ID_PATTERN})` \|', line) if not in_free else None
+        if match and match[1] in replacements:
+            line = replacements[match[1]] + line[len(line.rstrip('\r\n')):]
+        lines.append(line)
+    result = ''.join(lines)
+    parse(result)
+    return result
 
 
 def regenerate(root, check=False):

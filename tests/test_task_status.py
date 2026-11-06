@@ -3,6 +3,7 @@ from contextlib import redirect_stdout
 from io import StringIO
 import os
 from pathlib import Path
+import tempfile
 import unittest
 import xml.etree.ElementTree as ET
 from unittest.mock import call, patch
@@ -284,6 +285,174 @@ class PairReservationTests(unittest.TestCase):
         self.assertEqual(tasks.split_branch('pair/other'), ('pair/other', None))
 
 
+class ConfirmationTests(unittest.TestCase):
+    ROWS = ('| `first` | P1 | Zehn Dodges mit Ausdauer pruefen | – | parallel | wenig |\n'
+            '| `second` | P1 | Gleiche Karte pruefen | – | zu zweit | wenig |\n'
+            '| `blocked` | P1 | Wartet | `first` | parallel | wenig |\n')
+
+    def pending(self):
+        return source.confirmation_update(todo(self.ROWS), ['first', 'second'], 'pending', 'Test auf zwei PCs steht aus')
+
+    def test_pending_keeps_requirements_phase_and_not_done(self):
+        parsed = source.parse(self.pending())
+        self.assertFalse(parsed['first'].done)
+        self.assertEqual(parsed['first'].phase, '1')
+        self.assertEqual(parsed['first'].confirmation, 'Test auf zwei PCs steht aus')
+        self.assertIn('Zehn Dodges mit Ausdauer pruefen', parsed['first'].text)
+        self.assertEqual(source.blockers(parsed['blocked'], parsed), ['first'])
+        self.assertEqual(source.phase_counts(parsed)[1], [1, 4])
+
+    def test_pending_is_separate_from_free_and_active_even_with_old_branch_or_pr(self):
+        text = self.pending()
+        parsed = source.parse(text)
+        block = source.free_block(text, parsed)
+        self.assertNotIn('| `first` |', block)
+        self.assertIn('Bestätigungstest ausstehend (nicht in Arbeit)', block)
+        self.assertEqual(tasks.status('first', {'first'}, None, parsed), 'Bestätigungstest ausstehend')
+        prs = {'first': {'state': 'OPEN', 'number': 5, 'isDraft': True}}
+        self.assertEqual(tasks.status('first', {'first'}, prs, parsed), 'Bestätigungstest ausstehend')
+        with patch.object(tasks, 'git'), patch.object(tasks, 'todo_text', return_value=text), \
+                patch.object(tasks, 'remote_branches', return_value={'first'}), \
+                patch.object(tasks, 'pull_requests', return_value=prs), redirect_stdout(StringIO()) as out:
+            tasks.cmd_list(active_only=True)
+        self.assertNotIn('first', out.getvalue())
+
+    def test_pending_cannot_be_claimed_even_without_github(self):
+        with patch.object(tasks, 'git') as git, patch.object(tasks, 'todo_text', return_value=self.pending()), \
+                patch.object(tasks, 'remote_branches', return_value=set()), \
+                patch.object(tasks, 'pull_requests', return_value=None):
+            with self.assertRaisesRegex(SystemExit, 'Bestätigungstest ausstehend'):
+                tasks.cmd_claim('first', 'tester')
+            self.assertEqual(git.call_args_list, [call('fetch', '-q', '--prune', 'origin')])
+
+    def test_update_batch_preserves_original_text_and_does_not_stack_markers(self):
+        once = source.confirmation_update(self.pending(), ['first', 'second'], 'update', 'Termin verschoben')
+        twice = source.confirmation_update(once, ['second'], 'update', 'Tag 2 noch offen')
+        parsed = source.parse(twice)
+        self.assertEqual(parsed['first'].confirmation, 'Termin verschoben')
+        self.assertEqual(parsed['second'].confirmation, 'Tag 2 noch offen')
+        self.assertEqual(parsed['second'].text.count(source.CONFIRMATION_TASK), 1)
+        self.assertIn('Gleiche Karte pruefen', parsed['second'].text)
+        self.assertNotIn('Test auf zwei PCs steht aus', twice)
+
+    def test_pass_batch_marks_done_only_with_explicit_result(self):
+        parsed = source.parse(source.confirmation_update(self.pending(), ['second', 'first'], 'pass',
+                                                        'Auf zwei PCs bestanden, siehe [Bericht](docs/TESTING.md)'))
+        for name in ('first', 'second'):
+            self.assertTrue(parsed[name].done)
+            self.assertIn('Bericht', parsed[name].text)
+        self.assertEqual(source.blockers(parsed['blocked'], parsed), [])
+
+    def test_reopen_restores_development_and_retains_failed_test_note(self):
+        parsed = source.parse(source.confirmation_update(self.pending(), ['first'], 'reopen', 'Client rutscht weiter'))
+        self.assertFalse(parsed['first'].done)
+        self.assertFalse(parsed['first'].confirmation)
+        self.assertIn('Zehn Dodges mit Ausdauer pruefen', parsed['first'].text)
+        self.assertIn('Client rutscht weiter', parsed['first'].text)
+        self.assertTrue(parsed['second'].confirmation)
+
+    def test_batch_rejects_invalid_done_duplicate_and_unmarked_ids(self):
+        for names, action, note in ((['first', 'missing'], 'update', 'x'), (['first', 'base1'], 'update', 'x'),
+                                    (['first', 'first'], 'update', 'x'), (['blocked'], 'update', 'x'),
+                                    (['first'], 'update', ' '), (['first'], 'pass', 'a|b'),
+                                    (['first'], 'update', 'a\nb'), (['first'], 'update', source.CONFIRMATION_TASK),
+                                    ([], 'update', 'x')):
+            with self.subTest(names=names, action=action, note=note), self.assertRaises(ValueError):
+                source.confirmation_update(self.pending(), names, action, note)
+        with self.assertRaisesRegex(ValueError, 'blockiert'):
+            source.confirmation_update(self.pending(), ['blocked'], 'pending', 'x')
+
+    def test_malformed_confirmation_rejected(self):
+        row = '| `a` | P1 | ' + source.CONFIRMATION_PREFIX + 'ohne Abnahme | – | parallel | wenig |\n'
+        with self.assertRaisesRegex(ValueError, 'Bestaetigungstest braucht'):
+            source.parse(todo(row))
+
+    def test_crlf_and_generated_free_list_are_preserved(self):
+        text = source.update_todo(todo(self.ROWS), source.parse(todo(self.ROWS))).replace('\n', '\r\n')
+        updated = source.confirmation_update(text, ['first'], 'pending', 'offen')
+        self.assertNotIn('\n', updated.replace('\r\n', ''))
+        self.assertEqual(source.parse(updated)['first'].confirmation, 'offen')
+        self.assertIn('| `first` | P1 | [1]', updated) # Liste erneuert erst regenerate
+
+    def test_active_work_protects_roles_and_unknown_github_state(self):
+        self.assertTrue(tasks.active_work('first', {'first/host'}, None))
+        self.assertTrue(tasks.active_work('first', set(), {'first/client': {'state': 'OPEN'}}))
+        self.assertFalse(tasks.active_work('first', {'first'}, {'first': {'state': 'MERGED'}}))
+        self.assertFalse(tasks.active_work('first', {'first'}, None, 'task/first'))
+        self.assertTrue(tasks.active_work('first', {'first/client'}, None, 'task/first/host'))
+
+    def run_command(self, root, args, branches=frozenset(), prs=None):
+        with patch.object(tasks, 'git') as git, patch.object(tasks, 'remote_branches', return_value=set(branches)), \
+                patch.object(tasks, 'pull_requests', return_value=prs if prs is not None else {}), \
+                patch.object(tasks, 'worktree_root', return_value=root), \
+                patch.object(tasks, 'todo_text', return_value=self.pending()), patch.object(tasks, 'regenerate', return_value=[]), \
+                redirect_stdout(StringIO()) as out:
+            git.return_value.stdout = 'task/batch-tests'
+            tasks.cmd_tests(args)
+        return out.getvalue()
+
+    def test_plan_and_all_update_exclude_active_foreign_work(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / 'TODO.md'
+            path.write_text(self.pending(), encoding='utf-8')
+            output = self.run_command(root, ['plan'], {'first/client'})
+            self.assertIn('Ausgeschlossen: first: aktive fremde Arbeit', output)
+            self.assertIn('Gleiche Karte pruefen', output)
+            output = self.run_command(root, ['update', '--all', '--note', 'Neuer Termin'], {'first/client'})
+            parsed = source.parse(path.read_text(encoding='utf-8'))
+            self.assertEqual(parsed['first'].confirmation, 'Test auf zwei PCs steht aus')
+            self.assertEqual(parsed['second'].confirmation, 'Neuer Termin')
+            self.assertIn('Ausgeschlossen: first', output)
+
+    def test_explicit_busy_batch_fails_without_partial_write(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / 'TODO.md'
+            path.write_text(self.pending(), encoding='utf-8')
+            before = path.read_bytes()
+            with self.assertRaisesRegex(SystemExit, 'Gesamter Batch unveraendert'):
+                self.run_command(root, ['update', 'second', 'first', '--note', 'x'], {'first'})
+            self.assertEqual(path.read_bytes(), before)
+            with self.assertRaisesRegex(ValueError, 'ohne'):
+                self.run_command(root, ['update', 'second', '--note', 'x|y'])
+            self.assertEqual(path.read_bytes(), before)
+
+    def test_pass_batch_can_complete_dependencies_together_but_not_without_them(self):
+        text = self.pending()
+        # Ein bereits vorbereiteter Test kann spaeter einen noch offenen Bestaetigungstest als Voraussetzung haben.
+        text = text.replace('Gleiche Karte pruefen | – |', 'Gleiche Karte pruefen | `first` |')
+        with self.assertRaisesRegex(ValueError, 'blockiert'):
+            source.confirmation_update(text, ['second'], 'pass', 'Bericht')
+        parsed = source.parse(source.confirmation_update(text, ['second', 'first'], 'pass', 'Bericht'))
+        self.assertTrue(parsed['first'].done and parsed['second'].done)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / 'TODO.md'
+            path.write_text(text, encoding='utf-8')
+            before = path.read_bytes()
+            output = self.run_command(root, ['pass', '--all', '--note', 'Bericht'], {'first'})
+            self.assertEqual(path.read_bytes(), before)
+            self.assertIn('Ausgeschlossen: first: aktive fremde Arbeit', output)
+            self.assertIn('Ausgeschlossen: second: blockiert', output)
+
+    def test_mutations_fail_closed_without_pr_status_and_on_main(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / 'TODO.md'
+            path.write_text(self.pending(), encoding='utf-8')
+            before = path.read_bytes()
+            for prs, branch, message in ((None, 'task/tests', 'PR-Status unbekannt'), ({}, 'main', 'nie auf main')):
+                with self.subTest(prs=prs, branch=branch), patch.object(tasks, 'git') as git, \
+                        patch.object(tasks, 'remote_branches', return_value=set()), \
+                        patch.object(tasks, 'pull_requests', return_value=prs), \
+                        patch.object(tasks, 'worktree_root', return_value=root), \
+                        self.assertRaisesRegex(SystemExit, message):
+                    git.return_value.stdout = branch
+                    tasks.cmd_tests(['update', '--all', '--note', 'x'])
+                self.assertEqual(path.read_bytes(), before)
+
+
 class MarkDoneTests(unittest.TestCase):
     ROW = '| `zeta` | P1 | Text | `base1` | parallel | wenig |\n| `alpha` | P0 | Text | – | parallel | keine |\n'
 
@@ -306,6 +475,14 @@ class MarkDoneTests(unittest.TestCase):
         text = source.mark_done(todo(self.ROW).replace('\n', '\r\n'), 'alpha', 'Ergebnis')
         self.assertNotIn('\n', text.replace('\r\n', ''))
         self.assertTrue(source.parse(text)['alpha'].done)
+
+    def test_mixed_line_endings_find_newly_inserted_task(self):
+        text = todo(self.ROW).replace('\n', '\r\n')
+        text = text.replace('| `alpha` | P0 | Text | – | parallel | keine |\r\n',
+                            '| `alpha` | P0 | Text | – | parallel | keine |\n')
+        done = source.mark_done(text, 'alpha', 'Ergebnis')
+        self.assertTrue(source.parse(done)['alpha'].done)
+        self.assertNotIn('\n', done.replace('\r\n', ''))
 
     def test_ignores_free_list_row(self):
         base = todo(self.ROW)
