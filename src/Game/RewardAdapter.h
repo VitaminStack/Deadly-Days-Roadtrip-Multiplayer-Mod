@@ -112,4 +112,22 @@ std::optional<RoundEndOwn> ClientRoundEnd();
 // Client: neuester Stand des Hosts, nullopt ohne frischen Stand. Löst ein zurückgehaltenes Bestätigen aus, wenn beide
 // bereit sind oder der Stand nicht mehr passt.
 void SetHostRoundEndStatus(std::optional<RoundEndState> Status);
+
+// werkbank-client: UInventoryItemInstance.ItemRarity (+0x118) repliziert nicht, beim Client steht dort für jedes replizierte
+// Item null. Das native Panel prüft beim Ablegen auf ein gleiches Item die Seltenheit und wertet ohne sie nie auf. Der Host
+// schickt die Seltenheiten des Clientinventars, der Client setzt nur dieses Feld.
+struct RarityEntry
+{
+    uint16_t Index = 0;    // Platz in MyItems, replizierte Reihenfolge
+    uint32_t DataHash = 0; // Game::InventoryEdit::NameHash des ItemData-Objektnamens
+    std::string Rarity;    // Objektname der URarity, leer = keine
+    bool operator==(const RarityEntry&) const = default;
+};
+
+// Host: Seltenheiten der Items im Inventar des Clients, leer ohne gebundenen Client.
+std::vector<RarityEntry> ClientRarities();
+
+// Client: Seltenheiten des Hosts auf die replizierten Items des eigenen Inventars legen. Nur Items, deren Daten an diesem
+// Platz übereinstimmen; während einer lokalen Bearbeitung nicht.
+void ApplyRarities(const std::vector<RarityEntry>& Entries);
 }

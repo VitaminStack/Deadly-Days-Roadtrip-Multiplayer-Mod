@@ -152,3 +152,127 @@ TEST_CASE("Namensprüfsumme ist stabil und nie null")
     CHECK(NameHash("DA_Revolver") != NameHash("DA_Pistol"));
     CHECK(NameHash("") != 0);
 }
+
+namespace
+{
+// Zwei gleiche Pistolen werden zu einer aufgewertet, die Ausgabe liegt auf dem Feld der zweiten.
+Edit MergeEdit()
+{
+    Edit Value;
+    Value.Items = {Gone(Placed(0, {{0, 0}})), Gone(Stored(1))};
+    Upgrade Next;
+    Next.Inputs = {1, 0};
+    Next.Data = "ItemData_Pistol";
+    Next.Rarity = "Rarity_Uncommon";
+    Next.Output = Placed(0, {{0, 0}});
+    Next.Output.Source = UpgradeSource(0);
+    Next.Output.DataHash = NameHash(Next.Data);
+    Value.Upgrades = {Next};
+    return Value;
+}
+}
+
+TEST_CASE("Aufwertung im Edit: Eingaben entfernt, Ausgabe mit eigener Quelle und Feldern")
+{
+    Edit Value = MergeEdit();
+    CHECK(WellFormed(Value));
+    CHECK(ConsumedSources(Value) == std::set<uint16_t>{0, 1});
+    CHECK(Fits(Value, {{0, 0}}, {}));
+    CHECK_FALSE(Fits(Value, {{0, 0}}, {{0, 0}})); // Feld der Ausgabe von einem fremden Item belegt
+
+    auto Present = Value;
+    Present.Items[0] = Placed(0, {{1, 0}});
+    CHECK_FALSE(WellFormed(Present)); // Eingabe noch vorhanden
+    auto Missing = Value;
+    Missing.Items.pop_back();
+    CHECK_FALSE(WellFormed(Missing)); // Eingabe fehlt im Edit
+    auto Twice = Value;
+    Twice.Upgrades[0].Inputs = {0, 0};
+    CHECK_FALSE(WellFormed(Twice));
+    auto WrongSource = Value;
+    WrongSource.Upgrades[0].Output.Source = UpgradeSource(1);
+    CHECK_FALSE(WellFormed(WrongSource));
+    auto WrongHash = Value;
+    WrongHash.Upgrades[0].Data = "ItemData_Revolver";
+    CHECK_FALSE(WellFormed(WrongHash));
+    auto Overlap = Value;
+    Overlap.Items.push_back(Placed(2, {{0, 0}}));
+    CHECK_FALSE(WellFormed(Overlap)); // Ausgabe und Item auf demselben Feld
+    auto ItemWithUpgradeSource = Value;
+    ItemWithUpgradeSource.Items.push_back(Stored(UpgradeSource(0)));
+    CHECK_FALSE(WellFormed(ItemWithUpgradeSource));
+    auto TooMany = Value;
+    TooMany.Upgrades[0].Inputs = {0, 1, 2, 3, 4};
+    CHECK_FALSE(WellFormed(TooMany));
+}
+
+TEST_CASE("Aufwertungen lassen sich verketten, die frühere Ausgabe muss dann verbraucht sein")
+{
+    Edit Value = MergeEdit();
+    Value.Upgrades[0].Output = Gone(Value.Upgrades[0].Output);
+    Value.Items.push_back(Gone(Stored(2)));
+    Upgrade Second = Value.Upgrades[0];
+    Second.Inputs = {UpgradeSource(0), 2};
+    Second.Rarity = "Rarity_Rare";
+    Second.Output = Placed(0, {{0, 0}});
+    Second.Output.Source = UpgradeSource(1);
+    Second.Output.DataHash = NameHash(Second.Data);
+    Value.Upgrades.push_back(Second);
+    CHECK(WellFormed(Value));
+    CHECK(ConsumedSources(Value) == std::set<uint16_t>{0, 1, 2, UpgradeSource(0)});
+
+    auto Kept = Value;
+    Kept.Upgrades[0].Output = Placed(0, {{1, 1}});
+    Kept.Upgrades[0].Output.Source = UpgradeSource(0);
+    Kept.Upgrades[0].Output.DataHash = NameHash(Kept.Upgrades[0].Data);
+    CHECK_FALSE(WellFormed(Kept)); // Ausgabe 0 noch vorhanden, aber als Eingabe verbraucht
+    auto Forward = Value;
+    Forward.Upgrades[0].Inputs = {UpgradeSource(1), 1};
+    CHECK_FALSE(WellFormed(Forward)); // Eingabe aus einer späteren Aufwertung
+}
+
+TEST_CASE("Aufwertung mit der Belohnung als Eingabe braucht die Wahl")
+{
+    Edit Value;
+    ItemState Choice = Gone(Stored(0));
+    Choice.Source = ChoiceSource;
+    Value.Items = {Gone(Placed(0, {{0, 0}})), Choice};
+    Value.Choice = uint8_t{1};
+    Value.Session = 3;
+    Upgrade Next;
+    Next.Inputs = {0, ChoiceSource};
+    Next.Data = "ItemData_Pistol";
+    Next.Output = Placed(0, {{0, 0}});
+    Next.Output.Source = UpgradeSource(0);
+    Next.Output.DataHash = NameHash(Next.Data);
+    Value.Upgrades = {Next};
+    CHECK(WellFormed(Value));
+    Value.Choice.reset();
+    Value.Items.pop_back();
+    CHECK_FALSE(WellFormed(Value));
+}
+
+TEST_CASE("Ablegen auf ein gleiches Item: gleiche Daten, Ausgabe in der nächsten Seltenheit")
+{
+    const ItemKind Common{1, 10}, Other{2, 10};
+    CHECK(IsMerge({Common, Common}, {11, 11}, {1, 11}));
+    CHECK(IsMerge({Common, {1, 11}}, {11, 12}, {1, 12}));
+    CHECK_FALSE(IsMerge({Common, Common}, {11, 11}, {1, 12})); // übersprungene Seltenheit
+    CHECK_FALSE(IsMerge({Common, Common}, {11, 11}, {2, 11})); // andere Daten
+    CHECK_FALSE(IsMerge({Common, Other}, {11, 11}, {1, 11}));
+    CHECK_FALSE(IsMerge({Common, Common}, {0, 0}, {1, 0}));     // keine nächste Seltenheit
+    CHECK_FALSE(IsMerge({Common, Common, Common}, {11, 11, 11}, {1, 11}));
+}
+
+TEST_CASE("Rezept der Werkbank: Zutaten in beliebiger Reihenfolge, Seltenheit nur wenn vorgegeben")
+{
+    const std::vector<Recipe> Recipes{{{50, 0}, {{1, 0}, {2, 0}}}, {{60, 77}, {{3, 10}}}};
+    CHECK(IsRecipe(Recipes, {{2, 10}, {1, 10}}, {50, 10}));
+    CHECK_FALSE(IsRecipe(Recipes, {{2, 10}, {1, 10}}, {50, 99})); // Seltenheit keiner Zutat
+    CHECK_FALSE(IsRecipe(Recipes, {{2, 10}, {2, 10}}, {50, 10})); // Zutat fehlt
+    CHECK_FALSE(IsRecipe(Recipes, {{1, 10}}, {50, 10}));          // zu wenige
+    CHECK(IsRecipe(Recipes, {{3, 10}}, {60, 77}));
+    CHECK_FALSE(IsRecipe(Recipes, {{3, 11}}, {60, 77}));          // Zutat in falscher Seltenheit
+    CHECK_FALSE(IsRecipe(Recipes, {{3, 10}}, {60, 10}));          // Ausgabe ohne vorgegebene Seltenheit
+    CHECK_FALSE(IsRecipe({}, {{3, 10}}, {60, 77}));
+}

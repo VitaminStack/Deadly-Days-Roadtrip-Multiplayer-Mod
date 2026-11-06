@@ -127,6 +127,8 @@ void RunPendingCommand()
         SetTestGodmode(false);
     else if (Pending == L"!notutorial")
         SkipTutorials(true);
+    else if (Pending.rfind(L"!give ", 0) == 0)
+        GiveItemCommand(Pending.substr(6));
     else if (Pending.rfind(L"!load ", 0) == 0)
         LoadAssetCommand(Pending.substr(6));
     else if (Pending.rfind(L"!tunnel ", 0) == 0)

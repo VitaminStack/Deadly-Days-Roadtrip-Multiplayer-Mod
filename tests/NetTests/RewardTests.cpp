@@ -130,7 +130,7 @@ TEST_CASE("Inventory edit round-trips with choice, new slots and removed items")
 {
     const auto Value = SampleEdit();
     const auto Bytes = Encode(Value);
-    REQUIRE(Bytes.size() == 26 + 2 * 8 + 1 + 3 * 21 + 3 * 8);
+    REQUIRE(Bytes.size() == 26 + 2 * 8 + 1 + 3 * 21 + 3 * 8 + 1);
     const auto Back = DecodeEdit(Bytes);
     REQUIRE(Back);
     CHECK(*Back == Value);
@@ -166,6 +166,55 @@ TEST_CASE("Inventory edit rejects malformed payloads")
     auto BadFlags = Bytes;
     BadFlags[26 + 2 * 8 + 1 + 6] = 8;
     CHECK_FALSE(DecodeEdit(BadFlags));
+}
+
+TEST_CASE("Inventory edit carries upgrades with inputs, names and output")
+{
+    using namespace Game::InventoryEdit;
+    Edit Value;
+    Value.Id = 77;
+    Value.Items = {{0, NameHash("ItemData_Pistol"), false, 3, false, false, 0, {}, {}}, {1, NameHash("ItemData_Pistol"), false, 3, false, false, 0, {}, {}}};
+    Upgrade Next;
+    Next.Inputs = {1, 0};
+    Next.Data = "ItemData_Pistol";
+    Next.Rarity = "Rarity_Uncommon";
+    Next.Output = {UpgradeSource(0), NameHash(Next.Data), true, 0, true, false, 1, {0, 0}, {{0, 0}, {0, 1}}};
+    Value.Upgrades = {Next};
+    const auto Bytes = Encode(Value);
+    REQUIRE(Bytes.size() == 26 + 1 + 2 * 21 + 1 + 1 + 2 * 2 + 1 + 15 + 1 + 15 + 21 + 2 * 8);
+    const auto Back = DecodeEdit(Bytes);
+    REQUIRE(Back);
+    CHECK(*Back == Value);
+    CHECK_FALSE(DecodeEdit(std::span(Bytes).first(Bytes.size() - 1)));
+
+    auto LongName = Value;
+    LongName.Upgrades[0].Rarity = std::string(MaxObjectName + 1, 'x');
+    CHECK(Encode(LongName).empty());
+    auto BadInputs = Bytes;
+    BadInputs[26 + 1 + 2 * 21 + 1] = static_cast<uint8_t>(MaxUpgradeInputs + 1);
+    CHECK_FALSE(DecodeEdit(BadInputs));
+}
+
+TEST_CASE("Rarities round-trip and reject malformed payloads")
+{
+    Rarities Value;
+    Value.Items = {{0, 11, "Rarity_0_Common"}, {3, 12, ""}};
+    const auto Bytes = Encode(Value);
+    REQUIRE(Bytes.size() == 1 + 6 + 1 + 15 + 6 + 1);
+    const auto Back = DecodeRarities(Bytes);
+    REQUIRE(Back);
+    CHECK(*Back == Value);
+    CHECK_FALSE(DecodeRarities(std::span(Bytes).first(Bytes.size() - 1)));
+    auto Longer = Bytes;
+    Longer.push_back(0);
+    CHECK_FALSE(DecodeRarities(Longer));
+    CHECK_FALSE(DecodeRarities({}));
+    Rarities TooMany;
+    TooMany.Items.resize(MaxRarityItems + 1);
+    CHECK(Encode(TooMany).empty());
+    Rarities LongName;
+    LongName.Items = {{0, 1, std::string(Game::InventoryEdit::MaxObjectName + 1, 'x')}};
+    CHECK(Encode(LongName).empty());
 }
 
 TEST_CASE("Inventory edit result is exact")

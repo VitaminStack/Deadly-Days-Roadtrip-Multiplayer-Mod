@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <optional>
 #include <set>
+#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -19,6 +20,14 @@ using Tile = std::pair<int32_t, int32_t>;
 
 inline constexpr uint16_t ChoiceSource = 0xFFFF; // Source der gewählten Belohnung, kein Ausgangs-Item
 inline constexpr size_t MaxItems = 96, MaxItemTiles = 32, MaxNewSlots = 64;
+// werkbank-client: Ausgabe der k-ten Aufwertung hat Source UpgradeSourceBase + k. Ausgangs-Items liegen darunter.
+inline constexpr uint16_t UpgradeSourceBase = 0xFF00;
+inline constexpr size_t MaxUpgrades = 8, MaxUpgradeInputs = 4, MaxObjectName = 120;
+
+constexpr uint16_t UpgradeSource(size_t K)
+{
+    return static_cast<uint16_t>(UpgradeSourceBase + K);
+}
 
 // Zustand eines Items. Source ist der Index im Ausgangsstand (MyItems in replizierter Reihenfolge), DataHash die
 // Prüfsumme des Objektnamens seiner UInventoryItemData. Tiles sind die belegten Rucksackfelder, sortiert.
@@ -36,6 +45,17 @@ struct ItemState
     bool operator==(const ItemState&) const = default;
 };
 
+// Eine Aufwertung (UInventoryComponent::UpgradeItems): Ablegen auf ein gleiches Item oder ein Rezept der Werkbank. Inputs
+// sind Sources: Ausgangs-Items, die Belohnung (ChoiceSource) oder die Ausgabe einer früheren Aufwertung. Jede Eingabe steht
+// als nicht mehr vorhanden im Edit. Data und Rarity sind die Objektnamen der Ausgabe, Output ihr Endstand.
+struct Upgrade
+{
+    std::vector<uint16_t> Inputs;
+    std::string Data, Rarity;
+    ItemState Output;
+    bool operator==(const Upgrade&) const = default;
+};
+
 struct Edit
 {
     uint64_t Id = 0;
@@ -43,6 +63,7 @@ struct Edit
     std::optional<uint8_t> Choice;      // gewählte Belohnung
     std::vector<ItemState> Items;       // nur geänderte Items, die Belohnung mit Source ChoiceSource
     std::vector<Tile> NewSlots;
+    std::vector<Upgrade> Upgrades;      // in der Reihenfolge, in der sie liefen
     bool operator==(const Edit&) const = default;
 };
 
@@ -98,31 +119,127 @@ inline Edit Diff(const std::vector<ItemState>& Base, const std::vector<ItemState
 }
 
 // Prüft einen Edit ohne Spielzustand: Grenzen, eindeutige Quellen, Belohnung nur mit Wahl, keine doppelt belegten Felder.
+// Aufwertungen: Jede Eingabe ist ein im Edit entferntes Item, die Belohnung oder eine frühere, wieder verbrauchte Ausgabe
+// und wird nur einmal verbraucht.
 inline bool WellFormed(const Edit& Value)
 {
-    if (Value.Items.size() > MaxItems || Value.NewSlots.size() > MaxNewSlots || Value.Choice.value_or(uint8_t{0}) >= 8)
+    if (Value.Items.size() > MaxItems || Value.NewSlots.size() > MaxNewSlots || Value.Choice.value_or(uint8_t{0}) >= 8 ||
+        Value.Upgrades.size() > MaxUpgrades)
         return false;
     std::set<uint16_t> Sources;
     std::set<Tile> Used;
     size_t Choices = 0;
-    for (const ItemState& Item : Value.Items)
+    const auto Placement = [&](const ItemState& Item)
     {
-        if (!Sources.insert(Item.Source).second || Item.Tiles.size() > MaxItemTiles)
+        if (Item.Tiles.size() > MaxItemTiles)
             return false;
-        Choices += Item.Source == ChoiceSource;
         if (!Item.Present || !Item.InBackpack)
-        {
-            if (!Item.Tiles.empty())
-                return false;
-            continue;
-        }
+            return Item.Tiles.empty();
         if (Item.Tiles.empty())
             return false;
         for (const Tile& At : Item.Tiles)
             if (!Used.insert(At).second)
                 return false;
+        return true;
+    };
+    for (const ItemState& Item : Value.Items)
+    {
+        if ((Item.Source >= UpgradeSourceBase && Item.Source != ChoiceSource) || !Sources.insert(Item.Source).second || !Placement(Item))
+            return false;
+        Choices += Item.Source == ChoiceSource;
     }
-    return Choices == (Value.Choice ? 1u : 0u) && (Choices == 0 || Value.Session != 0);
+    if (Choices != (Value.Choice ? 1u : 0u) || (Choices != 0 && Value.Session == 0))
+        return false;
+    std::set<uint16_t> Consumed;
+    for (size_t K = 0; K < Value.Upgrades.size(); ++K)
+    {
+        const Upgrade& Next = Value.Upgrades[K];
+        if (Next.Inputs.empty() || Next.Inputs.size() > MaxUpgradeInputs || Next.Data.empty() || Next.Data.size() > MaxObjectName ||
+            Next.Rarity.size() > MaxObjectName || Next.Output.Source != UpgradeSource(K) || Next.Output.DataHash != NameHash(Next.Data) ||
+            !Placement(Next.Output))
+            return false;
+        for (const uint16_t Input : Next.Inputs)
+        {
+            if (!Consumed.insert(Input).second)
+                return false;
+            if (Input >= UpgradeSourceBase && Input != ChoiceSource)
+            {
+                const size_t From = Input - UpgradeSourceBase;
+                if (From >= K || Value.Upgrades[From].Output.Present)
+                    return false;
+                continue;
+            }
+            const auto It = std::find_if(Value.Items.begin(), Value.Items.end(), [&](const ItemState& Item) { return Item.Source == Input; });
+            if (It == Value.Items.end() || It->Present)
+                return false;
+        }
+    }
+    return true;
+}
+
+// Sources, die eine Aufwertung verbraucht. Der Host entfernt sie nicht selbst, das macht UpgradeItems.
+inline std::set<uint16_t> ConsumedSources(const Edit& Value)
+{
+    std::set<uint16_t> Result;
+    for (const Upgrade& Next : Value.Upgrades)
+        Result.insert(Next.Inputs.begin(), Next.Inputs.end());
+    return Result;
+}
+
+// Art eines Items für die Regeln: Prüfsummen der Objektnamen von ItemData und Rarity, 0 = keine.
+struct ItemKind
+{
+    uint32_t Data = 0, Rarity = 0;
+    bool operator==(const ItemKind&) const = default;
+};
+
+// Ablegen auf ein gleiches Item (InventoryPanel.UpgradeDroppedItem): zwei Eingaben mit denselben Daten, die Ausgabe hat
+// dieselben Daten und die nächste Seltenheit (URarity.NextUpgradableRarity) einer Eingabe. Next[i] gehört zu Inputs[i].
+inline bool IsMerge(const std::vector<ItemKind>& Inputs, const std::vector<uint32_t>& Next, ItemKind Output)
+{
+    if (Inputs.size() != 2 || Next.size() != 2 || !Inputs[0].Data || Inputs[0].Data != Inputs[1].Data || Output.Data != Inputs[0].Data ||
+        !Output.Rarity)
+        return false;
+    return Output.Rarity == Next[0] || Output.Rarity == Next[1];
+}
+
+// Ein Rezept der Werkbank (FRecipeTableRow): Ausgabe und benötigte Items. Rarity 0 heißt ohne Vorgabe.
+struct Recipe
+{
+    ItemKind Output;
+    std::vector<ItemKind> Required;
+};
+
+// Passt die Aufwertung zu einem Rezept? Jede benötigte Zutat braucht eine eigene Eingabe mit denselben Daten und, falls
+// vorgegeben, derselben Seltenheit. Ohne Seltenheit im Rezept muss die Ausgabe die Seltenheit einer Eingabe haben.
+inline bool IsRecipe(const std::vector<Recipe>& Recipes, const std::vector<ItemKind>& Inputs, ItemKind Output)
+{
+    if (Inputs.empty() || Inputs.size() > MaxUpgradeInputs || !Output.Data)
+        return false;
+    for (const Recipe& Candidate : Recipes)
+    {
+        if (Candidate.Output.Data != Output.Data || Candidate.Required.size() != Inputs.size())
+            continue;
+        if (Candidate.Output.Rarity ? Candidate.Output.Rarity != Output.Rarity
+                                    : std::none_of(Inputs.begin(), Inputs.end(), [&](const ItemKind& In) { return In.Rarity == Output.Rarity; }))
+            continue;
+        std::vector<size_t> Order(Inputs.size());
+        for (size_t i = 0; i < Order.size(); ++i)
+            Order[i] = i;
+        do
+        {
+            bool All = true;
+            for (size_t i = 0; i < Order.size() && All; ++i)
+            {
+                const ItemKind& Need = Candidate.Required[i];
+                const ItemKind& Have = Inputs[Order[i]];
+                All = Need.Data == Have.Data && (!Need.Rarity || Need.Rarity == Have.Rarity);
+            }
+            if (All)
+                return true;
+        } while (std::next_permutation(Order.begin(), Order.end()));
+    }
+    return false;
 }
 
 // Host: Passt der Edit in den Rucksack? Slots sind die vorhandenen Felder, Others die Felder, die Items außerhalb des
@@ -131,12 +248,16 @@ inline bool Fits(const Edit& Value, const std::vector<Tile>& Slots, const std::v
 {
     const std::set<Tile> Existing(Slots.begin(), Slots.end()), Taken(Others.begin(), Others.end());
     const std::set<Tile> Fresh(Value.NewSlots.begin(), Value.NewSlots.end());
-    for (const ItemState& Item : Value.Items)
+    const auto Ok = [&](const ItemState& Item)
+    {
         if (Item.Present && Item.InBackpack)
             for (const Tile& At : Item.Tiles)
                 if ((!Existing.contains(At) && !Fresh.contains(At)) || Taken.contains(At))
                     return false;
-    return true;
+        return true;
+    };
+    return std::all_of(Value.Items.begin(), Value.Items.end(), Ok) &&
+           std::all_of(Value.Upgrades.begin(), Value.Upgrades.end(), [&](const Upgrade& Next) { return Ok(Next.Output); });
 }
 
 enum class StepKind : uint8_t

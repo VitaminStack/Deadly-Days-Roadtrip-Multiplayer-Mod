@@ -171,6 +171,13 @@ Aufgabe `airdrop-auswahl`, Ablauf in [Airdrop-Auswahl](GAME_ANALYSIS.md#airdrop-
 | `InventoryComponent.TryGetSlotWithCoordinates` Parameter | X `+0`, Y `+4`, Slot `+8`, Found `+0x10`, Größe `0x18` | |
 | `UFunction` `FunctionFlags`, `ParmsSize` | `+0xB0`, `+0xB6` | `FUNC_Net` = `0x40`, `FUNC_NetServer` = `0x200000` |
 | `AController` `PlayerState`, `Pawn` | `+0x2B0`, `+0x2E8` | |
+| `InventoryComponent::UpgradeItems` | `0x5980AE0`, Exec-Thunk `0x571DA70` | `(this, TArray* Inputs, Data, Rarity, FlagAsNew, Position)`, nativ; ruft `CreateItemInstance` und `AddToInventory` (`werkbank-client`) |
+| Aufrufer von `UpgradeItems` | `0x5A98843` in `InventoryPanel.UpgradeDroppedItem` (`0x5A98490`), `0x5A5A7CE` Werkbank, `0x5980A0B` in `UpgradeItemToNextLevelAndReEquip` (`0x5980900`) | Rücksprungadressen |
+| `URarity.NextUpgradableRarity` | `+0x58` | Ziel beim Ablegen auf ein gleiches Item |
+| `UInventoryItemInstance.ItemRarity` | `+0x118` | **nicht repliziert**, beim Client null für replizierte Items |
+| `UDataTable` `RowStruct`, `RowMap` | `+0x28`, `+0x30` | `RowMap` als TSet: Elemente `0x18` Byte (Wert bei `+8`), Anzahl `+0x38`, Belegungsbits ab `+0x40` oder Zeiger `+0x50`, freie Plätze `+0x64` |
+| `FRecipeTableRow` `OutputItem`, `OutputRarityOverride`, `RequiredItems` | `+0x18`, `+0x20`, `+0x28` | `RequiredItems` je `0x10`: Item, RequiredRarityOverride; Tabelle `DT_RecipeTable` |
+| `InventoryPanel.WorkbenchUnlock` | `+0x4D0` | `OnetimeUnlock_Workbench` |
 
 ### Coop
 

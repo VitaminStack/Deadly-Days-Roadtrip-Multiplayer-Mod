@@ -186,6 +186,27 @@ zu warten.
 Clients. Ohne Rundenende sind die Flags 0, andere Bits sind ungültig. Bei Änderung sofort, sonst jede Sekunde. Der Client wartet nur
 mit einem höchstens 5 s alten Stand für dasselbe Rundenende und bestätigt, sobald beide Bits gesetzt sind oder der Stand fehlt.
 
+## Aufwerten und Seltenheiten (Mod-Kompatibilität 7)
+
+Aufgabe `werkbank-client`, Ablauf in [Werkbank und Aufwerten beim Client](../src/Game/README.md#werkbank-und-aufwerten-beim-client).
+Mod-Version 7, weil `0x303` ein neues Feld am Ende hat und ein Host mit Version 6 jeden Edit ablehnen würde.
+
+`0x303` Edit bekommt hinter den Items:
+
+| Bytes | Inhalt |
+|---:|---|
+| 1 | Anzahl Aufwertungen, höchstens 8 |
+| je Aufwertung | Anzahl Eingaben (1, 1 bis 4), je Eingabe die Quelle (2), Name der Ausgabedaten (1 Länge + bis 120 Byte UTF-8), Name der Seltenheit (ebenso, leer = keine), die Ausgabe als Item wie oben |
+
+Quellen der Eingaben: Index im Ausgangsbild, `0xFFFF` die Wahl, `0xFF00 + k` die Ausgabe der Aufwertung `k`. Die Ausgabe der Aufwertung
+`k` hat die Quelle `0xFF00 + k`, ihre Prüfsumme ist die des Datennamens. Jede Eingabe steht als nicht mehr vorhanden im Edit, eine
+frühere Ausgabe als Eingabe ebenso, und wird nur einmal verbraucht. Der Host lehnt zusätzlich ab, wenn eine Aufwertung weder zum Ablegen
+auf ein gleiches Item noch zu einem Rezept der Werkbank passt.
+
+`0x308` Seltenheiten, Host an Client: Anzahl (1, höchstens 96), je Item Platz in `MyItems` des Clientinventars (2), Prüfsumme des
+`ItemData`-Objektnamens (4), Name der Seltenheit (1 Länge + bis 120 Byte, leer = keine). Bei Änderung sofort, sonst alle 5 s. Der Client
+setzt die Seltenheit nur, wenn die Daten an diesem Platz übereinstimmen.
+
 ## Rundenende (`rundenende-client`)
 
 `0x401` Host an Client, neben der Karte `0x400` aus `missionsstart` (`src/Sync/World`). Genau 16 Bytes: Karten-Id der Mission
