@@ -18,6 +18,7 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 
 **Neue Befunde.**
 
+- `inventar-sync` und `inventar-ui`, 06.11.2026: Ohne eigene Umsetzung geschlossen, weil andere Aufgaben sie abdecken. Den Weg über den nativen `CoopInventoryCoordinator` hat das Projekt verworfen. Rucksack: `inventar-lokal` und `ausruestung-felder`. Lager: `rundenende-client`. Reward-Queue: `airdrop-warten` und `bestaetigen-alle`. Itemsäcke: `inventar-transaktion`. Der Client bedient sein Inventar im nativen Panel. Die Werkbank (Items aufwerten) ist im Coop nicht getestet und steht jetzt als `werkbank-client`.
 - `eingaben`, 06.11.2026: Host und Client steuern nur ihre eigene Figur; Bewegung, Dodge, Zielen und Menütasten wirkten schon ohne Änderung getrennt. Die verbleibende Lücke war der native lokale Koop: Ein lokales Gerät hätte an P2 gebunden werden können, der beim Host der Remote-Spieler ist, und beim Client hätte `SpawnLocalPlayer(1)` einen zweiten lokalen Spieler angelegt. Im Netzwerkspiel lehnt die Mod das jetzt an drei nativen Einstiegen ab, ohne Nachricht und ohne Folgen für den Solo-Koop. Im Spiel per Probe belegt; Gegenproben Bewegung, Dodge, Airdrop und Lager bestanden. [Befund](GAME_ANALYSIS.md#eingaben-getrennt-eingaben)
 - `gegnertyp`, 06.11.2026: Spawn und Tod von `BP_StandardEnemy` laufen über die native Replikation synchron, ohne eigenen Code; Tode kommen beim Client im Median sofort an, höchstens 2,9 s später. Die abweichenden Gegnerzähler von `opt-gegnerzahl` sind auf beiden Seiten nur zerstörte Objekte vor der Garbage Collection, Gegner-HP repliziert beim Client nicht. Der Desync-Melder vergleicht die Gegnerzahl jetzt standardmäßig, mit 8 Bestätigungen gegen spät replizierte Spawns; 7 min mit zwei Wellen ohne Alarm und Absturz. Neu: `opt-gegner-spawnverzug`. [Befund](GAME_ANALYSIS.md#ein-gegnertyp-synchron-gegnertyp)
 - `ausweichen-client`, 06.11.2026: Der Client weicht so weit aus und bremst so ab wie der Host, Ausdauer wird verbraucht. Ursache: Beim Host stand die Laufrichtung des Client-Controllers immer auf (0, 0), sein Dodge brach vor Kosten und Schub ab, und der Client rollte die Kosten zurück. Die Mod schätzt die Richtung beim Host aus dem replizierten Ort und trägt sie direkt vor dem Start von `GA_Dash` ein, der Host führt den Dodge nativ aus. Ohne eigene Nachricht, mit Netzprofil Internet vom Nutzer abgenommen. Nebenbei bestätigt: Spielertod und Rundenende erst, wenn alle tot sind. Neu: `airdrop-dodge-absturz`. [Befund](GAME_ANALYSIS.md#dodge-des-clients-beim-host-ausweichen-client)
@@ -262,7 +263,8 @@ flowchart TD
     subgraph PH5["Phase 5: Vollständiger Run"]
         GE["Alle Gegner und Bosse"]:::open
         XP["Loot, XP, Level-ups,<br/>Fähigkeiten"]:::open
-        IV["Inventar, Reward-Queue,<br/>Inventar-UI"]:::open
+        IV["Inventar, Reward-Queue,<br/>Inventar-UI<br/>(inventar-sync, inventar-ui)"]:::done
+        WB["Werkbank beim Client<br/>(werkbank-client)"]:::open
         PU["Pausen und blockierende UI"]:::open
         TG["Tageszyklus, Treibstoff,<br/>Etappen"]:::open
         ME["Run-Ende, Meta-Basis,<br/>Regel für Meta-Fortschritt"]:::open
@@ -308,7 +310,7 @@ flowchart TD
     W2 --> IG
     W3 --> IG
     IG --> G2{{"Gate G2"}}:::gate
-    PR --> W4["Welle 4<br/>gegner-alle, fortschritt, inventar-sync,<br/>airdrop-rucksack-live, airdrop-warten,<br/>inventar-ui, pausen-sync, tagesablauf,<br/>run-ende, vfx-sound, reconnect"]:::open
+    PR --> W4["Welle 4<br/>gegner-alle, fortschritt, werkbank-client,<br/>pausen-sync, tagesablauf,<br/>run-ende, vfx-sound, reconnect"]:::open
     G2 --> W4
     W4 --> IR["integration-run"]:::central
     W5 --> IR
