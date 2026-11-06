@@ -463,6 +463,29 @@ TEST_CASE("Bewegung: Dodge-Werte und Figur ohne Bewegungsmodus erkennen")
     CHECK(PackedCustomMode(0x23) == 2);
 }
 
+TEST_CASE("Bewegung: Laufrichtung des Clients für den Dodge beim Host")
+{
+    // Gemessen beim Client: Eingabe (X, Y) läuft in Weltrichtung (Y, X). Beim Host aus der Ortsänderung.
+    auto Input = RemoteMovementInput({0, 0}, 0);
+    CHECK(Input.X == 0.0);
+    CHECK(Input.Y == 0.0); // steht still: keine Eingabe, wie beim Client
+    Input = RemoteMovementInput(PlanarVelocity({100, 100}, {100, 70}, 50), 0); // gemessen: Ort (0, -5084)/s
+    CHECK(Input.X == doctest::Approx(-1.0));
+    CHECK(Input.Y == doctest::Approx(0.0)); // Eingabe (-1, 0)
+    Input = RemoteMovementInput({-4384, 4466}, 0);
+    CHECK(Input.X == doctest::Approx(0.7071).epsilon(0.02));
+    CHECK(Input.Y == doctest::Approx(-0.7071).epsilon(0.02)); // gemessen: Eingabe (0,71, -0,71)
+    Input = RemoteMovementInput({0, 600}, RemoteMoveHoldMs); // Ort kommt in Schüben, kurz danach gilt er noch
+    CHECK(Input.X == doctest::Approx(1.0));
+    Input = RemoteMovementInput({0, 600}, RemoteMoveHoldMs + 1);
+    CHECK(Input.X == 0.0);
+    CHECK(Input.Y == 0.0); // länger ohne Bewegung: steht
+    Input = RemoteMovementInput({RemoteInputMinSpeed, 0}, 0);
+    CHECK(Input.X == 0.0);
+    CHECK(Input.Y == 0.0); // kaum Tempo: steht praktisch
+    CHECK(PlanarVelocity({0, 0}, {10, 0}, 0).X == 0.0);
+}
+
 TEST_CASE("Bewegung: erst ein Zustand am Stück über der Grenze löst aus")
 {
     StuckTimer Timer;
