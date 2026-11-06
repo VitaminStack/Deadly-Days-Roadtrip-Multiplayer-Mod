@@ -18,6 +18,7 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 
 **Neue Befunde.**
 
+- `ci-tempo`, 06.11.2026: Die GitHub-CI braucht mit warmem Compiler-Cache unter einer Minute je Job statt 3,5 bis 4,5 Minuten. ccache steht vor `cl.exe`, MSBuild kompiliert je Datei parallel (MultiToolTask), Python- und Skript-Tests laufen einmal neben dem Build, reine Doku-PRs bauen nicht, überholte PR-Läufe brechen ab. Die Net-Tests warten nicht mehr auf den 500-ms-Zählertakt des Transports (26 s → 9 s). Ablauf in [Tests](../tests/README.md#ci).
 - `inventar-transaktion`, 06.11.2026, Teilstand: Ein aufgesammelter Itemsack gibt jedem Spieler das Item, der Host vergibt Kopien, im Lager auf beiden Seiten gleich. Neu: `inventar-lokal` (Client bearbeitet sein Inventar lokal und bestätigt einmal beim Host) und `rundenende-client` (Client sieht Rundenübersicht und Lager, nur der Host wählt den Tag). [Befund](../src/Game/README.md#itemsack-für-alle-spieler)
 - `bus-ende`, 06.11.2026: Busabfahrt und `FinishMission` laufen nur noch beim Host, der Client folgt. Mit dem Bus bis Tag 2 geprüft, Desync-Melder OK. [Befund](GAME_ANALYSIS.md#busabfahrt-nur-beim-host-bus-ende)
 - Coop-Test 06.11.2026 (Lobby, ein PC, Godmode, Mensch spielt beide Figuren): kein Absturz, Airdrop-Auswahl des Clients auf beiden Seiten gleich. Neu: `bus-ende` (P0, nur der Client beendete die Runde, Sitzung danach kaputt), `ausruestung-felder` (P0), `ausweichen-client` (P1) und `opt-desync-pivot`.
