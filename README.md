@@ -4,8 +4,14 @@ Fan-Mod, die echtes Online-Coop für **Deadly Days: Roadtrip** ermöglichen soll
 Couch-Coop, online also nur über Steam Remote Play, bei dem der Host das Bild streamt. Mit der Mod läuft das Spiel bei
 jedem Spieler selbst.
 
-**Status:** Die Mod-Basis (Phase 2) ist abgeschlossen; weitere Analyse- und Integrationsaufgaben sind offen.
-Der Spike erreicht den akzeptierten Endlos-Stand bis Tag 13. Gate G1 ist entschieden: native UE-Replikation mit gezielten Sync-Ergänzungen, siehe [TODO.md](TODO.md).
+*English summary: [see below](#english).*
+
+**Stand:** Experimentell, noch kein Download für Spieler. Zwei Spielinstanzen treten über eine Steam-Lobby bei und spielen
+dieselbe Mission: Bewegung, Kampf beider Spieler, Items, Level-ups und das Rundenende bis zum nächsten Tag. Getestet wurde
+bisher vor allem auf einem PC. Der Test über echtes Internet zwischen zwei Haushalten ([Gate G2](TODO.md#phase-4--vertical-slice)) steht noch aus.
+
+**Mitmachen:** Jeder kann mitarbeiten, auch ohne Einladung, etwa bei C++, Reverse Engineering, Tests zu zweit oder der Doku.
+Der Einstieg steht unter [Für neue Mitwirkende](#für-neue-mitwirkende), freie Aufgaben unter [Wo kann ich anfangen?](TODO.md#wo-kann-ich-anfangen).
 
 Was im Einzelnen noch offen ist, zeigt die [Roadmap als Graph](docs/ROADMAP.md).
 
@@ -15,6 +21,24 @@ Was im Einzelnen noch offen ist, zeigt die [Roadmap als Graph](docs/ROADMAP.md).
 | Engine | Unreal Engine 5.8, interner Projektname `DDSurvivors` |
 | Zielbild | 2 Spieler online, Host-autoritativ, jeder mit eigener Spielkopie |
 | Technik | Native C++-DLL (Dumper-7-SDK + Hooks), siehe [Architektur](docs/ARCHITECTURE.md) |
+
+## English
+
+Fan mod that adds real online co-op to **Deadly Days: Roadtrip**. The game itself only offers local couch co-op, so playing
+online currently means Steam Remote Play, where the host streams the picture. With this mod every player runs the game on
+their own PC.
+
+**Status:** Experimental, no download for players yet. Two game instances join a Steam lobby and play the same mission:
+movement, both players fighting, items, level-ups and the end of a round through to the next day. Testing has mostly
+happened on one PC. The test over the real internet between two homes (Gate G2) is still open.
+
+**Contributing:** Anyone can help, no invitation needed: C++, reverse engineering, testing with two players, or docs. Fork the
+repo and open a pull request. For bigger changes please open an issue first. Docs and the task list are written in German,
+but issues and pull requests in English are welcome. Start with [docs/SETUP.md](docs/SETUP.md), then pick a free task from
+[TODO.md](TODO.md#wo-kann-ich-anfangen) (`py tools/tasks.py list`).
+
+**Legal:** Unofficial fan project, not affiliated with Pixelsplit or the publisher. Every player needs their own copy of the
+game. The code is under the [MIT License](LICENSE). Game files are never part of this repo.
 
 ## Fortschritt
 
@@ -43,7 +67,8 @@ Erledigt ist, was in `TODO.md` unter „Erledigt“ steht. **Vollständig abgesc
 
 </details>
 
-Unter `src/` stehen Loader, Core, ein im Spiel geprüftes [Mod-Overlay](src/UI/README.md) und die [Game-Adapter-Schicht](src/Game/README.md) mit Game-Thread-Takt, die bisher nur liest. Phase 2 ist damit abgeschlossen; die Steam-Anbindung der Lobby-Knöpfe folgt in Phase 3. Die Punkte sind unterschiedlich groß, die Zahlen sagen also wenig über die verbleibende Zeit. Stand, Engpässe und nächste Schritte stehen in der [Roadmap](docs/ROADMAP.md#stand-und-nächste-schritte).
+Unter `src/` stehen Loader, Core, die Netzschicht über Steam, ein im Spiel geprüftes [Mod-Overlay](src/UI/README.md) und die
+[Game-Adapter-Schicht](src/Game/README.md) mit den Eingriffen für den Coop. Die Punkte sind unterschiedlich groß, die Zahlen sagen also wenig über die verbleibende Zeit. Stand, Engpässe und nächste Schritte stehen in der [Roadmap](docs/ROADMAP.md#stand-und-nächste-schritte).
 
 ## Wo finde ich was?
 
