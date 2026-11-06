@@ -56,7 +56,7 @@ Schreiber auf `MyItems`/Slots. Bestehende Items verschieben ist ebenso abzudecke
 **Abnahme:** Rucksack platzieren, drehen, abbrechen/umwählen; auf neue Felder sofort ein Item
 legen; zweites Panel, Umbau bestehender Items, Reise; doppelte/verspätete Aktion und volle Sendewarteschlange.
 Vergleichen: Besitz, Verbrauch, Feldkoordinaten, Belegung und Itemeffekte; keine lokalen Geisterobjekte.
-**Zuständig:** `airdrop-rucksack`, danach bestehende `inventar-sync` und `inventar-ui`.
+**Zuständig:** `airdrop-rucksack` und `inventar-lokal` (erledigt), Werkbank in `werkbank-client`.
 Kein neuer paralleler Inventar-Sync neben diesen Aufgaben.
 
 **Umgesetzt in `inventar-lokal` (06.11.2026, noch ohne Spieltest):** Server-RPCs des Inventars laufen bei offenem Panel lokal,
@@ -82,7 +82,7 @@ Keine zweite Timescale-Replikation neben funktionierender nativer WorldSettings-
 
 **Abnahme:** Host zuerst fertig, Client zuerst fertig, verschachteltes Menü, Disconnect und
 Travel; beide lokal bedienbar, globale Runde erst beim gültigen gemeinsamen Übergang frei.
-**Zuständig:** `airdrop-warten`, `pausen-sync`, `tagesablauf`, `inventar-ui`.
+**Zuständig:** `airdrop-warten`, `pausen-sync`, `tagesablauf`, `bestaetigen-rundenende`.
 
 ### 3. Kamera und XP-Sichtbereich — P1, vorhandene lokale Logik vervollständigen
 
@@ -211,7 +211,7 @@ keine automatische Zustandskorrektur. Das ist sinnvoller Minimal-Sync, keine neu
 vergleichen und ausstehende Vorschau getrennt kennzeichnen. Kein legitimes Preview als dauerhaft
 falsches Inventar werten; echte Feldabweichungen nicht durch pauschales Ausschließen verdecken.
 **Abnahme:** offene Vorschau ohne Fehlalarm, absichtlich falscher bestätigter Slot mit Alarm,
-Ablehnung/Travel/Disconnect. **Zuständig:** `inventar-sync`/`inventar-ui`, mit vorhandener Diagnose.
+Ablehnung/Travel/Disconnect. **Zuständig:** `opt-desync-pivot` und `werkbank-client`, mit vorhandener Diagnose.
 
 ## Keine unnötigen Umbauten
 

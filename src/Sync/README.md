@@ -16,7 +16,7 @@ Geplante Unterordner, jeweils mit eigener Zuständigkeit:
 | `Combat/` | Waffen, Projektile, Treffer, Fähigkeiten |
 | `Enemies/` | Spawn, Position und Tod der Gegner, Bosse. Ein Gegnertyp läuft nativ, ohne eigenen Code, siehe [Enemies](Enemies/README.md) |
 | `World/` | Karte, Tageszyklus, Missionen, Loot |
-| `Inventory/` | Rucksack, Stash, Rewards |
+| `Inventory/` | Airdrop-Auswahl und Edit des Clients (Rucksack, Rewards) |
 
 Gate G1 legt native UE-Replikation mit gezielten Kontrollkanal-Ergänzungen fest.
 
