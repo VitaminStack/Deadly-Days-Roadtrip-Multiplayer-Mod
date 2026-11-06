@@ -576,3 +576,31 @@ TEST_CASE("Reise: Der Client startet keine eigene Reise außer ins Hauptmenü")
     CHECK_FALSE(ClientMayStartTravel(true, ""));
     CHECK(ClientMayStartTravel(true, "/Game/Maps/MainMenu"));
 }
+
+TEST_CASE("Lager am Rundenende: Host wartet nur auf einen Client, der dieses Ende geöffnet hat und noch nicht bereit ist")
+{
+    CHECK(HostHoldsRoundEndConfirm(7, 0, true, 7, 0));
+    CHECK_FALSE(HostHoldsRoundEndConfirm(7, 0, true, 7, 7));  // Client schon bereit
+    CHECK_FALSE(HostHoldsRoundEndConfirm(7, 0, false, 7, 0)); // Client getrennt
+    CHECK_FALSE(HostHoldsRoundEndConfirm(7, 0, true, 0, 0));  // Client hat die Runde nicht nachgezogen
+    CHECK_FALSE(HostHoldsRoundEndConfirm(7, 0, true, 5, 0));  // altes Ende des Clients
+    CHECK_FALSE(HostHoldsRoundEndConfirm(7, 7, true, 7, 0));  // schon bestätigt
+    CHECK_FALSE(HostHoldsRoundEndConfirm(0, 0, true, 0, 0));  // kein Rundenende
+    CHECK(HostHoldsRoundEndConfirm(7, 0, true, 7, 5));        // Bereit für ein altes Ende zählt nicht
+}
+
+TEST_CASE("Lager am Rundenende: Client wartet nur mit frischem Stand des Hosts und gibt nie hängend auf")
+{
+    CHECK(ClientHoldsRoundEndConfirm(7, 0, 7));
+    CHECK_FALSE(ClientHoldsRoundEndConfirm(7, 0, 0)); // kein Stand vom Host
+    CHECK_FALSE(ClientHoldsRoundEndConfirm(7, 0, 5)); // Host in anderem Ende
+    CHECK_FALSE(ClientHoldsRoundEndConfirm(7, 7, 7)); // schon bestätigt
+    CHECK_FALSE(ClientHoldsRoundEndConfirm(0, 0, 0));
+
+    CHECK_FALSE(ClientMayReleaseRoundEnd(7, 7, false, false));
+    CHECK_FALSE(ClientMayReleaseRoundEnd(7, 7, true, false)); // Host hat das Bereit des Clients noch nicht
+    CHECK_FALSE(ClientMayReleaseRoundEnd(7, 7, false, true)); // Host noch nicht bereit
+    CHECK(ClientMayReleaseRoundEnd(7, 7, true, true));
+    CHECK(ClientMayReleaseRoundEnd(7, 0, false, false)); // Stand fehlt: nicht hängen bleiben
+    CHECK(ClientMayReleaseRoundEnd(7, 5, false, false));
+}
