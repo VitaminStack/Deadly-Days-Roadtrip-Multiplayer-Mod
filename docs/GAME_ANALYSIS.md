@@ -1253,7 +1253,32 @@ Stand 05.11.2026, Build `26187885`, ein PC, Mod mit Spike über die Lobby, Seed 
   Routenkarte und Reise zu Tag 2: `check_round.py` sauber, 63 Kacheln auf beiden Seiten, Figuren am Bus.
 - `DD_QuickFinishMission` beendet die Runde ohne Tank und Bus, wie `!finish`. Es ersetzt den Busablauf nicht.
 - **Offen:** Der Tank ist je Teilnehmer getrennt gewertet, jeder PlayerState hat einen eigenen `UFuelMeter` (Maximum 100). Nach
-  Nutzervorgabe ist er ein Gruppenwert, Folgeaufgabe `tank-gemeinsam`.
+  Nutzervorgabe ist er ein Gruppenwert, Folgeaufgabe `tank-gemeinsam`. Nachtrag: Der Tank am GameState ist schon der Gruppenwert, siehe [Tank als Gruppenwert](#tank-als-gruppenwert-tank-gemeinsam).
+
+### Tank als Gruppenwert (`tank-gemeinsam`)
+
+Stand 06.11.2026, Build `26187885`, ein PC, Mod mit Spike über die Lobby, Godmode, Tag 1. Der Nutzer steuerte beide Figuren.
+Ergebnis: **Der Tank ist im Spiel schon ein Gruppenwert, die Mod braucht dafür keinen Code.**
+
+- **[Belegt] Tankanzeigen zur Laufzeit:** In der Mission hat jede Seite einen `UFuelMeter` am `GS_DDMissionState_C` (Maximum 120) und
+  je Spieler einen am `BP_DDPlayerState_C` (Maximum 100). Dazu kommen die Vorlagen der Klassen. Gelesen mit `fuel.py` und einer
+  Zuordnung über den Outer. Der Tank am GameState startet bei 10.
+- **[Belegt] Reflektierte Funktionen:** `DDMissionGameState.GetFuelMeter`, `FuelMeter.IncreaseFuel`, `GetLastLootClaimer`,
+  `OnRep_CurrentFuel`, `FuelLoot.Loot`, `LootBlueprintFunctionLibrary.DropRequiredFuel`. Einen Cheat für Treibstoff gibt es nicht.
+- **[Belegt] Kanister:** Nach `DD_OpenAllLootSpots` (nach `!cheats`) lagen rund 30 `BP_FuelLoot_C` über die ganze Karte verteilt.
+- **[Belegt] Jeder Kanister zählt einmal für beide:** Mitschnitt aller Tanks auf beiden Seiten alle 0,25 s. Kanister des Hosts:
+  GameState-Tank 10 → 20, Kanister des Clients: 20 → 30, jeweils bei Host und Client in derselben Sekunde. Die PlayerState-Tanks
+  blieben bei 0, nichts zählte doppelt. Nach Auffüllen beim Host auf 118 (Speicherschreiben, der Client übernahm den Wert sofort) zwei
+  weitere Kanister: 128, 138 auf beiden Seiten. Der Wert darf das Maximum übersteigen.
+- **[Belegt] Voller Tank gibt die Busflucht frei:** Bei vollem Tank liefen beide Figuren zum Bus, die Runde endete. Host-Log
+  „Rundenende: Host beendet die Runde, Client wird benachrichtigt“, Client-Log „Host hat die Runde beendet, Client öffnet
+  Rundenübersicht und Lager selbst“; der Client zeigte „Ende der Runde“. Die Abfahrtsprüfung des Clients blieb unterdrückt
+  (`bus-ende`). Damit ist auch das Rundenende über den echten Bus für `rundenende-client` belegt.
+- **Vermutung:** Die PlayerState-Tanks sind ungenutzt oder für einen anderen Spielmodus. Beim Einsammeln änderten sie sich nicht.
+- **Nebenbefund, nur Anzeige:** Die Rundenübersicht des Clients zeigt eigene, lokale Werte (Kills 0, „Tag 0/0“). Kein Hindernis für
+  einen Run, Kandidat für die optionalen Optimierungen.
+- **Werkzeug:** `fuel.py --fill` schreibt alle Tanks, auch einen PlayerState-Tank und die Vorlage der Klasse. Für den Test egal,
+  gemeint ist nur der Tank am GameState.
 
 ### Busabfahrt nur beim Host (`bus-ende`)
 
@@ -1299,9 +1324,10 @@ Stand 06.11.2026, Build `26187885`, ein PC, Mod mit Spike über die Lobby, Godmo
   Test-`UserDir`, 3093 → 7867 Bytes zum selben Zeitpunkt) mit eigenem Run-Seed, Tag 0, `EndOfDay` und dem Inventar. Der Client hatte
   den Spielstand schon beim Beitritt geschrieben. Ob dabei ein laufender eigener Run eines echten Spielstands verloren geht, ist nicht
   geprüft (Vermutung: ja, der Run-Slot wird überschrieben). Das gehört zu `mod-saves` (Mod-Spielstände vom normalen trennen).
-- **Nicht geprüft:** Rundenende über den echten Bus (der Host ruft dort dasselbe `FinishMission`, siehe `bus-ende`), mehrere
+- **Nicht geprüft:** Mehrere
   Rundenenden hintereinander, Itemsäcke im Lager, ein Client, der den Host im Lager überholt. Die Reisesperre des Clients griff im Lauf
-  nicht, weil seine Routenkarte keinen Knoten anbot; sie ist nur in Tests belegt.
+  nicht, weil seine Routenkarte keinen Knoten anbot; sie ist nur in Tests belegt. Das Rundenende über den echten Bus ist seit
+  [`tank-gemeinsam`](#tank-als-gruppenwert-tank-gemeinsam) belegt.
 
 ### Rundenende: Befund und offene Phasenübertragung (`rundenende`)
 
