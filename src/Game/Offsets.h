@@ -39,6 +39,39 @@ inline constexpr uintptr_t Outer = 0x20;
 namespace UStruct
 {
 inline constexpr uintptr_t SuperStruct = 0x40;
+inline constexpr uintptr_t Children = 0x48;        // UField*, Kette der UFunctions
+inline constexpr uintptr_t ChildProperties = 0x50; // FField*, Kette der Felder (FProperty)
+inline constexpr uintptr_t PropertiesSize = 0x58;  // int32, Größe der Instanz
+}
+
+// Engine-Grundlayouts für die Reflexion (Game/Reflection.h).
+namespace UField
+{
+inline constexpr uintptr_t Next = 0x28;
+}
+
+namespace FField
+{
+inline constexpr uintptr_t Class = 0x08; // FFieldClass*
+inline constexpr uintptr_t Next = 0x18;
+inline constexpr uintptr_t Name = 0x20;  // FName: ComparisonIndex, dann Number
+}
+
+namespace FFieldClass
+{
+inline constexpr uintptr_t Name = 0x08; // FName, etwa "IntProperty"
+}
+
+namespace FProperty
+{
+inline constexpr uintptr_t ArrayDim = 0x30;
+inline constexpr uintptr_t ElementSize = 0x34;
+inline constexpr uintptr_t Offset = 0x44;
+}
+
+namespace FBoolProperty
+{
+inline constexpr uintptr_t FieldMask = 0x73;
 }
 
 namespace UWorld
@@ -61,21 +94,5 @@ namespace AGameStateBase
 inline constexpr uintptr_t PlayerArray = 0x2C0;
 }
 
-namespace UTutorialStateSubsystem
-{
-inline constexpr uintptr_t SkipTutorialFlag = 0xB8; // int32, nach jedem Spielstart wieder 0
-}
-
-// Einstellungen der Telemetrie und der automatischen Berichte, gelesen am Klassen-Defaultobjekt.
-namespace UDDBalanceTelemetrySettings
-{
-inline constexpr uintptr_t Enabled = 0x38;        // bool
-inline constexpr uintptr_t ServerBaseURL = 0x40;  // FString
-inline constexpr uintptr_t AttachSaveFile = 0x60; // bool
-}
-
-namespace UDDCorruptedSaveAutoReportSettings
-{
-inline constexpr uintptr_t EnableAutomaticReports = 0x38; // bool
-}
+// Felder von Spielklassen löst Game/Reflection.h zur Laufzeit auf, sie stehen deshalb nicht mehr hier.
 }

@@ -46,6 +46,7 @@
     <ClCompile Include="DesyncAdapter.cpp" />
     <ClCompile Include="AirdropAdapter.cpp" />
     <ClCompile Include="AirdropPatches.cpp" />
+    <ClCompile Include="Reflection.cpp" />
     <ClCompile Include="RewardPatches.cpp" />
     <ClCompile Include="InventoryEdit.cpp" />
     <ClCompile Include="ExpPatches.cpp" />
@@ -78,6 +79,7 @@
     <ClInclude Include="DesyncAdapter.h" />
     <ClInclude Include="DesyncSnapshot.h" />
     <ClInclude Include="AirdropAdapter.h" />
+    <ClInclude Include="Reflection.h" />
     <ClInclude Include="RewardAdapter.h" />
     <ClInclude Include="InventoryEditPlan.h" />
     <ClInclude Include="InventoryEditRuntime.h" />

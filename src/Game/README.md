@@ -12,6 +12,7 @@ Einzige Schicht mit Spielzugriff. Enthält Adapter auf Spielklassen und später 
 | `Offsets.h` | Alle Offsets und RVAs als Konstanten, Herkunft in [docs/OFFSETS.md](../../docs/OFFSETS.md) |
 | `Memory.h` | Geschützte Lesezugriffe (`Read<T>`, `ReadPointer`), Schreiben von Werten (`WriteBytes`) und Objektnamen (`NameOf`) |
 | `SdkChecks.cpp` | Prüft `Offsets.h` beim Bauen gegen das Dumper-7-SDK, ohne SDK leer |
+| `Reflection.h` | Löst Felder (`FProperty`: Offset, Größe, Typ) und Funktionen (`UFunction`) von Spielklassen zur Laufzeit über die Engine-Reflexion auf, einmal je Start gecacht |
 | `WorldAdapter.h` | Muster-Adapter: Karte, Rolle (allein, Host, Client) und Spielerzahl |
 | `DesyncAdapter.h` / `DesyncSnapshot.h` | Lesende Diagnosebilder, kanonische HP-/Inventar-Hashes, explizit unbekannte Felder; [Messumfang und offene Abnahme](../../docs/DESYNC.md) |
 | `Objects.h` | Suche im Objekt-Array (`FindInstance`, `FindObject`, `IsA`) und Aufruf über `ProcessEvent` |
@@ -43,7 +44,14 @@ falsche Layouts verwenden, statt laut zu scheitern.
 ## Muster für neue Adapter
 
 1. Header ohne SDK- und Windows-Typen, mit einfachen Structs wie `WorldInfo`. So können `Sync` und Tests ihn nutzen.
-2. Neue Offsets in `Offsets.h` eintragen, in `docs/OFFSETS.md` belegen und in `SdkChecks.cpp` gegen das SDK prüfen.
+2. **Neue Feldzugriffe auf Spielklassen über den Helfer `Reflection::Property`**, neue Funktionssuchen über `Reflection::Function`,
+   nicht über feste Offsets oder eine eigene Suche im Objekt-Array. Die `FieldSpec` nennt Paket, Klasse, Feldname, den erwarteten
+   `FProperty`-Typ (etwa `IntProperty`, `BoolProperty`, `StrProperty`) und die Größe. Liefert der Helfer nichts, bleibt nur der
+   betroffene Adapter oder Patch aus, der Helfer hat das einmal geloggt. Nie auf einen festen Wert zurückfallen. Ein Bitfeld-`bool`,
+   ein statisches Array oder ein Offset außerhalb der Klasse gilt als unpassend. Beispiele: `TutorialAdapter`, `TelemetryAdapter`.
+   Feste Offsets in `Offsets.h` bleiben für Engine-Grundlayouts (Objekt-Array, Namen, `UObject`, `UStruct`, `FField`, `FProperty`),
+   heiße Pfade, Felder ohne Reflexionsdaten (etwa in Blueprint-Structs oder Engine-Interna) und bestehenden Code. Solche Werte in
+   `docs/OFFSETS.md` belegen und in `SdkChecks.cpp` gegen das SDK prüfen.
 3. Spielspeicher nur über `Memory::Read`/`ReadPointer` lesen. Ein Lesefehler liefert `nullopt`, nie einen Absturz.
 4. Nur auf dem Game Thread aufrufen. Lesefunktionen prüfen `Core::GameThread().IsDrainThread()`. Andere Threads reichen Arbeit mit
    `Core::GameThread().Post` herein.
