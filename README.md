@@ -7,32 +7,6 @@ jedem Spieler selbst.
 **Status:** Die Mod-Basis (Phase 2) ist abgeschlossen; weitere Analyse- und Integrationsaufgaben sind offen.
 Der Spike erreicht den akzeptierten Endlos-Stand bis Tag 13. Gate G1 ist entschieden: native UE-Replikation mit gezielten Sync-Ergänzungen, siehe [TODO.md](TODO.md).
 
-```mermaid
-flowchart TD
-    subgraph A["Klären, ob es geht"]
-        direction LR
-        P0["Setup"]:::done --> P1["Analyse und Spikes"]:::done --> G1{{"Gate G1"}}:::done
-    end
-
-    subgraph B["Spielbar machen"]
-        direction LR
-        P2["Fundament"]:::done --> P3["Verbindung"]:::open --> P4["Vertical Slice"]:::open --> G2{{"Gate G2"}}:::gate
-    end
-
-    subgraph C["Fertigstellen"]
-        direction LR
-        P5["Vollständiger Run"]:::open --> P6["Release"]:::open --> Z(["Mod nutzbar"]):::goal
-    end
-
-    A --> B --> C
-
-    classDef done fill:#2e7d32,stroke:#1b5e20,color:#ffffff
-    classDef wip fill:#f9a825,stroke:#b27a00,color:#1a1a1a
-    classDef open fill:#eceff1,stroke:#607d8b,color:#1a1a1a
-    classDef gate fill:#6a1b9a,stroke:#3e1163,color:#ffffff
-    classDef goal fill:#1565c0,stroke:#0d3c78,color:#ffffff
-```
-
 Was im Einzelnen noch offen ist, zeigt die [Roadmap als Graph](docs/ROADMAP.md).
 
 | | |
