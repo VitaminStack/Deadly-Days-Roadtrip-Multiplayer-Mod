@@ -115,4 +115,30 @@ inline std::optional<std::optional<Game::Map::HostMap>> Decode(std::span<const u
         return std::nullopt;
     return std::optional<Game::Map::HostMap>(std::move(Map));
 }
+// Rundenende des Hosts (rundenende-client): Karten-Id und Id des Endes, je 8 Bytes. 0 und 0 heißt kein Ende. Der Host schickt
+// es bei jeder Änderung und jede Sekunde wie die Karte.
+inline constexpr uint16_t RoundEndType = 0x401;
+
+inline std::vector<uint8_t> EncodeRoundEnd(const std::optional<Game::Map::RoundEnd>& Value)
+{
+    if (Value && (!Value->MapId || !Value->Id))
+        return {};
+    std::vector<uint8_t> Out;
+    Detail::Put(Out, Value ? Value->MapId : 0, 8);
+    Detail::Put(Out, Value ? Value->Id : 0, 8);
+    return Out;
+}
+
+// Äußeres nullopt: kaputte Nachricht. Inneres nullopt: kein Rundenende.
+inline std::optional<std::optional<Game::Map::RoundEnd>> DecodeRoundEnd(std::span<const uint8_t> In)
+{
+    if (In.size() != 16)
+        return std::nullopt;
+    const Game::Map::RoundEnd Value{Detail::Get(In, 0, 8), Detail::Get(In, 8, 8)};
+    if (!Value.MapId && !Value.Id)
+        return std::optional<Game::Map::RoundEnd>{};
+    if (!Value.MapId || !Value.Id)
+        return std::nullopt;
+    return std::optional<Game::Map::RoundEnd>(Value);
+}
 }

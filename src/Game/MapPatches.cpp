@@ -9,6 +9,7 @@
 #include "Core/Log.h"
 #include "Game/MapAdapter.h"
 #include "Game/MapPolicy.h"
+#include "Game/PatchPolicy.h"
 #include "Game/Memory.h"
 #include "Game/Objects.h"
 #include "Game/PatchRuntime.h"
@@ -74,6 +75,12 @@ struct
     ULONGLONG PendingSince = 0;
     uintptr_t Generator = 0, GeneratorWorld = 0; // laufende eigene Erzeugung, nur dann Child Actors unterdrücken
     int Suppressed = 0;
+    // Rundenende (rundenende-client). Host: eigenes Ende in EndedWorld. Client: letztes Ende des Hosts und das zuletzt
+    // nachgezogene.
+    std::optional<Map::RoundEnd> Ended;
+    uintptr_t EndedWorld = 0;
+    std::optional<Map::RoundEnd> HostEnd;
+    uint64_t FollowedEnd = 0;
     // Beide: PCG-Volume, dessen Instanzen noch einen festen Seed brauchen
     uintptr_t PcgWorld = 0;
     ULONGLONG PcgSince = 0;
@@ -482,8 +489,43 @@ std::span<const Patch> MapPatches()
     return List;
 }
 
+void NoteHostRoundEnd()
+{
+    const uintptr_t World = CurrentWorld();
+    if (S.Ended && S.EndedWorld == World)
+        return;
+    Map::RoundEnd End;
+    End.MapId = S.Published && S.PublishedWorld == World ? S.Published->Id : 0;
+    End.Id = RandomId();
+    S.Ended = End;
+    S.EndedWorld = World;
+    if (End.MapId)
+        Core::Log::Info("Rundenende: Host beendet die Runde, Client wird benachrichtigt");
+    else
+        Core::Log::Warn("Rundenende: Host beendet die Runde ohne eigene Kartenwerte, der Client bleibt in der Mission");
+}
+
+// Client: Das Rundenende des Hosts einmal lokal nachziehen, sobald es zur gespielten Karte passt.
+void FollowRoundEnd()
+{
+    if (!S.HostEnd)
+        return;
+    const uint64_t ClientMapId = S.UsedWorld == CurrentWorld() ? S.UsedId : 0;
+    if (!ClientMayFollowRoundEnd(S.HostEnd->MapId, ClientMapId, S.FollowedEnd == S.HostEnd->Id))
+        return;
+    S.FollowedEnd = S.HostEnd->Id;
+    if (FollowHostRoundEnd())
+        Core::Log::Info("Rundenende: Host hat die Runde beendet, Client öffnet Rundenübersicht und Lager selbst");
+    else
+        Core::Log::Warn("Rundenende: Client ohne Missions-GameState, folgt nur der Reise");
+}
+
 void TickMap(NetRole Role, bool Second)
 {
+    if (Role == NetRole::Client)
+        FollowRoundEnd();
+    else if (S.Ended && S.EndedWorld != CurrentWorld())
+        S.Ended.reset();
     if (Role != NetRole::Client)
     {
         if (S.Published && S.PublishedWorld != CurrentWorld())
@@ -513,6 +555,20 @@ std::optional<HostMap> CurrentHostMap()
     if (!S.Published || S.PublishedWorld != CurrentWorld())
         return std::nullopt;
     return S.Published;
+}
+
+std::optional<RoundEnd> CurrentRoundEnd()
+{
+    using namespace Patches;
+    if (!S.Ended || S.EndedWorld != CurrentWorld())
+        return std::nullopt;
+    return S.Ended;
+}
+
+void SetHostRoundEnd(std::optional<RoundEnd> Value)
+{
+    using namespace Patches;
+    S.HostEnd = Value;
 }
 
 void SetHostMap(std::optional<HostMap> Value)

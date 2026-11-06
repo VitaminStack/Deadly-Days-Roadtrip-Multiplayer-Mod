@@ -534,3 +534,22 @@ TEST_CASE("Busabfahrt und Rundenende entscheidet nur der Host")
     CHECK(MissionFinishAllowed(true, true));
     CHECK_FALSE(MissionFinishAllowed(true, false));
 }
+
+TEST_CASE("Rundenende: Client zieht das Ende des Hosts nur für dieselbe Karte und einmal nach")
+{
+    CHECK(ClientMayFollowRoundEnd(42, 42, false));
+    CHECK_FALSE(ClientMayFollowRoundEnd(42, 42, true));
+    CHECK_FALSE(ClientMayFollowRoundEnd(42, 43, false));
+    CHECK_FALSE(ClientMayFollowRoundEnd(42, 0, false));
+    CHECK_FALSE(ClientMayFollowRoundEnd(0, 0, false));
+}
+
+TEST_CASE("Reise: Der Client startet keine eigene Reise außer ins Hauptmenü")
+{
+    CHECK(ClientMayStartTravel(false, "/Game/Maps/DDDynamic_Map"));
+    CHECK(ClientMayStartTravel(false, ""));
+    CHECK_FALSE(ClientMayStartTravel(true, "/Game/Maps/DDDynamic_Map"));
+    CHECK_FALSE(ClientMayStartTravel(true, "/Game/Maps/MetaBase"));
+    CHECK_FALSE(ClientMayStartTravel(true, ""));
+    CHECK(ClientMayStartTravel(true, "/Game/Maps/MainMenu"));
+}

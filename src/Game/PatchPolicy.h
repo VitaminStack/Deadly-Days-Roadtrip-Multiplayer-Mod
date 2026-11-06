@@ -154,6 +154,20 @@ constexpr bool MissionFinishAllowed(bool IsNetClient, bool IsLoading)
     return !IsNetClient || IsLoading;
 }
 
+// rundenende-client: Der Client beendet seine Runde lokal, wenn der Host sie in derselben Mission beendet hat (gleiche
+// Karten-Id, nie 0), und nur einmal je Rundenende. Ohne passende Karte bleibt er wie bisher in der Mission und folgt der Reise.
+constexpr bool ClientMayFollowRoundEnd(uint64_t HostMapId, uint64_t ClientMapId, bool AlreadyFollowed)
+{
+    return HostMapId != 0 && HostMapId == ClientMapId && !AlreadyFollowed;
+}
+
+// Der Client startet keine eigene Reise in eine Mission oder die Basis, etwa über seine Routenkarte. Das Ziel wählt der Host,
+// der Client folgt über servertravel. Ins Hauptmenü darf er weiter.
+constexpr bool ClientMayStartTravel(bool IsNetClient, std::string_view Target)
+{
+    return !IsNetClient || Target.find("MainMenu") != std::string_view::npos;
+}
+
 // Beim Client bleiben ablaufende statische Pfad-GUIDs erhalten, keine dynamischen, NoLoad- oder kaputten Einträge.
 constexpr bool RetainNetGuidPath(bool CurrentClientCache, uint64_t Guid, uint32_t PathName, uint8_t Flags)
 {
