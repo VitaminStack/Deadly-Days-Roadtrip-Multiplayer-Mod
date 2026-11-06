@@ -1467,6 +1467,48 @@ Die Aufgabe bleibt ungelöst. Getestet sind Beobachtung, Befehlsgrenzen sowie Co
 
 **Karte:** Im echten Ablauf erzeugt der Host 144 bis 167 `MapTile`, der Client bleibt bei 17 und zeigt eine andere Karte. Die Figur des Clients startet deshalb weit vom Bus entfernt, weil seine Position beim Host übernommen wird. Das ist der Einstieg in Thema 3.
 
+### Live-Test auf zwei PCs am 06.11.2026 (`livetest-befunde`)
+
+Build `26187885`, Mod-Stand `main` bis `installer` (#131), zwei Haushalte über das Steam-Relay, Ping 32 ms, kein Paketverlust. Lobby,
+MetaBase, Tag 1 und Tag 2 mit 14 Airdrops des Clients, Abbruch durch einen Absturz des Clients im Lager am Ende von Tag 2. Ausgewertet
+sind das Mod-Log und der Speicher des Hosts, nur lesend; das Client-Log lag bei der Auswertung noch nicht vor.
+
+- **[Gemeldet] Aufwerten beim Client geht nicht.** Erwartet: `UInventoryComponent::UpgradeItems` und `InventoryPanel.TryToUpgradeDroppedItem`
+  sind laut SDK lokale Funktionen, kein Server-RPC. Die Mod deckt das Aufwerten noch nicht ab, siehe `werkbank-client`.
+- **[Belegt, Host] Waffe des Clients nach der Itemauswahl nicht ausgerüstet.** Der Client wählte unter anderem Pistole, Messer und zweimal MP.
+  Beim Host lagen danach Pistolen, Messer und Fahrradpumpe des Clients außerhalb des Rucksacks (`IsInBackpack` 0, Pivot aber gesetzt), im
+  Rucksack nur Batterie, MP, Bohrer und Charakter-Item. `ADDCharacter.EquippedWeapons` (`+0x7B8`) der Client-Figur beim Host enthielt nur
+  `Data_SMG`. Alle Edits übernahm der Host mit `vollständig=true`. Verdacht, nicht belegt: Während der Bearbeitung verwirft der Client alle
+  fremden Server-RPCs (`InventoryEdit.cpp`, `Kind::Foreign`), und beim Umlegen nimmt der Host ein verschobenes Item mit
+  `ForceRemoveAllEffects` heraus und setzt die Wirkung nur neu, wenn das Panel des Clients `ApplyAddToBackpackEffect` gerufen hatte.
+- **[Belegt, Host] Inventar dauerhaft abweichend.** Ab der fünften Wahl (Tag 2) meldete der Desync-Melder nach fast jeder Übernahme
+  `ABWEICHUNG Inventar` und wurde nicht wieder gleich. Vorher war der Abgleich nach jeder Übernahme binnen Sekunden wieder `OK`. Der Nutzer
+  sah beim Client unsichtbare Items. Ob `opt-desync-pivot` einen Teil davon erklärt, ist offen.
+- **[Gemeldet] Dodge-Reparatur beim Client wirkt nicht mehr.** Beim Host stand je Karte „Laufrichtung der Client-Figur für den Dodge beim
+  Host eingetragen“, keine Ablehnung aus `eingaben`. Was beim Client fehlt, braucht sein Log.
+- **[Belegt, Host] Absturz des Clients im Lager, Host reist weiter.** Rund 77 s nach „Client im Lager“ (Ende Tag 2) kamen keine Daten mehr
+  vom Client, 3 s später meldete der Host „Client meldet sich nicht mehr aus dem Lager“ und bestätigte dann allein („alle bereit“), reiste
+  nach Tag 3 und verlor erst dort die Verbindung (Timeout 4001). Absturzadresse und Client-Log fehlen noch.
+
+**Zweite Sitzung am selben Abend, Rollen getauscht** (dieser PC Client, Ausgewertet: Client-Log, Client-Speicher, Absturzbericht):
+
+- **[Belegt] Mehr als ein Mitspieler geht nicht.** Die Lobby nimmt bis zu 4 Mitglieder auf (`Session::kMaxMembers`), der Transport des
+  Hosts lehnt aber jeden weiteren mit `Busy` ab („es gibt schon einen Mitspieler“), und Remote-P2, Airdrop-Auswahl, Inventar-Edit und
+  Desync-Melder kennen genau einen Client. Ein Spiel zu dritt ist mit dem aktuellen Stand nicht möglich.
+- **[Belegt] Vier Airdrops, alle Edits übernommen.** Das Panel des Clients ruft beim Ablegen einer Waffe jedes Mal
+  `ApplyAddToBackpackEffect`, den der Host nachholt. Verworfen wird während der Bearbeitung aber `CharacterEffectManager.RemoveItemFromBackpack`;
+  ob dadurch Effekte herausgenommener Items hängen bleiben, ist offen.
+- **[Belegt, Client] Gegner weichen ab, im Lager auch das Inventar.** Ab 19:13:41 UTC (im Kampf, während einer Itemauswahl) meldete der
+  Melder `ABWEICHUNG Gegner`, nach dem Rundenende im Lager alle 30 s `Gegner, Inventar`, bis zum Ende. Der Client hatte im Lager 116
+  sichtbare `EnemyBase`, alle `SimulatedProxy` vom Host, keine lokal entstandenen. Die Zahl des Hosts lag nicht vor.
+- **[Belegt] Dodge-Reparatur greift laufend.** „Dodge-Werte der eigenen Figur hingen, Reibung und Schwerkraft zurückgesetzt“ stand oft
+  mehrmals je Minute, ohne sie rutschte der Client.
+- **[Belegt] Client-Absturz, als der Host im Lager das Spiel beendete (Alt+F4).** `EXCEPTION_ACCESS_VIOLATION reading address 0xE0` bei
+  `0x5AB513A`. Die Funktion ab `0x5AB5120` liest `UItemRepresentation.ItemInstance` (`+0xA28`) und davon ohne Prüfung `ItemData`
+  (`UInventoryItemInstance +0xE0`). Darunter UMG/Slate und die Blueprint-VM, also ein Inventar-Widget, dessen Item beim Verbindungsabbau
+  schon weg ist. Verdacht: derselbe Weg wie beim ersten Absturz im Lager, sobald dort ein Item-Widget sein Item verliert; vergleiche
+  [Trennen](#trennen-ins-hauptmenü-trennen), wo ein fehlendes Item in `EndPlay` abstürzte.
+
 ## Systeme, die die Mod respektieren muss
 
 - **[Belegt]** Bestenlisten und Erfolge: `PixelLeaderboards`, `DDLeaderboardSettings`, `PixelAchievements`, im Mod-Betrieb gesperrt, siehe unten
