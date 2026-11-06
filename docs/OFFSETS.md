@@ -165,7 +165,7 @@ Aufgabe `airdrop-auswahl`, Ablauf in [Airdrop-Auswahl](GAME_ANALYSIS.md#airdrop-
 | `InventoryComponent.AddToInventory` Parameter | Item `+0`, SystemAdd `+8`, Position `+0xC`, AllowP2Reserve `+0x10`, Größe `0x18` | |
 | `InventoryComponent.OccupyBackpackSlots` Parameter | Item `+0`, TArray Slots `+8`, Größe `0x18` | |
 | `InventoryComponent.TryGetSlotWithCoordinates` Parameter | X `+0`, Y `+4`, Slot `+8`, Found `+0x10`, Größe `0x18` | |
-| `UFunction` `FunctionFlags`, `ParmsSize` | `+0xB0`, `+0xB6` | `FUNC_Net` = `0x40` |
+| `UFunction` `FunctionFlags`, `ParmsSize` | `+0xB0`, `+0xB6` | `FUNC_Net` = `0x40`, `FUNC_NetServer` = `0x200000` |
 | `AController` `PlayerState`, `Pawn` | `+0x2B0`, `+0x2E8` | |
 
 ### Coop

@@ -209,7 +209,7 @@ Format in [Kontrollkanal](../../docs/CONTROL_PROTOCOL.md#inventar-lokal-mod-komp
   `UpdateIsTrash`) mit der nativen Logik lokal aus: `ProcessEventLocal` nimmt für den Aufruf `FUNC_Net` weg. Ablegen, Drehen, Sortieren,
   Rucksackteile und neue Felder sind damit sofort sichtbar. `RemoveFromInventory` zerstört beim Client nie, damit sich ein verbrauchter
   Rucksack zurücklegen lässt. `ApplyAddToBackpackEffect` merkt sich der Client nur, der Host löst ihn nach dem Ablegen aus. Alle
-  anderen Server-RPCs verwirft der Client, bis der Host geantwortet hat, auch die anderer Klassen (Ausrüsten, Waffen); nur Bewegung
+  anderen Server-RPCs (`FUNC_NetServer`, Client-RPCs und Multicasts vom Host laufen normal) verwirft der Client, bis der Host geantwortet hat, auch die anderer Klassen (Ausrüsten, Waffen); nur Bewegung
   geht weiter. Sie nennen oft Objekte, die es nur beim Client gibt: In den ersten beiden Spieltests stürzte der Host beim Bearbeiten ab
   (Lesezugriff `0xF0`), erst am Effekt der gewählten Belohnung, dann nach dem Verschieben des Revolvers. Verworfene RPCs stehen je
   Bearbeitung einmal im Log.
@@ -225,9 +225,17 @@ Format in [Kontrollkanal](../../docs/CONTROL_PROTOCOL.md#inventar-lokal-mod-komp
   Host übernimmt jede Kennung nur einmal.
 - **Diagnose:** Logzeilen `Inventar lokal: …`, mit `DDCOOP_TRACE_INVENTORY=1` jeder einzelne Aufruf.
 
-**Stand 06.11.2026:** Build und Tests bestanden (Game 45, Net 73 Testfälle). Noch nicht im Spiel geprüft, offen sind vor allem
-Autoritätsprüfungen in den nativen `_Implementation`s beim Client, lokales `CreateSlotInstance` und das Überschreiben durch die
-Replikation nach der Host-Übernahme.
+**Geprüft** (06.11.2026, Build `26187885`, ein PC, Lobby, Godmode, `tools/spike/guided/inventar-lokal.txt`): Der Client legte
+Rucksackteile, verschob und drehte Revolver, Pistole, Schrotflinte und Baseballschläger, neue Felder erschienen sofort. Vier Edits,
+darunter einer mit drei neuen Feldern und ein reines Umsortieren ohne Wahl, übernahm der Host jeweils vollständig. Danach meldete
+`Get-Status -Inventory` beide Inventare vollständig und gleich. Tank per Speicherschreiben auf 118 von 120, echtes Rundenende über den Bus
+bis Tag 2, dort gekämpft: kein Absturz, Inventare stabil. Der letzte Vergleich in Tag 2 wich nur um die drei lokalen
+Anzeige-Instanzen einer gerade offenen Auswahl ab (`reward=1`), das ist so gewollt. Die ersten beiden Läufe stürzten beim Host ab, siehe
+oben; behoben. Danach im Spiel nicht mehr geprüft: die Begrenzung des Verwerfens auf `FUNC_NetServer`, zuvor verwarf der Client auch
+`ClientSetViewTarget`, `ClientEffectApplied` und Gameplay-Cues vom Host. Abbruch und Ablehnung sind nur in Tests und über das
+Schließen ohne Wahl (`Ausgangsstand wiederhergestellt, vollständig=true`) belegt, eine Ablehnung durch den Host kam im Spiel nicht vor.
+Offen und nicht Teil dieser Aufgabe: Beim Rundenende sieht der Client noch die alte Sperre statt Rundenübersicht und Lager
+(`rundenende-client`).
 
 ### Itemsack für alle Spieler
 

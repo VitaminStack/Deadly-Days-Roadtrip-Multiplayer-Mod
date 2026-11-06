@@ -29,7 +29,7 @@ constexpr uintptr_t SlotCoordinates = 0x28, SlotOccupier = 0x30;
 constexpr uintptr_t ItemPivot = 0x28, ItemTurns = 0xD8, ItemData = 0xE0;
 constexpr uintptr_t ItemInBackpack = 0x180, ItemIsTrash = 0x184;
 constexpr uintptr_t FunctionFlags = 0xB0;
-constexpr uint32_t FuncNet = 0x40, GarbageOrUnreachable = 0x30;
+constexpr uint32_t FuncNet = 0x40, FuncNetServer = 0x200000, GarbageOrUnreachable = 0x30;
 // EBackpackEffectRemovalStyle
 constexpr uint8_t ForceRemoveAllEffects = 0, AllowRetainEffects = 1;
 
@@ -96,7 +96,8 @@ const Known& Classify(uintptr_t Fn)
     if (const auto It = Cache.find(Fn); It != Cache.end())
         return It->second;
     Known Value;
-    if (Memory::Read<uint32_t>(Fn + FunctionFlags).value_or(0) & FuncNet)
+    // Nur Server-RPCs (FUNC_NetServer): Client-RPCs und Multicasts vom Host laufen beim Client ganz normal.
+    if (Memory::Read<uint32_t>(Fn + FunctionFlags).value_or(0) & FuncNetServer)
     {
         const std::string Owner = Memory::NameOf(Pointer(Fn + Offsets::UObject::Outer));
         Value.Name = Memory::NameOf(Fn);

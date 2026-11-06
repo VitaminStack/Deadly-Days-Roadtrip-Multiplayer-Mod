@@ -62,10 +62,10 @@
       <path d="M0 340H1000" stroke="#d1d5db"/>
       <text x="20" y="322">5</text>
       <text x="125" y="322">Kompletter Run zu zweit</text>
-      <text x="490" y="322">6 von 25</text>
+      <text x="490" y="322">7 von 25</text>
       <rect x="630" y="307" width="200" height="18" rx="4" fill="#e5e7eb"/>
-      <rect x="630" y="307" width="48" height="18" rx="4" fill="#64748b"/>
-      <text x="846" y="322">24 %</text>
+      <rect x="630" y="307" width="56" height="18" rx="4" fill="#64748b"/>
+      <text x="846" y="322">28 %</text>
     </g>
     <g id="phase-6">
       <rect y="340" width="1000" height="48" fill="#ffffff"/>
@@ -82,10 +82,10 @@
       <path d="M0 436H1000" stroke="#d1d5db"/>
       <text x="20" y="418">Gesamt</text>
       <text x="125" y="418"></text>
-      <text x="490" y="418">85 von 114</text>
+      <text x="490" y="418">86 von 114</text>
       <rect x="630" y="403" width="200" height="18" rx="4" fill="#e5e7eb"/>
-      <rect x="630" y="403" width="149" height="18" rx="4" fill="#64748b"/>
-      <text x="846" y="418">74 %</text>
+      <rect x="630" y="403" width="150" height="18" rx="4" fill="#64748b"/>
+      <text x="846" y="418">75 %</text>
     </g>
   </g>
 </svg>
