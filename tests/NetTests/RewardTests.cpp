@@ -53,7 +53,7 @@ Game::InventoryEdit::Edit SampleEdit()
     Value.NewSlots = {{3, -1}, {2, 0}};
     ItemState Moved{4, NameHash("DA_Revolver"), true, 0, true, false, 1, {0, 1}, {{0, 1}, {1, 1}}};
     ItemState Bag{7, NameHash("DA_Bag"), false, 3, false, false, 0, {}, {}};
-    ItemState Picked{ChoiceSource, NameHash("DA_Pistol"), true, 0, true, true, -1, {3, -1}, {{3, -1}}};
+    ItemState Picked{ChoiceSource, NameHash("DA_Pistol"), true, 0, true, true, -1, {3, -1}, {{3, -1}}, true};
     Value.Items = {Moved, Bag, Picked};
     return Value;
 }

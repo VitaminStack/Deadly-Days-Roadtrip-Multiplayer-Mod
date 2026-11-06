@@ -135,6 +135,17 @@ TEST_CASE("Zurückrollen legt verbrauchte Items zurück und entfernt lokale Feld
     CHECK(Plan(Current, Target, false, true) == Expected);
 }
 
+TEST_CASE("Vorgemerkter Rucksackeffekt kommt in den Edit, ändert aber keinen Plan ohne neue Ablage")
+{
+    const std::vector<ItemState> Base{Placed(0, {{0, 0}})};
+    ItemState Effect = Base[0];
+    Effect.AddEffect = true;
+    CHECK(Diff(Base, {Effect}, {{0, 0}}, {{0, 0}}).Items.size() == 1);
+    CHECK(Plan(Base, {Effect}, false, false).empty());
+    const std::vector<Step> Expected{{StepKind::Place, 0}};
+    CHECK(Plan({Stored(0)}, {Effect}, false, false) == Expected);
+}
+
 TEST_CASE("Namensprüfsumme ist stabil und nie null")
 {
     static_assert(NameHash("DA_Revolver") == NameHash("DA_Revolver"));

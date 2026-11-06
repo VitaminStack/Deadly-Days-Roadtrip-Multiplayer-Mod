@@ -158,7 +158,7 @@ inline std::vector<uint8_t> Encode(const Game::InventoryEdit::Edit& Value)
     {
         Detail::Put(Out, Item.Source, 2);
         Detail::Put(Out, Item.DataHash, 4);
-        Out.push_back(static_cast<uint8_t>((Item.Present ? 1 : 0) | (Item.InBackpack ? 2 : 0) | (Item.Trash ? 4 : 0)));
+        Out.push_back(static_cast<uint8_t>((Item.Present ? 1 : 0) | (Item.InBackpack ? 2 : 0) | (Item.Trash ? 4 : 0) | (Item.AddEffect ? 8 : 0)));
         Out.push_back(Item.RemoveContext);
         Detail::Put(Out, static_cast<uint32_t>(Item.Turns), 4);
         Detail::PutTile(Out, Item.Pivot);
@@ -190,7 +190,7 @@ inline std::optional<Game::InventoryEdit::Edit> DecodeEdit(std::span<const uint8
         return std::nullopt;
     for (uint8_t i = 0; i < Count; ++i)
     {
-        if (At + 21 > In.size() || In[At + 6] > 7 || In[At + 20] > MaxItemTiles || At + 21 + 8 * size_t(In[At + 20]) > In.size())
+        if (At + 21 > In.size() || In[At + 6] > 15 || In[At + 20] > MaxItemTiles || At + 21 + 8 * size_t(In[At + 20]) > In.size())
             return std::nullopt;
         ItemState Item;
         Item.Source = static_cast<uint16_t>(Detail::Get(In, At, 2));
@@ -198,6 +198,7 @@ inline std::optional<Game::InventoryEdit::Edit> DecodeEdit(std::span<const uint8
         Item.Present = In[At + 6] & 1;
         Item.InBackpack = In[At + 6] & 2;
         Item.Trash = In[At + 6] & 4;
+        Item.AddEffect = In[At + 6] & 8;
         Item.RemoveContext = In[At + 7];
         Item.Turns = static_cast<int32_t>(Detail::Get(In, At + 8, 4));
         Item.Pivot = Detail::GetTile(In, At + 12);

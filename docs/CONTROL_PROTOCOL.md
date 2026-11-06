@@ -151,7 +151,7 @@ Ganzzahlen little-endian, Felder als X und Y mit je 4 Byte (vorzeichenbehaftet).
 | 25 | 1 | Anzahl neuer Felder, höchstens 64 |
 | 26 | 8 je | neue Felder |
 | … | 1 | Anzahl Items, höchstens 96 |
-| … | je Item | Index im Ausgangsbild (2, `0xFFFF` = die Wahl), Prüfsumme des `ItemData`-Objektnamens (4, FNV-1a), Bits (1: 0 vorhanden, 1 im Rucksack, 2 Papierkorb), Kontext von `RemoveFromInventory` (1), `Turns` (4), Pivot (8), Anzahl Felder (1, höchstens 32), je Feld 8 |
+| … | je Item | Index im Ausgangsbild (2, `0xFFFF` = die Wahl), Prüfsumme des `ItemData`-Objektnamens (4, FNV-1a), Bits (1: 0 vorhanden, 1 im Rucksack, 2 Papierkorb, 3 Rucksackeffekt auslösen), Kontext von `RemoveFromInventory` (1), `Turns` (4), Pivot (8), Anzahl Felder (1, höchstens 32), je Feld 8 |
 
 Nur geänderte Items, jeweils der Endzustand. Der Host lehnt ab, wenn die Form nicht stimmt (doppelte Quelle oder Felder, Felder
 ohne Rucksack, Belohnung ohne Wahl), die Wahl nicht zur offenen Sitzung passt, ein Item fehlt oder ein Zielfeld weder frei noch neu ist.

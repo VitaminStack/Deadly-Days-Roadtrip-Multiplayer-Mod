@@ -70,14 +70,16 @@ std::string ItemLabel(uintptr_t Item)
     return Item ? Memory::NameOf(Pointer(Item + ItemData)) : std::string("?");
 }
 
-// Inventar-RPCs, die während der Bearbeitung lokal laufen. Andere Server-RPCs des Inventars (CreateDefaultBackpack,
-// CopyBackpack, RepairItem, ApplyAddToBackpackEffect) gehen weiter an den Host.
+// Inventar-RPCs, die während der Bearbeitung lokal laufen. ApplyAddToBackpackEffect merkt sich der Client nur, der Host löst ihn
+// beim Übernehmen aus. Andere Server-RPCs des Inventars (CreateDefaultBackpack, CopyBackpack, RepairItem) gehen an den Host,
+// außer sie nennen eine nur lokale Belohnung.
 enum class Kind : uint8_t
 {
     Other,
     InventoryRpc,
     RemoveFromInventory,
     ItemRpc,
+    AddEffect,
 };
 
 struct Known
@@ -103,6 +105,8 @@ const Known& Classify(uintptr_t Fn)
         {
             if (Value.Name == "RemoveFromInventory")
                 Value.Type = Kind::RemoveFromInventory;
+            else if (Value.Name == "ApplyAddToBackpackEffect")
+                Value.Type = Kind::AddEffect;
             else if (std::find(std::begin(InventoryNames), std::end(InventoryNames), Value.Name) != std::end(InventoryNames))
                 Value.Type = Kind::InventoryRpc;
         }
@@ -132,6 +136,7 @@ struct
     std::vector<Tile> Slots;        // Ausgangsfelder
     std::vector<uintptr_t> Choices; // lokale Anzeige-Instanzen
     std::unordered_map<uintptr_t, uint8_t> RemoveContext;
+    std::vector<uintptr_t> Effects; // Items mit ApplyAddToBackpackEffect
     unsigned Logged = 0;
     uint64_t NextId = 0;
 } Session;
@@ -212,12 +217,12 @@ bool Apply(uintptr_t Inventory, const std::vector<uintptr_t>& Items, const std::
            const std::vector<Tile>& Create, const std::vector<uintptr_t>& Destroy, bool Local)
 {
     static uintptr_t Unoccupy = 0, RemoveFromBackpack = 0, RemoveFromInventory = 0, AddToInventory = 0, DestroySlot = 0, CreateSlots = 0,
-                     TryGetSlot = 0, AddToBackpack = 0, Occupy = 0, SetTurns = 0, SetPivot = 0, UpdateTrash = 0;
+                     TryGetSlot = 0, AddToBackpack = 0, Occupy = 0, SetTurns = 0, SetPivot = 0, UpdateTrash = 0, AddEffect = 0;
     if (!Function(Unoccupy, "UnoccupyBackpackSlots", "InventoryComponent") || !Function(RemoveFromBackpack, "RemoveFromBackpack", "InventoryComponent") ||
         !Function(RemoveFromInventory, "RemoveFromInventory", "InventoryComponent") || !Function(AddToInventory, "AddToInventory", "InventoryComponent") ||
         !Function(DestroySlot, "DestroySlotInstance", "InventoryComponent") || !Function(CreateSlots, "Server_CreateSlotsFromBagItem", "InventoryComponent") ||
         !Function(TryGetSlot, "TryGetSlotWithCoordinates", "InventoryComponent") || !Function(AddToBackpack, "AddToBackpack", "InventoryComponent") ||
-        !Function(Occupy, "OccupyBackpackSlots", "InventoryComponent") || !Function(SetTurns, "SetTurns", "InventoryItemInstance") ||
+        !Function(Occupy, "OccupyBackpackSlots", "InventoryComponent") || !Function(AddEffect, "ApplyAddToBackpackEffect", "InventoryComponent") || !Function(SetTurns, "SetTurns", "InventoryItemInstance") ||
         !Function(SetPivot, "SetZeroPivotTile", "InventoryItemInstance") || !Function(UpdateTrash, "UpdateIsTrash", "InventoryItemInstance"))
     {
         Core::Log::Warn("Inventar lokal: native Inventarfunktionen nicht gefunden");
@@ -338,6 +343,11 @@ bool Apply(uintptr_t Inventory, const std::vector<uintptr_t>& Items, const std::
             } Params{Item, {Slots.data(), static_cast<int32_t>(Slots.size()), static_cast<int32_t>(Slots.size())}};
             static_assert(sizeof(Params) == 0x18);
             Call(Inventory, Occupy, &Params, Local);
+            if (Goal.AddEffect && !Local)
+            {
+                uintptr_t Effect = Item;
+                Objects::ProcessEvent(Inventory, AddEffect, &Effect);
+            }
             break;
         }
         case StepKind::Trash:
@@ -362,6 +372,7 @@ bool Apply(uintptr_t Inventory, const std::vector<uintptr_t>& Items, const std::
             Reached.Present = false;
         Reached.DataHash = Target[i].DataHash;
         Reached.RemoveContext = Target[i].RemoveContext;
+        Reached.AddEffect = Target[i].AddEffect;
         if (!SameState(Reached, Target[i]))
         {
             Core::Log::Warn("Inventar lokal: {} nach dem Übernehmen abweichend (vorhanden {}, im Rucksack {}, {} Felder statt {})", ItemLabel(Items[i]),
@@ -410,6 +421,7 @@ std::optional<Edit> FinishClient(uint64_t SessionId, uint64_t Revision, std::opt
         if (Contains(Now, Session.Items[i]))
         {
             Final.push_back(ReadItem(Session.Items[i], Slots, static_cast<uint16_t>(i)));
+            Final.back().AddEffect = Final.back().InBackpack && Contains(Session.Effects, Session.Items[i]);
             continue;
         }
         ItemState Gone = Session.States[i];
@@ -424,6 +436,7 @@ std::optional<Edit> FinishClient(uint64_t SessionId, uint64_t Revision, std::opt
     {
         ItemState Picked = ReadItem(ChoiceItem, Slots, ChoiceSource);
         Picked.Present = Contains(Now, ChoiceItem);
+        Picked.AddEffect = Picked.InBackpack && Contains(Session.Effects, ChoiceItem);
         if (!Picked.Present)
         {
             Picked.InBackpack = Picked.Trash = false;
@@ -522,12 +535,25 @@ bool RouteClientRpc(uintptr_t Object, uintptr_t Fn, void* Params)
         return false;
     if (Info.Type == Kind::Other)
     {
+        // Eine nur lokale Belohnung kennt der Host nicht, er läse einen Nullzeiger.
+        if (Contains(Session.Choices, Item))
+        {
+            LogOp(Info.Name + " mit lokaler Belohnung verworfen");
+            return true;
+        }
         LogOp(Info.Name + " geht an den Host");
         return false;
     }
     if (Session.State == Phase::Committed)
     {
         LogOp(Info.Name + " nach dem Bestätigen verworfen");
+        return true;
+    }
+    if (Info.Type == Kind::AddEffect)
+    {
+        if (Item && !Contains(Session.Effects, Item))
+            Session.Effects.push_back(Item);
+        LogOp(Info.Name + " vorgemerkt, " + ItemLabel(Item));
         return true;
     }
     if (Info.Type == Kind::RemoveFromInventory && Params)

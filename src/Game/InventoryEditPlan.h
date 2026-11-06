@@ -32,6 +32,7 @@ struct ItemState
     int32_t Turns = 0;
     Tile Pivot{};
     std::vector<Tile> Tiles;
+    bool AddEffect = false; // Panel hat ApplyAddToBackpackEffect gerufen, der Host löst ihn nach dem Ablegen aus
     bool operator==(const ItemState&) const = default;
 };
 
@@ -66,7 +67,7 @@ inline bool SameState(const ItemState& A, const ItemState& B)
 {
     if (A.Present != B.Present)
         return false;
-    return !A.Present || (SamePlacement(A, B) && A.Trash == B.Trash);
+    return !A.Present || (SamePlacement(A, B) && A.Trash == B.Trash && A.AddEffect == B.AddEffect);
 }
 
 inline std::vector<Tile> Sorted(std::vector<Tile> Tiles)
