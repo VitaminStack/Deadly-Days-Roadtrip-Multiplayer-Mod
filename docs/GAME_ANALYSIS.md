@@ -864,6 +864,49 @@ ein Client.
 - **[Beobachtet] Nebenbei:** Dodgt der Client in einen Airdrop, stürzt er manchmal in `InventoryPanel.SetupInventory` ab
   (`InventoryComponent` an `+0x370` leer), nicht reproduzierbar. Steht als `airdrop-dodge-absturz`.
 
+### Dodge im Zwei-PC-Test: Diagnose offen (`dodge-client-live`)
+
+Stand 06.11.2026, Auswertung der archivierten Mod-Logs aus den beiden oben
+beschriebenen Live-Sitzungen, ohne neuen Spielstart:
+
+- **[Belegt, Client, zweite Sitzung]** 29 Meldungen ueber zurueckgesetzte
+  Dodge-Werte zwischen 18:58:34 und 19:13:58 UTC. Im Kampf ab 19:10 treten sie
+  wiederholt auf, einmal schon nach 801 ms erneut. Der lokale Rueckfall-Fix
+  fehlt also nicht; wiederholtes Ruecksetzen ersetzt aber kein korrektes
+  natives Ende und beweist keinen Ausdauerverbrauch.
+- **[Belegt, Code]** Die bisherige Host-Meldung erscheint nach erfolgreichem
+  Schreiben der Richtung nur einmal je Figur. Auch der Nullvektor wird
+  erfolgreich geschrieben: Fehlt eine gemessene Bewegung oder ist sie aelter
+  als 200 ms, bleibt die Richtung (0, 0). Diese Meldung belegt weder eine
+  gueltige Richtung fuer jeden Dodge noch Ausdauerkosten oder Ability-Abschluss.
+- **[Grenze]** Host-Log der ersten und Client-Log der zweiten Sitzung sind
+  kein zeitgleiches Paar. Aus ihnen laesst sich nicht entscheiden, ob der
+  jeweilige Host eine veraltete Richtung liefert, der native Dodge anders
+  abbricht oder das Wiederherstellen beim Client fehlschlaegt. Eine Aenderung
+  von Richtungshaltezeit, Ausdauer oder Dodge-Ende waere noch unbegruendet.
+
+**Diagnose im Arbeitsstand:** `MovementPatches.cpp` meldet jetzt jede erkannte
+Client-Aktivierung beim Host mit laufender Nummer, tatsaechlich geschriebener
+Richtung, Bewegungs-/Probenalter, Grund fuer eine Nullrichtung und
+Schreibergebnis. Eine nicht zugeordnete Figur wird separat gemeldet, die
+gefundene `GA_Dash`-UFunction einmal je Welt. Der Client zaehlt erfolgreiche
+Ruecksetzungen mit Dauer und den alten Reibungs-/Schwerkraftwerten. Keine neue
+Nachricht, kein neuer Hook, keine neuen Offsets; native Vorhersage, Kosten und
+die bisherige Richtungsregel bleiben unveraendert. Die Meldung
+`Client-Dodge beim Host vorbereitet` bedeutet ausdruecklich **nicht erfolgreich
+ausgefuehrt**.
+
+**Naechste Abnahme auf zwei PCs:** identischen Arbeitsstand verwenden und beide
+Logs derselben Sitzung sichern. Zuerst zehn getrennte Dodges beim Client mit
+vorheriger Bewegung, dazwischen Ausdauer nachladen lassen; danach Gegenprobe
+mit gehaltener Leertaste, Richtungswechsel unmittelbar vor dem Dodge und ein
+Dodge aus dem Stand (natives Abbrechen bleibt erlaubt). Je Versuch Richtung,
+Ausdauerverbrauch und -regeneration, Weite und Abbremsen beobachten und mit
+dem Host vergleichen. Nullrichtungen/Schreibfehler und Client-Ruecksetzungen
+zeitlich zuordnen. Nach Rundenwechsel wiederholen, um Welt-Neuzuordnung zu
+pruefen. Erst mit erklaerter Ursache und zehn Dodges ohne Rutschen und mit
+Ausdauer wie beim Host ist `dodge-client-live` erledigt.
+
 ### Client-Absturz im Restrictor (`tick-absturz`)
 
 Stand: Disassembly und Spieltest am 02.11.2026, Build `26187885`.
@@ -1153,7 +1196,7 @@ Stand 04.11.2026, Build `26187885`. Zwei Instanzen auf einem PC mit `Start-Sessi
 - **[Belegt] Absturz ohne Patch:** Nach dem Klick stürzte der Host ab: `EXCEPTION_ACCESS_VIOLATION reading address 0x0` bei `0x584CD85`. Der Handler `0x584CD20` läuft beim Run-Ende für jeden Controller, ausgelöst über eine Delegate-Kette aus dem Inventarbereich (`0x5956E00`, `0x596DA03`). Er prüft den Besitzer bei `this+0xA8` auf die Controller-Klasse, ruft `APlayerController::GetLocalPlayer` (`0x2E706D0`) und ohne Nullprüfung `+0x330` auf dem Ergebnis auf. Der Remote-Controller hat keinen `LocalPlayer`. Das ist dieselbe Annahme wie bei den Spawn-Patches.
 - **Spike-Patch** (`RunEnd.cpp`): Ohne `LocalPlayer` gilt wie im Spieler-Index-Helfer Index 1 (P2), danach läuft die Funktion normal weiter.
 - **[Belegt] Mit Patch:** kein Absturz. Beide stehen mit 2 Spielern und vollen HP in der `MetaBase`, beide Controller werden getauscht (`source=swap`). Danach startete ein neuer Run mit `Start-Run.ps1` über Routenkarte bis in die Mission an Tag 1, mit vollständigen und gleichen Inventaren.
-- **Nebenbefund:** In der `MetaBase` zeigt der Client seinen eigenen Meta-Stand (andere Zähler und Gebäude als der Host). Das ist das Thema `meta-fortschritt`, über das das Team entscheidet.
+- **Nebenbefund:** In der `MetaBase` zeigt der Client seinen eigenen Meta-Stand (andere Zähler und Gebäude als der Host). Seit der [Nutzerentscheidung vom 06.11.2026](SYNC_REQUIREMENTS.md#nutzervorgabe-meta-fortschritt-des-hosts-06112026) soll fuer den gemeinsamen Run der Host-Stand gelten; die technische Umsetzung ist damit noch nicht belegt.
 - **Nicht geprüft:** Niederlage an späteren Tagen oder in Bosskämpfen, nur ein Spieler tot (der andere lebt weiter), Niederlage über das Internet. Je Variante ein Lauf.
 
 ### Trennen ins Hauptmenü (`trennen`)

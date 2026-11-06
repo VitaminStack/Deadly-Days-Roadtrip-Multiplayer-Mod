@@ -487,6 +487,21 @@ TEST_CASE("Bewegung: Laufrichtung des Clients für den Dodge beim Host")
     CHECK(PlanarVelocity({0, 0}, {10, 0}, 0).X == 0.0);
 }
 
+TEST_CASE("Bewegung: Dodge-Diagnose unterscheidet fehlende und veraltete Richtung")
+{
+    CHECK(RemoteMovementState({0, 600}, RemoteMoveHoldMs) == RemoteInputState::Moving);
+    CHECK(RemoteMovementState({0, 600}, RemoteMoveHoldMs + 1) == RemoteInputState::Expired);
+    CHECK(RemoteMovementState({0, 600}, UINT64_MAX) == RemoteInputState::Expired); // noch keine Bewegungsprobe
+    CHECK(RemoteMovementState({0, 0}, 0) == RemoteInputState::NoMovement);
+    CHECK(RemoteMovementState({RemoteInputMinSpeed, 0}, 0) == RemoteInputState::NoMovement);
+    for (const uint64_t Age : {uint64_t{0}, RemoteMoveHoldMs, RemoteMoveHoldMs + 1, UINT64_MAX})
+        for (const PlanarDirection Velocity : {PlanarDirection{}, PlanarDirection{0, 600}, PlanarDirection{-600, 0}})
+        {
+            const PlanarDirection Input = RemoteMovementInput(Velocity, Age);
+            CHECK((Input.X != 0 || Input.Y != 0) == (RemoteMovementState(Velocity, Age) == RemoteInputState::Moving));
+        }
+}
+
 TEST_CASE("Bewegung: erst ein Zustand am Stück über der Grenze löst aus")
 {
     StuckTimer Timer;
