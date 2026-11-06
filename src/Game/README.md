@@ -192,6 +192,24 @@ Weitere reine Pixelkorrekturen schließen diese Lücke nicht. Zielgrenze: lokale
 ein zusammengehöriger bestätigter Inventarvorgang mit stabilen Item-Identitäten und anschließender
 Zustandsabstimmung; Effekte und Vergabe bleiben hostautoritativ. Das ist noch kein implementierter Fix.
 
+**Abnahme `airdrop-rucksack-live` (06.11.2026, Build `26187885`, ein PC, Lobby, Godmode, `tools/spike/guided/airdrop-rucksack.txt`).**
+Die oben fehlende gemeinsame Transaktion liefert inzwischen `inventar-lokal` (Edit beim Bestätigen), die sofortige Feldanzeige
+`ausruestung-felder`; deren Läufe deckten zwei Airdrops, Umsortieren und gleiche Inventare ab. In diesem Lauf: Item in den Rucksack
+gezogen, ohne zu bestätigen, das Panel blieb offen, keine automatische Bestätigung, kein Geister-Item. Die übrigen Schritte (Wirkung im
+Kampf, zweiter Airdrop) wurden nicht mehr einzeln geführt, der Nutzer erklärte die Aufgabe nach eigener Prüfung ohne Befund für erledigt.
+
+**Bestätigen-Logik, lesend geprüft (06.11.2026).** Gewünscht ist: Bei jeder Itemauswahl (Airdrop und Rundenende mit Lager) drücken alle
+Spieler Bestätigen, der Knopf leuchtet gelb, und erst wenn alle samt Host bestätigt haben, setzt der Host Spiel oder nächste Runde fort.
+Stand im Code:
+
+- **Airdrop, teilweise:** Bestätigt der Host zuerst, hält `ConfirmHook` sein Bestätigen zurück (`Host.HeldPanel`), das Spiel bleibt
+  pausiert, und `TickHost` holt es nach, sobald die Wahl des Clients da ist. Bestätigt der Client zuerst, schließt sein Panel sofort
+  lokal (`ClientConfirm`), das Spiel läuft weiter, sobald der Host bestätigt. Es gibt keine gelbe Markierung und keine Anzeige, wer schon
+  bestätigt hat. Der Client sieht nach seinem Bestätigen nur das pausierte Spiel.
+- **Nur ein Client:** `RemoteReady`, `Host.ClientPick` und `ClientPending` gibt es je einmal, gewartet wird nur auf P2.
+- **Rundenende, fehlt:** Der Client sieht Rundenübersicht und Lager noch nicht, das baut `rundenende-client`. Das native
+  „Bestätigen & Wechseln“ des Koop-Modus wartet zwar auf P2, hängt aber mit dem Remote-Spieler, darum bleibt der Koop-Modus aus.
+
 **Verworfen:** Zuerst nutzte die Mod die native Koop-Reward-Sitzung (Koop-Modus nur für den Airdrop, Client wählt im Overlay, Host ruft
 `ClaimReward(1, …)`). Das Host-Panel zeigte beide Rucksäcke, nach dem Claim des Clients ging die UI-Autorität an P1 und der Host hing.
 Die Auswahl im Overlay gefiel nicht, der Nutzer wollte für beide das normale Panel.
