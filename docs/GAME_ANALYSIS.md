@@ -1509,6 +1509,26 @@ sind das Mod-Log und der Speicher des Hosts, nur lesend; das Client-Log lag bei 
   schon weg ist. Verdacht: derselbe Weg wie beim ersten Absturz im Lager, sobald dort ein Item-Widget sein Item verliert; vergleiche
   [Trennen](#trennen-ins-hauptmenü-trennen), wo ein fehlendes Item in `EndPlay` abstürzte.
 
+### Steam-Lobby über das Internet (`lobby-live`)
+
+Ausgewertet aus den Mod-Logs beider Sitzungen vom 06.11.2026 (siehe oben), ohne eigenen Termin. Zwei Steam-Konten in zwei Haushalten,
+Route jeweils Steam-Relay `fra`, Ping 32 ms.
+
+- **[Belegt] Beitritt nur über die Einladung bis in die MetaBase.** Zweite Sitzung, Client: „Einladung über Steam angenommen“,
+  Lobby betreten, P2P über Relay verbunden, „Protokoll: Build, Mod-Version und Gegenrolle bestaetigt“, Tunnel steht, „Welt: MetaBase,
+  Client, 2 Spieler“, alles binnen 1,6 s. Der Handshake des [Kontrollkanals](CONTROL_PROTOCOL.md) ist damit über das Internet
+  bestätigt; der Desync-Melder meldete 6 s später `OK` für alle Bereiche. Das deckt auch den ersten Fall von `lobby-auth-live`
+  (eingeladener Freund verbindet), die Aufgabe bleibt aber wegen der beiden anderen Fälle offen.
+- **[Belegt] Weitere Beitritte.** Zwei Beitritte ohne Einladungsvermerk (Lobby-ID) und einer nach Neustart des Hosts verliefen genauso.
+  Auf dem Host-PC der ersten Sitzung stand „Lobby erstellt“, „P2P bereit, nur Lobby-Mitglieder“ und 12 s später der Client über Relay.
+- **[Belegt] Host verlässt.** Zweimal „Der Host hat die Sitzung verlassen“ (Grund 1001 `ddcoop`): Der Client trennt im Spiel, landet im
+  Hauptmenü und kann sofort einer neuen Lobby beitreten. Ein Beitritt zur geschlossenen Lobby endet mit „Die Lobby gibt es nicht mehr,
+  der Host hat sie geschlossen“ ohne Absturz.
+- **[Belegt] Host nach Verbindungsverlust.** Erste Sitzung: „Verbindung zum Mitspieler verloren“, danach „Lobby geschlossen: Das Spiel
+  ist im Hauptmenü“. Auslöser war allerdings der Absturz des Clients, kein geordnetes Verlassen.
+- **Nicht geprüft:** Start über `+connect_lobby` bei geschlossenem Spiel und geordnetes Verlassen des Clients aus Sicht des Hosts. Das
+  ist der Rest in `lobby-live-rest`.
+
 ## Systeme, die die Mod respektieren muss
 
 - **[Belegt]** Bestenlisten und Erfolge: `PixelLeaderboards`, `DDLeaderboardSettings`, `PixelAchievements`, im Mod-Betrieb gesperrt, siehe unten

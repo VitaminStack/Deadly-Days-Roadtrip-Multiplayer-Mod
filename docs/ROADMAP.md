@@ -18,6 +18,7 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 
 **Neue Befunde.**
 
+- `lobby-live`, 06.11.2026: Die Steam-Lobby funktioniert mit zwei Konten über das Internet. Aus den Logs der beiden Live-Sitzungen: Einladung über Steam angenommen, P2P über das Steam-Relay, Handshake des Kontrollkanals bestätigt und MetaBase mit zwei Spielern in 1,6 s; verlässt der Host, landet der Client sauber im Hauptmenü. Ungeprüft sind der Start über `+connect_lobby` und das Verlassen des Clients, neu als `lobby-live-rest` vor `release`. Damit ist `integration-g2` nicht mehr blockiert, bestanden ist G2 aber nicht: Beide Sitzungen endeten mit Absturz und Inventar-Abweichung des Clients. [Befund](GAME_ANALYSIS.md#steam-lobby-über-das-internet-lobby-live)
 - `werkbank-client`, 06.11.2026: Der Client wertet Items im nativen Panel auf, per Ablegen auf ein gleiches Item und an der Werkbank. Vorher ging das beim Client nie, weil die Seltenheit der Items nicht repliziert; jetzt schickt der Host sie für das Clientinventar (`0x308`). Die Aufwertung läuft beim Client lokal, der Edit meldet sie, der Host prüft sie gegen die Regel fürs Ablegen oder ein Rezept aus `DT_RecipeTable` und ruft `UpgradeItems` selbst auf. Im Lager beginnt die erste Aufwertung eine lokale Bearbeitung bis zum Bestätigen. Mod-Version 7. Im Lager an Tag 1 und 2 geprüft (Ablegen, Werkbank, beides in einem Edit), nach der Reise Inventare gleich; Airdrop und Lager ohne Aufwertung wie bisher. [Befund](../src/Game/README.md#werkbank-und-aufwerten-beim-client)
 - `livetest-befunde`, 06.11.2026: Erster Live-Test auf zwei PCs über das Internet bis Tag 2, abgebrochen durch einen Absturz des Clients im Lager. Beim Client wirkten getauschte Waffen nicht, das Inventar wich dauerhaft ab, Aufwerten fehlt (`werkbank-client`), der Dodge-Fix wirkte laut Nutzer nicht. Neu: `lager-absturz-client`, `waffe-client-auswahl`, `inventar-client-abweichung`, `dodge-client-live`. [Befund](GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-06112026-livetest-befunde)
 - `xp-baelle-live`, 06.11.2026: Im Spiel gegengeprüft, ohne Code-Änderung. Beim Client sind die Sichtgrenzen der XP-Bälle jetzt dieselben wie beim Host (4370/4851 statt vorher 1050/5750). Auch bei weit auseinanderstehenden Figuren lagen die Bälle am linken und am rechten Bildrand auf beiden Seiten gleich. Eingesammelte Bälle verschwanden auf beiden Seiten. Level und XP blieben bis Level 6 gleich, es wurde nichts doppelt gezählt. Gegenproben Bewegung, Dodge, zwei Airdrops und Lager bestanden, kein Absturz. [Befund](GAME_ANALYSIS.md#xp-bälle-beim-client-xp-baelle)
@@ -239,9 +240,9 @@ flowchart TD
 
     subgraph PH3["Phase 3: Session und Verbindung"]
         LO["Steam-Lobby<br/>(steam-lobby)"]:::done
-        LL["Lobby mit zwei Konten<br/>(lobby-live, zu zweit)"]:::open
+        LL["Lobby mit zwei Konten<br/>(lobby-live, zu zweit)"]:::done
         TN["Transport-Tunnel<br/>(transport)"]:::done
-        HS["Handshake: Build und Mod-Version"]:::open
+        HS["Handshake: Build und Mod-Version"]:::done
         FE["Timeout, Abbruch,<br/>Host verlässt das Spiel<br/>(net-fehler)"]:::done
         KK["Kontrollkanal"]:::open
         LO --> TN --> HS --> KK --> FE
