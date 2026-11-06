@@ -30,8 +30,6 @@ jobs:
     env:
       CCACHE_DIR: ${{ github.workspace }}\.ccache
       CCACHE_MAXSIZE: 500M
-      CCACHE_DEBUG: '1'
-      CCACHE_DEBUGDIR: ${{ github.workspace }}\ccache-debug
     steps:
       - uses: actions/checkout@v4
 
@@ -66,6 +64,9 @@ jobs:
           if (-not (Test-Path $Cl)) { throw "cl.exe fehlt: $Cl" }
           "CCACHE_BIN=$Bin" >> $env:GITHUB_ENV
           "CCACHE_COMPILER=$Cl" >> $env:GITHUB_ENV
+          # Die Runner wechseln zwischen Images mit demselben Compiler, aber anderer Dateizeit von cl.exe. Die
+          # Standardprüfung über die Dateizeit verwirft dann den ganzen Cache, die Toolset-Version nicht.
+          "CCACHE_COMPILERCHECK=string:$ToolsVersion" >> $env:GITHUB_ENV
           $env:CCACHE_COMPILER = $Cl
           & (Join-Path $Bin 'ccache.exe') --zero-stats
 
@@ -83,15 +84,7 @@ jobs:
       - name: Compiler-Cache Statistik
         if: always()
         shell: pwsh
-        run: '& "$env:CCACHE_BIN\ccache.exe" --show-stats -vv'
-
-      - name: ccache-Debug hochladen
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ccache-debug-${{ matrix.configuration }}-${{ github.run_attempt }}
-          path: ccache-debug
-          retention-days: 3
+        run: '& "$env:CCACHE_BIN\ccache.exe" --show-stats'
 
       - name: C++-Tests
         run: .\bin\${{ matrix.configuration }}\CoreTests.exe
