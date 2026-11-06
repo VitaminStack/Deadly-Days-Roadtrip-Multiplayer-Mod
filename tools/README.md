@@ -119,6 +119,7 @@ Bauen und Testen des Spikes, die Anleitung steht in [docs/TESTING.md](../docs/TE
 | `objects.py` | Objektzählung, Rollen und Positionen der Figuren |
 | `players.py` | `SpawnedPlayers` und `PlayerArray` beim Host |
 | `inventory.py` | Vergleicht die Inventare von Host und Client |
+| `fuel.py` | Liest den Tank, `--fill` füllt ihn beim Host fast voll, damit ein Kanister das echte Rundenende auslöst |
 | `guidcache.py` | NetGUID-Cache einer Instanz mit Pfad, Zustand und Flags, filterbar nach Pfad |
 | `pause_state.py` | Pausen, Zeitrequests und UI-Sitzungen je Instanz |
 | `blueprint_refs.py` | Referenzen geladener Blueprints, kein Decompiler |

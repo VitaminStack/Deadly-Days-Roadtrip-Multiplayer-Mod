@@ -237,6 +237,22 @@ Schließen ohne Wahl (`Ausgangsstand wiederhergestellt, vollständig=true`) bele
 Offen und nicht Teil dieser Aufgabe: Beim Rundenende sieht der Client noch die alte Sperre statt Rundenübersicht und Lager
 (`rundenende-client`).
 
+**Neue Felder sofort sichtbar (`ausruestung-felder`, 06.11.2026).** Fehlerbild: Legt der Client einen Rucksack-Block an, entstanden die
+Felder lokal (Client-Inventar 11 statt 8 Slots, Log `Server_CreateSlotsFromBagItem lokal, 3 Felder`), das Panel zeigte sie aber erst,
+nachdem der Host etwas repliziert hatte. Ursache: Die Feld-Widgets hängen an einem nativen Delegate am `InventoryComponent` (`+0x110`,
+nicht im SDK benannt), den nur `OnRep_Slots` auslöst (Implementierung `0x596D970` ruft nur dessen `Broadcast`). Beim Client läuft
+`OnRep_Slots` nur bei Replikation vom Host. Jetzt ruft der Client nach der lokalen Feldanlage und nach dem lokalen Zurückrollen mit
+`DestroySlotInstance` `OnRep_Slots` mit dem alten Feldstand selbst auf (`NotifySlots`), also derselbe Weg wie bei der Replikation.
+Logzeile `Inventar lokal: Felder neu angezeigt, 11 statt 8`.
+
+**Geprüft** (06.11.2026, Build `26187885`, ein PC, Lobby, Godmode, `tools/spike/guided/ausruestung-felder.txt`): Vor dem Fix
+nachgestellt (Felder unsichtbar), mit dem Fix erscheinen sie beim Anlegen sofort. Wahl eines anderen Items nimmt den Block wieder heraus.
+Der Host übernahm den Edit mit 3 neuen Feldern, `Get-Status -Inventory` und der Desync-Melder meldeten die Inventare gleich, kein
+Absturz. Nicht in diesem Lauf geprüft: Rundenende danach; der Nutzer schloss die Aufgabe vorher ab. Der Befund „Felder nach dem
+Rundenende wieder im Lager“ stammt aus dem Test vor `inventar-lokal`. Seitdem übernimmt der Host neue Felder im Edit, und der
+`inventar-lokal`-Lauf blieb über das Rundenende bis Tag 2 gleich. Das Tab-Inventar lässt sich im Run nicht öffnen, die Anzeige außerhalb
+des Airdrop-Panels ist daher nicht eigens angesehen.
+
 ### Itemsack für alle Spieler
 
 Nutzervorgabe 06.11.2026: Ein aufgesammelter Itemsack zählt wie ein Airdrop für alle, jeder Spieler bekommt das Item. Die Vergabe bleibt

@@ -65,6 +65,33 @@ void Call(uintptr_t Object, uintptr_t Fn, void* Params, bool Local)
         Objects::ProcessEvent(Object, Fn, Params);
 }
 
+std::vector<uintptr_t> SlotPointers(uintptr_t Inventory)
+{
+    const Array Slots = Memory::Read<Array>(Inventory + InventorySlots).value_or(Array{});
+    std::vector<uintptr_t> Result;
+    if (!Slots.Data || Slots.Count <= 0 || Slots.Count > 4096)
+        return Result;
+    for (int32_t i = 0; i < Slots.Count; ++i)
+        Result.push_back(Pointer(reinterpret_cast<uintptr_t>(Slots.Data) + i * sizeof(uintptr_t)));
+    return Result;
+}
+
+// Die Feld-Widgets des Panels hängen an einem nativen Delegate, den nur OnRep_Slots auslöst, beim Client also nur die
+// Replikation vom Host. Nach lokal angelegten oder entfernten Feldern ruft der Client es selbst mit dem alten Stand auf,
+// sonst erscheinen die Felder erst, wenn der Host später etwas repliziert (ausruestung-felder).
+void NotifySlots(uintptr_t Inventory, const std::vector<uintptr_t>& Old)
+{
+    static uintptr_t OnRepSlots = 0;
+    if (!Function(OnRepSlots, "OnRep_Slots", "InventoryComponent") || !Alive(Inventory))
+        return;
+    if (Old == SlotPointers(Inventory))
+        return;
+    std::vector<uintptr_t> Copy = Old;
+    Array Params{Copy.data(), static_cast<int32_t>(Copy.size()), static_cast<int32_t>(Copy.size())};
+    Objects::ProcessEvent(Inventory, OnRepSlots, &Params);
+    Core::Log::Info("Inventar lokal: Felder neu angezeigt, {} statt {}", SlotPointers(Inventory).size(), Old.size());
+}
+
 std::string ItemLabel(uintptr_t Item)
 {
     return Item ? Memory::NameOf(Pointer(Item + ItemData)) : std::string("?");
@@ -237,6 +264,7 @@ bool Apply(uintptr_t Inventory, const std::vector<uintptr_t>& Items, const std::
     if (!Alive(Inventory) || Items.size() != Current.size() || Items.size() != Target.size())
         return false;
     bool Ok = true;
+    const std::vector<uintptr_t> OldSlots = Local ? SlotPointers(Inventory) : std::vector<uintptr_t>{};
     for (const Step& Next : Plan(Current, Target, !Create.empty(), !Destroy.empty()))
     {
         const uintptr_t Item = Next.Item < Items.size() ? Items[Next.Item] : 0;
@@ -368,6 +396,8 @@ bool Apply(uintptr_t Inventory, const std::vector<uintptr_t>& Items, const std::
         }
         }
     }
+    if (Local)
+        NotifySlots(Inventory, OldSlots);
     // Ergebnis gegen das Ziel prüfen.
     const std::vector<SlotInfo> Slots = SlotsOf(Inventory);
     const std::vector<uintptr_t> Now = ItemsOf(Inventory);
@@ -575,7 +605,10 @@ bool RouteClientRpc(uintptr_t Object, uintptr_t Fn, void* Params)
     LogOp(Info.Name + " lokal, " +
           (Slots ? std::to_string(Params ? Memory::Read<int32_t>(reinterpret_cast<uintptr_t>(Params) + 8).value_or(0) : 0) + " Felder"
                  : ItemLabel(Info.Type == Kind::ItemRpc ? Object : Item)));
+    const std::vector<uintptr_t> OldSlots = Slots ? SlotPointers(Object) : std::vector<uintptr_t>{};
     Patches::ProcessEventLocal(Object, Fn, Params);
+    if (Slots)
+        NotifySlots(Object, OldSlots);
     return true;
 }
 }

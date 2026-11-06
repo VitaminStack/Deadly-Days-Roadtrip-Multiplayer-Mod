@@ -1,0 +1,13 @@
+# ausruestung-felder: Client legt einen Rucksack-Block (Ausrüstungsfeld) ab; Felder sofort sichtbar und nach dem Rundenende erhalten.
+# Agent startet vorher Start-Session.ps1 -Build -Mod -Godmode -Tunnel Lobby mit DDCOOP_TRACE_INVENTORY=1; Antworten nur im Chat.
+# Tank füllt der Agent zwischen den Schritten mit "py tools\spike\fuel.py <host-pid> --fill".
+> Run-Route.ps1 -Days 1 -StayLast
+Airdrops öffnen, bis eine Auswahl einen Rucksack-Block enthält. Mit dem Client den Block wählen und an den Rucksack anlegen, noch NICHT bestätigen | Die neuen Felder erscheinen beim Client sofort, ohne dass der Host etwas tut
+Beim Client ein Item auf eines der neuen Felder legen, Bestätigen drücken, dann beim Host wählen und bestätigen | Panel schließt beim Client, neue Felder und Item bleiben stehen; Log "Edit … übernommen"
+> Get-Status.ps1 -Inventory
+Inventar beim Client öffnen (Tab) und ansehen, ohne etwas zu verschieben | Neue Felder und Item an derselben Stelle wie im Airdrop-Panel
+Kanister sammeln, bis der Tank voll ist, und mit beiden Figuren mit dem Bus flüchten | Rundenende ohne Absturz
+> Get-Status.ps1 -Inventory
+Im Lager beim Client das Inventar ansehen | Vom Client angelegte Felder hängen weiter am Rucksack, Block liegt nicht wieder im Lager
+In den nächsten Tag reisen und beim Client das Inventar öffnen | Felder und Item unverändert
+> Get-Status.ps1 -Inventory
