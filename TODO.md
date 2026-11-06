@@ -38,7 +38,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `lobby-live` | P0 | [3](#phase-3--session-und-verbindung) | zu zweit | wenig |
 | `mod-saves` | P0 | [6](#phase-6--release) | parallel | mittel |
 | `airdrop-dodge-absturz` | P1 | [5](#phase-5--vollständiger-run) | parallel | mittel |
-| `xp-baelle-live` | P1 | [5](#phase-5--vollständiger-run) | parallel | wenig |
 | `virenscanner` | P1 | [6](#phase-6--release) | parallel | keine |
 | `weekly-sperre` | P1 | [6](#phase-6--release) | parallel | wenig |
 | `karte-tunnel` | P1 | [Wartung](#wartung) | zu zweit | wenig |
@@ -150,7 +149,6 @@ Ziel: Ein kompletter Run ist zu zweit online spielbar.
 |---|---|---|---|---|---|
 | `gegner-alle` | P0 | Alle Gegner, Bosse und Boss-Phasen. Ordner `src/Sync/Enemies` | `integration-g2` | parallel | viel |
 | `fortschritt` | P0 | Loot, XP, Level-ups, Fähigkeiten und Status-Effekte (GAS). Ordner `src/Sync/Combat` | `integration-g2`, `protokoll` | parallel | viel |
-| `xp-baelle-live` | P1 | Rest aus `xp-baelle`: Die Sichtgrenzen der XP-Bälle kommen beim Client jetzt aus der lokalen Kamera (`ExpPatches.cpp`), weil ihm der GameMode fehlt. Die sichtbare Gegenprobe im Spiel fehlt noch. **Fertig, wenn** der Client dieselben Bälle auch am Bildschirmrand sieht, sie beim Aufsammeln verschwinden und XP nicht doppelt zählen. Ordner `src/Game`. **Einstieg:** [XP-Bälle](docs/GAME_ANALYSIS.md#xp-bälle-beim-client-xp-baelle) | `protokoll` | parallel | wenig |
 | `pausen-sync` | P0 | Pausen und blockierende UI beider Spieler über den Kontrollkanal abstimmen. Ordner `src/Sync/Players`. **Einstieg:** [Pausen-Spike](research/spikes/pausen/README.md) | `integration-g2`, `protokoll` | parallel | mittel |
 | `tagesablauf` | P0 | Tageszyklus, Treibstoff, Missionsziele, Fahrt zwischen den Etappen. Ordner `src/Sync/World`, Dateien mit `run-ende` absprechen | `integration-g2`, `protokoll`, `guidcache`, `phasenadapter` | parallel | viel |
 | `airdrop-dodge-absturz` | P1 | Gefunden in `ausweichen-client` am 06.11.2026: Dodgt der Client in einen Airdrop, stürzt er manchmal in `InventoryPanel.SetupInventory` ab (`InventoryComponent` an `+0x370` leer), nicht jedes Mal. **Fertig, wenn** der Ablauf erklärt ist und zehn Dodges des Clients in Airdrops ohne Absturz durchlaufen. Ordner `src/Game`. **Einstieg:** [Dodge des Clients](docs/GAME_ANALYSIS.md#dodge-des-clients-beim-host-ausweichen-client) | `remote-spieler` | parallel | mittel |
@@ -327,6 +325,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `weeklymode` | 5 | Team-Entscheidung vom 05.11.2026: Die Weekly-Challenge wird nicht unterstützt und ist gesperrt, solange die Mod geladen ist, auch solo, wie Erfolge und Bestenlisten. Umsetzung ist `weekly-sperre` |
 | `werkbank-client` | 5 | Client wertet im nativen Panel auf (Ablegen auf gleiches Item, Werkbank), der Edit meldet die Aufwertungen, der Host prüft (Ablegen oder Rezept) und ruft UpgradeItems selbst auf. Seltenheiten repliziert die Mod für das Clientinventar (0x308), Mod-Version 7. Im Lager Tag 1 und 2 geprüft, nach der Reise Inventare gleich. [Befund](src/Game/README.md#werkbank-und-aufwerten-beim-client) |
 | `xp-baelle` | 5 | Client-Sichtgrenzen der XP-Bälle aus der lokalen Kamera statt aus dem fehlenden GameMode, Live-Gegenprobe in `xp-baelle-live`, siehe [XP-Bälle](docs/GAME_ANALYSIS.md#xp-bälle-beim-client-xp-baelle) |
+| `xp-baelle-live` | 5 | Im Spiel gegengeprüft, ohne Code-Änderung: Sichtgrenzen beim Client wie beim Host, Bälle am Bildrand auf beiden Seiten gleich, beim Aufsammeln auf beiden weg, XP und Level gleich, nichts doppelt. [Befund](docs/GAME_ANALYSIS.md#xp-bälle-beim-client-xp-baelle) |
 | `zwei-pc-test` | Wartung | Tests auf zwei PCs: `Test-TwoPc.ps1` fährt je PC eine Rolle automatisch bis in die Mission und schreibt einen Tunnel-Bericht, `Start-Session.ps1 -Role`, Aufgaben „zu zweit“ mit Rollen-Reservierung in `tasks.py`, siehe [Test auf zwei PCs](docs/TESTING.md#test-auf-zwei-pcs) |
 
 ## Risiken

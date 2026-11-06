@@ -401,6 +401,29 @@ erneut geprüft. Ungültige/degenerierte Projektionen werden nicht übernommen.
 Host-/Client-Vergleich mit diesem neuen Hook sowie die vollständige Einsammel-Abnahme stehen noch aus.
 Die laufende Sitzung des Nutzers wurde dafür nicht neu gestartet. `xp-baelle` bleibt offen.
 
+**Gegenprobe im Spiel (`xp-baelle-live`, 06.11.2026, Build `26187885`).** `Start-Session.ps1 -Restart -Mod -Tunnel Lobby
+-Godmode -Brief`, `Run-Route.ps1 -Days 1 -StayLast`, Messung mit einer lesenden Probe (Scratchpad, nicht im Repo) und Bildern
+beider Fenster. Code unverändert, keine Korrektur nötig, `ModVersion` bleibt 6.
+
+- **[Belegt]** Die Sicht-Halbausdehnung des Handlers (`+0x320`) ist beim Client jetzt gleich der des Hosts: `(4370.4, 4851.5)`,
+  vorher `(1050, 5750)`. Das Spielerzentrum (`+0x338`) ist auf beiden Seiten der Mittelpunkt beider Figuren, auch bei
+  rund 3200 Einheiten Abstand zwischen Host- und Client-Figur.
+- **[Belegt]** Bälle am Bildschirmrand: Bei auseinanderstehenden Figuren lagen die gelben XP-Bälle am linken und am rechten
+  Rand (x ≈ 65 bzw. 700–770 von 800) im Client-Bild an denselben Stellen wie beim Host. Client-Log: „XP-Baelle: 1 Host-Ausstoss(e) angezeigt“.
+- **[Belegt]** Aufsammeln: Die Client-Figur lief durch eine Gruppe Bälle. Danach fehlten sie auf beiden Bildern, die übrigen
+  Bälle lagen weiter an denselben Stellen.
+- **[Belegt]** Keine doppelte XP: Level und XP-Wert im `LevelSystemComponent` (`+0xF0` Level, `+0xF8` XP, Bedeutung aus dem
+  Verlauf abgeleitet) waren auf beiden Seiten gleich, etwa Level 3/119, 4/166, 5/340. Die kleinen Abweichungen von 10 bis 30 XP
+  passen dazu, dass die Probe die beiden Prozesse nacheinander liest. Die HUD-Leiste zeigte auf beiden Seiten denselben Anteil.
+  Die Log-Zeile „Aufnahme beim Client nur angezeigt“ kam nicht vor. Der Client hat `ReceiveExp` in diesem Test also nicht aufgerufen.
+- Gegenproben: Bewegung und Dodge (Richtungstaste mit Leertaste) wirkten je Seite nur auf die eigene Figur. Zwei Level-up-Airdrops
+  hatten auf beiden Seiten dieselbe Auswahl, es wurde zuerst beim Client und dann beim Host gewählt, danach lag derselbe Gegenstand
+  in beiden Rucksäcken. Lager am Ende von Tag 1 über `Complete-RoundEnd` bei beiden bestätigt, beide auf der Routenkarte. Kein Absturz.
+- Nebenbefunde, nicht behoben: Kurze `Desync`-Warnungen (Gegner 43/42, Inventar während der Airdrop-Wahl), die vor dem Tagesende
+  aufhörten. Den weißen Gegnerschutt (Knochen, Blüten) zeigt nur der Host. Das Client-HUD zeigt oben eine Schrottanzeige (etwa
+  „9.339“), der Host an derselben Stelle „9“. Beides gehört nicht zu den XP-Bällen.
+- Nicht geprüft: Latenzprofil `-NetProfile Internet`, ein Wiederbeitritt mitten am Tag und zwei PCs.
+
 ### Ergaenzung: SDK-Schnittstellen fuer eigenen Sync
 
 Aufgabe `sync-bedarf`, lokales Mission-SDK von Build `26187885`:
