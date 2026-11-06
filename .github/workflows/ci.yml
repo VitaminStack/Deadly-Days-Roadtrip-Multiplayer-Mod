@@ -48,11 +48,15 @@ jobs:
           $Version = '4.10.2'
           $Zip = Join-Path $env:RUNNER_TEMP 'ccache.zip'
           Invoke-WebRequest "https://github.com/ccache/ccache/releases/download/v$Version/ccache-$Version-windows-x86_64.zip" -OutFile $Zip
-          "ccache.zip SHA256: $((Get-FileHash $Zip -Algorithm SHA256).Hash)"
+          $Hash = (Get-FileHash $Zip -Algorithm SHA256).Hash
+          if ($Hash -ne '6252F081876A9A9F700FAE13A5AEC5D0D486B28261D7F1F72AC11C7AD9DF4DA9') { throw "ccache.zip unerwartet: $Hash" }
           Expand-Archive $Zip -DestinationPath $env:RUNNER_TEMP
           $Bin = Join-Path $env:RUNNER_TEMP 'ccache-bin'
           New-Item -ItemType Directory -Force $Bin | Out-Null
-          Copy-Item (Join-Path $env:RUNNER_TEMP "ccache-$Version-windows-x86_64\ccache.exe") (Join-Path $Bin 'cl.exe')
+          # Als cl.exe ruft MSBuild es auf, unter eigenem Namen nimmt es Befehle wie --show-stats an.
+          $Exe = Join-Path $env:RUNNER_TEMP "ccache-$Version-windows-x86_64\ccache.exe"
+          Copy-Item $Exe (Join-Path $Bin 'cl.exe')
+          Copy-Item $Exe (Join-Path $Bin 'ccache.exe')
           $Vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
           $Vs = & $Vswhere -latest -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
           $ToolsVersion = (Get-Content (Join-Path $Vs 'VC\Auxiliary\Build\Microsoft.VCToolsVersion.default.txt')).Trim()
@@ -61,7 +65,7 @@ jobs:
           "CCACHE_BIN=$Bin" >> $env:GITHUB_ENV
           "CCACHE_COMPILER=$Cl" >> $env:GITHUB_ENV
           $env:CCACHE_COMPILER = $Cl
-          & (Join-Path $Bin 'cl.exe') --zero-stats
+          & (Join-Path $Bin 'ccache.exe') --zero-stats
 
       - name: Solution bauen
         shell: pwsh
@@ -77,7 +81,7 @@ jobs:
       - name: Compiler-Cache Statistik
         if: always()
         shell: pwsh
-        run: '& "$env:CCACHE_BIN\cl.exe" --show-stats'
+        run: '& "$env:CCACHE_BIN\ccache.exe" --show-stats'
 
       - name: C++-Tests
         run: .\bin\${{ matrix.configuration }}\CoreTests.exe
