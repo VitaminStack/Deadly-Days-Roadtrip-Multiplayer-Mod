@@ -690,10 +690,12 @@ void TraceInventoryEvent(uintptr_t Object, uintptr_t Function, void* Params)
     if (It == Names.end())
     {
         const std::string Owner = Memory::NameOf(Pointer(Function + Offsets::UObject::Outer));
+        const std::string Name = Memory::NameOf(Function);
+        // waffe-client-auswahl: Effekte der Items und Ausrüsten der Waffen gehören dazu.
         const bool Wanted = Owner == "InventoryComponent" || Owner == "InventoryItemInstance" || Owner == "BackpackSlot" ||
                             Owner == "InventoryPanel" || Owner == "RewardQueueComponent" || Owner == "CoopInventoryCoordinatorComponent" ||
+                            Owner == "CharacterEffectManager" || (Owner == "DDCharacter" && Name.find("EquippedWeapon") != std::string::npos) ||
                             Owner.starts_with("WP_Inventory") || Owner.starts_with("WP_Backpack") || Owner.starts_with("WP_Item");
-        const std::string Name = Memory::NameOf(Function);
         // Animation und Abfragen je Bild nicht, sie verdrängen die eigentlichen Vorgänge.
         const bool Noise = Name.starts_with("ApplyEasing") || Name.starts_with("OnYoyo") || Name.starts_with("OnLoop") ||
                            Name == "GetAnimationContainer" || Name.ends_with("Tick") || Name.starts_with("Get") || Name.starts_with("Is") ||
@@ -708,8 +710,20 @@ void TraceInventoryEvent(uintptr_t Object, uintptr_t Function, void* Params)
     const uint32_t Flags = Memory::Read<uint32_t>(Function + FunctionFlags).value_or(0);
     const uintptr_t First = Params ? Memory::Read<uintptr_t>(reinterpret_cast<uintptr_t>(Params)).value_or(0) : 0;
     const std::string FirstName = First > 0x10000 && Memory::Read<uint32_t>(First + Offsets::UObject::Flags) ? Memory::NameOf(First) : std::string{};
-    Core::Log::Info("InvTrace {} {}{} an {:#x} ({}), erster Parameter {:#x} {}", CurrentRole() == NetRole::Client ? "C" : "H", It->second,
-                    Flags & FuncNet ? " [Net]" : "", Object, Memory::NameOf(Object), First, FirstName);
+    // Zusatz: Style von RemoveFromBackpack (+0x8), Item und AllowRetainEffect aus FItemEffectContext (+0x8, +0x30).
+    std::string Extra;
+    const uintptr_t At = reinterpret_cast<uintptr_t>(Params);
+    if (Params && It->second == "InventoryComponent.RemoveFromBackpack")
+        Extra = ", Style " + std::to_string(Memory::Read<uint8_t>(At + 8).value_or(0xFF));
+    else if (Params && It->second.starts_with("CharacterEffectManager."))
+    {
+        const uintptr_t Item = Memory::Read<uintptr_t>(At + 8).value_or(0);
+        Extra = ", Item " + (Item ? Memory::NameOf(Pointer(Item + 0xE0)) : std::string("-"));
+        if (It->second == "CharacterEffectManager.RemoveItemFromBackpack")
+            Extra += ", AllowRetain " + std::to_string(Memory::Read<uint8_t>(At + 0x30).value_or(0xFF));
+    }
+    Core::Log::Info("InvTrace {} {}{} an {:#x} ({}), erster Parameter {:#x} {}{}", CurrentRole() == NetRole::Client ? "C" : "H", It->second,
+                    Flags & FuncNet ? " [Net]" : "", Object, Memory::NameOf(Object), First, FirstName, Extra);
 }
 
 uintptr_t RewardCharacter(uintptr_t Character)
