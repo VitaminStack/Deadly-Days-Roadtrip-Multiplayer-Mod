@@ -208,9 +208,11 @@ Format in [Kontrollkanal](../../docs/CONTROL_PROTOCOL.md#inventar-lokal-mod-komp
   `Server_CreateSlotsFromBagItem`) und der Items (`SetZeroPivotTile`, `UpdateIsInBackpack`, `UpdateIsInStash`, `UpdateIsReward`,
   `UpdateIsTrash`) mit der nativen Logik lokal aus: `ProcessEventLocal` nimmt für den Aufruf `FUNC_Net` weg. Ablegen, Drehen, Sortieren,
   Rucksackteile und neue Felder sind damit sofort sichtbar. `RemoveFromInventory` zerstört beim Client nie, damit sich ein verbrauchter
-  Rucksack zurücklegen lässt. `ApplyAddToBackpackEffect` merkt sich der Client nur, der Host löst ihn nach dem Ablegen aus. Andere
-  Net-Funktionen (Reparieren, Standardrucksack) gehen weiter an den Host, außer sie nennen eine nur lokale Belohnung: Die kennt der
-  Host nicht, im ersten Spieltest stürzte er daran ab (Lesezugriff `0xF0`, als der Client den Effekt der gewählten Belohnung schickte).
+  Rucksack zurücklegen lässt. `ApplyAddToBackpackEffect` merkt sich der Client nur, der Host löst ihn nach dem Ablegen aus. Alle
+  anderen Server-RPCs verwirft der Client, bis der Host geantwortet hat, auch die anderer Klassen (Ausrüsten, Waffen); nur Bewegung
+  geht weiter. Sie nennen oft Objekte, die es nur beim Client gibt: In den ersten beiden Spieltests stürzte der Host beim Bearbeiten ab
+  (Lesezugriff `0xF0`), erst am Effekt der gewählten Belohnung, dann nach dem Verschieben des Revolvers. Verworfene RPCs stehen je
+  Bearbeitung einmal im Log.
 - **Geteilt:** Beim Bestätigen ein Edit: nur die geänderten Items als Endzustand (Index im Ausgangsbild und Prüfsumme des
   `ItemData`-Namens, vorhanden, im Rucksack, Papierkorb, Drehung, Pivot, Felder), die gewählte Belohnung und die neu entstandenen
   Felder, dazu Sitzung und Revision der Auswahl. Keine Objektzeiger, keine Zwischenschritte.

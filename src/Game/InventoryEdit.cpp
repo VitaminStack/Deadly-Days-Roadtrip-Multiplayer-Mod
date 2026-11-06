@@ -71,8 +71,8 @@ std::string ItemLabel(uintptr_t Item)
 }
 
 // Inventar-RPCs, die während der Bearbeitung lokal laufen. ApplyAddToBackpackEffect merkt sich der Client nur, der Host löst ihn
-// beim Übernehmen aus. Andere Server-RPCs des Inventars (CreateDefaultBackpack, CopyBackpack, RepairItem) gehen an den Host,
-// außer sie nennen eine nur lokale Belohnung.
+// beim Übernehmen aus. Alle anderen Server-RPCs, auch die anderer Klassen (Ausrüsten, Waffen), verwirft der Client, bis der Host
+// geantwortet hat: Sie nennen oft Objekte, die es nur beim Client gibt, der Host läse Nullzeiger. Nur Bewegung geht weiter.
 enum class Kind : uint8_t
 {
     Other,
@@ -80,6 +80,8 @@ enum class Kind : uint8_t
     RemoveFromInventory,
     ItemRpc,
     AddEffect,
+    Foreign,  // Server-RPC einer anderen Klasse
+    Movement, // geht immer an den Host
 };
 
 struct Known
@@ -112,10 +114,12 @@ const Known& Classify(uintptr_t Fn)
         }
         else if (Owner == "InventoryItemInstance" && std::find(std::begin(ItemNames), std::end(ItemNames), Value.Name) != std::end(ItemNames))
             Value.Type = Kind::ItemRpc;
-        if (Owner == "InventoryComponent" || Owner == "InventoryItemInstance")
-            Value.Name = Owner + "." + Value.Name;
-        else
-            Value.Name.clear();
+        if (Owner != "InventoryComponent" && Owner != "InventoryItemInstance")
+            Value.Type = Value.Name.starts_with("ServerMove") || Value.Name == "ServerUpdateCamera" || Value.Name.starts_with("ServerUpdateLevelVisibility") ||
+                                 Value.Name == "ServerNotifyLoadedWorld" || Value.Name == "ServerAcknowledgePossession"
+                             ? Kind::Movement
+                             : Kind::Foreign;
+        Value.Name = Owner + "." + Value.Name;
     }
     return Cache.emplace(Fn, std::move(Value)).first->second;
 }
@@ -137,6 +141,7 @@ struct
     std::vector<uintptr_t> Choices; // lokale Anzeige-Instanzen
     std::unordered_map<uintptr_t, uint8_t> RemoveContext;
     std::vector<uintptr_t> Effects; // Items mit ApplyAddToBackpackEffect
+    std::vector<std::string> Dropped; // schon gemeldete verworfene RPCs
     unsigned Logged = 0;
     uint64_t NextId = 0;
 } Session;
@@ -527,23 +532,24 @@ bool RouteClientRpc(uintptr_t Object, uintptr_t Fn, void* Params)
     if (Session.State == Phase::Idle || !Fn || CurrentRole() != NetRole::Client)
         return false;
     const Known& Info = Classify(Fn);
-    if (Info.Name.empty())
+    if (Info.Name.empty() || Info.Type == Kind::Movement)
         return false;
+    // Jede verworfene Funktion einmal je Bearbeitung nennen, damit Ziehen und Drehen die Zeilen nicht verbrauchen.
+    const auto Drop = [&]
+    {
+        if (std::find(Session.Dropped.begin(), Session.Dropped.end(), Info.Name) == Session.Dropped.end())
+        {
+            Session.Dropped.push_back(Info.Name);
+            Core::Log::Info("Inventar lokal: {} während der Bearbeitung verworfen", Info.Name);
+        }
+        return true;
+    };
+    if (Info.Type == Kind::Foreign)
+        return Drop();
     const uintptr_t Item = Info.Type == Kind::ItemRpc ? Object : Params ? Memory::Read<uintptr_t>(reinterpret_cast<uintptr_t>(Params)).value_or(0) : 0;
     const bool Ours = Info.Type == Kind::ItemRpc ? BelongsToSession(Object) : Object == Session.Inventory;
-    if (!Ours)
-        return false;
-    if (Info.Type == Kind::Other)
-    {
-        // Eine nur lokale Belohnung kennt der Host nicht, er läse einen Nullzeiger.
-        if (Contains(Session.Choices, Item))
-        {
-            LogOp(Info.Name + " mit lokaler Belohnung verworfen");
-            return true;
-        }
-        LogOp(Info.Name + " geht an den Host");
-        return false;
-    }
+    if (!Ours || Info.Type == Kind::Other)
+        return Drop();
     if (Session.State == Phase::Committed)
     {
         LogOp(Info.Name + " nach dem Bestätigen verworfen");
