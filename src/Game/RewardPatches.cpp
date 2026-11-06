@@ -1017,7 +1017,9 @@ void SetRoundEndClient(uint64_t Id, bool Ready)
 {
     if (CurrentRole() != NetRole::Host)
         return;
-    if (End.ClientIn != Id || (Ready && End.ClientReady != Id))
+    if (!Id && End.ClientIn)
+        Core::Log::Info("Lager: Client meldet sich nicht mehr aus dem Lager");
+    else if (Id && (End.ClientIn != Id || (Ready && End.ClientReady != Id)))
         Core::Log::Info("Lager: Client {} (eigenes Rundenende {})", Ready ? "bereit" : "im Lager", Id == End.Id ? "passt" : "passt nicht");
     End.ClientIn = Id;
     if (Ready)

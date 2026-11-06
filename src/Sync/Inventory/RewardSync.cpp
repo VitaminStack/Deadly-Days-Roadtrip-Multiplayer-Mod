@@ -33,6 +33,7 @@ struct
     // Lager am Rundenende (bestaetigen-rundenende)
     std::optional<Reward::RoundEndStatus> SentEnd; // Host
     uint64_t NextEndResend = 0;
+    uint64_t EndClientAt = 0; // Host: letzte Meldung 0x306, 0 ohne
     std::optional<Reward::RoundEndStatus> LatestEnd; // Client
     uint64_t LatestEndAt = 0, NextEndClientSend = 0;
 } R;
@@ -110,6 +111,7 @@ void TickHost(Net::Transport& Transport, std::span<const Net::ControlMessage> Me
             if (const auto Client = Reward::DecodeRoundEndClient(Message.Value.Payload))
             {
                 Game::Rewards::SetRoundEndClient(Client->Id, Client->Ready);
+                R.EndClientAt = NowMs();
                 R.NextEndResend = 0; // Stand sofort zurück
             }
             else
@@ -142,6 +144,13 @@ void TickHost(Net::Transport& Transport, std::span<const Net::ControlMessage> Me
         if (!Send(Transport, Reward::ResultType, Reward::Encode(Reward::Result{Edit->Id, R.LastAccepted})))
             Core::Log::Warn("Inventar lokal: Antwort zu Edit {} nicht gesendet", Edit->Id);
         R.NextResend = 0; // neues Bild sofort
+    }
+    // Der Client meldet sich alle 500 ms, solange er im Rundenende ist. Verlässt er es, ohne die Verbindung der Mod zu trennen
+    // (disconnect ins Hauptmenü), kommt nichts mehr; nach 2 s wartet der Host nicht mehr auf ihn.
+    if (R.EndClientAt && NowMs() - R.EndClientAt > 2000)
+    {
+        Game::Rewards::SetRoundEndClient(0, false);
+        R.EndClientAt = 0;
     }
     SendRoundEndStatus(Transport);
     const auto Offer = ToWire(Game::Rewards::ReadOffer());
@@ -272,6 +281,7 @@ void TickReward(std::span<const Net::ControlMessage> Messages)
         R.LastEdit = 0;
         R.SentEnd.reset();
         R.LatestEnd.reset();
+        R.EndClientAt = 0;
         Game::Rewards::AbortClientEdit();
     }
     Game::Rewards::SetRemoteReady(Host && Peer);

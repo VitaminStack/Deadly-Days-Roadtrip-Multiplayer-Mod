@@ -244,8 +244,9 @@ in [Kontrollkanal](../../docs/CONTROL_PROTOCOL.md#lager-am-rundenende-mod-kompat
 - **Entscheidet:** Der Host. Er wartet nur, wenn ein Client mit der Mod verbunden ist, dasselbe Rundenende geöffnet hat und noch
   nicht bereit ist. Sind beide bereit, holen beide ihr Bestätigen einmal nativ nach, der Host kommt zur Routenkarte und wählt den Tag.
   Ist der Client schon bereit, läuft das Bestätigen des Hosts sofort.
-- **Nie hängen:** Hat der Client die Runde nicht nachgezogen (andere Karte, kein GameState), wartet niemand. Trennt sich der Client
-  oder fehlt ihm 5 s lang ein Stand des Hosts, holt die wartende Seite ihr Bestätigen nach. Bleibt das Nachholen ohne Wirkung,
+- **Nie hängen:** Hat der Client die Runde nicht nachgezogen (andere Karte, kein GameState), wartet niemand. Trennt sich der Client,
+  kommt 2 s lang keine Meldung von ihm oder fehlt ihm 5 s lang ein Stand des Hosts, holt die wartende Seite ihr Bestätigen nach. Die
+  2 s sind nötig, weil `disconnect` beim Client nur das Spiel trennt; die Verbindung der Mod bleibt, der Client meldet nur nichts mehr. Bleibt das Nachholen ohne Wirkung,
   läuft ein zweiter Klick direkt nativ. Ein neues Rundenende (neue Welt) setzt alles zurück, auch die Farbe.
 - Regeln `HostHoldsRoundEndConfirm`, `ClientHoldsRoundEndConfirm` und `ClientMayReleaseRoundEnd` in `PatchPolicy.h`, mit Tests;
   Laufzeit in `RewardPatches.cpp`, Nachrichten in `src/Sync/Inventory/RewardSync.cpp`, Rundenende aus `MapPatches.cpp`.
@@ -254,7 +255,12 @@ in [Kontrollkanal](../../docs/CONTROL_PROTOCOL.md#lager-am-rundenende-mod-kompat
 Tag 1 Host zuerst: Knopf des Hosts gelb, der Host blieb 23 s im Lager, bis der Client bestätigte, dann beide weiter
 („Lager: Bestätigen nachgeholt“), der Host auf der Routenkarte. Tag 2 Client zuerst: Knopf des Clients gelb, nach dem Bestätigen des
 Hosts beide weiter. Reise bis Tag 3, Inventare gleich, Desync-Melder OK, kein Absturz. Das Rundenende über den Bus nimmt beim Client
-denselben Weg (`tank-gemeinsam`). Nicht live geprüft: Trennen während des Wartens (nur durch Tests und Code belegt).
+denselben Weg (`tank-gemeinsam`).
+
+**Trennen während des Wartens** (gleicher Tag, zweiter Lauf): Host bereit, dann `disconnect` beim Client. Im ersten Versuch wartete der
+Host weiter, weil die Verbindung der Mod bestehen blieb. Seit dem 2-s-Ablauf: „Lager: Client meldet sich nicht mehr aus dem Lager“,
+„Bestätigen nachgeholt (Client nicht mehr im Lager)“, der Host auf der Routenkarte. Mit diesem Build danach erneut Client zuerst
+geprüft, Reise bis Tag 2, Inventare gleich, kein Absturz.
 
 **Verworfen:** Zuerst nutzte die Mod die native Koop-Reward-Sitzung (Koop-Modus nur für den Airdrop, Client wählt im Overlay, Host ruft
 `ClaimReward(1, …)`). Das Host-Panel zeigte beide Rucksäcke, nach dem Claim des Clients ging die UI-Autorität an P1 und der Host hing.
