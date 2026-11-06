@@ -1,0 +1,26 @@
+name: Doku
+
+# Läuft bei jeder Änderung, auch wenn CI bei reinen Doku-Änderungen nicht baut.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  task-status:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: TODO-Aufgaben und README-Fortschritt pruefen
+        run: python3 -B tools/task_status.py check
+
+      - name: Tests der Fortschrittspruefung
+        run: python3 -B -m unittest tests.test_task_status
