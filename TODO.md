@@ -303,6 +303,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `rundenende-client` | 5 | Client sieht nach dem Rundenende des Hosts Rundenübersicht und Lager selbst, ordnet dort sein Inventar, nur der Host reist, siehe [Rundenübersicht beim Client](docs/GAME_ANALYSIS.md#rundenübersicht-und-lager-beim-client-rundenende-client) |
 | `sdk` | 0 | SDK für UE 5.8 erzeugt, siehe [SDK-Erzeugung](docs/GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58) |
 | `sdk-mission` | 0 | SDK zusätzlich während einer Mission gedumpt, mit Blueprint-Klassen |
+| `skripte-rundenende` | Wartung | `Run-Route.ps1` und `Travel-Day.ps1` klicken am Rundenende Fortsetzen und Bestätigen bei jeder lokalen Instanz (`Complete-RoundEnd`) und warten auf die Routenkarte; Run-Route bis Tag 2 mit Exitcode 0, Travel-Day bis Tag 3 geprüft, siehe [Testen](docs/TESTING.md#mission-über-das-spielmenü) |
 | `solution` | 0 | Visual-Studio-Solution mit einem Projekt je Modul, `config/Local.props` eingebunden |
 | `spike-a` | 1 | Spike A: Beide Instanzen kommen in dieselbe Welt, auch auf einem PC, siehe [Ergebnis](research/spikes/a-connect/README.md) |
 | `spike-b` | 1 | Spike B: Client stabil in der Mission, Bewegung beidseitig, Schüsse wirken beim Host, siehe [Ergebnis](research/spikes/a-connect/README.md) |

@@ -54,13 +54,10 @@ else {
 & $GameInput Host shot (Join-Path $script:SessionDir 'day.png') | Out-Null
 if ($Stay) { return }
 
-# Rundenuebersicht, dann Fortsetzen und das Lager bestaetigen.
-Send-SpikeCommand $Session.Host '!finish'
-Start-Sleep -Seconds 6
-& $GameInput Host click 410 426
-Start-Sleep -Seconds 4
-& $GameInput Host click 633 422
-Start-Sleep -Seconds 4
+# Rundenuebersicht, dann Fortsetzen und das Lager bestaetigen, bei jeder lokalen Instanz (der Host wartet auf den Client).
+# Beim Test auf zwei PCs bestaetigt der Client am anderen PC, dann hier laenger auf die Routenkarte warten.
+$OnRoute = Complete-RoundEnd -TimeoutSeconds $(if ($Local.Count -eq 2) { 30 } else { 120 })
 Assert-Alive
+if (-not $OnRoute) { Write-Output 'Host nicht auf der Routenkarte: Lager noch nicht von beiden bestaetigt?' }
 $Shot = & $GameInput Host shot (Join-Path $script:SessionDir 'route.png')
 if ($Brief) { 'Tag beendet, Routenkarte: research\local\session\route.png' } else { $Shot }

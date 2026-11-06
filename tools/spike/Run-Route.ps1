@@ -124,13 +124,11 @@ for ($Day = 1; $Day -le $Days; $Day++) {
     Save-Shots "tag$Day"
     if ($Day -eq $Days -and $StayLast) { break }
 
-    # Rundenuebersicht, Fortsetzen, Lager bestaetigen, wie Travel-Day.ps1.
-    Send-SpikeCommand $Session.Host '!finish'
-    Start-Sleep -Seconds 6
-    & $GameInput Host click 410 426
-    Start-Sleep -Seconds 4
-    & $GameInput Host click 633 422
-    Start-Sleep -Seconds 4
+    # Rundenuebersicht, Fortsetzen, Lager bestaetigen bei Host und Client, wie Travel-Day.ps1.
+    if (-not (Complete-RoundEnd)) {
+        Write-Output "         - Host nach Tag $Day nicht auf der Routenkarte, Lager nicht von beiden bestaetigt?"
+        $Failed = $true
+    }
     foreach ($Role in 'Host', 'Client') {
         if (-not (Test-GameProcess (Get-RolePid $Role))) {
             Write-Output "$Role ist nach Tag $Day abgestuerzt."
