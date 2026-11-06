@@ -37,7 +37,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `lobby-auth-live` | P0 | [3](#phase-3--session-und-verbindung) | zu zweit | wenig |
 | `lobby-live` | P0 | [3](#phase-3--session-und-verbindung) | zu zweit | wenig |
 | `mod-saves` | P0 | [6](#phase-6--release) | parallel | mittel |
-| `eingaben` | P1 | [4](#phase-4--vertical-slice) | parallel | mittel |
 | `airdrop-dodge-absturz` | P1 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `xp-baelle-live` | P1 | [5](#phase-5--vollständiger-run) | parallel | wenig |
 | `installer` | P1 | [6](#phase-6--release) | parallel | keine |
@@ -141,7 +140,6 @@ Ziel: Zwei Spieler starten eine Mission, kämpfen gegen einen Gegnertyp und sehe
 
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
-| `eingaben` | P1 | Eingaben aus dem lokalen `CoopInputRouter` sauber vom Remote-Spieler trennen. Ordner `src/Sync/Players`, Dateien mit `bewegung` absprechen | `remote-spieler` | parallel | mittel |
 | `integration-g2` | P0 | Gate G2: Vertical Slice zusammenführen und zehn Minuten über echtes Internet zwischen zwei Haushalten spielen. Zwei Menschen nötig. **Fertig, wenn** die Runde stabil, ohne Desync und spielbar ist. Sonst Ursachen beheben, bevor weitere Inhalte synchronisiert werden | `missionsstart`, `kamera-code`, `bewegung`, `kampf`, `gegnertyp`, `eingaben`, `restrictor`, `steam-lobby`, `lobby-live`, `transport`, `net-fehler`, `ohne-spike`, `latenz-test`, `desync-melder` | zentral | viel |
 
 ## Phase 5 – Vollständiger Run
@@ -251,6 +249,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `deploy` | 2 | Deploy-Skript `tools/Deploy-Mod.ps1` |
 | `desync-melder` | 4 | Zustandssumme über den Kontrollkanal, Abweichungen in Mod-Log und F8, im Spiel rund 636 s ohne Fehlalarm, absichtliche Inventarabweichung auf beiden Seiten erkannt |
 | `dumper-fix` | 0 | Dumper-7-Fix liegt im eigenen Fork, eingebunden als Submodul `third_party/Dumper-7`, siehe [SDK-Erzeugung](docs/GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58) |
+| `eingaben` | 4 | Lokale Geräte bleiben im Netzwerkspiel beim eigenen Spieler: keine Gerätezuordnung an P2, kein zweiter LocalPlayer; Bewegung, Dodge, Zielen und Menüs getrennt im Spiel belegt |
 | `game-adapter` | 2 | Game-Thread-Takt am Spielfenster ruft `Drain` und die Adapter-Ticks; `Offsets.h` mit geschützten Lesezugriffen, beim Bauen gegen ein lokales Dumper-7-SDK geprüft; `WorldAdapter` als Muster liest Karte, Rolle und Spielerzahl. Mit Host und Client bis Tag 1 geprüft, [Muster](src/Game/README.md) |
 | `gate-g1` | 1 | Am 04.11.2026 vom Nutzer verbindlich entschieden: Weg A (native UE-Replikation) als Grundlage, ergänzt durch eigenen Kontroll-/Sync-Kanal für XP, Währungen, Rewards, Pausen und UI; Weg B nur Rückfalloption. [Architekturentscheidung](docs/ARCHITECTURE.md#entscheidungen) |
 | `gegner-pooling` | 1 | Tote Gegner werden zerstört, nicht gepoolt, der `PoolManager` betrifft Projektile und Effekte, siehe [Gegner-Spawning](docs/GAME_ANALYSIS.md#gegner-spawning-und-pooling) |
