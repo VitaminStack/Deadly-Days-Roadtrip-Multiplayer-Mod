@@ -13,7 +13,7 @@
 // Ergebnis. Little-Endian, Texte UTF-8 und begrenzt.
 namespace Sync::Reward
 {
-inline constexpr uint16_t OfferType = 0x300, EditType = 0x303, ResultType = 0x304;
+inline constexpr uint16_t OfferType = 0x300, EditType = 0x303, ResultType = 0x304, ReadyType = 0x305;
 inline constexpr size_t MaxChoices = 4, MaxName = 120;
 
 // Eine Choice: lesbarer Name für Log und Overlay, Objektnamen von UInventoryItemData und URarity, mit denen der Client
@@ -32,6 +32,7 @@ struct Offer
     int32_t Level = 0;
     bool ClientClaimed = false, HostClaimed = false, HostWaiting = false;
     std::vector<Item> Choices;
+    bool ClientReady = false; // Host hat das Bereit des Clients für diese Revision (bestaetigen-alle)
     bool operator==(const Offer&) const = default;
 };
 
@@ -80,7 +81,7 @@ inline std::vector<uint8_t> Encode(const Offer& Value)
     Detail::Put(Out, Value.Session, 8);
     Detail::Put(Out, Value.Revision, 8);
     Detail::Put(Out, static_cast<uint32_t>(Value.Level), 4);
-    Out.push_back(static_cast<uint8_t>((Value.ClientClaimed ? 1 : 0) | (Value.HostClaimed ? 2 : 0) | (Value.HostWaiting ? 4 : 0)));
+    Out.push_back(static_cast<uint8_t>((Value.ClientClaimed ? 1 : 0) | (Value.HostClaimed ? 2 : 0) | (Value.HostWaiting ? 4 : 0) | (Value.ClientReady ? 8 : 0)));
     Out.push_back(static_cast<uint8_t>(Value.Choices.size()));
     for (const auto& Choice : Value.Choices)
     {
@@ -96,7 +97,7 @@ inline std::vector<uint8_t> Encode(const Offer& Value)
 
 inline std::optional<Offer> DecodeOffer(std::span<const uint8_t> In)
 {
-    if (In.size() < 22 || In[20] > 7 || In[21] > MaxChoices)
+    if (In.size() < 22 || In[20] > 15 || In[21] > MaxChoices)
         return std::nullopt;
     Offer Value;
     Value.Session = Detail::Get(In, 0, 8);
@@ -105,6 +106,7 @@ inline std::optional<Offer> DecodeOffer(std::span<const uint8_t> In)
     Value.ClientClaimed = In[20] & 1;
     Value.HostClaimed = In[20] & 2;
     Value.HostWaiting = In[20] & 4;
+    Value.ClientReady = In[20] & 8;
     size_t At = 22;
     for (uint8_t i = 0; i < In[21]; ++i)
     {
@@ -236,5 +238,32 @@ inline std::optional<Result> DecodeResult(std::span<const uint8_t> In)
     if (In.size() != 9 || In[8] > 1 || !Detail::Get(In, 0, 8))
         return std::nullopt;
     return Result{Detail::Get(In, 0, 8), In[8] == 1};
+}
+
+// Bereit, Client an Host, genau 17 Byte: Sitzung (8, ungleich 0), Revision (8), bereit (1, 0 oder 1). Der Client hat Bestätigen
+// gedrückt (bestaetigen-alle) bzw. zurückgenommen; er schickt es erneut, bis das Sitzungsbild den Stand zeigt.
+struct Ready
+{
+    uint64_t Session = 0, Revision = 0;
+    bool Value = false;
+    bool operator==(const Ready&) const = default;
+};
+
+inline std::vector<uint8_t> Encode(const Ready& Value)
+{
+    if (!Value.Session)
+        return {};
+    std::vector<uint8_t> Out;
+    Detail::Put(Out, Value.Session, 8);
+    Detail::Put(Out, Value.Revision, 8);
+    Out.push_back(Value.Value ? 1 : 0);
+    return Out;
+}
+
+inline std::optional<Ready> DecodeReady(std::span<const uint8_t> In)
+{
+    if (In.size() != 17 || In[16] > 1 || !Detail::Get(In, 0, 8))
+        return std::nullopt;
+    return Ready{Detail::Get(In, 0, 8), Detail::Get(In, 8, 8), In[16] == 1};
 }
 }
