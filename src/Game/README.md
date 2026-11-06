@@ -19,6 +19,7 @@ Einzige Schicht mit Spielzugriff. Enthält Adapter auf Spielklassen und später 
 | `TelemetryAdapter.h` | Schaltet im Mod-Betrieb Balance-Telemetrie und automatische Berichte über beschädigte Spielstände ab und sperrt die Telemetrie-Adresse über `Core::ReportHosts` |
 | `Patches.h` | Die Spielfehler-Fixes für eine Mission zu zweit, siehe [Patches](#patches) |
 | `CodeCave.h` | Werkzeuge für Patches mitten in Funktionen: Code-Höhle nahe der Exe, Bytes prüfen, Sprünge und vtable-Einträge schreiben |
+| `LocalDevicePolicy.h` | Reine Regeln für `LocalDevicePatches.cpp`: welche Gerätezuordnung und welcher lokale Spawn im Netzwerkspiel abgelehnt wird, ohne Spiel getestet |
 | `RemoteP2Policy.h` | Reine Logik für den Remote-Spieler als P2: `ActivePlayers`-Map prüfen und aufräumen, Geräte-Wächter, ohne Spiel getestet |
 | `PatchPolicy.h` | Reine Regeln der Patches (SpawnedPlayers-Menge, Wächter-Code, Reise, Busplatz), ohne Spiel getestet |
 
@@ -68,6 +69,7 @@ der [Patch-Tabelle des Spikes](../../research/spikes/a-connect/README.md#patches
 | `WidgetPatches.cpp` | Client | `WP_UI` wartet auf den GameState; Beobachter nach jedem `ProcessEvent` |
 | `RemoteP2Patches.cpp` | Host | Remote-Spieler als P2 in `ActivePlayers` des Coop-Subsystems, ohne zweiten `LocalPlayer`; beim Verlassen nur die eigene Bindung entfernen; lokale P2-Gerätepflicht nur bei vollständiger Bindung ausnehmen. Koop-Modus erst nach `AllowRemoteCoop()`, siehe [Remote-Spieler](#remote-spieler-als-p2) |
 | `HealthBarPatches.cpp` | Client | Lebensleisten nach repliziertem `OnRep_Health` und `OnRep_MaxHealth` |
+| `LocalDevicePatches.cpp` | beide | Im Netzwerkspiel bleiben lokale Geräte bei Spieler 0: keine Gerätezuordnung oder kein Entwurf für P2, kein zweiter `LocalPlayer`; ohne Netzwerk unverändert, siehe [Eingaben getrennt](../../docs/GAME_ANALYSIS.md#eingaben-getrennt-eingaben) |
 
 **Alle oder keiner.** `Patches::Install` läuft in `Game::Start` vor dem ersten Takt. Es prüft zuerst jede Stelle (Bytes, vtable-Einträge)
 und setzt erst dann alle Patches. Passt eine Stelle nicht, setzt es keinen und protokolliert die Stelle; das Spiel läuft dann wie ohne Mod.
@@ -231,6 +233,36 @@ Host zuerst, einmal Client zuerst. Beide Knöpfe gelb, das Spiel blieb pausiert,
 Panels ohne weiteren Klick (`Bestätigen des Hosts nachgeholt (Versuch 1)`), Edits übernommen, darunter einer mit 3 neuen Feldern. Der
 Nutzer bestätigte den Ablauf. Nicht geprüft: Reroll während eines Bereit, mehr als ein Client (es gibt nur P2). Das Rundenende mit
 Lager folgt als `bestaetigen-rundenende`, sobald `rundenende-client` dem Client das Lager zeigt.
+
+**Lager am Rundenende (`bestaetigen-rundenende`, 06.11.2026).** Dasselbe Verfahren für das Lager nach der Rundenübersicht. Das
+Lager ist dasselbe `InventoryPanel` (`WP_Inventory_Panel_C`) wie beim Airdrop, sein Bestätigen läuft also durch denselben Hook. Format
+in [Kontrollkanal](../../docs/CONTROL_PROTOCOL.md#lager-am-rundenende-mod-kompatibilität-6), Mod-Version 6.
+
+- **Lokal:** Bestätigen im Lager färbt den Knopf gelb und hält das native `HandleConfirmButton` zurück. Weitere Klicks ändern nichts.
+  Inventar und Lager bleiben bedienbar. Die Rundenübersicht, das Lager und das Ordnen des Inventars laufen wie in
+  `rundenende-client` beim Client lokal.
+- **Geteilt:** Der Client meldet sein Rundenende (`Game::Map::RoundEnd::Id`, nur wenn er es selbst geöffnet hat) und sein Bereit
+  (`0x306`), der Host seinen Stand (`0x307`: Host bereit, Bereit des Clients).
+- **Entscheidet:** Der Host. Er wartet nur, wenn ein Client mit der Mod verbunden ist, dasselbe Rundenende geöffnet hat und noch
+  nicht bereit ist. Sind beide bereit, holen beide ihr Bestätigen einmal nativ nach, der Host kommt zur Routenkarte und wählt den Tag.
+  Ist der Client schon bereit, läuft das Bestätigen des Hosts sofort.
+- **Nie hängen:** Hat der Client die Runde nicht nachgezogen (andere Karte, kein GameState), wartet niemand. Trennt sich der Client,
+  kommt 2 s lang keine Meldung von ihm oder fehlt ihm 5 s lang ein Stand des Hosts, holt die wartende Seite ihr Bestätigen nach. Die
+  2 s sind nötig, weil `disconnect` beim Client nur das Spiel trennt; die Verbindung der Mod bleibt, der Client meldet nur nichts mehr. Bleibt das Nachholen ohne Wirkung,
+  läuft ein zweiter Klick direkt nativ. Ein neues Rundenende (neue Welt) setzt alles zurück, auch die Farbe.
+- Regeln `HostHoldsRoundEndConfirm`, `ClientHoldsRoundEndConfirm` und `ClientMayReleaseRoundEnd` in `PatchPolicy.h`, mit Tests;
+  Laufzeit in `RewardPatches.cpp`, Nachrichten in `src/Sync/Inventory/RewardSync.cpp`, Rundenende aus `MapPatches.cpp`.
+
+**Geprüft** (06.11.2026, Build `26187885`, ein PC, Lobby, Godmode, Rundenende per `!finish`): Zwei Rundenenden hintereinander.
+Tag 1 Host zuerst: Knopf des Hosts gelb, der Host blieb 23 s im Lager, bis der Client bestätigte, dann beide weiter
+(„Lager: Bestätigen nachgeholt“), der Host auf der Routenkarte. Tag 2 Client zuerst: Knopf des Clients gelb, nach dem Bestätigen des
+Hosts beide weiter. Reise bis Tag 3, Inventare gleich, Desync-Melder OK, kein Absturz. Das Rundenende über den Bus nimmt beim Client
+denselben Weg (`tank-gemeinsam`).
+
+**Trennen während des Wartens** (gleicher Tag, zweiter Lauf): Host bereit, dann `disconnect` beim Client. Im ersten Versuch wartete der
+Host weiter, weil die Verbindung der Mod bestehen blieb. Seit dem 2-s-Ablauf: „Lager: Client meldet sich nicht mehr aus dem Lager“,
+„Bestätigen nachgeholt (Client nicht mehr im Lager)“, der Host auf der Routenkarte. Mit diesem Build danach erneut Client zuerst
+geprüft, Reise bis Tag 2, Inventare gleich, kein Absturz.
 
 **Verworfen:** Zuerst nutzte die Mod die native Koop-Reward-Sitzung (Koop-Modus nur für den Airdrop, Client wählt im Overlay, Host ruft
 `ClaimReward(1, …)`). Das Host-Panel zeigte beide Rucksäcke, nach dem Claim des Clients ging die UI-Autorität an P1 und der Host hing.

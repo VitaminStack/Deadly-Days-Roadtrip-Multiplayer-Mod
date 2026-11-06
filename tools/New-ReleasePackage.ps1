@@ -39,9 +39,13 @@ try {
         Copy-Item -LiteralPath $From -Destination $To
     }
     # Pruefsummen zum Vergleich mit der Veroeffentlichung und fuer Meldungen an Virenscanner-Hersteller.
+    # SHA256 direkt ueber .NET: Get-FileHash fehlt, wenn PowerShell 5.1 einen fremden Modulpfad erbt (so in der CI).
+    $Sha = [Security.Cryptography.SHA256]::Create()
     $Sums = foreach ($Target in $Files.Keys) {
-        '{0}  {1}' -f (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $Package $Target)).Hash.ToLowerInvariant(), ($Target -replace '\\', '/')
+        $Bytes = $Sha.ComputeHash([IO.File]::ReadAllBytes((Join-Path $Package $Target)))
+        '{0}  {1}' -f (-join ($Bytes | ForEach-Object { $_.ToString('x2') })), ($Target -replace '\\', '/')
     }
+    $Sha.Dispose()
     [IO.File]::WriteAllLines((Join-Path $Package 'SHA256SUMS.txt'), [string[]]$Sums)
 
     New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null

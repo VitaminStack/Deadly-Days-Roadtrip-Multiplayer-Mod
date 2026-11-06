@@ -14,6 +14,8 @@
 namespace Sync::Reward
 {
 inline constexpr uint16_t OfferType = 0x300, EditType = 0x303, ResultType = 0x304, ReadyType = 0x305;
+// Lager am Rundenende (bestaetigen-rundenende): Bereit des Clients und Stand beim Host.
+inline constexpr uint16_t RoundEndClientType = 0x306, RoundEndStatusType = 0x307;
 inline constexpr size_t MaxChoices = 4, MaxName = 120;
 
 // Eine Choice: lesbarer Name für Log und Overlay, Objektnamen von UInventoryItemData und URarity, mit denen der Client
@@ -265,5 +267,58 @@ inline std::optional<Ready> DecodeReady(std::span<const uint8_t> In)
     if (In.size() != 17 || In[16] > 1 || !Detail::Get(In, 0, 8))
         return std::nullopt;
     return Ready{Detail::Get(In, 0, 8), Detail::Get(In, 8, 8), In[16] == 1};
+}
+
+// Lager am Rundenende, Client an Host, genau 9 Byte: Id des Rundenendes (Game::Map::RoundEnd::Id, 8, ungleich 0), das der
+// Client selbst geöffnet hat, und bereit (1, 0 oder 1): Bestätigen im Lager gedrückt oder schon ausgeführt. Der Client schickt
+// es alle 500 ms, solange er in diesem Rundenende ist. Nur dann wartet der Host auf ihn; ein Zurücknehmen gibt es nicht.
+struct RoundEndClient
+{
+    uint64_t Id = 0;
+    bool Ready = false;
+    bool operator==(const RoundEndClient&) const = default;
+};
+
+inline std::vector<uint8_t> Encode(const RoundEndClient& Value)
+{
+    if (!Value.Id)
+        return {};
+    std::vector<uint8_t> Out;
+    Detail::Put(Out, Value.Id, 8);
+    Out.push_back(Value.Ready ? 1 : 0);
+    return Out;
+}
+
+inline std::optional<RoundEndClient> DecodeRoundEndClient(std::span<const uint8_t> In)
+{
+    if (In.size() != 9 || In[8] > 1 || !Detail::Get(In, 0, 8))
+        return std::nullopt;
+    return RoundEndClient{Detail::Get(In, 0, 8), In[8] == 1};
+}
+
+// Stand im Lager am Rundenende, Host an Client, genau 9 Byte: Id des Rundenendes (8, 0 = keins) und Flags (1): Bit 0 Host
+// bereit, Bit 1 Host hat das Bereit des Clients. Ohne Rundenende sind die Flags 0. Bei Änderung sofort, sonst jede Sekunde.
+struct RoundEndStatus
+{
+    uint64_t Id = 0;
+    bool HostReady = false, ClientReady = false;
+    bool operator==(const RoundEndStatus&) const = default;
+};
+
+inline std::vector<uint8_t> Encode(const RoundEndStatus& Value)
+{
+    if (!Value.Id && (Value.HostReady || Value.ClientReady))
+        return {};
+    std::vector<uint8_t> Out;
+    Detail::Put(Out, Value.Id, 8);
+    Out.push_back(static_cast<uint8_t>((Value.HostReady ? 1 : 0) | (Value.ClientReady ? 2 : 0)));
+    return Out;
+}
+
+inline std::optional<RoundEndStatus> DecodeRoundEndStatus(std::span<const uint8_t> In)
+{
+    if (In.size() != 9 || (In[8] & ~3) || (!Detail::Get(In, 0, 8) && In[8]))
+        return std::nullopt;
+    return RoundEndStatus{Detail::Get(In, 0, 8), (In[8] & 1) != 0, (In[8] & 2) != 0};
 }
 }

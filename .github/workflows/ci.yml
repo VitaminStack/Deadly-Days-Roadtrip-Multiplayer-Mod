@@ -1,16 +1,13 @@
 name: CI
 
 # Reine Doku-Änderungen bauen nicht. TODO.md, README und Fortschrittsbild prüft der Workflow „Doku“ bei jeder Änderung.
+# Der Workflow läuft trotzdem immer: Die Branch-Regel für main verlangt die Prüfungen build-and-test (Debug/Release). Mit
+# paths-ignore fehlten sie bei Doku-PRs ganz, und der Merge blieb gesperrt. Darum entscheidet der Job changes, und die
+# Build-Schritte überspringen sich; der Job selbst meldet dann Erfolg.
 on:
   pull_request:
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
   push:
     branches: [main]
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
 
 permissions:
   contents: read
@@ -21,7 +18,41 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # Liefert code=false nur, wenn sicher nur *.md oder docs/ geändert wurden. Im Zweifel code=true, dann wird gebaut.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Geänderte Dateien
+        id: diff
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          set -u
+          # Beim PR ist HEAD der Merge-Commit mit main, der Vergleich mit dessen erstem Elternteil zeigt nur die Änderungen
+          # des PR. Auf main der Stand vor dem Push; beim ersten Push (lauter Nullen) schlägt der Vergleich fehl, dann bauen.
+          if [ "$EVENT" = "pull_request" ]; then Base="HEAD^1"; else Base="$PUSH_BEFORE"; fi
+          if ! Files=$(git diff --name-only "$Base" HEAD 2>/dev/null) || [ -z "$Files" ]; then
+            echo "Vergleich mit $Base nicht möglich oder leer, es wird gebaut."
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "$Files"
+          if echo "$Files" | grep -qvE '(\.md$|^docs/)'; then Code=true; else Code=false; fi
+          echo "code=$Code"
+          echo "code=$Code" >> "$GITHUB_OUTPUT"
+
+  # Ausfallsicher: Scheitert changes, ist code leer und es wird gebaut. Übersprungen wird nur bei code=false.
   build-and-test:
+    needs: changes
+    if: ${{ !cancelled() }}
     runs-on: windows-latest
     strategy:
       fail-fast: false
@@ -31,11 +62,17 @@ jobs:
       CCACHE_DIR: ${{ github.workspace }}\.ccache
       CCACHE_MAXSIZE: 500M
     steps:
+      - name: Nur Doku geändert
+        if: needs.changes.outputs.code == 'false'
+        run: echo "Nur *.md oder docs/ geändert, Build und Tests übersprungen."
+
       - uses: actions/checkout@v4
+        if: needs.changes.outputs.code != 'false'
 
       # ccache sitzt als cl.exe vor dem echten Compiler. Dafür ruft MSBuild den Compiler je Datei auf (MultiToolTask),
       # und src/Common.props stellt mit DdcoopCompilerCache auf /Z7 und eine Objektdatei je Quelle um.
       - name: Compiler-Cache laden
+        if: needs.changes.outputs.code != 'false'
         uses: actions/cache@v4
         with:
           path: .ccache
@@ -43,6 +80,7 @@ jobs:
           restore-keys: ccache-${{ matrix.configuration }}-
 
       - name: Compiler-Cache einrichten
+        if: needs.changes.outputs.code != 'false'
         shell: pwsh
         run: |
           $Version = '4.10.2'
@@ -71,6 +109,7 @@ jobs:
           & (Join-Path $Bin 'ccache.exe') --zero-stats
 
       - name: Solution bauen
+        if: needs.changes.outputs.code != 'false'
         shell: pwsh
         run: |
           $Vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
@@ -82,24 +121,30 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Compiler-Cache Statistik
-        if: always()
+        if: always() && needs.changes.outputs.code != 'false'
         shell: pwsh
         run: '& "$env:CCACHE_BIN\ccache.exe" --show-stats'
 
       - name: C++-Tests
+        if: needs.changes.outputs.code != 'false'
         run: .\bin\${{ matrix.configuration }}\CoreTests.exe
 
       - name: UI-Tests (ohne Spiel und SDK)
+        if: needs.changes.outputs.code != 'false'
         run: .\bin\${{ matrix.configuration }}\UITests.exe
 
       - name: Game-Tests (ohne Spiel und SDK)
+        if: needs.changes.outputs.code != 'false'
         run: .\bin\${{ matrix.configuration }}\GameTests.exe
 
       - name: Net-Tests (ohne Spiel und Steam)
+        if: needs.changes.outputs.code != 'false'
         run: .\bin\${{ matrix.configuration }}\NetTests.exe
 
   # Hängt nicht von Debug/Release ab, darum einmal und parallel zum Build.
   scripts:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4

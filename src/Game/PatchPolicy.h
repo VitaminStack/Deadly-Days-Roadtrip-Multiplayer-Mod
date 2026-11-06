@@ -168,6 +168,28 @@ constexpr bool ClientMayStartTravel(bool IsNetClient, std::string_view Target)
     return !IsNetClient || Target.find("MainMenu") != std::string_view::npos;
 }
 
+// bestaetigen-rundenende: Bestätigen im Lager am Rundenende. Ids sind Game::Map::RoundEnd::Id, 0 heißt keins.
+// Host: Sein Bestätigen wartet nur, wenn ein Client mit der Mod verbunden ist, dieses Rundenende selbst geöffnet hat und
+// noch nicht bereit ist. Hat der Client die Runde nicht nachgezogen (andere Karte, kein GameState), wartet niemand.
+constexpr bool HostHoldsRoundEndConfirm(uint64_t End, uint64_t Done, bool RemoteConnected, uint64_t ClientIn, uint64_t ClientReady)
+{
+    return End != 0 && End != Done && RemoteConnected && ClientIn == End && ClientReady != End;
+}
+
+// Client: Sein Bestätigen wartet nur, wenn der Host gerade dasselbe Rundenende meldet. Ohne frischen Stand des Hosts läuft
+// es nativ wie bisher.
+constexpr bool ClientHoldsRoundEndConfirm(uint64_t End, uint64_t Done, uint64_t HostStatusId)
+{
+    return End != 0 && End != Done && HostStatusId == End;
+}
+
+// Client: zurückgehaltenes Bestätigen auslösen, wenn beide bereit sind oder der Stand des Hosts fehlt oder nicht mehr zu
+// diesem Rundenende passt; so bleibt das Lager nie hängen.
+constexpr bool ClientMayReleaseRoundEnd(uint64_t End, uint64_t HostStatusId, bool HostReady, bool ClientReadyEcho)
+{
+    return HostStatusId != End || (HostReady && ClientReadyEcho);
+}
+
 // Beim Client bleiben ablaufende statische Pfad-GUIDs erhalten, keine dynamischen, NoLoad- oder kaputten Einträge.
 constexpr bool RetainNetGuidPath(bool CurrentClientCache, uint64_t Guid, uint32_t PathName, uint8_t Flags)
 {

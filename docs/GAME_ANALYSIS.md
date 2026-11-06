@@ -677,6 +677,37 @@ Stand: Disassembly und Laufzeit-Messung, Build `26187885`. Mission über das Spi
   Kritisch wäre es nur, wenn das Spiel dabei Zustand zurücksetzt, der nicht repliziert. Das trat in der Messung nicht auf.
 - **[Hypothese]** Mit zwei Spielern ist der Abstand zum Spieler beim Recycling nur gegen den zufällig gewählten Spieler geprüft. Gegner nahe dem anderen Spieler könnten also weggeholt werden. Das ist für die Spielbarkeit vermutlich nebensächlich.
 
+### Ein Gegnertyp synchron (`gegnertyp`)
+
+Stand 06.11.2026, Build `26187885`, eine Sitzung `Start-Session.ps1 -Mod -Tunnel Lobby -Godmode` und `Run-Route.ps1 -Days 1 -StayLast`,
+Tag 1 mit `BP_StandardEnemy_C` als einzigem Gegnertyp. Gemessen lesend mit `tools/spike/enemy_sync.py` (je Viertelsekunde,
+Objektliste je Sekunde neu) und dem Desync-Melder.
+
+- **[Belegt]** Spawn und Tod laufen über die native Actor-Replikation, ohne eigenen Code. Der Host entscheidet allein
+  (`AEnemySpawner`, Schaden, Tod), der Client sieht die Gegner als `SimulatedProxy`. Bildpaar Host/Client: dieselben Gegner an
+  denselben Orten; beim Client fehlen nur die gepoolten Tod-Effekte (`opt-blut`, `vfx-sound`).
+- **[Belegt]** Tod: In fünf Messungen von 90 bis 360 s starben beim Host 48, 155, 111, 139 und 186 Gegner, beim Client 48, 150,
+  111, 139 und 178. Zugeordnete Tode kommen beim Client im Median ohne messbare Verzögerung an (unter 0,25 s), höchstens 2,9 s später.
+- **[Belegt]** Spawn: Ohne Welle kommen neue Gegner im selben Messschritt an (70 von 70 zugeordnet, keiner über 2 s). Unter
+  `!wave`-Last erscheinen einzelne neue Gegner beim Client bis rund 8 s später, sie spawnen am Rand des Bildes. Das steht als
+  `opt-gegner-spawnverzug`. Fehlende Zuordnungen und Tode in der Zählung des Werkzeugs sind vor allem Gegner, die zwischen zwei
+  Neuaufnahmen der Objektliste entstehen und sterben; die Proben beider Seiten liegen nicht im selben Frame.
+- **[Belegt]** Gegner-HP repliziert beim Client nicht: `CommonAttributeSet` (`Actor+0x700`) steht dort auf 0/0, beim Host auf 50/50.
+  `OnRep_Health` läuft für Gegner also nie, ein lokaler Auslöser „HP 0“ wäre falsch. Lebensleisten, Treffer und Tod brauchen den
+  Wert beim Client bisher nicht.
+- **[Belegt] Ursache von `opt-gegnerzahl`:** Getötete Gegner tragen auf **beiden** Seiten bis zur Garbage Collection noch
+  `bActorIsBeingDestroyed` (Host zum Beispiel 11, Client 12 gleichzeitig). Sie sind schon aus `Level->Actors` entfernt und
+  unsichtbar. Zählungen über das Objekt-Array (`objects.py`) schließen sie ein und schwanken mit dem GC-Zeitpunkt. Die Zählung
+  des Desync-Melders über `Level->Actors` war in 24 von 40 Halbsekunden-Proben gleich, in ruhigen Phasen durchgehend (25/25).
+  Ausblenden toter Gegner ist darum nicht nötig.
+- **[Belegt] Desync-Melder mit Gegnerzahl:** Im Lauf mit `desync_ignore_enemies=false` (rund 6 min, eine Welle) kein Alarm,
+  „offen Gegner“ jeweils wenige Sekunden. Ein zweiter Lauf (rund 6 min, eine Welle) bestätigte einmal 31 zu 30 Gegner für etwa
+  2 s, dann wieder OK: ein spät replizierter Spawn. Seitdem ist die Gegnerzahl standardmäßig im Abgleich und braucht 8 statt
+  3 Bestätigungen (rund 16 s). Abnahmelauf damit: rund 7 min, zwei Wellen, 221 Spawns und 186 Tode beim Host, kein Alarm, kein
+  Absturz, auf beiden Seiten 25-mal „OK … Gegner“ im Log.
+- Nicht geprüft: andere Gegnertypen, Bosse und Boss-Phasen (`gegner-alle`), Latenz über das Internet, Reconnect. Eigene
+  Nachrichten oder Dateien in `src/Sync/Enemies` gibt es nicht, die Entscheidung steht in dessen README.
+
 ## Kamera und Sichtbereich
 
 Stand: Disassembly und Laufzeit, Build `26187885`. Mission über das Spielmenü mit dem Spike, Werte aus dem Speicher beider Instanzen. RVAs in [Offsets](OFFSETS.md#kamera).
@@ -978,6 +1009,47 @@ der Mod, Tag 1, Level-up-Airdrops. Rohdaten und Probe auf `task/client-visuell`.
 - Nebenbei: Öffnet der Client sein Pausenmenü, läuft der Host weiter (Uhr 451 bis 466). Das
   ist die bekannte getrennte Pause, Aufgabe `pausen-sync`.
 
+### Eingaben getrennt (`eingaben`)
+
+Stand 06.11.2026, Build `26187885`, ein PC, Mod über die Lobby, Godmode, Tag 1. Positionen und Gerätebindungen mit lokalen, nur
+lesenden Skripten gemessen, Eingaben über `Game-Input.ps1` ins jeweilige Fenster.
+
+**Ausgangslage, ohne Änderung gemessen:**
+
+- **[Belegt]** Bewegung, Dodge, Klick/Zielen und Pausemenü wirken nur in der eigenen Instanz. `D` im Host-Fenster bewegt nur die
+  Host-Figur, `A` im Client-Fenster nur die Client-Figur; mit Dodge ebenso (beim Host greift dabei der Dodge-Pfad aus
+  `ausweichen-client`). Esc öffnet das Pausemenü nur beim Drückenden; Host-Eingaben bewegen den Host weiter, während der Client im
+  Menü steht. Die Zielrichtung (`Hands`) wählt das Spiel automatisch nach Gegnern, sie ist auf beiden Seiten gleich repliziert.
+- **[Belegt]** Gerätebindungen (`ULocalCoopSubsystem+0x150`): auf beiden Seiten nur Tastatur/Maus (Gerät 0) an Spieler 0, kein
+  Entwurf. Router-Sitzungen haben Authority-Index 0. Der Host-Router hängt also keine Eingabe an den Remote-Slot.
+- **[Belegt, Disassembly]** Die Lücke liegt im nativen lokalen Koop: `AssignPhysicalDevice` (`0x58D93B0`) erlaubt Index 0 und 1,
+  `DraftAssignPhysicalDevice` (`0x58E5690`) -1 bis 1. Ein Gamepad oder eine weitere Tastatur ließe sich so an P2 binden, der beim Host
+  der Remote-Spieler ist. `SpawnLocalPlayer(1)` (`0x5901E90`) gibt beim Host einen eingetragenen P2 nur zurück; beim Client oder
+  ohne Bindung legt es über `CreateLocalPlayer` einen zweiten `LocalPlayer` an, beim Client also einen zusätzlichen Netzwerkspieler.
+
+**Umsetzung:** `src/Game/LocalDevicePatches.cpp` hängt sich an diese drei nativen Einstiege. Im Netzwerkspiel (Host mit NetDriver
+oder Client) lehnen sie Index ≥ 1 mit dem nativen Fehlerergebnis ab (`false` bzw. kein Controller); Index 0, das Lösen (-1) und das
+Zurückgeben eines schon eingetragenen Remote-P2 beim Host bleiben. Ohne Netzwerk bleibt der lokale Koop des Spiels unverändert.
+Nichts wird übertragen, keine neue Nachricht, `ModVersion` unverändert. Kein Ordner `src/Sync/Players`, weil nichts synchronisiert
+wird. Regeln in `LocalDevicePolicy.h`, Unit-Tests in `tests/GameTests/PatchTests.cpp`. Die Bewegungs- und Dodge-Pfade aus `bewegung`
+und `ausweichen-client` bleiben unberührt.
+
+**Geprüft** (06.11.2026, `Start-Session.ps1 -Restart -Mod -Tunnel Lobby -Godmode -Brief`, `Run-Route.ps1 -Days 1 -StayLast`):
+
+- 41 statt 38 Patches gesetzt. Bewegung (`D`/`A`) und Dodge (`W`/`S` mit Leertaste) je Seite: gleiche Wege wie ohne Änderung, die
+  andere Figur bleibt stehen.
+- Eine Wegwerf-Probe (nicht im Repo) rief auf dem Game Thread beider Instanzen `AssignPhysicalDevice(0, 1)`,
+  `DraftAssignPhysicalDevice(0, 1)`, `SpawnLocalPlayer(1)`, dann `AssignPhysicalDevice(0, 0)` und `SpawnLocalPlayer(0)` auf.
+  Client: P2-Zuordnung, Entwurf und lokaler Spieler abgelehnt (Log „Eingaben: … abgelehnt“), weiter ein `LocalPlayer`. Host:
+  Zuordnung und Entwurf abgelehnt, `SpawnLocalPlayer(1)` lieferte den Remote-Controller aus `ActivePlayers[1]`, nichts angelegt.
+  Index 0 ging auf beiden Seiten durch. Danach Bindungen weiter nur Gerät 0 an Spieler 0, Host und Client steuerten je ihre Figur.
+- Gegenproben: Level-up-Airdrop, Client zuerst bestätigt (Knopf gelb), dann Host, beide Panels zu, Inventare gleich. Lager am Ende
+  von Tag 1: Host bestätigt und wartet; nach Fortsetzen und Bestätigen beim Client öffnete der Host die Routenkarte. Ohne Probe keine
+  „Eingaben“-Zeile und kein Fehler im Log, kein Absturz.
+- Nicht geprüft: ein echtes Gamepad (keins am Test-PC) und das Beitrittsmenü des Spiels; der Weg dorthin endet in denselben drei
+  Funktionen. Nebenbefund: `Run-Route.ps1` und `Travel-Day.ps1` bestätigen das Lager nur beim Host und bleiben deshalb seit
+  `bestaetigen-rundenende` vor dem zweiten Tag stehen, bis der Client bestätigt.
+
 ### Coop-Ablauf
 
 Stand: Disassembly und Laufzeit-Speicher, Build `26187885`, SDK aus einer direkt geladenen Mission (02.11.2026). Die RVAs stehen in [Offsets](OFFSETS.md#coop).
@@ -1253,7 +1325,32 @@ Stand 05.11.2026, Build `26187885`, ein PC, Mod mit Spike über die Lobby, Seed 
   Routenkarte und Reise zu Tag 2: `check_round.py` sauber, 63 Kacheln auf beiden Seiten, Figuren am Bus.
 - `DD_QuickFinishMission` beendet die Runde ohne Tank und Bus, wie `!finish`. Es ersetzt den Busablauf nicht.
 - **Offen:** Der Tank ist je Teilnehmer getrennt gewertet, jeder PlayerState hat einen eigenen `UFuelMeter` (Maximum 100). Nach
-  Nutzervorgabe ist er ein Gruppenwert, Folgeaufgabe `tank-gemeinsam`.
+  Nutzervorgabe ist er ein Gruppenwert, Folgeaufgabe `tank-gemeinsam`. Nachtrag: Der Tank am GameState ist schon der Gruppenwert, siehe [Tank als Gruppenwert](#tank-als-gruppenwert-tank-gemeinsam).
+
+### Tank als Gruppenwert (`tank-gemeinsam`)
+
+Stand 06.11.2026, Build `26187885`, ein PC, Mod mit Spike über die Lobby, Godmode, Tag 1. Der Nutzer steuerte beide Figuren.
+Ergebnis: **Der Tank ist im Spiel schon ein Gruppenwert, die Mod braucht dafür keinen Code.**
+
+- **[Belegt] Tankanzeigen zur Laufzeit:** In der Mission hat jede Seite einen `UFuelMeter` am `GS_DDMissionState_C` (Maximum 120) und
+  je Spieler einen am `BP_DDPlayerState_C` (Maximum 100). Dazu kommen die Vorlagen der Klassen. Gelesen mit `fuel.py` und einer
+  Zuordnung über den Outer. Der Tank am GameState startet bei 10.
+- **[Belegt] Reflektierte Funktionen:** `DDMissionGameState.GetFuelMeter`, `FuelMeter.IncreaseFuel`, `GetLastLootClaimer`,
+  `OnRep_CurrentFuel`, `FuelLoot.Loot`, `LootBlueprintFunctionLibrary.DropRequiredFuel`. Einen Cheat für Treibstoff gibt es nicht.
+- **[Belegt] Kanister:** Nach `DD_OpenAllLootSpots` (nach `!cheats`) lagen rund 30 `BP_FuelLoot_C` über die ganze Karte verteilt.
+- **[Belegt] Jeder Kanister zählt einmal für beide:** Mitschnitt aller Tanks auf beiden Seiten alle 0,25 s. Kanister des Hosts:
+  GameState-Tank 10 → 20, Kanister des Clients: 20 → 30, jeweils bei Host und Client in derselben Sekunde. Die PlayerState-Tanks
+  blieben bei 0, nichts zählte doppelt. Nach Auffüllen beim Host auf 118 (Speicherschreiben, der Client übernahm den Wert sofort) zwei
+  weitere Kanister: 128, 138 auf beiden Seiten. Der Wert darf das Maximum übersteigen.
+- **[Belegt] Voller Tank gibt die Busflucht frei:** Bei vollem Tank liefen beide Figuren zum Bus, die Runde endete. Host-Log
+  „Rundenende: Host beendet die Runde, Client wird benachrichtigt“, Client-Log „Host hat die Runde beendet, Client öffnet
+  Rundenübersicht und Lager selbst“; der Client zeigte „Ende der Runde“. Die Abfahrtsprüfung des Clients blieb unterdrückt
+  (`bus-ende`). Damit ist auch das Rundenende über den echten Bus für `rundenende-client` belegt.
+- **Vermutung:** Die PlayerState-Tanks sind ungenutzt oder für einen anderen Spielmodus. Beim Einsammeln änderten sie sich nicht.
+- **Nebenbefund, nur Anzeige:** Die Rundenübersicht des Clients zeigt eigene, lokale Werte (Kills 0, „Tag 0/0“). Kein Hindernis für
+  einen Run, Kandidat für die optionalen Optimierungen.
+- **Werkzeug:** `fuel.py --fill` schreibt alle Tanks, auch einen PlayerState-Tank und die Vorlage der Klasse. Für den Test egal,
+  gemeint ist nur der Tank am GameState.
 
 ### Busabfahrt nur beim Host (`bus-ende`)
 
@@ -1299,9 +1396,10 @@ Stand 06.11.2026, Build `26187885`, ein PC, Mod mit Spike über die Lobby, Godmo
   Test-`UserDir`, 3093 → 7867 Bytes zum selben Zeitpunkt) mit eigenem Run-Seed, Tag 0, `EndOfDay` und dem Inventar. Der Client hatte
   den Spielstand schon beim Beitritt geschrieben. Ob dabei ein laufender eigener Run eines echten Spielstands verloren geht, ist nicht
   geprüft (Vermutung: ja, der Run-Slot wird überschrieben). Das gehört zu `mod-saves` (Mod-Spielstände vom normalen trennen).
-- **Nicht geprüft:** Rundenende über den echten Bus (der Host ruft dort dasselbe `FinishMission`, siehe `bus-ende`), mehrere
+- **Nicht geprüft:** Mehrere
   Rundenenden hintereinander, Itemsäcke im Lager, ein Client, der den Host im Lager überholt. Die Reisesperre des Clients griff im Lauf
-  nicht, weil seine Routenkarte keinen Knoten anbot; sie ist nur in Tests belegt.
+  nicht, weil seine Routenkarte keinen Knoten anbot; sie ist nur in Tests belegt. Das Rundenende über den echten Bus ist seit
+  [`tank-gemeinsam`](#tank-als-gruppenwert-tank-gemeinsam) belegt.
 
 ### Rundenende: Befund und offene Phasenübertragung (`rundenende`)
 

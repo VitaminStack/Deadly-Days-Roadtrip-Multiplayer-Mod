@@ -71,6 +71,42 @@ TEST_CASE("Reward ready round-trips and rejects malformed payloads")
     CHECK_FALSE(DecodeReady(NoSession));
 }
 
+TEST_CASE("Lager am Rundenende: Stand des Clients round-trips and rejects malformed payloads")
+{
+    const RoundEndClient Value{0x1122334455667788ull, true};
+    const auto Bytes = Encode(Value);
+    REQUIRE(Bytes.size() == 9);
+    CHECK(DecodeRoundEndClient(Bytes) == Value);
+    CHECK(DecodeRoundEndClient(Encode(RoundEndClient{9, false})) == RoundEndClient{9, false});
+    CHECK(Encode(RoundEndClient{0, true}).empty());
+    CHECK_FALSE(DecodeRoundEndClient(std::span(Bytes).first(8)));
+    auto Bad = Bytes;
+    Bad[8] = 2;
+    CHECK_FALSE(DecodeRoundEndClient(Bad));
+    std::vector<uint8_t> NoId(9, 0);
+    CHECK_FALSE(DecodeRoundEndClient(NoId));
+}
+
+TEST_CASE("Lager am Rundenende: Stand des Hosts round-trips, kein Ende ist ohne Flags")
+{
+    for (const RoundEndStatus Value : {RoundEndStatus{7, false, false}, RoundEndStatus{7, true, false}, RoundEndStatus{7, false, true},
+                                       RoundEndStatus{7, true, true}, RoundEndStatus{}})
+    {
+        const auto Bytes = Encode(Value);
+        REQUIRE(Bytes.size() == 9);
+        CHECK(DecodeRoundEndStatus(Bytes) == Value);
+    }
+    CHECK(Encode(RoundEndStatus{0, true, false}).empty());
+    auto Bytes = Encode(RoundEndStatus{7, true, true});
+    CHECK(Bytes[8] == 3);
+    Bytes[8] = 4;
+    CHECK_FALSE(DecodeRoundEndStatus(Bytes));
+    std::vector<uint8_t> FlagsWithoutId(9, 0);
+    FlagsWithoutId[8] = 1;
+    CHECK_FALSE(DecodeRoundEndStatus(FlagsWithoutId));
+    CHECK_FALSE(DecodeRoundEndStatus(std::span(Bytes).first(8)));
+}
+
 namespace
 {
 Game::InventoryEdit::Edit SampleEdit()
