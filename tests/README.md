@@ -13,7 +13,7 @@ Tests für Code ohne SDK-Abhängigkeit. Sie laufen bei jedem Pull Request in Git
 
 ## CI
 
-`.github/workflows/ci.yml` baut die Solution in Debug und Release und führt danach die C++-Tests aus. Python-Tests und die beiden `Run-*.ps1` hängen nicht von der Konfiguration ab und laufen einmal im Job `scripts`, parallel zum Build. Ändert ein PR nur `*.md` oder `docs/`, baut die CI nicht; `.github/workflows/docs.yml` prüft `TODO.md`, README-Fortschritt und Fortschrittsbild bei jeder Änderung. Ein neuer Push auf denselben PR bricht den laufenden Lauf ab.
+`.github/workflows/ci.yml` baut die Solution in Debug und Release und führt danach die C++-Tests aus. Python-Tests und die beiden `Run-*.ps1` hängen nicht von der Konfiguration ab und laufen einmal im Job `scripts`, parallel zum Build. Ändert ein PR nur `*.md` oder `docs/`, baut die CI nicht: Der Job `changes` erkennt das, und `build-and-test` überspringt alle Schritte und meldet Erfolg, damit die Pflichtprüfungen der Branch-Regel auch bei Doku-PRs vorliegen. Scheitert die Erkennung, wird gebaut; `.github/workflows/docs.yml` prüft `TODO.md`, README-Fortschritt und Fortschrittsbild bei jeder Änderung. Ein neuer Push auf denselben PR bricht den laufenden Lauf ab.
 
 Der Build läuft über ccache (Cache je Konfiguration in `actions/cache`) und mit MultiToolTask, also je Quelldatei ein Compileraufruf und mehrere parallel. Dafür schaltet `/p:DdcoopCompilerCache=true` in `src/Common.props` auf `/Z7` und eine Objektdatei je Quelle; lokale Builds bleiben bei `/Zi`. Neue Projekte erben das über `Common.props`. Die Statistik am Ende des Build-Schritts zeigt Treffer und Fehlschläge.
 
