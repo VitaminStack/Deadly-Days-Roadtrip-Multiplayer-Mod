@@ -426,7 +426,9 @@ bool HoldRoundEndConfirm(uintptr_t Panel)
     if (!Hold)
     {
         End.Done = End.Id;
-        Core::Log::Info("Lager: {} bestätigt, alle bereit", Role == NetRole::Host ? "Host" : "Client");
+        // Beim Host heißt nicht zurückgehalten auch: Client nicht verbunden oder nicht im Lager. Dann nicht „alle bereit“.
+        const bool Alone = Role == NetRole::Host && (!RemoteReady.load() || End.ClientIn != End.Id);
+        Core::Log::Info("Lager: {} bestätigt, {}", Role == NetRole::Host ? "Host" : "Client", Alone ? "ohne Client im Lager" : "alle bereit");
         return false;
     }
     End.HeldPanel = Panel;
