@@ -132,6 +132,51 @@ void EnableCheats()
     Log("Cheats: CheatManager fuer " + std::to_string(Enabled) + " Controller angelegt");
 }
 
+// Testhilfe (werkbank-client): Host legt jedem Spielerinventar ein Item an, "!give ItemData_Pistol [Rarity]". Natives
+// CreateAndAddItem, das Item repliziert wie jede Vergabe. Nur beim Host sinnvoll, beim Client entstuende eine lokale Instanz.
+void GiveItemCommand(const std::wstring& Args)
+{
+    const std::string Text(Args.begin(), Args.end());
+    const size_t Space = Text.find(' ');
+    const std::string DataName = Text.substr(0, Space), RarityName = Space == std::string::npos ? std::string{} : Text.substr(Space + 1);
+    const uintptr_t Data = FindObject(DataName.c_str(), nullptr);
+    const uintptr_t Rarity = RarityName.empty() ? 0 : FindObject(RarityName.c_str(), nullptr);
+    const uintptr_t Create = FindObject("CreateAndAddItem", "InventoryComponent");
+    const uintptr_t World = Read<uintptr_t>(Base + kGWorld);
+    if (!Data || !Create || !World || !Read<uintptr_t>(World + kWorldGameMode) || (!RarityName.empty() && !Rarity))
+    {
+        Log("Give: " + DataName + " nicht moeglich (Daten, Seltenheit oder kein Host)");
+        return;
+    }
+    const uintptr_t Chunks = Read<uintptr_t>(Base + kGObjects);
+    const int32_t Count = Read<int32_t>(Base + kGObjects + 8);
+    int Given = 0;
+    for (int32_t i = 0; i < Count; ++i)
+    {
+        const uintptr_t Chunk = Read<uintptr_t>(Chunks + 8 * (i >> 16));
+        const uintptr_t Object = Chunk ? Read<uintptr_t>(Chunk + (i & 0xFFFF) * 0x18 + 8) : 0;
+        if (!Object || (Read<uint32_t>(Object + 8) & 0x30) != 0 || NameOf(Read<uintptr_t>(Object + 0x10)) != "InventoryComponent")
+            continue;
+        const uintptr_t Owner = Read<uintptr_t>(Object + 0x20);
+        if (!Owner || NameOf(Read<uintptr_t>(Owner + 0x10)).find("PlayerState") == std::string::npos)
+            continue;
+        struct
+        {
+            uintptr_t Data, Rarity;
+            bool Broken, FlagAsNew, SystemAdd;
+            uint8_t Pad;
+            int32_t Position;
+            bool AllowP2Reserve;
+            uint8_t Pad2[7];
+            uintptr_t Result;
+        } Params{Data, Rarity, false, true, true, 0, -1, false, {}, 0};
+        static_assert(sizeof(Params) == 0x28);
+        Read<ProcessEventFn*>(Object)[kProcessEventIndex](Object, Create, &Params);
+        Given += Params.Result != 0;
+    }
+    Log("Give: " + DataName + (RarityName.empty() ? "" : " " + RarityName) + " an " + std::to_string(Given) + " Inventare");
+}
+
 // Laedt ein Asset ueber seinen Pfad, etwa "/Game/.../BP_X.BP_X_C". Dumper-7 erfasst danach auch diese Klasse.
 void LoadAssetCommand(const std::wstring& Path)
 {

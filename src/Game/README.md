@@ -325,6 +325,60 @@ Rundenende wieder im Lager“ stammt aus dem Test vor `inventar-lokal`. Seitdem 
 `inventar-lokal`-Lauf blieb über das Rundenende bis Tag 2 gleich. Das Tab-Inventar lässt sich im Run nicht öffnen, die Anzeige außerhalb
 des Airdrop-Panels ist daher nicht eigens angesehen.
 
+### Werkbank und Aufwerten beim Client
+
+Aufgabe `werkbank-client`, Code in `RewardPatches.cpp` (Hook auf `UpgradeItems`, Host-Prüfung, Seltenheiten), `InventoryEdit.cpp`
+(Aufwertungen im Edit), `InventoryEditPlan.h` (reine Logik mit Tests in `tests/GameTests/InventoryEditTests.cpp`) und
+`src/Sync/Inventory/RewardSync.cpp`. Format in [Kontrollkanal](../../docs/CONTROL_PROTOCOL.md#aufwerten-und-seltenheiten-mod-kompatibilität-7).
+
+**Befund vorher** (06.11.2026, Build `26187885`): Ablegen auf ein gleiches Item (`InventoryPanel.UpgradeDroppedItem`) und die Werkbank
+rufen beide `UInventoryComponent::UpgradeItems` (`0x5980AE0`) direkt auf, keine UFunction über `ProcessEvent`. Die Funktion legt die
+Ausgabe mit `CreateItemInstance` an und nimmt die Eingaben über die Inventar-RPCs heraus. Beim Client hieß das: Der Host entfernte die
+Eingaben, die Ausgabe gab es nur beim Client. Dazu kam es aber gar nicht, denn `UInventoryItemInstance.ItemRarity` (`+0x118`) repliziert
+nicht: Beim Client steht dort für jedes replizierte Item null, das Panel wertet ohne Seltenheit nie auf. Im Lager tauschte es nur die
+beiden Pistolen. Der Host wertete im selben Lauf seine eigenen Pistolen ohne Fehler auf.
+
+- **Lokal beim Client:** Das native Panel wertet auf, wie im Solo-Spiel. `UpgradeHook` lässt `UpgradeItems` nur innerhalb einer lokalen
+  Bearbeitung laufen (`inventar-lokal`), die Inventar-RPCs der Aufwertung laufen dann lokal. Beim Airdrop ist das die Bearbeitung der
+  Auswahl. Im Lager beginnt die erste Aufwertung eine Bearbeitung (`LagerEdit`), die bis zum Bestätigen im Lager läuft; vorher bleibt das
+  Lager wie in `rundenende-client` bei den nativen RPCs. `RecordUpgrade` merkt sich Eingaben, Ausgabe, Daten und Seltenheit.
+- **Geteilt:** Beim Bestätigen trägt der Edit (`0x303`) zusätzlich die Aufwertungen: Eingaben als Quellen (Ausgangs-Item, Wahl oder eine
+  frühere Ausgabe), Objektnamen von Ausgabe-`ItemData` und Seltenheit und der Endstand der Ausgabe. Dazu schickt der Host jede Sekunde bei
+  Änderung (sonst alle 5 s) die Seltenheiten des Clientinventars (`0x308`); der Client setzt damit nur `ItemRarity` seiner replizierten
+  Items, nicht während einer Bearbeitung.
+- **Entscheidet:** Der Host. Er prüft jede Aufwertung, bevor sich etwas ändert: Ablegen nur mit zwei Eingaben gleicher Daten, Ausgabe mit
+  denselben Daten in `URarity.NextUpgradableRarity` (`+0x58`) einer Eingabe, und nativ `CanItemsBeUpgradedTogether`. Sonst muss sie zu
+  einem Rezept aus `DT_RecipeTable` passen (Zutaten nach Daten und, falls vorgegeben, Seltenheit; Ausgabe mit der vorgegebenen Seltenheit
+  oder der einer Zutat). Dann ruft er `UpgradeItems` selbst am Clientinventar auf und setzt die Ausgaben wie jedes andere Item des Edits.
+  Die Eingaben entfernt `UpgradeItems`, nicht der Plan.
+- **Ablehnung und Abbruch:** Wie beim Edit: Der Client rollt zurück, die lokalen Ausgaben kommen wieder heraus. Verlässt der Client das
+  Lager ohne Bestätigen (neues Rundenende), rollt er ebenso zurück. Bis zur Antwort bleibt sein Bestätigen im Lager zurückgehalten, und er
+  meldet sich erst danach bereit, damit der Host nicht vor der Übernahme reist.
+- **Freischaltung:** `OnetimeUnlock_Workbench` ist eine Meta-Freischaltung des eigenen Spielstands. Ob der Client die Werkbank sieht,
+  entscheidet sein Spielstand, wie bei Figuren. Der Host prüft nur die Aufwertung selbst.
+- **Diagnose:** Logzeilen `Aufwertung beim Client …` (mit Aufrufer-RVA), `Inventar lokal: Aufwertung …`, `Lager: …`, `Seltenheiten: …`.
+  Aufwertungen beim Client außerhalb einer Bearbeitung laufen nativ weiter und stehen als Warnung im Log.
+
+**Geprüft** (06.11.2026, Build `26187885`, ein PC, Lobby, Godmode, Items über die Spike-Testhilfe `!give`, Werkbank über
+`DD_SetMetaUpgrade OnetimeUnlock_Workbench 1`):
+
+- Lager Tag 1, Ablegen: Der Client legte eine Pistole (Gewöhnlich) auf die zweite, das Panel zeigte „Ungewöhnlich“. Der Host prüfte
+  („Ablegen“), wertete nativ auf und übernahm vollständig. `inventory.py`: eine Pistole (Ungewöhnlich), vollständig und gleich. Beide
+  bestätigten, Routenkarte, `Get-Status -Inventory` gleich.
+- Lager Tag 2, Werkbank und Ablegen in einer Bearbeitung: Abgesägte Schrotflinte aus Schrotflinte und Messer (Ungewöhnlich), danach zwei
+  Pistolen zu einer. Ein Edit mit 2 Aufwertungen, der Host prüfte „Rezept“ und „Ablegen“ und übernahm vollständig. Solange Lager und
+  Routenkarte offen waren, zeigte der Client seine lokalen Ausgaben, die Ausgaben des Hosts kamen nicht an (dieselbe Grenze wie
+  `rundenende-client`: im Lager repliziert das Inventar sichtbar erst nach der Reise). Nach der Reise auf Tag 3 hatte der Client die
+  replizierten Objekte des Hosts in derselben Reihenfolge, Seltenheiten gesetzt, `inventory.py` gleich, nichts doppelt, nichts fehlte.
+- Gegenproben: Airdrop an Tag 3 (Wahl übernommen, Bestätigen des Hosts nachgeholt) und Lager an Tag 3 ohne Aufwertung (Host zuerst) wie
+  bisher, kein Absturz, keine Aufwertung außerhalb einer Bearbeitung. Danach meldete `Get-Status -Inventory` nur die bekannte
+  Rasterposition einer ins Lager gelegten Pistole (`opt-desync-pivot`), sonst gleich.
+
+**Nicht live geprüft:** Aufwerten mit einer Airdrop-Belohnung als Eingabe (das Angebot hatte kein passendes Item; im Airdrop-Panel lassen
+sich Lager-Items nicht aufeinanderlegen), verkettete Aufwertungen, eine Ablehnung durch den Host und Aufwertungen am Tagesende
+(`EndOfDayUpgradeManager`). Diese Fälle decken die Unit-Tests ab. Das Tagesende läuft beim Host nativ am replizierten Inventar; beim
+Client gab es in allen Läufen keinen Aufruf von `UpgradeItems` außerhalb einer Bearbeitung.
+
 ### Itemsack für alle Spieler
 
 Nutzervorgabe 06.11.2026: Ein aufgesammelter Itemsack zählt wie ein Airdrop für alle, jeder Spieler bekommt das Item. Die Vergabe bleibt

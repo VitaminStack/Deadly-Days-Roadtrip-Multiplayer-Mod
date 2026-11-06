@@ -170,6 +170,13 @@ struct
     std::unordered_map<uintptr_t, uint8_t> RemoveContext;
     std::vector<uintptr_t> Effects; // Items mit ApplyAddToBackpackEffect
     std::vector<std::string> Dropped; // schon gemeldete verworfene RPCs
+    struct Recorded
+    {
+        std::vector<uintptr_t> Inputs;
+        uintptr_t Output = 0;
+        std::string Data, Rarity;
+    };
+    std::vector<Recorded> Upgrades; // lokal gelaufene Aufwertungen (werkbank-client)
     unsigned Logged = 0;
     uint64_t NextId = 0;
 } Session;
@@ -179,9 +186,30 @@ bool Contains(const std::vector<uintptr_t>& List, uintptr_t Value)
     return Value && std::find(List.begin(), List.end(), Value) != List.end();
 }
 
+bool IsUpgradeOutput(uintptr_t Item)
+{
+    return Item && std::any_of(Session.Upgrades.begin(), Session.Upgrades.end(), [&](const auto& Next) { return Next.Output == Item; });
+}
+
 bool BelongsToSession(uintptr_t Item)
 {
-    return Contains(Session.Items, Item) || Contains(Session.Choices, Item) || Contains(ItemsOf(Session.Inventory), Item);
+    return Contains(Session.Items, Item) || Contains(Session.Choices, Item) || IsUpgradeOutput(Item) || Contains(ItemsOf(Session.Inventory), Item);
+}
+
+// Endstand eines Items, das während der Bearbeitung entstanden ist oder verbraucht wurde.
+ItemState FinalState(uintptr_t Item, const std::vector<uintptr_t>& Now, const std::vector<SlotInfo>& Slots, uint16_t Source)
+{
+    ItemState State = ReadItem(Item, Slots, Source);
+    State.Present = Contains(Now, Item);
+    State.AddEffect = State.Present && State.InBackpack && Contains(Session.Effects, Item);
+    if (!State.Present)
+    {
+        State.InBackpack = State.Trash = false;
+        State.Tiles.clear();
+        const auto It = Session.RemoveContext.find(Item);
+        State.RemoveContext = It != Session.RemoveContext.end() ? It->second : 0;
+    }
+    return State;
 }
 
 void LogOp(const std::string& Text)
@@ -445,6 +473,20 @@ bool ClientEditing()
     return Session.State == Phase::Editing;
 }
 
+bool ClientEditingInventory(uintptr_t Inventory)
+{
+    return Session.State == Phase::Editing && Inventory && Session.Inventory == Inventory;
+}
+
+void RecordUpgrade(const std::vector<uintptr_t>& Inputs, uintptr_t Output, uintptr_t Data, uintptr_t Rarity)
+{
+    if (Session.State != Phase::Editing || !Output)
+        return;
+    Session.Upgrades.push_back({Inputs, Output, Data ? Memory::NameOf(Data) : std::string{}, Rarity ? Memory::NameOf(Rarity) : std::string{}});
+    Core::Log::Info("Inventar lokal: Aufwertung {} lokal, {} Eingaben, Ausgabe {} {}", Session.Upgrades.size(), Inputs.size(), Session.Upgrades.back().Data,
+                    Session.Upgrades.back().Rarity);
+}
+
 std::optional<Edit> FinishClient(uint64_t SessionId, uint64_t Revision, std::optional<uint8_t> Choice, uintptr_t ChoiceItem)
 {
     if (Session.State != Phase::Editing)
@@ -469,19 +511,7 @@ std::optional<Edit> FinishClient(uint64_t SessionId, uint64_t Revision, std::opt
         Final.push_back(std::move(Gone));
     }
     if (Choice && ChoiceItem)
-    {
-        ItemState Picked = ReadItem(ChoiceItem, Slots, ChoiceSource);
-        Picked.Present = Contains(Now, ChoiceItem);
-        Picked.AddEffect = Picked.InBackpack && Contains(Session.Effects, ChoiceItem);
-        if (!Picked.Present)
-        {
-            Picked.InBackpack = Picked.Trash = false;
-            Picked.Tiles.clear();
-            const auto It = Session.RemoveContext.find(ChoiceItem);
-            Picked.RemoveContext = It != Session.RemoveContext.end() ? It->second : 0;
-        }
-        Final.push_back(std::move(Picked));
-    }
+        Final.push_back(FinalState(ChoiceItem, Now, Slots, ChoiceSource));
     std::vector<Tile> FinalSlots;
     for (const SlotInfo& Slot : Slots)
         FinalSlots.push_back(Slot.At);
@@ -491,6 +521,40 @@ std::optional<Edit> FinishClient(uint64_t SessionId, uint64_t Revision, std::opt
         Result.Session = SessionId;
         Result.Revision = Revision;
         Result.Choice = Choice;
+    }
+    // Aufwertungen: Eingaben als Sources (Ausgangs-Item, Wahl oder frühere Ausgabe), Ausgabe mit Endstand.
+    std::unordered_map<uintptr_t, uint16_t> SourceOf;
+    for (size_t i = 0; i < Session.Items.size(); ++i)
+        SourceOf.emplace(Session.Items[i], static_cast<uint16_t>(i));
+    if (Choice && ChoiceItem)
+        SourceOf.emplace(ChoiceItem, ChoiceSource);
+    for (size_t K = 0; K < Session.Upgrades.size(); ++K)
+    {
+        const auto& Recorded = Session.Upgrades[K];
+        Upgrade Next;
+        for (const uintptr_t Input : Recorded.Inputs)
+        {
+            const auto It = SourceOf.find(Input);
+            if (It == SourceOf.end())
+            {
+                Core::Log::Warn("Inventar lokal: Eingabe {} der Aufwertung {} unbekannt, Bearbeitung zurückgenommen", ItemLabel(Input), K + 1);
+                RevertClient("Aufwertung nicht zuordenbar");
+                return std::nullopt;
+            }
+            Next.Inputs.push_back(It->second);
+        }
+        Next.Data = Recorded.Data;
+        Next.Rarity = Recorded.Rarity;
+        Next.Output = FinalState(Recorded.Output, Now, Slots, UpgradeSource(K));
+        Next.Output.DataHash = NameHash(Next.Data);
+        SourceOf[Recorded.Output] = UpgradeSource(K);
+        Result.Upgrades.push_back(std::move(Next));
+    }
+    if (!WellFormed(Result))
+    {
+        Core::Log::Warn("Inventar lokal: Edit mit {} Aufwertungen ungültig, Bearbeitung zurückgenommen", Result.Upgrades.size());
+        RevertClient("Edit ungültig");
+        return std::nullopt;
     }
     if (Result.Items.empty() && Result.NewSlots.empty())
     {
@@ -502,8 +566,8 @@ std::optional<Edit> FinishClient(uint64_t SessionId, uint64_t Revision, std::opt
         Session.NextId = (uint64_t(GetTickCount64()) << 16) | 1;
     Result.Id = ++Session.NextId;
     Session.State = Phase::Committed;
-    Core::Log::Info("Inventar lokal: Edit {} mit {} Items, {} neuen Feldern{}", Result.Id, Result.Items.size(), Result.NewSlots.size(),
-                    Result.Choice ? ", Belohnung " + std::to_string(*Result.Choice) : std::string{});
+    Core::Log::Info("Inventar lokal: Edit {} mit {} Items, {} neuen Feldern, {} Aufwertungen{}", Result.Id, Result.Items.size(), Result.NewSlots.size(),
+                    Result.Upgrades.size(), Result.Choice ? ", Belohnung " + std::to_string(*Result.Choice) : std::string{});
     for (const ItemState& Item : Result.Items)
         Core::Log::Info("Inventar lokal:   Quelle {} vorhanden {} Rucksack {} Drehung {} Pivot ({}, {}) {} Felder", Item.Source, Item.Present, Item.InBackpack,
                         Item.Turns, Item.Pivot.first, Item.Pivot.second, Item.Tiles.size());
@@ -531,8 +595,12 @@ void RevertClient(const char* Why)
         Current.push_back(std::move(State));
         Target.push_back(Session.States[i]);
     }
-    for (const uintptr_t Choice : Session.Choices)
-        if (Alive(Choice) && Contains(Now, Choice))
+    // Lokale Belohnungen und Ausgaben lokaler Aufwertungen wieder hinaus.
+    std::vector<uintptr_t> Local = Session.Choices;
+    for (const auto& Next : Session.Upgrades)
+        Local.push_back(Next.Output);
+    for (const uintptr_t Choice : Local)
+        if (Alive(Choice) && Contains(Now, Choice) && std::count(Items.begin(), Items.end(), Choice) == 0)
         {
             Items.push_back(Choice);
             Current.push_back(ReadItem(Choice, Slots, ChoiceSource));
@@ -556,6 +624,7 @@ void ForgetClient()
     Session.State = Phase::Idle;
     Session.Items.clear();
     Session.Choices.clear();
+    Session.Upgrades.clear();
 }
 
 bool RouteClientRpc(uintptr_t Object, uintptr_t Fn, void* Params)

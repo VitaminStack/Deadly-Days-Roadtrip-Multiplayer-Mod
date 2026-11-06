@@ -11,9 +11,12 @@
 // mehr; Wahl und Endstand gehen als ein Edit an den Host (inventar-lokal).
 #include <windows.h>
 
+#include <intrin.h>
+
 #include <algorithm>
 #include <atomic>
 #include <optional>
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -39,6 +42,11 @@ constexpr uintptr_t PanelSetupInventory = 0x5A8BAB0;
 // sie beim Client.
 constexpr uintptr_t CreateItemInstance = 0x5959700;
 constexpr uintptr_t MemoryFree = 0x12F8400;
+// UInventoryComponent::UpgradeItems, Exec-Thunk 0x571DA70. Rufen InventoryPanel.UpgradeDroppedItem (0x5A98490) und
+// UpgradeItemToNextLevelAndReEquip (0x5980900) direkt (werkbank-client).
+constexpr uintptr_t UpgradeItems = 0x5980AE0;
+// URarity.NextUpgradableRarity
+constexpr uintptr_t RarityNext = 0x58;
 
 // UInventoryItemInstance, UInventoryItemData, URarity, UInventoryComponent
 constexpr uintptr_t ItemData = 0xE0;
@@ -69,9 +77,12 @@ using SetRewardsFn = void(__fastcall*)(uintptr_t, ItemArray*, int32_t);
 using ConfirmFn = void(__fastcall*)(uintptr_t);
 using CreateFn = uintptr_t(__fastcall*)(uintptr_t, uintptr_t, bool, uintptr_t);
 using FreeFn = void(__fastcall*)(void*);
+// UInventoryComponent::UpgradeItems(this, const TArray& Inputs, Data, Rarity, FlagAsNew, Position), nativ
+using UpgradeFn = uintptr_t(__fastcall*)(uintptr_t, ItemArray*, uintptr_t, uintptr_t, bool, int32_t);
 SetRewardsFn OriginalSetRewards = nullptr;
 ConfirmFn OriginalConfirm = nullptr;
 ConfirmFn OriginalSetupInventory = nullptr;
+UpgradeFn OriginalUpgrade = nullptr;
 
 std::atomic<bool> RemoteReady = false;
 
@@ -113,6 +124,8 @@ struct
 } End;
 // Client: gesendeter Edit bis zur Antwort des Hosts.
 std::optional<Game::InventoryEdit::Edit> ClientPending;
+// Client, werkbank-client: Die erste Aufwertung im Lager hat eine lokale Bearbeitung begonnen, sie endet mit dem Bestätigen.
+uint64_t LagerEdit = 0; // Id des Rundenendes, 0 ohne
 constexpr uintptr_t ItemPivotTile = 0x28;
 constexpr uint32_t FuncNet = 0x40;
 constexpr uintptr_t FunctionFlags = 0xB0;
@@ -407,8 +420,9 @@ bool HoldRoundEndConfirm(uintptr_t Panel)
         return false;
     if (End.HeldPanel == Panel)
         return true; // schon bereit, weitere Klicks ändern nichts
+    // Ein offener Edit des Clients (Aufwertung im Lager) hält sein Bestätigen bis zur Antwort des Hosts zurück.
     const bool Hold = Role == NetRole::Host ? HostHoldsRoundEndConfirm(End.Id, End.Done, RemoteReady.load(), End.ClientIn, End.ClientReady)
-                                            : ClientHoldsRoundEndConfirm(End.Id, End.Done, End.HostStatusId);
+                                            : ClientHoldsRoundEndConfirm(End.Id, End.Done, End.HostStatusId) || ClientPending.has_value();
     if (!Hold)
     {
         End.Done = End.Id;
@@ -471,9 +485,49 @@ void __fastcall ConfirmHook(uintptr_t Panel)
         SetReadyTint(Panel, true);
         return;
     }
+    // werkbank-client: Hat der Client im Lager aufgewertet, geht die lokale Bearbeitung beim Bestätigen als Edit an den Host.
+    // Bis zur Antwort bleibt das Bestätigen zurückgehalten (HoldRoundEndConfirm, ClientRoundEnd).
+    if (CurrentRole() == NetRole::Client && LagerEdit && LagerEdit == End.Id && Game::InventoryEdit::ClientEditing() && !ClientPending)
+    {
+        if (Memory::Read<uint8_t>(Panel + PanelIsDragging).value_or(1))
+            return;
+        LagerEdit = 0;
+        ClientPending = Game::InventoryEdit::FinishClient(0, 0, std::nullopt, 0);
+        Core::Log::Info("Lager: Client bestätigt nach Aufwertung, Edit {}", ClientPending ? std::to_string(ClientPending->Id) : std::string("ohne Änderung"));
+    }
     if (HoldRoundEndConfirm(Panel))
         return;
     OriginalConfirm(Panel);
+}
+
+// werkbank-client: UpgradeItems beim Client. Ablegen auf ein gleiches Item und die Werkbank rufen es direkt, es legt die
+// Ausgabe lokal an (CreateItemInstance) und schickt das Entfernen der Eingaben sonst als Server-RPC: Der Host verlor die
+// Eingaben, die Ausgabe kannte er nicht. Jetzt läuft es nur innerhalb einer lokalen Bearbeitung; der Edit meldet die
+// Aufwertung, der Host führt sie selbst aus. Im Lager beginnt die erste Aufwertung eine Bearbeitung bis zum Bestätigen.
+uintptr_t __fastcall UpgradeHook(uintptr_t Inventory, ItemArray* Inputs, uintptr_t Data, uintptr_t Rarity, bool FlagAsNew, int32_t Position)
+{
+    if (CurrentRole() != NetRole::Client)
+        return OriginalUpgrade(Inventory, Inputs, Data, Rarity, FlagAsNew, Position);
+    std::vector<uintptr_t> In;
+    for (int32_t i = 0; Inputs && Inputs->Data && i < Inputs->Count && i < 16; ++i)
+        In.push_back(Inputs->Data[i]);
+    const uintptr_t Caller = reinterpret_cast<uintptr_t>(_ReturnAddress()) - reinterpret_cast<uintptr_t>(GetModuleHandleW(nullptr));
+    const bool InLager = End.Id && End.Done != End.Id && !End.HeldPanel;
+    if (!Game::InventoryEdit::ClientEditing() && InLager && !ClientPending && Shown.Items.empty() && Inventory == InventoryOfController(LocalController()))
+    {
+        Game::InventoryEdit::BeginClient(Inventory, {});
+        LagerEdit = End.Id;
+        Core::Log::Info("Lager: Aufwertung beim Client, Lager wird lokal bearbeitet bis zum Bestätigen");
+    }
+    if (!Game::InventoryEdit::ClientEditingInventory(Inventory))
+    {
+        Core::Log::Warn("Aufwertung beim Client außerhalb einer Bearbeitung ({} Eingaben, Aufrufer {:#x}), läuft nativ", In.size(), Caller);
+        return OriginalUpgrade(Inventory, Inputs, Data, Rarity, FlagAsNew, Position);
+    }
+    const uintptr_t Output = OriginalUpgrade(Inventory, Inputs, Data, Rarity, FlagAsNew, Position);
+    Core::Log::Info("Aufwertung beim Client lokal (Aufrufer {:#x}), Ausgabe {}", Caller, Output != 0);
+    Game::InventoryEdit::RecordUpgrade(In, Output, Data, Rarity);
+    return Output;
 }
 
 // CachedBackpackLocalPosition (+0x150) ist NICHT repliziert. Die echte Instanz
@@ -570,8 +624,18 @@ bool ApplySetupInventory(Code::Writer&)
     return Core::Hooks::Install(reinterpret_cast<void*>(At(PanelSetupInventory)), reinterpret_cast<void*>(&SetupInventoryHook),
                                 reinterpret_cast<void**>(&OriginalSetupInventory));
 }
+bool CheckUpgrade()
+{
+    return Code::Expect(At(UpgradeItems), {0x48, 0x89, 0x5C, 0x24, 0x08, 0x4C, 0x89, 0x4C, 0x24, 0x20, 0x55, 0x56, 0x57}, "InventoryComponent::UpgradeItems");
+}
+bool ApplyUpgrade(Code::Writer&)
+{
+    return Core::Hooks::Install(reinterpret_cast<void*>(At(UpgradeItems)), reinterpret_cast<void*>(&UpgradeHook),
+                                reinterpret_cast<void**>(&OriginalUpgrade));
+}
 const Patch List[] = {
     {"Airdrop-Auswahl: Choices des Hosts mitlesen", CheckSetRewards, ApplySetRewards},
+    {"Aufwerten beim Client nur in lokaler Bearbeitung, Host übernimmt", CheckUpgrade, ApplyUpgrade},
     {"Airdrop-Auswahl: Bestätigen bis zur Wahl des Partners halten", CheckConfirm, ApplyConfirm},
     {"Airdrop-Auswahl: Rucksack-Anzeige aus replizierten Feldern aufbauen", CheckSetupInventory, ApplySetupInventory},
 };
@@ -724,6 +788,156 @@ uintptr_t ClaimForClient(uintptr_t Inventory, uint64_t SessionId, uint64_t Expec
     return Add.Result;
 }
 
+// werkbank-client, Host: Art eines Items aus seinen Datenobjekten.
+Game::InventoryEdit::ItemKind KindOf(uintptr_t Data, uintptr_t Rarity)
+{
+    using Game::InventoryEdit::NameHash;
+    return {Data ? NameHash(Memory::NameOf(Data)) : 0u, Rarity ? NameHash(Memory::NameOf(Rarity)) : 0u};
+}
+
+uint32_t NextRarityOf(uintptr_t Rarity)
+{
+    const uintptr_t Next = Alive(Rarity) ? Pointer(Rarity + RarityNext) : 0;
+    return Next ? Game::InventoryEdit::NameHash(Memory::NameOf(Next)) : 0u;
+}
+
+// Rezepte der Werkbank aus jeder DataTable mit RowStruct RecipeTableRow (FRecipeTableRow: OutputItem +0x18,
+// OutputRarityOverride +0x20, RequiredItems +0x28 als TArray von {Item, RequiredRarityOverride}). Nur lesend. RowMap ist
+// eine TMap<FName, uint8*> bei +0x30: Elemente (0x18 Byte, Wert bei +8) ab +0x30, Anzahl +0x38, Belegungsbits inline ab
+// +0x40 oder über den Zeiger bei +0x50, freie Plätze +0x64.
+std::vector<Game::InventoryEdit::Recipe> RecipesOfWorkbench()
+{
+    using namespace Game::InventoryEdit;
+    constexpr uintptr_t RowStruct = 0x28, Rows = 0x30, RowsCount = 0x38, Flags = 0x40, FlagsHeap = 0x50, FreeCount = 0x64;
+    std::vector<Recipe> Result;
+    const int32_t Total = Objects::Count();
+    for (int32_t i = 0; i < Total; ++i)
+    {
+        const uintptr_t Table = Objects::At(i);
+        if (!Table || Memory::NameOf(Pointer(Table + Offsets::UObject::Class)) != "DataTable" || !Alive(Table) ||
+            Memory::NameOf(Pointer(Table + RowStruct)) != "RecipeTableRow")
+            continue;
+        const uintptr_t Data = Pointer(Table + Rows);
+        const int32_t Count = Memory::Read<int32_t>(Table + RowsCount).value_or(0);
+        const bool Holes = Memory::Read<int32_t>(Table + FreeCount).value_or(1) != 0;
+        const uintptr_t Bits = Pointer(Table + FlagsHeap) ? Pointer(Table + FlagsHeap) : Table + Flags;
+        for (int32_t r = 0; Data && r < Count && r < 1024; ++r)
+        {
+            if (Holes && !((Memory::Read<uint32_t>(Bits + 4 * (r / 32)).value_or(0) >> (r % 32)) & 1))
+                continue;
+            const uintptr_t Row = Pointer(Data + 0x18 * r + 8);
+            if (!Row)
+                continue;
+            Recipe Next;
+            Next.Output = KindOf(Pointer(Row + 0x18), Pointer(Row + 0x20));
+            const uintptr_t Required = Pointer(Row + 0x28);
+            const int32_t Needed = Memory::Read<int32_t>(Row + 0x30).value_or(0);
+            for (int32_t n = 0; Required && n < Needed && n <= static_cast<int32_t>(MaxUpgradeInputs); ++n)
+                Next.Required.push_back(KindOf(Pointer(Required + 0x10 * n), Pointer(Required + 0x10 * n + 8)));
+            if (Next.Output.Data && !Next.Required.empty() && Next.Required.size() <= MaxUpgradeInputs)
+                Result.push_back(std::move(Next));
+        }
+    }
+    return Result;
+}
+
+// Natives InventoryEffectHelperLibrary.CanItemsBeUpgradedTogether, beim Host für zwei Instanzen im Clientinventar.
+bool CanUpgradeTogether(uintptr_t First, uintptr_t Second, uintptr_t Context)
+{
+    static uintptr_t Library = 0, Fn = 0;
+    if (!Library)
+        Library = Objects::FindNamed("Default__InventoryEffectHelperLibrary");
+    if (!Library || !Function(Fn, "CanItemsBeUpgradedTogether", "InventoryEffectHelperLibrary"))
+        return false;
+    struct
+    {
+        uintptr_t First, Second, Context;
+        bool Result;
+        uint8_t Pad[7];
+    } Params{First, Second, Context, false, {}};
+    static_assert(sizeof(Params) == 0x20);
+    Objects::ProcessEvent(Library, Fn, &Params);
+    return Params.Result;
+}
+
+// Host: Aufwertungen eines Edits prüfen, bevor sich etwas ändert. Live hält je Source die Instanz beim Host (0, solange sie
+// noch nicht existiert: Wahl, frühere Ausgabe), Kinds deren Art. Objects bekommt je Aufwertung Daten und Seltenheit.
+bool CheckUpgrades(const Game::InventoryEdit::Edit& Value, std::unordered_map<uint16_t, uintptr_t> Live,
+                   std::unordered_map<uint16_t, std::pair<Game::InventoryEdit::ItemKind, uint32_t>> Kinds, uintptr_t Inventory,
+                   std::vector<std::pair<uintptr_t, uintptr_t>>& Objects_)
+{
+    using namespace Game::InventoryEdit;
+    std::optional<std::vector<Recipe>> Recipes;
+    for (size_t K = 0; K < Value.Upgrades.size(); ++K)
+    {
+        const Upgrade& Next = Value.Upgrades[K];
+        const auto Found = ResolveChoices({Game::Rewards::ChoiceItem{{}, Next.Data, Next.Rarity, false}});
+        if (!Found[0].first || (!Next.Rarity.empty() && !Found[0].second))
+        {
+            Core::Log::Warn("Inventar lokal: Aufwertung {} nennt unbekannte Daten {} {}", K + 1, Next.Data, Next.Rarity);
+            return false;
+        }
+        std::vector<ItemKind> In;
+        std::vector<uint32_t> NextOf;
+        std::vector<uintptr_t> Instances;
+        for (const uint16_t Source : Next.Inputs)
+        {
+            const auto It = Kinds.find(Source);
+            if (It == Kinds.end())
+            {
+                Core::Log::Warn("Inventar lokal: Eingabe {} der Aufwertung {} unbekannt", Source, K + 1);
+                return false;
+            }
+            In.push_back(It->second.first);
+            NextOf.push_back(It->second.second);
+            Instances.push_back(Live.contains(Source) ? Live[Source] : 0);
+        }
+        const ItemKind Out = KindOf(Found[0].first, Found[0].second);
+        bool Merge = IsMerge(In, NextOf, Out);
+        if (Merge && Instances[0] && Instances[1] && !CanUpgradeTogether(Instances[0], Instances[1], Inventory))
+        {
+            Core::Log::Warn("Inventar lokal: Aufwertung {}: die Eingaben lassen sich nativ nicht zusammen aufwerten", K + 1);
+            Merge = false;
+        }
+        if (!Merge)
+        {
+            if (!Recipes)
+                Recipes = RecipesOfWorkbench();
+            if (!IsRecipe(*Recipes, In, Out))
+            {
+                Core::Log::Warn("Inventar lokal: Aufwertung {} zu {} {} passt weder zum Ablegen noch zu einem der {} Rezepte", K + 1, Next.Data,
+                                Next.Rarity, Recipes->size());
+                return false;
+            }
+        }
+        Core::Log::Info("Inventar lokal: Aufwertung {} geprüft ({}), {} Eingaben zu {} {}", K + 1, Merge ? "Ablegen" : "Rezept", In.size(), Next.Data,
+                        Next.Rarity);
+        Kinds[UpgradeSource(K)] = {Out, NextRarityOf(Found[0].second)};
+        Objects_.push_back(Found[0]);
+    }
+    return true;
+}
+
+// Host: natives UInventoryComponent.UpgradeItems am Clientinventar. Die Ausgabe repliziert wie jede Vergabe.
+uintptr_t UpgradeForClient(uintptr_t Inventory, std::vector<uintptr_t> Inputs, uintptr_t Data, uintptr_t Rarity)
+{
+    static uintptr_t Fn = 0;
+    if (!Function(Fn, "UpgradeItems", "InventoryComponent"))
+        return 0;
+    struct
+    {
+        ItemArray Inputs;
+        uintptr_t Data, Rarity;
+        bool FlagAsNew;
+        uint8_t Pad[3];
+        int32_t Position;
+        uintptr_t Result;
+    } Params{{Inputs.data(), static_cast<int32_t>(Inputs.size()), static_cast<int32_t>(Inputs.size())}, Data, Rarity, true, {}, -1, 0};
+    static_assert(sizeof(Params) == 0x30);
+    Objects::ProcessEvent(Inventory, Fn, &Params);
+    return Params.Result;
+}
+
 bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
 {
     using namespace Game::InventoryEdit;
@@ -785,6 +999,24 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
         Core::Log::Warn("Inventar lokal: Edit {} passt nicht in den Rucksack des Clients, abgelehnt", Value.Id);
         return false;
     }
+    // werkbank-client: Aufwertungen vollständig prüfen, bevor sich etwas ändert.
+    std::unordered_map<uint16_t, uintptr_t> Live;
+    std::unordered_map<uint16_t, std::pair<ItemKind, uint32_t>> Kinds;
+    for (size_t i = 0; i < Value.Items.size(); ++i)
+        if (i != ChoiceAt)
+        {
+            const uintptr_t Rarity = Pointer(Resolved[i] + ItemRarity);
+            Live[Value.Items[i].Source] = Resolved[i];
+            Kinds[Value.Items[i].Source] = {KindOf(Pointer(Resolved[i] + ItemData), Rarity), NextRarityOf(Rarity)};
+        }
+    if (Value.Choice)
+        Kinds[ChoiceSource] = {KindOf(Host.Data[*Value.Choice].first, Host.Data[*Value.Choice].second), NextRarityOf(Host.Data[*Value.Choice].second)};
+    std::vector<std::pair<uintptr_t, uintptr_t>> Outputs;
+    if (!Value.Upgrades.empty() && !CheckUpgrades(Value, Live, Kinds, Inventory, Outputs))
+    {
+        Core::Log::Warn("Inventar lokal: Edit {} mit {} Aufwertungen abgelehnt", Value.Id, Value.Upgrades.size());
+        return false;
+    }
     if (ChoiceAt < Value.Items.size())
     {
         Resolved[ChoiceAt] = ClaimForClient(Inventory, Value.Session, Value.Revision, *Value.Choice);
@@ -796,16 +1028,55 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
         if (DataHashOf(Resolved[ChoiceAt]) != Value.Items[ChoiceAt].DataHash)
             Core::Log::Warn("Inventar lokal: Wahl {} hat beim Client ein anderes Item", *Value.Choice);
     }
+    if (ChoiceAt < Value.Items.size())
+        Live[ChoiceSource] = Resolved[ChoiceAt];
+    // Aufwertungen in ihrer Reihenfolge nativ ausführen. UpgradeItems nimmt die Eingaben selbst aus dem Inventar.
+    bool Ok = true;
+    std::vector<uintptr_t> Made;
+    for (size_t K = 0; K < Value.Upgrades.size() && Ok; ++K)
+    {
+        std::vector<uintptr_t> Inputs;
+        for (const uint16_t Source : Value.Upgrades[K].Inputs)
+            Inputs.push_back(Live.contains(Source) ? Live[Source] : 0);
+        const bool Present = std::all_of(Inputs.begin(), Inputs.end(), [&](uintptr_t Item) { return Alive(Item) && InInventory(Inventory, Item); });
+        const uintptr_t Output = Present ? UpgradeForClient(Inventory, Inputs, Outputs[K].first, Outputs[K].second) : 0;
+        Core::Log::Info("Inventar lokal: Aufwertung {} des Edits {} beim Host, Ausgabe {}", K + 1, Value.Id, Output != 0);
+        if (!Output)
+        {
+            Core::Log::Warn("Inventar lokal: Aufwertung {} nicht ausgeführt, Rest des Edits wird nur teilweise übernommen", K + 1);
+            Ok = false;
+            break;
+        }
+        Made.push_back(Output);
+        Live[UpgradeSource(K)] = Output;
+    }
     std::vector<Tile> Create;
     for (const Tile& At : Value.NewSlots)
         if (std::find(Existing.begin(), Existing.end(), At) == Existing.end())
             Create.push_back(At);
+    // Verbrauchte Eingaben fehlen schon, die Ausgaben bekommen ihren Endstand wie jedes andere Item.
+    const std::set<uint16_t> Consumed = ConsumedSources(Value);
+    std::vector<uintptr_t> Targets;
+    std::vector<ItemState> Goal;
+    for (size_t i = 0; i < Resolved.size(); ++i)
+        if (!Consumed.contains(Value.Items[i].Source))
+        {
+            Targets.push_back(Resolved[i]);
+            Goal.push_back(Value.Items[i]);
+        }
+    for (size_t K = 0; K < Made.size(); ++K)
+        if (!Consumed.contains(UpgradeSource(K)))
+        {
+            Targets.push_back(Made[K]);
+            Goal.push_back(Value.Upgrades[K].Output);
+        }
     const std::vector<SlotInfo> Now = SlotsOf(Inventory);
     std::vector<ItemState> Current;
-    for (size_t i = 0; i < Resolved.size(); ++i)
-        Current.push_back(ReadItem(Resolved[i], Now, Value.Items[i].Source));
-    const bool Ok = Apply(Inventory, Resolved, Current, Value.Items, Create, {}, false);
-    Core::Log::Info("Inventar lokal: Edit {} übernommen, {} Items, {} neue Felder, vollständig={}", Value.Id, Resolved.size(), Create.size(), Ok);
+    for (size_t i = 0; i < Targets.size(); ++i)
+        Current.push_back(ReadItem(Targets[i], Now, Goal[i].Source));
+    Ok = Apply(Inventory, Targets, Current, Goal, Create, {}, false) && Ok;
+    Core::Log::Info("Inventar lokal: Edit {} übernommen, {} Items, {} neue Felder, {} Aufwertungen, vollständig={}", Value.Id, Targets.size(), Create.size(),
+                    Made.size(), Ok);
     return true;
 }
 
@@ -939,7 +1210,8 @@ void CloseForClient()
     ClearReadyTint();
     if (!Shown.Items.empty())
         Core::Log::Info("Airdrop-Auswahl: Panel beim Client geschlossen, Sitzung {}", Shown.Session);
-    if (Game::InventoryEdit::ClientEditing())
+    // Eine Bearbeitung aus dem Lager (Aufwertung, werkbank-client) gehört nicht zur Auswahl und endet mit dem Lager.
+    if (Game::InventoryEdit::ClientEditing() && !LagerEdit)
         Game::InventoryEdit::RevertClient("Auswahl geschlossen");
     Shown = {};
 }
@@ -1011,6 +1283,12 @@ void SetRoundEnd(uint64_t Id)
         Core::Log::Info("Lager: Rundenende vorbei");
     End = {};
     End.Id = Id;
+    if (LagerEdit && LagerEdit != Id)
+    {
+        LagerEdit = 0;
+        if (Game::InventoryEdit::ClientEditing() && !ClientPending)
+            Game::InventoryEdit::RevertClient("Lager ohne Bestätigen verlassen");
+    }
 }
 
 void SetRoundEndClient(uint64_t Id, bool Ready)
@@ -1037,7 +1315,8 @@ std::optional<RoundEndOwn> ClientRoundEnd()
 {
     if (CurrentRole() != NetRole::Client || !End.Id)
         return std::nullopt;
-    return RoundEndOwn{End.Id, End.HeldPanel != 0 || End.Done == End.Id};
+    // Bereit erst, wenn ein Edit aus dem Lager beantwortet ist; sonst reiste der Host vor der Übernahme weiter.
+    return RoundEndOwn{End.Id, (End.HeldPanel != 0 || End.Done == End.Id) && !ClientPending};
 }
 
 void SetHostRoundEndStatus(std::optional<RoundEndState> Status)
@@ -1045,7 +1324,70 @@ void SetHostRoundEndStatus(std::optional<RoundEndState> Status)
     if (CurrentRole() != NetRole::Client)
         return;
     End.HostStatusId = Status ? Status->Id : 0;
-    if (End.HeldPanel && ClientMayReleaseRoundEnd(End.Id, End.HostStatusId, Status && Status->HostReady, Status && Status->ClientReady))
+    if (End.HeldPanel && !ClientPending && ClientMayReleaseRoundEnd(End.Id, End.HostStatusId, Status && Status->HostReady, Status && Status->ClientReady))
         ReleaseRoundEndConfirm(End.HostStatusId == End.Id ? "alle bereit" : "kein passender Stand vom Host");
+}
+
+namespace
+{
+// Inventar zu einem Controller, gemerkt, solange es lebt und zum PlayerState passt.
+uintptr_t CachedInventory(uintptr_t& Cache, uintptr_t Controller)
+{
+    const uintptr_t State = Controller ? Pointer(Controller + ControllerPlayerState) : 0;
+    if (!State)
+        return 0;
+    if (!Alive(Cache) || Pointer(Cache + InventoryPlayerState) != State)
+        Cache = InventoryOf(State);
+    return Cache;
+}
+}
+
+std::vector<RarityEntry> ClientRarities()
+{
+    static uintptr_t Cache = 0;
+    uintptr_t Coop = 0, HostController = 0, Remote = 0;
+    const uintptr_t Inventory = CurrentRole() == NetRole::Host && BoundRemoteP2(Coop, HostController, Remote) ? CachedInventory(Cache, Remote) : 0;
+    std::vector<RarityEntry> Result;
+    const std::vector<uintptr_t> Items = Inventory ? Game::InventoryEdit::ItemsOf(Inventory) : std::vector<uintptr_t>{};
+    for (size_t i = 0; i < Items.size() && i < 96; ++i)
+    {
+        const uintptr_t Rarity = Pointer(Items[i] + ItemRarity);
+        Result.push_back({static_cast<uint16_t>(i), Game::InventoryEdit::DataHashOf(Items[i]), Rarity ? Memory::NameOf(Rarity) : std::string{}});
+    }
+    return Result;
+}
+
+void ApplyRarities(const std::vector<RarityEntry>& Entries)
+{
+    static uintptr_t Cache = 0;
+    static std::unordered_map<std::string, uintptr_t> Known;
+    if (CurrentRole() != NetRole::Client || Entries.empty() || Game::InventoryEdit::ClientEditing() || ClientPending)
+        return;
+    const uintptr_t Inventory = CachedInventory(Cache, LocalController());
+    const std::vector<uintptr_t> Items = Inventory ? Game::InventoryEdit::ItemsOf(Inventory) : std::vector<uintptr_t>{};
+    // Unbekannte Namen in einem Durchlauf über das Objekt-Array auflösen; nur URarity-Objekte.
+    std::vector<Game::Rewards::ChoiceItem> Missing;
+    for (const RarityEntry& Entry : Entries)
+        if (!Entry.Rarity.empty() && (!Known.contains(Entry.Rarity) || !Alive(Known[Entry.Rarity])) &&
+            std::none_of(Missing.begin(), Missing.end(), [&](const auto& Item) { return Item.Rarity == Entry.Rarity; }))
+            Missing.push_back({{}, {}, Entry.Rarity, false});
+    if (!Missing.empty())
+    {
+        const auto Found = ResolveChoices(Missing);
+        for (size_t i = 0; i < Missing.size(); ++i)
+            Known[Missing[i].Rarity] = Found[i].second;
+    }
+    unsigned Set = 0;
+    for (const RarityEntry& Entry : Entries)
+    {
+        if (Entry.Index >= Items.size() || !Alive(Items[Entry.Index]) || Game::InventoryEdit::DataHashOf(Items[Entry.Index]) != Entry.DataHash)
+            continue;
+        const uintptr_t Want = Entry.Rarity.empty() ? 0 : Known[Entry.Rarity];
+        if ((!Want && !Entry.Rarity.empty()) || Pointer(Items[Entry.Index] + ItemRarity) == Want)
+            continue;
+        Set += Memory::WriteBytes(Items[Entry.Index] + ItemRarity, &Want, sizeof(Want));
+    }
+    if (Set)
+        Core::Log::Info("Seltenheiten: {} Items des Clients vom Host übernommen", Set);
 }
 }

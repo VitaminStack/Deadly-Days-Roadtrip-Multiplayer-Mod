@@ -36,6 +36,9 @@ struct
     uint64_t EndClientAt = 0; // Host: letzte Meldung 0x306, 0 ohne
     std::optional<Reward::RoundEndStatus> LatestEnd; // Client
     uint64_t LatestEndAt = 0, NextEndClientSend = 0;
+    // Seltenheiten (werkbank-client): Host gesendeter Stand, Client neuester Stand
+    std::optional<Reward::Rarities> SentRarities, LatestRarities;
+    uint64_t NextRarityCheck = 0, NextRarityResend = 0, NextRarityApply = 0;
 } R;
 
 uint64_t NowMs()
@@ -102,6 +105,40 @@ void TickClientRoundEnd(Net::Transport& Transport)
         Game::Rewards::SetHostRoundEndStatus(std::nullopt);
 }
 
+// Host: Seltenheiten des Clientinventars jede Sekunde prüfen, bei Änderung sofort senden, sonst alle 5 s.
+void SendRarities(Net::Transport& Transport)
+{
+    const uint64_t Now = NowMs();
+    if (Now < R.NextRarityCheck)
+        return;
+    R.NextRarityCheck = Now + 1000;
+    Reward::Rarities Value;
+    for (const auto& Entry : Game::Rewards::ClientRarities())
+        Value.Items.push_back({Entry.Index, Entry.DataHash, Reward::Clip(Entry.Rarity)});
+    if (Value.Items.empty() || (R.SentRarities && *R.SentRarities == Value && Now < R.NextRarityResend))
+        return;
+    if (Send(Transport, Reward::RarityType, Reward::Encode(Value)))
+    {
+        if (!R.SentRarities || *R.SentRarities != Value)
+            Core::Log::Info("Seltenheiten: {} Items des Clients gesendet", Value.Items.size());
+        R.SentRarities = std::move(Value);
+        R.NextRarityResend = Now + 5000;
+    }
+}
+
+// Client: neuesten Stand jede Sekunde anwenden; neue replizierte Items bekommen so ihre Seltenheit.
+void ApplyRarities()
+{
+    const uint64_t Now = NowMs();
+    if (!R.LatestRarities || Now < R.NextRarityApply)
+        return;
+    R.NextRarityApply = Now + 1000;
+    std::vector<Game::Rewards::RarityEntry> Entries;
+    for (const auto& Item : R.LatestRarities->Items)
+        Entries.push_back({Item.Index, Item.DataHash, Item.Rarity});
+    Game::Rewards::ApplyRarities(Entries);
+}
+
 void TickHost(Net::Transport& Transport, std::span<const Net::ControlMessage> Messages)
 {
     for (const auto& Message : Messages)
@@ -153,6 +190,7 @@ void TickHost(Net::Transport& Transport, std::span<const Net::ControlMessage> Me
         R.EndClientAt = 0;
     }
     SendRoundEndStatus(Transport);
+    SendRarities(Transport);
     const auto Offer = ToWire(Game::Rewards::ReadOffer());
     const uint64_t Now = NowMs();
     if (!R.Sent || *R.Sent != Offer || Now >= R.NextResend)
@@ -218,6 +256,17 @@ void TickClient(Net::Transport& Transport, std::span<const Net::ControlMessage> 
             else
                 Core::Log::Warn("Lager: Stand des Hosts nicht lesbar ({} Byte)", Message.Value.Payload.size());
         }
+        else if (Message.Value.Type == Reward::RarityType)
+        {
+            if (auto Value = Reward::DecodeRarities(Message.Value.Payload))
+            {
+                if (!R.LatestRarities || *R.LatestRarities != *Value)
+                    R.NextRarityApply = 0;
+                R.LatestRarities = std::move(*Value);
+            }
+            else
+                Core::Log::Warn("Seltenheiten: Nachricht vom Host nicht lesbar ({} Byte)", Message.Value.Payload.size());
+        }
         else if (Message.Value.Type == Reward::OfferType)
         {
             if (auto Offer = Reward::DecodeOffer(Message.Value.Payload))
@@ -241,6 +290,7 @@ void TickClient(Net::Transport& Transport, std::span<const Net::ControlMessage> 
             }
     }
     TickClientRoundEnd(Transport);
+    ApplyRarities();
     SendEdit(Transport); // auch nach dem Ende des Host-Panels
     // Ohne frisches Bild (Verbindung weg, Host ohne Mod-Sitzung) keine Auswahl anzeigen.
     if (!R.Latest || !R.Latest->Session || NowMs() - R.LatestAt > 5000)
@@ -282,6 +332,8 @@ void TickReward(std::span<const Net::ControlMessage> Messages)
         R.SentEnd.reset();
         R.LatestEnd.reset();
         R.EndClientAt = 0;
+        R.SentRarities.reset();
+        R.LatestRarities.reset();
         Game::Rewards::AbortClientEdit();
     }
     Game::Rewards::SetRemoteReady(Host && Peer);

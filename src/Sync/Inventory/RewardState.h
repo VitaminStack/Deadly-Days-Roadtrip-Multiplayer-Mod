@@ -141,10 +141,59 @@ inline Game::InventoryEdit::Tile GetTile(std::span<const uint8_t> In, size_t At)
 {
     return {static_cast<int32_t>(Get(In, At, 4)), static_cast<int32_t>(Get(In, At + 4, 4))};
 }
+// Ein Item: 21 Byte plus 8 je belegtem Feld.
+inline void PutItem(std::vector<uint8_t>& Out, const Game::InventoryEdit::ItemState& Item)
+{
+    Put(Out, Item.Source, 2);
+    Put(Out, Item.DataHash, 4);
+    Out.push_back(static_cast<uint8_t>((Item.Present ? 1 : 0) | (Item.InBackpack ? 2 : 0) | (Item.Trash ? 4 : 0) | (Item.AddEffect ? 8 : 0)));
+    Out.push_back(Item.RemoveContext);
+    Put(Out, static_cast<uint32_t>(Item.Turns), 4);
+    PutTile(Out, Item.Pivot);
+    Out.push_back(static_cast<uint8_t>(Item.Tiles.size()));
+    for (const auto& At : Item.Tiles)
+        PutTile(Out, At);
+}
+inline std::optional<Game::InventoryEdit::ItemState> GetItem(std::span<const uint8_t> In, size_t& At)
+{
+    using namespace Game::InventoryEdit;
+    if (At + 21 > In.size() || In[At + 6] > 15 || In[At + 20] > MaxItemTiles || At + 21 + 8 * size_t(In[At + 20]) > In.size())
+        return std::nullopt;
+    ItemState Item;
+    Item.Source = static_cast<uint16_t>(Get(In, At, 2));
+    Item.DataHash = static_cast<uint32_t>(Get(In, At + 2, 4));
+    Item.Present = In[At + 6] & 1;
+    Item.InBackpack = In[At + 6] & 2;
+    Item.Trash = In[At + 6] & 4;
+    Item.AddEffect = In[At + 6] & 8;
+    Item.RemoveContext = In[At + 7];
+    Item.Turns = static_cast<int32_t>(Get(In, At + 8, 4));
+    Item.Pivot = GetTile(In, At + 12);
+    const uint8_t Tiles = In[At + 20];
+    At += 21;
+    for (uint8_t t = 0; t < Tiles; ++t, At += 8)
+        Item.Tiles.push_back(GetTile(In, At));
+    return Item;
+}
+inline void PutName(std::vector<uint8_t>& Out, const std::string& Name)
+{
+    Out.push_back(static_cast<uint8_t>(Name.size()));
+    Out.insert(Out.end(), Name.begin(), Name.end());
+}
+inline std::optional<std::string> GetName(std::span<const uint8_t> In, size_t& At)
+{
+    if (At >= In.size() || In[At] > Game::InventoryEdit::MaxObjectName || At + 1 + In[At] > In.size())
+        return std::nullopt;
+    std::string Name(reinterpret_cast<const char*>(In.data() + At + 1), In[At]);
+    At += 1 + In[At];
+    return Name;
+}
 }
 
 // Edit, Client an Host: Kopf 26 Byte (Id 8, Sitzung 8, Revision 8, Wahl 1 mit 0xFF = keine, Anzahl neuer Felder 1), je neues
-// Feld 8 Byte, dann Anzahl Items (1) und je Item 21 Byte plus 8 je belegtem Feld.
+// Feld 8 Byte, dann Anzahl Items (1) und je Item 21 Byte plus 8 je belegtem Feld. Seit Mod-Version 7 (werkbank-client) danach
+// Anzahl Aufwertungen (1), je Aufwertung Anzahl Eingaben (1), je Eingabe 2 Byte, Name der Ausgabedaten und der Seltenheit
+// (Länge 1, UTF-8) und die Ausgabe als Item.
 inline std::vector<uint8_t> Encode(const Game::InventoryEdit::Edit& Value)
 {
     if (!Value.Id || !Game::InventoryEdit::WellFormed(Value))
@@ -159,16 +208,16 @@ inline std::vector<uint8_t> Encode(const Game::InventoryEdit::Edit& Value)
         Detail::PutTile(Out, At);
     Out.push_back(static_cast<uint8_t>(Value.Items.size()));
     for (const auto& Item : Value.Items)
+        Detail::PutItem(Out, Item);
+    Out.push_back(static_cast<uint8_t>(Value.Upgrades.size()));
+    for (const auto& Next : Value.Upgrades)
     {
-        Detail::Put(Out, Item.Source, 2);
-        Detail::Put(Out, Item.DataHash, 4);
-        Out.push_back(static_cast<uint8_t>((Item.Present ? 1 : 0) | (Item.InBackpack ? 2 : 0) | (Item.Trash ? 4 : 0) | (Item.AddEffect ? 8 : 0)));
-        Out.push_back(Item.RemoveContext);
-        Detail::Put(Out, static_cast<uint32_t>(Item.Turns), 4);
-        Detail::PutTile(Out, Item.Pivot);
-        Out.push_back(static_cast<uint8_t>(Item.Tiles.size()));
-        for (const auto& At : Item.Tiles)
-            Detail::PutTile(Out, At);
+        Out.push_back(static_cast<uint8_t>(Next.Inputs.size()));
+        for (const uint16_t Input : Next.Inputs)
+            Detail::Put(Out, Input, 2);
+        Detail::PutName(Out, Next.Data);
+        Detail::PutName(Out, Next.Rarity);
+        Detail::PutItem(Out, Next.Output);
     }
     return Out;
 }
@@ -194,23 +243,31 @@ inline std::optional<Game::InventoryEdit::Edit> DecodeEdit(std::span<const uint8
         return std::nullopt;
     for (uint8_t i = 0; i < Count; ++i)
     {
-        if (At + 21 > In.size() || In[At + 6] > 15 || In[At + 20] > MaxItemTiles || At + 21 + 8 * size_t(In[At + 20]) > In.size())
+        auto Item = Detail::GetItem(In, At);
+        if (!Item)
             return std::nullopt;
-        ItemState Item;
-        Item.Source = static_cast<uint16_t>(Detail::Get(In, At, 2));
-        Item.DataHash = static_cast<uint32_t>(Detail::Get(In, At + 2, 4));
-        Item.Present = In[At + 6] & 1;
-        Item.InBackpack = In[At + 6] & 2;
-        Item.Trash = In[At + 6] & 4;
-        Item.AddEffect = In[At + 6] & 8;
-        Item.RemoveContext = In[At + 7];
-        Item.Turns = static_cast<int32_t>(Detail::Get(In, At + 8, 4));
-        Item.Pivot = Detail::GetTile(In, At + 12);
-        const uint8_t Tiles = In[At + 20];
-        At += 21;
-        for (uint8_t t = 0; t < Tiles; ++t, At += 8)
-            Item.Tiles.push_back(Detail::GetTile(In, At));
-        Value.Items.push_back(std::move(Item));
+        Value.Items.push_back(std::move(*Item));
+    }
+    if (At >= In.size() || In[At] > MaxUpgrades)
+        return std::nullopt;
+    const uint8_t Upgrades = In[At++];
+    for (uint8_t i = 0; i < Upgrades; ++i)
+    {
+        if (At >= In.size() || In[At] > MaxUpgradeInputs || At + 1 + 2 * size_t(In[At]) > In.size())
+            return std::nullopt;
+        Upgrade Next;
+        const uint8_t Inputs = In[At++];
+        for (uint8_t k = 0; k < Inputs; ++k, At += 2)
+            Next.Inputs.push_back(static_cast<uint16_t>(Detail::Get(In, At, 2)));
+        auto Data = Detail::GetName(In, At);
+        auto Rarity = Data ? Detail::GetName(In, At) : std::nullopt;
+        auto Output = Rarity ? Detail::GetItem(In, At) : std::nullopt;
+        if (!Output)
+            return std::nullopt;
+        Next.Data = std::move(*Data);
+        Next.Rarity = std::move(*Rarity);
+        Next.Output = std::move(*Output);
+        Value.Upgrades.push_back(std::move(Next));
     }
     if (At != In.size() || !Value.Id || !WellFormed(Value))
         return std::nullopt;
@@ -320,5 +377,66 @@ inline std::optional<RoundEndStatus> DecodeRoundEndStatus(std::span<const uint8_
     if (In.size() != 9 || (In[8] & ~3) || (!Detail::Get(In, 0, 8) && In[8]))
         return std::nullopt;
     return RoundEndStatus{Detail::Get(In, 0, 8), (In[8] & 1) != 0, (In[8] & 2) != 0};
+}
+
+// Seltenheiten, Host an Client (werkbank-client, Mod-Version 7): Anzahl (1, höchstens 96), je Item Platz in MyItems (2),
+// Prüfsumme des ItemData-Objektnamens (4) und Objektname der Seltenheit (Länge 1, höchstens 120, UTF-8). Bei Änderung
+// sofort, sonst alle 5 s.
+inline constexpr uint16_t RarityType = 0x308;
+inline constexpr size_t MaxRarityItems = 96;
+
+struct Rarities
+{
+    struct Entry
+    {
+        uint16_t Index = 0;
+        uint32_t DataHash = 0;
+        std::string Rarity;
+        bool operator==(const Entry&) const = default;
+    };
+    std::vector<Entry> Items;
+    bool operator==(const Rarities&) const = default;
+};
+
+inline std::vector<uint8_t> Encode(const Rarities& Value)
+{
+    if (Value.Items.size() > MaxRarityItems)
+        return {};
+    std::vector<uint8_t> Out;
+    Out.push_back(static_cast<uint8_t>(Value.Items.size()));
+    for (const auto& Item : Value.Items)
+    {
+        if (Item.Rarity.size() > Game::InventoryEdit::MaxObjectName)
+            return {};
+        Detail::Put(Out, Item.Index, 2);
+        Detail::Put(Out, Item.DataHash, 4);
+        Detail::PutName(Out, Item.Rarity);
+    }
+    return Out;
+}
+
+inline std::optional<Rarities> DecodeRarities(std::span<const uint8_t> In)
+{
+    if (In.empty() || In[0] > MaxRarityItems)
+        return std::nullopt;
+    Rarities Value;
+    size_t At = 1;
+    for (uint8_t i = 0; i < In[0]; ++i)
+    {
+        if (At + 6 > In.size())
+            return std::nullopt;
+        Rarities::Entry Item;
+        Item.Index = static_cast<uint16_t>(Detail::Get(In, At, 2));
+        Item.DataHash = static_cast<uint32_t>(Detail::Get(In, At + 2, 4));
+        At += 6;
+        auto Name = Detail::GetName(In, At);
+        if (!Name)
+            return std::nullopt;
+        Item.Rarity = std::move(*Name);
+        Value.Items.push_back(std::move(Item));
+    }
+    if (At != In.size())
+        return std::nullopt;
+    return Value;
 }
 }

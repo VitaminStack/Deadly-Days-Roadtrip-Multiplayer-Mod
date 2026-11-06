@@ -38,7 +38,7 @@ Je Thema eine Datei, damit parallele Arbeit nicht in dieselbe Datei läuft. Neue
 | `HealthBars.cpp` | Client: Lebensleisten über den Figuren nach replizierten HP aktualisieren |
 | `RunEnd.cpp` | Niederlage: Run-Ende-Handler ohne `LocalPlayer` des Remote-Controllers |
 | `Tunnel.cpp` | Spike E: UDP-Verkehr des Spiels über Steam Networking tunneln (`!tunnel`) |
-| `Cheats.cpp` | Testhilfen: CheatManager für die `DD_`-Befehle, Laden einzelner Assets, Tutorial abschalten |
+| `Cheats.cpp` | Testhilfen: CheatManager für die `DD_`-Befehle, Items vergeben, Laden einzelner Assets, Tutorial abschalten |
 | `Load.cpp` | Lastmessung: UDP-Bytes, Pakete und Framerate je Sekunde im Log |
 | `TestEnv.cpp` | Host: Busplatz schont alle Spielerfiguren, Diagnose-Log für `EndPlay` jeder Figur mit Stapel |
 
@@ -126,6 +126,7 @@ Beim Client setzt der Spike die Kamera jede Sekunde, beim Host nimmt er jede Sek
 | `!arm` | Host | Schaltet die Umleitung der Reise scharf |
 | `!finish` | Host | Ruft `FinishMission` auf |
 | `!cheats` | Host | Legt einen `UDDCheatManager` an, danach wirken die `DD_`-Befehle des Spiels |
+| `!give <ItemData> [Rarity]` | Host | Legt jedem Spielerinventar das Item über `CreateAndAddItem` an, es repliziert wie jede Vergabe (Testhilfe `werkbank-client`) |
 | `!load <Pfad>` | Beide | Lädt ein Asset, etwa eine Blueprint-Klasse für einen SDK-Dump |
 | `!notutorial` | Beide | Meldet den Stand der Tutorial-Sperre. Der Spike schaltet die Hinweise ohnehin auf beiden Seiten selbst ab, sie halten sonst die Mission an |
 | `!round <n>` | Host | Ruft `TriggerEndRound` auf, Wert wie `ERoundChangeReason` |

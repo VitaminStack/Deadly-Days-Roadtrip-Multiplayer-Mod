@@ -1426,6 +1426,21 @@ Stand 06.11.2026, Build `26187885`, ein PC, Mod mit Spike über die Lobby, Godmo
   nicht, weil seine Routenkarte keinen Knoten anbot; sie ist nur in Tests belegt. Das Rundenende über den echten Bus ist seit
   [`tank-gemeinsam`](#tank-als-gruppenwert-tank-gemeinsam) belegt.
 
+### Seltenheit und Aufwerten beim Client (`werkbank-client`)
+
+Stand 06.11.2026, Build `26187885`, ein PC, Mod mit Spike über die Lobby, Godmode.
+
+- **[Belegt] Seltenheit repliziert nicht:** `UInventoryItemInstance.ItemRarity` (`+0x118`) ist beim Host für jedes Item gesetzt
+  (`Rarity_0_Common` usw.), beim Client für jedes replizierte Item null, auch für die eigenen. Lokale Anzeige-Instanzen der Airdrop-Auswahl
+  haben sie, weil der Client sie selbst mit Seltenheit anlegt. Ohne Seltenheit wertet das Panel beim Ablegen auf ein gleiches Item nie
+  auf (`UpgradeDroppedItem` liest `ItemRarity->NextUpgradableRarity`). Die Mod schickt sie jetzt für das Clientinventar (`0x308`).
+- **[Belegt] Aufwerten nativ:** Ablegen und Werkbank enden in `UInventoryComponent::UpgradeItems`, nativ ohne `ProcessEvent`. Sie legt die
+  Ausgabe mit `CreateItemInstance` an, setzt `Broken` zurück, legt sie mit `AddToInventory` ab und überträgt Modifikatoren der Eingaben.
+- **[Belegt] Im Lager keine sichtbare Replikation:** Nach der Übernahme eines Edits mit Aufwertungen kamen die neuen Items des Hosts beim
+  Client weder im Lager noch auf der Routenkarte an, er behielt seine lokalen Ausgaben. Nach der Reise in den nächsten Tag standen die
+  replizierten Objekte in der Reihenfolge des Hosts da, die lokalen waren weg. Passt zu `rundenende-client`. Ablauf in
+  [Werkbank und Aufwerten beim Client](../src/Game/README.md#werkbank-und-aufwerten-beim-client).
+
 ### Rundenende: Befund und offene Phasenübertragung (`rundenende`)
 
 Build `26187885`, ein PC, zwei Loopback-Instanzen, getrennte Test-Spielstände und CrashGuard. Untersuchung auf eigenem Branch von `origin/main`, ohne den noch nicht gemergten Inventar-Teilfix.
