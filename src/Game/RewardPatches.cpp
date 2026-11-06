@@ -15,6 +15,7 @@
 #include <atomic>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <utility>
 
 #include "Core/Hooks.h"
@@ -595,6 +596,38 @@ bool FilterRewardEvent(uintptr_t Object, uintptr_t Function, void* Params)
     RememberPlacement(Name, reinterpret_cast<uintptr_t>(Params));
     (void)Object;
     return true;
+}
+
+void TraceInventoryEvent(uintptr_t Object, uintptr_t Function, void* Params)
+{
+    static const bool Enabled = []
+    {
+        char Value[4]{};
+        return GetEnvironmentVariableA("DDCOOP_TRACE_INVENTORY", Value, sizeof(Value)) == 1 && Value[0] == '1';
+    }();
+    if (!Enabled || !Function)
+        return;
+    // Je Funktion einmal entscheiden: Besitzerklasse der UFunction gehört zum Inventar.
+    static std::unordered_map<uintptr_t, std::string> Names;
+    auto It = Names.find(Function);
+    if (It == Names.end())
+    {
+        const std::string Owner = Memory::NameOf(Pointer(Function + Offsets::UObject::Outer));
+        const bool Wanted = Owner == "InventoryComponent" || Owner == "InventoryItemInstance" || Owner == "BackpackSlot" ||
+                            Owner == "InventoryPanel" || Owner == "RewardQueueComponent" || Owner == "CoopInventoryCoordinatorComponent" ||
+                            Owner.starts_with("WP_Inventory") || Owner.starts_with("WP_Backpack") || Owner.starts_with("WP_Item");
+        It = Names.emplace(Function, Wanted ? Owner + "." + Memory::NameOf(Function) : std::string{}).first;
+    }
+    if (It->second.empty())
+        return;
+    static unsigned Lines = 0;
+    if (++Lines > 4000)
+        return;
+    const uint32_t Flags = Memory::Read<uint32_t>(Function + FunctionFlags).value_or(0);
+    const uintptr_t First = Params ? Memory::Read<uintptr_t>(reinterpret_cast<uintptr_t>(Params)).value_or(0) : 0;
+    const std::string FirstName = First > 0x10000 && Memory::Read<uint32_t>(First + Offsets::UObject::Flags) ? Memory::NameOf(First) : std::string{};
+    Core::Log::Info("InvTrace {} {}{} an {:#x} ({}), erster Parameter {:#x} {}", CurrentRole() == NetRole::Client ? "C" : "H", It->second,
+                    Flags & FuncNet ? " [Net]" : "", Object, Memory::NameOf(Object), First, FirstName);
 }
 
 uintptr_t RewardCharacter(uintptr_t Character)
