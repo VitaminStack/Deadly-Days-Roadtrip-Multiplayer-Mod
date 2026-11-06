@@ -107,7 +107,7 @@ constexpr uintptr_t ItemPivotTile = 0x28;
 constexpr uint32_t FuncNet = 0x40;
 constexpr uintptr_t FunctionFlags = 0xB0;
 constexpr uintptr_t PanelIsDragging = 0x790;
-// UDefaultFocusableButton.ParentPanel; der Bestätigen-Knopf des Inventar-Panels heißt im Widget-Baum WPButtonClose.
+// UDefaultFocusableButton.ParentPanel; der Bestätigen-Knopf des Inventar-Panels heißt im Widget-Baum MainButton.
 constexpr uintptr_t ButtonParentPanel = 0x3A8;
 
 bool Alive(uintptr_t Object)
@@ -264,7 +264,7 @@ std::vector<std::pair<uintptr_t, uintptr_t>> ResolveChoices(const std::vector<Ga
     return Result;
 }
 
-// Bestätigen-Knopf eines Inventar-Panels: DefaultFocusableButton mit diesem ParentPanel, Name WPButtonClose. Nur beim Klick
+// Bestätigen-Knopf eines Inventar-Panels: DefaultFocusableButton mit diesem ParentPanel, Name MainButton. Nur beim Klick
 // gesucht, ein Durchlauf über das Objekt-Array. Fehlt er, stehen die Knöpfe des Panels einmal im Log.
 uintptr_t ConfirmButtonOf(uintptr_t Panel)
 {
@@ -281,13 +281,17 @@ uintptr_t ConfirmButtonOf(uintptr_t Panel)
         if (!Object || Pointer(Object + ButtonParentPanel) != Panel || !Alive(Object) || !Objects::IsA(Object, "DefaultFocusableButton"))
             continue;
         const std::string Name = Memory::NameOf(Object);
-        if (Name == "WPButtonClose")
+        // Im Spieltest 06.11.2026 hatte das Panel genau einen MainButton; ConfirmButton gehört zum Rezept-Panel.
+        if (Name == "MainButton")
+        {
+            Core::Log::Info("Bestätigen: Knopf {} im Panel gefunden ({})", Name, Memory::NameOf(Pointer(Object + Offsets::UObject::Outer)));
             return CachedButton = Object;
+        }
         Others += Others.empty() ? Name : ", " + Name;
     }
     static bool Logged = false;
     if (!std::exchange(Logged, true))
-        Core::Log::Warn("Bestätigen: Knopf WPButtonClose im Panel nicht gefunden, Knöpfe: {}", Others.empty() ? "keine" : Others);
+        Core::Log::Warn("Bestätigen: Knopf MainButton im Panel nicht gefunden, Knöpfe: {}", Others.empty() ? "keine" : Others);
     return 0;
 }
 
@@ -384,35 +388,28 @@ bool ClientConfirm(uintptr_t Panel)
     return true;
 }
 
-// bestaetigen-alle: Bestätigen schließt das Panel nicht sofort, sondern markiert den Spieler als bereit (Knopf gelb). Ein
-// zweiter Klick nimmt es zurück. Erst wenn Host und Client bereit sind, löst der Client sein natives Bestätigen aus und
-// schickt den Edit; danach holt der Host sein Bestätigen nach (Tick).
+// bestaetigen-alle: Bestätigen schließt das Panel nicht sofort, sondern markiert den Spieler als bereit (Knopf gelb). Weitere
+// Klicks ändern nichts; ein Zurücknehmen hob im Spieltest das Bereit wieder auf, wenn der andere gerade bestätigte. Erst wenn
+// Host und Client bereit sind, löst der Client sein natives Bestätigen aus und schickt den Edit; danach holt der Host sein
+// Bestätigen nach (Tick).
 void __fastcall ConfirmHook(uintptr_t Panel)
 {
     if (CurrentRole() == NetRole::Client && !Shown.Items.empty() && !ClientPending && Game::InventoryEdit::ClientEditing())
     {
-        if (Memory::Read<uint8_t>(Panel + PanelIsDragging).value_or(1))
-            return; // nativ auch ohne Wirkung
-        Shown.Ready = !Shown.Ready;
+        if (Shown.Ready || Memory::Read<uint8_t>(Panel + PanelIsDragging).value_or(1))
+            return; // schon bereit; im Drag nativ auch ohne Wirkung
+        Shown.Ready = true;
         Shown.Panel = Panel;
-        SetReadyTint(Panel, Shown.Ready);
-        Core::Log::Info("Bestätigen: Client {} (Sitzung {})", Shown.Ready ? "bereit, wartet auf alle" : "nimmt Bestätigen zurück", Shown.Session);
+        SetReadyTint(Panel, true);
+        Core::Log::Info("Bestätigen: Client bereit, wartet auf alle (Sitzung {})", Shown.Session);
         return;
     }
     if (CurrentRole() == NetRole::Client && ClientConfirm(Panel))
         return;
     if (CurrentRole() == NetRole::Host && Host.Active && !Host.ClientPick && RemoteReady.load())
     {
-        if (Memory::Read<uint8_t>(Panel + PanelIsDragging).value_or(1))
+        if (Host.HeldPanel == Panel || Memory::Read<uint8_t>(Panel + PanelIsDragging).value_or(1))
             return;
-        if (Host.HeldPanel == Panel)
-        {
-            Host.HeldPanel = 0;
-            Host.ReplayCount = 0;
-            SetReadyTint(Panel, false);
-            Core::Log::Info("Bestätigen: Host nimmt Bestätigen zurück");
-            return;
-        }
         Core::Log::Info("Bestätigen: Host bereit, wartet auf den Client (bereit={})", Host.ClientReady);
         Host.HeldPanel = Panel;
         SetReadyTint(Panel, true);
