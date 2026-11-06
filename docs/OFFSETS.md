@@ -180,7 +180,7 @@ Funktionen von `ULocalCoopSubsystem` und ihre Aufrufer, Ablauf siehe [Coop-Ablau
 |---|---|---|
 | `SetCoopEnabled` | `0x59003E0` | Exec-Thunk `0x5735F10` |
 | `SetMaxLocalPlayers` | `0x5900770` | Exec-Thunk `0x57363C0` |
-| `SpawnLocalPlayer` | `0x5901E90` | Exec-Thunk `0x57374E0` |
+| `SpawnLocalPlayer` | `0x5901E90` | Exec-Thunk `0x57374E0`; in der Mod `LocalDevicePatches.cpp` |
 | `GetPlayerController(Index)` | `0x58EE0D0` | |
 | `GetActivePlayerCount` | `0x58E8890` | Zählt die nichtleeren Ergebnisse von `GetPlayerController(0/1)`, nicht die Map-Slots |
 | `ActivePlayers`: natives Map-Add | `0x58D1940` | `Map, int32*-Schlüssel, WeakController*-Wert`; benutzt in `SpawnLocalPlayer` bei `0x590214E` |
@@ -190,6 +190,9 @@ Funktionen von `ULocalCoopSubsystem` und ihre Aufrufer, Ablauf siehe [Coop-Ablau
 | `GetPlayerIndex` | `0x58EE2A0` | Rückgriff ohne `LocalPlayer` |
 | `IsSecondaryPlayer` | `0x58F47C0` | Rückgriff ohne `LocalPlayer` |
 | `ApplyDeviceAssignmentDraftAndJoin` | `0x58D8AA0` | Ruft `SpawnLocalPlayer(1)` |
+| `ApplyDeviceAssignmentDraft` | `0x58D8720` | Exec-Thunk `0x5730E90` |
+| `AssignPhysicalDevice(DeviceId, PlayerIndex)` | `0x58D93B0` | Exec-Thunk `0x5731400`; Index 0 bis 1. In der Mod `LocalDevicePatches.cpp` |
+| `DraftAssignPhysicalDevice(DeviceId, PlayerIndex)` | `0x58E5690` | Exec-Thunk `0x5731AD0`; Index -1 bis 1, nur bei offenem Entwurf (`+0x188`). In der Mod `LocalDevicePatches.cpp` |
 | Run-Zustand laden (`IRunPersistable`) | `0x58F5330` | VTable des Subsystems `0x94ED340`, Slot 91 |
 | P2 nach Kartenwechsel neu anlegen | `0x58D9810` | VTable von `ADDMissionGameMode` `0x9430630`, Slot 111 |
 | Figur spawnen | `0x5901C60` | Gleiche VTable, Slot 234, Spike-Patch bei `0x5901CE8` |

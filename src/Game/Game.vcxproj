@@ -59,6 +59,7 @@
     <ClCompile Include="Objects.cpp" />
     <ClCompile Include="PatchPolicy.cpp" />
     <ClCompile Include="Patches.cpp" />
+    <ClCompile Include="LocalDevicePatches.cpp" />
     <ClCompile Include="MovementPatches.cpp" />
     <ClCompile Include="PlayerPatches.cpp" />
     <ClCompile Include="RemoteP2Patches.cpp" />
@@ -86,6 +87,7 @@
     <ClInclude Include="ConsoleAdapter.h" />
     <ClInclude Include="MapAdapter.h" />
     <ClInclude Include="MapPolicy.h" />
+    <ClInclude Include="LocalDevicePolicy.h" />
     <ClInclude Include="MovementPolicy.h" />
     <ClInclude Include="PatchPolicy.h" />
     <ClInclude Include="PatchRuntime.h" />

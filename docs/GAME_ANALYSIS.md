@@ -1009,6 +1009,47 @@ der Mod, Tag 1, Level-up-Airdrops. Rohdaten und Probe auf `task/client-visuell`.
 - Nebenbei: Öffnet der Client sein Pausenmenü, läuft der Host weiter (Uhr 451 bis 466). Das
   ist die bekannte getrennte Pause, Aufgabe `pausen-sync`.
 
+### Eingaben getrennt (`eingaben`)
+
+Stand 06.11.2026, Build `26187885`, ein PC, Mod über die Lobby, Godmode, Tag 1. Positionen und Gerätebindungen mit lokalen, nur
+lesenden Skripten gemessen, Eingaben über `Game-Input.ps1` ins jeweilige Fenster.
+
+**Ausgangslage, ohne Änderung gemessen:**
+
+- **[Belegt]** Bewegung, Dodge, Klick/Zielen und Pausemenü wirken nur in der eigenen Instanz. `D` im Host-Fenster bewegt nur die
+  Host-Figur, `A` im Client-Fenster nur die Client-Figur; mit Dodge ebenso (beim Host greift dabei der Dodge-Pfad aus
+  `ausweichen-client`). Esc öffnet das Pausemenü nur beim Drückenden; Host-Eingaben bewegen den Host weiter, während der Client im
+  Menü steht. Die Zielrichtung (`Hands`) wählt das Spiel automatisch nach Gegnern, sie ist auf beiden Seiten gleich repliziert.
+- **[Belegt]** Gerätebindungen (`ULocalCoopSubsystem+0x150`): auf beiden Seiten nur Tastatur/Maus (Gerät 0) an Spieler 0, kein
+  Entwurf. Router-Sitzungen haben Authority-Index 0. Der Host-Router hängt also keine Eingabe an den Remote-Slot.
+- **[Belegt, Disassembly]** Die Lücke liegt im nativen lokalen Koop: `AssignPhysicalDevice` (`0x58D93B0`) erlaubt Index 0 und 1,
+  `DraftAssignPhysicalDevice` (`0x58E5690`) -1 bis 1. Ein Gamepad oder eine weitere Tastatur ließe sich so an P2 binden, der beim Host
+  der Remote-Spieler ist. `SpawnLocalPlayer(1)` (`0x5901E90`) gibt beim Host einen eingetragenen P2 nur zurück; beim Client oder
+  ohne Bindung legt es über `CreateLocalPlayer` einen zweiten `LocalPlayer` an, beim Client also einen zusätzlichen Netzwerkspieler.
+
+**Umsetzung:** `src/Game/LocalDevicePatches.cpp` hängt sich an diese drei nativen Einstiege. Im Netzwerkspiel (Host mit NetDriver
+oder Client) lehnen sie Index ≥ 1 mit dem nativen Fehlerergebnis ab (`false` bzw. kein Controller); Index 0, das Lösen (-1) und das
+Zurückgeben eines schon eingetragenen Remote-P2 beim Host bleiben. Ohne Netzwerk bleibt der lokale Koop des Spiels unverändert.
+Nichts wird übertragen, keine neue Nachricht, `ModVersion` unverändert. Kein Ordner `src/Sync/Players`, weil nichts synchronisiert
+wird. Regeln in `LocalDevicePolicy.h`, Unit-Tests in `tests/GameTests/PatchTests.cpp`. Die Bewegungs- und Dodge-Pfade aus `bewegung`
+und `ausweichen-client` bleiben unberührt.
+
+**Geprüft** (06.11.2026, `Start-Session.ps1 -Restart -Mod -Tunnel Lobby -Godmode -Brief`, `Run-Route.ps1 -Days 1 -StayLast`):
+
+- 41 statt 38 Patches gesetzt. Bewegung (`D`/`A`) und Dodge (`W`/`S` mit Leertaste) je Seite: gleiche Wege wie ohne Änderung, die
+  andere Figur bleibt stehen.
+- Eine Wegwerf-Probe (nicht im Repo) rief auf dem Game Thread beider Instanzen `AssignPhysicalDevice(0, 1)`,
+  `DraftAssignPhysicalDevice(0, 1)`, `SpawnLocalPlayer(1)`, dann `AssignPhysicalDevice(0, 0)` und `SpawnLocalPlayer(0)` auf.
+  Client: P2-Zuordnung, Entwurf und lokaler Spieler abgelehnt (Log „Eingaben: … abgelehnt“), weiter ein `LocalPlayer`. Host:
+  Zuordnung und Entwurf abgelehnt, `SpawnLocalPlayer(1)` lieferte den Remote-Controller aus `ActivePlayers[1]`, nichts angelegt.
+  Index 0 ging auf beiden Seiten durch. Danach Bindungen weiter nur Gerät 0 an Spieler 0, Host und Client steuerten je ihre Figur.
+- Gegenproben: Level-up-Airdrop, Client zuerst bestätigt (Knopf gelb), dann Host, beide Panels zu, Inventare gleich. Lager am Ende
+  von Tag 1: Host bestätigt und wartet; nach Fortsetzen und Bestätigen beim Client öffnete der Host die Routenkarte. Ohne Probe keine
+  „Eingaben“-Zeile und kein Fehler im Log, kein Absturz.
+- Nicht geprüft: ein echtes Gamepad (keins am Test-PC) und das Beitrittsmenü des Spiels; der Weg dorthin endet in denselben drei
+  Funktionen. Nebenbefund: `Run-Route.ps1` und `Travel-Day.ps1` bestätigen das Lager nur beim Host und bleiben deshalb seit
+  `bestaetigen-rundenende` vor dem zweiten Tag stehen, bis der Client bestätigt.
+
 ### Coop-Ablauf
 
 Stand: Disassembly und Laufzeit-Speicher, Build `26187885`, SDK aus einer direkt geladenen Mission (02.11.2026). Die RVAs stehen in [Offsets](OFFSETS.md#coop).

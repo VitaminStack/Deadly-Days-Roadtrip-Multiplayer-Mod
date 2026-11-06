@@ -6,6 +6,7 @@
 #include <cstring>
 
 #include "Game/CodeCave.h"
+#include "Game/LocalDevicePolicy.h"
 #include "Game/MapPolicy.h"
 #include "Game/MovementPolicy.h"
 #include "Game/PatchPolicy.h"
@@ -603,4 +604,28 @@ TEST_CASE("Lager am Rundenende: Client wartet nur mit frischem Stand des Hosts u
     CHECK(ClientMayReleaseRoundEnd(7, 7, true, true));
     CHECK(ClientMayReleaseRoundEnd(7, 0, false, false)); // Stand fehlt: nicht hängen bleiben
     CHECK(ClientMayReleaseRoundEnd(7, 5, false, false));
+}
+
+TEST_CASE("Eingaben: lokale Geräte im Netzwerkspiel nur für den eigenen Spieler")
+{
+    for (const NetRole Role : {NetRole::Host, NetRole::Client})
+    {
+        CHECK_FALSE(BlocksDeviceAssignment(Role, 0));  // eigener Spieler, etwa Gamepad statt Tastatur
+        CHECK_FALSE(BlocksDeviceAssignment(Role, -1)); // Zuordnung lösen
+        CHECK(BlocksDeviceAssignment(Role, 1));        // P2 ist beim Host der Remote-Spieler, beim Client gibt es keinen
+        CHECK(BlocksDeviceAssignment(Role, 2));
+    }
+    for (const int32_t Index : {-1, 0, 1, 2})
+        CHECK_FALSE(BlocksDeviceAssignment(NetRole::Standalone, Index)); // lokaler Koop ohne Netzwerk bleibt nativ
+}
+
+TEST_CASE("Eingaben: kein zweiter LocalPlayer im Netzwerkspiel")
+{
+    CHECK_FALSE(BlocksLocalSpawn(NetRole::Host, 0, false));
+    CHECK_FALSE(BlocksLocalSpawn(NetRole::Client, 0, false));
+    CHECK_FALSE(BlocksLocalSpawn(NetRole::Host, 1, true)); // nativ: gibt den eingetragenen Remote-P2 zurück, legt nichts an
+    CHECK(BlocksLocalSpawn(NetRole::Host, 1, false));      // würde einen lokalen P2 neben dem Remote-Spieler anlegen
+    CHECK(BlocksLocalSpawn(NetRole::Client, 1, false));
+    CHECK(BlocksLocalSpawn(NetRole::Client, 1, true));     // beim Client zählt ein Controller an Index 1 nicht
+    CHECK_FALSE(BlocksLocalSpawn(NetRole::Standalone, 1, false));
 }
