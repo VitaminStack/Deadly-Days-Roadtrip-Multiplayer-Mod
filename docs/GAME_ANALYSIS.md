@@ -909,6 +909,8 @@ Stand 04.11.2026, Build `26187885`, nur Spike und Loopback. Die frühere Hypothe
 - **[Belegt]** Mit `bCoopEnabled` hängt das Lager am Tagesende: beide Rucksäcke, „Bestätigen & Wechseln“, die Kontrolle geht nicht an P2.
   Mit dem Airdrop-Befund unten heißt das: Den Koop-Modus erst einschalten, wenn `airdrop-auswahl` und `inventar-ui` die Eingaben von P2
   über den Kontrollkanal liefern (`Patches::AllowRemoteCoop()`).
+  **Nachtrag 06.11.2026:** Der Koop-Modus bleibt dauerhaft aus. Airdrop und Lager laufen ohne ihn über `inventar-lokal`,
+  `bestaetigen-alle` und `rundenende-client`; `inventar-ui` ist damit ohne eigene Umsetzung erledigt.
 - **[Belegt]** Verlassen und harter Abbruch des Clients entfernen nur die eigene P2-Bindung, `IsReconnectRequired` bleibt falsch; der
   Neubeitritt bindet den neuen Controller.
 

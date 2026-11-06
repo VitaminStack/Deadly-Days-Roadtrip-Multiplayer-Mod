@@ -87,8 +87,8 @@ genau einem `LocalPlayer` und höchstens zwei aktuellen Controllern, sonst ände
 
 **Koop-Modus bleibt aus.** `SetCoopEnabled(true)` und die native Beitrittsmeldung `OnPlayerJoined(1, …)` laufen erst, wenn
 `Patches::AllowRemoteCoop()` gerufen wurde. Mit Koop-Modus wartet das Lager am Tagesende auf „Bestätigen & Wechseln“ von P2 und hängt, und
-die Airdrop-Auswahl wartet auf den Claim von P2. Das lösen `airdrop-auswahl` und `inventar-ui` über den Kontrollkanal, dann schalten sie
-den Modus ein. Zurückschalten ist nicht vorgesehen: `SetCoopEnabled(false)` entfernt laut Analyse vorher einen vorhandenen P2.
+die Airdrop-Auswahl wartet auf den Claim von P2. Gelöst wurde beides ohne Koop-Modus (`inventar-lokal`, `bestaetigen-alle`,
+`rundenende-client`), der Modus bleibt deshalb aus. Zurückschalten ist nicht vorgesehen: `SetCoopEnabled(false)` entfernt laut Analyse vorher einen vorhandenen P2.
 
 **Geprüft** (05.11.2026, Build `26187885`, `Start-Session.ps1 -Build -Mod -Tunnel Lobby`, Seed `20795`, ein PC):
 

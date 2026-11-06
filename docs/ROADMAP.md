@@ -18,6 +18,7 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 
 **Neue Befunde.**
 
+- `inventar-sync` und `inventar-ui`, 06.11.2026: Ohne eigene Umsetzung geschlossen, weil andere Aufgaben sie abdecken. Den Weg über den nativen `CoopInventoryCoordinator` hat das Projekt verworfen. Rucksack: `inventar-lokal` und `ausruestung-felder`. Lager: `rundenende-client`. Reward-Queue: `airdrop-warten` und `bestaetigen-alle`. Itemsäcke: `inventar-transaktion`. Der Client bedient sein Inventar im nativen Panel. Die Werkbank (Items aufwerten) ist im Coop nicht getestet und steht jetzt als `werkbank-client`.
 - `ausweichen-client`, 06.11.2026: Der Client weicht so weit aus und bremst so ab wie der Host, Ausdauer wird verbraucht. Ursache: Beim Host stand die Laufrichtung des Client-Controllers immer auf (0, 0), sein Dodge brach vor Kosten und Schub ab, und der Client rollte die Kosten zurück. Die Mod schätzt die Richtung beim Host aus dem replizierten Ort und trägt sie direkt vor dem Start von `GA_Dash` ein, der Host führt den Dodge nativ aus. Ohne eigene Nachricht, mit Netzprofil Internet vom Nutzer abgenommen. Nebenbei bestätigt: Spielertod und Rundenende erst, wenn alle tot sind. Neu: `airdrop-dodge-absturz`. [Befund](GAME_ANALYSIS.md#dodge-des-clients-beim-host-ausweichen-client)
 - `bestaetigen-alle`, 06.11.2026: Beim Airdrop schließt Bestätigen das Panel nicht mehr sofort, sondern markiert den Spieler als bereit, der Knopf leuchtet gelb. Erst wenn Host und Client bereit sind, bestätigt der Client nativ, der Host übernimmt den Edit und holt sein Bestätigen nach, das Spiel läuft weiter. Neue Nachricht `0x305`, Mod-Version 5. Zwei Airdrops in beiden Reihenfolgen live geprüft. Neu: `bestaetigen-rundenende` für das Lager am Rundenende. [Befund](../src/Game/README.md#airdrop-auswahl)
 - `rundenende-client`, 06.11.2026: Beendet der Host die Runde, öffnet der Client Rundenübersicht und Lager selbst (natives `FinishMission` nach einer Meldung über den Kontrollkanal) und ordnet dort sein Inventar. Reisen startet nur der Host. Mit `!finish` bis Tag 2 geprüft, Inventare gleich, kein Absturz. Befund für `mod-saves`: Das lokale Rundenende schreibt den Spielstand des Clients. [Befund](GAME_ANALYSIS.md#rundenübersicht-und-lager-beim-client-rundenende-client)
@@ -257,7 +258,8 @@ flowchart TD
     subgraph PH5["Phase 5: Vollständiger Run"]
         GE["Alle Gegner und Bosse"]:::open
         XP["Loot, XP, Level-ups,<br/>Fähigkeiten"]:::open
-        IV["Inventar, Reward-Queue,<br/>Inventar-UI"]:::open
+        IV["Inventar, Reward-Queue,<br/>Inventar-UI<br/>(inventar-sync, inventar-ui)"]:::done
+        WB["Werkbank beim Client<br/>(werkbank-client)"]:::open
         PU["Pausen und blockierende UI"]:::open
         TG["Tageszyklus, Treibstoff,<br/>Etappen"]:::open
         ME["Run-Ende, Meta-Basis,<br/>Regel für Meta-Fortschritt"]:::open
@@ -303,7 +305,7 @@ flowchart TD
     W2 --> IG
     W3 --> IG
     IG --> G2{{"Gate G2"}}:::gate
-    PR --> W4["Welle 4<br/>gegner-alle, fortschritt, inventar-sync,<br/>airdrop-rucksack-live, airdrop-warten,<br/>inventar-ui, pausen-sync, tagesablauf,<br/>run-ende, vfx-sound, reconnect"]:::open
+    PR --> W4["Welle 4<br/>gegner-alle, fortschritt, werkbank-client,<br/>pausen-sync, tagesablauf,<br/>run-ende, vfx-sound, reconnect"]:::open
     G2 --> W4
     W4 --> IR["integration-run"]:::central
     W5 --> IR
