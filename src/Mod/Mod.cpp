@@ -15,6 +15,7 @@
 #include "Game/Game.h"
 #include "Mod/Lobby.h"
 #include "Game/Patches.h"
+#include "Game/SaveRedirect.h"
 #include "Net/Net.h"
 #include "Sync/Sync.h"
 #include "UI/UI.h"
@@ -54,6 +55,9 @@ void Start()
     if (!Build)
         return;
     if (!Core::Hooks::Initialize())
+        return;
+    // Zuerst, damit das Spiel nie mit Mod in den normalen Spielstand schreibt. Ohne Umleitung bleibt die Mod aus.
+    if (!Game::SaveRedirect::Install(Config.GetBool("copy_normal_saves", true)))
         return;
     // Ohne alle Sperren gegen Berichte an den Hersteller bleibt die Mod aus, Game, Net, Sync und UI starten nicht.
     if (!Core::Protection::Install())
