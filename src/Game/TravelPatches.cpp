@@ -70,6 +70,15 @@ std::string Narrow(const wchar_t* Text)
 void __fastcall SetClientTravelHook(uintptr_t Engine, uintptr_t World, const wchar_t* Url, uint32_t Type)
 {
     const std::string Target = Narrow(Url);
+    // Client nach einem lokal nachgezogenen Rundenende: Er folgt dem Host hierüber, nicht über SeamlessTravelToLevel. Die
+    // Pause aus seinem FinishMission räumt sonst niemand ab.
+    if (CurrentRole() == NetRole::Client && TakeClientRoundEndTravel())
+    {
+        if (const uintptr_t Loading = Objects::FindInstance("LoadingSubSystem"))
+            ClearTimeRequests(Loading);
+        else
+            Core::Log::Error("Reise: Zeitanfragen des Clients nicht abgeräumt, LoadingSubSystem fehlt");
+    }
     if (!ShouldRedirectTravel(CurrentRole(), Target))
     {
         OriginalSetClientTravel(Engine, World, Url, Type);
@@ -78,35 +87,16 @@ void __fastcall SetClientTravelHook(uintptr_t Engine, uintptr_t World, const wch
     QueueServerTravel(Target);
 }
 
-// Das Original startet den Ladeablauf: eigene Pause, dann TimescaleManager::ClearAllRequests. Die Umleitung überspringt
-// das, die Freeze-Anfrage aus FinishMission bliebe stehen und hielte jede weitere Runde an. Darum hier dasselbe Abräumen.
-void ClearTimeRequests(uintptr_t LoadingSubsystem)
-{
-    const uintptr_t Timescale = Memory::ReadPointer(LoadingSubsystem + LoadingTimescaleManager).value_or(0);
-    static const uintptr_t Function = Objects::FindObject("ClearAllRequests", "TimescaleManager");
-    if (!Timescale || !Function)
-    {
-        Core::Log::Error("Reise: Zeitanfragen nicht abgeräumt, TimescaleManager fehlt");
-        return;
-    }
-    const auto Active = [&] {
-        return Memory::Read<int32_t>(Timescale + TimescaleRequestCount).value_or(0) - Memory::Read<int32_t>(Timescale + TimescaleRequestFree).value_or(0);
-    };
-    const int32_t Before = Active();
-    struct
-    {
-        uintptr_t Data;
-        int32_t Num;
-        int32_t Max;
-    } Exclude{};
-    Objects::ProcessEvent(Timescale, Function, &Exclude);
-    Core::Log::Info("Reise: Zeitanfragen abgeräumt {} -> {}", Before, Active());
-}
-
 // Missionen laufen über SeamlessTravelToLevel, das reist nur lokal. Settings: Paketname als FName bei +0x10.
 void __fastcall SeamlessTravelHook(uintptr_t Subsystem, uintptr_t Settings)
 {
     const std::string Package = Memory::NameFromIndex(Memory::Read<int32_t>(Settings + LoadSettingsPackage).value_or(-1));
+    if (!ClientMayStartTravel(CurrentRole() == NetRole::Client, Package))
+    {
+        // Etwa ein Klick auf die eigene Routenkarte nach dem Rundenende. Der Host wählt den Tag (rundenende-client).
+        Core::Log::Info("Reise: Client wollte selbst nach {} reisen, unterdrückt, der Host wählt", Package);
+        return;
+    }
     if (!ShouldRedirectTravel(CurrentRole(), Package))
     {
         OriginalSeamlessTravel(Subsystem, Settings);
@@ -133,6 +123,31 @@ bool ApplyTravel(Code::Writer&)
 const Patch List[] = {
     {"Reise des Hosts als servertravel", &CheckTravel, &ApplyTravel},
 };
+}
+
+// Das Original startet den Ladeablauf: eigene Pause, dann TimescaleManager::ClearAllRequests. Die Umleitung überspringt
+// das, die Freeze-Anfrage aus FinishMission bliebe stehen und hielte jede weitere Runde an. Darum hier dasselbe Abräumen.
+void ClearTimeRequests(uintptr_t LoadingSubsystem)
+{
+    const uintptr_t Timescale = Memory::ReadPointer(LoadingSubsystem + LoadingTimescaleManager).value_or(0);
+    static const uintptr_t Function = Objects::FindObject("ClearAllRequests", "TimescaleManager");
+    if (!Timescale || !Function)
+    {
+        Core::Log::Error("Reise: Zeitanfragen nicht abgeräumt, TimescaleManager fehlt");
+        return;
+    }
+    const auto Active = [&] {
+        return Memory::Read<int32_t>(Timescale + TimescaleRequestCount).value_or(0) - Memory::Read<int32_t>(Timescale + TimescaleRequestFree).value_or(0);
+    };
+    const int32_t Before = Active();
+    struct
+    {
+        uintptr_t Data;
+        int32_t Num;
+        int32_t Max;
+    } Exclude{};
+    Objects::ProcessEvent(Timescale, Function, &Exclude);
+    Core::Log::Info("Reise: Zeitanfragen abgeräumt {} -> {}", Before, Active());
 }
 
 std::span<const Patch> TravelPatches()

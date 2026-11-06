@@ -17,12 +17,32 @@ struct
     // Host
     std::optional<std::optional<Game::Map::HostMap>> Sent;
     uint64_t NextResend = 0;
+    std::optional<std::optional<Game::Map::RoundEnd>> SentEnd;
+    uint64_t NextEndResend = 0;
 } M;
 
 uint64_t NowMs()
 {
     return static_cast<uint64_t>(
         std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
+}
+
+// Rundenende wie die Karte: bei Änderung sofort, sonst jede Sekunde, damit ein verlorenes Paket nachkommt.
+void TickHostRoundEnd(Net::Transport& Transport)
+{
+    const auto End = Game::Map::CurrentRoundEnd();
+    const uint64_t Now = NowMs();
+    if (M.SentEnd && *M.SentEnd == End && Now < M.NextEndResend)
+        return;
+    auto Payload = MapWire::EncodeRoundEnd(End);
+    if (Payload.empty() || !M.Run)
+        return;
+    if (!Transport.SendControl(M.Peer, {M.Run, 1, ++M.Revision, MapWire::RoundEndType, std::move(Payload)}))
+        return;
+    if (End && (!M.SentEnd || *M.SentEnd != End))
+        Core::Log::Info("Rundenende: an den Client gesendet");
+    M.SentEnd = End;
+    M.NextEndResend = Now + 1000;
 }
 
 void TickHost(Net::Transport& Transport)
@@ -55,7 +75,14 @@ void TickHost(Net::Transport& Transport)
 void TickClient(std::span<const Net::ControlMessage> Messages)
 {
     for (const auto& Message : Messages)
-        if (Message.Peer == M.Peer && Message.Value.Type == MapWire::HostMapType)
+        if (Message.Peer == M.Peer && Message.Value.Type == MapWire::RoundEndType)
+        {
+            if (auto End = MapWire::DecodeRoundEnd(Message.Value.Payload))
+                Game::Map::SetHostRoundEnd(*End);
+            else
+                Core::Log::Warn("Rundenende: unlesbare Nachricht vom Host verworfen");
+        }
+        else if (Message.Peer == M.Peer && Message.Value.Type == MapWire::HostMapType)
         {
             if (auto Map = MapWire::Decode(Message.Value.Payload))
                 Game::Map::SetHostMap(std::move(*Map));
@@ -75,13 +102,20 @@ void TickMap(std::span<const Net::ControlMessage> Messages)
     {
         M.Peer = Peer;
         M.Sent.reset();
+        M.SentEnd.reset();
         if (!Host)
+        {
             Game::Map::SetHostMap(std::nullopt);
+            Game::Map::SetHostRoundEnd(std::nullopt);
+        }
     }
     if (!Transport || !Peer)
         return;
     if (Host)
+    {
         TickHost(*Transport);
+        TickHostRoundEnd(*Transport);
+    }
     else
         TickClient(Messages);
 }

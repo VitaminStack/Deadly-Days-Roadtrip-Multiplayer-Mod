@@ -80,3 +80,35 @@ TEST_CASE("Karte: kaputte oder unvollständige Werte werden abgelehnt")
     ZeroIdWithValues.Id = 0;
     CHECK(Encode(ZeroIdWithValues).empty());
 }
+
+TEST_CASE("Rundenende: Karten-Id und Id kommen unverändert an, kein Ende ist eine eigene Nachricht")
+{
+    const Game::Map::RoundEnd End{0x1122334455667788ull, 0x99AABBCCDDEEFF01ull};
+    const auto Bytes = EncodeRoundEnd(End);
+    REQUIRE(Bytes.size() == 16);
+    const auto Back = DecodeRoundEnd(Bytes);
+    REQUIRE(Back.has_value());
+    REQUIRE(Back->has_value());
+    CHECK(**Back == End);
+
+    const auto None = EncodeRoundEnd(std::nullopt);
+    REQUIRE(None.size() == 16);
+    const auto NoneBack = DecodeRoundEnd(None);
+    REQUIRE(NoneBack.has_value());
+    CHECK_FALSE(NoneBack->has_value());
+}
+
+TEST_CASE("Rundenende: halbe oder falsch lange Nachrichten werden abgelehnt")
+{
+    CHECK(EncodeRoundEnd(Game::Map::RoundEnd{0, 5}).empty());
+    CHECK(EncodeRoundEnd(Game::Map::RoundEnd{5, 0}).empty());
+    auto Bytes = EncodeRoundEnd(Game::Map::RoundEnd{7, 9});
+    Bytes.pop_back();
+    CHECK_FALSE(DecodeRoundEnd(Bytes).has_value());
+    std::vector<uint8_t> HalfZero(16, 0);
+    HalfZero[0] = 1;
+    CHECK_FALSE(DecodeRoundEnd(HalfZero).has_value());
+    HalfZero = std::vector<uint8_t>(16, 0);
+    HalfZero[8] = 1;
+    CHECK_FALSE(DecodeRoundEnd(HalfZero).has_value());
+}
