@@ -3,17 +3,22 @@
 #include <windows.h>
 
 #include <cstdint>
+#include <string_view>
 
 #include "Core/Log.h"
 #include "Game/Memory.h"
 #include "Game/Objects.h"
-#include "Game/Offsets.h"
+#include "Game/Reflection.h"
 
 namespace Game
 {
 namespace
 {
 constexpr ULONGLONG CheckIntervalMs = 1000;
+constexpr std::string_view Package = "/Script/DDSurvivors";
+constexpr std::string_view Class = "TutorialStateSubsystem";
+// int32, nach jedem Spielstart wieder 0.
+constexpr Reflection::FieldSpec SkipFlagField{Package, Class, "SkipTutorialFlag", "IntProperty", 4};
 
 // Das Subsystem lebt mit der GameInstance. Solange sein Platz im Objekt-Array dasselbe Objekt hält, gilt der Treffer.
 uintptr_t Subsystem = 0;
@@ -46,23 +51,24 @@ void TickTutorials()
     const auto World = ReadWorld();
     if (!World || World->Role == NetRole::Standalone)
         return;
+    // Fehlt das Feld oder passt es nicht, bleibt der Adapter aus; Reflection hat das schon einmal geloggt.
+    const auto SkipFlag = Reflection::Property(SkipFlagField);
+    if (!SkipFlag)
+        return;
     const uintptr_t Tutorials = FindSubsystem();
-    const auto Flag = Tutorials ? Memory::Read<int32_t>(Tutorials + Offsets::UTutorialStateSubsystem::SkipTutorialFlag) : std::nullopt;
+    const auto Flag = Tutorials ? Memory::Read<int32_t>(Tutorials + SkipFlag->Offset) : std::nullopt;
     if (DecideTutorials(World->Role, Flag) != TutorialAction::Skip)
         return;
 
-    static const uintptr_t Function = Objects::FindObject("SetForceSkipTutorials", "TutorialStateSubsystem");
+    const uintptr_t Function = Reflection::Function(Package, Class, "SetForceSkipTutorials");
     if (!Function)
-    {
-        Core::Log::Error("Tutorial: SetForceSkipTutorials nicht gefunden");
         return;
-    }
     struct
     {
         bool bSkip;
     } Params{ true };
     Objects::ProcessEvent(Tutorials, Function, &Params);
-    const auto After = Memory::Read<int32_t>(Tutorials + Offsets::UTutorialStateSubsystem::SkipTutorialFlag);
+    const auto After = Memory::Read<int32_t>(Tutorials + SkipFlag->Offset);
     static bool ReportedFailure = false;
     if (After && *After)
         Core::Log::Info("Tutorial: Hinweise abgeschaltet ({})", ToString(World->Role));

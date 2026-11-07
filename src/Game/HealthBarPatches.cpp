@@ -24,8 +24,6 @@ constexpr uintptr_t OnMaxHealthChanged = 0x40;
 constexpr uintptr_t Health = 0xA0;
 constexpr uintptr_t OnHealthChanged = 0xC0;
 constexpr uintptr_t ObjectItemSerial = 0x10;
-constexpr uintptr_t StructChildren = 0x48;
-constexpr uintptr_t FieldNext = 0x28;
 
 using OnRepFn = void(__fastcall*)(uintptr_t, const void*);
 OnRepFn OriginalOnRepHealth = nullptr;
@@ -57,8 +55,8 @@ uintptr_t FindFunction(uintptr_t Object, uint64_t Name)
     auto Class = Memory::ReadPointer(Object + Offsets::UObject::Class);
     for (int Depth = 0; Class && Depth < 64; ++Depth, Class = Memory::ReadPointer(*Class + Offsets::UStruct::SuperStruct))
     {
-        auto Field = Memory::ReadPointer(*Class + StructChildren);
-        for (int Count = 0; Field && Count < 4096; ++Count, Field = Memory::ReadPointer(*Field + FieldNext))
+        auto Field = Memory::ReadPointer(*Class + Offsets::UStruct::Children);
+        for (int Count = 0; Field && Count < 4096; ++Count, Field = Memory::ReadPointer(*Field + Offsets::UField::Next))
             if (Memory::Read<uint64_t>(*Field + Offsets::UObject::Name) == Name)
                 return *Field;
     }
