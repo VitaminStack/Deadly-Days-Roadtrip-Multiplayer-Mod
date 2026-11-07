@@ -1653,8 +1653,9 @@ Build `26495302`, Mod-Stand `main` `49e0194` (nach `update-inventar`, #155), nur
 `Guided-Test.ps1` beim Client (16 Schritte, 14 ok, 2 mit Abweichung), beim Host Statusaufzeichnung und Mod-Log. Zeiten in MEZ.
 Ausgewertet: Mod-Logs beider Seiten, Overlay-Verlauf, `crashes.py` beider Seiten. Keine Absturzberichte auf beiden PCs.
 
-- **[Belegt] Alle Patches auf dem neuen Build.** Beide Seiten „Patches: 43 gesetzt“, alle 13 Listen ohne `-PartialPatches`. Der Client
-  trat der Lobby ohne Host-Absturz bei (früher `0x5904DE8`), der Handshake bestätigte Build, Mod-Version und Rolle.
+- **[Belegt] Alle Patch-Listen auf dem neuen Build.** Der Client lief ohne `-PartialPatches` und meldete „Patches: 43 gesetzt“. Der Host lief
+  mit `-PartialPatches`, sein Log meldet „Teilinstallation (DDCOOP_PARTIAL_PATCHES), 13 von 13 Listen gesetzt“, also ebenfalls keine
+  fehlende Liste. Der Client trat der Lobby ohne Host-Absturz bei (früher `0x5904DE8`), der Handshake bestätigte Build, Mod-Version und Rolle.
 - **[Belegt] Drei Rundenenden ohne Absturz.** Tag 1, Tag 2 und nach dem Wiederbeitritt ein drittes. Der Client öffnete Rundenübersicht
   und Lager jeweils selbst, „Bestätigen wartet auf alle“. Der frühere Client-Absturz beim Rundenende auf `26495302` (`0x59677FD`) trat nicht auf.
 - **[Belegt] Dodge des Clients.** 40 Dodges des Clients kamen beim Host mit Richtung an, keiner mit (0,0). Der Mensch am Client sah kein
@@ -1669,12 +1670,18 @@ Ausgewertet: Mod-Logs beider Seiten, Overlay-Verlauf, `crashes.py` beider Seiten
 - **[Gemeldet] Verkaufen und Reparieren im Lager gehen beim Client nicht**, beim Host schon. Items verschieben geht. Am Rundenende lassen
   sich beim Client nicht reparierte Items nicht ausrüsten. Offen, ob das Spiel kaputte Items auch beim Host sperrt. Neue Aufgabe `lager-handel-client`.
 - **[Belegt] Client im Lager hart beendet.** 11:43:41 Prozess des Clients beendet. Der Host erkannte den stummen Client um 11:43:50 und
-  wartete; auch nach seinem eigenen Bestätigen (11:43:56) meldete er nicht „alle bereit“. Erst nach dem Verbindungsabbau (Timeout
-  11:43:58) ging er allein weiter.
+  wartete; auch nach seinem eigenen Bestätigen (11:43:56) meldete er nicht „alle bereit“. Beim Verbindungsabbau (Timeout 11:43:58,
+  Grund 4001) löste der Host die P2-Bindung und holte sein Bestätigen nach („Client nicht mehr im Lager“), reiste aber nicht ab: Laut
+  Host-Log blieb er bis zum Wiederbeitritt im Lager, die Reise begann erst 11:44:45.
 - **[Belegt] Wiederbeitritt in die laufende Mission.** Mit derselben Lobby-ID trat der neu gestartete Client direkt der laufenden Mission
   bei, nicht der MetaBase. Der Host reichte das Rundenende nach, der Client stand wieder im Lager („Bestätigen nachgeholt (alle bereit)“).
+  Host-Log ab 11:44:29: Verbindung angenommen, Handshake bestätigt, Karte und Rundenende gesendet, P2 neu gebunden (`Spieler=2 gültig=true`),
+  11:44:30 „Client im Lager“. Das vor dem Abbruch abgegebene Bestätigen des Hosts blieb gültig: Als der Client 11:44:43 bestätigte, reiste
+  der Host 11:44:45 sofort zum nächsten Tag. Darum brauchte der zweite Abbruchtest ein weiteres Rundenende (Tank gefüllt, Busflucht).
   `Start-Session.ps1 -Role Client` wartet danach weiter auf die MetaBase und muss abgebrochen werden.
-- **[Belegt] Host beendet im Lager.** 11:47 beendete der Host über das Menü: Spielstand gespeichert, Lobby geschlossen. Der Client meldete
+- **[Belegt] Host beendet im Lager.** Rundenende 11:47:01, beide im Lager, keiner bestätigte. 11:47:24 beendete der Host über das Menü:
+  Spielstand im Mod-Ordner gespeichert, 11:47:25 Hauptmenü, 11:47:27 Lobby geschlossen und Transport beendet. Der Host-Prozess lief bis
+  zum Schließen von Hand (11:51) ohne Absturzbericht. Der Client meldete
   „Spiel läuft ohne Host“, „Der Host hat die Sitzung verlassen“ und landete ohne Absturz im Hauptmenü.
 
 ### Steam-Lobby über das Internet (`lobby-live`)
