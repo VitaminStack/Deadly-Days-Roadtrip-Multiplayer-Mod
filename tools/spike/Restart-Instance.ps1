@@ -41,6 +41,7 @@ $Arguments = @('-windowed', '-ResX=800', '-ResY=450', "-WinX=$(820 + $OriginX)",
 if ($Tunnel -eq 'Mod') { $Arguments += '-ddcoop_transport=loopback' }
 # Gleiches Netzprofil wie beim Start der Sitzung.
 if ($Session.PSObject.Properties['NetSim'] -and $Session.NetSim) { $Arguments += "-ddcoop_netsim=$($Session.NetSim)" }
+if ($Session.PSObject.Properties['Control'] -and $Session.Control) { $Arguments += '-ddcoop_control' }
 $Client = Start-Process $Exe -PassThru -ArgumentList $Arguments
 $Session.Client = $Client.Id
 $Session | ConvertTo-Json | Set-Content $File -Encoding ascii
@@ -70,10 +71,10 @@ if ($Tunnel -eq 'Lobby') {
 elseif ($Tunnel -eq 'Mod') {
     $Log = Join-Path (Split-Path $Exe) "DDCoop\logs\ddcoop-$($Client.Id).log"
     Wait-Condition { (Test-Path $Log) -and (Select-String -Path $Log -Pattern 'Transport: verbunden' -Quiet) } 'Tunnel der Mod' 150 @($Client.Id)
-    Send-SpikeCommand $Client.Id 'open 127.0.0.1:7778'
+    Send-GameConsole $Client.Id 'open 127.0.0.1:7778'
 }
 else {
-    Send-SpikeCommand $Client.Id 'open 127.0.0.1:7777'
+    Send-GameConsole $Client.Id 'open 127.0.0.1:7777'
 }
 $World = (Get-NetState $HostId).world
 Wait-Condition {

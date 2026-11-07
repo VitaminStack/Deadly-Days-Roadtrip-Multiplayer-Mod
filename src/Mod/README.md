@@ -12,7 +12,8 @@ Läuft einmal auf dem Thread des Loaders:
 4. Versionsprüfung, bei unbekanntem Build oder fremdem Prozess hier aufhören.
 5. Hooks vorbereiten.
 6. `Game::SaveRedirect::Install` trennt die Spielstände der Mod vom normalen Spielstand. Scheitert es, startet die Mod nicht.
-7. `Mod::Lobby::Install` hängt den Lobby-Tick an den Game-Thread-Takt, das geht nur vor `Game::Start`.
+7. `Mod::Lobby::Install` hängt den Lobby-Tick an den Game-Thread-Takt, das geht nur vor `Game::Start`. `Mod::Control::Install` öffnet danach
+   mit dem Schalter `-ddcoop_control` den Testkanal, siehe [Testkanal der Mod](../../docs/TESTING.md#testkanal-der-mod).
 8. `Game::Start`, `Net::Start`, `Sync::Start` und `UI::Start` aufrufen.
 
 Keine Ausnahme verlässt `ModStart`. Das Spiel läuft in jedem Fall normal weiter, nur ohne Mod.

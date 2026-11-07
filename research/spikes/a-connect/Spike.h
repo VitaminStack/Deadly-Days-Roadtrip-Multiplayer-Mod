@@ -1,4 +1,5 @@
-// Gemeinsame Schnittstelle der Spike-Dateien. Offsets gelten nur fuer Build 26187885.
+// Gemeinsame Schnittstelle der Spike-Dateien. Code- und Datenadressen nennt der Quelltext fuer Build 26187885; Rva() rechnet sie
+// fuer 26495302 um (Builds.cpp). Feld-Offsets sind in beiden Builds gleich.
 #pragma once
 #include <windows.h>
 #include <cstdint>
@@ -11,11 +12,18 @@
 
 namespace Spike
 {
+// Builds.cpp
+constexpr uintptr_t kMissingRva = 0x7F000000; // Base + kMissingRva liegt hinter dem Abbild, ein Lesen scheitert statt Fremdes zu treffen
+uintptr_t Rva(uintptr_t ReferenceRva);
+bool IsReferenceBuild();
+bool IsSupportedBuild();
+uintptr_t FindImportSlot(const void* Function);
+
 void TickRemoteP2();
 bool RemoteP2Command(const std::wstring& Command);
-constexpr uintptr_t kGObjects = 0x0AA61B00;
-constexpr uintptr_t kNameBlocks = 0x0A993AC0 + 0x10;
-constexpr uintptr_t kGWorld = 0x0AAE46F0;
+const uintptr_t kGObjects = Rva(0x0AA61B00);
+const uintptr_t kNameBlocks = Rva(0x0A993AC0) + 0x10;
+const uintptr_t kGWorld = Rva(0x0AAE46F0);
 constexpr int kProcessEventIndex = 0x4A;
 constexpr uintptr_t kWorldNetDriver = 0x38;
 constexpr uintptr_t kWorldGameMode = 0x1A8;
@@ -59,6 +67,7 @@ private:
 
 // Prueft die Originalbytes einer Stelle und protokolliert eine Abweichung.
 bool Expect(uintptr_t Site, std::initializer_list<uint8_t> Bytes, const char* Where);
+bool ExpectBranch(uintptr_t Site, uint8_t Opcode, uintptr_t TargetReferenceRva, const char* Where);
 void WriteJump(uintptr_t From, uint8_t* To);
 
 // Main.cpp

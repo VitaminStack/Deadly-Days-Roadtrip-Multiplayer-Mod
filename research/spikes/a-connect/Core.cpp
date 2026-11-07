@@ -141,10 +141,28 @@ uint8_t* CodeWriter::EmitAbsoluteJump(uintptr_t Target)
 
 bool Expect(uintptr_t Site, std::initializer_list<uint8_t> Bytes, const char* Where)
 {
+    if (IsBadReadPtr(reinterpret_cast<void*>(Site), Bytes.size()))
+    {
+        Log(std::string("Patch: Adresse fehlt oder nicht lesbar ") + Where);
+        return false;
+    }
     if (memcmp(reinterpret_cast<void*>(Site), Bytes.begin(), Bytes.size()) == 0)
         return true;
     Log(std::string("Patch: unerwartete Bytes ") + Where);
     return false;
+}
+
+// call/jmp rel32 an Site muss auf TargetRva (Referenz-RVA, wie bei Rva()) zeigen. Die Verschiebung selbst aendert sich je Build.
+bool ExpectBranch(uintptr_t Site, uint8_t Opcode, uintptr_t TargetRva, const char* Where)
+{
+    const uintptr_t Target = Base + Rva(TargetRva);
+    if (IsBadReadPtr(reinterpret_cast<void*>(Site), 5) || Read<uint8_t>(Site) != Opcode ||
+        Site + 5 + Read<int32_t>(Site + 1) != Target)
+    {
+        Log(std::string("Patch: unerwarteter Sprung ") + Where);
+        return false;
+    }
+    return true;
 }
 
 void WriteJump(uintptr_t From, uint8_t* To)

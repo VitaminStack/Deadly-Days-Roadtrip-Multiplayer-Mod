@@ -5,7 +5,7 @@ namespace Spike
 {
 namespace
 {
-constexpr uintptr_t kBeginDeferredActorSpawnFromClass = 0x2A678F0;
+const uintptr_t kBeginDeferredActorSpawnFromClass = Rva(0x2A678F0);
 
 using BeginDeferredSpawnFn = uintptr_t(__fastcall*)(uintptr_t, uintptr_t*, const void*, uint8_t, uintptr_t, uint8_t);
 BeginDeferredSpawnFn OriginalBeginDeferredSpawn;

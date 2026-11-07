@@ -10,9 +10,9 @@ constexpr uintptr_t kActivePlayers = 0x100;
 constexpr uintptr_t kCoopEnabled = 0x180;
 constexpr uintptr_t kLocalPlayers = 0x38;
 constexpr uintptr_t kGameInstance = 0x228;
-constexpr uintptr_t kMapAdd = 0x58D1940;
-constexpr uintptr_t kMapSparseRemove = 0x1344470;
-constexpr uintptr_t kGetController = 0x58EE0D0;
+const uintptr_t kMapAdd = Rva(0x58D1940);
+const uintptr_t kMapSparseRemove = Rva(0x1344470);
+const uintptr_t kGetController = Rva(0x58EE0D0);
 bool Enabled = false;
 bool FunctionsReady = false;
 uintptr_t LastWorld = 0, LastRemote = 0;
@@ -98,7 +98,7 @@ bool PatchRemoteDeviceCheck()
     static bool Installed = false;
     if (Installed)
         return true;
-    const uintptr_t Site = Base + 0x59072AA;
+    const uintptr_t Site = Base + Rva(0x59072AA);
     if (!Expect(Site, {0x48, 0x85, 0xDB, 0x74, 0x05, 0x40, 0x84, 0xED, 0x74, 0x04}, "RemoteP2 missing device branch"))
         return false;
     struct Writer : CodeWriter
@@ -112,7 +112,7 @@ bool PatchRemoteDeviceCheck()
     if (!Code.Allocate())
         return false;
     uint8_t* Start = Code.Here();
-    EmitRemoteDeviceGuard(Code, reinterpret_cast<uintptr_t>(&HasRemoteP2Device), Base + 0x59072AF, Base + 0x59072B4);
+    EmitRemoteDeviceGuard(Code, reinterpret_cast<uintptr_t>(&HasRemoteP2Device), Base + Rva(0x59072AF), Base + Rva(0x59072B4));
     WriteJump(Site, Start);
     Installed = true;
     return true;
@@ -228,7 +228,7 @@ bool RemoteP2Command(const std::wstring& Command)
         FunctionsReady = Expect(Base + kMapAdd, {0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x6C, 0x24, 0x18}, "RemoteP2 map add") &&
             Expect(Base + kGetController, {0x48, 0x89, 0x5C, 0x24, 0x08}, "RemoteP2 get controller") &&
             Expect(Base + kMapSparseRemove, {0x45, 0x85, 0xC0}, "RemoteP2 20-byte sparse remove") &&
-            Expect(Base + 0x24E9410, {0x4C, 0x8B, 0xDC, 0x53, 0x55, 0x56, 0x57, 0x41, 0x56}, "RemoteP2 script delegate broadcast") &&
+            Expect(Base + Rva(0x24E9410), {0x4C, 0x8B, 0xDC, 0x53, 0x55, 0x56, 0x57, 0x41, 0x56}, "RemoteP2 script delegate broadcast") &&
             PatchRemoteDeviceCheck();
         Enabled = FunctionsReady;
         TickRemoteP2();
@@ -245,7 +245,7 @@ bool RemoteP2Command(const std::wstring& Command)
             struct { int32_t Index; int32_t Padding; uintptr_t Controller; } Params{1, 0, R.Remote};
             static_assert(sizeof(Params) == 0x10);
             using BroadcastFn = void(__fastcall*)(uintptr_t, void*);
-            reinterpret_cast<BroadcastFn>(Base + 0x24E9410)(R.Coop + 0x38, &Params);
+            reinterpret_cast<BroadcastFn>(Base + Rva(0x24E9410))(R.Coop + 0x38, &Params);
             LastJoinedWorld = R.World;
             LastJoinedController = Weak;
             Log("RemoteP2: explicit native OnPlayerJoined broadcast");
