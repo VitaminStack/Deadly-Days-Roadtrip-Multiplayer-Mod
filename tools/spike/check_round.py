@@ -34,12 +34,34 @@ STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'
 LOG_DIR = os.path.join(os.environ.get('TEMP', '.'), 'ddspike')
 
 
-def alive(pid):
+def process_running(pid):
+    """Laeuft der Prozess noch? Unabhaengig von der World, die waehrend des Ladens 0 ist."""
+    import ctypes
+    kernel = ctypes.windll.kernel32
+    handle = kernel.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+    if not handle:
+        return False
+    try:
+        code = ctypes.c_ulong()
+        return bool(kernel.GetExitCodeProcess(handle, ctypes.byref(code))) and code.value == 259  # STILL_ACTIVE
+    finally:
+        kernel.CloseHandle(handle)
+
+
+def open_game(pid):
+    """Speicherzugriff auf eine laufende Instanz, auch waehrend des Ladens. None, wenn der Prozess beendet ist."""
+    if not process_running(pid):
+        return None
     try:
         game = Game(pid)
     except SystemExit:
         return None
-    return game if game.base and game.world() else None
+    return game if game.base else None
+
+
+def alive(pid):
+    game = open_game(pid)
+    return game if game and game.world() else None
 
 
 def class_root(game, cls, cache):
@@ -210,21 +232,32 @@ def evaluate(host, client, previous, expected_world):
     return problems
 
 
-def wait_new_world(host_pid, client_pid, before, timeout, expected_world):
-    """Wartet, bis beide eine andere World als vorher haben und es die Mission ist. Liefert die Ladezeit."""
+def players(game, world):
+    """Spieler im GameState der World, 0 solange die World noch keinen GameState hat."""
+    state = game.ptr(world + 0x1B0) if world else 0
+    return game.i32(state + 0x2C8) if state else 0
+
+
+def wait_new_world(host_pid, client_pid, before, timeout, expected_world, expected_players=2):
+    """Wartet, bis beide eine andere World als vorher haben, es die erwartete ist und ihr GameState alle Spieler kennt.
+    Liefert die Ladezeit in Sekunden ab dem Aufruf. Waehrend des Ladens ist die World 0 oder eine Zwischenwelt, das zaehlt
+    nicht als beendete Instanz. None: Instanz beendet oder Zeit abgelaufen."""
     start = time.time()
+    games = {}
     while time.time() - start < timeout:
         worlds = []
         for pid in (host_pid, client_pid):
-            game = alive(pid)
-            if game is None:
+            game = games.get(pid) or open_game(pid)
+            if game is None or not process_running(pid):
                 return None
+            games[pid] = game
             world = game.world()
-            worlds.append((hex(world), game.name(world)))
-        if all(ptr != before.get(str(i)) and name == expected_world for i, (ptr, name) in enumerate(worlds)):
+            worlds.append((hex(world), game.name(world) if world else None, players(game, world)))
+        if all(ptr != before.get(str(i)) and name == expected_world and count >= expected_players
+               for i, (ptr, name, count) in enumerate(worlds)):
             return round(time.time() - start, 1)
         time.sleep(0.5)
-    return round(time.time() - start, 1)
+    return None
 
 
 def main():
