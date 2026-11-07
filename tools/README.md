@@ -125,6 +125,23 @@ py tools/rva_map.py --old <kopie-26187885>/DDSurvivors/Binaries/Win64/DDSurvivor
   setzt keine Patches (Log: `Adresse … fehlt`, `Prüfung fehlgeschlagen`). Die Portierung trägt die Adresse von Hand mit `// von Hand` nach.
 - Ein neuer Lauf überschreibt die Datei; von Hand nachgetragene Zeilen vorher sichern.
 
+## expect_check.py
+
+Prüft die Byte-Prüfungen der Patches (`Code::Expect` und `ExpectBranch`) offline gegen eine lokale Exe, ohne Spielstart. Rechnet die Adressen
+wie `Game::AddressMap` über `src/Game/RvaMap<build>.inc` um. Für den Referenz-Build gelten sie unverändert.
+
+```bash
+py tools/expect_check.py --exe <kopie>/DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe --build 26495302 --file ClientPatches.cpp PlayerPatches.cpp
+```
+
+- `ok`, `abweichend` (mit gelesenen Bytes), `fehlt` (kein Tabelleneintrag), `uebersprungen` (Adresse aus lokaler Variable, prüft nur das Spiel).
+  Exitcode 1 bei `abweichend` oder `fehlt`.
+- Feste `E8`/`E9`-rel32-Bytes verschieben sich mit jedem Build. Solche Prüfungen mit `ExpectBranch(Site, CallRel32|JumpRel32, ZielRva, …)`
+  schreiben, das vergleicht das Sprungziel mit `At(ZielRva)`.
+- Prüfungen in einer Verzweigung nach `Core::ActiveBuild()` bekommen am Ende ihrer ersten Zeile `// Build <id>`. Für andere Builds meldet das
+  Werkzeug sie als `anderer-build` statt `abweichend`.
+- Ohne `--file` alle `src/Game/*Patches.cpp`.
+
 ## Build-Mod.ps1
 
 Baut `DeadlyDaysCoop.sln` wie die CI nach `bin/<Konfiguration>/`. Mit `-Test` laufen danach `CoreTests.exe` und die Python-Tests.

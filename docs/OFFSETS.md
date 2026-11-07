@@ -31,6 +31,39 @@ Stand 07.11.2026. Alle Werte dieser Datei bleiben Referenz-RVAs von `26187885`. 
 - Mit Teilinstallation (`-PartialPatches`): 8 von 13 Listen gesetzt, ausgelassen Player, Client, Inventory, HealthBar, Reward. Absturz beim
   Beitritt unverändert an `0x5904DE8`, bis `update-client` die Player-Liste portiert.
 
+### Client- und Player-Patches (`update-client`)
+
+Stand 07.11.2026, Dateien `ClientPatches.cpp`, `PlayerPatches.cpp`, `RemoteP2Patches.cpp`, `LocalDevicePatches.cpp`.
+
+- Von Hand nachgetragen (`// von Hand` in der Tabelle):
+
+  | Referenz | 26495302 | Beleg |
+  |---|---|---|
+  | `0x05666FA5` Blockade-Thunk | `0x056676F5` | einziger Thunk mit `jmp` auf das umgerechnete `BlockadeLoadingFinished`, gleiche Befehle davor |
+  | `0x058E84C0` `FinishMission` | `0x058EA1A0` | Ziel beider umgerechneter Aufrufer, gleicher Prolog, Signatur `(this, bool IsLoading)` unverändert |
+  | `0x05A8BAB0` `ClientRefreshFunction` | `0x05A90940` | Ziel des `call` an `ClientRefreshCallSite` |
+
+- Geänderter Spielcode: `FinishMission` prüft zusätzlich zwei nicht reflektierte Flags im `Pad_410` von `ADDMissionGameState`. Der Hook
+  sperrt weiter nur das lokale Rundenende beim Client und ist davon nicht betroffen. Die Client-Refresh-Funktion liest `this+370h` weiter
+  ohne Nullprüfung, der Patch bleibt nötig. Ihre übrigen Felder haben sich verschoben (`0x900` → `0x8F8`), die nutzt die Mod nicht.
+- Vier Prüfungen hatten feste `call rel32`-Bytes (Exp-Aggregation zweimal, TSet-Add und Broadcast in der Registrierung). Alle zeigen auf
+  die umgerechneten Ziele. Sie prüfen jetzt über `ExpectBranch` das Sprungziel statt der Bytes, ebenso der Blockade-Thunk, Client-Refresh
+  und Attribut-Tick.
+- Sprungziele der Code-Höhlen (`…Exit`, `…SkipTarget`, `RunEndContinue`, `Sneak…`) haben denselben Abstand zur Patch-Stelle wie im Referenz-Build.
+  Die Feld-Offsets der vier Dateien sind laut SDK-Vergleich unverändert. Geändert haben sich unter anderem `UInventoryPanel`, `UToolTip`,
+  `URoundEndPanel` und `URarity` (Thema von `update-inventar`).
+- `tools/expect_check.py`: auf beiden Builds 42 von 42 prüfbaren Prüfungen der vier Dateien `ok`, 2 nur im Spiel prüfbar (lokale `Site`).
+- Spieltest ein PC, Lobby, `-NoSpike`: `26187885` weiter 43 Patches. `26495302` mit `-PartialPatches`: 10 von 13 Listen, ausgelassen nur
+  Inventory, HealthBar und Reward. Der Client tritt ohne Host-Absturz bei, `SpawnedPlayers` meldet `Spieler=2 gültig=true`.
+  `Run-Route.ps1 -Days 1 -StayLast`: MetaBase und Tag 1 bei beiden `sauber` (2/2 Spieler, 102/103 Kacheln). Abweichend ist nur der
+  Inventarvergleich, weil die Inventory-Liste noch fehlt. Seit Missionsbeginn keine neuen Fehler im Log.
+- Rundenende Tag 1 (Tank per `tools/spike/fuel.py` auf 118/120, letzter Kanister und Busflucht vom Menschen): Der Host beendet die Runde
+  und benachrichtigt den Client („Rundenende: an den Client gesendet“). Direkt danach stürzt der Client bei `0x59677FD` ab (`0xC0000005`).
+  Das ist `+0x7D` in der Inventarschleife `0x5967780` und entspricht dem bekannten Referenz-Absturz `0x596362D`
+  (`0x59635B0` + `0x7D`, siehe [Spike-Inventar](../research/spikes/a-connect/README.md#inventar-ursache-teilfix-und-verbleibende-grenze)):
+  Beim Client fehlen Inventar-Items, weil die Inventory-Liste (`Inventar-Unterobjekte replizieren`) auf `26495302` noch nicht gesetzt ist.
+  Kein neuer Fehler der vier Dateien; Wiederholung des Coop-Tags nach `update-inventar`.
+
 ### Inventar, Belohnung, Lebensleisten (`update-inventar`)
 
 Von Hand nachgetragen in `RvaMap26495302.inc` (Zeilen „von Hand“). Native Funktionen über ihre Exec-Thunks (Namenspaar
@@ -63,7 +96,7 @@ Von Hand nachgetragen in `RvaMap26495302.inc` (Zeilen „von Hand“). Native Fu
   native Fixes ohne Gegenstück in der Mod.
 - Spieltest 07.11.2026 auf `26495302` (ein PC, Lobby, `-NoSpike -PartialPatches`): 11 von 13 Listen gesetzt, Inventory, HealthBar und
   Reward ohne Fehlermeldung, ausgelassen nur Player und Client (`update-client`). Absturz beim Beitritt unverändert `0x5904DE8`. Die
-  Abnahme beim Client (Airdrop, Belohnungswahl, Lager) steht deshalb aus, bis `update-client` den Beitritt portiert.
+  Abnahme beim Client (Airdrop, Belohnungswahl, Lager) stand deshalb aus; `update-client` ist inzwischen gemergt.
 
 ## Diagnoseadapter (`desync-melder`)
 

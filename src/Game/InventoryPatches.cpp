@@ -334,21 +334,11 @@ bool ApplyInventory(Code::Writer&)
            Code::WriteVirtual(At(InventoryVtable, ReadyForReplicationSlot), reinterpret_cast<uintptr_t>(&InventoryReadyForReplicationHook));
 }
 
-// CALL rel32 an Site mit Ziel Target. Geprüft wird das Ziel, nicht die rel32-Bytes, die sich mit jedem Build verschieben.
-bool ExpectCall(uintptr_t Site, uintptr_t Target, std::string_view Where)
-{
-    const auto Opcode = Site ? Memory::Read<uint8_t>(Site) : std::nullopt;
-    const auto Rel = Site ? Memory::Read<int32_t>(Site + 1) : std::nullopt;
-    if (Target && Opcode == 0xE8 && Rel && Site + 5 + static_cast<intptr_t>(*Rel) == Target)
-        return true;
-    Core::Log::Error("Patches: unerwarteter Aufruf {}", Where);
-    return false;
-}
-
 bool CheckDetector()
 {
+    // Aufrufziel statt rel32-Bytes, die sich mit jedem Build verschieben.
     return Code::ExpectVirtual(At(DetectorVtable, EndPlaySlot), At(DetectorEndPlay), "EndPlay des Achievement-Detektors") &&
-           ExpectCall(At(ScheduleCall), At(SetNextTick), "Timer des Achievement-Detektors") &&
+           ExpectBranch(At(ScheduleCall), CallRel32, SetNextTick, "Timer des Achievement-Detektors") &&
            Code::Expect(At(SetNextTick), {0x40, 0x55, 0x53, 0x48, 0x8D, 0x6C, 0x24, 0xB1}, "SetTimerForNextTick") &&
            Code::Expect(At(FindTimer), {0x4C, 0x8B, 0x0A, 0x4C, 0x8B, 0xD1}, "FindTimer") &&
            Code::Expect(At(ClearTimer), {0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x54, 0x24, 0x10}, "ClearTimer");
@@ -383,11 +373,11 @@ bool ApplyMapGenLambda(Code::Writer&)
 bool CheckRepresentationSize()
 {
     if (Core::ActiveBuild() == AddressMap::ReferenceBuild)
-        return Code::Expect(At(RepresentationSize), {0x40, 0x53, 0x48, 0x83, 0xEC, 0x50, 0x48, 0x8B, 0x81, 0x28, 0x0A, 0x00, 0x00},
+        return Code::Expect(At(RepresentationSize), {0x40, 0x53, 0x48, 0x83, 0xEC, 0x50, 0x48, 0x8B, 0x81, 0x28, 0x0A, 0x00, 0x00}, // Build 26187885
                             "Größe des Item-Widgets");
-    return Code::Expect(At(RepresentationSize), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x56, 0x48, 0x83, 0xEC, 0x40, 0x48, 0x83, 0x79, 0x30, 0x00},
+    return Code::Expect(At(RepresentationSize), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x56, 0x48, 0x83, 0xEC, 0x40, 0x48, 0x83, 0x79, 0x30, 0x00}, // Build 26495302
                         "Größe des Item-Widgets") &&
-           Code::Expect(At(RepresentationSize, 0x41), {0x48, 0x8B, 0x86, 0x28, 0x0A, 0x00, 0x00}, "Größe des Item-Widgets, Item-Feld");
+           Code::Expect(At(RepresentationSize, 0x41), {0x48, 0x8B, 0x86, 0x28, 0x0A, 0x00, 0x00}, "Größe des Item-Widgets, Item-Feld"); // Build 26495302
 }
 
 bool ApplyRepresentationSize(Code::Writer&)

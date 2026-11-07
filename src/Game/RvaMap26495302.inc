@@ -18,7 +18,7 @@
 {0x0314D4D0, 0x0314D6D0}, // eindeutig, SetNextTick, src/Game/InventoryPatches.cpp:190
 {0x03262830, 0x03262A30}, // eindeutig, SetClientTravel, src/Game/TravelPatches.cpp:16
 {0x04B68180, 0x04B68380}, // eindeutig, AttributeLookupFunction, src/Game/ClientPatches.cpp:19
-// FEHLT 0x05666FA5 // fehlt, At, src/Game/ClientPatches.cpp:285
+{0x05666FA5, 0x056676F5}, // von Hand, Thunk mit jmp auf BlockadeLoadingFinished, src/Game/ClientPatches.cpp:285
 {0x057BD5E0, 0x057BDCD0}, // eindeutig, ControllerSetAdd, src/Game/PlayerPatches.cpp:28
 {0x057CB3C5, 0x057CB5A5}, // ueber-funktion, ScheduleCall, src/Game/InventoryPatches.cpp:189
 {0x057D0A40, 0x057D0C60}, // eindeutig, DetectorEndPlay, src/Game/InventoryPatches.cpp:187
@@ -46,7 +46,7 @@
 {0x058D1940, 0x058D1A80}, // eindeutig, MapAdd, src/Game/RemoteP2Patches.cpp:24
 {0x058D93B0, 0x058DA3E0}, // eindeutig, AssignDevice, src/Game/LocalDevicePatches.cpp:19
 {0x058E5690, 0x058E73B0}, // eindeutig, DraftAssignDevice, src/Game/LocalDevicePatches.cpp:20
-// FEHLT 0x058E84C0 // fehlt, FinishMission, src/Game/ClientPatches.cpp:37
+{0x058E84C0, 0x058EA1A0}, // von Hand, Ziel beider umgerechneter Aufrufe, FinishMission, src/Game/ClientPatches.cpp:37
 {0x058EE0D0, 0x058EFFD0}, // eindeutig, GetController, src/Game/LocalDevicePatches.cpp:22
 {0x058FB020, 0x058FD3A0}, // eindeutig, RegisterController, src/Game/PlayerPatches.cpp:30
 {0x058FB11D, 0x058FD49D}, // eindeutig, At, src/Game/PlayerPatches.cpp:370
@@ -85,7 +85,7 @@
 {0x05A43400, 0x05A47660}, // eindeutig, OpenCrate, src/Game/AirdropPatches.cpp:12
 {0x05A6CB20, 0x05A71900}, // von Hand, Exec-Thunk HandleConfirmButton, PanelConfirm, src/Game/RewardPatches.cpp:39
 {0x05A7350B, 0x05A782FB}, // eindeutig, ClientRefreshCallSite, src/Game/ClientPatches.cpp:16
-{0x05A8BAB0, 0x05A90940}, // von Hand, Exec-Thunk SetupInventory, ClientRefreshFunction, src/Game/ClientPatches.cpp:17 und PanelSetupInventory, src/Game/RewardPatches.cpp:40
+{0x05A8BAB0, 0x05A90940}, // von Hand, Ziel des Aufrufs an ClientRefreshCallSite und Exec-Thunk SetupInventory, ClientRefreshFunction, src/Game/ClientPatches.cpp:17 und PanelSetupInventory, src/Game/RewardPatches.cpp:40
 {0x05AB5120, 0x05ABA0F0}, // von Hand, Aufrufer, Code umgeordnet, RepresentationSize, src/Game/InventoryPatches.cpp:205
 {0x05B028D0, 0x05B08070}, // eindeutig, LocalViewportCorners, src/Game/ExpPatches.cpp:28
 {0x05B07680, 0x05B0CE30}, // eindeutig, GetPlayerCharacters, src/Game/ClientPatches.cpp:27

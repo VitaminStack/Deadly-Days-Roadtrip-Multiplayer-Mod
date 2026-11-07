@@ -626,8 +626,8 @@ bool CheckConfirm()
     // Dazu der native Drag-Test (cmp byte ptr [rdi+IsDragging],0), damit PanelIsDragging() zum Build passt.
     const bool Reference = Core::ActiveBuild() == AddressMap::ReferenceBuild;
     const bool Prolog = Reference
-        ? Code::Expect(At(PanelConfirm), {0x40, 0x57, 0x48, 0x83, 0xEC, 0x50, 0x48, 0x8B, 0xF9}, "InventoryPanel.HandleConfirmButton")
-        : Code::Expect(At(PanelConfirm), {0x48, 0x89, 0x5C, 0x24, 0x18, 0x55, 0x56, 0x57, 0x48, 0x83, 0xEC, 0x40, 0x48, 0x8B, 0xF9},
+        ? Code::Expect(At(PanelConfirm), {0x40, 0x57, 0x48, 0x83, 0xEC, 0x50, 0x48, 0x8B, 0xF9}, "InventoryPanel.HandleConfirmButton") // Build 26187885
+        : Code::Expect(At(PanelConfirm), {0x48, 0x89, 0x5C, 0x24, 0x18, 0x55, 0x56, 0x57, 0x48, 0x83, 0xEC, 0x40, 0x48, 0x8B, 0xF9}, // Build 26495302
                        "InventoryPanel.HandleConfirmButton");
     const uint8_t Drag = static_cast<uint8_t>(PanelIsDragging());
     return Prolog &&
