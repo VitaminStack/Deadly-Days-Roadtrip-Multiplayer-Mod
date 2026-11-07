@@ -125,6 +125,24 @@ py tools/rva_map.py --old <kopie-26187885>/DDSurvivors/Binaries/Win64/DDSurvivor
   setzt keine Patches (Log: `Adresse … fehlt`, `Prüfung fehlgeschlagen`). Die Portierung trägt die Adresse von Hand mit `// von Hand` nach.
 - Ein neuer Lauf überschreibt die Datei; von Hand nachgetragene Zeilen vorher sichern.
 
+## sdk_diff.py
+
+Vergleicht zwei lokale Dumper-7-SDKs (alter und neuer Build) für alles, was die Mod nutzt, und ergänzt damit `rva_map.py` (Code-Adressen)
+um Felder, Funktionen und Klassen. Nur Standardbibliothek, liest nur die beiden SDK-Ordner und das Repo, schreibt nichts.
+
+```bash
+py tools/sdk_diff.py --old <dumper7-ausgabe-alt> --new <dumper7-ausgabe-neu>
+```
+
+- Gesucht wird in `src/Game/SdkChecks.cpp` (`offsetof(SDK::…)`), in `src/` (`FindObject`/`Function` mit Funktion und Klasse, `FieldSpec`
+  mit Paket, Klasse und Feld, Klassennamen in Zeichenketten) und in `src/` sowie `docs/OFFSETS.md` (Verweise `Klasse.Feld`, `Klasse.Funktion`).
+  Felder und Funktionen werden wie bei der Reflexion der Mod auch in den Oberklassen gesucht, Klassennamen mit und ohne Präfix (`U`, `A`, `F`).
+- `verschoben` (Offset, Größe oder Bit), `verschwunden`, `Signatur geändert` (Parameterliste), `Größe geändert` (Klasse), `neu`,
+  `unbekannt` (aus `SdkChecks.cpp`, kein SDK kennt es) und `unverändert` (nur mit `--all`). Je Eintrag die erste Fundstelle im Repo.
+  Exitcode 1 bei `verschoben`, `verschwunden` oder `Signatur geändert`. `--json` für Skripte.
+- Nicht erfasst: Offsets, die nur als Zahl ohne `Klasse.Feld` im Code oder Kommentar stehen, und Felder, die das SDK nicht nennt (etwa nicht
+  reflektierte Bitfelder). Solche Werte mit Kommentar `// UKlasse.Feld` versehen, dann prüft das Werkzeug sie mit.
+
 ## expect_check.py
 
 Prüft die Byte-Prüfungen der Patches (`Code::Expect` und `ExpectBranch`) offline gegen eine lokale Exe, ohne Spielstart. Rechnet die Adressen
