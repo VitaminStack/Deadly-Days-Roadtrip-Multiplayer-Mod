@@ -32,6 +32,7 @@
     <ClCompile Include="RewardTests.cpp" />
     <ClCompile Include="MapTests.cpp" />
     <ClCompile Include="NetSimTests.cpp" />
+    <ClCompile Include="MovementTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="FakeSteam.h" />

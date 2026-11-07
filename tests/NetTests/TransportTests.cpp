@@ -506,3 +506,37 @@ TEST_CASE("Sync findet den Lobbytransport ohne ihn nach Sitzungsende am Leben zu
     CHECK(Weak.expired());
     CHECK_FALSE(CurrentTransport());
 }
+
+TEST_CASE("Kontrollnachrichten eines Typs lassen sich einzeln abholen, die übrigen bleiben in Reihenfolge")
+{
+    auto Network = std::make_shared<FakeSteamNetwork>();
+    const auto Options = TestPorts(47790);
+    GameSocket HostGame(Options.GamePort);
+    Transport Host(Network->Account(kHostId), Options);
+    Transport Client(Network->Account(kClientId), Options);
+    REQUIRE(Host.StartHost());
+    REQUIRE(Client.StartClient(kHostId));
+    REQUIRE(WaitFor([&] { return Client.ControlPeers().size() == 1; }));
+    const auto Peer = Client.ControlPeers()[0];
+    REQUIRE(Client.SendControl(Peer, {1, 1, 1, 0x100, {1}}));
+    REQUIRE(Client.SendControl(Peer, {1, 1, 2, 0x500, {2}}));
+    REQUIRE(Client.SendControl(Peer, {1, 1, 3, 0x101, {3}}));
+    REQUIRE(Client.SendControl(Peer, {1, 1, 4, 0x500, {4}}));
+    std::vector<ControlMessage> Typed;
+    REQUIRE(WaitFor([&] {
+        for (auto& Message : Host.TakeControlMessages(0x500))
+            Typed.push_back(std::move(Message));
+        return Typed.size() == 2;
+    }));
+    CHECK(Typed[0].Value.Revision == 2);
+    CHECK(Typed[1].Value.Revision == 4);
+    std::vector<ControlMessage> Rest;
+    REQUIRE(WaitFor([&] {
+        for (auto& Message : Host.TakeControlMessages())
+            Rest.push_back(std::move(Message));
+        return Rest.size() == 2;
+    }));
+    CHECK(Rest[0].Value.Revision == 1);
+    CHECK(Rest[1].Value.Revision == 3);
+    CHECK(Host.TakeControlMessages(0x500).empty());
+}

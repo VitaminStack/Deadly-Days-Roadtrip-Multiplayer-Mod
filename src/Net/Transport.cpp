@@ -476,6 +476,17 @@ std::vector<ControlMessage> Transport::TakeControlMessages()
     return Result;
 }
 
+std::vector<ControlMessage> Transport::TakeControlMessages(uint16_t Type)
+{
+    std::lock_guard Guard(ControlLock);
+    std::vector<ControlMessage> Result;
+    const auto Split = std::stable_partition(Incoming.begin(), Incoming.end(),
+                                             [Type](const ControlMessage& Message) { return Message.Value.Type != Type; });
+    Result.assign(std::make_move_iterator(Split), std::make_move_iterator(Incoming.end()));
+    Incoming.erase(Split, Incoming.end());
+    return Result;
+}
+
 void Transport::Publish(TransportState State, std::string Message)
 {
     std::lock_guard Guard(StatsLock);

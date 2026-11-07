@@ -332,6 +332,7 @@ Was die Mod nutzt, steht zusätzlich in `src/Game/Offsets.h` und wird dort beim 
 | `APlayerState` | PawnPrivate | `0x320` |
 | `ADDPlayerController` | LastMovementInput (`FVector2D`, Doubles, gelesen von `GetLastNormalizedMovementInput`; beim Host für Client-Controller jeden Frame (0, 0), `ausweichen-client`) | `0x910` |
 | `GA_Dash_C` | CachedCharacter, laufende `ApplyRootMotionConstantForce`-Aufgabe (erst nach dem Start gesetzt) | `0x3B0`, `0x400` |
+| `UGameplayAbility` | Schlüssel der Aktivierung (`CurrentActivationInfo` `0xD4` + `PredictionKeyWhenActivated` `0x04` + `FPredictionKey.Current`, int16; beim Client und beim Host gleich, `dodge-client-live`), bIsActive | `0xD8`, `0x388` |
 | `UAbilityTask_ApplyRootMotionConstantForce` | FinishVelocityMode, WorldDirection, Strength, Duration | `0x88`, `0xD0`, `0xE8`, `0xEC` |
 | `BP_DD_Character_C` | Attributset mit Ausdauer; darin MaxStamina, Stamina (`FGameplayAttributeData`, CurrentValue je `+0x0C`) | `0x7D8`; `0x30`, `0x50` |
 | `APlayerController` | CheatManager, CheatClass | `0x410`, `0x418` |
