@@ -159,6 +159,43 @@ TEST_CASE("Patches: erst alle prüfen, dann setzen; eine gescheiterte Prüfung �
     CHECK(Applied == 1);
 }
 
+TEST_CASE("Patches: Teilinstallation setzt jede Liste ganz oder gar nicht")
+{
+    uint8_t Buffer[16]{};
+    Code::Writer Code(Buffer, sizeof(Buffer));
+    Applied = 0;
+    const Patch Good[] = {{"a", &PassCheck, &CountApply}, {"b", &PassCheck, &CountApply}};
+    const Patch Bad[] = {{"c", &PassCheck, &CountApply}, {"d", &FailCheck, &CountApply}};
+    const Patch Late[] = {{"e", &PassCheck, &FailApply}};
+    const PatchList Lists[] = {{"gut", Good}, {"schlecht", Bad}, {"gut2", Good}};
+    bool On[3]{};
+    const ListsResult Result = InstallLists(Lists, Code, On);
+    CHECK(Result.Installed == 2);
+    CHECK(Result.Skipped == 1);
+    CHECK_FALSE(Result.ApplyFailed);
+    CHECK(On[0]);
+    CHECK_FALSE(On[1]);
+    CHECK(On[2]);
+    CHECK(Applied == 4);
+
+    const PatchList Breaking[] = {{"bricht", Late}, {"gut", Good}};
+    bool After[2]{};
+    Applied = 0;
+    const ListsResult Broken = InstallLists(Breaking, Code, After);
+    CHECK(Broken.ApplyFailed);
+    CHECK_FALSE(After[0]);
+    CHECK_FALSE(After[1]);
+    CHECK(Applied == 0);
+}
+
+TEST_CASE("Patches: Teilinstallation nie im Referenz-Build oder ohne Schalter")
+{
+    CHECK(PartialInstallAllowed(true, 26495302));
+    CHECK_FALSE(PartialInstallAllowed(false, 26495302));
+    CHECK_FALSE(PartialInstallAllowed(true, 26187885));
+    CHECK_FALSE(PartialInstallAllowed(true, 0));
+}
+
 TEST_CASE("Patches: ein voller Code-Puffer gilt als gescheitertes Setzen")
 {
     uint8_t Buffer[2]{};

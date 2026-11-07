@@ -1,9 +1,14 @@
-"""Liest Speicher einer laufenden Spielinstanz. Offsets gelten nur fuer Build 26187885, siehe docs/OFFSETS.md."""
+"""Liest Speicher einer laufenden Spielinstanz. Globale Adressen je Build, Feld-Offsets aus docs/OFFSETS.md (Build 26187885)."""
 import ctypes
 import struct
 from ctypes import wintypes as W
 
 GOBJECTS, GNAMES, GWORLD = 0x0AA61B00, 0x0A993AC0, 0x0AAE46F0
+# TimeDateStamp der Exe -> (GObjects, GNames, GWorld, Groesse von .text), wie src/Game/RvaMap<build>.inc.
+BUILDS = {
+    0x32C34474: (GOBJECTS, GNAMES, GWORLD, 0x8276000),            # 26187885
+    0x65BFBBFB: (0x0AA67B80, 0x0A999B40, 0x0AAEA770, 0x827C000),  # 26495302
+}
 
 kernel = ctypes.WinDLL('kernel32', use_last_error=True)
 psapi = ctypes.WinDLL('psapi')
@@ -23,6 +28,11 @@ class Game:
         psapi.EnumProcessModules(self.handle, modules, ctypes.sizeof(modules), ctypes.byref(needed))
         self.base = modules[0]
         self.names = {}
+        header = self.read(self.base, 0x400) or b''
+        stamp = struct.unpack_from('<I', header, struct.unpack_from('<I', header, 0x3C)[0] + 8)[0] if len(header) == 0x400 else 0
+        if stamp not in BUILDS:
+            raise SystemExit(f'{pid}: unbekannter Spiel-Build (TimeDateStamp {stamp:#x})')
+        self.gobjects, self.gnames, self.gworld, self.text_size = BUILDS[stamp]
 
     def read(self, address, size):
         buffer = ctypes.create_string_buffer(size)
@@ -42,7 +52,7 @@ class Game:
     def name_from_index(self, index):
         if index in self.names:
             return self.names[index]
-        entry = self.ptr(self.base + GNAMES + 0x10 + 8 * (index >> 16)) + (index & 0xFFFF) * 2
+        entry = self.ptr(self.base + self.gnames + 0x10 + 8 * (index >> 16)) + (index & 0xFFFF) * 2
         header = self.read(entry, 2)
         if not header:
             return '?'
@@ -56,11 +66,11 @@ class Game:
         return self.name_from_index(self.i32(obj + 0x18)) if obj else None
 
     def world(self):
-        return self.ptr(self.base + GWORLD)
+        return self.ptr(self.base + self.gworld)
 
     def objects(self):
-        chunks = self.ptr(self.base + GOBJECTS)
-        count = self.i32(self.base + GOBJECTS + 8)
+        chunks = self.ptr(self.base + self.gobjects)
+        count = self.i32(self.base + self.gobjects + 8)
         for chunk_index in range((count >> 16) + 1):
             chunk = self.ptr(chunks + 8 * chunk_index)
             raw = self.read(chunk, 0x10000 * 0x18) if chunk else None

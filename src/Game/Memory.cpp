@@ -3,7 +3,12 @@
 #include <windows.h>
 
 #include <cstring>
+#include <mutex>
+#include <unordered_set>
 
+#include "Core/Log.h"
+#include "Core/Version.h"
+#include "Game/AddressMap.h"
 #include "Game/Offsets.h"
 
 namespace Game::Memory
@@ -28,6 +33,20 @@ bool CopyGuarded(const void* From, void* To, size_t Size)
 uintptr_t ImageBase()
 {
     return reinterpret_cast<uintptr_t>(GetModuleHandleW(nullptr));
+}
+
+uintptr_t Rva(uintptr_t ReferenceRva)
+{
+    const uint32_t Build = Core::ActiveBuild();
+    const uint32_t Mapped = AddressMap::Map(Build, static_cast<uint32_t>(ReferenceRva));
+    if (Mapped)
+        return ImageBase() + Mapped;
+    static std::mutex Lock;
+    static std::unordered_set<uintptr_t> Reported;
+    std::scoped_lock Guard(Lock);
+    if (Reported.insert(ReferenceRva).second)
+        Core::Log::Error("Adresse {:#x} fehlt für Spiel-Build {}, siehe tools/rva_map.py", ReferenceRva, Build);
+    return 0;
 }
 
 bool ReadBytes(uintptr_t Address, void* Out, size_t Size)
@@ -56,7 +75,7 @@ std::string NameFromIndex(int32_t Index)
 {
     if (Index < 0)
         return {};
-    const auto Block = ReadPointer(ImageBase() + Offsets::GNames + Offsets::NameBlocks + 8 * (static_cast<uint32_t>(Index) >> 16));
+    const auto Block = ReadPointer(Rva(Offsets::GNames) + Offsets::NameBlocks + 8 * (static_cast<uint32_t>(Index) >> 16));
     if (!Block)
         return {};
     const uintptr_t Entry = *Block + (Index & 0xFFFF) * Offsets::NameStride;

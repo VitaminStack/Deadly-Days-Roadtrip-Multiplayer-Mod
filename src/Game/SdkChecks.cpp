@@ -4,6 +4,7 @@
 
 #include <cstddef>
 
+#include "Game/AddressMap.h"
 #include "Game/Offsets.h"
 
 #pragma warning(push, 0)
@@ -13,10 +14,16 @@
 
 namespace Game::Offsets
 {
-static_assert(GObjects == static_cast<uintptr_t>(SDK::Offsets::GObjects));
-static_assert(GNames == static_cast<uintptr_t>(SDK::Offsets::GNames));
-static_assert(GWorld == static_cast<uintptr_t>(SDK::Offsets::GWorld));
-static_assert(ProcessEvent == static_cast<uintptr_t>(SDK::Offsets::ProcessEvent));
+// Offsets.h nennt Referenz-RVAs; das SDK kann von einem anderen unterstützten Build stammen (AddressMap).
+constexpr bool CoreMatchesSdk(uint32_t Build)
+{
+    return AddressMap::Map(Build, GObjects) == static_cast<uint32_t>(SDK::Offsets::GObjects) &&
+           AddressMap::Map(Build, GNames) == static_cast<uint32_t>(SDK::Offsets::GNames) &&
+           AddressMap::Map(Build, GWorld) == static_cast<uint32_t>(SDK::Offsets::GWorld) &&
+           AddressMap::Map(Build, ProcessEvent) == static_cast<uint32_t>(SDK::Offsets::ProcessEvent);
+}
+static_assert(CoreMatchesSdk(AddressMap::ReferenceBuild) || CoreMatchesSdk(26495302),
+              "GObjects, GNames, GWorld oder ProcessEvent passen zu keinem unterstützten Build, siehe tools/rva_map.py");
 static_assert(ProcessEventIndex == SDK::Offsets::ProcessEventIdx);
 
 static_assert(ObjectArray::NumElements == offsetof(SDK::TUObjectArray, NumElements));

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <span>
 
@@ -14,7 +15,7 @@ enum class State : int
     Pending = 0,
     Active = 1,   // alle Patches gesetzt
     Inactive = 2, // keiner gesetzt, etwa weil eine Prüfung scheiterte
-    Partial = 3,  // Setzen brach mittendrin ab, ein Teil steht
+    Partial = 3,  // Setzen brach mittendrin ab, oder Teilinstallation (DDCOOP_PARTIAL_PATCHES) ließ Listen aus
 };
 
 State CurrentState();
@@ -56,4 +57,25 @@ enum class InstallResult
 
 // Prüft erst alle Patches, setzt dann alle in Reihenfolge. Scheitert eine Prüfung, bleibt alles unverändert.
 InstallResult InstallAll(std::span<const Patch> List, Code::Writer& Code);
+
+// Eine Patch-Datei mit ihrem Tick. Für die Teilinstallation zählt die Liste als Einheit.
+struct PatchList
+{
+    const char* Name;
+    std::span<const Patch> Patches;
+};
+
+struct ListsResult
+{
+    size_t Installed = 0; // gesetzte Listen
+    size_t Skipped = 0;   // Listen mit gescheiterter Prüfung, unverändert
+    bool ApplyFailed = false;
+};
+
+// Teilinstallation für die Portierung auf einen neuen Build (update-basis): jede Liste für sich ganz oder gar nicht.
+// Enabled[i] wird wahr, wenn Lists[i] steht. Bricht das Setzen ab, hört die Funktion sofort auf.
+ListsResult InstallLists(std::span<const PatchList> Lists, Code::Writer& Code, std::span<bool> Enabled);
+
+// Entwicklerschalter DDCOOP_PARTIAL_PATCHES=1 gilt nur außerhalb des Referenz-Builds.
+bool PartialInstallAllowed(bool SwitchOn, uint32_t Build);
 }

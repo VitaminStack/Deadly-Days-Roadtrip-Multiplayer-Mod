@@ -98,6 +98,8 @@
     <ClInclude Include="RemoteP2Policy.h" />
     <ClInclude Include="GameThread.h" />
     <ClInclude Include="Memory.h" />
+    <ClInclude Include="AddressMap.h" />
+    <None Include="RvaMap26495302.inc" />
     <ClInclude Include="Objects.h" />
     <ClInclude Include="Offsets.h" />
     <ClInclude Include="SavePaths.h" />

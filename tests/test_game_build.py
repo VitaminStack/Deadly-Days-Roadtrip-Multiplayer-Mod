@@ -30,7 +30,7 @@ class FrozenBuildTests(unittest.TestCase):
             file.parent.mkdir(parents=True, exist_ok=True)
             file.write_bytes(content)
         reference = {name: hashlib.sha256((self.source / name).read_bytes()).hexdigest() for name in (self.exe, self.pak)}
-        self.reference = patch.object(build, 'REFERENCE', reference)
+        self.reference = patch.object(build, 'REFERENCES', {build.BUILD: reference, '1': {self.exe: '0' * 64}})
         self.reference.start()
         self.addCleanup(self.reference.stop)
 

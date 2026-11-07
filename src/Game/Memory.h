@@ -13,6 +13,10 @@ namespace Game::Memory
 // Image-Base der laufenden Exe.
 uintptr_t ImageBase();
 
+// Absolute Adresse zu einer RVA des Referenz-Builds, für den laufenden Build umgerechnet (Game/AddressMap.h).
+// 0, wenn die Adresse im laufenden Build unbekannt ist; das wird einmal je RVA protokolliert.
+uintptr_t Rva(uintptr_t ReferenceRva);
+
 // Kopiert Size Bytes von Address nach Out. Falsch bei Address 0 oder einem Zugriffsfehler.
 bool ReadBytes(uintptr_t Address, void* Out, size_t Size);
 

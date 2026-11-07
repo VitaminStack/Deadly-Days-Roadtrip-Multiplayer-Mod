@@ -42,7 +42,7 @@ bool ExecuteConsoleCommand(std::wstring_view Command)
         Function = Objects::FindObject("ExecuteConsoleCommand", "KismetSystemLibrary");
     if (!Library)
         Library = Objects::FindObject("Default__KismetSystemLibrary", "");
-    const auto World = Memory::ReadPointer(Memory::ImageBase() + Offsets::GWorld);
+    const auto World = Memory::ReadPointer(Memory::Rva(Offsets::GWorld));
     if (!Function || !Library || !World)
     {
         Core::Log::Warn("Konsole: Funktion, Bibliothek oder Welt fehlt");

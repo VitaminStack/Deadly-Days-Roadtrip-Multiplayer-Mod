@@ -41,9 +41,13 @@ param(
     [string]$NetProfile,
     # Wie im Release: nur die Mod, ohne spike.dll. Braucht -Mod und -Tunnel Lobby, Ziel bleibt die MetaBase.
     # Ohne Spike gibt es keine Konsolenbefehle, Karte und PCG kommen nicht vom Host, siehe src\Game\README.md.
-    [switch]$NoSpike
+    [switch]$NoSpike,
+    # Nur auf einem anderen Build als 26187885: Patch-Listen einzeln setzen (DDCOOP_PARTIAL_PATCHES), fuer die Portierung.
+    [switch]$PartialPatches
 )
 $ErrorActionPreference = 'Stop'
+# Start-Process vererbt die Umgebung an die Instanzen.
+if ($PartialPatches) { $env:DDCOOP_PARTIAL_PATCHES = '1' } else { Remove-Item Env:DDCOOP_PARTIAL_PATCHES -ErrorAction SilentlyContinue }
 . (Join-Path $PSScriptRoot 'Common.ps1')
 if ($Role -eq 'Client' -and -not $Peer) { throw '-Role Client braucht -Peer: SteamID64 des Hosts (mit -Tunnel P2p) oder Adresse:Port.' }
 if ($Role -ne 'Client' -and $Peer) { throw '-Peer gilt nur mit -Role Client.' }
@@ -65,6 +69,10 @@ $Timer = [Diagnostics.Stopwatch]::StartNew()
 function Write-Step([string]$Text) { Write-Host ('[{0,4:n0} s] {1}' -f $Timer.Elapsed.TotalSeconds, $Text) }
 Initialize-SessionDir
 Assert-SupportedBuild
+# Der Spike enthaelt feste Adressen des Referenz-Builds und wird nicht umgerechnet (update-basis).
+if ($script:ActiveBuild -ne $script:SupportedBuild -and -not $NoSpike) {
+    throw "Build $($script:ActiveBuild): der Spike gilt nur fuer $($script:SupportedBuild). Mit -Mod -Tunnel Lobby -NoSpike starten."
+}
 if ($Restart -or $Build) {
     $Stopped = & (Join-Path $PSScriptRoot 'Stop-Session.ps1')
     if (-not $Brief) { $Stopped }
