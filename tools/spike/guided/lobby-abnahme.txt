@@ -1,0 +1,7 @@
+# Abnahme lobby-auth-live / lobby-live-rest, Client-PC. Vorher Start-Session.ps1 -Role Client -Mod -Tunnel Lobby -NoSpike -Peer <Lobby-ID>
+# (Beitritt per Lobby-ID) oder -SteamLaunch (Einladung bei geschlossenem Spiel). Start: Guided-Test.ps1 -Steps tools\spike\guided\lobby-abnahme.txt
+> Overlay.ps1 Client status | Im Spiel
+In der MetaBase ein paar Schritte laufen | Beide Figuren in beiden Fenstern, Host sieht 2 Spieler
+> Overlay.ps1 Client leave
+> Overlay.ps1 Client status | Offline|Bereit|verlassen
+Host schaut in sein Overlay (F8) und Mod-Log | Host meldet "Der Mitspieler hat die Sitzung verlassen", 1 Spieler, Lobby offen und ohne Client-Mitglied, kein Absturz

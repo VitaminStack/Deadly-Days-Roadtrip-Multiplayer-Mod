@@ -188,7 +188,8 @@ Geprüft in `AuthorizationTests.cpp` und `SessionTests.cpp` mit nachgebautem Ste
 Identität, keine Lobby, verspätete Mitgliedschaft, Fremder vor dem Freund, zweites Mitglied, Verlassen der Lobby, erneuter
 Beitritt, falsche Mod-Version, 127.0.0.1 mit und ohne Testmodus, viele Fremdversuche. Im Spiel am 05.11.2026 mit
 `Start-Session.ps1 -Mod -Tunnel Lobby -NoSpike`: Host meldet den Testmodus, nimmt den Client über 127.0.0.1 an, beide in der
-MetaBase. Offen ist der Test mit getrennten Steam-Konten, siehe `lobby-auth-live`.
+MetaBase. Mit getrennten Steam-Konten auf zwei PCs am 07.11.2026 bestätigt: Mitglied verbindet, Konto außerhalb der Lobby bekommt 1005
+und keinen Platz, nach dem Verlassen gibt der Host den Platz frei, siehe [Lobby-Abnahme](../../docs/GAME_ANALYSIS.md#lobby-abnahme-auf-zwei-pcs-am-07112026-lobby-auth-live-lobby-live-rest).
 
 ## Fehlerbehandlung (`net-fehler`)
 
