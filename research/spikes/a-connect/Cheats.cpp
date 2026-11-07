@@ -177,6 +177,96 @@ void GiveItemCommand(const std::wstring& Args)
     Log("Give: " + DataName + (RarityName.empty() ? "" : " " + RarityName) + " an " + std::to_string(Given) + " Inventare");
 }
 
+// Testhilfe (gegner-alle): Host spawnt einen Boss ueber EnemySpawner::SpawnSpecificEnemy, "!boss SpikeBoss [Abstand]".
+// Namen der EnemyType-Assets: SpikeBoss, FrankensteinBoss, BlobBallBoss, BallerinaBoss, LazyBoss, HQBoss. Das Asset muss geladen sein,
+// sonst vorher "!load <Pfad>". Spawn Abstand (Standard 600) vor der ersten Spielerfigur. Nur beim Host, die Replikation macht das Spiel.
+void BossCommand(const std::wstring& Args)
+{
+    const std::string Text(Args.begin(), Args.end());
+    const size_t Space = Text.find(' ');
+    const std::string TypeName = Text.substr(0, Space);
+    const double Distance = Space == std::string::npos ? 600.0 : atof(Text.c_str() + Space + 1);
+    const uintptr_t World = Read<uintptr_t>(Base + kGWorld);
+    uintptr_t Type = FindObject(TypeName.c_str(), TypeName.c_str());
+    if (!Type)
+    {
+        // Nicht geladen: Pfad aus DA_BossSpawnLookup lesen (BossSpawnInfos +0x28, je 0x68, BossID +0x00, weicher Verweis auf den
+        // EnemyType ab +0x20: Paketname, Assetname) und laden. Alle Eintraege landen im Log.
+        const uintptr_t Lookup = FindObject("DA_BossSpawnLookup", nullptr);
+        const uintptr_t Entries = Lookup ? Read<uintptr_t>(Lookup + 0x28) : 0;
+        const int32_t EntryCount = Lookup ? Read<int32_t>(Lookup + 0x30) : 0;
+        Log("Boss: Lookup " + std::string(Lookup ? "gefunden" : "fehlt") + ", Eintraege " + std::to_string(EntryCount));
+        for (int32_t e = 0; Entries && e < EntryCount && e < 16 && !Type; ++e)
+        {
+            const uintptr_t Entry = Entries + e * 0x68;
+            const std::string Id = NameFromIndex(Read<int32_t>(Entry)), Package = NameFromIndex(Read<int32_t>(Entry + 0x18)),
+                              Asset = NameFromIndex(Read<int32_t>(Entry + 0x20));
+            Log("Boss: Lookup " + Id + " -> " + Package + "." + Asset);
+            if (Asset == TypeName || Id == TypeName)
+                Type = LoadObjectByPath(Package + "." + Asset);
+        }
+    }
+    const uintptr_t Spawn = FindObject("SpawnSpecificEnemy", "EnemySpawner");
+    const uintptr_t GetLocation = FindObject("K2_GetActorLocation", "Actor");
+    if (!World || !Read<uintptr_t>(World + kWorldGameMode) || !Type || !Spawn || !GetLocation)
+    {
+        Log("Boss: Host " + std::to_string(World && Read<uintptr_t>(World + kWorldGameMode) != 0) + ", Typ " + std::to_string(Type != 0) +
+            ", SpawnSpecificEnemy " + std::to_string(Spawn != 0) + ", K2_GetActorLocation " + std::to_string(GetLocation != 0));
+        Log("Boss: " + TypeName + " nicht moeglich (kein Host, Typ nicht geladen oder Funktion fehlt)");
+        return;
+    }
+    const uintptr_t Chunks = Read<uintptr_t>(Base + kGObjects);
+    const int32_t Count = Read<int32_t>(Base + kGObjects + 8);
+    uintptr_t Spawner = 0, Character = 0;
+    for (int32_t i = 0; i < Count && !(Spawner && Character); ++i)
+    {
+        const uintptr_t Chunk = Read<uintptr_t>(Chunks + 8 * (i >> 16));
+        const uintptr_t Object = Chunk ? Read<uintptr_t>(Chunk + (i & 0xFFFF) * 0x18 + 8) : 0;
+        if (!Object || (Read<uint32_t>(Object + 8) & 0x30) != 0)
+            continue;
+        for (uintptr_t Class = Read<uintptr_t>(Object + 0x10); Class; Class = Read<uintptr_t>(Class + 0x40))
+        {
+            const std::string Name = NameOf(Class);
+            if (!Spawner && Name == "EnemySpawner")
+                Spawner = Object;
+            if (!Character && Name == "DDCharacter")
+                Character = Object;
+        }
+    }
+    if (!Spawner || !Character)
+    {
+        Log("Boss: kein EnemySpawner oder keine Spielerfigur");
+        return;
+    }
+    struct { double X, Y, Z; } Location{};
+    Read<ProcessEventFn*>(Character)[kProcessEventIndex](Character, GetLocation, &Location);
+    struct
+    {
+        uintptr_t EnemyType, Instigator;
+        double Rotation[4];      // FTransform ab 0x10: FQuat
+        double Translation[3];   // 0x30, danach 8 Byte Fuellung
+        double Pad0;
+        double Scale[3];         // 0x50
+        double Pad1;             // FTransform endet bei 0x70, Gesamt 0x60
+        int32_t ThreatLevel, BaseThreatLevel;
+        bool ApplySpawnerEffects, ClampToExtends;
+        uint8_t Pad2[6];
+        uintptr_t Bounds, Result;
+    } Params{};
+    static_assert(sizeof(Params) == 0x90);
+    Params.EnemyType = Type;
+    Params.Rotation[3] = 1.0;
+    Params.Translation[0] = Location.X + Distance;
+    Params.Translation[1] = Location.Y;
+    Params.Translation[2] = Location.Z;
+    Params.Scale[0] = Params.Scale[1] = Params.Scale[2] = 1.0;
+    Params.ThreatLevel = Params.BaseThreatLevel = -1;
+    Params.ApplySpawnerEffects = true;
+    Params.ClampToExtends = false;
+    Read<ProcessEventFn*>(Spawner)[kProcessEventIndex](Spawner, Spawn, &Params);
+    Log("Boss: " + TypeName + (Params.Result ? " gespawnt (" + NameOf(Read<uintptr_t>(Params.Result + 0x10)) + ")" : " nicht entstanden"));
+}
+
 // Laedt ein Asset ueber seinen Pfad, etwa "/Game/.../BP_X.BP_X_C". Dumper-7 erfasst danach auch diese Klasse.
 void LoadAssetCommand(const std::wstring& Path)
 {

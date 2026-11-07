@@ -33,3 +33,20 @@ Nach `!cheats`, `DD_SetTimeSinceMissionStart 400` und `!wave` gibt es beim Host 
 den Timeout (180 s), die Reise per `servertravel` danach ging. Es gibt keinen `DD_`-Befehl für Bosse (nur `DD_SpawnLootZombie`).
 Zum Boss bleiben: Torboss-Route nach Tag 4 spielen, oder einen Spike-Befehl bauen, der `SpawnSpecificEnemy` mit dem `EnemyType`
 aus `DA_BossSpawnLookup` aufruft.
+
+**Versuch 2 (07.11.2026, Build 26495302): Spike-Befehl `!boss <Name>` (`Cheats.cpp`).** Er lädt den `EnemyType` über `DA_BossSpawnLookup`
+und ruft `EnemySpawner::SpawnSpecificEnemy` beim Host, 600 Einheiten vor der ersten Figur. Namen: `SpikeBoss`, `FrankensteinBoss`,
+`BlobBallBoss`, `BallerinaBoss`, `LazyBoss`, `HQBoss`. Der Typ liegt unter `/Game/DDSurvivors/Blueprints/Enemies/Definitions/<Name>`.
+
+Messung mit `SpikeBoss` in `DDDynamic_Map`, eine Sekunde nach dem Spawn, Host gegen Client:
+
+| Merkmal | Host | Client |
+|---|---|---|
+| `BP_SpikeBoss_C` (`EnemyBase`) | 1, Authority | 1, SimulatedProxy, Spawn gleichzeitig (`enemy_sync`: 17 von 17 Proben gleich) |
+| Boss-HP (`CommonAttributeSet.Health/MaxHealth`) | 80000 / 80000 | 80000 / 80000, **kommt nativ an** (anders als bei `BP_StandardEnemy`) |
+| Phase (`DDEnemyAttributeSet.Phase`) | 1 | 1 |
+| `BossComponent` | 1, mit `BossAIController` | 1, **ohne** `BossAIController` (KI läuft nur beim Host) |
+| `BossfightGruntSpawner` | 1 | 1, es entstehen beim Client keine eigenen Grunts (Gegnerzahl gleich) |
+
+Noch offen, braucht einen Kampf: Phasenwechsel (HP-Schwellen), Boss-Tod, Intro-Kamera (`CutsceneCamera` ist auf beiden Seiten 0),
+Angriffe der Fähigkeiten (`GA_*`) und die Lebensleiste `WP_Boss_HealthBar_PhaseBased` beim Client.

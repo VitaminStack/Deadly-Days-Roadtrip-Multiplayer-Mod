@@ -134,6 +134,8 @@ void RunPendingCommand()
         SkipTutorials(true);
     else if (Pending.rfind(L"!give ", 0) == 0)
         GiveItemCommand(Pending.substr(6));
+    else if (Pending.rfind(L"!boss ", 0) == 0)
+        BossCommand(Pending.substr(6));
     else if (Pending.rfind(L"!load ", 0) == 0)
         LoadAssetCommand(Pending.substr(6));
     else if (Pending.rfind(L"!tunnel ", 0) == 0)
