@@ -869,7 +869,7 @@ ein Client.
   bevor das Panel sein Inventar hat. Seit `airdrop-dodge-absturz` lässt die Mod `SetupInventory` ohne Inventar aus und schreibt
   „SetupInventory ohne Inventar ausgelassen“ mit der RVA des Aufrufers ins Log, damit der Weg beim nächsten Auftreten belegt ist.
 
-### Dodge im Zwei-PC-Test: Diagnose offen (`dodge-client-live`)
+### Dodge im Zwei-PC-Test (`dodge-client-live`)
 
 Stand 06.11.2026, Auswertung der archivierten Mod-Logs aus den beiden oben
 beschriebenen Live-Sitzungen, ohne neuen Spielstart:
@@ -919,6 +919,44 @@ dem Host vergleichen. Nullrichtungen/Schreibfehler und Client-Ruecksetzungen
 zeitlich zuordnen. Nach Rundenwechsel wiederholen, um Welt-Neuzuordnung zu
 pruefen. Erst mit erklaerter Ursache und zehn Dodges ohne Rutschen und mit
 Ausdauer wie beim Host ist `dodge-client-live` erledigt.
+
+**Ursache und Fix, 07.11.2026** (`dodge-client-fix`, Build `26187885`, ein PC, Mod über die Lobby, Netzprofil
+Internet, Tag 1). Gemessen mit einem vorübergehenden Protokoll jedes `GA_Dash`-Ereignisses auf beiden Seiten
+(`K2_ActivateAbility`, `K2_CommitExecute`, Rückruf der Aufgabe, `K2_OnEndAbility`) und lesend beim Host; die Dodges
+löste ein Testskript aus (Richtungstaste halten, dann Leertaste).
+
+- **[Belegt] Ursache:** Die Richtung, die der Host aus der Ortsänderung schätzt, weicht in beide Richtungen vom
+  echten Dodge des Clients ab. (1) Der Client dodgt, die Schätzung ist veraltet (`Bewegungsalter=219 ms`): Der Host
+  schreibt (0, 0), seine Instanz endet ohne `K2_CommitExecute`, der Client bucht die Kosten nur vorhergesagt und bekommt
+  sie zurück; seine Dodge-Werte blieben dabei länger stehen (333 statt 135 ms). (2) Der Client bricht ab (sechs
+  Aktivierungen ohne Commit, Eingabe (0, 0)), der Host schätzt „in Bewegung“, bucht Ausdauer und schiebt die Figur.
+  In den Sitzungen vom 06.11. hing so schon der erste Client-Dodge genau 750 ms nach der Host-Meldung.
+- **[Belegt]** Die Engine liefert die Eingabe des Clients beim Host nicht: Beschleunigung (`+0x338`) und Tempo der
+  Client-Figur standen beim Host während Laufen und Dodge des Clients auf 0, die Laufrichtung im Controller ebenso.
+  Eine native Quelle gibt es also nicht.
+- **[Belegt]** Der Vorhersageschlüssel der Aktivierung (`CurrentActivationInfo.PredictionKeyWhenActivated.Current`)
+  ist bei Client und Host gleich, er zählt je Sitzung hoch (1, 2, 3 …).
+- **[Belegt] Abgebrochener Dodge:** Endet `GA_Dash` nicht über seine Aufgabe (der Host lehnt eine verkettete
+  Aktivierung bei gehaltener Leertaste ab, oder die Aktivierung kommt beim Host erst nach dem Ende beim Client an,
+  einmal 214 ms Verzug), stellt es Reibung und Schwerkraft nicht zurück. Der nächste Dodge übernimmt dann 0 und 20 als
+  „vorher“. Das betrifft beim Client die eigene Figur und beim Host seine Kopie der Client-Figur.
+
+**Fix (lokal zuerst, minimal geteilt):** Der Client meldet je eigener Aktivierung genau die Eingabe, die sein `GA_Dash`
+liest, mit dem Vorhersageschlüssel (`0x500`, [Protokoll](CONTROL_PROTOCOL.md#dodge-richtung-mod-kompatibilität-8)). Der
+Host trägt sie vor dem nativen Start ein; ist die Meldung noch unterwegs, hält er die Aktivierung höchstens 250 ms an.
+Die Schätzung bleibt nur Rückfall. Kosten, Schub, Ende und Ausdauer bleiben nativ beim Host. Der Client setzt die
+Dodge-Werte sofort zurück, sobald kein eigener Dodge mehr läuft, und vor jedem neuen Dodge; der Host seine Kopie der
+Client-Figur nach 750 ms. Die alte Zeitgrenze von 750 ms bleibt beim Client als Rückfall.
+
+**Im Spiel danach (ein PC, Internet-Profil):** 10 von 10 getrennten Client-Dodges kamen beim Host mit der Richtung des
+Clients an (Schlüssel 1 bis 10), meist nach 15 bis 47 ms Halt, weil das Spielpaket die Meldung überholte. Kein
+Rückfall auf die Schätzung, keine Rücksetzung beim Client. Nach zwei schnellen Dodges startete der Client keinen
+dritten, die Ausdauer lud langsam nach, ohne zurückzuspringen. Richtung und Leertaste gleichzeitig: richtige Richtung.
+Aus dem Stand: elf Aktivierungen mit (0, 0) auf beiden Seiten, kein Commit. Gehaltene Leertaste: eine vom Host
+abgelehnte Aktivierung, Werte beim Client nach 164 ms statt 750 ms zurückgesetzt. Nebenbei stürzte der Client einmal
+beim Öffnen einer Airdrop-Auswahl in `InventoryPanel.SetupInventory` ab (`0x5A8BB36`), das ist
+`airdrop-dodge-absturz` und nicht dieser Weg. **Nicht geprüft:** zwei PCs über echtes Internet, Gefühl von Weite und
+Abbremsen durch einen Menschen, mehr als ein Client.
 
 ### Client-Absturz im Restrictor (`tick-absturz`)
 

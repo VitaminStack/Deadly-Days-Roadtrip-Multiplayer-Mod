@@ -92,6 +92,7 @@
     <ClInclude Include="MapPolicy.h" />
     <ClInclude Include="LocalDevicePolicy.h" />
     <ClInclude Include="MovementPolicy.h" />
+    <ClInclude Include="DashAdapter.h" />
     <ClInclude Include="PatchPolicy.h" />
     <ClInclude Include="PatchRuntime.h" />
     <ClInclude Include="Patches.h" />

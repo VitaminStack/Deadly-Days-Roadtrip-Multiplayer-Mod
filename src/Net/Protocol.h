@@ -12,7 +12,7 @@ namespace Net::Protocol
 inline constexpr uint16_t Version = 1;
 // Standard der Identität ohne erkannten Build; zur Laufzeit setzt Transport Core::ActiveBuild().
 inline constexpr uint32_t GameBuild = 26187885;
-inline constexpr uint32_t ModVersion = 7;
+inline constexpr uint32_t ModVersion = 8;
 inline constexpr size_t MaxPayload = 64 * 1024;
 enum class Kind : uint8_t { Hello = 1, Game = 2, Control = 3 };
 struct Frame

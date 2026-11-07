@@ -132,6 +132,8 @@ public:
     bool SendControl(uint64_t Peer, const Protocol::Control& Value);
     // Auf dem Game Thread abholen; der Netzwerkthread fasst keine Spielobjekte an.
     std::vector<ControlMessage> TakeControlMessages();
+    // Nur Nachrichten dieses Typs, in Empfangsreihenfolge; alle anderen bleiben für TakeControlMessages liegen.
+    std::vector<ControlMessage> TakeControlMessages(uint16_t Type);
 
 private:
     struct Link;

@@ -1,4 +1,5 @@
 #include <doctest.h>
+#include <limits>
 
 #include <windows.h>
 
@@ -680,4 +681,46 @@ TEST_CASE("Eingaben: kein zweiter LocalPlayer im Netzwerkspiel")
     CHECK(BlocksLocalSpawn(NetRole::Client, 1, false));
     CHECK(BlocksLocalSpawn(NetRole::Client, 1, true));     // beim Client zählt ein Controller an Index 1 nicht
     CHECK_FALSE(BlocksLocalSpawn(NetRole::Standalone, 1, false));
+}
+
+TEST_CASE("Bewegung: gemeldete Dodge-Richtung des Clients je Vorhersageschlüssel")
+{
+    // Client: genau die Eingabe, die GA_Dash liest, normiert; aus dem Stand (0, 0).
+    auto Value = ReportedDashInput(5, {0.0, 0.5});
+    CHECK(Value.Key == 5);
+    CHECK(Value.X == doctest::Approx(0.0));
+    CHECK(Value.Y == doctest::Approx(1.0));
+    Value = ReportedDashInput(6, {3.0, -4.0});
+    CHECK(Value.X == doctest::Approx(0.6));
+    CHECK(Value.Y == doctest::Approx(-0.8));
+    CHECK(ReportedDashInput(7, {0.0, 0.0}) == DashInput{7, 0.f, 0.f});
+
+    // Host: eine Meldung gilt für genau eine Aktivierung, unabhängig von der Ankunftsreihenfolge.
+    DashInputBook Book;
+    Book.Add({10, 1.f, 0.f}, 1000);
+    Book.Add({11, 0.f, 1.f}, 1001);
+    CHECK_FALSE(Book.Take(12, 1002));
+    REQUIRE(Book.Take(11, 1002));
+    CHECK_FALSE(Book.Take(11, 1003));
+    REQUIRE(Book.Take(10, 1003));
+    CHECK(Book.Size() == 0);
+
+    // Wiederholter Schlüssel ersetzt, alte Meldungen ohne Aktivierung verfallen.
+    Book.Add({20, 1.f, 0.f}, 2000);
+    Book.Add({20, -1.f, 0.f}, 2001);
+    CHECK(Book.Size() == 1);
+    CHECK(Book.Take(20, 2002)->X == -1.f);
+    Book.Add({21, 1.f, 0.f}, 3000);
+    CHECK_FALSE(Book.Take(21, 3000 + DashInputKeepMs + 1));
+    CHECK(DashWaitMs < DashInputKeepMs);
+}
+
+TEST_CASE("Bewegung: eigener Dodge gilt nur so lange als laufend, wie sein Schub dauert")
+{
+    CHECK(DashExpectedMs(0.135f) == 195);
+    CHECK(DashExpectedMs(std::nullopt) == 250);
+    CHECK(DashExpectedMs(0.f) == 250);
+    CHECK(DashExpectedMs(5.f) == 250);
+    CHECK(DashExpectedMs(std::numeric_limits<float>::quiet_NaN()) == 250);
+    CHECK(DashExpectedMs(0.3f) < 750); // alte Zeitgrenze bleibt nur Rückfall
 }

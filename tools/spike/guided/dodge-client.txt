@@ -1,0 +1,8 @@
+# Dodge des Clients (dodge-client-live): Mensch dodgt im Client-Fenster, Agent prüft die Logs beider Seiten. In einer laufenden Mission,
+# etwa nach Run-Route.ps1 -Start -NetProfile Internet -Days 1 -StayLast. Start: Guided-Test.ps1 -Steps tools\spike\guided\dodge-client.txt -Shots
+Im Client-Fenster (rechts) laufen und zehnmal getrennt dodgen (Richtungstaste plus Leertaste), dazwischen die Ausdauer nachladen lassen | Jeder Dodge so weit wie beim Host, bremst danach ab, kein Rutschen; die Ausdaueranzeige sinkt je Dodge und lädt langsam nach
+Im Client-Fenster mit Richtung die Leertaste gedrückt halten | Höchstens so viele Dodges wie Ausdauer da ist, danach keiner mehr bis zum Nachladen, kein Rutschen
+Im Client-Fenster die Richtung wechseln und sofort dodgen | Dodge in die neue Richtung
+Im Client-Fenster im Stand die Leertaste drücken | Kein Dodge, keine Ausdauer verbraucht, wie beim Host
+Im Host-Fenster (links) zum Vergleich dodgen und dabei auf die Client-Figur schauen | Gleiche Weite und Ausdauer wie beim Client; die Client-Figur bewegt sich beim Host passend, ohne Sprünge
+> Get-Status.ps1 -Brief | Client
