@@ -1478,6 +1478,46 @@ Stand 06.11.2026, Build `26187885`, ein PC, Mod mit Spike über die Lobby, Godmo
   nicht, weil seine Routenkarte keinen Knoten anbot; sie ist nur in Tests belegt. Das Rundenende über den echten Bus ist seit
   [`tank-gemeinsam`](#tank-als-gruppenwert-tank-gemeinsam) belegt.
 
+### Routenkarte beim Client (`routenkarte-client`)
+
+Stand 07.11.2026, Build `26187885`, ein PC, Mod mit Spike über die Lobby, Godmode, Seed `20795`. Nur gelesen, kein Code geändert.
+Gelesen wurde `FCurrentRunInfo` der GameInstance (`+0x2A0`): Run-Seed `+0x0`, `CurrentRoute` `+0x8` mit `MissionChain` `+0x2B0`,
+Anzahl `+0x2B8`, `CurrentMissionIndex` `+0x2C0`, `IsEndOfMissionChain` `+0x2C8`, `ChosenMissionIndexes` `+0x328`; Tag aus
+`ADDMissionGameState.DayNum` (`+0x390`).
+
+| Zeitpunkt | Host | Client |
+|---|---|---|
+| MetaBase vor dem Run | Seed 21492 (eigener Spielstand), Route leer, Index −1 | Seed 20807 (eigener Spielstand), Route leer, Index −1 |
+| Routenkarte in der MetaBase | Seed 20795, volle Karte mit Biomen und Knoten, Route noch leer | Seed 20807, sieht weiter die MetaBase, keine Karte |
+| Tag 1 in der Mission | 1 Eintrag `Biome_Cities`, 11 × 11 Kacheln, Index 0, gewählt `[2]`, Tag 1 | Route leer, Index −1, Tag 1 |
+| Routenkarte nach dem Rundenende | Index 0, Ende der Kette, Karte mit Bus und Spalte „Tag 2“ | Index 0, Ende der Kette, Kette leer; Karte nur mit Wolken und Hintergrund, Bus oben links mit „999“ |
+| Tag 2 nach der Reise des Hosts | Eintrag `Biome_Cities`, 6 × 6 Kacheln, gewählt `[2, 2]`, Vorroute = Tag 1, Tag 2 | Route leer, Index 0, Tag 2 |
+
+- **[Belegt] Ursache der leeren Karte:** Die Run-Info der GameInstance repliziert nicht. Der Client behält Run-Seed und leere Route
+  aus seinem eigenen Spielstand, auch nach dem Wechsel in die Mission des Hosts. Sein lokales `FinishMission` (`rundenende-client`)
+  setzt nur den Index von −1 auf 0 und das Ende der Kette, auf einer leeren Kette. Das Panel `WI_MissionChoicePanel_C` hat beim Client
+  also nichts zu zeichnen. Das passt zur leeren Route aus dem [PCG-Befund](#pcg-vegetation-beim-client-pcg).
+- **[Belegt] Nur Anzeige bei Karte und Tag:** Ein Klick des Clients auf die Knotenposition für Tag 2 bewirkte nichts, das Log zeigt
+  keinen Reiseversuch, also auch keinen Eingriff von `ClientMayStartTravel`. Nach der Reise des Hosts stand der Client mit 2 Spielern
+  in derselben Welt, `check_round.py` sauber, Tag 2 aus dem GameState wie beim Host, Rundenzähler im HUD auf beiden Seiten „2“.
+- **[Belegt] Abweichung im HUD:** Die Zahl unter der Stoppuhr (Gefahrenstufe) zeigte an Tag 2 beim Host „2“, beim Client „0“.
+  **[Vermutung]** Die Anzeige kommt aus dem aktuellen Routeneintrag (`GetDisplayThreatLevel(FRouteMission)`), der beim Client fehlt.
+  Die eigentliche Gefahr steuert der Host, die Komponente `ThreatLevel` repliziert.
+- **[Belegt] Routenkarte in der MetaBase** gibt es nur beim Host, der Client läuft dort weiter durch die Basis. Das ist kein Fehler
+  der Karte, der Client wählt den Run ohnehin nicht.
+- **[Vermutung] Weitere Folgen der fehlenden Run-Info:** Alles, was beim Client Seed, Route oder Biom der GameInstance liest, rechnet
+  mit falschen Werten: `GetCurrentMissionSeed` (Run-Seed 20807 statt 20795), biomabhängige Darstellung beim Biomwechsel nach Tag 4
+  (`OptionalPreviousBiome`), Torboss- und Endboss-Knoten, Endlosmodus. Die Karte selbst kommt über `MapSync` vom Host, der
+  PCG-Graph über den Patch in `MapPatches.cpp`. Der frühere Lauf bis Tag 13 mit zwei Biomwechseln hatte saubere Einstiegskontrollen, ein gestörter
+  Spielablauf ist bisher nicht belegt. Nicht geprüft: Biomwechsel, Bossknoten und Endlosmodus mit Blick auf die Routenkarte des Clients.
+- **[Vermutung] Fehlbedienung:** Der Client sieht nicht, wohin die Reise geht, und klickt auf eine leere Karte, auf der auch „Zurück“
+  nichts tut, siehe [Lauf in `rundenende-client`](#rundenübersicht-und-lager-beim-client-rundenende-client). Er kann den Ablauf
+  nicht stören, versteht ihn aber nicht.
+- **Lösungsweg, nicht umgesetzt:** Der Host schickt über den Kontrollkanal Run-Seed und gewählte Indizes, der Client setzt den Seed
+  wie `DD_SetCurrentRunSeed` und baut `CurrentRoute` daraus nach, oder er übernimmt die Route direkt. Die Reisesperre bleibt, der
+  Client sieht dann dieselbe Karte, wählen kann er weiter nicht. Bei echten Spielständen nur in den Mod-Spielständen
+  ([`mod-saves`](#spielstände-der-mod-mod-saves)).
+
 ### Seltenheit und Aufwerten beim Client (`werkbank-client`)
 
 Stand 06.11.2026, Build `26187885`, ein PC, Mod mit Spike über die Lobby, Godmode.
