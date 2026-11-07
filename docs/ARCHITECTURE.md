@@ -6,7 +6,7 @@ Zielarchitektur und datierte historische Untersuchungen; deren damalige Testgren
 
 ## Zielbild
 
-- **2 Spieler** online. Mehr ist aufwendig, weil die Coop-Logik fest auf P1 und P2 ausgelegt ist.
+- **2 Spieler** online. Mehr ist aufwendig, weil die Coop-Logik fest auf P1 und P2 ausgelegt ist, siehe [Mehr als zwei Spieler (Analyse)](MEHR_SPIELER.md).
 - **Lokal zuerst, minimal synchronisieren:** Der Client nutzt möglichst viel vorhandene lokale Logik;
   nur notwendige Multiplayer-Aktionen und gemeinsame Zustände werden übertragen.
 - **Eindeutige Spielautorität:** Der Host bestätigt gemeinsame Spielwirkungen; lokale UI,
