@@ -4,6 +4,7 @@
 
 #include <array>
 #include <atomic>
+#include <cstring>
 #include <vector>
 
 #include "Core/Log.h"
@@ -41,6 +42,21 @@ uintptr_t At(uintptr_t Rva, uintptr_t Offset)
 {
     const uintptr_t Base = Memory::Rva(Rva);
     return Base ? Base + Offset : 0;
+}
+
+bool ExpectBranch(uintptr_t Site, uint8_t Opcode, uintptr_t TargetRva, std::string_view Where)
+{
+    uint8_t Bytes[5] = {};
+    const uintptr_t Target = At(TargetRva);
+    if (Site && Target && Memory::ReadBytes(Site, Bytes, sizeof(Bytes)) && Bytes[0] == Opcode)
+    {
+        int32_t Rel = 0;
+        std::memcpy(&Rel, Bytes + 1, sizeof(Rel));
+        if (Site + sizeof(Bytes) + static_cast<intptr_t>(Rel) == Target)
+            return true;
+    }
+    Core::Log::Error("Patches: unerwartetes Sprungziel {}", Where);
+    return false;
 }
 
 uintptr_t CurrentWorld()
