@@ -42,7 +42,7 @@ void __fastcall CharacterProcessEvent(uintptr_t Object, uintptr_t Function, void
 // derselben Stelle wie die Host-Figur und wurde deshalb zerstoert. Der Hook ergaenzt die Liste um alle Spielerfiguren.
 namespace
 {
-constexpr uintptr_t kClearSpawnArea = 0x5991B70;
+const uintptr_t kClearSpawnArea = Rva(0x5991B70);
 constexpr uintptr_t kPlayerStatePawn = 0x320;
 struct ActorArray
 {

@@ -5,8 +5,8 @@ namespace Spike
 {
 namespace
 {
-constexpr uintptr_t kSetClientTravel = 0x3262830;
-constexpr uintptr_t kSeamlessTravelToLevel = 0x5976AD0;
+const uintptr_t kSetClientTravel = Rva(0x3262830);
+const uintptr_t kSeamlessTravelToLevel = Rva(0x5976AD0);
 constexpr uintptr_t kLoadSettingsPackage = 0x10;
 constexpr uintptr_t kLoadingTimescaleManager = 0xE0; // ULoadingSubSystem::TimescaleManager
 constexpr uintptr_t kTimescaleRequestCount = 0x50;   // UTimescaleManager::TimeRequests, Elementzahl der SparseArray

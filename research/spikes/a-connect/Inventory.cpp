@@ -6,25 +6,25 @@ namespace Spike
 {
 namespace
 {
-constexpr uintptr_t kInventoryVtable = 0x94BA3F0;
-constexpr uintptr_t kSlotVtable = 0x939CE08;
-constexpr uintptr_t kItemVtable = 0x94B46E8;
+const uintptr_t kInventoryVtable = Rva(0x94BA3F0);
+const uintptr_t kSlotVtable = Rva(0x939CE08);
+const uintptr_t kItemVtable = Rva(0x94B46E8);
 constexpr uintptr_t kSupportedForNetworking = 0x200;
 constexpr uintptr_t kReadyForReplication = 0x3D8;
-constexpr uintptr_t kDefaultNetworkingSupport = 0x1512250;
-constexpr uintptr_t kInventoryReadyForReplication = 0x5969750;
+const uintptr_t kDefaultNetworkingSupport = Rva(0x1512250);
+const uintptr_t kInventoryReadyForReplication = Rva(0x5969750);
 constexpr uintptr_t kComponentReplicationFlags = 0x98;
 constexpr uint8_t kUseRegisteredSubobjectList = 0x40;
 
 // The day-3 callback is not an inventory callback. This achievement detector captures
 // raw this in a next-tick timer from BeginPlay and does not cancel that timer in EndPlay.
-constexpr uintptr_t kDetectorVtable = 0x94C1758;
-constexpr uintptr_t kDetectorEndPlay = 0x57D0A40;
+const uintptr_t kDetectorVtable = Rva(0x94C1758);
+const uintptr_t kDetectorEndPlay = Rva(0x57D0A40);
 constexpr uintptr_t kEndPlaySlot = 0x3F0;
-constexpr uintptr_t kScheduleCall = 0x57CB3C5;
-constexpr uintptr_t kSetNextTick = 0x314D4D0;
-constexpr uintptr_t kFindTimer = 0x31471C0;
-constexpr uintptr_t kClearTimer = 0x314D0B0;
+const uintptr_t kScheduleCall = Rva(0x57CB3C5);
+const uintptr_t kSetNextTick = Rva(0x314D4D0);
+const uintptr_t kFindTimer = Rva(0x31471C0);
+const uintptr_t kClearTimer = Rva(0x314D0B0);
 struct PendingDetectorTimer
 {
     uintptr_t Manager;
@@ -77,9 +77,9 @@ void __fastcall InventoryReadyForReplication(uintptr_t Inventory)
 
 // Lambda delegate of AMapGenerator: captures a raw generator at +18h and &CurrentGenData at +20h, then calls
 // the generation step 0x59D9090 unchecked. After the travel to day 3 it fires for the generator of the old map.
-constexpr uintptr_t kMapGenLambdaVtable = 0x9613280;
-constexpr uintptr_t kMapGenLambdaExecute = 0x59CAE70;
-constexpr uintptr_t kMapGenLambdaExecuteIfSafe = 0x59CB020;
+const uintptr_t kMapGenLambdaVtable = Rva(0x9613280);
+const uintptr_t kMapGenLambdaExecute = Rva(0x59CAE70);
+const uintptr_t kMapGenLambdaExecuteIfSafe = Rva(0x59CB020);
 using LambdaExecuteFn = void(__fastcall*)(uintptr_t);
 using LambdaExecuteIfSafeFn = bool(__fastcall*)(uintptr_t);
 
@@ -148,7 +148,7 @@ bool PatchInventory(CodeWriter& Code)
         !HasVirtual(kMapGenLambdaVtable, 0, kMapGenLambdaExecute) ||
         !HasVirtual(kMapGenLambdaVtable, 8, kMapGenLambdaExecuteIfSafe) ||
         !Expect(Base + kMapGenLambdaExecute, {0x48, 0x8B, 0x51, 0x20, 0x48, 0x8B, 0x49, 0x18, 0xE9}, "map generator lambda") ||
-        !Expect(Base + kScheduleCall, {0xE8, 0x06, 0x21, 0x98, 0xFD}, "detector next-tick timer") ||
+        !ExpectBranch(Base + kScheduleCall, 0xE8, 0x314D4D0, "detector next-tick timer") ||
         !Expect(Base + kSetNextTick, {0x40, 0x55, 0x53, 0x48, 0x8D, 0x6C, 0x24, 0xB1}, "set next tick") ||
         !Expect(Base + kFindTimer, {0x4C, 0x8B, 0x0A, 0x4C, 0x8B, 0xD1}, "find timer") ||
         !Expect(Base + kClearTimer, {0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x54, 0x24, 0x10}, "clear timer")) return false;

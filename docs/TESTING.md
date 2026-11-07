@@ -293,7 +293,7 @@ auf demselben Stand von `main`: vor dem Test `git rev-parse --short HEAD` vergle
 
 ### Vorbereitung auf beiden PCs
 
-1. Einrichtung nach [SETUP.md](SETUP.md), Spiel-Build `26187885`. `Start-Session.ps1` bricht bei einem anderen Build ab.
+1. Einrichtung nach [SETUP.md](SETUP.md), Spiel-Build `26187885` oder `26495302`. `Start-Session.ps1` bricht bei einem anderen Build ab.
 2. Zwei verschiedene Steam-Konten, beide besitzen das Spiel, Steam läuft und ist online. Freundschaft ist nicht nötig.
 3. Kein Port muss freigegeben werden: Steam vermittelt die Verbindung und leitet sie notfalls über eigene Relays. Fragt die
    Windows-Firewall beim ersten Start nach dem Spiel, reicht „Abbrechen“, der Tunnel spricht mit dem Spiel nur über `127.0.0.1`.
@@ -350,7 +350,7 @@ powershell -ExecutionPolicy Bypass -File tools/spike/Start-Session.ps1 -Build -M
 ```
 
 Die Lobby-ID gehört zu keinem Konto, verfällt mit der Lobby und kommt trotzdem nicht ins Repo. Beide brauchen denselben Stand von
-`main` und denselben Build. Auf einem Build ohne Spike-Unterstützung kommt `-NoSpike` dazu, bei unvollständiger Portierung
+`main` und denselben Build. Der Spike läuft auf beiden Builds; `-NoSpike` bleibt für Läufe wie im Release. Bei unvollständiger Portierung eines neuen Builds kommt
 `-PartialPatches`; ohne Spike gibt es keine Konsolenbefehle wie `!finish`. Ein Rundenende geht dann über vollen Tank und Busflucht,
 den Tank füllt `py tools/spike/fuel.py <host-pid> --fill`. Ablauf und Ergebnisse eines solchen Termins:
 [Live-Test 07.11.](GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-07112026-livetest-0711).

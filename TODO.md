@@ -333,6 +333,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `solution` | 0 | Visual-Studio-Solution mit einem Projekt je Modul, `config/Local.props` eingebunden |
 | `spike-a` | 1 | Spike A: Beide Instanzen kommen in dieselbe Welt, auch auf einem PC, siehe [Ergebnis](research/spikes/a-connect/README.md) |
 | `spike-b` | 1 | Spike B: Client stabil in der Mission, Bewegung beidseitig, Schüsse wirken beim Host, siehe [Ergebnis](research/spikes/a-connect/README.md) |
+| `spike-build-26495302` | Wartung | Spike läuft auf Build 26495302 mit Adressumrechnung je Build, siehe [Spike](docs/OFFSETS.md#spike-spike-build-26495302) |
 | `spike-c` | 1 | Spike C: Mit `karte-client` und `pcg` ist die Mission beim Client gleich, `check_round.py` zählt an Tag 1 bis 4 gleich viele `MapTile`s, siehe [Pausierte Welt und Busplatz](docs/GAME_ANALYSIS.md#pausierte-welt-und-busplatz-testumgebung) |
 | `steam-lobby` | 3 | Steam-Lobby nur für Freunde direkt über Steamworks (`Net::Session`, `src/Mod/Lobby.cpp`, Overlay-Knöpfe); auf einem PC erstellt, per Lobby-ID beigetreten und bis Tag 1 gespielt, Test mit zwei Konten ist `lobby-live`, siehe [Steam-Lobby](src/Net/README.md#steam-lobby-steam-lobby) |
 | `sync-bedarf` | 1 | Sync-Weg für XP, Währungen, Rewards, Pausen und UI als Entwurf festgelegt, siehe [Sync-Bedarf](docs/SYNC_REQUIREMENTS.md) |

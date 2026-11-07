@@ -6,10 +6,6 @@ namespace Spike
 {
 namespace
 {
-// IAT-Eintraege der Exe fuer WS2_32 Ordinal 20 (sendto) und 17 (recvfrom).
-constexpr uintptr_t kSendToSlot = 0x82786F8;
-constexpr uintptr_t kRecvFromSlot = 0x8278710;
-
 // Socket und Adresse bleiben opak, die Zaehler brauchen nur Laenge und Rueckgabewert.
 using SendToFn = int(__stdcall*)(uintptr_t, const char*, int, int, const void*, int);
 using RecvFromFn = int(__stdcall*)(uintptr_t, char*, int, int, void*, int*);
@@ -42,12 +38,14 @@ int __stdcall RecvFromHook(uintptr_t Socket, char* Buffer, int Length, int Flags
 }
 
 // Tauscht einen IAT-Eintrag, aber nur, wenn er auf die erwartete Funktion von WS2_32 zeigt.
-template <typename Fn> bool SwapImport(uintptr_t Slot, int Ordinal, Fn Hook, Fn& Original)
+// Die IAT-Eintraege fuer WS2_32 Ordinal 20 (sendto) und 17 (recvfrom) stehen in jedem Build woanders, darum Suche in der Importtabelle.
+template <typename Fn> bool SwapImport(int Ordinal, Fn Hook, Fn& Original)
 {
     const HMODULE Sockets = GetModuleHandleW(L"ws2_32.dll");
     const auto Expected = Sockets ? reinterpret_cast<Fn>(GetProcAddress(Sockets, MAKEINTRESOURCEA(Ordinal))) : nullptr;
+    const uintptr_t Slot = FindImportSlot(reinterpret_cast<const void*>(Expected));
     auto* Entry = reinterpret_cast<Fn*>(Base + Slot);
-    if (!Expected || *Entry != Expected)
+    if (!Expected || !Slot || *Entry != Expected)
     {
         Log("Last: IAT-Eintrag " + std::to_string(Ordinal) + " unerwartet");
         return false;
@@ -82,8 +80,8 @@ FSample Last;
 
 bool PatchLoad()
 {
-    return SwapImport(kSendToSlot, 20, static_cast<SendToFn>(SendToHook), OriginalSendTo) &&
-           SwapImport(kRecvFromSlot, 17, static_cast<RecvFromFn>(RecvFromHook), OriginalRecvFrom);
+    return SwapImport(20, static_cast<SendToFn>(SendToHook), OriginalSendTo) &&
+           SwapImport(17, static_cast<RecvFromFn>(RecvFromHook), OriginalRecvFrom);
 }
 
 // Laeuft im Sekunden-Tick auf dem Spielthread. Werte je Sekunde seit dem letzten Aufruf.

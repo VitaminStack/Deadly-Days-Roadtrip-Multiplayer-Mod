@@ -24,7 +24,7 @@ void TickTestGodmode()
 {
     if (!TestGodmodeEnabled && GodmodeOwned.empty())
         return;
-    const uint64_t Tag = Read<uint64_t>(Base + 0xAC61FE8);
+    const uint64_t Tag = Read<uint64_t>(Base + Rva(0xAC61FE8));
     if (!Tag || NameFromIndex(static_cast<int32_t>(Tag)) != "State.Invincible")
         return;
     const uintptr_t World = Read<uintptr_t>(Base + kGWorld);
@@ -67,7 +67,7 @@ void TickTestGodmode()
         const uintptr_t Interface = Asc + 0x148;
         const bool HasTag = Read<HasTagFn*>(Interface)[3](Interface, Tag);
         using UpdateTagFn = void(__fastcall*)(uintptr_t, const uint64_t*, int32_t, uint8_t);
-        const auto Update = reinterpret_cast<UpdateTagFn>(Base + 0x4B7D7D0);
+        const auto Update = reinterpret_cast<UpdateTagFn>(Base + Rva(0x4B7D7D0));
         const int Delta = TestGodmodePolicy::Delta(TestGodmodeEnabled, Owned, HasTag);
         if (Delta > 0)
         {
