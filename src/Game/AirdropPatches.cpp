@@ -52,9 +52,12 @@ bool ApplyChoices(Code::Writer&)
     return Core::Hooks::Install(reinterpret_cast<void*>(At(OpenChoices)), reinterpret_cast<void*>(&ChoicesHook),
                                 reinterpret_cast<void**>(&OriginalChoices));
 }
+// Je Patch alle benutzten Adressen (patch-signaturen): passt eine Signatur nicht, fällt nur dieser Patch aus.
+constexpr uintptr_t CrateSites[] = {OpenCrate};
+constexpr uintptr_t ChoicesSites[] = {OpenChoices};
 const Patch List[] = {
-    {"Airdrop-Oeffnung nur beim Host", CheckCrate, ApplyCrate},
-    {"Airdrop-Rewards nur beim Host", CheckChoices, ApplyChoices},
+    {"Airdrop-Oeffnung nur beim Host", CheckCrate, ApplyCrate, CrateSites},
+    {"Airdrop-Rewards nur beim Host", CheckChoices, ApplyChoices, ChoicesSites},
 };
 }
 std::span<const Patch> AirdropPatches() { return List; }

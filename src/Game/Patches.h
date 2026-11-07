@@ -46,6 +46,9 @@ struct Patch
     bool (*Check)();
     // Setzt den Patch. Code-Höhlen kommen in den gemeinsamen Writer.
     bool (*Apply)(Code::Writer& Code);
+    // Referenz-RVAs aller Stellen, die Check, Apply und die Hooks des Patches benutzen (patch-signaturen). Passt die
+    // Signatur einer davon nicht, wird nur dieser Patch ausgelassen. Leer: keine Angabe, es gilt allein Check.
+    std::span<const uintptr_t> Sites{};
 };
 
 enum class InstallResult
@@ -55,8 +58,13 @@ enum class InstallResult
     ApplyFailed,
 };
 
+// Darf die Stelle mit dieser Referenz-RVA benutzt werden? Standard: Memory::Rva liefert nicht 0. Tests setzen eigene ein.
+using SiteCheck = bool (*)(uintptr_t ReferenceRva);
+bool SiteUsable(uintptr_t ReferenceRva);
+
 // Prüft erst alle Patches, setzt dann alle in Reihenfolge. Scheitert eine Prüfung, bleibt alles unverändert.
-InstallResult InstallAll(std::span<const Patch> List, Code::Writer& Code);
+// Patches mit einer unbrauchbaren Stelle in Sites werden vorher ausgelassen und in Skipped gezählt, der Rest geht weiter.
+InstallResult InstallAll(std::span<const Patch> List, Code::Writer& Code, SiteCheck Usable = SiteUsable, size_t* Skipped = nullptr);
 
 // Eine Patch-Datei mit ihrem Tick. Für die Teilinstallation zählt die Liste als Einheit.
 struct PatchList
@@ -69,6 +77,7 @@ struct ListsResult
 {
     size_t Installed = 0; // gesetzte Listen
     size_t Skipped = 0;   // Listen mit gescheiterter Prüfung, unverändert
+    size_t SkippedPatches = 0; // einzelne Patches mit unpassender Signatur, siehe Patch::Sites
     bool ApplyFailed = false;
 };
 

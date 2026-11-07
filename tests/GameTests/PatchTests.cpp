@@ -11,6 +11,7 @@
 #include "Game/MapPolicy.h"
 #include "Game/MovementPolicy.h"
 #include "Game/PatchPolicy.h"
+#include "Game/PatchSignatures.h"
 #include "Game/Patches.h"
 #include "Game/RemoteP2Policy.h"
 
@@ -158,6 +159,66 @@ TEST_CASE("Patches: erst alle prüfen, dann setzen; eine gescheiterte Prüfung �
     const Patch BreaksLate[] = {{"a", &PassCheck, &CountApply}, {"b", &PassCheck, &FailApply}, {"c", &PassCheck, &CountApply}};
     CHECK(InstallAll(BreaksLate, Code) == InstallResult::ApplyFailed);
     CHECK(Applied == 1);
+}
+
+namespace
+{
+int Checked = 0;
+bool CountCheck()
+{
+    ++Checked;
+    return true;
+}
+bool OnlyFirstUsable(uintptr_t Site) { return Site == 0x100; }
+}
+
+TEST_CASE("Patches: ein Patch mit gesperrter Stelle fällt allein aus, ohne Check und Apply")
+{
+    uint8_t Buffer[16]{};
+    Code::Writer Code(Buffer, sizeof(Buffer));
+    constexpr uintptr_t Good[] = {0x100};
+    constexpr uintptr_t Mixed[] = {0x100, 0x200};
+    const Patch List[] = {{"a", &CountCheck, &CountApply, Good}, {"b", &CountCheck, &CountApply, Mixed}, {"c", &CountCheck, &CountApply}};
+    Applied = 0;
+    Checked = 0;
+    size_t Skipped = 0;
+    CHECK(InstallAll(List, Code, &OnlyFirstUsable, &Skipped) == InstallResult::Installed);
+    CHECK(Skipped == 1);
+    CHECK(Checked == 2);
+    CHECK(Applied == 2);
+
+    // Ohne Prüfer gilt jede Stelle als brauchbar.
+    Applied = 0;
+    CHECK(InstallAll(List, Code, nullptr, nullptr) == InstallResult::Installed);
+    CHECK(Applied == 3);
+}
+
+TEST_CASE("Signaturen: Tabelle sortiert, eigene Build-Zeile vor der gemeinsamen, Muster mit Platzhaltern")
+{
+    using namespace Game::Signatures;
+    constexpr Entry Rows[] = {
+        {0x10, 0, "AA BB", 0, "Shared"},
+        {0x20, 0, "CC", 0, "Both"},
+        {0x20, 26495302, "DD", 0, "Own"},
+        {0x30, 26495302, "EE", 0, "OnlyOwn"},
+    };
+    static_assert(Sorted(Rows));
+    static_assert(Sorted(Table));
+    CHECK(Find(Rows, 0x10, 26495302) == 0);
+    CHECK(Find(Rows, 0x20, 26495302) == 2);
+    CHECK(Find(Rows, 0x20, 26187885) == 1);
+    CHECK(Find(Rows, 0x30, 26187885) == -1);
+    CHECK(Find(Rows, 0x40, 26495302) == -1);
+    constexpr Entry Duplicate[] = {{0x10, 0, "AA", 0, "a"}, {0x10, 0, "AA", 0, "b"}};
+    static_assert(!Sorted(Duplicate));
+
+    const uint8_t Bytes[] = {0x48, 0x8B, 0x05, 0x90};
+    CHECK(Matches("48 8B ?? 90", Bytes));
+    CHECK(Matches("48 8B", Bytes));
+    CHECK_FALSE(Matches("48 8C", Bytes));
+    CHECK_FALSE(Matches("48 8B 05 90 CC", Bytes));
+    CHECK_FALSE(Matches("?? ??", Bytes));
+    CHECK_FALSE(Matches("4X", Bytes));
 }
 
 TEST_CASE("Patches: Teilinstallation setzt jede Liste ganz oder gar nicht")
