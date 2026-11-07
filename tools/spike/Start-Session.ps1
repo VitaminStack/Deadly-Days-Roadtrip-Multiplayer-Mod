@@ -135,9 +135,11 @@ function Get-TransportArgument([string]$Name) {
     if ($Role -eq 'Both') { return @('-ddcoop_transport=loopback') }
     @("-ddcoop_transport=$Peer")
 }
+# Fensterursprung auf einem anderen Monitor: DDCOOP_WIN_ORIGIN="X,Y" (virtuelle Desktop-Koordinaten), Standard 0,0.
+$script:OriginX, $script:OriginY = if ($env:DDCOOP_WIN_ORIGIN) { $env:DDCOOP_WIN_ORIGIN -split ',' | ForEach-Object { [int]$_ } } else { 0, 0 }
 function Start-Instance([string]$Name, [int]$X) {
     $UserDir = Join-Path $script:SessionDir "ud_$Name"
-    $Arguments = @('-windowed', '-ResX=800', '-ResY=450', "-WinX=$X", '-WinY=0', '-nosplash', "-UserDir=`"$UserDir`"") + (Get-TransportArgument $Name)
+    $Arguments = @('-windowed', '-ResX=800', '-ResY=450', "-WinX=$($X + $script:OriginX)", "-WinY=$script:OriginY", '-nosplash', "-UserDir=`"$UserDir`"") + (Get-TransportArgument $Name)
     if ($NetSim) { $Arguments += "-ddcoop_netsim=$NetSim" }
     # Beide Instanzen laufen unter einem Konto, der Client kommt nur ueber 127.0.0.1. Das erlaubt der Host nur im Testmodus.
     if ($Tunnel -eq 'Lobby' -and $Role -eq 'Both' -and $Name -eq 'host') { $Arguments += '-ddcoop_localtest' }

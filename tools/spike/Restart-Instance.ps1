@@ -36,7 +36,8 @@ $env:SteamAppId = '3026450'
 $env:SteamGameId = '3026450'
 $Exe = Get-GameExe
 $UserDir = Join-Path $script:SessionDir 'ud_client'
-$Arguments = @('-windowed', '-ResX=800', '-ResY=450', '-WinX=820', '-WinY=0', '-nosplash', "-UserDir=`"$UserDir`"")
+$OriginX, $OriginY = if ($env:DDCOOP_WIN_ORIGIN) { $env:DDCOOP_WIN_ORIGIN -split ',' | ForEach-Object { [int]$_ } } else { 0, 0 }
+$Arguments = @('-windowed', '-ResX=800', '-ResY=450', "-WinX=$(820 + $OriginX)", "-WinY=$OriginY", '-nosplash', "-UserDir=`"$UserDir`"")
 if ($Tunnel -eq 'Mod') { $Arguments += '-ddcoop_transport=loopback' }
 # Gleiches Netzprofil wie beim Start der Sitzung.
 if ($Session.PSObject.Properties['NetSim'] -and $Session.NetSim) { $Arguments += "-ddcoop_netsim=$($Session.NetSim)" }
