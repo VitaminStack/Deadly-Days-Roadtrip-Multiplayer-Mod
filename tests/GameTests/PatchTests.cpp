@@ -508,6 +508,15 @@ TEST_CASE("Bewegung: Tempo der eigenen Figur folgt dem Attribut (tod-client)")
     CHECK_FALSE(WalkSpeedToApply(std::nullopt, std::numeric_limits<float>::quiet_NaN(), 630.f));
 }
 
+TEST_CASE("Bewegung: tote eigene Figur dodgt beim Client nicht (tod-client)")
+{
+    CHECK(OwnDashBlockedByDeath(0.f, 100.f));
+    CHECK(OwnDashBlockedByDeath(-5.f, 100.f));   // Überschaden
+    CHECK_FALSE(OwnDashBlockedByDeath(50.f, 100.f)); // wiederbelebt mit halben HP
+    CHECK_FALSE(OwnDashBlockedByDeath(0.f, 0.f));    // Attribut noch nicht initialisiert
+    CHECK_FALSE(OwnDashBlockedByDeath(std::numeric_limits<float>::quiet_NaN(), 100.f));
+}
+
 TEST_CASE("Bewegung: Dodge-Werte und Figur ohne Bewegungsmodus erkennen")
 {
     CHECK(DashSettingsLeft(0.f, 20.f));

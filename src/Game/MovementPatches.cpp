@@ -34,6 +34,8 @@
 static_assert(offsetof(SDK::UCharacterMovementComponent, MaxWalkSpeed) == 0x288);
 static_assert(offsetof(SDK::ADDCharacterBase, CommonAttributeSet) == 0x700);
 static_assert(offsetof(SDK::UCommonAttributeSet, MovementSpeed) == 0xE8);
+static_assert(offsetof(SDK::UCommonAttributeSet, Health) == 0xA0);
+static_assert(offsetof(SDK::UCommonAttributeSet, MaxHealth) == 0x30);
 static_assert(offsetof(SDK::FGameplayAttributeData, BaseValue) == 0x08);
 static_assert(offsetof(SDK::FGameplayAttributeData, CurrentValue) == 0x0C);
 #endif
@@ -71,6 +73,7 @@ constexpr uintptr_t RootMotionDuration = 0xEC;  // UAbilityTask_ApplyRootMotionC
 constexpr uintptr_t MovementMaxWalkSpeed = 0x288;           // UCharacterMovementComponent.MaxWalkSpeed (float)
 constexpr uintptr_t CharacterCommonAttributeSet = 0x700;    // ADDCharacterBase.CommonAttributeSet
 constexpr uintptr_t AttributeMovementSpeed = 0xE8;          // UCommonAttributeSet.MovementSpeed (FGameplayAttributeData)
+constexpr uintptr_t AttributeHealth = 0xA0, AttributeMaxHealth = 0x30; // UCommonAttributeSet, FGameplayAttributeData
 constexpr uintptr_t AttributeBaseValue = 0x08, AttributeCurrentValue = 0x0C;
 constexpr uint64_t WalkSpeedLogLimit = 20;
 constexpr uint64_t DashLimitMs = 750;
@@ -304,6 +307,17 @@ bool OwnDashRunning(uint64_t Now)
     return !OwnDashes.empty();
 }
 
+uint64_t BlockedDeadDashes = 0;
+
+// Replizierte HP der Figur vom Host; unlesbar gilt als lebendig.
+bool OwnFigureDead(uintptr_t Character)
+{
+    const uintptr_t Attributes = Memory::ReadPointer(Character + CharacterCommonAttributeSet).value_or(0);
+    const auto Health = Attributes ? Memory::Read<float>(Attributes + AttributeHealth + AttributeCurrentValue) : std::nullopt;
+    const auto MaxHealth = Attributes ? Memory::Read<float>(Attributes + AttributeMaxHealth + AttributeCurrentValue) : std::nullopt;
+    return Health && MaxHealth && OwnDashBlockedByDeath(*Health, *MaxHealth);
+}
+
 // Eigene Figur beim Client: MaxWalkSpeed folgt dem replizierten Tempo-Attribut, wie beim Host über
 // OnMovementSpeedChanged_Server. So kriecht ein toter Client mit dem Tempo, das der Host vorgibt, und läuft nach der
 // Wiederbelebung wieder normal. Tod und Wiederbelebung entscheidet weiter allein der Host.
@@ -514,6 +528,14 @@ bool PrepareRemoteDash(uintptr_t Object, uintptr_t Function)
         // Nur die eigene Figur. Genau diese Eingabe liest GA_Dash gleich über GetLastNormalizedMovementInput.
         if (Memory::Read<uint8_t>(Entry->Character + ActorRole).value_or(0) != RoleAutonomousProxy)
             return false;
+        // Tote eigene Figur: Der Host lehnt den Dodge nativ ab. Die Vorhersage nicht ausführen und nichts melden; die
+        // Ablehnung des Hosts beendet die Fähigkeit wie jede abgelehnte Aktivierung.
+        if (OwnFigureDead(Entry->Character))
+        {
+            if (++BlockedDeadDashes <= WalkSpeedLogLimit)
+                Core::Log::Info("Bewegung: Dodge der toten eigenen Figur nicht ausgeführt (Schluessel {}, {}. Mal)", Key, BlockedDeadDashes);
+            return true;
+        }
         const uintptr_t Controller = Memory::ReadPointer(Entry->Character + PawnController).value_or(0);
         const auto Raw = Controller ? Memory::Read<PlanarDirection>(Controller + ControllerLastMovementInput) : std::nullopt;
         if (OutgoingInputs.size() >= 16)

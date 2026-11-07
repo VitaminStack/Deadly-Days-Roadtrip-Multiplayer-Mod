@@ -44,6 +44,14 @@ constexpr std::optional<float> WalkSpeedToApply(std::optional<float> LastAttribu
     return CurrentValue;
 }
 
+// Dodge der eigenen Figur beim Client, während sie tot ist (`tod-client`). Der Host lehnt GA_Dash eines toten Spielers nativ
+// ab, die Vorhersage des Clients lief aber trotzdem: Die tote Figur sprang je Dodge mehrere Meter, und der Host übernahm die
+// Position. Maßgeblich sind die replizierten HP des Hosts. Nicht initialisierte Werte (MaxHealth 0) sperren nichts.
+constexpr bool OwnDashBlockedByDeath(float Health, float MaxHealth)
+{
+    return MaxHealth > 0.f && Health <= 0.f;
+}
+
 // Fremde Figur beim Client: Die Engine bewegt eine Figur in MOVE_None nicht mehr, auch wenn der Host Ort und Modus
 // weiter repliziert. ReplicatedMovementMode ist gepackt: unteres Nibble MovementMode, oberes Nibble CustomMovementMode.
 constexpr bool ProxyMovementStopped(uint8_t MovementMode, uint8_t ReplicatedMovementMode)
