@@ -38,14 +38,14 @@
       <text x="846" y="178">Abgeschlossen</text>
     </g>
     <g id="phase-3">
-      <rect y="196" width="1000" height="48" fill="#ffffff"/>
+      <rect y="196" width="1000" height="48" fill="#dcfce7"/>
       <path d="M0 244H1000" stroke="#d1d5db"/>
       <text x="20" y="226">3</text>
       <text x="125" y="226">Verbinden über Steam</text>
-      <text x="490" y="226">9 von 10</text>
+      <text x="490" y="226">10 von 10</text>
       <rect x="630" y="211" width="200" height="18" rx="4" fill="#e5e7eb"/>
-      <rect x="630" y="211" width="180" height="18" rx="4" fill="#64748b"/>
-      <text x="846" y="226">90 %</text>
+      <rect x="630" y="211" width="200" height="18" rx="4" fill="#15803d"/>
+      <text x="846" y="226">Abgeschlossen</text>
     </g>
     <g id="phase-4">
       <rect y="244" width="1000" height="48" fill="#ffffff"/>
@@ -82,10 +82,10 @@
       <path d="M0 436H1000" stroke="#d1d5db"/>
       <text x="20" y="418">Gesamt</text>
       <text x="125" y="418"></text>
-      <text x="490" y="418">109 von 126</text>
+      <text x="490" y="418">110 von 126</text>
       <rect x="630" y="403" width="200" height="18" rx="4" fill="#e5e7eb"/>
-      <rect x="630" y="403" width="173" height="18" rx="4" fill="#64748b"/>
-      <text x="846" y="418">86 %</text>
+      <rect x="630" y="403" width="174" height="18" rx="4" fill="#64748b"/>
+      <text x="846" y="418">87 %</text>
     </g>
   </g>
 </svg>
