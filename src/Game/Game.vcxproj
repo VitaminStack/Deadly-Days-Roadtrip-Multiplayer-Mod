@@ -46,6 +46,7 @@
     <ClCompile Include="DesyncAdapter.cpp" />
     <ClCompile Include="AirdropAdapter.cpp" />
     <ClCompile Include="AirdropPatches.cpp" />
+    <ClCompile Include="Reflection.cpp" />
     <ClCompile Include="RewardPatches.cpp" />
     <ClCompile Include="InventoryEdit.cpp" />
     <ClCompile Include="ExpPatches.cpp" />
@@ -66,6 +67,7 @@
     <ClCompile Include="MapPatches.cpp" />
     <ClCompile Include="TravelPatches.cpp" />
     <ClCompile Include="WidgetPatches.cpp" />
+    <ClCompile Include="SaveRedirect.cpp" />
     <ClCompile Include="SdkChecks.cpp" />
     <ClCompile Include="TelemetryAdapter.cpp" />
     <ClCompile Include="TutorialAdapter.cpp" />
@@ -78,6 +80,7 @@
     <ClInclude Include="DesyncAdapter.h" />
     <ClInclude Include="DesyncSnapshot.h" />
     <ClInclude Include="AirdropAdapter.h" />
+    <ClInclude Include="Reflection.h" />
     <ClInclude Include="RewardAdapter.h" />
     <ClInclude Include="InventoryEditPlan.h" />
     <ClInclude Include="InventoryEditRuntime.h" />
@@ -97,6 +100,8 @@
     <ClInclude Include="Memory.h" />
     <ClInclude Include="Objects.h" />
     <ClInclude Include="Offsets.h" />
+    <ClInclude Include="SavePaths.h" />
+    <ClInclude Include="SaveRedirect.h" />
     <ClInclude Include="TelemetryAdapter.h" />
     <ClInclude Include="TutorialAdapter.h" />
     <ClInclude Include="WorldAdapter.h" />
