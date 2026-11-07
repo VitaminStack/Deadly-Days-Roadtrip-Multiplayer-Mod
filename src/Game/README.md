@@ -273,6 +273,20 @@ Host weiter, weil die Verbindung der Mod bestehen blieb. Seit dem 2-s-Ablauf: �
 „Bestätigen nachgeholt (Client nicht mehr im Lager)“, der Host auf der Routenkarte. Mit diesem Build danach erneut Client zuerst
 geprüft, Reise bis Tag 2, Inventare gleich, kein Absturz.
 
+**Stummer Client und Absturz im Lager** (`lager-absturz-client`, 06.11.2026): Vorher hörte der Host nach 2 s ohne Meldung auf zu warten
+und bestätigte als „alle bereit“, auch wenn der Client abgestürzt war (Live-Test 06.11.). Jetzt meldet der Client das Verlassen des
+Rundenendes ausdrücklich (`0x306` mit Id 0, 3 s lang). Nur dann gibt der Host sofort frei. Bleibt der Client nur stumm, schreibt der
+Host „Client stumm, Host wartet auf ihn bis zum Verbindungsabbau“ und gibt erst frei, wenn die Verbindung abläuft. Bestätigt der Host
+ohne Client im Lager, steht „ohne Client im Lager“ statt „alle bereit“ im Log. Dazu fängt `InventoryPatches.cpp` den Absturz in der
+Größenberechnung eines Item-Widgets ab, das sein Item verloren hat (`0x5AB5120`, Lesefehler `0xE0`).
+
+Geprüft am selben Abend, ein PC, Lobby, Godmode, Rundenende per `!finish`: Zwei Rundenenden bis Tag 3, Inventare gleich, kein Absturz.
+Host bereit, dann Client hart beendet: Der Host wartete 5 s, meldete den stummen Client und reiste 9 s später nach dem
+Verbindungsabbau (5003) allein weiter, kein „alle bereit“. Host bereit, dann `disconnect` beim Client: Der Host gab binnen 4 s frei,
+ohne die Wartezeit. Beide im Lager, der Host schließt sein Fenster (wie Alt+F4): Der Client kam ohne Absturz ins Hauptmenü, der
+Widget-Wächter griff dabei aber nicht, der Absturz vom Live-Test ließ sich so nicht nachstellen. **Offen:** zwei PCs, und ob der
+erste Absturz im Lager (Ende Tag 2) denselben Weg nahm; dafür fehlen Client-Log und Absturzbericht dieser Sitzung.
+
 **Verworfen:** Zuerst nutzte die Mod die native Koop-Reward-Sitzung (Koop-Modus nur für den Airdrop, Client wählt im Overlay, Host ruft
 `ClaimReward(1, …)`). Das Host-Panel zeigte beide Rucksäcke, nach dem Claim des Clients ging die UI-Autorität an P1 und der Host hing.
 Die Auswahl im Overlay gefiel nicht, der Nutzer wollte für beide das normale Panel.
