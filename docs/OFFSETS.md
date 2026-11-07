@@ -64,6 +64,40 @@ Stand 07.11.2026, Dateien `ClientPatches.cpp`, `PlayerPatches.cpp`, `RemoteP2Pat
   Beim Client fehlen Inventar-Items, weil die Inventory-Liste (`Inventar-Unterobjekte replizieren`) auf `26495302` noch nicht gesetzt ist.
   Kein neuer Fehler der vier Dateien; Wiederholung des Coop-Tags nach `update-inventar`.
 
+### Inventar, Belohnung, Lebensleisten (`update-inventar`)
+
+Von Hand nachgetragen in `RvaMap26495302.inc` (Zeilen „von Hand“). Native Funktionen über ihre Exec-Thunks (Namenspaar
+`{char*, FNativeFuncPtr}` in `.rdata`, Thunk ruft bzw. springt in die Funktion), vtables über den Verweis im Konstruktor.
+
+| Name | 26187885 | 26495302 | Weg | Änderung im Code |
+|---|---|---|---|---|
+| `OnRep_Health` | `0x57DC840` | `0x57DC810` | Exec-Thunk `0x5696EE0` | keine, nur verschoben |
+| `OnRep_MaxHealth` | `0x57DCEA0` | `0x57DCE70` | Exec-Thunk `0x5697040` | keine |
+| `InventoryPanel.HandleConfirmButton` | `0x5A6CB20` | `0x5A71900` | Exec-Thunk `0x5712FB0` | neuer Prolog, Panel-Felder −8 |
+| `InventoryPanel.SetupInventory` | `0x5A8BAB0` | `0x5A90940` | Exec-Thunk `0x571BC20` | keine; auch `ClientRefreshFunction` aus `update-client` |
+| Größe des Item-Widgets | `0x5AB5120` | `0x5ABA0F0` | alle 8 übertragbaren Aufrufer | umgeordnet, liest `+0xA28` weiter ungeprüft (`+0x41`) |
+| vtable `BackpackSlot` | `0x939CE08` | `0x93A1F98` | Konstruktor `0x5658829` | 84 Einträge wie vorher, `+0x200` → `0x1512430` |
+| vtable Achievement-Detektor | `0x94C1758` | `0x94C6A78` | `0x57C3A50` | 164 Einträge, `+0x3F0` → `DetectorEndPlay` `0x57D0C60` |
+
+- `ScheduleCall` (`0x57CB5A5`, über den Funktionsanfang) ist derselbe Befehl, nur der rel32 hat sich verschoben. Die Prüfung vergleicht
+  jetzt das Aufrufziel (`SetNextTick`) statt der rel32-Bytes und gilt damit für beide Builds.
+- `UInventoryPanel`: Felder ab `0x398` liegen 8 Byte weiter vorn, `IsDragging` `0x790` → `0x788` (SDK und Befehl `cmp byte ptr
+  [rdi+0x788],0` in `HandleConfirmButton +0x4A`). `RewardPatches.cpp` liest den Offset je Build und prüft genau diesen Befehl.
+  `InventoryComponent` `+0x370` ist unverändert.
+- Unverändert laut beiden SDKs: alle übrigen lokalen Offsets der sechs Dateien (`InventoryComponent`, `InventoryItemInstance`,
+  `InventoryItemData`, `URarity.NextUpgradableRarity`/`RarityName`, `BackpackSlot`, `CommonAttributeSet`, `OccupiedHands` `0x110`,
+  `HandBarDisplay.CachedCharacter`, `DefaultFocusableButton.ParentPanel`, `BP_DD_Character_C.RewardQueue`, `ItemRepresentation +0xA28`,
+  `AController`, `UGameInstance`, `UPlayer`) und die Parameter-Structs aller 77 per Name gerufenen UFunctions.
+- Statische Gegenprobe aller `Expect`/`ExpectVirtual` der sechs Dateien gegen die Exe: `26187885` ohne Abweichung; auf `26495302`
+  vor der Portierung 3 Abweichungen (Detektor-Timer, Item-Widget, `HandleConfirmButton`), die die neuen Prüfungen je Build abdecken.
+- Patchnotes 1.0 und 1.0.1 geprüft: Kein Patch der sechs Dateien wird überflüssig. Die Lebensleisten brauchen weiter den Broadcast beim
+  Client (`OnRep_Health` unverändert), das Item-Widget liest weiter ungeprüft. Die Hände-Vorschau nutzt `GetHandsRequiredForItem` und
+  übernimmt die neue Zählung (zwei Einhänder = zwei Hände) nativ. P2-Duplikat ins Lager, Reroll-Loot-Level und Kisten zum Bus sind
+  native Fixes ohne Gegenstück in der Mod.
+- Spieltest 07.11.2026 auf `26495302` (ein PC, Lobby, `-NoSpike -PartialPatches`): 11 von 13 Listen gesetzt, Inventory, HealthBar und
+  Reward ohne Fehlermeldung, ausgelassen nur Player und Client (`update-client`). Absturz beim Beitritt unverändert `0x5904DE8`. Die
+  Abnahme beim Client (Airdrop, Belohnungswahl, Lager) stand deshalb aus; `update-client` ist inzwischen gemergt.
+
 ## Diagnoseadapter (`desync-melder`)
 
 Quelle: Felddeklarationen des lokalen Dumper-7-SDK für denselben Build. Optionale

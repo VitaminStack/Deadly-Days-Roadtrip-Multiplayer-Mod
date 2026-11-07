@@ -6,7 +6,8 @@ src/Game/RvaMap<build>.inc um (wie Game::AddressMap) und vergleicht mit der Exe.
   py tools/expect_check.py --exe <exe> --build 26495302 [--file ClientPatches.cpp ...]
 
 Ausgabe je Pruefung: ok, abweichend (mit gelesenen Bytes), fehlt (Adresse ohne Tabelleneintrag) oder
-uebersprungen (Ausdruck ohne At, etwa lokale Variablen; diese prueft nur das Spiel).
+uebersprungen (Ausdruck ohne At, etwa lokale Variablen; diese prueft nur das Spiel) oder anderer-build (die Startzeile
+der Pruefung endet mit "// Build <id>" eines anderen Builds, etwa in einer Verzweigung nach Core::ActiveBuild()).
 """
 import argparse
 import re
@@ -19,7 +20,7 @@ from rva_map import Image, NAMED  # noqa: E402
 REPO = Path(__file__).resolve().parents[1]
 GAME = REPO / 'src' / 'Game'
 REFERENCE_BUILD = 26187885
-EXPECT = re.compile(r'Code::Expect\(\s*(?P<site>[^{;]*?)\s*,\s*\{(?P<bytes>[^}]*)\}\s*,\s*"(?P<where>[^"]*)"', re.DOTALL)
+EXPECT = re.compile(r'Code::Expect\(\s*(?P<site>[^{;]*?)\s*,\s*\{(?P<bytes>[^}]*)\}\s*,\s*(?://[^\n]*\s*)?"(?P<where>[^"]*)"', re.DOTALL)
 SITE = re.compile(r'^(?:Patches::)?At\(\s*(?P<base>\w+)\s*(?:,\s*(?P<offset>\w+)\s*)?\)\s*(?:(?P<sign>[+-])\s*(?P<delta>\w+))?$')
 BRANCH = re.compile(r'ExpectBranch\(\s*(?P<site>[^;]*?)\s*,\s*(?P<op>CallRel32|JumpRel32)\s*,\s*(?P<target>\w+)\s*,\s*"(?P<where>[^"]*)"',
                     re.DOTALL)
@@ -90,8 +91,21 @@ def resolve(parsed, names, table):
     return mapped, None
 
 
-def evaluate(image, text, names, table):
+BUILD_MARK = re.compile(r'//\s*Build\s+(\d+)\s*$')
+
+
+def other_build(text, line, build):
+    """Wahr, wenn die Startzeile der Pruefung fuer einen anderen Build markiert ist."""
+    lines = text.splitlines()
+    mark = BUILD_MARK.search(lines[line - 1]) if build is not None and 0 < line <= len(lines) else None
+    return bool(mark) and int(mark.group(1)) != build
+
+
+def evaluate(image, text, names, table, build=None):
     for line, where, site, parsed, expected in checks(text):
+        if other_build(text, line, build):
+            yield line, where, 'anderer-build', site
+            continue
         if parsed is None:
             yield line, where, 'uebersprungen', site
             continue
@@ -105,6 +119,9 @@ def evaluate(image, text, names, table):
         else:
             yield line, where, 'abweichend', f'0x{rva:08X} erwartet {expected.hex(" ")} gelesen {actual.hex(" ")}'
     for line, where, site, parsed, opcode, target in branches(text):
+        if other_build(text, line, build):
+            yield line, where, 'anderer-build', site
+            continue
         rva, problem = resolve(parsed, names, table) if parsed else (None, 'uebersprungen')
         goal = value(target, names)
         goal = None if goal is None else goal if table is None else table.get(goal)
@@ -131,7 +148,7 @@ def main():
     files = [GAME / name for name in args.file] if args.file else sorted(GAME.glob('*Patches.cpp'))
     counts = {}
     for path in files:
-        for line, where, status, detail in evaluate(image, path.read_text(encoding='utf-8'), names, table):
+        for line, where, status, detail in evaluate(image, path.read_text(encoding='utf-8'), names, table, args.build):
             counts[status] = counts.get(status, 0) + 1
             print(f'{status:13} {path.name}:{line} {where}: {detail}')
     print('Summe: ' + ', '.join(f'{key} {count}' for key, count in sorted(counts.items())))

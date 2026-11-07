@@ -61,6 +61,23 @@ class ExpectCheckTests(unittest.TestCase):
         self.assertEqual(self.results(self.image(4), {0x1000: 0x1000, 0x1010: 0x1014})['Aufruf'], 'abweichend')
         self.assertEqual(self.results(self.image(4), {0x1010: 0x1014})['Anfang'], 'fehlt')
 
+    def test_build_marked_checks_apply_only_to_their_build(self):
+        source = """
+bool Check()
+{
+    if (Reference)
+        return Code::Expect(At(Function), {0x48, 0x89}, // Build 1
+                            "alt");
+    return Code::Expect(At(Function), {0x40, 0x53}, // Build 2
+                        "neu");
+}
+"""
+        image = FakeImage(bytes([0x48, 0x89]))
+        statuses = lambda build: {where: status for _, where, status, _ in check.evaluate(image, source, NAMES, None, build)}
+        self.assertEqual(statuses(1), {'alt': 'ok', 'neu': 'anderer-build'})
+        self.assertEqual(statuses(2), {'alt': 'anderer-build', 'neu': 'abweichend'})
+        self.assertEqual(statuses(None), {'alt': 'ok', 'neu': 'abweichend'})
+
     def test_table_skips_missing_comment_rows(self):
         with tempfile.TemporaryDirectory() as folder:
             (Path(folder) / 'RvaMap1.inc').write_text('// Kopf\n{0x00001000, 0x00001004}, // eindeutig\n// FEHLT 0x00002000 // fehlt\n',

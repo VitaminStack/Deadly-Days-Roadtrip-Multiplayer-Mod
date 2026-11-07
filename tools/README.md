@@ -138,6 +138,8 @@ py tools/expect_check.py --exe <kopie>/DDSurvivors/Binaries/Win64/DDSurvivors-Wi
   Exitcode 1 bei `abweichend` oder `fehlt`.
 - Feste `E8`/`E9`-rel32-Bytes verschieben sich mit jedem Build. Solche Prüfungen mit `ExpectBranch(Site, CallRel32|JumpRel32, ZielRva, …)`
   schreiben, das vergleicht das Sprungziel mit `At(ZielRva)`.
+- Prüfungen in einer Verzweigung nach `Core::ActiveBuild()` bekommen am Ende ihrer ersten Zeile `// Build <id>`. Für andere Builds meldet das
+  Werkzeug sie als `anderer-build` statt `abweichend`.
 - Ohne `--file` alle `src/Game/*Patches.cpp`.
 
 ## Build-Mod.ps1
