@@ -35,7 +35,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | Kennung | Prio | Phase | Bearbeitung | Spielzeit |
 |---|---|---|---|---|
 | `fortschritt` | P0 | [5](#phase-5--vollständiger-run) | parallel | viel |
-| `gegner-alle` | P0 | [5](#phase-5--vollständiger-run) | parallel | viel |
 | `inventar-client-abweichung` | P0 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `pausen-sync` | P0 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `tagesablauf` | P0 | [5](#phase-5--vollständiger-run) | parallel | viel |
@@ -157,7 +156,6 @@ Ziel: Ein kompletter Run ist zu zweit online spielbar.
 
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
-| `gegner-alle` | P0 | Alle Gegner, Bosse und Boss-Phasen. Ordner `src/Sync/Enemies` | `integration-g2` | parallel | viel |
 | `fortschritt` | P0 | Loot, XP, Level-ups, Fähigkeiten und Status-Effekte (GAS). Ordner `src/Sync/Combat` | `integration-g2`, `protokoll` | parallel | viel |
 | `pausen-sync` | P0 | Pausen und blockierende UI beider Spieler über den Kontrollkanal abstimmen. Ordner `src/Sync/Players`. **Einstieg:** [Pausen-Spike](research/spikes/pausen/README.md) | `integration-g2`, `protokoll` | parallel | mittel |
 | `tagesablauf` | P0 | Tageszyklus, Treibstoff, Missionsziele, Fahrt zwischen den Etappen. Ordner `src/Sync/World`, Dateien mit `run-ende` absprechen | `integration-g2`, `protokoll`, `guidcache`, `phasenadapter` | parallel | viel |
@@ -260,6 +258,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `eingaben` | 4 | Lokale Geräte bleiben im Netzwerkspiel beim eigenen Spieler: keine Gerätezuordnung an P2, kein zweiter LocalPlayer; Bewegung, Dodge, Zielen und Menüs getrennt im Spiel belegt |
 | `game-adapter` | 2 | Game-Thread-Takt am Spielfenster ruft `Drain` und die Adapter-Ticks; `Offsets.h` mit geschützten Lesezugriffen, beim Bauen gegen ein lokales Dumper-7-SDK geprüft; `WorldAdapter` als Muster liest Karte, Rolle und Spielerzahl. Mit Host und Client bis Tag 1 geprüft, [Muster](src/Game/README.md) |
 | `gate-g1` | 1 | Am 04.11.2026 vom Nutzer verbindlich entschieden: Weg A (native UE-Replikation) als Grundlage, ergänzt durch eigenen Kontroll-/Sync-Kanal für XP, Währungen, Rewards, Pausen und UI; Weg B nur Rückfalloption. [Architekturentscheidung](docs/ARCHITECTURE.md#entscheidungen) |
+| `gegner-alle` | 5 | Boss-Leiste beim Client in der Mod (BossBarAdapter), Boss-HP/Phase/Tod nativ repliziert und mit SpikeBoss und FrankensteinBoss belegt. Restliche Bosse (Ballerina, Lazy, Endboss), Join/Travel mit Boss und Boss-Effekte beim Client bei Bedarf als neue Aufgabe |
 | `gegner-pooling` | 1 | Tote Gegner werden zerstört, nicht gepoolt, der `PoolManager` betrifft Projektile und Effekte, siehe [Gegner-Spawning](docs/GAME_ANALYSIS.md#gegner-spawning-und-pooling) |
 | `gegnertyp` | 4 | Spawn und Tod von BP_StandardEnemy laufen nativ synchron (Tode beim Client im Median sofort, höchstens 2,9 s später), kein eigener Sync; der Desync-Melder vergleicht die Gegnerzahl jetzt standardmäßig mit 8 Bestätigungen, 7 min mit zwei Wellen ohne Alarm, [Befund](docs/GAME_ANALYSIS.md#ein-gegnertyp-synchron-gegnertyp) |
 | `github-repo` | 0 | Öffentliches GitHub-Repo angelegt |
