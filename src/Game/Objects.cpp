@@ -9,7 +9,7 @@ uintptr_t At(int32_t Index)
 {
     if (Index < 0)
         return 0;
-    const auto Chunks = Memory::ReadPointer(Memory::ImageBase() + Offsets::GObjects);
+    const auto Chunks = Memory::ReadPointer(Memory::Rva(Offsets::GObjects));
     if (!Chunks)
         return 0;
     const auto Chunk = Memory::ReadPointer(*Chunks + 8 * (Index / Offsets::ObjectArray::ElementsPerChunk));
@@ -21,7 +21,7 @@ uintptr_t At(int32_t Index)
 
 int32_t Count()
 {
-    const auto Value = Memory::Read<int32_t>(Memory::ImageBase() + Offsets::GObjects + Offsets::ObjectArray::NumElements);
+    const auto Value = Memory::Read<int32_t>(Memory::Rva(Offsets::GObjects) + Offsets::ObjectArray::NumElements);
     return Value && *Value > 0 ? *Value : 0;
 }
 

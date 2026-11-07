@@ -42,7 +42,7 @@ std::optional<WorldInfo> ReadWorld()
         Core::Log::Error("ReadWorld außerhalb des Game Threads aufgerufen");
         return std::nullopt;
     }
-    const auto World = Memory::ReadPointer(Memory::ImageBase() + Offsets::GWorld);
+    const auto World = Memory::ReadPointer(Memory::Rva(Offsets::GWorld));
     if (!World)
         return std::nullopt;
 

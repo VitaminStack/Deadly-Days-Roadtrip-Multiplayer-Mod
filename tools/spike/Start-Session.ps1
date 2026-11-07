@@ -65,6 +65,10 @@ $Timer = [Diagnostics.Stopwatch]::StartNew()
 function Write-Step([string]$Text) { Write-Host ('[{0,4:n0} s] {1}' -f $Timer.Elapsed.TotalSeconds, $Text) }
 Initialize-SessionDir
 Assert-SupportedBuild
+# Der Spike enthaelt feste Adressen des Referenz-Builds und wird nicht umgerechnet (update-basis).
+if ($script:ActiveBuild -ne $script:SupportedBuild -and -not $NoSpike) {
+    throw "Build $($script:ActiveBuild): der Spike gilt nur fuer $($script:SupportedBuild). Mit -Mod -Tunnel Lobby -NoSpike starten."
+}
 if ($Restart -or $Build) {
     $Stopped = & (Join-Path $PSScriptRoot 'Stop-Session.ps1')
     if (-not $Brief) { $Stopped }

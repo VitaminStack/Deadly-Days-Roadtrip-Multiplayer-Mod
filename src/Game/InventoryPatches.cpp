@@ -319,22 +319,22 @@ bool __fastcall MapGenLambdaExecuteIfSafeHook(uintptr_t Lambda)
 
 bool CheckInventory()
 {
-    return Code::ExpectVirtual(At(SlotVtable + SupportedForNetworkingSlot), At(DefaultNetworkingSupport), "Slot IsSupportedForNetworking") &&
-           Code::ExpectVirtual(At(ItemVtable + SupportedForNetworkingSlot), At(DefaultNetworkingSupport), "Item IsSupportedForNetworking") &&
-           Code::ExpectVirtual(At(InventoryVtable + ReadyForReplicationSlot), At(InventoryReadyForReplication), "Inventar ReadyForReplication");
+    return Code::ExpectVirtual(At(SlotVtable, SupportedForNetworkingSlot), At(DefaultNetworkingSupport), "Slot IsSupportedForNetworking") &&
+           Code::ExpectVirtual(At(ItemVtable, SupportedForNetworkingSlot), At(DefaultNetworkingSupport), "Item IsSupportedForNetworking") &&
+           Code::ExpectVirtual(At(InventoryVtable, ReadyForReplicationSlot), At(InventoryReadyForReplication), "Inventar ReadyForReplication");
 }
 
 // Nur diese drei Klassen, kein globaler UObject- oder ActorComponent-Patch.
 bool ApplyInventory(Code::Writer&)
 {
-    return Code::WriteVirtual(At(SlotVtable + SupportedForNetworkingSlot), reinterpret_cast<uintptr_t>(&SupportsInventoryNetworking)) &&
-           Code::WriteVirtual(At(ItemVtable + SupportedForNetworkingSlot), reinterpret_cast<uintptr_t>(&SupportsInventoryNetworking)) &&
-           Code::WriteVirtual(At(InventoryVtable + ReadyForReplicationSlot), reinterpret_cast<uintptr_t>(&InventoryReadyForReplicationHook));
+    return Code::WriteVirtual(At(SlotVtable, SupportedForNetworkingSlot), reinterpret_cast<uintptr_t>(&SupportsInventoryNetworking)) &&
+           Code::WriteVirtual(At(ItemVtable, SupportedForNetworkingSlot), reinterpret_cast<uintptr_t>(&SupportsInventoryNetworking)) &&
+           Code::WriteVirtual(At(InventoryVtable, ReadyForReplicationSlot), reinterpret_cast<uintptr_t>(&InventoryReadyForReplicationHook));
 }
 
 bool CheckDetector()
 {
-    return Code::ExpectVirtual(At(DetectorVtable + EndPlaySlot), At(DetectorEndPlay), "EndPlay des Achievement-Detektors") &&
+    return Code::ExpectVirtual(At(DetectorVtable, EndPlaySlot), At(DetectorEndPlay), "EndPlay des Achievement-Detektors") &&
            Code::Expect(At(ScheduleCall), {0xE8, 0x06, 0x21, 0x98, 0xFD}, "Timer des Achievement-Detektors") &&
            Code::Expect(At(SetNextTick), {0x40, 0x55, 0x53, 0x48, 0x8D, 0x6C, 0x24, 0xB1}, "SetTimerForNextTick") &&
            Code::Expect(At(FindTimer), {0x4C, 0x8B, 0x0A, 0x4C, 0x8B, 0xD1}, "FindTimer") &&
@@ -349,20 +349,20 @@ bool ApplyDetector(Code::Writer& Code)
     if (Code.Failed() || !Delta)
         return false;
     return Code::WriteCode(At(ScheduleCall) + 1, &*Delta, sizeof(*Delta)) &&
-           Code::WriteVirtual(At(DetectorVtable + EndPlaySlot), reinterpret_cast<uintptr_t>(&DetectorEndPlayHook));
+           Code::WriteVirtual(At(DetectorVtable, EndPlaySlot), reinterpret_cast<uintptr_t>(&DetectorEndPlayHook));
 }
 
 bool CheckMapGenLambda()
 {
     return Code::ExpectVirtual(At(MapGenLambdaVtable), At(MapGenLambdaExecute), "Lambda des Kartengenerators, Execute") &&
-           Code::ExpectVirtual(At(MapGenLambdaVtable + 8), At(MapGenLambdaExecuteIfSafe), "Lambda des Kartengenerators, ExecuteIfSafe") &&
+           Code::ExpectVirtual(At(MapGenLambdaVtable, 8), At(MapGenLambdaExecuteIfSafe), "Lambda des Kartengenerators, ExecuteIfSafe") &&
            Code::Expect(At(MapGenLambdaExecute), {0x48, 0x8B, 0x51, 0x20, 0x48, 0x8B, 0x49, 0x18, 0xE9}, "Lambda des Kartengenerators");
 }
 
 bool ApplyMapGenLambda(Code::Writer&)
 {
     return Code::WriteVirtual(At(MapGenLambdaVtable), reinterpret_cast<uintptr_t>(&MapGenLambdaExecuteHook)) &&
-           Code::WriteVirtual(At(MapGenLambdaVtable + 8), reinterpret_cast<uintptr_t>(&MapGenLambdaExecuteIfSafeHook));
+           Code::WriteVirtual(At(MapGenLambdaVtable, 8), reinterpret_cast<uintptr_t>(&MapGenLambdaExecuteIfSafeHook));
 }
 
 bool CheckRepresentationSize()

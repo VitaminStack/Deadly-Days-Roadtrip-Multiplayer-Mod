@@ -57,6 +57,7 @@
     <ClCompile Include="HealthBarPatches.cpp" />
     <ClCompile Include="InventoryPatches.cpp" />
     <ClCompile Include="Memory.cpp" />
+    <ClCompile Include="AddressMap.cpp" />
     <ClCompile Include="Objects.cpp" />
     <ClCompile Include="PatchPolicy.cpp" />
     <ClCompile Include="Patches.cpp" />
@@ -98,6 +99,8 @@
     <ClInclude Include="RemoteP2Policy.h" />
     <ClInclude Include="GameThread.h" />
     <ClInclude Include="Memory.h" />
+    <ClInclude Include="AddressMap.h" />
+    <None Include="RvaMap26495302.inc" />
     <ClInclude Include="Objects.h" />
     <ClInclude Include="Offsets.h" />
     <ClInclude Include="SavePaths.h" />

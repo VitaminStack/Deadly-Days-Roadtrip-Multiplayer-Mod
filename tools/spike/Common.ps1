@@ -1,5 +1,10 @@
 # Gemeinsame Helfer der Spike-Skripte. Pfade kommen aus config\Local.props.
+# Standard fuer neue Entwicklungskopien. Alle Builds mit Offsets/Patches in der Mod stehen in SupportedBuilds,
+# gleich gehalten mit tools/game_build.py (REFERENCES) und src/Core/Version.cpp.
 $script:SupportedBuild = '26187885'
+$script:SupportedBuilds = @('26187885', '26495302')
+# Nach Assert-SupportedBuild der tatsaechlich verwendete Build.
+$script:ActiveBuild = $null
 $script:RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $script:SessionDir = Join-Path $script:RepoRoot 'research\local\session'
 $script:CommandDir = Join-Path $env:TEMP 'ddspike'
@@ -33,16 +38,22 @@ function Get-GameExe {
 function Assert-SupportedBuild {
     $Values = ([xml](Get-Content (Find-LocalProps) -Raw)).Project.PropertyGroup
     if ($Values.PinnedGameDir) {
-        & py (Join-Path $script:RepoRoot 'tools\game_build.py') verify --directory (Get-GameDir) --build $script:SupportedBuild
+        # Der Build steht im Beleg der Kopie; game_build.py prueft ihn danach gegen die feste Referenz.
+        $Receipt = Join-Path (Get-GameDir) '.ddcoop-build.json'
+        $Build = try { [string](Get-Content -LiteralPath $Receipt -Raw | ConvertFrom-Json).build_id } catch { '' }
+        if ($script:SupportedBuilds -notcontains $Build) { throw "Entwicklungskopie mit unbekanntem Build '$Build'. Kein Rueckfall auf die Steam-Installation." }
+        & py (Join-Path $script:RepoRoot 'tools\game_build.py') verify --directory (Get-GameDir) --build $Build
         if ($LASTEXITCODE -ne 0) { throw 'Entwicklungskopie ungueltig. Kein Rueckfall auf die Steam-Installation.' }
+        $script:ActiveBuild = $Build
         return
     }
     $Manifest = Join-Path (Get-GameDir) '..\..\appmanifest_3026450.acf'
     if (-not (Test-Path $Manifest)) { throw "Steam-Manifest nicht gefunden: $Manifest" }
     $Match = [regex]::Match((Get-Content $Manifest -Raw), '"buildid"\s+"(\d+)"')
-    if ($Match.Groups[1].Value -ne $script:SupportedBuild) {
-        throw "Spiel-Build $($Match.Groups[1].Value) statt $($script:SupportedBuild). Siehe CONTRIBUTING.md, Abschnitt Spiel-Updates."
+    if ($script:SupportedBuilds -notcontains $Match.Groups[1].Value) {
+        throw "Spiel-Build $($Match.Groups[1].Value) statt $($script:SupportedBuilds -join ' oder '). Siehe CONTRIBUTING.md, Abschnitt Spiel-Updates."
     }
+    $script:ActiveBuild = $Match.Groups[1].Value
 }
 
 function Initialize-SessionDir {

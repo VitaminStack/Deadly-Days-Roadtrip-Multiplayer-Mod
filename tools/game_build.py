@@ -10,15 +10,27 @@ import sys
 import tempfile
 
 RECEIPT = '.ddcoop-build.json'
+# Standard fuer Skripte ohne --build. Weitere unterstuetzte Builds stehen in REFERENCES.
 BUILD = '26187885'
-# Lokal belegte Referenz aus docs/GAME_ANALYSIS.md, keine Versionsangabe aus einer editierbaren ACF.
-REFERENCE = {
+# Lokal belegte Referenzen je Build aus docs/GAME_ANALYSIS.md, keine Versionsangabe aus einer editierbaren ACF.
+REFERENCES = {
+  '26187885': {
     'DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe': '3afbf18e051fbceb1fec17a8da20165ba64e0f6c3c88cbe88cb046704a4eefb5',
     'DDSurvivors/Content/Paks/DDSurvivors-Windows.pak': '68e6272f63219e928667c85938663e1044c3e7d5ffa1dc279ecc3e640001e3fa',
     'DDSurvivors/Content/Paks/DDSurvivors-Windows.ucas': 'e9d5d3d978db4e6beb34078dfded4b602059345b1084dd783a4faae8d4653ab7',
     'DDSurvivors/Content/Paks/DDSurvivors-Windows.utoc': 'e9dfef912c120fec38c66ed2f13ed5e7e95b3342fbe0d455aab036bb5a6ec2e9',
     'DDSurvivors/Content/Paks/global.ucas': '22eb9df449492c0cacf5cb5e1f8584bf23ee5e655d96f01fb8b5159c45440d4e',
     'DDSurvivors/Content/Paks/global.utoc': 'ece14ac99e2787b2cbea14444c285ae1c403750b1386bdc892fa341d3ec99e9a',
+  },
+  # update-basis, 07.11.2026: Steam-Build nach dem Update, Depot 3026452 Manifest 2302428105354984436.
+  '26495302': {
+    'DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe': '4d012c685183b5b7d261ad0010fe12c5ef5dd2390faff11942cab7399967c9f5',
+    'DDSurvivors/Content/Paks/DDSurvivors-Windows.pak': 'b6b50dc23cfec3717b28f46e26a03c23975434ab867b879710f66f0b62270b09',
+    'DDSurvivors/Content/Paks/DDSurvivors-Windows.ucas': 'dffb4486259e309be9b71a1cb95ea86b5a00d65b4c190b57fff94f87976296a7',
+    'DDSurvivors/Content/Paks/DDSurvivors-Windows.utoc': '8ff67e4d8fcb57a02dc512ec055e447588a9a0ea67efc9a6dfb2268770c664f6',
+    'DDSurvivors/Content/Paks/global.ucas': '34661a41b09a06e3ccaf94f34732b497c1d8131232974f0fe44a09759326ebd2',
+    'DDSurvivors/Content/Paks/global.utoc': '9c4476acd65a2da64d5cd50f8bdbe2536da94fbf218ad56bced52497a6eff71d',
+  },
 }
 MUTABLE_DIRS = ('ddsurvivors/saved', 'ddsurvivors/binaries/win64/ddcoop')
 MOD_PROXY = 'ddsurvivors/binaries/win64/version.dll'
@@ -80,15 +92,16 @@ def inventory(root):
 
 
 def assert_reference(files, build):
-    if build != BUILD:
+    reference = REFERENCES.get(build)
+    if reference is None:
         raise ValueError('Unbekannte Build-Referenz: ' + build)
-    for name, digest in REFERENCE.items():
+    for name, digest in reference.items():
         if files.get(name, {}).get('sha256') != digest:
             raise ValueError('Nicht unterstuetzte oder veraenderte Spieldatei: ' + name)
     def content_packages(names):
         return {name for name in names if name.lower().startswith('ddsurvivors/content/paks/') and
                 PurePosixPath(name).suffix.lower() in ('.pak', '.ucas', '.utoc')}
-    if content_packages(files) != content_packages(REFERENCE):
+    if content_packages(files) != content_packages(reference):
         raise ValueError('Zusaetzliche oder abweichende Inhaltscontainer in der Quelle/im Beleg.')
 
 

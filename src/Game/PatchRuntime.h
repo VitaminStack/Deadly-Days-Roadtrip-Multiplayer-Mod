@@ -9,8 +9,10 @@
 // Gemeinsames der Patch-Dateien. Nur innerhalb von src/Game benutzen.
 namespace Game::Patches
 {
-// Image-Base plus RVA.
+// Absolute Adresse zu einer RVA des Referenz-Builds, für den laufenden Build umgerechnet. 0, wenn unbekannt.
 uintptr_t At(uintptr_t Rva);
+// Wie At(Rva) plus Offset, etwa ein vtable-Eintrag. 0, wenn Rva unbekannt ist.
+uintptr_t At(uintptr_t Rva, uintptr_t Offset);
 
 // Aktuelle Welt und Rolle, auch aus Hooks heraus, also ohne Prüfung auf den Drain-Thread. Lesen ist abgesichert.
 uintptr_t CurrentWorld();

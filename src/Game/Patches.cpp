@@ -21,7 +21,13 @@ Code::Writer Caves;
 
 uintptr_t At(uintptr_t Rva)
 {
-    return Memory::ImageBase() + Rva;
+    return Memory::Rva(Rva);
+}
+
+uintptr_t At(uintptr_t Rva, uintptr_t Offset)
+{
+    const uintptr_t Base = Memory::Rva(Rva);
+    return Base ? Base + Offset : 0;
 }
 
 uintptr_t CurrentWorld()

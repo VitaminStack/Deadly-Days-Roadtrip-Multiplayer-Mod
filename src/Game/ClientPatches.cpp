@@ -295,7 +295,7 @@ bool ApplyBlockade(Code::Writer&)
 bool CheckNetGuid()
 {
     return Code::Expect(At(NetGuidExpiry), {0x0F, 0x28, 0xC6, 0xF2, 0x0F, 0x5C, 0xC1}, "Ablauf im NetGUID-Cache") &&
-           Code::Expect(At(NetGuidExpiry + 7), {0x66, 0x0F, 0x2F, 0xC7}, "Vergleich im NetGUID-Cache");
+           Code::Expect(At(NetGuidExpiry, 7), {0x66, 0x0F, 0x2F, 0xC7}, "Vergleich im NetGUID-Cache");
 }
 
 // Der Server nutzt bestätigte statische Pfad-GUIDs über die Reisen hinweg weiter. Laufen sie beim Client ab, geht diese

@@ -11,7 +11,7 @@ std::optional<std::vector<NetworkObject>> ReadNetworkObjects()
 {
     if (!Core::GameThread().IsDrainThread())
         return std::nullopt;
-    const auto World = Memory::ReadPointer(Memory::ImageBase() + Offsets::GWorld);
+    const auto World = Memory::ReadPointer(Memory::Rva(Offsets::GWorld));
     const auto Driver = World ? Memory::ReadPointer(*World + Offsets::UWorld::NetDriver) : std::nullopt;
     const auto Cache = Driver ? Memory::ReadPointer(*Driver + 0x1C8) : std::nullopt;
     if (!Cache || Memory::ReadPointer(*Cache + 0x150) != Driver)
@@ -22,7 +22,7 @@ std::optional<std::vector<NetworkObject>> ReadNetworkObjects()
         return std::nullopt;
     const uintptr_t Bits = Memory::ReadPointer(*Cache + 0x28).value_or(*Cache + 0x18);
     const int32_t ObjectCount = Objects::Count();
-    const auto Chunks = Memory::ReadPointer(Memory::ImageBase() + Offsets::GObjects);
+    const auto Chunks = Memory::ReadPointer(Memory::Rva(Offsets::GObjects));
     if (!Chunks)
         return std::nullopt;
     std::vector<NetworkObject> Result;
