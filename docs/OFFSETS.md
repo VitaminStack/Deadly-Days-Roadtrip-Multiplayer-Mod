@@ -98,6 +98,23 @@ Von Hand nachgetragen in `RvaMap26495302.inc` (Zeilen „von Hand“). Native Fu
   Reward ohne Fehlermeldung, ausgelassen nur Player und Client (`update-client`). Absturz beim Beitritt unverändert `0x5904DE8`. Die
   Abnahme beim Client (Airdrop, Belohnungswahl, Lager) stand deshalb aus; `update-client` ist inzwischen gemergt.
 
+### Welt-Patches (`update-welt`)
+
+Stand 07.11.2026, Dateien `MapPatches.cpp`, `TravelPatches.cpp`, `ExpPatches.cpp`, `ProjectilePatches.cpp`, `MovementPatches.cpp`,
+`CameraPatches.cpp`, `CodeCave.cpp`. Es war keine Codeänderung nötig, die Tabelle `RvaMap26495302.inc` aus `update-basis` und
+`update-client` deckt alle Adressen dieser Dateien ab.
+
+- `tools/expect_check.py` gegen die Exe von `26495302` (TimeDateStamp `0x65BFBBFB`): 11 von 11 prüfbaren Prüfungen der sieben Dateien `ok`,
+  keine `abweichend`, keine `fehlt`. Die übrigen Patches der Dateien lesen ihre Adressen zur Laufzeit (lokale `Site`), die prüft nur das Spiel.
+- Spieltest ein PC, `Start-Session.ps1 -Build -Mod -Tunnel Lobby -NoSpike`: Host und Client melden `Patches: 43 gesetzt` (ohne
+  `-PartialPatches`) und `Signaturen: 88 Adressen geprüft`, keine Fehlermeldung. `Run-Route.ps1 -Start -Mod -Tunnel Lobby -Days 2`
+  (mit Spike) endet mit Exitcode 0: MetaBase, Tag 1 (159/159 Kacheln) und Tag 2 (63/63 Kacheln) bei beiden `sauber`, 2/2 Spieler,
+  Inventar gleich. `SeamlessTravelToLevel` läuft ohne Absturz, der Client setzt die gemeinsame Kamera
+  (`Kamera: gemeinsame Kamera gesetzt`), der Host beobachtet den Dash der Clients (`GA_Dash`).
+- Ohne Spike geht `Run-Route.ps1` nur bis Tag 1 (`!finish` fehlt).
+- Offen: XP-Bälle beim Client (Log `XP-Baelle: …` aus `ExpPatches.cpp`) und der Dash am Kamerarand. Beides braucht Gegner im Spiel, die ein
+  Mensch besiegt.
+
 ### Spike (`spike-build-26495302`)
 
 Stand 07.11.2026. Der Spike (`research/spikes/a-connect`) nennt weiter die RVAs von `26187885` und rechnet sie zur Laufzeit mit `Rva()` aus
