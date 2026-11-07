@@ -50,6 +50,15 @@ Auf zwei PCs: Host mit `-Role Host -Tunnel Lobby`, die Ausgabe nennt die Lobby-I
 Die Lobby-ID gehört zu keinem Konto und verfällt mit der Lobby. Einladungen über Steam prüft man nur mit zwei Konten: Overlay
 mit **F8**, „Einladen“, Freund wählen, beim Freund „Spiel beitreten“. Siehe [Net](../src/Net/README.md#steam-lobby-steam-lobby).
 
+- **Einladung bei geschlossenem Spiel:** Client mit `-Role Client -Mod -Tunnel Lobby -NoSpike -SteamLaunch`, ohne `-Peer`. Steam startet
+  immer seine eigene Installation, darum legt das Skript die Mod dorthin statt in `PinnedGameDir` (gleicher Build nötig), startet den
+  Crash-Schutz und wartet bis `-JoinTimeoutSeconds` auf das Spiel, das Steam nach der angenommenen Einladung startet. Es meldet nur, ob
+  `+connect_lobby` dabei war, und wartet auf „Start über Steam-Einladung“ im Mod-Log. Das Spiel läuft ohne eigenes `-UserDir`, die Mod
+  speichert in `SaveGames_DDCoop`. `Stop-Session.ps1` nimmt die Mod wieder aus der Steam-Installation.
+- **Konto außerhalb der Lobby:** `-Role Client -Mod -Tunnel Mod -NoSpike -Peer <SteamID64 des Hosts>` gegen einen Host mit `-Tunnel Lobby`.
+  Ohne Spike verbindet danach niemand das Spiel, erwartet ist der Abbruch mit „nicht Mitglied seiner Lobby“ (Grund 1005).
+- Ablauf für Beitritt und geordnetes Verlassen: `Guided-Test.ps1 -Steps tools/spike/guided/lobby-abnahme.txt` nach dem Start des Clients.
+
 ### Nur Mod, ohne Spike
 
 ```bash

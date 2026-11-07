@@ -23,9 +23,15 @@ function Find-LocalProps {
     throw 'config\Local.props fehlt. config\Local.props.example kopieren und GameDir eintragen.'
 }
 
+# Start ueber Steam (Start-Session.ps1 -SteamLaunch): Steam startet immer seine eigene Installation, nie die eingefrorene Kopie.
+# Die Umgebungsvariable erben Deploy-Mod.ps1 und der Crash-Schutz.
+function Test-UsePinnedGameDir($Values) {
+    [bool]$Values.PinnedGameDir -and $env:DDCOOP_STEAM_INSTALL -ne '1'
+}
+
 function Get-GameDir {
     $Values = ([xml](Get-Content (Find-LocalProps) -Raw)).Project.PropertyGroup
-    $GameDir = if ($Values.PinnedGameDir) { [string]$Values.PinnedGameDir } else { [string]$Values.GameDir }
+    $GameDir = if (Test-UsePinnedGameDir $Values) { [string]$Values.PinnedGameDir } else { [string]$Values.GameDir }
     if (-not (Test-Path -LiteralPath $GameDir -PathType Container)) { throw "Aktiver Spielordner aus config\Local.props fehlt: $GameDir" }
     $GameDir
 }
@@ -37,7 +43,7 @@ function Get-GameExe {
 # Offsets und Patches gelten nur fuer einen Build. Auf einem anderen laufen sie ins Leere oder stuerzen ab.
 function Assert-SupportedBuild {
     $Values = ([xml](Get-Content (Find-LocalProps) -Raw)).Project.PropertyGroup
-    if ($Values.PinnedGameDir) {
+    if (Test-UsePinnedGameDir $Values) {
         # Der Build steht im Beleg der Kopie; game_build.py prueft ihn danach gegen die feste Referenz.
         $Receipt = Join-Path (Get-GameDir) '.ddcoop-build.json'
         $Build = try { [string](Get-Content -LiteralPath $Receipt -Raw | ConvertFrom-Json).build_id } catch { '' }
