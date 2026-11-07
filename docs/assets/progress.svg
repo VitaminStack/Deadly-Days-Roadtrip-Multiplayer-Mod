@@ -48,14 +48,14 @@
       <text x="846" y="226">Abgeschlossen</text>
     </g>
     <g id="phase-4">
-      <rect y="244" width="1000" height="48" fill="#ffffff"/>
+      <rect y="244" width="1000" height="48" fill="#dcfce7"/>
       <path d="M0 292H1000" stroke="#d1d5db"/>
       <text x="20" y="274">4</text>
       <text x="125" y="274">Spielbarer Ausschnitt</text>
-      <text x="490" y="274">15 von 16</text>
+      <text x="490" y="274">16 von 16</text>
       <rect x="630" y="259" width="200" height="18" rx="4" fill="#e5e7eb"/>
-      <rect x="630" y="259" width="187" height="18" rx="4" fill="#64748b"/>
-      <text x="846" y="274">93 %</text>
+      <rect x="630" y="259" width="200" height="18" rx="4" fill="#15803d"/>
+      <text x="846" y="274">Abgeschlossen</text>
     </g>
     <g id="phase-5">
       <rect y="292" width="1000" height="48" fill="#ffffff"/>
@@ -72,17 +72,17 @@
       <path d="M0 388H1000" stroke="#d1d5db"/>
       <text x="20" y="370">6</text>
       <text x="125" y="370">Veröffentlichung</text>
-      <text x="490" y="370">6 von 9</text>
+      <text x="490" y="370">6 von 10</text>
       <rect x="630" y="355" width="200" height="18" rx="4" fill="#e5e7eb"/>
-      <rect x="630" y="355" width="133" height="18" rx="4" fill="#64748b"/>
-      <text x="846" y="370">66 %</text>
+      <rect x="630" y="355" width="120" height="18" rx="4" fill="#64748b"/>
+      <text x="846" y="370">60 %</text>
     </g>
     <g id="phase-gesamt">
       <rect y="388" width="1000" height="48" fill="#f3f4f6"/>
       <path d="M0 436H1000" stroke="#d1d5db"/>
       <text x="20" y="418">Gesamt</text>
       <text x="125" y="418"></text>
-      <text x="490" y="418">110 von 126</text>
+      <text x="490" y="418">111 von 127</text>
       <rect x="630" y="403" width="200" height="18" rx="4" fill="#e5e7eb"/>
       <rect x="630" y="403" width="174" height="18" rx="4" fill="#64748b"/>
       <text x="846" y="418">87 %</text>

@@ -1684,6 +1684,18 @@ Ausgewertet: Mod-Logs beider Seiten, Overlay-Verlauf, `crashes.py` beider Seiten
   zum Schließen von Hand (11:51) ohne Absturzbericht. Der Client meldete
   „Spiel läuft ohne Host“, „Der Host hat die Sitzung verlassen“ und landete ohne Absturz im Hauptmenü.
 
+### Gate G2 auf zwei PCs am 07.11.2026 (`integration-g2`)
+
+Build `26495302`, Mod-Stand `main` `8705c9a`, nur Mod (`-Mod -Tunnel Lobby -NoSpike`, Host mit `-PartialPatches`), zwei Haushalte
+über das Steam-Relay, Ping 40 bis 47 ms, kein verworfenes Paket. Run per `Start-Run.ps1`, danach eine Mission auf `DDDynamic_Map`
+von 11:54:55 bis nach 12:04:53 (Log-Zeit), also rund zehn Minuten mit Laufen, Kampf, Dodges und Airdrops. Ausgewertet: Mod-Log und
+Absturzberichte des Hosts, Rückmeldung der Menschen an beiden PCs.
+
+- **[Belegt] Stabil.** Keine Trennung während der Mission, keine Absturzberichte beim Host, beide Menschen meldeten keine Probleme.
+- **[Belegt] Kein dauerhafter Desync.** Der Desync-Melder meldete 44-mal `OK` und sechsmal kurz `ABWEICHUNG` (fünfmal Inventar, zweimal
+  Gegner, einmal beides), jeweils innerhalb weniger Sekunden wieder `OK`, wie am 07.11. bei Airdrop-Auswahl und Umlegen.
+- **Ergebnis:** Gate G2 bestanden, die Runde war stabil, ohne dauerhaften Desync und spielbar. Offen für Phase 5 bleibt `update-welt`.
+
 ### Steam-Lobby über das Internet (`lobby-live`)
 
 Ausgewertet aus den Mod-Logs beider Sitzungen vom 06.11.2026 (siehe oben), ohne eigenen Termin. Zwei Steam-Konten in zwei Haushalten,
