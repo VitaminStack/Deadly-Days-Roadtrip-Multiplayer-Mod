@@ -1696,6 +1696,28 @@ Absturzberichte des Hosts, Rückmeldung der Menschen an beiden PCs.
   Gegner, einmal beides), jeweils innerhalb weniger Sekunden wieder `OK`, wie am 07.11. bei Airdrop-Auswahl und Umlegen.
 - **Ergebnis:** Gate G2 bestanden, die Runde war stabil, ohne dauerhaften Desync und spielbar. Offen für Phase 5 bleibt `update-welt`.
 
+### Client-Darstellung im Live-Spiel am 07.11.2026 (`todo-client-optik`)
+
+Build `26495302`, Mod-Stand `main` `971819d`, zwei PCs über die Lobby, Ping etwa 46 ms. Gemeldet von den beiden Spielern, dazu nur
+lesend der Speicher des Clients (Objekt- und Funktionsliste, keine Eingaben, keine Änderung). Der Host-PC wurde nicht gelesen.
+
+- **[Gemeldet] Schadenszahlen fehlen beim Client.** **[Belegt, Client]** Die Anzeige läuft über `DamageNumberActor.ShowDamageText`
+  (nativ, kein Netz-RPC); beim Client gab es 0 `DamageNumberActor` und 0 `DamageNumberWidget`. Daneben gibt es die Einstellung
+  `BP_EnableDamageNumbersSetting` (`DDGameUserSettings.GetEnableDamageNumbers`). **Vermutung:** Die Zahlen entstehen beim Schaden, und
+  den rechnet nur der Host. Lokal zuerst: Der Client zeigt sie selbst, wenn die replizierte Gesundheit eines Gegners sinkt.
+- **[Gemeldet] Körperteile sterbender Zombies fehlen beim Client.** Eine eigene Klasse dafür war nicht zu finden (gesucht: Gib, Gore,
+  Dismember, BodyPart, Corpse). **Vermutung:** Sie entstehen im Todesablauf beim Host, wie Blut und Treffereffekte (`opt-blut`).
+- **[Gemeldet] Der Lootbalken fehlt beim Client** (Fortschritt beim Durchsuchen von Kisten, Tonnen und Säcken). **[Belegt, Client]**
+  `BP_EnvironmentObjectLootspot_C` hat `OnLootingUpdate`, `OnRep_IsLooting`, `ExecuteLooting` und `TryPlayFinishedLootingSound`; beim
+  Client gab es 75 davon und 29 `WBP_LootWidget_C`. **Vermutung:** Der Host treibt den Balken in `OnLootingUpdate`, beim Client kommt nur
+  das replizierte `IsLooting` an. Lokal zuerst: Balken beim Client aus `IsLooting` und der Lootdauer selbst laufen lassen.
+- **[Gemeldet] Kein Geräusch, wenn der Client mit dem Dash gegen ein Objekt prallt.** Seit `ausweichen-client` führt der Host den Dodge
+  des Clients nativ aus. **Vermutung:** Der Aufprall und sein Sound laufen deshalb nur beim Host.
+- **[Belegt, Client] Inventar weiter abweichend.** Der Desync-Melder des Clients meldete ab spätestens 12:44 (Log-Zeit, UTC) alle 30 s
+  `ABWEICHUNG Inventar`, siehe `inventar-client-abweichung`.
+
+Alle vier gemeldeten Punkte verhindern keinen Run und stehen deshalb unter den optionalen Optimierungen.
+
 ### Steam-Lobby über das Internet (`lobby-live`)
 
 Ausgewertet aus den Mod-Logs beider Sitzungen vom 06.11.2026 (siehe oben), ohne eigenen Termin. Zwei Steam-Konten in zwei Haushalten,
