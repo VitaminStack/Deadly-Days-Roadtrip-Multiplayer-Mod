@@ -14,11 +14,14 @@ if (Test-Path $File) {
     $Session = Get-Content $File -Raw | ConvertFrom-Json
     if ($Session.PSObject.Properties['Mod'] -and $Session.Mod) {
         try {
+            # Mit -SteamLaunch lag die Mod in der Steam-Installation, nicht in PinnedGameDir.
+            if ($Session.PSObject.Properties['SteamInstall'] -and $Session.SteamInstall) { $env:DDCOOP_STEAM_INSTALL = '1' }
             & (Join-Path $PSScriptRoot '..\Deploy-Mod.ps1') -Remove
             $Session.Mod = $false
             $Session | ConvertTo-Json | Set-Content $File -Encoding ascii
         }
         catch { Write-Warning "Mod nicht entfernt: $_ Danach tools\Deploy-Mod.ps1 -Remove ausfuehren." }
+        finally { Remove-Item Env:DDCOOP_STEAM_INSTALL -ErrorAction SilentlyContinue }
     }
 }
 Exit-SessionLock

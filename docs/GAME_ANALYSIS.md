@@ -1684,6 +1684,18 @@ Ausgewertet: Mod-Logs beider Seiten, Overlay-Verlauf, `crashes.py` beider Seiten
   zum Schließen von Hand (11:51) ohne Absturzbericht. Der Client meldete
   „Spiel läuft ohne Host“, „Der Host hat die Sitzung verlassen“ und landete ohne Absturz im Hauptmenü.
 
+### Gate G2 auf zwei PCs am 07.11.2026 (`integration-g2`)
+
+Build `26495302`, Mod-Stand `main` `8705c9a`, nur Mod (`-Mod -Tunnel Lobby -NoSpike`, Host mit `-PartialPatches`), zwei Haushalte
+über das Steam-Relay, Ping 40 bis 47 ms, kein verworfenes Paket. Run per `Start-Run.ps1`, danach eine Mission auf `DDDynamic_Map`
+von 11:54:55 bis nach 12:04:53 (Log-Zeit), also rund zehn Minuten mit Laufen, Kampf, Dodges und Airdrops. Ausgewertet: Mod-Log und
+Absturzberichte des Hosts, Rückmeldung der Menschen an beiden PCs.
+
+- **[Belegt] Stabil.** Keine Trennung während der Mission, keine Absturzberichte beim Host, beide Menschen meldeten keine Probleme.
+- **[Belegt] Kein dauerhafter Desync.** Der Desync-Melder meldete 44-mal `OK` und sechsmal kurz `ABWEICHUNG` (fünfmal Inventar, zweimal
+  Gegner, einmal beides), jeweils innerhalb weniger Sekunden wieder `OK`, wie am 07.11. bei Airdrop-Auswahl und Umlegen.
+- **Ergebnis:** Gate G2 bestanden, die Runde war stabil, ohne dauerhaften Desync und spielbar. Offen für Phase 5 bleibt `update-welt`.
+
 ### Steam-Lobby über das Internet (`lobby-live`)
 
 Ausgewertet aus den Mod-Logs beider Sitzungen vom 06.11.2026 (siehe oben), ohne eigenen Termin. Zwei Steam-Konten in zwei Haushalten,
@@ -1702,7 +1714,30 @@ Route jeweils Steam-Relay `fra`, Ping 32 ms.
 - **[Belegt] Host nach Verbindungsverlust.** Erste Sitzung: „Verbindung zum Mitspieler verloren“, danach „Lobby geschlossen: Das Spiel
   ist im Hauptmenü“. Auslöser war allerdings der Absturz des Clients, kein geordnetes Verlassen.
 - **Nicht geprüft:** Start über `+connect_lobby` bei geschlossenem Spiel und geordnetes Verlassen des Clients aus Sicht des Hosts. Das
-  ist der Rest in `lobby-live-rest`.
+  war der Rest in `lobby-live-rest`, belegt am 07.11.2026, siehe [Lobby-Abnahme](#lobby-abnahme-auf-zwei-pcs-am-07112026-lobby-auth-live-lobby-live-rest).
+
+### Lobby-Abnahme auf zwei PCs am 07.11.2026 (`lobby-auth-live`, `lobby-live-rest`)
+
+Build `26495302`, Mod-Stand `main` `e0fdacd` beim Host, beim Client derselbe Stand plus `lobby-auth-live` (nur Skripte und eine Logzeile,
+gleiche Mod-Version). Nur Mod, kein Spike. Zwei Konten in zwei Haushalten, Route Steam-Relay `fra`, Ping 39 bis 44 ms. VitaminStack Host
+mit `Start-Session.ps1 -Role Host -Mod -Tunnel Lobby -NoSpike` und **einer** Lobby für alle drei Teile, dieser PC Client. Zeiten in UTC
+aus den Mod-Logs beider Seiten. Kein Absturz auf beiden Seiten, der Host lief durchgehend in der MetaBase.
+
+| Teil | Ablauf | Ergebnis |
+|---|---|---|
+| B: Beitritt und geordnetes Verlassen | Client `-Role Client -Tunnel Lobby -NoSpike -Peer <Lobby-ID>`, dann `Guided-Test.ps1` mit `guided/lobby-abnahme.txt` (5 von 5 ok), „Verlassen“ über das Overlay | 11:33:37 Host: „eingehende Verbindung eines berechtigten Kontos angenommen“, Handshake, MetaBase mit 2 Spielern, Desync `OK`. 11:35:29 Client: Transport beendet, `disconnect`, 0,2 s später Hauptmenü, Overlay „Sitzung verlassen“, Erstellen und Beitreten wieder frei. Host 11:35:35: Grund 1002, „Der Mitspieler hat die Sitzung verlassen“, „Welt: MetaBase, Host, 1 Spieler“, P2-Bindung gelöst, Lobby bleibt offen |
+| C: Start über `+connect_lobby` | Client-Spiel geschlossen, `Start-Session.ps1 -Role Client -Mod -Tunnel Lobby -NoSpike -SteamLaunch`. Host lädt über das Overlay ein, der Mensch nimmt die Einladung in Steam an | Steam startete das Spiel aus seiner Installation mit `+connect_lobby <Lobby-ID>`. Client-Log 11:38:54 „Start über Steam-Einladung (+connect_lobby, Kommandozeile)“, 11:38:56 Steam bereit und Beitritt, 11:38:58 P2P über Relay, 11:38:59 „MetaBase, Client, 2 Spieler“, ohne weiteren Klick. Host 11:39:04 berechtigtes Konto angenommen. Danach erneut „Verlassen“: Host 11:41:07 Grund 1002, 1 Spieler, Lobby offen |
+| A: Konto außerhalb der Lobby | Client nicht in der Lobby, `-Role Client -Mod -Tunnel Mod -NoSpike -Peer <SteamID64 des Hosts>` | Host 11:42:18 „Verbindung von einem Konto außerhalb der Lobby, warte bis zu 5000 ms auf die Lobby“, 11:42:23 „eingehende Verbindung abgelehnt“. Client: Grund 1005, „Der Host hat die Verbindung abgelehnt: nicht Mitglied seiner Lobby“. Der zweite Versuch (11:42:30) endete gleich, dann Sitzung beendet. Kein „angenommen“, der Host blieb bei 1 Spieler, der Platz frei |
+
+- **[Belegt] Alle drei Fälle von `lobby-auth-live`.** Eingeladener Freund verbindet (Teil C, wie schon am 06.11.), ein Konto außerhalb der
+  Lobby bekommt 1005 und keinen Platz (Teil A), der Host trennt nach dem Verlassen der Lobby und gibt den Platz frei (Teile B und C).
+  Der Weg über `RevokeAfterMs` (Konto verschwindet aus der Lobby, Verbindung bleibt) lief live nicht, weil „Verlassen“ Transport und Lobby
+  zusammen schließt; er bleibt durch `AuthorizationTests.cpp` abgedeckt.
+- **[Belegt] `lobby-live-rest`.** Start durch Steam bei geschlossenem Spiel bis in die MetaBase ohne Klick, geordnetes Verlassen zweimal
+  mit freiem Platz beim Host, ohne Absturz und ohne Rest-Lobby beim Client.
+- **Hinweis zum Werkzeug.** `-SteamLaunch` legt die Mod für den Test in die Steam-Installation, weil Steam nie `PinnedGameDir` startet,
+  und läuft dort ohne eigenes `-UserDir`; die Mod speichert trotzdem nur in `SaveGames_DDCoop`. `Stop-Session.ps1` nahm die Mod danach
+  wieder heraus. Ein Probelauf ohne Einladung meldete richtig „ohne +connect_lobby“.
 
 ## Systeme, die die Mod respektieren muss
 

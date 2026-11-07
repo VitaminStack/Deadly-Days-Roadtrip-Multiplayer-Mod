@@ -101,7 +101,7 @@ powershell -ExecutionPolicy Bypass -File tools/Freeze-GameBuild.ps1 -Activate
 - Quelle bleibt `GameDir` aus `config/Local.props`, Standardziel ist `%LOCALAPPDATA%/DDCoop/builds/<Build>`.
 - `-Build <id>` wählt einen der unterstützten Builds aus `SupportedBuilds` in `tools/spike/Common.ps1`, Standard `26187885`. Jeder Build hat
   seine Hash-Referenz in `game_build.py` und einen eigenen Ordner. Start und Deploy erkennen den Build der aktiven Kopie an ihrem Beleg.
-  Auf einem anderen Build als `26187885` startet `Start-Session.ps1` nur mit `-Mod -Tunnel Lobby -NoSpike`, weil der Spike feste Adressen hat.
+  Auf einem anderen Build als `26187885` startet `Start-Session.ps1` nur ohne Spike (`-Mod -Tunnel Lobby -NoSpike`, als Client auch `-Tunnel Mod`), weil der Spike feste Adressen hat.
 - `-Destination <Ordner>` wählt ein anderes Ziel außerhalb aller `steamapps`-Ordner. Keine Hardlinks, Symlinks oder Junctions.
 - `-Activate` setzt `PinnedGameDir` in der gefundenen lokalen Konfiguration; in Worktrees ohne eigene `Local.props` ist das die gemeinsame Datei.
   Alle Skripte dieses Standes bevorzugen dann die Kopie. Bereits ältere Branches müssen die neue Startlogik erst übernehmen; nur der Konfigurationseintrag reicht dort nicht.
@@ -124,6 +124,24 @@ py tools/rva_map.py --old <kopie-26187885>/DDSurvivors/Binaries/Win64/DDSurvivor
 - `fehlt`: Code geändert, bleibt Kommentar in der Tabelle und liefert zur Laufzeit 0. Dann schlägt die Byte-Prüfung des Patches fehl und die Mod
   setzt keine Patches (Log: `Adresse … fehlt`, `Prüfung fehlgeschlagen`). Die Portierung trägt die Adresse von Hand mit `// von Hand` nach.
 - Ein neuer Lauf überschreibt die Datei; von Hand nachgetragene Zeilen vorher sichern.
+
+## sdk_diff.py
+
+Vergleicht zwei lokale Dumper-7-SDKs (alter und neuer Build) für alles, was die Mod nutzt, und ergänzt damit `rva_map.py` (Code-Adressen)
+um Felder, Funktionen und Klassen. Nur Standardbibliothek, liest nur die beiden SDK-Ordner und das Repo, schreibt nichts.
+
+```bash
+py tools/sdk_diff.py --old <dumper7-ausgabe-alt> --new <dumper7-ausgabe-neu>
+```
+
+- Gesucht wird in `src/Game/SdkChecks.cpp` (`offsetof(SDK::…)`), in `src/` (`FindObject`/`Function` mit Funktion und Klasse, `FieldSpec`
+  mit Paket, Klasse und Feld, Klassennamen in Zeichenketten) und in `src/` sowie `docs/OFFSETS.md` (Verweise `Klasse.Feld`, `Klasse.Funktion`).
+  Felder und Funktionen werden wie bei der Reflexion der Mod auch in den Oberklassen gesucht, Klassennamen mit und ohne Präfix (`U`, `A`, `F`).
+- `verschoben` (Offset, Größe oder Bit), `verschwunden`, `Signatur geändert` (Parameterliste), `Größe geändert` (Klasse), `neu`,
+  `unbekannt` (aus `SdkChecks.cpp`, kein SDK kennt es) und `unverändert` (nur mit `--all`). Je Eintrag die erste Fundstelle im Repo.
+  Exitcode 1 bei `verschoben`, `verschwunden` oder `Signatur geändert`. `--json` für Skripte.
+- Nicht erfasst: Offsets, die nur als Zahl ohne `Klasse.Feld` im Code oder Kommentar stehen, und Felder, die das SDK nicht nennt (etwa nicht
+  reflektierte Bitfelder). Solche Werte mit Kommentar `// UKlasse.Feld` versehen, dann prüft das Werkzeug sie mit.
 
 ## expect_check.py
 
@@ -200,7 +218,7 @@ Bauen und Testen des Spikes, die Anleitung steht in [docs/TESTING.md](../docs/TE
 | Skript | Aufgabe |
 |---|---|
 | `Build-Spike.ps1` | Baut `spike.dll` |
-| `Start-Session.ps1` | Setzt die Sperre, startet Crash-Schutz, Host und Client parallel, verbindet sie und reist in eine Karte. Wartet auf Zustände statt fest zu schlafen und nennt die Zeit je Schritt (MetaBase etwa 30 bis 40 s). `-Wait <s>` wartet auf eine fremde Sitzung statt abzubrechen. `-Build` baut den Spike vorher neu, `-Mod` baut und installiert zusätzlich die Mod. `-Role Host` oder `-Role Client -Peer <SteamID>` startet nur eine Seite für den Test auf zwei PCs. `-Mod -Tunnel Mod` verbindet über den Transport der Mod statt über den Spike, `-Mod -Tunnel Lobby` über die Steam-Lobby der Mod, erstellt und betreten über das Overlay. `-Brief`: nur Zeit je Schritt und eine Zeile je Instanz. `-NetProfile Internet` simuliert Latenz im Tunnel der Mod, siehe [Latenz simulieren](../docs/TESTING.md#latenz-simulieren). `-Mod -Tunnel Lobby -NoSpike` startet nur mit der Mod wie im Release, siehe [Nur Mod, ohne Spike](../docs/TESTING.md#nur-mod-ohne-spike) |
+| `Start-Session.ps1` | Setzt die Sperre, startet Crash-Schutz, Host und Client parallel, verbindet sie und reist in eine Karte. Wartet auf Zustände statt fest zu schlafen und nennt die Zeit je Schritt (MetaBase etwa 30 bis 40 s). `-Wait <s>` wartet auf eine fremde Sitzung statt abzubrechen. `-Build` baut den Spike vorher neu, `-Mod` baut und installiert zusätzlich die Mod. `-Role Host` oder `-Role Client -Peer <SteamID>` startet nur eine Seite für den Test auf zwei PCs. `-Mod -Tunnel Mod` verbindet über den Transport der Mod statt über den Spike, `-Mod -Tunnel Lobby` über die Steam-Lobby der Mod, erstellt und betreten über das Overlay. `-Brief`: nur Zeit je Schritt und eine Zeile je Instanz. `-NetProfile Internet` simuliert Latenz im Tunnel der Mod, siehe [Latenz simulieren](../docs/TESTING.md#latenz-simulieren). `-Mod -Tunnel Lobby -NoSpike` startet nur mit der Mod wie im Release, siehe [Nur Mod, ohne Spike](../docs/TESTING.md#nur-mod-ohne-spike). Als Client zusätzlich `-SteamLaunch` (Steam startet das Spiel nach einer Einladung) oder `-Tunnel Mod -NoSpike` (Ablehnung eines Kontos außerhalb der Lobby), siehe [Steam-Lobby der Mod prüfen](../docs/TESTING.md#steam-lobby-der-mod-prüfen) |
 | `Restart-Instance.ps1` | Startet nur den Client neu und verbindet ihn wieder, der Host läuft weiter (etwa 20 s statt eines vollen Neustarts). `-Brief` für kurze Ausgabe |
 | `Overlay.ps1` | Bedient das Overlay der Mod ohne Maus: `status`, `create`, `join [<id>]`, `leave`, `invite`. `-Json` für Skripte |
 | `Watch-Net.ps1` | Zeigt Änderungen an Overlay, Prozess und Mod-Log (Sitzung, Transport, Lobby, Welt) beider Instanzen mit Zeit, `-Until <Muster>` endet beim ersten Treffer |
@@ -218,7 +236,7 @@ Bauen und Testen des Spikes, die Anleitung steht in [docs/TESTING.md](../docs/TE
 | `Start-Run.ps1` | Startet aus der `MetaBase` einen Run bis zur Routenkarte: Position lesen, in einem Zug in den Ring, Karte am Banner erkennen, bis zu drei Versuche. Ein frischer Spielstand, der ohne Routenkarte direkt in die Mission fährt, zählt auch. `-Brief`: eine Zeile |
 | `Travel-Day.ps1` | Fährt einen Tag über die Routenkarte, wartet auf die neue Karte, prüft beide Instanzen und beendet ihn. `-Brief`: eine Zeile je Instanz und Inventar |
 | `Run-Route.ps1` | Fester Routenlauf mit Seed `20795` über mehrere Tage, nach jedem Wechsel `check_round.py`, Bilder während und nach dem Laden unter `research/local/session/runs/`. Mit `-Start -NetProfile Internet` in einer Lobby-Sitzung mit simulierter Latenz, mit `-Start -NoSpike -Days 1 -StayLast` nur mit der Mod |
-| `check_round.py` | Prüft nach einem Kartenwechsel World, `PlayerArray`, PlayerStates, Figuren am Bus, gleiche Positionen bei Host und Client, NetGUIDs und `NewActor failed` |
+| `check_round.py` | Prüft nach einem Kartenwechsel World, `PlayerArray`, PlayerStates, Figuren am Bus, gleiche Positionen bei Host und Client, NetGUIDs und `NewActor failed`. Mit `--wait` misst `load_seconds` ab dem Aufruf, bis beide die neue World mit allen Spielern im GameState haben; World 0 beim Laden gilt nicht als beendet, leer heißt Instanz beendet oder Zeit abgelaufen |
 | `Focus-Window.ps1` | Holt ein Spielfenster nach vorn |
 | `Disassemble.ps1` | Zeigt einen RVA-Bereich der Exe |
 | `CrashGuard.ps1` | Crash-Schutz, wird von `Start-Session.ps1` gestartet |

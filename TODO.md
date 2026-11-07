@@ -34,19 +34,23 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 <!-- frei:start -->
 | Kennung | Prio | Phase | Bearbeitung | Spielzeit |
 |---|---|---|---|---|
-| `lobby-auth-live` | P0 | [3](#phase-3--session-und-verbindung) | zu zweit | wenig |
-| `integration-g2` | P0 | [4](#phase-4--vertical-slice) | zentral | viel |
+| `fortschritt` | P0 | [5](#phase-5--vollständiger-run) | parallel | viel |
+| `gegner-alle` | P0 | [5](#phase-5--vollständiger-run) | parallel | viel |
 | `inventar-client-abweichung` | P0 | [5](#phase-5--vollständiger-run) | parallel | mittel |
-| `lobby-live-rest` | P1 | [3](#phase-3--session-und-verbindung) | zu zweit | wenig |
+| `pausen-sync` | P0 | [5](#phase-5--vollständiger-run) | parallel | mittel |
+| `tagesablauf` | P0 | [5](#phase-5--vollständiger-run) | parallel | viel |
+| `dauerlauf` | P1 | [5](#phase-5--vollständiger-run) | parallel | viel |
 | `lager-handel-client` | P1 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `routenkarte-client` | P1 | [5](#phase-5--vollständiger-run) | parallel | mittel |
+| `run-ende` | P1 | [5](#phase-5--vollständiger-run) | parallel | viel |
 | `virenscanner` | P1 | [6](#phase-6--release) | parallel | keine |
 | `weekly-sperre` | P1 | [6](#phase-6--release) | parallel | wenig |
 | `mod-steuerung` | P1 | [Wartung](#wartung) | parallel | wenig |
 | `update-welt` | P1 | [Wartung](#wartung) | parallel | mittel |
-| `opt-ladezeit-messung` | P2 | [Wartung](#wartung) | parallel | wenig |
+| `reconnect` | P2 | [5](#phase-5--vollständiger-run) | parallel | viel |
+| `vfx-sound` | P2 | [5](#phase-5--vollständiger-run) | parallel | mittel |
+| `modversion-overlay` | P2 | [6](#phase-6--release) | parallel | wenig |
 | `patch-signaturen` | P2 | [Wartung](#wartung) | parallel | wenig |
-| `sdk-vergleich` | P2 | [Wartung](#wartung) | parallel | keine |
 
 **Wartet auf das Team:** nichts.
 
@@ -96,8 +100,8 @@ Bestätigungstests. Keine neue Reservierung je Test, Änderungen nur im eigenen 
 
 Mögliche Punkte und Reihenfolge, je nach Bereitschaft:
 
-1. `lobby-live-rest` und `lobby-auth-live`: Start über `+connect_lobby`, Verlassen des Clients, Konto außerhalb der Lobby. Verbindet
-   die beiden gleich für die folgenden Punkte.
+1. ~~`lobby-live-rest` und `lobby-auth-live`~~: erledigt am 07.11.2026, siehe [Lobby-Abnahme](docs/GAME_ANALYSIS.md#lobby-abnahme-auf-zwei-pcs-am-07112026-lobby-auth-live-lobby-live-rest).
+   Für weitere Termine verbindet `Start-Session.ps1 -Role Client -Mod -Tunnel Lobby -NoSpike` die beiden gleich.
 2. `net-fehler`, nur zur Gegenprobe über das Internet: Host verlässt das Spiel, Leitung bricht ab. Umsetzung und Abnahme gehen allein.
 3. `integration-g2`: zehn Minuten Vertical Slice zwischen zwei Haushalten, erst wenn alle Voraussetzungen erledigt sind.
 4. `integration-run`: kompletter Run über das Internet, Phase 5.
@@ -142,8 +146,6 @@ Ziel: Zwei Spieler finden sich über Steam und verbinden sich ohne Portfreigabe.
 
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
-| `lobby-auth-live` | P0 | Rest aus `lobby-auth`: Mit getrennten Steam-Konten prüfen, dass der eingeladene Freund verbindet, ein Konto außerhalb der Lobby mit SteamID des Hosts (`-Role Client -Tunnel Mod -Peer <SteamID64>` gegen einen Host mit `-Tunnel Lobby`) „nicht Mitglied seiner Lobby“ sieht und der Platz frei bleibt, und dass der Host nach Verlassen der Lobby trennt. **Fertig, wenn** alle drei Fälle über das Internet so ablaufen. Passt in einen Termin mit `lobby-live`. **Einstieg:** [Zugriffskontrolle](src/Net/README.md#zugriffskontrolle-lobby-auth) | `lobby-auth` | zu zweit | wenig |
-| `lobby-live-rest` | P1 | Rest aus `lobby-live`: Mit zwei Konten auf zwei PCs den Start über `+connect_lobby` bei geschlossenem Spiel (Einladung annehmen, während das Spiel des Clients nicht läuft) und das geordnete Verlassen des Clients prüfen. **Fertig, wenn** der Client nach dem Start durch Steam ohne weiteren Klick in der MetaBase des Hosts landet und der Host nach „Verlassen“ des Clients den Platz freigibt, ohne Absturz und ohne Rest-Lobby. Passt in einen Termin mit `lobby-auth-live`. **Einstieg:** [Steam-Lobby über das Internet](docs/GAME_ANALYSIS.md#steam-lobby-über-das-internet-lobby-live), [Steam-Lobby](src/Net/README.md#steam-lobby-steam-lobby) | `steam-lobby` | zu zweit | wenig |
 
 ## Phase 4 – Vertical Slice
 
@@ -151,7 +153,6 @@ Ziel: Zwei Spieler starten eine Mission, kämpfen gegen einen Gegnertyp und sehe
 
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
-| `integration-g2` | P0 | Gate G2: Vertical Slice zusammenführen und zehn Minuten über echtes Internet zwischen zwei Haushalten spielen. Zwei Menschen nötig. **Fertig, wenn** die Runde stabil, ohne Desync und spielbar ist. Sonst Ursachen beheben, bevor weitere Inhalte synchronisiert werden | `missionsstart`, `kamera-code`, `bewegung`, `kampf`, `gegnertyp`, `eingaben`, `restrictor`, `steam-lobby`, `lobby-live`, `transport`, `net-fehler`, `ohne-spike`, `latenz-test`, `desync-melder` | zentral | viel |
 
 ## Phase 5 – Vollständiger Run
 
@@ -179,6 +180,7 @@ Ziel: Die Mod lässt sich installieren, ohne Spielstände oder Bestenlisten zu b
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
 | `weekly-sperre` | P1 | Die Weekly-Challenge sperren, solange die Mod geladen ist, auch solo, wie Erfolge und Bestenlisten (Entscheidung `weeklymode`). `ddrweekly.deadlydays.com` in `Core::ReportHosts` aufnehmen und vorher prüfen, wie das Menü reagiert: Hängt oder stürzt der Weekly-Eintrag ohne Antwort, ihn sperren oder mit Hinweis versehen. **Fertig, wenn** mit Mod nichts an den Weekly-Server geht, das Menü normal bedienbar bleibt und ohne Mod alles unverändert ist. **Einstieg:** [Telemetrie und Berichte](docs/GAME_ANALYSIS.md#telemetrie-und-berichte-telemetrie-aus). Ordner `src/Core`, `src/Game` | `weeklymode`, `telemetrie-aus` | parallel | wenig |
+| `modversion-overlay` | P2 | Wunsch des Nutzers vom 07.11.2026: Das Overlay der Mod zeigt dauerhaft die geladene Mod-Version, damit Spieler sehen, welche Version sie nutzen, und Abweichungen zwischen Host und Client erkennen. Die Version aus derselben Quelle wie im Handshake nehmen, nicht doppelt pflegen. **Fertig, wenn** das Overlay in Menü, MetaBase und Mission die Version zeigt und sie mit der Version im Handshake übereinstimmt. Ordner `src/Mod` | – | parallel | wenig |
 | `virenscanner` | P1 | Das Release-Paket gegen Windows Defender und weitere Scanner prüfen: Proxy-DLL und Hooks sehen für Scanner verdächtig aus. Fehlalarme bei den Herstellern melden, Hinweise in die Installationsanleitung. Steam Deck und Proton prüfen (`WINEDLLOVERRIDES="version=n,b" %command%`) oder als nicht unterstützt kennzeichnen. Nur das eigene Paket hochladen, nie Spieldateien. **Fertig, wenn** Defender das Paket nicht meldet oder der Umgang mit Fehlalarmen dokumentiert ist und der Stand zu Proton in der Anleitung steht. Ordner `docs`, `tools` | `installer` | parallel | keine |
 | `release` | P0 | Versionierung, Abschlusstest und Veröffentlichung. Ein Stand, eine Freigabe | `integration-run`, `tutorial-aus`, `online-sperren`, `telemetrie-aus`, `mod-saves`, `installer`, `weekly-sperre`, `virenscanner`, `lobby-live-rest` | zentral | wenig |
 
@@ -190,8 +192,6 @@ Zählt nicht zum Fortschritt.
 |---|---|---|---|---|---|
 | `mod-steuerung` | P1 | Steuerkanal in der Mod für Testskripte: Befehle mit Antwort über eine lokale Named Pipe je Prozess, nur mit Testschalter aktiv. Mindestens Zustand als JSON (Welt, Rolle, Spieler, Sitzung, Overlay), Lobby erstellen, beitreten, verlassen, Konsolenbefehl und Reise. Ersetzt die Befehlsdatei des Spikes (`Send-SpikeCommand`, eine Sekunde Abfrage, keine Antwort) und das Auslesen per `netstate.py` und Overlay-Fenster. **Fertig, wenn** `Start-Session.ps1`, `Restart-Instance.ps1` und `Test-NetEnd.ps1` ohne Spike-Befehle auskommen und gleich schnell oder schneller sind. **Einstieg:** [Spielzeit sparen](docs/TESTING.md#spielzeit-sparen), `tools/spike/Common.ps1` | `test-tempo` | parallel | wenig |
 | `patch-signaturen` | P2 | Für Build `26495302` übernimmt `update-basis` Tabelle und Adresswerkzeug, danach hier nur noch die Byte-Signaturen ergänzen. Die festen Code-Adressen der Patches (rund 90 RVAs in `src/Game/*Patches.cpp` und `CodeCave.cpp`) in eine zentrale Tabelle mit Byte-Signatur und erwarteter RVA überführen, wie `Core::Signature` es für `ProcessEvent` schon macht. Beim Start gilt: genau ein Treffer an der erwarteten Stelle, sonst bleibt nur dieser Patch aus und das Log nennt ihn. Dateiweise in kurzen PRs umstellen und Dateien laufender Aufgaben auslassen. Neue Patches kommen danach gleich mit Signatur in die Tabelle. **Fertig, wenn** jede Patch-Adresse in der Tabelle steht, ein Prüfskript alle Signaturen gegen die eingefrorene Exe als eindeutig meldet und ein absichtlich falsches Muster im Spiel nur seinen Patch abschaltet. **Einstieg:** [Andockpunkte](docs/ARCHITECTURE.md#technische-andockpunkte-build-26187885), `src/Core/Signature.h` | – | parallel | wenig |
-| `sdk-vergleich` | P2 | Werkzeug für `spiel-update`: Vergleicht zwei lokale Dumper-7-SDK-Ausgaben (alter und neuer Build) und listet für alles, was die Mod nutzt (`Offsets.h`, [OFFSETS.md](docs/OFFSETS.md), Klassen- und Funktionsnamen aus `src/`), ob es unverändert, verschoben oder verschwunden ist. Liest nur lokale Pfade, schreibt nie SDK-Inhalte ins Repo. **Fertig, wenn** `tools/sdk_diff.py` auf zwei SDK-Ordnern diese Liste ausgibt, Unit-Tests mit kleinen selbst geschriebenen SDK-Ausschnitten bestehen und der Aufruf unter [Spiel-Updates](CONTRIBUTING.md#spiel-updates) steht | – | parallel | keine |
-| `opt-ladezeit-messung` | P2 | `check_round.py --wait` meldet keine Ladezeit (`load_seconds` leer): Während des Ladens liefert `world()` 0, `alive()` hält das für eine beendete Instanz und `wait_new_world` gibt sofort auf. Die Prüfung danach stimmt trotzdem, weil `Run-Route.ps1` vorher Bilder macht und wartet. Seit mindestens 05.11.2026 in allen Routenläufen, auch ohne Netzprofil. Als Testwerkzeug unter Wartung statt optional. **Einstieg:** `tools/spike/check_round.py`, `wait_new_world` | – | parallel | wenig |
 | `update-welt` | P1 | Patches für Build `26495302` portieren: `MapPatches.cpp`, `TravelPatches.cpp`, `ExpPatches.cpp`, `ProjectilePatches.cpp`, `MovementPatches.cpp`, `CameraPatches.cpp`, `CodeCave.cpp`. Patchnotes prüfen: Abstürze beim Map Travel, Dash außerhalb der gemeinsamen Kamera. **Fertig, wenn** diese Dateien auf `26495302` keine fehlenden Patches mehr melden und Route bis Tag 2 mit gleicher Karte, XP-Bällen und Kamera läuft | `update-basis` | parallel | mittel |
 | `spiel-update` | P1 | Umstieg auf Build `26495302` (Depot `3026452`, Manifest `2302428105354984436`) abschließen: ausstehende Bestätigungstests auf dem neuen Build, Doku ([GAME_ANALYSIS](docs/GAME_ANALYSIS.md#unterstützte-spielversion), [OFFSETS](docs/OFFSETS.md), SETUP, INSTALL, CLAUDE.md), danach Unterstützung für `26187885` entfernen. **Fertig, wenn** ein Coop-Run auf `26495302` ohne fehlende Patches läuft und `26187885` nirgends mehr verlangt wird. **Einstieg:** [Update-Regel](CONTRIBUTING.md#spiel-updates) | `update-basis`, `update-client`, `update-inventar`, `update-welt` | zentral | viel |
 
@@ -268,6 +268,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `guidcache` | 1 | Blockaden-Autorität, NetGUID-Pfadlebensdauer und Sneak-Zielbereitschaft korrigiert; Test-Godmode für beide Spieler, Lauf bis Endlos-Tag 13 mit zwei Biomwechseln. Am 04.11.2026 vom Nutzer als abgeschlossen akzeptiert; vorerst keine weiteren Detailtests, neue konkrete Probleme erhalten ein neues TODO. [Nachweise und Testgrenzen](docs/GAME_ANALYSIS.md#abschluss-und-akzeptierter-testumfang-guidcache) |
 | `hp-leisten` | 1 | Spike-Fix: Die Lebensleisten über den Figuren blieben beim Client auf dem Startwert, weil das Spiel `OnHealthChanged` nur beim Host auslöst. Jetzt ruft der Spike die Empfänger nach `OnRep_Health` und `OnRep_MaxHealth` auf, siehe [Lebensleisten](docs/GAME_ANALYSIS.md#lebensleisten-beim-client-hp-leisten) |
 | `installer` | 6 | Release-Paket mit Install.cmd/Uninstall.cmd und Anleitung docs/INSTALL.md; findet Steam-Bibliotheken, prüft Build und fremde version.dll, Deploy-Mod nutzt denselben Installer |
+| `integration-g2` | 4 | Gate G2 bestanden: zwei PCs, Build 26495302, zehn Minuten Mission stabil, kein Absturz, nur kurze Desync-Meldungen, siehe [Bericht](docs/GAME_ANALYSIS.md#gate-g2-auf-zwei-pcs-am-07112026-integration-g2) |
 | `inventar-lokal` | 5 | Client bearbeitet sein Inventar in der Itemauswahl lokal, der Host übernimmt beim Bestätigen einen Edit oder lehnt ab; zwei Airdrops, Umsortieren und Rundenende bis Tag 2 ohne Absturz, Inventare gleich ([Befund](src/Game/README.md#inventar-lokal-bearbeiten)) |
 | `inventar-sync` | 5 | Durch andere Aufgaben abgedeckt, der Weg über den nativen `CoopInventoryCoordinator` ist verworfen: Rucksack über `inventar-lokal` und `ausruestung-felder`, Lager über `rundenende-client`, Reward-Queue über `airdrop-warten` und `bestaetigen-alle`, Itemsäcke über `inventar-transaktion`; die Werkbank ist `werkbank-client`, siehe [Inventar lokal bearbeiten](src/Game/README.md#inventar-lokal-bearbeiten) |
 | `inventar-transaktion` | 5 | Ein Itemsack gibt jedem Spieler das Item, der Host vergibt Kopien; Client-lokales Inventar als `inventar-lokal`, siehe [Itemsack für alle](src/Game/README.md#itemsack-für-alle-spieler) |
@@ -288,8 +289,10 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `layerapps-sperre` | 6 | Die Mod sperrt auch `deadlydays.layerapps.com`, das das Spiel beim Run-Ende anfragt (`Core::ReportHosts`). Run-Ende und neuer Run laufen normal, siehe [Telemetrie und Berichte](docs/GAME_ANALYSIS.md#telemetrie-und-berichte-telemetrie-aus) |
 | `livetest-befunde` | 5 | Live-Test auf zwei PCs bis Tag 2 ausgewertet, neue Aufgaben `lager-absturz-client`, `waffe-client-auswahl`, `inventar-client-abweichung`, `dodge-client-live`, siehe [Live-Test 06.11.](docs/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-06112026-livetest-befunde) |
 | `lobby-auth` | 3 | Host nimmt P2P nur von Steam bestätigten Mitgliedern seiner Lobby an, vor AcceptConnection, ohne Platz zu belegen; 127.0.0.1 nur im Testmodus; 10 Net-Tests mit nachgebautem Steam, auf einem PC im Spiel geprüft, Test mit zwei Konten ist `lobby-auth-live`, siehe [Zugriffskontrolle](src/Net/README.md#zugriffskontrolle-lobby-auth) |
+| `lobby-auth-live` | 3 | Mit zwei Konten über das Internet bestätigt: Mitglied verbindet, Konto außerhalb der Lobby bekommt 1005 ohne Platz, Host gibt den Platz nach dem Verlassen frei; neu `Start-Session.ps1 -SteamLaunch` und `-Tunnel Mod -NoSpike`, siehe [Lobby-Abnahme](docs/GAME_ANALYSIS.md#lobby-abnahme-auf-zwei-pcs-am-07112026-lobby-auth-live-lobby-live-rest) |
 | `lobby-bereit` | 3 | Host schließt die Lobby im Hauptmenü oder ohne Listen-Server, Client erfährt es sofort, siehe [Lobby nur mit Server](src/Net/README.md#lobby-nur-mit-server-lobby-bereit) |
 | `lobby-live` | 3 | Mit zwei Konten über das Steam-Relay geprüft: Einladung angenommen, P2P, Handshake des Kontrollkanals bestätigt, MetaBase erreicht, Host-Abgang sauber; Rest (`+connect_lobby`, Abgang des Clients) ist `lobby-live-rest`, siehe [Steam-Lobby über das Internet](docs/GAME_ANALYSIS.md#steam-lobby-über-das-internet-lobby-live) |
+| `lobby-live-rest` | 3 | Mit zwei Konten auf zwei PCs bestätigt: Steam startet das geschlossene Spiel nach der Einladung mit `+connect_lobby`, der Client landet ohne Klick in der MetaBase des Hosts, nach „Verlassen“ gibt der Host den Platz frei, ohne Absturz und ohne Rest-Lobby, siehe [Lobby-Abnahme](docs/GAME_ANALYSIS.md#lobby-abnahme-auf-zwei-pcs-am-07112026-lobby-auth-live-lobby-live-rest) |
 | `menue-weg` | 1 | Mission über den echten Weg durch das Spielmenü mit den Patches gestartet, siehe [Spike](research/spikes/a-connect/README.md) |
 | `meta-fortschritt` | 5 | Nutzerentscheidung: Im gemeinsamen Run gilt der Meta-Fortschritt des Hosts, Client nur sitzungsweise ohne dauerhafte Meta-Gutschrift; Umsetzung bleibt offen, siehe [Regel](docs/SYNC_REQUIREMENTS.md#nutzervorgabe-meta-fortschritt-des-hosts-06112026) |
 | `missionsstart` | 4 | Gleiche Karte bei Host und Client über den Kontrollkanal der Mod, die Erzeugung des Clients wartet auf die Werte des Hosts; auf einem PC mit Netzprofil Internet und ohne Spike geprüft, siehe [Gleiche Karte in der Mod](docs/GAME_ANALYSIS.md#gleiche-karte-in-der-mod-missionsstart) |
@@ -299,6 +302,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `niederlage` | 1 | Nach einer Niederlage kehren Host und Client über „Zurück zur Basis“ in die `MetaBase` zurück, und ein neuer Run startet; der Host-Absturz im Run-Ende-Handler ohne `LocalPlayer` ist im Spike behoben (`RunEnd.cpp`), siehe [Niederlage](docs/GAME_ANALYSIS.md#niederlage-niederlage) |
 | `ohne-spike` | 4 | Mod läuft ohne Spike bis Mission Tag 1 und zurück zur Basis, Start-Session.ps1 -NoSpike, Liste der Spike-Eingriffe in src/Game/README.md |
 | `online-sperren` | 6 | Die Mod sperrt die schreibenden Steam-Methoden für Erfolge, Statistiken und Bestenlisten (`Core::SteamStats`), lesen bleibt erlaubt, siehe [Erfolge und Bestenlisten](docs/GAME_ANALYSIS.md#erfolge-und-bestenlisten-online-sperren) |
+| `opt-ladezeit-messung` | Wartung | check_round.py --wait trennt Prozessende von World 0 beim Laden und wartet auf alle Spieler im GameState; Run-Route.ps1 startet die Messung vor dem Klick. Routenlauf ohne Spike auf 26495302: load_seconds 1,0 s statt leer bzw. 0,0 |
 | `overlay` | 2 | F8-Overlay mit Status und Debug-Anzeige, sichtbare Host-/Client-Abnahme bestanden, siehe [UI](src/UI/README.md#sichtbare-spielabnahme-03112026) |
 | `overlay-fokus` | 3 | F8-Overlay bleibt beim Fokuswechsel sichtbar, Knopf „Lobby-ID kopieren“, siehe [UI](src/UI/README.md#stand-overlay) |
 | `patches` | 4 | Die 25 Spielfehler-Fixes des Spikes stehen geprüft in `src/Game/*Patches.cpp`, alle oder keiner; mit der Mod lässt der Spike seine Fassungen aus. Route MetaBase bis Tag 5 und Niederlage mit Rückkehr in die MetaBase ohne Absturz, siehe [Patches](src/Game/README.md#patches) |
@@ -320,6 +324,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `rundenende-client` | 5 | Client sieht nach dem Rundenende des Hosts Rundenübersicht und Lager selbst, ordnet dort sein Inventar, nur der Host reist, siehe [Rundenübersicht beim Client](docs/GAME_ANALYSIS.md#rundenübersicht-und-lager-beim-client-rundenende-client) |
 | `sdk` | 0 | SDK für UE 5.8 erzeugt, siehe [SDK-Erzeugung](docs/GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58) |
 | `sdk-mission` | 0 | SDK zusätzlich während einer Mission gedumpt, mit Blueprint-Klassen |
+| `sdk-vergleich` | Wartung | tools/sdk_diff.py vergleicht zwei lokale Dumper-7-SDKs für alle von der Mod genutzten Felder, Funktionen und Klassen (SdkChecks.cpp, FindObject/Function/FieldSpec, Klasse.Feld in src und OFFSETS.md), Unit-Tests mit eigenen SDK-Ausschnitten, Aufruf unter Spiel-Updates in CONTRIBUTING.md |
 | `skripte-rundenende` | Wartung | `Run-Route.ps1` und `Travel-Day.ps1` klicken am Rundenende Fortsetzen und Bestätigen bei jeder lokalen Instanz (`Complete-RoundEnd`) und warten auf die Routenkarte; Run-Route bis Tag 2 mit Exitcode 0, Travel-Day bis Tag 3 geprüft, siehe [Testen](docs/TESTING.md#mission-über-das-spielmenü) |
 | `solution` | 0 | Visual-Studio-Solution mit einem Projekt je Modul, `config/Local.props` eingebunden |
 | `spike-a` | 1 | Spike A: Beide Instanzen kommen in dieselbe Welt, auch auf einem PC, siehe [Ergebnis](research/spikes/a-connect/README.md) |

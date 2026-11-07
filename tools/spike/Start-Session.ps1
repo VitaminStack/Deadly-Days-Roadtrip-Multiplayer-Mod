@@ -42,6 +42,10 @@ param(
     # Wie im Release: nur die Mod, ohne spike.dll. Braucht -Mod und -Tunnel Lobby, Ziel bleibt die MetaBase.
     # Ohne Spike gibt es keine Konsolenbefehle, Karte und PCG kommen nicht vom Host, siehe src\Game\README.md.
     [switch]$NoSpike,
+    # Nur -Role Client -Mod -Tunnel Lobby -NoSpike, ohne -Peer: Steam startet das Spiel selbst, etwa mit +connect_lobby nach einer
+    # angenommenen Einladung bei geschlossenem Spiel. Die Mod kommt dafuer in die Steam-Installation (nicht in PinnedGameDir), ohne
+    # eigenes -UserDir; Stop-Session.ps1 entfernt sie wieder. Das Skript wartet auf den Prozess, den Steam startet.
+    [switch]$SteamLaunch,
     # Nur auf einem anderen Build als 26187885: Patch-Listen einzeln setzen (DDCOOP_PARTIAL_PATCHES), fuer die Portierung.
     [switch]$PartialPatches
 )
@@ -49,19 +53,28 @@ $ErrorActionPreference = 'Stop'
 # Start-Process vererbt die Umgebung an die Instanzen.
 if ($PartialPatches) { $env:DDCOOP_PARTIAL_PATCHES = '1' } else { Remove-Item Env:DDCOOP_PARTIAL_PATCHES -ErrorAction SilentlyContinue }
 . (Join-Path $PSScriptRoot 'Common.ps1')
-if ($Role -eq 'Client' -and -not $Peer) { throw '-Role Client braucht -Peer: SteamID64 des Hosts (mit -Tunnel P2p) oder Adresse:Port.' }
+if ($SteamLaunch) {
+    if ($Role -ne 'Client' -or -not $Mod -or $Tunnel -ne 'Lobby' -or -not $NoSpike) { throw '-SteamLaunch braucht -Role Client -Mod -Tunnel Lobby -NoSpike.' }
+    if ($Peer) { throw '-SteamLaunch ohne -Peer: Die Lobby kommt von Steam (+connect_lobby).' }
+    if ($NetProfile) { throw '-NetProfile geht nicht mit -SteamLaunch, Steam setzt die Kommandozeile.' }
+    $env:DDCOOP_STEAM_INSTALL = '1'
+}
+else { Remove-Item Env:DDCOOP_STEAM_INSTALL -ErrorAction SilentlyContinue }
+if ($Role -eq 'Client' -and -not $Peer -and -not $SteamLaunch) { throw '-Role Client braucht -Peer: SteamID64 des Hosts (mit -Tunnel P2p) oder Adresse:Port.' }
 if ($Role -ne 'Client' -and $Peer) { throw '-Peer gilt nur mit -Role Client.' }
 if ($Role -ne 'Both' -and $Tunnel -eq 'Ip') { throw '-Tunnel Ip verbindet nur auf einem PC. Fuer zwei PCs -Tunnel P2p verwenden.' }
 if ($Tunnel -in 'Mod', 'Lobby' -and -not $Mod) { throw "-Tunnel $Tunnel braucht -Mod." }
 # Mit der Mod kommt die Host-Karte ueber ihren Kontrollkanal (missionsstart), nicht ueber die Datei des Spikes.
 if ($Mod -and $Tunnel -notin 'Mod', 'Lobby') { Write-Warning "Ohne Tunnel der Mod bekommt der Client keine Host-Karte und erzeugt nach 60 s eine eigene. Fuer die Mission -Tunnel Lobby verwenden." }
-if ($Tunnel -eq 'Lobby' -and $Role -eq 'Client' -and $Peer -notmatch '^\d{1,20}$') { throw '-Tunnel Lobby mit -Role Client braucht -Peer mit der Lobby-ID aus der Ausgabe des Hosts.' }
+if ($Tunnel -eq 'Lobby' -and $Role -eq 'Client' -and -not $SteamLaunch -and $Peer -notmatch '^\d{1,20}$') { throw '-Tunnel Lobby mit -Role Client braucht -Peer mit der Lobby-ID aus der Ausgabe des Hosts.' }
 if ($Tunnel -eq 'Mod' -and $Role -eq 'Client' -and $Peer -notmatch '^\d{17}$') { throw '-Tunnel Mod mit -Role Client braucht -Peer mit der SteamID64 des Hosts.' }
 $NetSim = Resolve-NetProfile $NetProfile
 if ($NetSim -and $Tunnel -notin 'Mod', 'Lobby') { throw '-NetProfile wirkt nur im Tunnel der Mod: -Mod mit -Tunnel Lobby oder Mod.' }
 if ($NoSpike) {
     # Ohne Spike gibt es weder open noch servertravel. Die Lobby der Mod macht den Host selbst zum Listen-Server in der MetaBase.
-    if (-not $Mod -or $Tunnel -ne 'Lobby') { throw '-NoSpike braucht -Mod -Tunnel Lobby.' }
+    # -Role Client -Tunnel Mod geht nur bis zum Tunnel, etwa um die Ablehnung eines Kontos ausserhalb der Lobby zu pruefen (lobby-auth).
+    $ModClient = $Tunnel -eq 'Mod' -and $Role -eq 'Client'
+    if (-not $Mod -or ($Tunnel -ne 'Lobby' -and -not $ModClient)) { throw '-NoSpike braucht -Mod -Tunnel Lobby, als Client auch -Tunnel Mod.' }
     if ($Godmode) { throw '-Godmode ist eine Testhilfe des Spikes, nicht mit -NoSpike.' }
     if (($Map -split '/')[-1] -ne 'MetaBase') { throw '-NoSpike startet immer in der MetaBase, -Map gilt nicht.' }
 }
@@ -104,7 +117,7 @@ catch {
 }
 Write-Step $(if ($NetSim) { "Build fertig, Netzprofil $NetSim (Ping, Schwankung, Verlust)" } else { 'Build fertig' })
 
-$Guard = Start-Process powershell -WindowStyle Hidden -PassThru -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$(Join-Path $PSScriptRoot 'CrashGuard.ps1')`""
+$Guard = Start-Process powershell -WindowStyle Hidden -PassThru -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$(Join-Path $PSScriptRoot 'CrashGuard.ps1')`"", '-StartupGraceSeconds', $(if ($SteamLaunch) { $JoinTimeoutSeconds + 60 } else { 60 })
 Start-Sleep -Seconds 1
 if ($Guard.HasExited) {
     if ($Mod) { & (Join-Path $PSScriptRoot '..\Deploy-Mod.ps1') -Remove }
@@ -144,9 +157,11 @@ function Wait-ModLog([int]$ProcessId, [string]$Pattern, [int]$TimeoutSeconds) {
     $null
 }
 function Connect-ModTransport([int]$ProcessId) {
-    $Seen = Wait-ModLog $ProcessId 'Transport: verbunden|keine Verbindung zum Host|Start fehlgeschlagen|Steam nicht verf' 150
-    if ("$Seen" -notmatch 'Transport: verbunden') { throw "Tunnel der Mod nicht aufgebaut: $Seen" }
+    $Seen = Wait-ModLog $ProcessId 'Transport: verbunden|keine Verbindung zum Host|Start fehlgeschlagen|Steam nicht verf|abgelehnt' 150
+    if ("$Seen" -notmatch 'Transport: verbunden') { throw "Tunnel der Mod nicht aufgebaut: $($Seen -replace '^.*Transport: ', '')" }
     Write-Output "Tunnel der Mod: $($Seen -replace '^.*Transport: ', '')"
+    # Ohne Spike oeffnet niemand das Spiel zum Tunnel, die Sitzung endet hier.
+    if ($NoSpike) { return }
     Send-SpikeCommand $ProcessId 'open 127.0.0.1:7778'
 }
 # Die Fixes fuer den Beitritt (Host 0x5901CE8, Client 0x56B16D9) setzt die Mod beim Spielstart, ein Spike ist dafuer nicht noetig.
@@ -154,6 +169,23 @@ function Join-Lobby([int]$ProcessId, [string]$LobbyId) {
     $State = Join-OverlayLobby $ProcessId $LobbyId
     if ($State.State -ne 'Im Spiel') { throw "Beitritt zur Lobby gescheitert: $($State.Message)" }
     Write-Output 'Lobby beigetreten, Spiel verbindet sich ueber den Tunnel der Mod.'
+}
+# Wartet auf das Spiel, das Steam aus seiner Installation startet. Andere Pfade zaehlen nicht.
+function Wait-SteamLaunch([int]$TimeoutSeconds) {
+    # Write-Host, weil die Rueckgabe der Prozess ist.
+    Write-Host "Mod liegt in der Steam-Installation. Jetzt die Einladung in Steam annehmen, Spiel nicht selbst starten (bis zu $TimeoutSeconds s) ..."
+    $Deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ((Get-Date) -lt $Deadline) {
+        $Found = Get-Process $script:GameProcess -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $Exe } | Select-Object -First 1
+        if ($Found) { Write-Step 'Steam hat das Spiel gestartet'; return $Found }
+        Start-Sleep -Seconds 1
+    }
+    throw "Zeitablauf nach $TimeoutSeconds s: Steam hat das Spiel nicht gestartet."
+}
+# Nur ob +connect_lobby dabei war, ohne die Lobby-ID.
+function Get-LaunchSummary([int]$ProcessId) {
+    $Line = (Get-CimInstance Win32_Process -Filter "ProcessId=$ProcessId" -ErrorAction SilentlyContinue).CommandLine
+    if ("$Line" -match '\+connect_lobby\s+\d+') { '+connect_lobby <Lobby-ID>' } else { 'ohne +connect_lobby' }
 }
 function Add-Spike($Instance) {
     # Falls Steam einen Neustart in seiner Installation erzwingt, dort niemals den Spike injizieren.
@@ -166,18 +198,33 @@ function Add-Spike($Instance) {
     if (-not $Brief) { $Injected }
 }
 $GameHost = if ($Role -ne 'Client') { Start-Instance 'host' 0 }
-$Client = if ($Role -ne 'Host') { Start-Instance 'client' $(if ($Role -eq 'Both') { 820 } else { 0 }) }
+if ($SteamLaunch) {
+    # Vorab eintragen, damit Stop-Session.ps1 die Mod auch nach einem Abbruch waehrend des Wartens aus der Steam-Installation nimmt.
+    @{ Host = 0; Client = 0; Role = $Role; Guard = $Guard.Id; Mod = $true; SteamInstall = $true; Tunnel = $Tunnel; NoSpike = $true; Map = $Map } |
+        ConvertTo-Json | Set-Content (Join-Path $script:SessionDir 'session.json') -Encoding ascii
+    try { $Client = Wait-SteamLaunch $JoinTimeoutSeconds }
+    catch {
+        & (Join-Path $PSScriptRoot 'Stop-Session.ps1') | Out-Null
+        throw
+    }
+}
+$Client = if ($SteamLaunch) { $Client }
+elseif ($Role -ne 'Host') { Start-Instance 'client' $(if ($Role -eq 'Both') { 820 } else { 0 }) }
 $Local = @($GameHost, $Client) | Where-Object { $_ }
 $LocalIds = @($Local | ForEach-Object { $_.Id })
 # Die Rolle, die auf einem anderen PC laeuft, steht mit Prozess-ID 0 in der Sitzung.
 $HostId = if ($GameHost) { $GameHost.Id } else { 0 }
 $ClientId = if ($Client) { $Client.Id } else { 0 }
-@{ Host = $HostId; Client = $ClientId; Role = $Role; Guard = $Guard.Id; Mod = [bool]$Mod; Tunnel = $Tunnel; NetSim = $NetSim; NoSpike = [bool]$NoSpike; Map = $Map; Started = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() } | ConvertTo-Json |
+@{ Host = $HostId; Client = $ClientId; Role = $Role; Guard = $Guard.Id; Mod = [bool]$Mod; SteamInstall = [bool]$SteamLaunch; Tunnel = $Tunnel; NetSim = $NetSim; NoSpike = [bool]$NoSpike; Map = $Map; Started = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() } | ConvertTo-Json |
     Set-Content (Join-Path $script:SessionDir 'session.json') -Encoding ascii
 Write-SessionLock $HostId $ClientId | Set-Content $script:LockFile -Encoding ascii
 
-foreach ($Instance in $Local) { Wait-MainMenu $Instance.Id $MenuTimeoutSeconds }
-Write-Step 'Hauptmenue geladen'
+# Beim Start ueber Steam tritt die Mod schon im Hauptmenue bei, das Hauptmenue ist dann oft nicht mehr zu sehen.
+if (-not $SteamLaunch) {
+    foreach ($Instance in $Local) { Wait-MainMenu $Instance.Id $MenuTimeoutSeconds }
+    Write-Step 'Hauptmenue geladen'
+}
+else { Wait-Condition { (Get-NetState $Client.Id).world } 'Welt des von Steam gestarteten Spiels' $MenuTimeoutSeconds @($Client.Id) }
 Start-Sleep -Seconds 2
 if ($NoSpike) {
     foreach ($Instance in $Local) { Assert-NoSpikeLoaded $Instance.Id }
@@ -210,7 +257,7 @@ if ($Role -eq 'Both') {
         Send-SpikeCommand $Client.Id 'open 127.0.0.1:7777'
     }
     elseif ($Tunnel -eq 'Mod') {
-        Connect-ModTransport $Client.Id
+        Connect-ModTransport $Client.Id | Out-Null
     }
     elseif ($Tunnel -eq 'Lobby') {
         Join-Lobby $Client.Id $LobbyId
@@ -261,6 +308,16 @@ else {
     }
     elseif ($Tunnel -eq 'Mod') {
         Connect-ModTransport $Client.Id
+        if ($NoSpike) {
+            Write-Step 'Tunnel steht, ohne Spike verbindet das Spiel nicht. Sitzung mit Stop-Session.ps1 beenden.'
+            return
+        }
+    }
+    elseif ($SteamLaunch) {
+        Write-Output "Startparameter von Steam: $(Get-LaunchSummary $Client.Id)"
+        $Seen = Wait-ModLog $Client.Id 'Start .ber Steam-Einladung' 120
+        if (-not $Seen) { throw 'Mod meldet keinen Start ueber eine Steam-Einladung (+connect_lobby).' }
+        Write-Output "Mod: $($Seen -replace '^.*Lobby: ', '')"
     }
     elseif ($Tunnel -eq 'Lobby') {
         Join-Lobby $Client.Id $Peer
