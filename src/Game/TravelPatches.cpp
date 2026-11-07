@@ -136,8 +136,10 @@ bool ApplyTravel(Code::Writer&)
                                 reinterpret_cast<void**>(&OriginalSeamlessTravel));
 }
 
+// Je Patch die benutzten Adressen der Signaturtabelle, erzeugt von tools/patch_signatures.py sites.
+constexpr uintptr_t TravelSites[] = {SetClientTravel, SeamlessTravelToLevel};
 const Patch List[] = {
-    {"Reise des Hosts als servertravel", &CheckTravel, &ApplyTravel},
+    {"Reise des Hosts als servertravel", &CheckTravel, &ApplyTravel, TravelSites},
 };
 }
 

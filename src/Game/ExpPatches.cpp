@@ -177,10 +177,14 @@ bool ApplyBounds(Code::Writer&)
     return Core::Hooks::Install(reinterpret_cast<void*>(Patches::At(UpdateBounds)), reinterpret_cast<void*>(&BoundsHook),
                                 reinterpret_cast<void**>(&OriginalBounds));
 }
+// Je Patch die benutzten Adressen der Signaturtabelle, erzeugt von tools/patch_signatures.py sites.
+constexpr uintptr_t SpawnSites[] = {SpawnRequest};
+constexpr uintptr_t ReceiveSites[] = {ReceiveExpImpl};
+constexpr uintptr_t BoundsSites[] = {UpdateBounds, LocalViewportCorners};
 const Patches::Patch List[] = {
-    {"XP-Ausstoss beim Host aufzeichnen", CheckSpawn, ApplySpawn},
-    {"XP-Aufnahme beim Client nicht zaehlen", CheckReceive, ApplyReceive},
-    {"XP-Sichtbereich aus lokaler Client-Kamera", CheckBounds, ApplyBounds},
+    {"XP-Ausstoss beim Host aufzeichnen", CheckSpawn, ApplySpawn, SpawnSites},
+    {"XP-Aufnahme beim Client nicht zaehlen", CheckReceive, ApplyReceive, ReceiveSites},
+    {"XP-Sichtbereich aus lokaler Client-Kamera", CheckBounds, ApplyBounds, BoundsSites},
 };
 }
 

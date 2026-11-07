@@ -211,9 +211,12 @@ void TickClientCamera()
     RepairRestrictor(Memory::ReadPointer(World + Offsets::UWorld::GameState).value_or(0));
 }
 
+// Je Patch die benutzten Adressen der Signaturtabelle, erzeugt von tools/patch_signatures.py sites.
+constexpr uintptr_t CameraSites[] = {ArrayResizeGrow, CameraPlayersFunction};
+constexpr uintptr_t RestrictorSites[] = {RestrictorCountSite, RestrictorContinue, RestrictorSkip};
 const Patch List[] = {
-    {"Kamera ohne GameMode", &CheckCamera, &ApplyCamera},
-    {"Bewegungs-Restrictor ohne GameState", &CheckRestrictor, &ApplyRestrictor},
+    {"Kamera ohne GameMode", &CheckCamera, &ApplyCamera, CameraSites},
+    {"Bewegungs-Restrictor ohne GameState", &CheckRestrictor, &ApplyRestrictor, RestrictorSites},
 };
 }
 

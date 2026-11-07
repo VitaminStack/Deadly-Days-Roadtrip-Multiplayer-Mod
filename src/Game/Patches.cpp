@@ -2,6 +2,7 @@
 
 #include <windows.h>
 
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <cstring>
@@ -13,6 +14,7 @@
 #include "Game/Memory.h"
 #include "Game/Offsets.h"
 #include "Game/PatchRuntime.h"
+#include "Game/PatchSignatures.h"
 #include "Game/RewardAdapter.h"
 
 namespace Game::Patches
@@ -86,24 +88,50 @@ State CurrentState()
     return Current.load();
 }
 
-InstallResult InstallAll(std::span<const Patch> List, Code::Writer& Code)
+bool SiteUsable(uintptr_t ReferenceRva)
 {
-    bool Ready = true;
+    return Memory::Rva(ReferenceRva) != 0;
+}
+
+InstallResult InstallAll(std::span<const Patch> List, Code::Writer& Code, SiteCheck Usable, size_t* Skipped)
+{
+    // Erst die Patches mit gesperrten Stellen aussortieren, deren Check und Apply laufen nie.
+    std::vector<const Patch*> Chosen;
     for (const Patch& Entry : List)
-        if (!Entry.Check || !Entry.Check())
+    {
+        const bool Blocked = Usable && std::ranges::any_of(Entry.Sites, [Usable](uintptr_t Site) { return !Usable(Site); });
+        if (!Blocked)
+        {
+            Chosen.push_back(&Entry);
+            continue;
+        }
+        Core::Log::Warn("Patches: ausgelassen, Signatur passt nicht: {}", Entry.Name ? Entry.Name : "?");
+        if (Skipped)
+            ++*Skipped;
+    }
+    bool Ready = true;
+    for (const Patch* Pointer : Chosen)
+        if (const Patch& Entry = *Pointer; !Entry.Check || !Entry.Check())
         {
             Core::Log::Error("Patches: Prüfung fehlgeschlagen: {}", Entry.Name ? Entry.Name : "?");
             Ready = false;
         }
     if (!Ready)
         return InstallResult::CheckFailed;
-    for (const Patch& Entry : List)
-        if (!Entry.Apply(Code) || Code.Failed())
+    for (const Patch* Entry : Chosen)
+        if (!Entry->Apply(Code) || Code.Failed())
         {
-            Core::Log::Error("Patches: Setzen fehlgeschlagen: {}", Entry.Name);
+            Core::Log::Error("Patches: Setzen fehlgeschlagen: {}", Entry->Name);
             return InstallResult::ApplyFailed;
         }
     return InstallResult::Installed;
+}
+
+bool ListComplete(std::span<const Patch> List, SiteCheck Usable)
+{
+    return std::ranges::all_of(List, [Usable](const Patch& Entry) {
+        return std::ranges::all_of(Entry.Sites, [Usable](uintptr_t Site) { return Usable(Site); });
+    });
 }
 
 ListsResult InstallLists(std::span<const PatchList> Lists, Code::Writer& Code, std::span<bool> EnabledOut)
@@ -111,10 +139,11 @@ ListsResult InstallLists(std::span<const PatchList> Lists, Code::Writer& Code, s
     ListsResult Result;
     for (size_t Index = 0; Index < Lists.size(); ++Index)
     {
-        switch (InstallAll(Lists[Index].Patches, Code))
+        switch (InstallAll(Lists[Index].Patches, Code, SiteUsable, &Result.SkippedPatches))
         {
         case InstallResult::Installed:
-            EnabledOut[Index] = true;
+            // Ticks greifen auf Adressen aller Patches der Liste zu, darum nur bei vollständiger Liste.
+            EnabledOut[Index] = ListComplete(Lists[Index].Patches, SiteUsable);
             ++Result.Installed;
             break;
         case InstallResult::CheckFailed:
@@ -153,6 +182,8 @@ bool Install()
         Current = State::Inactive;
         return false;
     }
+    // Vor dem ersten Hook: danach stehen an den geprüften Stellen andere Bytes.
+    Signatures::VerifyAll();
     char Switch[2]{};
     const bool SwitchOn = GetEnvironmentVariableA("DDCOOP_PARTIAL_PATCHES", Switch, sizeof(Switch)) == 1 && Switch[0] == '1';
     if (PartialInstallAllowed(SwitchOn, Core::ActiveBuild()))
@@ -160,18 +191,23 @@ bool Install()
         PartialMode = true;
         const ListsResult Result = InstallLists(Lists, Caves, Enabled);
         Current = Result.ApplyFailed ? State::Partial : Result.Skipped ? State::Partial : State::Active;
-        Core::Log::Warn("Patches: Teilinstallation (DDCOOP_PARTIAL_PATCHES), {} von {} Listen gesetzt{}", Result.Installed, Lists.size(),
-                        Result.ApplyFailed ? ", Setzen abgebrochen" : "");
+        Core::Log::Warn("Patches: Teilinstallation (DDCOOP_PARTIAL_PATCHES), {} von {} Listen gesetzt, {} Patches ausgelassen{}",
+                        Result.Installed, Lists.size(), Result.SkippedPatches, Result.ApplyFailed ? ", Setzen abgebrochen" : "");
         if (Result.ApplyFailed)
             PartialMode = false; // Ticks bleiben aus, der Zustand ist nicht mehr listenweise sauber.
         return !Result.ApplyFailed && !Result.Skipped;
     }
-    switch (InstallAll(All, Caves))
+    size_t Skipped = 0;
+    switch (InstallAll(All, Caves, SiteUsable, &Skipped))
     {
     case InstallResult::Installed:
-        Enabled.fill(true);
+        for (size_t Index = 0; Index < ListCount; ++Index)
+            Enabled[Index] = ListComplete(Lists[Index].Patches, SiteUsable);
         Current = State::Active;
-        Core::Log::Info("Patches: {} gesetzt", All.size());
+        if (Skipped)
+            Core::Log::Warn("Patches: {} gesetzt, {} wegen Signatur ausgelassen", All.size() - Skipped, Skipped);
+        else
+            Core::Log::Info("Patches: {} gesetzt", All.size());
         return true;
     case InstallResult::CheckFailed:
         Current = State::Inactive;

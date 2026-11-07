@@ -353,19 +353,32 @@ bool ApplyPowerUp(Code::Writer&)
                                 reinterpret_cast<void**>(&OriginalBeginDeferredSpawn));
 }
 
+// Je Patch die benutzten Adressen der Signaturtabelle, erzeugt von tools/patch_signatures.py sites.
+constexpr uintptr_t ClientRefreshSites[] = {ClientRefreshCallSite, ClientRefreshFunction};
+constexpr uintptr_t AttributeTickSites[] = {AttributeLookupFunction, AttributeLookupCallSite, AttributeTickExit};
+constexpr uintptr_t AttributeLookupSites[] = {AttributeLookupFunction};
+constexpr uintptr_t MapGenHostObjectSites[] = {MapGenHostObjectRead, MapGenHostObjectExit};
+constexpr uintptr_t ComponentControllerSites[] = {ComponentControllerRead, ComponentControllerExit};
+constexpr uintptr_t ThreatLevelSites[] = {ThreatFreezeBranch};
+constexpr uintptr_t ExpSites[] = {FreeArray, 0x58A6060, 0x58B0F6E, ExpAggregate, 0x58B419B, GetPlayerCharacters};
+constexpr uintptr_t BlockadeSites[] = {0x5666FA5, 0x58AA5F0, BlockadeLoadingFinished};
+constexpr uintptr_t NetGuidSites[] = {NetGuidExpiry, NetGuidNext};
+constexpr uintptr_t SneakSites[] = {SneakSameTarget, SneakRetry, 0x58A52FE, SneakReady};
+constexpr uintptr_t PowerUpSites[] = {BeginDeferredActorSpawnFromClass};
+constexpr uintptr_t BusTakeOffSites[] = {FinishMission, CanBusTakeOff, 0x59C494F};
 const Patch List[] = {
-    {"Client-Refresh ohne Host-Objekt", &CheckClientRefresh, &ApplyClientRefresh},
-    {"Attribut-Tick ohne PlayerState", &CheckAttributeTick, &ApplyAttributeTick},
-    {"AttributeSet-Suche ohne AbilitySystem", &CheckAttributeLookup, &ApplyAttributeLookup},
-    {"Kartengenerator ohne Host-Objekt", &CheckMapGenHostObject, &ApplyMapGenHostObject},
-    {"Figurenkomponente ohne Controller", &CheckComponentController, &ApplyComponentController},
-    {"ThreatLevel ohne Freeze-Manager", &CheckThreatLevel, &ApplyThreatLevel},
-    {"Exp-Aggregation wartet auf AttributeSets", &CheckExp, &ApplyExp},
-    {"Blockade nur beim Host", &CheckBlockade, &ApplyBlockade},
-    {"NetGUID-Pfade bleiben beim Client", &CheckNetGuid, &ApplyNetGuid},
-    {"SneakApproach wartet auf Mesh und PlayerState", &CheckSneak, &ApplySneak},
-    {"PowerUp ohne lokale Kopie", &CheckPowerUp, &ApplyPowerUp},
-    {"Busabfahrt und Rundenende nur beim Host", &CheckBusTakeOff, &ApplyBusTakeOff},
+    {"Client-Refresh ohne Host-Objekt", &CheckClientRefresh, &ApplyClientRefresh, ClientRefreshSites},
+    {"Attribut-Tick ohne PlayerState", &CheckAttributeTick, &ApplyAttributeTick, AttributeTickSites},
+    {"AttributeSet-Suche ohne AbilitySystem", &CheckAttributeLookup, &ApplyAttributeLookup, AttributeLookupSites},
+    {"Kartengenerator ohne Host-Objekt", &CheckMapGenHostObject, &ApplyMapGenHostObject, MapGenHostObjectSites},
+    {"Figurenkomponente ohne Controller", &CheckComponentController, &ApplyComponentController, ComponentControllerSites},
+    {"ThreatLevel ohne Freeze-Manager", &CheckThreatLevel, &ApplyThreatLevel, ThreatLevelSites},
+    {"Exp-Aggregation wartet auf AttributeSets", &CheckExp, &ApplyExp, ExpSites},
+    {"Blockade nur beim Host", &CheckBlockade, &ApplyBlockade, BlockadeSites},
+    {"NetGUID-Pfade bleiben beim Client", &CheckNetGuid, &ApplyNetGuid, NetGuidSites},
+    {"SneakApproach wartet auf Mesh und PlayerState", &CheckSneak, &ApplySneak, SneakSites},
+    {"PowerUp ohne lokale Kopie", &CheckPowerUp, &ApplyPowerUp, PowerUpSites},
+    {"Busabfahrt und Rundenende nur beim Host", &CheckBusTakeOff, &ApplyBusTakeOff, BusTakeOffSites},
 };
 }
 

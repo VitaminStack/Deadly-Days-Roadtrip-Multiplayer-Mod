@@ -481,8 +481,10 @@ bool ApplyMap(Code::Writer&)
                                 reinterpret_cast<void**>(&OriginalSetupPcgVolume));
 }
 
+// Je Patch die benutzten Adressen der Signaturtabelle, erzeugt von tools/patch_signatures.py sites.
+constexpr uintptr_t MapSites[] = {CreateChildActor, IsChildActorReplicated, SetupPcgVolume, StartMapGeneration};
 const Patch List[] = {
-    {"Gleiche Karte und Vegetation beim Client", &CheckMap, &ApplyMap},
+    {"Gleiche Karte und Vegetation beim Client", &CheckMap, &ApplyMap, MapSites},
 };
 }
 

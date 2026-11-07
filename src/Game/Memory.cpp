@@ -10,6 +10,7 @@
 #include "Core/Version.h"
 #include "Game/AddressMap.h"
 #include "Game/Offsets.h"
+#include "Game/PatchSignatures.h"
 
 namespace Game::Memory
 {
@@ -40,7 +41,11 @@ uintptr_t Rva(uintptr_t ReferenceRva)
     const uint32_t Build = Core::ActiveBuild();
     const uint32_t Mapped = AddressMap::Map(Build, static_cast<uint32_t>(ReferenceRva));
     if (Mapped)
-        return ImageBase() + Mapped;
+    {
+        // Mit Signaturzeile nur, wenn das Muster an der Stelle passt (patch-signaturen). Usable protokolliert selbst.
+        const uintptr_t Address = ImageBase() + Mapped;
+        return Signatures::Usable(static_cast<uint32_t>(ReferenceRva), Address) ? Address : 0;
+    }
     static std::mutex Lock;
     static std::unordered_set<uintptr_t> Reported;
     std::scoped_lock Guard(Lock);
