@@ -864,6 +864,10 @@ ein Client.
 - **[Beobachtet] Nebenbei:** Der Tod einzelner Spieler funktioniert, die Runde endet erst, wenn alle Spieler tot sind.
 - **[Beobachtet] Nebenbei:** Dodgt der Client in einen Airdrop, stürzt er manchmal in `InventoryPanel.SetupInventory` ab
   (`InventoryComponent` an `+0x370` leer), nicht reproduzierbar. Steht als `airdrop-dodge-absturz`.
+  **[Belegt, Disassembly]** `SetupInventory` (`0x5A8BAB0`) reicht `+0x370` ohne Prüfung an `0x59635B0` weiter. Keiner der acht
+  direkten Aufrufer prüft es vorher, mehrere sind Ereignis-Handler des Panels. **[Vermutung]** Ein solches Ereignis feuert beim Client,
+  bevor das Panel sein Inventar hat. Seit `airdrop-dodge-absturz` lässt die Mod `SetupInventory` ohne Inventar aus und schreibt
+  „SetupInventory ohne Inventar ausgelassen“ mit der RVA des Aufrufers ins Log, damit der Weg beim nächsten Auftreten belegt ist.
 
 ### Dodge im Zwei-PC-Test: Diagnose offen (`dodge-client-live`)
 
@@ -1600,6 +1604,29 @@ sind das Mod-Log und der Speicher des Hosts, nur lesend; das Client-Log lag bei 
   (`UInventoryItemInstance +0xE0`). Darunter UMG/Slate und die Blueprint-VM, also ein Inventar-Widget, dessen Item beim Verbindungsabbau
   schon weg ist. Verdacht: derselbe Weg wie beim ersten Absturz im Lager, sobald dort ein Item-Widget sein Item verliert; vergleiche
   [Trennen](#trennen-ins-hauptmenü-trennen), wo ein fehlendes Item in `EndPlay` abstürzte.
+  **[Belegt, Disassembly]** `0x5AB5120` ist eine `void`-Funktion, die nur die Größe des Widgets aus der Itemform setzt (je 66 px minus
+  3), neun direkte Aufrufer. `lager-absturz-client` überspringt sie ohne Item, und der Host wartet bei stummem Client bis zum
+  Verbindungsabbau, siehe [Lager am Rundenende](../src/Game/README.md).
+
+### Steam-Lobby über das Internet (`lobby-live`)
+
+Ausgewertet aus den Mod-Logs beider Sitzungen vom 06.11.2026 (siehe oben), ohne eigenen Termin. Zwei Steam-Konten in zwei Haushalten,
+Route jeweils Steam-Relay `fra`, Ping 32 ms.
+
+- **[Belegt] Beitritt nur über die Einladung bis in die MetaBase.** Zweite Sitzung, Client: „Einladung über Steam angenommen“,
+  Lobby betreten, P2P über Relay verbunden, „Protokoll: Build, Mod-Version und Gegenrolle bestaetigt“, Tunnel steht, „Welt: MetaBase,
+  Client, 2 Spieler“, alles binnen 1,6 s. Der Handshake des [Kontrollkanals](CONTROL_PROTOCOL.md) ist damit über das Internet
+  bestätigt; der Desync-Melder meldete 6 s später `OK` für alle Bereiche. Das deckt auch den ersten Fall von `lobby-auth-live`
+  (eingeladener Freund verbindet), die Aufgabe bleibt aber wegen der beiden anderen Fälle offen.
+- **[Belegt] Weitere Beitritte.** Zwei Beitritte ohne Einladungsvermerk (Lobby-ID) und einer nach Neustart des Hosts verliefen genauso.
+  Auf dem Host-PC der ersten Sitzung stand „Lobby erstellt“, „P2P bereit, nur Lobby-Mitglieder“ und 12 s später der Client über Relay.
+- **[Belegt] Host verlässt.** Zweimal „Der Host hat die Sitzung verlassen“ (Grund 1001 `ddcoop`): Der Client trennt im Spiel, landet im
+  Hauptmenü und kann sofort einer neuen Lobby beitreten. Ein Beitritt zur geschlossenen Lobby endet mit „Die Lobby gibt es nicht mehr,
+  der Host hat sie geschlossen“ ohne Absturz.
+- **[Belegt] Host nach Verbindungsverlust.** Erste Sitzung: „Verbindung zum Mitspieler verloren“, danach „Lobby geschlossen: Das Spiel
+  ist im Hauptmenü“. Auslöser war allerdings der Absturz des Clients, kein geordnetes Verlassen.
+- **Nicht geprüft:** Start über `+connect_lobby` bei geschlossenem Spiel und geordnetes Verlassen des Clients aus Sicht des Hosts. Das
+  ist der Rest in `lobby-live-rest`.
 
 ## Systeme, die die Mod respektieren muss
 

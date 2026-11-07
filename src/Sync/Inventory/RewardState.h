@@ -326,9 +326,11 @@ inline std::optional<Ready> DecodeReady(std::span<const uint8_t> In)
     return Ready{Detail::Get(In, 0, 8), Detail::Get(In, 8, 8), In[16] == 1};
 }
 
-// Lager am Rundenende, Client an Host, genau 9 Byte: Id des Rundenendes (Game::Map::RoundEnd::Id, 8, ungleich 0), das der
-// Client selbst geöffnet hat, und bereit (1, 0 oder 1): Bestätigen im Lager gedrückt oder schon ausgeführt. Der Client schickt
-// es alle 500 ms, solange er in diesem Rundenende ist. Nur dann wartet der Host auf ihn; ein Zurücknehmen gibt es nicht.
+// Lager am Rundenende, Client an Host, genau 9 Byte: Id des Rundenendes (Game::Map::RoundEnd::Id, 8), das der Client selbst
+// geöffnet hat, und bereit (1, 0 oder 1): Bestätigen im Lager gedrückt oder schon ausgeführt. Der Client schickt es alle 500 ms,
+// solange er in diesem Rundenende ist. Nur dann wartet der Host auf ihn; ein Zurücknehmen gibt es nicht.
+// Id 0 (nur ohne bereit): Der Client hat das Rundenende verlassen, etwa per disconnect ins Hauptmenü. Er schickt das nach dem
+// Verlassen ein paar Sekunden lang. Bleibt er dagegen stumm (Absturz), wartet der Host bis zum Verbindungsabbau.
 struct RoundEndClient
 {
     uint64_t Id = 0;
@@ -338,7 +340,7 @@ struct RoundEndClient
 
 inline std::vector<uint8_t> Encode(const RoundEndClient& Value)
 {
-    if (!Value.Id)
+    if (!Value.Id && Value.Ready)
         return {};
     std::vector<uint8_t> Out;
     Detail::Put(Out, Value.Id, 8);
@@ -348,7 +350,7 @@ inline std::vector<uint8_t> Encode(const RoundEndClient& Value)
 
 inline std::optional<RoundEndClient> DecodeRoundEndClient(std::span<const uint8_t> In)
 {
-    if (In.size() != 9 || In[8] > 1 || !Detail::Get(In, 0, 8))
+    if (In.size() != 9 || In[8] > 1 || (!Detail::Get(In, 0, 8) && In[8]))
         return std::nullopt;
     return RoundEndClient{Detail::Get(In, 0, 8), In[8] == 1};
 }
