@@ -285,6 +285,8 @@ Was die Mod nutzt, steht zusätzlich in `src/Game/Offsets.h` und wird dort beim 
 | `ADDCharacterBase` | CommonAttributeSet | `0x700` |
 | `UCommonAttributeSet` | Health (`FGameplayAttributeData`, CurrentValue bei `+0xC`) | `0xA0` |
 | `UCommonAttributeSet` | MaxHealth, OnMaxHealthChanged, OnHealthChanged (Multicast, Einträge je `0x10`: schwacher Zeiger, `FName`) | `0x30`, `0x40`, `0xC0` |
+| `UDDCharacterAttributeSet` (Outer ist der PlayerState) | ExtraHands, OccupiedHands (`FGameplayAttributeData`, CurrentValue bei `+0xC`) | `0x100`, `0x110` |
+| `UHandBarDisplay` | PlayerIndex, CachedCharacter | `0x328`, `0x348` |
 | `FDamageInformation` | Damage, DamagedActor, InstigatedBy, DamageCauser (je `TWeakObjectPtr`) | `0x00`, `0x04`, `0x14`, `0x1C` |
 | `FBasedMovementInfo` | MovementBase, Location | `0x10`, `0x18` |
 | `UCharacterMovementComponent` | Velocity, MovementMode, MaxWalkSpeed | `0xD8`, `0x241`, `0x288` |

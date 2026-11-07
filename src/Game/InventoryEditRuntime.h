@@ -27,8 +27,13 @@ ItemState ReadItem(uintptr_t Item, const std::vector<SlotInfo>& Slots, uint16_t 
 bool Apply(uintptr_t Inventory, const std::vector<uintptr_t>& Items, const std::vector<ItemState>& Current, const std::vector<ItemState>& Target,
            const std::vector<Tile>& Create, const std::vector<uintptr_t>& Destroy, bool Local);
 
+// Host: Itemwirkungen eines Inventars neu setzen (RefreshItemEffects ohne Rucksackwirkungen), wie es das native
+// Panel nach dem Ablegen tut. Ohne das wirkt eine vom Client gewählte Waffe erst nach dem nächsten Levelaufstieg.
+void RefreshEffects(uintptr_t Inventory);
+
 // Client: Bearbeitung beginnt vor dem Öffnen des Panels. Choices sind die lokalen Anzeige-Instanzen der Belohnung.
-void BeginClient(uintptr_t Inventory, const std::vector<uintptr_t>& Choices);
+// Controller: eigener PlayerController, für die lokale Hände-Vorschau (0: keine Vorschau).
+void BeginClient(uintptr_t Inventory, const std::vector<uintptr_t>& Choices, uintptr_t Controller);
 // Client: Panel bearbeitet gerade lokal.
 bool ClientEditing();
 // Client: Bearbeitung läuft und gehört zu Inventory.
