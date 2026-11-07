@@ -143,6 +143,15 @@ struct StuckTimer
     }
 };
 
+// Client: So lange gilt ein eigener Dodge als laufend. Mit Schub-Aufgabe deren Dauer plus 60 ms, ohne (noch nicht gestartet,
+// unlesbar oder unplausibel) 250 ms; ein echter Dodge dauert 0,12 bis 0,16 s und stellt am Ende selbst zurück.
+inline uint64_t DashExpectedMs(std::optional<float> DurationSeconds)
+{
+    if (!DurationSeconds || !std::isfinite(*DurationSeconds) || *DurationSeconds <= 0.f || *DurationSeconds > 2.f)
+        return 250;
+    return static_cast<uint64_t>(*DurationSeconds * 1000.f) + 60;
+}
+
 // Host: Wie lange eine Aktivierung des Clients auf seine gemeldete Richtung wartet. Die Meldung geht zuverlässig, das
 // Spielpaket mit der Aktivierung unzuverlässig; es kann sie überholen, mit Ping-Schwankung um einige zehn Millisekunden.
 // Danach startet der Dodge mit der geschätzten Richtung, damit er nie hängen bleibt.

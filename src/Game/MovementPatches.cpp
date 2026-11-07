@@ -54,6 +54,8 @@ constexpr uintptr_t ControllerLastMovementInput = 0x910; // DDPlayerController, 
 // UGameplayAbility.CurrentActivationInfo (0xD4) + PredictionKeyWhenActivated (0x04) + FPredictionKey.Current (int16)
 constexpr uintptr_t AbilityActivationKey = 0xD8;
 constexpr uintptr_t AbilityIsActive = 0x388; // UGameplayAbility.bIsActive
+constexpr uintptr_t DashTaskOffset = 0x400;     // GA_Dash_C.DashTask, erst nach dem Start gesetzt
+constexpr uintptr_t RootMotionDuration = 0xEC;  // UAbilityTask_ApplyRootMotionConstantForce.Duration (float, s)
 constexpr uint64_t DashLimitMs = 750;
 constexpr uint64_t ProxyLimitMs = 500;
 
@@ -261,11 +263,25 @@ uintptr_t DashActivateFunction = 0;
 uintptr_t DashEndFunction = 0; // GA_Dash_C.K2_OnEndAbility
 // Client: laufende eigene GA_Dash-Instanzen. Endet die letzte, ohne dass ihre Aufgabe die Werte zurückgestellt hat
 // (Abbruch, etwa weil der Host eine verkettete Aktivierung ablehnt), stellt die Mod sie sofort zurück.
-std::vector<uintptr_t> OwnDashes;
-
-bool OwnDashRunning()
+// Eine abgebrochene Instanz kann laut bIsActive noch Hunderte Millisekunden aktiv bleiben (gemessen: Host lehnt eine
+// verkettete Aktivierung ab, der Client rutschte 750 ms). Darum gilt ein Dodge nur so lange als laufend, wie seine
+// Schub-Aufgabe dauert, plus etwas Spielraum.
+struct OwnDash
 {
-    std::erase_if(OwnDashes, [](uintptr_t Ability) { return !Alive(Ability) || !Memory::Read<uint8_t>(Ability + AbilityIsActive).value_or(0); });
+    uintptr_t Ability = 0;
+    uint64_t Since = 0;
+};
+std::vector<OwnDash> OwnDashes;
+
+bool OwnDashRunning(uint64_t Now)
+{
+    std::erase_if(OwnDashes, [Now](const OwnDash& Dash) {
+        if (!Alive(Dash.Ability) || !Memory::Read<uint8_t>(Dash.Ability + AbilityIsActive).value_or(0))
+            return true;
+        const uintptr_t Task = Memory::ReadPointer(Dash.Ability + DashTaskOffset).value_or(0);
+        const auto Duration = Task && Alive(Task) ? Memory::Read<float>(Task + RootMotionDuration) : std::nullopt;
+        return Now - Dash.Since > DashExpectedMs(Duration);
+    });
     return !OwnDashes.empty();
 }
 
@@ -312,7 +328,7 @@ void CheckFigure(Figure& Entry, uint64_t Now)
     }
     const float Friction = Memory::Read<float>(Component + MovementGroundFriction).value_or(1.f);
     const float Gravity = Memory::Read<float>(Component + MovementGravityScale).value_or(1.f);
-    if (DashSettingsLeft(Friction, Gravity) && !OwnDashRunning() && RestoreDashSettings(Component))
+    if (DashSettingsLeft(Friction, Gravity) && !OwnDashRunning(Now) && RestoreDashSettings(Component))
     {
         Entry.Dash = {};
         Core::Log::Info("Bewegung: Dodge der eigenen Figur abgebrochen, Reibung und Schwerkraft sofort zurückgesetzt (Reparatur {})",
@@ -441,7 +457,7 @@ bool PrepareRemoteDash(uintptr_t Object, uintptr_t Function)
     if (Function == DashEndFunction)
     {
         if (Role == NetRole::Client)
-            std::erase(OwnDashes, Object);
+            std::erase_if(OwnDashes, [Object](const OwnDash& Dash) { return Dash.Ability == Object; });
         return false;
     }
     Figure* Entry = Role == NetRole::Host || Role == NetRole::Client ? FigureOfAbility(Object) : nullptr;
@@ -463,12 +479,13 @@ bool PrepareRemoteDash(uintptr_t Object, uintptr_t Function)
             OutgoingInputs.erase(OutgoingInputs.begin());
         // Hängen noch Werte eines abgebrochenen Dodges, nähme GA_Dash sie als „vorher“ und stellte sie am Ende wieder her.
         const uintptr_t Component = Memory::ReadPointer(Entry->Character + CharacterMovement).value_or(0);
-        if (Component && !OwnDashRunning() &&
+        const uint64_t Now = GetTickCount64();
+        if (Component && !OwnDashRunning(Now) &&
             DashSettingsLeft(Memory::Read<float>(Component + MovementGroundFriction).value_or(1.f),
                              Memory::Read<float>(Component + MovementGravityScale).value_or(1.f)) &&
             RestoreDashSettings(Component))
             Core::Log::Info("Bewegung: Dodge-Werte vor neuem Dodge zurückgesetzt");
-        OwnDashes.push_back(Object);
+        OwnDashes.push_back({Object, Now});
         const DashInput Value = ReportedDashInput(Key, Raw.value_or(PlanarDirection{}));
         OutgoingInputs.push_back(Value);
         Core::Log::Info("Bewegung: eigener Dodge (Schluessel {}) mit Richtung ({:.2f},{:.2f}) an den Host gemeldet", Key, Value.X, Value.Y);

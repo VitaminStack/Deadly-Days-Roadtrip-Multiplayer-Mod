@@ -1,4 +1,5 @@
 #include <doctest.h>
+#include <limits>
 
 #include <windows.h>
 
@@ -675,4 +676,14 @@ TEST_CASE("Bewegung: gemeldete Dodge-Richtung des Clients je Vorhersageschlüsse
     Book.Add({21, 1.f, 0.f}, 3000);
     CHECK_FALSE(Book.Take(21, 3000 + DashInputKeepMs + 1));
     CHECK(DashWaitMs < DashInputKeepMs);
+}
+
+TEST_CASE("Bewegung: eigener Dodge gilt nur so lange als laufend, wie sein Schub dauert")
+{
+    CHECK(DashExpectedMs(0.135f) == 195);
+    CHECK(DashExpectedMs(std::nullopt) == 250);
+    CHECK(DashExpectedMs(0.f) == 250);
+    CHECK(DashExpectedMs(5.f) == 250);
+    CHECK(DashExpectedMs(std::numeric_limits<float>::quiet_NaN()) == 250);
+    CHECK(DashExpectedMs(0.3f) < 750); // alte Zeitgrenze bleibt nur Rückfall
 }
