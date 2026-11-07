@@ -57,6 +57,12 @@ Stand 07.11.2026, Dateien `ClientPatches.cpp`, `PlayerPatches.cpp`, `RemoteP2Pat
   Inventory, HealthBar und Reward. Der Client tritt ohne Host-Absturz bei, `SpawnedPlayers` meldet `Spieler=2 gültig=true`.
   `Run-Route.ps1 -Days 1 -StayLast`: MetaBase und Tag 1 bei beiden `sauber` (2/2 Spieler, 102/103 Kacheln). Abweichend ist nur der
   Inventarvergleich, weil die Inventory-Liste noch fehlt. Seit Missionsbeginn keine neuen Fehler im Log.
+- Rundenende Tag 1 (Tank per `tools/spike/fuel.py` auf 118/120, letzter Kanister und Busflucht vom Menschen): Der Host beendet die Runde
+  und benachrichtigt den Client („Rundenende: an den Client gesendet“). Direkt danach stürzt der Client bei `0x59677FD` ab (`0xC0000005`).
+  Das ist `+0x7D` in der Inventarschleife `0x5967780` und entspricht dem bekannten Referenz-Absturz `0x596362D`
+  (`0x59635B0` + `0x7D`, siehe [Spike-Inventar](../research/spikes/a-connect/README.md#inventar-ursache-teilfix-und-verbleibende-grenze)):
+  Beim Client fehlen Inventar-Items, weil die Inventory-Liste (`Inventar-Unterobjekte replizieren`) auf `26495302` noch nicht gesetzt ist.
+  Kein neuer Fehler der vier Dateien; Wiederholung des Coop-Tags nach `update-inventar`.
 
 ## Diagnoseadapter (`desync-melder`)
 
