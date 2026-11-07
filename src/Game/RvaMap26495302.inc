@@ -22,8 +22,8 @@
 {0x057BD5E0, 0x057BDCD0}, // eindeutig, ControllerSetAdd, src/Game/PlayerPatches.cpp:28
 {0x057CB3C5, 0x057CB5A5}, // ueber-funktion, ScheduleCall, src/Game/InventoryPatches.cpp:189
 {0x057D0A40, 0x057D0C60}, // eindeutig, DetectorEndPlay, src/Game/InventoryPatches.cpp:187
-// FEHLT 0x057DC840 // fehlt, OnRepHealth, src/Game/HealthBarPatches.cpp:18
-// FEHLT 0x057DCEA0 // fehlt, OnRepMaxHealth, src/Game/HealthBarPatches.cpp:19
+{0x057DC840, 0x057DC810}, // von Hand, Exec-Thunk OnRep_Health, OnRepHealth, src/Game/HealthBarPatches.cpp:18
+{0x057DCEA0, 0x057DCE70}, // von Hand, Exec-Thunk OnRep_MaxHealth, OnRepMaxHealth, src/Game/HealthBarPatches.cpp:19
 {0x058393CC, 0x0583AEEC}, // eindeutig, ComponentControllerRead, src/Game/ClientPatches.cpp:23
 {0x05839540, 0x0583B060}, // eindeutig, ComponentControllerExit, src/Game/ClientPatches.cpp:24
 {0x0584CD82, 0x0584DF32}, // eindeutig, RunEndLocalPlayerSite, src/Game/PlayerPatches.cpp:32
@@ -83,17 +83,17 @@
 {0x05A17B88, 0x05A1BAA8}, // eindeutig, RestrictorSkip, src/Game/CameraPatches.cpp:33
 {0x05A42F50, 0x05A471D0}, // eindeutig, OpenChoices, src/Game/AirdropPatches.cpp:13
 {0x05A43400, 0x05A47660}, // eindeutig, OpenCrate, src/Game/AirdropPatches.cpp:12
-// FEHLT 0x05A6CB20 // fehlt, PanelConfirm, src/Game/RewardPatches.cpp:39
+{0x05A6CB20, 0x05A71900}, // von Hand, Exec-Thunk HandleConfirmButton, PanelConfirm, src/Game/RewardPatches.cpp:39
 {0x05A7350B, 0x05A782FB}, // eindeutig, ClientRefreshCallSite, src/Game/ClientPatches.cpp:16
-// FEHLT 0x05A8BAB0 // fehlt, ClientRefreshFunction, src/Game/ClientPatches.cpp:17
-// FEHLT 0x05AB5120 // fehlt, RepresentationSize, src/Game/InventoryPatches.cpp:205
+{0x05A8BAB0, 0x05A90940}, // von Hand, Exec-Thunk SetupInventory, ClientRefreshFunction, src/Game/ClientPatches.cpp:17 und PanelSetupInventory, src/Game/RewardPatches.cpp:40
+{0x05AB5120, 0x05ABA0F0}, // von Hand, Aufrufer, Code umgeordnet, RepresentationSize, src/Game/InventoryPatches.cpp:205
 {0x05B028D0, 0x05B08070}, // eindeutig, LocalViewportCorners, src/Game/ExpPatches.cpp:28
 {0x05B07680, 0x05B0CE30}, // eindeutig, GetPlayerCharacters, src/Game/ClientPatches.cpp:27
 {0x05B0A2E5, 0x05B0FA95}, // eindeutig, PlayerIndexNullSite, src/Game/PlayerPatches.cpp:23
-// FEHLT 0x0939CE08 // fehlt, SlotVtable, src/Game/InventoryPatches.cpp:23
+{0x0939CE08, 0x093A1F98}, // von Hand, Konstruktor-Verweis, SlotVtable, src/Game/InventoryPatches.cpp:23
 {0x094B46E8, 0x094B9A08}, // vtable, ItemVtable, src/Game/InventoryPatches.cpp:24
 {0x094BA3F0, 0x094BF710}, // vtable, InventoryVtable, src/Game/InventoryPatches.cpp:22
-// FEHLT 0x094C1758 // fehlt, DetectorVtable, src/Game/InventoryPatches.cpp:186
+{0x094C1758, 0x094C6A78}, // von Hand, Konstruktor-Verweis, DetectorVtable, src/Game/InventoryPatches.cpp:186
 {0x09613280, 0x096191F0}, // vtable, MapGenLambdaVtable, src/Game/InventoryPatches.cpp:197
 {0x0A993AC0, 0x0A999B40}, // global, GNames, src/Game/Offsets.h:11
 {0x0AA61B00, 0x0AA67B80}, // global, GObjects, src/Game/Offsets.h:10
