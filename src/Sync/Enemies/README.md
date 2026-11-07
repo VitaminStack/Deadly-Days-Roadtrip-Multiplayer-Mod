@@ -50,3 +50,31 @@ Messung mit `SpikeBoss` in `DDDynamic_Map`, eine Sekunde nach dem Spawn, Host ge
 
 Noch offen, braucht einen Kampf: Phasenwechsel (HP-Schwellen), Boss-Tod, Intro-Kamera (`CutsceneCamera` ist auf beiden Seiten 0),
 Angriffe der Fähigkeiten (`GA_*`) und die Lebensleiste `WP_Boss_HealthBar_PhaseBased` beim Client.
+
+**Versuch 3 (07.11.2026, Build 26495302): echter Bosskampf per Skript.** `!boss` allein reicht nicht: Der Boss bleibt unverwundbar, weil Intro
+und Kampfstart fehlen (`!bossstart`, ein direkter Aufruf von `StartBossBehaviour`, stürzt den Host ab: Schreibzugriff `0x3F8`, `0x58C4E0D`,
+die Komponente ist ohne Intro nicht vorbereitet; der Befehl ist wieder entfernt). Der Weg des Spiels geht über einen `BossfightSpawnPoint`.
+Neue Spike-Befehle in `Cheats.cpp`:
+
+| Befehl | Wirkung |
+|---|---|
+| `!bossfight <Name> [Abstand]` | Setzt `BP_<Name>SpawnPoint` per `BeginDeferredActorSpawnFromClass` und `FinishSpawningActor` vor die Figur, ruft `SpawnBoss` und `TriggerBossfight(1)`. Intro, Objective, Boss-Leiste und Phasen laufen wie im Spiel |
+| `!bossdmg <Schaden>` | `GameplayStatics::ApplyDamage` auf den Boss, wirkt erst nach `!bossfight` |
+| `!boss <Name>` | Nur Spawn über `SpawnSpecificEnemy`, Boss bleibt unverwundbar (nur für Spawn-Tests) |
+
+Messung (`py` über `ddmem`, Host gegen Client, ein Boss je Lauf, Godmode):
+
+| Boss | HP | Ergebnis |
+|---|---|---|
+| `SpikeBoss` | 80000, Phasenwechsel bei 40000 (Phase 2) | HP und Phase stimmen auf beiden Seiten (Abweichung bis 25 HP durch Probenzeit), Tod: beim Host `bActorIsBeingDestroyed`, beim Client Actor weg, kein Absturz |
+| `FrankensteinBoss` | 120000, Phase 2 unter etwa 80000 | HP gleich bis 0, Boss stirbt auf beiden Seiten, kein Absturz |
+| `BlobBallBoss` | 250000, danach Phase 2 mit 175000 | beim Host lebt der Boss mit Phase 2, siehe Lücken |
+| Ballerina, Lazy, `HQBoss` (Endboss) | nicht gemessen | |
+
+**Gefundene Lücken beim Client (Screenshots beider Fenster, `BlobBallBoss`):**
+- Die Boss-Leiste „Besiege den Boss!“ (`WP_Boss_HealthBar_PhaseBased`, `DDBossObjective`) fehlt beim Client ganz. Das Objective läuft nur beim Host. Kandidat für
+  eine lokale Ableitung aus den replizierten Werten (Boss-HP, Phase), kein neuer Netzpfad.
+- Die Angriffseffekte des Bosses (Partikel, Splitter) erscheinen nur beim Host.
+- Die Phase ist beim Client teils nicht lesbar (`DDEnemyAttributeSet.Phase` 0 statt 1 bis 2 bei Frankenstein, Probe nicht belastbar, da alte tote Bosse im Speicher
+  stehen). Prüfen, bevor sie als Lücke gilt.
+- Beim `BlobBallBoss` stand ein Actor als zerstört beim Client, während der Host-Boss lebte. Ob der Boss beim Phasenwechsel dort neu entsteht oder verloren geht, ist offen.

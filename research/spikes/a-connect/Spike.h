@@ -120,6 +120,8 @@ void SetTestGodmode(bool Enabled);
 void LoadAssetCommand(const std::wstring& Path);
 void GiveItemCommand(const std::wstring& Args);
 void BossCommand(const std::wstring& Args);
+void BossDamageCommand(const std::wstring& Args);
+void BossFightCommand(const std::wstring& Args);
 // Setzt den Tutorial-Schalter, falls noch nicht gesetzt. Report meldet auch, wenn nichts zu tun war.
 void SkipTutorials(bool Report);
 // Testumgebung: protokolliert beim Host das Ende jeder Spielerfigur mit Aufrufstapel.

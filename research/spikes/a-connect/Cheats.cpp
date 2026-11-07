@@ -267,6 +267,146 @@ void BossCommand(const std::wstring& Args)
     Log("Boss: " + TypeName + (Params.Result ? " gespawnt (" + NameOf(Read<uintptr_t>(Params.Result + 0x10)) + ")" : " nicht entstanden"));
 }
 
+// Testhilfe (gegner-alle): Host fuegt dem Boss ueber GameplayStatics::ApplyDamage Schaden zu, "!bossdmg 30000". Der Weg ist der des
+// Spiels (OnTakeAnyDamage -> DamageToGASTranslator), Phasenwechsel und Tod laufen wie im Kampf. Nur beim Host.
+void BossDamageCommand(const std::wstring& Args)
+{
+    const float Amount = static_cast<float>(_wtof(Args.c_str()));
+    const uintptr_t World = Read<uintptr_t>(Base + kGWorld);
+    const uintptr_t Statics = FindObject("Default__GameplayStatics", nullptr);
+    const uintptr_t Apply = FindObject("ApplyDamage", "GameplayStatics");
+    if (!World || !Read<uintptr_t>(World + kWorldGameMode) || !Statics || !Apply || Amount <= 0)
+    {
+        Log("BossDmg: nicht moeglich (kein Host, Funktion fehlt oder Schaden <= 0)");
+        return;
+    }
+    const uintptr_t Chunks = Read<uintptr_t>(Base + kGObjects);
+    const int32_t Count = Read<int32_t>(Base + kGObjects + 8);
+    uintptr_t Boss = 0, Controller = 0;
+    for (int32_t i = 0; i < Count && !(Boss && Controller); ++i)
+    {
+        const uintptr_t Chunk = Read<uintptr_t>(Chunks + 8 * (i >> 16));
+        const uintptr_t Object = Chunk ? Read<uintptr_t>(Chunk + (i & 0xFFFF) * 0x18 + 8) : 0;
+        if (!Object || (Read<uint32_t>(Object + 8) & 0x30) != 0)
+            continue;
+        for (uintptr_t Class = Read<uintptr_t>(Object + 0x10); Class; Class = Read<uintptr_t>(Class + 0x40))
+        {
+            const std::string Name = NameOf(Class);
+            if (!Boss && Name == "BP_BossEnemy_C")
+                Boss = Object;
+            if (!Controller && Name == "DDPlayerController")
+                Controller = Object;
+        }
+    }
+    if (!Boss)
+    {
+        Log("BossDmg: kein Boss");
+        return;
+    }
+    struct { uintptr_t Actor; float Damage; uint32_t Pad; uintptr_t Instigator, Causer, DamageType; float Result; uint32_t Pad2; } Params{Boss, Amount, 0, Controller, Boss, 0, 0, 0};
+    static_assert(sizeof(Params) == 0x30);
+    Read<ProcessEventFn*>(Statics)[kProcessEventIndex](Statics, Apply, &Params);
+    Log("BossDmg: " + std::to_string(static_cast<int>(Amount)) + " Schaden, angewendet " + std::to_string(static_cast<int>(Params.Result)));
+}
+
+// Testhilfe (gegner-alle): Host setzt einen BossfightSpawnPoint in die Welt und startet den Bosskampf wie das Spiel (Intro, Objective,
+// Lebensleiste, Phasen), "!bossfight SpikeBoss [Abstand]". Klasse /Game/DDSurvivors/Blueprints/Enemies/Bosses/BP_<Name>SpawnPoint.
+// Nur beim Host, die Replikation macht das Spiel.
+void BossFightCommand(const std::wstring& Args)
+{
+    const std::string Text(Args.begin(), Args.end());
+    const size_t Space = Text.find(' ');
+    const std::string TypeName = Text.substr(0, Space);
+    const double Distance = Space == std::string::npos ? 800.0 : atof(Text.c_str() + Space + 1);
+    const uintptr_t World = Read<uintptr_t>(Base + kGWorld);
+    const uintptr_t Statics = FindObject("Default__GameplayStatics", nullptr);
+    const uintptr_t Begin = FindObject("BeginDeferredActorSpawnFromClass", "GameplayStatics");
+    const uintptr_t Finish = FindObject("FinishSpawningActor", "GameplayStatics");
+    const uintptr_t GetLocation = FindObject("K2_GetActorLocation", "Actor");
+    const uintptr_t Trigger = FindObject("TriggerBossfight", "BossfightSpawnPoint");
+    const std::string ClassName = "BP_" + TypeName + "SpawnPoint_C";
+    uintptr_t Class = FindObject(ClassName.c_str(), nullptr);
+    if (!Class)
+        Class = LoadObjectByPath("/Game/DDSurvivors/Blueprints/Enemies/Bosses/BP_" + TypeName + "SpawnPoint.BP_" + TypeName + "SpawnPoint_C");
+    if (!World || !Read<uintptr_t>(World + kWorldGameMode) || !Statics || !Begin || !Finish || !GetLocation || !Trigger || !Class)
+    {
+        Log("BossFight: " + TypeName + " nicht moeglich (Host " + std::to_string(World && Read<uintptr_t>(World + kWorldGameMode) != 0) + ", Klasse " +
+            std::to_string(Class != 0) + ", Begin " + std::to_string(Begin != 0) + ", Finish " + std::to_string(Finish != 0) + ", Trigger " +
+            std::to_string(Trigger != 0) + ")");
+        return;
+    }
+    const uintptr_t Chunks = Read<uintptr_t>(Base + kGObjects);
+    const int32_t Count = Read<int32_t>(Base + kGObjects + 8);
+    uintptr_t Character = 0;
+    for (int32_t i = 0; i < Count && !Character; ++i)
+    {
+        const uintptr_t Chunk = Read<uintptr_t>(Chunks + 8 * (i >> 16));
+        const uintptr_t Object = Chunk ? Read<uintptr_t>(Chunk + (i & 0xFFFF) * 0x18 + 8) : 0;
+        if (!Object || (Read<uint32_t>(Object + 8) & 0x30) != 0)
+            continue;
+        for (uintptr_t C = Read<uintptr_t>(Object + 0x10); C; C = Read<uintptr_t>(C + 0x40))
+            if (NameOf(C) == "DDCharacter")
+            {
+                Character = Object;
+                break;
+            }
+    }
+    if (!Character)
+    {
+        Log("BossFight: keine Spielerfigur");
+        return;
+    }
+    struct { double X, Y, Z; } Location{};
+    Read<ProcessEventFn*>(Character)[kProcessEventIndex](Character, GetLocation, &Location);
+    struct Transform
+    {
+        double Rotation[4];
+        double Translation[3];
+        double Pad0;
+        double Scale[3];
+        double Pad1;
+    };
+    static_assert(sizeof(Transform) == 0x60);
+    Transform Where{};
+    Where.Rotation[3] = 1.0;
+    Where.Translation[0] = Location.X + Distance;
+    Where.Translation[1] = Location.Y;
+    Where.Translation[2] = Location.Z;
+    Where.Scale[0] = Where.Scale[1] = Where.Scale[2] = 1.0;
+    struct
+    {
+        uintptr_t WorldContext, ActorClass;
+        Transform Spawn;
+        uint8_t Collision, Pad[7];
+        uintptr_t Owner;
+        uint8_t ScaleMethod, Pad2[7];
+        uintptr_t Result;
+    } BeginParams{World, Class, Where, 1, {}, 0, 0, {}, 0};
+    static_assert(sizeof(BeginParams) == 0x90);
+    Read<ProcessEventFn*>(Statics)[kProcessEventIndex](Statics, Begin, &BeginParams);
+    if (!BeginParams.Result)
+    {
+        Log("BossFight: SpawnPoint nicht entstanden");
+        return;
+    }
+    struct
+    {
+        uintptr_t Actor, Pad;
+        Transform Spawn;
+        uint8_t ScaleMethod, Pad2[7];
+        uintptr_t Result;
+    } FinishParams{BeginParams.Result, 0, Where, 0, {}, 0};
+    static_assert(sizeof(FinishParams) == 0x80);
+    Read<ProcessEventFn*>(Statics)[kProcessEventIndex](Statics, Finish, &FinishParams);
+    if (!Read<uintptr_t>(BeginParams.Result + 0x498))
+        if (const uintptr_t SpawnBoss = FindObject("SpawnBoss", "BossfightSpawnPoint"))
+            Read<ProcessEventFn*>(BeginParams.Result)[kProcessEventIndex](BeginParams.Result, SpawnBoss, nullptr);
+    float Delay = 1.0f;
+    Read<ProcessEventFn*>(BeginParams.Result)[kProcessEventIndex](BeginParams.Result, Trigger, &Delay);
+    Log("BossFight: " + TypeName + " Spawnpunkt gesetzt, Kampf angestossen (SpawnedBoss " +
+        (Read<uintptr_t>(BeginParams.Result + 0x498) ? NameOf(Read<uintptr_t>(Read<uintptr_t>(BeginParams.Result + 0x498) + 0x10)) : std::string("keiner")) + ")");
+}
+
 // Laedt ein Asset ueber seinen Pfad, etwa "/Game/.../BP_X.BP_X_C". Dumper-7 erfasst danach auch diese Klasse.
 void LoadAssetCommand(const std::wstring& Path)
 {
