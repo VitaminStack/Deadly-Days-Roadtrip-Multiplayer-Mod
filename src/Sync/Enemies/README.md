@@ -106,8 +106,13 @@ Messung: Zwei Instanzen, `SpikeBoss`, Godmode, Schaden mit `!bossdmg` in Schritt
 (Screenshot: „Besiege den Boss! 49.135/80.000“), überlebt den Phasenwechsel bei 40000 und den Tod, nach dem Tod ist sie weg, beide Instanzen laufen weiter.
 
 Grenzen und Stolpersteine:
-- **Nur im Spike.** Die ausgelieferte Mod läuft ohne `spike.dll`. Der Code muss noch in die Mod (`src/Sync/Enemies`), Folgeaufgabe. Offsets und Funktionen
-  sind bekannt, die Reihenfolge oben ist die Anleitung.
+- **Jetzt in der Mod** (08.11.2026): `src/Game/BossBarAdapter.cpp` (Tick `TickBossBar`, einmal je Sekunde, nur Client) mit der reinen Entscheidung in
+  `src/Game/BossBarPolicy.h` (Tests `BossBarPolicyTests.cpp`). Felder über `Reflection::Property`, Funktionen über `Reflection::Function`, Asset über
+  `Objects::LoadAsset`. Mit geladener Mod schaltet der Spike seine eigene `TickBossBar` ab (`ModOwnsPatches`). Ein fremdes, nicht von uns angelegtes
+  Objective wird nicht angefasst. Das Anlegen wartet, bis eine Anzeige mit Subsystem da ist.
+  Messung Mod, zwei Instanzen, `-Tunnel Lobby`, `SpikeBoss` per `!bossfight`: Log „Boss erkannt (Maximum 80000)“, „lokal angelegt“, Leiste zeigt
+  40.455/80.000 und 39.900/80.000, nach dem Tod „Boss weg, Leiste entfernt“, beide Instanzen laufen weiter. **Ohne `-Tunnel Lobby`** stürzt der Client in
+  der Mod-Sitzung ab (Client erzeugt nach 60 s eine eigene Karte), unabhängig von der Boss-Leiste.
 - Phasenmarken: Das Objective des Clients hat die Marken aus der Blueprint-Klasse, ob sie in Phase 2 wie beim Host aussehen, ist nicht verglichen.
 - Nicht gemessen: Join mitten im Kampf, Travel mit Boss, die Bosse Ballerina, Lazy und Endboss, mehr als ein Boss gleichzeitig.
 - Ein `BossfightSpawnPoint` ohne Host-Kontext zu erzeugen stürzt den Client ab (Lesezugriff `0x308` in `0x58BC184`), der Spawnpunkt gehört nur zum Host.

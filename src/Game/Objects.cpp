@@ -1,10 +1,52 @@
 #include "Game/Objects.h"
 
+#include <cstring>
+#include <string>
+
 #include "Game/Memory.h"
 #include "Game/Offsets.h"
 
 namespace Game::Objects
 {
+uintptr_t LoadAsset(std::string_view Path)
+{
+    struct FString
+    {
+        const wchar_t* Data;
+        int32_t Num;
+        int32_t Max;
+    };
+    const uintptr_t Library = FindNamed("Default__KismetSystemLibrary");
+    const uintptr_t MakePath = FindObject("MakeSoftObjectPath", "KismetSystemLibrary");
+    const uintptr_t ToReference = FindObject("Conv_SoftObjPathToSoftObjRef", "KismetSystemLibrary");
+    const uintptr_t Load = FindObject("LoadAsset_Blocking", "KismetSystemLibrary");
+    if (!Library || !MakePath || !ToReference || !Load)
+        return 0;
+    const std::wstring Wide(Path.begin(), Path.end());
+    const int32_t Size = static_cast<int32_t>(Wide.size() + 1);
+    struct
+    {
+        FString PathString;
+        uint8_t ReturnValue[0x20];
+    } MakeParams{{Wide.c_str(), Size, Size}, {}};
+    ProcessEvent(Library, MakePath, &MakeParams);
+    struct
+    {
+        uint8_t SoftObjectPath[0x20];
+        uint8_t ReturnValue[0x28];
+    } ReferenceParams{};
+    memcpy(ReferenceParams.SoftObjectPath, MakeParams.ReturnValue, sizeof(MakeParams.ReturnValue));
+    ProcessEvent(Library, ToReference, &ReferenceParams);
+    struct
+    {
+        uint8_t Asset[0x28];
+        uintptr_t ReturnValue;
+    } LoadParams{};
+    memcpy(LoadParams.Asset, ReferenceParams.ReturnValue, sizeof(ReferenceParams.ReturnValue));
+    ProcessEvent(Library, Load, &LoadParams);
+    return LoadParams.ReturnValue;
+}
+
 uintptr_t At(int32_t Index)
 {
     if (Index < 0)

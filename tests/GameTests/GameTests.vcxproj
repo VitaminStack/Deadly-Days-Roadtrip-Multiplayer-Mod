@@ -31,6 +31,7 @@
     <ClCompile Include="ExpBoundsTests.cpp" />
     <ClCompile Include="SavePathsTests.cpp" />
     <ClCompile Include="TelemetryAdapterTests.cpp" />
+    <ClCompile Include="BossBarPolicyTests.cpp" />
     <ClCompile Include="TutorialAdapterTests.cpp" />
     <ClCompile Include="WorldAdapterTests.cpp" />
   </ItemGroup>

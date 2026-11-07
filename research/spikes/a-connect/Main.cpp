@@ -85,7 +85,8 @@ void TickSession()
     if (Read<uintptr_t>(Driver + kDriverServerConnection))
     {
         TickMapGen();
-        TickBossBar();
+        if (!ModOwnsPatches)
+            TickBossBar(); // mit Mod baut dessen BossBarAdapter die Leiste
         if (!ModOwnsPatches)
         {
             ReleaseDeferredWidgetEvents(World);
