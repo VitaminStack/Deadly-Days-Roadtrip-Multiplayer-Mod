@@ -98,6 +98,26 @@ Von Hand nachgetragen in `RvaMap26495302.inc` (Zeilen „von Hand“). Native Fu
   Reward ohne Fehlermeldung, ausgelassen nur Player und Client (`update-client`). Absturz beim Beitritt unverändert `0x5904DE8`. Die
   Abnahme beim Client (Airdrop, Belohnungswahl, Lager) stand deshalb aus; `update-client` ist inzwischen gemergt.
 
+### Spike (`spike-build-26495302`)
+
+Stand 07.11.2026. Der Spike (`research/spikes/a-connect`) nennt weiter die RVAs von `26187885` und rechnet sie zur Laufzeit mit `Rva()` aus
+`Builds.cpp` um: erst die eigenen Einträge, dann die Tabelle der Mod (`src/Game/RvaMap26495302.inc` wird eingebunden). Der Build kommt aus dem
+TimeDateStamp der Exe, ein unbekannter Build setzt keine Patches. Eine Adresse ohne Eintrag liefert `kMissingRva`, `Expect` meldet sie im Log
+(`Adresse fehlt oder nicht lesbar`) und der Patch bleibt aus.
+
+| Stelle | 26187885 | 26495302 | Weg |
+|---|---|---|---|
+| `SerializeNewActor` | `0x02D09B90` | `0x02D09D90` | rva_map (eindeutig) |
+| Archetyp-Prüfung darin | `0x02D0A426` | `0x02D0A626` | rva_map (eindeutig) |
+| `UpdateTag` (Cheats) | `0x04B7D7D0` | `0x04B7D9D0` | rva_map (eindeutig) |
+| Tag `State.Invincible` (Global) | `0x0AC61FE8` | `0x0AC680D8` | rva_map (global) |
+
+- GObjects, GNames und GWorld stehen in der Tabelle des Spikes (Werte oben). Alle übrigen Code- und Datenadressen des Spikes stehen schon in der Tabelle der Mod.
+- Relative Sprünge (`call`/`jmp rel32`) prüft `ExpectBranch` auf ihr Ziel statt auf feste Bytes, denn die Verschiebung ändert sich je Build.
+- Importeinträge (`CreateProcessW`, `sendto`, `recvfrom`) liegen in jedem Build anders und werden in der Importtabelle der Exe gesucht (`FindImportSlot`).
+- Offline geprüft: alle `Expect`/`ExpectBranch` des Spikes (51 mit Adresse, 1 über den Parameter in `HealthBars.cpp`, dort beide Aufrufer geprüft) passen auf die Exe von `26495302` (Muster, Abstände wie im Quelltext).
+- Spieltest ein PC, zwei Instanzen: Spike allein und Spike mit `-Mod -Tunnel Lobby` laufen bis `DDDynamic_Map` (2 Spieler), Patches „aktiv“, „Karte vom Host“, „PCG vom Host“, Busplatz, Lebensleisten, Run-Ende und Lastmessung gesetzt, `!wave` wirkt, kein Absturz.
+
 ## Diagnoseadapter (`desync-melder`)
 
 Quelle: Felddeklarationen des lokalen Dumper-7-SDK für denselben Build. Optionale

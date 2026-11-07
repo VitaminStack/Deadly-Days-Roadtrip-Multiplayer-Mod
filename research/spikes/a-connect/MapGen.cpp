@@ -8,7 +8,7 @@ namespace Spike
 {
 namespace
 {
-constexpr uintptr_t kStartMapGeneration = 0x59EF6D0;
+const uintptr_t kStartMapGeneration = Rva(0x59EF6D0);
 constexpr uintptr_t kGeneratorProfile = 0x2B8;
 constexpr uintptr_t kGeneratorSeed = 0x2D8;
 constexpr uintptr_t kGeneratorMaxTile = 0x2E8;
@@ -229,8 +229,8 @@ void TickMapGen()
 
 namespace
 {
-constexpr uintptr_t kCreateChildActor = 0x288B510;
-constexpr uintptr_t kIsChildActorReplicated = 0x289DB60;
+const uintptr_t kCreateChildActor = Rva(0x288B510);
+const uintptr_t kIsChildActorReplicated = Rva(0x289DB60);
 constexpr uintptr_t kComponentOwner = 0xA8;
 constexpr uintptr_t kActorRole = 0x168;
 constexpr uint8_t kRoleAuthority = 3;

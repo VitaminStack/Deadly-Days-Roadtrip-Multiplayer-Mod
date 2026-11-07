@@ -31,6 +31,11 @@ bool DetectModPatches(HMODULE& Mod)
 
 void InstallPatches()
 {
+    if (!IsSupportedBuild())
+    {
+        Log("Patch: unbekannter Spiel-Build, der Spike setzt keine Patches");
+        return;
+    }
     CodeWriter Code;
     // Zuerst und unabhaengig vom Rest: Testabstuerze duerfen nie beim Hersteller landen.
     PatchCrashReports(Code);

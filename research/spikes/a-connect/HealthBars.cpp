@@ -10,8 +10,8 @@ namespace Spike
 namespace
 {
 // Implementierungen von UCommonAttributeSet::OnRep_Health und OnRep_MaxHealth (hinter den exec-Thunks).
-constexpr uintptr_t kOnRepHealth = 0x57DC840;
-constexpr uintptr_t kOnRepMaxHealth = 0x57DCEA0;
+const uintptr_t kOnRepHealth = Rva(0x57DC840);
+const uintptr_t kOnRepMaxHealth = Rva(0x57DCEA0);
 // FGameplayAttributeData: VTable, BaseValue, CurrentValue.
 constexpr uintptr_t kAttributeCurrentValue = 0xC;
 constexpr uintptr_t kMaxHealth = 0x30;

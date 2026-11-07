@@ -6,21 +6,21 @@ namespace Spike
 {
 namespace
 {
-constexpr uintptr_t kSpawnNullSite = 0x5901CE8;
-constexpr uintptr_t kSpawnSkipTarget = 0x5901E53;
-constexpr uintptr_t kPlayerIndexNullSite = 0x5B0A2E5;
-constexpr uintptr_t kSpawnerPlayerRead = 0x58CEDC7;
-constexpr uintptr_t kSpawnerNoPlayerExit = 0x58CF2B7;
-constexpr uintptr_t kLootPawnRead = 0x5994BB0;
-constexpr uintptr_t kLootNoRootTarget = 0x5994BD1;
+const uintptr_t kSpawnNullSite = Rva(0x5901CE8);
+const uintptr_t kSpawnSkipTarget = Rva(0x5901E53);
+const uintptr_t kPlayerIndexNullSite = Rva(0x5B0A2E5);
+const uintptr_t kSpawnerPlayerRead = Rva(0x58CEDC7);
+const uintptr_t kSpawnerNoPlayerExit = Rva(0x58CF2B7);
+const uintptr_t kLootPawnRead = Rva(0x5994BB0);
+const uintptr_t kLootNoRootTarget = Rva(0x5994BD1);
 constexpr uintptr_t kGameModeSpawnedPlayers = 0x388;
 constexpr uintptr_t kActorOwner = 0x158;
 constexpr uintptr_t kActorRemoteRole = 0x60;
 constexpr uintptr_t kCharacterMovement = 0x330;
 constexpr uintptr_t kMovementFlags = 0x579;
-constexpr uintptr_t kControllerSetAdd = 0x57BD5E0;
-constexpr uintptr_t kControllerSparseRemove = 0x12D6BA0;
-constexpr uintptr_t kRegisterController = 0x58FB020;
+const uintptr_t kControllerSetAdd = Rva(0x57BD5E0);
+const uintptr_t kControllerSparseRemove = Rva(0x12D6BA0);
+const uintptr_t kRegisterController = Rva(0x58FB020);
 constexpr uintptr_t kControllerNetConnection = 0x520;
 bool ControllerSetFunctionsReady = false;
 using RegisterControllerFn = void(__fastcall*)(uintptr_t, uintptr_t);
@@ -45,8 +45,8 @@ bool PatchControllerRegistration(CodeWriter& Code)
     const uintptr_t Site = Base + kRegisterController;
     // Complete first instruction (no RIP-relative operand), plus the add/broadcast call sites.
     if (!Expect(Site, {0x48, 0x89, 0x5C, 0x24, 0x18}, "controller registration entry") ||
-        !Expect(Base + 0x58FB11D, {0xE8, 0xBE, 0x24, 0xEC, 0xFF}, "registration TSet add") ||
-        !Expect(Base + 0x58FB133, {0xE8, 0xD8, 0xE2, 0xBE, 0xFC}, "registration broadcast"))
+        !ExpectBranch(Base + Rva(0x58FB11D), 0xE8, 0x57BD5E0, "registration TSet add") ||
+        !ExpectBranch(Base + Rva(0x58FB133), 0xE8, 0x24E9410, "registration broadcast"))
         return false;
     OriginalRegisterController = reinterpret_cast<RegisterControllerFn>(Code.Here());
     Code.Emit({0x48, 0x89, 0x5C, 0x24, 0x18}); // mov [rsp+18h],rbx

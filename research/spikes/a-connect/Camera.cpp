@@ -5,8 +5,8 @@ namespace Spike
 {
 namespace
 {
-constexpr uintptr_t kCameraPlayersFunction = 0x5A0DA90;
-constexpr uintptr_t kArrayResizeGrow = 0x1272520;
+const uintptr_t kCameraPlayersFunction = Rva(0x5A0DA90);
+const uintptr_t kArrayResizeGrow = Rva(0x1272520);
 constexpr uintptr_t kPlayerStatePawn = 0x320;
 constexpr uintptr_t kCharacterMovementBase = 0x350;
 constexpr uintptr_t kComponentMobility = 0x1AB;
