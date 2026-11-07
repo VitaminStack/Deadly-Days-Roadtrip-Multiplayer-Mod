@@ -19,6 +19,9 @@ struct WorldInfo
     std::string Map;
     NetRole Role = NetRole::Standalone;
     int Players = 0;
+    // Nur für den Testkanal: Paketname (etwa /Game/Maps/DDDynamic_Map) und Zahl der verbundenen Clients des Hosts.
+    std::string Package;
+    int Clients = 0;
 
     bool operator==(const WorldInfo&) const = default;
 };
