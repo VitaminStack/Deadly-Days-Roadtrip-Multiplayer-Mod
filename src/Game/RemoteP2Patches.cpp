@@ -251,8 +251,10 @@ bool ApplyRemoteP2(Code::Writer& Code)
     return !Code.Failed() && Code::WriteJump(At(DeviceCheckSite), Cave);
 }
 
+// Je Patch die benutzten Adressen der Signaturtabelle, erzeugt von tools/patch_signatures.py sites.
+constexpr uintptr_t RemoteP2Sites[] = {MapSparseRemove, DelegateBroadcast, MapAdd, GetController, DeviceCheckSite, SoloLossTest, NeedReconnect};
 const Patch List[] = {
-    {"Remote-Spieler als P2 ohne lokales Gerät", &CheckRemoteP2, &ApplyRemoteP2},
+    {"Remote-Spieler als P2 ohne lokales Gerät", &CheckRemoteP2, &ApplyRemoteP2, RemoteP2Sites},
 };
 }
 

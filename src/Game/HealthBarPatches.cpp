@@ -118,8 +118,10 @@ bool ApplyHealthBars(Code::Writer&)
                                 reinterpret_cast<void**>(&OriginalOnRepMaxHealth));
 }
 
+// Je Patch die benutzten Adressen der Signaturtabelle, erzeugt von tools/patch_signatures.py sites.
+constexpr uintptr_t HealthBarsSites[] = {OnRepHealth, OnRepMaxHealth};
 const Patch List[] = {
-    {"Lebensleisten beim Client", &CheckHealthBars, &ApplyHealthBars},
+    {"Lebensleisten beim Client", &CheckHealthBars, &ApplyHealthBars, HealthBarsSites},
 };
 }
 

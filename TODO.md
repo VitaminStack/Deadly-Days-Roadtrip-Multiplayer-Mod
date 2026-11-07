@@ -51,7 +51,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `reconnect` | P2 | [5](#phase-5--vollständiger-run) | parallel | viel |
 | `vfx-sound` | P2 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `modversion-overlay` | P2 | [6](#phase-6--release) | parallel | wenig |
-| `patch-signaturen` | P2 | [Wartung](#wartung) | parallel | wenig |
 
 **Wartet auf das Team:** nichts.
 
@@ -193,7 +192,6 @@ Zählt nicht zum Fortschritt.
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
 | `mod-steuerung` | P1 | Steuerkanal in der Mod für Testskripte: Befehle mit Antwort über eine lokale Named Pipe je Prozess, nur mit Testschalter aktiv. Mindestens Zustand als JSON (Welt, Rolle, Spieler, Sitzung, Overlay), Lobby erstellen, beitreten, verlassen, Konsolenbefehl und Reise. Ersetzt die Befehlsdatei des Spikes (`Send-SpikeCommand`, eine Sekunde Abfrage, keine Antwort) und das Auslesen per `netstate.py` und Overlay-Fenster. **Fertig, wenn** `Start-Session.ps1`, `Restart-Instance.ps1` und `Test-NetEnd.ps1` ohne Spike-Befehle auskommen und gleich schnell oder schneller sind. **Einstieg:** [Spielzeit sparen](docs/TESTING.md#spielzeit-sparen), `tools/spike/Common.ps1` | `test-tempo` | parallel | wenig |
-| `patch-signaturen` | P2 | Für Build `26495302` übernimmt `update-basis` Tabelle und Adresswerkzeug, danach hier nur noch die Byte-Signaturen ergänzen. Die festen Code-Adressen der Patches (rund 90 RVAs in `src/Game/*Patches.cpp` und `CodeCave.cpp`) in eine zentrale Tabelle mit Byte-Signatur und erwarteter RVA überführen, wie `Core::Signature` es für `ProcessEvent` schon macht. Beim Start gilt: genau ein Treffer an der erwarteten Stelle, sonst bleibt nur dieser Patch aus und das Log nennt ihn. Dateiweise in kurzen PRs umstellen und Dateien laufender Aufgaben auslassen. Neue Patches kommen danach gleich mit Signatur in die Tabelle. **Fertig, wenn** jede Patch-Adresse in der Tabelle steht, ein Prüfskript alle Signaturen gegen die eingefrorene Exe als eindeutig meldet und ein absichtlich falsches Muster im Spiel nur seinen Patch abschaltet. **Einstieg:** [Andockpunkte](docs/ARCHITECTURE.md#technische-andockpunkte-build-26187885), `src/Core/Signature.h` | – | parallel | wenig |
 | `update-welt` | P1 | Patches für Build `26495302` portieren: `MapPatches.cpp`, `TravelPatches.cpp`, `ExpPatches.cpp`, `ProjectilePatches.cpp`, `MovementPatches.cpp`, `CameraPatches.cpp`, `CodeCave.cpp`. Patchnotes prüfen: Abstürze beim Map Travel, Dash außerhalb der gemeinsamen Kamera. **Fertig, wenn** diese Dateien auf `26495302` keine fehlenden Patches mehr melden und Route bis Tag 2 mit gleicher Karte, XP-Bällen und Kamera läuft | `update-basis` | parallel | mittel |
 | `spiel-update` | P1 | Umstieg auf Build `26495302` (Depot `3026452`, Manifest `2302428105354984436`) abschließen: ausstehende Bestätigungstests auf dem neuen Build, Doku ([GAME_ANALYSIS](docs/GAME_ANALYSIS.md#unterstützte-spielversion), [OFFSETS](docs/OFFSETS.md), SETUP, INSTALL, CLAUDE.md), danach Unterstützung für `26187885` entfernen. **Fertig, wenn** ein Coop-Run auf `26495302` ohne fehlende Patches läuft und `26187885` nirgends mehr verlangt wird. **Einstieg:** [Update-Regel](CONTRIBUTING.md#spiel-updates) | `update-basis`, `update-client`, `update-inventar`, `update-welt` | zentral | viel |
 
@@ -312,6 +310,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `opt-ladezeit-messung` | Wartung | check_round.py --wait trennt Prozessende von World 0 beim Laden und wartet auf alle Spieler im GameState; Run-Route.ps1 startet die Messung vor dem Klick. Routenlauf ohne Spike auf 26495302: load_seconds 1,0 s statt leer bzw. 0,0 |
 | `overlay` | 2 | F8-Overlay mit Status und Debug-Anzeige, sichtbare Host-/Client-Abnahme bestanden, siehe [UI](src/UI/README.md#sichtbare-spielabnahme-03112026) |
 | `overlay-fokus` | 3 | F8-Overlay bleibt beim Fokuswechsel sichtbar, Knopf „Lobby-ID kopieren“, siehe [UI](src/UI/README.md#stand-overlay) |
+| `patch-signaturen` | Wartung | Byte-Signatur je Patch-Adresse, falsches Muster schaltet nur seinen Patch ab |
 | `patches` | 4 | Die 25 Spielfehler-Fixes des Spikes stehen geprüft in `src/Game/*Patches.cpp`, alle oder keiner; mit der Mod lässt der Spike seine Fassungen aus. Route MetaBase bis Tag 5 und Niederlage mit Rückkehr in die MetaBase ohne Absturz, siehe [Patches](src/Game/README.md#patches) |
 | `pausen` | 1 | Pausen-Logik gemessen, Host-Weltpause repliziert, Client-Wunsch nicht, siehe [Pausen-Spike](research/spikes/pausen/README.md#nachtrag-03112026-isolierte-ablaeufe) |
 | `pcg` | 1 | Client erzeugt die PCG-Vegetation mit dem Graphen des Hosts (`Pcg.cpp`), siehe [PCG-Vegetation](docs/GAME_ANALYSIS.md#pcg-vegetation-beim-client-pcg) |

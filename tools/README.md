@@ -160,6 +160,26 @@ py tools/expect_check.py --exe <kopie>/DDSurvivors/Binaries/Win64/DDSurvivors-Wi
   Werkzeug sie als `anderer-build` statt `abweichend`.
 - Ohne `--file` alle `src/Game/*Patches.cpp`.
 
+## patch_signatures.py
+
+Erzeugt und prüft `src/Game/PatchSignatures.inc`: je Code-Adresse der Patches ein maskiertes Byte-Muster. Die Mod prüft jedes Muster beim
+Start an der erwarteten Stelle (`Game::Signatures`, vor dem ersten Hook). Passt es nicht, liefert `Memory::Rva` für diese Adresse 0, und nur
+die Patches, die sie in `Patch::Sites` nennen, fallen aus (Log: `Signatur … passt nicht`, `Patches: ausgelassen`). Braucht `capstone`.
+
+```bash
+py tools/patch_signatures.py generate --exe <kopie-26187885>/DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe --other <kopie-neu>/DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe 26495302 --write
+py tools/patch_signatures.py check --exe <kopie>/DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe --build 26495302
+```
+
+- `generate`: kürzestes Muster, das in jeder Exe genau einmal an der erwarteten Stelle steht; abweichende Bytes werden Platzhalter, bei
+  stark geändertem Code bekommt jeder Build eine eigene Zeile. `--file` beschränkt auf einzelne Dateien, `--write` fügt die Zeilen ein.
+- `check`: `ok`, `abweichend`, `mehrdeutig`, `fehlt` (keine Adresse in RvaMap). Im Referenz-Build zusätzlich `ohne-signatur` für Adressen
+  ohne Zeile, mit `--strict` ein Fehler. Nach jedem Spiel-Update und vor neuen Patches laufen lassen.
+- `sites`: leitet je Eintrag der Patch-Listen aus Check, Apply und allem, was sie in der Datei aufrufen (auch Hooks), die benutzten Adressen
+  der Tabelle ab und vergleicht sie mit `Patch::Sites` (`abweichend`, Exitcode 1). `--write` schreibt die `<Name>Sites`-Felder. Fehlt eine
+  Patch-Liste die Adresse eines Ticks, bleibt dessen Tick aus (`ListComplete`).
+- Neue Patches: Adresse eintragen, `generate --write`, dann `sites --write`.
+
 ## Build-Mod.ps1
 
 Baut `DeadlyDaysCoop.sln` wie die CI nach `bin/<Konfiguration>/`. Mit `-Test` laufen danach `CoreTests.exe` und die Python-Tests.
