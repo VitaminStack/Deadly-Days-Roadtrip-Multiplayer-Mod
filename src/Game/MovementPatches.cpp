@@ -26,6 +26,18 @@
 #include "Game/Offsets.h"
 #include "Game/PatchRuntime.h"
 
+#ifdef DDCOOP_WITH_SDK
+#pragma warning(push, 0)
+#include <SDK/Engine_classes.hpp>
+#include <SDK/DDSurvivors_classes.hpp>
+#pragma warning(pop)
+static_assert(offsetof(SDK::UCharacterMovementComponent, MaxWalkSpeed) == 0x288);
+static_assert(offsetof(SDK::ADDCharacterBase, CommonAttributeSet) == 0x700);
+static_assert(offsetof(SDK::UCommonAttributeSet, MovementSpeed) == 0xE8);
+static_assert(offsetof(SDK::FGameplayAttributeData, BaseValue) == 0x08);
+static_assert(offsetof(SDK::FGameplayAttributeData, CurrentValue) == 0x0C);
+#endif
+
 namespace Game::Patches
 {
 namespace
@@ -56,6 +68,11 @@ constexpr uintptr_t AbilityActivationKey = 0xD8;
 constexpr uintptr_t AbilityIsActive = 0x388; // UGameplayAbility.bIsActive
 constexpr uintptr_t DashTaskOffset = 0x400;     // GA_Dash_C.DashTask, erst nach dem Start gesetzt
 constexpr uintptr_t RootMotionDuration = 0xEC;  // UAbilityTask_ApplyRootMotionConstantForce.Duration (float, s)
+constexpr uintptr_t MovementMaxWalkSpeed = 0x288;           // UCharacterMovementComponent.MaxWalkSpeed (float)
+constexpr uintptr_t CharacterCommonAttributeSet = 0x700;    // ADDCharacterBase.CommonAttributeSet
+constexpr uintptr_t AttributeMovementSpeed = 0xE8;          // UCommonAttributeSet.MovementSpeed (FGameplayAttributeData)
+constexpr uintptr_t AttributeBaseValue = 0x08, AttributeCurrentValue = 0x0C;
+constexpr uint64_t WalkSpeedLogLimit = 20;
 constexpr uint64_t DashLimitMs = 750;
 constexpr uint64_t ProxyLimitMs = 500;
 
@@ -77,6 +94,8 @@ struct Figure
     uint64_t LastMovingAt = 0;
     uint64_t RemoteDashAttempts = 0;
     uint64_t DashRestores = 0;
+    std::optional<float> WalkSpeedAttribute; // zuletzt übernommener Wert von MovementSpeed
+    uint64_t WalkSpeedChanges = 0;
 };
 
 struct State
@@ -285,6 +304,26 @@ bool OwnDashRunning(uint64_t Now)
     return !OwnDashes.empty();
 }
 
+// Eigene Figur beim Client: MaxWalkSpeed folgt dem replizierten Tempo-Attribut, wie beim Host über
+// OnMovementSpeedChanged_Server. So kriecht ein toter Client mit dem Tempo, das der Host vorgibt, und läuft nach der
+// Wiederbelebung wieder normal. Tod und Wiederbelebung entscheidet weiter allein der Host.
+void SyncOwnWalkSpeed(Figure& Entry, uintptr_t Component)
+{
+    const uintptr_t Attributes = Memory::ReadPointer(Entry.Character + CharacterCommonAttributeSet).value_or(0);
+    const auto Base = Attributes ? Memory::Read<float>(Attributes + AttributeMovementSpeed + AttributeBaseValue) : std::nullopt;
+    const auto Current = Attributes ? Memory::Read<float>(Attributes + AttributeMovementSpeed + AttributeCurrentValue) : std::nullopt;
+    const auto Old = Memory::Read<float>(Component + MovementMaxWalkSpeed);
+    if (!Base || !Current || !Old)
+        return;
+    const auto Speed = WalkSpeedToApply(Entry.WalkSpeedAttribute, *Base, *Current);
+    if (!Speed || !Memory::WriteBytes(Component + MovementMaxWalkSpeed, &*Speed, sizeof(float)))
+        return;
+    Entry.WalkSpeedAttribute = *Speed;
+    if (++Entry.WalkSpeedChanges <= WalkSpeedLogLimit)
+        Core::Log::Info("Bewegung: Tempo der eigenen Figur aus dem Attribut übernommen, {:.0f} statt {:.0f} (Basis {:.0f}){}",
+                        *Speed, *Old, *Base, Entry.WalkSpeedChanges == WalkSpeedLogLimit ? ", weitere Änderungen ohne Log" : "");
+}
+
 void CheckFigure(Figure& Entry, uint64_t Now)
 {
     const uintptr_t Component = Memory::ReadPointer(Entry.Character + CharacterMovement).value_or(0);
@@ -326,6 +365,8 @@ void CheckFigure(Figure& Entry, uint64_t Now)
         }
         return;
     }
+    if (*Role == RoleAutonomousProxy)
+        SyncOwnWalkSpeed(Entry, Component);
     const float Friction = Memory::Read<float>(Component + MovementGroundFriction).value_or(1.f);
     const float Gravity = Memory::Read<float>(Component + MovementGravityScale).value_or(1.f);
     if (DashSettingsLeft(Friction, Gravity) && !OwnDashRunning(Now) && RestoreDashSettings(Component))
