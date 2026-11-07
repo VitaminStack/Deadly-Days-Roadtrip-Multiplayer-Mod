@@ -34,13 +34,11 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 <!-- frei:start -->
 | Kennung | Prio | Phase | Bearbeitung | Spielzeit |
 |---|---|---|---|---|
-| `lobby-auth-live` | P0 | [3](#phase-3--session-und-verbindung) | zu zweit | wenig |
 | `fortschritt` | P0 | [5](#phase-5--vollständiger-run) | parallel | viel |
 | `gegner-alle` | P0 | [5](#phase-5--vollständiger-run) | parallel | viel |
 | `inventar-client-abweichung` | P0 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `pausen-sync` | P0 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `tagesablauf` | P0 | [5](#phase-5--vollständiger-run) | parallel | viel |
-| `lobby-live-rest` | P1 | [3](#phase-3--session-und-verbindung) | zu zweit | wenig |
 | `dauerlauf` | P1 | [5](#phase-5--vollständiger-run) | parallel | viel |
 | `lager-handel-client` | P1 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `routenkarte-client` | P1 | [5](#phase-5--vollständiger-run) | parallel | mittel |
@@ -103,8 +101,8 @@ Bestätigungstests. Keine neue Reservierung je Test, Änderungen nur im eigenen 
 
 Mögliche Punkte und Reihenfolge, je nach Bereitschaft:
 
-1. `lobby-live-rest` und `lobby-auth-live`: Start über `+connect_lobby`, Verlassen des Clients, Konto außerhalb der Lobby. Verbindet
-   die beiden gleich für die folgenden Punkte.
+1. ~~`lobby-live-rest` und `lobby-auth-live`~~: erledigt am 07.11.2026, siehe [Lobby-Abnahme](docs/GAME_ANALYSIS.md#lobby-abnahme-auf-zwei-pcs-am-07112026-lobby-auth-live-lobby-live-rest).
+   Für weitere Termine verbindet `Start-Session.ps1 -Role Client -Mod -Tunnel Lobby -NoSpike` die beiden gleich.
 2. `net-fehler`, nur zur Gegenprobe über das Internet: Host verlässt das Spiel, Leitung bricht ab. Umsetzung und Abnahme gehen allein.
 3. `integration-g2`: zehn Minuten Vertical Slice zwischen zwei Haushalten, erst wenn alle Voraussetzungen erledigt sind.
 4. `integration-run`: kompletter Run über das Internet, Phase 5.
@@ -149,8 +147,6 @@ Ziel: Zwei Spieler finden sich über Steam und verbinden sich ohne Portfreigabe.
 
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
-| `lobby-auth-live` | P0 | Rest aus `lobby-auth`: Mit getrennten Steam-Konten prüfen, dass der eingeladene Freund verbindet, ein Konto außerhalb der Lobby mit SteamID des Hosts (`-Role Client -Tunnel Mod -Peer <SteamID64>` gegen einen Host mit `-Tunnel Lobby`) „nicht Mitglied seiner Lobby“ sieht und der Platz frei bleibt, und dass der Host nach Verlassen der Lobby trennt. **Fertig, wenn** alle drei Fälle über das Internet so ablaufen. Passt in einen Termin mit `lobby-live`. **Einstieg:** [Zugriffskontrolle](src/Net/README.md#zugriffskontrolle-lobby-auth) | `lobby-auth` | zu zweit | wenig |
-| `lobby-live-rest` | P1 | Rest aus `lobby-live`: Mit zwei Konten auf zwei PCs den Start über `+connect_lobby` bei geschlossenem Spiel (Einladung annehmen, während das Spiel des Clients nicht läuft) und das geordnete Verlassen des Clients prüfen. **Fertig, wenn** der Client nach dem Start durch Steam ohne weiteren Klick in der MetaBase des Hosts landet und der Host nach „Verlassen“ des Clients den Platz freigibt, ohne Absturz und ohne Rest-Lobby. Passt in einen Termin mit `lobby-auth-live`. **Einstieg:** [Steam-Lobby über das Internet](docs/GAME_ANALYSIS.md#steam-lobby-über-das-internet-lobby-live), [Steam-Lobby](src/Net/README.md#steam-lobby-steam-lobby) | `steam-lobby` | zu zweit | wenig |
 
 ## Phase 4 – Vertical Slice
 
@@ -294,8 +290,10 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `layerapps-sperre` | 6 | Die Mod sperrt auch `deadlydays.layerapps.com`, das das Spiel beim Run-Ende anfragt (`Core::ReportHosts`). Run-Ende und neuer Run laufen normal, siehe [Telemetrie und Berichte](docs/GAME_ANALYSIS.md#telemetrie-und-berichte-telemetrie-aus) |
 | `livetest-befunde` | 5 | Live-Test auf zwei PCs bis Tag 2 ausgewertet, neue Aufgaben `lager-absturz-client`, `waffe-client-auswahl`, `inventar-client-abweichung`, `dodge-client-live`, siehe [Live-Test 06.11.](docs/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-06112026-livetest-befunde) |
 | `lobby-auth` | 3 | Host nimmt P2P nur von Steam bestätigten Mitgliedern seiner Lobby an, vor AcceptConnection, ohne Platz zu belegen; 127.0.0.1 nur im Testmodus; 10 Net-Tests mit nachgebautem Steam, auf einem PC im Spiel geprüft, Test mit zwei Konten ist `lobby-auth-live`, siehe [Zugriffskontrolle](src/Net/README.md#zugriffskontrolle-lobby-auth) |
+| `lobby-auth-live` | 3 | Mit zwei Konten über das Internet bestätigt: Mitglied verbindet, Konto außerhalb der Lobby bekommt 1005 ohne Platz, Host gibt den Platz nach dem Verlassen frei; neu `Start-Session.ps1 -SteamLaunch` und `-Tunnel Mod -NoSpike`, siehe [Lobby-Abnahme](docs/GAME_ANALYSIS.md#lobby-abnahme-auf-zwei-pcs-am-07112026-lobby-auth-live-lobby-live-rest) |
 | `lobby-bereit` | 3 | Host schließt die Lobby im Hauptmenü oder ohne Listen-Server, Client erfährt es sofort, siehe [Lobby nur mit Server](src/Net/README.md#lobby-nur-mit-server-lobby-bereit) |
 | `lobby-live` | 3 | Mit zwei Konten über das Steam-Relay geprüft: Einladung angenommen, P2P, Handshake des Kontrollkanals bestätigt, MetaBase erreicht, Host-Abgang sauber; Rest (`+connect_lobby`, Abgang des Clients) ist `lobby-live-rest`, siehe [Steam-Lobby über das Internet](docs/GAME_ANALYSIS.md#steam-lobby-über-das-internet-lobby-live) |
+| `lobby-live-rest` | 3 | Mit zwei Konten auf zwei PCs bestätigt: Steam startet das geschlossene Spiel nach der Einladung mit `+connect_lobby`, der Client landet ohne Klick in der MetaBase des Hosts, nach „Verlassen“ gibt der Host den Platz frei, ohne Absturz und ohne Rest-Lobby, siehe [Lobby-Abnahme](docs/GAME_ANALYSIS.md#lobby-abnahme-auf-zwei-pcs-am-07112026-lobby-auth-live-lobby-live-rest) |
 | `menue-weg` | 1 | Mission über den echten Weg durch das Spielmenü mit den Patches gestartet, siehe [Spike](research/spikes/a-connect/README.md) |
 | `meta-fortschritt` | 5 | Nutzerentscheidung: Im gemeinsamen Run gilt der Meta-Fortschritt des Hosts, Client nur sitzungsweise ohne dauerhafte Meta-Gutschrift; Umsetzung bleibt offen, siehe [Regel](docs/SYNC_REQUIREMENTS.md#nutzervorgabe-meta-fortschritt-des-hosts-06112026) |
 | `missionsstart` | 4 | Gleiche Karte bei Host und Client über den Kontrollkanal der Mod, die Erzeugung des Clients wartet auf die Werte des Hosts; auf einem PC mit Netzprofil Internet und ohne Spike geprüft, siehe [Gleiche Karte in der Mod](docs/GAME_ANALYSIS.md#gleiche-karte-in-der-mod-missionsstart) |
