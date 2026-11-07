@@ -133,9 +133,11 @@ function Get-TransportArgument([string]$Name) {
     if ($Role -eq 'Both') { return @('-ddcoop_transport=loopback') }
     @("-ddcoop_transport=$Peer")
 }
+# Fensterursprung auf einem anderen Monitor: DDCOOP_WIN_ORIGIN="X,Y" (virtuelle Desktop-Koordinaten), Standard 0,0.
+$script:OriginX, $script:OriginY = if ($env:DDCOOP_WIN_ORIGIN) { $env:DDCOOP_WIN_ORIGIN -split ',' | ForEach-Object { [int]$_ } } else { 0, 0 }
 function Start-Instance([string]$Name, [int]$X) {
     $UserDir = Join-Path $script:SessionDir "ud_$Name"
-    $Arguments = @('-windowed', '-ResX=800', '-ResY=450', "-WinX=$X", '-WinY=0', '-nosplash', "-UserDir=`"$UserDir`"") + (Get-TransportArgument $Name)
+    $Arguments = @('-windowed', '-ResX=800', '-ResY=450', "-WinX=$($X + $script:OriginX)", "-WinY=$script:OriginY", '-nosplash', "-UserDir=`"$UserDir`"") + (Get-TransportArgument $Name)
     if ($NetSim) { $Arguments += "-ddcoop_netsim=$NetSim" }
     # Testkanal der Mod (Pipe mit Antworten), siehe Common.ps1 Test-ModControl.
     if ($Mod) { $Arguments += '-ddcoop_control' }
@@ -219,10 +221,12 @@ $ClientId = if ($Client) { $Client.Id } else { 0 }
     Set-Content (Join-Path $script:SessionDir 'session.json') -Encoding ascii
 Write-SessionLock $HostId $ClientId | Set-Content $script:LockFile -Encoding ascii
 
+function Move-SessionWindows { if ($GameHost) { Move-GameWindow $GameHost.Id 0 }; if ($Client) { Move-GameWindow $Client.Id $(if ($Role -eq 'Both') { 820 } else { 0 }) } }
 # Beim Start ueber Steam tritt die Mod schon im Hauptmenue bei, das Hauptmenue ist dann oft nicht mehr zu sehen.
 if (-not $SteamLaunch) {
     foreach ($Instance in $Local) { Wait-MainMenu $Instance.Id $MenuTimeoutSeconds }
     Write-Step 'Hauptmenue geladen'
+    Move-SessionWindows
 }
 else { Wait-Condition { (Get-NetState $Client.Id).world } 'Welt des von Steam gestarteten Spiels' $MenuTimeoutSeconds @($Client.Id) }
 Start-Sleep -Seconds 2
@@ -272,6 +276,7 @@ if ($Role -eq 'Both') {
     Wait-Condition $HostHasClient 'Client beim Host angekommen' 120 $LocalIds
     Wait-Condition { (Get-NetState $Client.Id).players -ge 2 } 'Client sieht beide Spieler' 60 $LocalIds
     Write-Step 'verbunden'
+    Move-SessionWindows
 }
 elseif ($Role -eq 'Host') {
     if ($Tunnel -eq 'P2p') {
@@ -342,6 +347,7 @@ if ($GameHost -and (Get-NetState $GameHost.Id).world -ne $Target) {
         $ClientState.world -eq $Target -and $ClientState.players -ge 2
     } "Reise nach $Target" $TravelTimeoutSeconds $LocalIds
     Write-Step "in $Target"
+    Move-SessionWindows
 }
 # Kurz Zeit fuer Controller-Tausch und Spawn, frueher 40 s fest.
 Start-Sleep -Seconds 5
@@ -383,6 +389,7 @@ if ($Brief) {
     Write-Step 'Sitzung bereit'
     return
 }
+Move-SessionWindows
 & py (Join-Path $PSScriptRoot 'netstate.py') $LocalIds
 Write-Step 'Sitzung bereit'
 Write-Output "Logs: $(($Local | ForEach-Object { Join-Path $script:CommandDir "$($_.Id).log" }) -join ' und ')"

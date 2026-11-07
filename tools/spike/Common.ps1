@@ -497,3 +497,22 @@ function Format-NetSimBrief([int]$ProcessId, [string]$Role) {
     $Hit = if (Test-Path $Log) { Select-String -Path $Log -Pattern 'Netzsimulation: (\d+ Pakete.*)$' | Select-Object -Last 1 }
     if ($Hit) { "$Role Netzsimulation: $($Hit.Matches[0].Groups[1].Value)" } else { "$Role Netzsimulation: noch keine Messung" }
 }
+
+# Fensterursprung fuer Testsitzungen auf einem anderen Monitor: DDCOOP_WIN_ORIGIN="X,Y" in virtuellen Desktop-Koordinaten.
+# Das Spiel zentriert sein Fenster nach dem Laden auf dem Hauptmonitor, darum setzt Move-GameWindow es nach jedem Schritt zurueck.
+# Ohne die Variable aendert sich nichts. Host liegt bei +0, der Client bei +820 (Zwei-Instanzen-Test auf einem PC).
+function Move-GameWindow([int]$ProcessId, [int]$OffsetX = 0) {
+    if (-not $env:DDCOOP_WIN_ORIGIN) { return }
+    if (-not ('SpikeWindowPlacer' -as [type])) {
+        Add-Type @"
+using System; using System.Runtime.InteropServices;
+public static class SpikeWindowPlacer {
+    [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr Window, IntPtr After, int X, int Y, int Width, int Height, uint Flags);
+    public static void Place(IntPtr Window, int X, int Y) { SetWindowPos(Window, IntPtr.Zero, X, Y, 0, 0, 0x1 | 0x4 | 0x10); }
+}
+"@
+    }
+    $Origin = $env:DDCOOP_WIN_ORIGIN -split ',' | ForEach-Object { [int]$_ }
+    $Window = (Get-Process -Id $ProcessId -ErrorAction SilentlyContinue).MainWindowHandle
+    if ($Window -and $Window -ne [IntPtr]::Zero) { [SpikeWindowPlacer]::Place($Window, $Origin[0] + $OffsetX, $Origin[1]) }
+}

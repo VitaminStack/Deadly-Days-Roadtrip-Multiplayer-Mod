@@ -112,6 +112,7 @@ function ConvertTo-VirtualKey([string]$Name) {
 
 $ProcessId = Get-RolePid $Role
 if (-not (Test-GameProcess $ProcessId)) { throw "$Role ($ProcessId) laeuft nicht." }
+Move-GameWindow $ProcessId $(if ($Role -eq 'Client') { 820 } else { 0 })
 $Window = (Get-Process -Id $ProcessId).MainWindowHandle
 switch ($Action) {
     'shot' {

@@ -408,6 +408,8 @@ Was die Mod nutzt, steht zusätzlich in `src/Game/Offsets.h` und wird dort beim 
 | `BP_DD_Character_C` | Attributset mit Ausdauer; darin MaxStamina, Stamina (`FGameplayAttributeData`, CurrentValue je `+0x0C`) | `0x7D8`; `0x30`, `0x50` |
 | `APlayerController` | CheatManager, CheatClass | `0x410`, `0x418` |
 | `UBossSpawnLookup` | BossSpawnInfos (je `0x68`: BossID `0x00`, IsEndBoss `0x08`, BossEnemyType `0x10`, SpawnPointClass `0x38`) | `0x28` |
+| `UDDBossObjective` | MaxHealth `0xD0` (int64, per Reflexion aufgelöst, `BossBarAdapter`); `UDDObjectiveWidget.ObjectiveManager` `0x378`; `UCommonAttributeSet` MaxHealth `0x30`, Health `0xA0` (FGameplayAttributeData, Wert bei `+0xC`) | Build `26495302` gemessen, `gegner-alle` |
+| `FBossSpawnInfo.BossEnemyType` (weicher Verweis) | Paketpfad als FName bei Eintrag `+0x18`, Assetname bei `+0x20` (Build `26495302` gemessen, `gegner-alle`); Zeiger `LoadObjectByPath(Paket.Asset)` lädt den `EnemyType` | |
 | `UEnemyType` | EnemyBlueprint (`TSoftClassPtr`) | `0x128` |
 | `ACharacter` | CharacterMovement, BasedMovement, ReplicatedMovement-Block | `0x330`, `0x340`, `0x398` |
 | `ACharacter` (Spiel) | AttributeSet | `0x7D8` |
