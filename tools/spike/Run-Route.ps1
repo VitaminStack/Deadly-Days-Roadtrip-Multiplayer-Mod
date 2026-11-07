@@ -99,6 +99,8 @@ else { & (Join-Path $PSScriptRoot 'Start-Run.ps1') | Out-Null }
 Copy-Item (Join-Path $script:SessionDir 'route.png') (Join-Path $RunDir 'route-1.png') -ErrorAction SilentlyContinue
 
 for ($Day = 1; $Day -le $Days; $Day++) {
+    # Vor dem Klick starten, damit load_seconds ab dem Klick zaehlt; die World wechselt in unter einer Sekunde.
+    $Pending = Start-Check "tag$Day" @('--wait', '--settle', $Settle)
     if ($WithSpike) {
         $X, $Y = $Nodes[$Day - 1] -split ','
         & $GameInput Host click $X $Y
@@ -112,7 +114,6 @@ for ($Day = 1; $Day -le $Days; $Day++) {
         }
         if (Test-RouteMap) { throw 'Kein Knoten fuer Tag 1 gefunden, siehe Bild der Routenkarte.' }
     }
-    $Pending = Start-Check "tag$Day" @('--wait', '--settle', $Settle)
     # Bilder waehrend des Ladens, um seltsames Laden spaeter nachvollziehen zu koennen.
     $Elapsed = 0
     foreach ($Second in 3, 8, 15) {

@@ -84,6 +84,12 @@ void ParseLobbySwitch(const std::string& CommandLine, LobbyState& Lobby)
         Lobby.StartJoin = Net::ParseConnectLobby("+connect_lobby " + Value);
 }
 
+// Beleg fuer lobby-live-rest: Steam hat das Spiel nach einer angenommenen Einladung gestartet. Ohne Lobby-ID im Log.
+void LogInvitedStart(const char* Source)
+{
+    Core::Log::Info("Lobby: Start über Steam-Einladung (+connect_lobby, {}), Beitritt sobald eine Welt geladen ist", Source);
+}
+
 void BecomeListenServer()
 {
     const auto World = Game::ReadWorld();
@@ -202,8 +208,11 @@ bool TryLoad(LobbyState& Lobby)
     Lobby.Session = std::make_unique<Net::Session>(
         Api, [Sockets, Options] { return std::make_shared<Net::Transport>(Sockets, Options); },
         Net::SessionHooks{BecomeListenServer, ConnectToLocalPort, Disconnect, GameConnectedToHost, GameHosting}, Options);
-    if (const uint64_t Invited = Net::ParseConnectLobby(Api->LaunchCommandLine()))
+    if (const uint64_t Invited = Net::ParseConnectLobby(Api->LaunchCommandLine()); Invited && !Lobby.StartJoin)
+    {
         Lobby.StartJoin = Invited;
+        LogInvitedStart("Startparameter von Steam");
+    }
     UI::Overlay().Bind(OnAction);
     Core::Log::Info("Lobby: Steam bereit");
     return true;
@@ -256,7 +265,10 @@ void Install()
     const std::string Narrowed = Narrow(CommandLine);
     ParseLobbySwitch(Narrowed, Lobby);
     if (const uint64_t Invited = Net::ParseConnectLobby(Narrowed))
+    {
         Lobby.StartJoin = Invited;
+        LogInvitedStart("Kommandozeile");
+    }
     UI::OverlayStatus Waiting;
     Waiting.Message = "Wartet auf Steam";
     UI::Overlay().Publish(Waiting);
