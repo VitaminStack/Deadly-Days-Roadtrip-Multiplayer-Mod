@@ -863,10 +863,6 @@ ein Client.
 - **[Beobachtet] Nebenbei:** Der Tod einzelner Spieler funktioniert, die Runde endet erst, wenn alle Spieler tot sind.
 - **[Beobachtet] Nebenbei:** Dodgt der Client in einen Airdrop, stürzt er manchmal in `InventoryPanel.SetupInventory` ab
   (`InventoryComponent` an `+0x370` leer), nicht reproduzierbar. Steht als `airdrop-dodge-absturz`.
-  **[Belegt, Disassembly]** `SetupInventory` (`0x5A8BAB0`) reicht `+0x370` ohne Prüfung an `0x59635B0` weiter. Keiner der acht
-  direkten Aufrufer prüft es vorher, mehrere sind Ereignis-Handler des Panels. **[Vermutung]** Ein solches Ereignis feuert beim Client,
-  bevor das Panel sein Inventar hat. Seit `airdrop-dodge-absturz` lässt die Mod `SetupInventory` ohne Inventar aus und schreibt
-  „SetupInventory ohne Inventar ausgelassen“ mit der RVA des Aufrufers ins Log, damit der Weg beim nächsten Auftreten belegt ist.
 
 ### Client-Absturz im Restrictor (`tick-absturz`)
 

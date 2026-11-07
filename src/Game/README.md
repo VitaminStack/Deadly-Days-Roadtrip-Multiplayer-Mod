@@ -325,6 +325,34 @@ Rundenende wieder im Lager“ stammt aus dem Test vor `inventar-lokal`. Seitdem 
 `inventar-lokal`-Lauf blieb über das Rundenende bis Tag 2 gleich. Das Tab-Inventar lässt sich im Run nicht öffnen, die Anzeige außerhalb
 des Airdrop-Panels ist daher nicht eigens angesehen.
 
+### Waffen aus der Itemauswahl des Clients (`waffe-client-auswahl`)
+
+Im Live-Test am 06.11.2026 wirkten Waffen, die der Client in der Itemauswahl tauschte, im Spiel nicht. Drei Ursachen:
+
+1. **Entfernstil vertauscht.** Beim Übernehmen nahm der Host ein Item mit `RetainEffects` (2) aus dem Rucksack, wenn es ihn
+   verließ, und mit `ForceRemoveAllEffects` (0), wenn es nur verschoben wurde. Das native Panel macht es umgekehrt. Folge: Eine
+   abgelegte Waffe schoss weiter, eine verschobene verlor ihre Wirkung. `RemovalStyle()` in `InventoryEdit.cpp` folgt jetzt dem Panel.
+2. **Kein Auffrischen der Wirkungen beim Host.** Legt der Host selbst ab, folgt auf `OccupyBackpackSlots` ein vollständiges
+   Auffrischen beider Figuren (`RemoveAllEffects`, `RemoveEffectsFromItem`, `ApplyEffectsFromItem` je Item, im Trace belegt). Beim
+   Übernehmen eines Client-Edits fehlte es. Eine neue Waffe wirkte erst nach dem nächsten Levelaufstieg, der ebenfalls auffrischt.
+   `ApplyClientEdit` ruft jetzt `InventoryComponent.RefreshItemEffects(false, GetEffectManager())` für das Inventar des Clients und
+   das des Hosts. Das zusätzliche `ApplyAddToBackpackEffect` nach dem Ablegen ist entfallen: `AddToBackpack` ruft es beim Host
+   selbst, der zweite Aufruf legte die Rucksackwirkung doppelt an.
+3. **Waffenslots beim Client während der Bearbeitung.** Belegte Hände (`UDDCharacterAttributeSet.OccupiedHands`) setzt nur der
+   Host über die Itemwirkungen. Der Client verwirft deren RPCs während der Bearbeitung, also gab eine abgelegte Waffe keinen Slot
+   frei und das Panel ließ keine neue zu. Das war schon in `inventar-lokal` (`f42b6d6`) so, kein Rückschritt. Jetzt rechnet der
+   Client lokal vor: Ausgangswert + (Hände der Rucksackitems jetzt - beim Start), je Item über
+   `InventoryEffectHelperLibrary.GetHandsRequiredForItem`. Er schreibt nur `CurrentValue` und setzt den eigenen Hände-Balken über
+   `HandBarDisplay.UpdateCurrentHandsBar`. Kein `OnRep_OccupiedHands`, sonst rechnet das ASC den Wert aus seinen Modifikatoren
+   neu. `RefreshHandsBar` zeichnet den Balken nicht neu (im Spiel geprüft). Verbindlich bleibt der Host: Nach dem Übernehmen kommt
+   sein Wert über die Replikation, bei Ablehnung oder Abbruch stellt `RevertClient` den Ausgangswert wieder her. Das Attributset
+   gehört dem PlayerState, nicht der Figur.
+
+**Geprüft** (07.11.2026, Build `26187885`, ein PC, Lobby, Godmode, Trace `DDCOOP_TRACE_INVENTORY=1`, vom Nutzer gespielt):
+Waffen ablegen, tauschen und wieder ausrüsten in der Itemauswahl des Clients; der Hände-Balken des Clients folgt sofort
+(Log „Hände-Vorschau 2 statt 1“ und zurück). Nach dem Bestätigen übernahm der Host den Edit vollständig; `tools/spike/weapons.py` zeigte beim Host für beide Figuren genau die Rucksackwaffen ausgerüstet (Client: abgesägte Schrotflinte und Pistole), die Rucksäcke gleich wie beim Client. Ein Rückbau auf `f42b6d6`
+zeigte denselben Fehler bei den Waffenslots. Nicht geprüft: zwei PCs über das Internet, Ablehnung eines Edits mit Hände-Vorschau.
+
 ### Werkbank und Aufwerten beim Client
 
 Aufgabe `werkbank-client`, Code in `RewardPatches.cpp` (Hook auf `UpgradeItems`, Host-Prüfung, Seltenheiten), `InventoryEdit.cpp`

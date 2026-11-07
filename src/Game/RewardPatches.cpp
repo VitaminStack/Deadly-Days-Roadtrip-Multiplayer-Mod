@@ -588,21 +588,8 @@ void RestoreBackpackVisuals(uintptr_t Panel)
         Core::Log::Info("Airdrop-Auswahl: {} Rucksack-Anzeige(n) aus replizierten Pivot-Feldern positioniert", Restored);
 }
 
-// airdrop-dodge-absturz: SetupInventory liest das Inventar des Panels (+0x370) ohne Prüfung, und keiner der acht nativen Aufrufer
-// prüft es vorher, darunter Ereignis-Handler. Dodgte der Client in einen Airdrop, kam der Aufruf manchmal ohne Inventar und
-// stürzte ab. Ohne Inventar gibt es nichts aufzubauen; der nächste Aufruf mit Inventar holt es nach. Der Aufrufer steht im Log.
-std::atomic<unsigned> SetupWithoutInventory = 0;
-
 void __fastcall SetupInventoryHook(uintptr_t Panel)
 {
-    constexpr uintptr_t PanelInventory = 0x370;
-    if (!Panel || !Memory::Read<uintptr_t>(Panel + PanelInventory).value_or(0))
-    {
-        if (SetupWithoutInventory.fetch_add(1) < 10)
-            Core::Log::Warn("Inventar: SetupInventory ohne Inventar ausgelassen, Panel {:#x}, Aufrufer {:#x}", Panel,
-                            reinterpret_cast<uintptr_t>(_ReturnAddress()) - reinterpret_cast<uintptr_t>(GetModuleHandleW(nullptr)));
-        return;
-    }
     OriginalSetupInventory(Panel);
     RestoreBackpackVisuals(Panel);
 }
@@ -734,18 +721,6 @@ void TraceInventoryEvent(uintptr_t Object, uintptr_t Function, void* Params)
         Extra = ", Item " + (Item ? Memory::NameOf(Pointer(Item + 0xE0)) : std::string("-"));
         if (It->second == "CharacterEffectManager.RemoveItemFromBackpack")
             Extra += ", AllowRetain " + std::to_string(Memory::Read<uint8_t>(At + 0x30).value_or(0xFF));
-        // Diagnose: ApplyItemToBackpack (vtable +0x550, 0x5800210) steigt aus, wenn 0x596A160(Kontext) wahr ist.
-        if (It->second == "CharacterEffectManager.ApplyItemToBackpack")
-        {
-            for (uintptr_t Off = 0x10; Off <= 0x28; Off += 8)
-            {
-                const uintptr_t Value = Memory::Read<uintptr_t>(At + Off).value_or(0);
-                const bool IsObject = Value > 0x10000 && Memory::Read<uint32_t>(Value + Offsets::UObject::Flags).has_value();
-                Extra += std::format(", +{:#x} {:#x} {}", Off, Value, IsObject ? Memory::NameOf(Value) : std::string{});
-            }
-            using SkipFn = bool(__fastcall*)(void*);
-            Extra += std::string(", Aussteigen ") + (reinterpret_cast<SkipFn>(Patches::At(0x596A160))(Params) ? "ja" : "nein");
-        }
     }
     Core::Log::Info("InvTrace {} {}{} an {:#x} ({}), erster Parameter {:#x} {}{}", CurrentRole() == NetRole::Client ? "C" : "H", It->second,
                     Flags & FuncNet ? " [Net]" : "", Object, Memory::NameOf(Object), First, FirstName, Extra);

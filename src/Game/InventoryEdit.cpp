@@ -534,18 +534,22 @@ int32_t HandsInBackpack(uintptr_t Inventory, uintptr_t Character)
     return Total;
 }
 
-// Anzeige neu lesen lassen. Kein OnRep_OccupiedHands: Das ließe das ASC den Wert aus seinen Modifikatoren neu berechnen und
-// die Vorschau sofort überschreiben. RefreshHandsBar liest den Wert der Figur und setzt die Balken.
-void RefreshHandBars()
+// Anzeige setzen. Kein OnRep_OccupiedHands: Das ließe das ASC den Wert aus seinen Modifikatoren neu berechnen und die Vorschau
+// sofort überschreiben. RefreshHandsBar zeichnet den Balken nicht neu (im Spiel geprüft), darum UpdateCurrentHandsBar mit dem
+// Wert, den sonst die Attributänderung liefert. Der Client zeigt den Balken HandBarSinglePlayer mit CachedCharacter = eigene Figur.
+void ShowHands(int32_t Occupied)
 {
     constexpr uintptr_t HandBarCharacter = 0x348; // UHandBarDisplay.CachedCharacter
-    static uintptr_t Refresh = 0;
-    if (!Function(Refresh, "RefreshHandsBar", "HandBarDisplay"))
+    static uintptr_t Update = 0;
+    if (!Function(Update, "UpdateCurrentHandsBar", "HandBarDisplay"))
         return;
     for (int32_t i = 0, Count = Objects::Count(); i < Count; ++i)
         if (const uintptr_t Object = Objects::At(i); Object && Pointer(Object + HandBarCharacter) == Hands.Character &&
                                                      Objects::IsA(Object, "HandBarDisplay") && Alive(Object))
-            Objects::ProcessEvent(Object, Refresh, nullptr);
+        {
+            int32_t Params = Occupied;
+            Objects::ProcessEvent(Object, Update, &Params);
+        }
 }
 
 void WriteHands(float Base, float Current)
@@ -556,7 +560,7 @@ void WriteHands(float Base, float Current)
         return;
     Memory::WriteBytes(Hands.Set + AttributeOccupiedHands + AttributeBase, &Base, sizeof(Base));
     Memory::WriteBytes(Hands.Set + AttributeOccupiedHands + AttributeCurrent, &Current, sizeof(Current));
-    RefreshHandBars();
+    ShowHands(static_cast<int32_t>(Current));
     Core::Log::Info("Inventar lokal: Hände-Vorschau {} statt {}", Current, OldCurrent);
 }
 
