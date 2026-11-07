@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <span>
+#include <string_view>
 
 #include "Game/Patches.h"
 #include "Game/WorldAdapter.h"
@@ -9,8 +10,16 @@
 // Gemeinsames der Patch-Dateien. Nur innerhalb von src/Game benutzen.
 namespace Game::Patches
 {
-// Image-Base plus RVA.
+// Absolute Adresse zu einer RVA des Referenz-Builds, für den laufenden Build umgerechnet. 0, wenn unbekannt.
 uintptr_t At(uintptr_t Rva);
+// Wie At(Rva) plus Offset, etwa ein vtable-Eintrag. 0, wenn Rva unbekannt ist.
+uintptr_t At(uintptr_t Rva, uintptr_t Offset);
+
+constexpr uint8_t CallRel32 = 0xE8;
+constexpr uint8_t JumpRel32 = 0xE9;
+// Wahr, wenn an Site ein call/jmp rel32 (Opcode) auf At(TargetRva) steht. Statt fester rel32-Bytes in Code::Expect, die sich
+// mit jedem Spiel-Build verschieben. Protokolliert sonst wie Code::Expect.
+bool ExpectBranch(uintptr_t Site, uint8_t Opcode, uintptr_t TargetRva, std::string_view Where);
 
 // Aktuelle Welt und Rolle, auch aus Hooks heraus, also ohne Prüfung auf den Drain-Thread. Lesen ist abgesichert.
 uintptr_t CurrentWorld();

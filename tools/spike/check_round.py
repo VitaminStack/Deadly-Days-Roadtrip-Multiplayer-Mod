@@ -66,8 +66,8 @@ def location(game, actor):
 
 def live_objects(game):
     """Wie Game.objects, liefert aber zusaetzlich die internen Flags des GUObjectArray-Elements."""
-    chunks = game.ptr(game.base + guidcache.GOBJECTS)
-    count = game.i32(game.base + guidcache.GOBJECTS + 8)
+    chunks = game.ptr(game.base + getattr(game, 'gobjects', guidcache.GOBJECTS))
+    count = game.i32(game.base + getattr(game, 'gobjects', guidcache.GOBJECTS) + 8)
     for chunk_index in range((count >> 16) + 1):
         chunk = game.ptr(chunks + 8 * chunk_index)
         raw = game.read(chunk, 0x10000 * 0x18) if chunk else None

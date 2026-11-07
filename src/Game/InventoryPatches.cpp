@@ -199,6 +199,31 @@ constexpr uintptr_t MapGenLambdaExecute = 0x59CAE70;
 constexpr uintptr_t MapGenLambdaExecuteIfSafe = 0x59CB020;
 constexpr uintptr_t LambdaGenerator = 0x18;
 
+// lager-absturz-client: Größe eines Item-Widgets (UItemRepresentation) aus der Itemform, Breite und Höhe je 66 px minus 3.
+// Liest ItemInstance (+0xA28), davon ItemData (+0xE0) und dessen Form (+0xE8) ohne Prüfung. Verliert das Widget sein Item, etwa
+// beim Verbindungsabbau im Lager, stürzte der Client hier ab (0x5AB513A). Ohne Item bleibt die alte Größe stehen.
+constexpr uintptr_t RepresentationSize = 0x5AB5120;
+constexpr uintptr_t RepresentationItem = 0xA28;
+constexpr uintptr_t ItemInstanceData = 0xE0;
+constexpr uintptr_t ItemDataShape = 0xE8;
+using RepresentationSizeFn = void(__fastcall*)(uintptr_t);
+RepresentationSizeFn OriginalRepresentationSize = nullptr;
+std::atomic<unsigned> RepresentationSkips = 0;
+
+void __fastcall RepresentationSizeHook(uintptr_t Representation)
+{
+    const uintptr_t Item = Memory::Read<uintptr_t>(Representation + RepresentationItem).value_or(0);
+    const uintptr_t Data = Item ? Memory::Read<uintptr_t>(Item + ItemInstanceData).value_or(0) : 0;
+    const uintptr_t Shape = Data ? Memory::Read<uintptr_t>(Data + ItemDataShape).value_or(0) : 0;
+    if (Shape)
+    {
+        OriginalRepresentationSize(Representation);
+        return;
+    }
+    if (RepresentationSkips.fetch_add(1) < 5)
+        Core::Log::Warn("Inventar: Item-Widget ohne {}, Größe nicht neu gesetzt", Item ? (Data ? "Form" : "ItemData") : "Item");
+}
+
 struct PendingTimer
 {
     uintptr_t Manager;
@@ -294,22 +319,22 @@ bool __fastcall MapGenLambdaExecuteIfSafeHook(uintptr_t Lambda)
 
 bool CheckInventory()
 {
-    return Code::ExpectVirtual(At(SlotVtable + SupportedForNetworkingSlot), At(DefaultNetworkingSupport), "Slot IsSupportedForNetworking") &&
-           Code::ExpectVirtual(At(ItemVtable + SupportedForNetworkingSlot), At(DefaultNetworkingSupport), "Item IsSupportedForNetworking") &&
-           Code::ExpectVirtual(At(InventoryVtable + ReadyForReplicationSlot), At(InventoryReadyForReplication), "Inventar ReadyForReplication");
+    return Code::ExpectVirtual(At(SlotVtable, SupportedForNetworkingSlot), At(DefaultNetworkingSupport), "Slot IsSupportedForNetworking") &&
+           Code::ExpectVirtual(At(ItemVtable, SupportedForNetworkingSlot), At(DefaultNetworkingSupport), "Item IsSupportedForNetworking") &&
+           Code::ExpectVirtual(At(InventoryVtable, ReadyForReplicationSlot), At(InventoryReadyForReplication), "Inventar ReadyForReplication");
 }
 
 // Nur diese drei Klassen, kein globaler UObject- oder ActorComponent-Patch.
 bool ApplyInventory(Code::Writer&)
 {
-    return Code::WriteVirtual(At(SlotVtable + SupportedForNetworkingSlot), reinterpret_cast<uintptr_t>(&SupportsInventoryNetworking)) &&
-           Code::WriteVirtual(At(ItemVtable + SupportedForNetworkingSlot), reinterpret_cast<uintptr_t>(&SupportsInventoryNetworking)) &&
-           Code::WriteVirtual(At(InventoryVtable + ReadyForReplicationSlot), reinterpret_cast<uintptr_t>(&InventoryReadyForReplicationHook));
+    return Code::WriteVirtual(At(SlotVtable, SupportedForNetworkingSlot), reinterpret_cast<uintptr_t>(&SupportsInventoryNetworking)) &&
+           Code::WriteVirtual(At(ItemVtable, SupportedForNetworkingSlot), reinterpret_cast<uintptr_t>(&SupportsInventoryNetworking)) &&
+           Code::WriteVirtual(At(InventoryVtable, ReadyForReplicationSlot), reinterpret_cast<uintptr_t>(&InventoryReadyForReplicationHook));
 }
 
 bool CheckDetector()
 {
-    return Code::ExpectVirtual(At(DetectorVtable + EndPlaySlot), At(DetectorEndPlay), "EndPlay des Achievement-Detektors") &&
+    return Code::ExpectVirtual(At(DetectorVtable, EndPlaySlot), At(DetectorEndPlay), "EndPlay des Achievement-Detektors") &&
            Code::Expect(At(ScheduleCall), {0xE8, 0x06, 0x21, 0x98, 0xFD}, "Timer des Achievement-Detektors") &&
            Code::Expect(At(SetNextTick), {0x40, 0x55, 0x53, 0x48, 0x8D, 0x6C, 0x24, 0xB1}, "SetTimerForNextTick") &&
            Code::Expect(At(FindTimer), {0x4C, 0x8B, 0x0A, 0x4C, 0x8B, 0xD1}, "FindTimer") &&
@@ -324,24 +349,37 @@ bool ApplyDetector(Code::Writer& Code)
     if (Code.Failed() || !Delta)
         return false;
     return Code::WriteCode(At(ScheduleCall) + 1, &*Delta, sizeof(*Delta)) &&
-           Code::WriteVirtual(At(DetectorVtable + EndPlaySlot), reinterpret_cast<uintptr_t>(&DetectorEndPlayHook));
+           Code::WriteVirtual(At(DetectorVtable, EndPlaySlot), reinterpret_cast<uintptr_t>(&DetectorEndPlayHook));
 }
 
 bool CheckMapGenLambda()
 {
     return Code::ExpectVirtual(At(MapGenLambdaVtable), At(MapGenLambdaExecute), "Lambda des Kartengenerators, Execute") &&
-           Code::ExpectVirtual(At(MapGenLambdaVtable + 8), At(MapGenLambdaExecuteIfSafe), "Lambda des Kartengenerators, ExecuteIfSafe") &&
+           Code::ExpectVirtual(At(MapGenLambdaVtable, 8), At(MapGenLambdaExecuteIfSafe), "Lambda des Kartengenerators, ExecuteIfSafe") &&
            Code::Expect(At(MapGenLambdaExecute), {0x48, 0x8B, 0x51, 0x20, 0x48, 0x8B, 0x49, 0x18, 0xE9}, "Lambda des Kartengenerators");
 }
 
 bool ApplyMapGenLambda(Code::Writer&)
 {
     return Code::WriteVirtual(At(MapGenLambdaVtable), reinterpret_cast<uintptr_t>(&MapGenLambdaExecuteHook)) &&
-           Code::WriteVirtual(At(MapGenLambdaVtable + 8), reinterpret_cast<uintptr_t>(&MapGenLambdaExecuteIfSafeHook));
+           Code::WriteVirtual(At(MapGenLambdaVtable, 8), reinterpret_cast<uintptr_t>(&MapGenLambdaExecuteIfSafeHook));
+}
+
+bool CheckRepresentationSize()
+{
+    return Code::Expect(At(RepresentationSize), {0x40, 0x53, 0x48, 0x83, 0xEC, 0x50, 0x48, 0x8B, 0x81, 0x28, 0x0A, 0x00, 0x00},
+                        "Größe des Item-Widgets");
+}
+
+bool ApplyRepresentationSize(Code::Writer&)
+{
+    return Core::Hooks::Install(reinterpret_cast<void*>(At(RepresentationSize)), reinterpret_cast<void*>(&RepresentationSizeHook),
+                                reinterpret_cast<void**>(&OriginalRepresentationSize));
 }
 
 const Patch List[] = {
     {"Itemsack-Vergabe nur beim Host, für alle Spieler", &CheckItemLoot, &ApplyItemLoot},
+    {"Item-Widget ohne Item: Größe nicht setzen", &CheckRepresentationSize, &ApplyRepresentationSize},
     {"Inventar-Unterobjekte replizieren", &CheckInventory, &ApplyInventory},
     {"Timer des Achievement-Detektors beim EndPlay löschen", &CheckDetector, &ApplyDetector},
     {"Kartengenerator-Schritt nur für die aktuelle Welt", &CheckMapGenLambda, &ApplyMapGenLambda},

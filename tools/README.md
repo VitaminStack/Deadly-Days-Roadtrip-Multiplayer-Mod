@@ -98,13 +98,47 @@ Isoliert die Mod-Entwicklung von Steam-Updates, siehe [gleiche Build-ID im Team]
 powershell -ExecutionPolicy Bypass -File tools/Freeze-GameBuild.ps1 -Activate
 ```
 
-- Quelle bleibt `GameDir` aus `config/Local.props`, Standardziel ist `%LOCALAPPDATA%/DDCoop/builds/26187885`.
+- Quelle bleibt `GameDir` aus `config/Local.props`, Standardziel ist `%LOCALAPPDATA%/DDCoop/builds/<Build>`.
+- `-Build <id>` wählt einen der unterstützten Builds aus `SupportedBuilds` in `tools/spike/Common.ps1`, Standard `26187885`. Jeder Build hat
+  seine Hash-Referenz in `game_build.py` und einen eigenen Ordner. Start und Deploy erkennen den Build der aktiven Kopie an ihrem Beleg.
+  Auf einem anderen Build als `26187885` startet `Start-Session.ps1` nur mit `-Mod -Tunnel Lobby -NoSpike`, weil der Spike feste Adressen hat.
 - `-Destination <Ordner>` wählt ein anderes Ziel außerhalb aller `steamapps`-Ordner. Keine Hardlinks, Symlinks oder Junctions.
 - `-Activate` setzt `PinnedGameDir` in der gefundenen lokalen Konfiguration; in Worktrees ohne eigene `Local.props` ist das die gemeinsame Datei.
   Alle Skripte dieses Standes bevorzugen dann die Kopie. Bereits ältere Branches müssen die neue Startlogik erst übernehmen; nur der Konfigurationseintrag reicht dort nicht.
 - Vorhandene Ziele werden geprüft und optional aktiviert, niemals überschrieben. Ohne `-Activate` wird nichts an der Konfiguration geändert.
 - `game_build.py` kopiert und prüft den vollständigen Dateibeleg. Steam bleibt online und darf seine eigene Installation aktualisieren.
   Kein Download, keine Änderung an Steam-Einstellungen oder installierten Spieldateien.
+
+## rva_map.py
+
+Rechnet die Code- und Datenadressen der Mod (RVAs in `src/`) vom Referenz-Build `26187885` auf einen neuen Build um und schreibt die
+Tabelle `src/Game/RvaMap<build>.inc` für `Game::AddressMap`. Braucht `capstone` (`py -m pip install --user capstone`), liest nur die beiden lokalen Exes.
+
+```bash
+py tools/rva_map.py --old <kopie-26187885>/DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe --new <kopie-neu>/DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe --build 26495302 --write
+```
+
+- `eindeutig`: Befehlsfolge ab der Adresse mit maskierten Sprung- und RIP-Verschiebungen genau einmal gefunden.
+- `ueber-funktion`: Funktionsanfang aus `.pdata` gefunden, Stelle im gleichen Abstand passt. `vtable`: Zeigerfolge der umgerechneten Funktionen
+  in `.rdata`. `global`: über einen Code-Verweis. Diese drei vor der Übernahme ansehen.
+- `fehlt`: Code geändert, bleibt Kommentar in der Tabelle und liefert zur Laufzeit 0. Dann schlägt die Byte-Prüfung des Patches fehl und die Mod
+  setzt keine Patches (Log: `Adresse … fehlt`, `Prüfung fehlgeschlagen`). Die Portierung trägt die Adresse von Hand mit `// von Hand` nach.
+- Ein neuer Lauf überschreibt die Datei; von Hand nachgetragene Zeilen vorher sichern.
+
+## expect_check.py
+
+Prüft die Byte-Prüfungen der Patches (`Code::Expect` und `ExpectBranch`) offline gegen eine lokale Exe, ohne Spielstart. Rechnet die Adressen
+wie `Game::AddressMap` über `src/Game/RvaMap<build>.inc` um. Für den Referenz-Build gelten sie unverändert.
+
+```bash
+py tools/expect_check.py --exe <kopie>/DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe --build 26495302 --file ClientPatches.cpp PlayerPatches.cpp
+```
+
+- `ok`, `abweichend` (mit gelesenen Bytes), `fehlt` (kein Tabelleneintrag), `uebersprungen` (Adresse aus lokaler Variable, prüft nur das Spiel).
+  Exitcode 1 bei `abweichend` oder `fehlt`.
+- Feste `E8`/`E9`-rel32-Bytes verschieben sich mit jedem Build. Solche Prüfungen mit `ExpectBranch(Site, CallRel32|JumpRel32, ZielRva, …)`
+  schreiben, das vergleicht das Sprungziel mit `At(ZielRva)`.
+- Ohne `--file` alle `src/Game/*Patches.cpp`.
 
 ## Build-Mod.ps1
 

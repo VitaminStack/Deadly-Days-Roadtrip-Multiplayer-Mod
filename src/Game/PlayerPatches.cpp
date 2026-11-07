@@ -28,6 +28,7 @@ constexpr uintptr_t LootNoRootTarget = 0x5994BD1;
 constexpr uintptr_t ControllerSetAdd = 0x57BD5E0;
 constexpr uintptr_t ControllerSparseRemove = 0x12D6BA0;
 constexpr uintptr_t RegisterController = 0x58FB020;
+constexpr uintptr_t RegistrationBroadcast = 0x24E9410; // derselbe Broadcast wie DelegateBroadcast in RemoteP2Patches.cpp
 constexpr uintptr_t ClearSpawnArea = 0x5991B70;
 constexpr uintptr_t RunEndLocalPlayerSite = 0x584CD82;
 constexpr uintptr_t RunEndContinue = 0x584CD90;
@@ -367,8 +368,8 @@ bool CheckControllerRegistration()
     return Code::Expect(At(ControllerSetAdd), {0x40, 0x53, 0x56, 0x57, 0x41, 0x55, 0x48, 0x83, 0xEC, 0x38}, "TSet-Add der Controller") &&
            Code::Expect(At(ControllerSparseRemove), {0x40, 0x53, 0x48, 0x8B, 0x19, 0x48, 0x8B, 0xC1}, "TSparseArray-RemoveAt der Controller") &&
            Code::Expect(At(RegisterController), {0x48, 0x89, 0x5C, 0x24, 0x18}, "Controller-Registrierung") &&
-           Code::Expect(At(0x58FB11D), {0xE8, 0xBE, 0x24, 0xEC, 0xFF}, "TSet-Add in der Registrierung") &&
-           Code::Expect(At(0x58FB133), {0xE8, 0xD8, 0xE2, 0xBE, 0xFC}, "Broadcast in der Registrierung");
+           ExpectBranch(At(0x58FB11D), CallRel32, ControllerSetAdd, "TSet-Add in der Registrierung") &&
+           ExpectBranch(At(0x58FB133), CallRel32, RegistrationBroadcast, "Broadcast in der Registrierung");
 }
 
 bool ApplyControllerRegistration(Code::Writer&)

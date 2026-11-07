@@ -153,7 +153,7 @@ uintptr_t __fastcall BeginDeferredSpawnHook(uintptr_t WorldContext, uintptr_t* A
 
 bool CheckClientRefresh()
 {
-    return Code::Expect(At(ClientRefreshCallSite), {0xE8}, "im Client-Refresh");
+    return ExpectBranch(At(ClientRefreshCallSite), CallRel32, ClientRefreshFunction, "im Client-Refresh");
 }
 
 // Die Funktion erwartet ein Objekt in this+370h, das beim Client fehlt. Dann den Aufruf auslassen.
@@ -172,7 +172,7 @@ bool ApplyClientRefresh(Code::Writer& Code)
 
 bool CheckAttributeTick()
 {
-    return Code::Expect(At(AttributeLookupCallSite), {0xE8}, "im Attribut-Tick");
+    return ExpectBranch(At(AttributeLookupCallSite), CallRel32, AttributeLookupFunction, "im Attribut-Tick");
 }
 
 // Der Tick sucht das AbilitySystem, bevor der PlayerState da ist. Dann den Rest des Ticks auslassen.
@@ -269,8 +269,8 @@ bool CheckExp()
     return Code::Expect(At(ExpAggregate), {0x48, 0x89, 0x5C, 0x24, 0x08, 0x57, 0x48, 0x83, 0xEC, 0x40}, "Exp-Aggregation") &&
            Code::Expect(At(GetPlayerCharacters), {0x48, 0x89, 0x5C, 0x24, 0x18, 0x48, 0x89, 0x74, 0x24, 0x20}, "Figurenliste") &&
            Code::Expect(At(0x58B419B), {0x48, 0x8B, 0x89, 0xD8, 0x07, 0x00, 0x00}, "AttributeSet in der Exp-Aggregation") &&
-           Code::Expect(At(0x58A6060), {0xE8, 0xFB, 0xE0, 0x00, 0x00}, "Exp-Aggregation aus BeginPlay") &&
-           Code::Expect(At(0x58B0F6E), {0xE8, 0xED, 0x31, 0x00, 0x00}, "Exp-Aggregation aus dem Update");
+           ExpectBranch(At(0x58A6060), CallRel32, ExpAggregate, "Exp-Aggregation aus BeginPlay") &&
+           ExpectBranch(At(0x58B0F6E), CallRel32, ExpAggregate, "Exp-Aggregation aus dem Update");
 }
 
 bool ApplyExp(Code::Writer&)
@@ -282,7 +282,7 @@ bool ApplyExp(Code::Writer&)
 bool CheckBlockade()
 {
     return Code::Expect(At(BlockadeLoadingFinished), {0x40, 0x53, 0x48, 0x81, 0xEC, 0xB0, 0x00, 0x00, 0x00}, "Blockade OnLoadingFinished") &&
-           Code::Expect(At(0x5666FA5), {0xE9, 0xB6, 0x43, 0x25, 0x00}, "Blockade, reflektierter Einsprung") &&
+           ExpectBranch(At(0x5666FA5), JumpRel32, BlockadeLoadingFinished, "Blockade, reflektierter Einsprung") &&
            Code::Expect(At(0x58AA5F0), {0x48, 0x8B, 0x09, 0x48, 0x8B, 0x01, 0x48, 0xFF, 0xA0, 0xE8, 0x04, 0x00, 0x00}, "verzögerter Blockadenstart");
 }
 
@@ -295,7 +295,7 @@ bool ApplyBlockade(Code::Writer&)
 bool CheckNetGuid()
 {
     return Code::Expect(At(NetGuidExpiry), {0x0F, 0x28, 0xC6, 0xF2, 0x0F, 0x5C, 0xC1}, "Ablauf im NetGUID-Cache") &&
-           Code::Expect(At(NetGuidExpiry + 7), {0x66, 0x0F, 0x2F, 0xC7}, "Vergleich im NetGUID-Cache");
+           Code::Expect(At(NetGuidExpiry, 7), {0x66, 0x0F, 0x2F, 0xC7}, "Vergleich im NetGUID-Cache");
 }
 
 // Der Server nutzt bestätigte statische Pfad-GUIDs über die Reisen hinweg weiter. Laufen sie beim Client ab, geht diese

@@ -864,6 +864,10 @@ ein Client.
 - **[Beobachtet] Nebenbei:** Der Tod einzelner Spieler funktioniert, die Runde endet erst, wenn alle Spieler tot sind.
 - **[Beobachtet] Nebenbei:** Dodgt der Client in einen Airdrop, stürzt er manchmal in `InventoryPanel.SetupInventory` ab
   (`InventoryComponent` an `+0x370` leer), nicht reproduzierbar. Steht als `airdrop-dodge-absturz`.
+  **[Belegt, Disassembly]** `SetupInventory` (`0x5A8BAB0`) reicht `+0x370` ohne Prüfung an `0x59635B0` weiter. Keiner der acht
+  direkten Aufrufer prüft es vorher, mehrere sind Ereignis-Handler des Panels. **[Vermutung]** Ein solches Ereignis feuert beim Client,
+  bevor das Panel sein Inventar hat. Seit `airdrop-dodge-absturz` lässt die Mod `SetupInventory` ohne Inventar aus und schreibt
+  „SetupInventory ohne Inventar ausgelassen“ mit der RVA des Aufrufers ins Log, damit der Weg beim nächsten Auftreten belegt ist.
 
 ### Dodge im Zwei-PC-Test (`dodge-client-live`)
 
@@ -1516,6 +1520,46 @@ Stand 06.11.2026, Build `26187885`, ein PC, Mod mit Spike über die Lobby, Godmo
   nicht, weil seine Routenkarte keinen Knoten anbot; sie ist nur in Tests belegt. Das Rundenende über den echten Bus ist seit
   [`tank-gemeinsam`](#tank-als-gruppenwert-tank-gemeinsam) belegt.
 
+### Routenkarte beim Client (`routenkarte-client`)
+
+Stand 07.11.2026, Build `26187885`, ein PC, Mod mit Spike über die Lobby, Godmode, Seed `20795`. Nur gelesen, kein Code geändert.
+Gelesen wurde `FCurrentRunInfo` der GameInstance (`+0x2A0`): Run-Seed `+0x0`, `CurrentRoute` `+0x8` mit `MissionChain` `+0x2B0`,
+Anzahl `+0x2B8`, `CurrentMissionIndex` `+0x2C0`, `IsEndOfMissionChain` `+0x2C8`, `ChosenMissionIndexes` `+0x328`; Tag aus
+`ADDMissionGameState.DayNum` (`+0x390`).
+
+| Zeitpunkt | Host | Client |
+|---|---|---|
+| MetaBase vor dem Run | Seed 21492 (eigener Spielstand), Route leer, Index −1 | Seed 20807 (eigener Spielstand), Route leer, Index −1 |
+| Routenkarte in der MetaBase | Seed 20795, volle Karte mit Biomen und Knoten, Route noch leer | Seed 20807, sieht weiter die MetaBase, keine Karte |
+| Tag 1 in der Mission | 1 Eintrag `Biome_Cities`, 11 × 11 Kacheln, Index 0, gewählt `[2]`, Tag 1 | Route leer, Index −1, Tag 1 |
+| Routenkarte nach dem Rundenende | Index 0, Ende der Kette, Karte mit Bus und Spalte „Tag 2“ | Index 0, Ende der Kette, Kette leer; Karte nur mit Wolken und Hintergrund, Bus oben links mit „999“ |
+| Tag 2 nach der Reise des Hosts | Eintrag `Biome_Cities`, 6 × 6 Kacheln, gewählt `[2, 2]`, Vorroute = Tag 1, Tag 2 | Route leer, Index 0, Tag 2 |
+
+- **[Belegt] Ursache der leeren Karte:** Die Run-Info der GameInstance repliziert nicht. Der Client behält Run-Seed und leere Route
+  aus seinem eigenen Spielstand, auch nach dem Wechsel in die Mission des Hosts. Sein lokales `FinishMission` (`rundenende-client`)
+  setzt nur den Index von −1 auf 0 und das Ende der Kette, auf einer leeren Kette. Das Panel `WI_MissionChoicePanel_C` hat beim Client
+  also nichts zu zeichnen. Das passt zur leeren Route aus dem [PCG-Befund](#pcg-vegetation-beim-client-pcg).
+- **[Belegt] Nur Anzeige bei Karte und Tag:** Ein Klick des Clients auf die Knotenposition für Tag 2 bewirkte nichts, das Log zeigt
+  keinen Reiseversuch, also auch keinen Eingriff von `ClientMayStartTravel`. Nach der Reise des Hosts stand der Client mit 2 Spielern
+  in derselben Welt, `check_round.py` sauber, Tag 2 aus dem GameState wie beim Host, Rundenzähler im HUD auf beiden Seiten „2“.
+- **[Belegt] Abweichung im HUD:** Die Zahl unter der Stoppuhr (Gefahrenstufe) zeigte an Tag 2 beim Host „2“, beim Client „0“.
+  **[Vermutung]** Die Anzeige kommt aus dem aktuellen Routeneintrag (`GetDisplayThreatLevel(FRouteMission)`), der beim Client fehlt.
+  Die eigentliche Gefahr steuert der Host, die Komponente `ThreatLevel` repliziert.
+- **[Belegt] Routenkarte in der MetaBase** gibt es nur beim Host, der Client läuft dort weiter durch die Basis. Das ist kein Fehler
+  der Karte, der Client wählt den Run ohnehin nicht.
+- **[Vermutung] Weitere Folgen der fehlenden Run-Info:** Alles, was beim Client Seed, Route oder Biom der GameInstance liest, rechnet
+  mit falschen Werten: `GetCurrentMissionSeed` (Run-Seed 20807 statt 20795), biomabhängige Darstellung beim Biomwechsel nach Tag 4
+  (`OptionalPreviousBiome`), Torboss- und Endboss-Knoten, Endlosmodus. Die Karte selbst kommt über `MapSync` vom Host, der
+  PCG-Graph über den Patch in `MapPatches.cpp`. Der frühere Lauf bis Tag 13 mit zwei Biomwechseln hatte saubere Einstiegskontrollen, ein gestörter
+  Spielablauf ist bisher nicht belegt. Nicht geprüft: Biomwechsel, Bossknoten und Endlosmodus mit Blick auf die Routenkarte des Clients.
+- **[Vermutung] Fehlbedienung:** Der Client sieht nicht, wohin die Reise geht, und klickt auf eine leere Karte, auf der auch „Zurück“
+  nichts tut, siehe [Lauf in `rundenende-client`](#rundenübersicht-und-lager-beim-client-rundenende-client). Er kann den Ablauf
+  nicht stören, versteht ihn aber nicht.
+- **Lösungsweg, nicht umgesetzt:** Der Host schickt über den Kontrollkanal Run-Seed und gewählte Indizes, der Client setzt den Seed
+  wie `DD_SetCurrentRunSeed` und baut `CurrentRoute` daraus nach, oder er übernimmt die Route direkt. Die Reisesperre bleibt, der
+  Client sieht dann dieselbe Karte, wählen kann er weiter nicht. Bei echten Spielständen nur in den Mod-Spielständen
+  ([`mod-saves`](#spielstände-der-mod-mod-saves)).
+
 ### Seltenheit und Aufwerten beim Client (`werkbank-client`)
 
 Stand 06.11.2026, Build `26187885`, ein PC, Mod mit Spike über die Lobby, Godmode.
@@ -1598,6 +1642,29 @@ sind das Mod-Log und der Speicher des Hosts, nur lesend; das Client-Log lag bei 
   (`UInventoryItemInstance +0xE0`). Darunter UMG/Slate und die Blueprint-VM, also ein Inventar-Widget, dessen Item beim Verbindungsabbau
   schon weg ist. Verdacht: derselbe Weg wie beim ersten Absturz im Lager, sobald dort ein Item-Widget sein Item verliert; vergleiche
   [Trennen](#trennen-ins-hauptmenü-trennen), wo ein fehlendes Item in `EndPlay` abstürzte.
+  **[Belegt, Disassembly]** `0x5AB5120` ist eine `void`-Funktion, die nur die Größe des Widgets aus der Itemform setzt (je 66 px minus
+  3), neun direkte Aufrufer. `lager-absturz-client` überspringt sie ohne Item, und der Host wartet bei stummem Client bis zum
+  Verbindungsabbau, siehe [Lager am Rundenende](../src/Game/README.md).
+
+### Steam-Lobby über das Internet (`lobby-live`)
+
+Ausgewertet aus den Mod-Logs beider Sitzungen vom 06.11.2026 (siehe oben), ohne eigenen Termin. Zwei Steam-Konten in zwei Haushalten,
+Route jeweils Steam-Relay `fra`, Ping 32 ms.
+
+- **[Belegt] Beitritt nur über die Einladung bis in die MetaBase.** Zweite Sitzung, Client: „Einladung über Steam angenommen“,
+  Lobby betreten, P2P über Relay verbunden, „Protokoll: Build, Mod-Version und Gegenrolle bestaetigt“, Tunnel steht, „Welt: MetaBase,
+  Client, 2 Spieler“, alles binnen 1,6 s. Der Handshake des [Kontrollkanals](CONTROL_PROTOCOL.md) ist damit über das Internet
+  bestätigt; der Desync-Melder meldete 6 s später `OK` für alle Bereiche. Das deckt auch den ersten Fall von `lobby-auth-live`
+  (eingeladener Freund verbindet), die Aufgabe bleibt aber wegen der beiden anderen Fälle offen.
+- **[Belegt] Weitere Beitritte.** Zwei Beitritte ohne Einladungsvermerk (Lobby-ID) und einer nach Neustart des Hosts verliefen genauso.
+  Auf dem Host-PC der ersten Sitzung stand „Lobby erstellt“, „P2P bereit, nur Lobby-Mitglieder“ und 12 s später der Client über Relay.
+- **[Belegt] Host verlässt.** Zweimal „Der Host hat die Sitzung verlassen“ (Grund 1001 `ddcoop`): Der Client trennt im Spiel, landet im
+  Hauptmenü und kann sofort einer neuen Lobby beitreten. Ein Beitritt zur geschlossenen Lobby endet mit „Die Lobby gibt es nicht mehr,
+  der Host hat sie geschlossen“ ohne Absturz.
+- **[Belegt] Host nach Verbindungsverlust.** Erste Sitzung: „Verbindung zum Mitspieler verloren“, danach „Lobby geschlossen: Das Spiel
+  ist im Hauptmenü“. Auslöser war allerdings der Absturz des Clients, kein geordnetes Verlassen.
+- **Nicht geprüft:** Start über `+connect_lobby` bei geschlossenem Spiel und geordnetes Verlassen des Clients aus Sicht des Hosts. Das
+  ist der Rest in `lobby-live-rest`.
 
 ## Systeme, die die Mod respektieren muss
 

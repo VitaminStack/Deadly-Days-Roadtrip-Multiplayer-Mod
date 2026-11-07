@@ -23,4 +23,7 @@ std::optional<uint32_t> FindSupportedBuild(const BuildFingerprint& Fingerprint);
 
 // Prüft den laufenden Prozess. Liefert nichts, wenn es nicht das Spiel oder ein unbekannter Build ist.
 std::optional<uint32_t> DetectSupportedBuild();
+
+// Build aus dem letzten erfolgreichen DetectSupportedBuild, sonst 0.
+uint32_t ActiveBuild();
 }

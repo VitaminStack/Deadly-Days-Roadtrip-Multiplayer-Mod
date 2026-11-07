@@ -16,7 +16,7 @@ def entries(game):
     slots = min(num, maximum)  # Allocation capacity is not an initialized SparseArray slot range.
     raw = game.read(data, slots * ENTRY_SIZE) or b''
     bits = game.read(game.ptr(cache + 0x28) or (cache + 0x18), (slots + 7) // 8) or b''
-    chunks = game.ptr(game.base + GOBJECTS)
+    chunks = game.ptr(game.base + getattr(game, 'gobjects', GOBJECTS))
     rows = {}
     for slot in range(slots):
         # Der Cache aendert sich waehrend des Lesens, ein abgeschnittener Block zaehlt als Ende.

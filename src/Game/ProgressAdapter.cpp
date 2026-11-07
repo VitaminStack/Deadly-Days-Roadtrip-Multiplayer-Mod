@@ -40,7 +40,7 @@ uint64_t Lifetime(uintptr_t Object)
     const auto Index = Memory::Read<int32_t>(Object + 0xC);
     if (!Index || *Index < 0 || *Index >= Objects::Count() || Objects::At(*Index) != Object)
         return 0;
-    const auto Chunks = Memory::ReadPointer(Memory::ImageBase() + Offsets::GObjects);
+    const auto Chunks = Memory::ReadPointer(Memory::Rva(Offsets::GObjects));
     const auto Chunk = Chunks ? Memory::ReadPointer(*Chunks + 8 * (*Index >> 16)) : std::nullopt;
     const auto Serial = Chunk ? Memory::Read<uint32_t>(*Chunk + (*Index & 0xffff) * 0x18 + 0x10) : std::nullopt;
     return Serial ? (uint64_t(*Serial) << 32) | static_cast<uint32_t>(*Index) : 0;
@@ -48,7 +48,7 @@ uint64_t Lifetime(uintptr_t Object)
 
 uintptr_t MissionState()
 {
-    const auto World = Memory::ReadPointer(Memory::ImageBase() + Offsets::GWorld);
+    const auto World = Memory::ReadPointer(Memory::Rva(Offsets::GWorld));
     const uintptr_t State = World ? Memory::ReadPointer(*World + Offsets::UWorld::GameState).value_or(0) : 0;
     return Objects::IsA(State, "DDMissionGameState") ? State : 0;
 }

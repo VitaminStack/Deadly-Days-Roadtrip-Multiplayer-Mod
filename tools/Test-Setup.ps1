@@ -25,7 +25,7 @@ if ($Props) {
     Report 'Aktiver Spielordner' $GameOk 'GameDir bzw. PinnedGameDir in config\Local.props pruefen (kein automatischer Rueckfall)'
     if ($GameOk) {
         try { Assert-SupportedBuild; $BuildOk = $true; $BuildHint = '' } catch { $BuildOk = $false; $BuildHint = $_.Exception.Message }
-        Report "Spiel-Build $script:SupportedBuild" $BuildOk $BuildHint
+        Report "Spiel-Build $(if ($script:ActiveBuild) { $script:ActiveBuild } else { $script:SupportedBuilds -join '/' })" $BuildOk $BuildHint
         Report 'Keine fremde version.dll' (-not (Test-Path (Join-Path (Split-Path (Get-GameExe)) 'version.dll')) -or
             [Text.Encoding]::GetEncoding(28591).GetString([IO.File]::ReadAllBytes((Join-Path (Split-Path (Get-GameExe)) 'version.dll'))).Contains('ModStart')) 'Eine andere Mod nutzt version.dll, Deploy-Mod.ps1 bricht dann ab'
     }

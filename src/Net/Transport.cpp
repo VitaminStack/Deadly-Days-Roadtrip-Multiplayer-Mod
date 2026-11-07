@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "Core/Log.h"
+#include "Core/Version.h"
 
 #pragma comment(lib, "ws2_32.lib")
 
@@ -158,6 +159,9 @@ bool Transport::Begin(Mode RoleIn, uint64_t Remote)
     WSAStartup(MAKEWORD(2, 2), &Data);
     Role = RoleIn;
     Options.Identity.Host = Role == Mode::Host;
+    // Beide Seiten müssen denselben Spiel-Build haben; ohne erkannten Build (Tests) bleibt der Standard.
+    if (const uint32_t Build = Core::ActiveBuild())
+        Options.Identity.Build = Build;
     {
         std::lock_guard Guard(StatsLock);
         Current = {};

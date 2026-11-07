@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <filesystem>
 #include <string>
 
@@ -24,7 +25,11 @@ struct SupportedBuild
 // Bei einem Spiel-Update hier ergänzen, siehe CONTRIBUTING.md, Abschnitt Spiel-Updates.
 constexpr std::array SupportedBuilds = {
     SupportedBuild{26187885, {0x32C34474, 0x0B742000}},
+    // update-basis: Adressen über Game/AddressMap, fehlende Patch-Adressen schalten die Patches ab.
+    SupportedBuild{26495302, {0x65BFBBFB, 0x0B748000}},
 };
+
+std::atomic<uint32_t> Active = 0;
 
 bool IsGameProcess()
 {
@@ -59,6 +64,11 @@ std::optional<uint32_t> FindSupportedBuild(const BuildFingerprint& Fingerprint)
     return Found->BuildId;
 }
 
+uint32_t ActiveBuild()
+{
+    return Active.load();
+}
+
 std::optional<uint32_t> DetectSupportedBuild()
 {
     if (!IsGameProcess())
@@ -73,7 +83,9 @@ std::optional<uint32_t> DetectSupportedBuild()
         return std::nullopt;
     }
     const auto Build = FindSupportedBuild(*Fingerprint);
-    if (!Build)
+    if (Build)
+        Active = *Build;
+    else
         Log::Error("Unbekannter Spiel-Build (TimeDateStamp {:#x}, SizeOfImage {:#x}), Mod bleibt aus", Fingerprint->TimeDateStamp, Fingerprint->SizeOfImage);
     return Build;
 }

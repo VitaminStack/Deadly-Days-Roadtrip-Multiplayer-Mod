@@ -178,9 +178,10 @@ Aufgabe `bestaetigen-rundenende`. Mod-Version 6, weil der Host im Lager am Runde
 Client mit Version 5 meldet es nie. Bestätigen im Lager markiert wie in [Alle bestätigen](#alle-bestätigen-mod-kompatibilität-5) nur
 bereit. Die Id ist die des Rundenendes aus `0x401`.
 
-`0x306` Client an Host, genau 9 Bytes: Id des Rundenendes (8, ungleich 0), das der Client selbst geöffnet hat, und bereit (1, 0 oder 1).
-Alle 500 ms, solange der Client in diesem Rundenende ist. Ohne diese Meldung wartet der Host nicht; bleibt sie 2 s aus, hört er auf
-zu warten.
+`0x306` Client an Host, genau 9 Bytes: Id des Rundenendes (8), das der Client selbst geöffnet hat, und bereit (1, 0 oder 1).
+Alle 500 ms, solange der Client in diesem Rundenende ist. Ohne diese Meldung wartet der Host nicht. Id 0 nur mit bereit 0: Der Client
+hat das Rundenende verlassen, er schickt das danach 3 s lang alle 500 ms, und der Host hört sofort auf zu warten. Bleibt die Meldung
+nur aus (Absturz), wartet der Host weiter, bis die Verbindung abläuft (`lager-absturz-client`).
 
 `0x307` Host an Client, genau 9 Bytes: Id des Rundenendes (8, 0 = keins) und Flags (1): Bit 0 Host bereit, Bit 1 Host hat das Bereit des
 Clients. Ohne Rundenende sind die Flags 0, andere Bits sind ungültig. Bei Änderung sofort, sonst jede Sekunde. Der Client wartet nur

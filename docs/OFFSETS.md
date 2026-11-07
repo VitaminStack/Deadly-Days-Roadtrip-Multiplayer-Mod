@@ -8,6 +8,62 @@ RVAs sind relativ zur Image-Base `0x140000000`. Die Patchstellen stehen als Kons
 [Spike-Datei](../research/spikes/a-connect/README.md#dateien), ihre Bedeutung in der [Patch-Tabelle](../research/spikes/a-connect/README.md#patches).
 Die Spielfehler-Fixes nutzt auch die Mod, mit denselben Werten am Anfang von `src/Game/*Patches.cpp`, siehe [Patches der Mod](../src/Game/README.md#patches).
 
+## Build 26495302 (`update-basis`)
+
+Stand 07.11.2026. Alle Werte dieser Datei bleiben Referenz-RVAs von `26187885`. Für `26495302` rechnet `Game::AddressMap` sie über
+`src/Game/RvaMap26495302.inc` um, erzeugt mit [`tools/rva_map.py`](../tools/README.md#rva_mappy). Exe: TimeDateStamp `0x65BFBBFB`, SizeOfImage `0x0B748000`.
+
+| | 26187885 | 26495302 | Beleg |
+|---|---|---|---|
+| GObjects | `0x0AA61B00` | `0x0AA67B80` | rva_map (Code-Verweis) und Dumper-7-SDK |
+| GNames | `0x0A993AC0` | `0x0A999B40` | rva_map und SDK |
+| GWorld | `0x0AAE46F0` | `0x0AAEA770` | rva_map und SDK |
+| ProcessEvent | `0x0160C040` | `0x0160C220` | rva_map (eindeutig) und SDK, Index `0x4A` unverändert |
+
+- Feld-Offsets aus `src/Game/Offsets.h` sind unverändert: `SdkChecks.cpp` baut gegen das neue SDK ohne Fehler (dieselbe deaktivierte
+  UE-5.8-Assert-Stelle `UEngineReplicationBridge` wie beim alten SDK).
+- 97 Adressen aus `src/`: 81 eindeutig, 3 vtables, 3 Globale, 1 über den Funktionsanfang, 9 fehlen (Code geändert):
+  `0x05666FA5` (Blockade, Einsprung), `OnRepHealth`, `OnRepMaxHealth`, `FinishMission`, `PanelConfirm`, `ClientRefreshFunction`,
+  `RepresentationSize`, `SlotVtable`, `DetectorVtable`.
+- Spieltest mit Mod auf `26495302` (ein PC, Lobby, `-NoSpike`): 33 von 43 Patch-Prüfungen bestehen, 10 nicht, darum setzt die Mod keine
+  Patches. Handshake mit Build-Prüfung klappt. Der Host stürzt beim Beitritt des Clients ab (`0x5904DE8`), wie ohne den Patch
+  „SpawnedPlayers bei der Registrierung“ zu erwarten. Auf `26187885` setzt dieselbe Mod weiterhin alle 43 Patches.
+- Mit Teilinstallation (`-PartialPatches`): 8 von 13 Listen gesetzt, ausgelassen Player, Client, Inventory, HealthBar, Reward. Absturz beim
+  Beitritt unverändert an `0x5904DE8`, bis `update-client` die Player-Liste portiert.
+
+### Client- und Player-Patches (`update-client`)
+
+Stand 07.11.2026, Dateien `ClientPatches.cpp`, `PlayerPatches.cpp`, `RemoteP2Patches.cpp`, `LocalDevicePatches.cpp`.
+
+- Von Hand nachgetragen (`// von Hand` in der Tabelle):
+
+  | Referenz | 26495302 | Beleg |
+  |---|---|---|
+  | `0x05666FA5` Blockade-Thunk | `0x056676F5` | einziger Thunk mit `jmp` auf das umgerechnete `BlockadeLoadingFinished`, gleiche Befehle davor |
+  | `0x058E84C0` `FinishMission` | `0x058EA1A0` | Ziel beider umgerechneter Aufrufer, gleicher Prolog, Signatur `(this, bool IsLoading)` unverändert |
+  | `0x05A8BAB0` `ClientRefreshFunction` | `0x05A90940` | Ziel des `call` an `ClientRefreshCallSite` |
+
+- Geänderter Spielcode: `FinishMission` prüft zusätzlich zwei nicht reflektierte Flags im `Pad_410` von `ADDMissionGameState`. Der Hook
+  sperrt weiter nur das lokale Rundenende beim Client und ist davon nicht betroffen. Die Client-Refresh-Funktion liest `this+370h` weiter
+  ohne Nullprüfung, der Patch bleibt nötig. Ihre übrigen Felder haben sich verschoben (`0x900` → `0x8F8`), die nutzt die Mod nicht.
+- Vier Prüfungen hatten feste `call rel32`-Bytes (Exp-Aggregation zweimal, TSet-Add und Broadcast in der Registrierung). Alle zeigen auf
+  die umgerechneten Ziele. Sie prüfen jetzt über `ExpectBranch` das Sprungziel statt der Bytes, ebenso der Blockade-Thunk, Client-Refresh
+  und Attribut-Tick.
+- Sprungziele der Code-Höhlen (`…Exit`, `…SkipTarget`, `RunEndContinue`, `Sneak…`) haben denselben Abstand zur Patch-Stelle wie im Referenz-Build.
+  Die Feld-Offsets der vier Dateien sind laut SDK-Vergleich unverändert. Geändert haben sich unter anderem `UInventoryPanel`, `UToolTip`,
+  `URoundEndPanel` und `URarity` (Thema von `update-inventar`).
+- `tools/expect_check.py`: auf beiden Builds 42 von 42 prüfbaren Prüfungen der vier Dateien `ok`, 2 nur im Spiel prüfbar (lokale `Site`).
+- Spieltest ein PC, Lobby, `-NoSpike`: `26187885` weiter 43 Patches. `26495302` mit `-PartialPatches`: 10 von 13 Listen, ausgelassen nur
+  Inventory, HealthBar und Reward. Der Client tritt ohne Host-Absturz bei, `SpawnedPlayers` meldet `Spieler=2 gültig=true`.
+  `Run-Route.ps1 -Days 1 -StayLast`: MetaBase und Tag 1 bei beiden `sauber` (2/2 Spieler, 102/103 Kacheln). Abweichend ist nur der
+  Inventarvergleich, weil die Inventory-Liste noch fehlt. Seit Missionsbeginn keine neuen Fehler im Log.
+- Rundenende Tag 1 (Tank per `tools/spike/fuel.py` auf 118/120, letzter Kanister und Busflucht vom Menschen): Der Host beendet die Runde
+  und benachrichtigt den Client („Rundenende: an den Client gesendet“). Direkt danach stürzt der Client bei `0x59677FD` ab (`0xC0000005`).
+  Das ist `+0x7D` in der Inventarschleife `0x5967780` und entspricht dem bekannten Referenz-Absturz `0x596362D`
+  (`0x59635B0` + `0x7D`, siehe [Spike-Inventar](../research/spikes/a-connect/README.md#inventar-ursache-teilfix-und-verbleibende-grenze)):
+  Beim Client fehlen Inventar-Items, weil die Inventory-Liste (`Inventar-Unterobjekte replizieren`) auf `26495302` noch nicht gesetzt ist.
+  Kein neuer Fehler der vier Dateien; Wiederholung des Coop-Tags nach `update-inventar`.
+
 ## Diagnoseadapter (`desync-melder`)
 
 Quelle: Felddeklarationen des lokalen Dumper-7-SDK für denselben Build. Optionale
@@ -150,6 +206,7 @@ Aufgabe `airdrop-auswahl`, Ablauf in [Airdrop-Auswahl](GAME_ANALYSIS.md#airdrop-
 | `InventoryPanel.SetupInventory` | `0x5A8BAB0` | liest `InventoryComponent` bei `+0x370`; positioniert aus `InventoryItemInstance.CachedBackpackLocalPosition` (`+0x150`, FVector2D, nicht repliziert) |
 | `DefaultFocusableButton.ParentPanel` | `+0x3A8` | Panel des Knopfs (UUserWidget); der Bestätigen-Knopf des Inventar-Panels heißt `MainButton`, gefärbt über `UserWidget.SetColorAndOpacity` (`bestaetigen-alle`) |
 | `InventoryPanel.SnapRepresentationToTile` | `0x5A92030` | richtet UI und Pixelpositions-Cache aus einem Pivot-Feld aus; reflektierte Parameter: ItemRepresentation `+0`, FIntVector2 `+8`, CanvasPanel `+0x10`, Größe `0x18` |
+| `UItemRepresentation`, Größe aus der Itemform | `0x5AB5120` | `void(this)`; liest `ItemInstance` (`+0xA28`), davon `ItemData` (`+0xE0`) und Form (`+0xE8`) ohne Prüfung, setzt die Größe des Canvas-Slots (`+0x30`) auf je 66 px minus 3; neun direkte Aufrufer. Hook in `InventoryPatches.cpp` (`lager-absturz-client`) |
 | `InventoryItemInstance.SetZeroPivotTile` | `0x5979ED0` | schreibt ausschließlich `+0x28`; berechnet den Pixelpositions-Cache nicht neu |
 | `InventoryComponent::CreateItemInstance` | `0x5959700` | `(this, ItemData, FlagAsNew, Rarity)`, nativ; UFunction `BlueprintAuthorityOnly` |
 | `URewardQueueComponent::OpenNextReward` | `0x59ADAC0` | Exec-Thunk `0x57975F0` |
@@ -286,6 +343,8 @@ Was die Mod nutzt, steht zusätzlich in `src/Game/Offsets.h` und wird dort beim 
 | `ADDCharacterBase` | CommonAttributeSet | `0x700` |
 | `UCommonAttributeSet` | Health (`FGameplayAttributeData`, CurrentValue bei `+0xC`) | `0xA0` |
 | `UCommonAttributeSet` | MaxHealth, OnMaxHealthChanged, OnHealthChanged (Multicast, Einträge je `0x10`: schwacher Zeiger, `FName`) | `0x30`, `0x40`, `0xC0` |
+| `UDDCharacterAttributeSet` (Outer ist der PlayerState) | ExtraHands, OccupiedHands (`FGameplayAttributeData`, CurrentValue bei `+0xC`) | `0x100`, `0x110` |
+| `UHandBarDisplay` | PlayerIndex, CachedCharacter | `0x328`, `0x348` |
 | `FDamageInformation` | Damage, DamagedActor, InstigatedBy, DamageCauser (je `TWeakObjectPtr`) | `0x00`, `0x04`, `0x14`, `0x1C` |
 | `FBasedMovementInfo` | MovementBase, Location | `0x10`, `0x18` |
 | `UCharacterMovementComponent` | Velocity, MovementMode, MaxWalkSpeed | `0xD8`, `0x241`, `0x288` |
@@ -311,6 +370,7 @@ Was die Mod nutzt, steht zusätzlich in `src/Game/Offsets.h` und wird dort beim 
 | GameInstance | PendingGameStateComponentTravelStates, LastRoundChangeReason | `0x248`, `0x299` |
 | GameInstance | CurrentRunInfo (Seed +0, CurrentRoute +8) | `0x2A0` |
 | GameInstance / `FRoute` | `CurrentRoute.MissionChain` (TArray), Num; CurrentMissionIndex | `0x2B0`, `0x2B8`; `0x2C0` |
+| GameInstance / `FCurrentRunInfo` | IsEndOfMissionChain, ChosenMissionIndexes (TArray) | `0x2C8`, `0x328` |
 | `ADDMissionGameState` | SecondsSinceMissionStart, DayNum | `0x38C`, `0x390` |
 | `UAbstractPanel` | AnimationContainer | `0x330`; im `rundenende`-Test nicht als zuverlässiger Phasenindikator lesbar |
 | `UPanelAnimationContainer` | IsOpen | `0x328`; nur lokaler Containerzustand, keine Netz-/Sichtbarkeitszusage |

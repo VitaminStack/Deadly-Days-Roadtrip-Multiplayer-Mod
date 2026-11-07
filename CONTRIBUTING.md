@@ -145,7 +145,7 @@ keine Weitergabe von Spieldateien. Steam-Einstellungen und Downloads werden nich
 2. Jeder neue Build bekommt bei Bedarf eigene Update-Unterstützung, zum Beispiel wenn er einen blockierenden Absturz behebt.
    Das Team priorisiert die zentrale Aufgabe `spiel-update`; ein Steam-Update allein erzwingt keinen Entwicklungswechsel.
    Vor `integration-run` und `release` legt das Team die konkret unterstützten und getesteten Builds fest.
-3. Das Nachziehen ist die zentrale Aufgabe `spiel-update`. Eine Person reserviert sie, aktualisiert ihr Spiel, erzeugt ein neues SDK und passt Offsets,
+3. Das Nachziehen ist aufgeteilt: `update-basis` (zentral) unterstützt beide Builds und liefert Patch-Tabelle und Adresswerkzeug, danach portieren `update-client`, `update-inventar` und `update-welt` parallel, `spiel-update` schließt ab. Wer `update-basis` reserviert, aktualisiert sein Spiel, erzeugt ein neues SDK und passt Offsets,
    Signaturen und Patches auf ihrem Branch an.
 4. Im selben PR Build-ID, Exe-Version und Manifest-IDs in [docs/GAME_ANALYSIS.md](docs/GAME_ANALYSIS.md#unterstützte-spielversion), die Werte in
    [docs/OFFSETS.md](docs/OFFSETS.md) und `src/Game/Offsets.h` (mit neuem SDK bauen, dann prüft `SdkChecks.cpp` jeden Wert), `$SupportedBuild` in `tools/spike/Common.ps1`, die Build-/Hash-Referenz in `tools/game_build.py` sowie
