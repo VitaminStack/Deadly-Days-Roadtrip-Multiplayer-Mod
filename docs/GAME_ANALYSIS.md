@@ -18,7 +18,8 @@ Vertrauensgrad:
 | Spiel-Exe | `DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe` (179 MB) |
 
 Build-ID und Manifest-IDs stehen in `steamapps/appmanifest_3026450.acf`. Die Manifest-IDs benennen die gewünschten Depotstände;
-ein erneuter Download über die Steam-Konsole ist noch nicht getestet. Bei einem Spiel-Update gilt die
+ein erneuter Download über die Steam-Konsole ist getestet (07.11.2026): `download_depot 3026450 3026452 7724756528743620812` liefert
+alle 52 Dateien, die Prüfsummen von `tools/game_build.py` passen; Depot `3026451` hatte beim Update auf `26495302` denselben Stand. Bei einem Spiel-Update gilt die
 [Update-Regel](../CONTRIBUTING.md#spiel-updates): einfrieren und nur bei Bedarf nachziehen.
 
 ### Gemeinsame Build-ID (`build-id`)
@@ -1471,7 +1472,7 @@ Stand 06.11.2026, Build `26187885`, ein PC, Mod mit Spike über die Lobby, Godmo
 - **[Belegt] Spielstand des Clients:** Das lokale `FinishMission` schreibt den Spielstand des Clients (`SaveSlot_DDR_0.sav` im
   Test-`UserDir`, 3093 → 7867 Bytes zum selben Zeitpunkt) mit eigenem Run-Seed, Tag 0, `EndOfDay` und dem Inventar. Der Client hatte
   den Spielstand schon beim Beitritt geschrieben. Ob dabei ein laufender eigener Run eines echten Spielstands verloren geht, ist nicht
-  geprüft (Vermutung: ja, der Run-Slot wird überschrieben). Das gehört zu `mod-saves` (Mod-Spielstände vom normalen trennen).
+  geprüft (Vermutung: ja, der Run-Slot wird überschrieben). Seit [`mod-saves`](#spielstände-der-mod-mod-saves) schreibt die Mod das nur noch in `SaveGames_DDCoop`.
 - **Nicht geprüft:** Mehrere
   Rundenenden hintereinander, Itemsäcke im Lager, ein Client, der den Host im Lager überholt. Die Reisesperre des Clients griff im Lauf
   nicht, weil seine Routenkarte keinen Knoten anbot; sie ist nur in Tests belegt. Das Rundenende über den echten Bus ist seit
@@ -1580,7 +1581,7 @@ Stand 04.11.2026, Build `26187885`, Steamworks-Laufzeit 1.64.
 - **Gescheiterter erster Ansatz:** Ein Hintergrund-Thread versuchte alle 50 ms, die Schnittstelle zu holen und zu sperren. Dazwischen hätten Schreibaufrufe durchrutschen können, und bei Fehlern lief die Mod ungeschützt weiter (Review zu #75). Der zwischengespeicherte Zugriff `SteamAPI_SteamUserStats_v013` blieb dabei einmal dauerhaft leer.
 - **Test:** zwei Instanzen auf einem PC mit `Start-Session.ps1 -Mod`, Route mit Seed `20795` bis zum Rundenende an Tag 1. Auf beiden Seiten lud das Spiel `steam_api64.dll` rund 80 ms nach dem Start der Mod, die Sperre stand beim Laden. Der Host versuchte rund 7 s später, die Statistiken zu speichern (`StoreStats`), und wurde abgewiesen. Das Spiel lief normal, kein Absturz. Ob es vor dem Start der Mod Schreibversuche gab, ist nicht gemessen; die Mod sieht nur Aufrufe ab ihrer Sperre. Unit-Tests mit nachgebauter Steam-Laufzeit decken späten Steam-Start, den ersten Schreibaufruf, eine schon vorhandene Schnittstelle, gescheiterte Hooks, unbekannte Einsprünge und fremde Versionen ab.
 - **Nicht geprüft:** ein echter Erfolg und ein Bestenlisten-Eintrag am Run-Ende. Absichtlich ausgelöst habe ich keinen: Wäre die Sperre unwirksam, stünde der Erfolg dauerhaft im Steam-Konto.
-- **[Vermutung]** Das Spiel speichert seinen Erfolgsfortschritt auch im eigenen Spielstand (`AchievementSubsystem`, `PersistedAchievementData`). Läuft ein Mod-Run auf dem normalen Spielstand, könnte das Spiel solche Erfolge später ohne Mod nachmelden. Das trennt `mod-saves`.
+- **[Vermutung]** Das Spiel speichert seinen Erfolgsfortschritt auch im eigenen Spielstand (`AchievementSubsystem`, `PersistedAchievementData`). Läuft ein Mod-Run auf dem normalen Spielstand, könnte das Spiel solche Erfolge später ohne Mod nachmelden. Seit [`mod-saves`](#spielstände-der-mod-mod-saves) laufen Mod-Runs nur auf eigenen Ständen.
 - **Nicht gesperrt:** die Weekly-Challenge über `ddrweekly.deadlydays.com`. Ob sie unterstützt oder gesperrt wird, entscheidet das Team unter `weeklymode`.
 
 ### Telemetrie und Berichte (`telemetrie-aus`)
@@ -1605,6 +1606,52 @@ Stand 04.11.2026, Build `26187885`. Neben dem Crash-Reporter (siehe [Crash-Repor
   - **[Belegt]** Mit der Sperre lief das Run-Ende normal (Niederlage an Tag 1, „Zurück zur Basis“, beide in der MetaBase), danach startete ein neuer Run bis in die Mission.
 
 Test: ein PC, zwei Instanzen mit `Start-Session.ps1 -Mod`, MetaBase und Tag 1 bis zum Rundenende. Auf beiden Seiten meldete die Mod den bestandenen Selbsttest (`api.codecks.io` scheitert ohne Netzanfrage) und die drei abgeschalteten Schalter. Weitere Anfragen gab es im Lauf nicht, das Spiel lief normal weiter, kein Absturz. Das Bug-Report-Formular habe ich bewusst nicht abgeschickt: Wäre die Sperre unwirksam, ginge ein Bericht an Pixelsplit.
+
+### Spielstände der Mod (`mod-saves`)
+
+Stand 07.11.2026, Build `26187885`, ein PC, Mod mit Spike über die Lobby, Godmode, Test-`UserDir` beider Instanzen.
+
+- **[Belegt, Laufzeit]** Der Spielstand liegt im Ordner `<Saved>\SaveGames` (mit `-UserDir` darunter, sonst `%LOCALAPPDATA%\DDSurvivors\Saved`).
+  Dateien: `Management_SaveSlot_0.sav`, `SaveSlot_DDR_<n>.sav` je Slot, `WeeklyChallenge.sav`, `EnhancedInputUserSettings.sav`, Sicherungen unter
+  `Backups\<Name>_bak.sav`. Beim Start prüft der `UPixelSaveManager` je Stand `_tmp`, `_bak`, `_bak2`, `_bak3` und den Stand selbst.
+  Gespeichert wird in Schritten: `_bak` schreiben, `_tmp` schreiben, den Stand löschen, `_tmp` auf den Stand verschieben. In den echten
+  Ordner legt Steam `steam_autocloud.vdf`, er wird also über Steam Cloud abgeglichen.
+- **[Belegt, Strings]** Der SaveManager baut Dateinamen teils selbst (`.sav`, `*.sav`, `%s__%s__%s.sav`, `SaveSlot_DDR_`) und arbeitet direkt mit
+  Dateien, neben `UGameplayStatics`/`ISaveGameSystem` (`%sSaveGames/%s.sav`). Eine reine Slot-Umleitung (`SwitchToNamedSaveSlot`,
+  `GetSaveSlotNameForIndex`) hätte Sicherungen und Archivkopien nicht erfasst.
+- **Mod:** `Game::SaveRedirect` hängt sich an die Datei-APIs von Windows (`kernelbase`: `CreateFileW`, `CreateFile2`, `DeleteFileW`,
+  `GetFileAttributes(Ex)W`, `SetFileAttributesW`, `FindFirstFile(Ex)W`, `CreateDirectoryW`, `RemoveDirectoryW`, `MoveFileExW`,
+  `MoveFileWithProgressW`, `ReplaceFileW`, `CopyFileW`, `CopyFileExW`, `CopyFile2`; `kernel32`: `MoveFileW`). Diese Breitzeichen-Funktionen
+  importiert die Exe; die CRT endet ebenfalls dort. Jeder Pfad unter `<Saved>\SaveGames` geht nach `<Saved>\SaveGames_DDCoop`, der Ordner selbst
+  eingeschlossen. Keine Spiel-Offsets. Umgeleitet werden die Ordner aus `-UserDir`, aus `%LOCALAPPDATA%\DDSurvivors` und neben `Binaries`,
+  damit mit Mod kein normaler Stand erreichbar bleibt. Pfadlogik in `SavePaths.h` mit Unit-Tests.
+- **Sicherheit:** Die Umleitung sitzt direkt nach `Core::Hooks::Initialize`, vor allen anderen Teilen der Mod. Fehlt eine Umleitung, nimmt die Mod
+  die übrigen zurück und startet nicht; das Spiel läuft dann normal auf dem normalen Stand. Lässt sich ein Pfad mit `SaveGames` nicht auflösen,
+  lehnt die Mod den Aufruf ab (`ERROR_ACCESS_DENIED`), statt den normalen Stand zu berühren. Ohne Mod-DLL, mit `enabled=false` und bei
+  unbekanntem Build gibt es keine Umleitung.
+- **Erster Start:** Fehlt `SaveGames_DDCoop`, legt die Mod den Ordner an und kopiert die `.sav`-Dateien der obersten Ebene des normalen Ordners
+  einmal hinein (`CopyFileW` ohne Überschreiben, vor den Hooks). Der Meta-Fortschritt bleibt so erhalten. Abschaltbar mit
+  `copy_normal_saves=false`. Danach nutzt die Mod nur ihre eigenen Stände, auch allein gespielt. Mod-Runs landen nie im normalen Stand,
+  das erledigt auch die Vermutung zu Erfolgen unter [Erfolge und Bestenlisten](#erfolge-und-bestenlisten-online-sperren).
+- **[Belegt] Lauf:** Normale Stände beider Instanzen vorher und nachher mit Größe, Zeitstempel und SHA-256 festgehalten. Start mit
+  `Start-Session.ps1 -Restart -Mod -Tunnel Lobby -Godmode -Brief`: beide kopierten 2 Stände. Die Hooks saßen rund 2 s vor dem ersten Zugriff des
+  Spiels (Hooks 0,6 s nach dem Start der Mod). Alle Zugriffe des Spiels (prüfen, lesen, schreiben, löschen, verschieben) meldeten den
+  Mod-Ordner, keiner einen fremden Ordner. `Run-Route.ps1 -Days 2 -StayLast`: Tag 1, Rundenende beim Client mit Rundenübersicht, Lager und
+  Reise nach Tag 2, alle Prüfungen sauber, Inventare gleich. Beim Rundenende schrieb der Client `SaveSlot_DDR_0_bak.sav` und
+  `SaveSlot_DDR_0_tmp.sav`, löschte `SaveSlot_DDR_0.sav` und verschob `_tmp` darauf, alles im Mod-Ordner (3093 → 7866 Bytes, wie der Befund
+  unter [Rundenende](#rundenübersicht-und-lager-beim-client-rundenende-client), dort noch im normalen Stand). Der Host schrieb seinen Stand im
+  Mod-Ordner (19228 → 26373 Bytes). Alle sechs normalen Dateien beider Instanzen blieben Byte für Byte gleich, mit unveränderten Zeitstempeln.
+- **[Belegt] Wiederladen:** Zweiter Start mit Mod (nach dem Steam-Update aus der eingefrorenen Kopie, siehe [Spielversion](#unterstützte-spielversion)):
+  beide meldeten „Mod-Ordner vorhanden“, kopierten nichts und lasen `Management_SaveSlot_0.sav`, `SaveSlot_DDR_0.sav` und
+  `WeeklyChallenge.sav` nur aus dem Mod-Ordner, also die von der Mod geschriebenen Stände (Client 7866, Host 26373 Bytes). Kein Zugriff
+  außerhalb, normale Dateien unverändert.
+- **[Belegt] Ohne Mod:** `Start-Session.ps1 -Restart -Godmode -Brief` ohne `-Mod` (keine `DDCoop.dll`, kein `version.dll`, kein Mod-Log):
+  Das Spiel schrieb wie im Original in den normalen Ordner (Host `SaveSlot_DDR_0.sav` 19228 → 19433 Bytes, Sicherungen rückten auf
+  `_bak`/`_bak2`). Der Mod-Ordner blieb Byte für Byte gleich.
+- **Nicht geprüft:** Rennen beim Start: Die Mod startet auf dem Thread des Loaders parallel zum Spiel. In allen Läufen saßen die Hooks rund
+  2 s vor dem ersten Zugriff. Ein Lesen vor den Hooks wäre harmlos, ein Schreiben in den normalen Stand vor den Hooks ist nicht beobachtet
+  und nicht ausgeschlossen. Solo-Spiel mit Mod nur über denselben Codeweg abgeleitet (die Umleitung kennt keine Rolle). Ein echter
+  Spielstand unter `%LOCALAPPDATA%` wurde absichtlich nicht berührt.
 
 ## Allgemeines
 

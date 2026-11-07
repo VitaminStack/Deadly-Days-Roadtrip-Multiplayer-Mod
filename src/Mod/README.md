@@ -11,8 +11,9 @@ Läuft einmal auf dem Thread des Loaders:
 3. Mit `enabled=false` hier aufhören.
 4. Versionsprüfung, bei unbekanntem Build oder fremdem Prozess hier aufhören.
 5. Hooks vorbereiten.
-6. `Mod::Lobby::Install` hängt den Lobby-Tick an den Game-Thread-Takt, das geht nur vor `Game::Start`.
-7. `Game::Start`, `Net::Start`, `Sync::Start` und `UI::Start` aufrufen.
+6. `Game::SaveRedirect::Install` trennt die Spielstände der Mod vom normalen Spielstand. Scheitert es, startet die Mod nicht.
+7. `Mod::Lobby::Install` hängt den Lobby-Tick an den Game-Thread-Takt, das geht nur vor `Game::Start`.
+8. `Game::Start`, `Net::Start`, `Sync::Start` und `UI::Start` aufrufen.
 
 Keine Ausnahme verlässt `ModStart`. Das Spiel läuft in jedem Fall normal weiter, nur ohne Mod.
 
@@ -23,6 +24,8 @@ Keine Ausnahme verlässt `ModStart`. Das Spiel läuft in jedem Fall normal weite
 enabled=true
 # debug, info, warn oder error
 log_level=info
+# Beim ersten Start die normalen Spielstände einmal in den Mod-Ordner kopieren (nur lesend)
+copy_normal_saves=true
 ```
 
 Ein neuer Einstieg kommt als Funktion ins jeweilige Modul und einen Aufruf hier. Die Reihenfolge folgt den Abhängigkeiten.
