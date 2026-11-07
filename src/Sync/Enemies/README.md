@@ -78,3 +78,36 @@ Messung (`py` über `ddmem`, Host gegen Client, ein Boss je Lauf, Godmode):
 - Die Phase ist beim Client teils nicht lesbar (`DDEnemyAttributeSet.Phase` 0 statt 1 bis 2 bei Frankenstein, Probe nicht belastbar, da alte tote Bosse im Speicher
   stehen). Prüfen, bevor sie als Lücke gilt.
 - Beim `BlobBallBoss` stand ein Actor als zerstört beim Client, während der Host-Boss lebte. Ob der Boss beim Phasenwechsel dort neu entsteht oder verloren geht, ist offen.
+
+## Boss-Leiste beim Client (08.11.2026, Build `26495302`, Spike `Cheats.cpp`: `TickBossBar`, `SyncBossBar`, `!bossbar`)
+
+| Frage | Antwort |
+|---|---|
+| Was bleibt lokal? | Die Leiste selbst (`WI_ObjectiveDisplay`, `DDObjectiveWidget`), das `DD_BaseBossObjective_C`-Objekt und seine Werte. Das Objective ist ein lokales Objekt der `GameInstance` (`DDObjectiveSubsystem`), der Host legt es über `BossfightSpawnPoint` an, ein Client hat keins |
+| Was wird geteilt? | Nichts Neues. Quelle sind die nativ replizierten Boss-HP (`CommonAttributeSet.Health/MaxHealth` des Bosses) |
+| Wer entscheidet? | Der Host (Schaden, Phase, Tod). Der Client zeigt nur an |
+| Welcher Weg? | Replizierter `BP_BossEnemy_C` taucht beim Client auf, dann legt der Tick einmal je Sekunde die Leiste an und setzt die Werte |
+| Rücknahme/Neuaufbau | Boss weg oder tot: Anzeige wird entfernt. Join mitten im Kampf: der Boss wird nativ repliziert, der Tick legt die Leiste an (noch nicht gemessen) |
+
+Weg zum Erfolg, in der Reihenfolge, die nötig war:
+1. `CreateAndStartObjective(DD_BaseBossObjective_C, AutoStart=false)` über `DDObjectiveSubsystem` (Klasse unter
+   `/Game/DDSurvivors/Blueprints/Objectives/DD_BaseBossObjective`, beim Client erst nach `LoadObjectByPath` vorhanden). Mit `AutoStart=true` zeigt der
+   Client eine leere Leiste und `AddBossEnemy` trägt den Boss nicht ein (`TrackedBosses` 0).
+2. `DDBossObjective::AddBossEnemy(Boss)`.
+3. **Vor dem Start** `MaxHealth` (`+0xD0`, int64) aus dem replizierten Boss-Maximum schreiben. Ohne das fehlen die Phasenmarken der Leiste, und der Client
+   stürzt beim Überschreiten der Marke ab (Nullzeiger in `0x5A9CA03`).
+4. `DDObjective::StartTracking(World)`, danach `DDObjectiveWidget::OnObjectiveStarted(Objective)` an die Anzeige **mit** Subsystem (`+0x378` ungleich 0).
+   Es gibt zwei Widget-Instanzen, die zweite hat kein Subsystem und stürzt bei jedem Ereignis ab.
+5. Je Sekunde `SetCurrentProgressCounter(Health)`, nur bei Änderung. Nie auf 0 setzen (schließt das Objective ab, dem Client-Subsystem fehlt dafür das
+   aktuelle Objective). Drei Ticks nach dem Anlegen warten.
+6. Boss weg: `OnObjectiveRemoved(Objective)` an dieselbe Anzeige.
+
+Messung: Zwei Instanzen, `SpikeBoss`, Godmode, Schaden mit `!bossdmg` in Schritten bis zum Tod. Die Leiste beim Client zeigt dieselben Werte wie der Host
+(Screenshot: „Besiege den Boss! 49.135/80.000“), überlebt den Phasenwechsel bei 40000 und den Tod, nach dem Tod ist sie weg, beide Instanzen laufen weiter.
+
+Grenzen und Stolpersteine:
+- **Nur im Spike.** Die ausgelieferte Mod läuft ohne `spike.dll`. Der Code muss noch in die Mod (`src/Sync/Enemies`), Folgeaufgabe. Offsets und Funktionen
+  sind bekannt, die Reihenfolge oben ist die Anleitung.
+- Phasenmarken: Das Objective des Clients hat die Marken aus der Blueprint-Klasse, ob sie in Phase 2 wie beim Host aussehen, ist nicht verglichen.
+- Nicht gemessen: Join mitten im Kampf, Travel mit Boss, die Bosse Ballerina, Lazy und Endboss, mehr als ein Boss gleichzeitig.
+- Ein `BossfightSpawnPoint` ohne Host-Kontext zu erzeugen stürzt den Client ab (Lesezugriff `0x308` in `0x58BC184`), der Spawnpunkt gehört nur zum Host.

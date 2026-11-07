@@ -85,6 +85,7 @@ void TickSession()
     if (Read<uintptr_t>(Driver + kDriverServerConnection))
     {
         TickMapGen();
+        TickBossBar();
         if (!ModOwnsPatches)
         {
             ReleaseDeferredWidgetEvents(World);
@@ -134,6 +135,8 @@ void RunPendingCommand()
         SkipTutorials(true);
     else if (Pending.rfind(L"!give ", 0) == 0)
         GiveItemCommand(Pending.substr(6));
+    else if (Pending == L"!bossbar" || Pending.rfind(L"!bossbar ", 0) == 0)
+        BossBarCommand(Pending.size() > 9 ? Pending.substr(9) : std::wstring{});
     else if (Pending.rfind(L"!bossfight ", 0) == 0)
         BossFightCommand(Pending.substr(11));
     else if (Pending.rfind(L"!bossdmg ", 0) == 0)
