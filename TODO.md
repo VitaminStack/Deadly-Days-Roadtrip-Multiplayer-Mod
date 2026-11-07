@@ -35,15 +35,22 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | Kennung | Prio | Phase | Bearbeitung | Spielzeit |
 |---|---|---|---|---|
 | `lobby-auth-live` | P0 | [3](#phase-3--session-und-verbindung) | zu zweit | wenig |
-| `integration-g2` | P0 | [4](#phase-4--vertical-slice) | zentral | viel |
+| `fortschritt` | P0 | [5](#phase-5--vollständiger-run) | parallel | viel |
+| `gegner-alle` | P0 | [5](#phase-5--vollständiger-run) | parallel | viel |
 | `inventar-client-abweichung` | P0 | [5](#phase-5--vollständiger-run) | parallel | mittel |
+| `pausen-sync` | P0 | [5](#phase-5--vollständiger-run) | parallel | mittel |
+| `tagesablauf` | P0 | [5](#phase-5--vollständiger-run) | parallel | viel |
 | `lobby-live-rest` | P1 | [3](#phase-3--session-und-verbindung) | zu zweit | wenig |
+| `dauerlauf` | P1 | [5](#phase-5--vollständiger-run) | parallel | viel |
 | `lager-handel-client` | P1 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `routenkarte-client` | P1 | [5](#phase-5--vollständiger-run) | parallel | mittel |
+| `run-ende` | P1 | [5](#phase-5--vollständiger-run) | parallel | viel |
 | `virenscanner` | P1 | [6](#phase-6--release) | parallel | keine |
 | `weekly-sperre` | P1 | [6](#phase-6--release) | parallel | wenig |
 | `mod-steuerung` | P1 | [Wartung](#wartung) | parallel | wenig |
 | `update-welt` | P1 | [Wartung](#wartung) | parallel | mittel |
+| `reconnect` | P2 | [5](#phase-5--vollständiger-run) | parallel | viel |
+| `vfx-sound` | P2 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `modversion-overlay` | P2 | [6](#phase-6--release) | parallel | wenig |
 | `doku-verweise` | P2 | [Wartung](#wartung) | parallel | keine |
 | `patch-signaturen` | P2 | [Wartung](#wartung) | parallel | wenig |
@@ -151,7 +158,6 @@ Ziel: Zwei Spieler starten eine Mission, kämpfen gegen einen Gegnertyp und sehe
 
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
-| `integration-g2` | P0 | Gate G2: Vertical Slice zusammenführen und zehn Minuten über echtes Internet zwischen zwei Haushalten spielen. Zwei Menschen nötig. **Fertig, wenn** die Runde stabil, ohne Desync und spielbar ist. Sonst Ursachen beheben, bevor weitere Inhalte synchronisiert werden | `missionsstart`, `kamera-code`, `bewegung`, `kampf`, `gegnertyp`, `eingaben`, `restrictor`, `steam-lobby`, `lobby-live`, `transport`, `net-fehler`, `ohne-spike`, `latenz-test`, `desync-melder` | zentral | viel |
 
 ## Phase 5 – Vollständiger Run
 
@@ -267,6 +273,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `guidcache` | 1 | Blockaden-Autorität, NetGUID-Pfadlebensdauer und Sneak-Zielbereitschaft korrigiert; Test-Godmode für beide Spieler, Lauf bis Endlos-Tag 13 mit zwei Biomwechseln. Am 04.11.2026 vom Nutzer als abgeschlossen akzeptiert; vorerst keine weiteren Detailtests, neue konkrete Probleme erhalten ein neues TODO. [Nachweise und Testgrenzen](docs/GAME_ANALYSIS.md#abschluss-und-akzeptierter-testumfang-guidcache) |
 | `hp-leisten` | 1 | Spike-Fix: Die Lebensleisten über den Figuren blieben beim Client auf dem Startwert, weil das Spiel `OnHealthChanged` nur beim Host auslöst. Jetzt ruft der Spike die Empfänger nach `OnRep_Health` und `OnRep_MaxHealth` auf, siehe [Lebensleisten](docs/GAME_ANALYSIS.md#lebensleisten-beim-client-hp-leisten) |
 | `installer` | 6 | Release-Paket mit Install.cmd/Uninstall.cmd und Anleitung docs/INSTALL.md; findet Steam-Bibliotheken, prüft Build und fremde version.dll, Deploy-Mod nutzt denselben Installer |
+| `integration-g2` | 4 | Gate G2 bestanden: zwei PCs, Build 26495302, zehn Minuten Mission stabil, kein Absturz, nur kurze Desync-Meldungen, siehe [Bericht](docs/GAME_ANALYSIS.md#gate-g2-auf-zwei-pcs-am-07112026-integration-g2) |
 | `inventar-lokal` | 5 | Client bearbeitet sein Inventar in der Itemauswahl lokal, der Host übernimmt beim Bestätigen einen Edit oder lehnt ab; zwei Airdrops, Umsortieren und Rundenende bis Tag 2 ohne Absturz, Inventare gleich ([Befund](src/Game/README.md#inventar-lokal-bearbeiten)) |
 | `inventar-sync` | 5 | Durch andere Aufgaben abgedeckt, der Weg über den nativen `CoopInventoryCoordinator` ist verworfen: Rucksack über `inventar-lokal` und `ausruestung-felder`, Lager über `rundenende-client`, Reward-Queue über `airdrop-warten` und `bestaetigen-alle`, Itemsäcke über `inventar-transaktion`; die Werkbank ist `werkbank-client`, siehe [Inventar lokal bearbeiten](src/Game/README.md#inventar-lokal-bearbeiten) |
 | `inventar-transaktion` | 5 | Ein Itemsack gibt jedem Spieler das Item, der Host vergibt Kopien; Client-lokales Inventar als `inventar-lokal`, siehe [Itemsack für alle](src/Game/README.md#itemsack-für-alle-spieler) |
