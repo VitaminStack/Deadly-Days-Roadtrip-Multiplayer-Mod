@@ -18,7 +18,9 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 
-$SupportedBuild = '26187885'
+# Alle Spiel-Builds, fuer die die Mod Adressen und Patches hat. Muss zu SupportedBuilds in src/Core/Version.cpp und
+# tools/spike/Common.ps1 passen, das prueft tests/test_installer.py.
+$SupportedBuilds = @('26187885', '26495302')
 $AppId = '3026450'
 $ExeRelative = 'DDSurvivors\Binaries\Win64\DDSurvivors-Win64-Shipping.exe'
 # Nur der eigene Loader exportiert diesen Namen. Daran ist eine fremde version.dll erkennbar.
@@ -64,8 +66,9 @@ function Assert-Build([string]$Dir) {
         throw "Steam-Manifest nicht gefunden ($Manifest). Liegt das Spiel nicht in einer Steam-Bibliothek, wird nicht installiert."
     }
     $Build = [regex]::Match((Get-Content -LiteralPath $Manifest -Raw), '"buildid"\s+"(\d+)"').Groups[1].Value
-    if ($Build -ne $SupportedBuild) {
-        throw "Spiel-Build $Build statt $SupportedBuild. Diese Mod-Version laeuft nur mit Build $SupportedBuild, siehe docs/INSTALL.md."
+    if ($SupportedBuilds -notcontains $Build) {
+        $Known = $SupportedBuilds -join ' oder '
+        throw "Spiel-Build $Build statt $Known. Diese Mod-Version laeuft nur mit Build $Known, siehe docs/INSTALL.md."
     }
 }
 

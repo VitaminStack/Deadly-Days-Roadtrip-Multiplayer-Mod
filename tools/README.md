@@ -192,7 +192,7 @@ Installer für Spieler, liegt unverändert im Release-Paket. Anleitung für Spie
 
 | Datei | Aufgabe |
 |---|---|
-| `Install-DDCoop.ps1` | Sucht das Spiel in den Steam-Bibliotheken (`-GameDir` überschreibt), prüft Build über das Steam-Manifest, laufendes Spiel und fremde `version.dll`, kopiert Mod und Loader. `-Uninstall` entfernt beide DLLs, `-Purge` dazu den Ordner `DDCoop` |
+| `Install-DDCoop.ps1` | Sucht das Spiel in den Steam-Bibliotheken (`-GameDir` überschreibt), prüft Build über das Steam-Manifest gegen `$SupportedBuilds` (gleiche Liste wie `src/Core/Version.cpp`, geprüft in `tests/test_installer.py`), laufendes Spiel und fremde `version.dll`, kopiert Mod und Loader. `-Uninstall` entfernt beide DLLs, `-Purge` dazu den Ordner `DDCoop` |
 | `Install.cmd`, `Uninstall.cmd` | Doppelklick-Starter, `-ExecutionPolicy Bypass` nur für diesen Aufruf |
 | `LIESMICH.txt` | Kurzanleitung im Paket |
 
