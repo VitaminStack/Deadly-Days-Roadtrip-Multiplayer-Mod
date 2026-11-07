@@ -215,6 +215,20 @@ Nachricht bei jeder Änderung und sonst jede Sekunde, bis er die Welt verlässt.
 der Karte passt, die er in dieser Welt vom Host übernommen hat, und jede Id nur einmal. Ohne Mod-Versionswechsel: Eine ältere Gegenseite
 kennt `0x401` nicht, dann bleibt der Client wie bisher in der Mission und folgt der Reise.
 
+## Dodge-Richtung (Mod-Kompatibilität 8)
+
+Aufgabe `dodge-client-live`, Befund in [Dodge im Zwei-PC-Test](GAME_ANALYSIS.md#dodge-im-zwei-pc-test-dodge-client-live), Code in
+`src/Game/MovementPatches.cpp` und `src/Sync/MovementState.h`. Mod-Version 8, weil ein Host ohne diese Nachricht wieder die
+geschätzte Richtung nähme.
+
+`0x500` Client an Host, genau 10 Bytes, je eigener Aktivierung von `GA_Dash` beim Client: Vorhersageschlüssel der Aktivierung
+(`FPredictionKey.Current`, int16, 2) und die Eingabe, die `GA_Dash` liest, normiert oder (0, 0) (X und Y als float, je 4). Längen über
+1, NaN und Unendlich sind ungültig. Der Host liest denselben Schlüssel an seiner Instanz der Fähigkeit und trägt die Eingabe direkt vor
+`K2_ActivateAbility` in den Controller des Clients ein. Kommt das Spielpaket mit der Aktivierung vor der Meldung an, hält der Host die
+Aktivierung höchstens 250 ms an und startet sie dann mit der Meldung, sonst mit der geschätzten Richtung (Warnung im Log). Meldungen
+ohne Aktivierung verfallen nach 2 s. Der Host holt `0x500` in jedem Takt mit `TakeControlMessages(Type)` ab, die übrigen Familien
+weiter alle 250 ms. Kosten, Schub und Ende rechnet der Host nativ, die Ausdauer repliziert wie gewohnt.
+
 ## Bisher geprüft (05.11.2026, Kontrollkanal vor Diagnoseerweiterung)
 
 - Build und alle Tests bestanden, darunter 24 Net-Testfälle: binäre UE-Pakete in

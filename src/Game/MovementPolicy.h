@@ -2,6 +2,10 @@
 
 #include <cmath>
 #include <cstdint>
+#include <optional>
+#include <vector>
+
+#include "Game/DashAdapter.h"
 
 // Reine Regeln der Bewegungs-Reparaturen beim Client, ohne Spielzugriff, damit tests/GameTests sie prüfen kann. Befund:
 // docs/GAME_ANALYSIS.md, Abschnitt Dodge beim Client (`bewegung`).
@@ -137,5 +141,67 @@ struct StuckTimer
         }
         return Now - Since >= Limit;
     }
+};
+
+// Host: Wie lange eine Aktivierung des Clients auf seine gemeldete Richtung wartet. Die Meldung geht zuverlässig, das
+// Spielpaket mit der Aktivierung unzuverlässig; es kann sie überholen, mit Ping-Schwankung um einige zehn Millisekunden.
+// Danach startet der Dodge mit der geschätzten Richtung, damit er nie hängen bleibt.
+inline constexpr uint64_t DashWaitMs = 250;
+// Gemeldete Richtungen ohne passende Aktivierung verfallen danach, etwa wenn der Host die Aktivierung ablehnt.
+inline constexpr uint64_t DashInputKeepMs = 2000;
+
+// Client: Eingabe so, wie GA_Dash sie über GetLastNormalizedMovementInput liest, normiert oder (0, 0).
+inline DashInput ReportedDashInput(int16_t Key, PlanarDirection Raw)
+{
+    const double Length = std::sqrt(Raw.X * Raw.X + Raw.Y * Raw.Y);
+    if (!std::isfinite(Length) || Length < 1e-4)
+        return {Key, 0.f, 0.f};
+    return {Key, static_cast<float>(Raw.X / Length), static_cast<float>(Raw.Y / Length)};
+}
+
+// Host: gemeldete Richtungen je Vorhersageschlüssel. Eine Meldung gilt für genau eine Aktivierung.
+class DashInputBook
+{
+public:
+    void Add(const DashInput& Value, uint64_t Now)
+    {
+        Prune(Now);
+        for (auto& Entry : Entries)
+            if (Entry.Value.Key == Value.Key)
+            {
+                Entry = {Value, Now};
+                return;
+            }
+        if (Entries.size() >= 32)
+            Entries.erase(Entries.begin());
+        Entries.push_back({Value, Now});
+    }
+
+    std::optional<DashInput> Take(int16_t Key, uint64_t Now)
+    {
+        Prune(Now);
+        for (size_t i = 0; i < Entries.size(); ++i)
+            if (Entries[i].Value.Key == Key)
+            {
+                const DashInput Value = Entries[i].Value;
+                Entries.erase(Entries.begin() + i);
+                return Value;
+            }
+        return std::nullopt;
+    }
+
+    size_t Size() const { return Entries.size(); }
+
+private:
+    struct Entry
+    {
+        DashInput Value;
+        uint64_t At = 0;
+    };
+    void Prune(uint64_t Now)
+    {
+        std::erase_if(Entries, [Now](const Entry& Item) { return Now - Item.At > DashInputKeepMs; });
+    }
+    std::vector<Entry> Entries;
 };
 }

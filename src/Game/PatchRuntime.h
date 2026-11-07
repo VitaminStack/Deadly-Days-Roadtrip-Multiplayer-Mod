@@ -58,7 +58,8 @@ bool FollowHostRoundEnd();
 // Diagnose für inventar-transaktion: Mit der Umgebungsvariable DDCOOP_TRACE_INVENTORY=1 protokolliert jeder Aufruf einer
 // Inventar-, Item-, Rucksackfeld- oder Inventar-Panel-Funktion eine Logzeile. Sonst ohne Wirkung.
 void TraceInventoryEvent(uintptr_t Object, uintptr_t Function, void* Params);
-void PrepareRemoteDash(uintptr_t Object, uintptr_t Function);
+// Host: Wahr, wenn die Aktivierung eines Client-Dodges auf seine gemeldete Richtung wartet; dann nicht weiterreichen.
+bool PrepareRemoteDash(uintptr_t Object, uintptr_t Function);
 
 // Server-RPC beim Client lokal ausführen statt senden (inventar-lokal), aus WidgetPatches.cpp. Nur Game Thread.
 void ProcessEventLocal(uintptr_t Object, uintptr_t Function, void* Params);
