@@ -26,3 +26,10 @@ Quelle: SDK-Dump von Build `26187885`, Klassen `UBossComponent`, `UDDBossObjecti
 - **[Offen]** Ob die `BossComponent` beim Client überhaupt `BeginPlay` und die Intro-Kamera ausführt, ob die Lebensleiste dort Werte bekommt,
   und ob `GruntEnemySpawner` (`UBossfightGruntSpawner`) nur beim Host läuft.
 - Nächster Schritt: Boss im Spiel erreichen (`!cheats`, `DA_BossSpawnLookup`, Torboss nach Tag 4), dann `tools/spike/enemy_sync.py` für Boss-Felder erweitern.
+
+**Versuch 1 (07.11.2026, Build 26495302, Spike, Godmode):** Beide Instanzen in `DDDynamic_Map` (`servertravel`, Profil `MGP_HQ8_Boss`).
+Nach `!cheats`, `DD_SetTimeSinceMissionStart 400` und `!wave` gibt es beim Host keinen einzigen `EnemyBase` und keinen Boss
+(`objects.py`: 4 `EnemySpawner`, 0 Gegner), also wieder wie im `boss-dump`. `Start-Session.ps1 -Map /Game/Maps/DDDynamic_Map` lief in
+den Timeout (180 s), die Reise per `servertravel` danach ging. Es gibt keinen `DD_`-Befehl für Bosse (nur `DD_SpawnLootZombie`).
+Zum Boss bleiben: Torboss-Route nach Tag 4 spielen, oder einen Spike-Befehl bauen, der `SpawnSpecificEnemy` mit dem `EnemyType`
+aus `DA_BossSpawnLookup` aufruft.
