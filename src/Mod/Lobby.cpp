@@ -3,6 +3,7 @@
 #include <windows.h>
 
 #include <chrono>
+#include <format>
 #include <memory>
 #include <optional>
 #include <string>
@@ -249,6 +250,75 @@ void Tick()
         UI::Overlay().Publish(ToOverlay(Lobby.Session->Status()));
     }
 }
+}
+
+namespace
+{
+const char* RoleName(Game::NetRole Role)
+{
+    return Role == Game::NetRole::Host ? "host" : Role == Game::NetRole::Client ? "client" : "standalone";
+}
+
+// Zustand für state: Welt aus dem Spiel, Sitzung aus Net::Session. Lobby-ID als Text, sie passt nicht in jede JSON-Zahl.
+std::string DescribeState()
+{
+    using Net::Control::JsonString;
+    std::string Fields;
+    if (const auto World = Game::ReadWorld())
+        Fields += std::format("\"world\":{},\"package\":{},\"role\":\"{}\",\"players\":{},\"clients\":{}", JsonString(World->Map),
+                              JsonString(World->Package), RoleName(World->Role), World->Players, World->Clients);
+    else
+        Fields += "\"world\":null";
+    const auto& Lobby = State();
+    if (!Lobby.Session)
+        return Fields + ",\"session\":\"none\"";
+    const auto Status = Lobby.Session->Status();
+    // Gleicher Zustand wie im Overlay, als feste Kennung für Skripte: unavailable, offline, connecting, lobby, playing, failed.
+    constexpr const char* kStates[] = {"unavailable", "offline", "connecting", "lobby", "playing", "failed"};
+    const auto Overlay = ToOverlay(Status);
+    return Fields + std::format(",\"state\":\"{}\",\"session\":{},\"lobby\":{},\"members\":{},\"ping\":{},\"message\":{},"
+                                "\"canCreate\":{},\"canJoin\":{},\"canInvite\":{},\"canLeave\":{}",
+                                kStates[static_cast<int>(Overlay.State)], JsonString(Net::ToString(Status.Phase)), JsonString(Status.Lobby ? std::to_string(Status.Lobby) : ""),
+                                Status.Members, Status.PingMs, JsonString(Status.Message), Status.CanCreate, Status.CanJoin,
+                                Status.CanInvite, Status.CanLeave);
+}
+
+std::string Done(bool Accepted, const char* Rejected)
+{
+    return Accepted ? Net::Control::OkReply(DescribeState()) : Net::Control::ErrorReply(Rejected);
+}
+}
+
+std::string Execute(const Net::Control::Command& Command)
+{
+    using Net::Control::CommandKind;
+    auto& Lobby = State();
+    if (Command.Kind == CommandKind::State)
+        return Net::Control::OkReply(DescribeState());
+    if (Command.Kind == CommandKind::Console || Command.Kind == CommandKind::Travel)
+    {
+        if (Command.Kind == CommandKind::Travel)
+        {
+            const auto World = Game::ReadWorld();
+            if (!World || World->Role != Game::NetRole::Host)
+                return Net::Control::ErrorReply("travel geht nur als Host");
+        }
+        const std::string Text = Command.Kind == CommandKind::Travel ? Net::Control::TravelConsoleCommand(Command.Text) : Command.Text;
+        Core::Log::Info("Testkanal: Konsole '{}'", Text);
+        return Done(Game::ExecuteConsoleCommand(std::wstring(Text.begin(), Text.end())), "Konsole oder Welt nicht erreichbar");
+    }
+    if (!Lobby.Session)
+        return Net::Control::ErrorReply("Steam noch nicht bereit");
+    // Wie OnAction: danach sofort neu veröffentlichen, damit das Overlay nicht hinterherhinkt.
+    Lobby.NextPublish = {};
+    switch (Command.Kind)
+    {
+    case CommandKind::LobbyCreate: return Done(Lobby.Session->Create(), "Erstellen nicht möglich");
+    case CommandKind::LobbyJoin: return Done(Lobby.Session->Join(Command.Lobby), "Beitreten nicht möglich");
+    case CommandKind::LobbyInvite: return Done(Lobby.Session->Invite(), "Einladen nicht möglich");
+    case CommandKind::LobbyLeave: Lobby.Session->Leave(); return Net::Control::OkReply(DescribeState());
+    default: return Net::Control::ErrorReply("unbekannter Befehl");
+    }
 }
 
 void Install()

@@ -111,6 +111,29 @@ Pro PC läuft nur eine Sitzung, Spielzeit ist der Engpass. Darum:
 | `-Map /Game/Maps/DDDynamic_Map` ohne Mod | – | 37 s |
 | Client nach Absturz wieder verbunden | voller Neustart | 20 s |
 
+### Testkanal der Mod
+
+Jede Sitzung mit `-Mod` startet die Instanzen mit `-ddcoop_control` und vermerkt `Control` in `session.json`. Die Mod öffnet dann die
+Named Pipe `\\.\pipe\ddcoop-ctl-<pid>` (nur lokal, nur der eigene Benutzer, nie im Release ohne den Schalter). Eine Zeile Anfrage, eine
+Zeile JSON-Antwort, Protokoll in [`src/Net/ControlProtocol.h`](../src/Net/ControlProtocol.h):
+
+| Anfrage | Wirkung |
+|---|---|
+| `state` | Welt, Paket, Rolle, Spieler, Clients, Sitzung (`state`, `session`, `lobby`, `members`, `ping`, `message`, `canCreate`, `canJoin`, `canInvite`, `canLeave`) |
+| `lobby create`, `lobby join <id>`, `lobby invite`, `lobby leave` | Dasselbe wie die Overlay-Knöpfe (`Net::Session`) |
+| `console <text>` | Konsolenbefehl des Spiels, etwa `open 127.0.0.1:7778` |
+| `travel <Karte>` | `servertravel <Karte>?listen`, nur als Host |
+
+In `tools/spike/Common.ps1` stehen `Invoke-ModControl` und `Send-ModControl` (roh), `Send-GameConsole` und `Send-GameTravel`
+(Kanal oder Spike). `Get-NetState`, `Get-OverlayState`, `Invoke-OverlayAction`, `Join-HostLobby` und `New-OverlayLobby` nehmen in solchen
+Sitzungen die Pipe statt `netstate.py`, Overlay-Fenster und Befehlsdatei und geben dieselben Felder zurück. Antwortet die Pipe nicht
+(Spiel startet noch), liest `Get-NetState` wie bisher den Speicher. Die Sync-Anzeige für `Test-Desync.ps1` gibt es nur im Fenster
+(`Get-OverlayState -Window`). Ohne Mod und beim Start über Steam (`-SteamLaunch`) bleiben die alten Wege.
+
+Gemessen am 07.11.2026, ein PC, Build 26495302: `Start-Session.ps1 -Mod -Tunnel Lobby -NoSpike` 27 s bis zur MetaBase mit beiden Spielern
+(vorher 28 s), `Restart-Instance.ps1` 16 s (vorher 20 s), `Test-NetEnd.ps1` 50 s mit allen Fällen bestanden (vorher rund eine Minute).
+Spike-Befehle wie `!finish`, `!round`, `!god` und `!tunnel` kennt der Kanal nicht, sie bleiben Sache des Spikes.
+
 ### Mensch und Skript zusammen
 
 Arbeitsteilung: Alles, was sich über Konsole, Befehle oder Skripte lesen oder steuern lässt, erledigt der Agent selbst, auch die Prüfungen

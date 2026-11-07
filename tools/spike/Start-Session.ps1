@@ -137,6 +137,8 @@ function Start-Instance([string]$Name, [int]$X) {
     $UserDir = Join-Path $script:SessionDir "ud_$Name"
     $Arguments = @('-windowed', '-ResX=800', '-ResY=450', "-WinX=$X", '-WinY=0', '-nosplash', "-UserDir=`"$UserDir`"") + (Get-TransportArgument $Name)
     if ($NetSim) { $Arguments += "-ddcoop_netsim=$NetSim" }
+    # Testkanal der Mod (Pipe mit Antworten), siehe Common.ps1 Test-ModControl.
+    if ($Mod) { $Arguments += '-ddcoop_control' }
     # Beide Instanzen laufen unter einem Konto, der Client kommt nur ueber 127.0.0.1. Das erlaubt der Host nur im Testmodus.
     if ($Tunnel -eq 'Lobby' -and $Role -eq 'Both' -and $Name -eq 'host') { $Arguments += '-ddcoop_localtest' }
     Start-Process $Exe -PassThru -ArgumentList $Arguments
@@ -160,7 +162,7 @@ function Connect-ModTransport([int]$ProcessId) {
     Write-Output "Tunnel der Mod: $($Seen -replace '^.*Transport: ', '')"
     # Ohne Spike oeffnet niemand das Spiel zum Tunnel, die Sitzung endet hier.
     if ($NoSpike) { return }
-    Send-SpikeCommand $ProcessId 'open 127.0.0.1:7778'
+    Send-GameConsole $ProcessId 'open 127.0.0.1:7778'
 }
 # Die Fixes fuer den Beitritt (Host 0x5901CE8, Client 0x56B16D9) setzt die Mod beim Spielstart, ein Spike ist dafuer nicht noetig.
 function Join-Lobby([int]$ProcessId, [string]$LobbyId) {
@@ -213,7 +215,7 @@ $LocalIds = @($Local | ForEach-Object { $_.Id })
 # Die Rolle, die auf einem anderen PC laeuft, steht mit Prozess-ID 0 in der Sitzung.
 $HostId = if ($GameHost) { $GameHost.Id } else { 0 }
 $ClientId = if ($Client) { $Client.Id } else { 0 }
-@{ Host = $HostId; Client = $ClientId; Role = $Role; Guard = $Guard.Id; Mod = [bool]$Mod; SteamInstall = [bool]$SteamLaunch; Tunnel = $Tunnel; NetSim = $NetSim; NoSpike = [bool]$NoSpike; Map = $Map; Started = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() } | ConvertTo-Json |
+@{ Host = $HostId; Client = $ClientId; Role = $Role; Guard = $Guard.Id; Mod = [bool]$Mod; Control = [bool]($Mod -and -not $SteamLaunch); SteamInstall = [bool]$SteamLaunch; Tunnel = $Tunnel; NetSim = $NetSim; NoSpike = [bool]$NoSpike; Map = $Map; Started = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() } | ConvertTo-Json |
     Set-Content (Join-Path $script:SessionDir 'session.json') -Encoding ascii
 Write-SessionLock $HostId $ClientId | Set-Content $script:LockFile -Encoding ascii
 
@@ -241,7 +243,7 @@ if ($Godmode) {
 $HostHasClient = { (Get-NetState $GameHost.Id).clients -ge 1 }
 
 if ($GameHost -and $Tunnel -notin 'Lobby') {
-    Send-SpikeCommand $GameHost.Id 'open /Game/Maps/MainMenu?listen'
+    Send-GameConsole $GameHost.Id 'open /Game/Maps/MainMenu?listen'
     Wait-Condition { (Get-NetState $GameHost.Id).role -eq 'host' } 'Host lauscht' 60 $LocalIds
     Start-Sleep -Seconds 2
 }
@@ -252,7 +254,7 @@ if ($GameHost -and $Tunnel -eq 'Lobby') {
 }
 if ($Role -eq 'Both') {
     if ($Tunnel -eq 'None') {
-        Send-SpikeCommand $Client.Id 'open 127.0.0.1:7777'
+        Send-GameConsole $Client.Id 'open 127.0.0.1:7777'
     }
     elseif ($Tunnel -eq 'Mod') {
         Connect-ModTransport $Client.Id | Out-Null
@@ -265,7 +267,7 @@ if ($Role -eq 'Both') {
         Start-Sleep -Seconds 2
         Send-SpikeCommand $Client.Id $(if ($Tunnel -eq 'Ip') { '!tunnel join ip' } else { '!tunnel join self' })
         Start-Sleep -Seconds 8
-        Send-SpikeCommand $Client.Id 'open 127.0.0.1:7778'
+        Send-GameConsole $Client.Id 'open 127.0.0.1:7778'
     }
     Wait-Condition $HostHasClient 'Client beim Host angekommen' 120 $LocalIds
     Wait-Condition { (Get-NetState $Client.Id).players -ge 2 } 'Client sieht beide Spieler' 60 $LocalIds
@@ -302,7 +304,7 @@ else {
         if ("$Seen" -match 'abgelehnt|beendet') {
             throw "Tunnel zum Host nicht aufgebaut: $Seen Stimmt die SteamID, laeuft der Host schon mit -Tunnel P2p?"
         }
-        Send-SpikeCommand $Client.Id 'open 127.0.0.1:7778'
+        Send-GameConsole $Client.Id 'open 127.0.0.1:7778'
     }
     elseif ($Tunnel -eq 'Mod') {
         Connect-ModTransport $Client.Id
@@ -321,7 +323,7 @@ else {
         Join-Lobby $Client.Id $Peer
     }
     else {
-        Send-SpikeCommand $Client.Id "open $Peer"
+        Send-GameConsole $Client.Id "open $Peer"
     }
     $Target = ($Map -split '/')[-1]
     Write-Output "Warte bis zu $JoinTimeoutSeconds s, bis der Host nach $Target reist ..."
@@ -331,7 +333,7 @@ else {
 # Reise nur, wenn der Host nicht schon dort ist. Die Lobby macht ihn selbst zum Listen-Server in der MetaBase.
 $Target = ($Map -split '/')[-1]
 if ($GameHost -and (Get-NetState $GameHost.Id).world -ne $Target) {
-    Send-SpikeCommand $GameHost.Id "servertravel $Map`?listen"
+    Send-GameTravel $GameHost.Id $Map
     Wait-Condition {
         $HostState = Get-NetState $GameHost.Id
         if ($HostState.world -ne $Target -or $HostState.players -lt 2) { return $false }

@@ -8,8 +8,8 @@ $ReportDir = Join-Path $script:SessionDir ('desync-' + (Get-Date -Format 'yyyyMM
 New-Item -ItemType Directory -Path $ReportDir -Force | Out-Null
 $Journal = Join-Path $ReportDir 'observations.jsonl'
 function Read-Diagnostics {
-    $H = (Get-OverlayState $HostId).Diagnostics
-    $C = (Get-OverlayState $ClientId).Diagnostics
+    $H = (Get-OverlayState $HostId -Window).Diagnostics
+    $C = (Get-OverlayState $ClientId -Window).Diagnostics
     @{ at = (Get-Date).ToUniversalTime().ToString('o'); host = $H; client = $C } |
         ConvertTo-Json -Compress | Add-Content -Encoding UTF8 $Journal
     @($H, $C)
