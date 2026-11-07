@@ -1,5 +1,6 @@
 """Installer und Release-Paket ohne Spiel und Steam: nachgebauter Steam-Ordner in einem Temp-Verzeichnis."""
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import tempfile
@@ -19,6 +20,25 @@ NO_PROCESS = 'DDCoopInstallerTestNoSuchProcess'
 def run_ps(script, *args):
     return subprocess.run([POWERSHELL, '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', str(script), *args],
                           capture_output=True, text=True, timeout=120)
+
+
+def builds_in(path, pattern):
+    return re.findall(pattern, path.read_text(encoding='utf-8-sig'))
+
+
+# Der Installer laeuft ohne Repo und fuehrt die Liste selbst. Sie muss zu Mod (Core/Version.cpp) und Testskripten passen.
+SUPPORTED_BUILDS = sorted(set(builds_in(ROOT / 'src/Core/Version.cpp', r'SupportedBuild\{(\d{8}),')))
+
+
+class SupportedBuildListTests(unittest.TestCase):
+    def test_installer_and_scripts_match_mod(self):
+        self.assertGreaterEqual(len(SUPPORTED_BUILDS), 1)
+        installer = re.search(r"\$SupportedBuilds = @\(([^)]*)\)", INSTALLER.read_text(encoding='utf-8-sig'))
+        common = re.search(r"\$script:SupportedBuilds = @\(([^)]*)\)", (ROOT / 'tools/spike/Common.ps1').read_text(encoding='utf-8-sig'))
+        self.assertIsNotNone(installer)
+        self.assertIsNotNone(common)
+        self.assertEqual(sorted(re.findall(r"'(\d{8})'", installer.group(1))), SUPPORTED_BUILDS)
+        self.assertEqual(sorted(re.findall(r"'(\d{8})'", common.group(1))), SUPPORTED_BUILDS)
 
 
 @unittest.skipUnless(POWERSHELL, 'PowerShell fehlt')
@@ -97,6 +117,14 @@ class InstallerTests(unittest.TestCase):
             self.assert_failed(self.install(*args), 'Fremde version.dll')
             self.assertEqual((self.win64 / 'version.dll').read_bytes(), b'MZ other mod')
         self.assertFalse((self.win64 / 'DDCoop').exists())
+
+    def test_every_supported_build_installs(self):
+        for build in SUPPORTED_BUILDS:
+            with self.subTest(build=build):
+                self.write_manifest(build)
+                result = self.install()
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual((self.win64 / 'DDCoop/DDCoop.dll').read_bytes(), b'MZ mod v2')
 
     def test_wrong_build_rejected(self):
         self.write_manifest('99999999')

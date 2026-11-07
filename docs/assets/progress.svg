@@ -72,19 +72,19 @@
       <path d="M0 388H1000" stroke="#d1d5db"/>
       <text x="20" y="370">6</text>
       <text x="125" y="370">Veröffentlichung</text>
-      <text x="490" y="370">6 von 10</text>
+      <text x="490" y="370">7 von 11</text>
       <rect x="630" y="355" width="200" height="18" rx="4" fill="#e5e7eb"/>
-      <rect x="630" y="355" width="120" height="18" rx="4" fill="#64748b"/>
-      <text x="846" y="370">60 %</text>
+      <rect x="630" y="355" width="127" height="18" rx="4" fill="#64748b"/>
+      <text x="846" y="370">63 %</text>
     </g>
     <g id="phase-gesamt">
       <rect y="388" width="1000" height="48" fill="#f3f4f6"/>
       <path d="M0 436H1000" stroke="#d1d5db"/>
       <text x="20" y="418">Gesamt</text>
       <text x="125" y="418"></text>
-      <text x="490" y="418">111 von 127</text>
+      <text x="490" y="418">112 von 128</text>
       <rect x="630" y="403" width="200" height="18" rx="4" fill="#e5e7eb"/>
-      <rect x="630" y="403" width="174" height="18" rx="4" fill="#64748b"/>
+      <rect x="630" y="403" width="175" height="18" rx="4" fill="#64748b"/>
       <text x="846" y="418">87 %</text>
     </g>
   </g>
