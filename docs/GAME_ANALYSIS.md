@@ -1646,6 +1646,37 @@ sind das Mod-Log und der Speicher des Hosts, nur lesend; das Client-Log lag bei 
   3), neun direkte Aufrufer. `lager-absturz-client` überspringt sie ohne Item, und der Host wartet bei stummem Client bis zum
   Verbindungsabbau, siehe [Lager am Rundenende](../src/Game/README.md).
 
+### Live-Test auf zwei PCs am 07.11.2026 (`livetest-0711`)
+
+Build `26495302`, Mod-Stand `main` `49e0194` (nach `update-inventar`, #155), nur Mod (`-Mod -Tunnel Lobby -NoSpike`), zwei Haushalte
+über das Steam-Relay (Frankfurt), Ping 40 bis 43 ms, kein Paketverlust. Je PC eine Rolle, zwei Menschen. Ablauf mit
+`Guided-Test.ps1` beim Client (16 Schritte, 14 ok, 2 mit Abweichung), beim Host Statusaufzeichnung und Mod-Log. Zeiten in MEZ.
+Ausgewertet: Mod-Logs beider Seiten, Overlay-Verlauf, `crashes.py` beider Seiten. Keine Absturzberichte auf beiden PCs.
+
+- **[Belegt] Alle Patches auf dem neuen Build.** Beide Seiten „Patches: 43 gesetzt“, alle 13 Listen ohne `-PartialPatches`. Der Client
+  trat der Lobby ohne Host-Absturz bei (früher `0x5904DE8`), der Handshake bestätigte Build, Mod-Version und Rolle.
+- **[Belegt] Drei Rundenenden ohne Absturz.** Tag 1, Tag 2 und nach dem Wiederbeitritt ein drittes. Der Client öffnete Rundenübersicht
+  und Lager jeweils selbst, „Bestätigen wartet auf alle“. Der frühere Client-Absturz beim Rundenende auf `26495302` (`0x59677FD`) trat nicht auf.
+- **[Belegt] Dodge des Clients.** 40 Dodges des Clients kamen beim Host mit Richtung an, keiner mit (0,0). Der Mensch am Client sah kein
+  Rutschen, die Ausdauer sank wie beim Host, Richtungswechsel und gedrückt gehaltene Taste verhielten sich wie beim Host, beide Figuren
+  bewegten sich beim jeweils anderen ohne Sprünge. Zwei Abbrüche durch den Host setzte der Client sofort zurück („Reparatur 1/2“).
+  Hinweis: Der Host setzte 8-mal hängende Dodge-Werte der Client-Figur zurück, die Reparatur griff jedes Mal. Im Client-Log stehen
+  Dodges oft paarweise im Abstand von etwa 70 ms, ohne dass der Mensch einen doppelten Dodge bemerkte; Ursache nicht untersucht.
+- **[Belegt] Airdrops.** 5 Dodges in bzw. durch Airdrops auf beiden Seiten ohne Absturz. Der abgesicherte Fall in `SetupInventory`
+  (kein Inventar) trat nicht auf, darum keine Aufrufer-RVA. Belohnungswahl beim Client: Edit vom Host übernommen, Item bei beiden gleich.
+- **[Belegt] Inventar kurz abweichend.** Der Desync-Melder meldete dreimal `ABWEICHUNG Inventar`, jeweils während einer Airdrop-Auswahl
+  oder beim Umlegen im Lager, und war nach etwa 10 s wieder `OK`. Keine dauerhafte Abweichung wie am 06.11.
+- **[Gemeldet] Verkaufen und Reparieren im Lager gehen beim Client nicht**, beim Host schon. Items verschieben geht. Am Rundenende lassen
+  sich beim Client nicht reparierte Items nicht ausrüsten. Offen, ob das Spiel kaputte Items auch beim Host sperrt. Neue Aufgabe `lager-handel-client`.
+- **[Belegt] Client im Lager hart beendet.** 11:43:41 Prozess des Clients beendet. Der Host erkannte den stummen Client um 11:43:50 und
+  wartete; auch nach seinem eigenen Bestätigen (11:43:56) meldete er nicht „alle bereit“. Erst nach dem Verbindungsabbau (Timeout
+  11:43:58) ging er allein weiter.
+- **[Belegt] Wiederbeitritt in die laufende Mission.** Mit derselben Lobby-ID trat der neu gestartete Client direkt der laufenden Mission
+  bei, nicht der MetaBase. Der Host reichte das Rundenende nach, der Client stand wieder im Lager („Bestätigen nachgeholt (alle bereit)“).
+  `Start-Session.ps1 -Role Client` wartet danach weiter auf die MetaBase und muss abgebrochen werden.
+- **[Belegt] Host beendet im Lager.** 11:47 beendete der Host über das Menü: Spielstand gespeichert, Lobby geschlossen. Der Client meldete
+  „Spiel läuft ohne Host“, „Der Host hat die Sitzung verlassen“ und landete ohne Absturz im Hauptmenü.
+
 ### Steam-Lobby über das Internet (`lobby-live`)
 
 Ausgewertet aus den Mod-Logs beider Sitzungen vom 06.11.2026 (siehe oben), ohne eigenen Termin. Zwei Steam-Konten in zwei Haushalten,
