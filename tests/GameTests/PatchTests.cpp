@@ -488,6 +488,35 @@ TEST_CASE("Patches: Restrictor-Wächter bremst ohne GameState nicht und stürzt 
     }
 }
 
+TEST_CASE("Bewegung: Tempo der eigenen Figur folgt dem Attribut (tod-client)")
+{
+    // Erster Wert wird übernommen, auch volles Tempo.
+    CHECK(WalkSpeedToApply(std::nullopt, 630.f, 630.f) == 630.f);
+    // Tod: Kriechtempo vom Host, danach Wiederbelebung zurück auf volles Tempo.
+    CHECK(WalkSpeedToApply(630.f, 630.f, 63.f) == 63.f);
+    CHECK(WalkSpeedToApply(63.f, 630.f, 630.f) == 630.f);
+    // Unverändertes Attribut: nichts schreiben, andere lokale Schreiber bleiben unberührt.
+    CHECK_FALSE(WalkSpeedToApply(63.f, 630.f, 63.f));
+    CHECK_FALSE(WalkSpeedToApply(63.f, 630.f, 63.005f));
+    // Stillstand durch das Spiel ist erlaubt, wenn das Attribut initialisiert ist.
+    CHECK(WalkSpeedToApply(630.f, 630.f, 0.f) == 0.f);
+    // Nicht initialisiert oder Datenmüll: nie anwenden, sonst stünde die Figur still oder raste.
+    CHECK_FALSE(WalkSpeedToApply(std::nullopt, 0.f, 0.f));
+    CHECK_FALSE(WalkSpeedToApply(std::nullopt, 630.f, -1.f));
+    CHECK_FALSE(WalkSpeedToApply(std::nullopt, 630.f, 1.0e6f));
+    CHECK_FALSE(WalkSpeedToApply(std::nullopt, 630.f, std::numeric_limits<float>::quiet_NaN()));
+    CHECK_FALSE(WalkSpeedToApply(std::nullopt, std::numeric_limits<float>::quiet_NaN(), 630.f));
+}
+
+TEST_CASE("Bewegung: tote eigene Figur dodgt beim Client nicht (tod-client)")
+{
+    CHECK(OwnDashBlockedByDeath(0.f, 100.f));
+    CHECK(OwnDashBlockedByDeath(-5.f, 100.f));   // Überschaden
+    CHECK_FALSE(OwnDashBlockedByDeath(50.f, 100.f)); // wiederbelebt mit halben HP
+    CHECK_FALSE(OwnDashBlockedByDeath(0.f, 0.f));    // Attribut noch nicht initialisiert
+    CHECK_FALSE(OwnDashBlockedByDeath(std::numeric_limits<float>::quiet_NaN(), 100.f));
+}
+
 TEST_CASE("Bewegung: Dodge-Werte und Figur ohne Bewegungsmodus erkennen")
 {
     CHECK(DashSettingsLeft(0.f, 20.f));

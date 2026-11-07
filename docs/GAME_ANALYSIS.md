@@ -958,6 +958,59 @@ beim Öffnen einer Airdrop-Auswahl in `InventoryPanel.SetupInventory` ab (`0x5A8
 `airdrop-dodge-absturz` und nicht dieser Weg. **Nicht geprüft:** zwei PCs über echtes Internet, Gefühl von Weite und
 Abbremsen durch einen Menschen, mehr als ein Client.
 
+### Tod des Clients (`tod-client`)
+
+Gemeldet aus dem Live-Spiel auf zwei PCs am 07.11.2026: Beim Host blieb eine tote Client-Figur liegen, beim Client ließ sie
+sich weiter steuern. Untersucht am selben Tag, Build `26495302`, ein PC, nur die Mod (`-NoSpike`, auf diesem Build gibt es
+keinen Spike und keine Cheats), Tag 1. Ein Mensch spielte die Tode, eine lesende Probe las alle 0,5 s beide Figuren in beiden
+Instanzen über die Reflexion (HP, Tempo-Attribut, `MaxWalkSpeed`, Ort, Tempo).
+
+- **[Belegt] Tod heißt im Spiel niedergestreckt, nicht gesperrt.** Der Host setzt beim Tod das replizierte Attribut
+  `UCommonAttributeSet.MovementSpeed` von 630 auf ein Zehntel (35 bis 63), die Figur kriecht. An der Todesstelle legt er den
+  replizierten Lootspot `BP_EnvironmentObjectLootspot_ReviveVariant_C` an, dazu `BP_Revive_Player_Interactable_C` (nicht
+  repliziert). Steht der andere Spieler lange genug dort, füllt sich ein Balken, die Figur steht mit halben HP wieder auf.
+  Stirbt der letzte Spieler (`LastOneToDie`), folgt die Niederlage wie unter [Niederlage](#niederlage-niederlage).
+- **[Belegt] Ursache des Bugs:** `MaxWalkSpeed` folgt dem Attribut nur beim Host (`OnMovementSpeedChanged_Server`). Beim
+  Client kam 630/63 richtig an, seine Bewegungskomponente blieb aber auf dem Startwert 600. Er lief tot mit voller Geschwindigkeit
+  weiter, und weil der Host die Position des Clients annimmt (`bServerAcceptClientAuthoritativePosition`), wanderte die
+  kriechende Kopie beim Host mit (rund 500 Einheiten in wenigen Sekunden).
+- **[Belegt] Dodge im Tod:** Der Host lehnt `GA_Dash` eines toten Spielers nativ ab (keiner der Dodges kam beim Host an).
+  Die Vorhersage des Clients lief trotzdem: sieben Dodges in 0,1 s trugen die tote Figur rund 2500 Einheiten weit.
+- **[Belegt] Nebenbei:** Auch lebend zeigte der Client 600 statt 630. Dieselbe Ursache gilt vermutlich für die Tempo-Unterschiede
+  aus `opt-tempo-upgrades`; nach dem Fix trägt der Client auch die Trefferbremse (504, 353) mit.
+- `IsDowned` (`BP_DD_Character_C`) stand auch bei lebenden Figuren auf 1 und taugt nicht als Merkmal; verlässlich sind die HP.
+
+**In der Mod** (`src/Game/MovementPatches.cpp`, nur Client, eigene Figur), keine neue Nachricht, der Host entscheidet allein über
+Tod und Wiederbelebung:
+
+| Fall | Verhalten |
+|---|---|
+| Replizierter Wert von `MovementSpeed` ändert sich | `MaxWalkSpeed` der eigenen Figur auf diesen Wert, wie der native Delegate beim Host; nur bei Änderung, ungültige oder nicht initialisierte Werte bleiben unberührt |
+| `GA_Dash.K2_ActivateAbility` der eigenen Figur bei replizierten HP 0 | Aktivierung nicht ausführen und nicht melden; die native Ablehnung des Hosts beendet sie |
+
+Die Position des Clients nimmt der Host weiter an, auch im Tod: Das Kriechen ist natives Verhalten, und beide Seiten nutzen jetzt
+dasselbe Tempo. Eine volle Sperre wäre eine Abweichung vom Spiel.
+
+**Im Spiel danach** (drei Sitzungen, Mensch am Spiel):
+
+| Prüfung | Ergebnis |
+|---|---|
+| Toter Client beim Client | kriecht mit 31 bis 63, in 22 s rund 80 Einheiten |
+| Toter Client beim Host | Kopie am selben Ort, kein Mitwandern |
+| Dodge im Tod | über 20 Aktivierungen zurückgehalten, keine Bewegung, keine beim Host |
+| Einsammeln oder Auslösen im Tod | nichts eingesammelt (Mensch) |
+| Wiederbelebung durch den Host | HP 50, Tempo 630, Laufen und Dodge normal, Host führte die Dodges aus |
+| Niederlage (beide tot) | Wertung, „Zurück zur Basis“, beide verbunden in der `MetaBase`, kein Absturz |
+| Gegenprobe | Airdrop des Clients, Dodges, Kanister, Rundenende, Lager mit Bestätigen bei beiden, Routenkarte Tag 2 |
+
+- **[Belegt] Eigener Fehler, nicht von diesem Fix:** Rund 12 Minuten nach Missionsstart stürzte der Client ab
+  (`EXCEPTION_ACCESS_VIOLATION reading 0x348`, Build `26495302` bei `0x15C0407`, Aufrufer `0x5870F4D`). `UReaperComponent`
+  liest beim Start `ADDMissionGameMode` (`+0x188`) und bindet ohne Nullprüfung `OnNewPlayerSpawned` (`+0x340`); den GameMode gibt
+  es beim Client nicht. Der Host stürzte 22 s später ab, nachdem der Client weg war. **Vermutung:** Der Sensenmann erscheint nach
+  einer festen Zeit (`MinutesUntilReaper`), jeder Client stürzt dann ab. Das ist eine eigene Aufgabe.
+- **Nicht geprüft:** zwei PCs über das Internet, Tod in Bosskämpfen, Wiederbelebung über Items (`ItemEffectReviveAndDestroy`),
+  Tod des Hosts bei lebendem Client mit Wiederbelebung durch den Client, mehr als ein Client.
+
 ### Client-Absturz im Restrictor (`tick-absturz`)
 
 Stand: Disassembly und Spieltest am 02.11.2026, Build `26187885`.
