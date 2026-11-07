@@ -272,7 +272,14 @@ Stand 04.11.2026, Build `26187885`. Der Tunnel trägt neben dem Spielverkehr die
 | Test | Ergebnis |
 |---|---|
 | Ein PC, `-Tunnel Ip`, Seed `20795`, Tag 1 | **[Belegt]** Host schickt die Karte, Client empfängt sie (`schon aktuell`), übernimmt Seed und Profil, Inventare gleich, 0 verworfene Pakete |
-| Zwei PCs, P2P | Offen, braucht den zweiten PC |
+| Zwei PCs, P2P | Nicht mehr einzeln geprüft, abgelöst (siehe unten) |
+
+**Abschluss 07.11.2026.** Seit `missionsstart` überträgt die Mod die Host-Karte selbst über ihren Kontrollkanal (`0x400`, siehe
+[Gleiche Karte in der Mod](../../../docs/GAME_ANALYSIS.md#gleiche-karte-in-der-mod-missionsstart)); mit der Mod lässt sich der Spike-Tunnel
+nicht mehr nutzen. Beim [Live-Test auf zwei PCs am 06.11.2026](../../../docs/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-06112026-livetest-befunde)
+über das Steam-Relay standen laut Nutzer beide Figuren normal auf dem Boden, beide sahen dieselbe Karte, Tag 1 und 2 wurden gespielt
+(**[Gemeldet]**). Mod-Logs mit „Karte: Werte … an den Client gesendet“ aus diesem Lauf lagen bei der Auswertung nicht vor. Die
+Abnahme über zwei PCs gilt damit als erfüllt; `integration-g2` prüft dasselbe über zehn Minuten erneut.
 
 ## Bekannte Abweichungen
 
