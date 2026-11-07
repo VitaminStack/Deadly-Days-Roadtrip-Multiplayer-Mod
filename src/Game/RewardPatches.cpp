@@ -47,6 +47,12 @@ constexpr uintptr_t MemoryFree = 0x12F8400;
 // UInventoryComponent::UpgradeItems, Exec-Thunk 0x571DA70. Rufen InventoryPanel.UpgradeDroppedItem (0x5A98490) und
 // UpgradeItemToNextLevelAndReEquip (0x5980900) direkt (werkbank-client).
 constexpr uintptr_t UpgradeItems = 0x5980AE0;
+// UInventoryComponent::HandleItemSold, Exec-Thunk 0x57128B0. Ruft ItemRepresentation.ConfirmSell (0x5AA2F60) nach der lokalen
+// Gutschrift (AbstractCurrency::AddAmount) direkt; nimmt das Item über die Inventar-RPCs heraus (lager-handel-client).
+constexpr uintptr_t HandleItemSold = 0x5967900;
+// ADDMissionGameState.ScrapWallet, UAbstractCurrency.CurrencyAmount
+constexpr uintptr_t GameStateScrapWallet = 0x3C0;
+constexpr uintptr_t CurrencyAmount = 0x100;
 // URarity.NextUpgradableRarity
 constexpr uintptr_t RarityNext = 0x58;
 
@@ -81,10 +87,13 @@ using CreateFn = uintptr_t(__fastcall*)(uintptr_t, uintptr_t, bool, uintptr_t);
 using FreeFn = void(__fastcall*)(void*);
 // UInventoryComponent::UpgradeItems(this, const TArray& Inputs, Data, Rarity, FlagAsNew, Position), nativ
 using UpgradeFn = uintptr_t(__fastcall*)(uintptr_t, ItemArray*, uintptr_t, uintptr_t, bool, int32_t);
+// UInventoryComponent::HandleItemSold(this, Item), nativ
+using SoldFn = void(__fastcall*)(uintptr_t, uintptr_t);
 SetRewardsFn OriginalSetRewards = nullptr;
 ConfirmFn OriginalConfirm = nullptr;
 ConfirmFn OriginalSetupInventory = nullptr;
 UpgradeFn OriginalUpgrade = nullptr;
+SoldFn OriginalSold = nullptr;
 
 std::atomic<bool> RemoteReady = false;
 
@@ -127,6 +136,7 @@ struct
 // Client: gesendeter Edit bis zur Antwort des Hosts.
 std::optional<Game::InventoryEdit::Edit> ClientPending;
 // Client, werkbank-client: Die erste Aufwertung im Lager hat eine lokale Bearbeitung begonnen, sie endet mit dem Bestätigen.
+// lager-handel-client: ebenso der erste Verkauf oder die erste Reparatur.
 uint64_t LagerEdit = 0; // Id des Rundenendes, 0 ohne
 constexpr uintptr_t ItemPivotTile = 0x28;
 constexpr uint32_t FuncNet = 0x40;
@@ -493,7 +503,8 @@ void __fastcall ConfirmHook(uintptr_t Panel)
         SetReadyTint(Panel, true);
         return;
     }
-    // werkbank-client: Hat der Client im Lager aufgewertet, geht die lokale Bearbeitung beim Bestätigen als Edit an den Host.
+    // werkbank-client, lager-handel-client: Hat der Client im Lager aufgewertet, verkauft oder repariert, geht die lokale Bearbeitung
+    // beim Bestätigen als Edit an den Host.
     // Bis zur Antwort bleibt das Bestätigen zurückgehalten (HoldRoundEndConfirm, ClientRoundEnd).
     if (CurrentRole() == NetRole::Client && LagerEdit && LagerEdit == End.Id && Game::InventoryEdit::ClientEditing() && !ClientPending)
     {
@@ -501,11 +512,45 @@ void __fastcall ConfirmHook(uintptr_t Panel)
             return;
         LagerEdit = 0;
         ClientPending = Game::InventoryEdit::FinishClient(0, 0, std::nullopt, 0);
-        Core::Log::Info("Lager: Client bestätigt nach Aufwertung, Edit {}", ClientPending ? std::to_string(ClientPending->Id) : std::string("ohne Änderung"));
+        Core::Log::Info("Lager: Client bestätigt nach lokaler Bearbeitung, Edit {}", ClientPending ? std::to_string(ClientPending->Id) : std::string("ohne Änderung"));
     }
     if (HoldRoundEndConfirm(Panel))
         return;
     OriginalConfirm(Panel);
+}
+
+// Client: Im Lager beginnt die erste Aufwertung (werkbank-client), der erste Verkauf oder die erste Reparatur (lager-handel-client)
+// eine lokale Bearbeitung, die bis zum Bestätigen läuft. Vorher bleibt das Lager bei den nativen RPCs (rundenende-client).
+void BeginLagerEdit(uintptr_t Inventory, const char* What)
+{
+    const bool InLager = End.Id && End.Done != End.Id && !End.HeldPanel;
+    if (Game::InventoryEdit::ClientEditing() || !InLager || ClientPending || !Shown.Items.empty() || !Inventory ||
+        Inventory != InventoryOfController(LocalController()))
+        return;
+    Game::InventoryEdit::BeginClient(Inventory, {}, LocalController());
+    LagerEdit = End.Id;
+    Core::Log::Info("Lager: {} beim Client, Lager wird lokal bearbeitet bis zum Bestätigen", What);
+}
+
+// lager-handel-client: HandleItemSold beim Client. ItemRepresentation.ConfirmSell schreibt den Preis lokal gut und ruft es
+// direkt; es nimmt das Item über die Inventar-RPCs heraus (RemoveFromInventory mit SoldForScrap). Ohne Eingriff entfernte der
+// Host das Item, ohne Schrott zu buchen. Jetzt läuft es nur in einer lokalen Bearbeitung: Der Edit meldet den Verkauf, der Host
+// prüft und bucht. Die lokale Gutschrift ist nur Vorschau, danach gilt wieder der Schrott des Hosts (ApplyScrap).
+void __fastcall SoldHook(uintptr_t Inventory, uintptr_t Item)
+{
+    if (CurrentRole() == NetRole::Client)
+    {
+        BeginLagerEdit(Inventory, "Verkauf");
+        if (!Game::InventoryEdit::ClientEditingInventory(Inventory))
+        {
+            // Außerhalb einer Bearbeitung (etwa ohne Rundenende) verkauft der Client nicht: Der Host buchte keinen Schrott.
+            Core::Log::Warn("Verkauf beim Client außerhalb einer Bearbeitung verworfen ({}, Aufrufer {:#x})", Memory::NameOf(Pointer(Item + ItemData)),
+                            reinterpret_cast<uintptr_t>(_ReturnAddress()) - reinterpret_cast<uintptr_t>(GetModuleHandleW(nullptr)));
+            return;
+        }
+        Core::Log::Info("Verkauf beim Client lokal: {}", Memory::NameOf(Pointer(Item + ItemData)));
+    }
+    OriginalSold(Inventory, Item);
 }
 
 // werkbank-client: UpgradeItems beim Client. Ablegen auf ein gleiches Item und die Werkbank rufen es direkt, es legt die
@@ -520,13 +565,7 @@ uintptr_t __fastcall UpgradeHook(uintptr_t Inventory, ItemArray* Inputs, uintptr
     for (int32_t i = 0; Inputs && Inputs->Data && i < Inputs->Count && i < 16; ++i)
         In.push_back(Inputs->Data[i]);
     const uintptr_t Caller = reinterpret_cast<uintptr_t>(_ReturnAddress()) - reinterpret_cast<uintptr_t>(GetModuleHandleW(nullptr));
-    const bool InLager = End.Id && End.Done != End.Id && !End.HeldPanel;
-    if (!Game::InventoryEdit::ClientEditing() && InLager && !ClientPending && Shown.Items.empty() && Inventory == InventoryOfController(LocalController()))
-    {
-        Game::InventoryEdit::BeginClient(Inventory, {}, LocalController());
-        LagerEdit = End.Id;
-        Core::Log::Info("Lager: Aufwertung beim Client, Lager wird lokal bearbeitet bis zum Bestätigen");
-    }
+    BeginLagerEdit(Inventory, "Aufwertung");
     if (!Game::InventoryEdit::ClientEditingInventory(Inventory))
     {
         Core::Log::Warn("Aufwertung beim Client außerhalb einer Bearbeitung ({} Eingaben, Aufrufer {:#x}), läuft nativ", In.size(), Caller);
@@ -663,9 +702,21 @@ bool ApplyUpgrade(Code::Writer&)
     return Core::Hooks::Install(reinterpret_cast<void*>(At(UpgradeItems)), reinterpret_cast<void*>(&UpgradeHook),
                                 reinterpret_cast<void**>(&OriginalUpgrade));
 }
+bool CheckSold()
+{
+    // Beide Builds gleich: Prolog, dann xor r8d,r8d; mov rbx,rdx; mov rdi,rcx vor RemoveFromBackpack.
+    return Code::Expect(At(HandleItemSold), {0x48, 0x89, 0x5C, 0x24, 0x08, 0x57, 0x48, 0x83, 0xEC, 0x20, 0x45, 0x33, 0xC0, 0x48, 0x8B, 0xDA},
+                        "InventoryComponent::HandleItemSold");
+}
+bool ApplySold(Code::Writer&)
+{
+    return Core::Hooks::Install(reinterpret_cast<void*>(At(HandleItemSold)), reinterpret_cast<void*>(&SoldHook),
+                                reinterpret_cast<void**>(&OriginalSold));
+}
 const Patch List[] = {
     {"Airdrop-Auswahl: Choices des Hosts mitlesen", CheckSetRewards, ApplySetRewards},
     {"Aufwerten beim Client nur in lokaler Bearbeitung, Host übernimmt", CheckUpgrade, ApplyUpgrade},
+    {"Verkaufen beim Client nur in lokaler Bearbeitung, Host bucht", CheckSold, ApplySold},
     {"Airdrop-Auswahl: Bestätigen bis zur Wahl des Partners halten", CheckConfirm, ApplyConfirm},
     {"Airdrop-Auswahl: Rucksack-Anzeige aus replizierten Feldern aufbauen", CheckSetupInventory, ApplySetupInventory},
 };
@@ -698,10 +749,37 @@ bool NullItemRpc(uintptr_t Function, void* Params)
     return false;
 }
 
+// lager-handel-client, Host: RepairItem am Inventar des Clients kommt nur noch aus dem Edit (HostApplyingEdit). Ein direkter
+// Aufruf vom Client reparierte ohne Schrott, denn der Client hatte nur lokal abgezogen; er wird verworfen. Das eigene Inventar
+// des Hosts bleibt unberührt.
+bool HostApplyingEdit = false;
+bool ClientTradeRpc(uintptr_t Object, uintptr_t Function)
+{
+    static uintptr_t Repair = 0;
+    if (!Function || Function != Function_(Repair, "RepairItem") || HostApplyingEdit)
+        return false;
+    uintptr_t Coop = 0, HostController = 0, Remote = 0;
+    if (!BoundRemoteP2(Coop, HostController, Remote) || Object != InventoryOfController(Remote))
+        return false;
+    Core::Log::Warn("Reparatur: RepairItem direkt vom Client verworfen, Reparaturen kommen im Edit");
+    return true;
+}
+
 bool FilterRewardEvent(uintptr_t Object, uintptr_t Function, void* Params)
 {
     if (CurrentRole() == NetRole::Host)
-        return RemoteReady.load(std::memory_order_relaxed) && NullItemRpc(Function, Params);
+        return RemoteReady.load(std::memory_order_relaxed) && (NullItemRpc(Function, Params) || ClientTradeRpc(Object, Function));
+    // lager-handel-client: ItemRepresentation.ConfirmRepair zieht den Preis lokal ab und schickt dann RepairItem. Im Lager beginnt
+    // die erste Reparatur eine lokale Bearbeitung, RouteClientRpc führt sie dann lokal aus und der Edit meldet sie.
+    static uintptr_t Repair = 0;
+    if (Function && Function == Function_(Repair, "RepairItem") && !Game::InventoryEdit::ClientEditing())
+        BeginLagerEdit(Object, "Reparatur");
+    if (Function && Function == Repair && !Game::InventoryEdit::ClientEditingInventory(Object))
+    {
+        // Außerhalb einer Bearbeitung reparierte der Host ohne Schrott. Der Client behält das Item kaputt.
+        Core::Log::Warn("Reparatur beim Client außerhalb einer Bearbeitung verworfen");
+        return true;
+    }
     return Game::InventoryEdit::RouteClientRpc(Object, Function, Params);
 }
 
@@ -766,6 +844,75 @@ uintptr_t RewardCharacter(uintptr_t Character)
         return Character;
     Core::Log::Info("Airdrop-Auswahl: Kiste vom Remote-Spieler geöffnet, Auswahl über die Figur des Hosts");
     return HostPawn;
+}
+
+namespace
+{
+// lager-handel-client: Schrottkonto der Mission (ADDMissionGameState.ScrapWallet, dasselbe holt der native Getter am
+// Inventar), 0 außerhalb einer Mission.
+uintptr_t ScrapWallet()
+{
+    const uintptr_t World = CurrentWorld();
+    const uintptr_t State = World ? Pointer(World + Offsets::UWorld::GameState) : 0;
+    if (!Alive(State) || !Objects::IsA(State, "DDMissionGameState"))
+        return 0;
+    const uintptr_t Wallet = Pointer(State + GameStateScrapWallet);
+    return Alive(Wallet) && Objects::IsA(Wallet, "ScrapWalletComponent") ? Wallet : 0;
+}
+
+std::optional<int32_t> ScrapAmount(uintptr_t Wallet)
+{
+    return Wallet ? Memory::Read<int32_t>(Wallet + CurrencyAmount) : std::nullopt;
+}
+
+// Natives AbstractCurrency.AddAmount: begrenzt auf 0 bis INT32_MAX und löst OnCurrencyChanged aus (Anzeige), sonst nichts.
+void AddScrap(uintptr_t Wallet, int32_t Delta)
+{
+    static uintptr_t Fn = 0;
+    if (!Delta || !Alive(Wallet) || !Function(Fn, "AddAmount", "AbstractCurrency"))
+        return;
+    int32_t Params = Delta;
+    Objects::ProcessEvent(Wallet, Fn, &Params);
+}
+
+// Native Preise, beim Host mit seiner Seltenheit des Items. -1, wenn die Funktion fehlt.
+int32_t SellPrice(uintptr_t Item)
+{
+    static uintptr_t Fn = 0;
+    if (!Alive(Item) || !Function(Fn, "GetDynamicSellPrice", "InventoryItemInstance"))
+        return -1;
+    int32_t Params = -1;
+    Objects::ProcessEvent(Item, Fn, &Params);
+    return Params;
+}
+
+int32_t RepairPrice(uintptr_t Item)
+{
+    static uintptr_t Fn = 0;
+    if (!Alive(Item) || !Function(Fn, "GetDynamicRepairPrice", "InventoryItemInstance"))
+        return -1;
+    struct
+    {
+        uintptr_t World;
+        int32_t ReturnValue;
+        uint8_t Pad[4];
+    } Params{CurrentWorld(), -1, {}};
+    static_assert(sizeof(Params) == 0x10);
+    Objects::ProcessEvent(Item, Fn, &Params);
+    return Params.ReturnValue;
+}
+
+bool IsBroken(uintptr_t Item)
+{
+    return Memory::Read<uint8_t>(Item + ItemBroken).value_or(0) != 0;
+}
+
+// Ein Verkauf oder eine Reparatur aus einem Edit, mit dem Preis beim Prüfen (vor dem Entfernen).
+struct Trade
+{
+    uintptr_t Item = 0;
+    int32_t Price = 0;
+};
 }
 }
 
@@ -1043,6 +1190,56 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
         Core::Log::Warn("Inventar lokal: Edit {} passt nicht in den Rucksack des Clients, abgelehnt", Value.Id);
         return false;
     }
+    // lager-handel-client: Verkäufe und Reparaturen prüfen, bevor sich etwas ändert. Preise rechnet der Host selbst.
+    std::vector<Trade> Sells, Repairs;
+    for (size_t i = 0; i < Value.Items.size(); ++i)
+    {
+        const ItemState& Want = Value.Items[i];
+        if (i == ChoiceAt)
+        {
+            if (Want.Present && Value.Choice && *Value.Choice < Host.Choices.size() && Want.Broken != Host.Choices[*Value.Choice].Broken)
+            {
+                Core::Log::Warn("Inventar lokal: Wahl des Edits {} mit anderem Zustand (kaputt {}), abgelehnt", Value.Id, Want.Broken);
+                return false;
+            }
+            continue;
+        }
+        const bool Broken = IsBroken(Resolved[i]);
+        if (Want.Present && Want.Broken && !Broken)
+        {
+            Core::Log::Warn("Inventar lokal: Item {} des Edits {} soll kaputt werden, abgelehnt", Want.Source, Value.Id);
+            return false;
+        }
+        if (Want.Present && !Want.Broken && Broken)
+            Repairs.push_back({Resolved[i], RepairPrice(Resolved[i])});
+        if (IsSold(Want))
+        {
+            if (IsReward(Resolved[i]))
+            {
+                Core::Log::Warn("Inventar lokal: Item {} des Edits {} ist eine Belohnung und nicht verkaufbar, abgelehnt", Want.Source, Value.Id);
+                return false;
+            }
+            Sells.push_back({Resolved[i], SellPrice(Resolved[i])});
+        }
+    }
+    const uintptr_t Wallet = Sells.empty() && Repairs.empty() ? 0 : ScrapWallet();
+    if (!Sells.empty() || !Repairs.empty())
+    {
+        const std::optional<int32_t> Have = ScrapAmount(Wallet);
+        std::vector<int32_t> SellPrices, RepairPrices;
+        for (const Trade& Next : Sells)
+            SellPrices.push_back(Next.Price);
+        for (const Trade& Next : Repairs)
+            RepairPrices.push_back(Next.Price);
+        const auto After = Have ? TradeBalance(*Have, SellPrices, RepairPrices) : std::nullopt;
+        if (!After)
+        {
+            Core::Log::Warn("Inventar lokal: Edit {} mit {} Verkäufen und {} Reparaturen abgelehnt, Schrott {} reicht nicht oder Preis ungültig",
+                            Value.Id, Sells.size(), Repairs.size(), Have ? std::to_string(*Have) : std::string("ohne Konto"));
+            return false;
+        }
+        Core::Log::Info("Handel: Edit {} geprüft, {} Verkäufe, {} Reparaturen, Schrott {} wird {}", Value.Id, Sells.size(), Repairs.size(), *Have, *After);
+    }
     // werkbank-client: Aufwertungen vollständig prüfen, bevor sich etwas ändert.
     std::unordered_map<uint16_t, uintptr_t> Live;
     std::unordered_map<uint16_t, std::pair<ItemKind, uint32_t>> Kinds;
@@ -1118,7 +1315,33 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
     std::vector<ItemState> Current;
     for (size_t i = 0; i < Targets.size(); ++i)
         Current.push_back(ReadItem(Targets[i], Now, Goal[i].Source));
+    HostApplyingEdit = true; // RepairItem aus dem Plan nicht als direkten Aufruf des Clients verwerfen
     Ok = Apply(Inventory, Targets, Current, Goal, Create, {}, false) && Ok;
+    HostApplyingEdit = false;
+    // lager-handel-client: Schrott genau einmal und nur für tatsächlich Erledigtes buchen.
+    if (!Sells.empty() || !Repairs.empty())
+    {
+        const std::vector<uintptr_t> After = ItemsOf(Inventory);
+        int64_t Delta = 0;
+        unsigned Sold = 0, Repaired = 0;
+        for (const Trade& Next : Sells)
+            if (std::find(After.begin(), After.end(), Next.Item) == After.end())
+            {
+                Delta += Next.Price;
+                ++Sold;
+            }
+        for (const Trade& Next : Repairs)
+            if (Alive(Next.Item) && !IsBroken(Next.Item))
+            {
+                Delta -= Next.Price;
+                ++Repaired;
+            }
+        const int32_t Before = ScrapAmount(Wallet).value_or(0);
+        AddScrap(Wallet, static_cast<int32_t>(Delta));
+        Core::Log::Info("Handel: Edit {} gebucht, {} von {} verkauft, {} von {} repariert, Schrott {} zu {}", Value.Id, Sold, Sells.size(), Repaired,
+                        Repairs.size(), Before, ScrapAmount(Wallet).value_or(0));
+        Ok = Ok && Sold == Sells.size() && Repaired == Repairs.size();
+    }
     // waffe-client-auswahl: das native Ablegen frischt danach die Wirkungen beider Figuren auf. Ohne das bleibt eine
     // neue Waffe bis zum nächsten Levelaufstieg wirkungslos und eine entfernte wirkt weiter.
     RefreshEffects(Inventory);
@@ -1438,5 +1661,29 @@ void ApplyRarities(const std::vector<RarityEntry>& Entries)
     }
     if (Set)
         Core::Log::Info("Seltenheiten: {} Items des Clients vom Host übernommen", Set);
+}
+}
+
+namespace Game::Rewards
+{
+std::optional<int32_t> HostScrap()
+{
+    using namespace Game::Patches;
+    if (CurrentRole() != NetRole::Host)
+        return std::nullopt;
+    return ScrapAmount(ScrapWallet());
+}
+
+void ApplyScrap(int32_t Amount)
+{
+    using namespace Game::Patches;
+    if (CurrentRole() != NetRole::Client || Amount < 0 || Game::InventoryEdit::ClientEditing() || ClientPending)
+        return;
+    const uintptr_t Wallet = ScrapWallet();
+    const std::optional<int32_t> Have = ScrapAmount(Wallet);
+    if (!Have || *Have == Amount)
+        return;
+    AddScrap(Wallet, Amount - *Have);
+    Core::Log::Info("Schrott: Stand des Hosts übernommen, {} statt {}", ScrapAmount(Wallet).value_or(-1), *Have);
 }
 }

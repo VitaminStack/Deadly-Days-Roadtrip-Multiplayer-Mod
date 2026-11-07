@@ -1721,7 +1721,7 @@ Ausgewertet: Mod-Logs beider Seiten, Overlay-Verlauf, `crashes.py` beider Seiten
 - **[Belegt] Inventar kurz abweichend.** Der Desync-Melder meldete dreimal `ABWEICHUNG Inventar`, jeweils während einer Airdrop-Auswahl
   oder beim Umlegen im Lager, und war nach etwa 10 s wieder `OK`. Keine dauerhafte Abweichung wie am 06.11.
 - **[Gemeldet] Verkaufen und Reparieren im Lager gehen beim Client nicht**, beim Host schon. Items verschieben geht. Am Rundenende lassen
-  sich beim Client nicht reparierte Items nicht ausrüsten. Offen, ob das Spiel kaputte Items auch beim Host sperrt. Neue Aufgabe `lager-handel-client`.
+  sich beim Client nicht reparierte Items nicht ausrüsten. Offen, ob das Spiel kaputte Items auch beim Host sperrt. Neue Aufgabe `lager-handel-client`. **Nachtrag (`lager-handel-client`):** Behoben, das Spiel sperrt kaputte Items auch beim Host; siehe [Verkaufen und Reparieren beim Client](../src/Game/README.md#verkaufen-und-reparieren-beim-client).
 - **[Belegt] Client im Lager hart beendet.** 11:43:41 Prozess des Clients beendet. Der Host erkannte den stummen Client um 11:43:50 und
   wartete; auch nach seinem eigenen Bestätigen (11:43:56) meldete er nicht „alle bereit“. Beim Verbindungsabbau (Timeout 11:43:58,
   Grund 4001) löste der Host die P2-Bindung und holte sein Bestätigen nach („Client nicht mehr im Lager“), reiste aber nicht ab: Laut

@@ -208,6 +208,23 @@ auf ein gleiches Item noch zu einem Rezept der Werkbank passt.
 `ItemData`-Objektnamens (4), Name der Seltenheit (1 Länge + bis 120 Byte, leer = keine). Bei Änderung sofort, sonst alle 5 s. Der Client
 setzt die Seltenheit nur, wenn die Daten an diesem Platz übereinstimmen.
 
+## Verkaufen, Reparieren und Schrott (Mod-Kompatibilität 9)
+
+Aufgabe `lager-handel-client`, Ablauf in [Verkaufen und Reparieren beim Client](../src/Game/README.md#verkaufen-und-reparieren-beim-client).
+Mod-Version 9, weil `0x303` ein neues Flag trägt und ein Host mit Version 8 die Reparatur nicht kennt und `0x309` fehlt.
+
+`0x303` Edit: Im Flag-Byte jedes Items steht zusätzlich Bit 4 = kaputt (`Broken`), Werte über 31 sind ungültig. Ein Item, das im
+Ausgangsbild kaputt war und im Edit heil vorhanden ist, gilt als repariert. Verkauft heißt nicht vorhanden mit `RemoveContext` 2
+(`SoldForScrap`); `RemoveContext` über 3 und ein vorhandenes Item mit `RemoveContext` ungleich 0 sind ungültig. Verkaufen dürfen nur
+Ausgangs-Items, nicht die Wahl, keine Eingabe und keine Ausgabe einer Aufwertung. Heil zu kaputt lehnt der Host ab, ebenso einen anderen
+Zustand der Wahl als im Angebot. Der Host rechnet die Preise selbst (`GetDynamicSellPrice`, `GetDynamicRepairPrice`), schreibt erst alle
+Verkäufe gut und zieht dann jede Reparatur ab; reicht sein Schrott für eine Reparatur nicht, lehnt er den ganzen Edit ab. Gebucht wird
+nach der Übernahme genau einmal und nur für tatsächlich entfernte bzw. reparierte Items.
+
+`0x309` Schrott, Host an Client: genau 4 Byte, Kontostand von `ScrapWalletComponent` beim Host (int32, 0 bis 1 000 000 000). Der Host
+prüft jede halbe Sekunde, sendet bei Änderung sofort, sonst alle 5 s, nur in einer Mission. Der Client gleicht sein eigenes Konto mit
+dem nativen `AddAmount` (Unterschied) an, nicht während einer lokalen Bearbeitung und nicht, solange ein Edit unbeantwortet ist.
+
 ## Rundenende (`rundenende-client`)
 
 `0x401` Host an Client, neben der Karte `0x400` aus `missionsstart` (`src/Sync/World`). Genau 16 Bytes: Karten-Id der Mission

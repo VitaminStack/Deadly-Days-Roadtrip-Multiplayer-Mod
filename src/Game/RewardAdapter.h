@@ -130,4 +130,12 @@ std::vector<RarityEntry> ClientRarities();
 // Client: Seltenheiten des Hosts auf die replizierten Items des eigenen Inventars legen. Nur Items, deren Daten an diesem
 // Platz übereinstimmen; während einer lokalen Bearbeitung nicht.
 void ApplyRarities(const std::vector<RarityEntry>& Entries);
+
+// lager-handel-client: Der Schrott (ScrapWalletComponent am GameState der Mission, Kontostand CurrencyAmount) repliziert nicht.
+// Nur der Host bucht ihn; der Client zeigt den Stand des Hosts, damit sein natives Panel Reparaturen richtig freigibt.
+// Host: eigener Kontostand, nullopt ohne Mission oder Konto.
+std::optional<int32_t> HostScrap();
+// Client: Kontostand des Hosts übernehmen (natives AddAmount mit dem Unterschied, damit die Anzeige folgt). Nicht während einer
+// lokalen Bearbeitung oder solange ein Edit unbeantwortet ist; dann gilt die lokale Vorschau des Panels.
+void ApplyScrap(int32_t Amount);
 }

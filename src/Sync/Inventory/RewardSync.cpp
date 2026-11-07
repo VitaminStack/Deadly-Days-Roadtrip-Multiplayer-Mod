@@ -41,6 +41,9 @@ struct
     // Seltenheiten (werkbank-client): Host gesendeter Stand, Client neuester Stand
     std::optional<Reward::Rarities> SentRarities, LatestRarities;
     uint64_t NextRarityCheck = 0, NextRarityResend = 0, NextRarityApply = 0;
+    // Schrott (lager-handel-client): Host gesendeter Stand, Client neuester Stand
+    std::optional<Reward::Scrap> SentScrap, LatestScrap;
+    uint64_t NextScrapCheck = 0, NextScrapResend = 0;
 } R;
 
 uint64_t NowMs()
@@ -149,6 +152,28 @@ void ApplyRarities()
     Game::Rewards::ApplyRarities(Entries);
 }
 
+// Host: eigenen Schrott jede halbe Sekunde prüfen, bei Änderung sofort senden, sonst alle 5 s (lager-handel-client).
+void SendScrap(Net::Transport& Transport)
+{
+    const uint64_t Now = NowMs();
+    if (Now < R.NextScrapCheck)
+        return;
+    R.NextScrapCheck = Now + 500;
+    const auto Amount = Game::Rewards::HostScrap();
+    if (!Amount)
+        return;
+    const Reward::Scrap Value{*Amount};
+    if (R.SentScrap && *R.SentScrap == Value && Now < R.NextScrapResend)
+        return;
+    if (Send(Transport, Reward::ScrapType, Reward::Encode(Value)))
+    {
+        if (!R.SentScrap || *R.SentScrap != Value)
+            Core::Log::Info("Schrott: Stand {} an den Client", Value.Amount);
+        R.SentScrap = Value;
+        R.NextScrapResend = Now + 5000;
+    }
+}
+
 void TickHost(Net::Transport& Transport, std::span<const Net::ControlMessage> Messages)
 {
     for (const auto& Message : Messages)
@@ -202,6 +227,7 @@ void TickHost(Net::Transport& Transport, std::span<const Net::ControlMessage> Me
     }
     SendRoundEndStatus(Transport);
     SendRarities(Transport);
+    SendScrap(Transport);
     const auto Offer = ToWire(Game::Rewards::ReadOffer());
     const uint64_t Now = NowMs();
     if (!R.Sent || *R.Sent != Offer || Now >= R.NextResend)
@@ -278,6 +304,13 @@ void TickClient(Net::Transport& Transport, std::span<const Net::ControlMessage> 
             else
                 Core::Log::Warn("Seltenheiten: Nachricht vom Host nicht lesbar ({} Byte)", Message.Value.Payload.size());
         }
+        else if (Message.Value.Type == Reward::ScrapType)
+        {
+            if (const auto Value = Reward::DecodeScrap(Message.Value.Payload))
+                R.LatestScrap = *Value;
+            else
+                Core::Log::Warn("Schrott: Nachricht vom Host nicht lesbar ({} Byte)", Message.Value.Payload.size());
+        }
         else if (Message.Value.Type == Reward::OfferType)
         {
             if (auto Offer = Reward::DecodeOffer(Message.Value.Payload))
@@ -302,6 +335,8 @@ void TickClient(Net::Transport& Transport, std::span<const Net::ControlMessage> 
     }
     TickClientRoundEnd(Transport);
     ApplyRarities();
+    if (R.LatestScrap)
+        Game::Rewards::ApplyScrap(R.LatestScrap->Amount);
     SendEdit(Transport); // auch nach dem Ende des Host-Panels
     // Ohne frisches Bild (Verbindung weg, Host ohne Mod-Sitzung) keine Auswahl anzeigen.
     if (!R.Latest || !R.Latest->Session || NowMs() - R.LatestAt > 5000)
@@ -345,6 +380,8 @@ void TickReward(std::span<const Net::ControlMessage> Messages)
         R.EndClientAt = 0;
         R.SentRarities.reset();
         R.LatestRarities.reset();
+        R.SentScrap.reset();
+        R.LatestScrap.reset();
         Game::Rewards::AbortClientEdit();
     }
     Game::Rewards::SetRemoteReady(Host && Peer);

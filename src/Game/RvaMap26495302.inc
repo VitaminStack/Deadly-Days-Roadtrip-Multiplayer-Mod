@@ -59,6 +59,7 @@
 {0x059072B4, 0x0590B2B4}, // eindeutig, NeedReconnect, src/Game/RemoteP2Patches.cpp:30
 {0x0593DAF3, 0x05941A43}, // eindeutig, ThreatFreezeBranch, src/Game/ClientPatches.cpp:25
 {0x05959700, 0x0595DA20}, // eindeutig, CreateItemInstance, src/Game/RewardPatches.cpp:43
+{0x05967900, 0x0596BA70}, // von Hand, Exec-Thunk 0x57133D0 ruft es, Prolog gleich, HandleItemSold, src/Game/RewardPatches.cpp:52
 {0x05969750, 0x0596D8C0}, // eindeutig, InventoryReadyForReplication, src/Game/InventoryPatches.cpp:28
 {0x05976AD0, 0x0597ABB0}, // eindeutig, SeamlessTravelToLevel, src/Game/TravelPatches.cpp:17
 {0x05979B30, 0x0597DC10}, // eindeutig, SetRewardItems, src/Game/RewardPatches.cpp:38
