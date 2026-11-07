@@ -313,6 +313,7 @@ Was die Mod nutzt, steht zusätzlich in `src/Game/Offsets.h` und wird dort beim 
 | GameInstance | PendingGameStateComponentTravelStates, LastRoundChangeReason | `0x248`, `0x299` |
 | GameInstance | CurrentRunInfo (Seed +0, CurrentRoute +8) | `0x2A0` |
 | GameInstance / `FRoute` | `CurrentRoute.MissionChain` (TArray), Num; CurrentMissionIndex | `0x2B0`, `0x2B8`; `0x2C0` |
+| GameInstance / `FCurrentRunInfo` | IsEndOfMissionChain, ChosenMissionIndexes (TArray) | `0x2C8`, `0x328` |
 | `ADDMissionGameState` | SecondsSinceMissionStart, DayNum | `0x38C`, `0x390` |
 | `UAbstractPanel` | AnimationContainer | `0x330`; im `rundenende`-Test nicht als zuverlässiger Phasenindikator lesbar |
 | `UPanelAnimationContainer` | IsOpen | `0x328`; nur lokaler Containerzustand, keine Netz-/Sichtbarkeitszusage |
