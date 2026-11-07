@@ -31,6 +31,19 @@ static_assert(UObject::Name == offsetof(SDK::UObject, Name));
 static_assert(UObject::Outer == offsetof(SDK::UObject, Outer));
 
 static_assert(UStruct::SuperStruct == offsetof(SDK::UStruct, SuperStruct));
+static_assert(UStruct::Children == offsetof(SDK::UStruct, Children));
+static_assert(UStruct::ChildProperties == offsetof(SDK::UStruct, ChildProperties));
+static_assert(UStruct::PropertiesSize == offsetof(SDK::UStruct, Size));
+
+static_assert(UField::Next == offsetof(SDK::UField, Next));
+static_assert(FField::Class == offsetof(SDK::FField, ClassPrivate));
+static_assert(FField::Next == offsetof(SDK::FField, Next));
+static_assert(FField::Name == offsetof(SDK::FField, Name));
+static_assert(FFieldClass::Name == offsetof(SDK::FFieldClass, Name));
+static_assert(FProperty::ArrayDim == offsetof(SDK::FProperty, ArrayDim));
+static_assert(FProperty::ElementSize == offsetof(SDK::FProperty, ElementSize));
+static_assert(FProperty::Offset == offsetof(SDK::FProperty, Offset));
+static_assert(FBoolProperty::FieldMask == offsetof(SDK::FBoolProperty, FieldMask));
 
 static_assert(UWorld::PersistentLevel == offsetof(SDK::UWorld, PersistentLevel));
 static_assert(UWorld::NetDriver == offsetof(SDK::UWorld, NetDriver));
@@ -43,13 +56,6 @@ static_assert(UNetDriver::ClientConnections == offsetof(SDK::UNetDriver, ClientC
 
 static_assert(AGameStateBase::PlayerArray == offsetof(SDK::AGameStateBase, PlayerArray));
 
-static_assert(UTutorialStateSubsystem::SkipTutorialFlag == offsetof(SDK::UTutorialStateSubsystem, SkipTutorialFlag));
-
-static_assert(UDDBalanceTelemetrySettings::Enabled == offsetof(SDK::UDDBalanceTelemetrySettings, bEnabled));
-static_assert(UDDBalanceTelemetrySettings::ServerBaseURL == offsetof(SDK::UDDBalanceTelemetrySettings, ServerBaseURL));
-static_assert(UDDBalanceTelemetrySettings::AttachSaveFile == offsetof(SDK::UDDBalanceTelemetrySettings, bAttachSaveFile));
-static_assert(UDDCorruptedSaveAutoReportSettings::EnableAutomaticReports ==
-              offsetof(SDK::UDDCorruptedSaveAutoReportSettings, bEnableAutomaticCorruptedSaveReports));
 }
 
 #endif

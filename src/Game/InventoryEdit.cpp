@@ -6,6 +6,7 @@
 #include <windows.h>
 
 #include <algorithm>
+#include <cstring>
 #include <string>
 #include <unordered_map>
 
@@ -31,7 +32,15 @@ constexpr uintptr_t ItemInBackpack = 0x180, ItemIsTrash = 0x184;
 constexpr uintptr_t FunctionFlags = 0xB0;
 constexpr uint32_t FuncNet = 0x40, FuncNetServer = 0x200000, GarbageOrUnreachable = 0x30;
 // EBackpackEffectRemovalStyle
-constexpr uint8_t ForceRemoveAllEffects = 0, AllowRetainEffects = 1;
+constexpr uint8_t ForceRemoveAllEffects = 0, RetainEffects = 2;
+
+// waffe-client-auswahl: wie das native Panel. Bleibt das Item im Rucksack (verschieben), behält es seine Wirkung (RetainEffects);
+// verlässt es ihn, endet sie (ForceRemoveAllEffects). Vorher war es vertauscht: Herausgenommene Waffen feuerten weiter, verschobene
+// verloren ihre Wirkung und wurden nicht wieder ausgerüstet.
+constexpr uint8_t RemovalStyle(bool StaysInBackpack)
+{
+    return StaysInBackpack ? RetainEffects : ForceRemoveAllEffects;
+}
 
 struct Array
 {
@@ -274,16 +283,43 @@ ItemState ReadItem(uintptr_t Item, const std::vector<SlotInfo>& Slots, uint16_t 
     return State;
 }
 
+void RefreshEffects(uintptr_t Inventory)
+{
+    static uintptr_t GetEffectManager = 0, RefreshItemEffects = 0;
+    if (!Function(GetEffectManager, "GetEffectManager", "InventoryComponent") || !Function(RefreshItemEffects, "RefreshItemEffects", "InventoryComponent") ||
+        !Alive(Inventory))
+    {
+        Core::Log::Warn("Inventar lokal: Wirkungen nicht aufgefrischt, Funktion oder Inventar fehlt");
+        return;
+    }
+    uintptr_t Manager = 0;
+    Objects::ProcessEvent(Inventory, GetEffectManager, &Manager);
+    if (!Alive(Manager))
+    {
+        Core::Log::Warn("Inventar lokal: Wirkungen nicht aufgefrischt, kein EffectManager");
+        return;
+    }
+    // InventoryComponent_RefreshItemEffects: bool IncludeBackpackEffects (+0), UCharacterEffectManager* (+8).
+    struct
+    {
+        bool IncludeBackpackEffects;
+        uint8_t Pad[7];
+        uintptr_t EffectManager;
+    } Params{false, {}, Manager};
+    static_assert(sizeof(Params) == 0x10);
+    Objects::ProcessEvent(Inventory, RefreshItemEffects, &Params);
+}
+
 bool Apply(uintptr_t Inventory, const std::vector<uintptr_t>& Items, const std::vector<ItemState>& Current, const std::vector<ItemState>& Target,
            const std::vector<Tile>& Create, const std::vector<uintptr_t>& Destroy, bool Local)
 {
     static uintptr_t Unoccupy = 0, RemoveFromBackpack = 0, RemoveFromInventory = 0, AddToInventory = 0, DestroySlot = 0, CreateSlots = 0,
-                     TryGetSlot = 0, AddToBackpack = 0, Occupy = 0, SetTurns = 0, SetPivot = 0, UpdateTrash = 0, AddEffect = 0;
+                     TryGetSlot = 0, AddToBackpack = 0, Occupy = 0, SetTurns = 0, SetPivot = 0, UpdateTrash = 0;
     if (!Function(Unoccupy, "UnoccupyBackpackSlots", "InventoryComponent") || !Function(RemoveFromBackpack, "RemoveFromBackpack", "InventoryComponent") ||
         !Function(RemoveFromInventory, "RemoveFromInventory", "InventoryComponent") || !Function(AddToInventory, "AddToInventory", "InventoryComponent") ||
         !Function(DestroySlot, "DestroySlotInstance", "InventoryComponent") || !Function(CreateSlots, "Server_CreateSlotsFromBagItem", "InventoryComponent") ||
         !Function(TryGetSlot, "TryGetSlotWithCoordinates", "InventoryComponent") || !Function(AddToBackpack, "AddToBackpack", "InventoryComponent") ||
-        !Function(Occupy, "OccupyBackpackSlots", "InventoryComponent") || !Function(AddEffect, "ApplyAddToBackpackEffect", "InventoryComponent") || !Function(SetTurns, "SetTurns", "InventoryItemInstance") ||
+        !Function(Occupy, "OccupyBackpackSlots", "InventoryComponent") || !Function(SetTurns, "SetTurns", "InventoryItemInstance") ||
         !Function(SetPivot, "SetZeroPivotTile", "InventoryItemInstance") || !Function(UpdateTrash, "UpdateIsTrash", "InventoryItemInstance"))
     {
         Core::Log::Warn("Inventar lokal: native Inventarfunktionen nicht gefunden");
@@ -311,7 +347,7 @@ bool Apply(uintptr_t Inventory, const std::vector<uintptr_t>& Items, const std::
             {
                 uintptr_t Item;
                 uint8_t Style, Pad[7];
-            } Remove{Item, Target[Next.Item].Present && Target[Next.Item].InBackpack ? ForceRemoveAllEffects : AllowRetainEffects, {}};
+            } Remove{Item, RemovalStyle(Target[Next.Item].Present && Target[Next.Item].InBackpack), {}};
             Call(Inventory, RemoveFromBackpack, &Remove, Local);
             break;
         }
@@ -404,12 +440,9 @@ bool Apply(uintptr_t Inventory, const std::vector<uintptr_t>& Items, const std::
                 Array Slots;
             } Params{Item, {Slots.data(), static_cast<int32_t>(Slots.size()), static_cast<int32_t>(Slots.size())}};
             static_assert(sizeof(Params) == 0x18);
+            // AddToBackpack ruft ApplyAddToBackpackEffect beim Host selbst auf (Trace). Ein zweiter Aufruf
+            // würde die Rucksackwirkung doppelt anlegen. Die Itemwirkungen setzt RefreshEffects danach neu.
             Call(Inventory, Occupy, &Params, Local);
-            if (Goal.AddEffect && !Local)
-            {
-                uintptr_t Effect = Item;
-                Objects::ProcessEvent(Inventory, AddEffect, &Effect);
-            }
             break;
         }
         case StepKind::Trash:
@@ -447,7 +480,124 @@ bool Apply(uintptr_t Inventory, const std::vector<uintptr_t>& Items, const std::
     return Ok;
 }
 
-void BeginClient(uintptr_t Inventory, const std::vector<uintptr_t>& Choices)
+// waffe-client-auswahl: Hände-Vorschau beim Client. Die Itemwirkungen (auch belegte Hände, UDDCharacterAttributeSet.OccupiedHands)
+// setzt nur der Host, beim Client verwirft RouteClientRpc die Wirkungs-RPCs. Ohne Vorschau gibt ein abgelegtes Waffenitem
+// während der Bearbeitung keinen Waffenslot frei, und das Panel lässt keine neue Waffe zu. Der Client rechnet darum
+// lokal nach: Ausgangswert + (Hände der Rucksackitems jetzt - beim Start). Verbindlich bleibt der Host: Nach dem Übernehmen
+// kommt sein Wert über die native Replikation, bei Ablehnung stellt RevertClient den Ausgangswert wieder her.
+constexpr uintptr_t AttributeOccupiedHands = 0x110, AttributeBase = 0x8, AttributeCurrent = 0xC;
+
+struct
+{
+    uintptr_t Character = 0, Set = 0;
+    float Base = 0, Current = 0;
+    int32_t Start = 0;
+} Hands;
+
+// Das Attributset der Figur gehört dem PlayerState, nicht der Figur. AController.PlayerState / .Pawn.
+constexpr uintptr_t ControllerPlayerState = 0x2B0, ControllerPawn = 0x2E8;
+
+uintptr_t AttributeSetOf(uintptr_t PlayerState)
+{
+    if (!PlayerState)
+        return 0;
+    for (int32_t i = 0, Count = Objects::Count(); i < Count; ++i)
+        if (const uintptr_t Object = Objects::At(i);
+            Object && Pointer(Object + Offsets::UObject::Outer) == PlayerState && Objects::IsA(Object, "DDCharacterAttributeSet") && Alive(Object))
+            return Object;
+    return 0;
+}
+
+int32_t HandsInBackpack(uintptr_t Inventory, uintptr_t Character)
+{
+    static uintptr_t Required = 0, Library = 0;
+    if (!Function(Required, "GetHandsRequiredForItem", "InventoryEffectHelperLibrary") || !Function(Library, "Default__InventoryEffectHelperLibrary", ""))
+        return 0;
+    int32_t Total = 0;
+    for (const uintptr_t Item : ItemsOf(Inventory))
+    {
+        if (!Alive(Item) || !Memory::Read<uint8_t>(Item + ItemInBackpack).value_or(0))
+            continue;
+        // InventoryEffectHelperLibrary_GetHandsRequiredForItem
+        struct
+        {
+            uintptr_t Character, Item, Inventory;
+            Array AdditionalSlots;
+            bool IgnoreModifier;
+            uint8_t Pad[3];
+            int32_t ReturnValue;
+        } Params{Character, Item, Inventory, {}, false, {}, 0};
+        static_assert(sizeof(Params) == 0x30);
+        Objects::ProcessEvent(Library, Required, &Params);
+        Total += Params.ReturnValue;
+    }
+    return Total;
+}
+
+// Anzeige setzen. Kein OnRep_OccupiedHands: Das ließe das ASC den Wert aus seinen Modifikatoren neu berechnen und die Vorschau
+// sofort überschreiben. RefreshHandsBar zeichnet den Balken nicht neu (im Spiel geprüft), darum UpdateCurrentHandsBar mit dem
+// Wert, den sonst die Attributänderung liefert. Der Client zeigt den Balken HandBarSinglePlayer mit CachedCharacter = eigene Figur.
+void ShowHands(int32_t Occupied)
+{
+    constexpr uintptr_t HandBarCharacter = 0x348; // UHandBarDisplay.CachedCharacter
+    static uintptr_t Update = 0;
+    if (!Function(Update, "UpdateCurrentHandsBar", "HandBarDisplay"))
+        return;
+    for (int32_t i = 0, Count = Objects::Count(); i < Count; ++i)
+        if (const uintptr_t Object = Objects::At(i); Object && Pointer(Object + HandBarCharacter) == Hands.Character &&
+                                                     Objects::IsA(Object, "HandBarDisplay") && Alive(Object))
+        {
+            int32_t Params = Occupied;
+            Objects::ProcessEvent(Object, Update, &Params);
+        }
+}
+
+void WriteHands(float Base, float Current)
+{
+    const float OldBase = Memory::Read<float>(Hands.Set + AttributeOccupiedHands + AttributeBase).value_or(0);
+    const float OldCurrent = Memory::Read<float>(Hands.Set + AttributeOccupiedHands + AttributeCurrent).value_or(0);
+    if (OldBase == Base && OldCurrent == Current)
+        return;
+    Memory::WriteBytes(Hands.Set + AttributeOccupiedHands + AttributeBase, &Base, sizeof(Base));
+    Memory::WriteBytes(Hands.Set + AttributeOccupiedHands + AttributeCurrent, &Current, sizeof(Current));
+    ShowHands(static_cast<int32_t>(Current));
+    Core::Log::Info("Inventar lokal: Hände-Vorschau {} statt {}", Current, OldCurrent);
+}
+
+void BeginHands(uintptr_t Inventory, uintptr_t Controller)
+{
+    Hands = {};
+    const uintptr_t Character = Pointer(Controller + ControllerPawn), PlayerState = Pointer(Controller + ControllerPlayerState);
+    Hands.Set = AttributeSetOf(PlayerState);
+    if (!Hands.Set)
+    {
+        Core::Log::Warn("Inventar lokal: Attributset nicht gefunden (PlayerState {:#x}, Figur {:#x}), keine Hände-Vorschau", PlayerState, Character);
+        return;
+    }
+    Hands.Character = Character;
+    Hands.Base = Memory::Read<float>(Hands.Set + AttributeOccupiedHands + AttributeBase).value_or(0);
+    Hands.Current = Memory::Read<float>(Hands.Set + AttributeOccupiedHands + AttributeCurrent).value_or(0);
+    Hands.Start = HandsInBackpack(Inventory, Character);
+    Core::Log::Info("Inventar lokal: Hände belegt {}, Rucksack braucht {}", Hands.Current, Hands.Start);
+}
+
+void PreviewHands()
+{
+    if (!Hands.Set || !Alive(Hands.Set) || !Alive(Hands.Character))
+        return;
+    const float Delta = static_cast<float>(HandsInBackpack(Session.Inventory, Hands.Character) - Hands.Start);
+    WriteHands(Hands.Base, std::max(0.0f, Hands.Current + Delta));
+}
+
+// Ablehnung oder Abbruch: Ausgangswert wieder setzen. Nach dem Übernehmen nichts schreiben, dann gilt der replizierte Wert.
+void EndHands(bool Restore)
+{
+    if (Restore && Hands.Set && Alive(Hands.Set))
+        WriteHands(Hands.Base, Hands.Current);
+    Hands = {};
+}
+
+void BeginClient(uintptr_t Inventory, const std::vector<uintptr_t>& Choices, uintptr_t Controller)
 {
     if (Session.State == Phase::Editing)
         RevertClient("neue Bearbeitung");
@@ -466,6 +616,7 @@ void BeginClient(uintptr_t Inventory, const std::vector<uintptr_t>& Choices)
     for (const SlotInfo& Slot : Slots)
         Session.Slots.push_back(Slot.At);
     Core::Log::Info("Inventar lokal: Bearbeitung beginnt, {} Items, {} Felder, {} Belohnungen", Session.Items.size(), Session.Slots.size(), Choices.size());
+    BeginHands(Inventory, Controller);
 }
 
 bool ClientEditing()
@@ -579,6 +730,7 @@ void RevertClient(const char* Why)
     if (Session.State == Phase::Idle)
         return;
     Session.State = Phase::Idle; // RPCs aus dem Zurückrollen laufen über Apply, nicht über RouteClientRpc
+    EndHands(true);
     const std::vector<uintptr_t> Now = ItemsOf(Session.Inventory);
     const std::vector<SlotInfo> Slots = SlotsOf(Session.Inventory);
     std::vector<uintptr_t> Items;
@@ -625,6 +777,7 @@ void ForgetClient()
     Session.Items.clear();
     Session.Choices.clear();
     Session.Upgrades.clear();
+    EndHands(false);
 }
 
 bool RouteClientRpc(uintptr_t Object, uintptr_t Fn, void* Params)
@@ -678,6 +831,8 @@ bool RouteClientRpc(uintptr_t Object, uintptr_t Fn, void* Params)
     Patches::ProcessEventLocal(Object, Fn, Params);
     if (Slots)
         NotifySlots(Object, OldSlots);
+    if (Info.Type == Kind::InventoryRpc)
+        PreviewHands();
     return true;
 }
 }

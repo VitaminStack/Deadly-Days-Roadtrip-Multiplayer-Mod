@@ -12,11 +12,13 @@ Einzige Schicht mit Spielzugriff. Enthält Adapter auf Spielklassen und später 
 | `Offsets.h` | Alle Offsets und RVAs als Konstanten, Herkunft in [docs/OFFSETS.md](../../docs/OFFSETS.md) |
 | `Memory.h` | Geschützte Lesezugriffe (`Read<T>`, `ReadPointer`), Schreiben von Werten (`WriteBytes`) und Objektnamen (`NameOf`) |
 | `SdkChecks.cpp` | Prüft `Offsets.h` beim Bauen gegen das Dumper-7-SDK, ohne SDK leer |
+| `Reflection.h` | Löst Felder (`FProperty`: Offset, Größe, Typ) und Funktionen (`UFunction`) von Spielklassen zur Laufzeit über die Engine-Reflexion auf, einmal je Start gecacht |
 | `WorldAdapter.h` | Muster-Adapter: Karte, Rolle (allein, Host, Client) und Spielerzahl |
 | `DesyncAdapter.h` / `DesyncSnapshot.h` | Lesende Diagnosebilder, kanonische HP-/Inventar-Hashes, explizit unbekannte Felder; [Messumfang und offene Abnahme](../../docs/DESYNC.md) |
 | `Objects.h` | Suche im Objekt-Array (`FindInstance`, `FindObject`, `IsA`) und Aufruf über `ProcessEvent` |
 | `TutorialAdapter.h` | Schaltet die Tutorial-Hinweise als Host und Client ab, Prüfung einmal je Sekunde |
 | `TelemetryAdapter.h` | Schaltet im Mod-Betrieb Balance-Telemetrie und automatische Berichte über beschädigte Spielstände ab und sperrt die Telemetrie-Adresse über `Core::ReportHosts` |
+| `SaveRedirect.h` / `SavePaths.h` | Trennt die Spielstände: Datei-APIs von Windows leiten alles unter `Saved\SaveGames` nach `Saved\SaveGames_DDCoop` um, ohne Spiel-Offsets; reine Pfadlogik in `SavePaths.h`, ohne Spiel getestet. Siehe [Spielstände](../../docs/GAME_ANALYSIS.md#spielstände-der-mod-mod-saves) |
 | `Patches.h` | Die Spielfehler-Fixes für eine Mission zu zweit, siehe [Patches](#patches) |
 | `CodeCave.h` | Werkzeuge für Patches mitten in Funktionen: Code-Höhle nahe der Exe, Bytes prüfen, Sprünge und vtable-Einträge schreiben |
 | `LocalDevicePolicy.h` | Reine Regeln für `LocalDevicePatches.cpp`: welche Gerätezuordnung und welcher lokale Spawn im Netzwerkspiel abgelehnt wird, ohne Spiel getestet |
@@ -43,7 +45,14 @@ falsche Layouts verwenden, statt laut zu scheitern.
 ## Muster für neue Adapter
 
 1. Header ohne SDK- und Windows-Typen, mit einfachen Structs wie `WorldInfo`. So können `Sync` und Tests ihn nutzen.
-2. Neue Offsets in `Offsets.h` eintragen, in `docs/OFFSETS.md` belegen und in `SdkChecks.cpp` gegen das SDK prüfen.
+2. **Neue Feldzugriffe auf Spielklassen über den Helfer `Reflection::Property`**, neue Funktionssuchen über `Reflection::Function`,
+   nicht über feste Offsets oder eine eigene Suche im Objekt-Array. Die `FieldSpec` nennt Paket, Klasse, Feldname, den erwarteten
+   `FProperty`-Typ (etwa `IntProperty`, `BoolProperty`, `StrProperty`) und die Größe. Liefert der Helfer nichts, bleibt nur der
+   betroffene Adapter oder Patch aus, der Helfer hat das einmal geloggt. Nie auf einen festen Wert zurückfallen. Ein Bitfeld-`bool`,
+   ein statisches Array oder ein Offset außerhalb der Klasse gilt als unpassend. Beispiele: `TutorialAdapter`, `TelemetryAdapter`.
+   Feste Offsets in `Offsets.h` bleiben für Engine-Grundlayouts (Objekt-Array, Namen, `UObject`, `UStruct`, `FField`, `FProperty`),
+   heiße Pfade, Felder ohne Reflexionsdaten (etwa in Blueprint-Structs oder Engine-Interna) und bestehenden Code. Solche Werte in
+   `docs/OFFSETS.md` belegen und in `SdkChecks.cpp` gegen das SDK prüfen.
 3. Spielspeicher nur über `Memory::Read`/`ReadPointer` lesen. Ein Lesefehler liefert `nullopt`, nie einen Absturz.
 4. Nur auf dem Game Thread aufrufen. Lesefunktionen prüfen `Core::GameThread().IsDrainThread()`. Andere Threads reichen Arbeit mit
    `Core::GameThread().Post` herein.
@@ -61,7 +70,7 @@ der [Patch-Tabelle des Spikes](../../research/spikes/a-connect/README.md#patches
 |---|---|---|
 | `PlayerPatches.cpp` | Host | Spawn und Spielerindex ohne `LocalPlayer`, Loot- und Gegner-Spawner ohne Spieler, `SpawnedPlayers` bei Registrierung und Controller-Tausch, Abgleich je Sekunde als Rückfall, Client-Position annehmen, Busplatz schont alle Spielerfiguren, Run-Ende ohne `LocalPlayer` |
 | `ClientPatches.cpp` | Client | Refresh, Attribut-Tick, AttributeSet-Suche, Kartengenerator-Schritt, Figurenkomponente und ThreatLevel ohne Host-Objekte; Exp-Aggregation wartet auf AttributeSets; Blockaden nur beim Host; NetGUID-Pfade bleiben; SneakApproach wartet auf Mesh und PlayerState; keine lokale PowerUp-Kopie |
-| `MovementPatches.cpp` | Client | Nach dem Dodge: eigene Figur bekommt Reibung und Schwerkraft zurück, fremde Figur folgt dem replizierten Ort, wenn ihre Unterlage beim Client fehlt oder sie ohne Modus hängt, siehe [Dodge beim Client](../../docs/GAME_ANALYSIS.md#dodge-beim-client-bewegung) |
+| `MovementPatches.cpp` | beide | Client: eigene Figur bekommt nach haengendem Dodge Reibung und Schwerkraft zurueck, fremde Figur folgt dem replizierten Ort bei unbekannter Unterlage oder fehlendem Modus. Host: Richtung des Client-Dodges aus vorhandener Bewegung, Diagnose je Aktivierung; [Dodge](../../docs/GAME_ANALYSIS.md#dodge-des-clients-beim-host-ausweichen-client), [offene Zwei-PC-Diagnose](../../docs/GAME_ANALYSIS.md#dodge-im-zwei-pc-test-diagnose-offen-dodge-client-live) |
 | `CameraPatches.cpp` | Client | Kamera-Spieler aus der `PlayerArray` statt aus dem GameMode, Bodenfix, gemeinsame Kamera als ViewTarget je Sekunde; Bewegungs-Restrictor ohne GameState stürzt nicht ab und bekommt ihn nachgetragen, siehe [Restrictor](../../docs/GAME_ANALYSIS.md#client-absturz-im-restrictor-tick-absturz) |
 | `InventoryPatches.cpp` | beide | Inventar-Unterobjekte über den klassischen Replikationspfad, Timer des Achievement-Detektors beim `EndPlay` löschen, Kartengenerator-Schritt nur für die aktuelle Welt; [Itemsack-Vergabe](../../research/spikes/itemsack-absturz/README.md) nur auf Authority außerhalb einer Client-Welt, beim Host [für alle Spieler](#itemsack-für-alle-spieler); abschaltbare Inventar-Diagnose in `RewardPatches.cpp` |
 | `MapPatches.cpp` | beide | Gleiche Karte: Der Host meldet Seed, Profil, Größe, Tags und PCG-Graph seiner Erzeugung, der Kontrollkanal bringt sie zum Client (`Sync/World/MapSync.cpp`), dessen Erzeugung wartet darauf; lokale Kopien replizierter Child Actors unterdrückt, gleiche Seeds der PCG-Instanzen. Siehe [Gleiche Karte in der Mod](../../docs/GAME_ANALYSIS.md#gleiche-karte-in-der-mod-missionsstart) |
@@ -324,6 +333,34 @@ Absturz. Nicht in diesem Lauf geprüft: Rundenende danach; der Nutzer schloss di
 Rundenende wieder im Lager“ stammt aus dem Test vor `inventar-lokal`. Seitdem übernimmt der Host neue Felder im Edit, und der
 `inventar-lokal`-Lauf blieb über das Rundenende bis Tag 2 gleich. Das Tab-Inventar lässt sich im Run nicht öffnen, die Anzeige außerhalb
 des Airdrop-Panels ist daher nicht eigens angesehen.
+
+### Waffen aus der Itemauswahl des Clients (`waffe-client-auswahl`)
+
+Im Live-Test am 06.11.2026 wirkten Waffen, die der Client in der Itemauswahl tauschte, im Spiel nicht. Drei Ursachen:
+
+1. **Entfernstil vertauscht.** Beim Übernehmen nahm der Host ein Item mit `RetainEffects` (2) aus dem Rucksack, wenn es ihn
+   verließ, und mit `ForceRemoveAllEffects` (0), wenn es nur verschoben wurde. Das native Panel macht es umgekehrt. Folge: Eine
+   abgelegte Waffe schoss weiter, eine verschobene verlor ihre Wirkung. `RemovalStyle()` in `InventoryEdit.cpp` folgt jetzt dem Panel.
+2. **Kein Auffrischen der Wirkungen beim Host.** Legt der Host selbst ab, folgt auf `OccupyBackpackSlots` ein vollständiges
+   Auffrischen beider Figuren (`RemoveAllEffects`, `RemoveEffectsFromItem`, `ApplyEffectsFromItem` je Item, im Trace belegt). Beim
+   Übernehmen eines Client-Edits fehlte es. Eine neue Waffe wirkte erst nach dem nächsten Levelaufstieg, der ebenfalls auffrischt.
+   `ApplyClientEdit` ruft jetzt `InventoryComponent.RefreshItemEffects(false, GetEffectManager())` für das Inventar des Clients und
+   das des Hosts. Das zusätzliche `ApplyAddToBackpackEffect` nach dem Ablegen ist entfallen: `AddToBackpack` ruft es beim Host
+   selbst, der zweite Aufruf legte die Rucksackwirkung doppelt an.
+3. **Waffenslots beim Client während der Bearbeitung.** Belegte Hände (`UDDCharacterAttributeSet.OccupiedHands`) setzt nur der
+   Host über die Itemwirkungen. Der Client verwirft deren RPCs während der Bearbeitung, also gab eine abgelegte Waffe keinen Slot
+   frei und das Panel ließ keine neue zu. Das war schon in `inventar-lokal` (`f42b6d6`) so, kein Rückschritt. Jetzt rechnet der
+   Client lokal vor: Ausgangswert + (Hände der Rucksackitems jetzt - beim Start), je Item über
+   `InventoryEffectHelperLibrary.GetHandsRequiredForItem`. Er schreibt nur `CurrentValue` und setzt den eigenen Hände-Balken über
+   `HandBarDisplay.UpdateCurrentHandsBar`. Kein `OnRep_OccupiedHands`, sonst rechnet das ASC den Wert aus seinen Modifikatoren
+   neu. `RefreshHandsBar` zeichnet den Balken nicht neu (im Spiel geprüft). Verbindlich bleibt der Host: Nach dem Übernehmen kommt
+   sein Wert über die Replikation, bei Ablehnung oder Abbruch stellt `RevertClient` den Ausgangswert wieder her. Das Attributset
+   gehört dem PlayerState, nicht der Figur.
+
+**Geprüft** (07.11.2026, Build `26187885`, ein PC, Lobby, Godmode, Trace `DDCOOP_TRACE_INVENTORY=1`, vom Nutzer gespielt):
+Waffen ablegen, tauschen und wieder ausrüsten in der Itemauswahl des Clients; der Hände-Balken des Clients folgt sofort
+(Log „Hände-Vorschau 2 statt 1“ und zurück). Nach dem Bestätigen übernahm der Host den Edit vollständig; `tools/spike/weapons.py` zeigte beim Host für beide Figuren genau die Rucksackwaffen ausgerüstet (Client: abgesägte Schrotflinte und Pistole), die Rucksäcke gleich wie beim Client. Ein Rückbau auf `f42b6d6`
+zeigte denselben Fehler bei den Waffenslots. Nicht geprüft: zwei PCs über das Internet, Ablehnung eines Edits mit Hände-Vorschau.
 
 ### Werkbank und Aufwerten beim Client
 

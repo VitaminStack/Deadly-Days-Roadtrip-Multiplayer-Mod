@@ -48,7 +48,7 @@ Die native Replikationsgrundlage aus Gate G1 und die gemeinsame Kamera bleiben b
 
 Bei Bearbeitung „zu zweit“ (Test auf zwei PCs) reserviert jede Person nur ihre Rolle: `claim <kennung> <name> host` oder `client`, ein freier Rest steht dann als `client frei` oder `host frei` in der Liste, siehe [Test auf zwei PCs](docs/TESTING.md#test-auf-zwei-pcs).
 
-Nie von Hand reservieren und nie eine Aufgabe übernehmen, die nicht `frei` ist. Steht dort „erst nachfragen“, ist die Reservierung seit mehreren Tagen ohne Commit. Dann den Menschen fragen, der sie im Team klärt. Neue Arbeit bekommt vorher eine eigene Zeile mit Kennung in der passenden Phase.
+Nie von Hand reservieren und nie eine Entwicklungsaufgabe übernehmen, die nicht `frei` ist. **Bestätigungstest ausstehend** ist ein eigener Wartezustand, nicht „in Arbeit“ und nicht erledigt: solche Tests mit `py tools/tasks.py tests plan` bündeln, ohne die getesteten Aufgaben neu zu reservieren. Teststände und belegte Ergebnisse im eigenen Wartungs-Worktree über `tests update` bzw. `tests pass` aktualisieren; aktive fremde Aufgaben bleiben ausgeschlossen. Siehe [Bestätigungstests](tools/README.md#bestätigungstests). Steht dort „erst nachfragen“, den Menschen zur Reservierung oder dem gemergten Teilstand fragen. Neue Arbeit bekommt vorher eine eigene Zeile mit Kennung in der passenden Phase.
 
 Worktrees liegen immer unter `.worktrees/` im Repo-Ordner, keine neuen Ordner daneben anlegen. Im eigenen Worktree arbeiten, nie im Hauptordner oder im Worktree eines anderen Agenten. Wer die Reservierung aufgibt, ruft `py tools/tasks.py release <kennung>` auf. Das schließt den Draft-PR und löscht den Branch.
 
@@ -58,6 +58,7 @@ Worktrees liegen immer unter `.worktrees/` im Repo-Ordner, keine neuen Ordner da
 - Die Exe nie von Hand mit dem Spike starten und nie `-unattended` verwenden, sonst können Absturzberichte bei Pixelsplit landen, siehe [Testen](docs/TESTING.md).
 - Im Spike nur die Datei des eigenen Themas ändern, die Aufteilung steht in der [Spike-README](research/spikes/a-connect/README.md#dateien).
 - Tests, die zwei Menschen live brauchen, lassen sich in einem Termin bündeln. Hinweise und mögliche Punkte stehen unter [Live-Sitzungen zu zweit](TODO.md#live-sitzungen-zu-zweit); daraus entsteht keine zusätzliche Pflicht.
+- Fehlt nach einem integrierten Teilstand nur noch die Prüfung, den Stand mit `py tools/tasks.py tests pending <kennung> --note "Stand und offene Abnahme"` kennzeichnen. Diagnose-only darf so auf eine Bestätigung warten, gilt aber nicht als behobener Fehler. Merge und Branch-Löschung ersetzen keinen Test. `py tools/tasks.py list --active` lässt Bestätigungstests aus.
 - Offsets gelten nur für den unterstützten Build. Neue Werte in [docs/OFFSETS.md](docs/OFFSETS.md) eintragen.
 - Spieldateien, SDKs, decompilierter Code, persönliche Pfade und IDs gehören nie ins Repo, siehe [CONTRIBUTING.md](CONTRIBUTING.md#was-nie-ins-repo-darf). Das Repo ist öffentlich.
 

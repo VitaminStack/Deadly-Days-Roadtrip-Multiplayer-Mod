@@ -80,11 +80,27 @@ inline bool PlanarMoving(PlanarDirection Velocity)
     return Velocity.X * Velocity.X + Velocity.Y * Velocity.Y > RemoteInputMinSpeed * RemoteInputMinSpeed;
 }
 
+// Diagnose derselben Freigabe, die RemoteMovementInput benutzt. Eine erfolgreiche Speicher-Schreiboperation allein
+// bedeutet nicht, dass GA_Dash eine nutzbare Richtung bekommt; auch (0, 0) kann erfolgreich geschrieben werden.
+enum class RemoteInputState
+{
+    Moving,
+    Expired,
+    NoMovement,
+};
+
+inline RemoteInputState RemoteMovementState(PlanarDirection LastMoving, uint64_t SinceLastMovingMs)
+{
+    if (SinceLastMovingMs > RemoteMoveHoldMs)
+        return RemoteInputState::Expired;
+    return PlanarMoving(LastMoving) ? RemoteInputState::Moving : RemoteInputState::NoMovement;
+}
+
 // Eingabe des Clients als normierter Vektor aus dem letzten Tempo, das schnell genug war. Gemessen: Eingabe (X, Y) läuft
 // in Weltrichtung (Y, X). Steht die Figur länger, ist die Eingabe (0, 0) wie beim Client.
 inline PlanarDirection RemoteMovementInput(PlanarDirection LastMoving, uint64_t SinceLastMovingMs)
 {
-    if (SinceLastMovingMs > RemoteMoveHoldMs || !PlanarMoving(LastMoving))
+    if (RemoteMovementState(LastMoving, SinceLastMovingMs) != RemoteInputState::Moving)
         return {};
     const double Length = std::sqrt(LastMoving.X * LastMoving.X + LastMoving.Y * LastMoving.Y);
     return {LastMoving.Y / Length, LastMoving.X / Length};

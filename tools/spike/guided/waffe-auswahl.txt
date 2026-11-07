@@ -1,0 +1,7 @@
+# waffe-client-auswahl: Waffen ablegen, tauschen, verschieben und herausnehmen; danach EquippedWeapons gegen den Rucksack.
+# Agent startet vorher Start-Session.ps1 -Build -Mod -Godmode -Tunnel Lobby -Brief mit DDCOOP_TRACE_INVENTORY=1; Antworten nur im Chat.
+> Run-Route.ps1 -Days 1 -StayLast
+Mit dem HOST einen Airdrop öffnen, eine Waffe wählen und in den Rucksack legen, eine schon vorhandene Waffe im Rucksack an eine andere Stelle verschieben, dann bestätigen | Panel schließt, beide Waffen schießen beim Host
+Mit dem CLIENT einen Airdrop öffnen, eine Waffe wählen und in den Rucksack legen, dann bestätigen und beim Host wählen | Log "Edit … übernommen", neue Waffe schießt beim Client
+Mit dem CLIENT einen weiteren Airdrop öffnen, eine schon vorhandene Waffe im Rucksack verschieben (nicht herausnehmen), ein Item wählen, bestätigen | Verschobene Waffe schießt weiter
+Mit dem CLIENT einen weiteren Airdrop öffnen, eine Waffe aus dem Rucksack herausnehmen und dafür eine neue Waffe auf ihren Platz legen (Tausch), bestätigen | Nur die neue Waffe schießt, die alte nicht mehr

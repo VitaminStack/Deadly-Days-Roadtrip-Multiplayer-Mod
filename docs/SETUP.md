@@ -107,3 +107,4 @@ Das Repo ist öffentlich, darum wird das SDK nicht darüber verteilt. Alle erzeu
 
 - Jede Spielinstanz schreibt `DDSurvivors/Binaries/Win64/DDCoop/logs/ddcoop-<pid>.log`. Bei Bug-Reports bitte die Logs beider Spieler anhängen.
 - Der echte Spielstand liegt unter `%LOCALAPPDATA%\DDSurvivors\Saved\SaveGames`. Die Testskripte nutzen ein eigenes `-UserDir` und berühren ihn nicht.
+- Mit geladener Mod speichert das Spiel nur in `SaveGames_DDCoop` daneben, auch allein gespielt. Beim ersten Start kopiert die Mod die normalen `.sav`-Dateien einmal dorthin, die Originale bleiben unverändert. Ohne Mod gilt wieder der normale Spielstand. Der Mod-Ordner liegt außerhalb von `SaveGames` und wird darum nicht über Steam Cloud abgeglichen.

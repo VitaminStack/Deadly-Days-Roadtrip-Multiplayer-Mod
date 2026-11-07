@@ -515,7 +515,7 @@ uintptr_t __fastcall UpgradeHook(uintptr_t Inventory, ItemArray* Inputs, uintptr
     const bool InLager = End.Id && End.Done != End.Id && !End.HeldPanel;
     if (!Game::InventoryEdit::ClientEditing() && InLager && !ClientPending && Shown.Items.empty() && Inventory == InventoryOfController(LocalController()))
     {
-        Game::InventoryEdit::BeginClient(Inventory, {});
+        Game::InventoryEdit::BeginClient(Inventory, {}, LocalController());
         LagerEdit = End.Id;
         Core::Log::Info("Lager: Aufwertung beim Client, Lager wird lokal bearbeitet bis zum Bestätigen");
     }
@@ -588,8 +588,21 @@ void RestoreBackpackVisuals(uintptr_t Panel)
         Core::Log::Info("Airdrop-Auswahl: {} Rucksack-Anzeige(n) aus replizierten Pivot-Feldern positioniert", Restored);
 }
 
+// airdrop-dodge-absturz: SetupInventory liest das Inventar des Panels (+0x370) ohne Prüfung, und keiner der acht nativen Aufrufer
+// prüft es vorher, darunter Ereignis-Handler. Dodgte der Client in einen Airdrop, kam der Aufruf manchmal ohne Inventar und
+// stürzte ab. Ohne Inventar gibt es nichts aufzubauen; der nächste Aufruf mit Inventar holt es nach. Der Aufrufer steht im Log.
+std::atomic<unsigned> SetupWithoutInventory = 0;
+
 void __fastcall SetupInventoryHook(uintptr_t Panel)
 {
+    constexpr uintptr_t PanelInventory = 0x370;
+    if (!Panel || !Memory::Read<uintptr_t>(Panel + PanelInventory).value_or(0))
+    {
+        if (SetupWithoutInventory.fetch_add(1) < 10)
+            Core::Log::Warn("Inventar: SetupInventory ohne Inventar ausgelassen, Panel {:#x}, Aufrufer {:#x}", Panel,
+                            reinterpret_cast<uintptr_t>(_ReturnAddress()) - reinterpret_cast<uintptr_t>(GetModuleHandleW(nullptr)));
+        return;
+    }
     OriginalSetupInventory(Panel);
     RestoreBackpackVisuals(Panel);
 }
@@ -690,10 +703,12 @@ void TraceInventoryEvent(uintptr_t Object, uintptr_t Function, void* Params)
     if (It == Names.end())
     {
         const std::string Owner = Memory::NameOf(Pointer(Function + Offsets::UObject::Outer));
+        const std::string Name = Memory::NameOf(Function);
+        // waffe-client-auswahl: Effekte der Items und Ausrüsten der Waffen gehören dazu.
         const bool Wanted = Owner == "InventoryComponent" || Owner == "InventoryItemInstance" || Owner == "BackpackSlot" ||
                             Owner == "InventoryPanel" || Owner == "RewardQueueComponent" || Owner == "CoopInventoryCoordinatorComponent" ||
+                            Owner == "CharacterEffectManager" || (Owner == "DDCharacter" && Name.find("EquippedWeapon") != std::string::npos) ||
                             Owner.starts_with("WP_Inventory") || Owner.starts_with("WP_Backpack") || Owner.starts_with("WP_Item");
-        const std::string Name = Memory::NameOf(Function);
         // Animation und Abfragen je Bild nicht, sie verdrängen die eigentlichen Vorgänge.
         const bool Noise = Name.starts_with("ApplyEasing") || Name.starts_with("OnYoyo") || Name.starts_with("OnLoop") ||
                            Name == "GetAnimationContainer" || Name.ends_with("Tick") || Name.starts_with("Get") || Name.starts_with("Is") ||
@@ -708,8 +723,20 @@ void TraceInventoryEvent(uintptr_t Object, uintptr_t Function, void* Params)
     const uint32_t Flags = Memory::Read<uint32_t>(Function + FunctionFlags).value_or(0);
     const uintptr_t First = Params ? Memory::Read<uintptr_t>(reinterpret_cast<uintptr_t>(Params)).value_or(0) : 0;
     const std::string FirstName = First > 0x10000 && Memory::Read<uint32_t>(First + Offsets::UObject::Flags) ? Memory::NameOf(First) : std::string{};
-    Core::Log::Info("InvTrace {} {}{} an {:#x} ({}), erster Parameter {:#x} {}", CurrentRole() == NetRole::Client ? "C" : "H", It->second,
-                    Flags & FuncNet ? " [Net]" : "", Object, Memory::NameOf(Object), First, FirstName);
+    // Zusatz: Style von RemoveFromBackpack (+0x8), Item und AllowRetainEffect aus FItemEffectContext (+0x8, +0x30).
+    std::string Extra;
+    const uintptr_t At = reinterpret_cast<uintptr_t>(Params);
+    if (Params && It->second == "InventoryComponent.RemoveFromBackpack")
+        Extra = ", Style " + std::to_string(Memory::Read<uint8_t>(At + 8).value_or(0xFF));
+    else if (Params && It->second.starts_with("CharacterEffectManager."))
+    {
+        const uintptr_t Item = Memory::Read<uintptr_t>(At + 8).value_or(0);
+        Extra = ", Item " + (Item ? Memory::NameOf(Pointer(Item + 0xE0)) : std::string("-"));
+        if (It->second == "CharacterEffectManager.RemoveItemFromBackpack")
+            Extra += ", AllowRetain " + std::to_string(Memory::Read<uint8_t>(At + 0x30).value_or(0xFF));
+    }
+    Core::Log::Info("InvTrace {} {}{} an {:#x} ({}), erster Parameter {:#x} {}{}", CurrentRole() == NetRole::Client ? "C" : "H", It->second,
+                    Flags & FuncNet ? " [Net]" : "", Object, Memory::NameOf(Object), First, FirstName, Extra);
 }
 
 uintptr_t RewardCharacter(uintptr_t Character)
@@ -1075,6 +1102,11 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
     for (size_t i = 0; i < Targets.size(); ++i)
         Current.push_back(ReadItem(Targets[i], Now, Goal[i].Source));
     Ok = Apply(Inventory, Targets, Current, Goal, Create, {}, false) && Ok;
+    // waffe-client-auswahl: das native Ablegen frischt danach die Wirkungen beider Figuren auf. Ohne das bleibt eine
+    // neue Waffe bis zum nächsten Levelaufstieg wirkungslos und eine entfernte wirkt weiter.
+    RefreshEffects(Inventory);
+    if (const uintptr_t HostInventory = InventoryOfController(HostController); HostInventory && HostInventory != Inventory)
+        RefreshEffects(HostInventory);
     Core::Log::Info("Inventar lokal: Edit {} übernommen, {} Items, {} neue Felder, {} Aufwertungen, vollständig={}", Value.Id, Targets.size(), Create.size(),
                     Made.size(), Ok);
     return true;
@@ -1190,7 +1222,7 @@ bool ShowForClient(uint64_t SessionId, uint64_t Expected, int32_t Level, const s
         Memory::WriteBytes(Instance + ItemBroken, &Broken, 1);
         Instances.push_back(Instance);
     }
-    Game::InventoryEdit::BeginClient(Inventory, Instances);
+    Game::InventoryEdit::BeginClient(Inventory, Instances, LocalController());
     ItemArray Array{Instances.data(), static_cast<int32_t>(Instances.size()), static_cast<int32_t>(Instances.size())};
     struct
     {

@@ -67,7 +67,8 @@ struct Figure
     uint64_t SampleAt = 0;
     PlanarDirection LastMoving;
     uint64_t LastMovingAt = 0;
-    bool RemoteInputLogged = false;
+    uint64_t RemoteDashAttempts = 0;
+    uint64_t DashRestores = 0;
 };
 
 struct State
@@ -276,15 +277,18 @@ void CheckFigure(Figure& Entry, uint64_t Now)
     const float Gravity = Memory::Read<float>(Component + MovementGravityScale).value_or(1.f);
     if (Entry.Dash.Update(DashSettingsLeft(Friction, Gravity), Now, DashLimitMs) && RestoreDashSettings(Component))
     {
+        const uint64_t Duration = Now - Entry.Dash.Since;
         Entry.Dash = {};
-        Core::Log::Info("Bewegung: Dodge-Werte der eigenen Figur hingen, Reibung und Schwerkraft zurückgesetzt");
+        Core::Log::Info("Bewegung: Dodge-Werte der eigenen Figur hingen, Reibung und Schwerkraft zurückgesetzt "
+                        "(Reparatur {}, seit {} ms, vorher Reibung={} Schwerkraft={})",
+                        ++Entry.DashRestores, Duration, Friction, Gravity);
     }
 }
 }
 
 void PrepareRemoteDash(uintptr_t Object, uintptr_t Function)
 {
-    if (!Object || !Function || Function != DashActivateFunction)
+    if (!Object || !Function || Function != DashActivateFunction || CurrentRole() != NetRole::Host)
         return;
     // Eine Fähigkeit je Ausführung entsteht mit dem Besitzer ihres AbilitySystems als Outer: Figur oder ihr PlayerState.
     const uintptr_t Outer = Memory::ReadPointer(Object + Offsets::UObject::Outer).value_or(0);
@@ -297,15 +301,23 @@ void PrepareRemoteDash(uintptr_t Object, uintptr_t Function)
         if (!Alive(Controller) || Memory::Read<uint8_t>(Controller + ActorRemoteRole).value_or(0) != RoleAutonomousProxy)
             return;
         const uint64_t Now = GetTickCount64();
-        const PlanarDirection Input = RemoteMovementInput(Entry.LastMoving, Entry.LastMovingAt ? Now - Entry.LastMovingAt : UINT64_MAX);
+        const uint64_t Age = Entry.LastMovingAt ? Now - Entry.LastMovingAt : UINT64_MAX;
+        const RemoteInputState InputState = RemoteMovementState(Entry.LastMoving, Age);
+        const PlanarDirection Input = RemoteMovementInput(Entry.LastMoving, Age);
         const double Raw[2]{Input.X, Input.Y};
-        if (Memory::WriteBytes(Controller + ControllerLastMovementInput, Raw, sizeof(Raw)) && !Entry.RemoteInputLogged)
-        {
-            Entry.RemoteInputLogged = true;
-            Core::Log::Info("Bewegung: Laufrichtung der Client-Figur für den Dodge beim Host eingetragen");
-        }
+        const bool Written = Memory::WriteBytes(Controller + ControllerLastMovementInput, Raw, sizeof(Raw));
+        // Je Aktivierung statt nur einmal je Figur: Die alte Meldung erschien auch beim Schreiben von (0, 0).
+        // Das ist nur die Vorbereitung des nativen Dodges, kein Beleg fuer dessen Kosten oder erfolgreichen Abschluss.
+        Core::Log::Info("Bewegung: Client-Dodge beim Host vorbereitet #{}: Richtung=({:.3f},{:.3f}), "
+                        "Grund={}, Bewegungsalter={} ms, Probenalter={} ms, geschrieben={}",
+                        ++Entry.RemoteDashAttempts, Input.X, Input.Y,
+                        !Entry.LastMovingAt ? "keine Bewegung gemessen" : InputState == RemoteInputState::Expired ? "Bewegung veraltet"
+                            : InputState == RemoteInputState::NoMovement ? "unter Mindesttempo" : "Richtung vorhanden",
+                        Entry.LastMovingAt ? static_cast<int64_t>(Age) : -1,
+                        Entry.SampleAt ? static_cast<int64_t>(Now - Entry.SampleAt) : -1, Written);
         return;
     }
+    Core::Log::Warn("Bewegung: Dodge-Aktivierung beim Host keiner bekannten Figur zugeordnet ({} Figuren)", Movement.Figures.size());
 }
 
 void TickMovement(NetRole Role, bool Second)
@@ -326,7 +338,11 @@ void TickMovement(NetRole Role, bool Second)
     if (Second || World != Movement.World)
         RefreshFigures(World);
     if (Role == NetRole::Host && Second && !DashActivateFunction)
+    {
         DashActivateFunction = Objects::FindObject("K2_ActivateAbility", "GA_Dash_C");
+        if (DashActivateFunction)
+            Core::Log::Info("Bewegung: Host-Beobachter fuer GA_Dash bereit; Richtung wird je Client-Aktivierung protokolliert");
+    }
     const uint64_t Now = GetTickCount64();
     for (Figure& Entry : Movement.Figures)
         if (Alive(Entry.Character))
