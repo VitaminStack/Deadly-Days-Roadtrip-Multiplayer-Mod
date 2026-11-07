@@ -2,10 +2,13 @@
 
 #include <windows.h>
 
+#include <array>
 #include <atomic>
 #include <vector>
 
 #include "Core/Log.h"
+#include "Core/Version.h"
+#include "Game/AddressMap.h"
 #include "Game/Memory.h"
 #include "Game/Offsets.h"
 #include "Game/PatchRuntime.h"
@@ -17,6 +20,16 @@ namespace
 {
 std::atomic<State> Current = State::Pending;
 Code::Writer Caves;
+
+// Reihenfolge wie bisher in Install. Ticks fragen über ListOn nach, ob ihre Liste steht.
+enum ListIndex : size_t { Player, Client, Camera, Inventory, Travel, Widget, HealthBar, Airdrop, Exp, RemoteP2, Reward, Map, LocalDevice, ListCount };
+std::array<bool, ListCount> Enabled{};
+bool PartialMode = false;
+
+bool ListOn(ListIndex Index)
+{
+    return Enabled[Index];
+}
 }
 
 uintptr_t At(uintptr_t Rva)
@@ -77,13 +90,46 @@ InstallResult InstallAll(std::span<const Patch> List, Code::Writer& Code)
     return InstallResult::Installed;
 }
 
+ListsResult InstallLists(std::span<const PatchList> Lists, Code::Writer& Code, std::span<bool> EnabledOut)
+{
+    ListsResult Result;
+    for (size_t Index = 0; Index < Lists.size(); ++Index)
+    {
+        switch (InstallAll(Lists[Index].Patches, Code))
+        {
+        case InstallResult::Installed:
+            EnabledOut[Index] = true;
+            ++Result.Installed;
+            break;
+        case InstallResult::CheckFailed:
+            Core::Log::Warn("Patches: Liste {} ausgelassen, Prüfung fehlgeschlagen", Lists[Index].Name);
+            ++Result.Skipped;
+            break;
+        default:
+            Core::Log::Error("Patches: Liste {} nur teilweise gesetzt", Lists[Index].Name);
+            Result.ApplyFailed = true;
+            return Result;
+        }
+    }
+    return Result;
+}
+
+bool PartialInstallAllowed(bool SwitchOn, uint32_t Build)
+{
+    return SwitchOn && Build != 0 && Build != AddressMap::ReferenceBuild;
+}
+
 bool Install()
 {
+    const std::array<PatchList, ListCount> Lists = {{
+        {"Player", PlayerPatches()}, {"Client", ClientPatches()}, {"Camera", CameraPatches()}, {"Inventory", InventoryPatches()},
+        {"Travel", TravelPatches()}, {"Widget", WidgetPatches()}, {"HealthBar", HealthBarPatches()}, {"Airdrop", AirdropPatches()},
+        {"Exp", ExpPatches()}, {"RemoteP2", RemoteP2Patches()}, {"Reward", RewardPatches()}, {"Map", MapPatches()},
+        {"LocalDevice", LocalDevicePatches()},
+    }};
     std::vector<Patch> All;
-    for (const auto List : {PlayerPatches(), ClientPatches(), CameraPatches(), InventoryPatches(), TravelPatches(), WidgetPatches(),
-                            HealthBarPatches(), AirdropPatches(), ExpPatches(), RemoteP2Patches(), RewardPatches(), MapPatches(),
-                            LocalDevicePatches()})
-        All.insert(All.end(), List.begin(), List.end());
+    for (const PatchList& List : Lists)
+        All.insert(All.end(), List.Patches.begin(), List.Patches.end());
 
     if (!Caves.AllocateNear(Memory::ImageBase()))
     {
@@ -91,9 +137,23 @@ bool Install()
         Current = State::Inactive;
         return false;
     }
+    char Switch[2]{};
+    const bool SwitchOn = GetEnvironmentVariableA("DDCOOP_PARTIAL_PATCHES", Switch, sizeof(Switch)) == 1 && Switch[0] == '1';
+    if (PartialInstallAllowed(SwitchOn, Core::ActiveBuild()))
+    {
+        PartialMode = true;
+        const ListsResult Result = InstallLists(Lists, Caves, Enabled);
+        Current = Result.ApplyFailed ? State::Partial : Result.Skipped ? State::Partial : State::Active;
+        Core::Log::Warn("Patches: Teilinstallation (DDCOOP_PARTIAL_PATCHES), {} von {} Listen gesetzt{}", Result.Installed, Lists.size(),
+                        Result.ApplyFailed ? ", Setzen abgebrochen" : "");
+        if (Result.ApplyFailed)
+            PartialMode = false; // Ticks bleiben aus, der Zustand ist nicht mehr listenweise sauber.
+        return !Result.ApplyFailed && !Result.Skipped;
+    }
     switch (InstallAll(All, Caves))
     {
     case InstallResult::Installed:
+        Enabled.fill(true);
         Current = State::Active;
         Core::Log::Info("Patches: {} gesetzt", All.size());
         return true;
@@ -110,7 +170,8 @@ bool Install()
 
 void Tick()
 {
-    if (Current != State::Active)
+    // Teilinstallation: nur die Ticks gesetzter Listen. Projektile und Bewegung lesen nur Objekte, keine Patch-Adressen.
+    if (Current != State::Active && !(Current == State::Partial && PartialMode))
         return;
     static ULONGLONG LastSecond = 0;
     const ULONGLONG Now = GetTickCount64();
@@ -118,13 +179,19 @@ void Tick()
     if (Second)
         LastSecond = Now;
     const NetRole Role = CurrentRole();
-    TickWidgets(Role);
-    TickPlayers(Role, Second);
-    TickRemoteP2(Role);
-    Rewards::Tick();
-    TickCamera(Role, Second);
+    if (ListOn(Widget))
+        TickWidgets(Role);
+    if (ListOn(Player))
+        TickPlayers(Role, Second);
+    if (ListOn(RemoteP2))
+        TickRemoteP2(Role);
+    if (ListOn(Reward))
+        Rewards::Tick();
+    if (ListOn(Camera))
+        TickCamera(Role, Second);
     TickProjectiles(Role, Second);
     TickMovement(Role, Second);
-    TickMap(Role, Second);
+    if (ListOn(Map))
+        TickMap(Role, Second);
 }
 }

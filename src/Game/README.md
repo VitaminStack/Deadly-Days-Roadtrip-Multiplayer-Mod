@@ -71,6 +71,11 @@ Build um (Tabelle `RvaMap<build>.inc` aus [`tools/rva_map.py`](../../tools/READM
 protokollieren sie einmal; die Byte-Prüfungen schlagen dann fehl und keine Patch-Liste wird gesetzt. Neue RVAs immer als Referenz-RVA
 eintragen und für jeden weiteren Build in dessen Tabelle nachziehen. Feld-Offsets (`Offsets.h`) werden nicht umgerechnet.
 
+**Teilinstallation für die Portierung.** Mit `DDCOOP_PARTIAL_PATCHES=1` (`Start-Session.ps1 -PartialPatches`) setzt die Mod auf einem anderen
+Build als `26187885` jede Patch-Liste (eine `*Patches.cpp`) für sich ganz oder gar nicht; Ticks laufen nur für gesetzte Listen. Das Log nennt
+ausgelassene Listen (`Liste … ausgelassen`) und die Summe. Nur zum Testen einzelner Portierungen: Hooks einer gesetzten Liste können Code einer
+ausgelassenen erreichen. Im Referenz-Build und ohne Schalter bleibt es bei allen Patches oder keinem.
+
 | Datei | Seite | Inhalt |
 |---|---|---|
 | `PlayerPatches.cpp` | Host | Spawn und Spielerindex ohne `LocalPlayer`, Loot- und Gegner-Spawner ohne Spieler, `SpawnedPlayers` bei Registrierung und Controller-Tausch, Abgleich je Sekunde als Rückfall, Client-Position annehmen, Busplatz schont alle Spielerfiguren, Run-Ende ohne `LocalPlayer` |
