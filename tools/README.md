@@ -157,7 +157,10 @@ py tools/patch_signatures.py check --exe <kopie>/DDSurvivors/Binaries/Win64/DDSu
   stark geändertem Code bekommt jeder Build eine eigene Zeile. `--file` beschränkt auf einzelne Dateien, `--write` fügt die Zeilen ein.
 - `check`: `ok`, `abweichend`, `mehrdeutig`, `fehlt` (keine Adresse in RvaMap). Im Referenz-Build zusätzlich `ohne-signatur` für Adressen
   ohne Zeile, mit `--strict` ein Fehler. Nach jedem Spiel-Update und vor neuen Patches laufen lassen.
-- Neue Patches: Adresse eintragen, `generate --write`, die Adresse in `Sites` des Patches nennen.
+- `sites`: leitet je Eintrag der Patch-Listen aus Check, Apply und allem, was sie in der Datei aufrufen (auch Hooks), die benutzten Adressen
+  der Tabelle ab und vergleicht sie mit `Patch::Sites` (`abweichend`, Exitcode 1). `--write` schreibt die `<Name>Sites`-Felder. Fehlt eine
+  Patch-Liste die Adresse eines Ticks, bleibt dessen Tick aus (`ListComplete`).
+- Neue Patches: Adresse eintragen, `generate --write`, dann `sites --write`.
 
 ## Build-Mod.ps1
 

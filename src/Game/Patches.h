@@ -66,6 +66,9 @@ bool SiteUsable(uintptr_t ReferenceRva);
 // Patches mit einer unbrauchbaren Stelle in Sites werden vorher ausgelassen und in Skipped gezählt, der Rest geht weiter.
 InstallResult InstallAll(std::span<const Patch> List, Code::Writer& Code, SiteCheck Usable = SiteUsable, size_t* Skipped = nullptr);
 
+// Alle Stellen aller Patches der Liste brauchbar? Sonst bleibt der Tick der Liste aus, die gesetzten Patches stehen.
+bool ListComplete(std::span<const Patch> List, SiteCheck Usable = SiteUsable);
+
 // Eine Patch-Datei mit ihrem Tick. Für die Teilinstallation zählt die Liste als Einheit.
 struct PatchList
 {

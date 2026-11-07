@@ -191,6 +191,10 @@ TEST_CASE("Patches: ein Patch mit gesperrter Stelle fällt allein aus, ohne Chec
     Applied = 0;
     CHECK(InstallAll(List, Code, nullptr, nullptr) == InstallResult::Installed);
     CHECK(Applied == 3);
+
+    // Der Tick einer Liste läuft nur, wenn keiner ihrer Patches ausgelassen wurde.
+    CHECK_FALSE(ListComplete(List, &OnlyFirstUsable));
+    CHECK(ListComplete(std::span(List, 1), &OnlyFirstUsable));
 }
 
 TEST_CASE("Signaturen: Tabelle sortiert, eigene Build-Zeile vor der gemeinsamen, Muster mit Platzhaltern")

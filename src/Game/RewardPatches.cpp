@@ -663,11 +663,16 @@ bool ApplyUpgrade(Code::Writer&)
     return Core::Hooks::Install(reinterpret_cast<void*>(At(UpgradeItems)), reinterpret_cast<void*>(&UpgradeHook),
                                 reinterpret_cast<void**>(&OriginalUpgrade));
 }
+// Je Patch die benutzten Adressen der Signaturtabelle, erzeugt von tools/patch_signatures.py sites.
+constexpr uintptr_t SetRewardsSites[] = {MemoryFree, SetRewardItems};
+constexpr uintptr_t UpgradeSites[] = {UpgradeItems};
+constexpr uintptr_t ConfirmSites[] = {MemoryFree, CreateItemInstance, PanelConfirm};
+constexpr uintptr_t SetupInventorySites[] = {PanelSetupInventory};
 const Patch List[] = {
-    {"Airdrop-Auswahl: Choices des Hosts mitlesen", CheckSetRewards, ApplySetRewards},
-    {"Aufwerten beim Client nur in lokaler Bearbeitung, Host übernimmt", CheckUpgrade, ApplyUpgrade},
-    {"Airdrop-Auswahl: Bestätigen bis zur Wahl des Partners halten", CheckConfirm, ApplyConfirm},
-    {"Airdrop-Auswahl: Rucksack-Anzeige aus replizierten Feldern aufbauen", CheckSetupInventory, ApplySetupInventory},
+    {"Airdrop-Auswahl: Choices des Hosts mitlesen", CheckSetRewards, ApplySetRewards, SetRewardsSites},
+    {"Aufwerten beim Client nur in lokaler Bearbeitung, Host übernimmt", CheckUpgrade, ApplyUpgrade, UpgradeSites},
+    {"Airdrop-Auswahl: Bestätigen bis zur Wahl des Partners halten", CheckConfirm, ApplyConfirm, ConfirmSites},
+    {"Airdrop-Auswahl: Rucksack-Anzeige aus replizierten Feldern aufbauen", CheckSetupInventory, ApplySetupInventory, SetupInventorySites},
 };
 }
 

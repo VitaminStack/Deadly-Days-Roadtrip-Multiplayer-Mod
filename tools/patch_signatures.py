@@ -254,6 +254,125 @@ def check(args):
     return 1 if any(counts.get(key) for key in errors) else 0
 
 
+FUNCTION = re.compile(r'^[A-Za-z_][\w:<>,*& ]*?\b(\w+)\s*\(')
+ENTRY = re.compile(r'^(\s*\{\s*"[^"]*"\s*,\s*&?(\w+)\s*,\s*&?(\w+))\s*(?:,\s*(\w+)\s*)?(\},?.*)$')
+SITES_LINE = re.compile(r'^constexpr uintptr_t (\w+Sites)\[\] = \{[^}]*\};\n', re.M)
+SITES_NOTE = '// Je Patch die benutzten Adressen der Signaturtabelle, erzeugt von tools/patch_signatures.py sites.\n'
+LIST_START = re.compile(r'^const (?:Patches::)?Patch List\[\] = \{', re.M)
+
+
+def functions_of(text):
+    """Name -> Rumpf aller Funktionen, die in Spalte 0 beginnen und mit '}' in Spalte 0 enden (Überladungen zusammen)."""
+    bodies, lines, index = {}, text.splitlines(), 0
+    while index < len(lines):
+        match = FUNCTION.match(lines[index])
+        if not match or lines[index].rstrip().endswith(';') or match.group(1) in ('if', 'for', 'while', 'switch'):
+            index += 1
+            continue
+        end = index
+        while end < len(lines) and lines[end] != '}':
+            if end > index and FUNCTION.match(lines[end]) and lines[end - 1].strip() in ('', '}'):
+                break
+            end += 1
+        if end < len(lines) and lines[end] == '}':
+            bodies[match.group(1)] = bodies.get(match.group(1), '') + '\n'.join(lines[index:end + 1])
+            index = end + 1
+        else:
+            index += 1
+    return bodies
+
+
+def reached_sites(text, roots, listed):
+    """Referenz-RVAs aus listed, die die Funktionen roots und alles, was sie in der Datei nennen, benutzen."""
+    bodies = functions_of(text)
+    constants = {match.group(1): int(match.group(2), 16) for match in NAMED.finditer(text)}
+    seen, todo, found = set(), list(roots), set()
+    while todo:
+        name = todo.pop()
+        if name in seen or name not in bodies:
+            continue
+        seen.add(name)
+        body = bodies[name]
+        found.update(int(match.group(1), 16) for match in LITERAL.finditer(body))
+        for word in set(re.findall(r'\b[A-Za-z_]\w*\b', body)):
+            if word in constants:
+                found.add(constants[word])
+            elif word in bodies:
+                todo.append(word)
+    return sorted(rva for rva in found if rva in listed)
+
+
+def sites_name(check):
+    return (check[5:] if check.startswith('Check') else check) + 'Sites'
+
+
+def literal_name(rva, constants):
+    for name, value in constants.items():
+        if value == rva:
+            return name
+    return f'0x{rva:X}'
+
+
+def file_sites(text, listed):
+    """[(Zeilenindex der Liste, Check, Apply, bisheriges Sites, neue RVAs)] je Eintrag der Patch-Liste."""
+    start = LIST_START.search(text)
+    if not start:
+        return []
+    entries = []
+    for line in text[start.end():].split('};', 1)[0].splitlines():
+        match = ENTRY.match(line)
+        if match:
+            entries.append((match.group(2), match.group(3), match.group(4), reached_sites(text, [match.group(2), match.group(3)], listed)))
+    return entries
+
+
+def write_sites(text, entries):
+    constants = {match.group(1): int(match.group(2), 16) for match in NAMED.finditer(text)}
+    text = SITES_LINE.sub('', text).replace(SITES_NOTE, '')
+    text = re.sub(r'^// Je Patch alle benutzten Adressen \(patch-signaturen\).*\n', '', text, flags=re.M)
+    block = SITES_NOTE + ''.join(
+        f'constexpr uintptr_t {sites_name(check)}[] = {{{", ".join(literal_name(rva, constants) for rva in rvas)}}};\n'
+        for check, _, _, rvas in entries if rvas)
+    start = LIST_START.search(text)
+    head, tail = text[:start.start()], text[start.start():]
+    body, rest = tail.split('};', 1)
+    lines = []
+    by_check = {check: rvas for check, _, _, rvas in entries}
+    for line in body.splitlines():
+        match = ENTRY.match(line)
+        if match:
+            rvas = by_check[match.group(2)]
+            line = match.group(1) + (f', {sites_name(match.group(2))}' if rvas else '') + match.group(5)
+        lines.append(line)
+    return head + block + '\n'.join(lines) + ('\n' if body.endswith('\n') else '') + '};' + rest
+
+
+def sites(args):
+    listed = {rva for rva, _ in load_rows()}
+    covered, differ = set(), 0
+    for path in sorted(GAME.glob('*Patches.cpp')):
+        text = path.read_text(encoding='utf-8')
+        entries = file_sites(text, listed)
+        constants = {match.group(1): int(match.group(2), 16) for match in NAMED.finditer(text)}
+        declared = {name: [constants.get(token.strip(), int(token, 16) if token.strip().startswith('0x') else None)
+                           for token in body.split(',') if token.strip()]
+                    for name, body in re.findall(r'constexpr uintptr_t (\w+Sites)\[\] = \{([^}]*)\};', text)}
+        for check, _, current, rvas in entries:
+            covered.update(rvas)
+            have = sorted(declared.get(current, [])) if current else []
+            if have != rvas or (rvas and current != sites_name(check)):
+                differ += 1
+                print(f'abweichend    {path.name} {check}: deklariert {[hex(r) for r in have]}, benutzt {[hex(r) for r in rvas]}')
+        if args.write and any((c and sorted(declared.get(c, [])) != r) or (not c and r) for _, _, c, r in [(e[0], e[1], e[2], e[3]) for e in entries]):
+            path.write_text(write_sites(text, entries), encoding='utf-8', newline='\n')
+            print(f'Geschrieben: {path.relative_to(REPO).as_posix()}')
+    loose = sorted(listed - covered)
+    for rva in loose:
+        print(f'ohne-patch    0x{rva:08X}: in keinem Patch erreichbar (Tick oder anderer Pfad), Aufrufe dort auf 0 prüfen')
+    print(f'Summe: {len(listed)} Adressen, {len(covered)} in Sites, {differ} Einträge abweichend')
+    return 1 if differ and not args.write else 0
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest='command', required=True)
@@ -266,10 +385,12 @@ def main():
     chk.add_argument('--exe', required=True)
     chk.add_argument('--build', required=True, type=int)
     chk.add_argument('--strict', action='store_true', help='Code-Adressen ohne Signatur sind ein Fehler')
+    sit = sub.add_parser('sites', help='Patch::Sites aus den Funktionen der Patches ableiten und vergleichen')
+    sit.add_argument('--write', action='store_true')
     args = parser.parse_args()
     if args.command == 'generate' and len(args.other) % 2:
         parser.error('--other erwartet Paare aus Exe und Build')
-    return generate(args) if args.command == 'generate' else check(args)
+    return {'generate': generate, 'check': check, 'sites': sites}[args.command](args)
 
 
 if __name__ == '__main__':

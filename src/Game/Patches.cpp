@@ -127,6 +127,13 @@ InstallResult InstallAll(std::span<const Patch> List, Code::Writer& Code, SiteCh
     return InstallResult::Installed;
 }
 
+bool ListComplete(std::span<const Patch> List, SiteCheck Usable)
+{
+    return std::ranges::all_of(List, [Usable](const Patch& Entry) {
+        return std::ranges::all_of(Entry.Sites, [Usable](uintptr_t Site) { return Usable(Site); });
+    });
+}
+
 ListsResult InstallLists(std::span<const PatchList> Lists, Code::Writer& Code, std::span<bool> EnabledOut)
 {
     ListsResult Result;
@@ -135,7 +142,8 @@ ListsResult InstallLists(std::span<const PatchList> Lists, Code::Writer& Code, s
         switch (InstallAll(Lists[Index].Patches, Code, SiteUsable, &Result.SkippedPatches))
         {
         case InstallResult::Installed:
-            EnabledOut[Index] = true;
+            // Ticks greifen auf Adressen aller Patches der Liste zu, darum nur bei vollständiger Liste.
+            EnabledOut[Index] = ListComplete(Lists[Index].Patches, SiteUsable);
             ++Result.Installed;
             break;
         case InstallResult::CheckFailed:
@@ -193,7 +201,8 @@ bool Install()
     switch (InstallAll(All, Caves, SiteUsable, &Skipped))
     {
     case InstallResult::Installed:
-        Enabled.fill(true);
+        for (size_t Index = 0; Index < ListCount; ++Index)
+            Enabled[Index] = ListComplete(Lists[Index].Patches, SiteUsable);
         Current = State::Active;
         if (Skipped)
             Core::Log::Warn("Patches: {} gesetzt, {} wegen Signatur ausgelassen", All.size() - Skipped, Skipped);

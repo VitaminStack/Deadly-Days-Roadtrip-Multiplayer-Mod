@@ -413,14 +413,22 @@ bool ApplyRunEnd(Code::Writer& Code)
     return !Code.Failed() && Code::WriteJump(At(RunEndLocalPlayerSite), Cave);
 }
 
+// Je Patch die benutzten Adressen der Signaturtabelle, erzeugt von tools/patch_signatures.py sites.
+constexpr uintptr_t RemoteSpawnSites[] = {SpawnNullSite, SpawnSkipTarget};
+constexpr uintptr_t PlayerIndexSites[] = {PlayerIndexNullSite};
+constexpr uintptr_t LootSpawnerSites[] = {LootPawnRead, LootNoRootTarget};
+constexpr uintptr_t EnemySpawnerSites[] = {SpawnerPlayerRead, SpawnerNoPlayerExit};
+constexpr uintptr_t ControllerRegistrationSites[] = {ControllerSparseRemove, RegistrationBroadcast, ControllerSetAdd, RegisterController, 0x58FB11D, 0x58FB133};
+constexpr uintptr_t BusSites[] = {ClearSpawnArea};
+constexpr uintptr_t RunEndSites[] = {RunEndLocalPlayerSite, RunEndContinue};
 const Patch List[] = {
-    {"Spawn des Remote-Spielers", &CheckRemoteSpawn, &ApplyRemoteSpawn},
-    {"Spielerindex ohne LocalPlayer", &CheckPlayerIndex, &ApplyPlayerIndex},
-    {"Loot-Spawner ohne Figur", &CheckLootSpawner, &ApplyLootSpawner},
-    {"Gegner-Spawner ohne Spieler", &CheckEnemySpawner, &ApplyEnemySpawner},
-    {"SpawnedPlayers bei der Registrierung", &CheckControllerRegistration, &ApplyControllerRegistration},
-    {"Busplatz schont Spielerfiguren", &CheckBus, &ApplyBus},
-    {"Run-Ende ohne LocalPlayer", &CheckRunEnd, &ApplyRunEnd},
+    {"Spawn des Remote-Spielers", &CheckRemoteSpawn, &ApplyRemoteSpawn, RemoteSpawnSites},
+    {"Spielerindex ohne LocalPlayer", &CheckPlayerIndex, &ApplyPlayerIndex, PlayerIndexSites},
+    {"Loot-Spawner ohne Figur", &CheckLootSpawner, &ApplyLootSpawner, LootSpawnerSites},
+    {"Gegner-Spawner ohne Spieler", &CheckEnemySpawner, &ApplyEnemySpawner, EnemySpawnerSites},
+    {"SpawnedPlayers bei der Registrierung", &CheckControllerRegistration, &ApplyControllerRegistration, ControllerRegistrationSites},
+    {"Busplatz schont Spielerfiguren", &CheckBus, &ApplyBus, BusSites},
+    {"Run-Ende ohne LocalPlayer", &CheckRunEnd, &ApplyRunEnd, RunEndSites},
 };
 }
 

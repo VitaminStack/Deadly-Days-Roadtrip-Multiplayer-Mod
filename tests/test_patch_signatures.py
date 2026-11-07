@@ -90,5 +90,52 @@ class CheckTests(unittest.TestCase):
         self.assertEqual(self.statuses(rows, table, 3), [(0x5000, 'ok'), (0x6000, 'ok'), (0x7000, 'fehlt')])
 
 
+SOURCE = '''constexpr uintptr_t Site = 0x5000000;
+constexpr uintptr_t Helper = 0x5000100;
+constexpr uintptr_t Other = 0x5000200;
+void __fastcall Hook(uintptr_t A)
+{
+    reinterpret_cast<Fn>(At(Helper))(A);
+}
+bool CheckOne()
+{
+    return Code::Expect(At(Site), {0x48}, "x");
+}
+bool ApplyOne(Code::Writer&)
+{
+    return Install(At(Site), &Hook);
+}
+bool CheckTwo()
+{
+    return At(0x5000300) != 0;
+}
+bool ApplyTwo(Code::Writer&)
+{
+    return At(Other) != 0;
+}
+const Patch List[] = {
+    {"Eins", &CheckOne, &ApplyOne},
+    {"Zwei", CheckTwo, ApplyTwo},
+};
+'''
+
+
+class SitesTests(unittest.TestCase):
+    LISTED = {0x5000000, 0x5000100, 0x5000300}
+
+    def test_follows_hooks_and_ignores_unlisted(self):
+        entries = sig.file_sites(SOURCE, self.LISTED)
+        self.assertEqual([(check, rvas) for check, _, _, rvas in entries],
+                         [('CheckOne', [0x5000000, 0x5000100]), ('CheckTwo', [0x5000300])])
+
+    def test_write_is_stable(self):
+        written = sig.write_sites(SOURCE, sig.file_sites(SOURCE, self.LISTED))
+        self.assertIn('constexpr uintptr_t OneSites[] = {Site, Helper};', written)
+        self.assertIn('constexpr uintptr_t TwoSites[] = {0x5000300};', written)
+        self.assertIn('{"Zwei", CheckTwo, ApplyTwo, TwoSites},\n};', written)
+        again = sig.write_sites(written, sig.file_sites(written, self.LISTED))
+        self.assertEqual(again, written)
+
+
 if __name__ == '__main__':
     unittest.main()

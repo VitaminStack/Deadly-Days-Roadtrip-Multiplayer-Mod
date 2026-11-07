@@ -386,12 +386,18 @@ bool ApplyRepresentationSize(Code::Writer&)
                                 reinterpret_cast<void**>(&OriginalRepresentationSize));
 }
 
+// Je Patch die benutzten Adressen der Signaturtabelle, erzeugt von tools/patch_signatures.py sites.
+constexpr uintptr_t ItemLootSites[] = {ItemLoot};
+constexpr uintptr_t RepresentationSizeSites[] = {RepresentationSize};
+constexpr uintptr_t InventorySites[] = {DefaultNetworkingSupport, InventoryReadyForReplication};
+constexpr uintptr_t DetectorSites[] = {FindTimer, ClearTimer, SetNextTick, ScheduleCall, DetectorEndPlay};
+constexpr uintptr_t MapGenLambdaSites[] = {MapGenLambdaExecute, MapGenLambdaExecuteIfSafe};
 const Patch List[] = {
-    {"Itemsack-Vergabe nur beim Host, für alle Spieler", &CheckItemLoot, &ApplyItemLoot},
-    {"Item-Widget ohne Item: Größe nicht setzen", &CheckRepresentationSize, &ApplyRepresentationSize},
-    {"Inventar-Unterobjekte replizieren", &CheckInventory, &ApplyInventory},
-    {"Timer des Achievement-Detektors beim EndPlay löschen", &CheckDetector, &ApplyDetector},
-    {"Kartengenerator-Schritt nur für die aktuelle Welt", &CheckMapGenLambda, &ApplyMapGenLambda},
+    {"Itemsack-Vergabe nur beim Host, für alle Spieler", &CheckItemLoot, &ApplyItemLoot, ItemLootSites},
+    {"Item-Widget ohne Item: Größe nicht setzen", &CheckRepresentationSize, &ApplyRepresentationSize, RepresentationSizeSites},
+    {"Inventar-Unterobjekte replizieren", &CheckInventory, &ApplyInventory, InventorySites},
+    {"Timer des Achievement-Detektors beim EndPlay löschen", &CheckDetector, &ApplyDetector, DetectorSites},
+    {"Kartengenerator-Schritt nur für die aktuelle Welt", &CheckMapGenLambda, &ApplyMapGenLambda, MapGenLambdaSites},
 };
 }
 
