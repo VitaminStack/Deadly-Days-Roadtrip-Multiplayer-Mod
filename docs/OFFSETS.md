@@ -29,7 +29,7 @@ Stand 07.11.2026. Alle Werte dieser Datei bleiben Referenz-RVAs von `26187885`. 
   Patches. Handshake mit Build-Prüfung klappt. Der Host stürzt beim Beitritt des Clients ab (`0x5904DE8`), wie ohne den Patch
   „SpawnedPlayers bei der Registrierung“ zu erwarten. Auf `26187885` setzt dieselbe Mod weiterhin alle 43 Patches.
 - Mit Teilinstallation (`-PartialPatches`): 8 von 13 Listen gesetzt, ausgelassen Player, Client, Inventory, HealthBar, Reward. Absturz beim
-  Beitritt unverändert an `0x5904DE8`, bis `update-client` die Player-Liste portiert.
+  Beitritt unverändert an `0x5904DE8`; behoben mit `update-client`, das die Player-Liste portiert hat.
 
 ### Client- und Player-Patches (`update-client`)
 
