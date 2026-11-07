@@ -588,8 +588,21 @@ void RestoreBackpackVisuals(uintptr_t Panel)
         Core::Log::Info("Airdrop-Auswahl: {} Rucksack-Anzeige(n) aus replizierten Pivot-Feldern positioniert", Restored);
 }
 
+// airdrop-dodge-absturz: SetupInventory liest das Inventar des Panels (+0x370) ohne Prüfung, und keiner der acht nativen Aufrufer
+// prüft es vorher, darunter Ereignis-Handler. Dodgte der Client in einen Airdrop, kam der Aufruf manchmal ohne Inventar und
+// stürzte ab. Ohne Inventar gibt es nichts aufzubauen; der nächste Aufruf mit Inventar holt es nach. Der Aufrufer steht im Log.
+std::atomic<unsigned> SetupWithoutInventory = 0;
+
 void __fastcall SetupInventoryHook(uintptr_t Panel)
 {
+    constexpr uintptr_t PanelInventory = 0x370;
+    if (!Panel || !Memory::Read<uintptr_t>(Panel + PanelInventory).value_or(0))
+    {
+        if (SetupWithoutInventory.fetch_add(1) < 10)
+            Core::Log::Warn("Inventar: SetupInventory ohne Inventar ausgelassen, Panel {:#x}, Aufrufer {:#x}", Panel,
+                            reinterpret_cast<uintptr_t>(_ReturnAddress()) - reinterpret_cast<uintptr_t>(GetModuleHandleW(nullptr)));
+        return;
+    }
     OriginalSetupInventory(Panel);
     RestoreBackpackVisuals(Panel);
 }
