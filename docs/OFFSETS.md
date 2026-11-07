@@ -8,6 +8,27 @@ RVAs sind relativ zur Image-Base `0x140000000`. Die Patchstellen stehen als Kons
 [Spike-Datei](../research/spikes/a-connect/README.md#dateien), ihre Bedeutung in der [Patch-Tabelle](../research/spikes/a-connect/README.md#patches).
 Die Spielfehler-Fixes nutzt auch die Mod, mit denselben Werten am Anfang von `src/Game/*Patches.cpp`, siehe [Patches der Mod](../src/Game/README.md#patches).
 
+## Build 26495302 (`update-basis`)
+
+Stand 07.11.2026. Alle Werte dieser Datei bleiben Referenz-RVAs von `26187885`. Für `26495302` rechnet `Game::AddressMap` sie über
+`src/Game/RvaMap26495302.inc` um, erzeugt mit [`tools/rva_map.py`](../tools/README.md#rva_mappy). Exe: TimeDateStamp `0x65BFBBFB`, SizeOfImage `0x0B748000`.
+
+| | 26187885 | 26495302 | Beleg |
+|---|---|---|---|
+| GObjects | `0x0AA61B00` | `0x0AA67B80` | rva_map (Code-Verweis) und Dumper-7-SDK |
+| GNames | `0x0A993AC0` | `0x0A999B40` | rva_map und SDK |
+| GWorld | `0x0AAE46F0` | `0x0AAEA770` | rva_map und SDK |
+| ProcessEvent | `0x0160C040` | `0x0160C220` | rva_map (eindeutig) und SDK, Index `0x4A` unverändert |
+
+- Feld-Offsets aus `src/Game/Offsets.h` sind unverändert: `SdkChecks.cpp` baut gegen das neue SDK ohne Fehler (dieselbe deaktivierte
+  UE-5.8-Assert-Stelle `UEngineReplicationBridge` wie beim alten SDK).
+- 97 Adressen aus `src/`: 81 eindeutig, 3 vtables, 3 Globale, 1 über den Funktionsanfang, 9 fehlen (Code geändert):
+  `0x05666FA5` (Blockade, Einsprung), `OnRepHealth`, `OnRepMaxHealth`, `FinishMission`, `PanelConfirm`, `ClientRefreshFunction`,
+  `RepresentationSize`, `SlotVtable`, `DetectorVtable`.
+- Spieltest mit Mod auf `26495302` (ein PC, Lobby, `-NoSpike`): 33 von 43 Patch-Prüfungen bestehen, 10 nicht, darum setzt die Mod keine
+  Patches. Handshake mit Build-Prüfung klappt. Der Host stürzt beim Beitritt des Clients ab (`0x5904DE8`), wie ohne den Patch
+  „SpawnedPlayers bei der Registrierung“ zu erwarten. Auf `26187885` setzt dieselbe Mod weiterhin alle 43 Patches.
+
 ## Diagnoseadapter (`desync-melder`)
 
 Quelle: Felddeklarationen des lokalen Dumper-7-SDK für denselben Build. Optionale
