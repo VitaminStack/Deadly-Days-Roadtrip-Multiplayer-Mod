@@ -57,7 +57,6 @@
     <ClCompile Include="HealthBarPatches.cpp" />
     <ClCompile Include="InventoryPatches.cpp" />
     <ClCompile Include="Memory.cpp" />
-    <ClCompile Include="AddressMap.cpp" />
     <ClCompile Include="Objects.cpp" />
     <ClCompile Include="PatchPolicy.cpp" />
     <ClCompile Include="Patches.cpp" />

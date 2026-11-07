@@ -71,7 +71,7 @@ print('RIP', hex(rip - game.base))
 addresses, functions = [], []
 for offset in range(0, len(stack) - 8, 8):
     value = struct.unpack_from('<Q', stack, offset)[0]
-    if game.base + 0x1000 < value < game.base + TEXT_SIZE:
+    if game.base + 0x1000 < value < game.base + getattr(game, 'text_size', TEXT_SIZE):
         addresses.append(hex(value - game.base))
     elif 0x10000 < value < 0x7FFFFFFFFFFF and not value & 7:
         cls = game.ptr(value + 0x10)
