@@ -273,6 +273,20 @@ Host weiter, weil die Verbindung der Mod bestehen blieb. Seit dem 2-s-Ablauf: �
 „Bestätigen nachgeholt (Client nicht mehr im Lager)“, der Host auf der Routenkarte. Mit diesem Build danach erneut Client zuerst
 geprüft, Reise bis Tag 2, Inventare gleich, kein Absturz.
 
+**Stummer Client und Absturz im Lager** (`lager-absturz-client`, 06.11.2026): Vorher hörte der Host nach 2 s ohne Meldung auf zu warten
+und bestätigte als „alle bereit“, auch wenn der Client abgestürzt war (Live-Test 06.11.). Jetzt meldet der Client das Verlassen des
+Rundenendes ausdrücklich (`0x306` mit Id 0, 3 s lang). Nur dann gibt der Host sofort frei. Bleibt der Client nur stumm, schreibt der
+Host „Client stumm, Host wartet auf ihn bis zum Verbindungsabbau“ und gibt erst frei, wenn die Verbindung abläuft. Bestätigt der Host
+ohne Client im Lager, steht „ohne Client im Lager“ statt „alle bereit“ im Log. Dazu fängt `InventoryPatches.cpp` den Absturz in der
+Größenberechnung eines Item-Widgets ab, das sein Item verloren hat (`0x5AB5120`, Lesefehler `0xE0`).
+
+Geprüft am selben Abend, ein PC, Lobby, Godmode, Rundenende per `!finish`: Zwei Rundenenden bis Tag 3, Inventare gleich, kein Absturz.
+Host bereit, dann Client hart beendet: Der Host wartete 5 s, meldete den stummen Client und reiste 9 s später nach dem
+Verbindungsabbau (5003) allein weiter, kein „alle bereit“. Host bereit, dann `disconnect` beim Client: Der Host gab binnen 4 s frei,
+ohne die Wartezeit. Beide im Lager, der Host schließt sein Fenster (wie Alt+F4): Der Client kam ohne Absturz ins Hauptmenü, der
+Widget-Wächter griff dabei aber nicht, der Absturz vom Live-Test ließ sich so nicht nachstellen. **Offen:** zwei PCs, und ob der
+erste Absturz im Lager (Ende Tag 2) denselben Weg nahm; dafür fehlen Client-Log und Absturzbericht dieser Sitzung.
+
 **Verworfen:** Zuerst nutzte die Mod die native Koop-Reward-Sitzung (Koop-Modus nur für den Airdrop, Client wählt im Overlay, Host ruft
 `ClaimReward(1, …)`). Das Host-Panel zeigte beide Rucksäcke, nach dem Claim des Clients ging die UI-Autorität an P1 und der Host hing.
 Die Auswahl im Overlay gefiel nicht, der Nutzer wollte für beide das normale Panel.
@@ -333,6 +347,34 @@ Absturz. Nicht in diesem Lauf geprüft: Rundenende danach; der Nutzer schloss di
 Rundenende wieder im Lager“ stammt aus dem Test vor `inventar-lokal`. Seitdem übernimmt der Host neue Felder im Edit, und der
 `inventar-lokal`-Lauf blieb über das Rundenende bis Tag 2 gleich. Das Tab-Inventar lässt sich im Run nicht öffnen, die Anzeige außerhalb
 des Airdrop-Panels ist daher nicht eigens angesehen.
+
+### Waffen aus der Itemauswahl des Clients (`waffe-client-auswahl`)
+
+Im Live-Test am 06.11.2026 wirkten Waffen, die der Client in der Itemauswahl tauschte, im Spiel nicht. Drei Ursachen:
+
+1. **Entfernstil vertauscht.** Beim Übernehmen nahm der Host ein Item mit `RetainEffects` (2) aus dem Rucksack, wenn es ihn
+   verließ, und mit `ForceRemoveAllEffects` (0), wenn es nur verschoben wurde. Das native Panel macht es umgekehrt. Folge: Eine
+   abgelegte Waffe schoss weiter, eine verschobene verlor ihre Wirkung. `RemovalStyle()` in `InventoryEdit.cpp` folgt jetzt dem Panel.
+2. **Kein Auffrischen der Wirkungen beim Host.** Legt der Host selbst ab, folgt auf `OccupyBackpackSlots` ein vollständiges
+   Auffrischen beider Figuren (`RemoveAllEffects`, `RemoveEffectsFromItem`, `ApplyEffectsFromItem` je Item, im Trace belegt). Beim
+   Übernehmen eines Client-Edits fehlte es. Eine neue Waffe wirkte erst nach dem nächsten Levelaufstieg, der ebenfalls auffrischt.
+   `ApplyClientEdit` ruft jetzt `InventoryComponent.RefreshItemEffects(false, GetEffectManager())` für das Inventar des Clients und
+   das des Hosts. Das zusätzliche `ApplyAddToBackpackEffect` nach dem Ablegen ist entfallen: `AddToBackpack` ruft es beim Host
+   selbst, der zweite Aufruf legte die Rucksackwirkung doppelt an.
+3. **Waffenslots beim Client während der Bearbeitung.** Belegte Hände (`UDDCharacterAttributeSet.OccupiedHands`) setzt nur der
+   Host über die Itemwirkungen. Der Client verwirft deren RPCs während der Bearbeitung, also gab eine abgelegte Waffe keinen Slot
+   frei und das Panel ließ keine neue zu. Das war schon in `inventar-lokal` (`f42b6d6`) so, kein Rückschritt. Jetzt rechnet der
+   Client lokal vor: Ausgangswert + (Hände der Rucksackitems jetzt - beim Start), je Item über
+   `InventoryEffectHelperLibrary.GetHandsRequiredForItem`. Er schreibt nur `CurrentValue` und setzt den eigenen Hände-Balken über
+   `HandBarDisplay.UpdateCurrentHandsBar`. Kein `OnRep_OccupiedHands`, sonst rechnet das ASC den Wert aus seinen Modifikatoren
+   neu. `RefreshHandsBar` zeichnet den Balken nicht neu (im Spiel geprüft). Verbindlich bleibt der Host: Nach dem Übernehmen kommt
+   sein Wert über die Replikation, bei Ablehnung oder Abbruch stellt `RevertClient` den Ausgangswert wieder her. Das Attributset
+   gehört dem PlayerState, nicht der Figur.
+
+**Geprüft** (07.11.2026, Build `26187885`, ein PC, Lobby, Godmode, Trace `DDCOOP_TRACE_INVENTORY=1`, vom Nutzer gespielt):
+Waffen ablegen, tauschen und wieder ausrüsten in der Itemauswahl des Clients; der Hände-Balken des Clients folgt sofort
+(Log „Hände-Vorschau 2 statt 1“ und zurück). Nach dem Bestätigen übernahm der Host den Edit vollständig; `tools/spike/weapons.py` zeigte beim Host für beide Figuren genau die Rucksackwaffen ausgerüstet (Client: abgesägte Schrotflinte und Pistole), die Rucksäcke gleich wie beim Client. Ein Rückbau auf `f42b6d6`
+zeigte denselben Fehler bei den Waffenslots. Nicht geprüft: zwei PCs über das Internet, Ablehnung eines Edits mit Hände-Vorschau.
 
 ### Werkbank und Aufwerten beim Client
 

@@ -83,8 +83,12 @@ TEST_CASE("Lager am Rundenende: Stand des Clients round-trips and rejects malfor
     auto Bad = Bytes;
     Bad[8] = 2;
     CHECK_FALSE(DecodeRoundEndClient(Bad));
-    std::vector<uint8_t> NoId(9, 0);
-    CHECK_FALSE(DecodeRoundEndClient(NoId));
+    // Id 0 heißt verlassen und geht nur ohne bereit.
+    std::vector<uint8_t> Left(9, 0);
+    CHECK(DecodeRoundEndClient(Left) == RoundEndClient{0, false});
+    CHECK(Encode(RoundEndClient{0, false}) == Left);
+    Left[8] = 1;
+    CHECK_FALSE(DecodeRoundEndClient(Left));
 }
 
 TEST_CASE("Lager am Rundenende: Stand des Hosts round-trips, kein Ende ist ohne Flags")

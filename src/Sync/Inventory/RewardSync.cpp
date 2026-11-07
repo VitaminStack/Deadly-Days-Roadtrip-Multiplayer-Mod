@@ -36,6 +36,8 @@ struct
     uint64_t EndClientAt = 0; // Host: letzte Meldung 0x306, 0 ohne
     std::optional<Reward::RoundEndStatus> LatestEnd; // Client
     uint64_t LatestEndAt = 0, NextEndClientSend = 0;
+    bool EndClientIn = false; // Client: war zuletzt im Rundenende
+    uint64_t EndLeftUntil = 0; // Client: bis dahin das Verlassen melden
     // Seltenheiten (werkbank-client): Host gesendeter Stand, Client neuester Stand
     std::optional<Reward::Rarities> SentRarities, LatestRarities;
     uint64_t NextRarityCheck = 0, NextRarityResend = 0, NextRarityApply = 0;
@@ -96,8 +98,16 @@ void SendRoundEndStatus(Net::Transport& Transport)
 void TickClientRoundEnd(Net::Transport& Transport)
 {
     const uint64_t Now = NowMs();
-    if (const auto Own = Game::Rewards::ClientRoundEnd(); Own && Now >= R.NextEndClientSend &&
-                                                         Send(Transport, Reward::RoundEndClientType, Reward::Encode(Reward::RoundEndClient{Own->Id, Own->Ready})))
+    const auto Own = Game::Rewards::ClientRoundEnd();
+    if (Own && Now >= R.NextEndClientSend &&
+        Send(Transport, Reward::RoundEndClientType, Reward::Encode(Reward::RoundEndClient{Own->Id, Own->Ready})))
+        R.NextEndClientSend = Now + 500;
+    // lager-absturz-client: Verlassen 3 s lang ausdrücklich melden. Nur so unterscheidet der Host es von einem stummen Client.
+    if (!Own && R.EndClientIn)
+        R.EndLeftUntil = Now + 3000;
+    R.EndClientIn = Own.has_value();
+    if (!Own && Now < R.EndLeftUntil && Now >= R.NextEndClientSend &&
+        Send(Transport, Reward::RoundEndClientType, Reward::Encode(Reward::RoundEndClient{0, false})))
         R.NextEndClientSend = Now + 500;
     if (R.LatestEnd && Now - R.LatestEndAt <= 5000)
         Game::Rewards::SetHostRoundEndStatus(Game::Rewards::RoundEndState{R.LatestEnd->Id, R.LatestEnd->HostReady, R.LatestEnd->ClientReady});
@@ -148,7 +158,7 @@ void TickHost(Net::Transport& Transport, std::span<const Net::ControlMessage> Me
             if (const auto Client = Reward::DecodeRoundEndClient(Message.Value.Payload))
             {
                 Game::Rewards::SetRoundEndClient(Client->Id, Client->Ready);
-                R.EndClientAt = NowMs();
+                R.EndClientAt = Client->Id ? NowMs() : 0;
                 R.NextEndResend = 0; // Stand sofort zurück
             }
             else
@@ -182,11 +192,12 @@ void TickHost(Net::Transport& Transport, std::span<const Net::ControlMessage> Me
             Core::Log::Warn("Inventar lokal: Antwort zu Edit {} nicht gesendet", Edit->Id);
         R.NextResend = 0; // neues Bild sofort
     }
-    // Der Client meldet sich alle 500 ms, solange er im Rundenende ist. Verlässt er es, ohne die Verbindung der Mod zu trennen
-    // (disconnect ins Hauptmenü), kommt nichts mehr; nach 2 s wartet der Host nicht mehr auf ihn.
+    // Der Client meldet sich alle 500 ms, solange er im Rundenende ist, und meldet das Verlassen ausdrücklich (Id 0). Bleibt er
+    // nur stumm, etwa nach einem Absturz, wartet der Host weiter, bis die Verbindung abläuft (lager-absturz-client); vorher
+    // reiste er nach 2 s als „alle bereit“ ohne ihn weiter.
     if (R.EndClientAt && NowMs() - R.EndClientAt > 2000)
     {
-        Game::Rewards::SetRoundEndClient(0, false);
+        Core::Log::Warn("Lager: Client stumm, Host wartet auf ihn bis zum Verbindungsabbau");
         R.EndClientAt = 0;
     }
     SendRoundEndStatus(Transport);
