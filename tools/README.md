@@ -218,7 +218,7 @@ Bauen und Testen des Spikes, die Anleitung steht in [docs/TESTING.md](../docs/TE
 | `Start-Run.ps1` | Startet aus der `MetaBase` einen Run bis zur Routenkarte: Position lesen, in einem Zug in den Ring, Karte am Banner erkennen, bis zu drei Versuche. Ein frischer Spielstand, der ohne Routenkarte direkt in die Mission fährt, zählt auch. `-Brief`: eine Zeile |
 | `Travel-Day.ps1` | Fährt einen Tag über die Routenkarte, wartet auf die neue Karte, prüft beide Instanzen und beendet ihn. `-Brief`: eine Zeile je Instanz und Inventar |
 | `Run-Route.ps1` | Fester Routenlauf mit Seed `20795` über mehrere Tage, nach jedem Wechsel `check_round.py`, Bilder während und nach dem Laden unter `research/local/session/runs/`. Mit `-Start -NetProfile Internet` in einer Lobby-Sitzung mit simulierter Latenz, mit `-Start -NoSpike -Days 1 -StayLast` nur mit der Mod |
-| `check_round.py` | Prüft nach einem Kartenwechsel World, `PlayerArray`, PlayerStates, Figuren am Bus, gleiche Positionen bei Host und Client, NetGUIDs und `NewActor failed` |
+| `check_round.py` | Prüft nach einem Kartenwechsel World, `PlayerArray`, PlayerStates, Figuren am Bus, gleiche Positionen bei Host und Client, NetGUIDs und `NewActor failed`. Mit `--wait` misst `load_seconds` ab dem Aufruf, bis beide die neue World mit allen Spielern im GameState haben; World 0 beim Laden gilt nicht als beendet, leer heißt Instanz beendet oder Zeit abgelaufen |
 | `Focus-Window.ps1` | Holt ein Spielfenster nach vorn |
 | `Disassemble.ps1` | Zeigt einen RVA-Bereich der Exe |
 | `CrashGuard.ps1` | Crash-Schutz, wird von `Start-Session.ps1` gestartet |
