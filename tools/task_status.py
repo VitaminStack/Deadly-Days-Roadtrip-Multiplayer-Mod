@@ -1,6 +1,6 @@
 """Liest die Aufgabentabellen aus TODO.md, prueft sie und erzeugt die abgeleiteten Abschnitte.
 
-  py tools/task_status.py check    Format, Abhaengigkeiten und erzeugte Abschnitte pruefen
+  py tools/task_status.py check    Format, Abhaengigkeiten, erzeugte Abschnitte und veraltete Querverweise pruefen
   py tools/task_status.py update   "Jetzt bearbeitbar" in TODO.md und den Fortschritt im README neu erzeugen
 
 Zum Abschliessen einer Aufgabe gibt es "py tools/tasks.py done <kennung> <ergebnis>", das mark_done nutzt.
@@ -389,6 +389,49 @@ def confirmation_update(todo, names, action, note):
     return result
 
 
+FUTURE_REFERENCE = re.compile(
+    rf'\b(?:folgt|folgen|kommt|kommen)(?: erst| später| noch| dann)? (?:mit|in|über|durch) `({ID_PATTERN})`'
+    rf'|\bbis `({ID_PATTERN})`(?! \(#)')
+SKIPPED_DIRS = ('third_party/', 'research/local/', '.worktrees/', '.claude/')
+
+
+def markdown_files(root):
+    """Versionierte Markdown-Dateien; ohne Git alle .md ausser Fremd- und lokalen Ordnern."""
+    import subprocess
+    try:
+        listed = subprocess.run(['git', 'ls-files', '-z', '*.md'], cwd=root, capture_output=True, check=True)
+        names = [n for n in listed.stdout.decode('utf-8').split('\0') if n]
+    except (OSError, subprocess.CalledProcessError):
+        names = [p.relative_to(root).as_posix() for p in root.rglob('*.md')]
+    return sorted(n for n in names if not n.startswith(SKIPPED_DIRS))
+
+
+def stale_references(tasks, documents):
+    """Saetze, die eine schon erledigte Aufgabe als kuenftig ankuendigen ("kommt mit `x`", "bis `x`").
+
+    documents: Pfad -> Text. Liefert "Pfad:Zeile: `kennung` ist erledigt: Auszug". Die Aufgabenzeilen in TODO.md
+    selbst sind ausgenommen, dort beschreiben Kennungen Abhaengigkeiten und Ergebnisse. "bis `x` (#123)" nennt
+    einen gemergten Stand und zaehlt nicht.
+    """
+    found = []
+    for path, text in documents.items():
+        for number, line in enumerate(text.splitlines(), 1):
+            if path == 'TODO.md' and line.startswith('| `'):
+                continue
+            for match in FUTURE_REFERENCE.finditer(line):
+                name = match[1] or match[2]
+                task = tasks.get(name)
+                if task and task.done:
+                    found.append(f'{path}:{number}: `{name}` ist erledigt: {match[0]}')
+    return found
+
+
+def check_references(root, tasks):
+    documents = {name: (root / name).read_text(encoding='utf-8') for name in markdown_files(root)
+                 if (root / name).is_file()}
+    return stale_references(tasks, documents)
+
+
 def regenerate(root, check=False):
     """Erneuert die abgeleiteten Abschnitte. Liefert die veralteten Dateien; mit check wird nichts geschrieben."""
     todo_path, readme_path = root / 'TODO.md', root / 'README.md'
@@ -413,10 +456,17 @@ def main():
     if sys.argv[1:] not in (['check'], ['update']):
         sys.exit('Aufruf: py tools/task_status.py check|update')
     sys.stdout.reconfigure(encoding='utf-8')
+    root = Path(__file__).resolve().parents[1]
     try:
-        stale = regenerate(Path(__file__).resolve().parents[1], check=sys.argv[1] == 'check')
+        stale = regenerate(root, check=sys.argv[1] == 'check')
+        references = check_references(root, parse(root.joinpath('TODO.md').read_bytes().decode('utf-8')))
     except ValueError as error:
         sys.exit(f'TODO.md ungueltig: {error}')
+    if references:
+        print('Veraltete Querverweise (Aufgabe schon erledigt, Text kündigt sie noch an):')
+        print('\n'.join('  ' + r for r in references))
+        if sys.argv[1] == 'check':
+            sys.exit('Querverweise anpassen, siehe oben.')
     if not stale:
         print('TODO.md, README-Fortschritt und SVG sind konsistent.')
     elif sys.argv[1] == 'check':

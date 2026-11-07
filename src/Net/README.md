@@ -270,4 +270,5 @@ Build `26187885`, ein PC, ein Konto, `Start-Session.ps1 -Mod -Tunnel Mod` mit Sp
 | Verkehr | rund 15 000 und 16 000 Pakete je Richtung, Ping 0 ms, Qualität 1,00, verworfen 0. Keine Fehler im Mod-Log |
 
 Nicht geprüft: P2P mit dem Transport der Mod auf zwei PCs (der Spike-Tunnel ist dort belegt, siehe `tunnel-p2p`), Abbruch und
-Neuaufbau im Spiel, mehr als ein Client. Das kommt mit `steam-lobby` und `net-fehler`.
+Neuaufbau im Spiel, mehr als ein Client. Belegt ist das inzwischen mit `steam-lobby`, `net-fehler` und `lobby-live`, siehe
+[Steam-Lobby](#steam-lobby-steam-lobby).

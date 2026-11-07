@@ -453,6 +453,37 @@ class ConfirmationTests(unittest.TestCase):
                 self.assertEqual(path.read_bytes(), before)
 
 
+class ReferenceTests(unittest.TestCase):
+    def setUp(self):
+        self.tasks = source.parse(todo('| `offen` | P0 | Text | – | parallel | wenig |\n'))
+
+    def test_done_task_announced_as_future_is_reported(self):
+        for sentence in ('Das kommt mit `base1`.', 'Rest folgt erst in `base2`.', 'Absturz bleibt, bis `base3` ihn behebt.'):
+            with self.subTest(sentence=sentence):
+                found = source.stale_references(self.tasks, {'docs/X.md': 'Kopf\n' + sentence})
+                self.assertEqual(len(found), 1)
+                self.assertTrue(found[0].startswith('docs/X.md:2: `base'))
+
+    def test_open_or_unknown_task_and_history_are_ignored(self):
+        text = ('Das kommt mit `offen`.\nDas kommt mit `unbekannt`.\nMod-Stand `main` bis `base1` (#131).\n'
+                'Tasten `1` bis `4` gesperrt.\nErledigt mit `base1`.')
+        self.assertEqual(source.stale_references(self.tasks, {'docs/X.md': text}), [])
+
+    def test_task_rows_in_todo_are_ignored(self):
+        row = '| `x` | P0 | Rest kommt mit `base1` | – | parallel | wenig |'
+        self.assertEqual(source.stale_references(self.tasks, {'TODO.md': row}), [])
+        self.assertEqual(len(source.stale_references(self.tasks, {'TODO.md': 'Fließtext: kommt mit `base1`.'})), 1)
+
+    def test_real_documents_have_no_stale_references(self):
+        parsed = source.parse((ROOT / 'TODO.md').read_text(encoding='utf-8'))
+        self.assertEqual(source.check_references(ROOT, parsed), [])
+
+    def test_markdown_files_skip_foreign_and_local_folders(self):
+        names = source.markdown_files(ROOT)
+        self.assertIn('TODO.md', names)
+        self.assertFalse([n for n in names if n.startswith(source.SKIPPED_DIRS)])
+
+
 class MarkDoneTests(unittest.TestCase):
     ROW = '| `zeta` | P1 | Text | `base1` | parallel | wenig |\n| `alpha` | P0 | Text | – | parallel | keine |\n'
 

@@ -79,7 +79,7 @@ siehe [Ohne Spike](../src/Game/README.md#ohne-spike). Abstürze enden wie sonst 
 
 Nach einem Build mit dem Paket `overlay` zeigt **F8** im aktiven Spielfenster das Statusfenster; erneutes F8 oder dessen Schließen verbirgt es. Pro Prozess darf nur dessen eigenes Overlay erscheinen. Beim Wechsel zu einer anderen Anwendung bleibt ein eingeschaltetes Overlay über dem Spielfenster sichtbar (seit `overlay-fokus`), beim Minimieren verschwindet es und kommt nach Wiederherstellen zurück. „Lobby-ID kopieren“ ist nur mit Lobby aktiv und legt die ID in die Zwischenablage. Fenster verschieben und DPI/Lesbarkeit sowie Tab-Bedienung prüfen. Keine fremde Testsitzung dafür bedienen.
 
-Ohne Netzwerkbackend müssen die Lobby-Knöpfe deaktiviert bleiben und der Status „Netzwerk noch nicht angebunden“ lauten. Fenster- oder randlosen Modus verwenden, kein exklusives Vollbild. Das Overlay pausiert das Spiel nicht. Optionen in `ddcoop.ini`, API und Testgrenzen stehen in [src/UI](../src/UI/README.md). Die [sichtbare Host-/Client-Abnahme vom 03.11.2026](../src/UI/README.md#sichtbare-spielabnahme-03112026) ist bestanden; die CI prüft weiterhin nur Modell und unsichtbaren Fenster-Lebenszyklus, keine Spielgrafik.
+Mit Steam bedienen die Lobby-Knöpfe die echte Lobby der Mod (`steam-lobby`), siehe [Steam-Lobby der Mod prüfen](#steam-lobby-der-mod-prüfen). Nur ohne Netzwerkbackend, etwa ohne laufendes Steam, bleiben sie deaktiviert und der Status lautet „Netzwerk noch nicht angebunden“. Fenster- oder randlosen Modus verwenden, kein exklusives Vollbild. Das Overlay pausiert das Spiel nicht. Optionen in `ddcoop.ini`, API und Testgrenzen stehen in [src/UI](../src/UI/README.md). Die [sichtbare Host-/Client-Abnahme vom 03.11.2026](../src/UI/README.md#sichtbare-spielabnahme-03112026) ist bestanden; die CI prüft weiterhin nur Modell und unsichtbaren Fenster-Lebenszyklus, keine Spielgrafik.
 
 ## Spielzeit sparen
 
@@ -334,6 +334,26 @@ Route `-Seed`, `-NodeX`, `-NodeY`. Exitcode 0 heißt Ping und Route stehen im Lo
 Der Bericht kommt aus `tools/spike/tunnel_report.py`: Verbindung, Ping (Minimum, Median, Maximum), Pakete und verworfene Pakete,
 Qualität, die Routenzeilen von Steam (direkt oder über Relay) und Abbrüche. SteamIDs und IP-Adressen sind darin maskiert, er darf
 so in den PR. Von Hand geht es auch: `py tools/spike/tunnel_report.py <spike-log> --role Host`.
+
+### Mit der Mod über die Lobby
+
+Für Abnahmen mit der Mod ist das der übliche Weg, `Test-TwoPc.ps1` bricht mit `-Mod` ab. Erst der Host, die Ausgabe nennt die Lobby-ID:
+
+```bash
+powershell -ExecutionPolicy Bypass -File tools/spike/Start-Session.ps1 -Build -Mod -Role Host -Tunnel Lobby -Brief
+```
+
+Dann der Client mit dieser Lobby-ID, alternativ Einladung über das Overlay (**F8**, „Einladen“):
+
+```bash
+powershell -ExecutionPolicy Bypass -File tools/spike/Start-Session.ps1 -Build -Mod -Role Client -Tunnel Lobby -Peer <Lobby-ID>
+```
+
+Die Lobby-ID gehört zu keinem Konto, verfällt mit der Lobby und kommt trotzdem nicht ins Repo. Beide brauchen denselben Stand von
+`main` und denselben Build. Auf einem Build ohne Spike-Unterstützung kommt `-NoSpike` dazu, bei unvollständiger Portierung
+`-PartialPatches`; ohne Spike gibt es keine Konsolenbefehle wie `!finish`. Ein Rundenende geht dann über vollen Tank und Busflucht,
+den Tank füllt `py tools/spike/fuel.py <host-pid> --fill`. Ablauf und Ergebnisse eines solchen Termins:
+[Live-Test 07.11.](GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-07112026-livetest-0711).
 
 ### Von Hand oder in Teilen
 
