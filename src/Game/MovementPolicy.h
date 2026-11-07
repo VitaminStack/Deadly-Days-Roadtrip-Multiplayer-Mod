@@ -21,6 +21,37 @@ constexpr bool DashSettingsLeft(float GroundFriction, float GravityScale)
     return GroundFriction == DashFriction && GravityScale > DashGravity - 0.5f && GravityScale < DashGravity + 0.5f;
 }
 
+// Lauftempo der eigenen Figur beim Client (`tod-client`). Das Spiel setzt MaxWalkSpeed nur beim Host aus dem replizierten
+// Attribut UCommonAttributeSet.MovementSpeed (OnMovementSpeedChanged_Server). Beim Client kommt das Attribut an, die
+// Bewegungskomponente bleibt aber auf ihrem Startwert: Ein toter Client kroch beim Host mit Tempo 63, lief bei sich mit 600
+// weiter, und der Host übernahm seine Position. Der Client übernimmt darum jede Änderung des Attributs wie der Host.
+inline constexpr float WalkSpeedLimit = 10000.f;
+
+// Nur ein initialisiertes, plausibles Attribut gilt. NaN fällt durch jeden Vergleich.
+constexpr bool WalkSpeedAttributeValid(float BaseValue, float CurrentValue)
+{
+    return BaseValue > 0.f && BaseValue <= WalkSpeedLimit && CurrentValue >= 0.f && CurrentValue <= WalkSpeedLimit;
+}
+
+// Neues Tempo nur bei einer Änderung des Attributs, wie der native Delegate. Andere lokale Schreiber der
+// Bewegungskomponente bleiben so unberührt, solange das Attribut gleich bleibt.
+constexpr std::optional<float> WalkSpeedToApply(std::optional<float> LastAttribute, float BaseValue, float CurrentValue)
+{
+    if (!WalkSpeedAttributeValid(BaseValue, CurrentValue))
+        return std::nullopt;
+    if (LastAttribute && *LastAttribute - CurrentValue < 0.01f && CurrentValue - *LastAttribute < 0.01f)
+        return std::nullopt;
+    return CurrentValue;
+}
+
+// Dodge der eigenen Figur beim Client, während sie tot ist (`tod-client`). Der Host lehnt GA_Dash eines toten Spielers nativ
+// ab, die Vorhersage des Clients lief aber trotzdem: Die tote Figur sprang je Dodge mehrere Meter, und der Host übernahm die
+// Position. Maßgeblich sind die replizierten HP des Hosts. Nicht initialisierte Werte (MaxHealth 0) sperren nichts.
+constexpr bool OwnDashBlockedByDeath(float Health, float MaxHealth)
+{
+    return MaxHealth > 0.f && Health <= 0.f;
+}
+
 // Fremde Figur beim Client: Die Engine bewegt eine Figur in MOVE_None nicht mehr, auch wenn der Host Ort und Modus
 // weiter repliziert. ReplicatedMovementMode ist gepackt: unteres Nibble MovementMode, oberes Nibble CustomMovementMode.
 constexpr bool ProxyMovementStopped(uint8_t MovementMode, uint8_t ReplicatedMovementMode)

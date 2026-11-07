@@ -376,6 +376,7 @@ Was die Mod nutzt, steht zusätzlich in `src/Game/Offsets.h` und wird dort beim 
 | `ACharacter` (Spiel) | AttributeSet | `0x7D8` |
 | `ADDCharacterBase` | CommonAttributeSet | `0x700` |
 | `UCommonAttributeSet` | Health (`FGameplayAttributeData`, CurrentValue bei `+0xC`) | `0xA0` |
+| `UCommonAttributeSet` | MovementSpeed (`FGameplayAttributeData`, BaseValue `+0x8`, CurrentValue `+0xC`; `tod-client`) | `0xE8` |
 | `UCommonAttributeSet` | MaxHealth, OnMaxHealthChanged, OnHealthChanged (Multicast, Einträge je `0x10`: schwacher Zeiger, `FName`) | `0x30`, `0x40`, `0xC0` |
 | `UDDCharacterAttributeSet` (Outer ist der PlayerState) | ExtraHands, OccupiedHands (`FGameplayAttributeData`, CurrentValue bei `+0xC`) | `0x100`, `0x110` |
 | `UHandBarDisplay` | PlayerIndex, CachedCharacter | `0x328`, `0x348` |
