@@ -39,6 +39,16 @@ Die Komposition in `src/Mod` nutzt `UI::Overlay()`, ohne eine umgekehrte Abhäng
 
 Das Modul bleibt auf `Core` und `Net` begrenzt. Der Game-Adapter ist dafür nicht geändert worden.
 
+## Dev-Tab (`opt-dev-tab`, Entwicklerwerkzeug)
+
+Das Overlay hat die Tabs „Status“ und „Dev“. Der Dev-Tab hat die Knöpfe „Spawn XP“ und „Full Tank“, aktiv nur im Zustand `Playing` (Host oder Client). Der Fensterthread setzt nur ein Bit in `OverlayModel::RequestDev`; `Sync` holt die Bits im Game-Thread-Takt (`TakeDevRequests`, über `Sync::BindDevSource`).
+
+- **Host:** führt direkt über `Game::RunDevAction` aus. **Client:** sendet die Kontrollnachricht `0x600` (1 Byte Aktion) an den Host, der sie für die Client-Figur ausführt. Keine Antwort, kein Missbrauchsschutz, da reines Entwicklerwerkzeug.
+- **Spawn XP:** `ExpSubsystem.RequestExpSpawning(200, Figurposition)` wie im Spike `client-visuell`. Die Bälle sieht der Client über den XP-Ball-Abgleich.
+- **Full Tank:** `UFuelMeter.CurrentFuel = MaxRequiredFuel` am Missions-GameState (Schreibweg wie `tools/spike/fuel.py`), repliziert zum Client.
+- **Offen:** „Spawn Zombies“ (Cursor-Weltposition, Spawn-Funktion) und „Spawn Random Item“ (Itemsack). Alles vor dem Release entfernen.
+- **Nicht im Spiel geprüft:** Gebaut, UI-Test für die Anfragewarteschlange und alle Tests bestanden. Ein Spieltest auf Host und Client steht aus.
+
 ## Tests
 
 `UITests` ist ein eigenes Projekt in der Solution und läuft über `Build-Mod.ps1 -Test` sowie in Debug-/Release-CI ohne SDK oder Spiel. Tests prüfen Zustands-/Rollenfreigaben, ungültige Lobby-IDs und Überlauf, begrenzte Aufträge (auch während der Ausführung), Dispatcher-Thread, Reentranz, Session-/Backendwechsel, konkurrierende Statusupdates und nativen Fensterstart/-schluss/-neustart. Der Fenstertest bedient die echten Edit-/Button-Controls gegen ein reines Testbackend, bleibt dabei unsichtbar und verändert keinen Benutzerfokus. Er prüft keine Grafikabnahme im Spiel.

@@ -16,12 +16,14 @@
 
 #pragma comment(lib, "user32.lib")
 #pragma comment(lib, "gdi32.lib")
+#pragma comment(lib, "comctl32.lib")
 
 // A process-owned tool window, not a renderer hook. No engine calls on this UI thread.
 namespace
 {
 constexpr wchar_t WindowClass[] = L"DDCoop.Overlay";
-constexpr int CreateId = 101, JoinId = 102, InviteId = 103, LeaveId = 104, LobbyId = 105, CopyId = 106;
+constexpr int CreateId = 101, JoinId = 102, InviteId = 103, LeaveId = 104, LobbyId = 105, CopyId = 106, TabId = 107, DevXpId = 110, DevTankId = 111;
+constexpr int TabHeight = 34;
 std::mutex Lifecycle;
 HANDLE Thread = nullptr;
 std::atomic<bool> Stopping = false;
@@ -32,6 +34,7 @@ struct WindowState
     HWND Owner = nullptr;
     HWND Status = nullptr, Message = nullptr, Debug = nullptr, Hint = nullptr, Diagnostics = nullptr;
     HWND Create = nullptr, Join = nullptr, Invite = nullptr, Leave = nullptr, Lobby = nullptr, Copy = nullptr;
+    HWND Tab = nullptr, DevXp = nullptr, DevTank = nullptr, DevInfo = nullptr;
     bool KeyDown = false;
     ULONGLONG CopiedAt = 0;
     int Dpi = 0;
@@ -111,11 +114,17 @@ void Layout(WindowState& State, HWND Window, int Dpi)
         DeleteObject(State.Font);
     State.Font = CreateFontW(-Scale(14), 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
         OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH, L"Segoe UI");
+    // Alles unterhalb der Tab-Leiste (Status-Tab und Dev-Tab teilen sich die Flaeche).
     const auto Place = [&](HWND Item, int X, int Y, int Width, int Height)
     {
-        MoveWindow(Item, Scale(X), Scale(Y), Scale(Width), Scale(Height), TRUE);
+        MoveWindow(Item, Scale(X), Scale(Y + TabHeight), Scale(Width), Scale(Height), TRUE);
         SendMessageW(Item, WM_SETFONT, reinterpret_cast<WPARAM>(State.Font), TRUE);
     };
+    MoveWindow(State.Tab, 0, 0, Scale(440), Scale(TabHeight - 6), TRUE);
+    SendMessageW(State.Tab, WM_SETFONT, reinterpret_cast<WPARAM>(State.Font), TRUE);
+    Place(State.DevXp, 12, 10, 200, 34);
+    Place(State.DevTank, 12, 52, 200, 34);
+    Place(State.DevInfo, 12, 96, 416, 64);
     Place(State.Status, 12, 10, 416, 24);
     Place(State.Message, 12, 36, 416, 46);
     Place(State.Create, 12, 88, 128, 30);
@@ -127,7 +136,7 @@ void Layout(WindowState& State, HWND Window, int Dpi)
     Place(State.Copy, 12, 234, 160, 28);
     Place(State.Diagnostics, 12, 270, 416, 64);
     Place(State.Hint, 12, 342, 416, 44);
-    RECT Rect{ 0, 0, Scale(440), Scale(396) };
+    RECT Rect{ 0, 0, Scale(440), Scale(396 + TabHeight) };
     AdjustWindowRectExForDpi(&Rect, WS_POPUP | WS_CAPTION | WS_SYSMENU, FALSE, WS_EX_TOOLWINDOW, static_cast<UINT>(Dpi));
     SetWindowPos(Window, nullptr, 0, 0, Rect.right - Rect.left, Rect.bottom - Rect.top,
         SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
@@ -168,6 +177,16 @@ bool CopyLobbyId(HWND Window, uint64_t Lobby)
     return Copied;
 }
 
+void ShowTab(WindowState& State)
+{
+    const bool Dev = TabCtrl_GetCurSel(State.Tab) == 1;
+    for (HWND Item : { State.Status, State.Message, State.Debug, State.Hint, State.Diagnostics, State.Create, State.Invite,
+                       State.Leave, State.Lobby, State.Join, State.Copy })
+        ShowWindow(Item, Dev ? SW_HIDE : SW_SHOW);
+    for (HWND Item : { State.DevXp, State.DevTank, State.DevInfo })
+        ShowWindow(Item, Dev ? SW_SHOW : SW_HIDE);
+}
+
 void UpdateControls(WindowState& State)
 {
     const auto View = UI::Overlay().Snapshot();
@@ -189,6 +208,11 @@ void UpdateControls(WindowState& State)
     EnableWindow(State.Invite, UI::OverlayModel::CanSubmit(View, { UI::LobbyAction::Invite }));
     EnableWindow(State.Leave, UI::OverlayModel::CanSubmit(View, { UI::LobbyAction::Leave }));
     EnableWindow(State.Copy, Status.LobbyId != 0);
+    const bool Dev = UI::OverlayModel::CanDev(View);
+    EnableWindow(State.DevXp, Dev);
+    EnableWindow(State.DevTank, Dev);
+    Text(State.DevInfo, Dev ? L"Der Host fuehrt aus, auch fuer den Client"
+                            : L"Nur im laufenden Spiel verfuegbar");
     const bool Copied = State.CopiedAt && GetTickCount64() - State.CopiedAt < 1500;
     Text(State.Copy, Copied ? L"Kopiert" : L"Lobby-ID kopieren");
 }
@@ -269,12 +293,35 @@ LRESULT CALLBACK WindowProc(HWND Window, UINT Message, WPARAM WParam, LPARAM LPa
             State->Copy = Control(Window, L"BUTTON", L"Lobby-ID kopieren", WS_TABSTOP, CopyId);
             for (HWND Button : { State->Create, State->Join, State->Invite, State->Leave, State->Copy })
                 EnableWindow(Button, FALSE);
+            State->DevXp = Control(Window, L"BUTTON", L"Spawn XP", WS_TABSTOP, DevXpId);
+            State->DevTank = Control(Window, L"BUTTON", L"Full Tank", WS_TABSTOP, DevTankId);
+            // Gruppenrahmen statt STATIC: Tests und Spike-Skripte lesen die STATIC-Reihenfolge des Status-Tabs.
+            State->DevInfo = Control(Window, L"BUTTON", L"", BS_GROUPBOX);
+            for (HWND Button : { State->DevXp, State->DevTank })
+                EnableWindow(Button, FALSE);
+            {
+                INITCOMMONCONTROLSEX Common{ sizeof(Common), ICC_TAB_CLASSES };
+                InitCommonControlsEx(&Common);
+                State->Tab = Control(Window, WC_TABCONTROLW, L"", WS_TABSTOP | WS_CLIPSIBLINGS, TabId);
+                TCITEMW Item{};
+                Item.mask = TCIF_TEXT;
+                wchar_t Status[] = L"Status", DevName[] = L"Dev";
+                Item.pszText = Status;
+                TabCtrl_InsertItem(State->Tab, 0, &Item);
+                Item.pszText = DevName;
+                TabCtrl_InsertItem(State->Tab, 1, &Item);
+            }
             Layout(*State, Window, 96);
+            ShowTab(*State);
             if (!SetTimer(Window, 1, 100, nullptr))
                 return -1;
             return 0;
         case WM_TIMER:
             Refresh(*State, Window);
+            return 0;
+        case WM_NOTIFY:
+            if (reinterpret_cast<NMHDR*>(LParam)->idFrom == TabId && reinterpret_cast<NMHDR*>(LParam)->code == TCN_SELCHANGE)
+                ShowTab(*State);
             return 0;
         case WM_COMMAND:
             if (HIWORD(WParam) == BN_CLICKED)
@@ -285,6 +332,8 @@ LRESULT CALLBACK WindowProc(HWND Window, UINT Message, WPARAM WParam, LPARAM LPa
                 case JoinId: UI::Overlay().Submit({ UI::LobbyAction::Join, JoinTarget(State->Lobby) }); break;
                 case InviteId: UI::Overlay().Submit({ UI::LobbyAction::Invite }); break;
                 case LeaveId: UI::Overlay().Submit({ UI::LobbyAction::Leave }); break;
+                case DevXpId: UI::Overlay().RequestDev(UI::DevButton::SpawnXp); break;
+                case DevTankId: UI::Overlay().RequestDev(UI::DevButton::FullTank); break;
                 case CopyId:
                     // Clipboard only, no backend action: stays on the window thread.
                     if (CopyLobbyId(Window, UI::Overlay().Snapshot().Status.LobbyId))

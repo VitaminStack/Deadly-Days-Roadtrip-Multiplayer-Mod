@@ -12,6 +12,8 @@ namespace UI
 enum class SessionState { Unavailable, Offline, Connecting, Lobby, Playing, Failed };
 enum class SessionRole { None, Host, Client };
 enum class LobbyAction { Create, Join, Invite, Leave };
+// Dev-Tab (Entwicklerwerkzeug, vor dem Release entfernen). Werte entsprechen Game::DevAction.
+enum class DevButton : uint8_t { SpawnXp = 1, FullTank = 2 };
 
 struct OverlayStatus
 {
@@ -53,6 +55,10 @@ public:
     void PublishDiagnostics(std::string Text);
     OverlaySnapshot Snapshot() const;
     bool Submit(LobbyRequest Request);
+    // Dev-Tab: merkt sich den Knopf (Bit 1 << Wert), nur im Zustand Playing. Gelesen wird im Game-Thread-Takt.
+    bool RequestDev(DevButton Button);
+    uint32_t TakeDevRequests();
+    static bool CanDev(const OverlaySnapshot& Snapshot);
     static bool CanSubmit(const OverlaySnapshot& Snapshot, LobbyRequest Request);
     static bool ParseLobbyId(const std::wstring& Text, uint64_t& Value);
 

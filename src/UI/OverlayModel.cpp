@@ -14,6 +14,7 @@ struct OverlayModel::SharedState
     uint64_t Revision = 0;
     uint64_t Ticket = 0;
     bool Pending = false;
+    uint32_t DevMask = 0;
     std::string Diagnostics = "Desync: wartet auf Kontrollkanal/Missionswelt";
 };
 
@@ -69,6 +70,27 @@ bool OverlayModel::CanSubmit(const OverlaySnapshot& View, LobbyRequest Request)
             Status.State == SessionState::Connecting) && Status.CanLeave;
     }
     return false;
+}
+
+bool OverlayModel::CanDev(const OverlaySnapshot& View)
+{
+    return View.Status.State == SessionState::Playing &&
+        (View.Status.Role == SessionRole::Host || View.Status.Role == SessionRole::Client);
+}
+
+bool OverlayModel::RequestDev(DevButton Button)
+{
+    const std::lock_guard Lock(State->Mutex);
+    if (!CanDev({ State->Status, static_cast<bool>(State->Handler), State->Pending }))
+        return false;
+    State->DevMask |= 1u << static_cast<uint8_t>(Button);
+    return true;
+}
+
+uint32_t OverlayModel::TakeDevRequests()
+{
+    const std::lock_guard Lock(State->Mutex);
+    return std::exchange(State->DevMask, 0u);
 }
 
 bool OverlayModel::Submit(LobbyRequest Request)
