@@ -303,12 +303,16 @@ TEST_CASE("Concurrent diagnostics and lobby producers do not overwrite each othe
     CHECK(Model.Snapshot().Status.PingMs == 999);
 }
 
-TEST_CASE("Dev buttons are only accepted while playing and are taken once")
+TEST_CASE("Dev buttons stay available in solo and multiplayer and are taken once")
 {
     Core::Dispatcher Dispatcher;
     UI::OverlayModel Model(Dispatcher);
-    CHECK_FALSE(Model.RequestDev(UI::DevButton::SpawnXp));
+    CHECK(Model.RequestDev(UI::DevButton::SpawnXp));
+    CHECK(Model.TakeDevRequests() == (1u << 1));
     auto Status = Offline();
+    Model.Publish(Status);
+    CHECK(Model.RequestDev(UI::DevButton::ToggleGodmode));
+    CHECK(Model.TakeDevRequests() == (1u << 3));
     Status.State = UI::SessionState::Playing;
     Status.Role = UI::SessionRole::Client;
     Model.Publish(Status);
@@ -319,6 +323,7 @@ TEST_CASE("Dev buttons are only accepted while playing and are taken once")
     CHECK(Model.TakeDevRequests() == 0);
     Status.State = UI::SessionState::Lobby;
     Model.Publish(Status);
-    CHECK_FALSE(Model.RequestDev(UI::DevButton::FullTank));
+    CHECK(Model.RequestDev(UI::DevButton::FullTank));
+    CHECK(Model.TakeDevRequests() == (1u << 2));
     CHECK(Model.TakeDevRequests() == 0);
 }
