@@ -36,7 +36,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 |---|---|---|---|---|
 | `fortschritt` | P0 | [5](#phase-5--vollständiger-run) | parallel | viel |
 | `inventar-client-abweichung` | P0 | [5](#phase-5--vollständiger-run) | parallel | mittel |
-| `pausen-sync` | P0 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `tagesablauf` | P0 | [5](#phase-5--vollständiger-run) | parallel | viel |
 | `dauerlauf` | P1 | [5](#phase-5--vollständiger-run) | parallel | viel |
 | `lager-handel-client` | P1 | [5](#phase-5--vollständiger-run) | parallel | mittel |
@@ -157,7 +156,6 @@ Ziel: Ein kompletter Run ist zu zweit online spielbar.
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
 | `fortschritt` | P0 | Loot, XP, Level-ups, Fähigkeiten und Status-Effekte (GAS). Ordner `src/Sync/Combat` | `integration-g2`, `protokoll` | parallel | viel |
-| `pausen-sync` | P0 | Pausen und blockierende UI beider Spieler über den Kontrollkanal abstimmen. Ordner `src/Sync/Players`. **Einstieg:** [Pausen-Spike](research/spikes/pausen/README.md) | `integration-g2`, `protokoll` | parallel | mittel |
 | `tagesablauf` | P0 | Tageszyklus, Treibstoff, Missionsziele, Fahrt zwischen den Etappen. Ordner `src/Sync/World`, Dateien mit `run-ende` absprechen | `integration-g2`, `protokoll`, `guidcache`, `phasenadapter` | parallel | viel |
 | `inventar-client-abweichung` | P0 | Gefunden im Live-Test am 06.11.2026: Ab der fünften Wahl blieb der Desync-Melder dauerhaft auf `ABWEICHUNG Inventar`, beim Client waren Items unsichtbar, obwohl der Host jeden Edit vollständig übernahm. **Fertig, wenn** die Ursache erklärt ist (abgegrenzt gegen `opt-desync-pivot`) und nach zehn Airdrops mit Rucksäcken und Waffen sowie einem Rundenende beide Inventare gleich sind und der Client alle Items sieht. Ordner `src/Game`, `src/Sync/Inventory`. **Einstieg:** [Live-Test 06.11.](docs/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-06112026-livetest-befunde) | `inventar-lokal` | parallel | mittel |
 | `lager-handel-client` | P1 | Gefunden im Live-Test am 07.11.2026 (zwei PCs, Build `26495302`): Im Lager kann der Client Items verschieben, aber nicht verkaufen und nicht reparieren, beim Host geht beides. Am Rundenende lassen sich beim Client nicht reparierte Items nicht ausrüsten. Erst klären, ob das Spiel kaputte Items auch beim Host sperrt. Verkauf und Reparatur buchen Währung und Itemzustand, darum entscheidet der Host wie beim Aufwerten (`werkbank-client`): Client handelt im nativen Panel, Host prüft und führt aus. **Fertig, wenn** der Client im Lager auf zwei PCs verkauft und repariert, Währung und Items bei beiden gleich sind und reparierte Items sich ausrüsten lassen. Ordner `src/Game`. **Einstieg:** [Live-Test 07.11.](docs/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-07112026-livetest-0711) | `rundenende-client` | parallel | mittel |
@@ -308,6 +306,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `patch-signaturen` | Wartung | Byte-Signatur je Patch-Adresse, falsches Muster schaltet nur seinen Patch ab |
 | `patches` | 4 | Die 25 Spielfehler-Fixes des Spikes stehen geprüft in `src/Game/*Patches.cpp`, alle oder keiner; mit der Mod lässt der Spike seine Fassungen aus. Route MetaBase bis Tag 5 und Niederlage mit Rückkehr in die MetaBase ohne Absturz, siehe [Patches](src/Game/README.md#patches) |
 | `pausen` | 1 | Pausen-Logik gemessen, Host-Weltpause repliziert, Client-Wunsch nicht, siehe [Pausen-Spike](research/spikes/pausen/README.md#nachtrag-03112026-isolierte-ablaeufe) |
+| `pausen-sync` | 5 | Pausemenü des Clients pausiert die Welt beim Host über 0x700, Host hält eine Zeitanfrage wie sein Pausemenü; Freigabe beim Schließen, nach 3 s ohne Meldung, bei Weltwechsel und Trennung; Airdrop, Lager, Reise unverändert, im Spiel in beide Richtungen geprüft, siehe [Pausen-Spike](research/spikes/pausen/README.md#umsetzung-pausen-sync-08112026) |
 | `pcg` | 1 | Client erzeugt die PCG-Vegetation mit dem Graphen des Hosts (`Pcg.cpp`), siehe [PCG-Vegetation](docs/GAME_ANALYSIS.md#pcg-vegetation-beim-client-pcg) |
 | `phasen-farbe` | Wartung | Vollständig abgeschlossene Phasen im README mit grünem Zeilenhintergrund in einer lokal erzeugten SVG; verlinkte Texttabelle bleibt aufklappbar. Generator, Konsistenzprüfung und Regressionstests halten Farben und Zahlen synchron. |
 | `phasenadapter` | 1 | Client sieht Rundenübersicht, Lager und Routenkarte des Hosts und ist dort gesperrt, siehe [Rundenphasen](research/spikes/a-connect/RoundPhaseRuntime.md) |
