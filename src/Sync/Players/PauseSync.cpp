@@ -47,7 +47,21 @@ struct
     // Client
     std::optional<Pause::ClientReporter> Reporter;
     std::optional<bool> LastOpen;
+    // Beide: zuletzt geloggter Zustand der Weltzeit, für den Nachweis gleicher Weltzeit im Log.
+    std::optional<bool> WorldPaused;
 } P;
+
+void LogWorldChange()
+{
+    const auto Time = Game::Pause::ReadWorldTime();
+    if (!Time)
+        return;
+    const bool Paused = Time->Pauser || Time->Dilation < 0.01f;
+    if (P.WorldPaused == Paused)
+        return;
+    P.WorldPaused = Paused;
+    Core::Log::Info("Pause: Weltzeit {}, Faktor {} Pauser {}", Paused ? "angehalten" : "läuft", Time->Dilation, Time->Pauser);
+}
 
 void LogTime(const char* What)
 {
@@ -126,6 +140,8 @@ void TickPause(std::span<const Net::ControlMessage> Messages)
         if (P.Reporter)
             P.Reporter->Reset();
     }
+    if (Transport && Peer)
+        LogWorldChange();
     // Der Host gibt auch ohne Verbindung frei; der Tick läuft deshalb immer, solange er etwas hält.
     if (Host || P.Applied)
         TickHost(Host ? Messages : std::span<const Net::ControlMessage>{}, Now);
