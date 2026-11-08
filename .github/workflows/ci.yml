@@ -141,6 +141,17 @@ jobs:
         if: needs.changes.outputs.code != 'false'
         run: .\bin\${{ matrix.configuration }}\NetTests.exe
 
+      # Nutzt die ohnehin gebauten echten DLLs. Keine zusaetzliche Windows-Build-Matrix.
+      - name: Release-ZIP packen und offline pruefen
+        if: needs.changes.outputs.code != 'false' && matrix.configuration == 'Release'
+        shell: pwsh
+        run: |
+          $Archive = Join-Path $env:RUNNER_TEMP 'DDCoop-ci-check.zip'
+          & ./tools/New-ReleasePackage.ps1 -Version ci-check -Bin (Join-Path $env:GITHUB_WORKSPACE 'bin\Release') -OutputDir $env:RUNNER_TEMP
+          if (-not (Test-Path -LiteralPath $Archive)) { throw 'Release-ZIP fehlt' }
+          & python -B tools/verify_release_package.py $Archive
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
   # Hängt nicht von Debug/Release ab, darum einmal und parallel zum Build.
   scripts:
     needs: changes
