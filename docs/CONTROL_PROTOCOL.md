@@ -247,6 +247,19 @@ Aktivierung höchstens 250 ms an und startet sie dann mit der Meldung, sonst mit
 ohne Aktivierung verfallen nach 2 s. Der Host holt `0x500` in jedem Takt mit `TakeControlMessages(Type)` ab, die übrigen Familien
 weiter alle 250 ms. Kosten, Schub und Ende rechnet der Host nativ, die Ausdauer repliziert wie gewohnt.
 
+## Pausemenü (Mod-Kompatibilität 9)
+
+Aufgabe `pausen-sync`, Code in `src/Sync/Players` und `src/Game/PauseAdapter.cpp`, Befund im
+[Pausen-Spike](../research/spikes/pausen/README.md#umsetzung-pausen-sync-08112026). Mod-Version 9, weil ein Host mit Version 8 das
+Pausemenü des Clients nicht kennt und weiterliefe. Lokal bleibt das native Pausemenü samt Inventaransicht beim Client. Geteilt wird
+nur, ob es offen ist. Der Host entscheidet über die Weltzeit: Er setzt eine eigene Zeitanfrage mit den Werten seines Pausemenüs,
+die native Replikation von `WorldSettings` trägt die Pause zum Client.
+
+`0x700` Client an Host, genau 9 Bytes: Sitzung (8, ungleich 0, neu je Öffnen) und offen (1, 0 oder 1). Beim Öffnen und Schließen sofort,
+offen alle 500 ms, nach dem Schließen 3 s lang alle 500 ms. Der Host hält die Pause einer Sitzung, bis die Freigabe kommt, 3 s keine
+Meldung kam, seine Welt wechselt oder die Verbindung weg ist. Eine so beendete Sitzung pausiert nicht noch einmal, erst ein neues Öffnen.
+Pausen des Hosts brauchen keine Nachricht, sie replizieren nativ. Keine Antwort vom Host.
+
 ## Bisher geprüft (05.11.2026, Kontrollkanal vor Diagnoseerweiterung)
 
 - Build und alle Tests bestanden, darunter 24 Net-Testfälle: binäre UE-Pakete in
