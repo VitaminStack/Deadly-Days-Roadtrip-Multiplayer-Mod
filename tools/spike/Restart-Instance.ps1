@@ -36,10 +36,12 @@ $env:SteamAppId = '3026450'
 $env:SteamGameId = '3026450'
 $Exe = Get-GameExe
 $UserDir = Join-Path $script:SessionDir 'ud_client'
-$Arguments = @('-windowed', '-ResX=800', '-ResY=450', '-WinX=820', '-WinY=0', '-nosplash', "-UserDir=`"$UserDir`"")
+$OriginX, $OriginY = if ($env:DDCOOP_WIN_ORIGIN) { $env:DDCOOP_WIN_ORIGIN -split ',' | ForEach-Object { [int]$_ } } else { 0, 0 }
+$Arguments = @('-windowed', '-ResX=800', '-ResY=450', "-WinX=$(820 + $OriginX)", "-WinY=$OriginY", '-nosplash', "-UserDir=`"$UserDir`"")
 if ($Tunnel -eq 'Mod') { $Arguments += '-ddcoop_transport=loopback' }
 # Gleiches Netzprofil wie beim Start der Sitzung.
 if ($Session.PSObject.Properties['NetSim'] -and $Session.NetSim) { $Arguments += "-ddcoop_netsim=$($Session.NetSim)" }
+if ($Session.PSObject.Properties['Control'] -and $Session.Control) { $Arguments += '-ddcoop_control' }
 $Client = Start-Process $Exe -PassThru -ArgumentList $Arguments
 $Session.Client = $Client.Id
 $Session | ConvertTo-Json | Set-Content $File -Encoding ascii
@@ -69,10 +71,10 @@ if ($Tunnel -eq 'Lobby') {
 elseif ($Tunnel -eq 'Mod') {
     $Log = Join-Path (Split-Path $Exe) "DDCoop\logs\ddcoop-$($Client.Id).log"
     Wait-Condition { (Test-Path $Log) -and (Select-String -Path $Log -Pattern 'Transport: verbunden' -Quiet) } 'Tunnel der Mod' 150 @($Client.Id)
-    Send-SpikeCommand $Client.Id 'open 127.0.0.1:7778'
+    Send-GameConsole $Client.Id 'open 127.0.0.1:7778'
 }
 else {
-    Send-SpikeCommand $Client.Id 'open 127.0.0.1:7777'
+    Send-GameConsole $Client.Id 'open 127.0.0.1:7777'
 }
 $World = (Get-NetState $HostId).world
 Wait-Condition {

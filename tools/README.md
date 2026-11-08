@@ -160,6 +160,26 @@ py tools/expect_check.py --exe <kopie>/DDSurvivors/Binaries/Win64/DDSurvivors-Wi
   Werkzeug sie als `anderer-build` statt `abweichend`.
 - Ohne `--file` alle `src/Game/*Patches.cpp`.
 
+## patch_signatures.py
+
+Erzeugt und prüft `src/Game/PatchSignatures.inc`: je Code-Adresse der Patches ein maskiertes Byte-Muster. Die Mod prüft jedes Muster beim
+Start an der erwarteten Stelle (`Game::Signatures`, vor dem ersten Hook). Passt es nicht, liefert `Memory::Rva` für diese Adresse 0, und nur
+die Patches, die sie in `Patch::Sites` nennen, fallen aus (Log: `Signatur … passt nicht`, `Patches: ausgelassen`). Braucht `capstone`.
+
+```bash
+py tools/patch_signatures.py generate --exe <kopie-26187885>/DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe --other <kopie-neu>/DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe 26495302 --write
+py tools/patch_signatures.py check --exe <kopie>/DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe --build 26495302
+```
+
+- `generate`: kürzestes Muster, das in jeder Exe genau einmal an der erwarteten Stelle steht; abweichende Bytes werden Platzhalter, bei
+  stark geändertem Code bekommt jeder Build eine eigene Zeile. `--file` beschränkt auf einzelne Dateien, `--write` fügt die Zeilen ein.
+- `check`: `ok`, `abweichend`, `mehrdeutig`, `fehlt` (keine Adresse in RvaMap). Im Referenz-Build zusätzlich `ohne-signatur` für Adressen
+  ohne Zeile, mit `--strict` ein Fehler. Nach jedem Spiel-Update und vor neuen Patches laufen lassen.
+- `sites`: leitet je Eintrag der Patch-Listen aus Check, Apply und allem, was sie in der Datei aufrufen (auch Hooks), die benutzten Adressen
+  der Tabelle ab und vergleicht sie mit `Patch::Sites` (`abweichend`, Exitcode 1). `--write` schreibt die `<Name>Sites`-Felder. Fehlt eine
+  Patch-Liste die Adresse eines Ticks, bleibt dessen Tick aus (`ListComplete`).
+- Neue Patches: Adresse eintragen, `generate --write`, dann `sites --write`.
+
 ## Build-Mod.ps1
 
 Baut `DeadlyDaysCoop.sln` wie die CI nach `bin/<Konfiguration>/`. Mit `-Test` laufen danach `CoreTests.exe` und die Python-Tests.
@@ -220,6 +240,7 @@ Bauen und Testen des Spikes, die Anleitung steht in [docs/TESTING.md](../docs/TE
 | `Build-Spike.ps1` | Baut `spike.dll` |
 | `Start-Session.ps1` | Setzt die Sperre, startet Crash-Schutz, Host und Client parallel, verbindet sie und reist in eine Karte. Wartet auf Zustände statt fest zu schlafen und nennt die Zeit je Schritt (MetaBase etwa 30 bis 40 s). `-Wait <s>` wartet auf eine fremde Sitzung statt abzubrechen. `-Build` baut den Spike vorher neu, `-Mod` baut und installiert zusätzlich die Mod. `-Role Host` oder `-Role Client -Peer <SteamID>` startet nur eine Seite für den Test auf zwei PCs. `-Mod -Tunnel Mod` verbindet über den Transport der Mod statt über den Spike, `-Mod -Tunnel Lobby` über die Steam-Lobby der Mod, erstellt und betreten über das Overlay. `-Brief`: nur Zeit je Schritt und eine Zeile je Instanz. `-NetProfile Internet` simuliert Latenz im Tunnel der Mod, siehe [Latenz simulieren](../docs/TESTING.md#latenz-simulieren). `-Mod -Tunnel Lobby -NoSpike` startet nur mit der Mod wie im Release, siehe [Nur Mod, ohne Spike](../docs/TESTING.md#nur-mod-ohne-spike). Als Client zusätzlich `-SteamLaunch` (Steam startet das Spiel nach einer Einladung) oder `-Tunnel Mod -NoSpike` (Ablehnung eines Kontos außerhalb der Lobby), siehe [Steam-Lobby der Mod prüfen](../docs/TESTING.md#steam-lobby-der-mod-prüfen) |
 | `Restart-Instance.ps1` | Startet nur den Client neu und verbindet ihn wieder, der Host läuft weiter (etwa 20 s statt eines vollen Neustarts). `-Brief` für kurze Ausgabe |
+| `Common.ps1` (Testkanal) | `Invoke-ModControl`, `Send-GameConsole`, `Send-GameTravel`: Befehle mit Antwort über die Pipe der Mod, siehe [Testkanal der Mod](../docs/TESTING.md#testkanal-der-mod) |
 | `Overlay.ps1` | Bedient das Overlay der Mod ohne Maus: `status`, `create`, `join [<id>]`, `leave`, `invite`. `-Json` für Skripte |
 | `Watch-Net.ps1` | Zeigt Änderungen an Overlay, Prozess und Mod-Log (Sitzung, Transport, Lobby, Welt) beider Instanzen mit Zeit, `-Until <Muster>` endet beim ersten Treffer |
 | `Test-NetEnd.ps1` | Prüft Sitzungsende ohne Handarbeit: Host und Client verlassen, Client und Host hart beendet, Neubeitritt. Zeit bis zur Meldung, Bericht unter `research/local/` |

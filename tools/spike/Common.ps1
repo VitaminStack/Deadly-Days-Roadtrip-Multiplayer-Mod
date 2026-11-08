@@ -168,6 +168,51 @@ function Send-SpikeCommand([int]$ProcessId, [string]$Command, [int]$TimeoutSecon
     Move-Item $Temp (Join-Path $script:CommandDir "$ProcessId.cmd") -Force
 }
 
+# Testkanal der Mod (src\Mod\Control.cpp): Named Pipe je Prozess mit Befehlen und Antwort, nur mit -ddcoop_control. Start-Session.ps1
+# setzt den Schalter fuer jede Sitzung mit -Mod und vermerkt Control in session.json. Ersetzt in solchen Sitzungen die Befehlsdatei
+# des Spikes, netstate.py und das Overlay-Fenster. Ohne Kanal (Sitzung ohne Mod, Start ueber Steam) bleiben die alten Wege.
+function Test-ModControl {
+    $File = Join-Path $script:SessionDir 'session.json'
+    if (-not (Test-Path $File)) { return $false }
+    $Session = Get-Content $File -Raw | ConvertFrom-Json
+    [bool]($Session.PSObject.Properties['Control'] -and $Session.Control)
+}
+
+# Eine Anfrage, eine Antwort als Objekt (ok, error und die Felder des Befehls). $null, wenn die Pipe nicht antwortet.
+function Invoke-ModControl([int]$ProcessId, [string]$Line, [int]$ConnectMilliseconds = 3000, [int]$ReplyMilliseconds = 15000) {
+    $Pipe = New-Object IO.Pipes.NamedPipeClientStream('.', "ddcoop-ctl-$ProcessId", [IO.Pipes.PipeDirection]::InOut)
+    try {
+        try { $Pipe.Connect($ConnectMilliseconds) } catch { return $null }
+        $Bytes = [Text.Encoding]::ASCII.GetBytes("$Line`n")
+        $Pipe.Write($Bytes, 0, $Bytes.Length)
+        $Pipe.Flush()
+        $Reader = New-Object IO.StreamReader($Pipe, [Text.Encoding]::UTF8)
+        $Task = $Reader.ReadLineAsync()
+        if (-not $Task.Wait($ReplyMilliseconds)) { return $null }
+        if (-not $Task.Result) { return $null }
+        $Task.Result | ConvertFrom-Json
+    }
+    finally { $Pipe.Dispose() }
+}
+
+# Wie Invoke-ModControl, wirft aber bei fehlender oder abgelehnter Antwort.
+function Send-ModControl([int]$ProcessId, [string]$Line, [int]$ConnectMilliseconds = 5000) {
+    $Reply = Invoke-ModControl $ProcessId $Line $ConnectMilliseconds
+    if (-not $Reply) { throw "Testkanal von $ProcessId antwortet nicht ('$Line'). Laeuft die Mod mit -ddcoop_control?" }
+    if (-not $Reply.ok) { throw "Testkanal von $ProcessId lehnt '$Line' ab: $($Reply.error)" }
+    $Reply
+}
+
+# Konsolenbefehl des Spiels, etwa 'open 127.0.0.1:7778'. Mit Testkanal ueber die Mod, sonst ueber den Spike.
+function Send-GameConsole([int]$ProcessId, [string]$Command) {
+    if (Test-ModControl) { Send-ModControl $ProcessId "console $Command" | Out-Null } else { Send-SpikeCommand $ProcessId $Command }
+}
+
+# Reise des Hosts in die Karte (servertravel <Karte>?listen). Mit Testkanal ueber die Mod, sonst ueber den Spike.
+function Send-GameTravel([int]$ProcessId, [string]$Map) {
+    if (Test-ModControl) { Send-ModControl $ProcessId "travel $Map" | Out-Null } else { Send-SpikeCommand $ProcessId "servertravel $Map`?listen" }
+}
+
 # Fuehrt eine Befehlszeile in der Visual-Studio-Umgebung aus (cl, dumpbin).
 function Invoke-InVsEnvironment([string]$CommandLine) {
     $Vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
@@ -184,6 +229,20 @@ function Invoke-InVsEnvironment([string]$CommandLine) {
 
 # Netzzustand einer Instanz aus netstate.py, etwa @{ world = 'MetaBase'; players = 2; clients = 1 }. Leer, solange nichts lesbar ist.
 function Get-NetState([int]$ProcessId) {
+    if (Test-ModControl) {
+        # Pipe der Mod. Antwortet sie nicht (Spiel startet noch, Game Thread haengt), liest netstate.py den Speicher wie bisher.
+        $Reply = Invoke-ModControl $ProcessId 'state' 1000 3000
+        if ($Reply -and $Reply.ok) {
+            $State = @{ line = "${ProcessId}: $($Reply | ConvertTo-Json -Compress)" }
+            if ($null -ne $Reply.world) {
+                $State.world = [string]$Reply.world
+                $State.package = [string]$Reply.package
+                $State.players = [int]$Reply.players
+                if ($Reply.role -ne 'standalone') { $State.role = [string]$Reply.role; $State.clients = [int]$Reply.clients }
+            }
+            return $State
+        }
+    }
     $Line = & py (Join-Path $PSScriptRoot 'netstate.py') $ProcessId 2>$null | Select-Object -Last 1
     $State = @{ line = $Line }
     foreach ($Match in [regex]::Matches([string]$Line, "'(\w+)': (?:'([^']*)'|(-?\d+))")) {
@@ -299,9 +358,25 @@ function Get-OverlayWindow([int]$ProcessId, [int]$TimeoutSeconds = 0) {
 }
 
 # Zustand des Overlays: State, Message, Role, LobbyId, Ping und welche Knoepfe frei sind.
-function Get-OverlayState([int]$ProcessId) {
-    $Window = Get-OverlayWindow $ProcessId 5
-    $Texts = [DDCoopOverlay]::Texts($Window)
+function Get-OverlayState([int]$ProcessId, [switch]$Window) {
+    if (-not $Window -and (Test-ModControl)) {
+        # Gleiche Felder wie aus dem Fenster, aus dem Zustand des Testkanals. Diagnostics (Sync-Anzeige) gibt es nur mit -Window.
+        $Reply = Send-ModControl $ProcessId 'state'
+        $Names = @{ unavailable = 'Netzwerk noch nicht angebunden'; offline = 'Offline'; connecting = 'Verbindung wird aufgebaut'; lobby = 'In Lobby'; playing = 'Im Spiel'; failed = 'Verbindungsfehler' }
+        return [pscustomobject]@{
+            State = if ($Reply.state) { $Names[[string]$Reply.state] } else { $Names.unavailable }
+            Message = [string]$Reply.message
+            Diagnostics = ''
+            Role = [string]$Reply.role
+            LobbyId = [string]$Reply.lobby
+            Ping = if ($null -ne $Reply.ping -and $Reply.ping -ge 0) { "$($Reply.ping) ms" } else { '' }
+            CanCreate = [bool]$Reply.canCreate
+            CanJoin = [bool]$Reply.canJoin
+            CanLeave = [bool]$Reply.canLeave
+        }
+    }
+    $OverlayWindow = Get-OverlayWindow $ProcessId 5
+    $Texts = [DDCoopOverlay]::Texts($OverlayWindow)
     $Debug = [string]$Texts[2]
     $Lobby = [regex]::Match($Debug, 'Lobby: (\d+)')
     [pscustomobject]@{
@@ -311,14 +386,21 @@ function Get-OverlayState([int]$ProcessId) {
         Role = [regex]::Match($Debug, 'Rolle: (\w+)').Groups[1].Value
         LobbyId = if ($Lobby.Success) { $Lobby.Groups[1].Value } else { '' }
         Ping = [regex]::Match($Debug, 'Ping: ([^\r\n]+?)(\r|\n|$)').Groups[1].Value
-        CanCreate = [DDCoopOverlay]::Enabled($Window, $script:OverlayIds.Create)
-        CanJoin = [DDCoopOverlay]::Enabled($Window, $script:OverlayIds.Join)
-        CanLeave = [DDCoopOverlay]::Enabled($Window, $script:OverlayIds.Leave)
+        CanCreate = [DDCoopOverlay]::Enabled($OverlayWindow, $script:OverlayIds.Create)
+        CanJoin = [DDCoopOverlay]::Enabled($OverlayWindow, $script:OverlayIds.Join)
+        CanLeave = [DDCoopOverlay]::Enabled($OverlayWindow, $script:OverlayIds.Leave)
     }
 }
 
 # Loest einen Overlay-Knopf aus wie ein Klick. Join setzt vorher die Lobby-ID ins Feld.
 function Invoke-OverlayAction([int]$ProcessId, [ValidateSet('Create', 'Join', 'Invite', 'Leave')][string]$Action, [string]$LobbyId) {
+    if (Test-ModControl) {
+        if ($Action -eq 'Join' -and $LobbyId -notmatch '^\d{1,20}$') { throw 'Join braucht eine Lobby-ID.' }
+        # Das Spiel kann Create oder Join ablehnen (ok=false), das Overlay zeigt dann die Meldung. Wie ein Klick wird nur angestossen.
+        $Line = "lobby $($Action.ToLower())$(if ($Action -eq 'Join') { " $LobbyId" })"
+        if (-not (Invoke-ModControl $ProcessId $Line 5000)) { throw "Testkanal von $ProcessId antwortet nicht ('$Line')." }
+        return
+    }
     $Window = Get-OverlayWindow $ProcessId 5
     if ($Action -eq 'Join') {
         if ($LobbyId -notmatch '^\d{1,20}$') { throw 'Join braucht eine Lobby-ID.' }
@@ -339,7 +421,8 @@ function New-OverlayLobby([int]$HostId, [int]$TimeoutSeconds = 30) {
 
 # Tritt beim Client ueber das Overlay bei und wartet, bis die Sitzung steht oder scheitert. Liefert den Overlay-Zustand.
 function Join-OverlayLobby([int]$ClientId, [string]$LobbyId, [int]$TimeoutSeconds = 60) {
-    Get-OverlayWindow $ClientId 30 | Out-Null
+    if (Test-ModControl) { Wait-Condition { (Get-OverlayState $ClientId).CanJoin } 'Overlay des Clients bereit zum Beitreten' 30 @($ClientId) 500 }
+    else { Get-OverlayWindow $ClientId 30 | Out-Null }
     Invoke-OverlayAction $ClientId Join $LobbyId
     Start-Sleep -Milliseconds 500
     $script:JoinState = $null
@@ -413,4 +496,23 @@ function Format-NetSimBrief([int]$ProcessId, [string]$Role) {
     $Log = Join-Path (Split-Path (Get-GameExe)) "DDCoop\logs\ddcoop-$ProcessId.log"
     $Hit = if (Test-Path $Log) { Select-String -Path $Log -Pattern 'Netzsimulation: (\d+ Pakete.*)$' | Select-Object -Last 1 }
     if ($Hit) { "$Role Netzsimulation: $($Hit.Matches[0].Groups[1].Value)" } else { "$Role Netzsimulation: noch keine Messung" }
+}
+
+# Fensterursprung fuer Testsitzungen auf einem anderen Monitor: DDCOOP_WIN_ORIGIN="X,Y" in virtuellen Desktop-Koordinaten.
+# Das Spiel zentriert sein Fenster nach dem Laden auf dem Hauptmonitor, darum setzt Move-GameWindow es nach jedem Schritt zurueck.
+# Ohne die Variable aendert sich nichts. Host liegt bei +0, der Client bei +820 (Zwei-Instanzen-Test auf einem PC).
+function Move-GameWindow([int]$ProcessId, [int]$OffsetX = 0) {
+    if (-not $env:DDCOOP_WIN_ORIGIN) { return }
+    if (-not ('SpikeWindowPlacer' -as [type])) {
+        Add-Type @"
+using System; using System.Runtime.InteropServices;
+public static class SpikeWindowPlacer {
+    [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr Window, IntPtr After, int X, int Y, int Width, int Height, uint Flags);
+    public static void Place(IntPtr Window, int X, int Y) { SetWindowPos(Window, IntPtr.Zero, X, Y, 0, 0, 0x1 | 0x4 | 0x10); }
+}
+"@
+    }
+    $Origin = $env:DDCOOP_WIN_ORIGIN -split ',' | ForEach-Object { [int]$_ }
+    $Window = (Get-Process -Id $ProcessId -ErrorAction SilentlyContinue).MainWindowHandle
+    if ($Window -and $Window -ne [IntPtr]::Zero) { [SpikeWindowPlacer]::Place($Window, $Origin[0] + $OffsetX, $Origin[1]) }
 }

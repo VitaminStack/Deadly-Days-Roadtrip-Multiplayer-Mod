@@ -12,6 +12,12 @@ Stand: 02.11.2026, Build `26187885`. Wegwerfcode, die Offsets gelten nur für di
 
 Gebaut und gestartet wird über die Skripte in `tools/spike/`, die auch den Crash-Reporter absichern, siehe [Testen](../../../docs/TESTING.md).
 
+## Builds
+
+Der Quelltext nennt Code- und Datenadressen von `26187885`. `Rva()` in `Builds.cpp` rechnet sie für `26495302` um (Tabelle der Mod plus eigene Einträge,
+Werte in [OFFSETS.md](../../../docs/OFFSETS.md#spike-spike-build-26495302)). Neue Adressen immer als `Rva(0x…)` schreiben, relative Sprünge mit `ExpectBranch`
+prüfen, Importeinträge mit `FindImportSlot` suchen. Fehlt für einen neuen Build ein Eintrag, bleibt nur dieser Patch aus (Log: `Adresse fehlt`).
+
 ## Dateien
 
 Je Thema eine Datei, damit parallele Arbeit nicht in dieselbe Datei läuft. Neue Patches kommen in die passende Datei und werden in deren `Patch…`-Funktion eingehängt.

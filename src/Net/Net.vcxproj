@@ -31,6 +31,7 @@
     <ClCompile Include="Transport.cpp" />
     <ClCompile Include="Protocol.cpp" />
     <ClCompile Include="NetSim.cpp" />
+    <ClCompile Include="ControlProtocol.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Net.h" />
@@ -40,6 +41,7 @@
     <ClInclude Include="Transport.h" />
     <ClInclude Include="Protocol.h" />
     <ClInclude Include="NetSim.h" />
+    <ClInclude Include="ControlProtocol.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

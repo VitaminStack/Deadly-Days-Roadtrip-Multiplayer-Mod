@@ -135,34 +135,7 @@ uint64_t MakeName(const std::string& Text)
 // Wie der Starter des Spiels per LoadSynchronous, nur über die Blueprint-Bibliothek: Pfad, Soft-Verweis, Laden.
 uintptr_t LoadByPath(const std::string& Path)
 {
-    const uintptr_t Library = Objects::FindNamed("Default__KismetSystemLibrary");
-    const uintptr_t MakePath = Objects::FindObject("MakeSoftObjectPath", "KismetSystemLibrary");
-    const uintptr_t ToReference = Objects::FindObject("Conv_SoftObjPathToSoftObjRef", "KismetSystemLibrary");
-    const uintptr_t Load = Objects::FindObject("LoadAsset_Blocking", "KismetSystemLibrary");
-    if (!Library || !MakePath || !ToReference || !Load)
-        return 0;
-    const std::wstring Wide(Path.begin(), Path.end());
-    struct
-    {
-        FString PathString;
-        uint8_t ReturnValue[0x20];
-    } MakeParams{View(Wide), {}};
-    Objects::ProcessEvent(Library, MakePath, &MakeParams);
-    struct
-    {
-        uint8_t SoftObjectPath[0x20];
-        uint8_t ReturnValue[0x28];
-    } ReferenceParams{};
-    memcpy(ReferenceParams.SoftObjectPath, MakeParams.ReturnValue, sizeof(MakeParams.ReturnValue));
-    Objects::ProcessEvent(Library, ToReference, &ReferenceParams);
-    struct
-    {
-        uint8_t Asset[0x28];
-        uintptr_t ReturnValue;
-    } LoadParams{};
-    memcpy(LoadParams.Asset, ReferenceParams.ReturnValue, sizeof(ReferenceParams.ReturnValue));
-    Objects::ProcessEvent(Library, Load, &LoadParams);
-    return LoadParams.ReturnValue;
+    return Objects::LoadAsset(Path);
 }
 
 // Beim Client ist meist nur ein Teil der Profile geladen.
@@ -481,8 +454,10 @@ bool ApplyMap(Code::Writer&)
                                 reinterpret_cast<void**>(&OriginalSetupPcgVolume));
 }
 
+// Je Patch die benutzten Adressen der Signaturtabelle, erzeugt von tools/patch_signatures.py sites.
+constexpr uintptr_t MapSites[] = {CreateChildActor, IsChildActorReplicated, SetupPcgVolume, StartMapGeneration};
 const Patch List[] = {
-    {"Gleiche Karte und Vegetation beim Client", &CheckMap, &ApplyMap},
+    {"Gleiche Karte und Vegetation beim Client", &CheckMap, &ApplyMap, MapSites},
 };
 }
 

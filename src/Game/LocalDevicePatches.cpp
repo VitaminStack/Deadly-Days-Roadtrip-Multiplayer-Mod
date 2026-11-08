@@ -89,10 +89,14 @@ bool ApplySpawn(Code::Writer&)
                                 reinterpret_cast<void**>(&OriginalSpawn));
 }
 
+// Je Patch die benutzten Adressen der Signaturtabelle, erzeugt von tools/patch_signatures.py sites.
+constexpr uintptr_t AssignSites[] = {AssignDevice};
+constexpr uintptr_t DraftAssignSites[] = {DraftAssignDevice};
+constexpr uintptr_t SpawnSites[] = {GetController, SpawnLocal};
 const Patch List[] = {
-    {"Lokales Gerät nicht an P2 im Netzwerkspiel", CheckAssign, ApplyAssign},
-    {"Lokaler Geräteentwurf nicht für P2 im Netzwerkspiel", CheckDraftAssign, ApplyDraftAssign},
-    {"Kein zweiter LocalPlayer im Netzwerkspiel", CheckSpawn, ApplySpawn},
+    {"Lokales Gerät nicht an P2 im Netzwerkspiel", CheckAssign, ApplyAssign, AssignSites},
+    {"Lokaler Geräteentwurf nicht für P2 im Netzwerkspiel", CheckDraftAssign, ApplyDraftAssign, DraftAssignSites},
+    {"Kein zweiter LocalPlayer im Netzwerkspiel", CheckSpawn, ApplySpawn, SpawnSites},
 };
 }
 

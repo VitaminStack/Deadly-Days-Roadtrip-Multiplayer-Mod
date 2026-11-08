@@ -51,6 +51,12 @@ std::optional<WorldInfo> ReadWorld()
     const auto Driver = Memory::ReadPointer(*World + Offsets::UWorld::NetDriver);
     const bool HasConnection = Driver && Memory::ReadPointer(*Driver + Offsets::UNetDriver::ServerConnection);
     Info.Role = RoleFrom(Driver.has_value(), HasConnection);
+    if (const auto Package = Memory::ReadPointer(*World + Offsets::UObject::Outer))
+        Info.Package = Memory::NameOf(*Package);
+    // ClientConnections ist ein TArray: Daten, dann Anzahl.
+    if (Driver)
+        if (const auto Count = Memory::Read<int32_t>(*Driver + Offsets::UNetDriver::ClientConnections + 8); Count && *Count >= 0 && *Count < 64)
+            Info.Clients = *Count;
 
     // PlayerArray ist ein TArray: Daten, dann Anzahl.
     if (const auto State = Memory::ReadPointer(*World + Offsets::UWorld::GameState))
@@ -61,11 +67,13 @@ std::optional<WorldInfo> ReadWorld()
 
 void TickWorld()
 {
-    static std::optional<WorldInfo> Last;
+    // Verglichen wird, was das Log zeigt: Paket und Clientzahl allein sollen keine Zeile erzeugen.
+    static std::optional<std::string> Last;
     const auto Current = ReadWorld();
-    if (Current == Last)
+    const auto Text = Current ? std::optional(Describe(*Current)) : std::nullopt;
+    if (Text == Last)
         return;
-    Last = Current;
+    Last = Text;
     if (Current)
         Core::Log::Info("Welt: {}", Describe(*Current));
     else

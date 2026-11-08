@@ -535,7 +535,7 @@ Kopieren des Spike-Codes.
 Tutorial-Hinweise (`TutorialAdapter`, im Spike `Cheats.cpp`). `Tunnel.cpp` ersetzt der Transport aus `src/Net`.
 
 **Nur Testhilfe oder Messung**, kommt nicht in die Mod: Befehlsdatei und Konsolenbefehle (`Main.cpp`, etwa `open`, `servertravel`,
-`DD_SetCurrentRunSeed`; Ersatz mit Antworten ist `mod-steuerung`), `Cheats.cpp` (CheatManager, `!load`), Godmode, `!finish` und `!round`
+`DD_SetCurrentRunSeed`; Ersatz mit Antworten ist der Testkanal `src/Mod/Control.cpp`, Aufgabe `mod-steuerung`), `Cheats.cpp` (CheatManager, `!load`), Godmode, `!finish` und `!round`
 aus `Mission.cpp`, `!wave`, `Trace.cpp`, `Load.cpp`, `Hits.cpp`, Diagnose-Log aus `TestEnv.cpp`, die `RemoteP2.cpp`-Probe und die
 zweite Sperre des Crash-Reporters in `CrashReports.cpp`.
 

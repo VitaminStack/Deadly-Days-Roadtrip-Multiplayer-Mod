@@ -99,6 +99,43 @@ Von Hand nachgetragen in `RvaMap26495302.inc` (Zeilen „von Hand“). Native Fu
   Reward ohne Fehlermeldung, ausgelassen nur Player und Client (`update-client`). Absturz beim Beitritt unverändert `0x5904DE8`. Die
   Abnahme beim Client (Airdrop, Belohnungswahl, Lager) stand deshalb aus; `update-client` ist inzwischen gemergt.
 
+### Welt-Patches (`update-welt`)
+
+Stand 07.11.2026, Dateien `MapPatches.cpp`, `TravelPatches.cpp`, `ExpPatches.cpp`, `ProjectilePatches.cpp`, `MovementPatches.cpp`,
+`CameraPatches.cpp`, `CodeCave.cpp`. Es war keine Codeänderung nötig, die Tabelle `RvaMap26495302.inc` aus `update-basis` und
+`update-client` deckt alle Adressen dieser Dateien ab.
+
+- `tools/expect_check.py` gegen die Exe von `26495302` (TimeDateStamp `0x65BFBBFB`): 11 von 11 prüfbaren Prüfungen der sieben Dateien `ok`,
+  keine `abweichend`, keine `fehlt`. Die übrigen Patches der Dateien lesen ihre Adressen zur Laufzeit (lokale `Site`), die prüft nur das Spiel.
+- Spieltest ein PC, `Start-Session.ps1 -Build -Mod -Tunnel Lobby -NoSpike`: Host und Client melden `Patches: 43 gesetzt` (ohne
+  `-PartialPatches`) und `Signaturen: 88 Adressen geprüft`, keine Fehlermeldung. `Run-Route.ps1 -Start -Mod -Tunnel Lobby -Days 2`
+  (mit Spike) endet mit Exitcode 0: MetaBase, Tag 1 (159/159 Kacheln) und Tag 2 (63/63 Kacheln) bei beiden `sauber`, 2/2 Spieler,
+  Inventar gleich. `SeamlessTravelToLevel` läuft ohne Absturz, der Client setzt die gemeinsame Kamera
+  (`Kamera: gemeinsame Kamera gesetzt`), der Host beobachtet den Dash der Clients (`GA_Dash`).
+- Ohne Spike geht `Run-Route.ps1` nur bis Tag 1 (`!finish` fehlt).
+- Offen: XP-Bälle beim Client (Log `XP-Baelle: …` aus `ExpPatches.cpp`) und der Dash am Kamerarand. Beides braucht Gegner im Spiel, die ein
+  Mensch besiegt.
+
+### Spike (`spike-build-26495302`)
+
+Stand 07.11.2026. Der Spike (`research/spikes/a-connect`) nennt weiter die RVAs von `26187885` und rechnet sie zur Laufzeit mit `Rva()` aus
+`Builds.cpp` um: erst die eigenen Einträge, dann die Tabelle der Mod (`src/Game/RvaMap26495302.inc` wird eingebunden). Der Build kommt aus dem
+TimeDateStamp der Exe, ein unbekannter Build setzt keine Patches. Eine Adresse ohne Eintrag liefert `kMissingRva`, `Expect` meldet sie im Log
+(`Adresse fehlt oder nicht lesbar`) und der Patch bleibt aus.
+
+| Stelle | 26187885 | 26495302 | Weg |
+|---|---|---|---|
+| `SerializeNewActor` | `0x02D09B90` | `0x02D09D90` | rva_map (eindeutig) |
+| Archetyp-Prüfung darin | `0x02D0A426` | `0x02D0A626` | rva_map (eindeutig) |
+| `UpdateTag` (Cheats) | `0x04B7D7D0` | `0x04B7D9D0` | rva_map (eindeutig) |
+| Tag `State.Invincible` (Global) | `0x0AC61FE8` | `0x0AC680D8` | rva_map (global) |
+
+- GObjects, GNames und GWorld stehen in der Tabelle des Spikes (Werte oben). Alle übrigen Code- und Datenadressen des Spikes stehen schon in der Tabelle der Mod.
+- Relative Sprünge (`call`/`jmp rel32`) prüft `ExpectBranch` auf ihr Ziel statt auf feste Bytes, denn die Verschiebung ändert sich je Build.
+- Importeinträge (`CreateProcessW`, `sendto`, `recvfrom`) liegen in jedem Build anders und werden in der Importtabelle der Exe gesucht (`FindImportSlot`).
+- Offline geprüft: alle `Expect`/`ExpectBranch` des Spikes (51 mit Adresse, 1 über den Parameter in `HealthBars.cpp`, dort beide Aufrufer geprüft) passen auf die Exe von `26495302` (Muster, Abstände wie im Quelltext).
+- Spieltest ein PC, zwei Instanzen: Spike allein und Spike mit `-Mod -Tunnel Lobby` laufen bis `DDDynamic_Map` (2 Spieler), Patches „aktiv“, „Karte vom Host“, „PCG vom Host“, Busplatz, Lebensleisten, Run-Ende und Lastmessung gesetzt, `!wave` wirkt, kein Absturz.
+
 ## Diagnoseadapter (`desync-melder`)
 
 Quelle: Felddeklarationen des lokalen Dumper-7-SDK für denselben Build. Optionale
@@ -376,6 +413,8 @@ Was die Mod nutzt, steht zusätzlich in `src/Game/Offsets.h` und wird dort beim 
 | `BP_DD_Character_C` | Attributset mit Ausdauer; darin MaxStamina, Stamina (`FGameplayAttributeData`, CurrentValue je `+0x0C`) | `0x7D8`; `0x30`, `0x50` |
 | `APlayerController` | CheatManager, CheatClass | `0x410`, `0x418` |
 | `UBossSpawnLookup` | BossSpawnInfos (je `0x68`: BossID `0x00`, IsEndBoss `0x08`, BossEnemyType `0x10`, SpawnPointClass `0x38`) | `0x28` |
+| `UDDBossObjective` | MaxHealth `0xD0` (int64, per Reflexion aufgelöst, `BossBarAdapter`); `UDDObjectiveWidget.ObjectiveManager` `0x378`; `UCommonAttributeSet` MaxHealth `0x30`, Health `0xA0` (FGameplayAttributeData, Wert bei `+0xC`) | Build `26495302` gemessen, `gegner-alle` |
+| `FBossSpawnInfo.BossEnemyType` (weicher Verweis) | Paketpfad als FName bei Eintrag `+0x18`, Assetname bei `+0x20` (Build `26495302` gemessen, `gegner-alle`); Zeiger `LoadObjectByPath(Paket.Asset)` lädt den `EnemyType` | |
 | `UEnemyType` | EnemyBlueprint (`TSoftClassPtr`) | `0x128` |
 | `ACharacter` | CharacterMovement, BasedMovement, ReplicatedMovement-Block | `0x330`, `0x340`, `0x398` |
 | `ACharacter` (Spiel) | AttributeSet | `0x7D8` |

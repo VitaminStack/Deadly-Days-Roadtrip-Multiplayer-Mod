@@ -6,8 +6,6 @@ namespace Spike
 {
 namespace
 {
-constexpr uintptr_t kCreateProcessWImport = 0x82774D8;
-
 using CreateProcessWFn = BOOL(WINAPI*)(LPCWSTR, LPWSTR, LPSECURITY_ATTRIBUTES, LPSECURITY_ATTRIBUTES, BOOL, DWORD, LPVOID, LPCWSTR,
                                        LPSTARTUPINFOW, LPPROCESS_INFORMATION);
 CreateProcessWFn OriginalCreateProcessW;
@@ -44,9 +42,12 @@ BOOL WINAPI CreateProcessWHook(LPCWSTR Application, LPWSTR CommandLine, LPSECURI
 
 bool PatchCrashReports(CodeWriter&)
 {
-    auto* Slot = reinterpret_cast<CreateProcessWFn*>(Base + kCreateProcessWImport);
     const HMODULE Kernel32 = GetModuleHandleW(L"kernel32.dll");
-    if (*Slot != reinterpret_cast<CreateProcessWFn>(GetProcAddress(Kernel32, "CreateProcessW")))
+    const auto Expected = reinterpret_cast<CreateProcessWFn>(GetProcAddress(Kernel32, "CreateProcessW"));
+    // Der Importeintrag wird in der Importtabelle gesucht, damit er nicht vom Build abhaengt.
+    const uintptr_t SlotRva = FindImportSlot(reinterpret_cast<const void*>(Expected));
+    auto* Slot = reinterpret_cast<CreateProcessWFn*>(Base + SlotRva);
+    if (!SlotRva || *Slot != Expected)
     {
         Log("CrashReports: Importtabelle unerwartet, Patch verweigert");
         return false;

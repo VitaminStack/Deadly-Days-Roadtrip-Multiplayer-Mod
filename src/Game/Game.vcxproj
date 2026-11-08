@@ -60,6 +60,7 @@
     <ClCompile Include="Objects.cpp" />
     <ClCompile Include="PatchPolicy.cpp" />
     <ClCompile Include="Patches.cpp" />
+    <ClCompile Include="PatchSignatures.cpp" />
     <ClCompile Include="LocalDevicePatches.cpp" />
     <ClCompile Include="MovementPatches.cpp" />
     <ClCompile Include="PlayerPatches.cpp" />
@@ -70,6 +71,7 @@
     <ClCompile Include="SaveRedirect.cpp" />
     <ClCompile Include="SdkChecks.cpp" />
     <ClCompile Include="TelemetryAdapter.cpp" />
+    <ClCompile Include="BossBarAdapter.cpp" />
     <ClCompile Include="TutorialAdapter.cpp" />
     <ClCompile Include="WorldAdapter.cpp" />
   </ItemGroup>
@@ -101,11 +103,15 @@
     <ClInclude Include="Memory.h" />
     <ClInclude Include="AddressMap.h" />
     <None Include="RvaMap26495302.inc" />
+    <ClInclude Include="PatchSignatures.h" />
+    <None Include="PatchSignatures.inc" />
     <ClInclude Include="Objects.h" />
     <ClInclude Include="Offsets.h" />
     <ClInclude Include="SavePaths.h" />
     <ClInclude Include="SaveRedirect.h" />
     <ClInclude Include="TelemetryAdapter.h" />
+    <ClInclude Include="BossBarAdapter.h" />
+    <ClInclude Include="BossBarPolicy.h" />
     <ClInclude Include="TutorialAdapter.h" />
     <ClInclude Include="WorldAdapter.h" />
   </ItemGroup>
