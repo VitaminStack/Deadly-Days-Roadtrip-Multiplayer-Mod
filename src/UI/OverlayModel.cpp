@@ -72,10 +72,11 @@ bool OverlayModel::CanSubmit(const OverlaySnapshot& View, LobbyRequest Request)
     return false;
 }
 
-bool OverlayModel::CanDev(const OverlaySnapshot& View)
+bool OverlayModel::CanDev(const OverlaySnapshot&)
 {
-    return View.Status.State == SessionState::Playing &&
-        (View.Status.Role == SessionRole::Host || View.Status.Role == SessionRole::Client);
+    // Dev controls stay clickable in solo and while no lobby is open.
+    // Game actions still require a mission world on the game thread.
+    return true;
 }
 
 bool OverlayModel::RequestDev(DevButton Button)

@@ -213,8 +213,7 @@ void UpdateControls(WindowState& State)
     EnableWindow(State.DevXp, Dev);
     EnableWindow(State.DevTank, Dev);
     EnableWindow(State.DevGod, Dev);
-    Text(State.DevInfo, Dev ? L"Der Host fuehrt aus, auch fuer den Client"
-                            : L"Nur im laufenden Spiel verfuegbar");
+    Text(State.DevInfo, L"Solo lokal; Koop ueber Host. Nur in Mission wirksam.");
     const bool Copied = State.CopiedAt && GetTickCount64() - State.CopiedAt < 1500;
     Text(State.Copy, Copied ? L"Kopiert" : L"Lobby-ID kopieren");
 }

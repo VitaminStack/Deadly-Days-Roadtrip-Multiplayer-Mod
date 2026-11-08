@@ -94,7 +94,7 @@ bool FillTank()
 
 bool RunDevAction(DevAction Action, int Player)
 {
-    if (!Core::GameThread().IsDrainThread() || Patches::CurrentRole() != NetRole::Host)
+    if (!Core::GameThread().IsDrainThread() || Patches::CurrentRole() == NetRole::Client || !MissionState())
         return false;
     bool Done = false;
     switch (Action)
