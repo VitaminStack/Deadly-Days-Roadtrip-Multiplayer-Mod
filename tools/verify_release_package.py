@@ -37,6 +37,17 @@ def is_x64_pe(payload: bytes) -> bool:
     )
 
 
+def validate_archive_name(name: str, prefix: str) -> str:
+    """Rohpfad vor der Pfad-/Dateilistenpruefung ablehnen; ZIP-Schreiber normalisieren teils Backslashes."""
+    if "\\" in name or not name.startswith(prefix) or name.startswith("/") or "//" in name:
+        raise ValueError(f"Ungueltiger ZIP-Pfad: {name!r}")
+    suffix = name[len(prefix):]
+    parts = suffix.rstrip("/").split("/")
+    if any(part in ("", ".", "..") for part in parts):
+        raise ValueError(f"Unsicherer ZIP-Pfad: {name!r}")
+    return suffix
+
+
 def verify_package(filename: str | Path) -> dict[str, str]:
     path = Path(filename)
     if not re.fullmatch(r"DDCoop-[A-Za-z0-9._-]+", path.stem):
@@ -50,12 +61,7 @@ def verify_package(filename: str | Path) -> dict[str, str]:
     with zipfile.ZipFile(path) as archive:
         for entry in archive.infolist():
             name = entry.filename
-            if "\\" in name or not name.startswith(prefix) or name.startswith("/") or "//" in name:
-                raise ValueError(f"Ungueltiger ZIP-Pfad: {name!r}")
-            suffix = name[len(prefix):]
-            parts = suffix.rstrip("/").split("/")
-            if any(part in ("", ".", "..") for part in parts):
-                raise ValueError(f"Unsicherer ZIP-Pfad: {name!r}")
+            suffix = validate_archive_name(name, prefix)
             if stat.S_ISLNK(entry.external_attr >> 16):
                 raise ValueError(f"Symlink im Paket: {name!r}")
             if entry.is_dir():
