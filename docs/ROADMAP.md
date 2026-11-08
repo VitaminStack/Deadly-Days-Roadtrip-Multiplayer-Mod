@@ -8,15 +8,15 @@ Den Fortschritt je Phase zeigt das [README](../README.md#fortschritt).
 
 ## Stand und nächste Schritte
 
-Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
+Projektstand vom **08.11.2026**; die aktuellen Aufgaben, Abhängigkeiten und Abnahmen stehen verbindlich in [TODO.md](../TODO.md).
 
-**Was läuft.** Zwei Instanzen spielen im Spike dieselbe Mission, mit Bewegung und Schüssen beider Seiten. Der Client erreicht Tag 2. Die Analysen zu Coop, Karte, Gegnern, Kamera und Sync-Bedarf sind abgeschlossen. Unter `src/` steht das Grundgerüst aus Solution, `Loader`, `Core` und Modul-Einstiegen.
+**Was läuft.** Die Mod verbindet zwei eigene Spielinstanzen per Steam-Lobby über das Internet, synchronisiert Missionsstart, gemeinsame Karte, Bewegung, Kampf und wesentliche Inventar-/Rundenabläufe. **Gate G2 ist bestanden**: Am 07.11.2026 liefen zwei PCs aus unterschiedlichen Haushalten auf Build `26495302` mindestens zehn Minuten in derselben Mission ohne Absturz und dauerhaften Desync ([Messung](GAME_ANALYSIS.md#gate-g2-auf-zwei-pcs-am-07112026-integration-g2)). Die Phasen 0–4 sind abgeschlossen. Beide Game-Builds `26187885` und `26495302` sind derzeit in der Installation berücksichtigt; der Umstieg auf nur den neuen Build steht noch aus.
 
-**Was fehlt.** Es gibt keinen kompletten Run. Mod-Code mit Spielbezug gibt es erst als Adapter-Schicht, die nur liest. Der Sync-Entwurf ist weder umgesetzt noch im Netz getestet. Getestet wurde bisher nur über Loopback auf einem PC, nicht über echtes Internet.
+**Was fehlt.** Ein **vollständiger gemeinsamer Run** vom Start bis zum Endboss ist noch nicht bestanden. Offene Phase-5-Aufgaben sind unter anderem `fortschritt`, `tagesablauf`, `inventar-client-abweichung`, `routenkarte-client`, `dauerlauf` und `run-ende`. Der Code von `lager-handel-client` ist integriert, seine vorgeschriebene Zwei-PC-Bestätigung ist jedoch noch offen. Vor einem Release müssen außerdem die Weekly-Sperre, Virenscanner-/Proton-Dokumentation und die abschließende Integration geprüft werden ([Aufgabenliste](../TODO.md#wo-kann-ich-anfangen)).
 
-**Geprüft bei dieser Analyse.** Installiert ist weiterhin Build `26187885`. Seit dem letzten erfolgreichen Spike-Build änderte sich nur Dokumentation. Die Unit-Tests und alle relativen Links der Doku sind in Ordnung. Ein Spieltest gehörte nicht dazu.
+**Prüfgrenze.** Dies ist eine Dokumentationskorrektur auf Grundlage der vorhandenen Spieltestprotokolle und TODO-Einträge, **kein neuer Spieltest**. Der G2-Nachweis gilt ausdrücklich nicht als Nachweis eines vollständigen Runs.
 
-**Neue Befunde.**
+**Bisherige Befunde (datierte Momentaufnahmen, teilweise inzwischen überholt):**
 
 - `lager-handel-client`, 07.11.2026: Der Client verkauft und repariert im Lager. Vorher buchte das native Panel den Schrott nur lokal, und der Schrott repliziert nicht: Der Host entfernte verkaufte Items ohne Gutschrift, Reparaturen scheiterten am Schrott des Clients. Jetzt beginnt der erste Verkauf oder die erste Reparatur eine lokale Bearbeitung, der Edit meldet beides, der Host prüft jede Aktion, führt sie nativ aus und bucht den Schrott einmal. Der Host schickt seinen Schrott an den Client (`0x309`, Mod-Version 9). Kaputte Items sperrt das Spiel auch beim Host am Ablegen. Im Spiel geprüft (`26495302`, ein PC): Verkauf und Reparatur übernommen, Schrott und Inventare gleich, Ablehnung stellt den Client wieder her. [Ablauf](../src/Game/README.md#verkaufen-und-reparieren-beim-client)
 - `pausen-sync`, 08.11.2026: Das Pausemenü des Clients pausierte nur ihn, der Host lief weiter. Jetzt meldet der Client über `0x700`, ob sein Pausemenü offen ist; der Host hält dann eine Zeitanfrage mit den Werten seines eigenen Pausemenüs, die Weltpause repliziert nativ. Freigabe beim Schließen, nach 3 s ohne Meldung, bei Weltwechsel und Trennung. Airdrop, Lager, Reise, Level-up und Dialoge brauchen nichts Neues. Mod-Version 9. Im Spiel auf `26495302` belegt: Pause und Weiter in beide Richtungen mit gleicher Weltzeit, Inventaransicht im Pausemenü, Absturz des Clients bei offenem Menü gibt nach 3 s frei, Gegenproben Airdrop, Lager und Reise zu Tag 2. [Befund](../research/spikes/pausen/README.md#umsetzung-pausen-sync-08112026)
@@ -135,7 +135,7 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 - `rundenende`, 03.11.2026: Codec, Empfänger und lokaler Laufzeitadapter ohne Spiel getestet. Automatische Hostquellen, sichtbarer Lauf und vollständige Eingabesperre fehlen, Folgeaufgabe `phasenadapter`.
 - In `TODO.md` fehlten fünf Aufgaben, die jetzt eingetragen sind: Kontrollkanal, Übernahme der Spike-Patches, Umsetzung der Kamera, Pausen über den Kontrollkanal und der einmalige Absturz im Missions-Tick.
 
-**Reihenfolge.**
+**Historische Reihenfolge (aus der ursprünglichen Analyse, nicht der aktuelle Arbeitsplan).**
 
 1. `guidcache` ist mit akzeptiertem Run-/Endlos-Stand abgeschlossen. Keine weiteren Detailtests einplanen; bei einem neuen konkreten Fehler ein neues TODO anlegen.
 2. `remote-p2` ist als Analyse abgeschlossen, ebenso `karte-client`. Als Grundlage für `remote-spieler` die dokumentierten Patches und die Grenze der lokalen Geräte-/UI-Logik übernehmen; die Produktionsintegration nicht mit diesem Spike-Abschluss verwechseln.
@@ -172,7 +172,7 @@ flowchart TD
 
 ## Weg bis Gate G1
 
-Hier liegt die aktuelle Arbeit. Die Kennungen in Klammern stehen in [TODO.md](../TODO.md), was gerade frei ist, zeigt [Wo kann ich anfangen?](../TODO.md#wo-kann-ich-anfangen).
+Historischer Analyseweg bis zum bereits abgeschlossenen Gate G1. Für **aktuelle** Arbeiten und Reservierungen gilt ausschließlich [TODO.md](../TODO.md#wo-kann-ich-anfangen).
 
 ```mermaid
 flowchart LR
@@ -272,12 +272,12 @@ flowchart TD
 
     subgraph PH4["Phase 4: Vertical Slice"]
         SH["Spike-Patches als Hooks<br/>übernehmen"]:::done
-        R2["Remote-Spieler als P2"]:::open
-        MS["Gemeinsamer Missionsstart,<br/>gleiche Karte"]:::open
-        KM["Gemeinsame Kamera<br/>umsetzen"]:::open
+        R2["Remote-Spieler als P2"]:::done
+        MS["Gemeinsamer Missionsstart,<br/>gleiche Karte"]:::done
+        KM["Gemeinsame Kamera<br/>umsetzen"]:::done
         KA["Bewegung, Waffen, Treffer, Tod"]:::done
         GT["Ein Gegnertyp"]:::done
-        EI["Eingaben von Remote<br/>trennen"]:::open
+        EI["Eingaben von Remote<br/>trennen"]:::done
         OS["Mod ohne Spike<br/>(ohne-spike)"]:::done
         LT["Latenz simulieren<br/>(latenz-test)"]:::done
         DM["Desync-Melder<br/>(desync-melder)"]:::done
@@ -285,13 +285,13 @@ flowchart TD
         R2 --> EI
     end
 
-    G2{{"Gate G2: 10 Minuten stabil<br/>zwischen zwei Haushalten"}}:::gate
+    G2{{"Gate G2: 10 Minuten stabil<br/>zwischen zwei Haushalten"}}:::done
 
     subgraph PH5["Phase 5: Vollständiger Run"]
-        GE["Alle Gegner und Bosse"]:::open
+        GE["Alle Gegner und Bosse"]:::done
         XP["Loot, XP, Level-ups,<br/>Fähigkeiten"]:::open
         IV["Inventar, Reward-Queue,<br/>Inventar-UI<br/>(inventar-sync, inventar-ui)"]:::done
-        WB["Werkbank beim Client<br/>(werkbank-client)"]:::open
+        WB["Werkbank beim Client<br/>(werkbank-client)"]:::done
         PU["Pausen und blockierende UI<br/>(pausen-sync)"]:::done
         TG["Tageszyklus, Treibstoff,<br/>Etappen"]:::open
         MF["Meta-Fortschritt des Hosts<br/>(meta-fortschritt: entschieden)"]:::done
@@ -303,7 +303,7 @@ flowchart TD
     subgraph PH6["Phase 6: Release"]
         SB["Bestenlisten und<br/>Erfolge sperren"]:::done
         TE["Telemetrie und<br/>Crash-Reports aus"]:::done
-        SV["Eigene Mod-Spielstände"]:::open
+        SV["Eigene Mod-Spielstände"]:::done
         IN["Installer oder Anleitung"]:::done
         WS["Weekly-Challenge sperren<br/>(weekly-sperre)"]:::open
         VS["Virenscanner und Proton<br/>(virenscanner)"]:::open
@@ -326,24 +326,24 @@ Türkis ist zentrale Arbeit, die nacheinander läuft. Grau sind Pakete, die dane
 
 ```mermaid
 flowchart TD
-    GR["grundgeruest"]:::central --> W1["Welle 1<br/>overlay, deploy, ci"]:::open
-    GR --> GA["game-adapter"]:::central
+    GR["grundgeruest"]:::central --> W1["Welle 1<br/>overlay, deploy, ci"]:::done
+    GR --> GA["game-adapter"]:::done
     G1{{"Gate G1: Weg A festgelegt"}}:::done --> W2["Welle 2<br/>steam-lobby, transport,<br/>net-fehler"]:::done
     GR --> W2
     G1 --> GA
-    GA --> PT["patches"]:::central --> RS["remote-spieler"]:::central
-    GA --> W5["Welle 5<br/>tutorial-aus, online-sperren,<br/>telemetrie-aus, mod-saves, installer"]:::open
-    RS --> W3["Welle 3<br/>missionsstart, kamera-code, bewegung,<br/>eingaben, kampf, gegnertyp"]:::open
-    W1 --> IG["integration-g2"]:::central
+    GA --> PT["patches"]:::done --> RS["remote-spieler"]:::done
+    GA --> W5["Welle 5<br/>tutorial-aus, online-sperren,<br/>telemetrie-aus, mod-saves, installer"]:::done
+    RS --> W3["Welle 3<br/>missionsstart, kamera-code, bewegung,<br/>eingaben, kampf, gegnertyp"]:::done
+    W1 --> IG["integration-g2"]:::done
     W2 --> PR["protokoll"]:::done
     W2 --> IG
     W3 --> IG
-    IG --> G2{{"Gate G2"}}:::gate
+    IG --> G2{{"Gate G2"}}:::done
     PR --> W4["Welle 4<br/>fortschritt, werkbank-client,<br/>pausen-sync, tagesablauf,<br/>run-ende, vfx-sound, reconnect"]:::open
     G2 --> W4
     W4 --> IR["integration-run"]:::central
     W5 --> IR
-    RV["Vorbeugung<br/>ohne-spike, latenz-test"]:::open --> IG
+    RV["Vorbeugung<br/>ohne-spike, latenz-test"]:::done --> IG
     PR --> DS["desync-melder"]:::done --> IG
     IG --> DL["dauerlauf"]:::open --> IR
     W5 --> W6["weekly-sperre, virenscanner"]:::open --> RL
