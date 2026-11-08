@@ -251,6 +251,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `deploy` | 2 | Deploy-Skript `tools/Deploy-Mod.ps1` |
 | `desync-melder` | 4 | Zustandssumme über den Kontrollkanal, Abweichungen in Mod-Log und F8, im Spiel rund 636 s ohne Fehlalarm, absichtliche Inventarabweichung auf beiden Seiten erkannt |
 | `dodge-client-live` | 5 | Zwei PCs, Build 26495302: 40 Client-Dodges mit Richtung beim Host, kein Rutschen, Ausdauer wie beim Host, Figuren ohne Sprünge, vom Menschen abgenommen; Hinweis: Host setzte 8-mal hängende Dodge-Werte zurück, siehe [Live-Test 07.11.](docs/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-07112026-livetest-0711) |
+| `doku-projektstatus` | Wartung | README (Deutsch und Englisch) und Roadmap nach dem belegten Gate G2 vom 07.11.2026 aktualisiert, historische Abschnitte gekennzeichnet und veraltete Diagrammstaende korrigiert; Doku-CI und GitHub-CI gruen (PR #181). |
 | `doku-verweise` | Wartung | task_status.py check meldet Sätze, die eine erledigte Kennung noch ankündigen („kommt mit“, „folgt in“, „bis `x`“), läuft in der CI; bekannte Stellen korrigiert, Lobby-Weg auf zwei PCs ergänzt, siehe [task_status.py](tools/README.md#task_statuspy) |
 | `dumper-fix` | 0 | Dumper-7-Fix liegt im eigenen Fork, eingebunden als Submodul `third_party/Dumper-7`, siehe [SDK-Erzeugung](docs/GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58) |
 | `eingaben` | 4 | Lokale Geräte bleiben im Netzwerkspiel beim eigenen Spieler: keine Gerätezuordnung an P2, kein zweiter LocalPlayer; Bewegung, Dodge, Zielen und Menüs getrennt im Spiel belegt |
