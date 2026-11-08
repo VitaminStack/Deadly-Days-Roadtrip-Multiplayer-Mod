@@ -5,7 +5,7 @@ import tempfile
 import unittest
 import zipfile
 
-from tools.verify_release_package import MANIFEST, REQUIRED_FILES, verify_package, is_x64_pe
+from tools.verify_release_package import MANIFEST, REQUIRED_FILES, verify_package, is_x64_pe, validate_archive_name
 
 
 def stub_pe() -> bytes:
@@ -58,9 +58,14 @@ class ReleasePackageTests(unittest.TestCase):
             verify_package(self.make_zip(extra=[("DDCoop-test/GameContent.pak", b"game")]))
 
     def test_traversal_and_backslash(self):
+        # ZIP-Schreiber unter Windows normalisieren Backslashes. Darum die rohe
+        # Eingabe separat pruefen und den ZIP-Rundtrip auf Ablehnung absichern.
         for name in ("DDCoop-test/../other.txt", "DDCoop-test/other\\evil.dll"):
-            with self.subTest(name=name), self.assertRaisesRegex(ValueError, "Pfad"):
-                verify_package(self.make_zip(extra=[(name, b"x")]))
+            with self.subTest(name=name):
+                with self.assertRaisesRegex(ValueError, "Pfad"):
+                    validate_archive_name(name, "DDCoop-test/")
+                with self.assertRaisesRegex(ValueError, "Pfad|Unerlaubte Datei"):
+                    verify_package(self.make_zip(extra=[(name, b"x")]))
 
     def test_duplicate_file(self):
         with self.assertRaisesRegex(ValueError, "Doppelte"):
