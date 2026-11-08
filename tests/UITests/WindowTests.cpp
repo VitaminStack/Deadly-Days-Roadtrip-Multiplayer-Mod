@@ -55,6 +55,10 @@ TEST_CASE("Native overlay lifecycle works without game SDK, Steam, focus changes
     UI::Start();
     HWND Window = WaitForOverlay();
     REQUIRE(Window != nullptr);
+    // Die Fensterbeschriftung bleibt sichtbar, auch wenn später ein anderer Tab offen ist.
+    wchar_t Title[128]{};
+    GetWindowTextW(Window, Title, 128);
+    CHECK(std::wstring(Title) == L"DDCoop v" + std::to_wstring(Net::Protocol::ModVersion) + L" - Status (F8)");
     UI::Start(); // Idempotent.
     CHECK(WaitForOverlay() == Window);
     CHECK_FALSE(IsWindowVisible(Window));
