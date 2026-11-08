@@ -180,6 +180,20 @@ py tools/patch_signatures.py check --exe <kopie>/DDSurvivors/Binaries/Win64/DDSu
   Patch-Liste die Adresse eines Ticks, bleibt dessen Tick aus (`ListComplete`).
 - Neue Patches: Adresse eintragen, `generate --write`, dann `sites --write`.
 
+## check_patch_registry.py
+
+Offline-Regressionstest fuer neue Game-Patches ohne Steam, Spiel-EXE oder SDK. Prueft doppelte `Patch List[]`-Definitionen
+(wie den Compilerfehler aus PR #170), fehlende Check-/Apply-Funktionen, ungenutzte oder nicht vorhandene
+`Sites`-Arrays, Code-RVAs ohne Eintrag in `PatchSignatures.inc` und die Sortierung der Tabelle.
+
+```bash
+python -B tools/check_patch_registry.py
+python -B -m unittest tests.test_patch_registry
+```
+
+Beide Pruefungen laufen in der normalen Python-CI. **Grenze:** Die Eindeutigkeit der Byte-Muster in der echten
+Spiel-EXE muss weiterhin mit `patch_signatures.py check` geprueft werden; diese statische Pruefung ersetzt das nicht.
+
 ## Build-Mod.ps1
 
 Baut `DeadlyDaysCoop.sln` wie die CI nach `bin/<Konfiguration>/`. Mit `-Test` laufen danach `CoreTests.exe` und die Python-Tests.
