@@ -239,6 +239,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `build-id` | 0 | Geprüfte Kopie von Build `26187885` außerhalb von Steam, Start und Deploy prüfen alle Dateien, siehe [Einrichtung](docs/SETUP.md#gleiche-build-id-im-team) |
 | `bus-ende` | 5 | Busabfahrt und `FinishMission` laufen nur noch beim Host, der Client folgt; mit Bus bis Tag 2 geprüft, siehe [Busabfahrt](docs/GAME_ANALYSIS.md#busabfahrt-nur-beim-host-bus-ende) |
 | `ci` | 2 | SDK-freie Tests und CI vorhanden |
+| `ci-cache-fallback` | Wartung | Windows-CI baut bei fehlendem oder fehlerhaftem ccache automatisch mit direktem MSVC, die Cache-Parameterpfade haben PowerShell-Negativtests und Debug-/Release-CI bestanden (PR #182). |
 | `ci-doku-pruefung` | Wartung | Doku-PRs lassen sich wieder mergen: Die CI läuft immer, `build-and-test` überspringt bei reinen Doku-Änderungen nur die Schritte und meldet die Pflichtprüfungen, scheitert die Erkennung, wird gebaut, siehe [CI](tests/README.md#ci) |
 | `ci-tempo` | Wartung | CI-Lauf mit warmem Cache unter einer Minute je Job statt 3,5 bis 4,5 Minuten: ccache mit MultiToolTask, Skript-Tests einmal parallel, Doku-PRs ohne Build, überholte PR-Läufe brechen ab, Net-Tests 26 s → 9 s |
 | `client-lokal-audit` | Wartung | Projektweite Regel lokal zuerst/minimal synchronisieren in CLAUDE.md, Architektur und Sync-Vertrag festgehalten; zehn Prüfbereiche mit Fundstellen, bestehenden Aufgaben und Abnahmen im [Audit](docs/CLIENT_LOCAL_AUDIT.md), keine Laufzeitänderung oder neue Spielabnahme |
