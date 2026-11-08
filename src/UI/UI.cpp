@@ -13,6 +13,7 @@
 
 #include "Core/Config.h"
 #include "Core/Log.h"
+#include "Net/Protocol.h"
 
 #pragma comment(lib, "user32.lib")
 #pragma comment(lib, "gdi32.lib")
@@ -172,7 +173,8 @@ void UpdateControls(WindowState& State)
 {
     const auto View = UI::Overlay().Snapshot();
     const auto& Status = View.Status;
-    Text(State.Status, std::wstring(L"DDCoop | ") + StateName(Status.State));
+    // Die einzige Mod-Versionsquelle ist auch die im Handshake verwendete Konstante.
+    Text(State.Status, std::wstring(L"DDCoop v") + std::to_wstring(Net::Protocol::ModVersion) + L" | " + StateName(Status.State));
     Text(State.Message, Widen(Status.Message));
     Text(State.Diagnostics, Widen(View.Diagnostics));
     const wchar_t* Role = Status.Role == UI::SessionRole::Host ? L"Host" :
