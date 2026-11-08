@@ -1,5 +1,8 @@
 // Testhilfen: CheatManager fuer die DD_-Befehle des Spiels und Laden einzelner Assets, etwa fuer einen SDK-Dump mit Bossen.
 #include "Spike.h"
+
+#include <algorithm>
+#include <vector>
 #include "TestGodmodePolicy.h"
 
 namespace Spike
@@ -132,13 +135,24 @@ void EnableCheats()
     Log("Cheats: CheatManager fuer " + std::to_string(Enabled) + " Controller angelegt");
 }
 
-// Testhilfe (werkbank-client): Host legt jedem Spielerinventar ein Item an, "!give ItemData_Pistol [Rarity]". Natives
+// Testhilfe (werkbank-client): Host legt jedem Spielerinventar ein Item an, "!give ItemData_Pistol [Rarity] [broken]". Natives
 // CreateAndAddItem, das Item repliziert wie jede Vergabe. Nur beim Host sinnvoll, beim Client entstuende eine lokale Instanz.
 void GiveItemCommand(const std::wstring& Args)
 {
     const std::string Text(Args.begin(), Args.end());
-    const size_t Space = Text.find(' ');
-    const std::string DataName = Text.substr(0, Space), RarityName = Space == std::string::npos ? std::string{} : Text.substr(Space + 1);
+    // lager-handel-client: "broken" an beliebiger Stelle nach den Daten legt das Item kaputt an.
+    std::vector<std::string> Words;
+    for (size_t At = 0; At < Text.size();)
+    {
+        const size_t Space = Text.find(' ', At);
+        const std::string Word = Text.substr(At, Space == std::string::npos ? std::string::npos : Space - At);
+        if (!Word.empty())
+            Words.push_back(Word);
+        At = Space == std::string::npos ? Text.size() : Space + 1;
+    }
+    const bool Broken = std::find(Words.begin(), Words.end(), "broken") != Words.end();
+    Words.erase(std::remove(Words.begin(), Words.end(), "broken"), Words.end());
+    const std::string DataName = Words.empty() ? std::string{} : Words[0], RarityName = Words.size() > 1 ? Words[1] : std::string{};
     const uintptr_t Data = FindObject(DataName.c_str(), nullptr);
     const uintptr_t Rarity = RarityName.empty() ? 0 : FindObject(RarityName.c_str(), nullptr);
     const uintptr_t Create = FindObject("CreateAndAddItem", "InventoryComponent");
@@ -169,12 +183,12 @@ void GiveItemCommand(const std::wstring& Args)
             bool AllowP2Reserve;
             uint8_t Pad2[7];
             uintptr_t Result;
-        } Params{Data, Rarity, false, true, true, 0, -1, false, {}, 0};
+        } Params{Data, Rarity, Broken, true, true, 0, -1, false, {}, 0};
         static_assert(sizeof(Params) == 0x28);
         Read<ProcessEventFn*>(Object)[kProcessEventIndex](Object, Create, &Params);
         Given += Params.Result != 0;
     }
-    Log("Give: " + DataName + (RarityName.empty() ? "" : " " + RarityName) + " an " + std::to_string(Given) + " Inventare");
+    Log("Give: " + DataName + (RarityName.empty() ? "" : " " + RarityName) + (Broken ? " kaputt" : "") + " an " + std::to_string(Given) + " Inventare");
 }
 
 // Testhilfe (gegner-alle): Host spawnt einen Boss ueber EnemySpawner::SpawnSpecificEnemy, "!boss SpikeBoss [Abstand]".

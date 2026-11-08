@@ -276,3 +276,79 @@ TEST_CASE("Rezept der Werkbank: Zutaten in beliebiger Reihenfolge, Seltenheit nu
     CHECK_FALSE(IsRecipe(Recipes, {{3, 10}}, {60, 10}));          // Ausgabe ohne vorgegebene Seltenheit
     CHECK_FALSE(IsRecipe({}, {{3, 10}}, {60, 77}));
 }
+
+TEST_CASE("lager-handel-client: Reparatur steht im Edit, Plan repariert vor dem Ablegen")
+{
+    ItemState Broken = Stored(0);
+    Broken.Broken = true;
+    ItemState Repaired = Placed(0, {{0, 0}});
+    CHECK(IsRepair(Broken, Repaired));
+    CHECK_FALSE(IsRepair(Repaired, Broken));
+    CHECK_FALSE(IsRepair(Broken, Gone(Repaired, SoldForScrap)));
+    CHECK_FALSE(SameState(Broken, Stored(0))); // nur der Zustand geändert
+
+    const Edit Value = Diff({Broken, Stored(1)}, {Stored(0), Stored(1)}, {}, {});
+    REQUIRE(Value.Items.size() == 1);
+    CHECK(Value.Items[0].Source == 0);
+    CHECK_FALSE(Value.Items[0].Broken);
+
+    const auto Steps = Plan({Broken}, {Repaired}, false, false);
+    REQUIRE(Steps.size() == 2);
+    CHECK(Steps[0] == Step{StepKind::Repair, 0});
+    CHECK(Steps[1] == Step{StepKind::Place, 0});
+
+    // Zurückrollen beim Client: erst aus dem Rucksack, dann wieder kaputt.
+    const auto Back = Plan({Repaired}, {Broken}, false, false);
+    REQUIRE(Back.size() == 2);
+    CHECK(Back[0] == Step{StepKind::Unplace, 0});
+    CHECK(Back[1] == Step{StepKind::Break, 0});
+}
+
+TEST_CASE("lager-handel-client: Verkauf nur für Ausgangs-Items, nicht für Wahl oder Aufwertung")
+{
+    Edit Sold;
+    Sold.Items = {Gone(Placed(0, {{0, 0}}), SoldForScrap)};
+    CHECK(WellFormed(Sold));
+    CHECK(IsSold(Sold.Items[0]));
+    CHECK_FALSE(IsSold(Gone(Stored(0)))); // UsedAsIngredient
+    const auto Steps = Plan({Placed(0, {{0, 0}})}, Sold.Items, false, false);
+    REQUIRE(Steps.size() == 2);
+    CHECK(Steps[0] == Step{StepKind::Unplace, 0});
+    CHECK(Steps[1] == Step{StepKind::Remove, 0});
+
+    auto PresentWithContext = Sold;
+    PresentWithContext.Items[0] = Stored(0);
+    PresentWithContext.Items[0].RemoveContext = SoldForScrap;
+    CHECK_FALSE(WellFormed(PresentWithContext));
+    auto UnknownContext = Sold;
+    UnknownContext.Items[0].RemoveContext = 4;
+    CHECK_FALSE(WellFormed(UnknownContext));
+
+    Edit SoldChoice;
+    SoldChoice.Items = {Gone(Stored(ChoiceSource), SoldForScrap)};
+    SoldChoice.Choice = uint8_t{0};
+    SoldChoice.Session = 1;
+    CHECK_FALSE(WellFormed(SoldChoice));
+
+    Edit SoldInput = MergeEdit();
+    SoldInput.Items[1].RemoveContext = SoldForScrap; // verkauft und zugleich aufgewertet
+    CHECK_FALSE(WellFormed(SoldInput));
+    Edit SoldOutput = MergeEdit();
+    SoldOutput.Upgrades[0].Output = Gone(SoldOutput.Upgrades[0].Output, SoldForScrap);
+    CHECK_FALSE(WellFormed(SoldOutput));
+}
+
+TEST_CASE("lager-handel-client: Schrott erst aus Verkäufen, dann für Reparaturen")
+{
+    CHECK(TradeBalance(10, {}, {}) == 10);
+    CHECK(TradeBalance(10, {5, 7}, {}) == 22);
+    CHECK(TradeBalance(10, {}, {10}) == 0);
+    CHECK_FALSE(TradeBalance(10, {}, {11}));
+    CHECK(TradeBalance(0, {8}, {8}) == 0);       // Verkauf bezahlt die Reparatur, Reihenfolge egal
+    CHECK(TradeBalance(3, {4}, {5, 2}) == 0);
+    CHECK_FALSE(TradeBalance(3, {4}, {5, 3}));
+    CHECK_FALSE(TradeBalance(10, {-1}, {}));     // ungültiger Preis
+    CHECK_FALSE(TradeBalance(10, {}, {-1}));
+    CHECK_FALSE(TradeBalance(10, {2000000}, {})); // unplausibel hoch
+    CHECK_FALSE(TradeBalance(-1, {}, {}));
+}

@@ -27,7 +27,7 @@ using Patches::CurrentRole;
 constexpr uintptr_t InventorySlots = 0x100, InventoryItems = 0x120;
 constexpr uintptr_t SlotCoordinates = 0x28, SlotOccupier = 0x30;
 // UInventoryItemInstance
-constexpr uintptr_t ItemPivot = 0x28, ItemTurns = 0xD8, ItemData = 0xE0;
+constexpr uintptr_t ItemPivot = 0x28, ItemTurns = 0xD8, ItemData = 0xE0, ItemBroken = 0x110;
 constexpr uintptr_t ItemInBackpack = 0x180, ItemIsTrash = 0x184;
 constexpr uintptr_t FunctionFlags = 0xB0;
 constexpr uint32_t FuncNet = 0x40, FuncNetServer = 0x200000, GarbageOrUnreachable = 0x30;
@@ -116,6 +116,7 @@ enum class Kind : uint8_t
     RemoveFromInventory,
     ItemRpc,
     AddEffect,
+    Repair,   // InventoryComponent.RepairItem (lager-handel-client)
     Foreign,  // Server-RPC einer anderen Klasse
     Movement, // geht immer an den Host
 };
@@ -146,6 +147,8 @@ const Known& Classify(uintptr_t Fn)
                 Value.Type = Kind::RemoveFromInventory;
             else if (Value.Name == "ApplyAddToBackpackEffect")
                 Value.Type = Kind::AddEffect;
+            else if (Value.Name == "RepairItem")
+                Value.Type = Kind::Repair;
             else if (std::find(std::begin(InventoryNames), std::end(InventoryNames), Value.Name) != std::end(InventoryNames))
                 Value.Type = Kind::InventoryRpc;
         }
@@ -271,6 +274,7 @@ ItemState ReadItem(uintptr_t Item, const std::vector<SlotInfo>& Slots, uint16_t 
     State.DataHash = DataHashOf(Item);
     State.InBackpack = Memory::Read<uint8_t>(Item + ItemInBackpack).value_or(0) != 0;
     State.Trash = Memory::Read<uint8_t>(Item + ItemIsTrash).value_or(0) != 0;
+    State.Broken = Memory::Read<uint8_t>(Item + ItemBroken).value_or(0) != 0;
     if (State.InBackpack)
     {
         State.Turns = Memory::Read<int32_t>(Item + ItemTurns).value_or(0);
@@ -314,13 +318,14 @@ bool Apply(uintptr_t Inventory, const std::vector<uintptr_t>& Items, const std::
            const std::vector<Tile>& Create, const std::vector<uintptr_t>& Destroy, bool Local)
 {
     static uintptr_t Unoccupy = 0, RemoveFromBackpack = 0, RemoveFromInventory = 0, AddToInventory = 0, DestroySlot = 0, CreateSlots = 0,
-                     TryGetSlot = 0, AddToBackpack = 0, Occupy = 0, SetTurns = 0, SetPivot = 0, UpdateTrash = 0;
+                     TryGetSlot = 0, AddToBackpack = 0, Occupy = 0, SetTurns = 0, SetPivot = 0, UpdateTrash = 0, Repair = 0;
     if (!Function(Unoccupy, "UnoccupyBackpackSlots", "InventoryComponent") || !Function(RemoveFromBackpack, "RemoveFromBackpack", "InventoryComponent") ||
         !Function(RemoveFromInventory, "RemoveFromInventory", "InventoryComponent") || !Function(AddToInventory, "AddToInventory", "InventoryComponent") ||
         !Function(DestroySlot, "DestroySlotInstance", "InventoryComponent") || !Function(CreateSlots, "Server_CreateSlotsFromBagItem", "InventoryComponent") ||
         !Function(TryGetSlot, "TryGetSlotWithCoordinates", "InventoryComponent") || !Function(AddToBackpack, "AddToBackpack", "InventoryComponent") ||
         !Function(Occupy, "OccupyBackpackSlots", "InventoryComponent") || !Function(SetTurns, "SetTurns", "InventoryItemInstance") ||
-        !Function(SetPivot, "SetZeroPivotTile", "InventoryItemInstance") || !Function(UpdateTrash, "UpdateIsTrash", "InventoryItemInstance"))
+        !Function(SetPivot, "SetZeroPivotTile", "InventoryItemInstance") || !Function(UpdateTrash, "UpdateIsTrash", "InventoryItemInstance") ||
+        !Function(Repair, "RepairItem", "InventoryComponent"))
     {
         Core::Log::Warn("Inventar lokal: native Inventarfunktionen nicht gefunden");
         return false;
@@ -339,6 +344,25 @@ bool Apply(uintptr_t Inventory, const std::vector<uintptr_t>& Items, const std::
         }
         switch (Next.Kind)
         {
+        case StepKind::Repair:
+        {
+            // lager-handel-client: natives RepairItem, beim Host autoritativ. Den Schrott bucht der Host getrennt (BookTrade).
+            uintptr_t Params = Item;
+            Call(Inventory, Repair, &Params, Local);
+            break;
+        }
+        case StepKind::Break:
+        {
+            // Nur beim Zurückrollen des Clients: Seine lokale Reparatur zurücknehmen. Beim Host kommt das nie vor (geprüft).
+            if (!Local)
+            {
+                Ok = false;
+                break;
+            }
+            const uint8_t Broken = 1;
+            Memory::WriteBytes(Item + ItemBroken, &Broken, sizeof(Broken));
+            break;
+        }
         case StepKind::Unplace:
         {
             uintptr_t Params = Item;
@@ -720,8 +744,9 @@ std::optional<Edit> FinishClient(uint64_t SessionId, uint64_t Revision, std::opt
     Core::Log::Info("Inventar lokal: Edit {} mit {} Items, {} neuen Feldern, {} Aufwertungen{}", Result.Id, Result.Items.size(), Result.NewSlots.size(),
                     Result.Upgrades.size(), Result.Choice ? ", Belohnung " + std::to_string(*Result.Choice) : std::string{});
     for (const ItemState& Item : Result.Items)
-        Core::Log::Info("Inventar lokal:   Quelle {} vorhanden {} Rucksack {} Drehung {} Pivot ({}, {}) {} Felder", Item.Source, Item.Present, Item.InBackpack,
-                        Item.Turns, Item.Pivot.first, Item.Pivot.second, Item.Tiles.size());
+        Core::Log::Info("Inventar lokal:   Quelle {} vorhanden {} Rucksack {} Drehung {} Pivot ({}, {}) {} Felder{}{}", Item.Source, Item.Present,
+                        Item.InBackpack, Item.Turns, Item.Pivot.first, Item.Pivot.second, Item.Tiles.size(), Item.Broken ? ", kaputt" : "",
+                        IsSold(Item) ? ", verkauft" : "");
     return Result;
 }
 
@@ -808,6 +833,8 @@ bool RouteClientRpc(uintptr_t Object, uintptr_t Fn, void* Params)
         LogOp(Info.Name + " nach dem Bestätigen verworfen");
         return true;
     }
+    if (Info.Type == Kind::Repair && !Contains(ItemsOf(Session.Inventory), Item))
+        return Drop();
     if (Info.Type == Kind::AddEffect)
     {
         if (Item && !Contains(Session.Effects, Item))

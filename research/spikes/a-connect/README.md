@@ -132,7 +132,7 @@ Beim Client setzt der Spike die Kamera jede Sekunde, beim Host nimmt er jede Sek
 | `!arm` | Host | Schaltet die Umleitung der Reise scharf |
 | `!finish` | Host | Ruft `FinishMission` auf |
 | `!cheats` | Host | Legt einen `UDDCheatManager` an, danach wirken die `DD_`-Befehle des Spiels |
-| `!give <ItemData> [Rarity]` | Host | Legt jedem Spielerinventar das Item über `CreateAndAddItem` an, es repliziert wie jede Vergabe (Testhilfe `werkbank-client`) |
+| `!give <ItemData> [Rarity] [broken]` | Host | Legt jedem Spielerinventar das Item über `CreateAndAddItem` an, mit `broken` kaputt; es repliziert wie jede Vergabe (Testhilfe `werkbank-client`, `lager-handel-client`) |
 | `!load <Pfad>` | Beide | Lädt ein Asset, etwa eine Blueprint-Klasse für einen SDK-Dump |
 | `!notutorial` | Beide | Meldet den Stand der Tutorial-Sperre. Der Spike schaltet die Hinweise ohnehin auf beiden Seiten selbst ab, sie halten sonst die Mission an |
 | `!round <n>` | Host | Ruft `TriggerEndRound` auf, Wert wie `ERoundChangeReason` |
