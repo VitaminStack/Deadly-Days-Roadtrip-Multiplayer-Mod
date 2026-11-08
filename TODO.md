@@ -45,7 +45,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `reconnect` | P2 | [5](#phase-5--vollständiger-run) | parallel | viel |
 | `vfx-sound` | P2 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `modversion-overlay` | P2 | [6](#phase-6--release) | parallel | wenig |
-| `doku-projektstatus` | P2 | [Wartung](#wartung) | parallel | keine |
 
 **Wartet auf das Team:** nichts.
 
@@ -183,7 +182,6 @@ Zählt nicht zum Fortschritt.
 
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
-| `doku-projektstatus` | P2 | README und Roadmap auf den belegten Stand nach Gate G2 bringen (Deutsch und Englisch), offene Phase-5-Arbeiten korrekt benennen. **Fertig, wenn** G2 und weitere Spieltests korrekt verlinkt sind, keine veralteten Statusaussagen verbleiben und die Doku-CI besteht. | – | parallel | keine |
 | `update-welt` | P1 | **Bestätigungstest ausstehend:** Statisch und Route bis Tag 2 auf 26495302 sauber (43 Patches, 11/11 Pruefungen, Karte 159/159 und 63/63, Kamera). Offen: XP-Baelle beim Client und Dash am Kamerarand, braucht besiegte Gegner im Spiel. **Aufgabe und Abnahme:** Patches für Build `26495302` portieren: `MapPatches.cpp`, `TravelPatches.cpp`, `ExpPatches.cpp`, `ProjectilePatches.cpp`, `MovementPatches.cpp`, `CameraPatches.cpp`, `CodeCave.cpp`. Patchnotes prüfen: Abstürze beim Map Travel, Dash außerhalb der gemeinsamen Kamera. **Fertig, wenn** diese Dateien auf `26495302` keine fehlenden Patches mehr melden und Route bis Tag 2 mit gleicher Karte, XP-Bällen und Kamera läuft | `update-basis` | parallel | mittel |
 | `spiel-update` | P1 | Umstieg auf Build `26495302` (Depot `3026452`, Manifest `2302428105354984436`) abschließen: ausstehende Bestätigungstests auf dem neuen Build, Doku ([GAME_ANALYSIS](docs/GAME_ANALYSIS.md#unterstützte-spielversion), [OFFSETS](docs/OFFSETS.md), SETUP, INSTALL, CLAUDE.md), danach Unterstützung für `26187885` entfernen. **Fertig, wenn** ein Coop-Run auf `26495302` ohne fehlende Patches läuft und `26187885` nirgends mehr verlangt wird. **Einstieg:** [Update-Regel](CONTRIBUTING.md#spiel-updates) | `update-basis`, `update-client`, `update-inventar`, `update-welt` | zentral | viel |
 
@@ -252,6 +250,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `deploy` | 2 | Deploy-Skript `tools/Deploy-Mod.ps1` |
 | `desync-melder` | 4 | Zustandssumme über den Kontrollkanal, Abweichungen in Mod-Log und F8, im Spiel rund 636 s ohne Fehlalarm, absichtliche Inventarabweichung auf beiden Seiten erkannt |
 | `dodge-client-live` | 5 | Zwei PCs, Build 26495302: 40 Client-Dodges mit Richtung beim Host, kein Rutschen, Ausdauer wie beim Host, Figuren ohne Sprünge, vom Menschen abgenommen; Hinweis: Host setzte 8-mal hängende Dodge-Werte zurück, siehe [Live-Test 07.11.](docs/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-07112026-livetest-0711) |
+| `doku-projektstatus` | Wartung | README (Deutsch und Englisch) und Roadmap nach dem belegten Gate G2 vom 07.11.2026 aktualisiert, historische Abschnitte gekennzeichnet und veraltete Diagrammstaende korrigiert; Doku-CI und GitHub-CI gruen (PR #181). |
 | `doku-verweise` | Wartung | task_status.py check meldet Sätze, die eine erledigte Kennung noch ankündigen („kommt mit“, „folgt in“, „bis `x`“), läuft in der CI; bekannte Stellen korrigiert, Lobby-Weg auf zwei PCs ergänzt, siehe [task_status.py](tools/README.md#task_statuspy) |
 | `dumper-fix` | 0 | Dumper-7-Fix liegt im eigenen Fork, eingebunden als Submodul `third_party/Dumper-7`, siehe [SDK-Erzeugung](docs/GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58) |
 | `eingaben` | 4 | Lokale Geräte bleiben im Netzwerkspiel beim eigenen Spieler: keine Gerätezuordnung an P2, kein zweiter LocalPlayer; Bewegung, Dodge, Zielen und Menüs getrennt im Spiel belegt |
