@@ -73,6 +73,7 @@
     <ClCompile Include="TelemetryAdapter.cpp" />
     <ClCompile Include="BossBarAdapter.cpp" />
     <ClCompile Include="TutorialAdapter.cpp" />
+    <ClCompile Include="PauseAdapter.cpp" />
     <ClCompile Include="WorldAdapter.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -113,6 +114,7 @@
     <ClInclude Include="BossBarAdapter.h" />
     <ClInclude Include="BossBarPolicy.h" />
     <ClInclude Include="TutorialAdapter.h" />
+    <ClInclude Include="PauseAdapter.h" />
     <ClInclude Include="WorldAdapter.h" />
   </ItemGroup>
   <ItemGroup>
