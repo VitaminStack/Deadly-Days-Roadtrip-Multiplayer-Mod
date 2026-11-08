@@ -73,6 +73,7 @@ jobs:
       # und src/Common.props stellt mit DdcoopCompilerCache auf /Z7 und eine Objektdatei je Quelle um.
       - name: Compiler-Cache laden
         if: needs.changes.outputs.code != 'false'
+        continue-on-error: true # Cache-Service-Ausfall darf den Compiler nicht blockieren.
         uses: actions/cache@v4
         with:
           path: .ccache
@@ -80,7 +81,9 @@ jobs:
           restore-keys: ccache-${{ matrix.configuration }}-
 
       - name: Compiler-Cache einrichten
+        id: compiler_cache
         if: needs.changes.outputs.code != 'false'
+        continue-on-error: true # Download, SHA-Pruefung und Setup sind optional, Build nicht.
         shell: pwsh
         run: |
           $Version = '4.10.2'
@@ -107,6 +110,7 @@ jobs:
           "CCACHE_COMPILERCHECK=string:$ToolsVersion" >> $env:GITHUB_ENV
           $env:CCACHE_COMPILER = $Cl
           & (Join-Path $Bin 'ccache.exe') --zero-stats
+          if ($LASTEXITCODE -ne 0) { throw 'ccache --zero-stats ist fehlgeschlagen' }
 
       - name: Solution bauen
         if: needs.changes.outputs.code != 'false'
@@ -114,14 +118,14 @@ jobs:
         run: |
           $Vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
           $MSBuild = & $Vswhere -latest -requires Microsoft.Component.MSBuild -find 'MSBuild\**\Bin\MSBuild.exe' | Select-Object -First 1
-          & $MSBuild DeadlyDaysCoop.sln /m /nologo /v:m `
-            "/p:Configuration=${{ matrix.configuration }};Platform=x64" `
-            "/p:DdcoopCompilerCache=true;CLToolPath=$env:CCACHE_BIN;CLToolExe=cl.exe" `
-            /p:UseMultiToolTask=true /p:EnforceProcessCountAcrossBuilds=true /p:TrackFileAccess=false
+          $UseCache = '${{ steps.compiler_cache.outcome }}' -eq 'success'
+          if (-not $UseCache) { Write-Warning 'ccache nicht verfuegbar: direkter MSVC-Build ohne Compiler-Cache.' }
+          $BuildArguments = @(& ./tools/Ci-CompilerArgs.ps1 -Configuration '${{ matrix.configuration }}' -CacheBin $env:CCACHE_BIN -CacheReady:$UseCache)
+          & $MSBuild DeadlyDaysCoop.sln @BuildArguments
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Compiler-Cache Statistik
-        if: always() && needs.changes.outputs.code != 'false'
+        if: always() && needs.changes.outputs.code != 'false' && steps.compiler_cache.outcome == 'success'
         shell: pwsh
         run: '& "$env:CCACHE_BIN\ccache.exe" --show-stats'
 
@@ -151,6 +155,10 @@ jobs:
 
       - name: Python-Tests
         run: python -B -m unittest discover -s tests
+
+      - name: Compiler-Cache-Fallback pruefen (ohne Spiel)
+        shell: pwsh
+        run: ./tests/Test-CiCompilerArgs.ps1
 
       - name: Spike-Autoritaet und Readiness (ohne Spiel und SDK)
         shell: pwsh
