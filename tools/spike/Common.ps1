@@ -380,7 +380,7 @@ function Get-OverlayState([int]$ProcessId, [switch]$Window) {
     $Debug = [string]$Texts[2]
     $Lobby = [regex]::Match($Debug, 'Lobby: (\d+)')
     [pscustomobject]@{
-        State = ([string]$Texts[0]) -replace '^DDCoop \| ', ''
+        State = ([string]$Texts[0]) -replace '^DDCoop(?: v[0-9]+)? \| ', ''
         Message = [string]$Texts[1]
         Diagnostics = if ($Texts.Length -gt 4) { [string]$Texts[4] } else { '' }
         Role = [regex]::Match($Debug, 'Rolle: (\w+)').Groups[1].Value
