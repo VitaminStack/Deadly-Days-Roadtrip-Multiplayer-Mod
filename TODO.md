@@ -45,7 +45,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `reconnect` | P2 | [5](#phase-5--vollständiger-run) | parallel | viel |
 | `vfx-sound` | P2 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `modversion-overlay` | P2 | [6](#phase-6--release) | parallel | wenig |
-| `patch-regression` | P2 | [Wartung](#wartung) | parallel | keine |
 
 **Wartet auf das Team:** nichts.
 
@@ -183,7 +182,6 @@ Zählt nicht zum Fortschritt.
 
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
-| `patch-regression` | P2 | Offline-Prüfung für doppelte Patch-Registrierungen, fehlende Site-Arrays und nicht zugeordnete Code-Signaturen samt Negativtests. **Fertig, wenn** sie den früheren doppelten Reward-Patch-Block erkennt und in Python-CI läuft, ohne Spiel-EXE. | – | parallel | keine |
 | `update-welt` | P1 | **Bestätigungstest ausstehend:** Statisch und Route bis Tag 2 auf 26495302 sauber (43 Patches, 11/11 Pruefungen, Karte 159/159 und 63/63, Kamera). Offen: XP-Baelle beim Client und Dash am Kamerarand, braucht besiegte Gegner im Spiel. **Aufgabe und Abnahme:** Patches für Build `26495302` portieren: `MapPatches.cpp`, `TravelPatches.cpp`, `ExpPatches.cpp`, `ProjectilePatches.cpp`, `MovementPatches.cpp`, `CameraPatches.cpp`, `CodeCave.cpp`. Patchnotes prüfen: Abstürze beim Map Travel, Dash außerhalb der gemeinsamen Kamera. **Fertig, wenn** diese Dateien auf `26495302` keine fehlenden Patches mehr melden und Route bis Tag 2 mit gleicher Karte, XP-Bällen und Kamera läuft | `update-basis` | parallel | mittel |
 | `spiel-update` | P1 | Umstieg auf Build `26495302` (Depot `3026452`, Manifest `2302428105354984436`) abschließen: ausstehende Bestätigungstests auf dem neuen Build, Doku ([GAME_ANALYSIS](docs/GAME_ANALYSIS.md#unterstützte-spielversion), [OFFSETS](docs/OFFSETS.md), SETUP, INSTALL, CLAUDE.md), danach Unterstützung für `26187885` entfernen. **Fertig, wenn** ein Coop-Run auf `26495302` ohne fehlende Patches läuft und `26187885` nirgends mehr verlangt wird. **Einstieg:** [Update-Regel](CONTRIBUTING.md#spiel-updates) | `update-basis`, `update-client`, `update-inventar`, `update-welt` | zentral | viel |
 
@@ -304,6 +302,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `opt-ladezeit-messung` | Wartung | check_round.py --wait trennt Prozessende von World 0 beim Laden und wartet auf alle Spieler im GameState; Run-Route.ps1 startet die Messung vor dem Klick. Routenlauf ohne Spike auf 26495302: load_seconds 1,0 s statt leer bzw. 0,0 |
 | `overlay` | 2 | F8-Overlay mit Status und Debug-Anzeige, sichtbare Host-/Client-Abnahme bestanden, siehe [UI](src/UI/README.md#sichtbare-spielabnahme-03112026) |
 | `overlay-fokus` | 3 | F8-Overlay bleibt beim Fokuswechsel sichtbar, Knopf „Lobby-ID kopieren“, siehe [UI](src/UI/README.md#stand-overlay) |
+| `patch-regression` | Wartung | Statischer Check der Game-Patchlisten, Callbacks, Site-Arrays, Code-RVAs und Signaturtabelle mit gezielten Negativtests ergänzt; Python- und C++-CI ohne Spiel erfolgreich (PR #184). |
 | `patch-signaturen` | Wartung | Byte-Signatur je Patch-Adresse, falsches Muster schaltet nur seinen Patch ab |
 | `patches` | 4 | Die 25 Spielfehler-Fixes des Spikes stehen geprüft in `src/Game/*Patches.cpp`, alle oder keiner; mit der Mod lässt der Spike seine Fassungen aus. Route MetaBase bis Tag 5 und Niederlage mit Rückkehr in die MetaBase ohne Absturz, siehe [Patches](src/Game/README.md#patches) |
 | `pausen` | 1 | Pausen-Logik gemessen, Host-Weltpause repliziert, Client-Wunsch nicht, siehe [Pausen-Spike](research/spikes/pausen/README.md#nachtrag-03112026-isolierte-ablaeufe) |
