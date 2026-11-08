@@ -244,6 +244,21 @@ powershell -ExecutionPolicy Bypass -File tools/New-ReleasePackage.ps1 -Version <
 - Ohne `-Version` heißt das Paket `dev-<commit>`, die Versionsvergabe gehört zur Aufgabe `release`.
 - `-Bin <Ordner>` nimmt fertige DLLs statt neu zu bauen, `-OutputDir` wählt ein anderes Ziel als `dist/`.
 
+### Paket-Inhalt und Hashes vor dem Verteilen pruefen
+
+Der Release-Job der GitHub-Action `ci.yml` verwendet die bereits gebauten eigenen DLLs ohne Spiel, erstellt ein ZIP mit
+`New-ReleasePackage.ps1 -Bin` und verifiziert zwei x64-PE-DLLs, die erlaubte Dateiliste,
+Archivpfade sowie alle SHA256-Werte aus `SHA256SUMS.txt`. Auch verbotene Dateien,
+manipulierte Hashes und ungültige PE-Header werden in Python-Tests simuliert.
+
+```bash
+python -B tools/verify_release_package.py dist/DDCoop-<Version>.zip
+python -B -m unittest tests.test_release_package
+```
+
+Das prüft **keinen** Virenscanner, keine tatsächliche Installation, Steam oder Proton. Die zugehörige
+Abnahme bleibt in `virenscanner` bzw. `release` offen.
+
 ## spike/
 
 Bauen und Testen des Spikes, die Anleitung steht in [docs/TESTING.md](../docs/TESTING.md). Laufzeitdateien landen in
