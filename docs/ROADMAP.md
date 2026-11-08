@@ -18,6 +18,7 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 
 **Neue Befunde.**
 
+- `pausen-sync`, 08.11.2026: Das Pausemenü des Clients pausierte nur ihn, der Host lief weiter. Jetzt meldet der Client über `0x700`, ob sein Pausemenü offen ist; der Host hält dann eine Zeitanfrage mit den Werten seines eigenen Pausemenüs, die Weltpause repliziert nativ. Freigabe beim Schließen, nach 3 s ohne Meldung, bei Weltwechsel und Trennung. Airdrop, Lager, Reise, Level-up und Dialoge brauchen nichts Neues. Mod-Version 9. Im Spiel auf `26495302` belegt: Pause und Weiter in beide Richtungen mit gleicher Weltzeit, Inventaransicht im Pausemenü, Absturz des Clients bei offenem Menü gibt nach 3 s frei, Gegenproben Airdrop, Lager und Reise zu Tag 2. [Befund](../research/spikes/pausen/README.md#umsetzung-pausen-sync-08112026)
 - `patch-signaturen`, 07.11.2026: Tabelle `src/Game/PatchSignatures.inc` mit Byte-Mustern für alle 88 Code-Adressen der Patches, erzeugt und geprüft von `tools/patch_signatures.py`. Die Mod prüft alle Muster beim Start vor dem ersten Hook; passt eines nicht, liefert `Memory::Rva` 0, und nur die Patches, die die Adresse in `Patch::Sites` nennen, fallen mit Logmeldung aus, der Tick ihrer Liste ebenfalls. `sites --write` leitet die Sites aller 43 Patches aus Check, Apply und Hooks ab. Im Spiel auf `26495302` mit absichtlich falschem OpenCrate-Muster: 1 von 88 Adressen gesperrt, nur „Airdrop-Oeffnung nur beim Host“ ausgelassen, 42 Patches gesetzt, Lobby mit zwei Spielern. [Werkzeug](../tools/README.md#patch_signaturespy)
 - `tod-client`, 07.11.2026: Ein toter Client lief mit vollem Tempo weiter, und der Host übernahm seine Position. Ursache: Beim Tod setzt der Host das replizierte Tempo-Attribut auf Kriechtempo, `MaxWalkSpeed` folgt ihm nativ aber nur beim Host; die Vorhersage des Clients führte außerdem Dodges aus, die der Host ablehnt. Jetzt übernimmt der Client das Tempo aus dem Attribut und dodgt bei HP 0 nicht, ohne neue Nachricht. Im Spiel auf `26495302` belegt: Kriechen bei beiden Seiten, kein Dodge und kein Einsammeln im Tod, Wiederbelebung, Niederlage und Rundenende wie gehabt. Nebenbefund: Der Client stürzt ab, wenn der Sensenmann erscheint, siehe [Tod des Clients](GAME_ANALYSIS.md#tod-des-clients-tod-client).
 - `doku-verweise`, 07.11.2026: `task_status.py check` meldet jetzt Sätze in versionierten Markdown-Dateien, die eine schon erledigte Kennung noch ankündigen („kommt mit `x`“, „folgt erst in `x`“, „bis `x`“), mit Datei und Zeile; die CI führt das aus. Korrigiert: Net-README (`steam-lobby`), OFFSETS und Roadmap (`update-client`), Overlay-Absatz in Testen. Neu in Testen: Weg mit der Mod über die Lobby auf zwei PCs. [Werkzeug](../tools/README.md#task_statuspy)
@@ -290,7 +291,7 @@ flowchart TD
         XP["Loot, XP, Level-ups,<br/>Fähigkeiten"]:::open
         IV["Inventar, Reward-Queue,<br/>Inventar-UI<br/>(inventar-sync, inventar-ui)"]:::done
         WB["Werkbank beim Client<br/>(werkbank-client)"]:::open
-        PU["Pausen und blockierende UI"]:::open
+        PU["Pausen und blockierende UI<br/>(pausen-sync)"]:::done
         TG["Tageszyklus, Treibstoff,<br/>Etappen"]:::open
         MF["Meta-Fortschritt des Hosts<br/>(meta-fortschritt: entschieden)"]:::done
         ME["Run-Ende, Meta-Basis<br/>(run-ende)"]:::open

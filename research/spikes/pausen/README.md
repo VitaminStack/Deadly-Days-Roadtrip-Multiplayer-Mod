@@ -165,3 +165,46 @@ Rohdaten lokal: `isolated-{host,client}-{pause,inventory,return,resume}.jsonl`,
 Die Probe versteht zusaetzlich `4` (ein XP per Methode), `5` (Level lesen) und
 `6` (200 XP am lokalen Pawn anfordern). Befehle nur in der eigenen festen Karte;
 vor Mapwechsel/Neubau Sitzung beenden. Beide Sitzungen wurden beendet.
+
+## Umsetzung pausen-sync (08.11.2026)
+
+Build `26495302`, ein PC, Lobby-Tunnel der Mod, Godmode, Tag 1 und 2 über die echte Route. Code in `src/Sync/Players` und
+`src/Game/PauseAdapter.cpp`, Drahtformat `0x700` im [Kontrollkanal](../../../docs/CONTROL_PROTOCOL.md#pausemenü-mod-kompatibilität-9).
+
+**Was es gibt und wie es wirkt:**
+
+| Pause oder blockierende UI | Vorher | Jetzt |
+|---|---|---|
+| Pausemenü des Hosts, auch mit Inventaransicht | Weltpause repliziert nativ zum Client | unverändert, keine Nachricht |
+| Pausemenü des Clients, auch mit Inventaransicht | nur der Client stand, der Host lief weiter | Host hält eine Zeitanfrage, Welt steht bei beiden |
+| Airdrop-Auswahl | Koop-Reward-Sitzung des Hosts hält die Pause (`airdrop-warten`, `bestaetigen-alle`) | unverändert, das Panel des Clients zählt nicht als Pausemenü |
+| Lager am Rundenende | Freeze aus `FinishMission`, Bestätigen wartet auf alle (`bestaetigen-rundenende`) | unverändert |
+| Routenkarte, Reise | Zeitanfragen räumt die Reise ab (`TravelPatches`) | unverändert, Weltwechsel gibt eine gehaltene Client-Pause frei |
+| Level-up | keine anhaltende Pause gemessen (oben) | nichts zu teilen |
+| Tutorial-Dialoge | im Coop abgeschaltet (`TutorialAdapter`) | nichts zu teilen |
+
+**Was lokal bleibt:** Pausemenü, Inventaransicht, Eingabe und Darstellung beim Client. **Geteilt** wird nur, ob das Pausemenü des
+Clients offen ist (eigene Öffnungsanfrage im `PauseScreenManager` und `GetIsPaused`). Eine vom Host replizierte Weltpause setzt keine
+Öffnungsanfrage, der Client hält deshalb keine Pause des Hosts fest. **Wer entscheidet:** der Host. Er ruft `RequestTimescale` mit den
+Werten seines eigenen Pausemenüs (Faktor 0, Priorität 1) und seiner WorldSettings als Anfragendem, `RemoveRequest` beim Freigeben.
+Fehlt etwas, pausiert er nicht. **Freigabe ohne Nachricht:** 3 s ohne Meldung, Weltwechsel, Trennung. Eine so beendete Sitzung
+pausiert nicht wieder, erst ein neues Öffnen.
+
+**Geprüft**, Belege in den Mod-Logs beider Seiten (`Pause:`-Zeilen mit Weltzeit und Pauser):
+
+- Client öffnet: Host hält die Pause in unter 0,3 s, Weltzeit bei beiden `1e-04`, Bild des Hosts nach 5 s unverändert (Uhr steht).
+  Client schließt: Freigabe beim Host, Weltzeit bei beiden wieder 1. Inventaransicht im Pausemenü und „Zurück“ halten die Pause, erst
+  „Fortsetzen“ gibt frei.
+- Host öffnet und schließt: Weltzeit und Pauser bei beiden gleich, wie vorher nativ.
+- Überlappung: Ist die Welt pausiert, nimmt der jeweils andere kein Esc an, beim Client wie beim Host. Es gibt also immer genau einen
+  Besitzer der Pause, wie im lokalen Koop. Der im Spike gemessene Widerspruch (Host setzt fort, Client behält seine Sitzung) tritt
+  so nicht mehr auf.
+- Client stürzt bei offenem Pausemenü ab (Instanz beendet): Host gibt nach 3 s per Zeitablauf frei, bevor der Transport die Trennung
+  bemerkt. Danach Wiederbeitritt, Welt läuft.
+- Gegenproben ohne Halte-Pause des Clients: Lager am Rundenende mit Bestätigen bei beiden, Reise zu Tag 2 (Weltzeit danach bei beiden 1),
+  Pause in der neuen Welt in beide Richtungen, Airdrop über `DD_OpenAirdrop 1` mit Wahl und Bestätigen bei beiden (Welt steht während
+  der Auswahl, läuft danach bei beiden). Keine Abstürze.
+
+**Grenzen:** Lässt der Client sein Pausemenü offen, steht der Host, bis der Client fortsetzt oder sich trennt, wie im lokalen Koop. Der
+Host kann diese Pause nicht selbst aufheben, sein Esc wirkt dann nicht. Nicht geprüft: zwei PCs über Internet, Latenzsimulation,
+Pausemenü des Clients auf der Routenkarte oder in der MetaBase (dort ist ohnehin keine Mission aktiv).
