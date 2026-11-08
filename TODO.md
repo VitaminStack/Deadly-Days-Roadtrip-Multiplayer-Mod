@@ -45,7 +45,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `reconnect` | P2 | [5](#phase-5--vollständiger-run) | parallel | viel |
 | `vfx-sound` | P2 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `modversion-overlay` | P2 | [6](#phase-6--release) | parallel | wenig |
-| `ci-cache-fallback` | P2 | [Wartung](#wartung) | parallel | keine |
 
 **Wartet auf das Team:** nichts.
 
@@ -183,7 +182,6 @@ Zählt nicht zum Fortschritt.
 
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
-| `ci-cache-fallback` | P2 | Compiler-Cache in GitHub Actions optional machen, bei fehlendem Download, ungültigem Hash oder defektem Cache zuverlässig ohne Cache bauen. **Fertig, wenn** normaler Cache-Pfad und Fallback mit Tests abgedeckt sind und die CI besteht. | – | parallel | keine |
 | `update-welt` | P1 | **Bestätigungstest ausstehend:** Statisch und Route bis Tag 2 auf 26495302 sauber (43 Patches, 11/11 Pruefungen, Karte 159/159 und 63/63, Kamera). Offen: XP-Baelle beim Client und Dash am Kamerarand, braucht besiegte Gegner im Spiel. **Aufgabe und Abnahme:** Patches für Build `26495302` portieren: `MapPatches.cpp`, `TravelPatches.cpp`, `ExpPatches.cpp`, `ProjectilePatches.cpp`, `MovementPatches.cpp`, `CameraPatches.cpp`, `CodeCave.cpp`. Patchnotes prüfen: Abstürze beim Map Travel, Dash außerhalb der gemeinsamen Kamera. **Fertig, wenn** diese Dateien auf `26495302` keine fehlenden Patches mehr melden und Route bis Tag 2 mit gleicher Karte, XP-Bällen und Kamera läuft | `update-basis` | parallel | mittel |
 | `spiel-update` | P1 | Umstieg auf Build `26495302` (Depot `3026452`, Manifest `2302428105354984436`) abschließen: ausstehende Bestätigungstests auf dem neuen Build, Doku ([GAME_ANALYSIS](docs/GAME_ANALYSIS.md#unterstützte-spielversion), [OFFSETS](docs/OFFSETS.md), SETUP, INSTALL, CLAUDE.md), danach Unterstützung für `26187885` entfernen. **Fertig, wenn** ein Coop-Run auf `26495302` ohne fehlende Patches läuft und `26187885` nirgends mehr verlangt wird. **Einstieg:** [Update-Regel](CONTRIBUTING.md#spiel-updates) | `update-basis`, `update-client`, `update-inventar`, `update-welt` | zentral | viel |
 
@@ -241,6 +239,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `build-id` | 0 | Geprüfte Kopie von Build `26187885` außerhalb von Steam, Start und Deploy prüfen alle Dateien, siehe [Einrichtung](docs/SETUP.md#gleiche-build-id-im-team) |
 | `bus-ende` | 5 | Busabfahrt und `FinishMission` laufen nur noch beim Host, der Client folgt; mit Bus bis Tag 2 geprüft, siehe [Busabfahrt](docs/GAME_ANALYSIS.md#busabfahrt-nur-beim-host-bus-ende) |
 | `ci` | 2 | SDK-freie Tests und CI vorhanden |
+| `ci-cache-fallback` | Wartung | Windows-CI baut bei fehlendem oder fehlerhaftem ccache automatisch mit direktem MSVC, die Cache-Parameterpfade haben PowerShell-Negativtests und Debug-/Release-CI bestanden (PR #182). |
 | `ci-doku-pruefung` | Wartung | Doku-PRs lassen sich wieder mergen: Die CI läuft immer, `build-and-test` überspringt bei reinen Doku-Änderungen nur die Schritte und meldet die Pflichtprüfungen, scheitert die Erkennung, wird gebaut, siehe [CI](tests/README.md#ci) |
 | `ci-tempo` | Wartung | CI-Lauf mit warmem Cache unter einer Minute je Job statt 3,5 bis 4,5 Minuten: ccache mit MultiToolTask, Skript-Tests einmal parallel, Doku-PRs ohne Build, überholte PR-Läufe brechen ab, Net-Tests 26 s → 9 s |
 | `client-lokal-audit` | Wartung | Projektweite Regel lokal zuerst/minimal synchronisieren in CLAUDE.md, Architektur und Sync-Vertrag festgehalten; zehn Prüfbereiche mit Fundstellen, bestehenden Aufgaben und Abnahmen im [Audit](docs/CLIENT_LOCAL_AUDIT.md), keine Laufzeitänderung oder neue Spielabnahme |
