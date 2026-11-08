@@ -121,6 +121,7 @@ Zeile JSON-Antwort, Protokoll in [`src/Net/ControlProtocol.h`](../src/Net/Contro
 |---|---|
 | `state` | Welt, Paket, Rolle, Spieler, Clients, Sitzung (`state`, `session`, `lobby`, `members`, `ping`, `message`, `canCreate`, `canJoin`, `canInvite`, `canLeave`) |
 | `lobby create`, `lobby join <id>`, `lobby invite`, `lobby leave` | Dasselbe wie die Overlay-Knöpfe (`Net::Session`) |
+| `day` | Nur lesen: alle skalaren Reflexionsfelder des GameState, seiner Unterobjekte (Tank, Nacht, Gefahr, Wallets) und aller `DDObjective`. `py tools/spike/day_state.py <host-pid> <client-pid>` vergleicht beide Seiten, `Run-Route.ps1 -DayState [-DaySeconds 200]` nach jeder Ankunft, spät am Tag und auf der Routenkarte |
 | `console <text>` | Konsolenbefehl des Spiels, etwa `open 127.0.0.1:7778` |
 | `travel <Karte>` | `servertravel <Karte>?listen`, nur als Host |
 

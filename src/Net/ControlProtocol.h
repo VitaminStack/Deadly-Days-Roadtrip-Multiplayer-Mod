@@ -9,6 +9,7 @@
 // JSON-Antwort. Reine Text-Ebene ohne Windows und Spiel, damit sie ohne Spiel testbar ist. Siehe src/Mod/Control.cpp.
 //
 //   state                 Zustand als JSON (Welt, Rolle, Spieler, Sitzung, Overlay)
+//   day                   Tag, Uhr, Tank und Missionsziele als JSON, nur Diagnose (tagesablauf)
 //   lobby create          Lobby erstellen (wie der Knopf im Overlay)
 //   lobby join <id>       Lobby beitreten
 //   lobby invite          Freunde einladen
@@ -20,6 +21,7 @@ namespace Net::Control
 enum class CommandKind
 {
     State,
+    Day,
     LobbyCreate,
     LobbyJoin,
     LobbyInvite,

@@ -71,6 +71,13 @@ std::optional<Command> ParseCommand(std::string_view Line, std::string* Error)
             return Fail(Error, "state hat keine Argumente");
         return Result;
     }
+    if (Word == "day")
+    {
+        if (!Rest.empty())
+            return Fail(Error, "day hat keine Argumente");
+        Result.Kind = CommandKind::Day;
+        return Result;
+    }
     if (Word == "console")
     {
         if (Rest.empty())
