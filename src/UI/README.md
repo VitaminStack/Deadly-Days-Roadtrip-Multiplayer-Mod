@@ -41,11 +41,12 @@ Das Modul bleibt auf `Core` und `Net` begrenzt. Der Game-Adapter ist dafür nich
 
 ## Dev-Tab (`opt-dev-tab`, Entwicklerwerkzeug)
 
-Das Overlay hat die Tabs „Status“ und „Dev“. Der Dev-Tab hat die Knöpfe „Spawn XP“ und „Full Tank“, aktiv nur im Zustand `Playing` (Host oder Client). Der Fensterthread setzt nur ein Bit in `OverlayModel::RequestDev`; `Sync` holt die Bits im Game-Thread-Takt (`TakeDevRequests`, über `Sync::BindDevSource`).
+Das Overlay hat die Tabs „Status“ und „Dev“. Der Dev-Tab hat die Knöpfe „Spawn XP“, „Full Tank“ und „Godmode an/aus“, aktiv nur im Zustand `Playing` (Host oder Client). Der Fensterthread setzt nur ein Bit in `OverlayModel::RequestDev`; `Sync` holt die Bits im Game-Thread-Takt (`TakeDevRequests`, über `Sync::BindDevSource`).
 
 - **Host:** führt direkt über `Game::RunDevAction` aus. **Client:** sendet die Kontrollnachricht `0x600` (1 Byte Aktion) an den Host, der sie für die Client-Figur ausführt. Keine Antwort, kein Missbrauchsschutz, da reines Entwicklerwerkzeug.
 - **Spawn XP:** `ExpSubsystem.RequestExpSpawning(200, Figurposition)` wie im Spike `client-visuell`. Die Bälle sieht der Client über den XP-Ball-Abgleich.
 - **Full Tank:** `UFuelMeter.CurrentFuel = MaxRequiredFuel` am Missions-GameState (Schreibweg wie `tools/spike/fuel.py`), repliziert zum Client.
+- **Godmode:** `DDCharacter.DD_ToggleInvincible` per `ProcessEvent` an der Figur des Drückenden (Host oder Client-Figur), wechselt je Druck. Gilt nur für die aktuelle Welt, nach einer Reise neu schalten.
 - **Offen:** „Spawn Zombies“ (Cursor-Weltposition, Spawn-Funktion) und „Spawn Random Item“ (Itemsack). Alles vor dem Release entfernen.
 - **Nicht im Spiel geprüft:** Gebaut, UI-Test für die Anfragewarteschlange und alle Tests bestanden. Ein Spieltest auf Host und Client steht aus.
 

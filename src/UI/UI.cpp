@@ -22,7 +22,7 @@
 namespace
 {
 constexpr wchar_t WindowClass[] = L"DDCoop.Overlay";
-constexpr int CreateId = 101, JoinId = 102, InviteId = 103, LeaveId = 104, LobbyId = 105, CopyId = 106, TabId = 107, DevXpId = 110, DevTankId = 111;
+constexpr int CreateId = 101, JoinId = 102, InviteId = 103, LeaveId = 104, LobbyId = 105, CopyId = 106, TabId = 107, DevXpId = 110, DevTankId = 111, DevGodId = 112;
 constexpr int TabHeight = 34;
 std::mutex Lifecycle;
 HANDLE Thread = nullptr;
@@ -34,7 +34,7 @@ struct WindowState
     HWND Owner = nullptr;
     HWND Status = nullptr, Message = nullptr, Debug = nullptr, Hint = nullptr, Diagnostics = nullptr;
     HWND Create = nullptr, Join = nullptr, Invite = nullptr, Leave = nullptr, Lobby = nullptr, Copy = nullptr;
-    HWND Tab = nullptr, DevXp = nullptr, DevTank = nullptr, DevInfo = nullptr;
+    HWND Tab = nullptr, DevXp = nullptr, DevTank = nullptr, DevGod = nullptr, DevInfo = nullptr;
     bool KeyDown = false;
     ULONGLONG CopiedAt = 0;
     int Dpi = 0;
@@ -124,7 +124,8 @@ void Layout(WindowState& State, HWND Window, int Dpi)
     SendMessageW(State.Tab, WM_SETFONT, reinterpret_cast<WPARAM>(State.Font), TRUE);
     Place(State.DevXp, 12, 10, 200, 34);
     Place(State.DevTank, 12, 52, 200, 34);
-    Place(State.DevInfo, 12, 96, 416, 64);
+    Place(State.DevGod, 12, 94, 200, 34);
+    Place(State.DevInfo, 12, 138, 416, 64);
     Place(State.Status, 12, 10, 416, 24);
     Place(State.Message, 12, 36, 416, 46);
     Place(State.Create, 12, 88, 128, 30);
@@ -183,7 +184,7 @@ void ShowTab(WindowState& State)
     for (HWND Item : { State.Status, State.Message, State.Debug, State.Hint, State.Diagnostics, State.Create, State.Invite,
                        State.Leave, State.Lobby, State.Join, State.Copy })
         ShowWindow(Item, Dev ? SW_HIDE : SW_SHOW);
-    for (HWND Item : { State.DevXp, State.DevTank, State.DevInfo })
+    for (HWND Item : { State.DevXp, State.DevTank, State.DevGod, State.DevInfo })
         ShowWindow(Item, Dev ? SW_SHOW : SW_HIDE);
 }
 
@@ -211,6 +212,7 @@ void UpdateControls(WindowState& State)
     const bool Dev = UI::OverlayModel::CanDev(View);
     EnableWindow(State.DevXp, Dev);
     EnableWindow(State.DevTank, Dev);
+    EnableWindow(State.DevGod, Dev);
     Text(State.DevInfo, Dev ? L"Der Host fuehrt aus, auch fuer den Client"
                             : L"Nur im laufenden Spiel verfuegbar");
     const bool Copied = State.CopiedAt && GetTickCount64() - State.CopiedAt < 1500;
@@ -296,8 +298,9 @@ LRESULT CALLBACK WindowProc(HWND Window, UINT Message, WPARAM WParam, LPARAM LPa
             State->DevXp = Control(Window, L"BUTTON", L"Spawn XP", WS_TABSTOP, DevXpId);
             State->DevTank = Control(Window, L"BUTTON", L"Full Tank", WS_TABSTOP, DevTankId);
             // Gruppenrahmen statt STATIC: Tests und Spike-Skripte lesen die STATIC-Reihenfolge des Status-Tabs.
+            State->DevGod = Control(Window, L"BUTTON", L"Godmode an/aus", WS_TABSTOP, DevGodId);
             State->DevInfo = Control(Window, L"BUTTON", L"", BS_GROUPBOX);
-            for (HWND Button : { State->DevXp, State->DevTank })
+            for (HWND Button : { State->DevXp, State->DevTank, State->DevGod })
                 EnableWindow(Button, FALSE);
             {
                 INITCOMMONCONTROLSEX Common{ sizeof(Common), ICC_TAB_CLASSES };
@@ -333,6 +336,7 @@ LRESULT CALLBACK WindowProc(HWND Window, UINT Message, WPARAM WParam, LPARAM LPa
                 case InviteId: UI::Overlay().Submit({ UI::LobbyAction::Invite }); break;
                 case LeaveId: UI::Overlay().Submit({ UI::LobbyAction::Leave }); break;
                 case DevXpId: UI::Overlay().RequestDev(UI::DevButton::SpawnXp); break;
+                case DevGodId: UI::Overlay().RequestDev(UI::DevButton::ToggleGodmode); break;
                 case DevTankId: UI::Overlay().RequestDev(UI::DevButton::FullTank); break;
                 case CopyId:
                     // Clipboard only, no backend action: stays on the window thread.

@@ -25,7 +25,7 @@ void TickDev(Net::Transport& Transport)
             if (const auto Action = Dev::Decode(Message.Value.Payload))
                 Game::RunDevAction(*Action, 1);
     }
-    for (const uint8_t Id : {uint8_t(1), uint8_t(2)})
+    for (const uint8_t Id : {uint8_t(1), uint8_t(2), uint8_t(3)})
     {
         const auto Action = static_cast<Game::DevAction>(Id);
         if (!(Pressed & (1u << Id)))

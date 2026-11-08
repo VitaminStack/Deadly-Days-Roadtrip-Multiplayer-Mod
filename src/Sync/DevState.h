@@ -15,7 +15,7 @@ inline std::vector<uint8_t> Encode(Game::DevAction Action) { return {static_cast
 
 inline std::optional<Game::DevAction> Decode(std::span<const uint8_t> In)
 {
-    if (In.size() != 1 || (In[0] != static_cast<uint8_t>(Game::DevAction::SpawnXp) && In[0] != static_cast<uint8_t>(Game::DevAction::FullTank)))
+    if (In.size() != 1 || (In[0] < 1 || In[0] > static_cast<uint8_t>(Game::DevAction::ToggleGodmode)))
         return std::nullopt;
     return static_cast<Game::DevAction>(In[0]);
 }

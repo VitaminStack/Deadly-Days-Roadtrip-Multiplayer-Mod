@@ -38,7 +38,8 @@ uintptr_t MissionState()
     return State && Objects::IsA(State, "DDMissionGameState") ? State : 0;
 }
 
-bool SpawnXp(int Player)
+// Figur des Spielers (0 Host, 1 Client) ueber die PlayerArray des Missions-GameState, 0 ohne Figur.
+uintptr_t PlayerPawn(int Player)
 {
     const uintptr_t State = MissionState();
     const uintptr_t Players = State ? Memory::ReadPointer(State + Offsets::AGameStateBase::PlayerArray).value_or(0) : 0;
@@ -46,14 +47,26 @@ bool SpawnXp(int Player)
     if (!Players || Player < 0 || Player >= Count || Count > 2)
         return false;
     uintptr_t Pawn = 0;
+    return Call(Memory::ReadPointer(Players + 8 * Player).value_or(0), "PlayerState", "GetPawn", &Pawn) &&
+        Objects::IsA(Pawn, "DDCharacter") ? Pawn : 0;
+}
+
+bool SpawnXp(int Player)
+{
+    const uintptr_t Pawn = PlayerPawn(Player);
     Vector Position{};
-    if (!Call(Memory::ReadPointer(Players + 8 * Player).value_or(0), "PlayerState", "GetPawn", &Pawn) ||
-        !Objects::IsA(Pawn, "DDCharacter") || !Call(Pawn, "Actor", "K2_GetActorLocation", &Position))
+    if (!Pawn || !Call(Pawn, "Actor", "K2_GetActorLocation", &Position))
         return false;
     // Parameterlayout wie im Spike (research/spikes/client-visuell/VisualProbe.cpp).
     struct { int32_t Amount; uint32_t Padding; Vector Position; } Request{200, 0, Position};
     static_assert(sizeof(Request) == 32);
     return Call(Objects::FindInstance("ExpSubsystem"), "ExpSubsystem", "RequestExpSpawning", &Request);
+}
+
+// Der Schalter wechselt bei jedem Aufruf (Exec-Funktion der Figur, im Spike als Testhilfe belegt, docs/OFFSETS.md).
+bool ToggleGodmode(int Player)
+{
+    return Call(PlayerPawn(Player), "DDCharacter", "DD_ToggleInvincible", nullptr);
 }
 
 bool FillTank()
@@ -88,6 +101,7 @@ bool RunDevAction(DevAction Action, int Player)
     {
     case DevAction::SpawnXp: Done = SpawnXp(Player); break;
     case DevAction::FullTank: Done = FillTank(); break;
+    case DevAction::ToggleGodmode: Done = ToggleGodmode(Player); break;
     }
     Core::Log::Info("Dev: Aktion {} fuer Spieler {} {}", static_cast<int>(Action), Player, Done ? "ausgefuehrt" : "fehlgeschlagen");
     return Done;
