@@ -45,7 +45,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `reconnect` | P2 | [5](#phase-5--vollständiger-run) | parallel | viel |
 | `vfx-sound` | P2 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `modversion-overlay` | P2 | [6](#phase-6--release) | parallel | wenig |
-| `release-paket-pruefung` | P2 | [Wartung](#wartung) | parallel | keine |
 
 **Wartet auf das Team:** nichts.
 
@@ -183,7 +182,6 @@ Zählt nicht zum Fortschritt.
 
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
-| `release-paket-pruefung` | P2 | Release-Paket im Windows-CI-Lauf aus eigenem Build erzeugen und strikt auf Dateiliste, Hashes, Pfadsicherheit und fremde Spieldateien prüfen. **Fertig, wenn** auch gezielt manipulierte Pakete in Python-Tests abgewiesen werden und CI erfolgreich ist. | – | parallel | keine |
 | `update-welt` | P1 | **Bestätigungstest ausstehend:** Statisch und Route bis Tag 2 auf 26495302 sauber (43 Patches, 11/11 Pruefungen, Karte 159/159 und 63/63, Kamera). Offen: XP-Baelle beim Client und Dash am Kamerarand, braucht besiegte Gegner im Spiel. **Aufgabe und Abnahme:** Patches für Build `26495302` portieren: `MapPatches.cpp`, `TravelPatches.cpp`, `ExpPatches.cpp`, `ProjectilePatches.cpp`, `MovementPatches.cpp`, `CameraPatches.cpp`, `CodeCave.cpp`. Patchnotes prüfen: Abstürze beim Map Travel, Dash außerhalb der gemeinsamen Kamera. **Fertig, wenn** diese Dateien auf `26495302` keine fehlenden Patches mehr melden und Route bis Tag 2 mit gleicher Karte, XP-Bällen und Kamera läuft | `update-basis` | parallel | mittel |
 | `spiel-update` | P1 | Umstieg auf Build `26495302` (Depot `3026452`, Manifest `2302428105354984436`) abschließen: ausstehende Bestätigungstests auf dem neuen Build, Doku ([GAME_ANALYSIS](docs/GAME_ANALYSIS.md#unterstützte-spielversion), [OFFSETS](docs/OFFSETS.md), SETUP, INSTALL, CLAUDE.md), danach Unterstützung für `26187885` entfernen. **Fertig, wenn** ein Coop-Run auf `26495302` ohne fehlende Patches läuft und `26187885` nirgends mehr verlangt wird. **Einstieg:** [Update-Regel](CONTRIBUTING.md#spiel-updates) | `update-basis`, `update-client`, `update-inventar`, `update-welt` | zentral | viel |
 
@@ -314,6 +312,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `powerup-duplikat` | 1 | Lokale Kopie von `BP_ChaosDestructable_PowerUp_C` beim Client unterdrückt, siehe [PowerUp-Objekte](docs/GAME_ANALYSIS.md#doppelte-powerup-objekte-powerup-duplikat) |
 | `protokoll` | 3 | Handshake mit Spiel-Build, Mod-Version und Rolle sowie zuverlässiger Kontrollkanal im selben Steam-Socket wie die UE-Pakete, Nachrichten mit Run-ID, Epoche und Revision nach dem Vertrag; 24 Net-Tests, im Spiel bis Tag 1 mit XP-Anzeige darüber geprüft. Der Internet-Test mit zwei Konten gehört zu `lobby-live` bzw. `integration-g2`, siehe [Kontrollkanal](docs/CONTROL_PROTOCOL.md) |
 | `reflexion-felder` | Wartung | Helfer Game::Reflection löst FProperty und UFunction zur Laufzeit auf; TutorialAdapter und TelemetryAdapter umgestellt, Laufzeitwerte gleich SDK, Spieltest mit und ohne Spike sauber |
+| `release-paket-pruefung` | Wartung | Release-ZIP wird aus dem ohnehin vorhandenen Windows-Release-Build erstellt und gegen Dateiliste, sichere Pfade, x64-PE-Header und SHA256SUMS.txt geprüft; Python-Negativtests und CI bestanden (PR #183). |
 | `remote-p2` | 1 | Phase-1-Frage geklärt: Host-P2 über schwache `ActivePlayers`, native Coop-Aktivierung, gezielten P2-Geräte-Guard und Join-Meldung ohne zweiten `LocalPlayer`; Laufzeit-/UI-Gegenproben zeigen, dass der lokale Lager-Handoff den geplanten Kontrollkanal braucht. Produktionsanbindung und UI-Sync bleiben eigene Aufgaben, [Nachweise und Grenzen](research/spikes/a-connect/RemoteP2.md) |
 | `remote-spieler` | 4 | Host trägt den Remote-Spieler dauerhaft als P2 in die Coop-Logik ein, ohne zweiten LocalPlayer und vorerst ohne Koop-Modus, siehe [Remote-Spieler als P2](src/Game/README.md#remote-spieler-als-p2) |
 | `replikation-blueprint` | 1 | 218 von 482 Blueprint-Actor-Klassen replizieren, vor allem über ihre native Basisklasse |
