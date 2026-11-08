@@ -219,7 +219,7 @@ TEST_CASE("Signaturen: Tabelle sortiert, eigene Build-Zeile vor der gemeinsamen,
     const int SoldUpdated = Find(Table, SoldRva, 26495302);
     REQUIRE(SoldReference >= 0);
     CHECK(SoldUpdated == SoldReference);
-    CHECK(std::string_view(Table[SoldReference].Name) == "HandleItemSold");
+    CHECK(std::strcmp(Table[SoldReference].Name, "HandleItemSold") == 0);
     const uint8_t SoldProlog[] = {0x48, 0x89, 0x5C, 0x24, 0x08, 0x57, 0x48, 0x83,
                                   0xEC, 0x20, 0x45, 0x33, 0xC0, 0x48, 0x8B, 0xDA};
     CHECK(Matches(Table[SoldReference].Pattern, SoldProlog));
