@@ -232,7 +232,7 @@ powershell -ExecutionPolicy Bypass -File tools/New-ReleasePackage.ps1 -Version <
 
 ### Paket-Inhalt und Hashes vor dem Verteilen pruefen
 
-Die GitHub-Action `release-package.yml` baut die eigene Release-Solution ohne Spiel, erstellt ein ZIP mit
+Der Release-Job der GitHub-Action `ci.yml` verwendet die bereits gebauten eigenen DLLs ohne Spiel, erstellt ein ZIP mit
 `New-ReleasePackage.ps1 -Bin` und verifiziert zwei x64-PE-DLLs, die erlaubte Dateiliste,
 Archivpfade sowie alle SHA256-Werte aus `SHA256SUMS.txt`. Auch verbotene Dateien,
 manipulierte Hashes und ungültige PE-Header werden in Python-Tests simuliert.
