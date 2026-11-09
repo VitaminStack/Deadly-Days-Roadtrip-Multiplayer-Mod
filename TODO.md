@@ -38,10 +38,11 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `run-ende` | P1 | [5](#phase-5--vollständiger-run) | parallel | viel |
 | `reconnect` | P2 | [5](#phase-5--vollständiger-run) | parallel | viel |
 | `vfx-sound` | P2 | [5](#phase-5--vollständiger-run) | parallel | mittel |
+| `weekly-sperre` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
 
 **Wartet auf das Team:** nichts.
 
-**Bestätigungstest ausstehend (nicht in Arbeit):** `fortschritt`, `lager-handel-client`, `weekly-sperre`, `update-welt`.
+**Bestätigungstest ausstehend (nicht in Arbeit):** `fortschritt`, `lager-handel-client`, `update-welt`.
 <!-- frei:end -->
 
 **Nicht erneut machen.** Das ist erledigt und dokumentiert:
@@ -164,8 +165,7 @@ Ziel: Die Mod lässt sich installieren, ohne Spielstände oder Bestenlisten zu b
 
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
-| `weekly-sperre` | P1 | **Bestätigungstest ausstehend:** ddrweekly.deadlydays.com in Core::ReportHosts gesperrt, Unit-Tests bestehen. Offen: Solo-Spieltest mit Mod, Weekly-Eintrag im Hauptmenü anklicken, Menü bleibt bedienbar, Log zeigt keine Auflösung; ohne Mod unverändert. **Aufgabe und Abnahme:** Die Weekly-Challenge sperren, solange die Mod geladen ist, auch solo, wie Erfolge und Bestenlisten (Entscheidung `weeklymode`). `ddrweekly.deadlydays.com` in `Core::ReportHosts` aufnehmen und vorher prüfen, wie das Menü reagiert: Hängt oder stürzt der Weekly-Eintrag ohne Antwort, ihn sperren oder mit Hinweis versehen. **Fertig, wenn** mit Mod nichts an den Weekly-Server geht, das Menü normal bedienbar bleibt und ohne Mod alles unverändert ist. **Einstieg:** [Telemetrie und Berichte](docs/GAME_ANALYSIS.md#telemetrie-und-berichte-telemetrie-aus). Ordner `src/Core`, `src/Game` | `weeklymode`, `telemetrie-aus` | parallel | wenig |
-| `release` | P0 | Versionierung, Abschlusstest und Veröffentlichung. Ein Stand, eine Freigabe | `integration-run`, `tutorial-aus`, `online-sperren`, `telemetrie-aus`, `mod-saves`, `installer`, `weekly-sperre`, `virenscanner`, `lobby-live-rest` | zentral | wenig |
+| `release` | P0 | Versionierung, Abschlusstest und Veröffentlichung. Ein Stand, eine Freigabe | `integration-run`, `tutorial-aus`, `online-sperren`, `telemetrie-aus`, `mod-saves`, `installer`, `virenscanner`, `lobby-live-rest` | zentral | wenig |
 
 ## Wartung
 
@@ -184,6 +184,7 @@ Auch die zukünftige Update-Verwaltung bleibt vorerst optional: Wir erzwingen Bu
 
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
+| `weekly-sperre` | P2 | Nutzerentscheidung vom 09.11.2026: optional, keine Release-Voraussetzung mehr. **Bestätigungstest ausstehend:** ddrweekly.deadlydays.com in Core::ReportHosts gesperrt, Unit-Tests bestehen. Offen: Solo-Spieltest mit Mod, Weekly-Eintrag im Hauptmenü anklicken, Menü bleibt bedienbar, Log zeigt keine Auflösung; ohne Mod unverändert. **Aufgabe und Abnahme:** Die Weekly-Challenge sperren, solange die Mod geladen ist, auch solo, wie Erfolge und Bestenlisten (Entscheidung `weeklymode`). `ddrweekly.deadlydays.com` in `Core::ReportHosts` aufnehmen und vorher prüfen, wie das Menü reagiert: Hängt oder stürzt der Weekly-Eintrag ohne Antwort, ihn sperren oder mit Hinweis versehen. **Fertig, wenn** mit Mod nichts an den Weekly-Server geht, das Menü normal bedienbar bleibt und ohne Mod alles unverändert ist. **Einstieg:** [Telemetrie und Berichte](docs/GAME_ANALYSIS.md#telemetrie-und-berichte-telemetrie-aus). Ordner `src/Core`, `src/Game` | `weeklymode`, `telemetrie-aus` | parallel | wenig |
 | `opt-desync-pivot` | P2 | Fehlalarm im Desync-Melder (Coop-Test 06.11.2026): Bei Items außerhalb des Rucksacks, etwa der Pistole, setzt die eigene Inventaransicht die Rasterposition lokal. Beim Host-Spieler repliziert sie zum Client, beim Client-Spieler bleibt sie beim Host auf `(0, 0)` (Client `(-19, -2)`). Spielerisch folgenlos, der Melder meldet aber dauerhaft „Abweichung Inventar“ und kann echte Inventarfehler überdecken. Position solcher Items im Inventar-Messfeld ignorieren | `integration-run` | parallel | wenig |
 | `opt-host-bewegung` | P2 | Klären, warum der Host Remote-Figuren ohne clientautoritative Position fast nicht bewegt. Clientautoritative Position reicht für den Betrieb | `integration-run` | parallel | mittel |
 | `opt-tempo-upgrades` | P2 | `MovementSpeed` und Beschleunigung: Upgrades kommen beim Client nicht an (Host 819 und 2866, Client 600 und 2048) | `integration-run` | parallel | mittel |
