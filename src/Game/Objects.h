@@ -27,4 +27,8 @@ uintptr_t FindNamed(std::string_view Name);
 
 // Ruft Function über ProcessEvent an Object auf. Params muss dem Parameterlayout der Funktion entsprechen.
 void ProcessEvent(uintptr_t Object, uintptr_t Function, void* Params);
+
+// Lädt ein Asset über seinen Pfad (etwa "/Game/.../BP_X.BP_X_C") wie der Starter des Spiels, über die Blueprint-Bibliothek:
+// Pfad, Soft-Verweis, Laden. Liefert das Objekt, 0 bei Fehler.
+uintptr_t LoadAsset(std::string_view Path);
 }

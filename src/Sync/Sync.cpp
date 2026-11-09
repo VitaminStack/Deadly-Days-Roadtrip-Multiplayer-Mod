@@ -89,7 +89,7 @@ void Start(const Core::Config& Config, DiagnosticSink Diagnostics)
         if (Clock::now() < Next) return;
         Next = Clock::now() + std::chrono::milliseconds(250);
         const auto Messages = Transport ? Transport->TakeControlMessages() : std::vector<Net::ControlMessage>{};
-        DispatchControls(Messages, TickProgress, TickDesync, TickReward, TickMap);
+        DispatchControls(Messages, TickProgress, TickDesync, TickReward, TickMap, TickPause);
     });
 }
 }

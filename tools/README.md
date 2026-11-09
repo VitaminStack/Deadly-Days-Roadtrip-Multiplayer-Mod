@@ -180,6 +180,20 @@ py tools/patch_signatures.py check --exe <kopie>/DDSurvivors/Binaries/Win64/DDSu
   Patch-Liste die Adresse eines Ticks, bleibt dessen Tick aus (`ListComplete`).
 - Neue Patches: Adresse eintragen, `generate --write`, dann `sites --write`.
 
+## check_patch_registry.py
+
+Offline-Regressionstest fuer neue Game-Patches ohne Steam, Spiel-EXE oder SDK. Prueft doppelte `Patch List[]`-Definitionen
+(wie den Compilerfehler aus PR #170), fehlende Check-/Apply-Funktionen, ungenutzte oder nicht vorhandene
+`Sites`-Arrays, Code-RVAs ohne Eintrag in `PatchSignatures.inc` und die Sortierung der Tabelle.
+
+```bash
+python -B tools/check_patch_registry.py
+python -B -m unittest tests.test_patch_registry
+```
+
+Beide Pruefungen laufen in der normalen Python-CI. **Grenze:** Die Eindeutigkeit der Byte-Muster in der echten
+Spiel-EXE muss weiterhin mit `patch_signatures.py check` geprueft werden; diese statische Pruefung ersetzt das nicht.
+
 ## Build-Mod.ps1
 
 Baut `DeadlyDaysCoop.sln` wie die CI nach `bin/<Konfiguration>/`. Mit `-Test` laufen danach `CoreTests.exe` und die Python-Tests.
@@ -230,6 +244,21 @@ powershell -ExecutionPolicy Bypass -File tools/New-ReleasePackage.ps1 -Version <
 - Ohne `-Version` heißt das Paket `dev-<commit>`, die Versionsvergabe gehört zur Aufgabe `release`.
 - `-Bin <Ordner>` nimmt fertige DLLs statt neu zu bauen, `-OutputDir` wählt ein anderes Ziel als `dist/`.
 
+### Paket-Inhalt und Hashes vor dem Verteilen pruefen
+
+Der Release-Job der GitHub-Action `ci.yml` verwendet die bereits gebauten eigenen DLLs ohne Spiel, erstellt ein ZIP mit
+`New-ReleasePackage.ps1 -Bin` und verifiziert zwei x64-PE-DLLs, die erlaubte Dateiliste,
+Archivpfade sowie alle SHA256-Werte aus `SHA256SUMS.txt`. Auch verbotene Dateien,
+manipulierte Hashes und ungültige PE-Header werden in Python-Tests simuliert.
+
+```bash
+python -B tools/verify_release_package.py dist/DDCoop-<Version>.zip
+python -B -m unittest tests.test_release_package
+```
+
+Das prüft **keinen** Virenscanner, keine tatsächliche Installation, Steam oder Proton. Die zugehörige
+Abnahme bleibt in `virenscanner` bzw. `release` offen.
+
 ## spike/
 
 Bauen und Testen des Spikes, die Anleitung steht in [docs/TESTING.md](../docs/TESTING.md). Laufzeitdateien landen in
@@ -240,6 +269,7 @@ Bauen und Testen des Spikes, die Anleitung steht in [docs/TESTING.md](../docs/TE
 | `Build-Spike.ps1` | Baut `spike.dll` |
 | `Start-Session.ps1` | Setzt die Sperre, startet Crash-Schutz, Host und Client parallel, verbindet sie und reist in eine Karte. Wartet auf Zustände statt fest zu schlafen und nennt die Zeit je Schritt (MetaBase etwa 30 bis 40 s). `-Wait <s>` wartet auf eine fremde Sitzung statt abzubrechen. `-Build` baut den Spike vorher neu, `-Mod` baut und installiert zusätzlich die Mod. `-Role Host` oder `-Role Client -Peer <SteamID>` startet nur eine Seite für den Test auf zwei PCs. `-Mod -Tunnel Mod` verbindet über den Transport der Mod statt über den Spike, `-Mod -Tunnel Lobby` über die Steam-Lobby der Mod, erstellt und betreten über das Overlay. `-Brief`: nur Zeit je Schritt und eine Zeile je Instanz. `-NetProfile Internet` simuliert Latenz im Tunnel der Mod, siehe [Latenz simulieren](../docs/TESTING.md#latenz-simulieren). `-Mod -Tunnel Lobby -NoSpike` startet nur mit der Mod wie im Release, siehe [Nur Mod, ohne Spike](../docs/TESTING.md#nur-mod-ohne-spike). Als Client zusätzlich `-SteamLaunch` (Steam startet das Spiel nach einer Einladung) oder `-Tunnel Mod -NoSpike` (Ablehnung eines Kontos außerhalb der Lobby), siehe [Steam-Lobby der Mod prüfen](../docs/TESTING.md#steam-lobby-der-mod-prüfen) |
 | `Restart-Instance.ps1` | Startet nur den Client neu und verbindet ihn wieder, der Host läuft weiter (etwa 20 s statt eines vollen Neustarts). `-Brief` für kurze Ausgabe |
+| `Common.ps1` (Testkanal) | `Invoke-ModControl`, `Send-GameConsole`, `Send-GameTravel`: Befehle mit Antwort über die Pipe der Mod, siehe [Testkanal der Mod](../docs/TESTING.md#testkanal-der-mod) |
 | `Overlay.ps1` | Bedient das Overlay der Mod ohne Maus: `status`, `create`, `join [<id>]`, `leave`, `invite`. `-Json` für Skripte |
 | `Watch-Net.ps1` | Zeigt Änderungen an Overlay, Prozess und Mod-Log (Sitzung, Transport, Lobby, Welt) beider Instanzen mit Zeit, `-Until <Muster>` endet beim ersten Treffer |
 | `Test-NetEnd.ps1` | Prüft Sitzungsende ohne Handarbeit: Host und Client verlassen, Client und Host hart beendet, Neubeitritt. Zeit bis zur Meldung, Bericht unter `research/local/` |

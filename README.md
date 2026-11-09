@@ -6,9 +6,7 @@ jedem Spieler selbst.
 
 *English summary: [see below](#english).*
 
-**Stand:** Experimentell, noch kein Download für Spieler. Zwei Spielinstanzen treten über eine Steam-Lobby bei und spielen
-dieselbe Mission: Bewegung, Kampf beider Spieler, Items, Level-ups und das Rundenende bis zum nächsten Tag. Getestet wurde
-bisher vor allem auf einem PC. Der Test über echtes Internet zwischen zwei Haushalten ([Gate G2](TODO.md#phase-4--vertical-slice)) steht noch aus.
+**Stand (08.11.2026):** Experimentell, noch kein Download für Spieler. **Gate G2 ist seit dem 07.11.2026 bestanden:** Zwei PCs aus verschiedenen Haushalten spielten über die Steam-Lobby mindestens zehn Minuten dieselbe Mission auf Build `26495302`, ohne Absturz oder dauerhaften Desync ([Testbericht](docs/GAME_ANALYSIS.md#gate-g2-auf-zwei-pcs-am-07112026-integration-g2)). Bewegung, Kampf, Airdrops und Rundenenden funktionieren in dokumentierten Teiltests. **Ein vollständiger Run ist noch nicht abgenommen**; insbesondere Fortschritt, Tagesablauf, Client-Inventarabweichung und Run-Ende bleiben offen (siehe [Phase 5](TODO.md#phase-5--vollständiger-run)).
 
 **Mitmachen:** Jeder kann mitarbeiten, auch ohne Einladung, etwa bei C++, Reverse Engineering, Tests zu zweit oder der Doku.
 Der Einstieg steht unter [Für neue Mitwirkende](#für-neue-mitwirkende), freie Aufgaben unter [Wo kann ich anfangen?](TODO.md#wo-kann-ich-anfangen).
@@ -28,9 +26,7 @@ Fan mod that adds real online co-op to **Deadly Days: Roadtrip**. The game itsel
 online currently means Steam Remote Play, where the host streams the picture. With this mod every player runs the game on
 their own PC.
 
-**Status:** Experimental, no download for players yet. Two game instances join a Steam lobby and play the same mission:
-movement, both players fighting, items, level-ups and the end of a round through to the next day. Testing has mostly
-happened on one PC. The test over the real internet between two homes (Gate G2) is still open.
+**Status (8 Nov 2026):** Experimental, no public download yet. **Gate G2 passed on 7 Nov 2026:** Two PCs in separate households played the same mission through a Steam lobby for at least ten minutes on game build `26495302`, without crashes or persistent desync ([test report](docs/GAME_ANALYSIS.md#gate-g2-auf-zwei-pcs-am-07112026-integration-g2)). Movement, combat, rewards and round transitions have also been exercised in individual tests. **A complete cooperative run is not yet verified**; progression, the day cycle, client inventory divergence and run completion remain open (see [Phase 5](TODO.md#phase-5--vollständiger-run)).
 
 **Contributing:** Anyone can help, no invitation needed: C++, reverse engineering, testing with two players, or docs. Fork the
 repo and open a pull request. For bigger changes please open an issue first. Docs and the task list are written in German,
@@ -42,7 +38,7 @@ game. The code is under the [MIT License](LICENSE). Game files are never part of
 
 ## Fortschritt
 
-Stand: 04.11.2026.
+Stand: 08.11.2026.
 
 Gezählt sind die Aufgaben je Phase aus [TODO.md](TODO.md), ohne Wartung und optionale Optimierungen.
 
@@ -61,9 +57,9 @@ Erledigt ist, was in `TODO.md` unter „Erledigt“ steht. **Vollständig abgesc
 | [2](TODO.md#phase-2--fundament) | Stabile Basis der Mod | 5 von 5 | ███████████ |
 | [3](TODO.md#phase-3--session-und-verbindung) | Verbinden über Steam | 10 von 10 | ███████████ |
 | [4](TODO.md#phase-4--vertical-slice) | Spielbarer Ausschnitt | 16 von 16 | ███████████ |
-| [5](TODO.md#phase-5--vollständiger-run) | Kompletter Run zu zweit | 25 von 37 | ███████░░░░ |
+| [5](TODO.md#phase-5--vollständiger-run) | Kompletter Run zu zweit | 27 von 37 | ████████░░░ |
 | [6](TODO.md#phase-6--release) | Veröffentlichung | 7 von 11 | ███████░░░░ |
-| **Gesamt** | | **113 von 129** | ██████████░ |
+| **Gesamt** | | **115 von 129** | ██████████░ |
 
 </details>
 

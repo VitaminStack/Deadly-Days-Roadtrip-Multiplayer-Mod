@@ -58,6 +58,7 @@
 {0x059072B4, 0, "B0 01 EB ?? 32 C0 44 3A F0 0F 84 ?? ?? ?? ?? 88 87 89 01 00 00", 0, "NeedReconnect"}, // RemoteP2Patches.cpp
 {0x0593DAF3, 0, "74 ?? 8B 41 64 44 8B D7 39 41 38", 0, "ThreatFreezeBranch"}, // ClientPatches.cpp
 {0x05959700, 0, "48 89 5C 24 08 55 56 57 48 81 EC C0 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 B0 00 00 00 49 8B F9 41 0F B6 E8 48 8B F2 33 C9", 0, "CreateItemInstance"}, // RewardPatches.cpp
+{0x05967900, 0, "48 89 5C 24 08 57 48 83 EC 20 45 33 C0 48 8B DA", 0, "HandleItemSold"}, // RewardPatches.cpp (Prolog aus CheckSold; Eindeutigkeit offline gegen Spiel-EXE prüfen)
 {0x05969750, 0, "E9 ?? ?? ?? ?? CC CC CC CC CC CC CC CC CC CC CC 48 89 5C 24 08 48 89 74 24 10 48 89 7C 24 18 41 56 48 83 EC 20 8B 41 08 4C 8B F2 48 8B F9 3B 41 0C 49 63 F0 4C 8D 41 0C 75 ??", 0, "InventoryReadyForReplication"}, // InventoryPatches.cpp
 {0x05976AD0, 0, "48 89 5C 24 18 48 89 54 24 10 55 56 57 48 8D 6C 24 B9 48 81 EC 90 00 00 00 48 8B FA", 0, "SeamlessTravelToLevel"}, // TravelPatches.cpp
 {0x05979B30, 0, "48 89 5C 24 18 48 89 54 24 10 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 50 45 8B E8 4C 8B E2", 0, "SetRewardItems"}, // RewardPatches.cpp

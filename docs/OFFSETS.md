@@ -78,6 +78,7 @@ Von Hand nachgetragen in `RvaMap26495302.inc` (Zeilen „von Hand“). Native Fu
 | Größe des Item-Widgets | `0x5AB5120` | `0x5ABA0F0` | alle 8 übertragbaren Aufrufer | umgeordnet, liest `+0xA28` weiter ungeprüft (`+0x41`) |
 | vtable `BackpackSlot` | `0x939CE08` | `0x93A1F98` | Konstruktor `0x5658829` | 84 Einträge wie vorher, `+0x200` → `0x1512430` |
 | vtable Achievement-Detektor | `0x94C1758` | `0x94C6A78` | `0x57C3A50` | 164 Einträge, `+0x3F0` → `DetectorEndPlay` `0x57D0C60` |
+| `InventoryComponent::HandleItemSold` (`lager-handel-client`) | `0x5967900` | `0x596BA70` | Exec-Thunk `0x57128B0` bzw. `0x57133D0` | keine, Prolog gleich |
 
 - `ScheduleCall` (`0x57CB5A5`, über den Funktionsanfang) ist derselbe Befehl, nur der rel32 hat sich verschoben. Die Prüfung vergleicht
   jetzt das Aufrufziel (`SetNextTick`) statt der rel32-Bytes und gilt damit für beide Builds.
@@ -97,6 +98,23 @@ Von Hand nachgetragen in `RvaMap26495302.inc` (Zeilen „von Hand“). Native Fu
 - Spieltest 07.11.2026 auf `26495302` (ein PC, Lobby, `-NoSpike -PartialPatches`): 11 von 13 Listen gesetzt, Inventory, HealthBar und
   Reward ohne Fehlermeldung, ausgelassen nur Player und Client (`update-client`). Absturz beim Beitritt unverändert `0x5904DE8`. Die
   Abnahme beim Client (Airdrop, Belohnungswahl, Lager) stand deshalb aus; `update-client` ist inzwischen gemergt.
+
+### Welt-Patches (`update-welt`)
+
+Stand 07.11.2026, Dateien `MapPatches.cpp`, `TravelPatches.cpp`, `ExpPatches.cpp`, `ProjectilePatches.cpp`, `MovementPatches.cpp`,
+`CameraPatches.cpp`, `CodeCave.cpp`. Es war keine Codeänderung nötig, die Tabelle `RvaMap26495302.inc` aus `update-basis` und
+`update-client` deckt alle Adressen dieser Dateien ab.
+
+- `tools/expect_check.py` gegen die Exe von `26495302` (TimeDateStamp `0x65BFBBFB`): 11 von 11 prüfbaren Prüfungen der sieben Dateien `ok`,
+  keine `abweichend`, keine `fehlt`. Die übrigen Patches der Dateien lesen ihre Adressen zur Laufzeit (lokale `Site`), die prüft nur das Spiel.
+- Spieltest ein PC, `Start-Session.ps1 -Build -Mod -Tunnel Lobby -NoSpike`: Host und Client melden `Patches: 43 gesetzt` (ohne
+  `-PartialPatches`) und `Signaturen: 88 Adressen geprüft`, keine Fehlermeldung. `Run-Route.ps1 -Start -Mod -Tunnel Lobby -Days 2`
+  (mit Spike) endet mit Exitcode 0: MetaBase, Tag 1 (159/159 Kacheln) und Tag 2 (63/63 Kacheln) bei beiden `sauber`, 2/2 Spieler,
+  Inventar gleich. `SeamlessTravelToLevel` läuft ohne Absturz, der Client setzt die gemeinsame Kamera
+  (`Kamera: gemeinsame Kamera gesetzt`), der Host beobachtet den Dash der Clients (`GA_Dash`).
+- Ohne Spike geht `Run-Route.ps1` nur bis Tag 1 (`!finish` fehlt).
+- Offen: XP-Bälle beim Client (Log `XP-Baelle: …` aus `ExpPatches.cpp`) und der Dash am Kamerarand. Beides braucht Gegner im Spiel, die ein
+  Mensch besiegt.
 
 ### Spike (`spike-build-26495302`)
 
@@ -289,6 +307,10 @@ Aufgabe `airdrop-auswahl`, Ablauf in [Airdrop-Auswahl](GAME_ANALYSIS.md#airdrop-
 | `UDataTable` `RowStruct`, `RowMap` | `+0x28`, `+0x30` | `RowMap` als TSet: Elemente `0x18` Byte (Wert bei `+8`), Anzahl `+0x38`, Belegungsbits ab `+0x40` oder Zeiger `+0x50`, freie Plätze `+0x64` |
 | `FRecipeTableRow` `OutputItem`, `OutputRarityOverride`, `RequiredItems` | `+0x18`, `+0x20`, `+0x28` | `RequiredItems` je `0x10`: Item, RequiredRarityOverride; Tabelle `DT_RecipeTable` |
 | `InventoryPanel.WorkbenchUnlock` | `+0x4D0` | `OnetimeUnlock_Workbench` |
+| `InventoryComponent::HandleItemSold` | `0x5967900` (`26495302`: `0x596BA70`), Exec-Thunk `0x57128B0` | `(this, Item)`, nativ; `RemoveFromBackpack`, `UnoccupyBackpackSlots`, `RemoveFromInventory(SoldForScrap)`, `RefreshItemEffects` (`lager-handel-client`) |
+| `ItemRepresentation.ConfirmSell`, `.ConfirmRepair` | `0x5AA2F60`, `0x5AA2DB0` (`26495302`: `0x5AA7E50`, `0x5AA7CA0`) | buchen Schrott lokal über `AddAmount`, dann `HandleItemSold` bzw. Server-RPC `RepairItem` |
+| `ADDMissionGameState.ScrapWallet`, `UAbstractCurrency.CurrencyAmount` | `+0x3C0`, `+0x100` | nicht repliziert; `AddAmount` begrenzt auf 0 bis INT32_MAX und löst `OnCurrencyChanged` aus |
+| `UInventoryItemInstance.GetDynamicRepairPrice` | `26495302`: `0x5965960` | Seltenheit `+0x54` mal Faktor, mal `DDGameStatsSubsystem +0xD0 / 8 + 1` |
 
 ### Coop
 
@@ -391,6 +413,8 @@ Was die Mod nutzt, steht zusätzlich in `src/Game/Offsets.h` und wird dort beim 
 | `BP_DD_Character_C` | Attributset mit Ausdauer; darin MaxStamina, Stamina (`FGameplayAttributeData`, CurrentValue je `+0x0C`) | `0x7D8`; `0x30`, `0x50` |
 | `APlayerController` | CheatManager, CheatClass | `0x410`, `0x418` |
 | `UBossSpawnLookup` | BossSpawnInfos (je `0x68`: BossID `0x00`, IsEndBoss `0x08`, BossEnemyType `0x10`, SpawnPointClass `0x38`) | `0x28` |
+| `UDDBossObjective` | MaxHealth `0xD0` (int64, per Reflexion aufgelöst, `BossBarAdapter`); `UDDObjectiveWidget.ObjectiveManager` `0x378`; `UCommonAttributeSet` MaxHealth `0x30`, Health `0xA0` (FGameplayAttributeData, Wert bei `+0xC`) | Build `26495302` gemessen, `gegner-alle` |
+| `FBossSpawnInfo.BossEnemyType` (weicher Verweis) | Paketpfad als FName bei Eintrag `+0x18`, Assetname bei `+0x20` (Build `26495302` gemessen, `gegner-alle`); Zeiger `LoadObjectByPath(Paket.Asset)` lädt den `EnemyType` | |
 | `UEnemyType` | EnemyBlueprint (`TSoftClassPtr`) | `0x128` |
 | `ACharacter` | CharacterMovement, BasedMovement, ReplicatedMovement-Block | `0x330`, `0x340`, `0x398` |
 | `ACharacter` (Spiel) | AttributeSet | `0x7D8` |

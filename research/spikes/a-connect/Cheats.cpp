@@ -1,5 +1,8 @@
 // Testhilfen: CheatManager fuer die DD_-Befehle des Spiels und Laden einzelner Assets, etwa fuer einen SDK-Dump mit Bossen.
 #include "Spike.h"
+
+#include <algorithm>
+#include <vector>
 #include "TestGodmodePolicy.h"
 
 namespace Spike
@@ -132,13 +135,24 @@ void EnableCheats()
     Log("Cheats: CheatManager fuer " + std::to_string(Enabled) + " Controller angelegt");
 }
 
-// Testhilfe (werkbank-client): Host legt jedem Spielerinventar ein Item an, "!give ItemData_Pistol [Rarity]". Natives
+// Testhilfe (werkbank-client): Host legt jedem Spielerinventar ein Item an, "!give ItemData_Pistol [Rarity] [broken]". Natives
 // CreateAndAddItem, das Item repliziert wie jede Vergabe. Nur beim Host sinnvoll, beim Client entstuende eine lokale Instanz.
 void GiveItemCommand(const std::wstring& Args)
 {
     const std::string Text(Args.begin(), Args.end());
-    const size_t Space = Text.find(' ');
-    const std::string DataName = Text.substr(0, Space), RarityName = Space == std::string::npos ? std::string{} : Text.substr(Space + 1);
+    // lager-handel-client: "broken" an beliebiger Stelle nach den Daten legt das Item kaputt an.
+    std::vector<std::string> Words;
+    for (size_t At = 0; At < Text.size();)
+    {
+        const size_t Space = Text.find(' ', At);
+        const std::string Word = Text.substr(At, Space == std::string::npos ? std::string::npos : Space - At);
+        if (!Word.empty())
+            Words.push_back(Word);
+        At = Space == std::string::npos ? Text.size() : Space + 1;
+    }
+    const bool Broken = std::find(Words.begin(), Words.end(), "broken") != Words.end();
+    Words.erase(std::remove(Words.begin(), Words.end(), "broken"), Words.end());
+    const std::string DataName = Words.empty() ? std::string{} : Words[0], RarityName = Words.size() > 1 ? Words[1] : std::string{};
     const uintptr_t Data = FindObject(DataName.c_str(), nullptr);
     const uintptr_t Rarity = RarityName.empty() ? 0 : FindObject(RarityName.c_str(), nullptr);
     const uintptr_t Create = FindObject("CreateAndAddItem", "InventoryComponent");
@@ -169,12 +183,530 @@ void GiveItemCommand(const std::wstring& Args)
             bool AllowP2Reserve;
             uint8_t Pad2[7];
             uintptr_t Result;
-        } Params{Data, Rarity, false, true, true, 0, -1, false, {}, 0};
+        } Params{Data, Rarity, Broken, true, true, 0, -1, false, {}, 0};
         static_assert(sizeof(Params) == 0x28);
         Read<ProcessEventFn*>(Object)[kProcessEventIndex](Object, Create, &Params);
         Given += Params.Result != 0;
     }
-    Log("Give: " + DataName + (RarityName.empty() ? "" : " " + RarityName) + " an " + std::to_string(Given) + " Inventare");
+    Log("Give: " + DataName + (RarityName.empty() ? "" : " " + RarityName) + (Broken ? " kaputt" : "") + " an " + std::to_string(Given) + " Inventare");
+}
+
+// Testhilfe (gegner-alle): Host spawnt einen Boss ueber EnemySpawner::SpawnSpecificEnemy, "!boss SpikeBoss [Abstand]".
+// Namen der EnemyType-Assets: SpikeBoss, FrankensteinBoss, BlobBallBoss, BallerinaBoss, LazyBoss, HQBoss. Das Asset muss geladen sein,
+// sonst vorher "!load <Pfad>". Spawn Abstand (Standard 600) vor der ersten Spielerfigur. Nur beim Host, die Replikation macht das Spiel.
+void BossCommand(const std::wstring& Args)
+{
+    const std::string Text(Args.begin(), Args.end());
+    const size_t Space = Text.find(' ');
+    const std::string TypeName = Text.substr(0, Space);
+    const double Distance = Space == std::string::npos ? 600.0 : atof(Text.c_str() + Space + 1);
+    const uintptr_t World = Read<uintptr_t>(Base + kGWorld);
+    uintptr_t Type = FindObject(TypeName.c_str(), TypeName.c_str());
+    if (!Type)
+    {
+        // Nicht geladen: Pfad aus DA_BossSpawnLookup lesen (BossSpawnInfos +0x28, je 0x68, BossID +0x00, weicher Verweis auf den
+        // EnemyType ab +0x20: Paketname, Assetname) und laden. Alle Eintraege landen im Log.
+        const uintptr_t Lookup = FindObject("DA_BossSpawnLookup", nullptr);
+        const uintptr_t Entries = Lookup ? Read<uintptr_t>(Lookup + 0x28) : 0;
+        const int32_t EntryCount = Lookup ? Read<int32_t>(Lookup + 0x30) : 0;
+        Log("Boss: Lookup " + std::string(Lookup ? "gefunden" : "fehlt") + ", Eintraege " + std::to_string(EntryCount));
+        for (int32_t e = 0; Entries && e < EntryCount && e < 16 && !Type; ++e)
+        {
+            const uintptr_t Entry = Entries + e * 0x68;
+            const std::string Id = NameFromIndex(Read<int32_t>(Entry)), Package = NameFromIndex(Read<int32_t>(Entry + 0x18)),
+                              Asset = NameFromIndex(Read<int32_t>(Entry + 0x20));
+            Log("Boss: Lookup " + Id + " -> " + Package + "." + Asset);
+            if (Asset == TypeName || Id == TypeName)
+                Type = LoadObjectByPath(Package + "." + Asset);
+        }
+    }
+    const uintptr_t Spawn = FindObject("SpawnSpecificEnemy", "EnemySpawner");
+    const uintptr_t GetLocation = FindObject("K2_GetActorLocation", "Actor");
+    if (!World || !Read<uintptr_t>(World + kWorldGameMode) || !Type || !Spawn || !GetLocation)
+    {
+        Log("Boss: Host " + std::to_string(World && Read<uintptr_t>(World + kWorldGameMode) != 0) + ", Typ " + std::to_string(Type != 0) +
+            ", SpawnSpecificEnemy " + std::to_string(Spawn != 0) + ", K2_GetActorLocation " + std::to_string(GetLocation != 0));
+        Log("Boss: " + TypeName + " nicht moeglich (kein Host, Typ nicht geladen oder Funktion fehlt)");
+        return;
+    }
+    const uintptr_t Chunks = Read<uintptr_t>(Base + kGObjects);
+    const int32_t Count = Read<int32_t>(Base + kGObjects + 8);
+    uintptr_t Spawner = 0, Character = 0;
+    for (int32_t i = 0; i < Count && !(Spawner && Character); ++i)
+    {
+        const uintptr_t Chunk = Read<uintptr_t>(Chunks + 8 * (i >> 16));
+        const uintptr_t Object = Chunk ? Read<uintptr_t>(Chunk + (i & 0xFFFF) * 0x18 + 8) : 0;
+        if (!Object || (Read<uint32_t>(Object + 8) & 0x30) != 0)
+            continue;
+        for (uintptr_t Class = Read<uintptr_t>(Object + 0x10); Class; Class = Read<uintptr_t>(Class + 0x40))
+        {
+            const std::string Name = NameOf(Class);
+            if (!Spawner && Name == "EnemySpawner")
+                Spawner = Object;
+            if (!Character && Name == "DDCharacter")
+                Character = Object;
+        }
+    }
+    if (!Spawner || !Character)
+    {
+        Log("Boss: kein EnemySpawner oder keine Spielerfigur");
+        return;
+    }
+    struct { double X, Y, Z; } Location{};
+    Read<ProcessEventFn*>(Character)[kProcessEventIndex](Character, GetLocation, &Location);
+    struct
+    {
+        uintptr_t EnemyType, Instigator;
+        double Rotation[4];      // FTransform ab 0x10: FQuat
+        double Translation[3];   // 0x30, danach 8 Byte Fuellung
+        double Pad0;
+        double Scale[3];         // 0x50
+        double Pad1;             // FTransform endet bei 0x70, Gesamt 0x60
+        int32_t ThreatLevel, BaseThreatLevel;
+        bool ApplySpawnerEffects, ClampToExtends;
+        uint8_t Pad2[6];
+        uintptr_t Bounds, Result;
+    } Params{};
+    static_assert(sizeof(Params) == 0x90);
+    Params.EnemyType = Type;
+    Params.Rotation[3] = 1.0;
+    Params.Translation[0] = Location.X + Distance;
+    Params.Translation[1] = Location.Y;
+    Params.Translation[2] = Location.Z;
+    Params.Scale[0] = Params.Scale[1] = Params.Scale[2] = 1.0;
+    Params.ThreatLevel = Params.BaseThreatLevel = -1;
+    Params.ApplySpawnerEffects = true;
+    Params.ClampToExtends = false;
+    Read<ProcessEventFn*>(Spawner)[kProcessEventIndex](Spawner, Spawn, &Params);
+    Log("Boss: " + TypeName + (Params.Result ? " gespawnt (" + NameOf(Read<uintptr_t>(Params.Result + 0x10)) + ")" : " nicht entstanden"));
+}
+
+// Testhilfe (gegner-alle): Host fuegt dem Boss ueber GameplayStatics::ApplyDamage Schaden zu, "!bossdmg 30000". Der Weg ist der des
+// Spiels (OnTakeAnyDamage -> DamageToGASTranslator), Phasenwechsel und Tod laufen wie im Kampf. Nur beim Host.
+void BossDamageCommand(const std::wstring& Args)
+{
+    const float Amount = static_cast<float>(_wtof(Args.c_str()));
+    const uintptr_t World = Read<uintptr_t>(Base + kGWorld);
+    const uintptr_t Statics = FindObject("Default__GameplayStatics", nullptr);
+    const uintptr_t Apply = FindObject("ApplyDamage", "GameplayStatics");
+    if (!World || !Read<uintptr_t>(World + kWorldGameMode) || !Statics || !Apply || Amount <= 0)
+    {
+        Log("BossDmg: nicht moeglich (kein Host, Funktion fehlt oder Schaden <= 0)");
+        return;
+    }
+    const uintptr_t Chunks = Read<uintptr_t>(Base + kGObjects);
+    const int32_t Count = Read<int32_t>(Base + kGObjects + 8);
+    uintptr_t Boss = 0, Controller = 0;
+    for (int32_t i = 0; i < Count && !(Boss && Controller); ++i)
+    {
+        const uintptr_t Chunk = Read<uintptr_t>(Chunks + 8 * (i >> 16));
+        const uintptr_t Object = Chunk ? Read<uintptr_t>(Chunk + (i & 0xFFFF) * 0x18 + 8) : 0;
+        if (!Object || (Read<uint32_t>(Object + 8) & 0x30) != 0)
+            continue;
+        for (uintptr_t Class = Read<uintptr_t>(Object + 0x10); Class; Class = Read<uintptr_t>(Class + 0x40))
+        {
+            const std::string Name = NameOf(Class);
+            if (!Boss && Name == "BP_BossEnemy_C")
+                Boss = Object;
+            if (!Controller && Name == "DDPlayerController")
+                Controller = Object;
+        }
+    }
+    if (!Boss)
+    {
+        Log("BossDmg: kein Boss");
+        return;
+    }
+    struct { uintptr_t Actor; float Damage; uint32_t Pad; uintptr_t Instigator, Causer, DamageType; float Result; uint32_t Pad2; } Params{Boss, Amount, 0, Controller, Boss, 0, 0, 0};
+    static_assert(sizeof(Params) == 0x30);
+    Read<ProcessEventFn*>(Statics)[kProcessEventIndex](Statics, Apply, &Params);
+    Log("BossDmg: " + std::to_string(static_cast<int>(Amount)) + " Schaden, angewendet " + std::to_string(static_cast<int>(Params.Result)));
+}
+
+// Testhilfe (gegner-alle): Host setzt einen BossfightSpawnPoint in die Welt und startet den Bosskampf wie das Spiel (Intro, Objective,
+// Lebensleiste, Phasen), "!bossfight SpikeBoss [Abstand]". Klasse /Game/DDSurvivors/Blueprints/Enemies/Bosses/BP_<Name>SpawnPoint.
+// Nur beim Host, die Replikation macht das Spiel.
+void BossFightCommand(const std::wstring& Args)
+{
+    const std::string Text(Args.begin(), Args.end());
+    const size_t Space = Text.find(' ');
+    const std::string TypeName = Text.substr(0, Space);
+    const double Distance = Space == std::string::npos ? 800.0 : atof(Text.c_str() + Space + 1);
+    const uintptr_t World = Read<uintptr_t>(Base + kGWorld);
+    const uintptr_t Statics = FindObject("Default__GameplayStatics", nullptr);
+    const uintptr_t Begin = FindObject("BeginDeferredActorSpawnFromClass", "GameplayStatics");
+    const uintptr_t Finish = FindObject("FinishSpawningActor", "GameplayStatics");
+    const uintptr_t GetLocation = FindObject("K2_GetActorLocation", "Actor");
+    const uintptr_t Trigger = FindObject("TriggerBossfight", "BossfightSpawnPoint");
+    const std::string ClassName = "BP_" + TypeName + "SpawnPoint_C";
+    uintptr_t Class = FindObject(ClassName.c_str(), nullptr);
+    if (!Class)
+        Class = LoadObjectByPath("/Game/DDSurvivors/Blueprints/Enemies/Bosses/BP_" + TypeName + "SpawnPoint.BP_" + TypeName + "SpawnPoint_C");
+    const bool IsHost = World && Read<uintptr_t>(World + kWorldGameMode) != 0;
+    if (!World || !Statics || !Begin || !Finish || !GetLocation || !Trigger || !Class)
+    {
+        Log("BossFight: " + TypeName + " nicht moeglich (Klasse " +
+            std::to_string(Class != 0) + ", Begin " + std::to_string(Begin != 0) + ", Finish " + std::to_string(Finish != 0) + ", Trigger " +
+            std::to_string(Trigger != 0) + ")");
+        return;
+    }
+    const uintptr_t Chunks = Read<uintptr_t>(Base + kGObjects);
+    const int32_t Count = Read<int32_t>(Base + kGObjects + 8);
+    uintptr_t Character = 0;
+    for (int32_t i = 0; i < Count && !Character; ++i)
+    {
+        const uintptr_t Chunk = Read<uintptr_t>(Chunks + 8 * (i >> 16));
+        const uintptr_t Object = Chunk ? Read<uintptr_t>(Chunk + (i & 0xFFFF) * 0x18 + 8) : 0;
+        if (!Object || (Read<uint32_t>(Object + 8) & 0x30) != 0)
+            continue;
+        for (uintptr_t C = Read<uintptr_t>(Object + 0x10); C; C = Read<uintptr_t>(C + 0x40))
+            if (NameOf(C) == "DDCharacter")
+            {
+                Character = Object;
+                break;
+            }
+    }
+    if (!Character)
+    {
+        Log("BossFight: keine Spielerfigur");
+        return;
+    }
+    struct { double X, Y, Z; } Location{};
+    Read<ProcessEventFn*>(Character)[kProcessEventIndex](Character, GetLocation, &Location);
+    struct Transform
+    {
+        double Rotation[4];
+        double Translation[3];
+        double Pad0;
+        double Scale[3];
+        double Pad1;
+    };
+    static_assert(sizeof(Transform) == 0x60);
+    Transform Where{};
+    Where.Rotation[3] = 1.0;
+    Where.Translation[0] = Location.X + Distance;
+    Where.Translation[1] = Location.Y;
+    Where.Translation[2] = Location.Z;
+    Where.Scale[0] = Where.Scale[1] = Where.Scale[2] = 1.0;
+    struct
+    {
+        uintptr_t WorldContext, ActorClass;
+        Transform Spawn;
+        uint8_t Collision, Pad[7];
+        uintptr_t Owner;
+        uint8_t ScaleMethod, Pad2[7];
+        uintptr_t Result;
+    } BeginParams{World, Class, Where, 1, {}, 0, 0, {}, 0};
+    static_assert(sizeof(BeginParams) == 0x90);
+    Read<ProcessEventFn*>(Statics)[kProcessEventIndex](Statics, Begin, &BeginParams);
+    if (!BeginParams.Result)
+    {
+        Log("BossFight: SpawnPoint nicht entstanden");
+        return;
+    }
+    struct
+    {
+        uintptr_t Actor, Pad;
+        Transform Spawn;
+        uint8_t ScaleMethod, Pad2[7];
+        uintptr_t Result;
+    } FinishParams{BeginParams.Result, 0, Where, 0, {}, 0};
+    static_assert(sizeof(FinishParams) == 0x80);
+    Read<ProcessEventFn*>(Statics)[kProcessEventIndex](Statics, Finish, &FinishParams);
+    // Beim Client nur der Spawnpunkt wie im Level, Boss und Kampfstart kommen vom Host.
+    if (!IsHost)
+    {
+        Log("BossFight: " + TypeName + " Spawnpunkt beim Client gesetzt");
+        return;
+    }
+    if (!Read<uintptr_t>(BeginParams.Result + 0x498))
+        if (const uintptr_t SpawnBoss = FindObject("SpawnBoss", "BossfightSpawnPoint"))
+            Read<ProcessEventFn*>(BeginParams.Result)[kProcessEventIndex](BeginParams.Result, SpawnBoss, nullptr);
+    float Delay = 1.0f;
+    Read<ProcessEventFn*>(BeginParams.Result)[kProcessEventIndex](BeginParams.Result, Trigger, &Delay);
+    {
+        const uintptr_t ObjectiveClass = Read<uintptr_t>(BeginParams.Result + 0x530);
+        Log("BossFight: BossObjectiveClass " + (ObjectiveClass ? NameOf(ObjectiveClass) : std::string("keine")));
+    }
+    Log("BossFight: " + TypeName + " Spawnpunkt gesetzt, Kampf angestossen (SpawnedBoss " +
+        (Read<uintptr_t>(BeginParams.Result + 0x498) ? NameOf(Read<uintptr_t>(Read<uintptr_t>(BeginParams.Result + 0x498) + 0x10)) : std::string("keiner")) + ")");
+}
+
+// Client: speist ein lokales DDBossObjective aus den replizierten Boss-HP (CommonAttributeSet des Bosses). Der Host fuettert es
+// ueber BossComponent::OnDamageReceivedEvent, dieses Ereignis gibt es beim Client nicht. Aufruf einmal je Sekunde.
+// Rueckgabe: true, wenn ein Wert gesetzt wurde.
+bool SyncBossBar()
+{
+    static const uintptr_t SetProgress = FindObject("SetCurrentProgressCounter", "DDObjective");
+    if (!SetProgress)
+        return false;
+    const uintptr_t Chunks = Read<uintptr_t>(Base + kGObjects);
+    const int32_t Count = Read<int32_t>(Base + kGObjects + 8);
+    uintptr_t Boss = 0, Objective = 0;
+    for (int32_t i = 0; i < Count && !(Boss && Objective); ++i)
+    {
+        const uintptr_t Chunk = Read<uintptr_t>(Chunks + 8 * (i >> 16));
+        const uintptr_t Object = Chunk ? Read<uintptr_t>(Chunk + (i & 0xFFFF) * 0x18 + 8) : 0;
+        if (!Object || (Read<uint32_t>(Object + 8) & 0x30) != 0)
+            continue;
+        for (uintptr_t C = Read<uintptr_t>(Object + 0x10); C; C = Read<uintptr_t>(C + 0x40))
+        {
+            const std::string Name = NameOf(C);
+            if (!Boss && Name == "BP_BossEnemy_C" && (Read<uint8_t>(Object + 0x5D) & 0x02) == 0)
+                Boss = Object;
+            if (!Objective && Name == "DDBossObjective")
+                Objective = Object;
+        }
+    }
+    if (!Boss || !Objective)
+        return false;
+    // Die Gesundheit des Bosses: das CommonAttributeSet mit dem grossen Maximum (der Boss besitzt mehrere Saetze).
+    float Health = -1, MaxHealth = 0;
+    for (int32_t i = 0; i < Count; ++i)
+    {
+        const uintptr_t Chunk = Read<uintptr_t>(Chunks + 8 * (i >> 16));
+        const uintptr_t Object = Chunk ? Read<uintptr_t>(Chunk + (i & 0xFFFF) * 0x18 + 8) : 0;
+        if (!Object || (Read<uint32_t>(Object + 8) & 0x30) != 0 || Read<uintptr_t>(Object + 0x20) != Boss ||
+            NameOf(Read<uintptr_t>(Object + 0x10)) != "CommonAttributeSet")
+            continue;
+        const float Max = Read<float>(Object + 0x30 + 0xC);
+        if (Max > MaxHealth)
+        {
+            MaxHealth = Max;
+            Health = Read<float>(Object + 0xA0 + 0xC);
+        }
+    }
+    if (Health < 0 || MaxHealth <= 1)
+        return false;
+    // Nur bei Aenderung setzen: Jeder Aufruf sendet OnProgressChanged an die Anzeige.
+    static uintptr_t LastObjective = 0;
+    static int64_t LastHealth = -1, LastMax = -1;
+    // Nie auf 0 setzen: Das schliesst das Objective ab (HandleObjectiveCompleted), dem Client-Subsystem fehlt dafuer das aktuelle
+    // Objective, und das Spiel stuerzt ab. Die Anzeige verschwindet, wenn der Boss weg ist (TickBossBar).
+    if (Health < 1)
+        return false;
+    const int64_t NewHealth = static_cast<int64_t>(Health), NewMax = static_cast<int64_t>(MaxHealth);
+    if (Objective == LastObjective && NewHealth == LastHealth && NewMax == LastMax)
+        return true;
+    constexpr uintptr_t kObjectiveMaxHealth = 0xD0;
+    *reinterpret_cast<int64_t*>(Objective + kObjectiveMaxHealth) = NewMax;
+    struct { int64_t Progress; } Params{NewHealth};
+    Log("BossBar: setze " + std::to_string(NewHealth) + " / " + std::to_string(NewMax));
+    Read<ProcessEventFn*>(Objective)[kProcessEventIndex](Objective, SetProgress, &Params);
+    LastObjective = Objective;
+    LastHealth = NewHealth;
+    LastMax = NewMax;
+    return true;
+}
+
+// Client, einmal je Sekunde: legt die Boss-Leiste an, sobald ein lebender Boss repliziert ist, haelt sie aktuell und nimmt sie
+// weg, wenn der Boss weg ist. Beim Host gibt es das Objective ueber den Spawnpunkt, hier nur Client-Anzeige aus replizierten Werten.
+void TickBossBar()
+{
+    static bool Shown = false;
+    static const uintptr_t Removed = FindObject("OnObjectiveRemoved", "DDObjectiveWidget");
+    // FindInstance vergleicht nur den genauen Klassennamen, das Objective ist aber eine Blueprint-Unterklasse von DDBossObjective.
+    uintptr_t Objective = 0;
+    {
+        const uintptr_t Chunks = Read<uintptr_t>(Base + kGObjects);
+        const int32_t Count = Read<int32_t>(Base + kGObjects + 8);
+        for (int32_t i = 0; i < Count && !Objective; ++i)
+        {
+            const uintptr_t Chunk = Read<uintptr_t>(Chunks + 8 * (i >> 16));
+            const uintptr_t Object = Chunk ? Read<uintptr_t>(Chunk + (i & 0xFFFF) * 0x18 + 8) : 0;
+            if (!Object || (Read<uint32_t>(Object + 8) & 0x30) != 0)
+                continue;
+            for (uintptr_t C = Read<uintptr_t>(Object + 0x10); C; C = Read<uintptr_t>(C + 0x40))
+                if (NameOf(C) == "DDBossObjective")
+                {
+                    Objective = Object;
+                    break;
+                }
+        }
+    }
+    if (!Objective)
+    {
+        Shown = false;
+        // Anlegen nur, wenn wirklich ein lebender Boss da ist (BossBarCommand prueft das und meldet sonst nur einmal im Log).
+        static bool Reported = false;
+        const uintptr_t Chunks = Read<uintptr_t>(Base + kGObjects);
+        const int32_t Count = Read<int32_t>(Base + kGObjects + 8);
+        bool Live = false;
+        for (int32_t i = 0; i < Count && !Live; ++i)
+        {
+            const uintptr_t Chunk = Read<uintptr_t>(Chunks + 8 * (i >> 16));
+            const uintptr_t Object = Chunk ? Read<uintptr_t>(Chunk + (i & 0xFFFF) * 0x18 + 8) : 0;
+            if (!Object || (Read<uint32_t>(Object + 8) & 0x30) != 0)
+                continue;
+            for (uintptr_t C = Read<uintptr_t>(Object + 0x10); C; C = Read<uintptr_t>(C + 0x40))
+                if (NameOf(C) == "BP_BossEnemy_C")
+                {
+                    Live = (Read<uint8_t>(Object + 0x5D) & 0x02) == 0;
+                    break;
+                }
+        }
+        if (Live)
+        {
+            if (!Reported)
+                Log("BossBar: Boss repliziert, lege lokale Leiste an");
+            Reported = true;
+            BossBarCommand(L"late");
+        }
+        else
+            Reported = false;
+        return;
+    }
+    // Das Objective braucht nach dem Anlegen einen Moment, bevor Werte gesetzt werden duerfen.
+    static uintptr_t Settling = 0;
+    static int SettleTicks = 0;
+    if (Objective != Settling)
+    {
+        Settling = Objective;
+        SettleTicks = 0;
+    }
+    if (SettleTicks < 3)
+    {
+        ++SettleTicks;
+        return;
+    }
+    if (SyncBossBar())
+    {
+        Shown = true;
+        return;
+    }
+    // Boss weg oder tot: Anzeige beenden und das Objective fallen lassen (es wird dabei vom Spiel selbst nicht entfernt).
+    if (Shown && Removed)
+    {
+        const uintptr_t Chunks = Read<uintptr_t>(Base + kGObjects);
+        const int32_t Count = Read<int32_t>(Base + kGObjects + 8);
+        for (int32_t i = 0; i < Count; ++i)
+        {
+            const uintptr_t Chunk = Read<uintptr_t>(Chunks + 8 * (i >> 16));
+            const uintptr_t Object = Chunk ? Read<uintptr_t>(Chunk + (i & 0xFFFF) * 0x18 + 8) : 0;
+            if (!Object || (Read<uint32_t>(Object + 8) & 0x30) != 0)
+                continue;
+            for (uintptr_t C = Read<uintptr_t>(Object + 0x10); C; C = Read<uintptr_t>(C + 0x40))
+                if (NameOf(C) == "DDObjectiveWidget")
+                {
+                    // Nur die Anzeige mit Subsystem (die zweite Instanz hat keins und stuerzt bei OnObjectiveRemoved ab).
+                    if (Read<uintptr_t>(Object + 0x378))
+                    {
+                        struct { uintptr_t Objective; } P{Objective};
+                        Read<ProcessEventFn*>(Object)[kProcessEventIndex](Object, Removed, &P);
+                    }
+                    break;
+                }
+        }
+        Log("BossBar: Boss weg, Leiste entfernt");
+        Shown = false;
+    }
+}
+
+// Versuch (gegner-alle): Client legt die Boss-Leiste lokal an, "!bossbar [Klasse]". Das Objective ist ein lokales Objekt der
+// GameInstance (DDObjectiveSubsystem), der Host legt es ueber den Spawnpunkt an, beim Client gibt es keins. Hier: CreateAndStartObjective
+// mit der Objective-Klasse, dann AddBossEnemy mit dem replizierten Boss.
+void BossBarCommand(const std::wstring& Args)
+{
+    // Standard: die Klasse, die der Host ueber den Spawnpunkt nutzt (BP mit Phasenmarken und Leistenwidget).
+    // "!bossbar late": Objective ohne AutoStart anlegen, Boss anmelden, dann StartTracking (Reihenfolge ausprobieren).
+    if (Args == L"sync")
+    {
+        Log(SyncBossBar() ? "BossBar: Werte gesetzt" : "BossBar: kein Boss oder keine Leiste");
+        return;
+    }
+    const bool Late = Args == L"late";
+    const std::string ClassName = Args.empty() || Late ? std::string("DD_BaseBossObjective_C") : std::string(Args.begin(), Args.end());
+    const uintptr_t Subsystem = FindInstance("DDObjectiveSubsystem");
+    const uintptr_t Create = FindObject("CreateAndStartObjective", "DDObjectiveSubsystem");
+    const uintptr_t AddBoss = FindObject("AddBossEnemy", "DDBossObjective");
+    uintptr_t ObjectiveClass = FindObject(ClassName.c_str(), nullptr);
+    if (!ObjectiveClass && ClassName == "DD_BaseBossObjective_C")
+        ObjectiveClass = LoadObjectByPath("/Game/DDSurvivors/Blueprints/Objectives/DD_BaseBossObjective.DD_BaseBossObjective_C");
+    uintptr_t Boss = 0;
+    const uintptr_t Chunks = Read<uintptr_t>(Base + kGObjects);
+    const int32_t Count = Read<int32_t>(Base + kGObjects + 8);
+    for (int32_t i = 0; i < Count && !Boss; ++i)
+    {
+        const uintptr_t Chunk = Read<uintptr_t>(Chunks + 8 * (i >> 16));
+        const uintptr_t Object = Chunk ? Read<uintptr_t>(Chunk + (i & 0xFFFF) * 0x18 + 8) : 0;
+        if (!Object || (Read<uint32_t>(Object + 8) & 0x30) != 0)
+            continue;
+        for (uintptr_t C = Read<uintptr_t>(Object + 0x10); C; C = Read<uintptr_t>(C + 0x40))
+            // Das Flag liegt in AActor, erst lesen, wenn die Klasse sicher ein Boss ist.
+            if (NameOf(C) == "BP_BossEnemy_C" && (Read<uint8_t>(Object + 0x5D) & 0x02) == 0)
+            {
+                Boss = Object;
+                break;
+            }
+    }
+    if (!Subsystem || !Create || !AddBoss || !ObjectiveClass || !Boss)
+    {
+        Log("BossBar: nicht moeglich (Subsystem " + std::to_string(Subsystem != 0) + ", Create " + std::to_string(Create != 0) + ", AddBoss " +
+            std::to_string(AddBoss != 0) + ", Klasse " + std::to_string(ObjectiveClass != 0) + ", Boss " + std::to_string(Boss != 0) + ")");
+        return;
+    }
+    struct { uintptr_t Class; bool AutoStart; uint8_t Pad[7]; uintptr_t Result; } Create_{ObjectiveClass, !Late, {}, 0};
+    Read<ProcessEventFn*>(Subsystem)[kProcessEventIndex](Subsystem, Create, &Create_);
+    if (!Create_.Result)
+    {
+        Log("BossBar: Objective nicht entstanden");
+        return;
+    }
+    struct { uintptr_t Boss; bool Result; uint8_t Pad[7]; } Add{Boss, false, {}};
+    Read<ProcessEventFn*>(Create_.Result)[kProcessEventIndex](Create_.Result, AddBoss, &Add);
+    // Die Phasenmarken der Anzeige entstehen beim Start und rechnen mit MaxHealth. Mit 0 fehlen sie, beim Ueberschreiten stuerzt der Client ab.
+    if (Late)
+    {
+        float Max = 0;
+        const uintptr_t C2 = Read<uintptr_t>(Base + kGObjects);
+        const int32_t N2 = Read<int32_t>(Base + kGObjects + 8);
+        for (int32_t i = 0; i < N2; ++i)
+        {
+            const uintptr_t Chunk = Read<uintptr_t>(C2 + 8 * (i >> 16));
+            const uintptr_t Object = Chunk ? Read<uintptr_t>(Chunk + (i & 0xFFFF) * 0x18 + 8) : 0;
+            if (!Object || (Read<uint32_t>(Object + 8) & 0x30) != 0 || Read<uintptr_t>(Object + 0x20) != Boss ||
+                NameOf(Read<uintptr_t>(Object + 0x10)) != "CommonAttributeSet")
+                continue;
+            if (Read<float>(Object + 0x30 + 0xC) > Max)
+                Max = Read<float>(Object + 0x30 + 0xC);
+        }
+        if (Max > 1)
+            *reinterpret_cast<int64_t*>(Create_.Result + 0xD0) = static_cast<int64_t>(Max);
+        Log("BossBar: MaxHealth vor dem Start " + std::to_string(static_cast<int>(Max)));
+    }
+    if (Late)
+        if (const uintptr_t Start = FindObject("StartTracking", "DDObjective"))
+        {
+            struct { uintptr_t World; } StartParams{Read<uintptr_t>(Base + kGWorld)};
+            Read<ProcessEventFn*>(Create_.Result)[kProcessEventIndex](Create_.Result, Start, &StartParams);
+        }
+    // Ohne AutoStart meldet das Subsystem den Start nicht. Die Anzeige (DDObjectiveWidget) kennt das Objective erst nach OnObjectiveStarted.
+    if (Late)
+    {
+        const uintptr_t Started = FindObject("OnObjectiveStarted", "DDObjectiveWidget");
+        int Notified = 0;
+        for (int32_t i = 0; Started && i < Count; ++i)
+        {
+            const uintptr_t Chunk = Read<uintptr_t>(Chunks + 8 * (i >> 16));
+            const uintptr_t Object = Chunk ? Read<uintptr_t>(Chunk + (i & 0xFFFF) * 0x18 + 8) : 0;
+            if (!Object || (Read<uint32_t>(Object + 8) & 0x30) != 0)
+                continue;
+            for (uintptr_t C = Read<uintptr_t>(Object + 0x10); C; C = Read<uintptr_t>(C + 0x40))
+                if (NameOf(C) == "DDObjectiveWidget")
+                {
+                    if (Read<uintptr_t>(Object + 0x378))
+                    {
+                        struct { uintptr_t Objective; } P{Create_.Result};
+                        Read<ProcessEventFn*>(Object)[kProcessEventIndex](Object, Started, &P);
+                        ++Notified;
+                    }
+                    break;
+                }
+        }
+        Log("BossBar: " + std::to_string(Notified) + " Anzeige(n) benachrichtigt");
+    }
+    Log("BossBar: Objective " + NameOf(Create_.Result) + " angelegt, AddBossEnemy " + std::to_string(Add.Result) + ", TrackedBosses " +
+        std::to_string(Read<int32_t>(Create_.Result + 0xA8)) + (Late ? " (late)" : ""));
 }
 
 // Laedt ein Asset ueber seinen Pfad, etwa "/Game/.../BP_X.BP_X_C". Dumper-7 erfasst danach auch diese Klasse.

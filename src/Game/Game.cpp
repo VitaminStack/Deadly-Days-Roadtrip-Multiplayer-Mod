@@ -4,6 +4,7 @@
 #include "Game/GameThread.h"
 #include "Game/Patches.h"
 #include "Game/TelemetryAdapter.h"
+#include "Game/BossBarAdapter.h"
 #include "Game/TutorialAdapter.h"
 #include "Game/WorldAdapter.h"
 
@@ -20,6 +21,7 @@ void Start()
     Patches::Install();
     GameThread::AddTick(TickWorld);
     GameThread::AddTick(TickTutorials);
+    GameThread::AddTick(TickBossBar);
     GameThread::AddTick(TickTelemetry);
     GameThread::AddTick(Patches::Tick);
     GameThread::Start();

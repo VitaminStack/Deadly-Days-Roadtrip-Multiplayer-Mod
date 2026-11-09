@@ -12,7 +12,7 @@ Geplante Unterordner, jeweils mit eigener Zuständigkeit:
 
 | Ordner | Inhalt |
 |---|---|
-| `Players/` | Beitritt, Bewegung, Status der Spieler |
+| `Players/` | Beitritt, Bewegung, Status der Spieler. Pausemenü des Clients beim Host (`PauseState.h`, `PauseSync.cpp`, `pausen-sync`) |
 | `Combat/` | Waffen, Projektile, Treffer, Fähigkeiten |
 | `Enemies/` | Spawn, Position und Tod der Gegner, Bosse. Ein Gegnertyp läuft nativ, ohne eigenen Code, siehe [Enemies](Enemies/README.md) |
 | `World/` | Karte, Tageszyklus, Missionen, Loot |
@@ -22,5 +22,5 @@ Gate G1 legt native UE-Replikation mit gezielten Kontrollkanal-Ergänzungen fest
 
 Einstieg ist `Sync::Start` in `Sync/Sync.h`. Darf `Core`, `Net` und `Game` nutzen, aber kein SDK einbinden.
 `Sync.cpp` leert den Kontrollkanal einmal pro Tick und verteilt die Nachrichten
-an Progress, Desync, Reward und die Karte (`World/MapSync.cpp`, gleiche Karte bei beiden, `missionsstart`). Diagnoseanzeige wird als Callback aus Mod angebunden,
+an Progress, Desync, Reward, die Karte (`World/MapSync.cpp`, gleiche Karte bei beiden, `missionsstart`) und die Pause (`Players/PauseSync.cpp`). Diagnoseanzeige wird als Callback aus Mod angebunden,
 keine direkte Abhängigkeit zum UI. [Desync-Melder, Konfiguration und offene Spielabnahme](../../docs/DESYNC.md).

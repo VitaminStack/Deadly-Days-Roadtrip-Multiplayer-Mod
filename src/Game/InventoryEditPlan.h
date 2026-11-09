@@ -23,6 +23,8 @@ inline constexpr size_t MaxItems = 96, MaxItemTiles = 32, MaxNewSlots = 64;
 // werkbank-client: Ausgabe der k-ten Aufwertung hat Source UpgradeSourceBase + k. Ausgangs-Items liegen darunter.
 inline constexpr uint16_t UpgradeSourceBase = 0xFF00;
 inline constexpr size_t MaxUpgrades = 8, MaxUpgradeInputs = 4, MaxObjectName = 120;
+// ERemoveItemContext: GeneralRemove 0, ReturnedToRewards 1, SoldForScrap 2, UsedAsIngredient 3 (lager-handel-client).
+inline constexpr uint8_t SoldForScrap = 2, MaxRemoveContext = 3;
 
 constexpr uint16_t UpgradeSource(size_t K)
 {
@@ -42,6 +44,7 @@ struct ItemState
     Tile Pivot{};
     std::vector<Tile> Tiles;
     bool AddEffect = false; // Panel hat ApplyAddToBackpackEffect gerufen, der Host löst ihn nach dem Ablegen aus
+    bool Broken = false; // UInventoryItemInstance.Broken; kaputt zu heil heißt repariert (lager-handel-client)
     bool operator==(const ItemState&) const = default;
 };
 
@@ -88,7 +91,42 @@ inline bool SameState(const ItemState& A, const ItemState& B)
 {
     if (A.Present != B.Present)
         return false;
-    return !A.Present || (SamePlacement(A, B) && A.Trash == B.Trash && A.AddEffect == B.AddEffect);
+    return !A.Present || (SamePlacement(A, B) && A.Trash == B.Trash && A.AddEffect == B.AddEffect && A.Broken == B.Broken);
+}
+
+// lager-handel-client: verkauft = im Edit nicht mehr vorhanden mit RemoveContext SoldForScrap.
+inline bool IsSold(const ItemState& Item)
+{
+    return !Item.Present && Item.RemoveContext == SoldForScrap;
+}
+
+// Repariert: vorher kaputt, im Ziel vorhanden und heil. Heil zu kaputt gibt es im Spiel nicht, der Host lehnt es ab.
+inline bool IsRepair(const ItemState& Before, const ItemState& After)
+{
+    return Before.Present && Before.Broken && After.Present && !After.Broken;
+}
+
+// Host: Schrott nach Verkäufen und Reparaturen eines Edits. Erst alle Verkäufe gutschreiben, dann jede Reparatur abziehen; so
+// ist die Reihenfolge des Clients egal, denn er konnte nur mit genug Schrott reparieren. Leer, wenn ein Preis ungültig ist oder
+// der Schrott für eine Reparatur nicht reicht.
+inline std::optional<int64_t> TradeBalance(int64_t Wallet, const std::vector<int32_t>& SellPrices, const std::vector<int32_t>& RepairPrices)
+{
+    constexpr int64_t MaxPrice = 1000000;
+    if (Wallet < 0)
+        return std::nullopt;
+    for (const int32_t Price : SellPrices)
+    {
+        if (Price < 0 || Price > MaxPrice)
+            return std::nullopt;
+        Wallet += Price;
+    }
+    for (const int32_t Price : RepairPrices)
+    {
+        if (Price < 0 || Price > MaxPrice || Wallet < Price)
+            return std::nullopt;
+        Wallet -= Price;
+    }
+    return Wallet;
 }
 
 inline std::vector<Tile> Sorted(std::vector<Tile> Tiles)
@@ -144,7 +182,8 @@ inline bool WellFormed(const Edit& Value)
     };
     for (const ItemState& Item : Value.Items)
     {
-        if ((Item.Source >= UpgradeSourceBase && Item.Source != ChoiceSource) || !Sources.insert(Item.Source).second || !Placement(Item))
+        if ((Item.Source >= UpgradeSourceBase && Item.Source != ChoiceSource) || !Sources.insert(Item.Source).second || !Placement(Item) ||
+            Item.RemoveContext > MaxRemoveContext || (Item.Present && Item.RemoveContext != 0) || (IsSold(Item) && Item.Source == ChoiceSource))
             return false;
         Choices += Item.Source == ChoiceSource;
     }
@@ -156,7 +195,7 @@ inline bool WellFormed(const Edit& Value)
         const Upgrade& Next = Value.Upgrades[K];
         if (Next.Inputs.empty() || Next.Inputs.size() > MaxUpgradeInputs || Next.Data.empty() || Next.Data.size() > MaxObjectName ||
             Next.Rarity.size() > MaxObjectName || Next.Output.Source != UpgradeSource(K) || Next.Output.DataHash != NameHash(Next.Data) ||
-            !Placement(Next.Output))
+            !Placement(Next.Output) || IsSold(Next.Output))
             return false;
         for (const uint16_t Input : Next.Inputs)
         {
@@ -170,7 +209,7 @@ inline bool WellFormed(const Edit& Value)
                 continue;
             }
             const auto It = std::find_if(Value.Items.begin(), Value.Items.end(), [&](const ItemState& Item) { return Item.Source == Input; });
-            if (It == Value.Items.end() || It->Present)
+            if (It == Value.Items.end() || It->Present || IsSold(*It)) // verkauft und aufgewertet zugleich geht nicht
                 return false;
         }
     }
@@ -262,6 +301,7 @@ inline bool Fits(const Edit& Value, const std::vector<Tile>& Slots, const std::v
 
 enum class StepKind : uint8_t
 {
+    Repair,       // RepairItem, vor dem Ablegen (lager-handel-client)
     Unplace,      // UnoccupyBackpackSlots und RemoveFromBackpack
     Remove,       // RemoveFromInventory
     Add,          // AddToInventory (nur beim Zurückrollen eines verbrauchten Items)
@@ -269,6 +309,7 @@ enum class StepKind : uint8_t
     CreateSlots,  // Server_CreateSlotsFromBagItem
     Place,        // SetTurns, SetZeroPivotTile, AddToBackpack, OccupyBackpackSlots
     Trash,        // UpdateIsTrash
+    Break,        // nur beim Zurückrollen: lokal reparierten Zustand wieder kaputt setzen
 };
 
 struct Step
@@ -285,6 +326,9 @@ inline std::vector<Step> Plan(const std::vector<ItemState>& Current, const std::
                               bool DestroySlots)
 {
     std::vector<Step> Steps;
+    for (size_t i = 0; i < Current.size() && i < Target.size(); ++i)
+        if (IsRepair(Current[i], Target[i]))
+            Steps.push_back({StepKind::Repair, i});
     std::vector<bool> Unplaced(Current.size());
     for (size_t i = 0; i < Current.size() && i < Target.size(); ++i)
         if (Current[i].Present && Current[i].InBackpack && (!Target[i].Present || !SamePlacement(Current[i], Target[i])))
@@ -308,6 +352,9 @@ inline std::vector<Step> Plan(const std::vector<ItemState>& Current, const std::
     for (size_t i = 0; i < Current.size() && i < Target.size(); ++i)
         if (Target[i].Present && Target[i].Trash != (Current[i].Present && Current[i].Trash))
             Steps.push_back({StepKind::Trash, i});
+    for (size_t i = 0; i < Current.size() && i < Target.size(); ++i)
+        if (Target[i].Present && Target[i].Broken && Current[i].Present && !Current[i].Broken)
+            Steps.push_back({StepKind::Break, i});
     return Steps;
 }
 }

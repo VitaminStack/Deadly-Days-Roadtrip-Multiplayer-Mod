@@ -13,6 +13,7 @@
 #include "Core/Protection.h"
 #include "Core/Version.h"
 #include "Game/Game.h"
+#include "Mod/Control.h"
 #include "Mod/Lobby.h"
 #include "Game/Patches.h"
 #include "Game/SaveRedirect.h"
@@ -65,6 +66,7 @@ void Start()
 
     // Die Lobby hängt einen Game-Thread-Tick an, das geht nur vor Game::Start.
     Mod::Lobby::Install();
+    Mod::Control::Install();
     Sync::BindDevSource([] { return UI::Overlay().TakeDevRequests(); });
     Sync::Start(Config, [](std::string Text) { UI::Overlay().PublishDiagnostics(std::move(Text)); });
     Started = true;

@@ -13,6 +13,7 @@
 
 #include "Core/Config.h"
 #include "Core/Log.h"
+#include "Net/Protocol.h"
 
 #pragma comment(lib, "user32.lib")
 #pragma comment(lib, "gdi32.lib")
@@ -62,6 +63,11 @@ void Text(HWND Control, const std::wstring& Value)
     Old.resize(static_cast<size_t>(Length));
     if (Old != Value)
         SetWindowTextW(Control, Value.c_str());
+}
+
+std::wstring ModName()
+{
+    return L"DDCoop v" + std::to_wstring(Net::Protocol::ModVersion);
 }
 
 const wchar_t* StateName(UI::SessionState State)
@@ -192,7 +198,8 @@ void UpdateControls(WindowState& State)
 {
     const auto View = UI::Overlay().Snapshot();
     const auto& Status = View.Status;
-    Text(State.Status, std::wstring(L"DDCoop | ") + StateName(Status.State));
+    // Die einzige Mod-Versionsquelle ist auch die im Handshake verwendete Konstante.
+    Text(State.Status, ModName() + L" | " + StateName(Status.State));
     Text(State.Message, Widen(Status.Message));
     Text(State.Diagnostics, Widen(View.Diagnostics));
     const wchar_t* Role = Status.Role == UI::SessionRole::Host ? L"Host" :
@@ -390,7 +397,8 @@ DWORD RunWindow()
         return 1;
     }
     WindowState State;
-    HWND Window = CreateWindowExW(WS_EX_TOOLWINDOW, WindowClass, L"DDCoop - Status (F8)",
+    const std::wstring Title = ModName() + L" - Status (F8)";
+    HWND Window = CreateWindowExW(WS_EX_TOOLWINDOW, WindowClass, Title.c_str(),
         WS_POPUP | WS_CAPTION | WS_SYSMENU, 0, 0, 460, 340, nullptr, nullptr, Class.hInstance, &State);
     if (Window)
     {

@@ -86,6 +86,8 @@ void TickSession()
     {
         TickMapGen();
         if (!ModOwnsPatches)
+            TickBossBar(); // mit Mod baut dessen BossBarAdapter die Leiste
+        if (!ModOwnsPatches)
         {
             ReleaseDeferredWidgetEvents(World);
             ViewThroughSharedCamera();
@@ -134,6 +136,14 @@ void RunPendingCommand()
         SkipTutorials(true);
     else if (Pending.rfind(L"!give ", 0) == 0)
         GiveItemCommand(Pending.substr(6));
+    else if (Pending == L"!bossbar" || Pending.rfind(L"!bossbar ", 0) == 0)
+        BossBarCommand(Pending.size() > 9 ? Pending.substr(9) : std::wstring{});
+    else if (Pending.rfind(L"!bossfight ", 0) == 0)
+        BossFightCommand(Pending.substr(11));
+    else if (Pending.rfind(L"!bossdmg ", 0) == 0)
+        BossDamageCommand(Pending.substr(9));
+    else if (Pending.rfind(L"!boss ", 0) == 0)
+        BossCommand(Pending.substr(6));
     else if (Pending.rfind(L"!load ", 0) == 0)
         LoadAssetCommand(Pending.substr(6));
     else if (Pending.rfind(L"!tunnel ", 0) == 0)

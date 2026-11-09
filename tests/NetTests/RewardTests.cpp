@@ -244,3 +244,53 @@ TEST_CASE("Reward names are clipped on UTF-8 boundaries")
     CHECK(Clipped.size() == MaxName - 1);
     CHECK(Clip("kurz") == "kurz");
 }
+
+TEST_CASE("lager-handel-client: Edit trägt kaputt und verkauft, Flags über 31 sind ungültig")
+{
+    using namespace Game::InventoryEdit;
+    Edit Value;
+    Value.Id = 11;
+    ItemState Repaired{2, NameHash("DA_Shotgun"), true, 0, true, false, 0, {0, 0}, {{0, 0}}};
+    ItemState StillBroken{3, NameHash("DA_Knife"), true, 0, false, false, 0, {}, {}};
+    StillBroken.Broken = true;
+    ItemState Sold{4, NameHash("DA_Pistol"), false, SoldForScrap, false, false, 0, {}, {}};
+    Value.Items = {Repaired, StillBroken, Sold};
+    const auto Bytes = Encode(Value);
+    REQUIRE_FALSE(Bytes.empty());
+    const auto Back = DecodeEdit(Bytes);
+    REQUIRE(Back);
+    CHECK(*Back == Value);
+    CHECK(Back->Items[1].Broken);
+    CHECK(IsSold(Back->Items[2]));
+
+    // Flags des zweiten Items: 26 Byte Kopf, 1 Byte Anzahl, erstes Item 21 + 8.
+    auto BadFlags = Bytes;
+    const size_t Flags = 26 + 1 + 21 + 8 + 6;
+    REQUIRE(BadFlags[Flags] == 17); // vorhanden und kaputt
+    BadFlags[Flags] = 33;
+    CHECK_FALSE(DecodeEdit(BadFlags));
+    auto BadContext = Bytes;
+    BadContext[26 + 1 + 21 + 8 + 21 + 7] = 4; // RemoveContext über UsedAsIngredient
+    CHECK_FALSE(DecodeEdit(BadContext));
+}
+
+TEST_CASE("lager-handel-client: Schrott round-trips und lehnt ungültige Stände ab")
+{
+    for (const int32_t Amount : {0, 1, 1234, MaxScrap})
+    {
+        const auto Bytes = Encode(Scrap{Amount});
+        REQUIRE(Bytes.size() == 4);
+        const auto Back = DecodeScrap(Bytes);
+        REQUIRE(Back);
+        CHECK(Back->Amount == Amount);
+    }
+    CHECK(Encode(Scrap{-1}).empty());
+    CHECK(Encode(Scrap{MaxScrap + 1}).empty());
+    const std::vector<uint8_t> Negative{0xFF, 0xFF, 0xFF, 0xFF};
+    CHECK_FALSE(DecodeScrap(Negative));
+    const auto Bytes = Encode(Scrap{5});
+    CHECK_FALSE(DecodeScrap(std::span(Bytes).first(3)));
+    auto Longer = Bytes;
+    Longer.push_back(0);
+    CHECK_FALSE(DecodeScrap(Longer));
+}
