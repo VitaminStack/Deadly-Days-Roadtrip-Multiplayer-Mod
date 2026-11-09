@@ -342,7 +342,7 @@ flowchart TD
     W2 --> IG
     W3 --> IG
     IG --> G2{{"Gate G2"}}:::done
-    PR --> W4["Welle 4<br/>fortschritt, werkbank-client,<br/>pausen-sync, tagesablauf,<br/>run-ende, vfx-sound, reconnect"]:::open
+    PR --> W4["Welle 4<br/>fortschritt, werkbank-client,<br/>pausen-sync, tagesablauf,<br/>run-ende, vfx-sound"]:::open
     G2 --> W4
     W4 --> IR["integration-run"]:::central
     W5 --> IR

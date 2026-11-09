@@ -37,7 +37,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `tagesablauf` | P0 | [5](#phase-5--vollständiger-run) | parallel | viel |
 | `lager-bestaetigen-absturz` | P1 | [5](#phase-5--vollständiger-run) | zu zweit | mittel |
 | `run-ende` | P1 | [5](#phase-5--vollständiger-run) | parallel | viel |
-| `reconnect` | P2 | [5](#phase-5--vollständiger-run) | parallel | viel |
 | `vfx-sound` | P2 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `weekly-sperre` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
 
@@ -158,7 +157,6 @@ Ziel: Ein kompletter Run ist zu zweit online spielbar.
 | `run-ende` | P1 | Run-Ende und Rückkehr zur Meta-Basis. Ordner `src/Sync/World`, Dateien mit `tagesablauf` absprechen | `integration-g2`, `protokoll`, `niederlage`, `meta-fortschritt` | parallel | viel |
 | `integration-run` | P0 | Kompletten Run zu zweit über Internet durchspielen und Fehler den Aufgaben zuordnen. **Fertig, wenn** ein Run von der `MetaBase` bis zum Endboss ohne Absturz und Desync läuft | `gegner-alle`, `fortschritt`, `werkbank-client`, `pausen-sync`, `tagesablauf`, `run-ende`, `dauerlauf` | zentral | viel |
 | `vfx-sound` | P2 | VFX und Sound (FMOD) beim Client. Ordner `src/Sync/Combat` | `integration-g2` | parallel | mittel |
-| `reconnect` | P2 | Wiederverbinden während eines Runs, Hinweis: `OnCoopReconnectRequiredChanged`. Ordner `src/Net`, `src/Sync` | `integration-g2`, `protokoll`, `net-fehler` | parallel | viel |
 | `lager-bestaetigen-absturz` | P1 | Gemeldet am 09.11.2026 aus einem Zwei-PC-Spiel: Der Client stürzte ab, als er in der Inventarverwaltung zum Rundenende „Bestätigen“ drückte. Im Ein-PC-Test am selben Tag nicht nachgestellt. Belege (Client-Mod-Log `DDCoop\logs\ddcoop-<PID>.log`, Absturzbericht oder Ereignis 1000) liegen auf dem anderen PC und fehlen noch. **Fertig, wenn** die Ursache aus Log oder Stapel belegt und behoben ist und ein Zwei-PC-Test drei Rundenenden mit Bestätigen beim Client ohne Absturz zeigt. Ordner `src/Game`, `src/Sync` | `integration-g2` | zu zweit | mittel |
 
 ## Phase 6 – Release
@@ -184,6 +182,7 @@ Auch die zukünftige Update-Verwaltung bleibt vorerst optional: Wir erzwingen Bu
 
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
+| `reconnect` | P2 | Nutzerentscheidung vom 09.11.2026: optional, keine Voraussetzung für den Run. Wiederverbinden während eines Runs, Hinweis: `OnCoopReconnectRequiredChanged`. Ordner `src/Net`, `src/Sync` | `integration-run`, `protokoll`, `net-fehler` | parallel | viel |
 | `weekly-sperre` | P2 | Nutzerentscheidung vom 09.11.2026: optional, keine Release-Voraussetzung mehr. **Bestätigungstest ausstehend:** ddrweekly.deadlydays.com in Core::ReportHosts gesperrt, Unit-Tests bestehen. Offen: Solo-Spieltest mit Mod, Weekly-Eintrag im Hauptmenü anklicken, Menü bleibt bedienbar, Log zeigt keine Auflösung; ohne Mod unverändert. **Aufgabe und Abnahme:** Die Weekly-Challenge sperren, solange die Mod geladen ist, auch solo, wie Erfolge und Bestenlisten (Entscheidung `weeklymode`). `ddrweekly.deadlydays.com` in `Core::ReportHosts` aufnehmen und vorher prüfen, wie das Menü reagiert: Hängt oder stürzt der Weekly-Eintrag ohne Antwort, ihn sperren oder mit Hinweis versehen. **Fertig, wenn** mit Mod nichts an den Weekly-Server geht, das Menü normal bedienbar bleibt und ohne Mod alles unverändert ist. **Einstieg:** [Telemetrie und Berichte](docs/GAME_ANALYSIS.md#telemetrie-und-berichte-telemetrie-aus). Ordner `src/Core`, `src/Game` | `weeklymode`, `telemetrie-aus` | parallel | wenig |
 | `opt-waffen-hover` | P2 | Beim Client hebt das Inventar beim Überfahren einer Waffe mit der Maus die Items nicht hervor, die auf die Waffe wirken; beim Host schon (Ein-PC-Test 09.11.2026, Bildvergleich). Lokal zuerst: die native Hervorhebung beim Client aus den replizierten Inventardaten anzeigen, keine neue Nachricht. **Fertig, wenn** der Client beim Überfahren dieselben Items hervorgehoben sieht wie der Host. Ordner `src/Game` | `integration-run` | parallel | wenig |
 | `opt-busbalken` | P2 | Beim Abfahren mit dem Bus fehlt beim Client der Ladebalken (Ein-PC-Test 09.11.2026). Vermutlich treibt ihn nur der Host, ähnlich `opt-lootbalken`. Lokal zuerst aus replizierten Daten anzeigen. **Fertig, wenn** der Client beim Abfahren denselben Balken sieht wie der Host. Ordner `src/Game` | `integration-run` | parallel | wenig |
