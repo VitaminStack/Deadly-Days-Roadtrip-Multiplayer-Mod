@@ -113,8 +113,9 @@ Stand 07.11.2026, Dateien `MapPatches.cpp`, `TravelPatches.cpp`, `ExpPatches.cpp
   Inventar gleich. `SeamlessTravelToLevel` läuft ohne Absturz, der Client setzt die gemeinsame Kamera
   (`Kamera: gemeinsame Kamera gesetzt`), der Host beobachtet den Dash der Clients (`GA_Dash`).
 - Ohne Spike geht `Run-Route.ps1` nur bis Tag 1 (`!finish` fehlt).
-- Offen: XP-Bälle beim Client (Log `XP-Baelle: …` aus `ExpPatches.cpp`) und der Dash am Kamerarand. Beides braucht Gegner im Spiel, die ein
-  Mensch besiegt.
+- Nachtest 09.11.2026, ein PC, `Start-Session.ps1 -Build -Mod -Tunnel Lobby -NoSpike`, 44 Patches, Mensch spielte den Client: XP-Bälle
+  erscheinen beim Client (fünfmal `XP-Baelle: 1 Host-Ausstoss(e) angezeigt`, sichtbar leicht verzögert), der Client-Dash am Kamerarand
+  bleibt in der gemeinsamen Kamera. Kein Absturz. Damit ist `update-welt` bestätigt.
 
 ### Spike (`spike-build-26495302`)
 
