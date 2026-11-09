@@ -9,8 +9,8 @@ namespace Game::Patches
 {
 namespace
 {
-constexpr uintptr_t OpenCrate = 0x5A43400;
-constexpr uintptr_t OpenChoices = 0x5A42F50;
+constexpr uintptr_t OpenCrate = 0x5A47660;
+constexpr uintptr_t OpenChoices = 0x5A471D0;
 using OpenFn = void(__fastcall*)(uintptr_t, uintptr_t);
 OpenFn OriginalCrate = nullptr, OriginalChoices = nullptr;
 std::atomic<unsigned> LocalOpenAttempts = 0, LocalChoiceAttempts = 0;

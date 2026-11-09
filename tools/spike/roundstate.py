@@ -1,4 +1,4 @@
-"""Liest Runden-/Panelzustand: roundstate.py <pid> [<pid> ...]. Nur Build 26187885.
+"""Liest Runden-/Panelzustand: roundstate.py <pid> [<pid> ...]. Nur Build 26495302.
 
 IsOpen ist der lokale Zustand des AnimationContainers, keine Zusage ueber Sichtbarkeit.
 Keine Aufrufe oder Schreibzugriffe. GameInstance-Widgets koennen aeltere Karten ueberleben.

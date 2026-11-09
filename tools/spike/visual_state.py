@@ -1,4 +1,4 @@
-"""Lesender Host-/Client-Vergleich visueller Objekte, nur Build 26187885.
+"""Lesender Host-/Client-Vergleich visueller Objekte, nur Build 26495302.
 
 Keine Actors erzeugen, keine Effekte oder XP ausloesen. Rohberichte gehoeren
 unter research/local, nicht ins oeffentliche Repository.
@@ -91,7 +91,7 @@ def snapshot(pid):
                             'Emitter array sizes are retained CPU data, not live GPU particle counts.',
                             'Actor presence does not prove visible rendering or equal lifecycle.',
                             'Only actors directly in the current persistent level are selected.',
-                            'Fixed offsets: supported build 26187885 only.']}
+                            'Fixed offsets: supported build 26495302 only.']}
 
 
 if __name__ == '__main__':

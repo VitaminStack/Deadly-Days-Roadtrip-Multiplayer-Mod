@@ -66,13 +66,14 @@ Schreibende Zugriffe und Hooks folgen demselben Muster, siehe [Patches](#patches
 Die Fixes, ohne die keine Mission zu zweit läuft, kommen aus dem Spike (Aufgabe `patches`). Herkunft und Belege jeder Stelle stehen in
 der [Patch-Tabelle des Spikes](../../research/spikes/a-connect/README.md#patches). Die RVAs stehen als Konstanten am Anfang der jeweiligen Datei.
 
-Alle RVAs im Quelltext gelten für den Referenz-Build `26187885`. `At(Rva)` und `Memory::Rva` rechnen sie über `AddressMap` auf den laufenden
-Build um (Tabelle `RvaMap<build>.inc` aus [`tools/rva_map.py`](../../tools/README.md#rva_mappy)). Fehlt eine Adresse, liefern sie 0 und
+Alle RVAs im Quelltext gelten für den Referenz-Build `26495302` (seit `spiel-update`, vorher `26187885`, siehe
+[Offsets](../../docs/OFFSETS.md#referenz-build-26495302-spiel-update)). `At(Rva)` und `Memory::Rva` rechnen sie über `AddressMap` auf einen künftigen
+weiteren Build um (Tabelle `RvaMap<build>.inc` aus [`tools/rva_map.py`](../../tools/README.md#rva_mappy)). Fehlt eine Adresse, liefern sie 0 und
 protokollieren sie einmal; die Byte-Prüfungen schlagen dann fehl und keine Patch-Liste wird gesetzt. Neue RVAs immer als Referenz-RVA
 eintragen und für jeden weiteren Build in dessen Tabelle nachziehen. Feld-Offsets (`Offsets.h`) werden nicht umgerechnet.
 
 **Teilinstallation für die Portierung.** Mit `DDCOOP_PARTIAL_PATCHES=1` (`Start-Session.ps1 -PartialPatches`) setzt die Mod auf einem anderen
-Build als `26187885` jede Patch-Liste (eine `*Patches.cpp`) für sich ganz oder gar nicht; Ticks laufen nur für gesetzte Listen. Das Log nennt
+Build als `26495302` jede Patch-Liste (eine `*Patches.cpp`) für sich ganz oder gar nicht; Ticks laufen nur für gesetzte Listen. Das Log nennt
 ausgelassene Listen (`Liste … ausgelassen`) und die Summe. Nur zum Testen einzelner Portierungen: Hooks einer gesetzten Liste können Code einer
 ausgelassenen erreichen. Im Referenz-Build und ohne Schalter bleibt es bei allen Patches oder keinem.
 

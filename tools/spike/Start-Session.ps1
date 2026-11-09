@@ -46,7 +46,7 @@ param(
     # angenommenen Einladung bei geschlossenem Spiel. Die Mod kommt dafuer in die Steam-Installation (nicht in PinnedGameDir), ohne
     # eigenes -UserDir; Stop-Session.ps1 entfernt sie wieder. Das Skript wartet auf den Prozess, den Steam startet.
     [switch]$SteamLaunch,
-    # Nur auf einem anderen Build als 26187885: Patch-Listen einzeln setzen (DDCOOP_PARTIAL_PATCHES), fuer die Portierung.
+    # Nur auf einem anderen Build als 26495302: Patch-Listen einzeln setzen (DDCOOP_PARTIAL_PATCHES), fuer die Portierung.
     [switch]$PartialPatches
 )
 $ErrorActionPreference = 'Stop'
@@ -82,7 +82,7 @@ $Timer = [Diagnostics.Stopwatch]::StartNew()
 function Write-Step([string]$Text) { Write-Host ('[{0,4:n0} s] {1}' -f $Timer.Elapsed.TotalSeconds, $Text) }
 Initialize-SessionDir
 Assert-SupportedBuild
-# Der Spike rechnet seine Adressen des Referenz-Builds je Build um (Builds.cpp) und prueft alle Patch-Stellen vor dem Setzen,
+# Der Spike kennt nur Adressen des Referenz-Builds (Builds.cpp) und prueft alle Patch-Stellen vor dem Setzen,
 # siehe research/spikes/a-connect/README.md, Abschnitt Builds. Alle Builds in SupportedBuilds sind damit zugelassen.
 if ($Restart -or $Build) {
     $Stopped = & (Join-Path $PSScriptRoot 'Stop-Session.ps1')

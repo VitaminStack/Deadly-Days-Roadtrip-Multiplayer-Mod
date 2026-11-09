@@ -316,7 +316,7 @@ auf demselben Stand von `main`: vor dem Test `git rev-parse --short HEAD` vergle
 
 ### Vorbereitung auf beiden PCs
 
-1. Einrichtung nach [SETUP.md](SETUP.md), Spiel-Build `26187885` oder `26495302`. `Start-Session.ps1` bricht bei einem anderen Build ab.
+1. Einrichtung nach [SETUP.md](SETUP.md), Spiel-Build `26495302`. `Start-Session.ps1` bricht bei einem anderen Build ab.
 2. Zwei verschiedene Steam-Konten, beide besitzen das Spiel, Steam läuft und ist online. Freundschaft ist nicht nötig.
 3. Kein Port muss freigegeben werden: Steam vermittelt die Verbindung und leitet sie notfalls über eigene Relays. Fragt die
    Windows-Firewall beim ersten Start nach dem Spiel, reicht „Abbrechen“, der Tunnel spricht mit dem Spiel nur über `127.0.0.1`.

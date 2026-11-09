@@ -9,8 +9,6 @@
 
 #include "Core/Log.h"
 #include "Core/Hooks.h"
-#include "Core/Version.h"
-#include "Game/AddressMap.h"
 #include "Game/Memory.h"
 #include "Game/PatchPolicy.h"
 #include "Game/Objects.h"
@@ -21,19 +19,19 @@ namespace Game::Patches
 {
 namespace
 {
-constexpr uintptr_t InventoryVtable = 0x94BA3F0;
-constexpr uintptr_t SlotVtable = 0x939CE08;
-constexpr uintptr_t ItemVtable = 0x94B46E8;
+constexpr uintptr_t InventoryVtable = 0x94BF710;
+constexpr uintptr_t SlotVtable = 0x93A1F98;
+constexpr uintptr_t ItemVtable = 0x94B9A08;
 constexpr uintptr_t SupportedForNetworkingSlot = 0x200;
 constexpr uintptr_t ReadyForReplicationSlot = 0x3D8;
-constexpr uintptr_t DefaultNetworkingSupport = 0x1512250;
-constexpr uintptr_t InventoryReadyForReplication = 0x5969750;
+constexpr uintptr_t DefaultNetworkingSupport = 0x1512430;
+constexpr uintptr_t InventoryReadyForReplication = 0x596D8C0;
 constexpr uintptr_t ComponentReplicationFlags = 0x98;
 constexpr uint8_t UseRegisteredSubobjectList = 0x40;
 
 // AItemLoot::Loot bekommt das ILootableInterface-Teilobjekt, nicht den Actor.
 // Auch Blueprint-Aufrufe erreichen diesen virtuellen nativen Pfad.
-constexpr uintptr_t ItemLoot = 0x59AB040;
+constexpr uintptr_t ItemLoot = 0x59AF200;
 constexpr uintptr_t LootableInterface = 0x2A8;
 using ItemLootFn = void(__fastcall*)(uintptr_t, uintptr_t);
 ItemLootFn OriginalItemLoot = nullptr;
@@ -185,26 +183,26 @@ bool ApplyItemLoot(Code::Writer&)
 
 // Der Callback nach der Reise auf Tag 3 gehört nicht zum Inventar: Der Achievement-Detektor legt in BeginPlay einen
 // Timer mit rohem this an und löscht ihn in EndPlay nicht.
-constexpr uintptr_t DetectorVtable = 0x94C1758;
-constexpr uintptr_t DetectorEndPlay = 0x57D0A40;
+constexpr uintptr_t DetectorVtable = 0x94C6A78;
+constexpr uintptr_t DetectorEndPlay = 0x57D0C60;
 constexpr uintptr_t EndPlaySlot = 0x3F0;
-constexpr uintptr_t ScheduleCall = 0x57CB3C5;
-constexpr uintptr_t SetNextTick = 0x314D4D0;
-constexpr uintptr_t FindTimer = 0x31471C0;
-constexpr uintptr_t ClearTimer = 0x314D0B0;
+constexpr uintptr_t ScheduleCall = 0x57CB5A5;
+constexpr uintptr_t SetNextTick = 0x314D6D0;
+constexpr uintptr_t FindTimer = 0x31473C0;
+constexpr uintptr_t ClearTimer = 0x314D2B0;
 constexpr uintptr_t DelegateCapturedThis = 0x18;
 
-// Lambda des Kartengenerators: roher Generator bei +18h, &CurrentGenData bei +20h, ruft den Schritt 0x59D9090 ohne
+// Lambda des Kartengenerators: roher Generator bei +18h, &CurrentGenData bei +20h, ruft den Schritt 0x59DDE60 ohne
 // Prüfung. Nach der Reise auf Tag 3 feuerte er für den Generator der alten Karte.
-constexpr uintptr_t MapGenLambdaVtable = 0x9613280;
-constexpr uintptr_t MapGenLambdaExecute = 0x59CAE70;
-constexpr uintptr_t MapGenLambdaExecuteIfSafe = 0x59CB020;
+constexpr uintptr_t MapGenLambdaVtable = 0x96191F0;
+constexpr uintptr_t MapGenLambdaExecute = 0x59CFBA0;
+constexpr uintptr_t MapGenLambdaExecuteIfSafe = 0x59CFD50;
 constexpr uintptr_t LambdaGenerator = 0x18;
 
 // lager-absturz-client: Größe eines Item-Widgets (UItemRepresentation) aus der Itemform, Breite und Höhe je 66 px minus 3.
 // Liest ItemInstance (+0xA28), davon ItemData (+0xE0) und dessen Form (+0xE8) ohne Prüfung. Verliert das Widget sein Item, etwa
-// beim Verbindungsabbau im Lager, stürzte der Client hier ab (0x5AB513A). Ohne Item bleibt die alte Größe stehen.
-constexpr uintptr_t RepresentationSize = 0x5AB5120;
+// beim Verbindungsabbau im Lager, stürzte der Client hier ab (Build 26187885, Lesen bei +0x1A). Ohne Item bleibt die alte Größe stehen.
+constexpr uintptr_t RepresentationSize = 0x5ABA0F0;
 constexpr uintptr_t RepresentationItem = 0xA28;
 constexpr uintptr_t ItemInstanceData = 0xE0;
 constexpr uintptr_t ItemDataShape = 0xE8;
@@ -368,16 +366,12 @@ bool ApplyMapGenLambda(Code::Writer&)
            Code::WriteVirtual(At(MapGenLambdaVtable, 8), reinterpret_cast<uintptr_t>(&MapGenLambdaExecuteIfSafeHook));
 }
 
-// Ab 26495302 prüft die Funktion zuerst den Slot (+0x30) und liest das Item danach, weiter ohne Prüfung (mov rax,[rsi+0A28h]
-// bei +0x41). Der Hook bleibt nötig.
+// Die Funktion prüft zuerst den Slot (+0x30) und liest das Item danach ohne Prüfung (mov rax,[rsi+0A28h] bei +0x41).
 bool CheckRepresentationSize()
 {
-    if (Core::ActiveBuild() == AddressMap::ReferenceBuild)
-        return Code::Expect(At(RepresentationSize), {0x40, 0x53, 0x48, 0x83, 0xEC, 0x50, 0x48, 0x8B, 0x81, 0x28, 0x0A, 0x00, 0x00}, // Build 26187885
-                            "Größe des Item-Widgets");
-    return Code::Expect(At(RepresentationSize), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x56, 0x48, 0x83, 0xEC, 0x40, 0x48, 0x83, 0x79, 0x30, 0x00}, // Build 26495302
+    return Code::Expect(At(RepresentationSize), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x56, 0x48, 0x83, 0xEC, 0x40, 0x48, 0x83, 0x79, 0x30, 0x00},
                         "Größe des Item-Widgets") &&
-           Code::Expect(At(RepresentationSize, 0x41), {0x48, 0x8B, 0x86, 0x28, 0x0A, 0x00, 0x00}, "Größe des Item-Widgets, Item-Feld"); // Build 26495302
+           Code::Expect(At(RepresentationSize, 0x41), {0x48, 0x8B, 0x86, 0x28, 0x0A, 0x00, 0x00}, "Größe des Item-Widgets, Item-Feld");
 }
 
 bool ApplyRepresentationSize(Code::Writer&)

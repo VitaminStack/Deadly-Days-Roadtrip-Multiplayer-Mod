@@ -45,7 +45,7 @@ Dann eine Aufgabe nehmen und reservieren, siehe [Wo kann ich anfangen?](../TODO.
 ## Gleiche Build-ID im Team
 
 **Lösung:** Nicht Steam anhalten, sondern eine geprüfte Entwicklungskopie außerhalb seiner Bibliotheken verwenden. Steam darf seine
-Installation aktualisieren; die Mod-Entwicklung bleibt auf Build `26187885`, bis das Team die Unterstützung eines anderen Builds freigibt.
+Installation aktualisieren; die Mod-Entwicklung bleibt auf Build `26495302`, bis das Team die Unterstützung eines anderen Builds freigibt.
 Diese Trennung ist auf einem Windows-PC mit laufendem Steam, zwei verbundenen Instanzen und geladener Mod geprüft.
 Belege und Dateireferenz stehen in [Gemeinsame Build-ID](GAME_ANALYSIS.md#gemeinsame-build-id-build-id).
 
@@ -59,7 +59,7 @@ powershell -ExecutionPolicy Bypass -File tools/Freeze-GameBuild.ps1 -Activate
 powershell -ExecutionPolicy Bypass -File tools/Test-Setup.ps1
 ```
 
-Standardziel: `%LOCALAPPDATA%/DDCoop/builds/26187885`. Mit `-Destination <Ordner>` lässt sich ein anderes Ziel außerhalb jeder
+Standardziel: `%LOCALAPPDATA%/DDCoop/builds/26495302`. Mit `-Destination <Ordner>` lässt sich ein anderes Ziel außerhalb jeder
 `steamapps`-Struktur wählen. Das Skript kopiert echte Dateien, keine Hardlinks, und akzeptiert keine Junctions oder Symlinks im Zielweg.
 Ein vorhandenes Ziel wird nur geprüft und gegebenenfalls aktiviert, **nie überschrieben oder repariert**.
 Ohne `-Activate` bleibt die Konfiguration unverändert. Das Skript verändert keine Steam-Einstellungen und lädt nichts herunter.

@@ -1,4 +1,4 @@
-"""Tank lesen oder fast fuellen: fuel.py <pid> [--fill]. Nur Build 26187885, fuer Testlaeufe zum Rundenende.
+"""Tank lesen oder fast fuellen: fuel.py <pid> [--fill]. Nur Build 26495302, fuer Testlaeufe zum Rundenende.
 
 Liest jeden UFuelMeter (MaxRequiredFuel +0xF4, CurrentFuel +0xF8, beide float, siehe docs/OFFSETS.md).
 --fill schreibt CurrentFuel = MaxRequiredFuel - 2, nur beim Host sinnvoll: Der Wert ist repliziert,

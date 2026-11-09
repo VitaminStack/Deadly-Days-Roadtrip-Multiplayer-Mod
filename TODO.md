@@ -37,7 +37,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `tagesablauf` | P0 | [5](#phase-5--vollständiger-run) | parallel | viel |
 | `lager-bestaetigen-absturz` | P1 | [5](#phase-5--vollständiger-run) | zu zweit | mittel |
 | `run-ende` | P1 | [5](#phase-5--vollständiger-run) | parallel | viel |
-| `spiel-update` | P1 | [Wartung](#wartung) | zentral | viel |
 | `reconnect` | P2 | [5](#phase-5--vollständiger-run) | parallel | viel |
 | `vfx-sound` | P2 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `weekly-sperre` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
@@ -176,13 +175,12 @@ Zählt nicht zum Fortschritt.
 
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
-| `spiel-update` | P1 | Umstieg auf Build `26495302` (Depot `3026452`, Manifest `2302428105354984436`) abschließen: ausstehende Bestätigungstests auf dem neuen Build, Doku ([GAME_ANALYSIS](docs/GAME_ANALYSIS.md#unterstützte-spielversion), [OFFSETS](docs/OFFSETS.md), SETUP, INSTALL, CLAUDE.md), danach Unterstützung für `26187885` entfernen. **Fertig, wenn** ein Coop-Run auf `26495302` ohne fehlende Patches läuft und `26187885` nirgends mehr verlangt wird. **Einstieg:** [Update-Regel](CONTRIBUTING.md#spiel-updates) | `update-basis`, `update-client`, `update-inventar`, `update-welt` | zentral | viel |
 
 ## Optionale Optimierungen
 
 Bekannte kleine Fehler, die die Spielbarkeit nicht verhindern. Sie warten auf `integration-run`. Rückt ein Punkt die Spielbarkeit doch in Gefahr, wandert er mit P0 oder P1 in die passende Phase. Zählt nicht zum Fortschritt.
 
-Auch die zukünftige Update-Verwaltung bleibt vorerst optional: Wir erzwingen Build `26187885` und entwickeln auf diesem Stand. Die Aufgaben `update-startpruefung`, `update-releasefeed` und `update-autoupdater` sind keine Voraussetzung für den aktuellen Release und ändern weder die Build-Sperre noch die Teamentscheidung über neue Spielversionen. Erst lokale Prüfung, dann Update-Angebot, zuletzt optional automatische Installation.
+Auch die zukünftige Update-Verwaltung bleibt vorerst optional: Wir erzwingen Build `26495302` und entwickeln auf diesem Stand. Die Aufgaben `update-startpruefung`, `update-releasefeed` und `update-autoupdater` sind keine Voraussetzung für den aktuellen Release und ändern weder die Build-Sperre noch die Teamentscheidung über neue Spielversionen. Erst lokale Prüfung, dann Update-Angebot, zuletzt optional automatische Installation.
 
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
@@ -334,6 +332,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `sdk-vergleich` | Wartung | tools/sdk_diff.py vergleicht zwei lokale Dumper-7-SDKs für alle von der Mod genutzten Felder, Funktionen und Klassen (SdkChecks.cpp, FindObject/Function/FieldSpec, Klasse.Feld in src und OFFSETS.md), Unit-Tests mit eigenen SDK-Ausschnitten, Aufruf unter Spiel-Updates in CONTRIBUTING.md |
 | `skripte-rundenende` | Wartung | `Run-Route.ps1` und `Travel-Day.ps1` klicken am Rundenende Fortsetzen und Bestätigen bei jeder lokalen Instanz (`Complete-RoundEnd`) und warten auf die Routenkarte; Run-Route bis Tag 2 mit Exitcode 0, Travel-Day bis Tag 3 geprüft, siehe [Testen](docs/TESTING.md#mission-über-das-spielmenü) |
 | `solution` | 0 | Visual-Studio-Solution mit einem Projekt je Modul, `config/Local.props` eingebunden |
+| `spiel-update` | Wartung | Referenz-Build 26495302, Unterstützung für 26187885 entfernt, Coop-Route 2 Tage mit 44 Patches |
 | `spike-a` | 1 | Spike A: Beide Instanzen kommen in dieselbe Welt, auch auf einem PC, siehe [Ergebnis](research/spikes/a-connect/README.md) |
 | `spike-b` | 1 | Spike B: Client stabil in der Mission, Bewegung beidseitig, Schüsse wirken beim Host, siehe [Ergebnis](research/spikes/a-connect/README.md) |
 | `spike-build-26495302` | Wartung | Spike läuft auf Build 26495302 mit Adressumrechnung je Build, siehe [Spike](docs/OFFSETS.md#spike-spike-build-26495302) |

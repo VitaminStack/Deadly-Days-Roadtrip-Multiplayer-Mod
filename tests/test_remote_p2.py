@@ -26,11 +26,11 @@ class Game:
                                (0x7000 + 0x10, 0x14000), (0x8000 + 0x10, 0x15000),
                                (0x9000 + 0x10, 0x11000), (0xA000 + 0x10, 0x12000),
                                (0x9000 + 0x20, 0x2000), (0xA000 + 0x20, 0x2000),
-                               (self.base + 0xAA61B00, 0x30000), (0x30000, 0x40000),
+                               (self.base + 0xAA67B80, 0x30000), (0x30000, 0x40000),
                                (0x40000 + 0x18 + 8, 0x5000), (0x40000 + 0x30 + 8, 0x6000)):
             self.put(address, struct.pack('<Q', value))
         for address, value in ((0x2000 + 0x40, 1), (0x3000 + 0x2C8, 2),
-                               (self.base + 0xAA61B00 + 8, 3), (0x40000 + 0x18 + 0x10, 11),
+                               (self.base + 0xAA67B80 + 8, 3), (0x40000 + 0x18 + 0x10, 11),
                                (0x40000 + 0x30 + 0x10, 22)):
             self.put(address, struct.pack('<i', value))
         self.put(0x9100, struct.pack('<Qii', 0xC000, 2, 2))

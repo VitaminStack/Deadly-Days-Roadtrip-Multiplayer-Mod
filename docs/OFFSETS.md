@@ -1,6 +1,8 @@
-# Offsets für Build 26187885
+# Offsets für Build 26495302
 
-Alle Werte gelten nur für UE `5.8.1-56057345`, Steam-Build `26187885`, Exe `DDSurvivors-Win64-Shipping.exe`.
+Der Quelltext (`src/`, Spike) nennt seit `spiel-update` (09.11.2026) RVAs von Steam-Build `26495302`, Exe `DDSurvivors-Win64-Shipping.exe`.
+Ältere Abschnitte dieser Datei sind vor dem Umstieg entstanden und nennen RVAs von `26187885`, siehe
+[Referenz-Build 26495302](#referenz-build-26495302-spiel-update) für die Umrechnung. Feld-Offsets sind in beiden Builds gleich, außer wo vermerkt.
 Nach einem Spiel-Update müssen sie neu bestimmt werden, siehe [Spiel-Updates](../CONTRIBUTING.md#spiel-updates).
 Sie sind hier zum Nachschlagen gesammelt, damit niemand sie erneut suchen muss. Wer neue findet, trägt sie hier ein.
 
@@ -8,9 +10,25 @@ RVAs sind relativ zur Image-Base `0x140000000`. Die Patchstellen stehen als Kons
 [Spike-Datei](../research/spikes/a-connect/README.md#dateien), ihre Bedeutung in der [Patch-Tabelle](../research/spikes/a-connect/README.md#patches).
 Die Spielfehler-Fixes nutzt auch die Mod, mit denselben Werten am Anfang von `src/Game/*Patches.cpp`, siehe [Patches der Mod](../src/Game/README.md#patches).
 
+## Referenz-Build 26495302 (`spiel-update`)
+
+Stand 09.11.2026. `Game::AddressMap::ReferenceBuild` ist `26495302`, `Core::SupportedBuilds`, `Common.ps1`, `game_build.py` und der
+Installer kennen nur noch diesen Build. Alle RVAs in `src/` und `research/spikes/a-connect` wurden mit der Tabelle aus `update-basis`
+(98 Einträge der Mod, 7 des Spikes) und 18 weiteren, mit `tools/rva_map.py` eindeutig umgerechneten Adressen aus Kommentaren ersetzt. Die
+Tabelle selbst ist entfernt; für alte Werte weiter unten: `git show 0cb3d80:src/Game/RvaMap26495302.inc` (Referenz-RVA `26187885` -> `26495302`).
+
+- Verzweigungen nach dem alten Build entfernt: `PanelIsDragging` fest `0x788`, Prüfungen von `HandleConfirmButton` und
+  `RepresentationSize` nur noch mit den Bytes von `26495302`. `PatchSignatures.inc`: Zeilen von `26187885` entfernt, die von `26495302` gelten für alle.
+- Offline gegen die Exe von `26495302`: `tools/expect_check.py` 74 `ok`, 2 `uebersprungen`; `tools/patch_signatures.py check` 89 `ok`.
+- Spieltest ein PC, `Start-Session.ps1 -Build -Mod -Tunnel Lobby -Godmode`: Host und Client `Signaturen: 89 Adressen geprüft`, `Patches: 44 gesetzt`,
+  `Spiel-Build 26495302`, Handshake bestätigt, Spike ohne fehlende Adresse. `Run-Route.ps1 -Days 2 -Godmode` Exitcode 0: MetaBase, Tag 1 (159/159 Kacheln),
+  Tag 2 (63/63), je 2/2 Spieler, Inventar gleich, kein `[ERROR]` im Mod-Log.
+- Drei Adressen nur aus Kommentaren ließen sich nicht umrechnen (Exec-Thunks von `ReceiveExp` und `HandleItemSold`, Absturzstelle in
+  `RepresentationSize`); die Kommentare nennen sie nicht mehr.
+
 ## Build 26495302 (`update-basis`)
 
-Stand 07.11.2026. Alle Werte dieser Datei bleiben Referenz-RVAs von `26187885`. Für `26495302` rechnet `Game::AddressMap` sie über
+Stand 07.11.2026, historisch. Bis zum Umstieg am 09.11.2026 blieben die Werte Referenz-RVAs von `26187885`. Für `26495302` rechnet `Game::AddressMap` sie über
 `src/Game/RvaMap26495302.inc` um, erzeugt mit [`tools/rva_map.py`](../tools/README.md#rva_mappy). Exe: TimeDateStamp `0x65BFBBFB`, SizeOfImage `0x0B748000`.
 
 | | 26187885 | 26495302 | Beleg |

@@ -14,9 +14,9 @@ Gebaut und gestartet wird über die Skripte in `tools/spike/`, die auch den Cras
 
 ## Builds
 
-Der Quelltext nennt Code- und Datenadressen von `26187885`. `Rva()` in `Builds.cpp` rechnet sie für `26495302` um (Tabelle der Mod plus eigene Einträge,
-Werte in [OFFSETS.md](../../../docs/OFFSETS.md#spike-spike-build-26495302)). Neue Adressen immer als `Rva(0x…)` schreiben, relative Sprünge mit `ExpectBranch`
-prüfen, Importeinträge mit `FindImportSlot` suchen. Fehlt für einen neuen Build ein Eintrag, bleibt nur dieser Patch aus (Log: `Adresse fehlt`).
+Der Quelltext nennt seit `spiel-update` (09.11.2026) Code- und Datenadressen von `26495302`, die Abschnitte unten mit älterem Stand die von `26187885`
+([Umrechnung](../../../docs/OFFSETS.md#referenz-build-26495302-spiel-update)). `Rva()` in `Builds.cpp` liefert sie nur auf diesem Build, sonst `kMissingRva`.
+Neue Adressen immer als `Rva(0x…)` schreiben, relative Sprünge mit `ExpectBranch` prüfen, Importeinträge mit `FindImportSlot` suchen.
 
 ## Dateien
 

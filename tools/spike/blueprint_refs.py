@@ -1,4 +1,4 @@
-"""Read-only-Referenzinventar und begrenzter Bytecode-Audit, Build 26187885.
+"""Read-only-Referenzinventar und begrenzter Bytecode-Audit, Build 26495302.
 
 Kein Codeexport: keine Scriptbytes, Rohzeiger oder rekonstruierten Funktionskoerper.
 Token-Kandidaten und validierte Ausdrucks-/Sprunggrenzen werden getrennt gemeldet.

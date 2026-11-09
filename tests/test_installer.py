@@ -60,7 +60,7 @@ class InstallerTests(unittest.TestCase):
         library_vdf = str(self.library).replace('\\', '\\\\')
         (self.steam / 'steamapps/libraryfolders.vdf').write_text(
             f'"libraryfolders"\n{{\n\t"0"\n\t{{\n\t\t"path"\t\t"{library_vdf}"\n\t}}\n}}\n', encoding='utf-8')
-        self.write_manifest('26187885')
+        self.write_manifest('26495302')
         self.source = root / 'package'
         (self.source / 'DDCoop').mkdir(parents=True)
         (self.source / 'version.dll').write_bytes(b'MZ loader ModStart v2')

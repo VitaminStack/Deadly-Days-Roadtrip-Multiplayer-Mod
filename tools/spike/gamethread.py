@@ -12,7 +12,7 @@ from ctypes import wintypes as W
 from ddmem import Game, kernel
 
 STACK_BYTES, BLOCK = 0x7000, 0x400
-TEXT_SIZE = 0x8276000
+TEXT_SIZE = 0x827C000
 THREAD_ACCESS = 0x005A
 CONTEXT_FULL = 0x100003
 kernel.OpenThread.restype = W.HANDLE

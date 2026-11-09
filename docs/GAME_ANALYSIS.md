@@ -12,14 +12,16 @@ Vertrauensgrad:
 | | |
 |---|---|
 | Steam-AppID | `3026450` |
-| Steam-Build-ID | `26187885` |
-| Manifest-IDs | Depot `3026451`: `1832737755528485607`, Depot `3026452`: `7724756528743620812` |
+| Steam-Build-ID | `26495302` (seit `spiel-update`, 09.11.2026) |
+| Manifest-IDs | Depot `3026451`: `1832737755528485607`, Depot `3026452`: `2302428105354984436` |
+| Exe-Kennung | TimeDateStamp `0x65BFBBFB`, SizeOfImage `0x0B748000` |
 | Engine-Version | `5.8.1-56057345+++UE5+Release-5.8` |
 | Spiel-Exe | `DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe` (179 MB) |
 
 Build-ID und Manifest-IDs stehen in `steamapps/appmanifest_3026450.acf`. Die Manifest-IDs benennen die gewünschten Depotstände;
-ein erneuter Download über die Steam-Konsole ist getestet (07.11.2026): `download_depot 3026450 3026452 7724756528743620812` liefert
-alle 52 Dateien, die Prüfsummen von `tools/game_build.py` passen; Depot `3026451` hatte beim Update auf `26495302` denselben Stand. Bei einem Spiel-Update gilt die
+ein erneuter Download über die Steam-Konsole ist für den Vorgänger getestet (07.11.2026): `download_depot 3026450 3026452 7724756528743620812` lieferte
+alle 52 Dateien von `26187885`, die Prüfsummen passten; Depot `3026451` hatte beim Update auf `26495302` denselben Stand. `26187885` war bis
+`spiel-update` (09.11.2026) unterstützt, seitdem verlangen Mod, Skripte und Installer ihn nicht mehr. Bei einem Spiel-Update gilt die
 [Update-Regel](../CONTRIBUTING.md#spiel-updates): einfrieren und nur bei Bedarf nachziehen.
 
 ### Gemeinsame Build-ID (`build-id`)

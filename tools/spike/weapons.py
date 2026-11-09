@@ -1,6 +1,6 @@
 """Ausgerüstete Waffen gegen den Rucksack: weapons.py <pid> [<pid> ...].
 
-Nur lesend, Build 26187885 (waffe-client-auswahl). Je Spieler (PlayerId) die Items im Rucksack (Waffe, wenn es zu ItemData_<X> eine WeaponData Data_<X> gibt) und
+Nur lesend, Build 26495302 (waffe-client-auswahl). Je Spieler (PlayerId) die Items im Rucksack (Waffe, wenn es zu ItemData_<X> eine WeaponData Data_<X> gibt) und
 die Einträge aus ADDCharacter.EquippedWeapons (+0x7B8) mit WeaponData und zugehörigem Item. EquippedWeapons repliziert
 nicht, jede Instanz hat ihren eigenen Stand; maßgeblich für Schaden ist der Host.
 Exitcode 0: Auf jeder Instanz ist genau jedes Waffen-Item im Rucksack ausgerüstet. 1: Abweichung. 2: nicht lesbar.

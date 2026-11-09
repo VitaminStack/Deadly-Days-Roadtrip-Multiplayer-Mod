@@ -177,7 +177,7 @@ class FrozenBuildTests(unittest.TestCase):
     def test_pinned_path_has_priority_and_never_falls_back(self):
         props = self.root / 'Local.props'
         # Die Steam-Quelle waere fuer die alte ACF-Pruefung gueltig.
-        (self.root / 'steamapps/appmanifest_3026450.acf').write_text('"buildid" "26187885"', encoding='utf-8')
+        (self.root / 'steamapps/appmanifest_3026450.acf').write_text('"buildid" "26495302"', encoding='utf-8')
         common = Path(__file__).parents[1] / 'tools/spike/Common.ps1'
         for pinned_exists in (False, True):
             if pinned_exists:

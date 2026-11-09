@@ -13,28 +13,28 @@ namespace Game::Patches
 {
 namespace
 {
-constexpr uintptr_t ClientRefreshCallSite = 0x5A7350B;
-constexpr uintptr_t ClientRefreshFunction = 0x5A8BAB0;
-constexpr uintptr_t AttributeLookupCallSite = 0x59B7E17;
-constexpr uintptr_t AttributeLookupFunction = 0x4B68180;
-constexpr uintptr_t AttributeTickExit = 0x59B858A;
-constexpr uintptr_t MapGenHostObjectRead = 0x59DFD5A;
-constexpr uintptr_t MapGenHostObjectExit = 0x59DFE07;
-constexpr uintptr_t ComponentControllerRead = 0x58393CC;
-constexpr uintptr_t ComponentControllerExit = 0x5839540;
-constexpr uintptr_t ThreatFreezeBranch = 0x593DAF3;
-constexpr uintptr_t ExpAggregate = 0x58B4160;
-constexpr uintptr_t GetPlayerCharacters = 0x5B07680;
-constexpr uintptr_t FreeArray = 0x12F8400;
-constexpr uintptr_t BlockadeLoadingFinished = 0x58BB360;
-constexpr uintptr_t NetGuidExpiry = 0x2CF362E;
-constexpr uintptr_t NetGuidNext = 0x2CF3C38;
-constexpr uintptr_t SneakSameTarget = 0x58A5266;
-constexpr uintptr_t SneakRetry = 0x58A526C;
-constexpr uintptr_t SneakReady = 0x58A530D;
-constexpr uintptr_t BeginDeferredActorSpawnFromClass = 0x2A678F0;
-constexpr uintptr_t CanBusTakeOff = 0x59C3E10;
-constexpr uintptr_t FinishMission = 0x58E84C0;
+constexpr uintptr_t ClientRefreshCallSite = 0x5A782FB;
+constexpr uintptr_t ClientRefreshFunction = 0x5A90940;
+constexpr uintptr_t AttributeLookupCallSite = 0x59BBFC7;
+constexpr uintptr_t AttributeLookupFunction = 0x4B68380;
+constexpr uintptr_t AttributeTickExit = 0x59BC73A;
+constexpr uintptr_t MapGenHostObjectRead = 0x59E4B2A;
+constexpr uintptr_t MapGenHostObjectExit = 0x59E4BD7;
+constexpr uintptr_t ComponentControllerRead = 0x583AEEC;
+constexpr uintptr_t ComponentControllerExit = 0x583B060;
+constexpr uintptr_t ThreatFreezeBranch = 0x5941A43;
+constexpr uintptr_t ExpAggregate = 0x58B4D30;
+constexpr uintptr_t GetPlayerCharacters = 0x5B0CE30;
+constexpr uintptr_t FreeArray = 0x12F85E0;
+constexpr uintptr_t BlockadeLoadingFinished = 0x58BBD90;
+constexpr uintptr_t NetGuidExpiry = 0x2CF382E;
+constexpr uintptr_t NetGuidNext = 0x2CF3E38;
+constexpr uintptr_t SneakSameTarget = 0x58A6466;
+constexpr uintptr_t SneakRetry = 0x58A646C;
+constexpr uintptr_t SneakReady = 0x58A650D;
+constexpr uintptr_t BeginDeferredActorSpawnFromClass = 0x2A67AF0;
+constexpr uintptr_t CanBusTakeOff = 0x59C7FC0;
+constexpr uintptr_t FinishMission = 0x58EA1A0;
 
 constexpr uintptr_t CharacterAttributeSet = 0x7D8;
 constexpr uintptr_t ExpHandlerResult = 0x314;
@@ -268,9 +268,9 @@ bool CheckExp()
 {
     return Code::Expect(At(ExpAggregate), {0x48, 0x89, 0x5C, 0x24, 0x08, 0x57, 0x48, 0x83, 0xEC, 0x40}, "Exp-Aggregation") &&
            Code::Expect(At(GetPlayerCharacters), {0x48, 0x89, 0x5C, 0x24, 0x18, 0x48, 0x89, 0x74, 0x24, 0x20}, "Figurenliste") &&
-           Code::Expect(At(0x58B419B), {0x48, 0x8B, 0x89, 0xD8, 0x07, 0x00, 0x00}, "AttributeSet in der Exp-Aggregation") &&
-           ExpectBranch(At(0x58A6060), CallRel32, ExpAggregate, "Exp-Aggregation aus BeginPlay") &&
-           ExpectBranch(At(0x58B0F6E), CallRel32, ExpAggregate, "Exp-Aggregation aus dem Update");
+           Code::Expect(At(0x58B4D6B), {0x48, 0x8B, 0x89, 0xD8, 0x07, 0x00, 0x00}, "AttributeSet in der Exp-Aggregation") &&
+           ExpectBranch(At(0x58A7260), CallRel32, ExpAggregate, "Exp-Aggregation aus BeginPlay") &&
+           ExpectBranch(At(0x58B1D3E), CallRel32, ExpAggregate, "Exp-Aggregation aus dem Update");
 }
 
 bool ApplyExp(Code::Writer&)
@@ -282,8 +282,8 @@ bool ApplyExp(Code::Writer&)
 bool CheckBlockade()
 {
     return Code::Expect(At(BlockadeLoadingFinished), {0x40, 0x53, 0x48, 0x81, 0xEC, 0xB0, 0x00, 0x00, 0x00}, "Blockade OnLoadingFinished") &&
-           ExpectBranch(At(0x5666FA5), JumpRel32, BlockadeLoadingFinished, "Blockade, reflektierter Einsprung") &&
-           Code::Expect(At(0x58AA5F0), {0x48, 0x8B, 0x09, 0x48, 0x8B, 0x01, 0x48, 0xFF, 0xA0, 0xE8, 0x04, 0x00, 0x00}, "verzögerter Blockadenstart");
+           ExpectBranch(At(0x56676F5), JumpRel32, BlockadeLoadingFinished, "Blockade, reflektierter Einsprung") &&
+           Code::Expect(At(0x58AB9A0), {0x48, 0x8B, 0x09, 0x48, 0x8B, 0x01, 0x48, 0xFF, 0xA0, 0xE8, 0x04, 0x00, 0x00}, "verzögerter Blockadenstart");
 }
 
 bool ApplyBlockade(Code::Writer&)
@@ -315,7 +315,7 @@ bool ApplyNetGuid(Code::Writer& Code)
 bool CheckSneak()
 {
     return Code::Expect(At(SneakSameTarget) - 3, {0x48, 0x3B, 0xC3, 0x0F, 0x84, 0xA1, 0x00, 0x00, 0x00}, "SneakApproach, gleiches Ziel") &&
-           Code::Expect(At(0x58A52FE), {0x48, 0x83, 0xBF, 0xE8, 0x00, 0x00, 0x00, 0x00}, "SneakApproach, Prüfung der Abhängigkeiten");
+           Code::Expect(At(0x58A64FE), {0x48, 0x83, 0xBF, 0xE8, 0x00, 0x00, 0x00, 0x00}, "SneakApproach, Prüfung der Abhängigkeiten");
 }
 
 // SneakApproach merkt sich die Figur, bevor ihr Mesh und PlayerState repliziert sind, und las danach das leere Mesh.
@@ -330,7 +330,7 @@ bool CheckBusTakeOff()
 {
     return Code::Expect(At(CanBusTakeOff), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x20, 0x55, 0x57, 0x41, 0x56},
                         "ExtractionPointBase.CanBusTakeOff") &&
-           Code::Expect(At(0x59C494F), {0xE8, 0xBC, 0xF4, 0xFF, 0xFF}, "CanBusTakeOff aus CheckTakeOffCondition") &&
+           Code::Expect(At(0x59C8AFF), {0xE8, 0xBC, 0xF4, 0xFF, 0xFF}, "CanBusTakeOff aus CheckTakeOffCondition") &&
            Code::Expect(At(FinishMission), {0x48, 0x89, 0x5C, 0x24, 0x20, 0x55, 0x56, 0x57, 0x48, 0x83, 0xEC, 0x30}, "DDMissionGameState.FinishMission");
 }
 
@@ -360,12 +360,12 @@ constexpr uintptr_t AttributeLookupSites[] = {AttributeLookupFunction};
 constexpr uintptr_t MapGenHostObjectSites[] = {MapGenHostObjectRead, MapGenHostObjectExit};
 constexpr uintptr_t ComponentControllerSites[] = {ComponentControllerRead, ComponentControllerExit};
 constexpr uintptr_t ThreatLevelSites[] = {ThreatFreezeBranch};
-constexpr uintptr_t ExpSites[] = {FreeArray, 0x58A6060, 0x58B0F6E, ExpAggregate, 0x58B419B, GetPlayerCharacters};
-constexpr uintptr_t BlockadeSites[] = {0x5666FA5, 0x58AA5F0, BlockadeLoadingFinished};
+constexpr uintptr_t ExpSites[] = {FreeArray, 0x58A7260, 0x58B1D3E, ExpAggregate, 0x58B4D6B, GetPlayerCharacters};
+constexpr uintptr_t BlockadeSites[] = {0x56676F5, 0x58AB9A0, BlockadeLoadingFinished};
 constexpr uintptr_t NetGuidSites[] = {NetGuidExpiry, NetGuidNext};
-constexpr uintptr_t SneakSites[] = {SneakSameTarget, SneakRetry, 0x58A52FE, SneakReady};
+constexpr uintptr_t SneakSites[] = {SneakSameTarget, SneakRetry, 0x58A64FE, SneakReady};
 constexpr uintptr_t PowerUpSites[] = {BeginDeferredActorSpawnFromClass};
-constexpr uintptr_t BusTakeOffSites[] = {FinishMission, CanBusTakeOff, 0x59C494F};
+constexpr uintptr_t BusTakeOffSites[] = {FinishMission, CanBusTakeOff, 0x59C8AFF};
 const Patch List[] = {
     {"Client-Refresh ohne Host-Objekt", &CheckClientRefresh, &ApplyClientRefresh, ClientRefreshSites},
     {"Attribut-Tick ohne PlayerState", &CheckAttributeTick, &ApplyAttributeTick, AttributeTickSites},

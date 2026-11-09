@@ -1,6 +1,6 @@
 """Vergleicht aktive Inventare: inventory.py <host-pid> <client-pid>.
 
-Nur lesend, Build 26187885. Im ruhenden Spielzustand aufrufen: kein atomarer Snapshot.
+Nur lesend, Build 26495302. Im ruhenden Spielzustand aufrufen: kein atomarer Snapshot.
 Prueft replizierte Werte, nicht Effekte, Raritaet, UI oder Inventar-RPCs.
 """
 import json
