@@ -57,9 +57,9 @@ Erledigt ist, was in `TODO.md` unter „Erledigt“ steht. **Vollständig abgesc
 | [2](TODO.md#phase-2--fundament) | Stabile Basis der Mod | 5 von 5 | ███████████ |
 | [3](TODO.md#phase-3--session-und-verbindung) | Verbinden über Steam | 10 von 10 | ███████████ |
 | [4](TODO.md#phase-4--vertical-slice) | Spielbarer Ausschnitt | 16 von 16 | ███████████ |
-| [5](TODO.md#phase-5--vollständiger-run) | Kompletter Run zu zweit | 28 von 37 | ████████░░░ |
+| [5](TODO.md#phase-5--vollständiger-run) | Kompletter Run zu zweit | 29 von 37 | █████████░░ |
 | [6](TODO.md#phase-6--release) | Veröffentlichung | 8 von 11 | ████████░░░ |
-| **Gesamt** | | **117 von 129** | ██████████░ |
+| **Gesamt** | | **118 von 129** | ██████████░ |
 
 </details>
 

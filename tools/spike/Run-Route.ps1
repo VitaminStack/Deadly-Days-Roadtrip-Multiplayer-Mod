@@ -17,7 +17,9 @@ param(
     [string]$NetProfile,
     # Nur mit -Start: Sitzung allein mit der Mod, ohne spike.dll (Start-Session.ps1 -NoSpike). Dann nur -Days 1 -StayLast,
     # Zufalls-Seed, und der erste Knoten wird gesucht statt aus -Nodes genommen.
-    [switch]$NoSpike
+    [switch]$NoSpike,
+    # Spike-Godmode fuer beide Spieler, nach jedem Laden erneut an, damit der Lauf nicht durch einen Tod endet.
+    [switch]$Godmode
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Common.ps1')
@@ -30,6 +32,7 @@ if ($NoSpike -and -not $Start) { throw '-NoSpike gilt nur mit -Start. Laufende S
 if ($Start -and ($NetProfile -or $NoSpike)) {
     $Options = @{ Restart = $true; Mod = $true; Tunnel = 'Lobby'; Brief = $true; NoSpike = [bool]$NoSpike }
     if ($NetProfile) { $Options.NetProfile = $NetProfile }
+    if ($Godmode) { $Options.Godmode = $true }
     & (Join-Path $PSScriptRoot 'Start-Session.ps1') @Options | Out-Host
 }
 elseif ($Start) { & (Join-Path $PSScriptRoot 'Start-Session.ps1') -Restart | Select-Object -Last 1 }
@@ -65,9 +68,10 @@ function Invoke-Check([string]$Label, [string[]]$Extra, $Process) {
     $Code = $Process.ExitCode
     $Result = Get-Content (Join-Path $RunDir "$Label.json") -Raw | ConvertFrom-Json
     $State = if ($Result.ok) { 'sauber' } else { 'ABWEICHUNG' }
-    Write-Output ("{0,-8} {1,-10} Laden {2,5} s  Host {3}/{4}  Client {5}/{6}  Tiles {7}/{8}  GUIDs {9}" -f $Label, $State,
+    Write-Output ("{0,-8} {1,-10} Laden {2,5} s  Host {3}/{4}  Client {5}/{6}  Tiles {7}/{8}  GUIDs {9}  MB {10}/{11}  UObj {12}/{13}" -f $Label, $State,
         $Result.load_seconds, $Result.host.player_array, $Result.host.characters.Count, $Result.client.player_array,
-        $Result.client.characters.Count, $Result.host.map_tiles, $Result.client.map_tiles, $Result.client.guid_entries)
+        $Result.client.characters.Count, $Result.host.map_tiles, $Result.client.map_tiles, $Result.client.guid_entries,
+$Result.host.private_mb, $Result.client.private_mb, $Result.host.uobjects, $Result.client.uobjects)
     foreach ($Problem in $Result.problems) { Write-Output "         - $Problem" }
     if ($Code -eq 2) {
         & py (Join-Path $PSScriptRoot 'crashes.py') --session --latest 1
@@ -122,6 +126,7 @@ for ($Day = 1; $Day -le $Days; $Day++) {
         Save-Shots "tag$Day-laden-${Second}s"
     }
     Invoke-Check "tag$Day" @() $Pending
+    if ($Godmode -and $WithSpike) { foreach ($Id in $Session.Host, $Session.Client) { Send-SpikeCommand $Id '!god on' } }
     Save-Shots "tag$Day"
     if ($Day -eq $Days -and $StayLast) { break }
 
