@@ -34,7 +34,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 <!-- frei:start -->
 | Kennung | Prio | Phase | Bearbeitung | Spielzeit |
 |---|---|---|---|---|
-| `fortschritt` | P0 | [5](#phase-5--vollständiger-run) | parallel | viel |
 | `tagesablauf` | P0 | [5](#phase-5--vollständiger-run) | parallel | viel |
 | `dauerlauf` | P1 | [5](#phase-5--vollständiger-run) | parallel | viel |
 | `routenkarte-client` | P1 | [5](#phase-5--vollständiger-run) | parallel | mittel |
@@ -47,7 +46,7 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 
 **Wartet auf das Team:** nichts.
 
-**Bestätigungstest ausstehend (nicht in Arbeit):** `lager-handel-client`, `update-welt`.
+**Bestätigungstest ausstehend (nicht in Arbeit):** `fortschritt`, `lager-handel-client`, `update-welt`.
 <!-- frei:end -->
 
 **Nicht erneut machen.** Das ist erledigt und dokumentiert:
@@ -99,6 +98,9 @@ Mögliche Punkte und Reihenfolge, je nach Bereitschaft:
 3. `integration-g2`: zehn Minuten Vertical Slice zwischen zwei Haushalten, erst wenn alle Voraussetzungen erledigt sind.
 4. `integration-run`: kompletter Run über das Internet, Phase 5.
 5. `release`: Abschlusstest vor der Veröffentlichung.
+6. Alle Bestätigungstests aus `py tools/tasks.py tests plan` in einem Lauf bis Tag 2. Gemeinsamer Ablauf für `fortschritt`,
+   `update-welt` und `lager-handel-client`: [Plan](research/spikes/fortschritt/README.md#live-test-zu-zweit-etwa-30-minuten).
+   Neue Aufgaben mit Live-Rest dort ergänzen statt einen eigenen Termin anzusetzen.
 
 Die Entscheidung `meta-fortschritt` ist getroffen: Im gemeinsamen Run gilt der Host-Stand,
 ohne dauerhafte Meta-Gutschrift beim Client, siehe [Regel](docs/SYNC_REQUIREMENTS.md#nutzervorgabe-meta-fortschritt-des-hosts-06112026).
@@ -153,7 +155,7 @@ Ziel: Ein kompletter Run ist zu zweit online spielbar.
 
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
-| `fortschritt` | P0 | Loot, XP, Level-ups, Fähigkeiten und Status-Effekte (GAS). Ordner `src/Sync/Combat` | `integration-g2`, `protokoll` | parallel | viel |
+| `fortschritt` | P0 | **Bestätigungstest ausstehend:** Bestand geprüft: Loot (itemsack-absturz, airdrop-*), XP/Level/XP-Bälle (client-visuell, xp-baelle-live), Level-up-Airdrop (bestaetigen-alle), Aufwertungen (werkbank-client) belegt. Offen nur Live-Abnahme: GAS-Status-Effekte beim Client (Giftwolke BP_Impact_Poison_Cloud_C, Item-Effekte über CharacterEffectManager) und Werteanzeige nach Upgrades; bekannte Lücke MovementSpeed in opt-tempo-upgrades. **Aufgabe und Abnahme:** Loot, XP, Level-ups, Fähigkeiten und Status-Effekte (GAS). Ordner `src/Sync/Combat` | `integration-g2`, `protokoll` | parallel | viel |
 | `tagesablauf` | P0 | Tageszyklus, Treibstoff, Missionsziele, Fahrt zwischen den Etappen. Ordner `src/Sync/World`, Dateien mit `run-ende` absprechen | `integration-g2`, `protokoll`, `guidcache`, `phasenadapter` | parallel | viel |
 | `lager-handel-client` | P1 | **Bestätigungstest ausstehend:** Code, Unit-Tests und Ein-PC-Sitzung (Build 26495302) dokumentiert; Zwei-PC-Abnahme für Verkauf, Reparatur, ausrüstbare Items und gleiche Inventare/Schrottkonten fehlt (PR #170). **Aufgabe und Abnahme:** Gefunden im Live-Test am 07.11.2026 (zwei PCs, Build `26495302`): Im Lager kann der Client Items verschieben, aber nicht verkaufen und nicht reparieren, beim Host geht beides. Am Rundenende lassen sich beim Client nicht reparierte Items nicht ausrüsten. Erst klären, ob das Spiel kaputte Items auch beim Host sperrt. Verkauf und Reparatur buchen Währung und Itemzustand, darum entscheidet der Host wie beim Aufwerten (`werkbank-client`): Client handelt im nativen Panel, Host prüft und führt aus. **Fertig, wenn** der Client im Lager auf zwei PCs verkauft und repariert, Währung und Items bei beiden gleich sind und reparierte Items sich ausrüsten lassen. Ordner `src/Game`. **Einstieg:** [Live-Test 07.11.](docs/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-07112026-livetest-0711) | `rundenende-client` | parallel | mittel |
 | `routenkarte-client` | P1 | Gefunden am 07.11.2026: Die Routenkarte des Clients nach dem Rundenende zeigt nur Wolken und den Bus oben links mit „999“, keine Knoten. Ursache: Die Run-Info der GameInstance (Run-Seed, `CurrentRoute`, gewählte Indizes ab `+0x2A0`) repliziert nicht, der Client behält Seed und leere Route seines eigenen Spielstands. Tag, Karte und Reise kommen richtig vom Host; die Gefahrenstufe im HUD zeigt beim Client aber 0 statt des Werts des Hosts. **Fertig, wenn** der Client nach jedem Rundenende dieselbe Routenkarte wie der Host sieht (Knoten, Biome, Bus, Tag), dort weiter nicht reisen kann, seine Run-Info nach jeder Reise Seed, Route und Index des Hosts hat und die Gefahrenstufe im HUD gleich ist; geprüft bis Tag 5 über den Biomwechsel nach Tag 4. Ordner `src/Game`, Kontrollkanal in `src/Sync/World`. **Einstieg:** [Routenkarte beim Client](docs/GAME_ANALYSIS.md#routenkarte-beim-client-routenkarte-client) | `rundenende-client` | parallel | mittel |
