@@ -36,13 +36,13 @@ void __fastcall CharacterProcessEvent(uintptr_t Object, uintptr_t Function, void
 }
 }
 
-// Host: Beim Rundenstart setzt BusSpawnPositionGenerator (vtable-Platz 86, 0x59A6CE0) Bus und Figuren an den Spawnplatz
-// und raeumt dann ueber 0x5991B70 alles frei, was die gesetzten Actors ueberlappt. Geschont wird nur, was in der
+// Host: Beim Rundenstart setzt BusSpawnPositionGenerator (vtable-Platz 86, 0x59AAEA0) Bus und Figuren an den Spawnplatz
+// und raeumt dann ueber 0x5995D30 alles frei, was die gesetzten Actors ueberlappt. Geschont wird nur, was in der
 // uebergebenen Liste steht oder einem Eintrag gehoert. Die Figur des Remote-Spielers steht nicht darin, liegt aber auf
 // derselben Stelle wie die Host-Figur und wurde deshalb zerstoert. Der Hook ergaenzt die Liste um alle Spielerfiguren.
 namespace
 {
-const uintptr_t kClearSpawnArea = Rva(0x5991B70);
+const uintptr_t kClearSpawnArea = Rva(0x5995D30);
 constexpr uintptr_t kPlayerStatePawn = 0x320;
 struct ActorArray
 {

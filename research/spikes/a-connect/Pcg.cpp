@@ -9,8 +9,8 @@ namespace Spike
 {
 namespace
 {
-// UPCGVolumeGenerator, Vtable 0x95626D8 Slot 85: spawnt das PCG-Volume und waehlt den Graphen. Slot 86 laedt ihn danach.
-const uintptr_t kSetupPcgVolume = Rva(0x59EE6A0);
+// UPCGVolumeGenerator, Vtable 0x9566B18 Slot 85: spawnt das PCG-Volume und waehlt den Graphen. Slot 86 laedt ihn danach.
+const uintptr_t kSetupPcgVolume = Rva(0x59F3470);
 constexpr uintptr_t kUseGraphFromBiome = 0x28;
 constexpr uintptr_t kBiomeGraph = 0x50;            // TSoftObjectPtr: FWeakObjectPtr, dann FSoftObjectPath
 constexpr uintptr_t kBiomeGraphPackage = 0x58;

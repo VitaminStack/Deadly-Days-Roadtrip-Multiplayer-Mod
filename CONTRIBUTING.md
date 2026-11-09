@@ -112,7 +112,7 @@ auch wenn Steam schon einen neueren anbietet.
 
 1. **Entwicklung von Steam trennen:** Solange der unterstützte Build installiert ist, einmal
    `powershell -ExecutionPolicy Bypass -File tools/Freeze-GameBuild.ps1 -Activate` ausführen.
-   Das erstellt eine echte Kopie unter `%LOCALAPPDATA%/DDCoop/builds/26187885`, prüft sie und setzt `PinnedGameDir` in `config/Local.props`.
+   Das erstellt eine echte Kopie unter `%LOCALAPPDATA%/DDCoop/builds/26495302`, prüft sie und setzt `PinnedGameDir` in `config/Local.props`.
    Das Ziel liegt außerhalb jeder `steamapps`-Struktur; Junctions, Symlinks und Hardlinks werden abgewiesen.
 2. Steam bleibt für die Anmeldung online und darf **seine Installation** aktualisieren. Die getrennte Entwicklungskopie wird dadurch nicht ersetzt.
    Keine ACF-Schreibschutztricks, manipulierten Build-IDs, globalen Firewallregeln oder Steam-Offlinemodus nötig.
@@ -126,7 +126,7 @@ auch wenn Steam schon einen neueren anbietet.
 
    ```text
    download_depot 3026450 3026451 1832737755528485607
-   download_depot 3026450 3026452 7724756528743620812
+   download_depot 3026450 3026452 2302428105354984436
    ```
 
    Erwartetes Ziel ist `steamapps/content/app_3026450/depot_<Depot-ID>/`. Dieser Weg ist noch nicht ausprobiert; bekannte Manifest-IDs allein
@@ -145,7 +145,7 @@ keine Weitergabe von Spieldateien. Steam-Einstellungen und Downloads werden nich
 2. Jeder neue Build bekommt bei Bedarf eigene Update-Unterstützung, zum Beispiel wenn er einen blockierenden Absturz behebt.
    Das Team priorisiert die zentrale Aufgabe `spiel-update`; ein Steam-Update allein erzwingt keinen Entwicklungswechsel.
    Vor `integration-run` und `release` legt das Team die konkret unterstützten und getesteten Builds fest.
-3. Das Nachziehen ist aufgeteilt: `update-basis` (zentral) unterstützt beide Builds und liefert Patch-Tabelle und Adresswerkzeug, danach portieren `update-client`, `update-inventar` und `update-welt` parallel, `spiel-update` schließt ab. Wer `update-basis` reserviert, aktualisiert sein Spiel, erzeugt ein neues SDK und passt Offsets,
+3. Das Nachziehen ist aufgeteilt wie beim Umstieg auf `26495302`: Eine zentrale Basisaufgabe unterstützt alten und neuen Build parallel und erzeugt die Tabelle `src/Game/RvaMap<build>.inc` (`tools/rva_map.py`), danach portieren parallele Aufgaben die Patch-Dateien, eine zentrale Abschlussaufgabe rechnet alle RVAs in `src/` und im Spike auf den neuen Build um und entfernt den alten (Vorbild: `spiel-update`, [Offsets](docs/OFFSETS.md#referenz-build-26495302-spiel-update)). Wer `update-basis` reserviert, aktualisiert sein Spiel, erzeugt ein neues SDK und passt Offsets,
    Signaturen und Patches auf ihrem Branch an.
 4. Im selben PR Build-ID, Exe-Version und Manifest-IDs in [docs/GAME_ANALYSIS.md](docs/GAME_ANALYSIS.md#unterstützte-spielversion), die Werte in
    [docs/OFFSETS.md](docs/OFFSETS.md) und `src/Game/Offsets.h` (mit neuem SDK bauen, dann prüft `SdkChecks.cpp` jeden Wert; vorher zeigt

@@ -15,8 +15,8 @@ namespace Game::Patches
 {
 namespace
 {
-constexpr uintptr_t OnRepHealth = 0x57DC840;
-constexpr uintptr_t OnRepMaxHealth = 0x57DCEA0;
+constexpr uintptr_t OnRepHealth = 0x57DC810;
+constexpr uintptr_t OnRepMaxHealth = 0x57DCE70;
 // FGameplayAttributeData: VTable, BaseValue, CurrentValue.
 constexpr uintptr_t AttributeCurrentValue = 0xC;
 constexpr uintptr_t MaxHealth = 0x30;

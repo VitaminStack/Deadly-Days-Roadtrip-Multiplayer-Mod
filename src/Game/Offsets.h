@@ -2,15 +2,15 @@
 
 #include <cstdint>
 
-// Speicherstellen im Spiel, gültig nur für Build 26187885. Quelle und Herkunft stehen in docs/OFFSETS.md.
+// Speicherstellen im Spiel, gültig nur für Build 26495302. Quelle und Herkunft stehen in docs/OFFSETS.md.
 // Ist das Dumper-7-SDK lokal eingerichtet, prüft SdkChecks.cpp jeden Wert beim Bauen gegen das SDK.
 namespace Game::Offsets
 {
 // RVAs relativ zur Image-Base der Exe.
-inline constexpr uintptr_t GObjects = 0x0AA61B00;
-inline constexpr uintptr_t GNames = 0x0A993AC0;
-inline constexpr uintptr_t GWorld = 0x0AAE46F0;
-inline constexpr uintptr_t ProcessEvent = 0x0160C040;
+inline constexpr uintptr_t GObjects = 0x0AA67B80;
+inline constexpr uintptr_t GNames = 0x0A999B40;
+inline constexpr uintptr_t GWorld = 0x0AAEA770;
+inline constexpr uintptr_t ProcessEvent = 0x0160C220;
 inline constexpr int ProcessEventIndex = 0x4A;
 
 // Namenstabelle: Blöcke ab +0x10, Index >> 16 wählt den Block, (Index & 0xFFFF) * 2 den Eintrag.

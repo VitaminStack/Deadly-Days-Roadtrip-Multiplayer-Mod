@@ -1,4 +1,4 @@
-"""Begrenzter In-Memory-Kismet-Reader fuer Build 26187885, kein Codeexport.
+"""Begrenzter In-Memory-Kismet-Reader fuer Build 26495302, kein Codeexport.
 
 Validiert Ausdrucksgrenzen und statische Sprungziele. Unbekannte/mehrdeutige
 Formate werden abgelehnt. Die Ausgabe enthaelt nur Pruefzaehler und symbolische

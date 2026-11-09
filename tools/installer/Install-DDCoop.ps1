@@ -20,7 +20,7 @@ $ErrorActionPreference = 'Stop'
 
 # Alle Spiel-Builds, fuer die die Mod Adressen und Patches hat. Muss zu SupportedBuilds in src/Core/Version.cpp und
 # tools/spike/Common.ps1 passen, das prueft tests/test_installer.py.
-$SupportedBuilds = @('26187885', '26495302')
+$SupportedBuilds = @('26495302')
 $AppId = '3026450'
 $ExeRelative = 'DDSurvivors\Binaries\Win64\DDSurvivors-Win64-Shipping.exe'
 # Nur der eigene Loader exportiert diesen Namen. Daran ist eine fremde version.dll erkennbar.

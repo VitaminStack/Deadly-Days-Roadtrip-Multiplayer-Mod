@@ -7,7 +7,7 @@ Jeder Spieler braucht eine eigene Kopie des Spiels auf Steam.
 Voraussetzung
 -------------
 - Windows, Spiel ueber Steam installiert.
-- Spiel-Build 26187885 oder 26495302. Andere Builds lehnt der Installer ab,
+- Spiel-Build 26495302. Andere Builds lehnt der Installer ab,
   und die Mod schaltet sich dort von selbst ab.
 - Das Spiel ist beendet.
 

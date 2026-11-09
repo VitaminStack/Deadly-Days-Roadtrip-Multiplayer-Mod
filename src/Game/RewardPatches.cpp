@@ -1,9 +1,9 @@
 // Airdrop-Auswahl für Host und Client ohne Koop-Modus, siehe src/Game/README.md#airdrop-auswahl.
 //
 // Host: Die Kiste läuft wie im Solo-Spiel, öffnet sie der Remote-Spieler, bekommt die Figur des Hosts die Auswahl.
-// UInventoryComponent::SetRewardItems (0x5979B30) zeigt die Choices im nativen Panel; die Mod merkt sie sich als
+// UInventoryComponent::SetRewardItems (0x597DC10) zeigt die Choices im nativen Panel; die Mod merkt sie sich als
 // Sitzung und schickt sie über den Kontrollkanal an den Client. Das Bestätigen des Hosts (InventoryPanel.
-// HandleConfirmButton, 0x5A6CB20) hält die Mod zurück, bis der Client gewählt hat; so lange bleibt das Spiel pausiert.
+// HandleConfirmButton, 0x5A71900) hält die Mod zurück, bis der Client gewählt hat; so lange bleibt das Spiel pausiert.
 // Die Wahl des Clients legt der Host neu in dessen repliziertes Inventar.
 //
 // Client: Die Mod legt lokale Instanzen derselben Items an und zeigt sie über SetRewardItems im nativen Panel. Das Panel
@@ -23,8 +23,6 @@
 
 #include "Core/Hooks.h"
 #include "Core/Log.h"
-#include "Core/Version.h"
-#include "Game/AddressMap.h"
 #include "Game/Memory.h"
 #include "Game/Objects.h"
 #include "Game/InventoryEditRuntime.h"
@@ -37,19 +35,19 @@ namespace Game::Patches
 {
 namespace
 {
-constexpr uintptr_t SetRewardItems = 0x5979B30;
-constexpr uintptr_t PanelConfirm = 0x5A6CB20;
-constexpr uintptr_t PanelSetupInventory = 0x5A8BAB0;
+constexpr uintptr_t SetRewardItems = 0x597DC10;
+constexpr uintptr_t PanelConfirm = 0x5A71900;
+constexpr uintptr_t PanelSetupInventory = 0x5A90940;
 // UInventoryComponent::CreateItemInstance, nativ. Die UFunction ist BlueprintAuthorityOnly, ProcessEvent überspringt
 // sie beim Client.
-constexpr uintptr_t CreateItemInstance = 0x5959700;
-constexpr uintptr_t MemoryFree = 0x12F8400;
-// UInventoryComponent::UpgradeItems, Exec-Thunk 0x571DA70. Rufen InventoryPanel.UpgradeDroppedItem (0x5A98490) und
-// UpgradeItemToNextLevelAndReEquip (0x5980900) direkt (werkbank-client).
-constexpr uintptr_t UpgradeItems = 0x5980AE0;
-// UInventoryComponent::HandleItemSold, Exec-Thunk 0x57128B0. Ruft ItemRepresentation.ConfirmSell (0x5AA2F60) nach der lokalen
+constexpr uintptr_t CreateItemInstance = 0x595DA20;
+constexpr uintptr_t MemoryFree = 0x12F85E0;
+// UInventoryComponent::UpgradeItems, Exec-Thunk 0x571E5A0. Rufen InventoryPanel.UpgradeDroppedItem (0x5A9D370) und
+// UpgradeItemToNextLevelAndReEquip (0x5984AF0) direkt (werkbank-client).
+constexpr uintptr_t UpgradeItems = 0x5984CD0;
+// UInventoryComponent::HandleItemSold, hinter dem Exec-Thunk. Ruft ItemRepresentation.ConfirmSell (0x5AA7E50) nach der lokalen
 // Gutschrift (AbstractCurrency::AddAmount) direkt; nimmt das Item über die Inventar-RPCs heraus (lager-handel-client).
-constexpr uintptr_t HandleItemSold = 0x5967900;
+constexpr uintptr_t HandleItemSold = 0x596BA70;
 // ADDMissionGameState.ScrapWallet, UAbstractCurrency.CurrencyAmount
 constexpr uintptr_t GameStateScrapWallet = 0x3C0;
 constexpr uintptr_t CurrencyAmount = 0x100;
@@ -141,11 +139,8 @@ uint64_t LagerEdit = 0; // Id des Rundenendes, 0 ohne
 constexpr uintptr_t ItemPivotTile = 0x28;
 constexpr uint32_t FuncNet = 0x40;
 constexpr uintptr_t FunctionFlags = 0xB0;
-// UInventoryPanel.IsDragging. Ab 26495302 liegen die Panel-Felder ab 0x398 acht Byte weiter vorn (SDK und HandleConfirmButton).
-uintptr_t PanelIsDragging()
-{
-    return Core::ActiveBuild() == AddressMap::ReferenceBuild ? 0x790 : 0x788;
-}
+// UInventoryPanel.IsDragging (SDK und HandleConfirmButton).
+constexpr uintptr_t PanelIsDragging = 0x788;
 // UDefaultFocusableButton.ParentPanel; der Bestätigen-Knopf des Inventar-Panels heißt im Widget-Baum MainButton.
 constexpr uintptr_t ButtonParentPanel = 0x3A8;
 
@@ -403,7 +398,7 @@ bool ClientConfirm(uintptr_t Panel)
     if (Shown.Items.empty() || !Game::InventoryEdit::ClientEditing())
         return false;
     // HandleConfirmButton selbst ignoriert Bestätigen während eines Drags. Dann auch keinen Edit abschließen.
-    if (Memory::Read<uint8_t>(Panel + PanelIsDragging()).value_or(1))
+    if (Memory::Read<uint8_t>(Panel + PanelIsDragging).value_or(1))
         return true;
     OriginalConfirm(Panel); // entfernt die übrigen Choices, lokal
     // Gewählt ist die Instanz, die keine Belohnung mehr ist, bevorzugt die im Inventar (ein Rucksack kann schon verbraucht sein).
@@ -432,7 +427,7 @@ bool ClientConfirm(uintptr_t Panel)
 bool HoldRoundEndConfirm(uintptr_t Panel)
 {
     const NetRole Role = CurrentRole();
-    if (!End.Id || End.Done == End.Id || Role == NetRole::Standalone || Memory::Read<uint8_t>(Panel + PanelIsDragging()).value_or(1))
+    if (!End.Id || End.Done == End.Id || Role == NetRole::Standalone || Memory::Read<uint8_t>(Panel + PanelIsDragging).value_or(1))
         return false;
     if (End.HeldPanel == Panel)
         return true; // schon bereit, weitere Klicks ändern nichts
@@ -467,7 +462,7 @@ void ReleaseRoundEndConfirm(const char* Why)
         Core::Log::Warn("Lager: Panel weg, zurückgehaltenes Bestätigen verworfen ({})", Why);
         return;
     }
-    if (Memory::Read<uint8_t>(Panel + PanelIsDragging()).value_or(1))
+    if (Memory::Read<uint8_t>(Panel + PanelIsDragging).value_or(1))
         return; // nach dem Drag erneut
     End.HeldPanel = 0;
     End.Done = End.Id;
@@ -484,7 +479,7 @@ void __fastcall ConfirmHook(uintptr_t Panel)
 {
     if (CurrentRole() == NetRole::Client && !Shown.Items.empty() && !ClientPending && Game::InventoryEdit::ClientEditing())
     {
-        if (Shown.Ready || Memory::Read<uint8_t>(Panel + PanelIsDragging()).value_or(1))
+        if (Shown.Ready || Memory::Read<uint8_t>(Panel + PanelIsDragging).value_or(1))
             return; // schon bereit; im Drag nativ auch ohne Wirkung
         Shown.Ready = true;
         Shown.Panel = Panel;
@@ -496,7 +491,7 @@ void __fastcall ConfirmHook(uintptr_t Panel)
         return;
     if (CurrentRole() == NetRole::Host && Host.Active && !Host.ClientPick && RemoteReady.load())
     {
-        if (Host.HeldPanel == Panel || Memory::Read<uint8_t>(Panel + PanelIsDragging()).value_or(1))
+        if (Host.HeldPanel == Panel || Memory::Read<uint8_t>(Panel + PanelIsDragging).value_or(1))
             return;
         Core::Log::Info("Bestätigen: Host bereit, wartet auf den Client (bereit={})", Host.ClientReady);
         Host.HeldPanel = Panel;
@@ -508,7 +503,7 @@ void __fastcall ConfirmHook(uintptr_t Panel)
     // Bis zur Antwort bleibt das Bestätigen zurückgehalten (HoldRoundEndConfirm, ClientRoundEnd).
     if (CurrentRole() == NetRole::Client && LagerEdit && LagerEdit == End.Id && Game::InventoryEdit::ClientEditing() && !ClientPending)
     {
-        if (Memory::Read<uint8_t>(Panel + PanelIsDragging()).value_or(1))
+        if (Memory::Read<uint8_t>(Panel + PanelIsDragging).value_or(1))
             return;
         LagerEdit = 0;
         ClientPending = Game::InventoryEdit::FinishClient(0, 0, std::nullopt, 0);
@@ -583,7 +578,7 @@ uintptr_t __fastcall UpgradeHook(uintptr_t Inventory, ItemArray* Inputs, uintptr
 // übereinander. Den nativen UI-Snap nutzen, nicht Inventar oder Pixelraster erfinden.
 void RestoreBackpackVisuals(uintptr_t Panel)
 {
-    if (CurrentRole() != NetRole::Client || !Alive(Panel) || Memory::Read<uint8_t>(Panel + PanelIsDragging()).value_or(1))
+    if (CurrentRole() != NetRole::Client || !Alive(Panel) || Memory::Read<uint8_t>(Panel + PanelIsDragging).value_or(1))
         return;
     constexpr uintptr_t PanelInventory = 0x370;
     const uintptr_t Inventory = Pointer(Panel + PanelInventory);
@@ -662,15 +657,11 @@ bool CheckConfirm()
 {
     if (!Code::Expect(At(CreateItemInstance), {0x48, 0x89, 0x5C, 0x24, 0x08, 0x55, 0x56, 0x57, 0x48, 0x81, 0xEC}, "InventoryComponent::CreateItemInstance"))
         return false;
-    // Dazu der native Drag-Test (cmp byte ptr [rdi+IsDragging],0), damit PanelIsDragging() zum Build passt.
-    const bool Reference = Core::ActiveBuild() == AddressMap::ReferenceBuild;
-    const bool Prolog = Reference
-        ? Code::Expect(At(PanelConfirm), {0x40, 0x57, 0x48, 0x83, 0xEC, 0x50, 0x48, 0x8B, 0xF9}, "InventoryPanel.HandleConfirmButton") // Build 26187885
-        : Code::Expect(At(PanelConfirm), {0x48, 0x89, 0x5C, 0x24, 0x18, 0x55, 0x56, 0x57, 0x48, 0x83, 0xEC, 0x40, 0x48, 0x8B, 0xF9}, // Build 26495302
-                       "InventoryPanel.HandleConfirmButton");
-    const uint8_t Drag = static_cast<uint8_t>(PanelIsDragging());
-    return Prolog &&
-           Code::Expect(At(PanelConfirm, Reference ? 0x44 : 0x4A), {0x80, 0xBF, Drag, 0x07, 0x00, 0x00, 0x00},
+    // Dazu der native Drag-Test (cmp byte ptr [rdi+IsDragging],0), damit PanelIsDragging zum Build passt.
+    static_assert(PanelIsDragging == 0x788, "Drag-Test unten anpassen");
+    return Code::Expect(At(PanelConfirm), {0x48, 0x89, 0x5C, 0x24, 0x18, 0x55, 0x56, 0x57, 0x48, 0x83, 0xEC, 0x40, 0x48, 0x8B, 0xF9},
+                        "InventoryPanel.HandleConfirmButton") &&
+           Code::Expect(At(PanelConfirm, 0x4A), {0x80, 0xBF, 0x88, 0x07, 0x00, 0x00, 0x00},
                         "InventoryPanel.HandleConfirmButton, IsDragging") &&
            Code::Expect(At(MemoryFree), {0x48, 0x85, 0xC9, 0x74, 0x2E}, "FMemory::Free");
 }
@@ -1449,7 +1440,7 @@ void Tick()
                 Core::Log::Warn("Airdrop-Auswahl: Bestätigen des Hosts nach 10 Versuchen nicht übernommen, Host muss selbst bestätigen");
             Host.HeldPanel = 0;
         }
-        else if (Now >= Host.NextReplay && !Memory::Read<uint8_t>(Panel + PanelIsDragging()).value_or(1))
+        else if (Now >= Host.NextReplay && !Memory::Read<uint8_t>(Panel + PanelIsDragging).value_or(1))
         {
             ++Host.ReplayCount;
             Host.NextReplay = Now + 500;
@@ -1541,7 +1532,7 @@ void FinishClientIfAllReady(bool AllReady)
         Tinted = 0;
         return;
     }
-    if (Memory::Read<uint8_t>(Panel + PanelIsDragging()).value_or(1))
+    if (Memory::Read<uint8_t>(Panel + PanelIsDragging).value_or(1))
         return; // nach dem Drag erneut
     Core::Log::Info("Bestätigen: alle bereit, Client bestätigt (Sitzung {})", Shown.Session);
     SetReadyTint(Panel, false);

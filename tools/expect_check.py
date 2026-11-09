@@ -19,7 +19,7 @@ from rva_map import Image, NAMED  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[1]
 GAME = REPO / 'src' / 'Game'
-REFERENCE_BUILD = 26187885
+REFERENCE_BUILD = 26495302
 EXPECT = re.compile(r'Code::Expect\(\s*(?P<site>[^{;]*?)\s*,\s*\{(?P<bytes>[^}]*)\}\s*,\s*(?://[^\n]*\s*)?"(?P<where>[^"]*)"', re.DOTALL)
 SITE = re.compile(r'^(?:Patches::)?At\(\s*(?P<base>\w+)\s*(?:,\s*(?P<offset>\w+)\s*)?\)\s*(?:(?P<sign>[+-])\s*(?P<delta>\w+))?$')
 BRANCH = re.compile(r'ExpectBranch\(\s*(?P<site>[^;]*?)\s*,\s*(?P<op>CallRel32|JumpRel32)\s*,\s*(?P<target>\w+)\s*,\s*"(?P<where>[^"]*)"',

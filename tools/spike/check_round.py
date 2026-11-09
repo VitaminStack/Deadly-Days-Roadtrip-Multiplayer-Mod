@@ -2,7 +2,7 @@
   check_round.py <host-pid> <client-pid> [--wait] [--timeout 120] [--settle 10] [--label tag2] [--log datei.jsonl]
 --wait wartet vorher, bis beide Instanzen eine neue World haben, und laesst sie dann --settle Sekunden laufen.
 Gibt eine JSON-Zeile aus und haengt sie an --log an. Exitcode 0 sauber, 1 Abweichung, 2 Instanz beendet.
-Nur lesend, Offsets fuer Build 26187885, siehe docs/OFFSETS.md."""
+Nur lesend, Offsets fuer Build 26495302, siehe docs/OFFSETS.md."""
 import argparse
 import json
 import math

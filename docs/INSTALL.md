@@ -9,7 +9,7 @@ des Spiels auf Steam, und beide Spieler brauchen dieselbe Mod-Version.
 ## Voraussetzungen
 
 - Windows 10 oder 11, Deadly Days: Roadtrip über Steam installiert.
-- **Spiel-Build `26187885` oder `26495302`.** Offsets und Patches der Mod gelten nur für diese Builds. Auf einem anderen Build lehnt der Installer ab
+- **Spiel-Build `26495302`.** Offsets und Patches der Mod gelten nur für diesen Build. Auf einem anderen Build lehnt der Installer ab
   und nennt den gefundenen Build. Eine trotzdem vorhandene Mod schaltet sich beim Start selbst ab, das Spiel läuft dann ohne Mod.
 - Das Spiel ist beendet.
 - Keine andere Mod, die ebenfalls eine `version.dll` neben die Spiel-Exe legt.
@@ -56,7 +56,7 @@ Dafür `Uninstall.cmd` nehmen.
 
 | Meldung | Bedeutung und Abhilfe |
 |---|---|
-| `Spiel-Build … statt 26187885 oder 26495302` | Steam hat das Spiel auf einen Build aktualisiert, den die Mod noch nicht kennt. Auf eine Mod-Version für diesen Build warten, bis dahin ohne Mod spielen. |
+| `Spiel-Build … statt 26495302` | Steam hat das Spiel auf einen Build aktualisiert, den die Mod noch nicht kennt. Auf eine Mod-Version für diesen Build warten, bis dahin ohne Mod spielen. |
 | `Steam nicht gefunden` oder `in keiner Steam-Bibliothek gefunden` | Den Spielordner mit `-GameDir` angeben, siehe oben. |
 | `Steam-Manifest nicht gefunden` | Der angegebene Ordner liegt nicht in einer Steam-Bibliothek (`…\steamapps\common\…`). Nur Steam-Installationen werden unterstützt. |
 | `Spiel-Exe nicht gefunden` | Mit `-GameDir` den Ordner angeben, in dem `DDSurvivors` liegt, nicht einen Unterordner. |

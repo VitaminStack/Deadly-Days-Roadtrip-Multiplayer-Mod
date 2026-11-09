@@ -24,8 +24,6 @@ struct SupportedBuild
 
 // Bei einem Spiel-Update hier ergänzen, siehe CONTRIBUTING.md, Abschnitt Spiel-Updates.
 constexpr std::array SupportedBuilds = {
-    SupportedBuild{26187885, {0x32C34474, 0x0B742000}},
-    // update-basis: Adressen über Game/AddressMap, fehlende Patch-Adressen schalten die Patches ab.
     SupportedBuild{26495302, {0x65BFBBFB, 0x0B748000}},
 };
 

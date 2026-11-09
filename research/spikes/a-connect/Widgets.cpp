@@ -6,7 +6,7 @@ namespace Spike
 {
 namespace
 {
-const uintptr_t kProcessEventNative = Rva(0x160C040);
+const uintptr_t kProcessEventNative = Rva(0x160C220);
 
 ProcessEventFn OriginalNativeProcessEvent;
 int32_t ConstructName = -1;

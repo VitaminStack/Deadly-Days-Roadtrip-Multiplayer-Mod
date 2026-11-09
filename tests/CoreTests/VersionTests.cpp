@@ -6,9 +6,10 @@
 
 TEST_CASE("Versionsprüfung kennt nur exakt passende Fingerabdrücke")
 {
-    CHECK(Core::FindSupportedBuild({0x32C34474, 0x0B742000}) == 26187885u);
-    CHECK_FALSE(Core::FindSupportedBuild({0x32C34474, 0x0B742001}));
-    CHECK_FALSE(Core::FindSupportedBuild({0x32C34475, 0x0B742000}));
+    CHECK(Core::FindSupportedBuild({0x65BFBBFB, 0x0B748000}) == 26495302u);
+    CHECK_FALSE(Core::FindSupportedBuild({0x65BFBBFB, 0x0B748001}));
+    CHECK_FALSE(Core::FindSupportedBuild({0x65BFBBFC, 0x0B748000}));
+    CHECK_FALSE(Core::FindSupportedBuild({0x32C34474, 0x0B742000})); // 26187885, seit spiel-update nicht mehr unterstützt
     CHECK_FALSE(Core::FindSupportedBuild({0, 0}));
 }
 

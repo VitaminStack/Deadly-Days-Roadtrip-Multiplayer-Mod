@@ -1,5 +1,5 @@
-// Gemeinsame Schnittstelle der Spike-Dateien. Code- und Datenadressen nennt der Quelltext fuer Build 26187885; Rva() rechnet sie
-// fuer 26495302 um (Builds.cpp). Feld-Offsets sind in beiden Builds gleich.
+// Gemeinsame Schnittstelle der Spike-Dateien. Code- und Datenadressen nennt der Quelltext fuer Build 26495302, Rva() prueft
+// den Build (Builds.cpp).
 #pragma once
 #include <windows.h>
 #include <cstdint>
@@ -21,9 +21,9 @@ uintptr_t FindImportSlot(const void* Function);
 
 void TickRemoteP2();
 bool RemoteP2Command(const std::wstring& Command);
-const uintptr_t kGObjects = Rva(0x0AA61B00);
-const uintptr_t kNameBlocks = Rva(0x0A993AC0) + 0x10;
-const uintptr_t kGWorld = Rva(0x0AAE46F0);
+const uintptr_t kGObjects = Rva(0x0AA67B80);
+const uintptr_t kNameBlocks = Rva(0x0A999B40) + 0x10;
+const uintptr_t kGWorld = Rva(0x0AAEA770);
 constexpr int kProcessEventIndex = 0x4A;
 constexpr uintptr_t kWorldNetDriver = 0x38;
 constexpr uintptr_t kWorldGameMode = 0x1A8;

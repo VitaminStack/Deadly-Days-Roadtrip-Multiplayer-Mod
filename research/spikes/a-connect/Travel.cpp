@@ -5,8 +5,8 @@ namespace Spike
 {
 namespace
 {
-const uintptr_t kSetClientTravel = Rva(0x3262830);
-const uintptr_t kSeamlessTravelToLevel = Rva(0x5976AD0);
+const uintptr_t kSetClientTravel = Rva(0x3262A30);
+const uintptr_t kSeamlessTravelToLevel = Rva(0x597ABB0);
 constexpr uintptr_t kLoadSettingsPackage = 0x10;
 constexpr uintptr_t kLoadingTimescaleManager = 0xE0; // ULoadingSubSystem::TimescaleManager
 constexpr uintptr_t kTimescaleRequestCount = 0x50;   // UTimescaleManager::TimeRequests, Elementzahl der SparseArray
@@ -31,7 +31,7 @@ void __fastcall SetClientTravelHook(uintptr_t Engine, uintptr_t World, const wch
     QueueCommand(L"servertravel " + Target + L"?listen");
 }
 
-// Das Original startet den Ladeablauf (0x595C910): eigene Pause, dann TimescaleManager::ClearAllRequests. Die Umleitung
+// Das Original startet den Ladeablauf (0x5960D30): eigene Pause, dann TimescaleManager::ClearAllRequests. Die Umleitung
 // ueberspringt das, die Freeze-Anfrage aus FinishMission bliebe stehen und pausierte jede weitere Runde ueber den
 // PauserPlayerState. Niemand steigt dann am Bus aus, die Uhr steht bei 00:00. Darum hier dasselbe Abraeumen.
 void ClearTimeRequests(uintptr_t LoadingSubsystem)
