@@ -67,6 +67,7 @@ void Start()
     // Die Lobby hängt einen Game-Thread-Tick an, das geht nur vor Game::Start.
     Mod::Lobby::Install();
     Mod::Control::Install();
+    Sync::BindDevSource([] { return UI::Overlay().TakeDevRequests(); });
     Sync::Start(Config, [](std::string Text) { UI::Overlay().PublishDiagnostics(std::move(Text)); });
     Started = true;
     Game::Start();

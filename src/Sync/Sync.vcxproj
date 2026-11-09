@@ -33,6 +33,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Sync.h" />
+    <ClInclude Include="DevState.h" />
     <ClInclude Include="MovementState.h" />
     <ClInclude Include="ProgressState.h" />
     <ClInclude Include="DesyncState.h" />

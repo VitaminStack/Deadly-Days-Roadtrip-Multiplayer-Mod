@@ -53,6 +53,7 @@
     <ClCompile Include="ProjectilePatches.cpp" />
     <ClCompile Include="NetworkObjects.cpp" />
     <ClCompile Include="ConsoleAdapter.cpp" />
+    <ClCompile Include="DevAdapter.cpp" />
     <ClCompile Include="GameThread.cpp" />
     <ClCompile Include="HealthBarPatches.cpp" />
     <ClCompile Include="InventoryPatches.cpp" />
@@ -96,6 +97,7 @@
     <ClInclude Include="LocalDevicePolicy.h" />
     <ClInclude Include="MovementPolicy.h" />
     <ClInclude Include="DashAdapter.h" />
+    <ClInclude Include="DevAdapter.h" />
     <ClInclude Include="PatchPolicy.h" />
     <ClInclude Include="PatchRuntime.h" />
     <ClInclude Include="Patches.h" />
