@@ -43,6 +43,7 @@ Projektstand vom **08.11.2026**; die aktuellen Aufgaben, Abhängigkeiten und Abn
 - `livetest-befunde`, 06.11.2026: Erster Live-Test auf zwei PCs über das Internet bis Tag 2, abgebrochen durch einen Absturz des Clients im Lager. Beim Client wirkten getauschte Waffen nicht, das Inventar wich dauerhaft ab, Aufwerten fehlt (`werkbank-client`), der Dodge-Fix wirkte laut Nutzer nicht. Neu: `lager-absturz-client`, `waffe-client-auswahl`, `inventar-client-abweichung`, `dodge-client-live`. [Befund](GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-06112026-livetest-befunde)
 - `xp-baelle-live`, 06.11.2026: Im Spiel gegengeprüft, ohne Code-Änderung. Beim Client sind die Sichtgrenzen der XP-Bälle jetzt dieselben wie beim Host (4370/4851 statt vorher 1050/5750). Auch bei weit auseinanderstehenden Figuren lagen die Bälle am linken und am rechten Bildrand auf beiden Seiten gleich. Eingesammelte Bälle verschwanden auf beiden Seiten. Level und XP blieben bis Level 6 gleich, es wurde nichts doppelt gezählt. Gegenproben Bewegung, Dodge, zwei Airdrops und Lager bestanden, kein Absturz. [Befund](GAME_ANALYSIS.md#xp-bälle-beim-client-xp-baelle)
 - `skripte-rundenende`, 06.11.2026: `Run-Route.ps1` und `Travel-Day.ps1` bestätigen das Lager am Rundenende jetzt bei Host und Client (`Complete-RoundEnd` in `tools/spike/Common.ps1`) und warten, bis der Host die Routenkarte zeigt. `Run-Route.ps1 -Days 2` lief sauber bis Tag 2 (Exitcode 0, Inventare gleich), `Travel-Day.ps1` bis Tag 3. [Testen](TESTING.md#mission-über-das-spielmenü)
+- `virenscanner`, 09.11.2026: Windows Defender meldet das Release-Paket nicht, Umgang mit Fehlalarmen und Proton (nicht unterstützt) stehen in [Installation](INSTALL.md#virenscanner-und-proton).
 - `installer`, 06.11.2026: Release-Paket `dist/DDCoop-<Version>.zip` aus `tools/New-ReleasePackage.ps1` mit `Install.cmd`/`Uninstall.cmd`. Der Installer findet das Spiel in allen Steam-Bibliotheken, prüft Build `26187885` über das Steam-Manifest, laufendes Spiel und fremde `version.dll` und kopiert nur Loader und Mod; `ddcoop.ini`, Logs und Spielstände bleiben. `Deploy-Mod.ps1` nutzt denselben Installer. 11 Tests mit nachgebautem Steam-Ordner, echtes Paket an der Steam-Installation installiert und wieder entfernt, ohne Spielstart. Defender und Proton bleiben `virenscanner`. [Installation für Spieler](INSTALL.md)
 - `inventar-sync` und `inventar-ui`, 06.11.2026: Ohne eigene Umsetzung geschlossen, weil andere Aufgaben sie abdecken. Den Weg über den nativen `CoopInventoryCoordinator` hat das Projekt verworfen. Rucksack: `inventar-lokal` und `ausruestung-felder`. Lager: `rundenende-client`. Reward-Queue: `airdrop-warten` und `bestaetigen-alle`. Itemsäcke: `inventar-transaktion`. Der Client bedient sein Inventar im nativen Panel. Die Werkbank (Items aufwerten) ist im Coop nicht getestet und steht jetzt als `werkbank-client`.
 - `eingaben`, 06.11.2026: Host und Client steuern nur ihre eigene Figur; Bewegung, Dodge, Zielen und Menütasten wirkten schon ohne Änderung getrennt. Die verbleibende Lücke war der native lokale Koop: Ein lokales Gerät hätte an P2 gebunden werden können, der beim Host der Remote-Spieler ist, und beim Client hätte `SpawnLocalPlayer(1)` einen zweiten lokalen Spieler angelegt. Im Netzwerkspiel lehnt die Mod das jetzt an drei nativen Einstiegen ab, ohne Nachricht und ohne Folgen für den Solo-Koop. Im Spiel per Probe belegt; Gegenproben Bewegung, Dodge, Airdrop und Lager bestanden. [Befund](GAME_ANALYSIS.md#eingaben-getrennt-eingaben)
@@ -307,7 +308,7 @@ flowchart TD
         SV["Eigene Mod-Spielstände"]:::done
         IN["Installer oder Anleitung"]:::done
         WS["Weekly-Challenge sperren<br/>(weekly-sperre)"]:::open
-        VS["Virenscanner und Proton<br/>(virenscanner)"]:::open
+        VS["Virenscanner und Proton<br/>(virenscanner)"]:::done
     end
 
     Z(["Mod fertig und nutzbar"]):::goal
@@ -347,7 +348,7 @@ flowchart TD
     RV["Vorbeugung<br/>ohne-spike, latenz-test"]:::done --> IG
     PR --> DS["desync-melder"]:::done --> IG
     IG --> DL["dauerlauf"]:::open --> IR
-    W5 --> W6["weekly-sperre, virenscanner"]:::open --> RL
+    W5 --> W6["weekly-sperre"]:::open --> RL
     IR --> RL["release"]:::central
     RL --> Z(["Mod fertig und nutzbar"]):::goal
 
