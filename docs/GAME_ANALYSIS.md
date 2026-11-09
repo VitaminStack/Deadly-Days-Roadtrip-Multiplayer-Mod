@@ -1616,7 +1616,7 @@ Anzahl `+0x2B8`, `CurrentMissionIndex` `+0x2C0`, `IsEndOfMissionChain` `+0x2C8`,
 **Nachtrag 09.11.2026, zurückgestellt als `opt-routenkarte`:** Build `26495302`, ein PC, Mod mit Spike über die Lobby, Godmode,
 Seed `20795`, frischer Spielstand (Tag 1 startet ohne Routenkarte). Kein Code geändert, nur gelesen und disassembliert. Auf
 Wunsch des Nutzers verwaltet im ersten Release nur der Host die Routenkarte; der Client bekommt währenddessen Pause und
-Eingabesperre ([`routenkarte-sperre`](../TODO.md#phase-5--vollständiger-run)). Die volle Karte beim Client bleibt optional.
+Eingabesperre (Sperre und volle Karte beim Client laufen später gemeinsam unter [`opt-routenkarte`](../TODO.md#optionale-optimierungen)).
 
 - **[Belegt] Offsets gelten auch auf `26495302`:** `FCurrentRunInfo` an `GameInstance+0x2A0` wie oben. Host nach Tag 1: Seed 20795,
   `RouteMissionStructureIdentifier` `(0, 1)`, Kette 1, Index 0, Ende der Kette, `ChosenMissionIndexes` `[2]`,
