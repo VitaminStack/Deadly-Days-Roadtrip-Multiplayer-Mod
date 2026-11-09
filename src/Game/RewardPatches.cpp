@@ -918,6 +918,8 @@ struct Trade
 {
     uintptr_t Item = 0;
     int32_t Price = 0;
+    bool Consumed = false; // Eingabe einer Aufwertung desselben Edits, vor ihr repariert
+    bool Done = false;     // Consumed: RepairItem lief vor der Aufwertung
 };
 }
 }
@@ -1198,6 +1200,7 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
     }
     // lager-handel-client: Verkäufe und Reparaturen prüfen, bevor sich etwas ändert. Preise rechnet der Host selbst.
     std::vector<Trade> Sells, Repairs;
+    const std::set<uint16_t> Consumed = ConsumedSources(Value);
     for (size_t i = 0; i < Value.Items.size(); ++i)
     {
         const ItemState& Want = Value.Items[i];
@@ -1216,8 +1219,10 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
             Core::Log::Warn("Inventar lokal: Item {} des Edits {} soll kaputt werden, abgelehnt", Want.Source, Value.Id);
             return false;
         }
-        if (Want.Present && !Want.Broken && Broken)
-            Repairs.push_back({Resolved[i], RepairPrice(Resolved[i])});
+        // inventar-client-abweichung: Auch eine im selben Edit reparierte und dann aufgewertete Eingabe ist eine Reparatur.
+        const bool Input = Consumed.contains(Want.Source);
+        if ((Want.Present || Input) && !Want.Broken && Broken)
+            Repairs.push_back({Resolved[i], RepairPrice(Resolved[i]), Input});
         if (IsSold(Want))
         {
             if (IsReward(Resolved[i]))
@@ -1259,7 +1264,17 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
     if (Value.Choice)
         Kinds[ChoiceSource] = {KindOf(Host.Data[*Value.Choice].first, Host.Data[*Value.Choice].second), NextRarityOf(Host.Data[*Value.Choice].second)};
     std::vector<std::pair<uintptr_t, uintptr_t>> Outputs;
-    if (!Value.Upgrades.empty() && !CheckUpgrades(Value, Live, Kinds, Inventory, Outputs))
+    // Die native Prüfung sieht reparierte Eingaben nur repariert: Kaputt-Flag für die Prüfung kurz löschen, danach zurück.
+    const auto SetBroken = [&](uint8_t Flag)
+    {
+        for (const Trade& Next : Repairs)
+            if (Next.Consumed)
+                Memory::WriteBytes(Next.Item + ItemBroken, &Flag, sizeof(Flag));
+    };
+    SetBroken(0);
+    const bool UpgradesOk = Value.Upgrades.empty() || CheckUpgrades(Value, Live, Kinds, Inventory, Outputs);
+    SetBroken(1);
+    if (!UpgradesOk)
     {
         Core::Log::Warn("Inventar lokal: Edit {} mit {} Aufwertungen abgelehnt", Value.Id, Value.Upgrades.size());
         return false;
@@ -1279,6 +1294,20 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
         Live[ChoiceSource] = Resolved[ChoiceAt];
     // Aufwertungen in ihrer Reihenfolge nativ ausführen. UpgradeItems nimmt die Eingaben selbst aus dem Inventar.
     bool Ok = true;
+    // Reparierte Eingaben vor den Aufwertungen nativ reparieren; gebucht wird wie jede Reparatur unten.
+    HostApplyingEdit = true;
+    for (Trade& Next : Repairs)
+        if (Next.Consumed && Alive(Next.Item))
+        {
+            static uintptr_t Repair = 0;
+            if (const uintptr_t Fn = Function_(Repair, "RepairItem"))
+            {
+                uintptr_t Params = Next.Item;
+                Objects::ProcessEvent(Inventory, Fn, &Params);
+            }
+            Next.Done = !IsBroken(Next.Item);
+        }
+    HostApplyingEdit = false;
     std::vector<uintptr_t> Made;
     for (size_t K = 0; K < Value.Upgrades.size() && Ok; ++K)
     {
@@ -1302,7 +1331,6 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
         if (std::find(Existing.begin(), Existing.end(), At) == Existing.end())
             Create.push_back(At);
     // Verbrauchte Eingaben fehlen schon, die Ausgaben bekommen ihren Endstand wie jedes andere Item.
-    const std::set<uint16_t> Consumed = ConsumedSources(Value);
     std::vector<uintptr_t> Targets;
     std::vector<ItemState> Goal;
     for (size_t i = 0; i < Resolved.size(); ++i)
@@ -1337,7 +1365,7 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
                 ++Sold;
             }
         for (const Trade& Next : Repairs)
-            if (Alive(Next.Item) && !IsBroken(Next.Item))
+            if (Next.Consumed ? Next.Done : Alive(Next.Item) && !IsBroken(Next.Item))
             {
                 Delta -= Next.Price;
                 ++Repaired;
