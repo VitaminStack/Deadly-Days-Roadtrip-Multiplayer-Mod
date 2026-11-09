@@ -98,6 +98,9 @@ Mögliche Punkte und Reihenfolge, je nach Bereitschaft:
 3. `integration-g2`: zehn Minuten Vertical Slice zwischen zwei Haushalten, erst wenn alle Voraussetzungen erledigt sind.
 4. `integration-run`: kompletter Run über das Internet, Phase 5.
 5. `release`: Abschlusstest vor der Veröffentlichung.
+6. Alle Bestätigungstests aus `py tools/tasks.py tests plan` in einem Lauf bis Tag 2. Gemeinsamer Ablauf für `fortschritt`,
+   `update-welt` und `lager-handel-client`: [Plan](research/spikes/fortschritt/README.md#live-test-zu-zweit-etwa-30-minuten).
+   Neue Aufgaben mit Live-Rest dort ergänzen statt einen eigenen Termin anzusetzen.
 
 Die Entscheidung `meta-fortschritt` ist getroffen: Im gemeinsamen Run gilt der Host-Stand,
 ohne dauerhafte Meta-Gutschrift beim Client, siehe [Regel](docs/SYNC_REQUIREMENTS.md#nutzervorgabe-meta-fortschritt-des-hosts-06112026).
