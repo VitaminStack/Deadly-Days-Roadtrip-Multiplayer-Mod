@@ -37,6 +37,7 @@ struct WindowState
     HWND Create = nullptr, Join = nullptr, Invite = nullptr, Leave = nullptr, Lobby = nullptr, Copy = nullptr;
     HWND Tab = nullptr, DevXp = nullptr, DevTank = nullptr, DevGod = nullptr, DevZombies = nullptr, DevItem = nullptr, DevInfo = nullptr;
     bool KeyDown = false;
+    uint32_t HotkeysDown = 0;
     ULONGLONG CopiedAt = 0;
     int Dpi = 0;
     HFONT Font = nullptr;
@@ -224,7 +225,7 @@ void UpdateControls(WindowState& State)
     EnableWindow(State.DevGod, Dev);
     EnableWindow(State.DevZombies, Dev);
     EnableWindow(State.DevItem, Dev);
-    Text(State.DevInfo, L"Solo lokal; Koop ueber Host. Nur in Mission wirksam. Zombies am letzten Cursorpunkt im Spielbild.");
+    Text(State.DevInfo, L"Solo lokal; Koop ueber Host. Nur in Mission wirksam. Zombies am letzten Cursorpunkt im Spielbild. Hotkeys: Numpad 1 bis 5.");
     const bool Copied = State.CopiedAt && GetTickCount64() - State.CopiedAt < 1500;
     Text(State.Copy, Copied ? L"Kopiert" : L"Lobby-ID kopieren");
 }
@@ -251,6 +252,17 @@ void Refresh(WindowState& State, HWND Window)
     if (Focused && Down && !State.KeyDown)
         UI::SetVisible(!Visible.load());
     State.KeyDown = Down;
+    // Dev-Hotkeys Numpad 1 bis 5 (Wert wie UI::DevButton), nur mit Fokus auf Spiel oder Overlay, auch bei verstecktem Overlay.
+    // Der Zeiger liegt dann ueber dem Spielbild, so trifft Spawn Zombies den Cursorpunkt. Bei ausgeschaltetem NumLock
+    // meldet Windows andere Tasten, dann wirken sie nicht.
+    uint32_t HotkeysNow = 0;
+    for (uint8_t Button = 1; Button <= 5; ++Button)
+        if (Focused && (GetAsyncKeyState(VK_NUMPAD0 + Button) & 0x8000))
+            HotkeysNow |= 1u << Button;
+    for (uint8_t Button = 1; Button <= 5; ++Button)
+        if ((HotkeysNow & ~State.HotkeysDown) & (1u << Button))
+            UI::Overlay().RequestDev(static_cast<UI::DevButton>(Button));
+    State.HotkeysDown = HotkeysNow;
     if (!Owner || IsIconic(Owner) || !Visible.load())
     {
         const bool HadFocus = Foreground == Window;
@@ -305,12 +317,12 @@ LRESULT CALLBACK WindowProc(HWND Window, UINT Message, WPARAM WParam, LPARAM LPa
             State->Copy = Control(Window, L"BUTTON", L"Lobby-ID kopieren", WS_TABSTOP, CopyId);
             for (HWND Button : { State->Create, State->Join, State->Invite, State->Leave, State->Copy })
                 EnableWindow(Button, FALSE);
-            State->DevXp = Control(Window, L"BUTTON", L"Spawn XP", WS_TABSTOP, DevXpId);
-            State->DevTank = Control(Window, L"BUTTON", L"Full Tank", WS_TABSTOP, DevTankId);
+            State->DevXp = Control(Window, L"BUTTON", L"Spawn XP [Num1]", WS_TABSTOP, DevXpId);
+            State->DevTank = Control(Window, L"BUTTON", L"Full Tank [Num2]", WS_TABSTOP, DevTankId);
             // Gruppenrahmen statt STATIC: Tests und Spike-Skripte lesen die STATIC-Reihenfolge des Status-Tabs.
-            State->DevGod = Control(Window, L"BUTTON", L"Godmode an/aus", WS_TABSTOP, DevGodId);
-            State->DevZombies = Control(Window, L"BUTTON", L"Spawn Zombies (Cursor)", WS_TABSTOP, DevZombiesId);
-            State->DevItem = Control(Window, L"BUTTON", L"Spawn Random Item", WS_TABSTOP, DevItemId);
+            State->DevGod = Control(Window, L"BUTTON", L"Godmode an/aus [Num3]", WS_TABSTOP, DevGodId);
+            State->DevZombies = Control(Window, L"BUTTON", L"Spawn Zombies (Cursor) [Num4]", WS_TABSTOP, DevZombiesId);
+            State->DevItem = Control(Window, L"BUTTON", L"Spawn Random Item [Num5]", WS_TABSTOP, DevItemId);
             State->DevInfo = Control(Window, L"BUTTON", L"", BS_GROUPBOX);
             for (HWND Button : { State->DevXp, State->DevTank, State->DevGod, State->DevZombies, State->DevItem })
                 EnableWindow(Button, FALSE);

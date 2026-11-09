@@ -41,7 +41,7 @@ Das Modul bleibt auf `Core` und `Net` begrenzt. Der Game-Adapter ist dafür nich
 
 ## Dev-Tab (`opt-dev-tab`, Entwicklerwerkzeug)
 
-Das Overlay hat die Tabs „Status“ und „Dev“. Der Dev-Tab hat die Knöpfe „Spawn XP“, „Full Tank“, „Godmode an/aus“, „Spawn Zombies (Cursor)“ und „Spawn Random Item“, auch solo drückbar; wirksam nur in einer Mission. Der Fensterthread setzt nur ein Bit in `OverlayModel::RequestDev`; `Sync` holt die Bits im Game-Thread-Takt (`TakeDevRequests`, über `Sync::BindDevSource`).
+Das Overlay hat die Tabs „Status“ und „Dev“. Der Dev-Tab hat die Knöpfe „Spawn XP“, „Full Tank“, „Godmode an/aus“, „Spawn Zombies (Cursor)“ und „Spawn Random Item“, auch solo drückbar; wirksam nur in einer Mission. Hotkeys Numpad 1 bis 5 in der Reihenfolge der Knöpfe (NumLock an), nur bei Fokus auf Spiel oder Overlay, auch bei verstecktem Overlay; der Zeiger liegt dabei über dem Spielbild, so trifft Spawn Zombies genau den Cursor. Der Fensterthread setzt nur ein Bit in `OverlayModel::RequestDev`; `Sync` holt die Bits im Game-Thread-Takt (`TakeDevRequests`, über `Sync::BindDevSource`).
 
 - **Host:** führt direkt über `Game::RunDevAction` aus. **Client:** sendet die Kontrollnachricht `0x600` (1 Byte Aktion, bei Spawn Zombies dazu 24 Byte Bodenpunkt) an den Host, der sie für die Client-Figur ausführt. Keine Antwort, kein Missbrauchsschutz, da reines Entwicklerwerkzeug.
 - **Spawn XP:** `ExpSubsystem.RequestExpSpawning(200, Figurposition)` wie im Spike `client-visuell`. Die Bälle sieht der Client über den XP-Ball-Abgleich.
