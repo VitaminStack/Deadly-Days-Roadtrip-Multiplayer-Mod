@@ -18,8 +18,10 @@ namespace Core::ReportHosts
 namespace
 {
 // Fest im Spiel: Bug-Reports und Berichte über beschädigte Spielstände (Codecks), Spielstand-Analytics (Pixelsplit) und
-// ein Dienst, den das Spiel beim Run-Ende anfragt (layerapps, Inhalt nicht untersucht, siehe docs/GAME_ANALYSIS.md).
-const std::vector<std::wstring> DefaultHosts = {L"codecks.io", L"pixelsplit.games", L"deadlydays.layerapps.com"};
+// ein Dienst, den das Spiel beim Run-Ende anfragt (layerapps, Inhalt nicht untersucht, siehe docs/GAME_ANALYSIS.md) und die
+// Weekly-Challenge (ddrweekly), die mit Mod gesperrt bleibt wie Erfolge und Bestenlisten (Entscheidung weeklymode).
+const std::vector<std::wstring> DefaultHosts = {L"codecks.io", L"pixelsplit.games", L"deadlydays.layerapps.com",
+                                          L"ddrweekly.deadlydays.com"};
 
 std::mutex Lock;
 std::vector<std::wstring> Hosts = DefaultHosts;

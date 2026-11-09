@@ -1854,7 +1854,7 @@ Stand 04.11.2026, Build `26187885`, Steamworks-Laufzeit 1.64.
 - **Test:** zwei Instanzen auf einem PC mit `Start-Session.ps1 -Mod`, Route mit Seed `20795` bis zum Rundenende an Tag 1. Auf beiden Seiten lud das Spiel `steam_api64.dll` rund 80 ms nach dem Start der Mod, die Sperre stand beim Laden. Der Host versuchte rund 7 s später, die Statistiken zu speichern (`StoreStats`), und wurde abgewiesen. Das Spiel lief normal, kein Absturz. Ob es vor dem Start der Mod Schreibversuche gab, ist nicht gemessen; die Mod sieht nur Aufrufe ab ihrer Sperre. Unit-Tests mit nachgebauter Steam-Laufzeit decken späten Steam-Start, den ersten Schreibaufruf, eine schon vorhandene Schnittstelle, gescheiterte Hooks, unbekannte Einsprünge und fremde Versionen ab.
 - **Nicht geprüft:** ein echter Erfolg und ein Bestenlisten-Eintrag am Run-Ende. Absichtlich ausgelöst habe ich keinen: Wäre die Sperre unwirksam, stünde der Erfolg dauerhaft im Steam-Konto.
 - **[Vermutung]** Das Spiel speichert seinen Erfolgsfortschritt auch im eigenen Spielstand (`AchievementSubsystem`, `PersistedAchievementData`). Läuft ein Mod-Run auf dem normalen Spielstand, könnte das Spiel solche Erfolge später ohne Mod nachmelden. Seit [`mod-saves`](#spielstände-der-mod-mod-saves) laufen Mod-Runs nur auf eigenen Ständen.
-- **Nicht gesperrt:** die Weekly-Challenge über `ddrweekly.deadlydays.com`. Ob sie unterstützt oder gesperrt wird, entscheidet das Team unter `weeklymode`.
+- **Gesperrt seit `weekly-sperre`:** die Weekly-Challenge über `ddrweekly.deadlydays.com`, wie Erfolge und Bestenlisten (Entscheidung `weeklymode`). Wie das Menü ohne Antwort reagiert, ist noch nicht im Spiel geprüft.
 
 ### Telemetrie und Berichte (`telemetrie-aus`)
 
@@ -1868,9 +1868,9 @@ Stand 04.11.2026, Build `26187885`. Neben dem Crash-Reporter (siehe [Crash-Repor
 | Automatische Berichte über beschädigte Spielstände (`DDCorruptedSaveReportSubsystem`) | Codecks | `bEnableAutomaticCorruptedSaveReports` |
 
 - **[Belegt]** Alle drei Schalter stehen ab Werk auf an.
-- **[Belegt]** Die Mod schaltet sie am Klassen-Defaultobjekt ab (`Game::TelemetryAdapter`) und lässt zusätzlich die Namensauflösung für `codecks.io`, `pixelsplit.games` und `deadlydays.layerapps.com` scheitern (`Core::ReportHosts`). Die zweite Schicht hängt nicht an Spiel-Offsets und deckt auch Analytics und Bug-Report-Formular ab, die keinen Schalter haben.
+- **[Belegt]** Die Mod schaltet sie am Klassen-Defaultobjekt ab (`Game::TelemetryAdapter`) und lässt zusätzlich die Namensauflösung für `codecks.io`, `pixelsplit.games`, `deadlydays.layerapps.com` und `ddrweekly.deadlydays.com` scheitern (`Core::ReportHosts`). Die zweite Schicht hängt nicht an Spiel-Offsets und deckt auch Analytics und Bug-Report-Formular ab, die keinen Schalter haben.
 - **[Belegt]** Die HTTP-Anfragen des Spiels laufen über diese Namensauflösung: Im Menü fragt das Spiel `ddrweekly.deadlydays.com` an, und der Hook sieht es.
-- **Nicht gesperrt:** `ddrweekly.deadlydays.com` (Weekly-Challenge, Thema von `online-sperren` und `weeklymode`), Twitch-Anbindung (nur auf Wunsch des Spielers).
+- **Nicht gesperrt:** Twitch-Anbindung (nur auf Wunsch des Spielers).
 - **Gesperrt seit `layerapps-sperre` (04.11.2026):** `deadlydays.layerapps.com`.
   - **[Belegt]** Der Host fragt den Dienst direkt beim Run-Ende an, kurz vor `pixelsplit.games`. Gesehen beim Test zu `patches` nach einer Niederlage.
   - **Vermutung:** Das Spiel meldet dort das Run-Ergebnis. Was es sendet, ist nicht untersucht. Die Sperre folgt der Regel, dass Mod-Runs keine unnötigen Daten senden.
