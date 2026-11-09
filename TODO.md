@@ -38,7 +38,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `run-ende` | P1 | [5](#phase-5--vollständiger-run) | parallel | viel |
 | `reconnect` | P2 | [5](#phase-5--vollständiger-run) | parallel | viel |
 | `vfx-sound` | P2 | [5](#phase-5--vollständiger-run) | parallel | mittel |
-| `modversion-overlay` | P2 | [6](#phase-6--release) | parallel | wenig |
 
 **Wartet auf das Team:** nichts.
 
@@ -166,7 +165,6 @@ Ziel: Die Mod lässt sich installieren, ohne Spielstände oder Bestenlisten zu b
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
 | `weekly-sperre` | P1 | **Bestätigungstest ausstehend:** ddrweekly.deadlydays.com in Core::ReportHosts gesperrt, Unit-Tests bestehen. Offen: Solo-Spieltest mit Mod, Weekly-Eintrag im Hauptmenü anklicken, Menü bleibt bedienbar, Log zeigt keine Auflösung; ohne Mod unverändert. **Aufgabe und Abnahme:** Die Weekly-Challenge sperren, solange die Mod geladen ist, auch solo, wie Erfolge und Bestenlisten (Entscheidung `weeklymode`). `ddrweekly.deadlydays.com` in `Core::ReportHosts` aufnehmen und vorher prüfen, wie das Menü reagiert: Hängt oder stürzt der Weekly-Eintrag ohne Antwort, ihn sperren oder mit Hinweis versehen. **Fertig, wenn** mit Mod nichts an den Weekly-Server geht, das Menü normal bedienbar bleibt und ohne Mod alles unverändert ist. **Einstieg:** [Telemetrie und Berichte](docs/GAME_ANALYSIS.md#telemetrie-und-berichte-telemetrie-aus). Ordner `src/Core`, `src/Game` | `weeklymode`, `telemetrie-aus` | parallel | wenig |
-| `modversion-overlay` | P2 | Wunsch des Nutzers vom 07.11.2026: Das Overlay der Mod zeigt dauerhaft die geladene Mod-Version, damit Spieler sehen, welche Version sie nutzen, und Abweichungen zwischen Host und Client erkennen. Die Version aus derselben Quelle wie im Handshake nehmen, nicht doppelt pflegen. **Fertig, wenn** das Overlay in Menü, MetaBase und Mission die Version zeigt und sie mit der Version im Handshake übereinstimmt. Ordner `src/Mod` | – | parallel | wenig |
 | `release` | P0 | Versionierung, Abschlusstest und Veröffentlichung. Ein Stand, eine Freigabe | `integration-run`, `tutorial-aus`, `online-sperren`, `telemetrie-aus`, `mod-saves`, `installer`, `weekly-sperre`, `virenscanner`, `lobby-live-rest` | zentral | wenig |
 
 ## Wartung
@@ -293,6 +291,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `mitwirkende` | 0 | Freunde als Mitwirkende eingeladen |
 | `mod-saves` | 6 | Mod-Spielstände in SaveGames_DDCoop getrennt (Datei-API-Umleitung, erste Kopie, ohne Umleitung kein Mod-Start); Rundenende beim Client, Wiederladen und Lauf ohne Mod belegt |
 | `mod-steuerung` | Wartung | Testkanal der Mod: Named Pipe je Prozess mit -ddcoop_control, Zustand, Lobby, Konsole und Reise mit Antwort; Start-Session, Restart-Instance und Test-NetEnd ohne Spike-Befehle (27 s, 16 s, 50 s) |
+| `modversion-overlay` | 6 | Fenstertitel und Statuszeile des F8-Overlays zeigen dauerhaft die geladene Mod-Version aus `Net::Protocol::ModVersion` wie im Handshake; UI-Tests prüfen Offline und Spielzustand, ein Sichttest bestätigt die Mission, siehe [PR #180](https://github.com/VitaminStack/Deadly-Days-Roadtrip-Multiplayer-Mod/pull/180) und [UI](src/UI/README.md#stand-overlay) |
 | `net-fehler` | 3 | Jedes Sitzungsende (Verlassen beider Seiten, Abbruch, Steam- und Sitzungszeitlimits) erscheint mit eigenem Grund als lesbare Meldung in Overlay und Log, danach sind Erstellen und Beitreten wieder frei; im Spiel geprüft, siehe [Fehlerbehandlung](src/Net/README.md#fehlerbehandlung-net-fehler) |
 | `niederlage` | 1 | Nach einer Niederlage kehren Host und Client über „Zurück zur Basis“ in die `MetaBase` zurück, und ein neuer Run startet; der Host-Absturz im Run-Ende-Handler ohne `LocalPlayer` ist im Spike behoben (`RunEnd.cpp`), siehe [Niederlage](docs/GAME_ANALYSIS.md#niederlage-niederlage) |
 | `ohne-spike` | 4 | Mod läuft ohne Spike bis Mission Tag 1 und zurück zur Basis, Start-Session.ps1 -NoSpike, Liste der Spike-Eingriffe in src/Game/README.md |
