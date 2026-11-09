@@ -1613,6 +1613,33 @@ Anzahl `+0x2B8`, `CurrentMissionIndex` `+0x2C0`, `IsEndOfMissionChain` `+0x2C8`,
   Client sieht dann dieselbe Karte, wählen kann er weiter nicht. Bei echten Spielständen nur in den Mod-Spielständen
   ([`mod-saves`](#spielstände-der-mod-mod-saves)).
 
+**Nachtrag 09.11.2026, zurückgestellt als `opt-routenkarte`:** Build `26495302`, ein PC, Mod mit Spike über die Lobby, Godmode,
+Seed `20795`, frischer Spielstand (Tag 1 startet ohne Routenkarte). Kein Code geändert, nur gelesen und disassembliert. Auf
+Wunsch des Nutzers verwaltet im ersten Release nur der Host die Routenkarte; der Client bekommt währenddessen Pause und
+Eingabesperre ([`routenkarte-sperre`](../TODO.md#phase-5--vollständiger-run)). Die volle Karte beim Client bleibt optional.
+
+- **[Belegt] Offsets gelten auch auf `26495302`:** `FCurrentRunInfo` an `GameInstance+0x2A0` wie oben. Host nach Tag 1: Seed 20795,
+  `RouteMissionStructureIdentifier` `(0, 1)`, Kette 1, Index 0, Ende der Kette, `ChosenMissionIndexes` `[2]`,
+  `LinkedNextMissionIndexes` `[0, 2]`, `Position` 2. Client: eigener Seed, Kennung `(0, 0)`, Kette leer, gewählt `[]`.
+- **[Belegt] Missionsstruktur ist beim Client schon gleich:** `UMissionGenerationSubsystem.CachedMissionStructure` (`+0x30`,
+  Elemente `FPossibleMissionGroup` zu `0x20` Bytes) hatte nach `DD_SetCurrentRunSeed 20795` beim Client dieselben 8 Gruppen wie beim
+  Host (Cities, Cities, Suburbs, Suburbs, Woods, Woods, Meadows, Meadows mit 3/3/3/3/1/3/3/1 Routen).
+- **[Belegt] Seed allein reicht nicht:** Nach `DD_SetCurrentRunSeed` beim Client, auch vor dem nächsten Rundenende gesetzt, blieb die
+  Karte leer. `WI_MissionChoicePanel_C.SpawnedChoices` (`+0x448`, Anzahl `+0x450`) ist beim Client 0, beim Host 20.
+- **[Belegt] Eigentliche Sperre ist eine Rollenprüfung im Spiel:** `UMissionChoicePanel::SetChoices` (Exec-Thunk `0x57545F0`,
+  Implementierung `0x5ABD220`) hat genau einen nativen Aufrufer in der Funktion ab `0x5AB7090`, vermutlich
+  `UBusPanel::OpenMapIfRequired` (BP-Klasse `WI_BusScreen_C`, `MissionChoicesPanel` an `+0x330`). Sie kopiert `CurrentRoute`
+  (`GameInstance+0x2A8`) und prüft dann bei `0x5AB7183` `cmp byte ptr [rax+168h], 3` auf dem Ergebnis von vtable `+0x2C8`
+  (`0x3FE2F10`, liefert den besitzenden PlayerController aus `+0x310`). `AActor::Role` liegt an `+0x168`, 3 ist `ROLE_Authority`.
+  Nur mit Autorität ruft sie `SetChoices(GetMissionStructure(-1))` (`0x58EDDD0`). Beim Client ist der Controller
+  `ROLE_AutonomousProxy`, das Panel bleibt leer, egal welche Run-Info er hat.
+- **Weg für `opt-routenkarte`, nicht umgesetzt:** (1) Run-Info des Hosts übertragen (Seed, Strukturkennung, `ChosenMissionIndexes`,
+  Index, Ende der Kette, Gefahrenstufen-Erhöhung) wie `MapSync` über den Kontrollkanal. (2) Beim Client die Rollenprüfung in
+  `0x5AB7090` umgehen (Sprung `jne` bei `0x5AB718A`, 6 Bytes `0F 85`) oder nach dem Öffnen `SetChoices` selbst aufrufen. Ob Bus,
+  Tagesspalte und gereiste Linien dann stimmen und ob `CurrentRoute.MissionChain` für HUD-Gefahrenstufe nachgebaut werden muss, ist
+  nicht geprüft; der Versuch mit dem ausgehebelten Sprung wurde abgebrochen und nicht ausgewertet. Die Reisesperre
+  (`ClientMayStartTravel`) muss bleiben, weil mit befülltem Panel Knoten klickbar werden.
+
 ### Seltenheit und Aufwerten beim Client (`werkbank-client`)
 
 Stand 06.11.2026, Build `26187885`, ein PC, Mod mit Spike über die Lobby, Godmode.
