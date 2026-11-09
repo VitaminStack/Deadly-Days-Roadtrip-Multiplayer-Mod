@@ -22,11 +22,18 @@ TEST_CASE("ReportHosts sperrt bei layerapps nur den Dienst des Spiels")
     CHECK_FALSE(IsBlocked(L"other.layerapps.com"));
 }
 
+TEST_CASE("ReportHosts sperrt die Weekly-Challenge, aber nicht die übrige Domain")
+{
+    CHECK(IsBlocked(L"ddrweekly.deadlydays.com"));
+    CHECK(IsBlocked(L"DDRWeekly.DeadlyDays.com."));
+    CHECK_FALSE(IsBlocked(L"deadlydays.com"));
+    CHECK_FALSE(IsBlocked(L"www.deadlydays.com"));
+}
+
 TEST_CASE("ReportHosts lässt andere Ziele durch")
 {
     CHECK_FALSE(IsBlocked(L""));
     CHECK_FALSE(IsBlocked(L"steampowered.com"));
-    CHECK_FALSE(IsBlocked(L"ddrweekly.deadlydays.com"));
     // Nur ganze Namensteile zählen.
     CHECK_FALSE(IsBlocked(L"notcodecks.io"));
     CHECK_FALSE(IsBlocked(L"codecks.io.example.com"));

@@ -38,14 +38,13 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `dauerlauf` | P1 | [5](#phase-5--vollständiger-run) | parallel | viel |
 | `routenkarte-client` | P1 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `run-ende` | P1 | [5](#phase-5--vollständiger-run) | parallel | viel |
-| `weekly-sperre` | P1 | [6](#phase-6--release) | parallel | wenig |
 | `reconnect` | P2 | [5](#phase-5--vollständiger-run) | parallel | viel |
 | `vfx-sound` | P2 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `modversion-overlay` | P2 | [6](#phase-6--release) | parallel | wenig |
 
 **Wartet auf das Team:** nichts.
 
-**Bestätigungstest ausstehend (nicht in Arbeit):** `fortschritt`, `lager-handel-client`, `update-welt`.
+**Bestätigungstest ausstehend (nicht in Arbeit):** `fortschritt`, `lager-handel-client`, `weekly-sperre`, `update-welt`.
 <!-- frei:end -->
 
 **Nicht erneut machen.** Das ist erledigt und dokumentiert:
@@ -170,7 +169,7 @@ Ziel: Die Mod lässt sich installieren, ohne Spielstände oder Bestenlisten zu b
 
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
-| `weekly-sperre` | P1 | Die Weekly-Challenge sperren, solange die Mod geladen ist, auch solo, wie Erfolge und Bestenlisten (Entscheidung `weeklymode`). `ddrweekly.deadlydays.com` in `Core::ReportHosts` aufnehmen und vorher prüfen, wie das Menü reagiert: Hängt oder stürzt der Weekly-Eintrag ohne Antwort, ihn sperren oder mit Hinweis versehen. **Fertig, wenn** mit Mod nichts an den Weekly-Server geht, das Menü normal bedienbar bleibt und ohne Mod alles unverändert ist. **Einstieg:** [Telemetrie und Berichte](docs/GAME_ANALYSIS.md#telemetrie-und-berichte-telemetrie-aus). Ordner `src/Core`, `src/Game` | `weeklymode`, `telemetrie-aus` | parallel | wenig |
+| `weekly-sperre` | P1 | **Bestätigungstest ausstehend:** ddrweekly.deadlydays.com in Core::ReportHosts gesperrt, Unit-Tests bestehen. Offen: Solo-Spieltest mit Mod, Weekly-Eintrag im Hauptmenü anklicken, Menü bleibt bedienbar, Log zeigt keine Auflösung; ohne Mod unverändert. **Aufgabe und Abnahme:** Die Weekly-Challenge sperren, solange die Mod geladen ist, auch solo, wie Erfolge und Bestenlisten (Entscheidung `weeklymode`). `ddrweekly.deadlydays.com` in `Core::ReportHosts` aufnehmen und vorher prüfen, wie das Menü reagiert: Hängt oder stürzt der Weekly-Eintrag ohne Antwort, ihn sperren oder mit Hinweis versehen. **Fertig, wenn** mit Mod nichts an den Weekly-Server geht, das Menü normal bedienbar bleibt und ohne Mod alles unverändert ist. **Einstieg:** [Telemetrie und Berichte](docs/GAME_ANALYSIS.md#telemetrie-und-berichte-telemetrie-aus). Ordner `src/Core`, `src/Game` | `weeklymode`, `telemetrie-aus` | parallel | wenig |
 | `modversion-overlay` | P2 | Wunsch des Nutzers vom 07.11.2026: Das Overlay der Mod zeigt dauerhaft die geladene Mod-Version, damit Spieler sehen, welche Version sie nutzen, und Abweichungen zwischen Host und Client erkennen. Die Version aus derselben Quelle wie im Handshake nehmen, nicht doppelt pflegen. **Fertig, wenn** das Overlay in Menü, MetaBase und Mission die Version zeigt und sie mit der Version im Handshake übereinstimmt. Ordner `src/Mod` | – | parallel | wenig |
 | `release` | P0 | Versionierung, Abschlusstest und Veröffentlichung. Ein Stand, eine Freigabe | `integration-run`, `tutorial-aus`, `online-sperren`, `telemetrie-aus`, `mod-saves`, `installer`, `weekly-sperre`, `virenscanner`, `lobby-live-rest` | zentral | wenig |
 

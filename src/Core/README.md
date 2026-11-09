@@ -80,7 +80,7 @@ Core::Hooks::Install(reinterpret_cast<ProcessEventFn>(Target), &Detour, &Origina
 
 ## Telemetrie und Berichte: `Core/ReportHosts.h`
 
-`Block` lässt im eigenen Prozess die Namensauflösung für die Berichtsziele des Spiels scheitern: Hooks auf `getaddrinfo`, `GetAddrInfoW` und `GetAddrInfoExW` in `ws2_32`, unabhängig von Spiel-Offsets. Gesperrt sind `codecks.io` (Bug-Reports, Berichte über beschädigte Spielstände) , `pixelsplit.games` (Telemetrie, Spielstand-Analytics) und `deadlydays.layerapps.com` (Anfrage beim Run-Ende) samt Subdomains, `Add` sperrt weitere Hosts. `Protection::Install` ruft es direkt nach `CrashReports::Block` auf, danach prüft ein Selbsttest, dass `api.codecks.io` ohne Netzanfrage scheitert. Jeder aufgelöste Name steht einmal im Log, IP-Adressen nicht. Hintergrund in [Telemetrie und Berichte](../../docs/GAME_ANALYSIS.md#telemetrie-und-berichte-telemetrie-aus).
+`Block` lässt im eigenen Prozess die Namensauflösung für die Berichtsziele des Spiels scheitern: Hooks auf `getaddrinfo`, `GetAddrInfoW` und `GetAddrInfoExW` in `ws2_32`, unabhängig von Spiel-Offsets. Gesperrt sind `codecks.io` (Bug-Reports, Berichte über beschädigte Spielstände) , `pixelsplit.games` (Telemetrie, Spielstand-Analytics) `deadlydays.layerapps.com` (Anfrage beim Run-Ende) und `ddrweekly.deadlydays.com` (Weekly-Challenge, mit Mod gesperrt) samt Subdomains, `Add` sperrt weitere Hosts. `Protection::Install` ruft es direkt nach `CrashReports::Block` auf, danach prüft ein Selbsttest, dass `api.codecks.io` ohne Netzanfrage scheitert. Jeder aufgelöste Name steht einmal im Log, IP-Adressen nicht. Hintergrund in [Telemetrie und Berichte](../../docs/GAME_ANALYSIS.md#telemetrie-und-berichte-telemetrie-aus).
 
 ## Erfolge und Bestenlisten: `Core/SteamStats.h`
 
