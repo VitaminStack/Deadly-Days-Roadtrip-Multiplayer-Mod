@@ -1671,6 +1671,7 @@ sind das Mod-Log und der Speicher des Hosts, nur lesend; das Client-Log lag bei 
 - **[Belegt, Host] Inventar dauerhaft abweichend.** Ab der fünften Wahl (Tag 2) meldete der Desync-Melder nach fast jeder Übernahme
   `ABWEICHUNG Inventar` und wurde nicht wieder gleich. Vorher war der Abgleich nach jeder Übernahme binnen Sekunden wieder `OK`. Der Nutzer
   sah beim Client unsichtbare Items. Ob `opt-desync-pivot` einen Teil davon erklärt, ist offen.
+  **Nachtrag (`inventar-client-abweichung`, 09.11.2026):** Siehe [Lager-Edit des Clients mit Reparatur und Aufwertung](#lager-edit-des-clients-mit-reparatur-und-aufwertung-inventar-client-abweichung).
 - **[Gemeldet] Dodge-Reparatur beim Client wirkt nicht mehr.** Beim Host stand je Karte „Laufrichtung der Client-Figur für den Dodge beim
   Host eingetragen“, keine Ablehnung aus `eingaben`. Was beim Client fehlt, braucht sein Log.
 - **[Belegt, Host] Absturz des Clients im Lager, Host reist weiter.** Rund 77 s nach „Client im Lager“ (Ende Tag 2) kamen keine Daten mehr
@@ -1813,6 +1814,27 @@ aus den Mod-Logs beider Seiten. Kein Absturz auf beiden Seiten, der Host lief du
 - **Hinweis zum Werkzeug.** `-SteamLaunch` legt die Mod für den Test in die Steam-Installation, weil Steam nie `PinnedGameDir` startet,
   und läuft dort ohne eigenes `-UserDir`; die Mod speichert trotzdem nur in `SaveGames_DDCoop`. `Stop-Session.ps1` nahm die Mod danach
   wieder heraus. Ein Probelauf ohne Einladung meldete richtig „ohne +connect_lobby“.
+
+### Lager-Edit des Clients mit Reparatur und Aufwertung (`inventar-client-abweichung`)
+
+Lokaler Test am 09.11.2026 (Build 26495302, `Start-Session.ps1 -Role Both -Mod -Tunnel Lobby -NoSpike`), Mensch spielte den Client.
+
+- **[Belegt, Host-Absturz] Zurückrollen schickte Server-RPCs an den Host.** Nach „Edit mit 1 Aufwertungen ungültig, Bearbeitung
+  zurückgenommen“ beim Client stürzte der Host rund 0,4 s später ab (`EXCEPTION_ACCESS_VIOLATION reading address 0xf0` im Spielcode,
+  Aufruf über den durchgereichten `ProcessEvent`-Hook). `RevertClient` setzte `Phase::Idle` vor `Apply`. Verschachtelte Server-RPCs der
+  nativen Inventarfunktionen (zum Beispiel `CharacterEffectManager.*`) liefen dadurch wieder zum Host und nannten die nur beim Client
+  vorhandene Aufwertungs-Ausgabe. **Fix:** eigene Phase `Reverting`, in der fremde RPCs verworfen und eigene Inventar-RPCs nur lokal
+  laufen; `Idle` erst nach `Apply`. Welche Funktion beim Host las, zeigt der Stapel nicht; nach dem Fix kein Absturz mehr.
+- **[Belegt] Ganzes Lager-Edit abgelehnt, Inventar am nächsten Tag zurückgesetzt.** Der Client reparierte ein kaputtes Item (Lighter,
+  Pistole) und wertete es im selben Edit auf. Ein verbrauchtes Item übernahm im Edit den Ausgangszustand aus `Session.States`, also
+  „kaputt“. Der Host zählte die Reparatur nicht, `CanItemsBeUpgradedTogether` lehnte das bei ihm noch kaputte Item ab, und damit fiel das
+  ganze Edit samt Verkäufen und Verschiebungen weg. **Fix:** Der Client merkt sich lokal reparierte Items (`Session.Repaired`) und meldet
+  verbrauchte davon als repariert. Der Host bucht solche Eingaben als Reparatur, löscht das Kaputt-Flag nur für die native Prüfung kurz,
+  repariert sie vor `UpgradeItems` nativ und bucht den Schrott wie jede Reparatur.
+- **[Belegt] Nachtest.** Reparatur und Aufwertung im selben Edit: „Aufwertung 1 geprüft (Ablegen)“, „1 von 1 verkauft, 1 von 1 repariert“,
+  „vollständig=true“, danach `Desync: OK … Inventar`. Am nächsten Tag hatte der Client die aufgewertete Waffe. Eine spätere kurze
+  `ABWEICHUNG Inventar` fiel in eine offene Airdrop-Auswahl: Beim Client standen die drei lokalen Wahlinstanzen (`IsReward`) im Inventar.
+- **Abgegrenzt.** Der dauerhafte Fehlalarm durch die Rasterposition von Items außerhalb des Rucksacks bleibt bei `opt-desync-pivot`.
 
 ## Systeme, die die Mod respektieren muss
 

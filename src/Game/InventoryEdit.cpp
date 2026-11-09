@@ -169,6 +169,7 @@ enum class Phase : uint8_t
     Idle,
     Editing,
     Committed, // Edit gesendet, Antwort des Hosts steht aus
+    Reverting, // Ausgangsstand wird lokal wiederhergestellt
 };
 
 struct
@@ -181,6 +182,7 @@ struct
     std::vector<uintptr_t> Choices; // lokale Anzeige-Instanzen
     std::unordered_map<uintptr_t, uint8_t> RemoveContext;
     std::vector<uintptr_t> Effects; // Items mit ApplyAddToBackpackEffect
+    std::vector<uintptr_t> Repaired; // lokal reparierte Items (RepairItem)
     std::vector<std::string> Dropped; // schon gemeldete verworfene RPCs
     struct Recorded
     {
@@ -683,6 +685,10 @@ std::optional<Edit> FinishClient(uint64_t SessionId, uint64_t Revision, std::opt
         Gone.Tiles.clear();
         const auto It = Session.RemoveContext.find(Session.Items[i]);
         Gone.RemoveContext = It != Session.RemoveContext.end() ? It->second : 0;
+        // inventar-client-abweichung: Gone trägt den Ausgangszustand. Eine erst lokal reparierte, dann aufgewertete Eingabe
+        // gilt als repariert, damit der Host die Reparatur vor der Aufwertung bucht und ausführt.
+        if (Contains(Session.Repaired, Session.Items[i]))
+            Gone.Broken = false;
         Final.push_back(std::move(Gone));
     }
     if (Choice && ChoiceItem)
@@ -754,7 +760,9 @@ void RevertClient(const char* Why)
 {
     if (Session.State == Phase::Idle)
         return;
-    Session.State = Phase::Idle; // RPCs aus dem Zurückrollen laufen über Apply, nicht über RouteClientRpc
+    // inventar-client-abweichung: Während Apply weiter abfangen. Die nativen Inventarfunktionen rufen verschachtelt Server-RPCs
+    // anderer Klassen (CharacterEffectManager), die lokale Aufwertungs-Ausgaben nennen; beim Host gab das einen Nullzeiger-Absturz.
+    Session.State = Phase::Reverting;
     EndHands(true);
     const std::vector<uintptr_t> Now = ItemsOf(Session.Inventory);
     const std::vector<SlotInfo> Slots = SlotsOf(Session.Inventory);
@@ -791,6 +799,7 @@ void RevertClient(const char* Why)
         if (std::find(Session.Slots.begin(), Session.Slots.end(), Slot.At) == Session.Slots.end())
             Destroy.push_back(Slot.Slot);
     const bool Ok = Apply(Session.Inventory, Items, Current, Target, {}, Destroy, true);
+    Session.State = Phase::Idle;
     Core::Log::Info("Inventar lokal: Ausgangsstand wiederhergestellt ({}), vollständig={}", Why, Ok);
 }
 
@@ -828,6 +837,12 @@ bool RouteClientRpc(uintptr_t Object, uintptr_t Fn, void* Params)
     const bool Ours = Info.Type == Kind::ItemRpc ? BelongsToSession(Object) : Object == Session.Inventory;
     if (!Ours || Info.Type == Kind::Other)
         return Drop();
+    if (Session.State == Phase::Reverting)
+    {
+        // Verschachtelte RPCs des eigenen Inventars aus Apply nur lokal, ohne Vormerken oder Aufzeichnen.
+        Patches::ProcessEventLocal(Object, Fn, Params);
+        return true;
+    }
     if (Session.State == Phase::Committed)
     {
         LogOp(Info.Name + " nach dem Bestätigen verworfen");
@@ -835,6 +850,8 @@ bool RouteClientRpc(uintptr_t Object, uintptr_t Fn, void* Params)
     }
     if (Info.Type == Kind::Repair && !Contains(ItemsOf(Session.Inventory), Item))
         return Drop();
+    if (Info.Type == Kind::Repair && !Contains(Session.Repaired, Item))
+        Session.Repaired.push_back(Item);
     if (Info.Type == Kind::AddEffect)
     {
         if (Item && !Contains(Session.Effects, Item))
