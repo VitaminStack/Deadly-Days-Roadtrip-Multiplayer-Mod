@@ -1834,8 +1834,7 @@ Lokaler Test am 09.11.2026 (Build 26495302, `Start-Session.ps1 -Role Both -Mod -
 - **[Belegt] Nachtest.** Reparatur und Aufwertung im selben Edit: „Aufwertung 1 geprüft (Ablegen)“, „1 von 1 verkauft, 1 von 1 repariert“,
   „vollständig=true“, danach `Desync: OK … Inventar`. Am nächsten Tag hatte der Client die aufgewertete Waffe. Eine spätere kurze
   `ABWEICHUNG Inventar` fiel in eine offene Airdrop-Auswahl: Beim Client standen die drei lokalen Wahlinstanzen (`IsReward`) im Inventar.
-- **Offen.** Die Abnahme mit zehn Airdrops wurde nicht vollständig gespielt. Der dauerhafte Fehlalarm durch die Rasterposition von Items
-  außerhalb des Rucksacks bleibt bei `opt-desync-pivot`.
+- **Abgegrenzt.** Der dauerhafte Fehlalarm durch die Rasterposition von Items außerhalb des Rucksacks bleibt bei `opt-desync-pivot`.
 
 ## Systeme, die die Mod respektieren muss
 
