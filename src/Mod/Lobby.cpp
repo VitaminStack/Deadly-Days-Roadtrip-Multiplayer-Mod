@@ -342,6 +342,6 @@ void Install()
     UI::OverlayStatus Waiting;
     Waiting.Message = "Wartet auf Steam";
     UI::Overlay().Publish(Waiting);
-    Game::GameThread::AddTick(Tick);
+    Game::GameThread::AddTick(Tick, "Lobby");
 }
 }

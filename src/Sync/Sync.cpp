@@ -92,13 +92,20 @@ void Start(const Core::Config& Config, DiagnosticSink Diagnostics)
         using Clock = std::chrono::steady_clock;
         const auto Transport = Net::CurrentTransport();
         if (Transport)
+        {
+            const Game::GameThread::SlowScope Watch("Sync-Bewegung");
             TickMovement(*Transport);
-        TickDev(Transport.get()); // Also handles offline/standalone dev actions.
+        }
+        {
+            const Game::GameThread::SlowScope Watch("Sync-Dev");
+            TickDev(Transport.get()); // Also handles offline/standalone dev actions.
+        }
         static auto Next = Clock::now();
         if (Clock::now() < Next) return;
         Next = Clock::now() + std::chrono::milliseconds(250);
         const auto Messages = Transport ? Transport->TakeControlMessages() : std::vector<Net::ControlMessage>{};
+        const Game::GameThread::SlowScope Watch("Sync-Steuerung");
         DispatchControls(Messages, TickProgress, TickDesync, TickReward, TickMap, TickPause);
-    });
+    }, "Sync");
 }
 }

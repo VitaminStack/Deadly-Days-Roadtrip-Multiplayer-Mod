@@ -1,7 +1,10 @@
 #include "Game/Objects.h"
 
 #include <cstring>
+#include <functional>
+#include <optional>
 #include <string>
+#include <unordered_map>
 
 #include "Game/Memory.h"
 #include "Game/Offsets.h"
@@ -51,7 +54,7 @@ uintptr_t At(int32_t Index)
 {
     if (Index < 0)
         return 0;
-    const auto Chunks = Memory::ReadPointer(Memory::Rva(Offsets::GObjects));
+    const auto Chunks = Memory::ReadPointer(Memory::CachedRva<Offsets::GObjects>());
     if (!Chunks)
         return 0;
     const auto Chunk = Memory::ReadPointer(*Chunks + 8 * (Index / Offsets::ObjectArray::ElementsPerChunk));
@@ -63,18 +66,56 @@ uintptr_t At(int32_t Index)
 
 int32_t Count()
 {
-    const auto Value = Memory::Read<int32_t>(Memory::Rva(Offsets::GObjects) + Offsets::ObjectArray::NumElements);
+    const auto Value = Memory::Read<int32_t>(Memory::CachedRva<Offsets::GObjects>() + Offsets::ObjectArray::NumElements);
     return Value && *Value > 0 ? *Value : 0;
+}
+
+namespace
+{
+bool WalkIsA(uintptr_t Class, std::string_view ClassName)
+{
+    // Die Kette ist kurz, die Grenze schützt nur vor einem kaputten Zeiger.
+    std::optional<uintptr_t> Current = Class;
+    for (int Depth = 0; Current && Depth < 64; ++Depth, Current = Memory::ReadPointer(*Current + Offsets::UStruct::SuperStruct))
+        if (Memory::NameOf(*Current) == ClassName)
+            return true;
+    return false;
+}
+
+struct NameHash
+{
+    using is_transparent = void;
+    size_t operator()(std::string_view Text) const { return std::hash<std::string_view>{}(Text); }
+};
+
+struct Verdict
+{
+    int32_t ClassName;
+    bool Result;
+};
 }
 
 bool IsA(uintptr_t Object, std::string_view ClassName)
 {
-    auto Class = Memory::ReadPointer(Object + Offsets::UObject::Class);
-    // Die Kette ist kurz, die Grenze schützt nur vor einem kaputten Zeiger.
-    for (int Depth = 0; Class && Depth < 64; ++Depth, Class = Memory::ReadPointer(*Class + Offsets::UStruct::SuperStruct))
-        if (Memory::NameOf(*Class) == ClassName)
-            return true;
-    return false;
+    const auto Class = Memory::ReadPointer(Object + Offsets::UObject::Class);
+    if (!Class)
+        return false;
+    const auto OwnName = Memory::Read<int32_t>(*Class + Offsets::UObject::Name);
+    if (!OwnName)
+        return false;
+    // Suchen über alle Objekte fragen je Objekt die Klassenkette ab, mit Namen als Text sind das Millionen
+    // Lesezugriffe pro Suche. Das Ergebnis je Klasse merken; der eigene Namensindex der Klasse erkennt eine
+    // wiederverwendete Adresse. Je Thread, weil Hooks auch außerhalb des Game Threads fragen können.
+    thread_local std::unordered_map<std::string, std::unordered_map<uintptr_t, Verdict>, NameHash, std::equal_to<>> Cache;
+    auto Query = Cache.find(ClassName);
+    if (Query == Cache.end())
+        Query = Cache.emplace(std::string(ClassName), std::unordered_map<uintptr_t, Verdict>{}).first;
+    auto& Known = Query->second;
+    if (const auto Found = Known.find(*Class); Found != Known.end() && Found->second.ClassName == *OwnName)
+        return Found->second.Result;
+    const bool Result = WalkIsA(*Class, ClassName);
+    Known[*Class] = {*OwnName, Result};
+    return Result;
 }
 
 uintptr_t FindInstance(std::string_view ClassName, int32_t* Index)

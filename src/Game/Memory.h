@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -16,6 +17,20 @@ uintptr_t ImageBase();
 // Absolute Adresse zu einer RVA des Referenz-Builds, für den laufenden Build umgerechnet (Game/AddressMap.h).
 // 0, wenn die Adresse im laufenden Build unbekannt ist; das wird einmal je RVA protokolliert.
 uintptr_t Rva(uintptr_t ReferenceRva);
+
+// Wie Rva, merkt sich aber den ersten Treffer. Für feste Adressen in heißen Schleifen (GObjects, GNames): Rva sucht
+// bei jedem Aufruf in Adresstabelle und Signaturliste, bei einer Suche über alle Objekte millionenfach.
+template <uintptr_t ReferenceRva> uintptr_t CachedRva()
+{
+    static std::atomic<uintptr_t> Cached = 0;
+    uintptr_t Address = Cached.load(std::memory_order_relaxed);
+    if (!Address)
+    {
+        Address = Rva(ReferenceRva);
+        Cached.store(Address, std::memory_order_relaxed);
+    }
+    return Address;
+}
 
 // Kopiert Size Bytes von Address nach Out. Falsch bei Address 0 oder einem Zugriffsfehler.
 bool ReadBytes(uintptr_t Address, void* Out, size_t Size);

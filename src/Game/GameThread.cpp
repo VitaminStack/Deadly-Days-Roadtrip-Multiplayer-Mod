@@ -2,6 +2,7 @@
 
 #include <windows.h>
 
+#include <algorithm>
 #include <atomic>
 #include <exception>
 #include <mutex>
@@ -19,8 +20,17 @@ namespace
 {
 constexpr UINT_PTR kTimerId = 0x44444301;
 
+constexpr double kSlowMs = 4.0;
+constexpr ULONGLONG kSlowLogEveryMs = 5000;
+
+struct NamedTick
+{
+    Tick Callback;
+    const char* Name;
+};
+
 std::mutex Mutex;
-std::vector<Tick> Ticks;
+std::vector<NamedTick> Ticks;
 std::jthread Finder;
 std::atomic<HWND> Window = nullptr;
 std::atomic<WNDPROC> Original = nullptr;
@@ -42,16 +52,17 @@ UINT StopMessage()
 
 void RunTicks()
 {
-    std::vector<Tick> Current;
+    std::vector<NamedTick> Current;
     {
         const std::scoped_lock Lock(Mutex);
         Current = Ticks;
     }
-    for (const auto& Callback : Current)
+    for (const auto& Entry : Current)
     {
         try
         {
-            Callback();
+            const SlowScope Watch(Entry.Name);
+            Entry.Callback();
         }
         catch (const std::exception& Failure)
         {
@@ -87,7 +98,10 @@ LRESULT CALLBACK WndProc(HWND Hwnd, UINT Message, WPARAM WParam, LPARAM LParam)
         if (Attached && !Running)
         {
             Running = true;
-            Core::GameThread().Drain();
+            {
+                const SlowScope Watch("Aufgaben");
+                Core::GameThread().Drain();
+            }
             RunTicks();
             Running = false;
         }
@@ -186,9 +200,51 @@ bool IsAttached()
     return Attached;
 }
 
-void AddTick(Tick Callback)
+void AddTick(Tick Callback, const char* Name)
 {
     const std::scoped_lock Lock(Mutex);
-    Ticks.push_back(std::move(Callback));
+    Ticks.push_back({std::move(Callback), Name});
+}
+
+namespace
+{
+long long Counter()
+{
+    LARGE_INTEGER Value{};
+    QueryPerformanceCounter(&Value);
+    return Value.QuadPart;
+}
+
+double ToMs(long long Elapsed)
+{
+    static const long long Frequency = []
+    {
+        LARGE_INTEGER Value{};
+        QueryPerformanceFrequency(&Value);
+        return Value.QuadPart;
+    }();
+    return static_cast<double>(Elapsed) * 1000.0 / static_cast<double>(Frequency);
+}
+}
+
+SlowScope::SlowScope(const char* Label) : Name(Label), Start(Counter())
+{
+}
+
+SlowScope::~SlowScope()
+{
+    const double Ms = ToMs(Counter() - Start);
+    if (Ms < kSlowMs)
+        return;
+    // Nur auf dem Game Thread benutzt. Namen sind Literale, ihre Adresse reicht als Schlüssel.
+    static std::vector<std::pair<const char*, ULONGLONG>> LastLog;
+    const ULONGLONG Now = GetTickCount64();
+    auto Found = std::find_if(LastLog.begin(), LastLog.end(), [this](const auto& Entry) { return Entry.first == Name; });
+    if (Found == LastLog.end())
+        Found = LastLog.insert(LastLog.end(), {Name, 0});
+    if (Found->second && Now - Found->second < kSlowLogEveryMs)
+        return;
+    Found->second = Now;
+    Core::Log::Warn("Takt: {} hielt den Frame {:.1f} ms auf", Name, Ms);
 }
 }
