@@ -67,8 +67,22 @@ Dafür `Uninstall.cmd` nehmen.
 ## Virenscanner und Proton
 
 Die Mod lädt sich über eine nachgebaute `version.dll` und ändert Funktionen im laufenden Spiel. Manche Virenscanner halten das
-für verdächtig. Den Umgang mit solchen Meldungen und den Stand zu Steam Deck und Proton klärt die Aufgabe `virenscanner`,
-bis dahin gilt beides als nicht geprüft.
+für verdächtig.
+
+**Geprüft:** Windows Defender (Signaturen `1.463.207.0`, 09.11.2026) meldet im entpackten Paket nichts, auch nicht in
+`version.dll` und `DDCoop\DDCoop.dll`. Andere Scanner sind nicht geprüft.
+
+**Meldet ein Virenscanner die Mod:**
+
+1. Nur dem Paket von der offiziellen Release-Seite vertrauen. Die Prüfsummen stehen in `SHA256SUMS.txt` im Paket.
+2. Prüfen, ob die Datei aus Quarantäne oder Ordner fehlt. Dann meldet der Installer `… fehlt. Das Paket vollständig entpacken.`
+3. Die Meldung mit Scannername und Erkennungsname als Issue im Repo melden. Das Team meldet den Fehlalarm beim Hersteller,
+   bei Microsoft über <https://www.microsoft.com/wdsi/filesubmission>.
+4. Den Ordner nur ausnehmen, wenn die Prüfsummen stimmen. Nie den Virenscanner ganz abschalten.
+
+**Steam Deck und Proton:** nicht unterstützt und nicht getestet. Die Mod ist nur unter Windows mit Steam geprüft. Wer es
+trotzdem versucht, setzt in den Startoptionen `WINEDLLOVERRIDES="version=n,b" %command%`, damit Proton die `version.dll` der
+Mod lädt. Fehler dabei bitte nicht als Fehler der Mod melden.
 
 ## Paket bauen
 

@@ -38,7 +38,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `dauerlauf` | P1 | [5](#phase-5--vollständiger-run) | parallel | viel |
 | `routenkarte-client` | P1 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `run-ende` | P1 | [5](#phase-5--vollständiger-run) | parallel | viel |
-| `virenscanner` | P1 | [6](#phase-6--release) | parallel | keine |
 | `weekly-sperre` | P1 | [6](#phase-6--release) | parallel | wenig |
 | `reconnect` | P2 | [5](#phase-5--vollständiger-run) | parallel | viel |
 | `vfx-sound` | P2 | [5](#phase-5--vollständiger-run) | parallel | mittel |
@@ -173,7 +172,6 @@ Ziel: Die Mod lässt sich installieren, ohne Spielstände oder Bestenlisten zu b
 |---|---|---|---|---|---|
 | `weekly-sperre` | P1 | Die Weekly-Challenge sperren, solange die Mod geladen ist, auch solo, wie Erfolge und Bestenlisten (Entscheidung `weeklymode`). `ddrweekly.deadlydays.com` in `Core::ReportHosts` aufnehmen und vorher prüfen, wie das Menü reagiert: Hängt oder stürzt der Weekly-Eintrag ohne Antwort, ihn sperren oder mit Hinweis versehen. **Fertig, wenn** mit Mod nichts an den Weekly-Server geht, das Menü normal bedienbar bleibt und ohne Mod alles unverändert ist. **Einstieg:** [Telemetrie und Berichte](docs/GAME_ANALYSIS.md#telemetrie-und-berichte-telemetrie-aus). Ordner `src/Core`, `src/Game` | `weeklymode`, `telemetrie-aus` | parallel | wenig |
 | `modversion-overlay` | P2 | Wunsch des Nutzers vom 07.11.2026: Das Overlay der Mod zeigt dauerhaft die geladene Mod-Version, damit Spieler sehen, welche Version sie nutzen, und Abweichungen zwischen Host und Client erkennen. Die Version aus derselben Quelle wie im Handshake nehmen, nicht doppelt pflegen. **Fertig, wenn** das Overlay in Menü, MetaBase und Mission die Version zeigt und sie mit der Version im Handshake übereinstimmt. Ordner `src/Mod` | – | parallel | wenig |
-| `virenscanner` | P1 | Das Release-Paket gegen Windows Defender und weitere Scanner prüfen: Proxy-DLL und Hooks sehen für Scanner verdächtig aus. Fehlalarme bei den Herstellern melden, Hinweise in die Installationsanleitung. Steam Deck und Proton prüfen (`WINEDLLOVERRIDES="version=n,b" %command%`) oder als nicht unterstützt kennzeichnen. Nur das eigene Paket hochladen, nie Spieldateien. **Fertig, wenn** Defender das Paket nicht meldet oder der Umgang mit Fehlalarmen dokumentiert ist und der Stand zu Proton in der Anleitung steht. Ordner `docs`, `tools` | `installer` | parallel | keine |
 | `release` | P0 | Versionierung, Abschlusstest und Veröffentlichung. Ein Stand, eine Freigabe | `integration-run`, `tutorial-aus`, `online-sperren`, `telemetrie-aus`, `mod-saves`, `installer`, `weekly-sperre`, `virenscanner`, `lobby-live-rest` | zentral | wenig |
 
 ## Wartung
@@ -358,6 +356,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `update-inventar` | Wartung | Zwei PCs, Build 26495302: alle Listen gesetzt, Airdrop, Belohnungswahl und Lager (Ordnen) beim Client ohne Absturz; Verkaufen und Reparieren beim Client fehlen, neue Aufgabe lager-handel-client, siehe [Live-Test 07.11.](docs/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-07112026-livetest-0711) |
 | `update-regel` | 0 | Spiel-Updates: einfrieren und nur bei Bedarf nachziehen, siehe [Update-Regel](CONTRIBUTING.md#spiel-updates) |
 | `versions-meldung` | Wartung | Abgelehnte erste Nachricht nennt den Grund mit beiden Werten (alte Mod, Protokoll, Build, Mod-Version, Rolle), siehe [Handshake](docs/CONTROL_PROTOCOL.md#handshake) |
+| `virenscanner` | 6 | Defender 1.463.207.0 meldet das Paket nicht; Umgang mit Fehlalarmen und Proton (nicht unterstützt) in INSTALL.md und LIESMICH.txt |
 | `waffe-client-auswahl` | 5 | Client-Waffen wirken sofort: Entfernstil wie das Panel, Host frischt Wirkungen nach dem Edit auf, Client zeigt Waffenslots lokal vor |
 | `weeklymode` | 5 | Team-Entscheidung vom 05.11.2026: Die Weekly-Challenge wird nicht unterstützt und ist gesperrt, solange die Mod geladen ist, auch solo, wie Erfolge und Bestenlisten. Umsetzung ist `weekly-sperre` |
 | `werkbank-client` | 5 | Client wertet im nativen Panel auf (Ablegen auf gleiches Item, Werkbank), der Edit meldet die Aufwertungen, der Host prüft (Ablegen oder Rezept) und ruft UpgradeItems selbst auf. Seltenheiten repliziert die Mod für das Clientinventar (0x308), Mod-Version 7. Im Lager Tag 1 und 2 geprüft, nach der Reise Inventare gleich. [Befund](src/Game/README.md#werkbank-und-aufwerten-beim-client) |

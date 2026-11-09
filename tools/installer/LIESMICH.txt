@@ -31,5 +31,11 @@ Nur zwei Dateien in DDSurvivors\Binaries\Win64 im Spielordner:
 Spielstaende, Steam-Einstellungen und andere Spieldateien bleiben unberuehrt.
 Eine version.dll einer anderen Mod wird nie ueberschrieben.
 
+Virenscanner und Steam Deck
+---------------------------
+Manche Virenscanner halten die Mod fuer verdaechtig, weil sie sich ueber
+version.dll laedt. Pruefsummen stehen in SHA256SUMS.txt. Den Virenscanner
+nie ganz abschalten. Steam Deck und Proton sind nicht unterstuetzt.
+
 Ausfuehrliche Anleitung und Hilfe bei Fehlermeldungen:
 https://github.com/VitaminStack/Deadly-Days-Roadtrip-Multiplayer-Mod/blob/main/docs/INSTALL.md
