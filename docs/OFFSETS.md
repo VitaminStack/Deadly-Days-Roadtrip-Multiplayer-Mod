@@ -20,12 +20,15 @@ Tabelle selbst ist entfernt; für alte Werte weiter unten: `git show 0cb3d80:src
 - Verzweigungen nach dem alten Build entfernt: `PanelIsDragging` fest `0x788`, Prüfungen von `HandleConfirmButton` und
   `RepresentationSize` nur noch mit den Bytes von `26495302`. `PatchSignatures.inc`: Zeilen von `26187885` entfernt, die von `26495302` gelten für alle.
 - Offline gegen die Exe von `26495302`: `tools/expect_check.py` 74 `ok`, 2 `uebersprungen`; `tools/patch_signatures.py check` 89 `ok`.
+- Spieltest ein PC, `Start-Session.ps1 -Build -Mod -Tunnel Lobby -Godmode`: Host und Client `Signaturen: 89 Adressen geprüft`, `Patches: 44 gesetzt`,
+  `Spiel-Build 26495302`, Handshake bestätigt, Spike ohne fehlende Adresse. `Run-Route.ps1 -Days 2 -Godmode` Exitcode 0: MetaBase, Tag 1 (159/159 Kacheln),
+  Tag 2 (63/63), je 2/2 Spieler, Inventar gleich, kein `[ERROR]` im Mod-Log.
 - Drei Adressen nur aus Kommentaren ließen sich nicht umrechnen (Exec-Thunks von `ReceiveExp` und `HandleItemSold`, Absturzstelle in
   `RepresentationSize`); die Kommentare nennen sie nicht mehr.
 
 ## Build 26495302 (`update-basis`)
 
-Stand 07.11.2026, historisch. Die Werte bis `spiel-update` blieben Referenz-RVAs von `26187885`. Für `26495302` rechnet `Game::AddressMap` sie über
+Stand 07.11.2026, historisch. Bis zum Umstieg am 09.11.2026 blieben die Werte Referenz-RVAs von `26187885`. Für `26495302` rechnet `Game::AddressMap` sie über
 `src/Game/RvaMap26495302.inc` um, erzeugt mit [`tools/rva_map.py`](../tools/README.md#rva_mappy). Exe: TimeDateStamp `0x65BFBBFB`, SizeOfImage `0x0B748000`.
 
 | | 26187885 | 26495302 | Beleg |
