@@ -123,6 +123,25 @@ def scan(game):
     return found, stale
 
 
+def private_megabytes(game):
+    """Private Bytes des Prozesses in MB, fuer das Wachstum je Tag im Dauerlauf."""
+    import ctypes
+    from ctypes import wintypes
+
+    class Counters(ctypes.Structure):
+        _fields_ = [('cb', wintypes.DWORD), ('PageFaultCount', wintypes.DWORD)] + [
+            (name, ctypes.c_size_t) for name in (
+                'PeakWorkingSetSize', 'WorkingSetSize', 'QuotaPeakPagedPoolUsage', 'QuotaPagedPoolUsage',
+                'QuotaPeakNonPagedPoolUsage', 'QuotaNonPagedPoolUsage', 'PagefileUsage', 'PeakPagefileUsage',
+                'PrivateUsage')]
+
+    counters = Counters()
+    counters.cb = ctypes.sizeof(counters)
+    if not ctypes.windll.psapi.GetProcessMemoryInfo(game.handle, ctypes.byref(counters), counters.cb):
+        return None
+    return round(counters.PrivateUsage / 2**20)
+
+
 def instance_report(game, log_name):
     world = game.world()
     state = game.ptr(world + 0x1B0)
@@ -164,6 +183,8 @@ def instance_report(game, log_name):
         'paused_by': [game.name(game.ptr(ws + WORLD_SETTINGS_PAUSER)) for ws in found['WorldSettings']
                       if game.ptr(ws + WORLD_SETTINGS_PAUSER)],
         'stale': {root: n for root, n in stale.items() if n},
+        'uobjects': game.i32(game.base + getattr(game, 'gobjects', guidcache.GOBJECTS) + 8),
+        'private_mb': private_megabytes(game),
     }
     if driver:
         num, rows = guidcache.entries(game)
