@@ -1864,6 +1864,24 @@ Lokaler Test am 09.11.2026 (Build 26495302, `Start-Session.ps1 -Role Both -Mod -
   `ABWEICHUNG Inventar` fiel in eine offene Airdrop-Auswahl: Beim Client standen die drei lokalen Wahlinstanzen (`IsReward`) im Inventar.
 - **Abgegrenzt.** Der dauerhafte Fehlalarm durch die Rasterposition von Items außerhalb des Rucksacks bleibt bei `opt-desync-pivot`.
 
+### Sekündlicher Ruckler beim Host (`host-lagspike`)
+
+Ein-PC-Test am 09.11.2026 (Build 26495302, `Start-Session.ps1 -Mod -Tunnel Lobby -NoSpike`), Mensch spielte beide Seiten. Gemeldet war
+etwa einmal pro Sekunde ein kurzer FPS-Einbruch beim Host, „wie ein Herzschlag“.
+
+- **[Belegt] Ursache: Suchen über das ganze Objekt-Array im Sekundentakt.** Neue Zeitmessung im Game-Thread-Takt
+  (`GameThread::SlowScope`, Log `Takt: <Name> hielt den Frame <ms> ms auf` ab 8 ms) zeigte beim Host in der MetaBase rund 75 ms für
+  die Patch-Ticks in einem Frame (Karte, Spieler, Projektile, Bewegung) und 25 ms für den Desync-Abgleich. Jeder dieser Abgleiche lief
+  einzeln über alle Einträge von `GObjects`.
+- **[Belegt] Teuer je Objekt waren drei Dinge:** `Memory::Rva` suchte für `GObjects` und `GNames` bei jedem Zugriff in Adresstabelle und
+  Signaturliste (jetzt `Memory::CachedRva`), `IsA` verglich die Klassenkette Namen für Namen als Text (jetzt Ergebnis je Klasse gemerkt,
+  geprüft über den Namensindex der Klasse), und `CachedInventory` in `RewardPatches.cpp` verwarf sein Ergebnis bei Inventaren mit
+  `Outer == PlayerState` und suchte jedes Mal neu.
+- **[Belegt] Sekunden-Abgleiche über `ULevel::Actors`:** Spielerfiguren (`PlayerPatches`, `MovementPatches`), Projektile, Airdrops und
+  Kamera/Controller des Clients lesen jetzt die Actor-Liste des Levels (`Objects::ForEachLevelActor`) statt des Objekt-Arrays.
+- **Ergebnis:** Beim Host im Run kein Abschnitt mehr über rund 5 ms, der Mensch spürt keinen Ruckler mehr. Unit-Tests bestehen.
+- **Rest beim Client:** Fortschritts-Anzeige (Widget-Suche je Sekunde) rund 12 ms und Boss-Leiste rund 10 ms, siehe `opt-client-takt`.
+
 ## Systeme, die die Mod respektieren muss
 
 - **[Belegt]** Bestenlisten und Erfolge: `PixelLeaderboards`, `DDLeaderboardSettings`, `PixelAchievements`, im Mod-Betrieb gesperrt, siehe unten

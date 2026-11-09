@@ -117,21 +117,17 @@ void RefreshFigures(uintptr_t World)
 {
     const uintptr_t Level = Memory::ReadPointer(World + Offsets::UWorld::PersistentLevel).value_or(0);
     std::vector<Figure> Found;
-    const int32_t Total = Objects::Count();
-    for (int32_t i = 0; Level && i < Total; ++i)
+    Objects::ForEachLevelActor(Level, [&](uintptr_t Object)
     {
-        const uintptr_t Object = Objects::At(i);
-        if (!Object || Memory::ReadPointer(Object + Offsets::UObject::Outer).value_or(0) != Level)
-            continue;
         if (Memory::NameOf(Memory::ReadPointer(Object + Offsets::UObject::Class).value_or(0)) != "BP_DD_Character_C" || !Alive(Object))
-            continue;
+            return;
         Figure Entry{Object};
         if (World == Movement.World)
             for (const Figure& Known : Movement.Figures)
                 if (Known.Character == Object)
                     Entry = Known;
         Found.push_back(Entry);
-    }
+    });
     Movement.World = World;
     Movement.Figures = std::move(Found);
 }

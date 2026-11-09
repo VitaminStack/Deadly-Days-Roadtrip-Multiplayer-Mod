@@ -72,11 +72,13 @@ void PrepareAirdropReplication()
     if (std::chrono::steady_clock::now() < Next)
         return;
     Next = std::chrono::steady_clock::now() + std::chrono::seconds(1);
-    for (int32_t Index = 0, Total = Objects::Count(); Index < Total; ++Index)
+    // Airdrops liegen im Level der Welt; dessen Actor-Liste statt des ganzen Objekt-Arrays (host-lagspike).
+    const uintptr_t World = Patches::CurrentWorld();
+    const uintptr_t Level = World ? Memory::ReadPointer(World + Offsets::UWorld::PersistentLevel).value_or(0) : 0;
+    Objects::ForEachLevelActor(Level, [](uintptr_t Actor)
     {
-        const uintptr_t Actor = Objects::At(Index);
-        if (!Actor || !Airdrop(Actor) || Memory::Read<uint8_t>(Actor + 0x168).value_or(0) != 3)
-            continue;
+        if (!Airdrop(Actor) || Memory::Read<uint8_t>(Actor + 0x168).value_or(0) != 3)
+            return;
         bool Enabled = true, Changed = false;
         if (!(Memory::Read<uint8_t>(Actor + 0x5B).value_or(0) & 8))
             Changed |= Call(Actor, "Actor", "SetReplicates", &Enabled);
@@ -88,7 +90,7 @@ void PrepareAirdropReplication()
             Call(Actor, "Actor", "ForceNetUpdate");
             Core::Log::Info("Airdrop: Actor- und Bewegungsreplikation aktiviert");
         }
-    }
+    });
 }
 
 std::optional<std::vector<AirdropView>> ReadAirdropViews()

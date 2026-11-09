@@ -1,4 +1,4 @@
-// Client: gemeinsame Kamera ohne GameMode, Bodenfix für die Bewegung und die Kamera als ViewTarget. Aus Spike Camera.cpp.
+﻿// Client: gemeinsame Kamera ohne GameMode, Bodenfix für die Bewegung und die Kamera als ViewTarget. Aus Spike Camera.cpp.
 #include <windows.h>
 
 #include <string>
@@ -182,26 +182,28 @@ void TickClientCamera()
     if (FindRestrictor)
         Restrictor = {World, 0, -1, GetTickCount64() + 5000};
     uintptr_t Camera = 0, Controller = 0;
-    const int32_t Total = Objects::Count();
-    for (int32_t i = 0; i < Total && !(Camera && Controller && !FindRestrictor); ++i)
+    // Kamera und Controller sind Actors des Levels, dessen Liste ist viel kürzer als das Objekt-Array (host-lagspike).
+    Objects::ForEachLevelActor(Level, [&](uintptr_t Object)
+    {
+        if (Camera && Controller)
+            return;
+        const std::string Class = Memory::NameOf(Memory::ReadPointer(Object + Offsets::UObject::Class).value_or(0));
+        if (!Camera && Class == "BP_PlayerCameraActor_C")
+            Camera = Object;
+        else if (!Controller && Class == "BP_DDPlayerController_C" && Memory::ReadPointer(Object + ControllerPlayer))
+            Controller = Object;
+    });
+    // Der Begrenzer ist eine Komponente, kein Actor: nur suchen, solange er fehlt, höchstens alle 5 s.
+    const int32_t Total = FindRestrictor ? Objects::Count() : 0;
+    for (int32_t i = 0; i < Total && FindRestrictor; ++i)
     {
         const uintptr_t Object = Objects::At(i);
         const uintptr_t Outer = Object ? Memory::ReadPointer(Object + Offsets::UObject::Outer).value_or(0) : 0;
-        if (!Outer)
+        if (!Outer || Outer == Level)
             continue;
-        if (Outer == Level)
-        {
-            if (Camera && Controller)
-                continue;
-            const std::string Class = Memory::NameOf(Memory::ReadPointer(Object + Offsets::UObject::Class).value_or(0));
-            if (!Camera && Class == "BP_PlayerCameraActor_C")
-                Camera = Object;
-            else if (!Controller && Class == "BP_DDPlayerController_C" && Memory::ReadPointer(Object + ControllerPlayer))
-                Controller = Object;
-        }
-        else if (FindRestrictor && Memory::ReadPointer(Outer + Offsets::UObject::Outer).value_or(0) == Level &&
-                 !(Memory::Read<uint32_t>(Object + Offsets::UObject::Flags).value_or(0) & Offsets::UObject::ClassDefaultObjectFlag) &&
-                 Memory::NameOf(Memory::ReadPointer(Object + Offsets::UObject::Class).value_or(0)) == "InViewportMovementRestrictor")
+        if (Memory::ReadPointer(Outer + Offsets::UObject::Outer).value_or(0) == Level &&
+            !(Memory::Read<uint32_t>(Object + Offsets::UObject::Flags).value_or(0) & Offsets::UObject::ClassDefaultObjectFlag) &&
+            Memory::NameOf(Memory::ReadPointer(Object + Offsets::UObject::Class).value_or(0)) == "InViewportMovementRestrictor")
         {
             Restrictor = {World, Object, i, 0};
             FindRestrictor = false;

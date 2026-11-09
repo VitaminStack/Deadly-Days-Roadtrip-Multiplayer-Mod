@@ -20,7 +20,7 @@ namespace
 {
 constexpr UINT_PTR kTimerId = 0x44444301;
 
-constexpr double kSlowMs = 4.0;
+constexpr double kSlowMs = 8.0;
 constexpr ULONGLONG kSlowLogEveryMs = 5000;
 
 struct NamedTick

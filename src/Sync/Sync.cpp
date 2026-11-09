@@ -1,4 +1,4 @@
-#include "Sync/Sync.h"
+﻿#include "Sync/Sync.h"
 #include "Core/Log.h"
 #include "Sync/ControlDispatch.h"
 #include "Sync/DevState.h"
@@ -7,6 +7,7 @@
 #include "Game/PatchRuntime.h"
 #include "Net/Net.h"
 #include <chrono>
+#include <span>
 
 namespace Sync
 {
@@ -104,8 +105,16 @@ void Start(const Core::Config& Config, DiagnosticSink Diagnostics)
         if (Clock::now() < Next) return;
         Next = Clock::now() + std::chrono::milliseconds(250);
         const auto Messages = Transport ? Transport->TakeControlMessages() : std::vector<Net::ControlMessage>{};
-        const Game::GameThread::SlowScope Watch("Sync-Steuerung");
-        DispatchControls(Messages, TickProgress, TickDesync, TickReward, TickMap, TickPause);
+        const auto Timed = [](const char* Name, auto Family)
+        {
+            return [Name, Family](std::span<const Net::ControlMessage> Batch)
+            {
+                const Game::GameThread::SlowScope Watch(Name);
+                Family(Batch);
+            };
+        };
+        DispatchControls(Messages, Timed("Sync-Fortschritt", TickProgress), Timed("Sync-Desync", TickDesync),
+                         Timed("Sync-Belohnung", TickReward), Timed("Sync-Karte", TickMap), Timed("Sync-Pause", TickPause));
     }, "Sync");
 }
 }

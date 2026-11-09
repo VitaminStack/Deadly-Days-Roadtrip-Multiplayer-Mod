@@ -152,6 +152,17 @@ uintptr_t FindObject(std::string_view Name, std::string_view OuterName)
     return 0;
 }
 
+void ForEachLevelActor(uintptr_t Level, const std::function<void(uintptr_t)>& Visit)
+{
+    const uintptr_t Data = Level ? Memory::ReadPointer(Level + Offsets::ULevel::Actors).value_or(0) : 0;
+    const int32_t Total = Data ? Memory::Read<int32_t>(Level + Offsets::ULevel::Actors + 8).value_or(-1) : -1;
+    if (Total < 0 || Total > Offsets::ULevel::MaxActors)
+        return;
+    for (int32_t Index = 0; Index < Total; ++Index)
+        if (const uintptr_t Actor = Memory::ReadPointer(Data + Index * sizeof(uintptr_t)).value_or(0))
+            Visit(Actor);
+}
+
 uintptr_t FindNamed(std::string_view Name)
 {
     const int32_t Total = Count();

@@ -27,10 +27,7 @@ constexpr uintptr_t DestroyingByte = 0x5D; // AActor::bActorIsBeingDestroyed, Ma
 constexpr uintptr_t RootComponent = 0x1B8; // AActor::RootComponent
 constexpr uintptr_t ComponentReplicatesByte = 0x98; // UActorComponent::bReplicates, Maske 0x80
 constexpr uint8_t ComponentReplicatesMask = 0x80;
-constexpr uintptr_t LevelActors = 0xA0; // ULevel::Actors (TArray<AActor*>)
-constexpr int32_t MaxLevelActors = 200000;
-constexpr uint32_t ClassDefaultObject = 0x10; // RF_ClassDefaultObject
-constexpr uint32_t ArchetypeObject = 0x20; // RF_ArchetypeObject
+constexpr uintptr_t ClassDefaults = 0x118; // UClass::ClassDefaultObject
 
 struct
 {
@@ -106,9 +103,9 @@ bool PrepareActor(uintptr_t Actor)
 // das Level, beginnt die Zaehlung neu.
 void TickFresh(uintptr_t Level)
 {
-    const uintptr_t Data = Memory::ReadPointer(Level + LevelActors).value_or(0);
-    const int32_t Count = Memory::Read<int32_t>(Level + LevelActors + 8).value_or(-1);
-    if (!Data || Count < 0 || Count > MaxLevelActors)
+    const uintptr_t Data = Memory::ReadPointer(Level + Offsets::ULevel::Actors).value_or(0);
+    const int32_t Count = Memory::Read<int32_t>(Level + Offsets::ULevel::Actors + 8).value_or(-1);
+    if (!Data || Count < 0 || Count > Offsets::ULevel::MaxActors)
         return;
     if (Level != P.Level || Count < P.SeenActors)
     {
@@ -122,23 +119,19 @@ void TickFresh(uintptr_t Level)
     P.SeenActors = Count;
 }
 
+// Je Sekunde: alle Actors des Levels, nicht das ganze Objekt-Array (das hielt den Frame spuerbar auf, host-lagspike).
+// Das Defaultobjekt einer Projektilklasse kommt ueber ihre Actors dazu; neue Actors faengt ohnehin TickFresh.
 void TickAll(uintptr_t Level)
 {
-    for (int32_t Index = 0, Total = Objects::Count(); Index < Total; ++Index)
+    Objects::ForEachLevelActor(Level, [](uintptr_t Actor)
     {
-        const uintptr_t Actor = Objects::At(Index);
-        if (!Actor)
-            continue;
-        const uint32_t Flags = Memory::Read<uint32_t>(Actor + Offsets::UObject::Flags).value_or(ArchetypeObject);
-        if (Flags & ClassDefaultObject)
-        {
-            if (IsA(Actor, "Projectile"))
-                PrepareDefault(Actor);
-            continue;
-        }
-        if (!(Flags & ArchetypeObject) && Memory::ReadPointer(Actor + Offsets::UObject::Outer).value_or(0) == Level)
-            PrepareActor(Actor);
-    }
+        if (!IsA(Actor, "Projectile"))
+            return;
+        const uintptr_t Class = Memory::ReadPointer(Actor + Offsets::UObject::Class).value_or(0);
+        if (const uintptr_t Default = Class ? Memory::ReadPointer(Class + ClassDefaults).value_or(0) : 0)
+            PrepareDefault(Default);
+        PrepareActor(Actor);
+    });
 }
 }
 
