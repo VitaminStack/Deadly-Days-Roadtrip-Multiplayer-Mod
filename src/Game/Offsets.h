@@ -74,6 +74,12 @@ namespace FBoolProperty
 inline constexpr uintptr_t FieldMask = 0x73;
 }
 
+namespace ULevel
+{
+inline constexpr uintptr_t Actors = 0xA0; // TArray<AActor*>
+inline constexpr int32_t MaxActors = 200000;
+}
+
 namespace UWorld
 {
 inline constexpr uintptr_t PersistentLevel = 0x30;

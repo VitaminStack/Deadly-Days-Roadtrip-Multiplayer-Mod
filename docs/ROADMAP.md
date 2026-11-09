@@ -12,7 +12,7 @@ Projektstand vom **08.11.2026**; die aktuellen Aufgaben, Abhängigkeiten und Abn
 
 **Was läuft.** Die Mod verbindet zwei eigene Spielinstanzen per Steam-Lobby über das Internet, synchronisiert Missionsstart, gemeinsame Karte, Bewegung, Kampf und wesentliche Inventar-/Rundenabläufe. **Gate G2 ist bestanden**: Am 07.11.2026 liefen zwei PCs aus unterschiedlichen Haushalten auf Build `26495302` mindestens zehn Minuten in derselben Mission ohne Absturz und dauerhaften Desync ([Messung](GAME_ANALYSIS.md#gate-g2-auf-zwei-pcs-am-07112026-integration-g2)). Die Phasen 0–4 sind abgeschlossen. Beide Game-Builds `26187885` und `26495302` sind derzeit in der Installation berücksichtigt; der Umstieg auf nur den neuen Build steht noch aus.
 
-**Was fehlt.** Ein **vollständiger gemeinsamer Run** vom Start bis zum Endboss ist noch nicht bestanden. Offene Phase-5-Aufgaben sind unter anderem `fortschritt`, `tagesablauf`, `dauerlauf` und `run-ende`. Der Code von `lager-handel-client` ist integriert, seine vorgeschriebene Zwei-PC-Bestätigung ist jedoch noch offen. Vor einem Release müssen außerdem die Weekly-Sperre, Virenscanner-/Proton-Dokumentation und die abschließende Integration geprüft werden ([Aufgabenliste](../TODO.md#wo-kann-ich-anfangen)).
+**Was fehlt.** Ein **vollständiger gemeinsamer Run** vom Start bis zum Endboss ist noch nicht bestanden. Offene Phase-5-Aufgaben sind unter anderem `fortschritt`, `tagesablauf`, `dauerlauf` und `run-ende`. Der Code von `lager-handel-client` ist integriert, seine vorgeschriebene Zwei-PC-Bestätigung ist jedoch noch offen. Vor einem Release müssen außerdem Virenscanner-/Proton-Dokumentation und die abschließende Integration geprüft werden ([Aufgabenliste](../TODO.md#wo-kann-ich-anfangen)).
 
 **Prüfgrenze.** Dies ist eine Dokumentationskorrektur auf Grundlage der vorhandenen Spieltestprotokolle und TODO-Einträge, **kein neuer Spieltest**. Der G2-Nachweis gilt ausdrücklich nicht als Nachweis eines vollständigen Runs.
 
@@ -308,7 +308,6 @@ flowchart TD
         TE["Telemetrie und<br/>Crash-Reports aus"]:::done
         SV["Eigene Mod-Spielstände"]:::done
         IN["Installer oder Anleitung"]:::done
-        WS["Weekly-Challenge sperren<br/>(weekly-sperre)"]:::open
         VS["Virenscanner und Proton<br/>(virenscanner)"]:::done
     end
 
@@ -349,7 +348,6 @@ flowchart TD
     RV["Vorbeugung<br/>ohne-spike, latenz-test"]:::done --> IG
     PR --> DS["desync-melder"]:::done --> IG
     IG --> DL["dauerlauf"]:::done --> IR
-    W5 --> W6["weekly-sperre"]:::open --> RL
     IR --> RL["release"]:::central
     RL --> Z(["Mod fertig und nutzbar"]):::goal
 

@@ -80,7 +80,7 @@ std::string NameFromIndex(int32_t Index)
 {
     if (Index < 0)
         return {};
-    const auto Block = ReadPointer(Rva(Offsets::GNames) + Offsets::NameBlocks + 8 * (static_cast<uint32_t>(Index) >> 16));
+    const auto Block = ReadPointer(CachedRva<Offsets::GNames>() + Offsets::NameBlocks + 8 * (static_cast<uint32_t>(Index) >> 16));
     if (!Block)
         return {};
     const uintptr_t Entry = *Block + (Index & 0xFFFF) * Offsets::NameStride;

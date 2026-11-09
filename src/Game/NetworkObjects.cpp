@@ -22,7 +22,7 @@ std::optional<std::vector<NetworkObject>> ReadNetworkObjects()
         return std::nullopt;
     const uintptr_t Bits = Memory::ReadPointer(*Cache + 0x28).value_or(*Cache + 0x18);
     const int32_t ObjectCount = Objects::Count();
-    const auto Chunks = Memory::ReadPointer(Memory::Rva(Offsets::GObjects));
+    const auto Chunks = Memory::ReadPointer(Memory::CachedRva<Offsets::GObjects>());
     if (!Chunks)
         return std::nullopt;
     std::vector<NetworkObject> Result;

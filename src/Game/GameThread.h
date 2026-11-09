@@ -20,5 +20,21 @@ void Stop();
 bool IsAttached();
 
 // Registriert einen Tick, der nach Core::GameThread().Drain() in jedem Takt läuft. Vor Start aufrufen.
-void AddTick(Tick Callback);
+// Der Name erscheint im Log, wenn der Tick den Frame spürbar aufhält.
+void AddTick(Tick Callback, const char* Name = "Tick");
+
+// Misst einen Abschnitt auf dem Game Thread. Dauert er länger als ein paar Millisekunden, steht er mit Namen und Dauer
+// im Log, je Name höchstens alle paar Sekunden. Name muss ein String-Literal sein.
+class SlowScope
+{
+public:
+    explicit SlowScope(const char* Name);
+    ~SlowScope();
+    SlowScope(const SlowScope&) = delete;
+    SlowScope& operator=(const SlowScope&) = delete;
+
+private:
+    const char* Name;
+    long long Start;
+};
 }

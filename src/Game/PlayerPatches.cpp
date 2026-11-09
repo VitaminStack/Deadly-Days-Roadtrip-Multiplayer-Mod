@@ -233,22 +233,21 @@ void InstallControllerSwap()
 void AcceptClientPositions()
 {
     int Changed = 0;
-    const int32_t Total = Objects::Count();
-    for (int32_t i = 0; i < Total; ++i)
+    // Spielerfiguren leben im Level der Welt; dessen Actor-Liste ist viel kürzer als das Objekt-Array (host-lagspike).
+    const uintptr_t World = CurrentWorld();
+    const uintptr_t Level = World ? Memory::ReadPointer(World + Offsets::UWorld::PersistentLevel).value_or(0) : 0;
+    Objects::ForEachLevelActor(Level, [&](uintptr_t Object)
     {
-        const uintptr_t Object = Objects::At(i);
-        if (!Object || (ObjectFlags(Object) & Offsets::UObject::ClassDefaultObjectFlag))
-            continue;
         const auto Class = Memory::ReadPointer(Object + Offsets::UObject::Class);
         if (!Class || Memory::NameOf(*Class) != "BP_DD_Character_C" || Memory::Read<uint8_t>(Object + ActorRemoteRole) != uint8_t{2})
-            continue;
+            return;
         const auto Movement = Memory::ReadPointer(Object + CharacterMovement);
         const auto Flags = Movement ? Memory::Read<uint8_t>(*Movement + MovementFlags) : std::nullopt;
         if (!Flags || (*Flags & AcceptClientPositionFlags) == AcceptClientPositionFlags)
-            continue;
+            return;
         const uint8_t Value = *Flags | AcceptClientPositionFlags;
         Changed += Memory::WriteBytes(*Movement + MovementFlags, &Value, 1);
-    }
+    });
     if (Changed)
         Core::Log::Info("Client-Positionen angenommen: {}", Changed);
 }

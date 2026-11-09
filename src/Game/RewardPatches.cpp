@@ -1642,7 +1642,8 @@ uintptr_t CachedInventory(uintptr_t& Cache, uintptr_t Controller)
     const uintptr_t State = Controller ? Pointer(Controller + ControllerPlayerState) : 0;
     if (!State)
         return 0;
-    if (!Alive(Cache) || Pointer(Cache + InventoryPlayerState) != State)
+    // Gleiche Bedingung wie InventoryOf, sonst sucht jeder Aufruf erneut im ganzen Objekt-Array (host-lagspike).
+    if (!Alive(Cache) || (Pointer(Cache + InventoryPlayerState) != State && Pointer(Cache + Offsets::UObject::Outer) != State))
         Cache = InventoryOf(State);
     return Cache;
 }

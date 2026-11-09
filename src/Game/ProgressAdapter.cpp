@@ -40,7 +40,7 @@ uint64_t Lifetime(uintptr_t Object)
     const auto Index = Memory::Read<int32_t>(Object + 0xC);
     if (!Index || *Index < 0 || *Index >= Objects::Count() || Objects::At(*Index) != Object)
         return 0;
-    const auto Chunks = Memory::ReadPointer(Memory::Rva(Offsets::GObjects));
+    const auto Chunks = Memory::ReadPointer(Memory::CachedRva<Offsets::GObjects>());
     const auto Chunk = Chunks ? Memory::ReadPointer(*Chunks + 8 * (*Index >> 16)) : std::nullopt;
     const auto Serial = Chunk ? Memory::Read<uint32_t>(*Chunk + (*Index & 0xffff) * 0x18 + 0x10) : std::nullopt;
     return Serial ? (uint64_t(*Serial) << 32) | static_cast<uint32_t>(*Index) : 0;
@@ -105,22 +105,26 @@ unsigned ShowSharedProgress(const SharedProgress& Value)
     const uintptr_t State = MissionState();
     const uintptr_t Players = State ? Memory::ReadPointer(State + Offsets::AGameStateBase::PlayerArray).value_or(0) : 0;
     const int32_t Count = State ? Memory::Read<int32_t>(State + Offsets::AGameStateBase::PlayerArray + 8).value_or(-1) : -1;
-    const uintptr_t SetPercent = Objects::FindObject("SetPercent", "ProgressBar");
-    const uintptr_t UpdateLevel = Objects::FindObject("UpdateLevel", "WP_PlayerOverlay_C");
-    if (!Players || Count < 1 || Count > 2 || !SetPercent || !UpdateLevel)
-        return 0;
     // Widgets nur einmal pro Sekunde suchen; zwischendurch schwache Index/Serial-Identitaeten pruefen.
     struct WidgetRef { uintptr_t Object; uint64_t Life; int32_t Level = -1; };
     static std::vector<WidgetRef> Widgets;
     static uint64_t LastState = 0;
     static auto NextScan = std::chrono::steady_clock::now();
+    // SetPercent ist nativ und bleibt geladen. UpdateLevel gehoert zum Blueprint und gilt nur je Spielzustand.
+    static uintptr_t PercentFunction = 0, UpdateLevel = 0;
     const uint64_t CurrentState = Lifetime(State);
     if (LastState != CurrentState)
     {
         Widgets.clear();
         LastState = CurrentState;
         NextScan = std::chrono::steady_clock::now();
+        UpdateLevel = 0;
     }
+    const uintptr_t SetPercent = NativeFunction("SetPercent", "ProgressBar", PercentFunction);
+    if (!UpdateLevel)
+        UpdateLevel = Objects::FindObject("UpdateLevel", "WP_PlayerOverlay_C");
+    if (!Players || Count < 1 || Count > 2 || !SetPercent || !UpdateLevel)
+        return 0;
     if (std::chrono::steady_clock::now() >= NextScan)
     {
         NextScan = std::chrono::steady_clock::now() + std::chrono::seconds(1);

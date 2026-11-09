@@ -35,13 +35,16 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | Kennung | Prio | Phase | Bearbeitung | Spielzeit |
 |---|---|---|---|---|
 | `tagesablauf` | P0 | [5](#phase-5--vollständiger-run) | parallel | viel |
+| `lager-bestaetigen-absturz` | P1 | [5](#phase-5--vollständiger-run) | zu zweit | mittel |
 | `run-ende` | P1 | [5](#phase-5--vollständiger-run) | parallel | viel |
+| `spiel-update` | P1 | [Wartung](#wartung) | zentral | viel |
 | `reconnect` | P2 | [5](#phase-5--vollständiger-run) | parallel | viel |
 | `vfx-sound` | P2 | [5](#phase-5--vollständiger-run) | parallel | mittel |
+| `weekly-sperre` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
 
 **Wartet auf das Team:** nichts.
 
-**Bestätigungstest ausstehend (nicht in Arbeit):** `fortschritt`, `lager-handel-client`, `weekly-sperre`, `update-welt`.
+**Bestätigungstest ausstehend (nicht in Arbeit):** `fortschritt`, `lager-handel-client`.
 <!-- frei:end -->
 
 **Nicht erneut machen.** Das ist erledigt und dokumentiert:
@@ -157,6 +160,7 @@ Ziel: Ein kompletter Run ist zu zweit online spielbar.
 | `integration-run` | P0 | Kompletten Run zu zweit über Internet durchspielen und Fehler den Aufgaben zuordnen. **Fertig, wenn** ein Run von der `MetaBase` bis zum Endboss ohne Absturz und Desync läuft | `gegner-alle`, `fortschritt`, `werkbank-client`, `pausen-sync`, `tagesablauf`, `run-ende`, `dauerlauf` | zentral | viel |
 | `vfx-sound` | P2 | VFX und Sound (FMOD) beim Client. Ordner `src/Sync/Combat` | `integration-g2` | parallel | mittel |
 | `reconnect` | P2 | Wiederverbinden während eines Runs, Hinweis: `OnCoopReconnectRequiredChanged`. Ordner `src/Net`, `src/Sync` | `integration-g2`, `protokoll`, `net-fehler` | parallel | viel |
+| `lager-bestaetigen-absturz` | P1 | Gemeldet am 09.11.2026 aus einem Zwei-PC-Spiel: Der Client stürzte ab, als er in der Inventarverwaltung zum Rundenende „Bestätigen“ drückte. Im Ein-PC-Test am selben Tag nicht nachgestellt. Belege (Client-Mod-Log `DDCoop\logs\ddcoop-<PID>.log`, Absturzbericht oder Ereignis 1000) liegen auf dem anderen PC und fehlen noch. **Fertig, wenn** die Ursache aus Log oder Stapel belegt und behoben ist und ein Zwei-PC-Test drei Rundenenden mit Bestätigen beim Client ohne Absturz zeigt. Ordner `src/Game`, `src/Sync` | `integration-g2` | zu zweit | mittel |
 
 ## Phase 6 – Release
 
@@ -164,8 +168,7 @@ Ziel: Die Mod lässt sich installieren, ohne Spielstände oder Bestenlisten zu b
 
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
-| `weekly-sperre` | P1 | **Bestätigungstest ausstehend:** ddrweekly.deadlydays.com in Core::ReportHosts gesperrt, Unit-Tests bestehen. Offen: Solo-Spieltest mit Mod, Weekly-Eintrag im Hauptmenü anklicken, Menü bleibt bedienbar, Log zeigt keine Auflösung; ohne Mod unverändert. **Aufgabe und Abnahme:** Die Weekly-Challenge sperren, solange die Mod geladen ist, auch solo, wie Erfolge und Bestenlisten (Entscheidung `weeklymode`). `ddrweekly.deadlydays.com` in `Core::ReportHosts` aufnehmen und vorher prüfen, wie das Menü reagiert: Hängt oder stürzt der Weekly-Eintrag ohne Antwort, ihn sperren oder mit Hinweis versehen. **Fertig, wenn** mit Mod nichts an den Weekly-Server geht, das Menü normal bedienbar bleibt und ohne Mod alles unverändert ist. **Einstieg:** [Telemetrie und Berichte](docs/GAME_ANALYSIS.md#telemetrie-und-berichte-telemetrie-aus). Ordner `src/Core`, `src/Game` | `weeklymode`, `telemetrie-aus` | parallel | wenig |
-| `release` | P0 | Versionierung, Abschlusstest und Veröffentlichung. Ein Stand, eine Freigabe | `integration-run`, `tutorial-aus`, `online-sperren`, `telemetrie-aus`, `mod-saves`, `installer`, `weekly-sperre`, `virenscanner`, `lobby-live-rest` | zentral | wenig |
+| `release` | P0 | Versionierung, Abschlusstest und Veröffentlichung. Ein Stand, eine Freigabe | `integration-run`, `tutorial-aus`, `online-sperren`, `telemetrie-aus`, `mod-saves`, `installer`, `virenscanner`, `lobby-live-rest` | zentral | wenig |
 
 ## Wartung
 
@@ -173,7 +176,6 @@ Zählt nicht zum Fortschritt.
 
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
-| `update-welt` | P1 | **Bestätigungstest ausstehend:** Statisch und Route bis Tag 2 auf 26495302 sauber (43 Patches, 11/11 Pruefungen, Karte 159/159 und 63/63, Kamera). Offen: XP-Baelle beim Client und Dash am Kamerarand, braucht besiegte Gegner im Spiel. **Aufgabe und Abnahme:** Patches für Build `26495302` portieren: `MapPatches.cpp`, `TravelPatches.cpp`, `ExpPatches.cpp`, `ProjectilePatches.cpp`, `MovementPatches.cpp`, `CameraPatches.cpp`, `CodeCave.cpp`. Patchnotes prüfen: Abstürze beim Map Travel, Dash außerhalb der gemeinsamen Kamera. **Fertig, wenn** diese Dateien auf `26495302` keine fehlenden Patches mehr melden und Route bis Tag 2 mit gleicher Karte, XP-Bällen und Kamera läuft | `update-basis` | parallel | mittel |
 | `spiel-update` | P1 | Umstieg auf Build `26495302` (Depot `3026452`, Manifest `2302428105354984436`) abschließen: ausstehende Bestätigungstests auf dem neuen Build, Doku ([GAME_ANALYSIS](docs/GAME_ANALYSIS.md#unterstützte-spielversion), [OFFSETS](docs/OFFSETS.md), SETUP, INSTALL, CLAUDE.md), danach Unterstützung für `26187885` entfernen. **Fertig, wenn** ein Coop-Run auf `26495302` ohne fehlende Patches läuft und `26187885` nirgends mehr verlangt wird. **Einstieg:** [Update-Regel](CONTRIBUTING.md#spiel-updates) | `update-basis`, `update-client`, `update-inventar`, `update-welt` | zentral | viel |
 
 ## Optionale Optimierungen
@@ -184,6 +186,11 @@ Auch die zukünftige Update-Verwaltung bleibt vorerst optional: Wir erzwingen Bu
 
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
+| `weekly-sperre` | P2 | Nutzerentscheidung vom 09.11.2026: optional, keine Release-Voraussetzung mehr. **Bestätigungstest ausstehend:** ddrweekly.deadlydays.com in Core::ReportHosts gesperrt, Unit-Tests bestehen. Offen: Solo-Spieltest mit Mod, Weekly-Eintrag im Hauptmenü anklicken, Menü bleibt bedienbar, Log zeigt keine Auflösung; ohne Mod unverändert. **Aufgabe und Abnahme:** Die Weekly-Challenge sperren, solange die Mod geladen ist, auch solo, wie Erfolge und Bestenlisten (Entscheidung `weeklymode`). `ddrweekly.deadlydays.com` in `Core::ReportHosts` aufnehmen und vorher prüfen, wie das Menü reagiert: Hängt oder stürzt der Weekly-Eintrag ohne Antwort, ihn sperren oder mit Hinweis versehen. **Fertig, wenn** mit Mod nichts an den Weekly-Server geht, das Menü normal bedienbar bleibt und ohne Mod alles unverändert ist. **Einstieg:** [Telemetrie und Berichte](docs/GAME_ANALYSIS.md#telemetrie-und-berichte-telemetrie-aus). Ordner `src/Core`, `src/Game` | `weeklymode`, `telemetrie-aus` | parallel | wenig |
+| `opt-waffen-hover` | P2 | Beim Client hebt das Inventar beim Überfahren einer Waffe mit der Maus die Items nicht hervor, die auf die Waffe wirken; beim Host schon (Ein-PC-Test 09.11.2026, Bildvergleich). Lokal zuerst: die native Hervorhebung beim Client aus den replizierten Inventardaten anzeigen, keine neue Nachricht. **Fertig, wenn** der Client beim Überfahren dieselben Items hervorgehoben sieht wie der Host. Ordner `src/Game` | `integration-run` | parallel | wenig |
+| `opt-busbalken` | P2 | Beim Abfahren mit dem Bus fehlt beim Client der Ladebalken (Ein-PC-Test 09.11.2026). Vermutlich treibt ihn nur der Host, ähnlich `opt-lootbalken`. Lokal zuerst aus replizierten Daten anzeigen. **Fertig, wenn** der Client beim Abfahren denselben Balken sieht wie der Host. Ordner `src/Game` | `integration-run` | parallel | wenig |
+| `opt-ausdauerbalken` | P2 | Beim Client ist der Ausdauerbalken des Hosts immer voll (Ein-PC-Test 09.11.2026), der eigene wird vermutlich richtig angezeigt. Lokal zuerst: Klären, ob der Ausdauerwert repliziert und nur die Anzeige ihn nicht liest, sonst den Wert nativ replizieren statt eigener Nachricht. **Fertig, wenn** der Client den Ausdauerbalken des Hosts wie der Host selbst sieht. Ordner `src/Game` | `integration-run` | parallel | wenig |
+| `opt-client-takt` | P2 | Rest aus `host-lagspike` (09.11.2026): Beim Client halten die Widget-Suche der Fortschritts-Anzeige (`ShowSharedProgress`, rund 12 ms) und die Objektsuche der Boss-Leiste (`BossBarAdapter::ScanObjects`, rund 10 ms) einmal pro Sekunde den Frame auf, Log `Takt: …`. Im Spiel nicht mehr spürbar gemeldet. **Fertig, wenn** beim Client kein Sekunden-Abgleich mehr über 8 ms im Log steht | `integration-run` | parallel | wenig |
 | `opt-desync-pivot` | P2 | Fehlalarm im Desync-Melder (Coop-Test 06.11.2026): Bei Items außerhalb des Rucksacks, etwa der Pistole, setzt die eigene Inventaransicht die Rasterposition lokal. Beim Host-Spieler repliziert sie zum Client, beim Client-Spieler bleibt sie beim Host auf `(0, 0)` (Client `(-19, -2)`). Spielerisch folgenlos, der Melder meldet aber dauerhaft „Abweichung Inventar“ und kann echte Inventarfehler überdecken. Position solcher Items im Inventar-Messfeld ignorieren | `integration-run` | parallel | wenig |
 | `opt-host-bewegung` | P2 | Klären, warum der Host Remote-Figuren ohne clientautoritative Position fast nicht bewegt. Clientautoritative Position reicht für den Betrieb | `integration-run` | parallel | mittel |
 | `opt-tempo-upgrades` | P2 | `MovementSpeed` und Beschleunigung: Upgrades kommen beim Client nicht an (Host 819 und 2866, Client 600 und 2048) | `integration-run` | parallel | mittel |
@@ -256,6 +263,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `github-repo` | 0 | Öffentliches GitHub-Repo angelegt |
 | `grundgeruest` | 2 | `Loader` als Proxy-DLL, `Core` mit Logging, Config, Hooks, Dispatcher und Versionsprüfung, mit Host und Client geprüft |
 | `guidcache` | 1 | Blockaden-Autorität, NetGUID-Pfadlebensdauer und Sneak-Zielbereitschaft korrigiert; Test-Godmode für beide Spieler, Lauf bis Endlos-Tag 13 mit zwei Biomwechseln. Am 04.11.2026 vom Nutzer als abgeschlossen akzeptiert; vorerst keine weiteren Detailtests, neue konkrete Probleme erhalten ein neues TODO. [Nachweise und Testgrenzen](docs/GAME_ANALYSIS.md#abschluss-und-akzeptierter-testumfang-guidcache) |
+| `host-lagspike` | 5 | Sekündlicher Ruckler beim Host behoben: Objektsuchen über `GObjects` gekürzt (`CachedRva`, `IsA`-Ergebnis je Klasse, `ULevel::Actors`), Zeitmessung im Takt-Log, beim Host im Ein-PC-Test kein Ruckler mehr. [Befund](docs/GAME_ANALYSIS.md#sekündlicher-ruckler-beim-host-host-lagspike) |
 | `hp-leisten` | 1 | Spike-Fix: Die Lebensleisten über den Figuren blieben beim Client auf dem Startwert, weil das Spiel `OnHealthChanged` nur beim Host auslöst. Jetzt ruft der Spike die Empfänger nach `OnRep_Health` und `OnRep_MaxHealth` auf, siehe [Lebensleisten](docs/GAME_ANALYSIS.md#lebensleisten-beim-client-hp-leisten) |
 | `installer` | 6 | Release-Paket mit Install.cmd/Uninstall.cmd und Anleitung docs/INSTALL.md; findet Steam-Bibliotheken, prüft Build und fremde version.dll, Deploy-Mod nutzt denselben Installer |
 | `installer-builds` | 6 | Spieler-Installer nimmt alle Builds der Mod (`26187885`, `26495302`) statt nur `26187885`; ein Test hält die Liste gleich mit `Core/Version.cpp` und `Common.ps1`, siehe [Installation](docs/INSTALL.md#voraussetzungen) |
@@ -351,6 +359,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `update-client` | Wartung | Zwei PCs, Build 26495302, Mod main 49e0194, nur Mod: Beitritt ohne Host-Absturz, drei Rundenenden ohne Absturz, Host wartet bei hart beendetem Client, Host beendet im Lager und Client landet im Hauptmenü, siehe [Live-Test 07.11.](docs/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-07112026-livetest-0711) |
 | `update-inventar` | Wartung | Zwei PCs, Build 26495302: alle Listen gesetzt, Airdrop, Belohnungswahl und Lager (Ordnen) beim Client ohne Absturz; Verkaufen und Reparieren beim Client fehlen, neue Aufgabe lager-handel-client, siehe [Live-Test 07.11.](docs/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-07112026-livetest-0711) |
 | `update-regel` | 0 | Spiel-Updates: einfrieren und nur bei Bedarf nachziehen, siehe [Update-Regel](CONTRIBUTING.md#spiel-updates) |
+| `update-welt` | Wartung | Live-Test 09.11.2026, ein PC, Build 26495302, -Mod -Tunnel Lobby -NoSpike, 44 Patches: XP-Baelle beim Client sichtbar (Log 'XP-Baelle: 1 Host-Ausstoss(e) angezeigt', 5x, leicht verzoegert), Client-Dash am Kamerarand bleibt in der gemeinsamen Kamera, kein Absturz. |
 | `versions-meldung` | Wartung | Abgelehnte erste Nachricht nennt den Grund mit beiden Werten (alte Mod, Protokoll, Build, Mod-Version, Rolle), siehe [Handshake](docs/CONTROL_PROTOCOL.md#handshake) |
 | `virenscanner` | 6 | Defender 1.463.207.0 meldet das Paket nicht; Umgang mit Fehlalarmen und Proton (nicht unterstützt) in INSTALL.md und LIESMICH.txt |
 | `waffe-client-auswahl` | 5 | Client-Waffen wirken sofort: Entfernstil wie das Panel, Host frischt Wirkungen nach dem Edit auf, Client zeigt Waffenslots lokal vor |

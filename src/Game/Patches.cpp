@@ -11,6 +11,8 @@
 #include "Core/Log.h"
 #include "Core/Version.h"
 #include "Game/AddressMap.h"
+#include "Game/GameThread.h"
+#include "Game/Objects.h"
 #include "Game/Memory.h"
 #include "Game/Offsets.h"
 #include "Game/PatchRuntime.h"
@@ -76,11 +78,7 @@ NetRole CurrentRole()
 
 bool IsA(uintptr_t Object, const char* ClassName)
 {
-    auto Class = Memory::ReadPointer(Object + Offsets::UObject::Class);
-    for (int Depth = 0; Class && Depth < 64; ++Depth, Class = Memory::ReadPointer(*Class + Offsets::UStruct::SuperStruct))
-        if (Memory::NameOf(*Class) == ClassName)
-            return true;
-    return false;
+    return Objects::IsA(Object, ClassName);
 }
 
 State CurrentState()
@@ -232,18 +230,18 @@ void Tick()
         LastSecond = Now;
     const NetRole Role = CurrentRole();
     if (ListOn(Widget))
-        TickWidgets(Role);
+        { const GameThread::SlowScope Watch("Widgets"); TickWidgets(Role); }
     if (ListOn(Player))
-        TickPlayers(Role, Second);
+        { const GameThread::SlowScope Watch("Spieler"); TickPlayers(Role, Second); }
     if (ListOn(RemoteP2))
-        TickRemoteP2(Role);
+        { const GameThread::SlowScope Watch("RemoteP2"); TickRemoteP2(Role); }
     if (ListOn(Reward))
-        Rewards::Tick();
+        { const GameThread::SlowScope Watch("Belohnungen"); Rewards::Tick(); }
     if (ListOn(Camera))
-        TickCamera(Role, Second);
-    TickProjectiles(Role, Second);
-    TickMovement(Role, Second);
+        { const GameThread::SlowScope Watch("Kamera"); TickCamera(Role, Second); }
+    { const GameThread::SlowScope Watch("Projektile"); TickProjectiles(Role, Second); }
+    { const GameThread::SlowScope Watch("Bewegung"); TickMovement(Role, Second); }
     if (ListOn(Map))
-        TickMap(Role, Second);
+        { const GameThread::SlowScope Watch("Karte"); TickMap(Role, Second); }
 }
 }
