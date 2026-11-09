@@ -1,4 +1,5 @@
 #include "Sync/Sync.h"
+#include "Core/Log.h"
 #include "Sync/ControlDispatch.h"
 #include "Sync/DevState.h"
 #include "Sync/MovementState.h"
@@ -22,18 +23,26 @@ void TickDev(Net::Transport* Transport)
     if (Transport && Transport->Stats().IsHost)
     {
         for (const auto& Message : Transport->TakeControlMessages(Dev::Request))
-            if (const auto Action = Dev::Decode(Message.Value.Payload))
-                Game::RunDevAction(*Action, 1);
+            if (const auto Request = Dev::Decode(Message.Value.Payload))
+                Game::RunDevAction(Request->Action, 1, Request->Target);
     }
+    // Jeden Takt, damit beim Klick im Overlay der letzte Cursorpunkt ueber dem Spielbild bereitliegt.
+    const auto Cursor = Game::CursorGroundPosition();
     const auto Role = Game::Patches::CurrentRole();
-    for (const uint8_t Id : {uint8_t(1), uint8_t(2), uint8_t(3)})
+    for (uint8_t Id = 1; Id <= Game::LastDevAction; ++Id)
     {
         const auto Action = static_cast<Game::DevAction>(Id);
         if (!(Pressed & (1u << Id)))
             continue;
+        const auto Target = Action == Game::DevAction::SpawnZombies ? Cursor : std::nullopt;
         if (Role != Game::NetRole::Client)
         {
-            Game::RunDevAction(Action, 0);
+            Game::RunDevAction(Action, 0, Target);
+            continue;
+        }
+        if (Action == Game::DevAction::SpawnZombies && !Target)
+        {
+            Core::Log::Warn("Dev: kein Cursorpunkt fuer Spawn Zombies");
             continue;
         }
         if (!Transport)
@@ -41,7 +50,7 @@ void TickDev(Net::Transport* Transport)
         const auto Peers = Transport->ControlPeers();
         static uint64_t Revision = 0;
         if (Peers.size() == 1)
-            Transport->SendControl(Peers[0], {1, 1, ++Revision, Dev::Request, Dev::Encode(Action)});
+            Transport->SendControl(Peers[0], {1, 1, ++Revision, Dev::Request, Dev::Encode({Action, Target})});
     }
 }
 

@@ -32,6 +32,7 @@
     <ClCompile Include="RewardTests.cpp" />
     <ClCompile Include="MapTests.cpp" />
     <ClCompile Include="NetSimTests.cpp" />
+    <ClCompile Include="DevTests.cpp" />
     <ClCompile Include="MovementTests.cpp" />
     <ClCompile Include="PauseTests.cpp" />
     <ClCompile Include="ControlProtocolTests.cpp" />

@@ -326,4 +326,7 @@ TEST_CASE("Dev buttons stay available in solo and multiplayer and are taken once
     CHECK(Model.RequestDev(UI::DevButton::FullTank));
     CHECK(Model.TakeDevRequests() == (1u << 2));
     CHECK(Model.TakeDevRequests() == 0);
+    CHECK(Model.RequestDev(UI::DevButton::SpawnZombies));
+    CHECK(Model.RequestDev(UI::DevButton::SpawnRandomItem));
+    CHECK(Model.TakeDevRequests() == ((1u << 4) | (1u << 5)));
 }

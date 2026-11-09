@@ -41,15 +41,16 @@ Das Modul bleibt auf `Core` und `Net` begrenzt. Der Game-Adapter ist dafür nich
 
 ## Dev-Tab (`opt-dev-tab`, Entwicklerwerkzeug)
 
-Das Overlay hat die Tabs „Status“ und „Dev“. Der Dev-Tab hat die Knöpfe „Spawn XP“, „Full Tank“ und „Godmode an/aus“, aktiv nur im Zustand `Playing` (Host oder Client). Der Fensterthread setzt nur ein Bit in `OverlayModel::RequestDev`; `Sync` holt die Bits im Game-Thread-Takt (`TakeDevRequests`, über `Sync::BindDevSource`).
+Das Overlay hat die Tabs „Status“ und „Dev“. Der Dev-Tab hat die Knöpfe „Spawn XP“, „Full Tank“, „Godmode an/aus“, „Spawn Zombies (Cursor)“ und „Spawn Random Item“, auch solo drückbar; wirksam nur in einer Mission. Der Fensterthread setzt nur ein Bit in `OverlayModel::RequestDev`; `Sync` holt die Bits im Game-Thread-Takt (`TakeDevRequests`, über `Sync::BindDevSource`).
 
-- **Host:** führt direkt über `Game::RunDevAction` aus. **Client:** sendet die Kontrollnachricht `0x600` (1 Byte Aktion) an den Host, der sie für die Client-Figur ausführt. Keine Antwort, kein Missbrauchsschutz, da reines Entwicklerwerkzeug.
+- **Host:** führt direkt über `Game::RunDevAction` aus. **Client:** sendet die Kontrollnachricht `0x600` (1 Byte Aktion, bei Spawn Zombies dazu 24 Byte Bodenpunkt) an den Host, der sie für die Client-Figur ausführt. Keine Antwort, kein Missbrauchsschutz, da reines Entwicklerwerkzeug.
 - **Spawn XP:** `ExpSubsystem.RequestExpSpawning(200, Figurposition)` wie im Spike `client-visuell`. Die Bälle sieht der Client über den XP-Ball-Abgleich.
 - **Full Tank:** `UFuelMeter.CurrentFuel = MaxRequiredFuel` am Missions-GameState (Schreibweg wie `tools/spike/fuel.py`), repliziert zum Client.
 - **Godmode:** `DDCharacter.DD_ToggleInvincible` per `ProcessEvent` an der Figur des Drückenden (Host oder Client-Figur), wechselt je Druck. Gilt nur für die aktuelle Welt, nach einer Reise neu schalten.
-- **Offen:** „Spawn Zombies“ (Cursor-Weltposition, Spawn-Funktion) und „Spawn Random Item“ (Itemsack). Alles vor dem Release entfernen.
-- **Nicht im Spiel geprüft:** Gebaut, UI-Test für die Anfragewarteschlange und alle Tests bestanden. Ein Spieltest auf Host und Client steht aus.
-
+- **Spawn Zombies:** Jede Seite bestimmt lokal den Bodenpunkt unter dem Mauszeiger (`GameplayStatics.GetPlayerController(0)`, `DeprojectMousePositionToWorld`, Schnitt mit der Ebene auf Höhe der eigenen Figur) und merkt sich den letzten gültigen Wert, weil der Zeiger beim Klick im Overlay liegt. Der Host ruft fünfmal `AEnemySpawner::SpawnSpecificEnemy` im Kreis um den Punkt, Typ ist der `FallbackEnemyType` der Spawner-Auswahl. `TrySpawnFreshEnemy` lieferte an Tag 1 immer `false`. Gegner replizieren nativ.
+- **Spawn Random Item:** `LootBlueprintFunctionLibrary.SpawnSpecificItemLoot` mit einem zufälligen `UInventoryItemData` (nicht versteckt, kein Rucksack, mit Seltenheit) und der `ItemLootTemplate` einer Lootstelle neben der Figur des Drückenden. Aufsammeln und Vergabe laufen über den vorhandenen Itemsack-Pfad.
+- Alles vor dem Release entfernen.
+- **Spieltest 09.11.2026** (`Start-Session.ps1 -Mod -Tunnel Lobby`, Tag 1): Spawn Zombies von Host und Client je 5 von 5 Gegnern am jeweiligen Cursorpunkt, Spawn Random Item von beiden Seiten, ein Itemsack (Revolver) wurde vom Client aufgesammelt und vom Host an beide vergeben. Spawn XP, Full Tank und Godmode siehe PR des Tabs.
 ## Tests
 
 `UITests` ist ein eigenes Projekt in der Solution und läuft über `Build-Mod.ps1 -Test` sowie in Debug-/Release-CI ohne SDK oder Spiel. Tests prüfen Zustands-/Rollenfreigaben, ungültige Lobby-IDs und Überlauf, begrenzte Aufträge (auch während der Ausführung), Dispatcher-Thread, Reentranz, Session-/Backendwechsel, konkurrierende Statusupdates und nativen Fensterstart/-schluss/-neustart. Der Fenstertest bedient die echten Edit-/Button-Controls gegen ein reines Testbackend, bleibt dabei unsichtbar und verändert keinen Benutzerfokus. Er prüft zusätzlich, dass die Statuszeile bei Offline- und Spielzustand dieselbe Mod-Version wie der Handshake anzeigt. Er prüft keine Grafikabnahme im Spiel.

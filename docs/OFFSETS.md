@@ -682,3 +682,16 @@ NetGUID-Cache und neue Actors, `tageswechsel`, nur Build `26187885`:
 | Stelle | Wert |
 |---|---|
 | `UFuelMeter` | `MaxRequiredFuel` `0xF4`, `CurrentFuel` `0xF8` (Net) |
+
+## Dev-Tab (`opt-dev-tab`, Entwicklerwerkzeug)
+
+Feldoffsets aus dem SDK, Aufrufe per `ProcessEvent`. Im Spieltest vom 09.11.2026 belegt.
+
+| Stelle | Wert |
+|---|---|
+| `AEnemySpawner` | `SelectionComponent` `0x3E8`; `SpawnSpecificEnemy` Parameter 0x90 Byte, `FTransform` bei `0x10`, Rückgabe `0x88` |
+| `UEnemySpawner_SelectionComponent` | `FallbackEnemyType` `0xE0` |
+| `AEnemyBase` | `Type` (`UEnemyType*`) `0x9B0` |
+| `UInventoryItemData` | `MinimumItemRarity` `0xF0`, `IsBag` `0x178`, `IsHiddenItem` `0x190` |
+| `ALootSpot` | `ItemLootTemplate` `0x2E0` |
+| `LootBlueprintFunctionLibrary.SpawnSpecificItemLoot` | Parameter 0x50 Byte, Ort `0x18`, Vorlage `0x38`, Rückgabe `0x48` |

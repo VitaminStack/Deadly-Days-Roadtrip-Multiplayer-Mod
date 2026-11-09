@@ -13,7 +13,7 @@ enum class SessionState { Unavailable, Offline, Connecting, Lobby, Playing, Fail
 enum class SessionRole { None, Host, Client };
 enum class LobbyAction { Create, Join, Invite, Leave };
 // Dev-Tab (Entwicklerwerkzeug, vor dem Release entfernen). Werte entsprechen Game::DevAction.
-enum class DevButton : uint8_t { SpawnXp = 1, FullTank = 2, ToggleGodmode = 3 };
+enum class DevButton : uint8_t { SpawnXp = 1, FullTank = 2, ToggleGodmode = 3, SpawnZombies = 4, SpawnRandomItem = 5 };
 
 struct OverlayStatus
 {

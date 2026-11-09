@@ -23,7 +23,7 @@
 namespace
 {
 constexpr wchar_t WindowClass[] = L"DDCoop.Overlay";
-constexpr int CreateId = 101, JoinId = 102, InviteId = 103, LeaveId = 104, LobbyId = 105, CopyId = 106, TabId = 107, DevXpId = 110, DevTankId = 111, DevGodId = 112;
+constexpr int CreateId = 101, JoinId = 102, InviteId = 103, LeaveId = 104, LobbyId = 105, CopyId = 106, TabId = 107, DevXpId = 110, DevTankId = 111, DevGodId = 112, DevZombiesId = 113, DevItemId = 114;
 constexpr int TabHeight = 34;
 std::mutex Lifecycle;
 HANDLE Thread = nullptr;
@@ -35,7 +35,7 @@ struct WindowState
     HWND Owner = nullptr;
     HWND Status = nullptr, Message = nullptr, Debug = nullptr, Hint = nullptr, Diagnostics = nullptr;
     HWND Create = nullptr, Join = nullptr, Invite = nullptr, Leave = nullptr, Lobby = nullptr, Copy = nullptr;
-    HWND Tab = nullptr, DevXp = nullptr, DevTank = nullptr, DevGod = nullptr, DevInfo = nullptr;
+    HWND Tab = nullptr, DevXp = nullptr, DevTank = nullptr, DevGod = nullptr, DevZombies = nullptr, DevItem = nullptr, DevInfo = nullptr;
     bool KeyDown = false;
     ULONGLONG CopiedAt = 0;
     int Dpi = 0;
@@ -131,7 +131,9 @@ void Layout(WindowState& State, HWND Window, int Dpi)
     Place(State.DevXp, 12, 10, 200, 34);
     Place(State.DevTank, 12, 52, 200, 34);
     Place(State.DevGod, 12, 94, 200, 34);
-    Place(State.DevInfo, 12, 138, 416, 64);
+    Place(State.DevZombies, 12, 136, 200, 34);
+    Place(State.DevItem, 12, 178, 200, 34);
+    Place(State.DevInfo, 12, 222, 416, 64);
     Place(State.Status, 12, 10, 416, 24);
     Place(State.Message, 12, 36, 416, 46);
     Place(State.Create, 12, 88, 128, 30);
@@ -190,7 +192,7 @@ void ShowTab(WindowState& State)
     for (HWND Item : { State.Status, State.Message, State.Debug, State.Hint, State.Diagnostics, State.Create, State.Invite,
                        State.Leave, State.Lobby, State.Join, State.Copy })
         ShowWindow(Item, Dev ? SW_HIDE : SW_SHOW);
-    for (HWND Item : { State.DevXp, State.DevTank, State.DevGod, State.DevInfo })
+    for (HWND Item : { State.DevXp, State.DevTank, State.DevGod, State.DevZombies, State.DevItem, State.DevInfo })
         ShowWindow(Item, Dev ? SW_SHOW : SW_HIDE);
 }
 
@@ -220,7 +222,9 @@ void UpdateControls(WindowState& State)
     EnableWindow(State.DevXp, Dev);
     EnableWindow(State.DevTank, Dev);
     EnableWindow(State.DevGod, Dev);
-    Text(State.DevInfo, L"Solo lokal; Koop ueber Host. Nur in Mission wirksam.");
+    EnableWindow(State.DevZombies, Dev);
+    EnableWindow(State.DevItem, Dev);
+    Text(State.DevInfo, L"Solo lokal; Koop ueber Host. Nur in Mission wirksam. Zombies am letzten Cursorpunkt im Spielbild.");
     const bool Copied = State.CopiedAt && GetTickCount64() - State.CopiedAt < 1500;
     Text(State.Copy, Copied ? L"Kopiert" : L"Lobby-ID kopieren");
 }
@@ -305,8 +309,10 @@ LRESULT CALLBACK WindowProc(HWND Window, UINT Message, WPARAM WParam, LPARAM LPa
             State->DevTank = Control(Window, L"BUTTON", L"Full Tank", WS_TABSTOP, DevTankId);
             // Gruppenrahmen statt STATIC: Tests und Spike-Skripte lesen die STATIC-Reihenfolge des Status-Tabs.
             State->DevGod = Control(Window, L"BUTTON", L"Godmode an/aus", WS_TABSTOP, DevGodId);
+            State->DevZombies = Control(Window, L"BUTTON", L"Spawn Zombies (Cursor)", WS_TABSTOP, DevZombiesId);
+            State->DevItem = Control(Window, L"BUTTON", L"Spawn Random Item", WS_TABSTOP, DevItemId);
             State->DevInfo = Control(Window, L"BUTTON", L"", BS_GROUPBOX);
-            for (HWND Button : { State->DevXp, State->DevTank, State->DevGod })
+            for (HWND Button : { State->DevXp, State->DevTank, State->DevGod, State->DevZombies, State->DevItem })
                 EnableWindow(Button, FALSE);
             {
                 INITCOMMONCONTROLSEX Common{ sizeof(Common), ICC_TAB_CLASSES };
@@ -344,6 +350,8 @@ LRESULT CALLBACK WindowProc(HWND Window, UINT Message, WPARAM WParam, LPARAM LPa
                 case DevXpId: UI::Overlay().RequestDev(UI::DevButton::SpawnXp); break;
                 case DevGodId: UI::Overlay().RequestDev(UI::DevButton::ToggleGodmode); break;
                 case DevTankId: UI::Overlay().RequestDev(UI::DevButton::FullTank); break;
+                case DevZombiesId: UI::Overlay().RequestDev(UI::DevButton::SpawnZombies); break;
+                case DevItemId: UI::Overlay().RequestDev(UI::DevButton::SpawnRandomItem); break;
                 case CopyId:
                     // Clipboard only, no backend action: stays on the window thread.
                     if (CopyLobbyId(Window, UI::Overlay().Snapshot().Status.LobbyId))
