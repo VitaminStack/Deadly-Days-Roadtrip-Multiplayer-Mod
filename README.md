@@ -40,7 +40,7 @@ game. The code is under the [MIT License](LICENSE). Game files are never part of
 
 Stand: 08.11.2026.
 
-Gezählt sind die Aufgaben je Phase aus [TODO.md](TODO.md), ohne Wartung und optionale Optimierungen.
+Gezählt sind die Aufgaben je Phase aus [TODO.md](TODO.md), ohne Wartung, optionale Optimierungen und Real Coop logic.
 
 Erledigt ist, was in `TODO.md` unter „Erledigt“ steht. **Vollständig abgeschlossene Phasen sind grün hinterlegt.** `py tools/task_status.py update` aktualisiert Grafik und Texttabelle; `py tools/task_status.py check` und die CI verhindern abweichende Angaben. Reservierungen und PRs ändern den Abschlussstatus nicht.
 

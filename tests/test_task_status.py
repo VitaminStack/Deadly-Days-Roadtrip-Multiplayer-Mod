@@ -112,6 +112,7 @@ class DerivedTests(unittest.TestCase):
     def test_progress_counts_phases_only(self):
         rows = '| `a` | P0 | Text | – | parallel | wenig |\n'
         extra = '## Optionale Optimierungen\n' + OPEN + '| `o` | P2 | Text | – | parallel | wenig |\n'
+        extra += '## Real Coop logic\n' + OPEN + '| `c` | P2 | Text | – | parallel | wenig |\n'
         parsed = source.parse(todo(rows, extra=extra))
         counts = source.phase_counts(parsed)
         self.assertEqual(counts[1], [1, 2])
