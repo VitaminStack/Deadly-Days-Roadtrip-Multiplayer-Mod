@@ -366,6 +366,14 @@ Stand: Spieltest am 04.11.2026, Build `26187885`, ein PC über Loopback, Route �
 - **[Belegt]** Mit dem Fix starteten beide Leisten beim Client bei 100 %. Nach Schaden zeigten Host und Client dieselben Werte: 40 % und 70 %, dann 50 %, nach dem Wechsel auf Tag 2 75 %. Kein Absturz.
 - Nicht geprüft: Rüstung (`OnArmorChanged`, `OnMaxArmorChanged` liegen im abgeleiteten Charakter-Set) und die Überheilung. Ob weitere Empfänger dieser Delegates beim Client jetzt zusätzlich laufen sollten, ist nicht geprüft, gefunden war nur die Leiste. Internet nicht geprüft.
 
+### Ausdauerbalken beim Client (`opt-ausdauerbalken`)
+
+Stand 10.11.2026, Build `26495302`, zwei Instanzen auf einem PC, Mod mit Spike.
+
+- **[Belegt, Disassembly]** Gleiche Ursache wie bei den [Lebensleisten](#lebensleisten-beim-client-hp-leisten): `UDDCharacterAttributeSet` (`Stamina` `+0x50`, `OnStaminaChanged` `+0x60`, `MaxStamina` `+0x30`, `OnMaxStaminaChanged` `+0x40`) repliziert die Werte, das Spiel löst die Delegates aber nur beim Host aus. `OnRep_Stamina` (`0x57DDE40`) und `OnRep_MaxStamina` (`0x57DD080`) fanden sich über die Exec-Thunks der `FNameNativePtrPair`-Tabelle; die Kontrolle mit `OnRep_Health` ergab die bekannte `0x57DC810`. `OnRep_Stamina` liest im Rumpf `+0x50`, `OnRep_MaxStamina` `+0x30`.
+- **Umsetzung:** `HealthBarPatches.cpp` umschließt beide OnRep-Funktionen wie die der Lebensleisten und ruft danach die angemeldeten Empfänger auf. Keine neue Nachricht, keine zweite Replikation.
+- **[Belegt, Live-Test]** Der Host weicht aus, der Client sieht seinen Ausdauerbalken wie der Host selbst (vom Nutzer im Bild bestätigt).
+
 ### Busbalken beim Client (`opt-busbalken`)
 
 Stand 10.11.2026, Build `26495302`, zwei Instanzen auf einem PC, Mod mit Spike, Tank beim Host per Speicherschreiben auf 120 von 120, Busflucht vom Nutzer.
