@@ -1596,6 +1596,34 @@ Stand 06.11.2026, Build `26187885`, ein PC, Mod mit Spike über die Lobby, Godmo
   nicht, weil seine Routenkarte keinen Knoten anbot; sie ist nur in Tests belegt. Das Rundenende über den echten Bus ist seit
   [`tank-gemeinsam`](#tank-als-gruppenwert-tank-gemeinsam) belegt.
 
+### Tagesablauf: Tag, Uhr, Tank, Nacht und Ziele (`tagesablauf`)
+
+Stand 08.11. und 10.11.2026, Build `26495302`, ein PC, Mod mit Spike über die Lobby, Godmode, Seed `20795`. **Ergebnis: Der Tagesablauf
+repliziert nativ, die Mod braucht dafür keinen neuen Sync-Pfad und keine neue Nachricht.** Neu ist nur die Messung.
+
+- **Messung:** Die Testkanal-Anfrage `day` (`src/Game/DayView.cpp`, nur mit `-ddcoop_control`, schreibt nichts) zählt per Reflexion alle
+  skalaren Felder des `GS_DDMissionState_C`, seiner Unterobjekte und deren Unterobjekte (Tank, Nacht, Gefahrenstufe, Wallets) und
+  aller `DDObjective`-Instanzen auf, Structs eine Ebene tief. `tools/spike/day_state.py` vergleicht Host und Client nach Klasse und Feld,
+  `Run-Route.ps1 -DayState [-DaySeconds n]` nach jeder Ankunft, spät am Tag und auf der Routenkarte.
+- **[Belegt] Tag 1 über 300 s (08.11.):** Neun Messungen alle 30 s. `DayNum` 1, `SecondsSinceMissionStart` (Uhr im HUD) 60 bis 302 s,
+  `FuelMeter.CurrentFuel` 0 → 10 (Kanister) bei `MaxRequiredFuel` 120, `NightModeComponent` (Nacht nach 150 s, Controller
+  `AutoNightController`, `NightmodeStartedSeconds`) und `ManualNightController` auf beiden Seiten gleich, in jeder Messung.
+  `check_round.py` sauber, Inventare gleich.
+- **[Belegt] Ankunft Tag 1 (10.11., nach Merge von main bis #203):** Tag, Uhr, Tank, Nacht und alle Wallets gleich.
+- **[Belegt] Missionsziele:** An Tag 1 gibt es auf keiner Seite eine `DDObjective`-Instanz. Das Ziel „Tank füllen“ ist die Tankanzeige
+  selbst, die über `FuelMeter` repliziert. Boss-Ziele legt das Spiel nur beim Host an, die Mod baut die Leiste beim Client nach,
+  siehe [Bosse](../src/Sync/Enemies/README.md).
+- **[Belegt] Nur beim Host:** `ThreatLevel.GameMode`, `.GameState` und `.FreezeThreatLevelManager` (samt Unterobjekt) setzt nur der
+  Server, der die Gefahr steuert. Beim Client null, kein Fehler. `day_state.py` blendet sie aus.
+- **[Belegt] Schrott, 08.11., vor `lager-handel-client`:** `ScrapWalletComponent.CurrencyAmount` beim Host 1/2, beim Client 46/92. Der
+  Stand vom 08.11. hatte die Schrott-Übertragung `0x309` aus #170 noch nicht. Am 10.11. war Schrott bei Ankunft auf beiden Seiten 0,
+  später im Tag nicht erneut gemessen. `day_state.py` meldet eine Abweichung wieder als Fehler.
+- **Nicht mit `-DayState` gemessen:** Tag 2 bis 5, Biomwechsel nach Tag 4 und Endlosmodus. Der Lauf vom 10.11. wurde nach Tag 1 auf
+  Anweisung des Nutzers beendet, der den Test als erfolgreich abgenommen hat. Reise und Rundenende über mehrere Tage sind aus anderen
+  Läufen belegt ([`dauerlauf`](../research/spikes/dauerlauf/README.md), 12 Tage mit Endboss und Endlosmodus ohne Absturz; `spiel-update`, `Run-Route.ps1 -Days 2` sauber); `DayNum` vergleicht
+  der Desync-Melder ohnehin laufend.
+- **Abgegrenzt:** Run-Info, Routenkarte und Gefahrenstufen-Anzeige des Clients liegen bei `opt-routenkarte`.
+
 ### Routenkarte beim Client (`routenkarte-client`)
 
 Stand 07.11.2026, Build `26187885`, ein PC, Mod mit Spike über die Lobby, Godmode, Seed `20795`. Nur gelesen, kein Code geändert.

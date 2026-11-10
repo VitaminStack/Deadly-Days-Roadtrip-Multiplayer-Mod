@@ -14,8 +14,9 @@ import sys
 # die nur der Server setzt: ThreatLevel kennt GameMode, GameState und Freeze-Manager nur beim Host, der die Gefahr steuert.
 LOCAL = re.compile(r'(?i)(LastUpdate|ReplicatedWorldTimeSeconds|ServerWorldTimeSecondsDelta|NetUpdate|Timestamp|LocalPlayer'
                    r'|ThreatLevel\.(GameMode|GameState|FreezeThreatLevelManager)$)')
-# Bekannte Abweichungen mit eigener Aufgabe: werden gezeigt, zaehlen aber nicht. Schrott repliziert nicht (Waehrung, nicht tagesablauf).
-KNOWN = re.compile(r'ScrapWalletComponent#\d+\.AbstractCurrency\.CurrencyAmount$')
+# Bekannte Abweichungen mit eigener Aufgabe: werden gezeigt, zaehlen aber nicht. Derzeit keine; Schrott wich am 08.11.2026 vor
+# lager-handel-client (0x309) ab und soll seitdem gleich sein, darum zaehlt er wieder.
+KNOWN = re.compile(r'(?!)')
 
 
 def ask(pid, line='day'):
@@ -85,6 +86,8 @@ def main():
             continue
         if LOCAL.search(key):
             continue
+        if key.endswith('.outer') and a == 'ThreatLevel' and b == '<fehlt>':
+            continue  # Freeze-Manager der Gefahrenstufe legt nur der Host an, siehe LOCAL
         if isinstance(a, (int, float)) and isinstance(b, (int, float)) and not isinstance(a, bool) and key.endswith(
                 ('SecondsSinceMissionStart', 'CurrentFuel')) and abs(a - b) <= 2:
             continue  # Uhr und Tank laufen weiter, waehrend nacheinander gefragt wird
