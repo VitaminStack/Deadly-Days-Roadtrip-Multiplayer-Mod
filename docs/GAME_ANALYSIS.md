@@ -1884,6 +1884,18 @@ etwa einmal pro Sekunde ein kurzer FPS-Einbruch beim Host, „wie ein Herzschlag
 - **Ergebnis:** Beim Host im Run kein Abschnitt mehr über rund 5 ms, der Mensch spürt keinen Ruckler mehr. Unit-Tests bestehen.
 - **Rest beim Client:** Fortschritts-Anzeige (Widget-Suche je Sekunde) rund 12 ms und Boss-Leiste rund 10 ms, siehe `opt-client-takt`.
 
+### Charakterwahl in der MetaBase (`charakter-wahl`)
+
+Stand 10.11.2026, nur lesend aus dem lokalen SDK (Build `26495302`), **nicht live geprüft**. Auslöser: Beim Host erscheinen immer dieselben Spielfiguren.
+
+- **[Belegt, SDK]** `UCharacterSelectionManager` (`UAbstractPersistentGameInstanceSubsystem`, `IRunPersistable`) hält `CharacterDefinitions`, `SelectedCharacters` (`TMap<int32, UPlayerCharacterDefinition*>`, Schlüssel Spielerindex) und die SaveGame-Felder `SelectedCharacterID`, `SelectedCharactersJson`. Er lebt in der GameInstance und repliziert nicht. Funktionen: `SetSelectedCharacter(PlayerIndex, Def)`, `GetSelectedCharacter`, `HasExplicitSelection`, `GetUnusedCharacterDefinitionOrRandom(Seed)`, Delegate `OnCharacterSelectionChanged`.
+- **[Belegt, SDK]** `UCharacterSelectPanel` kennt zwei Spieler: `SelectedButtonsPerPlayer` (Index -> Knopf), Marker P1/P2 (`SetSelectionChipForPlayer`, `RefreshAllPlayerChips`), `HandleCharacterSelectAuthorityChanged`. Im Spiel wählt P2 am selben PC.
+- **[Belegt, SDK]** `UCharacterDefinitionApplier` (Komponente an `ADDCharacter`) hält `CharacterSelectionManager` und `AppliedCharacterDefinition`, `ApplyInitialCharacterDefinition` wendet die Wahl an, `CharacterSelectionChanged(PlayerIndex, Def)` reagiert auf Änderungen. `AWandererManager` zeigt die Figuren in der MetaBase (`SpawnCharacter`, `OnCharacterChanged`, `OnPlayerJoined`).
+- **[Belegt, früherer Befund]** Beim Host liefert `GetPlayerIndex` für den Controller des Clients Index 1 ([Remote-P2](#remote-p2-geprüfte-anbindung-und-grenze-der-lokalen-ui)).
+- **[Vermutung]** Der Applier liest beim Host `SelectedCharacters[1]` aus dem Manager des Hosts. Dort hat niemand gewählt, es greift der Rückfall oder ein Standardwert. Die Wahl des Clients bleibt in dessen eigenem Manager. Möglicherweise gleiche Wurzel wie `opt-portraet`.
+- **[Offen, live zu prüfen, ein PC]** Welche Figur der Host-Manager für Index 1 liefert (Speicher lesen). Was der Client bei der Figur des Hosts sieht. Ob der Client das Panel bedienen kann. Ob die Figuren mehr als nur Optik unterscheiden (`EquippedItemDatas`, `StartingBackSlots`, `LoadoutTiers`).
+- **Entwurf (nicht umgesetzt):** Panel und Anzeige bleiben lokal. Geteilt wird nur die Figur-ID je Spieler, einmal beim Beitritt und bei jeder Änderung. Der Host entscheidet, setzt `SetSelectedCharacter` vor dem Entstehen der Figuren und lehnt doppelte Figuren ab.
+
 ## Systeme, die die Mod respektieren muss
 
 - **[Belegt]** Bestenlisten und Erfolge: `PixelLeaderboards`, `DDLeaderboardSettings`, `PixelAchievements`, im Mod-Betrieb gesperrt, siehe unten
