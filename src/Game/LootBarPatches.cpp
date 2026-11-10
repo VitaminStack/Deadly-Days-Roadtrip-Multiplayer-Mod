@@ -78,9 +78,12 @@ void Remember(uintptr_t Object)
             Remove(i);
     if (SpotCount == MaxSpots)
     {
-        if (Reported < 8 && ++Reported)
-            Core::Log::Warn("Lootbalken: mehr als {} Lootstellen gleichzeitig aktiv", MaxSpots);
-        return;
+        // Eine neue Stelle hat Vorrang vor der am längsten unveränderten. Fertige Stellen melden kein IsLooting 0 und bleiben sonst bis zur Freigabe.
+        size_t Oldest = 0;
+        for (size_t i = 1; i < SpotCount; ++i)
+            if (Spots[i].ChangedAt < Spots[Oldest].ChangedAt)
+                Oldest = i;
+        Remove(Oldest);
     }
     const int32_t Index = Memory::Read<int32_t>(Object + Offsets::UObject::InternalIndex).value_or(-1);
     const uintptr_t Class = Memory::Read<uintptr_t>(Object + Offsets::UObject::Class).value_or(0);
