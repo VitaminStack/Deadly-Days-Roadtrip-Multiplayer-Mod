@@ -366,6 +366,16 @@ Stand: Spieltest am 04.11.2026, Build `26187885`, ein PC über Loopback, Route �
 - **[Belegt]** Mit dem Fix starteten beide Leisten beim Client bei 100 %. Nach Schaden zeigten Host und Client dieselben Werte: 40 % und 70 %, dann 50 %, nach dem Wechsel auf Tag 2 75 %. Kein Absturz.
 - Nicht geprüft: Rüstung (`OnArmorChanged`, `OnMaxArmorChanged` liegen im abgeleiteten Charakter-Set) und die Überheilung. Ob weitere Empfänger dieser Delegates beim Client jetzt zusätzlich laufen sollten, ist nicht geprüft, gefunden war nur die Leiste. Internet nicht geprüft.
 
+### Busbalken beim Client (`opt-busbalken`)
+
+Stand 10.11.2026, Build `26495302`, zwei Instanzen auf einem PC, Mod mit Spike, Tank beim Host per Speicherschreiben auf 120 von 120, Busflucht vom Nutzer.
+
+- **[Belegt, SDK]** Der Balken ist `WP_Bus_Countdown_Display_C` (`BusProgressBar`, `Progress` `+0x348`, `UpdateBusProgress(double)`) im `CountDownWidget` (`+0x3B8`) des Kindaktors `BP_SpawnAndLeaveBus_C`. Die Abfahrt treibt das Blueprint über `OnStartBusTimerTick` und `UpdateBusProgressDisplay` (`ElapsedTime` `+0x428`, `RequiredTime` `+0x420`, `UpdateInterval` `+0x490`). Die Aktor-Felder sind nicht repliziert.
+- **[Belegt, Live-Messung]** Beim Host stieg der Fortschritt auf 1,0 (`ElapsedTime` 3,05 s von `RequiredTime` 3,0 s, `tankFull` 1). Beim Client blieben Fortschritt, `ElapsedTime` und `tankFull` die ganze Abfahrt über auf 0, obwohl `PlayersInBusRange` (`+0x2D8`) auf beiden Seiten 2 zeigte und der Tank repliziert war.
+- **[Belegt, früherer Befund]** Beim Client liefert `CanBusTakeOff` immer nein (`CanBusTakeOffHook`, [Busabfahrt nur beim Host](#busabfahrt-nur-beim-host-bus-ende)), weil ihm der GameMode fehlt. Ein lokaler Start über das native Blueprint ist darum kein Weg.
+- **Nicht geklärt:** Wie das Blueprint den Balken ein- und ausblendet und beim Verlassen des Bereichs zurücksetzt (Messung beim Host: `ElapsedTime` 1,35 s blieb stehen, als eine Figur den Bereich verließ). Messfehler dieses Laufs: Das Lesen aller Objekte in Python dauert rund 2 s je Abfrage, der 3-s-Verlauf ist darum nur an wenigen Punkten erfasst. Nächster Lauf: Adressen des Kindaktors und des Widgets einmal suchen und mit 20 Hz lesen, dazu Sichtbarkeit von Widget und `CountDownWidget`.
+- **Hinweis zum Test:** Der Client stürzte in einem früheren Lauf nach rund 12 Minuten am bekannten Sensenmann-Fehler (`0x15C0407`, siehe [Wiederbelebung](#tod-des-clients-tod-client)); Läufe kurz halten.
+
 ### XP-Bälle beim Client (`xp-baelle`)
 
 Stand 04.11.2026, Build `26187885`. Beim Spieltest fiel auf: Der Client sieht die XP-Bälle nicht. Ursache bisher nur aus dem lokalen SDK abgeleitet, im Spiel nicht gemessen.
