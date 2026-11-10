@@ -1829,6 +1829,37 @@ Absturzberichte des Hosts, Rückmeldung der Menschen an beiden PCs.
   Gegner, einmal beides), jeweils innerhalb weniger Sekunden wieder `OK`, wie am 07.11. bei Airdrop-Auswahl und Umlegen.
 - **Ergebnis:** Gate G2 bestanden, die Runde war stabil, ohne dauerhaften Desync und spielbar. Offen für Phase 5 bleibt `update-welt`.
 
+### Live-Test auf zwei PCs am 10.11.2026 (`livetest-1011`)
+
+Build `26495302`, Mod-Stand `main` `8a0c493` (Mod-Version 9), zwei Haushalte über die Lobby, Ping 43 bis 54 ms, kein verworfenes
+Paket. Ein PC Client, der andere Host. Ausgewertet sind nur das Mod-Log und der Absturzbericht des Clients sowie, nur lesend, sein
+Speicher; das Host-Log lag nicht vor. Drei Rundenenden, 18 Airdrop- und Level-up-Auswahlen, 20 Edits des Clients (19 übernommen,
+1 abgelehnt), Desync-Melder 77-mal OK, 28-mal Abweichung (fast alle während offener Auswahl oder Lager, danach wieder OK).
+
+- **[Belegt, Client] Bestätigt:** Lobby-Beitritt über die Steam-Einladung, Handshake, Karte nach etwa 2 s, Pausen bei jeder Auswahl
+  (`pausen-sync`), Airdrop- und Level-up-Edits samt neuer Felder und Aufwertung im Bearbeitungsmodus, Lager wartet auf beide
+  (`bestaetigen-rundenende`), Busabfahrt mit vollem Tank. Für `lager-handel-client`: 5 Verkäufe in einem Edit vom Host übernommen,
+  Schrott danach beim Client auf dem Stand des Hosts (80). Reparatur und Ausrüsten nicht in einem übernommenen Edit geprüft.
+- **[Belegt, Client] Großer Lager-Edit abgelehnt (`lager-edit-ablehnung`).** 17:39 MEZ: 6 Verkäufe, Reparatur einer Granate, 2
+  Aufwertungen und 4 neue Felder in einem Edit, vom Host nach 0,3 s abgelehnt. Wiederherstellung `vollständig=false` (Revolver
+  abweichend, „Felder neu angezeigt, 13 statt 17“). Danach liefen zwei Aufwertungen „außerhalb einer Bearbeitung … läuft nativ“ nur
+  beim Client, Verkäufe wurden verworfen, das Bestätigen war wegen zu vieler Items gesperrt, bis der Mensch Items ins Lager legte.
+  **[Gemeldet]** Angebaute Felder, Luftpumpe und die violette Schrotflinte fehlten danach; die Rucksackgrafik stand neben den Feldern,
+  die Felder blieben nutzbar. Der Ablehnungsgrund steht nur im Host-Log.
+- **[Belegt, Client] Absturz beim Bestätigen im dritten Lager (`lager-bestaetigen-absturz`).** 17:56:50 „Client bereit, wartet auf den
+  Host“, 17:56:51 „Bestätigen nachgeholt (alle bereit)“, Sekundenbruchteile später `EXCEPTION_ACCESS_VIOLATION`: Ausführung an Adresse
+  0 (Aufruf über einen leeren Funktionszeiger), aufgerufen aus `DDSurvivors-Win64-Shipping.exe+0x5a71965`, darüber Rücksprünge in
+  `DDCoop.dll` (`+0x283950`, `+0x2843f8`, `+0x28ce10`, `+0x9d75d`, `+0x86051`, `+0xc849e`). **Vermutung:** Das nachgeholte native
+  Bestätigen (`ReleaseRoundEndConfirm`) trifft ein Panel, das schon abgebaut wird. Der Crash-Reporter blieb gesperrt, Bericht nur lokal.
+- **[Belegt, Client] Schrott springt beim Aufsammeln (`opt-schrott-anzeige`).** 764 Korrekturen „Schrott: Stand des Hosts übernommen“,
+  in Gruppen alle etwa 270 ms, lokal kurz bis 185 statt 9; der Endstand stimmt.
+- **[Belegt, Client] Takt.** 1025 Meldungen „Takt: … hielt den Frame … auf“ (Busbalken, Patches, Sync, Sync-Fortschritt, Boss-Leiste,
+  meist 8 bis 13 ms), siehe `opt-client-takt`.
+- **[Gemeldet]** Die Client-Figur schaut beim Client nur nach hinten (`opt-blickrichtung-client`), die Laufanimation stimmt nicht
+  (`opt-laufanimation-client`), Warnanzeigen sprintender und spuckender Zombies fehlen (`opt-gegner-indikatoren`), Sound-Fehler der
+  Level-up-Kiste im Endbildschirm (`opt-levelup-sound`), der Client stempelt das geschaffte Level nicht ab (`opt-rundenstempel`).
+- **Nicht geprüft:** `fortschritt` (Giftwolke, Item-Effekte, Werte nach Upgrade), Reparatur und Ausrüsten für `lager-handel-client`.
+
 ### Client-Darstellung im Live-Spiel am 07.11.2026 (`todo-client-optik`)
 
 Build `26495302`, Mod-Stand `main` `971819d`, zwei PCs über die Lobby, Ping etwa 46 ms. Gemeldet von den beiden Spielern, dazu nur
