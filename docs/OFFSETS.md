@@ -294,6 +294,8 @@ Aufgabe `airdrop-auswahl`, Ablauf in [Airdrop-Auswahl](GAME_ANALYSIS.md#airdrop-
 | `RewardChest.OpenAirdropChoices` | `0x5A42F50` | Hook in `AirdropPatches.cpp` |
 | `InventoryComponent::SetRewardItems` | `0x5979B30` | `(this, TArray*, Level)`, öffnet das Panel |
 | `InventoryPanel.HandleConfirmButton` | `0x5A6CB20` | liest `+0x7A0`, dann `+0x3E0`; bricht bei `IsDragging` (`+0x790`) ab; ruft `OpenNextReward` der Queue `+0x6B8` |
+| `HandleConfirmButton` in `26495302` | `0x5A71900`, Aufruf `0x5A71960` → `0x5AF5030` | lädt `[[Panel+0x798]+0x3E0]` und springt über dessen VTable-Slot `+0x2A8`; bei freigegebenem Panel Sprung nach 0 (`lager-bestaetigen-absturz`) |
+| `UObject.InternalIndex` | `+0x0C` | Platz im Objekt-Array; `Objects::RefTo`/`IsLive` vergleichen ihn mit `FUObjectItem.Object` |
 | `InventoryPanel.SetupInventory` | `0x5A8BAB0` | liest `InventoryComponent` bei `+0x370`; positioniert aus `InventoryItemInstance.CachedBackpackLocalPosition` (`+0x150`, FVector2D, nicht repliziert) |
 | `DefaultFocusableButton.ParentPanel` | `+0x3A8` | Panel des Knopfs (UUserWidget); der Bestätigen-Knopf des Inventar-Panels heißt `MainButton`, gefärbt über `UserWidget.SetColorAndOpacity` (`bestaetigen-alle`) |
 | `InventoryPanel.SnapRepresentationToTile` | `0x5A92030` | richtet UI und Pixelpositions-Cache aus einem Pivot-Feld aus; reflektierte Parameter: ItemRepresentation `+0`, FIntVector2 `+8`, CanvasPanel `+0x10`, Größe `0x18` |

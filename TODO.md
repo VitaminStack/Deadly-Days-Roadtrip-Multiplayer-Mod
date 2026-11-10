@@ -34,7 +34,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 <!-- frei:start -->
 | Kennung | Prio | Phase | Bearbeitung | Spielzeit |
 |---|---|---|---|---|
-| `lager-bestaetigen-absturz` | P1 | [5](#phase-5--vollständiger-run) | zu zweit | mittel |
 | `run-ende` | P1 | [5](#phase-5--vollständiger-run) | parallel | viel |
 | `vfx-sound` | P2 | [5](#phase-5--vollständiger-run) | parallel | wenig |
 | `opt-charakter-takt` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
@@ -42,7 +41,7 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 
 **Wartet auf das Team:** nichts.
 
-**Bestätigungstest ausstehend (nicht in Arbeit):** `fortschritt`, `lager-handel-client`.
+**Bestätigungstest ausstehend (nicht in Arbeit):** `fortschritt`, `lager-handel-client`, `lager-bestaetigen-absturz`.
 <!-- frei:end -->
 
 **Nicht erneut machen.** Das ist erledigt und dokumentiert:
@@ -157,7 +156,7 @@ Ziel: Ein kompletter Run ist zu zweit online spielbar.
 | `run-ende` | P1 | Run-Ende und Rückkehr zur Meta-Basis. Ordner `src/Sync/World`, Dateien mit `tagesablauf` absprechen | `integration-g2`, `protokoll`, `niederlage`, `meta-fortschritt` | parallel | viel |
 | `integration-run` | P0 | Kompletten Run zu zweit über Internet durchspielen und Fehler den Aufgaben zuordnen. **Fertig, wenn** ein Run von der `MetaBase` bis zum Endboss ohne Absturz und Desync läuft | `gegner-alle`, `fortschritt`, `werkbank-client`, `pausen-sync`, `tagesablauf`, `run-ende`, `dauerlauf` | zentral | viel |
 | `vfx-sound` | P2 | Nutzerentscheidung vom 09.11.2026: erst live klären, dann gezielte Aufgaben. In einer Spielsitzung (ein PC reicht, der Mensch hört und schaut beim Client) gegenüber dem Host auflisten, welche Effekte und Sounds beim Client fehlen: Waffen, Treffer und Tod der Gegner, Boss-Angriffe, Kisten, Airdrop, Dash-Aufprall, Loot, Bus. Bekannt aus Code und Doku: Tod- und Treffereffekte kommen aus nicht replizierten Pools des Hosts ([Pooling](docs/GAME_ANALYSIS.md)), Boss-Angriffspartikel fehlen ([Gegner](src/Sync/Enemies/README.md)), es gibt keinen Sound- oder FMOD-Pfad in `src/`. **Fertig, wenn** jede belegte Lücke eine eigene Kennung mit Abnahme hat (Spielbarkeit gefährdet: Phase 5, sonst Optional, bestehende `opt-blut`, `opt-koerperteile`, `opt-dash-aufprall` ergänzen statt doppeln) | `integration-g2` | parallel | wenig |
-| `lager-bestaetigen-absturz` | P1 | Gemeldet am 09.11.2026 aus einem Zwei-PC-Spiel: Der Client stürzte ab, als er in der Inventarverwaltung zum Rundenende „Bestätigen“ drückte. Im Ein-PC-Test am selben Tag nicht nachgestellt. Belege (Client-Mod-Log `DDCoop\logs\ddcoop-<PID>.log`, Absturzbericht oder Ereignis 1000) liegen auf dem anderen PC und fehlen noch. **Fertig, wenn** die Ursache aus Log oder Stapel belegt und behoben ist und ein Zwei-PC-Test drei Rundenenden mit Bestätigen beim Client ohne Absturz zeigt. Ordner `src/Game`, `src/Sync` | `integration-g2` | zu zweit | mittel |
+| `lager-bestaetigen-absturz` | P1 | **Bestätigungstest ausstehend:** Fix im PR: Panels über Objekt-Array und Welt geprüft, Ein-PC-Test 5 Rundenenden ohne Absturz. Offen: Zwei-PC-Test mit drei Rundenenden, Client bestätigt im Lager **Aufgabe und Abnahme:** Gemeldet am 09.11.2026 aus einem Zwei-PC-Spiel: Der Client stürzte ab, als er in der Inventarverwaltung zum Rundenende „Bestätigen“ drückte. Im Ein-PC-Test am selben Tag nicht nachgestellt. Belege (Client-Mod-Log `DDCoop\logs\ddcoop-<PID>.log`, Absturzbericht oder Ereignis 1000) liegen auf dem anderen PC und fehlen noch. **Fertig, wenn** die Ursache aus Log oder Stapel belegt und behoben ist und ein Zwei-PC-Test drei Rundenenden mit Bestätigen beim Client ohne Absturz zeigt. Ordner `src/Game`, `src/Sync` | `integration-g2` | zu zweit | mittel |
 
 ## Phase 6 – Release
 
