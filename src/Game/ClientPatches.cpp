@@ -5,9 +5,11 @@
 #include "Core/Hooks.h"
 #include "Core/Log.h"
 #include "Game/Memory.h"
+#include "Game/Objects.h"
 #include "Game/Offsets.h"
 #include "Game/PatchPolicy.h"
 #include "Game/PatchRuntime.h"
+#include "Game/Reflection.h"
 
 namespace Game::Patches
 {
@@ -35,6 +37,8 @@ constexpr uintptr_t SneakReady = 0x58A650D;
 constexpr uintptr_t BeginDeferredActorSpawnFromClass = 0x2A67AF0;
 constexpr uintptr_t CanBusTakeOff = 0x59C7FC0;
 constexpr uintptr_t FinishMission = 0x58EA1A0;
+constexpr uintptr_t TriggerEndRound = 0x5907ED0;
+constexpr uint32_t RfBeginDestroyed = 0x8000, RfFinishDestroyed = 0x10000; // EObjectFlags
 
 constexpr uintptr_t CharacterAttributeSet = 0x7D8;
 constexpr uintptr_t ExpHandlerResult = 0x314;
@@ -87,6 +91,16 @@ std::atomic<int> FinishMissionSkipped = 0;
 
 bool FollowingHost = false; // nur Game Thread
 
+// run-ende: FinishMission setzt beim letzten Tag den Grund der Runde auf Sieg, sonst steht dort das Tagesende.
+bool LastRoundWasWin()
+{
+    constexpr Reflection::FieldSpec Reason{"/Script/DDSurvivors", "DDMissionGameInstance", "LastRoundChangeReason", "EnumProperty", 1};
+    const uintptr_t World = CurrentWorld();
+    const uintptr_t GameInstance = World ? Memory::ReadPointer(World + Offsets::UWorld::OwningGameInstance).value_or(0) : 0;
+    const auto Field = Reflection::Property(Reason);
+    return GameInstance && Field && Memory::Read<uint8_t>(GameInstance + Field->Offset).value_or(0) == RoundChangeWin;
+}
+
 // DDMissionGameState.FinishMission(IsLoading). Zweite Sperre für jeden anderen lokalen Weg zum Rundenende beim Client. Der
 // Host meldet sein Rundenende dem Client, der es dann mit FollowHostRoundEnd lokal nachzieht (rundenende-client).
 void __fastcall FinishMissionHook(uintptr_t GameState, bool IsLoading)
@@ -100,6 +114,27 @@ void __fastcall FinishMissionHook(uintptr_t GameState, bool IsLoading)
     if (Role == NetRole::Host && !IsLoading)
         NoteHostRoundEnd();
     OriginalFinishMission(GameState, IsLoading);
+    if (Role == NetRole::Host && !IsLoading && LastRoundWasWin())
+        NoteHostRunWon();
+}
+
+using TriggerEndRoundFn = void(__fastcall*)(uintptr_t, uint8_t);
+TriggerEndRoundFn OriginalTriggerEndRound = nullptr;
+std::atomic<int> RunLossSkipped = 0;
+
+// run-ende: DDMissionGameInstance.TriggerEndRound. Stirbt der letzte Spieler, ruft das Spiel es mit Niederlage auf. Der Host meldet
+// das dem Client. Beim Client läuft die Niederlage nie selbst: Im Test änderte sie seinen Meta-Stand und öffnete keinen Bildschirm.
+void __fastcall TriggerEndRoundHook(uintptr_t GameInstance, uint8_t Reason)
+{
+    const NetRole Role = CurrentRole();
+    if (!RunLossAllowed(Role == NetRole::Client, Reason))
+    {
+        NoteOnce(RunLossSkipped, "Run-Ende: Niederlage beim Client unterdrückt, der Host entscheidet");
+        return;
+    }
+    if (Role == NetRole::Host && Reason == RoundChangeLose)
+        NoteHostRoundEnd(true);
+    OriginalTriggerEndRound(GameInstance, Reason);
 }
 
 using ExpAggregateFn = float(__fastcall*)(uintptr_t);
@@ -342,6 +377,17 @@ bool ApplyBusTakeOff(Code::Writer&)
                                 reinterpret_cast<void**>(&OriginalFinishMission));
 }
 
+bool CheckRunLoss()
+{
+    return Code::Expect(At(TriggerEndRound), {0x48, 0x89, 0x5C, 0x24, 0x08, 0x55, 0x56, 0x57, 0x41, 0x54, 0x41, 0x55}, "DDMissionGameInstance.TriggerEndRound");
+}
+
+bool ApplyRunLoss(Code::Writer&)
+{
+    return Core::Hooks::Install(reinterpret_cast<void*>(At(TriggerEndRound)), reinterpret_cast<void*>(&TriggerEndRoundHook),
+                                reinterpret_cast<void**>(&OriginalTriggerEndRound));
+}
+
 bool CheckPowerUp()
 {
     return Code::Expect(At(BeginDeferredActorSpawnFromClass), {0x40, 0x53, 0x55, 0x57, 0x41, 0x54}, "in BeginDeferredActorSpawnFromClass");
@@ -366,6 +412,7 @@ constexpr uintptr_t NetGuidSites[] = {NetGuidExpiry, NetGuidNext};
 constexpr uintptr_t SneakSites[] = {SneakSameTarget, SneakRetry, 0x58A64FE, SneakReady};
 constexpr uintptr_t PowerUpSites[] = {BeginDeferredActorSpawnFromClass};
 constexpr uintptr_t BusTakeOffSites[] = {FinishMission, CanBusTakeOff, 0x59C8AFF};
+constexpr uintptr_t RunLossSites[] = {TriggerEndRound};
 const Patch List[] = {
     {"Client-Refresh ohne Host-Objekt", &CheckClientRefresh, &ApplyClientRefresh, ClientRefreshSites},
     {"Attribut-Tick ohne PlayerState", &CheckAttributeTick, &ApplyAttributeTick, AttributeTickSites},
@@ -379,6 +426,7 @@ const Patch List[] = {
     {"SneakApproach wartet auf Mesh und PlayerState", &CheckSneak, &ApplySneak, SneakSites},
     {"PowerUp ohne lokale Kopie", &CheckPowerUp, &ApplyPowerUp, PowerUpSites},
     {"Busabfahrt und Rundenende nur beim Host", &CheckBusTakeOff, &ApplyBusTakeOff, BusTakeOffSites},
+    {"Niederlage entscheidet der Host", &CheckRunLoss, &ApplyRunLoss, RunLossSites},
 };
 }
 
@@ -397,5 +445,114 @@ bool FollowHostRoundEnd()
     OriginalFinishMission(GameState, false);
     FollowingHost = false;
     return true;
+}
+
+namespace
+{
+bool OwnedByGameInstance(uintptr_t Object)
+{
+    constexpr int MaxOuterDepth = 8;
+    uintptr_t Outer = Memory::ReadPointer(Object + Offsets::UObject::Outer).value_or(0);
+    for (int Depth = 0; Outer && Depth < MaxOuterDepth; ++Depth)
+    {
+        if (IsA(Outer, "DDMissionGameInstance"))
+            return true;
+        Outer = Memory::ReadPointer(Outer + Offsets::UObject::Outer).value_or(0);
+    }
+    return false;
+}
+}
+
+namespace
+{
+constexpr std::string_view GamePackage = "/Script/DDSurvivors";
+constexpr Reflection::FieldSpec StandardHeading{GamePackage, "RoundEndPanel", "StandardHeadingContainer", "ObjectProperty", 8};
+constexpr Reflection::FieldSpec FinishedHeading{GamePackage, "RoundEndPanel", "RunFinishedHeading", "ObjectProperty", 8};
+constexpr uint8_t SlateCollapsed = 1, SlateSelfHitTestInvisible = 4; // ESlateVisibility
+
+struct
+{
+    int32_t Index = -1;
+    uintptr_t Object = 0;
+} LossPanel; // nur Game Thread
+
+void SetWidgetVisibility(uintptr_t Panel, const Reflection::FieldSpec& Spec, uint8_t Visibility)
+{
+    static const uintptr_t Function = Reflection::Function("/Script/UMG", "Widget", "SetVisibility");
+    const auto Field = Reflection::Property(Spec);
+    const uintptr_t Widget = Field ? Memory::ReadPointer(Panel + Field->Offset).value_or(0) : 0;
+    if (!Function || !Widget)
+        return;
+    struct
+    {
+        uint8_t Visibility;
+    } Params{Visibility};
+    Objects::ProcessEvent(Widget, Function, &Params);
+}
+
+void HideLossPanelButtons(uintptr_t Panel)
+{
+    static const uintptr_t SetButtons = Objects::FindObject("SetButtonsVisibility", "RoundEndPanel");
+    if (!SetButtons)
+        return;
+    struct
+    {
+        bool Visible;
+    } Params{false};
+    Objects::ProcessEvent(Panel, SetButtons, &Params);
+}
+}
+
+void KeepRunLossButtonsHidden()
+{
+    if (LossPanel.Object && Objects::At(LossPanel.Index) == LossPanel.Object)
+        HideLossPanelButtons(LossPanel.Object);
+}
+
+bool ShowRunEndPanel(bool Won)
+{
+    static const uintptr_t Refresh = Objects::FindObject("RefreshAsGameOver", "RoundEndPanel");
+    static const uintptr_t NegativeText = Objects::FindObject("SetNegativeText", "RoundEndPanel");
+    static const uintptr_t PositiveText = Objects::FindObject("SetPositiveText", "RoundEndPanel");
+    static const uintptr_t FinishedAnimation = Objects::FindObject("PlayRunFinishedAnimation", "WP_Round_Stats_C");
+    if (!Refresh || !NegativeText || !PositiveText)
+        return false;
+    LossPanel = {};
+    int Panels = 0;
+    const int32_t Count = Objects::Count();
+    for (int32_t Index = 0; Index < Count; ++Index)
+    {
+        const uintptr_t Object = Objects::At(Index);
+        if (!Object || !IsA(Object, "WP_Round_Stats_C"))
+            continue;
+        if (Memory::Read<uint32_t>(Object + Offsets::UObject::Flags).value_or(Offsets::UObject::ClassDefaultObjectFlag) &
+            (Offsets::UObject::ClassDefaultObjectFlag | RfBeginDestroyed | RfFinishDestroyed))
+            continue;
+        // Die offene Übersicht hängt, teils über das WI_BusScreen, an der GameInstance. Die Vorlage im Paket hat keinen Besitzer und stürzt ab.
+        if (!OwnedByGameInstance(Object))
+            continue;
+        // Beim Sieg ohne RefreshAsGameOver: Der Knopf Fortsetzen muss für den Endlosmodus unverändert bleiben.
+        if (!Won)
+            Objects::ProcessEvent(Object, Refresh, nullptr);
+        Objects::ProcessEvent(Object, Won ? PositiveText : NegativeText, nullptr);
+        SetWidgetVisibility(Object, StandardHeading, SlateCollapsed);
+        SetWidgetVisibility(Object, FinishedHeading, SlateSelfHitTestInvisible);
+        if (FinishedAnimation)
+        {
+            struct
+            {
+                double FirstDelayTimeScale;
+            } Params{1.0};
+            Objects::ProcessEvent(Object, FinishedAnimation, &Params);
+        }
+        if (!Won)
+        {
+            HideLossPanelButtons(Object);
+            LossPanel.Index = Index;
+            LossPanel.Object = Object;
+        }
+        ++Panels;
+    }
+    return Panels > 0;
 }
 }

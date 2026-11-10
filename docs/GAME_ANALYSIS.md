@@ -1326,6 +1326,27 @@ Stand 04.11.2026, Build `26187885`. Zwei Instanzen auf einem PC mit `Start-Sessi
 - **Nebenbefund:** In der `MetaBase` zeigt der Client seinen eigenen Meta-Stand (andere Zähler und Gebäude als der Host). Seit der [Nutzerentscheidung vom 06.11.2026](SYNC_REQUIREMENTS.md#nutzervorgabe-meta-fortschritt-des-hosts-06112026) soll fuer den gemeinsamen Run der Host-Stand gelten; die technische Umsetzung ist damit noch nicht belegt.
 - **Nicht geprüft:** Niederlage an späteren Tagen oder in Bosskämpfen, nur ein Spieler tot (der andere lebt weiter), Niederlage über das Internet. Je Variante ein Lauf.
 
+### Run-Ende bei Host und Client (`run-ende`)
+
+Stand 10.11.2026, Build `26495302`, ein PC, Mod mit Spike über die Lobby, zwei Instanzen, Godmode bis zum Auslösen. Getestet per Cheat: Niederlage mit `!cheats` und `DD_DamagePlayerAtIndex`, Sieg mit `DD_SetCurrentDay 8` und `!finish`.
+
+| Ende | Auslöser beim Host | Host | Client vorher | Client jetzt |
+|---|---|---|---|---|
+| Niederlage | `TriggerEndRound(Lose)` | „Du bist gestorben!“, Wertung, „Zurück zur Basis“ | Keine Anzeige, eingefrorene Mission, bis der Host reist | „Du bist gestorben!“, keine Knöpfe, wartet auf die Reise |
+| Sieg | `FinishMission` am letzten Tag, setzt `LastRoundChangeReason` auf `Win` | „Du hast gewonnen!“, Wertung, „Zurück zur Basis“ oder Endlosmodus | Normales „Ende der Runde“ | „Du hast gewonnen!“, „Fortsetzen“ bleibt für den Endlosmodus |
+| Abbruch | Pausemenü, „Zurück zum Hauptmenü“. Einen eigenen Menüpunkt zum Aufgeben gibt es nicht | Hauptmenü | Hauptmenü, Sitzung beendet | unverändert (`trennen`, `net-fehler`) |
+
+- **[Belegt] Ursache der Lücke:** Bei einer Niederlage läuft `FinishMission` nicht, also meldete der Host nichts über `0x401`.
+- **Lokal zuerst:** Lokal bleibt die native Übersicht des Clients, geöffnet wie bei jedem Rundenende mit `FinishMission` (`rundenende-client`). Geteilt wird nur der Ausgang als ein Byte in `0x401`, siehe [Kontrollkanal](CONTROL_PROTOCOL.md#rundenende-rundenende-client). Der Host entscheidet, keine zweite Autorität. Auch die Rückkehr wählt nur der Host, der Client folgt über `servertravel` (`ClientMayStartTravel`).
+- **[Belegt, gescheitert] `TriggerEndRound(Lose)` beim Client:** Es öffnete keinen Bildschirm, und sein Meta-Stand im Mod-Ordner änderte sich. Darum sperrt `RunLossAllowed` eine Niederlage beim Client jetzt ganz.
+- **[Belegt, gescheitert] Umschalten auf jeder Instanz der Klasse:** `RefreshAsGameOver` auf der Vorlage im `WidgetTree` des Pakets stürzte ab (Lesen `0x110`, keine Besitzer-Instanz). Es gelten nur Instanzen, die über ihre Outer an der `DDMissionGameInstance` hängen.
+- **[Belegt] Darstellung:** Nach `FinishMission` schaltet die Mod die Übersicht einmal um: `RefreshAsGameOver` (nur Niederlage), `SetNegativeText` oder `SetPositiveText`, Überschrift tauschen, `PlayRunFinishedAnimation`. Das Spiel blendet die Knöpfe nach der Animation wieder ein, darum blendet die Mod sie bei einer Niederlage jede Sekunde erneut aus.
+- **[Belegt] Lauf auf dem Endstand:** Frische Testordner. Niederlage an Tag 1, beide in der `MetaBase`. Neuer Run in derselben Sitzung, Rundenende und Lager bei beiden, Reise nach Tag 2: Inventare `complete` und `equal`, Desync-Melder OK. Sieg, beide in der `MetaBase`. Danach Abbruch über das Pausemenü, beide im Hauptmenü. Kein Absturz.
+- **[Belegt] Spielstände:** Die vier normalen Spielstände im Testordner blieben über Niederlage, zweiten Run und Sieg Byte für Byte gleich. `Management_SaveSlot_0.sav` des Clients im Mod-Ordner blieb gleich, beim Host änderte er sich. Ein Client bekommt also keine Meta-Gutschrift, siehe [Nutzervorgabe](SYNC_REQUIREMENTS.md#nutzervorgabe-meta-fortschritt-des-hosts-06112026). Der Run-Slot des Clients wird weiter nur im Mod-Ordner geschrieben.
+- **Grenzen:** Die Werte der Wertung sieht der Client als Nullen, weil die Run-Statistik nicht repliziert wird (`opt-ergebnis-werte`). Am Sieg-Bildschirm führt „Fortsetzen“ beim Client wie bisher ins Lager. Der Host entscheidet trotzdem über die Reise.
+- **Nicht geprüft:** Zwei PCs und Internet, ein ausgespielter Endbosskampf, Niederlage im Bosskampf, Endlosmodus nach dem neuen Sieg-Bildschirm. Der Endlosmodus-Pfad des Clients ist bis auf die Überschrift unverändert ([`dauerlauf`](../research/spikes/dauerlauf/README.md)).
+- **Testhinweis:** Nach einer Niederlage und nach dem Fokuswechsel zwischen den Fenstern ging der erste Klick auf einen Knopf der Übersicht verloren, der zweite wirkte. Das betrifft `Complete-RoundEnd` beim ersten Rundenende nach einer Niederlage. Mit `-RealSave` fand `Start-Run.ps1` die Routenkarte nicht.
+
 ### Trennen ins Hauptmenü (`trennen`)
 
 Stand: Disassembly und zwei Spieltests am 02.11.2026, Build `26187885`.

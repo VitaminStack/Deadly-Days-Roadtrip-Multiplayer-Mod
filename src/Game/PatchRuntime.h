@@ -65,11 +65,19 @@ void TickRemoteP2(NetRole Role);
 void TickMap(NetRole Role, bool Second);
 void TickCharacters(NetRole Role, bool Second);
 
-// rundenende-client, aus MapPatches.cpp: Host merkt sich sein Rundenende in der aktuellen Welt.
-void NoteHostRoundEnd();
+// rundenende-client, aus MapPatches.cpp: Host merkt sich sein Rundenende in der aktuellen Welt, run-ende: Lost bei einer Niederlage.
+void NoteHostRoundEnd(bool Lost = false);
+// run-ende, Host, aus MapPatches.cpp: Das gemerkte Rundenende der aktuellen Welt ist der Sieg am letzten Tag.
+void NoteHostRunWon();
 // Client, aus ClientPatches.cpp: lokales FinishMission wie beim Bus, damit Rundenübersicht, Lager und Routenkarte beim
 // Client selbst aufgehen. Falsch ohne Missions-GameState. Nur Game Thread.
 bool FollowHostRoundEnd();
+// run-ende, Client, aus ClientPatches.cpp: Schaltet die offene Rundenübersicht auf den nativen Bildschirm des Run-Endes um. Bei einer
+// Niederlage blendet er ihre Knöpfe aus, der Host entscheidet die Rückkehr. Beim Sieg bleiben sie, Fortsetzen führt wie bisher ins
+// Lager, falls der Host den Endlosmodus startet. Falsch, solange keine Übersicht offen ist. Nur Game Thread.
+bool ShowRunEndPanel(bool Won);
+// run-ende, Client: Das Spiel zeigt die Knöpfe der Übersicht nach ihrer Animation wieder an, darum solange erneut ausblenden.
+void KeepRunLossButtonsHidden();
 
 // Diagnose für inventar-transaktion: Mit der Umgebungsvariable DDCOOP_TRACE_INVENTORY=1 protokolliert jeder Aufruf einer
 // Inventar-, Item-, Rucksackfeld- oder Inventar-Panel-Funktion eine Logzeile. Sonst ohne Wirkung.
