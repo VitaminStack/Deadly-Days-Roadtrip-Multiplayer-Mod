@@ -56,6 +56,8 @@ bool FilterRemotePoiOverlap(uintptr_t Function, void* Params);
 
 void TickPlayers(NetRole Role, bool Second);
 void TickCamera(NetRole Role, bool Second);
+// opt-busbalken, Client: Ladebalken der Busabfahrt aus replizierten Daten.
+void TickBusBar(NetRole Role);
 void TickWidgets(NetRole Role);
 void TickProjectiles(NetRole Role, bool Second);
 void TickMovement(NetRole Role, bool Second);

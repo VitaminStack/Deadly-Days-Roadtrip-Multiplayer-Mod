@@ -148,6 +148,22 @@ constexpr bool BusTakeOffMayDecide(bool IsNetClient)
     return !IsNetClient;
 }
 
+// opt-busbalken: Der Client zeigt die Abfahrt, wenn der Tank voll ist und alle Figuren im Busbereich stehen, wie die Bedingungen
+// des Hosts. Ohne Figuren oder Tank gibt es keine Abfahrt.
+constexpr bool BusBarActive(bool FuelFull, int32_t PlayersInRange, int32_t Players)
+{
+    return FuelFull && Players > 0 && PlayersInRange >= Players;
+}
+
+// Neue verstrichene Zeit des Balkens: läuft bis zur Dauer, ohne Abfahrt zurück auf 0.
+constexpr double BusBarElapsed(bool Active, double Elapsed, double Required, double Delta)
+{
+    if (!Active || !(Required > 0))
+        return 0.0;
+    const double Next = Elapsed + (Delta > 0 ? Delta : 0.0);
+    return Next < Required ? Next : Required;
+}
+
 // FinishMission beendet die Runde. Beim Client nur der Aufruf beim Laden, das Rundenende selbst kommt vom Host.
 constexpr bool MissionFinishAllowed(bool IsNetClient, bool IsLoading)
 {

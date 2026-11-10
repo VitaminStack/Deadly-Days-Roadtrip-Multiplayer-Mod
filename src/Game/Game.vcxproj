@@ -67,6 +67,7 @@
     <ClCompile Include="PlayerPatches.cpp" />
     <ClCompile Include="RemoteP2Patches.cpp" />
     <ClCompile Include="MapPatches.cpp" />
+    <ClCompile Include="BusBarPatches.cpp" />
     <ClCompile Include="CharacterPatches.cpp" />
     <ClCompile Include="TravelPatches.cpp" />
     <ClCompile Include="WidgetPatches.cpp" />
