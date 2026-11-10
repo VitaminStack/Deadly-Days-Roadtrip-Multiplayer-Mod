@@ -8,6 +8,9 @@
 //    Airdrop-Auswahl, bis airdrop-auswahl und inventar-ui sie übers Netz lösen.
 // Fehlt der Remote-Spieler, entfernt die Mod nur ihre eigene P2-Bindung. Der Patch im Reconnect-Update nimmt die lokale
 // P2-Gerätepflicht aus, solange diese Bindung vollständig ist.
+#include <windows.h>
+
+#include <atomic>
 #include <string>
 
 #include "Core/Log.h"
@@ -40,6 +43,9 @@ constexpr uintptr_t CoopRecreateP2 = 0x18A;
 constexpr uintptr_t GameInstanceLocalPlayers = 0x38;
 constexpr uintptr_t PlayerStateOwner = 0x158;
 constexpr uintptr_t ControllerPlayer = 0x348;
+constexpr uintptr_t ControllerPawn = 0x2E8; // AController.Pawn
+// Parameter von ComponentBegin/EndOverlapSignature: OverlappedComponent, dann OtherActor.
+constexpr uintptr_t OverlapOtherActor = 0x8;
 constexpr uintptr_t ControllerNetConnection = 0x520;
 constexpr uint32_t GarbageOrUnreachableFlags = 0x30;
 
@@ -253,6 +259,30 @@ bool ApplyRemoteP2(Code::Writer& Code)
 
 // Je Patch die benutzten Adressen der Signaturtabelle, erzeugt von tools/patch_signatures.py sites.
 constexpr uintptr_t RemoteP2Sites[] = {MapSparseRemove, DelegateBroadcast, MapAdd, GetController, DeviceCheckSite, SoloLossTest, NeedReconnect};
+// charakter-wahl: FName-Index der Kapsel-Ereignisse von BP_MetaBase_POI, -1 bis gefunden. Die Klasse lädt erst mit der
+// MetaBase, darum sucht der Tick nach, statt einmal beim Start.
+std::atomic<int32_t> PoiEnterName = -1;
+std::atomic<int32_t> PoiExitName = -1;
+uint64_t RemotePoiSkips = 0;
+
+void ResolvePoiNames()
+{
+    if (PoiEnterName >= 0 && PoiExitName >= 0)
+        return;
+    static ULONGLONG NextTry = 0;
+    if (GetTickCount64() < NextTry)
+        return;
+    NextTry = GetTickCount64() + 2000;
+    const uintptr_t Enter = Objects::FindObject(
+        "BndEvt__BP_MetaBase_POI_Capsule_K2Node_ComponentBoundEvent_0_ComponentBeginOverlapSignature__DelegateSignature", "BP_MetaBase_POI_C");
+    const uintptr_t Exit = Objects::FindObject(
+        "BndEvt__BP_MetaBase_POI_Outer Capsule_K2Node_ComponentBoundEvent_1_ComponentEndOverlapSignature__DelegateSignature", "BP_MetaBase_POI_C");
+    if (!Enter || !Exit)
+        return;
+    PoiEnterName = Memory::Read<int32_t>(Enter + Offsets::UObject::Name).value_or(-1);
+    PoiExitName = Memory::Read<int32_t>(Exit + Offsets::UObject::Name).value_or(-1);
+}
+
 const Patch List[] = {
     {"Remote-Spieler als P2 ohne lokales Gerät", &CheckRemoteP2, &ApplyRemoteP2, RemoteP2Sites},
 };
@@ -286,6 +316,29 @@ bool BoundRemoteP2(uintptr_t& Coop, uintptr_t& Host, uintptr_t& Remote)
     return true;
 }
 
+// Host: Betritt die Figur des Remote-Spielers die Kapsel eines MetaBase-POI (Werkbank, Charakterwahl, ...), lief das native
+// TriggerCollisionActionForPlayer mit dem Remote-Controller. Ohne LocalPlayer entsteht kein Panel, die Bewegungssperre
+// (AController.IgnoreMoveInput) blieb aber an beiden Controllern des Hosts stehen, bis ein eigenes Panel des Hosts sie
+// zurücksetzte. Das POI-Panel ist reine lokale UI: Der Client öffnet es bei sich selbst. Der Host übergeht darum Betreten
+// und Verlassen der Remote-Figur; Verlassen hätte sonst auch ein offenes Panel des Hosts schließen können.
+bool FilterRemotePoiOverlap(uintptr_t Function, void* Params)
+{
+    const int32_t Enter = PoiEnterName.load(std::memory_order_relaxed);
+    if (Enter < 0 || !Function || !Params)
+        return false;
+    const int32_t Name = Memory::Read<int32_t>(Function + Offsets::UObject::Name).value_or(-1);
+    if (Name != Enter && Name != PoiExitName.load(std::memory_order_relaxed))
+        return false;
+    const Roster R = CurrentRoster(false);
+    const uintptr_t Actor = Pointer(reinterpret_cast<uintptr_t>(Params) + OverlapOtherActor);
+    if (!R.Remote || !Actor || Actor != Pointer(R.Remote + ControllerPawn))
+        return false;
+    if (++RemotePoiSkips <= 20)
+        Core::Log::Info("MetaBase: POI-{} der Remote-Figur beim Host übergangen ({}. Mal)", Name == Enter ? "Betreten" : "Verlassen",
+                        RemotePoiSkips);
+    return true;
+}
+
 bool RemoteP2Bound()
 {
     uintptr_t Coop = 0, Host = 0, Remote = 0;
@@ -294,7 +347,10 @@ bool RemoteP2Bound()
 
 void TickRemoteP2(NetRole Role)
 {
-    if (Role != NetRole::Host || Bound.Failed)
+    if (Role != NetRole::Host)
+        return;
+    ResolvePoiNames();
+    if (Bound.Failed)
         return;
     const Roster R = CurrentRoster();
     if (!R.Coop || !R.Host || R.Host == R.Remote || !ActivePlayers(R.Coop).Valid())
