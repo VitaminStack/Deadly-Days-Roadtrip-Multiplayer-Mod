@@ -702,6 +702,16 @@ NetGUID-Cache und neue Actors, `tageswechsel`, nur Build `26187885`:
 |---|---|
 | `UFuelMeter` | `MaxRequiredFuel` `0xF4`, `CurrentFuel` `0xF8` (Net) |
 
+## Ausdauerbalken (`opt-ausdauerbalken`)
+
+Build `26495302`, Exec-Thunks `0x56C6000` und `0x56C54E0`, im Spieltest vom 10.11.2026 belegt.
+
+| Stelle | Wert |
+|---|---|
+| `OnRep_Stamina` | `0x57DDE40`, Prolog wie `OnRep_Health` |
+| `OnRep_MaxStamina` | `0x57DD080`, Prolog wie `OnRep_Health` |
+| `UDDCharacterAttributeSet` | `MaxStamina` `0x30`, `OnMaxStaminaChanged` `0x40`, `Stamina` `0x50`, `OnStaminaChanged` `0x60` |
+
 ## Dev-Tab (`opt-dev-tab`, Entwicklerwerkzeug)
 
 Feldoffsets aus dem SDK, Aufrufe per `ProcessEvent`. Im Spieltest vom 09.11.2026 belegt.
