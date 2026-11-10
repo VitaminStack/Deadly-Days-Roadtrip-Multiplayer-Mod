@@ -37,10 +37,18 @@ void SetHostMap(std::optional<HostMap> Value);
 
 // Rundenende des Hosts (rundenende-client). Der Client beendet seine Runde damit lokal und sieht Rundenübersicht und
 // Lager selbst. MapId bindet es an die Karte, die beide gerade spielen, damit kein altes Ende eine neue Mission beendet.
+enum class RunOutcome : uint8_t
+{
+    None = 0, // normales Tagesende, der Run geht weiter
+    Lost = 1, // run-ende: alle Spieler tot
+    Won = 2,  // run-ende: letzter Tag geschafft
+};
+
 struct RoundEnd
 {
     uint64_t MapId = 0; // HostMap::Id der Mission, nie 0
     uint64_t Id = 0;    // zufällig je Rundenende, nie 0
+    RunOutcome Outcome = RunOutcome::None;
     bool operator==(const RoundEnd&) const = default;
 };
 

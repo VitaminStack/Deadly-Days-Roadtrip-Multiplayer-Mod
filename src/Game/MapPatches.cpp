@@ -83,6 +83,10 @@ struct
     std::optional<Map::RoundEnd> HostEnd;
     uint64_t FollowedEnd = 0;
     uintptr_t FollowedWorld = 0; // Welt, in der der Client Rundenübersicht und Lager geöffnet hat, 0 ohne
+    uintptr_t LossPanelWorld = 0; // run-ende, Client: Welt, in der die Niederlage noch angezeigt werden muss, 0 ohne
+    int LossPanelAttempts = 0;
+    bool LossPanelShown = false;
+    bool RunWon = false;
     // Beide: PCG-Volume, dessen Instanzen noch einen festen Seed brauchen
     uintptr_t PcgWorld = 0;
     ULONGLONG PcgSince = 0;
@@ -466,7 +470,7 @@ std::span<const Patch> MapPatches()
     return List;
 }
 
-void NoteHostRoundEnd()
+void NoteHostRoundEnd(bool Lost)
 {
     const uintptr_t World = CurrentWorld();
     if (S.Ended && S.EndedWorld == World)
@@ -474,12 +478,54 @@ void NoteHostRoundEnd()
     Map::RoundEnd End;
     End.MapId = S.Published && S.PublishedWorld == World ? S.Published->Id : 0;
     End.Id = RandomId();
+    End.Outcome = Lost ? Map::RunOutcome::Lost : Map::RunOutcome::None;
     S.Ended = End;
     S.EndedWorld = World;
     if (End.MapId)
         Core::Log::Info("Rundenende: Host beendet die Runde, Client wird benachrichtigt");
     else
         Core::Log::Warn("Rundenende: Host beendet die Runde ohne eigene Kartenwerte, der Client bleibt in der Mission");
+}
+
+void NoteHostRunWon()
+{
+    if (S.Ended && S.EndedWorld == CurrentWorld())
+        S.Ended->Outcome = Map::RunOutcome::Won;
+}
+
+// run-ende, Client: Offene Rundenübersicht auf das Run-Ende umschalten. Einmal je Sekunde, höchstens fünfmal.
+void TickLossPanel(bool Second)
+{
+    if (!S.LossPanelWorld)
+        return;
+    if (S.LossPanelWorld != CurrentWorld())
+    {
+        S.LossPanelWorld = 0;
+        S.LossPanelShown = false;
+        return;
+    }
+    if (!Second)
+        return;
+    if (S.LossPanelShown)
+    {
+        KeepRunLossButtonsHidden();
+        return;
+    }
+    if (!ShouldRetryLossPanel(S.LossPanelAttempts, 5))
+    {
+        Core::Log::Warn("Run-Ende: Keine Rundenübersicht zum Umschalten gefunden, Client wartet auf die Reise");
+        S.LossPanelWorld = 0;
+        return;
+    }
+    ++S.LossPanelAttempts;
+    if (!ShowRunEndPanel(S.RunWon))
+        return;
+    Core::Log::Info("Run-Ende: Client zeigt den Ergebnisbildschirm ({})", S.RunWon ? "Sieg" : "Niederlage");
+    // Beim Sieg bleiben die Knöpfe nativ, nur die Niederlage hält sie ausgeblendet.
+    if (S.RunWon)
+        S.LossPanelWorld = 0;
+    else
+        S.LossPanelShown = true;
 }
 
 // Client: Das Rundenende des Hosts einmal lokal nachziehen, sobald es zur gespielten Karte passt.
@@ -492,26 +538,43 @@ void FollowRoundEnd()
         return;
     S.FollowedEnd = S.HostEnd->Id;
     S.FollowedWorld = 0;
-    if (FollowHostRoundEnd())
+    // run-ende: Der Bildschirm kommt aus dem nativen Rundenende, das Umschalten folgt im nächsten Sekundentakt, wenn die Übersicht
+    // offen ist. Eine Niederlage hat kein Lager, darum bleibt FollowedWorld dort leer und Bestätigen unberührt. Ein Sieg behält das
+    // Lager, falls der Host den Endlosmodus startet.
+    const Map::RunOutcome Outcome = S.HostEnd->Outcome;
+    if (!FollowHostRoundEnd())
     {
-        S.FollowedWorld = CurrentWorld();
-        Core::Log::Info("Rundenende: Host hat die Runde beendet, Client öffnet Rundenübersicht und Lager selbst");
-    }
-    else
         Core::Log::Warn("Rundenende: Client ohne Missions-GameState, folgt nur der Reise");
+        return;
+    }
+    if (Outcome != Map::RunOutcome::Lost)
+        S.FollowedWorld = CurrentWorld();
+    if (Outcome != Map::RunOutcome::None)
+    {
+        S.LossPanelWorld = CurrentWorld();
+        S.LossPanelAttempts = 0;
+        S.LossPanelShown = false;
+        S.RunWon = Outcome == Map::RunOutcome::Won;
+    }
+    Core::Log::Info("Rundenende: Host hat die Runde beendet, Client öffnet Rundenübersicht und Lager selbst");
 }
 
 void TickMap(NetRole Role, bool Second)
 {
     if (Role == NetRole::Client)
+    {
         FollowRoundEnd();
+        TickLossPanel(Second);
+    }
     else if (S.Ended && S.EndedWorld != CurrentWorld())
         S.Ended.reset();
     // bestaetigen-rundenende: Bestätigen im Lager wartet auf alle, solange beide in diesem Rundenende sind.
     if (Role == NetRole::Client)
         Rewards::SetRoundEnd(S.FollowedWorld && S.FollowedWorld == CurrentWorld() ? S.FollowedEnd : 0);
     else
-        Rewards::SetRoundEnd(Role == NetRole::Host && S.Ended && S.EndedWorld == CurrentWorld() ? S.Ended->Id : 0);
+        Rewards::SetRoundEnd(Role == NetRole::Host && S.Ended && S.Ended->Outcome != Map::RunOutcome::Lost && S.EndedWorld == CurrentWorld()
+                                 ? S.Ended->Id
+                                 : 0);
     if (Role != NetRole::Client)
     {
         if (S.Published && S.PublishedWorld != CurrentWorld())

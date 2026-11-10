@@ -12,12 +12,13 @@ Projektstand vom **08.11.2026**; die aktuellen Aufgaben, Abhängigkeiten und Abn
 
 **Was läuft.** Die Mod verbindet zwei eigene Spielinstanzen per Steam-Lobby über das Internet, synchronisiert Missionsstart, gemeinsame Karte, Bewegung, Kampf und wesentliche Inventar-/Rundenabläufe. **Gate G2 ist bestanden**: Am 07.11.2026 liefen zwei PCs aus unterschiedlichen Haushalten auf Build `26495302` mindestens zehn Minuten in derselben Mission ohne Absturz und dauerhaften Desync ([Messung](GAME_ANALYSIS.md#gate-g2-auf-zwei-pcs-am-07112026-integration-g2)). Die Phasen 0–4 sind abgeschlossen. Beide Game-Builds `26187885` und `26495302` sind derzeit in der Installation berücksichtigt; der Umstieg auf nur den neuen Build steht noch aus.
 
-**Was fehlt.** Ein **vollständiger gemeinsamer Run** vom Start bis zum Endboss ist noch nicht bestanden. Offene Phase-5-Aufgaben sind unter anderem `fortschritt` und `run-ende`. Der Code von `lager-handel-client` ist integriert, seine vorgeschriebene Zwei-PC-Bestätigung ist jedoch noch offen. Vor einem Release müssen außerdem Virenscanner-/Proton-Dokumentation und die abschließende Integration geprüft werden ([Aufgabenliste](../TODO.md#wo-kann-ich-anfangen)).
+**Was fehlt.** Ein **vollständiger gemeinsamer Run** vom Start bis zum Endboss ist noch nicht bestanden. Offen sind unter anderem die Zwei-PC-Bestätigung von `fortschritt` und `integration-run`. Der Code von `lager-handel-client` ist integriert, seine vorgeschriebene Zwei-PC-Bestätigung ist jedoch noch offen. Vor einem Release müssen außerdem Virenscanner-/Proton-Dokumentation und die abschließende Integration geprüft werden ([Aufgabenliste](../TODO.md#wo-kann-ich-anfangen)).
 
 **Prüfgrenze.** Dies ist eine Dokumentationskorrektur auf Grundlage der vorhandenen Spieltestprotokolle und TODO-Einträge, **kein neuer Spieltest**. Der G2-Nachweis gilt ausdrücklich nicht als Nachweis eines vollständigen Runs.
 
 **Bisherige Befunde (datierte Momentaufnahmen, teilweise inzwischen überholt):**
 
+- `run-ende`, 10.11.2026: Der Client sieht das Run-Ende jetzt selbst. Bei einer Niederlage meldete der Host bisher nichts, der Client stand in der eingefrorenen Mission. Der Host überträgt nun den Ausgang im Rundenende (`0x401`, Mod-Version 10), der Client öffnet seine native Übersicht und schaltet sie auf „Du bist gestorben!“ oder „Du hast gewonnen!“ um. Rückkehr und Reise wählt weiter nur der Host. Eine Niederlage löst der Client nie selbst aus, sie hätte seinen Meta-Stand geändert. Im Spiel geprüft (`26495302`, ein PC): Niederlage, neuer Run in derselben Sitzung mit Rundenende, Lager und Reise, Sieg, Abbruch über das Pausemenü, normale Spielstände Byte für Byte gleich, Meta-Stand des Clients unverändert. Nicht geprüft: zwei PCs, ausgespielter Endboss. [Befund](GAME_ANALYSIS.md#run-ende-bei-host-und-client-run-ende)
 - `tagesablauf`, 10.11.2026: Tag, Uhr, Tank, Nacht und Missionsziele replizieren nativ, die Mod braucht dafür keinen eigenen Sync. Neu ist eine Messung: Die Testkanal-Anfrage `day` liest per Reflexion alle Felder von GameState, Tank, Nacht, Gefahrenstufe und `DDObjective`, `day_state.py` und `Run-Route.ps1 -DayState` vergleichen beide Seiten. Belegt an Tag 1 über 300 s mit Kanister; der Lauf über mehrere Tage wurde nach Tag 1 beendet, der Nutzer hat den Test als erfolgreich abgenommen. [Befund](GAME_ANALYSIS.md#tagesablauf-tag-uhr-tank-nacht-und-ziele-tagesablauf)
 
 - `spiel-update`, 09.11.2026: Umstieg auf Build `26495302` abgeschlossen. Alle RVAs in `src/` und im Spike sind jetzt Werte von `26495302` (Referenz-Build), die Umrechnungstabelle und alle Verzweigungen für `26187885` sind entfernt; Mod, Skripte, Installer und Hash-Referenz kennen nur noch `26495302`. Offline 74 Byte-Prüfungen und 89 Signaturen `ok`. Im Spiel (ein PC, Mod und Spike, Lobby): 44 Patches bei Host und Client, `Run-Route.ps1 -Days 2` sauber. [Offsets](OFFSETS.md#referenz-build-26495302-spiel-update)
@@ -304,7 +305,7 @@ flowchart TD
         PU["Pausen und blockierende UI<br/>(pausen-sync)"]:::done
         TG["Tageszyklus, Treibstoff,<br/>Etappen"]:::open
         MF["Meta-Fortschritt des Hosts<br/>(meta-fortschritt: entschieden)"]:::done
-        ME["Run-Ende, Meta-Basis<br/>(run-ende)"]:::open
+        ME["Run-Ende, Meta-Basis<br/>(run-ende)"]:::done
         MF --> ME
         DL["Dauerlauf über viele Tage<br/>(dauerlauf)"]:::done
     end

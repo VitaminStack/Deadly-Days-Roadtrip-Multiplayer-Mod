@@ -357,6 +357,7 @@ Funktionen von `ULocalCoopSubsystem` und ihre Aufrufer, Ablauf siehe [Coop-Ablau
 | Figur spawnen | `0x5901C60` | Gleiche VTable, Slot 234, Spike-Patch bei `0x5901CE8` |
 | Moduswechsel: Coop aus und Coop wieder an | `0x5914B30`, `0x593BCA0` | |
 | `APlayerController::GetLocalPlayer` | `0x2E706D0` | |
+| `DDMissionGameInstance.TriggerEndRound` (Implementierung) | `0x5907ED0` | `(this, ERoundChangeReason)`: `NewDay` 1, `Win` 2, `Lose` 3. Aufrufer `FinishMission` und Exec-Thunk. Hook `run-ende`: Host meldet die Niederlage, Client führt sie nie aus |
 | Handler je Controller beim Run-Ende | `0x584CD20` | `GetLocalPlayer()` und `+0x330` ohne Nullprüfung bei `0x584CD82`, weiter bei `0x584CD90`. Spike-Patch `RunEnd.cpp` |
 | `UGameInstance::CreateLocalPlayer` | `0x2A6B5B0` | |
 | `UGameplayStatics::GetPlayerController` | `0x2A76140` | |

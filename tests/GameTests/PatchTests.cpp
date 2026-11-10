@@ -737,6 +737,17 @@ TEST_CASE("Rundenende: Client zieht das Ende des Hosts nur für dieselbe Karte u
     CHECK_FALSE(ClientMayFollowRoundEnd(0, 0, false));
 }
 
+TEST_CASE("Run-Ende: Eine Niederlage löst der Client nur auf Meldung des Hosts aus")
+{
+    CHECK(RunLossAllowed(false, RoundChangeLose)); // Host und Solo
+    CHECK_FALSE(RunLossAllowed(true, RoundChangeLose));
+    CHECK(RunLossAllowed(true, 1)); // Tagesende sperrt MissionFinishAllowed
+    CHECK(RunLossAllowed(true, 2));
+    CHECK(ShouldRetryLossPanel(0, 5));
+    CHECK(ShouldRetryLossPanel(4, 5));
+    CHECK_FALSE(ShouldRetryLossPanel(5, 5));
+}
+
 TEST_CASE("Reise: Der Client startet keine eigene Reise außer ins Hauptmenü")
 {
     CHECK(ClientMayStartTravel(false, "/Game/Maps/DDDynamic_Map"));
