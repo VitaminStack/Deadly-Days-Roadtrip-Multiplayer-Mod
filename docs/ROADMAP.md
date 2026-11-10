@@ -8,16 +8,20 @@ Den Fortschritt je Phase zeigt das [README](../README.md#fortschritt).
 
 ## Stand und nächste Schritte
 
-Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
+Projektstand vom **08.11.2026**; die aktuellen Aufgaben, Abhängigkeiten und Abnahmen stehen verbindlich in [TODO.md](../TODO.md).
 
-**Was läuft.** Zwei Instanzen spielen im Spike dieselbe Mission, mit Bewegung und Schüssen beider Seiten. Der Client erreicht Tag 2. Die Analysen zu Coop, Karte, Gegnern, Kamera und Sync-Bedarf sind abgeschlossen. Unter `src/` steht das Grundgerüst aus Solution, `Loader`, `Core` und Modul-Einstiegen.
+**Was läuft.** Die Mod verbindet zwei eigene Spielinstanzen per Steam-Lobby über das Internet, synchronisiert Missionsstart, gemeinsame Karte, Bewegung, Kampf und wesentliche Inventar-/Rundenabläufe. **Gate G2 ist bestanden**: Am 07.11.2026 liefen zwei PCs aus unterschiedlichen Haushalten auf Build `26495302` mindestens zehn Minuten in derselben Mission ohne Absturz und dauerhaften Desync ([Messung](GAME_ANALYSIS.md#gate-g2-auf-zwei-pcs-am-07112026-integration-g2)). Die Phasen 0–4 sind abgeschlossen. Beide Game-Builds `26187885` und `26495302` sind derzeit in der Installation berücksichtigt; der Umstieg auf nur den neuen Build steht noch aus.
 
-**Was fehlt.** Es gibt keinen kompletten Run. Mod-Code mit Spielbezug gibt es erst als Adapter-Schicht, die nur liest. Der Sync-Entwurf ist weder umgesetzt noch im Netz getestet. Getestet wurde bisher nur über Loopback auf einem PC, nicht über echtes Internet.
+**Was fehlt.** Ein **vollständiger gemeinsamer Run** vom Start bis zum Endboss ist noch nicht bestanden. Offene Phase-5-Aufgaben sind unter anderem `fortschritt`, `tagesablauf`, `dauerlauf` und `run-ende`. Der Code von `lager-handel-client` ist integriert, seine vorgeschriebene Zwei-PC-Bestätigung ist jedoch noch offen. Vor einem Release müssen außerdem Virenscanner-/Proton-Dokumentation und die abschließende Integration geprüft werden ([Aufgabenliste](../TODO.md#wo-kann-ich-anfangen)).
 
-**Geprüft bei dieser Analyse.** Installiert ist weiterhin Build `26187885`. Seit dem letzten erfolgreichen Spike-Build änderte sich nur Dokumentation. Die Unit-Tests und alle relativen Links der Doku sind in Ordnung. Ein Spieltest gehörte nicht dazu.
+**Prüfgrenze.** Dies ist eine Dokumentationskorrektur auf Grundlage der vorhandenen Spieltestprotokolle und TODO-Einträge, **kein neuer Spieltest**. Der G2-Nachweis gilt ausdrücklich nicht als Nachweis eines vollständigen Runs.
 
-**Neue Befunde.**
+**Bisherige Befunde (datierte Momentaufnahmen, teilweise inzwischen überholt):**
 
+- `spiel-update`, 09.11.2026: Umstieg auf Build `26495302` abgeschlossen. Alle RVAs in `src/` und im Spike sind jetzt Werte von `26495302` (Referenz-Build), die Umrechnungstabelle und alle Verzweigungen für `26187885` sind entfernt; Mod, Skripte, Installer und Hash-Referenz kennen nur noch `26495302`. Offline 74 Byte-Prüfungen und 89 Signaturen `ok`. Im Spiel (ein PC, Mod und Spike, Lobby): 44 Patches bei Host und Client, `Run-Route.ps1 -Days 2` sauber. [Offsets](OFFSETS.md#referenz-build-26495302-spiel-update)
+- `opt-dev-tab`, 09.11.2026: Entwicklerwerkzeug im Overlay-Tab „Dev“ mit fünf Knöpfen: Spawn XP, Full Tank, Godmode, Spawn Zombies am Cursor und Spawn Random Item. Solo führt die eigene Instanz aus, im Koop fragt der Client über `0x600` beim Host an. Spieltest mit Host und Client an Tag 1 bestanden. Vor dem Release entfernen.
+- `lager-handel-client`, 07.11.2026: Der Client verkauft und repariert im Lager. Vorher buchte das native Panel den Schrott nur lokal, und der Schrott repliziert nicht: Der Host entfernte verkaufte Items ohne Gutschrift, Reparaturen scheiterten am Schrott des Clients. Jetzt beginnt der erste Verkauf oder die erste Reparatur eine lokale Bearbeitung, der Edit meldet beides, der Host prüft jede Aktion, führt sie nativ aus und bucht den Schrott einmal. Der Host schickt seinen Schrott an den Client (`0x309`, Mod-Version 9). Kaputte Items sperrt das Spiel auch beim Host am Ablegen. Im Spiel geprüft (`26495302`, ein PC): Verkauf und Reparatur übernommen, Schrott und Inventare gleich, Ablehnung stellt den Client wieder her. [Ablauf](../src/Game/README.md#verkaufen-und-reparieren-beim-client)
+- `pausen-sync`, 08.11.2026: Das Pausemenü des Clients pausierte nur ihn, der Host lief weiter. Jetzt meldet der Client über `0x700`, ob sein Pausemenü offen ist; der Host hält dann eine Zeitanfrage mit den Werten seines eigenen Pausemenüs, die Weltpause repliziert nativ. Freigabe beim Schließen, nach 3 s ohne Meldung, bei Weltwechsel und Trennung. Airdrop, Lager, Reise, Level-up und Dialoge brauchen nichts Neues. Mod-Version 9. Im Spiel auf `26495302` belegt: Pause und Weiter in beide Richtungen mit gleicher Weltzeit, Inventaransicht im Pausemenü, Absturz des Clients bei offenem Menü gibt nach 3 s frei, Gegenproben Airdrop, Lager und Reise zu Tag 2. [Befund](../research/spikes/pausen/README.md#umsetzung-pausen-sync-08112026)
 - `patch-signaturen`, 07.11.2026: Tabelle `src/Game/PatchSignatures.inc` mit Byte-Mustern für alle 88 Code-Adressen der Patches, erzeugt und geprüft von `tools/patch_signatures.py`. Die Mod prüft alle Muster beim Start vor dem ersten Hook; passt eines nicht, liefert `Memory::Rva` 0, und nur die Patches, die die Adresse in `Patch::Sites` nennen, fallen mit Logmeldung aus, der Tick ihrer Liste ebenfalls. `sites --write` leitet die Sites aller 43 Patches aus Check, Apply und Hooks ab. Im Spiel auf `26495302` mit absichtlich falschem OpenCrate-Muster: 1 von 88 Adressen gesperrt, nur „Airdrop-Oeffnung nur beim Host“ ausgelassen, 42 Patches gesetzt, Lobby mit zwei Spielern. [Werkzeug](../tools/README.md#patch_signaturespy)
 - `tod-client`, 07.11.2026: Ein toter Client lief mit vollem Tempo weiter, und der Host übernahm seine Position. Ursache: Beim Tod setzt der Host das replizierte Tempo-Attribut auf Kriechtempo, `MaxWalkSpeed` folgt ihm nativ aber nur beim Host; die Vorhersage des Clients führte außerdem Dodges aus, die der Host ablehnt. Jetzt übernimmt der Client das Tempo aus dem Attribut und dodgt bei HP 0 nicht, ohne neue Nachricht. Im Spiel auf `26495302` belegt: Kriechen bei beiden Seiten, kein Dodge und kein Einsammeln im Tod, Wiederbelebung, Niederlage und Rundenende wie gehabt. Nebenbefund: Der Client stürzt ab, wenn der Sensenmann erscheint, siehe [Tod des Clients](GAME_ANALYSIS.md#tod-des-clients-tod-client).
 - `doku-verweise`, 07.11.2026: `task_status.py check` meldet jetzt Sätze in versionierten Markdown-Dateien, die eine schon erledigte Kennung noch ankündigen („kommt mit `x`“, „folgt erst in `x`“, „bis `x`“), mit Datei und Zeile; die CI führt das aus. Korrigiert: Net-README (`steam-lobby`), OFFSETS und Roadmap (`update-client`), Overlay-Absatz in Testen. Neu in Testen: Weg mit der Mod über die Lobby auf zwei PCs. [Werkzeug](../tools/README.md#task_statuspy)
@@ -40,6 +44,11 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 - `livetest-befunde`, 06.11.2026: Erster Live-Test auf zwei PCs über das Internet bis Tag 2, abgebrochen durch einen Absturz des Clients im Lager. Beim Client wirkten getauschte Waffen nicht, das Inventar wich dauerhaft ab, Aufwerten fehlt (`werkbank-client`), der Dodge-Fix wirkte laut Nutzer nicht. Neu: `lager-absturz-client`, `waffe-client-auswahl`, `inventar-client-abweichung`, `dodge-client-live`. [Befund](GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-06112026-livetest-befunde)
 - `xp-baelle-live`, 06.11.2026: Im Spiel gegengeprüft, ohne Code-Änderung. Beim Client sind die Sichtgrenzen der XP-Bälle jetzt dieselben wie beim Host (4370/4851 statt vorher 1050/5750). Auch bei weit auseinanderstehenden Figuren lagen die Bälle am linken und am rechten Bildrand auf beiden Seiten gleich. Eingesammelte Bälle verschwanden auf beiden Seiten. Level und XP blieben bis Level 6 gleich, es wurde nichts doppelt gezählt. Gegenproben Bewegung, Dodge, zwei Airdrops und Lager bestanden, kein Absturz. [Befund](GAME_ANALYSIS.md#xp-bälle-beim-client-xp-baelle)
 - `skripte-rundenende`, 06.11.2026: `Run-Route.ps1` und `Travel-Day.ps1` bestätigen das Lager am Rundenende jetzt bei Host und Client (`Complete-RoundEnd` in `tools/spike/Common.ps1`) und warten, bis der Host die Routenkarte zeigt. `Run-Route.ps1 -Days 2` lief sauber bis Tag 2 (Exitcode 0, Inventare gleich), `Travel-Day.ps1` bis Tag 3. [Testen](TESTING.md#mission-über-das-spielmenü)
+- `charakter-wahl`, 10.11.2026: Jede Seite wählt ihre Figur nativ in der MetaBase. Die Remote-Figur trug bisher auf jeder Seite die eigene Wahl dieser Seite, weil der Applier den Index nur von einem LocalPlayer nimmt. Jetzt geht nur der Name der Definition über den Kontrollkanal (`0x800`), jede Seite wendet ihn auf die Remote-Figur an; der Host bleibt beweglich, wenn die Client-Figur ein MetaBase-POI betritt. Live auf einem PC bestätigt, Rest unter `opt-charakter-takt`. [Befund](GAME_ANALYSIS.md#charakterwahl-in-der-metabase-charakter-wahl)
+- `opt-ausdauerbalken`, 10.11.2026: Der Client zeigt den Ausdauerbalken des Hosts wie der Host. Ursache wie bei den Lebensleisten: Das Spiel löst `OnStaminaChanged` nur beim Host aus, beim Client lief nur das OnRep. Die Mod ruft jetzt nach `OnRep_Stamina` und `OnRep_MaxStamina` die angemeldeten Empfänger auf. Live auf einem PC bestätigt. [Befund](GAME_ANALYSIS.md#ausdauerbalken-beim-client-opt-ausdauerbalken)
+- `opt-busbalken`, 10.11.2026: Der Client sieht den Ladebalken der Busabfahrt wie der Host. Der Balken lief nur beim Host, weil Zeit und Fortschritt nicht replizieren und die Abfahrtsprüfung beim Client gesperrt ist. Der Client leitet die Abfahrt jetzt aus vollem Tank und allen Figuren im Busbereich ab und treibt den nativen Balken lokal, ohne neue Nachricht. Live auf einem PC bestätigt (Verlauf im Gleichschritt mit dem Host). [Befund](GAME_ANALYSIS.md#busbalken-beim-client-opt-busbalken)
+- `dauerlauf`, 09.11.2026: 12 Tage mit Mod, Latenzprofil Internet und Godmode ohne Absturz, über Endboss und Endlosmodus; Speicher und NetGUID-Cache je Tag ohne stetiges Wachstum, siehe [Dauerlauf](../research/spikes/dauerlauf/README.md).
+- `virenscanner`, 09.11.2026: Windows Defender meldet das Release-Paket nicht, Umgang mit Fehlalarmen und Proton (nicht unterstützt) stehen in [Installation](INSTALL.md#virenscanner-und-proton).
 - `installer`, 06.11.2026: Release-Paket `dist/DDCoop-<Version>.zip` aus `tools/New-ReleasePackage.ps1` mit `Install.cmd`/`Uninstall.cmd`. Der Installer findet das Spiel in allen Steam-Bibliotheken, prüft Build `26187885` über das Steam-Manifest, laufendes Spiel und fremde `version.dll` und kopiert nur Loader und Mod; `ddcoop.ini`, Logs und Spielstände bleiben. `Deploy-Mod.ps1` nutzt denselben Installer. 11 Tests mit nachgebautem Steam-Ordner, echtes Paket an der Steam-Installation installiert und wieder entfernt, ohne Spielstart. Defender und Proton bleiben `virenscanner`. [Installation für Spieler](INSTALL.md)
 - `inventar-sync` und `inventar-ui`, 06.11.2026: Ohne eigene Umsetzung geschlossen, weil andere Aufgaben sie abdecken. Den Weg über den nativen `CoopInventoryCoordinator` hat das Projekt verworfen. Rucksack: `inventar-lokal` und `ausruestung-felder`. Lager: `rundenende-client`. Reward-Queue: `airdrop-warten` und `bestaetigen-alle`. Itemsäcke: `inventar-transaktion`. Der Client bedient sein Inventar im nativen Panel. Die Werkbank (Items aufwerten) ist im Coop nicht getestet und steht jetzt als `werkbank-client`.
 - `eingaben`, 06.11.2026: Host und Client steuern nur ihre eigene Figur; Bewegung, Dodge, Zielen und Menütasten wirkten schon ohne Änderung getrennt. Die verbleibende Lücke war der native lokale Koop: Ein lokales Gerät hätte an P2 gebunden werden können, der beim Host der Remote-Spieler ist, und beim Client hätte `SpawnLocalPlayer(1)` einen zweiten lokalen Spieler angelegt. Im Netzwerkspiel lehnt die Mod das jetzt an drei nativen Einstiegen ab, ohne Nachricht und ohne Folgen für den Solo-Koop. Im Spiel per Probe belegt; Gegenproben Bewegung, Dodge, Airdrop und Lager bestanden. [Befund](GAME_ANALYSIS.md#eingaben-getrennt-eingaben)
@@ -133,7 +142,7 @@ Projektanalyse vom 02.11.2026 auf Commit `6b9e651`.
 - `rundenende`, 03.11.2026: Codec, Empfänger und lokaler Laufzeitadapter ohne Spiel getestet. Automatische Hostquellen, sichtbarer Lauf und vollständige Eingabesperre fehlen, Folgeaufgabe `phasenadapter`.
 - In `TODO.md` fehlten fünf Aufgaben, die jetzt eingetragen sind: Kontrollkanal, Übernahme der Spike-Patches, Umsetzung der Kamera, Pausen über den Kontrollkanal und der einmalige Absturz im Missions-Tick.
 
-**Reihenfolge.**
+**Historische Reihenfolge (aus der ursprünglichen Analyse, nicht der aktuelle Arbeitsplan).**
 
 1. `guidcache` ist mit akzeptiertem Run-/Endlos-Stand abgeschlossen. Keine weiteren Detailtests einplanen; bei einem neuen konkreten Fehler ein neues TODO anlegen.
 2. `remote-p2` ist als Analyse abgeschlossen, ebenso `karte-client`. Als Grundlage für `remote-spieler` die dokumentierten Patches und die Grenze der lokalen Geräte-/UI-Logik übernehmen; die Produktionsintegration nicht mit diesem Spike-Abschluss verwechseln.
@@ -170,7 +179,7 @@ flowchart TD
 
 ## Weg bis Gate G1
 
-Hier liegt die aktuelle Arbeit. Die Kennungen in Klammern stehen in [TODO.md](../TODO.md), was gerade frei ist, zeigt [Wo kann ich anfangen?](../TODO.md#wo-kann-ich-anfangen).
+Historischer Analyseweg bis zum bereits abgeschlossenen Gate G1. Für **aktuelle** Arbeiten und Reservierungen gilt ausschließlich [TODO.md](../TODO.md#wo-kann-ich-anfangen).
 
 ```mermaid
 flowchart LR
@@ -270,12 +279,12 @@ flowchart TD
 
     subgraph PH4["Phase 4: Vertical Slice"]
         SH["Spike-Patches als Hooks<br/>übernehmen"]:::done
-        R2["Remote-Spieler als P2"]:::open
-        MS["Gemeinsamer Missionsstart,<br/>gleiche Karte"]:::open
-        KM["Gemeinsame Kamera<br/>umsetzen"]:::open
+        R2["Remote-Spieler als P2"]:::done
+        MS["Gemeinsamer Missionsstart,<br/>gleiche Karte"]:::done
+        KM["Gemeinsame Kamera<br/>umsetzen"]:::done
         KA["Bewegung, Waffen, Treffer, Tod"]:::done
         GT["Ein Gegnertyp"]:::done
-        EI["Eingaben von Remote<br/>trennen"]:::open
+        EI["Eingaben von Remote<br/>trennen"]:::done
         OS["Mod ohne Spike<br/>(ohne-spike)"]:::done
         LT["Latenz simulieren<br/>(latenz-test)"]:::done
         DM["Desync-Melder<br/>(desync-melder)"]:::done
@@ -283,28 +292,27 @@ flowchart TD
         R2 --> EI
     end
 
-    G2{{"Gate G2: 10 Minuten stabil<br/>zwischen zwei Haushalten"}}:::gate
+    G2{{"Gate G2: 10 Minuten stabil<br/>zwischen zwei Haushalten"}}:::done
 
     subgraph PH5["Phase 5: Vollständiger Run"]
-        GE["Alle Gegner und Bosse"]:::open
+        GE["Alle Gegner und Bosse"]:::done
         XP["Loot, XP, Level-ups,<br/>Fähigkeiten"]:::open
         IV["Inventar, Reward-Queue,<br/>Inventar-UI<br/>(inventar-sync, inventar-ui)"]:::done
-        WB["Werkbank beim Client<br/>(werkbank-client)"]:::open
-        PU["Pausen und blockierende UI"]:::open
+        WB["Werkbank beim Client<br/>(werkbank-client)"]:::done
+        PU["Pausen und blockierende UI<br/>(pausen-sync)"]:::done
         TG["Tageszyklus, Treibstoff,<br/>Etappen"]:::open
         MF["Meta-Fortschritt des Hosts<br/>(meta-fortschritt: entschieden)"]:::done
         ME["Run-Ende, Meta-Basis<br/>(run-ende)"]:::open
         MF --> ME
-        DL["Dauerlauf über viele Tage<br/>(dauerlauf)"]:::open
+        DL["Dauerlauf über viele Tage<br/>(dauerlauf)"]:::done
     end
 
     subgraph PH6["Phase 6: Release"]
         SB["Bestenlisten und<br/>Erfolge sperren"]:::done
         TE["Telemetrie und<br/>Crash-Reports aus"]:::done
-        SV["Eigene Mod-Spielstände"]:::open
+        SV["Eigene Mod-Spielstände"]:::done
         IN["Installer oder Anleitung"]:::done
-        WS["Weekly-Challenge sperren<br/>(weekly-sperre)"]:::open
-        VS["Virenscanner und Proton<br/>(virenscanner)"]:::open
+        VS["Virenscanner und Proton<br/>(virenscanner)"]:::done
     end
 
     Z(["Mod fertig und nutzbar"]):::goal
@@ -324,27 +332,26 @@ Türkis ist zentrale Arbeit, die nacheinander läuft. Grau sind Pakete, die dane
 
 ```mermaid
 flowchart TD
-    GR["grundgeruest"]:::central --> W1["Welle 1<br/>overlay, deploy, ci"]:::open
-    GR --> GA["game-adapter"]:::central
+    GR["grundgeruest"]:::central --> W1["Welle 1<br/>overlay, deploy, ci"]:::done
+    GR --> GA["game-adapter"]:::done
     G1{{"Gate G1: Weg A festgelegt"}}:::done --> W2["Welle 2<br/>steam-lobby, transport,<br/>net-fehler"]:::done
     GR --> W2
     G1 --> GA
-    GA --> PT["patches"]:::central --> RS["remote-spieler"]:::central
-    GA --> W5["Welle 5<br/>tutorial-aus, online-sperren,<br/>telemetrie-aus, mod-saves, installer"]:::open
-    RS --> W3["Welle 3<br/>missionsstart, kamera-code, bewegung,<br/>eingaben, kampf, gegnertyp"]:::open
-    W1 --> IG["integration-g2"]:::central
+    GA --> PT["patches"]:::done --> RS["remote-spieler"]:::done
+    GA --> W5["Welle 5<br/>tutorial-aus, online-sperren,<br/>telemetrie-aus, mod-saves, installer"]:::done
+    RS --> W3["Welle 3<br/>missionsstart, kamera-code, bewegung,<br/>eingaben, kampf, gegnertyp"]:::done
+    W1 --> IG["integration-g2"]:::done
     W2 --> PR["protokoll"]:::done
     W2 --> IG
     W3 --> IG
-    IG --> G2{{"Gate G2"}}:::gate
-    PR --> W4["Welle 4<br/>fortschritt, werkbank-client,<br/>pausen-sync, tagesablauf,<br/>run-ende, vfx-sound, reconnect"]:::open
+    IG --> G2{{"Gate G2"}}:::done
+    PR --> W4["Welle 4<br/>fortschritt, werkbank-client,<br/>pausen-sync, tagesablauf,<br/>run-ende, vfx-sound"]:::open
     G2 --> W4
     W4 --> IR["integration-run"]:::central
     W5 --> IR
-    RV["Vorbeugung<br/>ohne-spike, latenz-test"]:::open --> IG
+    RV["Vorbeugung<br/>ohne-spike, latenz-test"]:::done --> IG
     PR --> DS["desync-melder"]:::done --> IG
-    IG --> DL["dauerlauf"]:::open --> IR
-    W5 --> W6["weekly-sperre, virenscanner"]:::open --> RL
+    IG --> DL["dauerlauf"]:::done --> IR
     IR --> RL["release"]:::central
     RL --> Z(["Mod fertig und nutzbar"]):::goal
 

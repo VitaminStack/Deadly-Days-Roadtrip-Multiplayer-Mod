@@ -12,14 +12,16 @@ Vertrauensgrad:
 | | |
 |---|---|
 | Steam-AppID | `3026450` |
-| Steam-Build-ID | `26187885` |
-| Manifest-IDs | Depot `3026451`: `1832737755528485607`, Depot `3026452`: `7724756528743620812` |
+| Steam-Build-ID | `26495302` (seit `spiel-update`, 09.11.2026) |
+| Manifest-IDs | Depot `3026451`: `1832737755528485607`, Depot `3026452`: `2302428105354984436` |
+| Exe-Kennung | TimeDateStamp `0x65BFBBFB`, SizeOfImage `0x0B748000` |
 | Engine-Version | `5.8.1-56057345+++UE5+Release-5.8` |
 | Spiel-Exe | `DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe` (179 MB) |
 
 Build-ID und Manifest-IDs stehen in `steamapps/appmanifest_3026450.acf`. Die Manifest-IDs benennen die gewünschten Depotstände;
-ein erneuter Download über die Steam-Konsole ist getestet (07.11.2026): `download_depot 3026450 3026452 7724756528743620812` liefert
-alle 52 Dateien, die Prüfsummen von `tools/game_build.py` passen; Depot `3026451` hatte beim Update auf `26495302` denselben Stand. Bei einem Spiel-Update gilt die
+ein erneuter Download über die Steam-Konsole ist für den Vorgänger getestet (07.11.2026): `download_depot 3026450 3026452 7724756528743620812` lieferte
+alle 52 Dateien von `26187885`, die Prüfsummen passten; Depot `3026451` hatte beim Update auf `26495302` denselben Stand. `26187885` war bis
+`spiel-update` (09.11.2026) unterstützt, seitdem verlangen Mod, Skripte und Installer ihn nicht mehr. Bei einem Spiel-Update gilt die
 [Update-Regel](../CONTRIBUTING.md#spiel-updates): einfrieren und nur bei Bedarf nachziehen.
 
 ### Gemeinsame Build-ID (`build-id`)
@@ -363,6 +365,27 @@ Stand: Spieltest am 04.11.2026, Build `26187885`, ein PC über Loopback, Route �
 - **Fix im Spike (`HealthBars.cpp`):** Beide OnRep-Funktionen sind umschlossen. Nach dem Original ruft der Spike jeden Empfänger des passenden Delegates mit dem neuen `CurrentValue` über `ProcessEvent` auf: schwacher Zeiger über das Objekt-Array mit Prüfung der Seriennummer, Funktion über ihren `FName` in der Klassenkette. Beim Host laufen die OnRep-Funktionen nicht, der Patch wirkt also nur beim Client.
 - **[Belegt]** Mit dem Fix starteten beide Leisten beim Client bei 100 %. Nach Schaden zeigten Host und Client dieselben Werte: 40 % und 70 %, dann 50 %, nach dem Wechsel auf Tag 2 75 %. Kein Absturz.
 - Nicht geprüft: Rüstung (`OnArmorChanged`, `OnMaxArmorChanged` liegen im abgeleiteten Charakter-Set) und die Überheilung. Ob weitere Empfänger dieser Delegates beim Client jetzt zusätzlich laufen sollten, ist nicht geprüft, gefunden war nur die Leiste. Internet nicht geprüft.
+
+### Ausdauerbalken beim Client (`opt-ausdauerbalken`)
+
+Stand 10.11.2026, Build `26495302`, zwei Instanzen auf einem PC, Mod mit Spike.
+
+- **[Belegt, Disassembly]** Gleiche Ursache wie bei den [Lebensleisten](#lebensleisten-beim-client-hp-leisten): `UDDCharacterAttributeSet` (`Stamina` `+0x50`, `OnStaminaChanged` `+0x60`, `MaxStamina` `+0x30`, `OnMaxStaminaChanged` `+0x40`) repliziert die Werte, das Spiel löst die Delegates aber nur beim Host aus. `OnRep_Stamina` (`0x57DDE40`) und `OnRep_MaxStamina` (`0x57DD080`) fanden sich über die Exec-Thunks der `FNameNativePtrPair`-Tabelle; die Kontrolle mit `OnRep_Health` ergab die bekannte `0x57DC810`. `OnRep_Stamina` liest im Rumpf `+0x50`, `OnRep_MaxStamina` `+0x30`.
+- **Umsetzung:** `HealthBarPatches.cpp` umschließt beide OnRep-Funktionen wie die der Lebensleisten und ruft danach die angemeldeten Empfänger auf. Keine neue Nachricht, keine zweite Replikation.
+- **[Belegt, Live-Test]** Der Host weicht aus, der Client sieht seinen Ausdauerbalken wie der Host selbst (vom Nutzer im Bild bestätigt).
+
+### Busbalken beim Client (`opt-busbalken`)
+
+Stand 10.11.2026, Build `26495302`, zwei Instanzen auf einem PC, Mod mit Spike, Tank beim Host per Speicherschreiben auf 120 von 120, Busflucht vom Nutzer.
+
+- **[Belegt, SDK]** Der Balken ist `WP_Bus_Countdown_Display_C` (`BusProgressBar`, `Progress` `+0x348`, `UpdateBusProgress(double)`) im `CountDownWidget` (`+0x3B8`) des Kindaktors `BP_SpawnAndLeaveBus_C`. Die Abfahrt treibt das Blueprint über `OnStartBusTimerTick` und `UpdateBusProgressDisplay` (`ElapsedTime` `+0x428`, `RequiredTime` `+0x420`, `UpdateInterval` `+0x490`). Die Aktor-Felder sind nicht repliziert.
+- **[Belegt, Live-Messung]** Beim Host stieg der Fortschritt auf 1,0 (`ElapsedTime` 3,05 s von `RequiredTime` 3,0 s, `tankFull` 1). Beim Client blieben Fortschritt, `ElapsedTime` und `tankFull` die ganze Abfahrt über auf 0, obwohl `PlayersInBusRange` (`+0x2D8`) auf beiden Seiten 2 zeigte und der Tank repliziert war.
+- **[Belegt, früherer Befund]** Beim Client liefert `CanBusTakeOff` immer nein (`CanBusTakeOffHook`, [Busabfahrt nur beim Host](#busabfahrt-nur-beim-host-bus-ende)), weil ihm der GameMode fehlt. Ein lokaler Start über das native Blueprint ist darum kein Weg.
+- **[Belegt, Live-Messung mit 20 Hz]** Beim Host schaltet das Blueprint die Sichtbarkeit des `CountDownWidget` (Komponentenflag `0x43` auf `0x63`) mit dem Start der Abfahrt ein und lässt `ElapsedTime` in 0,05-s-Schritten bis 3,05 s laufen; der Fortschritt des Widgets folgt geglättet, in rund 2,6 s von 0 auf 0,96.
+- **Umsetzung** (`BusBarPatches.cpp`, `TickBusBar`, Regeln `BusBarActive` und `BusBarElapsed` in `PatchPolicy.h`, mit Tests): Beim Client gilt die Abfahrt als gestartet, wenn der Tank des Missions-GameStates voll ist (`FuelMeter`, `CurrentFuel` ≥ `MaxRequiredFuel`, repliziert) und `PlayersInBusRange` alle Figuren der `PlayerArray` enthält. Dann macht die Mod das `CountDownWidget` mit der nativen `SceneComponent.SetVisibility` sichtbar und setzt den Fortschritt mit `WP_Bus_Countdown_Display_C.UpdateBusProgress` aus der lokal gezählten Zeit (`RequiredTime` `+0x420`). Entfällt eine Bedingung vor dem Ende, blendet sie den Balken aus und setzt ihn zurück. Abfahrt und Rundenende entscheidet weiter der Host. Keine neue Nachricht, keine Änderung an `CanBusTakeOffHook`.
+- **[Belegt, Live-Test 10.11.2026]** Tank beim Host auf 120 von 120 gesetzt, beide Figuren am Bus: Der Client-Balken lief im Gleichschritt mit dem des Host (0 bis 0,96 in rund 2,6 s), die Komponente wurde sichtbar, Mod-Log „Busbalken: Abfahrt beim Client abgeleitet (Tank voll, 2 von 2 Figuren im Bereich)“. Der Nutzer sah den Balken im Client-Fenster laufen.
+- **Nicht geprüft:** Verlassen des Busbereichs mitten in der Abfahrt (ob der Host den Balken ebenfalls zurücksetzt), zwei PCs. Die Suche nach dem Bus-Objekt hielt den Frame zweimal 13 bis 14 ms auf (`Takt: Busbalken …`), sie läuft höchstens einmal je Sekunde, bis der Bus gefunden ist.
+- **Hinweis zum Test:** Der Client stürzte in einem früheren Lauf nach rund 12 Minuten am bekannten Sensenmann-Fehler (`0x15C0407`, siehe [Wiederbelebung](#tod-des-clients-tod-client)); Läufe kurz halten.
 
 ### XP-Bälle beim Client (`xp-baelle`)
 
@@ -1613,6 +1636,34 @@ Anzahl `+0x2B8`, `CurrentMissionIndex` `+0x2C0`, `IsEndOfMissionChain` `+0x2C8`,
   Client sieht dann dieselbe Karte, wählen kann er weiter nicht. Bei echten Spielständen nur in den Mod-Spielständen
   ([`mod-saves`](#spielstände-der-mod-mod-saves)).
 
+**Nachtrag 09.11.2026, zurückgestellt als `opt-routenkarte`:** Build `26495302`, ein PC, Mod mit Spike über die Lobby, Godmode,
+Seed `20795`, frischer Spielstand (Tag 1 startet ohne Routenkarte). Kein Code geändert, nur gelesen und disassembliert. Auf
+Wunsch des Nutzers verwaltet im ersten Release nur der Host die Routenkarte; der Client bekommt währenddessen Pause und
+Eingabesperre (Sperre und volle Karte beim Client laufen später gemeinsam unter [`opt-routenkarte`](../TODO.md#optionale-optimierungen)).
+
+- **[Belegt] Offsets gelten auch auf `26495302`:** `FCurrentRunInfo` an `GameInstance+0x2A0` wie oben. Host nach Tag 1: Seed 20795,
+  `RouteMissionStructureIdentifier` `(0, 1)`, Kette 1, Index 0, Ende der Kette, `ChosenMissionIndexes` `[2]`,
+  `LinkedNextMissionIndexes` `[0, 2]`, `Position` 2. Client: eigener Seed, Kennung `(0, 0)`, Kette leer, gewählt `[]`.
+- **[Belegt] Missionsstruktur ist beim Client schon gleich:** `UMissionGenerationSubsystem.CachedMissionStructure` (`+0x30`,
+  Elemente `FPossibleMissionGroup` zu `0x20` Bytes) hatte nach `DD_SetCurrentRunSeed 20795` beim Client dieselben 8 Gruppen wie beim
+  Host (Cities, Cities, Suburbs, Suburbs, Woods, Woods, Meadows, Meadows mit 3/3/3/3/1/3/3/1 Routen).
+- **[Belegt] Seed allein reicht nicht:** Nach `DD_SetCurrentRunSeed` beim Client, auch vor dem nächsten Rundenende gesetzt, blieb die
+  Karte leer. `WI_MissionChoicePanel_C.SpawnedChoices` (`+0x448`, Anzahl `+0x450`) ist beim Client 0, beim Host 20.
+- **[Belegt] Eigentliche Sperre ist eine Rollenprüfung im Spiel:** `UMissionChoicePanel::SetChoices` (Exec-Thunk `0x57545F0`,
+  Implementierung `0x5ABD220`) hat genau einen nativen Aufrufer in der Funktion ab `0x5AB7090`, vermutlich
+  `UBusPanel::OpenMapIfRequired` (BP-Klasse `WI_BusScreen_C`, `MissionChoicesPanel` an `+0x330`). Sie kopiert `CurrentRoute`
+  (`GameInstance+0x2A8`) und prüft dann bei `0x5AB7183` `cmp byte ptr [rax+168h], 3` auf dem Ergebnis von vtable `+0x2C8`
+  (`0x3FE2F10`, liefert den besitzenden PlayerController aus `+0x310`). `AActor::Role` liegt an `+0x168`, 3 ist `ROLE_Authority`.
+  Nur mit Autorität ruft sie `SetChoices(GetMissionStructure(-1))` (`0x58EDDD0`). Beim Client ist der Controller
+  `ROLE_AutonomousProxy`, das Panel bleibt leer, egal welche Run-Info er hat.
+- **Weg für `opt-routenkarte`, nicht umgesetzt:** (1) Run-Info des Hosts übertragen (Seed, Strukturkennung, `ChosenMissionIndexes`,
+  Index, Ende der Kette, Gefahrenstufen-Erhöhung) wie `MapSync` über den Kontrollkanal. (2) Beim Client die Rollenprüfung in
+  `0x5AB7090` umgehen (Sprung `jne` bei `0x5AB718A`, 6 Bytes `0F 85`) oder nach dem Öffnen `SetChoices` selbst aufrufen. Ob Bus,
+  Tagesspalte und gereiste Linien dann stimmen und ob `CurrentRoute.MissionChain` für HUD-Gefahrenstufe nachgebaut werden muss, ist
+  nicht geprüft; der Versuch mit dem ausgehebelten Sprung wurde abgebrochen und nicht ausgewertet. Die Reisesperre
+  (`ClientMayStartTravel`) muss bleiben, weil mit befülltem Panel Knoten klickbar werden.
+- **[Belegt, Versuch `routenkarte-sperre`, 09.11.2026] Hook auf `OpenMapIfRequired` sperrt die Karte nicht:** Hook auf `0x5AB7090` (Referenz-RVA `0x05AB20C0`, eindeutig umrechenbar) im Ein-PC-Test mit Mod und Spike, Seed `20795`, Tag 1, `!finish`. Beim Client läuft die Funktion nur einmal, mitten in `FinishMission` (`FollowHostRoundEnd`), und der Hook unterdrückte sie dort. Die leere Karte (Wolken, Bus „999“, Knopf „Zurück“) ging trotzdem nach dem Bestätigen im Lager auf, ihr Öffnen läuft also über einen anderen Weg (vermutlich Blueprint oder Bus-Panel-Animation, nicht gefunden). Der Hook wurde verworfen, kein Code übernommen. Die Reisesperre `ClientMayStartTravel` hält Klicks auf Knoten beim Client weiter ab. Offen für eine spätere Sperre: den Öffner der Karte finden (`WI_BusScreen_C`, `MissionChoicesPanel` `+0x330`) oder das Panel beim Client per `SetVisibility` unbedienbar machen und einen Hinweis zeigen. Zur Umrechnung von Adressen des neuen Builds auf die Referenz: Muster der neuen Funktion in der alten Exe suchen (`tools/rva_map.py`-Hilfen `masked` und `find_unique`), dann Zeile in `RvaMap<build>.inc` und `patch_signatures.py generate --write`.
+
 ### Seltenheit und Aufwerten beim Client (`werkbank-client`)
 
 Stand 06.11.2026, Build `26187885`, ein PC, Mod mit Spike über die Lobby, Godmode.
@@ -1671,6 +1722,7 @@ sind das Mod-Log und der Speicher des Hosts, nur lesend; das Client-Log lag bei 
 - **[Belegt, Host] Inventar dauerhaft abweichend.** Ab der fünften Wahl (Tag 2) meldete der Desync-Melder nach fast jeder Übernahme
   `ABWEICHUNG Inventar` und wurde nicht wieder gleich. Vorher war der Abgleich nach jeder Übernahme binnen Sekunden wieder `OK`. Der Nutzer
   sah beim Client unsichtbare Items. Ob `opt-desync-pivot` einen Teil davon erklärt, ist offen.
+  **Nachtrag (`inventar-client-abweichung`, 09.11.2026):** Siehe [Lager-Edit des Clients mit Reparatur und Aufwertung](#lager-edit-des-clients-mit-reparatur-und-aufwertung-inventar-client-abweichung).
 - **[Gemeldet] Dodge-Reparatur beim Client wirkt nicht mehr.** Beim Host stand je Karte „Laufrichtung der Client-Figur für den Dodge beim
   Host eingetragen“, keine Ablehnung aus `eingaben`. Was beim Client fehlt, braucht sein Log.
 - **[Belegt, Host] Absturz des Clients im Lager, Host reist weiter.** Rund 77 s nach „Client im Lager“ (Ende Tag 2) kamen keine Daten mehr
@@ -1721,7 +1773,7 @@ Ausgewertet: Mod-Logs beider Seiten, Overlay-Verlauf, `crashes.py` beider Seiten
 - **[Belegt] Inventar kurz abweichend.** Der Desync-Melder meldete dreimal `ABWEICHUNG Inventar`, jeweils während einer Airdrop-Auswahl
   oder beim Umlegen im Lager, und war nach etwa 10 s wieder `OK`. Keine dauerhafte Abweichung wie am 06.11.
 - **[Gemeldet] Verkaufen und Reparieren im Lager gehen beim Client nicht**, beim Host schon. Items verschieben geht. Am Rundenende lassen
-  sich beim Client nicht reparierte Items nicht ausrüsten. Offen, ob das Spiel kaputte Items auch beim Host sperrt. Neue Aufgabe `lager-handel-client`.
+  sich beim Client nicht reparierte Items nicht ausrüsten. Offen, ob das Spiel kaputte Items auch beim Host sperrt. Neue Aufgabe `lager-handel-client`. **Nachtrag (`lager-handel-client`):** Behoben, das Spiel sperrt kaputte Items auch beim Host; siehe [Verkaufen und Reparieren beim Client](../src/Game/README.md#verkaufen-und-reparieren-beim-client).
 - **[Belegt] Client im Lager hart beendet.** 11:43:41 Prozess des Clients beendet. Der Host erkannte den stummen Client um 11:43:50 und
   wartete; auch nach seinem eigenen Bestätigen (11:43:56) meldete er nicht „alle bereit“. Beim Verbindungsabbau (Timeout 11:43:58,
   Grund 4001) löste der Host die P2-Bindung und holte sein Bestätigen nach („Client nicht mehr im Lager“), reiste aber nicht ab: Laut
@@ -1814,6 +1866,58 @@ aus den Mod-Logs beider Seiten. Kein Absturz auf beiden Seiten, der Host lief du
   und läuft dort ohne eigenes `-UserDir`; die Mod speichert trotzdem nur in `SaveGames_DDCoop`. `Stop-Session.ps1` nahm die Mod danach
   wieder heraus. Ein Probelauf ohne Einladung meldete richtig „ohne +connect_lobby“.
 
+### Lager-Edit des Clients mit Reparatur und Aufwertung (`inventar-client-abweichung`)
+
+Lokaler Test am 09.11.2026 (Build 26495302, `Start-Session.ps1 -Role Both -Mod -Tunnel Lobby -NoSpike`), Mensch spielte den Client.
+
+- **[Belegt, Host-Absturz] Zurückrollen schickte Server-RPCs an den Host.** Nach „Edit mit 1 Aufwertungen ungültig, Bearbeitung
+  zurückgenommen“ beim Client stürzte der Host rund 0,4 s später ab (`EXCEPTION_ACCESS_VIOLATION reading address 0xf0` im Spielcode,
+  Aufruf über den durchgereichten `ProcessEvent`-Hook). `RevertClient` setzte `Phase::Idle` vor `Apply`. Verschachtelte Server-RPCs der
+  nativen Inventarfunktionen (zum Beispiel `CharacterEffectManager.*`) liefen dadurch wieder zum Host und nannten die nur beim Client
+  vorhandene Aufwertungs-Ausgabe. **Fix:** eigene Phase `Reverting`, in der fremde RPCs verworfen und eigene Inventar-RPCs nur lokal
+  laufen; `Idle` erst nach `Apply`. Welche Funktion beim Host las, zeigt der Stapel nicht; nach dem Fix kein Absturz mehr.
+- **[Belegt] Ganzes Lager-Edit abgelehnt, Inventar am nächsten Tag zurückgesetzt.** Der Client reparierte ein kaputtes Item (Lighter,
+  Pistole) und wertete es im selben Edit auf. Ein verbrauchtes Item übernahm im Edit den Ausgangszustand aus `Session.States`, also
+  „kaputt“. Der Host zählte die Reparatur nicht, `CanItemsBeUpgradedTogether` lehnte das bei ihm noch kaputte Item ab, und damit fiel das
+  ganze Edit samt Verkäufen und Verschiebungen weg. **Fix:** Der Client merkt sich lokal reparierte Items (`Session.Repaired`) und meldet
+  verbrauchte davon als repariert. Der Host bucht solche Eingaben als Reparatur, löscht das Kaputt-Flag nur für die native Prüfung kurz,
+  repariert sie vor `UpgradeItems` nativ und bucht den Schrott wie jede Reparatur.
+- **[Belegt] Nachtest.** Reparatur und Aufwertung im selben Edit: „Aufwertung 1 geprüft (Ablegen)“, „1 von 1 verkauft, 1 von 1 repariert“,
+  „vollständig=true“, danach `Desync: OK … Inventar`. Am nächsten Tag hatte der Client die aufgewertete Waffe. Eine spätere kurze
+  `ABWEICHUNG Inventar` fiel in eine offene Airdrop-Auswahl: Beim Client standen die drei lokalen Wahlinstanzen (`IsReward`) im Inventar.
+- **Abgegrenzt.** Der dauerhafte Fehlalarm durch die Rasterposition von Items außerhalb des Rucksacks bleibt bei `opt-desync-pivot`.
+
+### Sekündlicher Ruckler beim Host (`host-lagspike`)
+
+Ein-PC-Test am 09.11.2026 (Build 26495302, `Start-Session.ps1 -Mod -Tunnel Lobby -NoSpike`), Mensch spielte beide Seiten. Gemeldet war
+etwa einmal pro Sekunde ein kurzer FPS-Einbruch beim Host, „wie ein Herzschlag“.
+
+- **[Belegt] Ursache: Suchen über das ganze Objekt-Array im Sekundentakt.** Neue Zeitmessung im Game-Thread-Takt
+  (`GameThread::SlowScope`, Log `Takt: <Name> hielt den Frame <ms> ms auf` ab 8 ms) zeigte beim Host in der MetaBase rund 75 ms für
+  die Patch-Ticks in einem Frame (Karte, Spieler, Projektile, Bewegung) und 25 ms für den Desync-Abgleich. Jeder dieser Abgleiche lief
+  einzeln über alle Einträge von `GObjects`.
+- **[Belegt] Teuer je Objekt waren drei Dinge:** `Memory::Rva` suchte für `GObjects` und `GNames` bei jedem Zugriff in Adresstabelle und
+  Signaturliste (jetzt `Memory::CachedRva`), `IsA` verglich die Klassenkette Namen für Namen als Text (jetzt Ergebnis je Klasse gemerkt,
+  geprüft über den Namensindex der Klasse), und `CachedInventory` in `RewardPatches.cpp` verwarf sein Ergebnis bei Inventaren mit
+  `Outer == PlayerState` und suchte jedes Mal neu.
+- **[Belegt] Sekunden-Abgleiche über `ULevel::Actors`:** Spielerfiguren (`PlayerPatches`, `MovementPatches`), Projektile, Airdrops und
+  Kamera/Controller des Clients lesen jetzt die Actor-Liste des Levels (`Objects::ForEachLevelActor`) statt des Objekt-Arrays.
+- **Ergebnis:** Beim Host im Run kein Abschnitt mehr über rund 5 ms, der Mensch spürt keinen Ruckler mehr. Unit-Tests bestehen.
+- **Rest beim Client:** Fortschritts-Anzeige (Widget-Suche je Sekunde) rund 12 ms und Boss-Leiste rund 10 ms, siehe `opt-client-takt`.
+
+### Charakterwahl in der MetaBase (`charakter-wahl`)
+
+Stand 10.11.2026, Build `26495302`, SDK, Disassembly und Live-Test auf einem PC. Auslöser: Beim Host erscheinen immer dieselben Spielfiguren.
+
+- **[Belegt, SDK]** `UCharacterSelectionManager` (`UAbstractPersistentGameInstanceSubsystem`, `IRunPersistable`) hält `CharacterDefinitions`, `SelectedCharacters` (`TMap<int32, UPlayerCharacterDefinition*>`, Schlüssel Spielerindex) und die SaveGame-Felder `SelectedCharacterID`, `SelectedCharactersJson`. Er lebt in der GameInstance und repliziert nicht. Funktionen: `SetSelectedCharacter(PlayerIndex, Def)`, `GetSelectedCharacter`, `HasExplicitSelection`, `GetUnusedCharacterDefinitionOrRandom(Seed)`, Delegate `OnCharacterSelectionChanged`.
+- **[Belegt, SDK]** `UCharacterSelectPanel` kennt zwei Spieler: `SelectedButtonsPerPlayer` (Index -> Knopf), Marker P1/P2 (`SetSelectionChipForPlayer`, `RefreshAllPlayerChips`), `HandleCharacterSelectAuthorityChanged`. Im Spiel wählt P2 am selben PC.
+- **[Belegt, SDK]** `UCharacterDefinitionApplier` (Komponente an `ADDCharacter`) hält `CharacterSelectionManager` und `AppliedCharacterDefinition`, `ApplyInitialCharacterDefinition` wendet die Wahl an, `CharacterSelectionChanged(PlayerIndex, Def)` reagiert auf Änderungen. `AWandererManager` zeigt die Figuren in der MetaBase (`SpawnCharacter`, `OnCharacterChanged`, `OnPlayerJoined`).
+- **[Belegt, früherer Befund]** Beim Host liefert `GetPlayerIndex` für den Controller des Clients Index 1 ([Remote-P2](#remote-p2-geprüfte-anbindung-und-grenze-der-lokalen-ui)).
+- **[Belegt, Disassembly]** Die Vermutung „Index 1 beim Host“ stimmt nicht: Der Applier nimmt den Spielerindex aus `Pawn.Controller.Player` (vfunc `+0x330` des LocalPlayers), ohne LocalPlayer gilt Index 0. Eine Remote-Figur bekommt darum auf jeder Seite die eigene Wahl dieser Seite: beim Host die Figur des Clients, beim Client der Proxy des Hosts. Fehlt der Eintrag, fällt er auf `CharacterDefinitions[0]` zurück. `CharacterSelectionChanged` greift nur, wenn der Controller-Index zum gemeldeten passt, und erreicht eine Remote-Figur nie. Die eigentliche Arbeit macht die interne Funktion `0x5840DF0` (Definition vergleichen, Asset asynchron laden, Rest im Callback). Eine Definition steuert auch Rucksack, Startausrüstung, Loadout-Stufen und Klassen-Override, ist also mehr als Optik.
+- **[Belegt]** Betritt die Remote-Figur beim Host die Kapsel eines MetaBase-POI, lief `TriggerCollisionActionForPlayer` mit dem Remote-Controller: kein Panel, aber `IgnoreMoveInput` blieb an beiden Controllern des Hosts stehen, der Host konnte sich nicht mehr bewegen.
+- **Umsetzung:** Panel, Marker und Wahl im eigenen Manager bleiben nativ lokal. Jede Seite schickt nur den Namen der eigenen Definition (etwa `CD_BananaPerson`, Kontrolltyp `0x800`, bei Änderung und alle 2 s, damit Verlust, Beitritt und Reise ihn nachholen). Jede Seite wendet die Wahl der Gegenseite mit `0x5840DF0` auf die Remote-Figur an: beim Spawn über einen Hook auf `ApplyInitialCharacterDefinition` (`0x5837220`), danach per Sekunden-Abgleich. Die Spielwerte der Client-Figur rechnet wie bisher der Host, jetzt mit der Definition des Clients. Doppelte Wahl lehnt die Mod nicht ab: Jede Seite entscheidet nur über die eigene Figur, eine gemeinsame Autorität ist dafür nicht nötig. Beim Host übergeht `FilterRemotePoiOverlap` Betreten und Verlassen eines POI durch die Remote-Figur, der Client öffnet das Panel bei sich selbst. Lesewerkzeug: `tools/spike/characters.py <pid>`; `Start-Session.ps1 -RealSave` startet mit einer Kopie des echten Spielstands, weil ein frischer keine Figurenauswahl freigeschaltet hat.
+- **Live-Test 10.11.2026, ein PC, zwei Instanzen:** Beide starten mit `CD_PraesidentKnabe`, die Remote-Figur wird beim Spawn mit der Wahl der Gegenseite angewendet. Der Client wählt in der MetaBase `CD_BananaPerson`, rund 0,4 s später wendet der Host sie auf die Client-Figur an, vom Menschen im Bild bestätigt. Der Host blieb beweglich, der Filter griff beim Betreten und Verlassen des POI. **Nicht geprüft:** zwei PCs, Reise und erneuter Beitritt mit gehaltener Wahl, Startausrüstung der gewählten Figur im Run. Rest: Der Sekunden-Abgleich hielt einmal 10 bis 11 ms den Frame auf (volle Objektsuche nach dem Applier), siehe `opt-charakter-takt`.
+
 ## Systeme, die die Mod respektieren muss
 
 - **[Belegt]** Bestenlisten und Erfolge: `PixelLeaderboards`, `DDLeaderboardSettings`, `PixelAchievements`, im Mod-Betrieb gesperrt, siehe unten
@@ -1832,7 +1936,7 @@ Stand 04.11.2026, Build `26187885`, Steamworks-Laufzeit 1.64.
 - **Test:** zwei Instanzen auf einem PC mit `Start-Session.ps1 -Mod`, Route mit Seed `20795` bis zum Rundenende an Tag 1. Auf beiden Seiten lud das Spiel `steam_api64.dll` rund 80 ms nach dem Start der Mod, die Sperre stand beim Laden. Der Host versuchte rund 7 s später, die Statistiken zu speichern (`StoreStats`), und wurde abgewiesen. Das Spiel lief normal, kein Absturz. Ob es vor dem Start der Mod Schreibversuche gab, ist nicht gemessen; die Mod sieht nur Aufrufe ab ihrer Sperre. Unit-Tests mit nachgebauter Steam-Laufzeit decken späten Steam-Start, den ersten Schreibaufruf, eine schon vorhandene Schnittstelle, gescheiterte Hooks, unbekannte Einsprünge und fremde Versionen ab.
 - **Nicht geprüft:** ein echter Erfolg und ein Bestenlisten-Eintrag am Run-Ende. Absichtlich ausgelöst habe ich keinen: Wäre die Sperre unwirksam, stünde der Erfolg dauerhaft im Steam-Konto.
 - **[Vermutung]** Das Spiel speichert seinen Erfolgsfortschritt auch im eigenen Spielstand (`AchievementSubsystem`, `PersistedAchievementData`). Läuft ein Mod-Run auf dem normalen Spielstand, könnte das Spiel solche Erfolge später ohne Mod nachmelden. Seit [`mod-saves`](#spielstände-der-mod-mod-saves) laufen Mod-Runs nur auf eigenen Ständen.
-- **Nicht gesperrt:** die Weekly-Challenge über `ddrweekly.deadlydays.com`. Ob sie unterstützt oder gesperrt wird, entscheidet das Team unter `weeklymode`.
+- **Gesperrt seit `weekly-sperre`:** die Weekly-Challenge über `ddrweekly.deadlydays.com`, wie Erfolge und Bestenlisten (Entscheidung `weeklymode`). Wie das Menü ohne Antwort reagiert, ist noch nicht im Spiel geprüft.
 
 ### Telemetrie und Berichte (`telemetrie-aus`)
 
@@ -1846,9 +1950,9 @@ Stand 04.11.2026, Build `26187885`. Neben dem Crash-Reporter (siehe [Crash-Repor
 | Automatische Berichte über beschädigte Spielstände (`DDCorruptedSaveReportSubsystem`) | Codecks | `bEnableAutomaticCorruptedSaveReports` |
 
 - **[Belegt]** Alle drei Schalter stehen ab Werk auf an.
-- **[Belegt]** Die Mod schaltet sie am Klassen-Defaultobjekt ab (`Game::TelemetryAdapter`) und lässt zusätzlich die Namensauflösung für `codecks.io`, `pixelsplit.games` und `deadlydays.layerapps.com` scheitern (`Core::ReportHosts`). Die zweite Schicht hängt nicht an Spiel-Offsets und deckt auch Analytics und Bug-Report-Formular ab, die keinen Schalter haben.
+- **[Belegt]** Die Mod schaltet sie am Klassen-Defaultobjekt ab (`Game::TelemetryAdapter`) und lässt zusätzlich die Namensauflösung für `codecks.io`, `pixelsplit.games`, `deadlydays.layerapps.com` und `ddrweekly.deadlydays.com` scheitern (`Core::ReportHosts`). Die zweite Schicht hängt nicht an Spiel-Offsets und deckt auch Analytics und Bug-Report-Formular ab, die keinen Schalter haben.
 - **[Belegt]** Die HTTP-Anfragen des Spiels laufen über diese Namensauflösung: Im Menü fragt das Spiel `ddrweekly.deadlydays.com` an, und der Hook sieht es.
-- **Nicht gesperrt:** `ddrweekly.deadlydays.com` (Weekly-Challenge, Thema von `online-sperren` und `weeklymode`), Twitch-Anbindung (nur auf Wunsch des Spielers).
+- **Nicht gesperrt:** Twitch-Anbindung (nur auf Wunsch des Spielers).
 - **Gesperrt seit `layerapps-sperre` (04.11.2026):** `deadlydays.layerapps.com`.
   - **[Belegt]** Der Host fragt den Dienst direkt beim Run-Ende an, kurz vor `pixelsplit.games`. Gesehen beim Test zu `patches` nach einer Niederlage.
   - **Vermutung:** Das Spiel meldet dort das Run-Ergebnis. Was es sendet, ist nicht untersucht. Die Sperre folgt der Regel, dass Mod-Runs keine unnötigen Daten senden.

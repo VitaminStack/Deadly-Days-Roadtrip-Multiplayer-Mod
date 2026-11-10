@@ -16,7 +16,7 @@ import sys
 OPEN_HEADER = '| Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |'
 DONE_HEADER = '| Kennung | Phase | Ergebnis |'
 DONE_SECTION = 'Erledigt'
-EXTRA_SECTIONS = {'Wartung': 'Wartung', 'Optionale Optimierungen': 'Optional'}
+EXTRA_SECTIONS = {'Wartung': 'Wartung', 'Optionale Optimierungen': 'Optional', 'Real Coop logic': 'Coop'}
 PRIOS = ('P0', 'P1', 'P2')
 MODES = ('parallel', 'zentral', 'zu zweit', 'Team')
 PLAYTIMES = ('keine', 'wenig', 'mittel', 'viel')
@@ -124,7 +124,7 @@ def parse(todo):
                 raise ValueError(f'{where}: {name} braucht 3 Spalten')
             _, done_phase, text = row
             if done_phase not in PHASES + tuple(EXTRA_SECTIONS.values()):
-                raise ValueError(f'{where}: {name}: Phase muss 0 bis 6, Wartung oder Optional sein')
+                raise ValueError(f'{where}: {name}: Phase muss 0 bis 6, Wartung, Optional oder Coop sein')
             tasks[name] = Task(name, done_phase, DONE_SECTION, True, text)
     missing = [p for p in PHASES if p not in sections]
     if missing:

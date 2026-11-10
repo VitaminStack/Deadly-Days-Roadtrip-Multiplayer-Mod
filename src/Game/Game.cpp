@@ -19,11 +19,11 @@ void Start()
 #endif
     // Vor dem ersten Takt: Die Patches greifen schon beim ersten Spawn und bei der ersten Reise.
     Patches::Install();
-    GameThread::AddTick(TickWorld);
-    GameThread::AddTick(TickTutorials);
-    GameThread::AddTick(TickBossBar);
-    GameThread::AddTick(TickTelemetry);
-    GameThread::AddTick(Patches::Tick);
+    GameThread::AddTick(TickWorld, "Welt");
+    GameThread::AddTick(TickTutorials, "Tutorial");
+    GameThread::AddTick(TickBossBar, "Boss-Leiste");
+    GameThread::AddTick(TickTelemetry, "Telemetrie");
+    GameThread::AddTick(Patches::Tick, "Patches");
     GameThread::Start();
 }
 }

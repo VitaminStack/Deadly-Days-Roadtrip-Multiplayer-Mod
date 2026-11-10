@@ -6,9 +6,9 @@ namespace Spike
 {
 namespace
 {
-// Im Handler 0x584CD20: mov rcx,rax; mov rax,[rax]; call [rax+330h]; mov ebp,eax. Danach geht es bei +0xE weiter.
-const uintptr_t kRunEndLocalPlayerSite = Rva(0x584CD82);
-const uintptr_t kRunEndContinue = Rva(0x584CD90);
+// Im Handler 0x584DED0: mov rcx,rax; mov rax,[rax]; call [rax+330h]; mov ebp,eax. Danach geht es bei +0xE weiter.
+const uintptr_t kRunEndLocalPlayerSite = Rva(0x584DF32);
+const uintptr_t kRunEndContinue = Rva(0x584DF40);
 }
 
 // Wie der Spieler-Index-Helfer in Players.cpp: Ohne LocalPlayer gilt der Remote-Spieler als P2 (Index 1).

@@ -72,7 +72,7 @@ Lokale, netzwerkfreie Prüfung im aktuellen Checkout. `TODO.md` ist die einzige 
 | `py tools/task_status.py check` | Tabellen, Kennungen, „Braucht“, erzeugte Abschnitte und veraltete Querverweise prüfen, bei Abweichung Fehlercode |
 | `py tools/task_status.py update` | „Wo kann ich anfangen?“ in `TODO.md` sowie Zahlen und Balken im README neu erzeugen |
 
-Geprüft wird: eindeutige Kennungen, bekannte Kennungen und keine Kreise unter „Braucht“, gültige Werte für Prio, Bearbeitung und Spielzeit, alphabetische Tabelle „Erledigt“, keine alten Checkboxen. Außerdem durchsucht `check` alle versionierten Markdown-Dateien (ohne `third_party/`) nach Ankündigungen wie „kommt mit `x`“, „folgt erst in `x`“ oder „bis `x`“, obwohl `x` schon erledigt ist, und nennt Datei und Zeile; `update` zeigt dieselbe Liste nur an. Nicht gemeldet werden offene oder unbekannte Kennungen, die Aufgabenzeilen in `TODO.md` und gemergte Stände wie „bis `x` (#131)“. Wer eine Aufgabe abschließt, passt solche Sätze in derselben Änderung an. Die CI und `Build-Mod.ps1 -Test` führen `check` aus. Der Fortschritt zählt je Phase die erledigten gegen alle Aufgaben, ohne Wartung und optionale Optimierungen.
+Geprüft wird: eindeutige Kennungen, bekannte Kennungen und keine Kreise unter „Braucht“, gültige Werte für Prio, Bearbeitung und Spielzeit, alphabetische Tabelle „Erledigt“, keine alten Checkboxen. Außerdem durchsucht `check` alle versionierten Markdown-Dateien (ohne `third_party/`) nach Ankündigungen wie „kommt mit `x`“, „folgt erst in `x`“ oder „bis `x`“, obwohl `x` schon erledigt ist, und nennt Datei und Zeile; `update` zeigt dieselbe Liste nur an. Nicht gemeldet werden offene oder unbekannte Kennungen, die Aufgabenzeilen in `TODO.md` und gemergte Stände wie „bis `x` (#131)“. Wer eine Aufgabe abschließt, passt solche Sätze in derselben Änderung an. Die CI und `Build-Mod.ps1 -Test` führen `check` aus. Der Fortschritt zählt je Phase die erledigten gegen alle Aufgaben, ohne Wartung, optionale Optimierungen und Real Coop logic.
 
 ## dumper7/
 
@@ -99,9 +99,9 @@ powershell -ExecutionPolicy Bypass -File tools/Freeze-GameBuild.ps1 -Activate
 ```
 
 - Quelle bleibt `GameDir` aus `config/Local.props`, Standardziel ist `%LOCALAPPDATA%/DDCoop/builds/<Build>`.
-- `-Build <id>` wählt einen der unterstützten Builds aus `SupportedBuilds` in `tools/spike/Common.ps1`, Standard `26187885`. Jeder Build hat
+- `-Build <id>` wählt einen der unterstützten Builds aus `SupportedBuilds` in `tools/spike/Common.ps1`, Standard `26495302`. Jeder Build hat
   seine Hash-Referenz in `game_build.py` und einen eigenen Ordner. Start und Deploy erkennen den Build der aktiven Kopie an ihrem Beleg.
-  Auf einem anderen Build als `26187885` startet `Start-Session.ps1` nur ohne Spike (`-Mod -Tunnel Lobby -NoSpike`, als Client auch `-Tunnel Mod`), weil der Spike feste Adressen hat.
+  Der Spike kennt nur die Adressen des Referenz-Builds `26495302`; auf einem anderen Build setzt er keine Patches.
 - `-Destination <Ordner>` wählt ein anderes Ziel außerhalb aller `steamapps`-Ordner. Keine Hardlinks, Symlinks oder Junctions.
 - `-Activate` setzt `PinnedGameDir` in der gefundenen lokalen Konfiguration; in Worktrees ohne eigene `Local.props` ist das die gemeinsame Datei.
   Alle Skripte dieses Standes bevorzugen dann die Kopie. Bereits ältere Branches müssen die neue Startlogik erst übernehmen; nur der Konfigurationseintrag reicht dort nicht.
@@ -111,11 +111,11 @@ powershell -ExecutionPolicy Bypass -File tools/Freeze-GameBuild.ps1 -Activate
 
 ## rva_map.py
 
-Rechnet die Code- und Datenadressen der Mod (RVAs in `src/`) vom Referenz-Build `26187885` auf einen neuen Build um und schreibt die
+Rechnet die Code- und Datenadressen der Mod (RVAs in `src/`) vom Referenz-Build `26495302` auf einen neuen Build um und schreibt die
 Tabelle `src/Game/RvaMap<build>.inc` für `Game::AddressMap`. Braucht `capstone` (`py -m pip install --user capstone`), liest nur die beiden lokalen Exes.
 
 ```bash
-py tools/rva_map.py --old <kopie-26187885>/DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe --new <kopie-neu>/DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe --build 26495302 --write
+py tools/rva_map.py --old <kopie-26495302>/DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe --new <kopie-neu>/DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe --build <neuer-build> --write
 ```
 
 - `eindeutig`: Befehlsfolge ab der Adresse mit maskierten Sprung- und RIP-Verschiebungen genau einmal gefunden.
@@ -149,7 +149,7 @@ Prüft die Byte-Prüfungen der Patches (`Code::Expect` und `ExpectBranch`) offli
 wie `Game::AddressMap` über `src/Game/RvaMap<build>.inc` um. Für den Referenz-Build gelten sie unverändert.
 
 ```bash
-py tools/expect_check.py --exe <kopie>/DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe --build 26495302 --file ClientPatches.cpp PlayerPatches.cpp
+py tools/expect_check.py --exe <kopie>/DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe --build <build> --file ClientPatches.cpp PlayerPatches.cpp
 ```
 
 - `ok`, `abweichend` (mit gelesenen Bytes), `fehlt` (kein Tabelleneintrag), `uebersprungen` (Adresse aus lokaler Variable, prüft nur das Spiel).
@@ -167,7 +167,7 @@ Start an der erwarteten Stelle (`Game::Signatures`, vor dem ersten Hook). Passt 
 die Patches, die sie in `Patch::Sites` nennen, fallen aus (Log: `Signatur … passt nicht`, `Patches: ausgelassen`). Braucht `capstone`.
 
 ```bash
-py tools/patch_signatures.py generate --exe <kopie-26187885>/DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe --other <kopie-neu>/DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe 26495302 --write
+py tools/patch_signatures.py generate --exe <kopie-26495302>/DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe --other <kopie-neu>/DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe <neuer-build> --write
 py tools/patch_signatures.py check --exe <kopie>/DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe --build 26495302
 ```
 
@@ -179,6 +179,20 @@ py tools/patch_signatures.py check --exe <kopie>/DDSurvivors/Binaries/Win64/DDSu
   der Tabelle ab und vergleicht sie mit `Patch::Sites` (`abweichend`, Exitcode 1). `--write` schreibt die `<Name>Sites`-Felder. Fehlt eine
   Patch-Liste die Adresse eines Ticks, bleibt dessen Tick aus (`ListComplete`).
 - Neue Patches: Adresse eintragen, `generate --write`, dann `sites --write`.
+
+## check_patch_registry.py
+
+Offline-Regressionstest fuer neue Game-Patches ohne Steam, Spiel-EXE oder SDK. Prueft doppelte `Patch List[]`-Definitionen
+(wie den Compilerfehler aus PR #170), fehlende Check-/Apply-Funktionen, ungenutzte oder nicht vorhandene
+`Sites`-Arrays, Code-RVAs ohne Eintrag in `PatchSignatures.inc` und die Sortierung der Tabelle.
+
+```bash
+python -B tools/check_patch_registry.py
+python -B -m unittest tests.test_patch_registry
+```
+
+Beide Pruefungen laufen in der normalen Python-CI. **Grenze:** Die Eindeutigkeit der Byte-Muster in der echten
+Spiel-EXE muss weiterhin mit `patch_signatures.py check` geprueft werden; diese statische Pruefung ersetzt das nicht.
 
 ## Build-Mod.ps1
 
@@ -229,6 +243,21 @@ powershell -ExecutionPolicy Bypass -File tools/New-ReleasePackage.ps1 -Version <
 
 - Ohne `-Version` heißt das Paket `dev-<commit>`, die Versionsvergabe gehört zur Aufgabe `release`.
 - `-Bin <Ordner>` nimmt fertige DLLs statt neu zu bauen, `-OutputDir` wählt ein anderes Ziel als `dist/`.
+
+### Paket-Inhalt und Hashes vor dem Verteilen pruefen
+
+Der Release-Job der GitHub-Action `ci.yml` verwendet die bereits gebauten eigenen DLLs ohne Spiel, erstellt ein ZIP mit
+`New-ReleasePackage.ps1 -Bin` und verifiziert zwei x64-PE-DLLs, die erlaubte Dateiliste,
+Archivpfade sowie alle SHA256-Werte aus `SHA256SUMS.txt`. Auch verbotene Dateien,
+manipulierte Hashes und ungültige PE-Header werden in Python-Tests simuliert.
+
+```bash
+python -B tools/verify_release_package.py dist/DDCoop-<Version>.zip
+python -B -m unittest tests.test_release_package
+```
+
+Das prüft **keinen** Virenscanner, keine tatsächliche Installation, Steam oder Proton. Die zugehörige
+Abnahme bleibt in `virenscanner` bzw. `release` offen.
 
 ## spike/
 

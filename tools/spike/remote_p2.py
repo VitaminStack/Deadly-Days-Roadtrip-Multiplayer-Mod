@@ -1,4 +1,4 @@
-"""Read-only remote-P2 snapshot, build 26187885. No writes or native calls; not an atomic snapshot."""
+"""Read-only remote-P2 snapshot, build 26495302. No writes or native calls; not an atomic snapshot."""
 import argparse
 import json
 import struct
@@ -22,9 +22,9 @@ def snapshot(game):
         return False
 
     def weak(index, serial):
-        if index <= 0 or index >= game.i32(game.base + getattr(game, 'gobjects', 0xAA61B00) + 8):
+        if index <= 0 or index >= game.i32(game.base + getattr(game, 'gobjects', 0xAA67B80) + 8):
             return 0
-        chunks = game.ptr(game.base + getattr(game, 'gobjects', 0xAA61B00))
+        chunks = game.ptr(game.base + getattr(game, 'gobjects', 0xAA67B80))
         chunk = game.ptr(chunks + 8 * (index >> 16))
         item = chunk + (index & 0xFFFF) * 0x18 if chunk else 0
         return game.ptr(item + 8) if item and serial > 0 and game.i32(item + 0x10) == serial else 0

@@ -1,6 +1,8 @@
-# Offsets für Build 26187885
+# Offsets für Build 26495302
 
-Alle Werte gelten nur für UE `5.8.1-56057345`, Steam-Build `26187885`, Exe `DDSurvivors-Win64-Shipping.exe`.
+Der Quelltext (`src/`, Spike) nennt seit `spiel-update` (09.11.2026) RVAs von Steam-Build `26495302`, Exe `DDSurvivors-Win64-Shipping.exe`.
+Ältere Abschnitte dieser Datei sind vor dem Umstieg entstanden und nennen RVAs von `26187885`, siehe
+[Referenz-Build 26495302](#referenz-build-26495302-spiel-update) für die Umrechnung. Feld-Offsets sind in beiden Builds gleich, außer wo vermerkt.
 Nach einem Spiel-Update müssen sie neu bestimmt werden, siehe [Spiel-Updates](../CONTRIBUTING.md#spiel-updates).
 Sie sind hier zum Nachschlagen gesammelt, damit niemand sie erneut suchen muss. Wer neue findet, trägt sie hier ein.
 
@@ -8,9 +10,25 @@ RVAs sind relativ zur Image-Base `0x140000000`. Die Patchstellen stehen als Kons
 [Spike-Datei](../research/spikes/a-connect/README.md#dateien), ihre Bedeutung in der [Patch-Tabelle](../research/spikes/a-connect/README.md#patches).
 Die Spielfehler-Fixes nutzt auch die Mod, mit denselben Werten am Anfang von `src/Game/*Patches.cpp`, siehe [Patches der Mod](../src/Game/README.md#patches).
 
+## Referenz-Build 26495302 (`spiel-update`)
+
+Stand 09.11.2026. `Game::AddressMap::ReferenceBuild` ist `26495302`, `Core::SupportedBuilds`, `Common.ps1`, `game_build.py` und der
+Installer kennen nur noch diesen Build. Alle RVAs in `src/` und `research/spikes/a-connect` wurden mit der Tabelle aus `update-basis`
+(98 Einträge der Mod, 7 des Spikes) und 18 weiteren, mit `tools/rva_map.py` eindeutig umgerechneten Adressen aus Kommentaren ersetzt. Die
+Tabelle selbst ist entfernt; für alte Werte weiter unten: `git show 0cb3d80:src/Game/RvaMap26495302.inc` (Referenz-RVA `26187885` -> `26495302`).
+
+- Verzweigungen nach dem alten Build entfernt: `PanelIsDragging` fest `0x788`, Prüfungen von `HandleConfirmButton` und
+  `RepresentationSize` nur noch mit den Bytes von `26495302`. `PatchSignatures.inc`: Zeilen von `26187885` entfernt, die von `26495302` gelten für alle.
+- Offline gegen die Exe von `26495302`: `tools/expect_check.py` 74 `ok`, 2 `uebersprungen`; `tools/patch_signatures.py check` 89 `ok`.
+- Spieltest ein PC, `Start-Session.ps1 -Build -Mod -Tunnel Lobby -Godmode`: Host und Client `Signaturen: 89 Adressen geprüft`, `Patches: 44 gesetzt`,
+  `Spiel-Build 26495302`, Handshake bestätigt, Spike ohne fehlende Adresse. `Run-Route.ps1 -Days 2 -Godmode` Exitcode 0: MetaBase, Tag 1 (159/159 Kacheln),
+  Tag 2 (63/63), je 2/2 Spieler, Inventar gleich, kein `[ERROR]` im Mod-Log.
+- Drei Adressen nur aus Kommentaren ließen sich nicht umrechnen (Exec-Thunks von `ReceiveExp` und `HandleItemSold`, Absturzstelle in
+  `RepresentationSize`); die Kommentare nennen sie nicht mehr.
+
 ## Build 26495302 (`update-basis`)
 
-Stand 07.11.2026. Alle Werte dieser Datei bleiben Referenz-RVAs von `26187885`. Für `26495302` rechnet `Game::AddressMap` sie über
+Stand 07.11.2026, historisch. Bis zum Umstieg am 09.11.2026 blieben die Werte Referenz-RVAs von `26187885`. Für `26495302` rechnet `Game::AddressMap` sie über
 `src/Game/RvaMap26495302.inc` um, erzeugt mit [`tools/rva_map.py`](../tools/README.md#rva_mappy). Exe: TimeDateStamp `0x65BFBBFB`, SizeOfImage `0x0B748000`.
 
 | | 26187885 | 26495302 | Beleg |
@@ -78,6 +96,7 @@ Von Hand nachgetragen in `RvaMap26495302.inc` (Zeilen „von Hand“). Native Fu
 | Größe des Item-Widgets | `0x5AB5120` | `0x5ABA0F0` | alle 8 übertragbaren Aufrufer | umgeordnet, liest `+0xA28` weiter ungeprüft (`+0x41`) |
 | vtable `BackpackSlot` | `0x939CE08` | `0x93A1F98` | Konstruktor `0x5658829` | 84 Einträge wie vorher, `+0x200` → `0x1512430` |
 | vtable Achievement-Detektor | `0x94C1758` | `0x94C6A78` | `0x57C3A50` | 164 Einträge, `+0x3F0` → `DetectorEndPlay` `0x57D0C60` |
+| `InventoryComponent::HandleItemSold` (`lager-handel-client`) | `0x5967900` | `0x596BA70` | Exec-Thunk `0x57128B0` bzw. `0x57133D0` | keine, Prolog gleich |
 
 - `ScheduleCall` (`0x57CB5A5`, über den Funktionsanfang) ist derselbe Befehl, nur der rel32 hat sich verschoben. Die Prüfung vergleicht
   jetzt das Aufrufziel (`SetNextTick`) statt der rel32-Bytes und gilt damit für beide Builds.
@@ -112,8 +131,9 @@ Stand 07.11.2026, Dateien `MapPatches.cpp`, `TravelPatches.cpp`, `ExpPatches.cpp
   Inventar gleich. `SeamlessTravelToLevel` läuft ohne Absturz, der Client setzt die gemeinsame Kamera
   (`Kamera: gemeinsame Kamera gesetzt`), der Host beobachtet den Dash der Clients (`GA_Dash`).
 - Ohne Spike geht `Run-Route.ps1` nur bis Tag 1 (`!finish` fehlt).
-- Offen: XP-Bälle beim Client (Log `XP-Baelle: …` aus `ExpPatches.cpp`) und der Dash am Kamerarand. Beides braucht Gegner im Spiel, die ein
-  Mensch besiegt.
+- Nachtest 09.11.2026, ein PC, `Start-Session.ps1 -Build -Mod -Tunnel Lobby -NoSpike`, 44 Patches, Mensch spielte den Client: XP-Bälle
+  erscheinen beim Client (fünfmal `XP-Baelle: 1 Host-Ausstoss(e) angezeigt`, sichtbar leicht verzögert), der Client-Dash am Kamerarand
+  bleibt in der gemeinsamen Kamera. Kein Absturz. Damit ist `update-welt` bestätigt.
 
 ### Spike (`spike-build-26495302`)
 
@@ -306,6 +326,10 @@ Aufgabe `airdrop-auswahl`, Ablauf in [Airdrop-Auswahl](GAME_ANALYSIS.md#airdrop-
 | `UDataTable` `RowStruct`, `RowMap` | `+0x28`, `+0x30` | `RowMap` als TSet: Elemente `0x18` Byte (Wert bei `+8`), Anzahl `+0x38`, Belegungsbits ab `+0x40` oder Zeiger `+0x50`, freie Plätze `+0x64` |
 | `FRecipeTableRow` `OutputItem`, `OutputRarityOverride`, `RequiredItems` | `+0x18`, `+0x20`, `+0x28` | `RequiredItems` je `0x10`: Item, RequiredRarityOverride; Tabelle `DT_RecipeTable` |
 | `InventoryPanel.WorkbenchUnlock` | `+0x4D0` | `OnetimeUnlock_Workbench` |
+| `InventoryComponent::HandleItemSold` | `0x5967900` (`26495302`: `0x596BA70`), Exec-Thunk `0x57128B0` | `(this, Item)`, nativ; `RemoveFromBackpack`, `UnoccupyBackpackSlots`, `RemoveFromInventory(SoldForScrap)`, `RefreshItemEffects` (`lager-handel-client`) |
+| `ItemRepresentation.ConfirmSell`, `.ConfirmRepair` | `0x5AA2F60`, `0x5AA2DB0` (`26495302`: `0x5AA7E50`, `0x5AA7CA0`) | buchen Schrott lokal über `AddAmount`, dann `HandleItemSold` bzw. Server-RPC `RepairItem` |
+| `ADDMissionGameState.ScrapWallet`, `UAbstractCurrency.CurrencyAmount` | `+0x3C0`, `+0x100` | nicht repliziert; `AddAmount` begrenzt auf 0 bis INT32_MAX und löst `OnCurrencyChanged` aus |
+| `UInventoryItemInstance.GetDynamicRepairPrice` | `26495302`: `0x5965960` | Seltenheit `+0x54` mal Faktor, mal `DDGameStatsSubsystem +0xD0 / 8 + 1` |
 
 ### Coop
 
@@ -677,3 +701,38 @@ NetGUID-Cache und neue Actors, `tageswechsel`, nur Build `26187885`:
 | Stelle | Wert |
 |---|---|
 | `UFuelMeter` | `MaxRequiredFuel` `0xF4`, `CurrentFuel` `0xF8` (Net) |
+
+## Ausdauerbalken (`opt-ausdauerbalken`)
+
+Build `26495302`, Exec-Thunks `0x56C6000` und `0x56C54E0`, im Spieltest vom 10.11.2026 belegt.
+
+| Stelle | Wert |
+|---|---|
+| `OnRep_Stamina` | `0x57DDE40`, Prolog wie `OnRep_Health` |
+| `OnRep_MaxStamina` | `0x57DD080`, Prolog wie `OnRep_Health` |
+| `UDDCharacterAttributeSet` | `MaxStamina` `0x30`, `OnMaxStaminaChanged` `0x40`, `Stamina` `0x50`, `OnStaminaChanged` `0x60` |
+
+## Dev-Tab (`opt-dev-tab`, Entwicklerwerkzeug)
+
+Feldoffsets aus dem SDK, Aufrufe per `ProcessEvent`. Im Spieltest vom 09.11.2026 belegt.
+
+| Stelle | Wert |
+|---|---|
+| `AEnemySpawner` | `SelectionComponent` `0x3E8`; `SpawnSpecificEnemy` Parameter 0x90 Byte, `FTransform` bei `0x10`, Rückgabe `0x88` |
+| `UEnemySpawner_SelectionComponent` | `FallbackEnemyType` `0xE0` |
+| `AEnemyBase` | `Type` (`UEnemyType*`) `0x9B0` |
+| `UInventoryItemData` | `MinimumItemRarity` `0xF0`, `IsBag` `0x178`, `IsHiddenItem` `0x190` |
+| `ALootSpot` | `ItemLootTemplate` `0x2E0` |
+| `LootBlueprintFunctionLibrary.SpawnSpecificItemLoot` | Parameter 0x50 Byte, Ort `0x18`, Vorlage `0x38`, Rückgabe `0x48` |
+
+## Charakterwahl (`charakter-wahl`)
+
+Build `26495302`, Disassembly und SDK, im Spieltest vom 10.11.2026 belegt.
+
+| Stelle | Wert |
+|---|---|
+| `UCharacterDefinitionApplier::ApplyInitialCharacterDefinition` | `0x5837220`, Prolog `40 57 48 83 EC 20 80 B9 10 01` |
+| Definition anwenden (intern, aus `CharacterSelectionChanged`) | `0x5840DF0(Applier, Definition)`, Prolog `48 89 5C 24 10 48 89 74 24 18` |
+| `UCharacterDefinitionApplier` | `AppliedCharacterDefinition` (`TSoftObjectPtr`, Assetname bei `+0x10`) `0xE8` |
+| `UCharacterSelectionManager` | `CharacterDefinitions` `0x58`, `SelectedCharacters` (`TMap<int32, Def*>`) `0x68`, `SelectedCharacterID` `0xB8` |
+| Spielerindex des Appliers | vfunc `+0x330` von `Pawn.Controller.Player`, ohne LocalPlayer Index 0 |

@@ -1,8 +1,8 @@
 # Gemeinsame Helfer der Spike-Skripte. Pfade kommen aus config\Local.props.
 # Standard fuer neue Entwicklungskopien. Alle Builds mit Offsets/Patches in der Mod stehen in SupportedBuilds,
 # gleich gehalten mit tools/game_build.py (REFERENCES) und src/Core/Version.cpp.
-$script:SupportedBuild = '26187885'
-$script:SupportedBuilds = @('26187885', '26495302')
+$script:SupportedBuild = '26495302'
+$script:SupportedBuilds = @('26495302')
 # Nach Assert-SupportedBuild der tatsaechlich verwendete Build.
 $script:ActiveBuild = $null
 $script:RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
@@ -380,7 +380,7 @@ function Get-OverlayState([int]$ProcessId, [switch]$Window) {
     $Debug = [string]$Texts[2]
     $Lobby = [regex]::Match($Debug, 'Lobby: (\d+)')
     [pscustomobject]@{
-        State = ([string]$Texts[0]) -replace '^DDCoop \| ', ''
+        State = ([string]$Texts[0]) -replace '^DDCoop(?: v[0-9]+)? \| ', ''
         Message = [string]$Texts[1]
         Diagnostics = if ($Texts.Length -gt 4) { [string]$Texts[4] } else { '' }
         Role = [regex]::Match($Debug, 'Rolle: (\w+)').Groups[1].Value

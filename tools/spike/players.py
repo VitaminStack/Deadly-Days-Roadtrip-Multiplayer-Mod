@@ -1,4 +1,4 @@
-"""Read-only roster/hash audit: players.py <host-pid>. Build 26187885; non-atomic snapshot."""
+"""Read-only roster/hash audit: players.py <host-pid>. Build 26495302; non-atomic snapshot."""
 import json
 import struct
 import sys

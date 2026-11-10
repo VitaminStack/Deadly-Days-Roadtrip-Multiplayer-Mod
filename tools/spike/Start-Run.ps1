@@ -4,7 +4,7 @@
 # Der Ring loest nur beim Hineinlaufen aus. Steht die Figur schon darin, etwa nach einem Tod, geht sie erst hinaus.
 param(
     [int]$Seed,
-    # Mitte des Startrings in der MetaBase, Build 26187885. A laeuft auf dem Bildschirm nach links, also zu kleinerem Y.
+    # Mitte des Startrings in der MetaBase, Build 26495302. A laeuft auf dem Bildschirm nach links, also zu kleinerem Y.
     [int]$RingY = -684,
     [int]$RingRadius = 250,
     # Nur eine Zeile: Routenkarte offen oder nicht.

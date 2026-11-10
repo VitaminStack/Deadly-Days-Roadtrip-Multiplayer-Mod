@@ -54,6 +54,7 @@
     <ClCompile Include="ProjectilePatches.cpp" />
     <ClCompile Include="NetworkObjects.cpp" />
     <ClCompile Include="ConsoleAdapter.cpp" />
+    <ClCompile Include="DevAdapter.cpp" />
     <ClCompile Include="GameThread.cpp" />
     <ClCompile Include="HealthBarPatches.cpp" />
     <ClCompile Include="InventoryPatches.cpp" />
@@ -67,6 +68,8 @@
     <ClCompile Include="PlayerPatches.cpp" />
     <ClCompile Include="RemoteP2Patches.cpp" />
     <ClCompile Include="MapPatches.cpp" />
+    <ClCompile Include="BusBarPatches.cpp" />
+    <ClCompile Include="CharacterPatches.cpp" />
     <ClCompile Include="TravelPatches.cpp" />
     <ClCompile Include="WidgetPatches.cpp" />
     <ClCompile Include="SaveRedirect.cpp" />
@@ -74,6 +77,7 @@
     <ClCompile Include="TelemetryAdapter.cpp" />
     <ClCompile Include="BossBarAdapter.cpp" />
     <ClCompile Include="TutorialAdapter.cpp" />
+    <ClCompile Include="PauseAdapter.cpp" />
     <ClCompile Include="WorldAdapter.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -93,10 +97,12 @@
     <ClInclude Include="NetworkObjects.h" />
     <ClInclude Include="ConsoleAdapter.h" />
     <ClInclude Include="MapAdapter.h" />
+    <ClInclude Include="CharacterAdapter.h" />
     <ClInclude Include="MapPolicy.h" />
     <ClInclude Include="LocalDevicePolicy.h" />
     <ClInclude Include="MovementPolicy.h" />
     <ClInclude Include="DashAdapter.h" />
+    <ClInclude Include="DevAdapter.h" />
     <ClInclude Include="PatchPolicy.h" />
     <ClInclude Include="PatchRuntime.h" />
     <ClInclude Include="Patches.h" />
@@ -104,7 +110,6 @@
     <ClInclude Include="GameThread.h" />
     <ClInclude Include="Memory.h" />
     <ClInclude Include="AddressMap.h" />
-    <None Include="RvaMap26495302.inc" />
     <ClInclude Include="PatchSignatures.h" />
     <None Include="PatchSignatures.inc" />
     <ClInclude Include="Objects.h" />
@@ -115,6 +120,7 @@
     <ClInclude Include="BossBarAdapter.h" />
     <ClInclude Include="BossBarPolicy.h" />
     <ClInclude Include="TutorialAdapter.h" />
+    <ClInclude Include="PauseAdapter.h" />
     <ClInclude Include="WorldAdapter.h" />
   </ItemGroup>
   <ItemGroup>

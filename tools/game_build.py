@@ -11,17 +11,9 @@ import tempfile
 
 RECEIPT = '.ddcoop-build.json'
 # Standard fuer Skripte ohne --build. Weitere unterstuetzte Builds stehen in REFERENCES.
-BUILD = '26187885'
+BUILD = '26495302'
 # Lokal belegte Referenzen je Build aus docs/GAME_ANALYSIS.md, keine Versionsangabe aus einer editierbaren ACF.
 REFERENCES = {
-  '26187885': {
-    'DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe': '3afbf18e051fbceb1fec17a8da20165ba64e0f6c3c88cbe88cb046704a4eefb5',
-    'DDSurvivors/Content/Paks/DDSurvivors-Windows.pak': '68e6272f63219e928667c85938663e1044c3e7d5ffa1dc279ecc3e640001e3fa',
-    'DDSurvivors/Content/Paks/DDSurvivors-Windows.ucas': 'e9d5d3d978db4e6beb34078dfded4b602059345b1084dd783a4faae8d4653ab7',
-    'DDSurvivors/Content/Paks/DDSurvivors-Windows.utoc': 'e9dfef912c120fec38c66ed2f13ed5e7e95b3342fbe0d455aab036bb5a6ec2e9',
-    'DDSurvivors/Content/Paks/global.ucas': '22eb9df449492c0cacf5cb5e1f8584bf23ee5e655d96f01fb8b5159c45440d4e',
-    'DDSurvivors/Content/Paks/global.utoc': 'ece14ac99e2787b2cbea14444c285ae1c403750b1386bdc892fa341d3ec99e9a',
-  },
   # update-basis, 07.11.2026: Steam-Build nach dem Update, Depot 3026452 Manifest 2302428105354984436.
   '26495302': {
     'DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe': '4d012c685183b5b7d261ad0010fe12c5ef5dd2390faff11942cab7399967c9f5',

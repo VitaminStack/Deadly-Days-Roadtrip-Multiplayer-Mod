@@ -7,7 +7,7 @@ Jeder Spieler braucht eine eigene Kopie des Spiels auf Steam.
 Voraussetzung
 -------------
 - Windows, Spiel ueber Steam installiert.
-- Spiel-Build 26187885 oder 26495302. Andere Builds lehnt der Installer ab,
+- Spiel-Build 26495302. Andere Builds lehnt der Installer ab,
   und die Mod schaltet sich dort von selbst ab.
 - Das Spiel ist beendet.
 
@@ -30,6 +30,12 @@ Nur zwei Dateien in DDSurvivors\Binaries\Win64 im Spielordner:
   DDCoop\DDCoop.dll     die Mod selbst
 Spielstaende, Steam-Einstellungen und andere Spieldateien bleiben unberuehrt.
 Eine version.dll einer anderen Mod wird nie ueberschrieben.
+
+Virenscanner und Steam Deck
+---------------------------
+Manche Virenscanner halten die Mod fuer verdaechtig, weil sie sich ueber
+version.dll laedt. Pruefsummen stehen in SHA256SUMS.txt. Den Virenscanner
+nie ganz abschalten. Steam Deck und Proton sind nicht unterstuetzt.
 
 Ausfuehrliche Anleitung und Hilfe bei Fehlermeldungen:
 https://github.com/VitaminStack/Deadly-Days-Roadtrip-Multiplayer-Mod/blob/main/docs/INSTALL.md

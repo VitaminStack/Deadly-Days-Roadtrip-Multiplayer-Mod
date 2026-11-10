@@ -29,15 +29,20 @@
     <ClCompile Include="DesyncSync.cpp" />
     <ClCompile Include="Inventory\RewardSync.cpp" />
     <ClCompile Include="World\MapSync.cpp" />
+    <ClCompile Include="Players\CharacterSync.cpp" />
+    <ClCompile Include="Players\PauseSync.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Sync.h" />
+    <ClInclude Include="DevState.h" />
     <ClInclude Include="MovementState.h" />
     <ClInclude Include="ProgressState.h" />
     <ClInclude Include="DesyncState.h" />
     <ClInclude Include="ControlDispatch.h" />
     <ClInclude Include="Inventory\RewardState.h" />
     <ClInclude Include="World\MapState.h" />
+    <ClInclude Include="Players\CharacterState.h" />
+    <ClInclude Include="Players\PauseState.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

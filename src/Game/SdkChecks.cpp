@@ -22,8 +22,8 @@ constexpr bool CoreMatchesSdk(uint32_t Build)
            AddressMap::Map(Build, GWorld) == static_cast<uint32_t>(SDK::Offsets::GWorld) &&
            AddressMap::Map(Build, ProcessEvent) == static_cast<uint32_t>(SDK::Offsets::ProcessEvent);
 }
-static_assert(CoreMatchesSdk(AddressMap::ReferenceBuild) || CoreMatchesSdk(26495302),
-              "GObjects, GNames, GWorld oder ProcessEvent passen zu keinem unterstützten Build, siehe tools/rva_map.py");
+static_assert(CoreMatchesSdk(AddressMap::ReferenceBuild),
+              "GObjects, GNames, GWorld oder ProcessEvent passen nicht zum Referenz-Build, siehe tools/rva_map.py");
 static_assert(ProcessEventIndex == SDK::Offsets::ProcessEventIdx);
 
 static_assert(ObjectArray::NumElements == offsetof(SDK::TUObjectArray, NumElements));

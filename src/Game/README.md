@@ -66,13 +66,14 @@ Schreibende Zugriffe und Hooks folgen demselben Muster, siehe [Patches](#patches
 Die Fixes, ohne die keine Mission zu zweit läuft, kommen aus dem Spike (Aufgabe `patches`). Herkunft und Belege jeder Stelle stehen in
 der [Patch-Tabelle des Spikes](../../research/spikes/a-connect/README.md#patches). Die RVAs stehen als Konstanten am Anfang der jeweiligen Datei.
 
-Alle RVAs im Quelltext gelten für den Referenz-Build `26187885`. `At(Rva)` und `Memory::Rva` rechnen sie über `AddressMap` auf den laufenden
-Build um (Tabelle `RvaMap<build>.inc` aus [`tools/rva_map.py`](../../tools/README.md#rva_mappy)). Fehlt eine Adresse, liefern sie 0 und
+Alle RVAs im Quelltext gelten für den Referenz-Build `26495302` (seit `spiel-update`, vorher `26187885`, siehe
+[Offsets](../../docs/OFFSETS.md#referenz-build-26495302-spiel-update)). `At(Rva)` und `Memory::Rva` rechnen sie über `AddressMap` auf einen künftigen
+weiteren Build um (Tabelle `RvaMap<build>.inc` aus [`tools/rva_map.py`](../../tools/README.md#rva_mappy)). Fehlt eine Adresse, liefern sie 0 und
 protokollieren sie einmal; die Byte-Prüfungen schlagen dann fehl und keine Patch-Liste wird gesetzt. Neue RVAs immer als Referenz-RVA
 eintragen und für jeden weiteren Build in dessen Tabelle nachziehen. Feld-Offsets (`Offsets.h`) werden nicht umgerechnet.
 
 **Teilinstallation für die Portierung.** Mit `DDCOOP_PARTIAL_PATCHES=1` (`Start-Session.ps1 -PartialPatches`) setzt die Mod auf einem anderen
-Build als `26187885` jede Patch-Liste (eine `*Patches.cpp`) für sich ganz oder gar nicht; Ticks laufen nur für gesetzte Listen. Das Log nennt
+Build als `26495302` jede Patch-Liste (eine `*Patches.cpp`) für sich ganz oder gar nicht; Ticks laufen nur für gesetzte Listen. Das Log nennt
 ausgelassene Listen (`Liste … ausgelassen`) und die Summe. Nur zum Testen einzelner Portierungen: Hooks einer gesetzten Liste können Code einer
 ausgelassenen erreichen. Im Referenz-Build und ohne Schalter bleibt es bei allen Patches oder keinem.
 
@@ -439,6 +440,62 @@ beiden Pistolen. Der Host wertete im selben Lauf seine eigenen Pistolen ohne Feh
 sich Lager-Items nicht aufeinanderlegen), verkettete Aufwertungen, eine Ablehnung durch den Host und Aufwertungen am Tagesende
 (`EndOfDayUpgradeManager`). Diese Fälle decken die Unit-Tests ab. Das Tagesende läuft beim Host nativ am replizierten Inventar; beim
 Client gab es in allen Läufen keinen Aufruf von `UpgradeItems` außerhalb einer Bearbeitung.
+
+### Verkaufen und Reparieren beim Client
+
+Aufgabe `lager-handel-client`, Code in `RewardPatches.cpp` (Hook auf `HandleItemSold`, Beginn der Bearbeitung bei `RepairItem`,
+Host-Prüfung und Buchung, Schrott), `InventoryEdit.cpp` (`RepairItem` lokal, Zustand `Broken`, Zurückrollen), `InventoryEditPlan.h`
+(reine Logik mit Tests in `tests/GameTests/InventoryEditTests.cpp`) und `src/Sync/Inventory/RewardSync.cpp`. Format in
+[Kontrollkanal](../../docs/CONTROL_PROTOCOL.md#verkaufen-reparieren-und-schrott-mod-kompatibilität-9).
+
+**Befund vorher** (07.11.2026, Build `26495302`, Analyse der Exe, Adressen dieses Builds):
+
+- `ItemRepresentation.ConfirmSell` (`0x5AA7E50`) holt das Schrottkonto (`ADDMissionGameState.ScrapWallet`, `+0x3C0`), schreibt den Preis
+  mit `AbstractCurrency::AddAmount` **lokal** gut und ruft `UInventoryComponent::HandleItemSold` (`0x596BA70`, nativ, kein RPC). Das nimmt
+  das Item über die Inventar-RPCs heraus: `RemoveFromBackpack`, `UnoccupyBackpackSlots`, `RemoveFromInventory` mit `SoldForScrap` (2).
+- Reparieren läuft im Takt des Item-Widgets: Ist der Haltebalken voll, vergleicht es `CurrencyAmount` (`+0x100`) mit
+  `GetDynamicRepairPrice`. Bei zu wenig Schrott blinkt es rot, sonst zieht `ConfirmRepair` (`0x5AA7CA0`) den Preis **lokal** ab und
+  ruft den Server-RPC `InventoryComponent.RepairItem`.
+- `ScrapWalletComponent` repliziert nicht. Beim Client stand ein eigener Stand, Gutschrift und Abzug blieben lokal. Der Host entfernte
+  ein vom Client verkauftes Item ohne Schrott, eine Reparatur blieb an zu wenig Schrott hängen.
+- **Kaputte Items sperrt das Spiel selbst**, auch beim Host: Ein kaputtes Item lässt sich nicht in den Rucksack legen, nur verkaufen
+  oder reparieren (im Spiel geprüft). Ausrüsten geht also erst nach einer Reparatur.
+
+**Umsetzung:**
+
+- **Lokal beim Client:** Das native Panel verkauft und repariert wie im Solo-Spiel. Im Lager beginnt der erste Verkauf
+  (`SoldHook` vor `HandleItemSold`) oder die erste Reparatur (`RepairItem` in `FilterRewardEvent`) eine lokale Bearbeitung
+  wie die erste Aufwertung (`BeginLagerEdit`). Darin laufen die Entfern-RPCs lokal (das Item wird nicht zerstört), `RepairItem` lokal
+  (`Broken` wird heil, das Item lässt sich sofort ablegen). Gutschrift und Abzug des Panels sind nur Vorschau.
+- **Geteilt:** Der Edit (`0x303`) trägt je Item den Zustand kaputt; verkauft steht schon als `RemoveContext` drin. Dazu schickt der Host
+  seinen Schrott (`0x309`), der Client übernimmt ihn außerhalb einer Bearbeitung. So stimmt auch die native Vorprüfung beim Client.
+- **Entscheidet:** Der Host. Vor jeder Änderung prüft er jede Aktion am eigenen Bild: verkauft nur ein Ausgangs-Item ohne
+  Belohnungsflag, repariert nur ein bei ihm kaputtes Item, nie heil zu kaputt. Preise rechnet er selbst, `TradeBalance` prüft den
+  Schrott (erst Verkäufe, dann Reparaturen). Dann führt der Plan die nativen Funktionen aus: `RepairItem` vor dem Ablegen, Verkauf als
+  Entfernen mit `SoldForScrap`. Erst danach bucht er einmal mit `AddAmount` (`Handel: … gebucht`).
+- **Ablehnung:** Der Client rollt wie bei jedem Edit zurück; reparierte Items setzt er wieder kaputt (`StepKind::Break`, nur lokal),
+  verkaufte kommen zurück. Den Schrott gleicht danach der nächste Stand des Hosts an.
+- **Außerhalb einer Bearbeitung** verwirft der Client `HandleItemSold` und `RepairItem` (Warnung im Log), der Host verwirft ein direktes
+  `RepairItem` am Clientinventar. Ohne Lager gibt es beim Client keinen Verkauf, bei dem der Host keinen Schrott bucht.
+- **Grenze:** Die Chance auf eine kostenlose Reparatur (`FreeRepairChance`) würfelt nur das Panel des Clients; der Host bucht immer den
+  Preis. Die Vorschau des Clients gleicht der Stand des Hosts danach an.
+
+**Geprüft** (07.11.2026, Build `26495302`, ein PC, Lobby, nur Mod, ein Mensch spielte; kaputte Items per Speicherschreiben beim Host,
+Tank mit `fuel.py --fill`):
+
+- Lager Tag 1: Der Client verkaufte eine Pistole (+12) und reparierte einen Baseballschläger (18). Der Host prüfte „1 Verkäufe,
+  1 Reparaturen“, buchte einmal (Schrott 16 zu 10) und übernahm vollständig. Danach `Get-Status -Inventory` gleich, Schrott bei beiden
+  10, die Pistole bei beiden weg, der Schläger bei beiden heil im Rucksack.
+- Lager Tag 2, Ablehnung: Der Client reparierte Schrotflinte und Granate mit lokal erhöhtem Schrott. Der Host lehnte ab (27 reichen
+  nicht), der Client stellte den Ausgangsstand her (beide wieder kaputt, die Schrotflinte aus dem Rucksack) und übernahm 27.
+  Inventare gleich.
+- Der Spiegel übernahm Schrott aus der Mission laufend (auch lokal eingesammelten Schrott des Clients überschrieb der Stand des Hosts).
+- Gegenproben im selben Lauf: zwei Airdrops mit Wahl des Clients übernommen, Bestätigen im Lager an beiden Tagen mit Reise.
+- Der Reparaturversuch mit 16 Schrott scheiterte beim Client zu Recht (Preis 18). Der Tooltip zeigte 10, das ist nicht der native
+  Reparaturpreis. **Vermutung:** Er zeigt einen anderen Wert.
+
+**Nicht live geprüft:** Werkbank als Gegenprobe (ohne Spike lässt sie sich auf `26495302` nicht freischalten), Verkaufen im
+Airdrop-Panel, Verkaufen mehrerer Items auf einmal (`SellStashItems`) und `FreeRepairChance`. Die Unit-Tests decken die Regeln ab.
 
 ### Itemsack für alle Spieler
 

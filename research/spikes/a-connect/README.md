@@ -14,9 +14,9 @@ Gebaut und gestartet wird über die Skripte in `tools/spike/`, die auch den Cras
 
 ## Builds
 
-Der Quelltext nennt Code- und Datenadressen von `26187885`. `Rva()` in `Builds.cpp` rechnet sie für `26495302` um (Tabelle der Mod plus eigene Einträge,
-Werte in [OFFSETS.md](../../../docs/OFFSETS.md#spike-spike-build-26495302)). Neue Adressen immer als `Rva(0x…)` schreiben, relative Sprünge mit `ExpectBranch`
-prüfen, Importeinträge mit `FindImportSlot` suchen. Fehlt für einen neuen Build ein Eintrag, bleibt nur dieser Patch aus (Log: `Adresse fehlt`).
+Der Quelltext nennt seit `spiel-update` (09.11.2026) Code- und Datenadressen von `26495302`, die Abschnitte unten mit älterem Stand die von `26187885`
+([Umrechnung](../../../docs/OFFSETS.md#referenz-build-26495302-spiel-update)). `Rva()` in `Builds.cpp` liefert sie nur auf diesem Build, sonst `kMissingRva`.
+Neue Adressen immer als `Rva(0x…)` schreiben, relative Sprünge mit `ExpectBranch` prüfen, Importeinträge mit `FindImportSlot` suchen.
 
 ## Dateien
 
@@ -132,7 +132,7 @@ Beim Client setzt der Spike die Kamera jede Sekunde, beim Host nimmt er jede Sek
 | `!arm` | Host | Schaltet die Umleitung der Reise scharf |
 | `!finish` | Host | Ruft `FinishMission` auf |
 | `!cheats` | Host | Legt einen `UDDCheatManager` an, danach wirken die `DD_`-Befehle des Spiels |
-| `!give <ItemData> [Rarity]` | Host | Legt jedem Spielerinventar das Item über `CreateAndAddItem` an, es repliziert wie jede Vergabe (Testhilfe `werkbank-client`) |
+| `!give <ItemData> [Rarity] [broken]` | Host | Legt jedem Spielerinventar das Item über `CreateAndAddItem` an, mit `broken` kaputt; es repliziert wie jede Vergabe (Testhilfe `werkbank-client`, `lager-handel-client`) |
 | `!load <Pfad>` | Beide | Lädt ein Asset, etwa eine Blueprint-Klasse für einen SDK-Dump |
 | `!notutorial` | Beide | Meldet den Stand der Tutorial-Sperre. Der Spike schaltet die Hinweise ohnehin auf beiden Seiten selbst ab, sie halten sonst die Mission an |
 | `!round <n>` | Host | Ruft `TriggerEndRound` auf, Wert wie `ERoundChangeReason` |

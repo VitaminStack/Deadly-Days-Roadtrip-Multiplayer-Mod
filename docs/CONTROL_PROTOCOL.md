@@ -208,6 +208,23 @@ auf ein gleiches Item noch zu einem Rezept der Werkbank passt.
 `ItemData`-Objektnamens (4), Name der Seltenheit (1 Länge + bis 120 Byte, leer = keine). Bei Änderung sofort, sonst alle 5 s. Der Client
 setzt die Seltenheit nur, wenn die Daten an diesem Platz übereinstimmen.
 
+## Verkaufen, Reparieren und Schrott (Mod-Kompatibilität 9)
+
+Aufgabe `lager-handel-client`, Ablauf in [Verkaufen und Reparieren beim Client](../src/Game/README.md#verkaufen-und-reparieren-beim-client).
+Mod-Version 9, weil `0x303` ein neues Flag trägt und ein Host mit Version 8 die Reparatur nicht kennt und `0x309` fehlt.
+
+`0x303` Edit: Im Flag-Byte jedes Items steht zusätzlich Bit 4 = kaputt (`Broken`), Werte über 31 sind ungültig. Ein Item, das im
+Ausgangsbild kaputt war und im Edit heil vorhanden ist, gilt als repariert. Verkauft heißt nicht vorhanden mit `RemoveContext` 2
+(`SoldForScrap`); `RemoveContext` über 3 und ein vorhandenes Item mit `RemoveContext` ungleich 0 sind ungültig. Verkaufen dürfen nur
+Ausgangs-Items, nicht die Wahl, keine Eingabe und keine Ausgabe einer Aufwertung. Heil zu kaputt lehnt der Host ab, ebenso einen anderen
+Zustand der Wahl als im Angebot. Der Host rechnet die Preise selbst (`GetDynamicSellPrice`, `GetDynamicRepairPrice`), schreibt erst alle
+Verkäufe gut und zieht dann jede Reparatur ab; reicht sein Schrott für eine Reparatur nicht, lehnt er den ganzen Edit ab. Gebucht wird
+nach der Übernahme genau einmal und nur für tatsächlich entfernte bzw. reparierte Items.
+
+`0x309` Schrott, Host an Client: genau 4 Byte, Kontostand von `ScrapWalletComponent` beim Host (int32, 0 bis 1 000 000 000). Der Host
+prüft jede halbe Sekunde, sendet bei Änderung sofort, sonst alle 5 s, nur in einer Mission. Der Client gleicht sein eigenes Konto mit
+dem nativen `AddAmount` (Unterschied) an, nicht während einer lokalen Bearbeitung und nicht, solange ein Edit unbeantwortet ist.
+
 ## Rundenende (`rundenende-client`)
 
 `0x401` Host an Client, neben der Karte `0x400` aus `missionsstart` (`src/Sync/World`). Genau 16 Bytes: Karten-Id der Mission
@@ -229,6 +246,19 @@ geschätzte Richtung nähme.
 Aktivierung höchstens 250 ms an und startet sie dann mit der Meldung, sonst mit der geschätzten Richtung (Warnung im Log). Meldungen
 ohne Aktivierung verfallen nach 2 s. Der Host holt `0x500` in jedem Takt mit `TakeControlMessages(Type)` ab, die übrigen Familien
 weiter alle 250 ms. Kosten, Schub und Ende rechnet der Host nativ, die Ausdauer repliziert wie gewohnt.
+
+## Pausemenü (Mod-Kompatibilität 9)
+
+Aufgabe `pausen-sync`, Code in `src/Sync/Players` und `src/Game/PauseAdapter.cpp`, Befund im
+[Pausen-Spike](../research/spikes/pausen/README.md#umsetzung-pausen-sync-08112026). Mod-Version 9, weil ein Host mit Version 8 das
+Pausemenü des Clients nicht kennt und weiterliefe. Lokal bleibt das native Pausemenü samt Inventaransicht beim Client. Geteilt wird
+nur, ob es offen ist. Der Host entscheidet über die Weltzeit: Er setzt eine eigene Zeitanfrage mit den Werten seines Pausemenüs,
+die native Replikation von `WorldSettings` trägt die Pause zum Client.
+
+`0x700` Client an Host, genau 9 Bytes: Sitzung (8, ungleich 0, neu je Öffnen) und offen (1, 0 oder 1). Beim Öffnen und Schließen sofort,
+offen alle 500 ms, nach dem Schließen 3 s lang alle 500 ms. Der Host hält die Pause einer Sitzung, bis die Freigabe kommt, 3 s keine
+Meldung kam, seine Welt wechselt oder die Verbindung weg ist. Eine so beendete Sitzung pausiert nicht noch einmal, erst ein neues Öffnen.
+Pausen des Hosts brauchen keine Nachricht, sie replizieren nativ. Keine Antwort vom Host.
 
 ## Bisher geprüft (05.11.2026, Kontrollkanal vor Diagnoseerweiterung)
 

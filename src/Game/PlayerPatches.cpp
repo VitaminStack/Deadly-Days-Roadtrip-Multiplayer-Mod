@@ -18,20 +18,20 @@ namespace Game::Patches
 {
 namespace
 {
-constexpr uintptr_t SpawnNullSite = 0x5901CE8;
-constexpr uintptr_t SpawnSkipTarget = 0x5901E53;
-constexpr uintptr_t PlayerIndexNullSite = 0x5B0A2E5;
-constexpr uintptr_t SpawnerPlayerRead = 0x58CEDC7;
-constexpr uintptr_t SpawnerNoPlayerExit = 0x58CF2B7;
-constexpr uintptr_t LootPawnRead = 0x5994BB0;
-constexpr uintptr_t LootNoRootTarget = 0x5994BD1;
-constexpr uintptr_t ControllerSetAdd = 0x57BD5E0;
-constexpr uintptr_t ControllerSparseRemove = 0x12D6BA0;
-constexpr uintptr_t RegisterController = 0x58FB020;
-constexpr uintptr_t RegistrationBroadcast = 0x24E9410; // derselbe Broadcast wie DelegateBroadcast in RemoteP2Patches.cpp
-constexpr uintptr_t ClearSpawnArea = 0x5991B70;
-constexpr uintptr_t RunEndLocalPlayerSite = 0x584CD82;
-constexpr uintptr_t RunEndContinue = 0x584CD90;
+constexpr uintptr_t SpawnNullSite = 0x5904DE8;
+constexpr uintptr_t SpawnSkipTarget = 0x5904F53;
+constexpr uintptr_t PlayerIndexNullSite = 0x5B0FA95;
+constexpr uintptr_t SpawnerPlayerRead = 0x58CF517;
+constexpr uintptr_t SpawnerNoPlayerExit = 0x58CFA07;
+constexpr uintptr_t LootPawnRead = 0x5998D70;
+constexpr uintptr_t LootNoRootTarget = 0x5998D91;
+constexpr uintptr_t ControllerSetAdd = 0x57BDCD0;
+constexpr uintptr_t ControllerSparseRemove = 0x12D6D80;
+constexpr uintptr_t RegisterController = 0x58FD3A0;
+constexpr uintptr_t RegistrationBroadcast = 0x24E95F0; // derselbe Broadcast wie DelegateBroadcast in RemoteP2Patches.cpp
+constexpr uintptr_t ClearSpawnArea = 0x5995D30;
+constexpr uintptr_t RunEndLocalPlayerSite = 0x584DF32;
+constexpr uintptr_t RunEndContinue = 0x584DF40;
 
 constexpr uintptr_t GameModeSpawnedPlayers = 0x388;
 constexpr uintptr_t ActorOwner = 0x158;
@@ -233,22 +233,21 @@ void InstallControllerSwap()
 void AcceptClientPositions()
 {
     int Changed = 0;
-    const int32_t Total = Objects::Count();
-    for (int32_t i = 0; i < Total; ++i)
+    // Spielerfiguren leben im Level der Welt; dessen Actor-Liste ist viel kürzer als das Objekt-Array (host-lagspike).
+    const uintptr_t World = CurrentWorld();
+    const uintptr_t Level = World ? Memory::ReadPointer(World + Offsets::UWorld::PersistentLevel).value_or(0) : 0;
+    Objects::ForEachLevelActor(Level, [&](uintptr_t Object)
     {
-        const uintptr_t Object = Objects::At(i);
-        if (!Object || (ObjectFlags(Object) & Offsets::UObject::ClassDefaultObjectFlag))
-            continue;
         const auto Class = Memory::ReadPointer(Object + Offsets::UObject::Class);
         if (!Class || Memory::NameOf(*Class) != "BP_DD_Character_C" || Memory::Read<uint8_t>(Object + ActorRemoteRole) != uint8_t{2})
-            continue;
+            return;
         const auto Movement = Memory::ReadPointer(Object + CharacterMovement);
         const auto Flags = Movement ? Memory::Read<uint8_t>(*Movement + MovementFlags) : std::nullopt;
         if (!Flags || (*Flags & AcceptClientPositionFlags) == AcceptClientPositionFlags)
-            continue;
+            return;
         const uint8_t Value = *Flags | AcceptClientPositionFlags;
         Changed += Memory::WriteBytes(*Movement + MovementFlags, &Value, 1);
-    }
+    });
     if (Changed)
         Core::Log::Info("Client-Positionen angenommen: {}", Changed);
 }
@@ -368,8 +367,8 @@ bool CheckControllerRegistration()
     return Code::Expect(At(ControllerSetAdd), {0x40, 0x53, 0x56, 0x57, 0x41, 0x55, 0x48, 0x83, 0xEC, 0x38}, "TSet-Add der Controller") &&
            Code::Expect(At(ControllerSparseRemove), {0x40, 0x53, 0x48, 0x8B, 0x19, 0x48, 0x8B, 0xC1}, "TSparseArray-RemoveAt der Controller") &&
            Code::Expect(At(RegisterController), {0x48, 0x89, 0x5C, 0x24, 0x18}, "Controller-Registrierung") &&
-           ExpectBranch(At(0x58FB11D), CallRel32, ControllerSetAdd, "TSet-Add in der Registrierung") &&
-           ExpectBranch(At(0x58FB133), CallRel32, RegistrationBroadcast, "Broadcast in der Registrierung");
+           ExpectBranch(At(0x58FD49D), CallRel32, ControllerSetAdd, "TSet-Add in der Registrierung") &&
+           ExpectBranch(At(0x58FD4B3), CallRel32, RegistrationBroadcast, "Broadcast in der Registrierung");
 }
 
 bool ApplyControllerRegistration(Code::Writer&)
@@ -418,7 +417,7 @@ constexpr uintptr_t RemoteSpawnSites[] = {SpawnNullSite, SpawnSkipTarget};
 constexpr uintptr_t PlayerIndexSites[] = {PlayerIndexNullSite};
 constexpr uintptr_t LootSpawnerSites[] = {LootPawnRead, LootNoRootTarget};
 constexpr uintptr_t EnemySpawnerSites[] = {SpawnerPlayerRead, SpawnerNoPlayerExit};
-constexpr uintptr_t ControllerRegistrationSites[] = {ControllerSparseRemove, RegistrationBroadcast, ControllerSetAdd, RegisterController, 0x58FB11D, 0x58FB133};
+constexpr uintptr_t ControllerRegistrationSites[] = {ControllerSparseRemove, RegistrationBroadcast, ControllerSetAdd, RegisterController, 0x58FD49D, 0x58FD4B3};
 constexpr uintptr_t BusSites[] = {ClearSpawnArea};
 constexpr uintptr_t RunEndSites[] = {RunEndLocalPlayerSite, RunEndContinue};
 const Patch List[] = {

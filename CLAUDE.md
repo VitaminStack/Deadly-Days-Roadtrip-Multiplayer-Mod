@@ -1,6 +1,6 @@
 # Arbeitsregeln für KI-Agenten
 
-Online-Coop-Mod für Deadly Days: Roadtrip, unterstützter Build `26187885`. Mehrere Agenten arbeiten parallel. Dokumentation auf Deutsch, Code und Bezeichner auf Englisch.
+Online-Coop-Mod für Deadly Days: Roadtrip, unterstützter Build `26495302`. Mehrere Agenten arbeiten parallel. Dokumentation auf Deutsch, Code und Bezeichner auf Englisch.
 
 ## Fokus
 

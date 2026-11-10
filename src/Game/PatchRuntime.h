@@ -42,6 +42,7 @@ std::span<const Patch> RemoteP2Patches();
 std::span<const Patch> RewardPatches();
 std::span<const Patch> MapPatches();
 std::span<const Patch> LocalDevicePatches();
+std::span<const Patch> CharacterPatches();
 // Host: Figur, die bei RewardChest.OpenAirdropChoices die native Auswahl bekommt (die des Hosts statt des Remote-P2).
 uintptr_t RewardCharacter(uintptr_t Character);
 // Client: Wahr, wenn ProcessEvent einen Server-RPC mit einer lokalen Anzeige-Instanz der Airdrop-Auswahl nicht senden soll.
@@ -49,14 +50,20 @@ bool FilterRewardEvent(uintptr_t Object, uintptr_t Function, void* Params);
 
 // Host mit vollständiger P2-Bindung des Remote-Spielers: Coop-Subsystem, lokaler und Remote-Controller.
 bool BoundRemoteP2(uintptr_t& Coop, uintptr_t& Host, uintptr_t& Remote);
+// Host, aus ProcessEvent: Wahr, wenn das Ereignis Betreten oder Verlassen eines MetaBase-POI durch die Remote-Figur ist und
+// nicht laufen soll (charakter-wahl).
+bool FilterRemotePoiOverlap(uintptr_t Function, void* Params);
 
 void TickPlayers(NetRole Role, bool Second);
 void TickCamera(NetRole Role, bool Second);
+// opt-busbalken, Client: Ladebalken der Busabfahrt aus replizierten Daten.
+void TickBusBar(NetRole Role);
 void TickWidgets(NetRole Role);
 void TickProjectiles(NetRole Role, bool Second);
 void TickMovement(NetRole Role, bool Second);
 void TickRemoteP2(NetRole Role);
 void TickMap(NetRole Role, bool Second);
+void TickCharacters(NetRole Role, bool Second);
 
 // rundenende-client, aus MapPatches.cpp: Host merkt sich sein Rundenende in der aktuellen Welt.
 void NoteHostRoundEnd();

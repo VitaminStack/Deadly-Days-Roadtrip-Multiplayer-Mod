@@ -3,6 +3,7 @@
 #include <vector>
 
 #include "UI/UI.h"
+#include "Net/Protocol.h"
 
 namespace
 {
@@ -54,6 +55,10 @@ TEST_CASE("Native overlay lifecycle works without game SDK, Steam, focus changes
     UI::Start();
     HWND Window = WaitForOverlay();
     REQUIRE(Window != nullptr);
+    // Die Fensterbeschriftung bleibt sichtbar, auch wenn später ein anderer Tab offen ist.
+    wchar_t Title[128]{};
+    GetWindowTextW(Window, Title, 128);
+    CHECK(std::wstring(Title) == L"DDCoop v" + std::to_wstring(Net::Protocol::ModVersion) + L" - Status (F8)");
     UI::Start(); // Idempotent.
     CHECK(WaitForOverlay() == Window);
     CHECK_FALSE(IsWindowVisible(Window));
@@ -83,7 +88,19 @@ TEST_CASE("Native overlay lifecycle works without game SDK, Steam, focus changes
     std::vector<std::wstring> Texts;
     EnumChildWindows(Window, ReadStaticText, reinterpret_cast<LPARAM>(&Texts));
     REQUIRE(Texts.size() == 5);
-    CHECK(Texts[0].find(L"DDCoop | ") == 0);
+    const std::wstring ExpectedPrefix = L"DDCoop v" + std::to_wstring(Net::Protocol::ModVersion) + L" | ";
+    CHECK(Texts[0] == ExpectedPrefix + L"Offline");
+    // Auch bei Missionsstart und danach in der MetaBase bleibt die Versionsquelle identisch.
+    Status.State = UI::SessionState::Playing;
+    UI::Overlay().Publish(Status);
+    SendMessageW(Window, WM_TIMER, 1, 0);
+    Texts.clear();
+    EnumChildWindows(Window, ReadStaticText, reinterpret_cast<LPARAM>(&Texts));
+    REQUIRE(Texts.size() == 5);
+    CHECK(Texts[0] == ExpectedPrefix + L"Im Spiel");
+    Status.State = UI::SessionState::Offline;
+    UI::Overlay().Publish(Status);
+    SendMessageW(Window, WM_TIMER, 1, 0);
     CHECK(Texts[1] == L"Lobby test message");
     CHECK(Texts[2].find(L"Rolle:") != std::wstring::npos);
     CHECK(Texts[4] == L"Desync: test diagnostics");

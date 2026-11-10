@@ -5,7 +5,7 @@ import sys
 
 from ddmem import Game
 
-GOBJECTS = 0x0AA61B00
+GOBJECTS = 0x0AA67B80
 DRIVER_GUID_CACHE = 0x1C8
 ENTRY_SIZE = 0x40
 

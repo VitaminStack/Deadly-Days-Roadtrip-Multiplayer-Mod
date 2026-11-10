@@ -141,12 +141,14 @@ inline Game::InventoryEdit::Tile GetTile(std::span<const uint8_t> In, size_t At)
 {
     return {static_cast<int32_t>(Get(In, At, 4)), static_cast<int32_t>(Get(In, At + 4, 4))};
 }
-// Ein Item: 21 Byte plus 8 je belegtem Feld.
+// Ein Item: 21 Byte plus 8 je belegtem Feld. Flags: Bit 0 vorhanden, 1 im Rucksack, 2 Papierkorb, 3 Rucksackwirkung, seit Mod-Version 9
+// (lager-handel-client) Bit 4 kaputt. Verkauft heißt nicht vorhanden mit RemoveContext SoldForScrap (2).
 inline void PutItem(std::vector<uint8_t>& Out, const Game::InventoryEdit::ItemState& Item)
 {
     Put(Out, Item.Source, 2);
     Put(Out, Item.DataHash, 4);
-    Out.push_back(static_cast<uint8_t>((Item.Present ? 1 : 0) | (Item.InBackpack ? 2 : 0) | (Item.Trash ? 4 : 0) | (Item.AddEffect ? 8 : 0)));
+    Out.push_back(static_cast<uint8_t>((Item.Present ? 1 : 0) | (Item.InBackpack ? 2 : 0) | (Item.Trash ? 4 : 0) | (Item.AddEffect ? 8 : 0) |
+                                       (Item.Broken ? 16 : 0)));
     Out.push_back(Item.RemoveContext);
     Put(Out, static_cast<uint32_t>(Item.Turns), 4);
     PutTile(Out, Item.Pivot);
@@ -157,7 +159,7 @@ inline void PutItem(std::vector<uint8_t>& Out, const Game::InventoryEdit::ItemSt
 inline std::optional<Game::InventoryEdit::ItemState> GetItem(std::span<const uint8_t> In, size_t& At)
 {
     using namespace Game::InventoryEdit;
-    if (At + 21 > In.size() || In[At + 6] > 15 || In[At + 20] > MaxItemTiles || At + 21 + 8 * size_t(In[At + 20]) > In.size())
+    if (At + 21 > In.size() || In[At + 6] > 31 || In[At + 20] > MaxItemTiles || At + 21 + 8 * size_t(In[At + 20]) > In.size())
         return std::nullopt;
     ItemState Item;
     Item.Source = static_cast<uint16_t>(Get(In, At, 2));
@@ -166,6 +168,7 @@ inline std::optional<Game::InventoryEdit::ItemState> GetItem(std::span<const uin
     Item.InBackpack = In[At + 6] & 2;
     Item.Trash = In[At + 6] & 4;
     Item.AddEffect = In[At + 6] & 8;
+    Item.Broken = In[At + 6] & 16;
     Item.RemoveContext = In[At + 7];
     Item.Turns = static_cast<int32_t>(Get(In, At + 8, 4));
     Item.Pivot = GetTile(In, At + 12);
@@ -440,5 +443,36 @@ inline std::optional<Rarities> DecodeRarities(std::span<const uint8_t> In)
     if (At != In.size())
         return std::nullopt;
     return Value;
+}
+
+// Schrott, Host an Client (lager-handel-client, Mod-Version 9): genau 4 Byte, Kontostand des Hosts (int32, 0 bis MaxScrap). Der
+// Host prüft jede halbe Sekunde, sendet bei Änderung sofort, sonst alle 5 s. Der Client übernimmt ihn nur außerhalb einer
+// lokalen Bearbeitung.
+inline constexpr uint16_t ScrapType = 0x309;
+inline constexpr int32_t MaxScrap = 1000000000;
+
+struct Scrap
+{
+    int32_t Amount = 0;
+    bool operator==(const Scrap&) const = default;
+};
+
+inline std::vector<uint8_t> Encode(const Scrap& Value)
+{
+    if (Value.Amount < 0 || Value.Amount > MaxScrap)
+        return {};
+    std::vector<uint8_t> Out;
+    Detail::Put(Out, static_cast<uint32_t>(Value.Amount), 4);
+    return Out;
+}
+
+inline std::optional<Scrap> DecodeScrap(std::span<const uint8_t> In)
+{
+    if (In.size() != 4)
+        return std::nullopt;
+    const auto Amount = static_cast<int32_t>(Detail::Get(In, 0, 4));
+    if (Amount < 0 || Amount > MaxScrap)
+        return std::nullopt;
+    return Scrap{Amount};
 }
 }

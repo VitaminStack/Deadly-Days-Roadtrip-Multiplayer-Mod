@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <string_view>
 
 // Suche im globalen Objekt-Array (GObjects) und Aufrufe über ProcessEvent. Nur auf dem Game Thread aufrufen.
@@ -24,6 +25,10 @@ uintptr_t FindObject(std::string_view Name, std::string_view OuterName);
 
 // Erstes Objekt mit diesem Namen, gleich unter welchem Outer, etwa ein Klassen-Defaultobjekt. 0, wenn nicht gefunden.
 uintptr_t FindNamed(std::string_view Name);
+
+// Ruft Visit für jeden Actor in ULevel::Actors auf, leere Plätze ausgelassen. Viel kürzer als das globale
+// Objekt-Array; für Sekunden-Abgleiche über Actors der aktuellen Welt.
+void ForEachLevelActor(uintptr_t Level, const std::function<void(uintptr_t)>& Visit);
 
 // Ruft Function über ProcessEvent an Object auf. Params muss dem Parameterlayout der Funktion entsprechen.
 void ProcessEvent(uintptr_t Object, uintptr_t Function, void* Params);

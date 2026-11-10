@@ -1,6 +1,7 @@
 // Client: Lebensleisten über den Figuren. Sie hängen an UCommonAttributeSet::OnHealthChanged und OnMaxHealthChanged,
 // die das Spiel nur beim Host auslöst. Beim Client läuft für den replizierten Wert nur das OnRep, danach ruft der Hook
 // die angemeldeten Empfänger auf. Aus Spike HealthBars.cpp.
+// opt-ausdauerbalken: Dasselbe für den Ausdauerbalken (UDDCharacterAttributeSet::OnStaminaChanged und OnMaxStaminaChanged).
 #include <atomic>
 #include <vector>
 
@@ -15,19 +16,28 @@ namespace Game::Patches
 {
 namespace
 {
-constexpr uintptr_t OnRepHealth = 0x57DC840;
-constexpr uintptr_t OnRepMaxHealth = 0x57DCEA0;
+constexpr uintptr_t OnRepHealth = 0x57DC810;
+constexpr uintptr_t OnRepMaxHealth = 0x57DCE70;
+constexpr uintptr_t OnRepStamina = 0x57DDE40;
+constexpr uintptr_t OnRepMaxStamina = 0x57DD080;
 // FGameplayAttributeData: VTable, BaseValue, CurrentValue.
 constexpr uintptr_t AttributeCurrentValue = 0xC;
 constexpr uintptr_t MaxHealth = 0x30;
 constexpr uintptr_t OnMaxHealthChanged = 0x40;
 constexpr uintptr_t Health = 0xA0;
 constexpr uintptr_t OnHealthChanged = 0xC0;
+// UDDCharacterAttributeSet.
+constexpr uintptr_t MaxStamina = 0x30;
+constexpr uintptr_t OnMaxStaminaChanged = 0x40;
+constexpr uintptr_t Stamina = 0x50;
+constexpr uintptr_t OnStaminaChanged = 0x60;
 constexpr uintptr_t ObjectItemSerial = 0x10;
 
 using OnRepFn = void(__fastcall*)(uintptr_t, const void*);
 OnRepFn OriginalOnRepHealth = nullptr;
 OnRepFn OriginalOnRepMaxHealth = nullptr;
+OnRepFn OriginalOnRepStamina = nullptr;
+OnRepFn OriginalOnRepMaxStamina = nullptr;
 
 // FScriptDelegate: schwacher Zeiger (Index, Seriennummer), dann der FName der Funktion.
 struct ScriptDelegate
@@ -103,10 +113,24 @@ void __fastcall OnRepMaxHealthHook(uintptr_t Set, const void* Old)
     Broadcast(Set, OnMaxHealthChanged, Memory::Read<float>(Set + MaxHealth + AttributeCurrentValue).value_or(0.0f));
 }
 
+void __fastcall OnRepStaminaHook(uintptr_t Set, const void* Old)
+{
+    OriginalOnRepStamina(Set, Old);
+    Broadcast(Set, OnStaminaChanged, Memory::Read<float>(Set + Stamina + AttributeCurrentValue).value_or(0.0f));
+}
+
+void __fastcall OnRepMaxStaminaHook(uintptr_t Set, const void* Old)
+{
+    OriginalOnRepMaxStamina(Set, Old);
+    Broadcast(Set, OnMaxStaminaChanged, Memory::Read<float>(Set + MaxStamina + AttributeCurrentValue).value_or(0.0f));
+}
+
 bool CheckHealthBars()
 {
     return Code::Expect(At(OnRepHealth), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18}, "OnRep_Health") &&
-           Code::Expect(At(OnRepMaxHealth), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18}, "OnRep_MaxHealth");
+           Code::Expect(At(OnRepMaxHealth), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18}, "OnRep_MaxHealth") &&
+           Code::Expect(At(OnRepStamina), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18}, "OnRep_Stamina") &&
+           Code::Expect(At(OnRepMaxStamina), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18}, "OnRep_MaxStamina");
 }
 
 // Beim Host laufen die OnRep-Funktionen nicht, der Patch wirkt also nur beim Client.
@@ -115,13 +139,17 @@ bool ApplyHealthBars(Code::Writer&)
     return Core::Hooks::Install(reinterpret_cast<void*>(At(OnRepHealth)), reinterpret_cast<void*>(&OnRepHealthHook),
                                 reinterpret_cast<void**>(&OriginalOnRepHealth)) &&
            Core::Hooks::Install(reinterpret_cast<void*>(At(OnRepMaxHealth)), reinterpret_cast<void*>(&OnRepMaxHealthHook),
-                                reinterpret_cast<void**>(&OriginalOnRepMaxHealth));
+                                reinterpret_cast<void**>(&OriginalOnRepMaxHealth)) &&
+           Core::Hooks::Install(reinterpret_cast<void*>(At(OnRepStamina)), reinterpret_cast<void*>(&OnRepStaminaHook),
+                                reinterpret_cast<void**>(&OriginalOnRepStamina)) &&
+           Core::Hooks::Install(reinterpret_cast<void*>(At(OnRepMaxStamina)), reinterpret_cast<void*>(&OnRepMaxStaminaHook),
+                                reinterpret_cast<void**>(&OriginalOnRepMaxStamina));
 }
 
 // Je Patch die benutzten Adressen der Signaturtabelle, erzeugt von tools/patch_signatures.py sites.
-constexpr uintptr_t HealthBarsSites[] = {OnRepHealth, OnRepMaxHealth};
+constexpr uintptr_t HealthBarsSites[] = {OnRepHealth, OnRepMaxHealth, OnRepStamina, OnRepMaxStamina};
 const Patch List[] = {
-    {"Lebensleisten beim Client", &CheckHealthBars, &ApplyHealthBars, HealthBarsSites},
+    {"Lebens- und Ausdauerleisten beim Client", &CheckHealthBars, &ApplyHealthBars, HealthBarsSites},
 };
 }
 

@@ -13,8 +13,8 @@ namespace Game::Patches
 {
 namespace
 {
-constexpr uintptr_t SetClientTravel = 0x3262830;
-constexpr uintptr_t SeamlessTravelToLevel = 0x5976AD0;
+constexpr uintptr_t SetClientTravel = 0x3262A30;
+constexpr uintptr_t SeamlessTravelToLevel = 0x597ABB0;
 constexpr uintptr_t LoadSettingsPackage = 0x10;
 constexpr uintptr_t LoadingTimescaleManager = 0xE0; // ULoadingSubSystem::TimescaleManager
 constexpr uintptr_t TimescaleRequestCount = 0x50;   // UTimescaleManager::TimeRequests, Plätze der SparseArray

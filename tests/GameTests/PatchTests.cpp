@@ -213,6 +213,14 @@ TEST_CASE("Signaturen: Tabelle sortiert, eigene Build-Zeile vor der gemeinsamen,
     CHECK(Find(Rows, 0x20, 26187885) == 1);
     CHECK(Find(Rows, 0x30, 26187885) == -1);
     CHECK(Find(Rows, 0x40, 26495302) == -1);
+    // lager-handel-client: neue Hook-Adresse muss auch unter der zentralen Signaturpruefung liegen.
+    constexpr uint32_t SoldRva = 0x0596BA70;
+    const int SoldReference = Find(Table, SoldRva, 26495302);
+    REQUIRE(SoldReference >= 0);
+    CHECK(std::strcmp(Table[SoldReference].Name, "HandleItemSold") == 0);
+    const uint8_t SoldProlog[] = {0x48, 0x89, 0x5C, 0x24, 0x08, 0x57, 0x48, 0x83,
+                                  0xEC, 0x20, 0x45, 0x33, 0xC0, 0x48, 0x8B, 0xDA};
+    CHECK(Matches(Table[SoldReference].Pattern, SoldProlog));
     constexpr Entry Duplicate[] = {{0x10, 0, "AA", 0, "a"}, {0x10, 0, "AA", 0, "b"}};
     static_assert(!Sorted(Duplicate));
 
@@ -256,9 +264,10 @@ TEST_CASE("Patches: Teilinstallation setzt jede Liste ganz oder gar nicht")
 
 TEST_CASE("Patches: Teilinstallation nie im Referenz-Build oder ohne Schalter")
 {
-    CHECK(PartialInstallAllowed(true, 26495302));
-    CHECK_FALSE(PartialInstallAllowed(false, 26495302));
-    CHECK_FALSE(PartialInstallAllowed(true, 26187885));
+    // 26600000 steht für einen künftigen Build mit eigener Tabelle.
+    CHECK(PartialInstallAllowed(true, 26600000));
+    CHECK_FALSE(PartialInstallAllowed(false, 26600000));
+    CHECK_FALSE(PartialInstallAllowed(true, 26495302));
     CHECK_FALSE(PartialInstallAllowed(true, 0));
 }
 
@@ -694,6 +703,19 @@ TEST_CASE("Itemsack zählt beim Host für alle Spieler")
     CHECK_FALSE(ShareItemLoot(NetRole::Host, 2, 2));
     CHECK_FALSE(ShareItemLoot(NetRole::Client, 2, 1));
     CHECK_FALSE(ShareItemLoot(NetRole::Standalone, 2, 1));
+}
+
+TEST_CASE("Busbalken beim Client folgt Tank und Figuren im Bereich")
+{
+    CHECK(BusBarActive(true, 2, 2));
+    CHECK_FALSE(BusBarActive(false, 2, 2));
+    CHECK_FALSE(BusBarActive(true, 1, 2));
+    CHECK_FALSE(BusBarActive(true, 0, 0));
+    CHECK(BusBarElapsed(true, 0.0, 3.0, 0.5) == 0.5);
+    CHECK(BusBarElapsed(true, 2.9, 3.0, 0.5) == 3.0);
+    CHECK(BusBarElapsed(true, 1.0, 3.0, -1.0) == 1.0);
+    CHECK(BusBarElapsed(false, 2.0, 3.0, 0.1) == 0.0);
+    CHECK(BusBarElapsed(true, 1.0, 0.0, 0.1) == 0.0);
 }
 
 TEST_CASE("Busabfahrt und Rundenende entscheidet nur der Host")
