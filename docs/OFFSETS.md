@@ -714,3 +714,15 @@ Feldoffsets aus dem SDK, Aufrufe per `ProcessEvent`. Im Spieltest vom 09.11.2026
 | `UInventoryItemData` | `MinimumItemRarity` `0xF0`, `IsBag` `0x178`, `IsHiddenItem` `0x190` |
 | `ALootSpot` | `ItemLootTemplate` `0x2E0` |
 | `LootBlueprintFunctionLibrary.SpawnSpecificItemLoot` | Parameter 0x50 Byte, Ort `0x18`, Vorlage `0x38`, Rückgabe `0x48` |
+
+## Charakterwahl (`charakter-wahl`)
+
+Build `26495302`, Disassembly und SDK, im Spieltest vom 10.11.2026 belegt.
+
+| Stelle | Wert |
+|---|---|
+| `UCharacterDefinitionApplier::ApplyInitialCharacterDefinition` | `0x5837220`, Prolog `40 57 48 83 EC 20 80 B9 10 01` |
+| Definition anwenden (intern, aus `CharacterSelectionChanged`) | `0x5840DF0(Applier, Definition)`, Prolog `48 89 5C 24 10 48 89 74 24 18` |
+| `UCharacterDefinitionApplier` | `AppliedCharacterDefinition` (`TSoftObjectPtr`, Assetname bei `+0x10`) `0xE8` |
+| `UCharacterSelectionManager` | `CharacterDefinitions` `0x58`, `SelectedCharacters` (`TMap<int32, Def*>`) `0x68`, `SelectedCharacterID` `0xB8` |
+| Spielerindex des Appliers | vfunc `+0x330` von `Pawn.Controller.Player`, ohne LocalPlayer Index 0 |
