@@ -58,6 +58,8 @@ void TickPlayers(NetRole Role, bool Second);
 void TickCamera(NetRole Role, bool Second);
 // opt-busbalken, Client: Ladebalken der Busabfahrt aus replizierten Daten.
 void TickBusBar(NetRole Role);
+// opt-lootbalken, Client: Fortschrittsbalken der Lootstellen aus dem replizierten Wert.
+void TickLootBar(NetRole Role);
 void TickWidgets(NetRole Role);
 void TickProjectiles(NetRole Role, bool Second);
 void TickMovement(NetRole Role, bool Second);

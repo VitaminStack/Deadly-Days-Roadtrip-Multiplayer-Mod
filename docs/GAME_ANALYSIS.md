@@ -387,6 +387,23 @@ Stand 10.11.2026, Build `26495302`, zwei Instanzen auf einem PC, Mod mit Spike, 
 - **Nicht geprüft:** Verlassen des Busbereichs mitten in der Abfahrt (ob der Host den Balken ebenfalls zurücksetzt), zwei PCs. Die Suche nach dem Bus-Objekt hielt den Frame zweimal 13 bis 14 ms auf (`Takt: Busbalken …`), sie läuft höchstens einmal je Sekunde, bis der Bus gefunden ist.
 - **Hinweis zum Test:** Der Client stürzte in einem früheren Lauf nach rund 12 Minuten am bekannten Sensenmann-Fehler (`0x15C0407`, siehe [Wiederbelebung](#tod-des-clients-tod-client)); Läufe kurz halten.
 
+### Lootbalken beim Client (`opt-lootbalken`)
+
+Stand 11.11.2026, Build `26495302`, zwei Instanzen auf einem PC über die Lobby, Mod mit Spike, `-Godmode`, Client von Skript gesteuert, Speicher beider Seiten nur gelesen.
+
+- **[Belegt, SDK]** `BP_EnvironmentObjectLootspot_C` repliziert `Progress` (`+0x3C0`, double) und `IsLooting` (`+0x3C8`, RepNotify). Der Balken ist `Widget` (`+0x3A8`, `WBP_LootWidget_C`), dessen `UAbstractProgressWidget.Progress` (`+0x328`) die Blueprint-Funktion `Update Progress Indicator(double)` über `SetProgress` setzt. Der Name enthält Leerzeichen.
+- **[Belegt, Bytecode]** `OnRep_IsLooting` startet und stoppt nur den Sound (`FMODAudioComponent.Play`, `Stop`), für `Progress` gibt es keinen RepNotify.
+- **[Belegt, Live-Messung vor der Änderung]** Client und Host zeigen `Progress` im Gleichschritt (0 bis 0,99 in rund 1 s, Abstand etwa 30 ms). Beim Host folgt das Widget, beim Client blieb es auf 0. Die frühere Vermutung, dem Client fehle die Lootdauer, trifft nicht zu: Es fehlt nur der Aufruf ins Widget.
+- **Vermutung:** Dass nur ein Autoritätspfad das Widget treibt, ist nicht einzeln belegt, das Ubergraph enthält `HasAuthority`, die Sprünge wurden nicht nachvollzogen.
+- **[Belegt, Live-Messung]** Ende beim Host: `IsLooting` 0, `Progress` 1,0. Beim Client bleibt der letzte Stand stehen (`IsLooting` 1, `Progress` 0,96 bis 0,99), die letzte Änderung kommt nicht mehr an. Die Stelle bleibt bis zu rund 20 s bestehen, dann wird das Objekt freigegeben und der Speicher neu benutzt. Ein Versuch, nach Stillstand kurz vor dem Ende 1,0 zu setzen, änderte das Widget nicht und wurde wieder entfernt; 0,99 und 1,0 sind im Bild nicht zu unterscheiden.
+- **[Belegt, Live-Messung]** Abbruch durch Verlassen des Bereichs: `IsLooting` 0, `Progress` bleibt auf beiden Seiten stehen (gemessen 0,45, 0,75, 0,73, 0,84), kein Zurücksetzen. Beim Wiederkommen läuft der Balken ab diesem Wert weiter (0,73 bis 1,0 gemessen). Der Client zeigt dasselbe.
+- **Umsetzung** (`LootBarPatches.cpp`, `TickLootBar`, Regeln `LootBarValidProgress`, `LootBarNeedsUpdate`, `LootBarDone` in `PatchPolicy.h`, mit Tests): Ein Beobachter am vorhandenen ProcessEvent-Hook merkt sich beim Client jede Stelle, deren `OnRep_IsLooting` läuft. Je Takt gibt der Client den replizierten `Progress` an das native `Update Progress Indicator`, nur bei einer Änderung über 0,001. Kein Timer, keine Nachricht, kein neuer Hook, also keine `ModVersion`-Erhöhung.
+- **Antworten zum neuen Pfad:** Lokal bleibt die ganze Anzeige. Geteilt wird nichts Neues, `Progress` und `IsLooting` replizieren schon nativ. Es entscheidet weiter der Host, der Client ruft nur die Anzeige auf, die keine Spielwerte schreibt. Wiederverwendet wird der bestehende Beobachter-Pfad, ersetzt wird nichts. Ablehnung gibt es nicht; bei Verlust ist der nächste replizierte Wert maßgeblich, nach Join oder Reconnect meldet die Engine das abweichende `IsLooting` erneut (Vermutung, nicht getestet).
+- **Stabilität:** Jede gemerkte Stelle wird vor jedem Zugriff über ihren Platz im Objekt-Array geprüft (`Objects::At(Index) == Objekt`, dazu Klasse und Flags), freigegebener Speicher wird also nie als Lootstelle benutzt. Beim Weltwechsel vergisst die Mod Stellen und UFunctions. Die Liste ist auf 16 Einträge begrenzt.
+- **[Belegt, Live-Test 11.11.2026]** Vollständig durchsucht auf dem endgültigen Stand: eine Stelle ohne Fahrzeug als Eltern-Aktor am ersten Tag, eine Fahrzeug-Lootstelle am zweiten Tag. Das Client-Widget folgte dem Host mit etwa 20 ms Abstand (0,91 bei Host 0,96). Abbruch mittendrin und Fortsetzen bestanden, Kartenwechsel durch das Tagesende und erneutes Durchsuchen am nächsten Tag auch. Keine Absturzberichte, Inventare „vollständig, gleich“. Der Bildvergleich bei Fortschritt 0,45 zeigte Host und Client gleich; der Balken ist die Füllung des Sack-Symbols.
+- **Takt:** Die Suche der beiden UFunctions hielt den Frame je Mission einmal etwa 10 ms auf (`Takt: Lootbalken …`).
+- **Nicht geprüft:** zwei PCs. Eine Stelle mit eigener Kistenoptik ließ sich in den Testkarten nicht zuordnen. `BP_ChestLootSpot_C` (`Progress` nicht repliziert, kein Widget) und `BP_PowerUpCrate_C` rufen weder Widget noch Fortschrittsfunktionen auf, dort gibt es also keinen solchen Balken. Tonnen und Säcke sind als eigene Klasse nicht einzeln gemessen, sie laufen über dieselbe Blueprint-Klasse wie die getesteten Stellen.
+
 ### XP-Bälle beim Client (`xp-baelle`)
 
 Stand 04.11.2026, Build `26187885`. Beim Spieltest fiel auf: Der Client sieht die XP-Bälle nicht. Ursache bisher nur aus dem lokalen SDK abgeleitet, im Spiel nicht gemessen.
@@ -1895,7 +1912,8 @@ lesend der Speicher des Clients (Objekt- und Funktionsliste, keine Eingaben, kei
 - **[Gemeldet] Der Lootbalken fehlt beim Client** (Fortschritt beim Durchsuchen von Kisten, Tonnen und Säcken). **[Belegt, Client]**
   `BP_EnvironmentObjectLootspot_C` hat `OnLootingUpdate`, `OnRep_IsLooting`, `ExecuteLooting` und `TryPlayFinishedLootingSound`; beim
   Client gab es 75 davon und 29 `WBP_LootWidget_C`. **Vermutung:** Der Host treibt den Balken in `OnLootingUpdate`, beim Client kommt nur
-  das replizierte `IsLooting` an. Lokal zuerst: Balken beim Client aus `IsLooting` und der Lootdauer selbst laufen lassen.
+  das replizierte `IsLooting` an. Lokal zuerst: Balken beim Client aus `IsLooting` und der Lootdauer selbst laufen lassen. Behoben und
+  genauer belegt unter [Lootbalken beim Client](#lootbalken-beim-client-opt-lootbalken): Auch `Progress` repliziert, ein eigener Timer ist unnötig.
 - **[Gemeldet] Kein Geräusch, wenn der Client mit dem Dash gegen ein Objekt prallt.** Seit `ausweichen-client` führt der Host den Dodge
   des Clients nativ aus. **Vermutung:** Der Aufprall und sein Sound laufen deshalb nur beim Host.
 - **[Belegt, Client] Inventar weiter abweichend.** Der Desync-Melder des Clients meldete ab spätestens 12:44 (Log-Zeit, UTC) alle 30 s
