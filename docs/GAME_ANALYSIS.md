@@ -374,6 +374,19 @@ Stand 10.11.2026, Build `26495302`, zwei Instanzen auf einem PC, Mod mit Spike.
 - **Umsetzung:** `HealthBarPatches.cpp` umschließt beide OnRep-Funktionen wie die der Lebensleisten und ruft danach die angemeldeten Empfänger auf. Keine neue Nachricht, keine zweite Replikation.
 - **[Belegt, Live-Test]** Der Host weicht aus, der Client sieht seinen Ausdauerbalken wie der Host selbst (vom Nutzer im Bild bestätigt).
 
+### Busbalken beim Client (`opt-busbalken`)
+
+Stand 10.11.2026, Build `26495302`, zwei Instanzen auf einem PC, Mod mit Spike, Tank beim Host per Speicherschreiben auf 120 von 120, Busflucht vom Nutzer.
+
+- **[Belegt, SDK]** Der Balken ist `WP_Bus_Countdown_Display_C` (`BusProgressBar`, `Progress` `+0x348`, `UpdateBusProgress(double)`) im `CountDownWidget` (`+0x3B8`) des Kindaktors `BP_SpawnAndLeaveBus_C`. Die Abfahrt treibt das Blueprint über `OnStartBusTimerTick` und `UpdateBusProgressDisplay` (`ElapsedTime` `+0x428`, `RequiredTime` `+0x420`, `UpdateInterval` `+0x490`). Die Aktor-Felder sind nicht repliziert.
+- **[Belegt, Live-Messung]** Beim Host stieg der Fortschritt auf 1,0 (`ElapsedTime` 3,05 s von `RequiredTime` 3,0 s, `tankFull` 1). Beim Client blieben Fortschritt, `ElapsedTime` und `tankFull` die ganze Abfahrt über auf 0, obwohl `PlayersInBusRange` (`+0x2D8`) auf beiden Seiten 2 zeigte und der Tank repliziert war.
+- **[Belegt, früherer Befund]** Beim Client liefert `CanBusTakeOff` immer nein (`CanBusTakeOffHook`, [Busabfahrt nur beim Host](#busabfahrt-nur-beim-host-bus-ende)), weil ihm der GameMode fehlt. Ein lokaler Start über das native Blueprint ist darum kein Weg.
+- **[Belegt, Live-Messung mit 20 Hz]** Beim Host schaltet das Blueprint die Sichtbarkeit des `CountDownWidget` (Komponentenflag `0x43` auf `0x63`) mit dem Start der Abfahrt ein und lässt `ElapsedTime` in 0,05-s-Schritten bis 3,05 s laufen; der Fortschritt des Widgets folgt geglättet, in rund 2,6 s von 0 auf 0,96.
+- **Umsetzung** (`BusBarPatches.cpp`, `TickBusBar`, Regeln `BusBarActive` und `BusBarElapsed` in `PatchPolicy.h`, mit Tests): Beim Client gilt die Abfahrt als gestartet, wenn der Tank des Missions-GameStates voll ist (`FuelMeter`, `CurrentFuel` ≥ `MaxRequiredFuel`, repliziert) und `PlayersInBusRange` alle Figuren der `PlayerArray` enthält. Dann macht die Mod das `CountDownWidget` mit der nativen `SceneComponent.SetVisibility` sichtbar und setzt den Fortschritt mit `WP_Bus_Countdown_Display_C.UpdateBusProgress` aus der lokal gezählten Zeit (`RequiredTime` `+0x420`). Entfällt eine Bedingung vor dem Ende, blendet sie den Balken aus und setzt ihn zurück. Abfahrt und Rundenende entscheidet weiter der Host. Keine neue Nachricht, keine Änderung an `CanBusTakeOffHook`.
+- **[Belegt, Live-Test 10.11.2026]** Tank beim Host auf 120 von 120 gesetzt, beide Figuren am Bus: Der Client-Balken lief im Gleichschritt mit dem des Host (0 bis 0,96 in rund 2,6 s), die Komponente wurde sichtbar, Mod-Log „Busbalken: Abfahrt beim Client abgeleitet (Tank voll, 2 von 2 Figuren im Bereich)“. Der Nutzer sah den Balken im Client-Fenster laufen.
+- **Nicht geprüft:** Verlassen des Busbereichs mitten in der Abfahrt (ob der Host den Balken ebenfalls zurücksetzt), zwei PCs. Die Suche nach dem Bus-Objekt hielt den Frame zweimal 13 bis 14 ms auf (`Takt: Busbalken …`), sie läuft höchstens einmal je Sekunde, bis der Bus gefunden ist.
+- **Hinweis zum Test:** Der Client stürzte in einem früheren Lauf nach rund 12 Minuten am bekannten Sensenmann-Fehler (`0x15C0407`, siehe [Wiederbelebung](#tod-des-clients-tod-client)); Läufe kurz halten.
+
 ### XP-Bälle beim Client (`xp-baelle`)
 
 Stand 04.11.2026, Build `26187885`. Beim Spieltest fiel auf: Der Client sieht die XP-Bälle nicht. Ursache bisher nur aus dem lokalen SDK abgeleitet, im Spiel nicht gemessen.

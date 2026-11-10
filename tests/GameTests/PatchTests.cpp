@@ -705,6 +705,19 @@ TEST_CASE("Itemsack zählt beim Host für alle Spieler")
     CHECK_FALSE(ShareItemLoot(NetRole::Standalone, 2, 1));
 }
 
+TEST_CASE("Busbalken beim Client folgt Tank und Figuren im Bereich")
+{
+    CHECK(BusBarActive(true, 2, 2));
+    CHECK_FALSE(BusBarActive(false, 2, 2));
+    CHECK_FALSE(BusBarActive(true, 1, 2));
+    CHECK_FALSE(BusBarActive(true, 0, 0));
+    CHECK(BusBarElapsed(true, 0.0, 3.0, 0.5) == 0.5);
+    CHECK(BusBarElapsed(true, 2.9, 3.0, 0.5) == 3.0);
+    CHECK(BusBarElapsed(true, 1.0, 3.0, -1.0) == 1.0);
+    CHECK(BusBarElapsed(false, 2.0, 3.0, 0.1) == 0.0);
+    CHECK(BusBarElapsed(true, 1.0, 0.0, 0.1) == 0.0);
+}
+
 TEST_CASE("Busabfahrt und Rundenende entscheidet nur der Host")
 {
     CHECK(BusTakeOffMayDecide(false));
