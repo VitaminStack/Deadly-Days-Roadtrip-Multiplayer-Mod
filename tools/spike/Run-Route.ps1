@@ -19,7 +19,12 @@ param(
     # Zufalls-Seed, und der erste Knoten wird gesucht statt aus -Nodes genommen.
     [switch]$NoSpike,
     # Spike-Godmode fuer beide Spieler, nach jedem Laden erneut an, damit der Lauf nicht durch einen Tod endet.
-    [switch]$Godmode
+    [switch]$Godmode,
+    # Vergleicht nach jeder Ankunft, kurz vor dem Tagesende und auf der Routenkarte Tag, Uhr, Tank und Missionsziele beider Seiten
+    # (day_state.py, braucht den Testkanal der Mod). Jede Abweichung zaehlt wie eine fehlgeschlagene Pruefung.
+    [switch]$DayState,
+    # Mit -DayState: so lange in jeder Mission bleiben, bevor sie endet, damit Uhr, Nacht und Gefahr laufen.
+    [int]$DaySeconds = 0
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Common.ps1')
@@ -60,6 +65,16 @@ function Start-Check([string]$Label, [string[]]$Extra) {
     $Process = Start-Process py -ArgumentList $Arguments -RedirectStandardOutput $Out -NoNewWindow -PassThru
     $null = $Process.Handle # Ohne fruehen Zugriff auf das Handle liefert ExitCode spaeter nichts.
     $Process
+}
+
+# Tag, Uhr, Tank und Missionsziele beider Seiten (nur mit -DayState). Rohdaten je Zeitpunkt unter <Label>-day.json.
+function Invoke-DayState([string]$Label) {
+    if (-not $DayState) { return }
+    $Lines = & py (Join-Path $PSScriptRoot 'day_state.py') $Session.Host $Session.Client --json (Join-Path $RunDir "$Label-day.json")
+    $Code = $LASTEXITCODE
+    $Lines | Where-Object { $_ -match '^[!~]' } | ForEach-Object { Write-Output "         $_" }
+    Write-Output ("{0,-16} {1}" -f $Label, ($Lines | Select-Object -Last 1))
+    if ($Code -ne 0) { $script:Failed = $true }
 }
 
 function Invoke-Check([string]$Label, [string[]]$Extra, $Process) {
@@ -128,6 +143,11 @@ for ($Day = 1; $Day -le $Days; $Day++) {
     Invoke-Check "tag$Day" @() $Pending
     if ($Godmode -and $WithSpike) { foreach ($Id in $Session.Host, $Session.Client) { Send-SpikeCommand $Id '!god on' } }
     Save-Shots "tag$Day"
+    Invoke-DayState "tag$Day-ankunft"
+    if ($DayState -and $DaySeconds -gt 0) {
+        Start-Sleep -Seconds $DaySeconds
+        Invoke-DayState "tag$Day-spaet"
+    }
     if ($Day -eq $Days -and $StayLast) { break }
 
     # Rundenuebersicht, Fortsetzen, Lager bestaetigen bei Host und Client, wie Travel-Day.ps1.
@@ -143,6 +163,7 @@ for ($Day = 1; $Day -le $Days; $Day++) {
         }
     }
     & $GameInput Host shot (Join-Path $RunDir "route-$($Day + 1).png") | Out-Null
+    Invoke-DayState "tag$Day-route"
 }
 Write-Output "Ergebnisse in $RunDir"
 if ($Failed) { exit 1 }

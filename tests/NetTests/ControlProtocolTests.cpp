@@ -20,6 +20,8 @@ TEST_CASE("Testkanal: Befehle werden zerlegt")
 {
     CHECK(ParseCommand("state")->Kind == CommandKind::State);
     CHECK(ParseCommand("  state \r\n")->Kind == CommandKind::State);
+    CHECK(ParseCommand("day")->Kind == CommandKind::Day);
+    CHECK_FALSE(ParseCommand("day 1"));
     CHECK(ParseCommand("lobby create")->Kind == CommandKind::LobbyCreate);
     CHECK(ParseCommand("lobby invite")->Kind == CommandKind::LobbyInvite);
     CHECK(ParseCommand("lobby leave")->Kind == CommandKind::LobbyLeave);

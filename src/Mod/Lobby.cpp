@@ -10,6 +10,7 @@
 
 #include "Core/Log.h"
 #include "Game/ConsoleAdapter.h"
+#include "Game/DayView.h"
 #include "Game/GameThread.h"
 #include "Game/WorldAdapter.h"
 #include "Net/Session.h"
@@ -295,6 +296,8 @@ std::string Execute(const Net::Control::Command& Command)
     auto& Lobby = State();
     if (Command.Kind == CommandKind::State)
         return Net::Control::OkReply(DescribeState());
+    if (Command.Kind == CommandKind::Day)
+        return Net::Control::OkReply(Game::DescribeDayView());
     if (Command.Kind == CommandKind::Console || Command.Kind == CommandKind::Travel)
     {
         if (Command.Kind == CommandKind::Travel)
