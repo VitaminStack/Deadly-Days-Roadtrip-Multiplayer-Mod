@@ -47,7 +47,11 @@ param(
     # eigenes -UserDir; Stop-Session.ps1 entfernt sie wieder. Das Skript wartet auf den Prozess, den Steam startet.
     [switch]$SteamLaunch,
     # Nur auf einem anderen Build als 26495302: Patch-Listen einzeln setzen (DDCOOP_PARTIAL_PATCHES), fuer die Portierung.
-    [switch]$PartialPatches
+    [switch]$PartialPatches,
+    # Beide Instanzen starten mit einer Kopie des echten Spielstands (nur die .sav der obersten Ebene, gelesen, nie veraendert) statt mit einem
+    # leeren: Ein frischer Spielstand zeigt eine karge MetaBase ohne Freischaltungen, etwa ohne Figurenauswahl. Die Kopie liegt unter research\local
+    # und wird bei jedem Start neu angelegt, auch die Mod-Staende SaveGames_DDCoop der Testordner. Nicht mit Tests, die einen frischen Stand erwarten.
+    [switch]$RealSave
 )
 $ErrorActionPreference = 'Stop'
 # Start-Process vererbt die Umgebung an die Instanzen.
@@ -135,8 +139,24 @@ function Get-TransportArgument([string]$Name) {
 }
 # Fensterursprung auf einem anderen Monitor: DDCOOP_WIN_ORIGIN="X,Y" (virtuelle Desktop-Koordinaten), Standard 0,0.
 $script:OriginX, $script:OriginY = if ($env:DDCOOP_WIN_ORIGIN) { $env:DDCOOP_WIN_ORIGIN -split ',' | ForEach-Object { [int]$_ } } else { 0, 0 }
+# Legt den Spielstand des Testordners neu an: Das Spiel liest unter -UserDir aus Saved\SaveGames, die Mod kopiert daraus beim ersten Start
+# nach Saved\SaveGames_DDCoop (siehe docs\GAME_ANALYSIS.md, mod-saves). Geloescht wird nur unter research\local\session.
+function Initialize-RealSave([string]$UserDir) {
+    $Source = Join-Path $env:LOCALAPPDATA 'DDSurvivors\Saved\SaveGames'
+    if (-not (Test-Path -LiteralPath $Source -PathType Container)) { throw "-RealSave: Spielstand nicht gefunden: $Source" }
+    $Saved = Join-Path $UserDir 'Saved'
+    foreach ($Folder in 'SaveGames', 'SaveGames_DDCoop') {
+        $Path = [IO.Path]::GetFullPath((Join-Path $Saved $Folder))
+        if (-not $Path.StartsWith($script:SessionDir, [StringComparison]::OrdinalIgnoreCase)) { throw "Unerwarteter Pfad: $Path" }
+        if (Test-Path -LiteralPath $Path) { Remove-Item -LiteralPath $Path -Recurse -Force }
+    }
+    $Target = Join-Path $Saved 'SaveGames'
+    New-Item -ItemType Directory -Force -Path $Target | Out-Null
+    Get-ChildItem -LiteralPath $Source -Filter '*.sav' -File | Copy-Item -Destination $Target
+}
 function Start-Instance([string]$Name, [int]$X) {
     $UserDir = Join-Path $script:SessionDir "ud_$Name"
+    if ($RealSave) { Initialize-RealSave $UserDir }
     $Arguments = @('-windowed', '-ResX=800', '-ResY=450', "-WinX=$($X + $script:OriginX)", "-WinY=$script:OriginY", '-nosplash', "-UserDir=`"$UserDir`"") + (Get-TransportArgument $Name)
     if ($NetSim) { $Arguments += "-ddcoop_netsim=$NetSim" }
     # Testkanal der Mod (Pipe mit Antworten), siehe Common.ps1 Test-ModControl.
