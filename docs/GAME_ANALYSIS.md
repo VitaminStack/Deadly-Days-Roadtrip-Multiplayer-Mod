@@ -413,8 +413,8 @@ Stand 11.11.2026, Build `26495302`. Gemeldet im [Live-Test vom 10.11.](#live-tes
 fehlen die Warnanzeigen sprintender und spuckender Zombies.
 
 - **[Belegt, SDK und Speicher]** Wer sprintet und spuckt: `BigEnemy` und `FirefighterEnemy` haben `GA_TackleAttack_C`, `BloaterEnemy`
-  und `IceBloaterEnemy` `GA_BlobThrower_C` / `GA_BlobThrower_Ice_C` (`UEnemyType.AttackAbilitiesWithoutWeights` `+0x1D8`). Weitere Kreise
-  zeigen Sprungangriffe (`GA_SmallJumpAttack_C` bei `StandardEnemy`, `NurseEnemy`) und Bosse.
+  und `IceBloaterEnemy` `GA_BlobThrower_C` / `GA_BlobThrower_Ice_C` (`UEnemyType.AttackAbilitiesWithoutWeights` `+0x1D8`). **Vermutung:** Weitere
+  Kreise zeigen Sprungangriffe (`GA_SmallJumpAttack_C` bei `StandardEnemy`, `NurseEnemy`) und Bosse, im Test kam keiner davon vor.
 - **[Belegt, SDK]** Beide Anzeigen sind lokale Niagara-Komponenten der Angriffsfähigkeit, ohne Net-Feld und ohne RPC:
   - **Kreis:** `UEnemyAttackAbility::SpawnCircleTelegraph(System, Ort, Delay, Lifetime, Size, AutoDestroy, Pool, Attached)` (`Final, Native`),
     beim Projektil gemerkt in `AProjectile::OptionalProjectileTelegraph` (`+0x378`, kein Net-Feld). Auch das Projektil trägt kein
@@ -435,7 +435,8 @@ fehlen die Warnanzeigen sprintender und spuckender Zombies.
   [Kontrollkanal](CONTROL_PROTOCOL.md#warnanzeigen-der-gegner-mod-kompatibilität-11)): Hooks auf die fünf nativen Funktionen melden nur
   beim Host. Kreis: Systempfad, Ort, Zeiten, Parameternamen; der Client spawnt dasselbe System über `SpawnSystemAtLocation` und setzt die
   Parameter mit `SetVariableFloat`. Strich: NetGUID des Gegners, an, Stand (höchstens alle 50 ms) und aus; der Client ruft an seiner
-  eigenen `UTackleAbilityExecution` des Gegners dieselben nativen Funktionen und blendet mit `Deactivate` aus.
+  eigenen `UTackleAbilityExecution` des Gegners dieselben nativen Funktionen und blendet wie `ExecuteTackle` über die
+  virtuelle Funktion `+0xAD0` der Niagara-Komponente aus.
 - **Antworten zum neuen Pfad:** Lokal bleibt die ganze Darstellung (Niagara-System, Länge, Farbwechsel, Ende). Geteilt wird nur der
   Auslöser je Anzeige, weil die Fähigkeit nur beim Host läuft. Es entscheidet der Host, beim Client entsteht weder Schaden noch Sprint.
   Wiederverwendet werden der Kontrollkanal und die nativen Anzeigefunktionen, ersetzt wird nichts. Ablehnung gibt es nicht; Verlust kostet
@@ -458,8 +459,13 @@ fehlen die Warnanzeigen sprintender und spuckender Zombies.
   - **Zwei weitere Läufe mit dem endgültigen Stand** (Suche gecacht, Zeiten beim Host auf 0 bis 600 s geklemmt, verworfene Nachrichten
     im Log): Host 52 Kreise / 6 Striche, Client 51 / 6; danach mit Kartenwechsel Host 39 / 4, Client 38 / 4, keine Absturzberichte.
     In beiden Läufen fehlte genau ein Kreis, ohne „verworfen“ beim Senden oder Empfangen, der Transport meldete 0 verworfene Pakete.
-    **Vermutung:** Die Anzeige kam beim Client in einem Moment ohne Client-Rolle oder Welt an (früher Rücksprung). Dieser Weg zählt seitdem
-    als „übersprungen“ (nicht mehr im Spiel geprüft). Ein fehlender Kreis von rund 50 verhindert das Erkennen der Angriffe nicht.
+    **[Belegt, Code]** Ursache: `Sync::Start` holt `0x900` jeden Takt gezielt ab, alle 250 ms nimmt der gebündelte Abruf aber alle übrigen
+    Nachrichten, und keine Familie kannte `0x900`. Kam eine Anzeige zwischen beiden Abrufen an, war sie weg. Seitdem gibt der Client auch
+    `0x900` aus dem gebündelten Abruf weiter. Dieselbe Lücke betrifft vermutlich `0x500` (Dodge-Richtung) beim Host.
+  - **Letzter Lauf mit dem endgültigen Stand** (Abrufkorrektur, Ausblenden über `+0xAD0`): Host 49 Kreise / 6 Striche, Client 49 / 6,
+    keine Absturzberichte. Ein erster Strich-Start fand die Komponente noch nicht und wurde mit dem nächsten Stand gezeigt.
+  - **[Belegt, Bild]** Gleichzeitige Bildpaare (beide Fenster im Abstand weniger Millisekunden): Host und Client zeigen denselben weißen
+    Sprint-Strich vom `BigEnemy` zur Figur; nach dem Sprint ist er auf beiden Seiten weg.
   - **[Belegt, Bild]** Host und Client zeigen im selben Moment den roten Warnkreis unter der getroffenen Figur, ein Bild vorher beide keinen.
   - **Takt:** Das erste Auflösen des Systempfads je Welt hielt den Frame einmal 14 bis 25 ms auf, eine Suche der Strich-Komponente über das
     Objekt-Array etwa 14 ms. Die Suche ist seitdem gecacht und auf vier je Sekunde begrenzt.

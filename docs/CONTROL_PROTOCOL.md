@@ -273,7 +273,7 @@ Länge und Ende des Strichs. Geteilt wird nur der Auslöser je Anzeige. Der Host
 sonst 0), Ort (3 × double; Kreis: Mitte, Strich-Stand: Ziel), Delay, Lifetime, Size, Percentage (je float), dann vier Texte mit je einem
 Längenbyte (höchstens 200 druckbare ASCII-Zeichen): Pfad des Niagara-Systems und die Namen der drei Parameter aus der Fähigkeit des
 Hosts. Nur der Kreis trägt Texte, nur der Strich eine NetGUID. Den Strich-Stand schickt der Host höchstens alle 50 ms je Gegner
-und beim Anteil 1. Der Client holt `0x900` in jedem Takt ab. Ein fehlendes System oder ein unbekannter Gegner wird übersprungen,
+und beim Anteil 1. Der Client holt `0x900` in jedem Takt ab und nimmt sie auch aus dem gebündelten Abruf alle 250 ms. Ein fehlendes System oder ein unbekannter Gegner wird übersprungen,
 Verlust kostet nur eine Anzeige. Ohne Nachricht blendet der Client einen Strich nach 3 s, einen Kreis nach Delay + Lifetime + 1 s aus,
 der Weltwechsel vergisst alles. Keine Antwort, keine Wiederholung, kein Nachholen bei Join oder Travel.
 

@@ -1,7 +1,7 @@
 // opt-gegner-indikatoren: Warnanzeigen der Gegnerangriffe beim Client. Die Angriffsfähigkeiten laufen nur beim Host, ihre
 // Niagara-Anzeigen entstehen dort lokal und replizieren nicht (kein Net-Feld, kein RPC). Lokal zuerst: Der Host meldet über
 // TakeEnemyTelegraphs nur den Auslöser, der Client baut die Anzeige mit dem nativen Niagara-System selbst auf:
-// - Kreis (UEnemyAttackAbility::SpawnCircleTelegraph, Spucken, Sprünge, Bosse): dasselbe System am selben Ort mit denselben
+// - Kreis (UEnemyAttackAbility::SpawnCircleTelegraph, Spucken; vermutlich auch Sprünge, Bosse): dasselbe System am selben Ort mit denselben
 //   Parametern über UNiagaraFunctionLibrary::SpawnSystemAtLocation.
 // - Strich (UTackleAbilityExecution, Sprinter): die eigene Komponente des Gegners beim Client, über ihre nativen Funktionen
 //   ActivateLineTelegraph und CalculateLineTelegraphEndPoint; Farbwechsel und Länge rechnet sie selbst. Aus: Deactivate.
@@ -45,6 +45,10 @@ constexpr uintptr_t TackleBlocked = 0x268;     // bool aus der Disassembly: gese
 // UActorComponent::OwnerPrivate (ohne Reflexionsdaten), aus der Disassembly von ActivateLineTelegraph.
 constexpr uintptr_t ComponentOwner = 0xA8;
 constexpr uint32_t GarbageOrUnreachable = 0x30;
+// UNiagaraComponent: virtuelle Funktion, mit der ExecuteTackle den Strich ausblendet (Disassembly, `0x58B1F64`).
+constexpr uintptr_t LineHideVirtual = 0xAD0;
+// Größe der Exe im Speicher reicht bis knapp 0xB000000; nur als Plausibilitätsgrenze für den vtable-Eintrag.
+constexpr uintptr_t ImageSpan = 0x10000000;
 
 constexpr size_t MaxQueued = 64;
 // Der Host ruft CalculateLineTelegraphEndPoint jeden Frame; 20 je Sekunde reichen für die Anzeige.
@@ -503,10 +507,26 @@ ClientState::Line* ClientLine(uint64_t Enemy, bool Create, ULONGLONG Now)
     return &C.Lines.back();
 }
 
+// Wie ExecuteTackle beim Host: virtuelle Funktion +0xAD0 der Niagara-Komponente, nur mit der Komponente als Argument. Liegt der
+// Eintrag nicht in der Exe, bleibt es beim allgemeinen Deactivate.
+void HideLineComponent(uintptr_t Component)
+{
+    const uintptr_t Table = Memory::ReadPointer(Component).value_or(0);
+    const uintptr_t Function = Table ? Memory::ReadPointer(Table + LineHideVirtual).value_or(0) : 0;
+    const uintptr_t Image = Memory::ImageBase();
+    if (Function && Image && Function > Image && Function < Image + ImageSpan)
+    {
+        reinterpret_cast<void(__fastcall*)(uintptr_t)>(Function)(Component);
+        return;
+    }
+    Deactivate(Component);
+}
+
 void HideLine(ClientState::Line& Line)
 {
     if (Line.Active && StillThere(Line.Execution))
-        Deactivate(Memory::ReadPointer(Line.Execution.Object + LineTelegraph).value_or(0));
+        if (const uintptr_t Component = Memory::ReadPointer(Line.Execution.Object + LineTelegraph).value_or(0))
+            HideLineComponent(Component);
     Line.Active = false;
 }
 

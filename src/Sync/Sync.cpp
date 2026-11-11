@@ -85,20 +85,34 @@ namespace
 {
 // opt-gegner-indikatoren: Host meldet je Warnanzeige eines Gegnerangriffs den Auslöser, der Client zeigt sie lokal. Jeder Takt,
 // die Anzeige ist zeitkritisch. Ohne Mitspieler werden die Meldungen nur verworfen.
-void TickTelegraphs(Net::Transport& Transport)
+void DropTelegraph(const char* What, int Kind)
 {
     static int Dropped = 0;
-    const auto Drop = [](const char* What, int Kind) {
-        if (Dropped < 8 && ++Dropped)
-            Core::Log::Warn("Warnanzeigen: {} verworfen (Art {})", What, Kind);
-    };
+    if (Dropped < 8 && ++Dropped)
+        Core::Log::Warn("Warnanzeigen: {} verworfen (Art {})", What, Kind);
+}
+
+// Client: Anzeigen aus einem Paketfenster. Auch der gebündelte Abruf alle 250 ms kann eine `0x900` enthalten, die nach dem
+// eigenen Abruf im selben Takt ankam; ohne diesen Weg ginge sie verloren.
+void ReceiveTelegraphs(std::span<const Net::ControlMessage> Messages)
+{
+    for (const auto& Message : Messages)
+    {
+        if (Message.Value.Type != Telegraph::Type)
+            continue;
+        if (const auto Value = Telegraph::Decode(Message.Value.Payload))
+            Game::ReceiveEnemyTelegraph(*Value);
+        else
+            DropTelegraph("Nachricht des Hosts", Message.Value.Payload.empty() ? 0 : Message.Value.Payload[0]);
+    }
+}
+
+void TickTelegraphs(Net::Transport& Transport)
+{
+    const auto Drop = DropTelegraph;
     if (!Transport.Stats().IsHost)
     {
-        for (const auto& Message : Transport.TakeControlMessages(Telegraph::Type))
-            if (const auto Value = Telegraph::Decode(Message.Value.Payload))
-                Game::ReceiveEnemyTelegraph(*Value);
-            else
-                Drop("Nachricht des Hosts", Message.Value.Payload.empty() ? 0 : Message.Value.Payload[0]);
+        ReceiveTelegraphs(Transport.TakeControlMessages(Telegraph::Type));
         return;
     }
     const auto Values = Game::TakeEnemyTelegraphs();
@@ -157,6 +171,8 @@ void Start(const Core::Config& Config, DiagnosticSink Diagnostics)
                 Family(Batch);
             };
         };
+        if (Transport && !Transport->Stats().IsHost)
+            ReceiveTelegraphs(Messages);
         DispatchControls(Messages, Timed("Sync-Fortschritt", TickProgress), Timed("Sync-Desync", TickDesync),
                          Timed("Sync-Belohnung", TickReward), Timed("Sync-Karte", TickMap), Timed("Sync-Pause", TickPause),
                          Timed("Sync-Charakter", TickCharacter));

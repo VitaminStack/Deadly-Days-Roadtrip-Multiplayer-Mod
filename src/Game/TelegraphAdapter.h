@@ -11,7 +11,7 @@ namespace Game
 {
 enum class TelegraphKind : uint8_t
 {
-    Circle = 1,     // UEnemyAttackAbility::SpawnCircleTelegraph: Kreis am Boden (Spucken, Sprünge, Bosse)
+    Circle = 1,     // UEnemyAttackAbility::SpawnCircleTelegraph: Kreis am Boden (Spucken; vermutlich auch Sprünge und Bosse)
     LineStart = 2,  // UTackleAbilityExecution::ActivateLineTelegraph: Strich vor dem Sprint
     LineUpdate = 3, // UTackleAbilityExecution::CalculateLineTelegraphEndPoint: Ziel und Anteil des Strichs
     LineEnd = 4,    // UTackleAbilityExecution::ExecuteTackle oder EndTackle: Strich aus
