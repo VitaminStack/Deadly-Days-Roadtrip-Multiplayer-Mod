@@ -359,6 +359,7 @@ Funktionen von `ULocalCoopSubsystem` und ihre Aufrufer, Ablauf siehe [Coop-Ablau
 | Figur spawnen | `0x5901C60` | Gleiche VTable, Slot 234, Spike-Patch bei `0x5901CE8` |
 | Moduswechsel: Coop aus und Coop wieder an | `0x5914B30`, `0x593BCA0` | |
 | `APlayerController::GetLocalPlayer` | `0x2E706D0` | |
+| `DDMissionGameInstance.TriggerEndRound` (Implementierung) | `0x5907ED0` | `(this, ERoundChangeReason)`: `NewDay` 1, `Win` 2, `Lose` 3. Aufrufer `FinishMission` und Exec-Thunk. Hook `run-ende`: Host meldet die Niederlage, Client führt sie nie aus |
 | Handler je Controller beim Run-Ende | `0x584CD20` | `GetLocalPlayer()` und `+0x330` ohne Nullprüfung bei `0x584CD82`, weiter bei `0x584CD90`. Spike-Patch `RunEnd.cpp` |
 | `UGameInstance::CreateLocalPlayer` | `0x2A6B5B0` | |
 | `UGameplayStatics::GetPlayerController` | `0x2A76140` | |
@@ -725,6 +726,9 @@ Feldoffsets aus dem SDK, Aufrufe per `ProcessEvent`. Im Spieltest vom 09.11.2026
 | `AEnemyBase` | `Type` (`UEnemyType*`) `0x9B0` |
 | `UInventoryItemData` | `MinimumItemRarity` `0xF0`, `IsBag` `0x178`, `IsHiddenItem` `0x190` |
 | `ALootSpot` | `ItemLootTemplate` `0x2E0` |
+| `BP_EnvironmentObjectLootspot_C` | `Widget` `0x3A8`, `Progress` `0x3C0` (double, Net), `IsLooting` `0x3C8` (RepNotify); Funktion `Update Progress Indicator(double)` mit Leerzeichen im Namen ([Lootbalken](GAME_ANALYSIS.md#lootbalken-beim-client-opt-lootbalken)) |
+| `UAbstractProgressWidget` | `Progress` `0x328` |
+| `UObject` | `InternalIndex` `0x0C` |
 | `LootBlueprintFunctionLibrary.SpawnSpecificItemLoot` | Parameter 0x50 Byte, Ort `0x18`, Vorlage `0x38`, Rückgabe `0x48` |
 
 ## Charakterwahl (`charakter-wahl`)

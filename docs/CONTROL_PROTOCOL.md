@@ -227,11 +227,12 @@ dem nativen `AddAmount` (Unterschied) an, nicht während einer lokalen Bearbeitu
 
 ## Rundenende (`rundenende-client`)
 
-`0x401` Host an Client, neben der Karte `0x400` aus `missionsstart` (`src/Sync/World`). Genau 16 Bytes: Karten-Id der Mission
-(`HostMap::Id`, 8) und Id des Rundenendes (8), beide zufällig und ungleich 0. Zweimal 0 heißt kein Rundenende. Der Host schickt die
-Nachricht bei jeder Änderung und sonst jede Sekunde, bis er die Welt verlässt. Der Client beendet seine Runde nur, wenn die Karten-Id zu
-der Karte passt, die er in dieser Welt vom Host übernommen hat, und jede Id nur einmal. Ohne Mod-Versionswechsel: Eine ältere Gegenseite
-kennt `0x401` nicht, dann bleibt der Client wie bisher in der Mission und folgt der Reise.
+`0x401` Host an Client, neben der Karte `0x400` aus `missionsstart` (`src/Sync/World`). Genau 17 Bytes: Karten-Id der Mission
+(`HostMap::Id`, 8), Id des Rundenendes (8), beide zufällig und ungleich 0, und der Ausgang des Runs (`RunOutcome`, 1: 0 Tagesende,
+1 Niederlage, 2 Sieg, seit `run-ende`). Alles 0 heißt kein Rundenende, andere Werte des Ausgangs und ein Ausgang ohne Ids werden
+abgelehnt. Der Host schickt die Nachricht bei jeder Änderung und sonst jede Sekunde, bis er die Welt verlässt. Der Client beendet seine
+Runde nur, wenn die Karten-Id zu der Karte passt, die er in dieser Welt vom Host übernommen hat, und jede Id nur einmal. Mod-Version 10,
+weil eine Gegenseite mit der alten Länge von 16 Bytes die Nachricht verwerfen würde.
 
 ## Dodge-Richtung (Mod-Kompatibilität 8)
 

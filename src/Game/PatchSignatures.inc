@@ -55,6 +55,7 @@
 {0x05904DE8, 0, "48 8B 08 48 8B 91 30 03 00 00 48 8B C8 FF D2 8B D0 48 8B CB", 0, "SpawnNullSite"}, // PlayerPatches.cpp
 {0x05904F53, 0, "4C 8B C5 48 8B D7 48 8B CE E8 ?? ?? ?? ?? 48 8B 8C 24 D0 00 00 00 48 33 CC", 0, "SpawnSkipTarget"}, // PlayerPatches.cpp
 {0x05904F90, 0, "89 54 24 10 55 53 56 57 41 56 48 8B EC 48 83 EC 40", 0, "SpawnLocal"}, // LocalDevicePatches.cpp
+{0x05907ED0, 0, "48 89 5C 24 08 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 30 0F B6 EA 48 8B F1 E8 ?? ?? ?? ??", 0, "TriggerEndRound"}, // ClientPatches.cpp
 {0x0590B2AA, 0, "48 85 DB 74 ?? 40 84 ED 74 ?? B0 01 EB ??", 0, "DeviceCheckSite"}, // RemoteP2Patches.cpp
 {0x0590B2AF, 0, "40 84 ED 74 ?? B0 01 EB ?? 32 C0 44 3A F0", 0, "SoloLossTest"}, // RemoteP2Patches.cpp
 {0x0590B2B4, 0, "B0 01 EB ?? 32 C0 44 3A F0 0F 84 ?? ?? ?? ?? 88 87 89 01 00 00", 0, "NeedReconnect"}, // RemoteP2Patches.cpp

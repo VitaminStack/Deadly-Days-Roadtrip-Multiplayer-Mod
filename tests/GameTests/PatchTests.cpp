@@ -718,6 +718,25 @@ TEST_CASE("Busbalken beim Client folgt Tank und Figuren im Bereich")
     CHECK(BusBarElapsed(true, 1.0, 0.0, 0.1) == 0.0);
 }
 
+TEST_CASE("Lootbalken beim Client folgt dem replizierten Fortschritt")
+{
+    CHECK(LootBarValidProgress(0.0));
+    CHECK(LootBarValidProgress(1.0));
+    CHECK_FALSE(LootBarValidProgress(-0.1));
+    CHECK_FALSE(LootBarValidProgress(4e37));
+    const double NotANumber = std::numeric_limits<double>::quiet_NaN();
+    CHECK_FALSE(LootBarValidProgress(NotANumber));
+
+    CHECK(LootBarNeedsUpdate(0.0, 0.1));
+    CHECK(LootBarNeedsUpdate(0.5, 0.0));
+    CHECK_FALSE(LootBarNeedsUpdate(0.5, 0.5005));
+
+    CHECK(LootBarDone(false, 0.0, 0.0, 1.0));
+    CHECK_FALSE(LootBarDone(true, 0.0, 0.0, 9.0));
+    CHECK_FALSE(LootBarDone(false, 0.0, 0.0, 0.5));
+    CHECK_FALSE(LootBarDone(false, 0.0, 0.5, 9.0));
+}
+
 TEST_CASE("Busabfahrt und Rundenende entscheidet nur der Host")
 {
     CHECK(BusTakeOffMayDecide(false));
@@ -735,6 +754,17 @@ TEST_CASE("Rundenende: Client zieht das Ende des Hosts nur für dieselbe Karte u
     CHECK_FALSE(ClientMayFollowRoundEnd(42, 43, false));
     CHECK_FALSE(ClientMayFollowRoundEnd(42, 0, false));
     CHECK_FALSE(ClientMayFollowRoundEnd(0, 0, false));
+}
+
+TEST_CASE("Run-Ende: Eine Niederlage löst der Client nur auf Meldung des Hosts aus")
+{
+    CHECK(RunLossAllowed(false, RoundChangeLose)); // Host und Solo
+    CHECK_FALSE(RunLossAllowed(true, RoundChangeLose));
+    CHECK(RunLossAllowed(true, 1)); // Tagesende sperrt MissionFinishAllowed
+    CHECK(RunLossAllowed(true, 2));
+    CHECK(ShouldRetryLossPanel(0, 5));
+    CHECK(ShouldRetryLossPanel(4, 5));
+    CHECK_FALSE(ShouldRetryLossPanel(5, 5));
 }
 
 TEST_CASE("Reise: Der Client startet keine eigene Reise außer ins Hauptmenü")

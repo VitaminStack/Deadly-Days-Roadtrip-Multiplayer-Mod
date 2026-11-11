@@ -36,6 +36,7 @@ static_assert(UObject::ClassDefaultObjectFlag == static_cast<uint32_t>(SDK::EObj
 static_assert(UObject::Class == offsetof(SDK::UObject, Class));
 static_assert(UObject::Name == offsetof(SDK::UObject, Name));
 static_assert(UObject::Outer == offsetof(SDK::UObject, Outer));
+static_assert(UObject::InternalIndex == offsetof(SDK::UObject, Index));
 
 static_assert(UStruct::SuperStruct == offsetof(SDK::UStruct, SuperStruct));
 static_assert(UStruct::Children == offsetof(SDK::UStruct, Children));

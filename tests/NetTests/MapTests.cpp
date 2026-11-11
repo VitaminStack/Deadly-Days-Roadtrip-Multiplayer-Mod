@@ -85,17 +85,46 @@ TEST_CASE("Rundenende: Karten-Id und Id kommen unverändert an, kein Ende ist ei
 {
     const Game::Map::RoundEnd End{0x1122334455667788ull, 0x99AABBCCDDEEFF01ull};
     const auto Bytes = EncodeRoundEnd(End);
-    REQUIRE(Bytes.size() == 16);
+    REQUIRE(Bytes.size() == 17);
     const auto Back = DecodeRoundEnd(Bytes);
     REQUIRE(Back.has_value());
     REQUIRE(Back->has_value());
     CHECK(**Back == End);
+    CHECK((*Back)->Outcome == Game::Map::RunOutcome::None);
 
     const auto None = EncodeRoundEnd(std::nullopt);
-    REQUIRE(None.size() == 16);
+    REQUIRE(None.size() == 17);
     const auto NoneBack = DecodeRoundEnd(None);
     REQUIRE(NoneBack.has_value());
     CHECK_FALSE(NoneBack->has_value());
+}
+
+TEST_CASE("Rundenende: Niederlage und Sieg kommen als Ausgang an")
+{
+    using Game::Map::RunOutcome;
+    for (const RunOutcome Outcome : {RunOutcome::Lost, RunOutcome::Won})
+    {
+        const Game::Map::RoundEnd End{7, 9, Outcome};
+        const auto Bytes = EncodeRoundEnd(End);
+        REQUIRE(Bytes.size() == 17);
+        CHECK(Bytes[16] == static_cast<uint8_t>(Outcome));
+        const auto Back = DecodeRoundEnd(Bytes);
+        REQUIRE(Back.has_value());
+        REQUIRE(Back->has_value());
+        CHECK(**Back == End);
+    }
+}
+
+TEST_CASE("Rundenende: unbekannter Ausgang und Ausgang ohne Ids werden abgelehnt")
+{
+    using Game::Map::RunOutcome;
+    auto Bytes = EncodeRoundEnd(Game::Map::RoundEnd{7, 9, RunOutcome::Won});
+    Bytes[16] = 3;
+    CHECK_FALSE(DecodeRoundEnd(Bytes).has_value());
+    std::vector<uint8_t> OutcomeOnly(17, 0);
+    OutcomeOnly[16] = 1;
+    CHECK_FALSE(DecodeRoundEnd(OutcomeOnly).has_value());
+    CHECK(EncodeRoundEnd(Game::Map::RoundEnd{0, 5, RunOutcome::Lost}).empty());
 }
 
 TEST_CASE("Rundenende: halbe oder falsch lange Nachrichten werden abgelehnt")
@@ -105,10 +134,10 @@ TEST_CASE("Rundenende: halbe oder falsch lange Nachrichten werden abgelehnt")
     auto Bytes = EncodeRoundEnd(Game::Map::RoundEnd{7, 9});
     Bytes.pop_back();
     CHECK_FALSE(DecodeRoundEnd(Bytes).has_value());
-    std::vector<uint8_t> HalfZero(16, 0);
+    std::vector<uint8_t> HalfZero(17, 0);
     HalfZero[0] = 1;
     CHECK_FALSE(DecodeRoundEnd(HalfZero).has_value());
-    HalfZero = std::vector<uint8_t>(16, 0);
+    HalfZero = std::vector<uint8_t>(17, 0);
     HalfZero[8] = 1;
     CHECK_FALSE(DecodeRoundEnd(HalfZero).has_value());
 }
