@@ -724,6 +724,9 @@ Feldoffsets aus dem SDK, Aufrufe per `ProcessEvent`. Im Spieltest vom 09.11.2026
 | `AEnemyBase` | `Type` (`UEnemyType*`) `0x9B0` |
 | `UInventoryItemData` | `MinimumItemRarity` `0xF0`, `IsBag` `0x178`, `IsHiddenItem` `0x190` |
 | `ALootSpot` | `ItemLootTemplate` `0x2E0` |
+| `BP_EnvironmentObjectLootspot_C` | `Widget` `0x3A8`, `Progress` `0x3C0` (double, Net), `IsLooting` `0x3C8` (RepNotify); Funktion `Update Progress Indicator(double)` mit Leerzeichen im Namen ([Lootbalken](GAME_ANALYSIS.md#lootbalken-beim-client-opt-lootbalken)) |
+| `UAbstractProgressWidget` | `Progress` `0x328` |
+| `UObject` | `InternalIndex` `0x0C` |
 | `LootBlueprintFunctionLibrary.SpawnSpecificItemLoot` | Parameter 0x50 Byte, Ort `0x18`, Vorlage `0x38`, Rückgabe `0x48` |
 
 ## Charakterwahl (`charakter-wahl`)
