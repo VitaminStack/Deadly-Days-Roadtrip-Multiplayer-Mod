@@ -164,6 +164,24 @@ constexpr double BusBarElapsed(bool Active, double Elapsed, double Required, dou
     return Next < Required ? Next : Required;
 }
 
+// opt-lootbalken: Replizierter Fortschritt einer Lootstelle ist brauchbar (schließt auch NaN aus).
+constexpr bool LootBarValidProgress(double Progress)
+{
+    return Progress >= 0.0 && Progress <= 1.5;
+}
+
+// Das Widget nur bei einer sichtbaren Änderung neu setzen.
+constexpr bool LootBarNeedsUpdate(double Shown, double Target)
+{
+    return Target - Shown > 0.001 || Shown - Target > 0.001;
+}
+
+// Eine Lootstelle ist fertig verfolgt, wenn sie nicht mehr durchsucht wird, der Wert angezeigt ist und eine Sekunde stillsteht.
+constexpr bool LootBarDone(bool Looting, double Target, double Shown, double StalledSeconds)
+{
+    return !Looting && !LootBarNeedsUpdate(Shown, Target) && StalledSeconds >= 1.0;
+}
+
 // FinishMission beendet die Runde. Beim Client nur der Aufruf beim Laden, das Rundenende selbst kommt vom Host.
 constexpr bool MissionFinishAllowed(bool IsNetClient, bool IsLoading)
 {
