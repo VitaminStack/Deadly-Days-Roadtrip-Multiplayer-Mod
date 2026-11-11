@@ -70,6 +70,7 @@
     <ClCompile Include="MapPatches.cpp" />
     <ClCompile Include="BusBarPatches.cpp" />
     <ClCompile Include="LootBarPatches.cpp" />
+    <ClCompile Include="WalkAnimationPatches.cpp" />
     <ClCompile Include="CharacterPatches.cpp" />
     <ClCompile Include="TravelPatches.cpp" />
     <ClCompile Include="WidgetPatches.cpp" />

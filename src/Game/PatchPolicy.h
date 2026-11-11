@@ -182,6 +182,13 @@ constexpr bool LootBarDone(bool Looting, double Target, double Shown, double Sta
     return !Looting && !LootBarNeedsUpdate(Shown, Target) && StalledSeconds >= 1.0;
 }
 
+// opt-laufanimation-client: Beim Host misst der Animations-Tempogeber einer Client-Figur das Tempo selbst aus ihrem Ort, weil ihr
+// CMC-Tempo dort wegen der übernommenen Client-Position fast 0 bleibt. Nur Host, nur fremd gesteuerte Figuren, nur wenn noch aus.
+constexpr bool WalkAnimationNeedsManualTracking(bool IsHost, bool RemoteControlled, bool ManualActive)
+{
+    return IsHost && RemoteControlled && !ManualActive;
+}
+
 // FinishMission beendet die Runde. Beim Client nur der Aufruf beim Laden, das Rundenende selbst kommt vom Host.
 constexpr bool MissionFinishAllowed(bool IsNetClient, bool IsLoading)
 {

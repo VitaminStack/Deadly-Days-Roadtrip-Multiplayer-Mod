@@ -63,6 +63,8 @@ void TickLootBar(NetRole Role);
 void TickWidgets(NetRole Role);
 void TickProjectiles(NetRole Role, bool Second);
 void TickMovement(NetRole Role, bool Second);
+// opt-laufanimation-client, Host: Tempo der Client-Figur fuer ihre Laufanimation aus ihrem Ort messen lassen.
+void TickWalkAnimation(NetRole Role, bool Second);
 void TickRemoteP2(NetRole Role);
 void TickMap(NetRole Role, bool Second);
 void TickCharacters(NetRole Role, bool Second);

@@ -245,6 +245,7 @@ void Tick()
         { const GameThread::SlowScope Watch("Kamera"); TickCamera(Role, Second); }
     { const GameThread::SlowScope Watch("Projektile"); TickProjectiles(Role, Second); }
     { const GameThread::SlowScope Watch("Bewegung"); TickMovement(Role, Second); }
+    { const GameThread::SlowScope Watch("Laufanimation"); TickWalkAnimation(Role, Second); }
     if (ListOn(Map))
         { const GameThread::SlowScope Watch("Karte"); TickMap(Role, Second); }
     if (ListOn(Character))
