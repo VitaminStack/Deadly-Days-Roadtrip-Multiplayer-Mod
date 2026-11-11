@@ -438,6 +438,32 @@ die Lobby, Mod mit Spike, `-Godmode`, Seed `20795`, Client-Figur per Skript bewe
   die nur die Client-Figur einsammelt, ohne dass die Host-Figur in der Nähe ist (im Test buchte er alle, die Figuren standen aber
   nicht weit getrennt). `FuelLoot` und `PowerUpLoot` wurden nicht untersucht.
 
+#### Schrott-Dauersound beim Client (`opt-levelup-sound`)
+
+Vom Nutzer am 11.11.2026 bestätigt: Der „Sound-Fehler der Level-up-Kiste im Endbildschirm“ aus dem Live-Test vom 10.11. ist dieser
+Dauersound. Gemessen auf einem PC mit dem Spike-Zähler `!fx` aus `vfx-sound` (jeder FMOD-Start je Prozess mit Ereignispfad), Ton stumm,
+**gezählt, nicht gehört**.
+
+- **[Belegt] Vorher.** Ab dem ersten Haufen, den der Client aufsammelt, startet `ScrapPickup` beim Client 65- bis 170-mal je Sekunde,
+  minutenlang (3886 Starts in einer Minute), beim Host nicht. Aufrufkette: Blueprint-Thunk von `Loot` (`exe+57346B0`, ruft
+  `Loot_Implementation` über das Interface) → `ScrapLootHook` → `ALootBase::Loot_Implementation` → Blueprint-Ereignis (`0x572F970`) →
+  FMOD-Start.
+- **[Belegt, Disassembly]** `ALootBase::Loot_Implementation` ruft nach dem Blueprint-Ereignis die Rückgabe an den Pool. Beim Host
+  verschwindet der Haufen damit, beim Client bleibt seine Kopie an der Figur hängen: Im Speicher lagen zwei `BP_ScrapLoot_C` des
+  Clients fast auf der Position der Client-Figur, beim Host nicht. Der Blueprint ruft `Loot` darum jeden Takt erneut. Der Haufen fliegt
+  dabei zur Figur, sein Ort ändert sich jeden Takt.
+- **Fehlversuch.** Erst merkte sich der Client Haufen mit Actor und Ort. Das griff nie, weil der Ort sich beim Anziehen jeden Takt ändert
+  (Schleife unverändert, 3561 Starts je Minute).
+- **Umsetzung** (`ScrapLootHook`, Klasse `LootedPiles` in `PatchPolicy.h`, mit Tests): Beim Client läuft `ALootBase::Loot_Implementation`
+  je Haufen einmal. Weitere Aufrufe für denselben Actor innerhalb von 2 s nach dem letzten bleiben stumm und verlängern die Ruhe, ein
+  später aus dem Pool wiederverwendeter Haufen klingt wieder. Rein lokal, kein neuer Netzweg, keine `ModVersion`-Erhöhung, Host und
+  Einzelspieler unverändert. Der Schrottstand kommt weiter nur vom Host über `0x309`.
+- **[Belegt, ein PC, Tag 1]** Nachher: Im Fenster mit dem ersten Aufsammeln 6 Starts beim Client (Host 1), in der Minute danach 3
+  (Host 2), bei 7 eingesammelten Schrott-Einheiten. Log „wiederholtes Aufsammeln desselben Haufens beim Client ausgelassen“, Stand des
+  Hosts wie bisher übernommen, keine Absturzberichte.
+- **Offen:** Der Host startet weniger `ScrapPickup` als der Client, vermutlich nur für Haufen, die seine eigene Kopie einsammelt. Ob die
+  hängende Kopie beim Client sichtbar bleibt, wurde nicht geprüft. Zwei PCs mit echtem Ping nicht geprüft.
+
 ### Blut beim Client (`opt-blut`)
 
 Stand 11.11.2026, Build `26495302`. Statische Disassembly der Exe (`tools/spike/Disassemble.ps1`), dazu zwei Instanzen auf einem PC über
