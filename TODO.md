@@ -43,7 +43,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `opt-gegner-spawnverzug` | P2 | [Optional](#optionale-optimierungen) | parallel | mittel |
 | `opt-gegnerzahl` | P2 | [Optional](#optionale-optimierungen) | parallel | mittel |
 | `opt-host-bewegung` | P2 | [Optional](#optionale-optimierungen) | parallel | mittel |
-| `opt-laufanimation-client` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
 | `opt-levelup-sound` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
 | `opt-portraet` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
 | `opt-rundenstempel` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
