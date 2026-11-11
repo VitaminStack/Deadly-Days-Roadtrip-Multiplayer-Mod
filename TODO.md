@@ -35,7 +35,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | Kennung | Prio | Phase | Bearbeitung | Spielzeit |
 |---|---|---|---|---|
 | `vfx-sound` | P2 | [5](#phase-5--vollständiger-run) | parallel | wenig |
-| `opt-blickrichtung-client` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
 | `opt-client-takt` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
 | `opt-dash-aufprall` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
 | `opt-desync-pivot` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
