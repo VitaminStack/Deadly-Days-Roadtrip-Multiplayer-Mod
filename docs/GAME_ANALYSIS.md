@@ -440,6 +440,9 @@ Gemeldet war im [Live-Test 10.11.](#live-test-auf-zwei-pcs-am-10112026-livetest-
   `Progress` beim Host 0 bis 0,95, beim Client 0,01 bis 0,99, danach `OverrideFactor` 0 und `CanStretch` 1 auf beiden Seiten; nach
   Pausemenü des Hosts ebenso. Weg der Client-Figur auf beiden Seiten gleich (netto 1513, 482, 1437 zu 1433), die Client-Position bleibt
   also unbeschädigt. Client-Figur beim Client und Host-Figur auf beiden Seiten unverändert, Schalter dort 0.
+- **[Belegt, `-NetProfile Internet`]** 120 ms, ±30 ms, 2 % Verlust, MetaBase: `Progress` der Client-Figur beim Host 0 bis 0,99
+  (32 Werte), beim Client 0,02 bis 0,97 (32), Weg auf beiden Seiten 1830. Das gemessene Tempo springt mit den Netz-Updates (Spitzen bis
+  2407), das Wackeln begrenzt es selbst (`MaxInputVelocity` 1200). Keine Absturzberichte.
 - **Nebenwirkung:** Die Blickrichtung der Client-Figur beim Host folgt jetzt ebenfalls dem gemessenen Tempo (gleicher Provider). Die
   gemeldete Rückenansicht der Client-Figur **beim Client** (`opt-blickrichtung-client`) erklärt diese Ursache nicht, dort ist das Tempo normal.
 - **Nicht geprüft:** zwei PCs, Kriechen nach dem Tod (mit `-Godmode` nicht erreichbar), Item-Auswahl als Pause.
