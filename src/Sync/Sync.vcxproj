@@ -36,6 +36,7 @@
     <ClInclude Include="Sync.h" />
     <ClInclude Include="DevState.h" />
     <ClInclude Include="MovementState.h" />
+    <ClInclude Include="Enemies\DamageNumberState.h" />
     <ClInclude Include="ProgressState.h" />
     <ClInclude Include="DesyncState.h" />
     <ClInclude Include="ControlDispatch.h" />

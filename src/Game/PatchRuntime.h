@@ -43,6 +43,8 @@ std::span<const Patch> RewardPatches();
 std::span<const Patch> MapPatches();
 std::span<const Patch> LocalDevicePatches();
 std::span<const Patch> CharacterPatches();
+// opt-schadenszahlen: Host merkt Treffer am Schadenszahl-Handler, Client ruft ihn selbst auf (DamageNumberAdapter.h).
+std::span<const Patch> DamageNumberPatches();
 // Host: Figur, die bei RewardChest.OpenAirdropChoices die native Auswahl bekommt (die des Hosts statt des Remote-P2).
 uintptr_t RewardCharacter(uintptr_t Character);
 // Client: Wahr, wenn ProcessEvent einen Server-RPC mit einer lokalen Anzeige-Instanz der Airdrop-Auswahl nicht senden soll.

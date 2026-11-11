@@ -2,8 +2,9 @@
 // im Muster, Name. Aufsteigend nach RVA, je RVA erst Build 0, dann die eigenen Zeilen einzelner Builds.
 // Die Mod prueft das Muster an der erwarteten Stelle, das Werkzeug zusaetzlich die Eindeutigkeit in der Exe.
 {0x01272700, 0, "48 89 6C 24 18 48 89 74 24 20 57 41 54 41 56 48 83 EC 30 41 8B 30 4D 8B F0 0F B7 E9 4C 8B E2 8B C5 C1 ED 08", 0, "ArrayResizeGrow"}, // CameraPatches.cpp
+{0x012BC260, 0, "48 89 5C 24 08 57 48 83 EC 30 33 FF 48 8D 41 0C 48 8B D9 89 79 08 39 38 74 ?? 4C 8B C9 48 89 44 24 28 B9 14 00 00 00", 0, "DamageInfoMapDestruct"}, // DamageNumberPatches.cpp
 {0x012D6D80, 0, "40 53 48 8B 19 48 8B C1 4C 63 CA 45 85 C0 0F 84 ?? ?? ?? ?? 4D 8B D1 48 89 7C 24 10 41 8B C9 49 C1 E2 04 41 BB 01 00 00 00 41 D3 C3", 0, "ControllerSparseRemove"}, // PlayerPatches.cpp
-{0x012F85E0, 0, "48 85 C9 74 ?? 53 48 83 EC 20 48 8B D9 48 8B 0D ?? ?? ?? ??", 0, "FreeArray"}, // ClientPatches.cpp
+{0x012F85E0, 0, "48 85 C9 74 ?? 53 48 83 EC 20 48 8B D9 48 8B 0D ?? ?? ?? ??", 0, "MemoryFree"}, // DamageNumberPatches.cpp
 {0x01344650, 0, "45 85 C0 0F 84 ?? ?? ?? ?? 48 89 5C 24 10 57 48 8B 39 48 8B C1 4C 63 D2 41 BB 01 00 00 00 41 8B CA 48 89 74 24 10 41 D3 C3 41 8B D8 4B 8D 0C 92 4C 8D 04 8F 83 78 34 00 74 ??", 0, "MapSparseRemove"}, // RemoteP2Patches.cpp
 {0x01512430, 0, "48 8B 01 48 FF A0 F8 01 00 00 CC CC CC CC CC CC 40 53 48 83 EC 40 0F 10 02 33 C0", 0, "DefaultNetworkingSupport"}, // InventoryPatches.cpp
 {0x024E95F0, 0, "4C 8B DC 53 55 56 57 41 56 48 81 EC A0 00 00 00 48 8B 05 ?? ?? ?? ??", 0, "RegistrationBroadcast"}, // PlayerPatches.cpp
@@ -17,6 +18,7 @@
 {0x0314D6D0, 0, "40 55 53 48 8D 6C 24 B1 48 81 EC A8 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 37 0F B6 45 D7", 0, "SetNextTick"}, // InventoryPatches.cpp
 {0x03262A30, 0, "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 48 8B 81 B0 12 00 00 41 8B F9", 0, "SetClientTravel"}, // TravelPatches.cpp
 {0x04B68380, 0, "48 89 5C 24 10 48 89 74 24 18 48 89 7C 24 20 41 56 48 83 EC 20 48 8B 99 80 10 00 00", 0, "AttributeLookupFunction"}, // ClientPatches.cpp
+{0x056591B0, 0, "48 89 5C 24 10 48 89 4C 24 08 57 48 83 EC 20 48 8B D9 48 8D 54 24 30", 0, "DamageInfoConstruct"}, // DamageNumberPatches.cpp
 {0x056676F5, 0, "48 FF A0 68 07 00 00 CC 48 8B 42 20 45 33 C0 48 85 C0 41 0F 95 C0 4C 03 C0 4C 89 42 20 E9 ?? ?? ?? ?? CC CC CC", 29, "At_5666FA5"}, // ClientPatches.cpp
 {0x057BDCD0, 0, "40 53 56 57 41 55 48 83 EC 38 48 89 6C 24 68", 0, "ControllerSetAdd"}, // PlayerPatches.cpp
 {0x057CB5A5, 0, "E8 ?? ?? ?? ?? 90 0F B6 45 37 48 8D 15 ?? ?? ?? ?? 48 8B 14 C2 48 8D 05 ?? ?? ?? ?? 48 3B D0 75 ?? 48 83 7D 07 00 74 ?? 48 8B 45 2F 48 8D 4D 17 48 85 C0 48 0F 45 C8 48 8B 01 FF 50 10 90 EB ?? 48 8D 4D 07 FF D2 90 48 83 7D D7 00 74 ?? 48 8B 45 FF 48 8D 4D E7 48 85 C0 48 0F 45 C8 48 8B 01 FF 50 10 90 48 8B 4D 47 48 33 CC E8 ?? ?? ?? ?? 4C 8D 9C 24 C0 00 00 00 49 8B 5B 18 49 8B 7B 20 49 8B E3 5D C3 CC CC CC CC CC CC 48 89 5C 24 10 48 89 6C 24 20 56", 0, "ScheduleCall"}, // InventoryPatches.cpp
@@ -84,6 +86,7 @@
 {0x05A1B9EC, 0, "83 B8 C8 02 00 00 01 0F 8E ?? ?? ?? ?? 80 3D ?? ?? ?? ?? 00", 0, "RestrictorCountSite"}, // CameraPatches.cpp
 {0x05A1B9F9, 0, "80 3D ?? ?? ?? ?? 00 48 89 5C 24 70 48 8B 9A E8 02 00 00", 0, "RestrictorContinue"}, // CameraPatches.cpp
 {0x05A1BAA8, 0, "48 8B 6C 24 78 48 8B B4 24 80 00 00 00 48 83 C4 60 5F C3 CC CC CC CC CC 48 89 5C 24 18 48 89 6C 24 20", 0, "RestrictorSkip"}, // CameraPatches.cpp
+{0x05A22DB0, 0, "48 8B C4 48 89 58 18 55 56 57 41 54 41 55 41 56 41 57 48 8D A8 C8 FE FF FF 48 81 EC 00 02 00 00 0F 29 70 B8 0F 29 78 A8 44 0F 29 40 98 44 0F 29 48 88 44 0F 29 90 78 FF FF FF 44 0F 29 98 68 FF FF FF 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 85 90 00 00 00 4C 8B F2 48 8B F1 F6 81 38 03 00 00 02 0F 84 ?? ?? ?? ??", 0, "DamageHandler"}, // DamageNumberPatches.cpp
 {0x05A471D0, 0, "48 89 5C 24 08 57 48 83 EC 20 80 B9 18 03 00 00 00", 0, "OpenChoices"}, // AirdropPatches.cpp
 {0x05A47660, 0, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 48 89 7C 24 20 41 54 41 56 41 57 48 83 EC 30 4C 8B E2 48 8B E9 80 B9 A8 02 00 00 00 0F 85 ?? ?? ?? ??", 0, "OpenCrate"}, // AirdropPatches.cpp
 {0x05A71900, 0, "48 89 5C 24 18 55 56 57 48 83 EC 40 48 8B F9", 0, "PanelConfirm"}, // RewardPatches.cpp
