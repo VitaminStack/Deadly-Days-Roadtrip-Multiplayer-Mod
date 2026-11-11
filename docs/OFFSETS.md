@@ -294,6 +294,8 @@ Aufgabe `airdrop-auswahl`, Ablauf in [Airdrop-Auswahl](GAME_ANALYSIS.md#airdrop-
 | `RewardChest.OpenAirdropChoices` | `0x5A42F50` | Hook in `AirdropPatches.cpp` |
 | `InventoryComponent::SetRewardItems` | `0x5979B30` | `(this, TArray*, Level)`, öffnet das Panel |
 | `InventoryPanel.HandleConfirmButton` | `0x5A6CB20` | liest `+0x7A0`, dann `+0x3E0`; bricht bei `IsDragging` (`+0x790`) ab; ruft `OpenNextReward` der Queue `+0x6B8` |
+| `HandleConfirmButton` in `26495302` | `0x5A71900`, Aufruf `0x5A71960` → `0x5AF5030` | lädt `[[Panel+0x798]+0x3E0]` und springt über dessen VTable-Slot `+0x2A8`; bei freigegebenem Panel Sprung nach 0 (`lager-bestaetigen-absturz`) |
+| `UObject.InternalIndex` | `+0x0C` | Platz im Objekt-Array; `Objects::RefTo`/`IsLive` vergleichen ihn mit `FUObjectItem.Object` |
 | `InventoryPanel.SetupInventory` | `0x5A8BAB0` | liest `InventoryComponent` bei `+0x370`; positioniert aus `InventoryItemInstance.CachedBackpackLocalPosition` (`+0x150`, FVector2D, nicht repliziert) |
 | `DefaultFocusableButton.ParentPanel` | `+0x3A8` | Panel des Knopfs (UUserWidget); der Bestätigen-Knopf des Inventar-Panels heißt `MainButton`, gefärbt über `UserWidget.SetColorAndOpacity` (`bestaetigen-alle`) |
 | `InventoryPanel.SnapRepresentationToTile` | `0x5A92030` | richtet UI und Pixelpositions-Cache aus einem Pivot-Feld aus; reflektierte Parameter: ItemRepresentation `+0`, FIntVector2 `+8`, CanvasPanel `+0x10`, Größe `0x18` |
@@ -329,6 +331,8 @@ Aufgabe `airdrop-auswahl`, Ablauf in [Airdrop-Auswahl](GAME_ANALYSIS.md#airdrop-
 | `InventoryComponent::HandleItemSold` | `0x5967900` (`26495302`: `0x596BA70`), Exec-Thunk `0x57128B0` | `(this, Item)`, nativ; `RemoveFromBackpack`, `UnoccupyBackpackSlots`, `RemoveFromInventory(SoldForScrap)`, `RefreshItemEffects` (`lager-handel-client`) |
 | `ItemRepresentation.ConfirmSell`, `.ConfirmRepair` | `0x5AA2F60`, `0x5AA2DB0` (`26495302`: `0x5AA7E50`, `0x5AA7CA0`) | buchen Schrott lokal über `AddAmount`, dann `HandleItemSold` bzw. Server-RPC `RepairItem` |
 | `ADDMissionGameState.ScrapWallet`, `UAbstractCurrency.CurrencyAmount` | `+0x3C0`, `+0x100` | nicht repliziert; `AddAmount` begrenzt auf 0 bis INT32_MAX und löst `OnCurrencyChanged` aus |
+| `UAbstractCurrency::AddAmount` (nativ) | `26495302`: `0x586B2B0`, Exec-Thunk `0x5662130` | `(this, Delta)`; schreibt `+0x100`, Broadcast `+0xC8` (`opt-schrott-anzeige`) |
+| `AScrapLoot::Loot_Implementation`, `ALootBase::Loot_Implementation` | `26495302`: `0x59AF660`, `0x59AF3F0` | `(ILootableInterface* = Actor + 0x2A8, ULootAttractor*)`; ScrapLoot liest `ScrapAmount` (`+0x2D0`), bucht ohne Rollenprüfung über `AddAmount` und springt in die Basis (Klang-RPC, Delegate). Beim Client gesperrt (`opt-schrott-anzeige`) |
 | `UInventoryItemInstance.GetDynamicRepairPrice` | `26495302`: `0x5965960` | Seltenheit `+0x54` mal Faktor, mal `DDGameStatsSubsystem +0xD0 / 8 + 1` |
 
 ### Coop
@@ -740,7 +744,43 @@ Feldoffsets aus dem SDK, Aufrufe per `ProcessEvent`. Im Spieltest vom 09.11.2026
 | `BP_EnvironmentObjectLootspot_C` | `Widget` `0x3A8`, `Progress` `0x3C0` (double, Net), `IsLooting` `0x3C8` (RepNotify); Funktion `Update Progress Indicator(double)` mit Leerzeichen im Namen ([Lootbalken](GAME_ANALYSIS.md#lootbalken-beim-client-opt-lootbalken)) |
 | `UAbstractProgressWidget` | `Progress` `0x328` |
 | `UObject` | `InternalIndex` `0x0C` |
+| `UGameplayCueManager::ExecuteGameplayCue_NonReplicated` | `0x4BC58D0`, statisch (Ziel, Tag als FName in einem Register, Parameter); ohne Rollenprüfung ([Körperteile](GAME_ANALYSIS.md#körperteile-beim-client-opt-koerperteile)) |
+| `UGameplayCueFunctionLibrary::ExecuteGameplayCueOnActor` | Exec `0x4BE04C0`; mit ASC nur bei `AActor::Role` `0x168` = Autorität |
+| `ADDCharacterBase` | `StartupAbilities` `0x708` (TArray) |
+| `UEnemyDyingAbility` | `ChaosDestructionCueTag` `0x3A8` (FGameplayTag), `DestroyDelay` `0x3B0` |
+| `UChaosDestructionProxyGameplayCue` | `ProxyActorClass` `0x40` |
+| `UClass` | `ClassDefaultObject` `0x118` |
+| `FGameplayCueParameters` | Größe `0xD8`, `Location` `0x70` |
 | `LootBlueprintFunctionLibrary.SpawnSpecificItemLoot` | Parameter 0x50 Byte, Ort `0x18`, Vorlage `0x38`, Rückgabe `0x48` |
+
+## Blickrichtung (`opt-blickrichtung-client`)
+
+Build `26495302`, SDK und Disassembly, im Spieltest vom 11.11.2026 belegt ([Blickrichtung](GAME_ANALYSIS.md#blickrichtung-beim-client-opt-blickrichtung-client)).
+
+| Stelle | Wert |
+|---|---|
+| `ADDCharacter` | `Hands` `0x7B0` (Net), `DirectionalMeshComponent` `0x7E0` (beim Client leer) |
+| `BP_DD_Character_C` | `DirectionalCharacterMesh` `0x8F0` |
+| `UDirectionalCharacterMesh` | `UseHandsDirection` `0x700`, `Mode` `0x703`, `Hands` `0x750`, `VelocityProvider` `0x768`, `FacingRight`/`FacingDown` `0x7F0`/`0x7F1`, gemerkter Winkel `0x7F4` |
+| `AHands` | Blickwinkel (float, Grad, nicht repliziert) `0x31C`, `ParentCharacter` `0x320` (beim Client leer) |
+| `USceneComponent` | `ComponentToWorld.Rotation` (FQuat, 4 double) `0x1F0` |
+| Richtung des Mesh aus `Hands+0x31C` | `0x586BE20` |
+| Drehung der Hände zum Ziel (schreibt `+0x31C`) | `0x593FDD0`, erreicht über `ProxyRotateTowards`-Implementierung `0x581A1E0` (VTable `0xA20`), Exec-Thunk `0x56C6D50` |
+| Autoritätszweig von `ADDCharacter` (setzt `+0x7E0`, `+0x7B0`, `SetParentCharacter`) | `0x58022A0` |
+| `Hands::SetParentCharacter` | Implementierung `0x5942290`, Exec-Thunk `0x571B240` |
+
+## Laufanimation (`opt-laufanimation-client`)
+
+Build `26495302`, [Befund](GAME_ANALYSIS.md#laufanimation-beim-client-opt-laufanimation-client).
+
+| Stelle | Wert |
+|---|---|
+| `BP_DD_Character_C` | `PlayerAnimationVelocityProvider` `0x910` (nicht `0x768`: das ist `UDirectionalCharacterMesh.VelocityProvider`) |
+| `ADDCharacter` | `WobbleAnimation` `0x780` |
+| `UWobbleAnimationComponent` | `Progress` `0x258`, `MaxInputVelocity` `0x25C`, `VelocityToProgressFactor` `0x260`, `MaxSpeed` `0x264`, `OverrideVelocity` `0x268`, `OverrideVelocityToProgressFactor` `0x26C`, `VelocityProvider` `0x288`, `bCanStretch` `0x308` |
+| `UPlayerAnimationVelocityProvider` (0xF8 Byte) | Schalter „manuell“ `0xC0` (bool), gemessenes Tempo `0xC8` (FVector), letzter Ort `0xE0` (FVector); Owner `0xA8` |
+| RVA `0x5848450` | natives `UPlayerAnimationVelocityProvider::GetVelocity`: manuell → `+0xC8`, sonst `Owner->GetVelocity()` (vtable `+0x340`); gerufen nur vom Exec-Thunk `0x5770E80`, vom Richtungs-Mesh (`0x586BF17`) und vom Wackeln (`0x5B1BF2B`) |
+| RVA `0x5857890` | natives `SetManualTrackingActive`: setzt `+0xC0`, `+0xE0` = Ort der Root-Komponente (`+0x210`), dann vtable `+0x410`; einziger Aufrufer ist der Exec-Thunk `0x57761F0` |
 
 ## Charakterwahl (`charakter-wahl`)
 
@@ -753,3 +793,22 @@ Build `26495302`, Disassembly und SDK, im Spieltest vom 10.11.2026 belegt.
 | `UCharacterDefinitionApplier` | `AppliedCharacterDefinition` (`TSoftObjectPtr`, Assetname bei `+0x10`) `0xE8` |
 | `UCharacterSelectionManager` | `CharacterDefinitions` `0x58`, `SelectedCharacters` (`TMap<int32, Def*>`) `0x68`, `SelectedCharacterID` `0xB8` |
 | Spielerindex des Appliers | vfunc `+0x330` von `Pawn.Controller.Player`, ohne LocalPlayer Index 0 |
+
+## Warnanzeigen der Gegner (`opt-gegner-indikatoren`)
+
+Build `26495302`, Disassembly der Exec-Thunks (`UFunction::ExecFunction` `+0xD8`) und SDK. Im Spieltest vom 11.11.2026 belegt, siehe
+[Warnanzeigen der Gegner](GAME_ANALYSIS.md#warnanzeigen-der-gegner-beim-client-opt-gegner-indikatoren).
+
+| Stelle | Wert |
+|---|---|
+| `UEnemyAttackAbility::SpawnCircleTelegraph` | `0x58908C0(Ability, System, const FVector*, Delay, Lifetime, Size, AutoDestroy, Pool, Attached)`, Thunk `0x56EDBE0`, Prolog `48 8B C4 48 89 58 08 48 89 70 18 57`; direkte Aufrufer `0x586ADCB`, `0x586AE86`, `0x58914BA` |
+| `UTackleAbilityExecution::ActivateLineTelegraph` | `0x58A3DB0(Execution)`, Thunk `0x57AF280` (`jmp`), Prolog `48 89 5C 24 08 57 48 83 EC 70`; nur aus Blueprints |
+| `UTackleAbilityExecution::CalculateLineTelegraphEndPoint` | `0x58A9D30(Execution, const FVector*, Percentage)`, Thunk `0x57AFC40`, Prolog `40 53 48 81 EC D0 00 00 00` |
+| `UTackleAbilityExecution::EndTackle` | `0x58B1130(Execution, bool)`, Thunk `0x57B0950`, Prolog `40 53 57 48 83 EC 38` |
+| `UTackleAbilityExecution::ExecuteTackle` | `0x58B1F40(Execution, float)`, Thunk `0x57B09E0`, Prolog `48 89 5C 24 10 57 48 83 EC 60`; blendet zuerst `LineTelegraph` aus (vfunc `+0xAD0`) |
+| `UEnemyAttackAbility` | `SizeVariableName` `0x440`, `LifetimeVariableName` `0x448`, `DelayVariableName` `0x450` (FName), `CachedTelegraphAttachComponent` `0x468` |
+| `UTackleAbilityExecution` | `SwitchTelegraphColorPercentage` `0x108`, `LockTelegraphColor` `0x10C`, `DefaultTelegraphColor` `0x11C`, `LastTargetingPercentage` `0x208`, `LineTelegraph` `0x238`; ohne Reflexion: `0x268` (gesetzt: kein Endpunkt), `0x26A` (Farbe gewechselt), Niagara-Parameternamen `0x398` (Endpunkt), `0x3A0` (Farbe), `0x3A8` (Breite) |
+| `UActorComponent` | `OwnerPrivate` `0xA8` (ohne Reflexion), `bIsActive` `0x9A` Bit 4 |
+| `AProjectile` | `OptionalProjectileTelegraph` `0x378` |
+| `UNiagaraComponent` | `Asset` `0x580`; vfunc `+0xA78` setzt einen Float-Parameter (wie `SetVariableFloat`) |
+| `NiagaraFunctionLibrary.SpawnSystemAtLocation` | Parameter 0x68 Byte, Ort `0x10`, Rotation `0x28`, Skala `0x40`, `bAutoDestroy` `0x58`, Rückgabe `0x60` |

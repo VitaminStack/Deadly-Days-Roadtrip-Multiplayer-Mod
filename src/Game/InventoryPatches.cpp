@@ -37,6 +37,13 @@ using ItemLootFn = void(__fastcall*)(uintptr_t, uintptr_t);
 ItemLootFn OriginalItemLoot = nullptr;
 std::atomic<unsigned> ClientItemLootAttempts = 0;
 
+// opt-schrott-anzeige: AScrapLoot::Loot_Implementation schreibt ScrapAmount ohne Rollenprüfung per AbstractCurrency.AddAmount
+// (0x586B2B0) gut und springt dann in ALootBase::Loot_Implementation (Klang, Delegate). Gleiche Signatur wie ItemLoot.
+constexpr uintptr_t ScrapLoot = 0x59AF660;
+constexpr uintptr_t LootBaseLoot = 0x59AF3F0;
+ItemLootFn OriginalScrapLoot = nullptr;
+std::atomic<unsigned> ClientScrapLootAttempts = 0;
+
 // UInventoryComponent.MyItems, UInventoryItemInstance.ItemData/Broken/Rarity, UInventoryComponent.OwningPlayerState
 constexpr uintptr_t InventoryItems = 0x120;
 constexpr uintptr_t ItemDataOffset = 0xE0, ItemBroken = 0x110, ItemRarity = 0x118;
@@ -179,6 +186,32 @@ bool ApplyItemLoot(Code::Writer&)
 {
     return Core::Hooks::Install(reinterpret_cast<void*>(At(ItemLoot)), reinterpret_cast<void*>(&ItemLootHook),
                                 reinterpret_cast<void**>(&OriginalItemLoot));
+}
+
+// opt-schrott-anzeige: Der Client sammelt replizierte Schrotthaufen mit seinem lokalen Attraktor ein und buchte sie bisher selbst,
+// teils mehrfach, bis das Zerstören des Hosts ankam. Der Host korrigierte das alle 0,5 s (Anzeige sprang). Jetzt bucht nur der Host,
+// der Client bekommt den Stand über 0x309 (ApplyScrap). Klang und Delegates der Basis laufen beim Client weiter lokal.
+void __fastcall ScrapLootHook(uintptr_t Interface, uintptr_t Looter)
+{
+    if (ScrapLootMayCredit(CurrentRole()))
+        return OriginalScrapLoot(Interface, Looter);
+    if (ClientScrapLootAttempts.fetch_add(1) < 3)
+        Core::Log::Info("Schrott: Aufsammeln beim Client nur angezeigt, der Host bucht");
+    reinterpret_cast<ItemLootFn>(At(LootBaseLoot))(Interface, Looter);
+}
+
+bool CheckScrapLoot()
+{
+    return Code::Expect(At(ScrapLoot), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x6C, 0x24, 0x18, 0x48, 0x89, 0x74, 0x24, 0x20, 0x57},
+                        "ScrapLoot.Loot") &&
+           Code::Expect(At(LootBaseLoot), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x57, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x8B, 0x92, 0xA8, 0x00, 0x00, 0x00},
+                        "LootBase.Loot");
+}
+
+bool ApplyScrapLoot(Code::Writer&)
+{
+    return Core::Hooks::Install(reinterpret_cast<void*>(At(ScrapLoot)), reinterpret_cast<void*>(&ScrapLootHook),
+                                reinterpret_cast<void**>(&OriginalScrapLoot));
 }
 
 // Der Callback nach der Reise auf Tag 3 gehört nicht zum Inventar: Der Achievement-Detektor legt in BeginPlay einen
@@ -382,12 +415,14 @@ bool ApplyRepresentationSize(Code::Writer&)
 
 // Je Patch die benutzten Adressen der Signaturtabelle, erzeugt von tools/patch_signatures.py sites.
 constexpr uintptr_t ItemLootSites[] = {ItemLoot};
+constexpr uintptr_t ScrapLootSites[] = {ScrapLoot, LootBaseLoot};
 constexpr uintptr_t RepresentationSizeSites[] = {RepresentationSize};
 constexpr uintptr_t InventorySites[] = {DefaultNetworkingSupport, InventoryReadyForReplication};
 constexpr uintptr_t DetectorSites[] = {FindTimer, ClearTimer, SetNextTick, ScheduleCall, DetectorEndPlay};
 constexpr uintptr_t MapGenLambdaSites[] = {MapGenLambdaExecute, MapGenLambdaExecuteIfSafe};
 const Patch List[] = {
     {"Itemsack-Vergabe nur beim Host, für alle Spieler", &CheckItemLoot, &ApplyItemLoot, ItemLootSites},
+    {"Schrott beim Aufsammeln nur beim Host buchen", &CheckScrapLoot, &ApplyScrapLoot, ScrapLootSites},
     {"Item-Widget ohne Item: Größe nicht setzen", &CheckRepresentationSize, &ApplyRepresentationSize, RepresentationSizeSites},
     {"Inventar-Unterobjekte replizieren", &CheckInventory, &ApplyInventory, InventorySites},
     {"Timer des Achievement-Detektors beim EndPlay löschen", &CheckDetector, &ApplyDetector, DetectorSites},

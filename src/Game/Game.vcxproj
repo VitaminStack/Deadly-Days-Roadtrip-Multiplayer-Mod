@@ -69,9 +69,14 @@
     <ClCompile Include="RemoteP2Patches.cpp" />
     <ClCompile Include="MapPatches.cpp" />
     <ClCompile Include="BusBarPatches.cpp" />
+    <ClCompile Include="FacingPatches.cpp" />
     <ClCompile Include="LootBarPatches.cpp" />
+    <ClCompile Include="BloodPatches.cpp" />
+    <ClCompile Include="BodyPartPatches.cpp" />
+    <ClCompile Include="WalkAnimationPatches.cpp" />
     <ClCompile Include="DamageNumberPatches.cpp" />
     <ClCompile Include="CharacterPatches.cpp" />
+    <ClCompile Include="EnemyTelegraphPatches.cpp" />
     <ClCompile Include="TravelPatches.cpp" />
     <ClCompile Include="WidgetPatches.cpp" />
     <ClCompile Include="SaveRedirect.cpp" />
@@ -84,6 +89,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CodeCave.h" />
+    <ClInclude Include="TelegraphAdapter.h" />
     <ClInclude Include="Game.h" />
     <ClInclude Include="ProgressAdapter.h" />
     <ClInclude Include="DayView.h" />
@@ -122,6 +128,7 @@
     <ClInclude Include="TelemetryAdapter.h" />
     <ClInclude Include="BossBarAdapter.h" />
     <ClInclude Include="BossBarPolicy.h" />
+    <ClInclude Include="BloodPolicy.h" />
     <ClInclude Include="TutorialAdapter.h" />
     <ClInclude Include="PauseAdapter.h" />
     <ClInclude Include="WorldAdapter.h" />

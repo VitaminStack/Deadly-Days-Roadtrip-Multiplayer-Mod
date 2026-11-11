@@ -43,6 +43,9 @@ std::span<const Patch> RewardPatches();
 std::span<const Patch> MapPatches();
 std::span<const Patch> LocalDevicePatches();
 std::span<const Patch> CharacterPatches();
+std::span<const Patch> BodyPartPatches();
+// opt-gegner-indikatoren: Warnanzeigen der Gegnerangriffe, Host meldet, Client zeigt lokal.
+std::span<const Patch> EnemyTelegraphPatches();
 // opt-schadenszahlen: Host merkt Treffer am Schadenszahl-Handler, Client ruft ihn selbst auf (DamageNumberAdapter.h).
 std::span<const Patch> DamageNumberPatches();
 // Host: Figur, die bei RewardChest.OpenAirdropChoices die native Auswahl bekommt (die des Hosts statt des Remote-P2).
@@ -62,12 +65,26 @@ void TickCamera(NetRole Role, bool Second);
 void TickBusBar(NetRole Role);
 // opt-lootbalken, Client: Fortschrittsbalken der Lootstellen aus dem replizierten Wert.
 void TickLootBar(NetRole Role);
+// opt-blut, Client: Blut und Fleisch beim Tod eines Gegners aus dem nativen Multi_OnDie.
+void TickBlood(NetRole Role);
+// opt-blut, Client: Weitere Anzeige beim Gegnertod (etwa opt-koerperteile) ohne eigenen ProcessEvent-Beobachter. Der Aufruf kommt
+// nach den nativen Tod-Effekten, auf dem Game Thread, nur fuer lebende Gegner. Zwei Plaetze.
+using EnemyDeathListener = void (*)(uintptr_t Enemy);
+bool AddEnemyDeathListener(EnemyDeathListener Listener);
+// opt-koerperteile, Client: Zerfall sterbender Gegner lokal aus dem replizierten Multi_OnDie.
+void TickBodyParts(NetRole Role);
+// opt-blickrichtung-client, Client: Blickwinkel der Hände aus ihrer replizierten Drehung, damit das Richtungs-Mesh sich dreht.
+void TickFacing(NetRole Role, bool Second);
 void TickWidgets(NetRole Role);
 void TickProjectiles(NetRole Role, bool Second);
 void TickMovement(NetRole Role, bool Second);
+// opt-laufanimation-client, Host: Tempo der Client-Figur fuer ihre Laufanimation aus ihrem Ort messen lassen.
+void TickWalkAnimation(NetRole Role, bool Second);
 void TickRemoteP2(NetRole Role);
 void TickMap(NetRole Role, bool Second);
 void TickCharacters(NetRole Role, bool Second);
+// opt-gegner-indikatoren, Client: Striche ohne Nachricht und abgelaufene Kreise ausblenden.
+void TickEnemyTelegraphs(NetRole Role);
 
 // rundenende-client, aus MapPatches.cpp: Host merkt sich sein Rundenende in der aktuellen Welt, run-ende: Lost bei einer Niederlage.
 void NoteHostRoundEnd(bool Lost = false);

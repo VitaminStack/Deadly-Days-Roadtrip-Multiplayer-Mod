@@ -23,6 +23,7 @@ namespace ObjectArray
 inline constexpr uintptr_t NumElements = 0x08;
 inline constexpr int ElementsPerChunk = 0x10000;
 inline constexpr uintptr_t ItemSize = 0x18;
+inline constexpr uintptr_t ItemInternalFlags = 0x04;
 inline constexpr uintptr_t ItemObject = 0x08;
 inline constexpr uintptr_t ItemSerialNumber = 0x10;
 }

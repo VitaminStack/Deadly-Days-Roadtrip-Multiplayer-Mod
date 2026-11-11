@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <string_view>
 
 #include "Game/WorldAdapter.h"
@@ -15,6 +16,12 @@ namespace Game::Patches
 constexpr bool ItemLootMayGrant(uint8_t ActorRole, NetRole WorldRole)
 {
     return ActorRole == 3 && WorldRole != NetRole::Client;
+}
+
+// opt-schrott-anzeige: Schrott aus einem Haufen bucht nur, wer das Konto führt. Beim Client kommt der Stand vom Host (0x309).
+constexpr bool ScrapLootMayCredit(NetRole WorldRole)
+{
+    return WorldRole != NetRole::Client;
 }
 
 // Nutzervorgabe 06.11.2026: Ein Itemsack zählt wie ein Airdrop für alle. Der Host gibt jedem anderen Spieler eine Kopie
@@ -182,6 +189,45 @@ constexpr bool LootBarDone(bool Looting, double Target, double Shown, double Sta
     return !Looting && !LootBarNeedsUpdate(Shown, Target) && StalledSeconds >= 1.0;
 }
 
+// opt-koerperteile: Derselbe Gegner meldet seinen Tod innerhalb einer Sekunde nur einmal. Gepoolte Gegner sterben später erneut.
+constexpr bool BodyPartsRepeated(double SecondsSinceLast)
+{
+    return SecondsSinceLast >= 0.0 && SecondsSinceLast < 1.0;
+}
+
+// Höchstens so viele Zerfälle je Frame beim Client, Wellen bringen viele Tode in einem Paket.
+inline constexpr int32_t BodyPartsPerFrame = 8;
+constexpr bool BodyPartsMayShow(int32_t ShownThisFrame)
+{
+    return ShownThisFrame >= 0 && ShownThisFrame < BodyPartsPerFrame;
+}
+
+// opt-blickrichtung-client: Gierwinkel in Grad (-180 bis 180) aus der Weltdrehung (FQuat, X Y Z W) des Hände-Actors. NaN, wenn
+// das Quaternion unbrauchbar ist (nicht endlich oder nicht normiert), dann bleibt der alte Wert stehen.
+inline float FacingYawFromQuat(double X, double Y, double Z, double W)
+{
+    const double Norm = X * X + Y * Y + Z * Z + W * W;
+    if (!std::isfinite(Norm) || Norm < 0.81 || Norm > 1.21)
+        return std::numeric_limits<float>::quiet_NaN();
+    constexpr double Degrees = 57.29577951308232;
+    return static_cast<float>(std::atan2(2.0 * (W * Z + X * Y), 1.0 - 2.0 * (Y * Y + Z * Z)) * Degrees);
+}
+
+// Den Winkel nur bei einer sichtbaren Änderung schreiben; ein unbrauchbarer Zielwert wird nie geschrieben.
+inline bool FacingNeedsWrite(float Current, float Target)
+{
+    if (!std::isfinite(Target))
+        return false;
+    return !std::isfinite(Current) || std::fabs(Current - Target) > 0.01f;
+}
+
+// opt-laufanimation-client: Beim Host misst der Animations-Tempogeber einer Client-Figur das Tempo selbst aus ihrem Ort, weil ihr
+// CMC-Tempo dort wegen der übernommenen Client-Position fast 0 bleibt. Nur Host, nur fremd gesteuerte Figuren, nur wenn noch aus.
+constexpr bool WalkAnimationNeedsManualTracking(bool IsHost, bool RemoteControlled, bool ManualActive)
+{
+    return IsHost && RemoteControlled && !ManualActive;
+}
+
 // FinishMission beendet die Runde. Beim Client nur der Aufruf beim Laden, das Rundenende selbst kommt vom Host.
 constexpr bool MissionFinishAllowed(bool IsNetClient, bool IsLoading)
 {
@@ -238,6 +284,25 @@ constexpr bool ClientHoldsRoundEndConfirm(uint64_t End, uint64_t Done, uint64_t 
 constexpr bool ClientMayReleaseRoundEnd(uint64_t End, uint64_t HostStatusId, bool HostReady, bool ClientReadyEcho)
 {
     return HostStatusId != End || (HostReady && ClientReadyEcho);
+}
+
+// lager-bestaetigen-absturz: Ein gemerktes Objekt (zurückgehaltenes Panel, gelber Knopf) lebt nur, wenn sein Platz im
+// Objekt-Array noch auf genau diese Adresse zeigt, die Serial gleich blieb und weder interne noch Objekt-Flags es als
+// Müll, unerreichbar oder im Abbau melden. Flags am alten Speicher allein reichen nicht: Nach der Reise des Hosts lag dort
+// noch der Kopf des freigegebenen Panels. Serial 0 beim Merken heißt, das Spiel hatte noch keine vergeben.
+inline constexpr uint32_t GarbageOrUnreachableInternalFlags = 0x00200000u | 0x10000000u;
+inline constexpr uint32_t DeadObjectFlags = 0x30u | 0x8000u | 0x10000u; // wie Alive, dazu BeginDestroyed, FinishDestroyed
+constexpr bool HeldObjectLive(uintptr_t Held, uintptr_t InSlot, uint32_t SerialThen, uint32_t SerialNow, uint32_t InternalFlags,
+                              uint32_t ObjectFlags)
+{
+    return Held != 0 && InSlot == Held && (SerialThen == 0 || SerialNow == SerialThen) &&
+           !(InternalFlags & GarbageOrUnreachableInternalFlags) && !(ObjectFlags & DeadObjectFlags);
+}
+
+// Ein zurückgehaltenes Bestätigen nur in der Welt nachholen, in der es gedrückt wurde. Während der Reise ist die Welt 0.
+constexpr bool MayReplayHeldConfirm(bool PanelLive, uintptr_t HeldWorld, uintptr_t World)
+{
+    return PanelLive && HeldWorld != 0 && HeldWorld == World;
 }
 
 // Beim Client bleiben ablaufende statische Pfad-GUIDs erhalten, keine dynamischen, NoLoad- oder kaputten Einträge.

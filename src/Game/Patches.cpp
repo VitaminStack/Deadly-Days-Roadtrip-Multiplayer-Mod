@@ -27,7 +27,7 @@ std::atomic<State> Current = State::Pending;
 Code::Writer Caves;
 
 // Reihenfolge wie bisher in Install. Ticks fragen über ListOn nach, ob ihre Liste steht.
-enum ListIndex : size_t { Player, Client, Camera, Inventory, Travel, Widget, HealthBar, Airdrop, Exp, RemoteP2, Reward, Map, LocalDevice, Character, DamageNumber, ListCount };
+enum ListIndex : size_t { Player, Client, Camera, Inventory, Travel, Widget, HealthBar, Airdrop, Exp, RemoteP2, Reward, Map, LocalDevice, Character, BodyPart, EnemyTelegraph, DamageNumber, ListCount };
 std::array<bool, ListCount> Enabled{};
 bool PartialMode = false;
 
@@ -168,7 +168,7 @@ bool Install()
         {"Player", PlayerPatches()}, {"Client", ClientPatches()}, {"Camera", CameraPatches()}, {"Inventory", InventoryPatches()},
         {"Travel", TravelPatches()}, {"Widget", WidgetPatches()}, {"HealthBar", HealthBarPatches()}, {"Airdrop", AirdropPatches()},
         {"Exp", ExpPatches()}, {"RemoteP2", RemoteP2Patches()}, {"Reward", RewardPatches()}, {"Map", MapPatches()},
-        {"LocalDevice", LocalDevicePatches()}, {"Character", CharacterPatches()}, {"DamageNumber", DamageNumberPatches()},
+        {"LocalDevice", LocalDevicePatches()}, {"Character", CharacterPatches()}, {"BodyPart", BodyPartPatches()}, {"EnemyTelegraph", EnemyTelegraphPatches()}, {"DamageNumber", DamageNumberPatches()},
     }};
     std::vector<Patch> All;
     for (const PatchList& List : Lists)
@@ -241,13 +241,22 @@ void Tick()
         { const GameThread::SlowScope Watch("Busbalken"); TickBusBar(Role); }
     if (ListOn(Widget))
         { const GameThread::SlowScope Watch("Lootbalken"); TickLootBar(Role); }
+    if (ListOn(Widget))
+        { const GameThread::SlowScope Watch("Blut"); TickBlood(Role); }
+    if (ListOn(BodyPart))
+        { const GameThread::SlowScope Watch("Körperteile"); TickBodyParts(Role); }
     if (ListOn(Camera))
         { const GameThread::SlowScope Watch("Kamera"); TickCamera(Role, Second); }
     { const GameThread::SlowScope Watch("Projektile"); TickProjectiles(Role, Second); }
     { const GameThread::SlowScope Watch("Bewegung"); TickMovement(Role, Second); }
+    if (ListOn(Player))
+        { const GameThread::SlowScope Watch("Blickrichtung"); TickFacing(Role, Second); }
+    { const GameThread::SlowScope Watch("Laufanimation"); TickWalkAnimation(Role, Second); }
     if (ListOn(Map))
         { const GameThread::SlowScope Watch("Karte"); TickMap(Role, Second); }
     if (ListOn(Character))
         { const GameThread::SlowScope Watch("Charakterwahl"); TickCharacters(Role, Second); }
+    if (ListOn(EnemyTelegraph))
+        { const GameThread::SlowScope Watch("Warnanzeigen"); TickEnemyTelegraphs(Role); }
 }
 }

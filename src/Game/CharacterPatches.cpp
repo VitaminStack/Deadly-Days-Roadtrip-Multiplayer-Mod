@@ -11,6 +11,7 @@
 // Remote-Figur nimmt beim Spawn gleich die Wahl der Gegenseite, ein Sekunden-Abgleich folgt Änderungen in der MetaBase.
 #include <optional>
 #include <string>
+#include <utility>
 
 #include "Core/Hooks.h"
 #include "Core/Log.h"
@@ -39,6 +40,8 @@ constexpr uint32_t GarbageOrUnreachableFlags = 0x30;
 
 constexpr Reflection::FieldSpec AppliedSpec{"/Script/DDSurvivors", "CharacterDefinitionApplier", "AppliedCharacterDefinition",
                                             "SoftObjectProperty", 0x28};
+// ADDCharacter hält seine Applier-Komponente direkt (SDK 0x840), das erspart die Suche in GObjects.
+constexpr Reflection::FieldSpec ApplierSpec{"/Script/DDSurvivors", "DDCharacter", "CharacterDefinitionApplier", "ObjectProperty", 8};
 constexpr Reflection::FieldSpec DefinitionsSpec{"/Script/DDSurvivors", "CharacterSelectionManager", "CharacterDefinitions",
                                                 "ArrayProperty", 0x10};
 
@@ -127,16 +130,29 @@ void __fastcall ApplyInitialHook(uintptr_t Applier)
     OriginalApplyInitial(Applier);
 }
 
-// Applier-Komponente der Figur. Volle Suche nur, wenn die Figur wechselt.
+// Applier-Komponente der Figur, direkt aus ADDCharacter.CharacterDefinitionApplier. Eine volle GObjects-Suche hielt den Frame
+// 10 bis 11 ms auf (opt-charakter-takt); sie bleibt nur als Rückfall, falls das Feld fehlt, und dann einmal je Figur.
+bool IsApplierOf(uintptr_t Applier, uintptr_t Pawn)
+{
+    return Alive(Applier) && Pointer(Applier + ComponentOwner) == Pawn && Objects::IsA(Applier, "CharacterDefinitionApplier");
+}
+
 uintptr_t ApplierOf(uintptr_t Pawn)
 {
-    if (Pawn == C.Pawn && Alive(C.Applier) && Pointer(C.Applier + ComponentOwner) == Pawn)
-        return C.Applier;
+    if (const auto Field = Reflection::Property(ApplierSpec))
+    {
+        const uintptr_t Applier = Pointer(Pawn + Field->Offset);
+        return IsApplierOf(Applier, Pawn) ? Applier : 0;
+    }
+    if (Pawn == C.Pawn)
+        return IsApplierOf(C.Applier, Pawn) ? C.Applier : 0;
+    static bool Warned = false;
+    if (!std::exchange(Warned, true))
+        Core::Log::Warn("Charakterwahl: Feld DDCharacter.CharacterDefinitionApplier fehlt, Suche in GObjects je Figur");
     C.Pawn = Pawn;
     C.Applier = 0;
     for (int32_t i = 0, Count = Objects::Count(); i < Count; ++i)
-        if (const uintptr_t Object = Objects::At(i);
-            Object && Pointer(Object + ComponentOwner) == Pawn && Objects::IsA(Object, "CharacterDefinitionApplier"))
+        if (const uintptr_t Object = Objects::At(i); Object && IsApplierOf(Object, Pawn))
         {
             C.Applier = Object;
             break;

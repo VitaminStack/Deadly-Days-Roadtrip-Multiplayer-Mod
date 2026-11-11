@@ -18,6 +18,7 @@
 {0x0314D6D0, 0, "40 55 53 48 8D 6C 24 B1 48 81 EC A8 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 37 0F B6 45 D7", 0, "SetNextTick"}, // InventoryPatches.cpp
 {0x03262A30, 0, "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 48 8B 81 B0 12 00 00 41 8B F9", 0, "SetClientTravel"}, // TravelPatches.cpp
 {0x04B68380, 0, "48 89 5C 24 10 48 89 74 24 18 48 89 7C 24 20 41 56 48 83 EC 20 48 8B 99 80 10 00 00", 0, "AttributeLookupFunction"}, // ClientPatches.cpp
+{0x04BC58D0, 0, "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 30 49 8B F8 48 8B DA 48 8B F1 E8 ?? ?? ?? ?? 48 8B C8 48 8B 10 FF 92 D8 02 00 00 48 85 C0", 0, "ExecuteCueNonReplicated"}, // BodyPartPatches.cpp
 {0x056591B0, 0, "48 89 5C 24 10 48 89 4C 24 08 57 48 83 EC 20 48 8B D9 48 8D 54 24 30", 0, "DamageInfoConstruct"}, // DamageNumberPatches.cpp
 {0x056676F5, 0, "48 FF A0 68 07 00 00 CC 48 8B 42 20 45 33 C0 48 85 C0 41 0F 95 C0 4C 03 C0 4C 89 42 20 E9 ?? ?? ?? ?? CC CC CC", 29, "At_5666FA5"}, // ClientPatches.cpp
 {0x057BDCD0, 0, "40 53 56 57 41 55 48 83 EC 38 48 89 6C 24 68", 0, "ControllerSetAdd"}, // PlayerPatches.cpp
@@ -31,13 +32,18 @@
 {0x0583B060, 0, "48 8B 9C 24 B8 00 00 00 48 81 C4 90 00 00 00 5F 5E 5D C3 CC CC CC CC CC CC CC CC CC CC CC CC CC 48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 48 8B F1", 0, "ComponentControllerExit"}, // ClientPatches.cpp
 {0x0584DF32, 0, "48 8B C8 48 8B 00 FF 90 30 03 00 00 8B E8", 0, "RunEndLocalPlayerSite"}, // PlayerPatches.cpp
 {0x0584DF40, 0, "48 8B BE E8 00 00 00 8B D5 48 8B CF", 0, "RunEndContinue"}, // PlayerPatches.cpp
+{0x058908C0, 0, "48 8B C4 48 89 58 08 48 89 70 18 57 48 81 EC 00 01 00 00 0F 29 70 E8", 0, "SpawnCircleTelegraph"}, // EnemyTelegraphPatches.cpp
+{0x058A3DB0, 0, "48 89 5C 24 08 57 48 83 EC 70 48 8B D9 B2 01 48 8B 89 38 02 00 00", 0, "ActivateLineTelegraph"}, // EnemyTelegraphPatches.cpp
 {0x058A6466, 0, "0F 84 ?? ?? ?? ?? 80 3D ?? ?? ?? ?? 00 48 89 74 24 50 74 ??", 0, "SneakSameTarget"}, // ClientPatches.cpp
 {0x058A646C, 0, "80 3D ?? ?? ?? ?? 00 48 89 74 24 50 74 ?? 48 8B CB", 0, "SneakRetry"}, // ClientPatches.cpp
 {0x058A64FE, 0, "48 83 BF E8 00 00 00 00 74 ?? 48 85 DB", 0, "At_58A52FE"}, // ClientPatches.cpp
 {0x058A650D, 0, "B0 01 48 8B 5C 24 58 48 83 C4 40 5F C3 48 8B 5C 24 58 32 C0 48 83 C4 40 5F C3 CC CC CC CC CC CC CC CC CC 48 89 5C 24 10 48 89 6C 24 18 56 57 41 56", 0, "SneakReady"}, // ClientPatches.cpp
 {0x058A7260, 0, "E8 ?? ?? ?? ?? F3 0F 11 87 14 03 00 00 48 8B CF", 0, "At_58A6060"}, // ClientPatches.cpp
+{0x058A9D30, 0, "40 53 48 81 EC D0 00 00 00 48 8B 81 38 02 00 00", 0, "CalculateLineTelegraphEndPoint"}, // EnemyTelegraphPatches.cpp
 {0x058AB9A0, 0, "48 8B 09 48 8B 01 48 FF A0 E8 04 00 00 CC CC CC E9 ?? ?? ?? ?? CC", 0, "At_58AA5F0"}, // ClientPatches.cpp
+{0x058B1130, 0, "40 53 57 48 83 EC 38 80 B9 69 02 00 00 00", 0, "EndTackle"}, // EnemyTelegraphPatches.cpp
 {0x058B1D3E, 0, "E8 ?? ?? ?? ?? F3 0F 11 87 14 03 00 00 40 38 AF 18 03 00 00", 0, "At_58B0F6E"}, // ClientPatches.cpp
+{0x058B1F40, 0, "48 89 5C 24 10 57 48 83 EC 60 0F 29 74 24 50 0F 28 F1 48 8B F9", 0, "ExecuteTackle"}, // EnemyTelegraphPatches.cpp
 {0x058B4D30, 0, "48 89 5C 24 08 57 48 83 EC 40 0F 29 74 24 30 0F 57 F6 48 8B D1", 0, "ExpAggregate"}, // ClientPatches.cpp
 {0x058B4D6B, 0, "48 8B 89 D8 07 00 00 48 83 E9 80 E8 ?? ?? ?? ??", 0, "At_58B419B"}, // ClientPatches.cpp
 {0x058BBD90, 0, "40 53 48 81 EC B0 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 A0 00 00 00 48 8B D9 48 8B 81 B0 00 00 00 48 85 C0", 0, "BlockadeLoadingFinished"}, // ClientPatches.cpp
@@ -72,6 +78,8 @@
 {0x05998D70, 0, "48 8B 83 B8 01 00 00 48 85 C0 74 ?? 0F 10 80 10 02 00 00 0F 11 45 E0 F2 0F 10 80 20 02 00 00", 0, "LootPawnRead"}, // PlayerPatches.cpp
 {0x05998D91, 0, "0F 10 05 ?? ?? ?? ?? 0F 11 45 E0 F2 0F 10 05 ?? ?? ?? ?? F2 0F 11 85 B8 00 00 00", 0, "LootNoRootTarget"}, // PlayerPatches.cpp
 {0x059AF200, 0, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 48 83 EC 30 48 8B F2 48 8B F9 E8 ?? ?? ?? ??", 0, "ItemLoot"}, // InventoryPatches.cpp
+{0x059AF3F0, 0, "48 89 5C 24 10 57 48 83 EC 20 48 8B 92 A8 00 00 00", 0, "LootBaseLoot"}, // InventoryPatches.cpp
+{0x059AF660, 0, "48 89 5C 24 10 48 89 6C 24 18 48 89 74 24 20 57 41 56 41 57 48 83 EC 20 48 8B FA", 0, "ScrapLoot"}, // InventoryPatches.cpp
 {0x059BBFC7, 0, "E8 ?? ?? ?? ?? 49 89 86 58 01 00 00 48 85 C0", 0, "AttributeLookupCallSite"}, // ClientPatches.cpp
 {0x059BC73A, 0, "48 8B 8D A0 00 00 00 48 33 CC E8 ?? ?? ?? ?? 4C 8D 9C 24 58 02 00 00 41 0F 28 73 E8 41 0F 28 7B D8 45 0F 28 43 C8 45 0F 28 4B B8 45 0F 28 53 A8 45 0F 28 5B 98 45 0F 28 63 88 45 0F 28 AB 78 FF FF FF 45 0F 28 B3 68 FF FF FF 45 0F 28 BB 58 FF FF FF 49 8B E3 41 5F 41 5E 41 5D 41 5C 5F 5E 5B 5D C3 CC CC CC CC 48 89 5C 24 10 48 89 6C 24 18 56 57", 0, "AttributeTickExit"}, // ClientPatches.cpp
 {0x059C7FC0, 0, "48 89 5C 24 10 48 89 74 24 20 55 57 41 56 48 8B EC 48 83 EC 60 48 8B F2", 0, "CanBusTakeOff"}, // ClientPatches.cpp

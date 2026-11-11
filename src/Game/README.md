@@ -89,6 +89,7 @@ ausgelassenen erreichen. Im Referenz-Build und ohne Schalter bleibt es bei allen
 | `WidgetPatches.cpp` | Client | `WP_UI` wartet auf den GameState; Beobachter nach jedem `ProcessEvent` |
 | `RemoteP2Patches.cpp` | Host | Remote-Spieler als P2 in `ActivePlayers` des Coop-Subsystems, ohne zweiten `LocalPlayer`; beim Verlassen nur die eigene Bindung entfernen; lokale P2-Gerätepflicht nur bei vollständiger Bindung ausnehmen. Koop-Modus erst nach `AllowRemoteCoop()`, siehe [Remote-Spieler](#remote-spieler-als-p2) |
 | `HealthBarPatches.cpp` | Client | Lebensleisten nach repliziertem `OnRep_Health` und `OnRep_MaxHealth` |
+| `EnemyTelegraphPatches.cpp` | beide | Warnanzeigen der Gegnerangriffe: Host meldet Kreise (`SpawnCircleTelegraph`) und Sprint-Striche (`UTackleAbilityExecution`) über `0x900`, der Client zeigt dasselbe Niagara-System bzw. treibt die eigene Komponente des Gegners; siehe [Warnanzeigen](../../docs/GAME_ANALYSIS.md#warnanzeigen-der-gegner-beim-client-opt-gegner-indikatoren) |
 | `LocalDevicePatches.cpp` | beide | Im Netzwerkspiel bleiben lokale Geräte bei Spieler 0: keine Gerätezuordnung oder kein Entwurf für P2, kein zweiter `LocalPlayer`; ohne Netzwerk unverändert, siehe [Eingaben getrennt](../../docs/GAME_ANALYSIS.md#eingaben-getrennt-eingaben) |
 
 **Alle oder keiner.** `Patches::Install` läuft in `Game::Start` vor dem ersten Takt. Es prüft zuerst jede Stelle (Bytes, vtable-Einträge)
@@ -272,6 +273,13 @@ in [Kontrollkanal](../../docs/CONTROL_PROTOCOL.md#lager-am-rundenende-mod-kompat
   läuft ein zweiter Klick direkt nativ. Ein neues Rundenende (neue Welt) setzt alles zurück, auch die Farbe.
 - Regeln `HostHoldsRoundEndConfirm`, `ClientHoldsRoundEndConfirm` und `ClientMayReleaseRoundEnd` in `PatchPolicy.h`, mit Tests;
   Laufzeit in `RewardPatches.cpp`, Nachrichten in `src/Sync/Inventory/RewardSync.cpp`, Rundenende aus `MapPatches.cpp`.
+- **Nachholen nur mit lebendem Panel (`lager-bestaetigen-absturz`, 10.11.2026).** Jedes zurückgehaltene Panel (Lager, Airdrop beim
+  Host und beim Client) und der gelbe Knopf werden als `Objects::Ref` gemerkt: Platz und Serial im Objekt-Array, dazu die Welt beim
+  Zurückhalten. Vor dem nachgeholten `HandleConfirmButton` muss der Platz noch auf dasselbe, nicht abgebaute Objekt zeigen und die
+  Welt dieselbe sein (`HeldObjectLive`, `MayReplayHeldConfirm` in `PatchPolicy.h`, mit Tests). Sonst verwirft die Mod das Bestätigen
+  mit „Lager: Welt gewechselt“ oder „Panel weg“; der Client folgt ohnehin der Reise des Hosts. Vorher prüfte `Alive` nur Flags am
+  alten Speicher, ein nach der Reise freigegebenes Panel bestand das, siehe
+  [Befund](../../docs/GAME_ANALYSIS.md#absturz-beim-bestätigen-im-lager-lager-bestaetigen-absturz).
 
 **Geprüft** (06.11.2026, Build `26187885`, ein PC, Lobby, Godmode, Rundenende per `!finish`): Zwei Rundenenden hintereinander.
 Tag 1 Host zuerst: Knopf des Hosts gelb, der Host blieb 23 s im Lager, bis der Client bestätigte, dann beide weiter
