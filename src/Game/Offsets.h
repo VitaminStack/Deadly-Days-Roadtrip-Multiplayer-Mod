@@ -30,6 +30,7 @@ inline constexpr uintptr_t ItemSerialNumber = 0x10;
 namespace UObject
 {
 inline constexpr uintptr_t Flags = 0x08;
+inline constexpr uintptr_t InternalIndex = 0x0C; // Platz im Objekt-Array
 inline constexpr uint32_t ClassDefaultObjectFlag = 0x10;
 inline constexpr uintptr_t Class = 0x10;
 inline constexpr uintptr_t Name = 0x18;
