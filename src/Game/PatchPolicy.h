@@ -24,6 +24,54 @@ constexpr bool ScrapLootMayCredit(NetRole WorldRole)
     return WorldRole != NetRole::Client;
 }
 
+// opt-levelup-sound: Beim Client ruft der Blueprint Loot jeden Takt erneut auf, solange der Haufen an der Figur hängt; nur der
+// Host gibt ihn an den Pool zurück. Der Haufen fliegt dabei zur Figur, sein Ort taugt nicht als Merkmal. Der Client spielt Klang
+// und Delegates je Haufen einmal: Wiederholungen innerhalb von QuietMs nach dem letzten Aufruf bleiben stumm und verlängern die
+// Ruhe. Ein später aus dem Pool wiederverwendeter Haufen klingt wieder. Zuletzt berührte Haufen bleiben vorne.
+class LootedPiles
+{
+public:
+    static constexpr size_t Capacity = 64;
+    static constexpr uint64_t QuietMs = 2000;
+
+    // true beim ersten Aufsammeln dieses Haufens oder nach mindestens QuietMs Ruhe, sonst false.
+    bool FirstLoot(uintptr_t Actor, uint64_t NowMs)
+    {
+        for (size_t i = 0; i < Count; ++i)
+        {
+            if (Entries[i].Actor != Actor)
+                continue;
+            const bool Quiet = NowMs - Entries[i].LastMs >= QuietMs;
+            MoveToFront(i, {Actor, NowMs});
+            return Quiet;
+        }
+        if (Count < Capacity)
+            ++Count;
+        MoveToFront(Count - 1, {Actor, NowMs});
+        return true;
+    }
+
+    void Clear() { Count = 0; }
+    size_t Size() const { return Count; }
+
+private:
+    struct Entry
+    {
+        uintptr_t Actor;
+        uint64_t LastMs;
+    };
+
+    void MoveToFront(size_t Index, Entry Value)
+    {
+        for (size_t i = Index; i > 0; --i)
+            Entries[i] = Entries[i - 1];
+        Entries[0] = Value;
+    }
+
+    Entry Entries[Capacity]{};
+    size_t Count = 0;
+};
+
 // Nutzervorgabe 06.11.2026: Ein Itemsack zählt wie ein Airdrop für alle. Der Host gibt jedem anderen Spieler eine Kopie
 // jedes neuen Items, aber nur, wenn genau ein Inventar beim Aufsammeln etwas bekommen hat.
 constexpr bool ShareItemLoot(NetRole WorldRole, size_t Inventories, size_t GainedInventories)
