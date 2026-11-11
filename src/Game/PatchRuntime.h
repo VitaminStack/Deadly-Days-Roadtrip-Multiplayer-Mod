@@ -46,6 +46,8 @@ std::span<const Patch> CharacterPatches();
 std::span<const Patch> BodyPartPatches();
 // opt-gegner-indikatoren: Warnanzeigen der Gegnerangriffe, Host meldet, Client zeigt lokal.
 std::span<const Patch> EnemyTelegraphPatches();
+// opt-schadenszahlen: Host merkt Treffer am Schadenszahl-Handler, Client ruft ihn selbst auf (DamageNumberAdapter.h).
+std::span<const Patch> DamageNumberPatches();
 // Host: Figur, die bei RewardChest.OpenAirdropChoices die native Auswahl bekommt (die des Hosts statt des Remote-P2).
 uintptr_t RewardCharacter(uintptr_t Character);
 // Client: Wahr, wenn ProcessEvent einen Server-RPC mit einer lokalen Anzeige-Instanz der Airdrop-Auswahl nicht senden soll.

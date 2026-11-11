@@ -151,6 +151,10 @@ unveränderte Treffer/HP. **Zuständig:** `kampf`, `vfx-sound`, `opt-client-visu
 - **Schadenszahlen und Treffereffekte aus `OnRep_Health`.** Der Client sieht jede HP-Änderung schon über
   `HealthBarPatches.cpp`. Aus der Differenz kann er Schadenszahl und Treffer-VFX aus seinem eigenen Pool zeigen,
   ohne eine Nachricht. Nie einen Damage-Actor nachspawnen. **Zuständig:** `opt-blut`, `vfx-sound`.
+  **Stand 11.11.2026 (`opt-schadenszahlen`):** Für normale Gegner trägt das nicht, ihre HP sind beim Client 0/0 und
+  `OnRep_Health` meldet keine Treffer. Die Schadenszahlen kommen darum über die kleine Nachricht `0xA00` mit Ziel und Betrag,
+  angezeigt vom nativen Handler des Client-Controllers, siehe
+  [Schadenszahlen beim Client](GAME_ANALYSIS.md#schadenszahlen-beim-client-opt-schadenszahlen).
 - **Tote Gegner sofort ausblenden.** Beim Client bleiben sie rund 15 s als Objekte stehen. Bei HP 0 lokal
   verstecken und Kollision lösen, das Zerstören bleibt Sache der Replikation. **Zuständig:** `gegnertyp`, `opt-gegnerzahl`.
   **Ergebnis `gegnertyp` (06.11.2026): nicht nötig.** Die stehenden Objekte haben schon `bActorIsBeingDestroyed`, sind aus

@@ -1,7 +1,8 @@
-﻿#include "Sync/Sync.h"
+#include "Sync/Sync.h"
 #include "Core/Log.h"
 #include "Sync/ControlDispatch.h"
 #include "Sync/DevState.h"
+#include "Sync/Enemies/DamageNumberState.h"
 #include "Sync/MovementState.h"
 #include "Sync/Enemies/TelegraphState.h"
 #include "Game/GameThread.h"
@@ -79,6 +80,27 @@ void TickMovement(Net::Transport& Transport)
             Transport.SendControl(Peers[0], {1, 1, ++Revision, Movement::DashInput, Payload});
     }
 }
+
+// opt-schadenszahlen: jeder Takt, damit die Zahl beim Client im selben Moment wie beim Host entsteht. Host schickt die Treffer
+// seines Schadenszahl-Handlers, der Client ruft damit seinen eigenen auf. Format in Enemies/DamageNumberState.h.
+void TickDamageNumbers(Net::Transport& Transport)
+{
+    if (Transport.Stats().IsHost)
+    {
+        const auto Hits = Game::TakeDamageNumberHits();
+        if (Hits.empty())
+            return;
+        const auto Payload = DamageNumbers::Encode(Hits);
+        static uint64_t Revision = 0;
+        if (!Payload.empty())
+            for (const uint64_t Peer : Transport.ControlPeers())
+                Transport.SendControl(Peer, {1, 1, ++Revision, DamageNumbers::HitsType, Payload});
+        return;
+    }
+    for (const auto& Message : Transport.TakeControlMessages(DamageNumbers::HitsType))
+        if (const auto Hits = DamageNumbers::Decode(Message.Value.Payload))
+            Game::ShowDamageNumbers(*Hits);
+}
 }
 
 namespace
@@ -155,6 +177,11 @@ void Start(const Core::Config& Config, DiagnosticSink Diagnostics)
         }
         else
             Game::TakeEnemyTelegraphs();
+        if (Transport)
+        {
+            const Game::GameThread::SlowScope Watch("Sync-Schadenszahlen");
+            TickDamageNumbers(*Transport);
+        }
         {
             const Game::GameThread::SlowScope Watch("Sync-Dev");
             TickDev(Transport.get()); // Also handles offline/standalone dev actions.

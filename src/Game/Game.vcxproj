@@ -74,6 +74,7 @@
     <ClCompile Include="BloodPatches.cpp" />
     <ClCompile Include="BodyPartPatches.cpp" />
     <ClCompile Include="WalkAnimationPatches.cpp" />
+    <ClCompile Include="DamageNumberPatches.cpp" />
     <ClCompile Include="CharacterPatches.cpp" />
     <ClCompile Include="EnemyTelegraphPatches.cpp" />
     <ClCompile Include="TravelPatches.cpp" />
@@ -109,6 +110,7 @@
     <ClInclude Include="LocalDevicePolicy.h" />
     <ClInclude Include="MovementPolicy.h" />
     <ClInclude Include="DashAdapter.h" />
+    <ClInclude Include="DamageNumberAdapter.h" />
     <ClInclude Include="DevAdapter.h" />
     <ClInclude Include="PatchPolicy.h" />
     <ClInclude Include="PatchRuntime.h" />
