@@ -2140,6 +2140,46 @@ Speicher; das Host-Log lag nicht vor. Drei Rundenenden, 18 Airdrop- und Level-up
   Level-up-Kiste im Endbildschirm (`opt-levelup-sound`), der Client stempelt das geschaffte Level nicht ab (`opt-rundenstempel`).
 - **Nicht geprüft:** `fortschritt` (Giftwolke, Item-Effekte, Werte nach Upgrade), Reparatur und Ausrüsten für `lager-handel-client`.
 
+### Sound und Effekte beim Client (`vfx-sound`)
+
+Gemessen am 11.11.2026, Build `26495302`, Mod-Stand `main` `3e7379e` (Mod-Version 12), ein PC, `Start-Session.ps1 -Mod -Tunnel Lobby
+-Godmode`, Seed `20795`, Tag 1 und 2, beide Figuren meist stehend. Ton war stumm: Nachweis über Zähler, **nicht gehört**. Der Spike-Befehl
+`!fx` zählt in jeder Instanz jeden gestarteten FMOD-Sound mit Ereignispfad (die Exe lädt `fmodstudio.dll` verzögert, gezählt wird am
+Delay-Import `EventInstance::start`) und dazu Sound-, Niagara- und Pool-Aufrufe aus Blueprints je Aufrufer. Jeder Prozess spielt seine
+Sounds selbst, die Zahlen sind also das, was Host und Client hören würden. Je Zeile: Host / Client in einem Messfenster.
+
+| Bereich | Ereignis | Host / Client | Ergebnis |
+|---|---|---|---|
+| Waffen | `weapon_Pistol`, `weapon_Revolver`, `weapon_SawedOffShotgun`, `weapon_Reload` | 184 / 0, 4 / 0, 7 / 0, 15 / 0 je Minute | **[Belegt] fehlt beim Client**, auch für die eigene Figur → `opt-waffen-sound` |
+| Gegner getroffen | `zombie_Hurt` | 154 / 4 je Minute | **[Belegt] fehlt fast ganz** → `opt-gegner-sound` |
+| Gegnerangriff | `StandardEnemyAttack` aus `GA_SmallJumpAttack` | 52 / 0 je Minute | **[Belegt] fehlt beim Client** → `opt-gegner-sound` |
+| Schrott | `ScrapPickup` | 0 / 3886 je Minute | **[Belegt] Dauerschleife beim Client** → `opt-schrott-sound` |
+| Airdrop | `PlaceAirdrop` aus `BP_Airdrop_Lootable_C` (Landung) | 1 / 0, dreimal | **[Belegt] fehlt beim Client** → `opt-airdrop-sound` |
+| Airdrop | `Airdrop_beep`, `airdrop_openCrate` | 1 / 1 | gleich |
+| Bedrohung | `UI_ThreatIncrease` aus `WBP_Stopwatch_C` | 1 / 0, zweimal | **[Belegt] fehlt beim Client** → `opt-bedrohung-sound` |
+| Rundenübersicht | `meta_stickerGood` (Stempel) | 1 / 0 | fehlt, gehört zu `opt-rundenstempel` |
+| Level-up | `player_LevelUp`, `NS_Level_Up` über `Handle Level Up Effects` | 2 / 2, 2 / 2, 2 / 0 | zweimal gleich, einmal fehlend; nicht als Lücke gewertet |
+| XP, Bus, UI | `EXP_pickup`, `Bus_*`, `UI_*Inventory`, `UI_OpenMap`, Knöpfe | gleich | gleich |
+| Pools | `LonglivingChaosDestructionActor_C` | gleich | gleich (Zerfall aus `opt-koerperteile`) |
+| Pools | `BP_Projectile_C` | 184 / 0 | erwartet: Der Client sieht replizierte Projektile, kein eigener Pool (`kampf`) |
+
+- **[Belegt] Schrott-Dauerschleife.** Ab dem ersten Schrotthaufen, den der Client aufsammelt („Schrott: Aufsammeln beim Client nur angezeigt,
+  der Host bucht“), startet `ScrapPickup` beim Client etwa 65- bis 170-mal je Sekunde, minutenlang, beim Host nie. Aufrufkette über
+  `!fx stack Scrap`: Blueprint-Takt → `DDCoop.dll`-ProcessEvent-Hook → `exe+5734726` → `exe+59AF41C` → … → `exe+47B9A0A` (FMOD-Start).
+  Der Hook `ScrapLootHook` aus `opt-schrott-anzeige` ruft beim Client `LootBase.Loot` (Klang und Delegates) statt `ScrapLoot.Loot`.
+  **Vermutung:** Was `ScrapLoot.Loot` sonst tut, damit derselbe Haufen nicht erneut eingesammelt wird, fehlt, der Attraktor des Clients
+  sammelt denselben Haufen jeden Takt erneut.
+- **[Belegt] Waffen.** Schuss- und Nachladesounds laufen nur beim Host, beim Client für beide Figuren nie. **Vermutung:** Die Waffe feuert nur
+  beim Host, beim Client kommen nur die replizierten Projektile an.
+- **Level-up-Kiste (`opt-levelup-sound`).** Der Öffnungssound des Level-up-Airdrops (`airdrop_openCrate`) lief bei Host und Client je einmal,
+  eine Kiste im Endbildschirm war in zwei Rundenenden nicht zu sehen. Der gemeldete Fehler ist damit nicht nachgestellt.
+- **Nicht gemessen:** Boss-Angriffe, Kisten und Tonnen (`BP_EnvironmentObjectLootspot_C`), Dash-Aufprall (`opt-dash-aufprall`), Tod der
+  Gegner (`opt-blut`). Effekte aus C++ (Niagara, Pools ohne Blueprint-Aufruf) sieht `!fx` nicht. Die Rundenübersicht des Clients zeigte
+  bei allen Werten außer der Dauer 0 (Kills, Schaden, Level-ups); **Vermutung:** dieselbe Ursache wie `opt-ergebnis-werte`.
+- **Nebenbefund.** In einem Lauf stürzten Client und Host ohne Spike-Adressen im Stapel ab (Client `exe+15C0407` nach 757 s, Host
+  `exe+5899663` 10 Minuten später, während er auf den Client wartete). Nicht nachgestellt, Ursache offen. Zwei frühere Abstürze kamen
+  vom Zähler selbst (Pfad einer schon entladenen Sound-Beschreibung gelesen) und sind behoben.
+
 ### Absturz beim Bestätigen im Lager (`lager-bestaetigen-absturz`)
 
 Ausgewertet am 10.11.2026 aus Mod-Log und Minidump des Clients vom [Live-Test](#live-test-auf-zwei-pcs-am-10112026-livetest-1011),
