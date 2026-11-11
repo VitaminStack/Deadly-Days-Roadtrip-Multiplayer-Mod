@@ -261,6 +261,22 @@ offen alle 500 ms, nach dem Schließen 3 s lang alle 500 ms. Der Host hält die 
 Meldung kam, seine Welt wechselt oder die Verbindung weg ist. Eine so beendete Sitzung pausiert nicht noch einmal, erst ein neues Öffnen.
 Pausen des Hosts brauchen keine Nachricht, sie replizieren nativ. Keine Antwort vom Host.
 
+## Warnanzeigen der Gegner (Mod-Kompatibilität 11)
+
+Aufgabe `opt-gegner-indikatoren`, Code in `src/Game/EnemyTelegraphPatches.cpp` und `src/Sync/Enemies/TelegraphState.h`, Befund in
+[Warnanzeigen der Gegner](GAME_ANALYSIS.md#warnanzeigen-der-gegner-beim-client-opt-gegner-indikatoren). Mod-Version 11, weil ein
+Client mit Version 10 die Anzeigen nicht kennt und ein Host mit Version 10 sie nicht schickt. Die Angriffsfähigkeiten laufen nur beim
+Host, ihre Niagara-Anzeigen replizieren nicht. Lokal bleibt die ganze Darstellung beim Client: dasselbe Niagara-System, Farbwechsel,
+Länge und Ende des Strichs. Geteilt wird nur der Auslöser je Anzeige. Der Host entscheidet über Angriff, Ziel, Zeitpunkt und Schaden.
+
+`0x900` Host an Client, je Anzeige: Art (1: 1 Kreis, 2 Strich an, 3 Strich-Stand, 4 Strich aus), NetGUID des Gegners (8, nur Strich,
+sonst 0), Ort (3 × double; Kreis: Mitte, Strich-Stand: Ziel), Delay, Lifetime, Size, Percentage (je float), dann vier Texte mit je einem
+Längenbyte (höchstens 200 druckbare ASCII-Zeichen): Pfad des Niagara-Systems und die Namen der drei Parameter aus der Fähigkeit des
+Hosts. Nur der Kreis trägt Texte, nur der Strich eine NetGUID. Den Strich-Stand schickt der Host höchstens alle 50 ms je Gegner
+und beim Anteil 1. Der Client holt `0x900` in jedem Takt ab. Ein fehlendes System oder ein unbekannter Gegner wird übersprungen,
+Verlust kostet nur eine Anzeige. Ohne Nachricht blendet der Client einen Strich nach 3 s, einen Kreis nach Delay + Lifetime + 1 s aus,
+der Weltwechsel vergisst alles. Keine Antwort, keine Wiederholung, kein Nachholen bei Join oder Travel.
+
 ## Bisher geprüft (05.11.2026, Kontrollkanal vor Diagnoseerweiterung)
 
 - Build und alle Tests bestanden, darunter 24 Net-Testfälle: binäre UE-Pakete in

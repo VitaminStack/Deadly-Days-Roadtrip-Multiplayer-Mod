@@ -3,6 +3,7 @@
 #include "Sync/ControlDispatch.h"
 #include "Sync/DevState.h"
 #include "Sync/MovementState.h"
+#include "Sync/Enemies/TelegraphState.h"
 #include "Game/GameThread.h"
 #include "Game/PatchRuntime.h"
 #include "Net/Net.h"
@@ -80,6 +81,30 @@ void TickMovement(Net::Transport& Transport)
 }
 }
 
+namespace
+{
+// opt-gegner-indikatoren: Host meldet je Warnanzeige eines Gegnerangriffs den Auslöser, der Client zeigt sie lokal. Jeder Takt,
+// die Anzeige ist zeitkritisch. Ohne Mitspieler werden die Meldungen nur verworfen.
+void TickTelegraphs(Net::Transport& Transport)
+{
+    if (!Transport.Stats().IsHost)
+    {
+        for (const auto& Message : Transport.TakeControlMessages(Telegraph::Type))
+            if (const auto Value = Telegraph::Decode(Message.Value.Payload))
+                Game::ReceiveEnemyTelegraph(*Value);
+        return;
+    }
+    const auto Values = Game::TakeEnemyTelegraphs();
+    if (Values.empty())
+        return;
+    static uint64_t Revision = 0;
+    for (const uint64_t Peer : Transport.ControlPeers())
+        for (const auto& Value : Values)
+            if (const auto Payload = Telegraph::Encode(Value); !Payload.empty())
+                Transport.SendControl(Peer, {1, 1, ++Revision, Telegraph::Type, Payload});
+}
+}
+
 void BindDevSource(std::function<uint32_t()> Source)
 {
     DevSource = std::move(Source);
@@ -97,6 +122,13 @@ void Start(const Core::Config& Config, DiagnosticSink Diagnostics)
             const Game::GameThread::SlowScope Watch("Sync-Bewegung");
             TickMovement(*Transport);
         }
+        if (Transport)
+        {
+            const Game::GameThread::SlowScope Watch("Sync-Warnanzeigen");
+            TickTelegraphs(*Transport);
+        }
+        else
+            Game::TakeEnemyTelegraphs();
         {
             const Game::GameThread::SlowScope Watch("Sync-Dev");
             TickDev(Transport.get()); // Also handles offline/standalone dev actions.
