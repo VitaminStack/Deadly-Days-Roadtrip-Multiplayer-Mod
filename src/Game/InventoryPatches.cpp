@@ -191,10 +191,27 @@ bool ApplyItemLoot(Code::Writer&)
 // opt-schrott-anzeige: Der Client sammelt replizierte Schrotthaufen mit seinem lokalen Attraktor ein und buchte sie bisher selbst,
 // teils mehrfach, bis das Zerstören des Hosts ankam. Der Host korrigierte das alle 0,5 s (Anzeige sprang). Jetzt bucht nur der Host,
 // der Client bekommt den Stand über 0x309 (ApplyScrap). Klang und Delegates der Basis laufen beim Client weiter lokal.
+// opt-levelup-sound: Beim Client gibt LootBase.Loot den Haufen nicht an den Pool zurück, der Blueprint rief Loot darum jeden Takt
+// erneut, ScrapPickup lief 65- bis 170-mal je Sekunde. Klang und Delegates jetzt je Haufen einmal (LootedPiles). Nur Game Thread.
+LootedPiles ClientPiles;
+std::atomic<unsigned> ClientScrapRepeats = 0;
+
+bool FirstClientScrapLoot(uintptr_t Interface)
+{
+    const uintptr_t Actor = Interface >= LootableInterface ? Interface - LootableInterface : 0;
+    return !Actor || ClientPiles.FirstLoot(Actor, GetTickCount64());
+}
+
 void __fastcall ScrapLootHook(uintptr_t Interface, uintptr_t Looter)
 {
     if (ScrapLootMayCredit(CurrentRole()))
         return OriginalScrapLoot(Interface, Looter);
+    if (!FirstClientScrapLoot(Interface))
+    {
+        if (ClientScrapRepeats.fetch_add(1) == 0)
+            Core::Log::Info("Schrott: wiederholtes Aufsammeln desselben Haufens beim Client ausgelassen (Klang nur einmal)");
+        return;
+    }
     if (ClientScrapLootAttempts.fetch_add(1) < 3)
         Core::Log::Info("Schrott: Aufsammeln beim Client nur angezeigt, der Host bucht");
     reinterpret_cast<ItemLootFn>(At(LootBaseLoot))(Interface, Looter);

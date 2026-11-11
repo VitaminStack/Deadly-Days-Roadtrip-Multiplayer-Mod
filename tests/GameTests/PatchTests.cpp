@@ -38,6 +38,38 @@ TEST_CASE("Schrott: Haufen bucht nur Host oder Einzelspieler")
     CHECK_FALSE(ScrapLootMayCredit(NetRole::Client));
 }
 
+TEST_CASE("Schrott: Client spielt das Aufsammeln je Haufen nur einmal")
+{
+    LootedPiles Piles;
+    uint64_t Now = 10'000;
+    CHECK(Piles.FirstLoot(0x1000, Now));
+    for (int Tick = 0; Tick < 600; ++Tick) // zehn Sekunden jeden Takt erneut: bleibt stumm
+        CHECK_FALSE(Piles.FirstLoot(0x1000, Now += 16));
+    CHECK(Piles.FirstLoot(0x2000, Now)); // anderer Haufen
+    CHECK_FALSE(Piles.FirstLoot(0x1000, Now + LootedPiles::QuietMs - 1));
+    // Nach Ruhe aus dem Pool wiederverwendet: klingt wieder
+    Now += 2 * LootedPiles::QuietMs;
+    CHECK(Piles.FirstLoot(0x1000, Now));
+    CHECK_FALSE(Piles.FirstLoot(0x1000, Now + 16));
+    CHECK(Piles.Size() == 2);
+    Piles.Clear();
+    CHECK(Piles.FirstLoot(0x1000, Now + 32));
+}
+
+TEST_CASE("Schrott: ein dauernd berührter Haufen fällt nicht aus der Liste")
+{
+    LootedPiles Piles;
+    uint64_t Now = 0;
+    CHECK(Piles.FirstLoot(0x1, Now));
+    for (uintptr_t Other = 2; Other < 2 + 3 * LootedPiles::Capacity; ++Other)
+    {
+        CHECK(Piles.FirstLoot(Other, ++Now));
+        CHECK_FALSE(Piles.FirstLoot(0x1, ++Now));
+    }
+    CHECK(Piles.Size() == LootedPiles::Capacity);
+    CHECK(Piles.FirstLoot(0x2, ++Now)); // ältester herausgefallen, zählt wieder neu
+}
+
 namespace
 {
 // Ausführbarer Puffer für erzeugten Code. Es läuft nur eigener Testcode, nie Code aus dem Spiel.
