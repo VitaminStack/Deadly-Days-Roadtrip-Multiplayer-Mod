@@ -407,6 +407,40 @@ Stand 11.11.2026, Build `26495302`, zwei Instanzen auf einem PC über die Lobby,
 - **Takt:** Die Suche der beiden UFunctions hielt den Frame je Mission einmal etwa 10 ms auf (`Takt: Lootbalken …`).
 - **Nicht geprüft:** zwei PCs, Reconnect mitten im Durchsuchen. Eine Stelle mit eigener Kistenoptik ließ sich in den Testkarten nicht zuordnen. `BP_ChestLootSpot_C` (`Progress` nicht repliziert, kein Widget) und `BP_PowerUpCrate_C` rufen weder Widget noch Fortschrittsfunktionen auf, dort gibt es also keinen solchen Balken. Säcke wurden nicht einzeln gemessen. **Vermutung:** Sie laufen über dieselbe Klasse wie die getesteten Stellen.
 
+### Blut beim Client (`opt-blut`)
+
+Stand 11.11.2026, Build `26495302`. Statische Disassembly der Exe (`tools/spike/Disassemble.ps1`), dazu zwei Instanzen auf einem PC über
+die Lobby, Mod mit Spike, `-Godmode`, Seed 20795, zwei Missionstage.
+
+- **[Belegt, Disassembly] Tod:** Blut und Fleisch spawnt `AEnemyBase::ActivateDeathVFX` (`BloodVfx` `+0x778`, `FleshVfx` `+0x7B8`,
+  letzteres begrenzt über `MaxZombieFleshSetting` `+0x9B8`). Sie bricht nur auf einem dedizierten Server ab, würde beim Client also
+  laufen. Ihr einziger Aufrufer ist `UEnemyDyingAbility::ActivateAbility`, die nur beim Host läuft. Kein Cue, keine Chaos-Zerstörung in
+  dieser Funktion; die Bruchstücke über `EnemyChaosDestructionProxyActor` sind `opt-koerperteile`.
+- **[Belegt, Disassembly]** Der Host sendet für jeden Tod `DDCharacterBase.Multi_OnDie` (`NetMulticast | NetReliable`). Beim Client
+  endet er im Blueprint-Ereignis `BPImpl_OnDieClientEffects`, das `BP_Enemy_C` nicht belegt, also ohne Wirkung.
+- **[Belegt, Disassembly] Treffer:** `HitVfx` (`+0x7F8`) spawnt nur der Override von `OnDamageReceived_Server`, ohne Net-Flag. Gegner-HP
+  repliziert nicht (siehe oben). Beim Client gibt es also kein natives Treffer-Signal.
+- **Umsetzung** (`BloodPatches.cpp`, `TickBlood`, Regeln in `BloodPolicy.h` mit Tests): Ein Beobachter am vorhandenen ProcessEvent-Hook
+  erkennt beim Client das empfangene `Multi_OnDie` eines `EnemyBase` und ruft dessen natives `ActivateDeathVFX` per ProcessEvent auf.
+  Laut SDK überschreibt kein Blueprint diese Funktion. Der Host tut nichts zusätzlich. Keine Nachricht, kein neuer Hook, keine
+  `ModVersion`-Erhöhung. Für weitere Tod-Anzeigen gibt es `AddEnemyDeathListener` in `PatchRuntime.h`, damit sie keinen der vier
+  Beobachterplätze brauchen.
+- **Antworten zum neuen Pfad:** Lokal bleibt die ganze Darstellung samt Einstellung `MaxZombieFlesh` des Clients. Geteilt wird nichts
+  Neues, der native zuverlässige Multicast reicht. Es entscheidet weiter der Host über Schaden, Tod und Drops; der Client ruft nur
+  eine Anzeige ohne Spielwirkung. Wiederverwendet wird der bestehende Beobachter-Pfad. Verlust schließt `NetReliable` aus, verpasste
+  Tode bei Join oder Reconnect werden nicht nachgeholt (kosmetisch, nicht getestet).
+- **Stabilität:** Aufruf direkt im Ereignis auf dem Game Thread, nur für lebende Objekte (Platz im Objekt-Array, keine
+  Garbage-Flags). Höchstens 16 je Mod-Takt. Derselbe Gegner binnen 1 s wird übersprungen, aber nicht dauerhaft: gepoolte Gegner
+  sterben erneut.
+- **[Belegt, Live-Test 11.11.2026]** Erster Tag: Client-Zähler 98 von 98 Toden mit Effekt (Rundenübersicht des Hosts: 98 Kills),
+  0 übersprungen, 2 Gegner starben als dasselbe Objekt ein zweites Mal (Pool). `enemy_sync.py` über 60 s: Tode beim Client im Median
+  0,00 s, höchstens 0,25 s nach dem Host. Bildvergleich: Beide Fenster zeigen Fleischstücke, Knochen und Blutspritzer an den
+  Todesstellen. Rundenende, Lager, Reise in den zweiten Tag und dort eine dichte Welle (160 Tode insgesamt) ohne Absturzbericht,
+  Inventare „vollständig, gleich“, keine Takt-Warnung.
+- **Offen:** Treffereffekte (`HitVfx`, Aufblitzen) fehlen beim Client weiter. Im Bild war das unter den Todeseffekten nicht eindeutig
+  zu erkennen. Sie brauchen das Treffer-Signal des Hosts, das `opt-schadenszahlen` plant; dort beim Client `HitVfx` mit abspielen statt
+  eine zweite Nachricht zu bauen. Nicht geprüft: zwei PCs, Reconnect, Join mitten in der Welle.
+
 ### XP-Bälle beim Client (`xp-baelle`)
 
 Stand 04.11.2026, Build `26187885`. Beim Spieltest fiel auf: Der Client sieht die XP-Bälle nicht. Ursache bisher nur aus dem lokalen SDK abgeleitet, im Spiel nicht gemessen.

@@ -37,7 +37,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `lager-bestaetigen-absturz` | P1 | [5](#phase-5--vollständiger-run) | zu zweit | mittel |
 | `vfx-sound` | P2 | [5](#phase-5--vollständiger-run) | parallel | wenig |
 | `opt-blickrichtung-client` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
-| `opt-blut` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
 | `opt-charakter-takt` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
 | `opt-client-takt` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
 | `opt-dash-aufprall` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
@@ -60,7 +59,7 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 
 **Wartet auf das Team:** nichts.
 
-**Bestätigungstest ausstehend (nicht in Arbeit):** `fortschritt`, `lager-handel-client`.
+**Bestätigungstest ausstehend (nicht in Arbeit):** `fortschritt`, `lager-handel-client`, `opt-blut`.
 <!-- frei:end -->
 
 **Nicht erneut machen.** Das ist erledigt und dokumentiert:
@@ -208,7 +207,7 @@ Auch die zukünftige Update-Verwaltung bleibt vorerst optional: Wir erzwingen Bu
 | `opt-tempo-upgrades` | P2 | Nutzerentscheidung vom 11.11.2026: vorgezogen, wartet nicht auf `integration-run`, Test auf einem PC. `MovementSpeed` und Beschleunigung: Upgrades kommen beim Client nicht an (Host 819 und 2866, Client 600 und 2048) | – | parallel | mittel |
 | `opt-gegnerzahl` | P2 | Nutzerentscheidung vom 11.11.2026: vorgezogen, wartet nicht auf `integration-run`, Test auf einem PC. Gegner-Zähler weichen ab (30 beim Host, 48 beim Client), vermutlich bleiben tote Gegner als Objekte stehen | – | parallel | mittel |
 | `opt-gegner-spawnverzug` | P2 | Nutzerentscheidung vom 11.11.2026: vorgezogen, wartet nicht auf `integration-run`, Test auf einem PC. Unter Wellenlast (`!wave`) erscheinen einzelne neue Gegner beim Client bis rund 8 s später als beim Host, am Bildrand. Ursache (Bandbreite, Priorität, Relevanz) nicht untersucht, [Befund](docs/GAME_ANALYSIS.md#ein-gegnertyp-synchron-gegnertyp) | – | parallel | mittel |
-| `opt-blut` | P2 | Nutzerentscheidung vom 11.11.2026: vorgezogen, wartet nicht auf `integration-run`, Test auf einem PC. Blut- und Treffereffekte erscheinen nur beim Host | – | parallel | wenig |
+| `opt-blut` | P2 | **Bestätigungstest ausstehend:** Tod-Effekte (Blut, Fleisch) beim Client umgesetzt und auf einem PC belegt (98/98 Tode, zwei Tage, kein Absturz). Offen: Treffereffekte (HitVfx), brauchen das Treffer-Signal von opt-schadenszahlen; zwei PCs. **Aufgabe und Abnahme:** Nutzerentscheidung vom 11.11.2026: vorgezogen, wartet nicht auf `integration-run`, Test auf einem PC. Blut- und Treffereffekte erscheinen nur beim Host | – | parallel | wenig |
 | `opt-schadenszahlen` | P2 | Nutzerentscheidung vom 11.11.2026: vorgezogen, wartet nicht auf `integration-run`, Test auf einem PC. Schadenszahlen erscheinen nur beim Host (Live-Spiel 07.11.2026). `DamageNumberActor.ShowDamageText` ist lokal und läuft vermutlich nur dort, wo der Schaden entsteht. Lokal zuerst: beim Client aus der replizierten Gesundheit der Gegner anzeigen, keine neue Nachricht, Einstellung `EnableDamageNumbers` beachten. **Fertig, wenn** der Client bei eigenen Treffern und denen des Hosts Zahlen sieht, keine doppelt und keine ohne Treffer. Ordner `src/Game`. **Einstieg:** [Client-Darstellung 07.11.](docs/GAME_ANALYSIS.md#client-darstellung-im-live-spiel-am-07112026-todo-client-optik) | – | parallel | wenig |
 | `opt-koerperteile` | P2 | Nutzerentscheidung vom 11.11.2026: vorgezogen, wartet nicht auf `integration-run`, Test auf einem PC. Körperteile sterbender Zombies erscheinen nur beim Host (Live-Spiel 07.11.2026), vermutlich wie `opt-blut` im Todesablauf beim Host. Zuerst den Auslöser finden, mit `opt-blut` zusammen lösen. **Fertig, wenn** der Client beim Tod eines Zombies dieselben Körperteile sieht wie der Host. Ordner `src/Game`. **Einstieg:** [Client-Darstellung 07.11.](docs/GAME_ANALYSIS.md#client-darstellung-im-live-spiel-am-07112026-todo-client-optik) | – | parallel | wenig |
 | `opt-dash-aufprall` | P2 | Nutzerentscheidung vom 11.11.2026: vorgezogen, wartet nicht auf `integration-run`, Test auf einem PC. Prallt der Client mit dem Dash gegen ein Objekt, hört er kein Geräusch (Live-Spiel 07.11.2026). Seit `ausweichen-client` führt der Host den Dodge des Clients aus, vermutlich laufen Aufprall und Sound nur dort. Mit `vfx-sound` abstimmen. **Fertig, wenn** der Client beim Aufprall seines Dashes denselben Sound hört wie der Host bei seinem eigenen, ohne doppelten Sound. Ordner `src/Game`. **Einstieg:** [Client-Darstellung 07.11.](docs/GAME_ANALYSIS.md#client-darstellung-im-live-spiel-am-07112026-todo-client-optik) | – | parallel | wenig |
