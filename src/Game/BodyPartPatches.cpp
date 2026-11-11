@@ -106,9 +106,12 @@ uint64_t CueTagFor(uintptr_t Enemy)
         if (Default && Objects::IsA(Default, "EnemyDyingAbility"))
             Tag = Memory::Read<uint64_t>(Default + ChaosDestructionCueTag).value_or(0);
     }
+    // Bei voller Liste wird je Tod neu gelesen, aber nur einmal gemeldet.
     if (TagCount < MaxEnemyClasses)
+    {
         Tags[TagCount++] = ClassTag{Class, Tag};
-    Core::Log::Info("Körperteile: Gegnerklasse {} {}", Memory::NameOf(Class), Tag ? "mit Zerfall-Cue" : "ohne Zerfall-Cue");
+        Core::Log::Info("Körperteile: Gegnerklasse {} {}", Memory::NameOf(Class), Tag ? "mit Zerfall-Cue" : "ohne Zerfall-Cue");
+    }
     return Tag;
 }
 

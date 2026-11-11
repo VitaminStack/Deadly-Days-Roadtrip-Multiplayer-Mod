@@ -1960,9 +1960,9 @@ Missionstage. Statische Disassembly der Exe, Speicher beider Seiten nur gelesen.
   Derselbe Gegner binnen 1 s wird übersprungen, später nicht, weil gepoolte Gegner erneut sterben. Höchstens 8 Zerfälle je Mod-Takt.
   Beim Weltwechsel vergisst die Mod UFunction und Tags. Jede Gegnerklasse wird einmal aufgelöst, höchstens 16 Klassen.
 - **[Belegt, Live-Test 11.11.2026, nur dieser Stand]** Client-Log „Körperteile: Gegnerklasse BP_StandardEnemy_C mit Zerfall-Cue“, dann
-  „Client zeigt den Zerfall eines Gegners lokal“. Jetzt hält der Client wie der Host 4
-  `LonglivingChaosDestructionActor_C` mit Geometrie. Eine Zählung dieser Klasse beim Client ohne die Änderung gibt es nicht, die frühere
-  Messung (Tabelle oben) fand nur keine `EnemyChaosDestructionProxyActor`. Über 20 s je Sekunde gelesen standen die sichtbaren Bruchstücke beider
+  „Client zeigt den Zerfall eines Gegners lokal“. Vorher fehlten beim Client alle Zerfall-Actors (Tabelle oben,
+  `visual_state.py` zählt Unterklassen von `EnemyChaosDestructionProxyActor` mit, also auch `LonglivingChaosDestructionActor_C`). Jetzt hält
+  der Client wie der Host 4 davon mit Geometrie. Über 20 s je Sekunde gelesen standen die sichtbaren Bruchstücke beider
   Seiten an denselben Orten (Abweichung 0 bis 2 Einheiten, einzelne kamen auf einer Seite einen Messschritt früher). Zweiter Tag nach
   Rundenende und Lager: Tags neu aufgelöst, auch `BP_FireEnemy_C`, unter `!wave` weiter gleiche Orte. Fensterbilder: Der Client zeigt
   dieselben Zombies wie der Host, also keine unsichtbaren Gegner. Keine Absturzberichte, Inventare „vollständig, gleich“, keine
