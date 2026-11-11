@@ -19,7 +19,7 @@ ROOT = 0x1B8
 LOCATION = 0x148          # USceneComponent.RelativeLocation
 PROVIDER = 0x910          # BP_DD_Character_C.PlayerAnimationVelocityProvider
 WOBBLE = 0x780            # ADDCharacter.WobbleAnimation
-PROVIDER_STATE = (0xC0, 0x38)
+PROVIDER_STATE = (0xC0, 0x38)  # bool manuell +0xC0, gemessenes Tempo +0xC8 (FVector), letzter Ort +0xE0 (FVector)
 WOBBLE_FIELDS = 0x258     # Progress, MaxInputVelocity, VelocityToProgressFactor, MaxSpeed, OverrideVelocity, OverrideFactor
 WOBBLE_STATE = (0x290, 0x68)
 WOBBLE_CAN_STRETCH = 0x308
@@ -97,13 +97,13 @@ def report(pid, samples, elapsed):
             print(f'    Wobble: Progress {min(progress):.3f}..{max(progress):.3f} ({len(set(progress))} Werte), MaxInputVelocity {last[1]:.0f}, '
                   f'Factor {last[2]:.3g}, MaxSpeed {last[3]:.0f}, OverrideVelocity {last[4]:.3g}, OverrideFactor {last[5]:.3g}, '
                   f'CanStretch {rows[-1]["can_stretch"]}, Provider gleich {rows[-1]["wobble_provider_same"]}')
-        for line in changed([r['provider_state'] for r in rows], PROVIDER_STATE[0]):
-            print(f'    Provider {line}')
+        manual = [r['provider_state'][0] for r in rows if r['provider_state']]
+        measured = [speed(struct.unpack_from('<ddd', r['provider_state'], 8)) for r in rows if r['provider_state']]
+        if manual:
+            print(f'    Provider: manuell {min(manual)}..{max(manual)}, gemessenes Tempo max {max(measured):.0f} '
+                  f'mittel {sum(measured) / len(measured):.0f}')
         for line in changed([r['wobble_state'] for r in rows], WOBBLE_STATE[0]):
             print(f'    Wobble   {line}')
-        state = rows[-1]['provider_state']
-        if state:
-            print(f'    Provider-Rohbytes zuletzt: {state.hex(" ", 4)}')
 
 
 def main():
