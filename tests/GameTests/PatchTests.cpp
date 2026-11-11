@@ -31,6 +31,13 @@ TEST_CASE("Itemsack: Vergabe nur durch Authority ausserhalb einer Client-Welt")
     }
 }
 
+TEST_CASE("Schrott: Haufen bucht nur Host oder Einzelspieler")
+{
+    CHECK(ScrapLootMayCredit(NetRole::Standalone));
+    CHECK(ScrapLootMayCredit(NetRole::Host));
+    CHECK_FALSE(ScrapLootMayCredit(NetRole::Client));
+}
+
 namespace
 {
 // Ausführbarer Puffer für erzeugten Code. Es läuft nur eigener Testcode, nie Code aus dem Spiel.
