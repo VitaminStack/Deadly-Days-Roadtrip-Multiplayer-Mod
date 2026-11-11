@@ -2195,14 +2195,24 @@ Stunde hinter der Ortszeit.
   anders als dort beschrieben hatte hier der Host mehr als der Client.
 - **[Belegt] Späte Bereit-Meldung.** Beim Host stand einmal „Lager: Client bereit (eigenes Rundenende passt nicht)“, 22:47:40, direkt
   nach dem Laden von Tag 2 und 0,25 s nach „Rundenende vorbei“. Eine Folge war nicht zu sehen. **Vermutung:** eine späte oder
-  wiederholte Meldung des Clients aus dem alten Lager, die der Host richtig verwirft. Mit echtem Ping beobachten.
+  wiederholte Meldung des Clients aus dem alten Lager. Der Host verwirft sie nicht, sondern merkt sie sich mit der alten Nummer; sie
+  bleibt folgenlos, weil alles gegen die Nummer des laufenden Rundenendes verglichen wird (`SetRoundEndClient`). Mit echtem Ping
+  beobachten.
 - **[Belegt] Dodge des Clients.** 11 Dodges an den Host gemeldet, 6-mal „Dodge der eigenen Figur abgebrochen, Reibung und Schwerkraft
-  sofort zurückgesetzt“. Offen, ob das der gewollte Schutz ist oder ob mehr als die Hälfte der Dodges sonst hängen bliebe. Das Skript
-  drückt die Tasten blind, ein Zusammenhang mit Wänden oder Gegnern ist nicht geprüft.
-- **[Belegt] Kleinere Zähler.** Schadenszahlen beim Host: 1939 Treffer, 1938 gesendet, einer ohne NetGUID, Puffer nie voll. Ob unterwegs
-  Zahlen fehlen, lässt sich nicht sagen, weil beide Seiten zu verschiedenen Zeiten zählen. Blut: 6 von 752 Gegnern „erneut gestorben“,
-  der Zähler fängt die Doppelmeldung ab. Das Tempo der Client-Figur wechselte 59-mal zwischen 630 und 252 (**Vermutung:**
-  Verlangsamung durch Gegner im Godmode).
+  sofort zurückgesetzt“. Die 11 Meldungen bilden sechs Gruppen (Schlüssel 1–3, 4–5, 6–8, 9, 10, 11), jede endet mit genau einer
+  Rücksetzung 67 bis 142 ms nach der letzten Meldung. Bei den verketteten Gruppen ist das der dokumentierte Schutz (der Host lehnt
+  die verkettete Aktivierung ab). Auch die drei einzelnen Dodges wurden zurückgesetzt, am 07.11. gab es dabei keine Rücksetzung.
+  **Vermutung:** Entweder stellt `GA_Dash` die Werte nach dem Ende nicht mehr selbst zurück, oder die Mod kommt dem nur einen Frame
+  zuvor. Zum Klären den Grund des Wegfalls in `CheckFigure` loggen.
+- **[Belegt] Rund 1 % der Schadenszahlen kommt beim Client nicht an.** Zeilen beider Seiten, die weniger als 1 s auseinander liegen:
+  Host gesendet / Client empfangen 511 / 509 (Tag 2), 1127 / 1114 (Tag 3), 1643 / 1624 (Tag 4). Die Lücke wächst über den Lauf, mit
+  einem Sprung um etwa 9 an Tag 3. Der Host zählt „gesendet“ vor dem Senden und wertet das Ergebnis von `SendControl` nicht aus
+  (`src/Sync/Sync.cpp`), der Client zählt ein fehlgeschlagenes Dekodieren nicht. Wo die Zahlen verloren gehen, ist damit offen.
+  Ein Treffer ohne NetGUID wurde beim Host verworfen statt falsch gesendet, der Puffer war nie voll.
+- **[Belegt] Kleinere Zähler.** Blut: 6 von 752 Gegnern „erneut gestorben“. Das heißt nur, dass dasselbe Objekt schon einmal starb
+  (Wiederverwendung aus dem Pool). Die Doppelsperre griff nie (0 übersprungen), alle 752 Effekte liefen. Das Tempo der Client-Figur
+  wechselte mindestens 59-mal (das Log endet nach 20 Zeilen je Figur und Welt), bis hinunter auf 252. Der Client übernimmt damit das
+  replizierte Tempo-Attribut des Hosts (**Vermutung:** gestapelte Verlangsamung durch Gegner im Godmode).
 - **[Belegt] Logmenge beim Client.** 188 kB gegen 67 kB beim Host in 13 Minuten, vor allem `XP-Anzeige` (354 Zeilen) und
   `Inventar lokal` (308 Zeilen). Kein Fehler, in einem langen Run wächst das Log aber auf mehrere MB.
 - **Nicht geprüft:** zwei PCs und echter Ping, Tod und Wiederbelebung (Godmode), Sound (stumm, nur Logs), gezieltes Looten, Spucker
