@@ -329,6 +329,8 @@ Aufgabe `airdrop-auswahl`, Ablauf in [Airdrop-Auswahl](GAME_ANALYSIS.md#airdrop-
 | `InventoryComponent::HandleItemSold` | `0x5967900` (`26495302`: `0x596BA70`), Exec-Thunk `0x57128B0` | `(this, Item)`, nativ; `RemoveFromBackpack`, `UnoccupyBackpackSlots`, `RemoveFromInventory(SoldForScrap)`, `RefreshItemEffects` (`lager-handel-client`) |
 | `ItemRepresentation.ConfirmSell`, `.ConfirmRepair` | `0x5AA2F60`, `0x5AA2DB0` (`26495302`: `0x5AA7E50`, `0x5AA7CA0`) | buchen Schrott lokal über `AddAmount`, dann `HandleItemSold` bzw. Server-RPC `RepairItem` |
 | `ADDMissionGameState.ScrapWallet`, `UAbstractCurrency.CurrencyAmount` | `+0x3C0`, `+0x100` | nicht repliziert; `AddAmount` begrenzt auf 0 bis INT32_MAX und löst `OnCurrencyChanged` aus |
+| `UAbstractCurrency::AddAmount` (nativ) | `26495302`: `0x586B2B0`, Exec-Thunk `0x5662130` | `(this, Delta)`; schreibt `+0x100`, Broadcast `+0xC8` (`opt-schrott-anzeige`) |
+| `AScrapLoot::Loot_Implementation`, `ALootBase::Loot_Implementation` | `26495302`: `0x59AF660`, `0x59AF3F0` | `(ILootableInterface* = Actor + 0x2A8, ULootAttractor*)`; ScrapLoot liest `ScrapAmount` (`+0x2D0`), bucht ohne Rollenprüfung über `AddAmount` und springt in die Basis (Klang-RPC, Delegate). Beim Client gesperrt (`opt-schrott-anzeige`) |
 | `UInventoryItemInstance.GetDynamicRepairPrice` | `26495302`: `0x5965960` | Seltenheit `+0x54` mal Faktor, mal `DDGameStatsSubsystem +0xD0 / 8 + 1` |
 
 ### Coop

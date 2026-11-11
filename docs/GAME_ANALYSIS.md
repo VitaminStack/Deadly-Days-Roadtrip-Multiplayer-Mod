@@ -407,6 +407,37 @@ Stand 11.11.2026, Build `26495302`, zwei Instanzen auf einem PC über die Lobby,
 - **Takt:** Die Suche der beiden UFunctions hielt den Frame je Mission einmal etwa 10 ms auf (`Takt: Lootbalken …`).
 - **Nicht geprüft:** zwei PCs, Reconnect mitten im Durchsuchen. Eine Stelle mit eigener Kistenoptik ließ sich in den Testkarten nicht zuordnen. `BP_ChestLootSpot_C` (`Progress` nicht repliziert, kein Widget) und `BP_PowerUpCrate_C` rufen weder Widget noch Fortschrittsfunktionen auf, dort gibt es also keinen solchen Balken. Säcke wurden nicht einzeln gemessen. **Vermutung:** Sie laufen über dieselbe Klasse wie die getesteten Stellen.
 
+### Schrott beim Aufsammeln (`opt-schrott-anzeige`)
+
+Stand 11.11.2026, Build `26495302`. Ursache statisch aus der Exe (Disassembly, nur gelesen), Test mit zwei Instanzen auf einem PC über
+die Lobby, Mod mit Spike, `-Godmode`, Seed `20795`, Client-Figur per Skript bewegt.
+
+- **[Belegt, Disassembly]** `AScrapLoot::Loot_Implementation` (`0x59AF660`, bekommt wie `AItemLoot::Loot` das
+  `ILootableInterface`-Teilobjekt bei Actor `+0x2A8`) liest `ScrapAmount` (`+0x2D0`), holt das Schrottkonto über den Owner des
+  `LootAttractor` und bucht mit dem nativen `AddAmount` (`0x586B2B0`), danach springt sie in `ALootBase::Loot_Implementation`
+  (`0x59AF3F0`, Klang-RPC und Delegate). Beide prüfen keine Rolle. Unter den 16 Aufrufern von `AddAmount` ist sie der einzige mit
+  vtable-Eintrag.
+- **[Belegt]** `ScrapLoot` repliziert, `ScrapWalletComponent` nicht. Der lokale Attraktor des Clients rief `Loot` auf den replizierten
+  Haufen auf und buchte selbst. Im Test kam derselbe Haufen beim Client dreimal im selben Frame an (drei Aufrufe um 13:21:56.784, der
+  Host buchte danach genau 1). **Vermutung:** Der Haufen bleibt beim Client, bis das Zerstören des Hosts ankommt, darum die
+  Überzählung bis 185 statt 9 im Live-Test 10.11.
+- **Umsetzung** (`InventoryPatches.cpp::ScrapLootHook`, Regel `ScrapLootMayCredit` in `PatchPolicy.h`, mit Test): Beim Client läuft
+  statt des Originals nur die Basis `ALootBase::Loot_Implementation`, Klang und Delegates bleiben lokal. Host und Einzelspieler
+  unverändert. Kein neuer Netzweg, keine `ModVersion`-Erhöhung.
+- **Antworten zum neuen Pfad:** Lokal bleiben Anziehen, Aufsammeln, Klang und die Anzeige (nativ über `OnCurrencyChanged`). Geteilt wird
+  wie bisher nur der Kontostand des Hosts über `0x309`, weil das Konto nicht repliziert. Es bucht nur der Host, also keine doppelte
+  Buchung und keine Vorhersage, die zurückgenommen werden müsste. Wiederverwendet: `0x309`/`ApplyScrap`, Hook-Muster von `ItemLootHook`.
+  Ablehnung gibt es nicht; nach Verlust, Join oder Kartenwechsel sendet der Host bei Änderung und spätestens alle 5 s erneut.
+- **[Belegt, Live-Test 11.11.2026]** Tag 1 und nach dem Kartenwechsel Tag 2: Host-Stand 0, 1, 2, 4, 5, 6, 7; jede Übernahme beim Client
+  lautet „Stand des Hosts übernommen, X statt Y“ mit Y = vorigem Host-Stand. Der Client-Stand änderte sich also nie von selbst, 6
+  Übernahmen statt 764 Korrekturen. Inventare „vollständig, gleich“, keine Absturzberichte, Lagerbestätigung zwischen den Tagen lief.
+- **[Belegt] Verzögerung:** Zwischen dem lokalen Aufsammeln beim Client (13:21:56.784) und der Übernahme (13:21:58.190) lagen 1,4 s, davon
+  bis 0,5 s durch den Prüftakt von `SendScrap`. Die Anzeige springt nicht mehr, läuft aber nach. Der Takt bleibt unverändert;
+  der Rest der Verzögerung lag vor der Buchung beim Host (nicht weiter untersucht).
+- **Nicht geprüft:** zwei PCs mit echtem Ping, Verkauf/Reparatur im Lager auf diesem Stand (Pfad unverändert), ob der Host Haufen bucht,
+  die nur die Client-Figur einsammelt, ohne dass die Host-Figur in der Nähe ist (im Test buchte er alle, die Figuren standen aber
+  nicht weit getrennt). `FuelLoot` und `PowerUpLoot` wurden nicht untersucht.
+
 ### XP-Bälle beim Client (`xp-baelle`)
 
 Stand 04.11.2026, Build `26187885`. Beim Spieltest fiel auf: Der Client sieht die XP-Bälle nicht. Ursache bisher nur aus dem lokalen SDK abgeleitet, im Spiel nicht gemessen.
