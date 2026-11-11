@@ -60,6 +60,8 @@ void TickCamera(NetRole Role, bool Second);
 void TickBusBar(NetRole Role);
 // opt-lootbalken, Client: Fortschrittsbalken der Lootstellen aus dem replizierten Wert.
 void TickLootBar(NetRole Role);
+// opt-blickrichtung-client, Client: Blickwinkel der Hände aus ihrer replizierten Drehung, damit das Richtungs-Mesh sich dreht.
+void TickFacing(NetRole Role, bool Second);
 void TickWidgets(NetRole Role);
 void TickProjectiles(NetRole Role, bool Second);
 void TickMovement(NetRole Role, bool Second);

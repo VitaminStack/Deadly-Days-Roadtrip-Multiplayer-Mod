@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <string_view>
 
 #include "Game/WorldAdapter.h"
@@ -180,6 +181,25 @@ constexpr bool LootBarNeedsUpdate(double Shown, double Target)
 constexpr bool LootBarDone(bool Looting, double Target, double Shown, double StalledSeconds)
 {
     return !Looting && !LootBarNeedsUpdate(Shown, Target) && StalledSeconds >= 1.0;
+}
+
+// opt-blickrichtung-client: Gierwinkel in Grad (-180 bis 180) aus der Weltdrehung (FQuat, X Y Z W) des Hände-Actors. NaN, wenn
+// das Quaternion unbrauchbar ist (nicht endlich oder nicht normiert), dann bleibt der alte Wert stehen.
+inline float FacingYawFromQuat(double X, double Y, double Z, double W)
+{
+    const double Norm = X * X + Y * Y + Z * Z + W * W;
+    if (!std::isfinite(Norm) || Norm < 0.81 || Norm > 1.21)
+        return std::numeric_limits<float>::quiet_NaN();
+    constexpr double Degrees = 57.29577951308232;
+    return static_cast<float>(std::atan2(2.0 * (W * Z + X * Y), 1.0 - 2.0 * (Y * Y + Z * Z)) * Degrees);
+}
+
+// Den Winkel nur bei einer sichtbaren Änderung schreiben; ein unbrauchbarer Zielwert wird nie geschrieben.
+inline bool FacingNeedsWrite(float Current, float Target)
+{
+    if (!std::isfinite(Target))
+        return false;
+    return !std::isfinite(Current) || std::fabs(Current - Target) > 0.01f;
 }
 
 // FinishMission beendet die Runde. Beim Client nur der Aufruf beim Laden, das Rundenende selbst kommt vom Host.
