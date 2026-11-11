@@ -36,9 +36,8 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 |---|---|---|---|---|
 | `lager-bestaetigen-absturz` | P1 | [5](#phase-5--vollständiger-run) | zu zweit | mittel |
 | `vfx-sound` | P2 | [5](#phase-5--vollständiger-run) | parallel | wenig |
-| `opt-blickrichtung-client` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
-| `opt-blut` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
 | `opt-charakter-takt` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
+| `opt-portraet` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
 | `weekly-sperre` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
 
 **Wartet auf das Team:** nichts.
