@@ -45,7 +45,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `opt-levelup-sound` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
 | `opt-portraet` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
 | `opt-rundenstempel` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
-| `opt-schadenszahlen` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
 | `opt-tempo-upgrades` | P2 | [Optional](#optionale-optimierungen) | parallel | mittel |
 | `opt-waffen-hover` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
 | `weekly-sperre` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
