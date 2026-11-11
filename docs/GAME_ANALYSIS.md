@@ -1967,6 +1967,10 @@ Missionstage. Statische Disassembly der Exe, Speicher beider Seiten nur gelesen.
   Rundenende und Lager: Tags neu aufgelöst, auch `BP_FireEnemy_C`, unter `!wave` weiter gleiche Orte. Fensterbilder: Der Client zeigt
   dieselben Zombies wie der Host, also keine unsichtbaren Gegner. Keine Absturzberichte, Inventare „vollständig, gleich“, keine
   Takt-Warnung der neuen Liste.
+- **[Belegt, Speicher] Die Bruchstücke werden beim Client gezeichnet:** Je Sekunde gelesen hatten die sichtbaren Zerfall-Actors beider
+  Seiten eine Geometrie-Komponente mit `bVisible` 1 und ohne `bHiddenInGame`, mit derselben Geometrie in derselben Richtung
+  (`GC_BaseChar_frontBackL_Simple` oder `…R_Simple`). Im Fensterbild sind sie zwischen Zombies, Funken und Schrott nicht sicher von
+  anderem zu trennen.
 - **[Belegt, Bild] Ohne `opt-blut` fehlen Knochen und Fleisch weiter:** Im Bildpaar desselben Augenblicks liegen beim Host weiße und
   rosa Stücke um die Todesstellen, beim Client nur XP-Bälle und Funken. Diese Stücke sind `FleshVfx`, nicht der Chaos-Zerfall.
 - **[Belegt, Live-Test 11.11.2026, zusammen mit `opt-blut`]** Für die Abnahme wurde `task/opt-blut` nur lokal und ohne Commit
@@ -1976,7 +1980,8 @@ Missionstage. Statische Disassembly der Exe, Speicher beider Seiten nur gelesen.
   Absturzbericht, Inventare „vollständig, gleich“. Beide Aufgaben belegen je einen der vier Beobachterplätze (`AddEventObserver`),
   mit dem Lootbalken sind es drei.
 - **Nicht geprüft:** zwei PCs, Reconnect, Join mitten in der Welle, Gegnertypen außer `BP_StandardEnemy_C` und `BP_FireEnemy_C`
-  (Bosse). Fehlt einer Gegnerklasse die Dying-Ability mit Tag, meldet das Log „ohne Zerfall-Cue“, und es passiert nichts.
+  (Bosse). Die Flugrichtung der Stücke: `HitPosition` und `ShotFromDirection` des Gegners replizieren nicht, die Mod gibt dem Cue nur den
+  Ort mit. Fehlt einer Gegnerklasse die Dying-Ability mit Tag, meldet das Log „ohne Zerfall-Cue“, und es passiert nichts.
 
 ### Steam-Lobby über das Internet (`lobby-live`)
 
