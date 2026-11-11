@@ -188,6 +188,19 @@ constexpr bool LootBarDone(bool Looting, double Target, double Shown, double Sta
     return !Looting && !LootBarNeedsUpdate(Shown, Target) && StalledSeconds >= 1.0;
 }
 
+// opt-koerperteile: Derselbe Gegner meldet seinen Tod innerhalb einer Sekunde nur einmal. Gepoolte Gegner sterben später erneut.
+constexpr bool BodyPartsRepeated(double SecondsSinceLast)
+{
+    return SecondsSinceLast >= 0.0 && SecondsSinceLast < 1.0;
+}
+
+// Höchstens so viele Zerfälle je Frame beim Client, Wellen bringen viele Tode in einem Paket.
+inline constexpr int32_t BodyPartsPerFrame = 8;
+constexpr bool BodyPartsMayShow(int32_t ShownThisFrame)
+{
+    return ShownThisFrame >= 0 && ShownThisFrame < BodyPartsPerFrame;
+}
+
 // FinishMission beendet die Runde. Beim Client nur der Aufruf beim Laden, das Rundenende selbst kommt vom Host.
 constexpr bool MissionFinishAllowed(bool IsNetClient, bool IsLoading)
 {

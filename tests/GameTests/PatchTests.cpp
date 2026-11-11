@@ -744,6 +744,20 @@ TEST_CASE("Lootbalken beim Client folgt dem replizierten Fortschritt")
     CHECK_FALSE(LootBarDone(false, 0.0, 0.5, 9.0));
 }
 
+TEST_CASE("Körperteile beim Client je Tod einmal und begrenzt je Frame")
+{
+    CHECK(BodyPartsRepeated(0.0));
+    CHECK(BodyPartsRepeated(0.9));
+    CHECK_FALSE(BodyPartsRepeated(1.0));
+    CHECK_FALSE(BodyPartsRepeated(30.0));
+    CHECK_FALSE(BodyPartsRepeated(-1.0));
+
+    CHECK(BodyPartsMayShow(0));
+    CHECK(BodyPartsMayShow(BodyPartsPerFrame - 1));
+    CHECK_FALSE(BodyPartsMayShow(BodyPartsPerFrame));
+    CHECK_FALSE(BodyPartsMayShow(-1));
+}
+
 TEST_CASE("Busabfahrt und Rundenende entscheidet nur der Host")
 {
     CHECK(BusTakeOffMayDecide(false));

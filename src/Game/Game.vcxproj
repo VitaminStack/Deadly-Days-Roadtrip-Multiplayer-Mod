@@ -71,6 +71,7 @@
     <ClCompile Include="BusBarPatches.cpp" />
     <ClCompile Include="LootBarPatches.cpp" />
     <ClCompile Include="BloodPatches.cpp" />
+    <ClCompile Include="BodyPartPatches.cpp" />
     <ClCompile Include="CharacterPatches.cpp" />
     <ClCompile Include="TravelPatches.cpp" />
     <ClCompile Include="WidgetPatches.cpp" />

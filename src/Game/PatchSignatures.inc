@@ -17,6 +17,7 @@
 {0x0314D6D0, 0, "40 55 53 48 8D 6C 24 B1 48 81 EC A8 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 37 0F B6 45 D7", 0, "SetNextTick"}, // InventoryPatches.cpp
 {0x03262A30, 0, "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 48 8B 81 B0 12 00 00 41 8B F9", 0, "SetClientTravel"}, // TravelPatches.cpp
 {0x04B68380, 0, "48 89 5C 24 10 48 89 74 24 18 48 89 7C 24 20 41 56 48 83 EC 20 48 8B 99 80 10 00 00", 0, "AttributeLookupFunction"}, // ClientPatches.cpp
+{0x04BC58D0, 0, "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 30 49 8B F8 48 8B DA 48 8B F1 E8 ?? ?? ?? ?? 48 8B C8 48 8B 10 FF 92 D8 02 00 00 48 85 C0", 0, "ExecuteCueNonReplicated"}, // BodyPartPatches.cpp
 {0x056676F5, 0, "48 FF A0 68 07 00 00 CC 48 8B 42 20 45 33 C0 48 85 C0 41 0F 95 C0 4C 03 C0 4C 89 42 20 E9 ?? ?? ?? ?? CC CC CC", 29, "At_5666FA5"}, // ClientPatches.cpp
 {0x057BDCD0, 0, "40 53 56 57 41 55 48 83 EC 38 48 89 6C 24 68", 0, "ControllerSetAdd"}, // PlayerPatches.cpp
 {0x057CB5A5, 0, "E8 ?? ?? ?? ?? 90 0F B6 45 37 48 8D 15 ?? ?? ?? ?? 48 8B 14 C2 48 8D 05 ?? ?? ?? ?? 48 3B D0 75 ?? 48 83 7D 07 00 74 ?? 48 8B 45 2F 48 8D 4D 17 48 85 C0 48 0F 45 C8 48 8B 01 FF 50 10 90 EB ?? 48 8D 4D 07 FF D2 90 48 83 7D D7 00 74 ?? 48 8B 45 FF 48 8D 4D E7 48 85 C0 48 0F 45 C8 48 8B 01 FF 50 10 90 48 8B 4D 47 48 33 CC E8 ?? ?? ?? ?? 4C 8D 9C 24 C0 00 00 00 49 8B 5B 18 49 8B 7B 20 49 8B E3 5D C3 CC CC CC CC CC CC 48 89 5C 24 10 48 89 6C 24 20 56", 0, "ScheduleCall"}, // InventoryPatches.cpp
