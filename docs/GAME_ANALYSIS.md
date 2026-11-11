@@ -2166,6 +2166,48 @@ Speicher; das Host-Log lag nicht vor. Drei Rundenenden, 18 Airdrop- und Level-up
   Level-up-Kiste im Endbildschirm (`opt-levelup-sound`), der Client stempelt das geschaffte Level nicht ab (`opt-rundenstempel`).
 - **Nicht geprüft:** `fortschritt` (Giftwolke, Item-Effekte, Werte nach Upgrade), Reparatur und Ausrüsten für `lager-handel-client`.
 
+### Testlauf auf einem PC am 11.11.2026 (`testlauf-1111`)
+
+Build `26495302`, Mod-Stand `main` `3e7379e` (Mod-Version 12, ohne den Fix aus `opt-levelup-sound`). Host und Client auf einem PC über
+die Lobby (`Start-Session.ps1 -Build -Mod -Tunnel Lobby -Godmode`), danach `Run-Route.ps1 -Days 4 -Godmode -DayState -DaySeconds 150`
+mit Seed 20795: MetaBase, vier Tage mit je rund 150 s Mission, vier Rundenenden mit Lager, zusammen rund 13 Minuten. Ausgewertet sind
+die Mod- und Spike-Logs beider Seiten und die Prüfungen des Skripts. Die Uhrzeiten unten stammen aus den Mod-Logs und liegen eine
+Stunde hinter der Ortszeit.
+
+- **[Belegt] Bestätigt:** Kein Absturz im Lauf. Alle vier Kartenwechsel `sauber`, Inventare nach jedem Tag vollständig und gleich,
+  Tag, Uhr, Tank und Ziele in 11 von 12 Vergleichen gleich. Keine `ERROR`-Zeile, kein abgelehnter Edit, kein `NewActor failed`, kein
+  verworfenes Paket. Beim Client liefen Schadenszahlen (1885 empfangen, alle an den Handler, kein unbekanntes Ziel), Tod-Effekte
+  (752 Gegnertode, 752 gespielt), Zerfall (709 von 709), Warnanzeigen (14 Sprint-Striche gemeldet und gezeigt) und der Lootbalken.
+- **[Belegt] Absturz beider Instanzen mit veralteter `spike.dll`.** Der erste Start ohne `-Build` nahm eine eine Woche alte `spike.dll`
+  aus `research/local/session`. Host und Client stürzten beim Erstellen der Lobby mit demselben Stack ab (Zugriffsverletzung,
+  `b843 152e6 15dbd 17076a6 4685a9f …`). Nach `-Build` lief derselbe Start durch. Das betrifft das Testwerkzeug, nicht die Mod.
+  **Vermutung:** Der alte Spike passt nicht zu den Patches von Version 12. `Start-Session.ps1` warnt nicht vor einer `spike.dll`, die
+  älter ist als der Quelltext. Bis dahin nach jedem `git pull` einmal mit `-Build` starten.
+- **[Belegt] Takt beim Client.** 380 Meldungen „Takt: … hielt den Frame … auf“ beim Client, 38 beim Host. Beim Client vor allem `Sync`
+  (144, im Mittel 10,8 ms, höchstens 16,9 ms) und `Sync-Fortschritt` (141, im Mittel 9,5 ms), jeweils etwa alle 5 s, dazu
+  `Boss-Leiste` (37, rund 8,5 ms), obwohl kein Boss da war. Bekannt, siehe `opt-client-takt`.
+- **[Belegt] Schrott einmal ungleich.** Am Ende von Tag 2 las der Vergleich `ScrapWalletComponent.CurrencyAmount` 11 beim Host und 10
+  beim Client. Der Host hatte den Stand 11 erst 0,1 s vor dem Rundenende gebucht, danach waren beide gleich. **Vermutung:** Die
+  Messung fiel in die rund 0,2 s zwischen Buchung beim Host und Übernahme beim Client. `Run-Route.ps1 -DayState` zählt das als
+  Abweichung.
+- **[Belegt] „ABWEICHUNG Gegner“ im Lager nach Tag 4.** Der Desync-Melder meldete 19 s nach dem Rundenende 112 Gegner beim Host und
+  109 beim Client. An Tag 1 bis 3 reiste der Lauf nach rund 15 s weiter, bevor der Melder auslöste. Bekannt, siehe `opt-gegnerzahl`;
+  anders als dort beschrieben hatte hier der Host mehr als der Client.
+- **[Belegt] Späte Bereit-Meldung.** Beim Host stand einmal „Lager: Client bereit (eigenes Rundenende passt nicht)“, 22:47:40, direkt
+  nach dem Laden von Tag 2 und 0,25 s nach „Rundenende vorbei“. Eine Folge war nicht zu sehen. **Vermutung:** eine späte oder
+  wiederholte Meldung des Clients aus dem alten Lager, die der Host richtig verwirft. Mit echtem Ping beobachten.
+- **[Belegt] Dodge des Clients.** 11 Dodges an den Host gemeldet, 6-mal „Dodge der eigenen Figur abgebrochen, Reibung und Schwerkraft
+  sofort zurückgesetzt“. Offen, ob das der gewollte Schutz ist oder ob mehr als die Hälfte der Dodges sonst hängen bliebe. Das Skript
+  drückt die Tasten blind, ein Zusammenhang mit Wänden oder Gegnern ist nicht geprüft.
+- **[Belegt] Kleinere Zähler.** Schadenszahlen beim Host: 1939 Treffer, 1938 gesendet, einer ohne NetGUID, Puffer nie voll. Ob unterwegs
+  Zahlen fehlen, lässt sich nicht sagen, weil beide Seiten zu verschiedenen Zeiten zählen. Blut: 6 von 752 Gegnern „erneut gestorben“,
+  der Zähler fängt die Doppelmeldung ab. Das Tempo der Client-Figur wechselte 59-mal zwischen 630 und 252 (**Vermutung:**
+  Verlangsamung durch Gegner im Godmode).
+- **[Belegt] Logmenge beim Client.** 188 kB gegen 67 kB beim Host in 13 Minuten, vor allem `XP-Anzeige` (354 Zeilen) und
+  `Inventar lokal` (308 Zeilen). Kein Fehler, in einem langen Run wächst das Log aber auf mehrere MB.
+- **Nicht geprüft:** zwei PCs und echter Ping, Tod und Wiederbelebung (Godmode), Sound (stumm, nur Logs), gezieltes Looten, Spucker
+  (keine Kreise), Bosse, Tag 5.
+
 ### Absturz beim Bestätigen im Lager (`lager-bestaetigen-absturz`)
 
 Ausgewertet am 10.11.2026 aus Mod-Log und Minidump des Clients vom [Live-Test](#live-test-auf-zwei-pcs-am-10112026-livetest-1011),
