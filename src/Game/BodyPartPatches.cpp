@@ -67,6 +67,9 @@ bool Observing = false;
 bool ObserverMissing = false;
 int Reported = 0;
 int Skipped = 0;
+// Zähler für den Beleg im Log, je Minute bei Änderung.
+uint32_t Deaths = 0, Shown = 0, Capped = 0, LoggedDeaths = 0;
+ULONGLONG NextSummary = 0;
 
 void ForgetAll()
 {
@@ -124,8 +127,10 @@ void ShowBodyParts(uintptr_t Enemy)
     const ULONGLONG Now = GetTickCount64();
     if (!Alive(Enemy) || !Objects::IsA(Enemy, "EnemyBase") || SeenRecently(Enemy, Now))
         return;
+    ++Deaths;
     if (!BodyPartsMayShow(ShownThisFrame))
     {
+        ++Capped;
         if (Skipped++ < 3)
             Core::Log::Info("Körperteile: Obergrenze je Frame erreicht, Zerfall ausgelassen");
         return;
@@ -139,6 +144,7 @@ void ShowBodyParts(uintptr_t Enemy)
             std::memcpy(Parameters.data() + CueLocation, Location->data(), sizeof(*Location));
     reinterpret_cast<ExecuteCueFn>(At(ExecuteCueNonReplicated))(Enemy, Tag, Parameters.data());
     ++ShownThisFrame;
+    ++Shown;
     if (Reported < 3 && ++Reported)
         Core::Log::Info("Körperteile: Client zeigt den Zerfall eines Gegners lokal ({})", Memory::NameOf(Memory::ReadPointer(Enemy + Offsets::UObject::Class).value_or(0)));
 }
@@ -199,12 +205,21 @@ void TickBodyParts(NetRole Role)
         ForgetAll();
         LastWorld = World;
     }
+    const ULONGLONG Now = GetTickCount64();
+    if (Now >= NextSummary)
+    {
+        NextSummary = Now + 60000;
+        if (Deaths != LoggedDeaths)
+        {
+            LoggedDeaths = Deaths;
+            Core::Log::Info("Körperteile: {} Gegnertode beim Client, {} mit Zerfall, {} über der Obergrenze", Deaths, Shown, Capped);
+        }
+    }
     if (!World || OnDieFunction.load(std::memory_order_relaxed))
     {
         ClientActive.store(World != 0, std::memory_order_relaxed);
         return;
     }
-    const ULONGLONG Now = GetTickCount64();
     if (Now < NextResolve)
         return;
     NextResolve = Now + 1000;
