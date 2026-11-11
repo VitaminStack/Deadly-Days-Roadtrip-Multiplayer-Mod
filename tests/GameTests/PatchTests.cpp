@@ -31,6 +31,13 @@ TEST_CASE("Itemsack: Vergabe nur durch Authority ausserhalb einer Client-Welt")
     }
 }
 
+TEST_CASE("Schrott: Haufen bucht nur Host oder Einzelspieler")
+{
+    CHECK(ScrapLootMayCredit(NetRole::Standalone));
+    CHECK(ScrapLootMayCredit(NetRole::Host));
+    CHECK_FALSE(ScrapLootMayCredit(NetRole::Client));
+}
+
 namespace
 {
 // Ausführbarer Puffer für erzeugten Code. Es läuft nur eigener Testcode, nie Code aus dem Spiel.
@@ -718,6 +725,26 @@ TEST_CASE("Busbalken beim Client folgt Tank und Figuren im Bereich")
     CHECK(BusBarElapsed(true, 1.0, 0.0, 0.1) == 0.0);
 }
 
+TEST_CASE("Blickrichtung beim Client folgt dem Gierwinkel der Hände")
+{
+    CHECK(FacingYawFromQuat(0, 0, 0, 1) == doctest::Approx(0.0));
+    const double Half = std::sqrt(0.5);
+    CHECK(FacingYawFromQuat(0, 0, Half, Half) == doctest::Approx(90.0));
+    CHECK(FacingYawFromQuat(0, 0, -Half, Half) == doctest::Approx(-90.0));
+    CHECK(std::fabs(FacingYawFromQuat(0, 0, 1, 0)) == doctest::Approx(180.0));
+    // Gemessen beim Host: Quaternion zu Gierwinkel -127,9 Grad.
+    const double Angle = -127.9 / 57.29577951308232 / 2;
+    CHECK(FacingYawFromQuat(0, 0, std::sin(Angle), std::cos(Angle)) == doctest::Approx(-127.9).epsilon(0.001));
+    CHECK(std::isnan(FacingYawFromQuat(0, 0, 0, 0)));
+    CHECK(std::isnan(FacingYawFromQuat(0, 0, 0, 2)));
+    CHECK(std::isnan(FacingYawFromQuat(std::numeric_limits<double>::quiet_NaN(), 0, 0, 1)));
+
+    CHECK(FacingNeedsWrite(0.0f, 45.0f));
+    CHECK_FALSE(FacingNeedsWrite(45.0f, 45.001f));
+    CHECK_FALSE(FacingNeedsWrite(0.0f, std::numeric_limits<float>::quiet_NaN()));
+    CHECK(FacingNeedsWrite(std::numeric_limits<float>::quiet_NaN(), 10.0f));
+}
+
 TEST_CASE("Lootbalken beim Client folgt dem replizierten Fortschritt")
 {
     CHECK(LootBarValidProgress(0.0));
@@ -735,6 +762,20 @@ TEST_CASE("Lootbalken beim Client folgt dem replizierten Fortschritt")
     CHECK_FALSE(LootBarDone(true, 0.0, 0.0, 9.0));
     CHECK_FALSE(LootBarDone(false, 0.0, 0.0, 0.5));
     CHECK_FALSE(LootBarDone(false, 0.0, 0.5, 9.0));
+}
+
+TEST_CASE("Körperteile beim Client je Tod einmal und begrenzt je Frame")
+{
+    CHECK(BodyPartsRepeated(0.0));
+    CHECK(BodyPartsRepeated(0.9));
+    CHECK_FALSE(BodyPartsRepeated(1.0));
+    CHECK_FALSE(BodyPartsRepeated(30.0));
+    CHECK_FALSE(BodyPartsRepeated(-1.0));
+
+    CHECK(BodyPartsMayShow(0));
+    CHECK(BodyPartsMayShow(BodyPartsPerFrame - 1));
+    CHECK_FALSE(BodyPartsMayShow(BodyPartsPerFrame));
+    CHECK_FALSE(BodyPartsMayShow(-1));
 }
 
 TEST_CASE("Laufanimation der Client-Figur misst der Host aus ihrem Ort")
@@ -811,6 +852,30 @@ TEST_CASE("Lager am Rundenende: Client wartet nur mit frischem Stand des Hosts u
     CHECK(ClientMayReleaseRoundEnd(7, 7, true, true));
     CHECK(ClientMayReleaseRoundEnd(7, 0, false, false)); // Stand fehlt: nicht hängen bleiben
     CHECK(ClientMayReleaseRoundEnd(7, 5, false, false));
+}
+
+TEST_CASE("Lager: nachgeholtes Bestätigen nur mit lebendem Panel in derselben Welt (lager-bestaetigen-absturz)")
+{
+    constexpr uintptr_t Panel = 0x1000, Other = 0x2000;
+    CHECK(HeldObjectLive(Panel, Panel, 5, 5, 0, 0));
+    CHECK(HeldObjectLive(Panel, Panel, 0, 9, 0, 0)); // beim Merken noch ohne Serial
+    CHECK_FALSE(HeldObjectLive(0, 0, 0, 0, 0, 0));
+    CHECK_FALSE(HeldObjectLive(Panel, 0, 5, 5, 0, 0));     // Platz frei: Objekt nach der Reise freigegeben
+    CHECK_FALSE(HeldObjectLive(Panel, Other, 5, 5, 0, 0)); // Platz von einem anderen Objekt belegt
+    CHECK_FALSE(HeldObjectLive(Panel, Panel, 5, 6, 0, 0)); // gleiche Adresse, neues Objekt
+    CHECK_FALSE(HeldObjectLive(Panel, Panel, 5, 5, 0x00200000, 0)); // Garbage
+    CHECK_FALSE(HeldObjectLive(Panel, Panel, 5, 5, 0x10000000, 0)); // Unreachable
+    CHECK(HeldObjectLive(Panel, Panel, 5, 5, 0x40000000, 0));       // RootSet ist kein Abbau
+    CHECK_FALSE(HeldObjectLive(Panel, Panel, 5, 5, 0, 0x8000));     // BeginDestroyed
+    CHECK_FALSE(HeldObjectLive(Panel, Panel, 5, 5, 0, 0x10000));    // FinishDestroyed
+    CHECK_FALSE(HeldObjectLive(Panel, Panel, 5, 5, 0, 0x20));
+
+    constexpr uintptr_t World = 0x7000, Next = 0x8000;
+    CHECK(MayReplayHeldConfirm(true, World, World));
+    CHECK_FALSE(MayReplayHeldConfirm(false, World, World));
+    CHECK_FALSE(MayReplayHeldConfirm(true, World, Next)); // Host ist schon weitergereist
+    CHECK_FALSE(MayReplayHeldConfirm(true, World, 0));    // GWorld während der Reise leer
+    CHECK_FALSE(MayReplayHeldConfirm(true, 0, 0));
 }
 
 TEST_CASE("Eingaben: lokale Geräte im Netzwerkspiel nur für den eigenen Spieler")

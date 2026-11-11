@@ -43,6 +43,7 @@ std::span<const Patch> RewardPatches();
 std::span<const Patch> MapPatches();
 std::span<const Patch> LocalDevicePatches();
 std::span<const Patch> CharacterPatches();
+std::span<const Patch> BodyPartPatches();
 // Host: Figur, die bei RewardChest.OpenAirdropChoices die native Auswahl bekommt (die des Hosts statt des Remote-P2).
 uintptr_t RewardCharacter(uintptr_t Character);
 // Client: Wahr, wenn ProcessEvent einen Server-RPC mit einer lokalen Anzeige-Instanz der Airdrop-Auswahl nicht senden soll.
@@ -60,6 +61,16 @@ void TickCamera(NetRole Role, bool Second);
 void TickBusBar(NetRole Role);
 // opt-lootbalken, Client: Fortschrittsbalken der Lootstellen aus dem replizierten Wert.
 void TickLootBar(NetRole Role);
+// opt-blut, Client: Blut und Fleisch beim Tod eines Gegners aus dem nativen Multi_OnDie.
+void TickBlood(NetRole Role);
+// opt-blut, Client: Weitere Anzeige beim Gegnertod (etwa opt-koerperteile) ohne eigenen ProcessEvent-Beobachter. Der Aufruf kommt
+// nach den nativen Tod-Effekten, auf dem Game Thread, nur fuer lebende Gegner. Zwei Plaetze.
+using EnemyDeathListener = void (*)(uintptr_t Enemy);
+bool AddEnemyDeathListener(EnemyDeathListener Listener);
+// opt-koerperteile, Client: Zerfall sterbender Gegner lokal aus dem replizierten Multi_OnDie.
+void TickBodyParts(NetRole Role);
+// opt-blickrichtung-client, Client: Blickwinkel der Hände aus ihrer replizierten Drehung, damit das Richtungs-Mesh sich dreht.
+void TickFacing(NetRole Role, bool Second);
 void TickWidgets(NetRole Role);
 void TickProjectiles(NetRole Role, bool Second);
 void TickMovement(NetRole Role, bool Second);

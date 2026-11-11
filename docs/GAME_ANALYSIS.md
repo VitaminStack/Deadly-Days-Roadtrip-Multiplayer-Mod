@@ -407,6 +407,122 @@ Stand 11.11.2026, Build `26495302`, zwei Instanzen auf einem PC über die Lobby,
 - **Takt:** Die Suche der beiden UFunctions hielt den Frame je Mission einmal etwa 10 ms auf (`Takt: Lootbalken …`).
 - **Nicht geprüft:** zwei PCs, Reconnect mitten im Durchsuchen. Eine Stelle mit eigener Kistenoptik ließ sich in den Testkarten nicht zuordnen. `BP_ChestLootSpot_C` (`Progress` nicht repliziert, kein Widget) und `BP_PowerUpCrate_C` rufen weder Widget noch Fortschrittsfunktionen auf, dort gibt es also keinen solchen Balken. Säcke wurden nicht einzeln gemessen. **Vermutung:** Sie laufen über dieselbe Klasse wie die getesteten Stellen.
 
+### Schrott beim Aufsammeln (`opt-schrott-anzeige`)
+
+Stand 11.11.2026, Build `26495302`. Ursache statisch aus der Exe (Disassembly, nur gelesen), Test mit zwei Instanzen auf einem PC über
+die Lobby, Mod mit Spike, `-Godmode`, Seed `20795`, Client-Figur per Skript bewegt.
+
+- **[Belegt, Disassembly]** `AScrapLoot::Loot_Implementation` (`0x59AF660`, bekommt wie `AItemLoot::Loot` das
+  `ILootableInterface`-Teilobjekt bei Actor `+0x2A8`) liest `ScrapAmount` (`+0x2D0`), holt das Schrottkonto über den Owner des
+  `LootAttractor` und bucht mit dem nativen `AddAmount` (`0x586B2B0`), danach springt sie in `ALootBase::Loot_Implementation`
+  (`0x59AF3F0`, Klang-RPC und Delegate). Beide prüfen keine Rolle. Unter den 16 Aufrufern von `AddAmount` ist sie der einzige mit
+  vtable-Eintrag.
+- **[Belegt]** `ScrapLoot` repliziert, `ScrapWalletComponent` nicht. Der lokale Attraktor des Clients rief `Loot` auf den replizierten
+  Haufen auf und buchte selbst. Im Test kam derselbe Haufen beim Client dreimal im selben Frame an (drei Aufrufe um 13:21:56.784, der
+  Host buchte danach genau 1). **Vermutung:** Der Haufen bleibt beim Client, bis das Zerstören des Hosts ankommt, darum die
+  Überzählung bis 185 statt 9 im Live-Test 10.11.
+- **Umsetzung** (`InventoryPatches.cpp::ScrapLootHook`, Regel `ScrapLootMayCredit` in `PatchPolicy.h`, mit Test): Beim Client läuft
+  statt des Originals nur die Basis `ALootBase::Loot_Implementation`, Klang und Delegates bleiben lokal. Host und Einzelspieler
+  unverändert. Kein neuer Netzweg, keine `ModVersion`-Erhöhung.
+- **Antworten zum neuen Pfad:** Lokal bleiben Anziehen, Aufsammeln, Klang und die Anzeige (nativ über `OnCurrencyChanged`). Geteilt wird
+  wie bisher nur der Kontostand des Hosts über `0x309`, weil das Konto nicht repliziert. Es bucht nur der Host, also keine doppelte
+  Buchung und keine Vorhersage, die zurückgenommen werden müsste. Wiederverwendet: `0x309`/`ApplyScrap`, Hook-Muster von `ItemLootHook`.
+  Ablehnung gibt es nicht; nach Verlust, Join oder Kartenwechsel sendet der Host bei Änderung und spätestens alle 5 s erneut.
+- **[Belegt, Live-Test 11.11.2026]** Tag 1 und nach dem Kartenwechsel Tag 2: Host-Stand 0, 1, 2, 4, 5, 6, 7; jede Übernahme beim Client
+  lautet „Stand des Hosts übernommen, X statt Y“ mit Y = vorigem Host-Stand. Der Client-Stand änderte sich also nie von selbst, 6
+  Übernahmen statt 764 Korrekturen. Inventare „vollständig, gleich“, keine Absturzberichte, Lagerbestätigung zwischen den Tagen lief.
+- **[Belegt] Verzögerung:** Zwischen dem lokalen Aufsammeln beim Client (13:21:56.784) und der Übernahme (13:21:58.190) lagen 1,4 s, davon
+  bis 0,5 s durch den Prüftakt von `SendScrap`. Die Anzeige springt nicht mehr, läuft aber nach. Der Takt bleibt unverändert;
+  der Rest der Verzögerung lag vor der Buchung beim Host (nicht weiter untersucht).
+- **Nicht geprüft:** zwei PCs mit echtem Ping, Verkauf/Reparatur im Lager auf diesem Stand (Pfad unverändert), ob der Host Haufen bucht,
+  die nur die Client-Figur einsammelt, ohne dass die Host-Figur in der Nähe ist (im Test buchte er alle, die Figuren standen aber
+  nicht weit getrennt). `FuelLoot` und `PowerUpLoot` wurden nicht untersucht.
+
+### Blut beim Client (`opt-blut`)
+
+Stand 11.11.2026, Build `26495302`. Statische Disassembly der Exe (`tools/spike/Disassemble.ps1`), dazu zwei Instanzen auf einem PC über
+die Lobby, Mod mit Spike, `-Godmode`, Seed 20795, zwei Missionstage.
+
+- **[Belegt, Disassembly] Tod:** Blut und Fleisch spawnt `AEnemyBase::ActivateDeathVFX` (`BloodVfx` `+0x778`, `FleshVfx` `+0x7B8`,
+  letzteres begrenzt über `MaxZombieFleshSetting` `+0x9B8`). Sie bricht nur auf einem dedizierten Server ab, würde beim Client also
+  laufen. Ihr einziger Aufrufer ist `UEnemyDyingAbility::ActivateAbility`, die nur beim Host läuft. Kein Cue, keine Chaos-Zerstörung in
+  dieser Funktion; die Bruchstücke über `EnemyChaosDestructionProxyActor` sind `opt-koerperteile`.
+- **[Belegt, Disassembly]** Der Host sendet für jeden Tod `DDCharacterBase.Multi_OnDie` (`NetMulticast | NetReliable`). Beim Client
+  endet er im Blueprint-Ereignis `BPImpl_OnDieClientEffects`, das `BP_Enemy_C` nicht belegt, also ohne Wirkung.
+- **[Belegt, Disassembly] Treffer:** `HitVfx` (`+0x7F8`) spawnt nur der Override von `OnDamageReceived_Server`, ohne Net-Flag. Gegner-HP
+  repliziert nicht (siehe oben). Beim Client gibt es also kein natives Treffer-Signal.
+- **Umsetzung** (`BloodPatches.cpp`, `TickBlood`, Regeln in `BloodPolicy.h` mit Tests): Ein Beobachter am vorhandenen ProcessEvent-Hook
+  erkennt beim Client das empfangene `Multi_OnDie` eines `EnemyBase` und ruft dessen natives `ActivateDeathVFX` per ProcessEvent auf.
+  Laut SDK überschreibt kein Blueprint diese Funktion. Der Host tut nichts zusätzlich. Keine Nachricht, kein neuer Hook, keine
+  `ModVersion`-Erhöhung. Für weitere Tod-Anzeigen gibt es `AddEnemyDeathListener` in `PatchRuntime.h`, damit sie keinen der vier
+  Beobachterplätze brauchen.
+- **Antworten zum neuen Pfad:** Lokal bleibt die ganze Darstellung samt Einstellung `MaxZombieFlesh` des Clients. Geteilt wird nichts
+  Neues, der native zuverlässige Multicast reicht. Es entscheidet weiter der Host über Schaden, Tod und Drops; der Client ruft nur
+  eine Anzeige ohne Spielwirkung. Wiederverwendet wird der bestehende Beobachter-Pfad. Verlust schließt `NetReliable` aus, verpasste
+  Tode bei Join oder Reconnect werden nicht nachgeholt (kosmetisch, nicht getestet).
+- **Stabilität:** Aufruf direkt im Ereignis auf dem Game Thread, nur für lebende Objekte (Platz im Objekt-Array, keine
+  Garbage-Flags). Höchstens 16 je Mod-Takt. Derselbe Gegner binnen 1 s wird übersprungen, aber nicht dauerhaft: gepoolte Gegner
+  sterben erneut.
+- **[Belegt, Live-Test 11.11.2026]** Erster Tag: Client-Zähler 98 von 98 Toden mit Effekt (Rundenübersicht des Hosts: 98 Kills),
+  0 übersprungen, 2 Gegner starben als dasselbe Objekt ein zweites Mal (Pool). `enemy_sync.py` über 60 s: Tode beim Client im Median
+  0,00 s, höchstens 0,25 s nach dem Host. Bildvergleich: Beide Fenster zeigen Fleischstücke, Knochen und Blutspritzer an den
+  Todesstellen. Rundenende, Lager, Reise in den zweiten Tag und dort eine dichte Welle (160 Tode insgesamt) ohne Absturzbericht,
+  Inventare „vollständig, gleich“, keine Takt-Warnung.
+- **Offen:** Treffereffekte (`HitVfx`, Aufblitzen) fehlen beim Client weiter. Im Bild war das unter den Todeseffekten nicht eindeutig
+  zu erkennen. Sie brauchen das Treffer-Signal des Hosts, das `opt-schadenszahlen` plant; dort beim Client `HitVfx` mit abspielen statt
+  eine zweite Nachricht zu bauen. Nicht geprüft: zwei PCs, Reconnect, Join mitten in der Welle.
+
+### Blickrichtung beim Client (`opt-blickrichtung-client`)
+
+Stand 11.11.2026, Build `26495302`, zwei Instanzen auf einem PC über die Lobby, Mod mit Spike, `-Godmode`, Tag 1 (Seed 20795),
+Figuren per Skript gesteuert. Speicher beider Seiten mit `tools/spike/facing.py` und `facing_compare.py` gelesen (Figuren über den
+Ort gepaart, 50 ms), Disassembly der Exe.
+
+- **[Gemeldet, Live-Test 10.11.]** Die Client-Figur schaut beim Client nur nach hinten.
+- **[Belegt, SDK]** Die Figur ist kein Skelett, sondern `UDirectionalCharacterMesh` (`BP_DD_Character_C+0x8F0`): vier Richtungs-Meshes,
+  gewählt über `FacingRight` und `FacingDown` (`Mesh+0x7F0`, `+0x7F1`). `UseHandsDirection` (`+0x700`) ist an, das Mesh folgt den Händen
+  (`AHands`, `ADDCharacter+0x7B0`, `Mesh+0x750`).
+- **[Belegt, Disassembly]** Die Richtung rechnet `0x586BE20` aus dem Float `AHands+0x31C` (Gierwinkel in Grad, gemerkt in `Mesh+0x7F4`).
+  Den Winkel schreibt nur `0x593FDD0` (Drehung der Hände zum Ziel, setzt auch die Actor-Drehung). Erreichbar ist sie nur über
+  `ADDCharacter.ProxyRotateTowards` (Server-RPC, Implementierung `0x581A1E0` springt mit vorhandenen Händen dorthin), also nur beim Host.
+- **[Belegt, Live-Messung vor der Änderung]** Beim Client stand `Hands+0x31C` bei **beiden** Figuren dauerhaft auf 0, die Ansicht auf
+  `[1,0]` (rechts, Rücken). Das Mesh lief und übernahm die 0 (`Mesh+0x7F4` = 0). Beim Host wechselten Winkel und Ansicht ständig. Die
+  Drehung des Hände-Actors kam beim Client nativ repliziert an. Beim Host gilt eingeschwungen `+0x31C` = Welt-Gierwinkel des Hände-Actors.
+  Die gemeldete Rückenansicht betrifft also auch die Host-Figur beim Client.
+- **[Belegt, Disassembly und Messung] Nebenbefund:** Beim Client sind `ADDCharacter.DirectionalMeshComponent` (`+0x7E0`) und
+  `Hands.ParentCharacter` (`+0x320`) leer. Gesetzt werden sie nur im Autoritätszweig von `0x58022A0` (`cmp [this+0x168],3`), zusammen mit
+  `Hands`, `SetParentCharacter` (bindet `UpdateWeapon`/`UpdateFiring`) und dem Owner der Hände. Die Tick-Funktionen von Mesh, Händen und
+  `PlayerAnimationVelocityProvider` sind auf beiden Seiten gleich registriert.
+- **Gescheitert:** Beim Client nur `+0x7E0` auf das Blueprint-Mesh oder nur `Hands+0x320` auf die Figur setzen (von außen geschrieben). Die
+  Ansicht blieb starr. Der halbe Zustand von `+0x7E0` brachte den Client danach zum Absturz (`EXCEPTION_ACCESS_VIOLATION` beim Lesen von
+  `0x348`, Stack `0x5870F52` ← `0x58025F7`). Beide Felder bleiben deshalb unberührt.
+- **Umsetzung** (`src/Game/FacingPatches.cpp`, `TickFacing`, Regeln `FacingYawFromQuat` und `FacingNeedsWrite` in `PatchPolicy.h`, mit
+  Tests): Nur beim Client und nur für Figuren ohne Autorität trägt die Mod je Takt den Welt-Gierwinkel des replizierten Hände-Actors
+  (Quaternion von `RootComponent.ComponentToWorld`) in `Hands+0x31C` ein, wenn er sich um mehr als 0,01° ändert. Das native Mesh wählt daraus
+  die Ansicht wie beim Host. Kein Hook, kein Aufruf, keine Nachricht, keine `ModVersion`-Erhöhung.
+- **Antworten zum neuen Pfad:** Die ganze Darstellung bleibt lokal. Geteilt wird nichts Neues, die Drehung der Hände repliziert schon.
+  Zielwahl, Schüsse und Schaden entscheidet weiter der Host, der Client schreibt nur einen Anzeigewert ohne eigene Replikation.
+  Wiederverwendet werden die native Replikation der Hände und die native Richtungslogik, ersetzt wird nichts. Eine Ablehnung gibt es nicht,
+  bei Verlust zählt die nächste replizierte Drehung.
+- **Stabilität:** Figuren (höchstens 8) und ihre Hände werden vor jedem Zugriff über ihren Platz im Objekt-Array, die Klasse und die Flags
+  geprüft, neue Hände zusätzlich über `IsA("Hands")`. Die Figurenliste erneuert sich je Sekunde und beim Weltwechsel. Ein unbrauchbares
+  Quaternion (nicht endlich, nicht normiert) schreibt nichts. Die clientautoritative Position aus `bewegung` bleibt unberührt.
+- **[Belegt, Live-Test nach der Änderung]** Laufen beider Figuren in alle vier Richtungen, 475 gepaarte Proben: gleiche Ansicht wie beim
+  Host bei der Client-Figur in 94 %, bei der Host-Figur in 90 %. Der Winkelabstand liegt im Median bei 1,4° bzw. 0,4° (90 %: 10° bzw. 19°),
+  beim Client kommen alle vier Ansichten vor, der Winkel steht nie auf 0. Die Abweichungen sind Verzögerung an den Quadrantengrenzen
+  (Replikation und Glättung der Hände). Im Fensterbild zeigen beide Figuren beim Client das Gesicht wie beim Host. Mod-Log „Blickrichtung:
+  Client übernimmt den Winkel der Hände …“.
+- **[Belegt, Live-Test]** Weltwechsel: MetaBase → Mission mit dem Fix, danach Client-Neustart samt Wiederbeitritt in die laufende Mission.
+  Belohnungs-Panel (Weltpause) auf beiden Seiten, danach erneut gemessen: gleiche Ansicht 95 % (Client-Figur) und 97 % (Host-Figur),
+  Median unter 1°. Ort der Client-Figur bei Host und Client gleich. Keine Absturzberichte.
+- **[Belegt, Nebenbei]** Beim Host bleibt für die Client-Figur in einer Weltpause der letzte rohe Zielwinkel aus dem RPC stehen
+  (`+0x31C` 172° bei einem Gierwinkel der Hände von -87°). Das ist nativ und nicht Teil dieser Änderung.
+- **Vermutung:** Ein zweiter Leser von `+0x31C` (`0x5939400`, Zielwahl mit `TargetingMode`/`MaxTargetDivergenceAngle`) läuft beim Client
+  nicht, weil dessen Hände kein `ParentCharacter` haben. Die Schüsse des Clients entstehen weiter beim Host. Treffer des Clients wurden
+  nach der Änderung nicht gesondert gezählt, im Bild schießt er wie vorher.
+- **Nicht geprüft:** zwei PCs mit echtem Ping, Tod, Wiederbelebung und erzwungene Richtungen (`FreezeLookingDirection`), Kartenwechsel
+  über das Tagesende.
+
 ### Laufanimation beim Client (`opt-laufanimation-client`)
 
 Stand 11.11.2026, Build `26495302`, zwei Instanzen auf einem PC über die Lobby, Mod mit Spike, `-Godmode`, Figuren per Skript
@@ -1930,8 +2046,9 @@ Speicher; das Host-Log lag nicht vor. Drei Rundenenden, 18 Airdrop- und Level-up
 - **[Belegt, Client] Absturz beim Bestätigen im dritten Lager (`lager-bestaetigen-absturz`).** 17:56:50 „Client bereit, wartet auf den
   Host“, 17:56:51 „Bestätigen nachgeholt (alle bereit)“, Sekundenbruchteile später `EXCEPTION_ACCESS_VIOLATION`: Ausführung an Adresse
   0 (Aufruf über einen leeren Funktionszeiger), aufgerufen aus `DDSurvivors-Win64-Shipping.exe+0x5a71965`, darüber Rücksprünge in
-  `DDCoop.dll` (`+0x283950`, `+0x2843f8`, `+0x28ce10`, `+0x9d75d`, `+0x86051`, `+0xc849e`). **Vermutung:** Das nachgeholte native
-  Bestätigen (`ReleaseRoundEndConfirm`) trifft ein Panel, das schon abgebaut wird. Der Crash-Reporter blieb gesperrt, Bericht nur lokal.
+  `DDCoop.dll` (`+0x283950`, `+0x2843f8`, `+0x28ce10`, `+0x9d75d`, `+0x86051`, `+0xc849e`). **[Belegt]** Das nachgeholte native
+  Bestätigen (`ReleaseRoundEndConfirm`) traf ein nach der Reise schon freigegebenes Panel, siehe
+  [Absturz beim Bestätigen im Lager](#absturz-beim-bestätigen-im-lager-lager-bestaetigen-absturz). Der Crash-Reporter blieb gesperrt, Bericht nur lokal.
 - **[Belegt, Client] Schrott springt beim Aufsammeln (`opt-schrott-anzeige`).** 764 Korrekturen „Schrott: Stand des Hosts übernommen“,
   in Gruppen alle etwa 270 ms, lokal kurz bis 185 statt 9; der Endstand stimmt.
 - **[Belegt, Client] Takt.** 1025 Meldungen „Takt: … hielt den Frame … auf“ (Busbalken, Patches, Sync, Sync-Fortschritt, Boss-Leiste,
@@ -1940,6 +2057,34 @@ Speicher; das Host-Log lag nicht vor. Drei Rundenenden, 18 Airdrop- und Level-up
   (`opt-laufanimation-client`), Warnanzeigen sprintender und spuckender Zombies fehlen (`opt-gegner-indikatoren`), Sound-Fehler der
   Level-up-Kiste im Endbildschirm (`opt-levelup-sound`), der Client stempelt das geschaffte Level nicht ab (`opt-rundenstempel`).
 - **Nicht geprüft:** `fortschritt` (Giftwolke, Item-Effekte, Werte nach Upgrade), Reparatur und Ausrüsten für `lager-handel-client`.
+
+### Absturz beim Bestätigen im Lager (`lager-bestaetigen-absturz`)
+
+Ausgewertet am 10.11.2026 aus Mod-Log und Minidump des Clients vom [Live-Test](#live-test-auf-zwei-pcs-am-10112026-livetest-1011),
+nur lesend. Die `DDCoop.dll`-Adressen gehören zum Release-Build von `main` `8a0c493`, neu gebaut; der Code an allen Stapeladressen ist
+Byte für Byte gleich mit der eingesetzten DLL.
+
+- **[Belegt] Aufrufkette.** `SetHostRoundEndStatus` (`+0xC849E`) → `ReleaseRoundEndConfirm` (`+0xC709E`, Rücksprung nach
+  `call OriginalConfirm`) → `HandleConfirmButton` (`0x5A71900`) → bei `0x5A71960` Aufruf von `0x5AF5030`. Diese Funktion lädt
+  `[[Panel+0x798]+0x3E0]` und springt über dessen VTable-Slot `+0x2A8`, der 0 war. Die übrigen `DDCoop.dll`-Werte auf dem Stapel
+  (`+0x283950`, `+0x2843F8`, `+0x28CE10`) liegen in `.rdata`/`.data` und sind keine Rücksprünge, `+0x9D75D` und `+0x86051` sind alte
+  Werte aus `ReadPointer` und `CurrentRole`.
+- **[Belegt] Das Panel war schon freigegeben.** Im Minidump lag am Panel-Zeiger kein UObject-Kopf mehr, sondern gleichmäßige 16-Bit-Werte.
+  Das Objekt hinter `+0x3E0` hatte `InternalIndex` −1, an seiner VTable-Stelle stand ein Zeiger auf den nächsten freien Block.
+  Direkt vor „Bestätigen nachgeholt (alle bereit)“ meldete der Desync-Melder „wartet auf Kontrollkanal/Missionswelt“: Der Host war
+  nach seinem Bestätigen schon weitergereist, die Missionswelt des Clients samt Lager-Panel abgebaut, das Rundenende aber noch nicht
+  zurückgesetzt. Der Stand „alle bereit“ des Hosts kam in diesem Frame an.
+- **[Belegt] Warum die Prüfung durchging.** `ReleaseRoundEndConfirm` prüfte `Alive` (Flags am Objektzeiger) und `IsA` (Klasse am
+  Objektzeiger). Beides liest den alten Speicher, der Kopf des freigegebenen Panels stand dort noch.
+- **Fix.** Zurückgehaltene Panels und der gelbe Knopf werden mit Platz und Serial im Objekt-Array und der Welt gemerkt. Nachgeholt wird
+  nur, wenn der Platz noch auf dasselbe, nicht abgebaute Objekt zeigt und die Welt dieselbe ist, sonst wird das Bestätigen verworfen.
+  Gilt auch für das zurückgehaltene Airdrop-Bestätigen bei Host und Client, siehe [src/Game/README.md](../src/Game/README.md).
+- **[Belegt, ein PC] Nachtest.** `Start-Session.ps1 -Mod -Tunnel Lobby -Godmode`, fünf Rundenenden mit Bestätigen im Lager: Host
+  zuerst mit 1 s Abstand, Client zuerst mit 1,5 s, beide gleichzeitig, Client 0,2 s vor dem Host. Kein Absturz, kein Absturzbericht.
+  Im letzten Fall reiste der Host 0,1 s nach seinem Bestätigen, das Rundenende des Clients endete vor dem Nachholen, also wieder genau
+  das Rennen von oben, diesmal ohne nativen Aufruf. Der Zweig „Welt gewechselt“ selbst trat im Test nicht auf.
+- **Nebenbefund.** In `Run-Route.ps1` ging der Klick „Fortsetzen“ des Hosts 6 s nach `!finish` zweimal verloren, der Host blieb in der
+  Rundenübersicht. Ein späterer Klick wirkte. **Vermutung:** Die Übersicht nimmt Eingaben erst später an; nicht von der Mod verursacht.
 
 ### Client-Darstellung im Live-Spiel am 07.11.2026 (`todo-client-optik`)
 
@@ -1952,6 +2097,8 @@ lesend der Speicher des Clients (Objekt- und Funktionsliste, keine Eingaben, kei
   den rechnet nur der Host. Lokal zuerst: Der Client zeigt sie selbst, wenn die replizierte Gesundheit eines Gegners sinkt.
 - **[Gemeldet] Körperteile sterbender Zombies fehlen beim Client.** Eine eigene Klasse dafür war nicht zu finden (gesucht: Gib, Gore,
   Dismember, BodyPart, Corpse). **Vermutung:** Sie entstehen im Todesablauf beim Host, wie Blut und Treffereffekte (`opt-blut`).
+  Behoben und genauer belegt unter [Körperteile beim Client](#körperteile-beim-client-opt-koerperteile): Chaos-Zerfall über einen
+  GameplayCue, dazu Fleisch und Knochen aus `opt-blut`.
 - **[Gemeldet] Der Lootbalken fehlt beim Client** (Fortschritt beim Durchsuchen von Kisten, Tonnen und Säcken). **[Belegt, Client]**
   `BP_EnvironmentObjectLootspot_C` hat `OnLootingUpdate`, `OnRep_IsLooting`, `ExecuteLooting` und `TryPlayFinishedLootingSound`; beim
   Client gab es 75 davon und 29 `WBP_LootWidget_C`. **Vermutung:** Der Host treibt den Balken in `OnLootingUpdate`, beim Client kommt nur
@@ -1963,6 +2110,63 @@ lesend der Speicher des Clients (Objekt- und Funktionsliste, keine Eingaben, kei
   `ABWEICHUNG Inventar`, siehe `inventar-client-abweichung`.
 
 Alle vier gemeldeten Punkte verhindern keinen Run und stehen deshalb unter den optionalen Optimierungen.
+
+### Körperteile beim Client (`opt-koerperteile`)
+
+Stand 11.11.2026, Build `26495302`, zwei Instanzen auf einem PC über die Lobby, Mod mit Spike, `-Godmode`, Seed 20795, zwei
+Missionstage. Statische Disassembly der Exe, Speicher beider Seiten nur gelesen.
+
+- **[Belegt, Speicher] Zwei Arten von Stücken.** Beim Gegnertod zeigt der Host zwei verschiedene Dinge:
+  - weiße Knochen und rosa Fleischstücke, das ist das Niagara-`FleshVfx` aus `AEnemyBase::ActivateDeathVFX`, siehe
+    Aufgabe `opt-blut` (PR #216);
+  - den Zerfall der Gegnerfigur in Chaos-Bruchstücke. Das ist dieser Abschnitt.
+- **[Belegt, Speicher] Kette des Zerfalls:** `BP_StandardEnemy_C` (auch `BP_FireEnemy_C`) hat in `StartupAbilities` (`+0x708`)
+  `BP_GA_EnemyDying_C` (`UEnemyDyingAbility`), dessen `ChaosDestructionCueTag` (`+0x3A8`) `GameplayCue.ChaosDestruction` ist. Den Cue
+  bedient `GCB_ChaosActorSpawner_C` (`UChaosDestructionProxyGameplayCue`, `ProxyActorClass` `+0x40` =
+  `LonglivingChaosDestructionActor_C`), der Bruchstücke stammen aus `DirectionCharacterChaosDestruction` des Gegners
+  (`CharacterChaosDestructionGeometryCollection`). Die Actors sind gepoolt, je Seite hielt der Pool im Test 4 davon.
+- **[Belegt, Disassembly] Warum der Client nichts sieht:** Die Dying-Ability läuft nur beim Host, ihr Cue repliziert nicht. Der
+  Blueprint-Weg `UGameplayCueFunctionLibrary::ExecuteGameplayCueOnActor` hilft beim Client nicht: Für ein Ziel mit ASC ruft er den Cue
+  nur, wenn `AActor::Role` (`+0x168`) `ROLE_Authority` ist, sonst gar nichts. Nur Ziele ohne ASC gehen an
+  `UGameplayCueManager::ExecuteGameplayCue_NonReplicated` (`0x4BC58D0`). Diese Funktion holt den GameplayCueManager und ruft dessen
+  `HandleGameplayCue(Target, Tag, Executed, Parameters)`, ohne Rollenprüfung.
+- **Umsetzung** (`BodyPartPatches.cpp`, `TickBodyParts`, Regeln `BodyPartsRepeated` und `BodyPartsMayShow` in `PatchPolicy.h`, mit
+  Tests): Ein Beobachter am vorhandenen ProcessEvent-Hook erkennt beim Client das empfangene `DDCharacterBase.Multi_OnDie` (zuverlässiger
+  Multicast) eines `EnemyBase`. Die Mod liest den Tag aus der Dying-Ability der Gegnerklasse und ruft
+  `ExecuteGameplayCue_NonReplicated(Gegner, Tag, Parameter)` mit genullten `FGameplayCueParameters` (`0xD8` Byte) und dem Ort des Gegners.
+  Danach läuft der native Cue des Clients mit seinem eigenen Pool. Der Host tut nichts zusätzlich. Keine Nachricht, kein Hook, kein
+  geänderter Code: Die eigene Patchliste `BodyPart` prüft nur die Signatur der Funktion, ohne passende Signatur bleibt der Zerfall aus.
+  Keine `ModVersion`-Erhöhung.
+- **Antworten zum neuen Pfad:** Lokal bleibt die ganze Darstellung: Cue, Pool, Physik und Lebensdauer des Clients. Geteilt wird nichts
+  Neues, der native Multicast reicht. Es entscheidet weiter der Host über Schaden, Tod, XP und Drops; der Client ruft nur einen
+  nicht replizierten Anzeige-Cue. Wiederverwendet wird der bestehende Beobachter-Pfad, ersetzt wird nichts. Ablehnung gibt es nicht;
+  Verlust schließt `NetReliable` aus, verpasste Tode bei Join oder Reconnect werden nicht nachgeholt (kosmetisch, nicht getestet).
+- **Stabilität:** Aufruf direkt im Ereignis auf dem Game Thread, nur für lebende Gegner (Platz im Objekt-Array, keine Garbage-Flags).
+  Derselbe Gegner binnen 1 s wird übersprungen, später nicht, weil gepoolte Gegner erneut sterben. Höchstens 8 Zerfälle je Mod-Takt.
+  Beim Weltwechsel vergisst die Mod UFunction und Tags. Jede Gegnerklasse wird einmal aufgelöst, höchstens 16 Klassen.
+- **[Belegt, Live-Test 11.11.2026, nur dieser Stand]** Client-Log „Körperteile: Gegnerklasse BP_StandardEnemy_C mit Zerfall-Cue“, dann
+  „Client zeigt den Zerfall eines Gegners lokal“. Vorher fehlten beim Client alle Zerfall-Actors (Tabelle oben,
+  `visual_state.py` zählt Unterklassen von `EnemyChaosDestructionProxyActor` mit, also auch `LonglivingChaosDestructionActor_C`). Jetzt hält
+  der Client wie der Host 4 davon mit Geometrie. Über 20 s je Sekunde gelesen standen die sichtbaren Bruchstücke beider
+  Seiten an denselben Orten (Abweichung 0 bis 2 Einheiten, einzelne kamen auf einer Seite einen Messschritt früher). Zweiter Tag nach
+  Rundenende und Lager: Tags neu aufgelöst, auch `BP_FireEnemy_C`, unter `!wave` weiter gleiche Orte. Fensterbilder: Der Client zeigt
+  dieselben Zombies wie der Host, also keine unsichtbaren Gegner. Keine Absturzberichte, Inventare „vollständig, gleich“, keine
+  Takt-Warnung der neuen Liste.
+- **[Belegt, Speicher] Die Bruchstücke werden beim Client gezeichnet:** Je Sekunde gelesen hatten die sichtbaren Zerfall-Actors beider
+  Seiten eine Geometrie-Komponente mit `bVisible` 1 und ohne `bHiddenInGame`, mit derselben Geometrie in derselben Richtung
+  (`GC_BaseChar_frontBackL_Simple` oder `…R_Simple`). Im Fensterbild sind sie zwischen Zombies, Funken und Schrott nicht sicher von
+  anderem zu trennen.
+- **[Belegt, Bild] Ohne `opt-blut` fehlen Knochen und Fleisch weiter:** Im Bildpaar desselben Augenblicks liegen beim Host weiße und
+  rosa Stücke um die Todesstellen, beim Client nur XP-Bälle und Funken. Diese Stücke sind `FleshVfx`, nicht der Chaos-Zerfall.
+- **[Belegt, Live-Test 11.11.2026, zusammen mit `opt-blut`]** Für die Abnahme wurde `task/opt-blut` nur lokal und ohne Commit
+  dazugenommen, danach verworfen. Bildpaar unter `!wave`: Beide Fenster zeigen Knochen, Fleischstücke und Bruchstücke an denselben
+  Todesstellen. Client-Log: „129 Gegnertode beim Client, 129 mit Zerfall, 0 über der Obergrenze“, der Blut-Zähler im selben Moment 130
+  von 130. Orte der Bruchstücke auf beiden Seiten gleich (bis 3 Einheiten). Rundenende, Lager, zweiter Tag mit `!wave`: ohne
+  Absturzbericht, Inventare „vollständig, gleich“. Beide Aufgaben belegen je einen der vier Beobachterplätze (`AddEventObserver`),
+  mit dem Lootbalken sind es drei.
+- **Nicht geprüft:** zwei PCs, Reconnect, Join mitten in der Welle, Gegnertypen außer `BP_StandardEnemy_C` und `BP_FireEnemy_C`
+  (Bosse). Die Flugrichtung der Stücke: `HitPosition` und `ShotFromDirection` des Gegners replizieren nicht, die Mod gibt dem Cue nur den
+  Ort mit. Fehlt einer Gegnerklasse die Dying-Ability mit Tag, meldet das Log „ohne Zerfall-Cue“, und es passiert nichts.
 
 ### Steam-Lobby über das Internet (`lobby-live`)
 
@@ -2057,7 +2261,8 @@ Stand 10.11.2026, Build `26495302`, SDK, Disassembly und Live-Test auf einem PC.
 - **[Belegt, Disassembly]** Die Vermutung „Index 1 beim Host“ stimmt nicht: Der Applier nimmt den Spielerindex aus `Pawn.Controller.Player` (vfunc `+0x330` des LocalPlayers), ohne LocalPlayer gilt Index 0. Eine Remote-Figur bekommt darum auf jeder Seite die eigene Wahl dieser Seite: beim Host die Figur des Clients, beim Client der Proxy des Hosts. Fehlt der Eintrag, fällt er auf `CharacterDefinitions[0]` zurück. `CharacterSelectionChanged` greift nur, wenn der Controller-Index zum gemeldeten passt, und erreicht eine Remote-Figur nie. Die eigentliche Arbeit macht die interne Funktion `0x5840DF0` (Definition vergleichen, Asset asynchron laden, Rest im Callback). Eine Definition steuert auch Rucksack, Startausrüstung, Loadout-Stufen und Klassen-Override, ist also mehr als Optik.
 - **[Belegt]** Betritt die Remote-Figur beim Host die Kapsel eines MetaBase-POI, lief `TriggerCollisionActionForPlayer` mit dem Remote-Controller: kein Panel, aber `IgnoreMoveInput` blieb an beiden Controllern des Hosts stehen, der Host konnte sich nicht mehr bewegen.
 - **Umsetzung:** Panel, Marker und Wahl im eigenen Manager bleiben nativ lokal. Jede Seite schickt nur den Namen der eigenen Definition (etwa `CD_BananaPerson`, Kontrolltyp `0x800`, bei Änderung und alle 2 s, damit Verlust, Beitritt und Reise ihn nachholen). Jede Seite wendet die Wahl der Gegenseite mit `0x5840DF0` auf die Remote-Figur an: beim Spawn über einen Hook auf `ApplyInitialCharacterDefinition` (`0x5837220`), danach per Sekunden-Abgleich. Die Spielwerte der Client-Figur rechnet wie bisher der Host, jetzt mit der Definition des Clients. Doppelte Wahl lehnt die Mod nicht ab: Jede Seite entscheidet nur über die eigene Figur, eine gemeinsame Autorität ist dafür nicht nötig. Beim Host übergeht `FilterRemotePoiOverlap` Betreten und Verlassen eines POI durch die Remote-Figur, der Client öffnet das Panel bei sich selbst. Lesewerkzeug: `tools/spike/characters.py <pid>`; `Start-Session.ps1 -RealSave` startet mit einer Kopie des echten Spielstands, weil ein frischer keine Figurenauswahl freigeschaltet hat.
-- **Live-Test 10.11.2026, ein PC, zwei Instanzen:** Beide starten mit `CD_PraesidentKnabe`, die Remote-Figur wird beim Spawn mit der Wahl der Gegenseite angewendet. Der Client wählt in der MetaBase `CD_BananaPerson`, rund 0,4 s später wendet der Host sie auf die Client-Figur an, vom Menschen im Bild bestätigt. Der Host blieb beweglich, der Filter griff beim Betreten und Verlassen des POI. **Nicht geprüft:** zwei PCs, Reise und erneuter Beitritt mit gehaltener Wahl, Startausrüstung der gewählten Figur im Run. Rest: Der Sekunden-Abgleich hielt einmal 10 bis 11 ms den Frame auf (volle Objektsuche nach dem Applier), siehe `opt-charakter-takt`.
+- **Live-Test 10.11.2026, ein PC, zwei Instanzen:** Beide starten mit `CD_PraesidentKnabe`, die Remote-Figur wird beim Spawn mit der Wahl der Gegenseite angewendet. Der Client wählt in der MetaBase `CD_BananaPerson`, rund 0,4 s später wendet der Host sie auf die Client-Figur an, vom Menschen im Bild bestätigt. Der Host blieb beweglich, der Filter griff beim Betreten und Verlassen des POI. **Nicht geprüft:** zwei PCs, Reise und erneuter Beitritt mit gehaltener Wahl, Startausrüstung der gewählten Figur im Run. Rest (behoben in `opt-charakter-takt`): Der Sekunden-Abgleich hielt einmal 10 bis 11 ms den Frame auf (volle Objektsuche nach dem Applier).
+- **[Belegt, SDK und Live-Test 11.11.2026] Takt (`opt-charakter-takt`):** `ADDCharacter` hält seine Komponente im Feld `CharacterDefinitionApplier` (`ObjectProperty`, SDK `0x840`). Der Sekunden-Abgleich liest sie darüber per Reflection und prüft sie (lebt, `Owner` ist die Figur, Klasse `CharacterDefinitionApplier`) statt GObjects zu durchsuchen; die alte Suche bleibt nur als Rückfall, falls das Feld fehlt, mit einer Warnung und einmal je Figur. Kein neuer Hook, keine neue Nachricht, keine Protokolländerung. Messung mit vorübergehendem Zeitmesser auf einem PC (zwei Instanzen, `-RealSave`, Wahl beider Seiten `CD_Sherrif`, die des Clients per Speicherschreiben eines Testhelfers auf `CD_BananaPerson` umgestellt): Suche der Remote-Figur über die Level-Akteure höchstens 0,13 ms, Applier lesen höchstens 0,23 ms (erster Aufruf mit Reflection-Auflösung, danach 0,002 ms), Anwenden 0,02 ms. In MetaBase, Run-Start, Reise in `DDDynamic_Map` und erneutem Beitritt (`Test-NetEnd.ps1 -Cases b`) keine Zeile `Takt: Charakterwahl` in beiden Logs. Die Wahl blieb: Nach der Reise wendet der Host `CD_BananaPerson` beim Spawn auf die neue Client-Figur an, nach dem erneuten Beitritt rund 1 s später über den Abgleich („Änderung“), gelesen mit `tools/spike/characters.py`. Kein Absturz, auch nicht während des Ladens ohne Remote-Figur. **Nicht geprüft:** zwei PCs, eine über das Panel gespeicherte Wahl nach Neustart, Startausrüstung der gewählten Client-Figur im Run.
 
 ## Systeme, die die Mod respektieren muss
 
