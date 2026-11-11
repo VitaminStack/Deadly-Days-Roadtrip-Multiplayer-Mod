@@ -107,6 +107,8 @@ struct
     int32_t Level = 0;
     std::optional<uint32_t> ClientPick;
     uintptr_t HeldPanel = 0;
+    Game::Objects::Ref HeldRef; // HeldPanel im Objekt-Array, dazu die Welt beim Zurückhalten
+    uintptr_t HeldWorld = 0;
     bool ClientReady = false; // Client hat Bestätigen gedrückt (bestaetigen-alle), für ReadyRevision
     uint64_t ReadyRevision = 0;
     int ReplayCount = 0;        // Versuche, das zurückgehaltene Bestätigen nachzuholen
@@ -120,6 +122,8 @@ struct
     uintptr_t Inventory = 0;
     std::vector<uintptr_t> Items;
     uintptr_t Panel = 0; // Panel, in dem der Client Bestätigen gedrückt hat
+    Game::Objects::Ref PanelRef;
+    uintptr_t PanelWorld = 0;
     bool Ready = false;  // Bestätigen gedrückt, wartet auf alle (bestaetigen-alle)
 } Shown;
 // Lager am Rundenende (bestaetigen-rundenende), beide Rollen. Id kommt je Takt aus den Kartenpatches.
@@ -128,6 +132,8 @@ struct
     uint64_t Id = 0;
     uint64_t Done = 0;        // Bestätigen für dieses Rundenende ist nativ gelaufen
     uintptr_t HeldPanel = 0;  // zurückgehaltenes Bestätigen
+    Game::Objects::Ref HeldRef; // dasselbe Panel im Objekt-Array, dazu die Welt beim Zurückhalten
+    uintptr_t HeldWorld = 0;
     uint64_t ClientIn = 0, ClientReady = 0; // Host: Stand des Clients aus 0x306
     uint64_t HostStatusId = 0; // Client: Rundenende im frischen Stand des Hosts, 0 ohne
 } End;
@@ -329,17 +335,25 @@ uintptr_t ConfirmButtonOf(uintptr_t Panel)
     return 0;
 }
 
-uintptr_t Tinted = 0; // gelb gefärbter Knopf
+Objects::Ref Tinted; // gelb gefärbter Knopf
+
+// lager-bestaetigen-absturz: Ein zurückgehaltenes Panel ist nur nutzbar, solange es im Objekt-Array lebt und die Welt dieselbe
+// ist. Alive allein liest Flags am alten Speicher; nach der Reise des Hosts bestand ein freigegebenes Panel diese Prüfung,
+// HandleConfirmButton folgte dann seinen Feldern bis zu einem leeren Funktionszeiger.
+bool HeldPanelUsable(const Objects::Ref& Held, uintptr_t HeldWorld)
+{
+    return MayReplayHeldConfirm(Objects::IsLive(Held), HeldWorld, CurrentWorld()) && Objects::IsA(Held.Object, "InventoryPanel");
+}
 
 // Knopf gelb (bereit) oder wieder normal, über UUserWidget.SetColorAndOpacity. Die Farbe ist rein lokal.
 void SetReadyTint(uintptr_t Panel, bool Ready)
 {
     static uintptr_t SetColor = 0;
-    const uintptr_t Button = Ready ? ConfirmButtonOf(Panel) : Tinted;
-    if (!Alive(Button) || !Function(SetColor, "SetColorAndOpacity", "UserWidget"))
+    const uintptr_t Button = Ready ? ConfirmButtonOf(Panel) : Tinted.Object;
+    if (!(Ready ? Alive(Button) : Objects::IsLive(Tinted)) || !Function(SetColor, "SetColorAndOpacity", "UserWidget"))
     {
         if (!Ready)
-            Tinted = 0;
+            Tinted = {};
         return;
     }
     struct
@@ -347,12 +361,12 @@ void SetReadyTint(uintptr_t Panel, bool Ready)
         float R, G, B, A;
     } Color = Ready ? decltype(Color){1.0f, 0.82f, 0.1f, 1.0f} : decltype(Color){1.0f, 1.0f, 1.0f, 1.0f};
     Objects::ProcessEvent(Button, SetColor, &Color);
-    Tinted = Ready ? Button : 0;
+    Tinted = Ready ? Objects::RefTo(Button) : Objects::Ref{};
 }
 
 void ClearReadyTint()
 {
-    if (Tinted)
+    if (Tinted.Object)
         SetReadyTint(0, false);
 }
 
@@ -443,28 +457,33 @@ bool HoldRoundEndConfirm(uintptr_t Panel)
         return false;
     }
     End.HeldPanel = Panel;
+    End.HeldRef = Objects::RefTo(Panel);
+    End.HeldWorld = CurrentWorld();
     SetReadyTint(Panel, true);
     Core::Log::Info("Lager: {} bereit, wartet auf {}", Role == NetRole::Host ? "Host" : "Client", Role == NetRole::Host ? "den Client" : "den Host");
     return true;
 }
 
 // Zurückgehaltenes Bestätigen im Lager nativ nachholen. Einmal: Bleibt es ohne Wirkung, bestätigt der Spieler erneut, dann
-// läuft es direkt nativ. Ist das Panel weg, nur die Farbe vergessen.
+// läuft es direkt nativ. Ist das Panel weg oder die Welt gewechselt (Host schon weitergereist), nur die Farbe vergessen.
 void ReleaseRoundEndConfirm(const char* Why)
 {
     const uintptr_t Panel = End.HeldPanel;
     if (!Panel)
         return;
-    if (!Alive(Panel) || !Objects::IsA(Panel, "InventoryPanel"))
+    if (End.HeldRef.Object != Panel || !HeldPanelUsable(End.HeldRef, End.HeldWorld))
     {
+        const bool WorldChanged = End.HeldWorld != CurrentWorld();
         End.HeldPanel = 0;
-        Tinted = 0;
-        Core::Log::Warn("Lager: Panel weg, zurückgehaltenes Bestätigen verworfen ({})", Why);
+        End.HeldRef = {};
+        Tinted = {};
+        Core::Log::Warn("Lager: {}, zurückgehaltenes Bestätigen verworfen ({})", WorldChanged ? "Welt gewechselt" : "Panel weg", Why);
         return;
     }
     if (Memory::Read<uint8_t>(Panel + PanelIsDragging).value_or(1))
         return; // nach dem Drag erneut
     End.HeldPanel = 0;
+    End.HeldRef = {};
     End.Done = End.Id;
     SetReadyTint(Panel, false);
     Core::Log::Info("Lager: Bestätigen nachgeholt ({})", Why);
@@ -483,6 +502,8 @@ void __fastcall ConfirmHook(uintptr_t Panel)
             return; // schon bereit; im Drag nativ auch ohne Wirkung
         Shown.Ready = true;
         Shown.Panel = Panel;
+        Shown.PanelRef = Objects::RefTo(Panel);
+        Shown.PanelWorld = CurrentWorld();
         SetReadyTint(Panel, true);
         Core::Log::Info("Bestätigen: Client bereit, wartet auf alle (Sitzung {})", Shown.Session);
         return;
@@ -495,6 +516,8 @@ void __fastcall ConfirmHook(uintptr_t Panel)
             return;
         Core::Log::Info("Bestätigen: Host bereit, wartet auf den Client (bereit={})", Host.ClientReady);
         Host.HeldPanel = Panel;
+        Host.HeldRef = Objects::RefTo(Panel);
+        Host.HeldWorld = CurrentWorld();
         SetReadyTint(Panel, true);
         return;
     }
@@ -1434,7 +1457,7 @@ void Tick()
     {
         const uintptr_t Panel = Host.HeldPanel;
         const ULONGLONG Now = GetTickCount64();
-        if (!Alive(Panel) || !Objects::IsA(Panel, "InventoryPanel") || Host.ReplayCount >= 10)
+        if (Host.HeldRef.Object != Panel || !HeldPanelUsable(Host.HeldRef, Host.HeldWorld) || Host.ReplayCount >= 10)
         {
             if (Host.ReplayCount >= 10)
                 Core::Log::Warn("Airdrop-Auswahl: Bestätigen des Hosts nach 10 Versuchen nicht übernommen, Host muss selbst bestätigen");
@@ -1525,11 +1548,11 @@ void FinishClientIfAllReady(bool AllReady)
     if (CurrentRole() != NetRole::Client || !AllReady || !Shown.Ready || ClientPending || Shown.Items.empty())
         return;
     const uintptr_t Panel = Shown.Panel;
-    if (!Alive(Panel) || !Objects::IsA(Panel, "InventoryPanel"))
+    if (Shown.PanelRef.Object != Panel || !HeldPanelUsable(Shown.PanelRef, Shown.PanelWorld))
     {
         Core::Log::Warn("Bestätigen: Panel des Clients weg, Bereit zurückgenommen");
         Shown.Ready = false;
-        Tinted = 0;
+        Tinted = {};
         return;
     }
     if (Memory::Read<uint8_t>(Panel + PanelIsDragging).value_or(1))
@@ -1572,8 +1595,8 @@ void SetRoundEnd(uint64_t Id)
 {
     if (Id == End.Id)
         return;
-    if (End.HeldPanel && Alive(End.HeldPanel))
-        SetReadyTint(End.HeldPanel, false);
+    if (End.HeldPanel)
+        SetReadyTint(End.HeldPanel, false); // prüft den gemerkten Knopf selbst
     if (Id)
         Core::Log::Info("Lager: neues Rundenende, Bestätigen wartet auf alle");
     else

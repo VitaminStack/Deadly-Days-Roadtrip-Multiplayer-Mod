@@ -1890,8 +1890,9 @@ Speicher; das Host-Log lag nicht vor. Drei Rundenenden, 18 Airdrop- und Level-up
 - **[Belegt, Client] Absturz beim Bestätigen im dritten Lager (`lager-bestaetigen-absturz`).** 17:56:50 „Client bereit, wartet auf den
   Host“, 17:56:51 „Bestätigen nachgeholt (alle bereit)“, Sekundenbruchteile später `EXCEPTION_ACCESS_VIOLATION`: Ausführung an Adresse
   0 (Aufruf über einen leeren Funktionszeiger), aufgerufen aus `DDSurvivors-Win64-Shipping.exe+0x5a71965`, darüber Rücksprünge in
-  `DDCoop.dll` (`+0x283950`, `+0x2843f8`, `+0x28ce10`, `+0x9d75d`, `+0x86051`, `+0xc849e`). **Vermutung:** Das nachgeholte native
-  Bestätigen (`ReleaseRoundEndConfirm`) trifft ein Panel, das schon abgebaut wird. Der Crash-Reporter blieb gesperrt, Bericht nur lokal.
+  `DDCoop.dll` (`+0x283950`, `+0x2843f8`, `+0x28ce10`, `+0x9d75d`, `+0x86051`, `+0xc849e`). **[Belegt]** Das nachgeholte native
+  Bestätigen (`ReleaseRoundEndConfirm`) traf ein nach der Reise schon freigegebenes Panel, siehe
+  [Absturz beim Bestätigen im Lager](#absturz-beim-bestätigen-im-lager-lager-bestaetigen-absturz). Der Crash-Reporter blieb gesperrt, Bericht nur lokal.
 - **[Belegt, Client] Schrott springt beim Aufsammeln (`opt-schrott-anzeige`).** 764 Korrekturen „Schrott: Stand des Hosts übernommen“,
   in Gruppen alle etwa 270 ms, lokal kurz bis 185 statt 9; der Endstand stimmt.
 - **[Belegt, Client] Takt.** 1025 Meldungen „Takt: … hielt den Frame … auf“ (Busbalken, Patches, Sync, Sync-Fortschritt, Boss-Leiste,
@@ -1900,6 +1901,34 @@ Speicher; das Host-Log lag nicht vor. Drei Rundenenden, 18 Airdrop- und Level-up
   (`opt-laufanimation-client`), Warnanzeigen sprintender und spuckender Zombies fehlen (`opt-gegner-indikatoren`), Sound-Fehler der
   Level-up-Kiste im Endbildschirm (`opt-levelup-sound`), der Client stempelt das geschaffte Level nicht ab (`opt-rundenstempel`).
 - **Nicht geprüft:** `fortschritt` (Giftwolke, Item-Effekte, Werte nach Upgrade), Reparatur und Ausrüsten für `lager-handel-client`.
+
+### Absturz beim Bestätigen im Lager (`lager-bestaetigen-absturz`)
+
+Ausgewertet am 10.11.2026 aus Mod-Log und Minidump des Clients vom [Live-Test](#live-test-auf-zwei-pcs-am-10112026-livetest-1011),
+nur lesend. Die `DDCoop.dll`-Adressen gehören zum Release-Build von `main` `8a0c493`, neu gebaut; der Code an allen Stapeladressen ist
+Byte für Byte gleich mit der eingesetzten DLL.
+
+- **[Belegt] Aufrufkette.** `SetHostRoundEndStatus` (`+0xC849E`) → `ReleaseRoundEndConfirm` (`+0xC709E`, Rücksprung nach
+  `call OriginalConfirm`) → `HandleConfirmButton` (`0x5A71900`) → bei `0x5A71960` Aufruf von `0x5AF5030`. Diese Funktion lädt
+  `[[Panel+0x798]+0x3E0]` und springt über dessen VTable-Slot `+0x2A8`, der 0 war. Die übrigen `DDCoop.dll`-Werte auf dem Stapel
+  (`+0x283950`, `+0x2843F8`, `+0x28CE10`) liegen in `.rdata`/`.data` und sind keine Rücksprünge, `+0x9D75D` und `+0x86051` sind alte
+  Werte aus `ReadPointer` und `CurrentRole`.
+- **[Belegt] Das Panel war schon freigegeben.** Im Minidump lag am Panel-Zeiger kein UObject-Kopf mehr, sondern gleichmäßige 16-Bit-Werte.
+  Das Objekt hinter `+0x3E0` hatte `InternalIndex` −1, an seiner VTable-Stelle stand ein Zeiger auf den nächsten freien Block.
+  Direkt vor „Bestätigen nachgeholt (alle bereit)“ meldete der Desync-Melder „wartet auf Kontrollkanal/Missionswelt“: Der Host war
+  nach seinem Bestätigen schon weitergereist, die Missionswelt des Clients samt Lager-Panel abgebaut, das Rundenende aber noch nicht
+  zurückgesetzt. Der Stand „alle bereit“ des Hosts kam in diesem Frame an.
+- **[Belegt] Warum die Prüfung durchging.** `ReleaseRoundEndConfirm` prüfte `Alive` (Flags am Objektzeiger) und `IsA` (Klasse am
+  Objektzeiger). Beides liest den alten Speicher, der Kopf des freigegebenen Panels stand dort noch.
+- **Fix.** Zurückgehaltene Panels und der gelbe Knopf werden mit Platz und Serial im Objekt-Array und der Welt gemerkt. Nachgeholt wird
+  nur, wenn der Platz noch auf dasselbe, nicht abgebaute Objekt zeigt und die Welt dieselbe ist, sonst wird das Bestätigen verworfen.
+  Gilt auch für das zurückgehaltene Airdrop-Bestätigen bei Host und Client, siehe [src/Game/README.md](../src/Game/README.md).
+- **[Belegt, ein PC] Nachtest.** `Start-Session.ps1 -Mod -Tunnel Lobby -Godmode`, fünf Rundenenden mit Bestätigen im Lager: Host
+  zuerst mit 1 s Abstand, Client zuerst mit 1,5 s, beide gleichzeitig, Client 0,2 s vor dem Host. Kein Absturz, kein Absturzbericht.
+  Im letzten Fall reiste der Host 0,1 s nach seinem Bestätigen, das Rundenende des Clients endete vor dem Nachholen, also wieder genau
+  das Rennen von oben, diesmal ohne nativen Aufruf. Der Zweig „Welt gewechselt“ selbst trat im Test nicht auf.
+- **Nebenbefund.** In `Run-Route.ps1` ging der Klick „Fortsetzen“ des Hosts 6 s nach `!finish` zweimal verloren, der Host blieb in der
+  Rundenübersicht. Ein späterer Klick wirkte. **Vermutung:** Die Übersicht nimmt Eingaben erst später an; nicht von der Mod verursacht.
 
 ### Client-Darstellung im Live-Spiel am 07.11.2026 (`todo-client-optik`)
 
