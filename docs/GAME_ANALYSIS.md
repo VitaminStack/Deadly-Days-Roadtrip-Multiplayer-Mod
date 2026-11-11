@@ -472,6 +472,57 @@ die Lobby, Mod mit Spike, `-Godmode`, Seed 20795, zwei Missionstage.
   zu erkennen. Sie brauchen das Treffer-Signal des Hosts, das `opt-schadenszahlen` plant; dort beim Client `HitVfx` mit abspielen statt
   eine zweite Nachricht zu bauen. Nicht geprüft: zwei PCs, Reconnect, Join mitten in der Welle.
 
+### Blickrichtung beim Client (`opt-blickrichtung-client`)
+
+Stand 11.11.2026, Build `26495302`, zwei Instanzen auf einem PC über die Lobby, Mod mit Spike, `-Godmode`, Tag 1 (Seed 20795),
+Figuren per Skript gesteuert. Speicher beider Seiten mit `tools/spike/facing.py` und `facing_compare.py` gelesen (Figuren über den
+Ort gepaart, 50 ms), Disassembly der Exe.
+
+- **[Gemeldet, Live-Test 10.11.]** Die Client-Figur schaut beim Client nur nach hinten.
+- **[Belegt, SDK]** Die Figur ist kein Skelett, sondern `UDirectionalCharacterMesh` (`BP_DD_Character_C+0x8F0`): vier Richtungs-Meshes,
+  gewählt über `FacingRight` und `FacingDown` (`Mesh+0x7F0`, `+0x7F1`). `UseHandsDirection` (`+0x700`) ist an, das Mesh folgt den Händen
+  (`AHands`, `ADDCharacter+0x7B0`, `Mesh+0x750`).
+- **[Belegt, Disassembly]** Die Richtung rechnet `0x586BE20` aus dem Float `AHands+0x31C` (Gierwinkel in Grad, gemerkt in `Mesh+0x7F4`).
+  Den Winkel schreibt nur `0x593FDD0` (Drehung der Hände zum Ziel, setzt auch die Actor-Drehung). Erreichbar ist sie nur über
+  `ADDCharacter.ProxyRotateTowards` (Server-RPC, Implementierung `0x581A1E0` springt mit vorhandenen Händen dorthin), also nur beim Host.
+- **[Belegt, Live-Messung vor der Änderung]** Beim Client stand `Hands+0x31C` bei **beiden** Figuren dauerhaft auf 0, die Ansicht auf
+  `[1,0]` (rechts, Rücken). Das Mesh lief und übernahm die 0 (`Mesh+0x7F4` = 0). Beim Host wechselten Winkel und Ansicht ständig. Die
+  Drehung des Hände-Actors kam beim Client nativ repliziert an. Beim Host gilt eingeschwungen `+0x31C` = Welt-Gierwinkel des Hände-Actors.
+  Die gemeldete Rückenansicht betrifft also auch die Host-Figur beim Client.
+- **[Belegt, Disassembly und Messung] Nebenbefund:** Beim Client sind `ADDCharacter.DirectionalMeshComponent` (`+0x7E0`) und
+  `Hands.ParentCharacter` (`+0x320`) leer. Gesetzt werden sie nur im Autoritätszweig von `0x58022A0` (`cmp [this+0x168],3`), zusammen mit
+  `Hands`, `SetParentCharacter` (bindet `UpdateWeapon`/`UpdateFiring`) und dem Owner der Hände. Die Tick-Funktionen von Mesh, Händen und
+  `PlayerAnimationVelocityProvider` sind auf beiden Seiten gleich registriert.
+- **Gescheitert:** Beim Client nur `+0x7E0` auf das Blueprint-Mesh oder nur `Hands+0x320` auf die Figur setzen (von außen geschrieben). Die
+  Ansicht blieb starr. Der halbe Zustand von `+0x7E0` brachte den Client danach zum Absturz (`EXCEPTION_ACCESS_VIOLATION` beim Lesen von
+  `0x348`, Stack `0x5870F52` ← `0x58025F7`). Beide Felder bleiben deshalb unberührt.
+- **Umsetzung** (`src/Game/FacingPatches.cpp`, `TickFacing`, Regeln `FacingYawFromQuat` und `FacingNeedsWrite` in `PatchPolicy.h`, mit
+  Tests): Nur beim Client und nur für Figuren ohne Autorität trägt die Mod je Takt den Welt-Gierwinkel des replizierten Hände-Actors
+  (Quaternion von `RootComponent.ComponentToWorld`) in `Hands+0x31C` ein, wenn er sich um mehr als 0,01° ändert. Das native Mesh wählt daraus
+  die Ansicht wie beim Host. Kein Hook, kein Aufruf, keine Nachricht, keine `ModVersion`-Erhöhung.
+- **Antworten zum neuen Pfad:** Die ganze Darstellung bleibt lokal. Geteilt wird nichts Neues, die Drehung der Hände repliziert schon.
+  Zielwahl, Schüsse und Schaden entscheidet weiter der Host, der Client schreibt nur einen Anzeigewert ohne eigene Replikation.
+  Wiederverwendet werden die native Replikation der Hände und die native Richtungslogik, ersetzt wird nichts. Eine Ablehnung gibt es nicht,
+  bei Verlust zählt die nächste replizierte Drehung.
+- **Stabilität:** Figuren (höchstens 8) und ihre Hände werden vor jedem Zugriff über ihren Platz im Objekt-Array, die Klasse und die Flags
+  geprüft, neue Hände zusätzlich über `IsA("Hands")`. Die Figurenliste erneuert sich je Sekunde und beim Weltwechsel. Ein unbrauchbares
+  Quaternion (nicht endlich, nicht normiert) schreibt nichts. Die clientautoritative Position aus `bewegung` bleibt unberührt.
+- **[Belegt, Live-Test nach der Änderung]** Laufen beider Figuren in alle vier Richtungen, 475 gepaarte Proben: gleiche Ansicht wie beim
+  Host bei der Client-Figur in 94 %, bei der Host-Figur in 90 %. Der Winkelabstand liegt im Median bei 1,4° bzw. 0,4° (90 %: 10° bzw. 19°),
+  beim Client kommen alle vier Ansichten vor, der Winkel steht nie auf 0. Die Abweichungen sind Verzögerung an den Quadrantengrenzen
+  (Replikation und Glättung der Hände). Im Fensterbild zeigen beide Figuren beim Client das Gesicht wie beim Host. Mod-Log „Blickrichtung:
+  Client übernimmt den Winkel der Hände …“.
+- **[Belegt, Live-Test]** Weltwechsel: MetaBase → Mission mit dem Fix, danach Client-Neustart samt Wiederbeitritt in die laufende Mission.
+  Belohnungs-Panel (Weltpause) auf beiden Seiten, danach erneut gemessen: gleiche Ansicht 95 % (Client-Figur) und 97 % (Host-Figur),
+  Median unter 1°. Ort der Client-Figur bei Host und Client gleich. Keine Absturzberichte.
+- **[Belegt, Nebenbei]** Beim Host bleibt für die Client-Figur in einer Weltpause der letzte rohe Zielwinkel aus dem RPC stehen
+  (`+0x31C` 172° bei einem Gierwinkel der Hände von -87°). Das ist nativ und nicht Teil dieser Änderung.
+- **Vermutung:** Ein zweiter Leser von `+0x31C` (`0x5939400`, Zielwahl mit `TargetingMode`/`MaxTargetDivergenceAngle`) läuft beim Client
+  nicht, weil dessen Hände kein `ParentCharacter` haben. Die Schüsse des Clients entstehen weiter beim Host. Treffer des Clients wurden
+  nach der Änderung nicht gesondert gezählt, im Bild schießt er wie vorher.
+- **Nicht geprüft:** zwei PCs mit echtem Ping, Tod, Wiederbelebung und erzwungene Richtungen (`FreezeLookingDirection`), Kartenwechsel
+  über das Tagesende.
+
 ### XP-Bälle beim Client (`xp-baelle`)
 
 Stand 04.11.2026, Build `26187885`. Beim Spieltest fiel auf: Der Client sieht die XP-Bälle nicht. Ursache bisher nur aus dem lokalen SDK abgeleitet, im Spiel nicht gemessen.

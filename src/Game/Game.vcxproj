@@ -69,6 +69,7 @@
     <ClCompile Include="RemoteP2Patches.cpp" />
     <ClCompile Include="MapPatches.cpp" />
     <ClCompile Include="BusBarPatches.cpp" />
+    <ClCompile Include="FacingPatches.cpp" />
     <ClCompile Include="LootBarPatches.cpp" />
     <ClCompile Include="BloodPatches.cpp" />
     <ClCompile Include="BodyPartPatches.cpp" />

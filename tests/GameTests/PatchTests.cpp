@@ -725,6 +725,26 @@ TEST_CASE("Busbalken beim Client folgt Tank und Figuren im Bereich")
     CHECK(BusBarElapsed(true, 1.0, 0.0, 0.1) == 0.0);
 }
 
+TEST_CASE("Blickrichtung beim Client folgt dem Gierwinkel der Hände")
+{
+    CHECK(FacingYawFromQuat(0, 0, 0, 1) == doctest::Approx(0.0));
+    const double Half = std::sqrt(0.5);
+    CHECK(FacingYawFromQuat(0, 0, Half, Half) == doctest::Approx(90.0));
+    CHECK(FacingYawFromQuat(0, 0, -Half, Half) == doctest::Approx(-90.0));
+    CHECK(std::fabs(FacingYawFromQuat(0, 0, 1, 0)) == doctest::Approx(180.0));
+    // Gemessen beim Host: Quaternion zu Gierwinkel -127,9 Grad.
+    const double Angle = -127.9 / 57.29577951308232 / 2;
+    CHECK(FacingYawFromQuat(0, 0, std::sin(Angle), std::cos(Angle)) == doctest::Approx(-127.9).epsilon(0.001));
+    CHECK(std::isnan(FacingYawFromQuat(0, 0, 0, 0)));
+    CHECK(std::isnan(FacingYawFromQuat(0, 0, 0, 2)));
+    CHECK(std::isnan(FacingYawFromQuat(std::numeric_limits<double>::quiet_NaN(), 0, 0, 1)));
+
+    CHECK(FacingNeedsWrite(0.0f, 45.0f));
+    CHECK_FALSE(FacingNeedsWrite(45.0f, 45.001f));
+    CHECK_FALSE(FacingNeedsWrite(0.0f, std::numeric_limits<float>::quiet_NaN()));
+    CHECK(FacingNeedsWrite(std::numeric_limits<float>::quiet_NaN(), 10.0f));
+}
+
 TEST_CASE("Lootbalken beim Client folgt dem replizierten Fortschritt")
 {
     CHECK(LootBarValidProgress(0.0));

@@ -69,6 +69,8 @@ using EnemyDeathListener = void (*)(uintptr_t Enemy);
 bool AddEnemyDeathListener(EnemyDeathListener Listener);
 // opt-koerperteile, Client: Zerfall sterbender Gegner lokal aus dem replizierten Multi_OnDie.
 void TickBodyParts(NetRole Role);
+// opt-blickrichtung-client, Client: Blickwinkel der Hände aus ihrer replizierten Drehung, damit das Richtungs-Mesh sich dreht.
+void TickFacing(NetRole Role, bool Second);
 void TickWidgets(NetRole Role);
 void TickProjectiles(NetRole Role, bool Second);
 void TickMovement(NetRole Role, bool Second);

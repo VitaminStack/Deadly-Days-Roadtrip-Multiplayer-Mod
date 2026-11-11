@@ -740,6 +740,22 @@ Feldoffsets aus dem SDK, Aufrufe per `ProcessEvent`. Im Spieltest vom 09.11.2026
 | `FGameplayCueParameters` | Größe `0xD8`, `Location` `0x70` |
 | `LootBlueprintFunctionLibrary.SpawnSpecificItemLoot` | Parameter 0x50 Byte, Ort `0x18`, Vorlage `0x38`, Rückgabe `0x48` |
 
+## Blickrichtung (`opt-blickrichtung-client`)
+
+Build `26495302`, SDK und Disassembly, im Spieltest vom 11.11.2026 belegt ([Blickrichtung](GAME_ANALYSIS.md#blickrichtung-beim-client-opt-blickrichtung-client)).
+
+| Stelle | Wert |
+|---|---|
+| `ADDCharacter` | `Hands` `0x7B0` (Net), `DirectionalMeshComponent` `0x7E0` (beim Client leer) |
+| `BP_DD_Character_C` | `DirectionalCharacterMesh` `0x8F0` |
+| `UDirectionalCharacterMesh` | `UseHandsDirection` `0x700`, `Mode` `0x703`, `Hands` `0x750`, `VelocityProvider` `0x768`, `FacingRight`/`FacingDown` `0x7F0`/`0x7F1`, gemerkter Winkel `0x7F4` |
+| `AHands` | Blickwinkel (float, Grad, nicht repliziert) `0x31C`, `ParentCharacter` `0x320` (beim Client leer) |
+| `USceneComponent` | `ComponentToWorld.Rotation` (FQuat, 4 double) `0x1F0` |
+| Richtung des Mesh aus `Hands+0x31C` | `0x586BE20` |
+| Drehung der Hände zum Ziel (schreibt `+0x31C`) | `0x593FDD0`, erreicht über `ProxyRotateTowards`-Implementierung `0x581A1E0` (VTable `0xA20`), Exec-Thunk `0x56C6D50` |
+| Autoritätszweig von `ADDCharacter` (setzt `+0x7E0`, `+0x7B0`, `SetParentCharacter`) | `0x58022A0` |
+| `Hands::SetParentCharacter` | Implementierung `0x5942290`, Exec-Thunk `0x571B240` |
+
 ## Charakterwahl (`charakter-wahl`)
 
 Build `26495302`, Disassembly und SDK, im Spieltest vom 10.11.2026 belegt.
