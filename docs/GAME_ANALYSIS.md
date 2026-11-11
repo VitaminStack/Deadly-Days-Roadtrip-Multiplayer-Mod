@@ -2153,7 +2153,7 @@ Sounds selbst, die Zahlen sind also das, was Host und Client hören würden. Je 
 | Waffen | `weapon_Pistol`, `weapon_Revolver`, `weapon_SawedOffShotgun`, `weapon_Reload` | 184 / 0, 4 / 0, 7 / 0, 15 / 0 je Minute | **[Belegt] fehlt beim Client**, auch für die eigene Figur → `opt-waffen-sound` |
 | Gegner getroffen | `zombie_Hurt` | 154 / 4 je Minute | **[Belegt] fehlt fast ganz** → `opt-gegner-sound` |
 | Gegnerangriff | `StandardEnemyAttack` aus `GA_SmallJumpAttack` | 52 / 0 je Minute | **[Belegt] fehlt beim Client** → `opt-gegner-sound` |
-| Schrott | `ScrapPickup` | 0 / 3886 je Minute | **[Belegt] Dauerschleife beim Client** → `opt-schrott-sound` |
+| Schrott | `ScrapPickup` | 0 / 3886 je Minute | **[Belegt] Dauerschleife beim Client** → `opt-levelup-sound` |
 | Airdrop | `PlaceAirdrop` aus `BP_Airdrop_Lootable_C` (Landung) | 1 / 0, dreimal | **[Belegt] fehlt beim Client** → `opt-airdrop-sound` |
 | Airdrop | `Airdrop_beep`, `airdrop_openCrate` | 1 / 1 | gleich |
 | Bedrohung | `UI_ThreatIncrease` aus `WBP_Stopwatch_C` | 1 / 0, zweimal | **[Belegt] fehlt beim Client** → `opt-bedrohung-sound` |
@@ -2172,7 +2172,8 @@ Sounds selbst, die Zahlen sind also das, was Host und Client hören würden. Je 
 - **[Belegt] Waffen.** Schuss- und Nachladesounds laufen nur beim Host, beim Client für beide Figuren nie. **Vermutung:** Die Waffe feuert nur
   beim Host, beim Client kommen nur die replizierten Projektile an.
 - **Level-up-Kiste (`opt-levelup-sound`).** Der Öffnungssound des Level-up-Airdrops (`airdrop_openCrate`) lief bei Host und Client je einmal,
-  eine Kiste im Endbildschirm war in zwei Rundenenden nicht zu sehen. Der gemeldete Fehler ist damit nicht nachgestellt.
+  eine Kiste im Endbildschirm war in zwei Rundenenden nicht zu sehen. Laut Nutzer war mit dem gemeldeten Fehler der
+  Schrott-Dauersound gemeint, er wird unter `opt-levelup-sound` behoben.
 - **Nicht gemessen:** Boss-Angriffe, Kisten und Tonnen (`BP_EnvironmentObjectLootspot_C`), Dash-Aufprall (`opt-dash-aufprall`), Tod der
   Gegner (`opt-blut`). Effekte aus C++ (Niagara, Pools ohne Blueprint-Aufruf) sieht `!fx` nicht. Die Rundenübersicht des Clients zeigte
   bei allen Werten außer der Dauer 0 (Kills, Schaden, Level-ups); **Vermutung:** dieselbe Ursache wie `opt-ergebnis-werte`.
