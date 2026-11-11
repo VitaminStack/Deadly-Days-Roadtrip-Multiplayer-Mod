@@ -17,6 +17,12 @@ constexpr bool ItemLootMayGrant(uint8_t ActorRole, NetRole WorldRole)
     return ActorRole == 3 && WorldRole != NetRole::Client;
 }
 
+// opt-schrott-anzeige: Schrott aus einem Haufen bucht nur, wer das Konto führt. Beim Client kommt der Stand vom Host (0x309).
+constexpr bool ScrapLootMayCredit(NetRole WorldRole)
+{
+    return WorldRole != NetRole::Client;
+}
+
 // Nutzervorgabe 06.11.2026: Ein Itemsack zählt wie ein Airdrop für alle. Der Host gibt jedem anderen Spieler eine Kopie
 // jedes neuen Items, aber nur, wenn genau ein Inventar beim Aufsammeln etwas bekommen hat.
 constexpr bool ShareItemLoot(NetRole WorldRole, size_t Inventories, size_t GainedInventories)
