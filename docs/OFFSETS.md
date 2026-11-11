@@ -756,6 +756,19 @@ Build `26495302`, SDK und Disassembly, im Spieltest vom 11.11.2026 belegt ([Blic
 | Autoritätszweig von `ADDCharacter` (setzt `+0x7E0`, `+0x7B0`, `SetParentCharacter`) | `0x58022A0` |
 | `Hands::SetParentCharacter` | Implementierung `0x5942290`, Exec-Thunk `0x571B240` |
 
+## Laufanimation (`opt-laufanimation-client`)
+
+Build `26495302`, [Befund](GAME_ANALYSIS.md#laufanimation-beim-client-opt-laufanimation-client).
+
+| Stelle | Wert |
+|---|---|
+| `BP_DD_Character_C` | `PlayerAnimationVelocityProvider` `0x910` (nicht `0x768`: das ist `UDirectionalCharacterMesh.VelocityProvider`) |
+| `ADDCharacter` | `WobbleAnimation` `0x780` |
+| `UWobbleAnimationComponent` | `Progress` `0x258`, `MaxInputVelocity` `0x25C`, `VelocityToProgressFactor` `0x260`, `MaxSpeed` `0x264`, `OverrideVelocity` `0x268`, `OverrideVelocityToProgressFactor` `0x26C`, `VelocityProvider` `0x288`, `bCanStretch` `0x308` |
+| `UPlayerAnimationVelocityProvider` (0xF8 Byte) | Schalter „manuell“ `0xC0` (bool), gemessenes Tempo `0xC8` (FVector), letzter Ort `0xE0` (FVector); Owner `0xA8` |
+| RVA `0x5848450` | natives `UPlayerAnimationVelocityProvider::GetVelocity`: manuell → `+0xC8`, sonst `Owner->GetVelocity()` (vtable `+0x340`); gerufen nur vom Exec-Thunk `0x5770E80`, vom Richtungs-Mesh (`0x586BF17`) und vom Wackeln (`0x5B1BF2B`) |
+| RVA `0x5857890` | natives `SetManualTrackingActive`: setzt `+0xC0`, `+0xE0` = Ort der Root-Komponente (`+0x210`), dann vtable `+0x410`; einziger Aufrufer ist der Exec-Thunk `0x57761F0` |
+
 ## Charakterwahl (`charakter-wahl`)
 
 Build `26495302`, Disassembly und SDK, im Spieltest vom 10.11.2026 belegt.

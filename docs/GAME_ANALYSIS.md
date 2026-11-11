@@ -523,6 +523,46 @@ Ort gepaart, 50 ms), Disassembly der Exe.
 - **Nicht geprüft:** zwei PCs mit echtem Ping, Tod, Wiederbelebung und erzwungene Richtungen (`FreezeLookingDirection`), Kartenwechsel
   über das Tagesende.
 
+### Laufanimation beim Client (`opt-laufanimation-client`)
+
+Stand 11.11.2026, Build `26495302`, zwei Instanzen auf einem PC über die Lobby, Mod mit Spike, `-Godmode`, Figuren per Skript
+gesteuert, Speicher beider Seiten nur gelesen mit `tools/spike/walk_animation.py <host-pid> <client-pid> --seconds N`.
+Gemeldet war im [Live-Test 10.11.](#live-test-auf-zwei-pcs-am-10112026-livetest-1011) nur „die Laufanimation der Client-Figur stimmt nicht“.
+
+- **[Belegt, SDK]** Die Figur hat kein Skelett. Die Laufanimation ist das Wackeln `ADDCharacter.WobbleAnimation` (`+0x780`,
+  `UWobbleAnimationComponent`, Fortschritt `Progress`). Ihr Tempo kommt vom `UPlayerAnimationVelocityProvider` der Figur
+  (`BP_DD_Character_C+0x910`); `Wobble.VelocityProvider` und `DirectionalCharacterMesh.VelocityProvider` zeigen auf denselben.
+- **[Belegt, Disassembly]** `GetVelocity` liefert bei gesetztem Schalter `+0xC0` ein selbst gemessenes Tempo (`+0xC8`), sonst das
+  Tempo des Actors (CMC). `SetManualTrackingActive` setzt den Schalter und merkt den aktuellen Ort. Nativ lesen den Provider nur das
+  Richtungs-Mesh und das Wackeln, reine Darstellung; den Schalter setzt nativ niemand außer dem Blueprint-Aufruf, und weder `GA_Dash`
+  noch `BP_DD_Character_C` rufen ihn (Bytecode). Standard bei allen Figuren: aus. Offsets in [OFFSETS.md](OFFSETS.md#laufanimation-opt-laufanimation-client).
+- **[Belegt, Messung vor der Änderung, MetaBase]** 2,5 s Laufen: Client-Figur beim Client CMC-Tempo bis 630, `Progress` 0 bis 0,98;
+  Host-Figur beim Host und beim Client ebenso. **Client-Figur beim Host:** CMC-Tempo höchstens 24, `Progress` nur 0,07 bis 0,11. Ursache:
+  Der Host übernimmt die Client-Position (`bewegung`, `UCharacterMovementComponent+0x579`), sein CMC-Tempo für diese Figur bleibt fast 0.
+- **[Belegt, Bytecode]** Die frühere Vermutung, ein abgebrochener Dodge lasse das Wackeln verstellt, trifft nicht zu: `GA_Dash` ruft
+  keine Funktion des Wackelns. `BP_DD_Character_C` ruft `SetCanStretch`, `ResetStretch` und `SetOverrideVelocityToProgressFactor`
+  (Vermutung: Kriechen und Wiederbelebung).
+- **Umsetzung** (`WalkAnimationPatches.cpp`, `TickWalkAnimation`, Regel `WalkAnimationNeedsManualTracking` in `PatchPolicy.h`, mit Test):
+  Nur der Host, jede Sekunde, für jede `BP_DD_Character_C` der aktuellen Welt, deren Controller auf der Gegenseite autonom ist und deren
+  Provider noch nicht manuell misst: natives `SetManualTrackingActive(true)`. Keine gemerkten Zeiger, also nichts bei Kartenwechsel oder
+  freigegebenen Figuren zu tun. Keine Nachricht, kein Hook, keine `ModVersion`-Erhöhung; Ort, CMC und Dodge bleiben unberührt.
+- **Antworten zum neuen Pfad:** Lokal bleibt die ganze Animation, jede Seite rechnet sie aus dem Ort, den sie ohnehin hat. Geteilt wird
+  nichts Neues. Es entscheidet niemand etwas Spielrelevantes, der Schalter ändert nur, woher die Darstellung ihr Tempo nimmt. Wiederverwendet
+  wird der native Messmodus des Providers, ersetzt wird nichts. Ablehnung gibt es nicht; nach Join, Travel oder neuer Figur setzt der
+  nächste Takt den Schalter erneut.
+- **[Belegt, Messung nach der Änderung]** Mod-Log des Hosts „Laufanimation: Tempo der Client-Figur misst der Host aus ihrem Ort“ je Welt.
+  MetaBase: Schalter beim Host 1, gemessenes Tempo bis 1174 (Mittel 250), `Progress` der Client-Figur beim Host 0,10 bis 1,0 (28 Werte) bei
+  0 bis 0,96 (27) beim Client. Mission Tag 1 nach `Travel-Day`: Schalter an der neuen Figur wieder 1; Laufen mit Dodge-Kette (12 Dodges)
+  `Progress` beim Host 0 bis 0,95, beim Client 0,01 bis 0,99, danach `OverrideFactor` 0 und `CanStretch` 1 auf beiden Seiten; nach
+  Pausemenü des Hosts ebenso. Weg der Client-Figur auf beiden Seiten gleich (netto 1513, 482, 1437 zu 1433), die Client-Position bleibt
+  also unbeschädigt. Client-Figur beim Client und Host-Figur auf beiden Seiten unverändert, Schalter dort 0.
+- **[Belegt, `-NetProfile Internet`]** 120 ms, ±30 ms, 2 % Verlust, MetaBase: `Progress` der Client-Figur beim Host 0 bis 0,99
+  (32 Werte), beim Client 0,02 bis 0,97 (32), Weg auf beiden Seiten 1830. Das gemessene Tempo springt mit den Netz-Updates (Spitzen bis
+  2407), das Wackeln begrenzt es selbst (`MaxInputVelocity` 1200). Keine Absturzberichte.
+- **Nebenwirkung:** Die Blickrichtung der Client-Figur beim Host folgt jetzt ebenfalls dem gemessenen Tempo (gleicher Provider). Die
+  gemeldete Rückenansicht der Client-Figur **beim Client** (`opt-blickrichtung-client`) erklärt diese Ursache nicht, dort ist das Tempo normal.
+- **Nicht geprüft:** zwei PCs, Kriechen nach dem Tod (mit `-Godmode` nicht erreichbar), Item-Auswahl als Pause.
+
 ### XP-Bälle beim Client (`xp-baelle`)
 
 Stand 04.11.2026, Build `26187885`. Beim Spieltest fiel auf: Der Client sieht die XP-Bälle nicht. Ursache bisher nur aus dem lokalen SDK abgeleitet, im Spiel nicht gemessen.

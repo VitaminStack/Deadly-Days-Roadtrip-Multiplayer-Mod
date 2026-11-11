@@ -778,6 +778,14 @@ TEST_CASE("Körperteile beim Client je Tod einmal und begrenzt je Frame")
     CHECK_FALSE(BodyPartsMayShow(-1));
 }
 
+TEST_CASE("Laufanimation der Client-Figur misst der Host aus ihrem Ort")
+{
+    CHECK(WalkAnimationNeedsManualTracking(true, true, false));
+    CHECK_FALSE(WalkAnimationNeedsManualTracking(true, true, true));
+    CHECK_FALSE(WalkAnimationNeedsManualTracking(true, false, false));
+    CHECK_FALSE(WalkAnimationNeedsManualTracking(false, true, false));
+}
+
 TEST_CASE("Busabfahrt und Rundenende entscheidet nur der Host")
 {
     CHECK(BusTakeOffMayDecide(false));
