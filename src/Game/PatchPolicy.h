@@ -246,6 +246,25 @@ constexpr bool ClientMayReleaseRoundEnd(uint64_t End, uint64_t HostStatusId, boo
     return HostStatusId != End || (HostReady && ClientReadyEcho);
 }
 
+// lager-bestaetigen-absturz: Ein gemerktes Objekt (zurückgehaltenes Panel, gelber Knopf) lebt nur, wenn sein Platz im
+// Objekt-Array noch auf genau diese Adresse zeigt, die Serial gleich blieb und weder interne noch Objekt-Flags es als
+// Müll, unerreichbar oder im Abbau melden. Flags am alten Speicher allein reichen nicht: Nach der Reise des Hosts lag dort
+// noch der Kopf des freigegebenen Panels. Serial 0 beim Merken heißt, das Spiel hatte noch keine vergeben.
+inline constexpr uint32_t GarbageOrUnreachableInternalFlags = 0x00200000u | 0x10000000u;
+inline constexpr uint32_t DeadObjectFlags = 0x30u | 0x8000u | 0x10000u; // wie Alive, dazu BeginDestroyed, FinishDestroyed
+constexpr bool HeldObjectLive(uintptr_t Held, uintptr_t InSlot, uint32_t SerialThen, uint32_t SerialNow, uint32_t InternalFlags,
+                              uint32_t ObjectFlags)
+{
+    return Held != 0 && InSlot == Held && (SerialThen == 0 || SerialNow == SerialThen) &&
+           !(InternalFlags & GarbageOrUnreachableInternalFlags) && !(ObjectFlags & DeadObjectFlags);
+}
+
+// Ein zurückgehaltenes Bestätigen nur in der Welt nachholen, in der es gedrückt wurde. Während der Reise ist die Welt 0.
+constexpr bool MayReplayHeldConfirm(bool PanelLive, uintptr_t HeldWorld, uintptr_t World)
+{
+    return PanelLive && HeldWorld != 0 && HeldWorld == World;
+}
+
 // Beim Client bleiben ablaufende statische Pfad-GUIDs erhalten, keine dynamischen, NoLoad- oder kaputten Einträge.
 constexpr bool RetainNetGuidPath(bool CurrentClientCache, uint64_t Guid, uint32_t PathName, uint8_t Flags)
 {
