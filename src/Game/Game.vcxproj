@@ -69,7 +69,11 @@
     <ClCompile Include="RemoteP2Patches.cpp" />
     <ClCompile Include="MapPatches.cpp" />
     <ClCompile Include="BusBarPatches.cpp" />
+    <ClCompile Include="FacingPatches.cpp" />
     <ClCompile Include="LootBarPatches.cpp" />
+    <ClCompile Include="BloodPatches.cpp" />
+    <ClCompile Include="BodyPartPatches.cpp" />
+    <ClCompile Include="WalkAnimationPatches.cpp" />
     <ClCompile Include="CharacterPatches.cpp" />
     <ClCompile Include="EnemyTelegraphPatches.cpp" />
     <ClCompile Include="TravelPatches.cpp" />
@@ -122,6 +126,7 @@
     <ClInclude Include="TelemetryAdapter.h" />
     <ClInclude Include="BossBarAdapter.h" />
     <ClInclude Include="BossBarPolicy.h" />
+    <ClInclude Include="BloodPolicy.h" />
     <ClInclude Include="TutorialAdapter.h" />
     <ClInclude Include="PauseAdapter.h" />
     <ClInclude Include="WorldAdapter.h" />

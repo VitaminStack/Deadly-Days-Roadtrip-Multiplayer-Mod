@@ -8,6 +8,7 @@
 
 #include "Game/Memory.h"
 #include "Game/Offsets.h"
+#include "Game/PatchPolicy.h"
 
 namespace Game::Objects
 {
@@ -68,6 +69,42 @@ int32_t Count()
 {
     const auto Value = Memory::Read<int32_t>(Memory::CachedRva<Offsets::GObjects>() + Offsets::ObjectArray::NumElements);
     return Value && *Value > 0 ? *Value : 0;
+}
+
+namespace
+{
+// Element des Objekt-Arrays an Index, 0 außerhalb oder bei Lesefehler.
+uintptr_t ItemAt(int32_t Index)
+{
+    if (Index < 0 || Index >= Count())
+        return 0;
+    const auto Chunks = Memory::ReadPointer(Memory::CachedRva<Offsets::GObjects>());
+    const auto Chunk = Chunks ? Memory::ReadPointer(*Chunks + 8 * (Index / Offsets::ObjectArray::ElementsPerChunk)) : std::nullopt;
+    return Chunk && *Chunk ? *Chunk + (Index % Offsets::ObjectArray::ElementsPerChunk) * Offsets::ObjectArray::ItemSize : 0;
+}
+}
+
+Ref RefTo(uintptr_t Object)
+{
+    const int32_t Index = Object ? Memory::Read<int32_t>(Object + Offsets::UObject::InternalIndex).value_or(-1) : -1;
+    const uintptr_t Item = ItemAt(Index);
+    if (!Item || Memory::ReadPointer(Item + Offsets::ObjectArray::ItemObject).value_or(0) != Object)
+        return {};
+    return {Object, Index, Memory::Read<uint32_t>(Item + Offsets::ObjectArray::ItemSerialNumber).value_or(0)};
+}
+
+bool IsLive(const Ref& Held)
+{
+    const uintptr_t Item = Held.Object ? ItemAt(Held.Index) : 0;
+    if (!Item)
+        return false;
+    const uintptr_t InSlot = Memory::ReadPointer(Item + Offsets::ObjectArray::ItemObject).value_or(0);
+    if (InSlot != Held.Object)
+        return false; // Kopf des Objekts dann nicht mehr lesen, der Speicher kann schon frei sein
+    const auto Serial = Memory::Read<uint32_t>(Item + Offsets::ObjectArray::ItemSerialNumber);
+    const auto Internal = Memory::Read<uint32_t>(Item + Offsets::ObjectArray::ItemInternalFlags);
+    const auto Flags = Memory::Read<uint32_t>(Held.Object + Offsets::UObject::Flags);
+    return Serial && Internal && Flags && Patches::HeldObjectLive(Held.Object, InSlot, Held.Serial, *Serial, *Internal, *Flags);
 }
 
 namespace
