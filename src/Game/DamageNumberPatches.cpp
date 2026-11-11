@@ -2,7 +2,7 @@
 // DDPlayerController (0x5A22DB0) auf. Er prüft lokale Steuerung, die Einstellung EnableDamageNumbers und das Ziel, merkt den Ort
 // und holt nach kurzer Verzögerung einen BP_FloatingText aus dem Pool, der ShowDamageText zeigt. Beim Client läuft der
 // Schadensweg nie, Gegner-HP repliziert dort nicht (0/0). Der Host merkt sich darum je Handler-Aufruf Ziel, Betrag und Flags
-// (Hook, nur Host), Sync schickt sie als 0x900, und der Client ruft denselben Handler an seinem eigenen Controller auf. Damit
+// (Hook, nur Host), Sync schickt sie als 0xA00, und der Client ruft denselben Handler an seinem eigenen Controller auf. Damit
 // entscheiden beim Client seine eigene Einstellung, die nativen Filter, Ort, Timer und Pool. Schaden und HP bleiben beim Host.
 // Befund: docs/GAME_ANALYSIS.md#schadenszahlen-beim-client-opt-schadenszahlen
 #include <windows.h>
@@ -75,7 +75,7 @@ uintptr_t RecordWorld = 0;
 // Zähler für den Spieltest, alle 10 Sekunden ins Log, wenn sich etwas geändert hat.
 struct Counters
 {
-    uint64_t Calls = 0, Recorded = 0, Overflow = 0, NoGuid = 0, Sent = 0;     // Host
+    uint64_t Calls = 0, Recorded = 0, Overflow = 0, NoGuid = 0, Sent = 0, Remote = 0, SameTick = 0; // Host
     uint64_t Received = 0, Shown = 0, Unknown = 0, Dying = 0, NoController = 0; // Client
     bool operator==(const Counters&) const = default;
 } Count, Logged;
@@ -89,8 +89,9 @@ void LogCounters(bool Host)
     NextLog = Now + 10000;
     Logged = Count;
     if (Host)
-        Core::Log::Info("Schadenszahlen Host: Handler {}, gemerkt {}, gesendet {}, ohne NetGUID {}, Puffer voll {}", Count.Calls,
-                        Count.Recorded, Count.Sent, Count.NoGuid, Count.Overflow);
+        Core::Log::Info("Schadenszahlen Host: Handler {} (fremder Controller {}), gemerkt {} (gleiches Ziel und Schaden im Takt {}), "
+                        "gesendet {}, ohne NetGUID {}, Puffer voll {}", Count.Calls, Count.Remote, Count.Recorded, Count.SameTick,
+                        Count.Sent, Count.NoGuid, Count.Overflow);
     else
         Core::Log::Info("Schadenszahlen Client: empfangen {}, an Handler {}, Ziel unbekannt {}, Ziel stirbt {}, ohne Controller {}",
                         Count.Received, Count.Shown, Count.Unknown, Count.Dying, Count.NoController);
@@ -155,17 +156,29 @@ void Record(const uint8_t* Info)
         Entry.Y = static_cast<float>((*Location)[1]);
         Entry.Z = static_cast<float>((*Location)[2]);
     }
+    // Diagnose: Läuft der Handler für einen Treffer zweimal (zwei Aufrufstellen im Schadenspfad), sähe der Client ihn doppelt.
+    for (size_t i = 0; i < RingCount; ++i)
+        if (Ring[i].Object == Entry.Object && Ring[i].Damage == Entry.Damage)
+        {
+            ++Count.SameTick;
+            break;
+        }
     Ring[RingCount++] = Entry;
     ++Count.Recorded;
 }
+
+uintptr_t LocalController();
 
 // Original zuerst: Zahl und Ort des Hosts bleiben unverändert. Nur der Host merkt; der Aufruf des Clients selbst (ShowOne)
 // kommt hier auch vorbei und wird darum nie gemerkt.
 void __fastcall DamageHandlerHook(uintptr_t Controller, const uint8_t* Info)
 {
     OriginalHandler(Controller, Info);
-    if (Info && Patches::CurrentRole() == NetRole::Host)
-        Record(Info);
+    if (!Info || Patches::CurrentRole() != NetRole::Host)
+        return;
+    if (Controller != LocalController())
+        ++Count.Remote;
+    Record(Info);
 }
 
 uintptr_t LocalController()

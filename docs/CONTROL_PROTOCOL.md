@@ -261,6 +261,19 @@ offen alle 500 ms, nach dem Schließen 3 s lang alle 500 ms. Der Host hält die 
 Meldung kam, seine Welt wechselt oder die Verbindung weg ist. Eine so beendete Sitzung pausiert nicht noch einmal, erst ein neues Öffnen.
 Pausen des Hosts brauchen keine Nachricht, sie replizieren nativ. Keine Antwort vom Host.
 
+## Schadenszahlen (Mod-Kompatibilität 12)
+
+Aufgabe `opt-schadenszahlen`, Befund in [Schadenszahlen beim Client](GAME_ANALYSIS.md#schadenszahlen-beim-client-opt-schadenszahlen),
+Code in `src/Game/DamageNumberPatches.cpp` und `src/Sync/Enemies/DamageNumberState.h`. Mod-Version 12 (11 und `0x900` belegt `opt-gegner-indikatoren`), weil ein Client mit älterer Version
+die Nachricht nicht kennt. Lokal bleiben Einstellung, Ort, Timer, Pool und Anzeige der Zahl. Geteilt wird nur, welcher Actor wie viel
+Schaden bekam, denn die HP normaler Gegner replizieren nicht. Der Host entscheidet, sein nativer Schadenspfad ruft den Handler auf.
+
+`0xA00` Host an Client, je Takt mit mindestens einem Treffer: Anzahl (1, 1 bis 64), je Treffer NetGUID des getroffenen Actors (8,
+ungleich 0, höchstens 54 Bit), Schaden (float, 4, 0 bis 1e9), `DamageFlags` (1) und Ort des Ziels beim Host (X, Y, Z als float, je 4,
+Betrag höchstens 1e7), also genau 1 + 25 × Anzahl Bytes. NaN, Unendlich und andere Längen werden abgelehnt. Der Client holt `0xA00` in
+jedem Takt ab und ruft für jedes noch lebende, auflösbare Ziel den nativen Handler seines eigenen Controllers. Ein verlorenes Paket
+heißt nur fehlende Zahlen, keine Wiederholung, keine Antwort.
+
 ## Bisher geprüft (05.11.2026, Kontrollkanal vor Diagnoseerweiterung)
 
 - Build und alle Tests bestanden, darunter 24 Net-Testfälle: binäre UE-Pakete in

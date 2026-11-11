@@ -14,6 +14,23 @@ Nicht repliziert und darum hier nicht nachgebaut: Gegner-HP beim Client (dort 0/
 (`EnemyChaosDestructionProxyActor`, Schadenszahlen), siehe `opt-blut` und `vfx-sound`. Bosse und weitere Gegnertypen prüft
 `gegner-alle`. [Befund und Messwerte](../../../docs/GAME_ANALYSIS.md#ein-gegnertyp-synchron-gegnertyp)
 
+## Schadenszahlen (`opt-schadenszahlen`, 11.11.2026)
+
+Erster eigener Code im Ordner: `DamageNumberState.h` (Nachricht `0xA00`, Host an Client, Tests in
+`tests/NetTests/DamageNumberTests.cpp`). Der Host merkt sich jeden Aufruf seines nativen Schadenszahl-Handlers
+(`src/Game/DamageNumberPatches.cpp`), der Client ruft damit denselben Handler seines eigenen Controllers auf.
+
+| Frage | Antwort |
+|---|---|
+| Was bleibt lokal? | Einstellung `EnableDamageNumbers`, Filter, Ort, Timer, Pool und Anzeige (`BP_FloatingText_C`) beim Client |
+| Was wird geteilt und warum? | Je Treffer Ziel (NetGUID), Schaden, Flags und Ort, weil die HP normaler Gegner beim Client nicht replizieren |
+| Wer entscheidet? | Der Host, sein Schadenspfad ruft den Handler; der Client bucht keinen Schaden |
+| Welcher Weg wird genutzt? | Kontrollkanal wie `0x500`, je Takt abgeholt; NetGUIDs aus dem vorhandenen Objektabgleich |
+| Ablehnung, Wiederholung, Neuaufbau | Ungültige Pakete und unbekannte oder sterbende Ziele verwirft der Client. Kein Wiederholen, ein Verlust heißt nur fehlende Zahlen. Beim Weltwechsel leert der Host seinen Puffer |
+
+[Befund](../../../docs/GAME_ANALYSIS.md#schadenszahlen-beim-client-opt-schadenszahlen), Format in
+[CONTROL_PROTOCOL.md](../../../docs/CONTROL_PROTOCOL.md#schadenszahlen-mod-kompatibilität-12).
+
 ## Inventur Bosse (`gegner-alle`, 07.11.2026, nur statisch, noch nicht im Spiel belegt)
 
 Quelle: SDK-Dump von Build `26187885`, Klassen `UBossComponent`, `UDDBossObjective`, `AEnemyBase`.

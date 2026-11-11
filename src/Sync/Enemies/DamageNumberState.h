@@ -13,7 +13,7 @@
 // docs/CONTROL_PROTOCOL.md, Abschnitt Schadenszahlen.
 namespace Sync::DamageNumbers
 {
-inline constexpr uint16_t HitsType = 0x900;
+inline constexpr uint16_t HitsType = 0xA00;
 inline constexpr size_t HitBytes = 25;
 inline constexpr uint64_t MaxGuid = 0x3FFFFFFFFFFFFFull;
 inline constexpr float MaxDamage = 1.0e9f;

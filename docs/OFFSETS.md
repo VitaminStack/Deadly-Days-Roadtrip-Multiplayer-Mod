@@ -713,6 +713,19 @@ Build `26495302`, Exec-Thunks `0x56C6000` und `0x56C54E0`, im Spieltest vom 10.1
 | `OnRep_MaxStamina` | `0x57DD080`, Prolog wie `OnRep_Health` |
 | `UDDCharacterAttributeSet` | `MaxStamina` `0x30`, `OnMaxStaminaChanged` `0x40`, `Stamina` `0x50`, `OnStaminaChanged` `0x60` |
 
+## Schadenszahlen (`opt-schadenszahlen`)
+
+Build `26495302`, Disassembly und Live-Speicher, Befund in [Schadenszahlen beim Client](GAME_ANALYSIS.md#schadenszahlen-beim-client-opt-schadenszahlen).
+
+| Stelle | Wert |
+|---|---|
+| Schadenszahl-Handler des `ADDPlayerController` | `0x5A22DB0(Controller, FDamageInformation*)`, Prolog `48 8B C4 48 89 58 18 55 56 57`; Aufrufer im Schadenspfad `0x5816538`, `0x5816C42` |
+| `FDamageInformation`, Konstruktor | `0x56591B0`, Prolog `48 89 5C 24 10 48 89 4C 24 08` |
+| `TagMagnitudes` freigeben | `0x12BC260`, Prolog `48 89 5C 24 08 57 48 83 EC 30`; `FMemory::Free` `0x12F85E0`, Prolog `48 85 C9 74 2E 53 48 83 EC 20` |
+| `FDamageInformation` (0xA0) | `Damage` `0x0`, schwache Zeiger `DamagedActor` `0x4`, `DamagedAvatarActor` `0xC`, `InstigatedBy` `0x14`, `DamageCauser` `0x1C`, `SourceObject` `0x24`, `HitDirection` `0x30`, `DamageFlags` `0x48`, `TagMagnitudes` `0x50` |
+| `ADDPlayerController` | `DamageNumberClass` `0x940` (`BP_FloatingText_C`), `EnableDamageNumbersSettingInstance` `0x950`, letzter Ort `0x8C0` |
+| `ShowDamageText` | Exec-Thunk `0x569BCD0`, Implementierung `0x5A94C80`, Pool-Rückruf `0x5A093F0` |
+
 ## Dev-Tab (`opt-dev-tab`, Entwicklerwerkzeug)
 
 Feldoffsets aus dem SDK, Aufrufe per `ProcessEvent`. Im Spieltest vom 09.11.2026 belegt.
