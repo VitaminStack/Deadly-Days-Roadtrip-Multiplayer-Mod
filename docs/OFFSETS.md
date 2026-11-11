@@ -743,7 +743,7 @@ Build `26495302`, Disassembly und SDK, im Spieltest vom 10.11.2026 belegt.
 
 ## Warnanzeigen der Gegner (`opt-gegner-indikatoren`)
 
-Build `26495302`, Disassembly der Exec-Thunks (`UFunction::ExecFunction` `+0xD8`) und SDK. Im Spieltest noch zu belegen, siehe
+Build `26495302`, Disassembly der Exec-Thunks (`UFunction::ExecFunction` `+0xD8`) und SDK. Im Spieltest vom 11.11.2026 belegt, siehe
 [Warnanzeigen der Gegner](GAME_ANALYSIS.md#warnanzeigen-der-gegner-beim-client-opt-gegner-indikatoren).
 
 | Stelle | Wert |

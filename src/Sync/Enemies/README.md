@@ -13,7 +13,9 @@ Gegner-Sync. Stand `gegnertyp` (06.11.2026): **kein eigener Code nötig**, der O
 **Ausnahme Warnanzeigen (`opt-gegner-indikatoren`, `TelegraphState.h`):** Die Angriffsfähigkeiten laufen nur beim Host, ihre
 Niagara-Warnanzeigen (Kreis am Boden, Sprint-Strich) replizieren nicht. Der Host meldet je Anzeige nur den Auslöser (`0x900`), der Client
 zeigt sie lokal mit dem nativen System bzw. der eigenen `UTackleAbilityExecution` des Gegners. Entscheidung und Format im
-[Kontrollkanal](../../../docs/CONTROL_PROTOCOL.md#warnanzeigen-der-gegner-mod-kompatibilität-11).
+[Kontrollkanal](../../../docs/CONTROL_PROTOCOL.md#warnanzeigen-der-gegner-mod-kompatibilität-11). Testhilfe: Sprinter und Spucker mit
+`!load /Game/DDSurvivors/Blueprints/Enemies/Definitions/BigEnemy.BigEnemy` (bzw. `BloaterEnemy`), dann `!boss BigEnemy 1500`;
+`!boss` findet seit `opt-gegner-indikatoren` auch normale Gegnertypen. Messung: `py tools/spike/enemy_telegraph.py <s> <host> <client>`.
 
 Nicht repliziert und darum hier nicht nachgebaut: Gegner-HP beim Client (dort 0/0) und die gepoolten Tod-Effekte
 (`EnemyChaosDestructionProxyActor`, Schadenszahlen), siehe `opt-blut` und `vfx-sound`. Bosse und weitere Gegnertypen prüft

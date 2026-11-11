@@ -209,8 +209,10 @@ uintptr_t __fastcall CircleHook(uintptr_t Ability, uintptr_t System, const doubl
     Value.X = Location[0];
     Value.Y = Location[1];
     Value.Z = Location[2];
-    Value.Delay = Delay;
-    Value.Lifetime = Lifetime;
+    // Negative oder kaputte Zeiten zeigt das System wie 0; das Format lässt nur 0 bis 600 s zu.
+    const auto Seconds = [](float Value) { return Value > 0.0f && Value < 600.0f ? Value : (Value >= 600.0f ? 600.0f : 0.0f); };
+    Value.Delay = Seconds(Delay);
+    Value.Lifetime = Seconds(Lifetime);
     Value.Size = Size;
     Value.System = PathOf(System);
     Value.SizeName = NameText(Ability + AbilitySizeName);
@@ -636,11 +638,13 @@ std::vector<EnemyTelegraph> TakeEnemyTelegraphs()
 
 void ReceiveEnemyTelegraph(const EnemyTelegraph& Value)
 {
-    if (Patches::CurrentRole() != NetRole::Client)
-        return;
+    // Kommt eine Anzeige während des Weltwechsels oder vor der Client-Rolle an, zählt sie als übersprungen.
     const uintptr_t World = Patches::CurrentWorld();
-    if (!World)
+    if (Patches::CurrentRole() != NetRole::Client || !World)
+    {
+        ++Patches::Counted.Skipped;
         return;
+    }
     if (World != Patches::C.World)
         Patches::ResetClient(World);
     const ULONGLONG Now = GetTickCount64();

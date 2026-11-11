@@ -87,11 +87,18 @@ namespace
 // die Anzeige ist zeitkritisch. Ohne Mitspieler werden die Meldungen nur verworfen.
 void TickTelegraphs(Net::Transport& Transport)
 {
+    static int Dropped = 0;
+    const auto Drop = [](const char* What, int Kind) {
+        if (Dropped < 8 && ++Dropped)
+            Core::Log::Warn("Warnanzeigen: {} verworfen (Art {})", What, Kind);
+    };
     if (!Transport.Stats().IsHost)
     {
         for (const auto& Message : Transport.TakeControlMessages(Telegraph::Type))
             if (const auto Value = Telegraph::Decode(Message.Value.Payload))
                 Game::ReceiveEnemyTelegraph(*Value);
+            else
+                Drop("Nachricht des Hosts", Message.Value.Payload.empty() ? 0 : Message.Value.Payload[0]);
         return;
     }
     const auto Values = Game::TakeEnemyTelegraphs();
@@ -100,8 +107,13 @@ void TickTelegraphs(Net::Transport& Transport)
     static uint64_t Revision = 0;
     for (const uint64_t Peer : Transport.ControlPeers())
         for (const auto& Value : Values)
-            if (const auto Payload = Telegraph::Encode(Value); !Payload.empty())
-                Transport.SendControl(Peer, {1, 1, ++Revision, Telegraph::Type, Payload});
+        {
+            const auto Payload = Telegraph::Encode(Value);
+            if (Payload.empty())
+                Drop("ungültige Anzeige", static_cast<int>(Value.Kind));
+            else if (!Transport.SendControl(Peer, {1, 1, ++Revision, Telegraph::Type, Payload}))
+                Drop("Senden", static_cast<int>(Value.Kind));
+        }
 }
 }
 

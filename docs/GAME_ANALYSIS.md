@@ -445,6 +445,28 @@ fehlen die Warnanzeigen sprintender und spuckender Zombies.
   Klasse und Flags geprüft. Gegner kommen nur über ihre NetGUID, nie über Zeiger des Hosts. Der Client ruft die nativen Strich-Funktionen
   nur bei gesetzter `LineTelegraph` und gesetztem Besitzer. Beim Host und allein zeigt nur das Spiel selbst an, eine doppelte Anzeige
   gibt es also nicht: Die Hooks melden beim Client nichts, auch nicht für die eigenen Aufrufe der Mod.
+- **[Belegt, Spieltest 11.11.2026]** Ein PC, zwei Instanzen über die Lobby, Mod mit Spike, `-Godmode`, `DDDynamic_Map`. Gegner gezielt mit
+  `!load …/Definitions/<Typ>.<Typ>` und `!boss BigEnemy 1500` bzw. `!boss BloaterEnemy 1500` (der Befehl findet seitdem auch normale
+  Gegnertypen). Gelesen mit `tools/spike/enemy_telegraph.py` (Speicher beider Seiten) und den Zählern im Mod-Log.
+  - **Vor der Änderung bestätigt:** Die Fähigkeiten `GA_TackleAttack_C` und `GA_BlobThrower_C` gibt es nur beim Host (31 bzw. 18
+    Instanzen, Client 0), `OptionalProjectileTelegraph` der Spuck-Projektile wurde beim Host 10-mal gesetzt, beim Client nie.
+  - **Strich beim Client vorbereitet:** `LineTelegraph` war an allen drei `UTackleAbilityExecution` des Clients gesetzt (wie beim Host),
+    die nativen Funktionen laufen dort also auf einer fertigen Komponente.
+  - **Zähler:** Host meldete 27 Kreise und 7 Striche, der Client zeigte 27 und 7. Nach einem `servertravel` mitten in Angriffen und
+    neuen Gegnern: Host 63 / 17, Client 63 / 17, keine Absturzberichte. Ein erster Strich-Start fand die Komponente noch nicht
+    („übersprungen“ 1), der nächste Strich-Stand 120 ms später zeigte ihn.
+  - **Zwei weitere Läufe mit dem endgültigen Stand** (Suche gecacht, Zeiten beim Host auf 0 bis 600 s geklemmt, verworfene Nachrichten
+    im Log): Host 52 Kreise / 6 Striche, Client 51 / 6; danach mit Kartenwechsel Host 39 / 4, Client 38 / 4, keine Absturzberichte.
+    In beiden Läufen fehlte genau ein Kreis, ohne „verworfen“ beim Senden oder Empfangen, der Transport meldete 0 verworfene Pakete.
+    **Vermutung:** Die Anzeige kam beim Client in einem Moment ohne Client-Rolle oder Welt an (früher Rücksprung). Dieser Weg zählt seitdem
+    als „übersprungen“ (nicht mehr im Spiel geprüft). Ein fehlender Kreis von rund 50 verhindert das Erkennen der Angriffe nicht.
+  - **[Belegt, Bild]** Host und Client zeigen im selben Moment den roten Warnkreis unter der getroffenen Figur, ein Bild vorher beide keinen.
+  - **Takt:** Das erste Auflösen des Systempfads je Welt hielt den Frame einmal 14 bis 25 ms auf, eine Suche der Strich-Komponente über das
+    Objekt-Array etwa 14 ms. Die Suche ist seitdem gecacht und auf vier je Sekunde begrenzt.
+- **Nebenbefund, nicht Teil dieser Aufgabe:** Der Aufprall der Spucke (`NS_BlobExplosion`) erschien beim Host 13-mal, beim Client nie,
+  ebenso Blut und Fleisch (`NS_ZombieBlood`, `NS_Zombieflesh`). Das gehört zu `opt-blut` und `vfx-sound`.
+- **Nicht geprüft:** zwei PCs mit echter Latenz, Bosse (`SpikeBoss`, `FrankensteinBoss` nutzen dieselben Funktionen), angehängte Kreise
+  (`Attached`, der Client zeigt sie am Weltort), Reconnect mitten im Angriff.
 
 ### XP-Bälle beim Client (`xp-baelle`)
 
