@@ -727,6 +727,13 @@ Feldoffsets aus dem SDK, Aufrufe per `ProcessEvent`. Im Spieltest vom 09.11.2026
 | `BP_EnvironmentObjectLootspot_C` | `Widget` `0x3A8`, `Progress` `0x3C0` (double, Net), `IsLooting` `0x3C8` (RepNotify); Funktion `Update Progress Indicator(double)` mit Leerzeichen im Namen ([Lootbalken](GAME_ANALYSIS.md#lootbalken-beim-client-opt-lootbalken)) |
 | `UAbstractProgressWidget` | `Progress` `0x328` |
 | `UObject` | `InternalIndex` `0x0C` |
+| `UGameplayCueManager::ExecuteGameplayCue_NonReplicated` | `0x4BC58D0`, statisch (Ziel, Tag als FName in einem Register, Parameter); ohne Rollenprüfung ([Körperteile](GAME_ANALYSIS.md#körperteile-beim-client-opt-koerperteile)) |
+| `UGameplayCueFunctionLibrary::ExecuteGameplayCueOnActor` | Exec `0x4BE04C0`; mit ASC nur bei `AActor::Role` `0x168` = Autorität |
+| `ADDCharacterBase` | `StartupAbilities` `0x708` (TArray) |
+| `UEnemyDyingAbility` | `ChaosDestructionCueTag` `0x3A8` (FGameplayTag), `DestroyDelay` `0x3B0` |
+| `UChaosDestructionProxyGameplayCue` | `ProxyActorClass` `0x40` |
+| `UClass` | `ClassDefaultObject` `0x118` |
+| `FGameplayCueParameters` | Größe `0xD8`, `Location` `0x70` |
 | `LootBlueprintFunctionLibrary.SpawnSpecificItemLoot` | Parameter 0x50 Byte, Ort `0x18`, Vorlage `0x38`, Rückgabe `0x48` |
 
 ## Charakterwahl (`charakter-wahl`)

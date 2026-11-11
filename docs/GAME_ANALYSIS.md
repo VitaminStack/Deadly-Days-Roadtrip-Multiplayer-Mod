@@ -1912,6 +1912,8 @@ lesend der Speicher des Clients (Objekt- und Funktionsliste, keine Eingaben, kei
   den rechnet nur der Host. Lokal zuerst: Der Client zeigt sie selbst, wenn die replizierte Gesundheit eines Gegners sinkt.
 - **[Gemeldet] Körperteile sterbender Zombies fehlen beim Client.** Eine eigene Klasse dafür war nicht zu finden (gesucht: Gib, Gore,
   Dismember, BodyPart, Corpse). **Vermutung:** Sie entstehen im Todesablauf beim Host, wie Blut und Treffereffekte (`opt-blut`).
+  Behoben und genauer belegt unter [Körperteile beim Client](#körperteile-beim-client-opt-koerperteile): Chaos-Zerfall über einen
+  GameplayCue, dazu Fleisch und Knochen aus `opt-blut`.
 - **[Gemeldet] Der Lootbalken fehlt beim Client** (Fortschritt beim Durchsuchen von Kisten, Tonnen und Säcken). **[Belegt, Client]**
   `BP_EnvironmentObjectLootspot_C` hat `OnLootingUpdate`, `OnRep_IsLooting`, `ExecuteLooting` und `TryPlayFinishedLootingSound`; beim
   Client gab es 75 davon und 29 `WBP_LootWidget_C`. **Vermutung:** Der Host treibt den Balken in `OnLootingUpdate`, beim Client kommt nur
@@ -1923,6 +1925,58 @@ lesend der Speicher des Clients (Objekt- und Funktionsliste, keine Eingaben, kei
   `ABWEICHUNG Inventar`, siehe `inventar-client-abweichung`.
 
 Alle vier gemeldeten Punkte verhindern keinen Run und stehen deshalb unter den optionalen Optimierungen.
+
+### Körperteile beim Client (`opt-koerperteile`)
+
+Stand 11.11.2026, Build `26495302`, zwei Instanzen auf einem PC über die Lobby, Mod mit Spike, `-Godmode`, Seed 20795, zwei
+Missionstage. Statische Disassembly der Exe, Speicher beider Seiten nur gelesen.
+
+- **[Belegt, Speicher] Zwei Arten von Stücken.** Beim Gegnertod zeigt der Host zwei verschiedene Dinge:
+  - weiße Knochen und rosa Fleischstücke, das ist das Niagara-`FleshVfx` aus `AEnemyBase::ActivateDeathVFX`, siehe
+    Aufgabe `opt-blut` (PR #216);
+  - den Zerfall der Gegnerfigur in Chaos-Bruchstücke. Das ist dieser Abschnitt.
+- **[Belegt, Speicher] Kette des Zerfalls:** `BP_StandardEnemy_C` (auch `BP_FireEnemy_C`) hat in `StartupAbilities` (`+0x708`)
+  `BP_GA_EnemyDying_C` (`UEnemyDyingAbility`), dessen `ChaosDestructionCueTag` (`+0x3A8`) `GameplayCue.ChaosDestruction` ist. Den Cue
+  bedient `GCB_ChaosActorSpawner_C` (`UChaosDestructionProxyGameplayCue`, `ProxyActorClass` `+0x40` =
+  `LonglivingChaosDestructionActor_C`), der Bruchstücke stammen aus `DirectionCharacterChaosDestruction` des Gegners
+  (`CharacterChaosDestructionGeometryCollection`). Die Actors sind gepoolt, je Seite hielt der Pool im Test 4 davon.
+- **[Belegt, Disassembly] Warum der Client nichts sieht:** Die Dying-Ability läuft nur beim Host, ihr Cue repliziert nicht. Der
+  Blueprint-Weg `UGameplayCueFunctionLibrary::ExecuteGameplayCueOnActor` hilft beim Client nicht: Für ein Ziel mit ASC ruft er den Cue
+  nur, wenn `AActor::Role` (`+0x168`) `ROLE_Authority` ist, sonst gar nichts. Nur Ziele ohne ASC gehen an
+  `UGameplayCueManager::ExecuteGameplayCue_NonReplicated` (`0x4BC58D0`). Diese Funktion holt den GameplayCueManager und ruft dessen
+  `HandleGameplayCue(Target, Tag, Executed, Parameters)`, ohne Rollenprüfung.
+- **Umsetzung** (`BodyPartPatches.cpp`, `TickBodyParts`, Regeln `BodyPartsRepeated` und `BodyPartsMayShow` in `PatchPolicy.h`, mit
+  Tests): Ein Beobachter am vorhandenen ProcessEvent-Hook erkennt beim Client das empfangene `DDCharacterBase.Multi_OnDie` (zuverlässiger
+  Multicast) eines `EnemyBase`. Die Mod liest den Tag aus der Dying-Ability der Gegnerklasse und ruft
+  `ExecuteGameplayCue_NonReplicated(Gegner, Tag, Parameter)` mit genullten `FGameplayCueParameters` (`0xD8` Byte) und dem Ort des Gegners.
+  Danach läuft der native Cue des Clients mit seinem eigenen Pool. Der Host tut nichts zusätzlich. Keine Nachricht, kein Hook, kein
+  geänderter Code: Die eigene Patchliste `BodyPart` prüft nur die Signatur der Funktion, ohne passende Signatur bleibt der Zerfall aus.
+  Keine `ModVersion`-Erhöhung.
+- **Antworten zum neuen Pfad:** Lokal bleibt die ganze Darstellung: Cue, Pool, Physik und Lebensdauer des Clients. Geteilt wird nichts
+  Neues, der native Multicast reicht. Es entscheidet weiter der Host über Schaden, Tod, XP und Drops; der Client ruft nur einen
+  nicht replizierten Anzeige-Cue. Wiederverwendet wird der bestehende Beobachter-Pfad, ersetzt wird nichts. Ablehnung gibt es nicht;
+  Verlust schließt `NetReliable` aus, verpasste Tode bei Join oder Reconnect werden nicht nachgeholt (kosmetisch, nicht getestet).
+- **Stabilität:** Aufruf direkt im Ereignis auf dem Game Thread, nur für lebende Gegner (Platz im Objekt-Array, keine Garbage-Flags).
+  Derselbe Gegner binnen 1 s wird übersprungen, später nicht, weil gepoolte Gegner erneut sterben. Höchstens 8 Zerfälle je Mod-Takt.
+  Beim Weltwechsel vergisst die Mod UFunction und Tags. Jede Gegnerklasse wird einmal aufgelöst, höchstens 16 Klassen.
+- **[Belegt, Live-Test 11.11.2026, nur dieser Stand]** Client-Log „Körperteile: Gegnerklasse BP_StandardEnemy_C mit Zerfall-Cue“, dann
+  „Client zeigt den Zerfall eines Gegners lokal“. Jetzt hält der Client wie der Host 4
+  `LonglivingChaosDestructionActor_C` mit Geometrie. Eine Zählung dieser Klasse beim Client ohne die Änderung gibt es nicht, die frühere
+  Messung (Tabelle oben) fand nur keine `EnemyChaosDestructionProxyActor`. Über 20 s je Sekunde gelesen standen die sichtbaren Bruchstücke beider
+  Seiten an denselben Orten (Abweichung 0 bis 2 Einheiten, einzelne kamen auf einer Seite einen Messschritt früher). Zweiter Tag nach
+  Rundenende und Lager: Tags neu aufgelöst, auch `BP_FireEnemy_C`, unter `!wave` weiter gleiche Orte. Fensterbilder: Der Client zeigt
+  dieselben Zombies wie der Host, also keine unsichtbaren Gegner. Keine Absturzberichte, Inventare „vollständig, gleich“, keine
+  Takt-Warnung der neuen Liste.
+- **[Belegt, Bild] Ohne `opt-blut` fehlen Knochen und Fleisch weiter:** Im Bildpaar desselben Augenblicks liegen beim Host weiße und
+  rosa Stücke um die Todesstellen, beim Client nur XP-Bälle und Funken. Diese Stücke sind `FleshVfx`, nicht der Chaos-Zerfall.
+- **[Belegt, Live-Test 11.11.2026, zusammen mit `opt-blut`]** Für die Abnahme wurde `task/opt-blut` nur lokal und ohne Commit
+  dazugenommen, danach verworfen. Bildpaar unter `!wave`: Beide Fenster zeigen Knochen, Fleischstücke und Bruchstücke an denselben
+  Todesstellen. Client-Log: „129 Gegnertode beim Client, 129 mit Zerfall, 0 über der Obergrenze“, der Blut-Zähler im selben Moment 130
+  von 130. Orte der Bruchstücke auf beiden Seiten gleich (bis 3 Einheiten). Rundenende, Lager, zweiter Tag mit `!wave`: ohne
+  Absturzbericht, Inventare „vollständig, gleich“. Beide Aufgaben belegen je einen der vier Beobachterplätze (`AddEventObserver`),
+  mit dem Lootbalken sind es drei.
+- **Nicht geprüft:** zwei PCs, Reconnect, Join mitten in der Welle, Gegnertypen außer `BP_StandardEnemy_C` und `BP_FireEnemy_C`
+  (Bosse). Fehlt einer Gegnerklasse die Dying-Ability mit Tag, meldet das Log „ohne Zerfall-Cue“, und es passiert nichts.
 
 ### Steam-Lobby über das Internet (`lobby-live`)
 
