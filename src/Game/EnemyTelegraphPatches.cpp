@@ -125,6 +125,26 @@ std::array<HostLine, 32> HostLines{};
 uintptr_t HostWorld = 0;
 int HostReported = 0;
 
+// Zähler für die Logzeile je 30 s, damit Host und Client im Test vergleichbar sind.
+struct Counts
+{
+    unsigned Circles = 0, Lines = 0, Skipped = 0;
+    bool operator==(const Counts&) const = default;
+};
+Counts Counted, Logged;
+ULONGLONG NextCountLog = 0;
+
+void LogCounts(const char* Side)
+{
+    const ULONGLONG Now = GetTickCount64();
+    if (Now < NextCountLog || Counted == Logged)
+        return;
+    NextCountLog = Now + 30000;
+    Logged = Counted;
+    Core::Log::Info("Warnanzeigen: {} bisher {} Kreise, {} Sprint-Striche, {} übersprungen", Side, Counted.Circles, Counted.Lines,
+                    Counted.Skipped);
+}
+
 bool Publishing()
 {
     return CurrentRole() == NetRole::Host;
@@ -201,6 +221,7 @@ uintptr_t __fastcall CircleHook(uintptr_t Ability, uintptr_t System, const doubl
     if (HostReported < 4 && ++HostReported)
         Core::Log::Info("Warnanzeigen: Host meldet Kreis {} ({}, {} s){}", Value.System, Memory::NameOf(Memory::ReadPointer(Ability + Offsets::UObject::Class).value_or(0)),
                         Lifetime, Attached ? ", angehängt" : "");
+    ++Counted.Circles;
     Push(std::move(Value));
     return Component;
 }
@@ -213,6 +234,7 @@ void __fastcall ActivateLineHook(uintptr_t Execution)
     if (HostLine* Line = FindHostLine(Execution, true); Line && Line->Enemy)
     {
         Line->LastSent = 0;
+        ++Counted.Lines;
         PushLine(TelegraphKind::LineStart, *Line);
         if (HostReported < 8 && ++HostReported)
             Core::Log::Info("Warnanzeigen: Host meldet Sprint-Strich von {}",
@@ -280,6 +302,9 @@ struct ClientState
     std::unordered_map<std::string, Known> Systems;
     std::unordered_map<std::string, ULONGLONG> MissingSystems;
     std::unordered_map<std::string, uint64_t> Names;
+    // Gegner-Actor -> seine UTackleAbilityExecution, aus der letzten Suche über das Objekt-Array.
+    std::unordered_map<uintptr_t, Known> Tackles;
+    ULONGLONG NextTackleScan = 0;
     uintptr_t TackleClass = 0;
     int Reported = 0;
 } C;
@@ -292,6 +317,8 @@ void ResetClient(uintptr_t World)
     C.Circles.clear();
     C.Systems.clear();
     C.MissingSystems.clear();
+    C.Tackles.clear();
+    C.NextTackleScan = 0;
 }
 
 uint64_t MakeName(const std::string& Text)
@@ -364,7 +391,10 @@ void ShowCircle(const EnemyTelegraph& Value, ULONGLONG Now)
     const uintptr_t Library = Objects::FindNamed("Default__NiagaraFunctionLibrary");
     const uintptr_t System = FindSystem(Value.System, Now);
     if (!Function || !Library || !System)
+    {
+        ++Counted.Skipped;
         return;
+    }
     struct
     {
         uintptr_t WorldContext;
@@ -381,7 +411,11 @@ void ShowCircle(const EnemyTelegraph& Value, ULONGLONG Now)
     static_assert(sizeof(Params) == 0x68);
     Objects::ProcessEvent(Library, Function, &Params);
     if (!Params.ReturnValue)
+    {
+        ++Counted.Skipped;
         return;
+    }
+    ++Counted.Circles;
     // Reihenfolge wie beim Host: Size, Lifetime, Delay.
     SetFloat(Params.ReturnValue, Value.SizeName, Value.Size);
     SetFloat(Params.ReturnValue, Value.LifetimeName, Value.Lifetime);
@@ -410,19 +444,36 @@ Known FindExecution(uint64_t Enemy)
                 Actor = Entry.Object;
     if (!Actor || !Objects::IsA(Actor, "EnemyBase"))
         return {};
+    const auto Cached = [Actor]() -> Known {
+        const auto It = C.Tackles.find(Actor);
+        if (It == C.Tackles.end() || !StillThere(It->second) ||
+            Memory::ReadPointer(It->second.Object + Offsets::UObject::Outer).value_or(0) != Actor)
+            return {};
+        return It->second;
+    };
+    if (const Known Entry = Cached(); Entry.Object)
+        return Entry;
+    // Eine Suche über das ganze Objekt-Array kostet rund 10 ms, darum höchstens vier je Sekunde für alle Gegner zugleich.
+    const ULONGLONG Now = GetTickCount64();
+    if (Now < C.NextTackleScan)
+        return {};
+    C.NextTackleScan = Now + 250;
     if (!C.TackleClass)
         C.TackleClass = Objects::FindObject("TackleAbilityExecution", "/Script/DDSurvivors");
     if (!C.TackleClass)
         return {};
+    C.Tackles.clear();
     const int32_t Count = Objects::Count();
     for (int32_t Index = 0; Index < Count; ++Index)
     {
         const uintptr_t Object = Objects::At(Index);
-        if (Object && Memory::ReadPointer(Object + Offsets::UObject::Class).value_or(0) == C.TackleClass &&
-            Memory::ReadPointer(Object + Offsets::UObject::Outer).value_or(0) == Actor)
-            return Remember(Object);
+        if (!Object || Memory::ReadPointer(Object + Offsets::UObject::Class).value_or(0) != C.TackleClass)
+            continue;
+        if (const uintptr_t Outer = Memory::ReadPointer(Object + Offsets::UObject::Outer).value_or(0); Outer && C.Tackles.size() < 256)
+            if (const Known Entry = Remember(Object); Entry.Object)
+                C.Tackles[Outer] = Entry;
     }
-    return {};
+    return Cached();
 }
 
 // Vorbedingungen der nativen Funktionen, sonst greifen sie ins Leere: Niagara-Komponente und Besitzer gesetzt.
@@ -461,7 +512,11 @@ void ApplyLine(const EnemyTelegraph& Value, ULONGLONG Now)
 {
     ClientState::Line* Line = ClientLine(Value.Enemy, Value.Kind != TelegraphKind::LineEnd, Now);
     if (!Line)
+    {
+        if (Value.Kind == TelegraphKind::LineStart)
+            ++Counted.Skipped;
         return;
+    }
     Line->LastSeen = Now;
     if (Value.Kind == TelegraphKind::LineEnd)
     {
@@ -481,6 +536,7 @@ void ApplyLine(const EnemyTelegraph& Value, ULONGLONG Now)
             return;
         Objects::ProcessEvent(Line->Execution.Object, Activate, nullptr);
         Line->Active = true;
+        ++Counted.Lines;
         if (C.Reported < 8 && ++C.Reported)
             Core::Log::Info("Warnanzeigen: Client zeigt Sprint-Strich");
     }
@@ -542,8 +598,11 @@ void TickEnemyTelegraphs(NetRole Role)
     {
         if (!C.Lines.empty() || !C.Circles.empty())
             ResetClient(0);
+        if (Role == NetRole::Host)
+            LogCounts("Host meldete");
         return;
     }
+    LogCounts("Client zeigte");
     const uintptr_t World = CurrentWorld();
     if (World != C.World)
         ResetClient(World);
