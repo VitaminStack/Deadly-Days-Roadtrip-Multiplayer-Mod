@@ -563,6 +563,73 @@ Gemeldet war im [Live-Test 10.11.](#live-test-auf-zwei-pcs-am-10112026-livetest-
   gemeldete Rückenansicht der Client-Figur **beim Client** (`opt-blickrichtung-client`) erklärt diese Ursache nicht, dort ist das Tempo normal.
 - **Nicht geprüft:** zwei PCs, Kriechen nach dem Tod (mit `-Godmode` nicht erreichbar), Item-Auswahl als Pause.
 
+### Warnanzeigen der Gegner beim Client (`opt-gegner-indikatoren`)
+
+Stand 11.11.2026, Build `26495302`. Gemeldet im [Live-Test vom 10.11.](#live-test-auf-zwei-pcs-am-10112026-livetest-1011): Beim Client
+fehlen die Warnanzeigen sprintender und spuckender Zombies.
+
+- **[Belegt, SDK und Speicher]** Wer sprintet und spuckt: `BigEnemy` und `FirefighterEnemy` haben `GA_TackleAttack_C`, `BloaterEnemy`
+  und `IceBloaterEnemy` `GA_BlobThrower_C` / `GA_BlobThrower_Ice_C` (`UEnemyType.AttackAbilitiesWithoutWeights` `+0x1D8`). **Vermutung:** Weitere
+  Kreise zeigen Sprungangriffe (`GA_SmallJumpAttack_C` bei `StandardEnemy`, `NurseEnemy`) und Bosse, im Test kam keiner davon vor.
+- **[Belegt, SDK]** Beide Anzeigen sind lokale Niagara-Komponenten der Angriffsfähigkeit, ohne Net-Feld und ohne RPC:
+  - **Kreis:** `UEnemyAttackAbility::SpawnCircleTelegraph(System, Ort, Delay, Lifetime, Size, AutoDestroy, Pool, Attached)` (`Final, Native`),
+    beim Projektil gemerkt in `AProjectile::OptionalProjectileTelegraph` (`+0x378`, kein Net-Feld). Auch das Projektil trägt kein
+    repliziertes Ziel, der Client kann den Landepunkt also nicht ableiten.
+  - **Strich:** `UTackleAbilityExecution` am Gegner (`LineTelegraph` `+0x238`), `ActivateLineTelegraph()` und
+    `CalculateLineTelegraphEndPoint(Ziel, Anteil)` (`Final, Native, Private`). Delegates wie `OnTackleMovementStarted` sind lokal.
+- **[Belegt, Disassembly]** `SpawnCircleTelegraph` (`0x58908C0`) spawnt das System über die Niagara-Bibliothek am Ort (oder angehängt)
+  und setzt danach drei Float-Parameter, deren Namen in der Fähigkeit stehen (`SizeVariableName` `+0x440`, `LifetimeVariableName`
+  `+0x448`, `DelayVariableName` `+0x450`). Direkt aufgerufen von drei nativen Stellen und über den Thunk aus Blueprints.
+- **[Belegt, Disassembly]** `ActivateLineTelegraph` (`0x58A3DB0`) aktiviert nur die vorhandene `LineTelegraph`-Komponente und setzt Breite
+  (aus den Grenzen des Besitzers, `OwnerPrivate` `+0xA8`), Startfarbe und Startpunkt als Niagara-Parameter. `CalculateLineTelegraphEndPoint`
+  (`0x58A9D30`) setzt den Endpunkt aus Ziel und Anteil und wechselt ab `SwitchTelegraphColorPercentage` einmal auf `LockTelegraphColor`.
+  Beide schreiben nur in die Komponente selbst, keine Spielwerte. `ExecuteTackle` (`0x58B1F40`) blendet den Strich zuerst aus.
+  `ActivateLineTelegraph` hat keine direkten Aufrufer, es läuft nur aus dem Blueprint der Fähigkeit.
+- **Folgerung:** Die Fähigkeiten laufen nur beim Host (KI nur dort, siehe [Bosse](../src/Sync/Enemies/README.md)), also entstehen die
+  Anzeigen nur dort. Eine native Replikation des Auslösers gibt es nicht, darum eine kleine Nachricht (nachgewiesene Lücke).
+- **Umsetzung** (`EnemyTelegraphPatches.cpp`, Format `Sync/Enemies/TelegraphState.h`, Nachricht `0x900`, Mod-Version 11, siehe
+  [Kontrollkanal](CONTROL_PROTOCOL.md#warnanzeigen-der-gegner-mod-kompatibilität-11)): Hooks auf die fünf nativen Funktionen melden nur
+  beim Host. Kreis: Systempfad, Ort, Zeiten, Parameternamen; der Client spawnt dasselbe System über `SpawnSystemAtLocation` und setzt die
+  Parameter mit `SetVariableFloat`. Strich: NetGUID des Gegners, an, Stand (höchstens alle 50 ms) und aus; der Client ruft an seiner
+  eigenen `UTackleAbilityExecution` des Gegners dieselben nativen Funktionen und blendet wie `ExecuteTackle` über die
+  virtuelle Funktion `+0xAD0` der Niagara-Komponente aus.
+- **Antworten zum neuen Pfad:** Lokal bleibt die ganze Darstellung (Niagara-System, Länge, Farbwechsel, Ende). Geteilt wird nur der
+  Auslöser je Anzeige, weil die Fähigkeit nur beim Host läuft. Es entscheidet der Host, beim Client entsteht weder Schaden noch Sprint.
+  Wiederverwendet werden der Kontrollkanal und die nativen Anzeigefunktionen, ersetzt wird nichts. Ablehnung gibt es nicht; Verlust kostet
+  eine Anzeige, ein Strich ohne Nachricht geht nach 3 s aus, ein Kreis nach Delay + Lifetime + 1 s. Join, Travel und Reconnect holen
+  nichts nach, der Weltwechsel vergisst alle Einträge.
+- **Stabilität:** Gemerkte Systeme, Komponenten und `UTackleAbilityExecution` werden vor jedem Zugriff über ihren Platz im Objekt-Array,
+  Klasse und Flags geprüft. Gegner kommen nur über ihre NetGUID, nie über Zeiger des Hosts. Der Client ruft die nativen Strich-Funktionen
+  nur bei gesetzter `LineTelegraph` und gesetztem Besitzer. Beim Host und allein zeigt nur das Spiel selbst an, eine doppelte Anzeige
+  gibt es also nicht: Die Hooks melden beim Client nichts, auch nicht für die eigenen Aufrufe der Mod.
+- **[Belegt, Spieltest 11.11.2026]** Ein PC, zwei Instanzen über die Lobby, Mod mit Spike, `-Godmode`, `DDDynamic_Map`. Gegner gezielt mit
+  `!load …/Definitions/<Typ>.<Typ>` und `!boss BigEnemy 1500` bzw. `!boss BloaterEnemy 1500` (der Befehl findet seitdem auch normale
+  Gegnertypen). Gelesen mit `tools/spike/enemy_telegraph.py` (Speicher beider Seiten) und den Zählern im Mod-Log.
+  - **Vor der Änderung bestätigt:** Die Fähigkeiten `GA_TackleAttack_C` und `GA_BlobThrower_C` gibt es nur beim Host (31 bzw. 18
+    Instanzen, Client 0), `OptionalProjectileTelegraph` der Spuck-Projektile wurde beim Host 10-mal gesetzt, beim Client nie.
+  - **Strich beim Client vorbereitet:** `LineTelegraph` war an allen drei `UTackleAbilityExecution` des Clients gesetzt (wie beim Host),
+    die nativen Funktionen laufen dort also auf einer fertigen Komponente.
+  - **Zähler:** Host meldete 27 Kreise und 7 Striche, der Client zeigte 27 und 7. Nach einem `servertravel` mitten in Angriffen und
+    neuen Gegnern: Host 63 / 17, Client 63 / 17, keine Absturzberichte. Ein erster Strich-Start fand die Komponente noch nicht
+    („übersprungen“ 1), der nächste Strich-Stand 120 ms später zeigte ihn.
+  - **Zwei weitere Läufe mit dem endgültigen Stand** (Suche gecacht, Zeiten beim Host auf 0 bis 600 s geklemmt, verworfene Nachrichten
+    im Log): Host 52 Kreise / 6 Striche, Client 51 / 6; danach mit Kartenwechsel Host 39 / 4, Client 38 / 4, keine Absturzberichte.
+    In beiden Läufen fehlte genau ein Kreis, ohne „verworfen“ beim Senden oder Empfangen, der Transport meldete 0 verworfene Pakete.
+    **[Belegt, Code]** Ursache: `Sync::Start` holt `0x900` jeden Takt gezielt ab, alle 250 ms nimmt der gebündelte Abruf aber alle übrigen
+    Nachrichten, und keine Familie kannte `0x900`. Kam eine Anzeige zwischen beiden Abrufen an, war sie weg. Seitdem gibt der Client auch
+    `0x900` aus dem gebündelten Abruf weiter. Dieselbe Lücke betrifft vermutlich `0x500` (Dodge-Richtung) beim Host.
+  - **Letzter Lauf mit dem endgültigen Stand** (Abrufkorrektur, Ausblenden über `+0xAD0`): Host 49 Kreise / 6 Striche, Client 49 / 6,
+    keine Absturzberichte. Ein erster Strich-Start fand die Komponente noch nicht und wurde mit dem nächsten Stand gezeigt.
+  - **[Belegt, Bild]** Gleichzeitige Bildpaare (beide Fenster im Abstand weniger Millisekunden): Host und Client zeigen denselben weißen
+    Sprint-Strich vom `BigEnemy` zur Figur; nach dem Sprint ist er auf beiden Seiten weg.
+  - **[Belegt, Bild]** Host und Client zeigen im selben Moment den roten Warnkreis unter der getroffenen Figur, ein Bild vorher beide keinen.
+  - **Takt:** Das erste Auflösen des Systempfads je Welt hielt den Frame einmal 14 bis 25 ms auf, eine Suche der Strich-Komponente über das
+    Objekt-Array etwa 14 ms. Die Suche ist seitdem gecacht und auf vier je Sekunde begrenzt.
+- **Nebenbefund, nicht Teil dieser Aufgabe:** Der Aufprall der Spucke (`NS_BlobExplosion`) erschien beim Host 13-mal, beim Client nie,
+  ebenso Blut und Fleisch (`NS_ZombieBlood`, `NS_Zombieflesh`). Das gehört zu `opt-blut` und `vfx-sound`.
+- **Nicht geprüft:** zwei PCs mit echter Latenz, Bosse (`SpikeBoss`, `FrankensteinBoss` nutzen dieselben Funktionen), angehängte Kreise
+  (`Attached`, der Client zeigt sie am Weltort), Reconnect mitten im Angriff.
+
 ### XP-Bälle beim Client (`xp-baelle`)
 
 Stand 04.11.2026, Build `26187885`. Beim Spieltest fiel auf: Der Client sieht die XP-Bälle nicht. Ursache bisher nur aus dem lokalen SDK abgeleitet, im Spiel nicht gemessen.

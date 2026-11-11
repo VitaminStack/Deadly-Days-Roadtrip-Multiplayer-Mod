@@ -780,3 +780,22 @@ Build `26495302`, Disassembly und SDK, im Spieltest vom 10.11.2026 belegt.
 | `UCharacterDefinitionApplier` | `AppliedCharacterDefinition` (`TSoftObjectPtr`, Assetname bei `+0x10`) `0xE8` |
 | `UCharacterSelectionManager` | `CharacterDefinitions` `0x58`, `SelectedCharacters` (`TMap<int32, Def*>`) `0x68`, `SelectedCharacterID` `0xB8` |
 | Spielerindex des Appliers | vfunc `+0x330` von `Pawn.Controller.Player`, ohne LocalPlayer Index 0 |
+
+## Warnanzeigen der Gegner (`opt-gegner-indikatoren`)
+
+Build `26495302`, Disassembly der Exec-Thunks (`UFunction::ExecFunction` `+0xD8`) und SDK. Im Spieltest vom 11.11.2026 belegt, siehe
+[Warnanzeigen der Gegner](GAME_ANALYSIS.md#warnanzeigen-der-gegner-beim-client-opt-gegner-indikatoren).
+
+| Stelle | Wert |
+|---|---|
+| `UEnemyAttackAbility::SpawnCircleTelegraph` | `0x58908C0(Ability, System, const FVector*, Delay, Lifetime, Size, AutoDestroy, Pool, Attached)`, Thunk `0x56EDBE0`, Prolog `48 8B C4 48 89 58 08 48 89 70 18 57`; direkte Aufrufer `0x586ADCB`, `0x586AE86`, `0x58914BA` |
+| `UTackleAbilityExecution::ActivateLineTelegraph` | `0x58A3DB0(Execution)`, Thunk `0x57AF280` (`jmp`), Prolog `48 89 5C 24 08 57 48 83 EC 70`; nur aus Blueprints |
+| `UTackleAbilityExecution::CalculateLineTelegraphEndPoint` | `0x58A9D30(Execution, const FVector*, Percentage)`, Thunk `0x57AFC40`, Prolog `40 53 48 81 EC D0 00 00 00` |
+| `UTackleAbilityExecution::EndTackle` | `0x58B1130(Execution, bool)`, Thunk `0x57B0950`, Prolog `40 53 57 48 83 EC 38` |
+| `UTackleAbilityExecution::ExecuteTackle` | `0x58B1F40(Execution, float)`, Thunk `0x57B09E0`, Prolog `48 89 5C 24 10 57 48 83 EC 60`; blendet zuerst `LineTelegraph` aus (vfunc `+0xAD0`) |
+| `UEnemyAttackAbility` | `SizeVariableName` `0x440`, `LifetimeVariableName` `0x448`, `DelayVariableName` `0x450` (FName), `CachedTelegraphAttachComponent` `0x468` |
+| `UTackleAbilityExecution` | `SwitchTelegraphColorPercentage` `0x108`, `LockTelegraphColor` `0x10C`, `DefaultTelegraphColor` `0x11C`, `LastTargetingPercentage` `0x208`, `LineTelegraph` `0x238`; ohne Reflexion: `0x268` (gesetzt: kein Endpunkt), `0x26A` (Farbe gewechselt), Niagara-Parameternamen `0x398` (Endpunkt), `0x3A0` (Farbe), `0x3A8` (Breite) |
+| `UActorComponent` | `OwnerPrivate` `0xA8` (ohne Reflexion), `bIsActive` `0x9A` Bit 4 |
+| `AProjectile` | `OptionalProjectileTelegraph` `0x378` |
+| `UNiagaraComponent` | `Asset` `0x580`; vfunc `+0xA78` setzt einen Float-Parameter (wie `SetVariableFloat`) |
+| `NiagaraFunctionLibrary.SpawnSystemAtLocation` | Parameter 0x68 Byte, Ort `0x10`, Rotation `0x28`, Skala `0x40`, `bAutoDestroy` `0x58`, Rückgabe `0x60` |

@@ -27,7 +27,7 @@ std::atomic<State> Current = State::Pending;
 Code::Writer Caves;
 
 // Reihenfolge wie bisher in Install. Ticks fragen über ListOn nach, ob ihre Liste steht.
-enum ListIndex : size_t { Player, Client, Camera, Inventory, Travel, Widget, HealthBar, Airdrop, Exp, RemoteP2, Reward, Map, LocalDevice, Character, BodyPart, ListCount };
+enum ListIndex : size_t { Player, Client, Camera, Inventory, Travel, Widget, HealthBar, Airdrop, Exp, RemoteP2, Reward, Map, LocalDevice, Character, BodyPart, EnemyTelegraph, ListCount };
 std::array<bool, ListCount> Enabled{};
 bool PartialMode = false;
 
@@ -168,7 +168,7 @@ bool Install()
         {"Player", PlayerPatches()}, {"Client", ClientPatches()}, {"Camera", CameraPatches()}, {"Inventory", InventoryPatches()},
         {"Travel", TravelPatches()}, {"Widget", WidgetPatches()}, {"HealthBar", HealthBarPatches()}, {"Airdrop", AirdropPatches()},
         {"Exp", ExpPatches()}, {"RemoteP2", RemoteP2Patches()}, {"Reward", RewardPatches()}, {"Map", MapPatches()},
-        {"LocalDevice", LocalDevicePatches()}, {"Character", CharacterPatches()}, {"BodyPart", BodyPartPatches()},
+        {"LocalDevice", LocalDevicePatches()}, {"Character", CharacterPatches()}, {"BodyPart", BodyPartPatches()}, {"EnemyTelegraph", EnemyTelegraphPatches()},
     }};
     std::vector<Patch> All;
     for (const PatchList& List : Lists)
@@ -256,5 +256,7 @@ void Tick()
         { const GameThread::SlowScope Watch("Karte"); TickMap(Role, Second); }
     if (ListOn(Character))
         { const GameThread::SlowScope Watch("Charakterwahl"); TickCharacters(Role, Second); }
+    if (ListOn(EnemyTelegraph))
+        { const GameThread::SlowScope Watch("Warnanzeigen"); TickEnemyTelegraphs(Role); }
 }
 }

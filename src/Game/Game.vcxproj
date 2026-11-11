@@ -75,6 +75,7 @@
     <ClCompile Include="BodyPartPatches.cpp" />
     <ClCompile Include="WalkAnimationPatches.cpp" />
     <ClCompile Include="CharacterPatches.cpp" />
+    <ClCompile Include="EnemyTelegraphPatches.cpp" />
     <ClCompile Include="TravelPatches.cpp" />
     <ClCompile Include="WidgetPatches.cpp" />
     <ClCompile Include="SaveRedirect.cpp" />
@@ -87,6 +88,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CodeCave.h" />
+    <ClInclude Include="TelegraphAdapter.h" />
     <ClInclude Include="Game.h" />
     <ClInclude Include="ProgressAdapter.h" />
     <ClInclude Include="DayView.h" />

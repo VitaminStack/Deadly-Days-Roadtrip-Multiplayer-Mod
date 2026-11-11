@@ -89,6 +89,7 @@ ausgelassenen erreichen. Im Referenz-Build und ohne Schalter bleibt es bei allen
 | `WidgetPatches.cpp` | Client | `WP_UI` wartet auf den GameState; Beobachter nach jedem `ProcessEvent` |
 | `RemoteP2Patches.cpp` | Host | Remote-Spieler als P2 in `ActivePlayers` des Coop-Subsystems, ohne zweiten `LocalPlayer`; beim Verlassen nur die eigene Bindung entfernen; lokale P2-Gerätepflicht nur bei vollständiger Bindung ausnehmen. Koop-Modus erst nach `AllowRemoteCoop()`, siehe [Remote-Spieler](#remote-spieler-als-p2) |
 | `HealthBarPatches.cpp` | Client | Lebensleisten nach repliziertem `OnRep_Health` und `OnRep_MaxHealth` |
+| `EnemyTelegraphPatches.cpp` | beide | Warnanzeigen der Gegnerangriffe: Host meldet Kreise (`SpawnCircleTelegraph`) und Sprint-Striche (`UTackleAbilityExecution`) über `0x900`, der Client zeigt dasselbe Niagara-System bzw. treibt die eigene Komponente des Gegners; siehe [Warnanzeigen](../../docs/GAME_ANALYSIS.md#warnanzeigen-der-gegner-beim-client-opt-gegner-indikatoren) |
 | `LocalDevicePatches.cpp` | beide | Im Netzwerkspiel bleiben lokale Geräte bei Spieler 0: keine Gerätezuordnung oder kein Entwurf für P2, kein zweiter `LocalPlayer`; ohne Netzwerk unverändert, siehe [Eingaben getrennt](../../docs/GAME_ANALYSIS.md#eingaben-getrennt-eingaben) |
 
 **Alle oder keiner.** `Patches::Install` läuft in `Game::Start` vor dem ersten Takt. Es prüft zuerst jede Stelle (Bytes, vtable-Einträge)

@@ -44,6 +44,8 @@ std::span<const Patch> MapPatches();
 std::span<const Patch> LocalDevicePatches();
 std::span<const Patch> CharacterPatches();
 std::span<const Patch> BodyPartPatches();
+// opt-gegner-indikatoren: Warnanzeigen der Gegnerangriffe, Host meldet, Client zeigt lokal.
+std::span<const Patch> EnemyTelegraphPatches();
 // Host: Figur, die bei RewardChest.OpenAirdropChoices die native Auswahl bekommt (die des Hosts statt des Remote-P2).
 uintptr_t RewardCharacter(uintptr_t Character);
 // Client: Wahr, wenn ProcessEvent einen Server-RPC mit einer lokalen Anzeige-Instanz der Airdrop-Auswahl nicht senden soll.
@@ -79,6 +81,8 @@ void TickWalkAnimation(NetRole Role, bool Second);
 void TickRemoteP2(NetRole Role);
 void TickMap(NetRole Role, bool Second);
 void TickCharacters(NetRole Role, bool Second);
+// opt-gegner-indikatoren, Client: Striche ohne Nachricht und abgelaufene Kreise ausblenden.
+void TickEnemyTelegraphs(NetRole Role);
 
 // rundenende-client, aus MapPatches.cpp: Host merkt sich sein Rundenende in der aktuellen Welt, run-ende: Lost bei einer Niederlage.
 void NoteHostRoundEnd(bool Lost = false);

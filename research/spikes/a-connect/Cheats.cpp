@@ -202,6 +202,9 @@ void BossCommand(const std::wstring& Args)
     const double Distance = Space == std::string::npos ? 600.0 : atof(Text.c_str() + Space + 1);
     const uintptr_t World = Read<uintptr_t>(Base + kGWorld);
     uintptr_t Type = FindObject(TypeName.c_str(), TypeName.c_str());
+    // opt-gegner-indikatoren: auch normale Gegnertypen nach "!load", der Outer eines Assets ist sein Paketpfad.
+    if (!Type)
+        Type = FindObject(TypeName.c_str(), ("/Game/DDSurvivors/Blueprints/Enemies/Definitions/" + TypeName).c_str());
     if (!Type)
     {
         // Nicht geladen: Pfad aus DA_BossSpawnLookup lesen (BossSpawnInfos +0x28, je 0x68, BossID +0x00, weicher Verweis auf den
