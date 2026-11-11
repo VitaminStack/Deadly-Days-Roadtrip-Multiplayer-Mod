@@ -124,6 +124,8 @@ void RunPendingCommand()
         ForceEnemyWave();
     else if (Pending == L"!flow")
         TraceRunFlow();
+    else if (Pending == L"!fx" || Pending.rfind(L"!fx ", 0) == 0)
+        FxCommand(Pending.size() > 4 ? Pending.substr(4) : std::wstring{});
     else if (Pending == L"!finish")
         FinishMission();
     else if (Pending == L"!cheats")

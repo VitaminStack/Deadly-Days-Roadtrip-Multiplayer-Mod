@@ -36,7 +36,7 @@ Je Thema eine Datei, damit parallele Arbeit nicht in dieselbe Datei läuft. Neue
 | `Widgets.cpp` | Zurückhalten der HUD bis zum `GameState`, nach jedem `ProcessEvent` der Phasenbeobachter aus `Mission.cpp` |
 | `MapObjects.cpp` | Client: lokale Kopien replizierter Kartenobjekte unterdrücken |
 | `Mission.cpp` | Gegnerwelle, Missionsende, Rundenphasen vom Host zum Client mit Anzeige und Eingabesperre |
-| `Trace.cpp` | Zähler für RPCs und Run-Funktionen |
+| `Trace.cpp` | Zähler für RPCs, Run-Funktionen, Sounds und Effekte (`!fx`) |
 | `CrashReports.cpp` | Sperre des Crash-Reporters, zweite Schicht neben `CrashGuard.ps1` |
 | `MapGen.cpp` | Client erzeugt die Karte mit den Werten des Hosts, lokale Kopien replizierter Child Actors unterdrückt. Mit der Mod aus, die das über ihren Kontrollkanal macht (`missionsstart`) |
 | `Pcg.cpp` | Client erzeugt die PCG-Vegetation mit dem Graphen des Hosts, gleiche Seeds der Instanz-Komponenten. Mit der Mod aus wie `MapGen.cpp` |
@@ -129,6 +129,7 @@ Beim Client setzt der Spike die Kamera jede Sekunde, beim Host nimmt er jede Sek
 | `!trace` | Beide | Zählt Client- und Server-RPCs der Spielfigur |
 | `!wave` | Host | Startet die Gegner-Spawner |
 | `!flow` | Beide | Protokolliert die ersten Aufrufe der Run-Funktionen |
+| `!fx`, `!fx dump`, `!fx stack <Text>` | Beide | Zählt jeden gestarteten FMOD-Sound mit Ereignispfad (Delay-Import `EventInstance::start` der Exe) und Sound-, Niagara- und Pool-Aufrufe aus Blueprints je Aufrufer. `dump` schreibt die Zähler ins Spike-Log und setzt sie zurück, `stack` zählt Sounds mit `<Text>` im Pfad zusätzlich je Aufrufkette (RVAs). Vergleich Host gegen Client, siehe [Sound und Effekte beim Client](../../../docs/GAME_ANALYSIS.md#sound-und-effekte-beim-client-vfx-sound). Sounds, die C++ ohne `start` abspielt, und Effekte aus C++ fehlen |
 | `!arm` | Host | Schaltet die Umleitung der Reise scharf |
 | `!finish` | Host | Ruft `FinishMission` auf |
 | `!cheats` | Host | Legt einen `UDDCheatManager` an, danach wirken die `DD_`-Befehle des Spiels |

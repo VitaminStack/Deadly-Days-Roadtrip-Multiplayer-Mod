@@ -142,6 +142,7 @@ void EndRound(uint8_t Reason);
 // Trace.cpp
 void TraceCharacterRpcs();
 void TraceRunFlow();
+void FxCommand(const std::wstring& Args);
 
 // Load.cpp
 bool PatchLoad();
