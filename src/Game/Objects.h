@@ -13,6 +13,21 @@ uintptr_t At(int32_t Index);
 // Anzahl der Plätze im Objekt-Array.
 int32_t Count();
 
+// Gemerktes Objekt mit Platz und Serial im Objekt-Array, für Zeiger, die über Frames gehalten werden.
+struct Ref
+{
+    uintptr_t Object = 0;
+    int32_t Index = -1;
+    uint32_t Serial = 0;
+};
+
+// Ref auf Object, leer, wenn Object nicht (mehr) im Objekt-Array steht.
+Ref RefTo(uintptr_t Object);
+
+// Wahr, solange der Platz noch auf dasselbe, nicht abgebaute Objekt zeigt (Game::Patches::HeldObjectLive). Liest nur das
+// Objekt-Array und den Kopf des Objekts, nie Felder dahinter.
+bool IsLive(const Ref& Held);
+
 // Wahr, wenn die Klasse von Object ClassName heißt oder davon erbt.
 bool IsA(uintptr_t Object, std::string_view ClassName);
 

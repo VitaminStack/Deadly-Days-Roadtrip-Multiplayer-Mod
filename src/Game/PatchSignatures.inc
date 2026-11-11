@@ -71,6 +71,8 @@
 {0x05998D70, 0, "48 8B 83 B8 01 00 00 48 85 C0 74 ?? 0F 10 80 10 02 00 00 0F 11 45 E0 F2 0F 10 80 20 02 00 00", 0, "LootPawnRead"}, // PlayerPatches.cpp
 {0x05998D91, 0, "0F 10 05 ?? ?? ?? ?? 0F 11 45 E0 F2 0F 10 05 ?? ?? ?? ?? F2 0F 11 85 B8 00 00 00", 0, "LootNoRootTarget"}, // PlayerPatches.cpp
 {0x059AF200, 0, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 48 83 EC 30 48 8B F2 48 8B F9 E8 ?? ?? ?? ??", 0, "ItemLoot"}, // InventoryPatches.cpp
+{0x059AF3F0, 0, "48 89 5C 24 10 57 48 83 EC 20 48 8B 92 A8 00 00 00", 0, "LootBaseLoot"}, // InventoryPatches.cpp
+{0x059AF660, 0, "48 89 5C 24 10 48 89 6C 24 18 48 89 74 24 20 57 41 56 41 57 48 83 EC 20 48 8B FA", 0, "ScrapLoot"}, // InventoryPatches.cpp
 {0x059BBFC7, 0, "E8 ?? ?? ?? ?? 49 89 86 58 01 00 00 48 85 C0", 0, "AttributeLookupCallSite"}, // ClientPatches.cpp
 {0x059BC73A, 0, "48 8B 8D A0 00 00 00 48 33 CC E8 ?? ?? ?? ?? 4C 8D 9C 24 58 02 00 00 41 0F 28 73 E8 41 0F 28 7B D8 45 0F 28 43 C8 45 0F 28 4B B8 45 0F 28 53 A8 45 0F 28 5B 98 45 0F 28 63 88 45 0F 28 AB 78 FF FF FF 45 0F 28 B3 68 FF FF FF 45 0F 28 BB 58 FF FF FF 49 8B E3 41 5F 41 5E 41 5D 41 5C 5F 5E 5B 5D C3 CC CC CC CC 48 89 5C 24 10 48 89 6C 24 18 56 57", 0, "AttributeTickExit"}, // ClientPatches.cpp
 {0x059C7FC0, 0, "48 89 5C 24 10 48 89 74 24 20 55 57 41 56 48 8B EC 48 83 EC 60 48 8B F2", 0, "CanBusTakeOff"}, // ClientPatches.cpp

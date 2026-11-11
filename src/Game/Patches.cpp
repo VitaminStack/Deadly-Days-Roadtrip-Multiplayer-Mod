@@ -241,6 +241,8 @@ void Tick()
         { const GameThread::SlowScope Watch("Busbalken"); TickBusBar(Role); }
     if (ListOn(Widget))
         { const GameThread::SlowScope Watch("Lootbalken"); TickLootBar(Role); }
+    if (ListOn(Widget))
+        { const GameThread::SlowScope Watch("Blut"); TickBlood(Role); }
     if (ListOn(BodyPart))
         { const GameThread::SlowScope Watch("Körperteile"); TickBodyParts(Role); }
     if (ListOn(Camera))

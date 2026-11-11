@@ -61,6 +61,12 @@ void TickCamera(NetRole Role, bool Second);
 void TickBusBar(NetRole Role);
 // opt-lootbalken, Client: Fortschrittsbalken der Lootstellen aus dem replizierten Wert.
 void TickLootBar(NetRole Role);
+// opt-blut, Client: Blut und Fleisch beim Tod eines Gegners aus dem nativen Multi_OnDie.
+void TickBlood(NetRole Role);
+// opt-blut, Client: Weitere Anzeige beim Gegnertod (etwa opt-koerperteile) ohne eigenen ProcessEvent-Beobachter. Der Aufruf kommt
+// nach den nativen Tod-Effekten, auf dem Game Thread, nur fuer lebende Gegner. Zwei Plaetze.
+using EnemyDeathListener = void (*)(uintptr_t Enemy);
+bool AddEnemyDeathListener(EnemyDeathListener Listener);
 // opt-koerperteile, Client: Zerfall sterbender Gegner lokal aus dem replizierten Multi_OnDie.
 void TickBodyParts(NetRole Role);
 void TickWidgets(NetRole Role);

@@ -17,6 +17,12 @@ constexpr bool ItemLootMayGrant(uint8_t ActorRole, NetRole WorldRole)
     return ActorRole == 3 && WorldRole != NetRole::Client;
 }
 
+// opt-schrott-anzeige: Schrott aus einem Haufen bucht nur, wer das Konto führt. Beim Client kommt der Stand vom Host (0x309).
+constexpr bool ScrapLootMayCredit(NetRole WorldRole)
+{
+    return WorldRole != NetRole::Client;
+}
+
 // Nutzervorgabe 06.11.2026: Ein Itemsack zählt wie ein Airdrop für alle. Der Host gibt jedem anderen Spieler eine Kopie
 // jedes neuen Items, aber nur, wenn genau ein Inventar beim Aufsammeln etwas bekommen hat.
 constexpr bool ShareItemLoot(NetRole WorldRole, size_t Inventories, size_t GainedInventories)
@@ -251,6 +257,25 @@ constexpr bool ClientHoldsRoundEndConfirm(uint64_t End, uint64_t Done, uint64_t 
 constexpr bool ClientMayReleaseRoundEnd(uint64_t End, uint64_t HostStatusId, bool HostReady, bool ClientReadyEcho)
 {
     return HostStatusId != End || (HostReady && ClientReadyEcho);
+}
+
+// lager-bestaetigen-absturz: Ein gemerktes Objekt (zurückgehaltenes Panel, gelber Knopf) lebt nur, wenn sein Platz im
+// Objekt-Array noch auf genau diese Adresse zeigt, die Serial gleich blieb und weder interne noch Objekt-Flags es als
+// Müll, unerreichbar oder im Abbau melden. Flags am alten Speicher allein reichen nicht: Nach der Reise des Hosts lag dort
+// noch der Kopf des freigegebenen Panels. Serial 0 beim Merken heißt, das Spiel hatte noch keine vergeben.
+inline constexpr uint32_t GarbageOrUnreachableInternalFlags = 0x00200000u | 0x10000000u;
+inline constexpr uint32_t DeadObjectFlags = 0x30u | 0x8000u | 0x10000u; // wie Alive, dazu BeginDestroyed, FinishDestroyed
+constexpr bool HeldObjectLive(uintptr_t Held, uintptr_t InSlot, uint32_t SerialThen, uint32_t SerialNow, uint32_t InternalFlags,
+                              uint32_t ObjectFlags)
+{
+    return Held != 0 && InSlot == Held && (SerialThen == 0 || SerialNow == SerialThen) &&
+           !(InternalFlags & GarbageOrUnreachableInternalFlags) && !(ObjectFlags & DeadObjectFlags);
+}
+
+// Ein zurückgehaltenes Bestätigen nur in der Welt nachholen, in der es gedrückt wurde. Während der Reise ist die Welt 0.
+constexpr bool MayReplayHeldConfirm(bool PanelLive, uintptr_t HeldWorld, uintptr_t World)
+{
+    return PanelLive && HeldWorld != 0 && HeldWorld == World;
 }
 
 // Beim Client bleiben ablaufende statische Pfad-GUIDs erhalten, keine dynamischen, NoLoad- oder kaputten Einträge.
