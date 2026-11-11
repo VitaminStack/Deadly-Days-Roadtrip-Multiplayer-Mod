@@ -70,6 +70,7 @@
     <ClCompile Include="MapPatches.cpp" />
     <ClCompile Include="BusBarPatches.cpp" />
     <ClCompile Include="LootBarPatches.cpp" />
+    <ClCompile Include="BloodPatches.cpp" />
     <ClCompile Include="CharacterPatches.cpp" />
     <ClCompile Include="TravelPatches.cpp" />
     <ClCompile Include="WidgetPatches.cpp" />
@@ -120,6 +121,7 @@
     <ClInclude Include="TelemetryAdapter.h" />
     <ClInclude Include="BossBarAdapter.h" />
     <ClInclude Include="BossBarPolicy.h" />
+    <ClInclude Include="BloodPolicy.h" />
     <ClInclude Include="TutorialAdapter.h" />
     <ClInclude Include="PauseAdapter.h" />
     <ClInclude Include="WorldAdapter.h" />
