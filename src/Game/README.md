@@ -600,10 +600,13 @@ des Zurück-Knopfs, `HandleConfirmButton`, `UpgradeItems`). Dazu Unit-Tests (`te
   sich die Auswahl beim Client mit drei Choices.
 - **Gegenprobe Lager:** Am Rundenende Aufwertung zweier Pistolen im Lager, Edit übernommen, Inventare gleich. Die Rundenübersicht
   ließ sich ohne Klick nicht verlassen, das gemeinsame Bestätigen bis zur Reise ist darum nicht erneut geprüft.
-- **Pause:** In keinem Lauf pausierte die Welt beim Öffnen des Händlers, beim Kauf oder im Inventar danach.
+- **Kauf während der Pause des Hosts:** Öffnet der Host seinen Händler, pausiert die Welt nativ für beide. Der Client kaufte
+  währenddessen an seinem schon offenen Händler (54), der Host übernahm und buchte (148 zu 94), `inventory.py` war noch in der Pause
+  vollständig und gleich. Öffnet nur der Client den Händler, pausiert nichts.
 
 **Nicht geprüft:** Ablegen des gekauften Items per Drag, das Rezept-Panel von Hand, Wahl in der Airdrop-Auswahl nach einem Kauf, zwei
-PCs mit echtem Ping, ein echter Run mit Händler-Knoten. Bekannt: Direkt nach der Übernahme zeigt der Client für einen Augenblick noch
+PCs mit echtem Ping, ein echter Run mit Händler-Knoten. Die Wartezeit bis zur Replikation (`ClientSettling`) griff in keinem Lauf, die
+Replikation war jedes Mal schneller als der nächste Kauf; der Zweig ist also nur gelesen, nicht im Spiel gesehen. Bekannt: Direkt nach der Übernahme zeigt der Client für einen Augenblick noch
 den alten Schrott des Hosts, bevor der neue Stand kommt.
 
 ### Itemsack für alle Spieler
