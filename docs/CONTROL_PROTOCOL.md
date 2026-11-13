@@ -290,6 +290,15 @@ Betrag höchstens 1e7), also genau 1 + 25 × Anzahl Bytes. NaN, Unendlich und an
 jedem Takt ab und ruft für jedes noch lebende, auflösbare Ziel den nativen Handler seines eigenen Controllers. Ein verlorenes Paket
 heißt nur fehlende Zahlen, keine Wiederholung, keine Antwort.
 
+Seit `opt-schadenszahlen-verlust` (13.11.2026, Format und Mod-Version unverändert) wertet der Client `0xA00` auch im Sammelabruf alle
+250 ms aus: Eine Nachricht, die nach dem eigenen Abruf im selben Takt ankam, nahm sonst der Sammelabruf mit, und dort verfiel sie
+ungezählt. Das gilt für jeden Typ, der einzeln abgeholt wird (`0x900` macht es genauso). Die Revision zählt der Host je angenommener
+Nachricht um 1 hoch; der Client zählt daran fehlende Nachrichten, er fordert nichts nach. Zähler im Mod-Log: beim Host „übergeben“,
+„gesendet“ (nur von `SendControl` angenommene), „Senden abgelehnt“, „ohne Mitspieler“, „Paket ungültig“; beim Client „im
+Sammelabruf“, „Nachricht unlesbar“, „Nachrichten fehlen“, „falsche Rolle“. Die Transport-Zeile nennt den höchsten Füllstand beider
+Warteschlangen des Kontrollkanals (Grenze 128) und wegen voller Warteschlange abgelehnte Nachrichten. Befund in
+[GAME_ANALYSIS.md](GAME_ANALYSIS.md#verlorene-schadenszahlen-opt-schadenszahlen-verlust).
+
 ## Bisher geprüft (05.11.2026, Kontrollkanal vor Diagnoseerweiterung)
 
 - Build und alle Tests bestanden, darunter 24 Net-Testfälle: binäre UE-Pakete in

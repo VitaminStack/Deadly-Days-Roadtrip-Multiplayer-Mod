@@ -298,7 +298,7 @@ Aufgabe `airdrop-auswahl`, Ablauf in [Airdrop-Auswahl](GAME_ANALYSIS.md#airdrop-
 | `UObject.InternalIndex` | `+0x0C` | Platz im Objekt-Array; `Objects::RefTo`/`IsLive` vergleichen ihn mit `FUObjectItem.Object` |
 | `InventoryPanel.SetupInventory` | `0x5A8BAB0` | liest `InventoryComponent` bei `+0x370`; positioniert aus `InventoryItemInstance.CachedBackpackLocalPosition` (`+0x150`, FVector2D, nicht repliziert) |
 | `DefaultFocusableButton.ParentPanel` | `+0x3A8` | Panel des Knopfs (UUserWidget); der Bestätigen-Knopf des Inventar-Panels heißt `MainButton`, gefärbt über `UserWidget.SetColorAndOpacity` (`bestaetigen-alle`) |
-| `InventoryPanel.SnapRepresentationToTile` | `0x5A92030` | richtet UI und Pixelpositions-Cache aus einem Pivot-Feld aus; reflektierte Parameter: ItemRepresentation `+0`, FIntVector2 `+8`, CanvasPanel `+0x10`, Größe `0x18` |
+| `InventoryPanel.SnapRepresentationToTile` | `0x5A92030` (Build `26495302`: `0x5A96EF0`, Aufrufer `0x5A6A23A`, `0x5A8105E`, Exec-Thunk `0x571C283`) | richtet UI und Pixelpositions-Cache aus einem Pivot-Feld aus; reflektierte Parameter: ItemRepresentation `+0`, FIntVector2 `+8`, CanvasPanel `+0x10`, Größe `0x18` |
 | `UItemRepresentation`, Größe aus der Itemform | `0x5AB5120` | `void(this)`; liest `ItemInstance` (`+0xA28`), davon `ItemData` (`+0xE0`) und Form (`+0xE8`) ohne Prüfung, setzt die Größe des Canvas-Slots (`+0x30`) auf je 66 px minus 3; neun direkte Aufrufer. Hook in `InventoryPatches.cpp` (`lager-absturz-client`) |
 | `InventoryItemInstance.SetZeroPivotTile` | `0x5979ED0` | schreibt ausschließlich `+0x28`; berechnet den Pixelpositions-Cache nicht neu |
 | `InventoryComponent::CreateItemInstance` | `0x5959700` | `(this, ItemData, FlagAsNew, Rarity)`, nativ; UFunction `BlueprintAuthorityOnly` |
@@ -781,6 +781,23 @@ Build `26495302`, [Befund](GAME_ANALYSIS.md#laufanimation-beim-client-opt-laufan
 | `UPlayerAnimationVelocityProvider` (0xF8 Byte) | Schalter „manuell“ `0xC0` (bool), gemessenes Tempo `0xC8` (FVector), letzter Ort `0xE0` (FVector); Owner `0xA8` |
 | RVA `0x5848450` | natives `UPlayerAnimationVelocityProvider::GetVelocity`: manuell → `+0xC8`, sonst `Owner->GetVelocity()` (vtable `+0x340`); gerufen nur vom Exec-Thunk `0x5770E80`, vom Richtungs-Mesh (`0x586BF17`) und vom Wackeln (`0x5B1BF2B`) |
 | RVA `0x5857890` | natives `SetManualTrackingActive`: setzt `+0xC0`, `+0xE0` = Ort der Root-Komponente (`+0x210`), dann vtable `+0x410`; einziger Aufrufer ist der Exec-Thunk `0x57761F0` |
+
+## Schuss-Animation (`opt-schuss-animation`)
+
+Build `26495302`, SDK, im Spieltest vom 13.11.2026 gelesen ([Befund](GAME_ANALYSIS.md#schuss-animation-und-geisterwaffen-opt-schuss-animation)).
+Das SDK stammt vom Vorgänger-Build; die Werte unten lieferten im Spiel plausible Listen, Klassen und Namen.
+
+| Stelle | Wert |
+|---|---|
+| `AHands` | `InnerRotationContainer` `0x2C8`, `AutoFire` `0x378` (Net), `ChildActorComponents` `0x3A0`, `CurrentRangedWeapons` `0x3B0`, `CurrentMeleeWeapons` `0x3C0` (alle drei Listen beim Client leer) |
+| `ADDCharacter` | `EquippedWeapons` `0x7B8` (nicht repliziert) |
+| `UWeaponInstanceBase` | `InventoryItemInstance` (weak) `0x38`, `WeaponData` `0x40`, `ChildActorComponent` `0x50`, `WeaponActor` `0x58` |
+| `UInventoryComponent` | `MyItems` `0x120`, `CharacterReference` `0x220`, `WeaponLookup` (TMap Item → Waffeninstanz, Element 0x18) `0x238` |
+| `UChildActorComponent` | `ChildActor` `0x258` (Net) |
+| `USceneComponent` | `AttachParent` `0xD0`, `AttachSocketName` `0xD8`, `AttachChildren` `0xE8`, `RelativeLocation`/`Rotation`/`Scale3D` `0x148`/`0x160`/`0x178`, `bVisible` `0x1A8` Bit 5, `bHiddenInGame` `0x1A9` Bit 3, `ComponentToWorld.Translation` `0x210` |
+| `UDDCharacterAttributeSet` | `ExtraHands` `0x100` (`BaseValue` `+0x8`, `CurrentValue` `+0xC`) |
+| `InventoryPanel.UpgradeDroppedItem` | `0x5A9D370`, Exec-Thunk `0x571E400`; ruft `UpgradeItems` (`0x5984CD0`) bei `0x5A9D71E` |
+| Exec-Thunks | `RemoveFromBackpack` `0x5718980`, `UnoccupyBackpackSlots` `0x56627D0`, `RemoveEquippedWeapon` `0x56C6F80` (Implementierung `0x581C860`), `AddEquippedWeapon` `0x56B9050` (`0x57FE920`) |
 
 ## Charakterwahl (`charakter-wahl`)
 
