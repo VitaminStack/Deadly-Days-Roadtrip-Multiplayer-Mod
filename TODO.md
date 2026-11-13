@@ -52,7 +52,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `opt-portraet` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
 | `opt-rucksack-ueberlappung` | P2 | [Optional](#optionale-optimierungen) | parallel | mittel |
 | `opt-rundenstempel` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
-| `opt-schuss-animation` | P2 | [Optional](#optionale-optimierungen) | parallel | mittel |
 | `opt-tempo-upgrades` | P2 | [Optional](#optionale-optimierungen) | parallel | mittel |
 | `opt-waffen-hover` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
 | `opt-waffen-sound` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
@@ -61,7 +60,7 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 
 **Wartet auf das Team:** nichts.
 
-**Bestätigungstest ausstehend (nicht in Arbeit):** `fortschritt`, `lager-handel-client`, `opt-blut`, `opt-airdrop-uebertrag`.
+**Bestätigungstest ausstehend (nicht in Arbeit):** `fortschritt`, `lager-handel-client`, `opt-blut`, `opt-airdrop-uebertrag`, `opt-schuss-animation`.
 <!-- frei:end -->
 
 **Nicht erneut machen.** Das ist erledigt und dokumentiert:
