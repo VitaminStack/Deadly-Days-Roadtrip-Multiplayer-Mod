@@ -1,5 +1,5 @@
 @echo off
-rem Installiert die Coop-Mod. Doppelklick genuegt, Bypass gilt nur fuer diesen einen Aufruf.
+rem Installs the co-op mod. Double-click is enough; the bypass applies to this one call only.
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0Install-DDCoop.ps1" %*
-if errorlevel 1 (echo. & echo Installation abgebrochen, siehe Meldung oben.)
+if errorlevel 1 (echo. & echo Installation aborted, see message above.)
 pause

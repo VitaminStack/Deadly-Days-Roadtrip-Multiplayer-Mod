@@ -1,56 +1,38 @@
 # Deadly Days: Roadtrip – Online Multiplayer Mod
 
-Fan-Mod, die echtes Online-Coop für **Deadly Days: Roadtrip** ermöglichen soll. Das Spiel selbst bietet nur lokales
-Couch-Coop, online also nur über Steam Remote Play, bei dem der Host das Bild streamt. Mit der Mod läuft das Spiel bei
-jedem Spieler selbst.
-
-*English summary: [see below](#english).*
-
-**Stand (08.11.2026):** Experimentell, noch kein Download für Spieler. **Gate G2 ist seit dem 07.11.2026 bestanden:** Zwei PCs aus verschiedenen Haushalten spielten über die Steam-Lobby mindestens zehn Minuten dieselbe Mission auf Build `26495302`, ohne Absturz oder dauerhaften Desync ([Testbericht](docs/GAME_ANALYSIS.md#gate-g2-auf-zwei-pcs-am-07112026-integration-g2)). Bewegung, Kampf, Airdrops und Rundenenden funktionieren in dokumentierten Teiltests. **Ein vollständiger Run ist noch nicht abgenommen**; insbesondere Fortschritt, Tagesablauf, Client-Inventarabweichung und Run-Ende bleiben offen (siehe [Phase 5](TODO.md#phase-5--vollständiger-run)).
-
-**Mitmachen:** Jeder kann mitarbeiten, auch ohne Einladung, etwa bei C++, Reverse Engineering, Tests zu zweit oder der Doku.
-Der Einstieg steht unter [Für neue Mitwirkende](#für-neue-mitwirkende), freie Aufgaben unter [Wo kann ich anfangen?](TODO.md#wo-kann-ich-anfangen).
-
-Was im Einzelnen noch offen ist, zeigt die [Roadmap als Graph](docs/ROADMAP.md).
-
-| | |
-|---|---|
-| Spiel | Deadly Days: Roadtrip (Steam-AppID `3026450`) |
-| Engine | Unreal Engine 5.8, interner Projektname `DDSurvivors` |
-| Zielbild | 2 Spieler online, Host-autoritativ, jeder mit eigener Spielkopie |
-| Technik | Native C++-DLL (Dumper-7-SDK + Hooks), siehe [Architektur](docs/ARCHITECTURE.md) |
-
-## English
-
 Fan mod that adds real online co-op to **Deadly Days: Roadtrip**. The game itself only offers local couch co-op, so playing
 online currently means Steam Remote Play, where the host streams the picture. With this mod every player runs the game on
 their own PC.
 
-**Status (8 Nov 2026):** Experimental, no public download yet. **Gate G2 passed on 7 Nov 2026:** Two PCs in separate households played the same mission through a Steam lobby for at least ten minutes on game build `26495302`, without crashes or persistent desync ([test report](docs/GAME_ANALYSIS.md#gate-g2-auf-zwei-pcs-am-07112026-integration-g2)). Movement, combat, rewards and round transitions have also been exercised in individual tests. **A complete cooperative run is not yet verified**; progression, the day cycle, client inventory divergence and run completion remain open (see [Phase 5](TODO.md#phase-5--vollständiger-run)).
+**Status (8 Nov 2026):** Experimental, no public download yet. **Gate G2 passed on 7 Nov 2026:** Two PCs in separate households played the same mission through a Steam lobby for at least ten minutes on game build `26495302`, without crashes or persistent desync ([test report](docs/GAME_ANALYSIS.md#gate-g2-auf-zwei-pcs-am-07112026-integration-g2)). Movement, combat, airdrops and round transitions work in documented partial tests. **A complete run is not yet verified**; in particular progression, the day cycle, client inventory divergence and run completion remain open (see [Phase 5](TODO.md#phase-5--vollständiger-run)).
 
-**Contributing:** Anyone can help, no invitation needed: C++, reverse engineering, testing with two players, or docs. Fork the
-repo and open a pull request. For bigger changes please open an issue first. Docs and the task list are written in German,
-but issues and pull requests in English are welcome. Start with [docs/SETUP.md](docs/SETUP.md), then pick a free task from
-[TODO.md](TODO.md#wo-kann-ich-anfangen) (`py tools/tasks.py list`).
+**Contributing:** Anyone can help, no invitation needed: C++, reverse engineering, testing with two players, or docs.
+Start with [For new contributors](#for-new-contributors), free tasks are listed under [Where can I start?](TODO.md#wo-kann-ich-anfangen). Docs and the task list are written in German, but issues and pull requests in English are welcome. Fork the repo and open a pull request; for bigger changes please open an issue first.
 
-**Legal:** Unofficial fan project, not affiliated with Pixelsplit or the publisher. Every player needs their own copy of the
-game. The code is under the [MIT License](LICENSE). Game files are never part of this repo.
+The [roadmap graph](docs/ROADMAP.md) shows what is still open.
 
-## Fortschritt
+| | |
+|---|---|
+| Game | Deadly Days: Roadtrip (Steam AppID `3026450`) |
+| Engine | Unreal Engine 5.8, internal project name `DDSurvivors` |
+| Target | 2 players online, host-authoritative, each with their own game copy |
+| Tech | Native C++ DLL (Dumper-7 SDK + hooks), see [architecture](docs/ARCHITECTURE.md) |
 
-Stand: 08.11.2026.
+## Progress
 
-Gezählt sind die Aufgaben je Phase aus [TODO.md](TODO.md), ohne Wartung, optionale Optimierungen und Real Coop logic.
+As of 08 Nov 2026.
 
-Erledigt ist, was in `TODO.md` unter „Erledigt“ steht. **Vollständig abgeschlossene Phasen sind grün hinterlegt.** `py tools/task_status.py update` aktualisiert Grafik und Texttabelle; `py tools/task_status.py check` und die CI verhindern abweichende Angaben. Reservierungen und PRs ändern den Abschlussstatus nicht.
+Tasks are counted per phase from [TODO.md](TODO.md), excluding maintenance, optional optimizations and Real Coop logic.
 
-![Projektfortschritt je Phase; vollständig abgeschlossene Phasen sind grün hinterlegt.](docs/assets/progress.svg)
+Done means listed under "Erledigt" in `TODO.md`. **Fully completed phases are highlighted green.** `py tools/task_status.py update` refreshes the graphic and the text table; `py tools/task_status.py check` and CI prevent mismatches. Claims and PRs do not change completion status.
+
+![Project progress per phase; fully completed phases are highlighted green.](docs/assets/progress.svg)
 
 <details>
-<summary>Fortschritt als Texttabelle mit Links zu den Phasen</summary>
+<summary>Progress as text table with links to the phases</summary>
 
 
-| Phase | Ziel | Erledigt | Fortschritt |
+| Phase | Goal | Done | Progress |
 |---|---|---|---|
 | [0](TODO.md#phase-0--projekt-setup) | Gleiche Toolchain für alle | 11 von 11 | ███████████ |
 | [1](TODO.md#phase-1--analyse-und-spikes) | Fakten für Gate G1 | 39 von 39 | ███████████ |
@@ -63,62 +45,66 @@ Erledigt ist, was in `TODO.md` unter „Erledigt“ steht. **Vollständig abgesc
 
 </details>
 
-Unter `src/` stehen Loader, Core, die Netzschicht über Steam, ein im Spiel geprüftes [Mod-Overlay](src/UI/README.md) und die
-[Game-Adapter-Schicht](src/Game/README.md) mit den Eingriffen für den Coop. Die Punkte sind unterschiedlich groß, die Zahlen sagen also wenig über die verbleibende Zeit. Stand, Engpässe und nächste Schritte stehen in der [Roadmap](docs/ROADMAP.md#stand-und-nächste-schritte).
+`src/` holds the loader, core, the Steam network layer, an in-game tested [mod overlay](src/UI/README.md) and the
+[game adapter layer](src/Game/README.md) with the co-op patches. Tasks differ in size, so the numbers say little about the remaining time. Status, bottlenecks and next steps are in the [roadmap](docs/ROADMAP.md#stand-und-nächste-schritte).
 
-## Wo finde ich was?
+## Install (players)
 
-| Dokument | Inhalt |
+No public release yet. Once there is one, the package `DDCoop-<version>.zip` is installed by extracting it and double-clicking `Install.cmd`; see the [installation guide](docs/INSTALL.md) (requirements, uninstall, error messages, antivirus notes).
+
+## Where to find what
+
+| Document | Content |
 |---|---|
-| [TODO.md](TODO.md) | Roadmap, Phasen, Gates und offene Aufgaben |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | Graph: Was bis zur fertigen Mod noch offen ist |
-| [docs/GAME_ANALYSIS.md](docs/GAME_ANALYSIS.md) | Was wir über das Spiel wissen, mit Belegen und Vertrauensgrad |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Technische Optionen, Entscheidungen, Modulgrenzen |
-| [docs/OFFSETS.md](docs/OFFSETS.md) | Offsets und Funktionsadressen des unterstützten Builds |
-| [docs/SETUP.md](docs/SETUP.md) | Entwicklungsumgebung einrichten |
-| [docs/TESTING.md](docs/TESTING.md) | Zwei Instanzen starten, Abstürze auswerten, Ergebnisse festhalten |
-| [research/spikes/a-connect/](research/spikes/a-connect/README.md) | Stand des Spikes, Patches, gescheiterte Ansätze |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Zusammenarbeit: Branches, PRs, Regeln für das Repo |
-| [CLAUDE.md](CLAUDE.md) | Arbeitsregeln für KI-Agenten, auch über [AGENTS.md](AGENTS.md) erreichbar |
+| [TODO.md](TODO.md) | Roadmap, phases, gates and open tasks |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | Graph: what is still open until the mod is finished |
+| [docs/GAME_ANALYSIS.md](docs/GAME_ANALYSIS.md) | What we know about the game, with evidence and confidence |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Technical options, decisions, module boundaries |
+| [docs/OFFSETS.md](docs/OFFSETS.md) | Offsets and function addresses of the supported build |
+| [docs/SETUP.md](docs/SETUP.md) | Setting up the development environment |
+| [docs/TESTING.md](docs/TESTING.md) | Starting two instances, analyzing crashes, recording results |
+| [research/spikes/a-connect/](research/spikes/a-connect/README.md) | Spike status, patches, failed approaches |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Collaboration: branches, PRs, repo rules |
+| [CLAUDE.md](CLAUDE.md) | Working rules for AI agents, also reachable via [AGENTS.md](AGENTS.md) |
 
-## Projektstruktur
+## Project structure
 
 ```text
 .
-├─ README.md               Einstieg
-├─ TODO.md                 Roadmap und Aufgaben
-├─ CONTRIBUTING.md         Regeln für die Zusammenarbeit
-├─ .github/                PR- und Issue-Vorlagen
-├─ config/                 Vorlage für lokale Pfade (Local.props bleibt lokal)
-├─ docs/                   Analyse, Architektur, Setup
-├─ research/               Eigene RE-Notizen, Hook-Listen, Spike-Ergebnisse
+├─ README.md               Entry point
+├─ TODO.md                 Roadmap and tasks
+├─ CONTRIBUTING.md         Collaboration rules
+├─ .github/                PR and issue templates
+├─ config/                 Template for local paths (Local.props stays local)
+├─ docs/                   Analysis, architecture, setup
+├─ research/               Own RE notes, hook lists, spike results
 ├─ src/
-│  ├─ Loader/              Proxy-DLL, lädt die Mod ins Spiel
-│  ├─ Core/                Logging, Config, Hooks, Game-Thread-Dispatcher
-│  ├─ Net/                 Transport, Steam-Lobby, Session, Handshake
-│  ├─ Game/                Adapter auf Spielklassen (einziger Ort mit SDK-Zugriff)
-│  ├─ Sync/                Spiellogik-Synchronisierung
-│  └─ UI/                  Lobby-Overlay, Statusanzeige
-├─ tests/                  Tests für Code ohne Spielabhängigkeit
-├─ third_party/            Abhängigkeiten (Hinweise, siehe README dort)
-└─ tools/                  Skripte (Spike bauen und testen, später Deploy)
+│  ├─ Loader/              Proxy DLL, loads the mod into the game
+│  ├─ Core/                Logging, config, hooks, game-thread dispatcher
+│  ├─ Net/                 Transport, Steam lobby, session, handshake
+│  ├─ Game/                Adapter to game classes (only place with SDK access)
+│  ├─ Sync/                Game logic synchronization
+│  └─ UI/                  Lobby overlay, status display
+├─ tests/                  Tests for code without game dependency
+├─ third_party/            Dependencies (notes, see README there)
+└─ tools/                  Scripts (build and test the spike, later deploy)
 ```
 
-Jedes Modul unter `src/` hat eine eigene `README.md` mit Aufgabe und Grenzen. So kann das Team parallel arbeiten, ohne
-sich gegenseitig in dieselben Dateien zu schreiben (siehe [CONTRIBUTING.md](CONTRIBUTING.md)).
+Each module under `src/` has its own `README.md` with its purpose and limits, so the team can work in parallel without
+writing into the same files (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 
-## Für neue Mitwirkende
+## For new contributors
 
-Die bisherige Analyse muss niemand wiederholen. Ergebnisse, Offsets, Patches und Testskripte liegen im Repo.
+Nobody has to repeat the analysis so far. Results, offsets, patches and test scripts are in the repo.
 
-1. Spiel in Steam installieren und auf die [unterstützte Version](docs/GAME_ANALYSIS.md#unterstützte-spielversion) bringen.
-2. [docs/SETUP.md](docs/SETUP.md) durcharbeiten: einrichten, mit `tools/Test-Setup.ps1` prüfen, Solution bauen, Tests ausführen.
-3. Eine Testsitzung nach [docs/TESTING.md](docs/TESTING.md) starten, dann läuft der aktuelle Stand bei dir.
-4. [CONTRIBUTING.md](CONTRIBUTING.md) lesen und eine Aufgabe aus [Wo kann ich anfangen?](TODO.md#wo-kann-ich-anfangen) nehmen.
+1. Install the game in Steam and bring it to the [supported version](docs/GAME_ANALYSIS.md#unterstützte-spielversion).
+2. Work through [docs/SETUP.md](docs/SETUP.md): set up, check with `tools/Test-Setup.ps1`, build the solution, run the tests.
+3. Start a test session as described in [docs/TESTING.md](docs/TESTING.md); then the current state runs on your machine.
+4. Read [CONTRIBUTING.md](CONTRIBUTING.md) and pick a task from [Where can I start?](TODO.md#wo-kann-ich-anfangen).
 
-## Rechtliches
+## Legal
 
-Dies ist ein inoffizielles Fan-Projekt ohne Verbindung zu Pixelsplit oder dem Publisher. Jeder Spieler braucht eine
-eigene Kopie des Spiels. Der Code dieses Projekts steht unter der [MIT-Lizenz](LICENSE), das gilt nicht für das Spiel selbst.
-Spieldateien, entpackte Assets und generierte SDKs gehören **nicht** ins Repo
-(siehe [CONTRIBUTING.md](CONTRIBUTING.md#was-nie-ins-repo-darf)).
+Unofficial fan project, not affiliated with Pixelsplit or the publisher. Every player needs their own copy of the
+game. The code is under the [MIT License](LICENSE), which does not cover the game itself.
+Game files, extracted assets and generated SDKs are **not** part of this repo
+(see [CONTRIBUTING.md](CONTRIBUTING.md#was-nie-ins-repo-darf)).

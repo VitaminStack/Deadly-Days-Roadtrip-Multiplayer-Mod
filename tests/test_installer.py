@@ -114,7 +114,7 @@ class InstallerTests(unittest.TestCase):
     def test_foreign_version_dll_untouched(self):
         (self.win64 / 'version.dll').write_bytes(b'MZ other mod')
         for args in ((), ('-Uninstall',)):
-            self.assert_failed(self.install(*args), 'Fremde version.dll')
+            self.assert_failed(self.install(*args), 'Foreign version.dll')
             self.assertEqual((self.win64 / 'version.dll').read_bytes(), b'MZ other mod')
         self.assertFalse((self.win64 / 'DDCoop').exists())
 
@@ -128,30 +128,30 @@ class InstallerTests(unittest.TestCase):
 
     def test_wrong_build_rejected(self):
         self.write_manifest('99999999')
-        self.assert_failed(self.install(), 'Spiel-Build 99999999')
+        self.assert_failed(self.install(), 'Game build 99999999')
         self.assertFalse((self.win64 / 'version.dll').exists())
 
     def test_explicit_game_dir_without_manifest_rejected(self):
         (self.library / f'steamapps/appmanifest_{APP_ID}.acf').unlink()
         result = run_ps(INSTALLER, '-GameDir', str(self.game), '-Source', str(self.source), '-GameProcess', NO_PROCESS)
-        self.assert_failed(result, 'Steam-Manifest nicht gefunden')
+        self.assert_failed(result, 'Steam manifest not found')
         self.assertFalse((self.win64 / 'version.dll').exists())
 
     def test_running_game_blocks_install(self):
         # Der Test selbst laeuft in PowerShell, also gibt es diesen Prozess sicher.
         result = run_ps(INSTALLER, '-SteamPath', str(self.steam), '-Source', str(self.source),
                         '-GameProcess', Path(POWERSHELL).stem)
-        self.assert_failed(result, 'Das Spiel laeuft')
+        self.assert_failed(result, 'The game is running')
         self.assertFalse((self.win64 / 'version.dll').exists())
 
     def test_foreign_loader_in_package_rejected(self):
         (self.source / 'version.dll').write_bytes(b'MZ not ours')
-        self.assert_failed(self.install(), 'nicht der Loader')
+        self.assert_failed(self.install(), 'not the loader')
         self.assertFalse((self.win64 / 'version.dll').exists())
 
     def test_missing_game_reported(self):
         (self.library / f'steamapps/appmanifest_{APP_ID}.acf').unlink()
-        self.assert_failed(self.install(), 'in keiner Steam-Bibliothek')
+        self.assert_failed(self.install(), 'not found in any Steam library')
 
 
 @unittest.skipUnless(POWERSHELL, 'PowerShell fehlt')
