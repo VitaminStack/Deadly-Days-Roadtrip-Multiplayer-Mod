@@ -2273,8 +2273,9 @@ zuletzt 5 s vor dem zehnten Rundenende); Sound wurde gehört, nicht gezählt.
 
 ### Händler und Werkbank im Händler-Event (`opt-haendler-client`, `opt-werkbank-station`)
 
-Ausgewertet am 13.11.2026: Code der Mod, die Exe des Builds `26495302` und die Logs beider Seiten aus `livetest-1311`. **Kein eigener
-Spieltest**, die Folgerungen aus den Logs sind als Vermutung gekennzeichnet.
+Ausgewertet am 13.11.2026: Code der Mod, die Exe des Builds `26495302`, die Logs beider Seiten aus `livetest-1311` und ein Spieltest
+auf einem PC (Lobby, Godmode, Händler-Event über `DDCOOP_TEST_MAP_PROFILE` direkt aus der MetaBase, also ohne laufenden Run; bedient
+ohne Maus und Tastatur über die Spike-Befehle `!shop …` und den Trace `DDCOOP_TRACE_INVENTORY`).
 
 - **[Belegt, Code] „POI-Betreten der Remote-Figur beim Host übergangen“ ist Absicht.** Der Händler ist ein `BP_MetaBase_POI_C`. Sein
   Panel ist lokale UI, der Client öffnet es bei sich selbst; beim Host liefe das Betreten mit dem Remote-Controller ohne `LocalPlayer`
@@ -2288,9 +2289,22 @@ Spieltest**, die Folgerungen aus den Logs sind als Vermutung gekennzeichnet.
   `InventoryPanel.ConfirmAllStagedIngredients`. Im Händler-Event gibt es kein Rundenende, darum begann keine lokale Bearbeitung und
   `UpgradeItems` lief nativ; dessen `AddToInventory` der Ausgabe ist die vierte verworfene Meldung beim Host (zeitgleich im Log).
 - **[Vermutung, Logs] Die Pause ist nativ und kommt auch vom Client.** Beim Host beginnt `Pauser true` zweimal wenige Millisekunden nach
-  einem Kauf des Clients, einmal während eigener Käufe des Hosts (sein Schrott sinkt). Das Inventar-Panel, das nach einem Kauf aufgeht,
-  pausiert demnach die Welt für beide, gleich wer es öffnet; `AWorldSettings` repliziert den Pauser. Wer währenddessen nicht selbst am
-  Händler steht, kann sich nicht bewegen; ein schon offenes Panel bleibt bedienbar. Nicht im Spiel nachgestellt.
+  einem Kauf des Clients, einmal während eigener Käufe des Hosts (sein Schrott sinkt). `AWorldSettings` repliziert den Pauser, die Mod
+  setzt ihn hier nicht. **[Belegt, Spieltest] Nicht nachgestellt:** Im Test pausierte die Welt weder beim Öffnen des Händlers noch beim
+  Kauf noch im Inventar-Panel danach. Der Test lief ohne Run und über Funktionsaufrufe statt Klicks; was im Live-Test die Pause
+  auslöste, ist damit offen. Die Mod ändert an der Pause nichts.
+- **[Belegt, Spieltest] Ablauf beim Händler.** Betritt die Figur den POI (`BP_Event_POI_C`), öffnet sich das Händler-Panel
+  (`WI_MerchantPanel_C`) beim Client, beim ersten Besuch mit einem Dialog davor. Es schließt nicht, wenn die Figur den POI verlässt.
+  Der Zurück-Knopf öffnet das Inventar-Panel mit „Bestätigen“; erst dieses Bestätigen beendet den Besuch. Das Händler-Panel bekommt
+  dabei nur Ereignisse seines Blueprints, nie `UAbstractPanel.OnOpenStateChanged(false)`. Das Feld `AnimationContainer` der Basisklasse
+  ist bei Händler- und Inventar-Panel leer.
+- **[Belegt, Spieltest] Angebot und Preise.** Jede Seite würfelt ihr Angebot selbst, bei jedem Start anders (sechs Plätze). Gesehene
+  Preise gegen den Verkaufspreis beim Host (`GetBaseSellPrice`): Messer gewöhnlich 15 und 16 zu 8, Ratte ungewöhnlich 23 zu 12,
+  Luftpumpe ungewöhnlich 23 und 24 zu 12, Pistole ungewöhnlich 22 zu 12, Feuerzeug episch im Angebot 28 zu 24 (sonst 55). Der Kaufpreis
+  lag immer über dem Verkaufspreis, beim rabattierten Feuerzeug knapp.
+- **[Belegt, Spieltest] `UpgradeItems` räumt Rucksackfelder nicht frei.** Die Funktion nimmt die Eingaben aus Rucksack und Inventar,
+  ruft aber kein `UnoccupyBackpackSlots`; das macht sonst das Panel. Beim Host blieb darum das Feld einer verbrauchten Rucksack-Pistole
+  von einem zerstörten Item belegt, wenn die Ausgabe woanders landete. Behoben in `opt-werkbank-station`.
 - **[Belegt] Die lokalen SDK-Dumps stammen noch von Build `26187885`.** Funktionsadressen daraus gelten für `26495302` nicht; die
   Adressen hier stammen aus den Namenstabellen der Exe dieses Builds.
 
