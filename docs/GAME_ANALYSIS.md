@@ -2288,11 +2288,13 @@ ohne Maus und Tastatur über die Spike-Befehle `!shop …` und den Trace `DDCOOP
 - **[Belegt, Exe] Die „Werkbank“ ist das Rezept-Panel im Inventar-Panel.** Der Aufrufer aus dem Client-Log liegt in
   `InventoryPanel.ConfirmAllStagedIngredients`. Im Händler-Event gibt es kein Rundenende, darum begann keine lokale Bearbeitung und
   `UpgradeItems` lief nativ; dessen `AddToInventory` der Ausgabe ist die vierte verworfene Meldung beim Host (zeitgleich im Log).
-- **[Vermutung, Logs] Die Pause ist nativ und kommt auch vom Client.** Beim Host beginnt `Pauser true` zweimal wenige Millisekunden nach
-  einem Kauf des Clients, einmal während eigener Käufe des Hosts (sein Schrott sinkt). `AWorldSettings` repliziert den Pauser, die Mod
-  setzt ihn hier nicht. **[Belegt, Spieltest] Nicht nachgestellt:** Im Test pausierte die Welt weder beim Öffnen des Händlers noch beim
-  Kauf noch im Inventar-Panel danach. Der Test lief ohne Run und über Funktionsaufrufe statt Klicks; was im Live-Test die Pause
-  auslöste, ist damit offen. Die Mod ändert an der Pause nichts.
+- **[Belegt, Spieltest] Die Pause ist nativ und kommt vom Host.** Das Händler-Panel pausiert, solange es offen ist
+  (`PauseGameWhileOpen`), über `AWorldSettings.PauserPlayerState`. Den Pauser kann nur der Host setzen, er repliziert: Öffnet der Host
+  den Händler, steht die Welt für beide (`Pause: Weltzeit angehalten … Pauser true` auf beiden Seiten, `pause_state.py`: Pauser ist der
+  PlayerState des Hosts). Öffnet der Client seinen Händler, pausiert nichts. Die Mod setzt hier keinen Pauser und ändert daran nichts.
+  Während der Pause kann der Client nicht laufen, ein schon offenes Panel bleibt aber bedienbar: Ein Kauf des Clients während der Pause
+  des Hosts wurde übernommen und gebucht, `inventory.py` war noch in der Pause vollständig und gleich. Dazu passt das Live-Log: Die
+  Pausen dort überdecken die Käufe des Hosts (sein Schrott sinkt), die Meldungen des Clients fallen nur in dieselbe Zeit.
 - **[Belegt, Spieltest] Ablauf beim Händler.** Betritt die Figur den POI (`BP_Event_POI_C`), öffnet sich das Händler-Panel
   (`WI_MerchantPanel_C`) beim Client, beim ersten Besuch mit einem Dialog davor. Es schließt nicht, wenn die Figur den POI verlässt.
   Der Zurück-Knopf öffnet das Inventar-Panel mit „Bestätigen“; erst dieses Bestätigen beendet den Besuch. Das Händler-Panel bekommt
@@ -2307,6 +2309,10 @@ ohne Maus und Tastatur über die Spike-Befehle `!shop …` und den Trace `DDCOOP
 - **[Belegt, Spieltest] `UpgradeItems` räumt Rucksackfelder nicht frei.** Die Funktion nimmt die Eingaben aus Rucksack und Inventar,
   ruft aber kein `UnoccupyBackpackSlots`; das macht sonst das Panel. Beim Host blieb darum das Feld einer verbrauchten Rucksack-Pistole
   von einem zerstörten Item belegt, wenn die Ausgabe woanders landete. Behoben in `opt-werkbank-station`.
+- **[Belegt, nicht untersucht] Zwei Abstürze durch die Testbefehle, nicht im Spielablauf.** `HandleConfirmButton` an einem unbenutzten
+  Inventar-Panel des Clients (Lesen von Adresse `0x3e0`, das Spiel ruft die Funktion dort nie) und ein Absturz des Hosts, als nach einem
+  fehlgeschlagenen Sitzungsstart Befehle wie `!finish` und `!shop click ContinueButton` im Hauptmenü ankamen; in dessen Stapel liegt
+  auch ein Rahmen der Mod. Beide Berichte blieben lokal.
 - **[Belegt] Die lokalen SDK-Dumps stammen noch von Build `26187885`.** Funktionsadressen daraus gelten für `26495302` nicht; die
   Adressen hier stammen aus den Namenstabellen der Exe dieses Builds.
 
