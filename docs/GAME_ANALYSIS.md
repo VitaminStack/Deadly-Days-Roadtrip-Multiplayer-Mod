@@ -2300,8 +2300,10 @@ ohne Maus und Tastatur über die Spike-Befehle `!shop …` und den Trace `DDCOOP
   ist bei Händler- und Inventar-Panel leer.
 - **[Belegt, Spieltest] Angebot und Preise.** Jede Seite würfelt ihr Angebot selbst, bei jedem Start anders (sechs Plätze). Gesehene
   Preise gegen den Verkaufspreis beim Host (`GetBaseSellPrice`): Messer gewöhnlich 15 und 16 zu 8, Ratte ungewöhnlich 23 zu 12,
-  Luftpumpe ungewöhnlich 23 und 24 zu 12, Pistole ungewöhnlich 22 zu 12, Feuerzeug episch im Angebot 28 zu 24 (sonst 55). Der Kaufpreis
-  lag immer über dem Verkaufspreis, beim rabattierten Feuerzeug knapp.
+  Luftpumpe ungewöhnlich 23 und 24 zu 12, Pistole ungewöhnlich 22 zu 12, Feuerzeug episch im Angebot 28 zu 24 (sonst 55). Mit Rabatt
+  ging es bis auf den Verkaufspreis hinunter (Luftpumpe für 12 zu 12). Im Händler-Panel standen Rabattchance 0,125 und Rabatt von 0,25
+  bis 0,75 (gelesen an den Offsets des SDK von `26187885`, darum **Vermutung**); ein Kaufpreis unter dem Verkaufspreis ist damit
+  möglich.
 - **[Belegt, Spieltest] `UpgradeItems` räumt Rucksackfelder nicht frei.** Die Funktion nimmt die Eingaben aus Rucksack und Inventar,
   ruft aber kein `UnoccupyBackpackSlots`; das macht sonst das Panel. Beim Host blieb darum das Feld einer verbrauchten Rucksack-Pistole
   von einem zerstörten Item belegt, wenn die Ausgabe woanders landete. Behoben in `opt-werkbank-station`.

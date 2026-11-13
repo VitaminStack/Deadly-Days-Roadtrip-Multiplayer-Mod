@@ -239,9 +239,9 @@ ein neues Feld am Ende hat und ein Host mit Version 12 jeden Edit ablehnen würd
 
 Das gekaufte Item `k` hat die Quelle `0xFE00 + k`, seine Prüfsumme ist die des Datennamens. Items des Ausgangsbilds haben damit Quellen
 unter `0xFE00`. Ein gekauftes Item ist heil und entweder vorhanden oder Eingabe einer Aufwertung (dann nicht vorhanden); verkaufen lässt
-es sich im selben Edit nicht. Der Host lehnt ab, wenn er Daten oder Seltenheit nicht kennt, der Preis unter seinem eigenen Verkaufspreis
-des Items liegt (`UInventoryItemData.GetBaseSellPrice`) oder sein Schrott nicht reicht: erst alle Verkäufe gutschreiben, dann Käufe und
-Reparaturen abziehen. Er legt die Items mit `CreateAndAddItem` an und bucht nach der Übernahme einmal, nur für angelegte Items.
+es sich im selben Edit nicht. Der Host lehnt ab, wenn er Daten oder Seltenheit nicht kennt, der Preis unter einem Viertel seines
+eigenen Verkaufspreises für das Item liegt (`UInventoryItemData.GetBaseSellPrice`, die Rabatte des Händlers reichen bis 75 %) oder
+sein Schrott nicht reicht: erst alle Verkäufe gutschreiben, dann Käufe und Reparaturen abziehen. Er legt die Items mit `CreateAndAddItem` an und bucht nach der Übernahme einmal, nur für angelegte Items.
 
 ## Rundenende (`rundenende-client`)
 
