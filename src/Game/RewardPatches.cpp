@@ -152,6 +152,7 @@ struct
     uintptr_t World = 0, Inventory = 0;
     std::vector<Game::Objects::Ref> Panels;
     ULONGLONG NextPoll = 0, NextScan = 0;
+    bool Closed = false; // ein Inventar-Panel zum eigenen Inventar hat sein Schließen gemeldet
 } Station;
 constexpr uintptr_t ItemPivotTile = 0x28;
 constexpr uint32_t FuncNet = 0x40;
@@ -548,9 +549,11 @@ void __fastcall ConfirmHook(uintptr_t Panel)
     OriginalConfirm(Panel);
 }
 
-// opt-werkbank-station: Offen-Zustand der Panels beim Client aus UAbstractPanel.OnOpenStateChanged(bool), das jedes Panel über
-// ProcessEvent bekommt, sobald es auf- oder zugeht. Das Händler-Panel hält seinen Animationscontainer in einer eigenen Variable,
-// das Feld der Basisklasse ist dort leer (im Spiel geprüft); darum zählt zuerst das zuletzt gemeldete Ereignis.
+// opt-werkbank-station: Offen-Zustand der Panels beim Client aus UAbstractPanel.OnOpenStateChanged(bool) und
+// OnOpenStateChangedAndFinished(bool), die über ProcessEvent kommen. Im Spiel geprüft (13.11.2026): Das Feld AnimationContainer der
+// Basisklasse ist bei Inventar- und Händler-Panel leer. Das Inventar-Panel meldet sein Öffnen nur über ...AndFinished(true) und sein
+// Schließen über OnOpenStateChanged(false). Das Händler-Panel meldet sein Öffnen, aber nie sein Schließen: Man verlässt den Händler
+// über das Inventar-Panel, dessen Schließen (Bestätigen) darum auch die Stations-Bearbeitung beendet.
 struct PanelState
 {
     Objects::Ref Panel;
@@ -560,14 +563,20 @@ std::unordered_map<uintptr_t, PanelState> PanelStates;
 
 void NotePanelState(uintptr_t Object, uintptr_t Function, void* Params)
 {
-    static uintptr_t Changed = 0;
+    static uintptr_t Changed = 0, Finished = 0;
     if (!Changed && !(Changed = Objects::FindObject("OnOpenStateChanged", "AbstractPanel")))
         Changed = 1;
-    if (Function != Changed || !Params || !Object)
+    if (!Finished && !(Finished = Objects::FindObject("OnOpenStateChangedAndFinished", "AbstractPanel")))
+        Finished = 1;
+    if ((Function != Changed && Function != Finished) || !Params || !Object)
         return;
     if (PanelStates.size() > 64)
         std::erase_if(PanelStates, [](const auto& Entry) { return !Objects::IsLive(Entry.second.Panel); });
-    PanelStates[Object] = {Objects::RefTo(Object), Memory::Read<uint8_t>(reinterpret_cast<uintptr_t>(Params)).value_or(0) != 0};
+    const bool Open = Memory::Read<uint8_t>(reinterpret_cast<uintptr_t>(Params)).value_or(0) != 0;
+    PanelStates[Object] = {Objects::RefTo(Object), Open};
+    constexpr uintptr_t PanelInventory = 0x370;
+    if (!Open && Station.Active && Objects::IsA(Object, "InventoryPanel") && Pointer(Object + PanelInventory) == Station.Inventory)
+        Station.Closed = true;
 }
 
 // Ist das Panel offen? Zuerst das gemeldete Ereignis, sonst UAbstractPanel.AnimationContainer und UPanelAnimationContainer.IsOpen
@@ -693,7 +702,7 @@ void TickStation()
         Station.NextScan = Now + 2000;
         Station.Panels = StationPanels(Station.Inventory);
     }
-    if (AnyStationPanelOpen(Station.Panels))
+    if (!Station.Closed && AnyStationPanelOpen(Station.Panels))
         return;
     for (const Objects::Ref& Panel : Station.Panels)
         if (Objects::IsLive(Panel) && Memory::Read<uint8_t>(Panel.Object + PanelIsDragging).value_or(0))
