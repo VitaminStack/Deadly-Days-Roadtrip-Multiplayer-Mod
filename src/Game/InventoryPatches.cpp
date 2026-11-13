@@ -158,6 +158,8 @@ void ShareLoot(const std::vector<uintptr_t>& Inventories, const std::vector<std:
             }
 }
 
+void __fastcall LootBaseHook(uintptr_t Interface, uintptr_t Looter);
+
 void __fastcall ItemLootHook(uintptr_t Interface, uintptr_t Looter)
 {
     const uintptr_t Actor = Interface >= LootableInterface ? Interface - LootableInterface : 0;
@@ -166,6 +168,9 @@ void __fastcall ItemLootHook(uintptr_t Interface, uintptr_t Looter)
     {
         if (ClientItemLootAttempts.fetch_add(1) < 3)
             Core::Log::Info("Itemsack: lokale Item-Vergabe ausgelassen; Vergabe bleibt beim Host");
+        // opt-item-sound: Klang und Delegates der Basis wie bei Schrott je Sack einmal, die Vergabe bleibt beim Host.
+        if (CurrentRole() == NetRole::Client)
+            LootBaseHook(Interface, Looter);
         return;
     }
     const std::vector<uintptr_t> Inventories = CurrentRole() == NetRole::Host ? PlayerInventories() : std::vector<uintptr_t>{};
@@ -191,44 +196,74 @@ bool ApplyItemLoot(Code::Writer&)
 // opt-schrott-anzeige: Der Client sammelt replizierte Schrotthaufen mit seinem lokalen Attraktor ein und buchte sie bisher selbst,
 // teils mehrfach, bis das Zerstören des Hosts ankam. Der Host korrigierte das alle 0,5 s (Anzeige sprang). Jetzt bucht nur der Host,
 // der Client bekommt den Stand über 0x309 (ApplyScrap). Klang und Delegates der Basis laufen beim Client weiter lokal.
-// opt-levelup-sound: Beim Client gibt LootBase.Loot den Haufen nicht an den Pool zurück, der Blueprint rief Loot darum jeden Takt
-// erneut, ScrapPickup lief 65- bis 170-mal je Sekunde. Klang und Delegates jetzt je Haufen einmal (LootedPiles). Nur Game Thread.
+// opt-levelup-sound, opt-item-sound: ALootBase::Loot_Implementation (Klang, Delegates, Rückgabe an den Pool) ist die gemeinsame
+// Basis von Schrott, Benzin, Itemsack und Power-up. Beim Client verschwindet das Objekt dadurch nicht, erst das Zerstören des Hosts
+// nimmt es weg. Bis dahin hängt es an der Figur und der Blueprint ruft Loot jeden Takt erneut: ScrapPickup lief 65- bis 170-mal je
+// Sekunde, Benzin stotterte beim Einsammeln. Der Client lässt die Basis darum je Objekt nur einmal laufen (LootedPiles), gleich
+// welche Unterklasse sie aufruft. Host und Einzelspieler unverändert. Nur Game Thread.
+ItemLootFn OriginalLootBase = nullptr;
 LootedPiles ClientPiles;
-std::atomic<unsigned> ClientScrapRepeats = 0;
+std::atomic<unsigned> ClientLootRepeats = 0;
 
-bool FirstClientScrapLoot(uintptr_t Interface)
+void __fastcall LootBaseHook(uintptr_t Interface, uintptr_t Looter)
 {
     const uintptr_t Actor = Interface >= LootableInterface ? Interface - LootableInterface : 0;
-    return !Actor || ClientPiles.FirstLoot(Actor, GetTickCount64());
+    // Ohne eigenen Hook (Teilinstallation) direkt in die Basis, wie bisher aus dem Schrott-Hook.
+    const ItemLootFn Base = OriginalLootBase ? OriginalLootBase : reinterpret_cast<ItemLootFn>(At(LootBaseLoot));
+    if (!LootSoundOncePerObject(CurrentRole()) || !Actor)
+        return Base(Interface, Looter);
+    // Beleg im Log: je Objekt die Klasse und wie oft das Spiel es danach erneut aufsammeln wollte.
+    static uintptr_t LastActor = 0;
+    static unsigned Repeats = 0, Reported = 0;
+    const ULONGLONG Now = GetTickCount64();
+    if (!ClientPiles.FirstLoot(Actor, Now))
+    {
+        Repeats += Actor == LastActor;
+        if (ClientLootRepeats.fetch_add(1) == 0)
+            Core::Log::Info("Loot: wiederholtes Aufsammeln desselben Objekts beim Client ausgelassen (Klang nur einmal)");
+        return;
+    }
+    if (LastActor && Reported < 40 && ++Reported)
+        Core::Log::Info("Loot: Client hat das vorige Objekt einmal gespielt, {} Wiederholungen ausgelassen", Repeats);
+    LastActor = Actor;
+    Repeats = 0;
+    if (Reported < 40)
+        Core::Log::Info("Loot: Client spielt das Aufsammeln von {} einmal",
+                        Memory::NameOf(Memory::ReadPointer(Actor + Offsets::UObject::Class).value_or(0)));
+    Base(Interface, Looter);
 }
 
 void __fastcall ScrapLootHook(uintptr_t Interface, uintptr_t Looter)
 {
     if (ScrapLootMayCredit(CurrentRole()))
         return OriginalScrapLoot(Interface, Looter);
-    if (!FirstClientScrapLoot(Interface))
-    {
-        if (ClientScrapRepeats.fetch_add(1) == 0)
-            Core::Log::Info("Schrott: wiederholtes Aufsammeln desselben Haufens beim Client ausgelassen (Klang nur einmal)");
-        return;
-    }
     if (ClientScrapLootAttempts.fetch_add(1) < 3)
         Core::Log::Info("Schrott: Aufsammeln beim Client nur angezeigt, der Host bucht");
-    reinterpret_cast<ItemLootFn>(At(LootBaseLoot))(Interface, Looter);
+    LootBaseHook(Interface, Looter);
 }
 
 bool CheckScrapLoot()
 {
     return Code::Expect(At(ScrapLoot), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x6C, 0x24, 0x18, 0x48, 0x89, 0x74, 0x24, 0x20, 0x57},
-                        "ScrapLoot.Loot") &&
-           Code::Expect(At(LootBaseLoot), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x57, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x8B, 0x92, 0xA8, 0x00, 0x00, 0x00},
-                        "LootBase.Loot");
+                        "ScrapLoot.Loot");
 }
 
 bool ApplyScrapLoot(Code::Writer&)
 {
     return Core::Hooks::Install(reinterpret_cast<void*>(At(ScrapLoot)), reinterpret_cast<void*>(&ScrapLootHook),
                                 reinterpret_cast<void**>(&OriginalScrapLoot));
+}
+
+bool CheckLootBase()
+{
+    return Code::Expect(At(LootBaseLoot), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x57, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x8B, 0x92, 0xA8, 0x00, 0x00, 0x00},
+                        "LootBase.Loot");
+}
+
+bool ApplyLootBase(Code::Writer&)
+{
+    return Core::Hooks::Install(reinterpret_cast<void*>(At(LootBaseLoot)), reinterpret_cast<void*>(&LootBaseHook),
+                                reinterpret_cast<void**>(&OriginalLootBase));
 }
 
 // Der Callback nach der Reise auf Tag 3 gehört nicht zum Inventar: Der Achievement-Detektor legt in BeginPlay einen
@@ -433,6 +468,7 @@ bool ApplyRepresentationSize(Code::Writer&)
 // Je Patch die benutzten Adressen der Signaturtabelle, erzeugt von tools/patch_signatures.py sites.
 constexpr uintptr_t ItemLootSites[] = {ItemLoot};
 constexpr uintptr_t ScrapLootSites[] = {ScrapLoot, LootBaseLoot};
+constexpr uintptr_t LootBaseSites[] = {LootBaseLoot};
 constexpr uintptr_t RepresentationSizeSites[] = {RepresentationSize};
 constexpr uintptr_t InventorySites[] = {DefaultNetworkingSupport, InventoryReadyForReplication};
 constexpr uintptr_t DetectorSites[] = {FindTimer, ClearTimer, SetNextTick, ScheduleCall, DetectorEndPlay};
@@ -440,6 +476,7 @@ constexpr uintptr_t MapGenLambdaSites[] = {MapGenLambdaExecute, MapGenLambdaExec
 const Patch List[] = {
     {"Itemsack-Vergabe nur beim Host, für alle Spieler", &CheckItemLoot, &ApplyItemLoot, ItemLootSites},
     {"Schrott beim Aufsammeln nur beim Host buchen", &CheckScrapLoot, &ApplyScrapLoot, ScrapLootSites},
+    {"Aufsammelklang beim Client je Objekt einmal", &CheckLootBase, &ApplyLootBase, LootBaseSites},
     {"Item-Widget ohne Item: Größe nicht setzen", &CheckRepresentationSize, &ApplyRepresentationSize, RepresentationSizeSites},
     {"Inventar-Unterobjekte replizieren", &CheckInventory, &ApplyInventory, InventorySites},
     {"Timer des Achievement-Detektors beim EndPlay löschen", &CheckDetector, &ApplyDetector, DetectorSites},
