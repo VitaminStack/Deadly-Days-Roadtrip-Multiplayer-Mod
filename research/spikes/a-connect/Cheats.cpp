@@ -215,6 +215,218 @@ void ScrapCommand(const std::wstring& Args)
     Log("Scrap: " + std::to_string(Delta) + ", Stand " + std::to_string(Read<int32_t>(Wallet + 0x100)));
 }
 
+// Testhilfe (opt-haendler-client, opt-werkbank-station): Haendler und Station ohne Maus und Tastatur bedienen, in der Instanz, die
+// den Befehl bekommt (meist der Client). Alles ueber ProcessEvent, also dieselben Funktionen, die Knopf und Panel rufen.
+//   !shop poi          POIs der Karte (BP_MetaBase_POI_C und Unterklassen) mit Ort
+//   !shop go <n>       eigene Figur auf POI n stellen (K2_TeleportTo), das Betreten oeffnet das Panel
+//   !shop away         eigene Figur 3000 Einheiten wegstellen, das Verlassen schliesst das Panel
+//   !shop list         Angebote aller Haendler-Panels mit Preis, dazu das eigene Inventar
+//   !shop buy <n>      UShopPanelItem.TryBuyItem am Angebot n
+//   !shop upgrade      zwei gleiche Items des eigenen Inventars ueber UInventoryComponent.UpgradeItems zur naechsten Seltenheit
+namespace
+{
+bool IsClass(uintptr_t Object, const char* ClassName)
+{
+    uintptr_t Class = Object ? Read<uintptr_t>(Object + 0x10) : 0;
+    for (int Depth = 0; Class && Depth < 40; ++Depth, Class = Read<uintptr_t>(Class + 0x40))
+        if (NameOf(Class) == ClassName)
+            return true;
+    return false;
+}
+
+// Lebende Instanzen (kein Klassen-Defaultobjekt) einer Klasse oder Unterklasse.
+std::vector<uintptr_t> InstancesOf(const char* ClassName)
+{
+    std::vector<uintptr_t> Result;
+    const uintptr_t Chunks = Read<uintptr_t>(Base + kGObjects);
+    const int32_t Count = Read<int32_t>(Base + kGObjects + 8);
+    for (int32_t i = 0; i < Count; ++i)
+    {
+        const uintptr_t Chunk = Read<uintptr_t>(Chunks + 8 * (i >> 16));
+        const uintptr_t Object = Chunk ? Read<uintptr_t>(Chunk + (i & 0xFFFF) * 0x18 + 8) : 0;
+        if (Object && (Read<uint32_t>(Object + 8) & 0x70) == 0 && IsClass(Object, ClassName))
+            Result.push_back(Object);
+    }
+    return Result;
+}
+
+void Call(uintptr_t Object, uintptr_t Function, void* Params)
+{
+    Read<ProcessEventFn*>(Object)[kProcessEventIndex](Object, Function, Params);
+}
+
+// Eigener Controller: UWorld.OwningGameInstance (+0x228), LocalPlayers (+0x38), UPlayer.PlayerController (+0x30).
+uintptr_t LocalController()
+{
+    const uintptr_t World = Read<uintptr_t>(Base + kGWorld);
+    const uintptr_t Instance = World ? Read<uintptr_t>(World + 0x228) : 0;
+    const uintptr_t Players = Instance ? Read<uintptr_t>(Instance + 0x38) : 0;
+    const uintptr_t Local = Players ? Read<uintptr_t>(Players) : 0;
+    return Local ? Read<uintptr_t>(Local + 0x30) : 0;
+}
+
+struct Vec
+{
+    double X, Y, Z;
+};
+
+Vec LocationOf(uintptr_t Actor)
+{
+    const uintptr_t Get = FindObject("K2_GetActorLocation", "Actor");
+    Vec Result{};
+    if (Actor && Get)
+        Call(Actor, Get, &Result);
+    return Result;
+}
+
+bool Teleport(uintptr_t Actor, Vec To)
+{
+    const uintptr_t Fn = FindObject("K2_TeleportTo", "Actor");
+    if (!Actor || !Fn)
+        return false;
+    // FVector DestLocation, FRotator DestRotation, bool ReturnValue; grosszuegig und genullt.
+    uint8_t Params[0x80]{};
+    memcpy(Params, &To, sizeof(To));
+    Call(Actor, Fn, Params);
+    return true;
+}
+
+// Eigenes Inventar: UInventoryComponent, dessen Outer der PlayerState des eigenen Controllers (+0x2B0) ist.
+uintptr_t LocalInventory()
+{
+    const uintptr_t Controller = LocalController();
+    const uintptr_t State = Controller ? Read<uintptr_t>(Controller + 0x2B0) : 0;
+    if (!State)
+        return 0;
+    for (const uintptr_t Object : InstancesOf("InventoryComponent"))
+        if (Read<uintptr_t>(Object + 0x20) == State)
+            return Object;
+    return 0;
+}
+
+std::vector<uintptr_t> ItemsOf(uintptr_t Inventory)
+{
+    std::vector<uintptr_t> Items;
+    const uintptr_t Data = Inventory ? Read<uintptr_t>(Inventory + 0x120) : 0;
+    const int32_t Count = Data ? Read<int32_t>(Inventory + 0x128) : 0;
+    for (int32_t i = 0; i < Count && i < 512; ++i)
+        if (const uintptr_t Item = Read<uintptr_t>(Data + 8 * i))
+            Items.push_back(Item);
+    return Items;
+}
+
+std::string ItemText(uintptr_t Item)
+{
+    const uintptr_t Data = Read<uintptr_t>(Item + 0xE0), Rarity = Read<uintptr_t>(Item + 0x118);
+    return (Data ? NameOf(Data) : std::string("?")) + " " + (Rarity ? NameOf(Rarity) : std::string("-")) + (Read<uint8_t>(Item + 0x180) ? " Rucksack" : "");
+}
+}
+
+void ShopCommand(const std::wstring& Args)
+{
+    const std::string Text(Args.begin(), Args.end());
+    const size_t Space = Text.find(' ');
+    const std::string Action = Text.substr(0, Space);
+    const int Index = Space == std::string::npos ? -1 : atoi(Text.c_str() + Space + 1);
+    const uintptr_t Controller = LocalController();
+    const uintptr_t Pawn = Controller ? Read<uintptr_t>(Controller + 0x2E8) : 0;
+    if (Action == "poi" || Action == "go")
+    {
+        const std::vector<uintptr_t> Pois = InstancesOf("MetaBasePoi");
+        for (size_t i = 0; i < Pois.size(); ++i)
+        {
+            const Vec At = LocationOf(Pois[i]);
+            if (Action == "poi")
+                Log("Shop: POI " + std::to_string(i) + " " + NameOf(Read<uintptr_t>(Pois[i] + 0x10)) + " " + NameOf(Pois[i]) + " bei " +
+                    std::to_string(static_cast<int>(At.X)) + " " + std::to_string(static_cast<int>(At.Y)) + " " + std::to_string(static_cast<int>(At.Z)));
+        }
+        if (Action == "poi")
+        {
+            const Vec Own = LocationOf(Pawn);
+            Log("Shop: " + std::to_string(Pois.size()) + " POIs, eigene Figur bei " + std::to_string(static_cast<int>(Own.X)) + " " +
+                std::to_string(static_cast<int>(Own.Y)) + " " + std::to_string(static_cast<int>(Own.Z)));
+            return;
+        }
+        if (Index < 0 || Index >= static_cast<int>(Pois.size()) || !Pawn)
+        {
+            Log("Shop: POI oder eigene Figur fehlt");
+            return;
+        }
+        Vec To = LocationOf(Pois[Index]);
+        To.Z = LocationOf(Pawn).Z;
+        Log(std::string("Shop: Figur auf POI ") + std::to_string(Index) + (Teleport(Pawn, To) ? " gestellt" : " nicht gestellt"));
+    }
+    else if (Action == "away")
+    {
+        Vec To = LocationOf(Pawn);
+        To.X += 3000;
+        Log(std::string("Shop: Figur ") + (Teleport(Pawn, To) ? "weggestellt" : "nicht weggestellt"));
+    }
+    else if (Action == "list" || Action == "buy")
+    {
+        // UShopPanelItem: CostDisplay +0x850 (Preis +0x384), ItemInstance +0x868, aus dem Code von TryBuyItem.
+        std::vector<uintptr_t> Offers;
+        for (const uintptr_t Offer : InstancesOf("ShopPanelItem"))
+            if (Read<uintptr_t>(Offer + 0x868))
+                Offers.push_back(Offer);
+        if (Action == "list")
+        {
+            for (size_t i = 0; i < Offers.size(); ++i)
+            {
+                const uintptr_t Display = Read<uintptr_t>(Offers[i] + 0x850);
+                Log("Shop: Angebot " + std::to_string(i) + " " + ItemText(Read<uintptr_t>(Offers[i] + 0x868)) + " fuer " +
+                    std::to_string(Display ? Read<int32_t>(Display + 0x384) : -1) + " in " + NameOf(Read<uintptr_t>(Read<uintptr_t>(Offers[i] + 0x3A8) + 0x10)));
+            }
+            const std::vector<uintptr_t> Items = ItemsOf(LocalInventory());
+            for (size_t i = 0; i < Items.size(); ++i)
+                Log("Shop: Inventar " + std::to_string(i) + " " + ItemText(Items[i]));
+            Log("Shop: " + std::to_string(Offers.size()) + " Angebote, " + std::to_string(Items.size()) + " Items im eigenen Inventar");
+            return;
+        }
+        const uintptr_t Buy = FindObject("TryBuyItem", "ShopPanelItem");
+        if (Index < 0 || Index >= static_cast<int>(Offers.size()) || !Buy)
+        {
+            Log("Shop: Angebot oder TryBuyItem fehlt");
+            return;
+        }
+        const std::string Name = ItemText(Read<uintptr_t>(Offers[Index] + 0x868));
+        Call(Offers[Index], Buy, nullptr);
+        Log("Shop: TryBuyItem an Angebot " + std::to_string(Index) + " (" + Name + ") gerufen");
+    }
+    else if (Action == "upgrade")
+    {
+        const uintptr_t Inventory = LocalInventory();
+        const uintptr_t Upgrade = FindObject("UpgradeItems", "InventoryComponent");
+        const std::vector<uintptr_t> Items = ItemsOf(Inventory);
+        for (size_t a = 0; Upgrade && a < Items.size(); ++a)
+            for (size_t b = a + 1; b < Items.size(); ++b)
+            {
+                const uintptr_t Data = Read<uintptr_t>(Items[a] + 0xE0), Rarity = Read<uintptr_t>(Items[a] + 0x118);
+                const uintptr_t Next = Rarity ? Read<uintptr_t>(Rarity + 0x58) : 0; // URarity.NextUpgradableRarity
+                if (!Data || !Next || Data != Read<uintptr_t>(Items[b] + 0xE0) || Rarity != Read<uintptr_t>(Items[b] + 0x118))
+                    continue;
+                uintptr_t Inputs[2]{Items[a], Items[b]};
+                struct
+                {
+                    uintptr_t* Data;
+                    int32_t Count, Max;
+                    uintptr_t Output, Rarity;
+                    bool FlagAsNew;
+                    uint8_t Pad[3];
+                    int32_t Position;
+                    uintptr_t Result;
+                } Params{Inputs, 2, 2, Data, Next, true, {}, -1, 0};
+                static_assert(sizeof(Params) == 0x30);
+                Call(Inventory, Upgrade, &Params);
+                Log("Shop: UpgradeItems mit zweimal " + NameOf(Data) + " zu " + NameOf(Next) + ", Ausgabe " + (Params.Result ? "ja" : "nein"));
+                return;
+            }
+        Log("Shop: keine zwei gleichen aufwertbaren Items im eigenen Inventar");
+    }
+    else
+        Log("Shop: unbekannt, siehe Kommentar in Cheats.cpp");
+}
+
 // Testhilfe (gegner-alle): Host spawnt einen Boss ueber EnemySpawner::SpawnSpecificEnemy, "!boss SpikeBoss [Abstand]".
 // Namen der EnemyType-Assets: SpikeBoss, FrankensteinBoss, BlobBallBoss, BallerinaBoss, LazyBoss, HQBoss. Das Asset muss geladen sein,
 // sonst vorher "!load <Pfad>". Spawn Abstand (Standard 600) vor der ersten Spielerfigur. Nur beim Host, die Replikation macht das Spiel.
