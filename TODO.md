@@ -112,6 +112,7 @@ Mögliche Punkte und Reihenfolge, je nach Bereitschaft:
 6. Alle Bestätigungstests aus `py tools/tasks.py tests plan` in einem Lauf bis Tag 2. Gemeinsamer Ablauf für `fortschritt`,
    `update-welt` und `lager-handel-client`: [Plan](research/spikes/fortschritt/README.md#live-test-zu-zweit-etwa-30-minuten).
    Neue Aufgaben mit Live-Rest dort ergänzen statt einen eigenen Termin anzusetzen.
+7. Die Punkte aus [Live-Bestätigung ausstehend](#live-bestätigung-ausstehend) nebenbei im selben Lauf prüfen.
 
 Die Entscheidung `meta-fortschritt` ist getroffen: Im gemeinsamen Run gilt der Host-Stand,
 ohne dauerhafte Meta-Gutschrift beim Client, siehe [Regel](docs/SYNC_REQUIREMENTS.md#nutzervorgabe-meta-fortschritt-des-hosts-06112026).
@@ -121,11 +122,37 @@ ohne dauerhafte Meta-Gutschrift beim Client, siehe [Regel](docs/SYNC_REQUIREMENT
 `kamera-code`, `bewegung`, `kampf`, `gegnertyp`, `eingaben`, `restrictor`, `ohne-spike`, `latenz-test`, `desync-melder`,
 `dauerlauf`, `weekly-sperre`, `mod-saves`, `installer` und die Sync-Aufgaben aus Phase 5. Dafür ist normalerweise kein gemeinsamer Termin nötig; die jeweiligen Abnahmen gelten weiterhin.
 
+## Live-Bestätigung ausstehend
+
+Erledigte Aufgaben, deren Abnahme bisher nur auf einem PC (zwei Instanzen) belegt ist. Sie bleiben unter [Erledigt](#erledigt)
+und zählen als abgeschlossen. In der nächsten Live-Sitzung zu zweit mit Analyse nebenbei prüfen, siehe
+[Live-Sitzungen zu zweit](#live-sitzungen-zu-zweit). Bestätigt: Zeile löschen, Ergebnis im Bericht der Sitzung festhalten.
+Fällt ein Punkt durch: neue Aufgabe in der passenden Phase anlegen und die Zeile löschen. Wer eine Aufgabe nur mit
+Ein-PC-Beleg abschließt, trägt sie hier ein. Nutzerentscheidung vom 13.11.2026.
+
+| Aufgabe | Belegt | In der Live-Sitzung prüfen |
+|---|---|---|
+| `charakter-wahl` | 10.11., ein PC | Jeder wählt in der MetaBase eine andere Figur, beide sehen die Wahl des anderen; nach Reise und Startausrüstung im Run |
+| `lager-handel-client` | Verkauf/Reparatur 13.11. zwei PCs, Ausrüsten 13.11. ein PC | Client repariert im Lager ein kaputtes Item, legt es in den Rucksack, bestätigt; am nächsten Tag ausgerüstet |
+| `opt-ausdauerbalken` | ein PC | Client sieht den Ausdauerbalken des Hosts beim Sprinten wie der Host |
+| `opt-blickrichtung-client` | ein PC | Beide Figuren schauen beim Client in Lauf- und Zielrichtung |
+| `opt-busbalken` | ein PC | Ladebalken der Busabfahrt beim Client wie beim Host |
+| `opt-charakter-takt` | 11.11., ein PC | Keine Zeile „Takt: Charakterwahl“, Wahl bleibt nach Reise und erneutem Beitritt |
+| `opt-haendler-client` | ein PC | Client kauft beim Händler von Hand, Item und Schrott bei beiden gleich |
+| `opt-item-sound` | ein PC | Client hört Aufsammelsounds (Benzin, Schrott, Items) je Objekt einmal |
+| `opt-laufanimation-client` | ein PC | Laufanimation der Client-Figur beim Host passt zum Tempo |
+| `opt-levelup-sound` | ein PC | Kein Schrott-Dauersound beim Client, Level-up-Kiste im Endbildschirm ohne Soundfehler |
+| `opt-schadenszahlen` | ein PC | Client sieht Schadenszahlen eigener und fremder Treffer |
+| `opt-schrott-anzeige` | ein PC, zwei Tage | Schrottanzeige des Clients springt beim Aufsammeln nicht |
+| `opt-waffen-sound` | ein PC | Client hört Schuss- und Nachladesounds beider Figuren |
+| `run-ende` | ein PC | Niederlage und Sieg beim Client nativ, Rückkehr und neuer Run in derselben Sitzung |
+
 ## Aufgabe abschließen
 
 1. Ergebnis und Testgrenzen in der Doku festhalten, auch gescheiterte Versuche, siehe [Ergebnisse festhalten](docs/TESTING.md#ergebnisse-festhalten).
 2. Nur bei erfüllter Abnahme („Fertig, wenn“): die Zeile aus der Phasentabelle löschen und unter [Erledigt](#erledigt) alphabetisch einfügen, als `` | `kennung` | Phase | Ergebnis in einem Satz mit Link | ``. Die Phase ist eine Ziffer von 0 bis 6, `Wartung`, `Optional` oder `Coop` (für [Real Coop logic](#real-coop-logic)).
 3. Teilergebnis: Die Zeile bleibt offen. Den Text auf den Rest kürzen oder den Rest als neue Kennung in dieselbe Phase eintragen und die alte Zeile nach „Erledigt“ verschieben. Wer eine neue Kennung anlegt, trägt sie bei allen Aufgaben, die darauf warten, unter „Braucht“ ein.
+   Ist die Abnahme nur auf einem PC belegt, obwohl sie zu zweit live gilt, zusätzlich eine Zeile unter [Live-Bestätigung ausstehend](#live-bestätigung-ausstehend) eintragen.
 4. `py tools/task_status.py update` ausführen. Das erneuert „Wo kann ich anfangen?“ und den Fortschritt im README. Danach muss `py tools/task_status.py check` bestehen.
 5. In [docs/ROADMAP.md](docs/ROADMAP.md) den Knoten umfärben, wenn es einen gibt.
 
