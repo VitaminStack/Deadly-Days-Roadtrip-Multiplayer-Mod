@@ -422,7 +422,9 @@ beiden Pistolen. Der Host wertete im selben Lauf seine eigenen Pistolen ohne Feh
   denselben Daten in `URarity.NextUpgradableRarity` (`+0x58`) einer Eingabe, und nativ `CanItemsBeUpgradedTogether`. Sonst muss sie zu
   einem Rezept aus `DT_RecipeTable` passen (Zutaten nach Daten und, falls vorgegeben, Seltenheit; Ausgabe mit der vorgegebenen Seltenheit
   oder der einer Zutat). Dann ruft er `UpgradeItems` selbst am Clientinventar auf und setzt die Ausgaben wie jedes andere Item des Edits.
-  Die Eingaben entfernt `UpgradeItems`, nicht der Plan.
+  Die Eingaben entfernt `UpgradeItems`, nicht der Plan. Liegt eine Eingabe beim Host noch im Rucksack, nimmt er sie vorher nativ heraus
+  (`opt-schuss-animation`): Sonst blieb ihre Waffe als Geisterwaffe an den Händen der Client-Figur, siehe
+  [Befund](../../docs/GAME_ANALYSIS.md#schuss-animation-und-geisterwaffen-opt-schuss-animation). Im Spiel noch nicht bestätigt.
 - **Ablehnung und Abbruch:** Wie beim Edit: Der Client rollt zurück, die lokalen Ausgaben kommen wieder heraus. Verlässt der Client das
   Lager ohne Bestätigen (neues Rundenende), rollt er ebenso zurück. Bis zur Antwort bleibt sein Bestätigen im Lager zurückgehalten, und er
   meldet sich erst danach bereit, damit der Host nicht vor der Übernahme reist.
