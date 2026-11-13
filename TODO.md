@@ -36,6 +36,7 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 |---|---|---|---|---|
 | `integration-run` | P0 | [5](#phase-5--vollständiger-run) | zentral | viel |
 | `boss-client-einfrieren` | P1 | [5](#phase-5--vollständiger-run) | parallel | mittel |
+| `lager-edit-ablehnung` | P1 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `opt-airdrop-sound` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
 | `opt-bedrohung-sound` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
 | `opt-client-takt` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
@@ -56,7 +57,7 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 
 **Wartet auf das Team:** nichts.
 
-**Bestätigungstest ausstehend (nicht in Arbeit):** `lager-handel-client`, `opt-blut`, `opt-werkbank-station`, `opt-airdrop-edit-ungueltig`, `opt-rucksack-ueberlappung`, `opt-airdrop-uebertrag`, `opt-schuss-animation`.
+**Bestätigungstest ausstehend (nicht in Arbeit):** `opt-blut`, `opt-werkbank-station`, `opt-airdrop-edit-ungueltig`, `opt-rucksack-ueberlappung`, `opt-airdrop-uebertrag`, `opt-schuss-animation`.
 <!-- frei:end -->
 
 **Nicht erneut machen.** Das ist erledigt und dokumentiert:
@@ -165,7 +166,6 @@ Ziel: Ein kompletter Run ist zu zweit online spielbar.
 
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
-| `lager-handel-client` | P1 | **Bestätigungstest ausstehend:** Live-Test 13.11.2026 auf zwei PCs: zwei gemischte Lager-Edits vom Host übernommen (7 Verkäufe und 7 Reparaturen, 3 Verkäufe und 8 Reparaturen, dazu Aufwertungen), Schrott danach gleich; offen nur noch der Beleg, dass der Client ein repariertes Item danach ausrüsten kann **Aufgabe und Abnahme:** Gefunden im Live-Test am 07.11.2026 (zwei PCs, Build `26495302`): Im Lager kann der Client Items verschieben, aber nicht verkaufen und nicht reparieren, beim Host geht beides. Am Rundenende lassen sich beim Client nicht reparierte Items nicht ausrüsten. Erst klären, ob das Spiel kaputte Items auch beim Host sperrt. Verkauf und Reparatur buchen Währung und Itemzustand, darum entscheidet der Host wie beim Aufwerten (`werkbank-client`): Client handelt im nativen Panel, Host prüft und führt aus. **Fertig, wenn** der Client im Lager auf zwei PCs verkauft und repariert, Währung und Items bei beiden gleich sind und reparierte Items sich ausrüsten lassen. Ordner `src/Game`. **Einstieg:** [Live-Test 07.11.](docs/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-07112026-livetest-0711) | `rundenende-client` | parallel | mittel |
 | `lager-edit-ablehnung` | P1 | Gefunden im Live-Test am 10.11.2026 (zwei PCs, Build `26495302`): Ein großer Lager-Edit des Clients (6 Verkäufe, 1 Reparatur, 2 Aufwertungen, 4 neue Felder) wurde vom Host abgelehnt; danach stellte der Client seinen Ausgangsstand nur unvollständig her (Revolver abweichend), angebaute Felder, Luftpumpe und die aufgewertete Schrotflinte gingen verloren, und weil das Lager ohne Bearbeitung offen blieb, liefen zwei Aufwertungen nur beim Client nativ und Verkäufe wurden verworfen. Die Rucksackgrafik stand danach neben den Feldern. Ablehnungsgrund steht nur im Host-Log. **Fertig, wenn** der Grund geklärt und behoben ist, eine Ablehnung den Ausgangsstand vollständig herstellt (Felder, Items, Grafik), nach einer Ablehnung eine neue Bearbeitung beginnt statt ungeschützter Aufwertungen, und ein gemischter Lager-Edit auf zwei PCs übernommen wird. Ordner `src/Game`, `src/Sync/Inventory`. **Einstieg:** [Live-Test 10.11.](docs/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-10112026-livetest-1011) | `lager-handel-client` | parallel | mittel |
 | `boss-client-einfrieren` | P1 | Gefunden in `endboss-spawn` am 13.11.2026 (ein PC, zwei Instanzen, Build `26495302`): Nach dem Tod des Bosses auf `MGP_Burger_Boss_Nature` steht beim Client die Zeit still, der TimescaleManager hält acht Anfragen (`tools/spike/pause_state.py`, `request_free` 1 von 9), während der Host weiterspielt; erst das Rundenende löst ihn. Die Abschlusstafel „Quest abgeschlossen“ erscheint beim Client nicht. **Fertig, wenn** der Client nach dem Bosstod ohne Stillstand weiterspielt und die Ursache der Anfragen belegt ist. Ordner `src/Game`. **Einstieg:** [Endboss erscheint nicht](docs/GAME_ANALYSIS.md#endboss-erscheint-nicht-endboss-spawn) | `endboss-spawn` | parallel | mittel |
 | `integration-run` | P0 | Kompletten Run zu zweit über Internet durchspielen und Fehler den Aufgaben zuordnen. **Fertig, wenn** ein Run von der `MetaBase` bis zum Endboss ohne Absturz und Desync läuft | `gegner-alle`, `fortschritt`, `werkbank-client`, `pausen-sync`, `tagesablauf`, `run-ende`, `dauerlauf`, `endboss-spawn` | zentral | viel |
@@ -316,6 +316,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `karten-erzeugung` | 1 | Gleicher Run-Seed und gleiche Mission ergeben dieselbe Karte, siehe [Karte und Seed](docs/GAME_ANALYSIS.md#karte-und-seed) |
 | `lager-absturz-client` | 5 | Zwei PCs, Build 26495302, Mod main 49e0194, nur Mod: Beitritt ohne Host-Absturz, drei Rundenenden ohne Absturz, Host wartet bei hart beendetem Client, Host beendet im Lager und Client landet im Hauptmenü, siehe [Live-Test 07.11.](docs/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-07112026-livetest-0711) |
 | `lager-bestaetigen-absturz` | 5 | Live-Test 13.11.2026 auf zwei PCs: zehn Rundenenden, der Client bestätigte jedes Mal im Lager, kein Absturz, siehe [Live-Test 13.11.](docs/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-13112026-livetest-1311) |
+| `lager-handel-client` | 5 | Ausrüsten nach Reparatur am 13.11.2026 auf einem PC belegt (Host bucht 1 von 1 repariert, Inventare gleich, Pistole im Rucksack der Client-Figur); Verkauf und Reparatur zuvor auf zwei PCs, siehe [Bericht](docs/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-13112026-livetest-1311) |
 | `last` | 1 | Spike D: bei rund 85 Gegnern 47 KB/s vom Host, beide Instanzen 60 fps, nur Loopback, siehe [Last](docs/GAME_ANALYSIS.md#last-spike-d-last) |
 | `latenz-test` | 4 | Netzsimulation im Tunnel der Mod (`-ddcoop_netsim`, `-NetProfile Internet`), Routenlauf bis Tag 1 mit Profil sauber, [Latenz simulieren](docs/TESTING.md#latenz-simulieren) |
 | `layerapps-sperre` | 6 | Die Mod sperrt auch `deadlydays.layerapps.com`, das das Spiel beim Run-Ende anfragt (`Core::ReportHosts`). Run-Ende und neuer Run laufen normal, siehe [Telemetrie und Berichte](docs/GAME_ANALYSIS.md#telemetrie-und-berichte-telemetrie-aus) |

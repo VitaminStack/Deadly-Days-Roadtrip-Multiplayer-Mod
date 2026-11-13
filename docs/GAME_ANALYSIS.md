@@ -2390,6 +2390,14 @@ zuletzt 5 s vor dem zehnten Rundenende); Sound wurde gehört, nicht gezählt.
   Lager-Edits (7 Verkäufe mit 7 Reparaturen, 3 Verkäufe mit 8 Reparaturen, dazu Aufwertungen durch Ablegen), Schrott danach gleich
   (`lager-handel-client`: Reparatur belegt, Ausrüsten danach nicht eigens beobachtet). Beim Client liefen Tod-Effekte (6171 von 6171),
   Zerfall (6164, 7 über der Obergrenze) und Warnanzeigen (165 Kreise, 119 Sprint-Striche).
+  **Nachtrag 13.11.2026 abends, ein PC (`lager-handel-client`, Ausrüsten):** Zwei Instanzen, `Start-Session.ps1 -Build -Mod -Godmode
+  -Tunnel Lobby`, Run-Route Tag 1, Host `!give ItemData_Pistol broken` und `!give ItemData_Knife broken`, `!finish`. Eingaben per
+  `Game-Input.ps1` (neu: `hold` hält eine Maustaste; im Lager links reparieren, rechts verkaufen). Host verkaufte seine beiden kaputten
+  Items, der Client übernahm den Schrott (16). Der Client reparierte die Pistole (Schrott 4 als Vorschau, Item heil, „Automatisch
+  ausrüsten“ angeboten) und legte sie in den Rucksack, die Hände-Leiste zeigte 2/2. Beim Bestätigen: Host „Handel: Edit … gebucht, 0 von
+  0 verkauft, 1 von 1 repariert, Schrott 16 zu 4“, „Edit … übernommen, vollständig=true“, Client übernahm Schrott 4. `inventory.py`
+  danach `complete=true equal=true`: Die Client-Figur hat bei beiden Seiten zwei heile Pistolen im Rucksack, das kaputte Messer bleibt
+  im Lager. „Lager: Host bestätigt, alle bereit“, kein Absturz. Damit lässt sich ein beim Client repariertes Item ausrüsten.
 - **[Belegt] Dodge über das Internet unauffällig.** 249 Dodges des Clients, 3 Rücksetzungen. Der Verdacht aus `testlauf-1111`
   (Rücksetzung auch bei jedem einzelnen Dodge) zeigte sich mit echtem Ping nicht.
 - **[Belegt] Schadenszahlen fehlen weiter.** Zeitgleiche Zeilen: Host gesendet 10407, Client empfangen 10358 (rund 0,5 %), die Lücke
