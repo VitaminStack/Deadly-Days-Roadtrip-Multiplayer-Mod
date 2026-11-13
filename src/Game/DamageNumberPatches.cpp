@@ -75,8 +75,10 @@ uintptr_t RecordWorld = 0;
 // Zähler für den Spieltest, alle 10 Sekunden ins Log, wenn sich etwas geändert hat.
 struct Counters
 {
-    uint64_t Calls = 0, Recorded = 0, Overflow = 0, NoGuid = 0, Sent = 0, Remote = 0, SameTick = 0; // Host
+    uint64_t Calls = 0, Recorded = 0, Overflow = 0, NoGuid = 0, Taken = 0, Sent = 0, Remote = 0, SameTick = 0; // Host
+    uint64_t SendFailed = 0, NoPeer = 0, EncodeFailed = 0, NoTarget = 0; // Host
     uint64_t Received = 0, Shown = 0, Unknown = 0, Dying = 0, NoController = 0; // Client
+    uint64_t Bundled = 0, DecodeFailed = 0, RevisionGap = 0, WrongRole = 0; // Client
     bool operator==(const Counters&) const = default;
 } Count, Logged;
 ULONGLONG NextLog = 0;
@@ -89,12 +91,15 @@ void LogCounters(bool Host)
     NextLog = Now + 10000;
     Logged = Count;
     if (Host)
-        Core::Log::Info("Schadenszahlen Host: Handler {} (fremder Controller {}), gemerkt {} (gleiches Ziel und Schaden im Takt {}), "
-                        "gesendet {}, ohne NetGUID {}, Puffer voll {}", Count.Calls, Count.Remote, Count.Recorded, Count.SameTick,
-                        Count.Sent, Count.NoGuid, Count.Overflow);
+        Core::Log::Info("Schadenszahlen Host: Handler {} (fremder Controller {}, ohne Ziel {}), gemerkt {} (gleiches Ziel und Schaden "
+                        "im Takt {}), übergeben {}, gesendet {}, Senden abgelehnt {}, ohne Mitspieler {}, Paket ungültig {}, "
+                        "ohne NetGUID {}, Puffer voll {}", Count.Calls, Count.Remote, Count.NoTarget, Count.Recorded, Count.SameTick,
+                        Count.Taken, Count.Sent, Count.SendFailed, Count.NoPeer, Count.EncodeFailed, Count.NoGuid, Count.Overflow);
     else
-        Core::Log::Info("Schadenszahlen Client: empfangen {}, an Handler {}, Ziel unbekannt {}, Ziel stirbt {}, ohne Controller {}",
-                        Count.Received, Count.Shown, Count.Unknown, Count.Dying, Count.NoController);
+        Core::Log::Info("Schadenszahlen Client: empfangen {} (davon im Sammelabruf {}), an Handler {}, Ziel unbekannt {}, "
+                        "Ziel stirbt {}, ohne Controller {}, falsche Rolle {}, Nachricht unlesbar {}, Nachrichten fehlen {}",
+                        Count.Received, Count.Bundled, Count.Shown, Count.Unknown, Count.Dying, Count.NoController, Count.WrongRole,
+                        Count.DecodeFailed, Count.RevisionGap);
 }
 
 uintptr_t ObjectItem(int32_t Index)
@@ -140,7 +145,10 @@ void Record(const uint8_t* Info)
     const auto Weak = Memory::Read<std::array<int32_t, 2>>(reinterpret_cast<uintptr_t>(Info) + InfoDamagedActor);
     const uintptr_t Object = Weak ? ResolveWeak((*Weak)[0], (*Weak)[1]) : 0;
     if (!Object)
+    {
+        ++Count.NoTarget;
         return;
+    }
     if (RingCount == RingSize)
     {
         ++Count.Overflow;
@@ -246,17 +254,38 @@ std::vector<DamageNumberHit> TakeDamageNumberHits()
             Hits.push_back({Guid->second, Entry.Damage, Entry.Flags, Entry.X, Entry.Y, Entry.Z});
         }
         RingCount = 0;
-        Count.Sent += Hits.size();
+        Count.Taken += Hits.size();
     }
     LogCounters(true);
     return Hits;
 }
 
-void ShowDamageNumbers(std::span<const DamageNumberHit> Hits)
+void NoteDamageNumbers(DamageNumberNote Note, size_t Amount)
 {
-    if (!Installed.load(std::memory_order_relaxed) || Patches::CurrentRole() != NetRole::Client)
+    switch (Note)
+    {
+    case DamageNumberNote::Sent: Count.Sent += Amount; break;
+    case DamageNumberNote::SendFailed: Count.SendFailed += Amount; break;
+    case DamageNumberNote::NoPeer: Count.NoPeer += Amount; break;
+    case DamageNumberNote::EncodeFailed: Count.EncodeFailed += Amount; break;
+    case DamageNumberNote::DecodeFailed: Count.DecodeFailed += Amount; break;
+    case DamageNumberNote::RevisionGap: Count.RevisionGap += Amount; break;
+    }
+}
+
+void ShowDamageNumbers(std::span<const DamageNumberHit> Hits, bool Bundled)
+{
+    if (!Installed.load(std::memory_order_relaxed))
         return;
+    if (Patches::CurrentRole() != NetRole::Client)
+    {
+        Count.WrongRole += Hits.size();
+        LogCounters(false);
+        return;
+    }
     Count.Received += Hits.size();
+    if (Bundled)
+        Count.Bundled += Hits.size();
     const uintptr_t Controller = Hits.empty() ? 0 : LocalController();
     if (!Hits.empty() && !Controller)
         Count.NoController += Hits.size();
