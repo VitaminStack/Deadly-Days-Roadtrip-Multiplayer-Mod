@@ -141,6 +141,8 @@ normalen Einzelspieler-Panel.
   über `ProcessEvent` liefert sie beim Client nichts) und öffnet das native Panel mit `SetRewardItems`. Solange es offen ist, laufen
   Inventar-RPCs lokal, siehe [Inventar lokal bearbeiten](#inventar-lokal-bearbeiten).
 - **Reward-Queue:** Kisten laufen über die `RewardQueue` der öffnenden Figur, das Panel schaltet aber nur die Queue des Hosts weiter.
+  `AdvanceQueues` loggt jede Zustandsänderung beider Queues und schaltet auch die des Hosts weiter, wenn sie belegt ist und ihre Kiste
+  nicht mehr lebt (`opt-airdrop-uebertrag`). Über einen Kartenwechsel entstehen Figuren und Queues neu.
   Ohne Eingriff blieb die Queue von P2 nach einer vom Client geöffneten Kiste belegt, danach ging keine Kiste mehr auf. Die Mod ruft
   beim Host ohne offene Auswahl jede Sekunde `OpenNextReward` für P2 auf.
 
