@@ -141,6 +141,8 @@ normalen Einzelspieler-Panel.
   über `ProcessEvent` liefert sie beim Client nichts) und öffnet das native Panel mit `SetRewardItems`. Solange es offen ist, laufen
   Inventar-RPCs lokal, siehe [Inventar lokal bearbeiten](#inventar-lokal-bearbeiten).
 - **Reward-Queue:** Kisten laufen über die `RewardQueue` der öffnenden Figur, das Panel schaltet aber nur die Queue des Hosts weiter.
+  `AdvanceQueues` loggt jede Zustandsänderung beider Queues und schaltet auch die des Hosts weiter, wenn sie belegt ist und ihre Kiste
+  nicht mehr lebt (`opt-airdrop-uebertrag`). Über einen Kartenwechsel entstehen Figuren und Queues neu.
   Ohne Eingriff blieb die Queue von P2 nach einer vom Client geöffneten Kiste belegt, danach ging keine Kiste mehr auf. Die Mod ruft
   beim Host ohne offene Auswahl jede Sekunde `OpenNextReward` für P2 auf.
 
@@ -411,7 +413,11 @@ beiden Pistolen. Der Host wertete im selben Lauf seine eigenen Pistolen ohne Feh
 - **Lokal beim Client:** Das native Panel wertet auf, wie im Solo-Spiel. `UpgradeHook` lässt `UpgradeItems` nur innerhalb einer lokalen
   Bearbeitung laufen (`inventar-lokal`), die Inventar-RPCs der Aufwertung laufen dann lokal. Beim Airdrop ist das die Bearbeitung der
   Auswahl. Im Lager beginnt die erste Aufwertung eine Bearbeitung (`LagerEdit`), die bis zum Bestätigen im Lager läuft; vorher bleibt das
-  Lager wie in `rundenende-client` bei den nativen RPCs. `RecordUpgrade` merkt sich Eingaben, Ausgabe, Daten und Seltenheit.
+  Lager wie in `rundenende-client` bei den nativen RPCs. Seit `opt-rucksack-ueberlappung` beginnt sie schon mit dem ersten Zug im Rucksack
+  (`ChangesInventory`): Als native RPCs kamen beim Host Pivot und Drehung nicht an. `RecordUpgrade` merkt sich Eingaben, Ausgabe, Daten und Seltenheit.
+  Die Belohnungsanzeige behält eine schon aufgewertete Belohnung; nimmt der Spieler sie erneut auf, entfernt `FinishClient` sie
+  beim Bestätigen lokal wieder (`RemoveConsumedInputs`, `opt-airdrop-edit-ungueltig`), sonst wäre der Edit ungültig. Einen
+  ungültigen Edit nennt das Log mit Grund (`Malformed` in `InventoryEditPlan.h`).
 - **Geteilt:** Beim Bestätigen trägt der Edit (`0x303`) zusätzlich die Aufwertungen: Eingaben als Quellen (Ausgangs-Item, Wahl oder eine
   frühere Ausgabe), Objektnamen von Ausgabe-`ItemData` und Seltenheit und der Endstand der Ausgabe. Dazu schickt der Host jede Sekunde bei
   Änderung (sonst alle 5 s) die Seltenheiten des Clientinventars (`0x308`); der Client setzt damit nur `ItemRarity` seiner replizierten
@@ -420,7 +426,9 @@ beiden Pistolen. Der Host wertete im selben Lauf seine eigenen Pistolen ohne Feh
   denselben Daten in `URarity.NextUpgradableRarity` (`+0x58`) einer Eingabe, und nativ `CanItemsBeUpgradedTogether`. Sonst muss sie zu
   einem Rezept aus `DT_RecipeTable` passen (Zutaten nach Daten und, falls vorgegeben, Seltenheit; Ausgabe mit der vorgegebenen Seltenheit
   oder der einer Zutat). Dann ruft er `UpgradeItems` selbst am Clientinventar auf und setzt die Ausgaben wie jedes andere Item des Edits.
-  Die Eingaben entfernt `UpgradeItems`, nicht der Plan.
+  Die Eingaben entfernt `UpgradeItems`, nicht der Plan. Liegt eine Eingabe beim Host noch im Rucksack, nimmt er sie vorher nativ heraus
+  (`opt-schuss-animation`): Sonst blieb ihre Waffe als Geisterwaffe an den Händen der Client-Figur, siehe
+  [Befund](../../docs/GAME_ANALYSIS.md#schuss-animation-und-geisterwaffen-opt-schuss-animation). Im Spiel noch nicht bestätigt.
 - **Ablehnung und Abbruch:** Wie beim Edit: Der Client rollt zurück, die lokalen Ausgaben kommen wieder heraus. Verlässt der Client das
   Lager ohne Bestätigen (neues Rundenende), rollt er ebenso zurück. Bis zur Antwort bleibt sein Bestätigen im Lager zurückgehalten, und er
   meldet sich erst danach bereit, damit der Host nicht vor der Übernahme reist.

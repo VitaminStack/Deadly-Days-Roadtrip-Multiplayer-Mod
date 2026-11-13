@@ -5,6 +5,7 @@
 #include "Sync/Enemies/DamageNumberState.h"
 #include "Sync/MovementState.h"
 #include "Sync/Enemies/TelegraphState.h"
+#include "Sync/Combat/WeaponSoundState.h"
 #include "Game/GameThread.h"
 #include "Game/PatchRuntime.h"
 #include "Net/Net.h"
@@ -83,23 +84,75 @@ void TickMovement(Net::Transport& Transport)
 
 // opt-schadenszahlen: jeder Takt, damit die Zahl beim Client im selben Moment wie beim Host entsteht. Host schickt die Treffer
 // seines Schadenszahl-Handlers, der Client ruft damit seinen eigenen auf. Format in Enemies/DamageNumberState.h.
+// Client: Zahlen aus einem Paketfenster. Auch der Sammelabruf alle 250 ms kann eine `0xA00` enthalten, die nach dem eigenen
+// Abruf im selben Takt ankam; ohne diesen Weg ginge sie verloren (opt-schadenszahlen-verlust, wie bei den Warnanzeigen).
+void ReceiveDamageNumbers(std::span<const Net::ControlMessage> Messages, bool Bundled)
+{
+    using Note = Game::DamageNumberNote;
+    static DamageNumbers::RevisionGaps Gaps;
+    for (const auto& Message : Messages)
+    {
+        if (Message.Value.Type != DamageNumbers::HitsType)
+            continue;
+        if (const uint64_t Missing = Gaps.See(Message.Value.Revision))
+            Game::NoteDamageNumbers(Note::RevisionGap, Missing);
+        if (const auto Hits = DamageNumbers::Decode(Message.Value.Payload))
+            Game::ShowDamageNumbers(*Hits, Bundled);
+        else
+            Game::NoteDamageNumbers(Note::DecodeFailed, 1);
+    }
+    // Ohne Treffer nur die Zählerzeile: So steht auch der Endstand nach dem letzten Treffer im Log.
+    if (!Bundled)
+        Game::ShowDamageNumbers({}, false);
+}
+
 void TickDamageNumbers(Net::Transport& Transport)
 {
+    using Note = Game::DamageNumberNote;
     if (Transport.Stats().IsHost)
     {
         const auto Hits = Game::TakeDamageNumberHits();
         if (Hits.empty())
             return;
         const auto Payload = DamageNumbers::Encode(Hits);
+        const auto Peers = Transport.ControlPeers();
+        static uint64_t Revision = 0;
+        if (Payload.empty())
+            Game::NoteDamageNumbers(Note::EncodeFailed, Hits.size());
+        else if (Peers.empty())
+            Game::NoteDamageNumbers(Note::NoPeer, Hits.size());
+        else
+            for (const uint64_t Peer : Peers)
+            {
+                // Die Revision zählt nur angenommene Nachrichten, damit der Client an Lücken echte Verluste erkennt.
+                const bool Ok = Transport.SendControl(Peer, {1, 1, Revision + 1, DamageNumbers::HitsType, Payload});
+                Revision += Ok;
+                Game::NoteDamageNumbers(Ok ? Note::Sent : Note::SendFailed, Hits.size());
+            }
+        return;
+    }
+    ReceiveDamageNumbers(Transport.TakeControlMessages(DamageNumbers::HitsType), false);
+}
+
+// opt-waffen-sound: jeder Takt, damit der Nachladesound beim Client zum Nachladen passt. Der Host schickt die Aufrufe von
+// PlayReloadSound, der Client ruft die Funktion an seinen eigenen Händen auf. Format in Combat/WeaponSoundState.h.
+void TickWeaponSounds(Net::Transport& Transport)
+{
+    if (Transport.Stats().IsHost)
+    {
+        const auto Sounds = Game::TakeReloadSounds();
+        if (Sounds.empty())
+            return;
+        const auto Payload = WeaponSounds::Encode(Sounds);
         static uint64_t Revision = 0;
         if (!Payload.empty())
             for (const uint64_t Peer : Transport.ControlPeers())
-                Transport.SendControl(Peer, {1, 1, ++Revision, DamageNumbers::HitsType, Payload});
+                Transport.SendControl(Peer, {1, 1, ++Revision, WeaponSounds::ReloadType, Payload});
         return;
     }
-    for (const auto& Message : Transport.TakeControlMessages(DamageNumbers::HitsType))
-        if (const auto Hits = DamageNumbers::Decode(Message.Value.Payload))
-            Game::ShowDamageNumbers(*Hits);
+    for (const auto& Message : Transport.TakeControlMessages(WeaponSounds::ReloadType))
+        if (const auto Sounds = WeaponSounds::Decode(Message.Value.Payload))
+            Game::PlayReloadSounds(*Sounds);
 }
 }
 
@@ -182,6 +235,13 @@ void Start(const Core::Config& Config, DiagnosticSink Diagnostics)
             const Game::GameThread::SlowScope Watch("Sync-Schadenszahlen");
             TickDamageNumbers(*Transport);
         }
+        if (Transport)
+        {
+            const Game::GameThread::SlowScope Watch("Sync-Waffensound");
+            TickWeaponSounds(*Transport);
+        }
+        else
+            Game::TakeReloadSounds();
         {
             const Game::GameThread::SlowScope Watch("Sync-Dev");
             TickDev(Transport.get()); // Also handles offline/standalone dev actions.
@@ -199,7 +259,11 @@ void Start(const Core::Config& Config, DiagnosticSink Diagnostics)
             };
         };
         if (Transport && !Transport->Stats().IsHost)
+        {
             ReceiveTelegraphs(Messages);
+            const Game::GameThread::SlowScope Watch("Sync-Schadenszahlen");
+            ReceiveDamageNumbers(Messages, true);
+        }
         DispatchControls(Messages, Timed("Sync-Fortschritt", TickProgress), Timed("Sync-Desync", TickDesync),
                          Timed("Sync-Belohnung", TickReward), Timed("Sync-Karte", TickMap), Timed("Sync-Pause", TickPause),
                          Timed("Sync-Charakter", TickCharacter));

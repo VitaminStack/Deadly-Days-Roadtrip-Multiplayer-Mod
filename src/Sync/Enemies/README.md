@@ -32,8 +32,8 @@ Erster eigener Code im Ordner: `DamageNumberState.h` (Nachricht `0xA00`, Host an
 | Was bleibt lokal? | Einstellung `EnableDamageNumbers`, Filter, Ort, Timer, Pool und Anzeige (`BP_FloatingText_C`) beim Client |
 | Was wird geteilt und warum? | Je Treffer Ziel (NetGUID), Schaden, Flags und Ort, weil die HP normaler Gegner beim Client nicht replizieren |
 | Wer entscheidet? | Der Host, sein Schadenspfad ruft den Handler; der Client bucht keinen Schaden |
-| Welcher Weg wird genutzt? | Kontrollkanal wie `0x500`, je Takt abgeholt; NetGUIDs aus dem vorhandenen Objektabgleich |
-| Ablehnung, Wiederholung, Neuaufbau | Ungültige Pakete und unbekannte oder sterbende Ziele verwirft der Client. Kein Wiederholen, ein Verlust heißt nur fehlende Zahlen. Beim Weltwechsel leert der Host seinen Puffer |
+| Welcher Weg wird genutzt? | Kontrollkanal wie `0x500`, je Takt abgeholt und zusätzlich im Sammelabruf alle 250 ms ausgewertet (`opt-schadenszahlen-verlust`); NetGUIDs aus dem vorhandenen Objektabgleich |
+| Ablehnung, Wiederholung, Neuaufbau | Ungültige Pakete und unbekannte oder sterbende Ziele verwirft der Client und zählt sie. Kein Wiederholen, ein Verlust heißt nur fehlende Zahlen; fehlende Nachrichten zählt der Client an der Revision des Hosts. Beim Weltwechsel leert der Host seinen Puffer |
 
 [Befund](../../../docs/GAME_ANALYSIS.md#schadenszahlen-beim-client-opt-schadenszahlen), Format in
 [CONTROL_PROTOCOL.md](../../../docs/CONTROL_PROTOCOL.md#schadenszahlen-mod-kompatibilität-12).
