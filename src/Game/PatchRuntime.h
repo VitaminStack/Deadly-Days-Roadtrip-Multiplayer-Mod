@@ -75,6 +75,10 @@ bool AddEnemyDeathListener(EnemyDeathListener Listener);
 void TickBodyParts(NetRole Role);
 // opt-blickrichtung-client, Client: Blickwinkel der Hände aus ihrer replizierten Drehung, damit das Richtungs-Mesh sich dreht.
 void TickFacing(NetRole Role, bool Second);
+// opt-item-sound: Liste der beim Client gespielten Aufsammel-Objekte je Welt, Zähler im Log (InventoryPatches.cpp).
+void TickLootSound(NetRole Role);
+// Client, aus ProcessEvent: Wahr, wenn ein empfangenes LootBase.Client_PlaySound ein schon gespieltes Objekt doppeln würde.
+bool FilterLootSoundEvent(uintptr_t Object, uintptr_t Function);
 void TickWidgets(NetRole Role);
 void TickProjectiles(NetRole Role, bool Second);
 void TickMovement(NetRole Role, bool Second);

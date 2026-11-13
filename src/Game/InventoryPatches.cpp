@@ -203,7 +203,16 @@ bool ApplyItemLoot(Code::Writer&)
 // welche Unterklasse sie aufruft. Host und Einzelspieler unverändert. Nur Game Thread.
 ItemLootFn OriginalLootBase = nullptr;
 LootedPiles ClientPiles;
-std::atomic<unsigned> ClientLootRepeats = 0;
+// Beleg im Log, je Minute bei Änderung: lokal gespielte Objekte, ausgelassene Wiederholungen, Client_PlaySound des Hosts.
+struct
+{
+    unsigned Played = 0, Repeats = 0, Rpc = 0, RpcDouble = 0;
+    unsigned Sum() const { return Played + Repeats + Rpc; }
+} LootCount;
+// LootBase.Client_PlaySound (NetClient). Beim Client ruft ihn auch das eigene Loot_Implementation lokal auf; nur ein vom Host
+// empfangener Aufruf läuft außerhalb von LootBaseHook.
+std::atomic<uintptr_t> ClientPlaySound = 0;
+bool InLocalLoot = false;
 
 void __fastcall LootBaseHook(uintptr_t Interface, uintptr_t Looter)
 {
@@ -212,27 +221,33 @@ void __fastcall LootBaseHook(uintptr_t Interface, uintptr_t Looter)
     const ItemLootFn Base = OriginalLootBase ? OriginalLootBase : reinterpret_cast<ItemLootFn>(At(LootBaseLoot));
     if (!LootSoundOncePerObject(CurrentRole()) || !Actor)
         return Base(Interface, Looter);
-    // Beleg im Log: je Objekt die Klasse und wie oft das Spiel es danach erneut aufsammeln wollte.
-    static uintptr_t LastActor = 0;
-    static unsigned Repeats = 0, Reported = 0;
-    const ULONGLONG Now = GetTickCount64();
-    if (!ClientPiles.FirstLoot(Actor, Now))
+    if (!ClientPiles.FirstLoot(Actor, GetTickCount64()))
     {
-        Repeats += Actor == LastActor;
-        if (ClientLootRepeats.fetch_add(1) == 0)
-            Core::Log::Info("Loot: wiederholtes Aufsammeln desselben Objekts beim Client ausgelassen (Klang nur einmal)");
+        ++LootCount.Repeats;
         return;
     }
-    if (LastActor && Reported < 40 && ++Reported)
-        Core::Log::Info("Loot: Client hat das vorige Objekt einmal gespielt, {} Wiederholungen ausgelassen", Repeats);
-    LastActor = Actor;
-    Repeats = 0;
-    if (Reported < 40)
+    if (LootCount.Played++ < 3)
         Core::Log::Info("Loot: Client spielt das Aufsammeln von {} einmal",
                         Memory::NameOf(Memory::ReadPointer(Actor + Offsets::UObject::Class).value_or(0)));
+    const bool Outer = InLocalLoot;
+    InLocalLoot = true;
     Base(Interface, Looter);
+    InLocalLoot = Outer;
 }
 
+// opt-item-sound: Sammelt beim Host die Client-Figur ein Objekt ein, schickt der Host dem Client LootBase.Client_PlaySound. Der
+// Client hat dasselbe Objekt meist schon lokal gespielt (gezählt: 23 Collect_fuel für 15 Kanister, davon 8 über den RPC). Der
+// empfangene RPC teilt sich darum die Liste mit dem lokalen Aufsammeln: je Objekt ein Klang, gleich welcher Weg zuerst kommt.
+bool FilterLootSound(uintptr_t Object, uintptr_t Function)
+{
+    if (!Function || InLocalLoot || Function != ClientPlaySound.load(std::memory_order_relaxed) || CurrentRole() != NetRole::Client)
+        return false;
+    ++LootCount.Rpc;
+    if (ClientPiles.FirstLoot(Object, GetTickCount64()))
+        return false;
+    ++LootCount.RpcDouble;
+    return true;
+}
 void __fastcall ScrapLootHook(uintptr_t Interface, uintptr_t Looter)
 {
     if (ScrapLootMayCredit(CurrentRole()))
@@ -264,6 +279,36 @@ bool ApplyLootBase(Code::Writer&)
 {
     return Core::Hooks::Install(reinterpret_cast<void*>(At(LootBaseLoot)), reinterpret_cast<void*>(&LootBaseHook),
                                 reinterpret_cast<void**>(&OriginalLootBase));
+}
+
+// opt-item-sound: Liste beim Weltwechsel leeren und die Zähler je Minute melden, wenn sie sich geändert haben.
+void TickLootSoundImpl(NetRole Role)
+{
+    static uintptr_t LastWorld = 0;
+    static ULONGLONG NextSummary = 0;
+    static unsigned Logged = 0;
+    const uintptr_t World = CurrentWorld();
+    if (World != LastWorld)
+    {
+        LastWorld = World;
+        ClientPiles.Clear();
+    }
+    const ULONGLONG Now = GetTickCount64();
+    static ULONGLONG NextResolve = 0;
+    if (Role == NetRole::Client && !ClientPlaySound.load(std::memory_order_relaxed) && Now >= NextResolve)
+    {
+        NextResolve = Now + 2000;
+        ClientPlaySound.store(Objects::FindObject("Client_PlaySound", "LootBase"), std::memory_order_relaxed);
+    }
+    if (Now < NextSummary)
+        return;
+    NextSummary = Now + 60000;
+    if (LootCount.Sum() == Logged)
+        return;
+    Logged = LootCount.Sum();
+    Core::Log::Info("Loot beim Client: {} Objekte je einmal gespielt, {} Wiederholungen ausgelassen, Client_PlaySound des Hosts {} "
+                    "empfangen, davon {} doppelt ausgelassen",
+                    LootCount.Played, LootCount.Repeats, LootCount.Rpc, LootCount.RpcDouble);
 }
 
 // Der Callback nach der Reise auf Tag 3 gehört nicht zum Inventar: Der Achievement-Detektor legt in BeginPlay einen
@@ -487,5 +532,15 @@ const Patch List[] = {
 std::span<const Patch> InventoryPatches()
 {
     return List;
+}
+
+bool FilterLootSoundEvent(uintptr_t Object, uintptr_t Function)
+{
+    return FilterLootSound(Object, Function);
+}
+
+void TickLootSound(NetRole Role)
+{
+    TickLootSoundImpl(Role);
 }
 }
