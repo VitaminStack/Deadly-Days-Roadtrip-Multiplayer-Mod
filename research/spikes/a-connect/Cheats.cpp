@@ -224,6 +224,7 @@ void ScrapCommand(const std::wstring& Args)
 //   !shop buy <n>      UShopPanelItem.TryBuyItem am Angebot n
 //   !shop panels       Inventar-Panels zum eigenen Inventar mit Offen-Zustand
 //   !shop confirm <n>  HandleConfirmButton an Panel n (Bestaetigen)
+//   !shop click <Name>  OnButtonClicked an jedem sichtbaren Knopf mit diesem Namen, etwa ContinueButton
 //   !shop call <Klasse> <Funktion>   parameterlose UFunction an jeder Instanz, etwa ein Knopf-Ereignis
 //   !shop upgrade      zwei gleiche Items des eigenen Inventars ueber UInventoryComponent.UpgradeItems zur naechsten Seltenheit
 namespace
@@ -457,6 +458,27 @@ void ShopCommand(const std::wstring& Args)
         }
         Call(Panels[Index], Confirm, nullptr);
         Log("Shop: HandleConfirmButton an Panel " + std::to_string(Index) + " gerufen");
+    }
+    else if (Action == "click")
+    {
+        // "!shop click <Name>": UDefaultFocusableButton.OnButtonClicked an jedem sichtbaren Knopf mit diesem Objektnamen, etwa
+        // ContinueButton in der Rundenuebersicht. Sichtbar ueber UWidget.IsVisible.
+        const std::string Name = Space == std::string::npos ? std::string{} : Text.substr(Space + 1);
+        const uintptr_t Clicked = FindObject("OnButtonClicked", "DefaultFocusableButton"), Visible = FindObject("IsVisible", "Widget");
+        int Pressed = 0;
+        for (const uintptr_t Button : InstancesOf("DefaultFocusableButton"))
+        {
+            if (!Clicked || !Visible || NameOf(Button) != Name)
+                continue;
+            uint8_t Shown[8]{};
+            Call(Button, Visible, Shown);
+            if (!Shown[0])
+                continue;
+            uint8_t Params[0x40]{};
+            Call(Button, Clicked, Params);
+            ++Pressed;
+        }
+        Log("Shop: Knopf " + Name + " an " + std::to_string(Pressed) + " sichtbaren Instanzen gedrueckt");
     }
     else if (Action == "call")
     {
