@@ -641,6 +641,22 @@ Leveln liegen bei der Client-Figur mehrere Waffen übereinander, die Figur gleit
   `py tools/spike/hands.py <host-pid> <client-pid>` direkt danach und nach einem Kartenwechsel. Erwartet mit der Korrektur:
   Exitcode 0, „Geisterwaffen keine“, „ausgeruestet ohne Darstellung keine“; ohne sie Exitcode 1. Der Exitcode hängt nur an den
   Listen der Hände, nicht am `WeaponLookup`.
+- **Gescheitert: Bestätigungslauf am 13.11.2026 abends** (mit Freigabe des Nutzers für echte Eingaben, Gegenprobe ohne die
+  Korrektur, drei Anläufe). Die Aufwertung kam nicht zustande, die Korrektur ist weiter **weder bestätigt noch widerlegt**:
+  - Lager-Items sind in der Airdrop-Auswahl ausgegraut und lassen sich dort nicht ausrüsten, auch nicht nach der Wahl der Belohnung.
+    Ausrüsten aus dem Lager geht nur im Lager nach dem Rundenende. Das läuft nicht als lokaler Edit, sondern nativ; der Host hatte
+    danach beide Messer im Rucksack (`weapons.py`) und nach dem Kartenwechsel sauber an den Händen (`hands.py` Exitcode 0).
+  - Auf der nächsten Karte zeigte das Panel des Clients die so ausgerüsteten Messer nicht an, weder in der Airdrop-Auswahl noch im
+    Lager, obwohl `MyItems` des Clients sie im Rucksack führte und der Hände-Balken drei belegte Hände zeigte. Unsichtbare Items lassen
+    sich nicht zusammenlegen. Im Lauf vom Mittag waren im Lager ausgerüstete Items am Folgetag sichtbar; der Unterschied ist offen.
+  - Im ersten Anlauf stürzte der Client auf Tag 2 beim Öffnen einer Airdrop-Auswahl ab (`EXCEPTION_ACCESS_VIOLATION` beim Lesen von
+    `0x108`, Stack `0x59694FF` ← `0x5963BF5` ← `0x5A6CD2C` ← … ← `0x597DE3B` ← … ← `0x571B51D`), direkt nach „SetupInventory ohne Inventar
+    ausgelassen“; die Hände-Testhilfe war nach dem Kartenwechsel noch nicht neu gesetzt (belegt 3 bei Maximum 1). Derselbe Absturz kam
+    beim Wiederbeitritt in die offene Auswahl. Ein neu gestarteter Client ist ein neuer Spieler mit leerem Inventar, die Sitzung war
+    damit verbraucht.
+  - Empfehlung: den Lauf wiederholen, wenn die Anzeige- und Edit-Korrekturen aus `opt-rucksack-ueberlappung` und
+    `opt-airdrop-edit-ungueltig` auf `main` sind, oder von zwei Menschen spielen lassen (zwei gleiche Waffen aus Airdrops wählen und
+    im Rucksack zusammenlegen, danach `hands.py` beim Host).
 - **Gescheitert und Grenzen des Tests:**
   - Gegenprobe mit einer nativen Aufwertung des Hosts im eigenen Rucksack: Das Ziehen aus dem Lager griff in der Airdrop-Auswahl nicht.
     Per `!give` vergebene Items ließen sich dort auf derselben Karte nie aus dem Lager ziehen, erst im Lager nach dem Rundenende.
