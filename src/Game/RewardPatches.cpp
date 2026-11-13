@@ -557,10 +557,34 @@ void __fastcall ConfirmHook(uintptr_t Panel)
     OriginalConfirm(Panel);
 }
 
-// opt-werkbank-station: Ist das Panel offen? UAbstractPanel.AnimationContainer und UPanelAnimationContainer.IsOpen, beide über
-// die Reflexion aufgelöst. Ohne lesbares Feld gilt das Panel als geschlossen, dann beginnt keine Stations-Bearbeitung.
+// opt-werkbank-station: Offen-Zustand der Panels beim Client aus UAbstractPanel.OnOpenStateChanged(bool), das jedes Panel über
+// ProcessEvent bekommt, sobald es auf- oder zugeht. Das Händler-Panel hält seinen Animationscontainer in einer eigenen Variable,
+// das Feld der Basisklasse ist dort leer (im Spiel geprüft); darum zählt zuerst das zuletzt gemeldete Ereignis.
+struct PanelState
+{
+    Objects::Ref Panel;
+    bool Open = false;
+};
+std::unordered_map<uintptr_t, PanelState> PanelStates;
+
+void NotePanelState(uintptr_t Object, uintptr_t Function, void* Params)
+{
+    static uintptr_t Changed = 0;
+    if (!Changed && !(Changed = Objects::FindObject("OnOpenStateChanged", "AbstractPanel")))
+        Changed = 1;
+    if (Function != Changed || !Params || !Object)
+        return;
+    if (PanelStates.size() > 64)
+        std::erase_if(PanelStates, [](const auto& Entry) { return !Objects::IsLive(Entry.second.Panel); });
+    PanelStates[Object] = {Objects::RefTo(Object), Memory::Read<uint8_t>(reinterpret_cast<uintptr_t>(Params)).value_or(0) != 0};
+}
+
+// Ist das Panel offen? Zuerst das gemeldete Ereignis, sonst UAbstractPanel.AnimationContainer und UPanelAnimationContainer.IsOpen
+// über die Reflexion. Ohne beides gilt das Panel als geschlossen, dann beginnt keine Stations-Bearbeitung.
 bool PanelOpen(uintptr_t Panel)
 {
+    if (const auto It = PanelStates.find(Panel); It != PanelStates.end() && It->second.Panel.Object == Panel && Objects::IsLive(It->second.Panel))
+        return It->second.Open;
     constexpr Reflection::FieldSpec ContainerSpec{"/Script/DDSurvivors", "AbstractPanel", "AnimationContainer", "ObjectProperty", 8};
     constexpr Reflection::FieldSpec OpenSpec{"/Script/DDSurvivors", "PanelAnimationContainer", "IsOpen", "BoolProperty", 1};
     const auto ContainerField = Reflection::Property(ContainerSpec);
@@ -989,6 +1013,7 @@ bool FilterRewardEvent(uintptr_t Object, uintptr_t Function, void* Params)
 {
     if (CurrentRole() == NetRole::Host)
         return RemoteReady.load(std::memory_order_relaxed) && (NullItemRpc(Function, Params) || ClientTradeRpc(Object, Function));
+    NotePanelState(Object, Function, Params);
     // lager-handel-client: ItemRepresentation.ConfirmRepair zieht den Preis lokal ab und schickt dann RepairItem. Im Lager beginnt
     // die erste Reparatur eine lokale Bearbeitung, RouteClientRpc führt sie dann lokal aus und der Edit meldet sie.
     static uintptr_t Repair = 0;
