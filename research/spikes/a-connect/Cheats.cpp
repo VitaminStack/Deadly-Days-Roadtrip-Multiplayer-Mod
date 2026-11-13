@@ -191,6 +191,370 @@ void GiveItemCommand(const std::wstring& Args)
     Log("Give: " + DataName + (RarityName.empty() ? "" : " " + RarityName) + (Broken ? " kaputt" : "") + " an " + std::to_string(Given) + " Inventare");
 }
 
+// Testhilfe (opt-haendler-client): Host aendert den Schrott der Mission, "!scrap 200" oder "!scrap -50". Natives
+// AbstractCurrency.AddAmount am ScrapWallet des Missions-GameState (+0x3C0), die Mod schickt den Stand an den Client.
+void ScrapCommand(const std::wstring& Args)
+{
+    const int32_t Delta = _wtoi(Args.c_str());
+    const uintptr_t World = Read<uintptr_t>(Base + kGWorld);
+    const uintptr_t State = World ? Read<uintptr_t>(World + kWorldGameState) : 0;
+    const uintptr_t Add = FindObject("AddAmount", "AbstractCurrency");
+    if (!State || !Add || !Read<uintptr_t>(World + kWorldGameMode))
+    {
+        Log("Scrap: nicht moeglich (kein Host oder kein GameState)");
+        return;
+    }
+    const uintptr_t Wallet = Read<uintptr_t>(State + 0x3C0);
+    if (!Wallet || NameOf(Read<uintptr_t>(Wallet + 0x10)) != "ScrapWalletComponent")
+    {
+        Log("Scrap: Konto nicht gefunden");
+        return;
+    }
+    int32_t Params = Delta;
+    Read<ProcessEventFn*>(Wallet)[kProcessEventIndex](Wallet, Add, &Params);
+    Log("Scrap: " + std::to_string(Delta) + ", Stand " + std::to_string(Read<int32_t>(Wallet + 0x100)));
+}
+
+// Testhilfe (opt-haendler-client, opt-werkbank-station): Haendler und Station ohne Maus und Tastatur bedienen, in der Instanz, die
+// den Befehl bekommt (meist der Client). Alles ueber ProcessEvent, also dieselben Funktionen, die Knopf und Panel rufen.
+//   !shop poi          POIs der Karte (BP_MetaBase_POI_C und Unterklassen) mit Ort
+//   !shop go <n>       eigene Figur auf POI n stellen (K2_TeleportTo), das Betreten oeffnet das Panel
+//   !shop away         eigene Figur 3000 Einheiten wegstellen, das Verlassen schliesst das Panel
+//   !shop list         Angebote aller Haendler-Panels mit Preis, dazu das eigene Inventar
+//   !shop buy <n>      UShopPanelItem.TryBuyItem am Angebot n
+//   !shop panels       Inventar-Panels zum eigenen Inventar mit Offen-Zustand
+//   !shop confirm <n>  HandleConfirmButton an Panel n (Bestaetigen)
+//   !shop click <Name>  OnButtonClicked an jedem sichtbaren Knopf mit diesem Namen, etwa ContinueButton
+//   !shop call <Klasse> <Funktion>   parameterlose UFunction an jeder Instanz, etwa ein Knopf-Ereignis
+//   !shop upgrade      zwei gleiche Items des eigenen Inventars ueber UInventoryComponent.UpgradeItems zur naechsten Seltenheit
+namespace
+{
+bool IsClass(uintptr_t Object, const char* ClassName)
+{
+    uintptr_t Class = Object ? Read<uintptr_t>(Object + 0x10) : 0;
+    for (int Depth = 0; Class && Depth < 40; ++Depth, Class = Read<uintptr_t>(Class + 0x40))
+        if (NameOf(Class) == ClassName)
+            return true;
+    return false;
+}
+
+// Lebende Instanzen (kein Klassen-Defaultobjekt) einer Klasse oder Unterklasse.
+std::vector<uintptr_t> InstancesOf(const char* ClassName)
+{
+    std::vector<uintptr_t> Result;
+    const uintptr_t Chunks = Read<uintptr_t>(Base + kGObjects);
+    const int32_t Count = Read<int32_t>(Base + kGObjects + 8);
+    for (int32_t i = 0; i < Count; ++i)
+    {
+        const uintptr_t Chunk = Read<uintptr_t>(Chunks + 8 * (i >> 16));
+        const uintptr_t Object = Chunk ? Read<uintptr_t>(Chunk + (i & 0xFFFF) * 0x18 + 8) : 0;
+        if (Object && (Read<uint32_t>(Object + 8) & 0x70) == 0 && IsClass(Object, ClassName))
+            Result.push_back(Object);
+    }
+    return Result;
+}
+
+void Call(uintptr_t Object, uintptr_t Function, void* Params)
+{
+    Read<ProcessEventFn*>(Object)[kProcessEventIndex](Object, Function, Params);
+}
+
+// Eigener Controller: UWorld.OwningGameInstance (+0x228), LocalPlayers (+0x38), UPlayer.PlayerController (+0x30).
+uintptr_t LocalController()
+{
+    const uintptr_t World = Read<uintptr_t>(Base + kGWorld);
+    const uintptr_t Instance = World ? Read<uintptr_t>(World + 0x228) : 0;
+    const uintptr_t Players = Instance ? Read<uintptr_t>(Instance + 0x38) : 0;
+    const uintptr_t Local = Players ? Read<uintptr_t>(Players) : 0;
+    return Local ? Read<uintptr_t>(Local + 0x30) : 0;
+}
+
+struct Vec
+{
+    double X, Y, Z;
+};
+
+Vec LocationOf(uintptr_t Actor)
+{
+    const uintptr_t Get = FindObject("K2_GetActorLocation", "Actor");
+    Vec Result{};
+    if (Actor && Get)
+        Call(Actor, Get, &Result);
+    return Result;
+}
+
+bool Teleport(uintptr_t Actor, Vec To)
+{
+    const uintptr_t Fn = FindObject("K2_TeleportTo", "Actor");
+    if (!Actor || !Fn)
+        return false;
+    // FVector DestLocation, FRotator DestRotation, bool ReturnValue; grosszuegig und genullt.
+    uint8_t Params[0x80]{};
+    memcpy(Params, &To, sizeof(To));
+    Call(Actor, Fn, Params);
+    return true;
+}
+
+// Eigenes Inventar: UInventoryComponent, dessen Outer der PlayerState des eigenen Controllers (+0x2B0) ist.
+uintptr_t LocalInventory()
+{
+    const uintptr_t Controller = LocalController();
+    const uintptr_t State = Controller ? Read<uintptr_t>(Controller + 0x2B0) : 0;
+    if (!State)
+        return 0;
+    for (const uintptr_t Object : InstancesOf("InventoryComponent"))
+        if (Read<uintptr_t>(Object + 0x20) == State)
+            return Object;
+    return 0;
+}
+
+std::vector<uintptr_t> ItemsOf(uintptr_t Inventory)
+{
+    std::vector<uintptr_t> Items;
+    const uintptr_t Data = Inventory ? Read<uintptr_t>(Inventory + 0x120) : 0;
+    const int32_t Count = Data ? Read<int32_t>(Inventory + 0x128) : 0;
+    for (int32_t i = 0; i < Count && i < 512; ++i)
+        if (const uintptr_t Item = Read<uintptr_t>(Data + 8 * i))
+            Items.push_back(Item);
+    return Items;
+}
+
+std::string ItemText(uintptr_t Item)
+{
+    const uintptr_t Data = Read<uintptr_t>(Item + 0xE0), Rarity = Read<uintptr_t>(Item + 0x118);
+    return (Data ? NameOf(Data) : std::string("?")) + " " + (Rarity ? NameOf(Rarity) : std::string("-")) + (Read<uint8_t>(Item + 0x180) ? " Rucksack" : "");
+}
+}
+
+void ShopCommand(const std::wstring& Args)
+{
+    const std::string Text(Args.begin(), Args.end());
+    const size_t Space = Text.find(' ');
+    const std::string Action = Text.substr(0, Space);
+    const int Index = Space == std::string::npos ? -1 : atoi(Text.c_str() + Space + 1);
+    const uintptr_t Controller = LocalController();
+    const uintptr_t Pawn = Controller ? Read<uintptr_t>(Controller + 0x2E8) : 0;
+    if (Action == "poi" || Action == "go")
+    {
+        const std::vector<uintptr_t> Pois = InstancesOf("MetaBasePoi");
+        for (size_t i = 0; i < Pois.size(); ++i)
+        {
+            const Vec At = LocationOf(Pois[i]);
+            if (Action == "poi")
+                Log("Shop: POI " + std::to_string(i) + " " + NameOf(Read<uintptr_t>(Pois[i] + 0x10)) + " " + NameOf(Pois[i]) + " bei " +
+                    std::to_string(static_cast<int>(At.X)) + " " + std::to_string(static_cast<int>(At.Y)) + " " + std::to_string(static_cast<int>(At.Z)));
+        }
+        if (Action == "poi")
+        {
+            const Vec Own = LocationOf(Pawn);
+            Log("Shop: " + std::to_string(Pois.size()) + " POIs, eigene Figur bei " + std::to_string(static_cast<int>(Own.X)) + " " +
+                std::to_string(static_cast<int>(Own.Y)) + " " + std::to_string(static_cast<int>(Own.Z)));
+            return;
+        }
+        if (Index < 0 || Index >= static_cast<int>(Pois.size()) || !Pawn)
+        {
+            Log("Shop: POI oder eigene Figur fehlt");
+            return;
+        }
+        Vec To = LocationOf(Pois[Index]);
+        To.Z = LocationOf(Pawn).Z;
+        Log(std::string("Shop: Figur auf POI ") + std::to_string(Index) + (Teleport(Pawn, To) ? " gestellt" : " nicht gestellt"));
+    }
+    else if (Action == "away")
+    {
+        Vec To = LocationOf(Pawn);
+        To.X += 3000;
+        Log(std::string("Shop: Figur ") + (Teleport(Pawn, To) ? "weggestellt" : "nicht weggestellt"));
+    }
+    else if (Action == "list" || Action == "buy")
+    {
+        // UShopPanelItem: CostDisplay +0x850 (Preis +0x384), ItemInstance +0x868, aus dem Code von TryBuyItem.
+        std::vector<uintptr_t> Offers;
+        for (const uintptr_t Offer : InstancesOf("ShopPanelItem"))
+            if (Read<uintptr_t>(Offer + 0x868))
+                Offers.push_back(Offer);
+        if (Action == "list")
+        {
+            for (size_t i = 0; i < Offers.size(); ++i)
+            {
+                const uintptr_t Display = Read<uintptr_t>(Offers[i] + 0x850);
+                Log("Shop: Angebot " + std::to_string(i) + " " + ItemText(Read<uintptr_t>(Offers[i] + 0x868)) + " fuer " +
+                    std::to_string(Display ? Read<int32_t>(Display + 0x384) : -1) + " in " + NameOf(Read<uintptr_t>(Read<uintptr_t>(Offers[i] + 0x3A8) + 0x10)));
+            }
+            const std::vector<uintptr_t> Items = ItemsOf(LocalInventory());
+            for (size_t i = 0; i < Items.size(); ++i)
+                Log("Shop: Inventar " + std::to_string(i) + " " + ItemText(Items[i]));
+            Log("Shop: " + std::to_string(Offers.size()) + " Angebote, " + std::to_string(Items.size()) + " Items im eigenen Inventar");
+            return;
+        }
+        const uintptr_t Buy = FindObject("TryBuyItem", "ShopPanelItem");
+        if (Index < 0 || Index >= static_cast<int>(Offers.size()) || !Buy)
+        {
+            Log("Shop: Angebot oder TryBuyItem fehlt");
+            return;
+        }
+        const std::string Name = ItemText(Read<uintptr_t>(Offers[Index] + 0x868));
+        Call(Offers[Index], Buy, nullptr);
+        Log("Shop: TryBuyItem an Angebot " + std::to_string(Index) + " (" + Name + ") gerufen");
+    }
+    else if (Action == "upgrade")
+    {
+        const uintptr_t Inventory = LocalInventory();
+        const uintptr_t Upgrade = FindObject("UpgradeItems", "InventoryComponent");
+        const std::vector<uintptr_t> Items = ItemsOf(Inventory);
+        for (size_t a = 0; Upgrade && a < Items.size(); ++a)
+            for (size_t b = a + 1; b < Items.size(); ++b)
+            {
+                const uintptr_t Data = Read<uintptr_t>(Items[a] + 0xE0), Rarity = Read<uintptr_t>(Items[a] + 0x118);
+                const uintptr_t Next = Rarity ? Read<uintptr_t>(Rarity + 0x58) : 0; // URarity.NextUpgradableRarity
+                if (!Data || !Next || Data != Read<uintptr_t>(Items[b] + 0xE0) || Rarity != Read<uintptr_t>(Items[b] + 0x118))
+                    continue;
+                uintptr_t Inputs[2]{Items[a], Items[b]};
+                struct
+                {
+                    uintptr_t* Data;
+                    int32_t Count, Max;
+                    uintptr_t Output, Rarity;
+                    bool FlagAsNew;
+                    uint8_t Pad[3];
+                    int32_t Position;
+                    uintptr_t Result;
+                } Params{Inputs, 2, 2, Data, Next, true, {}, -1, 0};
+                static_assert(sizeof(Params) == 0x30);
+                Call(Inventory, Upgrade, &Params);
+                Log("Shop: UpgradeItems mit zweimal " + NameOf(Data) + " zu " + NameOf(Next) + ", Ausgabe " + (Params.Result ? "ja" : "nein"));
+                return;
+            }
+        Log("Shop: keine zwei gleichen aufwertbaren Items im eigenen Inventar");
+    }
+    else if (Action == "panels" || Action == "confirm")
+    {
+        // Inventar-Panels zum eigenen Inventar (UInventoryPanel.Inventory +0x370). "confirm <n>" ruft HandleConfirmButton nur an
+        // diesem einen Panel: An einer unbenutzten Instanz stuerzt die Funktion ab (im Test gesehen).
+        const uintptr_t Inventory = LocalInventory();
+        std::vector<uintptr_t> Panels;
+        for (const uintptr_t Panel : InstancesOf("InventoryPanel"))
+            if (Read<uintptr_t>(Panel + 0x370) == Inventory)
+                Panels.push_back(Panel);
+        if (Action == "panels")
+        {
+            for (size_t i = 0; i < Panels.size(); ++i)
+            {
+                char Address[32];
+                sprintf_s(Address, "%llx", static_cast<unsigned long long>(Panels[i]));
+                const uintptr_t Container = Read<uintptr_t>(Panels[i] + 0x330);
+                Log("Shop: Panel " + std::to_string(i) + " " + Address + " " + NameOf(Read<uintptr_t>(Panels[i] + 0x20)) + ", Container " +
+                    (Container ? (Read<uint8_t>(Container + 0x328) ? "offen" : "zu") : "fehlt") + ", Drag " +
+                    std::to_string(Read<uint8_t>(Panels[i] + 0x788)));
+            }
+            Log("Shop: " + std::to_string(Panels.size()) + " Inventar-Panels zum eigenen Inventar");
+            // Haendler-Panels: sichtbar (UWidget.IsVisible), im Viewport, Rabattgrenzen (UShopPanel.DiscountChance +0x3D8,
+            // MinDiscountIfDiscounted +0x3DC, MaxDiscountIfDiscounted +0x3E0, Offsets aus dem SDK von 26187885, darum nur Diagnose).
+            const uintptr_t Visible = FindObject("IsVisible", "Widget"), InViewport = FindObject("IsInViewport", "UserWidget");
+            for (const uintptr_t Shop : InstancesOf("ShopPanel"))
+            {
+                uint8_t Shown[8]{}, Viewport[8]{};
+                if (Visible)
+                    Call(Shop, Visible, Shown);
+                if (InViewport)
+                    Call(Shop, InViewport, Viewport);
+                Log("Shop: " + NameOf(Read<uintptr_t>(Shop + 0x10)) + " sichtbar " + std::to_string(Shown[0]) + ", im Viewport " +
+                    std::to_string(Viewport[0]) + ", Rabatt Chance " + std::to_string(Read<float>(Shop + 0x3D8)) + " von " +
+                    std::to_string(Read<float>(Shop + 0x3DC)) + " bis " + std::to_string(Read<float>(Shop + 0x3E0)));
+            }
+            return;
+        }
+        const uintptr_t Confirm = FindObject("HandleConfirmButton", "InventoryPanel");
+        if (Index < 0 || Index >= static_cast<int>(Panels.size()) || !Confirm)
+        {
+            Log("Shop: Panel oder HandleConfirmButton fehlt");
+            return;
+        }
+        Call(Panels[Index], Confirm, nullptr);
+        Log("Shop: HandleConfirmButton an Panel " + std::to_string(Index) + " gerufen");
+    }
+    else if (Action == "click")
+    {
+        // "!shop click <Name>": UDefaultFocusableButton.OnButtonClicked an jedem sichtbaren Knopf mit diesem Objektnamen, etwa
+        // ContinueButton in der Rundenuebersicht. Sichtbar ueber UWidget.IsVisible.
+        const std::string Name = Space == std::string::npos ? std::string{} : Text.substr(Space + 1);
+        const uintptr_t Clicked = FindObject("OnButtonClicked", "DefaultFocusableButton"), Visible = FindObject("IsVisible", "Widget");
+        int Pressed = 0;
+        for (const uintptr_t Button : InstancesOf("DefaultFocusableButton"))
+        {
+            if (!Clicked || !Visible || NameOf(Button) != Name)
+                continue;
+            uint8_t Shown[8]{};
+            Call(Button, Visible, Shown);
+            if (!Shown[0])
+                continue;
+            uint8_t Params[0x40]{};
+            Call(Button, Clicked, Params);
+            ++Pressed;
+        }
+        Log("Shop: Knopf " + Name + " an " + std::to_string(Pressed) + " sichtbaren Instanzen gedrueckt");
+    }
+    else if (Action == "press")
+    {
+        // "!shop press <n>": das eigene Klick-Ereignis des Angebots n (WI_MerchantPanel_BuyableItem_C), also der Weg des Knopfs im
+        // Spiel samt allem, was sein Blueprint davor und danach tut.
+        std::vector<uintptr_t> Offers;
+        for (const uintptr_t Offer : InstancesOf("ShopPanelItem"))
+            if (Read<uintptr_t>(Offer + 0x868))
+                Offers.push_back(Offer);
+        if (Index < 0 || Index >= static_cast<int>(Offers.size()))
+        {
+            Log("Shop: Angebot fehlt");
+            return;
+        }
+        static const char* const Events[] = {
+            "BndEvt__WI_MerchantPanel_BuyableItem_ButtonComponent_K2Node_ComponentBoundEvent_0_OnButtonClickedEvent__DelegateSignature",
+            "OnClickResponse_Event"};
+        uintptr_t Function = 0;
+        const char* Used = "";
+        for (const char* Event : Events)
+            for (uintptr_t Class = Read<uintptr_t>(Offers[Index] + 0x10); Class && !Function; Class = Read<uintptr_t>(Class + 0x40))
+                if ((Function = FindObject(Event, NameOf(Class).c_str())) != 0)
+                    Used = Event;
+        if (!Function)
+        {
+            Log("Shop: Klick-Ereignis des Angebots nicht gefunden");
+            return;
+        }
+        const std::string Name = ItemText(Read<uintptr_t>(Offers[Index] + 0x868));
+        uint8_t Params[0x100]{};
+        Call(Offers[Index], Function, Params);
+        Log("Shop: " + std::string(Used).substr(0, 40) + " an Angebot " + std::to_string(Index) + " (" + Name + ") gerufen");
+    }
+    else if (Action == "call")
+    {
+        // "!shop call <Klasse> <Funktion>": parameterlose UFunction an jeder lebenden Instanz der Klasse, etwa der Zurueck-Knopf des
+        // Haendler-Panels. Die Funktion wird in der Klasse der Instanz und ihren Oberklassen gesucht.
+        const size_t Second = Space == std::string::npos ? std::string::npos : Text.find(' ', Space + 1);
+        if (Second == std::string::npos)
+        {
+            Log("Shop: call braucht Klasse und Funktion");
+            return;
+        }
+        const std::string ClassName = Text.substr(Space + 1, Second - Space - 1), FunctionName = Text.substr(Second + 1);
+        int Called = 0;
+        for (const uintptr_t Object : InstancesOf(ClassName.c_str()))
+        {
+            uintptr_t Function = 0;
+            for (uintptr_t Class = Read<uintptr_t>(Object + 0x10); Class && !Function; Class = Read<uintptr_t>(Class + 0x40))
+                Function = FindObject(FunctionName.c_str(), NameOf(Class).c_str());
+            if (!Function)
+                continue;
+            uint8_t Params[0x100]{};
+            Call(Object, Function, Params);
+            ++Called;
+        }
+        Log("Shop: " + ClassName + "." + FunctionName + " an " + std::to_string(Called) + " Instanzen gerufen");
+    }
+    else
+        Log("Shop: unbekannt, siehe Kommentar in Cheats.cpp");
+}
+
 // Testhilfe (gegner-alle): Host spawnt einen Boss ueber EnemySpawner::SpawnSpecificEnemy, "!boss SpikeBoss [Abstand]".
 // Namen der EnemyType-Assets: SpikeBoss, FrankensteinBoss, BlobBallBoss, BallerinaBoss, LazyBoss, HQBoss. Das Asset muss geladen sein,
 // sonst vorher "!load <Pfad>". Spawn Abstand (Standard 600) vor der ersten Spielerfigur. Nur beim Host, die Replikation macht das Spiel.

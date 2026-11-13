@@ -74,6 +74,7 @@
     <ClCompile Include="BloodPatches.cpp" />
     <ClCompile Include="BodyPartPatches.cpp" />
     <ClCompile Include="WalkAnimationPatches.cpp" />
+    <ClCompile Include="WeaponSoundPatches.cpp" />
     <ClCompile Include="DamageNumberPatches.cpp" />
     <ClCompile Include="CharacterPatches.cpp" />
     <ClCompile Include="EnemyTelegraphPatches.cpp" />

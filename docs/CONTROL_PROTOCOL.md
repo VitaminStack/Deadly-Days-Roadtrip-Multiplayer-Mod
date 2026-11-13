@@ -225,6 +225,24 @@ nach der Übernahme genau einmal und nur für tatsächlich entfernte bzw. repari
 prüft jede halbe Sekunde, sendet bei Änderung sofort, sonst alle 5 s, nur in einer Mission. Der Client gleicht sein eigenes Konto mit
 dem nativen `AddAmount` (Unterschied) an, nicht während einer lokalen Bearbeitung und nicht, solange ein Edit unbeantwortet ist.
 
+## Kaufen beim Händler (Mod-Kompatibilität 13)
+
+Aufgabe `opt-haendler-client`, Ablauf in [Kaufen beim Händler](../src/Game/README.md#kaufen-beim-händler). Mod-Version 13, weil `0x303`
+ein neues Feld am Ende hat und ein Host mit Version 12 jeden Edit ablehnen würde.
+
+`0x303` Edit bekommt hinter den Aufwertungen:
+
+| Bytes | Inhalt |
+|---:|---|
+| 1 | Anzahl Käufe, höchstens 16 |
+| je Kauf | Name der Daten und der Seltenheit (je 1 Länge + bis 120 Byte UTF-8, Seltenheit leer = keine), Preis (4, int32, 0 bis 1 000 000), das gekaufte Item wie oben |
+
+Das gekaufte Item `k` hat die Quelle `0xFE00 + k`, seine Prüfsumme ist die des Datennamens. Items des Ausgangsbilds haben damit Quellen
+unter `0xFE00`. Ein gekauftes Item ist heil und entweder vorhanden oder Eingabe einer Aufwertung (dann nicht vorhanden); verkaufen lässt
+es sich im selben Edit nicht. Der Host lehnt ab, wenn er Daten oder Seltenheit nicht kennt, der Preis unter einem Viertel seines
+eigenen Verkaufspreises für das Item liegt (`UInventoryItemData.GetBaseSellPrice`, die Rabatte des Händlers reichen bis 75 %) oder
+sein Schrott nicht reicht: erst alle Verkäufe gutschreiben, dann Käufe und Reparaturen abziehen. Er legt die Items mit `CreateAndAddItem` an und bucht nach der Übernahme einmal, nur für angelegte Items.
+
 ## Rundenende (`rundenende-client`)
 
 `0x401` Host an Client, neben der Karte `0x400` aus `missionsstart` (`src/Sync/World`). Genau 17 Bytes: Karten-Id der Mission
@@ -289,6 +307,29 @@ ungleich 0, höchstens 54 Bit), Schaden (float, 4, 0 bis 1e9), `DamageFlags` (1)
 Betrag höchstens 1e7), also genau 1 + 25 × Anzahl Bytes. NaN, Unendlich und andere Längen werden abgelehnt. Der Client holt `0xA00` in
 jedem Takt ab und ruft für jedes noch lebende, auflösbare Ziel den nativen Handler seines eigenen Controllers. Ein verlorenes Paket
 heißt nur fehlende Zahlen, keine Wiederholung, keine Antwort.
+
+Seit `opt-schadenszahlen-verlust` (13.11.2026, Format und Mod-Version unverändert) wertet der Client `0xA00` auch im Sammelabruf alle
+250 ms aus: Eine Nachricht, die nach dem eigenen Abruf im selben Takt ankam, nahm sonst der Sammelabruf mit, und dort verfiel sie
+ungezählt. Das gilt für jeden Typ, der einzeln abgeholt wird (`0x900` macht es genauso). Die Revision zählt der Host je angenommener
+Nachricht um 1 hoch; der Client zählt daran fehlende Nachrichten, er fordert nichts nach. Zähler im Mod-Log: beim Host „übergeben“,
+„gesendet“ (nur von `SendControl` angenommene), „Senden abgelehnt“, „ohne Mitspieler“, „Paket ungültig“; beim Client „im
+Sammelabruf“, „Nachricht unlesbar“, „Nachrichten fehlen“, „falsche Rolle“. Die Transport-Zeile nennt den höchsten Füllstand beider
+Warteschlangen des Kontrollkanals (Grenze 128) und wegen voller Warteschlange abgelehnte Nachrichten. Befund in
+[GAME_ANALYSIS.md](GAME_ANALYSIS.md#verlorene-schadenszahlen-opt-schadenszahlen-verlust).
+
+## Nachladesound (Mod-Kompatibilität 13)
+
+Aufgabe `opt-waffen-sound`, Befund in [Waffensounds beim Client](GAME_ANALYSIS.md#waffensounds-beim-client-opt-waffen-sound), Code in
+`src/Game/WeaponSoundPatches.cpp` und `src/Sync/Combat/WeaponSoundState.h`. Mod-Version 13, weil ein Client mit älterer Version die
+Nachricht nicht kennt. Der Schusssound braucht keine Nachricht, der Client leitet ihn aus dem nativen Multicast der Waffe ab. Das
+Nachladen läuft nur in der Feuerschleife der Hände beim Host und hinterlässt beim Client kein repliziertes Signal. Lokal bleiben Ort,
+Standardsound und Abspielen: Der Client ruft `Hands.PlayReloadSound` an seinen eigenen replizierten Händen auf. Geteilt wird nur, welche
+Hände wann nachladen und mit welchem Sound. Munition und Nachladezeit entscheidet weiter der Host.
+
+`0xB00` Host an Client, je Takt mit mindestens einem Nachladen: Anzahl (1, 1 bis 16), je Eintrag NetGUID des Hände-Actors (8, ungleich
+0, höchstens 54 Bit), Länge des Soundnamens (1, 0 bis 64) und der Objektname des `UFMODEvent` (druckbares ASCII ohne Leerzeichen).
+Länge 0 heißt Standardsound der Hände. Der Client holt `0xB00` in jedem Takt ab. Unbekannte Hände werden übersprungen, ein
+unbekannter Name spielt den Standardsound. Ein verlorenes Paket heißt nur ein fehlender Sound, keine Wiederholung, keine Antwort.
 
 ## Bisher geprüft (05.11.2026, Kontrollkanal vor Diagnoseerweiterung)
 

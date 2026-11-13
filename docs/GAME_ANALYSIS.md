@@ -464,6 +464,45 @@ Dauersound. Gemessen auf einem PC mit dem Spike-Zähler `!fx` aus `vfx-sound` (j
 - **Offen:** Der Host startet weniger `ScrapPickup` als der Client, vermutlich nur für Haufen, die seine eigene Kopie einsammelt. Ob die
   hängende Kopie beim Client sichtbar bleibt, wurde nicht geprüft. Zwei PCs mit echtem Ping nicht geprüft.
 
+#### Aufsammelsound von Benzin und Items beim Client (`opt-item-sound`)
+
+Gemeldet im [Live-Test vom 13.11.](#live-test-auf-zwei-pcs-am-13112026-livetest-1311): Sound-Fehler beim Einsammeln von Benzin. Untersucht
+am 13.11.2026, Build `26495302`, ein PC, Disassembly, gemessen mit `!fx` (Ton nur der beiden Spielprozesse aus, **gezählt, nicht gehört**).
+Mission direkt über den Testkanal (`Start-Session.ps1 -Mod -Tunnel Lobby -Godmode -Map /Game/Maps/DDDynamic_Map`), keine Maus- oder
+Tastatureingabe. Kanister kamen über die neue Spike-Testhilfe `!fx fuel <n>` (Host ruft `LootBlueprintFunctionLibrary.DropRequiredFuel`
+an der ersten Spielerfigur auf: fehlender Tank plus `n`), die Figuren standen still, ihr Attraktor sammelte.
+
+- **[Belegt, Disassembly] Derselbe Weg wie Schrott.** `FuelLoot.Loot`, `ItemLoot.Loot` (`0x59AF200`) und `ScrapLoot.Loot` springen alle in
+  `ALootBase::Loot_Implementation` (`0x59AF3F0`): Claimer setzen, Blueprint-Ereignis `Client_PlaySound` (Aufruf `0x59AF417`, NetClient-RPC),
+  Rückgabe an den Pool. Der Fix aus `opt-levelup-sound` saß nur im Schrott-Hook, Benzin und Power-ups liefen ungebremst, Itemsäcke beim
+  Client gar nicht (der Vergabe-Hook kehrte vorher zurück).
+- **[Belegt] Zwei Fehler beim Benzin**, Messung mit dem Einmal-Schutz an der Basis, aber noch ohne den zweiten Teil: 15 Kanister je Abwurf,
+  Host 7, Client 23 `Collect_fuel`. Aufrufketten (`!fx stack Collect`): beim Client 15 über `exe+59AF41C` (lokales `Loot_Implementation`)
+  und 8 über `exe+299CFFB` (vom Netz empfangener RPC). Der Host spielt nur die Kanister, die seine eigene Figur nimmt (7). Für die übrigen 8
+  hat beim Host die Client-Figur den Claim, er schickt ihr `Client_PlaySound`. Der Client hat dieselben Kanister aber schon lokal gespielt
+  und hört sie doppelt. Dazu kommt die Schleife aus `opt-levelup-sound`: Der Client wollte dieselben Kanister weitere 258- bis 473-mal je
+  Minute aufsammeln (Zähler `Wiederholungen ausgelassen`), ohne Schutz wäre jeder davon ein neuer Klang gewesen.
+- **Fehlversuch.** Ein erster Filter auf `Client_PlaySound` unterdrückte jeden Aufruf mit schon bekanntem Objekt. Er traf auch den lokalen
+  Aufruf aus `Loot_Implementation`, der dasselbe Objekt kurz vorher eingetragen hatte: Client 0 `Collect_fuel` bei 72 Kanistern (Host 72).
+- **Umsetzung** (`InventoryPatches.cpp`, Regel `LootSoundOncePerObject` in `PatchPolicy.h`, mit Tests):
+  - Der Einmal-Schutz (`LootedPiles`, 2 s Ruhe je Actor) sitzt jetzt an `ALootBase::Loot_Implementation` selbst (eigener Hook), gilt also für
+    Schrott, Benzin, Itemsack und Power-up gleich. Der Schrott-Hook ruft ihn auf statt eines eigenen Sonderfalls. Beim Itemsack läuft beim
+    Client jetzt die Basis (Klang, Delegates) je Sack einmal, die Vergabe bleibt beim Host.
+  - Ein vom Host **empfangenes** `LootBase.Client_PlaySound` (außerhalb des eigenen `Loot_Implementation`) teilt sich die Liste: Je Objekt
+    bleibt ein Klang, gleich welcher Weg zuerst kommt. Filter im ProcessEvent-Hook (`FilterLootSoundEvent`).
+  - Rein lokal, keine Nachricht, keine `ModVersion`-Erhöhung. Host und Einzelspieler unverändert. Wer bucht, bleibt gleich (Tank, Schrott,
+    Items beim Host). Beim Weltwechsel wird die Liste geleert.
+- **[Belegt, ein PC] Nachher**, fünf Abwürfe Host / Client: `Collect_fuel` 5 / 12, 9 / 15, 8 / 15, 10 / 15, 8 / 15. Der Client startet je
+  Kanister genau einen Klang (72 bei 72), alle über das lokale Aufsammeln. Mod-Log: „28 Objekte je einmal gespielt, 473 Wiederholungen
+  ausgelassen, Client_PlaySound des Hosts 13 empfangen, davon 13 doppelt ausgelassen“ (erste Minute). Keine Absturzberichte. Der Host hört
+  weiter nur die Kanister seiner eigenen Figur, das ist natives Verhalten.
+- **Nebenbefund, nicht behoben:** In einer Messung stürzte der Client ab, kurz nachdem die Abwürfe den Tank gefüllt hatten:
+  `EXCEPTION_ACCESS_VIOLATION`, Sprung auf `0xffffffff00000000` aus `Game::Objects::ProcessEvent` (`DDCoop.dll+0xA05B6`), aufgerufen aus
+  `BusBarPatches.cpp` (`UpdateBusProgress` an `WP_Bus_Countdown_Display_C`, `opt-busbalken`). **Vermutung:** Das gemerkte Countdown-Widget
+  war schon abgebaut. Einmal in fünf Läufen mit vollem Tank, nicht nachgestellt. Absturzbericht nicht verschickt.
+- **Nicht geprüft:** Schrott (in einer direkt gestarteten Mission fiel keiner), Itemsäcke und Power-ups im Spiel (`DD_OpenAllLootSpots` brachte
+  in so einer Mission keine Objekte), zwei PCs mit echtem Ping, gehört.
+
 ### Blut beim Client (`opt-blut`)
 
 Stand 11.11.2026, Build `26495302`. Statische Disassembly der Exe (`tools/spike/Disassemble.ps1`), dazu zwei Instanzen auf einem PC über
@@ -589,6 +628,92 @@ Gemeldet war im [Live-Test 10.11.](#live-test-auf-zwei-pcs-am-10112026-livetest-
   gemeldete Rückenansicht der Client-Figur **beim Client** (`opt-blickrichtung-client`) erklärt diese Ursache nicht, dort ist das Tempo normal.
 - **Nicht geprüft:** zwei PCs, Kriechen nach dem Tod (mit `-Godmode` nicht erreichbar), Item-Auswahl als Pause.
 
+### Schuss-Animation und Geisterwaffen (`opt-schuss-animation`)
+
+Stand 13.11.2026, Build `26495302`, `main` `1d41240`, zwei Instanzen auf einem PC über die Lobby, Mod mit Spike, `-Godmode`, Seed 20795,
+Tag 1 bis 4. Speicher beider Seiten nur gelesen mit `tools/spike/hands.py` (Momentaufnahme) und `hands_compare.py` (Zeitreihe, 50 ms,
+Figuren über ihre Waffenklassen gepaart). Gemeldet im [Live-Test 13.11.](#live-test-auf-zwei-pcs-am-13112026-livetest-1311): In höheren
+Leveln liegen bei der Client-Figur mehrere Waffen übereinander, die Figur gleitet.
+
+- **[Belegt, SDK und Messung] Aufbau:** Je ausgerüsteter Waffe legt `AHands` beim Host eine `UChildActorComponent` am
+  `InnerRotationContainer` an (`CreateWeaponRanged`/`CreateWeaponMelee`, Liste `ChildActorComponents`), der Child Actor ist die Waffe
+  (`AWeapon`, etwa `BP_Pistol_C`, `BP_MeleeWeapon_Stab_Base_C`). Komponente und Waffen-Actor replizieren nativ, samt relativer Lage
+  und Drehung der Komponente. Beim Client sind `ChildActorComponents`, `CurrentRangedWeapons`, `CurrentMeleeWeapons` und
+  `EquippedWeapons` leer, die Komponenten hängen trotzdem am Container. Offsets in [OFFSETS.md](OFFSETS.md#schuss-animation-opt-schuss-animation).
+- **[Belegt, Messung] Die Darstellung selbst ist beim Client in Ordnung.** Mit 1 bis 4 Waffen je Figur (Pistole, Revolver,
+  Schrotflinte, MP, zwei Messer) stimmen relative Lage, Weltort und Drehung jeder Waffe bei Host und Client überein: Abweichung im
+  Median 0, im Stehen, beim Laufen in vier Richtungen und im Kampf; Ausreißer (bis 200 Einheiten, 160°) nur kurz, wenn eine Waffe um
+  die Figur zum nächsten Ziel schwenkt. Der Rückstoß (Abstand Waffen-Actor zur Komponente bis 14,7) kommt beim Client ebenso an.
+  Geprüft auch: Waffentausch in der Airdrop-Auswahl (die alte Waffe ist beim Client nach dem Einsammeln weg, kein verwaister Actor),
+  Kartenwechsel mit 3 und 4 Waffen, Tod (alle Darstellungen weg, Kriechen mit Wackeln auf beiden Seiten), Wiederbelebung durch den
+  Host, Kartenwechsel im toten Zustand. Die Fixes aus `opt-blickrichtung-client` und `opt-laufanimation-client` griffen in allen Fällen
+  (Hände-Gier im Median gleich, `Progress` läuft auf beiden Seiten).
+- **[Belegt, eine Messung] Geisterwaffen beim Host nach einer Aufwertung im Client-Edit.** Der Client legte im Lager zwei
+  ausgerüstete Messer aufeinander (Host-Log „Aufwertung 1 des Edits … beim Host, Ausgabe true“, „vollständig=true“). Nach dem
+  nächsten Kartenwechsel beim Host, Client-Figur: `EquippedWeapons` Messer (neu), Pistole, Revolver; das neue Messer ohne
+  `WeaponActor`. `Hands.CurrentMeleeWeapons` führte dagegen die **zwei verbrauchten** Messer samt Waffen-Actor, deren Items nicht mehr
+  im Inventar stehen. Die Geisterwaffen replizieren, beide Seiten sehen sie an der Client-Figur. Die Host-Figur war sauber.
+  **Einschränkung:** Das ist eine einzige Messung, erst nach einem Kartenwechsel und unter der Hände-Testhilfe, die der Kartenwechsel
+  zurückgesetzt hatte (siehe Grenzen). Dass die Aufwertung die Ursache ist und nicht die Testhilfe oder der Kartenwechsel, ist damit
+  eine gut gestützte **Vermutung**, kein Beweis. `InventoryComponent.WeaponLookup` taugt nicht als Beleg: Es behielt auch bei sauberen
+  Händen alte Einträge (Host-Figur 5 Einträge bei 3 Waffen, nachdem ein Item nur über den Rucksack gezogen wurde).
+- **[Belegt, Disassembly; Zuordnung der Aufrufziele unsicher]** Das native Ablegen (`InventoryPanel.UpgradeDroppedItem`, `0x5A9D370`)
+  ruft vor `UpgradeItems` kein `RemoveFromBackpack`; nach `UpgradeItems` folgen `SetTurns` und `ForceEquipItemInBackpack`. Nativ hat
+  das Ziehen die gezogene Eingabe aber schon aus dem Rucksack genommen. Der Client zieht nur lokal, beim Host lagen beide Eingaben
+  noch im Rucksack. **Vermutung:** `UpgradeItems` löscht die Instanzen, ohne die Wirkung einer noch ausgerüsteten Eingabe zu beenden.
+- **Vermutung zum Live-Test:** Dort wertete der Client 20-mal auf. Bleiben je Aufwertung im Rucksack bis zu zwei Geisterwaffen, liegen
+  mehr Darstellungen an der Figur, als die Hände Plätze haben; das passt zum Bild „Waffen übereinander“ und zu „in höheren Leveln“.
+  Das Bild lag bei der Auswertung nicht vor. Ob das **Gleiten** dieselbe Ursache hat (`WeaponMovementSpeedEffects` je Waffe, im Log
+  105-mal „Tempo der eigenen Figur aus dem Attribut übernommen“), ist nicht belegt; auf einem PC ließ es sich nicht nachstellen.
+- **Umsetzung, als Hypothese** (`RewardPatches.cpp`, `ApplyClientEdit`): Vor den Aufwertungen eines Edits nimmt der Host jede Eingabe, die bei ihm noch
+  im Rucksack liegt, nativ heraus (`UnoccupyBackpackSlots`, `RemoveFromBackpack` mit `ForceRemoveAllEffects`, derselbe Planschritt wie
+  bei jedem Item, das den Rucksack verlässt). Danach läuft `UpgradeItems` wie bisher, die Ausgabe bekommt ihren Platz über den Plan.
+  Log „… Eingabe(n) der Aufwertungen des Edits … vorher aus dem Rucksack genommen“.
+- **Antworten zum neuen Pfad:** Kein neuer Sync- oder Hook-Pfad. Lokal bleibt die Bearbeitung des Clients, geteilt wird derselbe Edit
+  wie bisher, es entscheidet weiter der Host. Wiederverwendet werden der bestehende Edit, der Planschritt `Unplace` und die native
+  Replikation der Hände. Keine neue Nachricht, `ModVersion` bleibt 12. Ablehnung und Wiederholung laufen wie bei jedem Edit.
+- **Nicht bestätigt: die Korrektur im Spiel.** Build und Tests bestehen (`Build-Mod.ps1 -Configuration Release -Test`, Python-Tests).
+  Der Prüfablauf braucht Ziehen im Inventar-Panel und Klicks auf der Routenkarte, also echte Maus- und Tastatureingaben, die seit dem
+  13.11.2026 nur nach Rückfrage beim Nutzer laufen. Offen, einmal ohne und einmal mit der Korrektur: `!give ItemData_Knife` zweimal,
+  nach jedem Kartenstart `py tools/spike/extra_hands.py <host-pid> <client-pid> --hands 5`, die Messer im Lager nach dem Rundenende
+  in den Rucksack des Clients legen, auf der nächsten Karte im Rucksack zusammenlegen und bestätigen, dann
+  `py tools/spike/hands.py <host-pid> <client-pid>` direkt danach und nach einem Kartenwechsel. Erwartet mit der Korrektur:
+  Exitcode 0, „Geisterwaffen keine“, „ausgeruestet ohne Darstellung keine“; ohne sie Exitcode 1. Der Exitcode hängt nur an den
+  Listen der Hände, nicht am `WeaponLookup`.
+- **Gescheitert: Bestätigungslauf am 13.11.2026 abends** (mit Freigabe des Nutzers für echte Eingaben, Gegenprobe ohne die
+  Korrektur, drei Anläufe). Die Aufwertung kam nicht zustande, die Korrektur ist weiter **weder bestätigt noch widerlegt**:
+  - Lager-Items sind in der Airdrop-Auswahl ausgegraut und lassen sich dort nicht ausrüsten, auch nicht nach der Wahl der Belohnung.
+    Ausrüsten aus dem Lager geht nur im Lager nach dem Rundenende. Das läuft nicht als lokaler Edit, sondern nativ; der Host hatte
+    danach beide Messer im Rucksack (`weapons.py`) und nach dem Kartenwechsel sauber an den Händen (`hands.py` Exitcode 0).
+  - Auf der nächsten Karte zeigte das Panel des Clients die so ausgerüsteten Messer nicht an, weder in der Airdrop-Auswahl noch im
+    Lager, obwohl `MyItems` des Clients sie im Rucksack führte und der Hände-Balken drei belegte Hände zeigte. Unsichtbare Items lassen
+    sich nicht zusammenlegen. Im Lauf vom Mittag waren im Lager ausgerüstete Items am Folgetag sichtbar; der Unterschied ist offen.
+  - Im ersten Anlauf stürzte der Client auf Tag 2 beim Öffnen einer Airdrop-Auswahl ab (`EXCEPTION_ACCESS_VIOLATION` beim Lesen von
+    `0x108`, Stack `0x59694FF` ← `0x5963BF5` ← `0x5A6CD2C` ← … ← `0x597DE3B` ← … ← `0x571B51D`), direkt nach „SetupInventory ohne Inventar
+    ausgelassen“; die Hände-Testhilfe war nach dem Kartenwechsel noch nicht neu gesetzt (belegt 3 bei Maximum 1). Derselbe Absturz kam
+    beim Wiederbeitritt in die offene Auswahl. Ein neu gestarteter Client ist ein neuer Spieler mit leerem Inventar, die Sitzung war
+    damit verbraucht.
+  - Empfehlung: den Lauf wiederholen, wenn die Anzeige- und Edit-Korrekturen aus `opt-rucksack-ueberlappung` und
+    `opt-airdrop-edit-ungueltig` auf `main` sind, oder von zwei Menschen spielen lassen (zwei gleiche Waffen aus Airdrops wählen und
+    im Rucksack zusammenlegen, danach `hands.py` beim Host).
+- **Gescheitert und Grenzen des Tests:**
+  - Gegenprobe mit einer nativen Aufwertung des Hosts im eigenen Rucksack: Das Ziehen aus dem Lager griff in der Airdrop-Auswahl nicht.
+    Per `!give` vergebene Items ließen sich dort auf derselben Karte nie aus dem Lager ziehen, erst im Lager nach dem Rundenende.
+  - Eine Figur hat anfangs eine Waffenhand, mehr Waffen lehnt das Panel ab („Nicht genügend Hände frei“). Testhilfe: `ExtraHands`
+    (`UDDCharacterAttributeSet+0x100`, Basis und aktueller Wert) in beiden Prozessen von außen gesetzt, jetzt als schreibende
+    Testhilfe `tools/spike/extra_hands.py`. Der Wert repliziert so nicht und
+    hält nur bis zum nächsten Kartenwechsel; danach trug der Host vier Hände bei Maximum eins. Der Roboterarm ließ sich nicht ablegen.
+  - Im Fensterbild (800 × 450) sind die Waffen zu klein, verglichen wurden nur Speicherwerte.
+- **[Belegt] Nebenbefunde, nicht Teil dieser Aufgabe:**
+  - **Client-Absturz** nach derselben Aufwertung beim Öffnen der nächsten Airdrop-Auswahl: `EXCEPTION_ACCESS_VIOLATION` beim Lesen von
+    `0x182`, Stack `0x595CF93` ← `0x597DC37` ← … ← `0x571B51D`, direkt nach „Bearbeitung beginnt … Hände belegt 3, Rucksack braucht 2“.
+    In `MyItems` des Clients stand an der Stelle des ausgerüsteten Revolvers ein Eintrag ohne Item, `inventory.py` meldete „Slot verweist
+    auf ein Item ausserhalb von MyItems“. Passt zu `opt-rucksack-ueberlappung`.
+  - Eine Aufwertung zweier MPs **im Lager** legte beim Client die ausgerüsteten Items Revolver und Messer zurück ins Lager, danach
+    „Inventar UNGLEICH“.
+- **Nicht geprüft:** zwei PCs mit echtem Ping und `-NetProfile`, Aufwertung an der Werkbank, mehr als eine Aufwertung je Edit,
+  Geisterwaffen direkt nach dem Edit ohne Kartenwechsel.
+
 ### Warnanzeigen der Gegner beim Client (`opt-gegner-indikatoren`)
 
 Stand 11.11.2026, Build `26495302`. Gemeldet im [Live-Test vom 10.11.](#live-test-auf-zwei-pcs-am-10112026-livetest-1011): Beim Client
@@ -670,6 +795,39 @@ Stand 11.11.2026, Build `26495302`, zwei Instanzen auf einem PC über die Lobby,
 - **[Belegt] Keine Zahl ohne Treffer:** Jede Zahl beim Client geht auf einen Handler-Aufruf des Hosts zurück, Zähler gesendet gleich empfangen.
 - **Stabilität:** Ziele werden beim Host über den schwachen Zeiger (Index und Seriennummer im Objekt-Array) aufgelöst und beim Client über NetGUID, Platz im Objekt-Array, Garbage-Flag und `bActorIsBeingDestroyed` geprüft. Der Host leert seinen Puffer beim Weltwechsel. Höchstens 64 Treffer je Takt.
 - **Nicht geprüft:** zwei PCs mit echter Latenz, ob Zahlen tödlicher Treffer bei höherer Latenz als „Ziel stirbt“ verfallen (der Ort steht für einen späteren Ersatz schon im Paket), Reconnect. Die Rundenübersicht des Clients zeigt 0 Kills und 0 Schaden, das ist ein anderes Thema.
+
+### Verlorene Schadenszahlen (`opt-schadenszahlen-verlust`)
+
+Stand 13.11.2026, Build `26495302`, Mod-Version 12 (unverändert). Ausgangslage: Rund 0,5 bis 1 % der Schadenszahlen kamen beim Client
+nicht an (`testlauf-1111`: 1643 gesendet, 1624 empfangen; `livetest-1311`: 10407 zu 10358), die Lücke wuchs über den Run und sprang in
+dichten Kampfphasen.
+
+- **[Belegt, Code] Ursache:** Der Client holt `0xA00` jeden Takt einzeln ab (`TakeControlMessages(0xA00)`). Alle 250 ms holt derselbe
+  Takt danach im Sammelabruf alle übrigen Nachrichten ab (`TakeControlMessages()`). Kam eine `0xA00` zwischen beiden Abrufen an (der
+  Netzwerkthread läuft parallel), nahm der Sammelabruf sie mit. Dort gab es keinen Empfänger für `0xA00`, die Nachricht verfiel ohne
+  Zähler. Das erklärt, warum die Lücke mit der Trefferdichte wächst. Die Warnanzeigen (`0x900`) hatten dasselbe Problem schon gelöst.
+- **Behebung:** `ReceiveDamageNumbers` wertet `0xA00` in beiden Abrufen aus (`src/Sync/Sync.cpp`), Format, Bedeutung und Mod-Version
+  bleiben gleich. Der Client zeigt weiter nur an, was der Host gemeldet hat; Schaden bucht er nicht.
+- **Neue Zähler** (Mod-Log alle 10 s): Host „übergeben“, „gesendet“ (nur von `SendControl` angenommene Treffer, vorher wurde vor dem
+  Senden gezählt), „Senden abgelehnt“, „ohne Mitspieler“, „Paket ungültig“, „ohne Ziel“. Client „im Sammelabruf“, „Nachricht unlesbar“,
+  „Nachrichten fehlen“ (Lücken in der Revision, die der Host je angenommener Nachricht um 1 erhöht), „falsche Rolle“. Die Transport-Zeile
+  nennt den höchsten Füllstand beider Warteschlangen des Kontrollkanals (Grenze 128) und abgelehnte Nachrichten. Der Client schreibt seine
+  Zeile jetzt auch ohne neue Treffer, damit der Endstand im Log steht.
+- **[Belegt, Messung] Zwei Läufe auf einem PC**, `Start-Session.ps1 -Build -Mod -Tunnel Lobby -Godmode`, danach ohne Eingaben nur über
+  Spike-Befehle: `servertravel /Game/Maps/DDDynamic_Map?listen`, `!wave` jede Minute, am Ende `servertravel` zurück in die MetaBase.
+  `Run-Route.ps1` wurde nicht benutzt, weil es echte Mausklicks sendet.
+
+| Lauf | Dauer | Host gesendet | Client empfangen | davon im Sammelabruf | Sonstige Verluste | Füllstand Kontrollkanal |
+|---|---|---|---|---|---|---|
+| 1 (Zwischenstand vor dem letzten Log-Fix) | rund 10 min | 742 (16:04:21) | 741 (16:04:17) | 12 (1,6 %) | alle Zähler 0 | Host höchstens 8 zum Senden, Client höchstens 10 zum Abholen, 0 abgelehnt |
+| 2 | rund 7 min | 438 | 438 | 5 (1,1 %) | alle Zähler 0 | Host höchstens 7, Client höchstens 9, 0 abgelehnt |
+
+  Ohne die Behebung wären genau die Treffer „im Sammelabruf“ verloren gegangen, das passt in der Größe zu den früheren 0,5 bis 1 %.
+  Senden, Dekodieren und die Warteschlangen verloren nichts; die Grenze von 128 wurde nie annähernd erreicht. Lauf 1 hatte noch keine
+  Endzeile des Clients (sie entstand nur bei neuen Treffern), darum steht dort ein zeitgleicher Zwischenstand.
+- **Nicht geprüft:** zwei PCs mit echtem Ping und `-NetProfile Internet`. Die Ursache hängt nicht am Ping, sondern an der Ankunftszeit
+  relativ zum Takt; mit Latenz sollten die Zähler gleich aussehen (**Vermutung**). Bei der nächsten Live-Sitzung „gesendet“ gegen
+  „empfangen“ und „Nachrichten fehlen“ vergleichen.
 
 ### XP-Bälle beim Client (`xp-baelle`)
 
@@ -2235,7 +2393,8 @@ zuletzt 5 s vor dem zehnten Rundenende); Sound wurde gehört, nicht gezählt.
 - **[Belegt] Dodge über das Internet unauffällig.** 249 Dodges des Clients, 3 Rücksetzungen. Der Verdacht aus `testlauf-1111`
   (Rücksetzung auch bei jedem einzelnen Dodge) zeigte sich mit echtem Ping nicht.
 - **[Belegt] Schadenszahlen fehlen weiter.** Zeitgleiche Zeilen: Host gesendet 10407, Client empfangen 10358 (rund 0,5 %), die Lücke
-  wächst über den Run. Neue Aufgabe `opt-schadenszahlen-verlust`.
+  wächst über den Run. Neue Aufgabe `opt-schadenszahlen-verlust`, Ursache inzwischen gefunden, siehe
+  [Verlorene Schadenszahlen](#verlorene-schadenszahlen-opt-schadenszahlen-verlust).
 - **[Gemeldet, Ursache teils belegt] Händler: Client friert ein und kann nicht kaufen.** Öffnet der Host den Shop, steht die Welt für
   beide (`Pause: Weltzeit angehalten … Pauser true` auf beiden Seiten, dreimal je 3 bis 16 s). Beim Host steht „POI-Betreten der
   Remote-Figur beim Host übergangen“ und sechsmal „AddToInventory ohne Item vom Client verworfen“, jeweils in den beiden
@@ -2246,8 +2405,24 @@ zuletzt 5 s vor dem zehnten Rundenende); Sound wurde gehört, nicht gezählt.
   Aufwertung kam also nicht an. Aufwerten durch Ablegen im Airdrop und im Lager ging. Neue Aufgabe `opt-werkbank-station`;
   `werkbank-client` deckte nur das Panel ab.
 - **[Belegt] Zwei Airdrop-Edits mit Aufwertung zurückgenommen.** Beim Client zweimal „Edit mit 1 Aufwertungen ungültig, Bearbeitung
-  zurückgenommen“ (11:21:22 und 11:26:28), das erste Mal direkt nach „alle bereit“ in einer Airdrop-Auswahl mit vorheriger
-  Aufwertung. Ursache offen. Neue Aufgabe `opt-airdrop-edit-ungueltig`.
+  zurückgenommen“ (11:21:22 und 11:26:28), beide Male direkt nach „alle bereit“ in einer Airdrop-Auswahl mit vorheriger
+  Aufwertung. Aufgabe `opt-airdrop-edit-ungueltig`, Auswertung der Logs vom 13.11.2026:
+  - **[Belegt] Nichts ging verloren.** Das Panel öffnete sich jeweils rund 0,3 s später erneut mit denselben drei Choices
+    (Sitzungen 14 und 20). Der Spieler wertete noch einmal auf und bestätigte, der Host übernahm beide Edits mit Aufwertung
+    („übernommen … vollständig=true“). Der Spieler sah aber keinen Grund, die erste Bearbeitung war einfach weg.
+  - **[Belegt] Auslöser im Log:** Nur in diesen beiden Auswahlen folgt nach der Aufwertung und vor dem Bestätigen noch einmal
+    `AddToInventory` für ein Item derselben Art wie die Ausgabe (Magazines, TrooperHelmet), dazu verlassen die beiden anderen
+    Choices den Rucksack: Der Spieler nahm noch einmal ein Item aus der Belohnungsanzeige auf. In allen sieben übernommenen
+    Airdrop-Edits mit Aufwertung fehlt dieser Block. Beide Male war die Belohnung Eingabe der Aufwertung (Wahl=2, 2 Eingaben).
+  - **[Vermutung, aus Code und Log abgeleitet] Prüfung:** `WellFormed` verlangt, dass jede Eingabe einer Aufwertung im Edit als
+    entfernt steht („Eingabe noch vorhanden“). Die lokale Belohnungsanzeige behält die Instanz, die `UpgradeItems` schon
+    verbraucht hat; nimmt der Spieler sie erneut auf, liegt sie wieder im Inventar und ist zugleich Eingabe. Jede andere Lage der
+    Ausgabe (Rucksack, Lager) wäre gültig gewesen. Welche Bedingung genau scheiterte, stand nicht im Log; ab jetzt nennt die Zeile
+    den Grund (`Malformed`).
+  - **Änderung:** Beim Bestätigen entfernt der Client eine erneut aufgenommene, schon aufgewertete Eingabe lokal wieder und
+    schickt den Edit mit der Aufwertung („… erneut aufgenommen, wieder entfernt; die Aufwertung bleibt“). Der Host prüft
+    unverändert. Im Spiel noch **nicht nachgestellt**: Das braucht einen Menschen, der im Panel des Clients aufwertet und die
+    Belohnung danach erneut aufnimmt. Offen ist auch, ob das Solo-Spiel die verbrauchte Belohnung aus der Anzeige nimmt.
 - **[Gemeldet] Endboss erscheint nicht.** Die Boss-Karte `MGP_Burger_Boss_Nature` lud bei beiden; in beiden Logs gibt es danach keine
   Boss-Zeile. Der Lauf endete 25 s nach dem Laden über das Pausemenü, die Beobachtung stützt sich also auf höchstens diese Zeit. Die
   Rundenübersicht zeigte „Tag 2/8“ mit Boss-Feld an achter Stelle, gespielt wurden elf Karten. Neue Aufgabe `endboss-spawn`,
@@ -2257,19 +2432,138 @@ zuletzt 5 s vor dem zehnten Rundenende); Sound wurde gehört, nicht gezählt.
   nach Dev-Aktionen des Hosts. Neue Aufgabe `opt-highway-ziel`.
 - **[Gemeldet] Airdrops bleiben über Level hinweg hängen:** Lässt man einen Airdrop liegen, erscheint im nächsten Level keiner mehr.
   **Vermutung:** Die Reward-Queue der Figur bleibt auf der alten Kiste stehen, wie unter `airdrop-auswahl` beschrieben. Neue Aufgabe
-  `opt-airdrop-uebertrag`.
+  `opt-airdrop-uebertrag`. Auswertung des Host-Logs je Karte („Airdrop: Actor- und Bewegungsreplikation aktiviert“ zählt gelandete
+  Kisten, „Sitzung … Stufe“ geöffnete):
+
+  | Karte | gelandet | geöffnet (davon Client) | Stufen der Auswahl |
+  |---|---|---|---|
+  | GolfCourse | 9 | 8 (3) | 2 bis 9 |
+  | Circus | 3 | 3 (1) | 11 bis 13 |
+  | Mountains_Residential_Camping | 2 | 2 (0) | 14, 15 |
+  | MerchantEvent | 0 | 0 | – |
+  | Mountains_Camping | 9 | 7 (3) | 16 bis 22 |
+  | HighwayBlockage | 11 | 7 (5) | 25 bis 30, 32 |
+  | Mountains_MilitaryBase_Without_Valley | 2 | 1 (1) | 36 |
+  | Forest_Roadstops | 3 | 2 (1) | 39, 38 |
+  | MerchantEvent, Canyon_Roadstops (36 s), Burger_Boss_Nature (25 s) | 0 | 0 | – |
+
+  - **[Belegt]** Nach liegen gelassenen Kisten kamen auf der nächsten Karte meist wieder Airdrops und ließen sich öffnen, auch vom
+    Client (GolfCourse → Circus, Mountains_Camping → HighwayBlockage). Ein dauerhaft hängender Zustand ist im Log nicht zu sehen.
+  - **[Belegt]** Nach HighwayBlockage (4 Kisten liegen gelassen) landeten auf der nächsten Karte nur 2 Kisten für die Stufen 33 bis 37;
+    zu den Stufen 33 bis 35 gibt es keine Landung. Das passt zur Meldung, belegt aber keine Ursache: Das Log hatte damals keine Zeilen
+    zur Queue des Hosts, und ob eine Stufe ohne Landung an einer vollen Queue, an der Zeit oder am Spawner lag, ist offen.
+  - **[Belegt]** `AdvanceRemoteQueue` schaltete bisher nur die Queue der Remote-Figur weiter. Die Queue der Host-Figur schaltet nur
+    das Bestätigen im Panel weiter; verschwindet ihre aktuelle Kiste ohne Bestätigen, bleibt sie belegt (aus dem Code, nicht
+    beobachtet).
+  - **[Belegt] Messung 13.11.2026, ein PC** (`Start-Session.ps1 -Build -Mod -Tunnel Lobby -Godmode -Map /Game/Maps/DDDynamic_Map`,
+    ohne Eingaben, Kartenwechsel über den Testkanal `travel`, Speicher nur gelesen): Nach MetaBase → Mission und Mission → Mission
+    sind beide Figuren (Host und Remote-Spieler) und ihre `RewardQueueComponent` neue Objekte, nicht belegt, ohne aktuelle Kiste.
+    **Die Vermutung „Queue bleibt über den Kartenwechsel auf der alten Kiste“ ist damit widerlegt.** Was die fehlenden Landungen auf
+    der Karte nach HighwayBlockage verursachte, ist weiter offen.
+  - **Nicht prüfbar ohne Eingaben:** In einer direkt geladenen Missionskarte landet nach `DD_CheatAddExperience` (Stufe steigt,
+    `OnLevelChanged`) kein Airdrop; `DD_OpenAirdrop 1` öffnet die Auswahl direkt, ohne Kiste und Queue. Echte Kisten gibt es nur in
+    einem Run über die Routenkarte, und Start-Run, Routenklick, Einsammeln und Bestätigen brauchen derzeit echte Eingaben.
+  - **Nebenbefund:** Reist der Host bei offener Auswahl weiter, endet die Sitzung mit „endet ohne Wahl des Clients“; ob der Client
+    dabei eine Belohnung verliert, wurde nicht geprüft.
+  - **Änderung:** Beide Queues stehen jetzt bei jeder Änderung im Log („Reward-Queue Host/Remote-Spieler: … belegt …, aktuelle Kiste
+    keine/lebt/zerstört“). Ist die Queue des Hosts belegt und ihre Kiste zerstört, schaltet die Mod sie wie die des Remote-Spielers
+    weiter. Der nächste Live-Test zeigt damit, ob und wo eine Queue innerhalb einer Karte hängt.
 - **[Gemeldet] Sound:** Beim Einsammeln von Items wie Benzin nach dem Looten gibt es einen Sound-Fehler (neu: `opt-item-sound`; #219
-  behob nur Schrott). Schusssounds fehlen beim Client (bekannt, `opt-waffen-sound`).
+  behob nur Schrott; Ursache und Fix unter [Aufsammelsound](#aufsammelsound-von-benzin-und-items-beim-client-opt-item-sound)). Schusssounds fehlen beim Client (bekannt, `opt-waffen-sound`).
 - **[Gemeldet] Client-Figur in höheren Leveln:** Die Schuss-Animation ist kaputt (Bild: Waffen übereinander an der Figur), und die
   Figur gleitet über den Boden. Offen, ob die Laufanimation fehlt oder die Figur nachrutscht. Neue Aufgabe `opt-schuss-animation`.
 - **[Gemeldet, Bilder] Anzeige:** Im Rucksack des Clients überlappen Items (zwei Revolver, Magazin, Ratte und Pumpe auf denselben
-  Feldern). Dazu passt „ABWEICHUNG Inventar“ im Desync-Melder (17-mal, bis 11:24); das ist also nicht nur der Fehlalarm aus
+  Feldern). Im Desync-Melder stand dazu 17-mal „ABWEICHUNG Inventar“ (bis 11:24). **Überholt:** Nach der Auswertung unter
+  `opt-rucksack-ueberlappung` zeigen diese Meldungen die Überlappung nicht, sie sind offene Bearbeitungen und der Fehlalarm aus
   `opt-desync-pivot`. Neue Aufgabe `opt-rucksack-ueberlappung`. Die Rundenübersicht des Clients zeigte einmal nur Nullen und einmal
   rote Abzüge (`opt-ergebnis-werte`), die Routenkarte „DAY 999“ und einen grauen Bereich (`opt-routenkarte`).
 - **[Belegt] Erneut gesehen:** „ABWEICHUNG Gegner“ 30-mal (`opt-gegnerzahl`), Takt-Warnungen beim Client 1124, beim Host 187
   (`opt-client-takt`), „Client bereit (eigenes Rundenende passt nicht)“ nach dem Laden einer Karte, ohne Folge.
 - **Nicht geprüft:** `fortschritt` (Giftwolke, Item-Effekte, Werte nach Upgrade), Treffereffekte für `opt-blut`, Tod und
   Wiederbelebung, Reconnect.
+
+### Rucksack-Überlappung beim Client (`opt-rucksack-ueberlappung`)
+
+Ausgewertet am 13.11.2026: Mod-Logs beider Seiten aus `livetest-1311` und ein Test auf einem PC (Build `26495302`, Mod-Version 12,
+`Start-Session.ps1 -Build -Mod -Godmode -Tunnel Lobby`, Tag 1, `!give` für je zwei Revolver und Magazine, Pumpe, Gewehr, `!finish`, Lager
+des Clients per Skript-Eingabe bedient, Vergleich mit `tools/spike/inventory.py`).
+
+- **[Belegt] Die 17 Meldungen „ABWEICHUNG Inventar“ aus `livetest-1311` zeigen die Überlappung nicht.** 13 fallen in eine offene lokale
+  Bearbeitung des Clients (Airdrop-Auswahl oder Lager): Der Client ist lokal voraus, der Host kennt den Stand erst mit dem Edit. Nach
+  jedem übernommenen Edit meldete der Melder wieder „OK“. Die übrigen 4 (11:02:36 bis 11:03:59) folgen einem Edit, der ein vorhandenes
+  Item aus dem Rucksack nahm: Beim Client blieb der Pivot auf dem letzten Wert des Ziehens, beim Host auf dem alten, und das Messfeld
+  rechnet den Pivot auch außerhalb des Rucksacks mit. Das ist die Klasse aus `opt-desync-pivot`; sie endete mit dem Lager-Edit, der das
+  Item wieder ablegte. Der Satz unter `livetest-1311` („nicht nur der Fehlalarm“) ist damit überholt.
+- **[Belegt] Fehler: native Züge im Lager vor der lokalen Bearbeitung kommen beim Host unvollständig an.** Bisher begann die lokale Bearbeitung im Lager erst mit der
+  ersten Aufwertung, dem ersten Verkauf oder der ersten Reparatur; Ablegen und Drehen davor liefen als native Server-RPCs. Gemessen
+  nach drei solchen Zügen (Revolver, Magazin gedreht, Pumpe gedreht): Beim Host sind die Felder belegt und `IsInBackpack` gesetzt,
+  `ZeroPivotTile` und `Turns` aber `(0, 0)` und 0. Beim Client stehen Pivot und Drehung lokal richtig (`(2, 2)` mit Drehung 1,
+  `(1, 1)` mit Drehung 1, `(-1, 2)`), `IsInBackpack` und die Feldbelegung fehlen, weil im Lager nichts zurückrepliziert (bekannte
+  Grenze aus `rundenende-client`). Der Melder meldet ab dem ersten Zug „ABWEICHUNG Inventar“, der Zähler „Lager 6/4“ des Clients
+  bleibt stehen, „Bestätigen“ bleibt gesperrt.
+- **[Belegt] Sichtbare Folge im selben Lager:** Mit dem ersten Verkauf beginnt die lokale Bearbeitung, das Panel baut sich aus dem
+  Stand des Clients neu auf, und alle vorher abgelegten Items springen zurück ins Lager (Bild lokal). Beim Host liegen sie weiter im
+  Rucksack. Der Edit meldet nur, was sich danach ändert; die liegen gelassenen Items bleiben beim Host mit Pivot `(0, 0)` im Rucksack.
+- **Vermutung, nicht bis zum Bild nachgestellt (Zusammenhang mit dem Live-Test):** Nach der Reise bekommt der Client die Instanzen des Hosts. Die Anzeige richtet sie
+  aus dem Pivot aus (`RestoreBackpackVisuals`), mehrere Items mit Pivot `(0, 0)` liegen dann auf denselben Feldern; so sah es im
+  Live-Test aus (zwei Revolver, Magazin, Ratte, Pumpe). Der Melder sagt dabei „OK“, weil beide Seiten denselben falschen Pivot haben.
+- **Fix:** Der erste Inventar-RPC des Clients im Lager (Ablegen, Feldbelegung, Pivot, Lagerflags, Entfernen) beginnt jetzt die lokale
+  Bearbeitung (`ChangesInventory`, `FilterRewardEvent`). Alle Züge laufen damit lokal, der Host übernimmt beim Bestätigen einen Edit mit
+  Pivot, Drehung und Feldern über die nativen Setter, wie schon bei Airdrop und Handel. Kein neuer Nachrichtentyp, Mod-Version bleibt 12.
+- **Nicht geprüft:** Der Fix im Spiel (Ablegen und Drehen im Lager, Edit beim Host, Reise, Rucksackbild). Dafür braucht es Züge mit
+  der Maus im Client-Fenster; ein Mensch muss sie spielen. Ebenfalls offen: Ob `SnapRepresentationToTile` für gedrehte Items das
+  Pivot-Feld oder die obere linke Ecke erwartet. Der native Aufrufer bei `0x5A8105E` übergibt ein anderes Feld der Ablage-Struktur
+  (`+0xC`) als das, das als Pivot gesetzt wird (`+4`); bei Drehung 1 lag der Pivot im Test auf dem rechten der beiden Felder. Stimmt
+  die Vermutung, stehen gedrehte Items nach der Reise um ein Feld versetzt und überlappen Nachbarn; das wäre eine zweite, vom Fix
+  nicht berührte Ursache der Überlappung, auch auf dem Weg über den Airdrop. Die Messung mit beiden Varianten war vorbereitet, lief
+  aber nicht mehr.
+- **Fehlversuch:** `0x5A92030` aus `docs/OFFSETS.md` ist die Adresse von `SnapRepresentationToTile` im alten Build `26187885` und
+  liegt in `26495302` mitten in einer anderen Funktion; dort beginnt sie bei `0x5A96EF0` (in der Tabelle nachgetragen).
+
+### Händler und Werkbank im Händler-Event (`opt-haendler-client`, `opt-werkbank-station`)
+
+Ausgewertet am 13.11.2026: Code der Mod, die Exe des Builds `26495302`, die Logs beider Seiten aus `livetest-1311` und ein Spieltest
+auf einem PC (Lobby, Godmode, Händler-Event über `DDCOOP_TEST_MAP_PROFILE` direkt aus der MetaBase, also ohne laufenden Run; bedient
+ohne Maus und Tastatur über die Spike-Befehle `!shop …` und den Trace `DDCOOP_TRACE_INVENTORY`).
+
+- **[Belegt, Code] „POI-Betreten der Remote-Figur beim Host übergangen“ ist Absicht.** Der Händler ist ein `BP_MetaBase_POI_C`. Sein
+  Panel ist lokale UI, der Client öffnet es bei sich selbst; beim Host liefe das Betreten mit dem Remote-Controller ohne `LocalPlayer`
+  und sperrte nur die Bewegung (`FilterRemotePoiOverlap`). Das verhindert keinen Kauf.
+- **[Belegt, Exe] Der Kauf läuft nativ beim Client.** `UShopPanelItem::TryBuyItem` prüft den Preis aus dem `CostDisplay` über einen
+  Funktor des Panels, zieht ihn über einen zweiten Funktor lokal ab und ruft dann `AddToInventory` mit der Instanz des Shops, die es nur
+  beim Client gibt. Beim Host kommt der Server-RPC mit Null an und wird verworfen („AddToInventory ohne Item vom Client verworfen“). Das
+  Schrottkonto repliziert nicht, der Abzug blieb also auch lokal. Automaten setzen `ManuallyCallClearAndAdd` und legen das Item erst
+  später über `ClearItemAndAddToInventory` ab.
+- **[Belegt, Exe] Die „Werkbank“ ist das Rezept-Panel im Inventar-Panel.** Der Aufrufer aus dem Client-Log liegt in
+  `InventoryPanel.ConfirmAllStagedIngredients`. Im Händler-Event gibt es kein Rundenende, darum begann keine lokale Bearbeitung und
+  `UpgradeItems` lief nativ; dessen `AddToInventory` der Ausgabe ist die vierte verworfene Meldung beim Host (zeitgleich im Log).
+- **[Belegt, Spieltest] Die Pause ist nativ und kommt vom Host.** Das Händler-Panel pausiert, solange es offen ist
+  (`PauseGameWhileOpen`), über `AWorldSettings.PauserPlayerState`. Den Pauser kann nur der Host setzen, er repliziert: Öffnet der Host
+  den Händler, steht die Welt für beide (`Pause: Weltzeit angehalten … Pauser true` auf beiden Seiten, `pause_state.py`: Pauser ist der
+  PlayerState des Hosts). Öffnet der Client seinen Händler, pausiert nichts. Die Mod setzt hier keinen Pauser und ändert daran nichts.
+  Während der Pause kann der Client nicht laufen, ein schon offenes Panel bleibt aber bedienbar: Ein Kauf des Clients während der Pause
+  des Hosts wurde übernommen und gebucht, `inventory.py` war noch in der Pause vollständig und gleich. Dazu passt das Live-Log: Die
+  Pausen dort überdecken die Käufe des Hosts (sein Schrott sinkt), die Meldungen des Clients fallen nur in dieselbe Zeit.
+- **[Belegt, Spieltest] Ablauf beim Händler.** Betritt die Figur den POI (`BP_Event_POI_C`), öffnet sich das Händler-Panel
+  (`WI_MerchantPanel_C`) beim Client, beim ersten Besuch mit einem Dialog davor. Es schließt nicht, wenn die Figur den POI verlässt.
+  Der Zurück-Knopf öffnet das Inventar-Panel mit „Bestätigen“; erst dieses Bestätigen beendet den Besuch. Das Händler-Panel bekommt
+  dabei nur Ereignisse seines Blueprints, nie `UAbstractPanel.OnOpenStateChanged(false)`. Das Feld `AnimationContainer` der Basisklasse
+  ist bei Händler- und Inventar-Panel leer.
+- **[Belegt, Spieltest] Angebot und Preise.** Jede Seite würfelt ihr Angebot selbst, bei jedem Start anders (sechs Plätze). Gesehene
+  Preise gegen den Verkaufspreis beim Host (`GetBaseSellPrice`): Messer gewöhnlich 15 und 16 zu 8, Ratte ungewöhnlich 23 zu 12,
+  Luftpumpe ungewöhnlich 23 und 24 zu 12, Pistole ungewöhnlich 22 zu 12, Feuerzeug episch im Angebot 28 zu 24 (sonst 55). Mit Rabatt
+  ging es bis auf den Verkaufspreis hinunter (Luftpumpe für 12 zu 12). Im Händler-Panel standen Rabattchance 0,125 und Rabatt von 0,25
+  bis 0,75 (gelesen an den Offsets des SDK von `26187885`, darum **Vermutung**); ein Kaufpreis unter dem Verkaufspreis ist damit
+  möglich.
+- **[Belegt, Spieltest] `UpgradeItems` räumt Rucksackfelder nicht frei.** Die Funktion nimmt die Eingaben aus Rucksack und Inventar,
+  ruft aber kein `UnoccupyBackpackSlots`; das macht sonst das Panel. Beim Host blieb darum das Feld einer verbrauchten Rucksack-Pistole
+  von einem zerstörten Item belegt, wenn die Ausgabe woanders landete. Behoben in `opt-werkbank-station`.
+- **[Belegt, nicht untersucht] Zwei Abstürze durch die Testbefehle, nicht im Spielablauf.** `HandleConfirmButton` an einem unbenutzten
+  Inventar-Panel des Clients (Lesen von Adresse `0x3e0`, das Spiel ruft die Funktion dort nie) und ein Absturz des Hosts, als nach einem
+  fehlgeschlagenen Sitzungsstart Befehle wie `!finish` und `!shop click ContinueButton` im Hauptmenü ankamen; in dessen Stapel liegt
+  auch ein Rahmen der Mod. Beide Berichte blieben lokal.
+- **[Belegt] Die lokalen SDK-Dumps stammen noch von Build `26187885`.** Funktionsadressen daraus gelten für `26495302` nicht; die
+  Adressen hier stammen aus den Namenstabellen der Exe dieses Builds.
 
 ### Sound und Effekte beim Client (`vfx-sound`)
 
@@ -2301,7 +2595,8 @@ Sounds selbst, die Zahlen sind also das, was Host und Client hören würden. Je 
   **Vermutung:** Was `ScrapLoot.Loot` sonst tut, damit derselbe Haufen nicht erneut eingesammelt wird, fehlt, der Attraktor des Clients
   sammelt denselben Haufen jeden Takt erneut.
 - **[Belegt] Waffen.** Schuss- und Nachladesounds laufen nur beim Host, beim Client für beide Figuren nie. **Vermutung:** Die Waffe feuert nur
-  beim Host, beim Client kommen nur die replizierten Projektile an.
+  beim Host, beim Client kommen nur die replizierten Projektile an. Bestätigt und behoben unter
+  [Waffensounds beim Client](#waffensounds-beim-client-opt-waffen-sound).
 - **Level-up-Kiste (`opt-levelup-sound`).** Der Öffnungssound des Level-up-Airdrops (`airdrop_openCrate`) lief bei Host und Client je einmal,
   eine Kiste im Endbildschirm war in zwei Rundenenden nicht zu sehen. Laut Nutzer war mit dem gemeldeten Fehler der
   Schrott-Dauersound gemeint, er wird unter `opt-levelup-sound` behoben.
@@ -2311,6 +2606,51 @@ Sounds selbst, die Zahlen sind also das, was Host und Client hören würden. Je 
 - **Nebenbefund.** In einem Lauf stürzten Client und Host ohne Spike-Adressen im Stapel ab (Client `exe+15C0407` nach 757 s, Host
   `exe+5899663` 10 Minuten später, während er auf den Client wartete). Nicht nachgestellt, Ursache offen. Zwei frühere Abstürze kamen
   vom Zähler selbst (Pfad einer schon entladenen Sound-Beschreibung gelesen) und sind behoben.
+
+#### Waffensounds beim Client (`opt-waffen-sound`)
+
+Untersucht am 13.11.2026, Build `26495302`, ein PC, Disassembly und SDK, gemessen mit `!fx` (Ton der Spielprozesse aus, **gezählt,
+nicht gehört**). Mission direkt über den Testkanal (`Start-Session.ps1 -Mod -Tunnel Lobby -Godmode -Map /Game/Maps/DDDynamic_Map`),
+Gegner über `!wave`, die Figuren standen und feuerten von selbst. Keine Maus- oder Tastatureingabe.
+
+- **[Belegt, Disassembly] Wo der Host den Schusssound startet.** `AHands::FireIfPossible` (`0x59278C0`) läuft je Frame in der Feuerschleife
+  der Hände und startet nach jedem Schuss `WeaponData.FireWeaponSoundEvent` über `PlayEventAtLocation` (`0x47B98D0`) am Ort der Hände
+  (Aufruf `0x5927FE0`). Aufrufkette mit `!fx stack weapon_`: `exe+5927FE5` ← `exe+594515A` (Takt der Hände).
+- **[Belegt] Warum das beim Client nie läuft.** Die Schleife arbeitet `AHands.CurrentRangedWeapons` (`+0x3B0`) ab. Beim Client ist die Liste
+  für beide Figuren leer (`hands.py`: `ranged 0`, `ParentCharacter` leer), die Waffeninstanzen und `EquippedWeapons` replizieren nicht.
+  Die Waffen-Actors (`BP_Pistol_C`) replizieren dagegen, und mit jedem Schuss kommt ihr unzuverlässiger Multicast
+  `Weapon.TriggerWeaponShotFX` (Mündungsfeuer, Hülsen) beim Client an.
+- **[Belegt, Disassembly] Nachladen.** Den Nachladesound startet die Nachladelogik der Waffeninstanz (`0x5A45F5C`) aus derselben
+  Feuerschleife über den Event-Wrapper von `Hands.PlayReloadSound` (`0x5707870`, mit `WeaponData.ReloadWeaponSoundEvent`, sonst
+  `DefaultReloadSound` der Hände). Ohne Blueprint-Überschreibung springt der Wrapper direkt in die `_Implementation` (vfunc `+0x740`) und
+  läuft **nicht** über `ProcessEvent`. Beim Client gibt es dafür kein repliziertes Signal; die Nachladeanzeige
+  (`BP_ReloadIndicator_Component_C`) hängt nur an den Händen des Hosts.
+- **Fehlversuch.** Der erste Stand beobachtete `PlayReloadSound` über `ProcessEvent`. Er sah nichts: Host 18 Nachladesounds in drei Minuten,
+  gemeldet 0, Client 0.
+- **Umsetzung** (`src/Game/WeaponSoundPatches.cpp`, Regel `WeaponShotRepeated` in `PatchPolicy.h`, Nachricht in
+  `src/Sync/Combat/WeaponSoundState.h`, mit Tests):
+  - Schuss, rein lokal: Der Client startet bei jedem ankommenden `TriggerWeaponShotFX` den `FireWeaponSoundEvent` der `WeaponData`, deren
+    `WeaponActorToSpawn` die Klasse des Waffen-Actors ist, über `FMODBlueprintStatics.PlayEventAtLocation` am Ort der Waffe. Mehrere Aufrufe
+    derselben Waffe unter 10 ms zählen als ein Schuss. Nahkampfwaffen sind ausgenommen (nicht untersucht).
+  - Nachladen, neue Nachricht `0xB00` (Mod-Version 13): Der Host hängt am Wrapper `0x5707870` und meldet je Aufruf die Hände (NetGUID) und
+    den Namen des Sounds. Der Client ruft `Hands.PlayReloadSound` an seinen eigenen replizierten Händen auf. Format in
+    [CONTROL_PROTOCOL.md](CONTROL_PROTOCOL.md#nachladesound-mod-kompatibilität-13).
+  - Antworten zum neuen Pfad: Lokal bleiben Auswahl, Ort und Abspielen der Sounds. Geteilt wird nur der Nachlade-Zeitpunkt, weil er beim
+    Client aus nichts Repliziertem folgt. Zielwahl, Schuss, Munition, Nachladezeit und Schaden entscheidet weiter der Host. Ein verlorenes
+    `0xB00` kostet einen Sound, ein verlorener Multicast einen Schuss-Sound, beides ohne Wiederholung. Nach Travel oder Join gibt es nichts
+    nachzuholen.
+- **[Belegt, ein PC, nur Pistole] Nachher**, Schlussmessung mit dem endgültigen Stand, je 90-Sekunden-Fenster Host / Client:
+
+  | Fenster | `weapon_Pistol` | `weapon_Reload` |
+  |---|---|---|
+  | 1 | 112 / 112 | 8 / 8 |
+  | 2 | 108 / 108 | 10 / 10 |
+  | ganze Sitzung (Mod-Log) | 230 Schüsse beim Client, alle mit Sound, 0 doppelt | 18 beim Host gemeldet, 18 beim Client gespielt |
+
+  Die Zahlen beider Seiten enthalten beide Figuren. Eine frühere Messung mit demselben Code zeigte beim Nachladen 8 / 6 und 8 / 8, die
+  Lücke lag an der Fenstergrenze (die Meldung kommt einen Takt später). Vorher (11.11.): Client 0 Schuss- und 0 Nachladesounds. Keine
+  Absturzberichte.- **Nicht geprüft:** Schrotflinte und andere Waffen (`!give` legt sie nur in den Rucksack, ausgerüstet blieb die Pistole), Nahkampf,
+  Drohnen (`ProjectileAmmoBasedDroneAttackComponent` hat einen eigenen `FireWeaponSoundEvent`), zwei PCs mit echtem Ping, gehört.
 
 ### Absturz beim Bestätigen im Lager (`lager-bestaetigen-absturz`)
 

@@ -29,6 +29,7 @@
 #include "Game/Offsets.h"
 #include "Game/PatchPolicy.h"
 #include "Game/PatchRuntime.h"
+#include "Game/Reflection.h"
 #include "Game/RewardAdapter.h"
 
 namespace Game::Patches
@@ -48,6 +49,13 @@ constexpr uintptr_t UpgradeItems = 0x5984CD0;
 // UInventoryComponent::HandleItemSold, hinter dem Exec-Thunk. Ruft ItemRepresentation.ConfirmSell (0x5AA7E50) nach der lokalen
 // Gutschrift (AbstractCurrency::AddAmount) direkt; nimmt das Item über die Inventar-RPCs heraus (lager-handel-client).
 constexpr uintptr_t HandleItemSold = 0x596BA70;
+// UShopPanelItem::TryBuyItem, hinter dem Exec-Thunk 0x579ADE0 (opt-haendler-client). Prüft den Preis über einen Funktor des
+// Panels, zieht ihn lokal ab und legt die lokale Instanz des Shops mit AddToInventory ins Inventar des Käufers.
+constexpr uintptr_t TryBuyItem = 0x58CE280;
+// UShopPanelItem, aus dem Code von TryBuyItem dieses Builds: ManuallyCallClearAndAdd, CostDisplay, ItemInstance;
+// UCostDisplay: der verlangte Preis (GetActualCost).
+constexpr uintptr_t ShopItemManualAdd = 0x848, ShopItemCostDisplay = 0x850, ShopItemInstance = 0x868;
+constexpr uintptr_t CostDisplayActual = 0x384;
 // ADDMissionGameState.ScrapWallet, UAbstractCurrency.CurrencyAmount
 constexpr uintptr_t GameStateScrapWallet = 0x3C0;
 constexpr uintptr_t CurrencyAmount = 0x100;
@@ -72,6 +80,7 @@ constexpr uintptr_t ControllerPawn = 0x2E8;
 // BP_DD_Character_C.RewardQueue, URewardQueueComponent: Byte +0x108 = Kiste offen (OpenNextReward setzt/löscht)
 constexpr uintptr_t CharacterRewardQueue = 0x980;
 constexpr uintptr_t QueueBusy = 0x108;
+constexpr uintptr_t QueueCurrent = 0x10C; // CurrentRewardObject, FWeakObjectPtr
 constexpr uint32_t GarbageOrUnreachableFlags = 0x30;
 
 struct ItemArray
@@ -92,6 +101,7 @@ ConfirmFn OriginalConfirm = nullptr;
 ConfirmFn OriginalSetupInventory = nullptr;
 UpgradeFn OriginalUpgrade = nullptr;
 SoldFn OriginalSold = nullptr;
+ConfirmFn OriginalTryBuy = nullptr; // UShopPanelItem::TryBuyItem(this)
 
 std::atomic<bool> RemoteReady = false;
 
@@ -142,6 +152,17 @@ std::optional<Game::InventoryEdit::Edit> ClientPending;
 // Client, werkbank-client: Die erste Aufwertung im Lager hat eine lokale Bearbeitung begonnen, sie endet mit dem Bestätigen.
 // lager-handel-client: ebenso der erste Verkauf oder die erste Reparatur.
 uint64_t LagerEdit = 0; // Id des Rundenendes, 0 ohne
+// Client, opt-werkbank-station: Bearbeitung an einer Station außerhalb von Lager und Airdrop-Auswahl, etwa das Inventar-Panel
+// im Händler-Event. Sie beginnt mit der ersten Aufwertung, dem ersten Verkauf oder der ersten Reparatur und endet, sobald
+// kein Panel der Station mehr offen ist; dann geht der Edit an den Host. Panels sind die Inventar-Panels zum eigenen Inventar.
+struct
+{
+    bool Active = false;
+    uintptr_t World = 0, Inventory = 0;
+    std::vector<Game::Objects::Ref> Panels;
+    ULONGLONG NextPoll = 0, NextScan = 0;
+    bool Closed = false; // ein Inventar-Panel zum eigenen Inventar hat sein Schließen gemeldet
+} Station;
 constexpr uintptr_t ItemPivotTile = 0x28;
 constexpr uint32_t FuncNet = 0x40;
 constexpr uintptr_t FunctionFlags = 0xB0;
@@ -537,17 +558,172 @@ void __fastcall ConfirmHook(uintptr_t Panel)
     OriginalConfirm(Panel);
 }
 
+// opt-werkbank-station: Offen-Zustand der Panels beim Client aus UAbstractPanel.OnOpenStateChanged(bool) und
+// OnOpenStateChangedAndFinished(bool), die über ProcessEvent kommen. Im Spiel geprüft (13.11.2026): Das Feld AnimationContainer der
+// Basisklasse ist bei Inventar- und Händler-Panel leer. Das Inventar-Panel meldet sein Öffnen nur über ...AndFinished(true) und sein
+// Schließen über OnOpenStateChanged(false). Das Händler-Panel meldet sein Öffnen, aber nie sein Schließen: Man verlässt den Händler
+// über das Inventar-Panel, dessen Schließen (Bestätigen) darum auch die Stations-Bearbeitung beendet.
+struct PanelState
+{
+    Objects::Ref Panel;
+    bool Open = false;
+};
+std::unordered_map<uintptr_t, PanelState> PanelStates;
+
+void NotePanelState(uintptr_t Object, uintptr_t Function, void* Params)
+{
+    static uintptr_t Changed = 0, Finished = 0;
+    if (!Changed && !(Changed = Objects::FindObject("OnOpenStateChanged", "AbstractPanel")))
+        Changed = 1;
+    if (!Finished && !(Finished = Objects::FindObject("OnOpenStateChangedAndFinished", "AbstractPanel")))
+        Finished = 1;
+    if ((Function != Changed && Function != Finished) || !Params || !Object)
+        return;
+    if (PanelStates.size() > 64)
+        std::erase_if(PanelStates, [](const auto& Entry) { return !Objects::IsLive(Entry.second.Panel); });
+    const bool Open = Memory::Read<uint8_t>(reinterpret_cast<uintptr_t>(Params)).value_or(0) != 0;
+    PanelStates[Object] = {Objects::RefTo(Object), Open};
+    constexpr uintptr_t PanelInventory = 0x370;
+    if (!Open && Station.Active && Objects::IsA(Object, "InventoryPanel") && Pointer(Object + PanelInventory) == Station.Inventory)
+        Station.Closed = true;
+}
+
+// Ist das Panel offen? Zuerst das gemeldete Ereignis, sonst UAbstractPanel.AnimationContainer und UPanelAnimationContainer.IsOpen
+// über die Reflexion. Ohne beides gilt das Panel als geschlossen, dann beginnt keine Stations-Bearbeitung.
+bool PanelOpen(uintptr_t Panel)
+{
+    if (const auto It = PanelStates.find(Panel); It != PanelStates.end() && It->second.Panel.Object == Panel && Objects::IsLive(It->second.Panel))
+        return It->second.Open;
+    constexpr Reflection::FieldSpec ContainerSpec{"/Script/DDSurvivors", "AbstractPanel", "AnimationContainer", "ObjectProperty", 8};
+    constexpr Reflection::FieldSpec OpenSpec{"/Script/DDSurvivors", "PanelAnimationContainer", "IsOpen", "BoolProperty", 1};
+    const auto ContainerField = Reflection::Property(ContainerSpec);
+    const auto OpenField = Reflection::Property(OpenSpec);
+    if (!ContainerField || !OpenField || !Alive(Panel))
+        return false;
+    const uintptr_t Container = Pointer(Panel + ContainerField->Offset);
+    return Alive(Container) && (Memory::Read<uint8_t>(Container + OpenField->Offset).value_or(0) & OpenField->BoolMask) != 0;
+}
+
+// Panels einer Station: jedes lebende Inventar-Panel zum eigenen Inventar. Ein Durchlauf über das Objekt-Array, darum nur beim
+// Beginn und danach alle zwei Sekunden.
+std::vector<Objects::Ref> StationPanels(uintptr_t Inventory)
+{
+    constexpr uintptr_t PanelInventory = 0x370;
+    std::vector<Objects::Ref> Result;
+    const int32_t Total = Objects::Count();
+    for (int32_t i = 0; i < Total; ++i)
+    {
+        const uintptr_t Object = Objects::At(i);
+        if (!Object || Pointer(Object + PanelInventory) != Inventory || !Alive(Object) || !Objects::IsA(Object, "InventoryPanel"))
+            continue;
+        Result.push_back(Objects::RefTo(Object));
+    }
+    return Result;
+}
+
+bool AnyStationPanelOpen(const std::vector<Objects::Ref>& Panels)
+{
+    return std::any_of(Panels.begin(), Panels.end(), [](const Objects::Ref& Panel) { return Objects::IsLive(Panel) && PanelOpen(Panel.Object); });
+}
+
 // Client: Im Lager beginnt die erste Aufwertung (werkbank-client), der erste Verkauf oder die erste Reparatur (lager-handel-client)
 // eine lokale Bearbeitung, die bis zum Bestätigen läuft. Vorher bleibt das Lager bei den nativen RPCs (rundenende-client).
-void BeginLagerEdit(uintptr_t Inventory, const char* What)
+// opt-werkbank-station: Ohne Rundenende beginnt dasselbe eine Stations-Bearbeitung, wenn ein Inventar-Panel offen ist.
+// opt-haendler-client: Ein Kauf (Shop) kommt aus dem offenen Händler-Panel und braucht kein offenes Inventar-Panel.
+// Solange der Client nach einem übernommenen Edit noch lokale Instanzen hält, beginnt keine neue Bearbeitung (ClientSettling).
+void BeginPanelEdit(uintptr_t Inventory, const char* What, bool Shop = false)
 {
-    const bool InLager = End.Id && End.Done != End.Id && !End.HeldPanel;
-    if (Game::InventoryEdit::ClientEditing() || !InLager || ClientPending || !Shown.Items.empty() || !Inventory ||
+    if (Game::InventoryEdit::ClientEditing() || ClientPending || !Shown.Items.empty() || !Inventory ||
         Inventory != InventoryOfController(LocalController()))
         return;
+    if (Game::InventoryEdit::ClientSettling())
+    {
+        Core::Log::Info("Inventar lokal: {} wartet, der Stand des Hosts zum letzten Edit ist noch nicht repliziert", What);
+        return;
+    }
+    if (End.Id)
+    {
+        if (End.Done == End.Id || End.HeldPanel)
+            return;
+        Game::InventoryEdit::BeginClient(Inventory, {}, LocalController());
+        LagerEdit = End.Id;
+        Core::Log::Info("Lager: {} beim Client, Lager wird lokal bearbeitet bis zum Bestätigen", What);
+        return;
+    }
+    std::vector<Objects::Ref> Panels = StationPanels(Inventory);
+    if (!Shop && !AnyStationPanelOpen(Panels))
+    {
+        Core::Log::Warn("Station: {} beim Client ohne offenes Panel ({} Panels zum Inventar), keine Bearbeitung", What, Panels.size());
+        return;
+    }
     Game::InventoryEdit::BeginClient(Inventory, {}, LocalController());
-    LagerEdit = End.Id;
-    Core::Log::Info("Lager: {} beim Client, Lager wird lokal bearbeitet bis zum Bestätigen", What);
+    Station = {};
+    Station.Active = true;
+    Station.World = CurrentWorld();
+    Station.Inventory = Inventory;
+    Station.Panels = std::move(Panels);
+    Station.NextScan = GetTickCount64() + 2000;
+    Core::Log::Info("Station: {} beim Client, Inventar wird lokal bearbeitet, bis das Panel schließt ({} Panels)", What, Station.Panels.size());
+}
+
+// Stations-Bearbeitung abschließen: Der Endstand geht als Edit an den Host.
+void FinishStation(const char* Why)
+{
+    if (!Station.Active)
+        return;
+    Station = {};
+    if (!Game::InventoryEdit::ClientEditing() || ClientPending)
+        return;
+    ClientPending = Game::InventoryEdit::FinishClient(0, 0, std::nullopt, 0);
+    Core::Log::Info("Station: Bearbeitung beendet ({}), Edit {}", Why, ClientPending ? std::to_string(ClientPending->Id) : std::string("ohne Änderung"));
+}
+
+// Stations-Bearbeitung verwerfen, etwa nach einem Kartenwechsel. Lebt das Inventar nicht mehr, gibt es nichts wiederherzustellen.
+void DropStation(const char* Why)
+{
+    if (!Station.Active)
+        return;
+    const bool InventoryAlive = Alive(Station.Inventory) && Objects::IsA(Station.Inventory, "InventoryComponent");
+    Station = {};
+    if (!Game::InventoryEdit::ClientEditing() || ClientPending)
+        return;
+    Core::Log::Warn("Station: Bearbeitung verworfen ({})", Why);
+    if (InventoryAlive)
+        Game::InventoryEdit::RevertClient(Why);
+    else
+        Game::InventoryEdit::ForgetClient();
+}
+
+// Client, je Takt: Die Stations-Bearbeitung endet, sobald kein Panel der Station mehr offen ist, nicht mitten in einem Drag.
+void TickStation()
+{
+    if (!Station.Active)
+        return;
+    if (Station.World != CurrentWorld())
+    {
+        DropStation("Welt gewechselt");
+        return;
+    }
+    if (!Game::InventoryEdit::ClientEditing())
+    {
+        Station = {}; // anderswo beendet (Ablehnung, Verbindung weg)
+        return;
+    }
+    const ULONGLONG Now = GetTickCount64();
+    if (Now < Station.NextPoll)
+        return;
+    Station.NextPoll = Now + 150;
+    if (Now >= Station.NextScan)
+    {
+        Station.NextScan = Now + 2000;
+        Station.Panels = StationPanels(Station.Inventory);
+    }
+    if (!Station.Closed && AnyStationPanelOpen(Station.Panels))
+        return;
+    for (const Objects::Ref& Panel : Station.Panels)
+        if (Objects::IsLive(Panel) && Memory::Read<uint8_t>(Panel.Object + PanelIsDragging).value_or(0))
+            return;
+    FinishStation(Station.Closed ? "Inventar-Panel geschlossen" : "kein Panel mehr offen");
 }
 
 // lager-handel-client: HandleItemSold beim Client. ItemRepresentation.ConfirmSell schreibt den Preis lokal gut und ruft es
@@ -558,7 +734,7 @@ void __fastcall SoldHook(uintptr_t Inventory, uintptr_t Item)
 {
     if (CurrentRole() == NetRole::Client)
     {
-        BeginLagerEdit(Inventory, "Verkauf");
+        BeginPanelEdit(Inventory, "Verkauf");
         if (!Game::InventoryEdit::ClientEditingInventory(Inventory))
         {
             // Außerhalb einer Bearbeitung (etwa ohne Rundenende) verkauft der Client nicht: Der Host buchte keinen Schrott.
@@ -583,7 +759,7 @@ uintptr_t __fastcall UpgradeHook(uintptr_t Inventory, ItemArray* Inputs, uintptr
     for (int32_t i = 0; Inputs && Inputs->Data && i < Inputs->Count && i < 16; ++i)
         In.push_back(Inputs->Data[i]);
     const uintptr_t Caller = reinterpret_cast<uintptr_t>(_ReturnAddress()) - reinterpret_cast<uintptr_t>(GetModuleHandleW(nullptr));
-    BeginLagerEdit(Inventory, "Aufwertung");
+    BeginPanelEdit(Inventory, "Aufwertung");
     if (!Game::InventoryEdit::ClientEditingInventory(Inventory))
     {
         Core::Log::Warn("Aufwertung beim Client außerhalb einer Bearbeitung ({} Eingaben, Aufrufer {:#x}), läuft nativ", In.size(), Caller);
@@ -593,6 +769,56 @@ uintptr_t __fastcall UpgradeHook(uintptr_t Inventory, ItemArray* Inputs, uintptr
     Core::Log::Info("Aufwertung beim Client lokal (Aufrufer {:#x}), Ausgabe {}", Caller, Output != 0);
     Game::InventoryEdit::RecordUpgrade(In, Output, Data, Rarity);
     return Output;
+}
+
+// opt-haendler-client: TryBuyItem beim Client. Nativ zahlt das Panel lokal und schickt AddToInventory mit der lokalen Instanz des
+// Shops: Beim Host kam ein Nullzeiger an, kein Item, kein Schrott gebucht. Jetzt läuft der Kauf nur in einer lokalen Bearbeitung
+// (Station oder Lager): Das Item liegt lokal im Inventar, der Edit meldet Daten, Seltenheit und Preis, der Host legt das Item an
+// und bucht. Der lokale Abzug ist nur Vorschau. Ohne offenes Inventar-Panel geht der Kauf sofort als eigener Edit an den Host: Das
+// Händler-Panel meldet sein Schließen nie, und eine lange offene Bearbeitung hielte die übrigen Server-RPCs des Clients zurück.
+// Automaten (ManuallyCallClearAndAdd) legen das Item erst später ab und bleiben nativ.
+void __fastcall TryBuyHook(uintptr_t ShopItem)
+{
+    if (CurrentRole() != NetRole::Client)
+        return OriginalTryBuy(ShopItem);
+    const uintptr_t Item = Pointer(ShopItem + ShopItemInstance);
+    if (!Alive(Item))
+        return OriginalTryBuy(ShopItem); // nativ ohne Wirkung
+    const uintptr_t Parent = Pointer(ShopItem + ButtonParentPanel);
+    // Nur der Händler (WI_MerchantPanel_C). Der dubiose Händler hat einen eigenen Ablauf und ist nicht geprüft, er bleibt nativ.
+    const bool IsShop = Alive(Parent) && Objects::IsA(Parent, "WI_MerchantPanel_C");
+    if (Memory::Read<uint8_t>(ShopItem + ShopItemManualAdd).value_or(1) || !IsShop)
+    {
+        static unsigned Logged = 0;
+        if (++Logged <= 5)
+            Core::Log::Warn("Kauf beim Client in {} nicht abgedeckt (Automat, dubioser Händler oder unbekanntes Panel), läuft nativ",
+                            Alive(Parent) ? Memory::NameOf(Pointer(Parent + Offsets::UObject::Class)) : std::string("?"));
+        return OriginalTryBuy(ShopItem);
+    }
+    const uintptr_t Inventory = InventoryOfController(LocalController());
+    BeginPanelEdit(Inventory, "Kauf", true);
+    if (!Game::InventoryEdit::ClientEditingInventory(Inventory))
+    {
+        // Etwa solange ein Edit unbeantwortet ist: Der Host buchte nichts, das Item gäbe es nur beim Client.
+        Core::Log::Warn("Kauf beim Client außerhalb einer Bearbeitung verworfen ({})", Memory::NameOf(Pointer(Item + ItemData)));
+        return;
+    }
+    const uintptr_t Display = Pointer(ShopItem + ShopItemCostDisplay);
+    const int32_t Cost = Alive(Display) ? Memory::Read<int32_t>(Display + CostDisplayActual).value_or(-1) : 0;
+    const uintptr_t Data = Pointer(Item + ItemData), Rarity = Pointer(Item + ItemRarity);
+    const auto Has = [&]
+    {
+        const std::vector<uintptr_t> Items = Game::InventoryEdit::ItemsOf(Inventory);
+        return std::find(Items.begin(), Items.end(), Item) != Items.end();
+    };
+    const bool Had = Has();
+    OriginalTryBuy(ShopItem);
+    if (!Had && Has())
+        Game::InventoryEdit::RecordPurchase(Item, Data, Rarity, Cost);
+    else
+        Core::Log::Info("Kauf beim Client nicht zustande gekommen ({}, Preis {})", Memory::NameOf(Data), Cost);
+    if (Station.Active && !AnyStationPanelOpen(Station.Panels))
+        FinishStation("Kauf");
 }
 
 // CachedBackpackLocalPosition (+0x150) ist NICHT repliziert. Die echte Instanz
@@ -727,16 +953,30 @@ bool ApplySold(Code::Writer&)
     return Core::Hooks::Install(reinterpret_cast<void*>(At(HandleItemSold)), reinterpret_cast<void*>(&SoldHook),
                                 reinterpret_cast<void**>(&OriginalSold));
 }
+bool CheckTryBuy()
+{
+    // Prolog, dann cmp qword ptr [rcx+ItemInstance],0: belegt zugleich den Offset der Instanz.
+    static_assert(ShopItemInstance == 0x868, "Prüfbytes unten anpassen");
+    return Code::Expect(At(TryBuyItem), {0x40, 0x57, 0x48, 0x83, 0xEC, 0x40, 0x48, 0x83, 0xB9, 0x68, 0x08, 0x00, 0x00, 0x00, 0x48, 0x8B, 0xF9},
+                        "ShopPanelItem::TryBuyItem");
+}
+bool ApplyTryBuy(Code::Writer&)
+{
+    return Core::Hooks::Install(reinterpret_cast<void*>(At(TryBuyItem)), reinterpret_cast<void*>(&TryBuyHook),
+                                reinterpret_cast<void**>(&OriginalTryBuy));
+}
 // Je Patch die benutzten Adressen der Signaturtabelle, erzeugt von tools/patch_signatures.py sites.
 constexpr uintptr_t SetRewardsSites[] = {MemoryFree, SetRewardItems};
 constexpr uintptr_t UpgradeSites[] = {UpgradeItems};
 constexpr uintptr_t SoldSites[] = {HandleItemSold};
+constexpr uintptr_t TryBuySites[] = {TryBuyItem};
 constexpr uintptr_t ConfirmSites[] = {MemoryFree, CreateItemInstance, PanelConfirm};
 constexpr uintptr_t SetupInventorySites[] = {PanelSetupInventory};
 const Patch List[] = {
     {"Airdrop-Auswahl: Choices des Hosts mitlesen", CheckSetRewards, ApplySetRewards, SetRewardsSites},
     {"Aufwerten beim Client nur in lokaler Bearbeitung, Host übernimmt", CheckUpgrade, ApplyUpgrade, UpgradeSites},
     {"Verkaufen beim Client nur in lokaler Bearbeitung, Host bucht", CheckSold, ApplySold, SoldSites},
+    {"Kaufen beim Händler nur in lokaler Bearbeitung, Host legt an und bucht", CheckTryBuy, ApplyTryBuy, TryBuySites},
     {"Airdrop-Auswahl: Bestätigen bis zur Wahl des Partners halten", CheckConfirm, ApplyConfirm, ConfirmSites},
     {"Airdrop-Auswahl: Rucksack-Anzeige aus replizierten Feldern aufbauen", CheckSetupInventory, ApplySetupInventory, SetupInventorySites},
 };
@@ -789,11 +1029,20 @@ bool FilterRewardEvent(uintptr_t Object, uintptr_t Function, void* Params)
 {
     if (CurrentRole() == NetRole::Host)
         return RemoteReady.load(std::memory_order_relaxed) && (NullItemRpc(Function, Params) || ClientTradeRpc(Object, Function));
+    NotePanelState(Object, Function, Params);
     // lager-handel-client: ItemRepresentation.ConfirmRepair zieht den Preis lokal ab und schickt dann RepairItem. Im Lager beginnt
     // die erste Reparatur eine lokale Bearbeitung, RouteClientRpc führt sie dann lokal aus und der Edit meldet sie.
     static uintptr_t Repair = 0;
     if (Function && Function == Function_(Repair, "RepairItem") && !Game::InventoryEdit::ClientEditing())
-        BeginLagerEdit(Object, "Reparatur");
+        BeginPanelEdit(Object, "Reparatur");
+    // opt-rucksack-ueberlappung: Auch der erste Zug im Lager (Ablegen, Verschieben, Herausnehmen) beginnt die lokale Bearbeitung.
+    // Als native RPCs kamen beim Host nur Feldbelegung und IsInBackpack an, Pivot und Drehung blieben (0, 0) und 0, und der Client
+    // bekam im Lager nichts zurück: Sein eigener Stand zeigte die Items weiter im Lager.
+    // Erst die Funktion einordnen: Das eigene Inventar zu suchen läuft über das ganze Objekt-Array.
+    if (End.Id && End.Done != End.Id && !End.HeldPanel && !Game::InventoryEdit::ClientEditing() && !ClientPending && Shown.Items.empty() &&
+        Game::InventoryEdit::MayChangeInventory(Function))
+        if (const uintptr_t Own = InventoryOfController(LocalController()); Game::InventoryEdit::ChangesInventory(Object, Function, Own))
+            BeginPanelEdit(Own, "Zug im Rucksack");
     if (Function && Function == Repair && !Game::InventoryEdit::ClientEditingInventory(Object))
     {
         // Außerhalb einer Bearbeitung reparierte der Host ohne Schrott. Der Client behält das Item kaputt.
@@ -823,7 +1072,12 @@ void TraceInventoryEvent(uintptr_t Object, uintptr_t Function, void* Params)
         const bool Wanted = Owner == "InventoryComponent" || Owner == "InventoryItemInstance" || Owner == "BackpackSlot" ||
                             Owner == "InventoryPanel" || Owner == "RewardQueueComponent" || Owner == "CoopInventoryCoordinatorComponent" ||
                             Owner == "CharacterEffectManager" || (Owner == "DDCharacter" && Name.find("EquippedWeapon") != std::string::npos) ||
-                            Owner.starts_with("WP_Inventory") || Owner.starts_with("WP_Backpack") || Owner.starts_with("WP_Item");
+                            Owner.starts_with("WP_Inventory") || Owner.starts_with("WP_Backpack") || Owner.starts_with("WP_Item") ||
+                            // opt-werkbank-station, opt-haendler-client: Händler, Rezepte, Öffnen und Schließen der Panels, Währung.
+                            Owner == "ShopPanel" || Owner == "ShopPanelItem" || Owner == "AbstractPanel" || Owner == "TransactionPanel" ||
+                            Owner == "RecipePanel" || Owner == "RecipeButton" || Owner == "PanelAnimationContainer" || Owner == "AbstractCurrency" ||
+                            Owner == "TimescaleManager" || Owner == "CostDisplay" || Owner.starts_with("WI_Merchant") ||
+                            Owner.starts_with("WP_Recipe") || Owner.starts_with("BP_MetaBase_POI") || Owner == "MetaBasePoi";
         // Animation und Abfragen je Bild nicht, sie verdrängen die eigentlichen Vorgänge.
         const bool Noise = Name.starts_with("ApplyEasing") || Name.starts_with("OnYoyo") || Name.starts_with("OnLoop") ||
                            Name == "GetAnimationContainer" || Name.ends_with("Tick") || Name.starts_with("Get") || Name.starts_with("Is") ||
@@ -922,6 +1176,24 @@ int32_t RepairPrice(uintptr_t Item)
     return Params.ReturnValue;
 }
 
+// opt-haendler-client: Verkaufspreis eines Items dieser Art beim Host (UInventoryItemData.GetBaseSellPrice), -1 ohne Funktion.
+// Daraus die Untergrenze für den Kaufpreis, den der Client meldet (PurchaseFloor in InventoryEditPlan.h).
+int32_t BaseSellPrice(uintptr_t Data, uintptr_t Rarity)
+{
+    static uintptr_t Fn = 0;
+    if (!Alive(Data) || !Function(Fn, "GetBaseSellPrice", "InventoryItemData"))
+        return -1;
+    struct
+    {
+        uintptr_t Rarity;
+        int32_t ReturnValue;
+        uint8_t Pad[4];
+    } Params{Rarity, -1, {}};
+    static_assert(sizeof(Params) == 0x10);
+    Objects::ProcessEvent(Data, Fn, &Params);
+    return Params.ReturnValue;
+}
+
 bool IsBroken(uintptr_t Item)
 {
     return Memory::Read<uint8_t>(Item + ItemBroken).value_or(0) != 0;
@@ -998,6 +1270,27 @@ uintptr_t ClaimForClient(uintptr_t Inventory, uint64_t SessionId, uint64_t Expec
     Core::Log::Info("Airdrop-Auswahl: Client wählt {} ({}), ins Inventar des Clients gelegt={}", Index, Host.Choices[Index].Name, Add.Result != 0);
     if (Add.Result)
         Host.ClientPick = Index;
+    return Add.Result;
+}
+
+// opt-haendler-client, Host: gekauftes Item ins Inventar des Clients legen (CreateAndAddItem), es repliziert wie jede Vergabe.
+uintptr_t CreateForClient(uintptr_t Inventory, uintptr_t Data, uintptr_t Rarity)
+{
+    static uintptr_t Create = 0;
+    if (!Inventory || !Data || !Function(Create, "CreateAndAddItem", "InventoryComponent"))
+        return 0;
+    struct
+    {
+        uintptr_t Data, Rarity;
+        bool Broken, FlagAsNew, SystemAdd;
+        uint8_t Pad;
+        int32_t Position;
+        bool AllowP2Reserve;
+        uint8_t Pad2[7];
+        uintptr_t Result;
+    } Add{Data, Rarity, false, true, true, 0, -1, false, {}, 0};
+    static_assert(sizeof(Add) == 0x28);
+    Objects::ProcessEvent(Inventory, Create, &Add);
     return Add.Result;
 }
 
@@ -1247,23 +1540,55 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
             Sells.push_back({Resolved[i], SellPrice(Resolved[i])});
         }
     }
-    const uintptr_t Wallet = Sells.empty() && Repairs.empty() ? 0 : ScrapWallet();
-    if (!Sells.empty() || !Repairs.empty())
+    // opt-haendler-client: Käufe prüfen, bevor sich etwas ändert. Daten und Seltenheit müssen beim Host existieren; den Preis nennt
+    // das Panel des Clients, der Host verlangt mindestens die Untergrenze zum eigenen Verkaufspreis und genug Schrott.
+    std::vector<std::pair<uintptr_t, uintptr_t>> Wares;
+    if (!Value.Purchases.empty())
+    {
+        std::vector<Game::Rewards::ChoiceItem> Names;
+        for (const Purchase& Next : Value.Purchases)
+            Names.push_back({{}, Next.Data, Next.Rarity, false});
+        Wares = ResolveChoices(Names);
+        for (size_t K = 0; K < Value.Purchases.size(); ++K)
+        {
+            const Purchase& Next = Value.Purchases[K];
+            if (!Wares[K].first || (!Next.Rarity.empty() && !Wares[K].second))
+            {
+                Core::Log::Warn("Inventar lokal: Kauf {} des Edits {} nennt unbekannte Daten {} {}, abgelehnt", K + 1, Value.Id, Next.Data, Next.Rarity);
+                return false;
+            }
+            const int32_t Sell = BaseSellPrice(Wares[K].first, Wares[K].second);
+            if (Sell < 0 || Next.Cost < PurchaseFloor(Sell))
+            {
+                Core::Log::Warn("Inventar lokal: Kauf {} des Edits {} ({} {}) für {} liegt unter der Untergrenze {} (Verkaufspreis {} beim Host), abgelehnt",
+                                K + 1, Value.Id, Next.Data, Next.Rarity, Next.Cost, Sell < 0 ? -1 : PurchaseFloor(Sell), Sell);
+                return false;
+            }
+            Core::Log::Info("Handel: Kauf {} geprüft, {} {} für {} (Verkaufspreis beim Host {}, Untergrenze {})", K + 1, Next.Data, Next.Rarity,
+                            Next.Cost, Sell, PurchaseFloor(Sell));
+        }
+    }
+    const bool Trades = !Sells.empty() || !Repairs.empty() || !Value.Purchases.empty();
+    const uintptr_t Wallet = Trades ? ScrapWallet() : 0;
+    if (Trades)
     {
         const std::optional<int32_t> Have = ScrapAmount(Wallet);
-        std::vector<int32_t> SellPrices, RepairPrices;
+        std::vector<int32_t> SellPrices, RepairPrices, BuyPrices;
+        for (const Purchase& Next : Value.Purchases)
+            BuyPrices.push_back(Next.Cost);
         for (const Trade& Next : Sells)
             SellPrices.push_back(Next.Price);
         for (const Trade& Next : Repairs)
             RepairPrices.push_back(Next.Price);
-        const auto After = Have ? TradeBalance(*Have, SellPrices, RepairPrices) : std::nullopt;
+        const auto After = Have ? TradeBalance(*Have, SellPrices, RepairPrices, BuyPrices) : std::nullopt;
         if (!After)
         {
-            Core::Log::Warn("Inventar lokal: Edit {} mit {} Verkäufen und {} Reparaturen abgelehnt, Schrott {} reicht nicht oder Preis ungültig",
-                            Value.Id, Sells.size(), Repairs.size(), Have ? std::to_string(*Have) : std::string("ohne Konto"));
+            Core::Log::Warn("Inventar lokal: Edit {} mit {} Verkäufen, {} Reparaturen und {} Käufen abgelehnt, Schrott {} reicht nicht oder Preis ungültig",
+                            Value.Id, Sells.size(), Repairs.size(), BuyPrices.size(), Have ? std::to_string(*Have) : std::string("ohne Konto"));
             return false;
         }
-        Core::Log::Info("Handel: Edit {} geprüft, {} Verkäufe, {} Reparaturen, Schrott {} wird {}", Value.Id, Sells.size(), Repairs.size(), *Have, *After);
+        Core::Log::Info("Handel: Edit {} geprüft, {} Verkäufe, {} Reparaturen, {} Käufe, Schrott {} wird {}", Value.Id, Sells.size(), Repairs.size(),
+                        BuyPrices.size(), *Have, *After);
     }
     // werkbank-client: Aufwertungen vollständig prüfen, bevor sich etwas ändert.
     std::unordered_map<uint16_t, uintptr_t> Live;
@@ -1277,6 +1602,8 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
         }
     if (Value.Choice)
         Kinds[ChoiceSource] = {KindOf(Host.Data[*Value.Choice].first, Host.Data[*Value.Choice].second), NextRarityOf(Host.Data[*Value.Choice].second)};
+    for (size_t K = 0; K < Wares.size(); ++K)
+        Kinds[PurchaseSource(K)] = {KindOf(Wares[K].first, Wares[K].second), NextRarityOf(Wares[K].second)};
     std::vector<std::pair<uintptr_t, uintptr_t>> Outputs;
     // Die native Prüfung sieht reparierte Eingaben nur repariert: Kaputt-Flag für die Prüfung kurz löschen, danach zurück.
     const auto SetBroken = [&](uint8_t Flag)
@@ -1306,8 +1633,19 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
     }
     if (ChoiceAt < Value.Items.size())
         Live[ChoiceSource] = Resolved[ChoiceAt];
-    // Aufwertungen in ihrer Reihenfolge nativ ausführen. UpgradeItems nimmt die Eingaben selbst aus dem Inventar.
     bool Ok = true;
+    // opt-haendler-client: gekaufte Items anlegen, vor den Aufwertungen, die sie verbrauchen können.
+    std::vector<uintptr_t> Bought;
+    for (size_t K = 0; K < Wares.size(); ++K)
+    {
+        Bought.push_back(CreateForClient(Inventory, Wares[K].first, Wares[K].second));
+        Core::Log::Info("Handel: Kauf {} des Edits {} beim Host, {} angelegt={}", K + 1, Value.Id, Value.Purchases[K].Data, Bought.back() != 0);
+        if (Bought.back())
+            Live[PurchaseSource(K)] = Bought.back();
+        else
+            Ok = false;
+    }
+    // Aufwertungen in ihrer Reihenfolge nativ ausführen. UpgradeItems nimmt die Eingaben selbst aus dem Inventar.
     // Reparierte Eingaben vor den Aufwertungen nativ reparieren; gebucht wird wie jede Reparatur unten.
     HostApplyingEdit = true;
     for (Trade& Next : Repairs)
@@ -1322,6 +1660,34 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
             Next.Done = !IsBroken(Next.Item);
         }
     HostApplyingEdit = false;
+    // opt-schuss-animation: Eingaben, die beim Host noch im Rucksack liegen, vor der Aufwertung nativ herausnehmen. Im nativen
+    // Panel hat das Ziehen das schon getan; der Client zieht aber nur lokal. UpgradeItems löscht die Instanz, ohne ihre Wirkung zu
+    // beenden: Die Waffe blieb in WeaponLookup und an den Händen der Client-Figur, die Ausgabe bekam keine Darstellung.
+    {
+        std::vector<uintptr_t> Worn;
+        std::vector<ItemState> Before, After;
+        const std::vector<SlotInfo> Placed = SlotsOf(Inventory);
+        for (const auto& Next : Value.Upgrades)
+            for (const uint16_t Source : Next.Inputs)
+            {
+                const uintptr_t Item = Live.contains(Source) ? Live[Source] : 0;
+                if (!Alive(Item) || !Memory::Read<uint8_t>(Item + ItemInBackpack).value_or(0) || std::find(Worn.begin(), Worn.end(), Item) != Worn.end())
+                    continue;
+                Worn.push_back(Item);
+                Before.push_back(ReadItem(Item, Placed, Source));
+                After.push_back(Before.back());
+                After.back().InBackpack = false;
+                After.back().Tiles.clear();
+            }
+        if (!Worn.empty())
+        {
+            HostApplyingEdit = true;
+            const bool Taken = Apply(Inventory, Worn, Before, After, {}, {}, false);
+            HostApplyingEdit = false;
+            Core::Log::Info("Inventar lokal: {} Eingabe(n) der Aufwertungen des Edits {} vorher aus dem Rucksack genommen, vollständig={}", Worn.size(),
+                            Value.Id, Taken);
+        }
+    }
     std::vector<uintptr_t> Made;
     for (size_t K = 0; K < Value.Upgrades.size() && Ok; ++K)
     {
@@ -1359,6 +1725,12 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
             Targets.push_back(Made[K]);
             Goal.push_back(Value.Upgrades[K].Output);
         }
+    for (size_t K = 0; K < Bought.size(); ++K)
+        if (Bought[K] && !Consumed.contains(PurchaseSource(K)))
+        {
+            Targets.push_back(Bought[K]);
+            Goal.push_back(Value.Purchases[K].Output);
+        }
     const std::vector<SlotInfo> Now = SlotsOf(Inventory);
     std::vector<ItemState> Current;
     for (size_t i = 0; i < Targets.size(); ++i)
@@ -1367,11 +1739,17 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
     Ok = Apply(Inventory, Targets, Current, Goal, Create, {}, false) && Ok;
     HostApplyingEdit = false;
     // lager-handel-client: Schrott genau einmal und nur für tatsächlich Erledigtes buchen.
-    if (!Sells.empty() || !Repairs.empty())
+    if (Trades)
     {
         const std::vector<uintptr_t> After = ItemsOf(Inventory);
         int64_t Delta = 0;
-        unsigned Sold = 0, Repaired = 0;
+        unsigned Sold = 0, Repaired = 0, Purchased = 0;
+        for (size_t K = 0; K < Bought.size(); ++K)
+            if (Bought[K])
+            {
+                Delta -= Value.Purchases[K].Cost;
+                ++Purchased;
+            }
         for (const Trade& Next : Sells)
             if (std::find(After.begin(), After.end(), Next.Item) == After.end())
             {
@@ -1386,17 +1764,17 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
             }
         const int32_t Before = ScrapAmount(Wallet).value_or(0);
         AddScrap(Wallet, static_cast<int32_t>(Delta));
-        Core::Log::Info("Handel: Edit {} gebucht, {} von {} verkauft, {} von {} repariert, Schrott {} zu {}", Value.Id, Sold, Sells.size(), Repaired,
-                        Repairs.size(), Before, ScrapAmount(Wallet).value_or(0));
-        Ok = Ok && Sold == Sells.size() && Repaired == Repairs.size();
+        Core::Log::Info("Handel: Edit {} gebucht, {} von {} verkauft, {} von {} repariert, {} von {} gekauft, Schrott {} zu {}", Value.Id, Sold,
+                        Sells.size(), Repaired, Repairs.size(), Purchased, Bought.size(), Before, ScrapAmount(Wallet).value_or(0));
+        Ok = Ok && Sold == Sells.size() && Repaired == Repairs.size() && Purchased == Bought.size();
     }
     // waffe-client-auswahl: das native Ablegen frischt danach die Wirkungen beider Figuren auf. Ohne das bleibt eine
     // neue Waffe bis zum nächsten Levelaufstieg wirkungslos und eine entfernte wirkt weiter.
     RefreshEffects(Inventory);
     if (const uintptr_t HostInventory = InventoryOfController(HostController); HostInventory && HostInventory != Inventory)
         RefreshEffects(HostInventory);
-    Core::Log::Info("Inventar lokal: Edit {} übernommen, {} Items, {} neue Felder, {} Aufwertungen, vollständig={}", Value.Id, Targets.size(), Create.size(),
-                    Made.size(), Ok);
+    Core::Log::Info("Inventar lokal: Edit {} übernommen, {} Items, {} neue Felder, {} Aufwertungen, {} Käufe, vollständig={}", Value.Id, Targets.size(),
+                    Create.size(), Made.size(), Bought.size(), Ok);
     return true;
 }
 
@@ -1404,7 +1782,11 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
 // (InventoryPanel.HandleConfirmButton ruft OpenNextReward der eigenen Queue). Die Queue von P2 bliebe nach einer
 // vom Client geöffneten Kiste belegt (+0x108 gesetzt, CurrentRewardObject zerstört), und RegisterReward gibt keine
 // weitere Kiste mehr frei. OpenNextReward ändert nichts, solange die aktuelle Kiste lebt und nicht fertig ist.
-void AdvanceRemoteQueue()
+// opt-airdrop-uebertrag: Über einen Kartenwechsel hängt keine Queue, beide Figuren und ihre Queues entstehen neu (gemessen
+// 13.11.2026). Jede Änderung des Zustands beider Queues steht einmal im Log (Figur, belegt, aktuelle Kiste), damit ein Live-Test
+// zeigt, ob eine Queue innerhalb einer Karte hängen bleibt. Als Absicherung schaltet die Mod auch die Queue des Hosts weiter,
+// aber nur, wenn sie belegt ist und ihre aktuelle Kiste nicht mehr lebt; dann kann sie niemand mehr bestätigen.
+void AdvanceQueues()
 {
     static ULONGLONG Next = 0;
     const ULONGLONG Now = GetTickCount64();
@@ -1413,26 +1795,62 @@ void AdvanceRemoteQueue()
     Next = Now + 1000;
     uintptr_t Coop = 0, HostController = 0, Remote = 0;
     if (!BoundRemoteP2(Coop, HostController, Remote))
-        return;
-    const uintptr_t Pawn = Pointer(Remote + ControllerPawn);
-    const uintptr_t Queue = Alive(Pawn) ? Pointer(Pawn + CharacterRewardQueue) : 0;
-    static uintptr_t Open = 0;
-    if (!Alive(Queue) || !Memory::Read<uint8_t>(Queue + QueueBusy).value_or(0) ||
-        !Function(Open, "OpenNextReward", "RewardQueueComponent"))
-        return;
-    struct
     {
-        bool Opened;
-        uint8_t Pad[7];
-    } Params{};
-    Objects::ProcessEvent(Queue, Open, &Params);
-    if (!Memory::Read<uint8_t>(Queue + QueueBusy).value_or(1) || Params.Opened)
-        Core::Log::Info("Airdrop-Auswahl: RewardQueue des Remote-Spielers weitergeschaltet, nächste Kiste {}",
-                        Params.Opened ? "freigegeben" : "keine");
+        HostController = LocalController();
+        Remote = 0;
+    }
+    struct Seen
+    {
+        uintptr_t World = 0, Pawn = 0, Queue = 0;
+        int Busy = -1, Current = -1;
+    };
+    static Seen Last[2];
+    static uintptr_t Open = 0;
+    const uintptr_t World = CurrentWorld();
+    const uintptr_t Controllers[2] = {HostController, Remote};
+    for (int i = 0; i < 2; ++i)
+    {
+        const char* Who = i ? "Remote-Spieler" : "Host";
+        const uintptr_t Pawn = Controllers[i] ? Pointer(Controllers[i] + ControllerPawn) : 0;
+        const uintptr_t Queue = Alive(Pawn) && Objects::IsA(Pawn, "DDCharacter") ? Pointer(Pawn + CharacterRewardQueue) : 0;
+        if (!Alive(Queue) || !Objects::IsA(Queue, "RewardQueueComponent"))
+            continue;
+        const int Busy = Memory::Read<uint8_t>(Queue + QueueBusy).value_or(0) != 0;
+        // CurrentRewardObject, schwacher Zeiger: Platz und Serial im Objekt-Array. 0 = keine, 1 = lebt, 2 = zerstört.
+        const int32_t Index = Memory::Read<int32_t>(Queue + QueueCurrent).value_or(-1);
+        const uint32_t Serial = Memory::Read<uint32_t>(Queue + QueueCurrent + 4).value_or(0);
+        const int Current = Index <= 0 && !Serial ? 0 : Objects::IsLive({Objects::At(Index), Index, Serial}) ? 1 : 2;
+        Seen& Was = Last[i];
+        if (Was.World != World || Was.Pawn != Pawn || Was.Queue != Queue || Was.Busy != Busy || Was.Current != Current)
+        {
+            static unsigned Lines = 0;
+            if (++Lines <= 400)
+                Core::Log::Info("Reward-Queue {}: {}{}belegt {}, aktuelle Kiste {}", Who, Was.World != World ? "neue Welt, " : "",
+                                !Was.Pawn ? "" : Was.Pawn != Pawn ? "neue Figur, " : Was.World != World ? "dieselbe Figur, " : "", Busy != 0,
+                                Current == 0 ? "keine" : Current == 1 ? "lebt" : "zerstört");
+            Was = {World, Pawn, Queue, Busy, Current};
+        }
+        if (!Busy || (i == 0 && Current != 2) ||!Function(Open, "OpenNextReward", "RewardQueueComponent"))
+            continue;
+        struct
+        {
+            bool Opened;
+            uint8_t Pad[7];
+        } Params{};
+        Objects::ProcessEvent(Queue, Open, &Params);
+        const bool Freed = !Memory::Read<uint8_t>(Queue + QueueBusy).value_or(1);
+        if (Freed || Params.Opened)
+            Core::Log::Info("Airdrop-Auswahl: RewardQueue des {} weitergeschaltet, nächste Kiste {}", i ? "Remote-Spielers" : "Hosts",
+                            Params.Opened ? "freigegeben" : "keine");
+    }
 }
 
 void Tick()
 {
+    if (CurrentRole() == NetRole::Client)
+        TickStation();
+    else if (Station.Active)
+        Station = {};
     if (CurrentRole() != NetRole::Host)
         return;
     // Lager am Rundenende: nachholen, sobald der Client bereit oder nicht mehr verbunden ist.
@@ -1440,7 +1858,7 @@ void Tick()
         ReleaseRoundEndConfirm(End.ClientReady == End.Id ? "Client bereit" : "Client nicht mehr im Lager");
     if (!Host.Active)
     {
-        AdvanceRemoteQueue();
+        AdvanceQueues();
         return;
     }
     if (!Alive(Host.Inventory))
@@ -1484,7 +1902,10 @@ bool ShowForClient(uint64_t SessionId, uint64_t Expected, int32_t Level, const s
         return false;
     if (Shown.Session == SessionId && Shown.Revision == Expected && !Shown.Items.empty())
         return true;
-    if (ClientPending)
+    // opt-werkbank-station: Eine offene Stations-Bearbeitung geht zuerst an den Host, die Auswahl folgt nach seiner Antwort.
+    FinishStation("Auswahl des Hosts");
+    // opt-haendler-client: auch nicht, solange nach einem übernommenen Edit noch lokale Instanzen im Inventar liegen.
+    if (ClientPending || Game::InventoryEdit::ClientSettling())
         return false;
     CloseForClient();
     static uintptr_t SetRewards = 0;
@@ -1531,7 +1952,7 @@ void CloseForClient()
     if (!Shown.Items.empty())
         Core::Log::Info("Airdrop-Auswahl: Panel beim Client geschlossen, Sitzung {}", Shown.Session);
     // Eine Bearbeitung aus dem Lager (Aufwertung, werkbank-client) gehört nicht zur Auswahl und endet mit dem Lager.
-    if (Game::InventoryEdit::ClientEditing() && !LagerEdit)
+    if (Game::InventoryEdit::ClientEditing() && !LagerEdit && !Station.Active)
         Game::InventoryEdit::RevertClient("Auswahl geschlossen");
     Shown = {};
 }
@@ -1595,6 +2016,9 @@ void SetRoundEnd(uint64_t Id)
 {
     if (Id == End.Id)
         return;
+    // opt-werkbank-station: Beginnt ein Rundenende, geht eine offene Stations-Bearbeitung vorher an den Host.
+    if (Id)
+        FinishStation("Rundenende");
     if (End.HeldPanel)
         SetReadyTint(End.HeldPanel, false); // prüft den gemerkten Knopf selbst
     if (Id)

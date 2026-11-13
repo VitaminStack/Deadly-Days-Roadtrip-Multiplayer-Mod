@@ -21,6 +21,7 @@
 {0x04BC58D0, 0, "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 30 49 8B F8 48 8B DA 48 8B F1 E8 ?? ?? ?? ?? 48 8B C8 48 8B 10 FF 92 D8 02 00 00 48 85 C0", 0, "ExecuteCueNonReplicated"}, // BodyPartPatches.cpp
 {0x056591B0, 0, "48 89 5C 24 10 48 89 4C 24 08 57 48 83 EC 20 48 8B D9 48 8D 54 24 30", 0, "DamageInfoConstruct"}, // DamageNumberPatches.cpp
 {0x056676F5, 0, "48 FF A0 68 07 00 00 CC 48 8B 42 20 45 33 C0 48 85 C0 41 0F 95 C0 4C 03 C0 4C 89 42 20 E9 ?? ?? ?? ?? CC CC CC", 29, "At_5666FA5"}, // ClientPatches.cpp
+{0x05707870, 0, "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 48 8B FA 48 8B D9 48 8B 15 ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8B C8 48 8B F0 E8 ?? ?? ?? ?? 4C 8B 0B 48 8B CB F6 80 D8 00 00 00 80 75 ?? 4C 8D 44 24 40 48 89 7C 24 40 48 8B D6 41 FF 91 50 02 00 00 48 8B 5C 24 30 48 8B 74 24 38 48 83 C4 20 5F C3 48 8B D7 48 8B 5C 24 30 48 8B 74 24 38 48 83 C4 20 5F 49 FF A1 40 07 00 00 CC CC CC CC CC CC CC CC 40 53 48 83 EC 20 48 89 54 24 30 48 8B D9 48 8B 15 ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8B 13 4C 8D 44 24 30 48 8B CB 4C 8B 8A 50 02 00 00", 0, "ReloadSoundEvent"}, // WeaponSoundPatches.cpp
 {0x057BDCD0, 0, "40 53 56 57 41 55 48 83 EC 38 48 89 6C 24 68", 0, "ControllerSetAdd"}, // PlayerPatches.cpp
 {0x057CB5A5, 0, "E8 ?? ?? ?? ?? 90 0F B6 45 37 48 8D 15 ?? ?? ?? ?? 48 8B 14 C2 48 8D 05 ?? ?? ?? ?? 48 3B D0 75 ?? 48 83 7D 07 00 74 ?? 48 8B 45 2F 48 8D 4D 17 48 85 C0 48 0F 45 C8 48 8B 01 FF 50 10 90 EB ?? 48 8D 4D 07 FF D2 90 48 83 7D D7 00 74 ?? 48 8B 45 FF 48 8D 4D E7 48 85 C0 48 0F 45 C8 48 8B 01 FF 50 10 90 48 8B 4D 47 48 33 CC E8 ?? ?? ?? ?? 4C 8D 9C 24 C0 00 00 00 49 8B 5B 18 49 8B 7B 20 49 8B E3 5D C3 CC CC CC CC CC CC 48 89 5C 24 10 48 89 6C 24 20 56", 0, "ScheduleCall"}, // InventoryPatches.cpp
 {0x057D0C60, 0, "40 53 48 83 EC 20 48 8B D9 E8 ?? ?? ?? ?? 48 8B 8B D8 00 00 00 48 85 C9 74 ?? 48 83 C1 60", 0, "DetectorEndPlay"}, // InventoryPatches.cpp
@@ -50,6 +51,7 @@
 {0x058BF120, 0, "40 53 48 83 EC 70 48 8B D9 E8 ?? ?? ?? ?? 0F 57 C9 4C 8D 4C 24 20", 0, "UpdateBounds"}, // ExpPatches.cpp
 {0x058BF210, 0, "48 89 5C 24 18 55 56 57 48 83 EC 30 FF 41 5C", 0, "ReceiveExpImpl"}, // ExpPatches.cpp
 {0x058C1B10, 0, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 56 41 57 48 83 EC 40 0F 29 74 24 30", 0, "SpawnRequest"}, // ExpPatches.cpp
+{0x058CE280, 0, "40 57 48 83 EC 40 48 83 B9 68 08 00 00 00", 0, "TryBuyItem"}, // RewardPatches.cpp
 {0x058CF517, 0, "49 8B 86 E8 02 00 00 48 89 44 24 58 80 3D ?? ?? ?? ?? 00", 0, "SpawnerPlayerRead"}, // PlayerPatches.cpp
 {0x058CFA07, 0, "32 DB C7 45 48 00 00 00 00 48 8B 4D 40", 0, "SpawnerNoPlayerExit"}, // PlayerPatches.cpp
 {0x058D1A80, 0, "48 89 5C 24 10 48 89 6C 24 18 48 89 74 24 20 57 41 56 41 57 48 83 EC 30 4C 8B F2 49 8B D8 48 8D 54 24 20 48 8B F1 E8 ?? ?? ?? ?? 48 8B 7C 24 28 48 85 FF 74 ?? 41 8B 06 89 07 48 8B 03 48 89 47 04 C7 47 0C FF FF FF FF 8B 46 08 2B 46 34 44 8B 7C 24 20 8B 2F", 0, "MapAdd"}, // RemoteP2Patches.cpp

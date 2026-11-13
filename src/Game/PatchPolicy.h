@@ -24,10 +24,17 @@ constexpr bool ScrapLootMayCredit(NetRole WorldRole)
     return WorldRole != NetRole::Client;
 }
 
-// opt-levelup-sound: Beim Client ruft der Blueprint Loot jeden Takt erneut auf, solange der Haufen an der Figur hängt; nur der
-// Host gibt ihn an den Pool zurück. Der Haufen fliegt dabei zur Figur, sein Ort taugt nicht als Merkmal. Der Client spielt Klang
-// und Delegates je Haufen einmal: Wiederholungen innerhalb von QuietMs nach dem letzten Aufruf bleiben stumm und verlängern die
-// Ruhe. Ein später aus dem Pool wiederverwendeter Haufen klingt wieder. Zuletzt berührte Haufen bleiben vorne.
+// opt-item-sound: Die Basis ALootBase::Loot_Implementation (Klang, Delegates) läuft je Objekt nur dort einmal gebremst, wo das
+// Aufsammeln das Objekt nicht selbst wegnimmt: beim Client. Host und Einzelspieler geben es an den Pool zurück.
+constexpr bool LootSoundOncePerObject(NetRole WorldRole)
+{
+    return WorldRole == NetRole::Client;
+}
+
+// opt-levelup-sound, opt-item-sound: Beim Client ruft der Blueprint Loot jeden Takt erneut auf, solange das Objekt (Schrott, Benzin,
+// Itemsack, Power-up) an der Figur hängt; nur der Host gibt es an den Pool zurück. Es fliegt dabei zur Figur, sein Ort taugt nicht
+// als Merkmal. Der Client spielt Klang und Delegates je Objekt einmal: Wiederholungen innerhalb von QuietMs nach dem letzten Aufruf
+// bleiben stumm und verlängern die Ruhe. Ein später aus dem Pool wiederverwendetes Objekt klingt wieder. Zuletzt berührte bleiben vorne.
 class LootedPiles
 {
 public:
@@ -248,6 +255,15 @@ inline constexpr int32_t BodyPartsPerFrame = 8;
 constexpr bool BodyPartsMayShow(int32_t ShownThisFrame)
 {
     return ShownThisFrame >= 0 && ShownThisFrame < BodyPartsPerFrame;
+}
+
+// opt-waffen-sound: Der Client startet je ankommendem TriggerWeaponShotFX einen Schusssound. Mehrere Aufrufe derselben Waffe im
+// selben Frame (unter 10 ms) gelten als ein Schuss, der Host startet je Schuss auch nur einen Sound. Die schnellste Waffe schießt
+// langsamer.
+inline constexpr uint64_t WeaponShotRepeatMs = 10;
+constexpr bool WeaponShotRepeated(uint64_t MsSinceLastShot)
+{
+    return MsSinceLastShot < WeaponShotRepeatMs;
 }
 
 // opt-blickrichtung-client: Gierwinkel in Grad (-180 bis 180) aus der Weltdrehung (FQuat, X Y Z W) des Hände-Actors. NaN, wenn

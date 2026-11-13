@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <mutex>
 #include <string>
 #include <unordered_map>
 
@@ -129,7 +130,11 @@ struct Known
 
 const Known& Classify(uintptr_t Fn)
 {
+    // Mit Sperre: Seit opt-rucksack-ueberlappung fragt auch der ProcessEvent-Filter im Rundenende, nicht nur eine laufende Bearbeitung.
+    // Verweise auf Einträge bleiben beim Einfügen gültig.
     static std::unordered_map<uintptr_t, Known> Cache;
+    static std::mutex Lock;
+    const std::lock_guard Guard(Lock);
     if (const auto It = Cache.find(Fn); It != Cache.end())
         return It->second;
     Known Value;
@@ -191,9 +196,24 @@ struct
         std::string Data, Rarity;
     };
     std::vector<Recorded> Upgrades; // lokal gelaufene Aufwertungen (werkbank-client)
+    struct Bought
+    {
+        uintptr_t Item = 0;
+        std::string Data, Rarity;
+        int32_t Cost = 0;
+    };
+    std::vector<Bought> Purchases; // lokal gekaufte Items (opt-haendler-client)
     unsigned Logged = 0;
     uint64_t NextId = 0;
 } Session;
+
+// Lokale Instanzen des zuletzt übernommenen Edits, bis die Replikation sie ersetzt hat (ClientSettling).
+struct
+{
+    uintptr_t Inventory = 0;
+    std::vector<uintptr_t> Items;
+    ULONGLONG Until = 0;
+} Settling;
 
 bool Contains(const std::vector<uintptr_t>& List, uintptr_t Value)
 {
@@ -205,9 +225,15 @@ bool IsUpgradeOutput(uintptr_t Item)
     return Item && std::any_of(Session.Upgrades.begin(), Session.Upgrades.end(), [&](const auto& Next) { return Next.Output == Item; });
 }
 
+bool IsPurchase(uintptr_t Item)
+{
+    return Item && std::any_of(Session.Purchases.begin(), Session.Purchases.end(), [&](const auto& Next) { return Next.Item == Item; });
+}
+
 bool BelongsToSession(uintptr_t Item)
 {
-    return Contains(Session.Items, Item) || Contains(Session.Choices, Item) || IsUpgradeOutput(Item) || Contains(ItemsOf(Session.Inventory), Item);
+    return Contains(Session.Items, Item) || Contains(Session.Choices, Item) || IsUpgradeOutput(Item) || IsPurchase(Item) ||
+           Contains(ItemsOf(Session.Inventory), Item);
 }
 
 // Endstand eines Items, das während der Bearbeitung entstanden ist oder verbraucht wurde.
@@ -664,10 +690,57 @@ void RecordUpgrade(const std::vector<uintptr_t>& Inputs, uintptr_t Output, uintp
                     Session.Upgrades.back().Rarity);
 }
 
+namespace
+{
+// Client: Eingaben aufgezeichneter Aufwertungen, die wieder im Inventar liegen, lokal entfernen. Liefert ihre Anzahl.
+size_t RemoveConsumedInputs()
+{
+    const std::vector<uintptr_t> Now = ItemsOf(Session.Inventory);
+    const std::vector<SlotInfo> Slots = SlotsOf(Session.Inventory);
+    std::vector<uintptr_t> Items;
+    std::vector<ItemState> Current, Target;
+    for (const auto& Recorded : Session.Upgrades)
+        for (const uintptr_t Input : Recorded.Inputs)
+            if (Alive(Input) && Contains(Now, Input) && !Contains(Items, Input))
+            {
+                Items.push_back(Input);
+                Current.push_back(ReadItem(Input, Slots, ChoiceSource));
+                ItemState Gone;
+                Gone.Source = ChoiceSource;
+                Gone.Present = false;
+                Target.push_back(Gone);
+            }
+    if (Items.empty())
+        return 0;
+    // Wie beim Zurückrollen: verschachtelte RPCs nur lokal, ohne Vormerken oder Aufzeichnen.
+    Session.State = Phase::Reverting;
+    const bool Ok = Apply(Session.Inventory, Items, Current, Target, {}, {}, true);
+    Session.State = Phase::Editing;
+    if (!Ok)
+        Core::Log::Warn("Inventar lokal: erneut aufgenommene Eingabe nicht vollständig entfernt");
+    return Items.size();
+}
+}
+
+void RecordPurchase(uintptr_t Item, uintptr_t Data, uintptr_t Rarity, int32_t Cost)
+{
+    if (Session.State != Phase::Editing || !Item || IsPurchase(Item))
+        return;
+    Session.Purchases.push_back({Item, Data ? Memory::NameOf(Data) : std::string{}, Rarity ? Memory::NameOf(Rarity) : std::string{}, Cost});
+    Core::Log::Info("Inventar lokal: Kauf {} lokal, {} {} für {}", Session.Purchases.size(), Session.Purchases.back().Data, Session.Purchases.back().Rarity,
+                    Cost);
+}
+
 std::optional<Edit> FinishClient(uint64_t SessionId, uint64_t Revision, std::optional<uint8_t> Choice, uintptr_t ChoiceItem)
 {
     if (Session.State != Phase::Editing)
         return std::nullopt;
+    // opt-airdrop-edit-ungueltig: Die Belohnungsanzeige behält eine Instanz, die eine Aufwertung schon verbraucht hat. Nimmt der
+    // Spieler sie dort erneut auf, liegt sie wieder im Inventar und wäre zugleich Eingabe der Aufwertung: Der Edit galt als
+    // ungültig, die ganze Bearbeitung wurde zurückgenommen. Die Aufwertung gilt; die erneut aufgenommene Eingabe geht lokal
+    // wieder hinaus, wie es UpgradeItems schon getan hatte.
+    if (const size_t Removed = RemoveConsumedInputs())
+        Core::Log::Warn("Inventar lokal: {} schon aufgewertete Eingabe(n) erneut aufgenommen, wieder entfernt; die Aufwertung bleibt", Removed);
     const std::vector<uintptr_t> Now = ItemsOf(Session.Inventory);
     const std::vector<SlotInfo> Slots = SlotsOf(Session.Inventory);
     std::vector<ItemState> Final;
@@ -709,6 +782,19 @@ std::optional<Edit> FinishClient(uint64_t SessionId, uint64_t Revision, std::opt
         SourceOf.emplace(Session.Items[i], static_cast<uint16_t>(i));
     if (Choice && ChoiceItem)
         SourceOf.emplace(ChoiceItem, ChoiceSource);
+    // Käufe: das gekaufte Item mit eigener Quelle und Endstand, als Eingabe einer Aufwertung nicht mehr vorhanden.
+    for (size_t K = 0; K < Session.Purchases.size() && K < MaxPurchases; ++K)
+    {
+        const auto& Bought = Session.Purchases[K];
+        Purchase Next;
+        Next.Data = Bought.Data;
+        Next.Rarity = Bought.Rarity;
+        Next.Cost = Bought.Cost;
+        Next.Output = FinalState(Bought.Item, Now, Slots, PurchaseSource(K));
+        Next.Output.DataHash = NameHash(Next.Data);
+        SourceOf.emplace(Bought.Item, PurchaseSource(K));
+        Result.Purchases.push_back(std::move(Next));
+    }
     for (size_t K = 0; K < Session.Upgrades.size(); ++K)
     {
         const auto& Recorded = Session.Upgrades[K];
@@ -731,13 +817,14 @@ std::optional<Edit> FinishClient(uint64_t SessionId, uint64_t Revision, std::opt
         SourceOf[Recorded.Output] = UpgradeSource(K);
         Result.Upgrades.push_back(std::move(Next));
     }
-    if (!WellFormed(Result))
+    if (const char* Why = Malformed(Result))
     {
-        Core::Log::Warn("Inventar lokal: Edit mit {} Aufwertungen ungültig, Bearbeitung zurückgenommen", Result.Upgrades.size());
+        Core::Log::Warn("Inventar lokal: Edit mit {} Items, {} Aufwertungen und {} Käufen ungültig ({}), Bearbeitung zurückgenommen",
+                        Result.Items.size(), Result.Upgrades.size(), Result.Purchases.size(), Why);
         RevertClient("Edit ungültig");
         return std::nullopt;
     }
-    if (Result.Items.empty() && Result.NewSlots.empty())
+    if (Result.Items.empty() && Result.NewSlots.empty() && Result.Purchases.empty())
     {
         Core::Log::Info("Inventar lokal: Bearbeitung ohne Änderung beendet");
         Session.State = Phase::Idle;
@@ -747,8 +834,9 @@ std::optional<Edit> FinishClient(uint64_t SessionId, uint64_t Revision, std::opt
         Session.NextId = (uint64_t(GetTickCount64()) << 16) | 1;
     Result.Id = ++Session.NextId;
     Session.State = Phase::Committed;
-    Core::Log::Info("Inventar lokal: Edit {} mit {} Items, {} neuen Feldern, {} Aufwertungen{}", Result.Id, Result.Items.size(), Result.NewSlots.size(),
-                    Result.Upgrades.size(), Result.Choice ? ", Belohnung " + std::to_string(*Result.Choice) : std::string{});
+    Core::Log::Info("Inventar lokal: Edit {} mit {} Items, {} neuen Feldern, {} Aufwertungen, {} Käufen{}", Result.Id, Result.Items.size(),
+                    Result.NewSlots.size(), Result.Upgrades.size(), Result.Purchases.size(),
+                    Result.Choice ? ", Belohnung " + std::to_string(*Result.Choice) : std::string{});
     for (const ItemState& Item : Result.Items)
         Core::Log::Info("Inventar lokal:   Quelle {} vorhanden {} Rucksack {} Drehung {} Pivot ({}, {}) {} Felder{}{}", Item.Source, Item.Present,
                         Item.InBackpack, Item.Turns, Item.Pivot.first, Item.Pivot.second, Item.Tiles.size(), Item.Broken ? ", kaputt" : "",
@@ -784,6 +872,8 @@ void RevertClient(const char* Why)
     std::vector<uintptr_t> Local = Session.Choices;
     for (const auto& Next : Session.Upgrades)
         Local.push_back(Next.Output);
+    for (const auto& Next : Session.Purchases)
+        Local.push_back(Next.Item);
     for (const uintptr_t Choice : Local)
         if (Alive(Choice) && Contains(Now, Choice) && std::count(Items.begin(), Items.end(), Choice) == 0)
         {
@@ -803,15 +893,61 @@ void RevertClient(const char* Why)
     Core::Log::Info("Inventar lokal: Ausgangsstand wiederhergestellt ({}), vollständig={}", Why, Ok);
 }
 
+bool ClientSettling()
+{
+    if (Settling.Items.empty())
+        return false;
+    const std::vector<uintptr_t> Now = GetTickCount64() < Settling.Until ? ItemsOf(Settling.Inventory) : std::vector<uintptr_t>{};
+    if (std::none_of(Settling.Items.begin(), Settling.Items.end(), [&](uintptr_t Item) { return Contains(Now, Item); }))
+    {
+        Settling = {};
+        return false;
+    }
+    return true;
+}
+
 void ForgetClient()
 {
     if (Session.State == Phase::Committed)
+    {
         Core::Log::Info("Inventar lokal: Host hat übernommen");
+        Settling = {Session.Inventory, Session.Choices, GetTickCount64() + 3000};
+        for (const auto& Next : Session.Upgrades)
+            Settling.Items.push_back(Next.Output);
+        for (const auto& Next : Session.Purchases)
+            Settling.Items.push_back(Next.Item);
+    }
     Session.State = Phase::Idle;
     Session.Items.clear();
     Session.Choices.clear();
     Session.Upgrades.clear();
+    Session.Purchases.clear();
     EndHands(false);
+}
+
+bool MayChangeInventory(uintptr_t Fn)
+{
+    if (!Fn)
+        return false;
+    const Kind Type = Classify(Fn).Type;
+    return Type == Kind::InventoryRpc || Type == Kind::RemoveFromInventory || Type == Kind::AddEffect || Type == Kind::ItemRpc;
+}
+
+bool ChangesInventory(uintptr_t Object, uintptr_t Fn, uintptr_t Inventory)
+{
+    if (!Object || !Fn || !Inventory)
+        return false;
+    switch (Classify(Fn).Type)
+    {
+    case Kind::InventoryRpc:
+    case Kind::RemoveFromInventory:
+    case Kind::AddEffect:
+        return Object == Inventory;
+    case Kind::ItemRpc:
+        return Contains(ItemsOf(Inventory), Object);
+    default:
+        return false;
+    }
 }
 
 bool RouteClientRpc(uintptr_t Object, uintptr_t Fn, void* Params)
