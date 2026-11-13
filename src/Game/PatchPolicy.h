@@ -24,10 +24,17 @@ constexpr bool ScrapLootMayCredit(NetRole WorldRole)
     return WorldRole != NetRole::Client;
 }
 
-// opt-levelup-sound: Beim Client ruft der Blueprint Loot jeden Takt erneut auf, solange der Haufen an der Figur hängt; nur der
-// Host gibt ihn an den Pool zurück. Der Haufen fliegt dabei zur Figur, sein Ort taugt nicht als Merkmal. Der Client spielt Klang
-// und Delegates je Haufen einmal: Wiederholungen innerhalb von QuietMs nach dem letzten Aufruf bleiben stumm und verlängern die
-// Ruhe. Ein später aus dem Pool wiederverwendeter Haufen klingt wieder. Zuletzt berührte Haufen bleiben vorne.
+// opt-item-sound: Die Basis ALootBase::Loot_Implementation (Klang, Delegates) läuft je Objekt nur dort einmal gebremst, wo das
+// Aufsammeln das Objekt nicht selbst wegnimmt: beim Client. Host und Einzelspieler geben es an den Pool zurück.
+constexpr bool LootSoundOncePerObject(NetRole WorldRole)
+{
+    return WorldRole == NetRole::Client;
+}
+
+// opt-levelup-sound, opt-item-sound: Beim Client ruft der Blueprint Loot jeden Takt erneut auf, solange das Objekt (Schrott, Benzin,
+// Itemsack, Power-up) an der Figur hängt; nur der Host gibt es an den Pool zurück. Es fliegt dabei zur Figur, sein Ort taugt nicht
+// als Merkmal. Der Client spielt Klang und Delegates je Objekt einmal: Wiederholungen innerhalb von QuietMs nach dem letzten Aufruf
+// bleiben stumm und verlängern die Ruhe. Ein später aus dem Pool wiederverwendetes Objekt klingt wieder. Zuletzt berührte bleiben vorne.
 class LootedPiles
 {
 public:

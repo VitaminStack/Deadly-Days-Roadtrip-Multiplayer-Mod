@@ -464,6 +464,45 @@ Dauersound. Gemessen auf einem PC mit dem Spike-Zähler `!fx` aus `vfx-sound` (j
 - **Offen:** Der Host startet weniger `ScrapPickup` als der Client, vermutlich nur für Haufen, die seine eigene Kopie einsammelt. Ob die
   hängende Kopie beim Client sichtbar bleibt, wurde nicht geprüft. Zwei PCs mit echtem Ping nicht geprüft.
 
+#### Aufsammelsound von Benzin und Items beim Client (`opt-item-sound`)
+
+Gemeldet im [Live-Test vom 13.11.](#live-test-auf-zwei-pcs-am-13112026-livetest-1311): Sound-Fehler beim Einsammeln von Benzin. Untersucht
+am 13.11.2026, Build `26495302`, ein PC, Disassembly, gemessen mit `!fx` (Ton nur der beiden Spielprozesse aus, **gezählt, nicht gehört**).
+Mission direkt über den Testkanal (`Start-Session.ps1 -Mod -Tunnel Lobby -Godmode -Map /Game/Maps/DDDynamic_Map`), keine Maus- oder
+Tastatureingabe. Kanister kamen über die neue Spike-Testhilfe `!fx fuel <n>` (Host ruft `LootBlueprintFunctionLibrary.DropRequiredFuel`
+an der ersten Spielerfigur auf: fehlender Tank plus `n`), die Figuren standen still, ihr Attraktor sammelte.
+
+- **[Belegt, Disassembly] Derselbe Weg wie Schrott.** `FuelLoot.Loot`, `ItemLoot.Loot` (`0x59AF200`) und `ScrapLoot.Loot` springen alle in
+  `ALootBase::Loot_Implementation` (`0x59AF3F0`): Claimer setzen, Blueprint-Ereignis `Client_PlaySound` (Aufruf `0x59AF417`, NetClient-RPC),
+  Rückgabe an den Pool. Der Fix aus `opt-levelup-sound` saß nur im Schrott-Hook, Benzin und Power-ups liefen ungebremst, Itemsäcke beim
+  Client gar nicht (der Vergabe-Hook kehrte vorher zurück).
+- **[Belegt] Zwei Fehler beim Benzin**, Messung mit dem Einmal-Schutz an der Basis, aber noch ohne den zweiten Teil: 15 Kanister je Abwurf,
+  Host 7, Client 23 `Collect_fuel`. Aufrufketten (`!fx stack Collect`): beim Client 15 über `exe+59AF41C` (lokales `Loot_Implementation`)
+  und 8 über `exe+299CFFB` (vom Netz empfangener RPC). Der Host spielt nur die Kanister, die seine eigene Figur nimmt (7). Für die übrigen 8
+  hat beim Host die Client-Figur den Claim, er schickt ihr `Client_PlaySound`. Der Client hat dieselben Kanister aber schon lokal gespielt
+  und hört sie doppelt. Dazu kommt die Schleife aus `opt-levelup-sound`: Der Client wollte dieselben Kanister weitere 258- bis 473-mal je
+  Minute aufsammeln (Zähler `Wiederholungen ausgelassen`), ohne Schutz wäre jeder davon ein neuer Klang gewesen.
+- **Fehlversuch.** Ein erster Filter auf `Client_PlaySound` unterdrückte jeden Aufruf mit schon bekanntem Objekt. Er traf auch den lokalen
+  Aufruf aus `Loot_Implementation`, der dasselbe Objekt kurz vorher eingetragen hatte: Client 0 `Collect_fuel` bei 72 Kanistern (Host 72).
+- **Umsetzung** (`InventoryPatches.cpp`, Regel `LootSoundOncePerObject` in `PatchPolicy.h`, mit Tests):
+  - Der Einmal-Schutz (`LootedPiles`, 2 s Ruhe je Actor) sitzt jetzt an `ALootBase::Loot_Implementation` selbst (eigener Hook), gilt also für
+    Schrott, Benzin, Itemsack und Power-up gleich. Der Schrott-Hook ruft ihn auf statt eines eigenen Sonderfalls. Beim Itemsack läuft beim
+    Client jetzt die Basis (Klang, Delegates) je Sack einmal, die Vergabe bleibt beim Host.
+  - Ein vom Host **empfangenes** `LootBase.Client_PlaySound` (außerhalb des eigenen `Loot_Implementation`) teilt sich die Liste: Je Objekt
+    bleibt ein Klang, gleich welcher Weg zuerst kommt. Filter im ProcessEvent-Hook (`FilterLootSoundEvent`).
+  - Rein lokal, keine Nachricht, keine `ModVersion`-Erhöhung. Host und Einzelspieler unverändert. Wer bucht, bleibt gleich (Tank, Schrott,
+    Items beim Host). Beim Weltwechsel wird die Liste geleert.
+- **[Belegt, ein PC] Nachher**, fünf Abwürfe Host / Client: `Collect_fuel` 5 / 12, 9 / 15, 8 / 15, 10 / 15, 8 / 15. Der Client startet je
+  Kanister genau einen Klang (72 bei 72), alle über das lokale Aufsammeln. Mod-Log: „28 Objekte je einmal gespielt, 473 Wiederholungen
+  ausgelassen, Client_PlaySound des Hosts 13 empfangen, davon 13 doppelt ausgelassen“ (erste Minute). Keine Absturzberichte. Der Host hört
+  weiter nur die Kanister seiner eigenen Figur, das ist natives Verhalten.
+- **Nebenbefund, nicht behoben:** In einer Messung stürzte der Client ab, kurz nachdem die Abwürfe den Tank gefüllt hatten:
+  `EXCEPTION_ACCESS_VIOLATION`, Sprung auf `0xffffffff00000000` aus `Game::Objects::ProcessEvent` (`DDCoop.dll+0xA05B6`), aufgerufen aus
+  `BusBarPatches.cpp` (`UpdateBusProgress` an `WP_Bus_Countdown_Display_C`, `opt-busbalken`). **Vermutung:** Das gemerkte Countdown-Widget
+  war schon abgebaut. Einmal in fünf Läufen mit vollem Tank, nicht nachgestellt. Absturzbericht nicht verschickt.
+- **Nicht geprüft:** Schrott (in einer direkt gestarteten Mission fiel keiner), Itemsäcke und Power-ups im Spiel (`DD_OpenAllLootSpots` brachte
+  in so einer Mission keine Objekte), zwei PCs mit echtem Ping, gehört.
+
 ### Blut beim Client (`opt-blut`)
 
 Stand 11.11.2026, Build `26495302`. Statische Disassembly der Exe (`tools/spike/Disassemble.ps1`), dazu zwei Instanzen auf einem PC über
@@ -2430,7 +2469,7 @@ zuletzt 5 s vor dem zehnten Rundenende); Sound wurde gehört, nicht gezählt.
     keine/lebt/zerstört“). Ist die Queue des Hosts belegt und ihre Kiste zerstört, schaltet die Mod sie wie die des Remote-Spielers
     weiter. Der nächste Live-Test zeigt damit, ob und wo eine Queue innerhalb einer Karte hängt.
 - **[Gemeldet] Sound:** Beim Einsammeln von Items wie Benzin nach dem Looten gibt es einen Sound-Fehler (neu: `opt-item-sound`; #219
-  behob nur Schrott). Schusssounds fehlen beim Client (bekannt, `opt-waffen-sound`).
+  behob nur Schrott; Ursache und Fix unter [Aufsammelsound](#aufsammelsound-von-benzin-und-items-beim-client-opt-item-sound)). Schusssounds fehlen beim Client (bekannt, `opt-waffen-sound`).
 - **[Gemeldet] Client-Figur in höheren Leveln:** Die Schuss-Animation ist kaputt (Bild: Waffen übereinander an der Figur), und die
   Figur gleitet über den Boden. Offen, ob die Laufanimation fehlt oder die Figur nachrutscht. Neue Aufgabe `opt-schuss-animation`.
 - **[Gemeldet, Bilder] Anzeige:** Im Rucksack des Clients überlappen Items (zwei Revolver, Magazin, Ratte und Pumpe auf denselben

@@ -294,10 +294,119 @@ void InstallSoundCounter()
 }
 }
 
+namespace
+{
+// opt-item-sound: Testhilfe ohne Maus und Tastatur. Setzt bis zu Limit sichtbare Actors, deren Klassenname Part enthaelt, im Kreis
+// um die erste Spielerfigur ab (K2_SetActorLocation mit Teleport), damit ihr Attraktor sie aufsammelt. Nur in dieser Instanz.
+void PullActors(const std::string& Part, int Limit)
+{
+    const uintptr_t World = Read<uintptr_t>(Base + kGWorld);
+    const uintptr_t Level = World ? Read<uintptr_t>(World + 0x30) : 0;
+    const uintptr_t SetLocation = FindObject("K2_SetActorLocation", "Actor");
+    if (!Level || !SetLocation)
+        return Log("Fx-Pull: keine Welt oder K2_SetActorLocation fehlt");
+    const uintptr_t Data = Read<uintptr_t>(Level + 0xA0);
+    const int32_t Count = Read<int32_t>(Level + 0xA8);
+    double Center[3]{};
+    bool Found = false;
+    std::vector<uintptr_t> Matches;
+    for (int32_t i = 0; Data && i < Count && i < 200000; ++i)
+    {
+        const uintptr_t Actor = Read<uintptr_t>(Data + 8 * i);
+        if (!Actor)
+            continue;
+        const std::string Class = NameOf(Read<uintptr_t>(Actor + 0x10));
+        const uintptr_t Root = Read<uintptr_t>(Actor + 0x1B8);
+        if (!Found && Class == "BP_DD_Character_C" && Root)
+        {
+            memcpy(Center, reinterpret_cast<const void*>(Root + 0x148), sizeof(Center));
+            Found = true;
+        }
+        else if (Class.find(Part) != std::string::npos && Class.find("Spot") == std::string::npos && Root &&
+                 !(Read<uint8_t>(Actor + 0x58) & 0x80) && static_cast<int>(Matches.size()) < Limit)
+            Matches.push_back(Actor);
+    }
+    if (!Found)
+        return Log("Fx-Pull: keine Spielerfigur");
+    struct alignas(8)
+    {
+        double Location[3];
+        bool Sweep;
+        uint8_t Pad[7];
+        uint8_t Hit[0x100];
+        bool Teleport;
+        bool Result;
+        uint8_t Pad2[6];
+    } Params{};
+    static_assert(sizeof(Params) == 0x128);
+    for (size_t i = 0; i < Matches.size(); ++i)
+    {
+        const double Angle = 6.2831853 * static_cast<double>(i) / static_cast<double>(Matches.size());
+        Params = {};
+        Params.Location[0] = Center[0] + 120.0 * cos(Angle);
+        Params.Location[1] = Center[1] + 120.0 * sin(Angle);
+        Params.Location[2] = Center[2];
+        Params.Teleport = true;
+        const auto ProcessEvent = Read<ProcessEventFn*>(Matches[i])[kProcessEventIndex];
+        ProcessEvent(Matches[i], SetLocation, &Params);
+    }
+    Log("Fx-Pull: " + std::to_string(Matches.size()) + " Actors mit '" + Part + "' zur Figur gesetzt");
+}
+
+// Host: LootBlueprintFunctionLibrary.DropRequiredFuel(World, BP_FuelLoot_C, Ort der ersten Figur, Radius, Additional), wie der
+// Tankpfad des Spiels. Der Kanister repliziert, der Attraktor der Figuren sammelt ihn ohne Laufen.
+void DropFuel(int Additional)
+{
+    const uintptr_t World = Read<uintptr_t>(Base + kGWorld);
+    const uintptr_t Level = World ? Read<uintptr_t>(World + 0x30) : 0;
+    const uintptr_t Drop = FindObject("DropRequiredFuel", "LootBlueprintFunctionLibrary");
+    const uintptr_t Library = FindObject("Default__LootBlueprintFunctionLibrary", nullptr);
+    const uintptr_t FuelClass = FindObject("BP_FuelLoot_C", nullptr);
+    if (!Level || !Drop || !Library || !FuelClass)
+        return Log("Fx-Fuel: Welt, DropRequiredFuel oder BP_FuelLoot_C fehlt");
+    const uintptr_t Data = Read<uintptr_t>(Level + 0xA0);
+    const int32_t Count = Read<int32_t>(Level + 0xA8);
+    for (int32_t i = 0; Data && i < Count && i < 200000; ++i)
+    {
+        const uintptr_t Actor = Read<uintptr_t>(Data + 8 * i);
+        const uintptr_t Root = Actor ? Read<uintptr_t>(Actor + 0x1B8) : 0;
+        if (!Root || NameOf(Read<uintptr_t>(Actor + 0x10)) != "BP_DD_Character_C")
+            continue;
+        struct
+        {
+            uintptr_t World, FuelClass;
+            double Location[3];
+            float Radius;
+            int32_t Additional;
+        } Params{World, FuelClass, {}, 150.0f, Additional};
+        static_assert(sizeof(Params) == 0x30);
+        memcpy(Params.Location, reinterpret_cast<const void*>(Root + 0x148), sizeof(Params.Location));
+        Read<ProcessEventFn*>(Library)[kProcessEventIndex](Library, Drop, &Params);
+        return Log("Fx-Fuel: DropRequiredFuel an der Figur, zusaetzlich " + std::to_string(Additional));
+    }
+    Log("Fx-Fuel: keine Spielerfigur");
+}
+}
+
 // "!fx" haengt den Zaehler ein, "!fx dump" schreibt alle Zaehler ins Log und setzt sie zurueck,
-// "!fx stack <Text>" zaehlt Sounds mit <Text> im Pfad zusaetzlich je Aufrufkette.
+// "!fx stack <Text>" zaehlt Sounds mit <Text> im Pfad zusaetzlich je Aufrufkette,
+// "!fx pull <Klassenteil> [Anzahl]" setzt passende Actors zur ersten Spielerfigur (Testhilfe fuer Aufsammelsounds).
 void FxCommand(const std::wstring& Args)
 {
+    if (Args.rfind(L"fuel", 0) == 0)
+        return DropFuel(Args.size() > 5 ? _wtoi(Args.c_str() + 5) : 3);
+    if (Args.rfind(L"pull ", 0) == 0)
+    {
+        std::string Rest(Args.begin() + 5, Args.end());
+        int Limit = 5;
+        if (const size_t Space = Rest.find(' '); Space != std::string::npos)
+        {
+            Limit = atoi(Rest.c_str() + Space + 1);
+            Limit = Limit < 1 ? 1 : Limit > 50 ? 50 : Limit;
+            Rest.resize(Space);
+        }
+        return PullActors(Rest, Limit);
+    }
     if (FxFunctions.empty())
     {
         InstallFxCounter();

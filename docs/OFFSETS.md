@@ -829,3 +829,15 @@ Build `26495302`, Disassembly der Exec-Thunks (`UFunction::ExecFunction` `+0xD8`
 | `AProjectile` | `OptionalProjectileTelegraph` `0x378` |
 | `UNiagaraComponent` | `Asset` `0x580`; vfunc `+0xA78` setzt einen Float-Parameter (wie `SetVariableFloat`) |
 | `NiagaraFunctionLibrary.SpawnSystemAtLocation` | Parameter 0x68 Byte, Ort `0x10`, Rotation `0x28`, Skala `0x40`, `bAutoDestroy` `0x58`, Rückgabe `0x60` |
+
+## Aufsammelsound (`opt-item-sound`)
+
+Build `26495302`, Disassembly, siehe [Aufsammelsound](GAME_ANALYSIS.md#aufsammelsound-von-benzin-und-items-beim-client-opt-item-sound).
+
+| Stelle | Wert |
+|---|---|
+| `ALootBase::Loot_Implementation` | `0x59AF3F0(LootableInterface, Looter)`, Actor = Interface − `0x2A8`; ruft das Ereignis `Client_PlaySound` (`0x572F970`, Aufruf `0x59AF417`) und gibt das Objekt an den Pool zurück |
+| `AItemLoot::Loot_Implementation` | `0x59AF200`, ruft zuerst die Basis `0x59AF3F0` |
+| `0x59AF480` | ruft zuerst die Basis `0x59AF3F0`, dann `0x5834880` mit einem Wert aus `this+0x28`; **Vermutung:** `AFuelLoot::Loot_Implementation` (Tank) |
+| `LootBase.Client_PlaySound` | NetClient-RPC, beim Client vom Netz über `exe+299CFFB` (ProcessEvent), lokal aus `0x59AF417` |
+| `LootBlueprintFunctionLibrary.DropRequiredFuel` | Parameter 0x30 Byte: `World` `0x0`, `FuelClass` `0x8`, `Location` `0x10`, `Radius` `0x28`, `AdditionalFuel` `0x2C` (Spike-Testhilfe `!fx fuel`) |
