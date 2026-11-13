@@ -100,6 +100,9 @@ void ReceiveDamageNumbers(std::span<const Net::ControlMessage> Messages, bool Bu
         else
             Game::NoteDamageNumbers(Note::DecodeFailed, 1);
     }
+    // Ohne Treffer nur die Zählerzeile: So steht auch der Endstand nach dem letzten Treffer im Log.
+    if (!Bundled)
+        Game::ShowDamageNumbers({}, false);
 }
 
 void TickDamageNumbers(Net::Transport& Transport)
