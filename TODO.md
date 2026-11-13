@@ -58,7 +58,7 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 
 **Wartet auf das Team:** nichts.
 
-**Bestätigungstest ausstehend (nicht in Arbeit):** `fortschritt`, `lager-handel-client`, `opt-blut`, `opt-rucksack-ueberlappung`, `opt-airdrop-uebertrag`, `opt-schuss-animation`.
+**Bestätigungstest ausstehend (nicht in Arbeit):** `fortschritt`, `lager-handel-client`, `opt-blut`, `opt-airdrop-edit-ungueltig`, `opt-rucksack-ueberlappung`, `opt-airdrop-uebertrag`, `opt-schuss-animation`.
 <!-- frei:end -->
 
 **Nicht erneut machen.** Das ist erledigt und dokumentiert:
