@@ -545,9 +545,10 @@ Logik mit Tests) und `src/Sync/Inventory/RewardState.h`. Format in
 [Kontrollkanal](../../docs/CONTROL_PROTOCOL.md#kaufen-beim-händler-mod-kompatibilität-13).
 
 - **Lokal beim Client:** Das native Händler-Panel mit seinem eigenen Angebot, wie im Solo-Spiel. `TryBuyHook` lässt
-  `UShopPanelItem::TryBuyItem` nur in einer lokalen Bearbeitung laufen; der erste Kauf beginnt eine Stations-Bearbeitung, die offen
-  bleibt, solange das Händler-Panel oder ein Inventar-Panel offen ist. Das gekaufte Item liegt lokal im Inventar und lässt sich sofort
-  ablegen oder aufwerten. Der lokale Abzug ist nur Vorschau.
+  `UShopPanelItem::TryBuyItem` nur in einer lokalen Bearbeitung laufen; der erste Kauf beginnt eine Stations-Bearbeitung. Das
+  Händler-Panel meldet sein Schließen nie, darum bleibt sie offen, bis das Inventar-Panel schließt (der Zurück-Knopf des Händlers öffnet
+  es, „Bestätigen“ beendet den Besuch), ein Rundenende beginnt, eine Airdrop-Auswahl des Hosts kommt oder die Welt wechselt. Das
+  gekaufte Item liegt lokal im Inventar und lässt sich sofort ablegen oder aufwerten. Der lokale Abzug ist nur Vorschau.
 - **Geteilt:** Der Edit `0x303` trägt je Kauf Daten, Seltenheit, Preis und Endstand des Items. Den Schrott schickt der Host wie bisher
   (`0x309`).
 - **Entscheidet:** Der Host. Er prüft vor jeder Änderung Daten, Preis und Schrott, legt das Item selbst im Inventar des Clients an
@@ -563,8 +564,25 @@ Logik mit Tests) und `src/Sync/Inventory/RewardState.h`. Format in
   Händler, ist aber nicht geprüft. Was das Neuwürfeln des Angebots kostet, ist nicht untersucht.
 - **Diagnose:** Logzeilen `Station: Kauf …`, `Inventar lokal: Kauf …`, `Handel: Kauf … geprüft`, `Handel: … gebucht`.
 
-**Geprüft:** Build und Unit-Tests (`tests/GameTests/InventoryEditTests.cpp`, `tests/NetTests/RewardTests.cpp`). **Im Spiel noch nicht
-geprüft**, auch nicht, ob echte Händlerpreise immer über dem Verkaufspreis liegen.
+**Geprüft** (13.11.2026, Build `26495302`, ein PC, Lobby, Godmode, Händler-Event über `DDCOOP_TEST_MAP_PROFILE` ohne laufenden Run,
+Schrott über `!scrap`, Pistolen über `!give`). Bedient ohne Maus und Tastatur über die Spike-Befehle `!shop …`: Sie stellen die Figur des
+Clients auf den POI und rufen über `ProcessEvent` dieselben Funktionen wie Knopf und Panel (`TryBuyItem`, das Klick-Ereignis des
+Zurück-Knopfs, `HandleConfirmButton`, `UpgradeItems`). Dazu Unit-Tests (`tests/GameTests/InventoryEditTests.cpp`,
+`tests/NetTests/RewardTests.cpp`).
+
+- **Kauf übernommen:** Drei Käufe (Feuerzeug 28, zwei Luftpumpen 23 und 24) und zwei Aufwertungen (die beiden gekauften Luftpumpen zu
+  einer seltenen, zwei Pistolen zu einer ungewöhnlichen) in einer Bearbeitung. Nach „Bestätigen“ prüfte der Host, legte die Items an,
+  wertete auf und buchte einmal (Schrott 100 zu 25). `inventory.py`: vollständig und gleich, Schrott bei beiden 25.
+- **Ablehnung:** Kauf für 22, danach Schrott des Hosts auf 11 gesenkt. Der Host lehnte ab, der Client stellte seinen Ausgangsstand
+  vollständig wieder her und übernahm 11.
+- **Airdrop während der Bearbeitung:** Kauf beim Händler, dann Airdrop beim Host (`DD_OpenAirdrop`). Die Stations-Bearbeitung ging
+  vorher an den Host („Auswahl des Hosts“), er buchte (225 zu 202), danach öffnete sich die Auswahl beim Client mit drei Choices.
+- **Gegenprobe Lager:** Am Rundenende Aufwertung zweier Pistolen im Lager, Edit übernommen, `inventory.py` gleich. Die Rundenübersicht
+  ließ sich ohne Klick nicht verlassen, das gemeinsame Bestätigen bis zur Reise ist darum nicht erneut geprüft.
+
+**Nicht geprüft:** Ablegen des gekauften Items per Drag und das Rezept-Panel von Hand, Wahl in der Airdrop-Auswahl nach einem Kauf,
+Verkaufen in derselben Bearbeitung, zwei PCs mit echtem Ping, ein echter Run mit Händler-Knoten. Bekannt: Direkt nach der Übernahme
+zeigt der Client für einen Augenblick noch den alten Schrott des Hosts, bevor der neue Stand kommt.
 
 ### Itemsack für alle Spieler
 
