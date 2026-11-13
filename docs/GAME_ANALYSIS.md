@@ -2858,6 +2858,45 @@ Stand 10.11.2026, Build `26495302`, SDK, Disassembly und Live-Test auf einem PC.
 - **Live-Test 10.11.2026, ein PC, zwei Instanzen:** Beide starten mit `CD_PraesidentKnabe`, die Remote-Figur wird beim Spawn mit der Wahl der Gegenseite angewendet. Der Client wählt in der MetaBase `CD_BananaPerson`, rund 0,4 s später wendet der Host sie auf die Client-Figur an, vom Menschen im Bild bestätigt. Der Host blieb beweglich, der Filter griff beim Betreten und Verlassen des POI. **Nicht geprüft:** zwei PCs, Reise und erneuter Beitritt mit gehaltener Wahl, Startausrüstung der gewählten Figur im Run. Rest (behoben in `opt-charakter-takt`): Der Sekunden-Abgleich hielt einmal 10 bis 11 ms den Frame auf (volle Objektsuche nach dem Applier).
 - **[Belegt, SDK und Live-Test 11.11.2026] Takt (`opt-charakter-takt`):** `ADDCharacter` hält seine Komponente im Feld `CharacterDefinitionApplier` (`ObjectProperty`, SDK `0x840`). Der Sekunden-Abgleich liest sie darüber per Reflection und prüft sie (lebt, `Owner` ist die Figur, Klasse `CharacterDefinitionApplier`) statt GObjects zu durchsuchen; die alte Suche bleibt nur als Rückfall, falls das Feld fehlt, mit einer Warnung und einmal je Figur. Kein neuer Hook, keine neue Nachricht, keine Protokolländerung. Messung mit vorübergehendem Zeitmesser auf einem PC (zwei Instanzen, `-RealSave`, Wahl beider Seiten `CD_Sherrif`, die des Clients per Speicherschreiben eines Testhelfers auf `CD_BananaPerson` umgestellt): Suche der Remote-Figur über die Level-Akteure höchstens 0,13 ms, Applier lesen höchstens 0,23 ms (erster Aufruf mit Reflection-Auflösung, danach 0,002 ms), Anwenden 0,02 ms. In MetaBase, Run-Start, Reise in `DDDynamic_Map` und erneutem Beitritt (`Test-NetEnd.ps1 -Cases b`) keine Zeile `Takt: Charakterwahl` in beiden Logs. Die Wahl blieb: Nach der Reise wendet der Host `CD_BananaPerson` beim Spawn auf die neue Client-Figur an, nach dem erneuten Beitritt rund 1 s später über den Abgleich („Änderung“), gelesen mit `tools/spike/characters.py`. Kein Absturz, auch nicht während des Ladens ohne Remote-Figur. **Nicht geprüft:** zwei PCs, eine über das Panel gespeicherte Wahl nach Neustart, Startausrüstung der gewählten Client-Figur im Run.
 
+### Endboss erscheint nicht (`endboss-spawn`)
+
+Stand 13.11.2026, Build `26495302`, ein PC mit zwei Instanzen (Lobby über den Tunnel der Mod), Speicherlesen, Frida und Disassembly.
+Auslöser: Im [Live-Test vom 13.11.](#live-test-auf-zwei-pcs-am-13112026-livetest-1311) erschien auf der Boss-Karte `MGP_Burger_Boss_Nature` kein Boss.
+Offsets: [Boss-Parzelle](OFFSETS.md#boss-parzelle-endboss-spawn). Lesewerkzeug: `tools/spike/boss_state.py <pid> [<pid>]`.
+
+- **[Belegt] Wann und wodurch:** Der Tag-8-Knoten am Ende der Routenkarte lädt `DDDynamic_Map` mit einem Boss-Profil (hier
+  `MGP_Burger_Boss_Nature`, Parzelle `BP_Parcel_BurgerBoss_01_C`, Basis `BP_BossParcel_BASE_C`, Klasse `ABossMapTileParcel`). Die
+  Parzelle trägt die Startzone `StartFightZone`, den `BossSelector`, den `NightController` und die Arena. Der Kampf beginnt erst, wenn
+  eine Figur die Startzone betritt (`OnBossfightTriggerZoneBeginOverlap`). Der Handler braucht `BossSelector.BossfightSpawnPoint`.
+  Diesen Spawnpunkt setzt die Parzelle in `OnMissionStarted`: Der Handler plant einen Timer, dessen Lambda die Selector-Funktion
+  `0x58C3370` ruft. Sie wählt den Boss aus `DA_BossSpawnLookup` (hier `BP_SpikeBoss`, „Kugeleis“) und legt dessen Spawnpunkt samt Proxy an.
+- **[Belegt] Ursache:** Beim Host zu zweit lief `ABossMapTileParcel::OnMissionStarted` nie (Frida auf `0x59B09A0`), obwohl die
+  Parzelle an `GameState.OnMissionStarted` gebunden war. Sie stand als letzter Eintrag in der Liste, `BossfightSpawnPoint` blieb
+  null. Betrat eine Figur die Startzone, lief der Overlap-Handler beim Host und brach ohne Spawnpunkt ab. Darum gab es weder Boss noch
+  Boss-Zeile im Log. Die Parzelle entsteht mit der Karte und bindet sich erst dann an den Missionsstart. Zu zweit reist der Host per
+  `servertravel` statt über den eigenen Ladeablauf des Spiels (`TravelPatches.cpp`), die Mission läuft dann schon, wenn die Karte
+  fertig ist. **[Vermutung]** Allein wartet der native Ladeablauf auf die Karte, bevor die Mission startet.
+- **Umsetzung:** `MapPatches.cpp` merkt sich beim Host nach `StartMapGeneration` die Welt. Der Sekundentakt sucht höchstens 120 s
+  lang die Boss-Parzelle. Läuft die Mission schon (`DDMissionGameState.IsMissionStarted`), fehlt der Spawnpunkt und hat der Kampf
+  nicht begonnen, ruft er einmal den nativen Handler `OnMissionStarted` der Parzelle per ProcessEvent. Alles Weitere bleibt nativ:
+  Spawnpunkt, Boss, Kampf, Leiste und Tod. Der Boss repliziert über die Engine, eine eigene Nachricht braucht es nicht. Allein
+  (Standalone) und beim Client ändert sich nichts.
+- **Live-Test 13.11.2026, ein PC, zwei Instanzen:** Route über acht Tage bis zum Boss-Knoten. Host-Log: „Boss: Parzelle hat den
+  Missionsstart verpasst, Host holt ihn nach“, eine Sekunde nach dem Erzeugen der Karte. Danach steht `BP_SpikeBossSpawnPoint_C`
+  mit `SpawnedBoss` beim Host, der Boss `BP_SpikeBoss_C` repliziert zum Client (Rolle 1). Die Host-Figur läuft per Tastendruck in die
+  Startzone. Der Host zeigt das Boss-Intro „Kugeleis“, beide zeigen „Besiege den Boss!“ mit 80.000 HP, der Boss bewegt sich bei beiden.
+  `!bossdmg 30000` beim Host senkt die Leiste bei beiden auf 40.000, nach weiteren Treffern stirbt der Boss. Der Host zeigt „Quest
+  abgeschlossen – Burgerladen zerstört“, Bombenteil und Vergeltungsstufe, beim Client verschwindet der Boss. Nach dem Rundenende
+  zeigt der Host „Du hast gewonnen!“ (Bosskills 1), der Client folgt ins Lager. Kein Absturz.
+- **Gescheitert:** Ein direkter Aufruf der Selector-Funktion `0x58C3370` per Frida aus dem Overlap-Hook endete in einer Zugriffsverletzung.
+  Ein Aufruf von ProcessEvent per Frida aus einem ProcessEvent-Hook ließ den Host abstürzen. Die Mod ruft den Handler deshalb im eigenen
+  Game-Thread-Takt. Die Suche nach der nativen Bindestelle über den statischen FName `OnMissionStarted` (`0x4AC558E0`) fand keinen Leser im Code.
+- **Offen ([`boss-client-einfrieren`](../TODO.md)):** Nach dem Bosstod steht beim Client die Zeit still: Der TimescaleManager hält acht
+  Anfragen (`pause_state.py`, `request_free` 1 von 9), Uhr und Figuren bleiben stehen, während der Host weiterspielt. Erst das
+  Rundenende holt den Client wieder heraus. Die Abschlusstafel des Bosses („Quest abgeschlossen“) erscheint beim Client nicht.
+- **Nicht geprüft:** zwei PCs, die Karten `MGP_Burger_Boss_City` und `MGP_HQ8_Boss` (HQ-Endboss nach drei Bossen,
+  `NumBossesBeforeEndBoss` 3), ein echter Kampf ohne `!bossdmg`, eine Niederlage im Bosskampf und der Endlosmodus.
+
 ## Systeme, die die Mod respektieren muss
 
 - **[Belegt]** Bestenlisten und Erfolge: `PixelLeaderboards`, `DDLeaderboardSettings`, `PixelAchievements`, im Mod-Betrieb gesperrt, siehe unten
