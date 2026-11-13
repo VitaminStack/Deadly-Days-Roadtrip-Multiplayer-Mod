@@ -51,12 +51,11 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `opt-rundenstempel` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
 | `opt-tempo-upgrades` | P2 | [Optional](#optionale-optimierungen) | parallel | mittel |
 | `opt-waffen-hover` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
-| `opt-waffen-sound` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
 | `weekly-sperre` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
 
 **Wartet auf das Team:** nichts.
 
-**Bestätigungstest ausstehend (nicht in Arbeit):** `fortschritt`, `lager-handel-client`, `opt-blut`, `opt-airdrop-edit-ungueltig`, `opt-rucksack-ueberlappung`, `opt-airdrop-uebertrag`, `opt-schuss-animation`.
+**Bestätigungstest ausstehend (nicht in Arbeit):** `fortschritt`, `lager-handel-client`, `opt-blut`, `opt-werkbank-station`, `opt-airdrop-edit-ungueltig`, `opt-rucksack-ueberlappung`, `opt-airdrop-uebertrag`, `opt-schuss-animation`.
 <!-- frei:end -->
 
 **Nicht erneut machen.** Das ist erledigt und dokumentiert:
