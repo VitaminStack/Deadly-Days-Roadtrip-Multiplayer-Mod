@@ -662,6 +662,52 @@ void BeginPanelEdit(uintptr_t Inventory, const char* What, uintptr_t Shop = 0)
     Core::Log::Info("Station: {} beim Client, Inventar wird lokal bearbeitet, bis das Panel schließt ({} Panels)", What, Station.Panels.size());
 }
 
+// opt-haendler-client: Ist das Widget auf dem Bildschirm? Es selbst und alle Eltern sind sichtbar (UWidget.IsVisible), ein
+// WidgetSwitcher zeigt gerade diesen Zweig, und das oberste UserWidget hängt im Viewport. Das Händler-Panel meldet sein Schließen
+// nicht über OnOpenStateChanged und lebt nach dem Besuch weiter; darum zählt für die Stations-Bearbeitung, ob es zu sehen ist.
+bool WidgetOnScreen(uintptr_t Widget)
+{
+    static uintptr_t IsVisible = 0, GetParent = 0, IsInViewport = 0, GetActiveWidget = 0;
+    if (!Function(IsVisible, "IsVisible", "Widget") || !Function(GetParent, "GetParent", "Widget") ||
+        !Function(IsInViewport, "IsInViewport", "UserWidget") || !Function(GetActiveWidget, "GetActiveWidget", "WidgetSwitcher"))
+        return false;
+    const auto Bool = [](uintptr_t Object, uintptr_t Fn)
+    {
+        uint8_t Result[8]{};
+        Objects::ProcessEvent(Object, Fn, Result);
+        return Result[0] != 0;
+    };
+    const auto Object_ = [](uintptr_t Object, uintptr_t Fn)
+    {
+        uintptr_t Result = 0;
+        Objects::ProcessEvent(Object, Fn, &Result);
+        return Result;
+    };
+    for (int Depth = 0; Depth < 32; ++Depth)
+    {
+        if (!Alive(Widget) || !Bool(Widget, IsVisible))
+            return false;
+        if (const uintptr_t Parent = Object_(Widget, GetParent))
+        {
+            if (Objects::IsA(Parent, "WidgetSwitcher") && Object_(Parent, GetActiveWidget) != Widget)
+                return false;
+            Widget = Parent;
+            continue;
+        }
+        const uintptr_t Outer = Pointer(Widget + Offsets::UObject::Outer);
+        if (Outer && Objects::IsA(Outer, "WidgetTree"))
+        {
+            const uintptr_t Owner = Pointer(Outer + Offsets::UObject::Outer);
+            if (!Owner || !Objects::IsA(Owner, "UserWidget"))
+                return false;
+            Widget = Owner;
+            continue;
+        }
+        return Objects::IsA(Widget, "UserWidget") && Bool(Widget, IsInViewport);
+    }
+    return false;
+}
+
 // Stations-Bearbeitung abschließen: Der Endstand geht als Edit an den Host.
 void FinishStation(const char* Why)
 {
@@ -714,14 +760,16 @@ void TickStation()
         Station.NextScan = Now + 2000;
         Station.Panels = StationPanels(Station.Inventory);
     }
-    // opt-haendler-client: Das Händler-Panel meldet sein Schließen nie; solange es lebt, bleibt die Bearbeitung offen, bis das
-    // Inventar-Panel schließt (Bestätigen), ein Rundenende beginnt oder die Welt wechselt.
-    if (!Station.Closed && (AnyStationPanelOpen(Station.Panels) || (Station.Shop.Object && Objects::IsLive(Station.Shop))))
+    // opt-haendler-client: Das Händler-Panel meldet sein Schließen nie; solange es auf dem Bildschirm ist, bleibt die Bearbeitung
+    // offen. Sie endet, wenn das Inventar-Panel schließt (Bestätigen), das Händler-Panel verschwindet, ein Rundenende beginnt oder
+    // die Welt wechselt.
+    const bool ShopShown = Station.Shop.Object && Objects::IsLive(Station.Shop) && WidgetOnScreen(Station.Shop.Object);
+    if (!Station.Closed && (AnyStationPanelOpen(Station.Panels) || ShopShown))
         return;
     for (const Objects::Ref& Panel : Station.Panels)
         if (Objects::IsLive(Panel) && Memory::Read<uint8_t>(Panel.Object + PanelIsDragging).value_or(0))
             return;
-    FinishStation("Panel geschlossen");
+    FinishStation(Station.Closed ? "Inventar-Panel geschlossen" : "kein Panel mehr offen");
 }
 
 // lager-handel-client: HandleItemSold beim Client. ItemRepresentation.ConfirmSell schreibt den Preis lokal gut und ruft es
@@ -781,12 +829,13 @@ void __fastcall TryBuyHook(uintptr_t ShopItem)
     if (!Alive(Item))
         return OriginalTryBuy(ShopItem); // nativ ohne Wirkung
     const uintptr_t Parent = Pointer(ShopItem + ButtonParentPanel);
-    const bool IsShop = Alive(Parent) && Objects::IsA(Parent, "ShopPanel") && !Objects::IsA(Parent, "VendingMachinePanel");
+    // Nur der Händler (WI_MerchantPanel_C). Der dubiose Händler hat einen eigenen Ablauf und ist nicht geprüft, er bleibt nativ.
+    const bool IsShop = Alive(Parent) && Objects::IsA(Parent, "WI_MerchantPanel_C");
     if (Memory::Read<uint8_t>(ShopItem + ShopItemManualAdd).value_or(1) || !IsShop)
     {
         static unsigned Logged = 0;
         if (++Logged <= 5)
-            Core::Log::Warn("Kauf beim Client in {} nicht abgedeckt (Automat oder unbekanntes Panel), läuft nativ",
+            Core::Log::Warn("Kauf beim Client in {} nicht abgedeckt (Automat, dubioser Händler oder unbekanntes Panel), läuft nativ",
                             Alive(Parent) ? Memory::NameOf(Pointer(Parent + Offsets::UObject::Class)) : std::string("?"));
         return OriginalTryBuy(ShopItem);
     }

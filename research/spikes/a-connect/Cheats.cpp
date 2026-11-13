@@ -448,6 +448,20 @@ void ShopCommand(const std::wstring& Args)
                     std::to_string(Read<uint8_t>(Panels[i] + 0x788)));
             }
             Log("Shop: " + std::to_string(Panels.size()) + " Inventar-Panels zum eigenen Inventar");
+            // Haendler-Panels: sichtbar (UWidget.IsVisible), im Viewport, Rabattgrenzen (UShopPanel.DiscountChance +0x3D8,
+            // MinDiscountIfDiscounted +0x3DC, MaxDiscountIfDiscounted +0x3E0, Offsets aus dem SDK von 26187885, darum nur Diagnose).
+            const uintptr_t Visible = FindObject("IsVisible", "Widget"), InViewport = FindObject("IsInViewport", "UserWidget");
+            for (const uintptr_t Shop : InstancesOf("ShopPanel"))
+            {
+                uint8_t Shown[8]{}, Viewport[8]{};
+                if (Visible)
+                    Call(Shop, Visible, Shown);
+                if (InViewport)
+                    Call(Shop, InViewport, Viewport);
+                Log("Shop: " + NameOf(Read<uintptr_t>(Shop + 0x10)) + " sichtbar " + std::to_string(Shown[0]) + ", im Viewport " +
+                    std::to_string(Viewport[0]) + ", Rabatt Chance " + std::to_string(Read<float>(Shop + 0x3D8)) + " von " +
+                    std::to_string(Read<float>(Shop + 0x3DC)) + " bis " + std::to_string(Read<float>(Shop + 0x3E0)));
+            }
             return;
         }
         const uintptr_t Confirm = FindObject("HandleConfirmButton", "InventoryPanel");
@@ -479,6 +493,38 @@ void ShopCommand(const std::wstring& Args)
             ++Pressed;
         }
         Log("Shop: Knopf " + Name + " an " + std::to_string(Pressed) + " sichtbaren Instanzen gedrueckt");
+    }
+    else if (Action == "press")
+    {
+        // "!shop press <n>": das eigene Klick-Ereignis des Angebots n (WI_MerchantPanel_BuyableItem_C), also der Weg des Knopfs im
+        // Spiel samt allem, was sein Blueprint davor und danach tut.
+        std::vector<uintptr_t> Offers;
+        for (const uintptr_t Offer : InstancesOf("ShopPanelItem"))
+            if (Read<uintptr_t>(Offer + 0x868))
+                Offers.push_back(Offer);
+        if (Index < 0 || Index >= static_cast<int>(Offers.size()))
+        {
+            Log("Shop: Angebot fehlt");
+            return;
+        }
+        static const char* const Events[] = {
+            "BndEvt__WI_MerchantPanel_BuyableItem_ButtonComponent_K2Node_ComponentBoundEvent_0_OnButtonClickedEvent__DelegateSignature",
+            "OnClickResponse_Event"};
+        uintptr_t Function = 0;
+        const char* Used = "";
+        for (const char* Event : Events)
+            for (uintptr_t Class = Read<uintptr_t>(Offers[Index] + 0x10); Class && !Function; Class = Read<uintptr_t>(Class + 0x40))
+                if ((Function = FindObject(Event, NameOf(Class).c_str())) != 0)
+                    Used = Event;
+        if (!Function)
+        {
+            Log("Shop: Klick-Ereignis des Angebots nicht gefunden");
+            return;
+        }
+        const std::string Name = ItemText(Read<uintptr_t>(Offers[Index] + 0x868));
+        uint8_t Params[0x100]{};
+        Call(Offers[Index], Function, Params);
+        Log("Shop: " + std::string(Used).substr(0, 40) + " an Angebot " + std::to_string(Index) + " (" + Name + ") gerufen");
     }
     else if (Action == "call")
     {
