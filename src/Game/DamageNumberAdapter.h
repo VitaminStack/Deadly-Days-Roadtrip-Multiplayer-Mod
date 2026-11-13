@@ -24,5 +24,19 @@ inline constexpr size_t MaxDamageNumberHits = 64;
 // Host: Treffer seit dem letzten Aufruf mit auflösbarer NetGUID, höchstens MaxDamageNumberHits, der Rest verfällt.
 std::vector<DamageNumberHit> TakeDamageNumberHits();
 // Client: Zahlen über den nativen Handler des eigenen Controllers. Unbekannte oder sterbende Ziele werden übersprungen.
-void ShowDamageNumbers(std::span<const DamageNumberHit> Hits);
+// Bundled: Die Nachricht kam erst im Sammelabruf alle 250 ms an (nach dem eigenen Abruf im selben Takt), nur für die Zähler.
+void ShowDamageNumbers(std::span<const DamageNumberHit> Hits, bool Bundled = false);
+
+// opt-schadenszahlen-verlust: Zähler des Wegs zwischen Handler und Anzeige, damit „gesendet“ und „empfangen“ vergleichbar sind.
+// Treffer, außer bei DecodeFailed und RevisionGap (Nachrichten). Nur Diagnose, ändert nichts am Ablauf.
+enum class DamageNumberNote : uint8_t
+{
+    Sent,         // Host: SendControl hat die Nachricht angenommen
+    SendFailed,   // Host: SendControl hat abgelehnt (Warteschlange voll oder Verbindung weg)
+    NoPeer,       // Host: kein bestätigter Mitspieler
+    EncodeFailed, // Host: Liste ungültig, ganzes Paket verworfen
+    DecodeFailed, // Client: Nachrichten, deren Nutzlast nicht gelesen werden konnte
+    RevisionGap,  // Client: fehlende Nachrichten laut Revision des Hosts
+};
+void NoteDamageNumbers(DamageNumberNote Note, size_t Count);
 }

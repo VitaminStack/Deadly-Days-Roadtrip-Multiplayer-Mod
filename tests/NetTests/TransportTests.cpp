@@ -540,3 +540,50 @@ TEST_CASE("Kontrollnachrichten eines Typs lassen sich einzeln abholen, die übri
     CHECK(Rest[1].Value.Revision == 3);
     CHECK(Host.TakeControlMessages(0x500).empty());
 }
+
+// opt-schadenszahlen-verlust: Der Sammelabruf nimmt auch Nachrichten eines Typs mit, der sonst einzeln abgeholt wird, wenn sie
+// nach dem Einzelabruf ankamen. Wer einen Typ einzeln abholt, muss ihn darum auch im Sammelabruf auswerten.
+TEST_CASE("Nach dem Einzelabruf angekommene Nachrichten des Typs stehen im Sammelabruf")
+{
+    auto Network = std::make_shared<FakeSteamNetwork>();
+    const auto Options = TestPorts(47794);
+    GameSocket HostGame(Options.GamePort);
+    Transport Host(Network->Account(kHostId), Options);
+    Transport Client(Network->Account(kClientId), Options);
+    REQUIRE(Host.StartHost());
+    REQUIRE(Client.StartClient(kHostId));
+    REQUIRE(WaitFor([&] { return Host.ControlPeers().size() == 1; }));
+    const auto Peer = Host.ControlPeers()[0];
+    CHECK(Client.TakeControlMessages(0xA00).empty());
+    REQUIRE(Host.SendControl(Peer, {1, 1, 1, 0xA00, {1}}));
+    std::vector<ControlMessage> All;
+    REQUIRE(WaitFor([&] { All = Client.TakeControlMessages(); return !All.empty(); }));
+    REQUIRE(All.size() == 1);
+    CHECK(All[0].Value.Type == 0xA00);
+    CHECK(Client.TakeControlMessages(0xA00).empty());
+}
+
+TEST_CASE("Kontrollkanal zählt Füllstand und wegen voller Warteschlange abgelehnte Nachrichten")
+{
+    auto Network = std::make_shared<FakeSteamNetwork>();
+    const auto Options = TestPorts(47798);
+    GameSocket HostGame(Options.GamePort);
+    Transport Host(Network->Account(kHostId), Options);
+    Transport Client(Network->Account(kClientId), Options);
+    REQUIRE(Host.StartHost());
+    REQUIRE(Client.StartClient(kHostId));
+    REQUIRE(WaitFor([&] { return Host.ControlPeers().size() == 1; }));
+    const auto Peer = Host.ControlPeers()[0];
+    // Ohne Abholen beim Client: Der Host bringt höchstens 128 je Runde des Netzwerkthreads unter.
+    int Accepted = 0, Refused = 0;
+    for (int i = 0; i < 400; ++i)
+        (Host.SendControl(Peer, {1, 1, static_cast<uint64_t>(i + 1), 0xA00, {1}}) ? Accepted : Refused)++;
+    CHECK(Accepted >= 128);
+    REQUIRE(WaitFor([&] {
+        const auto Stats = Host.Stats();
+        return Stats.ControlOutPeak >= 1 && Stats.ControlRefused == static_cast<uint64_t>(Refused);
+    }));
+    CHECK(Host.Stats().ControlOutPeak <= 128);
+    REQUIRE(WaitFor([&] { return Client.Stats().ControlInPeak >= 1; }));
+    CHECK(Client.Stats().ControlInPeak <= 128);
+}

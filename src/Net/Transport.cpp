@@ -166,6 +166,7 @@ bool Transport::Begin(Mode RoleIn, uint64_t Remote)
         std::lock_guard Guard(StatsLock);
         Current = {};
         Current.IsHost = Role == Mode::Host;
+        ControlOutPeak = ControlInPeak = ControlRefused = 0;
     }
     if (!Open(Role, Remote))
     {
@@ -294,9 +295,16 @@ bool Transport::SendControl(uint64_t Peer, const Protocol::Control& Value)
     if (Bytes.empty())
         return false;
     std::lock_guard Guard(ControlLock);
-    if (!Active || Outgoing.size() >= MaxControlQueue || std::find(Peers.begin(), Peers.end(), Peer) == Peers.end())
+    if (!Active || std::find(Peers.begin(), Peers.end(), Peer) == Peers.end())
         return false;
+    if (Outgoing.size() >= MaxControlQueue)
+    {
+        ++ControlRefused;
+        return false;
+    }
     Outgoing.push_back({Peer, std::move(Bytes)});
+    if (Outgoing.size() > ControlOutPeak)
+        ControlOutPeak = Outgoing.size();
     return true;
 }
 
@@ -689,6 +697,8 @@ bool Transport::ReceiveFrame(Link& Entry, std::span<const uint8_t> Bytes)
         if (Incoming.size() >= MaxControlQueue)
             return false; // Nicht still einen verlaesslichen Zustand verlieren.
         Incoming.push_back({Entry.Peer, std::move(*Value)});
+        if (Incoming.size() > ControlInPeak)
+            ControlInPeak = Incoming.size();
         return true;
     }
     if (Frame->Payload.empty() || Frame->Payload.size() > 4096)
@@ -735,6 +745,9 @@ void Transport::UpdateTotals()
     Current.BytesToSteam = Totals.BytesToSteam;
     Current.BytesFromSteam = Totals.BytesFromSteam;
     Current.Dropped = Totals.Dropped;
+    Current.ControlOutPeak = ControlOutPeak;
+    Current.ControlInPeak = ControlInPeak;
+    Current.ControlRefused = ControlRefused;
 }
 
 void Transport::Run()
@@ -807,9 +820,11 @@ void Transport::Run()
             const TransportStats Snapshot = Stats();
             if (Snapshot.Connections)
                 Core::Log::Info("Transport: {} Client(s), Ping {} ms, Qualität {:.2f}, zu Steam {} Pakete/{} B, von Steam {} "
-                                "Pakete/{} B, verworfen {}",
+                                "Pakete/{} B, verworfen {}, Kontrollkanal höchstens {} wartend zum Senden, {} zum Abholen, "
+                                "{} abgelehnt",
                                 Snapshot.Connections, Snapshot.PingMs, Snapshot.Quality, Snapshot.PacketsToSteam,
-                                Snapshot.BytesToSteam, Snapshot.PacketsFromSteam, Snapshot.BytesFromSteam, Snapshot.Dropped);
+                                Snapshot.BytesToSteam, Snapshot.PacketsFromSteam, Snapshot.BytesFromSteam, Snapshot.Dropped,
+                                Snapshot.ControlOutPeak, Snapshot.ControlInPeak, Snapshot.ControlRefused);
             // Gemessene Werte der Simulation seit der letzten Zeile, ausgehende Richtung dieser Instanz.
             for (Link& Entry : *Links)
                 if (Entry.Sim && Entry.Ready)

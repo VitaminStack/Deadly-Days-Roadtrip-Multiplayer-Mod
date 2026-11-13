@@ -671,6 +671,39 @@ Stand 11.11.2026, Build `26495302`, zwei Instanzen auf einem PC über die Lobby,
 - **Stabilität:** Ziele werden beim Host über den schwachen Zeiger (Index und Seriennummer im Objekt-Array) aufgelöst und beim Client über NetGUID, Platz im Objekt-Array, Garbage-Flag und `bActorIsBeingDestroyed` geprüft. Der Host leert seinen Puffer beim Weltwechsel. Höchstens 64 Treffer je Takt.
 - **Nicht geprüft:** zwei PCs mit echter Latenz, ob Zahlen tödlicher Treffer bei höherer Latenz als „Ziel stirbt“ verfallen (der Ort steht für einen späteren Ersatz schon im Paket), Reconnect. Die Rundenübersicht des Clients zeigt 0 Kills und 0 Schaden, das ist ein anderes Thema.
 
+### Verlorene Schadenszahlen (`opt-schadenszahlen-verlust`)
+
+Stand 13.11.2026, Build `26495302`, Mod-Version 12 (unverändert). Ausgangslage: Rund 0,5 bis 1 % der Schadenszahlen kamen beim Client
+nicht an (`testlauf-1111`: 1643 gesendet, 1624 empfangen; `livetest-1311`: 10407 zu 10358), die Lücke wuchs über den Run und sprang in
+dichten Kampfphasen.
+
+- **[Belegt, Code] Ursache:** Der Client holt `0xA00` jeden Takt einzeln ab (`TakeControlMessages(0xA00)`). Alle 250 ms holt derselbe
+  Takt danach im Sammelabruf alle übrigen Nachrichten ab (`TakeControlMessages()`). Kam eine `0xA00` zwischen beiden Abrufen an (der
+  Netzwerkthread läuft parallel), nahm der Sammelabruf sie mit. Dort gab es keinen Empfänger für `0xA00`, die Nachricht verfiel ohne
+  Zähler. Das erklärt, warum die Lücke mit der Trefferdichte wächst. Die Warnanzeigen (`0x900`) hatten dasselbe Problem schon gelöst.
+- **Behebung:** `ReceiveDamageNumbers` wertet `0xA00` in beiden Abrufen aus (`src/Sync/Sync.cpp`), Format, Bedeutung und Mod-Version
+  bleiben gleich. Der Client zeigt weiter nur an, was der Host gemeldet hat; Schaden bucht er nicht.
+- **Neue Zähler** (Mod-Log alle 10 s): Host „übergeben“, „gesendet“ (nur von `SendControl` angenommene Treffer, vorher wurde vor dem
+  Senden gezählt), „Senden abgelehnt“, „ohne Mitspieler“, „Paket ungültig“, „ohne Ziel“. Client „im Sammelabruf“, „Nachricht unlesbar“,
+  „Nachrichten fehlen“ (Lücken in der Revision, die der Host je angenommener Nachricht um 1 erhöht), „falsche Rolle“. Die Transport-Zeile
+  nennt den höchsten Füllstand beider Warteschlangen des Kontrollkanals (Grenze 128) und abgelehnte Nachrichten. Der Client schreibt seine
+  Zeile jetzt auch ohne neue Treffer, damit der Endstand im Log steht.
+- **[Belegt, Messung] Zwei Läufe auf einem PC**, `Start-Session.ps1 -Build -Mod -Tunnel Lobby -Godmode`, danach ohne Eingaben nur über
+  Spike-Befehle: `servertravel /Game/Maps/DDDynamic_Map?listen`, `!wave` jede Minute, am Ende `servertravel` zurück in die MetaBase.
+  `Run-Route.ps1` wurde nicht benutzt, weil es echte Mausklicks sendet.
+
+| Lauf | Dauer | Host gesendet | Client empfangen | davon im Sammelabruf | Sonstige Verluste | Füllstand Kontrollkanal |
+|---|---|---|---|---|---|---|
+| 1 (Zwischenstand vor dem letzten Log-Fix) | rund 10 min | 742 (16:04:21) | 741 (16:04:17) | 12 (1,6 %) | alle Zähler 0 | Host höchstens 8 zum Senden, Client höchstens 10 zum Abholen, 0 abgelehnt |
+| 2 | rund 7 min | 438 | 438 | 5 (1,1 %) | alle Zähler 0 | Host höchstens 7, Client höchstens 9, 0 abgelehnt |
+
+  Ohne die Behebung wären genau die Treffer „im Sammelabruf“ verloren gegangen, das passt in der Größe zu den früheren 0,5 bis 1 %.
+  Senden, Dekodieren und die Warteschlangen verloren nichts; die Grenze von 128 wurde nie annähernd erreicht. Lauf 1 hatte noch keine
+  Endzeile des Clients (sie entstand nur bei neuen Treffern), darum steht dort ein zeitgleicher Zwischenstand.
+- **Nicht geprüft:** zwei PCs mit echtem Ping und `-NetProfile Internet`. Die Ursache hängt nicht am Ping, sondern an der Ankunftszeit
+  relativ zum Takt; mit Latenz sollten die Zähler gleich aussehen (**Vermutung**). Bei der nächsten Live-Sitzung „gesendet“ gegen
+  „empfangen“ und „Nachrichten fehlen“ vergleichen.
+
 ### XP-Bälle beim Client (`xp-baelle`)
 
 Stand 04.11.2026, Build `26187885`. Beim Spieltest fiel auf: Der Client sieht die XP-Bälle nicht. Ursache bisher nur aus dem lokalen SDK abgeleitet, im Spiel nicht gemessen.
@@ -2235,7 +2268,8 @@ zuletzt 5 s vor dem zehnten Rundenende); Sound wurde gehört, nicht gezählt.
 - **[Belegt] Dodge über das Internet unauffällig.** 249 Dodges des Clients, 3 Rücksetzungen. Der Verdacht aus `testlauf-1111`
   (Rücksetzung auch bei jedem einzelnen Dodge) zeigte sich mit echtem Ping nicht.
 - **[Belegt] Schadenszahlen fehlen weiter.** Zeitgleiche Zeilen: Host gesendet 10407, Client empfangen 10358 (rund 0,5 %), die Lücke
-  wächst über den Run. Neue Aufgabe `opt-schadenszahlen-verlust`.
+  wächst über den Run. Neue Aufgabe `opt-schadenszahlen-verlust`, Ursache inzwischen gefunden, siehe
+  [Verlorene Schadenszahlen](#verlorene-schadenszahlen-opt-schadenszahlen-verlust).
 - **[Gemeldet, Ursache teils belegt] Händler: Client friert ein und kann nicht kaufen.** Öffnet der Host den Shop, steht die Welt für
   beide (`Pause: Weltzeit angehalten … Pauser true` auf beiden Seiten, dreimal je 3 bis 16 s). Beim Host steht „POI-Betreten der
   Remote-Figur beim Host übergangen“ und sechsmal „AddToInventory ohne Item vom Client verworfen“, jeweils in den beiden
