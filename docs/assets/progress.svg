@@ -11,7 +11,7 @@
       <rect y="52" width="1000" height="48" fill="#dcfce7"/>
       <path d="M0 100H1000" stroke="#d1d5db"/>
       <text x="20" y="82">0</text>
-      <text x="125" y="82">Gleiche Toolchain für alle</text>
+      <text x="125" y="82">Same toolchain for everyone</text>
       <text x="490" y="82">11 von 11</text>
       <rect x="630" y="67" width="200" height="18" rx="4" fill="#e5e7eb"/>
       <rect x="630" y="67" width="200" height="18" rx="4" fill="#15803d"/>
@@ -21,7 +21,7 @@
       <rect y="100" width="1000" height="48" fill="#dcfce7"/>
       <path d="M0 148H1000" stroke="#d1d5db"/>
       <text x="20" y="130">1</text>
-      <text x="125" y="130">Fakten für Gate G1</text>
+      <text x="125" y="130">Facts for gate G1</text>
       <text x="490" y="130">39 von 39</text>
       <rect x="630" y="115" width="200" height="18" rx="4" fill="#e5e7eb"/>
       <rect x="630" y="115" width="200" height="18" rx="4" fill="#15803d"/>
@@ -31,7 +31,7 @@
       <rect y="148" width="1000" height="48" fill="#dcfce7"/>
       <path d="M0 196H1000" stroke="#d1d5db"/>
       <text x="20" y="178">2</text>
-      <text x="125" y="178">Stabile Basis der Mod</text>
+      <text x="125" y="178">Stable mod foundation</text>
       <text x="490" y="178">5 von 5</text>
       <rect x="630" y="163" width="200" height="18" rx="4" fill="#e5e7eb"/>
       <rect x="630" y="163" width="200" height="18" rx="4" fill="#15803d"/>
@@ -41,7 +41,7 @@
       <rect y="196" width="1000" height="48" fill="#dcfce7"/>
       <path d="M0 244H1000" stroke="#d1d5db"/>
       <text x="20" y="226">3</text>
-      <text x="125" y="226">Verbinden über Steam</text>
+      <text x="125" y="226">Connecting via Steam</text>
       <text x="490" y="226">10 von 10</text>
       <rect x="630" y="211" width="200" height="18" rx="4" fill="#e5e7eb"/>
       <rect x="630" y="211" width="200" height="18" rx="4" fill="#15803d"/>
@@ -51,7 +51,7 @@
       <rect y="244" width="1000" height="48" fill="#dcfce7"/>
       <path d="M0 292H1000" stroke="#d1d5db"/>
       <text x="20" y="274">4</text>
-      <text x="125" y="274">Spielbarer Ausschnitt</text>
+      <text x="125" y="274">Playable slice</text>
       <text x="490" y="274">16 von 16</text>
       <rect x="630" y="259" width="200" height="18" rx="4" fill="#e5e7eb"/>
       <rect x="630" y="259" width="200" height="18" rx="4" fill="#15803d"/>
@@ -61,7 +61,7 @@
       <rect y="292" width="1000" height="48" fill="#ffffff"/>
       <path d="M0 340H1000" stroke="#d1d5db"/>
       <text x="20" y="322">5</text>
-      <text x="125" y="322">Kompletter Run zu zweit</text>
+      <text x="125" y="322">Complete run for two</text>
       <text x="490" y="322">36 von 41</text>
       <rect x="630" y="307" width="200" height="18" rx="4" fill="#e5e7eb"/>
       <rect x="630" y="307" width="175" height="18" rx="4" fill="#64748b"/>
@@ -71,7 +71,7 @@
       <rect y="340" width="1000" height="48" fill="#ffffff"/>
       <path d="M0 388H1000" stroke="#d1d5db"/>
       <text x="20" y="370">6</text>
-      <text x="125" y="370">Veröffentlichung</text>
+      <text x="125" y="370">Release</text>
       <text x="490" y="370">9 von 10</text>
       <rect x="630" y="355" width="200" height="18" rx="4" fill="#e5e7eb"/>
       <rect x="630" y="355" width="180" height="18" rx="4" fill="#64748b"/>
