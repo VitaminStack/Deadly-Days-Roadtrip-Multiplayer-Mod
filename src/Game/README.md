@@ -515,18 +515,27 @@ Inventar-Panel geht aber auch mitten in einer Mission auf, etwa im Händler-Even
 Bearbeitung … nativ“: Ausgabe nur beim Client, der Host verwarf das `AddToInventory` der lokalen Instanz.
 
 - **Lokal beim Client:** Das native Panel wie im Solo-Spiel. Ohne Rundenende und ohne Airdrop-Auswahl beginnt die erste Aufwertung, der
-  erste Verkauf oder die erste Reparatur eine **Stations-Bearbeitung**, wenn ein Inventar-Panel zum eigenen Inventar offen ist
-  (`UAbstractPanel.AnimationContainer`, `UPanelAnimationContainer.IsOpen`, beide über die Reflexion aufgelöst). Ohne offenes Panel
-  bleibt es beim bisherigen Verhalten samt Warnung im Log.
-- **Geteilt:** Nichts Neues. Sobald kein Panel der Station mehr offen ist (Abfrage alle 150 ms, nicht mitten in einem Drag), geht der
-  Endstand als Edit `0x303` an den Host, mit Aufwertungen, Verkäufen und Reparaturen wie aus dem Lager.
-- **Entscheidet:** Der Host, mit denselben Prüfungen wie für jeden Edit (`ApplyClientEdit`).
+  erste Verkauf oder die erste Reparatur eine **Stations-Bearbeitung**, wenn ein Inventar-Panel zum eigenen Inventar offen ist. Den
+  Offen-Zustand merkt sich die Mod aus `UAbstractPanel.OnOpenStateChanged` und `OnOpenStateChangedAndFinished`, die über
+  `ProcessEvent` kommen; das Feld `AnimationContainer` der Basisklasse ist bei Inventar- und Händler-Panel leer (im Spiel geprüft) und
+  dient nur als Rückfall. Ohne offenes Panel bleibt es beim bisherigen Verhalten samt Warnung im Log.
+- **Geteilt:** Nichts Neues. Meldet das Inventar-Panel sein Schließen (Bestätigen) oder ist kein Panel der Station mehr offen
+  (Abfrage alle 150 ms, nicht mitten in einem Drag), geht der Endstand als Edit `0x303` an den Host, mit Aufwertungen, Verkäufen und
+  Reparaturen wie aus dem Lager.
+- **Entscheidet:** Der Host, mit denselben Prüfungen wie für jeden Edit (`ApplyClientEdit`). Neu: Eingaben einer Aufwertung, die bei
+  ihm noch im Rucksack liegen, nimmt er vorher heraus. `UpgradeItems` entfernt sie nur aus dem Inventar; landete die Ausgabe woanders,
+  blieb ihr Rucksackfeld von einem zerstörten Item belegt (im Spiel gesehen, `inventory.py` brach daran ab).
 - **Ablehnung und Abbruch:** Ablehnung rollt wie bei jedem Edit zurück. Wechselt die Welt, wird die Bearbeitung verworfen. Beginnt ein
   Rundenende oder kommt eine Airdrop-Auswahl des Hosts, geht die Stations-Bearbeitung vorher an den Host; die Auswahl erscheint nach
   seiner Antwort.
 - **Diagnose:** Logzeilen `Station: …`.
 
-**Geprüft:** Build und Unit-Tests. **Im Spiel noch nicht geprüft**, siehe Abnahme der Aufgabe.
+**Geprüft** (13.11.2026, Build `26495302`, ein PC, Lobby, Godmode, Händler-Event über `DDCOOP_TEST_MAP_PROFILE`, bedient ohne Maus
+und Tastatur über die Spike-Befehle `!shop …`, die dieselben Funktionen rufen wie Knopf und Panel): zusammen mit
+[Kaufen beim Händler](#kaufen-beim-händler), Ergebnisse dort. Die Aufwertung lief dabei über `UInventoryComponent.UpgradeItems` am
+Inventar des Clients, also durch denselben Hook wie Ablegen und Rezept, aber nicht über das Rezept-Panel selbst.
+
+**Nicht geprüft:** das Rezept-Panel und das Ablegen per Drag von Hand, Verkauf und Reparatur in einer Stations-Bearbeitung, zwei PCs.
 
 ### Itemsack für alle Spieler
 
