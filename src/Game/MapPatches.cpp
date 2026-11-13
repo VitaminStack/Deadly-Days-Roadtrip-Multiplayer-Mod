@@ -316,10 +316,30 @@ bool ClientGenerationActive()
 
 // ---- Hooks ----
 
+// Testhilfe: Mit der Umgebungsvariable DDCOOP_TEST_MAP_PROFILE (Pfad "/Game/.../MGP_X.MGP_X") erzeugt der Host jede Missionskarte
+// mit diesem Profil statt mit dem des Routenknotens, etwa um gezielt in ein Karten-Event zu kommen. Der Client bekommt das
+// Profil wie sonst über den Kontrollkanal. Ohne die Variable ändert sich nichts.
+void ApplyTestProfile(uintptr_t Generator)
+{
+    static const std::string Path = []
+    {
+        char Value[260]{};
+        const DWORD Length = GetEnvironmentVariableA("DDCOOP_TEST_MAP_PROFILE", Value, sizeof(Value));
+        return Length > 0 && Length < sizeof(Value) ? std::string(Value, Length) : std::string{};
+    }();
+    if (Path.empty() || !ReadOr<uintptr_t>(Generator + GeneratorProfile))
+        return;
+    const uintptr_t Profile = FindProfile(Path);
+    Core::Log::Warn("Karte: Testschalter DDCOOP_TEST_MAP_PROFILE, Profil {} {}", Path, Profile ? "gesetzt" : "nicht ladbar");
+    if (Profile)
+        Write<uintptr_t>(Generator + GeneratorProfile, Profile);
+}
+
 void __fastcall StartMapGenerationHook(uintptr_t Generator)
 {
     if (CurrentRole() != NetRole::Client)
     {
+        ApplyTestProfile(Generator);
         OriginalStartMapGeneration(Generator);
         PublishHostMap(Generator);
         return;

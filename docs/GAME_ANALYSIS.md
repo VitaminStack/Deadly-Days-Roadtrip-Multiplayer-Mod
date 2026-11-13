@@ -2520,6 +2520,51 @@ des Clients per Skript-Eingabe bedient, Vergleich mit `tools/spike/inventory.py`
 - **Fehlversuch:** `0x5A92030` aus `docs/OFFSETS.md` ist die Adresse von `SnapRepresentationToTile` im alten Build `26187885` und
   liegt in `26495302` mitten in einer anderen Funktion; dort beginnt sie bei `0x5A96EF0` (in der Tabelle nachgetragen).
 
+### Händler und Werkbank im Händler-Event (`opt-haendler-client`, `opt-werkbank-station`)
+
+Ausgewertet am 13.11.2026: Code der Mod, die Exe des Builds `26495302`, die Logs beider Seiten aus `livetest-1311` und ein Spieltest
+auf einem PC (Lobby, Godmode, Händler-Event über `DDCOOP_TEST_MAP_PROFILE` direkt aus der MetaBase, also ohne laufenden Run; bedient
+ohne Maus und Tastatur über die Spike-Befehle `!shop …` und den Trace `DDCOOP_TRACE_INVENTORY`).
+
+- **[Belegt, Code] „POI-Betreten der Remote-Figur beim Host übergangen“ ist Absicht.** Der Händler ist ein `BP_MetaBase_POI_C`. Sein
+  Panel ist lokale UI, der Client öffnet es bei sich selbst; beim Host liefe das Betreten mit dem Remote-Controller ohne `LocalPlayer`
+  und sperrte nur die Bewegung (`FilterRemotePoiOverlap`). Das verhindert keinen Kauf.
+- **[Belegt, Exe] Der Kauf läuft nativ beim Client.** `UShopPanelItem::TryBuyItem` prüft den Preis aus dem `CostDisplay` über einen
+  Funktor des Panels, zieht ihn über einen zweiten Funktor lokal ab und ruft dann `AddToInventory` mit der Instanz des Shops, die es nur
+  beim Client gibt. Beim Host kommt der Server-RPC mit Null an und wird verworfen („AddToInventory ohne Item vom Client verworfen“). Das
+  Schrottkonto repliziert nicht, der Abzug blieb also auch lokal. Automaten setzen `ManuallyCallClearAndAdd` und legen das Item erst
+  später über `ClearItemAndAddToInventory` ab.
+- **[Belegt, Exe] Die „Werkbank“ ist das Rezept-Panel im Inventar-Panel.** Der Aufrufer aus dem Client-Log liegt in
+  `InventoryPanel.ConfirmAllStagedIngredients`. Im Händler-Event gibt es kein Rundenende, darum begann keine lokale Bearbeitung und
+  `UpgradeItems` lief nativ; dessen `AddToInventory` der Ausgabe ist die vierte verworfene Meldung beim Host (zeitgleich im Log).
+- **[Belegt, Spieltest] Die Pause ist nativ und kommt vom Host.** Das Händler-Panel pausiert, solange es offen ist
+  (`PauseGameWhileOpen`), über `AWorldSettings.PauserPlayerState`. Den Pauser kann nur der Host setzen, er repliziert: Öffnet der Host
+  den Händler, steht die Welt für beide (`Pause: Weltzeit angehalten … Pauser true` auf beiden Seiten, `pause_state.py`: Pauser ist der
+  PlayerState des Hosts). Öffnet der Client seinen Händler, pausiert nichts. Die Mod setzt hier keinen Pauser und ändert daran nichts.
+  Während der Pause kann der Client nicht laufen, ein schon offenes Panel bleibt aber bedienbar: Ein Kauf des Clients während der Pause
+  des Hosts wurde übernommen und gebucht, `inventory.py` war noch in der Pause vollständig und gleich. Dazu passt das Live-Log: Die
+  Pausen dort überdecken die Käufe des Hosts (sein Schrott sinkt), die Meldungen des Clients fallen nur in dieselbe Zeit.
+- **[Belegt, Spieltest] Ablauf beim Händler.** Betritt die Figur den POI (`BP_Event_POI_C`), öffnet sich das Händler-Panel
+  (`WI_MerchantPanel_C`) beim Client, beim ersten Besuch mit einem Dialog davor. Es schließt nicht, wenn die Figur den POI verlässt.
+  Der Zurück-Knopf öffnet das Inventar-Panel mit „Bestätigen“; erst dieses Bestätigen beendet den Besuch. Das Händler-Panel bekommt
+  dabei nur Ereignisse seines Blueprints, nie `UAbstractPanel.OnOpenStateChanged(false)`. Das Feld `AnimationContainer` der Basisklasse
+  ist bei Händler- und Inventar-Panel leer.
+- **[Belegt, Spieltest] Angebot und Preise.** Jede Seite würfelt ihr Angebot selbst, bei jedem Start anders (sechs Plätze). Gesehene
+  Preise gegen den Verkaufspreis beim Host (`GetBaseSellPrice`): Messer gewöhnlich 15 und 16 zu 8, Ratte ungewöhnlich 23 zu 12,
+  Luftpumpe ungewöhnlich 23 und 24 zu 12, Pistole ungewöhnlich 22 zu 12, Feuerzeug episch im Angebot 28 zu 24 (sonst 55). Mit Rabatt
+  ging es bis auf den Verkaufspreis hinunter (Luftpumpe für 12 zu 12). Im Händler-Panel standen Rabattchance 0,125 und Rabatt von 0,25
+  bis 0,75 (gelesen an den Offsets des SDK von `26187885`, darum **Vermutung**); ein Kaufpreis unter dem Verkaufspreis ist damit
+  möglich.
+- **[Belegt, Spieltest] `UpgradeItems` räumt Rucksackfelder nicht frei.** Die Funktion nimmt die Eingaben aus Rucksack und Inventar,
+  ruft aber kein `UnoccupyBackpackSlots`; das macht sonst das Panel. Beim Host blieb darum das Feld einer verbrauchten Rucksack-Pistole
+  von einem zerstörten Item belegt, wenn die Ausgabe woanders landete. Behoben in `opt-werkbank-station`.
+- **[Belegt, nicht untersucht] Zwei Abstürze durch die Testbefehle, nicht im Spielablauf.** `HandleConfirmButton` an einem unbenutzten
+  Inventar-Panel des Clients (Lesen von Adresse `0x3e0`, das Spiel ruft die Funktion dort nie) und ein Absturz des Hosts, als nach einem
+  fehlgeschlagenen Sitzungsstart Befehle wie `!finish` und `!shop click ContinueButton` im Hauptmenü ankamen; in dessen Stapel liegt
+  auch ein Rahmen der Mod. Beide Berichte blieben lokal.
+- **[Belegt] Die lokalen SDK-Dumps stammen noch von Build `26187885`.** Funktionsadressen daraus gelten für `26495302` nicht; die
+  Adressen hier stammen aus den Namenstabellen der Exe dieses Builds.
+
 ### Sound und Effekte beim Client (`vfx-sound`)
 
 Gemessen am 11.11.2026, Build `26495302`, Mod-Stand `main` `3e7379e` (Mod-Version 12), ein PC, `Start-Session.ps1 -Mod -Tunnel Lobby

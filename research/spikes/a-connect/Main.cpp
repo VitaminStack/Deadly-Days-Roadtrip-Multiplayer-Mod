@@ -138,6 +138,10 @@ void RunPendingCommand()
         SkipTutorials(true);
     else if (Pending.rfind(L"!give ", 0) == 0)
         GiveItemCommand(Pending.substr(6));
+    else if (Pending.rfind(L"!scrap ", 0) == 0)
+        ScrapCommand(Pending.substr(7));
+    else if (Pending.rfind(L"!shop ", 0) == 0)
+        ShopCommand(Pending.substr(6));
     else if (Pending == L"!bossbar" || Pending.rfind(L"!bossbar ", 0) == 0)
         BossBarCommand(Pending.size() > 9 ? Pending.substr(9) : std::wstring{});
     else if (Pending.rfind(L"!bossfight ", 0) == 0)
