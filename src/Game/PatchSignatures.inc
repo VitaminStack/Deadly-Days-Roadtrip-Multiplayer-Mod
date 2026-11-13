@@ -50,6 +50,7 @@
 {0x058BF120, 0, "40 53 48 83 EC 70 48 8B D9 E8 ?? ?? ?? ?? 0F 57 C9 4C 8D 4C 24 20", 0, "UpdateBounds"}, // ExpPatches.cpp
 {0x058BF210, 0, "48 89 5C 24 18 55 56 57 48 83 EC 30 FF 41 5C", 0, "ReceiveExpImpl"}, // ExpPatches.cpp
 {0x058C1B10, 0, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 56 41 57 48 83 EC 40 0F 29 74 24 30", 0, "SpawnRequest"}, // ExpPatches.cpp
+{0x058CE280, 0, "40 57 48 83 EC 40 48 83 B9 68 08 00 00 00", 0, "TryBuyItem"}, // RewardPatches.cpp
 {0x058CF517, 0, "49 8B 86 E8 02 00 00 48 89 44 24 58 80 3D ?? ?? ?? ?? 00", 0, "SpawnerPlayerRead"}, // PlayerPatches.cpp
 {0x058CFA07, 0, "32 DB C7 45 48 00 00 00 00 48 8B 4D 40", 0, "SpawnerNoPlayerExit"}, // PlayerPatches.cpp
 {0x058D1A80, 0, "48 89 5C 24 10 48 89 6C 24 18 48 89 74 24 20 57 41 56 41 57 48 83 EC 30 4C 8B F2 49 8B D8 48 8D 54 24 20 48 8B F1 E8 ?? ?? ?? ?? 48 8B 7C 24 28 48 85 FF 74 ?? 41 8B 06 89 07 48 8B 03 48 89 47 04 C7 47 0C FF FF FF FF 8B 46 08 2B 46 34 44 8B 7C 24 20 8B 2F", 0, "MapAdd"}, // RemoteP2Patches.cpp
@@ -69,7 +70,6 @@
 {0x0590B2B4, 0, "B0 01 EB ?? 32 C0 44 3A F0 0F 84 ?? ?? ?? ?? 88 87 89 01 00 00", 0, "NeedReconnect"}, // RemoteP2Patches.cpp
 {0x05941A43, 0, "74 ?? 8B 41 64 44 8B D7 39 41 38", 0, "ThreatFreezeBranch"}, // ClientPatches.cpp
 {0x0595DA20, 0, "48 89 5C 24 08 55 56 57 48 81 EC C0 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 B0 00 00 00 49 8B F9 41 0F B6 E8 48 8B F2 33 C9", 0, "CreateItemInstance"}, // RewardPatches.cpp
-{0x058CE280, 0, "40 57 48 83 EC 40 48 83 B9 68 08 00 00 00", 0, "TryBuyItem"}, // RewardPatches.cpp
 {0x0596BA70, 0, "48 89 5C 24 08 57 48 83 EC 20 45 33 C0 48 8B DA", 0, "HandleItemSold"}, // RewardPatches.cpp (Prolog aus CheckSold; Eindeutigkeit offline gegen Spiel-EXE prüfen)
 {0x0596D8C0, 0, "E9 ?? ?? ?? ?? CC CC CC CC CC CC CC CC CC CC CC 48 89 5C 24 08 48 89 74 24 10 48 89 7C 24 18 41 56 48 83 EC 20 8B 41 08 4C 8B F2 48 8B F9 3B 41 0C 49 63 F0 4C 8D 41 0C 75 ??", 0, "InventoryReadyForReplication"}, // InventoryPatches.cpp
 {0x0597ABB0, 0, "48 89 5C 24 18 48 89 54 24 10 55 56 57 48 8D 6C 24 B9 48 81 EC 90 00 00 00 48 8B FA", 0, "SeamlessTravelToLevel"}, // TravelPatches.cpp
