@@ -530,12 +530,22 @@ Bearbeitung … nativ“: Ausgabe nur beim Client, der Host verwarf das `AddToIn
   seiner Antwort.
 - **Diagnose:** Logzeilen `Station: …`.
 
-**Geprüft** (13.11.2026, Build `26495302`, ein PC, Lobby, Godmode, Händler-Event über `DDCOOP_TEST_MAP_PROFILE`, bedient ohne Maus
-und Tastatur über die Spike-Befehle `!shop …`, die dieselben Funktionen rufen wie Knopf und Panel): zusammen mit
-[Kaufen beim Händler](#kaufen-beim-händler), Ergebnisse dort. Die Aufwertung lief dabei über `UInventoryComponent.UpgradeItems` am
-Inventar des Clients, also durch denselben Hook wie Ablegen und Rezept, aber nicht über das Rezept-Panel selbst.
+**Geprüft** (13.11.2026, Build `26495302`, ein PC, Lobby, Godmode, Händler-Event über `DDCOOP_TEST_MAP_PROFILE` ohne laufenden Run,
+Pistolen über `!give`). Bedient ohne Maus und Tastatur über die Spike-Befehle `!shop …`, die über `ProcessEvent` die Funktionen rufen,
+die auch Knopf und Panel rufen:
 
-**Nicht geprüft:** das Rezept-Panel und das Ablegen per Drag von Hand, Verkauf und Reparatur in einer Stations-Bearbeitung, zwei PCs.
+- **Aufwerten an der Station:** Figur des Clients auf den Händler-POI, Zurück-Knopf des Händlers (das Inventar-Panel geht auf),
+  `UInventoryComponent.UpgradeItems` mit zwei gewöhnlichen Pistolen (eine im Rucksack), „Bestätigen“. Die Stations-Bearbeitung begann
+  mit der Aufwertung und endete mit dem Schließen des Panels; der Host prüfte („Ablegen“), nahm die Eingabe aus dem Rucksack, wertete
+  auf und übernahm vollständig. `inventory.py`: vollständig und gleich.
+- **Ohne offenes Panel:** Dieselbe Aufwertung vor dem Öffnen des Inventars begann keine Bearbeitung („ohne offenes Panel“) und lief
+  wie bisher nativ, mit Warnung im Log.
+- **Gegenprobe Lager:** Am Rundenende Aufwertung zweier Pistolen im Lager, Edit übernommen, Inventare gleich (auf dem Stand von
+  `opt-haendler-client`, der diesen Code enthält).
+
+**Nicht geprüft:** Die Aufwertung lief über `UpgradeItems` direkt, also durch denselben Hook wie Ablegen und Rezept, aber nicht über das
+Rezept-Panel (`ConfirmAllStagedIngredients`) und nicht per Drag von Hand. Ebenso offen: Verkauf und Reparatur in einer
+Stations-Bearbeitung, zwei PCs.
 
 ### Kaufen beim Händler
 
