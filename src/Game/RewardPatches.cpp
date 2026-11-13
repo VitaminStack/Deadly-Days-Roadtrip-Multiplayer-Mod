@@ -1405,9 +1405,10 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
 // (InventoryPanel.HandleConfirmButton ruft OpenNextReward der eigenen Queue). Die Queue von P2 bliebe nach einer
 // vom Client geöffneten Kiste belegt (+0x108 gesetzt, CurrentRewardObject zerstört), und RegisterReward gibt keine
 // weitere Kiste mehr frei. OpenNextReward ändert nichts, solange die aktuelle Kiste lebt und nicht fertig ist.
-// opt-airdrop-uebertrag: Dasselbe gilt für die Queue der Host-Figur, wenn ihre aktuelle Kiste ohne Bestätigen verschwindet,
-// etwa mit der alten Karte. Deshalb beide Figuren prüfen; die des Hosts nur, wenn ihre aktuelle Kiste nicht mehr lebt, sonst
-// wartet dort eine Kiste auf das Einsammeln. Jede Änderung des Zustands steht einmal im Log (Figur, belegt, aktuelle Kiste).
+// opt-airdrop-uebertrag: Über einen Kartenwechsel hängt keine Queue, beide Figuren und ihre Queues entstehen neu (gemessen
+// 13.11.2026). Jede Änderung des Zustands beider Queues steht einmal im Log (Figur, belegt, aktuelle Kiste), damit ein Live-Test
+// zeigt, ob eine Queue innerhalb einer Karte hängen bleibt. Als Absicherung schaltet die Mod auch die Queue des Hosts weiter,
+// aber nur, wenn sie belegt ist und ihre aktuelle Kiste nicht mehr lebt; dann kann sie niemand mehr bestätigen.
 void AdvanceQueues()
 {
     static ULONGLONG Next = 0;
@@ -1452,7 +1453,7 @@ void AdvanceQueues()
                                 Current == 0 ? "keine" : Current == 1 ? "lebt" : "zerstört");
             Was = {World, Pawn, Queue, Busy, Current};
         }
-        if (!Busy || (i == 0 && Current == 1) || !Function(Open, "OpenNextReward", "RewardQueueComponent"))
+        if (!Busy || (i == 0 && Current != 2) ||!Function(Open, "OpenNextReward", "RewardQueueComponent"))
             continue;
         struct
         {
