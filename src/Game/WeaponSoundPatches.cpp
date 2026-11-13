@@ -18,7 +18,9 @@
 #include <cstring>
 #include <unordered_map>
 
+#include "Core/Hooks.h"
 #include "Core/Log.h"
+#include "Game/CodeCave.h"
 #include "Game/Memory.h"
 #include "Game/NetworkObjects.h"
 #include "Game/Objects.h"
@@ -91,9 +93,15 @@ struct PendingReload
     std::string Override;
 };
 
-// Alles nur auf dem Game Thread: ProcessEvent, Patches::Tick und der Sync-Takt laufen dort.
+// AHands::PlayReloadSound, der native Event-Wrapper (Hands, Override). Ohne Blueprint-Überschreibung springt er direkt in die
+// _Implementation und läuft nicht über ProcessEvent (gemessen: 0 Aufrufe im Beobachter bei 18 Nachladesounds des Hosts). Aufrufer
+// ist die Nachladelogik der Waffeninstanz (0x5A45F5C) aus der Feuerschleife der Hände.
+constexpr uintptr_t ReloadSoundEvent = 0x5707870;
+using ReloadSoundFn = void(__fastcall*)(uintptr_t Hands, uintptr_t Override);
+ReloadSoundFn OriginalReloadSound = nullptr;
+
+// Alles nur auf dem Game Thread: ProcessEvent, Patches::Tick, der Sync-Takt und die Feuerschleife laufen dort.
 std::atomic<uintptr_t> ShotFunction = 0;     // Client
-std::atomic<int32_t> ReloadName = -1;        // Host: FName-Index von PlayReloadSound, auch für eine Blueprint-Überschreibung
 std::atomic<bool> ClientActive = false, HostActive = false;
 uintptr_t ReloadFunction = 0, PlayFunction = 0, PlayDefaults = 0;
 std::array<WeaponSound, MaxWeaponData> Sounds{};
@@ -122,7 +130,6 @@ uint32_t Logged = 0;
 void ForgetAll()
 {
     ShotFunction.store(0, std::memory_order_relaxed);
-    ReloadName.store(-1, std::memory_order_relaxed);
     ReloadFunction = PlayFunction = PlayDefaults = 0;
     SoundCount = PendingCount = 0;
     Recent = {};
@@ -250,7 +257,7 @@ void PlayShot(uintptr_t Weapon)
 }
 
 // Host: Aufruf von PlayReloadSound(Override) an Händen merken, gesendet wird im Sync-Takt.
-void NoteReload(uintptr_t Hands, uintptr_t Function, void* Params)
+void NoteReload(uintptr_t Hands, uintptr_t Override)
 {
     if (!Alive(Hands) || !Objects::IsA(Hands, "Hands"))
         return;
@@ -260,33 +267,45 @@ void NoteReload(uintptr_t Hands, uintptr_t Function, void* Params)
         ++Count.ReloadOverflow;
         return;
     }
-    const uintptr_t Override = Params ? Memory::ReadPointer(reinterpret_cast<uintptr_t>(Params)).value_or(0) : 0;
     std::string Name = Override && Alive(Override) ? Memory::NameOf(Override) : std::string();
     if (Name.size() > MaxReloadSoundName)
         Name.clear();
     if (ReloadReported < 3 && ++ReloadReported)
-        Core::Log::Info("Waffensound: Host meldet Nachladesound ({}, Funktion aus {})", Name.empty() ? "Standard" : Name,
-                        Memory::NameOf(Memory::ReadPointer(Function + Offsets::UObject::Outer).value_or(0)));
+        Core::Log::Info("Waffensound: Host meldet Nachladesound ({})", Name.empty() ? "Standard" : Name);
     Pending[PendingCount++] = PendingReload{Objects::RefTo(Hands), std::move(Name)};
 }
 
-// Nach dem ursprünglichen ProcessEvent: Mündungsfeuer und Hülsen des Spiels sind dann schon gestartet.
-void Observe(uintptr_t Object, uintptr_t Function, void* Params)
+void __fastcall ReloadSoundHook(uintptr_t Hands, uintptr_t Override)
 {
-    if (!Function)
-        return;
-    if (ClientActive.load(std::memory_order_relaxed))
-    {
-        if (Function == ShotFunction.load(std::memory_order_relaxed))
-            PlayShot(Object);
-        return;
-    }
-    if (!HostActive.load(std::memory_order_relaxed))
-        return;
-    const int32_t Reload = ReloadName.load(std::memory_order_relaxed);
-    if (Reload >= 0 && Memory::Read<int32_t>(Function + Offsets::UObject::Name).value_or(-1) == Reload)
-        NoteReload(Object, Function, Params);
+    if (HostActive.load(std::memory_order_relaxed))
+        NoteReload(Hands, Override);
+    OriginalReloadSound(Hands, Override);
 }
+
+// Nach dem ursprünglichen ProcessEvent: Mündungsfeuer und Hülsen des Spiels sind dann schon gestartet.
+void Observe(uintptr_t Object, uintptr_t Function, void*)
+{
+    if (Function && ClientActive.load(std::memory_order_relaxed) && Function == ShotFunction.load(std::memory_order_relaxed))
+        PlayShot(Object);
+}
+
+bool CheckReloadSound()
+{
+    return Code::Expect(Patches::At(ReloadSoundEvent),
+                        {0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x74, 0x24, 0x10, 0x57, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x8B, 0xFA},
+                        "Hands.PlayReloadSound");
+}
+
+bool ApplyReloadSound(Code::Writer&)
+{
+    return Core::Hooks::Install(reinterpret_cast<void*>(Patches::At(ReloadSoundEvent)), reinterpret_cast<void*>(&ReloadSoundHook),
+                                reinterpret_cast<void**>(&OriginalReloadSound));
+}
+
+constexpr uintptr_t ReloadSoundSites[] = {ReloadSoundEvent};
+const Patches::Patch List[] = {
+    {"Nachladesound des Hosts für den Client melden", &CheckReloadSound, &ApplyReloadSound, ReloadSoundSites},
+};
 
 void Summary(ULONGLONG Now, NetRole Role)
 {
@@ -365,6 +384,11 @@ void PlayReloadSounds(std::span<const ReloadSound> Reloads)
 
 namespace Patches
 {
+std::span<const Patch> WeaponSoundPatches()
+{
+    return List;
+}
+
 void TickWeaponSounds(NetRole Role)
 {
     if (!Observing)
@@ -402,7 +426,6 @@ void TickWeaponSounds(NetRole Role)
         PlayDefaults = Objects::FindNamed("Default__FMODBlueprintStatics");
         if (!Reload || !Shot || !PlayFunction || !PlayDefaults)
             return;
-        ReloadName.store(Memory::Read<int32_t>(Reload + Offsets::UObject::Name).value_or(-1), std::memory_order_relaxed);
         ShotFunction.store(Shot, std::memory_order_relaxed);
         ReloadFunction = Reload;
     }

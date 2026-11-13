@@ -1,7 +1,7 @@
 #include <doctest.h>
 #include <string>
 #include <vector>
-#include "Sync/Players/WeaponSoundState.h"
+#include "Sync/Combat/WeaponSoundState.h"
 
 using namespace Sync::WeaponSounds;
 using Game::ReloadSound;

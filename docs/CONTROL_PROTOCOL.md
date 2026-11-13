@@ -290,6 +290,20 @@ Betrag höchstens 1e7), also genau 1 + 25 × Anzahl Bytes. NaN, Unendlich und an
 jedem Takt ab und ruft für jedes noch lebende, auflösbare Ziel den nativen Handler seines eigenen Controllers. Ein verlorenes Paket
 heißt nur fehlende Zahlen, keine Wiederholung, keine Antwort.
 
+## Nachladesound (Mod-Kompatibilität 13)
+
+Aufgabe `opt-waffen-sound`, Befund in [Waffensounds beim Client](GAME_ANALYSIS.md#waffensounds-beim-client-opt-waffen-sound), Code in
+`src/Game/WeaponSoundPatches.cpp` und `src/Sync/Combat/WeaponSoundState.h`. Mod-Version 13, weil ein Client mit älterer Version die
+Nachricht nicht kennt. Der Schusssound braucht keine Nachricht, der Client leitet ihn aus dem nativen Multicast der Waffe ab. Das
+Nachladen läuft nur in der Feuerschleife der Hände beim Host und hinterlässt beim Client kein repliziertes Signal. Lokal bleiben Ort,
+Standardsound und Abspielen: Der Client ruft `Hands.PlayReloadSound` an seinen eigenen replizierten Händen auf. Geteilt wird nur, welche
+Hände wann nachladen und mit welchem Sound. Munition und Nachladezeit entscheidet weiter der Host.
+
+`0xB00` Host an Client, je Takt mit mindestens einem Nachladen: Anzahl (1, 1 bis 16), je Eintrag NetGUID des Hände-Actors (8, ungleich
+0, höchstens 54 Bit), Länge des Soundnamens (1, 0 bis 64) und der Objektname des `UFMODEvent` (druckbares ASCII ohne Leerzeichen).
+Länge 0 heißt Standardsound der Hände. Der Client holt `0xB00` in jedem Takt ab. Unbekannte Hände werden übersprungen, ein
+unbekannter Name spielt den Standardsound. Ein verlorenes Paket heißt nur ein fehlender Sound, keine Wiederholung, keine Antwort.
+
 ## Bisher geprüft (05.11.2026, Kontrollkanal vor Diagnoseerweiterung)
 
 - Build und alle Tests bestanden, darunter 24 Net-Testfälle: binäre UE-Pakete in

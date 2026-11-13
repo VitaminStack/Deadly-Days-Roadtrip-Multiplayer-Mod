@@ -5,7 +5,7 @@
 #include "Sync/Enemies/DamageNumberState.h"
 #include "Sync/MovementState.h"
 #include "Sync/Enemies/TelegraphState.h"
-#include "Sync/Players/WeaponSoundState.h"
+#include "Sync/Combat/WeaponSoundState.h"
 #include "Game/GameThread.h"
 #include "Game/PatchRuntime.h"
 #include "Net/Net.h"
@@ -104,7 +104,7 @@ void TickDamageNumbers(Net::Transport& Transport)
 }
 
 // opt-waffen-sound: jeder Takt, damit der Nachladesound beim Client zum Nachladen passt. Der Host schickt die Aufrufe von
-// PlayReloadSound, der Client ruft die Funktion an seinen eigenen Händen auf. Format in Players/WeaponSoundState.h.
+// PlayReloadSound, der Client ruft die Funktion an seinen eigenen Händen auf. Format in Combat/WeaponSoundState.h.
 void TickWeaponSounds(Net::Transport& Transport)
 {
     if (Transport.Stats().IsHost)
