@@ -2246,8 +2246,24 @@ zuletzt 5 s vor dem zehnten Rundenende); Sound wurde gehört, nicht gezählt.
   Aufwertung kam also nicht an. Aufwerten durch Ablegen im Airdrop und im Lager ging. Neue Aufgabe `opt-werkbank-station`;
   `werkbank-client` deckte nur das Panel ab.
 - **[Belegt] Zwei Airdrop-Edits mit Aufwertung zurückgenommen.** Beim Client zweimal „Edit mit 1 Aufwertungen ungültig, Bearbeitung
-  zurückgenommen“ (11:21:22 und 11:26:28), das erste Mal direkt nach „alle bereit“ in einer Airdrop-Auswahl mit vorheriger
-  Aufwertung. Ursache offen. Neue Aufgabe `opt-airdrop-edit-ungueltig`.
+  zurückgenommen“ (11:21:22 und 11:26:28), beide Male direkt nach „alle bereit“ in einer Airdrop-Auswahl mit vorheriger
+  Aufwertung. Aufgabe `opt-airdrop-edit-ungueltig`, Auswertung der Logs vom 13.11.2026:
+  - **[Belegt] Nichts ging verloren.** Das Panel öffnete sich jeweils rund 0,3 s später erneut mit denselben drei Choices
+    (Sitzungen 14 und 20). Der Spieler wertete noch einmal auf und bestätigte, der Host übernahm beide Edits mit Aufwertung
+    („übernommen … vollständig=true“). Der Spieler sah aber keinen Grund, die erste Bearbeitung war einfach weg.
+  - **[Belegt] Auslöser im Log:** Nur in diesen beiden Auswahlen folgt nach der Aufwertung und vor dem Bestätigen noch einmal
+    `AddToInventory` für ein Item derselben Art wie die Ausgabe (Magazines, TrooperHelmet), dazu verlassen die beiden anderen
+    Choices den Rucksack: Der Spieler nahm noch einmal ein Item aus der Belohnungsanzeige auf. In allen sieben übernommenen
+    Airdrop-Edits mit Aufwertung fehlt dieser Block. Beide Male war die Belohnung Eingabe der Aufwertung (Wahl=2, 2 Eingaben).
+  - **[Vermutung, aus Code und Log abgeleitet] Prüfung:** `WellFormed` verlangt, dass jede Eingabe einer Aufwertung im Edit als
+    entfernt steht („Eingabe noch vorhanden“). Die lokale Belohnungsanzeige behält die Instanz, die `UpgradeItems` schon
+    verbraucht hat; nimmt der Spieler sie erneut auf, liegt sie wieder im Inventar und ist zugleich Eingabe. Jede andere Lage der
+    Ausgabe (Rucksack, Lager) wäre gültig gewesen. Welche Bedingung genau scheiterte, stand nicht im Log; ab jetzt nennt die Zeile
+    den Grund (`Malformed`).
+  - **Änderung:** Beim Bestätigen entfernt der Client eine erneut aufgenommene, schon aufgewertete Eingabe lokal wieder und
+    schickt den Edit mit der Aufwertung („… erneut aufgenommen, wieder entfernt; die Aufwertung bleibt“). Der Host prüft
+    unverändert. Im Spiel noch **nicht nachgestellt**: Das braucht einen Menschen, der im Panel des Clients aufwertet und die
+    Belohnung danach erneut aufnimmt. Offen ist auch, ob das Solo-Spiel die verbrauchte Belohnung aus der Anzeige nimmt.
 - **[Gemeldet] Endboss erscheint nicht.** Die Boss-Karte `MGP_Burger_Boss_Nature` lud bei beiden; in beiden Logs gibt es danach keine
   Boss-Zeile. Der Lauf endete 25 s nach dem Laden über das Pausemenü, die Beobachtung stützt sich also auf höchstens diese Zeit. Die
   Rundenübersicht zeigte „Tag 2/8“ mit Boss-Feld an achter Stelle, gespielt wurden elf Karten. Neue Aufgabe `endboss-spawn`,

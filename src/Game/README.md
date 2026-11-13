@@ -412,6 +412,9 @@ beiden Pistolen. Der Host wertete im selben Lauf seine eigenen Pistolen ohne Feh
   Bearbeitung laufen (`inventar-lokal`), die Inventar-RPCs der Aufwertung laufen dann lokal. Beim Airdrop ist das die Bearbeitung der
   Auswahl. Im Lager beginnt die erste Aufwertung eine Bearbeitung (`LagerEdit`), die bis zum Bestätigen im Lager läuft; vorher bleibt das
   Lager wie in `rundenende-client` bei den nativen RPCs. `RecordUpgrade` merkt sich Eingaben, Ausgabe, Daten und Seltenheit.
+  Die Belohnungsanzeige behält eine schon aufgewertete Belohnung; nimmt der Spieler sie erneut auf, entfernt `FinishClient` sie
+  beim Bestätigen lokal wieder (`RemoveConsumedInputs`, `opt-airdrop-edit-ungueltig`), sonst wäre der Edit ungültig. Einen
+  ungültigen Edit nennt das Log mit Grund (`Malformed` in `InventoryEditPlan.h`).
 - **Geteilt:** Beim Bestätigen trägt der Edit (`0x303`) zusätzlich die Aufwertungen: Eingaben als Quellen (Ausgangs-Item, Wahl oder eine
   frühere Ausgabe), Objektnamen von Ausgabe-`ItemData` und Seltenheit und der Endstand der Ausgabe. Dazu schickt der Host jede Sekunde bei
   Änderung (sonst alle 5 s) die Seltenheiten des Clientinventars (`0x308`); der Client setzt damit nur `ItemRarity` seiner replizierten
