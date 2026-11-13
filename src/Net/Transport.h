@@ -85,6 +85,9 @@ struct TransportStats
     uint64_t BytesFromSteam = 0;
     // Pakete des Spiels, bevor die Steam-Verbindung stand.
     uint64_t Dropped = 0;
+    // Kontrollkanal: höchster Füllstand der beiden Warteschlangen (Grenze 128) und von SendControl wegen voller
+    // Warteschlange abgelehnte Nachrichten, seit dem Start.
+    uint64_t ControlOutPeak = 0, ControlInPeak = 0, ControlRefused = 0;
     std::string Route;
     // Grund für Failed oder letzte Meldung, ohne IDs und Adressen.
     std::string Message;
@@ -199,6 +202,7 @@ private:
     struct PendingControl { uint64_t Peer; std::vector<uint8_t> Bytes; };
     std::vector<PendingControl> Outgoing;
     std::vector<ControlMessage> Incoming;
+    std::atomic<uint64_t> ControlOutPeak = 0, ControlInPeak = 0, ControlRefused = 0;
 };
 
 // Testschalter aus der Kommandozeile des Spiels: -ddcoop_transport=host, =loopback oder =<SteamID64 des Hosts>.

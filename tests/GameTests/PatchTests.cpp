@@ -38,6 +38,13 @@ TEST_CASE("Schrott: Haufen bucht nur Host oder Einzelspieler")
     CHECK_FALSE(ScrapLootMayCredit(NetRole::Client));
 }
 
+TEST_CASE("Loot: Aufsammelklang wird nur beim Client je Objekt gebremst")
+{
+    CHECK(LootSoundOncePerObject(NetRole::Client));
+    CHECK_FALSE(LootSoundOncePerObject(NetRole::Host));
+    CHECK_FALSE(LootSoundOncePerObject(NetRole::Standalone));
+}
+
 TEST_CASE("Schrott: Client spielt das Aufsammeln je Haufen nur einmal")
 {
     LootedPiles Piles;
