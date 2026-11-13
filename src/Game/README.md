@@ -555,6 +555,68 @@ die auch Knopf und Panel rufen:
 Rezept-Panel (`ConfirmAllStagedIngredients`) und nicht per Drag von Hand. Ebenso offen: Verkauf und Reparatur in einer
 Stations-Bearbeitung, zwei PCs.
 
+### Kaufen beim Händler
+
+Aufgabe `opt-haendler-client`, baut auf der [Stations-Bearbeitung](#stations-bearbeitung-beim-client) auf. Code in `RewardPatches.cpp`
+(Hook auf `TryBuyItem`, Host-Prüfung und Buchung), `InventoryEdit.cpp` (`RecordPurchase`, Käufe im Edit), `InventoryEditPlan.h` (reine
+Logik mit Tests) und `src/Sync/Inventory/RewardState.h`. Format in
+[Kontrollkanal](../../docs/CONTROL_PROTOCOL.md#kaufen-beim-händler-mod-kompatibilität-13).
+
+- **Lokal beim Client:** Das native Händler-Panel mit seinem eigenen Angebot, wie im Solo-Spiel. `TryBuyHook` lässt
+  `UShopPanelItem::TryBuyItem` nur in einer lokalen Bearbeitung laufen. Ohne offenes Inventar-Panel ist jeder Kauf eine eigene, kurze
+  Bearbeitung: Das Item kommt lokal ins Inventar, der Edit geht sofort an den Host. Das Händler-Panel meldet sein Schließen nie und lebt
+  nach dem Besuch weiter; eine Bearbeitung über den ganzen Besuch hielte so lange die übrigen Server-RPCs des Clients zurück (etwa
+  Auto-Feuer). Öffnet der Spieler danach über den Zurück-Knopf das Inventar, liegen dort schon die replizierten Items des Hosts;
+  Aufwerten darin läuft als [Stations-Bearbeitung](#stations-bearbeitung-beim-client) bis zum Bestätigen. Der lokale Abzug ist nur
+  Vorschau.
+- **Geteilt:** Der Edit `0x303` trägt je Kauf Daten, Seltenheit, Preis und Endstand des Items. Den Schrott schickt der Host wie bisher
+  (`0x309`).
+- **Entscheidet:** Der Host. Er prüft vor jeder Änderung Daten, Preis und Schrott, legt das Item selbst im Inventar des Clients an
+  (`CreateAndAddItem`, es repliziert wie jede Vergabe), führt Aufwertungen mit gekauften Eingaben aus und bucht einmal.
+- **Preis:** Das Angebot würfelt das Panel des Clients, der Host sieht es nicht und vertraut dem gemeldeten Preis oberhalb einer
+  Untergrenze: ein Viertel seines eigenen Verkaufspreises für das Item (`PurchaseFloor`). Der volle Preis lag im Test beim 1,9- bis
+  2,3-Fachen des Verkaufspreises, Rabatte reichen bis 75 %; die Untergrenze lässt jeden echten Rabatt zu und weist nur offensichtlich
+  falsche Preise ab. Das ist eine bewusste Grenze: Rabatte und Aufschläge des Panels lassen sich beim Host nicht nachrechnen.
+- **Ablehnung:** Der Client rollt wie bei jedem Edit zurück, das gekaufte Item verschwindet, den Schrott gleicht der nächste Stand des
+  Hosts an. Das Angebot im Panel bleibt als verkauft markiert.
+- **Zwischen zwei Käufen:** Solange ein Edit unbeantwortet ist, verwirft der Client einen weiteren Kauf, ohne zu zahlen (Warnung im
+  Log); ein sehr schneller zweiter Klick wirkt also nicht. Nach der Übernahme wartet eine neue Bearbeitung, bis die Replikation die
+  lokale Instanz durch das Objekt des Hosts ersetzt hat (`ClientSettling`, höchstens drei Sekunden); sonst nähme sie die lokale Instanz
+  als Ausgangs-Item und meldete sie danach als entfernt.
+- **Nicht abgedeckt:** Der Hook greift nur im Händler-Panel (`WI_MerchantPanel_C`). Automaten (`VendingMachinePanel`,
+  `ManuallyCallClearAndAdd`) und der dubiose Händler laufen weiter nativ, also wie bisher ohne Wirkung beim Host; im Log steht eine
+  Warnung. Was das Neuwürfeln des Angebots kostet, ist nicht untersucht.
+- **Diagnose:** Logzeilen `Station: Kauf …`, `Inventar lokal: Kauf …`, `Handel: Kauf … geprüft`, `Handel: … gebucht`.
+
+**Geprüft** (13.11.2026, Build `26495302`, ein PC, Lobby, Godmode, Händler-Event über `DDCOOP_TEST_MAP_PROFILE` ohne laufenden Run,
+Schrott über `!scrap`, Pistolen über `!give`). Bedient ohne Maus und Tastatur über die Spike-Befehle `!shop …`: Sie stellen die Figur des
+Clients auf den POI und rufen über `ProcessEvent` die Funktionen, die auch Knopf und Panel rufen (das Klick-Ereignis des Angebots und
+des Zurück-Knopfs, `HandleConfirmButton`, `UpgradeItems`). Dazu Unit-Tests (`tests/GameTests/InventoryEditTests.cpp`,
+`tests/NetTests/RewardTests.cpp`).
+
+- **Kauf über das Klick-Ereignis des Angebots:** Rucksack für 14 und Pistole für 13, je ein eigener Edit, vom Host nach rund 0,3 s
+  übernommen und gebucht (Schrott 150 zu 123). `inventory.py`: vollständig und gleich, Schrott bei beiden gleich. Ein Klick, während
+  der erste Edit unbeantwortet war, wurde verworfen, ohne zu zahlen.
+- **Ablehnung:** Schrott des Hosts gesenkt und sofort für 24 gekauft. Der Host lehnte ab (13 reichen nicht), der Client stellte seinen
+  Ausgangsstand vollständig wieder her und übernahm 13. Inventare gleich.
+- **Aufwerten nach dem Kauf:** Zurück-Knopf, Inventar offen, zwei Pistolen (eine davon gekauft) aufgewertet, „Bestätigen“: ein Edit mit
+  einer Aufwertung, übernommen, Inventare vollständig und gleich.
+- **Käufe und Aufwertungen in einem Edit** (früherer Stand, in dem die Bearbeitung bis zum Bestätigen offen blieb; Format und Host-Seite
+  sind unverändert): drei Käufe und zwei Aufwertungen, eine davon aus zwei gekauften Items, Schrott 100 zu 25, Inventare gleich. So
+  läuft es weiter, wenn im Lager gekauft würde.
+- **Airdrop während einer offenen Bearbeitung** (früherer Stand): Die Bearbeitung ging vor der Auswahl an den Host, danach öffnete
+  sich die Auswahl beim Client mit drei Choices.
+- **Gegenprobe Lager:** Am Rundenende Aufwertung zweier Pistolen im Lager, Edit übernommen, Inventare gleich. Die Rundenübersicht
+  ließ sich ohne Klick nicht verlassen, das gemeinsame Bestätigen bis zur Reise ist darum nicht erneut geprüft.
+- **Kauf während der Pause des Hosts:** Öffnet der Host seinen Händler, pausiert die Welt nativ für beide. Der Client kaufte
+  währenddessen an seinem schon offenen Händler (54), der Host übernahm und buchte (148 zu 94), `inventory.py` war noch in der Pause
+  vollständig und gleich. Öffnet nur der Client den Händler, pausiert nichts.
+
+**Nicht geprüft:** Ablegen des gekauften Items per Drag, das Rezept-Panel von Hand, Wahl in der Airdrop-Auswahl nach einem Kauf, zwei
+PCs mit echtem Ping, ein echter Run mit Händler-Knoten. Die Wartezeit bis zur Replikation (`ClientSettling`) griff in keinem Lauf, die
+Replikation war jedes Mal schneller als der nächste Kauf; der Zweig ist also nur gelesen, nicht im Spiel gesehen. Bekannt: Direkt nach der Übernahme zeigt der Client für einen Augenblick noch
+den alten Schrott des Hosts, bevor der neue Stand kommt.
+
 ### Itemsack für alle Spieler
 
 Nutzervorgabe 06.11.2026: Ein aufgesammelter Itemsack zählt wie ein Airdrop für alle, jeder Spieler bekommt das Item. Die Vergabe bleibt

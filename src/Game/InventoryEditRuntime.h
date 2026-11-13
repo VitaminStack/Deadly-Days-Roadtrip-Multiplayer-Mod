@@ -41,6 +41,9 @@ bool ClientEditingInventory(uintptr_t Inventory);
 // Client, werkbank-client: UpgradeItems lief während der Bearbeitung lokal. Inputs sind die verbrauchten Instanzen, Output die
 // neue lokale Instanz, Data und Rarity die Objekte der Ausgabe. Der Edit meldet die Aufwertung, der Host führt sie selbst aus.
 void RecordUpgrade(const std::vector<uintptr_t>& Inputs, uintptr_t Output, uintptr_t Data, uintptr_t Rarity);
+// Client, opt-haendler-client: Ein Kauf beim Händler lief während der Bearbeitung lokal. Item ist die lokale Instanz aus dem Shop,
+// Data und Rarity ihre Objekte, Cost der Preis des Panels. Der Edit meldet den Kauf, der Host legt das Item selbst an und bucht.
+void RecordPurchase(uintptr_t Item, uintptr_t Data, uintptr_t Rarity, int32_t Cost);
 // Client: Endstand nach dem nativen Bestätigen. ChoiceItem ist die gewählte Anzeige-Instanz oder 0. Ohne Änderung nullopt,
 // die Bearbeitung ist dann beendet; sonst bleibt der Ausgangsstand bis zur Antwort des Hosts gemerkt.
 std::optional<Edit> FinishClient(uint64_t Session, uint64_t Revision, std::optional<uint8_t> Choice, uintptr_t ChoiceItem);
@@ -48,6 +51,10 @@ std::optional<Edit> FinishClient(uint64_t Session, uint64_t Revision, std::optio
 void RevertClient(const char* Why);
 // Client: Host hat übernommen, der Ausgangsstand wird nicht mehr gebraucht.
 void ForgetClient();
+// Client, opt-haendler-client: Nach einem übernommenen Edit liegen die lokalen Instanzen (Wahl, Ausgaben, Käufe) noch im Inventar,
+// bis die Replikation sie durch die Objekte des Hosts ersetzt. Wahr, solange das so ist, höchstens drei Sekunden. Eine neue
+// Bearbeitung in dieser Zeit nähme die lokale Instanz als Ausgangs-Item und meldete sie danach als entfernt.
+bool ClientSettling();
 // Client, aus ProcessEvent: Wahr, wenn der Aufruf ein Inventar-RPC der laufenden Bearbeitung war und lokal lief oder
 // verworfen wurde.
 bool RouteClientRpc(uintptr_t Object, uintptr_t Function, void* Params);

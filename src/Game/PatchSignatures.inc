@@ -51,6 +51,7 @@
 {0x058BF120, 0, "40 53 48 83 EC 70 48 8B D9 E8 ?? ?? ?? ?? 0F 57 C9 4C 8D 4C 24 20", 0, "UpdateBounds"}, // ExpPatches.cpp
 {0x058BF210, 0, "48 89 5C 24 18 55 56 57 48 83 EC 30 FF 41 5C", 0, "ReceiveExpImpl"}, // ExpPatches.cpp
 {0x058C1B10, 0, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 56 41 57 48 83 EC 40 0F 29 74 24 30", 0, "SpawnRequest"}, // ExpPatches.cpp
+{0x058CE280, 0, "40 57 48 83 EC 40 48 83 B9 68 08 00 00 00", 0, "TryBuyItem"}, // RewardPatches.cpp
 {0x058CF517, 0, "49 8B 86 E8 02 00 00 48 89 44 24 58 80 3D ?? ?? ?? ?? 00", 0, "SpawnerPlayerRead"}, // PlayerPatches.cpp
 {0x058CFA07, 0, "32 DB C7 45 48 00 00 00 00 48 8B 4D 40", 0, "SpawnerNoPlayerExit"}, // PlayerPatches.cpp
 {0x058D1A80, 0, "48 89 5C 24 10 48 89 6C 24 18 48 89 74 24 20 57 41 56 41 57 48 83 EC 30 4C 8B F2 49 8B D8 48 8D 54 24 20 48 8B F1 E8 ?? ?? ?? ?? 48 8B 7C 24 28 48 85 FF 74 ?? 41 8B 06 89 07 48 8B 03 48 89 47 04 C7 47 0C FF FF FF FF 8B 46 08 2B 46 34 44 8B 7C 24 20 8B 2F", 0, "MapAdd"}, // RemoteP2Patches.cpp

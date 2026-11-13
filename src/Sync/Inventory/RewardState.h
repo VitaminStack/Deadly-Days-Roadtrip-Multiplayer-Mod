@@ -196,7 +196,8 @@ inline std::optional<std::string> GetName(std::span<const uint8_t> In, size_t& A
 // Edit, Client an Host: Kopf 26 Byte (Id 8, Sitzung 8, Revision 8, Wahl 1 mit 0xFF = keine, Anzahl neuer Felder 1), je neues
 // Feld 8 Byte, dann Anzahl Items (1) und je Item 21 Byte plus 8 je belegtem Feld. Seit Mod-Version 7 (werkbank-client) danach
 // Anzahl Aufwertungen (1), je Aufwertung Anzahl Eingaben (1), je Eingabe 2 Byte, Name der Ausgabedaten und der Seltenheit
-// (Länge 1, UTF-8) und die Ausgabe als Item.
+// (Länge 1, UTF-8) und die Ausgabe als Item. Seit Mod-Version 13 (opt-haendler-client) danach Anzahl Käufe (1), je Kauf Name der
+// Daten und der Seltenheit, Preis (4) und das gekaufte Item.
 inline std::vector<uint8_t> Encode(const Game::InventoryEdit::Edit& Value)
 {
     if (!Value.Id || !Game::InventoryEdit::WellFormed(Value))
@@ -220,6 +221,14 @@ inline std::vector<uint8_t> Encode(const Game::InventoryEdit::Edit& Value)
             Detail::Put(Out, Input, 2);
         Detail::PutName(Out, Next.Data);
         Detail::PutName(Out, Next.Rarity);
+        Detail::PutItem(Out, Next.Output);
+    }
+    Out.push_back(static_cast<uint8_t>(Value.Purchases.size()));
+    for (const auto& Next : Value.Purchases)
+    {
+        Detail::PutName(Out, Next.Data);
+        Detail::PutName(Out, Next.Rarity);
+        Detail::Put(Out, static_cast<uint32_t>(Next.Cost), 4);
         Detail::PutItem(Out, Next.Output);
     }
     return Out;
@@ -271,6 +280,26 @@ inline std::optional<Game::InventoryEdit::Edit> DecodeEdit(std::span<const uint8
         Next.Rarity = std::move(*Rarity);
         Next.Output = std::move(*Output);
         Value.Upgrades.push_back(std::move(Next));
+    }
+    if (At >= In.size() || In[At] > MaxPurchases)
+        return std::nullopt;
+    const uint8_t Purchases = In[At++];
+    for (uint8_t i = 0; i < Purchases; ++i)
+    {
+        Purchase Next;
+        auto Data = Detail::GetName(In, At);
+        auto Rarity = Data ? Detail::GetName(In, At) : std::nullopt;
+        if (!Rarity || At + 4 > In.size())
+            return std::nullopt;
+        Next.Cost = static_cast<int32_t>(Detail::Get(In, At, 4));
+        At += 4;
+        auto Output = Detail::GetItem(In, At);
+        if (!Output)
+            return std::nullopt;
+        Next.Data = std::move(*Data);
+        Next.Rarity = std::move(*Rarity);
+        Next.Output = std::move(*Output);
+        Value.Purchases.push_back(std::move(Next));
     }
     if (At != In.size() || !Value.Id || !WellFormed(Value))
         return std::nullopt;

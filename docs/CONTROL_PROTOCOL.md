@@ -225,6 +225,24 @@ nach der Übernahme genau einmal und nur für tatsächlich entfernte bzw. repari
 prüft jede halbe Sekunde, sendet bei Änderung sofort, sonst alle 5 s, nur in einer Mission. Der Client gleicht sein eigenes Konto mit
 dem nativen `AddAmount` (Unterschied) an, nicht während einer lokalen Bearbeitung und nicht, solange ein Edit unbeantwortet ist.
 
+## Kaufen beim Händler (Mod-Kompatibilität 13)
+
+Aufgabe `opt-haendler-client`, Ablauf in [Kaufen beim Händler](../src/Game/README.md#kaufen-beim-händler). Mod-Version 13, weil `0x303`
+ein neues Feld am Ende hat und ein Host mit Version 12 jeden Edit ablehnen würde.
+
+`0x303` Edit bekommt hinter den Aufwertungen:
+
+| Bytes | Inhalt |
+|---:|---|
+| 1 | Anzahl Käufe, höchstens 16 |
+| je Kauf | Name der Daten und der Seltenheit (je 1 Länge + bis 120 Byte UTF-8, Seltenheit leer = keine), Preis (4, int32, 0 bis 1 000 000), das gekaufte Item wie oben |
+
+Das gekaufte Item `k` hat die Quelle `0xFE00 + k`, seine Prüfsumme ist die des Datennamens. Items des Ausgangsbilds haben damit Quellen
+unter `0xFE00`. Ein gekauftes Item ist heil und entweder vorhanden oder Eingabe einer Aufwertung (dann nicht vorhanden); verkaufen lässt
+es sich im selben Edit nicht. Der Host lehnt ab, wenn er Daten oder Seltenheit nicht kennt, der Preis unter einem Viertel seines
+eigenen Verkaufspreises für das Item liegt (`UInventoryItemData.GetBaseSellPrice`, die Rabatte des Händlers reichen bis 75 %) oder
+sein Schrott nicht reicht: erst alle Verkäufe gutschreiben, dann Käufe und Reparaturen abziehen. Er legt die Items mit `CreateAndAddItem` an und bucht nach der Übernahme einmal, nur für angelegte Items.
+
 ## Rundenende (`rundenende-client`)
 
 `0x401` Host an Client, neben der Karte `0x400` aus `missionsstart` (`src/Sync/World`). Genau 17 Bytes: Karten-Id der Mission

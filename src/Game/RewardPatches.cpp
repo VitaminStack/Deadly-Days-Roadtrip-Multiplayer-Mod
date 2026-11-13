@@ -49,6 +49,13 @@ constexpr uintptr_t UpgradeItems = 0x5984CD0;
 // UInventoryComponent::HandleItemSold, hinter dem Exec-Thunk. Ruft ItemRepresentation.ConfirmSell (0x5AA7E50) nach der lokalen
 // Gutschrift (AbstractCurrency::AddAmount) direkt; nimmt das Item über die Inventar-RPCs heraus (lager-handel-client).
 constexpr uintptr_t HandleItemSold = 0x596BA70;
+// UShopPanelItem::TryBuyItem, hinter dem Exec-Thunk 0x579ADE0 (opt-haendler-client). Prüft den Preis über einen Funktor des
+// Panels, zieht ihn lokal ab und legt die lokale Instanz des Shops mit AddToInventory ins Inventar des Käufers.
+constexpr uintptr_t TryBuyItem = 0x58CE280;
+// UShopPanelItem, aus dem Code von TryBuyItem dieses Builds: ManuallyCallClearAndAdd, CostDisplay, ItemInstance;
+// UCostDisplay: der verlangte Preis (GetActualCost).
+constexpr uintptr_t ShopItemManualAdd = 0x848, ShopItemCostDisplay = 0x850, ShopItemInstance = 0x868;
+constexpr uintptr_t CostDisplayActual = 0x384;
 // ADDMissionGameState.ScrapWallet, UAbstractCurrency.CurrencyAmount
 constexpr uintptr_t GameStateScrapWallet = 0x3C0;
 constexpr uintptr_t CurrencyAmount = 0x100;
@@ -94,6 +101,7 @@ ConfirmFn OriginalConfirm = nullptr;
 ConfirmFn OriginalSetupInventory = nullptr;
 UpgradeFn OriginalUpgrade = nullptr;
 SoldFn OriginalSold = nullptr;
+ConfirmFn OriginalTryBuy = nullptr; // UShopPanelItem::TryBuyItem(this)
 
 std::atomic<bool> RemoteReady = false;
 
@@ -621,11 +629,18 @@ bool AnyStationPanelOpen(const std::vector<Objects::Ref>& Panels)
 // Client: Im Lager beginnt die erste Aufwertung (werkbank-client), der erste Verkauf oder die erste Reparatur (lager-handel-client)
 // eine lokale Bearbeitung, die bis zum Bestätigen läuft. Vorher bleibt das Lager bei den nativen RPCs (rundenende-client).
 // opt-werkbank-station: Ohne Rundenende beginnt dasselbe eine Stations-Bearbeitung, wenn ein Inventar-Panel offen ist.
-void BeginPanelEdit(uintptr_t Inventory, const char* What)
+// opt-haendler-client: Ein Kauf (Shop) kommt aus dem offenen Händler-Panel und braucht kein offenes Inventar-Panel.
+// Solange der Client nach einem übernommenen Edit noch lokale Instanzen hält, beginnt keine neue Bearbeitung (ClientSettling).
+void BeginPanelEdit(uintptr_t Inventory, const char* What, bool Shop = false)
 {
     if (Game::InventoryEdit::ClientEditing() || ClientPending || !Shown.Items.empty() || !Inventory ||
         Inventory != InventoryOfController(LocalController()))
         return;
+    if (Game::InventoryEdit::ClientSettling())
+    {
+        Core::Log::Info("Inventar lokal: {} wartet, der Stand des Hosts zum letzten Edit ist noch nicht repliziert", What);
+        return;
+    }
     if (End.Id)
     {
         if (End.Done == End.Id || End.HeldPanel)
@@ -636,7 +651,7 @@ void BeginPanelEdit(uintptr_t Inventory, const char* What)
         return;
     }
     std::vector<Objects::Ref> Panels = StationPanels(Inventory);
-    if (!AnyStationPanelOpen(Panels))
+    if (!Shop && !AnyStationPanelOpen(Panels))
     {
         Core::Log::Warn("Station: {} beim Client ohne offenes Panel ({} Panels zum Inventar), keine Bearbeitung", What, Panels.size());
         return;
@@ -708,7 +723,7 @@ void TickStation()
     for (const Objects::Ref& Panel : Station.Panels)
         if (Objects::IsLive(Panel) && Memory::Read<uint8_t>(Panel.Object + PanelIsDragging).value_or(0))
             return;
-    FinishStation("Panel geschlossen");
+    FinishStation(Station.Closed ? "Inventar-Panel geschlossen" : "kein Panel mehr offen");
 }
 
 // lager-handel-client: HandleItemSold beim Client. ItemRepresentation.ConfirmSell schreibt den Preis lokal gut und ruft es
@@ -754,6 +769,56 @@ uintptr_t __fastcall UpgradeHook(uintptr_t Inventory, ItemArray* Inputs, uintptr
     Core::Log::Info("Aufwertung beim Client lokal (Aufrufer {:#x}), Ausgabe {}", Caller, Output != 0);
     Game::InventoryEdit::RecordUpgrade(In, Output, Data, Rarity);
     return Output;
+}
+
+// opt-haendler-client: TryBuyItem beim Client. Nativ zahlt das Panel lokal und schickt AddToInventory mit der lokalen Instanz des
+// Shops: Beim Host kam ein Nullzeiger an, kein Item, kein Schrott gebucht. Jetzt läuft der Kauf nur in einer lokalen Bearbeitung
+// (Station oder Lager): Das Item liegt lokal im Inventar, der Edit meldet Daten, Seltenheit und Preis, der Host legt das Item an
+// und bucht. Der lokale Abzug ist nur Vorschau. Ohne offenes Inventar-Panel geht der Kauf sofort als eigener Edit an den Host: Das
+// Händler-Panel meldet sein Schließen nie, und eine lange offene Bearbeitung hielte die übrigen Server-RPCs des Clients zurück.
+// Automaten (ManuallyCallClearAndAdd) legen das Item erst später ab und bleiben nativ.
+void __fastcall TryBuyHook(uintptr_t ShopItem)
+{
+    if (CurrentRole() != NetRole::Client)
+        return OriginalTryBuy(ShopItem);
+    const uintptr_t Item = Pointer(ShopItem + ShopItemInstance);
+    if (!Alive(Item))
+        return OriginalTryBuy(ShopItem); // nativ ohne Wirkung
+    const uintptr_t Parent = Pointer(ShopItem + ButtonParentPanel);
+    // Nur der Händler (WI_MerchantPanel_C). Der dubiose Händler hat einen eigenen Ablauf und ist nicht geprüft, er bleibt nativ.
+    const bool IsShop = Alive(Parent) && Objects::IsA(Parent, "WI_MerchantPanel_C");
+    if (Memory::Read<uint8_t>(ShopItem + ShopItemManualAdd).value_or(1) || !IsShop)
+    {
+        static unsigned Logged = 0;
+        if (++Logged <= 5)
+            Core::Log::Warn("Kauf beim Client in {} nicht abgedeckt (Automat, dubioser Händler oder unbekanntes Panel), läuft nativ",
+                            Alive(Parent) ? Memory::NameOf(Pointer(Parent + Offsets::UObject::Class)) : std::string("?"));
+        return OriginalTryBuy(ShopItem);
+    }
+    const uintptr_t Inventory = InventoryOfController(LocalController());
+    BeginPanelEdit(Inventory, "Kauf", true);
+    if (!Game::InventoryEdit::ClientEditingInventory(Inventory))
+    {
+        // Etwa solange ein Edit unbeantwortet ist: Der Host buchte nichts, das Item gäbe es nur beim Client.
+        Core::Log::Warn("Kauf beim Client außerhalb einer Bearbeitung verworfen ({})", Memory::NameOf(Pointer(Item + ItemData)));
+        return;
+    }
+    const uintptr_t Display = Pointer(ShopItem + ShopItemCostDisplay);
+    const int32_t Cost = Alive(Display) ? Memory::Read<int32_t>(Display + CostDisplayActual).value_or(-1) : 0;
+    const uintptr_t Data = Pointer(Item + ItemData), Rarity = Pointer(Item + ItemRarity);
+    const auto Has = [&]
+    {
+        const std::vector<uintptr_t> Items = Game::InventoryEdit::ItemsOf(Inventory);
+        return std::find(Items.begin(), Items.end(), Item) != Items.end();
+    };
+    const bool Had = Has();
+    OriginalTryBuy(ShopItem);
+    if (!Had && Has())
+        Game::InventoryEdit::RecordPurchase(Item, Data, Rarity, Cost);
+    else
+        Core::Log::Info("Kauf beim Client nicht zustande gekommen ({}, Preis {})", Memory::NameOf(Data), Cost);
+    if (Station.Active && !AnyStationPanelOpen(Station.Panels))
+        FinishStation("Kauf");
 }
 
 // CachedBackpackLocalPosition (+0x150) ist NICHT repliziert. Die echte Instanz
@@ -888,16 +953,30 @@ bool ApplySold(Code::Writer&)
     return Core::Hooks::Install(reinterpret_cast<void*>(At(HandleItemSold)), reinterpret_cast<void*>(&SoldHook),
                                 reinterpret_cast<void**>(&OriginalSold));
 }
+bool CheckTryBuy()
+{
+    // Prolog, dann cmp qword ptr [rcx+ItemInstance],0: belegt zugleich den Offset der Instanz.
+    static_assert(ShopItemInstance == 0x868, "Prüfbytes unten anpassen");
+    return Code::Expect(At(TryBuyItem), {0x40, 0x57, 0x48, 0x83, 0xEC, 0x40, 0x48, 0x83, 0xB9, 0x68, 0x08, 0x00, 0x00, 0x00, 0x48, 0x8B, 0xF9},
+                        "ShopPanelItem::TryBuyItem");
+}
+bool ApplyTryBuy(Code::Writer&)
+{
+    return Core::Hooks::Install(reinterpret_cast<void*>(At(TryBuyItem)), reinterpret_cast<void*>(&TryBuyHook),
+                                reinterpret_cast<void**>(&OriginalTryBuy));
+}
 // Je Patch die benutzten Adressen der Signaturtabelle, erzeugt von tools/patch_signatures.py sites.
 constexpr uintptr_t SetRewardsSites[] = {MemoryFree, SetRewardItems};
 constexpr uintptr_t UpgradeSites[] = {UpgradeItems};
 constexpr uintptr_t SoldSites[] = {HandleItemSold};
+constexpr uintptr_t TryBuySites[] = {TryBuyItem};
 constexpr uintptr_t ConfirmSites[] = {MemoryFree, CreateItemInstance, PanelConfirm};
 constexpr uintptr_t SetupInventorySites[] = {PanelSetupInventory};
 const Patch List[] = {
     {"Airdrop-Auswahl: Choices des Hosts mitlesen", CheckSetRewards, ApplySetRewards, SetRewardsSites},
     {"Aufwerten beim Client nur in lokaler Bearbeitung, Host übernimmt", CheckUpgrade, ApplyUpgrade, UpgradeSites},
     {"Verkaufen beim Client nur in lokaler Bearbeitung, Host bucht", CheckSold, ApplySold, SoldSites},
+    {"Kaufen beim Händler nur in lokaler Bearbeitung, Host legt an und bucht", CheckTryBuy, ApplyTryBuy, TryBuySites},
     {"Airdrop-Auswahl: Bestätigen bis zur Wahl des Partners halten", CheckConfirm, ApplyConfirm, ConfirmSites},
     {"Airdrop-Auswahl: Rucksack-Anzeige aus replizierten Feldern aufbauen", CheckSetupInventory, ApplySetupInventory, SetupInventorySites},
 };
@@ -1097,6 +1176,24 @@ int32_t RepairPrice(uintptr_t Item)
     return Params.ReturnValue;
 }
 
+// opt-haendler-client: Verkaufspreis eines Items dieser Art beim Host (UInventoryItemData.GetBaseSellPrice), -1 ohne Funktion.
+// Daraus die Untergrenze für den Kaufpreis, den der Client meldet (PurchaseFloor in InventoryEditPlan.h).
+int32_t BaseSellPrice(uintptr_t Data, uintptr_t Rarity)
+{
+    static uintptr_t Fn = 0;
+    if (!Alive(Data) || !Function(Fn, "GetBaseSellPrice", "InventoryItemData"))
+        return -1;
+    struct
+    {
+        uintptr_t Rarity;
+        int32_t ReturnValue;
+        uint8_t Pad[4];
+    } Params{Rarity, -1, {}};
+    static_assert(sizeof(Params) == 0x10);
+    Objects::ProcessEvent(Data, Fn, &Params);
+    return Params.ReturnValue;
+}
+
 bool IsBroken(uintptr_t Item)
 {
     return Memory::Read<uint8_t>(Item + ItemBroken).value_or(0) != 0;
@@ -1173,6 +1270,27 @@ uintptr_t ClaimForClient(uintptr_t Inventory, uint64_t SessionId, uint64_t Expec
     Core::Log::Info("Airdrop-Auswahl: Client wählt {} ({}), ins Inventar des Clients gelegt={}", Index, Host.Choices[Index].Name, Add.Result != 0);
     if (Add.Result)
         Host.ClientPick = Index;
+    return Add.Result;
+}
+
+// opt-haendler-client, Host: gekauftes Item ins Inventar des Clients legen (CreateAndAddItem), es repliziert wie jede Vergabe.
+uintptr_t CreateForClient(uintptr_t Inventory, uintptr_t Data, uintptr_t Rarity)
+{
+    static uintptr_t Create = 0;
+    if (!Inventory || !Data || !Function(Create, "CreateAndAddItem", "InventoryComponent"))
+        return 0;
+    struct
+    {
+        uintptr_t Data, Rarity;
+        bool Broken, FlagAsNew, SystemAdd;
+        uint8_t Pad;
+        int32_t Position;
+        bool AllowP2Reserve;
+        uint8_t Pad2[7];
+        uintptr_t Result;
+    } Add{Data, Rarity, false, true, true, 0, -1, false, {}, 0};
+    static_assert(sizeof(Add) == 0x28);
+    Objects::ProcessEvent(Inventory, Create, &Add);
     return Add.Result;
 }
 
@@ -1422,23 +1540,55 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
             Sells.push_back({Resolved[i], SellPrice(Resolved[i])});
         }
     }
-    const uintptr_t Wallet = Sells.empty() && Repairs.empty() ? 0 : ScrapWallet();
-    if (!Sells.empty() || !Repairs.empty())
+    // opt-haendler-client: Käufe prüfen, bevor sich etwas ändert. Daten und Seltenheit müssen beim Host existieren; den Preis nennt
+    // das Panel des Clients, der Host verlangt mindestens die Untergrenze zum eigenen Verkaufspreis und genug Schrott.
+    std::vector<std::pair<uintptr_t, uintptr_t>> Wares;
+    if (!Value.Purchases.empty())
+    {
+        std::vector<Game::Rewards::ChoiceItem> Names;
+        for (const Purchase& Next : Value.Purchases)
+            Names.push_back({{}, Next.Data, Next.Rarity, false});
+        Wares = ResolveChoices(Names);
+        for (size_t K = 0; K < Value.Purchases.size(); ++K)
+        {
+            const Purchase& Next = Value.Purchases[K];
+            if (!Wares[K].first || (!Next.Rarity.empty() && !Wares[K].second))
+            {
+                Core::Log::Warn("Inventar lokal: Kauf {} des Edits {} nennt unbekannte Daten {} {}, abgelehnt", K + 1, Value.Id, Next.Data, Next.Rarity);
+                return false;
+            }
+            const int32_t Sell = BaseSellPrice(Wares[K].first, Wares[K].second);
+            if (Sell < 0 || Next.Cost < PurchaseFloor(Sell))
+            {
+                Core::Log::Warn("Inventar lokal: Kauf {} des Edits {} ({} {}) für {} liegt unter der Untergrenze {} (Verkaufspreis {} beim Host), abgelehnt",
+                                K + 1, Value.Id, Next.Data, Next.Rarity, Next.Cost, Sell < 0 ? -1 : PurchaseFloor(Sell), Sell);
+                return false;
+            }
+            Core::Log::Info("Handel: Kauf {} geprüft, {} {} für {} (Verkaufspreis beim Host {}, Untergrenze {})", K + 1, Next.Data, Next.Rarity,
+                            Next.Cost, Sell, PurchaseFloor(Sell));
+        }
+    }
+    const bool Trades = !Sells.empty() || !Repairs.empty() || !Value.Purchases.empty();
+    const uintptr_t Wallet = Trades ? ScrapWallet() : 0;
+    if (Trades)
     {
         const std::optional<int32_t> Have = ScrapAmount(Wallet);
-        std::vector<int32_t> SellPrices, RepairPrices;
+        std::vector<int32_t> SellPrices, RepairPrices, BuyPrices;
+        for (const Purchase& Next : Value.Purchases)
+            BuyPrices.push_back(Next.Cost);
         for (const Trade& Next : Sells)
             SellPrices.push_back(Next.Price);
         for (const Trade& Next : Repairs)
             RepairPrices.push_back(Next.Price);
-        const auto After = Have ? TradeBalance(*Have, SellPrices, RepairPrices) : std::nullopt;
+        const auto After = Have ? TradeBalance(*Have, SellPrices, RepairPrices, BuyPrices) : std::nullopt;
         if (!After)
         {
-            Core::Log::Warn("Inventar lokal: Edit {} mit {} Verkäufen und {} Reparaturen abgelehnt, Schrott {} reicht nicht oder Preis ungültig",
-                            Value.Id, Sells.size(), Repairs.size(), Have ? std::to_string(*Have) : std::string("ohne Konto"));
+            Core::Log::Warn("Inventar lokal: Edit {} mit {} Verkäufen, {} Reparaturen und {} Käufen abgelehnt, Schrott {} reicht nicht oder Preis ungültig",
+                            Value.Id, Sells.size(), Repairs.size(), BuyPrices.size(), Have ? std::to_string(*Have) : std::string("ohne Konto"));
             return false;
         }
-        Core::Log::Info("Handel: Edit {} geprüft, {} Verkäufe, {} Reparaturen, Schrott {} wird {}", Value.Id, Sells.size(), Repairs.size(), *Have, *After);
+        Core::Log::Info("Handel: Edit {} geprüft, {} Verkäufe, {} Reparaturen, {} Käufe, Schrott {} wird {}", Value.Id, Sells.size(), Repairs.size(),
+                        BuyPrices.size(), *Have, *After);
     }
     // werkbank-client: Aufwertungen vollständig prüfen, bevor sich etwas ändert.
     std::unordered_map<uint16_t, uintptr_t> Live;
@@ -1452,6 +1602,8 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
         }
     if (Value.Choice)
         Kinds[ChoiceSource] = {KindOf(Host.Data[*Value.Choice].first, Host.Data[*Value.Choice].second), NextRarityOf(Host.Data[*Value.Choice].second)};
+    for (size_t K = 0; K < Wares.size(); ++K)
+        Kinds[PurchaseSource(K)] = {KindOf(Wares[K].first, Wares[K].second), NextRarityOf(Wares[K].second)};
     std::vector<std::pair<uintptr_t, uintptr_t>> Outputs;
     // Die native Prüfung sieht reparierte Eingaben nur repariert: Kaputt-Flag für die Prüfung kurz löschen, danach zurück.
     const auto SetBroken = [&](uint8_t Flag)
@@ -1481,8 +1633,19 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
     }
     if (ChoiceAt < Value.Items.size())
         Live[ChoiceSource] = Resolved[ChoiceAt];
-    // Aufwertungen in ihrer Reihenfolge nativ ausführen. UpgradeItems nimmt die Eingaben selbst aus dem Inventar.
     bool Ok = true;
+    // opt-haendler-client: gekaufte Items anlegen, vor den Aufwertungen, die sie verbrauchen können.
+    std::vector<uintptr_t> Bought;
+    for (size_t K = 0; K < Wares.size(); ++K)
+    {
+        Bought.push_back(CreateForClient(Inventory, Wares[K].first, Wares[K].second));
+        Core::Log::Info("Handel: Kauf {} des Edits {} beim Host, {} angelegt={}", K + 1, Value.Id, Value.Purchases[K].Data, Bought.back() != 0);
+        if (Bought.back())
+            Live[PurchaseSource(K)] = Bought.back();
+        else
+            Ok = false;
+    }
+    // Aufwertungen in ihrer Reihenfolge nativ ausführen. UpgradeItems nimmt die Eingaben selbst aus dem Inventar.
     // Reparierte Eingaben vor den Aufwertungen nativ reparieren; gebucht wird wie jede Reparatur unten.
     HostApplyingEdit = true;
     for (Trade& Next : Repairs)
@@ -1562,6 +1725,12 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
             Targets.push_back(Made[K]);
             Goal.push_back(Value.Upgrades[K].Output);
         }
+    for (size_t K = 0; K < Bought.size(); ++K)
+        if (Bought[K] && !Consumed.contains(PurchaseSource(K)))
+        {
+            Targets.push_back(Bought[K]);
+            Goal.push_back(Value.Purchases[K].Output);
+        }
     const std::vector<SlotInfo> Now = SlotsOf(Inventory);
     std::vector<ItemState> Current;
     for (size_t i = 0; i < Targets.size(); ++i)
@@ -1570,11 +1739,17 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
     Ok = Apply(Inventory, Targets, Current, Goal, Create, {}, false) && Ok;
     HostApplyingEdit = false;
     // lager-handel-client: Schrott genau einmal und nur für tatsächlich Erledigtes buchen.
-    if (!Sells.empty() || !Repairs.empty())
+    if (Trades)
     {
         const std::vector<uintptr_t> After = ItemsOf(Inventory);
         int64_t Delta = 0;
-        unsigned Sold = 0, Repaired = 0;
+        unsigned Sold = 0, Repaired = 0, Purchased = 0;
+        for (size_t K = 0; K < Bought.size(); ++K)
+            if (Bought[K])
+            {
+                Delta -= Value.Purchases[K].Cost;
+                ++Purchased;
+            }
         for (const Trade& Next : Sells)
             if (std::find(After.begin(), After.end(), Next.Item) == After.end())
             {
@@ -1589,17 +1764,17 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
             }
         const int32_t Before = ScrapAmount(Wallet).value_or(0);
         AddScrap(Wallet, static_cast<int32_t>(Delta));
-        Core::Log::Info("Handel: Edit {} gebucht, {} von {} verkauft, {} von {} repariert, Schrott {} zu {}", Value.Id, Sold, Sells.size(), Repaired,
-                        Repairs.size(), Before, ScrapAmount(Wallet).value_or(0));
-        Ok = Ok && Sold == Sells.size() && Repaired == Repairs.size();
+        Core::Log::Info("Handel: Edit {} gebucht, {} von {} verkauft, {} von {} repariert, {} von {} gekauft, Schrott {} zu {}", Value.Id, Sold,
+                        Sells.size(), Repaired, Repairs.size(), Purchased, Bought.size(), Before, ScrapAmount(Wallet).value_or(0));
+        Ok = Ok && Sold == Sells.size() && Repaired == Repairs.size() && Purchased == Bought.size();
     }
     // waffe-client-auswahl: das native Ablegen frischt danach die Wirkungen beider Figuren auf. Ohne das bleibt eine
     // neue Waffe bis zum nächsten Levelaufstieg wirkungslos und eine entfernte wirkt weiter.
     RefreshEffects(Inventory);
     if (const uintptr_t HostInventory = InventoryOfController(HostController); HostInventory && HostInventory != Inventory)
         RefreshEffects(HostInventory);
-    Core::Log::Info("Inventar lokal: Edit {} übernommen, {} Items, {} neue Felder, {} Aufwertungen, vollständig={}", Value.Id, Targets.size(), Create.size(),
-                    Made.size(), Ok);
+    Core::Log::Info("Inventar lokal: Edit {} übernommen, {} Items, {} neue Felder, {} Aufwertungen, {} Käufe, vollständig={}", Value.Id, Targets.size(),
+                    Create.size(), Made.size(), Bought.size(), Ok);
     return true;
 }
 
@@ -1729,7 +1904,8 @@ bool ShowForClient(uint64_t SessionId, uint64_t Expected, int32_t Level, const s
         return true;
     // opt-werkbank-station: Eine offene Stations-Bearbeitung geht zuerst an den Host, die Auswahl folgt nach seiner Antwort.
     FinishStation("Auswahl des Hosts");
-    if (ClientPending)
+    // opt-haendler-client: auch nicht, solange nach einem übernommenen Edit noch lokale Instanzen im Inventar liegen.
+    if (ClientPending || Game::InventoryEdit::ClientSettling())
         return false;
     CloseForClient();
     static uintptr_t SetRewards = 0;
