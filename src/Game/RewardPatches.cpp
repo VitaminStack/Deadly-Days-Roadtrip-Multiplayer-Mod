@@ -29,6 +29,7 @@
 #include "Game/Offsets.h"
 #include "Game/PatchPolicy.h"
 #include "Game/PatchRuntime.h"
+#include "Game/Reflection.h"
 #include "Game/RewardAdapter.h"
 
 namespace Game::Patches
@@ -142,6 +143,16 @@ std::optional<Game::InventoryEdit::Edit> ClientPending;
 // Client, werkbank-client: Die erste Aufwertung im Lager hat eine lokale Bearbeitung begonnen, sie endet mit dem Bestätigen.
 // lager-handel-client: ebenso der erste Verkauf oder die erste Reparatur.
 uint64_t LagerEdit = 0; // Id des Rundenendes, 0 ohne
+// Client, opt-werkbank-station: Bearbeitung an einer Station außerhalb von Lager und Airdrop-Auswahl, etwa das Inventar-Panel
+// im Händler-Event. Sie beginnt mit der ersten Aufwertung, dem ersten Verkauf oder der ersten Reparatur und endet, sobald
+// kein Panel der Station mehr offen ist; dann geht der Edit an den Host. Panels sind die Inventar-Panels zum eigenen Inventar.
+struct
+{
+    bool Active = false;
+    uintptr_t World = 0, Inventory = 0;
+    std::vector<Game::Objects::Ref> Panels;
+    ULONGLONG NextPoll = 0, NextScan = 0;
+} Station;
 constexpr uintptr_t ItemPivotTile = 0x28;
 constexpr uint32_t FuncNet = 0x40;
 constexpr uintptr_t FunctionFlags = 0xB0;
@@ -537,17 +548,133 @@ void __fastcall ConfirmHook(uintptr_t Panel)
     OriginalConfirm(Panel);
 }
 
+// opt-werkbank-station: Ist das Panel offen? UAbstractPanel.AnimationContainer und UPanelAnimationContainer.IsOpen, beide über
+// die Reflexion aufgelöst. Ohne lesbares Feld gilt das Panel als geschlossen, dann beginnt keine Stations-Bearbeitung.
+bool PanelOpen(uintptr_t Panel)
+{
+    constexpr Reflection::FieldSpec ContainerSpec{"/Script/DDSurvivors", "AbstractPanel", "AnimationContainer", "ObjectProperty", 8};
+    constexpr Reflection::FieldSpec OpenSpec{"/Script/DDSurvivors", "PanelAnimationContainer", "IsOpen", "BoolProperty", 1};
+    const auto ContainerField = Reflection::Property(ContainerSpec);
+    const auto OpenField = Reflection::Property(OpenSpec);
+    if (!ContainerField || !OpenField || !Alive(Panel))
+        return false;
+    const uintptr_t Container = Pointer(Panel + ContainerField->Offset);
+    return Alive(Container) && (Memory::Read<uint8_t>(Container + OpenField->Offset).value_or(0) & OpenField->BoolMask) != 0;
+}
+
+// Panels einer Station: jedes lebende Inventar-Panel zum eigenen Inventar. Ein Durchlauf über das Objekt-Array, darum nur beim
+// Beginn und danach alle zwei Sekunden.
+std::vector<Objects::Ref> StationPanels(uintptr_t Inventory)
+{
+    constexpr uintptr_t PanelInventory = 0x370;
+    std::vector<Objects::Ref> Result;
+    const int32_t Total = Objects::Count();
+    for (int32_t i = 0; i < Total; ++i)
+    {
+        const uintptr_t Object = Objects::At(i);
+        if (!Object || Pointer(Object + PanelInventory) != Inventory || !Alive(Object) || !Objects::IsA(Object, "InventoryPanel"))
+            continue;
+        Result.push_back(Objects::RefTo(Object));
+    }
+    return Result;
+}
+
+bool AnyStationPanelOpen(const std::vector<Objects::Ref>& Panels)
+{
+    return std::any_of(Panels.begin(), Panels.end(), [](const Objects::Ref& Panel) { return Objects::IsLive(Panel) && PanelOpen(Panel.Object); });
+}
+
 // Client: Im Lager beginnt die erste Aufwertung (werkbank-client), der erste Verkauf oder die erste Reparatur (lager-handel-client)
 // eine lokale Bearbeitung, die bis zum Bestätigen läuft. Vorher bleibt das Lager bei den nativen RPCs (rundenende-client).
-void BeginLagerEdit(uintptr_t Inventory, const char* What)
+// opt-werkbank-station: Ohne Rundenende beginnt dasselbe eine Stations-Bearbeitung, wenn ein Inventar-Panel offen ist.
+void BeginPanelEdit(uintptr_t Inventory, const char* What)
 {
-    const bool InLager = End.Id && End.Done != End.Id && !End.HeldPanel;
-    if (Game::InventoryEdit::ClientEditing() || !InLager || ClientPending || !Shown.Items.empty() || !Inventory ||
+    if (Game::InventoryEdit::ClientEditing() || ClientPending || !Shown.Items.empty() || !Inventory ||
         Inventory != InventoryOfController(LocalController()))
         return;
+    if (End.Id)
+    {
+        if (End.Done == End.Id || End.HeldPanel)
+            return;
+        Game::InventoryEdit::BeginClient(Inventory, {}, LocalController());
+        LagerEdit = End.Id;
+        Core::Log::Info("Lager: {} beim Client, Lager wird lokal bearbeitet bis zum Bestätigen", What);
+        return;
+    }
+    std::vector<Objects::Ref> Panels = StationPanels(Inventory);
+    if (!AnyStationPanelOpen(Panels))
+    {
+        Core::Log::Warn("Station: {} beim Client ohne offenes Panel ({} Panels zum Inventar), keine Bearbeitung", What, Panels.size());
+        return;
+    }
     Game::InventoryEdit::BeginClient(Inventory, {}, LocalController());
-    LagerEdit = End.Id;
-    Core::Log::Info("Lager: {} beim Client, Lager wird lokal bearbeitet bis zum Bestätigen", What);
+    Station = {};
+    Station.Active = true;
+    Station.World = CurrentWorld();
+    Station.Inventory = Inventory;
+    Station.Panels = std::move(Panels);
+    Station.NextScan = GetTickCount64() + 2000;
+    Core::Log::Info("Station: {} beim Client, Inventar wird lokal bearbeitet, bis das Panel schließt ({} Panels)", What, Station.Panels.size());
+}
+
+// Stations-Bearbeitung abschließen: Der Endstand geht als Edit an den Host.
+void FinishStation(const char* Why)
+{
+    if (!Station.Active)
+        return;
+    Station = {};
+    if (!Game::InventoryEdit::ClientEditing() || ClientPending)
+        return;
+    ClientPending = Game::InventoryEdit::FinishClient(0, 0, std::nullopt, 0);
+    Core::Log::Info("Station: Bearbeitung beendet ({}), Edit {}", Why, ClientPending ? std::to_string(ClientPending->Id) : std::string("ohne Änderung"));
+}
+
+// Stations-Bearbeitung verwerfen, etwa nach einem Kartenwechsel. Lebt das Inventar nicht mehr, gibt es nichts wiederherzustellen.
+void DropStation(const char* Why)
+{
+    if (!Station.Active)
+        return;
+    const bool InventoryAlive = Alive(Station.Inventory) && Objects::IsA(Station.Inventory, "InventoryComponent");
+    Station = {};
+    if (!Game::InventoryEdit::ClientEditing() || ClientPending)
+        return;
+    Core::Log::Warn("Station: Bearbeitung verworfen ({})", Why);
+    if (InventoryAlive)
+        Game::InventoryEdit::RevertClient(Why);
+    else
+        Game::InventoryEdit::ForgetClient();
+}
+
+// Client, je Takt: Die Stations-Bearbeitung endet, sobald kein Panel der Station mehr offen ist, nicht mitten in einem Drag.
+void TickStation()
+{
+    if (!Station.Active)
+        return;
+    if (Station.World != CurrentWorld())
+    {
+        DropStation("Welt gewechselt");
+        return;
+    }
+    if (!Game::InventoryEdit::ClientEditing())
+    {
+        Station = {}; // anderswo beendet (Ablehnung, Verbindung weg)
+        return;
+    }
+    const ULONGLONG Now = GetTickCount64();
+    if (Now < Station.NextPoll)
+        return;
+    Station.NextPoll = Now + 150;
+    if (Now >= Station.NextScan)
+    {
+        Station.NextScan = Now + 2000;
+        Station.Panels = StationPanels(Station.Inventory);
+    }
+    if (AnyStationPanelOpen(Station.Panels))
+        return;
+    for (const Objects::Ref& Panel : Station.Panels)
+        if (Objects::IsLive(Panel) && Memory::Read<uint8_t>(Panel.Object + PanelIsDragging).value_or(0))
+            return;
+    FinishStation("Panel geschlossen");
 }
 
 // lager-handel-client: HandleItemSold beim Client. ItemRepresentation.ConfirmSell schreibt den Preis lokal gut und ruft es
@@ -558,7 +685,7 @@ void __fastcall SoldHook(uintptr_t Inventory, uintptr_t Item)
 {
     if (CurrentRole() == NetRole::Client)
     {
-        BeginLagerEdit(Inventory, "Verkauf");
+        BeginPanelEdit(Inventory, "Verkauf");
         if (!Game::InventoryEdit::ClientEditingInventory(Inventory))
         {
             // Außerhalb einer Bearbeitung (etwa ohne Rundenende) verkauft der Client nicht: Der Host buchte keinen Schrott.
@@ -583,7 +710,7 @@ uintptr_t __fastcall UpgradeHook(uintptr_t Inventory, ItemArray* Inputs, uintptr
     for (int32_t i = 0; Inputs && Inputs->Data && i < Inputs->Count && i < 16; ++i)
         In.push_back(Inputs->Data[i]);
     const uintptr_t Caller = reinterpret_cast<uintptr_t>(_ReturnAddress()) - reinterpret_cast<uintptr_t>(GetModuleHandleW(nullptr));
-    BeginLagerEdit(Inventory, "Aufwertung");
+    BeginPanelEdit(Inventory, "Aufwertung");
     if (!Game::InventoryEdit::ClientEditingInventory(Inventory))
     {
         Core::Log::Warn("Aufwertung beim Client außerhalb einer Bearbeitung ({} Eingaben, Aufrufer {:#x}), läuft nativ", In.size(), Caller);
@@ -793,7 +920,7 @@ bool FilterRewardEvent(uintptr_t Object, uintptr_t Function, void* Params)
     // die erste Reparatur eine lokale Bearbeitung, RouteClientRpc führt sie dann lokal aus und der Edit meldet sie.
     static uintptr_t Repair = 0;
     if (Function && Function == Function_(Repair, "RepairItem") && !Game::InventoryEdit::ClientEditing())
-        BeginLagerEdit(Object, "Reparatur");
+        BeginPanelEdit(Object, "Reparatur");
     if (Function && Function == Repair && !Game::InventoryEdit::ClientEditingInventory(Object))
     {
         // Außerhalb einer Bearbeitung reparierte der Host ohne Schrott. Der Client behält das Item kaputt.
@@ -823,7 +950,12 @@ void TraceInventoryEvent(uintptr_t Object, uintptr_t Function, void* Params)
         const bool Wanted = Owner == "InventoryComponent" || Owner == "InventoryItemInstance" || Owner == "BackpackSlot" ||
                             Owner == "InventoryPanel" || Owner == "RewardQueueComponent" || Owner == "CoopInventoryCoordinatorComponent" ||
                             Owner == "CharacterEffectManager" || (Owner == "DDCharacter" && Name.find("EquippedWeapon") != std::string::npos) ||
-                            Owner.starts_with("WP_Inventory") || Owner.starts_with("WP_Backpack") || Owner.starts_with("WP_Item");
+                            Owner.starts_with("WP_Inventory") || Owner.starts_with("WP_Backpack") || Owner.starts_with("WP_Item") ||
+                            // opt-werkbank-station, opt-haendler-client: Händler, Rezepte, Öffnen und Schließen der Panels, Währung.
+                            Owner == "ShopPanel" || Owner == "ShopPanelItem" || Owner == "AbstractPanel" || Owner == "TransactionPanel" ||
+                            Owner == "RecipePanel" || Owner == "RecipeButton" || Owner == "PanelAnimationContainer" || Owner == "AbstractCurrency" ||
+                            Owner == "TimescaleManager" || Owner == "CostDisplay" || Owner.starts_with("WI_Merchant") ||
+                            Owner.starts_with("WP_Recipe") || Owner.starts_with("BP_MetaBase_POI") || Owner == "MetaBasePoi";
         // Animation und Abfragen je Bild nicht, sie verdrängen die eigentlichen Vorgänge.
         const bool Noise = Name.starts_with("ApplyEasing") || Name.starts_with("OnYoyo") || Name.starts_with("OnLoop") ||
                            Name == "GetAnimationContainer" || Name.ends_with("Tick") || Name.starts_with("Get") || Name.starts_with("Is") ||
@@ -1433,6 +1565,10 @@ void AdvanceRemoteQueue()
 
 void Tick()
 {
+    if (CurrentRole() == NetRole::Client)
+        TickStation();
+    else if (Station.Active)
+        Station = {};
     if (CurrentRole() != NetRole::Host)
         return;
     // Lager am Rundenende: nachholen, sobald der Client bereit oder nicht mehr verbunden ist.
@@ -1484,6 +1620,8 @@ bool ShowForClient(uint64_t SessionId, uint64_t Expected, int32_t Level, const s
         return false;
     if (Shown.Session == SessionId && Shown.Revision == Expected && !Shown.Items.empty())
         return true;
+    // opt-werkbank-station: Eine offene Stations-Bearbeitung geht zuerst an den Host, die Auswahl folgt nach seiner Antwort.
+    FinishStation("Auswahl des Hosts");
     if (ClientPending)
         return false;
     CloseForClient();
@@ -1531,7 +1669,7 @@ void CloseForClient()
     if (!Shown.Items.empty())
         Core::Log::Info("Airdrop-Auswahl: Panel beim Client geschlossen, Sitzung {}", Shown.Session);
     // Eine Bearbeitung aus dem Lager (Aufwertung, werkbank-client) gehört nicht zur Auswahl und endet mit dem Lager.
-    if (Game::InventoryEdit::ClientEditing() && !LagerEdit)
+    if (Game::InventoryEdit::ClientEditing() && !LagerEdit && !Station.Active)
         Game::InventoryEdit::RevertClient("Auswahl geschlossen");
     Shown = {};
 }
@@ -1595,6 +1733,9 @@ void SetRoundEnd(uint64_t Id)
 {
     if (Id == End.Id)
         return;
+    // opt-werkbank-station: Beginnt ein Rundenende, geht eine offene Stations-Bearbeitung vorher an den Host.
+    if (Id)
+        FinishStation("Rundenende");
     if (End.HeldPanel)
         SetReadyTint(End.HeldPanel, false); // prüft den gemerkten Knopf selbst
     if (Id)
