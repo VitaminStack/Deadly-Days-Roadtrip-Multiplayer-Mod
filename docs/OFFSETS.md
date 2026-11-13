@@ -329,6 +329,8 @@ Aufgabe `airdrop-auswahl`, Ablauf in [Airdrop-Auswahl](GAME_ANALYSIS.md#airdrop-
 | `FRecipeTableRow` `OutputItem`, `OutputRarityOverride`, `RequiredItems` | `+0x18`, `+0x20`, `+0x28` | `RequiredItems` je `0x10`: Item, RequiredRarityOverride; Tabelle `DT_RecipeTable` |
 | `InventoryPanel.WorkbenchUnlock` | `+0x4D0` | `OnetimeUnlock_Workbench` |
 | `InventoryComponent::HandleItemSold` | `0x5967900` (`26495302`: `0x596BA70`), Exec-Thunk `0x57128B0` | `(this, Item)`, nativ; `RemoveFromBackpack`, `UnoccupyBackpackSlots`, `RemoveFromInventory(SoldForScrap)`, `RefreshItemEffects` (`lager-handel-client`) |
+| `ShopPanelItem::TryBuyItem` (`opt-haendler-client`) | `26495302`: `0x58CE280`, Exec-Thunk `0x579ADE0` | `(this)`, nativ; Preis aus `CostDisplay` (`+0x850`, Wert `+0x384`), zahlt lokal über einen Funktor des Panels, dann `AddToInventory` mit `ItemInstance` (`+0x868`); `ManuallyCallClearAndAdd` `+0x848`. Offsets aus dem Code dieses Builds |
+| `InventoryPanel.ConfirmAllStagedIngredients` | `26495302`: `0x5A5F060`, Exec-Thunk `0x570B460` | Rezept bestätigen, ruft `UpgradeItems` (`opt-werkbank-station`); nicht gepatcht |
 | `ItemRepresentation.ConfirmSell`, `.ConfirmRepair` | `0x5AA2F60`, `0x5AA2DB0` (`26495302`: `0x5AA7E50`, `0x5AA7CA0`) | buchen Schrott lokal über `AddAmount`, dann `HandleItemSold` bzw. Server-RPC `RepairItem` |
 | `ADDMissionGameState.ScrapWallet`, `UAbstractCurrency.CurrencyAmount` | `+0x3C0`, `+0x100` | nicht repliziert; `AddAmount` begrenzt auf 0 bis INT32_MAX und löst `OnCurrencyChanged` aus |
 | `UAbstractCurrency::AddAmount` (nativ) | `26495302`: `0x586B2B0`, Exec-Thunk `0x5662130` | `(this, Delta)`; schreibt `+0x100`, Broadcast `+0xC8` (`opt-schrott-anzeige`) |

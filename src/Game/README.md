@@ -528,6 +528,35 @@ Bearbeitung … nativ“: Ausgabe nur beim Client, der Host verwarf das `AddToIn
 
 **Geprüft:** Build und Unit-Tests. **Im Spiel noch nicht geprüft**, siehe Abnahme der Aufgabe.
 
+### Kaufen beim Händler
+
+Aufgabe `opt-haendler-client`, baut auf der [Stations-Bearbeitung](#stations-bearbeitung-beim-client) auf. Code in `RewardPatches.cpp`
+(Hook auf `TryBuyItem`, Host-Prüfung und Buchung), `InventoryEdit.cpp` (`RecordPurchase`, Käufe im Edit), `InventoryEditPlan.h` (reine
+Logik mit Tests) und `src/Sync/Inventory/RewardState.h`. Format in
+[Kontrollkanal](../../docs/CONTROL_PROTOCOL.md#kaufen-beim-händler-mod-kompatibilität-13).
+
+- **Lokal beim Client:** Das native Händler-Panel mit seinem eigenen Angebot, wie im Solo-Spiel. `TryBuyHook` lässt
+  `UShopPanelItem::TryBuyItem` nur in einer lokalen Bearbeitung laufen; der erste Kauf beginnt eine Stations-Bearbeitung, die offen
+  bleibt, solange das Händler-Panel oder ein Inventar-Panel offen ist. Das gekaufte Item liegt lokal im Inventar und lässt sich sofort
+  ablegen oder aufwerten. Der lokale Abzug ist nur Vorschau.
+- **Geteilt:** Der Edit `0x303` trägt je Kauf Daten, Seltenheit, Preis und Endstand des Items. Den Schrott schickt der Host wie bisher
+  (`0x309`).
+- **Entscheidet:** Der Host. Er prüft vor jeder Änderung Daten, Preis und Schrott, legt das Item selbst im Inventar des Clients an
+  (`CreateAndAddItem`, es repliziert wie jede Vergabe), führt Aufwertungen mit gekauften Eingaben aus und bucht einmal.
+- **Preis:** Das Angebot würfelt das Panel des Clients, der Host sieht es nicht. Der gemeldete Preis muss mindestens der Verkaufspreis
+  des Items beim Host sein, sonst ließe sich durch Kaufen und Verkaufen Schrott erzeugen. Darüber vertraut der Host dem Preis des Clients.
+  Das ist eine bewusste Grenze: Rabatte und Aufschläge des Panels lassen sich beim Host nicht nachrechnen.
+- **Ablehnung:** Der Client rollt wie bei jedem Edit zurück, das gekaufte Item verschwindet, den Schrott gleicht der nächste Stand des
+  Hosts an. Das Angebot im Panel bleibt als verkauft markiert.
+- **Außerhalb einer Bearbeitung** (etwa solange ein Edit unbeantwortet ist) verwirft der Client den Kauf, ohne zu zahlen.
+- **Nicht abgedeckt:** Automaten (`VendingMachinePanel`, `ManuallyCallClearAndAdd`) legen das Item erst nach einer Animation ab und
+  laufen weiter nativ, also wie bisher ohne Wirkung beim Host; im Log steht eine Warnung. Der dubiose Händler nutzt denselben Weg wie der
+  Händler, ist aber nicht geprüft. Was das Neuwürfeln des Angebots kostet, ist nicht untersucht.
+- **Diagnose:** Logzeilen `Station: Kauf …`, `Inventar lokal: Kauf …`, `Handel: Kauf … geprüft`, `Handel: … gebucht`.
+
+**Geprüft:** Build und Unit-Tests (`tests/GameTests/InventoryEditTests.cpp`, `tests/NetTests/RewardTests.cpp`). **Im Spiel noch nicht
+geprüft**, auch nicht, ob echte Händlerpreise immer über dem Verkaufspreis liegen.
+
 ### Itemsack für alle Spieler
 
 Nutzervorgabe 06.11.2026: Ein aufgesammelter Itemsack zählt wie ein Airdrop für alle, jeder Spieler bekommt das Item. Die Vergabe bleibt
