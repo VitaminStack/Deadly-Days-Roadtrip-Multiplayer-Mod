@@ -19,6 +19,20 @@ inline constexpr uint64_t MaxGuid = 0x3FFFFFFFFFFFFFull;
 inline constexpr float MaxDamage = 1.0e9f;
 inline constexpr float MaxCoordinate = 1.0e7f;
 
+// opt-schadenszahlen-verlust: Der Host zählt die Revision je angenommener Nachricht um 1 hoch. Der Client erkennt daran, ob
+// zwischen zwei empfangenen Nachrichten welche fehlen. Eine kleinere oder gleiche Revision heißt neuer Host, also Neustart.
+struct RevisionGaps
+{
+    uint64_t Last = 0;
+    // Anzahl der Nachrichten, die vor dieser fehlen.
+    uint64_t See(uint64_t Revision)
+    {
+        const uint64_t Missing = Last && Revision > Last ? Revision - Last - 1 : 0;
+        Last = Revision;
+        return Missing;
+    }
+};
+
 inline bool Valid(const Game::DamageNumberHit& Hit)
 {
     const auto Coordinate = [](float Value) { return std::isfinite(Value) && std::fabs(Value) <= MaxCoordinate; };

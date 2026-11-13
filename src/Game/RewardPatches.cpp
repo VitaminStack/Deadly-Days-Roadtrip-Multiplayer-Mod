@@ -72,6 +72,7 @@ constexpr uintptr_t ControllerPawn = 0x2E8;
 // BP_DD_Character_C.RewardQueue, URewardQueueComponent: Byte +0x108 = Kiste offen (OpenNextReward setzt/löscht)
 constexpr uintptr_t CharacterRewardQueue = 0x980;
 constexpr uintptr_t QueueBusy = 0x108;
+constexpr uintptr_t QueueCurrent = 0x10C; // CurrentRewardObject, FWeakObjectPtr
 constexpr uint32_t GarbageOrUnreachableFlags = 0x30;
 
 struct ItemArray
@@ -794,6 +795,14 @@ bool FilterRewardEvent(uintptr_t Object, uintptr_t Function, void* Params)
     static uintptr_t Repair = 0;
     if (Function && Function == Function_(Repair, "RepairItem") && !Game::InventoryEdit::ClientEditing())
         BeginLagerEdit(Object, "Reparatur");
+    // opt-rucksack-ueberlappung: Auch der erste Zug im Lager (Ablegen, Verschieben, Herausnehmen) beginnt die lokale Bearbeitung.
+    // Als native RPCs kamen beim Host nur Feldbelegung und IsInBackpack an, Pivot und Drehung blieben (0, 0) und 0, und der Client
+    // bekam im Lager nichts zurück: Sein eigener Stand zeigte die Items weiter im Lager.
+    // Erst die Funktion einordnen: Das eigene Inventar zu suchen läuft über das ganze Objekt-Array.
+    if (End.Id && End.Done != End.Id && !End.HeldPanel && !Game::InventoryEdit::ClientEditing() && !ClientPending && Shown.Items.empty() &&
+        Game::InventoryEdit::MayChangeInventory(Function))
+        if (const uintptr_t Own = InventoryOfController(LocalController()); Game::InventoryEdit::ChangesInventory(Object, Function, Own))
+            BeginLagerEdit(Own, "Zug im Rucksack");
     if (Function && Function == Repair && !Game::InventoryEdit::ClientEditingInventory(Object))
     {
         // Außerhalb einer Bearbeitung reparierte der Host ohne Schrott. Der Client behält das Item kaputt.
@@ -1322,6 +1331,34 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
             Next.Done = !IsBroken(Next.Item);
         }
     HostApplyingEdit = false;
+    // opt-schuss-animation: Eingaben, die beim Host noch im Rucksack liegen, vor der Aufwertung nativ herausnehmen. Im nativen
+    // Panel hat das Ziehen das schon getan; der Client zieht aber nur lokal. UpgradeItems löscht die Instanz, ohne ihre Wirkung zu
+    // beenden: Die Waffe blieb in WeaponLookup und an den Händen der Client-Figur, die Ausgabe bekam keine Darstellung.
+    {
+        std::vector<uintptr_t> Worn;
+        std::vector<ItemState> Before, After;
+        const std::vector<SlotInfo> Placed = SlotsOf(Inventory);
+        for (const auto& Next : Value.Upgrades)
+            for (const uint16_t Source : Next.Inputs)
+            {
+                const uintptr_t Item = Live.contains(Source) ? Live[Source] : 0;
+                if (!Alive(Item) || !Memory::Read<uint8_t>(Item + ItemInBackpack).value_or(0) || std::find(Worn.begin(), Worn.end(), Item) != Worn.end())
+                    continue;
+                Worn.push_back(Item);
+                Before.push_back(ReadItem(Item, Placed, Source));
+                After.push_back(Before.back());
+                After.back().InBackpack = false;
+                After.back().Tiles.clear();
+            }
+        if (!Worn.empty())
+        {
+            HostApplyingEdit = true;
+            const bool Taken = Apply(Inventory, Worn, Before, After, {}, {}, false);
+            HostApplyingEdit = false;
+            Core::Log::Info("Inventar lokal: {} Eingabe(n) der Aufwertungen des Edits {} vorher aus dem Rucksack genommen, vollständig={}", Worn.size(),
+                            Value.Id, Taken);
+        }
+    }
     std::vector<uintptr_t> Made;
     for (size_t K = 0; K < Value.Upgrades.size() && Ok; ++K)
     {
@@ -1404,7 +1441,11 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
 // (InventoryPanel.HandleConfirmButton ruft OpenNextReward der eigenen Queue). Die Queue von P2 bliebe nach einer
 // vom Client geöffneten Kiste belegt (+0x108 gesetzt, CurrentRewardObject zerstört), und RegisterReward gibt keine
 // weitere Kiste mehr frei. OpenNextReward ändert nichts, solange die aktuelle Kiste lebt und nicht fertig ist.
-void AdvanceRemoteQueue()
+// opt-airdrop-uebertrag: Über einen Kartenwechsel hängt keine Queue, beide Figuren und ihre Queues entstehen neu (gemessen
+// 13.11.2026). Jede Änderung des Zustands beider Queues steht einmal im Log (Figur, belegt, aktuelle Kiste), damit ein Live-Test
+// zeigt, ob eine Queue innerhalb einer Karte hängen bleibt. Als Absicherung schaltet die Mod auch die Queue des Hosts weiter,
+// aber nur, wenn sie belegt ist und ihre aktuelle Kiste nicht mehr lebt; dann kann sie niemand mehr bestätigen.
+void AdvanceQueues()
 {
     static ULONGLONG Next = 0;
     const ULONGLONG Now = GetTickCount64();
@@ -1413,22 +1454,54 @@ void AdvanceRemoteQueue()
     Next = Now + 1000;
     uintptr_t Coop = 0, HostController = 0, Remote = 0;
     if (!BoundRemoteP2(Coop, HostController, Remote))
-        return;
-    const uintptr_t Pawn = Pointer(Remote + ControllerPawn);
-    const uintptr_t Queue = Alive(Pawn) ? Pointer(Pawn + CharacterRewardQueue) : 0;
-    static uintptr_t Open = 0;
-    if (!Alive(Queue) || !Memory::Read<uint8_t>(Queue + QueueBusy).value_or(0) ||
-        !Function(Open, "OpenNextReward", "RewardQueueComponent"))
-        return;
-    struct
     {
-        bool Opened;
-        uint8_t Pad[7];
-    } Params{};
-    Objects::ProcessEvent(Queue, Open, &Params);
-    if (!Memory::Read<uint8_t>(Queue + QueueBusy).value_or(1) || Params.Opened)
-        Core::Log::Info("Airdrop-Auswahl: RewardQueue des Remote-Spielers weitergeschaltet, nächste Kiste {}",
-                        Params.Opened ? "freigegeben" : "keine");
+        HostController = LocalController();
+        Remote = 0;
+    }
+    struct Seen
+    {
+        uintptr_t World = 0, Pawn = 0, Queue = 0;
+        int Busy = -1, Current = -1;
+    };
+    static Seen Last[2];
+    static uintptr_t Open = 0;
+    const uintptr_t World = CurrentWorld();
+    const uintptr_t Controllers[2] = {HostController, Remote};
+    for (int i = 0; i < 2; ++i)
+    {
+        const char* Who = i ? "Remote-Spieler" : "Host";
+        const uintptr_t Pawn = Controllers[i] ? Pointer(Controllers[i] + ControllerPawn) : 0;
+        const uintptr_t Queue = Alive(Pawn) && Objects::IsA(Pawn, "DDCharacter") ? Pointer(Pawn + CharacterRewardQueue) : 0;
+        if (!Alive(Queue) || !Objects::IsA(Queue, "RewardQueueComponent"))
+            continue;
+        const int Busy = Memory::Read<uint8_t>(Queue + QueueBusy).value_or(0) != 0;
+        // CurrentRewardObject, schwacher Zeiger: Platz und Serial im Objekt-Array. 0 = keine, 1 = lebt, 2 = zerstört.
+        const int32_t Index = Memory::Read<int32_t>(Queue + QueueCurrent).value_or(-1);
+        const uint32_t Serial = Memory::Read<uint32_t>(Queue + QueueCurrent + 4).value_or(0);
+        const int Current = Index <= 0 && !Serial ? 0 : Objects::IsLive({Objects::At(Index), Index, Serial}) ? 1 : 2;
+        Seen& Was = Last[i];
+        if (Was.World != World || Was.Pawn != Pawn || Was.Queue != Queue || Was.Busy != Busy || Was.Current != Current)
+        {
+            static unsigned Lines = 0;
+            if (++Lines <= 400)
+                Core::Log::Info("Reward-Queue {}: {}{}belegt {}, aktuelle Kiste {}", Who, Was.World != World ? "neue Welt, " : "",
+                                !Was.Pawn ? "" : Was.Pawn != Pawn ? "neue Figur, " : Was.World != World ? "dieselbe Figur, " : "", Busy != 0,
+                                Current == 0 ? "keine" : Current == 1 ? "lebt" : "zerstört");
+            Was = {World, Pawn, Queue, Busy, Current};
+        }
+        if (!Busy || (i == 0 && Current != 2) ||!Function(Open, "OpenNextReward", "RewardQueueComponent"))
+            continue;
+        struct
+        {
+            bool Opened;
+            uint8_t Pad[7];
+        } Params{};
+        Objects::ProcessEvent(Queue, Open, &Params);
+        const bool Freed = !Memory::Read<uint8_t>(Queue + QueueBusy).value_or(1);
+        if (Freed || Params.Opened)
+            Core::Log::Info("Airdrop-Auswahl: RewardQueue des {} weitergeschaltet, nächste Kiste {}", i ? "Remote-Spielers" : "Hosts",
+                            Params.Opened ? "freigegeben" : "keine");
+    }
 }
 
 void Tick()
@@ -1440,7 +1513,7 @@ void Tick()
         ReleaseRoundEndConfirm(End.ClientReady == End.Id ? "Client bereit" : "Client nicht mehr im Lager");
     if (!Host.Active)
     {
-        AdvanceRemoteQueue();
+        AdvanceQueues();
         return;
     }
     if (!Alive(Host.Inventory))
