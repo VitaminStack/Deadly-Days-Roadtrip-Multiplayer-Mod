@@ -75,6 +75,8 @@ bool AddEnemyDeathListener(EnemyDeathListener Listener);
 void TickBodyParts(NetRole Role);
 // opt-blickrichtung-client, Client: Blickwinkel der Hände aus ihrer replizierten Drehung, damit das Richtungs-Mesh sich dreht.
 void TickFacing(NetRole Role, bool Second);
+// opt-waffen-sound, Client: Schusssound lokal aus dem replizierten Multicast der Waffe.
+void TickWeaponSounds(NetRole Role);
 void TickWidgets(NetRole Role);
 void TickProjectiles(NetRole Role, bool Second);
 void TickMovement(NetRole Role, bool Second);

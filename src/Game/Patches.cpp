@@ -252,6 +252,8 @@ void Tick()
     if (ListOn(Player))
         { const GameThread::SlowScope Watch("Blickrichtung"); TickFacing(Role, Second); }
     { const GameThread::SlowScope Watch("Laufanimation"); TickWalkAnimation(Role, Second); }
+    if (ListOn(Widget))
+        { const GameThread::SlowScope Watch("Waffensound"); TickWeaponSounds(Role); }
     if (ListOn(Map))
         { const GameThread::SlowScope Watch("Karte"); TickMap(Role, Second); }
     if (ListOn(Character))
