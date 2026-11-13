@@ -1322,6 +1322,34 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
             Next.Done = !IsBroken(Next.Item);
         }
     HostApplyingEdit = false;
+    // opt-schuss-animation: Eingaben, die beim Host noch im Rucksack liegen, vor der Aufwertung nativ herausnehmen. Im nativen
+    // Panel hat das Ziehen das schon getan; der Client zieht aber nur lokal. UpgradeItems löscht die Instanz, ohne ihre Wirkung zu
+    // beenden: Die Waffe blieb in WeaponLookup und an den Händen der Client-Figur, die Ausgabe bekam keine Darstellung.
+    {
+        std::vector<uintptr_t> Worn;
+        std::vector<ItemState> Before, After;
+        const std::vector<SlotInfo> Placed = SlotsOf(Inventory);
+        for (const auto& Next : Value.Upgrades)
+            for (const uint16_t Source : Next.Inputs)
+            {
+                const uintptr_t Item = Live.contains(Source) ? Live[Source] : 0;
+                if (!Alive(Item) || !Memory::Read<uint8_t>(Item + ItemInBackpack).value_or(0) || std::find(Worn.begin(), Worn.end(), Item) != Worn.end())
+                    continue;
+                Worn.push_back(Item);
+                Before.push_back(ReadItem(Item, Placed, Source));
+                After.push_back(Before.back());
+                After.back().InBackpack = false;
+                After.back().Tiles.clear();
+            }
+        if (!Worn.empty())
+        {
+            HostApplyingEdit = true;
+            const bool Taken = Apply(Inventory, Worn, Before, After, {}, {}, false);
+            HostApplyingEdit = false;
+            Core::Log::Info("Inventar lokal: {} Eingabe(n) der Aufwertungen des Edits {} vorher aus dem Rucksack genommen, vollständig={}", Worn.size(),
+                            Value.Id, Taken);
+        }
+    }
     std::vector<uintptr_t> Made;
     for (size_t K = 0; K < Value.Upgrades.size() && Ok; ++K)
     {
