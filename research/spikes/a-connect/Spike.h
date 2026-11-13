@@ -120,6 +120,7 @@ void SetTestGodmode(bool Enabled);
 void LoadAssetCommand(const std::wstring& Path);
 void GiveItemCommand(const std::wstring& Args);
 void ScrapCommand(const std::wstring& Args);
+void ShopCommand(const std::wstring& Args);
 void BossCommand(const std::wstring& Args);
 void BossDamageCommand(const std::wstring& Args);
 void BossFightCommand(const std::wstring& Args);
