@@ -1488,6 +1488,29 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
             Next.Done = !IsBroken(Next.Item);
         }
     HostApplyingEdit = false;
+    // opt-werkbank-station: Eingaben, die beim Host noch im Rucksack liegen, vor der Aufwertung herausnehmen. UpgradeItems entfernt
+    // sie nur aus dem Inventar; ihre Rucksackfelder blieben sonst von einem zerstörten Item belegt, wenn die Ausgabe woanders landet
+    // (im Spiel gesehen: Aufwertung zweier Pistolen, Ausgabe im Lager, das Feld der alten Pistole blieb belegt).
+    {
+        const std::vector<SlotInfo> Before = SlotsOf(Inventory);
+        std::vector<uintptr_t> Inputs;
+        std::vector<ItemState> Placed, Taken;
+        for (const uint16_t Source : Consumed)
+            if (Live.contains(Source) && Alive(Live[Source]) && Memory::Read<uint8_t>(Live[Source] + ItemInBackpack).value_or(0))
+            {
+                Inputs.push_back(Live[Source]);
+                Placed.push_back(ReadItem(Live[Source], Before, Source));
+                ItemState Out = Placed.back();
+                Out.InBackpack = false;
+                Out.Tiles.clear();
+                Taken.push_back(std::move(Out));
+            }
+        if (!Inputs.empty())
+        {
+            const bool Unplaced = Apply(Inventory, Inputs, Placed, Taken, {}, {}, false);
+            Core::Log::Info("Inventar lokal: {} Eingaben vor der Aufwertung aus dem Rucksack genommen, vollständig={}", Inputs.size(), Unplaced);
+        }
+    }
     std::vector<uintptr_t> Made;
     for (size_t K = 0; K < Value.Upgrades.size() && Ok; ++K)
     {
