@@ -794,6 +794,12 @@ bool FilterRewardEvent(uintptr_t Object, uintptr_t Function, void* Params)
     static uintptr_t Repair = 0;
     if (Function && Function == Function_(Repair, "RepairItem") && !Game::InventoryEdit::ClientEditing())
         BeginLagerEdit(Object, "Reparatur");
+    // opt-rucksack-ueberlappung: Auch der erste Zug im Lager (Ablegen, Verschieben, Herausnehmen) beginnt die lokale Bearbeitung.
+    // Als native RPCs kamen beim Host nur Feldbelegung und IsInBackpack an, Pivot und Drehung blieben (0, 0) und 0, und der Client
+    // bekam im Lager nichts zurück: Sein eigener Stand zeigte die Items weiter im Lager.
+    if (Function && End.Id && End.Done != End.Id && !End.HeldPanel && !Game::InventoryEdit::ClientEditing() && !ClientPending && Shown.Items.empty())
+        if (const uintptr_t Own = InventoryOfController(LocalController()); Game::InventoryEdit::ChangesInventory(Object, Function, Own))
+            BeginLagerEdit(Own, "Zug im Rucksack");
     if (Function && Function == Repair && !Game::InventoryEdit::ClientEditingInventory(Object))
     {
         // Außerhalb einer Bearbeitung reparierte der Host ohne Schrott. Der Client behält das Item kaputt.

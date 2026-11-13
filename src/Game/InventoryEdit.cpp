@@ -814,6 +814,23 @@ void ForgetClient()
     EndHands(false);
 }
 
+bool ChangesInventory(uintptr_t Object, uintptr_t Fn, uintptr_t Inventory)
+{
+    if (!Object || !Fn || !Inventory)
+        return false;
+    switch (Classify(Fn).Type)
+    {
+    case Kind::InventoryRpc:
+    case Kind::RemoveFromInventory:
+    case Kind::AddEffect:
+        return Object == Inventory;
+    case Kind::ItemRpc:
+        return Contains(ItemsOf(Inventory), Object);
+    default:
+        return false;
+    }
+}
+
 bool RouteClientRpc(uintptr_t Object, uintptr_t Fn, void* Params)
 {
     if (Session.State == Phase::Idle || !Fn || CurrentRole() != NetRole::Client)
