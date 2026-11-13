@@ -1,95 +1,95 @@
-# Installation für Spieler
+# Installation for players
 
-Anleitung für das Release-Paket `DDCoop-<Version>.zip`. Wer an der Mod mitarbeitet, nimmt stattdessen
-[tools/Deploy-Mod.ps1](../tools/README.md#deploy-modps1), siehe [Einrichtung](SETUP.md).
+Guide for the release package `DDCoop-<version>.zip`. Contributors use
+[tools/Deploy-Mod.ps1](../tools/README.md#deploy-modps1) instead, see [setup](SETUP.md).
 
-Die Mod ist ein inoffizielles Fan-Projekt ohne Verbindung zu Pixelsplit oder dem Publisher. Jeder Spieler braucht eine eigene Kopie
-des Spiels auf Steam, und beide Spieler brauchen dieselbe Mod-Version.
+The mod is an unofficial fan project, not affiliated with Pixelsplit or the publisher. Every player needs their own copy
+of the game on Steam, and both players need the same mod version.
 
-## Voraussetzungen
+## Requirements
 
-- Windows 10 oder 11, Deadly Days: Roadtrip über Steam installiert.
-- **Spiel-Build `26495302`.** Offsets und Patches der Mod gelten nur für diesen Build. Auf einem anderen Build lehnt der Installer ab
-  und nennt den gefundenen Build. Eine trotzdem vorhandene Mod schaltet sich beim Start selbst ab, das Spiel läuft dann ohne Mod.
-- Das Spiel ist beendet.
-- Keine andere Mod, die ebenfalls eine `version.dll` neben die Spiel-Exe legt.
+- Windows 10 or 11, Deadly Days: Roadtrip installed through Steam.
+- **Game build `26495302`.** The mod's offsets and patches only apply to this build. On any other build the installer refuses
+  and names the build it found. A mod that is present anyway disables itself at startup, and the game runs without it.
+- The game is closed.
+- No other mod that also places a `version.dll` next to the game exe.
 
-## Installieren
+## Install
 
-1. Die ZIP-Datei vollständig in einen beliebigen Ordner entpacken, nicht direkt aus dem ZIP heraus starten.
-2. `Install.cmd` doppelklicken. Der Installer sucht das Spiel in allen Steam-Bibliotheken, auch auf anderen Laufwerken.
-3. Das Spiel wie gewohnt aus Steam starten.
+1. Extract the ZIP file completely into any folder; do not start it from inside the ZIP.
+2. Double-click `Install.cmd`. The installer searches all Steam libraries for the game, including other drives.
+3. Start the game from Steam as usual.
 
-Findet der Installer das Spiel nicht, den Spielordner angeben. Gemeint ist der Ordner, in dem `DDSurvivors` liegt:
+If the installer does not find the game, specify the game folder, meaning the folder that contains `DDSurvivors`:
 
 ```bat
 Install.cmd -GameDir "D:\SteamLibrary\steamapps\common\Deadly Days Roadtrip"
 ```
 
-Eine neue Mod-Version wird genauso installiert, sie ersetzt die alte. Einstellungen in `ddcoop.ini` bleiben erhalten.
+A new mod version is installed the same way and replaces the old one. Settings in `ddcoop.ini` are kept.
 
-## Entfernen
+## Remove
 
-`Uninstall.cmd` doppelklicken. Danach startet das Spiel wieder ohne Mod. Logs und `ddcoop.ini` bleiben im Ordner `DDCoop`,
-mit `Uninstall.cmd -Purge` wird auch dieser Ordner gelöscht.
+Double-click `Uninstall.cmd`. The game then starts without the mod again. Logs and `ddcoop.ini` stay in the `DDCoop` folder;
+`Uninstall.cmd -Purge` deletes that folder too.
 
-Abschalten geht auch ohne Entfernen: In `DDSurvivors\Binaries\Win64\DDCoop\ddcoop.ini` die Zeile `enabled=false` eintragen.
+You can also disable the mod without removing it: add the line `enabled=false` to `DDSurvivors\Binaries\Win64\DDCoop\ddcoop.ini`.
 
-## Was der Installer ändert
+## What the installer changes
 
-Nur zwei Dateien in `DDSurvivors\Binaries\Win64` im Spielordner:
+Only two files in `DDSurvivors\Binaries\Win64` in the game folder:
 
-| Datei | Aufgabe |
+| File | Purpose |
 |---|---|
-| `version.dll` | Loader: Das Spiel lädt ihn beim Start, er startet die Mod und reicht alles andere an die `version.dll` von Windows weiter |
-| `DDCoop\DDCoop.dll` | Die Mod selbst |
+| `version.dll` | Loader: the game loads it at startup, it starts the mod and forwards everything else to the Windows `version.dll` |
+| `DDCoop\DDCoop.dll` | The mod itself |
 
-Zur Laufzeit schreibt die Mod Logs nach `DDCoop\logs`. Spielstände, Steam-Einstellungen und alle anderen Spieldateien bleiben unberührt.
-Eine `version.dll`, die nicht zu dieser Mod gehört, wird nie überschrieben oder gelöscht.
+At runtime the mod writes logs to `DDCoop\logs`. Savegames, Steam settings and all other game files stay untouched.
+A `version.dll` that does not belong to this mod is never overwritten or deleted.
 
-„Integrität der Spieldateien überprüfen“ in Steam entfernt die Mod nicht, weil die beiden Dateien nicht zum Spiel gehören.
-Dafür `Uninstall.cmd` nehmen.
+"Verify integrity of game files" in Steam does not remove the mod, because the two files are not part of the game.
+Use `Uninstall.cmd` for that.
 
-`SHA256SUMS.txt` im Paket enthält die Prüfsummen aller Dateien. Sie müssen mit denen der Veröffentlichung übereinstimmen.
+`SHA256SUMS.txt` in the package contains the checksums of all files. They must match those of the release.
 
-## Fehlermeldungen
+## Error messages
 
-| Meldung | Bedeutung und Abhilfe |
+| Message | Meaning and fix |
 |---|---|
-| `Spiel-Build … statt 26495302` | Steam hat das Spiel auf einen Build aktualisiert, den die Mod noch nicht kennt. Auf eine Mod-Version für diesen Build warten, bis dahin ohne Mod spielen. |
-| `Steam nicht gefunden` oder `in keiner Steam-Bibliothek gefunden` | Den Spielordner mit `-GameDir` angeben, siehe oben. |
-| `Steam-Manifest nicht gefunden` | Der angegebene Ordner liegt nicht in einer Steam-Bibliothek (`…\steamapps\common\…`). Nur Steam-Installationen werden unterstützt. |
-| `Spiel-Exe nicht gefunden` | Mit `-GameDir` den Ordner angeben, in dem `DDSurvivors` liegt, nicht einen Unterordner. |
-| `Das Spiel laeuft` | Spiel beenden, auch im Task-Manager prüfen, dann erneut ausführen. |
-| `Fremde version.dll gefunden` | Eine andere Mod nutzt denselben Dateinamen. Erst diese entfernen, beide gleichzeitig gehen nicht. |
-| `… fehlt. Das Paket vollstaendig entpacken.` | Das ZIP wurde nicht vollständig entpackt oder ein Virenscanner hat eine Datei entfernt. |
+| `Game build … instead of 26495302` | Steam updated the game to a build the mod does not know yet. Wait for a mod version for that build, and play without the mod until then. |
+| `Steam not found` or `not found in any Steam library` | Specify the game folder with `-GameDir`, see above. |
+| `Steam manifest not found` | The given folder is not in a Steam library (`…\steamapps\common\…`). Only Steam installations are supported. |
+| `Game exe not found` | Use `-GameDir` to specify the folder that contains `DDSurvivors`, not a subfolder. |
+| `The game is running` | Close the game, also check the Task Manager, then run again. |
+| `Foreign version.dll found` | Another mod uses the same file name. Remove it first; both at once do not work. |
+| `… is missing. Extract the package completely.` | The ZIP was not fully extracted, or an antivirus removed a file. |
 
-## Virenscanner und Proton
+## Antivirus and Proton
 
-Die Mod lädt sich über eine nachgebaute `version.dll` und ändert Funktionen im laufenden Spiel. Manche Virenscanner halten das
-für verdächtig.
+The mod loads through a replacement `version.dll` and modifies functions in the running game. Some antivirus programs
+consider that suspicious.
 
-**Geprüft:** Windows Defender (Signaturen `1.463.207.0`, 09.11.2026) meldet im entpackten Paket nichts, auch nicht in
-`version.dll` und `DDCoop\DDCoop.dll`. Andere Scanner sind nicht geprüft.
+**Checked:** Windows Defender (signatures `1.463.207.0`, 9 Nov 2026) reports nothing in the extracted package, including
+`version.dll` and `DDCoop\DDCoop.dll`. Other scanners were not checked.
 
-**Meldet ein Virenscanner die Mod:**
+**If an antivirus reports the mod:**
 
-1. Nur dem Paket von der offiziellen Release-Seite vertrauen. Die Prüfsummen stehen in `SHA256SUMS.txt` im Paket.
-2. Prüfen, ob die Datei aus Quarantäne oder Ordner fehlt. Dann meldet der Installer `… fehlt. Das Paket vollständig entpacken.`
-3. Die Meldung mit Scannername und Erkennungsname als Issue im Repo melden. Das Team meldet den Fehlalarm beim Hersteller,
-   bei Microsoft über <https://www.microsoft.com/wdsi/filesubmission>.
-4. Den Ordner nur ausnehmen, wenn die Prüfsummen stimmen. Nie den Virenscanner ganz abschalten.
+1. Only trust the package from the official release page. The checksums are in `SHA256SUMS.txt` in the package.
+2. Check whether the file is missing from quarantine or folder. The installer then reports `… is missing. Extract the package completely.`
+3. Report the message with the scanner name and detection name as an issue in the repo. The team reports the false positive
+   to the vendor, for Microsoft at <https://www.microsoft.com/wdsi/filesubmission>.
+4. Only add an exclusion for the folder if the checksums match. Never turn off the antivirus completely.
 
-**Steam Deck und Proton:** nicht unterstützt und nicht getestet. Die Mod ist nur unter Windows mit Steam geprüft. Wer es
-trotzdem versucht, setzt in den Startoptionen `WINEDLLOVERRIDES="version=n,b" %command%`, damit Proton die `version.dll` der
-Mod lädt. Fehler dabei bitte nicht als Fehler der Mod melden.
+**Steam Deck and Proton:** not supported and not tested. The mod is only verified on Windows with Steam. If you try anyway,
+set `WINEDLLOVERRIDES="version=n,b" %command%` in the launch options so Proton loads the mod's `version.dll`. Please do not
+report failures there as mod bugs.
 
-## Paket bauen
+## Build the package
 
-Für das Team: Das Paket entsteht im Repo mit
+For the team: the package is built in the repo with
 
 ```bash
 powershell -ExecutionPolicy Bypass -File tools/New-ReleasePackage.ps1 -Version <version>
 ```
 
-Details unter [Tools](../tools/README.md#new-releasepackageps1).
+Details under [Tools](../tools/README.md#new-releasepackageps1).
