@@ -505,6 +505,29 @@ Tank mit `fuel.py --fill`):
 **Nicht live geprüft:** Werkbank als Gegenprobe (ohne Spike lässt sie sich auf `26495302` nicht freischalten), Verkaufen im
 Airdrop-Panel, Verkaufen mehrerer Items auf einmal (`SellStashItems`) und `FreeRepairChance`. Die Unit-Tests decken die Regeln ab.
 
+### Stations-Bearbeitung beim Client
+
+Aufgabe `opt-werkbank-station`, Code in `RewardPatches.cpp` (`BeginPanelEdit`, `Station`, `TickStation`). Befund in
+[Händler und Werkbank im Händler-Event](../../docs/GAME_ANALYSIS.md#händler-und-werkbank-im-händler-event-opt-haendler-client-opt-werkbank-station).
+
+**Befund vorher:** `werkbank-client` und `lager-handel-client` beginnen eine lokale Bearbeitung nur im Lager am Rundenende. Das
+Inventar-Panel geht aber auch mitten in einer Mission auf, etwa im Händler-Event. Dort lief eine Aufwertung des Clients „außerhalb einer
+Bearbeitung … nativ“: Ausgabe nur beim Client, der Host verwarf das `AddToInventory` der lokalen Instanz.
+
+- **Lokal beim Client:** Das native Panel wie im Solo-Spiel. Ohne Rundenende und ohne Airdrop-Auswahl beginnt die erste Aufwertung, der
+  erste Verkauf oder die erste Reparatur eine **Stations-Bearbeitung**, wenn ein Inventar-Panel zum eigenen Inventar offen ist
+  (`UAbstractPanel.AnimationContainer`, `UPanelAnimationContainer.IsOpen`, beide über die Reflexion aufgelöst). Ohne offenes Panel
+  bleibt es beim bisherigen Verhalten samt Warnung im Log.
+- **Geteilt:** Nichts Neues. Sobald kein Panel der Station mehr offen ist (Abfrage alle 150 ms, nicht mitten in einem Drag), geht der
+  Endstand als Edit `0x303` an den Host, mit Aufwertungen, Verkäufen und Reparaturen wie aus dem Lager.
+- **Entscheidet:** Der Host, mit denselben Prüfungen wie für jeden Edit (`ApplyClientEdit`).
+- **Ablehnung und Abbruch:** Ablehnung rollt wie bei jedem Edit zurück. Wechselt die Welt, wird die Bearbeitung verworfen. Beginnt ein
+  Rundenende oder kommt eine Airdrop-Auswahl des Hosts, geht die Stations-Bearbeitung vorher an den Host; die Auswahl erscheint nach
+  seiner Antwort.
+- **Diagnose:** Logzeilen `Station: …`.
+
+**Geprüft:** Build und Unit-Tests. **Im Spiel noch nicht geprüft**, siehe Abnahme der Aufgabe.
+
 ### Itemsack für alle Spieler
 
 Nutzervorgabe 06.11.2026: Ein aufgesammelter Itemsack zählt wie ein Airdrop für alle, jeder Spieler bekommt das Item. Die Vergabe bleibt
@@ -520,7 +543,7 @@ landeten bei beiden Spielern (`Itemsack: … auch an Spieler i vergeben, angeleg
 
 **Diagnose für `inventar-lokal`:** Mit der Umgebungsvariable `DDCOOP_TRACE_INVENTORY=1` schreibt die Mod jeden `ProcessEvent`-Aufruf an
 Inventar, Item, Rucksackfeld, Reward-Queue und Inventar-Widgets als `InvTrace C|H Klasse.Funktion [Net]` ins Log, ohne Animations- und
-Abfrageaufrufe, höchstens 20000 Zeilen. Ohne die Variable kostet sie nur einen Vergleich je Aufruf. Erste Spur: Schon beim Öffnen der
+Abfrageaufrufe, höchstens 20000 Zeilen. Seit `opt-werkbank-station` auch Händler, Rezepte, Währung und das Öffnen und Schließen der Panels. Ohne die Variable kostet sie nur einen Vergleich je Aufruf. Erste Spur: Schon beim Öffnen der
 Airdrop-Auswahl ruft der Client an jeder Choice `UpdateIsReward` als Server-RPC.
 
 ## Ohne Spike

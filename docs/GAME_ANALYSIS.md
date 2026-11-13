@@ -2271,6 +2271,29 @@ zuletzt 5 s vor dem zehnten Rundenende); Sound wurde gehört, nicht gezählt.
 - **Nicht geprüft:** `fortschritt` (Giftwolke, Item-Effekte, Werte nach Upgrade), Treffereffekte für `opt-blut`, Tod und
   Wiederbelebung, Reconnect.
 
+### Händler und Werkbank im Händler-Event (`opt-haendler-client`, `opt-werkbank-station`)
+
+Ausgewertet am 13.11.2026: Code der Mod, die Exe des Builds `26495302` und die Logs beider Seiten aus `livetest-1311`. **Kein eigener
+Spieltest**, die Folgerungen aus den Logs sind als Vermutung gekennzeichnet.
+
+- **[Belegt, Code] „POI-Betreten der Remote-Figur beim Host übergangen“ ist Absicht.** Der Händler ist ein `BP_MetaBase_POI_C`. Sein
+  Panel ist lokale UI, der Client öffnet es bei sich selbst; beim Host liefe das Betreten mit dem Remote-Controller ohne `LocalPlayer`
+  und sperrte nur die Bewegung (`FilterRemotePoiOverlap`). Das verhindert keinen Kauf.
+- **[Belegt, Exe] Der Kauf läuft nativ beim Client.** `UShopPanelItem::TryBuyItem` prüft den Preis aus dem `CostDisplay` über einen
+  Funktor des Panels, zieht ihn über einen zweiten Funktor lokal ab und ruft dann `AddToInventory` mit der Instanz des Shops, die es nur
+  beim Client gibt. Beim Host kommt der Server-RPC mit Null an und wird verworfen („AddToInventory ohne Item vom Client verworfen“). Das
+  Schrottkonto repliziert nicht, der Abzug blieb also auch lokal. Automaten setzen `ManuallyCallClearAndAdd` und legen das Item erst
+  später über `ClearItemAndAddToInventory` ab.
+- **[Belegt, Exe] Die „Werkbank“ ist das Rezept-Panel im Inventar-Panel.** Der Aufrufer aus dem Client-Log liegt in
+  `InventoryPanel.ConfirmAllStagedIngredients`. Im Händler-Event gibt es kein Rundenende, darum begann keine lokale Bearbeitung und
+  `UpgradeItems` lief nativ; dessen `AddToInventory` der Ausgabe ist die vierte verworfene Meldung beim Host (zeitgleich im Log).
+- **[Vermutung, Logs] Die Pause ist nativ und kommt auch vom Client.** Beim Host beginnt `Pauser true` zweimal wenige Millisekunden nach
+  einem Kauf des Clients, einmal während eigener Käufe des Hosts (sein Schrott sinkt). Das Inventar-Panel, das nach einem Kauf aufgeht,
+  pausiert demnach die Welt für beide, gleich wer es öffnet; `AWorldSettings` repliziert den Pauser. Wer währenddessen nicht selbst am
+  Händler steht, kann sich nicht bewegen; ein schon offenes Panel bleibt bedienbar. Nicht im Spiel nachgestellt.
+- **[Belegt] Die lokalen SDK-Dumps stammen noch von Build `26187885`.** Funktionsadressen daraus gelten für `26495302` nicht; die
+  Adressen hier stammen aus den Namenstabellen der Exe dieses Builds.
+
 ### Sound und Effekte beim Client (`vfx-sound`)
 
 Gemessen am 11.11.2026, Build `26495302`, Mod-Stand `main` `3e7379e` (Mod-Version 12), ein PC, `Start-Session.ps1 -Mod -Tunnel Lobby
