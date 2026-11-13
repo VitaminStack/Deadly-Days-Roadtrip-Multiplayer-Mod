@@ -48,6 +48,12 @@ constexpr uintptr_t IsmStaticMesh = 0x5E8;
 constexpr uintptr_t IsmInstances = 0x6A8; // TArray<FInstancedStaticMeshInstanceData>, je 0x80 Byte FMatrix
 constexpr uintptr_t IsmRandomSeed = 0x734;
 
+// ABossMapTileParcel und UBossSelectorComponent, im Spiel gemessen (docs/OFFSETS.md, endboss-spawn)
+constexpr uintptr_t ParcelBossSelector = 0x378;
+constexpr uintptr_t ParcelGameState = 0x3D8;
+constexpr uintptr_t ParcelFightStarted = 0x3E8;
+constexpr uintptr_t SelectorSpawnPoint = 0xF0; // BossfightSpawnPoint
+
 using StartMapGenerationFn = void(__fastcall*)(uintptr_t);
 using CreateChildActorFn = void(__fastcall*)(uintptr_t, uintptr_t);
 using SetupPcgVolumeFn = void(__fastcall*)(uintptr_t, uintptr_t, uintptr_t, uintptr_t);
@@ -90,6 +96,9 @@ struct
     // Beide: PCG-Volume, dessen Instanzen noch einen festen Seed brauchen
     uintptr_t PcgWorld = 0;
     ULONGLONG PcgSince = 0;
+    // Host (endboss-spawn): Welt, deren Boss-Parzelle den Missionsstart noch nachholen muss, 0 ohne
+    uintptr_t BossWorld = 0;
+    ULONGLONG BossSince = 0;
 } S;
 
 template <typename T> T ReadOr(uintptr_t Address, T Fallback = {})
@@ -201,6 +210,44 @@ void PublishHostMap(uintptr_t Generator)
     Core::Log::Info("Karte: Host erzeugt {} {}{}", Value.Seed, Value.Profile, TagText);
     S.Published = std::move(Value);
     S.PublishedWorld = CurrentWorld();
+    S.BossWorld = CurrentWorld();
+    S.BossSince = GetTickCount64();
+}
+
+// endboss-spawn: Die Boss-Parzelle entsteht mit der Karte und bindet sich erst dann an GameState.OnMissionStarted. Erst ihr
+// Handler setzt über einen Timer BossSelector.BossfightSpawnPoint, ohne den die Startzone keinen Kampf beginnt. Beim Host zu
+// zweit reist das Spiel per servertravel statt über den eigenen Ladeablauf (TravelPatches.cpp), die Mission läuft dann schon,
+// wenn die Karte fertig ist, und die Parzelle verpasst den Start. Darum den Handler einmal nachholen, nur wenn er fehlt.
+void CatchUpBossMission()
+{
+    if (!S.BossWorld)
+        return;
+    if (S.BossWorld != CurrentWorld() || GetTickCount64() - S.BossSince > 120000)
+    {
+        S.BossWorld = 0;
+        return;
+    }
+    const uintptr_t Parcel = Objects::FindInstance("BossMapTileParcel");
+    const uintptr_t State = Parcel ? ReadOr<uintptr_t>(Parcel + ParcelGameState) : 0;
+    static const uintptr_t IsStarted = Objects::FindObject("IsMissionStarted", "DDMissionGameState");
+    static const uintptr_t OnStarted = Objects::FindObject("OnMissionStarted", "BossMapTileParcel");
+    if (!State || !IsStarted || !OnStarted)
+        return;
+    struct
+    {
+        bool ReturnValue;
+        uint8_t Pad[7];
+    } Started{};
+    Objects::ProcessEvent(State, IsStarted, &Started);
+    if (!Started.ReturnValue)
+        return; // Die Mission startet noch, dann kommt der Handler nativ.
+    S.BossWorld = 0;
+    const uintptr_t Selector = ReadOr<uintptr_t>(Parcel + ParcelBossSelector);
+    if (!Selector || ReadOr<uintptr_t>(Selector + SelectorSpawnPoint) || ReadOr<uint8_t>(Parcel + ParcelFightStarted))
+        return;
+    Core::Log::Info("Boss: Parzelle hat den Missionsstart verpasst, Host holt ihn nach");
+    uint8_t NoParams[16]{};
+    Objects::ProcessEvent(Parcel, OnStarted, NoParams);
 }
 
 void PublishHostGraph(uintptr_t PcgGenerator)
@@ -593,6 +640,8 @@ void TickMap(NetRole Role, bool Second)
     }
     if (Second)
         SeedPcgInstances();
+    if (Second && Role == NetRole::Host)
+        CatchUpBossMission();
 }
 }
 

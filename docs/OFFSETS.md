@@ -812,3 +812,20 @@ Build `26495302`, Disassembly der Exec-Thunks (`UFunction::ExecFunction` `+0xD8`
 | `AProjectile` | `OptionalProjectileTelegraph` `0x378` |
 | `UNiagaraComponent` | `Asset` `0x580`; vfunc `+0xA78` setzt einen Float-Parameter (wie `SetVariableFloat`) |
 | `NiagaraFunctionLibrary.SpawnSystemAtLocation` | Parameter 0x68 Byte, Ort `0x10`, Rotation `0x28`, Skala `0x40`, `bAutoDestroy` `0x58`, Rückgabe `0x60` |
+
+## Boss-Parzelle (`endboss-spawn`)
+
+Build `26495302`, im laufenden Spiel gemessen (Tag-8-Karte `MGP_Burger_Boss_Nature`, `BP_Parcel_BurgerBoss_01_C`) und per Frida
+beobachtet, 13.11.2026. Der BossSelector liegt gegenüber dem SDK verschoben. Siehe
+[Boss erscheint nicht](GAME_ANALYSIS.md#endboss-erscheint-nicht-endboss-spawn).
+
+| Stelle | Wert |
+|---|---|
+| `ABossMapTileParcel` | `StartFightZone` `0x370`, `BossSelector` `0x378`, `NightController` `0x380`, `BossComponent` `0x388`, `BossSpawnPoint` `0x390`, `ArenaBounds` `0x398`, `SequenceDelay` `0x3A0`, `LoadingSubSystem` `0x3D0`, `GameState` `0x3D8`, `BossProgress` `0x3E0`, Kampf gestartet `0x3E8` (bool, ohne Reflexion) |
+| `UBossSelectorComponent` | `DA_BossSpawnLookup` `0xC8`, `NumBossesBeforeEndBoss` `0xD0` (3), `BossProgressSubsystem` `0xD8`, `SpecialRunSubsystem` `0xE0`, `EndlessModeSubsystem` `0xE8`, `BossfightSpawnPoint` `0xF0`, `EnemySpawnBounds` `0xF8`, `BossProxyLocation` `0x108`, `BossSpawnerLocation` `0x110`, Kandidaten `0x1E8` (TArray, je `0x68`) |
+| `ABossfightSpawnPoint` | `SpawnedBoss` `0x498` |
+| `ADDMissionGameState` | `OnMissionStarted` `0x328` (TArray `FScriptDelegate` je `0x10`: Objektindex, FName), `OnMissionFinishing` `0x338`, `SecondsSinceMissionStart` `0x38C` |
+| `ABossMapTileParcel::OnBossfightTriggerZoneBeginOverlap` | Thunk `0x5666A90`, Implementierung `0x59AFFF0` (vtable `0x778`); ohne `BossfightSpawnPoint` kein Kampf |
+| `ABossMapTileParcel::OnMissionStarted` | Thunk `0x56677B0`, Implementierung `0x59B09A0` (vtable `0x770`); plant einen Timer, dessen Lambda (`0x599FD30`) mit `rcx = Parcel+0x378` die Selector-Funktion `0x58C3370` ruft, die `BossfightSpawnPoint` setzt |
+| `ABossMapTileParcel::OnLoadingFinished` | Thunk `0x56676C0`, nativ leer (`0x468AAB0`, vtable `0x768`) |
+| Statischer FName `OnMissionStarted` | global `0x4AC558E0`, angelegt in `0x11E4170` (UTF-16-Text `0x9387630`) |
