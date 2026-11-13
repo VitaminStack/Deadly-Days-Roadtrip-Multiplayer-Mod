@@ -222,6 +222,7 @@ void ScrapCommand(const std::wstring& Args)
 //   !shop away         eigene Figur 3000 Einheiten wegstellen, das Verlassen schliesst das Panel
 //   !shop list         Angebote aller Haendler-Panels mit Preis, dazu das eigene Inventar
 //   !shop buy <n>      UShopPanelItem.TryBuyItem am Angebot n
+//   !shop call <Klasse> <Funktion>   parameterlose UFunction an jeder Instanz, etwa ein Knopf-Ereignis
 //   !shop upgrade      zwei gleiche Items des eigenen Inventars ueber UInventoryComponent.UpgradeItems zur naechsten Seltenheit
 namespace
 {
@@ -422,6 +423,31 @@ void ShopCommand(const std::wstring& Args)
                 return;
             }
         Log("Shop: keine zwei gleichen aufwertbaren Items im eigenen Inventar");
+    }
+    else if (Action == "call")
+    {
+        // "!shop call <Klasse> <Funktion>": parameterlose UFunction an jeder lebenden Instanz der Klasse, etwa der Zurueck-Knopf des
+        // Haendler-Panels. Die Funktion wird in der Klasse der Instanz und ihren Oberklassen gesucht.
+        const size_t Second = Space == std::string::npos ? std::string::npos : Text.find(' ', Space + 1);
+        if (Second == std::string::npos)
+        {
+            Log("Shop: call braucht Klasse und Funktion");
+            return;
+        }
+        const std::string ClassName = Text.substr(Space + 1, Second - Space - 1), FunctionName = Text.substr(Second + 1);
+        int Called = 0;
+        for (const uintptr_t Object : InstancesOf(ClassName.c_str()))
+        {
+            uintptr_t Function = 0;
+            for (uintptr_t Class = Read<uintptr_t>(Object + 0x10); Class && !Function; Class = Read<uintptr_t>(Class + 0x40))
+                Function = FindObject(FunctionName.c_str(), NameOf(Class).c_str());
+            if (!Function)
+                continue;
+            uint8_t Params[0x100]{};
+            Call(Object, Function, Params);
+            ++Called;
+        }
+        Log("Shop: " + ClassName + "." + FunctionName + " an " + std::to_string(Called) + " Instanzen gerufen");
     }
     else
         Log("Shop: unbekannt, siehe Kommentar in Cheats.cpp");
