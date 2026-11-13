@@ -3,8 +3,9 @@
 Build 26495302, nicht atomar (opt-schuss-animation). Je BP_DD_Character_C der aktuellen Welt: Rolle, Ort, EquippedWeapons,
 die Haende (AHands: ParentCharacter, AutoFire, Blickwinkel, ChildActorComponents, CurrentRanged/MeleeWeapons) und je
 Waffen-Darstellung Klasse, Anhaengepunkt, relative Lage und Weltort. Dazu alle AWeapon-Actors der Welt, auch solche, die keine
-Hand mehr fuehrt (verwaiste Darstellungen). Beim Host dazu je Figur: EquippedWeapons gegen die Listen der Haende und gegen
-InventoryComponent.WeaponLookup; Exitcode 1 bei einer Geisterwaffe oder einer ausgeruesteten Waffe ohne Darstellung.
+Hand mehr fuehrt (verwaiste Darstellungen). Beim Host dazu je Figur: EquippedWeapons gegen die Listen der Haende; Exitcode 1 bei
+einer Geisterwaffe (Waffe an den Haenden, deren Item nicht im Rucksack liegt) oder einer ausgeruesteten Waffe ohne Darstellung.
+InventoryComponent.WeaponLookup steht nur als Hinweis dabei: Es behaelt auch bei sauberen Haenden alte Eintraege.
 Schreibt nichts, ruft nichts.
 Offsets: docs/OFFSETS.md#schuss-animation-opt-schuss-animation.
 """
@@ -181,7 +182,7 @@ def snapshot(pid):
                             'melee': None if melee is None else [instance(game, entry) for entry in melee],
                             'listed': None if children is None else len(children), 'representations': reps}
         # Nur beim Host aussagekraeftig: EquippedWeapons und WeaponLookup replizieren nicht. Eine Waffe an den Haenden, deren Item
-        # nicht (mehr) im Rucksack liegt, oder ein Lookup-Eintrag ohne Item im Inventar ist eine Geisterwaffe.
+        # nicht (mehr) im Rucksack liegt, ist eine Geisterwaffe. WeaponLookup ist ein Zwischenspeicher und zaehlt nicht dazu.
         inventory = inventories.get(figure)
         items = (array(game, inventory + INVENTORY_ITEMS, 512) or []) if inventory else []
         lookup = []
@@ -193,8 +194,8 @@ def snapshot(pid):
                     lookup.append({'item': game.name(game.ptr(key + ITEM_DATA)), 'in_inventory': key in items})
         row['lookup'] = lookup
         held = ((row['hands'] or {}).get('ranged') or []) + ((row['hands'] or {}).get('melee') or [])
-        row['ghosts'] = ([entry['data'] for entry in held if entry['item'] not in items or not entry['item_in_backpack']] +
-                         [entry['item'] for entry in lookup if not entry['in_inventory']]) if row['role'] == 3 and inventory else []
+        row['ghosts'] = ([entry['data'] for entry in held if entry['item'] not in items or not entry['item_in_backpack']]
+                         if row['role'] == 3 and inventory else [])
         row['unrepresented'] = [entry['data'] for entry in (row['equipped'] or []) if not entry['actor']] if row['role'] == 3 else []
         result['figures'].append(row)
     result['weapon_actors'] = [dict(actor(game, obj), led=obj in led, current_level=current) for obj, current in weapons]
@@ -219,7 +220,7 @@ def brief(report):
                              f" Inner {hands['inner'] and (hands['inner']['rel_location'], hands['inner']['rel_rotation'])}"
                              f" Kinder Root {hands['root_children']} Inner {hands['inner_children']}")
             if figure['role'] == 3:
-                lines.append(f"    Host-Zustand: ausgeruestet {[entry['data'] for entry in figure['equipped'] or []]}, Lookup {len(figure['lookup'])}, "
+                lines.append(f"    Host-Zustand: ausgeruestet {[entry['data'] for entry in figure['equipped'] or []]}, Lookup {len(figure['lookup'])} (davon {sum(not entry['in_inventory'] for entry in figure['lookup'])} ohne Item im Inventar, nur Hinweis), "
                              f"Geisterwaffen {figure['ghosts'] or 'keine'}, ausgeruestet ohne Darstellung {figure['unrepresented'] or 'keine'}")
             for rep in hands.get('representations') or []:
                 comp, act = rep['component'] or {}, rep['actor'] or {}

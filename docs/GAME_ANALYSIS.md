@@ -609,12 +609,15 @@ Leveln liegen bei der Client-Figur mehrere Waffen übereinander, die Figur gleit
   Kartenwechsel mit 3 und 4 Waffen, Tod (alle Darstellungen weg, Kriechen mit Wackeln auf beiden Seiten), Wiederbelebung durch den
   Host, Kartenwechsel im toten Zustand. Die Fixes aus `opt-blickrichtung-client` und `opt-laufanimation-client` griffen in allen Fällen
   (Hände-Gier im Median gleich, `Progress` läuft auf beiden Seiten).
-- **[Belegt, Messung] Ursache: Geisterwaffen beim Host nach einer Aufwertung im Client-Edit.** Der Client legte im Lager zwei
+- **[Belegt, eine Messung] Geisterwaffen beim Host nach einer Aufwertung im Client-Edit.** Der Client legte im Lager zwei
   ausgerüstete Messer aufeinander (Host-Log „Aufwertung 1 des Edits … beim Host, Ausgabe true“, „vollständig=true“). Nach dem
   nächsten Kartenwechsel beim Host, Client-Figur: `EquippedWeapons` Messer (neu), Pistole, Revolver; das neue Messer ohne
   `WeaponActor`. `Hands.CurrentMeleeWeapons` führte dagegen die **zwei verbrauchten** Messer samt Waffen-Actor, deren Items nicht mehr
-  im Inventar stehen, und `InventoryComponent.WeaponLookup` hatte 5 Einträge statt 3. Die Geisterwaffen replizieren, beide Seiten
-  sehen sie an der Client-Figur. Die Host-Figur war sauber.
+  im Inventar stehen. Die Geisterwaffen replizieren, beide Seiten sehen sie an der Client-Figur. Die Host-Figur war sauber.
+  **Einschränkung:** Das ist eine einzige Messung, erst nach einem Kartenwechsel und unter der Hände-Testhilfe, die der Kartenwechsel
+  zurückgesetzt hatte (siehe Grenzen). Dass die Aufwertung die Ursache ist und nicht die Testhilfe oder der Kartenwechsel, ist damit
+  eine gut gestützte **Vermutung**, kein Beweis. `InventoryComponent.WeaponLookup` taugt nicht als Beleg: Es behielt auch bei sauberen
+  Händen alte Einträge (Host-Figur 5 Einträge bei 3 Waffen, nachdem ein Item nur über den Rucksack gezogen wurde).
 - **[Belegt, Disassembly; Zuordnung der Aufrufziele unsicher]** Das native Ablegen (`InventoryPanel.UpgradeDroppedItem`, `0x5A9D370`)
   ruft vor `UpgradeItems` kein `RemoveFromBackpack`; nach `UpgradeItems` folgen `SetTurns` und `ForceEquipItemInBackpack`. Nativ hat
   das Ziehen die gezogene Eingabe aber schon aus dem Rucksack genommen. Der Client zieht nur lokal, beim Host lagen beide Eingaben
@@ -623,7 +626,7 @@ Leveln liegen bei der Client-Figur mehrere Waffen übereinander, die Figur gleit
   mehr Darstellungen an der Figur, als die Hände Plätze haben; das passt zum Bild „Waffen übereinander“ und zu „in höheren Leveln“.
   Das Bild lag bei der Auswertung nicht vor. Ob das **Gleiten** dieselbe Ursache hat (`WeaponMovementSpeedEffects` je Waffe, im Log
   105-mal „Tempo der eigenen Figur aus dem Attribut übernommen“), ist nicht belegt; auf einem PC ließ es sich nicht nachstellen.
-- **Umsetzung** (`RewardPatches.cpp`, `ApplyClientEdit`): Vor den Aufwertungen eines Edits nimmt der Host jede Eingabe, die bei ihm noch
+- **Umsetzung, als Hypothese** (`RewardPatches.cpp`, `ApplyClientEdit`): Vor den Aufwertungen eines Edits nimmt der Host jede Eingabe, die bei ihm noch
   im Rucksack liegt, nativ heraus (`UnoccupyBackpackSlots`, `RemoveFromBackpack` mit `ForceRemoveAllEffects`, derselbe Planschritt wie
   bei jedem Item, das den Rucksack verlässt). Danach läuft `UpgradeItems` wie bisher, die Ausgabe bekommt ihren Platz über den Plan.
   Log „… Eingabe(n) der Aufwertungen des Edits … vorher aus dem Rucksack genommen“.
@@ -632,15 +635,18 @@ Leveln liegen bei der Client-Figur mehrere Waffen übereinander, die Figur gleit
   Replikation der Hände. Keine neue Nachricht, `ModVersion` bleibt 12. Ablehnung und Wiederholung laufen wie bei jedem Edit.
 - **Nicht bestätigt: die Korrektur im Spiel.** Build und Tests bestehen (`Build-Mod.ps1 -Configuration Release -Test`, Python-Tests).
   Der Prüfablauf braucht Ziehen im Inventar-Panel und Klicks auf der Routenkarte, also echte Maus- und Tastatureingaben, die seit dem
-  13.11.2026 nur nach Rückfrage beim Nutzer laufen. Offen: zwei gleiche Waffen im Lager nach dem Rundenende in den Rucksack des
-  Clients legen, auf der nächsten Karte im Rucksack zusammenlegen und bestätigen, dann `py tools/spike/hands.py <host-pid> <client-pid>`
-  direkt danach und nach einem Kartenwechsel. Erwartet: Exitcode 0, „Geisterwaffen keine“, „ausgeruestet ohne Darstellung keine“, die
-  Ausgabe mit Waffen-Actor. Vor der Korrektur zeigte die Messung von Hand genau diese Abweichung.
+  13.11.2026 nur nach Rückfrage beim Nutzer laufen. Offen, einmal ohne und einmal mit der Korrektur: `!give ItemData_Knife` zweimal,
+  nach jedem Kartenstart `py tools/spike/extra_hands.py <host-pid> <client-pid> --hands 5`, die Messer im Lager nach dem Rundenende
+  in den Rucksack des Clients legen, auf der nächsten Karte im Rucksack zusammenlegen und bestätigen, dann
+  `py tools/spike/hands.py <host-pid> <client-pid>` direkt danach und nach einem Kartenwechsel. Erwartet mit der Korrektur:
+  Exitcode 0, „Geisterwaffen keine“, „ausgeruestet ohne Darstellung keine“; ohne sie Exitcode 1. Der Exitcode hängt nur an den
+  Listen der Hände, nicht am `WeaponLookup`.
 - **Gescheitert und Grenzen des Tests:**
   - Gegenprobe mit einer nativen Aufwertung des Hosts im eigenen Rucksack: Das Ziehen aus dem Lager griff in der Airdrop-Auswahl nicht.
     Per `!give` vergebene Items ließen sich dort auf derselben Karte nie aus dem Lager ziehen, erst im Lager nach dem Rundenende.
   - Eine Figur hat anfangs eine Waffenhand, mehr Waffen lehnt das Panel ab („Nicht genügend Hände frei“). Testhilfe: `ExtraHands`
-    (`UDDCharacterAttributeSet+0x100`, Basis und aktueller Wert) in beiden Prozessen von außen gesetzt. Der Wert repliziert so nicht und
+    (`UDDCharacterAttributeSet+0x100`, Basis und aktueller Wert) in beiden Prozessen von außen gesetzt, jetzt als schreibende
+    Testhilfe `tools/spike/extra_hands.py`. Der Wert repliziert so nicht und
     hält nur bis zum nächsten Kartenwechsel; danach trug der Host vier Hände bei Maximum eins. Der Roboterarm ließ sich nicht ablegen.
   - Im Fensterbild (800 × 450) sind die Waffen zu klein, verglichen wurden nur Speicherwerte.
 - **[Belegt] Nebenbefunde, nicht Teil dieser Aufgabe:**
