@@ -48,6 +48,10 @@ Done means listed under "Erledigt" in `TODO.md`. **Fully completed phases are hi
 `src/` holds the loader, core, the Steam network layer, an in-game tested [mod overlay](src/UI/README.md) and the
 [game adapter layer](src/Game/README.md) with the co-op patches. Tasks differ in size, so the numbers say little about the remaining time. Status, bottlenecks and next steps are in the [roadmap](docs/ROADMAP.md#stand-und-nächste-schritte).
 
+## Install (players)
+
+No public release yet. Once there is one, the package `DDCoop-<version>.zip` is installed by extracting it and double-clicking `Install.cmd`; see the [installation guide](docs/INSTALL.md) (requirements, uninstall, error messages, antivirus notes).
+
 ## Where to find what
 
 | Document | Content |
