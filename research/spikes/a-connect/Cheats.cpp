@@ -222,6 +222,8 @@ void ScrapCommand(const std::wstring& Args)
 //   !shop away         eigene Figur 3000 Einheiten wegstellen, das Verlassen schliesst das Panel
 //   !shop list         Angebote aller Haendler-Panels mit Preis, dazu das eigene Inventar
 //   !shop buy <n>      UShopPanelItem.TryBuyItem am Angebot n
+//   !shop panels       Inventar-Panels zum eigenen Inventar mit Offen-Zustand
+//   !shop confirm <n>  HandleConfirmButton an Panel n (Bestaetigen)
 //   !shop call <Klasse> <Funktion>   parameterlose UFunction an jeder Instanz, etwa ein Knopf-Ereignis
 //   !shop upgrade      zwei gleiche Items des eigenen Inventars ueber UInventoryComponent.UpgradeItems zur naechsten Seltenheit
 namespace
@@ -423,6 +425,38 @@ void ShopCommand(const std::wstring& Args)
                 return;
             }
         Log("Shop: keine zwei gleichen aufwertbaren Items im eigenen Inventar");
+    }
+    else if (Action == "panels" || Action == "confirm")
+    {
+        // Inventar-Panels zum eigenen Inventar (UInventoryPanel.Inventory +0x370). "confirm <n>" ruft HandleConfirmButton nur an
+        // diesem einen Panel: An einer unbenutzten Instanz stuerzt die Funktion ab (im Test gesehen).
+        const uintptr_t Inventory = LocalInventory();
+        std::vector<uintptr_t> Panels;
+        for (const uintptr_t Panel : InstancesOf("InventoryPanel"))
+            if (Read<uintptr_t>(Panel + 0x370) == Inventory)
+                Panels.push_back(Panel);
+        if (Action == "panels")
+        {
+            for (size_t i = 0; i < Panels.size(); ++i)
+            {
+                char Address[32];
+                sprintf_s(Address, "%llx", static_cast<unsigned long long>(Panels[i]));
+                const uintptr_t Container = Read<uintptr_t>(Panels[i] + 0x330);
+                Log("Shop: Panel " + std::to_string(i) + " " + Address + " " + NameOf(Read<uintptr_t>(Panels[i] + 0x20)) + ", Container " +
+                    (Container ? (Read<uint8_t>(Container + 0x328) ? "offen" : "zu") : "fehlt") + ", Drag " +
+                    std::to_string(Read<uint8_t>(Panels[i] + 0x788)));
+            }
+            Log("Shop: " + std::to_string(Panels.size()) + " Inventar-Panels zum eigenen Inventar");
+            return;
+        }
+        const uintptr_t Confirm = FindObject("HandleConfirmButton", "InventoryPanel");
+        if (Index < 0 || Index >= static_cast<int>(Panels.size()) || !Confirm)
+        {
+            Log("Shop: Panel oder HandleConfirmButton fehlt");
+            return;
+        }
+        Call(Panels[Index], Confirm, nullptr);
+        Log("Shop: HandleConfirmButton an Panel " + std::to_string(Index) + " gerufen");
     }
     else if (Action == "call")
     {
