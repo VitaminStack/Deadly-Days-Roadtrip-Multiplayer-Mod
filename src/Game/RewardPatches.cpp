@@ -159,7 +159,6 @@ struct
     bool Active = false;
     uintptr_t World = 0, Inventory = 0;
     std::vector<Game::Objects::Ref> Panels;
-    Game::Objects::Ref Shop; // opt-haendler-client: Händler-Panel, in dem gekauft wurde
     ULONGLONG NextPoll = 0, NextScan = 0;
     bool Closed = false; // ein Inventar-Panel zum eigenen Inventar hat sein Schließen gemeldet
 } Station;
@@ -629,12 +628,18 @@ bool AnyStationPanelOpen(const std::vector<Objects::Ref>& Panels)
 // Client: Im Lager beginnt die erste Aufwertung (werkbank-client), der erste Verkauf oder die erste Reparatur (lager-handel-client)
 // eine lokale Bearbeitung, die bis zum Bestätigen läuft. Vorher bleibt das Lager bei den nativen RPCs (rundenende-client).
 // opt-werkbank-station: Ohne Rundenende beginnt dasselbe eine Stations-Bearbeitung, wenn ein Inventar-Panel offen ist.
-// opt-haendler-client: Shop ist das Händler-Panel eines Kaufs; es ist offen, sonst gäbe es den Klick nicht.
-void BeginPanelEdit(uintptr_t Inventory, const char* What, uintptr_t Shop = 0)
+// opt-haendler-client: Ein Kauf (Shop) kommt aus dem offenen Händler-Panel und braucht kein offenes Inventar-Panel.
+// Solange der Client nach einem übernommenen Edit noch lokale Instanzen hält, beginnt keine neue Bearbeitung (ClientSettling).
+void BeginPanelEdit(uintptr_t Inventory, const char* What, bool Shop = false)
 {
     if (Game::InventoryEdit::ClientEditing() || ClientPending || !Shown.Items.empty() || !Inventory ||
         Inventory != InventoryOfController(LocalController()))
         return;
+    if (Game::InventoryEdit::ClientSettling())
+    {
+        Core::Log::Info("Inventar lokal: {} wartet, der Stand des Hosts zum letzten Edit ist noch nicht repliziert", What);
+        return;
+    }
     if (End.Id)
     {
         if (End.Done == End.Id || End.HeldPanel)
@@ -656,56 +661,8 @@ void BeginPanelEdit(uintptr_t Inventory, const char* What, uintptr_t Shop = 0)
     Station.World = CurrentWorld();
     Station.Inventory = Inventory;
     Station.Panels = std::move(Panels);
-    if (Shop)
-        Station.Shop = Objects::RefTo(Shop);
     Station.NextScan = GetTickCount64() + 2000;
     Core::Log::Info("Station: {} beim Client, Inventar wird lokal bearbeitet, bis das Panel schließt ({} Panels)", What, Station.Panels.size());
-}
-
-// opt-haendler-client: Ist das Widget auf dem Bildschirm? Es selbst und alle Eltern sind sichtbar (UWidget.IsVisible), ein
-// WidgetSwitcher zeigt gerade diesen Zweig, und das oberste UserWidget hängt im Viewport. Das Händler-Panel meldet sein Schließen
-// nicht über OnOpenStateChanged und lebt nach dem Besuch weiter; darum zählt für die Stations-Bearbeitung, ob es zu sehen ist.
-bool WidgetOnScreen(uintptr_t Widget)
-{
-    static uintptr_t IsVisible = 0, GetParent = 0, IsInViewport = 0, GetActiveWidget = 0;
-    if (!Function(IsVisible, "IsVisible", "Widget") || !Function(GetParent, "GetParent", "Widget") ||
-        !Function(IsInViewport, "IsInViewport", "UserWidget") || !Function(GetActiveWidget, "GetActiveWidget", "WidgetSwitcher"))
-        return false;
-    const auto Bool = [](uintptr_t Object, uintptr_t Fn)
-    {
-        uint8_t Result[8]{};
-        Objects::ProcessEvent(Object, Fn, Result);
-        return Result[0] != 0;
-    };
-    const auto Object_ = [](uintptr_t Object, uintptr_t Fn)
-    {
-        uintptr_t Result = 0;
-        Objects::ProcessEvent(Object, Fn, &Result);
-        return Result;
-    };
-    for (int Depth = 0; Depth < 32; ++Depth)
-    {
-        if (!Alive(Widget) || !Bool(Widget, IsVisible))
-            return false;
-        if (const uintptr_t Parent = Object_(Widget, GetParent))
-        {
-            if (Objects::IsA(Parent, "WidgetSwitcher") && Object_(Parent, GetActiveWidget) != Widget)
-                return false;
-            Widget = Parent;
-            continue;
-        }
-        const uintptr_t Outer = Pointer(Widget + Offsets::UObject::Outer);
-        if (Outer && Objects::IsA(Outer, "WidgetTree"))
-        {
-            const uintptr_t Owner = Pointer(Outer + Offsets::UObject::Outer);
-            if (!Owner || !Objects::IsA(Owner, "UserWidget"))
-                return false;
-            Widget = Owner;
-            continue;
-        }
-        return Objects::IsA(Widget, "UserWidget") && Bool(Widget, IsInViewport);
-    }
-    return false;
 }
 
 // Stations-Bearbeitung abschließen: Der Endstand geht als Edit an den Host.
@@ -760,11 +717,7 @@ void TickStation()
         Station.NextScan = Now + 2000;
         Station.Panels = StationPanels(Station.Inventory);
     }
-    // opt-haendler-client: Das Händler-Panel meldet sein Schließen nie; solange es auf dem Bildschirm ist, bleibt die Bearbeitung
-    // offen. Sie endet, wenn das Inventar-Panel schließt (Bestätigen), das Händler-Panel verschwindet, ein Rundenende beginnt oder
-    // die Welt wechselt.
-    const bool ShopShown = Station.Shop.Object && Objects::IsLive(Station.Shop) && WidgetOnScreen(Station.Shop.Object);
-    if (!Station.Closed && (AnyStationPanelOpen(Station.Panels) || ShopShown))
+    if (!Station.Closed && AnyStationPanelOpen(Station.Panels))
         return;
     for (const Objects::Ref& Panel : Station.Panels)
         if (Objects::IsLive(Panel) && Memory::Read<uint8_t>(Panel.Object + PanelIsDragging).value_or(0))
@@ -820,7 +773,9 @@ uintptr_t __fastcall UpgradeHook(uintptr_t Inventory, ItemArray* Inputs, uintptr
 // opt-haendler-client: TryBuyItem beim Client. Nativ zahlt das Panel lokal und schickt AddToInventory mit der lokalen Instanz des
 // Shops: Beim Host kam ein Nullzeiger an, kein Item, kein Schrott gebucht. Jetzt läuft der Kauf nur in einer lokalen Bearbeitung
 // (Station oder Lager): Das Item liegt lokal im Inventar, der Edit meldet Daten, Seltenheit und Preis, der Host legt das Item an
-// und bucht. Der lokale Abzug ist nur Vorschau. Automaten (ManuallyCallClearAndAdd) legen das Item erst später ab und bleiben nativ.
+// und bucht. Der lokale Abzug ist nur Vorschau. Ohne offenes Inventar-Panel geht der Kauf sofort als eigener Edit an den Host: Das
+// Händler-Panel meldet sein Schließen nie, und eine lange offene Bearbeitung hielte die übrigen Server-RPCs des Clients zurück.
+// Automaten (ManuallyCallClearAndAdd) legen das Item erst später ab und bleiben nativ.
 void __fastcall TryBuyHook(uintptr_t ShopItem)
 {
     if (CurrentRole() != NetRole::Client)
@@ -840,15 +795,13 @@ void __fastcall TryBuyHook(uintptr_t ShopItem)
         return OriginalTryBuy(ShopItem);
     }
     const uintptr_t Inventory = InventoryOfController(LocalController());
-    BeginPanelEdit(Inventory, "Kauf", Parent);
+    BeginPanelEdit(Inventory, "Kauf", true);
     if (!Game::InventoryEdit::ClientEditingInventory(Inventory))
     {
         // Etwa solange ein Edit unbeantwortet ist: Der Host buchte nichts, das Item gäbe es nur beim Client.
         Core::Log::Warn("Kauf beim Client außerhalb einer Bearbeitung verworfen ({})", Memory::NameOf(Pointer(Item + ItemData)));
         return;
     }
-    if (Station.Active && !Station.Shop.Object)
-        Station.Shop = Objects::RefTo(Parent);
     const uintptr_t Display = Pointer(ShopItem + ShopItemCostDisplay);
     const int32_t Cost = Alive(Display) ? Memory::Read<int32_t>(Display + CostDisplayActual).value_or(-1) : 0;
     const uintptr_t Data = Pointer(Item + ItemData), Rarity = Pointer(Item + ItemRarity);
@@ -863,6 +816,8 @@ void __fastcall TryBuyHook(uintptr_t ShopItem)
         Game::InventoryEdit::RecordPurchase(Item, Data, Rarity, Cost);
     else
         Core::Log::Info("Kauf beim Client nicht zustande gekommen ({}, Preis {})", Memory::NameOf(Data), Cost);
+    if (Station.Active && !AnyStationPanelOpen(Station.Panels))
+        FinishStation("Kauf");
 }
 
 // CachedBackpackLocalPosition (+0x150) ist NICHT repliziert. Die echte Instanz
@@ -1213,7 +1168,7 @@ int32_t RepairPrice(uintptr_t Item)
 }
 
 // opt-haendler-client: Verkaufspreis eines Items dieser Art beim Host (UInventoryItemData.GetBaseSellPrice), -1 ohne Funktion.
-// Untergrenze für den Kaufpreis, den der Client meldet: Niemand kauft billiger, als der Host danach beim Verkauf gutschriebe.
+// Daraus die Untergrenze für den Kaufpreis, den der Client meldet (PurchaseFloor in InventoryEditPlan.h).
 int32_t BaseSellPrice(uintptr_t Data, uintptr_t Rarity)
 {
     static uintptr_t Fn = 0;
@@ -1577,7 +1532,7 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
         }
     }
     // opt-haendler-client: Käufe prüfen, bevor sich etwas ändert. Daten und Seltenheit müssen beim Host existieren; den Preis nennt
-    // das Panel des Clients, der Host verlangt mindestens den eigenen Verkaufspreis des Items und genug Schrott.
+    // das Panel des Clients, der Host verlangt mindestens die Untergrenze zum eigenen Verkaufspreis und genug Schrott.
     std::vector<std::pair<uintptr_t, uintptr_t>> Wares;
     if (!Value.Purchases.empty())
     {
@@ -1593,14 +1548,15 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
                 Core::Log::Warn("Inventar lokal: Kauf {} des Edits {} nennt unbekannte Daten {} {}, abgelehnt", K + 1, Value.Id, Next.Data, Next.Rarity);
                 return false;
             }
-            const int32_t Floor = BaseSellPrice(Wares[K].first, Wares[K].second);
-            if (Floor < 0 || Next.Cost < Floor)
+            const int32_t Sell = BaseSellPrice(Wares[K].first, Wares[K].second);
+            if (Sell < 0 || Next.Cost < PurchaseFloor(Sell))
             {
-                Core::Log::Warn("Inventar lokal: Kauf {} des Edits {} ({} {}) für {} liegt unter dem Verkaufspreis {} des Hosts, abgelehnt", K + 1,
-                                Value.Id, Next.Data, Next.Rarity, Next.Cost, Floor);
+                Core::Log::Warn("Inventar lokal: Kauf {} des Edits {} ({} {}) für {} liegt unter der Untergrenze {} (Verkaufspreis {} beim Host), abgelehnt",
+                                K + 1, Value.Id, Next.Data, Next.Rarity, Next.Cost, Sell < 0 ? -1 : PurchaseFloor(Sell), Sell);
                 return false;
             }
-            Core::Log::Info("Handel: Kauf {} geprüft, {} {} für {} (Verkaufspreis beim Host {})", K + 1, Next.Data, Next.Rarity, Next.Cost, Floor);
+            Core::Log::Info("Handel: Kauf {} geprüft, {} {} für {} (Verkaufspreis beim Host {}, Untergrenze {})", K + 1, Next.Data, Next.Rarity,
+                            Next.Cost, Sell, PurchaseFloor(Sell));
         }
     }
     const bool Trades = !Sells.empty() || !Repairs.empty() || !Value.Purchases.empty();

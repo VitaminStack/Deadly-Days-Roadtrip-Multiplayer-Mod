@@ -202,6 +202,14 @@ struct
     uint64_t NextId = 0;
 } Session;
 
+// Lokale Instanzen des zuletzt übernommenen Edits, bis die Replikation sie ersetzt hat (ClientSettling).
+struct
+{
+    uintptr_t Inventory = 0;
+    std::vector<uintptr_t> Items;
+    ULONGLONG Until = 0;
+} Settling;
+
 bool Contains(const std::vector<uintptr_t>& List, uintptr_t Value)
 {
     return Value && std::find(List.begin(), List.end(), Value) != List.end();
@@ -842,10 +850,30 @@ void RevertClient(const char* Why)
     Core::Log::Info("Inventar lokal: Ausgangsstand wiederhergestellt ({}), vollständig={}", Why, Ok);
 }
 
+bool ClientSettling()
+{
+    if (Settling.Items.empty())
+        return false;
+    const std::vector<uintptr_t> Now = GetTickCount64() < Settling.Until ? ItemsOf(Settling.Inventory) : std::vector<uintptr_t>{};
+    if (std::none_of(Settling.Items.begin(), Settling.Items.end(), [&](uintptr_t Item) { return Contains(Now, Item); }))
+    {
+        Settling = {};
+        return false;
+    }
+    return true;
+}
+
 void ForgetClient()
 {
     if (Session.State == Phase::Committed)
+    {
         Core::Log::Info("Inventar lokal: Host hat übernommen");
+        Settling = {Session.Inventory, Session.Choices, GetTickCount64() + 3000};
+        for (const auto& Next : Session.Upgrades)
+            Settling.Items.push_back(Next.Output);
+        for (const auto& Next : Session.Purchases)
+            Settling.Items.push_back(Next.Item);
+    }
     Session.State = Phase::Idle;
     Session.Items.clear();
     Session.Choices.clear();

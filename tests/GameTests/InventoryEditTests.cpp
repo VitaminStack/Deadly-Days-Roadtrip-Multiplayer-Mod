@@ -452,3 +452,14 @@ TEST_CASE("opt-haendler-client: Käufe kosten nach den Verkäufen, zusammen mit 
     CHECK_FALSE(TradeBalance(100, {}, {}, {-1}));
     CHECK_FALSE(TradeBalance(2000000, {}, {}, {MaxPrice + 1}));
 }
+
+TEST_CASE("opt-haendler-client: Untergrenze des Kaufpreises lässt Rabatte bis 75 % zu")
+{
+    CHECK(PurchaseFloor(12) == 3);
+    CHECK(PurchaseFloor(24) == 6);
+    CHECK(PurchaseFloor(3) == 0);
+    CHECK(PurchaseFloor(0) == 0);
+    CHECK(PurchaseFloor(-5) == 0);
+    // Luftpumpe im Test: voller Preis 23 bis 24, Verkaufspreis 12, mit 75 % Rabatt etwa 6.
+    CHECK(6 >= PurchaseFloor(12));
+}

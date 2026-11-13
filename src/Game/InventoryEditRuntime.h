@@ -51,6 +51,10 @@ std::optional<Edit> FinishClient(uint64_t Session, uint64_t Revision, std::optio
 void RevertClient(const char* Why);
 // Client: Host hat übernommen, der Ausgangsstand wird nicht mehr gebraucht.
 void ForgetClient();
+// Client, opt-haendler-client: Nach einem übernommenen Edit liegen die lokalen Instanzen (Wahl, Ausgaben, Käufe) noch im Inventar,
+// bis die Replikation sie durch die Objekte des Hosts ersetzt. Wahr, solange das so ist, höchstens drei Sekunden. Eine neue
+// Bearbeitung in dieser Zeit nähme die lokale Instanz als Ausgangs-Item und meldete sie danach als entfernt.
+bool ClientSettling();
 // Client, aus ProcessEvent: Wahr, wenn der Aufruf ein Inventar-RPC der laufenden Bearbeitung war und lokal lief oder
 // verworfen wurde.
 bool RouteClientRpc(uintptr_t Object, uintptr_t Function, void* Params);

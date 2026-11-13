@@ -31,6 +31,14 @@ inline constexpr uint16_t PurchaseSourceBase = 0xFE00;
 inline constexpr size_t MaxPurchases = 16;
 inline constexpr int32_t MaxPrice = 1000000;
 
+// Untergrenze für den gemeldeten Kaufpreis aus dem Verkaufspreis des Hosts. Im Spiel gemessen (13.11.2026): Der volle Preis liegt
+// beim 1,9- bis 2,3-Fachen des Verkaufspreises, Rabatte des Händlers reichen bis 75 % (Luftpumpe für 12 bei Verkaufspreis 12). Ein
+// Viertel des Verkaufspreises lässt jeden echten Rabatt zu und weist nur offensichtlich falsche Preise ab.
+constexpr int32_t PurchaseFloor(int32_t SellPrice)
+{
+    return SellPrice > 0 ? SellPrice / 4 : 0;
+}
+
 constexpr uint16_t UpgradeSource(size_t K)
 {
     return static_cast<uint16_t>(UpgradeSourceBase + K);
