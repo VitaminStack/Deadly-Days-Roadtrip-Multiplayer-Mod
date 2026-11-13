@@ -2291,7 +2291,42 @@ zuletzt 5 s vor dem zehnten Rundenende); Sound wurde gehört, nicht gezählt.
   nach Dev-Aktionen des Hosts. Neue Aufgabe `opt-highway-ziel`.
 - **[Gemeldet] Airdrops bleiben über Level hinweg hängen:** Lässt man einen Airdrop liegen, erscheint im nächsten Level keiner mehr.
   **Vermutung:** Die Reward-Queue der Figur bleibt auf der alten Kiste stehen, wie unter `airdrop-auswahl` beschrieben. Neue Aufgabe
-  `opt-airdrop-uebertrag`.
+  `opt-airdrop-uebertrag`. Auswertung des Host-Logs je Karte („Airdrop: Actor- und Bewegungsreplikation aktiviert“ zählt gelandete
+  Kisten, „Sitzung … Stufe“ geöffnete):
+
+  | Karte | gelandet | geöffnet (davon Client) | Stufen der Auswahl |
+  |---|---|---|---|
+  | GolfCourse | 9 | 8 (3) | 2 bis 9 |
+  | Circus | 3 | 3 (1) | 11 bis 13 |
+  | Mountains_Residential_Camping | 2 | 2 (0) | 14, 15 |
+  | MerchantEvent | 0 | 0 | – |
+  | Mountains_Camping | 9 | 7 (3) | 16 bis 22 |
+  | HighwayBlockage | 11 | 7 (5) | 25 bis 30, 32 |
+  | Mountains_MilitaryBase_Without_Valley | 2 | 1 (1) | 36 |
+  | Forest_Roadstops | 3 | 2 (1) | 39, 38 |
+  | MerchantEvent, Canyon_Roadstops (36 s), Burger_Boss_Nature (25 s) | 0 | 0 | – |
+
+  - **[Belegt]** Nach liegen gelassenen Kisten kamen auf der nächsten Karte meist wieder Airdrops und ließen sich öffnen, auch vom
+    Client (GolfCourse → Circus, Mountains_Camping → HighwayBlockage). Ein dauerhaft hängender Zustand ist im Log nicht zu sehen.
+  - **[Belegt]** Nach HighwayBlockage (4 Kisten liegen gelassen) landeten auf der nächsten Karte nur 2 Kisten für die Stufen 33 bis 37;
+    zu den Stufen 33 bis 35 gibt es keine Landung. Das passt zur Meldung, belegt aber keine Ursache: Das Log hatte damals keine Zeilen
+    zur Queue des Hosts, und ob eine Stufe ohne Landung an einer vollen Queue, an der Zeit oder am Spawner lag, ist offen.
+  - **[Belegt]** `AdvanceRemoteQueue` schaltete bisher nur die Queue der Remote-Figur weiter. Die Queue der Host-Figur schaltet nur
+    das Bestätigen im Panel weiter; verschwindet ihre aktuelle Kiste ohne Bestätigen, bleibt sie belegt (aus dem Code, nicht
+    beobachtet).
+  - **[Belegt] Messung 13.11.2026, ein PC** (`Start-Session.ps1 -Build -Mod -Tunnel Lobby -Godmode -Map /Game/Maps/DDDynamic_Map`,
+    ohne Eingaben, Kartenwechsel über den Testkanal `travel`, Speicher nur gelesen): Nach MetaBase → Mission und Mission → Mission
+    sind beide Figuren (Host und Remote-Spieler) und ihre `RewardQueueComponent` neue Objekte, nicht belegt, ohne aktuelle Kiste.
+    **Die Vermutung „Queue bleibt über den Kartenwechsel auf der alten Kiste“ ist damit widerlegt.** Was die fehlenden Landungen auf
+    der Karte nach HighwayBlockage verursachte, ist weiter offen.
+  - **Nicht prüfbar ohne Eingaben:** In einer direkt geladenen Missionskarte landet nach `DD_CheatAddExperience` (Stufe steigt,
+    `OnLevelChanged`) kein Airdrop; `DD_OpenAirdrop 1` öffnet die Auswahl direkt, ohne Kiste und Queue. Echte Kisten gibt es nur in
+    einem Run über die Routenkarte, und Start-Run, Routenklick, Einsammeln und Bestätigen brauchen derzeit echte Eingaben.
+  - **Nebenbefund:** Reist der Host bei offener Auswahl weiter, endet die Sitzung mit „endet ohne Wahl des Clients“; ob der Client
+    dabei eine Belohnung verliert, wurde nicht geprüft.
+  - **Änderung:** Beide Queues stehen jetzt bei jeder Änderung im Log („Reward-Queue Host/Remote-Spieler: … belegt …, aktuelle Kiste
+    keine/lebt/zerstört“). Ist die Queue des Hosts belegt und ihre Kiste zerstört, schaltet die Mod sie wie die des Remote-Spielers
+    weiter. Der nächste Live-Test zeigt damit, ob und wo eine Queue innerhalb einer Karte hängt.
 - **[Gemeldet] Sound:** Beim Einsammeln von Items wie Benzin nach dem Looten gibt es einen Sound-Fehler (neu: `opt-item-sound`; #219
   behob nur Schrott). Schusssounds fehlen beim Client (bekannt, `opt-waffen-sound`).
 - **[Gemeldet] Client-Figur in höheren Leveln:** Die Schuss-Animation ist kaputt (Bild: Waffen übereinander an der Figur), und die
