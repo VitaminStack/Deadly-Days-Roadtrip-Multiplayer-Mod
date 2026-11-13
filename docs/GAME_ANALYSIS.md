@@ -589,6 +589,70 @@ Gemeldet war im [Live-Test 10.11.](#live-test-auf-zwei-pcs-am-10112026-livetest-
   gemeldete Rückenansicht der Client-Figur **beim Client** (`opt-blickrichtung-client`) erklärt diese Ursache nicht, dort ist das Tempo normal.
 - **Nicht geprüft:** zwei PCs, Kriechen nach dem Tod (mit `-Godmode` nicht erreichbar), Item-Auswahl als Pause.
 
+### Schuss-Animation und Geisterwaffen (`opt-schuss-animation`)
+
+Stand 13.11.2026, Build `26495302`, `main` `1d41240`, zwei Instanzen auf einem PC über die Lobby, Mod mit Spike, `-Godmode`, Seed 20795,
+Tag 1 bis 4. Speicher beider Seiten nur gelesen mit `tools/spike/hands.py` (Momentaufnahme) und `hands_compare.py` (Zeitreihe, 50 ms,
+Figuren über ihre Waffenklassen gepaart). Gemeldet im [Live-Test 13.11.](#live-test-auf-zwei-pcs-am-13112026-livetest-1311): In höheren
+Leveln liegen bei der Client-Figur mehrere Waffen übereinander, die Figur gleitet.
+
+- **[Belegt, SDK und Messung] Aufbau:** Je ausgerüsteter Waffe legt `AHands` beim Host eine `UChildActorComponent` am
+  `InnerRotationContainer` an (`CreateWeaponRanged`/`CreateWeaponMelee`, Liste `ChildActorComponents`), der Child Actor ist die Waffe
+  (`AWeapon`, etwa `BP_Pistol_C`, `BP_MeleeWeapon_Stab_Base_C`). Komponente und Waffen-Actor replizieren nativ, samt relativer Lage
+  und Drehung der Komponente. Beim Client sind `ChildActorComponents`, `CurrentRangedWeapons`, `CurrentMeleeWeapons` und
+  `EquippedWeapons` leer, die Komponenten hängen trotzdem am Container. Offsets in [OFFSETS.md](OFFSETS.md#schuss-animation-opt-schuss-animation).
+- **[Belegt, Messung] Die Darstellung selbst ist beim Client in Ordnung.** Mit 1 bis 4 Waffen je Figur (Pistole, Revolver,
+  Schrotflinte, MP, zwei Messer) stimmen relative Lage, Weltort und Drehung jeder Waffe bei Host und Client überein: Abweichung im
+  Median 0, im Stehen, beim Laufen in vier Richtungen und im Kampf; Ausreißer (bis 200 Einheiten, 160°) nur kurz, wenn eine Waffe um
+  die Figur zum nächsten Ziel schwenkt. Der Rückstoß (Abstand Waffen-Actor zur Komponente bis 14,7) kommt beim Client ebenso an.
+  Geprüft auch: Waffentausch in der Airdrop-Auswahl (die alte Waffe ist beim Client nach dem Einsammeln weg, kein verwaister Actor),
+  Kartenwechsel mit 3 und 4 Waffen, Tod (alle Darstellungen weg, Kriechen mit Wackeln auf beiden Seiten), Wiederbelebung durch den
+  Host, Kartenwechsel im toten Zustand. Die Fixes aus `opt-blickrichtung-client` und `opt-laufanimation-client` griffen in allen Fällen
+  (Hände-Gier im Median gleich, `Progress` läuft auf beiden Seiten).
+- **[Belegt, Messung] Ursache: Geisterwaffen beim Host nach einer Aufwertung im Client-Edit.** Der Client legte im Lager zwei
+  ausgerüstete Messer aufeinander (Host-Log „Aufwertung 1 des Edits … beim Host, Ausgabe true“, „vollständig=true“). Nach dem
+  nächsten Kartenwechsel beim Host, Client-Figur: `EquippedWeapons` Messer (neu), Pistole, Revolver; das neue Messer ohne
+  `WeaponActor`. `Hands.CurrentMeleeWeapons` führte dagegen die **zwei verbrauchten** Messer samt Waffen-Actor, deren Items nicht mehr
+  im Inventar stehen, und `InventoryComponent.WeaponLookup` hatte 5 Einträge statt 3. Die Geisterwaffen replizieren, beide Seiten
+  sehen sie an der Client-Figur. Die Host-Figur war sauber.
+- **[Belegt, Disassembly; Zuordnung der Aufrufziele unsicher]** Das native Ablegen (`InventoryPanel.UpgradeDroppedItem`, `0x5A9D370`)
+  ruft vor `UpgradeItems` kein `RemoveFromBackpack`; nach `UpgradeItems` folgen `SetTurns` und `ForceEquipItemInBackpack`. Nativ hat
+  das Ziehen die gezogene Eingabe aber schon aus dem Rucksack genommen. Der Client zieht nur lokal, beim Host lagen beide Eingaben
+  noch im Rucksack. **Vermutung:** `UpgradeItems` löscht die Instanzen, ohne die Wirkung einer noch ausgerüsteten Eingabe zu beenden.
+- **Vermutung zum Live-Test:** Dort wertete der Client 20-mal auf. Bleiben je Aufwertung im Rucksack bis zu zwei Geisterwaffen, liegen
+  mehr Darstellungen an der Figur, als die Hände Plätze haben; das passt zum Bild „Waffen übereinander“ und zu „in höheren Leveln“.
+  Das Bild lag bei der Auswertung nicht vor. Ob das **Gleiten** dieselbe Ursache hat (`WeaponMovementSpeedEffects` je Waffe, im Log
+  105-mal „Tempo der eigenen Figur aus dem Attribut übernommen“), ist nicht belegt; auf einem PC ließ es sich nicht nachstellen.
+- **Umsetzung** (`RewardPatches.cpp`, `ApplyClientEdit`): Vor den Aufwertungen eines Edits nimmt der Host jede Eingabe, die bei ihm noch
+  im Rucksack liegt, nativ heraus (`UnoccupyBackpackSlots`, `RemoveFromBackpack` mit `ForceRemoveAllEffects`, derselbe Planschritt wie
+  bei jedem Item, das den Rucksack verlässt). Danach läuft `UpgradeItems` wie bisher, die Ausgabe bekommt ihren Platz über den Plan.
+  Log „… Eingabe(n) der Aufwertungen des Edits … vorher aus dem Rucksack genommen“.
+- **Antworten zum neuen Pfad:** Kein neuer Sync- oder Hook-Pfad. Lokal bleibt die Bearbeitung des Clients, geteilt wird derselbe Edit
+  wie bisher, es entscheidet weiter der Host. Wiederverwendet werden der bestehende Edit, der Planschritt `Unplace` und die native
+  Replikation der Hände. Keine neue Nachricht, `ModVersion` bleibt 12. Ablehnung und Wiederholung laufen wie bei jedem Edit.
+- **Nicht bestätigt: die Korrektur im Spiel.** Build und Tests bestehen (`Build-Mod.ps1 -Configuration Release -Test`, Python-Tests).
+  Der Prüfablauf braucht Ziehen im Inventar-Panel und Klicks auf der Routenkarte, also echte Maus- und Tastatureingaben, die seit dem
+  13.11.2026 nur nach Rückfrage beim Nutzer laufen. Offen: zwei gleiche Waffen im Lager nach dem Rundenende in den Rucksack des
+  Clients legen, auf der nächsten Karte im Rucksack zusammenlegen und bestätigen, dann `py tools/spike/hands.py <host-pid> <client-pid>`
+  direkt danach und nach einem Kartenwechsel. Erwartet: Exitcode 0, „Geisterwaffen keine“, „ausgeruestet ohne Darstellung keine“, die
+  Ausgabe mit Waffen-Actor. Vor der Korrektur zeigte die Messung von Hand genau diese Abweichung.
+- **Gescheitert und Grenzen des Tests:**
+  - Gegenprobe mit einer nativen Aufwertung des Hosts im eigenen Rucksack: Das Ziehen aus dem Lager griff in der Airdrop-Auswahl nicht.
+    Per `!give` vergebene Items ließen sich dort auf derselben Karte nie aus dem Lager ziehen, erst im Lager nach dem Rundenende.
+  - Eine Figur hat anfangs eine Waffenhand, mehr Waffen lehnt das Panel ab („Nicht genügend Hände frei“). Testhilfe: `ExtraHands`
+    (`UDDCharacterAttributeSet+0x100`, Basis und aktueller Wert) in beiden Prozessen von außen gesetzt. Der Wert repliziert so nicht und
+    hält nur bis zum nächsten Kartenwechsel; danach trug der Host vier Hände bei Maximum eins. Der Roboterarm ließ sich nicht ablegen.
+  - Im Fensterbild (800 × 450) sind die Waffen zu klein, verglichen wurden nur Speicherwerte.
+- **[Belegt] Nebenbefunde, nicht Teil dieser Aufgabe:**
+  - **Client-Absturz** nach derselben Aufwertung beim Öffnen der nächsten Airdrop-Auswahl: `EXCEPTION_ACCESS_VIOLATION` beim Lesen von
+    `0x182`, Stack `0x595CF93` ← `0x597DC37` ← … ← `0x571B51D`, direkt nach „Bearbeitung beginnt … Hände belegt 3, Rucksack braucht 2“.
+    In `MyItems` des Clients stand an der Stelle des ausgerüsteten Revolvers ein Eintrag ohne Item, `inventory.py` meldete „Slot verweist
+    auf ein Item ausserhalb von MyItems“. Passt zu `opt-rucksack-ueberlappung`.
+  - Eine Aufwertung zweier MPs **im Lager** legte beim Client die ausgerüsteten Items Revolver und Messer zurück ins Lager, danach
+    „Inventar UNGLEICH“.
+- **Nicht geprüft:** zwei PCs mit echtem Ping und `-NetProfile`, Aufwertung an der Werkbank, mehr als eine Aufwertung je Edit,
+  Geisterwaffen direkt nach dem Edit ohne Kartenwechsel.
+
 ### Warnanzeigen der Gegner beim Client (`opt-gegner-indikatoren`)
 
 Stand 11.11.2026, Build `26495302`. Gemeldet im [Live-Test vom 10.11.](#live-test-auf-zwei-pcs-am-10112026-livetest-1011): Beim Client

@@ -782,6 +782,23 @@ Build `26495302`, [Befund](GAME_ANALYSIS.md#laufanimation-beim-client-opt-laufan
 | RVA `0x5848450` | natives `UPlayerAnimationVelocityProvider::GetVelocity`: manuell → `+0xC8`, sonst `Owner->GetVelocity()` (vtable `+0x340`); gerufen nur vom Exec-Thunk `0x5770E80`, vom Richtungs-Mesh (`0x586BF17`) und vom Wackeln (`0x5B1BF2B`) |
 | RVA `0x5857890` | natives `SetManualTrackingActive`: setzt `+0xC0`, `+0xE0` = Ort der Root-Komponente (`+0x210`), dann vtable `+0x410`; einziger Aufrufer ist der Exec-Thunk `0x57761F0` |
 
+## Schuss-Animation (`opt-schuss-animation`)
+
+Build `26495302`, SDK, im Spieltest vom 13.11.2026 gelesen ([Befund](GAME_ANALYSIS.md#schuss-animation-und-geisterwaffen-opt-schuss-animation)).
+Das SDK stammt vom Vorgänger-Build; die Werte unten lieferten im Spiel plausible Listen, Klassen und Namen.
+
+| Stelle | Wert |
+|---|---|
+| `AHands` | `InnerRotationContainer` `0x2C8`, `AutoFire` `0x378` (Net), `ChildActorComponents` `0x3A0`, `CurrentRangedWeapons` `0x3B0`, `CurrentMeleeWeapons` `0x3C0` (alle drei Listen beim Client leer) |
+| `ADDCharacter` | `EquippedWeapons` `0x7B8` (nicht repliziert) |
+| `UWeaponInstanceBase` | `InventoryItemInstance` (weak) `0x38`, `WeaponData` `0x40`, `ChildActorComponent` `0x50`, `WeaponActor` `0x58` |
+| `UInventoryComponent` | `MyItems` `0x120`, `CharacterReference` `0x220`, `WeaponLookup` (TMap Item → Waffeninstanz, Element 0x18) `0x238` |
+| `UChildActorComponent` | `ChildActor` `0x258` (Net) |
+| `USceneComponent` | `AttachParent` `0xD0`, `AttachSocketName` `0xD8`, `AttachChildren` `0xE8`, `RelativeLocation`/`Rotation`/`Scale3D` `0x148`/`0x160`/`0x178`, `bVisible` `0x1A8` Bit 5, `bHiddenInGame` `0x1A9` Bit 3, `ComponentToWorld.Translation` `0x210` |
+| `UDDCharacterAttributeSet` | `ExtraHands` `0x100` (`BaseValue` `+0x8`, `CurrentValue` `+0xC`) |
+| `InventoryPanel.UpgradeDroppedItem` | `0x5A9D370`, Exec-Thunk `0x571E400`; ruft `UpgradeItems` (`0x5984CD0`) bei `0x5A9D71E` |
+| Exec-Thunks | `RemoveFromBackpack` `0x5718980`, `UnoccupyBackpackSlots` `0x56627D0`, `RemoveEquippedWeapon` `0x56C6F80` (Implementierung `0x581C860`), `AddEquippedWeapon` `0x56B9050` (`0x57FE920`) |
+
 ## Charakterwahl (`charakter-wahl`)
 
 Build `26495302`, Disassembly und SDK, im Spieltest vom 10.11.2026 belegt.
