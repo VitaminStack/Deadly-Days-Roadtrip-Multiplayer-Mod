@@ -2218,6 +2218,59 @@ Stunde hinter der Ortszeit.
 - **Nicht geprüft:** zwei PCs und echter Ping, Tod und Wiederbelebung (Godmode), Sound (stumm, nur Logs), gezieltes Looten, Spucker
   (keine Kreise), Bosse, Tag 5.
 
+### Live-Test auf zwei PCs am 13.11.2026 (`livetest-1311`)
+
+Build `26495302`, Mod-Version 12 auf beiden Seiten (Handshake bestätigt; der Client lief mit `main` `de2f58a`, der genaue Commit des
+Hosts ist aus dem Log nicht belegt). Zwei Haushalte über die Lobby per Steam-Einladung, Route über ein Relay, Ping 32 bis 36 ms, kein
+verworfenes Paket. Rund 44 Minuten: MetaBase, elf Karten (darunter zweimal `MGP_MerchantEvent`, einmal `MGP_HighwayBlockage`, zuletzt
+`MGP_Burger_Boss_Nature`), zehn Rundenenden mit Lager. Ausgewertet sind die Mod-Logs beider Seiten und die Meldungen der Spieler mit
+Bildschirmfotos. Uhrzeiten aus den Logs, eine Stunde hinter der Ortszeit. Der Host nutzte siebenmal den Dev-Tab (Aktionen 2 und 3,
+zuletzt 5 s vor dem zehnten Rundenende); Sound wurde gehört, nicht gezählt.
+
+- **[Belegt] Bestätigt:** Kein Absturz auf beiden Seiten in zehn Rundenenden; der Client drückte in jedem Lager „Bestätigen“
+  (`lager-bestaetigen-absturz` damit bestanden). 38 Edits des Clients gesendet, alle 38 vom Host übernommen, darunter zwei gemischte
+  Lager-Edits (7 Verkäufe mit 7 Reparaturen, 3 Verkäufe mit 8 Reparaturen, dazu Aufwertungen durch Ablegen), Schrott danach gleich
+  (`lager-handel-client`: Reparatur belegt, Ausrüsten danach nicht eigens beobachtet). Beim Client liefen Tod-Effekte (6171 von 6171),
+  Zerfall (6164, 7 über der Obergrenze) und Warnanzeigen (165 Kreise, 119 Sprint-Striche).
+- **[Belegt] Dodge über das Internet unauffällig.** 249 Dodges des Clients, 3 Rücksetzungen. Der Verdacht aus `testlauf-1111`
+  (Rücksetzung auch bei jedem einzelnen Dodge) zeigte sich mit echtem Ping nicht.
+- **[Belegt] Schadenszahlen fehlen weiter.** Zeitgleiche Zeilen: Host gesendet 10407, Client empfangen 10358 (rund 0,5 %), die Lücke
+  wächst über den Run. Neue Aufgabe `opt-schadenszahlen-verlust`.
+- **[Gemeldet, Ursache teils belegt] Händler: Client friert ein und kann nicht kaufen.** Öffnet der Host den Shop, steht die Welt für
+  beide (`Pause: Weltzeit angehalten … Pauser true` auf beiden Seiten, dreimal je 3 bis 16 s). Beim Host steht „POI-Betreten der
+  Remote-Figur beim Host übergangen“ und sechsmal „AddToInventory ohne Item vom Client verworfen“, jeweils in den beiden
+  Händler-Karten. **Vermutung:** Der Host lässt die Client-Figur den Händler nicht betreten und verwirft deren Kauf. Neue Aufgabe
+  `opt-haendler-client`.
+- **[Gemeldet, Beleg im Log] Werkbank geht beim Client nicht, beim Host schon.** Im zweiten Händler-Event beim Client: „Aufwertung beim
+  Client außerhalb einer Bearbeitung (2 Eingaben, Aufrufer 0x5a5f56e), läuft nativ“. Beim Host gibt es dazu keine Zeile, die
+  Aufwertung kam also nicht an. Aufwerten durch Ablegen im Airdrop und im Lager ging. Neue Aufgabe `opt-werkbank-station`;
+  `werkbank-client` deckte nur das Panel ab.
+- **[Belegt] Zwei Airdrop-Edits mit Aufwertung zurückgenommen.** Beim Client zweimal „Edit mit 1 Aufwertungen ungültig, Bearbeitung
+  zurückgenommen“ (11:21:22 und 11:26:28), das erste Mal direkt nach „alle bereit“ in einer Airdrop-Auswahl mit vorheriger
+  Aufwertung. Ursache offen. Neue Aufgabe `opt-airdrop-edit-ungueltig`.
+- **[Gemeldet] Endboss erscheint nicht.** Die Boss-Karte `MGP_Burger_Boss_Nature` lud bei beiden; in beiden Logs gibt es danach keine
+  Boss-Zeile. Der Lauf endete 25 s nach dem Laden über das Pausemenü, die Beobachtung stützt sich also auf höchstens diese Zeit. Die
+  Rundenübersicht zeigte „Tag 2/8“ mit Boss-Feld an achter Stelle, gespielt wurden elf Karten. Neue Aufgabe `endboss-spawn`,
+  Voraussetzung für `integration-run`.
+- **[Gemeldet] „Räume den Highway!“:** Es erschien kein Benzin, das Ziel verlangte einen Abschluss (Bild: 2/10). **Vermutung:** Das
+  Event hat ein eigenes Ziel statt Tank; ob es bei beiden zählt und endet, ist nicht belegt. Die Runde endete nach 4:38 Minuten, 22 s
+  nach Dev-Aktionen des Hosts. Neue Aufgabe `opt-highway-ziel`.
+- **[Gemeldet] Airdrops bleiben über Level hinweg hängen:** Lässt man einen Airdrop liegen, erscheint im nächsten Level keiner mehr.
+  **Vermutung:** Die Reward-Queue der Figur bleibt auf der alten Kiste stehen, wie unter `airdrop-auswahl` beschrieben. Neue Aufgabe
+  `opt-airdrop-uebertrag`.
+- **[Gemeldet] Sound:** Beim Einsammeln von Items wie Benzin nach dem Looten gibt es einen Sound-Fehler (neu: `opt-item-sound`; #219
+  behob nur Schrott). Schusssounds fehlen beim Client (bekannt, `opt-waffen-sound`).
+- **[Gemeldet] Client-Figur in höheren Leveln:** Die Schuss-Animation ist kaputt (Bild: Waffen übereinander an der Figur), und die
+  Figur gleitet über den Boden. Offen, ob die Laufanimation fehlt oder die Figur nachrutscht. Neue Aufgabe `opt-schuss-animation`.
+- **[Gemeldet, Bilder] Anzeige:** Im Rucksack des Clients überlappen Items (zwei Revolver, Magazin, Ratte und Pumpe auf denselben
+  Feldern). Dazu passt „ABWEICHUNG Inventar“ im Desync-Melder (17-mal, bis 11:24); das ist also nicht nur der Fehlalarm aus
+  `opt-desync-pivot`. Neue Aufgabe `opt-rucksack-ueberlappung`. Die Rundenübersicht des Clients zeigte einmal nur Nullen und einmal
+  rote Abzüge (`opt-ergebnis-werte`), die Routenkarte „DAY 999“ und einen grauen Bereich (`opt-routenkarte`).
+- **[Belegt] Erneut gesehen:** „ABWEICHUNG Gegner“ 30-mal (`opt-gegnerzahl`), Takt-Warnungen beim Client 1124, beim Host 187
+  (`opt-client-takt`), „Client bereit (eigenes Rundenende passt nicht)“ nach dem Laden einer Karte, ohne Folge.
+- **Nicht geprüft:** `fortschritt` (Giftwolke, Item-Effekte, Werte nach Upgrade), Treffereffekte für `opt-blut`, Tod und
+  Wiederbelebung, Reconnect.
+
 ### Sound und Effekte beim Client (`vfx-sound`)
 
 Gemessen am 11.11.2026, Build `26495302`, Mod-Stand `main` `3e7379e` (Mod-Version 12), ein PC, `Start-Session.ps1 -Mod -Tunnel Lobby
