@@ -26,9 +26,24 @@ inline constexpr size_t MaxUpgrades = 8, MaxUpgradeInputs = 4, MaxObjectName = 1
 // ERemoveItemContext: GeneralRemove 0, ReturnedToRewards 1, SoldForScrap 2, UsedAsIngredient 3 (lager-handel-client).
 inline constexpr uint8_t SoldForScrap = 2, MaxRemoveContext = 3;
 
+// opt-haendler-client: Das k-te gekaufte Item hat Source PurchaseSourceBase + k, unter den Ausgaben der Aufwertungen.
+inline constexpr uint16_t PurchaseSourceBase = 0xFE00;
+inline constexpr size_t MaxPurchases = 16;
+inline constexpr int32_t MaxPrice = 1000000;
+
 constexpr uint16_t UpgradeSource(size_t K)
 {
     return static_cast<uint16_t>(UpgradeSourceBase + K);
+}
+
+constexpr uint16_t PurchaseSource(size_t K)
+{
+    return static_cast<uint16_t>(PurchaseSourceBase + K);
+}
+
+constexpr bool IsPurchaseSource(uint16_t Source)
+{
+    return Source >= PurchaseSourceBase && Source < UpgradeSourceBase;
 }
 
 // Zustand eines Items. Source ist der Index im Ausgangsstand (MyItems in replizierter Reihenfolge), DataHash die
@@ -59,6 +74,16 @@ struct Upgrade
     bool operator==(const Upgrade&) const = default;
 };
 
+// Ein Kauf beim Händler (UShopPanelItem::TryBuyItem): Data und Rarity sind die Objektnamen des gekauften Items, Cost der Preis,
+// den das Panel des Clients verlangt hat, Output der Endstand des Items. Der Host legt das Item selbst an und bucht den Preis.
+struct Purchase
+{
+    std::string Data, Rarity;
+    int32_t Cost = 0;
+    ItemState Output;
+    bool operator==(const Purchase&) const = default;
+};
+
 struct Edit
 {
     uint64_t Id = 0;
@@ -67,6 +92,7 @@ struct Edit
     std::vector<ItemState> Items;       // nur geänderte Items, die Belohnung mit Source ChoiceSource
     std::vector<Tile> NewSlots;
     std::vector<Upgrade> Upgrades;      // in der Reihenfolge, in der sie liefen
+    std::vector<Purchase> Purchases;    // Käufe beim Händler (opt-haendler-client)
     bool operator==(const Edit&) const = default;
 };
 
@@ -109,9 +135,10 @@ inline bool IsRepair(const ItemState& Before, const ItemState& After)
 // Host: Schrott nach Verkäufen und Reparaturen eines Edits. Erst alle Verkäufe gutschreiben, dann jede Reparatur abziehen; so
 // ist die Reihenfolge des Clients egal, denn er konnte nur mit genug Schrott reparieren. Leer, wenn ein Preis ungültig ist oder
 // der Schrott für eine Reparatur nicht reicht.
-inline std::optional<int64_t> TradeBalance(int64_t Wallet, const std::vector<int32_t>& SellPrices, const std::vector<int32_t>& RepairPrices)
+// opt-haendler-client: Käufe zählen wie Reparaturen, sie kosten nach den Verkäufen.
+inline std::optional<int64_t> TradeBalance(int64_t Wallet, const std::vector<int32_t>& SellPrices, const std::vector<int32_t>& RepairPrices,
+                                           const std::vector<int32_t>& BuyPrices = {})
 {
-    constexpr int64_t MaxPrice = 1000000;
     if (Wallet < 0)
         return std::nullopt;
     for (const int32_t Price : SellPrices)
@@ -120,12 +147,13 @@ inline std::optional<int64_t> TradeBalance(int64_t Wallet, const std::vector<int
             return std::nullopt;
         Wallet += Price;
     }
-    for (const int32_t Price : RepairPrices)
-    {
-        if (Price < 0 || Price > MaxPrice || Wallet < Price)
-            return std::nullopt;
-        Wallet -= Price;
-    }
+    for (const std::vector<int32_t>* Costs : {&BuyPrices, &RepairPrices})
+        for (const int32_t Price : *Costs)
+        {
+            if (Price < 0 || Price > MaxPrice || Wallet < Price)
+                return std::nullopt;
+            Wallet -= Price;
+        }
     return Wallet;
 }
 
@@ -158,11 +186,12 @@ inline Edit Diff(const std::vector<ItemState>& Base, const std::vector<ItemState
 
 // Prüft einen Edit ohne Spielzustand: Grenzen, eindeutige Quellen, Belohnung nur mit Wahl, keine doppelt belegten Felder.
 // Aufwertungen: Jede Eingabe ist ein im Edit entferntes Item, die Belohnung oder eine frühere, wieder verbrauchte Ausgabe
-// und wird nur einmal verbraucht.
+// und wird nur einmal verbraucht. Käufe: Jedes gekaufte Item hat seine eigene Quelle, ist heil und entweder vorhanden oder
+// Eingabe einer Aufwertung; verkaufen lässt es sich im selben Edit nicht.
 inline bool WellFormed(const Edit& Value)
 {
     if (Value.Items.size() > MaxItems || Value.NewSlots.size() > MaxNewSlots || Value.Choice.value_or(uint8_t{0}) >= 8 ||
-        Value.Upgrades.size() > MaxUpgrades)
+        Value.Upgrades.size() > MaxUpgrades || Value.Purchases.size() > MaxPurchases)
         return false;
     std::set<uint16_t> Sources;
     std::set<Tile> Used;
@@ -182,13 +211,22 @@ inline bool WellFormed(const Edit& Value)
     };
     for (const ItemState& Item : Value.Items)
     {
-        if ((Item.Source >= UpgradeSourceBase && Item.Source != ChoiceSource) || !Sources.insert(Item.Source).second || !Placement(Item) ||
+        if ((Item.Source >= PurchaseSourceBase && Item.Source != ChoiceSource) || !Sources.insert(Item.Source).second || !Placement(Item) ||
             Item.RemoveContext > MaxRemoveContext || (Item.Present && Item.RemoveContext != 0) || (IsSold(Item) && Item.Source == ChoiceSource))
             return false;
         Choices += Item.Source == ChoiceSource;
     }
     if (Choices != (Value.Choice ? 1u : 0u) || (Choices != 0 && Value.Session == 0))
         return false;
+    for (size_t K = 0; K < Value.Purchases.size(); ++K)
+    {
+        const Purchase& Next = Value.Purchases[K];
+        if (Next.Data.empty() || Next.Data.size() > MaxObjectName || Next.Rarity.size() > MaxObjectName || Next.Cost < 0 || Next.Cost > MaxPrice ||
+            Next.Output.Source != PurchaseSource(K) || Next.Output.DataHash != NameHash(Next.Data) || Next.Output.Broken ||
+            Next.Output.RemoveContext > MaxRemoveContext || (Next.Output.Present && Next.Output.RemoveContext != 0) || IsSold(Next.Output) ||
+            !Placement(Next.Output))
+            return false;
+    }
     std::set<uint16_t> Consumed;
     for (size_t K = 0; K < Value.Upgrades.size(); ++K)
     {
@@ -201,6 +239,13 @@ inline bool WellFormed(const Edit& Value)
         {
             if (!Consumed.insert(Input).second)
                 return false;
+            if (IsPurchaseSource(Input))
+            {
+                const size_t From = Input - PurchaseSourceBase;
+                if (From >= Value.Purchases.size() || Value.Purchases[From].Output.Present)
+                    return false;
+                continue;
+            }
             if (Input >= UpgradeSourceBase && Input != ChoiceSource)
             {
                 const size_t From = Input - UpgradeSourceBase;
@@ -213,6 +258,10 @@ inline bool WellFormed(const Edit& Value)
                 return false;
         }
     }
+    // Ein gekauftes Item verschwindet nur als Eingabe einer Aufwertung.
+    for (size_t K = 0; K < Value.Purchases.size(); ++K)
+        if (!Value.Purchases[K].Output.Present && !Consumed.contains(PurchaseSource(K)))
+            return false;
     return true;
 }
 
@@ -296,7 +345,8 @@ inline bool Fits(const Edit& Value, const std::vector<Tile>& Slots, const std::v
         return true;
     };
     return std::all_of(Value.Items.begin(), Value.Items.end(), Ok) &&
-           std::all_of(Value.Upgrades.begin(), Value.Upgrades.end(), [&](const Upgrade& Next) { return Ok(Next.Output); });
+           std::all_of(Value.Upgrades.begin(), Value.Upgrades.end(), [&](const Upgrade& Next) { return Ok(Next.Output); }) &&
+           std::all_of(Value.Purchases.begin(), Value.Purchases.end(), [&](const Purchase& Next) { return Ok(Next.Output); });
 }
 
 enum class StepKind : uint8_t
