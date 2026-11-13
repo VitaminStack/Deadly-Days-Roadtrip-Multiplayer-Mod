@@ -62,3 +62,15 @@ TEST_CASE("Schadenszahlen: ungültige Treffer und falsche Längen werden abgeleh
         NoGuid[i] = 0;
     CHECK_FALSE(Decode(NoGuid));
 }
+
+TEST_CASE("Schadenszahlen: Lücken in den Revisionen des Hosts zählen fehlende Nachrichten")
+{
+    RevisionGaps Gaps;
+    CHECK(Gaps.See(5) == 0); // Erste Nachricht nach dem Beitritt, der Host zählt seit seinem Start.
+    CHECK(Gaps.See(6) == 0);
+    CHECK(Gaps.See(9) == 2);
+    CHECK(Gaps.See(10) == 0);
+    CHECK(Gaps.See(1) == 0); // Neuer Host, Zählung beginnt neu.
+    CHECK(Gaps.See(2) == 0);
+    CHECK(Gaps.See(2) == 0);
+}

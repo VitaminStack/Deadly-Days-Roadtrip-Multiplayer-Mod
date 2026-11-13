@@ -183,6 +183,18 @@ TEST_CASE("Aufwertung im Edit: Eingaben entfernt, Ausgabe mit eigener Quelle und
     auto Present = Value;
     Present.Items[0] = Placed(0, {{1, 0}});
     CHECK_FALSE(WellFormed(Present)); // Eingabe noch vorhanden
+    CHECK(std::string(Malformed(Present)) == "Aufwertung: Eingabe noch vorhanden");
+    CHECK(Malformed(Value) == nullptr);
+    // opt-airdrop-edit-ungueltig: Belohnung aufgewertet und danach erneut aus der Anzeige aufgenommen.
+    Edit Again;
+    Again.Session = 14;
+    Again.Choice = uint8_t{2};
+    Again.Items = {Gone(Placed(0, {{0, 0}})), Placed(ChoiceSource, {{1, 0}})};
+    Again.Upgrades = Value.Upgrades;
+    Again.Upgrades[0].Inputs = {ChoiceSource, 0};
+    CHECK(std::string(Malformed(Again)) == "Aufwertung: Eingabe noch vorhanden");
+    Again.Items[1] = Gone(Stored(ChoiceSource)); // nach dem Entfernen beim Client
+    CHECK(WellFormed(Again));
     auto Missing = Value;
     Missing.Items.pop_back();
     CHECK_FALSE(WellFormed(Missing)); // Eingabe fehlt im Edit

@@ -308,6 +308,29 @@ Betrag höchstens 1e7), also genau 1 + 25 × Anzahl Bytes. NaN, Unendlich und an
 jedem Takt ab und ruft für jedes noch lebende, auflösbare Ziel den nativen Handler seines eigenen Controllers. Ein verlorenes Paket
 heißt nur fehlende Zahlen, keine Wiederholung, keine Antwort.
 
+Seit `opt-schadenszahlen-verlust` (13.11.2026, Format und Mod-Version unverändert) wertet der Client `0xA00` auch im Sammelabruf alle
+250 ms aus: Eine Nachricht, die nach dem eigenen Abruf im selben Takt ankam, nahm sonst der Sammelabruf mit, und dort verfiel sie
+ungezählt. Das gilt für jeden Typ, der einzeln abgeholt wird (`0x900` macht es genauso). Die Revision zählt der Host je angenommener
+Nachricht um 1 hoch; der Client zählt daran fehlende Nachrichten, er fordert nichts nach. Zähler im Mod-Log: beim Host „übergeben“,
+„gesendet“ (nur von `SendControl` angenommene), „Senden abgelehnt“, „ohne Mitspieler“, „Paket ungültig“; beim Client „im
+Sammelabruf“, „Nachricht unlesbar“, „Nachrichten fehlen“, „falsche Rolle“. Die Transport-Zeile nennt den höchsten Füllstand beider
+Warteschlangen des Kontrollkanals (Grenze 128) und wegen voller Warteschlange abgelehnte Nachrichten. Befund in
+[GAME_ANALYSIS.md](GAME_ANALYSIS.md#verlorene-schadenszahlen-opt-schadenszahlen-verlust).
+
+## Nachladesound (Mod-Kompatibilität 13)
+
+Aufgabe `opt-waffen-sound`, Befund in [Waffensounds beim Client](GAME_ANALYSIS.md#waffensounds-beim-client-opt-waffen-sound), Code in
+`src/Game/WeaponSoundPatches.cpp` und `src/Sync/Combat/WeaponSoundState.h`. Mod-Version 13, weil ein Client mit älterer Version die
+Nachricht nicht kennt. Der Schusssound braucht keine Nachricht, der Client leitet ihn aus dem nativen Multicast der Waffe ab. Das
+Nachladen läuft nur in der Feuerschleife der Hände beim Host und hinterlässt beim Client kein repliziertes Signal. Lokal bleiben Ort,
+Standardsound und Abspielen: Der Client ruft `Hands.PlayReloadSound` an seinen eigenen replizierten Händen auf. Geteilt wird nur, welche
+Hände wann nachladen und mit welchem Sound. Munition und Nachladezeit entscheidet weiter der Host.
+
+`0xB00` Host an Client, je Takt mit mindestens einem Nachladen: Anzahl (1, 1 bis 16), je Eintrag NetGUID des Hände-Actors (8, ungleich
+0, höchstens 54 Bit), Länge des Soundnamens (1, 0 bis 64) und der Objektname des `UFMODEvent` (druckbares ASCII ohne Leerzeichen).
+Länge 0 heißt Standardsound der Hände. Der Client holt `0xB00` in jedem Takt ab. Unbekannte Hände werden übersprungen, ein
+unbekannter Name spielt den Standardsound. Ein verlorenes Paket heißt nur ein fehlender Sound, keine Wiederholung, keine Antwort.
+
 ## Bisher geprüft (05.11.2026, Kontrollkanal vor Diagnoseerweiterung)
 
 - Build und alle Tests bestanden, darunter 24 Net-Testfälle: binäre UE-Pakete in

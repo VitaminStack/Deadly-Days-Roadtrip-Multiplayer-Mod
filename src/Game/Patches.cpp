@@ -27,7 +27,7 @@ std::atomic<State> Current = State::Pending;
 Code::Writer Caves;
 
 // Reihenfolge wie bisher in Install. Ticks fragen über ListOn nach, ob ihre Liste steht.
-enum ListIndex : size_t { Player, Client, Camera, Inventory, Travel, Widget, HealthBar, Airdrop, Exp, RemoteP2, Reward, Map, LocalDevice, Character, BodyPart, EnemyTelegraph, DamageNumber, ListCount };
+enum ListIndex : size_t { Player, Client, Camera, Inventory, Travel, Widget, HealthBar, Airdrop, Exp, RemoteP2, Reward, Map, LocalDevice, Character, BodyPart, EnemyTelegraph, DamageNumber, WeaponSound, ListCount };
 std::array<bool, ListCount> Enabled{};
 bool PartialMode = false;
 
@@ -168,7 +168,7 @@ bool Install()
         {"Player", PlayerPatches()}, {"Client", ClientPatches()}, {"Camera", CameraPatches()}, {"Inventory", InventoryPatches()},
         {"Travel", TravelPatches()}, {"Widget", WidgetPatches()}, {"HealthBar", HealthBarPatches()}, {"Airdrop", AirdropPatches()},
         {"Exp", ExpPatches()}, {"RemoteP2", RemoteP2Patches()}, {"Reward", RewardPatches()}, {"Map", MapPatches()},
-        {"LocalDevice", LocalDevicePatches()}, {"Character", CharacterPatches()}, {"BodyPart", BodyPartPatches()}, {"EnemyTelegraph", EnemyTelegraphPatches()}, {"DamageNumber", DamageNumberPatches()},
+        {"LocalDevice", LocalDevicePatches()}, {"Character", CharacterPatches()}, {"BodyPart", BodyPartPatches()}, {"EnemyTelegraph", EnemyTelegraphPatches()}, {"DamageNumber", DamageNumberPatches()}, {"WeaponSound", WeaponSoundPatches()},
     }};
     std::vector<Patch> All;
     for (const PatchList& List : Lists)
@@ -241,6 +241,8 @@ void Tick()
         { const GameThread::SlowScope Watch("Busbalken"); TickBusBar(Role); }
     if (ListOn(Widget))
         { const GameThread::SlowScope Watch("Lootbalken"); TickLootBar(Role); }
+    if (ListOn(Inventory))
+        { const GameThread::SlowScope Watch("Aufsammelklang"); TickLootSound(Role); }
     if (ListOn(Widget))
         { const GameThread::SlowScope Watch("Blut"); TickBlood(Role); }
     if (ListOn(BodyPart))
@@ -252,6 +254,8 @@ void Tick()
     if (ListOn(Player))
         { const GameThread::SlowScope Watch("Blickrichtung"); TickFacing(Role, Second); }
     { const GameThread::SlowScope Watch("Laufanimation"); TickWalkAnimation(Role, Second); }
+    if (ListOn(Widget) && ListOn(WeaponSound))
+        { const GameThread::SlowScope Watch("Waffensound"); TickWeaponSounds(Role); }
     if (ListOn(Map))
         { const GameThread::SlowScope Watch("Karte"); TickMap(Role, Second); }
     if (ListOn(Character))

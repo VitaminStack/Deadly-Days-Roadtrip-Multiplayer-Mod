@@ -33,7 +33,7 @@ struct DeferredEvent
 // Nur Game Thread.
 std::vector<DeferredEvent> Deferred;
 
-std::array<std::atomic<EventObserver>, 4> Observers{};
+std::array<std::atomic<EventObserver>, 6> Observers{};
 
 bool HasGameState()
 {
@@ -51,6 +51,8 @@ void __fastcall ProcessEventHook(uintptr_t Object, uintptr_t Function, void* Par
     if (FilterRewardEvent(Object, Function, Params))
         return;
     if (FilterRemotePoiOverlap(Function, Params))
+        return;
+    if (FilterLootSoundEvent(Object, Function))
         return;
     const int32_t Name = Memory::Read<int32_t>(Function + Offsets::UObject::Name).value_or(-1);
     if (Name >= 0 && (Name == ConstructName.load(std::memory_order_relaxed) || Name == PreConstructName.load(std::memory_order_relaxed)) &&

@@ -195,82 +195,115 @@ inline Edit Diff(const std::vector<ItemState>& Base, const std::vector<ItemState
 // Prüft einen Edit ohne Spielzustand: Grenzen, eindeutige Quellen, Belohnung nur mit Wahl, keine doppelt belegten Felder.
 // Aufwertungen: Jede Eingabe ist ein im Edit entferntes Item, die Belohnung oder eine frühere, wieder verbrauchte Ausgabe
 // und wird nur einmal verbraucht. Käufe: Jedes gekaufte Item hat seine eigene Quelle, ist heil und entweder vorhanden oder
-// Eingabe einer Aufwertung; verkaufen lässt es sich im selben Edit nicht.
-inline bool WellFormed(const Edit& Value)
+// Eingabe einer Aufwertung; verkaufen lässt es sich im selben Edit nicht. Liefert den Grund der ersten Verletzung fürs Log,
+// nullptr bei einem gültigen Edit.
+inline const char* Malformed(const Edit& Value)
 {
     if (Value.Items.size() > MaxItems || Value.NewSlots.size() > MaxNewSlots || Value.Choice.value_or(uint8_t{0}) >= 8 ||
         Value.Upgrades.size() > MaxUpgrades || Value.Purchases.size() > MaxPurchases)
-        return false;
+        return "Grenze überschritten";
     std::set<uint16_t> Sources;
     std::set<Tile> Used;
     size_t Choices = 0;
-    const auto Placement = [&](const ItemState& Item)
+    const auto Placement = [&](const ItemState& Item) -> const char*
     {
         if (Item.Tiles.size() > MaxItemTiles)
-            return false;
+            return "zu viele Felder";
         if (!Item.Present || !Item.InBackpack)
-            return Item.Tiles.empty();
+            return Item.Tiles.empty() ? nullptr : "Felder ohne Rucksack";
         if (Item.Tiles.empty())
-            return false;
+            return "im Rucksack ohne Felder";
         for (const Tile& At : Item.Tiles)
             if (!Used.insert(At).second)
-                return false;
-        return true;
+                return "Feld doppelt belegt";
+        return nullptr;
     };
     for (const ItemState& Item : Value.Items)
     {
-        if ((Item.Source >= PurchaseSourceBase && Item.Source != ChoiceSource) || !Sources.insert(Item.Source).second || !Placement(Item) ||
-            Item.RemoveContext > MaxRemoveContext || (Item.Present && Item.RemoveContext != 0) || (IsSold(Item) && Item.Source == ChoiceSource))
-            return false;
+        if (Item.Source >= PurchaseSourceBase && Item.Source != ChoiceSource)
+            return "Item mit Quelle einer Aufwertung oder eines Kaufs";
+        if (!Sources.insert(Item.Source).second)
+            return "Quelle doppelt";
+        if (const char* Why = Placement(Item))
+            return Why;
+        if (Item.RemoveContext > MaxRemoveContext || (Item.Present && Item.RemoveContext != 0))
+            return "Entfernen-Kontext ungültig";
+        if (IsSold(Item) && Item.Source == ChoiceSource)
+            return "Belohnung verkauft";
         Choices += Item.Source == ChoiceSource;
     }
-    if (Choices != (Value.Choice ? 1u : 0u) || (Choices != 0 && Value.Session == 0))
-        return false;
+    if (Choices != (Value.Choice ? 1u : 0u))
+        return "Belohnung und Wahl passen nicht";
+    if (Choices != 0 && Value.Session == 0)
+        return "Wahl ohne Sitzung";
     for (size_t K = 0; K < Value.Purchases.size(); ++K)
     {
         const Purchase& Next = Value.Purchases[K];
-        if (Next.Data.empty() || Next.Data.size() > MaxObjectName || Next.Rarity.size() > MaxObjectName || Next.Cost < 0 || Next.Cost > MaxPrice ||
-            Next.Output.Source != PurchaseSource(K) || Next.Output.DataHash != NameHash(Next.Data) || Next.Output.Broken ||
-            Next.Output.RemoveContext > MaxRemoveContext || (Next.Output.Present && Next.Output.RemoveContext != 0) || IsSold(Next.Output) ||
-            !Placement(Next.Output))
-            return false;
+        if (Next.Data.empty() || Next.Data.size() > MaxObjectName || Next.Rarity.size() > MaxObjectName || Next.Cost < 0 || Next.Cost > MaxPrice)
+            return "Kauf: Name oder Preis ungültig";
+        if (Next.Output.Source != PurchaseSource(K) || Next.Output.DataHash != NameHash(Next.Data))
+            return "Kauf: Item passt nicht";
+        if (Next.Output.Broken || IsSold(Next.Output))
+            return "Kauf: Item kaputt oder verkauft";
+        if (Next.Output.RemoveContext > MaxRemoveContext || (Next.Output.Present && Next.Output.RemoveContext != 0))
+            return "Kauf: Entfernen-Kontext ungültig";
+        if (const char* Why = Placement(Next.Output))
+            return Why;
     }
     std::set<uint16_t> Consumed;
     for (size_t K = 0; K < Value.Upgrades.size(); ++K)
     {
         const Upgrade& Next = Value.Upgrades[K];
         if (Next.Inputs.empty() || Next.Inputs.size() > MaxUpgradeInputs || Next.Data.empty() || Next.Data.size() > MaxObjectName ||
-            Next.Rarity.size() > MaxObjectName || Next.Output.Source != UpgradeSource(K) || Next.Output.DataHash != NameHash(Next.Data) ||
-            !Placement(Next.Output) || IsSold(Next.Output))
-            return false;
+            Next.Rarity.size() > MaxObjectName)
+            return "Aufwertung: Eingaben oder Namen ungültig";
+        if (Next.Output.Source != UpgradeSource(K) || Next.Output.DataHash != NameHash(Next.Data))
+            return "Aufwertung: Ausgabe passt nicht";
+        if (const char* Why = Placement(Next.Output))
+            return Why;
+        if (IsSold(Next.Output))
+            return "Aufwertung: Ausgabe verkauft";
         for (const uint16_t Input : Next.Inputs)
         {
             if (!Consumed.insert(Input).second)
-                return false;
+                return "Aufwertung: Eingabe doppelt verbraucht";
             if (IsPurchaseSource(Input))
             {
                 const size_t From = Input - PurchaseSourceBase;
-                if (From >= Value.Purchases.size() || Value.Purchases[From].Output.Present)
-                    return false;
+                if (From >= Value.Purchases.size())
+                    return "Aufwertung: Eingabe aus unbekanntem Kauf";
+                if (Value.Purchases[From].Output.Present)
+                    return "Aufwertung: gekauftes Item noch vorhanden";
                 continue;
             }
             if (Input >= UpgradeSourceBase && Input != ChoiceSource)
             {
                 const size_t From = Input - UpgradeSourceBase;
-                if (From >= K || Value.Upgrades[From].Output.Present)
-                    return false;
+                if (From >= K)
+                    return "Aufwertung: Eingabe aus späterer Aufwertung";
+                if (Value.Upgrades[From].Output.Present)
+                    return "Aufwertung: verbrauchte Ausgabe noch vorhanden";
                 continue;
             }
             const auto It = std::find_if(Value.Items.begin(), Value.Items.end(), [&](const ItemState& Item) { return Item.Source == Input; });
-            if (It == Value.Items.end() || It->Present || IsSold(*It)) // verkauft und aufgewertet zugleich geht nicht
-                return false;
+            if (It == Value.Items.end())
+                return "Aufwertung: Eingabe fehlt im Edit";
+            if (It->Present)
+                return "Aufwertung: Eingabe noch vorhanden";
+            if (IsSold(*It)) // verkauft und aufgewertet zugleich geht nicht
+                return "Aufwertung: Eingabe verkauft";
         }
     }
     // Ein gekauftes Item verschwindet nur als Eingabe einer Aufwertung.
     for (size_t K = 0; K < Value.Purchases.size(); ++K)
         if (!Value.Purchases[K].Output.Present && !Consumed.contains(PurchaseSource(K)))
-            return false;
-    return true;
+            return "Kauf: Item verschwunden ohne Aufwertung";
+    return nullptr;
+}
+
+inline bool WellFormed(const Edit& Value)
+{
+    return Malformed(Value) == nullptr;
 }
 
 // Sources, die eine Aufwertung verbraucht. Der Host entfernt sie nicht selbst, das macht UpgradeItems.
