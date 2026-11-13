@@ -2418,13 +2418,52 @@ zuletzt 5 s vor dem zehnten Rundenende); Sound wurde gehört, nicht gezählt.
 - **[Gemeldet] Client-Figur in höheren Leveln:** Die Schuss-Animation ist kaputt (Bild: Waffen übereinander an der Figur), und die
   Figur gleitet über den Boden. Offen, ob die Laufanimation fehlt oder die Figur nachrutscht. Neue Aufgabe `opt-schuss-animation`.
 - **[Gemeldet, Bilder] Anzeige:** Im Rucksack des Clients überlappen Items (zwei Revolver, Magazin, Ratte und Pumpe auf denselben
-  Feldern). Dazu passt „ABWEICHUNG Inventar“ im Desync-Melder (17-mal, bis 11:24); das ist also nicht nur der Fehlalarm aus
+  Feldern). Im Desync-Melder stand dazu 17-mal „ABWEICHUNG Inventar“ (bis 11:24). **Überholt:** Nach der Auswertung unter
+  `opt-rucksack-ueberlappung` zeigen diese Meldungen die Überlappung nicht, sie sind offene Bearbeitungen und der Fehlalarm aus
   `opt-desync-pivot`. Neue Aufgabe `opt-rucksack-ueberlappung`. Die Rundenübersicht des Clients zeigte einmal nur Nullen und einmal
   rote Abzüge (`opt-ergebnis-werte`), die Routenkarte „DAY 999“ und einen grauen Bereich (`opt-routenkarte`).
 - **[Belegt] Erneut gesehen:** „ABWEICHUNG Gegner“ 30-mal (`opt-gegnerzahl`), Takt-Warnungen beim Client 1124, beim Host 187
   (`opt-client-takt`), „Client bereit (eigenes Rundenende passt nicht)“ nach dem Laden einer Karte, ohne Folge.
 - **Nicht geprüft:** `fortschritt` (Giftwolke, Item-Effekte, Werte nach Upgrade), Treffereffekte für `opt-blut`, Tod und
   Wiederbelebung, Reconnect.
+
+### Rucksack-Überlappung beim Client (`opt-rucksack-ueberlappung`)
+
+Ausgewertet am 13.11.2026: Mod-Logs beider Seiten aus `livetest-1311` und ein Test auf einem PC (Build `26495302`, Mod-Version 12,
+`Start-Session.ps1 -Build -Mod -Godmode -Tunnel Lobby`, Tag 1, `!give` für je zwei Revolver und Magazine, Pumpe, Gewehr, `!finish`, Lager
+des Clients per Skript-Eingabe bedient, Vergleich mit `tools/spike/inventory.py`).
+
+- **[Belegt] Die 17 Meldungen „ABWEICHUNG Inventar“ aus `livetest-1311` zeigen die Überlappung nicht.** 13 fallen in eine offene lokale
+  Bearbeitung des Clients (Airdrop-Auswahl oder Lager): Der Client ist lokal voraus, der Host kennt den Stand erst mit dem Edit. Nach
+  jedem übernommenen Edit meldete der Melder wieder „OK“. Die übrigen 4 (11:02:36 bis 11:03:59) folgen einem Edit, der ein vorhandenes
+  Item aus dem Rucksack nahm: Beim Client blieb der Pivot auf dem letzten Wert des Ziehens, beim Host auf dem alten, und das Messfeld
+  rechnet den Pivot auch außerhalb des Rucksacks mit. Das ist die Klasse aus `opt-desync-pivot`; sie endete mit dem Lager-Edit, der das
+  Item wieder ablegte. Der Satz unter `livetest-1311` („nicht nur der Fehlalarm“) ist damit überholt.
+- **[Belegt] Fehler: native Züge im Lager vor der lokalen Bearbeitung kommen beim Host unvollständig an.** Bisher begann die lokale Bearbeitung im Lager erst mit der
+  ersten Aufwertung, dem ersten Verkauf oder der ersten Reparatur; Ablegen und Drehen davor liefen als native Server-RPCs. Gemessen
+  nach drei solchen Zügen (Revolver, Magazin gedreht, Pumpe gedreht): Beim Host sind die Felder belegt und `IsInBackpack` gesetzt,
+  `ZeroPivotTile` und `Turns` aber `(0, 0)` und 0. Beim Client stehen Pivot und Drehung lokal richtig (`(2, 2)` mit Drehung 1,
+  `(1, 1)` mit Drehung 1, `(-1, 2)`), `IsInBackpack` und die Feldbelegung fehlen, weil im Lager nichts zurückrepliziert (bekannte
+  Grenze aus `rundenende-client`). Der Melder meldet ab dem ersten Zug „ABWEICHUNG Inventar“, der Zähler „Lager 6/4“ des Clients
+  bleibt stehen, „Bestätigen“ bleibt gesperrt.
+- **[Belegt] Sichtbare Folge im selben Lager:** Mit dem ersten Verkauf beginnt die lokale Bearbeitung, das Panel baut sich aus dem
+  Stand des Clients neu auf, und alle vorher abgelegten Items springen zurück ins Lager (Bild lokal). Beim Host liegen sie weiter im
+  Rucksack. Der Edit meldet nur, was sich danach ändert; die liegen gelassenen Items bleiben beim Host mit Pivot `(0, 0)` im Rucksack.
+- **Vermutung, nicht bis zum Bild nachgestellt (Zusammenhang mit dem Live-Test):** Nach der Reise bekommt der Client die Instanzen des Hosts. Die Anzeige richtet sie
+  aus dem Pivot aus (`RestoreBackpackVisuals`), mehrere Items mit Pivot `(0, 0)` liegen dann auf denselben Feldern; so sah es im
+  Live-Test aus (zwei Revolver, Magazin, Ratte, Pumpe). Der Melder sagt dabei „OK“, weil beide Seiten denselben falschen Pivot haben.
+- **Fix:** Der erste Inventar-RPC des Clients im Lager (Ablegen, Feldbelegung, Pivot, Lagerflags, Entfernen) beginnt jetzt die lokale
+  Bearbeitung (`ChangesInventory`, `FilterRewardEvent`). Alle Züge laufen damit lokal, der Host übernimmt beim Bestätigen einen Edit mit
+  Pivot, Drehung und Feldern über die nativen Setter, wie schon bei Airdrop und Handel. Kein neuer Nachrichtentyp, Mod-Version bleibt 12.
+- **Nicht geprüft:** Der Fix im Spiel (Ablegen und Drehen im Lager, Edit beim Host, Reise, Rucksackbild). Dafür braucht es Züge mit
+  der Maus im Client-Fenster; ein Mensch muss sie spielen. Ebenfalls offen: Ob `SnapRepresentationToTile` für gedrehte Items das
+  Pivot-Feld oder die obere linke Ecke erwartet. Der native Aufrufer bei `0x5A8105E` übergibt ein anderes Feld der Ablage-Struktur
+  (`+0xC`) als das, das als Pivot gesetzt wird (`+4`); bei Drehung 1 lag der Pivot im Test auf dem rechten der beiden Felder. Stimmt
+  die Vermutung, stehen gedrehte Items nach der Reise um ein Feld versetzt und überlappen Nachbarn; das wäre eine zweite, vom Fix
+  nicht berührte Ursache der Überlappung, auch auf dem Weg über den Airdrop. Die Messung mit beiden Varianten war vorbereitet, lief
+  aber nicht mehr.
+- **Fehlversuch:** `0x5A92030` aus `docs/OFFSETS.md` ist die Adresse von `SnapRepresentationToTile` im alten Build `26187885` und
+  liegt in `26495302` mitten in einer anderen Funktion; dort beginnt sie bei `0x5A96EF0` (in der Tabelle nachgetragen).
 
 ### Sound und Effekte beim Client (`vfx-sound`)
 

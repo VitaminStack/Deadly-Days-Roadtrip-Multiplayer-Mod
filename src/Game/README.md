@@ -413,7 +413,8 @@ beiden Pistolen. Der Host wertete im selben Lauf seine eigenen Pistolen ohne Feh
 - **Lokal beim Client:** Das native Panel wertet auf, wie im Solo-Spiel. `UpgradeHook` lässt `UpgradeItems` nur innerhalb einer lokalen
   Bearbeitung laufen (`inventar-lokal`), die Inventar-RPCs der Aufwertung laufen dann lokal. Beim Airdrop ist das die Bearbeitung der
   Auswahl. Im Lager beginnt die erste Aufwertung eine Bearbeitung (`LagerEdit`), die bis zum Bestätigen im Lager läuft; vorher bleibt das
-  Lager wie in `rundenende-client` bei den nativen RPCs. `RecordUpgrade` merkt sich Eingaben, Ausgabe, Daten und Seltenheit.
+  Lager wie in `rundenende-client` bei den nativen RPCs. Seit `opt-rucksack-ueberlappung` beginnt sie schon mit dem ersten Zug im Rucksack
+  (`ChangesInventory`): Als native RPCs kamen beim Host Pivot und Drehung nicht an. `RecordUpgrade` merkt sich Eingaben, Ausgabe, Daten und Seltenheit.
 - **Geteilt:** Beim Bestätigen trägt der Edit (`0x303`) zusätzlich die Aufwertungen: Eingaben als Quellen (Ausgangs-Item, Wahl oder eine
   frühere Ausgabe), Objektnamen von Ausgabe-`ItemData` und Seltenheit und der Endstand der Ausgabe. Dazu schickt der Host jede Sekunde bei
   Änderung (sonst alle 5 s) die Seltenheiten des Clientinventars (`0x308`); der Client setzt damit nur `ItemRarity` seiner replizierten
