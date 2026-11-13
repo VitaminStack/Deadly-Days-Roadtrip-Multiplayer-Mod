@@ -117,10 +117,10 @@ class DerivedTests(unittest.TestCase):
         counts = source.phase_counts(parsed)
         self.assertEqual(counts[1], [1, 2])
         self.assertEqual(counts[0], [1, 1])
-        readme = ''.join(f'| [{p}](TODO.md#phase-{p}) | Ziel | 0 von 9 | x |\n' for p in range(7))
-        readme += '| **Gesamt** | | **0 von 99** | x |\n'
+        readme = ''.join(f'| [{p}](TODO.md#phase-{p}) | Ziel | 0 of 9 | x |\n' for p in range(7))
+        readme += '| **Total** | | **0 of 99** | x |\n'
         result = source.update_readme(parsed, readme)
-        self.assertIn('**7 von 8**', result)
+        self.assertIn('**7 of 8**', result)
         self.assertEqual(source.update_readme(parsed, result), result)
 
     def test_missing_readme_row_fails(self):
@@ -134,8 +134,8 @@ class DerivedTests(unittest.TestCase):
 
     def test_svg_only_completed_phases_have_green_background(self):
         parsed = source.parse(todo('| `a` | P0 | Text | – | parallel | wenig |\n'))
-        readme = ''.join(f'| [{p}](TODO.md#phase-{p}) | Ziel & Test | 0 von 9 | x |\n' for p in range(7))
-        readme += '| **Gesamt** | | **0 von 99** | x |\n'
+        readme = ''.join(f'| [{p}](TODO.md#phase-{p}) | Ziel & Test | 0 of 9 | x |\n' for p in range(7))
+        readme += '| **Total** | | **0 of 99** | x |\n'
         svg = source.progress_svg(parsed, readme)
         root = ET.fromstring(svg)
         ns = {'s': 'http://www.w3.org/2000/svg'}
@@ -143,21 +143,21 @@ class DerivedTests(unittest.TestCase):
             row = root.find(f'.//s:g[@id="phase-{phase}"]', ns)
             self.assertEqual(row.find('s:rect', ns).get('fill'), '#ffffff' if phase == 1 else '#dcfce7')
             text = ''.join(row.itertext())
-            self.assertIn('1 von 2' if phase == 1 else '1 von 1', text)
-            self.assertEqual('Abgeschlossen' in text, phase != 1)
+            self.assertIn('1 of 2' if phase == 1 else '1 of 1', text)
+            self.assertEqual('Completed' in text, phase != 1)
         self.assertIn('Ziel &amp; Test', svg)
-        self.assertNotIn('#dcfce7', ET.tostring(root.find('.//s:g[@id="phase-gesamt"]', ns)).decode())
+        self.assertNotIn('#dcfce7', ET.tostring(root.find('.//s:g[@id="phase-total"]', ns)).decode())
         self.assertEqual(svg, source.progress_svg(parsed, source.update_readme(parsed, readme)))
 
     def test_svg_all_done_includes_green_total(self):
         parsed = source.parse(todo())
-        readme = ''.join(f'| [{p}](TODO.md#phase-{p}) | Ziel | 0 von 9 | x |\n' for p in range(7))
-        readme += '| **Gesamt** | | **0 von 99** | x |\n'
+        readme = ''.join(f'| [{p}](TODO.md#phase-{p}) | Ziel | 0 of 9 | x |\n' for p in range(7))
+        readme += '| **Total** | | **0 of 99** | x |\n'
         root = ET.fromstring(source.progress_svg(parsed, readme))
         ns = {'s': 'http://www.w3.org/2000/svg'}
-        row = root.find('.//s:g[@id="phase-gesamt"]', ns)
+        row = root.find('.//s:g[@id="phase-total"]', ns)
         self.assertEqual(row.find('s:rect', ns).get('fill'), '#dcfce7')
-        self.assertIn('7 von 7', ''.join(row.itertext()))
+        self.assertIn('7 of 7', ''.join(row.itertext()))
 
 
 class ReservationTests(unittest.TestCase):
@@ -223,7 +223,7 @@ class PairReservationTests(unittest.TestCase):
             '| `solo` | P1 | Text | – | parallel | wenig |\n')
 
     def claim(self, name, role=None, branches=frozenset(), prs=None):
-        """Ergebnis von cmd_claim: Abbruchtext oder die Git-Aufrufe einer erfolgreichen Reservierung."""
+        """Ergebnis of cmd_claim: Abbruchtext oder die Git-Aufrufe einer erfolgreichen Reservierung."""
         text = todo(self.ROWS)
         with patch.object(tasks, 'git') as git, patch.object(tasks, 'run') as run, \
                 patch.object(tasks, 'todo_text', return_value=text), \

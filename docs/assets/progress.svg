@@ -1,68 +1,68 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1000" height="436" viewBox="0 0 1000 436" role="img" aria-labelledby="title desc">
-  <title id="title">Projektfortschritt je Phase</title>
-  <desc id="desc">Vollständig abgeschlossene Phasen haben einen grünen Hintergrund. Die verlinkte Texttabelle steht im README.</desc>
+  <title id="title">Project progress per phase</title>
+  <desc id="desc">Fully completed phases have a green background. The linked text table is in the README.</desc>
   <g font-family="Segoe UI, sans-serif" font-size="16" fill="#111827">
     <rect width="1000" height="52" fill="#1f2937"/>
     <text x="20" y="33" fill="#ffffff" font-weight="600">Phase</text>
-    <text x="125" y="33" fill="#ffffff" font-weight="600">Ziel</text>
-    <text x="490" y="33" fill="#ffffff" font-weight="600">Erledigt</text>
-    <text x="630" y="33" fill="#ffffff" font-weight="600">Fortschritt</text>
+    <text x="125" y="33" fill="#ffffff" font-weight="600">Goal</text>
+    <text x="490" y="33" fill="#ffffff" font-weight="600">Done</text>
+    <text x="630" y="33" fill="#ffffff" font-weight="600">Progress</text>
     <g id="phase-0">
       <rect y="52" width="1000" height="48" fill="#dcfce7"/>
       <path d="M0 100H1000" stroke="#d1d5db"/>
       <text x="20" y="82">0</text>
-      <text x="125" y="82">Gleiche Toolchain für alle</text>
-      <text x="490" y="82">11 von 11</text>
+      <text x="125" y="82">Same toolchain for everyone</text>
+      <text x="490" y="82">11 of 11</text>
       <rect x="630" y="67" width="200" height="18" rx="4" fill="#e5e7eb"/>
       <rect x="630" y="67" width="200" height="18" rx="4" fill="#15803d"/>
-      <text x="846" y="82">Abgeschlossen</text>
+      <text x="846" y="82">Completed</text>
     </g>
     <g id="phase-1">
       <rect y="100" width="1000" height="48" fill="#dcfce7"/>
       <path d="M0 148H1000" stroke="#d1d5db"/>
       <text x="20" y="130">1</text>
-      <text x="125" y="130">Fakten für Gate G1</text>
-      <text x="490" y="130">39 von 39</text>
+      <text x="125" y="130">Facts for gate G1</text>
+      <text x="490" y="130">39 of 39</text>
       <rect x="630" y="115" width="200" height="18" rx="4" fill="#e5e7eb"/>
       <rect x="630" y="115" width="200" height="18" rx="4" fill="#15803d"/>
-      <text x="846" y="130">Abgeschlossen</text>
+      <text x="846" y="130">Completed</text>
     </g>
     <g id="phase-2">
       <rect y="148" width="1000" height="48" fill="#dcfce7"/>
       <path d="M0 196H1000" stroke="#d1d5db"/>
       <text x="20" y="178">2</text>
-      <text x="125" y="178">Stabile Basis der Mod</text>
-      <text x="490" y="178">5 von 5</text>
+      <text x="125" y="178">Stable mod foundation</text>
+      <text x="490" y="178">5 of 5</text>
       <rect x="630" y="163" width="200" height="18" rx="4" fill="#e5e7eb"/>
       <rect x="630" y="163" width="200" height="18" rx="4" fill="#15803d"/>
-      <text x="846" y="178">Abgeschlossen</text>
+      <text x="846" y="178">Completed</text>
     </g>
     <g id="phase-3">
       <rect y="196" width="1000" height="48" fill="#dcfce7"/>
       <path d="M0 244H1000" stroke="#d1d5db"/>
       <text x="20" y="226">3</text>
-      <text x="125" y="226">Verbinden über Steam</text>
-      <text x="490" y="226">10 von 10</text>
+      <text x="125" y="226">Connecting via Steam</text>
+      <text x="490" y="226">10 of 10</text>
       <rect x="630" y="211" width="200" height="18" rx="4" fill="#e5e7eb"/>
       <rect x="630" y="211" width="200" height="18" rx="4" fill="#15803d"/>
-      <text x="846" y="226">Abgeschlossen</text>
+      <text x="846" y="226">Completed</text>
     </g>
     <g id="phase-4">
       <rect y="244" width="1000" height="48" fill="#dcfce7"/>
       <path d="M0 292H1000" stroke="#d1d5db"/>
       <text x="20" y="274">4</text>
-      <text x="125" y="274">Spielbarer Ausschnitt</text>
-      <text x="490" y="274">16 von 16</text>
+      <text x="125" y="274">Playable slice</text>
+      <text x="490" y="274">16 of 16</text>
       <rect x="630" y="259" width="200" height="18" rx="4" fill="#e5e7eb"/>
       <rect x="630" y="259" width="200" height="18" rx="4" fill="#15803d"/>
-      <text x="846" y="274">Abgeschlossen</text>
+      <text x="846" y="274">Completed</text>
     </g>
     <g id="phase-5">
       <rect y="292" width="1000" height="48" fill="#ffffff"/>
       <path d="M0 340H1000" stroke="#d1d5db"/>
       <text x="20" y="322">5</text>
-      <text x="125" y="322">Kompletter Run zu zweit</text>
-      <text x="490" y="322">37 von 41</text>
+      <text x="125" y="322">Complete run for two</text>
+      <text x="490" y="322">37 of 41</text>
       <rect x="630" y="307" width="200" height="18" rx="4" fill="#e5e7eb"/>
       <rect x="630" y="307" width="180" height="18" rx="4" fill="#64748b"/>
       <text x="846" y="322">90 %</text>
@@ -71,18 +71,18 @@
       <rect y="340" width="1000" height="48" fill="#ffffff"/>
       <path d="M0 388H1000" stroke="#d1d5db"/>
       <text x="20" y="370">6</text>
-      <text x="125" y="370">Veröffentlichung</text>
-      <text x="490" y="370">9 von 10</text>
+      <text x="125" y="370">Release</text>
+      <text x="490" y="370">9 of 10</text>
       <rect x="630" y="355" width="200" height="18" rx="4" fill="#e5e7eb"/>
       <rect x="630" y="355" width="180" height="18" rx="4" fill="#64748b"/>
       <text x="846" y="370">90 %</text>
     </g>
-    <g id="phase-gesamt">
+    <g id="phase-total">
       <rect y="388" width="1000" height="48" fill="#f3f4f6"/>
       <path d="M0 436H1000" stroke="#d1d5db"/>
-      <text x="20" y="418">Gesamt</text>
+      <text x="20" y="418">Total</text>
       <text x="125" y="418"></text>
-      <text x="490" y="418">127 von 132</text>
+      <text x="490" y="418">127 of 132</text>
       <rect x="630" y="403" width="200" height="18" rx="4" fill="#e5e7eb"/>
       <rect x="630" y="403" width="192" height="18" rx="4" fill="#64748b"/>
       <text x="846" y="418">96 %</text>
