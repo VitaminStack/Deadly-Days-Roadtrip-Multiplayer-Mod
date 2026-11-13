@@ -352,3 +352,103 @@ TEST_CASE("lager-handel-client: Schrott erst aus Verkäufen, dann für Reparatur
     CHECK_FALSE(TradeBalance(10, {2000000}, {})); // unplausibel hoch
     CHECK_FALSE(TradeBalance(-1, {}, {}));
 }
+
+namespace
+{
+Purchase Bought(size_t K, const std::string& Data, int32_t Cost, std::vector<Tile> Tiles = {})
+{
+    Purchase Next;
+    Next.Data = Data;
+    Next.Rarity = "Rarity_0_Common";
+    Next.Cost = Cost;
+    Next.Output = Tiles.empty() ? Stored(PurchaseSource(K)) : Placed(PurchaseSource(K), std::move(Tiles));
+    Next.Output.DataHash = NameHash(Data);
+    return Next;
+}
+}
+
+TEST_CASE("opt-haendler-client: Kauf im Edit mit eigener Quelle, im Lager oder im Rucksack")
+{
+    Edit Value;
+    Value.Id = 1;
+    Value.Purchases = {Bought(0, "ItemData_Pistol", 30), Bought(1, "ItemData_Knife", 12, {{0, 0}})};
+    CHECK(WellFormed(Value));
+    CHECK(IsPurchaseSource(PurchaseSource(0)));
+    CHECK_FALSE(IsPurchaseSource(UpgradeSource(0)));
+    CHECK_FALSE(IsPurchaseSource(ChoiceSource));
+    CHECK(Fits(Value, {{0, 0}}, {}));
+    CHECK_FALSE(Fits(Value, {{0, 0}}, {{0, 0}})); // Feld von einem fremden Item belegt
+    CHECK_FALSE(Fits(Value, {}, {}));             // Feld gibt es nicht
+
+    auto WrongSource = Value;
+    WrongSource.Purchases[1].Output.Source = PurchaseSource(0);
+    CHECK_FALSE(WellFormed(WrongSource));
+    auto WrongHash = Value;
+    WrongHash.Purchases[0].Data = "ItemData_Revolver";
+    CHECK_FALSE(WellFormed(WrongHash));
+    auto Negative = Value;
+    Negative.Purchases[0].Cost = -1;
+    CHECK_FALSE(WellFormed(Negative));
+    auto TooDear = Value;
+    TooDear.Purchases[0].Cost = MaxPrice + 1;
+    CHECK_FALSE(WellFormed(TooDear));
+    auto Broken = Value;
+    Broken.Purchases[0].Output.Broken = true;
+    CHECK_FALSE(WellFormed(Broken));
+    auto Vanished = Value;
+    Vanished.Purchases[0].Output = Gone(Vanished.Purchases[0].Output, 0);
+    CHECK_FALSE(WellFormed(Vanished)); // gekauft und weg, ohne Aufwertung
+    auto Sold = Value;
+    Sold.Purchases[0].Output = Gone(Sold.Purchases[0].Output, SoldForScrap);
+    CHECK_FALSE(WellFormed(Sold));
+    auto Overlap = Value;
+    Overlap.Items.push_back(Placed(0, {{0, 0}}));
+    CHECK_FALSE(WellFormed(Overlap));
+    auto ItemWithPurchaseSource = Value;
+    ItemWithPurchaseSource.Items.push_back(Stored(PurchaseSource(0)));
+    CHECK_FALSE(WellFormed(ItemWithPurchaseSource));
+    auto TooMany = Value;
+    TooMany.Purchases.clear();
+    for (size_t K = 0; K <= MaxPurchases; ++K)
+        TooMany.Purchases.push_back(Bought(K, "ItemData_Pistol", 1));
+    CHECK_FALSE(WellFormed(TooMany));
+}
+
+TEST_CASE("opt-haendler-client: gekauftes Item als Eingabe einer Aufwertung")
+{
+    Edit Value;
+    Value.Id = 1;
+    ItemState Old = Stored(0);
+    Old.DataHash = NameHash("ItemData_Pistol");
+    Value.Items = {Gone(Old)};
+    Value.Purchases = {Bought(0, "ItemData_Pistol", 30)};
+    Value.Purchases[0].Output = Gone(Value.Purchases[0].Output);
+    Upgrade Next;
+    Next.Inputs = {0, PurchaseSource(0)};
+    Next.Data = "ItemData_Pistol";
+    Next.Rarity = "Rarity_1_Uncommon";
+    Next.Output = Placed(UpgradeSource(0), {{0, 0}});
+    Next.Output.DataHash = NameHash(Next.Data);
+    Value.Upgrades = {Next};
+    CHECK(WellFormed(Value));
+    CHECK(ConsumedSources(Value) == std::set<uint16_t>{0, PurchaseSource(0)});
+
+    auto StillThere = Value;
+    StillThere.Purchases[0].Output = Stored(PurchaseSource(0));
+    StillThere.Purchases[0].Output.DataHash = NameHash("ItemData_Pistol");
+    CHECK_FALSE(WellFormed(StillThere)); // verbraucht und zugleich vorhanden
+    auto Unknown = Value;
+    Unknown.Upgrades[0].Inputs = {0, PurchaseSource(1)};
+    CHECK_FALSE(WellFormed(Unknown));
+}
+
+TEST_CASE("opt-haendler-client: Käufe kosten nach den Verkäufen, zusammen mit Reparaturen")
+{
+    CHECK(TradeBalance(30, {}, {}, {30}) == 0);
+    CHECK_FALSE(TradeBalance(29, {}, {}, {30}));
+    CHECK(TradeBalance(10, {25}, {}, {30}) == 5);   // Verkauf bezahlt den Kauf
+    CHECK(TradeBalance(40, {}, {10}, {30}) == 0);
+    CHECK_FALSE(TradeBalance(39, {}, {10}, {30}));
+    CHECK_FALSE(TradeBalance(100, {}, {}, {-1}));
+    CHECK_FALSE(TradeBalance(2000000, {}, {}, {MaxPrice + 1}));
+}
