@@ -669,10 +669,48 @@ void RecordUpgrade(const std::vector<uintptr_t>& Inputs, uintptr_t Output, uintp
                     Session.Upgrades.back().Rarity);
 }
 
+namespace
+{
+// Client: Eingaben aufgezeichneter Aufwertungen, die wieder im Inventar liegen, lokal entfernen. Liefert ihre Anzahl.
+size_t RemoveConsumedInputs()
+{
+    const std::vector<uintptr_t> Now = ItemsOf(Session.Inventory);
+    const std::vector<SlotInfo> Slots = SlotsOf(Session.Inventory);
+    std::vector<uintptr_t> Items;
+    std::vector<ItemState> Current, Target;
+    for (const auto& Recorded : Session.Upgrades)
+        for (const uintptr_t Input : Recorded.Inputs)
+            if (Alive(Input) && Contains(Now, Input) && !Contains(Items, Input))
+            {
+                Items.push_back(Input);
+                Current.push_back(ReadItem(Input, Slots, ChoiceSource));
+                ItemState Gone;
+                Gone.Source = ChoiceSource;
+                Gone.Present = false;
+                Target.push_back(Gone);
+            }
+    if (Items.empty())
+        return 0;
+    // Wie beim Zurückrollen: verschachtelte RPCs nur lokal, ohne Vormerken oder Aufzeichnen.
+    Session.State = Phase::Reverting;
+    const bool Ok = Apply(Session.Inventory, Items, Current, Target, {}, {}, true);
+    Session.State = Phase::Editing;
+    if (!Ok)
+        Core::Log::Warn("Inventar lokal: erneut aufgenommene Eingabe nicht vollständig entfernt");
+    return Items.size();
+}
+}
+
 std::optional<Edit> FinishClient(uint64_t SessionId, uint64_t Revision, std::optional<uint8_t> Choice, uintptr_t ChoiceItem)
 {
     if (Session.State != Phase::Editing)
         return std::nullopt;
+    // opt-airdrop-edit-ungueltig: Die Belohnungsanzeige behält eine Instanz, die eine Aufwertung schon verbraucht hat. Nimmt der
+    // Spieler sie dort erneut auf, liegt sie wieder im Inventar und wäre zugleich Eingabe der Aufwertung: Der Edit galt als
+    // ungültig, die ganze Bearbeitung wurde zurückgenommen. Die Aufwertung gilt; die erneut aufgenommene Eingabe geht lokal
+    // wieder hinaus, wie es UpgradeItems schon getan hatte.
+    if (const size_t Removed = RemoveConsumedInputs())
+        Core::Log::Warn("Inventar lokal: {} schon aufgewertete Eingabe(n) erneut aufgenommen, wieder entfernt; die Aufwertung bleibt", Removed);
     const std::vector<uintptr_t> Now = ItemsOf(Session.Inventory);
     const std::vector<SlotInfo> Slots = SlotsOf(Session.Inventory);
     std::vector<ItemState> Final;
@@ -736,9 +774,10 @@ std::optional<Edit> FinishClient(uint64_t SessionId, uint64_t Revision, std::opt
         SourceOf[Recorded.Output] = UpgradeSource(K);
         Result.Upgrades.push_back(std::move(Next));
     }
-    if (!WellFormed(Result))
+    if (const char* Why = Malformed(Result))
     {
-        Core::Log::Warn("Inventar lokal: Edit mit {} Aufwertungen ungültig, Bearbeitung zurückgenommen", Result.Upgrades.size());
+        Core::Log::Warn("Inventar lokal: Edit mit {} Items und {} Aufwertungen ungültig ({}), Bearbeitung zurückgenommen", Result.Items.size(),
+                        Result.Upgrades.size(), Why);
         RevertClient("Edit ungültig");
         return std::nullopt;
     }
