@@ -1854,7 +1854,8 @@ bool ShowForClient(uint64_t SessionId, uint64_t Expected, int32_t Level, const s
         return true;
     // opt-werkbank-station: Eine offene Stations-Bearbeitung geht zuerst an den Host, die Auswahl folgt nach seiner Antwort.
     FinishStation("Auswahl des Hosts");
-    if (ClientPending)
+    // opt-haendler-client: auch nicht, solange nach einem übernommenen Edit noch lokale Instanzen im Inventar liegen.
+    if (ClientPending || Game::InventoryEdit::ClientSettling())
         return false;
     CloseForClient();
     static uintptr_t SetRewards = 0;
