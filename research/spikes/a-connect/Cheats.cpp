@@ -199,9 +199,9 @@ void ScrapCommand(const std::wstring& Args)
     const uintptr_t World = Read<uintptr_t>(Base + kGWorld);
     const uintptr_t State = World ? Read<uintptr_t>(World + kWorldGameState) : 0;
     const uintptr_t Add = FindObject("AddAmount", "AbstractCurrency");
-    if (!State || !Add || !Read<uintptr_t>(World + kWorldGameMode) || NameOf(Read<uintptr_t>(State + 0x10)).find("MissionGameState") == std::string::npos)
+    if (!State || !Add || !Read<uintptr_t>(World + kWorldGameMode))
     {
-        Log("Scrap: nicht moeglich (kein Host oder keine Mission)");
+        Log("Scrap: nicht moeglich (kein Host oder kein GameState)");
         return;
     }
     const uintptr_t Wallet = Read<uintptr_t>(State + 0x3C0);
