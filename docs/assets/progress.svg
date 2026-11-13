@@ -61,7 +61,7 @@
       <rect y="292" width="1000" height="48" fill="#ffffff"/>
       <path d="M0 340H1000" stroke="#d1d5db"/>
       <text x="20" y="322">5</text>
-      <text x="125" y="322">Complete run for two</text>
+      <text x="125" y="322">Kompletter Run zu zweit</text>
       <text x="490" y="322">36 von 41</text>
       <rect x="630" y="307" width="200" height="18" rx="4" fill="#e5e7eb"/>
       <rect x="630" y="307" width="175" height="18" rx="4" fill="#64748b"/>
