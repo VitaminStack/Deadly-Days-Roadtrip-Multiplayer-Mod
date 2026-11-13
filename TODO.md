@@ -36,6 +36,7 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 |---|---|---|---|---|
 | `integration-run` | P0 | [5](#phase-5--vollständiger-run) | zentral | viel |
 | `boss-client-einfrieren` | P1 | [5](#phase-5--vollständiger-run) | parallel | mittel |
+| `lager-edit-ablehnung` | P1 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `opt-airdrop-sound` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
 | `opt-bedrohung-sound` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
 | `opt-client-takt` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
@@ -56,7 +57,7 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 
 **Wartet auf das Team:** nichts.
 
-**Bestätigungstest ausstehend (nicht in Arbeit):** `lager-handel-client`, `opt-blut`, `opt-werkbank-station`, `opt-airdrop-edit-ungueltig`, `opt-rucksack-ueberlappung`, `opt-airdrop-uebertrag`, `opt-schuss-animation`.
+**Bestätigungstest ausstehend (nicht in Arbeit):** `opt-blut`, `opt-werkbank-station`, `opt-airdrop-edit-ungueltig`, `opt-rucksack-ueberlappung`, `opt-airdrop-uebertrag`, `opt-schuss-animation`.
 <!-- frei:end -->
 
 **Nicht erneut machen.** Das ist erledigt und dokumentiert:
@@ -111,6 +112,7 @@ Mögliche Punkte und Reihenfolge, je nach Bereitschaft:
 6. Alle Bestätigungstests aus `py tools/tasks.py tests plan` in einem Lauf bis Tag 2. Gemeinsamer Ablauf für `fortschritt`,
    `update-welt` und `lager-handel-client`: [Plan](research/spikes/fortschritt/README.md#live-test-zu-zweit-etwa-30-minuten).
    Neue Aufgaben mit Live-Rest dort ergänzen statt einen eigenen Termin anzusetzen.
+7. Die Punkte aus [Live-Bestätigung ausstehend](#live-bestätigung-ausstehend) nebenbei im selben Lauf prüfen.
 
 Die Entscheidung `meta-fortschritt` ist getroffen: Im gemeinsamen Run gilt der Host-Stand,
 ohne dauerhafte Meta-Gutschrift beim Client, siehe [Regel](docs/SYNC_REQUIREMENTS.md#nutzervorgabe-meta-fortschritt-des-hosts-06112026).
@@ -120,11 +122,37 @@ ohne dauerhafte Meta-Gutschrift beim Client, siehe [Regel](docs/SYNC_REQUIREMENT
 `kamera-code`, `bewegung`, `kampf`, `gegnertyp`, `eingaben`, `restrictor`, `ohne-spike`, `latenz-test`, `desync-melder`,
 `dauerlauf`, `weekly-sperre`, `mod-saves`, `installer` und die Sync-Aufgaben aus Phase 5. Dafür ist normalerweise kein gemeinsamer Termin nötig; die jeweiligen Abnahmen gelten weiterhin.
 
+## Live-Bestätigung ausstehend
+
+Erledigte Aufgaben, deren Abnahme bisher nur auf einem PC (zwei Instanzen) belegt ist. Sie bleiben unter [Erledigt](#erledigt)
+und zählen als abgeschlossen. In der nächsten Live-Sitzung zu zweit mit Analyse nebenbei prüfen, siehe
+[Live-Sitzungen zu zweit](#live-sitzungen-zu-zweit). Bestätigt: Zeile löschen, Ergebnis im Bericht der Sitzung festhalten.
+Fällt ein Punkt durch: neue Aufgabe in der passenden Phase anlegen und die Zeile löschen. Wer eine Aufgabe nur mit
+Ein-PC-Beleg abschließt, trägt sie hier ein. Nutzerentscheidung vom 13.11.2026.
+
+| Aufgabe | Belegt | In der Live-Sitzung prüfen |
+|---|---|---|
+| `charakter-wahl` | 10.11., ein PC | Jeder wählt in der MetaBase eine andere Figur, beide sehen die Wahl des anderen; nach Reise und Startausrüstung im Run |
+| `lager-handel-client` | Verkauf/Reparatur 13.11. zwei PCs, Ausrüsten 13.11. ein PC | Client repariert im Lager ein kaputtes Item, legt es in den Rucksack, bestätigt; am nächsten Tag ausgerüstet |
+| `opt-ausdauerbalken` | ein PC | Client sieht den Ausdauerbalken des Hosts beim Sprinten wie der Host |
+| `opt-blickrichtung-client` | ein PC | Beide Figuren schauen beim Client in Lauf- und Zielrichtung |
+| `opt-busbalken` | ein PC | Ladebalken der Busabfahrt beim Client wie beim Host |
+| `opt-charakter-takt` | 11.11., ein PC | Keine Zeile „Takt: Charakterwahl“, Wahl bleibt nach Reise und erneutem Beitritt |
+| `opt-haendler-client` | ein PC | Client kauft beim Händler von Hand, Item und Schrott bei beiden gleich |
+| `opt-item-sound` | ein PC | Client hört Aufsammelsounds (Benzin, Schrott, Items) je Objekt einmal |
+| `opt-laufanimation-client` | ein PC | Laufanimation der Client-Figur beim Host passt zum Tempo |
+| `opt-levelup-sound` | ein PC | Kein Schrott-Dauersound beim Client, Level-up-Kiste im Endbildschirm ohne Soundfehler |
+| `opt-schadenszahlen` | ein PC | Client sieht Schadenszahlen eigener und fremder Treffer |
+| `opt-schrott-anzeige` | ein PC, zwei Tage | Schrottanzeige des Clients springt beim Aufsammeln nicht |
+| `opt-waffen-sound` | ein PC | Client hört Schuss- und Nachladesounds beider Figuren |
+| `run-ende` | ein PC | Niederlage und Sieg beim Client nativ, Rückkehr und neuer Run in derselben Sitzung |
+
 ## Aufgabe abschließen
 
 1. Ergebnis und Testgrenzen in der Doku festhalten, auch gescheiterte Versuche, siehe [Ergebnisse festhalten](docs/TESTING.md#ergebnisse-festhalten).
 2. Nur bei erfüllter Abnahme („Fertig, wenn“): die Zeile aus der Phasentabelle löschen und unter [Erledigt](#erledigt) alphabetisch einfügen, als `` | `kennung` | Phase | Ergebnis in einem Satz mit Link | ``. Die Phase ist eine Ziffer von 0 bis 6, `Wartung`, `Optional` oder `Coop` (für [Real Coop logic](#real-coop-logic)).
 3. Teilergebnis: Die Zeile bleibt offen. Den Text auf den Rest kürzen oder den Rest als neue Kennung in dieselbe Phase eintragen und die alte Zeile nach „Erledigt“ verschieben. Wer eine neue Kennung anlegt, trägt sie bei allen Aufgaben, die darauf warten, unter „Braucht“ ein.
+   Ist die Abnahme nur auf einem PC belegt, obwohl sie zu zweit live gilt, zusätzlich eine Zeile unter [Live-Bestätigung ausstehend](#live-bestätigung-ausstehend) eintragen.
 4. `py tools/task_status.py update` ausführen. Das erneuert „Wo kann ich anfangen?“ und den Fortschritt im README. Danach muss `py tools/task_status.py check` bestehen.
 5. In [docs/ROADMAP.md](docs/ROADMAP.md) den Knoten umfärben, wenn es einen gibt.
 
@@ -165,7 +193,6 @@ Ziel: Ein kompletter Run ist zu zweit online spielbar.
 
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
-| `lager-handel-client` | P1 | **Bestätigungstest ausstehend:** Live-Test 13.11.2026 auf zwei PCs: zwei gemischte Lager-Edits vom Host übernommen (7 Verkäufe und 7 Reparaturen, 3 Verkäufe und 8 Reparaturen, dazu Aufwertungen), Schrott danach gleich; offen nur noch der Beleg, dass der Client ein repariertes Item danach ausrüsten kann **Aufgabe und Abnahme:** Gefunden im Live-Test am 07.11.2026 (zwei PCs, Build `26495302`): Im Lager kann der Client Items verschieben, aber nicht verkaufen und nicht reparieren, beim Host geht beides. Am Rundenende lassen sich beim Client nicht reparierte Items nicht ausrüsten. Erst klären, ob das Spiel kaputte Items auch beim Host sperrt. Verkauf und Reparatur buchen Währung und Itemzustand, darum entscheidet der Host wie beim Aufwerten (`werkbank-client`): Client handelt im nativen Panel, Host prüft und führt aus. **Fertig, wenn** der Client im Lager auf zwei PCs verkauft und repariert, Währung und Items bei beiden gleich sind und reparierte Items sich ausrüsten lassen. Ordner `src/Game`. **Einstieg:** [Live-Test 07.11.](docs/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-07112026-livetest-0711) | `rundenende-client` | parallel | mittel |
 | `lager-edit-ablehnung` | P1 | Gefunden im Live-Test am 10.11.2026 (zwei PCs, Build `26495302`): Ein großer Lager-Edit des Clients (6 Verkäufe, 1 Reparatur, 2 Aufwertungen, 4 neue Felder) wurde vom Host abgelehnt; danach stellte der Client seinen Ausgangsstand nur unvollständig her (Revolver abweichend), angebaute Felder, Luftpumpe und die aufgewertete Schrotflinte gingen verloren, und weil das Lager ohne Bearbeitung offen blieb, liefen zwei Aufwertungen nur beim Client nativ und Verkäufe wurden verworfen. Die Rucksackgrafik stand danach neben den Feldern. Ablehnungsgrund steht nur im Host-Log. **Fertig, wenn** der Grund geklärt und behoben ist, eine Ablehnung den Ausgangsstand vollständig herstellt (Felder, Items, Grafik), nach einer Ablehnung eine neue Bearbeitung beginnt statt ungeschützter Aufwertungen, und ein gemischter Lager-Edit auf zwei PCs übernommen wird. Ordner `src/Game`, `src/Sync/Inventory`. **Einstieg:** [Live-Test 10.11.](docs/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-10112026-livetest-1011) | `lager-handel-client` | parallel | mittel |
 | `boss-client-einfrieren` | P1 | Gefunden in `endboss-spawn` am 13.11.2026 (ein PC, zwei Instanzen, Build `26495302`): Nach dem Tod des Bosses auf `MGP_Burger_Boss_Nature` steht beim Client die Zeit still, der TimescaleManager hält acht Anfragen (`tools/spike/pause_state.py`, `request_free` 1 von 9), während der Host weiterspielt; erst das Rundenende löst ihn. Die Abschlusstafel „Quest abgeschlossen“ erscheint beim Client nicht. **Fertig, wenn** der Client nach dem Bosstod ohne Stillstand weiterspielt und die Ursache der Anfragen belegt ist. Ordner `src/Game`. **Einstieg:** [Endboss erscheint nicht](docs/GAME_ANALYSIS.md#endboss-erscheint-nicht-endboss-spawn) | `endboss-spawn` | parallel | mittel |
 | `integration-run` | P0 | Kompletten Run zu zweit über Internet durchspielen und Fehler den Aufgaben zuordnen. **Fertig, wenn** ein Run von der `MetaBase` bis zum Endboss ohne Absturz und Desync läuft | `gegner-alle`, `fortschritt`, `werkbank-client`, `pausen-sync`, `tagesablauf`, `run-ende`, `dauerlauf`, `endboss-spawn` | zentral | viel |
@@ -316,6 +343,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `karten-erzeugung` | 1 | Gleicher Run-Seed und gleiche Mission ergeben dieselbe Karte, siehe [Karte und Seed](docs/GAME_ANALYSIS.md#karte-und-seed) |
 | `lager-absturz-client` | 5 | Zwei PCs, Build 26495302, Mod main 49e0194, nur Mod: Beitritt ohne Host-Absturz, drei Rundenenden ohne Absturz, Host wartet bei hart beendetem Client, Host beendet im Lager und Client landet im Hauptmenü, siehe [Live-Test 07.11.](docs/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-07112026-livetest-0711) |
 | `lager-bestaetigen-absturz` | 5 | Live-Test 13.11.2026 auf zwei PCs: zehn Rundenenden, der Client bestätigte jedes Mal im Lager, kein Absturz, siehe [Live-Test 13.11.](docs/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-13112026-livetest-1311) |
+| `lager-handel-client` | 5 | Ausrüsten nach Reparatur am 13.11.2026 auf einem PC belegt (Host bucht 1 von 1 repariert, Inventare gleich, Pistole im Rucksack der Client-Figur); Verkauf und Reparatur zuvor auf zwei PCs, siehe [Bericht](docs/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-13112026-livetest-1311) |
 | `last` | 1 | Spike D: bei rund 85 Gegnern 47 KB/s vom Host, beide Instanzen 60 fps, nur Loopback, siehe [Last](docs/GAME_ANALYSIS.md#last-spike-d-last) |
 | `latenz-test` | 4 | Netzsimulation im Tunnel der Mod (`-ddcoop_netsim`, `-NetProfile Internet`), Routenlauf bis Tag 1 mit Profil sauber, [Latenz simulieren](docs/TESTING.md#latenz-simulieren) |
 | `layerapps-sperre` | 6 | Die Mod sperrt auch `deadlydays.layerapps.com`, das das Spiel beim Run-Ende anfragt (`Core::ReportHosts`). Run-Ende und neuer Run laufen normal, siehe [Telemetrie und Berichte](docs/GAME_ANALYSIS.md#telemetrie-und-berichte-telemetrie-aus) |

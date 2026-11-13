@@ -4,10 +4,11 @@
 #   Game-Input.ps1 Host key <taste> [sek]    Taste druecken oder halten, etwa A, Esc, Enter oder einen VK-Code
 #   Game-Input.ps1 Host pixel <x> <y>        Farbe eines Punkts im Fensterinhalt als RRGGBB
 #   Game-Input.ps1 Host drag <x> <y> <ziel-x> <ziel-y>  Inventargegenstand ablegen
+#   Game-Input.ps1 Host hold <x> <y> [left|right] [sek]  Maustaste halten, im Lager links reparieren, rechts verkaufen
 # Klick und Taste holen das Fenster kurz nach vorn und bewegen die Maus, waehrenddessen nicht selbst tippen.
 param(
     [Parameter(Mandatory)][ValidateSet('Host', 'Client')][string]$Role,
-    [Parameter(Mandatory)][ValidateSet('shot', 'click', 'key', 'pixel', 'drag')][string]$Action,
+    [Parameter(Mandatory)][ValidateSet('shot', 'click', 'key', 'pixel', 'drag', 'hold')][string]$Action,
     [string]$Arg1,
     [string]$Arg2,
     [string]$Arg3,
@@ -56,6 +57,15 @@ public static class SpikeInput {
         POINT Point; Point.X = X; Point.Y = Y; ClientToScreen(Window, ref Point);
         SetCursorPos(Point.X, Point.Y); Thread.Sleep(80);
         mouse_event(2, 0, 0, 0, UIntPtr.Zero); Thread.Sleep(60); mouse_event(4, 0, 0, 0, UIntPtr.Zero);
+    }
+    // Maustaste auf einer Stelle halten, etwa fuer Reparieren (links) und Verkaufen (rechts) im Lager.
+    public static void Hold(IntPtr Window, int X, int Y, bool Right, int Milliseconds) {
+        Focus(Window);
+        POINT Point; Point.X = X; Point.Y = Y; ClientToScreen(Window, ref Point);
+        SetCursorPos(Point.X, Point.Y); Thread.Sleep(300);
+        mouse_event(Right ? 8u : 2u, 0, 0, 0, UIntPtr.Zero);
+        try { Thread.Sleep(Milliseconds); }
+        finally { mouse_event(Right ? 16u : 4u, 0, 0, 0, UIntPtr.Zero); }
     }
     public static void Drag(IntPtr Window, int X, int Y, int ToX, int ToY) {
         Focus(Window);
@@ -129,6 +139,11 @@ switch ($Action) {
     'drag' {
         if (-not $Arg1 -or -not $Arg2 -or -not $Arg3 -or -not $Arg4) { throw 'drag braucht vier Koordinaten.' }
         [SpikeInput]::Drag($Window, [int]$Arg1, [int]$Arg2, [int]$Arg3, [int]$Arg4)
+    }
+    'hold' {
+        if (-not $Arg1 -or -not $Arg2) { throw 'hold braucht zwei Koordinaten.' }
+        $Seconds = if ($Arg4) { [double]$Arg4 } else { 2 }
+        [SpikeInput]::Hold($Window, [int]$Arg1, [int]$Arg2, $Arg3 -eq 'right', [int]($Seconds * 1000))
     }
     'key' {
         $Seconds = if ($Arg2) { [double]$Arg2 } else { 0.1 }
