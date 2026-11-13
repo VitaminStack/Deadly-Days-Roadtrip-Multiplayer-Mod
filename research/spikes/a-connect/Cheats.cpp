@@ -191,6 +191,30 @@ void GiveItemCommand(const std::wstring& Args)
     Log("Give: " + DataName + (RarityName.empty() ? "" : " " + RarityName) + (Broken ? " kaputt" : "") + " an " + std::to_string(Given) + " Inventare");
 }
 
+// Testhilfe (opt-haendler-client): Host aendert den Schrott der Mission, "!scrap 200" oder "!scrap -50". Natives
+// AbstractCurrency.AddAmount am ScrapWallet des Missions-GameState (+0x3C0), die Mod schickt den Stand an den Client.
+void ScrapCommand(const std::wstring& Args)
+{
+    const int32_t Delta = _wtoi(Args.c_str());
+    const uintptr_t World = Read<uintptr_t>(Base + kGWorld);
+    const uintptr_t State = World ? Read<uintptr_t>(World + kWorldGameState) : 0;
+    const uintptr_t Add = FindObject("AddAmount", "AbstractCurrency");
+    if (!State || !Add || !Read<uintptr_t>(World + kWorldGameMode) || NameOf(Read<uintptr_t>(State + 0x10)).find("MissionGameState") == std::string::npos)
+    {
+        Log("Scrap: nicht moeglich (kein Host oder keine Mission)");
+        return;
+    }
+    const uintptr_t Wallet = Read<uintptr_t>(State + 0x3C0);
+    if (!Wallet || NameOf(Read<uintptr_t>(Wallet + 0x10)) != "ScrapWalletComponent")
+    {
+        Log("Scrap: Konto nicht gefunden");
+        return;
+    }
+    int32_t Params = Delta;
+    Read<ProcessEventFn*>(Wallet)[kProcessEventIndex](Wallet, Add, &Params);
+    Log("Scrap: " + std::to_string(Delta) + ", Stand " + std::to_string(Read<int32_t>(Wallet + 0x100)));
+}
+
 // Testhilfe (gegner-alle): Host spawnt einen Boss ueber EnemySpawner::SpawnSpecificEnemy, "!boss SpikeBoss [Abstand]".
 // Namen der EnemyType-Assets: SpikeBoss, FrankensteinBoss, BlobBallBoss, BallerinaBoss, LazyBoss, HQBoss. Das Asset muss geladen sein,
 // sonst vorher "!load <Pfad>". Spawn Abstand (Standard 600) vor der ersten Spielerfigur. Nur beim Host, die Replikation macht das Spiel.
