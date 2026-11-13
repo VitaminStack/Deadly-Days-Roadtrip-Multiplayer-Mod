@@ -34,14 +34,14 @@ Done means listed under "Erledigt" in `TODO.md`. **Fully completed phases are hi
 
 | Phase | Goal | Done | Progress |
 |---|---|---|---|
-| [0](TODO.md#phase-0--projekt-setup) | Gleiche Toolchain für alle | 11 von 11 | ███████████ |
-| [1](TODO.md#phase-1--analyse-und-spikes) | Fakten für Gate G1 | 39 von 39 | ███████████ |
-| [2](TODO.md#phase-2--fundament) | Stabile Basis der Mod | 5 von 5 | ███████████ |
-| [3](TODO.md#phase-3--session-und-verbindung) | Verbinden über Steam | 10 von 10 | ███████████ |
-| [4](TODO.md#phase-4--vertical-slice) | Spielbarer Ausschnitt | 16 von 16 | ███████████ |
-| [5](TODO.md#phase-5--vollständiger-run) | Kompletter Run zu zweit | 36 von 41 | ██████████░ |
-| [6](TODO.md#phase-6--release) | Veröffentlichung | 9 von 10 | ██████████░ |
-| **Gesamt** | | **126 von 132** | ███████████ |
+| [0](TODO.md#phase-0--projekt-setup) | Same toolchain for everyone | 11 of 11 | ███████████ |
+| [1](TODO.md#phase-1--analyse-und-spikes) | Facts for gate G1 | 39 of 39 | ███████████ |
+| [2](TODO.md#phase-2--fundament) | Stable mod foundation | 5 of 5 | ███████████ |
+| [3](TODO.md#phase-3--session-und-verbindung) | Connecting via Steam | 10 of 10 | ███████████ |
+| [4](TODO.md#phase-4--vertical-slice) | Playable slice | 16 of 16 | ███████████ |
+| [5](TODO.md#phase-5--vollständiger-run) | Complete run for two | 36 of 41 | ██████████░ |
+| [6](TODO.md#phase-6--release) | Release | 9 of 10 | ██████████░ |
+| **Total** | | **126 of 132** | ███████████ |
 
 </details>
 

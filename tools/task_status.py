@@ -237,7 +237,7 @@ def update_readme(tasks, readme):
     lines = []
     for line in readme.splitlines(keepends=True):
         match = re.match(r'^\| \[([0-6])\]\(TODO.md#phase-', line)
-        key = int(match[1]) if match else 'total' if line.startswith('| **Gesamt** |') else None
+        key = int(match[1]) if match else 'total' if line.startswith('| **Total** |') else None
         if key is not None:
             if key in seen:
                 raise ValueError('Doppelte README-Fortschrittszeile')
@@ -246,7 +246,7 @@ def update_readme(tasks, readme):
             if len(row) != 6:
                 raise ValueError('Unerwartetes README-Tabellenformat')
             done, total = counts[key]
-            value = f'{done} von {total}'
+            value = f'{done} of {total}'
             row[3] = f' **{value}** ' if key == 'total' else f' {value} '
             row[4] = f' {progress_bar(done, total)} '
             line = '|'.join(row) + line[len(line.rstrip('\r\n')):]
@@ -266,25 +266,25 @@ def progress_svg(tasks, readme):
         if match:
             phase = int(match[1])
             rows.append((str(phase), cells(line)[1], *counts[phase]))
-    rows.append(('Gesamt', '', sum(v[0] for v in counts.values()), sum(v[1] for v in counts.values())))
+    rows.append(('Total', '', sum(v[0] for v in counts.values()), sum(v[1] for v in counts.values())))
     height = 52 + 48 * len(rows)
     svg = [f'<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="{height}" viewBox="0 0 1000 {height}" role="img" aria-labelledby="title desc">',
-           '  <title id="title">Projektfortschritt je Phase</title>',
-           '  <desc id="desc">Vollständig abgeschlossene Phasen haben einen grünen Hintergrund. Die verlinkte Texttabelle steht im README.</desc>',
+           '  <title id="title">Project progress per phase</title>',
+           '  <desc id="desc">Fully completed phases have a green background. The linked text table is in the README.</desc>',
            '  <g font-family="Segoe UI, sans-serif" font-size="16" fill="#111827">',
            '    <rect width="1000" height="52" fill="#1f2937"/>']
-    for x, label in ((20, 'Phase'), (125, 'Ziel'), (490, 'Erledigt'), (630, 'Fortschritt')):
+    for x, label in ((20, 'Phase'), (125, 'Goal'), (490, 'Done'), (630, 'Progress')):
         svg.append(f'    <text x="{x}" y="33" fill="#ffffff" font-weight="600">{label}</text>')
     for index, (phase, goal, done, total) in enumerate(rows):
         y = 52 + index * 48
         complete = done == total
-        background = '#dcfce7' if complete else '#f3f4f6' if phase == 'Gesamt' else '#ffffff'
+        background = '#dcfce7' if complete else '#f3f4f6' if phase == 'Total' else '#ffffff'
         bar = '#15803d' if complete else '#64748b'
-        status = 'Abgeschlossen' if complete else f'{done * 100 // total} %'
+        status = 'Completed' if complete else f'{done * 100 // total} %'
         svg += [f'    <g id="phase-{phase.lower()}">',
                 f'      <rect y="{y}" width="1000" height="48" fill="{background}"/>',
                 f'      <path d="M0 {y + 48}H1000" stroke="#d1d5db"/>']
-        for x, label in ((20, phase), (125, goal), (490, f'{done} von {total}')):
+        for x, label in ((20, phase), (125, goal), (490, f'{done} of {total}')):
             svg.append(f'      <text x="{x}" y="{y + 30}">{escape(label)}</text>')
         svg.append(f'      <rect x="630" y="{y + 15}" width="200" height="18" rx="4" fill="#e5e7eb"/>')
         if done:
