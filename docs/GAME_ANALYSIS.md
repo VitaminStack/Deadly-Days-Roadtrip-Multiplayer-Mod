@@ -2905,6 +2905,39 @@ Offsets: [Boss-Parzelle](OFFSETS.md#boss-parzelle-endboss-spawn). Lesewerkzeug: 
 - **Nicht geprüft:** zwei PCs, die Karten `MGP_Burger_Boss_City` und `MGP_HQ8_Boss` (HQ-Endboss nach drei Bossen,
   `NumBossesBeforeEndBoss` 3), ein echter Kampf ohne `!bossdmg`, eine Niederlage im Bosskampf und der Endlosmodus.
 
+### Host-Absturz beim Rundenstart (`host-absturz-start`)
+
+Stand 13.11.2026, Build `26495302`. Auslöser: Live-Test auf zwei PCs über das Internet am Abend des 13.11.2026 (Mod-Version 13,
+`main` `82002dc`), dieser PC als Host. Werkzeuge: Mod-Log, Absturzbericht (nur lokal gelesen), Disassembly, Speicherlesen eigener
+Testinstanzen. Offsets: [Kamera-Folger und Controller-Liste](OFFSETS.md#kamera-folger-und-controller-liste-host-absturz-start).
+
+- **[Belegt] Absturz:** 1,4 s nach dem Laden der ersten Missionskarte (`MGP_Residential`, Regen) stürzte der Host mit
+  `EXCEPTION_ACCESS_VIOLATION` lesend an `0x1B8` ab, RIP `0x585AEC7`, Aufrufer `0x28138DF` (Komponenten-Tick über die vfunc `+0x400`),
+  kein Rahmen der Mod. Letzte Logzeile: „Busplatz: 1 geschont, 0 Spielerfiguren ergänzt“.
+- **[Belegt] Klasse und Funktion:** `0x585AEA0` ist `UAttachToCameraComponent::TickComponent` (Vtable `0x93A09D0`, Slot `0x400`).
+  Belegt über die Registrierung: `GetPrivateStaticClass` `0x5655980` übergibt den Namen `AttachToCameraComponent` (`0x93A0EF0`),
+  Größe `0xE0` und `InternalConstructor` `0x5658430`; dieser springt in den Konstruktor `0x5830DC0`, der die Vtable `0x93A09D0` setzt.
+  Der Tick liest das Ziel bei `+0xD8`, dessen `RootComponent` (`+0x1B8`) und deren Ort (`+0x210`/`+0x220`), addiert den Versatz bei
+  `+0xC0..0xD0` und setzt damit den Ort des eigenen Actors (`+0xA8`, Aufruf `0x25F3490`). Eine Nullprüfung fehlt.
+- **[Belegt] Woher das Ziel kommt:** BeginPlay der Komponente (`0x583B2D0`, Vtable-Slot `0x3E8`) setzt `+0xD8` genau einmal auf
+  `GetWorld()->GetFirstPlayerController()->PlayerCameraManager`. `0x31B9600` ist `UWorld::GetFirstPlayerController`: Platz 0 von
+  `World+0x268` (`PlayerControllerList`, `TArray<TWeakObjectPtr<APlayerController>>`), `PlayerCameraManager` liegt bei `PC+0x360`.
+  Ist der erste Controller einer ohne CameraManager, bleibt das Ziel für immer leer, und der erste Tick stürzt ab.
+- **[Belegt] Unterschied zu den guten Starts:** In allen 14 früheren Rundenstarts mit Mod-Log (zehn am Vormittag des 13.11., vier im
+  Testlauf vom 11.11.) tauschte der Host erst seinen eigenen Controller (`SpawnedPlayers: Quelle=swap … lokal`), wenige Zehntelsekunden
+  später den des Clients (`Quelle=swap … remote`, dazu „Charakterwahl: … der Gegenseite angewendet (beim Spawn)“), und erst danach kam
+  der Busplatz mit „1 Spielerfiguren ergänzt“. Beim Absturz fehlte der Tausch des Clients bis zuletzt: Der Client lud noch, seine Figur
+  gab es noch nicht. „0 ergänzt“ heißt also nicht, dass die Figur am Busplatz zerstört wurde.
+- **[Vermutung, im Nachstellen geprüft, siehe unten] Ursache:** Nach `servertravel` trägt die Engine die alten Controller in die neue Welt.
+  Tauscht der Host seinen Controller, kommt der neue ans Ende der Liste und der alte fällt heraus. Lädt der Client später, steht sein
+  alter Controller (ohne CameraManager aus der alten Welt) auf Platz 0, und `GetFirstPlayerController` liefert ihn. Im gewohnten
+  Ablauf tauscht kurz darauf auch der Client, und der Host steht wieder vorn. Der Figurenwechsel des Hosts in der MetaBase und
+  `max=1` (`CoopMaxLocalPlayers`) im Log „RemoteP2: P2 gebunden“ sind dafür nicht nötig; ihr Grund bleibt ungeklärt.
+- **Umsetzung (`PlayerPatches.cpp`):** Der Host schiebt seinen lokalen Controller (Player gesetzt, ohne NetConnection) an Platz 0 der
+  `PlayerControllerList`, direkt beim Controller-Tausch und in jedem Frame. Die Reihenfolge der übrigen bleibt. Rückfall:
+  Ein Hook auf `0x585AEA0` setzt bei leerem Ziel den CameraManager des lokalen Controllers ein (Log „Kamera-Folger: Ziel fehlte …“)
+  oder setzt den Tick aus, statt abzustürzen.
+
 ## Systeme, die die Mod respektieren muss
 
 - **[Belegt]** Bestenlisten und Erfolge: `PixelLeaderboards`, `DDLeaderboardSettings`, `PixelAchievements`, im Mod-Betrieb gesperrt, siehe unten

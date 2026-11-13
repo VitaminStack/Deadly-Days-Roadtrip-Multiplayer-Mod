@@ -849,6 +849,21 @@ beobachtet, 13.11.2026. Der BossSelector liegt gegenüber dem SDK verschoben. Si
 | `ABossMapTileParcel::OnLoadingFinished` | Thunk `0x56676C0`, nativ leer (`0x468AAB0`, vtable `0x768`) |
 | Statischer FName `OnMissionStarted` | global `0x4AC558E0`, angelegt in `0x11E4170` (UTF-16-Text `0x9387630`) |
 
+## Kamera-Folger und Controller-Liste (`host-absturz-start`)
+
+Build `26495302`, Disassembly und Klassenregistrierung, 13.11.2026. Siehe
+[Host-Absturz beim Rundenstart](GAME_ANALYSIS.md#host-absturz-beim-rundenstart-host-absturz-start).
+
+| Stelle | Wert |
+|---|---|
+| `UAttachToCameraComponent` | Größe `0xE0`, Vtable `0x93A09D0`, Versatz (FVector) `0xC0`, Ziel (CameraManager) `0xD8`, Actor `0xA8` |
+| `UAttachToCameraComponent::TickComponent` | `0x585AEA0` (Vtable `0x400`), liest `[Ziel+0x1B8]` ohne Nullprüfung |
+| `UAttachToCameraComponent::BeginPlay` | `0x583B2D0` (Vtable `0x3E8`), setzt das Ziel einmal aus `GetFirstPlayerController()` |
+| `UAttachToCameraComponent` Registrierung | `GetPrivateStaticClass` `0x5655980`, Name `0x93A0EF0`, `InternalConstructor` `0x5658430`, Konstruktor `0x5830DC0` |
+| `UWorld::GetFirstPlayerController` | `0x31B9600` |
+| `UWorld` | `PlayerControllerList` `0x268` (TArray `TWeakObjectPtr`, Num `0x270`) |
+| `APlayerController` | PlayerCameraManager `0x360` (wie oben), Player `0x348` |
+
 ## Aufsammelsound (`opt-item-sound`)
 
 Build `26495302`, Disassembly, siehe [Aufsammelsound](GAME_ANALYSIS.md#aufsammelsound-von-benzin-und-items-beim-client-opt-item-sound).

@@ -34,7 +34,7 @@ constexpr uintptr_t RegistrationBroadcast = 0x24E95F0; // derselbe Broadcast wie
 constexpr uintptr_t ClearSpawnArea = 0x5995D30;
 constexpr uintptr_t RunEndLocalPlayerSite = 0x584DF32;
 constexpr uintptr_t RunEndContinue = 0x584DF40;
-// TickComponent einer Komponente, die ihren Actor dem CameraManager des ersten Controllers nachführt, siehe FollowTickHook.
+// UAttachToCameraComponent::TickComponent: führt ihren Actor dem CameraManager des ersten Controllers nach, siehe FollowTickHook.
 constexpr uintptr_t CameraFollowTick = 0x585AEA0;
 
 constexpr uintptr_t GameModeSpawnedPlayers = 0x388;
@@ -166,7 +166,7 @@ uintptr_t LocalCameraManager()
     return 0;
 }
 
-// Rückfall für den Absturz selbst: Die Komponente liest ihr Ziel und dessen RootComponent ohne Nullprüfung. Fehlt das Ziel,
+// Rückfall für den Absturz selbst: UAttachToCameraComponent liest ihr Ziel und dessen RootComponent ohne Nullprüfung. Fehlt das Ziel,
 // kommt der CameraManager des lokalen Controllers hinein, den die Komponente im gewohnten Ablauf bekommt; ohne ihn setzt
 // sie diesen Tick aus.
 using FollowTickFn = void(__fastcall*)(uintptr_t, float, int32_t, void*);
