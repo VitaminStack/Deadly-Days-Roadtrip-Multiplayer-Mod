@@ -50,7 +50,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `opt-rundenstempel` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
 | `opt-tempo-upgrades` | P2 | [Optional](#optionale-optimierungen) | parallel | mittel |
 | `opt-waffen-hover` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
-| `opt-waffen-sound` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
 | `weekly-sperre` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
 
 **Wartet auf das Team:** nichts.
@@ -339,8 +338,8 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `opt-charakter-takt` | Optional | Sekunden-Abgleich liest den Applier direkt aus ADDCharacter statt GObjects zu durchsuchen (unter 0,3 ms), kein Takt: Charakterwahl, Wahl bleibt nach Reise und erneutem Beitritt (ein PC) |
 | `opt-dev-tab` | Optional | Overlay-Tab Dev mit fünf Knöpfen (Spawn XP, Full Tank, Godmode, Spawn Zombies am Cursor, Spawn Random Item), solo lokal, im Koop über Host; Spieltest Host und Client 09.11.2026 |
 | `opt-gegner-indikatoren` | Optional | Client sieht die Warnanzeigen der Gegner (Kreis und Sprint-Strich): Host meldet nur den Auslöser über `0x900` (Mod-Version 11), Client zeigt sie mit dem nativen Niagara-System bzw. der eigenen Komponente; Spieltest auf einem PC Host 63/17, Client 63/17, auch nach Kartenwechsel; ein fehlender Kreis je Lauf lag an einem Abrufrennen im Sync, behoben, letzter Lauf Host 49/6, Client 49/6 |
-| `opt-item-sound` | Optional | Client spielt Aufsammelsounds je Objekt einmal: Schutz an LootBase.Loot fuer alle Unterklassen, doppeltes Client_PlaySound des Hosts gefiltert; ein PC: 72 Benzin-Sounds fuer 72 Kanister |
 | `opt-haendler-client` | Optional | Der Client kauft beim Händler: Der Kauf läuft lokal und geht sofort als Edit an den Host, der prüft, das Item im Inventar des Clients anlegt und den Schrott einmal bucht (Mod-Version 13). Auf einem PC über das Klick-Ereignis des Angebots geprüft: Inventare und Schrott danach gleich, Ablehnung bei zu wenig Schrott rollt zurück. Nicht abgedeckt: Automat und dubioser Händler. Baut auf opt-werkbank-station auf (PR #233 nach #232). |
+| `opt-item-sound` | Optional | Client spielt Aufsammelsounds je Objekt einmal: Schutz an LootBase.Loot fuer alle Unterklassen, doppeltes Client_PlaySound des Hosts gefiltert; ein PC: 72 Benzin-Sounds fuer 72 Kanister |
 | `opt-koerperteile` | Optional | Client sieht den Chaos-Zerfall sterbender Gegner wie der Host (nativer Cue lokal nach Multi_OnDie); Fleisch und Knochen kommen mit opt-blut |
 | `opt-ladezeit-messung` | Wartung | check_round.py --wait trennt Prozessende von World 0 beim Laden und wartet auf alle Spieler im GameState; Run-Route.ps1 startet die Messung vor dem Klick. Routenlauf ohne Spike auf 26495302: load_seconds 1,0 s statt leer bzw. 0,0 |
 | `opt-laufanimation-client` | Optional | Host misst das Tempo der Client-Figur fuer ihre Laufanimation nativ aus ihrem Ort (SetManualTrackingActive), ein PC gemessen |
