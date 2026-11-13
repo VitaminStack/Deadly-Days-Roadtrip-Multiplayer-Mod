@@ -5,6 +5,7 @@
 #include "Sync/Enemies/DamageNumberState.h"
 #include "Sync/MovementState.h"
 #include "Sync/Enemies/TelegraphState.h"
+#include "Sync/Combat/WeaponSoundState.h"
 #include "Game/GameThread.h"
 #include "Game/PatchRuntime.h"
 #include "Net/Net.h"
@@ -132,6 +133,27 @@ void TickDamageNumbers(Net::Transport& Transport)
     }
     ReceiveDamageNumbers(Transport.TakeControlMessages(DamageNumbers::HitsType), false);
 }
+
+// opt-waffen-sound: jeder Takt, damit der Nachladesound beim Client zum Nachladen passt. Der Host schickt die Aufrufe von
+// PlayReloadSound, der Client ruft die Funktion an seinen eigenen Händen auf. Format in Combat/WeaponSoundState.h.
+void TickWeaponSounds(Net::Transport& Transport)
+{
+    if (Transport.Stats().IsHost)
+    {
+        const auto Sounds = Game::TakeReloadSounds();
+        if (Sounds.empty())
+            return;
+        const auto Payload = WeaponSounds::Encode(Sounds);
+        static uint64_t Revision = 0;
+        if (!Payload.empty())
+            for (const uint64_t Peer : Transport.ControlPeers())
+                Transport.SendControl(Peer, {1, 1, ++Revision, WeaponSounds::ReloadType, Payload});
+        return;
+    }
+    for (const auto& Message : Transport.TakeControlMessages(WeaponSounds::ReloadType))
+        if (const auto Sounds = WeaponSounds::Decode(Message.Value.Payload))
+            Game::PlayReloadSounds(*Sounds);
+}
 }
 
 namespace
@@ -213,6 +235,13 @@ void Start(const Core::Config& Config, DiagnosticSink Diagnostics)
             const Game::GameThread::SlowScope Watch("Sync-Schadenszahlen");
             TickDamageNumbers(*Transport);
         }
+        if (Transport)
+        {
+            const Game::GameThread::SlowScope Watch("Sync-Waffensound");
+            TickWeaponSounds(*Transport);
+        }
+        else
+            Game::TakeReloadSounds();
         {
             const Game::GameThread::SlowScope Watch("Sync-Dev");
             TickDev(Transport.get()); // Also handles offline/standalone dev actions.

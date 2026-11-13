@@ -36,6 +36,7 @@
     <ClCompile Include="MovementTests.cpp" />
     <ClCompile Include="TelegraphTests.cpp" />
     <ClCompile Include="DamageNumberTests.cpp" />
+    <ClCompile Include="WeaponSoundTests.cpp" />
     <ClCompile Include="PauseTests.cpp" />
     <ClCompile Include="ControlProtocolTests.cpp" />
   </ItemGroup>

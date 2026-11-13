@@ -33,7 +33,7 @@ struct DeferredEvent
 // Nur Game Thread.
 std::vector<DeferredEvent> Deferred;
 
-std::array<std::atomic<EventObserver>, 4> Observers{};
+std::array<std::atomic<EventObserver>, 6> Observers{};
 
 bool HasGameState()
 {

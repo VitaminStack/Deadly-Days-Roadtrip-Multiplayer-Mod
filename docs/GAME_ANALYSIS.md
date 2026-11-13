@@ -2550,7 +2550,8 @@ Sounds selbst, die Zahlen sind also das, was Host und Client hören würden. Je 
   **Vermutung:** Was `ScrapLoot.Loot` sonst tut, damit derselbe Haufen nicht erneut eingesammelt wird, fehlt, der Attraktor des Clients
   sammelt denselben Haufen jeden Takt erneut.
 - **[Belegt] Waffen.** Schuss- und Nachladesounds laufen nur beim Host, beim Client für beide Figuren nie. **Vermutung:** Die Waffe feuert nur
-  beim Host, beim Client kommen nur die replizierten Projektile an.
+  beim Host, beim Client kommen nur die replizierten Projektile an. Bestätigt und behoben unter
+  [Waffensounds beim Client](#waffensounds-beim-client-opt-waffen-sound).
 - **Level-up-Kiste (`opt-levelup-sound`).** Der Öffnungssound des Level-up-Airdrops (`airdrop_openCrate`) lief bei Host und Client je einmal,
   eine Kiste im Endbildschirm war in zwei Rundenenden nicht zu sehen. Laut Nutzer war mit dem gemeldeten Fehler der
   Schrott-Dauersound gemeint, er wird unter `opt-levelup-sound` behoben.
@@ -2560,6 +2561,51 @@ Sounds selbst, die Zahlen sind also das, was Host und Client hören würden. Je 
 - **Nebenbefund.** In einem Lauf stürzten Client und Host ohne Spike-Adressen im Stapel ab (Client `exe+15C0407` nach 757 s, Host
   `exe+5899663` 10 Minuten später, während er auf den Client wartete). Nicht nachgestellt, Ursache offen. Zwei frühere Abstürze kamen
   vom Zähler selbst (Pfad einer schon entladenen Sound-Beschreibung gelesen) und sind behoben.
+
+#### Waffensounds beim Client (`opt-waffen-sound`)
+
+Untersucht am 13.11.2026, Build `26495302`, ein PC, Disassembly und SDK, gemessen mit `!fx` (Ton der Spielprozesse aus, **gezählt,
+nicht gehört**). Mission direkt über den Testkanal (`Start-Session.ps1 -Mod -Tunnel Lobby -Godmode -Map /Game/Maps/DDDynamic_Map`),
+Gegner über `!wave`, die Figuren standen und feuerten von selbst. Keine Maus- oder Tastatureingabe.
+
+- **[Belegt, Disassembly] Wo der Host den Schusssound startet.** `AHands::FireIfPossible` (`0x59278C0`) läuft je Frame in der Feuerschleife
+  der Hände und startet nach jedem Schuss `WeaponData.FireWeaponSoundEvent` über `PlayEventAtLocation` (`0x47B98D0`) am Ort der Hände
+  (Aufruf `0x5927FE0`). Aufrufkette mit `!fx stack weapon_`: `exe+5927FE5` ← `exe+594515A` (Takt der Hände).
+- **[Belegt] Warum das beim Client nie läuft.** Die Schleife arbeitet `AHands.CurrentRangedWeapons` (`+0x3B0`) ab. Beim Client ist die Liste
+  für beide Figuren leer (`hands.py`: `ranged 0`, `ParentCharacter` leer), die Waffeninstanzen und `EquippedWeapons` replizieren nicht.
+  Die Waffen-Actors (`BP_Pistol_C`) replizieren dagegen, und mit jedem Schuss kommt ihr unzuverlässiger Multicast
+  `Weapon.TriggerWeaponShotFX` (Mündungsfeuer, Hülsen) beim Client an.
+- **[Belegt, Disassembly] Nachladen.** Den Nachladesound startet die Nachladelogik der Waffeninstanz (`0x5A45F5C`) aus derselben
+  Feuerschleife über den Event-Wrapper von `Hands.PlayReloadSound` (`0x5707870`, mit `WeaponData.ReloadWeaponSoundEvent`, sonst
+  `DefaultReloadSound` der Hände). Ohne Blueprint-Überschreibung springt der Wrapper direkt in die `_Implementation` (vfunc `+0x740`) und
+  läuft **nicht** über `ProcessEvent`. Beim Client gibt es dafür kein repliziertes Signal; die Nachladeanzeige
+  (`BP_ReloadIndicator_Component_C`) hängt nur an den Händen des Hosts.
+- **Fehlversuch.** Der erste Stand beobachtete `PlayReloadSound` über `ProcessEvent`. Er sah nichts: Host 18 Nachladesounds in drei Minuten,
+  gemeldet 0, Client 0.
+- **Umsetzung** (`src/Game/WeaponSoundPatches.cpp`, Regel `WeaponShotRepeated` in `PatchPolicy.h`, Nachricht in
+  `src/Sync/Combat/WeaponSoundState.h`, mit Tests):
+  - Schuss, rein lokal: Der Client startet bei jedem ankommenden `TriggerWeaponShotFX` den `FireWeaponSoundEvent` der `WeaponData`, deren
+    `WeaponActorToSpawn` die Klasse des Waffen-Actors ist, über `FMODBlueprintStatics.PlayEventAtLocation` am Ort der Waffe. Mehrere Aufrufe
+    derselben Waffe unter 10 ms zählen als ein Schuss. Nahkampfwaffen sind ausgenommen (nicht untersucht).
+  - Nachladen, neue Nachricht `0xB00` (Mod-Version 13): Der Host hängt am Wrapper `0x5707870` und meldet je Aufruf die Hände (NetGUID) und
+    den Namen des Sounds. Der Client ruft `Hands.PlayReloadSound` an seinen eigenen replizierten Händen auf. Format in
+    [CONTROL_PROTOCOL.md](CONTROL_PROTOCOL.md#nachladesound-mod-kompatibilität-13).
+  - Antworten zum neuen Pfad: Lokal bleiben Auswahl, Ort und Abspielen der Sounds. Geteilt wird nur der Nachlade-Zeitpunkt, weil er beim
+    Client aus nichts Repliziertem folgt. Zielwahl, Schuss, Munition, Nachladezeit und Schaden entscheidet weiter der Host. Ein verlorenes
+    `0xB00` kostet einen Sound, ein verlorener Multicast einen Schuss-Sound, beides ohne Wiederholung. Nach Travel oder Join gibt es nichts
+    nachzuholen.
+- **[Belegt, ein PC, nur Pistole] Nachher**, Schlussmessung mit dem endgültigen Stand, je 90-Sekunden-Fenster Host / Client:
+
+  | Fenster | `weapon_Pistol` | `weapon_Reload` |
+  |---|---|---|
+  | 1 | 112 / 112 | 8 / 8 |
+  | 2 | 108 / 108 | 10 / 10 |
+  | ganze Sitzung (Mod-Log) | 230 Schüsse beim Client, alle mit Sound, 0 doppelt | 18 beim Host gemeldet, 18 beim Client gespielt |
+
+  Die Zahlen beider Seiten enthalten beide Figuren. Eine frühere Messung mit demselben Code zeigte beim Nachladen 8 / 6 und 8 / 8, die
+  Lücke lag an der Fenstergrenze (die Meldung kommt einen Takt später). Vorher (11.11.): Client 0 Schuss- und 0 Nachladesounds. Keine
+  Absturzberichte.- **Nicht geprüft:** Schrotflinte und andere Waffen (`!give` legt sie nur in den Rucksack, ausgerüstet blieb die Pistole), Nahkampf,
+  Drohnen (`ProjectileAmmoBasedDroneAttackComponent` hat einen eigenen `FireWeaponSoundEvent`), zwei PCs mit echtem Ping, gehört.
 
 ### Absturz beim Bestätigen im Lager (`lager-bestaetigen-absturz`)
 

@@ -48,6 +48,8 @@ std::span<const Patch> BodyPartPatches();
 std::span<const Patch> EnemyTelegraphPatches();
 // opt-schadenszahlen: Host merkt Treffer am Schadenszahl-Handler, Client ruft ihn selbst auf (DamageNumberAdapter.h).
 std::span<const Patch> DamageNumberPatches();
+// opt-waffen-sound: Host meldet seine Nachladesounds, Client startet Schuss- und Nachladesound lokal (WeaponSoundAdapter.h).
+std::span<const Patch> WeaponSoundPatches();
 // Host: Figur, die bei RewardChest.OpenAirdropChoices die native Auswahl bekommt (die des Hosts statt des Remote-P2).
 uintptr_t RewardCharacter(uintptr_t Character);
 // Client: Wahr, wenn ProcessEvent einen Server-RPC mit einer lokalen Anzeige-Instanz der Airdrop-Auswahl nicht senden soll.
@@ -79,6 +81,8 @@ void TickFacing(NetRole Role, bool Second);
 void TickLootSound(NetRole Role);
 // Client, aus ProcessEvent: Wahr, wenn ein empfangenes LootBase.Client_PlaySound ein schon gespieltes Objekt doppeln würde.
 bool FilterLootSoundEvent(uintptr_t Object, uintptr_t Function);
+// opt-waffen-sound, Client: Schusssound lokal aus dem replizierten Multicast der Waffe.
+void TickWeaponSounds(NetRole Role);
 void TickWidgets(NetRole Role);
 void TickProjectiles(NetRole Role, bool Second);
 void TickMovement(NetRole Role, bool Second);

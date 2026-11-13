@@ -841,3 +841,19 @@ Build `26495302`, Disassembly, siehe [Aufsammelsound](GAME_ANALYSIS.md#aufsammel
 | `0x59AF480` | ruft zuerst die Basis `0x59AF3F0`, dann `0x5834880` mit einem Wert aus `this+0x28`; **Vermutung:** `AFuelLoot::Loot_Implementation` (Tank) |
 | `LootBase.Client_PlaySound` | NetClient-RPC, beim Client vom Netz über `exe+299CFFB` (ProcessEvent), lokal aus `0x59AF417` |
 | `LootBlueprintFunctionLibrary.DropRequiredFuel` | Parameter 0x30 Byte: `World` `0x0`, `FuelClass` `0x8`, `Location` `0x10`, `Radius` `0x28`, `AdditionalFuel` `0x2C` (Spike-Testhilfe `!fx fuel`) |
+
+## Waffensounds (`opt-waffen-sound`)
+
+Build `26495302`, SDK und Disassembly, siehe [Waffensounds beim Client](GAME_ANALYSIS.md#waffensounds-beim-client-opt-waffen-sound).
+Die Mod hängt nur am Event-Wrapper von `PlayReloadSound` (Host), sonst nutzt sie die Felder und reflektierten Funktionen.
+
+| Stelle | Wert |
+|---|---|
+| `UWeaponData` | `ClipSize` `0x6C`, `ProjectileClass` `0x80`, `ProjectileCount` `0x88`, `WeaponActorToSpawn` `0xB0`, `FireWeaponSoundEvent` `0xB8`, `ReloadWeaponSoundEvent` `0xC0` |
+| `AHands` | `DefaultReloadSound` `0x330`, `AutoFire` `0x378` (Net), `CurrentRangedWeapons` `0x3B0`; ohne Reflexion: Feuern aktiv `0x318` |
+| `UWeaponInstanceBase` | `WeaponData` `0x40` (ohne Reflexion gelesen in `FireIfPossible`) |
+| `AHands::FireIfPossible` | `0x59278C0(Hands)`, Thunk `0x570D150`; startet bei `0x5927FE0` den Schusssound über `0x47B98D0` |
+| `AHands::PlayReloadSound` (Event-Wrapper) | `0x5707870(Hands, Override)`, Prolog `48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 48 8B FA`; ohne Blueprint-Überschreibung `jmp [vtable+0x740]`, sonst `ProcessEvent`; Aufrufer `0x5A45F5C` (Nachladen der Waffeninstanz, `WeaponData+0xC0` als Override) |
+| `AHands::PlayReloadSound_Implementation` | `0x5939AA0(Hands, Override)`, vfunc `+0x740`, Thunk `0x5666D80`; `Override`, sonst `DefaultReloadSound`, am Ort der Root-Komponente |
+| `AWeapon::TriggerWeaponShotFX_Implementation` | `0x5B1C760(Weapon)`, vfunc `+0x738` (`BP_Pistol_C`), Thunk `0x5667BE0`; Multicast, unzuverlässig |
+| `UFMODBlueprintStatics::PlayEventAtLocation` | nativ `0x47B98D0(WorldContext, Event, const FTransform*, bAutoPlay)`; Parameter der UFunction 0x80 Byte, `Location` `0x10`, `bAutoPlay` `0x70`, Rückgabe `0x78` |

@@ -803,6 +803,15 @@ TEST_CASE("Lootbalken beim Client folgt dem replizierten Fortschritt")
     CHECK_FALSE(LootBarDone(false, 0.0, 0.5, 9.0));
 }
 
+TEST_CASE("Schusssound beim Client je Schuss einmal")
+{
+    CHECK(WeaponShotRepeated(0));
+    CHECK(WeaponShotRepeated(WeaponShotRepeatMs - 1));
+    CHECK_FALSE(WeaponShotRepeated(WeaponShotRepeatMs));
+    CHECK_FALSE(WeaponShotRepeated(50));
+    CHECK_FALSE(WeaponShotRepeated(~0ull)); // erster Schuss einer Waffe
+}
+
 TEST_CASE("Körperteile beim Client je Tod einmal und begrenzt je Frame")
 {
     CHECK(BodyPartsRepeated(0.0));

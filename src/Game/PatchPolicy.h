@@ -257,6 +257,15 @@ constexpr bool BodyPartsMayShow(int32_t ShownThisFrame)
     return ShownThisFrame >= 0 && ShownThisFrame < BodyPartsPerFrame;
 }
 
+// opt-waffen-sound: Der Client startet je ankommendem TriggerWeaponShotFX einen Schusssound. Mehrere Aufrufe derselben Waffe im
+// selben Frame (unter 10 ms) gelten als ein Schuss, der Host startet je Schuss auch nur einen Sound. Die schnellste Waffe schießt
+// langsamer.
+inline constexpr uint64_t WeaponShotRepeatMs = 10;
+constexpr bool WeaponShotRepeated(uint64_t MsSinceLastShot)
+{
+    return MsSinceLastShot < WeaponShotRepeatMs;
+}
+
 // opt-blickrichtung-client: Gierwinkel in Grad (-180 bis 180) aus der Weltdrehung (FQuat, X Y Z W) des Hände-Actors. NaN, wenn
 // das Quaternion unbrauchbar ist (nicht endlich oder nicht normiert), dann bleibt der alte Wert stehen.
 inline float FacingYawFromQuat(double X, double Y, double Z, double W)
