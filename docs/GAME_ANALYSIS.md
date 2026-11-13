@@ -589,6 +589,92 @@ Gemeldet war im [Live-Test 10.11.](#live-test-auf-zwei-pcs-am-10112026-livetest-
   gemeldete Rückenansicht der Client-Figur **beim Client** (`opt-blickrichtung-client`) erklärt diese Ursache nicht, dort ist das Tempo normal.
 - **Nicht geprüft:** zwei PCs, Kriechen nach dem Tod (mit `-Godmode` nicht erreichbar), Item-Auswahl als Pause.
 
+### Schuss-Animation und Geisterwaffen (`opt-schuss-animation`)
+
+Stand 13.11.2026, Build `26495302`, `main` `1d41240`, zwei Instanzen auf einem PC über die Lobby, Mod mit Spike, `-Godmode`, Seed 20795,
+Tag 1 bis 4. Speicher beider Seiten nur gelesen mit `tools/spike/hands.py` (Momentaufnahme) und `hands_compare.py` (Zeitreihe, 50 ms,
+Figuren über ihre Waffenklassen gepaart). Gemeldet im [Live-Test 13.11.](#live-test-auf-zwei-pcs-am-13112026-livetest-1311): In höheren
+Leveln liegen bei der Client-Figur mehrere Waffen übereinander, die Figur gleitet.
+
+- **[Belegt, SDK und Messung] Aufbau:** Je ausgerüsteter Waffe legt `AHands` beim Host eine `UChildActorComponent` am
+  `InnerRotationContainer` an (`CreateWeaponRanged`/`CreateWeaponMelee`, Liste `ChildActorComponents`), der Child Actor ist die Waffe
+  (`AWeapon`, etwa `BP_Pistol_C`, `BP_MeleeWeapon_Stab_Base_C`). Komponente und Waffen-Actor replizieren nativ, samt relativer Lage
+  und Drehung der Komponente. Beim Client sind `ChildActorComponents`, `CurrentRangedWeapons`, `CurrentMeleeWeapons` und
+  `EquippedWeapons` leer, die Komponenten hängen trotzdem am Container. Offsets in [OFFSETS.md](OFFSETS.md#schuss-animation-opt-schuss-animation).
+- **[Belegt, Messung] Die Darstellung selbst ist beim Client in Ordnung.** Mit 1 bis 4 Waffen je Figur (Pistole, Revolver,
+  Schrotflinte, MP, zwei Messer) stimmen relative Lage, Weltort und Drehung jeder Waffe bei Host und Client überein: Abweichung im
+  Median 0, im Stehen, beim Laufen in vier Richtungen und im Kampf; Ausreißer (bis 200 Einheiten, 160°) nur kurz, wenn eine Waffe um
+  die Figur zum nächsten Ziel schwenkt. Der Rückstoß (Abstand Waffen-Actor zur Komponente bis 14,7) kommt beim Client ebenso an.
+  Geprüft auch: Waffentausch in der Airdrop-Auswahl (die alte Waffe ist beim Client nach dem Einsammeln weg, kein verwaister Actor),
+  Kartenwechsel mit 3 und 4 Waffen, Tod (alle Darstellungen weg, Kriechen mit Wackeln auf beiden Seiten), Wiederbelebung durch den
+  Host, Kartenwechsel im toten Zustand. Die Fixes aus `opt-blickrichtung-client` und `opt-laufanimation-client` griffen in allen Fällen
+  (Hände-Gier im Median gleich, `Progress` läuft auf beiden Seiten).
+- **[Belegt, eine Messung] Geisterwaffen beim Host nach einer Aufwertung im Client-Edit.** Der Client legte im Lager zwei
+  ausgerüstete Messer aufeinander (Host-Log „Aufwertung 1 des Edits … beim Host, Ausgabe true“, „vollständig=true“). Nach dem
+  nächsten Kartenwechsel beim Host, Client-Figur: `EquippedWeapons` Messer (neu), Pistole, Revolver; das neue Messer ohne
+  `WeaponActor`. `Hands.CurrentMeleeWeapons` führte dagegen die **zwei verbrauchten** Messer samt Waffen-Actor, deren Items nicht mehr
+  im Inventar stehen. Die Geisterwaffen replizieren, beide Seiten sehen sie an der Client-Figur. Die Host-Figur war sauber.
+  **Einschränkung:** Das ist eine einzige Messung, erst nach einem Kartenwechsel und unter der Hände-Testhilfe, die der Kartenwechsel
+  zurückgesetzt hatte (siehe Grenzen). Dass die Aufwertung die Ursache ist und nicht die Testhilfe oder der Kartenwechsel, ist damit
+  eine gut gestützte **Vermutung**, kein Beweis. `InventoryComponent.WeaponLookup` taugt nicht als Beleg: Es behielt auch bei sauberen
+  Händen alte Einträge (Host-Figur 5 Einträge bei 3 Waffen, nachdem ein Item nur über den Rucksack gezogen wurde).
+- **[Belegt, Disassembly; Zuordnung der Aufrufziele unsicher]** Das native Ablegen (`InventoryPanel.UpgradeDroppedItem`, `0x5A9D370`)
+  ruft vor `UpgradeItems` kein `RemoveFromBackpack`; nach `UpgradeItems` folgen `SetTurns` und `ForceEquipItemInBackpack`. Nativ hat
+  das Ziehen die gezogene Eingabe aber schon aus dem Rucksack genommen. Der Client zieht nur lokal, beim Host lagen beide Eingaben
+  noch im Rucksack. **Vermutung:** `UpgradeItems` löscht die Instanzen, ohne die Wirkung einer noch ausgerüsteten Eingabe zu beenden.
+- **Vermutung zum Live-Test:** Dort wertete der Client 20-mal auf. Bleiben je Aufwertung im Rucksack bis zu zwei Geisterwaffen, liegen
+  mehr Darstellungen an der Figur, als die Hände Plätze haben; das passt zum Bild „Waffen übereinander“ und zu „in höheren Leveln“.
+  Das Bild lag bei der Auswertung nicht vor. Ob das **Gleiten** dieselbe Ursache hat (`WeaponMovementSpeedEffects` je Waffe, im Log
+  105-mal „Tempo der eigenen Figur aus dem Attribut übernommen“), ist nicht belegt; auf einem PC ließ es sich nicht nachstellen.
+- **Umsetzung, als Hypothese** (`RewardPatches.cpp`, `ApplyClientEdit`): Vor den Aufwertungen eines Edits nimmt der Host jede Eingabe, die bei ihm noch
+  im Rucksack liegt, nativ heraus (`UnoccupyBackpackSlots`, `RemoveFromBackpack` mit `ForceRemoveAllEffects`, derselbe Planschritt wie
+  bei jedem Item, das den Rucksack verlässt). Danach läuft `UpgradeItems` wie bisher, die Ausgabe bekommt ihren Platz über den Plan.
+  Log „… Eingabe(n) der Aufwertungen des Edits … vorher aus dem Rucksack genommen“.
+- **Antworten zum neuen Pfad:** Kein neuer Sync- oder Hook-Pfad. Lokal bleibt die Bearbeitung des Clients, geteilt wird derselbe Edit
+  wie bisher, es entscheidet weiter der Host. Wiederverwendet werden der bestehende Edit, der Planschritt `Unplace` und die native
+  Replikation der Hände. Keine neue Nachricht, `ModVersion` bleibt 12. Ablehnung und Wiederholung laufen wie bei jedem Edit.
+- **Nicht bestätigt: die Korrektur im Spiel.** Build und Tests bestehen (`Build-Mod.ps1 -Configuration Release -Test`, Python-Tests).
+  Der Prüfablauf braucht Ziehen im Inventar-Panel und Klicks auf der Routenkarte, also echte Maus- und Tastatureingaben, die seit dem
+  13.11.2026 nur nach Rückfrage beim Nutzer laufen. Offen, einmal ohne und einmal mit der Korrektur: `!give ItemData_Knife` zweimal,
+  nach jedem Kartenstart `py tools/spike/extra_hands.py <host-pid> <client-pid> --hands 5`, die Messer im Lager nach dem Rundenende
+  in den Rucksack des Clients legen, auf der nächsten Karte im Rucksack zusammenlegen und bestätigen, dann
+  `py tools/spike/hands.py <host-pid> <client-pid>` direkt danach und nach einem Kartenwechsel. Erwartet mit der Korrektur:
+  Exitcode 0, „Geisterwaffen keine“, „ausgeruestet ohne Darstellung keine“; ohne sie Exitcode 1. Der Exitcode hängt nur an den
+  Listen der Hände, nicht am `WeaponLookup`.
+- **Gescheitert: Bestätigungslauf am 13.11.2026 abends** (mit Freigabe des Nutzers für echte Eingaben, Gegenprobe ohne die
+  Korrektur, drei Anläufe). Die Aufwertung kam nicht zustande, die Korrektur ist weiter **weder bestätigt noch widerlegt**:
+  - Lager-Items sind in der Airdrop-Auswahl ausgegraut und lassen sich dort nicht ausrüsten, auch nicht nach der Wahl der Belohnung.
+    Ausrüsten aus dem Lager geht nur im Lager nach dem Rundenende. Das läuft nicht als lokaler Edit, sondern nativ; der Host hatte
+    danach beide Messer im Rucksack (`weapons.py`) und nach dem Kartenwechsel sauber an den Händen (`hands.py` Exitcode 0).
+  - Auf der nächsten Karte zeigte das Panel des Clients die so ausgerüsteten Messer nicht an, weder in der Airdrop-Auswahl noch im
+    Lager, obwohl `MyItems` des Clients sie im Rucksack führte und der Hände-Balken drei belegte Hände zeigte. Unsichtbare Items lassen
+    sich nicht zusammenlegen. Im Lauf vom Mittag waren im Lager ausgerüstete Items am Folgetag sichtbar; der Unterschied ist offen.
+  - Im ersten Anlauf stürzte der Client auf Tag 2 beim Öffnen einer Airdrop-Auswahl ab (`EXCEPTION_ACCESS_VIOLATION` beim Lesen von
+    `0x108`, Stack `0x59694FF` ← `0x5963BF5` ← `0x5A6CD2C` ← … ← `0x597DE3B` ← … ← `0x571B51D`), direkt nach „SetupInventory ohne Inventar
+    ausgelassen“; die Hände-Testhilfe war nach dem Kartenwechsel noch nicht neu gesetzt (belegt 3 bei Maximum 1). Derselbe Absturz kam
+    beim Wiederbeitritt in die offene Auswahl. Ein neu gestarteter Client ist ein neuer Spieler mit leerem Inventar, die Sitzung war
+    damit verbraucht.
+  - Empfehlung: den Lauf wiederholen, wenn die Anzeige- und Edit-Korrekturen aus `opt-rucksack-ueberlappung` und
+    `opt-airdrop-edit-ungueltig` auf `main` sind, oder von zwei Menschen spielen lassen (zwei gleiche Waffen aus Airdrops wählen und
+    im Rucksack zusammenlegen, danach `hands.py` beim Host).
+- **Gescheitert und Grenzen des Tests:**
+  - Gegenprobe mit einer nativen Aufwertung des Hosts im eigenen Rucksack: Das Ziehen aus dem Lager griff in der Airdrop-Auswahl nicht.
+    Per `!give` vergebene Items ließen sich dort auf derselben Karte nie aus dem Lager ziehen, erst im Lager nach dem Rundenende.
+  - Eine Figur hat anfangs eine Waffenhand, mehr Waffen lehnt das Panel ab („Nicht genügend Hände frei“). Testhilfe: `ExtraHands`
+    (`UDDCharacterAttributeSet+0x100`, Basis und aktueller Wert) in beiden Prozessen von außen gesetzt, jetzt als schreibende
+    Testhilfe `tools/spike/extra_hands.py`. Der Wert repliziert so nicht und
+    hält nur bis zum nächsten Kartenwechsel; danach trug der Host vier Hände bei Maximum eins. Der Roboterarm ließ sich nicht ablegen.
+  - Im Fensterbild (800 × 450) sind die Waffen zu klein, verglichen wurden nur Speicherwerte.
+- **[Belegt] Nebenbefunde, nicht Teil dieser Aufgabe:**
+  - **Client-Absturz** nach derselben Aufwertung beim Öffnen der nächsten Airdrop-Auswahl: `EXCEPTION_ACCESS_VIOLATION` beim Lesen von
+    `0x182`, Stack `0x595CF93` ← `0x597DC37` ← … ← `0x571B51D`, direkt nach „Bearbeitung beginnt … Hände belegt 3, Rucksack braucht 2“.
+    In `MyItems` des Clients stand an der Stelle des ausgerüsteten Revolvers ein Eintrag ohne Item, `inventory.py` meldete „Slot verweist
+    auf ein Item ausserhalb von MyItems“. Passt zu `opt-rucksack-ueberlappung`.
+  - Eine Aufwertung zweier MPs **im Lager** legte beim Client die ausgerüsteten Items Revolver und Messer zurück ins Lager, danach
+    „Inventar UNGLEICH“.
+- **Nicht geprüft:** zwei PCs mit echtem Ping und `-NetProfile`, Aufwertung an der Werkbank, mehr als eine Aufwertung je Edit,
+  Geisterwaffen direkt nach dem Edit ohne Kartenwechsel.
+
 ### Warnanzeigen der Gegner beim Client (`opt-gegner-indikatoren`)
 
 Stand 11.11.2026, Build `26495302`. Gemeldet im [Live-Test vom 10.11.](#live-test-auf-zwei-pcs-am-10112026-livetest-1011): Beim Client
@@ -670,6 +756,39 @@ Stand 11.11.2026, Build `26495302`, zwei Instanzen auf einem PC über die Lobby,
 - **[Belegt] Keine Zahl ohne Treffer:** Jede Zahl beim Client geht auf einen Handler-Aufruf des Hosts zurück, Zähler gesendet gleich empfangen.
 - **Stabilität:** Ziele werden beim Host über den schwachen Zeiger (Index und Seriennummer im Objekt-Array) aufgelöst und beim Client über NetGUID, Platz im Objekt-Array, Garbage-Flag und `bActorIsBeingDestroyed` geprüft. Der Host leert seinen Puffer beim Weltwechsel. Höchstens 64 Treffer je Takt.
 - **Nicht geprüft:** zwei PCs mit echter Latenz, ob Zahlen tödlicher Treffer bei höherer Latenz als „Ziel stirbt“ verfallen (der Ort steht für einen späteren Ersatz schon im Paket), Reconnect. Die Rundenübersicht des Clients zeigt 0 Kills und 0 Schaden, das ist ein anderes Thema.
+
+### Verlorene Schadenszahlen (`opt-schadenszahlen-verlust`)
+
+Stand 13.11.2026, Build `26495302`, Mod-Version 12 (unverändert). Ausgangslage: Rund 0,5 bis 1 % der Schadenszahlen kamen beim Client
+nicht an (`testlauf-1111`: 1643 gesendet, 1624 empfangen; `livetest-1311`: 10407 zu 10358), die Lücke wuchs über den Run und sprang in
+dichten Kampfphasen.
+
+- **[Belegt, Code] Ursache:** Der Client holt `0xA00` jeden Takt einzeln ab (`TakeControlMessages(0xA00)`). Alle 250 ms holt derselbe
+  Takt danach im Sammelabruf alle übrigen Nachrichten ab (`TakeControlMessages()`). Kam eine `0xA00` zwischen beiden Abrufen an (der
+  Netzwerkthread läuft parallel), nahm der Sammelabruf sie mit. Dort gab es keinen Empfänger für `0xA00`, die Nachricht verfiel ohne
+  Zähler. Das erklärt, warum die Lücke mit der Trefferdichte wächst. Die Warnanzeigen (`0x900`) hatten dasselbe Problem schon gelöst.
+- **Behebung:** `ReceiveDamageNumbers` wertet `0xA00` in beiden Abrufen aus (`src/Sync/Sync.cpp`), Format, Bedeutung und Mod-Version
+  bleiben gleich. Der Client zeigt weiter nur an, was der Host gemeldet hat; Schaden bucht er nicht.
+- **Neue Zähler** (Mod-Log alle 10 s): Host „übergeben“, „gesendet“ (nur von `SendControl` angenommene Treffer, vorher wurde vor dem
+  Senden gezählt), „Senden abgelehnt“, „ohne Mitspieler“, „Paket ungültig“, „ohne Ziel“. Client „im Sammelabruf“, „Nachricht unlesbar“,
+  „Nachrichten fehlen“ (Lücken in der Revision, die der Host je angenommener Nachricht um 1 erhöht), „falsche Rolle“. Die Transport-Zeile
+  nennt den höchsten Füllstand beider Warteschlangen des Kontrollkanals (Grenze 128) und abgelehnte Nachrichten. Der Client schreibt seine
+  Zeile jetzt auch ohne neue Treffer, damit der Endstand im Log steht.
+- **[Belegt, Messung] Zwei Läufe auf einem PC**, `Start-Session.ps1 -Build -Mod -Tunnel Lobby -Godmode`, danach ohne Eingaben nur über
+  Spike-Befehle: `servertravel /Game/Maps/DDDynamic_Map?listen`, `!wave` jede Minute, am Ende `servertravel` zurück in die MetaBase.
+  `Run-Route.ps1` wurde nicht benutzt, weil es echte Mausklicks sendet.
+
+| Lauf | Dauer | Host gesendet | Client empfangen | davon im Sammelabruf | Sonstige Verluste | Füllstand Kontrollkanal |
+|---|---|---|---|---|---|---|
+| 1 (Zwischenstand vor dem letzten Log-Fix) | rund 10 min | 742 (16:04:21) | 741 (16:04:17) | 12 (1,6 %) | alle Zähler 0 | Host höchstens 8 zum Senden, Client höchstens 10 zum Abholen, 0 abgelehnt |
+| 2 | rund 7 min | 438 | 438 | 5 (1,1 %) | alle Zähler 0 | Host höchstens 7, Client höchstens 9, 0 abgelehnt |
+
+  Ohne die Behebung wären genau die Treffer „im Sammelabruf“ verloren gegangen, das passt in der Größe zu den früheren 0,5 bis 1 %.
+  Senden, Dekodieren und die Warteschlangen verloren nichts; die Grenze von 128 wurde nie annähernd erreicht. Lauf 1 hatte noch keine
+  Endzeile des Clients (sie entstand nur bei neuen Treffern), darum steht dort ein zeitgleicher Zwischenstand.
+- **Nicht geprüft:** zwei PCs mit echtem Ping und `-NetProfile Internet`. Die Ursache hängt nicht am Ping, sondern an der Ankunftszeit
+  relativ zum Takt; mit Latenz sollten die Zähler gleich aussehen (**Vermutung**). Bei der nächsten Live-Sitzung „gesendet“ gegen
+  „empfangen“ und „Nachrichten fehlen“ vergleichen.
 
 ### XP-Bälle beim Client (`xp-baelle`)
 
@@ -2235,7 +2354,8 @@ zuletzt 5 s vor dem zehnten Rundenende); Sound wurde gehört, nicht gezählt.
 - **[Belegt] Dodge über das Internet unauffällig.** 249 Dodges des Clients, 3 Rücksetzungen. Der Verdacht aus `testlauf-1111`
   (Rücksetzung auch bei jedem einzelnen Dodge) zeigte sich mit echtem Ping nicht.
 - **[Belegt] Schadenszahlen fehlen weiter.** Zeitgleiche Zeilen: Host gesendet 10407, Client empfangen 10358 (rund 0,5 %), die Lücke
-  wächst über den Run. Neue Aufgabe `opt-schadenszahlen-verlust`.
+  wächst über den Run. Neue Aufgabe `opt-schadenszahlen-verlust`, Ursache inzwischen gefunden, siehe
+  [Verlorene Schadenszahlen](#verlorene-schadenszahlen-opt-schadenszahlen-verlust).
 - **[Gemeldet, Ursache teils belegt] Händler: Client friert ein und kann nicht kaufen.** Öffnet der Host den Shop, steht die Welt für
   beide (`Pause: Weltzeit angehalten … Pauser true` auf beiden Seiten, dreimal je 3 bis 16 s). Beim Host steht „POI-Betreten der
   Remote-Figur beim Host übergangen“ und sechsmal „AddToInventory ohne Item vom Client verworfen“, jeweils in den beiden
@@ -2257,7 +2377,42 @@ zuletzt 5 s vor dem zehnten Rundenende); Sound wurde gehört, nicht gezählt.
   nach Dev-Aktionen des Hosts. Neue Aufgabe `opt-highway-ziel`.
 - **[Gemeldet] Airdrops bleiben über Level hinweg hängen:** Lässt man einen Airdrop liegen, erscheint im nächsten Level keiner mehr.
   **Vermutung:** Die Reward-Queue der Figur bleibt auf der alten Kiste stehen, wie unter `airdrop-auswahl` beschrieben. Neue Aufgabe
-  `opt-airdrop-uebertrag`.
+  `opt-airdrop-uebertrag`. Auswertung des Host-Logs je Karte („Airdrop: Actor- und Bewegungsreplikation aktiviert“ zählt gelandete
+  Kisten, „Sitzung … Stufe“ geöffnete):
+
+  | Karte | gelandet | geöffnet (davon Client) | Stufen der Auswahl |
+  |---|---|---|---|
+  | GolfCourse | 9 | 8 (3) | 2 bis 9 |
+  | Circus | 3 | 3 (1) | 11 bis 13 |
+  | Mountains_Residential_Camping | 2 | 2 (0) | 14, 15 |
+  | MerchantEvent | 0 | 0 | – |
+  | Mountains_Camping | 9 | 7 (3) | 16 bis 22 |
+  | HighwayBlockage | 11 | 7 (5) | 25 bis 30, 32 |
+  | Mountains_MilitaryBase_Without_Valley | 2 | 1 (1) | 36 |
+  | Forest_Roadstops | 3 | 2 (1) | 39, 38 |
+  | MerchantEvent, Canyon_Roadstops (36 s), Burger_Boss_Nature (25 s) | 0 | 0 | – |
+
+  - **[Belegt]** Nach liegen gelassenen Kisten kamen auf der nächsten Karte meist wieder Airdrops und ließen sich öffnen, auch vom
+    Client (GolfCourse → Circus, Mountains_Camping → HighwayBlockage). Ein dauerhaft hängender Zustand ist im Log nicht zu sehen.
+  - **[Belegt]** Nach HighwayBlockage (4 Kisten liegen gelassen) landeten auf der nächsten Karte nur 2 Kisten für die Stufen 33 bis 37;
+    zu den Stufen 33 bis 35 gibt es keine Landung. Das passt zur Meldung, belegt aber keine Ursache: Das Log hatte damals keine Zeilen
+    zur Queue des Hosts, und ob eine Stufe ohne Landung an einer vollen Queue, an der Zeit oder am Spawner lag, ist offen.
+  - **[Belegt]** `AdvanceRemoteQueue` schaltete bisher nur die Queue der Remote-Figur weiter. Die Queue der Host-Figur schaltet nur
+    das Bestätigen im Panel weiter; verschwindet ihre aktuelle Kiste ohne Bestätigen, bleibt sie belegt (aus dem Code, nicht
+    beobachtet).
+  - **[Belegt] Messung 13.11.2026, ein PC** (`Start-Session.ps1 -Build -Mod -Tunnel Lobby -Godmode -Map /Game/Maps/DDDynamic_Map`,
+    ohne Eingaben, Kartenwechsel über den Testkanal `travel`, Speicher nur gelesen): Nach MetaBase → Mission und Mission → Mission
+    sind beide Figuren (Host und Remote-Spieler) und ihre `RewardQueueComponent` neue Objekte, nicht belegt, ohne aktuelle Kiste.
+    **Die Vermutung „Queue bleibt über den Kartenwechsel auf der alten Kiste“ ist damit widerlegt.** Was die fehlenden Landungen auf
+    der Karte nach HighwayBlockage verursachte, ist weiter offen.
+  - **Nicht prüfbar ohne Eingaben:** In einer direkt geladenen Missionskarte landet nach `DD_CheatAddExperience` (Stufe steigt,
+    `OnLevelChanged`) kein Airdrop; `DD_OpenAirdrop 1` öffnet die Auswahl direkt, ohne Kiste und Queue. Echte Kisten gibt es nur in
+    einem Run über die Routenkarte, und Start-Run, Routenklick, Einsammeln und Bestätigen brauchen derzeit echte Eingaben.
+  - **Nebenbefund:** Reist der Host bei offener Auswahl weiter, endet die Sitzung mit „endet ohne Wahl des Clients“; ob der Client
+    dabei eine Belohnung verliert, wurde nicht geprüft.
+  - **Änderung:** Beide Queues stehen jetzt bei jeder Änderung im Log („Reward-Queue Host/Remote-Spieler: … belegt …, aktuelle Kiste
+    keine/lebt/zerstört“). Ist die Queue des Hosts belegt und ihre Kiste zerstört, schaltet die Mod sie wie die des Remote-Spielers
+    weiter. Der nächste Live-Test zeigt damit, ob und wo eine Queue innerhalb einer Karte hängt.
 - **[Gemeldet] Sound:** Beim Einsammeln von Items wie Benzin nach dem Looten gibt es einen Sound-Fehler (neu: `opt-item-sound`; #219
   behob nur Schrott). Schusssounds fehlen beim Client (bekannt, `opt-waffen-sound`).
 - **[Gemeldet] Client-Figur in höheren Leveln:** Die Schuss-Animation ist kaputt (Bild: Waffen übereinander an der Figur), und die
