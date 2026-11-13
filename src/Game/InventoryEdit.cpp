@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <mutex>
 #include <string>
 #include <unordered_map>
 
@@ -129,7 +130,11 @@ struct Known
 
 const Known& Classify(uintptr_t Fn)
 {
+    // Mit Sperre: Seit opt-rucksack-ueberlappung fragt auch der ProcessEvent-Filter im Rundenende, nicht nur eine laufende Bearbeitung.
+    // Verweise auf Einträge bleiben beim Einfügen gültig.
     static std::unordered_map<uintptr_t, Known> Cache;
+    static std::mutex Lock;
+    const std::lock_guard Guard(Lock);
     if (const auto It = Cache.find(Fn); It != Cache.end())
         return It->second;
     Known Value;
@@ -812,6 +817,14 @@ void ForgetClient()
     Session.Choices.clear();
     Session.Upgrades.clear();
     EndHands(false);
+}
+
+bool MayChangeInventory(uintptr_t Fn)
+{
+    if (!Fn)
+        return false;
+    const Kind Type = Classify(Fn).Type;
+    return Type == Kind::InventoryRpc || Type == Kind::RemoveFromInventory || Type == Kind::AddEffect || Type == Kind::ItemRpc;
 }
 
 bool ChangesInventory(uintptr_t Object, uintptr_t Fn, uintptr_t Inventory)

@@ -54,4 +54,6 @@ bool RouteClientRpc(uintptr_t Object, uintptr_t Function, void* Params);
 // Client, opt-rucksack-ueberlappung: Wahr, wenn Function ein Server-RPC ist, der Inventory oder eines seiner Items ändert
 // (Ablegen, Feldbelegung, Pivot, Lagerflags, Entfernen). Im Lager beginnt damit die lokale Bearbeitung.
 bool ChangesInventory(uintptr_t Object, uintptr_t Function, uintptr_t Inventory);
+// Billige Vorprüfung dazu, nur aus der Funktion (je Funktion gemerkt): kann sie überhaupt ein Inventar ändern?
+bool MayChangeInventory(uintptr_t Function);
 }
