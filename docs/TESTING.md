@@ -140,7 +140,10 @@ Spike-Befehle wie `!finish`, `!round`, `!god` und `!tunnel` kennt der Kanal nich
 Mit der Umgebungsvariable `DDCOOP_TEST_MAP_PROFILE` erzeugt der Host jede Missionskarte mit dem genannten Profil statt mit dem des
 Routenknotens, etwa `/Game/Map_Generation/Blueprints/MapEvents/MGP_MerchantEvent.MGP_MerchantEvent` für das Händler-Event. Vor
 `Start-Session.ps1` setzen, die Instanzen erben sie. Der Client bekommt das Profil wie sonst vom Host; im Log steht
-`Karte: Testschalter DDCOOP_TEST_MAP_PROFILE`. Ziele und Rundenende bleiben die des Routenknotens.
+`Karte: Testschalter DDCOOP_TEST_MAP_PROFILE`. Ziele und Rundenende bleiben die des Routenknotens. Mit
+`-Map /Game/Maps/DDDynamic_Map` reist `Start-Session.ps1` ohne Routenkarte direkt in eine Mission mit diesem Profil. Variable und `-Map`
+aus PowerShell setzen, nicht aus der Git-Bash: Sie schreibt Werte, die mit `/Game` beginnen, in einen Windows-Pfad um; dann ist das
+Profil „nicht ladbar“ und die Reise wird abgelehnt.
 
 ### Mensch und Skript zusammen
 
