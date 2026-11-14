@@ -306,11 +306,12 @@ inline std::optional<Game::InventoryEdit::Edit> DecodeEdit(std::span<const uint8
     return Value;
 }
 
-// Ergebnis, Host an Client, genau 9 Byte: Id des Edits (8), 1 übernommen oder 0 abgelehnt.
+// Ergebnis, Host an Client, genau 10 Byte: Id des Edits (8), Stand (1: 0 abgelehnt, 1 übernommen, 2 teilweise übernommen), Grund (1,
+// Game::InventoryEdit::EditReason). Seit Mod-Version 14 (lager-edit-ablehnung), vorher 9 Byte ohne Grund und ohne „teilweise“.
 struct Result
 {
     uint64_t Id = 0;
-    bool Accepted = false;
+    Game::InventoryEdit::Verdict Verdict;
     bool operator==(const Result&) const = default;
 };
 
@@ -320,15 +321,17 @@ inline std::vector<uint8_t> Encode(const Result& Value)
         return {};
     std::vector<uint8_t> Out;
     Detail::Put(Out, Value.Id, 8);
-    Out.push_back(Value.Accepted ? 1 : 0);
+    Out.push_back(!Value.Verdict.Accepted ? 0 : Value.Verdict.Complete ? 1 : 2);
+    Out.push_back(static_cast<uint8_t>(Value.Verdict.Reason));
     return Out;
 }
 
 inline std::optional<Result> DecodeResult(std::span<const uint8_t> In)
 {
-    if (In.size() != 9 || In[8] > 1 || !Detail::Get(In, 0, 8))
+    using Game::InventoryEdit::EditReason;
+    if (In.size() != 10 || In[8] > 2 || In[9] >= static_cast<uint8_t>(EditReason::Count) || !Detail::Get(In, 0, 8))
         return std::nullopt;
-    return Result{Detail::Get(In, 0, 8), In[8] == 1};
+    return Result{Detail::Get(In, 0, 8), {In[8] != 0, In[8] != 2, static_cast<EditReason>(In[9])}};
 }
 
 // Bereit, Client an Host, genau 17 Byte: Sitzung (8, ungleich 0), Revision (8), bereit (1, 0 oder 1). Der Client hat Bestätigen

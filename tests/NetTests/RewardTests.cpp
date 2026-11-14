@@ -223,16 +223,31 @@ TEST_CASE("Rarities round-trip and reject malformed payloads")
 
 TEST_CASE("Inventory edit result is exact")
 {
-    const Result Value{42, true};
+    using Game::InventoryEdit::Applied;
+    using Game::InventoryEdit::EditReason;
+    using Game::InventoryEdit::Rejected;
+    const Result Value{42, Applied(true)};
     const auto Bytes = Encode(Value);
-    REQUIRE(Bytes.size() == 9);
+    REQUIRE(Bytes.size() == 10);
+    CHECK(Bytes[8] == 1);
     CHECK(DecodeResult(Bytes) == Value);
-    CHECK(DecodeResult(Encode(Result{42, false})) == Result{42, false});
-    CHECK(Encode(Result{0, true}).empty());
+    // lager-edit-ablehnung: Ablehnung mit Grund und teilweise Übernahme kommen unverändert an.
+    const Result No{42, Rejected(EditReason::Scrap)};
+    CHECK(Encode(No)[8] == 0);
+    CHECK(DecodeResult(Encode(No)) == No);
+    const Result Part{42, Applied(false)};
+    CHECK(Encode(Part)[8] == 2);
+    CHECK(DecodeResult(Encode(Part)) == Part);
+    CHECK(DecodeResult(Encode(Part))->Verdict.Reason == EditReason::Incomplete);
+    CHECK(Encode(Result{0, Applied(true)}).empty());
     auto Bad = Bytes;
-    Bad[8] = 2;
+    Bad[8] = 3;
     CHECK_FALSE(DecodeResult(Bad));
-    CHECK_FALSE(DecodeResult(std::span(Bytes).first(8)));
+    Bad = Bytes;
+    Bad[9] = static_cast<uint8_t>(EditReason::Count);
+    CHECK_FALSE(DecodeResult(Bad));
+    // Das Format vor Mod-Version 14 (9 Byte) ist ungültig.
+    CHECK_FALSE(DecodeResult(std::span(Bytes).first(9)));
 }
 
 TEST_CASE("Reward names are clipped on UTF-8 boundaries")

@@ -225,6 +225,12 @@ bool IsUpgradeOutput(uintptr_t Item)
     return Item && std::any_of(Session.Upgrades.begin(), Session.Upgrades.end(), [&](const auto& Next) { return Next.Output == Item; });
 }
 
+// opt-airdrop-edit-ungueltig: Eingabe einer schon aufgezeichneten Aufwertung.
+bool IsConsumedInput(uintptr_t Item)
+{
+    return Item && std::any_of(Session.Upgrades.begin(), Session.Upgrades.end(), [&](const auto& Next) { return Contains(Next.Inputs, Item); });
+}
+
 bool IsPurchase(uintptr_t Item)
 {
     return Item && std::any_of(Session.Purchases.begin(), Session.Purchases.end(), [&](const auto& Next) { return Next.Item == Item; });
@@ -524,8 +530,13 @@ bool Apply(uintptr_t Inventory, const std::vector<uintptr_t>& Items, const std::
         Reached.AddEffect = Target[i].AddEffect;
         if (!SameState(Reached, Target[i]))
         {
-            Core::Log::Warn("Inventar lokal: {} nach dem Übernehmen abweichend (vorhanden {}, im Rucksack {}, {} Felder statt {})", ItemLabel(Items[i]),
-                            Reached.Present, Reached.InBackpack, Reached.Tiles.size(), Target[i].Tiles.size());
+            // lager-edit-ablehnung: Ist und Soll vollständig, damit ein unvollständiges Übernehmen oder Zurückrollen aus dem Log lesbar ist.
+            const ItemState& Want = Target[i];
+            Core::Log::Warn("Inventar lokal: {} danach abweichend: vorhanden {}/{}, im Rucksack {}/{}, Drehung {}/{}, Pivot ({}, {})/({}, {}), Felder "
+                            "{}/{}, Papierkorb {}/{}, kaputt {}/{} (ist/soll)",
+                            ItemLabel(Items[i]), Reached.Present, Want.Present, Reached.InBackpack, Want.InBackpack, Reached.Turns, Want.Turns,
+                            Reached.Pivot.first, Reached.Pivot.second, Want.Pivot.first, Want.Pivot.second, Reached.Tiles.size(), Want.Tiles.size(),
+                            Reached.Trash, Want.Trash, Reached.Broken, Want.Broken);
             Ok = false;
         }
     }
@@ -686,6 +697,11 @@ bool ClientEditingInventory(uintptr_t Inventory)
     return Session.State == Phase::Editing && Inventory && Session.Inventory == Inventory;
 }
 
+namespace
+{
+size_t RemoveConsumedInputs();
+}
+
 void RecordUpgrade(const std::vector<uintptr_t>& Inputs, uintptr_t Output, uintptr_t Data, uintptr_t Rarity)
 {
     if (Session.State != Phase::Editing || !Output)
@@ -693,6 +709,10 @@ void RecordUpgrade(const std::vector<uintptr_t>& Inputs, uintptr_t Output, uintp
     Session.Upgrades.push_back({Inputs, Output, Data ? Memory::NameOf(Data) : std::string{}, Rarity ? Memory::NameOf(Rarity) : std::string{}});
     Core::Log::Info("Inventar lokal: Aufwertung {} lokal, {} Eingaben, Ausgabe {} {}", Session.Upgrades.size(), Inputs.size(), Session.Upgrades.back().Data,
                     Session.Upgrades.back().Rarity);
+    // opt-airdrop-edit-ungueltig, Nutzerentscheidung 13.11.2026: Liegt eine Eingabe nach UpgradeItems noch im Inventar (im Live-Test
+    // am Abend des 13.11. rund 2,5 Minuten als Klon sichtbar), geht sie sofort lokal hinaus, nicht erst beim Bestätigen.
+    if (const size_t Removed = RemoveConsumedInputs())
+        Core::Log::Warn("Inventar lokal: {} Eingabe(n) lagen nach der Aufwertung noch im Inventar, sofort entfernt", Removed);
 }
 
 namespace
@@ -736,8 +756,19 @@ void RecordPurchase(uintptr_t Item, uintptr_t Data, uintptr_t Rarity, int32_t Co
                     Cost);
 }
 
+namespace
+{
+bool FinishReverted = false;
+}
+
+bool ClientFinishReverted()
+{
+    return FinishReverted;
+}
+
 std::optional<Edit> FinishClient(uint64_t SessionId, uint64_t Revision, std::optional<uint8_t> Choice, uintptr_t ChoiceItem)
 {
+    FinishReverted = false;
     if (Session.State != Phase::Editing)
         return std::nullopt;
     // opt-airdrop-edit-ungueltig: Die Belohnungsanzeige behält eine Instanz, die eine Aufwertung schon verbraucht hat. Nimmt der
@@ -817,6 +848,7 @@ std::optional<Edit> FinishClient(uint64_t SessionId, uint64_t Revision, std::opt
             {
                 Core::Log::Warn("Inventar lokal: Eingabe {} der Aufwertung {} unbekannt, Bearbeitung zurückgenommen", ItemLabel(Input), K + 1);
                 RevertClient("Aufwertung nicht zuordenbar");
+                FinishReverted = true;
                 return std::nullopt;
             }
             Next.Inputs.push_back(It->second);
@@ -833,6 +865,7 @@ std::optional<Edit> FinishClient(uint64_t SessionId, uint64_t Revision, std::opt
         Core::Log::Warn("Inventar lokal: Edit mit {} Items, {} Aufwertungen und {} Käufen ungültig ({}), Bearbeitung zurückgenommen",
                         Result.Items.size(), Result.Upgrades.size(), Result.Purchases.size(), Why);
         RevertClient("Edit ungültig");
+        FinishReverted = true;
         return std::nullopt;
     }
     if (Result.Items.empty() && Result.NewSlots.empty() && Result.Purchases.empty())
@@ -863,43 +896,52 @@ void RevertClient(const char* Why)
     // anderer Klassen (CharacterEffectManager), die lokale Aufwertungs-Ausgaben nennen; beim Host gab das einen Nullzeiger-Absturz.
     Session.State = Phase::Reverting;
     EndHands(true);
-    const std::vector<uintptr_t> Now = ItemsOf(Session.Inventory);
-    const std::vector<SlotInfo> Slots = SlotsOf(Session.Inventory);
-    std::vector<uintptr_t> Items;
-    std::vector<ItemState> Current, Target;
-    for (size_t i = 0; i < Session.Items.size(); ++i)
+    // lager-edit-ablehnung: Im Live-Test am 10.11.2026 blieb das Zurückrollen eines großen Lager-Edits unvollständig. Der Plan
+    // rechnet nur aus Ist und Soll; gelingt ein Schritt im ersten Durchgang nicht (etwa ein Feld noch belegt), liest ein zweiter
+    // Durchgang den Stand neu und holt den Rest nach. Die Ursache vom 10.11. ist damit nicht belegt, das Log nennt jetzt Ist und Soll.
+    bool Ok = false;
+    for (int Pass = 0; Pass < 2 && !Ok; ++Pass)
     {
-        if (!Alive(Session.Items[i]))
-            continue;
-        ItemState State = ReadItem(Session.Items[i], Slots, static_cast<uint16_t>(i));
-        State.Present = Contains(Now, Session.Items[i]);
-        if (!State.Present)
-            State.InBackpack = false;
-        Items.push_back(Session.Items[i]);
-        Current.push_back(std::move(State));
-        Target.push_back(Session.States[i]);
-    }
-    // Lokale Belohnungen und Ausgaben lokaler Aufwertungen wieder hinaus.
-    std::vector<uintptr_t> Local = Session.Choices;
-    for (const auto& Next : Session.Upgrades)
-        Local.push_back(Next.Output);
-    for (const auto& Next : Session.Purchases)
-        Local.push_back(Next.Item);
-    for (const uintptr_t Choice : Local)
-        if (Alive(Choice) && Contains(Now, Choice) && std::count(Items.begin(), Items.end(), Choice) == 0)
+        const std::vector<uintptr_t> Now = ItemsOf(Session.Inventory);
+        const std::vector<SlotInfo> Slots = SlotsOf(Session.Inventory);
+        std::vector<uintptr_t> Items;
+        std::vector<ItemState> Current, Target;
+        for (size_t i = 0; i < Session.Items.size(); ++i)
         {
-            Items.push_back(Choice);
-            Current.push_back(ReadItem(Choice, Slots, ChoiceSource));
-            ItemState Gone;
-            Gone.Source = ChoiceSource;
-            Gone.Present = false;
-            Target.push_back(Gone);
+            if (!Alive(Session.Items[i]))
+                continue;
+            ItemState State = ReadItem(Session.Items[i], Slots, static_cast<uint16_t>(i));
+            State.Present = Contains(Now, Session.Items[i]);
+            if (!State.Present)
+                State.InBackpack = false;
+            Items.push_back(Session.Items[i]);
+            Current.push_back(std::move(State));
+            Target.push_back(Session.States[i]);
         }
-    std::vector<uintptr_t> Destroy;
-    for (const SlotInfo& Slot : Slots)
-        if (std::find(Session.Slots.begin(), Session.Slots.end(), Slot.At) == Session.Slots.end())
-            Destroy.push_back(Slot.Slot);
-    const bool Ok = Apply(Session.Inventory, Items, Current, Target, {}, Destroy, true);
+        // Lokale Belohnungen und Ausgaben lokaler Aufwertungen wieder hinaus.
+        std::vector<uintptr_t> Local = Session.Choices;
+        for (const auto& Next : Session.Upgrades)
+            Local.push_back(Next.Output);
+        for (const auto& Next : Session.Purchases)
+            Local.push_back(Next.Item);
+        for (const uintptr_t Choice : Local)
+            if (Alive(Choice) && Contains(Now, Choice) && std::count(Items.begin(), Items.end(), Choice) == 0)
+            {
+                Items.push_back(Choice);
+                Current.push_back(ReadItem(Choice, Slots, ChoiceSource));
+                ItemState Gone;
+                Gone.Source = ChoiceSource;
+                Gone.Present = false;
+                Target.push_back(Gone);
+            }
+        std::vector<uintptr_t> Destroy;
+        for (const SlotInfo& Slot : Slots)
+            if (std::find(Session.Slots.begin(), Session.Slots.end(), Slot.At) == Session.Slots.end())
+                Destroy.push_back(Slot.Slot);
+        if (Pass == 1)
+            Core::Log::Warn("Inventar lokal: Ausgangsstand nach dem ersten Durchgang unvollständig, zweiter Durchgang");
+        Ok = Apply(Session.Inventory, Items, Current, Target, {}, Destroy, true);
+    }
     Session.State = Phase::Idle;
     Core::Log::Info("Inventar lokal: Ausgangsstand wiederhergestellt ({}), vollständig={}", Why, Ok);
 }
@@ -993,6 +1035,15 @@ bool RouteClientRpc(uintptr_t Object, uintptr_t Fn, void* Params)
     if (Session.State == Phase::Committed)
     {
         LogOp(Info.Name + " nach dem Bestätigen verworfen");
+        return true;
+    }
+    // opt-airdrop-edit-ungueltig, Nutzerentscheidung 13.11.2026: Eine schon aufgewertete Eingabe darf nicht wieder sichtbar im Inventar
+    // liegen (Klon). Die Belohnungsanzeige behält ihre Instanz; nimmt der Spieler sie erneut auf, läuft der Aufruf nicht mehr lokal.
+    // Liegt die Eingabe doch noch im Inventar, laufen ihre Aufrufe weiter, sonst käme sie nicht mehr hinaus (FinishClient räumt auf).
+    if (const uintptr_t Subject = Info.Type == Kind::ItemRpc ? Object : Item;
+        IsConsumedInput(Subject) && !Contains(ItemsOf(Session.Inventory), Subject))
+    {
+        LogOp(Info.Name + " für schon aufgewertete Eingabe verworfen, " + ItemLabel(Subject));
         return true;
     }
     if (Info.Type == Kind::Repair && !Contains(ItemsOf(Session.Inventory), Item))

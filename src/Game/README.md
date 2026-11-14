@@ -353,6 +353,39 @@ Schließen ohne Wahl (`Ausgangsstand wiederhergestellt, vollständig=true`) bele
 Offen und nicht Teil dieser Aufgabe: Beim Rundenende sieht der Client noch die alte Sperre statt Rundenübersicht und Lager
 (`rundenende-client`).
 
+#### Ablehnung mit Grund
+
+Aufgabe `lager-edit-ablehnung`, Code in `RewardPatches.cpp` (`ApplyClientEdit`, `ResolveClientEdit`), `InventoryEdit.cpp`
+(`RevertClient`, `Apply`), `InventoryEditPlan.h` (`EditReason`, `Verdict`, mit Tests) und `src/Sync/Inventory/RewardState.h`. Format in
+[Kontrollkanal](../../docs/CONTROL_PROTOCOL.md#antwort-mit-grund-mod-kompatibilität-14).
+
+**Befund vorher** (Live-Test 10.11.2026 und Code): Ein großer Lager-Edit wurde abgelehnt, der Grund stand nur im Log des Hosts. Der
+Client stellte seinen Ausgangsstand unvollständig her. Danach blieb er im Lager „bereit“ (Knopf gelb), denn das Bestätigen hielt bis
+zur Antwort und wurde bei einer Ablehnung nicht zurückgenommen. Mit gehaltenem Bestätigen beginnt `BeginPanelEdit` nichts: Zwei
+Aufwertungen liefen nur nativ beim Client, Verkäufe wurden verworfen, und der Host hätte ohne den Client weiterreisen können. Dazu
+meldete `ApplyClientEdit` „übernommen“, auch wenn nur ein Teil der Schritte gelang.
+
+- **Geteilt:** Die Antwort `0x304` trägt Stand und Grund (Mod-Version 14). Sonst nichts Neues.
+- **Entscheidet:** Der Host wie bisher. Jede Ablehnung nennt einen Grund aus `EditReason`; nach einer Ablehnung hat er nichts geändert.
+  Gelingt nach bestandener Prüfung nicht jeder Schritt, meldet er „teilweise übernommen“.
+- **Beim Client:** Der Grund steht im Log (`Host hat Edit … abgelehnt: …`). Im Lager nimmt eine Ablehnung das Bereit zurück: Der Knopf
+  verliert die Farbe, der nächste Zug beginnt eine neue Bearbeitung, der Spieler bestätigt erneut. Bei „teilweise übernommen“ rollt
+  der Client nicht zurück, weil der Host schon geändert hat; er schreibt eine Warnung, sein Stand kann bis zur Replikation abweichen.
+- **Zurückrollen:** `RevertClient` liest nach einem unvollständigen ersten Durchgang den Stand neu und versucht den Rest ein zweites
+  Mal. Weicht ein Item danach noch ab, nennt das Log Ist und Soll (vorhanden, Rucksack, Drehung, Pivot, Felder, Papierkorb, kaputt).
+- **Klon nach Aufwertung (`opt-airdrop-edit-ungueltig`, Nutzerentscheidung 13.11.2026):** Eine schon aufgewertete Eingabe kommt
+  während der Bearbeitung nicht wieder ins Inventar. Inventar-Aufrufe für sie verwirft der Client (`… für schon aufgewertete Eingabe
+  verworfen`), solange sie nicht im Inventar liegt. Liegt eine Eingabe direkt nach `UpgradeItems` noch im Inventar, entfernt
+  `RecordUpgrade` sie sofort lokal. Das Aufräumen beim Bestätigen bleibt als Rückfall.
+- **Ungültige Bearbeitung im Lager:** Nimmt der Client seine Bearbeitung beim Bestätigen selbst zurück (Edit ungültig), bestätigt er
+  nicht und gilt nicht als bereit (`ClientFinishReverted`); vorher lief das Bestätigen mit still zurückgesetztem Lager weiter.
+
+**Geprüft** (14.11.2026): Build und Unit-Tests. **Nicht im Spiel geprüft**, auch nicht nachgestellt: Die Ursache der Ablehnung vom
+10.11. ist weiter unbekannt, das Host-Log dieser Sitzung liegt nicht vor; warum das Zurückrollen damals unvollständig blieb, ist nicht
+belegt, der zweite Durchgang ist eine Absicherung, kein Nachweis. Offen ist auch, wie das Panel aussieht, wenn der Spieler eine schon
+aufgewertete Belohnung erneut aus der Anzeige zieht und der Aufruf verworfen wird. Der Branch enthält `opt-rucksack-versatz` (#242)
+und `opt-station-zug` (#243).
+
 **Neue Felder sofort sichtbar (`ausruestung-felder`, 06.11.2026).** Fehlerbild: Legt der Client einen Rucksack-Block an, entstanden die
 Felder lokal (Client-Inventar 11 statt 8 Slots, Log `Server_CreateSlotsFromBagItem lokal, 3 Felder`), das Panel zeigte sie aber erst,
 nachdem der Host etwas repliziert hatte. Ursache: Die Feld-Widgets hängen an einem nativen Delegate am `InventoryComponent` (`+0x110`,

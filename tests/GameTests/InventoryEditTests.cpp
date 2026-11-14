@@ -489,3 +489,14 @@ TEST_CASE("opt-rucksack-ueberlappung: Anzeige richtet sich an der oberen linken 
     // Ohne Feldbelegung bleibt es beim Pivot.
     CHECK(SnapTile({5, 6}, {}) == Tile{5, 6});
 }
+
+TEST_CASE("lager-edit-ablehnung: Urteil des Hosts mit Grund, jeder Grund hat einen Text")
+{
+    CHECK(Rejected(EditReason::NoFit) == Verdict{false, true, EditReason::NoFit});
+    CHECK(Applied(true) == Verdict{true, true, EditReason::None});
+    CHECK(Applied(false) == Verdict{true, false, EditReason::Incomplete});
+    for (uint8_t Reason = 0; Reason < static_cast<uint8_t>(EditReason::Count); ++Reason)
+        CHECK(std::string(ReasonText(Reason)) != "unbekannter Grund");
+    CHECK(std::string(ReasonText(static_cast<uint8_t>(EditReason::Count))) == "unbekannter Grund");
+    CHECK(std::string(ReasonText(static_cast<uint8_t>(EditReason::Scrap))) == "Schrott reicht nicht oder Preis ungültig");
+}

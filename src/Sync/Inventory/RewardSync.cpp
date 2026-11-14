@@ -21,7 +21,7 @@ struct
     std::optional<Reward::Offer> Sent;
     uint64_t NextResend = 0;
     uint64_t LastEdit = 0; // zuletzt beantworteter Edit
-    bool LastAccepted = false;
+    Game::InventoryEdit::Verdict LastVerdict;
     // Client
     std::optional<Reward::Offer> Latest;
     uint64_t LatestAt = 0;
@@ -210,10 +210,10 @@ void TickHost(Net::Transport& Transport, std::span<const Net::ControlMessage> Me
         // Wiederholung: nur die Antwort erneut, nicht noch einmal übernehmen.
         if (Edit->Id != R.LastEdit)
         {
-            R.LastAccepted = Game::Rewards::ApplyClientEdit(*Edit);
+            R.LastVerdict = Game::Rewards::ApplyClientEdit(*Edit);
             R.LastEdit = Edit->Id;
         }
-        if (!Send(Transport, Reward::ResultType, Reward::Encode(Reward::Result{Edit->Id, R.LastAccepted})))
+        if (!Send(Transport, Reward::ResultType, Reward::Encode(Reward::Result{Edit->Id, R.LastVerdict})))
             Core::Log::Warn("Inventar lokal: Antwort zu Edit {} nicht gesendet", Edit->Id);
         R.NextResend = 0; // neues Bild sofort
     }
@@ -327,10 +327,11 @@ void TickClient(Net::Transport& Transport, std::span<const Net::ControlMessage> 
                 const auto Pending = Game::Rewards::PendingClientEdit();
                 if (!Pending || Pending->Id != Result->Id)
                     continue;
-                Core::Log::Info("Inventar lokal: Host hat Edit {} {}", Result->Id, Result->Accepted ? "übernommen" : "abgelehnt");
-                if (Result->Accepted && Pending->Choice)
+                Core::Log::Info("Inventar lokal: Host hat Edit {} {}", Result->Id,
+                                !Result->Verdict.Accepted ? "abgelehnt" : Result->Verdict.Complete ? "übernommen" : "teilweise übernommen");
+                if (Result->Verdict.Accepted && Pending->Choice)
                     R.DoneSession = Pending->Session;
-                Game::Rewards::ResolveClientEdit(Result->Id, Result->Accepted);
+                Game::Rewards::ResolveClientEdit(Result->Id, Result->Verdict);
             }
     }
     TickClientRoundEnd(Transport);
