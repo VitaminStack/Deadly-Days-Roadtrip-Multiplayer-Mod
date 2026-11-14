@@ -166,14 +166,15 @@ void AddScrap(uintptr_t Wallet, int32_t Delta);
 
 // Client, lager-edit-stabil: Vorprüfung vor dem Bestätigen. Rechnet Züge seit dem letzten Takt ein (etwa ein Verkauf gerade eben) und
 // sagt, ob der Schrott nach dem Stand des Hosts reicht. Ohne Ansicht (kein Stand des Hosts empfangen) entscheidet wie bisher der Host.
+// Nur zum Test einer Ablehnung: DDCOOP_TEST_SKIP_SCRAP_CHECK=1 lässt die erste fehlgeschlagene Vorprüfung der Sitzung aus.
 bool ScrapCoversHost()
 {
-    static const bool Skip = []
+    static bool SkipOnce = []
     {
         char Value[4]{};
         return GetEnvironmentVariableA("DDCOOP_TEST_SKIP_SCRAP_CHECK", Value, sizeof(Value)) == 1 && Value[0] == '1';
     }();
-    if (!Scrap.Active || Skip)
+    if (!Scrap.Active)
         return true;
     const uintptr_t Wallet = ScrapWallet();
     if (const std::optional<int32_t> Have = ScrapAmount(Wallet))
@@ -181,6 +182,12 @@ bool ScrapCoversHost()
         const int64_t Show = Game::InventoryEdit::Rebase(Scrap.View, *Have, Scrap.View.Host);
         if (Show != *Have)
             AddScrap(Wallet, static_cast<int32_t>(Show - *Have));
+    }
+    if (!Game::InventoryEdit::ScrapCovers(Scrap.View) && SkipOnce)
+    {
+        SkipOnce = false;
+        Core::Log::Warn("Lager: Testschalter DDCOOP_TEST_SKIP_SCRAP_CHECK, Vorprüfung einmal ausgelassen (es fehlen {})", Scrap.View.Missing);
+        return true;
     }
     return Game::InventoryEdit::ScrapCovers(Scrap.View);
 }
@@ -583,7 +590,7 @@ void __fastcall ConfirmHook(uintptr_t Panel)
             return;
         // lager-edit-stabil: Vorprüfung gegen den Stand des Hosts. Reicht der gemeinsame Schrott nach seinen Ausgaben nicht mehr, bleibt
         // die Bearbeitung offen und der Client nicht bereit; die Anzeige steht dann auf 0. Er verkauft etwas oder nimmt Züge zurück und
-        // bestätigt erneut. Nur zum Test einer Ablehnung lässt DDCOOP_TEST_SKIP_SCRAP_CHECK=1 die Vorprüfung aus.
+        // bestätigt erneut. Zum Test einer Ablehnung siehe ScrapCoversHost.
         if (!ScrapCoversHost())
         {
             Core::Log::Warn("Lager: Schrott reicht nach dem Stand des Hosts ({}) nicht, es fehlen {}; nicht bestätigt, Bearbeitung bleibt offen",
