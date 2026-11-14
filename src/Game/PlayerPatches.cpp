@@ -2,6 +2,7 @@
 // und beim Run-Ende nicht verlieren. Aus Spike Players.cpp, TestEnv.cpp (Busplatz) und RunEnd.cpp.
 #include <windows.h>
 
+#include <algorithm>
 #include <array>
 #include <string>
 #include <vector>
@@ -13,6 +14,7 @@
 #include "Game/Offsets.h"
 #include "Game/PatchPolicy.h"
 #include "Game/PatchRuntime.h"
+#include "Game/RemoteP2Policy.h"
 
 namespace Game::Patches
 {
@@ -32,6 +34,8 @@ constexpr uintptr_t RegistrationBroadcast = 0x24E95F0; // derselbe Broadcast wie
 constexpr uintptr_t ClearSpawnArea = 0x5995D30;
 constexpr uintptr_t RunEndLocalPlayerSite = 0x584DF32;
 constexpr uintptr_t RunEndContinue = 0x584DF40;
+// UAttachToCameraComponent::TickComponent: führt ihren Actor dem CameraManager des ersten Controllers nach, siehe FollowTickHook.
+constexpr uintptr_t CameraFollowTick = 0x585AEA0;
 
 constexpr uintptr_t GameModeSpawnedPlayers = 0x388;
 constexpr uintptr_t ActorOwner = 0x158;
@@ -41,6 +45,11 @@ constexpr uintptr_t MovementFlags = 0x579;
 constexpr uint8_t AcceptClientPositionFlags = 0x0A; // bIgnoreClientMovementErrorChecksAndCorrection, bServerAcceptClientAuthoritativePosition
 constexpr uintptr_t ControllerNetConnection = 0x520;
 constexpr uintptr_t PlayerStatePawn = 0x320;
+constexpr uintptr_t ControllerPlayer = 0x348;          // APlayerController.Player: LocalPlayer oder NetConnection
+constexpr uintptr_t ControllerCameraManager = 0x360;   // APlayerController.PlayerCameraManager
+constexpr uintptr_t WorldPlayerControllerList = 0x268; // UWorld, TArray<TWeakObjectPtr<APlayerController>>, aus 0x31B9600
+constexpr uintptr_t CameraFollowTarget = 0xD8;         // Ziel der Komponente, in BeginPlay (0x583B2D0) einmal gesetzt
+constexpr uintptr_t ActorRootComponent = 0x1B8;
 constexpr uint32_t GarbageOrUnreachableFlags = 0x30;
 
 using AddFn = int32_t*(__fastcall*)(ControllerSet*, int32_t*, const uintptr_t*, bool*);
@@ -81,6 +90,106 @@ void AddController(ControllerSet& Set, uintptr_t Controller)
 const char* Side(uintptr_t Controller)
 {
     return Memory::ReadPointer(Controller + ControllerNetConnection) ? "remote" : "lokal";
+}
+
+bool IsLocalController(uintptr_t Controller)
+{
+    return IsCurrentController(Controller) && Memory::ReadPointer(Controller + ControllerPlayer).value_or(0) &&
+           !Memory::ReadPointer(Controller + ControllerNetConnection).value_or(0);
+}
+
+// Einträge von UWorld::PlayerControllerList mit aufgelöstem Controller, höchstens 16.
+struct ControllerList
+{
+    uintptr_t Data = 0;
+    size_t Count = 0;
+    std::array<WeakController, 16> Entries{};
+    std::array<uintptr_t, 16> Controllers{};
+};
+
+ControllerList ReadControllerList(uintptr_t World)
+{
+    ControllerList List;
+    if (!World)
+        return List;
+    const uintptr_t Data = Memory::ReadPointer(World + WorldPlayerControllerList).value_or(0);
+    const int32_t Num = Memory::Read<int32_t>(World + WorldPlayerControllerList + 8).value_or(0);
+    if (!Data || Num <= 0 || Num > static_cast<int32_t>(List.Entries.size()))
+        return List;
+    for (int32_t i = 0; i < Num; ++i)
+    {
+        const auto Entry = Memory::Read<WeakController>(Data + 8 * i);
+        if (!Entry)
+            return {};
+        List.Entries[i] = *Entry;
+        const uintptr_t Object = Entry->Index >= 0 ? Objects::At(Entry->Index) : 0;
+        const Objects::Ref Held{Object, Entry->Index, static_cast<uint32_t>(Entry->Serial)};
+        List.Controllers[i] = Object && Objects::IsLive(Held) ? Object : 0;
+    }
+    List.Data = Data;
+    List.Count = static_cast<size_t>(Num);
+    return List;
+}
+
+// Host: GetFirstPlayerController nimmt Platz 0 der Controller-Liste. Nach der Reise trägt die Engine die alten Controller
+// in die neue Welt; tauscht der Host seinen Controller, bevor ein langsamer Client geladen hat, steht dessen alter
+// Controller vorn, ohne CameraManager. Komponenten, die sich in BeginPlay daran hängen, stürzen dann ab
+// (host-absturz-start). Der lokale Controller kommt deshalb nach vorn, wie im gewohnten Ablauf.
+void PlaceLocalControllerFirst(uintptr_t World, const char* Trigger)
+{
+    if (!World || CurrentRole() != NetRole::Host)
+        return;
+    ControllerList List = ReadControllerList(World);
+    if (List.Count < 2)
+        return;
+    std::array<bool, 16> Local{};
+    for (size_t i = 0; i < List.Count; ++i)
+        Local[i] = IsLocalController(List.Controllers[i]);
+    const size_t First = LocalControllerBehindFront(Local.data(), List.Count);
+    if (First >= List.Count)
+        return;
+    std::rotate(List.Entries.begin(), List.Entries.begin() + First, List.Entries.begin() + First + 1);
+    if (!Memory::WriteBytes(List.Data, List.Entries.data(), 8 * (First + 1)))
+    {
+        Core::Log::Error("Controller-Liste: lokaler Controller nicht nach vorn ({})", Trigger);
+        return;
+    }
+    Core::Log::Info("Controller-Liste: lokaler Controller von Platz {} nach vorn, {} Einträge ({})", First, List.Count, Trigger);
+}
+
+uintptr_t LocalCameraManager()
+{
+    const ControllerList List = ReadControllerList(CurrentWorld());
+    for (size_t i = 0; i < List.Count; ++i)
+        if (IsLocalController(List.Controllers[i]))
+            return Memory::ReadPointer(List.Controllers[i] + ControllerCameraManager).value_or(0);
+    return 0;
+}
+
+// Rückfall für den Absturz selbst: UAttachToCameraComponent liest ihr Ziel und dessen RootComponent ohne Nullprüfung. Fehlt das Ziel,
+// kommt der CameraManager des lokalen Controllers hinein, den die Komponente im gewohnten Ablauf bekommt; ohne ihn setzt
+// sie diesen Tick aus.
+using FollowTickFn = void(__fastcall*)(uintptr_t, float, int32_t, void*);
+FollowTickFn OriginalFollowTick = nullptr;
+
+void __fastcall FollowTickHook(uintptr_t Component, float DeltaTime, int32_t TickType, void* TickFunction)
+{
+    uintptr_t Target = Memory::ReadPointer(Component + CameraFollowTarget).value_or(0);
+    if (!Target)
+    {
+        static int Reported = 0;
+        Target = LocalCameraManager();
+        if (!Target || !Memory::WriteBytes(Component + CameraFollowTarget, &Target, sizeof(Target)))
+        {
+            if (Reported++ < 3)
+                Core::Log::Warn("Kamera-Folger: ohne Ziel, Tick ausgesetzt");
+            return;
+        }
+        Core::Log::Info("Kamera-Folger: Ziel fehlte, CameraManager des lokalen Controllers eingesetzt");
+    }
+    if (!Memory::ReadPointer(Target + ActorRootComponent).value_or(0))
+        return;
+    OriginalFollowTick(Component, DeltaTime, TickType, TickFunction);
 }
 
 // Gleicht SpawnedPlayers als echte Menge mit der PlayerArray ab, samt Hash und Belegungsbits. Ruft nie den vollen
@@ -190,6 +299,7 @@ void SwapSpawnedController(uintptr_t GameMode, uintptr_t OldController, uintptr_
         ++Added;
     }
     Core::Log::Info("SpawnedPlayers: Quelle=swap entfernt={} dazu={} gültig={} {}", Removed, Added, Set.Valid(), Side(NewController));
+    PlaceLocalControllerFirst(World, "Tausch");
 }
 
 void __fastcall GameModeProcessEvent(uintptr_t Object, uintptr_t Function, void* Params)
@@ -388,6 +498,18 @@ bool ApplyBus(Code::Writer&)
                                 reinterpret_cast<void**>(&OriginalClearSpawnArea));
 }
 
+bool CheckCameraFollow()
+{
+    return Code::Expect(At(CameraFollowTick), {0x40, 0x53, 0x48, 0x83, 0xEC, 0x60, 0x48, 0x8B, 0xD9}, "im Kamera-Folger") &&
+           Code::Expect(At(CameraFollowTick + 0x0E), {0x48, 0x8B, 0x83, 0xD8, 0x00, 0x00, 0x00}, "beim Ziel des Kamera-Folgers");
+}
+
+bool ApplyCameraFollow(Code::Writer&)
+{
+    return Core::Hooks::Install(reinterpret_cast<void*>(At(CameraFollowTick)), reinterpret_cast<void*>(&FollowTickHook),
+                                reinterpret_cast<void**>(&OriginalFollowTick));
+}
+
 bool CheckRunEnd()
 {
     return Code::Expect(At(RunEndLocalPlayerSite), {0x48, 0x8B, 0xC8, 0x48, 0x8B, 0x00, 0xFF, 0x90, 0x30, 0x03, 0x00, 0x00, 0x8B, 0xE8},
@@ -420,6 +542,7 @@ constexpr uintptr_t EnemySpawnerSites[] = {SpawnerPlayerRead, SpawnerNoPlayerExi
 constexpr uintptr_t ControllerRegistrationSites[] = {ControllerSparseRemove, RegistrationBroadcast, ControllerSetAdd, RegisterController, 0x58FD49D, 0x58FD4B3};
 constexpr uintptr_t BusSites[] = {ClearSpawnArea};
 constexpr uintptr_t RunEndSites[] = {RunEndLocalPlayerSite, RunEndContinue};
+constexpr uintptr_t CameraFollowSites[] = {CameraFollowTick};
 const Patch List[] = {
     {"Spawn des Remote-Spielers", &CheckRemoteSpawn, &ApplyRemoteSpawn, RemoteSpawnSites},
     {"Spielerindex ohne LocalPlayer", &CheckPlayerIndex, &ApplyPlayerIndex, PlayerIndexSites},
@@ -428,6 +551,7 @@ const Patch List[] = {
     {"SpawnedPlayers bei der Registrierung", &CheckControllerRegistration, &ApplyControllerRegistration, ControllerRegistrationSites},
     {"Busplatz schont Spielerfiguren", &CheckBus, &ApplyBus, BusSites},
     {"Run-Ende ohne LocalPlayer", &CheckRunEnd, &ApplyRunEnd, RunEndSites},
+    {"Kamera-Folger ohne Ziel", &CheckCameraFollow, &ApplyCameraFollow, CameraFollowSites},
 };
 }
 
@@ -439,7 +563,10 @@ std::span<const Patch> PlayerPatches()
 void TickPlayers(NetRole Role, bool Second)
 {
     InstallControllerSwap();
-    if (Role != NetRole::Host || !Second)
+    if (Role != NetRole::Host)
+        return;
+    PlaceLocalControllerFirst(CurrentWorld(), "Takt");
+    if (!Second)
         return;
     // Rückfallebene: Registrierung und Tausch decken heute jeden gemessenen Wechsel ab.
     ReconcileSpawnedPlayers(CurrentWorld(), "timer");

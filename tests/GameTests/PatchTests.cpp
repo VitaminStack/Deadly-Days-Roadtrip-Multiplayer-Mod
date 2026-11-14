@@ -479,6 +479,20 @@ TEST_CASE("Patches: Busplatz ergänzt die geschonte Liste um fehlende Spielerfig
     CHECK(Added == 0);
 }
 
+TEST_CASE("Patches: der lokale Controller kommt in der Controller-Liste nach vorn")
+{
+    const bool LateClient[] = {false, true};
+    CHECK(LocalControllerBehindFront(LateClient, 2) == 1);
+    const bool Normal[] = {true, false};
+    CHECK(LocalControllerBehindFront(Normal, 2) == 2);
+    // Alter Host-Controller (ohne Player) und Client vor dem neuen: der neue kommt nach vorn.
+    const bool Swapped[] = {false, false, true};
+    CHECK(LocalControllerBehindFront(Swapped, 3) == 2);
+    const bool NoLocal[] = {false, false};
+    CHECK(LocalControllerBehindFront(NoLocal, 2) == 2);
+    CHECK(LocalControllerBehindFront(nullptr, 0) == 0);
+}
+
 TEST_CASE("Patches: Beobachter nach ProcessEvent werden je einmal angemeldet")
 {
     const EventObserver First = [](uintptr_t, uintptr_t, void*) {};

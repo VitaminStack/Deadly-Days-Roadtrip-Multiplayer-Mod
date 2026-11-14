@@ -33,6 +33,7 @@
 {0x0583B060, 0, "48 8B 9C 24 B8 00 00 00 48 81 C4 90 00 00 00 5F 5E 5D C3 CC CC CC CC CC CC CC CC CC CC CC CC CC 48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 48 8B F1", 0, "ComponentControllerExit"}, // ClientPatches.cpp
 {0x0584DF32, 0, "48 8B C8 48 8B 00 FF 90 30 03 00 00 8B E8", 0, "RunEndLocalPlayerSite"}, // PlayerPatches.cpp
 {0x0584DF40, 0, "48 8B BE E8 00 00 00 8B D5 48 8B CF", 0, "RunEndContinue"}, // PlayerPatches.cpp
+{0x0585AEA0, 0, "40 53 48 83 EC 60 48 8B D9 E8 ?? ?? ?? ?? 48 8B 83 D8 00 00 00 45 33 C9", 0, "CameraFollowTick"}, // PlayerPatches.cpp
 {0x058908C0, 0, "48 8B C4 48 89 58 08 48 89 70 18 57 48 81 EC 00 01 00 00 0F 29 70 E8", 0, "SpawnCircleTelegraph"}, // EnemyTelegraphPatches.cpp
 {0x058A3DB0, 0, "48 89 5C 24 08 57 48 83 EC 70 48 8B D9 B2 01 48 8B 89 38 02 00 00", 0, "ActivateLineTelegraph"}, // EnemyTelegraphPatches.cpp
 {0x058A6466, 0, "0F 84 ?? ?? ?? ?? 80 3D ?? ?? ?? ?? 00 48 89 74 24 50 74 ??", 0, "SneakSameTarget"}, // ClientPatches.cpp
@@ -61,7 +62,7 @@
 {0x058EFFD0, 0, "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 8B 81 08 01 00 00 48 8B D9", 0, "GetController"}, // LocalDevicePatches.cpp
 {0x058FD3A0, 0, "48 89 5C 24 18 48 89 74 24 20 57 48 83 EC 20 48 8B DA 48 8B F1 48 85 D2 74 ?? 33 C9 E8 ?? ?? ?? ?? 48 8B 53 10 4C 8D 40 30 48 63 40 38 3B 42 38 7F ?? 48 8B C8 48 8B 42 30 4C 39 04 C8 75 ?? 4C 8B D3 EB ?? 45 33 D2 48 B9 CD 8C 55 ED D7 AF 51 FF 4C 89 54 24 38", 0, "RegisterController"}, // PlayerPatches.cpp
 {0x058FD49D, 0, "E8 ?? ?? ?? ?? 48 8D 8E 40 03 00 00 48 89 5C 24 30", 0, "At_58FB11D"}, // PlayerPatches.cpp
-{0x058FD4B3, 0, "E8 ?? ?? ?? ?? 48 8B 5C 24 40 48 8B 74 24 48 48 83 C4 20 5F C3 CC CC CC CC CC CC CC CC 48 89 5C 24 10 48 89 74 24 18 4C 89 74 24 20 55 48 8B EC 48 83 EC 70 8B 51 48 48 8D 71 48 4C 8D 71 38 48 8B D9", 0, "At_58FB133"}, // PlayerPatches.cpp
+{0x058FD4B3, 0, "E8 ?? ?? ?? ?? 48 8B 5C 24 40 48 8B 74 24 48 48 83 C4 20 5F C3 CC CC CC CC CC CC CC CC 48 89 5C 24 10 48 89 74 24 18 4C 89 74 24 20 55 48 8B EC 48 83 EC 70 8B 51 48 48 8D 71 48 4C 8D 71 38 48 8B D9", 0, "At_58FD4B3"}, // PlayerPatches.cpp
 {0x05904DE8, 0, "48 8B 08 48 8B 91 30 03 00 00 48 8B C8 FF D2 8B D0 48 8B CB", 0, "SpawnNullSite"}, // PlayerPatches.cpp
 {0x05904F53, 0, "4C 8B C5 48 8B D7 48 8B CE E8 ?? ?? ?? ?? 48 8B 8C 24 D0 00 00 00 48 33 CC", 0, "SpawnSkipTarget"}, // PlayerPatches.cpp
 {0x05904F90, 0, "89 54 24 10 55 53 56 57 41 56 48 8B EC 48 83 EC 40", 0, "SpawnLocal"}, // LocalDevicePatches.cpp
