@@ -36,6 +36,8 @@ void RefreshEffects(uintptr_t Inventory);
 void BeginClient(uintptr_t Inventory, const std::vector<uintptr_t>& Choices, uintptr_t Controller);
 // Client: Panel bearbeitet gerade lokal.
 bool ClientEditing();
+// Client: keine Bearbeitung, kein unbeantworteter Edit und kein laufendes Zurückrollen.
+bool ClientIdle();
 // Client: Bearbeitung läuft und gehört zu Inventory.
 bool ClientEditingInventory(uintptr_t Inventory);
 // Client, werkbank-client: UpgradeItems lief während der Bearbeitung lokal. Inputs sind die verbrauchten Instanzen, Output die

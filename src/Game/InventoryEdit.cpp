@@ -676,6 +676,11 @@ bool ClientEditing()
     return Session.State == Phase::Editing;
 }
 
+bool ClientIdle()
+{
+    return Session.State == Phase::Idle;
+}
+
 bool ClientEditingInventory(uintptr_t Inventory)
 {
     return Session.State == Phase::Editing && Inventory && Session.Inventory == Inventory;
@@ -766,6 +771,12 @@ std::optional<Edit> FinishClient(uint64_t SessionId, uint64_t Revision, std::opt
     }
     if (Choice && ChoiceItem)
         Final.push_back(FinalState(ChoiceItem, Now, Slots, ChoiceSource));
+    // opt-station-zug: Ein Item, das seit Beginn der Bearbeitung dazugekommen ist und weder Belohnung, Ausgabe einer Aufwertung noch
+    // Kauf ist, steht nicht im Edit. Lokal entstanden (etwa im Kopierladen, opt-kopierladen) fehlt es beim Host; vom Host
+    // repliziert (etwa ein Itemsack) ist es dort schon vorhanden. Die Zeile unterscheidet das nicht.
+    for (const uintptr_t Item : Now)
+        if (!Contains(Session.Items, Item) && !Contains(Session.Choices, Item) && !IsUpgradeOutput(Item) && !IsPurchase(Item))
+            Core::Log::Warn("Inventar lokal: {} kam während der Bearbeitung dazu und steht nicht im Edit", ItemLabel(Item));
     std::vector<Tile> FinalSlots;
     for (const SlotInfo& Slot : Slots)
         FinalSlots.push_back(Slot.At);
