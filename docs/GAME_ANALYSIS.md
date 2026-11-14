@@ -3144,6 +3144,9 @@ Kaputte Items und Revolver über `!give`, Schrott über `!scrap`, Rundenende üb
   Bereit zurückgenommen; neue Bearbeitung“. Erneut bestätigt, der Host prüft und führt die Aufwertung aus, `vollständig=true`. Danach
   Desync OK bei beiden, Inventare gleich. Host bestätigt, „Bestätigen nachgeholt (alle bereit)“, kein Absturz.
 
+- **Ausweg bei Fehlbetrag** (zweite Sitzung, ohne Testschalter): Client repariert für 12, Host senkt auf 0. Erstes Bestätigen hält an
+  („es fehlen 12 … Erneutes Bestätigen ohne genug Schrott nimmt die Bearbeitung zurück“), das zweite rollt zurück („vollständig=true“),
+  das dritte macht den Client mit dem Ausgangsstand bereit. Desync OK, Inventare gleich, Host bestätigt, „Bestätigen nachgeholt“.
 - **Nebenbefund [Belegt, eine Messung]:** Ein Item, das der Host erst im Lager per `!give` anlegt, kam beim Client nicht an, auch nicht
   in der Ansicht des Host-Inventars (`inventory.py` ungleich). Mit Items, die vor dem Rundenende vergeben wurden, war alles gleich.
   **Vermutung:** Die Replikation neu angelegter Items ruht im Lager; im normalen Spiel entstehen dort nur über Edits neue Items.
