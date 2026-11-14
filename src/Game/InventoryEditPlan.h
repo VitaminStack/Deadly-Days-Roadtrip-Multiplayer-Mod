@@ -528,4 +528,27 @@ inline std::vector<Step> Plan(const std::vector<ItemState>& Current, const std::
             Steps.push_back({StepKind::Break, i});
     return Steps;
 }
+
+// Client, airdrop-belohnung-aufwertung: Zustand einer Anzeige-Instanz der Airdrop-Auswahl nach dem nativen Bestätigen.
+struct ShownChoice
+{
+    bool Alive = false, Reward = false, InInventory = false;
+    bool Consumed = false; // Eingabe einer lokal aufgezeichneten Aufwertung
+};
+
+// Client: gewählte Belohnung. Bevorzugt die Instanz, die keine Belohnung mehr ist und im Inventar liegt, dann eine ohne Inventar
+// (ein Rucksack kann schon verbraucht sein). Live-Test 14.11.2026: Eine auf ein gleiches Item gelegte Belohnung ist Eingabe der
+// Aufwertung; seit #244 nimmt die Mod sie sofort aus dem Inventar, die Anzeige behält sie als Belohnung. Auch sie gilt als gewählt,
+// sonst fehlt dem Edit die Quelle der Eingabe und die Bearbeitung wird zurückgenommen.
+inline std::optional<uint32_t> PickChoice(const std::vector<ShownChoice>& Shown)
+{
+    for (int Pass = 0; Pass < 2; ++Pass)
+        for (uint32_t i = 0; i < Shown.size(); ++i)
+            if (Shown[i].Alive && !Shown[i].Reward && (Pass == 1 || Shown[i].InInventory))
+                return i;
+    for (uint32_t i = 0; i < Shown.size(); ++i)
+        if (Shown[i].Consumed)
+            return i;
+    return std::nullopt;
+}
 }
