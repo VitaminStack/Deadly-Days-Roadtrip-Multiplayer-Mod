@@ -152,6 +152,67 @@ std::optional<Game::InventoryEdit::Edit> ClientPending;
 // Client, werkbank-client: Die erste Aufwertung im Lager hat eine lokale Bearbeitung begonnen, sie endet mit dem Bestätigen.
 // lager-handel-client: ebenso der erste Verkauf oder die erste Reparatur.
 uint64_t LagerEdit = 0; // Id des Rundenendes, 0 ohne
+// Client, lager-edit-stabil: Schrott-Ansicht einer laufenden Bearbeitung (ApplyScrap). LastHost ist der Stand des Hosts, den das Konto
+// gerade zeigt, Latest der zuletzt empfangene; -1 ohne.
+struct
+{
+    bool Active = false;
+    bool Blocked = false; // Bestätigen in dieser Bearbeitung schon einmal an der Vorprüfung gescheitert
+    Game::InventoryEdit::ScrapView View;
+    int64_t LastHost = -1, Latest = -1;
+} Scrap;
+uintptr_t ScrapWallet();
+std::optional<int32_t> ScrapAmount(uintptr_t Wallet);
+void AddScrap(uintptr_t Wallet, int32_t Delta);
+void EndScrapView(bool Accepted);
+
+// Client, lager-edit-stabil: Vorprüfung vor dem Bestätigen. Rechnet Züge seit dem letzten Takt ein (etwa ein Verkauf gerade eben) und
+// sagt, ob der Schrott nach dem Stand des Hosts reicht. Ohne Ansicht (kein Stand des Hosts empfangen) entscheidet wie bisher der Host.
+// Nur zum Test einer Ablehnung: DDCOOP_TEST_SKIP_SCRAP_CHECK=1 lässt die erste fehlgeschlagene Vorprüfung der Sitzung aus.
+bool ScrapCoversHost()
+{
+    static bool SkipOnce = []
+    {
+        char Value[4]{};
+        return GetEnvironmentVariableA("DDCOOP_TEST_SKIP_SCRAP_CHECK", Value, sizeof(Value)) == 1 && Value[0] == '1';
+    }();
+    if (!Scrap.Active)
+        return true;
+    const uintptr_t Wallet = ScrapWallet();
+    if (const std::optional<int32_t> Have = ScrapAmount(Wallet))
+    {
+        const int64_t Show = Game::InventoryEdit::Rebase(Scrap.View, *Have, Scrap.View.Host);
+        if (Show != *Have)
+            AddScrap(Wallet, static_cast<int32_t>(Show - *Have));
+    }
+    if (!Game::InventoryEdit::ScrapCovers(Scrap.View) && SkipOnce)
+    {
+        SkipOnce = false;
+        Core::Log::Warn("Lager: Testschalter DDCOOP_TEST_SKIP_SCRAP_CHECK, Vorprüfung einmal ausgelassen (es fehlen {})", Scrap.View.Missing);
+        return true;
+    }
+    return Game::InventoryEdit::ScrapCovers(Scrap.View);
+}
+
+// lager-edit-stabil: Schrott-Ansicht am Ende eines Edits schließen. Übernommen bucht der Host dieselben Züge, das Konto zeigt schon
+// ungefähr seinen neuen Stand. Abgelehnt oder abgebrochen gilt sofort wieder der zuletzt empfangene Stand des Hosts; so rechnet eine
+// gleich danach beginnende Bearbeitung nicht mit der verworfenen Vorschau.
+void EndScrapView(bool Accepted)
+{
+    Scrap.Active = false;
+    const uintptr_t Wallet = ScrapWallet();
+    const std::optional<int32_t> Have = ScrapAmount(Wallet);
+    if (!Have)
+        return;
+    if (Accepted || Scrap.Latest < 0)
+    {
+        Scrap.LastHost = *Have;
+        return;
+    }
+    if (*Have != Scrap.Latest)
+        AddScrap(Wallet, static_cast<int32_t>(Scrap.Latest - *Have));
+    Scrap.LastHost = Scrap.Latest;
+}
 // Client, opt-werkbank-station: Bearbeitung an einer Station außerhalb von Lager und Airdrop-Auswahl, etwa das Inventar-Panel
 // im Händler-Event. Sie beginnt mit der ersten Aufwertung, dem ersten Verkauf oder der ersten Reparatur und endet, sobald
 // kein Panel der Station mehr offen ist; dann geht der Edit an den Host. Panels sind die Inventar-Panels zum eigenen Inventar.
@@ -558,6 +619,28 @@ void __fastcall ConfirmHook(uintptr_t Panel)
     {
         if (Memory::Read<uint8_t>(Panel + PanelIsDragging).value_or(1))
             return;
+        // lager-edit-stabil: Vorprüfung gegen den Stand des Hosts. Reicht der gemeinsame Schrott nach seinen Ausgaben nicht mehr, bleibt
+        // die Bearbeitung beim ersten Mal offen und der Client nicht bereit; die Anzeige steht dann auf 0. Er verkauft etwas und bestätigt
+        // erneut. Reicht es dann immer noch nicht, nimmt das zweite Bestätigen die Bearbeitung zurück (OnLagerConfirm). Zum Test einer
+        // Ablehnung siehe ScrapCoversHost.
+        switch (Game::InventoryEdit::OnLagerConfirm(ScrapCoversHost(), Scrap.Blocked))
+        {
+        case Game::InventoryEdit::ShortConfirm::Block:
+            Scrap.Blocked = true;
+            Core::Log::Warn("Lager: Schrott reicht nach dem Stand des Hosts ({}) nicht, es fehlen {}; nicht bestätigt, Bearbeitung bleibt offen. "
+                            "Erneutes Bestätigen ohne genug Schrott nimmt die Bearbeitung zurück",
+                            Scrap.View.Host, Scrap.View.Missing);
+            return;
+        case Game::InventoryEdit::ShortConfirm::Revert:
+            Core::Log::Warn("Lager: Schrott reicht weiter nicht (es fehlen {}), Bearbeitung zurückgenommen; Ausgangsstand neu bestätigen oder neu bearbeiten",
+                            Scrap.View.Missing);
+            LagerEdit = 0;
+            EndScrapView(false);
+            Game::InventoryEdit::RevertClient("Schrott reicht nach dem Stand des Hosts nicht");
+            return;
+        case Game::InventoryEdit::ShortConfirm::Send:
+            break;
+        }
         LagerEdit = 0;
         ClientPending = Game::InventoryEdit::FinishClient(0, 0, std::nullopt, 0);
         Core::Log::Info("Lager: Client bestätigt nach lokaler Bearbeitung, Edit {}", ClientPending ? std::to_string(ClientPending->Id) : std::string("ohne Änderung"));
@@ -647,7 +730,8 @@ bool AnyStationPanelOpen(const std::vector<Objects::Ref>& Panels)
 // opt-werkbank-station: Ohne Rundenende beginnt dasselbe eine Stations-Bearbeitung, wenn ein Inventar-Panel offen ist.
 // opt-haendler-client: Ein Kauf (Shop) kommt aus dem offenen Händler-Panel und braucht kein offenes Inventar-Panel.
 // Solange der Client nach einem übernommenen Edit noch lokale Instanzen hält, beginnt keine neue Bearbeitung (ClientSettling).
-void BeginPanelEdit(uintptr_t Inventory, const char* What, bool Shop = false, bool Quiet = false)
+// lager-edit-stabil: Reopen bei Aufwertung, Verkauf und Reparatur, siehe ClientReopensLager.
+void BeginPanelEdit(uintptr_t Inventory, const char* What, bool Shop = false, bool Quiet = false, bool Reopen = false)
 {
     if (Game::InventoryEdit::ClientEditing() || ClientPending || !Shown.Items.empty() || !Inventory ||
         Inventory != InventoryOfController(LocalController()))
@@ -660,8 +744,17 @@ void BeginPanelEdit(uintptr_t Inventory, const char* What, bool Shop = false, bo
     }
     if (End.Id)
     {
-        if (End.Done == End.Id || End.HeldPanel)
+        if (End.Done == End.Id)
             return;
+        if (End.HeldPanel)
+        {
+            if (!ClientReopensLager(End.Id, End.Done, true, ClientPending.has_value(), Reopen))
+                return;
+            SetReadyTint(End.HeldPanel, false);
+            End.HeldPanel = 0;
+            End.HeldRef = {};
+            Core::Log::Warn("Lager: {} nach dem Bereit, Bereit zurückgenommen; neue Bearbeitung, erneut bestätigen", What);
+        }
         Game::InventoryEdit::BeginClient(Inventory, {}, LocalController());
         LagerEdit = End.Id;
         Core::Log::Info("Lager: {} beim Client, Lager wird lokal bearbeitet bis zum Bestätigen", What);
@@ -752,7 +845,7 @@ void __fastcall SoldHook(uintptr_t Inventory, uintptr_t Item)
 {
     if (CurrentRole() == NetRole::Client)
     {
-        BeginPanelEdit(Inventory, "Verkauf");
+        BeginPanelEdit(Inventory, "Verkauf", false, false, true);
         if (!Game::InventoryEdit::ClientEditingInventory(Inventory))
         {
             // Außerhalb einer Bearbeitung (etwa ohne Rundenende) verkauft der Client nicht: Der Host buchte keinen Schrott.
@@ -777,7 +870,7 @@ uintptr_t __fastcall UpgradeHook(uintptr_t Inventory, ItemArray* Inputs, uintptr
     for (int32_t i = 0; Inputs && Inputs->Data && i < Inputs->Count && i < 16; ++i)
         In.push_back(Inputs->Data[i]);
     const uintptr_t Caller = reinterpret_cast<uintptr_t>(_ReturnAddress()) - reinterpret_cast<uintptr_t>(GetModuleHandleW(nullptr));
-    BeginPanelEdit(Inventory, "Aufwertung");
+    BeginPanelEdit(Inventory, "Aufwertung", false, false, true);
     if (!Game::InventoryEdit::ClientEditingInventory(Inventory))
     {
         Core::Log::Warn("Aufwertung beim Client außerhalb einer Bearbeitung ({} Eingaben, Aufrufer {:#x}), läuft nativ", In.size(), Caller);
@@ -1128,7 +1221,7 @@ bool FilterRewardEvent(uintptr_t Object, uintptr_t Function, void* Params)
     // die erste Reparatur eine lokale Bearbeitung, RouteClientRpc führt sie dann lokal aus und der Edit meldet sie.
     static uintptr_t Repair = 0;
     if (Function && Function == Function_(Repair, "RepairItem") && !Game::InventoryEdit::ClientEditing())
-        BeginPanelEdit(Object, "Reparatur");
+        BeginPanelEdit(Object, "Reparatur", false, false, true);
     // opt-rucksack-ueberlappung: Auch der erste Zug im Lager (Ablegen, Verschieben, Herausnehmen) beginnt die lokale Bearbeitung.
     // Als native RPCs kamen beim Host nur Feldbelegung und IsInBackpack an, Pivot und Drehung blieben (0, 0) und 0, und der Client
     // bekam im Lager nichts zurück: Sein eigener Stand zeigte die Items weiter im Lager.
@@ -2093,6 +2186,7 @@ void ResolveClientEdit(uint64_t Id, const Game::InventoryEdit::Verdict& Verdict)
     if (!ClientPending || ClientPending->Id != Id)
         return;
     ClientPending.reset();
+    EndScrapView(Verdict.Accepted);
     const char* Why = Game::InventoryEdit::ReasonText(static_cast<uint8_t>(Verdict.Reason));
     if (Verdict.Accepted)
     {
@@ -2122,6 +2216,7 @@ void AbortClientEdit()
     if (!ClientPending)
         return;
     ClientPending.reset();
+    EndScrapView(false);
     Game::InventoryEdit::RevertClient("Verbindung zum Host weg");
 }
 
@@ -2263,11 +2358,38 @@ std::optional<int32_t> HostScrap()
 void ApplyScrap(int32_t Amount)
 {
     using namespace Game::Patches;
-    if (CurrentRole() != NetRole::Client || Amount < 0 || Game::InventoryEdit::ClientEditing() || ClientPending)
+    if (CurrentRole() != NetRole::Client || Amount < 0)
+        return;
+    Scrap.Latest = Amount;
+    if (ClientPending)
         return;
     const uintptr_t Wallet = ScrapWallet();
     const std::optional<int32_t> Have = ScrapAmount(Wallet);
-    if (!Have || *Have == Amount)
+    if (!Have)
+        return;
+    if (Game::InventoryEdit::ClientEditing())
+    {
+        // lager-edit-stabil: Während der Bearbeitung zeigt das Konto Stand des Hosts plus eigene Vorschau (ScrapView). Beginn der Ansicht
+        // ist der zuletzt übernommene Stand des Hosts; die Züge seit dem Beginn der Bearbeitung stecken im Unterschied dazu.
+        if (!Scrap.Active)
+        {
+            Scrap.View = {Scrap.LastHost >= 0 ? Scrap.LastHost : Amount, 0};
+            Scrap.Active = true;
+            Scrap.Blocked = false;
+        }
+        const int64_t OldHost = Scrap.View.Host, OldMissing = Scrap.View.Missing;
+        const int64_t Show = Game::InventoryEdit::Rebase(Scrap.View, *Have, Amount);
+        if (Show != *Have)
+            AddScrap(Wallet, static_cast<int32_t>(Show - *Have));
+        if (Scrap.View.Host != OldHost || Scrap.View.Missing != OldMissing)
+            Core::Log::Info("Schrott: Host {} während der Bearbeitung, Anzeige {} (eigene Vorschau {:+}){}", Amount, ScrapAmount(Wallet).value_or(-1),
+                            Show - Scrap.View.Missing - Amount,
+                            Scrap.View.Missing ? ", es fehlen " + std::to_string(Scrap.View.Missing) : std::string{});
+        return;
+    }
+    Scrap.Active = false;
+    Scrap.LastHost = Amount;
+    if (*Have == Amount)
         return;
     AddScrap(Wallet, Amount - *Have);
     Core::Log::Info("Schrott: Stand des Hosts übernommen, {} statt {}", ScrapAmount(Wallet).value_or(-1), *Have);

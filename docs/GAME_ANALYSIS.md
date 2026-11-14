@@ -3057,6 +3057,104 @@ Testinstanzen. Offsets: [Kamera-Folger und Controller-Liste](OFFSETS.md#kamera-f
     `EXCEPTION_ACCESS_VIOLATION` lesend an `0xD8`, RIP `exe+0x163B33F`, Aufrufer `exe+0x58DE4B1`. Ob das Anhalten des Clients nötig
     ist, ist offen.
 
+### Lager-Edit des Clients stabiler (`lager-edit-stabil`)
+
+Stand 14.11.2026, Build `26495302`. Auslöser: Live-Test auf zwei PCs am 14.11.2026 mittags (Mod-Version 13, `main` `b2ba70b`) und
+nachmittags (Mod-Version 14, `main` `92322c4`). Ausgewertet: Mod-Logs beider Seiten und ein Bild des Clients, nur lokal. Nutzerentscheidung
+vom 14.11.2026: Der Schrott bleibt gemeinsam, das Inventar des Clients soll stabiler werden.
+
+**1. Schrott-Wettlauf [Belegt, Logs beider Seiten].** Der Host war ab Rundenende im Lager und gab aus (88 zu 70, 58, 46, 28, 10), verkaufte
+dann (22, 42, 50). Gleichzeitig bearbeitete der Client sein Lager: 2 Verkäufe, 5 Reparaturen, 1 Aufwertung, gerechnet mit 88. Der Host lehnte
+mit „Schrott 50 reicht nicht“ ab. Ursache: `ApplyScrap` übernahm den Stand des Hosts während einer Bearbeitung gar nicht, der Client sah
+bis zum Bestätigen den Stand von deren Beginn.
+
+- **Lösung:** Während einer Bearbeitung folgt das Konto des Clients weiter dem Host: Anzeige = Stand des Hosts plus eigene vorläufige
+  Erlöse minus Kosten (`ScrapView`, `Rebase` in `InventoryEditPlan.h`). Das Konto des Spiels klemmt bei 0 (`AddAmount`), darum merkt sich die
+  Ansicht einen Fehlbetrag selbst. Beim Bestätigen im Lager prüft der Client vorab: Fehlt Schrott, bestätigt er nicht, die Bearbeitung
+  bleibt offen und der Knopf wird nicht gelb (Log „Lager: Schrott reicht nach dem Stand des Hosts … nicht, es fehlen …“). Die Anzeige steht
+  dann auf 0; der Spieler verkauft etwas und bestätigt erneut. Reicht es beim zweiten Bestätigen immer noch nicht, nimmt der Client die
+  Bearbeitung lokal zurück wie nach einer Ablehnung (`OnLagerConfirm`): Reparaturen lassen sich im Panel nicht zurücknehmen, ohne
+  Verkaufbares wäre der Client sonst nie bereit und der Host wartete. Die Vorprüfung entspricht `TradeBalance` des Hosts (erst
+  Verkäufe, dann Kosten): Sie besteht genau dann, wenn kein Fehlbetrag bleibt. **Hinweis nur im Log:** Auf dem Bildschirm sieht der
+  Spieler nur Schrott 0 und einen Knopf, der nicht gelb wird; eine eigene Meldung gibt es nicht.
+- **Nach dem Edit:** Übernommen gilt das Konto als neuer Stand des Hosts, bis sein Stand kommt; abgelehnt oder abgebrochen gilt sofort der
+  zuletzt empfangene Stand des Hosts, damit eine gleich danach beginnende Bearbeitung nicht mit der verworfenen Vorschau rechnet.
+- **Keine Reservierung beim Host.** Der Host gibt nativ über sein eigenes Panel aus; Kosten des Clients festzuhalten hieße, das Ausgeben des
+  Hosts abzufangen, und bräuchte eine neue Nachricht für die laufende Vorschau. Das wäre eine zweite Buchung desselben Kontos. Ohne
+  Reservierung bleibt ein Fenster vom Bestätigen bis zur Prüfung beim Host (Stand des Hosts kommt höchstens alle 0,5 s, dazu der Ping) und
+  `FreeRepairChance`, die nur das Panel des Clients würfelt. Dort bleibt die Ablehnung der Rückfall.
+- **Geteilt, entscheidet:** Keine neue Nachricht, keine neue Bedeutung, `ModVersion` bleibt 14. Der Stand kommt wie bisher über `0x309`,
+  der Host bleibt einzige Autorität.
+- **Grenze:** Die Vorprüfung gilt im Lager. Stations-Bearbeitungen enden beim Schließen des Panels und Airdrop-Wahlen bestätigt der
+  Spieler ohne Handel; dort zeigt das Konto den Stand des Hosts, ohne Sperre.
+
+**2. Dauerhafte Abweichung nach einer Ablehnung [Belegt, Log; Ursache abgeleitet, ohne Gegenprobe].** **Grenze vorweg:** Behoben ist
+nur der Weg über eine Ablehnung. Übernimmt der Host einen Edit, in dem der Client ein Item im Lager verschoben hat, bleibt dieselbe
+Abweichung (Pivot außerhalb des Rucksacks) bis Spielende; auch eine Bearbeitung nach einer Ablehnung kann den Melder so wieder rot
+machen. Das ist `opt-desync-pivot` und als nächster Schritt nötig, damit der Melder echte Inventarfehler nicht verdeckt. Nach „Host hat Edit abgelehnt“ meldete das
+Zurückrollen `vollständig=true` (nach einem zweiten Durchgang), der Desync-Melder aber bei beiden „ABWEICHUNG Inventar“ bis Spielende.
+Felder, Seltenheit, Schrott und Rucksackfelder waren gleich. Der Melder (`InventoryHash` in `DesyncAdapter.cpp`) zählt Pivot und Drehung
+jedes Items, auch außerhalb des Rucksacks. Feuerzeug, Ratte und Revolver legte der Client während der Bearbeitung in den Rucksack (je rund
+elfmal `SetZeroPivotTile` beim Ziehen), das Zurückrollen nahm sie wieder heraus. Der Plan und `ItemState` kennen Pivot und Drehung nur im
+Rucksack, die neuen Werte blieben stehen. Der Host hatte sie nie geändert, und weil sich sein Wert nicht ändert, repliziert er ihn nicht
+erneut.
+
+- **Lösung:** Beim Beginn merkt sich der Client die rohe Lage jedes Items (`Loose`), beim Zurückrollen setzt er Pivot und Drehung der Items
+  außerhalb des Rucksacks wieder darauf (`NeedsLooseRestore`, Log „Pivot und Drehung von … Item(s) außerhalb des Rucksacks auf den
+  Ausgangsstand“). Kein vollständiges Inventarbild vom Host: Das wäre eine zweite Replikation, und der Host hatte nichts geändert.
+- **Zweiter Durchgang:** Eine lokal reparierte, dann aufgewertete Pistole kam erst im zweiten Durchgang wieder kaputt. Der Plan setzte
+  `Break` nur für Items, die schon vorhanden waren; jetzt auch nach `Add`.
+- **Nicht geändert:** Nach einem übernommenen Edit bleibt die Lage im Lager, wie der Spieler sie gelegt hat (siehe Grenze oben). Sie
+  beim Senden zurückzusetzen hätte die Anordnung des Spielers im offenen Panel sichtbar verschoben.
+
+**3. Aufwertung am Host vorbei [Belegt, Log v13; Code v14].** Mod-Version 13: Client bestätigte im Lager (bereit, wartet auf den Host),
+der Host übernahm den Edit, 2,6 s nach dem Bereit lief „Aufwertung beim Client außerhalb einer Bearbeitung (2 Eingaben), läuft nativ“.
+Keine Zeile „wartet, der Stand des Hosts … noch nicht repliziert“, also nicht das Warten auf die Replikation, sondern das gehaltene
+Bestätigen: `BeginPanelEdit` begann bei gehaltenem Bestätigen keine Bearbeitung. #244 nimmt das Bereit nur nach einer Ablehnung
+zurück, dieser Fall war mit Mod-Version 14 also weiter offen.
+
+- **Lösung:** Eine Aufwertung, ein Verkauf oder eine Reparatur nach dem Bereit nimmt es zurück und beginnt eine neue Bearbeitung
+  (`ClientReopensLager` in `PatchPolicy.h`, Log „Lager: Aufwertung nach dem Bereit, Bereit zurückgenommen“). Der Spieler bestätigt erneut.
+  Ziehen allein nimmt das Bereit nicht zurück.
+- **Verwerfen geht nicht:** `InventoryPanel.UpgradeDroppedItem` nutzt die Ausgabe von `UpgradeItems` direkt weiter (Disassembly ab
+  `0x5A9D723`: Ausgabe in ein Array, dann Aufrufe mit der Ausgabe als `this`, ohne Nullprüfung).
+- **Grenze:** Der Host merkt sich „Client bereit“ für dieses Rundenende und nimmt es nicht zurück. Bestätigt der Host, nachdem der Client
+  wieder bearbeitet, reist er; der Client rollt dann seine offene Bearbeitung beim Verlassen des Lagers zurück („Lager ohne Bestätigen
+  verlassen“). Die Aufwertung geht so verloren, aber beide Seiten bleiben gleich. In den Fenstern, in denen keine Bearbeitung beginnen darf
+  (Edit unterwegs, Stand des letzten Edits noch nicht repliziert, höchstens 3 s), läuft eine Aufwertung weiter nativ; im Log steht dann die
+  Warnung.
+
+**Testhilfen:** `!shop repair` (wie der Reparieren-Knopf: Preis lokal abziehen, `RepairItem`), `!shop pivot <x> <y>` (`SetZeroPivotTile`
+am ersten Item außerhalb des Rucksacks, wie das Panel beim Ziehen), `DDCOOP_TEST_SKIP_SCRAP_CHECK=1` lässt die erste fehlgeschlagene
+Vorprüfung aus, um eine Ablehnung zu erzwingen. Unit-Tests: `tests/GameTests/InventoryEditTests.cpp`, `tests/GameTests/PatchTests.cpp`.
+
+**Geprüft** (14.11.2026, Build `26495302`, ein PC, Host und Client, `Start-Session.ps1 -Build -Mod -Tunnel Lobby -Map
+/Game/Maps/DDDynamic_Map -Godmode`, `DDCOOP_TEST_SKIP_SCRAP_CHECK=1`, bedient nur über Spike-Befehle, keine Maus- oder Tastatureingaben).
+Kaputte Items und Revolver über `!give`, Schrott über `!scrap`, Rundenende über `!finish` und `!shop click ContinueButton`:
+
+- **Wettlauf und erzwungene Ablehnung:** Client im Lager repariert ein Messer (12) und verschiebt einen Revolver im Lager (`!shop pivot`),
+  der Host gibt gleichzeitig 95 aus. Client-Log „Schrott: Host 5 während der Bearbeitung, Anzeige 0 (eigene Vorschau -12), es fehlen 7“.
+  Bestätigen mit ausgelassener Vorprüfung: Host lehnt ab („Schrott 5 reicht nicht“), der Client setzt den Pivot zurück („Pivot und Drehung
+  von 1 Item(s) außerhalb des Rucksacks auf den Ausgangsstand“), `vollständig=true` im ersten Durchgang, Konto sofort wieder 5. Rund 5 s
+  später bei Host und Client „Desync: OK … Inventar“, `inventory.py` vollständig und gleich.
+- **Vorprüfung:** Host 40, Client repariert für 12, Host gibt 30 aus (Anzeige 0, es fehlen 2). Bestätigen bleibt aus („Schrott reicht nach
+  dem Stand des Hosts (10) nicht, es fehlen 2; nicht bestätigt“). Host bekommt 10 dazu, Client sieht „Host 20 …, Anzeige 8“, bestätigt, Host
+  bucht „Schrott 20 zu 8“, übernommen.
+- **Aufwertung nach dem Bereit:** Client bereit und wartet auf den Host, dann `!shop upgrade` (zwei Revolver): „Aufwertung nach dem Bereit,
+  Bereit zurückgenommen; neue Bearbeitung“. Erneut bestätigt, der Host prüft und führt die Aufwertung aus, `vollständig=true`. Danach
+  Desync OK bei beiden, Inventare gleich. Host bestätigt, „Bestätigen nachgeholt (alle bereit)“, kein Absturz.
+
+- **Ausweg bei Fehlbetrag** (zweite Sitzung, ohne Testschalter): Client repariert für 12, Host senkt auf 0. Erstes Bestätigen hält an
+  („es fehlen 12 … Erneutes Bestätigen ohne genug Schrott nimmt die Bearbeitung zurück“), das zweite rollt zurück („vollständig=true“),
+  das dritte macht den Client mit dem Ausgangsstand bereit. Desync OK, Inventare gleich, Host bestätigt, „Bestätigen nachgeholt“.
+- **Nebenbefund [Belegt, eine Messung]:** Ein Item, das der Host erst im Lager per `!give` anlegt, kam beim Client nicht an, auch nicht
+  in der Ansicht des Host-Inventars (`inventory.py` ungleich). Mit Items, die vor dem Rundenende vergeben wurden, war alles gleich.
+  **Vermutung:** Die Replikation neu angelegter Items ruht im Lager; im normalen Spiel entstehen dort nur über Edits neue Items.
+
+**Nicht geprüft:** Ausgeben des Hosts über sein natives Panel (im Test `!scrap`, derselbe Weg über `AddAmount` und `0x309`), echtes Ziehen im
+Panel und zwei PCs mit Ping. Ob die dauerhafte Abweichung ohne die Korrektur im selben Ablauf bestehen bliebe, ist nicht gegengeprüft; die
+Ursache ist aus dem Log vom 14.11. abgeleitet. Der Fall „Host bestätigt, nachdem der Client wieder bearbeitet“ lief nicht.
+
 ## Systeme, die die Mod respektieren muss
 
 - **[Belegt]** Bestenlisten und Erfolge: `PixelLeaderboards`, `DDLeaderboardSettings`, `PixelAchievements`, im Mod-Betrieb gesperrt, siehe unten

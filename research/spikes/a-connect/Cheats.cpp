@@ -227,6 +227,7 @@ void ScrapCommand(const std::wstring& Args)
 //   !shop click <Name>  OnButtonClicked an jedem sichtbaren Knopf mit diesem Namen, etwa ContinueButton
 //   !shop call <Klasse> <Funktion>   parameterlose UFunction an jeder Instanz, etwa ein Knopf-Ereignis
 //   !shop upgrade      zwei gleiche Items des eigenen Inventars ueber UInventoryComponent.UpgradeItems zur naechsten Seltenheit
+//   !shop repair       erstes kaputtes Item des eigenen Inventars wie der Reparieren-Knopf (Preis lokal abziehen, RepairItem)
 namespace
 {
 bool IsClass(uintptr_t Object, const char* ClassName)
@@ -426,6 +427,70 @@ void ShopCommand(const std::wstring& Args)
                 return;
             }
         Log("Shop: keine zwei gleichen aufwertbaren Items im eigenen Inventar");
+    }
+    else if (Action == "pivot")
+    {
+        // Testhilfe (lager-edit-stabil): "!shop pivot <x> <y>" ruft SetZeroPivotTile am ersten eigenen Item ausserhalb des Rucksacks, wie das
+        // Panel beim Ziehen. Waehrend einer Bearbeitung laeuft der Aufruf in der Mod lokal.
+        const uintptr_t Inventory = LocalInventory();
+        const uintptr_t SetPivot = FindObject("SetZeroPivotTile", "InventoryItemInstance");
+        int32_t Pivot[2]{0, 0};
+        if (Space != std::string::npos)
+            sscanf_s(Text.c_str() + Space + 1, "%d %d", &Pivot[0], &Pivot[1]);
+        for (const uintptr_t Item : SetPivot ? ItemsOf(Inventory) : std::vector<uintptr_t>{})
+        {
+            if (Read<uint8_t>(Item + 0x180)) // UInventoryItemInstance.IsInBackpack
+                continue;
+            const int32_t OldX = Read<int32_t>(Item + 0x28), OldY = Read<int32_t>(Item + 0x2C);
+            Call(Item, SetPivot, Pivot);
+            Log("Shop: Pivot von " + NameOf(Read<uintptr_t>(Item + 0xE0)) + " (" + std::to_string(OldX) + ", " + std::to_string(OldY) + ") zu (" +
+                std::to_string(Read<int32_t>(Item + 0x28)) + ", " + std::to_string(Read<int32_t>(Item + 0x2C)) + ")");
+            return;
+        }
+        Log("Shop: kein Item ausserhalb des Rucksacks");
+    }
+    else if (Action == "repair")
+    {
+        // Testhilfe (lager-edit-stabil): wie ItemRepresentation.ConfirmRepair. Erstes kaputtes Item des eigenen Inventars, Preis aus
+        // GetDynamicRepairPrice, bei zu wenig Schrott nichts (nativ blinkt der Knopf rot), sonst AddAmount(-Preis) lokal und RepairItem.
+        const uintptr_t Inventory = LocalInventory();
+        const uintptr_t World = Read<uintptr_t>(Base + kGWorld);
+        const uintptr_t State = World ? Read<uintptr_t>(World + kWorldGameState) : 0;
+        const uintptr_t Wallet = State ? Read<uintptr_t>(State + 0x3C0) : 0;
+        const uintptr_t Price = FindObject("GetDynamicRepairPrice", "InventoryItemInstance"), Repair = FindObject("RepairItem", "InventoryComponent");
+        const uintptr_t Add = FindObject("AddAmount", "AbstractCurrency");
+        if (!Inventory || !Wallet || !Price || !Repair || !Add)
+        {
+            Log("Shop: Reparatur nicht moeglich (Inventar, Konto oder Funktion fehlt)");
+            return;
+        }
+        for (const uintptr_t Item : ItemsOf(Inventory))
+        {
+            if (!Read<uint8_t>(Item + 0x110)) // UInventoryItemInstance.Broken
+                continue;
+            struct
+            {
+                uintptr_t World;
+                int32_t ReturnValue;
+                uint8_t Pad[4];
+            } Cost{World, -1, {}};
+            Call(Item, Price, &Cost);
+            const int32_t Have = Read<int32_t>(Wallet + 0x100);
+            if (Cost.ReturnValue < 0 || Have < Cost.ReturnValue)
+            {
+                Log("Shop: Reparatur von " + NameOf(Read<uintptr_t>(Item + 0xE0)) + " fuer " + std::to_string(Cost.ReturnValue) + " bei Schrott " +
+                    std::to_string(Have) + " nicht moeglich");
+                return;
+            }
+            int32_t Delta = -Cost.ReturnValue;
+            Call(Wallet, Add, &Delta);
+            uintptr_t Params = Item;
+            Call(Inventory, Repair, &Params);
+            Log("Shop: " + NameOf(Read<uintptr_t>(Item + 0xE0)) + " repariert fuer " + std::to_string(Cost.ReturnValue) + ", Schrott " +
+                std::to_string(Read<int32_t>(Wallet + 0x100)));
+            return;
+        }
+        Log("Shop: kein kaputtes Item im eigenen Inventar");
     }
     else if (Action == "panels" || Action == "confirm")
     {
