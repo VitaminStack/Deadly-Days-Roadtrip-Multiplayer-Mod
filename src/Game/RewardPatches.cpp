@@ -679,7 +679,8 @@ bool AnyStationPanelOpen(const std::vector<Objects::Ref>& Panels)
 // opt-werkbank-station: Ohne Rundenende beginnt dasselbe eine Stations-Bearbeitung, wenn ein Inventar-Panel offen ist.
 // opt-haendler-client: Ein Kauf (Shop) kommt aus dem offenen Händler-Panel und braucht kein offenes Inventar-Panel.
 // Solange der Client nach einem übernommenen Edit noch lokale Instanzen hält, beginnt keine neue Bearbeitung (ClientSettling).
-void BeginPanelEdit(uintptr_t Inventory, const char* What, bool Shop = false, bool Quiet = false)
+// lager-edit-stabil: Reopen bei Aufwertung, Verkauf und Reparatur, siehe ClientReopensLager.
+void BeginPanelEdit(uintptr_t Inventory, const char* What, bool Shop = false, bool Quiet = false, bool Reopen = false)
 {
     if (Game::InventoryEdit::ClientEditing() || ClientPending || !Shown.Items.empty() || !Inventory ||
         Inventory != InventoryOfController(LocalController()))
@@ -692,8 +693,17 @@ void BeginPanelEdit(uintptr_t Inventory, const char* What, bool Shop = false, bo
     }
     if (End.Id)
     {
-        if (End.Done == End.Id || End.HeldPanel)
+        if (End.Done == End.Id)
             return;
+        if (End.HeldPanel)
+        {
+            if (!ClientReopensLager(End.Id, End.Done, true, ClientPending.has_value(), Reopen))
+                return;
+            SetReadyTint(End.HeldPanel, false);
+            End.HeldPanel = 0;
+            End.HeldRef = {};
+            Core::Log::Warn("Lager: {} nach dem Bereit, Bereit zurückgenommen; neue Bearbeitung, erneut bestätigen", What);
+        }
         Game::InventoryEdit::BeginClient(Inventory, {}, LocalController());
         LagerEdit = End.Id;
         Core::Log::Info("Lager: {} beim Client, Lager wird lokal bearbeitet bis zum Bestätigen", What);
@@ -784,7 +794,7 @@ void __fastcall SoldHook(uintptr_t Inventory, uintptr_t Item)
 {
     if (CurrentRole() == NetRole::Client)
     {
-        BeginPanelEdit(Inventory, "Verkauf");
+        BeginPanelEdit(Inventory, "Verkauf", false, false, true);
         if (!Game::InventoryEdit::ClientEditingInventory(Inventory))
         {
             // Außerhalb einer Bearbeitung (etwa ohne Rundenende) verkauft der Client nicht: Der Host buchte keinen Schrott.
@@ -809,7 +819,7 @@ uintptr_t __fastcall UpgradeHook(uintptr_t Inventory, ItemArray* Inputs, uintptr
     for (int32_t i = 0; Inputs && Inputs->Data && i < Inputs->Count && i < 16; ++i)
         In.push_back(Inputs->Data[i]);
     const uintptr_t Caller = reinterpret_cast<uintptr_t>(_ReturnAddress()) - reinterpret_cast<uintptr_t>(GetModuleHandleW(nullptr));
-    BeginPanelEdit(Inventory, "Aufwertung");
+    BeginPanelEdit(Inventory, "Aufwertung", false, false, true);
     if (!Game::InventoryEdit::ClientEditingInventory(Inventory))
     {
         Core::Log::Warn("Aufwertung beim Client außerhalb einer Bearbeitung ({} Eingaben, Aufrufer {:#x}), läuft nativ", In.size(), Caller);
@@ -1160,7 +1170,7 @@ bool FilterRewardEvent(uintptr_t Object, uintptr_t Function, void* Params)
     // die erste Reparatur eine lokale Bearbeitung, RouteClientRpc führt sie dann lokal aus und der Edit meldet sie.
     static uintptr_t Repair = 0;
     if (Function && Function == Function_(Repair, "RepairItem") && !Game::InventoryEdit::ClientEditing())
-        BeginPanelEdit(Object, "Reparatur");
+        BeginPanelEdit(Object, "Reparatur", false, false, true);
     // opt-rucksack-ueberlappung: Auch der erste Zug im Lager (Ablegen, Verschieben, Herausnehmen) beginnt die lokale Bearbeitung.
     // Als native RPCs kamen beim Host nur Feldbelegung und IsInBackpack an, Pivot und Drehung blieben (0, 0) und 0, und der Client
     // bekam im Lager nichts zurück: Sein eigener Stand zeigte die Items weiter im Lager.

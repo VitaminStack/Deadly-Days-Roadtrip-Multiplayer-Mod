@@ -364,6 +364,16 @@ constexpr ClientMove ClientMoveBegins(bool Editing, bool Pending, bool OfferShow
     return InMission ? ClientMove::BeginStation : ClientMove::Native;
 }
 
+// lager-edit-stabil: Client hat im Lager bestätigt und wartet auf den Host (Bestätigen gehalten, Knopf gelb). Wertet er danach auf,
+// verkauft oder repariert er (Explicit, nur echte Spielerzüge, kein Ziehen), nimmt das sein Bereit zurück und beginnt eine neue
+// Bearbeitung. Vorher lief eine solche Aufwertung nativ am Host vorbei (Live-Test 14.11.2026, Mod-Version 13): Der Host verlor die
+// Eingaben, die Ausgabe gab es nur beim Client, der nächste Edit wurde abgelehnt. Ist das Bestätigen schon nativ gelaufen oder wartet
+// ein Edit auf Antwort, bleibt es dabei.
+constexpr bool ClientReopensLager(uint64_t End, uint64_t Done, bool HeldConfirm, bool Pending, bool Explicit)
+{
+    return End != 0 && End != Done && HeldConfirm && !Pending && Explicit;
+}
+
 // Client: zurückgehaltenes Bestätigen auslösen, wenn beide bereit sind oder der Stand des Hosts fehlt oder nicht mehr zu
 // diesem Rundenende passt; so bleibt das Lager nie hängen.
 constexpr bool ClientMayReleaseRoundEnd(uint64_t End, uint64_t HostStatusId, bool HostReady, bool ClientReadyEcho)
