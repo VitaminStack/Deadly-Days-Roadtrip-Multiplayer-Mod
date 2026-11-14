@@ -2956,9 +2956,14 @@ Testinstanzen. Offsets: [Kamera-Folger und Controller-Liste](OFFSETS.md#kamera-f
     neben der Host-Figur. Der Hook war gesetzt (54 statt 53 Patches).
   - **Fehlversuch:** In einer früheren Fix-Sitzung fehlte `!cheats`. Ohne CheatManager erzeugt `summon` nichts, die Runden zählen nicht.
     Eine Reise ohne Wetter (drei Runden alter Stand) stürzte nicht ab, obwohl der Client spät tauschte.
-  - **Nicht geprüft:** Busplatz. Ohne Run-Start über den Startring und die Routenkarte gibt es keinen Bus, und `Start-Run.ps1` braucht
-    echte Eingaben. Der Busplatz-Patch selbst ist unverändert. Bei spätem Client kommt die Remote-Figur aber erst nach der Freiräumung
-    dazu. Wo sie dann im echten Run steht, ist offen.
+  - **[Belegt] Echte Rundenstarts mit Fix (`Run-Route.ps1 -Days 3 -Godmode`, Seed 20795):** Drei Missionstage über die Routenkarte
+    liefen sauber, dazu jeweils „Busplatz: 1 geschont, 1 Spielerfiguren ergänzt“ und die Umstellung der Controller-Liste.
+    `check_round.py` meldete beide Figuren am Bus, Inventare gleich.
+  - **[Belegt] Später Client beim echten Missionsstart (Tag 4):** Der Client wurde vor dem Klick auf den Knoten der Routenkarte
+    angehalten, dazu kam Regen im Ladefenster. Das ergab genau die Folge des Live-Tests: „Busplatz: 1 geschont, 0 Spielerfiguren
+    ergänzt“, der Tausch des Clients 9 s später. Der Host lief weiter, der Regen hing am lokalen CameraManager. Danach standen beide
+    Figuren bei Host und Client am Bus (Abstand 367, `check_round.py` ohne Befund). Die Remote-Figur bleibt also auch bei spätem
+    Client am Busplatz. Vermutlich nimmt der Spawn beim Tausch die Startposition am Bus [Vermutung].
   - **[Belegt] Eigener Fehler, unabhängig vom Fix:** In drei Sitzungen, mit altem Stand und mit Fix, auch ohne Regen, stürzte der
     Client bei der dritten Reise ab (zweite Ankunft in `DDDynamic_Map` nach der `MetaBase`), kurz nach „Boss-Leiste: Boss erkannt“.
     `EXCEPTION_ACCESS_VIOLATION` lesend an `0xD8`, RIP `exe+0x163B33F`, Aufrufer `exe+0x58DE4B1`. Ob das Anhalten des Clients nötig
