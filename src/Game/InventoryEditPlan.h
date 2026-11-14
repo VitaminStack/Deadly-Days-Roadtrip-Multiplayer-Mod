@@ -104,6 +104,69 @@ struct Edit
     bool operator==(const Edit&) const = default;
 };
 
+// lager-edit-ablehnung: Warum der Host einen Edit ablehnt oder nur teilweise übernimmt. Die Zahl geht in der Antwort 0x304 an den
+// Client, damit der Grund auch in seinem Log steht; vorher stand er nur im Log des Hosts.
+enum class EditReason : uint8_t
+{
+    None,
+    Malformed,       // Edit in sich ungültig
+    NoInventory,     // Inventar des Clients beim Host nicht gefunden
+    Session,         // Wahl passt nicht zur Airdrop-Sitzung
+    ItemMissing,     // ein Item des Edits gibt es beim Host nicht
+    NoFit,           // Zielfelder fehlen oder sind belegt
+    ChoiceState,     // gewählte Belohnung mit anderem Zustand
+    Breaks,          // ein heiles Item soll kaputt werden
+    RewardSold,      // Belohnung verkauft
+    PurchaseUnknown, // Kauf nennt unbekannte Daten
+    PurchasePrice,   // Kaufpreis unter der Untergrenze
+    Scrap,           // Schrott reicht nicht oder Preis ungültig
+    Upgrade,         // eine Aufwertung besteht die Prüfung nicht
+    ChoiceCreate,    // gewählte Belohnung ließ sich nicht anlegen
+    Incomplete,      // übernommen, aber nicht jeder Schritt gelang
+    Count,
+};
+
+constexpr const char* ReasonText(uint8_t Reason)
+{
+    constexpr const char* Texts[] = {"kein Grund",
+                                     "Edit ungültig",
+                                     "Inventar des Clients beim Host nicht gefunden",
+                                     "Wahl passt nicht zur Airdrop-Sitzung",
+                                     "ein Item des Edits gibt es beim Host nicht",
+                                     "Zielfelder fehlen oder sind belegt",
+                                     "gewählte Belohnung hat beim Host einen anderen Zustand",
+                                     "ein heiles Item soll kaputt werden",
+                                     "eine Belohnung lässt sich nicht verkaufen",
+                                     "Kauf nennt unbekannte Daten",
+                                     "Kaufpreis unter der Untergrenze",
+                                     "Schrott reicht nicht oder Preis ungültig",
+                                     "eine Aufwertung besteht die Prüfung des Hosts nicht",
+                                     "gewählte Belohnung ließ sich nicht anlegen",
+                                     "nicht jeder Schritt gelang"};
+    static_assert(sizeof(Texts) / sizeof(Texts[0]) == static_cast<size_t>(EditReason::Count));
+    return Reason < static_cast<uint8_t>(EditReason::Count) ? Texts[Reason] : "unbekannter Grund";
+}
+
+// Urteil des Hosts über einen Edit. Abgelehnt heißt: nichts geändert. Übernommen und nicht vollständig heißt: Der Host hat
+// geändert, aber nicht jeder Schritt gelang; der Client rollt dann nicht zurück, sein Stand kann vom Host abweichen.
+struct Verdict
+{
+    bool Accepted = false;
+    bool Complete = true;
+    EditReason Reason = EditReason::None;
+    bool operator==(const Verdict&) const = default;
+};
+
+constexpr Verdict Rejected(EditReason Reason)
+{
+    return {false, true, Reason};
+}
+
+constexpr Verdict Applied(bool Complete)
+{
+    return {true, Complete, Complete ? EditReason::None : EditReason::Incomplete};
+}
+
 // FNV-1a, gleich bei Host und Client.
 constexpr uint32_t NameHash(std::string_view Name)
 {
@@ -170,6 +233,23 @@ inline std::vector<Tile> Sorted(std::vector<Tile> Tiles)
     std::sort(Tiles.begin(), Tiles.end());
     Tiles.erase(std::unique(Tiles.begin(), Tiles.end()), Tiles.end());
     return Tiles;
+}
+
+// opt-rucksack-ueberlappung: Feld, an dem die Anzeige eines Rucksack-Items ausgerichtet wird. Das native
+// InventoryPanel.SnapRepresentationToTile rechnet Feld * 66 px als obere linke Ecke des Widgets und gleicht nur bei Drehung 1 und 3
+// die vertauschte Breite und Höhe aus (Disassembly 0x5A96EF0). Daraus abgeleitet: Es erwartet die obere linke Ecke der belegten Fläche, nicht
+// ZeroPivotTile: Bei gedrehten Items liegt der Pivot auf einem anderen Feld, die Anzeige stand dann versetzt.
+inline Tile SnapTile(Tile Pivot, const std::vector<Tile>& Tiles)
+{
+    if (Tiles.empty())
+        return Pivot;
+    Tile Corner = Tiles.front();
+    for (const Tile& At : Tiles)
+    {
+        Corner.first = std::min(Corner.first, At.first);
+        Corner.second = std::min(Corner.second, At.second);
+    }
+    return Corner;
 }
 
 // Client: Edit aus Ausgangs- und Endstand. Base[i] hat Source i, Final enthält je Ausgangs-Item genau einen Eintrag

@@ -552,6 +552,13 @@ void __fastcall ConfirmHook(uintptr_t Panel)
         LagerEdit = 0;
         ClientPending = Game::InventoryEdit::FinishClient(0, 0, std::nullopt, 0);
         Core::Log::Info("Lager: Client bestätigt nach lokaler Bearbeitung, Edit {}", ClientPending ? std::to_string(ClientPending->Id) : std::string("ohne Änderung"));
+        // lager-edit-ablehnung: Nahm der Client die Bearbeitung selbst zurück (Edit ungültig), bestätigt er nicht: Sonst wäre er mit
+        // still zurückgesetztem Lager bereit, wie vorher nach einer Ablehnung durch den Host.
+        if (!ClientPending && Game::InventoryEdit::ClientFinishReverted())
+        {
+            Core::Log::Warn("Lager: Bearbeitung war ungültig und ist zurückgenommen, nicht bestätigt; neu bearbeiten und erneut bestätigen");
+            return;
+        }
     }
     if (HoldRoundEndConfirm(Panel))
         return;
@@ -631,14 +638,15 @@ bool AnyStationPanelOpen(const std::vector<Objects::Ref>& Panels)
 // opt-werkbank-station: Ohne Rundenende beginnt dasselbe eine Stations-Bearbeitung, wenn ein Inventar-Panel offen ist.
 // opt-haendler-client: Ein Kauf (Shop) kommt aus dem offenen Händler-Panel und braucht kein offenes Inventar-Panel.
 // Solange der Client nach einem übernommenen Edit noch lokale Instanzen hält, beginnt keine neue Bearbeitung (ClientSettling).
-void BeginPanelEdit(uintptr_t Inventory, const char* What, bool Shop = false)
+void BeginPanelEdit(uintptr_t Inventory, const char* What, bool Shop = false, bool Quiet = false)
 {
     if (Game::InventoryEdit::ClientEditing() || ClientPending || !Shown.Items.empty() || !Inventory ||
         Inventory != InventoryOfController(LocalController()))
         return;
     if (Game::InventoryEdit::ClientSettling())
     {
-        Core::Log::Info("Inventar lokal: {} wartet, der Stand des Hosts zum letzten Edit ist noch nicht repliziert", What);
+        if (!Quiet)
+            Core::Log::Info("Inventar lokal: {} wartet, der Stand des Hosts zum letzten Edit ist noch nicht repliziert", What);
         return;
     }
     if (End.Id)
@@ -653,7 +661,8 @@ void BeginPanelEdit(uintptr_t Inventory, const char* What, bool Shop = false)
     std::vector<Objects::Ref> Panels = StationPanels(Inventory);
     if (!Shop && !AnyStationPanelOpen(Panels))
     {
-        Core::Log::Warn("Station: {} beim Client ohne offenes Panel ({} Panels zum Inventar), keine Bearbeitung", What, Panels.size());
+        if (!Quiet)
+            Core::Log::Warn("Station: {} beim Client ohne offenes Panel ({} Panels zum Inventar), keine Bearbeitung", What, Panels.size());
         return;
     }
     Game::InventoryEdit::BeginClient(Inventory, {}, LocalController());
@@ -847,12 +856,18 @@ void RestoreBackpackVisuals(uintptr_t Panel)
     const int32_t Count = Memory::Read<int32_t>(Inventory + InventoryItems + 8).value_or(-1);
     if (!Data || Count <= 0 || Count > 4096)
         return;
-    unsigned Restored = 0;
+    // opt-rucksack-ueberlappung: Der Snap erwartet die obere linke Ecke der belegten Felder, nicht den Pivot (SnapTile).
+    const std::vector<Game::InventoryEdit::SlotInfo> Slots = Game::InventoryEdit::SlotsOf(Inventory);
+    unsigned Restored = 0, Moved = 0;
     for (int32_t i = 0; i < Count; ++i)
     {
         const uintptr_t Item = Pointer(Data + 8 * i);
         if (!Alive(Item) || IsReward(Item) || !Memory::Read<uint8_t>(Item + ItemInBackpack).value_or(0))
             continue;
+        std::vector<Game::InventoryEdit::Tile> Tiles;
+        for (const auto& Slot : Slots)
+            if (Slot.Occupier == Item)
+                Tiles.push_back(Slot.At);
         struct
         {
             uintptr_t Item, Representation;
@@ -872,11 +887,27 @@ void RestoreBackpackVisuals(uintptr_t Panel)
         static_assert(sizeof(Params) == 0x18);
         if (!Memory::ReadBytes(Item + ItemPivotTile, &Params.X, 8))
             continue;
+        const Game::InventoryEdit::Tile Corner = Game::InventoryEdit::SnapTile({Params.X, Params.Y}, Tiles);
+        Moved += Corner != Game::InventoryEdit::Tile{Params.X, Params.Y};
+        Params.X = Corner.first;
+        Params.Y = Corner.second;
         Objects::ProcessEvent(Panel, Snap, &Params);
         ++Restored;
+        // opt-rucksack-ueberlappung: je Item eine Zeile für die Auswertung eines Live-Tests, begrenzt. Position ist der
+        // Pixelpositions-Cache nach dem Snap (CachedBackpackLocalPosition, zwei double).
+        static unsigned Lines = 0;
+        if (Lines < 300)
+        {
+            ++Lines;
+            const int32_t PivotX = Memory::Read<int32_t>(Item + ItemPivotTile).value_or(0), PivotY = Memory::Read<int32_t>(Item + ItemPivotTile + 4).value_or(0);
+            Core::Log::Info("Rucksack-Anzeige: {} Drehung {} Pivot ({}, {}) Ecke ({}, {}) {} Felder, Position ({:.0f}, {:.0f})",
+                            Memory::NameOf(Pointer(Item + ItemData)), Memory::Read<int32_t>(Item + 0xD8).value_or(0), PivotX, PivotY, Corner.first,
+                            Corner.second, Tiles.size(), Memory::Read<double>(Item + 0x150).value_or(0), Memory::Read<double>(Item + 0x158).value_or(0));
+        }
     }
     if (Restored)
-        Core::Log::Info("Airdrop-Auswahl: {} Rucksack-Anzeige(n) aus replizierten Pivot-Feldern positioniert", Restored);
+        Core::Log::Info("Airdrop-Auswahl: {} Rucksack-Anzeige(n) aus replizierten Feldern positioniert, {} davon mit Ecke abseits des Pivots", Restored,
+                        Moved);
 }
 
 // airdrop-dodge-absturz: SetupInventory liest das Inventar des Panels (+0x370) ohne Prüfung, und keiner der acht nativen Aufrufer
@@ -1025,6 +1056,60 @@ bool ClientTradeRpc(uintptr_t Object, uintptr_t Function)
     return true;
 }
 
+// opt-station-zug, Client: Mission ohne MetaBase. Die Station (Händler-Event) ist eine Missionskarte mit DDMissionGameState.
+bool InMissionWorld()
+{
+    const uintptr_t World = CurrentWorld();
+    const uintptr_t State = World ? Pointer(World + Offsets::UWorld::GameState) : 0;
+    if (!Alive(State) || !Objects::IsA(State, "DDMissionGameState"))
+        return false;
+    // Name der Welt wie in der Logzeile "Welt: …": MetaBase, DDDynamic_Map, MainMenu.
+    return Memory::NameOf(World).find("MetaBase") == std::string::npos;
+}
+
+// opt-station-zug, Client: Ein Inventar-RPC außerhalb jeder Bearbeitung. Trifft er das eigene Inventar, beginnt er im Lager oder an
+// einer Station eine lokale Bearbeitung; RouteClientRpc führt ihn danach lokal aus. Das eigene Inventar und die Panels zu suchen
+// läuft über das Objekt-Array: Das Inventar wird gemerkt, ein gescheiterter Versuch an einer Station erst nach 250 ms wiederholt.
+void BeginMoveEdit(uintptr_t Object, uintptr_t Function)
+{
+    static Objects::Ref OwnInventory;
+    static uintptr_t OwnController = 0;
+    static ULONGLONG NextStationTry = 0;
+    static std::vector<uintptr_t> Reported;
+    const ClientMove Move = ClientMoveBegins(!Game::InventoryEdit::ClientIdle(), ClientPending.has_value(), !Shown.Items.empty(), End.Id, End.Done,
+                                             End.HeldPanel != 0, End.Id || InMissionWorld());
+    if (Move == ClientMove::Native)
+        return;
+    const uintptr_t Controller = LocalController();
+    if (!Controller)
+        return;
+    if (Controller != OwnController || !Objects::IsLive(OwnInventory))
+    {
+        OwnController = Controller;
+        OwnInventory = Objects::RefTo(InventoryOfController(Controller));
+    }
+    if (Objects::IsLive(OwnInventory) && Pointer(OwnInventory.Object + InventoryPlayerState) != Pointer(Controller + ControllerPlayerState))
+        OwnInventory = Objects::RefTo(InventoryOfController(Controller));
+    const uintptr_t Own = Objects::IsLive(OwnInventory) ? OwnInventory.Object : 0;
+    if (!Own || !Game::InventoryEdit::ChangesInventory(Object, Function, Own))
+        return;
+    const ULONGLONG Now = GetTickCount64();
+    if (Move == ClientMove::BeginLager)
+        BeginPanelEdit(Own, "Zug im Rucksack");
+    else if (Now >= NextStationTry)
+    {
+        BeginPanelEdit(Own, "Zug im Rucksack", false, true);
+        if (!Game::InventoryEdit::ClientEditing())
+            NextStationTry = Now + 250;
+    }
+    if (Game::InventoryEdit::ClientEditing() || std::find(Reported.begin(), Reported.end(), Function) != Reported.end())
+        return;
+    if (Reported.size() < 64)
+        Reported.push_back(Function);
+    Core::Log::Warn("Inventar lokal: {} des Clients außerhalb einer Bearbeitung geht nativ an den Host ({})", Memory::NameOf(Function),
+                    Move == ClientMove::BeginLager ? "Lager" : "Mission ohne offenes Inventar-Panel oder Stand des letzten Edits noch nicht repliziert");
+}
+
 bool FilterRewardEvent(uintptr_t Object, uintptr_t Function, void* Params)
 {
     if (CurrentRole() == NetRole::Host)
@@ -1039,10 +1124,11 @@ bool FilterRewardEvent(uintptr_t Object, uintptr_t Function, void* Params)
     // Als native RPCs kamen beim Host nur Feldbelegung und IsInBackpack an, Pivot und Drehung blieben (0, 0) und 0, und der Client
     // bekam im Lager nichts zurück: Sein eigener Stand zeigte die Items weiter im Lager.
     // Erst die Funktion einordnen: Das eigene Inventar zu suchen läuft über das ganze Objekt-Array.
-    if (End.Id && End.Done != End.Id && !End.HeldPanel && !Game::InventoryEdit::ClientEditing() && !ClientPending && Shown.Items.empty() &&
-        Game::InventoryEdit::MayChangeInventory(Function))
-        if (const uintptr_t Own = InventoryOfController(LocalController()); Game::InventoryEdit::ChangesInventory(Object, Function, Own))
-            BeginPanelEdit(Own, "Zug im Rucksack");
+    // opt-station-zug: Dasselbe ohne Rundenende, an einer Station mit offenem Inventar-Panel (ClientMoveBegins). Was danach noch
+    // nativ zum Host geht (kein offenes Panel, Stand des letzten Edits noch nicht repliziert), steht je Funktion einmal im Log.
+    // Nur bei ruhender Sitzung: Während des Zurückrollens laufen verschachtelte Inventar-RPCs hier durch, sie dürfen nichts beginnen.
+    if (Game::InventoryEdit::ClientIdle() && !ClientPending && Shown.Items.empty() && Game::InventoryEdit::MayChangeInventory(Function))
+        BeginMoveEdit(Object, Function);
     if (Function && Function == Repair && !Game::InventoryEdit::ClientEditingInventory(Object))
     {
         // Außerhalb einer Bearbeitung reparierte der Host ohne Schrott. Der Client behält das Item kaputt.
@@ -1444,28 +1530,28 @@ uintptr_t UpgradeForClient(uintptr_t Inventory, std::vector<uintptr_t> Inputs, u
     return Params.Result;
 }
 
-bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
+Game::InventoryEdit::Verdict ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
 {
     using namespace Game::InventoryEdit;
     if (CurrentRole() != NetRole::Host)
-        return false;
+        return Rejected(EditReason::NoInventory);
     if (!WellFormed(Value))
     {
         Core::Log::Warn("Inventar lokal: Edit {} ungültig, abgelehnt", Value.Id);
-        return false;
+        return Rejected(EditReason::Malformed);
     }
     uintptr_t Coop = 0, HostController = 0, Remote = 0;
     const uintptr_t Inventory = BoundRemoteP2(Coop, HostController, Remote) ? InventoryOfController(Remote) : 0;
     if (!Inventory)
     {
         Core::Log::Warn("Inventar lokal: Inventar des Clients nicht gefunden, Edit {} abgelehnt", Value.Id);
-        return false;
+        return Rejected(EditReason::NoInventory);
     }
     if (Value.Choice && (!Host.Active || Value.Session != Host.Session || Host.ClientPick || Revision(Host.Items) != Value.Revision ||
                          *Value.Choice >= Host.Data.size()))
     {
         Core::Log::Warn("Inventar lokal: Edit {} mit Wahl {} passt nicht zur Sitzung {}, abgelehnt", Value.Id, *Value.Choice, Host.Session);
-        return false;
+        return Rejected(EditReason::Session);
     }
     // Items über Index und Datenname zuordnen; weicht der Index ab, das erste unbenutzte Item mit demselben Namen.
     const std::vector<uintptr_t> Items = ItemsOf(Inventory);
@@ -1489,7 +1575,7 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
         if (!Resolved[i])
         {
             Core::Log::Warn("Inventar lokal: Item {} des Edits {} nicht im Inventar des Clients, abgelehnt", Item.Source, Value.Id);
-            return false;
+            return Rejected(EditReason::ItemMissing);
         }
     }
     const std::vector<SlotInfo> Slots = SlotsOf(Inventory);
@@ -1503,7 +1589,7 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
     if (!Fits(Value, Existing, Others))
     {
         Core::Log::Warn("Inventar lokal: Edit {} passt nicht in den Rucksack des Clients, abgelehnt", Value.Id);
-        return false;
+        return Rejected(EditReason::NoFit);
     }
     // lager-handel-client: Verkäufe und Reparaturen prüfen, bevor sich etwas ändert. Preise rechnet der Host selbst.
     std::vector<Trade> Sells, Repairs;
@@ -1516,7 +1602,7 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
             if (Want.Present && Value.Choice && *Value.Choice < Host.Choices.size() && Want.Broken != Host.Choices[*Value.Choice].Broken)
             {
                 Core::Log::Warn("Inventar lokal: Wahl des Edits {} mit anderem Zustand (kaputt {}), abgelehnt", Value.Id, Want.Broken);
-                return false;
+                return Rejected(EditReason::ChoiceState);
             }
             continue;
         }
@@ -1524,7 +1610,7 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
         if (Want.Present && Want.Broken && !Broken)
         {
             Core::Log::Warn("Inventar lokal: Item {} des Edits {} soll kaputt werden, abgelehnt", Want.Source, Value.Id);
-            return false;
+            return Rejected(EditReason::Breaks);
         }
         // inventar-client-abweichung: Auch eine im selben Edit reparierte und dann aufgewertete Eingabe ist eine Reparatur.
         const bool Input = Consumed.contains(Want.Source);
@@ -1535,7 +1621,7 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
             if (IsReward(Resolved[i]))
             {
                 Core::Log::Warn("Inventar lokal: Item {} des Edits {} ist eine Belohnung und nicht verkaufbar, abgelehnt", Want.Source, Value.Id);
-                return false;
+                return Rejected(EditReason::RewardSold);
             }
             Sells.push_back({Resolved[i], SellPrice(Resolved[i])});
         }
@@ -1555,14 +1641,14 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
             if (!Wares[K].first || (!Next.Rarity.empty() && !Wares[K].second))
             {
                 Core::Log::Warn("Inventar lokal: Kauf {} des Edits {} nennt unbekannte Daten {} {}, abgelehnt", K + 1, Value.Id, Next.Data, Next.Rarity);
-                return false;
+                return Rejected(EditReason::PurchaseUnknown);
             }
             const int32_t Sell = BaseSellPrice(Wares[K].first, Wares[K].second);
             if (Sell < 0 || Next.Cost < PurchaseFloor(Sell))
             {
                 Core::Log::Warn("Inventar lokal: Kauf {} des Edits {} ({} {}) für {} liegt unter der Untergrenze {} (Verkaufspreis {} beim Host), abgelehnt",
                                 K + 1, Value.Id, Next.Data, Next.Rarity, Next.Cost, Sell < 0 ? -1 : PurchaseFloor(Sell), Sell);
-                return false;
+                return Rejected(EditReason::PurchasePrice);
             }
             Core::Log::Info("Handel: Kauf {} geprüft, {} {} für {} (Verkaufspreis beim Host {}, Untergrenze {})", K + 1, Next.Data, Next.Rarity,
                             Next.Cost, Sell, PurchaseFloor(Sell));
@@ -1585,7 +1671,7 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
         {
             Core::Log::Warn("Inventar lokal: Edit {} mit {} Verkäufen, {} Reparaturen und {} Käufen abgelehnt, Schrott {} reicht nicht oder Preis ungültig",
                             Value.Id, Sells.size(), Repairs.size(), BuyPrices.size(), Have ? std::to_string(*Have) : std::string("ohne Konto"));
-            return false;
+            return Rejected(EditReason::Scrap);
         }
         Core::Log::Info("Handel: Edit {} geprüft, {} Verkäufe, {} Reparaturen, {} Käufe, Schrott {} wird {}", Value.Id, Sells.size(), Repairs.size(),
                         BuyPrices.size(), *Have, *After);
@@ -1618,7 +1704,7 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
     if (!UpgradesOk)
     {
         Core::Log::Warn("Inventar lokal: Edit {} mit {} Aufwertungen abgelehnt", Value.Id, Value.Upgrades.size());
-        return false;
+        return Rejected(EditReason::Upgrade);
     }
     if (ChoiceAt < Value.Items.size())
     {
@@ -1626,7 +1712,7 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
         if (!Resolved[ChoiceAt])
         {
             Core::Log::Warn("Inventar lokal: Wahl {} des Edits {} nicht angelegt, abgelehnt", *Value.Choice, Value.Id);
-            return false;
+            return Rejected(EditReason::ChoiceCreate);
         }
         if (DataHashOf(Resolved[ChoiceAt]) != Value.Items[ChoiceAt].DataHash)
             Core::Log::Warn("Inventar lokal: Wahl {} hat beim Client ein anderes Item", *Value.Choice);
@@ -1775,7 +1861,7 @@ bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
         RefreshEffects(HostInventory);
     Core::Log::Info("Inventar lokal: Edit {} übernommen, {} Items, {} neue Felder, {} Aufwertungen, {} Käufe, vollständig={}", Value.Id, Targets.size(),
                     Create.size(), Made.size(), Bought.size(), Ok);
-    return true;
+    return Applied(Ok);
 }
 
 // Kisten laufen über die RewardQueue der öffnenden Figur. Das Panel bestätigt nur in der Queue des Hosts
@@ -1993,15 +2079,33 @@ std::optional<Game::InventoryEdit::Edit> PendingClientEdit()
     return ClientPending;
 }
 
-void ResolveClientEdit(uint64_t Id, bool Accepted)
+void ResolveClientEdit(uint64_t Id, const Game::InventoryEdit::Verdict& Verdict)
 {
     if (!ClientPending || ClientPending->Id != Id)
         return;
     ClientPending.reset();
-    if (Accepted)
+    const char* Why = Game::InventoryEdit::ReasonText(static_cast<uint8_t>(Verdict.Reason));
+    if (Verdict.Accepted)
+    {
+        if (!Verdict.Complete)
+            Core::Log::Warn("Inventar lokal: Host hat Edit {} nur teilweise übernommen ({}); der eigene Stand kann abweichen, bis der Host repliziert", Id,
+                            Why);
         Game::InventoryEdit::ForgetClient();
-    else
-        Game::InventoryEdit::RevertClient("vom Host abgelehnt");
+        return;
+    }
+    Core::Log::Warn("Inventar lokal: Host hat Edit {} abgelehnt: {}", Id, Why);
+    Game::InventoryEdit::RevertClient("vom Host abgelehnt");
+    // lager-edit-ablehnung: Im Lager hielt das Bestätigen bis zur Antwort. Nach einer Ablehnung blieb der Client vorher bereit
+    // (Knopf gelb): Der Host konnte ohne ihn weiterreisen, und weil BeginPanelEdit bei gehaltenem Bestätigen nichts beginnt,
+    // liefen weitere Aufwertungen nur nativ beim Client und Verkäufe wurden verworfen (Live-Test 10.11.2026). Jetzt ist der
+    // Client wieder nicht bereit, der nächste Zug beginnt eine neue Bearbeitung, und er bestätigt erneut.
+    if (CurrentRole() == NetRole::Client && End.Id && End.Done != End.Id && End.HeldPanel)
+    {
+        SetReadyTint(End.HeldPanel, false);
+        End.HeldPanel = 0;
+        End.HeldRef = {};
+        Core::Log::Info("Lager: Edit abgelehnt, Bereit zurückgenommen; das Lager lässt sich neu bearbeiten und erneut bestätigen");
+    }
 }
 
 void AbortClientEdit()

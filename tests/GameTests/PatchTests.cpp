@@ -1005,3 +1005,20 @@ TEST_CASE("Bewegung: eigener Dodge gilt nur so lange als laufend, wie sein Schub
     CHECK(DashExpectedMs(std::numeric_limits<float>::quiet_NaN()) == 250);
     CHECK(DashExpectedMs(0.3f) < 750); // alte Zeitgrenze bleibt nur Rückfall
 }
+
+TEST_CASE("opt-station-zug: erster Zug des Clients beginnt eine Bearbeitung, im Lager oder an einer Station")
+{
+    // Lager am Rundenende: wie bisher, solange nicht bestätigt.
+    CHECK(ClientMoveBegins(false, false, false, 7, 0, false, true) == ClientMove::BeginLager);
+    CHECK(ClientMoveBegins(false, false, false, 7, 7, false, true) == ClientMove::Native); // Lager schon bestätigt
+    CHECK(ClientMoveBegins(false, false, false, 7, 0, true, true) == ClientMove::Native);  // Bestätigen wird gehalten
+    // Ohne Rundenende in einer Mission: Stations-Bearbeitung.
+    CHECK(ClientMoveBegins(false, false, false, 0, 0, false, true) == ClientMove::BeginStation);
+    CHECK(ClientMoveBegins(false, false, false, 0, 5, false, true) == ClientMove::BeginStation); // altes Rundenende ist vorbei
+    // Außerhalb einer Mission (MetaBase) bleibt es nativ.
+    CHECK(ClientMoveBegins(false, false, false, 0, 0, false, false) == ClientMove::Native);
+    // Laufende Bearbeitung, offener Edit oder offene Airdrop-Auswahl: deren eigener Weg.
+    CHECK(ClientMoveBegins(true, false, false, 0, 0, false, true) == ClientMove::Native);
+    CHECK(ClientMoveBegins(false, true, false, 7, 0, false, true) == ClientMove::Native);
+    CHECK(ClientMoveBegins(false, false, true, 0, 0, false, true) == ClientMove::Native);
+}
