@@ -475,3 +475,17 @@ TEST_CASE("opt-haendler-client: Untergrenze des Kaufpreises lässt Rabatte bis 7
     // Luftpumpe im Test: voller Preis 23 bis 24, Verkaufspreis 12, mit 75 % Rabatt etwa 6.
     CHECK(6 >= PurchaseFloor(12));
 }
+
+TEST_CASE("opt-rucksack-ueberlappung: Anzeige richtet sich an der oberen linken Ecke der belegten Felder aus")
+{
+    // Ungedreht liegt der Pivot auf der Ecke.
+    CHECK(SnapTile({1, 2}, {{1, 2}, {2, 2}}) == Tile{1, 2});
+    // Um 180 Grad gedreht liegt der Pivot am anderen Ende, die Ecke bleibt links.
+    CHECK(SnapTile({2, 2}, {{1, 2}, {2, 2}}) == Tile{1, 2});
+    // Um 90 Grad gedreht, Pivot unten.
+    CHECK(SnapTile({0, 1}, {{0, 0}, {0, 1}}) == Tile{0, 0});
+    // Nach links und oben erweiterter Rucksack: negative Felder, Winkel ohne Feld in der Ecke.
+    CHECK(SnapTile({-3, 0}, {{-3, 0}, {-4, 0}, {-3, -1}}) == Tile{-4, -1});
+    // Ohne Feldbelegung bleibt es beim Pivot.
+    CHECK(SnapTile({5, 6}, {}) == Tile{5, 6});
+}

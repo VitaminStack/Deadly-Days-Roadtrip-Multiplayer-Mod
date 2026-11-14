@@ -847,12 +847,18 @@ void RestoreBackpackVisuals(uintptr_t Panel)
     const int32_t Count = Memory::Read<int32_t>(Inventory + InventoryItems + 8).value_or(-1);
     if (!Data || Count <= 0 || Count > 4096)
         return;
-    unsigned Restored = 0;
+    // opt-rucksack-ueberlappung: Der Snap erwartet die obere linke Ecke der belegten Felder, nicht den Pivot (SnapTile).
+    const std::vector<Game::InventoryEdit::SlotInfo> Slots = Game::InventoryEdit::SlotsOf(Inventory);
+    unsigned Restored = 0, Moved = 0;
     for (int32_t i = 0; i < Count; ++i)
     {
         const uintptr_t Item = Pointer(Data + 8 * i);
         if (!Alive(Item) || IsReward(Item) || !Memory::Read<uint8_t>(Item + ItemInBackpack).value_or(0))
             continue;
+        std::vector<Game::InventoryEdit::Tile> Tiles;
+        for (const auto& Slot : Slots)
+            if (Slot.Occupier == Item)
+                Tiles.push_back(Slot.At);
         struct
         {
             uintptr_t Item, Representation;
@@ -872,11 +878,16 @@ void RestoreBackpackVisuals(uintptr_t Panel)
         static_assert(sizeof(Params) == 0x18);
         if (!Memory::ReadBytes(Item + ItemPivotTile, &Params.X, 8))
             continue;
+        const Game::InventoryEdit::Tile Corner = Game::InventoryEdit::SnapTile({Params.X, Params.Y}, Tiles);
+        Moved += Corner != Game::InventoryEdit::Tile{Params.X, Params.Y};
+        Params.X = Corner.first;
+        Params.Y = Corner.second;
         Objects::ProcessEvent(Panel, Snap, &Params);
         ++Restored;
     }
     if (Restored)
-        Core::Log::Info("Airdrop-Auswahl: {} Rucksack-Anzeige(n) aus replizierten Pivot-Feldern positioniert", Restored);
+        Core::Log::Info("Airdrop-Auswahl: {} Rucksack-Anzeige(n) aus replizierten Feldern positioniert, {} davon mit Ecke abseits des Pivots", Restored,
+                        Moved);
 }
 
 // airdrop-dodge-absturz: SetupInventory liest das Inventar des Panels (+0x370) ohne Prüfung, und keiner der acht nativen Aufrufer
