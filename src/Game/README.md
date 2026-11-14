@@ -555,6 +555,47 @@ die auch Knopf und Panel rufen:
 Rezept-Panel (`ConfirmAllStagedIngredients`) und nicht per Drag von Hand. Ebenso offen: Verkauf und Reparatur in einer
 Stations-Bearbeitung, zwei PCs.
 
+### Züge an einer Station
+
+Aufgabe `opt-station-zug`, Code in `RewardPatches.cpp` (`BeginMoveEdit`, `InMissionWorld`) und `PatchPolicy.h` (`ClientMoveBegins`, mit
+Tests in `tests/GameTests/PatchTests.cpp`).
+
+**Befund vorher:** Eine [Stations-Bearbeitung](#stations-bearbeitung-beim-client) begann nur mit einer Aufwertung, einem Verkauf, einer
+Reparatur oder einem Kauf. Ablegen, Drehen und Herausnehmen davor liefen als native Server-RPCs. Im Lager ist gemessen, dass solche
+Züge beim Host ohne Pivot und Drehung ankommen
+([Rucksack-Überlappung](../../docs/GAME_ANALYSIS.md#rucksack-überlappung-beim-client-opt-rucksack-ueberlappung)); für die Station ist
+das aus demselben Code geschlossen, dort nicht eigens gemessen.
+
+- **Lokal beim Client:** Der erste Inventar-RPC am eigenen Inventar (Ablegen, Feldbelegung, Pivot, Lagerflags, Entfernen) beginnt
+  eine lokale Bearbeitung: im Lager wie seit `opt-rucksack-ueberlappung`, sonst in einer Mission eine Stations-Bearbeitung, wenn ein
+  Inventar-Panel zum eigenen Inventar offen ist. Ohne offenes Panel beginnt nie eine Bearbeitung, denn sie hält die übrigen
+  Server-RPCs des Clients zurück (etwa Auto-Feuer). In der MetaBase und im Menü bleibt alles nativ. Neu ist damit: Schon der erste
+  Zug an einer Station hält diese übrigen Server-RPCs zurück, bis das Panel schließt, vermutlich auch „Automatisch ausrüsten“.
+  Begonnen wird nur bei ruhender Sitzung (`ClientIdle`): nicht während eine Antwort aussteht und nicht während des Zurückrollens,
+  dessen verschachtelte Inventar-RPCs sonst eine neue Bearbeitung mitten im Wiederherstellen begonnen hätten (das galt vorher auch
+  für das Lager).
+- **Geteilt:** Nichts Neues. Der Endstand geht beim Schließen des Panels als Edit `0x303` an den Host, die Mod-Version bleibt.
+- **Entscheidet:** Der Host, mit denselben Prüfungen wie für jeden Edit (`ApplyClientEdit`).
+- **Ablehnung und Abbruch:** Wie bei jeder Stations-Bearbeitung: Ablehnung rollt zurück, ein Kartenwechsel verwirft, ein Rundenende
+  oder eine Airdrop-Auswahl schickt die Bearbeitung vorher an den Host. Ein reines Öffnen und Schließen ohne Änderung endet ohne Edit.
+- **Kein Verwerfen:** Was weiter nativ zum Host geht (kein offenes Panel, oder der Stand des letzten Edits ist noch nicht repliziert),
+  bleibt nativ und steht je Funktion einmal im Log (`… außerhalb einer Bearbeitung geht nativ an den Host`). Erst mit diesen Zeilen aus
+  einem Live-Test lässt sich entscheiden, ob solche Aufrufe verworfen werden können. Eine Aufwertung ohne Bearbeitung läuft wie bisher
+  nativ.
+- **Nicht abgedeckt:** Der Kopierladen (`opt-kopierladen`), Automaten und der dubiose Händler. Ein Item, das lokal entsteht und weder
+  Belohnung, Ausgabe einer Aufwertung noch Kauf ist, kennt der Edit nicht; `FinishClient` nennt jedes während der Bearbeitung
+  dazugekommene Item im Log (`… kam während der Bearbeitung dazu und steht nicht im Edit`). Die Zeile trifft auch ein Item, das der
+  Host in dieser Zeit repliziert hat.
+- **Kosten:** Das eigene Inventar wird gemerkt statt je Aufruf im Objekt-Array gesucht; ein gescheiterter Versuch an einer Station
+  wird erst nach 250 ms wiederholt. Die Einordnung der Funktion (`MayChangeInventory`, Sperre und Tabellensuche) läuft jetzt bei
+  ruhender Sitzung für jedes `ProcessEvent` des Clients, nicht mehr nur am Rundenende. **Nicht gemessen**; im nächsten Lauf die
+  `Takt:`-Zeilen des Clients vergleichen.
+
+**Geprüft** (14.11.2026): Build und Unit-Tests. **Nicht im Spiel geprüft.** Der Test braucht Mauszüge im Fenster des Clients: im
+Händler-Event über den Zurück-Knopf das Inventar öffnen, ein Item gedreht ablegen, bestätigen; erwartet „Station: Zug im Rucksack beim
+Client“, ein übernommener Edit beim Host mit Pivot und Drehung und `inventory.py` gleich. Offen ist auch, ob ein Inventar-Panel in
+einer Mission in Lagen aufgeht, die hier nicht bedacht sind.
+
 ### Kaufen beim Händler
 
 Aufgabe `opt-haendler-client`, baut auf der [Stations-Bearbeitung](#stations-bearbeitung-beim-client) auf. Code in `RewardPatches.cpp`

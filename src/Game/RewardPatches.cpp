@@ -631,14 +631,15 @@ bool AnyStationPanelOpen(const std::vector<Objects::Ref>& Panels)
 // opt-werkbank-station: Ohne Rundenende beginnt dasselbe eine Stations-Bearbeitung, wenn ein Inventar-Panel offen ist.
 // opt-haendler-client: Ein Kauf (Shop) kommt aus dem offenen Händler-Panel und braucht kein offenes Inventar-Panel.
 // Solange der Client nach einem übernommenen Edit noch lokale Instanzen hält, beginnt keine neue Bearbeitung (ClientSettling).
-void BeginPanelEdit(uintptr_t Inventory, const char* What, bool Shop = false)
+void BeginPanelEdit(uintptr_t Inventory, const char* What, bool Shop = false, bool Quiet = false)
 {
     if (Game::InventoryEdit::ClientEditing() || ClientPending || !Shown.Items.empty() || !Inventory ||
         Inventory != InventoryOfController(LocalController()))
         return;
     if (Game::InventoryEdit::ClientSettling())
     {
-        Core::Log::Info("Inventar lokal: {} wartet, der Stand des Hosts zum letzten Edit ist noch nicht repliziert", What);
+        if (!Quiet)
+            Core::Log::Info("Inventar lokal: {} wartet, der Stand des Hosts zum letzten Edit ist noch nicht repliziert", What);
         return;
     }
     if (End.Id)
@@ -653,7 +654,8 @@ void BeginPanelEdit(uintptr_t Inventory, const char* What, bool Shop = false)
     std::vector<Objects::Ref> Panels = StationPanels(Inventory);
     if (!Shop && !AnyStationPanelOpen(Panels))
     {
-        Core::Log::Warn("Station: {} beim Client ohne offenes Panel ({} Panels zum Inventar), keine Bearbeitung", What, Panels.size());
+        if (!Quiet)
+            Core::Log::Warn("Station: {} beim Client ohne offenes Panel ({} Panels zum Inventar), keine Bearbeitung", What, Panels.size());
         return;
     }
     Game::InventoryEdit::BeginClient(Inventory, {}, LocalController());
@@ -1025,6 +1027,60 @@ bool ClientTradeRpc(uintptr_t Object, uintptr_t Function)
     return true;
 }
 
+// opt-station-zug, Client: Mission ohne MetaBase. Die Station (Händler-Event) ist eine Missionskarte mit DDMissionGameState.
+bool InMissionWorld()
+{
+    const uintptr_t World = CurrentWorld();
+    const uintptr_t State = World ? Pointer(World + Offsets::UWorld::GameState) : 0;
+    if (!Alive(State) || !Objects::IsA(State, "DDMissionGameState"))
+        return false;
+    // Name der Welt wie in der Logzeile "Welt: …": MetaBase, DDDynamic_Map, MainMenu.
+    return Memory::NameOf(World).find("MetaBase") == std::string::npos;
+}
+
+// opt-station-zug, Client: Ein Inventar-RPC außerhalb jeder Bearbeitung. Trifft er das eigene Inventar, beginnt er im Lager oder an
+// einer Station eine lokale Bearbeitung; RouteClientRpc führt ihn danach lokal aus. Das eigene Inventar und die Panels zu suchen
+// läuft über das Objekt-Array: Das Inventar wird gemerkt, ein gescheiterter Versuch an einer Station erst nach 250 ms wiederholt.
+void BeginMoveEdit(uintptr_t Object, uintptr_t Function)
+{
+    static Objects::Ref OwnInventory;
+    static uintptr_t OwnController = 0;
+    static ULONGLONG NextStationTry = 0;
+    static std::vector<uintptr_t> Reported;
+    const ClientMove Move = ClientMoveBegins(!Game::InventoryEdit::ClientIdle(), ClientPending.has_value(), !Shown.Items.empty(), End.Id, End.Done,
+                                             End.HeldPanel != 0, End.Id || InMissionWorld());
+    if (Move == ClientMove::Native)
+        return;
+    const uintptr_t Controller = LocalController();
+    if (!Controller)
+        return;
+    if (Controller != OwnController || !Objects::IsLive(OwnInventory))
+    {
+        OwnController = Controller;
+        OwnInventory = Objects::RefTo(InventoryOfController(Controller));
+    }
+    if (Objects::IsLive(OwnInventory) && Pointer(OwnInventory.Object + InventoryPlayerState) != Pointer(Controller + ControllerPlayerState))
+        OwnInventory = Objects::RefTo(InventoryOfController(Controller));
+    const uintptr_t Own = Objects::IsLive(OwnInventory) ? OwnInventory.Object : 0;
+    if (!Own || !Game::InventoryEdit::ChangesInventory(Object, Function, Own))
+        return;
+    const ULONGLONG Now = GetTickCount64();
+    if (Move == ClientMove::BeginLager)
+        BeginPanelEdit(Own, "Zug im Rucksack");
+    else if (Now >= NextStationTry)
+    {
+        BeginPanelEdit(Own, "Zug im Rucksack", false, true);
+        if (!Game::InventoryEdit::ClientEditing())
+            NextStationTry = Now + 250;
+    }
+    if (Game::InventoryEdit::ClientEditing() || std::find(Reported.begin(), Reported.end(), Function) != Reported.end())
+        return;
+    if (Reported.size() < 64)
+        Reported.push_back(Function);
+    Core::Log::Warn("Inventar lokal: {} des Clients außerhalb einer Bearbeitung geht nativ an den Host ({})", Memory::NameOf(Function),
+                    Move == ClientMove::BeginLager ? "Lager" : "Mission ohne offenes Inventar-Panel oder Stand des letzten Edits noch nicht repliziert");
+}
+
 bool FilterRewardEvent(uintptr_t Object, uintptr_t Function, void* Params)
 {
     if (CurrentRole() == NetRole::Host)
@@ -1039,10 +1095,11 @@ bool FilterRewardEvent(uintptr_t Object, uintptr_t Function, void* Params)
     // Als native RPCs kamen beim Host nur Feldbelegung und IsInBackpack an, Pivot und Drehung blieben (0, 0) und 0, und der Client
     // bekam im Lager nichts zurück: Sein eigener Stand zeigte die Items weiter im Lager.
     // Erst die Funktion einordnen: Das eigene Inventar zu suchen läuft über das ganze Objekt-Array.
-    if (End.Id && End.Done != End.Id && !End.HeldPanel && !Game::InventoryEdit::ClientEditing() && !ClientPending && Shown.Items.empty() &&
-        Game::InventoryEdit::MayChangeInventory(Function))
-        if (const uintptr_t Own = InventoryOfController(LocalController()); Game::InventoryEdit::ChangesInventory(Object, Function, Own))
-            BeginPanelEdit(Own, "Zug im Rucksack");
+    // opt-station-zug: Dasselbe ohne Rundenende, an einer Station mit offenem Inventar-Panel (ClientMoveBegins). Was danach noch
+    // nativ zum Host geht (kein offenes Panel, Stand des letzten Edits noch nicht repliziert), steht je Funktion einmal im Log.
+    // Nur bei ruhender Sitzung: Während des Zurückrollens laufen verschachtelte Inventar-RPCs hier durch, sie dürfen nichts beginnen.
+    if (Game::InventoryEdit::ClientIdle() && !ClientPending && Shown.Items.empty() && Game::InventoryEdit::MayChangeInventory(Function))
+        BeginMoveEdit(Object, Function);
     if (Function && Function == Repair && !Game::InventoryEdit::ClientEditingInventory(Object))
     {
         // Außerhalb einer Bearbeitung reparierte der Host ohne Schrott. Der Client behält das Item kaputt.
