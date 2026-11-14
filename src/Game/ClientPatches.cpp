@@ -447,6 +447,26 @@ bool FollowHostRoundEnd()
     return true;
 }
 
+// Nativ (0x5936BE0): Bei Win und Lose setzt der RunPersistencyManager den Run-Container zurück und speichert den Run-Slot, bei
+// NewDay schreibt er EndOfDay. Nur dieser Teil des Run-Endes läuft hier, nicht TriggerEndRound mit Wertung und Meta-Stand.
+bool ClearClientRunSave(bool Won)
+{
+    const uintptr_t Manager = Objects::FindInstance("RunPersistencyManager");
+    static const uintptr_t Function = Objects::FindObject("OnRoundChanged", "RunPersistencyManager");
+    if (!Manager || !Function)
+    {
+        Core::Log::Warn("Run-Ende: Run-Stand des Clients nicht geleert, RunPersistencyManager fehlt");
+        return false;
+    }
+    struct
+    {
+        uint8_t Reason;
+    } Params{Won ? RoundChangeWin : RoundChangeLose};
+    Objects::ProcessEvent(Manager, Function, &Params);
+    Core::Log::Info("Run-Ende: eigener Run-Stand des Clients geleert ({}), der nächste Run beginnt neu", Won ? "Sieg" : "Niederlage");
+    return true;
+}
+
 namespace
 {
 bool OwnedByGameInstance(uintptr_t Object)
