@@ -567,3 +567,23 @@ TEST_CASE("lager-edit-stabil: Lage außerhalb des Rucksacks geht beim Zurückrol
     const Loose WasPlaced{{-1, 0}, 2, false, true};
     CHECK(NeedsLooseRestore(Loose{{0, 0}, 0, false, true}, WasPlaced));
 }
+
+TEST_CASE("lager-edit-stabil: Bestätigen bei Fehlbetrag hält erst an, beim zweiten Mal nimmt es zurück")
+{
+    CHECK(OnLagerConfirm(true, false) == ShortConfirm::Send);
+    CHECK(OnLagerConfirm(true, true) == ShortConfirm::Send); // inzwischen verkauft oder der Host hat Schrott bekommen
+    CHECK(OnLagerConfirm(false, false) == ShortConfirm::Block);
+    // Reparaturen lassen sich nicht zurücknehmen: Ohne Ausweg wartete der Host für immer auf den Client.
+    CHECK(OnLagerConfirm(false, true) == ShortConfirm::Revert);
+}
+
+TEST_CASE("lager-edit-stabil: Beim Host ist Current immer vorhanden, Break bleibt dort aus")
+{
+    // Gewählte kaputte Belohnung: Host liest sie kaputt, Ziel kaputt, kein Break (das gäbe beim Host Ok = false).
+    ItemState Reward = Stored(0);
+    Reward.Broken = true;
+    ItemState Goal = Placed(0, {{1, 1}});
+    Goal.Broken = true;
+    for (const Step& Next : Plan({Reward}, {Goal}, false, false))
+        CHECK(Next.Kind != StepKind::Break);
+}

@@ -258,6 +258,22 @@ constexpr bool ScrapCovers(const ScrapView& View)
     return View.Missing == 0;
 }
 
+// Was das Bestätigen im Lager nach der Vorprüfung tut. Reicht der Schrott, geht der Edit an den Host. Reicht er nicht, bleibt die
+// Bearbeitung beim ersten Mal offen; Reparaturen lassen sich im Panel nicht zurücknehmen, und ohne Verkaufbares käme der Spieler nie
+// weiter (der Host wartet auf ihn). Darum nimmt ein zweites Bestätigen ohne genug Schrott die Bearbeitung lokal zurück, wie eine
+// Ablehnung des Hosts, nur ohne Rundreise; danach bestätigt der Spieler den Ausgangsstand oder bearbeitet neu.
+enum class ShortConfirm : uint8_t
+{
+    Send,
+    Block,
+    Revert,
+};
+
+constexpr ShortConfirm OnLagerConfirm(bool Covers, bool BlockedBefore)
+{
+    return Covers ? ShortConfirm::Send : BlockedBefore ? ShortConfirm::Revert : ShortConfirm::Block;
+}
+
 inline std::vector<Tile> Sorted(std::vector<Tile> Tiles)
 {
     std::sort(Tiles.begin(), Tiles.end());

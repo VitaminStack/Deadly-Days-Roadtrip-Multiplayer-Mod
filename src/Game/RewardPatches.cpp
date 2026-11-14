@@ -157,12 +157,14 @@ uint64_t LagerEdit = 0; // Id des Rundenendes, 0 ohne
 struct
 {
     bool Active = false;
+    bool Blocked = false; // Bestätigen in dieser Bearbeitung schon einmal an der Vorprüfung gescheitert
     Game::InventoryEdit::ScrapView View;
     int64_t LastHost = -1, Latest = -1;
 } Scrap;
 uintptr_t ScrapWallet();
 std::optional<int32_t> ScrapAmount(uintptr_t Wallet);
 void AddScrap(uintptr_t Wallet, int32_t Delta);
+void EndScrapView(bool Accepted);
 
 // Client, lager-edit-stabil: Vorprüfung vor dem Bestätigen. Rechnet Züge seit dem letzten Takt ein (etwa ein Verkauf gerade eben) und
 // sagt, ob der Schrott nach dem Stand des Hosts reicht. Ohne Ansicht (kein Stand des Hosts empfangen) entscheidet wie bisher der Host.
@@ -190,6 +192,26 @@ bool ScrapCoversHost()
         return true;
     }
     return Game::InventoryEdit::ScrapCovers(Scrap.View);
+}
+
+// lager-edit-stabil: Schrott-Ansicht am Ende eines Edits schließen. Übernommen bucht der Host dieselben Züge, das Konto zeigt schon
+// ungefähr seinen neuen Stand. Abgelehnt oder abgebrochen gilt sofort wieder der zuletzt empfangene Stand des Hosts; so rechnet eine
+// gleich danach beginnende Bearbeitung nicht mit der verworfenen Vorschau.
+void EndScrapView(bool Accepted)
+{
+    Scrap.Active = false;
+    const uintptr_t Wallet = ScrapWallet();
+    const std::optional<int32_t> Have = ScrapAmount(Wallet);
+    if (!Have)
+        return;
+    if (Accepted || Scrap.Latest < 0)
+    {
+        Scrap.LastHost = *Have;
+        return;
+    }
+    if (*Have != Scrap.Latest)
+        AddScrap(Wallet, static_cast<int32_t>(Scrap.Latest - *Have));
+    Scrap.LastHost = Scrap.Latest;
 }
 // Client, opt-werkbank-station: Bearbeitung an einer Station außerhalb von Lager und Airdrop-Auswahl, etwa das Inventar-Panel
 // im Händler-Event. Sie beginnt mit der ersten Aufwertung, dem ersten Verkauf oder der ersten Reparatur und endet, sobald
@@ -589,13 +611,26 @@ void __fastcall ConfirmHook(uintptr_t Panel)
         if (Memory::Read<uint8_t>(Panel + PanelIsDragging).value_or(1))
             return;
         // lager-edit-stabil: Vorprüfung gegen den Stand des Hosts. Reicht der gemeinsame Schrott nach seinen Ausgaben nicht mehr, bleibt
-        // die Bearbeitung offen und der Client nicht bereit; die Anzeige steht dann auf 0. Er verkauft etwas oder nimmt Züge zurück und
-        // bestätigt erneut. Zum Test einer Ablehnung siehe ScrapCoversHost.
-        if (!ScrapCoversHost())
+        // die Bearbeitung beim ersten Mal offen und der Client nicht bereit; die Anzeige steht dann auf 0. Er verkauft etwas und bestätigt
+        // erneut. Reicht es dann immer noch nicht, nimmt das zweite Bestätigen die Bearbeitung zurück (OnLagerConfirm). Zum Test einer
+        // Ablehnung siehe ScrapCoversHost.
+        switch (Game::InventoryEdit::OnLagerConfirm(ScrapCoversHost(), Scrap.Blocked))
         {
-            Core::Log::Warn("Lager: Schrott reicht nach dem Stand des Hosts ({}) nicht, es fehlen {}; nicht bestätigt, Bearbeitung bleibt offen",
+        case Game::InventoryEdit::ShortConfirm::Block:
+            Scrap.Blocked = true;
+            Core::Log::Warn("Lager: Schrott reicht nach dem Stand des Hosts ({}) nicht, es fehlen {}; nicht bestätigt, Bearbeitung bleibt offen. "
+                            "Erneutes Bestätigen ohne genug Schrott nimmt die Bearbeitung zurück",
                             Scrap.View.Host, Scrap.View.Missing);
             return;
+        case Game::InventoryEdit::ShortConfirm::Revert:
+            Core::Log::Warn("Lager: Schrott reicht weiter nicht (es fehlen {}), Bearbeitung zurückgenommen; Ausgangsstand neu bestätigen oder neu bearbeiten",
+                            Scrap.View.Missing);
+            LagerEdit = 0;
+            EndScrapView(false);
+            Game::InventoryEdit::RevertClient("Schrott reicht nach dem Stand des Hosts nicht");
+            return;
+        case Game::InventoryEdit::ShortConfirm::Send:
+            break;
         }
         LagerEdit = 0;
         ClientPending = Game::InventoryEdit::FinishClient(0, 0, std::nullopt, 0);
@@ -2137,26 +2172,6 @@ std::optional<Game::InventoryEdit::Edit> PendingClientEdit()
     return ClientPending;
 }
 
-// lager-edit-stabil: Schrott-Ansicht am Ende eines Edits schließen. Übernommen bucht der Host dieselben Züge, das Konto zeigt schon
-// ungefähr seinen neuen Stand. Abgelehnt oder abgebrochen gilt sofort wieder der zuletzt empfangene Stand des Hosts; so rechnet eine
-// gleich danach beginnende Bearbeitung nicht mit der verworfenen Vorschau.
-void EndScrapView(bool Accepted)
-{
-    Scrap.Active = false;
-    const uintptr_t Wallet = ScrapWallet();
-    const std::optional<int32_t> Have = ScrapAmount(Wallet);
-    if (!Have)
-        return;
-    if (Accepted || Scrap.Latest < 0)
-    {
-        Scrap.LastHost = *Have;
-        return;
-    }
-    if (*Have != Scrap.Latest)
-        AddScrap(Wallet, static_cast<int32_t>(Scrap.Latest - *Have));
-    Scrap.LastHost = Scrap.Latest;
-}
-
 void ResolveClientEdit(uint64_t Id, const Game::InventoryEdit::Verdict& Verdict)
 {
     if (!ClientPending || ClientPending->Id != Id)
@@ -2351,6 +2366,7 @@ void ApplyScrap(int32_t Amount)
         {
             Scrap.View = {Scrap.LastHost >= 0 ? Scrap.LastHost : Amount, 0};
             Scrap.Active = true;
+            Scrap.Blocked = false;
         }
         const int64_t OldHost = Scrap.View.Host, OldMissing = Scrap.View.Missing;
         const int64_t Show = Game::InventoryEdit::Rebase(Scrap.View, *Have, Amount);
