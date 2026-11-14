@@ -194,6 +194,7 @@ struct
         std::vector<uintptr_t> Inputs;
         uintptr_t Output = 0;
         std::string Data, Rarity;
+        std::vector<uint32_t> InputHashes; // DataHash je Eingabe beim Aufzeichnen, die Instanz kann danach gelöscht sein
     };
     std::vector<Recorded> Upgrades; // lokal gelaufene Aufwertungen (werkbank-client)
     struct Bought
@@ -706,13 +707,22 @@ void RecordUpgrade(const std::vector<uintptr_t>& Inputs, uintptr_t Output, uintp
 {
     if (Session.State != Phase::Editing || !Output)
         return;
-    Session.Upgrades.push_back({Inputs, Output, Data ? Memory::NameOf(Data) : std::string{}, Rarity ? Memory::NameOf(Rarity) : std::string{}});
+    std::vector<uint32_t> Hashes;
+    for (const uintptr_t Input : Inputs)
+        Hashes.push_back(DataHashOf(Input));
+    Session.Upgrades.push_back(
+        {Inputs, Output, Data ? Memory::NameOf(Data) : std::string{}, Rarity ? Memory::NameOf(Rarity) : std::string{}, std::move(Hashes)});
     Core::Log::Info("Inventar lokal: Aufwertung {} lokal, {} Eingaben, Ausgabe {} {}", Session.Upgrades.size(), Inputs.size(), Session.Upgrades.back().Data,
                     Session.Upgrades.back().Rarity);
     // opt-airdrop-edit-ungueltig, Nutzerentscheidung 13.11.2026: Liegt eine Eingabe nach UpgradeItems noch im Inventar (im Live-Test
     // am Abend des 13.11. rund 2,5 Minuten als Klon sichtbar), geht sie sofort lokal hinaus, nicht erst beim Bestätigen.
     if (const size_t Removed = RemoveConsumedInputs())
         Core::Log::Warn("Inventar lokal: {} Eingabe(n) lagen nach der Aufwertung noch im Inventar, sofort entfernt", Removed);
+}
+
+bool ClientConsumedInput(uintptr_t Item)
+{
+    return Session.State == Phase::Editing && IsConsumedInput(Item);
 }
 
 namespace
@@ -801,7 +811,25 @@ std::optional<Edit> FinishClient(uint64_t SessionId, uint64_t Revision, std::opt
         Final.push_back(std::move(Gone));
     }
     if (Choice && ChoiceItem)
-        Final.push_back(FinalState(ChoiceItem, Now, Slots, ChoiceSource));
+    {
+        // airdrop-belohnung-aufwertung: Eine als Eingabe verbrauchte Belohnung ist weg; ihre Instanz kann schon gelöscht sein und wird
+        // dann nicht mehr gelesen. Der Host prüft sie über die Daten der Wahl, nicht über DataHash.
+        if (IsConsumedInput(ChoiceItem) && !Alive(ChoiceItem))
+        {
+            ItemState Gone;
+            Gone.Source = ChoiceSource;
+            Gone.Present = false;
+            for (const auto& Recorded : Session.Upgrades)
+                for (size_t i = 0; i < Recorded.Inputs.size() && i < Recorded.InputHashes.size(); ++i)
+                    if (Recorded.Inputs[i] == ChoiceItem)
+                        Gone.DataHash = Recorded.InputHashes[i];
+            Final.push_back(Gone);
+        }
+        else
+            Final.push_back(FinalState(ChoiceItem, Now, Slots, ChoiceSource));
+        if (IsConsumedInput(ChoiceItem))
+            Core::Log::Info("Inventar lokal: Belohnung {} ist Eingabe einer Aufwertung, vorhanden {}", *Choice, Final.back().Present);
+    }
     // opt-station-zug: Ein Item, das seit Beginn der Bearbeitung dazugekommen ist und weder Belohnung, Ausgabe einer Aufwertung noch
     // Kauf ist, steht nicht im Edit. Lokal entstanden (etwa im Kopierladen, opt-kopierladen) fehlt es beim Host; vom Host
     // repliziert (etwa ein Itemsack) ist es dort schon vorhanden. Die Zeile unterscheidet das nicht.

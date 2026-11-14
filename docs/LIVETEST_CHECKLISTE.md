@@ -70,6 +70,11 @@ Erwartet: beim Client „Host hat Edit … abgelehnt: Schrott reicht nicht oder 
 
 Erwartet: kein Klon. Unklar ist, wie das Panel beim zweiten Ziehen aussieht; jede Auffälligkeit dort notieren.
 
+Nachtrag `airdrop-belohnung-aufwertung` (#246): Am 14.11.2026 nahm der Client so eine Auswahl dreimal zurück („Wahl=keine“, „Aufwertung nicht zuordenbar“), das Panel öffnete jedes Mal neu.
+
+- [ ] **Client:** Belohnung ungedreht auf das gleiche Item legen, bestätigen. Das Panel schließt, nichts wird zurückgenommen, beim Host steht dieselbe aufgewertete Waffe.
+- [ ] **Client:** In einem weiteren Airdrop dasselbe mit gedrehter Belohnung (beim Ziehen drehen).
+
 ## E. Nebenbei beobachten
 
 - [ ] Ruckelt der Client mehr als sonst? (Die Einordnung der Aufrufe läuft jetzt die ganze Mission über.)
@@ -98,4 +103,7 @@ Erwartet: kein Klon. Unklar ist, wie das Panel beim zweiten Ziehen aussieht; jed
 | `danach abweichend: … (ist/soll)` | beide | Item, das nach Übernahme oder Zurückrollen nicht passt |
 | `zweiter Durchgang` | Client | Zurückrollen brauchte einen zweiten Anlauf |
 | `für schon aufgewertete Eingabe verworfen` | Client | D: Klon verhindert |
+| `Wahl=N (als Eingabe einer Aufwertung verbraucht) [LBIV …]` | Client | D: verbrauchte Belohnung als Wahl erkannt; je Instanz lebt/Belohnung/im Inventar/verbraucht |
+| `Aufwertung nicht zuordenbar` | Client | D: Regression vom 14.11. noch da |
+| `Wahl … hat beim Client ein anderes Item` | Host | D: Datenschlüssel der verbrauchten Belohnung passt nicht |
 | `Takt:` | Client | E: Zahl mit früheren Läufen vergleichen |
