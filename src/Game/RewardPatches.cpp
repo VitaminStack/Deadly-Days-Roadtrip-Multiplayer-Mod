@@ -452,8 +452,13 @@ bool ClientConfirm(uintptr_t Panel)
         Core::Log::Info("Airdrop-Auswahl: Bestätigen ohne Wahl, Panel bleibt offen");
         return true;
     }
-    Core::Log::Info("Airdrop-Auswahl: Client bestätigt im Panel, Wahl={}{}", Pick ? std::to_string(*Pick) : std::string("keine"),
-                    Pick && State[*Pick].Consumed ? " (als Eingabe einer Aufwertung verbraucht)" : "");
+    // Je Instanz lebt/Belohnung/im Inventar/verbraucht, damit das Log belegt, welche Bedingung die Wahl trägt.
+    std::string Flags;
+    for (const auto& Next : State)
+        Flags += std::string(Flags.empty() ? "" : " ") + (Next.Alive ? 'L' : '-') + (Next.Reward ? 'B' : '-') + (Next.InInventory ? 'I' : '-') +
+                 (Next.Consumed ? 'V' : '-');
+    Core::Log::Info("Airdrop-Auswahl: Client bestätigt im Panel, Wahl={}{} [{}]", Pick ? std::to_string(*Pick) : std::string("keine"),
+                    Pick && State[*Pick].Consumed ? " (als Eingabe einer Aufwertung verbraucht)" : "", Flags);
     ClientPending = Game::InventoryEdit::FinishClient(Shown.Session, Shown.Revision,
                                                       Pick ? std::optional<uint8_t>(static_cast<uint8_t>(*Pick)) : std::nullopt,
                                                       Pick ? Shown.Items[*Pick] : 0);

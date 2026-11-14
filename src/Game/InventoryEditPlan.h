@@ -538,8 +538,8 @@ struct ShownChoice
 
 // Client: gewählte Belohnung. Bevorzugt die Instanz, die keine Belohnung mehr ist und im Inventar liegt, dann eine ohne Inventar
 // (ein Rucksack kann schon verbraucht sein). Live-Test 14.11.2026: Eine auf ein gleiches Item gelegte Belohnung ist Eingabe der
-// Aufwertung; seit #244 nimmt die Mod sie sofort aus dem Inventar, die Anzeige behält sie als Belohnung. Auch sie gilt als gewählt,
-// sonst fehlt dem Edit die Quelle der Eingabe und die Bearbeitung wird zurückgenommen.
+// Aufwertung und wurde nicht als Wahl erkannt („Wahl=keine“), die Bearbeitung wurde zurückgenommen. Vermutung: Seit #244 liegt sie
+// sofort nicht mehr im Inventar und bleibt in der Anzeige Belohnung. Auch sie gilt jetzt als gewählt.
 inline std::optional<uint32_t> PickChoice(const std::vector<ShownChoice>& Shown)
 {
     for (int Pass = 0; Pass < 2; ++Pass)
