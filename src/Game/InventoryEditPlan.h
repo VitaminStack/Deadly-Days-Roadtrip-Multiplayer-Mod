@@ -228,6 +228,36 @@ inline std::optional<int64_t> TradeBalance(int64_t Wallet, const std::vector<int
     return Wallet;
 }
 
+// lager-edit-stabil, Client: Schrott während einer lokalen Bearbeitung. Der Schrott ist gemeinsam und gehört dem Host; im Live-Test am
+// 14.11.2026 gab der Host während der Lager-Bearbeitung des Clients aus (88 zu 50), der Client rechnete weiter mit 88 und der Host lehnte
+// den Edit ab. Jetzt folgt die Anzeige auch während der Bearbeitung dem Host: Host-Stand plus eigene vorläufige Erlöse minus Kosten.
+// Das Konto des Spiels klemmt bei 0 (AddAmount), darum merkt sich die Ansicht einen Fehlbetrag selbst. Host ist der zuletzt
+// eingerechnete Stand des Hosts, Missing der Teil, der unter 0 läge.
+struct ScrapView
+{
+    int64_t Host = 0;
+    int64_t Missing = 0;
+    bool operator==(const ScrapView&) const = default;
+};
+
+// Neuer Kontostand für die Anzeige, wenn der Host NewHost meldet und das Konto des Clients gerade Wallet zeigt. Die Änderung von Wallet
+// seit dem letzten Aufruf sind die eigenen Züge (Verkauf, Reparatur, Kauf), die Änderung des Hosts kommt dazu.
+constexpr int64_t Rebase(ScrapView& View, int64_t Wallet, int64_t NewHost)
+{
+    const int64_t Balance = Wallet - View.Missing + (NewHost - View.Host);
+    View.Host = NewHost;
+    View.Missing = Balance < 0 ? -Balance : 0;
+    return Balance < 0 ? 0 : Balance;
+}
+
+// Vorprüfung vor dem Bestätigen. Der Host rechnet erst alle Verkäufe, dann Reparaturen und Käufe (TradeBalance); das geht genau dann
+// auf, wenn der Stand des Hosts plus Erlöse minus Kosten nicht unter 0 fällt, also ohne Fehlbetrag. Die Preise rechnet der Host
+// selbst; weichen sie ab (FreeRepairChance würfelt nur der Client), bleibt die Ablehnung der Rückfall.
+constexpr bool ScrapCovers(const ScrapView& View)
+{
+    return View.Missing == 0;
+}
+
 inline std::vector<Tile> Sorted(std::vector<Tile> Tiles)
 {
     std::sort(Tiles.begin(), Tiles.end());

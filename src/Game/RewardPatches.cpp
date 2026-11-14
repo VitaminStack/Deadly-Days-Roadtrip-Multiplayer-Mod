@@ -152,6 +152,38 @@ std::optional<Game::InventoryEdit::Edit> ClientPending;
 // Client, werkbank-client: Die erste Aufwertung im Lager hat eine lokale Bearbeitung begonnen, sie endet mit dem Bestätigen.
 // lager-handel-client: ebenso der erste Verkauf oder die erste Reparatur.
 uint64_t LagerEdit = 0; // Id des Rundenendes, 0 ohne
+// Client, lager-edit-stabil: Schrott-Ansicht einer laufenden Bearbeitung (ApplyScrap). LastHost ist der Stand des Hosts, den das Konto
+// gerade zeigt, Latest der zuletzt empfangene; -1 ohne.
+struct
+{
+    bool Active = false;
+    Game::InventoryEdit::ScrapView View;
+    int64_t LastHost = -1, Latest = -1;
+} Scrap;
+uintptr_t ScrapWallet();
+std::optional<int32_t> ScrapAmount(uintptr_t Wallet);
+void AddScrap(uintptr_t Wallet, int32_t Delta);
+
+// Client, lager-edit-stabil: Vorprüfung vor dem Bestätigen. Rechnet Züge seit dem letzten Takt ein (etwa ein Verkauf gerade eben) und
+// sagt, ob der Schrott nach dem Stand des Hosts reicht. Ohne Ansicht (kein Stand des Hosts empfangen) entscheidet wie bisher der Host.
+bool ScrapCoversHost()
+{
+    static const bool Skip = []
+    {
+        char Value[4]{};
+        return GetEnvironmentVariableA("DDCOOP_TEST_SKIP_SCRAP_CHECK", Value, sizeof(Value)) == 1 && Value[0] == '1';
+    }();
+    if (!Scrap.Active || Skip)
+        return true;
+    const uintptr_t Wallet = ScrapWallet();
+    if (const std::optional<int32_t> Have = ScrapAmount(Wallet))
+    {
+        const int64_t Show = Game::InventoryEdit::Rebase(Scrap.View, *Have, Scrap.View.Host);
+        if (Show != *Have)
+            AddScrap(Wallet, static_cast<int32_t>(Show - *Have));
+    }
+    return Game::InventoryEdit::ScrapCovers(Scrap.View);
+}
 // Client, opt-werkbank-station: Bearbeitung an einer Station außerhalb von Lager und Airdrop-Auswahl, etwa das Inventar-Panel
 // im Händler-Event. Sie beginnt mit der ersten Aufwertung, dem ersten Verkauf oder der ersten Reparatur und endet, sobald
 // kein Panel der Station mehr offen ist; dann geht der Edit an den Host. Panels sind die Inventar-Panels zum eigenen Inventar.
@@ -549,6 +581,15 @@ void __fastcall ConfirmHook(uintptr_t Panel)
     {
         if (Memory::Read<uint8_t>(Panel + PanelIsDragging).value_or(1))
             return;
+        // lager-edit-stabil: Vorprüfung gegen den Stand des Hosts. Reicht der gemeinsame Schrott nach seinen Ausgaben nicht mehr, bleibt
+        // die Bearbeitung offen und der Client nicht bereit; die Anzeige steht dann auf 0. Er verkauft etwas oder nimmt Züge zurück und
+        // bestätigt erneut. Nur zum Test einer Ablehnung lässt DDCOOP_TEST_SKIP_SCRAP_CHECK=1 die Vorprüfung aus.
+        if (!ScrapCoversHost())
+        {
+            Core::Log::Warn("Lager: Schrott reicht nach dem Stand des Hosts ({}) nicht, es fehlen {}; nicht bestätigt, Bearbeitung bleibt offen",
+                            Scrap.View.Host, Scrap.View.Missing);
+            return;
+        }
         LagerEdit = 0;
         ClientPending = Game::InventoryEdit::FinishClient(0, 0, std::nullopt, 0);
         Core::Log::Info("Lager: Client bestätigt nach lokaler Bearbeitung, Edit {}", ClientPending ? std::to_string(ClientPending->Id) : std::string("ohne Änderung"));
@@ -2079,11 +2120,32 @@ std::optional<Game::InventoryEdit::Edit> PendingClientEdit()
     return ClientPending;
 }
 
+// lager-edit-stabil: Schrott-Ansicht am Ende eines Edits schließen. Übernommen bucht der Host dieselben Züge, das Konto zeigt schon
+// ungefähr seinen neuen Stand. Abgelehnt oder abgebrochen gilt sofort wieder der zuletzt empfangene Stand des Hosts; so rechnet eine
+// gleich danach beginnende Bearbeitung nicht mit der verworfenen Vorschau.
+void EndScrapView(bool Accepted)
+{
+    Scrap.Active = false;
+    const uintptr_t Wallet = ScrapWallet();
+    const std::optional<int32_t> Have = ScrapAmount(Wallet);
+    if (!Have)
+        return;
+    if (Accepted || Scrap.Latest < 0)
+    {
+        Scrap.LastHost = *Have;
+        return;
+    }
+    if (*Have != Scrap.Latest)
+        AddScrap(Wallet, static_cast<int32_t>(Scrap.Latest - *Have));
+    Scrap.LastHost = Scrap.Latest;
+}
+
 void ResolveClientEdit(uint64_t Id, const Game::InventoryEdit::Verdict& Verdict)
 {
     if (!ClientPending || ClientPending->Id != Id)
         return;
     ClientPending.reset();
+    EndScrapView(Verdict.Accepted);
     const char* Why = Game::InventoryEdit::ReasonText(static_cast<uint8_t>(Verdict.Reason));
     if (Verdict.Accepted)
     {
@@ -2113,6 +2175,7 @@ void AbortClientEdit()
     if (!ClientPending)
         return;
     ClientPending.reset();
+    EndScrapView(false);
     Game::InventoryEdit::RevertClient("Verbindung zum Host weg");
 }
 
@@ -2254,11 +2317,37 @@ std::optional<int32_t> HostScrap()
 void ApplyScrap(int32_t Amount)
 {
     using namespace Game::Patches;
-    if (CurrentRole() != NetRole::Client || Amount < 0 || Game::InventoryEdit::ClientEditing() || ClientPending)
+    if (CurrentRole() != NetRole::Client || Amount < 0)
+        return;
+    Scrap.Latest = Amount;
+    if (ClientPending)
         return;
     const uintptr_t Wallet = ScrapWallet();
     const std::optional<int32_t> Have = ScrapAmount(Wallet);
-    if (!Have || *Have == Amount)
+    if (!Have)
+        return;
+    if (Game::InventoryEdit::ClientEditing())
+    {
+        // lager-edit-stabil: Während der Bearbeitung zeigt das Konto Stand des Hosts plus eigene Vorschau (ScrapView). Beginn der Ansicht
+        // ist der zuletzt übernommene Stand des Hosts; die Züge seit dem Beginn der Bearbeitung stecken im Unterschied dazu.
+        if (!Scrap.Active)
+        {
+            Scrap.View = {Scrap.LastHost >= 0 ? Scrap.LastHost : Amount, 0};
+            Scrap.Active = true;
+        }
+        const int64_t OldHost = Scrap.View.Host, OldMissing = Scrap.View.Missing;
+        const int64_t Show = Game::InventoryEdit::Rebase(Scrap.View, *Have, Amount);
+        if (Show != *Have)
+            AddScrap(Wallet, static_cast<int32_t>(Show - *Have));
+        if (Scrap.View.Host != OldHost || Scrap.View.Missing != OldMissing)
+            Core::Log::Info("Schrott: Host {} während der Bearbeitung, Anzeige {} (eigene Vorschau {:+}){}", Amount, ScrapAmount(Wallet).value_or(-1),
+                            Show - Scrap.View.Missing - Amount,
+                            Scrap.View.Missing ? ", es fehlen " + std::to_string(Scrap.View.Missing) : std::string{});
+        return;
+    }
+    Scrap.Active = false;
+    Scrap.LastHost = Amount;
+    if (*Have == Amount)
         return;
     AddScrap(Wallet, Amount - *Have);
     Core::Log::Info("Schrott: Stand des Hosts übernommen, {} statt {}", ScrapAmount(Wallet).value_or(-1), *Have);

@@ -500,3 +500,38 @@ TEST_CASE("lager-edit-ablehnung: Urteil des Hosts mit Grund, jeder Grund hat ein
     CHECK(std::string(ReasonText(static_cast<uint8_t>(EditReason::Count))) == "unbekannter Grund");
     CHECK(std::string(ReasonText(static_cast<uint8_t>(EditReason::Scrap))) == "Schrott reicht nicht oder Preis ungültig");
 }
+
+TEST_CASE("lager-edit-stabil: Schrott-Anzeige folgt dem Host auch während der Bearbeitung")
+{
+    // Live-Test 14.11.2026: Beginn bei 88, der Client verkauft für 12 und repariert für 30 (Anzeige 70), der Host gibt 38 aus.
+    ScrapView View{88, 0};
+    CHECK(Rebase(View, 70, 88) == 70); // ohne neuen Stand des Hosts bleibt die eigene Vorschau
+    CHECK(Rebase(View, 70, 50) == 32); // Host 50, eigene Vorschau -18
+    CHECK(View == ScrapView{50, 0});
+    CHECK(ScrapCovers(View));
+    // Der Host gibt weiter aus: Die Vorschau fiele unter 0, das Konto des Spiels klemmt bei 0, der Fehlbetrag bleibt gemerkt.
+    CHECK(Rebase(View, 32, 10) == 0);
+    CHECK(View == ScrapView{10, 8});
+    CHECK(!ScrapCovers(View));
+    // Ein Verkauf für 5 deckt den Fehlbetrag nicht, ein zweiter für 6 schon.
+    CHECK(Rebase(View, 5, 10) == 0);
+    CHECK(View.Missing == 3);
+    CHECK(Rebase(View, 6, 10) == 3);
+    CHECK(View == ScrapView{10, 0});
+    // Bekommt der Host Schrott dazu, steigt die Anzeige um denselben Betrag.
+    CHECK(Rebase(View, 3, 30) == 23);
+}
+
+TEST_CASE("lager-edit-stabil: Vorprüfung deckt sich mit der Rechnung des Hosts")
+{
+    // Host 50, Client verkauft für 12 und 8 und repariert für 30, 25 und 10: Der Host lehnt ab (50 + 20 - 65 = 5 reicht, 50 + 20 - 75 nicht).
+    ScrapView View{88, 0};
+    const int64_t Preview = 88 + 12 + 8 - 30 - 25 - 10; // 43
+    CHECK(Rebase(View, Preview, 50) == 5);
+    CHECK(ScrapCovers(View));
+    CHECK(TradeBalance(50, {12, 8}, {30, 25, 10}) == 5);
+    ScrapView Short{88, 0};
+    CHECK(Rebase(Short, Preview - 10, 50) == 0); // noch eine Reparatur für 10
+    CHECK(!ScrapCovers(Short));
+    CHECK(!TradeBalance(50, {12, 8}, {30, 25, 10, 10}));
+}
