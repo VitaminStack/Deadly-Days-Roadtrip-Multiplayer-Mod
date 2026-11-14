@@ -2928,7 +2928,7 @@ Testinstanzen. Offsets: [Kamera-Folger und Controller-Liste](OFFSETS.md#kamera-f
   später den des Clients (`Quelle=swap … remote`, dazu „Charakterwahl: … der Gegenseite angewendet (beim Spawn)“), und erst danach kam
   der Busplatz mit „1 Spielerfiguren ergänzt“. Beim Absturz fehlte der Tausch des Clients bis zuletzt: Der Client lud noch, seine Figur
   gab es noch nicht. „0 ergänzt“ heißt also nicht, dass die Figur am Busplatz zerstört wurde.
-- **[Belegt, siehe Nachstellen] Ursache:** Nach `servertravel` trägt die Engine die alten Controller in die neue Welt.
+- **[Belegt mit Ersatz-Regen, siehe Nachstellen] Ursache:** Nach `servertravel` trägt die Engine die alten Controller in die neue Welt.
   Tauscht der Host seinen Controller, kommt der neue ans Ende der Liste und der alte fällt heraus. Lädt der Client später, steht sein
   alter Controller (ohne CameraManager aus der alten Welt) auf Platz 0, und `GetFirstPlayerController` liefert ihn. Im gewohnten
   Ablauf tauscht kurz darauf auch der Client, und der Host steht wieder vorn. Der Figurenwechsel des Hosts in der MetaBase und
@@ -2937,12 +2937,14 @@ Testinstanzen. Offsets: [Kamera-Folger und Controller-Liste](OFFSETS.md#kamera-f
   `PlayerControllerList`, direkt beim Controller-Tausch und in jedem Frame. Die Reihenfolge der übrigen bleibt. Rückfall:
   Ein Hook auf `0x585AEA0` setzt bei leerem Ziel den CameraManager des lokalen Controllers ein (Log „Kamera-Folger: Ziel fehlte …“)
   oder setzt den Tick aus, statt abzustürzen.
-- **Wo die Komponente sitzt [belegt]:** Instanzen gibt es nur an Wetter-Actors (`BP_Rain_C`, `BP_Snow_C`, `BP_BaseWeatherEffect_C`).
+- **Wo die Komponente sitzt [belegt für die geladenen Klassen]:** Beim Durchsuchen aller Objekte einer Missionswelt hingen
+  Instanzen nur an Wetter-Actors (`BP_Rain_C`, `BP_Snow_C`, `BP_BaseWeatherEffect_C`).
   Regen entsteht über den Generierungs-Tag `Rain` der Missionskarte, siehe [Client erzeugt die Host-Karte](#client-erzeugt-die-host-karte-karte-client). Darum stürzt nur ein
   Rundenstart mit Wetter ab, und eine bloße Reise nach `DDDynamic_Map` ohne Run bleibt heil.
 - **Nachstellen auf einem PC (14.11.2026, `-Tunnel Lobby`):** Der Client wurde vor `servertravel` mit `NtSuspendProcess` angehalten
   und nach rund 10 s fortgesetzt. So lädt er spät, ohne dass es Eingaben braucht. Während der Haltezeit las ein Skript die
-  `PlayerControllerList` des Hosts. Im Ladefenster wurde ein Regen-Actor erzeugt (Spike `!load` auf `BP_Rain_C`, `!cheats`, `summon BP_Rain_C`).
+  `PlayerControllerList` des Hosts. Im Ladefenster wurde ein Regen-Actor als Ersatz für eine Regenkarte erzeugt (Spike `!load` auf `BP_Rain_C`, `!cheats`,
+  `summon BP_Rain_C`).
   - **[Belegt] Alter Stand (`82002dc`):** Platz 0 war in allen 16 Abfragen von zwei Reisen der alte Client-Controller
     (`Player` ist die `IpConnection`, ohne CameraManager), Platz 1 der lokale. Mit Regen im Ladefenster stürzte der Host nach unter 2 s ab:
     `EXCEPTION_ACCESS_VIOLATION` lesend an `0x1B8`, RIP `exe+0x585AEC7`, Aufrufer `exe+0x28138E5`. Das ist derselbe Absturz wie im Live-Test.
@@ -2950,7 +2952,8 @@ Testinstanzen. Offsets: [Kamera-Folger und Controller-Liste](OFFSETS.md#kamera-f
     geprüft: Die Komponente hing am CameraManager des lokalen Controllers. Log je Reise:
     „Controller-Liste: lokaler Controller von Platz 2 nach vorn, 3 Einträge (Tausch)“, danach Platz 0 lokal. Der Rückfall-Hook
     musste nie eingreifen („Kamera-Folger“ kam nie im Log vor). Nach dem späten Tausch des Clients waren beide Figuren auf beiden
-    Seiten gleich (`players.py`: Rollen gleich, Hash gültig). Die Remote-Figur stand etwa 1440 Einheiten neben der Host-Figur.
+    Seiten gleich (`players.py`: Rollen gleich, Hash gültig; Orte aus `check_round.py`). Die Remote-Figur stand etwa 1440 Einheiten
+    neben der Host-Figur. Der Hook war gesetzt (54 statt 53 Patches).
   - **Fehlversuch:** In einer früheren Fix-Sitzung fehlte `!cheats`. Ohne CheatManager erzeugt `summon` nichts, die Runden zählen nicht.
     Eine Reise ohne Wetter (drei Runden alter Stand) stürzte nicht ab, obwohl der Client spät tauschte.
   - **Nicht geprüft:** Busplatz. Ohne Run-Start über den Startring und die Routenkarte gibt es keinen Bus, und `Start-Run.ps1` braucht
