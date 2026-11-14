@@ -535,3 +535,35 @@ TEST_CASE("lager-edit-stabil: Vorprüfung deckt sich mit der Rechnung des Hosts"
     CHECK(!ScrapCovers(Short));
     CHECK(!TradeBalance(50, {12, 8}, {30, 25, 10, 10}));
 }
+
+TEST_CASE("lager-edit-stabil: Zurückrollen setzt eine reparierte, dann verbrauchte Eingabe in einem Durchgang wieder kaputt")
+{
+    // Live-Test 14.11.2026: Pistole lokal repariert und als Eingabe einer Aufwertung verbraucht. Ziel ist der Ausgangsstand: vorhanden, kaputt.
+    ItemState Start = Stored(0);
+    Start.Broken = true;
+    ItemState Consumed = Gone(Stored(0)); // nicht mehr im Inventar, das Item ist lokal heil
+    const auto Steps = Plan({Consumed}, {Start}, false, false);
+    const std::vector<Step> Expected{{StepKind::Add, 0}, {StepKind::Break, 0}};
+    CHECK(Steps == Expected);
+    // Schon kaputt: kein zweites Break.
+    ItemState StillBroken = Consumed;
+    StillBroken.Broken = true;
+    CHECK(Plan({StillBroken}, {Start}, false, false) == std::vector<Step>{{StepKind::Add, 0}});
+}
+
+TEST_CASE("lager-edit-stabil: Lage außerhalb des Rucksacks geht beim Zurückrollen auf den Ausgangsstand")
+{
+    const Loose Start{{4, -2}, 1, false, true};
+    // Im Lager gezogen und gedreht: zurück.
+    CHECK(NeedsLooseRestore(Start, Loose{{-1, -1}, 1, false, true}));
+    CHECK(NeedsLooseRestore(Start, Loose{{4, -2}, 3, false, true}));
+    // Unverändert: nichts.
+    CHECK_FALSE(NeedsLooseRestore(Start, Start));
+    // Im Rucksack gilt die Lage aus dem Plan, nicht verändern.
+    CHECK_FALSE(NeedsLooseRestore(Start, Loose{{0, 0}, 0, true, true}));
+    // Nicht vorhanden (verkauft, verbraucht): nichts.
+    CHECK_FALSE(NeedsLooseRestore(Start, Loose{{0, 0}, 0, false, false}));
+    // Erst im Rucksack, beim Zurückrollen herausgenommen (Feuerzeug, Ratte, Revolver am 14.11.): Pivot vom Ziehen bleibt sonst stehen.
+    const Loose WasPlaced{{-1, 0}, 2, false, true};
+    CHECK(NeedsLooseRestore(Loose{{0, 0}, 0, false, true}, WasPlaced));
+}

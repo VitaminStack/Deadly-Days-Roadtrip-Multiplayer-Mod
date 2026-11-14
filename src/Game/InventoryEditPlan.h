@@ -553,9 +553,31 @@ inline std::vector<Step> Plan(const std::vector<ItemState>& Current, const std::
     for (size_t i = 0; i < Current.size() && i < Target.size(); ++i)
         if (Target[i].Present && Target[i].Trash != (Current[i].Present && Current[i].Trash))
             Steps.push_back({StepKind::Trash, i});
+    // lager-edit-stabil: auch ein Item, das erst der Schritt Add zurückbringt (lokal repariert, dann als Eingabe einer Aufwertung
+    // verbraucht). Vorher fehlte Break dafür, erst ein zweiter Durchgang setzte es wieder kaputt (Live-Test 14.11.2026, Pistole).
     for (size_t i = 0; i < Current.size() && i < Target.size(); ++i)
-        if (Target[i].Present && Target[i].Broken && Current[i].Present && !Current[i].Broken)
+        if (Target[i].Present && Target[i].Broken && !Current[i].Broken)
             Steps.push_back({StepKind::Break, i});
     return Steps;
+}
+
+// lager-edit-stabil: Rohe Lage eines Items, auch außerhalb des Rucksacks. Das Panel setzt Pivot und Drehung beim Ziehen lokal; nimmt ein
+// Edit oder das Zurückrollen das Item aus dem Rucksack, bleiben sie beim Client neu, beim Host alt. ItemState und Plan sehen sie dort
+// nicht (SamePlacement), der Desync-Melder zählt sie aber mit: Nach der Ablehnung am 14.11.2026 meldete er dauerhaft „ABWEICHUNG
+// Inventar“, obwohl das Zurückrollen vollständig war (Feuerzeug, Ratte, Revolver lagen kurz im Rucksack und wieder im Lager).
+struct Loose
+{
+    Tile Pivot{};
+    int32_t Turns = 0;
+    bool InBackpack = false;
+    bool Present = true;
+    bool operator==(const Loose&) const = default;
+};
+
+// Muss das Item auf seine Ausgangslage zurück? Nur vorhanden und außerhalb des Rucksacks; im Rucksack gilt die Lage aus dem Edit oder
+// dem Plan, und genau die setzt auch der Host.
+constexpr bool NeedsLooseRestore(const Loose& Start, const Loose& Now)
+{
+    return Now.Present && !Now.InBackpack && (Now.Pivot != Start.Pivot || Now.Turns != Start.Turns);
 }
 }
