@@ -2580,9 +2580,11 @@ am 14.11. begann beim Host mit Level 35, das Spiel skalierte die Gegner danach.
   seinen eigenen Run-Stand (das tut er seit `rundenende-client`, nur im Mod-Ordner), bekommt das Run-Ende aber nie nativ. Die Niederlage
   sperrt `RunLossAllowed` beim Client ganz, weil `TriggerEndRound(Lose)` dort den Meta-Stand änderte; der Sieg läuft bei ihm nur als
   nachgezogenes Tagesende.
-- **Folge [Vermutung, passt zu allen Logzeilen]:** Wer im Coop Client war, hat danach einen offenen Run im eigenen Spielstand. Hostet er
-  später oder spielt er allein mit der Mod, lädt sein Spiel diesen Run: Level und Items des alten Runs, im Fall vom 14.11. Level 35.
-  Belegt sind der offene Stand und das Level 35 beim neuen Host, nicht der Spielstand des anderen PCs.
+- **Folge:** Wer im Coop Client war, hat danach einen offenen Run im eigenen Spielstand. Hostet er später oder spielt er allein mit der
+  Mod, lädt sein Spiel daraus das Level des alten Runs, im Fall vom 14.11. Level 35. **[Belegt, Test]** Host-Testordner mit offenem
+  Stand (`EndOfDay`, Level 3, je 3 Pistolen), Spiel neu gestartet: Schon in der frischen MetaBase „Host-Level 3“, nach direkter Reise
+  in eine Mission weiter Level 3; das Inventar begann dort mit der Startausrüstung (je 1 Pistole). Der Spielstand des anderen PCs
+  vom 14.11. selbst ist nicht gelesen.
 - **Lokal zuerst:** Lokal bleibt alles bis auf den Ausgang. Geteilt wird nichts Neues: Der Client kennt Sieg und Niederlage schon aus
   dem Byte in `0x401` (`run-ende`). Der Host entscheidet weiter allein, keine zweite Autorität. Wiederverwendet wird der native Teil
   des Run-Endes, der nur den Run-Container betrifft.
