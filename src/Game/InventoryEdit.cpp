@@ -183,6 +183,7 @@ struct
     uintptr_t Inventory = 0;
     std::vector<uintptr_t> Items;   // Ausgangsstand MyItems
     std::vector<ItemState> States;  // je Item, Source = Index
+    std::vector<Loose> Raw;         // lager-edit-stabil: rohe Lage je Item beim Beginn, auch außerhalb des Rucksacks
     std::vector<Tile> Slots;        // Ausgangsfelder
     std::vector<uintptr_t> Choices; // lokale Anzeige-Instanzen
     std::unordered_map<uintptr_t, uint8_t> RemoveContext;
@@ -194,6 +195,7 @@ struct
         std::vector<uintptr_t> Inputs;
         uintptr_t Output = 0;
         std::string Data, Rarity;
+        std::vector<uint32_t> InputHashes; // DataHash je Eingabe beim Aufzeichnen, die Instanz kann danach gelöscht sein
     };
     std::vector<Recorded> Upgrades; // lokal gelaufene Aufwertungen (werkbank-client)
     struct Bought
@@ -262,6 +264,48 @@ void LogOp(const std::string& Text)
 {
     if (++Session.Logged <= 200)
         Core::Log::Info("Inventar lokal: {}", Text);
+}
+
+Loose ReadLoose(uintptr_t Item, const std::vector<uintptr_t>& Now)
+{
+    Loose State;
+    State.Present = Contains(Now, Item);
+    State.InBackpack = Memory::Read<uint8_t>(Item + ItemInBackpack).value_or(0) != 0;
+    State.Turns = Memory::Read<int32_t>(Item + ItemTurns).value_or(0);
+    State.Pivot = {Memory::Read<int32_t>(Item + ItemPivot).value_or(0), Memory::Read<int32_t>(Item + ItemPivot + 4).value_or(0)};
+    return State;
+}
+
+// lager-edit-stabil: Beim Zurückrollen Pivot und Drehung der Ausgangs-Items, die außerhalb des Rucksacks liegen, auf den Stand beim
+// Beginn. Der Host hat sie nie geändert; so ist der Ausgangsstand auch für den Desync-Melder vollständig. Drehung über das native
+// SetTurns (keine Netzfunktion), der Pivot direkt: SetZeroPivotTile ist ein Server-RPC. Nach einem übernommenen Edit bleibt die Lage
+// im Lager, wie der Spieler sie gelegt hat; diese Abweichung ist der bekannte Fehlalarm aus opt-desync-pivot.
+void RestoreLoose(const char* When)
+{
+    static uintptr_t SetTurns = 0;
+    if (!Function(SetTurns, "SetTurns", "InventoryItemInstance") || Session.Raw.size() != Session.Items.size())
+        return;
+    const std::vector<uintptr_t> Now = ItemsOf(Session.Inventory);
+    size_t Restored = 0;
+    for (size_t i = 0; i < Session.Items.size(); ++i)
+    {
+        const uintptr_t Item = Session.Items[i];
+        if (!Alive(Item) || !NeedsLooseRestore(Session.Raw[i], ReadLoose(Item, Now)))
+            continue;
+        const Loose& Start = Session.Raw[i];
+        struct
+        {
+            int32_t Turns;
+            bool Instant;
+            uint8_t Pad[3];
+        } Turns{Start.Turns, true, {}};
+        Objects::ProcessEvent(Item, SetTurns, &Turns);
+        const int32_t Pivot[2]{Start.Pivot.first, Start.Pivot.second};
+        Memory::WriteBytes(Item + ItemPivot, Pivot, sizeof(Pivot));
+        ++Restored;
+    }
+    if (Restored)
+        Core::Log::Info("Inventar lokal: Pivot und Drehung von {} Item(s) außerhalb des Rucksacks auf den Ausgangsstand ({})", Restored, When);
 }
 }
 
@@ -675,7 +719,10 @@ void BeginClient(uintptr_t Inventory, const std::vector<uintptr_t>& Choices, uin
     Session.Choices = Choices;
     const std::vector<SlotInfo> Slots = SlotsOf(Inventory);
     for (size_t i = 0; i < Session.Items.size(); ++i)
+    {
         Session.States.push_back(ReadItem(Session.Items[i], Slots, static_cast<uint16_t>(i)));
+        Session.Raw.push_back(ReadLoose(Session.Items[i], Session.Items));
+    }
     for (const SlotInfo& Slot : Slots)
         Session.Slots.push_back(Slot.At);
     Core::Log::Info("Inventar lokal: Bearbeitung beginnt, {} Items, {} Felder, {} Belohnungen", Session.Items.size(), Session.Slots.size(), Choices.size());
@@ -706,13 +753,22 @@ void RecordUpgrade(const std::vector<uintptr_t>& Inputs, uintptr_t Output, uintp
 {
     if (Session.State != Phase::Editing || !Output)
         return;
-    Session.Upgrades.push_back({Inputs, Output, Data ? Memory::NameOf(Data) : std::string{}, Rarity ? Memory::NameOf(Rarity) : std::string{}});
+    std::vector<uint32_t> Hashes;
+    for (const uintptr_t Input : Inputs)
+        Hashes.push_back(DataHashOf(Input));
+    Session.Upgrades.push_back(
+        {Inputs, Output, Data ? Memory::NameOf(Data) : std::string{}, Rarity ? Memory::NameOf(Rarity) : std::string{}, std::move(Hashes)});
     Core::Log::Info("Inventar lokal: Aufwertung {} lokal, {} Eingaben, Ausgabe {} {}", Session.Upgrades.size(), Inputs.size(), Session.Upgrades.back().Data,
                     Session.Upgrades.back().Rarity);
     // opt-airdrop-edit-ungueltig, Nutzerentscheidung 13.11.2026: Liegt eine Eingabe nach UpgradeItems noch im Inventar (im Live-Test
     // am Abend des 13.11. rund 2,5 Minuten als Klon sichtbar), geht sie sofort lokal hinaus, nicht erst beim Bestätigen.
     if (const size_t Removed = RemoveConsumedInputs())
         Core::Log::Warn("Inventar lokal: {} Eingabe(n) lagen nach der Aufwertung noch im Inventar, sofort entfernt", Removed);
+}
+
+bool ClientConsumedInput(uintptr_t Item)
+{
+    return Session.State == Phase::Editing && IsConsumedInput(Item);
 }
 
 namespace
@@ -801,7 +857,25 @@ std::optional<Edit> FinishClient(uint64_t SessionId, uint64_t Revision, std::opt
         Final.push_back(std::move(Gone));
     }
     if (Choice && ChoiceItem)
-        Final.push_back(FinalState(ChoiceItem, Now, Slots, ChoiceSource));
+    {
+        // airdrop-belohnung-aufwertung: Eine als Eingabe verbrauchte Belohnung ist weg; ihre Instanz kann schon gelöscht sein und wird
+        // dann nicht mehr gelesen. Der Host prüft sie über die Daten der Wahl, nicht über DataHash.
+        if (IsConsumedInput(ChoiceItem) && !Alive(ChoiceItem))
+        {
+            ItemState Gone;
+            Gone.Source = ChoiceSource;
+            Gone.Present = false;
+            for (const auto& Recorded : Session.Upgrades)
+                for (size_t i = 0; i < Recorded.Inputs.size() && i < Recorded.InputHashes.size(); ++i)
+                    if (Recorded.Inputs[i] == ChoiceItem)
+                        Gone.DataHash = Recorded.InputHashes[i];
+            Final.push_back(Gone);
+        }
+        else
+            Final.push_back(FinalState(ChoiceItem, Now, Slots, ChoiceSource));
+        if (IsConsumedInput(ChoiceItem))
+            Core::Log::Info("Inventar lokal: Belohnung {} ist Eingabe einer Aufwertung, vorhanden {}", *Choice, Final.back().Present);
+    }
     // opt-station-zug: Ein Item, das seit Beginn der Bearbeitung dazugekommen ist und weder Belohnung, Ausgabe einer Aufwertung noch
     // Kauf ist, steht nicht im Edit. Lokal entstanden (etwa im Kopierladen, opt-kopierladen) fehlt es beim Host; vom Host
     // repliziert (etwa ein Itemsack) ist es dort schon vorhanden. Die Zeile unterscheidet das nicht.
@@ -942,6 +1016,7 @@ void RevertClient(const char* Why)
             Core::Log::Warn("Inventar lokal: Ausgangsstand nach dem ersten Durchgang unvollständig, zweiter Durchgang");
         Ok = Apply(Session.Inventory, Items, Current, Target, {}, Destroy, true);
     }
+    RestoreLoose(Why);
     Session.State = Phase::Idle;
     Core::Log::Info("Inventar lokal: Ausgangsstand wiederhergestellt ({}), vollständig={}", Why, Ok);
 }

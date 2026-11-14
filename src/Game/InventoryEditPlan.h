@@ -228,6 +228,52 @@ inline std::optional<int64_t> TradeBalance(int64_t Wallet, const std::vector<int
     return Wallet;
 }
 
+// lager-edit-stabil, Client: Schrott während einer lokalen Bearbeitung. Der Schrott ist gemeinsam und gehört dem Host; im Live-Test am
+// 14.11.2026 gab der Host während der Lager-Bearbeitung des Clients aus (88 zu 50), der Client rechnete weiter mit 88 und der Host lehnte
+// den Edit ab. Jetzt folgt die Anzeige auch während der Bearbeitung dem Host: Host-Stand plus eigene vorläufige Erlöse minus Kosten.
+// Das Konto des Spiels klemmt bei 0 (AddAmount), darum merkt sich die Ansicht einen Fehlbetrag selbst. Host ist der zuletzt
+// eingerechnete Stand des Hosts, Missing der Teil, der unter 0 läge.
+struct ScrapView
+{
+    int64_t Host = 0;
+    int64_t Missing = 0;
+    bool operator==(const ScrapView&) const = default;
+};
+
+// Neuer Kontostand für die Anzeige, wenn der Host NewHost meldet und das Konto des Clients gerade Wallet zeigt. Die Änderung von Wallet
+// seit dem letzten Aufruf sind die eigenen Züge (Verkauf, Reparatur, Kauf), die Änderung des Hosts kommt dazu.
+constexpr int64_t Rebase(ScrapView& View, int64_t Wallet, int64_t NewHost)
+{
+    const int64_t Balance = Wallet - View.Missing + (NewHost - View.Host);
+    View.Host = NewHost;
+    View.Missing = Balance < 0 ? -Balance : 0;
+    return Balance < 0 ? 0 : Balance;
+}
+
+// Vorprüfung vor dem Bestätigen. Der Host rechnet erst alle Verkäufe, dann Reparaturen und Käufe (TradeBalance); das geht genau dann
+// auf, wenn der Stand des Hosts plus Erlöse minus Kosten nicht unter 0 fällt, also ohne Fehlbetrag. Die Preise rechnet der Host
+// selbst; weichen sie ab (FreeRepairChance würfelt nur der Client), bleibt die Ablehnung der Rückfall.
+constexpr bool ScrapCovers(const ScrapView& View)
+{
+    return View.Missing == 0;
+}
+
+// Was das Bestätigen im Lager nach der Vorprüfung tut. Reicht der Schrott, geht der Edit an den Host. Reicht er nicht, bleibt die
+// Bearbeitung beim ersten Mal offen; Reparaturen lassen sich im Panel nicht zurücknehmen, und ohne Verkaufbares käme der Spieler nie
+// weiter (der Host wartet auf ihn). Darum nimmt ein zweites Bestätigen ohne genug Schrott die Bearbeitung lokal zurück, wie eine
+// Ablehnung des Hosts, nur ohne Rundreise; danach bestätigt der Spieler den Ausgangsstand oder bearbeitet neu.
+enum class ShortConfirm : uint8_t
+{
+    Send,
+    Block,
+    Revert,
+};
+
+constexpr ShortConfirm OnLagerConfirm(bool Covers, bool BlockedBefore)
+{
+    return Covers ? ShortConfirm::Send : BlockedBefore ? ShortConfirm::Revert : ShortConfirm::Block;
+}
+
 inline std::vector<Tile> Sorted(std::vector<Tile> Tiles)
 {
     std::sort(Tiles.begin(), Tiles.end());
@@ -523,9 +569,54 @@ inline std::vector<Step> Plan(const std::vector<ItemState>& Current, const std::
     for (size_t i = 0; i < Current.size() && i < Target.size(); ++i)
         if (Target[i].Present && Target[i].Trash != (Current[i].Present && Current[i].Trash))
             Steps.push_back({StepKind::Trash, i});
+    // lager-edit-stabil: auch ein Item, das erst der Schritt Add zurückbringt (lokal repariert, dann als Eingabe einer Aufwertung
+    // verbraucht). Vorher fehlte Break dafür, erst ein zweiter Durchgang setzte es wieder kaputt (Live-Test 14.11.2026, Pistole).
     for (size_t i = 0; i < Current.size() && i < Target.size(); ++i)
-        if (Target[i].Present && Target[i].Broken && Current[i].Present && !Current[i].Broken)
+        if (Target[i].Present && Target[i].Broken && !Current[i].Broken)
             Steps.push_back({StepKind::Break, i});
     return Steps;
+}
+
+// Client, airdrop-belohnung-aufwertung: Zustand einer Anzeige-Instanz der Airdrop-Auswahl nach dem nativen Bestätigen.
+struct ShownChoice
+{
+    bool Alive = false, Reward = false, InInventory = false;
+    bool Consumed = false; // Eingabe einer lokal aufgezeichneten Aufwertung
+};
+
+// Client: gewählte Belohnung. Bevorzugt die Instanz, die keine Belohnung mehr ist und im Inventar liegt, dann eine ohne Inventar
+// (ein Rucksack kann schon verbraucht sein). Live-Test 14.11.2026: Eine auf ein gleiches Item gelegte Belohnung ist Eingabe der
+// Aufwertung und wurde nicht als Wahl erkannt („Wahl=keine“), die Bearbeitung wurde zurückgenommen. Vermutung: Seit #244 liegt sie
+// sofort nicht mehr im Inventar und bleibt in der Anzeige Belohnung. Auch sie gilt jetzt als gewählt.
+inline std::optional<uint32_t> PickChoice(const std::vector<ShownChoice>& Shown)
+{
+    for (int Pass = 0; Pass < 2; ++Pass)
+        for (uint32_t i = 0; i < Shown.size(); ++i)
+            if (Shown[i].Alive && !Shown[i].Reward && (Pass == 1 || Shown[i].InInventory))
+                return i;
+    for (uint32_t i = 0; i < Shown.size(); ++i)
+        if (Shown[i].Consumed)
+            return i;
+    return std::nullopt;
+}
+
+// lager-edit-stabil: Rohe Lage eines Items, auch außerhalb des Rucksacks. Das Panel setzt Pivot und Drehung beim Ziehen lokal; nimmt ein
+// Edit oder das Zurückrollen das Item aus dem Rucksack, bleiben sie beim Client neu, beim Host alt. ItemState und Plan sehen sie dort
+// nicht (SamePlacement), der Desync-Melder zählt sie aber mit: Nach der Ablehnung am 14.11.2026 meldete er dauerhaft „ABWEICHUNG
+// Inventar“, obwohl das Zurückrollen vollständig war (Feuerzeug, Ratte, Revolver lagen kurz im Rucksack und wieder im Lager).
+struct Loose
+{
+    Tile Pivot{};
+    int32_t Turns = 0;
+    bool InBackpack = false;
+    bool Present = true;
+    bool operator==(const Loose&) const = default;
+};
+
+// Muss das Item auf seine Ausgangslage zurück? Nur vorhanden und außerhalb des Rucksacks; im Rucksack gilt die Lage aus dem Edit oder
+// dem Plan, und genau die setzt auch der Host.
+constexpr bool NeedsLooseRestore(const Loose& Start, const Loose& Now)
+{
+    return Now.Present && !Now.InBackpack && (Now.Pivot != Start.Pivot || Now.Turns != Start.Turns);
 }
 }

@@ -1015,6 +1015,21 @@ TEST_CASE("Bewegung: eigener Dodge gilt nur so lange als laufend, wie sein Schub
     CHECK(DashExpectedMs(0.3f) < 750); // alte Zeitgrenze bleibt nur Rückfall
 }
 
+TEST_CASE("lager-edit-stabil: Aufwertung nach dem Bereit im Lager beginnt eine neue Bearbeitung statt nativ zu laufen")
+{
+    // Live-Test 14.11.2026 (Mod-Version 13): Client bereit, wartet auf den Host, legt dann zwei Pistolen aufeinander.
+    CHECK(ClientReopensLager(7, 0, true, false, true));
+    // Ziehen allein (kein Spielerzug wie Aufwerten, Verkaufen, Reparieren) nimmt das Bereit nicht zurück.
+    CHECK_FALSE(ClientReopensLager(7, 0, true, false, false));
+    // Bestätigen schon nativ gelaufen, Edit wartet auf Antwort, kein Rundenende oder nicht bereit: nichts zurücknehmen.
+    CHECK_FALSE(ClientReopensLager(7, 7, true, false, true));
+    CHECK_FALSE(ClientReopensLager(7, 0, true, true, true));
+    CHECK_FALSE(ClientReopensLager(0, 0, true, false, true));
+    CHECK_FALSE(ClientReopensLager(7, 0, false, false, true));
+    // Der Zug im Rucksack bleibt beim gehaltenen Bestätigen wie bisher nativ.
+    CHECK(ClientMoveBegins(false, false, false, 7, 0, true, true) == ClientMove::Native);
+}
+
 TEST_CASE("opt-station-zug: erster Zug des Clients beginnt eine Bearbeitung, im Lager oder an einer Station")
 {
     // Lager am Rundenende: wie bisher, solange nicht bestätigt.

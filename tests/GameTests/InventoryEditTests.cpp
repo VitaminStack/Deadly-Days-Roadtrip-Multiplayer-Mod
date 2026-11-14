@@ -500,3 +500,145 @@ TEST_CASE("lager-edit-ablehnung: Urteil des Hosts mit Grund, jeder Grund hat ein
     CHECK(std::string(ReasonText(static_cast<uint8_t>(EditReason::Count))) == "unbekannter Grund");
     CHECK(std::string(ReasonText(static_cast<uint8_t>(EditReason::Scrap))) == "Schrott reicht nicht oder Preis ungültig");
 }
+
+TEST_CASE("Airdrop: eine als Aufwertungseingabe verbrauchte Belohnung gilt als gewählt")
+{
+    // airdrop-belohnung-aufwertung, Live-Test 14.11.2026: Belohnung auf eine gleiche Pistole im Rucksack gelegt. Die Anzeige behält
+    // die Instanz als Belohnung, im Inventar liegt sie nicht mehr. Früher hieß das „Wahl=keine“ und die Bearbeitung wurde zurückgenommen.
+    ShownChoice Other{true, true, false, false}, Used{true, true, false, true};
+    CHECK(PickChoice({Other, Used, Other}) == uint32_t{1});
+    ShownChoice Deleted; // Instanz schon gelöscht, aber als Eingabe aufgezeichnet
+    Deleted.Consumed = true;
+    CHECK(PickChoice({Other, Deleted}) == uint32_t{1});
+    CHECK_FALSE(PickChoice({Other, Other}).has_value());
+    // Eine normal gewählte Belohnung hat Vorrang, im Inventar vor einer ohne Inventar.
+    ShownChoice Taken{true, false, true, false}, Placed_{true, false, false, false};
+    CHECK(PickChoice({Used, Placed_, Taken}) == uint32_t{2});
+    CHECK(PickChoice({Used, Placed_}) == uint32_t{1});
+}
+
+TEST_CASE("Airdrop: Belohnung als Aufwertungseingabe ergibt einen gültigen Edit, mit und ohne Drehung")
+{
+    for (const int32_t Turns : {0, 1})
+    {
+        CAPTURE(Turns);
+        // Ausgangsstand: Pistole (Quelle 0) im Rucksack, gedreht oder nicht.
+        const std::vector<Tile> Tiles = Turns ? std::vector<Tile>{{0, 0}, {0, 1}} : std::vector<Tile>{{0, 0}, {1, 0}};
+        const std::vector<ItemState> Base{Placed(0, Tiles, Turns), Stored(1)};
+        // Endstand: Pistole und Belohnung verbraucht. Die Belohnung trägt noch ihre letzte Drehung, aber keine Felder mehr.
+        ItemState Choice = Gone(Placed(0, Tiles, Turns), 0);
+        Choice.Source = ChoiceSource;
+        const std::vector<ItemState> Final{Gone(Base[0]), Base[1], Choice};
+        Edit Value = Diff(Base, Final, Tiles, Tiles);
+        Value.Session = 7;
+        Value.Choice = uint8_t{1};
+        REQUIRE(Value.Items.size() == 2);
+        CHECK(Value.Items[1].Source == ChoiceSource);
+        Upgrade Next;
+        Next.Inputs = {ChoiceSource, 0};
+        Next.Data = "ItemData_Pistol";
+        Next.Rarity = "Rarity_1_Uncommon";
+        Next.Output = Placed(0, Tiles, Turns);
+        Next.Output.Source = UpgradeSource(0);
+        Next.Output.DataHash = NameHash(Next.Data);
+        Value.Upgrades = {Next};
+        CHECK(Malformed(Value) == nullptr);
+        CHECK(ConsumedSources(Value) == std::set<uint16_t>{0, ChoiceSource});
+
+        // Klon-Schutz aus #244 bleibt: Liegt die verbrauchte Belohnung noch im Rucksack, ist der Edit ungültig.
+        auto Clone = Value;
+        Clone.Items[1] = Placed(ChoiceSource, {{3, 3}});
+        CHECK(std::string(Malformed(Clone)) == "Aufwertung: Eingabe noch vorhanden");
+        // Ohne Wahl fehlt die Belohnung als Quelle.
+        auto NoPick = Value;
+        NoPick.Choice.reset();
+        CHECK_FALSE(WellFormed(NoPick));
+    }
+}
+
+TEST_CASE("lager-edit-stabil: Schrott-Anzeige folgt dem Host auch während der Bearbeitung")
+{
+    // Live-Test 14.11.2026: Beginn bei 88, der Client verkauft für 12 und repariert für 30 (Anzeige 70), der Host gibt 38 aus.
+    ScrapView View{88, 0};
+    CHECK(Rebase(View, 70, 88) == 70); // ohne neuen Stand des Hosts bleibt die eigene Vorschau
+    CHECK(Rebase(View, 70, 50) == 32); // Host 50, eigene Vorschau -18
+    CHECK(View == ScrapView{50, 0});
+    CHECK(ScrapCovers(View));
+    // Der Host gibt weiter aus: Die Vorschau fiele unter 0, das Konto des Spiels klemmt bei 0, der Fehlbetrag bleibt gemerkt.
+    CHECK(Rebase(View, 32, 10) == 0);
+    CHECK(View == ScrapView{10, 8});
+    CHECK(!ScrapCovers(View));
+    // Ein Verkauf für 5 deckt den Fehlbetrag nicht, ein zweiter für 6 schon.
+    CHECK(Rebase(View, 5, 10) == 0);
+    CHECK(View.Missing == 3);
+    CHECK(Rebase(View, 6, 10) == 3);
+    CHECK(View == ScrapView{10, 0});
+    // Bekommt der Host Schrott dazu, steigt die Anzeige um denselben Betrag.
+    CHECK(Rebase(View, 3, 30) == 23);
+}
+
+TEST_CASE("lager-edit-stabil: Vorprüfung deckt sich mit der Rechnung des Hosts")
+{
+    // Host 50, Client verkauft für 12 und 8 und repariert für 30, 25 und 10: Der Host lehnt ab (50 + 20 - 65 = 5 reicht, 50 + 20 - 75 nicht).
+    ScrapView View{88, 0};
+    const int64_t Preview = 88 + 12 + 8 - 30 - 25 - 10; // 43
+    CHECK(Rebase(View, Preview, 50) == 5);
+    CHECK(ScrapCovers(View));
+    CHECK(TradeBalance(50, {12, 8}, {30, 25, 10}) == 5);
+    ScrapView Short{88, 0};
+    CHECK(Rebase(Short, Preview - 10, 50) == 0); // noch eine Reparatur für 10
+    CHECK(!ScrapCovers(Short));
+    CHECK(!TradeBalance(50, {12, 8}, {30, 25, 10, 10}));
+}
+
+TEST_CASE("lager-edit-stabil: Zurückrollen setzt eine reparierte, dann verbrauchte Eingabe in einem Durchgang wieder kaputt")
+{
+    // Live-Test 14.11.2026: Pistole lokal repariert und als Eingabe einer Aufwertung verbraucht. Ziel ist der Ausgangsstand: vorhanden, kaputt.
+    ItemState Start = Stored(0);
+    Start.Broken = true;
+    ItemState Consumed = Gone(Stored(0)); // nicht mehr im Inventar, das Item ist lokal heil
+    const auto Steps = Plan({Consumed}, {Start}, false, false);
+    const std::vector<Step> Expected{{StepKind::Add, 0}, {StepKind::Break, 0}};
+    CHECK(Steps == Expected);
+    // Schon kaputt: kein zweites Break.
+    ItemState StillBroken = Consumed;
+    StillBroken.Broken = true;
+    CHECK(Plan({StillBroken}, {Start}, false, false) == std::vector<Step>{{StepKind::Add, 0}});
+}
+
+TEST_CASE("lager-edit-stabil: Lage außerhalb des Rucksacks geht beim Zurückrollen auf den Ausgangsstand")
+{
+    const Loose Start{{4, -2}, 1, false, true};
+    // Im Lager gezogen und gedreht: zurück.
+    CHECK(NeedsLooseRestore(Start, Loose{{-1, -1}, 1, false, true}));
+    CHECK(NeedsLooseRestore(Start, Loose{{4, -2}, 3, false, true}));
+    // Unverändert: nichts.
+    CHECK_FALSE(NeedsLooseRestore(Start, Start));
+    // Im Rucksack gilt die Lage aus dem Plan, nicht verändern.
+    CHECK_FALSE(NeedsLooseRestore(Start, Loose{{0, 0}, 0, true, true}));
+    // Nicht vorhanden (verkauft, verbraucht): nichts.
+    CHECK_FALSE(NeedsLooseRestore(Start, Loose{{0, 0}, 0, false, false}));
+    // Erst im Rucksack, beim Zurückrollen herausgenommen (Feuerzeug, Ratte, Revolver am 14.11.): Pivot vom Ziehen bleibt sonst stehen.
+    const Loose WasPlaced{{-1, 0}, 2, false, true};
+    CHECK(NeedsLooseRestore(Loose{{0, 0}, 0, false, true}, WasPlaced));
+}
+
+TEST_CASE("lager-edit-stabil: Bestätigen bei Fehlbetrag hält erst an, beim zweiten Mal nimmt es zurück")
+{
+    CHECK(OnLagerConfirm(true, false) == ShortConfirm::Send);
+    CHECK(OnLagerConfirm(true, true) == ShortConfirm::Send); // inzwischen verkauft oder der Host hat Schrott bekommen
+    CHECK(OnLagerConfirm(false, false) == ShortConfirm::Block);
+    // Reparaturen lassen sich nicht zurücknehmen: Ohne Ausweg wartete der Host für immer auf den Client.
+    CHECK(OnLagerConfirm(false, true) == ShortConfirm::Revert);
+}
+
+TEST_CASE("lager-edit-stabil: Beim Host ist Current immer vorhanden, Break bleibt dort aus")
+{
+    // Gewählte kaputte Belohnung: Host liest sie kaputt, Ziel kaputt, kein Break (das gäbe beim Host Ok = false).
+    ItemState Reward = Stored(0);
+    Reward.Broken = true;
+    ItemState Goal = Placed(0, {{1, 1}});
+    Goal.Broken = true;
+    for (const Step& Next : Plan({Reward}, {Goal}, false, false))
+        CHECK(Next.Kind != StepKind::Break);
+}
