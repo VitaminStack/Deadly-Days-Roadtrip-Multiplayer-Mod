@@ -27,4 +27,14 @@ size_t MergeKeepList(const uintptr_t* Keep, size_t KeepCount, const uintptr_t* P
     }
     return Count;
 }
+
+size_t LocalControllerBehindFront(const bool* Local, size_t Count)
+{
+    if (Count == 0 || Local[0])
+        return Count;
+    for (size_t i = 1; i < Count; ++i)
+        if (Local[i])
+            return i;
+    return Count;
+}
 }

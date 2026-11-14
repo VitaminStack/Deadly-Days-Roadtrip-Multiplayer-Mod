@@ -454,6 +454,10 @@ bool ShouldRedirectTravel(NetRole Role, std::string_view Target);
 // die neue Länge; Added zählt die ergänzten Figuren. Doppelte und Null-Figuren kommen nicht dazu.
 size_t MergeKeepList(const uintptr_t* Keep, size_t KeepCount, const uintptr_t* Pawns, size_t PawnCount, uintptr_t* Out,
                      size_t Capacity, size_t& Added);
+// UWorld::PlayerControllerList beim Host: Platz des ersten lokalen Controllers, wenn ein anderer davor steht, sonst
+// Count. Natives GetFirstPlayerController nimmt Platz 0; nach der Reise steht dort sonst der noch nicht getauschte
+// Controller eines Clients, der später lädt (host-absturz-start).
+size_t LocalControllerBehindFront(const bool* Local, size_t Count);
 // UInViewportMovementRestrictor::PreProcessMovementInput liest PlayerArray.Num über MissionGameState (RAX) ohne
 // Null-Prüfung. Ohne GameState gilt dasselbe wie bei einem Spieler: keine Bremse (Skip). Sonst das Original
 // cmp dword [rax+2C8h],1; jle Skip, danach weiter bei Continue.
