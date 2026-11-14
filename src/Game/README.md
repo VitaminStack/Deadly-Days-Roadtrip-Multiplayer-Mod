@@ -353,6 +353,39 @@ Schließen ohne Wahl (`Ausgangsstand wiederhergestellt, vollständig=true`) bele
 Offen und nicht Teil dieser Aufgabe: Beim Rundenende sieht der Client noch die alte Sperre statt Rundenübersicht und Lager
 (`rundenende-client`).
 
+#### Ablehnung mit Grund
+
+Aufgabe `lager-edit-ablehnung`, Code in `RewardPatches.cpp` (`ApplyClientEdit`, `ResolveClientEdit`), `InventoryEdit.cpp`
+(`RevertClient`, `Apply`), `InventoryEditPlan.h` (`EditReason`, `Verdict`, mit Tests) und `src/Sync/Inventory/RewardState.h`. Format in
+[Kontrollkanal](../../docs/CONTROL_PROTOCOL.md#antwort-mit-grund-mod-kompatibilität-14).
+
+**Befund vorher** (Live-Test 10.11.2026 und Code): Ein großer Lager-Edit wurde abgelehnt, der Grund stand nur im Log des Hosts. Der
+Client stellte seinen Ausgangsstand unvollständig her. Danach blieb er im Lager „bereit“ (Knopf gelb), denn das Bestätigen hielt bis
+zur Antwort und wurde bei einer Ablehnung nicht zurückgenommen. Mit gehaltenem Bestätigen beginnt `BeginPanelEdit` nichts: Zwei
+Aufwertungen liefen nur nativ beim Client, Verkäufe wurden verworfen, und der Host hätte ohne den Client weiterreisen können. Dazu
+meldete `ApplyClientEdit` „übernommen“, auch wenn nur ein Teil der Schritte gelang.
+
+- **Geteilt:** Die Antwort `0x304` trägt Stand und Grund (Mod-Version 14). Sonst nichts Neues.
+- **Entscheidet:** Der Host wie bisher. Jede Ablehnung nennt einen Grund aus `EditReason`; nach einer Ablehnung hat er nichts geändert.
+  Gelingt nach bestandener Prüfung nicht jeder Schritt, meldet er „teilweise übernommen“.
+- **Beim Client:** Der Grund steht im Log (`Host hat Edit … abgelehnt: …`). Im Lager nimmt eine Ablehnung das Bereit zurück: Der Knopf
+  verliert die Farbe, der nächste Zug beginnt eine neue Bearbeitung, der Spieler bestätigt erneut. Bei „teilweise übernommen“ rollt
+  der Client nicht zurück, weil der Host schon geändert hat; er schreibt eine Warnung, sein Stand kann bis zur Replikation abweichen.
+- **Zurückrollen:** `RevertClient` liest nach einem unvollständigen ersten Durchgang den Stand neu und versucht den Rest ein zweites
+  Mal. Weicht ein Item danach noch ab, nennt das Log Ist und Soll (vorhanden, Rucksack, Drehung, Pivot, Felder, Papierkorb, kaputt).
+- **Klon nach Aufwertung (`opt-airdrop-edit-ungueltig`, Nutzerentscheidung 13.11.2026):** Eine schon aufgewertete Eingabe kommt
+  während der Bearbeitung nicht wieder ins Inventar. Inventar-Aufrufe für sie verwirft der Client (`… für schon aufgewertete Eingabe
+  verworfen`), solange sie nicht im Inventar liegt. Liegt eine Eingabe direkt nach `UpgradeItems` noch im Inventar, entfernt
+  `RecordUpgrade` sie sofort lokal. Das Aufräumen beim Bestätigen bleibt als Rückfall.
+- **Ungültige Bearbeitung im Lager:** Nimmt der Client seine Bearbeitung beim Bestätigen selbst zurück (Edit ungültig), bestätigt er
+  nicht und gilt nicht als bereit (`ClientFinishReverted`); vorher lief das Bestätigen mit still zurückgesetztem Lager weiter.
+
+**Geprüft** (14.11.2026): Build und Unit-Tests. **Nicht im Spiel geprüft**, auch nicht nachgestellt: Die Ursache der Ablehnung vom
+10.11. ist weiter unbekannt, das Host-Log dieser Sitzung liegt nicht vor; warum das Zurückrollen damals unvollständig blieb, ist nicht
+belegt, der zweite Durchgang ist eine Absicherung, kein Nachweis. Offen ist auch, wie das Panel aussieht, wenn der Spieler eine schon
+aufgewertete Belohnung erneut aus der Anzeige zieht und der Aufruf verworfen wird. Der Branch enthält `opt-rucksack-versatz` (#242)
+und `opt-station-zug` (#243).
+
 **Neue Felder sofort sichtbar (`ausruestung-felder`, 06.11.2026).** Fehlerbild: Legt der Client einen Rucksack-Block an, entstanden die
 Felder lokal (Client-Inventar 11 statt 8 Slots, Log `Server_CreateSlotsFromBagItem lokal, 3 Felder`), das Panel zeigte sie aber erst,
 nachdem der Host etwas repliziert hatte. Ursache: Die Feld-Widgets hängen an einem nativen Delegate am `InventoryComponent` (`+0x110`,
@@ -554,6 +587,47 @@ die auch Knopf und Panel rufen:
 **Nicht geprüft:** Die Aufwertung lief über `UpgradeItems` direkt, also durch denselben Hook wie Ablegen und Rezept, aber nicht über das
 Rezept-Panel (`ConfirmAllStagedIngredients`) und nicht per Drag von Hand. Ebenso offen: Verkauf und Reparatur in einer
 Stations-Bearbeitung, zwei PCs.
+
+### Züge an einer Station
+
+Aufgabe `opt-station-zug`, Code in `RewardPatches.cpp` (`BeginMoveEdit`, `InMissionWorld`) und `PatchPolicy.h` (`ClientMoveBegins`, mit
+Tests in `tests/GameTests/PatchTests.cpp`).
+
+**Befund vorher:** Eine [Stations-Bearbeitung](#stations-bearbeitung-beim-client) begann nur mit einer Aufwertung, einem Verkauf, einer
+Reparatur oder einem Kauf. Ablegen, Drehen und Herausnehmen davor liefen als native Server-RPCs. Im Lager ist gemessen, dass solche
+Züge beim Host ohne Pivot und Drehung ankommen
+([Rucksack-Überlappung](../../docs/GAME_ANALYSIS.md#rucksack-überlappung-beim-client-opt-rucksack-ueberlappung)); für die Station ist
+das aus demselben Code geschlossen, dort nicht eigens gemessen.
+
+- **Lokal beim Client:** Der erste Inventar-RPC am eigenen Inventar (Ablegen, Feldbelegung, Pivot, Lagerflags, Entfernen) beginnt
+  eine lokale Bearbeitung: im Lager wie seit `opt-rucksack-ueberlappung`, sonst in einer Mission eine Stations-Bearbeitung, wenn ein
+  Inventar-Panel zum eigenen Inventar offen ist. Ohne offenes Panel beginnt nie eine Bearbeitung, denn sie hält die übrigen
+  Server-RPCs des Clients zurück (etwa Auto-Feuer). In der MetaBase und im Menü bleibt alles nativ. Neu ist damit: Schon der erste
+  Zug an einer Station hält diese übrigen Server-RPCs zurück, bis das Panel schließt, vermutlich auch „Automatisch ausrüsten“.
+  Begonnen wird nur bei ruhender Sitzung (`ClientIdle`): nicht während eine Antwort aussteht und nicht während des Zurückrollens,
+  dessen verschachtelte Inventar-RPCs sonst eine neue Bearbeitung mitten im Wiederherstellen begonnen hätten (das galt vorher auch
+  für das Lager).
+- **Geteilt:** Nichts Neues. Der Endstand geht beim Schließen des Panels als Edit `0x303` an den Host, die Mod-Version bleibt.
+- **Entscheidet:** Der Host, mit denselben Prüfungen wie für jeden Edit (`ApplyClientEdit`).
+- **Ablehnung und Abbruch:** Wie bei jeder Stations-Bearbeitung: Ablehnung rollt zurück, ein Kartenwechsel verwirft, ein Rundenende
+  oder eine Airdrop-Auswahl schickt die Bearbeitung vorher an den Host. Ein reines Öffnen und Schließen ohne Änderung endet ohne Edit.
+- **Kein Verwerfen:** Was weiter nativ zum Host geht (kein offenes Panel, oder der Stand des letzten Edits ist noch nicht repliziert),
+  bleibt nativ und steht je Funktion einmal im Log (`… außerhalb einer Bearbeitung geht nativ an den Host`). Erst mit diesen Zeilen aus
+  einem Live-Test lässt sich entscheiden, ob solche Aufrufe verworfen werden können. Eine Aufwertung ohne Bearbeitung läuft wie bisher
+  nativ.
+- **Nicht abgedeckt:** Der Kopierladen (`opt-kopierladen`), Automaten und der dubiose Händler. Ein Item, das lokal entsteht und weder
+  Belohnung, Ausgabe einer Aufwertung noch Kauf ist, kennt der Edit nicht; `FinishClient` nennt jedes während der Bearbeitung
+  dazugekommene Item im Log (`… kam während der Bearbeitung dazu und steht nicht im Edit`). Die Zeile trifft auch ein Item, das der
+  Host in dieser Zeit repliziert hat.
+- **Kosten:** Das eigene Inventar wird gemerkt statt je Aufruf im Objekt-Array gesucht; ein gescheiterter Versuch an einer Station
+  wird erst nach 250 ms wiederholt. Die Einordnung der Funktion (`MayChangeInventory`, Sperre und Tabellensuche) läuft jetzt bei
+  ruhender Sitzung für jedes `ProcessEvent` des Clients, nicht mehr nur am Rundenende. **Nicht gemessen**; im nächsten Lauf die
+  `Takt:`-Zeilen des Clients vergleichen.
+
+**Geprüft** (14.11.2026): Build und Unit-Tests. **Nicht im Spiel geprüft.** Der Test braucht Mauszüge im Fenster des Clients: im
+Händler-Event über den Zurück-Knopf das Inventar öffnen, ein Item gedreht ablegen, bestätigen; erwartet „Station: Zug im Rucksack beim
+Client“, ein übernommener Edit beim Host mit Pivot und Drehung und `inventory.py` gleich. Offen ist auch, ob ein Inventar-Panel in
+einer Mission in Lagen aufgeht, die hier nicht bedacht sind.
 
 ### Kaufen beim Händler
 

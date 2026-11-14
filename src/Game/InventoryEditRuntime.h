@@ -36,6 +36,8 @@ void RefreshEffects(uintptr_t Inventory);
 void BeginClient(uintptr_t Inventory, const std::vector<uintptr_t>& Choices, uintptr_t Controller);
 // Client: Panel bearbeitet gerade lokal.
 bool ClientEditing();
+// Client: keine Bearbeitung, kein unbeantworteter Edit und kein laufendes Zurückrollen.
+bool ClientIdle();
 // Client: Bearbeitung läuft und gehört zu Inventory.
 bool ClientEditingInventory(uintptr_t Inventory);
 // Client, werkbank-client: UpgradeItems lief während der Bearbeitung lokal. Inputs sind die verbrauchten Instanzen, Output die
@@ -47,6 +49,9 @@ void RecordPurchase(uintptr_t Item, uintptr_t Data, uintptr_t Rarity, int32_t Co
 // Client: Endstand nach dem nativen Bestätigen. ChoiceItem ist die gewählte Anzeige-Instanz oder 0. Ohne Änderung nullopt,
 // die Bearbeitung ist dann beendet; sonst bleibt der Ausgangsstand bis zur Antwort des Hosts gemerkt.
 std::optional<Edit> FinishClient(uint64_t Session, uint64_t Revision, std::optional<uint8_t> Choice, uintptr_t ChoiceItem);
+// Client, lager-edit-ablehnung: Der letzte FinishClient hat die Bearbeitung selbst zurückgenommen (Edit ungültig), statt sie ohne
+// Änderung zu beenden. Der Spieler darf dann nicht als bereit gelten, sein Stand ist wieder der Ausgangsstand.
+bool ClientFinishReverted();
 // Client: Ausgangsstand lokal wiederherstellen (Ablehnung, Abbruch) und Bearbeitung beenden.
 void RevertClient(const char* Why);
 // Client: Host hat übernommen, der Ausgangsstand wird nicht mehr gebraucht.

@@ -61,7 +61,8 @@ std::optional<Offer> ReadOffer();
 
 // Host: Edit des Clients übernehmen (inventar-lokal): gewählte Belohnung anlegen, geänderte Items und neue Felder mit den
 // nativen Funktionen setzen. Falsch, wenn er nicht passt; dann bleibt das Inventar des Clients unverändert.
-bool ApplyClientEdit(const Game::InventoryEdit::Edit& Value);
+// lager-edit-ablehnung: Das Urteil nennt den Grund einer Ablehnung und ob eine Übernahme vollständig war.
+Game::InventoryEdit::Verdict ApplyClientEdit(const Game::InventoryEdit::Edit& Value);
 
 // Host: Aufräumen je Takt: zurückgehaltenes Bestätigen nachholen, Koop-Modus nach der Sitzung zurücksetzen, die Wahl
 // des Clients in sein Inventar legen.
@@ -78,7 +79,9 @@ void CloseForClient();
 std::optional<Game::InventoryEdit::Edit> PendingClientEdit();
 
 // Client: Antwort des Hosts. Bei Ablehnung stellt der Client seinen Ausgangsstand wieder her.
-void ResolveClientEdit(uint64_t Id, bool Accepted);
+// lager-edit-ablehnung: Der Grund steht danach im Log des Clients. Im Lager nimmt eine Ablehnung auch das Bereit zurück, damit
+// der Spieler neu bearbeiten und erneut bestätigen kann.
+void ResolveClientEdit(uint64_t Id, const Game::InventoryEdit::Verdict& Verdict);
 
 // Client: Verbindung weg, offenen Edit verwerfen und Ausgangsstand wiederherstellen.
 void AbortClientEdit();

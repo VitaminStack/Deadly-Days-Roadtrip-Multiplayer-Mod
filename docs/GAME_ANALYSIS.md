@@ -2666,6 +2666,29 @@ des Clients per Skript-Eingabe bedient, Vergleich mit `tools/spike/inventory.py`
   aber nicht mehr.
 - **Fehlversuch:** `0x5A92030` aus `docs/OFFSETS.md` ist die Adresse von `SnapRepresentationToTile` im alten Build `26187885` und
   liegt in `26495302` mitten in einer anderen Funktion; dort beginnt sie bei `0x5A96EF0` (in der Tabelle nachgetragen).
+- **[Belegt, Disassembly, 14.11.2026] `SnapRepresentationToTile` bekommt nativ nicht den Pivot.** Die Funktion
+  (`0x5A96EF0`) rechnet Feld mal 66 px als Position des Widgets im Rucksack-Raster. Nur bei Drehung 1 und 3 zieht sie den Unterschied
+  aus Breite und Höhe des Widgets ab (Größe aus `0x5A6D0F0`, mit einer Konstante multipliziert, vermutlich 0,5); bei Drehung 0 und 2
+  rechnet sie nichts um. Einen Rasterursprung addiert sie nur im nativen Koop-Panel (`Panel+0x900` gesetzt, Versatz aus `+0x388` oder `+0x398`),
+  sonst null. Der native Ablage-Weg (`0x5A80DE0`) füllt eine Struktur mit Drehung (`+0`), Pivot (`+4`, geht an
+  `SetZeroPivotTile`) und einem zweiten Feld (`+0xC`), und nur dieses zweite geht an den Snap (`0x5A8105E`).
+  `RestoreBackpackVisuals` übergab dagegen den replizierten Pivot. **[Vermutung, aus der Rechnung abgeleitet]** Das zweite Feld ist
+  die obere linke Ecke der belegten Fläche: Nur so passt Feld mal 66 px ohne Ausgleich bei Drehung 2. Bei gedrehten Items liegt der
+  Pivot nicht auf der Ecke (im
+  Ein-PC-Test bei Drehung 1 auf dem rechten der beiden Felder), die Anzeige stand dann um bis zu Itemlänge minus 1 Felder nach
+  rechts oder unten versetzt. Das passt zur um eine Spalte versetzten, um 180° gedrehten Luftpumpe und zu Items rechts und unten
+  außerhalb des Rasters im Live-Test am Abend. **Nicht erklärt** ist damit, dass der Versatz dort mit jeder Erweiterung wuchs: Ein
+  Fehler aus Pivot statt Ecke ist durch die Itemlänge begrenzt und trifft ungedrehte Items nicht. Offen ist, welchen Container
+  `GetBackpackContainer` liefert (die nativen Aufrufer übergeben `Panel+0x448` und `+0x420`, bei `+0x458` schreibt der Snap den
+  Positions-Cache nicht) und ob sich dessen Geometrie nach einer Erweiterung nach links oder oben verschiebt. Das Client-Log des
+  Abends lag auf diesem PC nicht vor, die Drehung der versetzten Items ist also nicht gegengeprüft.
+- **Fix (14.11.2026, Branch `task/opt-rucksack-versatz`):** `RestoreBackpackVisuals` richtet jedes Rucksack-Item an der oberen
+  linken Ecke seiner replizierten belegten Felder aus (`SnapTile` in `InventoryEditPlan.h`, mit Unit-Test), ohne Feldbelegung
+  weiter am Pivot. Nichts Neues wird geteilt. Die Logzeile nennt, bei wie vielen Items die Ecke vom Pivot abweicht.
+  Das ist ein Kandidat für die gedrehten Items, keine belegte Gesamtursache. **Nicht im Spiel geprüft:** Build und Unit-Tests
+  bestehen; der Test braucht einen Menschen, der beim Client ein gedrehtes Item ablegt und den Rucksack nach links oder oben
+  erweitert, bestätigt und das Panel erneut öffnet, dazu ein Bild desselben Rucksacks beim Host. Nicht belegt ist auch, wie der native Weg das zweite Feld berechnet
+  (`0x5A68150`, nur teilweise gelesen) und ob Items mit leerer Ecke (Winkel) nativ genauso an der Ecke der Fläche liegen.
 
 ### Händler und Werkbank im Händler-Event (`opt-haendler-client`, `opt-werkbank-station`)
 

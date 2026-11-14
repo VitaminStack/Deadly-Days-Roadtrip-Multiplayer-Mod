@@ -352,6 +352,27 @@ constexpr bool ClientHoldsRoundEndConfirm(uint64_t End, uint64_t Done, uint64_t 
     return End != 0 && End != Done && HostStatusId == End;
 }
 
+// opt-station-zug: Client, ein Inventar-RPC am eigenen Inventar (Ablegen, Feldbelegung, Pivot, Lagerflags, Entfernen). Als nativer
+// Server-RPC kommt so ein Zug beim Host ohne Pivot und Drehung an (im Lager gemessen, opt-rucksack-ueberlappung). Darum beginnt der
+// erste Zug eine lokale Bearbeitung: im Lager am Rundenende bis zum Bestätigen, sonst in einer Mission als Stations-Bearbeitung,
+// die nur mit offenem Inventar-Panel zustande kommt. Läuft schon eine Bearbeitung, wartet ein Edit auf Antwort oder ist eine
+// Airdrop-Auswahl offen, entscheidet deren eigener Weg. Außerhalb einer Mission (MetaBase, Menü) bleibt alles nativ.
+enum class ClientMove : uint8_t
+{
+    Native,       // nichts beginnen
+    BeginLager,   // Bearbeitung im Lager dieses Rundenendes
+    BeginStation, // Stations-Bearbeitung, falls ein Inventar-Panel offen ist
+};
+
+constexpr ClientMove ClientMoveBegins(bool Editing, bool Pending, bool OfferShown, uint64_t End, uint64_t Done, bool HeldConfirm, bool InMission)
+{
+    if (Editing || Pending || OfferShown)
+        return ClientMove::Native;
+    if (End != 0)
+        return End != Done && !HeldConfirm ? ClientMove::BeginLager : ClientMove::Native;
+    return InMission ? ClientMove::BeginStation : ClientMove::Native;
+}
+
 // Client: zurückgehaltenes Bestätigen auslösen, wenn beide bereit sind oder der Stand des Hosts fehlt oder nicht mehr zu
 // diesem Rundenende passt; so bleibt das Lager nie hängen.
 constexpr bool ClientMayReleaseRoundEnd(uint64_t End, uint64_t HostStatusId, bool HostReady, bool ClientReadyEcho)

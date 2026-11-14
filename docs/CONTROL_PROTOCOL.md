@@ -157,7 +157,8 @@ Nur geänderte Items, jeweils der Endzustand. Der Host lehnt ab, wenn die Form n
 ohne Rucksack, Belohnung ohne Wahl), die Wahl nicht zur offenen Sitzung passt, ein Item fehlt oder ein Zielfeld weder frei noch neu ist.
 
 `0x304` Antwort, Host an Client, genau 9 Bytes: Kennung (8), übernommen (1, 0 oder 1). Kommt eine Kennung erneut, schickt der Host
-nur die Antwort noch einmal.
+nur die Antwort noch einmal. Seit Mod-Kompatibilität 14 sind es 10 Bytes, siehe
+[Antwort mit Grund](#antwort-mit-grund-mod-kompatibilität-14).
 
 ## Alle bestätigen (Mod-Kompatibilität 5)
 
@@ -242,6 +243,17 @@ unter `0xFE00`. Ein gekauftes Item ist heil und entweder vorhanden oder Eingabe 
 es sich im selben Edit nicht. Der Host lehnt ab, wenn er Daten oder Seltenheit nicht kennt, der Preis unter einem Viertel seines
 eigenen Verkaufspreises für das Item liegt (`UInventoryItemData.GetBaseSellPrice`, die Rabatte des Händlers reichen bis 75 %) oder
 sein Schrott nicht reicht: erst alle Verkäufe gutschreiben, dann Käufe und Reparaturen abziehen. Er legt die Items mit `CreateAndAddItem` an und bucht nach der Übernahme einmal, nur für angelegte Items.
+
+## Antwort mit Grund (Mod-Kompatibilität 14)
+
+Aufgabe `lager-edit-ablehnung`, Ablauf in [Ablehnung mit Grund](../src/Game/README.md#ablehnung-mit-grund). Mod-Version 14, weil ein
+Client mit älterer Version die längere Antwort verwirft und seinen Edit endlos wiederholt.
+
+`0x304` Antwort, Host an Client, genau 10 Bytes: Kennung (8), Stand (1: 0 abgelehnt, 1 übernommen, 2 teilweise übernommen), Grund (1,
+`Game::InventoryEdit::EditReason`, 0 ohne Grund). Abgelehnt heißt: Der Host hat nichts geändert, der Client rollt zurück.
+Teilweise übernommen heißt: Der Host hat geändert, aber nicht jeder Schritt gelang; der Client rollt nicht zurück und schreibt eine
+Warnung. Ein unbekannter Stand oder Grund macht die Nachricht ungültig. Kodierung in `src/Sync/Inventory/RewardState.h`, Tests in
+`tests/NetTests/RewardTests.cpp`.
 
 ## Rundenende (`rundenende-client`)
 
