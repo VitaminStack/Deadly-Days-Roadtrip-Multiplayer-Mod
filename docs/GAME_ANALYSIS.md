@@ -2540,7 +2540,7 @@ wieder beigetreten.
   Aufgabe `opt-zonenziel-anzeige`.
 - **[Gemeldet] Run-Items bleiben nach dem Sieg in der MetaBase.** Desync-Melder danach „OK … Inventar“, beide Seiten also gleich.
   Ob das Solo-Spiel das Inventar beim Betreten der MetaBase oder erst beim nächsten Run leert, ist offen. Neue Aufgabe
-  `opt-metabase-inventar`.
+  `opt-metabase-inventar`, Ursache siehe [Run-Stand des Clients](#run-stand-des-clients-nach-dem-run-ende-opt-metabase-inventar).
 - **[Gemeldet] Kleinere Anzeigefehler beim Client:**
   - Die eigene Figur gleitet ohne richtige Laufanimation (`opt-schuss-animation`, nicht bestanden).
   - Itemsäcke aus Containern werden erst direkt an der Figur sichtbar, der Flug fehlt (neu: `opt-itemsack-flug`).
@@ -2554,6 +2554,80 @@ wieder beigetreten.
   Auswahl eine zweite Kiste, bleibt sie beim Host („lokale Client-Oeffnung beim Host belassen“), wie vorgesehen.
 - **Nicht geprüft:** `opt-werkbank-station`, Treffereffekte für `opt-blut`, Niederlage und neuer Run in derselben Sitzung
   (`run-ende`), Host-Seite aller Befunde.
+
+### Run-Stand des Clients nach dem Run-Ende (`opt-metabase-inventar`)
+
+Ausgewertet am 14.11.2026, Build `26495302`: Disassembly der Exe, Mod-Logs beider Live-Tage (13.11. abends Host, 14.11. Client, beide
+von diesem PC), Kopien der Mod-Spielstände dieses PCs (nur gelesen) und ein Test auf einem PC (zwei Instanzen, Lobby, ohne Maus und
+Tastatur über Spike- und Mod-Befehle).
+
+**Meldung:** Nach dem Sieg am 13.11. und der Niederlage am 14.11. hatten beide Spieler ihre Run-Items in der MetaBase. Der nächste Run
+am 14.11. begann beim Host mit Level 35, das Spiel skalierte die Gegner danach.
+
+- **[Belegt, Log] Level 35 stand schon in der MetaBase.** Der Client meldete beim Beitritt in die MetaBase 14.11. 12:00:24 (Logzeit)
+  „XP-Anzeige: Host-Level 35“, also vor dem Run-Start, und in der ersten Mission weiter 35. Host war an diesem Tag der andere PC, also
+  der Spieler, der am 13.11. abends Client war. Nach der Niederlage dieses Runs begann der nächste (12:27) beim selben Host mit Level 1.
+- **[Belegt, Disassembly] Wo das Spiel den Run zurücksetzt.** `TriggerStartRun` (`0x5908150`) ruft zuerst `PrepareForNewRun`
+  (`0x58FB3E0`). Das leert die Reisezustände der GameState-Komponenten (`PendingGameStateComponentTravelStates`, darüber reist das
+  gemeinsame Level von `LevelSystemComponent` am `DDMissionGameState` von Karte zu Karte), Run-Info und Seed, aber **nicht** den
+  Run-Container. Den leert nur `URunPersistencyManager::OnRoundChanged` (`0x5936BE0`) bei `Win` oder `Lose`: Container zurücksetzen,
+  speichern. Bei `NewDay` schreibt es den Stand mit `RunDataState = EndOfDay`. Ausgelöst wird es über
+  `DDMissionGameInstance.TriggerEndRound`. Inventar (`UInventoryComponent` am `BP_DDPlayerState`) und Level sind `IRunPersistable` und
+  werden beim Anmelden aus diesem Container geladen.
+- **[Belegt, Spielstand] Host nativ richtig, Client nicht.** Die Sicherung dieses PCs vom Sieg als Host (13.11. 22:22:07) enthält einen
+  leeren Run (`"Components": {}`): Beim Host lief der native Win-Pfad. Der aktuelle Stand desselben PCs nach den Client-Runs vom 14.11.
+  steht dagegen auf `EndOfDay` (12:32:03) mit `LevelSystem_Player0` Level 14 und Inventar: Der Client schreibt bei jedem Tagesende
+  seinen eigenen Run-Stand (das tut er seit `rundenende-client`, nur im Mod-Ordner), bekommt das Run-Ende aber nie nativ. Die Niederlage
+  sperrt `RunLossAllowed` beim Client ganz, weil `TriggerEndRound(Lose)` dort den Meta-Stand änderte; der Sieg läuft bei ihm nur als
+  nachgezogenes Tagesende.
+- **Folge:** Wer im Coop Client war, hat danach einen offenen Run im eigenen Spielstand. Hostet er später oder spielt er allein mit der
+  Mod, lädt sein Spiel daraus das Level des alten Runs, im Fall vom 14.11. Level 35. **[Belegt, Test]** Host-Testordner mit offenem
+  Stand (`EndOfDay`, Level 3, je 3 Pistolen), Spiel neu gestartet: Schon in der frischen MetaBase „Host-Level 3“, nach direkter Reise
+  in eine Mission weiter Level 3; das Inventar begann dort mit der Startausrüstung (je 1 Pistole). Der Spielstand des anderen PCs
+  vom 14.11. selbst ist nicht gelesen.
+- **Lokal zuerst:** Lokal bleibt alles bis auf den Ausgang. Geteilt wird nichts Neues: Der Client kennt Sieg und Niederlage schon aus
+  dem Byte in `0x401` (`run-ende`). Der Host entscheidet weiter allein, keine zweite Autorität. Wiederverwendet wird der native Teil
+  des Run-Endes, der nur den Run-Container betrifft.
+- **Fix:** Meldet der Host `Lost` oder `Won`, merkt sich der Client das Ende und ruft einmal `RunPersistencyManager.OnRoundChanged`
+  mit `Lose` bzw. `Win` über ProcessEvent (`ClearClientRunSave`), nicht `TriggerEndRound`. Frühestens im Sekundentakt nach dem eigenen
+  nachgezogenen Tagesende (dessen `EndOfDay` sonst den geleerten Stand überschreiben würde) oder sobald der Client die Welt des Endes
+  verlassen hat, auch getrennt (`ClientClearsRunSave`, Unit-Test). Log „Run-Ende: eigener Run-Stand des Clients geleert“. Kein neuer
+  Nachrichtentyp, Mod-Version bleibt 13.
+- **[Belegt, Test mit dem Fix]** `Start-Session.ps1 -Build -Mod -Tunnel Lobby -Godmode -Brief`, `DDCOOP_TEST_MAP_PROFILE` auf
+  `MGP_Forest`, Mission per `travel`, Rundenende per `!finish`, Niederlage per `!god off`, `!cheats`, `DD_DamagePlayerAtIndex`, Sieg per
+  `DD_SetCurrentDay 8` und `!finish`. Run-Stand beider Testordner nach jedem Schritt aus `SaveSlot_DDR_0.sav` gelesen:
+
+  | Schritt | Host | Client |
+  |---|---|---|
+  | Start (Client-Stand aus dem abgebrochenen ersten Lauf) | leer | `EndOfDay`, offen |
+  | Rundenende Tag 1 | `EndOfDay` | `EndOfDay` |
+  | Niederlage | leer (`Uninitialized`), nativ | leer, 1 s nach dem Host, Log „geleert (Niederlage)“ |
+  | Rückkehr in die MetaBase, neue Mission, Rundenende | `EndOfDay` | `EndOfDay` |
+  | Sieg | leer, nativ | leer, Log „geleert (Sieg)“ |
+
+  Dritter Lauf mit echtem Stand: `!give ItemData_Pistol` zweimal (je Spieler 3 Pistolen), Wellen per `!wave` bis Host-Level 3,
+  Rundenende, Niederlage. Beide Run-Container danach leer, Client per Fix. **[Belegt] Zweiter Träger:** In der MetaBase nach der
+  Niederlage hatten beide Seiten weiter je 3 Pistolen (`inventory.py`), Host-Level 3 (XP-Anzeige des Clients); nach direkter Reise in
+  eine Mission (`travel`, ohne `TriggerStartRun`) ebenso. Die umgeleitete Reise (`servertravel`) behält PlayerStates samt Inventar und
+  die Reisezustände des Levels. Das deckt sich mit dem 13.11.: Der Host-Container war leer, die Items standen trotzdem in der MetaBase.
+  Ob der echte Run-Start (Ring, Routenkarte, `TriggerStartRun` mit `PrepareForNewRun`) Inventar und Level zurücksetzt und ob das Spiel
+  ohne Umleitung schon beim Betreten der MetaBase leert, ist offen; beides braucht Maus und Tastatur und wartet auf die Freigabe des
+  Nutzers. `PrepareForNewRun` leert laut Disassembly die Reisezustände (Level), ein Leeren des PlayerState-Inventars ist dort nicht
+  zu sehen.
+
+  Der Meta-Stand des Clients blieb gleich: `Management_SaveSlot_0.sav` unterscheidet sich nur in `CreatedTime`, im Slot ändern sich
+  außerhalb des Run-Containers nur Größenangaben und der Speicher-Zeitstempel. Kein Absturz im zweiten Lauf.
+- **Fehlversuch im Test:** Nach `!finish` per `servertravel` aus dem offenen Lager weitergereist; dabei läuft das Abräumen der
+  Zeitanfragen aus `TravelPatches` nicht, die Welt blieb angehalten (Pauser gesetzt), die Niederlage löste erst nach `pause` aus. Die
+  zufällig gewählte zweite Karte war `MGP_HQ8_Boss`, der Client stürzte beim Anlegen der Boss-Leiste ab, Stack gleich
+  `boss-karte-absturz` (Lesen `0xD8`, `+163b33f`, `+58de4b1`, …). Darum der zweite Lauf mit `DDCOOP_TEST_MAP_PROFILE` auf `MGP_Forest`.
+- **Nicht geprüft / Grenzen:** Ein Solo-Run ganz ohne Mod (Run-Start über Ring und Routenkarte braucht Maus und Tastatur); die native
+  Rücksetzung ist aus der Disassembly und dem Host-Stand belegt, der Host-Pfad ist ungepatcht. Run-Start zu zweit nach dem Fix und
+  Rollentausch (Client hostet danach) nicht gespielt; das ist die offene Live-Bestätigung. Die Items und das Level in der MetaBase nach dem
+  Run-Ende sind nicht gegen solo geprüft (zweiter Träger oben). Verlässt der Client einen Run vor dessen Ende (Pausemenü, Absturz, Host beendet),
+  bleibt sein Stand weiter offen; das ist der native Ablauf eines abgebrochenen Runs, für den Coop-Client aber ebenso falsch. Wer schon
+  einen offenen Stand hat, behält ihn bis zum nächsten Run-Ende. Der echte Mod-Spielstand dieses PCs steht so (`EndOfDay`, Level 14,
+  Client-Run vom 14.11. über das Pausemenü verlassen); er wurde nicht verändert. Neue Aufgabe `client-runstand-abbruch`.
 
 ### Rucksack-Überlappung beim Client (`opt-rucksack-ueberlappung`)
 

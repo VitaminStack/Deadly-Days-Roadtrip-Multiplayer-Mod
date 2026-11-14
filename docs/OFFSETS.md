@@ -364,6 +364,11 @@ Funktionen von `ULocalCoopSubsystem` und ihre Aufrufer, Ablauf siehe [Coop-Ablau
 | Moduswechsel: Coop aus und Coop wieder an | `0x5914B30`, `0x593BCA0` | |
 | `APlayerController::GetLocalPlayer` | `0x2E706D0` | |
 | `DDMissionGameInstance.TriggerEndRound` (Implementierung) | `0x5907ED0` | `(this, ERoundChangeReason)`: `NewDay` 1, `Win` 2, `Lose` 3. Aufrufer `FinishMission` und Exec-Thunk. Hook `run-ende`: Host meldet die Niederlage, Client führt sie nie aus |
+| `DDMissionGameInstance.TriggerStartRun` | `0x5908150` | Exec-Thunk `0x56CB140`; ruft zuerst `PrepareForNewRun`, am Ende `0x591F1D0` am `RunPersistencyManager` (`opt-metabase-inventar`) |
+| `DDMissionGameInstance.PrepareForNewRun` | `0x58FB3E0` | Exec-Thunk `0x56C6BF0`; leert `PendingGameStateComponentTravelStates` (`+0x248`, Helfer `0x58FEA50`), `+0x298` (Wort, samt `LastRoundChangeReason`), Seed aus `+0x398`. Leert den Run-Container nicht |
+| `DDMissionGameInstance.FinalizeRunStart` | `0x58E9D80` | Exec-Thunk `0x56BC230`, nur aus Blueprints |
+| `URunPersistencyManager::OnRoundChanged` | `0x5936BE0` | Exec-Thunk `0x57974E0`. `NewDay`: Container `+0x80` neu, `RunDataState` (`+0x88`) `EndOfDay`, Persistables serialisieren, speichern. `Win`/`Lose`: Container leeren (`0x591F280`), `OriginalVersion` (`+0x148`) −2, speichern. In der Mod beim Client nach Run-Ende des Hosts (`ClearClientRunSave`) |
+| `URunPersistencyManager.ClearRunData` | `0x591FD50` | Exec-Thunk `0x57927A0`; nativ nur von `DD_CleanRunSave` (`0x58DF610`) aufgerufen |
 | Handler je Controller beim Run-Ende | `0x584CD20` | `GetLocalPlayer()` und `+0x330` ohne Nullprüfung bei `0x584CD82`, weiter bei `0x584CD90`. Spike-Patch `RunEnd.cpp` |
 | `UGameInstance::CreateLocalPlayer` | `0x2A6B5B0` | |
 | `UGameplayStatics::GetPlayerController` | `0x2A76140` | |

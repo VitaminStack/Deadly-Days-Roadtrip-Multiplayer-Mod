@@ -101,6 +101,10 @@ void NoteHostRunWon();
 // Client, aus ClientPatches.cpp: lokales FinishMission wie beim Bus, damit Rundenübersicht, Lager und Routenkarte beim
 // Client selbst aufgehen. Falsch ohne Missions-GameState. Nur Game Thread.
 bool FollowHostRoundEnd();
+// opt-metabase-inventar, Client, aus ClientPatches.cpp: Leert den eigenen Run-Stand wie das Spiel beim Sieg oder bei der Niederlage
+// (URunPersistencyManager.OnRoundChanged mit Win oder Lose, nur diese Komponente, kein TriggerEndRound). Falsch ohne Subsystem.
+// Nur Game Thread.
+bool ClearClientRunSave(bool Won);
 // run-ende, Client, aus ClientPatches.cpp: Schaltet die offene Rundenübersicht auf den nativen Bildschirm des Run-Endes um. Bei einer
 // Niederlage blendet er ihre Knöpfe aus, der Host entscheidet die Rückkehr. Beim Sieg bleiben sie, Fortsetzen führt wie bisher ins
 // Lager, falls der Host den Endlosmodus startet. Falsch, solange keine Übersicht offen ist. Nur Game Thread.

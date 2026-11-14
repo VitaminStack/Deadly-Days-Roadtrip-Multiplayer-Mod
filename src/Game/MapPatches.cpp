@@ -93,6 +93,11 @@ struct
     int LossPanelAttempts = 0;
     bool LossPanelShown = false;
     bool RunWon = false;
+    // opt-metabase-inventar, Client: gemeldetes Run-Ende, dessen eigener Run-Stand noch zu leeren ist, 0 ohne.
+    uint64_t RunSaveEnd = 0;
+    uintptr_t RunSaveWorld = 0;
+    bool RunSaveWon = false;
+    uint64_t RunSaveCleared = 0;
     // Beide: PCG-Volume, dessen Instanzen noch einen festen Seed brauchen
     uintptr_t PcgWorld = 0;
     ULONGLONG PcgSince = 0;
@@ -626,6 +631,27 @@ void FollowRoundEnd()
     Core::Log::Info("Rundenende: Host hat die Runde beendet, Client öffnet Rundenübersicht und Lager selbst");
 }
 
+// opt-metabase-inventar, Client: Sieg oder Niederlage des Hosts merken und den eigenen Run-Stand danach einmal leeren. Läuft auch
+// weiter, wenn der Client inzwischen getrennt ist, der Stand liegt in seiner GameInstance.
+// Geleert wird frühestens im Sekundentakt nach dem Merken, also nicht im selben Takt wie das nachgezogene FinishMission.
+void TickRunSave(NetRole Role, bool Second)
+{
+    if (Second && ClientClearsRunSave(S.RunSaveEnd, S.FollowedEnd, CurrentWorld() != S.RunSaveWorld))
+    {
+        S.RunSaveCleared = S.RunSaveEnd;
+        S.RunSaveEnd = 0;
+        ClearClientRunSave(S.RunSaveWon);
+    }
+    if (Role == NetRole::Client && S.HostEnd && S.HostEnd->Outcome != Map::RunOutcome::None && S.HostEnd->Id != S.RunSaveCleared &&
+        S.HostEnd->Id != S.RunSaveEnd)
+    {
+        S.RunSaveEnd = S.HostEnd->Id;
+        S.RunSaveWorld = CurrentWorld();
+        S.RunSaveWon = S.HostEnd->Outcome == Map::RunOutcome::Won;
+        Core::Log::Info("Run-Ende: Host meldet {}, Client leert danach seinen eigenen Run-Stand", S.RunSaveWon ? "Sieg" : "Niederlage");
+    }
+}
+
 void TickMap(NetRole Role, bool Second)
 {
     if (Role == NetRole::Client)
@@ -635,6 +661,7 @@ void TickMap(NetRole Role, bool Second)
     }
     else if (S.Ended && S.EndedWorld != CurrentWorld())
         S.Ended.reset();
+    TickRunSave(Role, Second);
     // bestaetigen-rundenende: Bestätigen im Lager wartet auf alle, solange beide in diesem Rundenende sind.
     if (Role == NetRole::Client)
         Rewards::SetRoundEnd(S.FollowedWorld && S.FollowedWorld == CurrentWorld() ? S.FollowedEnd : 0);

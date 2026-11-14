@@ -315,6 +315,15 @@ constexpr bool RunLossAllowed(bool IsNetClient, uint8_t Reason)
     return !IsNetClient || Reason != RoundChangeLose;
 }
 
+// opt-metabase-inventar, Client: Der Client speichert bei jedem Tagesende seinen eigenen Run-Stand (EndOfDay), bekommt das Run-Ende
+// aber nie nativ (RunLossAllowed). Meldet der Host Sieg oder Niederlage, leert der Client seinen Run-Stand einmal wie das Spiel beim Host
+// (RunPersistencyManager.OnRoundChanged), aber erst nach dem eigenen nachgezogenen Tagesende oder wenn er die Welt des Endes
+// verlassen hat, damit das lokale FinishMission den geleerten Stand nicht wieder mit EndOfDay überschreibt.
+constexpr bool ClientClearsRunSave(uint64_t PendingEnd, uint64_t FollowedEnd, bool LeftEndWorld)
+{
+    return PendingEnd != 0 && (FollowedEnd == PendingEnd || LeftEndWorld);
+}
+
 // run-ende, Client: Den Bildschirm der Niederlage nur für eine Weile nach dem Ende versuchen, er kommt sonst nie.
 constexpr bool ShouldRetryLossPanel(int Attempts, int MaxAttempts)
 {
