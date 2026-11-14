@@ -863,6 +863,8 @@ Build `26495302`, Disassembly und Klassenregistrierung, 13.11.2026. Siehe
 | `UWorld::GetFirstPlayerController` | `0x31B9600` |
 | `UWorld` | `PlayerControllerList` `0x268` (TArray `TWeakObjectPtr`, Num `0x270`) |
 | `APlayerController` | PlayerCameraManager `0x360` (wie oben), Player `0x348` |
+| Wetter mit Kamera-Folger | `BP_Rain_C` unter `/Game/RetroParticles/Particles/Systems/WeatherEffects/BP_Rain`, dazu `BP_Snow_C`, `BP_BaseWeatherEffect_C` |
+| Client-Absturz bei der dritten Reise (eigener Fehler) | RIP `0x163B33F` lesend an `0xD8`, Aufrufer `0x58DE4B1` |
 
 ## Aufsammelsound (`opt-item-sound`)
 
