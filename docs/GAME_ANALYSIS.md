@@ -2591,16 +2591,28 @@ am 14.11. begann beim Host mit Level 35, das Spiel skalierte die Gegner danach.
   nachgezogenen Tagesende (dessen `EndOfDay` sonst den geleerten Stand überschreiben würde) oder sobald der Client die Welt des Endes
   verlassen hat, auch getrennt (`ClientClearsRunSave`, Unit-Test). Log „Run-Ende: eigener Run-Stand des Clients geleert“. Kein neuer
   Nachrichtentyp, Mod-Version bleibt 13.
-- **[Belegt, Test vor dem Fix-Lauf] Client schreibt `EndOfDay`:** Mission per `travel`, `!finish` beim Host: Host und Client schrieben
-  beide `EndOfDay` (Client 12:58:37 Logzeit). Niederlage beim Host per `DD_DamagePlayerAtIndex`: Host-Stand nativ leer
-  (`Uninitialized`, `"Components": {}`).
+- **[Belegt, Test mit dem Fix]** `Start-Session.ps1 -Build -Mod -Tunnel Lobby -Godmode -Brief`, `DDCOOP_TEST_MAP_PROFILE` auf
+  `MGP_Forest`, Mission per `travel`, Rundenende per `!finish`, Niederlage per `!god off`, `!cheats`, `DD_DamagePlayerAtIndex`, Sieg per
+  `DD_SetCurrentDay 8` und `!finish`. Run-Stand beider Testordner nach jedem Schritt aus `SaveSlot_DDR_0.sav` gelesen:
+
+  | Schritt | Host | Client |
+  |---|---|---|
+  | Start (Client-Stand aus dem abgebrochenen ersten Lauf) | leer | `EndOfDay`, offen |
+  | Rundenende Tag 1 | `EndOfDay` | `EndOfDay` |
+  | Niederlage | leer (`Uninitialized`), nativ | leer, 1 s nach dem Host, Log „geleert (Niederlage)“ |
+  | Rückkehr in die MetaBase, neue Mission, Rundenende | `EndOfDay` | `EndOfDay` |
+  | Sieg | leer, nativ | leer, Log „geleert (Sieg)“ |
+
+  Der Meta-Stand des Clients blieb gleich: `Management_SaveSlot_0.sav` unterscheidet sich nur in `CreatedTime`, im Slot ändern sich
+  außerhalb des Run-Containers nur Größenangaben und der Speicher-Zeitstempel. Kein Absturz im zweiten Lauf.
 - **Fehlversuch im Test:** Nach `!finish` per `servertravel` aus dem offenen Lager weitergereist; dabei läuft das Abräumen der
   Zeitanfragen aus `TravelPatches` nicht, die Welt blieb angehalten (Pauser gesetzt), die Niederlage löste erst nach `pause` aus. Die
   zufällig gewählte zweite Karte war `MGP_HQ8_Boss`, der Client stürzte beim Anlegen der Boss-Leiste ab, Stack gleich
   `boss-karte-absturz` (Lesen `0xD8`, `+163b33f`, `+58de4b1`, …). Darum der zweite Lauf mit `DDCOOP_TEST_MAP_PROFILE` auf `MGP_Forest`.
 - **Nicht geprüft / Grenzen:** Ein Solo-Run ganz ohne Mod (Run-Start über Ring und Routenkarte braucht Maus und Tastatur); die native
   Rücksetzung ist aus der Disassembly und dem Host-Stand belegt, der Host-Pfad ist ungepatcht. Run-Start zu zweit nach dem Fix und
-  Rollentausch (Client hostet danach) nicht gespielt. Verlässt der Client einen Run vor dessen Ende (Pausemenü, Absturz, Host beendet),
+  Rollentausch (Client hostet danach) nicht gespielt; das ist die offene Live-Bestätigung. Die Items in der MetaBase direkt nach dem
+  Run-Ende sind nicht gegen solo geprüft; entscheidend für den nächsten Run ist der Run-Container, den `TriggerStartRun` nicht leert. Verlässt der Client einen Run vor dessen Ende (Pausemenü, Absturz, Host beendet),
   bleibt sein Stand weiter offen; das ist der native Ablauf eines abgebrochenen Runs, für den Coop-Client aber ebenso falsch. Wer schon
   einen offenen Stand hat, behält ihn bis zum nächsten Run-Ende.
 
