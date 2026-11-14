@@ -577,6 +577,29 @@ inline std::vector<Step> Plan(const std::vector<ItemState>& Current, const std::
     return Steps;
 }
 
+// Client, airdrop-belohnung-aufwertung: Zustand einer Anzeige-Instanz der Airdrop-Auswahl nach dem nativen Bestätigen.
+struct ShownChoice
+{
+    bool Alive = false, Reward = false, InInventory = false;
+    bool Consumed = false; // Eingabe einer lokal aufgezeichneten Aufwertung
+};
+
+// Client: gewählte Belohnung. Bevorzugt die Instanz, die keine Belohnung mehr ist und im Inventar liegt, dann eine ohne Inventar
+// (ein Rucksack kann schon verbraucht sein). Live-Test 14.11.2026: Eine auf ein gleiches Item gelegte Belohnung ist Eingabe der
+// Aufwertung und wurde nicht als Wahl erkannt („Wahl=keine“), die Bearbeitung wurde zurückgenommen. Vermutung: Seit #244 liegt sie
+// sofort nicht mehr im Inventar und bleibt in der Anzeige Belohnung. Auch sie gilt jetzt als gewählt.
+inline std::optional<uint32_t> PickChoice(const std::vector<ShownChoice>& Shown)
+{
+    for (int Pass = 0; Pass < 2; ++Pass)
+        for (uint32_t i = 0; i < Shown.size(); ++i)
+            if (Shown[i].Alive && !Shown[i].Reward && (Pass == 1 || Shown[i].InInventory))
+                return i;
+    for (uint32_t i = 0; i < Shown.size(); ++i)
+        if (Shown[i].Consumed)
+            return i;
+    return std::nullopt;
+}
+
 // lager-edit-stabil: Rohe Lage eines Items, auch außerhalb des Rucksacks. Das Panel setzt Pivot und Drehung beim Ziehen lokal; nimmt ein
 // Edit oder das Zurückrollen das Item aus dem Rucksack, bleiben sie beim Client neu, beim Host alt. ItemState und Plan sehen sie dort
 // nicht (SamePlacement), der Desync-Melder zählt sie aber mit: Nach der Ablehnung am 14.11.2026 meldete er dauerhaft „ABWEICHUNG

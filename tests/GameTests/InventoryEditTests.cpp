@@ -501,6 +501,61 @@ TEST_CASE("lager-edit-ablehnung: Urteil des Hosts mit Grund, jeder Grund hat ein
     CHECK(std::string(ReasonText(static_cast<uint8_t>(EditReason::Scrap))) == "Schrott reicht nicht oder Preis ungültig");
 }
 
+TEST_CASE("Airdrop: eine als Aufwertungseingabe verbrauchte Belohnung gilt als gewählt")
+{
+    // airdrop-belohnung-aufwertung, Live-Test 14.11.2026: Belohnung auf eine gleiche Pistole im Rucksack gelegt. Die Anzeige behält
+    // die Instanz als Belohnung, im Inventar liegt sie nicht mehr. Früher hieß das „Wahl=keine“ und die Bearbeitung wurde zurückgenommen.
+    ShownChoice Other{true, true, false, false}, Used{true, true, false, true};
+    CHECK(PickChoice({Other, Used, Other}) == uint32_t{1});
+    ShownChoice Deleted; // Instanz schon gelöscht, aber als Eingabe aufgezeichnet
+    Deleted.Consumed = true;
+    CHECK(PickChoice({Other, Deleted}) == uint32_t{1});
+    CHECK_FALSE(PickChoice({Other, Other}).has_value());
+    // Eine normal gewählte Belohnung hat Vorrang, im Inventar vor einer ohne Inventar.
+    ShownChoice Taken{true, false, true, false}, Placed_{true, false, false, false};
+    CHECK(PickChoice({Used, Placed_, Taken}) == uint32_t{2});
+    CHECK(PickChoice({Used, Placed_}) == uint32_t{1});
+}
+
+TEST_CASE("Airdrop: Belohnung als Aufwertungseingabe ergibt einen gültigen Edit, mit und ohne Drehung")
+{
+    for (const int32_t Turns : {0, 1})
+    {
+        CAPTURE(Turns);
+        // Ausgangsstand: Pistole (Quelle 0) im Rucksack, gedreht oder nicht.
+        const std::vector<Tile> Tiles = Turns ? std::vector<Tile>{{0, 0}, {0, 1}} : std::vector<Tile>{{0, 0}, {1, 0}};
+        const std::vector<ItemState> Base{Placed(0, Tiles, Turns), Stored(1)};
+        // Endstand: Pistole und Belohnung verbraucht. Die Belohnung trägt noch ihre letzte Drehung, aber keine Felder mehr.
+        ItemState Choice = Gone(Placed(0, Tiles, Turns), 0);
+        Choice.Source = ChoiceSource;
+        const std::vector<ItemState> Final{Gone(Base[0]), Base[1], Choice};
+        Edit Value = Diff(Base, Final, Tiles, Tiles);
+        Value.Session = 7;
+        Value.Choice = uint8_t{1};
+        REQUIRE(Value.Items.size() == 2);
+        CHECK(Value.Items[1].Source == ChoiceSource);
+        Upgrade Next;
+        Next.Inputs = {ChoiceSource, 0};
+        Next.Data = "ItemData_Pistol";
+        Next.Rarity = "Rarity_1_Uncommon";
+        Next.Output = Placed(0, Tiles, Turns);
+        Next.Output.Source = UpgradeSource(0);
+        Next.Output.DataHash = NameHash(Next.Data);
+        Value.Upgrades = {Next};
+        CHECK(Malformed(Value) == nullptr);
+        CHECK(ConsumedSources(Value) == std::set<uint16_t>{0, ChoiceSource});
+
+        // Klon-Schutz aus #244 bleibt: Liegt die verbrauchte Belohnung noch im Rucksack, ist der Edit ungültig.
+        auto Clone = Value;
+        Clone.Items[1] = Placed(ChoiceSource, {{3, 3}});
+        CHECK(std::string(Malformed(Clone)) == "Aufwertung: Eingabe noch vorhanden");
+        // Ohne Wahl fehlt die Belohnung als Quelle.
+        auto NoPick = Value;
+        NoPick.Choice.reset();
+        CHECK_FALSE(WellFormed(NoPick));
+    }
+}
+
 TEST_CASE("lager-edit-stabil: Schrott-Anzeige folgt dem Host auch während der Bearbeitung")
 {
     // Live-Test 14.11.2026: Beginn bei 88, der Client verkauft für 12 und repariert für 30 (Anzeige 70), der Host gibt 38 aus.
