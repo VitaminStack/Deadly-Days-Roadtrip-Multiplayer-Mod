@@ -2490,6 +2490,71 @@ zuletzt 5 s vor dem zehnten Rundenende); Sound wurde gehört, nicht gezählt.
 - **Nicht geprüft:** `fortschritt` (Giftwolke, Item-Effekte, Werte nach Upgrade), Treffereffekte für `opt-blut`, Tod und
   Wiederbelebung, Reconnect.
 
+### Live-Test auf zwei PCs am 13.11.2026 abends (`livetest-1311-abend`)
+
+Build `26495302`, beide Seiten mit bestätigter Mod-Version (Handshake „Build, Mod-Version und Gegenrolle bestaetigt“), der Client
+lief mit `main` `82002dc`. Zwei Haushalte, Route über ein Relay. Ausgewertet ist nur das Mod-Log des Clients, dazu Meldungen und ein
+Bildschirmfoto des Client-Spielers; das Host-Log liegt nicht vor. Uhrzeiten aus dem Log, eine Stunde hinter der Ortszeit. Ablauf:
+MetaBase, Run über elf Karten mit elf Rundenenden (darunter `MGP_CopyShopEvent`, einige Level per vollem Tank übersprungen), Endboss
+`MGP_Burger_Boss_Nature` besiegt, Sieg, Rückkehr in die MetaBase, Ende durch den Host. Zwei Abstürze des Clients, beide Male
+wieder beigetreten.
+
+- **[Belegt, gemeldet] Bestätigt:** Run bis zum Sieg zu zweit. Endbildschirm (Sieg) und Rückkehr in die MetaBase beim Client nativ
+  und vom Spieler als korrekt gemeldet (`run-ende`, Sieg und Rückkehr). Hotjoin in die laufende Boss-Karte, Boss besiegbar,
+  Boss-Leiste danach korrekt. Kauf an einer Station des Händler-Events ging beim Client als Edit an den Host und wurde übernommen
+  (`opt-haendler-client`, vom Spieler bestätigt). Alle Edits des Clients übernommen, darunter 24 Airdrop-Edits nach dem Hotjoin.
+  Tod-Effekte beim Client vollständig (356 von 356). Das Ende durch den Host („Der Host hat die Verbindung beendet“) brachte den
+  Client ohne Absturz ins Hauptmenü.
+- **[Belegt] Absturz des Clients beim Betreten der Boss-Karte, Mod im Stack.** 22:10:16, `EXCEPTION_ACCESS_VIOLATION` beim Lesen
+  von `0xD8`. Stack: Spiel `+163b33f`, `+58de4b1`, `+56ba4bb`, `+1527c28`, `+160c55b`, darüber sechs Rahmen aus `DDCoop.dll`
+  (`+89842`, `+a0f06`, `+9c196`, `+9d42f`, `+98508`, `+98c9a`). Im Log direkt davor:
+  - 22:10:14.604 „Boss-Leiste: Boss erkannt (Maximum 300000), lege Objective an“, 22:10:14.627 „lokal angelegt (Maximum 300000,
+    Anzeigen 2)“;
+  - 22:10:15.611 noch einmal „lege Objective an“, kein „lokal angelegt“ mehr, dann der Absturz.
+
+  **[Vermutung, aus Code und Log]** Ein zweites `Create` gibt es in `BossBarAdapter::TickBossBar` nur, wenn `ScanObjects` das
+  eben angelegte Objective nicht mehr findet (`S.Ours` wird 0). Das zweite `CreateAndStartObjective` mit `OnObjectiveStarted` an
+  die Anzeigen stürzt ab. „Anzeigen 2“ trat nur hier auf (Kartenwechsel 0,8 s vorher), beim Hotjoin war es eine Anzeige ohne
+  Absturz; vermutlich war eine Anzeige ein abgebautes Widget der alten Karte, `ScanObjects` prüft nur den Manager-Zeiger. Welche
+  Funktion `0xD8` liest, ist ohne Symbole nicht belegt. Neue Aufgabe `boss-karte-absturz`.
+- **[Belegt] Absturz des Clients in der MetaBase**, rund 4 Minuten nach dem Verbinden: `EXCEPTION_ACCESS_VIOLATION` beim Lesen von
+  `0x40`, Stack `+5a1b79c`, `+5a1752b`, `+5500ddd`, `+5a0f3f3`, ohne Mod-Rahmen; im Log davor nur Dodges. Neue Aufgabe
+  `opt-metabase-absturz`.
+- **[Gemeldet, Bild] Rucksack des Clients massiv versetzt** (`opt-rucksack-ueberlappung`, nicht bestanden). Früh im Run lag eine
+  Luftpumpe eine Spalte versetzt und um 180° gedreht; nach mehreren Erweiterungen per Airdrop (+4, +4, +6, +4, +3 Felder) lagen
+  Items übereinander, rechts und unten außerhalb des Rasters. Die Pivots der Edits wurden dabei immer negativer (bis X −4, später
+  Y −1), auch bei ungedrehten Items. Beim Öffnen „10 Rucksack-Anzeige(n) aus replizierten Pivot-Feldern positioniert“. Alle Edits
+  übernommen, Desync-Melder danach „OK … Inventar“. **[Vermutung]** Der Rasterursprung des Client-Widgets passt nach einer
+  Erweiterung nach links oder oben nicht mehr zu den replizierten Pivots; der Versatz wächst mit jeder Erweiterung. Ein
+  Vergleichsbild des Hosts fehlt.
+- **[Belegt, gemeldet] Klon nach Aufwertung im Airdrop** (`opt-airdrop-edit-ungueltig`, nicht bestanden). Vorher 2 grüne und 1 blaue
+  Luftpumpe, nach der lokalen Aufwertung (2 Eingaben zu Rare) 2 blaue und 1 grüne: Eine verbrauchte Eingabe lag weiter im
+  Inventar. Erst beim Bestätigen rund 2,5 min später „1 schon aufgewertete Eingabe(n) erneut aufgenommen, wieder entfernt“, der Host
+  übernahm den Edit. Der Fix greift also, aber zu spät. **Nutzerentscheidung 13.11.2026:** Der Klon darf gar nicht erst sichtbar
+  werden; die verbrauchte Eingabe muss schon beim Aufzeichnen der Aufwertung lokal verschwinden. Vier spätere Aufwertungen im
+  Airdrop (Feuerwerk, Gummiball, Gabel, Edelstein) ohne erneutes Aufnehmen liefen ohne Klon.
+- **[Belegt, gemeldet] Kopierladen nur lokal.** In `MGP_CopyShopEvent` kopierte der Client ein Item, die Kopie kam nicht ins Lager.
+  Im Log keine „Inventar lokal“-Zeile und kein Edit; der Client zog lokal 17 Schrott ab, der Host setzte ihn zurück („23 statt 6“).
+  Wie die Werkbank vor `opt-werkbank-station` läuft die Station nur nativ beim Client. Neue Aufgabe `opt-kopierladen`.
+- **[Gemeldet] Zonenziel „Töte die Titanen“:** Der Client sieht die Fortschrittsanzeige nicht, im Log keine Zeile zum Ziel. Neue
+  Aufgabe `opt-zonenziel-anzeige`.
+- **[Gemeldet] Run-Items bleiben nach dem Sieg in der MetaBase.** Desync-Melder danach „OK … Inventar“, beide Seiten also gleich.
+  Ob das Solo-Spiel das Inventar beim Betreten der MetaBase oder erst beim nächsten Run leert, ist offen. Neue Aufgabe
+  `opt-metabase-inventar`.
+- **[Gemeldet] Kleinere Anzeigefehler beim Client:**
+  - Die eigene Figur gleitet ohne richtige Laufanimation (`opt-schuss-animation`, nicht bestanden).
+  - Itemsäcke aus Containern werden erst direkt an der Figur sichtbar, der Flug fehlt (neu: `opt-itemsack-flug`).
+  - Der Busindikator bei vollem Tank fehlte einmal. Im Log beim ersten Mal nur „Abfahrtsprüfung beim Client unterdrückt“, später
+    „Busbalken: Abfahrt beim Client abgeleitet (Tank voll, 2 von 2 Figuren im Bereich)“ (`opt-busbalken` weiter prüfen).
+  - Der Stempel am Rundenende erscheint falsch oder ohne Animation (`opt-rundenstempel`).
+  - Die Boss-Leiste zeigte nach dem Hotjoin kurz 0/0, danach korrekt.
+- **[Belegt] Nebenbefunde:** `opt-airdrop-uebertrag`: Nach einem liegen gelassenen Airdrop landete im nächsten gespielten Level
+  wieder einer und ließ sich öffnen (Sitzung 8); die Host-Queue ist ohne Host-Log nicht gegengeprüft. In der MetaBase meldete der
+  Client am Ende rund 40 eigene Dodges mit Richtung (0, 0) im Abstand von 6 ms, Ursache offen. Öffnet der Client bei offener
+  Auswahl eine zweite Kiste, bleibt sie beim Host („lokale Client-Oeffnung beim Host belassen“), wie vorgesehen.
+- **Nicht geprüft:** `opt-werkbank-station`, Treffereffekte für `opt-blut`, Niederlage und neuer Run in derselben Sitzung
+  (`run-ende`), Host-Seite aller Befunde.
+
 ### Rucksack-Überlappung beim Client (`opt-rucksack-ueberlappung`)
 
 Ausgewertet am 13.11.2026: Mod-Logs beider Seiten aus `livetest-1311` und ein Test auf einem PC (Build `26495302`, Mod-Version 12,
