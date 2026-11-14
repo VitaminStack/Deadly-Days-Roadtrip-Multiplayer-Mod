@@ -3072,8 +3072,11 @@ bis zum Bestätigen den Stand von deren Beginn.
   Erlöse minus Kosten (`ScrapView`, `Rebase` in `InventoryEditPlan.h`). Das Konto des Spiels klemmt bei 0 (`AddAmount`), darum merkt sich die
   Ansicht einen Fehlbetrag selbst. Beim Bestätigen im Lager prüft der Client vorab: Fehlt Schrott, bestätigt er nicht, die Bearbeitung
   bleibt offen und der Knopf wird nicht gelb (Log „Lager: Schrott reicht nach dem Stand des Hosts … nicht, es fehlen …“). Die Anzeige steht
-  dann auf 0; der Spieler verkauft etwas oder nimmt Züge zurück und bestätigt erneut. Die Vorprüfung entspricht `TradeBalance` des Hosts
-  (erst Verkäufe, dann Kosten): Sie besteht genau dann, wenn kein Fehlbetrag bleibt.
+  dann auf 0; der Spieler verkauft etwas und bestätigt erneut. Reicht es beim zweiten Bestätigen immer noch nicht, nimmt der Client die
+  Bearbeitung lokal zurück wie nach einer Ablehnung (`OnLagerConfirm`): Reparaturen lassen sich im Panel nicht zurücknehmen, ohne
+  Verkaufbares wäre der Client sonst nie bereit und der Host wartete. Die Vorprüfung entspricht `TradeBalance` des Hosts (erst
+  Verkäufe, dann Kosten): Sie besteht genau dann, wenn kein Fehlbetrag bleibt. **Hinweis nur im Log:** Auf dem Bildschirm sieht der
+  Spieler nur Schrott 0 und einen Knopf, der nicht gelb wird; eine eigene Meldung gibt es nicht.
 - **Nach dem Edit:** Übernommen gilt das Konto als neuer Stand des Hosts, bis sein Stand kommt; abgelehnt oder abgebrochen gilt sofort der
   zuletzt empfangene Stand des Hosts, damit eine gleich danach beginnende Bearbeitung nicht mit der verworfenen Vorschau rechnet.
 - **Keine Reservierung beim Host.** Der Host gibt nativ über sein eigenes Panel aus; Kosten des Clients festzuhalten hieße, das Ausgeben des
@@ -3085,7 +3088,10 @@ bis zum Bestätigen den Stand von deren Beginn.
 - **Grenze:** Die Vorprüfung gilt im Lager. Stations-Bearbeitungen enden beim Schließen des Panels und Airdrop-Wahlen bestätigt der
   Spieler ohne Handel; dort zeigt das Konto den Stand des Hosts, ohne Sperre.
 
-**2. Dauerhafte Abweichung nach einer Ablehnung [Belegt, Log; Ursache abgeleitet].** Nach „Host hat Edit abgelehnt“ meldete das
+**2. Dauerhafte Abweichung nach einer Ablehnung [Belegt, Log; Ursache abgeleitet, ohne Gegenprobe].** **Grenze vorweg:** Behoben ist
+nur der Weg über eine Ablehnung. Übernimmt der Host einen Edit, in dem der Client ein Item im Lager verschoben hat, bleibt dieselbe
+Abweichung (Pivot außerhalb des Rucksacks) bis Spielende; auch eine Bearbeitung nach einer Ablehnung kann den Melder so wieder rot
+machen. Das ist `opt-desync-pivot` und als nächster Schritt nötig, damit der Melder echte Inventarfehler nicht verdeckt. Nach „Host hat Edit abgelehnt“ meldete das
 Zurückrollen `vollständig=true` (nach einem zweiten Durchgang), der Desync-Melder aber bei beiden „ABWEICHUNG Inventar“ bis Spielende.
 Felder, Seltenheit, Schrott und Rucksackfelder waren gleich. Der Melder (`InventoryHash` in `DesyncAdapter.cpp`) zählt Pivot und Drehung
 jedes Items, auch außerhalb des Rucksacks. Feuerzeug, Ratte und Revolver legte der Client während der Bearbeitung in den Rucksack (je rund
@@ -3098,8 +3104,8 @@ erneut.
   Ausgangsstand“). Kein vollständiges Inventarbild vom Host: Das wäre eine zweite Replikation, und der Host hatte nichts geändert.
 - **Zweiter Durchgang:** Eine lokal reparierte, dann aufgewertete Pistole kam erst im zweiten Durchgang wieder kaputt. Der Plan setzte
   `Break` nur für Items, die schon vorhanden waren; jetzt auch nach `Add`.
-- **Nicht geändert:** Nach einem übernommenen Edit bleibt die Lage im Lager, wie der Spieler sie gelegt hat. Diese Abweichung ist der
-  bekannte Fehlalarm aus `opt-desync-pivot` (der Host setzt die Lage außerhalb des Rucksacks nie).
+- **Nicht geändert:** Nach einem übernommenen Edit bleibt die Lage im Lager, wie der Spieler sie gelegt hat (siehe Grenze oben). Sie
+  beim Senden zurückzusetzen hätte die Anordnung des Spielers im offenen Panel sichtbar verschoben.
 
 **3. Aufwertung am Host vorbei [Belegt, Log v13; Code v14].** Mod-Version 13: Client bestätigte im Lager (bereit, wartet auf den Host),
 der Host übernahm den Edit, 2,6 s nach dem Bereit lief „Aufwertung beim Client außerhalb einer Bearbeitung (2 Eingaben), läuft nativ“.
@@ -3137,6 +3143,10 @@ Kaputte Items und Revolver über `!give`, Schrott über `!scrap`, Rundenende üb
 - **Aufwertung nach dem Bereit:** Client bereit und wartet auf den Host, dann `!shop upgrade` (zwei Revolver): „Aufwertung nach dem Bereit,
   Bereit zurückgenommen; neue Bearbeitung“. Erneut bestätigt, der Host prüft und führt die Aufwertung aus, `vollständig=true`. Danach
   Desync OK bei beiden, Inventare gleich. Host bestätigt, „Bestätigen nachgeholt (alle bereit)“, kein Absturz.
+
+- **Nebenbefund [Belegt, eine Messung]:** Ein Item, das der Host erst im Lager per `!give` anlegt, kam beim Client nicht an, auch nicht
+  in der Ansicht des Host-Inventars (`inventory.py` ungleich). Mit Items, die vor dem Rundenende vergeben wurden, war alles gleich.
+  **Vermutung:** Die Replikation neu angelegter Items ruht im Lager; im normalen Spiel entstehen dort nur über Edits neue Items.
 
 **Nicht geprüft:** Ausgeben des Hosts über sein natives Panel (im Test `!scrap`, derselbe Weg über `AddAmount` und `0x309`), echtes Ziehen im
 Panel und zwei PCs mit Ping. Ob die dauerhafte Abweichung ohne die Korrektur im selben Ablauf bestehen bliebe, ist nicht gegengeprüft; die
