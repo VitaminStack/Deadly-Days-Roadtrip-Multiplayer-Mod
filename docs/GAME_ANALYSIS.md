@@ -27,7 +27,7 @@ Parallel dazu in Vorbereitung (`update-basis-1-0-2`, 16.11.2026), noch nicht fü
 | Exe-Kennung | TimeDateStamp `0xE9CA3AB7`, SizeOfImage `0x0B74A000` |
 | Exe-Version | Datei- und Produktversion `++UE5+Release-5.8-CL-56057345`, in beiden Exes gleich; Engine-Version unverändert |
 | Geändert | Exe, `DDSurvivors-Windows.pak`, `.ucas`, `.utoc`; `global.ucas`/`global.utoc` gleich. 52 Dateien in der eingefrorenen Kopie |
-| Stand der Mod | nur mit Teilinstallation für die Portierung (17 von 18 Patch-Listen); ohne den Schalter kein Patch und Coop gesperrt, siehe [Offsets](OFFSETS.md#build-26669225-update-basis-1-0-2) |
+| Stand der Mod | seit `freigabe-1-0-2` für Spieler geöffnet: Teilinstallation von selbst, 18 von 18 Patch-Listen, 4 einzelne Patches ausgelassen (Blockade, Lebensleisten des Clients, Händlerkauf, Nachladesound); Rundenende und Folgetage dort nicht geprüft, siehe [Freigabe](OFFSETS.md#freigabe-von-build-26669225-für-spieler-freigabe-1-0-2) |
 
 Die Mod erkennt beide Builds, Referenz und Standard aller Skripte bleibt `26495302`. Die Hash-Referenz beider Builds steht in `tools/game_build.py`.
 Den Wechsel der Entwicklungskopien entscheidet das Team (`wechsel-1-0-2`).

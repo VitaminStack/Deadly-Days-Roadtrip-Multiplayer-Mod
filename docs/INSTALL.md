@@ -9,7 +9,9 @@ of the game on Steam, and both players need the same mod version.
 ## Requirements
 
 - Windows 10 or 11, Deadly Days: Roadtrip installed through Steam.
-- **Game build `26495302`.** The mod's offsets and patches only apply to this build. On any other build the installer refuses
+- **Game build `26495302` or `26669225` (patch 1.0.2).** The mod's offsets and patches only apply to these builds. Both players need the same
+  build. On `26669225` four patches are still missing (blockade for the client, client health and stamina bars, buying at the merchant,
+  the host's reload sound), and round end and later days are untested there. On any other build the installer refuses
   and names the build it found. A mod that is present anyway disables itself at startup, and the game runs without it.
 - The game is closed.
 - No other mod that also places a `version.dll` next to the game exe.
@@ -56,7 +58,7 @@ Use `Uninstall.cmd` for that.
 
 | Message | Meaning and fix |
 |---|---|
-| `Game build … instead of 26495302` | Steam updated the game to a build the mod does not know yet. Wait for a mod version for that build, and play without the mod until then. |
+| `Game build … instead of 26495302 or 26669225` | Steam updated the game to a build the mod does not know yet. Wait for a mod version for that build, and play without the mod until then. |
 | `Steam not found` or `not found in any Steam library` | Specify the game folder with `-GameDir`, see above. |
 | `Steam manifest not found` | The given folder is not in a Steam library (`…\steamapps\common\…`). Only Steam installations are supported. |
 | `Game exe not found` | Use `-GameDir` to specify the folder that contains `DDSurvivors`, not a subfolder. |

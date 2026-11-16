@@ -30,6 +30,7 @@ Code::Writer Caves;
 enum ListIndex : size_t { Player, Client, Camera, Inventory, Travel, Widget, HealthBar, Airdrop, Exp, RemoteP2, Reward, Map, LocalDevice, Character, BodyPart, EnemyTelegraph, DamageNumber, WeaponSound, ListCount };
 std::array<bool, ListCount> Enabled{};
 bool PartialMode = false;
+bool CoreListsSet = false; // Player und Client gesetzt, siehe CoopBlocked
 
 bool ListOn(ListIndex Index)
 {
@@ -143,6 +144,8 @@ ListsResult InstallLists(std::span<const PatchList> Lists, Code::Writer& Code, s
             // Ticks greifen auf Adressen aller Patches der Liste zu, darum nur bei vollständiger Liste.
             EnabledOut[Index] = ListComplete(Lists[Index].Patches, SiteUsable);
             ++Result.Installed;
+            if (Index < 64)
+                Result.InstalledMask |= 1ull << Index;
             Core::Log::Info("Patches: Liste {} gesetzt{}", Lists[Index].Name, EnabledOut[Index] ? "" : ", ohne Tick (Adresse fehlt)");
             break;
         case InstallResult::CheckFailed:
@@ -160,17 +163,21 @@ ListsResult InstallLists(std::span<const PatchList> Lists, Code::Writer& Code, s
 
 bool PartialInstallAllowed(bool SwitchOn, uint32_t Build)
 {
-    return SwitchOn && Build != 0 && Build != AddressMap::ReferenceBuild;
+    if (Build == 0 || Build == AddressMap::ReferenceBuild)
+        return false;
+    return SwitchOn || !AddressMap::Table(Build).empty();
 }
 
-bool CoopBlocked(State Value, uint32_t Build)
+bool CoopBlocked(State Value, uint32_t Build, bool CoreLists)
 {
-    return Value == State::Inactive && Build != 0 && Build != AddressMap::ReferenceBuild;
+    if (Build == 0 || Build == AddressMap::ReferenceBuild)
+        return false;
+    return Value == State::Inactive || (Value == State::Partial && !CoreLists);
 }
 
 bool CoopBlocked()
 {
-    return CoopBlocked(CurrentState(), Core::ActiveBuild());
+    return CoopBlocked(CurrentState(), Core::ActiveBuild(), PartialMode && CoreListsSet);
 }
 
 bool Install()
@@ -200,10 +207,15 @@ bool Install()
         PartialMode = true;
         const ListsResult Result = InstallLists(Lists, Caves, Enabled);
         Current = Result.ApplyFailed ? State::Partial : Result.Skipped ? State::Partial : State::Active;
-        Core::Log::Warn("Patches: Teilinstallation (DDCOOP_PARTIAL_PATCHES), {} von {} Listen gesetzt, {} Patches ausgelassen{}",
-                        Result.Installed, Lists.size(), Result.SkippedPatches, Result.ApplyFailed ? ", Setzen abgebrochen" : "");
+        Core::Log::Warn("Patches: Teilinstallation auf Build {}{}, {} von {} Listen gesetzt, {} Patches ausgelassen{}", Core::ActiveBuild(),
+                        SwitchOn ? " (DDCOOP_PARTIAL_PATCHES)" : "", Result.Installed, Lists.size(), Result.SkippedPatches,
+                        Result.ApplyFailed ? ", Setzen abgebrochen" : "");
         if (Result.ApplyFailed)
             PartialMode = false; // Ticks bleiben aus, der Zustand ist nicht mehr listenweise sauber.
+        const uint64_t Needed = (1ull << Player) | (1ull << Client);
+        CoreListsSet = (Result.InstalledMask & Needed) == Needed;
+        if (CoopBlocked(Current, Core::ActiveBuild(), PartialMode && CoreListsSet))
+            Core::Log::Error("Patches: Kernlisten Player/Client fehlen auf Build {}, Lobby erstellen und beitreten gesperrt", Core::ActiveBuild());
         return !Result.ApplyFailed && !Result.Skipped;
     }
     size_t Skipped = 0;
@@ -221,7 +233,7 @@ bool Install()
     case InstallResult::CheckFailed:
         Current = State::Inactive;
         Core::Log::Error("Patches: keiner gesetzt, eine Mission zu zweit läuft so nicht");
-        if (CoopBlocked(State::Inactive, Core::ActiveBuild()))
+        if (CoopBlocked(State::Inactive, Core::ActiveBuild(), false))
             Core::Log::Error("Patches: Spiel-Build {} ist noch nicht portiert, Lobby erstellen und beitreten gesperrt", Core::ActiveBuild());
         return false;
     default:

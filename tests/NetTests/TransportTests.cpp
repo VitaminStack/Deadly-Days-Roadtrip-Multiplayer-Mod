@@ -574,10 +574,16 @@ TEST_CASE("Kontrollkanal zählt Füllstand und wegen voller Warteschlange abgele
     REQUIRE(Client.StartClient(kHostId));
     REQUIRE(WaitFor([&] { return Host.ControlPeers().size() == 1; }));
     const auto Peer = Host.ControlPeers()[0];
-    // Ohne Abholen beim Client: Der Host bringt höchstens 128 je Runde des Netzwerkthreads unter.
+    // Der Host bringt höchstens 128 je Runde des Netzwerkthreads unter. Der Client holt nebenher ab: Leert der Netzwerkthread
+    // des Hosts die Warteschlange mitten in der Schleife (langsamer Debug-Lauf), kämen sonst mehr als 128 beim Client an, der
+    // lehnt die Verbindung ab, und SendControl scheitert danach am fehlenden Peer, ohne ControlRefused zu zählen.
     int Accepted = 0, Refused = 0;
     for (int i = 0; i < 400; ++i)
+    {
         (Host.SendControl(Peer, {1, 1, static_cast<uint64_t>(i + 1), 0xA00, {1}}) ? Accepted : Refused)++;
+        Client.TakeControlMessages();
+    }
+    REQUIRE(Host.ControlPeers().size() == 1);
     CHECK(Accepted >= 128);
     REQUIRE(WaitFor([&] {
         const auto Stats = Host.Stats();

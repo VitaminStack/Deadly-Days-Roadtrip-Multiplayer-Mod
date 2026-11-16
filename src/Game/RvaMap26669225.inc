@@ -110,10 +110,10 @@
 {0x05B08070, 0x05B08460}, // eindeutig, LocalViewportCorners, src/Game/ExpPatches.cpp:28
 {0x05B0CE30, 0x05B0D620}, // eindeutig, GetPlayerCharacters, src/Game/ClientPatches.cpp:29
 {0x05B0FA95, 0x05B102B5}, // eindeutig, PlayerIndexNullSite, src/Game/PlayerPatches.cpp:25
-// FEHLT 0x093A1F98 // fehlt, SlotVtable, src/Game/InventoryPatches.cpp:23
+{0x093A1F98, 0x093A2EF8}, // von Hand (82 von 84 Eintraegen umgerechnet, alle gleich), SlotVtable, src/Game/InventoryPatches.cpp:23
 {0x094B9A08, 0x094BAB18}, // vtable, ItemVtable, src/Game/InventoryPatches.cpp:24
 {0x094BF710, 0x094C0820}, // vtable, InventoryVtable, src/Game/InventoryPatches.cpp:22
-// FEHLT 0x094C6A78 // fehlt, DetectorVtable, src/Game/InventoryPatches.cpp:316
+{0x094C6A78, 0x094C7B88}, // von Hand (162 von 164 Eintraegen umgerechnet, alle gleich), DetectorVtable, src/Game/InventoryPatches.cpp:316
 {0x096191F0, 0x0961A4C0}, // vtable, MapGenLambdaVtable, src/Game/InventoryPatches.cpp:327
 {0x0A999B40, 0x0A99BB40}, // global, GNames, src/Game/Offsets.h:11
 {0x0AA67B80, 0x0AA69B80}, // global, GObjects, src/Game/Offsets.h:10

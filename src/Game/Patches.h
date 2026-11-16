@@ -82,18 +82,21 @@ struct ListsResult
     size_t Skipped = 0;   // Listen mit gescheiterter Prüfung, unverändert
     size_t SkippedPatches = 0; // einzelne Patches mit unpassender Signatur, siehe Patch::Sites
     bool ApplyFailed = false;
+    uint64_t InstalledMask = 0; // Bit i: Lists[i] ist gesetzt (auch ohne Tick)
 };
 
 // Teilinstallation für die Portierung auf einen neuen Build (update-basis): jede Liste für sich ganz oder gar nicht.
 // Enabled[i] wird wahr, wenn Lists[i] steht. Bricht das Setzen ab, hört die Funktion sofort auf.
 ListsResult InstallLists(std::span<const PatchList> Lists, Code::Writer& Code, std::span<bool> Enabled);
 
-// Entwicklerschalter DDCOOP_PARTIAL_PATCHES=1 gilt nur außerhalb des Referenz-Builds.
+// Teilinstallation nur außerhalb des Referenz-Builds: von selbst auf einem freigegebenen weiteren Build (eigene Tabelle in
+// AddressMap, freigabe-1-0-2), sonst nur mit dem Entwicklerschalter DDCOOP_PARTIAL_PATCHES=1.
 bool PartialInstallAllowed(bool SwitchOn, uint32_t Build);
 
-// Lobby erstellen/beitreten sperren: auf einem weiteren Build (nicht Referenz) steht ohne Portierung kein Patch, und ohne die
-// Player-Liste stürzt der Host beim Beitritt ab. Der Referenz-Build und die Teilinstallation für die Portierung bleiben unberührt.
-bool CoopBlocked(State Value, uint32_t Build);
+// Lobby erstellen/beitreten sperren: auf einem weiteren Build (nicht Referenz) nur Coop, wenn die Teilinstallation sauber
+// durchlief und die Kernlisten Player und Client stehen. Ohne die Player-Liste stürzt der Host beim Beitritt ab.
+// CoreLists: beide Kernlisten gesetzt. Der Referenz-Build bleibt unberührt.
+bool CoopBlocked(State Value, uint32_t Build, bool CoreLists);
 // Für den laufenden Prozess.
 bool CoopBlocked();
 }
