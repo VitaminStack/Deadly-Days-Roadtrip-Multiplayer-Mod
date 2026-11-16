@@ -75,7 +75,8 @@ Eine Stelle im Abstand zu einer Adresse immer als `At(Rva, Abstand)` schreiben, 
 
 **Teilinstallation.** Auf einem weiteren Build mit eigener Tabelle (derzeit `26669225`, seit `freigabe-1-0-2` für Spieler geöffnet) setzt die
 Mod von selbst jede Patch-Liste (eine `*Patches.cpp`) für sich ganz oder gar nicht und lässt einzelne Patches mit fehlender Adresse aus; Ticks
-laufen nur für vollständige Listen. Auf einem Build ohne Tabelle nur mit `DDCOOP_PARTIAL_PATCHES=1` (`Start-Session.ps1 -PartialPatches`). Das Log
+laufen nur für vollständige Listen; Stellen aus `PatchList::TickOptional` zählen dabei nicht (`rundenende-1-0-2`: Der Tick der Liste Reward
+holt das zurückgehaltene Bestätigen des Hosts nach und läuft darum auch ohne die Adresse des Händlerkaufs). Auf einem Build ohne Tabelle nur mit `DDCOOP_PARTIAL_PATCHES=1` (`Start-Session.ps1 -PartialPatches`). Das Log
 nennt gesetzte (`Liste … gesetzt`) und ausgelassene Listen (`Liste … ausgelassen`) und die Summe. Hooks einer gesetzten Liste können Code einer
 ausgelassenen erreichen; fehlen die Kernlisten Player oder Client, sperrt `CoopBlocked` Lobby erstellen und beitreten. Im Referenz-Build bleibt es
 bei allen Patches oder keinem.

@@ -67,13 +67,17 @@ bool SiteUsable(uintptr_t ReferenceRva);
 InstallResult InstallAll(std::span<const Patch> List, Code::Writer& Code, SiteCheck Usable = SiteUsable, size_t* Skipped = nullptr);
 
 // Alle Stellen aller Patches der Liste brauchbar? Sonst bleibt der Tick der Liste aus, die gesetzten Patches stehen.
-bool ListComplete(std::span<const Patch> List, SiteCheck Usable = SiteUsable);
+// Stellen aus TickOptional zählen nicht: Der Tick kommt ohne sie aus (rundenende-1-0-2).
+bool ListComplete(std::span<const Patch> List, SiteCheck Usable = SiteUsable, std::span<const uintptr_t> TickOptional = {});
 
 // Eine Patch-Datei mit ihrem Tick. Für die Teilinstallation zählt die Liste als Einheit.
 struct PatchList
 {
     const char* Name;
     std::span<const Patch> Patches;
+    // Referenz-RVAs, die der Tick der Liste nicht braucht: Fehlt nur so eine Stelle, läuft der Tick trotzdem. Nötig, sobald
+    // gesetzte Hooks der Liste auf den Tick angewiesen sind (ConfirmHook hält das Bestätigen, Rewards::Tick holt es nach).
+    std::span<const uintptr_t> TickOptional{};
 };
 
 struct ListsResult
@@ -87,7 +91,7 @@ struct ListsResult
 
 // Teilinstallation für die Portierung auf einen neuen Build (update-basis): jede Liste für sich ganz oder gar nicht.
 // Enabled[i] wird wahr, wenn Lists[i] steht. Bricht das Setzen ab, hört die Funktion sofort auf.
-ListsResult InstallLists(std::span<const PatchList> Lists, Code::Writer& Code, std::span<bool> Enabled);
+ListsResult InstallLists(std::span<const PatchList> Lists, Code::Writer& Code, std::span<bool> Enabled, SiteCheck Usable = SiteUsable);
 
 // Teilinstallation nur außerhalb des Referenz-Builds: von selbst auf einem freigegebenen weiteren Build (eigene Tabelle in
 // AddressMap, freigabe-1-0-2), sonst nur mit dem Entwicklerschalter DDCOOP_PARTIAL_PATCHES=1.

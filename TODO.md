@@ -126,6 +126,7 @@ Mögliche Punkte und Reihenfolge, je nach Bereitschaft:
    `update-welt` und `lager-handel-client`: [Plan](research/spikes/fortschritt/README.md#live-test-zu-zweit-etwa-30-minuten).
    Neue Aufgaben mit Live-Rest dort ergänzen statt einen eigenen Termin anzusetzen.
 7. Die Punkte aus [Live-Bestätigung ausstehend](#live-bestätigung-ausstehend) nebenbei im selben Lauf prüfen.
+8. `rundenende-1-0-2`, Gegenprobe auf `26669225`: Host bestätigt jede Airdrop-Auswahl und das Lager am Rundenende mit einem Klick, auch nach einem Lager-Edit des Clients mit Aufwertung und Verkauf; Host-Log aufheben. Auf einem PC bestanden, siehe [Rundenende auf 26669225](docs/OFFSETS.md#rundenende-auf-26669225-rundenende-1-0-2).
 
 Die Entscheidung `meta-fortschritt` ist getroffen: Im gemeinsamen Run gilt der Host-Stand,
 ohne dauerhafte Meta-Gutschrift beim Client, siehe [Regel](docs/SYNC_REQUIREMENTS.md#nutzervorgabe-meta-fortschritt-des-hosts-06112026).
@@ -436,6 +437,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `rpc-vergleich` | 1 | RPC-Liste gegen den Juli-Dump: 3 RPCs entfernt, keiner hinzugekommen |
 | `run-ablauf` | 1 | `TriggerStartRun`, `FinalizeRunStart`, Ladebildschirm und Etappenwechsel nachvollzogen, siehe [Run-Ablauf](docs/GAME_ANALYSIS.md#run-ablauf) |
 | `run-ende` | 5 | Host überträgt den Ausgang des Runs, der Client zeigt Niederlage und Sieg nativ, Rückkehr und neuer Run in derselben Sitzung ohne Absturz, normale Spielstände und Client-Meta unverändert, ein PC, [Befund](docs/GAME_ANALYSIS.md#run-ende-bei-host-und-client-run-ende) |
+| `rundenende-1-0-2` | 5 | Auf 26669225 läuft der Tick der Liste Reward auch ohne die Adresse des Händlerkaufs, der Host holt sein Bestätigen wieder nach; ein PC: Rundenende Host zuerst und Client zuerst je mit einem Klick, Reise bis Tag 3. Offen: Gegenprobe auf zwei PCs mit Lager-Edit des Clients, siehe [Rundenende auf 26669225](docs/OFFSETS.md#rundenende-auf-26669225-rundenende-1-0-2) |
 | `rundenende-absturz` | 4 | Echtes Rundenende über Tank und Bus bis Tag 2 ohne Absturz geprüft, Tank zählt noch je Teilnehmer (`tank-gemeinsam`), siehe [Rundenende](docs/GAME_ANALYSIS.md#rundenende-über-tank-und-bus-rundenende-absturz) |
 | `rundenende-client` | 5 | Client sieht nach dem Rundenende des Hosts Rundenübersicht und Lager selbst, ordnet dort sein Inventar, nur der Host reist, siehe [Rundenübersicht beim Client](docs/GAME_ANALYSIS.md#rundenübersicht-und-lager-beim-client-rundenende-client) |
 | `sdk` | 0 | SDK für UE 5.8 erzeugt, siehe [SDK-Erzeugung](docs/GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58) |
