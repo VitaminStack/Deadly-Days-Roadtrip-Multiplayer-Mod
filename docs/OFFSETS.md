@@ -50,7 +50,7 @@ SizeOfImage `0x0B74A000`, `.text` gleich groß (`0x827C000`). Die Portierung der
   | Datei, Liste | Fehlende Referenz-RVA | Bedeutung | Folgeaufgabe |
   |---|---|---|---|
   | `ClientPatches.cpp`, Client | `0x056676F5` | Blockade-Thunk, reflektierter Einsprung auf `BlockadeLoadingFinished` | `update-1-0-2-client` |
-  | `HealthBarPatches.cpp`, HealthBar | `0x057DC810`, `0x057DCE70`, `0x057DD080` | `OnRep_Health`, `OnRep_MaxHealth`, `OnRep_MaxStamina` | `update-1-0-2-lebensleisten` |
+  | `HealthBarPatches.cpp`, HealthBar | `0x057DC810`, `0x057DCE70`, `0x057DD080` | `OnRep_Health`, `OnRep_MaxHealth`, `OnRep_MaxStamina` | von Hand nachgetragen, Code unverändert, siehe [Lebensleisten](#lebensleisten-auf-26669225-update-1-0-2-lebensleisten) |
   | `InventoryPatches.cpp`, Inventory | `0x093A1F98`, `0x094C6A78` | vtable `BackpackSlot`, vtable Achievement-Detektor | in `freigabe-1-0-2` von Hand nachgetragen, Rest `update-1-0-2-inventar` |
   | `RewardPatches.cpp`, Reward | `0x058CE280` | `ShopPanelItem::TryBuyItem` | `update-1-0-2-handel` |
   | `WeaponSoundPatches.cpp`, WeaponSound | `0x05707870` | `Hands.PlayReloadSound` | `update-1-0-2-waffensound` |
@@ -131,7 +131,7 @@ unverändert (`wechsel-1-0-2` bleibt offen).
   | Ausgelassener Patch | Folge für Spieler **[Vermutung aus der Aufgabe des Patches, auf `26669225` nicht im Spiel geprüft]** | Folgeaufgabe |
   |---|---|---|
   | Blockade nur beim Host | Blockade-Ladeende läuft beim Client nativ, Verhalten an Blockaden offen | `update-1-0-2-client` |
-  | Lebens- und Ausdauerleisten beim Client | Leisten des Clients aktualisieren sich nicht wie auf `26495302` | `update-1-0-2-lebensleisten` |
+  | Lebens- und Ausdauerleisten beim Client | Leisten des Clients aktualisieren sich nicht wie auf `26495302` | erledigt in `update-1-0-2-lebensleisten`, der Patch ist gesetzt |
   | Kaufen beim Händler nur in lokaler Bearbeitung | Kauf des Clients beim Händler ohne Host-Buchung, Abweichung möglich | `update-1-0-2-handel` |
   | Nachladesound des Hosts für den Client | Client hört das Nachladen des Hosts nicht | `update-1-0-2-waffensound` |
 
@@ -154,6 +154,43 @@ unverändert (`wechsel-1-0-2` bleibt offen).
   kein Fehler im Mod-Log.
 - **Widerspruch zu `update-startpruefung`:** Die Aufgabe verlangt, dass eine Teilinstallation nicht als erfolgreicher Start gilt. Auf
   `26669225` ist sie jetzt der Normalfall; das ist dort beim Umsetzen zu entscheiden.
+
+## Lebensleisten auf 26669225 (`update-1-0-2-lebensleisten`)
+
+Stand 16.11.2026. `HealthBarPatches.cpp` ist unverändert, nur `RvaMap26669225.inc` bekam drei Zeilen `// von Hand`.
+
+| Funktion | 26495302 | 26669225 |
+|---|---|---|
+| `OnRep_Health` | `0x057DC810` | `0x057DD020` |
+| `OnRep_MaxHealth` | `0x057DCE70` | `0x057DD680` |
+| `OnRep_MaxStamina` | `0x057DD080` | `0x057DD890` |
+
+- **Der Code hat sich nicht geändert.** Die Angabe „Code geändert" bzw. „Prolog geändert" für diese drei Adressen stimmte nicht: Alle
+  OnRep-Funktionen der Attribut-Sets sind gleich gebaut, `rva_map.py` sucht mit höchstens 32 Befehlen, und so weit sind `OnRep_MaxHealth`
+  und `OnRep_MaxStamina` (beide `lea r8,[rdi+0x30]`) nach dem Maskieren gleich, `OnRep_Health` hat einen Zwilling bei `0x5885BD0`
+  (neu `0x58861A0`). Das gilt schon im Referenz-Build. `OnRep_Stamina` (`+0x50`) ist als einzige eindeutig.
+- **Beleg der Zuordnung:** Mit 60 Befehlen (bis in den Kaltpfad mit dem Attributnamen) ist jedes Muster in beiden Exes genau einmal
+  vorhanden und trifft die Zeile der Tabelle. Der Kaltpfad nennt im neuen Build dieselben Namen und Längen (`Health` 6, `MaxHealth` 9,
+  `MaxStamina` 10), der Rumpf liest dieselben Felder (`+0xA0`, `+0x30`, `+0x30`) und `ASC+0x8D8`. Die Verschiebung ist `+0x810` wie bei
+  `OnRep_Stamina` und `DetectorEndPlay`, die statischen Attribut-Zeiger liegen `+0x2000` wie `GObjects`.
+- **Broadcast weiter nötig:** Die Funktionen sind Befehl für Befehl gleich geblieben (nur `SetBaseAttributeValueFromReplication`, kein
+  eigener Broadcast). Vergleichslauf ohne die drei Adressen auf `26669225`: Nach Schaden durch den Boss zeigt die HUD-Leiste des Clients
+  80, die kleine Leiste über seiner Figur bleibt voll, beim Host sinkt sie.
+- **Offline:** `expect_check.py --build 26669225` 92 `ok`, 3 `fehlt`, 2 `uebersprungen`; `patch_signatures.py check` 103 `ok`, 3 `fehlt`
+  (Blockade, Nachladesound, Händlerkauf), Referenz-Build 106 `ok`. Die vorhandenen Signaturen passen ohne Änderung.
+- **Spieltest `26669225`** (ein PC, eingefrorene Kopie, `Start-Session.ps1 -Build -Mod -Tunnel Lobby -NoSpike`, Reise über den Testkanal
+  nach `DDDynamic_Map`, ohne echte Eingaben, drei Läufe): Host und Client `Signaturen: 3 von 106 Adressen gesperrt`, `Liste HealthBar
+  gesetzt` ohne „ausgelassen", `18 von 18 Listen gesetzt, 3 Patches ausgelassen`, beim Client `Lebensleisten: erster Broadcast beim
+  Client, 1 Empfänger`. Fensterbilder des Clients ab Sekunde 0 der Mission, im längsten Lauf rund 2,5 Minuten: HUD-Leiste 100 und gefüllt, Lebens- und
+  Ausdauerleiste über beiden Figuren gefüllt, wie beim Host. Kein Absturz.
+- **Nicht geprüft:** Änderung der Leisten nach Schaden mit dem Patch auf `26669225` (in den drei Läufen mit Patch griff der Boss auch in rund 2,5 Minuten
+  nicht an, ohne Spike gibt es keinen Schadensbefehl) und der echte Weg in die erste Karte über die Routenkarte, er braucht Eingaben.
+  Der Live-Befund vom 16.11.2026 („Lebens- und Rüstungsleiste des Clients in der ersten Karte lange leer und schwarz") ließ sich mit
+  der direkten Reise auch ohne den Patch nicht nachstellen; dort waren die Leisten von Beginn an gefüllt. **[Vermutung]** Er folgt aus
+  dem fehlenden Patch wie in [hp-leisten](GAME_ANALYSIS.md#lebensleisten-beim-client-hp-leisten) (Leiste entsteht vor der Replikation
+  und bleibt ohne Broadcast auf 0 %). Für die Rüstung gibt es keinen Hook (`OnArmorChanged` liegt im abgeleiteten Set, nie geprüft).
+- **Regression `26495302`:** `Start-Session.ps1 -Build -Mod -Tunnel Lobby -Map /Game/Maps/DDDynamic_Map`: beide `Signaturen: 106 Adressen
+  geprüft`, `Patches: 54 gesetzt`, Broadcast beim Client, Leisten gefüllt, kein Absturz.
 
 ## Build 26495302 (`update-basis`)
 
