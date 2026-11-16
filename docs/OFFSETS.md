@@ -49,11 +49,11 @@ SizeOfImage `0x0B74A000`, `.text` gleich groß (`0x827C000`). Die Portierung der
 
   | Datei, Liste | Fehlende Referenz-RVA | Bedeutung | Folgeaufgabe |
   |---|---|---|---|
-  | `ClientPatches.cpp`, Client | `0x056676F5` | Blockade-Thunk, reflektierter Einsprung auf `BlockadeLoadingFinished` | `update-1-0-2-client` |
+  | `ClientPatches.cpp`, Client | `0x056676F5` | Blockade-Thunk, reflektierter Einsprung auf `BlockadeLoadingFinished` | von Hand nachgetragen: `0x05667E85`, der einzige `jmp` auf `BlockadeLoadingFinished` (`0x058BC360`) im neuen Build; Spieltest offen, `update-1-0-2-client` |
   | `HealthBarPatches.cpp`, HealthBar | `0x057DC810`, `0x057DCE70`, `0x057DD080` | `OnRep_Health`, `OnRep_MaxHealth`, `OnRep_MaxStamina` | von Hand nachgetragen, Code unverändert, siehe [Lebensleisten](#lebensleisten-auf-26669225-update-1-0-2-lebensleisten) |
   | `InventoryPatches.cpp`, Inventory | `0x093A1F98`, `0x094C6A78` | vtable `BackpackSlot`, vtable Achievement-Detektor | in `freigabe-1-0-2` von Hand nachgetragen, Rest `update-1-0-2-inventar` |
   | `RewardPatches.cpp`, Reward | `0x058CE280` | `ShopPanelItem::TryBuyItem` | `update-1-0-2-handel` |
-  | `WeaponSoundPatches.cpp`, WeaponSound | `0x05707870` | `Hands.PlayReloadSound` | `update-1-0-2-waffensound` |
+  | `WeaponSoundPatches.cpp`, WeaponSound | `0x05707870` | `Hands.PlayReloadSound` | von Hand nachgetragen: `0x05708000`, 400 Befehle maskiert gleich; Spieltest offen, `update-1-0-2-waffensound` |
 
 - **Offline gegen die Exe von `26669225`:** `tools/expect_check.py` 89 `ok`, 6 `fehlt`, 2 `uebersprungen` (lokale `Site`), keine `abweichend`;
   `tools/patch_signatures.py check` 100 `ok`, 6 `fehlt`. Die beiden vtables prüft nur das Spiel (`ExpectVirtual`), `expect_check.py` kennt sie nicht.
