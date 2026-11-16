@@ -163,6 +163,16 @@ bool PartialInstallAllowed(bool SwitchOn, uint32_t Build)
     return SwitchOn && Build != 0 && Build != AddressMap::ReferenceBuild;
 }
 
+bool CoopBlocked(State Value, uint32_t Build)
+{
+    return Value == State::Inactive && Build != 0 && Build != AddressMap::ReferenceBuild;
+}
+
+bool CoopBlocked()
+{
+    return CoopBlocked(CurrentState(), Core::ActiveBuild());
+}
+
 bool Install()
 {
     const std::array<PatchList, ListCount> Lists = {{
@@ -211,6 +221,8 @@ bool Install()
     case InstallResult::CheckFailed:
         Current = State::Inactive;
         Core::Log::Error("Patches: keiner gesetzt, eine Mission zu zweit läuft so nicht");
+        if (CoopBlocked(State::Inactive, Core::ActiveBuild()))
+            Core::Log::Error("Patches: Spiel-Build {} ist noch nicht portiert, Lobby erstellen und beitreten gesperrt", Core::ActiveBuild());
         return false;
     default:
         Current = State::Partial;

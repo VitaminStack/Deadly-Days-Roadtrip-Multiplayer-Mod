@@ -12,6 +12,7 @@
 #include "Game/ConsoleAdapter.h"
 #include "Game/DayView.h"
 #include "Game/GameThread.h"
+#include "Game/Patches.h"
 #include "Game/WorldAdapter.h"
 #include "Net/Session.h"
 #include "Net/SteamLobbyApi.h"
@@ -160,8 +161,12 @@ UI::OverlayStatus ToOverlay(const Net::SessionStatus& Status)
     Result.Players = Status.Members > 0 ? static_cast<unsigned>(Status.Members) : 0;
     Result.HasPing = Status.PingMs >= 0 && !Status.IsHost;
     Result.PingMs = Result.HasPing ? static_cast<unsigned>(Status.PingMs) : 0;
-    Result.CanCreate = Status.CanCreate;
-    Result.CanJoin = Status.CanJoin;
+    // Nicht portierter Spiel-Build ohne Patches: kein Coop, siehe Game::Patches::CoopBlocked.
+    const bool Blocked = Game::Patches::CoopBlocked();
+    Result.CanCreate = Status.CanCreate && !Blocked;
+    Result.CanJoin = Status.CanJoin && !Blocked;
+    if (Blocked && !Active)
+        Result.Message = "Diese Spielversion wird noch nicht unterstützt, Coop gesperrt";
     Result.CanInvite = Status.CanInvite;
     Result.CanLeave = Status.CanLeave;
     return Result;
@@ -172,6 +177,11 @@ void OnAction(UI::LobbyRequest Request)
     auto& Lobby = State();
     if (!Lobby.Session)
         return;
+    if ((Request.Action == UI::LobbyAction::Create || Request.Action == UI::LobbyAction::Join) && Game::Patches::CoopBlocked())
+    {
+        Core::Log::Warn("Lobby: Spiel-Build ohne Patches, Erstellen und Beitreten gesperrt");
+        return;
+    }
     switch (Request.Action)
     {
     case UI::LobbyAction::Create: Lobby.Session->Create(); break;
@@ -237,7 +247,9 @@ void Tick()
     // Ein Start über eine Einladung oder den Testschalter wartet auf eine geladene Welt, vorher gibt es keine Konsole.
     if ((Lobby.StartCreate || Lobby.StartJoin) && Now >= Lobby.StartAfter && Game::ReadWorld())
     {
-        if (Lobby.StartCreate)
+        if (Game::Patches::CoopBlocked())
+            Core::Log::Warn("Lobby: Spiel-Build ohne Patches, Start über Einladung oder Testschalter verworfen");
+        else if (Lobby.StartCreate)
             Lobby.Session->Create();
         else
             Lobby.Session->Join(Lobby.StartJoin);
@@ -314,6 +326,8 @@ std::string Execute(const Net::Control::Command& Command)
         return Net::Control::ErrorReply("Steam noch nicht bereit");
     // Wie OnAction: danach sofort neu veröffentlichen, damit das Overlay nicht hinterherhinkt.
     Lobby.NextPublish = {};
+    if ((Command.Kind == CommandKind::LobbyCreate || Command.Kind == CommandKind::LobbyJoin) && Game::Patches::CoopBlocked())
+        return Net::Control::ErrorReply("Spiel-Build ohne Patches, Coop gesperrt");
     switch (Command.Kind)
     {
     case CommandKind::LobbyCreate: return Done(Lobby.Session->Create(), "Erstellen nicht möglich");

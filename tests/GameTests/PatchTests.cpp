@@ -317,6 +317,16 @@ TEST_CASE("Patches: Teilinstallation nie im Referenz-Build oder ohne Schalter")
     CHECK_FALSE(PartialInstallAllowed(true, 0));
 }
 
+TEST_CASE("Patches: Coop nur auf einem weiteren Build ohne gesetzte Patches gesperrt")
+{
+    CHECK(CoopBlocked(State::Inactive, 26669225));
+    CHECK_FALSE(CoopBlocked(State::Partial, 26669225)); // Teilinstallation für die Portierung
+    CHECK_FALSE(CoopBlocked(State::Active, 26669225));
+    CHECK_FALSE(CoopBlocked(State::Pending, 26669225));
+    CHECK_FALSE(CoopBlocked(State::Inactive, 26495302)); // Referenz-Build unverändert
+    CHECK_FALSE(CoopBlocked(State::Inactive, 0));
+}
+
 TEST_CASE("Patches: ein voller Code-Puffer gilt als gescheitertes Setzen")
 {
     uint8_t Buffer[2]{};

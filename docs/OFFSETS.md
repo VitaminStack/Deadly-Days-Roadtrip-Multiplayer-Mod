@@ -57,13 +57,22 @@ SizeOfImage `0x0B74A000`, `.text` gleich groß (`0x827C000`). Die Portierung der
 
 - **Offline gegen die Exe von `26669225`:** `tools/expect_check.py` 89 `ok`, 6 `fehlt`, 2 `uebersprungen` (lokale `Site`), keine `abweichend`;
   `tools/patch_signatures.py check` 100 `ok`, 6 `fehlt`. Die beiden vtables prüft nur das Spiel (`ExpectVirtual`), `expect_check.py` kennt sie nicht.
-- **SDK-Vergleich:** Beide SDKs am 16.11.2026 mit demselben Ablauf erzeugt (Dumper-7 aus dem Submodul per `inject.py` im Host, beide
-  Instanzen in `DDDynamic_Map` nach direkter Reise): `26495302` 2.503 Dateien, `26669225` 2.502 Dateien. `py tools/sdk_diff.py --old … --new …`:
-  **337 unverändert, nichts verschoben, verschwunden oder mit geänderter Signatur**, Exitcode 0. 5 `unbekannt` kennt kein SDK
-  (`ADDCharacterBase.CommonAttributeSet`, `UCharacterMovementComponent.MaxWalkSpeed`, `UCharacterSelectionManager.GetSelectedCharacter`,
-  `USceneComponent.SetVisibility`, `UWidget.SetVisibility`; Verweise in Kommentaren, schon vor dem Update so). `SdkChecks.cpp` baut gegen
-  beide SDKs ohne Fehler (nach der üblichen [Nacharbeit](GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58) an `Assertions.inl`); `Offsets.h`
-  gilt damit für beide Builds. Grenze wie immer: Offsets, die nur als Zahl im Code stehen, und nicht reflektierte Felder erfasst der Vergleich nicht.
+- **SDK-Vergleich:** Beide SDKs am 16.11.2026 per `inject.py` im Host erzeugt, beide Instanzen in `DDDynamic_Map` nach direkter Reise:
+  `26495302` 2.503 Dateien (Sitzung mit Spike, Dumper-7 aus dem Submodul), `26669225` 2.502 Dateien (ohne Spike, Dumper-7 mit lokalem Fix,
+  siehe unten; es fehlt nur `GE_MetaBaseSpeed`, ein dort nicht geladenes Blueprint). `py tools/sdk_diff.py --old … --new …`:
+  **337 unverändert, nichts verschoben, verschwunden oder mit geänderter Signatur**, Exitcode 0. 5 Einträge meldet das Werkzeug als
+  `unbekannt`, weil es sie nicht zuordnet; von Hand in beiden SDKs geprüft und gleich: `UCharacterMovementComponent.MaxWalkSpeed` `0x288`,
+  `ADDCharacterBase.CommonAttributeSet` `0x700`, `UCharacterSelectionManager.GetSelectedCharacter(int32)`, `SetVisibility` von
+  `USceneComponent` und `UWidget` (`Engine_classes.hpp` und `UMG_classes.hpp` sind in beiden SDKs bytegleich).
+- **Dateivergleich der SDKs:** `Engine_classes.hpp`, `Engine_structs.hpp`, `CoreUObject_classes.hpp`, `UMG_classes.hpp`,
+  `GameplayAbilities_classes.hpp` und `DDSurvivors_structs.hpp` sind bytegleich. In `DDSurvivors_classes.hpp` hat sich genau eine native
+  Klasse geändert: `UMemoSubsystem` wächst von `0x158` auf `0x170`, neu `bPendingBossMemoBackfill` `0x130`, `CachedMemoDataTable`
+  `0x130` → `0x138`. Die Mod nutzt die Klasse nicht. Daneben unterscheiden sich einige Blueprint-Dateien (unter anderem
+  `BP_DD_Character_parameters`, `OptionsMenu`, `BP_ManagerBoss_Stage*`, `WBP_AchievementNotification`); nicht einzeln ausgewertet,
+  die von der Mod genutzten Blueprint-Felder deckt `sdk_diff.py` ab.
+- **SdkChecks:** `SdkChecks.cpp` baut gegen beide SDKs ohne Fehler (nach der üblichen
+  [Nacharbeit](GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58) an `Assertions.inl`); `Offsets.h` gilt damit für beide Builds. Grenze wie
+  immer: Offsets, die nur als Zahl im Code stehen, und nicht reflektierte Felder erfasst weder der Vergleich noch der Build.
 - **Geänderter Quelltext:** `PlayerPatches.cpp` prüfte den Kamera-Folger mit `At(CameraFollowTick + 0x0E)`; die Summe steht in keiner
   Tabelle, darum fiel auf `26669225` die ganze Liste Player aus und der Host stürzte beim Beitritt des Clients an `0x5905A88` ab
   (`SpawnNullSite`, Referenz `0x5904DE8`, derselbe Absturz wie in `update-basis` ohne Player-Liste). Jetzt `At(CameraFollowTick, 0x0E)`;
@@ -73,20 +82,32 @@ SizeOfImage `0x0B74A000`, `.text` gleich groß (`0x827C000`). Die Portierung der
   gesetzt, 4 Patches ausgelassen`. Ausgelassen ist die Liste Inventory; Client, HealthBar, Reward und WeaponSound sind gesetzt, aber je
   ohne den Patch mit der fehlenden Adresse und ohne Tick. Crash-Reporter gesperrt, Handshake „Build, Mod-Version und Gegenrolle bestaetigt“,
   Lobby-Beitritt ohne Absturz, Reise über den Testkanal (`travel /Game/Maps/DDDynamic_Map`) mit beiden Spielern in der Mission.
-  Ohne `-PartialPatches` setzt die Mod auf diesem Build keinen Patch (`Patches: keiner gesetzt`, nicht im Spiel gestartet, Verhalten wie in `update-basis`).
-- **Bekannte Folgen der fehlenden Inventory-Liste** (kein neuer Fehler, wie auf `26495302` vor `update-inventar`): Verliert der Client
-  den Host, stürzt er an `0x597A8FA` ab (Lesen von `0x340`, Aufrufer `0x5976AE9`, `0x5960F42`). Im zweiten Lauf endete der Client-Prozess
-  direkt nach „Rundenende: an den Client gesendet“ ohne Absturzbericht. **[Vermutung]** Das ist der bekannte Absturz in der Inventarschleife
-  nach dem Rundenende; zu prüfen in `update-1-0-2-inventar`. Ein Coop-Tag auf `26669225` ist erst nach dieser Portierung sinnvoll.
-- **Dumper-7 auf `26669225`:** Der Stand des Submoduls (`2570b5b`) stürzt beim Dump ab (Host, Lesezugriff genau am Ende des Exe-Images,
-  `FindStringInRange` in der Suche nach `ByteProperty` für GNames). Ursache: Der Zeichenkettenvergleich liest über das Image-Ende, wenn ein
-  als `lea` gelesener Kandidat in dessen letzte Bytes zeigt; auf `26495302` tritt das nicht auf. Der Dump gelang mit einer lokalen Kopie,
-  die vor dem Vergleich prüft, ob auch das Ende der Zeichenkette lesbar ist (nicht im Repo, Fix im Fork steht aus: `dumper7-image-ende`).
+- **Ohne `-PartialPatches`** (so startet jeder Spieler): Die Mod setzt auf `26669225` keinen Patch (`Patches: keiner gesetzt`). Vor dieser
+  Aufgabe blieb die Mod dort wegen des unbekannten Fingerabdrucks ganz aus; mit dem Fingerabdruck liefe sie ohne Patches und böte die Lobby
+  an, ein Beitritt ließe den Host abstürzen. Darum sperrt `Game::Patches::CoopBlocked` auf jedem Nicht-Referenz-Build ohne gesetzte Patches
+  das Erstellen und Beitreten (Overlay, Einladung, Testkanal), Log `Patches: Spiel-Build 26669225 ist noch nicht portiert, Lobby erstellen
+  und beitreten gesperrt`, Overlay-Text „Diese Spielversion wird noch nicht unterstützt, Coop gesperrt“. Der Referenz-Build ist davon
+  ausgenommen. Im Spiel geprüft: Start ohne Schalter, beide Instanzen bleiben im Hauptmenü, „Lobby erstellen“ über den Testkanal wird abgelehnt, kein Absturz. **Trotzdem nicht veröffentlichen, bevor die Portierungen fertig sind:** Installer und `SupportedBuilds` nehmen
+  `26669225` schon an.
+- **Client-Abstürze mit Teilinstallation** (zwei Beobachtungen, Ursache nicht belegt): Im ersten Lauf verlor der Client den Host (dessen
+  Absturz kam vom Dumper, siehe unten) und stürzte eine Sekunde später an `0x597A8FA` ab: Lesen von `0x340`, also `this+0x318+0x28` mit
+  leerem `this`, Aufrufer `0x5976AE9`, `0x5960F42`. Die Bytes um die Stelle sind in `26495302` bei `0x5979B4A` gleich (Verschiebung
+  `+0xDB0`); die Stelle ist in dieser Datei bisher nicht beschrieben. Im zweiten Lauf endete der Client-Prozess direkt nach „Rundenende: an
+  den Client gesendet“ ohne Absturzbericht. **[Vermutung]** Beides folgt aus der fehlenden Inventory-Liste (Inventar-Unterobjekte
+  replizieren nicht), wie die Client-Abstürze auf `26495302` vor `update-inventar`; zu prüfen in `update-1-0-2-inventar`. Ein Coop-Tag
+  auf `26669225` ist erst nach dieser Portierung sinnvoll.
+- **Dumper-7 auf `26669225`:** Der Stand des Submoduls (`2570b5b`) stürzt beim Dump im Host ab. Belegt: Stack in der Suche nach
+  `ByteProperty` für GNames (`FindFNameGetNamesOrGNames_Windows` → `FindByStringInAllSections`, mit der PDB des Dumpers aufgelöst),
+  Lesezugriff auf eine Adresse mit Seitenanfang `…A000`; zieht man SizeOfImage `0x0B74A000` ab, ergibt sich eine auf 64 KB ausgerichtete
+  Basis. **[Vermutung]** Der Zeichenkettenvergleich in `FindStringInRange` liest über das Image-Ende, wenn ein als `lea` gelesener Kandidat
+  in dessen letzte Bytes zeigt. Dazu passt: Mit einer lokalen Kopie, die vor dem Vergleich prüft, ob auch das Ende der Zeichenkette lesbar
+  ist, lief der Dump durch (einmal versucht). Auf `26495302` tritt der Absturz nicht auf. Der Fix ist nicht im Repo und nicht im Fork
+  (`dumper7-image-ende`).
 - **Spike:** kennt nur `26495302` und setzt auf `26669225` keine Patches; `Start-Session.ps1` verlangt dort `-NoSpike` (`update-1-0-2-spike`).
   `tools/spike/ddmem.py` kennt die Globalen von `26669225`.
 - **Regression `26495302`:** `Start-Session.ps1 -Build -Mod -Tunnel Lobby -Map /Game/Maps/DDDynamic_Map`: Host und Client
   `Signaturen: 106 Adressen geprüft`, `Patches: 54 gesetzt`, `Spiel-Build 26495302`, beide mit 2 Spielern in `DDDynamic_Map`, kein `[ERROR]`,
-  kein Absturz, auch nach dem SDK-Dump im Host.
+  kein Absturz, auch nach dem SDK-Dump im Host. Dreimal gelaufen, zuletzt mit dem Endstand dieses Branches.
 
 ## Build 26495302 (`update-basis`)
 

@@ -90,4 +90,10 @@ ListsResult InstallLists(std::span<const PatchList> Lists, Code::Writer& Code, s
 
 // Entwicklerschalter DDCOOP_PARTIAL_PATCHES=1 gilt nur außerhalb des Referenz-Builds.
 bool PartialInstallAllowed(bool SwitchOn, uint32_t Build);
+
+// Lobby erstellen/beitreten sperren: auf einem weiteren Build (nicht Referenz) steht ohne Portierung kein Patch, und ohne die
+// Player-Liste stürzt der Host beim Beitritt ab. Der Referenz-Build und die Teilinstallation für die Portierung bleiben unberührt.
+bool CoopBlocked(State Value, uint32_t Build);
+// Für den laufenden Prozess.
+bool CoopBlocked();
 }
