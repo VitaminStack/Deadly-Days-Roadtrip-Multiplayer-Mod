@@ -9,7 +9,9 @@ of the game on Steam, and both players need the same mod version.
 ## Requirements
 
 - Windows 10 or 11, Deadly Days: Roadtrip installed through Steam.
-- **Game build `26495302`.** The mod's offsets and patches only apply to this build. On any other build the installer refuses
+- **Game build `26495302` or `26669225` (patch 1.0.2).** The mod's offsets and patches only apply to these builds. Both players need the same
+  build. On `26669225` four patches are still missing (blockade for the client, client health and stamina bars, buying at the merchant,
+  the host's reload sound), and round end and later days are untested there. On any other build the installer refuses
   and names the build it found. A mod that is present anyway disables itself at startup, and the game runs without it.
 - The game is closed.
 - No other mod that also places a `version.dll` next to the game exe.

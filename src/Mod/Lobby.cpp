@@ -161,7 +161,7 @@ UI::OverlayStatus ToOverlay(const Net::SessionStatus& Status)
     Result.Players = Status.Members > 0 ? static_cast<unsigned>(Status.Members) : 0;
     Result.HasPing = Status.PingMs >= 0 && !Status.IsHost;
     Result.PingMs = Result.HasPing ? static_cast<unsigned>(Status.PingMs) : 0;
-    // Nicht portierter Spiel-Build ohne Patches: kein Coop, siehe Game::Patches::CoopBlocked.
+    // Weiterer Spiel-Build ohne die Kernlisten: kein Coop, siehe Game::Patches::CoopBlocked.
     const bool Blocked = Game::Patches::CoopBlocked();
     Result.CanCreate = Status.CanCreate && !Blocked;
     Result.CanJoin = Status.CanJoin && !Blocked;

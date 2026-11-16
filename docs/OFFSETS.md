@@ -51,7 +51,7 @@ SizeOfImage `0x0B74A000`, `.text` gleich groß (`0x827C000`). Die Portierung der
   |---|---|---|---|
   | `ClientPatches.cpp`, Client | `0x056676F5` | Blockade-Thunk, reflektierter Einsprung auf `BlockadeLoadingFinished` | `update-1-0-2-client` |
   | `HealthBarPatches.cpp`, HealthBar | `0x057DC810`, `0x057DCE70`, `0x057DD080` | `OnRep_Health`, `OnRep_MaxHealth`, `OnRep_MaxStamina` | `update-1-0-2-lebensleisten` |
-  | `InventoryPatches.cpp`, Inventory | `0x093A1F98`, `0x094C6A78` | vtable `BackpackSlot`, vtable Achievement-Detektor | `update-1-0-2-inventar` |
+  | `InventoryPatches.cpp`, Inventory | `0x093A1F98`, `0x094C6A78` | vtable `BackpackSlot`, vtable Achievement-Detektor | in `freigabe-1-0-2` von Hand nachgetragen, Rest `update-1-0-2-inventar` |
   | `RewardPatches.cpp`, Reward | `0x058CE280` | `ShopPanelItem::TryBuyItem` | `update-1-0-2-handel` |
   | `WeaponSoundPatches.cpp`, WeaponSound | `0x05707870` | `Hands.PlayReloadSound` | `update-1-0-2-waffensound` |
 
@@ -82,7 +82,7 @@ SizeOfImage `0x0B74A000`, `.text` gleich groß (`0x827C000`). Die Portierung der
   gesetzt, 4 Patches ausgelassen`. Ausgelassen ist die Liste Inventory; Client, HealthBar, Reward und WeaponSound sind gesetzt, aber je
   ohne den Patch mit der fehlenden Adresse und ohne Tick. Crash-Reporter gesperrt, Handshake „Build, Mod-Version und Gegenrolle bestaetigt“,
   Lobby-Beitritt ohne Absturz, Reise über den Testkanal (`travel /Game/Maps/DDDynamic_Map`) mit beiden Spielern in der Mission.
-- **Ohne `-PartialPatches`** (so startet jeder Spieler): Die Mod setzt auf `26669225` keinen Patch (`Patches: keiner gesetzt`). Vor dieser
+- **Ohne `-PartialPatches`** (Stand `update-basis-1-0-2`, überholt durch die [Freigabe](#freigabe-von-build-26669225-für-spieler-freigabe-1-0-2)): Die Mod setzte auf `26669225` keinen Patch (`Patches: keiner gesetzt`). Vor dieser
   Aufgabe blieb die Mod dort wegen des unbekannten Fingerabdrucks ganz aus; mit dem Fingerabdruck liefe sie ohne Patches und böte die Lobby
   an, ein Beitritt ließe den Host abstürzen. Darum sperrt `Game::Patches::CoopBlocked` auf jedem Nicht-Referenz-Build ohne gesetzte Patches
   das Erstellen und Beitreten (Overlay, Einladung, Testkanal), Log `Patches: Spiel-Build 26669225 ist noch nicht portiert, Lobby erstellen
@@ -108,6 +108,47 @@ SizeOfImage `0x0B74A000`, `.text` gleich groß (`0x827C000`). Die Portierung der
 - **Regression `26495302`:** `Start-Session.ps1 -Build -Mod -Tunnel Lobby -Map /Game/Maps/DDDynamic_Map`: Host und Client
   `Signaturen: 106 Adressen geprüft`, `Patches: 54 gesetzt`, `Spiel-Build 26495302`, beide mit 2 Spielern in `DDDynamic_Map`, kein `[ERROR]`,
   kein Absturz, auch nach dem SDK-Dump im Host. Dreimal gelaufen, zuletzt mit dem Endstand dieses Branches.
+
+## Freigabe von Build 26669225 für Spieler (`freigabe-1-0-2`)
+
+Nutzerentscheidung vom 16.11.2026: Das Update 1.0.2 ist für das Projekt nicht ausschlaggebend, `26669225` wird für Spieler geöffnet,
+ohne die restlichen Portierungen abzuwarten. Die Entwicklungskopien wechseln **nicht**: `26495302` bleibt Referenz, `PinnedGameDir`
+unverändert (`wechsel-1-0-2` bleibt offen).
+
+- **Teilinstallation von selbst:** `Game::Patches::PartialInstallAllowed` gilt auf einem weiteren Build mit eigener Tabelle in
+  `AddressMap` jetzt ohne Schalter. Auf `26669225` setzt die Mod jede Liste für sich und lässt einzelne Patches mit fehlender Adresse
+  aus. `DDCOOP_PARTIAL_PATCHES` bleibt für Builds ohne Tabelle. Der Referenz-Build ist unverändert (alle Patches oder keiner).
+- **Sperre neu gefasst:** `CoopBlocked` sperrt Lobby erstellen und beitreten auf einem weiteren Build, wenn kein Patch steht, das Setzen
+  abbrach oder eine der Kernlisten Player und Client fehlt. Belegt ist der Host-Absturz ohne die Player-Liste; die Client-Liste ist eine
+  vorsichtige Wahl ohne eigenen Beleg.
+- **Inventar-vtables von Hand:** `SlotVtable` `0x093A1F98` → `0x093A2EF8` und `DetectorVtable` `0x094C6A78` → `0x094C7B88`. Verfahren:
+  alle Einträge der alten vtable als Funktionen umrechnen (`rva_map.map_code`) und in `.rdata` der neuen Exe die Stelle suchen, an der die
+  meisten passen. Slot: 82 von 84 Einträgen umgerechnet, alle 82 gleich, `+0x200` → `0x1512430`. Detektor: 162 von 164 umgerechnet, alle
+  162 gleich, `+0x3F0` → `DetectorEndPlay` `0x57D1470`. Die nächstbesten Kandidaten haben 81 bzw. 159 Treffer (andere Klassen mit
+  geerbten Einträgen). `rva_map.py` scheiterte, weil es nur die ersten sechs Einträge nimmt und dort einer nicht umrechenbar ist.
+- **Stand auf `26669225`:** `Teilinstallation auf Build 26669225, 18 von 18 Listen gesetzt, 4 Patches ausgelassen`. Ausgelassen:
+
+  | Ausgelassener Patch | Folge für Spieler **[Vermutung aus der Aufgabe des Patches, auf `26669225` nicht im Spiel geprüft]** | Folgeaufgabe |
+  |---|---|---|
+  | Blockade nur beim Host | Blockade-Ladeende läuft beim Client nativ, Verhalten an Blockaden offen | `update-1-0-2-client` |
+  | Lebens- und Ausdauerleisten beim Client | Leisten des Clients aktualisieren sich nicht wie auf `26495302` | `update-1-0-2-lebensleisten` |
+  | Kaufen beim Händler nur in lokaler Bearbeitung | Kauf des Clients beim Händler ohne Host-Buchung, Abweichung möglich | `update-1-0-2-handel` |
+  | Nachladesound des Hosts für den Client | Client hört das Nachladen des Hosts nicht | `update-1-0-2-waffensound` |
+
+- **Spieltest 16.11.2026** (ein PC, eingefrorene Kopie `26669225`, `Start-Session.ps1 -Build -Mod -Tunnel Lobby -NoSpike`, **ohne**
+  `-PartialPatches`, ohne echte Eingaben, Reise über den Testkanal):
+  - Vor den vtables: 17 von 18 Listen, Lobby-Beitritt und Mission erreicht, zehn Minuten in `DDDynamic_Map` ohne Absturz, beide
+    Prozesse leben, Desync-Melder dauerhaft `offen Inventar`.
+  - Mit den vtables: 18 von 18 Listen, Lobby-Beitritt und Mission erreicht, Desync-Melder `OK Tag, Phase, Spieler, HP, Gegner,
+    Inventar` bei Host und Client (zwischendurch `offen HP`, das sich wieder schließt), kein Absturz in rund 90 Sekunden.
+  - `tools/expect_check.py --build 26669225`: 89 `ok`, 6 `fehlt`, 2 `uebersprungen` (die vtables prüft das Werkzeug nicht).
+- **Nicht geprüft:** Rundenende, Lager, Routenkarte, zweiter Tag, Händler und Kampf auf `26669225`. Ohne Spike gibt es dort kein
+  `!finish`, ein Rundenende braucht echte Eingaben oder zwei Menschen. Die beiden Client-Abstürze aus `update-basis-1-0-2` (unten)
+  stammen aus Läufen ohne Inventory-Liste; ob sie mit der Liste verschwinden, ist offen.
+- **Regression `26495302`:** `Start-Session.ps1 -Build -Mod -Tunnel Lobby`, beide `Patches: 54 gesetzt`, Mission erreicht, Desync OK,
+  kein Fehler im Mod-Log.
+- **Widerspruch zu `update-startpruefung`:** Die Aufgabe verlangt, dass eine Teilinstallation nicht als erfolgreicher Start gilt. Auf
+  `26669225` ist sie jetzt der Normalfall; das ist dort beim Umsetzen zu entscheiden.
 
 ## Build 26495302 (`update-basis`)
 

@@ -290,6 +290,7 @@ TEST_CASE("Patches: Teilinstallation setzt jede Liste ganz oder gar nicht")
     const PatchList Lists[] = {{"gut", Good}, {"schlecht", Bad}, {"gut2", Good}};
     bool On[3]{};
     const ListsResult Result = InstallLists(Lists, Code, On);
+    CHECK(Result.InstalledMask == 0b101);
     CHECK(Result.Installed == 2);
     CHECK(Result.Skipped == 1);
     CHECK_FALSE(Result.ApplyFailed);
@@ -308,23 +309,29 @@ TEST_CASE("Patches: Teilinstallation setzt jede Liste ganz oder gar nicht")
     CHECK(Applied == 0);
 }
 
-TEST_CASE("Patches: Teilinstallation nie im Referenz-Build oder ohne Schalter")
+TEST_CASE("Patches: Teilinstallation nie im Referenz-Build, auf freigegebenem Build von selbst")
 {
-    // 26600000 steht für einen künftigen Build mit eigener Tabelle.
+    // 26600000 steht für einen künftigen Build ohne Tabelle: nur mit Entwicklerschalter.
     CHECK(PartialInstallAllowed(true, 26600000));
     CHECK_FALSE(PartialInstallAllowed(false, 26600000));
+    CHECK(PartialInstallAllowed(false, 26669225)); // freigegeben, eigene Tabelle
+    CHECK(PartialInstallAllowed(true, 26669225));
     CHECK_FALSE(PartialInstallAllowed(true, 26495302));
+    CHECK_FALSE(PartialInstallAllowed(false, 26495302));
     CHECK_FALSE(PartialInstallAllowed(true, 0));
 }
 
-TEST_CASE("Patches: Coop nur auf einem weiteren Build ohne gesetzte Patches gesperrt")
+TEST_CASE("Patches: Coop auf einem weiteren Build nur mit den Kernlisten")
 {
-    CHECK(CoopBlocked(State::Inactive, 26669225));
-    CHECK_FALSE(CoopBlocked(State::Partial, 26669225)); // Teilinstallation für die Portierung
-    CHECK_FALSE(CoopBlocked(State::Active, 26669225));
-    CHECK_FALSE(CoopBlocked(State::Pending, 26669225));
-    CHECK_FALSE(CoopBlocked(State::Inactive, 26495302)); // Referenz-Build unverändert
-    CHECK_FALSE(CoopBlocked(State::Inactive, 0));
+    CHECK(CoopBlocked(State::Inactive, 26669225, false));
+    CHECK(CoopBlocked(State::Inactive, 26669225, true));
+    CHECK(CoopBlocked(State::Partial, 26669225, false)); // Player oder Client fehlt, oder Setzen abgebrochen
+    CHECK_FALSE(CoopBlocked(State::Partial, 26669225, true));
+    CHECK_FALSE(CoopBlocked(State::Active, 26669225, true));
+    CHECK_FALSE(CoopBlocked(State::Pending, 26669225, false));
+    CHECK_FALSE(CoopBlocked(State::Inactive, 26495302, false)); // Referenz-Build unverändert
+    CHECK_FALSE(CoopBlocked(State::Partial, 26495302, false));
+    CHECK_FALSE(CoopBlocked(State::Inactive, 0, false));
 }
 
 TEST_CASE("Patches: ein voller Code-Puffer gilt als gescheitertes Setzen")
