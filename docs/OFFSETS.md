@@ -157,8 +157,8 @@ unverändert (`wechsel-1-0-2` bleibt offen).
 
 ## Rundenende auf 26669225 (`rundenende-1-0-2`)
 
-**Offener Blocker, Stand 16.11.2026:** Ursache gefunden und behoben, der Fix ist im Spiel noch **nicht** bestätigt. Bis dahin gilt
-`26669225` nicht als spielbar.
+**Stand 16.11.2026:** Ursache behoben und auf einem PC im Spiel bestätigt (beide Reihenfolgen, Reise bis Tag 3). Offen bleibt die
+Gegenprobe auf zwei PCs mit einem Lager-Edit des Clients, wie im Live-Test.
 
 - **Befund** (Live-Test 16.11.2026, zwei PCs, Mod-Stand nach `freigabe-1-0-2`): Der Host musste jede Airdrop-Auswahl doppelt bestätigen.
   Am ersten Rundenende blieb sein Lager offen, Bestätigen ohne Wirkung. Der Client hatte bestätigt, sein Lager-Edit war übernommen,
@@ -184,12 +184,22 @@ unverändert (`wechsel-1-0-2` bleibt offen).
   4 ausgelassene Patches. Der Tick läuft beim Host (`Reward-Queue Host: neue Welt, belegt false, aktuelle Kiste keine`, dasselbe für den
   Remote-Spieler). Rund 75 Sekunden in `DDDynamic_Map`, beide Prozesse leben, Desync-Melder bei beiden `OK Tag, Phase, Spieler, HP,
   Gegner, Inventar`, kein neuer Fehler im Mod-Log.
-- **Nicht geprüft:** Rundenende und Reise zu Tag 2 im Spiel auf `26669225`, weder Host zuerst noch Client zuerst. Ohne Spike gibt es dort
-  kein `!finish`, Rundenende und Bestätigen brauchen echte Eingaben oder zwei Menschen. Mit dem Tick laufen auf `26669225` auch
-  `TickStation` und `AdvanceQueues` zum ersten Mal; im Test auf die Zeilen `Reward-Queue` und eine Stations-Bearbeitung achten.
-  Nur „Host zuerst“ läuft über den Tick. Erwartet dort: `Lager: Host bereit, wartet auf den Client`, dann `Lager: Bestätigen
-  nachgeholt (Client bereit)`; beim Airdrop `Bestätigen des Hosts nachgeholt (Versuch 1)`. Bleibt das Lager danach offen, gibt es
-  eine zweite Ursache.
+- **Spieltest Rundenende 16.11.2026** (ein PC, eingefrorene Kopie `26669225`, `Run-Route.ps1 -Start -NoSpike -Days 1 -StayLast`, echte
+  Klicks über `Game-Input.ps1` mit Zustimmung des Nutzers, Rundenende über „Full Tank“ des Dev-Tabs):
+  - **Host zuerst, Tag 1:** ein Klick beim Host, Knopf gelb, `Lager: Host bereit, wartet auf den Client`. 15 s später bestätigt der
+    Client: `Lager: Client bereit`, in derselben Millisekunde `Lager: Bestätigen nachgeholt (Client bereit)` beim Host, 0,2 s danach
+    `Lager: Bestätigen nachgeholt (alle bereit)` beim Client. Host auf der Routenkarte für Tag 2, kein zweiter Klick.
+  - **Reise zu Tag 2:** Knoten angeklickt, beide in `DDDynamic_Map` (`MGP_Forest_Roadstops`).
+  - **Client zuerst, Tag 2:** `Lager: Client bereit, wartet auf den Host`, 6 s später ein Klick beim Host: `Lager: Host bestätigt,
+    alle bereit`, 0,2 s danach `Lager: Bestätigen nachgeholt (alle bereit)` beim Client. Host auf der Routenkarte für Tag 3.
+  - **Reise zu Tag 3:** beide in `DDDynamic_Map`, Desync-Melder bei beiden `OK Tag, Phase, Spieler, HP, Gegner, Inventar`. Kein
+    Absturz, kein neuer Fehler im Mod-Log.
+- **Nicht geprüft:** Airdrop-Auswahl im Spiel (Host zuerst, erwartet `Bestätigen des Hosts nachgeholt (Versuch 1)`), ein Lager-Edit des
+  Clients vor dem Bestätigen (im Live-Test: 8 Items, 2 Aufwertungen, 3 Verkäufe; hier waren beide Lager leer), zwei PCs. Der gemeldete
+  nicht gelbe Knopf ist damit nicht erklärt; mit laufendem Tick trat kein Hänger auf. `TickStation` lief ohne Stations-Bearbeitung.
+- **Rundenende ohne Spike und ohne Eingabe:** Stehen beide Figuren am Bus (Ankunft), beendet ein voller Tank die Runde sofort. „Full
+  Tank“ des Dev-Tabs lässt sich als Fensternachricht an das Overlay schicken (`[DDCoopOverlay]::Click(<Overlay>, 111)` aus
+  `Common.ps1`, Godmode `112`). Eine Direktreise mit `Send-GameTravel` in `DDDynamic_Map` landet dagegen in `MGP_HQ8_Boss` ohne Bus.
 - **Derselbe Mechanismus, nicht Teil dieser Aufgabe:** Auch die Ticks der Listen HealthBar (Busbalken) und WeaponSound bleiben auf
   `26669225` aus, bis `update-1-0-2-lebensleisten` und `update-1-0-2-waffensound` ihre Adressen nachtragen. Ein hängender Ablauf ist
   dort nicht belegt.
