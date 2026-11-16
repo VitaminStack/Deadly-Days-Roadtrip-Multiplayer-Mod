@@ -21,8 +21,8 @@
 {0x04B68380, 0x04B68B40}, // eindeutig, AttributeLookupFunction, src/Game/ClientPatches.cpp:21
 {0x04BC58D0, 0x04BC6090}, // eindeutig, ExecuteCueNonReplicated, src/Game/BodyPartPatches.cpp:28
 {0x056591B0, 0x05659940}, // eindeutig, DamageInfoConstruct, src/Game/DamageNumberPatches.cpp:31
-// FEHLT 0x056676F5 // fehlt, At, src/Game/ClientPatches.cpp:320
-// FEHLT 0x05707870 // fehlt, ReloadSoundEvent, src/Game/WeaponSoundPatches.cpp:99
+{0x056676F5, 0x05667E85}, // von Hand (einziger jmp auf BlockadeLoadingFinished 0x058BC360, Verschiebung +0x790 wie die Nachbarn), At, src/Game/ClientPatches.cpp:320
+{0x05707870, 0x05708000}, // von Hand (10 eindeutige Fenster, 400 Befehle maskiert gleich, Verschiebung +0x790), ReloadSoundEvent, src/Game/WeaponSoundPatches.cpp:99
 {0x057BDCD0, 0x057BE450}, // eindeutig, ControllerSetAdd, src/Game/PlayerPatches.cpp:30
 {0x057CB5A5, 0x057CBD25}, // ueber-funktion, ScheduleCall, src/Game/InventoryPatches.cpp:319
 {0x057D0C60, 0x057D1470}, // eindeutig, DetectorEndPlay, src/Game/InventoryPatches.cpp:317
@@ -55,7 +55,7 @@
 {0x058BF120, 0x058BF6F0}, // eindeutig, UpdateBounds, src/Game/ExpPatches.cpp:27
 {0x058BF210, 0x058BF7E0}, // eindeutig, ReceiveExpImpl, src/Game/ExpPatches.cpp:26
 {0x058C1B10, 0x058C20E0}, // eindeutig, SpawnRequest, src/Game/ExpPatches.cpp:25
-// FEHLT 0x058CE280 // fehlt, TryBuyItem, src/Game/RewardPatches.cpp:54
+{0x058CE280, 0x058CE890}, // von Hand (Ziel des Exec-Thunks 0x0579B580, 43 eindeutige Fenster; Anfang geaendert, eigene Pruefbytes), TryBuyItem, src/Game/RewardPatches.cpp:54
 {0x058CF517, 0x058CFB47}, // eindeutig, SpawnerPlayerRead, src/Game/PlayerPatches.cpp:26
 {0x058CFA07, 0x058D0037}, // eindeutig, SpawnerNoPlayerExit, src/Game/PlayerPatches.cpp:27
 {0x058D1A80, 0x058D20B0}, // eindeutig, MapAdd, src/Game/RemoteP2Patches.cpp:27
