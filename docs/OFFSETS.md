@@ -142,9 +142,14 @@ unverändert (`wechsel-1-0-2` bleibt offen).
   - Mit den vtables: 18 von 18 Listen, Lobby-Beitritt und Mission erreicht, Desync-Melder `OK Tag, Phase, Spieler, HP, Gegner,
     Inventar` bei Host und Client (zwischendurch `offen HP`, das sich wieder schließt), kein Absturz in rund 90 Sekunden.
   - `tools/expect_check.py --build 26669225`: 89 `ok`, 6 `fehlt`, 2 `uebersprungen` (die vtables prüft das Werkzeug nicht).
+  - Sitzungsende mit 18 von 18 Listen, beide in `DDDynamic_Map`: `Test-NetEnd.ps1` besteht alle Fälle (Host verlässt, Client verlässt,
+    Client beendet, Host beendet, Neubeitritt per Lobby-ID), `Abstuerze: keine neuen`. Der Client-Absturz nach Hostverlust an
+    `0x597A8FA` aus `update-basis-1-0-2` trat damit nicht mehr auf (ein Lauf).
 - **Nicht geprüft:** Rundenende, Lager, Routenkarte, zweiter Tag, Händler und Kampf auf `26669225`. Ohne Spike gibt es dort kein
-  `!finish`, ein Rundenende braucht echte Eingaben oder zwei Menschen. Die beiden Client-Abstürze aus `update-basis-1-0-2` (unten)
-  stammen aus Läufen ohne Inventory-Liste; ob sie mit der Liste verschwinden, ist offen.
+  `!finish`, ein Rundenende braucht echte Eingaben oder zwei Menschen; zehn Minuten Leerlauf in der Mission lösten keines aus. Das
+  Ende des Client-Prozesses nach dem Rundenende aus `update-basis-1-0-2` (Lauf ohne Inventory-Liste) ist darum nicht nachgeprüft.
+- **Zustand `Active`:** Mit 18 von 18 Listen meldet `DDCoopPatchState` `Active`, obwohl 4 einzelne Patches fehlen; das ist dieselbe
+  Regel wie bei per Signatur ausgelassenen Patches im Referenz-Build. Die Lücken stehen nur im Log.
 - **Regression `26495302`:** `Start-Session.ps1 -Build -Mod -Tunnel Lobby`, beide `Patches: 54 gesetzt`, Mission erreicht, Desync OK,
   kein Fehler im Mod-Log.
 - **Widerspruch zu `update-startpruefung`:** Die Aufgabe verlangt, dass eine Teilinstallation nicht als erfolgreicher Start gilt. Auf

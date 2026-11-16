@@ -58,7 +58,7 @@ Use `Uninstall.cmd` for that.
 
 | Message | Meaning and fix |
 |---|---|
-| `Game build … instead of 26495302` | Steam updated the game to a build the mod does not know yet. Wait for a mod version for that build, and play without the mod until then. |
+| `Game build … instead of 26495302 or 26669225` | Steam updated the game to a build the mod does not know yet. Wait for a mod version for that build, and play without the mod until then. |
 | `Steam not found` or `not found in any Steam library` | Specify the game folder with `-GameDir`, see above. |
 | `Steam manifest not found` | The given folder is not in a Steam library (`…\steamapps\common\…`). Only Steam installations are supported. |
 | `Game exe not found` | Use `-GameDir` to specify the folder that contains `DDSurvivors`, not a subfolder. |
