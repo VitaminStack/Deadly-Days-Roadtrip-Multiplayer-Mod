@@ -40,6 +40,8 @@ std::span<const Patch> AirdropPatches();
 std::span<const Patch> ExpPatches();
 std::span<const Patch> RemoteP2Patches();
 std::span<const Patch> RewardPatches();
+// Stellen der Liste Reward, ohne die Rewards::Tick auskommt, siehe PatchList::TickOptional.
+std::span<const uintptr_t> RewardTickOptionalSites();
 std::span<const Patch> MapPatches();
 std::span<const Patch> LocalDevicePatches();
 std::span<const Patch> CharacterPatches();

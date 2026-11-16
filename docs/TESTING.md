@@ -386,7 +386,7 @@ powershell -ExecutionPolicy Bypass -File tools/spike/Start-Session.ps1 -Build -M
 Die Lobby-ID gehört zu keinem Konto, verfällt mit der Lobby und kommt trotzdem nicht ins Repo. Beide brauchen denselben Stand von
 `main` und denselben Build. Der Spike läuft auf beiden Builds; `-NoSpike` bleibt für Läufe wie im Release. Bei unvollständiger Portierung eines neuen Builds kommt
 `-PartialPatches`; ohne Spike gibt es keine Konsolenbefehle wie `!finish`. Ein Rundenende geht dann über vollen Tank und Busflucht,
-den Tank füllt `py tools/spike/fuel.py <host-pid> --fill`. Ablauf und Ergebnisse eines solchen Termins:
+den Tank füllt `py tools/spike/fuel.py <host-pid> --fill`. Ohne Eingabe geht es mit „Full Tank“ des Dev-Tabs, solange beide Figuren am Bus stehen, siehe [Rundenende auf 26669225](OFFSETS.md#rundenende-auf-26669225-rundenende-1-0-2). Ablauf und Ergebnisse eines solchen Termins:
 [Live-Test 07.11.](GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-07112026-livetest-0711).
 
 ### Von Hand oder in Teilen
