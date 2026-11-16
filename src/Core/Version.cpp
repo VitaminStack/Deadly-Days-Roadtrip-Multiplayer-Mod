@@ -25,6 +25,7 @@ struct SupportedBuild
 // Bei einem Spiel-Update hier ergänzen, siehe CONTRIBUTING.md, Abschnitt Spiel-Updates.
 constexpr std::array SupportedBuilds = {
     SupportedBuild{26495302, {0x65BFBBFB, 0x0B748000}},
+    SupportedBuild{26669225, {0xE9CA3AB7, 0x0B74A000}},
 };
 
 std::atomic<uint32_t> Active = 0;

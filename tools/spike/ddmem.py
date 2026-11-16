@@ -7,6 +7,7 @@ GOBJECTS, GNAMES, GWORLD = 0x0AA67B80, 0x0A999B40, 0x0AAEA770
 # TimeDateStamp der Exe -> (GObjects, GNames, GWorld, Groesse von .text), wie src/Game/Offsets.h.
 BUILDS = {
     0x65BFBBFB: (GOBJECTS, GNAMES, GWORLD, 0x827C000),  # 26495302
+    0xE9CA3AB7: (0x0AA69B80, 0x0A99BB40, 0x0AAEC770, 0x827C000),  # 26669225, Patch 1.0.2
 }
 
 kernel = ctypes.WinDLL('kernel32', use_last_error=True)

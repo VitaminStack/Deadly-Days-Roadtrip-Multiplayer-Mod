@@ -23,6 +23,15 @@ REFERENCES = {
     'DDSurvivors/Content/Paks/global.ucas': '34661a41b09a06e3ccaf94f34732b497c1d8131232974f0fe44a09759326ebd2',
     'DDSurvivors/Content/Paks/global.utoc': '9c4476acd65a2da64d5cd50f8bdbe2536da94fbf218ad56bced52497a6eff71d',
   },
+  # update-basis-1-0-2, 16.11.2026: Patch 1.0.2, Depot 3026452 Manifest 1284187377913424313. global.* unveraendert.
+  '26669225': {
+    'DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe': '853b740791fa797794949034e4fb65771180e822f0d3b56b5ad95820fc9b6a21',
+    'DDSurvivors/Content/Paks/DDSurvivors-Windows.pak': '4ff65afac781e6549b07b1a546af7140bdefe967dd0eedac75514c4d0c24bca5',
+    'DDSurvivors/Content/Paks/DDSurvivors-Windows.ucas': '062bba92f87e2336c905c8a6d7426555d5f958b27fdcc3c7d6cec779c32b40e8',
+    'DDSurvivors/Content/Paks/DDSurvivors-Windows.utoc': '6684792532e54599757c24e2a7aa1a591a756c44c77f9d4d2dd20242ae7a7248',
+    'DDSurvivors/Content/Paks/global.ucas': '34661a41b09a06e3ccaf94f34732b497c1d8131232974f0fe44a09759326ebd2',
+    'DDSurvivors/Content/Paks/global.utoc': '9c4476acd65a2da64d5cd50f8bdbe2536da94fbf218ad56bced52497a6eff71d',
+  },
 }
 MUTABLE_DIRS = ('ddsurvivors/saved', 'ddsurvivors/binaries/win64/ddcoop')
 MOD_PROXY = 'ddsurvivors/binaries/win64/version.dll'
