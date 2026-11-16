@@ -25,5 +25,5 @@ TEST_CASE("Adressen: Tabelle 26669225 ist sortiert und rechnet nur bekannte Eint
     }
     // Zwischen zwei Einträgen liegt keine geratene Adresse, fehlende Einträge liefern 0.
     CHECK(Map(26669225, Entries.front().Reference + 1) == 0);
-    CHECK(Map(26669225, 0x057DC810) == 0); // OnRep_Health, Code geändert, Portierung offen
+    CHECK(Map(26669225, 0x057DC810) == 0x057DD020); // OnRep_Health, von Hand nachgetragen (update-1-0-2-lebensleisten)
 }
