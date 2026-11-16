@@ -174,15 +174,15 @@ Stand 16.11.2026. `HealthBarPatches.cpp` ist unverändert, nur `RvaMap26669225.i
   `MaxStamina` 10), der Rumpf liest dieselben Felder (`+0xA0`, `+0x30`, `+0x30`) und `ASC+0x8D8`. Die Verschiebung ist `+0x810` wie bei
   `OnRep_Stamina` und `DetectorEndPlay`, die statischen Attribut-Zeiger liegen `+0x2000` wie `GObjects`.
 - **Broadcast weiter nötig:** Die Funktionen sind Befehl für Befehl gleich geblieben (nur `SetBaseAttributeValueFromReplication`, kein
-  eigener Broadcast). Vergleichslauf ohne die drei Adressen auf `26669225`: Nach Schaden durch den Boss zeigt die HUD-Leiste des Clients
-  80, die kleine Leiste über seiner Figur bleibt voll, beim Host sinkt sie.
+  eigener Broadcast). Ein Vergleichslauf ohne die drei Adressen auf `26669225` belegt dazu nichts: Der Boss traf zwar (HUD des
+  Clients 80), in den Bildern ist aber nur eine Figur in der Arena und nicht zuzuordnen, wessen Leiste zu sehen ist.
 - **Offline:** `expect_check.py --build 26669225` 92 `ok`, 3 `fehlt`, 2 `uebersprungen`; `patch_signatures.py check` 103 `ok`, 3 `fehlt`
   (Blockade, Nachladesound, Händlerkauf), Referenz-Build 106 `ok`. Die vorhandenen Signaturen passen ohne Änderung.
 - **Spieltest `26669225`** (ein PC, eingefrorene Kopie, `Start-Session.ps1 -Build -Mod -Tunnel Lobby -NoSpike`, Reise über den Testkanal
   nach `DDDynamic_Map`, ohne echte Eingaben, drei Läufe): Host und Client `Signaturen: 3 von 106 Adressen gesperrt`, `Liste HealthBar
   gesetzt` ohne „ausgelassen", `18 von 18 Listen gesetzt, 3 Patches ausgelassen`, beim Client `Lebensleisten: erster Broadcast beim
   Client, 1 Empfänger`. Fensterbilder des Clients ab Sekunde 0 der Mission, im längsten Lauf rund 2,5 Minuten: HUD-Leiste 100 und gefüllt, Lebens- und
-  Ausdauerleiste über beiden Figuren gefüllt, wie beim Host. Kein Absturz.
+  Ausdauerleiste über beiden Figuren gefüllt, wie beim Host; der Boss erschien in diesen Läufen nicht. Kein Absturz.
 - **Nicht geprüft:** Änderung der Leisten nach Schaden mit dem Patch auf `26669225` (in den drei Läufen mit Patch griff der Boss auch in rund 2,5 Minuten
   nicht an, ohne Spike gibt es keinen Schadensbefehl) und der echte Weg in die erste Karte über die Routenkarte, er braucht Eingaben.
   Der Live-Befund vom 16.11.2026 („Lebens- und Rüstungsleiste des Clients in der ersten Karte lange leer und schwarz") ließ sich mit
