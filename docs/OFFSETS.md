@@ -166,11 +166,13 @@ unverändert (`wechsel-1-0-2` bleibt offen).
 - **Ursache:** Auf `26669225` fehlt `ShopPanelItem::TryBuyItem` (`0x058CE280`). Die Teilinstallation ließ darum nicht nur den
   Händler-Patch aus, sondern auch den Tick der ganzen Liste Reward (`Liste Reward gesetzt, ohne Tick (Adresse fehlt)`). `ConfirmHook`
   stand aber und hielt das Bestätigen des Hosts zurück; nachgeholt wird es nur in `Rewards::Tick`. Beim Airdrop lief erst der zweite
-  Klick nativ, weil die Wahl des Clients dann schon da war. Im Lager gibt es diesen Ausweg nicht: Nach dem ersten Klick ändern weitere
-  nichts. Der Client hängt nicht am Tick, sein Bestätigen lösen Nachrichten des Hosts aus.
+  Klick nativ, weil die Wahl des Clients dann schon da war. Das ist belegt: Der fehlende Tick steht im Log,
+  der Doppelklick folgt aus dem Code. Im Lager gibt es diesen Ausweg nicht: Nach dem ersten Klick ändern weitere nichts.
+  **[Vermutung]** Dass das Lager des Hosts genau daran hing, ist nicht belegt: Dieser Weg lässt den Knopf gelb, gemeldet wurde
+  „nicht gelb“. Ohne Host-Log und ohne Spieltest ist eine zweite Ursache im Lager nicht ausgeschlossen. Der Client hängt nicht am Tick, sein Bestätigen lösen Nachrichten des Hosts aus.
 - **`HandleConfirmButton` ist in 1.0.2 unverändert:** `0x5A71900` und `0x5A72720` sind Befehl für Befehl gleich, ebenso die Aufrufe bis
   in die dritte Ebene (314 Funktionspaare verglichen, Adressen ausgeblendet). Die einzige inhaltliche Abweichung liegt in
-  `0x5AA26A0` → `0x5AA34C0` (Aufbau eines Item-Widgets, neuer früher Ausstieg ohne Itemdaten) und betrifft das Bestätigen nicht.
+  `0x5AA26A0` → `0x5AA34C0` (**[Vermutung aus dem Code]** Aufbau eines Item-Widgets, neuer früher Ausstieg ohne Itemdaten; nicht im Spiel geprüft).
 - **Fix:** `PatchList::TickOptional` nennt Stellen, ohne die der Tick einer Liste auskommt. Für Reward ist das `TryBuyItem`: `Rewards::Tick`
   benutzt die Adresse nicht, nur Prüfung, Setzen und Hook des Händler-Patches. Der Händler-Patch bleibt ausgelassen
   (`update-1-0-2-handel`), der Tick läuft. Erwartete Logzeile auf `26669225`: `Patches: Liste Reward gesetzt` ohne den Zusatz.
@@ -185,6 +187,9 @@ unverändert (`wechsel-1-0-2` bleibt offen).
 - **Nicht geprüft:** Rundenende und Reise zu Tag 2 im Spiel auf `26669225`, weder Host zuerst noch Client zuerst. Ohne Spike gibt es dort
   kein `!finish`, Rundenende und Bestätigen brauchen echte Eingaben oder zwei Menschen. Mit dem Tick laufen auf `26669225` auch
   `TickStation` und `AdvanceQueues` zum ersten Mal; im Test auf die Zeilen `Reward-Queue` und eine Stations-Bearbeitung achten.
+  Nur „Host zuerst“ läuft über den Tick. Erwartet dort: `Lager: Host bereit, wartet auf den Client`, dann `Lager: Bestätigen
+  nachgeholt (Client bereit)`; beim Airdrop `Bestätigen des Hosts nachgeholt (Versuch 1)`. Bleibt das Lager danach offen, gibt es
+  eine zweite Ursache.
 - **Derselbe Mechanismus, nicht Teil dieser Aufgabe:** Auch die Ticks der Listen HealthBar (Busbalken) und WeaponSound bleiben auf
   `26669225` aus, bis `update-1-0-2-lebensleisten` und `update-1-0-2-waffensound` ihre Adressen nachtragen. Ein hängender Ablauf ist
   dort nicht belegt.
