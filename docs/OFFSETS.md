@@ -55,6 +55,7 @@ SizeOfImage `0x0B74A000`, `.text` gleich groß (`0x827C000`). Die Portierung der
   | `RewardPatches.cpp`, Reward | `0x058CE280` | `ShopPanelItem::TryBuyItem` | von Hand nachgetragen: `0x058CE890`, Ziel des Exec-Thunks `0x0579B580`. Der Anfang ist geändert: Die Funktion lädt die Instanz nach `rax` und kehrt auch ohne deren `ItemData` (`+0xE0`) oder dessen Feld `+0xE8` zurück, danach gleich; eigene Prüfbytes je Build in `CheckTryBuy`, gemeinsame Signatur. Spieltest offen, `update-1-0-2-handel` |
   | `WeaponSoundPatches.cpp`, WeaponSound | `0x05707870` | `Hands.PlayReloadSound` | von Hand nachgetragen: `0x05708000`, 400 Befehle maskiert gleich; Spieltest offen, `update-1-0-2-waffensound` |
 
+- **Stand 16.11.2026 nach `update-1-0-2-client`, `update-1-0-2-waffensound` und `update-1-0-2-handel`:** Alle Code-Adressen sind eingetragen. `tools/expect_check.py` auf `26669225`: 95 `ok`, 1 `anderer-build`, 2 `uebersprungen`, kein `fehlt`; `tools/patch_signatures.py check`: 106 `ok` auf beiden Builds. Die Zahlen im nächsten Punkt sind der Stand davor. Im Spiel auf `26669225` noch nicht gestartet.
 - **Offline gegen die Exe von `26669225`:** `tools/expect_check.py` 89 `ok`, 6 `fehlt`, 2 `uebersprungen` (lokale `Site`), keine `abweichend`;
   `tools/patch_signatures.py check` 100 `ok`, 6 `fehlt`. Die beiden vtables prüft nur das Spiel (`ExpectVirtual`), `expect_check.py` kennt sie nicht.
 - **SDK-Vergleich:** Beide SDKs am 16.11.2026 per `inject.py` im Host erzeugt, beide Instanzen in `DDDynamic_Map` nach direkter Reise:
