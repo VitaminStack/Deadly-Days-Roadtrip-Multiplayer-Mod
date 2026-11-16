@@ -4,6 +4,7 @@ Der Quelltext (`src/`, Spike) nennt seit `spiel-update` (09.11.2026) RVAs von St
 Ältere Abschnitte dieser Datei sind vor dem Umstieg entstanden und nennen RVAs von `26187885`, siehe
 [Referenz-Build 26495302](#referenz-build-26495302-spiel-update) für die Umrechnung. Feld-Offsets sind in beiden Builds gleich, außer wo vermerkt.
 Nach einem Spiel-Update müssen sie neu bestimmt werden, siehe [Spiel-Updates](../CONTRIBUTING.md#spiel-updates).
+Für Steam-Build `26669225` (Patch 1.0.2) gibt es seit dem 16.11.2026 eine Umrechnungstabelle, siehe [Build 26669225](#build-26669225-update-basis-1-0-2).
 Sie sind hier zum Nachschlagen gesammelt, damit niemand sie erneut suchen muss. Wer neue findet, trägt sie hier ein.
 
 RVAs sind relativ zur Image-Base `0x140000000`. Die Patchstellen stehen als Konstanten am Anfang der jeweiligen
@@ -25,6 +26,88 @@ Tabelle selbst ist entfernt; für alte Werte weiter unten: `git show 0cb3d80:src
   Tag 2 (63/63), je 2/2 Spieler, Inventar gleich, kein `[ERROR]` im Mod-Log.
 - Drei Adressen nur aus Kommentaren ließen sich nicht umrechnen (Exec-Thunks von `ReceiveExp` und `HandleItemSold`, Absturzstelle in
   `RepresentationSize`); die Kommentare nennen sie nicht mehr.
+
+## Build 26669225 (`update-basis-1-0-2`)
+
+Stand 16.11.2026, Patch 1.0.2 vom 14.11.2026. `26495302` bleibt Referenz-Build (`Game::AddressMap::ReferenceBuild`, `Protocol::GameBuild`,
+`$SupportedBuild`, `game_build.BUILD`). `26669225` läuft parallel: Für ihn rechnet `Game::AddressMap` die Referenz-RVAs über
+`src/Game/RvaMap26669225.inc` um, erzeugt mit [`tools/rva_map.py`](../tools/README.md#rva_mappy). Exe: TimeDateStamp `0xE9CA3AB7`,
+SizeOfImage `0x0B74A000`, `.text` gleich groß (`0x827C000`). Die Portierung der offenen Adressen ist je Patch-Datei aufgeteilt, siehe
+[Wartung](../TODO.md#wartung) (`update-1-0-2-*`).
+
+| | 26495302 | 26669225 | Beleg |
+|---|---|---|---|
+| GObjects | `0x0AA67B80` | `0x0AA69B80` | rva_map (Code-Verweis) und Dumper-7-SDK |
+| GNames | `0x0A999B40` | `0x0A99BB40` | rva_map und SDK |
+| GWorld | `0x0AAEA770` | `0x0AAEC770` | rva_map und SDK |
+| ProcessEvent | `0x0160C220` | `0x0160C220` | rva_map (eindeutig) und SDK, Index `0x4A` unverändert |
+| FName::AppendString (nur SDK) | `0x0143DAD0` | `0x0143DAD0` | SDK |
+
+- **Code-Adressen:** 117 Adressen aus `src/`: 102 eindeutig, 3 vtables (`ItemVtable`, `InventoryVtable`, `MapGenLambdaVtable`), 3 Globale,
+  1 über den Funktionsanfang (`ScheduleCall`), 8 fehlen (Code geändert). Code bis `0x024E95F0` liegt unverändert, danach wächst die
+  Verschiebung von `-0x30` (Engine) auf bis zu `+0xED0` (Spielcode).
+
+  | Datei, Liste | Fehlende Referenz-RVA | Bedeutung | Folgeaufgabe |
+  |---|---|---|---|
+  | `ClientPatches.cpp`, Client | `0x056676F5` | Blockade-Thunk, reflektierter Einsprung auf `BlockadeLoadingFinished` | `update-1-0-2-client` |
+  | `HealthBarPatches.cpp`, HealthBar | `0x057DC810`, `0x057DCE70`, `0x057DD080` | `OnRep_Health`, `OnRep_MaxHealth`, `OnRep_MaxStamina` | `update-1-0-2-lebensleisten` |
+  | `InventoryPatches.cpp`, Inventory | `0x093A1F98`, `0x094C6A78` | vtable `BackpackSlot`, vtable Achievement-Detektor | `update-1-0-2-inventar` |
+  | `RewardPatches.cpp`, Reward | `0x058CE280` | `ShopPanelItem::TryBuyItem` | `update-1-0-2-handel` |
+  | `WeaponSoundPatches.cpp`, WeaponSound | `0x05707870` | `Hands.PlayReloadSound` | `update-1-0-2-waffensound` |
+
+- **Offline gegen die Exe von `26669225`:** `tools/expect_check.py` 89 `ok`, 6 `fehlt`, 2 `uebersprungen` (lokale `Site`), keine `abweichend`;
+  `tools/patch_signatures.py check` 100 `ok`, 6 `fehlt`. Die beiden vtables prüft nur das Spiel (`ExpectVirtual`), `expect_check.py` kennt sie nicht.
+- **SDK-Vergleich:** Beide SDKs am 16.11.2026 per `inject.py` im Host erzeugt, beide Instanzen in `DDDynamic_Map` nach direkter Reise:
+  `26495302` 2.503 Dateien (Sitzung mit Spike, Dumper-7 aus dem Submodul), `26669225` 2.502 Dateien (ohne Spike, Dumper-7 mit lokalem Fix,
+  siehe unten; es fehlt nur `GE_MetaBaseSpeed`, ein dort nicht geladenes Blueprint). `py tools/sdk_diff.py --old … --new …`:
+  **337 unverändert, nichts verschoben, verschwunden oder mit geänderter Signatur**, Exitcode 0. 5 Einträge meldet das Werkzeug als
+  `unbekannt`, weil es sie nicht zuordnet; von Hand in beiden SDKs geprüft und gleich: `UCharacterMovementComponent.MaxWalkSpeed` `0x288`,
+  `ADDCharacterBase.CommonAttributeSet` `0x700`, `UCharacterSelectionManager.GetSelectedCharacter(int32)`, `SetVisibility` von
+  `USceneComponent` und `UWidget` (`Engine_classes.hpp` und `UMG_classes.hpp` sind in beiden SDKs bytegleich).
+- **Dateivergleich der SDKs:** `Engine_classes.hpp`, `Engine_structs.hpp`, `CoreUObject_classes.hpp`, `UMG_classes.hpp`,
+  `GameplayAbilities_classes.hpp` und `DDSurvivors_structs.hpp` sind bytegleich. In `DDSurvivors_classes.hpp` hat sich genau eine native
+  Klasse geändert: `UMemoSubsystem` wächst von `0x158` auf `0x170`, neu `bPendingBossMemoBackfill` `0x130`, `CachedMemoDataTable`
+  `0x130` → `0x138`. Die Mod nutzt die Klasse nicht. Daneben unterscheiden sich einige Blueprint-Dateien (unter anderem
+  `BP_DD_Character_parameters`, `OptionsMenu`, `BP_ManagerBoss_Stage*`, `WBP_AchievementNotification`); nicht einzeln ausgewertet,
+  die von der Mod genutzten Blueprint-Felder deckt `sdk_diff.py` ab.
+- **SdkChecks:** `SdkChecks.cpp` baut gegen beide SDKs ohne Fehler (nach der üblichen
+  [Nacharbeit](GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58) an `Assertions.inl`); `Offsets.h` gilt damit für beide Builds. Grenze wie
+  immer: Offsets, die nur als Zahl im Code stehen, und nicht reflektierte Felder erfasst weder der Vergleich noch der Build.
+- **Geänderter Quelltext:** `PlayerPatches.cpp` prüfte den Kamera-Folger mit `At(CameraFollowTick + 0x0E)`; die Summe steht in keiner
+  Tabelle, darum fiel auf `26669225` die ganze Liste Player aus und der Host stürzte beim Beitritt des Clients an `0x5905A88` ab
+  (`SpawnNullSite`, Referenz `0x5904DE8`, derselbe Absturz wie in `update-basis` ohne Player-Liste). Jetzt `At(CameraFollowTick, 0x0E)`;
+  die Bytes sind in beiden Builds gleich. Die Teilinstallation loggt zusätzlich jede gesetzte Liste (`Patches: Liste <Name> gesetzt`).
+- **Spieltest `26669225`** (ein PC, eingefrorene Kopie, `Start-Session.ps1 -Build -Mod -Tunnel Lobby -NoSpike -PartialPatches`, ohne echte
+  Eingaben): Host und Client melden `Spiel-Build 26669225`, `Signaturen: 6 von 106 Adressen gesperrt`, `Teilinstallation …, 17 von 18 Listen
+  gesetzt, 4 Patches ausgelassen`. Ausgelassen ist die Liste Inventory; Client, HealthBar, Reward und WeaponSound sind gesetzt, aber je
+  ohne den Patch mit der fehlenden Adresse und ohne Tick. Crash-Reporter gesperrt, Handshake „Build, Mod-Version und Gegenrolle bestaetigt“,
+  Lobby-Beitritt ohne Absturz, Reise über den Testkanal (`travel /Game/Maps/DDDynamic_Map`) mit beiden Spielern in der Mission.
+- **Ohne `-PartialPatches`** (so startet jeder Spieler): Die Mod setzt auf `26669225` keinen Patch (`Patches: keiner gesetzt`). Vor dieser
+  Aufgabe blieb die Mod dort wegen des unbekannten Fingerabdrucks ganz aus; mit dem Fingerabdruck liefe sie ohne Patches und böte die Lobby
+  an, ein Beitritt ließe den Host abstürzen. Darum sperrt `Game::Patches::CoopBlocked` auf jedem Nicht-Referenz-Build ohne gesetzte Patches
+  das Erstellen und Beitreten (Overlay, Einladung, Testkanal), Log `Patches: Spiel-Build 26669225 ist noch nicht portiert, Lobby erstellen
+  und beitreten gesperrt`, Overlay-Text „Diese Spielversion wird noch nicht unterstützt, Coop gesperrt“. Der Referenz-Build ist davon
+  ausgenommen. Im Spiel geprüft: Start ohne Schalter, beide Instanzen bleiben im Hauptmenü, „Lobby erstellen“ über den Testkanal wird abgelehnt, kein Absturz. **Trotzdem nicht veröffentlichen, bevor die Portierungen fertig sind:** Installer und `SupportedBuilds` nehmen
+  `26669225` schon an.
+- **Client-Abstürze mit Teilinstallation** (zwei Beobachtungen, Ursache nicht belegt): Im ersten Lauf verlor der Client den Host (dessen
+  Absturz kam vom Dumper, siehe unten) und stürzte eine Sekunde später an `0x597A8FA` ab: Lesen von `0x340`, also `this+0x318+0x28` mit
+  leerem `this`, Aufrufer `0x5976AE9`, `0x5960F42`. Die Bytes um die Stelle sind in `26495302` bei `0x5979B4A` gleich (Verschiebung
+  `+0xDB0`); die Stelle ist in dieser Datei bisher nicht beschrieben. Im zweiten Lauf endete der Client-Prozess direkt nach „Rundenende: an
+  den Client gesendet“ ohne Absturzbericht. **[Vermutung]** Beides folgt aus der fehlenden Inventory-Liste (Inventar-Unterobjekte
+  replizieren nicht), wie die Client-Abstürze auf `26495302` vor `update-inventar`; zu prüfen in `update-1-0-2-inventar`. Ein Coop-Tag
+  auf `26669225` ist erst nach dieser Portierung sinnvoll.
+- **Dumper-7 auf `26669225`:** Der Stand des Submoduls (`2570b5b`) stürzt beim Dump im Host ab. Belegt: Stack in der Suche nach
+  `ByteProperty` für GNames (`FindFNameGetNamesOrGNames_Windows` → `FindByStringInAllSections`, mit der PDB des Dumpers aufgelöst),
+  Lesezugriff auf eine Adresse mit Seitenanfang `…A000`; zieht man SizeOfImage `0x0B74A000` ab, ergibt sich eine auf 64 KB ausgerichtete
+  Basis. **[Vermutung]** Der Zeichenkettenvergleich in `FindStringInRange` liest über das Image-Ende, wenn ein als `lea` gelesener Kandidat
+  in dessen letzte Bytes zeigt. Dazu passt: Mit einer lokalen Kopie, die vor dem Vergleich prüft, ob auch das Ende der Zeichenkette lesbar
+  ist, lief der Dump durch (einmal versucht). Auf `26495302` tritt der Absturz nicht auf. Der Fix ist nicht im Repo und nicht im Fork
+  (`dumper7-image-ende`).
+- **Spike:** kennt nur `26495302` und setzt auf `26669225` keine Patches; `Start-Session.ps1` verlangt dort `-NoSpike` (`update-1-0-2-spike`).
+  `tools/spike/ddmem.py` kennt die Globalen von `26669225`.
+- **Regression `26495302`:** `Start-Session.ps1 -Build -Mod -Tunnel Lobby -Map /Game/Maps/DDDynamic_Map`: Host und Client
+  `Signaturen: 106 Adressen geprüft`, `Patches: 54 gesetzt`, `Spiel-Build 26495302`, beide mit 2 Spielern in `DDDynamic_Map`, kein `[ERROR]`,
+  kein Absturz, auch nach dem SDK-Dump im Host. Dreimal gelaufen, zuletzt mit dem Endstand dieses Branches.
 
 ## Build 26495302 (`update-basis`)
 

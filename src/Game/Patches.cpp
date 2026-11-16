@@ -143,6 +143,7 @@ ListsResult InstallLists(std::span<const PatchList> Lists, Code::Writer& Code, s
             // Ticks greifen auf Adressen aller Patches der Liste zu, darum nur bei vollständiger Liste.
             EnabledOut[Index] = ListComplete(Lists[Index].Patches, SiteUsable);
             ++Result.Installed;
+            Core::Log::Info("Patches: Liste {} gesetzt{}", Lists[Index].Name, EnabledOut[Index] ? "" : ", ohne Tick (Adresse fehlt)");
             break;
         case InstallResult::CheckFailed:
             Core::Log::Warn("Patches: Liste {} ausgelassen, Prüfung fehlgeschlagen", Lists[Index].Name);
@@ -160,6 +161,16 @@ ListsResult InstallLists(std::span<const PatchList> Lists, Code::Writer& Code, s
 bool PartialInstallAllowed(bool SwitchOn, uint32_t Build)
 {
     return SwitchOn && Build != 0 && Build != AddressMap::ReferenceBuild;
+}
+
+bool CoopBlocked(State Value, uint32_t Build)
+{
+    return Value == State::Inactive && Build != 0 && Build != AddressMap::ReferenceBuild;
+}
+
+bool CoopBlocked()
+{
+    return CoopBlocked(CurrentState(), Core::ActiveBuild());
 }
 
 bool Install()
@@ -210,6 +221,8 @@ bool Install()
     case InstallResult::CheckFailed:
         Current = State::Inactive;
         Core::Log::Error("Patches: keiner gesetzt, eine Mission zu zweit läuft so nicht");
+        if (CoopBlocked(State::Inactive, Core::ActiveBuild()))
+            Core::Log::Error("Patches: Spiel-Build {} ist noch nicht portiert, Lobby erstellen und beitreten gesperrt", Core::ActiveBuild());
         return false;
     default:
         Current = State::Partial;
