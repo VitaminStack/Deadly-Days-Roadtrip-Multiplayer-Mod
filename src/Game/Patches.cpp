@@ -126,23 +126,25 @@ InstallResult InstallAll(std::span<const Patch> List, Code::Writer& Code, SiteCh
     return InstallResult::Installed;
 }
 
-bool ListComplete(std::span<const Patch> List, SiteCheck Usable)
+bool ListComplete(std::span<const Patch> List, SiteCheck Usable, std::span<const uintptr_t> TickOptional)
 {
-    return std::ranges::all_of(List, [Usable](const Patch& Entry) {
-        return std::ranges::all_of(Entry.Sites, [Usable](uintptr_t Site) { return Usable(Site); });
+    return std::ranges::all_of(List, [Usable, TickOptional](const Patch& Entry) {
+        return std::ranges::all_of(Entry.Sites, [Usable, TickOptional](uintptr_t Site) {
+            return Usable(Site) || std::ranges::find(TickOptional, Site) != TickOptional.end();
+        });
     });
 }
 
-ListsResult InstallLists(std::span<const PatchList> Lists, Code::Writer& Code, std::span<bool> EnabledOut)
+ListsResult InstallLists(std::span<const PatchList> Lists, Code::Writer& Code, std::span<bool> EnabledOut, SiteCheck Usable)
 {
     ListsResult Result;
     for (size_t Index = 0; Index < Lists.size(); ++Index)
     {
-        switch (InstallAll(Lists[Index].Patches, Code, SiteUsable, &Result.SkippedPatches))
+        switch (InstallAll(Lists[Index].Patches, Code, Usable, &Result.SkippedPatches))
         {
         case InstallResult::Installed:
-            // Ticks greifen auf Adressen aller Patches der Liste zu, darum nur bei vollständiger Liste.
-            EnabledOut[Index] = ListComplete(Lists[Index].Patches, SiteUsable);
+            // Ticks greifen auf Adressen der Patches ihrer Liste zu, darum nur, wenn keine fehlt, die der Tick braucht.
+            EnabledOut[Index] = ListComplete(Lists[Index].Patches, Usable, Lists[Index].TickOptional);
             ++Result.Installed;
             if (Index < 64)
                 Result.InstalledMask |= 1ull << Index;
@@ -185,7 +187,7 @@ bool Install()
     const std::array<PatchList, ListCount> Lists = {{
         {"Player", PlayerPatches()}, {"Client", ClientPatches()}, {"Camera", CameraPatches()}, {"Inventory", InventoryPatches()},
         {"Travel", TravelPatches()}, {"Widget", WidgetPatches()}, {"HealthBar", HealthBarPatches()}, {"Airdrop", AirdropPatches()},
-        {"Exp", ExpPatches()}, {"RemoteP2", RemoteP2Patches()}, {"Reward", RewardPatches()}, {"Map", MapPatches()},
+        {"Exp", ExpPatches()}, {"RemoteP2", RemoteP2Patches()}, {"Reward", RewardPatches(), RewardTickOptionalSites()}, {"Map", MapPatches()},
         {"LocalDevice", LocalDevicePatches()}, {"Character", CharacterPatches()}, {"BodyPart", BodyPartPatches()}, {"EnemyTelegraph", EnemyTelegraphPatches()}, {"DamageNumber", DamageNumberPatches()}, {"WeaponSound", WeaponSoundPatches()},
     }};
     std::vector<Patch> All;
@@ -223,7 +225,7 @@ bool Install()
     {
     case InstallResult::Installed:
         for (size_t Index = 0; Index < ListCount; ++Index)
-            Enabled[Index] = ListComplete(Lists[Index].Patches, SiteUsable);
+            Enabled[Index] = ListComplete(Lists[Index].Patches, SiteUsable, Lists[Index].TickOptional);
         Current = State::Active;
         if (Skipped)
             Core::Log::Warn("Patches: {} gesetzt, {} wegen Signatur ausgelassen", All.size() - Skipped, Skipped);

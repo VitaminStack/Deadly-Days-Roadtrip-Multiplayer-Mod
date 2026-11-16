@@ -241,6 +241,20 @@ TEST_CASE("Patches: ein Patch mit gesperrter Stelle fällt allein aus, ohne Chec
     // Der Tick einer Liste läuft nur, wenn keiner ihrer Patches ausgelassen wurde.
     CHECK_FALSE(ListComplete(List, &OnlyFirstUsable));
     CHECK(ListComplete(std::span(List, 1), &OnlyFirstUsable));
+
+    // rundenende-1-0-2: Fehlt nur eine Stelle, die der Tick nicht braucht, läuft er trotzdem; der Patch bleibt ausgelassen.
+    constexpr uintptr_t Optional[] = {0x200};
+    CHECK(ListComplete(List, &OnlyFirstUsable, Optional));
+    constexpr uintptr_t Other[] = {0x300};
+    CHECK_FALSE(ListComplete(List, &OnlyFirstUsable, Other));
+    const PatchList Lists[] = {{"mit", List, Optional}, {"ohne", List}};
+    bool On[2]{};
+    Applied = 0;
+    const ListsResult Result = InstallLists(Lists, Code, On, &OnlyFirstUsable);
+    CHECK(Result.Installed == 2);
+    CHECK(Result.SkippedPatches == 2);
+    CHECK(On[0]);
+    CHECK_FALSE(On[1]);
 }
 
 TEST_CASE("Signaturen: Tabelle sortiert, eigene Build-Zeile vor der gemeinsamen, Muster mit Platzhaltern")

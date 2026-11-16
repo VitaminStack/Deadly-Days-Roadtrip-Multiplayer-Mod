@@ -1120,6 +1120,14 @@ std::span<const Patch> RewardPatches()
     return List;
 }
 
+// rundenende-1-0-2: Rewards::Tick benutzt TryBuyItem nicht (nur Check, Apply und TryBuyHook). Auf 26669225 fehlt diese Adresse;
+// ohne Tick hielt ConfirmHook das Bestätigen des Hosts zurück, und niemand holte es nach: Doppelklick bei jeder Airdrop-Auswahl,
+// am Rundenende blieb das Lager des Hosts offen (Live-Test 16.11.2026).
+std::span<const uintptr_t> RewardTickOptionalSites()
+{
+    return TryBuySites;
+}
+
 // Aus RewardChest.OpenAirdropChoices beim Host: Öffnet die Figur des Remote-Spielers die Kiste, bekommt die Figur des
 // Hosts die native Auswahl, der Client seine über den Kontrollkanal.
 // Host: Inventar-RPCs eines Clients mit einer Instanz, die es beim Host nicht gibt, kommen mit Null an. Die nativen
