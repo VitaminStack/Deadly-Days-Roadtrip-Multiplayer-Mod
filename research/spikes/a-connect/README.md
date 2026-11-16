@@ -15,7 +15,10 @@ Gebaut und gestartet wird über die Skripte in `tools/spike/`, die auch den Cras
 ## Builds
 
 Der Quelltext nennt seit `spiel-update` (09.11.2026) Code- und Datenadressen von `26495302`, die Abschnitte unten mit älterem Stand die von `26187885`
-([Umrechnung](../../../docs/OFFSETS.md#referenz-build-26495302-spiel-update)). `Rva()` in `Builds.cpp` liefert sie nur auf diesem Build, sonst `kMissingRva`.
+([Umrechnung](../../../docs/OFFSETS.md#referenz-build-26495302-spiel-update)). `Rva()` in `Builds.cpp` liefert sie auf diesem Build unverändert. Seit `update-1-0-2-spike` (17.11.2026) erkennt der Spike auch `26669225`
+(Patch 1.0.2) am TimeDateStamp `0xE9CA3AB7` und rechnet dort über die Tabelle der Mod (`src/Game/RvaMap26669225.inc`) und vier eigene
+Einträge um (`SerializeNewActor`, `NewActorArchetypeCheck`, `UpdateTag`, Tag `State.Invincible`). Auf jedem anderen Build und für
+Adressen ohne Tabelleneintrag liefert `Rva()` `kMissingRva`.
 Neue Adressen immer als `Rva(0x…)` schreiben, relative Sprünge mit `ExpectBranch` prüfen, Importeinträge mit `FindImportSlot` suchen.
 
 ## Dateien

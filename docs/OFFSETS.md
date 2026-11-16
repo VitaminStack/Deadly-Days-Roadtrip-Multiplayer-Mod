@@ -105,7 +105,19 @@ SizeOfImage `0x0B74A000`, `.text` gleich groß (`0x827C000`). Die Portierung der
   in dessen letzte Bytes zeigt. Dazu passt: Mit einer lokalen Kopie, die vor dem Vergleich prüft, ob auch das Ende der Zeichenkette lesbar
   ist, lief der Dump durch (einmal versucht). Auf `26495302` tritt der Absturz nicht auf. Der Fix ist nicht im Repo und nicht im Fork
   (`dumper7-image-ende`).
-- **Spike:** kennt nur `26495302` und setzt auf `26669225` keine Patches; `Start-Session.ps1` verlangt dort `-NoSpike` (`update-1-0-2-spike`).
+- **Spike (Stand `update-basis-1-0-2`, überholt):** kannte nur `26495302` und setzte auf `26669225` keine Patches, Sitzungen dort liefen nur mit `-NoSpike`.
+- **Spike auf `26669225` (`update-1-0-2-spike`, 17.11.2026):** `Builds.cpp` erkennt den Build am TimeDateStamp `0xE9CA3AB7` und rechnet
+  über `RvaMap26669225.inc` um. Von 80 Adressen im Spike-Quelltext stehen 76 in der Tabelle der Mod, die übrigen vier sind mit
+  `rva_map.py` umgerechnet: `SerializeNewActor` `0x02D09D90` → `0x02D09D60`, `NewActorArchetypeCheck` `0x02D0A626` → `0x02D0A5F6`,
+  `UpdateTag` `0x04B7D9D0` → `0x04B7E190` (alle eindeutig), Tag `State.Invincible` `0x0AC680D8` → `0x0AC6A0D8` (global).
+  **Spieltest** (ein PC, eingefrorene Kopie `26669225`, `Start-Session.ps1 -Build -Mod -Tunnel Lobby -Godmode -Map
+  /Game/Maps/DDDynamic_Map`, ohne echte Eingaben): Spike geladen, beide Instanzen mit 2 Spielern in der Mission, Mod `18 von 18 Listen
+  gesetzt, 0 Patches ausgelassen`. `!give ItemData_Pistol` legt das Item in beide Inventare, `Get-Status.ps1 -Inventory` meldet
+  vollständig und gleich, `Test-Godmode.ps1` bestätigt Godmode für beide Spieler samt Client-Replikaten, `!finish` beendet die Runde:
+  Client öffnet Rundenübersicht und Lager, Host meldet „Client im Lager“, beide Prozesse leben, keine Absturzberichte. Gegenprobe auf
+  `26495302` mit demselben Stand: Start, `!give`, Inventarvergleich und Godmode wie zuvor. **Nicht geprüft:** `Run-Route.ps1 -Days 2`
+  (braucht echte Maus- und Tastatureingaben), der Spike ohne Mod auf `26669225` (dann setzt er seine eigenen Patches) und die übrigen
+  Spike-Befehle.
   `tools/spike/ddmem.py` kennt die Globalen von `26669225`.
 - **Regression `26495302`:** `Start-Session.ps1 -Build -Mod -Tunnel Lobby -Map /Game/Maps/DDDynamic_Map`: Host und Client
   `Signaturen: 106 Adressen geprüft`, `Patches: 54 gesetzt`, `Spiel-Build 26495302`, beide mit 2 Spielern in `DDDynamic_Map`, kein `[ERROR]`,
