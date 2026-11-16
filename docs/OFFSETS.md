@@ -145,7 +145,9 @@ unverändert (`wechsel-1-0-2` bleibt offen).
   - Sitzungsende mit 18 von 18 Listen, beide in `DDDynamic_Map`: `Test-NetEnd.ps1` besteht alle Fälle (Host verlässt, Client verlässt,
     Client beendet, Host beendet, Neubeitritt per Lobby-ID), `Abstuerze: keine neuen`. Der Client-Absturz nach Hostverlust an
     `0x597A8FA` aus `update-basis-1-0-2` trat damit nicht mehr auf (ein Lauf).
-- **Nicht geprüft:** Rundenende, Lager, Routenkarte, zweiter Tag, Händler und Kampf auf `26669225`. Ohne Spike gibt es dort kein
+- **Rundenende:** Nutzerentscheidung vom 16.11.2026: Der Test des Rundenendes auf `26669225` wird als bestanden behandelt. Einen
+  eigenen Lauf mit Beleg gibt es dazu in dieser Aufgabe nicht.
+- **Nicht im Spiel belegt:** Rundenende, Lager, Routenkarte, zweiter Tag, Händler und Kampf auf `26669225`. Ohne Spike gibt es dort kein
   `!finish`, ein Rundenende braucht echte Eingaben oder zwei Menschen; zehn Minuten Leerlauf in der Mission lösten keines aus. Das
   Ende des Client-Prozesses nach dem Rundenende aus `update-basis-1-0-2` (Lauf ohne Inventory-Liste) ist darum nicht nachgeprüft.
 - **Zustand `Active`:** Mit 18 von 18 Listen meldet `DDCoopPatchState` `Active`, obwohl 4 einzelne Patches fehlen; das ist dieselbe
