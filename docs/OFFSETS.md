@@ -52,7 +52,7 @@ SizeOfImage `0x0B74A000`, `.text` gleich groß (`0x827C000`). Die Portierung der
   | `ClientPatches.cpp`, Client | `0x056676F5` | Blockade-Thunk, reflektierter Einsprung auf `BlockadeLoadingFinished` | von Hand nachgetragen: `0x05667E85`, der einzige `jmp` auf `BlockadeLoadingFinished` (`0x058BC360`) im neuen Build; Spieltest offen, `update-1-0-2-client` |
   | `HealthBarPatches.cpp`, HealthBar | `0x057DC810`, `0x057DCE70`, `0x057DD080` | `OnRep_Health`, `OnRep_MaxHealth`, `OnRep_MaxStamina` | von Hand nachgetragen, Code unverändert, siehe [Lebensleisten](#lebensleisten-auf-26669225-update-1-0-2-lebensleisten) |
   | `InventoryPatches.cpp`, Inventory | `0x093A1F98`, `0x094C6A78` | vtable `BackpackSlot`, vtable Achievement-Detektor | in `freigabe-1-0-2` von Hand nachgetragen, Rest `update-1-0-2-inventar` |
-  | `RewardPatches.cpp`, Reward | `0x058CE280` | `ShopPanelItem::TryBuyItem` | `update-1-0-2-handel` |
+  | `RewardPatches.cpp`, Reward | `0x058CE280` | `ShopPanelItem::TryBuyItem` | von Hand nachgetragen: `0x058CE890`, Ziel des Exec-Thunks `0x0579B580`. Der Anfang ist geändert: Die Funktion lädt die Instanz nach `rax` und kehrt auch ohne deren `ItemData` (`+0xE0`) oder dessen Feld `+0xE8` zurück, danach gleich; eigene Prüfbytes je Build in `CheckTryBuy`, gemeinsame Signatur. Spieltest offen, `update-1-0-2-handel` |
   | `WeaponSoundPatches.cpp`, WeaponSound | `0x05707870` | `Hands.PlayReloadSound` | von Hand nachgetragen: `0x05708000`, 400 Befehle maskiert gleich; Spieltest offen, `update-1-0-2-waffensound` |
 
 - **Offline gegen die Exe von `26669225`:** `tools/expect_check.py` 89 `ok`, 6 `fehlt`, 2 `uebersprungen` (lokale `Site`), keine `abweichend`;

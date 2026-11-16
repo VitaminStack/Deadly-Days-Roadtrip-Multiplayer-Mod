@@ -55,7 +55,7 @@
 {0x058BF120, 0x058BF6F0}, // eindeutig, UpdateBounds, src/Game/ExpPatches.cpp:27
 {0x058BF210, 0x058BF7E0}, // eindeutig, ReceiveExpImpl, src/Game/ExpPatches.cpp:26
 {0x058C1B10, 0x058C20E0}, // eindeutig, SpawnRequest, src/Game/ExpPatches.cpp:25
-// FEHLT 0x058CE280 // fehlt, TryBuyItem, src/Game/RewardPatches.cpp:54
+{0x058CE280, 0x058CE890}, // von Hand (Ziel des Exec-Thunks 0x0579B580, 43 eindeutige Fenster; Anfang geaendert, eigene Pruefbytes), TryBuyItem, src/Game/RewardPatches.cpp:54
 {0x058CF517, 0x058CFB47}, // eindeutig, SpawnerPlayerRead, src/Game/PlayerPatches.cpp:26
 {0x058CFA07, 0x058D0037}, // eindeutig, SpawnerNoPlayerExit, src/Game/PlayerPatches.cpp:27
 {0x058D1A80, 0x058D20B0}, // eindeutig, MapAdd, src/Game/RemoteP2Patches.cpp:27

@@ -23,6 +23,7 @@
 
 #include "Core/Hooks.h"
 #include "Core/Log.h"
+#include "Core/Version.h"
 #include "Game/Memory.h"
 #include "Game/Objects.h"
 #include "Game/InventoryEditRuntime.h"
@@ -1088,9 +1089,15 @@ bool ApplySold(Code::Writer&)
 }
 bool CheckTryBuy()
 {
-    // Prolog, dann cmp qword ptr [rcx+ItemInstance],0: belegt zugleich den Offset der Instanz.
     static_assert(ShopItemInstance == 0x868, "Prüfbytes unten anpassen");
-    return Code::Expect(At(TryBuyItem), {0x40, 0x57, 0x48, 0x83, 0xEC, 0x40, 0x48, 0x83, 0xB9, 0x68, 0x08, 0x00, 0x00, 0x00, 0x48, 0x8B, 0xF9},
+    // update-1-0-2-handel: Seit Patch 1.0.2 lädt die Funktion die Instanz nach rax (mov rax,[rcx+ItemInstance]) und kehrt auch ohne
+    // deren ItemData (+0xE0) oder ohne dessen Feld +0xE8 sofort zurück; danach ist sie gleich geblieben. Der Hook hängt am Anfang
+    // und liest dieselben Felder des ShopPanelItem, er braucht keine Änderung.
+    if (Core::ActiveBuild() == 26669225)
+        return Code::Expect(At(TryBuyItem), {0x40, 0x57, 0x48, 0x83, 0xEC, 0x40, 0x48, 0x8B, 0x81, 0x68, 0x08, 0x00, 0x00, 0x48, 0x8B, 0xF9}, // Build 26669225
+                            "ShopPanelItem::TryBuyItem (1.0.2)");
+    // Prolog, dann cmp qword ptr [rcx+ItemInstance],0: belegt zugleich den Offset der Instanz.
+    return Code::Expect(At(TryBuyItem), {0x40, 0x57, 0x48, 0x83, 0xEC, 0x40, 0x48, 0x83, 0xB9, 0x68, 0x08, 0x00, 0x00, 0x00, 0x48, 0x8B, 0xF9}, // Build 26495302
                         "ShopPanelItem::TryBuyItem");
 }
 bool ApplyTryBuy(Code::Writer&)
