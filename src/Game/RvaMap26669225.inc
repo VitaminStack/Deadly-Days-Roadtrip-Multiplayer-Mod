@@ -21,7 +21,7 @@
 {0x04B68380, 0x04B68B40}, // eindeutig, AttributeLookupFunction, src/Game/ClientPatches.cpp:21
 {0x04BC58D0, 0x04BC6090}, // eindeutig, ExecuteCueNonReplicated, src/Game/BodyPartPatches.cpp:28
 {0x056591B0, 0x05659940}, // eindeutig, DamageInfoConstruct, src/Game/DamageNumberPatches.cpp:31
-// FEHLT 0x056676F5 // fehlt, At, src/Game/ClientPatches.cpp:320
+{0x056676F5, 0x05667E85}, // von Hand (einziger jmp auf BlockadeLoadingFinished 0x058BC360, Verschiebung +0x790 wie die Nachbarn), At, src/Game/ClientPatches.cpp:320
 // FEHLT 0x05707870 // fehlt, ReloadSoundEvent, src/Game/WeaponSoundPatches.cpp:99
 {0x057BDCD0, 0x057BE450}, // eindeutig, ControllerSetAdd, src/Game/PlayerPatches.cpp:30
 {0x057CB5A5, 0x057CBD25}, // ueber-funktion, ScheduleCall, src/Game/InventoryPatches.cpp:319
