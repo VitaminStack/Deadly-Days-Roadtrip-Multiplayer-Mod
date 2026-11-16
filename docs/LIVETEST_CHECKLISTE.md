@@ -1,15 +1,16 @@
 # Checkliste Live-Test Inventar (zwei PCs)
 
-Stand 14.11.2026, für den Test am 15.11.2026. Geprüft werden die Inventar-Änderungen aus den Draft-PRs #242
-(`opt-rucksack-versatz`), #243 (`opt-station-zug`) und #244 (`lager-edit-ablehnung`). Alle drei stecken im Branch
-`task/lager-edit-ablehnung`. **Keine davon ist bisher im Spiel geprüft**, nur Build und Unit-Tests.
+Stand 16.11.2026, für den nächsten Live-Test. Geprüft werden die Inventar-Änderungen aus #244 (enthält `opt-rucksack-versatz`,
+`opt-station-zug` und `lager-edit-ablehnung`), dazu #246 und #247. **Alles liegt in `main`**, einen eigenen Test-Branch gibt es nicht
+mehr. Am 14.11.2026 wurde auf zwei PCs schon gespielt, die Befunde stehen unter
+[Lager-Edit des Clients stabiler](GAME_ANALYSIS.md#lager-edit-des-clients-stabiler-lager-edit-stabil). Welche Punkte dieser Liste noch
+offen sind, zeigt `py tools/tasks.py tests plan`; abgenommen ist hier nichts, solange die Aufgabe dort steht.
 
 Allgemeiner Ablauf und Regeln: [Test auf zwei PCs](TESTING.md#test-auf-zwei-pcs). SteamIDs und Lobby-IDs nie ins Repo.
 
 ## Vor dem Termin, beide
 
-- [ ] **Tobi (dieser PC):** Der Branch liegt schon im Worktree `.worktrees/lager-edit-ablehnung`. Dort `git pull` und alle Skripte von dort starten.
-- [ ] **VitaminStack:** Im sauberen Hauptordner `git fetch origin`, dann `git switch --detach origin/task/lager-edit-ablehnung`. Nach dem Test zurück mit `git switch main`.
+- [ ] **Beide:** Im sauberen Hauptordner `git switch main` und `git pull`.
 - [ ] **Beide:** `git rev-parse --short HEAD` vergleichen: gleich. `Start-Session.ps1 -Build` baut aus dem Ordner, aus dem es gestartet wird.
 - [ ] Spiel-Build `26495302`, Steam läuft und ist online, keine andere Testsitzung auf dem PC.
 - [ ] Discord oder ein anderer Chat außerhalb des Spiels steht.
@@ -50,16 +51,17 @@ Erwartet: beim Client die Logzeile „Station: Zug im Rucksack beim Client“, b
 - [ ] **Beide:** Beide Knöpfe gelb, nach dem zweiten Bestätigen reisen beide weiter.
 - [ ] **Beide:** Am nächsten Tag meldet der Desync-Melder im Overlay „OK“ für das Inventar.
 
-### Ablehnung absichtlich auslösen (nur mit Spike beim Host, also ohne `-NoSpike`)
+### Zu wenig Schrott beim Bestätigen (nur mit Spike beim Host, also ohne `-NoSpike`)
 
 - [ ] **Client:** Im Lager ein kaputtes Item reparieren und in den Rucksack legen, **noch nicht bestätigen**. (Kaputtes Item: Host gibt vorher `Send-Command.ps1 Host '!give ItemData_Pistol broken'`.)
 - [ ] **Host:** Schrott auf null: `powershell -ExecutionPolicy Bypass -File tools/spike/Send-Command.ps1 Host '!scrap -9999'`
-- [ ] **Client:** „Bestätigen“. Eile ist nicht nötig: Während einer Bearbeitung übernimmt der Client den Schrott des Hosts nicht.
-- [ ] **Client:** Der gelbe Knopf geht wieder aus, das reparierte Item ist wieder kaputt und liegt im Lager, nichts fehlt.
-- [ ] **Client:** Noch einmal etwas umlegen und erneut bestätigen: Das geht, und beide reisen weiter.
+- [ ] **Client:** Kurz warten, bis die Schrottanzeige auf 0 steht, dann „Bestätigen“. Seit #247 folgt der Schrott des Clients auch während einer Bearbeitung dem Host, und der Client prüft vor dem Bestätigen selbst.
+- [ ] **Client:** Der Knopf wird **nicht** gelb, die Bearbeitung bleibt offen. Eine Meldung auf dem Bildschirm gibt es nicht, nur Schrott 0.
+- [ ] **Client:** Etwas verkaufen, bis der Schrott reicht, und erneut bestätigen: Das geht, und beide reisen weiter. (Ohne Verkauf nimmt das zweite Bestätigen die Bearbeitung lokal zurück: Das reparierte Item ist wieder kaputt und liegt im Lager, nichts fehlt.)
 - [ ] **Host:** Der Host ist in der Zwischenzeit **nicht** ohne den Client weitergereist.
+- [ ] **Beide:** Danach meldet der Desync-Melder im Overlay wieder „OK“ für das Inventar.
 
-Erwartet: beim Client „Host hat Edit … abgelehnt: Schrott reicht nicht oder Preis ungültig“, „Ausgangsstand wiederhergestellt …, vollständig=true“ und „Lager: Edit abgelehnt, Bereit zurückgenommen“.
+Erwartet: beim Client „Lager: Schrott reicht nach dem Stand des Hosts … nicht, es fehlen …“. Eine Ablehnung durch den Host („Host hat Edit … abgelehnt: Schrott reicht nicht oder Preis ungültig“, „Lager: Edit abgelehnt, Bereit zurückgenommen“) kommt nur noch, wenn der Host genau zwischen dem Bestätigen des Clients und seiner eigenen Prüfung ausgibt; sie lässt sich nicht mehr gezielt auslösen. Tritt sie auf, gilt: Knopf geht aus, Ausgangsstand vollständig, neu bearbeiten und bestätigen geht.
 
 ## D. Klon nach Aufwertung im Airdrop (#244)
 
@@ -98,7 +100,8 @@ Nachtrag `airdrop-belohnung-aufwertung` (#246): Am 14.11.2026 nahm der Client so
 | `Station: Zug im Rucksack beim Client` | Client | B: Bearbeitung begann mit dem ersten Zug |
 | `außerhalb einer Bearbeitung geht nativ an den Host` | Client | Aufruf, der weiter am Edit vorbeiläuft |
 | `kam während der Bearbeitung dazu und steht nicht im Edit` | Client | Item, das der Edit nicht kennt (etwa Kopierladen) |
-| `Host hat Edit … abgelehnt: <Grund>` | Client | C: Ablehnungsgrund |
+| `Lager: Schrott reicht nach dem Stand des Hosts … nicht` | Client | C: Vorprüfung des Clients, er bestätigt nicht |
+| `Host hat Edit … abgelehnt: <Grund>` | Client | C: Ablehnungsgrund, falls der Host doch ablehnt |
 | `teilweise übernommen` | Client | Host hat nur einen Teil geschafft |
 | `danach abweichend: … (ist/soll)` | beide | Item, das nach Übernahme oder Zurückrollen nicht passt |
 | `zweiter Durchgang` | Client | Zurückrollen brauchte einen zweiten Anlauf |
