@@ -158,7 +158,7 @@ unverändert (`wechsel-1-0-2` bleibt offen).
 ## Rundenende auf 26669225 (`rundenende-1-0-2`)
 
 **Stand 16.11.2026:** Ursache behoben und auf einem PC im Spiel bestätigt (beide Reihenfolgen, Reise bis Tag 3). Offen bleibt die
-Gegenprobe auf zwei PCs mit einem Lager-Edit des Clients, wie im Live-Test.
+Gegenprobe auf zwei PCs mit Airdrop und einem Lager-Edit mit Aufwertung und Verkauf, wie im Live-Test.
 
 - **Befund** (Live-Test 16.11.2026, zwei PCs, Mod-Stand nach `freigabe-1-0-2`): Der Host musste jede Airdrop-Auswahl doppelt bestätigen.
   Am ersten Rundenende blieb sein Lager offen, Bestätigen ohne Wirkung. Der Client hatte bestätigt, sein Lager-Edit war übernommen,
@@ -194,9 +194,13 @@ Gegenprobe auf zwei PCs mit einem Lager-Edit des Clients, wie im Live-Test.
     alle bereit`, 0,2 s danach `Lager: Bestätigen nachgeholt (alle bereit)` beim Client. Host auf der Routenkarte für Tag 3.
   - **Reise zu Tag 3:** beide in `DDDynamic_Map`, Desync-Melder bei beiden `OK Tag, Phase, Spieler, HP, Gegner, Inventar`. Kein
     Absturz, kein neuer Fehler im Mod-Log.
-- **Nicht geprüft:** Airdrop-Auswahl im Spiel (Host zuerst, erwartet `Bestätigen des Hosts nachgeholt (Versuch 1)`), ein Lager-Edit des
-  Clients vor dem Bestätigen (im Live-Test: 8 Items, 2 Aufwertungen, 3 Verkäufe; hier waren beide Lager leer), zwei PCs. Der gemeldete
-  nicht gelbe Knopf ist damit nicht erklärt; mit laufendem Tick trat kein Hänger auf. `TickStation` lief ohne Stations-Bearbeitung.
+  - **Host wartet, Client bearbeitet sein Lager (zweiter Lauf, Tag 1):** Host bestätigt zuerst (`Lager: Host bereit, wartet auf den
+    Client`), der Client verschiebt danach die Pistole im Rucksack (lokale Bearbeitung) und bestätigt: `Lager: Client bestätigt nach
+    lokaler Bearbeitung, Edit …`, beim Host `Edit … übernommen, 1 Items, … vollständig=true`, 0,5 s später `Lager: Bestätigen
+    nachgeholt (Client bereit)`, Host auf der Routenkarte für Tag 2.
+- **Nicht geprüft:** Airdrop-Auswahl im Spiel (Host zuerst, erwartet `Bestätigen des Hosts nachgeholt (Versuch 1)`), ein Lager-Edit mit
+  Aufwertung, Verkauf und Reparatur wie im Live-Test (dort 8 Items, 2 Aufwertungen, 3 Verkäufe; hier ein verschobenes Item), zwei PCs.
+  Der gemeldete nicht gelbe Knopf ist damit nicht erklärt; mit laufendem Tick trat kein Hänger auf. `TickStation` lief ohne Stations-Bearbeitung.
 - **Rundenende ohne Spike und ohne Eingabe:** Stehen beide Figuren am Bus (Ankunft), beendet ein voller Tank die Runde sofort. „Full
   Tank“ des Dev-Tabs lässt sich als Fensternachricht an das Overlay schicken (`[DDCoopOverlay]::Click(<Overlay>, 111)` aus
   `Common.ps1`, Godmode `112`). Eine Direktreise mit `Send-GameTravel` in `DDDynamic_Map` landet dagegen in `MGP_HQ8_Boss` ohne Bus.

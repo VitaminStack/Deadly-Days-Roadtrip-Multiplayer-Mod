@@ -126,6 +126,7 @@ Mögliche Punkte und Reihenfolge, je nach Bereitschaft:
    `update-welt` und `lager-handel-client`: [Plan](research/spikes/fortschritt/README.md#live-test-zu-zweit-etwa-30-minuten).
    Neue Aufgaben mit Live-Rest dort ergänzen statt einen eigenen Termin anzusetzen.
 7. Die Punkte aus [Live-Bestätigung ausstehend](#live-bestätigung-ausstehend) nebenbei im selben Lauf prüfen.
+8. `rundenende-1-0-2`, Gegenprobe auf `26669225`: Host bestätigt jede Airdrop-Auswahl und das Lager am Rundenende mit einem Klick, auch nach einem Lager-Edit des Clients mit Aufwertung und Verkauf; Host-Log aufheben. Auf einem PC bestanden, siehe [Rundenende auf 26669225](docs/OFFSETS.md#rundenende-auf-26669225-rundenende-1-0-2).
 
 Die Entscheidung `meta-fortschritt` ist getroffen: Im gemeinsamen Run gilt der Host-Stand,
 ohne dauerhafte Meta-Gutschrift beim Client, siehe [Regel](docs/SYNC_REQUIREMENTS.md#nutzervorgabe-meta-fortschritt-des-hosts-06112026).
