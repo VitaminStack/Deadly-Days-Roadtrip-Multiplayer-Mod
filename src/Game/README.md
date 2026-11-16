@@ -67,14 +67,15 @@ Die Fixes, ohne die keine Mission zu zweit läuft, kommen aus dem Spike (Aufgabe
 der [Patch-Tabelle des Spikes](../../research/spikes/a-connect/README.md#patches). Die RVAs stehen als Konstanten am Anfang der jeweiligen Datei.
 
 Alle RVAs im Quelltext gelten für den Referenz-Build `26495302` (seit `spiel-update`, vorher `26187885`, siehe
-[Offsets](../../docs/OFFSETS.md#referenz-build-26495302-spiel-update)). `At(Rva)` und `Memory::Rva` rechnen sie über `AddressMap` auf einen künftigen
-weiteren Build um (Tabelle `RvaMap<build>.inc` aus [`tools/rva_map.py`](../../tools/README.md#rva_mappy)). Fehlt eine Adresse, liefern sie 0 und
+[Offsets](../../docs/OFFSETS.md#referenz-build-26495302-spiel-update)). `At(Rva)` und `Memory::Rva` rechnen sie über `AddressMap` auf jeden
+weiteren Build um, derzeit `26669225` (Patch 1.0.2, `RvaMap26669225.inc`, [Stand](../../docs/OFFSETS.md#build-26669225-update-basis-1-0-2); Tabelle `RvaMap<build>.inc` aus [`tools/rva_map.py`](../../tools/README.md#rva_mappy)). Fehlt eine Adresse, liefern sie 0 und
 protokollieren sie einmal; die Byte-Prüfungen schlagen dann fehl und keine Patch-Liste wird gesetzt. Neue RVAs immer als Referenz-RVA
 eintragen und für jeden weiteren Build in dessen Tabelle nachziehen. Feld-Offsets (`Offsets.h`) werden nicht umgerechnet.
+Eine Stelle im Abstand zu einer Adresse immer als `At(Rva, Abstand)` schreiben, nie `At(Rva + Abstand)`: Die Summe steht in keiner Tabelle.
 
 **Teilinstallation für die Portierung.** Mit `DDCOOP_PARTIAL_PATCHES=1` (`Start-Session.ps1 -PartialPatches`) setzt die Mod auf einem anderen
 Build als `26495302` jede Patch-Liste (eine `*Patches.cpp`) für sich ganz oder gar nicht; Ticks laufen nur für gesetzte Listen. Das Log nennt
-ausgelassene Listen (`Liste … ausgelassen`) und die Summe. Nur zum Testen einzelner Portierungen: Hooks einer gesetzten Liste können Code einer
+gesetzte (`Liste … gesetzt`) und ausgelassene Listen (`Liste … ausgelassen`) und die Summe. Nur zum Testen einzelner Portierungen: Hooks einer gesetzten Liste können Code einer
 ausgelassenen erreichen. Im Referenz-Build und ohne Schalter bleibt es bei allen Patches oder keinem.
 
 | Datei | Seite | Inhalt |

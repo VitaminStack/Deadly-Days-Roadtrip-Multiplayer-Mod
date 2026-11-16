@@ -143,6 +143,7 @@ ListsResult InstallLists(std::span<const PatchList> Lists, Code::Writer& Code, s
             // Ticks greifen auf Adressen aller Patches der Liste zu, darum nur bei vollständiger Liste.
             EnabledOut[Index] = ListComplete(Lists[Index].Patches, SiteUsable);
             ++Result.Installed;
+            Core::Log::Info("Patches: Liste {} gesetzt{}", Lists[Index].Name, EnabledOut[Index] ? "" : ", ohne Tick (Adresse fehlt)");
             break;
         case InstallResult::CheckFailed:
             Core::Log::Warn("Patches: Liste {} ausgelassen, Prüfung fehlgeschlagen", Lists[Index].Name);

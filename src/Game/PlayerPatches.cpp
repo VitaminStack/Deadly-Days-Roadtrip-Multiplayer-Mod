@@ -501,7 +501,7 @@ bool ApplyBus(Code::Writer&)
 bool CheckCameraFollow()
 {
     return Code::Expect(At(CameraFollowTick), {0x40, 0x53, 0x48, 0x83, 0xEC, 0x60, 0x48, 0x8B, 0xD9}, "im Kamera-Folger") &&
-           Code::Expect(At(CameraFollowTick + 0x0E), {0x48, 0x8B, 0x83, 0xD8, 0x00, 0x00, 0x00}, "beim Ziel des Kamera-Folgers");
+           Code::Expect(At(CameraFollowTick, 0x0E), {0x48, 0x8B, 0x83, 0xD8, 0x00, 0x00, 0x00}, "beim Ziel des Kamera-Folgers");
 }
 
 bool ApplyCameraFollow(Code::Writer&)

@@ -18,6 +18,20 @@ Vertrauensgrad:
 | Engine-Version | `5.8.1-56057345+++UE5+Release-5.8` |
 | Spiel-Exe | `DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe` (179 MB) |
 
+Parallel dazu in Vorbereitung (`update-basis-1-0-2`, 16.11.2026), noch nicht für die Entwicklung freigegeben:
+
+| | |
+|---|---|
+| Steam-Build-ID | `26669225` (Patch 1.0.2 vom 14.11.2026) |
+| Manifest-IDs | Depot `3026451`: `1832737755528485607` (unverändert, leer), Depot `3026452`: `1284187377913424313` |
+| Exe-Kennung | TimeDateStamp `0xE9CA3AB7`, SizeOfImage `0x0B74A000` |
+| Exe-Version | Datei- und Produktversion `++UE5+Release-5.8-CL-56057345`, wie bei `26495302`; Engine-Version unverändert |
+| Geändert | Exe, `DDSurvivors-Windows.pak`, `.ucas`, `.utoc`; `global.ucas`/`global.utoc` gleich. 52 Dateien in der eingefrorenen Kopie |
+| Stand der Mod | startet mit Teilinstallation, 17 von 18 Patch-Listen, siehe [Offsets](OFFSETS.md#build-26669225-update-basis-1-0-2) |
+
+Die Mod erkennt beide Builds, Referenz und Standard aller Skripte bleibt `26495302`. Die Hash-Referenz beider Builds steht in `tools/game_build.py`.
+Den Wechsel der Entwicklungskopien entscheidet das Team (`wechsel-1-0-2`).
+
 Build-ID und Manifest-IDs stehen in `steamapps/appmanifest_3026450.acf`. Die Manifest-IDs benennen die gewünschten Depotstände;
 ein erneuter Download über die Steam-Konsole ist für den Vorgänger getestet (07.11.2026): `download_depot 3026450 3026452 7724756528743620812` lieferte
 alle 52 Dateien von `26187885`, die Prüfsummen passten; Depot `3026451` hatte beim Update auf `26495302` denselben Stand. `26187885` war bis
