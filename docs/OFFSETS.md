@@ -177,6 +177,11 @@ unverändert (`wechsel-1-0-2` bleibt offen).
 - **Belegt:** Client-Log des Live-Tests, Code, Unit-Test `Patches: ein Patch mit gesperrter Stelle fällt allein aus, ohne Check und Apply`.
   Das Host-Log des Live-Tests lag nicht vor. Darin wären zu erwarten: `Liste Reward gesetzt, ohne Tick (Adresse fehlt)` und
   `Lager: Host bereit, wartet auf den Client` ohne folgendes `Lager: Bestätigen nachgeholt`.
+- **Spieltest 16.11.2026** (ein PC, eingefrorene Kopie `26669225`, `Start-Session.ps1 -Build -Mod -Tunnel Lobby -NoSpike`, ohne echte
+  Eingaben, Reise über den Testkanal): Host und Client melden `Patches: Liste Reward gesetzt` ohne Zusatz, weiter 18 von 18 Listen und
+  4 ausgelassene Patches. Der Tick läuft beim Host (`Reward-Queue Host: neue Welt, belegt false, aktuelle Kiste keine`, dasselbe für den
+  Remote-Spieler). Rund 75 Sekunden in `DDDynamic_Map`, beide Prozesse leben, Desync-Melder bei beiden `OK Tag, Phase, Spieler, HP,
+  Gegner, Inventar`, kein neuer Fehler im Mod-Log.
 - **Nicht geprüft:** Rundenende und Reise zu Tag 2 im Spiel auf `26669225`, weder Host zuerst noch Client zuerst. Ohne Spike gibt es dort
   kein `!finish`, Rundenende und Bestätigen brauchen echte Eingaben oder zwei Menschen. Mit dem Tick laufen auf `26669225` auch
   `TickStation` und `AdvanceQueues` zum ersten Mal; im Test auf die Zeilen `Reward-Queue` und eine Stations-Bearbeitung achten.
