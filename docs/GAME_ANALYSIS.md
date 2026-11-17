@@ -2569,6 +2569,58 @@ wieder beigetreten.
 - **Nicht geprüft:** `opt-werkbank-station`, Treffereffekte für `opt-blut`, Niederlage und neuer Run in derselben Sitzung
   (`run-ende`), Host-Seite aller Befunde.
 
+### Live-Test auf zwei PCs am 17.11.2026 (`livetest-1711`)
+
+Build `26669225` (Patch 1.0.2) auf beiden Seiten, der Client lief mit `main` `68f06bd`. Teilinstallation mit 18 von 18 Listen
+und keinem ausgelassenen Patch. Zwei Haushalte, Route über ein Relay. Ausgewertet sind das Mod-Log des Clients, Bilder aus dem
+Spielfenster des Clients und Meldungen des Client-Spielers; das Host-Log liegt nicht vor. Uhrzeiten aus dem Log, eine Stunde
+hinter der Ortszeit. Ablauf: Fortsetzung des Runs vom 16.11. ab Host-Level 10, rund 50 Minuten, elf Rundenenden, darunter ein
+Händler-Event, `MGP_LabyrinthEvent` und die Boss-Karte `MGP_Burger_Boss_Nature`, Sieg. Kein Absturz. Nach dem Test gilt dieser
+Stand als **Mod-Version 1.0** (Nutzerentscheidung, siehe [Roadmap](ROADMAP.md#stand-und-nächste-schritte)).
+
+- **[Belegt] Bestätigt:**
+  - Beitritt und Wiederbeitritt per Steam-Einladung ohne Absturz des Hosts (`update-1-0-2-client`).
+  - Rundenende mit Weiterreise elfmal, jedes Mal mit nachgeholtem Bestätigen (`rundenende-1-0-2`). Der Client bestätigte im Log
+    jeweils zuerst oder gleichzeitig; ob der Host je zuerst klickte, lässt das Client-Log nicht erkennen.
+  - Über 40 Airdrops übernommen, davon zehnmal die Belohnung als Eingabe einer Aufwertung, mit Drehung 0, 1 und 3 der Eingabe
+    (`airdrop-belohnung-aufwertung`, Checkliste Teil D).
+  - Sieben Käufe beim Händler und 25 Verkäufe im Lager, alle vom Host übernommen (`update-1-0-2-handel`). Insgesamt 56 Edits
+    des Clients übernommen, keine Ablehnung.
+  - Lager-Edits bis 28 Items mit neuen Feldern, Aufwertungen und Verkäufen, alle übernommen; der Host gab dabei zeitweise
+    gleichzeitig Schrott aus, die Anzeige des Clients zog die eigene Vorschau korrekt ab. Eine Ablehnung trat nicht auf.
+  - Stations-Zug im Händler-Event: Rucksackteil mit Drehung 3 abgelegt, 6 neue Felder, Host übernahm, Desync-Melder danach OK
+    einschließlich Inventar (`opt-station-zug`; `inventory.py` und Host-Log nicht genutzt).
+  - Nach einer liegen gebliebenen Kiste am Rundenende kamen im nächsten Level wieder Airdrops und ließen sich öffnen
+    (`opt-airdrop-uebertrag`, Host-Queue ohne Host-Log nicht gegengeprüft).
+  - Waffensound-Zähler beim Client: 8745 Schüsse, davon 5809 mit Sound und 2936 als doppelt ausgelassen, Nachladen
+    1349 von 1383 gespielt (34 ohne Hände). Gehört wurde es nicht
+    bestätigt (`update-1-0-2-waffensound`).
+  - Betreten der Boss-Karte einmal ohne Absturz (`boss-karte-absturz` verlangt dreimal), Sieg mit Ergebnisbildschirm beim Client,
+    „eigener Run-Stand des Clients geleert (Sieg)“, Host danach auf Level 1 (`opt-metabase-inventar`, neuer Run nicht geprüft).
+  - Vom Spieler gemeldet: Inventar, Händler und Aufwerten nach dem Rundenende funktionieren.
+- **[Belegt, Bild] Client fällt im Labyrinth-Event durch die Karte.** Nach der Reise auf `MGP_LabyrinthEvent` übernahm der Client
+  die Kartenwerte des Hosts, setzte aber Seeds für 0 ISM-Komponenten (normale Karten: 7) und meldete, die fremde Figur stehe auf
+  einer Unterlage, die der Client nicht kennt. Im Bild ist alles schwarz bis auf die eigene Figur. Das Event trat im Coop zum
+  ersten Mal auf. **[Vermutung]** Das Labyrinth baut seine Geometrie anders als die übrigen Karten, und der Client erzeugt sie
+  nicht; ob das erst mit 1.0.2 kam, ist offen. Neue Aufgabe `labyrinth-event-client`.
+- **[Belegt] Wiederbeitritt verliert den Run-Stand des Clients.** Nach Verbindungsverlust trat der Client per Einladung in den
+  laufenden Run wieder ein: Karte, Airdrops und Rundenende liefen, aber der Client begann mit Startinventar (2 Items, 4 Felder statt
+  46 und 54) und laut Spieler auf Level 1; Schrott kam vom Host. Danach meldete der Desync-Melder eine Inventar-Abweichung, die
+  sich nach dem nächsten Stations-Edit auflöste. Gehört zu `reconnect` und `client-runstand-abbruch`, keine neue Aufgabe.
+- **[Gemeldet] Heil- und Wurf-Items wirken beim Client nicht.** Im Log stehen dazu nur Inventarzüge, keine Auslösung.
+  **[Vermutung]** Der Effekt läuft nur mit Autorität beim Host und verpufft beim Client. Neue Aufgabe `client-items-wirkung`.
+- **[Gemeldet] Rüstung des Astronauten** wird beim Client nicht angezeigt und nicht zurückgesetzt. Welches Attribut und welche
+  Anzeige das sind, ist offen. Neue Aufgabe `opt-astronaut-ruestung`.
+- **[Gemeldet] Endboss ohne Lebensleiste beim Client.** Auf der Boss-Karte nannte das Log als neue Gegnerklasse
+  `BP_BallerinaBoss_C`; ob das der Endboss war, ist **[Vermutung]** (am 13.11. war es auf derselben Karte „Kugeleis“). Die
+  Boss-Leiste des Clients ist nur für SpikeBoss und FrankensteinBoss belegt (`gegner-alle`). Neue Aufgabe `opt-endboss-leiste`.
+- **[Belegt, Bild] Airdrop-Auswahl wartete rund 10 Minuten** mit grauem Bestätigen, nachdem der Client die Belohnung zu einer
+  Aufwertung verbraucht hatte; danach „Client bereit, wartet auf alle“ und 0,7 s später übernommen. **[Vermutung]** Der Host hatte
+  in der Zeit noch nicht bestätigt; kein Fehler, solange das nicht wieder auftritt.
+- **Nicht geprüft:** Lebensleisten nach Schaden (`update-1-0-2-lebensleisten`), Werkbank über das Rezept-Panel
+  (`opt-werkbank-station`), Lager-Ablehnung (`lager-edit-ablehnung`), neuer Run mit Level 1 und Rollentausch, Host-Seite aller
+  Befunde.
+
 ### Run-Stand des Clients nach dem Run-Ende (`opt-metabase-inventar`)
 
 Ausgewertet am 14.11.2026, Build `26495302`: Disassembly der Exe, Mod-Logs beider Live-Tage (13.11. abends Host, 14.11. Client, beide
