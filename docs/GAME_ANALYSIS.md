@@ -2623,8 +2623,9 @@ Stand als **Mod-Version 1.0** (Nutzerentscheidung, siehe [Roadmap](ROADMAP.md#st
 
 ### Labyrinth-Event beim Client (`labyrinth-event-client`)
 
-Stand 17.11.2026: ein PC, beide Builds, ohne echte Eingaben. Der Live-Fehler ließ sich nicht nachstellen, die Ursache ist offen, es gibt
-keinen Fix.
+Stand 17.11.2026: ein PC, beide Builds, ohne echte Eingaben. Der Live-Fall über die Route (nur der Client fällt) ließ sich nicht
+nachstellen. Das Symptom selbst (Fall, Schwarzbild) tritt bei direkter Reise auf, dann aber bei Host und Client. Die Ursache ist offen, es
+gibt keinen Fix.
 
 - **[Belegt] So baut das Profil das Labyrinth.** `MGP_LabyrinthEvent`, aus dem Speicher gelesen:
   - `MinSizeInTiles` und `MaxSizeInTiles` sind 13 × 9, `FallbackTile` ist `BP_Street_0_Pavement`.
@@ -2651,20 +2652,35 @@ keinen Fix.
   - „replizierte Child Actors unterdrückt: 1“;
   - „Blockade: Ablauf des Hosts beim Client unterdrückt“;
   - „Seeds für 0 ISM-Komponenten“ (beim Host ebenso, also für dieses Profil normal).
-- **[Belegt] Trotzdem sieht der Client das Labyrinth, auf beiden Builds.**
-  - Build `26495302` mit Spike: Host und Client haben dieselben Kacheln (`BP_Labyrinth_02` 1, Entrance 1, Filler 70, Straight 23,
-    T 14, Edge 13, End 9, Cross 1, Nebelränder 48).
-  - Build `26669225` mit Spike und `-PartialPatches`: dieselben Zahlen, dazu 6 Truhenplätze auf beiden Seiten.
+- **[Belegt] Über die Route steht der Client am Eingang, auf beiden Builds, jeweils mit Spike.**
+  - Build `26495302`: Host und Client haben dieselben Kacheln (`BP_Labyrinth_02` 1, Entrance 1, Filler 70, Straight 23, T 14, Edge 13,
+    End 9, Cross 1, Nebelränder 48).
+  - Build `26669225` mit `-PartialPatches`: dieselben Zahlen, dazu 6 Truhenplätze auf beiden Seiten.
 
-  In beiden Builds zeigt das Bild aus dem Client-Fenster (PrintWindow) Boden, Wände und Bus. Die Client-Figur steht auf Z 90 wie die des
-  Hosts, auch nach Tageszeit 00:45 (das Live-Bild zeigte 00:43). Nach dem Versetzen per `!shop away` (+3000 X) sehen Host und Client sie
-  am neuen Ort, weiter auf Z 90 und mit Boden im Bild. Laufen per Eingabe ist nicht geprüft.
+  Das Bild aus dem Client-Fenster (PrintWindow) zeigt Boden, Wände und Bus im Eingang (`BP_Labyrinth_Entrance`). Die Client-Figur steht
+  auf Z 90 wie die des Hosts, auch nach Tageszeit 00:45 (das Live-Bild zeigte 00:43). Nach `!shop away` (+3000 X, im selben Gang) steht
+  sie weiter auf Z 90. Nicht gesehen: das Innere von `BP_Labyrinth_02`, Laufen per Eingabe, Release ohne Spike über die Route
+  (ohne Spike gibt es keinen Routenstart ohne Eingaben).
+- **[Belegt, Bild] Bei direkter Reise fallen beide Figuren, das Bild wird schwarz.** Mit Testschalter (13 × 9) und direkter Reise nach
+  `DDDynamic_Map` (Build `26669225`, einmal nur Mod per `Send-GameTravel`, einmal mit Spike per `-Map`) standen die Figuren bei Host
+  und Client nach rund 15 s auf Z −30000 bis −57000.
+  - Beide Fenster waren schwarz bis auf HUD und Figur, wie im Live-Bild. Die Kamera folgt der fallenden Figur unter die Karte.
+  - Die Kacheln waren auf beiden Seiten vollständig.
+  - Das Client-Log meldete 1,2 s nach dem Laden „fremde Figur hing …, Modus 3 aus der Replikation gesetzt“: Die Host-Figur fiel
+    schon beim Host (Modus 3 = Falling).
+  - Mit Pflasterkarte (kleine Größe) blieben die Figuren bei direkter Reise stehen.
+
+  **[Vermutung]** Das Schwarzbild im Live-Test war derselbe Fall, nur traf er dort allein den Client: Eine Figur wird gesetzt, bevor
+  unter ihr Boden mit Kollision steht. Über die Route wartet der Ladeablauf des Hosts offenbar auf die Karte; die direkte Reise ist kein
+  Spielweg. Beim Client bindet nichts den Start der eigenen Figur an das Ende der eigenen Kartenerzeugung. Live lagen zwischen
+  „Client übernimmt“ und „Kamera gesetzt“ 0,58 s, im Routentest 1,0 s. Belegt ist das nicht. Offen ist auch, ob das Spiel ohne Mod bei
+  direkter Reise ebenso fällt.
 - **[Belegt] Sichtbare Unterschiede, die kein Durchfallen erklären:**
   - Der Client hat kein Blockade-Ziel (Komponente ohne `ObjectiveInstance`, so gewollt).
   - Der Client hat weniger zerstörbare Objekte (50 statt 174, nur die replizierten in seiner Nähe).
   - Der Boden im Labyrinth ist beim Host dunkel, beim Client heller Asphalt. **[Vermutung]** Die Abdunklung gehört zum Event-Ablauf, den
     der Client nicht startet; das ist ein Schönheitsfehler.
-- **[Offen] Was dem Nachbau noch fehlt:** zwei PCs mit Relay und Latenz, ein langer Run (Tag 5, Level 48), die Figur Astronaut und der
+- **[Offen] Was dem Nachbau noch fehlt:** Ladezeit und Ablauf des Clients wie live, zwei PCs mit Relay und Latenz, ein langer Run (Tag 5, Level 48), die Figur Astronaut und der
   echte Knoten aus der Routentabelle. Der Testschalter ersetzt nur Profil und Größe, Missionsdaten und Tags bleiben die des Knotens.
   Ausgeschlossen ist der Start „nach 0 ms“: Er kam auch bei normalen Karten vor (`MGP_GolfCourse`, `MGP_City`, `MGP_HQ8_Boss`), und die
   liefen. Nächster Schritt ist ein Live-Test zu zweit. Erreicht der Run das Labyrinth wieder, beim Client vor dem Durchfallen
