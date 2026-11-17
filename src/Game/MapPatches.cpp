@@ -36,6 +36,7 @@ constexpr uintptr_t GeneratorSeed = 0x2D8;
 constexpr uintptr_t GeneratorMaxTile = 0x2E8;
 constexpr uintptr_t GeneratorTags = 0x300; // TArray<FGameplayTag>, je Tag ein FName (8 Byte)
 constexpr uintptr_t GeneratorState = 0x320;
+constexpr uintptr_t ProfileMaxSizeInTiles = 0x44; // UMapGenerationProfile, FIntVector2, nur für den Testschalter
 constexpr uintptr_t StateCurrentSubGenerator = 0x80, StateQueuedSubGeneratorsNum = 0x68, StateQueuedPostGeneratorsNum = 0x78;
 
 constexpr uintptr_t PcgUseGraphFromBiome = 0x28;
@@ -383,8 +384,18 @@ void ApplyTestProfile(uintptr_t Generator)
         return;
     const uintptr_t Profile = FindProfile(Path);
     Core::Log::Warn("Karte: Testschalter DDCOOP_TEST_MAP_PROFILE, Profil {} {}", Path, Profile ? "gesetzt" : "nicht ladbar");
-    if (Profile)
-        Write<uintptr_t>(Generator + GeneratorProfile, Profile);
+    if (!Profile)
+        return;
+    Write<uintptr_t>(Generator + GeneratorProfile, Profile);
+    // Die Größe kommt sonst vom Routenknoten. Event-Profile wie das Labyrinth (13 x 9) brauchen ihre eigene, sonst setzt der
+    // Generator nur Ersatzkacheln (labyrinth-event-client).
+    const int32_t SizeX = ReadOr<int32_t>(Profile + ProfileMaxSizeInTiles), SizeY = ReadOr<int32_t>(Profile + ProfileMaxSizeInTiles + 4);
+    if (SizeX <= 0 || SizeY <= 0)
+        return;
+    Core::Log::Warn("Karte: Testschalter setzt die Größe des Profils, {} x {} statt {} x {}", SizeX, SizeY,
+                    ReadOr<int32_t>(Generator + GeneratorMaxTile), ReadOr<int32_t>(Generator + GeneratorMaxTile + 4));
+    Write<int32_t>(Generator + GeneratorMaxTile, SizeX);
+    Write<int32_t>(Generator + GeneratorMaxTile + 4, SizeY);
 }
 
 void __fastcall StartMapGenerationHook(uintptr_t Generator)

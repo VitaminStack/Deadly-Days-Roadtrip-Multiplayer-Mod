@@ -2621,6 +2621,75 @@ Stand als **Mod-Version 1.0** (Nutzerentscheidung, siehe [Roadmap](ROADMAP.md#st
   (`opt-werkbank-station`), Lager-Ablehnung (`lager-edit-ablehnung`), neuer Run mit Level 1 und Rollentausch, Host-Seite aller
   Befunde.
 
+### Labyrinth-Event beim Client (`labyrinth-event-client`)
+
+Stand 17.11.2026: ein PC, beide Builds, ohne echte Eingaben. Der Live-Fall über die Route (nur der Client fällt) ließ sich nicht
+nachstellen. Das Symptom selbst (Fall, Schwarzbild) tritt bei direkter Reise auf, dann aber bei Host und Client. Die Ursache ist offen, es
+gibt keinen Fix.
+
+- **[Belegt] So baut das Profil das Labyrinth.** `MGP_LabyrinthEvent`, aus dem Speicher gelesen:
+  - `MinSizeInTiles` und `MaxSizeInTiles` sind 13 × 9, `FallbackTile` ist `BP_Street_0_Pavement`.
+  - `SubGenerators`: `BP_Labyrinth_Entrance_Generator` und `BP_Labyrinth_Main_Generator` (beide `RandomTilesGenerator`),
+    `BP_ExtendMapForFog`, `BP_NoGround_FogTile_Edges_Generator` und `BP_NoGround_FogTile_Corner_Generator`.
+  - `PostInstanceGenerators`: `BP_Foliage_PCGVolumeSubGenerator`, `BP_Labyrinth_LootSpotSelector` (`DestroyTaggedActorsGenerator`)
+    und `BP_LabyrinthEventMapPreparator` (`EventMapSetupGenerator`).
+
+  Das Labyrinth besteht aus den Parzellen `BP_Labyrinth_Entrance` und `BP_Labyrinth_02` (Unterklasse von `BP_BaseLabyrinth`, einer
+  `MapTileParcel`). Ihre Wände sind Kachel-Actors: `BP_Labyrinth_Filler`, `_Straight`, `_T`, `_Cross`, `_End` und `_Edge`.
+  `BP_Labyrinth_02` trägt die `LabyrinthBlockadeEventComponent` mit dem Ziel „Finde die Benzinkiste!“. Alles entsteht über denselben
+  Weg wie die übrigen Karten, also über `StartMapGeneration` mit Seed, Profil und Größe des Hosts.
+- **[Belegt] Der alte Testschalter erzeugte kein Labyrinth.** `DDCOOP_TEST_MAP_PROFILE` tauschte nur das Profil. Die Größe kam weiter
+  vom Routenknoten oder von `-Map` (gemessen 5 × 7, 5 × 5 und 8 × 10). Die Labyrinth-Generatoren setzten dann nichts, Host und Client
+  hatten nur 35 Pflaster-Ersatzkacheln und Nebelränder.
+
+  Die ersten beiden Tests dieses Tages (direkte Reise auf beiden Builds) zeigten daher kein Labyrinth. Die dort gezählten 350 Filler
+  waren Vorlagen in den Blueprint-Klassen, keine erzeugten Kacheln. Seit dieser Aufgabe setzt der Schalter auch die Größe des Profils,
+  siehe [Testen](TESTING.md#gezielt-in-eine-karte).
+- **[Belegt] Mit Größe und Routenknoten entspricht das Client-Log dem Live-Log.** Ablauf: Start über die Routenkarte ohne echte Eingaben
+  (Teleport in den Startring, Knopf und Knoten per ProcessEvent, siehe [Testen](TESTING.md#gezielt-in-eine-karte)), Tag 1 mit
+  Labyrinth-Profil. Das Client-Log zeigt dieselben Zeilen wie live:
+  - „Client übernimmt … PCG-Graph `PCG_ForestSpawner_v2`“;
+  - „replizierte Child Actors unterdrückt: 1“;
+  - „Blockade: Ablauf des Hosts beim Client unterdrückt“;
+  - „Seeds für 0 ISM-Komponenten“ (beim Host ebenso, also für dieses Profil normal).
+- **[Belegt] Über die Route steht der Client am Eingang, auf beiden Builds, jeweils mit Spike.**
+  - Build `26495302`: Host und Client haben dieselben Kacheln (`BP_Labyrinth_02` 1, Entrance 1, Filler 70, Straight 23, T 14, Edge 13,
+    End 9, Cross 1, Nebelränder 48).
+  - Build `26669225` mit `-PartialPatches`: dieselben Zahlen, dazu 6 Truhenplätze auf beiden Seiten.
+
+  Das Bild aus dem Client-Fenster (PrintWindow) zeigt Boden, Wände und Bus im Eingang (`BP_Labyrinth_Entrance`). Die Client-Figur steht
+  auf Z 90 wie die des Hosts, auch nach Tageszeit 00:45 (das Live-Bild zeigte 00:43). Nach `!shop away` (+3000 X, im selben Gang) steht
+  sie weiter auf Z 90. Nicht gesehen: das Innere von `BP_Labyrinth_02`, Laufen per Eingabe, Release ohne Spike über die Route
+  (ohne Spike gibt es keinen Routenstart ohne Eingaben).
+- **[Belegt, Bild] Bei direkter Reise fallen beide Figuren, das Bild wird schwarz.** Mit Testschalter (13 × 9) und direkter Reise nach
+  `DDDynamic_Map` (Build `26669225`, einmal nur Mod per `Send-GameTravel`, einmal mit Spike per `-Map`) standen die Figuren bei Host
+  und Client nach rund 15 s auf Z −30000 bis −57000.
+  - Beide Fenster waren schwarz bis auf HUD und Figur, wie im Live-Bild. Die Kamera folgt der fallenden Figur unter die Karte.
+  - Die Kacheln waren auf beiden Seiten vollständig.
+  - Das Client-Log meldete 1,2 s nach dem Laden „fremde Figur hing …, Modus 3 aus der Replikation gesetzt“: Die Host-Figur fiel
+    schon beim Host (Modus 3 = Falling).
+  - Mit Pflasterkarte (kleine Größe) blieben die Figuren bei direkter Reise stehen.
+
+  **[Vermutung]** Das Schwarzbild im Live-Test war derselbe Fall, nur traf er dort allein den Client: Eine Figur wird gesetzt, bevor
+  unter ihr Boden mit Kollision steht. Über die Route wartet der Ladeablauf des Hosts offenbar auf die Karte; die direkte Reise ist kein
+  Spielweg. Beim Client bindet nichts den Start der eigenen Figur an das Ende der eigenen Kartenerzeugung. Live lagen zwischen
+  „Client übernimmt“ und „Kamera gesetzt“ 0,58 s, im Routentest 1,0 s. Belegt ist das nicht. Offen ist auch, ob das Spiel ohne Mod bei
+  direkter Reise ebenso fällt.
+- **[Belegt] Sichtbare Unterschiede, die kein Durchfallen erklären:**
+  - Der Client hat kein Blockade-Ziel (Komponente ohne `ObjectiveInstance`, so gewollt).
+  - Der Client hat weniger zerstörbare Objekte (50 statt 174, nur die replizierten in seiner Nähe).
+  - Der Boden im Labyrinth ist beim Host dunkel, beim Client heller Asphalt. **[Vermutung]** Die Abdunklung gehört zum Event-Ablauf, den
+    der Client nicht startet; das ist ein Schönheitsfehler.
+- **[Offen] Was dem Nachbau noch fehlt:** Ladezeit und Ablauf des Clients wie live, zwei PCs mit Relay und Latenz, ein langer Run (Tag 5, Level 48), die Figur Astronaut und der
+  echte Knoten aus der Routentabelle. Der Testschalter ersetzt nur Profil und Größe, Missionsdaten und Tags bleiben die des Knotens.
+  Ausgeschlossen ist der Start „nach 0 ms“: Er kam auch bei normalen Karten vor (`MGP_GolfCourse`, `MGP_City`, `MGP_HQ8_Boss`), und die
+  liefen. Nächster Schritt ist ein Live-Test zu zweit. Erreicht der Run das Labyrinth wieder, beim Client vor dem Durchfallen
+  festhalten:
+  - Figurenposition und Z (`objects.py`);
+  - Kachelzahlen (die Zählung oben);
+  - ein Bild;
+  - dazu das Host-Log.
+
 ### Run-Stand des Clients nach dem Run-Ende (`opt-metabase-inventar`)
 
 Ausgewertet am 14.11.2026, Build `26495302`: Disassembly der Exe, Mod-Logs beider Live-Tage (13.11. abends Host, 14.11. Client, beide
