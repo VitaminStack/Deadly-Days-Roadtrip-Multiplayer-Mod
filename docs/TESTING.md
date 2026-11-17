@@ -145,6 +145,26 @@ Routenknotens, etwa `/Game/Map_Generation/Blueprints/MapEvents/MGP_MerchantEvent
 aus PowerShell setzen, nicht aus der Git-Bash: Sie schreibt Werte, die mit `/Game` beginnen, in einen Windows-Pfad um; dann ist das
 Profil „nicht ladbar“ und die Reise wird abgelehnt.
 
+Seit `labyrinth-event-client` übernimmt der Schalter auch die Kartengröße des Profils (`MaxSizeInTiles`, Logzeile „Testschalter setzt
+die Größe des Profils“). Vorher kam sie vom Routenknoten oder von `-Map`. Für Event-Profile mit fester Größe ist das nötig: Das
+Labyrinth braucht 13 × 9 Kacheln, sonst setzt der Generator nur Ersatzkacheln (Pflaster) und es entsteht gar kein Labyrinth.
+
+**Routenknoten ohne echte Eingaben** (mit Spike, gemessen auf beiden Builds am 17.11.2026). Damit stehen Biom, PCG-Graph und Tags
+wie in einem echten Run zur Verfügung, ohne Klicks und Tasten:
+
+```powershell
+. .\tools\spike\Common.ps1
+Send-SpikeCommand <host-pid> '!notutorial'; Send-SpikeCommand <client-pid> '!notutorial'
+Send-SpikeCommand <host-pid> '!shop go 3'   # POI 3 ist der Startring der MetaBase, der Teleport löst ihn aus
+Send-SpikeCommand <host-pid> '!shop call WP_Instructions_v2_C BndEvt__WP_Instructions_v2_WP_Button_Start_K2Node_ComponentBoundEvent_1_OnClickResponse__DelegateSignature'
+Send-SpikeCommand <host-pid> '!shop callat 0 WI_MIssionChoiceElement_C BndEvt__WI_MIssionChoiceElement_ButtonImage_K2Node_ComponentBoundEvent_1_OnButtonClickedEvent__DelegateSignature'
+```
+
+Der zweite Aufruf bestätigt „So wird gespielt“. `Test-RouteMap` meldet danach die Routenkarte. Er geht erst, wenn der Dialog offen
+ist, darum bei Bedarf wiederholen. `callat <n>` wählt den n-ten Knoten in der Reihenfolge der Objektliste. Index 0 war in beiden
+Läufen Tag 1, oberer Knoten. Den Tag zeigt `MissionRouteInfo.RouteMissionStructureIdentifier` (+0xAF8 im `UMissionChoiceElement`).
+`!shop go 3` gilt für die MetaBase beider Builds; `!shop poi` listet die POIs.
+
 ### Mensch und Skript zusammen
 
 Arbeitsteilung: Alles, was sich über Konsole, Befehle oder Skripte lesen oder steuern lässt, erledigt der Agent selbst, auch die Prüfungen

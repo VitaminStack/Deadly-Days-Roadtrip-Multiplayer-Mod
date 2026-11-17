@@ -226,6 +226,7 @@ void ScrapCommand(const std::wstring& Args)
 //   !shop confirm <n>  HandleConfirmButton an Panel n (Bestaetigen)
 //   !shop click <Name>  OnButtonClicked an jedem sichtbaren Knopf mit diesem Namen, etwa ContinueButton
 //   !shop call <Klasse> <Funktion>   parameterlose UFunction an jeder Instanz, etwa ein Knopf-Ereignis
+//   !shop callat <n> <Klasse> <Funktion>   dasselbe nur an der n-ten Instanz, etwa OnChoose an einem Routenknoten
 //   !shop upgrade      zwei gleiche Items des eigenen Inventars ueber UInventoryComponent.UpgradeItems zur naechsten Seltenheit
 //   !shop repair       erstes kaputtes Item des eigenen Inventars wie der Reparieren-Knopf (Preis lokal abziehen, RepairItem)
 namespace
@@ -615,6 +616,36 @@ void ShopCommand(const std::wstring& Args)
             ++Called;
         }
         Log("Shop: " + ClassName + "." + FunctionName + " an " + std::to_string(Called) + " Instanzen gerufen");
+    }
+    else if (Action == "callat")
+    {
+        // "!shop callat <n> <Klasse> <Funktion>": wie call, aber nur an der n-ten lebenden Instanz (Reihenfolge von GObjects), etwa
+        // OnChoose an einem Knoten der Routenkarte (labyrinth-event-client).
+        const size_t Second = Space == std::string::npos ? std::string::npos : Text.find(' ', Space + 1);
+        const size_t Third = Second == std::string::npos ? std::string::npos : Text.find(' ', Second + 1);
+        if (Third == std::string::npos)
+        {
+            Log("Shop: callat braucht Index, Klasse und Funktion");
+            return;
+        }
+        const std::string ClassName = Text.substr(Second + 1, Third - Second - 1), FunctionName = Text.substr(Third + 1);
+        const std::vector<uintptr_t> Objects = InstancesOf(ClassName.c_str());
+        if (Index < 0 || Index >= static_cast<int>(Objects.size()))
+        {
+            Log("Shop: callat Index " + std::to_string(Index) + " ausserhalb von " + std::to_string(Objects.size()));
+            return;
+        }
+        uintptr_t Function = 0;
+        for (uintptr_t Class = Read<uintptr_t>(Objects[Index] + 0x10); Class && !Function; Class = Read<uintptr_t>(Class + 0x40))
+            Function = FindObject(FunctionName.c_str(), NameOf(Class).c_str());
+        if (!Function)
+        {
+            Log("Shop: " + FunctionName + " an " + ClassName + " nicht gefunden");
+            return;
+        }
+        uint8_t Params[0x100]{};
+        Call(Objects[Index], Function, Params);
+        Log("Shop: " + ClassName + "." + FunctionName + " an Instanz " + std::to_string(Index) + " gerufen");
     }
     else
         Log("Shop: unbekannt, siehe Kommentar in Cheats.cpp");

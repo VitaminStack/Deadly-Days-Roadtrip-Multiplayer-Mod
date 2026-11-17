@@ -2623,37 +2623,56 @@ Stand als **Mod-Version 1.0** (Nutzerentscheidung, siehe [Roadmap](ROADMAP.md#st
 
 ### Labyrinth-Event beim Client (`labyrinth-event-client`)
 
-Stand 17.11.2026, ein PC, ohne echte Eingaben. Ursache noch offen, kein Fix.
+Stand 17.11.2026: ein PC, beide Builds, ohne echte Eingaben. Der Live-Fehler ließ sich nicht nachstellen, die Ursache ist offen, es gibt
+keinen Fix.
 
-- **[Belegt] So baut das Profil das Labyrinth.** `MGP_LabyrinthEvent` (aus dem Speicher des Clients gelesen, Build `26669225`):
-  - `FallbackTile`: `BP_Street_0_Pavement`.
-  - `SubGenerators`: `BP_Labyrinth_Entrance_Generator`, `BP_Labyrinth_Main_Generator`, `BP_ExtendMapForFog`, `BP_NoGround_FogTile_Edges_Generator`
-    und `BP_NoGround_FogTile_Corner_Generator`.
-  - `PostInstanceGenerators`: `BP_Foliage_PCGVolumeSubGenerator`, `BP_Labyrinth_LootSpotSelector` und `BP_LabyrinthEventMapPreparator`.
+- **[Belegt] So baut das Profil das Labyrinth.** `MGP_LabyrinthEvent`, aus dem Speicher gelesen:
+  - `MinSizeInTiles` und `MaxSizeInTiles` sind 13 × 9, `FallbackTile` ist `BP_Street_0_Pavement`.
+  - `SubGenerators`: `BP_Labyrinth_Entrance_Generator` und `BP_Labyrinth_Main_Generator` (beide `RandomTilesGenerator`),
+    `BP_ExtendMapForFog`, `BP_NoGround_FogTile_Edges_Generator` und `BP_NoGround_FogTile_Corner_Generator`.
+  - `PostInstanceGenerators`: `BP_Foliage_PCGVolumeSubGenerator`, `BP_Labyrinth_LootSpotSelector` (`DestroyTaggedActorsGenerator`)
+    und `BP_LabyrinthEventMapPreparator` (`EventMapSetupGenerator`).
 
-  Die Wände sind also normale Kacheln aus Blueprint-Generatoren (`BP_Labyrinth_Filler`, `_Straight`, `_T`, `_Cross`, `_End`, `_Edge`).
-  Sie laufen über denselben Weg wie die übrigen Karten: `StartMapGeneration` mit Seed und Profil des Hosts.
-- **[Belegt] Bei direkter Reise sieht der Client das Labyrinth.** Getestet mit `DDCOOP_TEST_MAP_PROFILE` auf das Labyrinth-Profil und
-  `-Map /Game/Maps/DDDynamic_Map`, also ohne Routenknoten:
-  - Build `26495302` mit Spike (`Start-Session.ps1 -Build -Mod -Tunnel Lobby`).
-  - Build `26669225` nur mit Mod (`-NoSpike -PartialPatches`, Reise per `Send-GameTravel`).
+  Das Labyrinth besteht aus den Parzellen `BP_Labyrinth_Entrance` und `BP_Labyrinth_02` (Unterklasse von `BP_BaseLabyrinth`, einer
+  `MapTileParcel`). Ihre Wände sind Kachel-Actors: `BP_Labyrinth_Filler`, `_Straight`, `_T`, `_Cross`, `_End` und `_Edge`.
+  `BP_Labyrinth_02` trägt die `LabyrinthBlockadeEventComponent` mit dem Ziel „Finde die Benzinkiste!“. Alles entsteht über denselben
+  Weg wie die übrigen Karten, also über `StartMapGeneration` mit Seed, Profil und Größe des Hosts.
+- **[Belegt] Der alte Testschalter erzeugte kein Labyrinth.** `DDCOOP_TEST_MAP_PROFILE` tauschte nur das Profil. Die Größe kam weiter
+  vom Routenknoten oder von `-Map` (gemessen 5 × 7, 5 × 5 und 8 × 10). Die Labyrinth-Generatoren setzten dann nichts, Host und Client
+  hatten nur 35 Pflaster-Ersatzkacheln und Nebelränder.
 
-  Beide Male übernahm der Client die Werte. Host und Client hatten dieselben Labyrinth-Kacheln, gezählt auf `26669225`: 350 Filler,
-  113 Straight, 73 Edge, 62 T, 51 End, 7 Cross, 1 `LabyrinthBlockadeEventComponent`. Im Bild aus dem Client-Fenster (PrintWindow)
-  stehen Boden, Felswand und Bus wie beim Host.
-- **[Belegt] Dieser Test bildet den Live-Fall nicht nach.** Gegenüber dem Live-Log fehlen drei Dinge:
-  - Ohne Routenknoten gibt es keinen PCG-Graphen („Host ohne PCG-Graph“, live `PCG_ForestSpawner_v2` mit danach 0 ISM-Komponenten).
-  - Es fehlen die Zeilen „replizierte Child Actors unterdrückt: 1“ und „Blockade: Ablauf des Hosts beim Client unterdrückt“. Die
-    Blockade-Zeile steht im ganzen Live-Log nur beim Labyrinth.
-  - Es gab keine Vorgeschichte aus mehreren Missionen.
+  Die ersten beiden Tests dieses Tages (direkte Reise auf beiden Builds) zeigten daher kein Labyrinth. Die dort gezählten 350 Filler
+  waren Vorlagen in den Blueprint-Klassen, keine erzeugten Kacheln. Seit dieser Aufgabe setzt der Schalter auch die Größe des Profils,
+  siehe [Testen](TESTING.md#gezielt-in-eine-karte).
+- **[Belegt] Mit Größe und Routenknoten entspricht das Client-Log dem Live-Log.** Ablauf: Start über die Routenkarte ohne echte Eingaben
+  (Teleport in den Startring, Knopf und Knoten per ProcessEvent, siehe [Testen](TESTING.md#gezielt-in-eine-karte)), Tag 1 mit
+  Labyrinth-Profil. Das Client-Log zeigt dieselben Zeilen wie live:
+  - „Client übernimmt … PCG-Graph `PCG_ForestSpawner_v2`“;
+  - „replizierte Child Actors unterdrückt: 1“;
+  - „Blockade: Ablauf des Hosts beim Client unterdrückt“;
+  - „Seeds für 0 ISM-Komponenten“ (beim Host ebenso, also für dieses Profil normal).
+- **[Belegt] Trotzdem sieht der Client das Labyrinth, auf beiden Builds.**
+  - Build `26495302` mit Spike: Host und Client haben dieselben Kacheln (`BP_Labyrinth_02` 1, Entrance 1, Filler 70, Straight 23,
+    T 14, Edge 13, End 9, Cross 1, Nebelränder 48).
+  - Build `26669225` mit Spike und `-PartialPatches`: dieselben Zahlen, dazu 6 Truhenplätze auf beiden Seiten.
 
-  Der Start „nach 0 ms“ ist dagegen nicht die Ursache: Er kommt in alten Logs auch bei normalen Karten vor (`MGP_GolfCourse`,
-  `MGP_City`, `MGP_HQ8_Boss`), und die liefen.
-- **[Offen] Nachstellen braucht echte Eingaben.** Ein Routenknoten lässt sich auf einem PC nur über `Start-Run.ps1` oder
-  `Run-Route.ps1` erreichen. Beide nutzen Klicks und Tasten über `Game-Input.ps1`, und einen Cheat für den Routenstart gibt es im
-  `DDCheatManager` nicht. Nächster Schritt mit Freigabe für echte Eingaben: Routenlauf mit dem Testschalter, dann Host und Client
-  vergleichen (Kacheln wie oben, `objects.py`, ISM-Komponenten, Bild). Zuerst die Blockade-Sperre für
-  `LabyrinthBlockadeEventComponent` prüfen, denn sie ist der einzige Eingriff der Mod, der nur in diesem Event greift.
+  In beiden Builds zeigt das Bild aus dem Client-Fenster (PrintWindow) Boden, Wände und Bus. Die Client-Figur steht auf Z 90 wie die des
+  Hosts, auch nach Tageszeit 00:45 (das Live-Bild zeigte 00:43). Nach dem Versetzen per `!shop away` (+3000 X) sehen Host und Client sie
+  am neuen Ort, weiter auf Z 90 und mit Boden im Bild. Laufen per Eingabe ist nicht geprüft.
+- **[Belegt] Sichtbare Unterschiede, die kein Durchfallen erklären:**
+  - Der Client hat kein Blockade-Ziel (Komponente ohne `ObjectiveInstance`, so gewollt).
+  - Der Client hat weniger zerstörbare Objekte (50 statt 174, nur die replizierten in seiner Nähe).
+  - Der Boden im Labyrinth ist beim Host dunkel, beim Client heller Asphalt. **[Vermutung]** Die Abdunklung gehört zum Event-Ablauf, den
+    der Client nicht startet; das ist ein Schönheitsfehler.
+- **[Offen] Was dem Nachbau noch fehlt:** zwei PCs mit Relay und Latenz, ein langer Run (Tag 5, Level 48), die Figur Astronaut und der
+  echte Knoten aus der Routentabelle. Der Testschalter ersetzt nur Profil und Größe, Missionsdaten und Tags bleiben die des Knotens.
+  Ausgeschlossen ist der Start „nach 0 ms“: Er kam auch bei normalen Karten vor (`MGP_GolfCourse`, `MGP_City`, `MGP_HQ8_Boss`), und die
+  liefen. Nächster Schritt ist ein Live-Test zu zweit. Erreicht der Run das Labyrinth wieder, beim Client vor dem Durchfallen
+  festhalten:
+  - Figurenposition und Z (`objects.py`);
+  - Kachelzahlen (die Zählung oben);
+  - ein Bild;
+  - dazu das Host-Log.
 
 ### Run-Stand des Clients nach dem Run-Ende (`opt-metabase-inventar`)
 
