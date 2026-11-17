@@ -2621,6 +2621,40 @@ Stand als **Mod-Version 1.0** (Nutzerentscheidung, siehe [Roadmap](ROADMAP.md#st
   (`opt-werkbank-station`), Lager-Ablehnung (`lager-edit-ablehnung`), neuer Run mit Level 1 und Rollentausch, Host-Seite aller
   Befunde.
 
+### Labyrinth-Event beim Client (`labyrinth-event-client`)
+
+Stand 17.11.2026, ein PC, ohne echte Eingaben. Ursache noch offen, kein Fix.
+
+- **[Belegt] So baut das Profil das Labyrinth.** `MGP_LabyrinthEvent` (aus dem Speicher des Clients gelesen, Build `26669225`):
+  - `FallbackTile`: `BP_Street_0_Pavement`.
+  - `SubGenerators`: `BP_Labyrinth_Entrance_Generator`, `BP_Labyrinth_Main_Generator`, `BP_ExtendMapForFog`, `BP_NoGround_FogTile_Edges_Generator`
+    und `BP_NoGround_FogTile_Corner_Generator`.
+  - `PostInstanceGenerators`: `BP_Foliage_PCGVolumeSubGenerator`, `BP_Labyrinth_LootSpotSelector` und `BP_LabyrinthEventMapPreparator`.
+
+  Die Wände sind also normale Kacheln aus Blueprint-Generatoren (`BP_Labyrinth_Filler`, `_Straight`, `_T`, `_Cross`, `_End`, `_Edge`).
+  Sie laufen über denselben Weg wie die übrigen Karten: `StartMapGeneration` mit Seed und Profil des Hosts.
+- **[Belegt] Bei direkter Reise sieht der Client das Labyrinth.** Getestet mit `DDCOOP_TEST_MAP_PROFILE` auf das Labyrinth-Profil und
+  `-Map /Game/Maps/DDDynamic_Map`, also ohne Routenknoten:
+  - Build `26495302` mit Spike (`Start-Session.ps1 -Build -Mod -Tunnel Lobby`).
+  - Build `26669225` nur mit Mod (`-NoSpike -PartialPatches`, Reise per `Send-GameTravel`).
+
+  Beide Male übernahm der Client die Werte. Host und Client hatten dieselben Labyrinth-Kacheln, gezählt auf `26669225`: 350 Filler,
+  113 Straight, 73 Edge, 62 T, 51 End, 7 Cross, 1 `LabyrinthBlockadeEventComponent`. Im Bild aus dem Client-Fenster (PrintWindow)
+  stehen Boden, Felswand und Bus wie beim Host.
+- **[Belegt] Dieser Test bildet den Live-Fall nicht nach.** Gegenüber dem Live-Log fehlen drei Dinge:
+  - Ohne Routenknoten gibt es keinen PCG-Graphen („Host ohne PCG-Graph“, live `PCG_ForestSpawner_v2` mit danach 0 ISM-Komponenten).
+  - Es fehlen die Zeilen „replizierte Child Actors unterdrückt: 1“ und „Blockade: Ablauf des Hosts beim Client unterdrückt“. Die
+    Blockade-Zeile steht im ganzen Live-Log nur beim Labyrinth.
+  - Es gab keine Vorgeschichte aus mehreren Missionen.
+
+  Der Start „nach 0 ms“ ist dagegen nicht die Ursache: Er kommt in alten Logs auch bei normalen Karten vor (`MGP_GolfCourse`,
+  `MGP_City`, `MGP_HQ8_Boss`), und die liefen.
+- **[Offen] Nachstellen braucht echte Eingaben.** Ein Routenknoten lässt sich auf einem PC nur über `Start-Run.ps1` oder
+  `Run-Route.ps1` erreichen. Beide nutzen Klicks und Tasten über `Game-Input.ps1`, und einen Cheat für den Routenstart gibt es im
+  `DDCheatManager` nicht. Nächster Schritt mit Freigabe für echte Eingaben: Routenlauf mit dem Testschalter, dann Host und Client
+  vergleichen (Kacheln wie oben, `objects.py`, ISM-Komponenten, Bild). Zuerst die Blockade-Sperre für
+  `LabyrinthBlockadeEventComponent` prüfen, denn sie ist der einzige Eingriff der Mod, der nur in diesem Event greift.
+
 ### Run-Stand des Clients nach dem Run-Ende (`opt-metabase-inventar`)
 
 Ausgewertet am 14.11.2026, Build `26495302`: Disassembly der Exe, Mod-Logs beider Live-Tage (13.11. abends Host, 14.11. Client, beide
