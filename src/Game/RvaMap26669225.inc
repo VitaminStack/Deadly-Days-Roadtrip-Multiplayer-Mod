@@ -75,6 +75,8 @@
 {0x0590B2AA, 0x0590BF3A}, // eindeutig, DeviceCheckSite, src/Game/RemoteP2Patches.cpp:31
 {0x0590B2AF, 0x0590BF3F}, // eindeutig, SoloLossTest, src/Game/RemoteP2Patches.cpp:32
 {0x0590B2B4, 0x0590BF44}, // eindeutig, NeedReconnect, src/Game/RemoteP2Patches.cpp:33
+{0x05936BE0, 0x05937870}, // eindeutig, RunSaveRoundChanged, src/Game/ClientPatches.cpp:43
+{0x0593EBA0, 0x0593F830}, // eindeutig, RunSaveResave, src/Game/ClientPatches.cpp:44
 {0x05941A43, 0x059426D3}, // eindeutig, ThreatFreezeBranch, src/Game/ClientPatches.cpp:27
 {0x0595DA20, 0x0595E6E0}, // eindeutig, CreateItemInstance, src/Game/RewardPatches.cpp:44
 {0x0596BA70, 0x0596C820}, // eindeutig, HandleItemSold, src/Game/RewardPatches.cpp:51
