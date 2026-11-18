@@ -2975,11 +2975,17 @@ den Run hostet. Damit gibt es keinen Zeitpunkt, den ein Absturz verpassen kann, 
   |---|---|
   | Tagesende, Reise, zweites Tagesende, Client ohne eigenen Run | leer, unverändert |
   | Dasselbe, Client bringt einen eigenen offenen Run mit (`BeginOfDay`) | bitgleich, Inventare beider Seiten `equal` |
-  | Verlassen über das Pausemenü (Knopf-Ereignis `BackToMenuButton`, dann `ContinueReturnToMainMenu`) | unverändert, Client im Hauptmenü |
-  | Absturz (Client-Prozess hart beendet) nach einem Tagesende | unverändert |
-  | Host beendet (Host-Prozess beendet) nach einem Tagesende | unverändert, Client nach 30 s im Hauptmenü |
+  | Verlassen über das Pausemenü (Knopf-Ereignis `BackToMenuButton`, dann `ContinueReturnToMainMenu`), Stand leer oder eigener offener Run | unverändert bzw. bitgleich, Client im Hauptmenü |
+  | Absturz (Client-Prozess hart beendet) nach einem Tagesende, eigener offener Run | bitgleich |
+  | Host beendet (Host-Prozess beendet) nach einem Tagesende, Stand leer oder eigener offener Run | unverändert bzw. bitgleich, Client nach 30 s im Hauptmenü |
   | Früherer Client hostet im selben Prozess, echter Run-Start (Ring, Routenknoten) | `BeginOfDay`, Level 1, Erfahrung 0, 1 Item |
   | Niederlage des Hosts | Host nativ leer, Client unverändert |
+
+  Der gehostete Run ist wie der Vergleichslauf gemessen: derselbe Client-Prozess vom Beitritt in der MetaBase an, zwölf `!wave` in
+  der Mission (Host-Fortschritt 0,4 wie im Vergleichslauf, dort stand danach Erfahrung 40 im Client-Stand), Tagesende, Host-Prozess
+  beendet, dann hosten. Ein erster Durchgang ohne Wellen und mit neu gestartetem Client hätte auch ohne Fix Erfahrung 0 gezeigt und
+  zählt darum nicht. Die lokale Erfahrung des Clients ließ sich vor dem Host-Ende nicht direkt lesen (`day` nennt sie nicht), sie
+  ist aus dem gleichen Ablauf abgeleitet.
 
   Nur auf `26669225` gemessen, mit normal verbundenem Client, der einen eigenen offenen Run hat: Sieg (`DD_SetCurrentDay 8`,
   `!finish`) und Niederlage: Host nativ leer, Client zeigt den Ergebnisbildschirm (Sieg bzw. Niederlage), sein eigener Run bleibt
@@ -2995,8 +3001,8 @@ den Run hostet. Damit gibt es keinen Zeitpunkt, den ein Absturz verpassen kann, 
 - **Nicht geprüft / Grenzen:** Zwei PCs mit Rollentausch. Start des früheren Clients nach einem Neustart des Spiels (der Stand auf
   der Platte ist als unverändert belegt, der gehostete Run lief im selben Prozess). Fortsetzen eines eigenen offenen Runs nach einem
   Coop-Run als Client (der Stand ist bitgleich, das Fortsetzen selbst nicht gespielt). Stände, die ältere Mod-Versionen als Client
-  geschrieben haben, bleiben, bis ihr Besitzer den Run als Host beendet; sie lassen sich von einem eigenen Run nicht unterscheiden
-  (beide 17 Komponenten). Der echte Mod-Stand dieses PCs ist seit dem Sieg vom 17.11. leer (nur gelesen). Inventar und Level nach
+  geschrieben haben, bleiben, bis ihr Besitzer den Run als Host beendet. **[Vermutung]** Sie lassen sich von einem eigenen Run nicht
+  sicher unterscheiden: Vom Client geschriebene Stände hatten 17 Komponenten, vom Host geschriebene 14 bis 21. Der echte Mod-Stand dieses PCs ist seit dem Sieg vom 17.11. leer (nur gelesen). Inventar und Level nach
   einem Wiederbeitritt stellt weiter niemand her (`reconnect`).
 
 ### Rucksack-Überlappung beim Client (`opt-rucksack-ueberlappung`)
