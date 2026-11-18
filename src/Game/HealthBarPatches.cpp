@@ -150,8 +150,9 @@ void __fastcall OnRepArmorHook(uintptr_t Set, const void* Old)
     std::string Names;
     const bool First = !ReportedArmor.load();
     const int32_t Num = Broadcast(Set, OnArmorChanged, Value, First ? &Names : nullptr);
-    if (Num > 0 && !ReportedArmor.exchange(true))
-        Core::Log::Info("Rüstung: erster Broadcast beim Client, Wert {}, {} Empfänger: {}", Value, Num, Names);
+    // Einmal je Start, auch ohne Empfänger: so zeigt das Log, ob der Hook lief und wer zuhört.
+    if (First && !ReportedArmor.exchange(true))
+        Core::Log::Info("Rüstung: erstes OnRep_Armor beim Client, Wert {}, {} Empfänger: {}", Value, Num, Names.empty() ? "-" : Names);
 }
 
 void __fastcall OnRepMaxArmorHook(uintptr_t Set, const void* Old)
@@ -165,8 +166,12 @@ bool CheckHealthBars()
     return Code::Expect(At(OnRepHealth), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18}, "OnRep_Health") &&
            Code::Expect(At(OnRepMaxHealth), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18}, "OnRep_MaxHealth") &&
            Code::Expect(At(OnRepStamina), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18}, "OnRep_Stamina") &&
-           Code::Expect(At(OnRepMaxStamina), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18}, "OnRep_MaxStamina") &&
-           Code::Expect(At(OnRepArmor), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18}, "OnRep_Armor") &&
+           Code::Expect(At(OnRepMaxStamina), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18}, "OnRep_MaxStamina");
+}
+
+bool CheckArmorBars()
+{
+    return Code::Expect(At(OnRepArmor), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18}, "OnRep_Armor") &&
            Code::Expect(At(OnRepMaxArmor), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18}, "OnRep_MaxArmor");
 }
 
@@ -180,17 +185,24 @@ bool ApplyHealthBars(Code::Writer&)
            Core::Hooks::Install(reinterpret_cast<void*>(At(OnRepStamina)), reinterpret_cast<void*>(&OnRepStaminaHook),
                                 reinterpret_cast<void**>(&OriginalOnRepStamina)) &&
            Core::Hooks::Install(reinterpret_cast<void*>(At(OnRepMaxStamina)), reinterpret_cast<void*>(&OnRepMaxStaminaHook),
-                                reinterpret_cast<void**>(&OriginalOnRepMaxStamina)) &&
-           Core::Hooks::Install(reinterpret_cast<void*>(At(OnRepArmor)), reinterpret_cast<void*>(&OnRepArmorHook),
+                                reinterpret_cast<void**>(&OriginalOnRepMaxStamina));
+}
+
+// Eigener Eintrag, damit eine fehlende Rüstungs-Signatur nicht auch Lebens- und Ausdauerleisten abschaltet.
+bool ApplyArmorBars(Code::Writer&)
+{
+    return Core::Hooks::Install(reinterpret_cast<void*>(At(OnRepArmor)), reinterpret_cast<void*>(&OnRepArmorHook),
                                 reinterpret_cast<void**>(&OriginalOnRepArmor)) &&
            Core::Hooks::Install(reinterpret_cast<void*>(At(OnRepMaxArmor)), reinterpret_cast<void*>(&OnRepMaxArmorHook),
                                 reinterpret_cast<void**>(&OriginalOnRepMaxArmor));
 }
 
 // Je Patch die benutzten Adressen der Signaturtabelle, erzeugt von tools/patch_signatures.py sites.
-constexpr uintptr_t HealthBarsSites[] = {OnRepArmor, OnRepHealth, OnRepMaxArmor, OnRepMaxHealth, OnRepMaxStamina, OnRepStamina};
+constexpr uintptr_t HealthBarsSites[] = {OnRepHealth, OnRepMaxHealth, OnRepMaxStamina, OnRepStamina};
+constexpr uintptr_t ArmorBarsSites[] = {OnRepArmor, OnRepMaxArmor};
 const Patch List[] = {
-    {"Lebens-, Ausdauer- und Rüstungsleisten beim Client", &CheckHealthBars, &ApplyHealthBars, HealthBarsSites},
+    {"Lebens- und Ausdauerleisten beim Client", &CheckHealthBars, &ApplyHealthBars, HealthBarsSites},
+    {"Rüstungsleisten beim Client", &CheckArmorBars, &ApplyArmorBars, ArmorBarsSites},
 };
 }
 
