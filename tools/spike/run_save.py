@@ -33,7 +33,8 @@ def serialized_json(part: bytes):
 
 
 def read(path: str) -> dict:
-    data = open(path, "rb").read()
+    with open(path, "rb") as file:
+        data = file.read()
     part = section(data)
     # Zwischen dem Enum-Namen und dem JSON stehen sein Paket und der Wert, der Wert zuletzt.
     begin, end = part.find(b"ERunDataState\x00"), part.find(b"SerializedJson\x00")

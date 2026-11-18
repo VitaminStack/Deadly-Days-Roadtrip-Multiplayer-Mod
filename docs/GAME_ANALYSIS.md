@@ -2656,6 +2656,8 @@ Stand als **Mod-Version 1.0** (Nutzerentscheidung, siehe [Roadmap](ROADMAP.md#st
   laufenden Run wieder ein: Karte, Airdrops und Rundenende liefen, aber der Client begann mit Startinventar (2 Items, 4 Felder statt
   46 und 54) und laut Spieler auf Level 1; Schrott kam vom Host. Danach meldete der Desync-Melder eine Inventar-Abweichung, die
   sich nach dem nächsten Stations-Edit auflöste. Gehört zu `reconnect` und `client-runstand-abbruch`, keine neue Aufgabe.
+  Nachtrag 18.11.2026: Der eigene Stand des Clients ist daran nicht beteiligt, das Inventar kommt vom Host, siehe
+  [Run-Stand beim Verlassen](#run-stand-des-clients-beim-verlassen-client-runstand-abbruch); offen bleibt nur `reconnect`.
 - **[Gemeldet] Heil- und Wurf-Items wirken beim Client nicht.** Im Log stehen dazu nur Inventarzüge, keine Auslösung.
   **[Vermutung]** Der Effekt läuft nur mit Autorität beim Host und verpufft beim Client. Neue Aufgabe `client-items-wirkung`,
   behoben am 18.11.2026, siehe [Heil- und Wurf-Items beim Client](#heil--und-wurf-items-beim-client-client-items-wirkung).
@@ -2892,6 +2894,8 @@ am 14.11. begann beim Host mit Level 35, das Spiel skalierte die Gegner danach.
   nachgezogenen Tagesende (dessen `EndOfDay` sonst den geleerten Stand überschreiben würde) oder sobald der Client die Welt des Endes
   verlassen hat, auch getrennt (`ClientClearsRunSave`, Unit-Test). Log „Run-Ende: eigener Run-Stand des Clients geleert“. Kein neuer
   Nachrichtentyp, Mod-Version bleibt 13.
+  **Ersetzt am 18.11.2026** durch `client-runstand-abbruch`: Der Client schreibt keinen eigenen Run-Stand mehr, `ClearClientRunSave`
+  und diese Logzeile gibt es nicht mehr, siehe [Run-Stand beim Verlassen](#run-stand-des-clients-beim-verlassen-client-runstand-abbruch).
 - **[Belegt, Test mit dem Fix]** `Start-Session.ps1 -Build -Mod -Tunnel Lobby -Godmode -Brief`, `DDCOOP_TEST_MAP_PROFILE` auf
   `MGP_Forest`, Mission per `travel`, Rundenende per `!finish`, Niederlage per `!god off`, `!cheats`, `DD_DamagePlayerAtIndex`, Sieg per
   `DD_SetCurrentDay 8` und `!finish`. Run-Stand beider Testordner nach jedem Schritt aus `SaveSlot_DDR_0.sav` gelesen:
@@ -2927,6 +2931,73 @@ am 14.11. begann beim Host mit Level 35, das Spiel skalierte die Gegner danach.
   bleibt sein Stand weiter offen; das ist der native Ablauf eines abgebrochenen Runs, für den Coop-Client aber ebenso falsch. Wer schon
   einen offenen Stand hat, behält ihn bis zum nächsten Run-Ende. Der echte Mod-Spielstand dieses PCs steht so (`EndOfDay`, Level 14,
   Client-Run vom 14.11. über das Pausemenü verlassen); er wurde nicht verändert. Neue Aufgabe `client-runstand-abbruch`.
+
+### Run-Stand des Clients beim Verlassen (`client-runstand-abbruch`)
+
+Stand 18.11.2026: ein PC, zwei Instanzen über die Lobby, Builds `26495302` und `26669225` (dort mit `-PartialPatches`, 18 von 18 Listen,
+nichts ausgelassen), `DDCOOP_TEST_MAP_PROFILE` auf `MGP_Forest`, ohne echte Eingaben. Behoben, alle Fälle auf beiden Builds gemessen.
+
+**Entscheidung:** Der Client leert seinen Run-Stand nicht beim Verlassen, er schreibt ihn gar nicht erst. Der Run-Stand gehört dem, der
+den Run hostet. Damit gibt es keinen Zeitpunkt, den ein Absturz verpassen kann, und ein eigener offener Run des Clients bleibt erhalten.
+
+- **[Belegt, Disassembly] Zwei Stellen schreiben den Run-Stand.** `URunPersistencyManager::OnRoundChanged` (`0x5936BE0`) hat nur einen
+  Aufrufer, seinen Exec-Thunk, wird also über den Delegate des Rundenwechsels gerufen: `NewDay` legt den Container neu an, setzt
+  `EndOfDay`, serialisiert alle Persistables und speichert; `Win` und `Lose` leeren und speichern. `ResavePersistable` (`0x593EBA0`,
+  fünf native Aufrufer und der Thunk) schreibt eine einzelne Komponente in den Container und speichert, aber nur, wenn `RunDataState`
+  (`+0x88`) nicht `Uninitialized` ist, also nur in einen offenen Run. `BeginOfDay` schrieb in allen Läufen nur der Host beim Run-Start.
+- **[Belegt, Vergleichslauf mit `DDCOOP_RUN_SAVE_NATIVE=1`, Build `26495302`] Ursache.** Echter Run-Start beim Host über Ring und
+  Routenknoten, Tagesende per `!finish`: Der Client schrieb `EndOfDay` mit 17 Komponenten in den eigenen Stand (Inventar des Runs,
+  Level-Komponente mit Erfahrung 40). Host-Prozess beendet, Client nach 30 s im Hauptmenü, Stand weiter `EndOfDay`. Derselbe Prozess
+  hostete danach (Lobby erstellt, MetaBase, Ring, Routenknoten): Der neue Run begann mit `BeginOfDay`, Level 1 und **Erfahrung 40**
+  statt 0, das Inventar mit der Startausrüstung. Der echte Run-Start setzt das Level eines offenen Stands also nicht zurück; das
+  deckt sich mit Level 35 am 14.11. Die lokale Level-Komponente des Clients folgt Cheat-XP nicht (`DD_CheatAddExperience` beim Host
+  hob nur dessen Level, beim Client gerufen ebenfalls nur das des Hosts), darum hier Erfahrung statt Level als Merkmal.
+- **[Belegt] Der eigene Stand spielt beim Wiederbeitritt keine Rolle.** Am 17.11. hatte der Client vor dem Verbindungsverlust fünf
+  eigene `EndOfDay`-Stände geschrieben und begann nach dem Wiederbeitritt trotzdem mit Startinventar. Nachgemessen auf beiden Builds:
+  Client-Prozess beendet, Testordner geleert, `Restart-Instance.ps1`: Der Client hat danach 1 Item, vorher 3. Das Inventar kommt vom
+  frischen PlayerState des Hosts. Der Host-Stand enthält das Inventar beider Spieler (`Inventory_Player0`, `Inventory_Player1`); das
+  wäre die Quelle für eine Wiederherstellung und bleibt Sache von `reconnect`. Der Fix ändert am Wiederbeitritt nichts.
+- **Lokal zuerst:** Lokal bleibt alles, geteilt wird nichts Neues, keine Nachricht, Mod-Version bleibt 14. Der Host entscheidet und
+  speichert den Run nativ wie bisher. Ersetzt wird `ClearClientRunSave` aus `opt-metabase-inventar` (Leeren nach Sieg oder Niederlage
+  des Hosts): Es griff nur beim gemeldeten Run-Ende und leerte auch einen eigenen offenen Run des Clients.
+- **Fix** (`src/Game/ClientPatches.cpp`, Patch „Run-Stand gehört dem Host“, Richtlinie `RunSaveChangeAllowed`): Hooks auf
+  `OnRoundChanged` und `ResavePersistable`. Bei einem Netz-Client laufen beide nicht, bei Host und Solo unverändert. Log beim Client
+  „Run-Stand: Client lässt seinen eigenen Run-Stand unberührt“ und „… schreibt keine einzelne Komponente …“. Rundenübersicht, Lager,
+  Reise und Ergebnisbildschirm des Clients hängen nicht am eigenen Stand und laufen wie zuvor. `DDCOOP_RUN_SAVE_NATIVE=1` stellt zum
+  Vergleich das Verhalten des Spiels her.
+- **Fehlversuch:** Zuerst nur `OnRoundChanged` gesperrt (über ProcessEvent). Ein Client mit eigenem offenem Run bekam am Tagesende
+  trotzdem `GameStats_Player0` des Host-Runs in seinen Stand, Zustand und Zeitstempel blieben. Das war `ResavePersistable`. Ein leerer
+  Stand blieb schon damit leer.
+- **[Belegt] Messung mit dem Fix,** Run-Abschnitt aus `SaveSlot_DDR_0.sav` des Client-Testordners nach jedem Schritt mit
+  `tools/spike/run_save.py` gelesen (Zustand, Komponenten, SHA-256 über den Abschnitt). Auf beiden Builds gleich:
+
+  | Fall | Stand des Clients danach |
+  |---|---|
+  | Tagesende, Reise, zweites Tagesende, Client ohne eigenen Run | leer, unverändert |
+  | Dasselbe, Client bringt einen eigenen offenen Run mit (`BeginOfDay`) | bitgleich, Inventare beider Seiten `equal` |
+  | Verlassen über das Pausemenü (Knopf-Ereignis `BackToMenuButton`, dann `ContinueReturnToMainMenu`) | unverändert, Client im Hauptmenü |
+  | Absturz (Client-Prozess hart beendet) nach einem Tagesende | unverändert |
+  | Host beendet (Host-Prozess beendet) nach einem Tagesende | unverändert, Client nach 30 s im Hauptmenü |
+  | Früherer Client hostet im selben Prozess, echter Run-Start (Ring, Routenknoten) | `BeginOfDay`, Level 1, Erfahrung 0, 1 Item |
+  | Niederlage des Hosts | Host nativ leer, Client unverändert |
+
+  Nur auf `26669225` gemessen, mit normal verbundenem Client, der einen eigenen offenen Run hat: Sieg (`DD_SetCurrentDay 8`,
+  `!finish`) und Niederlage: Host nativ leer, Client zeigt den Ergebnisbildschirm (Sieg bzw. Niederlage), sein eigener Run bleibt
+  bitgleich. Auf `26495302` lief die Niederlage mit einem mitten in der Mission wieder beigetretenen Client: Der hatte nach 60 s keine
+  Kartenwerte des Hosts und zog das Ende deshalb nicht nach (Grenze von `reconnect`, nicht dieses Fixes). Kein Absturzbericht.
+- **Offline geprüft:** Beide Adressen auf `26669225` eindeutig (`rva_map.py`), Signaturen in beiden Exes genau einmal
+  (`patch_signatures.py check`), Byte-Prüfungen mit `expect_check.py` für beide Builds. Unit-Tests: Richtlinie, Adresstabelle,
+  `tests/test_run_save.py`.
+- **Beobachtung nebenbei, nicht Teil der Aufgabe (`opt-metabase-inventar`, zweiter Träger):** Nach Sieg oder Niederlage per
+  `servertravel` zurück in die MetaBase und echter Run-Start über Ring und Routenknoten: Der Host begann den neuen Run mit Level 3
+  bzw. 4 und je 3 Items, obwohl sein Run-Container leer war. `TriggerStartRun` setzte das nach der umgeleiteten Rückkehr also nicht
+  zurück. Die Rückkehr war eine Testabkürzung, der Knopf des Ergebnisbildschirms ist nicht geprüft; darum nur Hinweis.
+- **Nicht geprüft / Grenzen:** Zwei PCs mit Rollentausch. Start des früheren Clients nach einem Neustart des Spiels (der Stand auf
+  der Platte ist als unverändert belegt, der gehostete Run lief im selben Prozess). Fortsetzen eines eigenen offenen Runs nach einem
+  Coop-Run als Client (der Stand ist bitgleich, das Fortsetzen selbst nicht gespielt). Stände, die ältere Mod-Versionen als Client
+  geschrieben haben, bleiben, bis ihr Besitzer den Run als Host beendet; sie lassen sich von einem eigenen Run nicht unterscheiden
+  (beide 17 Komponenten). Der echte Mod-Stand dieses PCs ist seit dem Sieg vom 17.11. leer (nur gelesen). Inventar und Level nach
+  einem Wiederbeitritt stellt weiter niemand her (`reconnect`).
 
 ### Rucksack-Überlappung beim Client (`opt-rucksack-ueberlappung`)
 
