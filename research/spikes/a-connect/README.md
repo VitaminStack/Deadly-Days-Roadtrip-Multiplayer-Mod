@@ -43,11 +43,11 @@ Je Thema eine Datei, damit parallele Arbeit nicht in dieselbe Datei läuft. Neue
 | `CrashReports.cpp` | Sperre des Crash-Reporters, zweite Schicht neben `CrashGuard.ps1` |
 | `MapGen.cpp` | Client erzeugt die Karte mit den Werten des Hosts, lokale Kopien replizierter Child Actors unterdrückt. Mit der Mod aus, die das über ihren Kontrollkanal macht (`missionsstart`) |
 | `Pcg.cpp` | Client erzeugt die PCG-Vegetation mit dem Graphen des Hosts, gleiche Seeds der Instanz-Komponenten. Mit der Mod aus wie `MapGen.cpp` |
-| `Hits.cpp` | Host: Treffer auf Gegner mit Schütze, Schaden und Lebenspunkten |
+| `Hits.cpp` | Host: Treffer auf Gegner mit Schütze, Schaden und Lebenspunkten, die ersten drei je Schütze und Verursacherklasse einzeln |
 | `HealthBars.cpp` | Client: Lebensleisten über den Figuren nach replizierten HP aktualisieren |
 | `RunEnd.cpp` | Niederlage: Run-Ende-Handler ohne `LocalPlayer` des Remote-Controllers |
 | `Tunnel.cpp` | Spike E: UDP-Verkehr des Spiels über Steam Networking tunneln (`!tunnel`) |
-| `Cheats.cpp` | Testhilfen: CheatManager für die `DD_`-Befehle, Items vergeben, Laden einzelner Assets, Tutorial abschalten |
+| `Cheats.cpp` | Testhilfen: CheatManager für die `DD_`-Befehle, Items vergeben und in den Rucksack legen, Laden einzelner Assets, Tutorial abschalten |
 | `Load.cpp` | Lastmessung: UDP-Bytes, Pakete und Framerate je Sekunde im Log |
 | `TestEnv.cpp` | Host: Busplatz schont alle Spielerfiguren, Diagnose-Log für `EndPlay` jeder Figur mit Stapel |
 
@@ -139,6 +139,7 @@ Beim Client setzt der Spike die Kamera jede Sekunde, beim Host nimmt er jede Sek
 | `!shop poi`, `go <n>`, `away`, `list`, `buy <n>`, `upgrade`, `panels`, `confirm <n>`, `press <n>`, `click <Name>`, `call <Klasse> <Funktion>`, `callat <n> <Klasse> <Funktion>` | meist Client | Händler und Station ohne Maus und Tastatur: POIs zeigen, eigene Figur hinstellen oder wegstellen, Angebote und Inventar zeigen, `TryBuyItem` an einem Angebot oder dessen eigenes Klick-Ereignis (`press`), zwei gleiche Items über `UpgradeItems` aufwerten, Inventar-Panels zeigen und an einem `HandleConfirmButton` rufen (nur am offenen: an einer unbenutzten Instanz stürzt die Funktion ab), sichtbaren Knopf drücken, parameterlose Funktion an jeder Instanz einer Klasse rufen (etwa das Klick-Ereignis des Zurück-Knopfs von `WI_MerchantPanel_C`), mit `callat` nur an der n-ten Instanz (etwa einem Routenknoten, `labyrinth-event-client`) (Testhilfe `opt-haendler-client`, `opt-werkbank-station`) |
 | `!scrap <Zahl>` | Host | Ändert den Schrott der Mission über `AbstractCurrency.AddAmount`, auch negativ (Testhilfe `opt-haendler-client`) |
 | `!give <ItemData> [Rarity] [broken]` | Host | Legt jedem Spielerinventar das Item über `CreateAndAddItem` an, mit `broken` kaputt; es repliziert wie jede Vergabe (Testhilfe `werkbank-client`, `lager-handel-client`) |
+| `!equip <ItemData>` | Host | Legt bei jedem Spieler das erste Item dieser Daten aus dem Lager in den Rucksack, ohne Drehung auf das erste passende freie Feld; ohne Platz legt er die Form als neue Felder unter dem Rucksack an. Nativer Ablauf wie beim Übernehmen eines Client-Edits (`SetTurns`, `SetZeroPivotTile`, `AddToBackpack`, `OccupyBackpackSlots`, `RefreshItemEffects`). Ersetzt das Ziehen im Panel (Testhilfe `client-items-wirkung`) |
 | `!load <Pfad>` | Beide | Lädt ein Asset, etwa eine Blueprint-Klasse für einen SDK-Dump |
 | `!notutorial` | Beide | Meldet den Stand der Tutorial-Sperre. Der Spike schaltet die Hinweise ohnehin auf beiden Seiten selbst ab, sie halten sonst die Mission an |
 | `!round <n>` | Host | Ruft `TriggerEndRound` auf, Wert wie `ERoundChangeReason` |

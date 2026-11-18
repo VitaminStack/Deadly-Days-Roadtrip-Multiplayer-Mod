@@ -713,6 +713,23 @@ Inventar, Item, Rucksackfeld, Reward-Queue und Inventar-Widgets als `InvTrace C|
 Abfrageaufrufe, höchstens 20000 Zeilen. Seit `opt-werkbank-station` auch Händler, Rezepte, Währung und das Öffnen und Schließen der Panels. Ohne die Variable kostet sie nur einen Vergleich je Aufruf. Erste Spur: Schon beim Öffnen der
 Airdrop-Auswahl ruft der Client an jeder Choice `UpdateIsReward` als Server-RPC.
 
+### Item-Fähigkeiten der Client-Figur (`client-items-wirkung`)
+
+Heil-Kit und Granate wirkten für die Figur eines Netz-Clients nicht. `ItemAbilityPatches.cpp` behebt das beim Host, ohne Patch der Exe
+und ohne eigene Nachricht:
+
+1. **Ausführungsrichtlinie.** Vor `CharacterEffectManager.ApplyEffectsFromItem` und `ApplyItemToBackpack` (aus dem `ProcessEvent`-Hook)
+   stellt der Host die Fähigkeitsklassen des Items von `LocalOnly` oder `LocalPredicted` auf `ServerOnly`. Sonst reicht die Engine die
+   Aktivierung für die Client-Figur nur an den Client weiter, wo sie ohne Autorität läuft. Welche Werte umgestellt werden, steht in
+   `ItemAbilityPolicy.h` (Unit-Test `ItemAbilityPolicyTests.cpp`).
+2. **Einrichtung.** Fähigkeiten mit Zustand (`UDDGameplayAbilityWithState`, etwa `GA_DelayedHeal_C`) bekommen ihr `SetupAbility` vom Spiel
+   nur für lokal gesteuerte Figuren. Der Host holt den Aufruf für Client-Figuren vor der ersten Aktivierung nach.
+
+Beim Client läuft nichts Neues: Projektile, HP und Lebensleisten kommen über die vorhandene Replikation. Vergleich mit dem Verhalten des
+Spiels über `DDCOOP_ITEM_ABILITIES_NATIVE=1`. `DDCOOP_TRACE_INVENTORY=1` protokolliert jetzt auch `SetupAbility`, `K2_ActivateAbility` und
+die übrigen Ereignisse der `GA_`-Klassen. Messung und Grenzen:
+[Heil- und Wurf-Items beim Client](../../docs/GAME_ANALYSIS.md#heil--und-wurf-items-beim-client-client-items-wirkung).
+
 ## Ohne Spike
 
 Im Release gibt es keinen Spike. Stand `ohne-spike` (05.11.2026, Build `26187885`): Die Mod läuft allein, Lobby-Beitritt, MetaBase und
