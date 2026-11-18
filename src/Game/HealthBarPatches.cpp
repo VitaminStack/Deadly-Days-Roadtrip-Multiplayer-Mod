@@ -40,11 +40,6 @@ constexpr uintptr_t OnMaxStaminaChanged = 0x40;
 constexpr uintptr_t Stamina = 0x50;
 constexpr uintptr_t OnStaminaChanged = 0x60;
 constexpr uintptr_t ObjectItemSerial = 0x10;
-// Weg zum Set der eigenen Figur: World -> GameInstance -> LocalPlayers[0] -> PlayerController -> PlayerState -> HealthAttributeSet.
-constexpr uintptr_t GameInstanceLocalPlayers = 0x38;
-constexpr uintptr_t LocalPlayerController = 0x30;
-constexpr uintptr_t ControllerPlayerState = 0x2B0;
-constexpr uintptr_t PlayerStateHealthSet = 0x380; // ADDPlayerState.HealthAttributeSet, SDK-Prüfung in DesyncAdapter.cpp
 
 using OnRepFn = void(__fastcall*)(uintptr_t, const void*);
 OnRepFn OriginalOnRepHealth = nullptr;
@@ -166,20 +161,6 @@ void __fastcall OnRepMaxArmorHook(uintptr_t Set, const void* Old)
     Broadcast(Set, OnMaxArmorChanged, Memory::Read<float>(Set + MaxArmor + AttributeCurrentValue).value_or(0.0f));
 }
 
-std::atomic<bool> ArmorHooked = false;
-
-uintptr_t LocalHealthSet()
-{
-    const auto Pointer = [](uintptr_t Address) { return Address ? Memory::ReadPointer(Address).value_or(0) : 0; };
-    const uintptr_t World = CurrentWorld();
-    const uintptr_t Instance = Pointer(World ? World + Offsets::UWorld::OwningGameInstance : 0);
-    const uintptr_t Players = Pointer(Instance ? Instance + GameInstanceLocalPlayers : 0);
-    const uintptr_t Controller = Pointer(Pointer(Players) ? Pointer(Players) + LocalPlayerController : 0);
-    const uintptr_t State = Controller && IsA(Controller, "DDPlayerController") ? Pointer(Controller + ControllerPlayerState) : 0;
-    const uintptr_t Set = Pointer(State ? State + PlayerStateHealthSet : 0);
-    return Set && IsA(Set, "CommonAttributeSet") ? Set : 0;
-}
-
 bool CheckHealthBars()
 {
     return Code::Expect(At(OnRepHealth), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18}, "OnRep_Health") &&
@@ -210,53 +191,12 @@ bool ApplyHealthBars(Code::Writer&)
 // Eigener Eintrag, damit eine fehlende Rüstungs-Signatur nicht auch Lebens- und Ausdauerleisten abschaltet.
 bool ApplyArmorBars(Code::Writer&)
 {
-    const bool Done = Core::Hooks::Install(reinterpret_cast<void*>(At(OnRepArmor)), reinterpret_cast<void*>(&OnRepArmorHook),
-                                           reinterpret_cast<void**>(&OriginalOnRepArmor)) &&
-                      Core::Hooks::Install(reinterpret_cast<void*>(At(OnRepMaxArmor)), reinterpret_cast<void*>(&OnRepMaxArmorHook),
-                                           reinterpret_cast<void**>(&OriginalOnRepMaxArmor));
-    ArmorHooked = Done;
-    return Done;
+    return Core::Hooks::Install(reinterpret_cast<void*>(At(OnRepArmor)), reinterpret_cast<void*>(&OnRepArmorHook),
+                                reinterpret_cast<void**>(&OriginalOnRepArmor)) &&
+           Core::Hooks::Install(reinterpret_cast<void*>(At(OnRepMaxArmor)), reinterpret_cast<void*>(&OnRepMaxArmorHook),
+                                reinterpret_cast<void**>(&OriginalOnRepMaxArmor));
 }
 
-}
-
-// Beim besitzenden Client rechnet GAS den Aktuellwert der Rüstung nach jedem OnRep_Armor aus dem replizierten Basiswert und den
-// lokal replizierten Effekten neu und klemmt ihn auf MaxArmor. Kommt die Rüstung beim Missionsstart vor den Effekten des Anzugs an,
-// bleibt sie auf dem damals niedrigeren Maximum stehen (Live-Test 17.11.: nicht zurückgesetzt), bis sie sich wieder ändert.
-// Einmal je Sekunde: Liegt der Aktuellwert unter min(Basis, MaxArmor), läuft das native OnRep_Armor noch einmal und wertet mit dem
-// jetzigen Maximum neu aus. Der Basiswert bleibt der des Hosts, die Mod schreibt kein Attribut.
-void TickArmor(NetRole Role, bool Second)
-{
-    static unsigned Logged = 0;
-    if (Role != NetRole::Client || !Second || !ArmorHooked.load())
-        return;
-    const uintptr_t Set = LocalHealthSet();
-    if (!Set)
-        return;
-    struct AttributeData
-    {
-        uintptr_t VTable;
-        float Base;
-        float Current;
-    } Data{};
-    if (!Memory::ReadBytes(Set + Armor, &Data, sizeof(Data)))
-        return;
-    const float Max = Memory::Read<float>(Set + MaxArmor + AttributeCurrentValue).value_or(0.0f);
-    const float Expected = Data.Base < Max ? Data.Base : Max;
-    if (!(Data.Current + 0.5f < Expected))
-        return;
-    const AttributeData Old = Data;
-    OnRepArmorHook(Set, &Old);
-    const float After = Memory::Read<float>(Set + Armor + AttributeCurrentValue).value_or(-1.0f);
-    if (Logged < 20)
-    {
-        ++Logged;
-        Core::Log::Info("Rüstung: beim Client neu ausgewertet, vorher {} (Basis {}, Maximum {}), nachher {}", Old.Current, Old.Base, Max, After);
-    }
-}
-
-namespace
-{
 // Je Patch die benutzten Adressen der Signaturtabelle, erzeugt von tools/patch_signatures.py sites.
 constexpr uintptr_t HealthBarsSites[] = {OnRepHealth, OnRepMaxHealth, OnRepMaxStamina, OnRepStamina};
 constexpr uintptr_t ArmorBarsSites[] = {OnRepArmor, OnRepMaxArmor};

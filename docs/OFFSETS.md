@@ -972,8 +972,7 @@ Felder und Delegates sind auf beiden Builds gleich. Befund in [Rüstung beim Cli
 | `UCommonAttributeSet` | `MaxArmor` `0x190`, `OnMaxArmorChanged` `0x1A0`, `Armor` `0x1B0`, `OnArmorChanged` `0x1C0` | gleich |
 
 - Ein zweiter Satz Delegates `OnHealthChanged` `0x40` bis `OnMaxArmorChanged` `0x90` (Leben, Ausdauer, Rüstung, je Wert und Maximum) gehört zu
-  einer anderen Klasse mit eigener Delegate-Signatur; welche, ist offline nicht bestimmt. **[Vermutung]** Ein Hörer am ASC für die HUD-Leiste,
-  der beim Client schon ohne Patch läuft wie die große Lebensleiste.
+  einer anderen Klasse mit eigener Delegate-Signatur; welche, ist offline nicht bestimmt. **[Vermutung]** Ein Hörer am ASC für die HUD-Leiste.
 
 ## Schadenszahlen (`opt-schadenszahlen`)
 
