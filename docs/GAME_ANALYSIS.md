@@ -378,7 +378,7 @@ Stand: Spieltest am 04.11.2026, Build `26187885`, ein PC über Loopback, Route �
 - **[Belegt]** Die Leisten melden sich über `ListenToHealthChange` an `UCommonAttributeSet::OnHealthChanged` (`+0xC0`) an, beim Client genauso wie beim Host (je ein Eintrag `WP_HealthBar_AutoGenFunc`). Das Spiel löst dieses Ereignis aber nur beim Host aus. Beim Client läuft für einen neuen Wert nur `OnRep_Health` (`0x57DC840`), das ist das Standard-Makro von GAS: `GetOwningAbilitySystemComponent`, dann `SetBaseAttributeValueFromReplication` an `ASC+0x8D8`, kein eigener Broadcast. Gleich gebaut ist `OnRep_MaxHealth` (`0x57DCEA0`) für `OnMaxHealthChanged` (`+0x40`).
 - **Fix im Spike (`HealthBars.cpp`):** Beide OnRep-Funktionen sind umschlossen. Nach dem Original ruft der Spike jeden Empfänger des passenden Delegates mit dem neuen `CurrentValue` über `ProcessEvent` auf: schwacher Zeiger über das Objekt-Array mit Prüfung der Seriennummer, Funktion über ihren `FName` in der Klassenkette. Beim Host laufen die OnRep-Funktionen nicht, der Patch wirkt also nur beim Client.
 - **[Belegt]** Mit dem Fix starteten beide Leisten beim Client bei 100 %. Nach Schaden zeigten Host und Client dieselben Werte: 40 % und 70 %, dann 50 %, nach dem Wechsel auf Tag 2 75 %. Kein Absturz.
-- Nicht geprüft: Rüstung (`OnArmorChanged`, `OnMaxArmorChanged` liegen im abgeleiteten Charakter-Set) und die Überheilung. Ob weitere Empfänger dieser Delegates beim Client jetzt zusätzlich laufen sollten, ist nicht geprüft, gefunden war nur die Leiste. Internet nicht geprüft.
+- Nicht geprüft: Rüstung und die Überheilung. Nachtrag 18.11.2026: `OnArmorChanged` und `OnMaxArmorChanged` liegen im selben `UCommonAttributeSet`, siehe [Rüstung beim Client](#rüstung-beim-client-opt-astronaut-ruestung). Ob weitere Empfänger dieser Delegates beim Client jetzt zusätzlich laufen sollten, ist nicht geprüft, gefunden war nur die Leiste. Internet nicht geprüft.
 
 ### Ausdauerbalken beim Client (`opt-ausdauerbalken`)
 
@@ -387,6 +387,55 @@ Stand 10.11.2026, Build `26495302`, zwei Instanzen auf einem PC, Mod mit Spike.
 - **[Belegt, Disassembly]** Gleiche Ursache wie bei den [Lebensleisten](#lebensleisten-beim-client-hp-leisten): `UDDCharacterAttributeSet` (`Stamina` `+0x50`, `OnStaminaChanged` `+0x60`, `MaxStamina` `+0x30`, `OnMaxStaminaChanged` `+0x40`) repliziert die Werte, das Spiel löst die Delegates aber nur beim Host aus. `OnRep_Stamina` (`0x57DDE40`) und `OnRep_MaxStamina` (`0x57DD080`) fanden sich über die Exec-Thunks der `FNameNativePtrPair`-Tabelle; die Kontrolle mit `OnRep_Health` ergab die bekannte `0x57DC810`. `OnRep_Stamina` liest im Rumpf `+0x50`, `OnRep_MaxStamina` `+0x30`.
 - **Umsetzung:** `HealthBarPatches.cpp` umschließt beide OnRep-Funktionen wie die der Lebensleisten und ruft danach die angemeldeten Empfänger auf. Keine neue Nachricht, keine zweite Replikation.
 - **[Belegt, Live-Test]** Der Host weicht aus, der Client sieht seinen Ausdauerbalken wie der Host selbst (vom Nutzer im Bild bestätigt).
+
+### Rüstung beim Client (`opt-astronaut-ruestung`)
+
+Stand 18.11.2026: **Teilergebnis.** Die Leiste über der Figur folgt beim Client jetzt dem replizierten Wert, auf beiden Builds
+gemessen. Offen bleibt, dass die **eigene** Rüstung des Clients nach dem Missionswechsel nicht zurückgesetzt wird (Rest in
+`opt-astronaut-ruestung`). Ein PC, zwei Instanzen, Mod mit Spike über die Lobby, ohne echte Eingaben (`Start-Session.ps1 -Build -Mod
+-Tunnel Lobby -Map /Game/Maps/DDDynamic_Map`, ab dem zweiten Lauf mit `-Godmode` und `DDCOOP_TEST_MAP_PROFILE` auf `MGP_Forest`, auf
+`26669225` mit `-PartialPatches`). Befund aus dem [Live-Test 17.11.](#live-test-auf-zwei-pcs-am-17112026-livetest-1711).
+
+- **[Belegt, Disassembly und Reflection-Daten]** Die Rüstung liegt im selben `UCommonAttributeSet` wie das Leben (`MaxArmor` `+0x190`,
+  `OnMaxArmorChanged` `+0x1A0`, `Armor` `+0x1B0`, `OnArmorChanged` `+0x1C0`, `ArmorCap` `+0x1D0`), nicht im abgeleiteten Charakter-Set.
+  `OnRep_Armor` und `OnRep_MaxArmor` sind wie `OnRep_Health` gebaut: nur `SetBaseAttributeValueFromReplication`, kein Broadcast.
+  Adressen beider Builds in [OFFSETS.md](OFFSETS.md#rüstung-opt-astronaut-ruestung).
+- **[Belegt, Live-Speicher]** Einziger Empfänger von `OnArmorChanged` und `OnMaxArmorChanged` ist auf beiden Seiten die Leiste über der
+  Figur (`WP_World_Player_HealthBar_C`, `CREATEDELEGATE_PROXYFUNCTION`). Kein Spielablauf hört zu. Die große HUD-Leiste unten hat einen
+  anderen Weg; **[Vermutung]** einen Hörer am ASC (zweiter Satz Delegates `+0x40` bis `+0x90` in einer anderen Klasse).
+- **Woher die Rüstung kommt:** Der Astronaut bringt das Figuren-Item `ItemData_SpaceSuite_Character` mit (`GE_IncreaseMaxArmor`, je Anzug
+  `MaxArmor` +3, `FD_SpaceSuit_Armor`). Ein Treffer kostet einen Rüstungspunkt. Während der Mission lädt nichts nach; zum Missionsbeginn
+  füllt das Spiel die Rüstung beim Host wieder auf das Maximum. `DD_SetCharacterDefinition` mitten in der Mission gibt den Anzug nicht,
+  der kam erst beim nächsten Start aus dem Spielstand oder per `!give`/`!equip`. `ArmorCap` ist 15.
+- **Umsetzung:** `HealthBarPatches.cpp` umschließt `OnRep_Armor` und `OnRep_MaxArmor` wie die Lebensleisten und ruft danach die
+  angemeldeten Empfänger auf, als eigener Patch-Eintrag „Rüstungsleisten beim Client“ (eine fehlende Signatur schaltet Leben und
+  Ausdauer nicht mit ab). Keine neue Nachricht, keine Protokolländerung, der Host bleibt einzige Autorität. Log einmal je Start:
+  `Rüstung: erstes OnRep_Armor beim Client, Wert …, … Empfänger: …`.
+- **[Belegt, `26495302`]** `DD_SetAttribute` und `DD_DamagePlayerAtIndex` beim Host: Werte beider Seiten gleich (15 → 14); die Leiste über
+  der Figur zeigt beim Client dieselben 14 hellen und 1 dunkles Feld wie beim Host. Astronaut aus dem Spielstand mit nativem Anzug:
+  Start 3/3, Treffer 2/3, nach `servertravel` 3/3 auf beiden Seiten, HUD des Clients 2 von 3, danach 3 von 3.
+- **[Belegt, `26669225`]** 108 Signaturen geprüft, alle Listen gesetzt, Log `Rüstung: erstes OnRep_Armor beim Client, Wert 3, 1 Empfänger`.
+  Start 3/3 und Treffer 2/3 auf beiden Seiten gleich, Leiste über der Figur und HUD des Clients wie beim Host.
+- **[Belegt, offen] Rücksetzen beim Missionswechsel.** Ablauf: Astronaut aus dem Spielstand, ein Treffer (2/3), `servertravel` beim Host.
+  Der Host führt die Client-Figur danach mit 3/3. Beim Client steht das **eigene** Set auf Basis 3, Aktuell 0, Maximum 3; HUD und Leiste
+  über der Figur zeigen 0 von 3. Die entfernte Host-Figur stimmt beim Client. Auf `26669225` in 2 von 2 sauberen Läufen, auf `26495302`
+  einmal nach Niederlage und zweitem Anzug per `!give`/`!equip`, im sauberen Ablauf dort einmal ohne Fehler. Der Basiswert kommt also
+  an, der beim Client lokal abgeleitete Aktuellwert nicht. Ein späterer Treffer glich den Wert einmal an (`26495302`).
+- **Fehlversuch:** Der Client wertet die eigene Rüstung einmal je Sekunde neu aus, wenn sie unter min(Basis, Maximum) liegt, über das
+  native `OnRep_Armor`. Ergebnis im festen Zustand: vorher 0 (Basis 3, Maximum 3), nachher 0. Eine Klemmung auf ein kurz niedrigeres
+  Maximum ist damit als alleinige Ursache unwahrscheinlich; der Versuch ist nicht im Code geblieben.
+- **[Vermutung]** Am Aggregator der Rüstung des besitzenden Clients hängt ein lokaler Modifikator. In den aktiven Effekten des Client-ASC
+  (`ASC+0x8D8`, Feld bei `+0xA08`) fanden sich `GE_IncreaseMaxArmor` und `GE_Occupy_Hands` doppelt so oft wie beim Host; das ist eine Zählung
+  von Zeigern im Speicherblock, nicht von Array-Elementen, also nur ein Hinweis.
+- **Einstieg für den Rest:** Diagnose im Hook (Basis und Aktuell vor und nach `OnRep_Armor`, dazu `MaxArmor`) auf `26669225`, wo der Fehler
+  auftritt; in diesem Lauf lief die Diagnose nur auf `26495302`, wo der saubere Ablauf stimmte. Danach die Modifikatoren des
+  Rüstungs-Aggregators beim Client lesen.
+- **Nebenbefunde (nicht behoben):** `servertravel` aus einer Karte mit `BP_HQ_Endboss_C` ließ den Client wie in `boss-karte-absturz`
+  abstürzen (Lesen `0xD8`, `BossBarAdapter` legt beim Kartenwechsel ein Objective an). Ein viertes `servertravel` hintereinander ließ
+  den Client einmal ohne DDCoop-Rahmen abstürzen (Lesen `0x50`, `+5a12141`).
+- **Nicht geprüft:** ein Lauf ohne den Hook als Gegenprobe der Leiste über der Figur (der fehlende Broadcast ist aus der Disassembly und
+  dem gleichen Fall bei den Lebensleisten abgeleitet), zwei PCs, der echte Run-Start mit Wahl in der MetaBase und der Tageswechsel über
+  das Lager statt `servertravel`.
 
 ### Busbalken beim Client (`opt-busbalken`)
 

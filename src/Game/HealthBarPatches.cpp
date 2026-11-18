@@ -2,7 +2,9 @@
 // die das Spiel nur beim Host auslöst. Beim Client läuft für den replizierten Wert nur das OnRep, danach ruft der Hook
 // die angemeldeten Empfänger auf. Aus Spike HealthBars.cpp.
 // opt-ausdauerbalken: Dasselbe für den Ausdauerbalken (UDDCharacterAttributeSet::OnStaminaChanged und OnMaxStaminaChanged).
+// opt-astronaut-ruestung: Dasselbe für die Rüstung (UCommonAttributeSet::OnArmorChanged und OnMaxArmorChanged), etwa beim Astronauten.
 #include <atomic>
+#include <string>
 #include <vector>
 
 #include "Core/Hooks.h"
@@ -20,12 +22,18 @@ constexpr uintptr_t OnRepHealth = 0x57DC810;
 constexpr uintptr_t OnRepMaxHealth = 0x57DCE70;
 constexpr uintptr_t OnRepStamina = 0x57DDE40;
 constexpr uintptr_t OnRepMaxStamina = 0x57DD080;
+constexpr uintptr_t OnRepArmor = 0x57DBA40;
+constexpr uintptr_t OnRepMaxArmor = 0x57DCD60;
 // FGameplayAttributeData: VTable, BaseValue, CurrentValue.
 constexpr uintptr_t AttributeCurrentValue = 0xC;
 constexpr uintptr_t MaxHealth = 0x30;
 constexpr uintptr_t OnMaxHealthChanged = 0x40;
 constexpr uintptr_t Health = 0xA0;
 constexpr uintptr_t OnHealthChanged = 0xC0;
+constexpr uintptr_t MaxArmor = 0x190;
+constexpr uintptr_t OnMaxArmorChanged = 0x1A0;
+constexpr uintptr_t Armor = 0x1B0;
+constexpr uintptr_t OnArmorChanged = 0x1C0;
 // UDDCharacterAttributeSet.
 constexpr uintptr_t MaxStamina = 0x30;
 constexpr uintptr_t OnMaxStaminaChanged = 0x40;
@@ -38,6 +46,8 @@ OnRepFn OriginalOnRepHealth = nullptr;
 OnRepFn OriginalOnRepMaxHealth = nullptr;
 OnRepFn OriginalOnRepStamina = nullptr;
 OnRepFn OriginalOnRepMaxStamina = nullptr;
+OnRepFn OriginalOnRepArmor = nullptr;
+OnRepFn OriginalOnRepMaxArmor = nullptr;
 
 // FScriptDelegate: schwacher Zeiger (Index, Seriennummer), dann der FName der Funktion.
 struct ScriptDelegate
@@ -74,23 +84,30 @@ uintptr_t FindFunction(uintptr_t Object, uint64_t Name)
 }
 
 std::atomic<bool> Reported = false;
+std::atomic<bool> ReportedArmor = false;
 
 // Wie ein Broadcast des Multicast-Delegates mit einem float. Die Liste wird vorher kopiert, ein Empfänger darf sie ändern.
-void Broadcast(uintptr_t Set, uintptr_t DelegateOffset, float Value)
+// Gibt die Zahl der angemeldeten Empfänger zurück, Names erhält auf Wunsch Klasse und Funktion jedes Empfängers.
+int32_t Broadcast(uintptr_t Set, uintptr_t DelegateOffset, float Value, std::string* Names = nullptr)
 {
     const uintptr_t Data = Memory::ReadPointer(Set + DelegateOffset).value_or(0);
     const int32_t Num = Memory::Read<int32_t>(Set + DelegateOffset + 8).value_or(0);
     if (!Data || Num <= 0 || Num > 64)
-        return;
+        return 0;
     std::vector<ScriptDelegate> Bindings(static_cast<size_t>(Num));
     if (!Memory::ReadBytes(Data, Bindings.data(), Bindings.size() * sizeof(ScriptDelegate)))
-        return;
+        return 0;
     for (const ScriptDelegate& Binding : Bindings)
     {
         const uintptr_t Object = ResolveWeak(Binding.ObjectIndex, Binding.ObjectSerial);
         const uintptr_t Function = Object ? FindFunction(Object, Binding.FunctionName) : 0;
         if (!Function)
             continue;
+        if (Names)
+        {
+            const auto Class = Memory::ReadPointer(Object + Offsets::UObject::Class);
+            *Names += (Names->empty() ? "" : ", ") + (Class ? Memory::NameOf(*Class) : std::string("?")) + "." + Memory::NameOf(Function);
+        }
         struct
         {
             float NewValue;
@@ -99,6 +116,7 @@ void Broadcast(uintptr_t Set, uintptr_t DelegateOffset, float Value)
     }
     if (!Reported.exchange(true))
         Core::Log::Info("Lebensleisten: erster Broadcast beim Client, {} Empfänger", Num);
+    return Num;
 }
 
 void __fastcall OnRepHealthHook(uintptr_t Set, const void* Old)
@@ -125,12 +143,36 @@ void __fastcall OnRepMaxStaminaHook(uintptr_t Set, const void* Old)
     Broadcast(Set, OnMaxStaminaChanged, Memory::Read<float>(Set + MaxStamina + AttributeCurrentValue).value_or(0.0f));
 }
 
+void __fastcall OnRepArmorHook(uintptr_t Set, const void* Old)
+{
+    OriginalOnRepArmor(Set, Old);
+    const float Value = Memory::Read<float>(Set + Armor + AttributeCurrentValue).value_or(0.0f);
+    std::string Names;
+    const bool First = !ReportedArmor.load();
+    const int32_t Num = Broadcast(Set, OnArmorChanged, Value, First ? &Names : nullptr);
+    // Einmal je Start, auch ohne Empfänger: so zeigt das Log, ob der Hook lief und wer zuhört.
+    if (First && !ReportedArmor.exchange(true))
+        Core::Log::Info("Rüstung: erstes OnRep_Armor beim Client, Wert {}, {} Empfänger: {}", Value, Num, Names.empty() ? "-" : Names);
+}
+
+void __fastcall OnRepMaxArmorHook(uintptr_t Set, const void* Old)
+{
+    OriginalOnRepMaxArmor(Set, Old);
+    Broadcast(Set, OnMaxArmorChanged, Memory::Read<float>(Set + MaxArmor + AttributeCurrentValue).value_or(0.0f));
+}
+
 bool CheckHealthBars()
 {
     return Code::Expect(At(OnRepHealth), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18}, "OnRep_Health") &&
            Code::Expect(At(OnRepMaxHealth), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18}, "OnRep_MaxHealth") &&
            Code::Expect(At(OnRepStamina), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18}, "OnRep_Stamina") &&
            Code::Expect(At(OnRepMaxStamina), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18}, "OnRep_MaxStamina");
+}
+
+bool CheckArmorBars()
+{
+    return Code::Expect(At(OnRepArmor), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18}, "OnRep_Armor") &&
+           Code::Expect(At(OnRepMaxArmor), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18}, "OnRep_MaxArmor");
 }
 
 // Beim Host laufen die OnRep-Funktionen nicht, der Patch wirkt also nur beim Client.
@@ -146,10 +188,21 @@ bool ApplyHealthBars(Code::Writer&)
                                 reinterpret_cast<void**>(&OriginalOnRepMaxStamina));
 }
 
+// Eigener Eintrag, damit eine fehlende Rüstungs-Signatur nicht auch Lebens- und Ausdauerleisten abschaltet.
+bool ApplyArmorBars(Code::Writer&)
+{
+    return Core::Hooks::Install(reinterpret_cast<void*>(At(OnRepArmor)), reinterpret_cast<void*>(&OnRepArmorHook),
+                                reinterpret_cast<void**>(&OriginalOnRepArmor)) &&
+           Core::Hooks::Install(reinterpret_cast<void*>(At(OnRepMaxArmor)), reinterpret_cast<void*>(&OnRepMaxArmorHook),
+                                reinterpret_cast<void**>(&OriginalOnRepMaxArmor));
+}
+
 // Je Patch die benutzten Adressen der Signaturtabelle, erzeugt von tools/patch_signatures.py sites.
-constexpr uintptr_t HealthBarsSites[] = {OnRepHealth, OnRepMaxHealth, OnRepStamina, OnRepMaxStamina};
+constexpr uintptr_t HealthBarsSites[] = {OnRepHealth, OnRepMaxHealth, OnRepMaxStamina, OnRepStamina};
+constexpr uintptr_t ArmorBarsSites[] = {OnRepArmor, OnRepMaxArmor};
 const Patch List[] = {
     {"Lebens- und Ausdauerleisten beim Client", &CheckHealthBars, &ApplyHealthBars, HealthBarsSites},
+    {"Rüstungsleisten beim Client", &CheckArmorBars, &ApplyArmorBars, ArmorBarsSites},
 };
 }
 

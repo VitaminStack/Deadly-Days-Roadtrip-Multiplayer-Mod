@@ -202,7 +202,7 @@ Stand 16.11.2026. `HealthBarPatches.cpp` ist unverändert, nur `RvaMap26669225.i
   Der Live-Befund vom 16.11.2026 („Lebens- und Rüstungsleiste des Clients in der ersten Karte lange leer und schwarz") ließ sich mit
   der direkten Reise auch ohne den Patch nicht nachstellen; dort waren die Leisten von Beginn an gefüllt. **[Vermutung]** Er folgt aus
   dem fehlenden Patch wie in [hp-leisten](GAME_ANALYSIS.md#lebensleisten-beim-client-hp-leisten) (Leiste entsteht vor der Replikation
-  und bleibt ohne Broadcast auf 0 %). Für die Rüstung gibt es keinen Hook (`OnArmorChanged` liegt im abgeleiteten Set, nie geprüft).
+  und bleibt ohne Broadcast auf 0 %). Für die Rüstung gab es damals keinen Hook, nachgetragen in [Rüstung](#rüstung-opt-astronaut-ruestung).
 - **Regression `26495302`:** `Start-Session.ps1 -Build -Mod -Tunnel Lobby -Map /Game/Maps/DDDynamic_Map`: beide `Signaturen: 106 Adressen
   geprüft`, `Patches: 54 gesetzt`, Broadcast beim Client, Leisten gefüllt, kein Absturz.
 
@@ -956,6 +956,23 @@ Build `26495302`, Exec-Thunks `0x56C6000` und `0x56C54E0`, im Spieltest vom 10.1
 | `OnRep_Stamina` | `0x57DDE40`, Prolog wie `OnRep_Health` |
 | `OnRep_MaxStamina` | `0x57DD080`, Prolog wie `OnRep_Health` |
 | `UDDCharacterAttributeSet` | `MaxStamina` `0x30`, `OnMaxStaminaChanged` `0x40`, `Stamina` `0x50`, `OnStaminaChanged` `0x60` |
+
+## Rüstung (`opt-astronaut-ruestung`)
+
+Stand 18.11.2026, beide Builds offline aus der Exe gelesen: `OnRep_*` über die Exec-Thunks der `FNameNativePtrPair`-Tabelle (gleiche Tabelle
+wie `OnRep_Health`), Feld-Offsets aus den Eigenschaftsparametern der Reflection (`FPropertyParamsBase`, Wort `ArrayDim | Offset << 16`).
+Felder und Delegates sind auf beiden Builds gleich. Befund in [Rüstung beim Client](GAME_ANALYSIS.md#rüstung-beim-client-opt-astronaut-ruestung).
+
+| Stelle | 26495302 | 26669225 |
+|---|---|---|
+| Exec-Thunk `OnRep_Armor` | `0x5696C20` | `0x56973B0` |
+| Exec-Thunk `OnRep_MaxArmor` | `0x5696F90` | `0x5697720` |
+| `UCommonAttributeSet::OnRep_Armor` | `0x57DBA40`, Prolog wie `OnRep_Health`, liest `+0x1B0` | `0x57DC250` |
+| `UCommonAttributeSet::OnRep_MaxArmor` | `0x57DCD60`, Prolog wie `OnRep_Health`, liest `+0x190` | `0x57DD570` |
+| `UCommonAttributeSet` | `MaxArmor` `0x190`, `OnMaxArmorChanged` `0x1A0`, `Armor` `0x1B0`, `OnArmorChanged` `0x1C0` | gleich |
+
+- Ein zweiter Satz Delegates `OnHealthChanged` `0x40` bis `OnMaxArmorChanged` `0x90` (Leben, Ausdauer, Rüstung, je Wert und Maximum) gehört zu
+  einer anderen Klasse mit eigener Delegate-Signatur; welche, ist offline nicht bestimmt. **[Vermutung]** Ein Hörer am ASC für die HUD-Leiste.
 
 ## Schadenszahlen (`opt-schadenszahlen`)
 
