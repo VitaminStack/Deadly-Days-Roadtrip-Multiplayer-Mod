@@ -3342,9 +3342,12 @@ Objectives), Bilder per `Game-Input.ps1 shot`.
   wird ein lebender Boss mit Schaden bevorzugt (`PickBoss`). Der LazyBoss bleibt bei 0 HP als Actor stehen; vorher legte der Client
   dafür jede Sekunde eine neue Leiste an und entfernte sie wieder, jetzt zählen nur Bosse mit HP über 0.
 - **[Belegt] Ergebnis je Boss** (Client-Leiste entsteht, Wert folgt den Boss-HP bis zum Tod, Leiste wird entfernt, kein Absturz):
-  SpikeBoss (nativ, beide Builds, HP und Objective-Wert bei jedem Schritt gleich), Ballerina, Frankenstein, BlobBall, HQ-Endboss
-  (`26669225`, HQ ohne Tod: `!bossdmg` wirkt dort nicht), LazyBoss (`26495302`, Leiste und HP bis 0). Die Werte im Einzelnen und die
-  Nachprüfung nach dem letzten Fix stehen unten.
+  SpikeBoss nativ auf beiden Builds (80.000, 53.323, 40.000, 13.323, Tod; Objective-Wert von Host und Client bei jedem Schritt
+  gleich), danach in derselben Sitzung auf `26669225` Ballerina (300.000 bis 49.990, Tod) und Frankenstein (120.000 bis 37.990, Tod),
+  jeweils mit „Boss weg, Leiste entfernt“. HQ-Endboss auf `26669225`: Leiste mit 5.000.000, folgt den HP, kein Tod (`!bossdmg` wirkt
+  dort kaum). Auf `26495302` nach dem SpikeBoss die Ballerina: Leiste mit 300.000, folgt den HP (299.998 bis 299.973); `!bossdmg` wirkte
+  in diesem Lauf nicht, darum kein Tod. LazyBoss (`26495302`, 370.000 bis 0) und BlobBall (250.000) bekamen im Lauf vor dem letzten Fix
+  je eine Leiste; die Wahl ohne Bosse mit 0 HP ist danach nur durch Unit-Tests belegt.
 - **[Belegt] Die Zahl über der Leiste weicht bei manchen Bossen ab.** Der Host zeigt bei Ballerina, Frankenstein, BlobBall und HQ-Endboss
   in der ersten Phase nur die HP über der Phasenmarke (Ballerina 47.363/150.000 bei 197.363 von 300.000 HP, Frankenstein 42.000 bei
   120.000, HQ 999.460 bei 4.999.460), ab der nächsten Phase die vollen HP. Beim SpikeBoss zeigt er in beiden Phasen die vollen HP. Der
@@ -3361,8 +3364,8 @@ Objectives), Bilder per `Game-Input.ps1 shot`.
   nicht mehr feststellbar. Für den nächsten Live-Test meldet der Adapter jetzt jeden Grund einmal je Wechsel („wartet, fremdes Objective
   vorhanden“, „wartet, Boss … HP nicht lesbar“, „wartet, keine Anzeige mit Subsystem“, „Klasse … erbt nicht von BP_BossEnemy_C“).
   **[Vermutung]** Am wahrscheinlichsten ein fremdes oder altes Objective wie oben.
-- **Nicht geprüft:** zwei PCs, der Boss über die Routenkarte, Join mitten im Kampf, Tod des HQ-Endbosses, Ballerina auf `26495302`
-  (`!bossdmg` traf den liegen gebliebenen LazyBoss).
+- **Nicht geprüft:** zwei PCs, der Boss über die Routenkarte, Join mitten im Kampf, Tod von HQ-Endboss, LazyBoss und BlobBall mit dem
+  letzten Stand, Tod der Ballerina auf `26495302`, eine Boss-Leiste nach einer Reise in eine zweite Karte.
 
 ### Host-Absturz beim Rundenstart (`host-absturz-start`)
 
