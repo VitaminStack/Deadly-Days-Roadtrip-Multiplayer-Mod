@@ -1141,6 +1141,7 @@ Felder aus dem SDK beider Builds (`26495302`, `26669225`, gleich), eines ohne Re
 | `UInventoryItemData` | `ItemEffectWrappers` `0x118` (`TArray<FItemEffectWrapper>`, Element `0xB0`) |
 | `FItemEffectWrapperBase` | `Type` `0x00`, `StandardEffectTemplate` `0x08`, `GameplayEffect` `0x20`, `GameplayAbility` `0x48`, `ActivateGameplayAbilityOnGive` `0x50`, `TriggerableGameplayAbility` `0x51` |
 | `FItemEffectContext` | `Character` `0x00`, `Item` `0x08`, `InventoryComponent` `0x18` |
+| `UDDGameplayAbility` | `StartupInputTag` `0x3A0` |
 | `UGameplayAbility` | `InstancingPolicy` `0xCF`, `NetExecutionPolicy` `0x198` (0 LocalPredicted, 1 LocalOnly, 2 ServerInitiated, 3 ServerOnly), `AbilityTriggers` `0x1A8`; ohne Reflexion: `CurrentActorInfo` `0x328` (Zeiger, auf beiden Builds gemessen) |
 | `FGameplayAbilityActorInfo` (`0x48`) | `OwnerActor` `0x08`, `AvatarActor` `0x10`, `AbilitySystemComponent` `0x20` (schwache Zeiger: Index, Serial) |
 | `UAbilitySystemComponent` | `OwnerActor` `0x3F8`, `AvatarActor` `0x400`, `ActivatableAbilities.Items` `0x520` (`TArray<FGameplayAbilitySpec>`, Element `0x108`) |

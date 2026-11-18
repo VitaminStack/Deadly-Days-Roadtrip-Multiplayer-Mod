@@ -12,3 +12,12 @@ TEST_CASE("client-items-wirkung: nur lokal ausgeführte Item-Fähigkeiten stellt
     CHECK_FALSE(ItemAbility::RunsOnlyForLocalOwner(ItemAbility::ServerOnly));
     CHECK_FALSE(ItemAbility::RunsOnlyForLocalOwner(4)); // unbekannter Wert bleibt unberührt
 }
+
+TEST_CASE("client-items-wirkung: nur vom Item selbst ausgelöste Fähigkeiten ohne Eingabe-Tag wandern zum Host")
+{
+    CHECK(ItemAbility::MovesToHost(ItemAbility::LocalOnly, false, true, false));      // Granate: Auslöse-Effekt
+    CHECK(ItemAbility::MovesToHost(ItemAbility::LocalPredicted, true, false, false)); // Heil-Kit: beim Vergeben
+    CHECK_FALSE(ItemAbility::MovesToHost(ItemAbility::LocalPredicted, false, false, false)); // GA_SlideAbility_C: von außen gestartet
+    CHECK_FALSE(ItemAbility::MovesToHost(ItemAbility::LocalPredicted, true, true, true));    // Eingabe-Fähigkeit
+    CHECK_FALSE(ItemAbility::MovesToHost(ItemAbility::ServerOnly, true, true, false));
+}

@@ -14,4 +14,12 @@ constexpr bool RunsOnlyForLocalOwner(uint8_t Policy)
 {
     return Policy == LocalPredicted || Policy == LocalOnly;
 }
+
+// Wahr, wenn der Host die Fähigkeit eines Items auf ServerOnly stellt: Sie liefe sonst nicht beim Host, und das Item löst sie
+// selbst aus (beim Vergeben oder über seinen Auslöse-Effekt). Fähigkeiten, die eine Eingabe oder eine andere Fähigkeit startet,
+// bleiben beim Client vorhersagbar.
+constexpr bool MovesToHost(uint8_t Policy, bool ActivateOnGive, bool Triggerable, bool HasInputTag)
+{
+    return RunsOnlyForLocalOwner(Policy) && (ActivateOnGive || Triggerable) && !HasInputTag;
+}
 }

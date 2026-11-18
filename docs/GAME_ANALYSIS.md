@@ -2643,16 +2643,34 @@ Stand 18.11.2026: ein PC, Builds `26495302` und `26669225` (dort mit `-PartialPa
   danach das Lebens-Ereignis. Im Trace ruft der Host `SetupAbility` nur für die eigene Figur, der Client nur für seine. Die Instanz der
   Client-Figur beim Host war aktiv, aber leer (`CachedCharacter` und `CachedCommonAttributes` null) und heilte nie; die Instanz beim
   Client war eingerichtet, hat aber keine Autorität. Messung vorher: 40 Schaden an beiden, Host-Figur 60 → 68, Client-Figur blieb bei 60.
-  Mit Ursache 1 allein behoben (Richtlinie `ServerOnly`) blieb das so.
+  Mit Ursache 1 allein behoben (Richtlinie `ServerOnly`) blieb das so. Die Richtlinie war beim Heil-Kit nicht die Ursache: Schon ohne
+  Korrektur war die Fähigkeit der Client-Figur beim Host aktiv, die Engine reicht eine `LocalPredicted`-Aktivierung über den Client
+  zum Host zurück.
 - **[Belegt] Korrektur beim Host, ohne eigene Nachricht** (`src/Game/ItemAbilityPatches.cpp`, Wire-Format unverändert):
   1. Vor jedem `ApplyEffectsFromItem` und `ApplyItemToBackpack` stellt der Host die Fähigkeitsklassen des Items von `LocalOnly` oder
      `LocalPredicted` auf `ServerOnly` (Klassen-Defaultobjekt, `UGameplayAbility.NetExecutionPolicy +0x198`). Dann läuft sie beim Host
-     für jede Figur. Für die eigene Figur des Hosts ändert das nichts. Der Dodge (`GA_Dash_C`) kommt nicht aus einem Item und bleibt.
+     für jede Figur. Für die eigene Figur des Hosts ändert das nichts. Umgestellt wird nur, was das Item selbst auslöst
+     (`ActivateGameplayAbilityOnGive` oder `TriggerableGameplayAbility`) und keinen Eingabe-Tag trägt; der Dodge (`GA_Dash_C`) kommt
+     nicht aus einem Item und bleibt. Auch `LocalPredicted` wird umgestellt, damit der Ablauf nicht zusätzlich beim Client ohne
+     Autorität läuft und nur der Host Schaden, Heilung und erzeugte Actors bucht.
   2. Vor dem ersten `K2_ActivateAbility` einer `UDDGameplayAbilityWithState`-Instanz einer Client-Figur ruft der Host das native
      `SetupAbility` selbst, mit der ActorInfo der Instanz und ihrem Spec.
 
   Was bleibt lokal: nichts Neues beim Client, er zeigt Projektil, HP und Lebensleiste aus der vorhandenen Replikation. Wer entscheidet:
-  der Host. Mit `DDCOOP_ITEM_ABILITIES_NATIVE=1` bleibt zum Vergleich das Verhalten des Spiels.
+  der Host. Mit `DDCOOP_ITEM_ABILITIES_NATIVE=1` bleibt zum Vergleich das Verhalten des Spiels. Nebenwirkung: Ton, den eine
+  umgestellte Fähigkeit selbst startet (beim Heil-Kit `player_Healed` über `PlayEvent2D`), spielt für die Client-Figur nur beim Host.
+- **[Belegt] Betroffene Klassen.** Von 127 geladenen Items tragen 23 Fähigkeitsklassen, keine davon einen Eingabe-Tag
+  (`UDDGameplayAbility.StartupInputTag +0x3A0`, bei `GA_SlideAbility_C` nicht sicher lesbar):
+  - `LocalOnly`, über den Auslöse-Effekt, alle Unterklassen von `BombThrowerAbility`: `GA_GrenadeThrower_C`, `GA_MolotovThrower_C`,
+    `GA_KnifeThrower_C`, `GA_GlassBottleThrower_C`, `GA_TeslaCoilShooter_C`, `GA_LightningThrower_C`, `GA_BalloonThrower_C`,
+    `GA_BananaThrower_C`, `GA_EggThrower_C`, `GA_KnabenKolaThrower_C`, `GA_PumpkinThrower_C`.
+  - `LocalPredicted`, beim Vergeben oder über den Auslöse-Effekt: `GA_DelayedHeal_C`, `GA_ArmorHealInterval_C`, `GA_HealIfPossible_C`
+    (Verband), `GA_AttachLava_C`, `GA_FireTrail_C`, `GA_PizzaRotator_C`, `GA_Pushback_Pulse_C`, `GA_SeedTrapAbility_C`,
+    `GA_Passive_SeedTrapCircle_C`, `GA_SurfboardDash_C`, `GA_VampireBatRotator_C`.
+  - Bleibt unberührt: `GA_SlideAbility_C` (`ItemData_IceCube`), weder beim Vergeben noch über den Auslöse-Effekt gestartet; im Test
+    blieb sie `LocalPredicted`.
+  - Mit Zustand (`SetupAbility`): `GA_DelayedHeal_C`, `GA_ArmorHealInterval_C`, `GA_FireTrail_C`, `GA_PizzaRotator_C`,
+    `GA_SurfboardDash_C`, `GA_VampireBatRotator_C`. Gemessen sind nur Heil-Kit und Granate.
 - **[Belegt] Messung nachher, beide Builds gleich:**
 
   | Prüfung | `26495302` | `26669225` |
@@ -2663,13 +2681,19 @@ Stand 18.11.2026: ein PC, Builds `26495302` und `26669225` (dort mit `-PartialPa
   | Client sieht das Projektil seiner Figur (repliziert) | ja | ja |
   | Desync-Melder, `inventory.py` | OK einschließlich HP und Inventar, gleich | ebenso |
 
+  Nur auf `26495302`: **Items schon beim Kartenstart im Rucksack** (der Fall aus dem Live-Test). Nach einer Reise auf die nächste Karte
+  ohne neues Ausrüsten vergibt das Spiel die Fähigkeiten neu, der Host richtet die Heil-Fähigkeit der Client-Figur wieder ein
+  (Logzeile „… beim Host eingerichtet“), beide heilen 60 → 68, die Granate der Client-Figur trifft mit 120. **Entfernen**
+  (`DD_ClearInventoryOfAllPlayers`): die Specs verschwinden bei beiden, 20 Schaden bleiben ohne Heilung, kein Absturz, Desync-Melder OK.
+
 - **Testweg ohne echte Eingaben:** `!give <ItemData>` legt ins Lager, der neue Spike-Befehl `!equip <ItemData>` legt das Item bei jedem
   Spieler in den Rucksack (derselbe native Ablauf wie beim Übernehmen eines Client-Edits, fehlende Felder legt er an). Schaden über
   `!cheats` und `DD_DamagePlayerAtIndex <Schaden> <Index>`, Gegner fernhalten mit `DD_KillAllEnemies 0`, für die Granate `!god on` und
   `!wave`. Das Trefferprotokoll des Spikes nennt jetzt die ersten Treffer je Schütze und Verursacherklasse.
 - **Nicht geprüft:** Ablegen über das echte Panel des Clients (Ziehen braucht echte Eingaben; der Host durchläuft dabei dieselben
-  nativen Aufrufe), zwei PCs, andere Items mit Fähigkeit (etwa Feuerwerk, Dart, Yoyo, Gummiball aus dem Live-Test; sie nehmen
-  denselben Weg, gemessen sind nur Heil-Kit und Granate), Ton und Effekte. **[Belegt]** Der Client hatte in keinem Lauf ein
+  nativen Aufrufe), zwei PCs, die übrigen 21 Fähigkeitsklassen (gemessen sind nur Heil-Kit und Granate), Reise und Entfernen auf
+  `26669225`, Ton und Effekte. `CleanupAbility` holt der Host nicht nach; `GA_DelayedHeal_C` räumt in `K2_OnEndAbility` selbst auf,
+  für die anderen Klassen mit Zustand ist das offen. **[Belegt]** Der Client hatte in keinem Lauf ein
   `BP_Grenade_Explosion_C`, auch nicht für Granaten der Host-Figur: Die Explosion repliziert nicht, ihre Anzeige beim Client fehlt
   also weiter (Optik, kein Schaden).
 - **Hinweis zur direkten Reise:** Ohne Testschalter erzeugte `-Map /Game/Maps/DDDynamic_Map` meist `MGP_HQ8_Boss`; der Boss tötet beide

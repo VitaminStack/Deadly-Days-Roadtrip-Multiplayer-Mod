@@ -8,8 +8,14 @@
 // Lokal zuerst: Der Host entscheidet HP, Schaden und Projektile. Er stellt darum die Ausführungsrichtlinie dieser Klassen auf
 // ServerOnly, bevor das Spiel die Fähigkeit vergibt. Dann läuft sie beim Host für jede Figur, auch seine eigene (für die ändert
 // sich nichts, sie hat dort ohnehin Autorität). Projektile, HP und Gameplay-Cues kommen über die vorhandene Replikation zum
-// Client. Keine eigene Nachricht, kein zweiter Auslöseweg. Eingabe-Fähigkeiten wie der Dodge (GA_Dash_C) kommen nicht aus Items
-// und bleiben unberührt.
+// Client. Keine eigene Nachricht, kein zweiter Auslöseweg.
+//
+// Umgestellt werden nur Fähigkeiten, die das Item selbst auslöst (beim Vergeben oder über seinen Auslöse-Effekt). Fähigkeiten,
+// die jemand anderes startet (etwa GA_SlideAbility_C) oder die einen Eingabe-Tag tragen, bleiben wie der Dodge (GA_Dash_C)
+// unberührt: Dort sagt der Client mit seiner Eingabe voraus. Auch LocalPredicted stellt der Host um, obwohl die Engine solche
+// Aktivierungen über den Client zum Host zurückreicht: Sonst liefe der Ablauf zusätzlich beim Client ohne Autorität, und nur
+// der Host soll Schaden, Heilung und erzeugte Actors buchen. Nebenwirkung: Ton, den die Fähigkeit selbst startet (etwa
+// player_Healed), spielt für die Client-Figur nur beim Host.
 //
 // Zweite Lücke, Fähigkeiten mit Zustand (UDDGameplayAbilityWithState, etwa GA_DelayedHeal_C des Heil-Kits): Das Spiel ruft ihr
 // SetupAbility nur dort auf, wo die Figur lokal gesteuert ist. Beim Host fehlen der Instanz der Client-Figur damit Figur,
@@ -39,6 +45,8 @@ constexpr uintptr_t ItemData = 0xE0;           // UInventoryItemInstance, Zeiger
 constexpr uintptr_t DataEffectWrappers = 0x118; // UInventoryItemData.ItemEffectWrappers, TArray<FItemEffectWrapper>
 constexpr uintptr_t WrapperSize = 0xB0;
 constexpr uintptr_t WrapperAbility = 0x48;     // FItemEffectWrapperBase.GameplayAbility, TSubclassOf<UGameplayAbility>
+constexpr uintptr_t WrapperActivateOnGive = 0x50, WrapperTriggerable = 0x51; // bool
+constexpr uintptr_t AbilityStartupInputTag = 0x3A0; // UDDGameplayAbility.StartupInputTag (FGameplayTag, FName-Index)
 constexpr uintptr_t ClassDefaults = 0x118;     // UClass::ClassDefaultObject
 constexpr uintptr_t AbilityNetExecutionPolicy = 0x198; // UGameplayAbility.NetExecutionPolicy
 constexpr int32_t MaxWrappers = 32;
@@ -154,7 +162,11 @@ void PrepareItem(uintptr_t Item)
         if (!Default || !IsA(Default, "GameplayAbility"))
             continue;
         const auto Policy = Memory::Read<uint8_t>(Default + AbilityNetExecutionPolicy);
-        if (!Policy || !ItemAbility::RunsOnlyForLocalOwner(*Policy))
+        const bool OnGive = Memory::Read<uint8_t>(Wrappers + i * WrapperSize + WrapperActivateOnGive).value_or(0) != 0;
+        const bool Triggerable = Memory::Read<uint8_t>(Wrappers + i * WrapperSize + WrapperTriggerable).value_or(0) != 0;
+        // Unlesbarer Tag gilt als gesetzt, dann bleibt die Klasse unberührt.
+        const bool InputTag = Memory::Read<int32_t>(Default + AbilityStartupInputTag).value_or(1) != 0;
+        if (!Policy || !ItemAbility::MovesToHost(*Policy, OnGive, Triggerable, InputTag))
             continue;
         const uint8_t Next = ItemAbility::ServerOnly;
         if (!Memory::WriteBytes(Default + AbilityNetExecutionPolicy, &Next, sizeof(Next)))
