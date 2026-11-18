@@ -26,10 +26,12 @@
 {0x057BDCD0, 0x057BE450}, // eindeutig, ControllerSetAdd, src/Game/PlayerPatches.cpp:30
 {0x057CB5A5, 0x057CBD25}, // ueber-funktion, ScheduleCall, src/Game/InventoryPatches.cpp:319
 {0x057D0C60, 0x057D1470}, // eindeutig, DetectorEndPlay, src/Game/InventoryPatches.cpp:317
-{0x057DC810, 0x057DD020}, // von Hand (60 Befehle eindeutig, Attributname Health im Kaltpfad), OnRepHealth, src/Game/HealthBarPatches.cpp:19
-{0x057DCE70, 0x057DD680}, // von Hand (60 Befehle eindeutig, Attributname MaxHealth im Kaltpfad), OnRepMaxHealth, src/Game/HealthBarPatches.cpp:20
-{0x057DD080, 0x057DD890}, // von Hand (60 Befehle eindeutig, Attributname MaxStamina im Kaltpfad), OnRepMaxStamina, src/Game/HealthBarPatches.cpp:22
-{0x057DDE40, 0x057DE650}, // eindeutig, OnRepStamina, src/Game/HealthBarPatches.cpp:21
+{0x057DBA40, 0x057DC250}, // von Hand (Exec-Thunk von OnRep_Armor aus der Native-Tabelle, Rumpf liest +0x1B0), OnRepArmor, src/Game/HealthBarPatches.cpp:25
+{0x057DC810, 0x057DD020}, // von Hand (60 Befehle eindeutig, Attributname Health im Kaltpfad), OnRepHealth, src/Game/HealthBarPatches.cpp:21
+{0x057DCD60, 0x057DD570}, // von Hand (Exec-Thunk von OnRep_MaxArmor aus der Native-Tabelle, Rumpf liest +0x190), OnRepMaxArmor, src/Game/HealthBarPatches.cpp:26
+{0x057DCE70, 0x057DD680}, // von Hand (60 Befehle eindeutig, Attributname MaxHealth im Kaltpfad), OnRepMaxHealth, src/Game/HealthBarPatches.cpp:22
+{0x057DD080, 0x057DD890}, // von Hand (60 Befehle eindeutig, Attributname MaxStamina im Kaltpfad), OnRepMaxStamina, src/Game/HealthBarPatches.cpp:24
+{0x057DDE40, 0x057DE650}, // eindeutig, OnRepStamina, src/Game/HealthBarPatches.cpp:23
 {0x05837220, 0x05837820}, // eindeutig, ApplyInitial, src/Game/CharacterPatches.cpp:29
 {0x0583AEEC, 0x0583B4EC}, // eindeutig, ComponentControllerRead, src/Game/ClientPatches.cpp:25
 {0x0583B060, 0x0583B660}, // eindeutig, ComponentControllerExit, src/Game/ClientPatches.cpp:26
