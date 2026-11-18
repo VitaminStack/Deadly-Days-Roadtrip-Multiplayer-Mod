@@ -1,6 +1,8 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
+#include <vector>
 
 // Entscheidung der Boss-Leiste beim Client, ohne Spielzugriff und damit testbar. Der Client hat kein Boss-Objective, der Host legt es
 // über den Spawnpunkt an. Die Leiste entsteht lokal aus dem nativ replizierten Boss, siehe src/Sync/Enemies/README.md.
@@ -48,4 +50,41 @@ inline bool BossBarNeedsUpdate(int64_t LastHealth, int64_t LastMax, int64_t Heal
 {
     return Health != LastHealth || MaxHealth != LastMax;
 }
+
+// Ein Boss, den der Client sieht, mit seinen replizierten Lebenspunkten (opt-endboss-leiste).
+struct BossCandidate
+{
+    uintptr_t Id = 0;
+    int64_t Health = 0;
+    int64_t MaxHealth = 0;
+};
+
+inline constexpr size_t NoBoss = static_cast<size_t>(-1);
+
+// Welcher Boss die Leiste bekommt. Ein schon verfolgter Boss bleibt es, solange er lebt; sonst NoBoss, damit die alte Leiste erst
+// entfernt wird. Ohne Leiste zuerst ein lebender Boss mit Schaden (Kampf läuft), sonst der erste lebende. Auf einer HQ-Karte steht der Endboss schon vor
+// dem Kampf da; ein zweiter Boss (etwa per !bossfight) bekäme sonst Werte in die Leiste des ersten.
+inline size_t PickBoss(const std::vector<BossCandidate>& Bosses, uintptr_t Tracked)
+{
+    if (Tracked)
+    {
+        for (size_t i = 0; i < Bosses.size(); ++i)
+            if (Bosses[i].Id == Tracked)
+                return i;
+        return NoBoss;
+    }
+    // Nur lebende Bosse mit lesbaren HP: Der LazyBoss bleibt bei 0 HP als Actor stehen, sonst entstünde jede Sekunde eine neue Leiste.
+    size_t First = NoBoss;
+    for (size_t i = 0; i < Bosses.size(); ++i)
+    {
+        if (Bosses[i].MaxHealth <= 1 || Bosses[i].Health < 1)
+            continue;
+        if (Bosses[i].Health < Bosses[i].MaxHealth)
+            return i;
+        if (First == NoBoss)
+            First = i;
+    }
+    return First;
+}
+
 }

@@ -2614,7 +2614,8 @@ Stand als **Mod-Version 1.0** (Nutzerentscheidung, siehe [Roadmap](ROADMAP.md#st
   Anzeige das sind, ist offen. Neue Aufgabe `opt-astronaut-ruestung`.
 - **[Gemeldet] Endboss ohne Lebensleiste beim Client.** Auf der Boss-Karte nannte das Log als neue Gegnerklasse
   `BP_BallerinaBoss_C`; ob das der Endboss war, ist **[Vermutung]** (am 13.11. war es auf derselben Karte „Kugeleis“). Die
-  Boss-Leiste des Clients ist nur für SpikeBoss und FrankensteinBoss belegt (`gegner-alle`). Neue Aufgabe `opt-endboss-leiste`.
+  Boss-Leiste des Clients ist nur für SpikeBoss und FrankensteinBoss belegt (`gegner-alle`). Neue Aufgabe `opt-endboss-leiste`, Befund siehe
+  [Boss-Leiste aller Bosse](#boss-leiste-aller-bosse-beim-client-opt-endboss-leiste).
 - **[Belegt, Bild] Airdrop-Auswahl wartete rund 10 Minuten** mit grauem Bestätigen, nachdem der Client die Belohnung zu einer
   Aufwertung verbraucht hatte; danach „Client bereit, wartet auf alle“ und 0,7 s später übernommen. **[Vermutung]** Der Host hatte
   in der Zeit noch nicht bestätigt; kein Fehler, solange das nicht wieder auftritt.
@@ -3315,6 +3316,53 @@ Offsets: [Boss-Parzelle](OFFSETS.md#boss-parzelle-endboss-spawn). Lesewerkzeug: 
   Rundenende holt den Client wieder heraus. Die Abschlusstafel des Bosses („Quest abgeschlossen“) erscheint beim Client nicht.
 - **Nicht geprüft:** zwei PCs, die Karten `MGP_Burger_Boss_City` und `MGP_HQ8_Boss` (HQ-Endboss nach drei Bossen,
   `NumBossesBeforeEndBoss` 3), ein echter Kampf ohne `!bossdmg`, eine Niederlage im Bosskampf und der Endlosmodus.
+
+### Boss-Leiste aller Bosse beim Client (`opt-endboss-leiste`)
+
+Auslöser: Im [Live-Test vom 17.11.](#live-test-auf-zwei-pcs-am-17112026-livetest-1711) hatte der Endboss (Log: `BP_BallerinaBoss_C`) beim
+Client keine Leiste. Gemessen am 18.11.2026 auf einem PC mit zwei Instanzen, beide Builds (`26669225` über eine Worktree-eigene
+`config/Local.props`, `26495302`), Kartenprofil `MGP_Burger_Boss_Nature` per `DDCOOP_TEST_MAP_PROFILE`. Der native Kampf startet mit dem
+neuen Spike-Befehl `!shop trigger` (`TriggerBossfight` am vorhandenen Spawnpunkt, ein Teleport in die Startzone löst ihn nicht aus), weitere
+Bosse mit `!bossfight <Name>`, Schaden mit `!bossdmg`. Werte mit dem neuen `tools/spike/boss_hp.py` (HP je Boss und Attributsatz,
+Objectives), Bilder per `Game-Input.ps1 shot`.
+
+- **[Belegt] Absturz beim zweiten Anlegen.** `BossBarAdapter::Create` suchte die Klasse mit `FindObject("DD_BaseBossObjective_C", "")`.
+  Jede Objective-Instanz heißt ebenfalls so (nur mit Nummer). Ab dem zweiten Anlegen fand die Suche eine Instanz,
+  `CreateAndStartObjective` bekam sie als Klasse und der Client stürzte ab: Lesen von `0xD8`, Stack `+163b33f`, `+58deda1`, `+56bac4b`
+  (`26669225`), nachgestellt mit SpikeBoss und danach Ballerina. Derselbe Stack wie bei `boss-karte-absturz` (dort `26495302`,
+  `+163b33f`, `+58de4b1`, `+56ba4bb`), siehe [Offsets](OFFSETS.md#boss-leiste-aller-bosse-opt-endboss-leiste). Jetzt sucht der Adapter
+  die Klasse nur im Paket `/Game/DDSurvivors/Blueprints/Objectives/DD_BaseBossObjective`; danach liefen auf `26669225` vier und auf
+  `26495302` drei Leisten nacheinander ohne Absturz. **[Vermutung]** Das ist auch die Ursache von `boss-karte-absturz` (zweites „lege
+  Objective an“ ohne „lokal angelegt“); dessen Abnahme (dreimal Boss-Karte über den normalen Kartenwechsel) ist nicht geprüft.
+- **[Belegt] Ein früheres eigenes Objective sperrte jede weitere Leiste.** Der Adapter merkte sich nur das zuletzt entfernte Objective;
+  das vorletzte galt als „fremd“, und `TickBossBar` brach still ab (gemessen: nach SpikeBoss und Ballerina keine Leiste mehr für
+  Frankenstein, Lazy und BlobBall). Jetzt merkt er sich alle eigenen Objectives, auch über das Zurücksetzen bei Reisen hinweg.
+- **[Belegt] Mehrere Bosse gleichzeitig.** Auf `MGP_HQ8_Boss` steht der HQ-Endboss schon vor dem Kampf; ein zweiter Boss bekam dessen
+  Leiste mit den eigenen HP (Phasenmarken des HQ-Bosses, Werte der Ballerina). Jetzt bleibt die Leiste bei ihrem Boss, und ohne Leiste
+  wird ein lebender Boss mit Schaden bevorzugt (`PickBoss`). Der LazyBoss bleibt bei 0 HP als Actor stehen; vorher legte der Client
+  dafür jede Sekunde eine neue Leiste an und entfernte sie wieder, jetzt zählen nur Bosse mit HP über 0.
+- **[Belegt] Ergebnis je Boss** (Client-Leiste entsteht, Wert folgt den Boss-HP bis zum Tod, Leiste wird entfernt, kein Absturz):
+  SpikeBoss (nativ, beide Builds, HP und Objective-Wert bei jedem Schritt gleich), Ballerina, Frankenstein, BlobBall, HQ-Endboss
+  (`26669225`, HQ ohne Tod: `!bossdmg` wirkt dort nicht), LazyBoss (`26495302`, Leiste und HP bis 0). Die Werte im Einzelnen und die
+  Nachprüfung nach dem letzten Fix stehen unten.
+- **[Belegt] Die Zahl über der Leiste weicht bei manchen Bossen ab.** Der Host zeigt bei Ballerina, Frankenstein, BlobBall und HQ-Endboss
+  in der ersten Phase nur die HP über der Phasenmarke (Ballerina 47.363/150.000 bei 197.363 von 300.000 HP, Frankenstein 42.000 bei
+  120.000, HQ 999.460 bei 4.999.460), ab der nächsten Phase die vollen HP. Beim SpikeBoss zeigt er in beiden Phasen die vollen HP. Der
+  Client zeigt immer die vollen HP über dem Maximum. Ein Aufruf von `DDBossObjective.OnPhaseChanged` beim Client und eine eigene
+  Phasenrechnung aus `PhaseMarkers` änderten den Nenner der Anzeige nicht bzw. trafen den SpikeBoss falsch und wurden wieder entfernt.
+  **[Vermutung]** Der Host rechnet den Wert über die `BossComponent` (etwa `CalculateMaxHealthForCurrentPhaseInterval`) mit Zustand,
+  den nur er hat. Neue Aufgabe `opt-boss-phasenleiste`.
+- **[Belegt] Die Leiste des Clients erscheint vor dem Kampf.** Sobald der Boss repliziert ist, legt der Client sie an; der Host erst mit
+  `TriggerBossfight`. Ein repliziertes Merkmal für „Kampf läuft“ fand sich nicht (`BossComponent` und `DDEnemyAttributeSet.Phase` sind
+  vor und nach dem Start gleich). Gehört zu `opt-boss-phasenleiste`.
+- **[Belegt] Nebenbefund, ohne Mod-Rahmen:** einmal stürzte der Client beim Tod des LazyBoss bzw. Phasenwechsel des BlobBall ab
+  (Ausführung an einer Adresse außerhalb der Exe, Stack `+12c751a`, `+12df24b`, `+5877d53`, …, `26669225`), nicht wiederholt.
+- **Zum Live-Befund:** Im Log vom 17.11. steht keine Zeile „Boss erkannt“, obwohl der Adapter lief. Welcher stille Ausstieg das war, ist
+  nicht mehr feststellbar. Für den nächsten Live-Test meldet der Adapter jetzt jeden Grund einmal je Wechsel („wartet, fremdes Objective
+  vorhanden“, „wartet, Boss … HP nicht lesbar“, „wartet, keine Anzeige mit Subsystem“, „Klasse … erbt nicht von BP_BossEnemy_C“).
+  **[Vermutung]** Am wahrscheinlichsten ein fremdes oder altes Objective wie oben.
+- **Nicht geprüft:** zwei PCs, der Boss über die Routenkarte, Join mitten im Kampf, Tod des HQ-Endbosses, Ballerina auf `26495302`
+  (`!bossdmg` traf den liegen gebliebenen LazyBoss).
 
 ### Host-Absturz beim Rundenstart (`host-absturz-start`)
 

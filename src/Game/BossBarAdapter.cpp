@@ -3,9 +3,11 @@
 #include <windows.h>
 
 #include <cstdint>
+#include <format>
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -23,6 +25,7 @@ namespace
 {
 constexpr ULONGLONG CheckIntervalMs = 1000;
 constexpr std::string_view Package = "/Script/DDSurvivors";
+constexpr std::string_view ObjectivePackage = "/Game/DDSurvivors/Blueprints/Objectives/DD_BaseBossObjective";
 constexpr std::string_view ObjectiveAsset = "/Game/DDSurvivors/Blueprints/Objectives/DD_BaseBossObjective.DD_BaseBossObjective_C";
 constexpr uint32_t NonInstanceFlags = 0x30;      // Klassen-Default- und Archetyp-Objekt
 constexpr uintptr_t ActorFlagsOffset = 0x5D;     // AActor, Bit 0x02 = bActorIsBeingDestroyed
@@ -50,6 +53,7 @@ Kind KindOf(uintptr_t Class)
     if (const auto Hit = Cache.find(Class); Hit != Cache.end())
         return Hit->second;
     Kind Result = Kind::Other;
+    bool Enemy = false;
     uintptr_t Walk = Class;
     for (int Depth = 0; Walk && Depth < 64 && Result == Kind::Other; ++Depth)
     {
@@ -62,7 +66,15 @@ Kind KindOf(uintptr_t Class)
             Result = Kind::Widget;
         else if (Name == "CommonAttributeSet")
             Result = Kind::AttributeSet;
+        Enemy = Enemy || Name == "EnemyBase";
         Walk = Memory::ReadPointer(Walk + Offsets::UStruct::SuperStruct).value_or(0);
+    }
+    // Diagnose (opt-endboss-leiste): eine Boss-Klasse ausserhalb von BP_BossEnemy_C bliebe sonst stumm unerkannt.
+    if (Result == Kind::Other && Enemy)
+    {
+        const std::string Name = Memory::NameOf(Class);
+        if (Name.ends_with("Boss_C"))
+            Core::Log::Warn("Boss-Leiste: Klasse {} erbt nicht von BP_BossEnemy_C, keine Leiste", Name);
     }
     Cache[Class] = Result;
     return Result;
@@ -70,13 +82,23 @@ Kind KindOf(uintptr_t Class)
 
 struct Scan
 {
-    uintptr_t Boss = 0;
+    std::vector<uintptr_t> Bosses; // lebende BP_BossEnemy_C
+    uintptr_t Boss = 0;            // davon der für die Leiste gewählte, siehe PickBoss
     uintptr_t Objective = 0;
     std::vector<uintptr_t> Widgets;                    // nur Anzeigen mit Objective-Manager
     std::vector<std::pair<uintptr_t, uintptr_t>> Sets; // (Outer, CommonAttributeSet)
 };
 
-Scan ScanObjects(uintptr_t Ignore, uintptr_t WidgetManagerOffset)
+// Alle je von uns angelegten Objectives. Das Spiel entfernt sie beim Client nie (das Subsystem der GameInstance hält sie), und sie
+// überleben auch Reisen und das Zurücksetzen von S. Ohne diese Liste galt das vorletzte eigene Objective als fremd und sperrte jede
+// weitere Leiste (gemessen 18.11.2026: nach SpikeBoss und Ballerina keine Leiste mehr für Frankenstein).
+std::unordered_set<uintptr_t>& OwnObjectives()
+{
+    static std::unordered_set<uintptr_t> Own;
+    return Own;
+}
+
+Scan ScanObjects(uintptr_t Current, uintptr_t WidgetManagerOffset)
 {
     Scan Result;
     const int32_t Total = Objects::Count();
@@ -93,15 +115,12 @@ Scan ScanObjects(uintptr_t Ignore, uintptr_t WidgetManagerOffset)
         {
         case Kind::Boss:
             // Das Flag liegt in AActor, erst lesen, wenn die Klasse sicher ein Boss ist.
-            if (!Result.Boss)
-            {
-                const auto Actor = Memory::Read<uint8_t>(Object + ActorFlagsOffset);
-                if (Actor && !(*Actor & ActorDestroyedMask))
-                    Result.Boss = Object;
-            }
+            if (const auto Actor = Memory::Read<uint8_t>(Object + ActorFlagsOffset); Actor && !(*Actor & ActorDestroyedMask))
+                Result.Bosses.push_back(Object);
             break;
         case Kind::Objective:
-            if (!Result.Objective && Object != Ignore)
+            // Das aktuelle eigene zählt, frühere eigene nicht, jedes andere ist fremd.
+            if (!Result.Objective && (Object == Current || !OwnObjectives().contains(Object)))
                 Result.Objective = Object;
             break;
         case Kind::Widget:
@@ -121,12 +140,12 @@ Scan ScanObjects(uintptr_t Ignore, uintptr_t WidgetManagerOffset)
 }
 
 // Lebenspunkte des Bosses: der Attributsatz mit dem großen Maximum (der Boss besitzt mehrere Sätze).
-bool ReadBossHealth(const Scan& Found, uintptr_t HealthOffset, uintptr_t MaxOffset, int64_t& Health, int64_t& Max)
+bool ReadBossHealth(const Scan& Found, uintptr_t Boss, uintptr_t HealthOffset, uintptr_t MaxOffset, int64_t& Health, int64_t& Max)
 {
     float BestMax = 0, BestHealth = 0;
     for (const auto& [Outer, Set] : Found.Sets)
     {
-        if (Outer != Found.Boss)
+        if (Outer != Boss)
             continue;
         const auto SetMax = Memory::Read<float>(Set + MaxOffset + AttributeCurrentValue);
         if (!SetMax || *SetMax <= BestMax)
@@ -143,6 +162,17 @@ bool ReadBossHealth(const Scan& Found, uintptr_t HealthOffset, uintptr_t MaxOffs
     return BestMax > 1;
 }
 
+// Diagnose (opt-endboss-leiste): warum gerade keine Leiste entsteht, nur bei Wechsel gemeldet, nicht je Tick.
+void NoteWait(std::string_view Reason)
+{
+    static std::string Last;
+    if (Reason == Last)
+        return;
+    Last = std::string(Reason);
+    if (!Reason.empty())
+        Core::Log::Info("Boss-Leiste: wartet, {}", Reason);
+}
+
 void NotifyWidgets(const Scan& Found, uintptr_t Function, uintptr_t Objective)
 {
     struct
@@ -156,7 +186,7 @@ void NotifyWidgets(const Scan& Found, uintptr_t Function, uintptr_t Objective)
 struct State
 {
     uintptr_t Ours = 0;    // von uns angelegtes Objective
-    uintptr_t Retired = 0; // früher von uns angelegt und wieder entfernt, wird ignoriert
+    uintptr_t Boss = 0;    // der Boss, für den es angelegt ist
     int SettleTicks = 0;
     int64_t LastHealth = -1, LastMax = -1;
     bool Failed = false;   // Anlegen ist gescheitert, einmal melden
@@ -165,7 +195,10 @@ struct State
 bool Create(const Scan& Found, uintptr_t MaxOffset, int64_t Max)
 {
     const uintptr_t Subsystem = Objects::FindInstance("DDObjectiveSubsystem");
-    uintptr_t Class = Objects::FindObject("DD_BaseBossObjective_C", "");
+    // Nur die Klasse im Paket. Jede Instanz heißt ebenfalls DD_BaseBossObjective_C (nur mit Nummer); ohne Outer fand die Suche ab dem
+    // zweiten Anlegen eine Instanz, CreateAndStartObjective baute daraus ein Objekt ohne Klasse und der Client stürzte ab (Lesen 0xD8,
+    // opt-endboss-leiste, Signatur wie boss-karte-absturz).
+    uintptr_t Class = Objects::FindObject("DD_BaseBossObjective_C", ObjectivePackage);
     if (!Class)
         Class = Objects::LoadAsset(ObjectiveAsset);
     const uintptr_t CreateFn = Reflection::Function(Package, "DDObjectiveSubsystem", "CreateAndStartObjective");
@@ -213,6 +246,8 @@ bool Create(const Scan& Found, uintptr_t MaxOffset, int64_t Max)
     Objects::ProcessEvent(Objective, Start, &StartParams);
     NotifyWidgets(Found, Started, Objective);
     S.Ours = Objective;
+    OwnObjectives().insert(Objective);
+    S.Boss = Found.Boss;
     S.SettleTicks = 0;
     S.LastHealth = S.LastMax = -1;
     S.Failed = false;
@@ -243,16 +278,30 @@ void TickBossBar()
         return;
     const auto MaxOffset = static_cast<uintptr_t>(ObjectiveMaxField->Offset);
 
-    const Scan Found = ScanObjects(S.Retired, static_cast<uintptr_t>(ManagerField->Offset));
+    Scan Found = ScanObjects(S.Ours, static_cast<uintptr_t>(ManagerField->Offset));
     // Ein fremdes Objective (etwa vom Spiel selbst angelegt) lassen wir in Ruhe.
     if (Found.Objective && Found.Objective != S.Ours)
+    {
+        NoteWait(!Found.Bosses.empty() ? "fremdes Objective vorhanden, Boss da" : "fremdes Objective vorhanden");
         return;
+    }
     if (!Found.Objective)
         S.Ours = 0;
 
-    int64_t Health = 0, Max = 0;
-    const bool Readable = Found.Boss && ReadBossHealth(Found, static_cast<uintptr_t>(SetHealthField->Offset),
-                                                       static_cast<uintptr_t>(SetMaxField->Offset), Health, Max);
+    const auto HealthOffset = static_cast<uintptr_t>(SetHealthField->Offset);
+    const auto SetMaxOffset = static_cast<uintptr_t>(SetMaxField->Offset);
+    std::vector<BossCandidate> Candidates;
+    for (const uintptr_t Boss : Found.Bosses)
+    {
+        BossCandidate Candidate{Boss};
+        ReadBossHealth(Found, Boss, HealthOffset, SetMaxOffset, Candidate.Health, Candidate.MaxHealth);
+        Candidates.push_back(Candidate);
+    }
+    const size_t Picked = PickBoss(Candidates, S.Ours ? S.Boss : 0);
+    Found.Boss = Picked == NoBoss ? 0 : Candidates[Picked].Id;
+    int64_t Health = Picked == NoBoss ? 0 : Candidates[Picked].Health;
+    int64_t Max = Picked == NoBoss ? 0 : Candidates[Picked].MaxHealth;
+    const bool Readable = Found.Boss && Health >= 1 && Max > 1;
     BossBarState Input;
     Input.Client = true;
     Input.LiveBoss = Found.Boss != 0;
@@ -267,8 +316,19 @@ void TickBossBar()
     case BossBarStep::Create:
         // Das Maximum muss vor dem Start bekannt sein, sonst fehlen die Phasenmarken oder der Client stürzt ab.
         // Ohne Anzeige mit Subsystem (Ziel-Widget noch nicht bereit) später erneut versuchen.
-        if (Readable && !Found.Widgets.empty())
+        if (!Readable)
         {
+            size_t BossSets = 0;
+            for (const auto& Entry : Found.Sets)
+                BossSets += Entry.first == Found.Boss ? 1 : 0;
+            const auto Class = Memory::ReadPointer(Found.Boss + Offsets::UObject::Class);
+            NoteWait(std::format("Boss {} da, HP nicht lesbar ({} Attributsaetze am Boss)", Class ? Memory::NameOf(*Class) : "?", BossSets));
+        }
+        else if (Found.Widgets.empty())
+            NoteWait("Boss da, keine Anzeige mit Subsystem");
+        else
+        {
+            NoteWait({});
             Core::Log::Info("Boss-Leiste: Boss erkannt (Maximum {}), lege Objective an", Max);
             Create(Found, MaxOffset, Max);
         }
@@ -289,6 +349,8 @@ void TickBossBar()
             int64_t Progress;
         } Params{Health};
         Objects::ProcessEvent(S.Ours, SetProgress, &Params);
+        if (S.LastHealth < 0)
+            Core::Log::Info("Boss-Leiste: erste Werte {} von {}", Health, Max);
         S.LastHealth = Health;
         S.LastMax = Max;
         break;
@@ -299,8 +361,8 @@ void TickBossBar()
         if (const uintptr_t Removed = Reflection::Function(Package, "DDObjectiveWidget", "OnObjectiveRemoved"))
             NotifyWidgets(Found, Removed, S.Ours);
         Core::Log::Info("Boss-Leiste: Boss weg, Leiste entfernt");
-        S.Retired = S.Ours;
         S.Ours = 0;
+        S.Boss = 0;
         break;
     }
     case BossBarStep::None:
