@@ -13,14 +13,14 @@ Live-Test am 17.11.2026 auf zwei PCs über das Internet gut spielbar war: Run zu
 zum Sieg, elf Rundenenden, kein Absturz ([Befund](GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-17112026-livetest-1711)).
 „1.0“ meint die Mod, nicht die Spielversion; die Protokollversion `ModVersion` bleibt davon unberührt. Die Aufgaben
 `integration-run`, `boss-karte-absturz` und `release` sind damit nicht abgehakt, ihre Abnahmen bleiben bestehen. Gefundene Fehler
-stehen als Aufgaben nach 1.0 in [TODO.md](../TODO.md): `labyrinth-event-client`, `client-items-wirkung`,
+stehen als Aufgaben nach 1.0 in [TODO.md](../TODO.md): `labyrinth-event-client`, `client-items-wirkung` (behoben am 18.11.2026),
 `opt-astronaut-ruestung`, `opt-endboss-leiste`; der verlorene Run-Stand beim Wiederbeitritt gehört zu `reconnect`.
 
 Projektstand vom **18.11.2026**; die aktuellen Aufgaben, Abhängigkeiten und Abnahmen stehen verbindlich in [TODO.md](../TODO.md).
 
 **Was läuft.** Die Mod verbindet zwei eigene Spielinstanzen per Steam-Lobby über das Internet, synchronisiert Missionsstart, gemeinsame Karte, Bewegung, Kampf, Inventar-, Lager-, Händler- und Rundenabläufe bis zum Run-Ende. **Gate G2 ist bestanden** ([Messung](GAME_ANALYSIS.md#gate-g2-auf-zwei-pcs-am-07112026-integration-g2)), die Phasen 0–4 sind abgeschlossen. Am 13.11.2026 lief der erste Run zu zweit bis zum Sieg über den Endboss, noch mit Absturz des Clients auf der Boss-Karte; am 17.11.2026 ein Run auf Build `26669225` bis zum Sieg ohne Absturz. Referenz-Build für die Entwicklung ist weiter `26495302`; `26669225` (Patch 1.0.2) wird parallel unterstützt und ist für Spieler geöffnet (`freigabe-1-0-2`), der Wechsel der Entwicklungskopien folgt mit `wechsel-1-0-2`.
 
-**Was fehlt.** Die formale Abnahme eines vollständigen gemeinsamen Runs (`integration-run`) steht aus; sie braucht `boss-karte-absturz` (Boss-Karte dreimal ohne Absturz). Aus den Live-Tests offen sind außerdem `boss-client-einfrieren`, `client-items-wirkung`, `client-runstand-abbruch` und `labyrinth-event-client`, danach `release` ([Aufgabenliste](../TODO.md#wo-kann-ich-anfangen)).
+**Was fehlt.** Die formale Abnahme eines vollständigen gemeinsamen Runs (`integration-run`) steht aus; sie braucht `boss-karte-absturz` (Boss-Karte dreimal ohne Absturz). Aus den Live-Tests offen sind außerdem `boss-client-einfrieren`, `client-runstand-abbruch` und `labyrinth-event-client`, danach `release` ([Aufgabenliste](../TODO.md#wo-kann-ich-anfangen)).
 
 **Prüfgrenze.** Dieser Stand fasst die Spieltestberichte bis zum Live-Test vom 17.11.2026 zusammen, er ist kein neuer Spieltest.
 
