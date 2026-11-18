@@ -87,6 +87,12 @@ bool FilterLootSoundEvent(uintptr_t Object, uintptr_t Function);
 void TickWeaponSounds(NetRole Role);
 void TickWidgets(NetRole Role);
 void TickProjectiles(NetRole Role, bool Second);
+// client-items-wirkung, Host: Item-Fähigkeiten (Granate, Heil-Kit) laufen beim Host für alle Figuren (ItemAbilityPatches.cpp).
+void TickItemAbilities(NetRole Role, bool Second);
+// Aus ProcessEvent, vor dem Original: stellt die Fähigkeitsklassen eines Items um, bevor das Spiel sie vergibt.
+void PrepareItemAbilities(uintptr_t Function, void* Params);
+// Aus ProcessEvent, vor dem Original: holt beim Host SetupAbility für Fähigkeiten mit Zustand der Client-Figur nach.
+void PrepareRemoteAbilityState(uintptr_t Object, uintptr_t Function);
 void TickMovement(NetRole Role, bool Second);
 // opt-laufanimation-client, Host: Tempo der Client-Figur fuer ihre Laufanimation aus ihrem Ort messen lassen.
 void TickWalkAnimation(NetRole Role, bool Second);

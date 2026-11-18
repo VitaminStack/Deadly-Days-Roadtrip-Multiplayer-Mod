@@ -138,6 +138,8 @@ void RunPendingCommand()
         SkipTutorials(true);
     else if (Pending.rfind(L"!give ", 0) == 0)
         GiveItemCommand(Pending.substr(6));
+    else if (Pending.rfind(L"!equip ", 0) == 0)
+        EquipItemCommand(Pending.substr(7));
     else if (Pending.rfind(L"!scrap ", 0) == 0)
         ScrapCommand(Pending.substr(7));
     else if (Pending.rfind(L"!shop ", 0) == 0)

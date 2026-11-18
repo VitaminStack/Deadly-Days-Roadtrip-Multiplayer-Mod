@@ -1131,3 +1131,21 @@ Die Mod hängt nur am Event-Wrapper von `PlayReloadSound` (Host), sonst nutzt si
 | `AHands::PlayReloadSound_Implementation` | `0x5939AA0(Hands, Override)`, vfunc `+0x740`, Thunk `0x5666D80`; `Override`, sonst `DefaultReloadSound`, am Ort der Root-Komponente |
 | `AWeapon::TriggerWeaponShotFX_Implementation` | `0x5B1C760(Weapon)`, vfunc `+0x738` (`BP_Pistol_C`), Thunk `0x5667BE0`; Multicast, unzuverlässig |
 | `UFMODBlueprintStatics::PlayEventAtLocation` | nativ `0x47B98D0(WorldContext, Event, const FTransform*, bAutoPlay)`; Parameter der UFunction 0x80 Byte, `Location` `0x10`, `bAutoPlay` `0x70`, Rückgabe `0x78` |
+
+## Item-Fähigkeiten (`client-items-wirkung`)
+
+Felder aus dem SDK beider Builds (`26495302`, `26669225`, gleich), eines ohne Reflexion. Keine Code-Stelle, kein Patch der Exe.
+
+| Stelle | Wert |
+|---|---|
+| `UInventoryItemData` | `ItemEffectWrappers` `0x118` (`TArray<FItemEffectWrapper>`, Element `0xB0`) |
+| `FItemEffectWrapperBase` | `Type` `0x00`, `StandardEffectTemplate` `0x08`, `GameplayEffect` `0x20`, `GameplayAbility` `0x48`, `ActivateGameplayAbilityOnGive` `0x50`, `TriggerableGameplayAbility` `0x51` |
+| `FItemEffectContext` | `Character` `0x00`, `Item` `0x08`, `InventoryComponent` `0x18` |
+| `UDDGameplayAbility` | `StartupInputTag` `0x3A0` |
+| `UGameplayAbility` | `InstancingPolicy` `0xCF`, `NetExecutionPolicy` `0x198` (0 LocalPredicted, 1 LocalOnly, 2 ServerInitiated, 3 ServerOnly), `AbilityTriggers` `0x1A8`; ohne Reflexion: `CurrentActorInfo` `0x328` (Zeiger, auf beiden Builds gemessen) |
+| `FGameplayAbilityActorInfo` (`0x48`) | `OwnerActor` `0x08`, `AvatarActor` `0x10`, `AbilitySystemComponent` `0x20` (schwache Zeiger: Index, Serial) |
+| `UAbilitySystemComponent` | `OwnerActor` `0x3F8`, `AvatarActor` `0x400`, `ActivatableAbilities.Items` `0x520` (`TArray<FGameplayAbilitySpec>`, Element `0x108`) |
+| `FGameplayAbilitySpec` | `Handle` `0x0C`, `Ability` `0x10`, `Level` `0x18`, `ActiveCount` `0x28`, `NonReplicatedInstances` `0x88`, `ReplicatedInstances` `0x98` |
+| `DDGameplayAbilityWithState.SetupAbility` | Parameter `0x150`: `ActorInfo` `0x00` (`0x48`), `Spec` `0x48` (`0x108`) |
+| `UGA_DelayedHeal_C` | `CachedCharacter` `0x3B0`, `CachedAbilityComponent` `0x3B8`, `CachedCommonAttributes` `0x4E0`, `OldHealth` `0x4E8`, `PulsesRemaining` `0x4F0` |
+| `UItemShapeDefinition` | `Tiles` `0x28` (`TArray<FIntVector2>`), genutzt von `!equip` |

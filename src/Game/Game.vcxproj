@@ -51,6 +51,7 @@
     <ClCompile Include="RewardPatches.cpp" />
     <ClCompile Include="InventoryEdit.cpp" />
     <ClCompile Include="ExpPatches.cpp" />
+    <ClCompile Include="ItemAbilityPatches.cpp" />
     <ClCompile Include="ProjectilePatches.cpp" />
     <ClCompile Include="NetworkObjects.cpp" />
     <ClCompile Include="ConsoleAdapter.cpp" />
@@ -90,6 +91,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CodeCave.h" />
+    <ClInclude Include="ItemAbilityPolicy.h" />
     <ClInclude Include="TelegraphAdapter.h" />
     <ClInclude Include="Game.h" />
     <ClInclude Include="ProgressAdapter.h" />

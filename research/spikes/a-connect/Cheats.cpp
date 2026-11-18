@@ -191,6 +191,152 @@ void GiveItemCommand(const std::wstring& Args)
     Log("Give: " + DataName + (RarityName.empty() ? "" : " " + RarityName) + (Broken ? " kaputt" : "") + " an " + std::to_string(Given) + " Inventare");
 }
 
+// Testhilfe (client-items-wirkung): Host legt bei jedem Spieler das erste Item dieser Daten aus dem Lager in den Rucksack,
+// "!equip ItemData_Grenade". Derselbe native Ablauf, mit dem die Mod einen Client-Edit uebernimmt: SetTurns,
+// SetZeroPivotTile, AddToBackpack, OccupyBackpackSlots, danach RefreshItemEffects. Ohne Drehung, erstes freies Feld, auf das die
+// Form passt; ohne Platz legt er die Form als neue Felder unter dem Rucksack an. Ersetzt das Ziehen im Panel (echte Eingaben). Offsets: Item.Data +0xE0, Item.IsInBackpack +0x180,
+// Data.ItemShape +0xE8, Shape.Tiles +0x28, Slot.Coordinates +0x28, Slot.Occupier +0x30, Inventar.Slots +0x100, MyItems +0x120.
+void EquipItemCommand(const std::wstring& Args)
+{
+    const std::string DataName(Args.begin(), Args.end());
+    const uintptr_t SetTurns = FindObject("SetTurns", "InventoryItemInstance"), SetPivot = FindObject("SetZeroPivotTile", "InventoryItemInstance");
+    const uintptr_t AddToBackpack = FindObject("AddToBackpack", "InventoryComponent"), Occupy = FindObject("OccupyBackpackSlots", "InventoryComponent");
+    const uintptr_t GetManager = FindObject("GetEffectManager", "InventoryComponent"), Refresh = FindObject("RefreshItemEffects", "InventoryComponent");
+    const uintptr_t CreateSlots = FindObject("Server_CreateSlotsFromBagItem", "InventoryComponent");
+    const uintptr_t World = Read<uintptr_t>(Base + kGWorld);
+    if (!SetTurns || !SetPivot || !AddToBackpack || !Occupy || !GetManager || !Refresh || !World || !Read<uintptr_t>(World + kWorldGameMode))
+    {
+        Log("Equip: " + DataName + " nicht moeglich (Funktionen oder kein Host)");
+        return;
+    }
+    struct Array
+    {
+        uintptr_t Data;
+        int32_t Count, Max;
+    };
+    const uintptr_t Chunks = Read<uintptr_t>(Base + kGObjects);
+    const int32_t Count = Read<int32_t>(Base + kGObjects + 8);
+    int Equipped = 0, Inventories = 0;
+    for (int32_t i = 0; i < Count; ++i)
+    {
+        const uintptr_t Chunk = Read<uintptr_t>(Chunks + 8 * (i >> 16));
+        const uintptr_t Inventory = Chunk ? Read<uintptr_t>(Chunk + (i & 0xFFFF) * 0x18 + 8) : 0;
+        if (!Inventory || (Read<uint32_t>(Inventory + 8) & 0x30) != 0 || NameOf(Read<uintptr_t>(Inventory + 0x10)) != "InventoryComponent")
+            continue;
+        const uintptr_t Owner = Read<uintptr_t>(Inventory + 0x20);
+        if (!Owner || NameOf(Read<uintptr_t>(Owner + 0x10)).find("PlayerState") == std::string::npos)
+            continue;
+        ++Inventories;
+        const Array Items = Read<Array>(Inventory + 0x120), Slots = Read<Array>(Inventory + 0x100);
+        uintptr_t Item = 0;
+        for (int32_t k = 0; k < Items.Count && !Item; ++k)
+        {
+            const uintptr_t Candidate = Read<uintptr_t>(Items.Data + 8 * k);
+            if (Candidate && NameOf(Read<uintptr_t>(Candidate + 0xE0)) == DataName && !Read<uint8_t>(Candidate + 0x180))
+                Item = Candidate;
+        }
+        if (!Item)
+            continue;
+        const uintptr_t Shape = Read<uintptr_t>(Read<uintptr_t>(Item + 0xE0) + 0xE8);
+        const Array Tiles = Shape ? Read<Array>(Shape + 0x28) : Array{};
+        const auto FreeSlot = [&](int32_t X, int32_t Y) -> uintptr_t
+        {
+            for (int32_t k = 0; k < Slots.Count; ++k)
+            {
+                const uintptr_t Slot = Read<uintptr_t>(Slots.Data + 8 * k);
+                if (Slot && Read<int32_t>(Slot + 0x28) == X && Read<int32_t>(Slot + 0x2C) == Y)
+                    return Read<uintptr_t>(Slot + 0x30) ? 0 : Slot;
+            }
+            return 0;
+        };
+        std::vector<uintptr_t> Target;
+        int32_t Pivot[2]{};
+        for (int32_t k = 0; k < Slots.Count && Target.empty() && Tiles.Count > 0 && Tiles.Count <= 16; ++k)
+        {
+            const uintptr_t Start = Read<uintptr_t>(Slots.Data + 8 * k);
+            if (!Start)
+                continue;
+            // Pivot so waehlen, dass das erste Feld der Form auf diesem Slot liegt.
+            Pivot[0] = Read<int32_t>(Start + 0x28) - Read<int32_t>(Tiles.Data);
+            Pivot[1] = Read<int32_t>(Start + 0x2C) - Read<int32_t>(Tiles.Data + 4);
+            for (int32_t t = 0; t < Tiles.Count; ++t)
+            {
+                const uintptr_t Slot = FreeSlot(Pivot[0] + Read<int32_t>(Tiles.Data + 8 * t), Pivot[1] + Read<int32_t>(Tiles.Data + 8 * t + 4));
+                if (!Slot)
+                {
+                    Target.clear();
+                    break;
+                }
+                Target.push_back(Slot);
+            }
+        }
+        if (Target.empty() && CreateSlots && Tiles.Count > 0 && Tiles.Count <= 16)
+        {
+            // Kein Platz: die Form als neue Felder unter dem Rucksack anlegen, wie es ein Taschen-Item tut.
+            int32_t Bottom = 0, Top = 0;
+            for (int32_t k = 0; k < Slots.Count; ++k)
+                if (const uintptr_t Slot = Read<uintptr_t>(Slots.Data + 8 * k))
+                    Bottom = (std::max)(Bottom, Read<int32_t>(Slot + 0x2C));
+            for (int32_t t = 0; t < Tiles.Count; ++t)
+                Top = (std::min)(Top, Read<int32_t>(Tiles.Data + 8 * t + 4));
+            Pivot[0] = 0;
+            Pivot[1] = Bottom + 1 - Top;
+            std::vector<int32_t> Coordinates;
+            for (int32_t t = 0; t < Tiles.Count; ++t)
+            {
+                Coordinates.push_back(Pivot[0] + Read<int32_t>(Tiles.Data + 8 * t));
+                Coordinates.push_back(Pivot[1] + Read<int32_t>(Tiles.Data + 8 * t + 4));
+            }
+            Array Create{reinterpret_cast<uintptr_t>(Coordinates.data()), Tiles.Count, Tiles.Count};
+            Read<ProcessEventFn*>(Inventory)[kProcessEventIndex](Inventory, CreateSlots, &Create);
+            const Array Grown = Read<Array>(Inventory + 0x100);
+            for (int32_t t = 0; t < Tiles.Count; ++t)
+                for (int32_t k = 0; k < Grown.Count; ++k)
+                {
+                    const uintptr_t Slot = Read<uintptr_t>(Grown.Data + 8 * k);
+                    if (Slot && Read<int32_t>(Slot + 0x28) == Coordinates[2 * t] && Read<int32_t>(Slot + 0x2C) == Coordinates[2 * t + 1] &&
+                        !Read<uintptr_t>(Slot + 0x30))
+                        Target.push_back(Slot);
+                }
+            if (static_cast<int32_t>(Target.size()) != Tiles.Count)
+                Target.clear();
+        }
+        if (Target.empty())
+        {
+            Log("Equip: kein freier Platz fuer " + DataName + " (" + std::to_string(Tiles.Count) + " Felder)");
+            continue;
+        }
+        struct
+        {
+            int32_t Turns;
+            bool Instant;
+            uint8_t Pad[3];
+        } Turns{0, true, {}};
+        Read<ProcessEventFn*>(Item)[kProcessEventIndex](Item, SetTurns, &Turns);
+        Read<ProcessEventFn*>(Item)[kProcessEventIndex](Item, SetPivot, Pivot);
+        uintptr_t Add = Item;
+        Read<ProcessEventFn*>(Inventory)[kProcessEventIndex](Inventory, AddToBackpack, &Add);
+        struct
+        {
+            uintptr_t Item;
+            Array Slots;
+        } Place{Item, {reinterpret_cast<uintptr_t>(Target.data()), static_cast<int32_t>(Target.size()), static_cast<int32_t>(Target.size())}};
+        Read<ProcessEventFn*>(Inventory)[kProcessEventIndex](Inventory, Occupy, &Place);
+        uintptr_t Manager = 0;
+        Read<ProcessEventFn*>(Inventory)[kProcessEventIndex](Inventory, GetManager, &Manager);
+        struct
+        {
+            bool IncludeBackpackEffects;
+            uint8_t Pad[7];
+            uintptr_t Manager;
+        } Effects{false, {}, Manager};
+        if (Manager)
+            Read<ProcessEventFn*>(Inventory)[kProcessEventIndex](Inventory, Refresh, &Effects);
+        ++Equipped;
+    }
+    Log("Equip: " + DataName + " bei " + std::to_string(Equipped) + " von " + std::to_string(Inventories) + " Inventaren in den Rucksack gelegt");
+}
+
 // Testhilfe (opt-haendler-client): Host aendert den Schrott der Mission, "!scrap 200" oder "!scrap -50". Natives
 // AbstractCurrency.AddAmount am ScrapWallet des Missions-GameState (+0x3C0), die Mod schickt den Stand an den Client.
 void ScrapCommand(const std::wstring& Args)

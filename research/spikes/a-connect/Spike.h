@@ -119,6 +119,7 @@ void TickTestGodmode();
 void SetTestGodmode(bool Enabled);
 void LoadAssetCommand(const std::wstring& Path);
 void GiveItemCommand(const std::wstring& Args);
+void EquipItemCommand(const std::wstring& Args);
 void ScrapCommand(const std::wstring& Args);
 void ShopCommand(const std::wstring& Args);
 void BossCommand(const std::wstring& Args);

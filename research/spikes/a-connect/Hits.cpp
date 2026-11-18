@@ -27,6 +27,8 @@ struct FHitStats
     double Damage = 0;
 };
 std::map<std::string, FHitStats> HitStats;
+// client-items-wirkung: je Schuetze und Verursacherklasse die ersten Treffer nennen, damit etwa Granaten neben der Pistole sichtbar sind.
+std::map<std::string, int> CauserHits;
 int TotalHits = 0;
 
 uintptr_t ObjectAt(int32_t Index)
@@ -77,7 +79,8 @@ void LogHit(const uint8_t* Params)
     const float Health = Attributes ? Read<float>(Attributes + kAttributeHealthCurrent) : -1.0f;
     if (Attributes && Health <= 0.0f)
         ++Stats.Kills;
-    if (Stats.Hits <= 5)
+    const std::string CauserClass = Causer ? NameOf(Read<uintptr_t>(Causer + 0x10)) : std::string("-");
+    if (++CauserHits[Shooter + " " + CauserClass] <= 3)
     {
         char Line[512];
         sprintf_s(Line, "Treffer %s: %.1f Schaden an %s (Leben %.1f), Ausloeser %s, Verursacher %s", Shooter.c_str(), Damage,
