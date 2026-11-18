@@ -3360,10 +3360,12 @@ Objectives), Bilder per `Game-Input.ps1 shot`.
   vor und nach dem Start gleich). Gehört zu `opt-boss-phasenleiste`.
 - **[Belegt] Nebenbefund, ohne Mod-Rahmen:** einmal stürzte der Client beim Tod des LazyBoss bzw. Phasenwechsel des BlobBall ab
   (Ausführung an einer Adresse außerhalb der Exe, Stack `+12c751a`, `+12df24b`, `+5877d53`, …, `26669225`), nicht wiederholt.
-- **Zum Live-Befund:** Im Log vom 17.11. steht keine Zeile „Boss erkannt“, obwohl der Adapter lief. Welcher stille Ausstieg das war, ist
-  nicht mehr feststellbar. Für den nächsten Live-Test meldet der Adapter jetzt jeden Grund einmal je Wechsel („wartet, fremdes Objective
-  vorhanden“, „wartet, Boss … HP nicht lesbar“, „wartet, keine Anzeige mit Subsystem“, „Klasse … erbt nicht von BP_BossEnemy_C“).
-  **[Vermutung]** Am wahrscheinlichsten ein fremdes oder altes Objective wie oben.
+- **Der Live-Befund selbst ist nicht nachgestellt.** Im Client-Log vom 17.11. steht keine einzige Zeile „Boss-Leiste:“, obwohl der
+  Adapter lief. Er hat in dem Prozess also nie ein Objective angelegt; die drei Fehler oben (zweites Anlegen, altes eigenes Objective,
+  mehrere Bosse) scheiden als Ursache dieses Befunds aus. Auf einem PC bekam die Ballerina auf beiden Builds eine Leiste. Übrig bleiben
+  die stillen Ausstiege: ein fremdes Objective, nicht lesbare Boss-HP oder keine Anzeige mit Subsystem. Der Adapter meldet jetzt jeden
+  davon einmal je Wechsel („Boss-Leiste: wartet, …“, „Klasse … erbt nicht von BP_BossEnemy_C“). Der nächste Live-Test muss diese Zeile
+  aus dem Client-Log festhalten.
 - **Nicht geprüft:** zwei PCs, der Boss über die Routenkarte, Join mitten im Kampf, Tod von HQ-Endboss, LazyBoss und BlobBall mit dem
   letzten Stand, Tod der Ballerina auf `26495302`, eine Boss-Leiste nach einer Reise in eine zweite Karte.
 

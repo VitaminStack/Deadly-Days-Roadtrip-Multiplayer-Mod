@@ -298,6 +298,16 @@ void TickBossBar()
         Candidates.push_back(Candidate);
     }
     const size_t Picked = PickBoss(Candidates, S.Ours ? S.Boss : 0);
+    // Ohne Leiste und ohne wählbaren Boss, obwohl einer da ist: 0 HP oder nicht lesbar, sonst bliebe das stumm.
+    if (!S.Ours && Picked == NoBoss && !Candidates.empty())
+    {
+        const auto Class = Memory::ReadPointer(Candidates[0].Id + Offsets::UObject::Class);
+        size_t BossSets = 0;
+        for (const auto& Entry : Found.Sets)
+            BossSets += Entry.first == Candidates[0].Id ? 1 : 0;
+        NoteWait(std::format("{} Boss(e) da, keiner mit lesbaren HP ueber 0 (erster {}: {} von {}, {} Attributsaetze)", Candidates.size(),
+                             Class ? Memory::NameOf(*Class) : "?", Candidates[0].Health, Candidates[0].MaxHealth, BossSets));
+    }
     Found.Boss = Picked == NoBoss ? 0 : Candidates[Picked].Id;
     int64_t Health = Picked == NoBoss ? 0 : Candidates[Picked].Health;
     int64_t Max = Picked == NoBoss ? 0 : Candidates[Picked].MaxHealth;
