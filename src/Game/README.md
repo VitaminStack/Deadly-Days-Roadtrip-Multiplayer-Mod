@@ -719,9 +719,9 @@ Heil-Kit und Granate wirkten für die Figur eines Netz-Clients nicht. `ItemAbili
 und ohne eigene Nachricht:
 
 1. **Ausführungsrichtlinie.** Vor `CharacterEffectManager.ApplyEffectsFromItem` und `ApplyItemToBackpack` (aus dem `ProcessEvent`-Hook)
-   stellt der Host die Fähigkeitsklassen des Items von `LocalOnly` oder `LocalPredicted` auf `ServerOnly`. Sonst reicht die Engine die
-   Aktivierung für die Client-Figur nur an den Client weiter, wo sie ohne Autorität läuft. Umgestellt wird nur, was das Item selbst
-   auslöst und keinen Eingabe-Tag trägt; die Regel steht in `ItemAbilityPolicy.h` (Unit-Test `ItemAbilityPolicyTests.cpp`).
+   stellt der Host die `LocalOnly`-Fähigkeitsklassen des Items (die Werfer) auf `ServerOnly`. Sonst reicht die Engine die Aktivierung
+   für die Client-Figur nur an den Client weiter, wo sie ohne Autorität läuft. Umgestellt wird nur, was das Item selbst auslöst und
+   keinen Eingabe-Tag trägt; `LocalPredicted` bleibt. Die Regel steht in `ItemAbilityPolicy.h` (Unit-Test `ItemAbilityPolicyTests.cpp`).
 2. **Einrichtung.** Fähigkeiten mit Zustand (`UDDGameplayAbilityWithState`, etwa `GA_DelayedHeal_C`) bekommen ihr `SetupAbility` vom Spiel
    nur für lokal gesteuerte Figuren. Der Host holt den Aufruf für Client-Figuren vor der ersten Aktivierung nach.
 

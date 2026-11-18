@@ -1,23 +1,21 @@
 // client-items-wirkung: Item-Fähigkeiten der Client-Figur laufen beim Host.
 //
-// Items geben ihre Wirkung als Gameplay-Ability (FItemEffectWrapper.GameplayAbility), etwa GA_GrenadeThrower_C (LocalOnly) oder
-// GA_DelayedHeal_C (LocalPredicted). Das Spiel kennt nur lokalen Coop: Dort ist jede Figur beim Host lokal gesteuert, und die
-// Fähigkeit läuft mit Autorität. Für die Figur eines Netz-Clients reicht die Engine eine solche Aktivierung dagegen nur an den
-// Client weiter (ClientTryActivateAbility). Dort läuft sie ohne Autorität: kein Projektil, kein Schaden, keine Heilung.
+// Items geben ihre Wirkung als Gameplay-Ability (FItemEffectWrapper.GameplayAbility). Das Spiel kennt nur lokalen Coop: Dort ist
+// jede Figur beim Host lokal gesteuert, und die Fähigkeit läuft mit Autorität. Für die Figur eines Netz-Clients gilt das nicht.
 //
-// Lokal zuerst: Der Host entscheidet HP, Schaden und Projektile. Er stellt darum die Ausführungsrichtlinie dieser Klassen auf
-// ServerOnly, bevor das Spiel die Fähigkeit vergibt. Dann läuft sie beim Host für jede Figur, auch seine eigene (für die ändert
-// sich nichts, sie hat dort ohnehin Autorität). Projektile, HP und Gameplay-Cues kommen über die vorhandene Replikation zum
-// Client. Keine eigene Nachricht, kein zweiter Auslöseweg.
+// Erste Lücke, LocalOnly-Fähigkeiten (die Werfer, etwa GA_GrenadeThrower_C): Die Engine reicht ihre Aktivierung nur an den Client
+// weiter (ClientTryActivateAbility). Dort läuft sie ohne Autorität: kein Projektil, kein Schaden. Lokal zuerst: Der Host
+// entscheidet Schaden und Projektile. Er stellt darum die Ausführungsrichtlinie dieser Klassen auf ServerOnly, bevor das Spiel
+// die Fähigkeit vergibt. Dann läuft sie beim Host für jede Figur, auch seine eigene (für die ändert sich nichts, sie hat dort
+// ohnehin Autorität). Die Projektile kommen über die vorhandene Replikation zum Client. Keine eigene Nachricht, kein zweiter
+// Auslöseweg.
 //
-// Umgestellt werden nur Fähigkeiten, die das Item selbst auslöst (beim Vergeben oder über seinen Auslöse-Effekt). Fähigkeiten,
-// die jemand anderes startet (etwa GA_SlideAbility_C) oder die einen Eingabe-Tag tragen, bleiben wie der Dodge (GA_Dash_C)
-// unberührt: Dort sagt der Client mit seiner Eingabe voraus. Auch LocalPredicted stellt der Host um, obwohl die Engine solche
-// Aktivierungen über den Client zum Host zurückreicht: Sonst liefe der Ablauf zusätzlich beim Client ohne Autorität, und nur
-// der Host soll Schaden, Heilung und erzeugte Actors buchen. Nebenwirkung: Ton, den die Fähigkeit selbst startet (etwa
-// player_Healed), spielt für die Client-Figur nur beim Host.
+// Umgestellt werden nur LocalOnly-Fähigkeiten, die das Item selbst auslöst (beim Vergeben oder über seinen Auslöse-Effekt) und
+// die keinen Eingabe-Tag tragen. LocalPredicted bleibt: Solche Aktivierungen reicht die Engine über den Client zum Host zurück,
+// sie laufen dort also schon, und der Client behält seine Vorhersage (wie beim Dodge GA_Dash_C).
 //
-// Zweite Lücke, Fähigkeiten mit Zustand (UDDGameplayAbilityWithState, etwa GA_DelayedHeal_C des Heil-Kits): Das Spiel ruft ihr
+// Zweite Lücke, Fähigkeiten mit Zustand (UDDGameplayAbilityWithState, etwa GA_DelayedHeal_C des Heil-Kits, LocalPredicted):
+// Das Spiel ruft ihr
 // SetupAbility nur dort auf, wo die Figur lokal gesteuert ist. Beim Host fehlen der Instanz der Client-Figur damit Figur,
 // AbilitySystem und Attribute; sie ist aktiv, hört aber nie auf Schaden und heilt nie. Der Host holt genau diesen nativen
 // Aufruf nach, direkt vor der ersten Aktivierung (K2_ActivateAbility), also in der Reihenfolge des Spiels. Parameter sind die
