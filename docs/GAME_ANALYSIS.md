@@ -2689,6 +2689,44 @@ gibt keinen Fix.
   - Kachelzahlen (die Zählung oben);
   - ein Bild;
   - dazu das Host-Log.
+- **[Vermutung, gestützt durch das Host-Log] Theorie Spawn vor Kartenaufbau** (ausgewertet am 18.11.2026). Beim Start einer Zone
+  lädt die Karte, die Figuren stehen schon in der Welt und werden kurz darauf an den Bus gesetzt. Im Labyrinth kam dieses Setzen so
+  früh, dass beim Client unter seiner Figur noch kein Boden mit Kollision stand. Die Figur fiel, und als der Boden fertig war, lag sie
+  schon darunter.
+  - **Host-Log des Live-Tests (17.11.2026).** Die Zeile `Busplatz: … Spielerfiguren ergänzt` stammt aus der Freiräumung am Bus
+    (`ClearSpawnAreaHook` in `src/Game/PlayerPatches.cpp`), also aus dem Moment, in dem die Figuren an den Bus kommen. Abstand von
+    „Werte … an den Client gesendet“ (erste Sendung) bis zum Busplatz:
+
+    | Karte | Abstand |
+    |---|---|
+    | normale Karten (`MGP_Mountains_River_Nature`, `MGP_Forest_Campgrounds`, `MGP_Mountains_Nature`, `MGP_Mountains_Camping`, `MGP_Circus`, `MGP_GolfCourse`, `MGP_Canyon_MilitaryBase`) | 1,2 bis 3,4 s |
+    | `MGP_LabyrinthEvent` | **0,29 s** |
+    | `MGP_MerchantEvent` (dreimal) | −0,03 bis 0,17 s, ohne Durchfallen |
+
+    Der Client beginnt seine Kartenerzeugung erst nach dem Empfang der Werte (Ping 39 ms) und braucht dafür mehrere Frames. Beim
+    Labyrinth blieben ihm also höchstens rund 0,25 s bis zum Setzen der Figur; der Host selbst brauchte für seine Erzeugung bis zu den
+    Seeds 0,75 s.
+  - **Warum nur der Client fällt.** Der Host übernimmt die Position der Client-Figur so, wie der Client sie simuliert
+    (`AcceptClientPositions` in `src/Game/PlayerPatches.cpp`). Fällt die Figur beim Client ins Leere, übernimmt der Host den Fall. Die
+    Host-Figur steht auf der Karte des Hosts, die zu diesem Zeitpunkt schon steht.
+  - **Was im Code fehlt.** `ClientGenerationActive()` in `src/Game/MapPatches.cpp` weiß, wann die Erzeugung beim Client fertig ist,
+    wird aber nur für das Unterdrücken replizierter Child Actors benutzt. Nichts hält die eigene Figur des Clients fest, bis sein Boden
+    steht.
+  - **Passt zum Nachbau auf einem PC.** Dort lagen zwischen „Client übernimmt“ und „Kamera gesetzt“ 1,0 s, live 0,58 s. Ein Wettlauf
+    zwischen Kartenaufbau und Spawn tritt nur manchmal auf und erklärt, warum der Fall nicht nachzustellen war.
+  - **Was nicht passt.** Beim `MGP_MerchantEvent` war der Abstand noch kleiner, und niemand fiel. **[Vermutung]** Die Händlerkarte ist
+    klein, und der Bus steht nahe einem Boden, den der Client schon hat; dazu passt, dass bei direkter Reise auf der kleinen
+    Pflasterkarte niemand fiel. Nicht geprüft.
+  - **Nicht belegt.** Das Client-Log des Live-Tests liegt auf dem anderen PC, und die Mod schreibt beim Client kein Ende der eigenen
+    Kartenerzeugung ins Log. Die Reihenfolge „Figur gesetzt“ vor „Boden fertig“ ist darum beim Client nicht gemessen.
+  - **Prüfen im nächsten Live-Test.** Beim Client die Zeit von „Client übernimmt“ bis zum Ende der Erzeugung
+    (`ClientGenerationActive()` wird falsch) neben das Setzen der Figur legen, dazu Figur-Z in den ersten Sekunden. Steht die Figur vor
+    dem Ende der Erzeugung am Bus und fällt danach, ist die Theorie bestätigt. Dann gilt die Aufgabe `spawn-nach-kartenaufbau`.
+  - **Überlegung für die Lösung, nur bei Bestätigung.** Lokal beim Client, ohne neue Nachricht: Die eigene Figur bleibt bis zum Ende der
+    eigenen Kartenerzeugung festgehalten (etwa Bewegungsmodus `MOVE_None` oder Schwerkraft aus) und übernimmt danach einmal den
+    replizierten Ort des Hosts. Der Host bucht weiter allein den Spawn; die Übernahme der Client-Position darf erst nach der Freigabe
+    wieder greifen. Eine Wartezeit beim Host vor dem Busplatz wäre die zweite Möglichkeit, verzögert aber beide Spieler und hängt an der
+    Ladezeit des Clients. Beides muss normale Karten, Join, Reconnect und Travel unverändert lassen.
 
 ### Run-Stand des Clients nach dem Run-Ende (`opt-metabase-inventar`)
 
