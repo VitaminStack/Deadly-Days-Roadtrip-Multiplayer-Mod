@@ -1,5 +1,7 @@
 // Client: Stellen, die Objekte erwarten, die es nur beim Host gibt oder die noch nicht repliziert sind. Dazu lokale
 // Kopien replizierter PowerUp-Objekte. Aus Spike Client.cpp und MapObjects.cpp.
+#include <windows.h>
+
 #include <atomic>
 
 #include "Core/Hooks.h"
@@ -38,6 +40,8 @@ constexpr uintptr_t BeginDeferredActorSpawnFromClass = 0x2A67AF0;
 constexpr uintptr_t CanBusTakeOff = 0x59C7FC0;
 constexpr uintptr_t FinishMission = 0x58EA1A0;
 constexpr uintptr_t TriggerEndRound = 0x5907ED0;
+constexpr uintptr_t RunSaveRoundChanged = 0x5936BE0; // URunPersistencyManager::OnRoundChanged
+constexpr uintptr_t RunSaveResave = 0x593EBA0;       // URunPersistencyManager::ResavePersistable
 constexpr uint32_t RfBeginDestroyed = 0x8000, RfFinishDestroyed = 0x10000; // EObjectFlags
 
 constexpr uintptr_t CharacterAttributeSet = 0x7D8;
@@ -135,6 +139,42 @@ void __fastcall TriggerEndRoundHook(uintptr_t GameInstance, uint8_t Reason)
     if (Role == NetRole::Host && Reason == RoundChangeLose)
         NoteHostRoundEnd(true);
     OriginalTriggerEndRound(GameInstance, Reason);
+}
+
+// client-runstand-abbruch: Der Run-Stand gehört dem, der den Run hostet (RunSaveChangeAllowed). Zwei Stellen schreiben ihn:
+// OnRoundChanged (NewDay: Container neu, EndOfDay, alle Persistables, speichern; Win und Lose: leeren und speichern) und
+// ResavePersistable (eine Komponente in einen offenen Run schreiben und speichern, etwa GameStats am Tagesende). Beim Netz-Client
+// laufen beide nicht: Sonst stünde der Run des Hosts in seinem Stand, oder ein eigener offener Run würde überschrieben oder geleert.
+using RunSaveRoundChangedFn = void(__fastcall*)(uintptr_t, uint8_t);
+using RunSaveResaveFn = void(__fastcall*)(uintptr_t, uintptr_t);
+RunSaveRoundChangedFn OriginalRunSaveRoundChanged = nullptr;
+RunSaveResaveFn OriginalRunSaveResave = nullptr;
+std::atomic<int> RunSaveRoundSkipped = 0, RunSaveResaveSkipped = 0;
+
+// Diagnose: Mit DDCOOP_RUN_SAVE_NATIVE=1 schreibt der Client seinen Run-Stand wie das Spiel, zum Vergleich vorher/nachher.
+bool RunSaveNative()
+{
+    static const bool Native = []
+    {
+        char Value[4]{};
+        return GetEnvironmentVariableA("DDCOOP_RUN_SAVE_NATIVE", Value, sizeof(Value)) == 1 && Value[0] == '1';
+    }();
+    return Native;
+}
+
+void __fastcall RunSaveRoundChangedHook(uintptr_t Manager, uint8_t Reason)
+{
+    if (RunSaveChangeAllowed(CurrentRole() == NetRole::Client) || RunSaveNative())
+        return OriginalRunSaveRoundChanged(Manager, Reason);
+    if (RunSaveRoundSkipped.fetch_add(1) < 20)
+        Core::Log::Info("Run-Stand: Client lässt seinen eigenen Run-Stand unberührt (Rundenwechsel, Grund {}), der Run gehört dem Host", Reason);
+}
+
+void __fastcall RunSaveResaveHook(uintptr_t Manager, uintptr_t Persistable)
+{
+    if (RunSaveChangeAllowed(CurrentRole() == NetRole::Client) || RunSaveNative())
+        return OriginalRunSaveResave(Manager, Persistable);
+    NoteOnce(RunSaveResaveSkipped, "Run-Stand: Client schreibt keine einzelne Komponente in seinen eigenen Run-Stand");
 }
 
 using ExpAggregateFn = float(__fastcall*)(uintptr_t);
@@ -388,6 +428,20 @@ bool ApplyRunLoss(Code::Writer&)
                                 reinterpret_cast<void**>(&OriginalTriggerEndRound));
 }
 
+bool CheckRunSave()
+{
+    return Code::Expect(At(RunSaveRoundChanged), {0x40, 0x57, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x8B, 0xF9, 0x80, 0xFA, 0x01}, "URunPersistencyManager.OnRoundChanged") &&
+           Code::Expect(At(RunSaveResave), {0x40, 0x53, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x83, 0x3A, 0x00, 0x48, 0x8B, 0xD9}, "URunPersistencyManager.ResavePersistable");
+}
+
+bool ApplyRunSave(Code::Writer&)
+{
+    return Core::Hooks::Install(reinterpret_cast<void*>(At(RunSaveRoundChanged)), reinterpret_cast<void*>(&RunSaveRoundChangedHook),
+                                reinterpret_cast<void**>(&OriginalRunSaveRoundChanged)) &&
+           Core::Hooks::Install(reinterpret_cast<void*>(At(RunSaveResave)), reinterpret_cast<void*>(&RunSaveResaveHook),
+                                reinterpret_cast<void**>(&OriginalRunSaveResave));
+}
+
 bool CheckPowerUp()
 {
     return Code::Expect(At(BeginDeferredActorSpawnFromClass), {0x40, 0x53, 0x55, 0x57, 0x41, 0x54}, "in BeginDeferredActorSpawnFromClass");
@@ -413,6 +467,7 @@ constexpr uintptr_t SneakSites[] = {SneakSameTarget, SneakRetry, 0x58A64FE, Snea
 constexpr uintptr_t PowerUpSites[] = {BeginDeferredActorSpawnFromClass};
 constexpr uintptr_t BusTakeOffSites[] = {FinishMission, CanBusTakeOff, 0x59C8AFF};
 constexpr uintptr_t RunLossSites[] = {TriggerEndRound};
+constexpr uintptr_t RunSaveSites[] = {RunSaveRoundChanged, RunSaveResave};
 const Patch List[] = {
     {"Client-Refresh ohne Host-Objekt", &CheckClientRefresh, &ApplyClientRefresh, ClientRefreshSites},
     {"Attribut-Tick ohne PlayerState", &CheckAttributeTick, &ApplyAttributeTick, AttributeTickSites},
@@ -427,6 +482,7 @@ const Patch List[] = {
     {"PowerUp ohne lokale Kopie", &CheckPowerUp, &ApplyPowerUp, PowerUpSites},
     {"Busabfahrt und Rundenende nur beim Host", &CheckBusTakeOff, &ApplyBusTakeOff, BusTakeOffSites},
     {"Niederlage entscheidet der Host", &CheckRunLoss, &ApplyRunLoss, RunLossSites},
+    {"Run-Stand gehört dem Host", &CheckRunSave, &ApplyRunSave, RunSaveSites},
 };
 }
 
@@ -444,26 +500,6 @@ bool FollowHostRoundEnd()
     FollowingHost = true;
     OriginalFinishMission(GameState, false);
     FollowingHost = false;
-    return true;
-}
-
-// Nativ (0x5936BE0): Bei Win und Lose setzt der RunPersistencyManager den Run-Container zurück und speichert den Run-Slot, bei
-// NewDay schreibt er EndOfDay. Nur dieser Teil des Run-Endes läuft hier, nicht TriggerEndRound mit Wertung und Meta-Stand.
-bool ClearClientRunSave(bool Won)
-{
-    const uintptr_t Manager = Objects::FindInstance("RunPersistencyManager");
-    static const uintptr_t Function = Objects::FindObject("OnRoundChanged", "RunPersistencyManager");
-    if (!Manager || !Function)
-    {
-        Core::Log::Warn("Run-Ende: Run-Stand des Clients nicht geleert, RunPersistencyManager fehlt");
-        return false;
-    }
-    struct
-    {
-        uint8_t Reason;
-    } Params{Won ? RoundChangeWin : RoundChangeLose};
-    Objects::ProcessEvent(Manager, Function, &Params);
-    Core::Log::Info("Run-Ende: eigener Run-Stand des Clients geleert ({}), der nächste Run beginnt neu", Won ? "Sieg" : "Niederlage");
     return true;
 }
 

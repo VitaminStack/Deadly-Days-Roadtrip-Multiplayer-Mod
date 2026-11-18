@@ -315,13 +315,14 @@ constexpr bool RunLossAllowed(bool IsNetClient, uint8_t Reason)
     return !IsNetClient || Reason != RoundChangeLose;
 }
 
-// opt-metabase-inventar, Client: Der Client speichert bei jedem Tagesende seinen eigenen Run-Stand (EndOfDay), bekommt das Run-Ende
-// aber nie nativ (RunLossAllowed). Meldet der Host Sieg oder Niederlage, leert der Client seinen Run-Stand einmal wie das Spiel beim Host
-// (RunPersistencyManager.OnRoundChanged), aber erst nach dem eigenen nachgezogenen Tagesende oder wenn er die Welt des Endes
-// verlassen hat, damit das lokale FinishMission den geleerten Stand nicht wieder mit EndOfDay überschreibt.
-constexpr bool ClientClearsRunSave(uint64_t PendingEnd, uint64_t FollowedEnd, bool LeftEndWorld)
+// client-runstand-abbruch: Der Run-Stand (URunPersistencyManager, Run-Container im Speicher und im Run-Slot) gehört dem, der den Run
+// hostet. Ein Netz-Client führt darum weder OnRoundChanged aus (NewDay schriebe den Run des Hosts als EndOfDay in den eigenen Stand,
+// Win und Lose leerten einen eigenen offenen Run) noch ResavePersistable (schriebe einzelne Komponenten des Host-Runs in einen eigenen
+// offenen Run). So bleibt der Stand des Clients, wie er vor dem Beitritt war, auch wenn er den Run über das Pausemenü, durch einen
+// Absturz oder durch das Ende des Hosts verlässt. Host und Solo laufen nativ.
+constexpr bool RunSaveChangeAllowed(bool IsNetClient)
 {
-    return PendingEnd != 0 && (FollowedEnd == PendingEnd || LeftEndWorld);
+    return !IsNetClient;
 }
 
 // run-ende, Client: Den Bildschirm der Niederlage nur für eine Weile nach dem Ende versuchen, er kommt sonst nie.

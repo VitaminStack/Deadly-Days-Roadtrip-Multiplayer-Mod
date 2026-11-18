@@ -909,13 +909,10 @@ TEST_CASE("Run-Ende: Eine Niederlage löst der Client nur auf Meldung des Hosts 
     CHECK_FALSE(ShouldRetryLossPanel(5, 5));
 }
 
-TEST_CASE("Run-Ende: Client leert seinen Run-Stand erst nach dem eigenen Tagesende oder außerhalb der Endwelt")
+TEST_CASE("Run-Stand: Nur Host und Solo ändern den eigenen Run-Stand, ein Netz-Client nie")
 {
-    CHECK_FALSE(ClientClearsRunSave(0, 0, true)); // kein gemeldetes Run-Ende
-    CHECK_FALSE(ClientClearsRunSave(7, 0, false)); // Ende gemeldet, lokales Tagesende steht noch aus
-    CHECK_FALSE(ClientClearsRunSave(7, 6, false)); // altes Tagesende nachgezogen, nicht dieses
-    CHECK(ClientClearsRunSave(7, 7, false));
-    CHECK(ClientClearsRunSave(7, 0, true)); // Karte passte nicht, Client ist schon gereist oder getrennt
+    CHECK(RunSaveChangeAllowed(false)); // Host und Solo: Tagesende, Sieg und Niederlage laufen nativ
+    CHECK_FALSE(RunSaveChangeAllowed(true)); // Client: weder EndOfDay des Host-Runs schreiben noch den eigenen Run leeren
 }
 
 TEST_CASE("Reise: Der Client startet keine eigene Reise außer ins Hauptmenü")
