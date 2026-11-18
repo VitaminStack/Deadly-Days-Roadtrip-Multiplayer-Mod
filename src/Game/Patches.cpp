@@ -277,6 +277,7 @@ void Tick()
     if (ListOn(Camera))
         { const GameThread::SlowScope Watch("Kamera"); TickCamera(Role, Second); }
     { const GameThread::SlowScope Watch("Projektile"); TickProjectiles(Role, Second); }
+    TickItemAbilities(Role, Second);
     { const GameThread::SlowScope Watch("Bewegung"); TickMovement(Role, Second); }
     if (ListOn(Player))
         { const GameThread::SlowScope Watch("Blickrichtung"); TickFacing(Role, Second); }

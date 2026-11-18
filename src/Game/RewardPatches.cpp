@@ -1280,7 +1280,10 @@ void TraceInventoryEvent(uintptr_t Object, uintptr_t Function, void* Params)
                             Owner == "ShopPanel" || Owner == "ShopPanelItem" || Owner == "AbstractPanel" || Owner == "TransactionPanel" ||
                             Owner == "RecipePanel" || Owner == "RecipeButton" || Owner == "PanelAnimationContainer" || Owner == "AbstractCurrency" ||
                             Owner == "TimescaleManager" || Owner == "CostDisplay" || Owner.starts_with("WI_Merchant") ||
-                            Owner.starts_with("WP_Recipe") || Owner.starts_with("BP_MetaBase_POI") || Owner == "MetaBasePoi";
+                            Owner.starts_with("WP_Recipe") || Owner.starts_with("BP_MetaBase_POI") || Owner == "MetaBasePoi" ||
+                            // client-items-wirkung: Vergabe, Einrichtung und Aktivierung der Item-Fähigkeiten.
+                            Owner == "DDGameplayAbility" || Owner == "DDGameplayAbilityWithState" ||
+                            (Owner.starts_with("GA_") && !Name.starts_with("ExecuteUbergraph"));
         // Animation und Abfragen je Bild nicht, sie verdrängen die eigentlichen Vorgänge.
         const bool Noise = Name.starts_with("ApplyEasing") || Name.starts_with("OnYoyo") || Name.starts_with("OnLoop") ||
                            Name == "GetAnimationContainer" || Name.ends_with("Tick") || Name.starts_with("Get") || Name.starts_with("Is") ||

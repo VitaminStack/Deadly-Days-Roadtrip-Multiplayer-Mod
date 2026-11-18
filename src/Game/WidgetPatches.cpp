@@ -46,6 +46,8 @@ bool HasGameState()
 void __fastcall ProcessEventHook(uintptr_t Object, uintptr_t Function, void* Params)
 {
     TraceInventoryEvent(Object, Function, Params);
+    PrepareItemAbilities(Function, Params);
+    PrepareRemoteAbilityState(Object, Function);
     if (PrepareRemoteDash(Object, Function))
         return;
     if (FilterRewardEvent(Object, Function, Params))
