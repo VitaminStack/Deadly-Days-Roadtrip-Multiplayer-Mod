@@ -366,6 +366,8 @@ void ScrapCommand(const std::wstring& Args)
 //   !shop poi          POIs der Karte (BP_MetaBase_POI_C und Unterklassen) mit Ort
 //   !shop go <n>       eigene Figur auf POI n stellen (K2_TeleportTo), das Betreten oeffnet das Panel
 //   !shop away         eigene Figur 3000 Einheiten wegstellen, das Verlassen schliesst das Panel
+//   !shop to <x> <y>   eigene Figur auf Weltkoordinaten stellen, etwa in die Startzone einer Boss-Arena (opt-endboss-leiste)
+//   !shop trigger      TriggerBossfight(1 s) am vorhandenen BossfightSpawnPoint, wie das Betreten der Startzone (nur Host)
 //   !shop list         Angebote aller Haendler-Panels mit Preis, dazu das eigene Inventar
 //   !shop buy <n>      UShopPanelItem.TryBuyItem am Angebot n
 //   !shop panels       Inventar-Panels zum eigenen Inventar mit Offen-Zustand
@@ -507,6 +509,28 @@ void ShopCommand(const std::wstring& Args)
         Vec To = LocationOf(Pois[Index]);
         To.Z = LocationOf(Pawn).Z;
         Log(std::string("Shop: Figur auf POI ") + std::to_string(Index) + (Teleport(Pawn, To) ? " gestellt" : " nicht gestellt"));
+    }
+    else if (Action == "to")
+    {
+        Vec To = LocationOf(Pawn);
+        const char* Rest = Space == std::string::npos ? "" : Text.c_str() + Space + 1;
+        char* End = nullptr;
+        To.X = strtod(Rest, &End);
+        To.Y = End ? strtod(End, nullptr) : To.Y;
+        Log(std::string("Shop: Figur ") + (Pawn && Teleport(Pawn, To) ? "auf " : "nicht auf ") + std::to_string(static_cast<int>(To.X)) + " " +
+            std::to_string(static_cast<int>(To.Y)) + " gestellt");
+    }
+    else if (Action == "trigger")
+    {
+        const uintptr_t Trigger = FindObject("TriggerBossfight", "BossfightSpawnPoint");
+        const std::vector<uintptr_t> Points = InstancesOf("BossfightSpawnPoint");
+        for (const uintptr_t Point : Points)
+        {
+            float Delay = 1.0f;
+            if (Trigger)
+                Read<ProcessEventFn*>(Point)[kProcessEventIndex](Point, Trigger, &Delay);
+        }
+        Log("Shop: TriggerBossfight an " + std::to_string(Trigger ? Points.size() : 0) + " Spawnpunkt(en)");
     }
     else if (Action == "away")
     {

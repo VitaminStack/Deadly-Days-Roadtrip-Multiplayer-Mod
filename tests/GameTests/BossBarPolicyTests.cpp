@@ -69,3 +69,16 @@ TEST_CASE("Boss bar updates only on changed values")
     CHECK(Game::BossBarNeedsUpdate(100, 200, 100, 300));
     CHECK(Game::BossBarNeedsUpdate(-1, -1, 100, 200));
 }
+
+TEST_CASE("Boss bar keeps the tracked boss and prefers a damaged one")
+{
+    const std::vector<Game::BossCandidate> Bosses{{0x100, 5000000, 5000000}, {0x200, 197363, 300000}};
+    CHECK(Game::PickBoss(Bosses, 0) == 1);
+    CHECK(Game::PickBoss(Bosses, 0x100) == 0);
+    CHECK(Game::PickBoss(Bosses, 0x300) == Game::NoBoss);
+    CHECK(Game::PickBoss({{0x100, 5000000, 5000000}}, 0) == 0);
+    CHECK(Game::PickBoss({}, 0) == Game::NoBoss);
+    // LazyBoss bleibt bei 0 HP stehen (18.11.2026): keine neue Leiste für ihn, ein lebender zweiter Boss bekommt sie.
+    CHECK(Game::PickBoss({{0x100, 0, 370000}}, 0) == Game::NoBoss);
+    CHECK(Game::PickBoss({{0x100, 0, 370000}, {0x200, 250000, 250000}}, 0) == 1);
+}
