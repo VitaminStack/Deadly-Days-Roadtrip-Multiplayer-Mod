@@ -266,6 +266,8 @@ void Tick()
         { const GameThread::SlowScope Watch("Belohnungen"); Rewards::Tick(); }
     if (ListOn(HealthBar))
         { const GameThread::SlowScope Watch("Busbalken"); TickBusBar(Role); }
+    if (ListOn(HealthBar))
+        { const GameThread::SlowScope Watch("Rüstung"); TickArmor(Role, Second); }
     if (ListOn(Widget))
         { const GameThread::SlowScope Watch("Lootbalken"); TickLootBar(Role); }
     if (ListOn(Inventory))

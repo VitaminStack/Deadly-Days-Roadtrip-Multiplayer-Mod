@@ -65,6 +65,8 @@ bool FilterRemotePoiOverlap(uintptr_t Function, void* Params);
 
 void TickPlayers(NetRole Role, bool Second);
 void TickCamera(NetRole Role, bool Second);
+// opt-astronaut-ruestung, Client: eigene Rüstung nativ neu auswerten, wenn sie unter dem replizierten Wert hängen blieb.
+void TickArmor(NetRole Role, bool Second);
 // opt-busbalken, Client: Ladebalken der Busabfahrt aus replizierten Daten.
 void TickBusBar(NetRole Role);
 // opt-lootbalken, Client: Fortschrittsbalken der Lootstellen aus dem replizierten Wert.
