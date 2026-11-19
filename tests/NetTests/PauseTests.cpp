@@ -139,3 +139,35 @@ TEST_CASE("Pause: Trennung und Weltwechsel geben frei")
     Host.Tick(Peer + 1, 0, 70); // Welt nicht lesbar: frei
     CHECK_FALSE(Host.Held());
 }
+
+TEST_CASE("Pause: Client räumt Zeitanfragen einmal je Reise ab, nicht in der ersten Welt")
+{
+    TravelCleanup Cleanup;
+    CHECK_FALSE(Cleanup.Due(0, 0));     // noch keine Welt
+    CHECK_FALSE(Cleanup.Due(World, 10)); // erste Welt: keine alte Welt, nichts abzuräumen
+    CHECK_FALSE(Cleanup.Due(World, 20));
+    CHECK(Cleanup.Due(World + 1, 30)); // Reise
+    CHECK(Cleanup.Due(World + 1, 40)); // Manager noch nicht erreichbar: weiter fällig
+    Cleanup.Done();
+    CHECK_FALSE(Cleanup.Due(World + 1, 50));
+    CHECK(Cleanup.Due(World + 2, 60)); // nächste Reise
+    Cleanup.Done();
+    CHECK_FALSE(Cleanup.Due(World + 2, 70));
+}
+
+TEST_CASE("Pause: Abräumen gibt nach 30 s ohne Manager auf, eine nicht lesbare Welt ist kein Wechsel")
+{
+    TravelCleanup Cleanup;
+    CHECK_FALSE(Cleanup.Due(World, 0));
+    CHECK(Cleanup.Due(World + 1, 1000));
+    CHECK(Cleanup.Due(World + 1, 1000 + TravelCleanupGiveUpMs));
+    CHECK_FALSE(Cleanup.Due(World + 1, 1001 + TravelCleanupGiveUpMs)); // spätere Anfragen gehören der neuen Welt
+    CHECK_FALSE(Cleanup.Due(0, 40000));          // Welt kurz nicht lesbar
+    CHECK_FALSE(Cleanup.Due(World + 1, 40100));  // dieselbe Welt: kein Wechsel, gültige Anfragen bleiben
+    CHECK_FALSE(Cleanup.Due(0, 41000));          // Laden
+    CHECK(Cleanup.Due(World + 2, 42000));        // neue Welt nach dem Laden
+    CHECK_FALSE(Cleanup.Due(0, 42100));          // ohne Welt kein Versuch
+    CHECK(Cleanup.Due(World + 2, 42200));        // steht weiter aus
+    Cleanup.Done();
+    CHECK_FALSE(Cleanup.Due(World + 2, 42300));
+}

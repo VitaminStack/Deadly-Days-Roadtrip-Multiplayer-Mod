@@ -28,6 +28,9 @@ constexpr uintptr_t PlayerController = 0x30;
 constexpr uintptr_t LevelWorldSettings = 0x2B8;
 constexpr uintptr_t SettingsTimeDilation = 0x3E0;
 constexpr uintptr_t SettingsPauser = 0x4A8;
+// UTimescaleManager::TimeRequests (SparseArray): Plätze und davon frei, wie in TravelPatches.
+constexpr uintptr_t TimescaleRequestCount = 0x50;
+constexpr uintptr_t TimescaleRequestFree = 0x7C;
 
 // FTimeRequest: Zeitfaktor, Priorität, PauseRegardlessOfTimescale (12 Byte mit Füllung).
 struct TimeRequest
@@ -149,6 +152,44 @@ bool HoldForRemote(bool Hold)
     Held.World = Patches::CurrentWorld();
     Held.Manager = Timescale;
     return true;
+}
+
+std::optional<int32_t> ClearTimeRequests()
+{
+    // Der Manager ist ein Subsystem der GameInstance und überlebt die Reise; nach dem ersten Fund reicht der gemerkte Zeiger.
+    static uintptr_t Known = 0;
+    uintptr_t Timescale = Known && Patches::IsA(Known, "TimescaleManager") ? Known : 0;
+    if (!Timescale)
+    {
+        const uintptr_t Manager = LocalPauseManager();
+        const auto TimescaleField = Reflection::Property(ManagerTimescale);
+        Timescale = Manager && TimescaleField ? Pointer(Manager + TimescaleField->Offset) : 0;
+        if (!Timescale || !Patches::IsA(Timescale, "TimescaleManager"))
+            return std::nullopt;
+        Known = Timescale;
+    }
+    const uintptr_t Clear = Reflection::Function(TimescalePackage, "TimescaleManager", "ClearAllRequests");
+    const auto Active = [&]() -> std::optional<int32_t> {
+        const auto Count = Memory::Read<int32_t>(Timescale + TimescaleRequestCount);
+        const auto Free = Memory::Read<int32_t>(Timescale + TimescaleRequestFree);
+        if (!Count || !Free || *Free < 0 || *Count < *Free || *Count > 4096)
+            return std::nullopt;
+        return *Count - *Free;
+    };
+    const auto Before = Active();
+    if (!Clear || !Before)
+        return std::nullopt;
+    if (*Before == 0)
+        return 0;
+    // Ausnahmeliste (TArray<UObject*>) leer: alles abräumen.
+    struct
+    {
+        uintptr_t Data;
+        int32_t Num;
+        int32_t Max;
+    } Exclude{};
+    Objects::ProcessEvent(Timescale, Clear, &Exclude);
+    return *Before - Active().value_or(0);
 }
 
 uint64_t WorldKey()

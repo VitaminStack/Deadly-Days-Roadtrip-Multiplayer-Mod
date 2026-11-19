@@ -38,8 +38,30 @@ def snapshot(pid, game_factory=None):
         values = struct.unpack(fmt, data)
         return values[0] if len(values) == 1 else values
 
+    def requests(manager):
+        """TimeRequests (TMap, Element 0x1C): Weak-Zeiger auf den Anfragenden, dann FTimeRequest."""
+        data, slots = game.ptr(manager + 0x48), game.i32(manager + 0x50)
+        if not data or not 0 <= slots <= 256:
+            return []
+        bits = game.ptr(manager + 0x68) or manager + 0x58  # TBitArray: ausgelagert oder inline
+        rows = []
+        for i in range(slots):
+            word = fields(bits + 4 * (i // 32), "<I")
+            if word is None or not word >> (i % 32) & 1:
+                continue  # freier Platz der SparseArray
+            row = data + i * 0x1C
+            requester = by_index.get(game.i32(row))
+            values = fields(row + 8, "<fi?") or (None, None, None)
+            rows.append({"requester": game.name(requester) if requester else None,
+                "class": ancestors(game.ptr(requester + 0x10))[0] if requester else None,
+                "outer": game.name(game.ptr(requester + 0x20)) if requester else None,
+                "timescale": values[0], "priority": values[1], "pause": values[2]})
+        return rows
+
+    by_index, managers = {}, []
     for obj in game.objects():
         flags = game.i32(obj + 8)
+        by_index[game.i32(obj + 0xC)] = obj
         chain = ancestors(game.ptr(obj + 0x10))
         if flags & 0x10:
             if "AbstractPanel" in chain and any(
@@ -64,6 +86,7 @@ def snapshot(pid, game_factory=None):
         if "TimescaleManager" in chain:
             result["timescale"].append({"active_requester": game.name(game.ptr(obj + 0x40)),
                 "request_slots": game.i32(obj + 0x50), "request_free": game.i32(obj + 0x7C)})
+            managers.append((result["timescale"][-1], obj))
         elif "PauseScreenManager" in chain:
             result["pause_screens"].append({"screen": game.name(game.ptr(obj + 0xD8)),
                 "outer": game.name(game.ptr(obj + 0x20)),
@@ -83,6 +106,8 @@ def snapshot(pid, game_factory=None):
                 "time_dilation": fields(obj + 0x3E0, "<f"),
                 "cinematic_time_dilation": fields(obj + 0x3E4, "<f"),
                 "pauser": game.name(game.ptr(obj + 0x4A8))})
+    for entry, manager in managers:  # erst jetzt sind alle Objektindizes bekannt
+        entry["requests"] = requests(manager)
     return result
 
 
