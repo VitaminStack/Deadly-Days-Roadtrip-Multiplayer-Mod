@@ -417,14 +417,15 @@ Rüstung des Clients wird nach dem Missionswechsel wie beim Host zurückgesetzt 
   Start 3/3 und Treffer 2/3 auf beiden Seiten gleich, Leiste über der Figur und HUD des Clients wie beim Host.
 - **[Belegt] Rücksetzen beim Missionswechsel, Befund vor dem Fix.** Ablauf: Astronaut aus dem Spielstand, ein Treffer (2/3),
   `servertravel` beim Host. Der Host führt die Client-Figur danach mit 3/3. Beim Client stand das **eigene** Set auf Basis 3, Aktuell 0,
-  Maximum 3; HUD und Leiste über der Figur zeigten 0 von 3. Die entfernte Host-Figur stimmte beim Client. Am 19.11. auf `26669225` in 3 von 3
-  Reisen nachgestellt, auch ohne Treffer davor. Ein späterer Treffer glich den Wert einmal an (`26495302`), weil das OnRep dann den
+  Maximum 3; HUD und Leiste über der Figur zeigten 0 von 3. Die entfernte Host-Figur stimmte beim Client. Am 19.11. auf `26669225` in 4 von 4
+  Reisen aus zwei Sitzungen nachgestellt, auch ohne Treffer davor. Ein späterer Treffer glich den Wert einmal an (`26495302`), weil das OnRep dann den
   replizierten Aktuellwert mitbringt.
 - **[Belegt, Live-Speicher] Keine doppelten Effekte.** Die aktiven Effekte des Client-ASC als Array-Elemente gelesen (`ASC+0x8D8`,
   `GameplayEffects_Internal` `+0x130`, Element `0x328` Byte aus der Reflection): vor und nach der Reise auf beiden Seiten dieselben fünf
   (`GE_StaminaRefill`, `GE_Player_ArmorSpeedReductionEffect`, `GE_Occupy_Hands`, `GE_IncreaseMaxArmor` mit `MaxArmor` +3,
   `GE_SpaceSuiteCritChance`), keiner mit Modifikator auf `Armor`, alle ohne Vorhersage-Schlüssel. Die frühere Zählung „doppelt“ zählte
-  Zeiger im Speicherblock, nicht Elemente. Mod-Code legt beim Client keine Item-Effekte an (`RefreshItemEffects` ruft nur der Host).
+  Zeiger im Speicherblock, nicht Elemente. Mod-Code legt beim Client keine Item-Effekte an (`RefreshItemEffects` ruft die Mod nur in `ApplyClientEdit`, dem Host-Pfad
+  für Inventar-Edits des Clients).
 - **[Belegt, Diagnose im Hook] OnRep ist nicht schuld.** `OnRep_MaxArmor` und `OnRep_Armor` laufen beim Client direkt nach der Reise mit
   Rüstung 3/3 vorher und nachher, `MaxArmor` Basis 0, Aktuell 3. Der Wert fällt erst danach auf 0, ohne weiteres OnRep.
 - **[Belegt, Disassembly beider Builds] Ursache.** `UCommonAttributeSet::PostAttributeChange` (vtable-Platz 88): Sinkt `MaxArmor`
@@ -446,7 +447,7 @@ Rüstung des Clients wird nach dem Missionswechsel wie beim Host zurückgesetzt 
 - **[Belegt, Test 19.11.2026]** Ein PC, zwei Instanzen über die Lobby, `-Godmode`, `MGP_Forest`, je Build eine Sitzung mit drei Reisen.
   Vor jeder Reise beim Host `!cheats`, `!god off`, `DD_DamagePlayerAtIndex 5 1`, `!god on`: beide Seiten 2/2. Nach jeder Reise beide
   Seiten 3/3 (Basis und Aktuell), `MaxArmor` 3, je fünf Effekte; Client-HUD drei Rüstungsfelder wie beim Host, Leiste über der Figur
-  sichtbar, Leben 100 auf beiden Seiten. `26669225` mit `-PartialPatches` (alle 113 Signaturen geprüft), `26495302` regulär. Keine
+  beim Client im vergrößerten Ausschnitt mit drei vollen Rüstungsfeldern (beide Builds), Leben 100 auf beiden Seiten. `26669225` mit `-PartialPatches` (alle 113 Signaturen geprüft), `26495302` regulär. Keine
   Absturzberichte. Hinweis zum Test: Nach einer Reise braucht der Host erneut `!cheats`, sonst trifft `DD_DamagePlayerAtIndex` nicht.
 - **Nebenbefunde (nicht behoben):** `servertravel` aus einer Karte mit `BP_HQ_Endboss_C` ließ den Client wie in `boss-karte-absturz`
   abstürzen (Lesen `0xD8`, `BossBarAdapter` legt beim Kartenwechsel ein Objective an). Ein viertes `servertravel` hintereinander ließ
@@ -454,8 +455,7 @@ Rüstung des Clients wird nach dem Missionswechsel wie beim Host zurückgesetzt 
 - **Nicht geprüft:** ein Lauf ohne den Hook als Gegenprobe der Leiste über der Figur (der fehlende Broadcast ist aus der Disassembly und
   dem gleichen Fall bei den Lebensleisten abgeleitet), zwei PCs, der echte Run-Start mit Wahl in der MetaBase, der Tageswechsel über
   das Lager statt `servertravel`, ein echtes Ablegen des Anzugs mitten in der Mission (Senkung des Maximums durch den Host) und dieselbe
-  Klemmung für `MaxHealth` beim Client (bleibt nativ, kein Fehler beobachtet). Die Bildprüfung der kleinen Leiste über der Figur ist bei
-  800 Pixel Bildbreite grob.
+  Klemmung für `MaxHealth` beim Client (bleibt nativ, kein Fehler beobachtet).
 
 ### Busbalken beim Client (`opt-busbalken`)
 
