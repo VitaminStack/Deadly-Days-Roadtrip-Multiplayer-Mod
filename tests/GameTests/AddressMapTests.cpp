@@ -28,6 +28,7 @@ TEST_CASE("Adressen: Tabelle 26669225 ist sortiert und rechnet nur bekannte Eint
     CHECK(Map(26669225, 0x057DC810) == 0x057DD020); // OnRep_Health, von Hand nachgetragen (update-1-0-2-lebensleisten)
     CHECK(Map(26669225, 0x057DBA40) == 0x057DC250); // OnRep_Armor, von Hand nachgetragen (opt-astronaut-ruestung)
     CHECK(Map(26669225, 0x057DCD60) == 0x057DD570); // OnRep_MaxArmor, von Hand nachgetragen (opt-astronaut-ruestung)
+    CHECK(Map(26669225, 0x057DF8EB) == 0x057E00AB); // Klemmung der Rüstung in PostAttributeChange (opt-astronaut-ruestung)
     CHECK(Map(26669225, 0x05936BE0) == 0x05937870); // URunPersistencyManager::OnRoundChanged (client-runstand-abbruch)
     CHECK(Map(26669225, 0x0593EBA0) == 0x0593F830); // URunPersistencyManager::ResavePersistable (client-runstand-abbruch)
 }

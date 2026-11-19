@@ -3,6 +3,7 @@
 // die angemeldeten Empfänger auf. Aus Spike HealthBars.cpp.
 // opt-ausdauerbalken: Dasselbe für den Ausdauerbalken (UDDCharacterAttributeSet::OnStaminaChanged und OnMaxStaminaChanged).
 // opt-astronaut-ruestung: Dasselbe für die Rüstung (UCommonAttributeSet::OnArmorChanged und OnMaxArmorChanged), etwa beim Astronauten.
+// Außerdem klemmt der Client die Rüstung nicht mehr selbst auf ein kurz gesunkenes MaxArmor (Missionswechsel), das tut der Host.
 #include <atomic>
 #include <string>
 #include <vector>
@@ -24,6 +25,12 @@ constexpr uintptr_t OnRepStamina = 0x57DDE40;
 constexpr uintptr_t OnRepMaxStamina = 0x57DD080;
 constexpr uintptr_t OnRepArmor = 0x57DBA40;
 constexpr uintptr_t OnRepMaxArmor = 0x57DCD60;
+// UCommonAttributeSet::PostAttributeChange: Sinkt MaxArmor (oder MaxHealth) unter den aktuellen Wert, setzt dieser Aufruf
+// FGameplayAttribute::SetNumericValueChecked den aktuellen Wert auf das neue Maximum (rcx Attribut, rdx &Wert, r8 Set).
+constexpr uintptr_t ClampToMaxCall = 0x57DF8EB;
+constexpr uintptr_t SetNumericValueChecked = 0x4BDDD80;
+// UCommonAttributeSet::GetArmorAttribute, liefert einen Zeiger auf das statische FGameplayAttribute.
+constexpr uintptr_t GetArmorAttribute = 0x57D48A0;
 // FGameplayAttributeData: VTable, BaseValue, CurrentValue.
 constexpr uintptr_t AttributeCurrentValue = 0xC;
 constexpr uintptr_t MaxHealth = 0x30;
@@ -48,6 +55,8 @@ OnRepFn OriginalOnRepStamina = nullptr;
 OnRepFn OriginalOnRepMaxStamina = nullptr;
 OnRepFn OriginalOnRepArmor = nullptr;
 OnRepFn OriginalOnRepMaxArmor = nullptr;
+using SetNumericValueCheckedFn = void(__fastcall*)(const void* Attribute, float* NewValue, uintptr_t Set);
+using GetAttributeFn = const void*(__fastcall*)();
 
 // FScriptDelegate: schwacher Zeiger (Index, Seriennummer), dann der FName der Funktion.
 struct ScriptDelegate
@@ -85,6 +94,7 @@ uintptr_t FindFunction(uintptr_t Object, uint64_t Name)
 
 std::atomic<bool> Reported = false;
 std::atomic<bool> ReportedArmor = false;
+std::atomic<bool> ReportedClamp = false;
 
 // Wie ein Broadcast des Multicast-Delegates mit einem float. Die Liste wird vorher kopiert, ein Empfänger darf sie ändern.
 // Gibt die Zahl der angemeldeten Empfänger zurück, Names erhält auf Wunsch Klasse und Funktion jedes Empfängers.
@@ -161,6 +171,24 @@ void __fastcall OnRepMaxArmorHook(uintptr_t Set, const void* Old)
     Broadcast(Set, OnMaxArmorChanged, Memory::Read<float>(Set + MaxArmor + AttributeCurrentValue).value_or(0.0f));
 }
 
+// Ziel des umgelenkten CALL in PostAttributeChange. Beim Netz-Client wechselt MaxArmor nach dem Missionswechsel kurz auf
+// den Basiswert 0, solange GE_IncreaseMaxArmor des Anzugs noch nicht wieder aufgerechnet ist. Die native Klemmung setzte dann
+// die eigene Rüstung lokal auf 0, und nichts stellte sie wieder her. Der Host klemmt selbst und repliziert das Ergebnis,
+// beim Client bleibt der replizierte Wert also stehen. Andere Attribute (MaxHealth) laufen unverändert.
+void __fastcall ClampToMaxHook(const void* Attribute, float* NewValue, uintptr_t Set)
+{
+    static const auto Original = reinterpret_cast<SetNumericValueCheckedFn>(At(SetNumericValueChecked));
+    static const auto ArmorAttribute = reinterpret_cast<GetAttributeFn>(At(GetArmorAttribute));
+    if (CurrentRole() == NetRole::Client && Attribute == ArmorAttribute())
+    {
+        if (!ReportedClamp.exchange(true))
+            Core::Log::Info("Rüstung: lokale Klemmung beim Client ausgelassen (Rüstung {}, neues Maximum {}), der Host entscheidet",
+                            Memory::Read<float>(Set + Armor + AttributeCurrentValue).value_or(0.0f), NewValue ? *NewValue : 0.0f);
+        return;
+    }
+    Original(Attribute, NewValue, Set);
+}
+
 bool CheckHealthBars()
 {
     return Code::Expect(At(OnRepHealth), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18}, "OnRep_Health") &&
@@ -173,6 +201,14 @@ bool CheckArmorBars()
 {
     return Code::Expect(At(OnRepArmor), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18}, "OnRep_Armor") &&
            Code::Expect(At(OnRepMaxArmor), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18}, "OnRep_MaxArmor");
+}
+
+// mov r8,rbp; lea rdx,[rsp+30h]; mov rcx,rbx direkt vor dem CALL (Attribut, &Maximum, Set).
+bool CheckArmorClamp()
+{
+    return Code::Expect(At(ClampToMaxCall) - 11, {0x4C, 0x8B, 0xC5, 0x48, 0x8D, 0x54, 0x24, 0x30, 0x48, 0x8B, 0xCB}, "Klemmung in PostAttributeChange") &&
+           ExpectBranch(At(ClampToMaxCall), CallRel32, SetNumericValueChecked, "SetNumericValueChecked in PostAttributeChange") &&
+           At(GetArmorAttribute) != 0;
 }
 
 // Beim Host laufen die OnRep-Funktionen nicht, der Patch wirkt also nur beim Client.
@@ -197,12 +233,24 @@ bool ApplyArmorBars(Code::Writer&)
                                 reinterpret_cast<void**>(&OriginalOnRepMaxArmor));
 }
 
+// Der CALL bleibt, nur sein Ziel ändert sich. So stimmt die Rücksprungadresse.
+bool ApplyArmorClamp(Code::Writer& Code)
+{
+    uint8_t* Stub = Code.EmitAbsoluteJump(reinterpret_cast<uintptr_t>(&ClampToMaxHook));
+    const auto Delta = Code::Rel32(At(ClampToMaxCall) + 5, reinterpret_cast<uintptr_t>(Stub));
+    if (Code.Failed() || !Delta)
+        return false;
+    return Code::WriteCode(At(ClampToMaxCall) + 1, &*Delta, sizeof(*Delta));
+}
+
 // Je Patch die benutzten Adressen der Signaturtabelle, erzeugt von tools/patch_signatures.py sites.
 constexpr uintptr_t HealthBarsSites[] = {OnRepHealth, OnRepMaxHealth, OnRepMaxStamina, OnRepStamina};
 constexpr uintptr_t ArmorBarsSites[] = {OnRepArmor, OnRepMaxArmor};
+constexpr uintptr_t ArmorClampSites[] = {ClampToMaxCall, SetNumericValueChecked, GetArmorAttribute};
 const Patch List[] = {
     {"Lebens- und Ausdauerleisten beim Client", &CheckHealthBars, &ApplyHealthBars, HealthBarsSites},
     {"Rüstungsleisten beim Client", &CheckArmorBars, &ApplyArmorBars, ArmorBarsSites},
+    {"Rüstung beim Client nicht lokal klemmen", &CheckArmorClamp, &ApplyArmorClamp, ArmorClampSites},
 };
 }
 
