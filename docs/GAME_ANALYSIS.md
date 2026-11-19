@@ -3437,11 +3437,67 @@ Offsets: [Boss-Parzelle](OFFSETS.md#boss-parzelle-endboss-spawn). Lesewerkzeug: 
 - **Gescheitert:** Ein direkter Aufruf der Selector-Funktion `0x58C3370` per Frida aus dem Overlap-Hook endete in einer Zugriffsverletzung.
   Ein Aufruf von ProcessEvent per Frida aus einem ProcessEvent-Hook ließ den Host abstürzen. Die Mod ruft den Handler deshalb im eigenen
   Game-Thread-Takt. Die Suche nach der nativen Bindestelle über den statischen FName `OnMissionStarted` (`0x4AC558E0`) fand keinen Leser im Code.
-- **Offen ([`boss-client-einfrieren`](../TODO.md)):** Nach dem Bosstod steht beim Client die Zeit still: Der TimescaleManager hält acht
-  Anfragen (`pause_state.py`, `request_free` 1 von 9), Uhr und Figuren bleiben stehen, während der Host weiterspielt. Erst das
-  Rundenende holt den Client wieder heraus. Die Abschlusstafel des Bosses („Quest abgeschlossen“) erscheint beim Client nicht.
+- **Nachtrag ([`boss-client-einfrieren`](#stillstand-des-clients-nach-dem-bosstod-boss-client-einfrieren)):** Der hier zuerst
+  gemeldete Stillstand des Clients nach dem Bosstod ist die replizierte Pause der Abschlusstafel des Hosts. Die acht Anfragen im
+  TimescaleManager des Clients waren verwaiste Reste der Rundenenden, der Client räumt sie jetzt nach jeder Reise ab.
 - **Nicht geprüft:** zwei PCs, die Karten `MGP_Burger_Boss_City` und `MGP_HQ8_Boss` (HQ-Endboss nach drei Bossen,
   `NumBossesBeforeEndBoss` 3), ein echter Kampf ohne `!bossdmg`, eine Niederlage im Bosskampf und der Endlosmodus.
+
+### Stillstand des Clients nach dem Bosstod (`boss-client-einfrieren`)
+
+Stand 19.11.2026, ein PC mit zwei Instanzen (Lobby über den Tunnel der Mod, Godmode), beide Builds (`26495302`, `26669225` über eine
+Worktree-eigene `config/Local.props`). Kartenprofil `MGP_Burger_Boss_Nature` per `DDCOOP_TEST_MAP_PROFILE`, Run über die echte Route,
+alles ohne Maus und Tastatur: Run-Start und Routenknoten wie in [Gezielt in eine Karte](TESTING.md#gezielt-in-eine-karte), Kampf mit
+`!shop trigger` und `!bossdmg 30000`, Tafel des Hosts über das Knopf-Ereignis
+`BndEvt__WP_EndGameUnlockSummaryPanel_ContinueButton_…` (`!shop call`), Rundenübersicht über
+`BndEvt__WP_Round_Stats_ContinueButton_…`, Lager mit `!shop confirm <n>` am Panel unter `WI_BusScreen_C`. Werte mit
+`tools/spike/pause_state.py`, das jetzt jede Zeitanfrage mit Anfragendem, Priorität und Pause listet. Offsets:
+[Zeitanfragen](OFFSETS.md#zeitanfragen-und-weltzeit-boss-client-einfrieren).
+
+- **[Belegt] Ursache der Anfragen beim Client.** `FinishMission` legt bei Host und Client je zwei Anfragen an: `GS_DDMissionState_C`
+  (Priorität 20, Pause) und `WP_Round_Stats` (Faktor 0, Priorität 0). Der Host räumt sie in der Umleitung der Reise ab („Reise:
+  Zeitanfragen abgeräumt 2 -> 0“, `TravelPatches.cpp`), nativ macht das der Ladestart. Der Client reist dem Host nur nach und lief an
+  beidem vorbei: Die Anfrage der Rundenübersicht verschwand mit dem Widget, die des alten GameState blieb. Gemessen in zwei Läufen:
+  nach der Reise zu Tag 2 hält der Host 0, der Client 1 Anfrage (Priorität 20, Pause, Anfragender zerstört). Je Reise kommt eine dazu;
+  die acht Anfragen vom 13.11. passen zu einem Run bis zum Boss-Knoten.
+- **[Belegt, Disassembly `26495302`] Was eine verwaiste Anfrage anrichtet.** Der Manager wählt verwaiste Einträge nie aus: Die Suche
+  nach der besten Anfrage (`0x46A5F70`) prüft jeden Weak-Zeiger und entfernt ungültige. `RemoveRequest` (`0x46A5920`) stellt die Zeit
+  aber nur wieder her (Standardanfrage bei `+0x9C`), wenn die Liste danach leer ist. Liegt noch ein verwaister Eintrag darin, ruft es
+  die Neuwahl (`0x46A6160`); findet die keine gültige Anfrage, kehrt sie zurück, ohne Faktor und Pause zurückzusetzen. Beim Client
+  bleibt dann der Zustand der zuletzt entfernten Anfrage stehen. Sichtbar wird das nur, wenn der Host den Wert nicht ohnehin neu
+  repliziert: Bei Airdrop und Pausemenü ändert der Host `TimeDilation` und `PauserPlayerState` selbst, die Replikation überschreibt
+  den Client. Die erste Neuwahl räumt die verwaisten Einträge auch ab, der Fehler trifft also höchstens einmal je Karte.
+- **Umsetzung.** Der Client ruft nach jedem Weltwechsel einmal das native `UTimescaleManager::ClearAllRequests` mit leerer
+  Ausnahmeliste (`Game::Pause::ClearTimeRequests`, Entscheidung in `Sync::Pause::TravelCleanup`), also denselben Weg wie Ladestart
+  und Host. Lokal bleibt alles, es gibt keine Nachricht und keine Protokolländerung. Die erste Welt nach dem Start zählt nicht, eine
+  kurz nicht lesbare Welt ist kein Wechsel, ohne Anfragen gibt es keinen Aufruf, nach 30 s ohne erreichbaren Manager gibt der Client
+  auf. Log beim Client: „Pause: Client räumt nach der Reise 1 Zeitanfrage(n) der alten Welt ab“.
+- **[Belegt] Vorher und nachher.** Vorher (`26495302`, zwei Läufe): Client nach der Reise zu Tag 2 mit 1 Anfrage. Nachher: nach den
+  Reisen zu Tag 2 und Tag 3 hält der Client 0 Anfragen, die Logzeile steht je Reise einmal da. Auf `26669225` dasselbe für die Reise
+  zu Tag 2; die Rundenende-Anfragen beider Seiten dienten dort als Kontrolle der Offsets.
+- **[Belegt] Der Stillstand selbst ist die Pause des Hosts.** Rund 3 s nach dem Bosstod öffnet der Host die Abschlusstafel
+  `WP_EndGameUnlockSummaryPanel_C` („Quest abgeschlossen“, dann Bombenteil, Vergeltungsstufe, Geländeart) mit einer Anfrage
+  Priorität 1000, Pause. `PauserPlayerState` repliziert zum Client, dessen Welt steht ohne eigene Anfrage und ohne Tafel, bis der
+  Host die Tafel schließt (fünf- bis sechsmal „Fortsetzen“). Gemessen nach dem Fix an `UWorld.TimeSeconds` über 2 s (`26495302`,
+  Ballerina an Tag 3): Tafel offen bei beiden +0,00, danach bei beiden +2,00. Vor dem Fix zeigte derselbe Ablauf an Tag 2 dasselbe
+  über Pauser und Weltzeit-Zeilen im Log. Der Client hat eine eigene Instanz der Tafel, zeigt sie aber nicht. Das ist dieselbe Regel
+  wie bei Pausemenü und Airdrop des Hosts: Der Host entscheidet über die Weltzeit. Die fehlende Tafel beim Client steht als
+  `opt-boss-tafel-client` in der [TODO](../TODO.md).
+- **[Belegt] Die Missionsuhr bleibt nach dem Bosstod bei beiden stehen** (`SecondsSinceMissionStart` 51 bei Host und Client über
+  5 s), auch wenn die Welt wieder läuft. **[Vermutung]** Das ist natives Verhalten der Boss-Karte; ein Vergleich im Einzelspiel fehlt.
+- **Ein dauerhafter Stillstand nur beim Client ließ sich nicht nachstellen.** In drei Bosstoden mit Tafel (Kugeleis direkt per
+  `-Map`, Frankenstein an Tag 2 mit verwaister Anfrage, Ballerina an Tag 3 mit Fix) lief der Client weiter, sobald der Host seine
+  Tafel geschlossen hatte. **[Vermutung]** Am 13.11. stand der Client während der Tafel des Hosts; ohne Gegner und ohne Eingabe am
+  Client und bei stehender Uhr sah das danach weiter wie ein Stillstand aus. Dass eine verwaiste Anfrage den Client an dem Tag
+  wirklich festhielt, ist nicht belegt: Nach so einer Neuwahl wären die acht Einträge weg gewesen.
+- **Nebenbefunde.** Stirbt der Boss noch im Intro durch sehr hohen Testschaden (`!bossdmg 400000` kurz nach `!shop trigger`), bleibt
+  er mit 0 HP stehen und die Tafel erscheint nicht. Öffnet eine Figur beim Bosstod eine Airdrop-Kiste, hält deren Auswahl die Pause;
+  sie lässt sich ohne Eingabe nicht abschließen (`!shop confirm`: „Bestätigen ohne Wahl“), zwei Läufe endeten dort. Die Tabelle
+  [Laden, Zeitanfragen und Busplatz](OFFSETS.md#laden-zeitanfragen-und-busplatz-testumgebung) nennt für `ClearAllRequests` und
+  `RequestTimescale` Adressen, die auf `26495302` nicht passen (`0x46A5980` liegt mitten in `RemoveRequest`).
+- **Nicht geprüft:** zwei PCs, ein Run über acht Tage bis zum echten Boss-Knoten, Bosstod mit Tafel auf `26669225` (dort kam die
+  Airdrop-Auswahl dazwischen), ein Fall, in dem die verwaiste Anfrage den Client sichtbar festhält, Wiederbeitritt und Rückkehr in
+  die MetaBase mit dem Abräumen, Latenzprofil, Spielton (nicht stummgeschaltet, kein Ton geprüft).
 
 ### Boss-Leiste aller Bosse beim Client (`opt-endboss-leiste`)
 

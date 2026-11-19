@@ -52,7 +52,9 @@ def snapshot(pid, game_factory=None):
             row = data + i * 0x1C
             requester = by_index.get(game.i32(row))
             values = fields(row + 8, "<fi?") or (None, None, None)
-            rows.append({"requester": game.name(requester) if requester else None,
+            # Ohne Pruefung der Seriennummer: Ein verwaister Eintrag traegt den Namen des Objekts, das den Platz jetzt belegt.
+            rows.append({"index": game.i32(row), "serial": game.i32(row + 4),
+                "requester": game.name(requester) if requester else None,
                 "class": ancestors(game.ptr(requester + 0x10))[0] if requester else None,
                 "outer": game.name(game.ptr(requester + 0x20)) if requester else None,
                 "timescale": values[0], "priority": values[1], "pause": values[2]})
