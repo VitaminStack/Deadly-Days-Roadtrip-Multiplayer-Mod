@@ -20,18 +20,21 @@
 {0x03262A30, 0x03262A00}, // eindeutig, SetClientTravel, src/Game/TravelPatches.cpp:16
 {0x04B68380, 0x04B68B40}, // eindeutig, AttributeLookupFunction, src/Game/ClientPatches.cpp:21
 {0x04BC58D0, 0x04BC6090}, // eindeutig, ExecuteCueNonReplicated, src/Game/BodyPartPatches.cpp:28
+{0x04BDDD80, 0x04BDE540}, // eindeutig, SetNumericValueChecked, src/Game/HealthBarPatches.cpp:31
 {0x056591B0, 0x05659940}, // eindeutig, DamageInfoConstruct, src/Game/DamageNumberPatches.cpp:31
 {0x056676F5, 0x05667E85}, // von Hand (einziger jmp auf BlockadeLoadingFinished 0x058BC360, Verschiebung +0x790 wie die Nachbarn), At, src/Game/ClientPatches.cpp:320
 {0x05707870, 0x05708000}, // von Hand (10 eindeutige Fenster, 400 Befehle maskiert gleich, Verschiebung +0x790), ReloadSoundEvent, src/Game/WeaponSoundPatches.cpp:99
 {0x057BDCD0, 0x057BE450}, // eindeutig, ControllerSetAdd, src/Game/PlayerPatches.cpp:30
 {0x057CB5A5, 0x057CBD25}, // ueber-funktion, ScheduleCall, src/Game/InventoryPatches.cpp:319
 {0x057D0C60, 0x057D1470}, // eindeutig, DetectorEndPlay, src/Game/InventoryPatches.cpp:317
+{0x057D48A0, 0x057D50B0}, // eindeutig, GetArmorAttribute, src/Game/HealthBarPatches.cpp:33
 {0x057DBA40, 0x057DC250}, // von Hand (Exec-Thunk von OnRep_Armor aus der Native-Tabelle, Rumpf liest +0x1B0), OnRepArmor, src/Game/HealthBarPatches.cpp:25
 {0x057DC810, 0x057DD020}, // von Hand (60 Befehle eindeutig, Attributname Health im Kaltpfad), OnRepHealth, src/Game/HealthBarPatches.cpp:21
 {0x057DCD60, 0x057DD570}, // von Hand (Exec-Thunk von OnRep_MaxArmor aus der Native-Tabelle, Rumpf liest +0x190), OnRepMaxArmor, src/Game/HealthBarPatches.cpp:26
 {0x057DCE70, 0x057DD680}, // von Hand (60 Befehle eindeutig, Attributname MaxHealth im Kaltpfad), OnRepMaxHealth, src/Game/HealthBarPatches.cpp:22
 {0x057DD080, 0x057DD890}, // von Hand (60 Befehle eindeutig, Attributname MaxStamina im Kaltpfad), OnRepMaxStamina, src/Game/HealthBarPatches.cpp:24
 {0x057DDE40, 0x057DE650}, // eindeutig, OnRepStamina, src/Game/HealthBarPatches.cpp:23
+{0x057DF8EB, 0x057E00AB}, // eindeutig, ClampToMaxCall, src/Game/HealthBarPatches.cpp:30
 {0x05837220, 0x05837820}, // eindeutig, ApplyInitial, src/Game/CharacterPatches.cpp:29
 {0x0583AEEC, 0x0583B4EC}, // eindeutig, ComponentControllerRead, src/Game/ClientPatches.cpp:25
 {0x0583B060, 0x0583B660}, // eindeutig, ComponentControllerExit, src/Game/ClientPatches.cpp:26

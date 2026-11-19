@@ -390,9 +390,8 @@ Stand 10.11.2026, Build `26495302`, zwei Instanzen auf einem PC, Mod mit Spike.
 
 ### Rüstung beim Client (`opt-astronaut-ruestung`)
 
-Stand 18.11.2026: **Teilergebnis.** Die Leiste über der Figur folgt beim Client jetzt dem replizierten Wert, auf beiden Builds
-gemessen. Offen bleibt, dass die **eigene** Rüstung des Clients nach dem Missionswechsel nicht zurückgesetzt wird (Rest in
-`opt-astronaut-ruestung`). Ein PC, zwei Instanzen, Mod mit Spike über die Lobby, ohne echte Eingaben (`Start-Session.ps1 -Build -Mod
+Stand 19.11.2026: **Erledigt.** Die Leiste über der Figur folgt beim Client dem replizierten Wert (18.11.), und die **eigene**
+Rüstung des Clients wird nach dem Missionswechsel wie beim Host zurückgesetzt (19.11.), beide auf beiden Builds gemessen. Ein PC, zwei Instanzen, Mod mit Spike über die Lobby, ohne echte Eingaben (`Start-Session.ps1 -Build -Mod
 -Tunnel Lobby -Map /Game/Maps/DDDynamic_Map`, ab dem zweiten Lauf mit `-Godmode` und `DDCOOP_TEST_MAP_PROFILE` auf `MGP_Forest`, auf
 `26669225` mit `-PartialPatches`). Befund aus dem [Live-Test 17.11.](#live-test-auf-zwei-pcs-am-17112026-livetest-1711).
 
@@ -416,26 +415,47 @@ gemessen. Offen bleibt, dass die **eigene** Rüstung des Clients nach dem Missio
   Start 3/3, Treffer 2/3, nach `servertravel` 3/3 auf beiden Seiten, HUD des Clients 2 von 3, danach 3 von 3.
 - **[Belegt, `26669225`]** 108 Signaturen geprüft, alle Listen gesetzt, Log `Rüstung: erstes OnRep_Armor beim Client, Wert 3, 1 Empfänger`.
   Start 3/3 und Treffer 2/3 auf beiden Seiten gleich, Leiste über der Figur und HUD des Clients wie beim Host.
-- **[Belegt, offen] Rücksetzen beim Missionswechsel.** Ablauf: Astronaut aus dem Spielstand, ein Treffer (2/3), `servertravel` beim Host.
-  Der Host führt die Client-Figur danach mit 3/3. Beim Client steht das **eigene** Set auf Basis 3, Aktuell 0, Maximum 3; HUD und Leiste
-  über der Figur zeigen 0 von 3. Die entfernte Host-Figur stimmt beim Client. Auf `26669225` in 2 von 2 sauberen Läufen, auf `26495302`
-  einmal nach Niederlage und zweitem Anzug per `!give`/`!equip`, im sauberen Ablauf dort einmal ohne Fehler. Der Basiswert kommt also
-  an, der beim Client lokal abgeleitete Aktuellwert nicht. Ein späterer Treffer glich den Wert einmal an (`26495302`).
-- **Fehlversuch:** Der Client wertet die eigene Rüstung einmal je Sekunde neu aus, wenn sie unter min(Basis, Maximum) liegt, über das
-  native `OnRep_Armor`. Ergebnis im festen Zustand: vorher 0 (Basis 3, Maximum 3), nachher 0. Eine Klemmung auf ein kurz niedrigeres
-  Maximum ist damit als alleinige Ursache unwahrscheinlich; der Versuch ist nicht im Code geblieben.
-- **[Vermutung]** Am Aggregator der Rüstung des besitzenden Clients hängt ein lokaler Modifikator. In den aktiven Effekten des Client-ASC
-  (`ASC+0x8D8`, Feld bei `+0xA08`) fanden sich `GE_IncreaseMaxArmor` und `GE_Occupy_Hands` doppelt so oft wie beim Host; das ist eine Zählung
-  von Zeigern im Speicherblock, nicht von Array-Elementen, also nur ein Hinweis.
-- **Einstieg für den Rest:** Diagnose im Hook (Basis und Aktuell vor und nach `OnRep_Armor`, dazu `MaxArmor`) auf `26669225`, wo der Fehler
-  auftritt; in diesem Lauf lief die Diagnose nur auf `26495302`, wo der saubere Ablauf stimmte. Danach die Modifikatoren des
-  Rüstungs-Aggregators beim Client lesen.
+- **[Belegt] Rücksetzen beim Missionswechsel, Befund vor dem Fix.** Ablauf: Astronaut aus dem Spielstand, ein Treffer (2/3),
+  `servertravel` beim Host. Der Host führt die Client-Figur danach mit 3/3. Beim Client stand das **eigene** Set auf Basis 3, Aktuell 0,
+  Maximum 3; HUD und Leiste über der Figur zeigten 0 von 3. Die entfernte Host-Figur stimmte beim Client. Am 19.11. auf `26669225` in 4 von 4
+  Reisen aus zwei Sitzungen nachgestellt, auch ohne Treffer davor. Ein späterer Treffer glich den Wert einmal an (`26495302`), weil das OnRep dann den
+  replizierten Aktuellwert mitbringt.
+- **[Belegt, Live-Speicher] Keine doppelten Effekte.** Die aktiven Effekte des Client-ASC als Array-Elemente gelesen (`ASC+0x8D8`,
+  `GameplayEffects_Internal` `+0x130`, Element `0x328` Byte aus der Reflection): vor und nach der Reise auf beiden Seiten dieselben fünf
+  (`GE_StaminaRefill`, `GE_Player_ArmorSpeedReductionEffect`, `GE_Occupy_Hands`, `GE_IncreaseMaxArmor` mit `MaxArmor` +3,
+  `GE_SpaceSuiteCritChance`), keiner mit Modifikator auf `Armor`, alle ohne Vorhersage-Schlüssel. Die frühere Zählung „doppelt“ zählte
+  Zeiger im Speicherblock, nicht Elemente. Mod-Code legt beim Client keine Item-Effekte an (`RefreshItemEffects` ruft die Mod nur in `ApplyClientEdit`, dem Host-Pfad
+  für Inventar-Edits des Clients).
+- **[Belegt, Diagnose im Hook] OnRep ist nicht schuld.** `OnRep_MaxArmor` und `OnRep_Armor` laufen beim Client direkt nach der Reise mit
+  Rüstung 3/3 vorher und nachher, `MaxArmor` Basis 0, Aktuell 3. Der Wert fällt erst danach auf 0, ohne weiteres OnRep.
+- **[Belegt, Disassembly beider Builds] Ursache.** `UCommonAttributeSet::PostAttributeChange` (vtable-Platz 88): Sinkt `MaxArmor`
+  (ebenso `MaxHealth`) unter den aktuellen Wert, setzt es den aktuellen Wert über `FGameplayAttribute::SetNumericValueChecked` auf das neue
+  Maximum, nur den Aktuellwert und ohne Autoritätsprüfung (nur ein Gameplay-Tag am ASC wird abgefragt). Beim Client rechnet GAS
+  `MaxArmor` nach der Reise einmal kurz ohne den Anzug-Effekt aus (Basis 0), dann wieder mit. Die Klemmung setzte dabei die eigene
+  Rüstung lokal auf 0, und da `Armor` keinen Modifikator hat, rechnet nichts sie wieder hoch; das Host-Ergebnis 3 änderte sich nicht mehr
+  und kam darum nicht erneut an. Belegt durch die Logzeile des Fixes: `Rüstung: lokale Klemmung beim Client ausgelassen (Rüstung 3, neues
+  Maximum 0)`, auf beiden Builds je einmal nach der ersten Reise. **[Vermutung]** Warum `MaxArmor` kurz auf die Basis fällt (Reihenfolge der
+  Effekt-Replikation beim neuen PlayerState), ist nicht im Engine-Code nachvollzogen. Der Fehlversuch vom 18.11. (erneutes `OnRep_Armor` je Sekunde, nicht im Code geblieben) passt
+  dazu: ohne Aggregator für `Armor` ändert ein OnRep mit unveränderter Basis den Aktuellwert nicht.
+- **Umsetzung** (`HealthBarPatches.cpp`, eigener Patch-Eintrag „Rüstung beim Client nicht lokal klemmen“): Der CALL auf
+  `SetNumericValueChecked` in `PostAttributeChange` bekommt ein neues Ziel. Beim Netz-Client und für das Attribut `Armor` (Vergleich mit
+  dem Zeiger aus `GetArmorAttribute`) entfällt der Aufruf, sonst läuft das Original; Host, Einzelspiel und `MaxHealth` bleiben unverändert.
+  Die Mod schreibt kein Attribut. Lokal bleibt alles andere (OnRep, Effekte, Anzeige); geteilt wird nichts Neues, der Host entscheidet
+  weiter allein, auch über eine echte Senkung des Maximums, deren geklemmtes Ergebnis er repliziert. Keine Nachricht, keine
+  Protokolländerung. Adressen in [OFFSETS.md](OFFSETS.md#rüstung-opt-astronaut-ruestung), Zuordnung `26669225` in `RvaMap26669225.inc`
+  und `AddressMapTests`.
+- **[Belegt, Test 19.11.2026]** Ein PC, zwei Instanzen über die Lobby, `-Godmode`, `MGP_Forest`, je Build eine Sitzung mit drei Reisen.
+  Vor jeder Reise beim Host `!cheats`, `!god off`, `DD_DamagePlayerAtIndex 5 1`, `!god on`: beide Seiten 2/2. Nach jeder Reise beide
+  Seiten 3/3 (Basis und Aktuell), `MaxArmor` 3, je fünf Effekte; Client-HUD drei Rüstungsfelder wie beim Host, Leiste über der Figur
+  beim Client im vergrößerten Ausschnitt mit drei vollen Rüstungsfeldern (beide Builds), Leben 100 auf beiden Seiten. `26669225` mit `-PartialPatches` (alle 113 Signaturen geprüft), `26495302` regulär. Keine
+  Absturzberichte. Hinweis zum Test: Nach einer Reise braucht der Host erneut `!cheats`, sonst trifft `DD_DamagePlayerAtIndex` nicht.
 - **Nebenbefunde (nicht behoben):** `servertravel` aus einer Karte mit `BP_HQ_Endboss_C` ließ den Client wie in `boss-karte-absturz`
   abstürzen (Lesen `0xD8`, `BossBarAdapter` legt beim Kartenwechsel ein Objective an). Ein viertes `servertravel` hintereinander ließ
   den Client einmal ohne DDCoop-Rahmen abstürzen (Lesen `0x50`, `+5a12141`).
 - **Nicht geprüft:** ein Lauf ohne den Hook als Gegenprobe der Leiste über der Figur (der fehlende Broadcast ist aus der Disassembly und
-  dem gleichen Fall bei den Lebensleisten abgeleitet), zwei PCs, der echte Run-Start mit Wahl in der MetaBase und der Tageswechsel über
-  das Lager statt `servertravel`.
+  dem gleichen Fall bei den Lebensleisten abgeleitet), zwei PCs, der echte Run-Start mit Wahl in der MetaBase, der Tageswechsel über
+  das Lager statt `servertravel`, ein echtes Ablegen des Anzugs mitten in der Mission (Senkung des Maximums durch den Host) und dieselbe
+  Klemmung für `MaxHealth` beim Client (bleibt nativ, kein Fehler beobachtet).
 
 ### Busbalken beim Client (`opt-busbalken`)
 

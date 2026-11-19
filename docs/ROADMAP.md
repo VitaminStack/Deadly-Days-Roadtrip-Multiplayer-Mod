@@ -14,7 +14,7 @@ zum Sieg, elf Rundenenden, kein Absturz ([Befund](GAME_ANALYSIS.md#live-test-auf
 „1.0“ meint die Mod, nicht die Spielversion; die Protokollversion `ModVersion` bleibt davon unberührt. Die Aufgaben
 `integration-run`, `boss-karte-absturz` und `release` sind damit nicht abgehakt, ihre Abnahmen bleiben bestehen. Gefundene Fehler
 stehen als Aufgaben nach 1.0 in [TODO.md](../TODO.md): `labyrinth-event-client`, `client-items-wirkung` (behoben am 18.11.2026),
-`opt-astronaut-ruestung`, `opt-endboss-leiste`; der verlorene Run-Stand beim Wiederbeitritt gehört zu `reconnect`.
+`opt-astronaut-ruestung` (behoben am 19.11.2026), `opt-endboss-leiste`; der verlorene Run-Stand beim Wiederbeitritt gehört zu `reconnect`.
 
 Projektstand vom **18.11.2026**; die aktuellen Aufgaben, Abhängigkeiten und Abnahmen stehen verbindlich in [TODO.md](../TODO.md).
 

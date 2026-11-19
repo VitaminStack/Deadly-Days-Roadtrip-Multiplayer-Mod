@@ -972,6 +972,16 @@ Felder und Delegates sind auf beiden Builds gleich. Befund in [Rüstung beim Cli
 | `UCommonAttributeSet::OnRep_Armor` | `0x57DBA40`, Prolog wie `OnRep_Health`, liest `+0x1B0` | `0x57DC250` |
 | `UCommonAttributeSet::OnRep_MaxArmor` | `0x57DCD60`, Prolog wie `OnRep_Health`, liest `+0x190` | `0x57DD570` |
 | `UCommonAttributeSet` | `MaxArmor` `0x190`, `OnMaxArmorChanged` `0x1A0`, `Armor` `0x1B0`, `OnArmorChanged` `0x1C0` | gleich |
+| `UCommonAttributeSet::PostAttributeChange` (vtable-Platz 88, `+0x2C0`) | `0x57DF690` | `0x57DFE50` |
+| darin `call FGameplayAttribute::SetNumericValueChecked` (Klemmung auf ein gesunkenes Maximum, für Rüstung und Leben) | `0x57DF8EB` | `0x57E00AB` |
+| `FGameplayAttribute::SetNumericValueChecked` | `0x4BDDD80` | `0x4BDE540` |
+| `UCommonAttributeSet::GetArmorAttribute` (statisches Attribut, Name „Armor“) | `0x57D48A0` | `0x57D50B0` |
+| `UCommonAttributeSet::PreAttributeChange` (vtable-Platz 87) | – | `0x57E14A0` |
+| `UAbilitySystemComponent::ActiveGameplayEffects` | `ASC+0x8D8`, Elemente `GameplayEffects_Internal` bei `+0x130`, je `0x328` Byte, `Spec` `+0x20`, `PredictionKey` `+0x270` | gleich |
+
+Stand 19.11.2026: Platz 88 und die Aufrufstelle aus der vtable des laufenden `26669225` gelesen und disassembliert, auf `26495302` über
+denselben Befehlsablauf gefunden, `tools/rva_map.py` bestätigt die Zuordnung (`eindeutig`). Die Elementgröße der aktiven Effekte stammt
+aus der Reflection (`ActiveGameplayEffect`, `PropertiesSize`) im laufenden Spiel.
 
 - Ein zweiter Satz Delegates `OnHealthChanged` `0x40` bis `OnMaxArmorChanged` `0x90` (Leben, Ausdauer, Rüstung, je Wert und Maximum) gehört zu
   einer anderen Klasse mit eigener Delegate-Signatur; welche, ist offline nicht bestimmt. **[Vermutung]** Ein Hörer am ASC für die HUD-Leiste.
