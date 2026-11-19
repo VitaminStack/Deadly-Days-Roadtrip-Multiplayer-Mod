@@ -15,6 +15,11 @@ std::optional<bool> LocalMenuOpen();
 // pausiert der Host nicht (lieber keine Pause als eine hängende).
 bool HoldForRemote(bool Hold);
 
+// Client nach einer Reise: alle Zeitanfragen mit dem nativen UTimescaleManager::ClearAllRequests abräumen, wie es der
+// Ladestart des Spiels und beim Host die Umleitung der Reise tun. Liefert die Zahl der abgeräumten Anfragen, 0 ohne
+// Anfragen (dann kein Aufruf), nullopt, solange der Manager nicht erreichbar ist.
+std::optional<int32_t> ClearTimeRequests();
+
 // Lokale Kennung der aktuellen Welt, 0 ohne. Nur zum Vergleich, nie übertragen.
 uint64_t WorldKey();
 

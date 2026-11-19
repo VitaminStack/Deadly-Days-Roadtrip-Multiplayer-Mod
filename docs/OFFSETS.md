@@ -600,7 +600,9 @@ Funktionen von `ULocalCoopSubsystem` und ihre Aufrufer, Ablauf siehe [Coop-Ablau
 | `DDMissionGameInstance.TriggerStartRun` | `0x5908150` | Exec-Thunk `0x56CB140`; ruft zuerst `PrepareForNewRun`, am Ende `0x591F1D0` am `RunPersistencyManager` (`opt-metabase-inventar`) |
 | `DDMissionGameInstance.PrepareForNewRun` | `0x58FB3E0` | Exec-Thunk `0x56C6BF0`; leert `PendingGameStateComponentTravelStates` (`+0x248`, Helfer `0x58FEA50`), `+0x298` (Wort, samt `LastRoundChangeReason`), Seed aus `+0x398`. Leert den Run-Container nicht |
 | `DDMissionGameInstance.FinalizeRunStart` | `0x58E9D80` | Exec-Thunk `0x56BC230`, nur aus Blueprints |
-| `URunPersistencyManager::OnRoundChanged` | `0x5936BE0` | Exec-Thunk `0x57974E0`. `NewDay`: Container `+0x80` neu, `RunDataState` (`+0x88`) `EndOfDay`, Persistables serialisieren, speichern. `Win`/`Lose`: Container leeren (`0x591F280`), `OriginalVersion` (`+0x148`) −2, speichern. In der Mod beim Client nach Run-Ende des Hosts (`ClearClientRunSave`) |
+| `URunPersistencyManager::OnRoundChanged` | `0x5936BE0` | Exec-Thunk `0x57974E0`. `NewDay`: Container `+0x80` neu, `RunDataState` (`+0x88`) `EndOfDay`, Persistables serialisieren, speichern. `Win`/`Lose`: Container leeren (`0x591F280`), `OriginalVersion` (`+0x148`) −2, speichern. Einziger Aufrufer ist der Thunk. `26669225`: `0x5937870`. Hook der Mod: Bei einem Netz-Client läuft es nicht (`client-runstand-abbruch`) |
+| `URunPersistencyManager::ResavePersistable` | `0x593EBA0` | Exec-Thunk `0x57989A0`, dazu fünf native Aufrufer (`0x5854E11`, `0x5854E9F`, `0x59076BE`, `0x595DA0E`, `0x5A02907`). `(this, TScriptInterface&)`: Nur wenn `RunDataState` (`+0x88`) nicht 0 ist, serialisiert die Komponente in den Container (`+0x80`) und speichert. `26669225`: `0x593F830`. Hook der Mod wie bei `OnRoundChanged` |
+| Native-Tabelle `{Name, Exec-Thunk}` von `URunPersistencyManager` | Thunks `0x5792500` bis `0x579B3B0` | 18 Einträge, darunter `RegisterPersistable` (Rumpf `0x593CE40`), `LoadRunData` (`0x5934760`), `SaveRun`, `TryContinueRun`, `IsSavedRunCoop` (`0x5934010`). `ERunDataState` im Spielstand: ohne Feld (leer), `BeginOfDay`, `EndOfDay` |
 | `URunPersistencyManager.ClearRunData` | `0x591FD50` | Exec-Thunk `0x57927A0`; nativ nur von `DD_CleanRunSave` (`0x58DF610`) aufgerufen |
 | Handler je Controller beim Run-Ende | `0x584CD20` | `GetLocalPlayer()` und `+0x330` ohne Nullprüfung bei `0x584CD82`, weiter bei `0x584CD90`. Spike-Patch `RunEnd.cpp` |
 | `UGameInstance::CreateLocalPlayer` | `0x2A6B5B0` | |
@@ -1166,6 +1168,33 @@ Felder aus dem SDK beider Builds (`26495302`, `26669225`, gleich), eines ohne Re
 | `DDGameplayAbilityWithState.SetupAbility` | Parameter `0x150`: `ActorInfo` `0x00` (`0x48`), `Spec` `0x48` (`0x108`) |
 | `UGA_DelayedHeal_C` | `CachedCharacter` `0x3B0`, `CachedAbilityComponent` `0x3B8`, `CachedCommonAttributes` `0x4E0`, `OldHealth` `0x4E8`, `PulsesRemaining` `0x4F0` |
 | `UItemShapeDefinition` | `Tiles` `0x28` (`TArray<FIntVector2>`), genutzt von `!equip` |
+
+## Zeitanfragen und Weltzeit (`boss-client-einfrieren`)
+
+Build `26495302`, Disassembly und Speicherlesen am 19.11.2026. Ablauf siehe
+[Stillstand des Clients nach dem Bosstod](GAME_ANALYSIS.md#stillstand-des-clients-nach-dem-bosstod-boss-client-einfrieren). Die Mod
+ruft `ClearAllRequests` und liest die Felder über Namen (Reflection), die RVAs dienen nur der Analyse.
+
+| Funktion | RVA | Hinweis |
+|---|---|---|
+| `UTimescaleManager::RemoveRequest` | `0x46A5920` | Exec-Thunk `0x46A4BA0`. Entfernt den Eintrag; ist die Liste danach leer (`+0x50` gleich `+0x7C`), setzt es `ActiveRequester` auf null und wendet die Standardanfrage `+0x9C` an. Sonst Neuwahl, aber nur, wenn der Entfernte der aktive Anfragende war |
+| Neuwahl der aktiven Anfrage | `0x46A6160` | `ActiveRequester = null`, beste Anfrage suchen, ohne Treffer Rückkehr ohne Anwenden |
+| Beste gültige Anfrage suchen | `0x46A5F70` | Prüft je Eintrag den Weak-Zeiger (`0x1643700`), entfernt ungültige, sonst höchste Priorität (`+0x0C` im Element) |
+| Anfrage anwenden | `0x46A62C0` | Faktor zwischen `AWorldSettings` `+0x3EC` und `+0x3F0` begrenzen, Zeitfaktor setzen (`0x2A8D080`), bei Pause oder kleinstem Faktor die Pause setzen (`0x2A8CFF0`), Zustand in `+0x98` |
+| `UTimescaleManager::ClearAllRequests` | Exec-Thunk `0x46A4A30` | ruft `0x46A5520` |
+| `UTimescaleManager::RequestTimescale` | Exec-Thunk `0x46A4C30` | **[Vermutung]** native Funktion `0x46A5B80` (liegt direkt hinter `RemoveRequest`, vergleicht die Priorität mit der aktiven Anfrage) |
+
+| Klasse | Feld | Offset |
+|---|---|---|
+| `UTimescaleManager` | ActiveRequester, TimeRequests (Daten, Plätze), Belegungsbits (inline, ausgelagert), freie Plätze | `0x40`, `0x48`, `0x50`, `0x58`, `0x68`, `0x7C` |
+| `UTimescaleManager` | Pausenzustand, Standardanfrage (`FTimeRequest`) | `0x98`, `0x9C` |
+| Element von `TimeRequests` | Weak-Zeiger (Objektindex, Seriennummer), Faktor, Priorität, Pause | `0x00`, `0x04`, `0x08`, `0x0C`, `0x10` (Größe `0x1C`) |
+| `UWorld` | TimeSeconds, UnpausedTimeSeconds, RealTimeSeconds, AudioTimeSeconds | `0x858`, `0x860`, `0x868`, `0x870` (`double`). **[Vermutung]** Zuordnung nach der üblichen Reihenfolge und dem Verhalten: Bei pausierter Welt steht `0x858`, `0x868` läuft immer. Auf `26669225` dieselben Offsets gemessen |
+| `UObject` | Index im Objekt-Array | `0x0C` (`int32`), damit löst `pause_state.py` den Weak-Zeiger auf, ohne die Seriennummer zu prüfen |
+
+Die Felder `0x48`, `0x50`, `0x58`, `0x68` und `0x7C` gelten nach der Kontrolle am Rundenende (je zwei Anfragen, `GS_DDMissionState_C`
+und `WP_Round_Stats`) auch auf `26669225`. Ein verwaister Eintrag erscheint in `pause_state.py` mit dem Namen des Objekts, das den
+Platz im Objekt-Array inzwischen belegt (gesehen: eine `Function`, ein `BorderSlot`).
 
 ## Boss-Leiste aller Bosse (`opt-endboss-leiste`)
 

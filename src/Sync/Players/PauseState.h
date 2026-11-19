@@ -94,6 +94,39 @@ private:
     uint64_t Next = 1, Due = 0, ReleaseUntil = 0;
 };
 
+// Client: Zeitanfragen der alten Welt nach einer Reise abräumen (boss-client-einfrieren). FinishMission legt beim Client wie
+// beim Host eine Anfrage des GameState an (Priorität 20, Pause). Nativ räumt der Ladestart sie ab, beim Host die Umleitung
+// der Reise. Der Client reist dem Host nur nach und lief an beidem vorbei, je Reise blieb eine verwaiste Anfrage stehen.
+// Solange eine solche im Manager liegt, stellt RemoveRequest die Zeit nach der letzten gültigen Anfrage nicht wieder her.
+// Rein: Welt als lokale Kennung, Zeit in ms. Die erste gesehene Welt zählt nicht, dort gibt es keine alte Welt. Eine nicht
+// lesbare Welt (0, etwa beim Laden) ist kein Wechsel, sonst räumte der Client mitten in der Mission gültige Anfragen ab.
+inline constexpr uint64_t TravelCleanupGiveUpMs = 30000;
+
+class TravelCleanup
+{
+public:
+    // Je Takt beim Client. Wahr, solange das Abräumen für die aktuelle Welt noch aussteht.
+    bool Due(uint64_t World, uint64_t Now)
+    {
+        if (World && World != LastWorld)
+        {
+            Pending = LastWorld != 0;
+            LastWorld = World;
+            Since = Now;
+        }
+        // Ohne erreichbaren Manager nicht ewig nachfassen: Spätere Anfragen gehören schon der neuen Welt.
+        if (Pending && Now - Since > TravelCleanupGiveUpMs)
+            Pending = false;
+        return Pending && World != 0;
+    }
+
+    void Done() { Pending = false; }
+
+private:
+    uint64_t LastWorld = 0, Since = 0;
+    bool Pending = false;
+};
+
 // Warum der Host eine Pause des Clients nicht mehr hält.
 enum class Release
 {

@@ -72,6 +72,8 @@
 {0x0590B2AA, 0, "48 85 DB 74 ?? 40 84 ED 74 ?? B0 01 EB ??", 0, "DeviceCheckSite"}, // RemoteP2Patches.cpp
 {0x0590B2AF, 0, "40 84 ED 74 ?? B0 01 EB ?? 32 C0 44 3A F0", 0, "SoloLossTest"}, // RemoteP2Patches.cpp
 {0x0590B2B4, 0, "B0 01 EB ?? 32 C0 44 3A F0 0F 84 ?? ?? ?? ?? 88 87 89 01 00 00", 0, "NeedReconnect"}, // RemoteP2Patches.cpp
+{0x05936BE0, 0, "40 57 48 83 EC 20 48 8B F9 80 FA 01", 0, "RunSaveRoundChanged"}, // ClientPatches.cpp
+{0x0593EBA0, 0, "40 53 48 83 EC 20 48 83 3A 00 48 8B D9 74 ?? 48 8B 4A 08", 0, "RunSaveResave"}, // ClientPatches.cpp
 {0x05941A43, 0, "74 ?? 8B 41 64 44 8B D7 39 41 38", 0, "ThreatFreezeBranch"}, // ClientPatches.cpp
 {0x0595DA20, 0, "48 89 5C 24 08 55 56 57 48 81 EC C0 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 B0 00 00 00 49 8B F9 41 0F B6 E8 48 8B F2 33 C9", 0, "CreateItemInstance"}, // RewardPatches.cpp
 {0x0596BA70, 0, "48 89 5C 24 08 57 48 83 EC 20 45 33 C0 48 8B DA", 0, "HandleItemSold"}, // RewardPatches.cpp (Prolog aus CheckSold; Eindeutigkeit offline gegen Spiel-EXE prüfen)

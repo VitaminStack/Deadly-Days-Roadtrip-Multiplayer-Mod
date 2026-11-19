@@ -89,6 +89,34 @@ class SnapshotTests(unittest.TestCase):
         self.assertEqual([row["parent"] for row in result["ui_sessions"]], [-1, 7])
         self.assertTrue(all(row["blocks_gameplay"] for row in result["ui_sessions"]))
 
+    def test_requests_list_live_entries_skip_free_slots_and_keep_orphans(self):
+        memory = Memory()
+        memory.add(0x1000, "TimescaleManager", "TimescaleManager")
+        memory.add(0x2000, "GS_DDMissionState_C", "GameState")
+        memory.ints[0x200C] = 7                      # Objektindex des lebenden Anfragenden
+        memory.pointers[0x1048] = 0x5000             # TimeRequests.Data
+        memory.ints[0x1050] = 3                      # drei Plaetze
+        memory.ints[0x107C] = 1                      # einer frei
+        memory.value(0x1058, "<I", 0b101)            # Platz 1 ist frei
+        for slot, index, serial, values in ((0, 7, 3, (1.0, 20, True)), (1, 9, 9, (0.5, 99, True)),
+                                            (2, 4242, 5, (0.0, 10, False))):
+            row = 0x5000 + slot * 0x1C
+            memory.ints[row] = index
+            memory.ints[row + 4] = serial
+            memory.value(row + 8, "<fi?", *values)
+        entry = self.snapshot(memory)["timescale"][0]
+        self.assertEqual((entry["request_slots"], entry["request_free"]), (3, 1))
+        live, orphan = entry["requests"]
+        self.assertEqual((live["requester"], live["class"], live["priority"], live["pause"]),
+                         ("GameState", "GS_DDMissionState_C", 20, True))
+        self.assertEqual((orphan["index"], orphan["serial"], orphan["requester"], orphan["timescale"]),
+                         (4242, 5, None, 0.0))
+
+    def test_requests_empty_without_data(self):
+        memory = Memory()
+        memory.add(0x1000, "TimescaleManager", "TimescaleManager")
+        self.assertEqual(self.snapshot(memory)["timescale"][0]["requests"], [])
+
 
 if __name__ == "__main__":
     unittest.main()

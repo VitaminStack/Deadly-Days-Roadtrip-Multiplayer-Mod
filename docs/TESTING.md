@@ -165,6 +165,18 @@ ist, darum bei Bedarf wiederholen. `callat <n>` wählt den n-ten Knoten in der R
 Läufen Tag 1, oberer Knoten. Den Tag zeigt `MissionRouteInfo.RouteMissionStructureIdentifier` (+0xAF8 im `UMissionChoiceElement`).
 `!shop go 3` gilt für die MetaBase beider Builds; `!shop poi` listet die POIs.
 
+Grenzen (gemessen am 18.11.2026, `client-runstand-abbruch`): Die Nummern gelten nur für die erste MetaBase eines Prozesses. Nach einer
+Rückkehr oder wenn ein früherer Client selbst hostet, lag der Startring auf POI 6 und der erste wählbare Knoten auf Index 6 bis 17;
+dann POIs und Knoten der Reihe nach probieren, bis `state` eine andere Welt meldet. Beim zweiten Besuch fehlt der Dialog „So wird
+gespielt“, die Routenkarte steht sofort offen. Verlassen wie über das Pausemenü, beim Client:
+
+```powershell
+Send-SpikeCommand <client-pid> '!shop call WP_PauseMenu_C BndEvt__WP_PauseMenu_BackToMenuButton_K2Node_ComponentBoundEvent_2_OnClickResponse__DelegateSignature'
+Send-SpikeCommand <client-pid> '!shop call WP_PauseMenu_C ContinueReturnToMainMenu'
+```
+
+Den Run-Stand eines Testordners liest `py tools/spike/run_save.py <UserDir>\Saved\SaveGames_DDCoop\SaveSlot_DDR_0.sav`.
+
 ### Mensch und Skript zusammen
 
 Arbeitsteilung: Alles, was sich über Konsole, Befehle oder Skripte lesen oder steuern lässt, erledigt der Agent selbst, auch die Prüfungen
