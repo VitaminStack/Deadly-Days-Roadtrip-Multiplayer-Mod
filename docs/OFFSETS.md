@@ -1169,6 +1169,33 @@ Felder aus dem SDK beider Builds (`26495302`, `26669225`, gleich), eines ohne Re
 | `UGA_DelayedHeal_C` | `CachedCharacter` `0x3B0`, `CachedAbilityComponent` `0x3B8`, `CachedCommonAttributes` `0x4E0`, `OldHealth` `0x4E8`, `PulsesRemaining` `0x4F0` |
 | `UItemShapeDefinition` | `Tiles` `0x28` (`TArray<FIntVector2>`), genutzt von `!equip` |
 
+## Zeitanfragen und Weltzeit (`boss-client-einfrieren`)
+
+Build `26495302`, Disassembly und Speicherlesen am 19.11.2026. Ablauf siehe
+[Stillstand des Clients nach dem Bosstod](GAME_ANALYSIS.md#stillstand-des-clients-nach-dem-bosstod-boss-client-einfrieren). Die Mod
+ruft `ClearAllRequests` und liest die Felder über Namen (Reflection), die RVAs dienen nur der Analyse.
+
+| Funktion | RVA | Hinweis |
+|---|---|---|
+| `UTimescaleManager::RemoveRequest` | `0x46A5920` | Exec-Thunk `0x46A4BA0`. Entfernt den Eintrag; ist die Liste danach leer (`+0x50` gleich `+0x7C`), setzt es `ActiveRequester` auf null und wendet die Standardanfrage `+0x9C` an. Sonst Neuwahl, aber nur, wenn der Entfernte der aktive Anfragende war |
+| Neuwahl der aktiven Anfrage | `0x46A6160` | `ActiveRequester = null`, beste Anfrage suchen, ohne Treffer Rückkehr ohne Anwenden |
+| Beste gültige Anfrage suchen | `0x46A5F70` | Prüft je Eintrag den Weak-Zeiger (`0x1643700`), entfernt ungültige, sonst höchste Priorität (`+0x0C` im Element) |
+| Anfrage anwenden | `0x46A62C0` | Faktor zwischen `AWorldSettings` `+0x3EC` und `+0x3F0` begrenzen, Zeitfaktor setzen (`0x2A8D080`), bei Pause oder kleinstem Faktor die Pause setzen (`0x2A8CFF0`), Zustand in `+0x98` |
+| `UTimescaleManager::ClearAllRequests` | Exec-Thunk `0x46A4A30` | ruft `0x46A5520` |
+| `UTimescaleManager::RequestTimescale` | Exec-Thunk `0x46A4C30` | **[Vermutung]** native Funktion `0x46A5B80` (liegt direkt hinter `RemoveRequest`, vergleicht die Priorität mit der aktiven Anfrage) |
+
+| Klasse | Feld | Offset |
+|---|---|---|
+| `UTimescaleManager` | ActiveRequester, TimeRequests (Daten, Plätze), Belegungsbits (inline, ausgelagert), freie Plätze | `0x40`, `0x48`, `0x50`, `0x58`, `0x68`, `0x7C` |
+| `UTimescaleManager` | Pausenzustand, Standardanfrage (`FTimeRequest`) | `0x98`, `0x9C` |
+| Element von `TimeRequests` | Weak-Zeiger (Objektindex, Seriennummer), Faktor, Priorität, Pause | `0x00`, `0x04`, `0x08`, `0x0C`, `0x10` (Größe `0x1C`) |
+| `UWorld` | TimeSeconds, UnpausedTimeSeconds, RealTimeSeconds, AudioTimeSeconds | `0x858`, `0x860`, `0x868`, `0x870` (`double`). **[Vermutung]** Zuordnung nach der üblichen Reihenfolge und dem Verhalten: Bei pausierter Welt steht `0x858`, `0x868` läuft immer. Auf `26669225` dieselben Offsets gemessen |
+| `UObject` | Index im Objekt-Array | `0x0C` (`int32`), damit löst `pause_state.py` den Weak-Zeiger auf, ohne die Seriennummer zu prüfen |
+
+Die Felder `0x48`, `0x50`, `0x58`, `0x68` und `0x7C` gelten nach der Kontrolle am Rundenende (je zwei Anfragen, `GS_DDMissionState_C`
+und `WP_Round_Stats`) auch auf `26669225`. Ein verwaister Eintrag erscheint in `pause_state.py` mit dem Namen des Objekts, das den
+Platz im Objekt-Array inzwischen belegt (gesehen: eine `Function`, ein `BorderSlot`).
+
 ## Boss-Leiste aller Bosse (`opt-endboss-leiste`)
 
 Per Reflexion im laufenden Spiel gelesen, auf beiden Builds (`26495302`, `26669225`) gleich. Die Mod nutzt davon nur die bisherigen Felder

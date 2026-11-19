@@ -1,6 +1,7 @@
 #include "Sync/Players/PauseState.h"
 
 #include <chrono>
+#include <format>
 #include <random>
 #include "Core/Log.h"
 #include "Game/PauseAdapter.h"
@@ -47,6 +48,7 @@ struct
     // Client
     std::optional<Pause::ClientReporter> Reporter;
     std::optional<bool> LastOpen;
+    Pause::TravelCleanup Cleanup;
     // Beide: zuletzt geloggter Zustand der Weltzeit, für den Nachweis gleicher Weltzeit im Log.
     std::optional<bool> WorldPaused;
 } P;
@@ -110,6 +112,16 @@ void TickClient(Net::Transport& Transport, uint64_t Now)
 {
     if (!P.Reporter)
         P.Reporter.emplace(RandomId());
+    // Nach einer Reise die Zeitanfragen der alten Welt abräumen, vor allem die des alten GameState aus FinishMission.
+    if (P.Cleanup.Due(Game::Pause::WorldKey(), Now))
+    {
+        if (const auto Cleared = Game::Pause::ClearTimeRequests())
+        {
+            P.Cleanup.Done();
+            if (*Cleared)
+                LogTime(std::format("Client räumt nach der Reise {} Zeitanfrage(n) der alten Welt ab", *Cleared).c_str());
+        }
+    }
     const auto Open = Game::Pause::LocalMenuOpen();
     // Unlesbar zählt wie geschlossen: eine offene Sitzung endet, keine neue beginnt.
     const bool Value = Open.value_or(false);
