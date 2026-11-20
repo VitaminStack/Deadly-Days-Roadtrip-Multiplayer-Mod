@@ -29,7 +29,17 @@ Parallel dazu in Vorbereitung (`update-basis-1-0-2`, 16.11.2026), noch nicht fü
 | Geändert | Exe, `DDSurvivors-Windows.pak`, `.ucas`, `.utoc`; `global.ucas`/`global.utoc` gleich. 52 Dateien in der eingefrorenen Kopie |
 | Stand der Mod | seit `freigabe-1-0-2` für Spieler geöffnet: Teilinstallation von selbst, 18 von 18 Patch-Listen, 3 einzelne Patches ausgelassen (Blockade, Händlerkauf, Nachladesound; die Lebensleisten des Clients seit `update-1-0-2-lebensleisten` gesetzt); siehe [Freigabe](OFFSETS.md#freigabe-von-build-26669225-für-spieler-freigabe-1-0-2). Im Live-Test am 16.11.2026 kam der Host am ersten Rundenende nicht aus dem Lager, der Run war nicht fortsetzbar; behoben in `rundenende-1-0-2` und auf einem PC bis Tag 3 bestätigt (beide Reihenfolgen). Stände vor diesem Fix sind auf `26669225` nicht spielbar. Offen: Gegenprobe auf zwei PCs mit Lager-Edit des Clients, siehe [Rundenende auf 26669225](OFFSETS.md#rundenende-auf-26669225-rundenende-1-0-2) |
 
-Die Mod erkennt beide Builds, Referenz und Standard aller Skripte bleibt `26495302`. Die Hash-Referenz beider Builds steht in `tools/game_build.py`.
+Ebenfalls parallel unterstützt (`update-basis-26786272`, 20.11.2026):
+
+| | |
+|---|---|
+| Steam-Build-ID | `26786272` (Patch 1.0.3 vom 19.11.2026) |
+| Manifest-IDs | Depot `3026451`: `1832737755528485607` (unverändert), Depot `3026452`: `4188926129224131155` |
+| Exe-Kennung | TimeDateStamp `0x260774D7`, SizeOfImage `0x0B750000` |
+| Geändert | Exe, `DDSurvivors-Windows.pak`, `.ucas`, `.utoc` und diesmal auch `global.ucas`/`global.utoc`. 52 Dateien in der eingefrorenen Kopie |
+| Stand der Mod | Teilinstallation von selbst, 18 von 18 Patch-Listen, 0 Patches ausgelassen; auf einem PC bis in die Mission und über ein Rundenende gemessen, Lauf über die Route und zwei PCs offen (`update-26786272-run`); siehe [Offsets](OFFSETS.md#build-26786272-update-basis-26786272) |
+
+Die Mod erkennt alle drei Builds, Referenz und Standard aller Skripte bleibt `26495302`. Die Hash-Referenz der Builds steht in `tools/game_build.py`.
 Den Wechsel der Entwicklungskopien entscheidet das Team (`wechsel-1-0-2`).
 
 Build-ID und Manifest-IDs stehen in `steamapps/appmanifest_3026450.acf`. Die Manifest-IDs benennen die gewünschten Depotstände;

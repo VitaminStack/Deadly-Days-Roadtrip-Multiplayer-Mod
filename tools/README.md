@@ -101,8 +101,8 @@ powershell -ExecutionPolicy Bypass -File tools/Freeze-GameBuild.ps1 -Activate
 - Quelle bleibt `GameDir` aus `config/Local.props`, Standardziel ist `%LOCALAPPDATA%/DDCoop/builds/<Build>`.
 - `-Build <id>` wählt einen der unterstützten Builds aus `SupportedBuilds` in `tools/spike/Common.ps1`, Standard `26495302`. Jeder Build hat
   seine Hash-Referenz in `game_build.py` und einen eigenen Ordner. Start und Deploy erkennen den Build der aktiven Kopie an ihrem Beleg.
-  Der Spike kennt die Adressen von `26495302` und, über die Tabelle der Mod, von `26669225`; auf einem anderen Build setzt er keine Patches.
-  `-Build 26669225` (Patch 1.0.2) legt die zweite Kopie an; ohne `-Activate` bleibt `PinnedGameDir` auf `26495302`. Für Tests auf `26669225`
+  Der Spike kennt die Adressen von `26495302` und, über die Tabellen der Mod, von `26669225` und `26786272`; auf einem anderen Build setzt er keine Patches.
+  `-Build 26669225` (Patch 1.0.2) oder `-Build 26786272` (Patch 1.0.3) legt eine weitere Kopie an; ohne `-Activate` bleibt `PinnedGameDir` auf `26495302`. Für Tests auf einem dieser Builds
   eine eigene `config/Local.props` im Worktree mit dem anderen `PinnedGameDir` anlegen, nie die gemeinsame Datei umstellen.
 - `-Destination <Ordner>` wählt ein anderes Ziel außerhalb aller `steamapps`-Ordner. Keine Hardlinks, Symlinks oder Junctions.
 - `-Activate` setzt `PinnedGameDir` in der gefundenen lokalen Konfiguration; in Worktrees ohne eigene `Local.props` ist das die gemeinsame Datei.

@@ -4,7 +4,8 @@ Der Quelltext (`src/`, Spike) nennt seit `spiel-update` (09.11.2026) RVAs von St
 Ältere Abschnitte dieser Datei sind vor dem Umstieg entstanden und nennen RVAs von `26187885`, siehe
 [Referenz-Build 26495302](#referenz-build-26495302-spiel-update) für die Umrechnung. Feld-Offsets sind in beiden Builds gleich, außer wo vermerkt.
 Nach einem Spiel-Update müssen sie neu bestimmt werden, siehe [Spiel-Updates](../CONTRIBUTING.md#spiel-updates).
-Für Steam-Build `26669225` (Patch 1.0.2) gibt es seit dem 16.11.2026 eine Umrechnungstabelle, siehe [Build 26669225](#build-26669225-update-basis-1-0-2).
+Für Steam-Build `26669225` (Patch 1.0.2) gibt es seit dem 16.11.2026 eine Umrechnungstabelle, siehe [Build 26669225](#build-26669225-update-basis-1-0-2),
+für `26786272` (Patch 1.0.3) seit dem 20.11.2026, siehe [Build 26786272](#build-26786272-update-basis-26786272).
 Sie sind hier zum Nachschlagen gesammelt, damit niemand sie erneut suchen muss. Wer neue findet, trägt sie hier ein.
 
 RVAs sind relativ zur Image-Base `0x140000000`. Die Patchstellen stehen als Konstanten am Anfang der jeweiligen
@@ -26,6 +27,94 @@ Tabelle selbst ist entfernt; für alte Werte weiter unten: `git show 0cb3d80:src
   Tag 2 (63/63), je 2/2 Spieler, Inventar gleich, kein `[ERROR]` im Mod-Log.
 - Drei Adressen nur aus Kommentaren ließen sich nicht umrechnen (Exec-Thunks von `ReceiveExp` und `HandleItemSold`, Absturzstelle in
   `RepresentationSize`); die Kommentare nennen sie nicht mehr.
+
+## Build 26786272 (`update-basis-26786272`)
+
+Stand 20.11.2026, Patch 1.0.3 vom 19.11.2026 (Version laut `CrashReportClient.ini` des Spiels: `1.0.3-main-10811c16`). `26495302` bleibt
+Referenz-Build, `26669225` bleibt unterstützt. Für `26786272` rechnet `Game::AddressMap` die Referenz-RVAs über
+`src/Game/RvaMap26786272.inc` um. Exe: TimeDateStamp `0x260774D7`, SizeOfImage `0x0B750000`; `.text` ist gewachsen
+(`0x0828081C` statt `0x0827BCFC` auf `26669225`). Alles unten ist auf einem PC gemessen, zwei Instanzen, ohne echte Eingaben.
+
+| | 26495302 | 26669225 | 26786272 | Beleg |
+|---|---|---|---|---|
+| GObjects | `0x0AA67B80` | `0x0AA69B80` | `0x0AA6FC80` | rva_map (Code-Verweis) und Dumper-7-SDK |
+| GNames | `0x0A999B40` | `0x0A99BB40` | `0x0A9A1C40` | rva_map und SDK |
+| GWorld | `0x0AAEA770` | `0x0AAEC770` | `0x0AAF2870` | rva_map und SDK |
+| ProcessEvent | `0x0160C220` | `0x0160C220` | `0x0160C220` | rva_map (eindeutig) und SDK |
+
+- **Code-Adressen:** 124 Adressen aus `src/`. `tools/rva_map.py` rechnet von `26495302` aus 110 um (103 eindeutig, 3 vtables, 3 Globale,
+  1 über den Funktionsanfang). Gegenprobe: dieselben 110 von `26669225` aus über dessen Tabelle umgerechnet, alle 110 Ergebnisse gleich.
+  Die übrigen 14 sind von Hand bestimmt und in der Tabelle mit `// von Hand` und Beleg vermerkt; **keine Adresse fehlt**:
+
+  | Referenz-RVA | 26786272 | Bedeutung | Beleg |
+  |---|---|---|---|
+  | `0x056676F5` | `0x05667FB5` | Blockade-Thunk (`ClientPatches.cpp`) | einziger `jmp` auf `BlockadeLoadingFinished` `0x058BD200`, dessen 70 Befehle maskiert gleich sind |
+  | `0x05707870` | `0x05708220` | `Hands.PlayReloadSound` | 37 eindeutige Befehlsfenster, alle 38 Befehle maskiert gleich |
+  | `0x057DBA40`, `0x057DC810`, `0x057DCD60`, `0x057DCE70`, `0x057DD080` | `0x057DCB80`, `0x057DD950`, `0x057DDEA0`, `0x057DDFB0`, `0x057DE1C0` | `OnRep_Armor`, `OnRep_Health`, `OnRep_MaxArmor`, `OnRep_MaxHealth`, `OnRep_MaxStamina` | je 20 bis 30 eindeutige Fenster, alle Befehle maskiert gleich, Verschiebung `+0x930` gegen `26669225` |
+  | `0x058B1130` | `0x058B25E0` | `UTackleAbilityExecution::EndTackle` | Funktionsanfang aus `.pdata`, 111 Fenster; **Rumpf geändert** (siehe unten) |
+  | `0x058CE280` | `0x058CFD10` | `ShopPanelItem::TryBuyItem` | eindeutig von `26669225` aus, alle 12 Befehle gleich; Prüfbytes wie `26669225` |
+  | `0x05998D70`, `0x05998D91` | `0x0599B984`, `0x0599B9A5` | `LootPawnRead`, `LootNoRootTarget` (`PlayerPatches.cpp`) | Bytefolge `mov rax,[rbx+1B8h]`/`test`/`je`/`movups [rax+210h]` genau einmal in `.text`; **Funktion umgebaut** (siehe unten) |
+  | `0x05A90940` | `0x05A941D0` | `ClientRefreshFunction` | 179 eindeutige Fenster, 639 von 656 Befehlen gleich |
+  | `0x093A1F98` | `0x093A7EF8` | vtable `BackpackSlot` | 82 von 84 Einträgen umgerechnet, alle gleich |
+  | `0x094C6A78` | `0x094CD068` | vtable Achievement-Detektor | 162 von 164 Einträgen umgerechnet, alle gleich |
+
+- **Geänderter Code an Patch-Stellen** (drei Stellen, je mit eigener Prüfung für `26786272`):
+  - `EndTackle`: Prolog `sub rsp,28h` statt `38h`, die Funktion räumt ein neues Feld `+0x26C` ab und ruft für den alten Mittelteil
+    `0x058AE870`. Signatur `(Execution, bool)` und `TackleBlocked` `+0x268` unverändert; der Hook hängt am Anfang und ruft das Original.
+    Eigene Prüfbytes in `CheckEndTackle`.
+  - Loot-Spawner: Die Funktion nutzt andere Register und Stack-Plätze (`r12` statt `rsi`, `[rbp+20h]` statt `[rbp-20h]`), die gepatchten
+    sieben Bytes `48 8B 83 B8 01 00 00` und die Wirkung des Sprungziels (Standardort laden) sind gleich. Der Patch bleibt unverändert,
+    die Signaturen von `LootPawnRead` und `LootNoRootTarget` haben dafür Platzhalter bekommen.
+  - `UItemRepresentation.ItemInstance` liegt bei `+0xA38` statt `+0xA28` (zwei neue Felder davor, siehe SDK-Vergleich). Das ist der einzige
+    fest eingetragene Feld-Offset der Mod, der sich verschoben hat: `RepresentationItem()` in `InventoryPatches.cpp` wählt den Wert je
+    Build, `CheckRepresentationItem` belegt ihn je Build mit den Bytes `mov rax,[rsi+0A28h]` bzw. `[rsi+0A38h]`. Ohne die Änderung fiel
+    die ganze Liste Inventory aus (gemessen, erster Spieltest: 17 von 18 Listen, Client-Prozess endete nach gut einer Minute in der Mission
+    ohne Absturzbericht, wie auf `26669225` vor `update-1-0-2-inventar`).
+- **Offline gegen die drei Exes:** `tools/expect_check.py` je Build 101 `ok`, 3 `anderer-build`, 2 `uebersprungen`, keine `abweichend`,
+  keine `fehlt`. `tools/patch_signatures.py check` je Build 113 `ok`. Drei Signaturzeilen sind dafür angepasst (`EndTackle`,
+  `LootPawnRead`, `LootNoRootTarget`). `expect_check.py` kennt jetzt `// Build <id>, <id>` für Prüfungen, die für mehrere Builds gelten.
+- **SDK-Vergleich** (`py tools/sdk_diff.py`, SDK von `26669225` gegen SDK von `26786272`, dieses am 20.11.2026 per `inject.py` im Host
+  in `DDDynamic_Map` erzeugt, 2.494 Dateien): 351 unverändert, nichts verschoben, verschwunden oder mit geänderter Signatur;
+  `UInventoryPanel` wächst von `0xA18` auf `0xA20`, `URecipePanel` von `0x4B0` auf `0x4C0`, `URecipeButton` ist neu (`0x8B0`). Vier Einträge
+  `unbekannt` wie bei `26669225` (ordnet das Werkzeug nicht zu). `Engine_classes.hpp`, `Engine_structs.hpp`, `CoreUObject_classes.hpp`,
+  `UMG_classes.hpp`, `GameplayAbilities_classes.hpp` und `DDSurvivors_structs.hpp` sind bytegleich. In `DDSurvivors_classes.hpp` haben
+  sich diese nativen Klassen geändert:
+
+  | Klasse | Änderung |
+  |---|---|
+  | `UItemRepresentation` | neu `UpgradableMask` `0xA00`, `GlitterMask` `0xA08` (vorher im Blueprint `WP_Inventory_Item_C`), `DeactivatedIcon` `0xAB0`, `DeactivatedIconMaterial`, `DeactivatedIconMID`, `DeactivatedBackgroundMID`; Felder ab `0xA00` `+0x10`, ab `0xAB0` `+0x30` |
+  | `UInventoryPanel` | neu `RecipePanelButtonText` `0x7F8`, Felder dahinter `+0x8`; neue Funktionen `RefreshItemBadgesAfterEffectUpdate`, `CanCraft`, `GetWorkbenchTitle` |
+  | `URecipePanel`, `URecipeButton` | neu `ReadOnlyHint` `0x428`, `RecipePanelTitle` `0x430`; `URecipeButton` als eigene native Klasse |
+  | `UTackleAbilityExecution` | neu `bClampTargetsToBossArena` `0x101`, zwei Bool-Felder dahinter `+1`; neue Funktion `ProjectTackleTarget` |
+  | `UMaterialAnimator` | neu `OverrideMaterialInstance` `0x128`, vier Felder dahinter `+0x8` |
+  | `UOrbitingItemManager`, `UPlayerControlSwapper` | Größe `+0x8` bzw. `-0x8` |
+  | Funktionsbibliothek Inventar | neu `GetLargestBuffValueSum`, `IsItemSwitchingOffItem`; `GetHandsRequiredForItem` mit geänderter Parameterliste |
+
+  Die Mod nutzt aus diesen Klassen fest nur `UItemRepresentation.ItemInstance` (oben) sowie `UInventoryPanel` `+0x370` und `+0x788`
+  (beide vor der Einfügung, unverändert) und `UTackleAbilityExecution` `+0x238`/`+0x268` (unverändert). `GetHandsRequiredForItem` ruft die
+  Mod nicht auf. **[Vermutung]** `IsItemSwitchingOffItem` und die `Deactivated…`-Felder gehören zu einer neuen Mechanik, bei der ein Item
+  ein anderes abschaltet; ob sie beim Client richtig ankommt, ist nicht geprüft (`update-26786272-run`).
+- **SdkChecks:** `SdkChecks.cpp` baut gegen das SDK von `26786272` ohne Fehler (nach der üblichen
+  [Nacharbeit](GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58) an `Assertions.inl`); `Offsets.h` gilt damit für alle drei Builds. Grenze wie
+  immer: Offsets, die nur als Zahl im Code stehen, erfasst das nicht. Die 238 fest eingetragenen Werte in `src/` sind deshalb gegen die
+  Liste der geänderten Klassen oben abgeglichen, nicht einzeln gemessen.
+- **Dumper-7 auf `26786272`:** Dump mit dem Stand des Submoduls plus lokalem Fix aus `dumper7-image-ende` (nicht im Repo). Mit dem Fix
+  brauchte der Dump rund zehn Minuten statt unter einer; die Stichprobe des Dumper-Threads stand in `FindStringInRange` →
+  `IsBadReadPtr`. **[Vermutung]** Die zusätzliche Prüfung ruft für jeden Kandidaten `VirtualQuery`; im Fork besser erst
+  `IsInAnySection` prüfen. Ohne den Fix auf diesem Build nicht versucht.
+- **Spike:** `Builds.cpp` erkennt `26786272` am TimeDateStamp `0x260774D7` und rechnet über `RvaMap26786272.inc` und vier eigene
+  Einträge um (`UpdateTag` `0x04B7E230`, Tag `State.Invincible` `0x0AC70218`, die beiden Stellen in `SerializeNewActor` wie auf
+  `26669225`; je von beiden alten Builds aus gleich umgerechnet). `tools/spike/ddmem.py` kennt die Globalen.
+- **Spieltest `26786272`** (eingefrorene Kopie, `Start-Session.ps1 -Build -Mod -Tunnel Lobby -Map /Game/Maps/DDDynamic_Map`, ohne
+  `-PartialPatches`): Host und Client `Signaturen: 113 Adressen geprüft`, `Teilinstallation auf Build 26786272, 18 von 18 Listen gesetzt,
+  0 Patches ausgelassen`, beide mit 2 Spielern in der Mission. `!wave`, `!give ItemData_Pistol`, danach `Inventar: vollstaendig, gleich`,
+  `Test-Godmode.ps1` bestanden, Desync-Melder `OK Tag, Phase, Spieler, HP, Gegner, Inventar`, Schadenszahlen 194 vom Host gesendet und
+  194 beim Client angekommen, `!finish`: Rundenende beim Client geöffnet, Lager bei beiden. Kein `[ERROR]`, kein Absturz.
+  `Test-Desync.ps1` lief im laufenden Kampf in den Zeitablauf (Feld Gegner wechselt zwischen offen und OK); nicht weiter untersucht.
+- **Gegenprobe:** derselbe Ablauf auf `26669225` (`18 von 18 Listen gesetzt, 0 Patches ausgelassen`) und `26495302`
+  (`Patches: 57 gesetzt`), je Inventar gleich, Rundenende bei beiden, kein `[ERROR]`, kein Absturz.
+- **Nicht geprüft:** Lauf über die Routenkarte und mehrere Tage, Händler, Werkbank und Rezept-Panel (dort hat 1.0.3 Klassen geändert),
+  Bosse, Sitzung nur mit Mod über Tage, zwei PCs, Installation in die Steam-Kopie. Siehe `update-26786272-run`.
 
 ## Build 26669225 (`update-basis-1-0-2`)
 

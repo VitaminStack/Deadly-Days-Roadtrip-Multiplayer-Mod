@@ -68,12 +68,13 @@ der [Patch-Tabelle des Spikes](../../research/spikes/a-connect/README.md#patches
 
 Alle RVAs im Quelltext gelten für den Referenz-Build `26495302` (seit `spiel-update`, vorher `26187885`, siehe
 [Offsets](../../docs/OFFSETS.md#referenz-build-26495302-spiel-update)). `At(Rva)` und `Memory::Rva` rechnen sie über `AddressMap` auf jeden
-weiteren Build um, derzeit `26669225` (Patch 1.0.2, `RvaMap26669225.inc`, [Stand](../../docs/OFFSETS.md#build-26669225-update-basis-1-0-2); Tabelle `RvaMap<build>.inc` aus [`tools/rva_map.py`](../../tools/README.md#rva_mappy)). Fehlt eine Adresse, liefern sie 0 und
+weiteren Build um, derzeit `26669225` (Patch 1.0.2, `RvaMap26669225.inc`, [Stand](../../docs/OFFSETS.md#build-26669225-update-basis-1-0-2)) und `26786272` (Patch 1.0.3, `RvaMap26786272.inc`, [Stand](../../docs/OFFSETS.md#build-26786272-update-basis-26786272); Tabelle `RvaMap<build>.inc` aus [`tools/rva_map.py`](../../tools/README.md#rva_mappy)). Fehlt eine Adresse, liefern sie 0 und
 protokollieren sie einmal; die Byte-Prüfungen schlagen dann fehl und keine Patch-Liste wird gesetzt. Neue RVAs immer als Referenz-RVA
 eintragen und für jeden weiteren Build in dessen Tabelle nachziehen. Feld-Offsets (`Offsets.h`) werden nicht umgerechnet.
 Eine Stelle im Abstand zu einer Adresse immer als `At(Rva, Abstand)` schreiben, nie `At(Rva + Abstand)`: Die Summe steht in keiner Tabelle.
+Verschiebt ein Build ein fest eingetragenes Feld, wählt eine Funktion den Wert nach `Core::ActiveBuild()` und die Byte-Prüfung belegt ihn je Build (Vorbild `RepresentationItem()` in `InventoryPatches.cpp`).
 
-**Teilinstallation.** Auf einem weiteren Build mit eigener Tabelle (derzeit `26669225`, seit `freigabe-1-0-2` für Spieler geöffnet) setzt die
+**Teilinstallation.** Auf einem weiteren Build mit eigener Tabelle (derzeit `26669225`, seit `freigabe-1-0-2` für Spieler geöffnet, und `26786272`) setzt die
 Mod von selbst jede Patch-Liste (eine `*Patches.cpp`) für sich ganz oder gar nicht und lässt einzelne Patches mit fehlender Adresse aus; Ticks
 laufen nur für vollständige Listen; Stellen aus `PatchList::TickOptional` zählen dabei nicht (`rundenende-1-0-2`: Der Tick der Liste Reward
 holt das zurückgehaltene Bestätigen des Hosts nach und läuft darum auch ohne die Adresse des Händlerkaufs). Auf einem Build ohne Tabelle nur mit `DDCOOP_PARTIAL_PATCHES=1` (`Start-Session.ps1 -PartialPatches`). Das Log

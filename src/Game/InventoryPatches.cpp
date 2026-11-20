@@ -9,6 +9,7 @@
 
 #include "Core/Log.h"
 #include "Core/Hooks.h"
+#include "Core/Version.h"
 #include "Game/Memory.h"
 #include "Game/PatchPolicy.h"
 #include "Game/Objects.h"
@@ -333,7 +334,14 @@ constexpr uintptr_t LambdaGenerator = 0x18;
 // Liest ItemInstance (+0xA28), davon ItemData (+0xE0) und dessen Form (+0xE8) ohne Prüfung. Verliert das Widget sein Item, etwa
 // beim Verbindungsabbau im Lager, stürzte der Client hier ab (Build 26187885, Lesen bei +0x1A). Ohne Item bleibt die alte Größe stehen.
 constexpr uintptr_t RepresentationSize = 0x5ABA0F0;
-constexpr uintptr_t RepresentationItem = 0xA28;
+// update-basis-26786272: Seit Patch 1.0.3 stehen vor ItemInstance zwei neue Felder (UpgradableMask, GlitterMask, SDK-Vergleich),
+// das Feld liegt dort bei +0xA38. Die Byte-Prüfung in CheckRepresentationSize belegt den Wert je Build.
+constexpr uintptr_t RepresentationItemBefore103 = 0xA28; // Builds 26495302, 26669225
+constexpr uintptr_t RepresentationItemSince103 = 0xA38;  // Build 26786272
+uintptr_t RepresentationItem()
+{
+    return Core::ActiveBuild() == 26786272 ? RepresentationItemSince103 : RepresentationItemBefore103;
+}
 constexpr uintptr_t ItemInstanceData = 0xE0;
 constexpr uintptr_t ItemDataShape = 0xE8;
 using RepresentationSizeFn = void(__fastcall*)(uintptr_t);
@@ -342,7 +350,7 @@ std::atomic<unsigned> RepresentationSkips = 0;
 
 void __fastcall RepresentationSizeHook(uintptr_t Representation)
 {
-    const uintptr_t Item = Memory::Read<uintptr_t>(Representation + RepresentationItem).value_or(0);
+    const uintptr_t Item = Memory::Read<uintptr_t>(Representation + RepresentationItem()).value_or(0);
     const uintptr_t Data = Item ? Memory::Read<uintptr_t>(Item + ItemInstanceData).value_or(0) : 0;
     const uintptr_t Shape = Data ? Memory::Read<uintptr_t>(Data + ItemDataShape).value_or(0) : 0;
     if (Shape)
@@ -496,12 +504,22 @@ bool ApplyMapGenLambda(Code::Writer&)
            Code::WriteVirtual(At(MapGenLambdaVtable, 8), reinterpret_cast<uintptr_t>(&MapGenLambdaExecuteIfSafeHook));
 }
 
-// Die Funktion prüft zuerst den Slot (+0x30) und liest das Item danach ohne Prüfung (mov rax,[rsi+0A28h] bei +0x41).
+// Die Funktion prüft zuerst den Slot (+0x30) und liest das Item danach ohne Prüfung (mov rax,[rsi+0A28h] bei +0x41, seit 1.0.3 +0A38h).
+bool CheckRepresentationItem()
+{
+    static_assert(RepresentationItemBefore103 == 0xA28 && RepresentationItemSince103 == 0xA38, "Prüfbytes unten anpassen");
+    if (Core::ActiveBuild() == 26786272)
+        return Code::Expect(At(RepresentationSize, 0x41), {0x48, 0x8B, 0x86, 0x38, 0x0A, 0x00, 0x00}, // Build 26786272
+                            "Größe des Item-Widgets, Item-Feld (1.0.3)");
+    return Code::Expect(At(RepresentationSize, 0x41), {0x48, 0x8B, 0x86, 0x28, 0x0A, 0x00, 0x00}, // Build 26495302, 26669225
+                        "Größe des Item-Widgets, Item-Feld");
+}
+
 bool CheckRepresentationSize()
 {
     return Code::Expect(At(RepresentationSize), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x56, 0x48, 0x83, 0xEC, 0x40, 0x48, 0x83, 0x79, 0x30, 0x00},
                         "Größe des Item-Widgets") &&
-           Code::Expect(At(RepresentationSize, 0x41), {0x48, 0x8B, 0x86, 0x28, 0x0A, 0x00, 0x00}, "Größe des Item-Widgets, Item-Feld");
+           CheckRepresentationItem();
 }
 
 bool ApplyRepresentationSize(Code::Writer&)
