@@ -4,13 +4,14 @@
 #include <cstdint>
 #include <span>
 
-// Code- und Datenadressen je Spiel-Build (update-basis). Der Quelltext nennt alle RVAs des Referenz-Builds; für jeden
-// weiteren Build rechnet eine von tools/rva_map.py erzeugte Tabelle RvaMap<build>.inc sie um (in Table eintragen). Fehlt eine Adresse, ist das Ergebnis 0:
+// Code- und Datenadressen je Spiel-Build. Der Quelltext nennt alle RVAs des Referenz-Builds, des einzigen unterstützten Builds
+// (Nutzerentscheidung vom 21.11.2026: nur noch der neueste Spiel-Build). Während eines Umstiegs kann eine von tools/rva_map.py
+// erzeugte Tabelle RvaMap<build>.inc einen weiteren Build umrechnen (in Table eintragen). Fehlt eine Adresse, ist das Ergebnis 0:
 // Die Byte-Prüfungen der Patches schlagen dann fehl und keine Patch-Liste wird halb gesetzt.
-// constexpr, damit SdkChecks.cpp die Werte beim Bauen gegen das SDK des jeweiligen Builds prüfen kann.
+// constexpr, damit SdkChecks.cpp die Werte beim Bauen gegen das SDK des Builds prüfen kann.
 namespace Game::AddressMap
 {
-inline constexpr uint32_t ReferenceBuild = 26495302;
+inline constexpr uint32_t ReferenceBuild = 26786272;
 
 struct Entry
 {
@@ -18,16 +19,10 @@ struct Entry
     uint32_t Mapped;
 };
 
-// Patch 1.0.2 (update-basis-1-0-2), parallel zum Referenz-Build. Fehlende Adressen trägt die Portierung je Patch-Datei nach.
-inline constexpr Entry Build26669225[] = {
-#include "Game/RvaMap26669225.inc"
-};
-
 // Tabelle eines Builds, aufsteigend nach Reference. Leer für den Referenz-Build und unbekannte Builds.
-constexpr std::span<const Entry> Table(uint32_t Build)
+// Seit spiel-update-26786272 gibt es nur den Referenz-Build und darum keine Tabelle.
+constexpr std::span<const Entry> Table(uint32_t)
 {
-    if (Build == 26669225)
-        return Build26669225;
     return {};
 }
 
@@ -55,5 +50,3 @@ constexpr bool Sorted(std::span<const Entry> Entries)
     return true;
 }
 }
-
-static_assert(Game::AddressMap::Sorted(Game::AddressMap::Build26669225), "RvaMap26669225.inc muss nach Referenz-RVA sortiert sein");

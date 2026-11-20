@@ -283,7 +283,7 @@ inline std::vector<Tile> Sorted(std::vector<Tile> Tiles)
 
 // opt-rucksack-ueberlappung: Feld, an dem die Anzeige eines Rucksack-Items ausgerichtet wird. Das native
 // InventoryPanel.SnapRepresentationToTile rechnet Feld * 66 px als obere linke Ecke des Widgets und gleicht nur bei Drehung 1 und 3
-// die vertauschte Breite und Höhe aus (Disassembly 0x5A96EF0). Daraus abgeleitet: Es erwartet die obere linke Ecke der belegten Fläche, nicht
+// die vertauschte Breite und Höhe aus (Disassembly 0x5A9AB50). Daraus abgeleitet: Es erwartet die obere linke Ecke der belegten Fläche, nicht
 // ZeroPivotTile: Bei gedrehten Items liegt der Pivot auf einem anderen Feld, die Anzeige stand dann versetzt.
 inline Tile SnapTile(Tile Pivot, const std::vector<Tile>& Tiles)
 {

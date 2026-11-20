@@ -18,7 +18,7 @@ namespace Game::Patches
 {
 namespace
 {
-// BP_EnvironmentObjectLootspot_C (Build 26495302, SDK).
+// BP_EnvironmentObjectLootspot_C (Build 26786272, SDK).
 constexpr uintptr_t SpotProgress = 0x3C0;  // double, Net
 constexpr uintptr_t SpotIsLooting = 0x3C8; // bool, Net, RepNotify
 constexpr uint32_t GarbageOrUnreachable = 0x30;

@@ -1,7 +1,7 @@
 """Bosskarte und Boss je Instanz: boss_state.py <pid> [<pid> ...]
 
 Zeigt BossMapTileParcel (Arena), BossfightSpawnPoint (SpawnedBoss), BossComponent, lebende Bosse (Rolle, HP, Position)
-und die Figuren. Offsets Build 26495302, siehe docs/OFFSETS.md (endboss-spawn).
+und die Figuren. Offsets Build 26786272, siehe docs/OFFSETS.md (endboss-spawn).
 """
 import struct
 import sys

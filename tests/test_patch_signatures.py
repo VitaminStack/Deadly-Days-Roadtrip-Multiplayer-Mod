@@ -27,7 +27,7 @@ class TableTests(unittest.TestCase):
 
     def test_rows_round_trip_sorted(self):
         rows = {
-            (0x2000, 26495302): ([0x90, None], 0, 'B', ''),
+            (0x2000, 26786272): ([0x90, None], 0, 'B', ''),
             (0x2000, 0): ([0x48, 0x89], 2, 'B', 'X.cpp'),
             (0x1000, 0): ([0xCC], 0, 'A', ''),
         }
@@ -35,7 +35,7 @@ class TableTests(unittest.TestCase):
         lines = [line for line in text.splitlines() if line.startswith('{')]
         self.assertEqual(lines[0], '{0x00001000, 0, "CC", 0, "A"},')
         self.assertTrue(lines[1].startswith('{0x00002000, 0, ') and lines[1].endswith('// X.cpp'))
-        self.assertIn('26495302', lines[2])
+        self.assertIn('26786272', lines[2])
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / 'T.inc'
             path.write_text(text, encoding='utf-8')

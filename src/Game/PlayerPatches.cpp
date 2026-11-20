@@ -20,22 +20,22 @@ namespace Game::Patches
 {
 namespace
 {
-constexpr uintptr_t SpawnNullSite = 0x5904DE8;
-constexpr uintptr_t SpawnSkipTarget = 0x5904F53;
-constexpr uintptr_t PlayerIndexNullSite = 0x5B0FA95;
-constexpr uintptr_t SpawnerPlayerRead = 0x58CF517;
-constexpr uintptr_t SpawnerNoPlayerExit = 0x58CFA07;
-constexpr uintptr_t LootPawnRead = 0x5998D70;
-constexpr uintptr_t LootNoRootTarget = 0x5998D91;
-constexpr uintptr_t ControllerSetAdd = 0x57BDCD0;
+constexpr uintptr_t SpawnNullSite = 0x5906F08;
+constexpr uintptr_t SpawnSkipTarget = 0x5907073;
+constexpr uintptr_t PlayerIndexNullSite = 0x5B14115;
+constexpr uintptr_t SpawnerPlayerRead = 0x58D0FC7;
+constexpr uintptr_t SpawnerNoPlayerExit = 0x58D14B7;
+constexpr uintptr_t LootPawnRead = 0x599B984;
+constexpr uintptr_t LootNoRootTarget = 0x599B9A5;
+constexpr uintptr_t ControllerSetAdd = 0x57BED90;
 constexpr uintptr_t ControllerSparseRemove = 0x12D6D80;
-constexpr uintptr_t RegisterController = 0x58FD3A0;
+constexpr uintptr_t RegisterController = 0x58FF2E0;
 constexpr uintptr_t RegistrationBroadcast = 0x24E95F0; // derselbe Broadcast wie DelegateBroadcast in RemoteP2Patches.cpp
-constexpr uintptr_t ClearSpawnArea = 0x5995D30;
-constexpr uintptr_t RunEndLocalPlayerSite = 0x584DF32;
-constexpr uintptr_t RunEndContinue = 0x584DF40;
+constexpr uintptr_t ClearSpawnArea = 0x5998940;
+constexpr uintptr_t RunEndLocalPlayerSite = 0x584F082;
+constexpr uintptr_t RunEndContinue = 0x584F090;
 // UAttachToCameraComponent::TickComponent: führt ihren Actor dem CameraManager des ersten Controllers nach, siehe FollowTickHook.
-constexpr uintptr_t CameraFollowTick = 0x585AEA0;
+constexpr uintptr_t CameraFollowTick = 0x585BFF0;
 
 constexpr uintptr_t GameModeSpawnedPlayers = 0x388;
 constexpr uintptr_t ActorOwner = 0x158;
@@ -47,8 +47,8 @@ constexpr uintptr_t ControllerNetConnection = 0x520;
 constexpr uintptr_t PlayerStatePawn = 0x320;
 constexpr uintptr_t ControllerPlayer = 0x348;          // APlayerController.Player: LocalPlayer oder NetConnection
 constexpr uintptr_t ControllerCameraManager = 0x360;   // APlayerController.PlayerCameraManager
-constexpr uintptr_t WorldPlayerControllerList = 0x268; // UWorld, TArray<TWeakObjectPtr<APlayerController>>, aus 0x31B9600
-constexpr uintptr_t CameraFollowTarget = 0xD8;         // Ziel der Komponente, in BeginPlay (0x583B2D0) einmal gesetzt
+constexpr uintptr_t WorldPlayerControllerList = 0x268; // UWorld, TArray<TWeakObjectPtr<APlayerController>>, aus 0x31B95D0
+constexpr uintptr_t CameraFollowTarget = 0xD8;         // Ziel der Komponente, in BeginPlay (0x583C420) einmal gesetzt
 constexpr uintptr_t ActorRootComponent = 0x1B8;
 constexpr uint32_t GarbageOrUnreachableFlags = 0x30;
 
@@ -477,8 +477,8 @@ bool CheckControllerRegistration()
     return Code::Expect(At(ControllerSetAdd), {0x40, 0x53, 0x56, 0x57, 0x41, 0x55, 0x48, 0x83, 0xEC, 0x38}, "TSet-Add der Controller") &&
            Code::Expect(At(ControllerSparseRemove), {0x40, 0x53, 0x48, 0x8B, 0x19, 0x48, 0x8B, 0xC1}, "TSparseArray-RemoveAt der Controller") &&
            Code::Expect(At(RegisterController), {0x48, 0x89, 0x5C, 0x24, 0x18}, "Controller-Registrierung") &&
-           ExpectBranch(At(0x58FD49D), CallRel32, ControllerSetAdd, "TSet-Add in der Registrierung") &&
-           ExpectBranch(At(0x58FD4B3), CallRel32, RegistrationBroadcast, "Broadcast in der Registrierung");
+           ExpectBranch(At(0x58FF3DD), CallRel32, ControllerSetAdd, "TSet-Add in der Registrierung") &&
+           ExpectBranch(At(0x58FF3F3), CallRel32, RegistrationBroadcast, "Broadcast in der Registrierung");
 }
 
 bool ApplyControllerRegistration(Code::Writer&)
@@ -539,7 +539,7 @@ constexpr uintptr_t RemoteSpawnSites[] = {SpawnNullSite, SpawnSkipTarget};
 constexpr uintptr_t PlayerIndexSites[] = {PlayerIndexNullSite};
 constexpr uintptr_t LootSpawnerSites[] = {LootPawnRead, LootNoRootTarget};
 constexpr uintptr_t EnemySpawnerSites[] = {SpawnerPlayerRead, SpawnerNoPlayerExit};
-constexpr uintptr_t ControllerRegistrationSites[] = {ControllerSparseRemove, RegistrationBroadcast, ControllerSetAdd, RegisterController, 0x58FD49D, 0x58FD4B3};
+constexpr uintptr_t ControllerRegistrationSites[] = {ControllerSparseRemove, RegistrationBroadcast, ControllerSetAdd, RegisterController, 0x58FF3DD, 0x58FF3F3};
 constexpr uintptr_t BusSites[] = {ClearSpawnArea};
 constexpr uintptr_t RunEndSites[] = {RunEndLocalPlayerSite, RunEndContinue};
 constexpr uintptr_t CameraFollowSites[] = {CameraFollowTick};

@@ -78,6 +78,12 @@ bool Check()
         self.assertEqual(statuses(2), {'alt': 'anderer-build', 'neu': 'abweichend'})
         self.assertEqual(statuses(None), {'alt': 'ok', 'neu': 'abweichend'})
 
+    def test_build_mark_accepts_a_list_of_builds(self):
+        source = 'bool Check() { return Code::Expect(At(Function), {0x48, 0x89}, // Build 1, 2\n"beide"); }'
+        image = FakeImage(bytes([0x48, 0x89]))
+        statuses = lambda build: [status for _, _, status, _ in check.evaluate(image, source, NAMES, None, build)]
+        self.assertEqual((statuses(1), statuses(2), statuses(3)), (['ok'], ['ok'], ['anderer-build']))
+
     def test_table_skips_missing_comment_rows(self):
         with tempfile.TemporaryDirectory() as folder:
             (Path(folder) / 'RvaMap1.inc').write_text('// Kopf\n{0x00001000, 0x00001004}, // eindeutig\n// FEHLT 0x00002000 // fehlt\n',

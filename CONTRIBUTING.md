@@ -104,15 +104,16 @@ Git-Historie, auch wenn es später gelöscht wird.
 
 ## Spiel-Updates
 
-Das Spiel wird noch aktiv gepatcht, und jedes Update kann Offsets und Klassen ändern. Deshalb gilt seit dem 03.11.2026:
-**einfrieren und nur bei Bedarf nachziehen.** Alle arbeiten auf dem [unterstützten Build](docs/GAME_ANALYSIS.md#unterstützte-spielversion),
-auch wenn Steam schon einen neueren anbietet.
+Das Spiel wird noch aktiv gepatcht, und jedes Update kann Offsets und Klassen ändern. Nutzerentscheidung vom 21.11.2026:
+**Die Mod unterstützt immer nur den neuesten Spiel-Build.** Ältere Builds werden nicht parallel weitergeführt; nach einem Update
+zieht die Mod in einem Schritt auf den neuen Build um. Entwickelt und getestet wird weiter aus einer eingefrorenen Kopie des
+[unterstützten Builds](docs/GAME_ANALYSIS.md#unterstützte-spielversion), damit ein Steam-Update nicht mitten in die Arbeit fällt.
 
 ### Auf dem unterstützten Build bleiben
 
 1. **Entwicklung von Steam trennen:** Solange der unterstützte Build installiert ist, einmal
    `powershell -ExecutionPolicy Bypass -File tools/Freeze-GameBuild.ps1 -Activate` ausführen.
-   Das erstellt eine echte Kopie unter `%LOCALAPPDATA%/DDCoop/builds/26495302`, prüft sie und setzt `PinnedGameDir` in `config/Local.props`.
+   Das erstellt eine echte Kopie unter `%LOCALAPPDATA%/DDCoop/builds/<Build>`, prüft sie und setzt `PinnedGameDir` in `config/Local.props`.
    Das Ziel liegt außerhalb jeder `steamapps`-Struktur; Junctions, Symlinks und Hardlinks werden abgewiesen.
 2. Steam bleibt für die Anmeldung online und darf **seine Installation** aktualisieren. Die getrennte Entwicklungskopie wird dadurch nicht ersetzt.
    Keine ACF-Schreibschutztricks, manipulierten Build-IDs, globalen Firewallregeln oder Steam-Offlinemodus nötig.
@@ -126,7 +127,7 @@ auch wenn Steam schon einen neueren anbietet.
 
    ```text
    download_depot 3026450 3026451 1832737755528485607
-   download_depot 3026450 3026452 2302428105354984436
+   download_depot 3026450 3026452 4188926129224131155
    ```
 
    Erwartetes Ziel ist `steamapps/content/app_3026450/depot_<Depot-ID>/`. Dieser Weg ist noch nicht ausprobiert; bekannte Manifest-IDs allein
@@ -140,21 +141,28 @@ keine Weitergabe von Spieldateien. Steam-Einstellungen und Downloads werden nich
 
 ### Wenn ein Update erscheint
 
-1. Wer es bemerkt, meldet es im Team mit der neuen Build-ID. Die Steam-Installation darf aktuell werden, die Entwicklungskopie bleibt unverändert.
-   Spieltests laufen weiter auf dem eingefrorenen Build; kein automatisches Neu-Erstellen oder Umschalten auf den neuen Stand.
-2. Jeder neue Build bekommt bei Bedarf eigene Update-Unterstützung, zum Beispiel wenn er einen blockierenden Absturz behebt.
-   Das Team priorisiert die zentrale Aufgabe `spiel-update`; ein Steam-Update allein erzwingt keinen Entwicklungswechsel.
-   Vor `integration-run` und `release` legt das Team die konkret unterstützten und getesteten Builds fest.
-3. Das Nachziehen ist aufgeteilt wie beim Umstieg auf `26495302`: Eine zentrale Basisaufgabe unterstützt alten und neuen Build parallel und erzeugt die Tabelle `src/Game/RvaMap<build>.inc` (`tools/rva_map.py`), danach portieren parallele Aufgaben die Patch-Dateien, eine zentrale Abschlussaufgabe rechnet alle RVAs in `src/` und im Spike auf den neuen Build um und entfernt den alten (Vorbild: `spiel-update`, [Offsets](docs/OFFSETS.md#referenz-build-26495302-spiel-update)). Wer `update-basis` reserviert, aktualisiert sein Spiel, erzeugt ein neues SDK und passt Offsets,
-   Signaturen und Patches auf ihrem Branch an.
-4. Im selben PR Build-ID, Exe-Version und Manifest-IDs in [docs/GAME_ANALYSIS.md](docs/GAME_ANALYSIS.md#unterstützte-spielversion), die Werte in
-   [docs/OFFSETS.md](docs/OFFSETS.md) und `src/Game/Offsets.h` (mit neuem SDK bauen, dann prüft `SdkChecks.cpp` jeden Wert; vorher zeigt
-   `py tools/sdk_diff.py --old <sdk-alt> --new <sdk-neu>`, welche genutzten Felder, Funktionen und Klassen sich verschoben haben, siehe
-   [sdk_diff.py](tools/README.md#sdk_diffpy)), `$SupportedBuild` in `tools/spike/Common.ps1`, die Build-/Hash-Referenz in `tools/game_build.py` sowie
-   `SupportedBuilds` in `src/Core/Version.cpp` und `$SupportedBuilds` im Spieler-Installer `tools/installer/Install-DDCoop.ps1`
-   aktualisieren; `tests/test_installer.py` meldet, wenn die Listen auseinanderlaufen. Der neue Build bekommt einen eigenen Kopieordner, der alte wird nicht überschrieben.
-5. Erst nach dem Merge und einer ausdrücklichen Teamentscheidung wechseln alle ihre Entwicklungskopie, weil alle denselben Build brauchen.
-   Die alte Kopie und der dazu passende Mod-Branch bleiben verfügbar, bis der neue Stand läuft.
+1. Wer es bemerkt, meldet es im Team mit der neuen Build-ID und legt die zentrale Aufgabe `spiel-update-<build>` an. Die Steam-Installation
+   darf aktuell werden. Bis der Umstieg gemergt ist, laufen Spieltests weiter auf der eingefrorenen Kopie des bisherigen Builds.
+2. Der Umstieg ist **eine** zentrale Aufgabe, kein paralleler Betrieb zweier Builds (Vorbild: `update-basis-26786272` mit
+   `spiel-update-26786272`, [Offsets](docs/OFFSETS.md#referenz-build-26786272-spiel-update-26786272)):
+   - Hash-Referenz des neuen Builds in `tools/game_build.py` eintragen, `Freeze-GameBuild.ps1 -Build <neu>` ohne `-Activate`, eigene
+     `config/Local.props` im Worktree mit dem neuen `PinnedGameDir`.
+   - `py tools/rva_map.py --old <exe alt> --new <exe neu> --build <neu>` zeigt, welche Adressen sich automatisch umrechnen lassen; den Rest
+     von Hand bestimmen. Dann alle RVAs in `src/`, im Spike und in `tools/spike` auf den neuen Build umschreiben; eine Tabelle
+     `RvaMap<build>.inc` ist nur Zwischenstand während der Arbeit und wird nicht gemergt.
+   - Neues SDK erzeugen, `py tools/sdk_diff.py --old <sdk-alt> --new <sdk-neu>` und Build mit SDK (`SdkChecks.cpp`); fest eingetragene
+     Feld-Offsets gegen die geänderten Klassen abgleichen, siehe [sdk_diff.py](tools/README.md#sdk_diffpy).
+   - `PatchSignatures.inc` leeren und mit `py tools/patch_signatures.py generate --exe <exe neu> --write` neu erzeugen, danach
+     `sites --write`; `check --strict`, `sites` und `py tools/expect_check.py` müssen ohne Abweichung laufen.
+   - Build-ID überall auf den neuen Build setzen: `ReferenceBuild` (`src/Game/AddressMap.h`), `SupportedBuilds` (`src/Core/Version.cpp`),
+     `Protocol::GameBuild`, `$SupportedBuild`/`$SupportedBuilds` (`tools/spike/Common.ps1`), `game_build.BUILD`, `REFERENCE_BUILD`
+     (`tools/expect_check.py`), Stempel im Spike (`Builds.cpp`) und in `tools/spike/ddmem.py`, `$SupportedBuilds` im Installer;
+     `tests/test_installer.py` meldet, wenn die Listen auseinanderlaufen. Den alten Build dabei überall entfernen.
+3. Im selben PR Build-ID, Exe-Kennung und Manifest-IDs in [docs/GAME_ANALYSIS.md](docs/GAME_ANALYSIS.md#unterstützte-spielversion) und die
+   Werte in [docs/OFFSETS.md](docs/OFFSETS.md) aktualisieren. Was sich nicht prüfen ließ, als Folgeaufgabe eintragen.
+4. Nach dem Merge stellt jeder seine Entwicklungskopie um (`Freeze-GameBuild.ps1 -Build <neu> -Activate`); ältere Branches brauchen
+   bis zu ihrem Rebase die alte Kopie. Spieler mit einem älteren Spiel-Build aktualisieren das Spiel über Steam.
+   Die alte Kopie bleibt auf dem eigenen PC liegen, bis der neue Stand läuft.
 
 ## Fehler melden
 

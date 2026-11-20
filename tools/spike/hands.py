@@ -1,6 +1,6 @@
 """Read-only Waffen-Darstellung an den Haenden: hands.py <pid> [<pid> ...] [--json].
 
-Build 26495302, nicht atomar (opt-schuss-animation). Je BP_DD_Character_C der aktuellen Welt: Rolle, Ort, EquippedWeapons,
+Build 26786272, nicht atomar (opt-schuss-animation). Je BP_DD_Character_C der aktuellen Welt: Rolle, Ort, EquippedWeapons,
 die Haende (AHands: ParentCharacter, AutoFire, Blickwinkel, ChildActorComponents, CurrentRanged/MeleeWeapons) und je
 Waffen-Darstellung Klasse, Anhaengepunkt, relative Lage und Weltort. Dazu alle AWeapon-Actors der Welt, auch solche, die keine
 Hand mehr fuehrt (verwaiste Darstellungen). Beim Host dazu je Figur: EquippedWeapons gegen die Listen der Haende; Exitcode 1 bei

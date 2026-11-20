@@ -1,4 +1,4 @@
-# Zeigt einen Adressbereich der Spiel-Exe, etwa: Disassemble.ps1 0x5A45C20 0x5A45C90
+# Zeigt einen Adressbereich der Spiel-Exe, etwa: Disassemble.ps1 0x5A48960 0x5A489D0
 # Adressen sind RVAs, wie sie in Absturz-Stacks und docs\OFFSETS.md stehen.
 param(
     [Parameter(Mandatory)][string]$Start,

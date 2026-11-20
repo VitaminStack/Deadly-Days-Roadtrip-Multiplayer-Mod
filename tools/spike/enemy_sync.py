@@ -1,4 +1,4 @@
-"""Lesender Abgleich von Spawn und Tod der Gegner zwischen Host und Client, nur Build 26495302.
+"""Lesender Abgleich von Spawn und Tod der Gegner zwischen Host und Client, nur Build 26786272.
 
     py tools/spike/enemy_sync.py <sekunden> <host_pid> <client_pid>
 

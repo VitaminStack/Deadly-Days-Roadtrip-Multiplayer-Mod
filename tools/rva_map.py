@@ -3,7 +3,7 @@
 Liest die RVAs aus src/ (benannte Konstanten und At(0x...)), sucht sie in der neuen Exe und erzeugt die Tabelle
 src/Game/RvaMap<build>.inc fuer Game::AddressMap. Liest nur lokale Exe-Dateien, schreibt nie Spielbytes ins Repo.
 
-  py tools/rva_map.py --old <exe des Referenz-Builds> --new <neue exe> --build 26495302 [--write]
+  py tools/rva_map.py --old <exe des Referenz-Builds> --new <neue exe> --build <neuer build> [--write]
 
 Verfahren je RVA:
   Code (.text): Befehle ab der Adresse mit Capstone lesen, relative Sprungziele und RIP-relative Verschiebungen

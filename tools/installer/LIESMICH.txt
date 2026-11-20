@@ -7,7 +7,7 @@ Every player needs their own copy of the game on Steam.
 Requirements
 ------------
 - Windows, game installed through Steam.
-- Game build 26495302. The installer rejects other builds,
+- Game build 26786272 (patch 1.0.3). The installer rejects other builds,
   and the mod disables itself on them.
 - The game is closed.
 

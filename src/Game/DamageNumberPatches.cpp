@@ -1,5 +1,5 @@
 // opt-schadenszahlen: Schadenszahlen beim Client. Beim Host ruft der Schadensweg je Treffer den nativen Handler des
-// DDPlayerController (0x5A22DB0) auf. Er prüft lokale Steuerung, die Einstellung EnableDamageNumbers und das Ziel, merkt den Ort
+// DDPlayerController (0x5A25B30) auf. Er prüft lokale Steuerung, die Einstellung EnableDamageNumbers und das Ziel, merkt den Ort
 // und holt nach kurzer Verzögerung einen BP_FloatingText aus dem Pool, der ShowDamageText zeigt. Beim Client läuft der
 // Schadensweg nie, Gegner-HP repliziert dort nicht (0/0). Der Host merkt sich darum je Handler-Aufruf Ziel, Betrag und Flags
 // (Hook, nur Host), Sync schickt sie als 0xA00, und der Client ruft denselben Handler an seinem eigenen Controller auf. Damit
@@ -26,9 +26,9 @@ namespace Game
 {
 namespace
 {
-// Build 26495302.
-constexpr uintptr_t DamageHandler = 0x5A22DB0;      // ADDPlayerController: Treffer -> Schadenszahl (rcx Controller, rdx FDamageInformation*)
-constexpr uintptr_t DamageInfoConstruct = 0x56591B0; // FDamageInformation::FDamageInformation(), wie im Thunk von ShowDamageText
+// Build 26786272.
+constexpr uintptr_t DamageHandler = 0x5A25B30;      // ADDPlayerController: Treffer -> Schadenszahl (rcx Controller, rdx FDamageInformation*)
+constexpr uintptr_t DamageInfoConstruct = 0x5659A70; // FDamageInformation::FDamageInformation(), wie im Thunk von ShowDamageText
 constexpr uintptr_t DamageInfoMapDestruct = 0x12BC260; // Elemente von TagMagnitudes freigeben, wie im Thunk
 constexpr uintptr_t MemoryFree = 0x12F85E0;          // FMemory::Free, Hash von TagMagnitudes, wie im Thunk
 
@@ -338,9 +338,9 @@ bool ApplyDamageNumbers(Code::Writer&)
 }
 
 // Je Patch die benutzten Adressen der Signaturtabelle, erzeugt von tools/patch_signatures.py sites.
-constexpr uintptr_t DamageNumberSites[] = {DamageHandler, DamageInfoConstruct, DamageInfoMapDestruct, MemoryFree};
+constexpr uintptr_t DamageNumbersSites[] = {DamageHandler, DamageInfoConstruct, DamageInfoMapDestruct, MemoryFree};
 const Patch List[] = {
-    {"Schadenszahlen beim Client", &CheckDamageNumbers, &ApplyDamageNumbers, DamageNumberSites},
+    {"Schadenszahlen beim Client", &CheckDamageNumbers, &ApplyDamageNumbers, DamageNumbersSites},
 };
 }
 

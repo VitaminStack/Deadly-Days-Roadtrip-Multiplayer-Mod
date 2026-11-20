@@ -1,6 +1,6 @@
 // charakter-wahl: Figur der Gegenseite mit deren Wahl zeigen und, beim Host, mit deren Definition spielen.
 //
-// Native Regel (Build 26495302): UCharacterDefinitionApplier nimmt den Spielerindex aus Pawn.Controller.Player, also nur von
+// Native Regel (Build 26786272): UCharacterDefinitionApplier nimmt den Spielerindex aus Pawn.Controller.Player, also nur von
 // einem LocalPlayer. Ohne LocalPlayer gilt Index 0. Beim Host ist das die Figur des Clients, beim Client der Proxy des Hosts:
 // Beide trugen darum die eigene Wahl der jeweiligen Seite. CharacterSelectionChanged erreicht eine solche Figur nie.
 //
@@ -26,8 +26,8 @@ namespace Game::Patches
 {
 namespace
 {
-constexpr uintptr_t ApplyInitial = 0x5837220;    // UCharacterDefinitionApplier::ApplyInitialCharacterDefinition (Rumpf)
-constexpr uintptr_t ApplyDefinition = 0x5840DF0; // intern: wendet eine Definition an, aus CharacterSelectionChanged
+constexpr uintptr_t ApplyInitial = 0x5838370;    // UCharacterDefinitionApplier::ApplyInitialCharacterDefinition (Rumpf)
+constexpr uintptr_t ApplyDefinition = 0x5841F40; // intern: wendet eine Definition an, aus CharacterSelectionChanged
 
 // Engine: UActorComponent.Owner, APawn.PlayerState und Controller, APlayerController.Player.
 constexpr uintptr_t ComponentOwner = 0xA8;
@@ -186,8 +186,10 @@ bool ApplyApplyInitial(Code::Writer&)
                                 reinterpret_cast<void**>(&OriginalApplyInitial));
 }
 
+// Je Patch die benutzten Adressen der Signaturtabelle, erzeugt von tools/patch_signatures.py sites.
+constexpr uintptr_t ApplyInitialSites[] = {ApplyInitial, ApplyDefinition};
 const Patch List[] = {
-    {"Figur der Gegenseite mit deren Charakterwahl", CheckApplyInitial, ApplyApplyInitial},
+    {"Figur der Gegenseite mit deren Charakterwahl", CheckApplyInitial, ApplyApplyInitial, ApplyInitialSites},
 };
 }
 

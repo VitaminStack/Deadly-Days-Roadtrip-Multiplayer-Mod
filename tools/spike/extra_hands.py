@@ -1,6 +1,6 @@
 """SCHREIBENDE Testhilfe, nur fuer Instanzen der eigenen Testsitzung: extra_hands.py <pid> [<pid> ...] --hands N.
 
-Build 26495302 (opt-schuss-animation). Eine Figur hat anfangs eine Waffenhand, das Inventar-Panel lehnt jede weitere Waffe ab.
+Build 26786272 (opt-schuss-animation). Eine Figur hat anfangs eine Waffenhand, das Inventar-Panel lehnt jede weitere Waffe ab.
 Das Skript schreibt UDDCharacterAttributeSet.ExtraHands (Basis und aktueller Wert, +0x108 und +0x10C) der Spieler direkt in den
 Prozess, damit sich im Test mehrere Waffen ausruesten lassen. Grenzen:
 - Der Wert repliziert so nicht: in Host UND Client setzen.

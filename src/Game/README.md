@@ -66,14 +66,15 @@ Schreibende Zugriffe und Hooks folgen demselben Muster, siehe [Patches](#patches
 Die Fixes, ohne die keine Mission zu zweit läuft, kommen aus dem Spike (Aufgabe `patches`). Herkunft und Belege jeder Stelle stehen in
 der [Patch-Tabelle des Spikes](../../research/spikes/a-connect/README.md#patches). Die RVAs stehen als Konstanten am Anfang der jeweiligen Datei.
 
-Alle RVAs im Quelltext gelten für den Referenz-Build `26495302` (seit `spiel-update`, vorher `26187885`, siehe
-[Offsets](../../docs/OFFSETS.md#referenz-build-26495302-spiel-update)). `At(Rva)` und `Memory::Rva` rechnen sie über `AddressMap` auf jeden
-weiteren Build um, derzeit `26669225` (Patch 1.0.2, `RvaMap26669225.inc`, [Stand](../../docs/OFFSETS.md#build-26669225-update-basis-1-0-2); Tabelle `RvaMap<build>.inc` aus [`tools/rva_map.py`](../../tools/README.md#rva_mappy)). Fehlt eine Adresse, liefern sie 0 und
-protokollieren sie einmal; die Byte-Prüfungen schlagen dann fehl und keine Patch-Liste wird gesetzt. Neue RVAs immer als Referenz-RVA
-eintragen und für jeden weiteren Build in dessen Tabelle nachziehen. Feld-Offsets (`Offsets.h`) werden nicht umgerechnet.
+Alle RVAs im Quelltext gelten für den Referenz-Build `26786272` (Patch 1.0.3, seit `spiel-update-26786272`, vorher `26495302`, siehe
+[Offsets](../../docs/OFFSETS.md#referenz-build-26786272-spiel-update-26786272)). Die Mod unterstützt nur diesen Build. `At(Rva)` und
+`Memory::Rva` liefern die RVA dort unverändert; auf jedem anderen Build liefern sie 0 und protokollieren das einmal, die Byte-Prüfungen
+schlagen dann fehl und kein Patch wird gesetzt. `AddressMap` kann während eines Umstiegs eine Tabelle `RvaMap<build>.inc` aus
+[`tools/rva_map.py`](../../tools/README.md#rva_mappy) aufnehmen; gemergt wird nur der umgeschriebene Quelltext. Feld-Offsets (`Offsets.h`
+und die Konstanten der Patch-Dateien) gelten ebenfalls nur für den Referenz-Build.
 Eine Stelle im Abstand zu einer Adresse immer als `At(Rva, Abstand)` schreiben, nie `At(Rva + Abstand)`: Die Summe steht in keiner Tabelle.
 
-**Teilinstallation.** Auf einem weiteren Build mit eigener Tabelle (derzeit `26669225`, seit `freigabe-1-0-2` für Spieler geöffnet) setzt die
+**Teilinstallation.** Nur während eines Umstiegs von Belang, derzeit gibt es keinen weiteren Build: Auf einem weiteren Build mit eigener Tabelle setzt die
 Mod von selbst jede Patch-Liste (eine `*Patches.cpp`) für sich ganz oder gar nicht und lässt einzelne Patches mit fehlender Adresse aus; Ticks
 laufen nur für vollständige Listen; Stellen aus `PatchList::TickOptional` zählen dabei nicht (`rundenende-1-0-2`: Der Tick der Liste Reward
 holt das zurückgehaltene Bestätigen des Hosts nach und läuft darum auch ohne die Adresse des Händlerkaufs). Auf einem Build ohne Tabelle nur mit `DDCOOP_PARTIAL_PATCHES=1` (`Start-Session.ps1 -PartialPatches`). Das Log

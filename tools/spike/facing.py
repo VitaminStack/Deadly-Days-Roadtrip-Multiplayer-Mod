@@ -1,4 +1,4 @@
-"""Read-only Blickrichtung der Spielerfiguren: facing.py <pid> [<pid> ...] [--watch <s>] [--interval <s>]. Build 26495302.
+"""Read-only Blickrichtung der Spielerfiguren: facing.py <pid> [<pid> ...] [--watch <s>] [--interval <s>]. Build 26786272.
 
 Je BP_DD_Character_C: Rolle, Tempo der Bewegungskomponente, DirectionalCharacterMesh (Modus, UseHandsDirection, Hands,
 Fallback-Ziel, Rohbytes des internen Zustands), Drehung von Mesh, RotationProxy und Haenden. Schreibt nichts, ruft nichts.

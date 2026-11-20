@@ -15,7 +15,7 @@ namespace Game::Patches
 {
 namespace
 {
-constexpr uintptr_t CameraPlayersFunction = 0x5A11750;
+constexpr uintptr_t CameraPlayersFunction = 0x5A144D0;
 constexpr uintptr_t ArrayResizeGrow = 0x1272700;
 constexpr uintptr_t CameraGameMode = 0x318;
 constexpr uintptr_t PlayerStatePawn = 0x320;
@@ -29,9 +29,9 @@ constexpr uintptr_t ControllerPlayer = 0x348;
 constexpr uintptr_t ControllerCameraManager = 0x360;
 constexpr uintptr_t CameraManagerViewTarget = 0x340;
 // UInViewportMovementRestrictor::PreProcessMovementInput: PlayerArray.Num über MissionGameState ohne Null-Prüfung.
-constexpr uintptr_t RestrictorCountSite = 0x5A1B9EC;
-constexpr uintptr_t RestrictorSkip = 0x5A1BAA8;
-constexpr uintptr_t RestrictorContinue = 0x5A1B9F9;
+constexpr uintptr_t RestrictorCountSite = 0x5A1E76C;
+constexpr uintptr_t RestrictorSkip = 0x5A1E828;
+constexpr uintptr_t RestrictorContinue = 0x5A1E779;
 constexpr uintptr_t RestrictorMissionGameState = 0x110;
 
 struct PointerArray

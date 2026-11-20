@@ -29,7 +29,7 @@ namespace Game::Patches
 namespace
 {
 constexpr uintptr_t CharacterHands = 0x7B0;      // ADDCharacter.Hands (Net)
-constexpr uintptr_t HandsFacingAngle = 0x31C;    // AHands, float, Grad; gelesen vom DirectionalCharacterMesh (0x586BE20)
+constexpr uintptr_t HandsFacingAngle = 0x31C;    // AHands, float, Grad; gelesen vom DirectionalCharacterMesh (0x586CF70)
 constexpr uintptr_t ActorRootComponent = 0x1B8;  // AActor.RootComponent
 constexpr uintptr_t ComponentWorldRotation = 0x1F0; // USceneComponent.ComponentToWorld.Rotation (FQuat, 4 double)
 constexpr uintptr_t ActorRole = 0x168;

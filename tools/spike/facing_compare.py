@@ -1,6 +1,6 @@
 """Read-only Vergleich der Blickrichtung Host gegen Client: facing_compare.py <host-pid> <client-pid> [--seconds N] [--interval S].
 
-Build 26495302. Liest je Probe in beiden Instanzen jede BP_DD_Character_C: Ort, Rolle, Blickwinkel der Haende (AHands+0x31C),
+Build 26786272. Liest je Probe in beiden Instanzen jede BP_DD_Character_C: Ort, Rolle, Blickwinkel der Haende (AHands+0x31C),
 Welt-Gierwinkel des Haende-Actors und die Ansicht des Richtungs-Meshes (FacingRight/FacingDown, Mesh+0x7F0). Figuren werden ueber
 den naechsten Ort gepaart, nicht ueber die Reihenfolge. Am Ende je Figur: Anteil gleicher Ansicht, Winkelabstand, wie oft die
 Ansicht beim Client wechselte. Schreibt nichts, ruft nichts."""

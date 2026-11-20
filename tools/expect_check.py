@@ -3,11 +3,11 @@
 Liest Code::Expect(At(X[, Offset]) [+/- n], {Bytes}, "Ort") und ExpectBranch(At(X), CallRel32|JumpRel32, Ziel, "Ort") aus src/Game, rechnet X ueber die Tabelle
 src/Game/RvaMap<build>.inc um (wie Game::AddressMap) und vergleicht mit der Exe. Liest nur lokale Dateien.
 
-  py tools/expect_check.py --exe <exe> --build 26495302 [--file ClientPatches.cpp ...]
+  py tools/expect_check.py --exe <exe> --build 26786272 [--file ClientPatches.cpp ...]
 
 Ausgabe je Pruefung: ok, abweichend (mit gelesenen Bytes), fehlt (Adresse ohne Tabelleneintrag) oder
 uebersprungen (Ausdruck ohne At, etwa lokale Variablen; diese prueft nur das Spiel) oder anderer-build (die Startzeile
-der Pruefung endet mit "// Build <id>" eines anderen Builds, etwa in einer Verzweigung nach Core::ActiveBuild()).
+der Pruefung endet mit "// Build <id>[, <id> ...]" ohne den geprueften Build, etwa in einer Verzweigung nach Core::ActiveBuild()).
 """
 import argparse
 import re
@@ -19,7 +19,7 @@ from rva_map import Image, NAMED  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[1]
 GAME = REPO / 'src' / 'Game'
-REFERENCE_BUILD = 26495302
+REFERENCE_BUILD = 26786272
 EXPECT = re.compile(r'Code::Expect\(\s*(?P<site>[^{;]*?)\s*,\s*\{(?P<bytes>[^}]*)\}\s*,\s*(?://[^\n]*\s*)?"(?P<where>[^"]*)"', re.DOTALL)
 SITE = re.compile(r'^(?:Patches::)?At\(\s*(?P<base>\w+)\s*(?:,\s*(?P<offset>\w+)\s*)?\)\s*(?:(?P<sign>[+-])\s*(?P<delta>\w+))?$')
 BRANCH = re.compile(r'ExpectBranch\(\s*(?P<site>[^;]*?)\s*,\s*(?P<op>CallRel32|JumpRel32)\s*,\s*(?P<target>\w+)\s*,\s*"(?P<where>[^"]*)"',
@@ -91,14 +91,14 @@ def resolve(parsed, names, table):
     return mapped, None
 
 
-BUILD_MARK = re.compile(r'//\s*Build\s+(\d+)\s*$')
+BUILD_MARK = re.compile(r'//\s*Build\s+(\d+(?:\s*,\s*\d+)*)\s*$')
 
 
 def other_build(text, line, build):
     """Wahr, wenn die Startzeile der Pruefung fuer einen anderen Build markiert ist."""
     lines = text.splitlines()
     mark = BUILD_MARK.search(lines[line - 1]) if build is not None and 0 < line <= len(lines) else None
-    return bool(mark) and int(mark.group(1)) != build
+    return bool(mark) and build not in [int(item) for item in mark.group(1).split(',')]
 
 
 def evaluate(image, text, names, table, build=None):

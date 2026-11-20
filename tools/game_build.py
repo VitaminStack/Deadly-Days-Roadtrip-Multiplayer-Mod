@@ -11,26 +11,17 @@ import tempfile
 
 RECEIPT = '.ddcoop-build.json'
 # Standard fuer Skripte ohne --build. Weitere unterstuetzte Builds stehen in REFERENCES.
-BUILD = '26495302'
+BUILD = '26786272'
 # Lokal belegte Referenzen je Build aus docs/GAME_ANALYSIS.md, keine Versionsangabe aus einer editierbaren ACF.
 REFERENCES = {
-  # update-basis, 07.11.2026: Steam-Build nach dem Update, Depot 3026452 Manifest 2302428105354984436.
-  '26495302': {
-    'DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe': '4d012c685183b5b7d261ad0010fe12c5ef5dd2390faff11942cab7399967c9f5',
-    'DDSurvivors/Content/Paks/DDSurvivors-Windows.pak': 'b6b50dc23cfec3717b28f46e26a03c23975434ab867b879710f66f0b62270b09',
-    'DDSurvivors/Content/Paks/DDSurvivors-Windows.ucas': 'dffb4486259e309be9b71a1cb95ea86b5a00d65b4c190b57fff94f87976296a7',
-    'DDSurvivors/Content/Paks/DDSurvivors-Windows.utoc': '8ff67e4d8fcb57a02dc512ec055e447588a9a0ea67efc9a6dfb2268770c664f6',
-    'DDSurvivors/Content/Paks/global.ucas': '34661a41b09a06e3ccaf94f34732b497c1d8131232974f0fe44a09759326ebd2',
-    'DDSurvivors/Content/Paks/global.utoc': '9c4476acd65a2da64d5cd50f8bdbe2536da94fbf218ad56bced52497a6eff71d',
-  },
-  # update-basis-1-0-2, 16.11.2026: Patch 1.0.2, Depot 3026452 Manifest 1284187377913424313. global.* unveraendert.
-  '26669225': {
-    'DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe': '853b740791fa797794949034e4fb65771180e822f0d3b56b5ad95820fc9b6a21',
-    'DDSurvivors/Content/Paks/DDSurvivors-Windows.pak': '4ff65afac781e6549b07b1a546af7140bdefe967dd0eedac75514c4d0c24bca5',
-    'DDSurvivors/Content/Paks/DDSurvivors-Windows.ucas': '062bba92f87e2336c905c8a6d7426555d5f958b27fdcc3c7d6cec779c32b40e8',
-    'DDSurvivors/Content/Paks/DDSurvivors-Windows.utoc': '6684792532e54599757c24e2a7aa1a591a756c44c77f9d4d2dd20242ae7a7248',
-    'DDSurvivors/Content/Paks/global.ucas': '34661a41b09a06e3ccaf94f34732b497c1d8131232974f0fe44a09759326ebd2',
-    'DDSurvivors/Content/Paks/global.utoc': '9c4476acd65a2da64d5cd50f8bdbe2536da94fbf218ad56bced52497a6eff71d',
+  # update-basis-26786272, 20.11.2026: Patch 1.0.3 vom 19.11.2026, Depot 3026452 Manifest 4188926129224131155. Auch global.* geaendert.
+  '26786272': {
+    'DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe': '52e363a7e2c6c14b9621a482bec830e3405b2dc874534bf93b5ed54528370f76',
+    'DDSurvivors/Content/Paks/DDSurvivors-Windows.pak': 'f2777e3bf04e0f20e94349a0b15cb1bc03f80606f28367e92d9005a3ffa0a74a',
+    'DDSurvivors/Content/Paks/DDSurvivors-Windows.ucas': '9f3403a9d3d6e58d557c3f65f71444c5102758189074c704c4d9b908fd177ca8',
+    'DDSurvivors/Content/Paks/DDSurvivors-Windows.utoc': 'b8be04191a79166951b354bc6cf670de65f7f4f20386743617cdac0d7e13ad94',
+    'DDSurvivors/Content/Paks/global.ucas': '7aa9a9a07a86c8499f54a095245d51e38c746f8773e99633d117adf230e0a8be',
+    'DDSurvivors/Content/Paks/global.utoc': '3d68aaf042a959d0d654302b0df053d53464289e08aa6e57c665cd02a19e548f',
   },
 }
 MUTABLE_DIRS = ('ddsurvivors/saved', 'ddsurvivors/binaries/win64/ddcoop')

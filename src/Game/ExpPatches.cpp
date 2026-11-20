@@ -20,12 +20,12 @@ namespace Game
 {
 namespace
 {
-// Gemeinsamer Kern von RequestExpSpawning (0x58C1D40) und den nativen Gegner-/Effektpfaden (0x58C7075, 0x58C741E,
-// 0x58C7770, 0x59B5A54): rcx = UExpSubsystem, rdx = Spawn-Anfrage.
-constexpr uintptr_t SpawnRequest = 0x58C1B10;
-constexpr uintptr_t ReceiveExpImpl = 0x58BF210; // UExpSubsystem::ReceiveExp, hinter dem exec-Thunk
-constexpr uintptr_t UpdateBounds = 0x58BF120;
-constexpr uintptr_t LocalViewportCorners = 0x5B08070;
+// Gemeinsamer Kern von RequestExpSpawning (0x58C37C0) und den nativen Gegner-/Effektpfaden (0x58C8B35, 0x58C8EDE,
+// 0x58C9230, 0x59B87A4): rcx = UExpSubsystem, rdx = Spawn-Anfrage.
+constexpr uintptr_t SpawnRequest = 0x58C3590;
+constexpr uintptr_t ReceiveExpImpl = 0x58C0C90; // UExpSubsystem::ReceiveExp, hinter dem exec-Thunk
+constexpr uintptr_t UpdateBounds = 0x58C0BA0;
+constexpr uintptr_t LocalViewportCorners = 0x5B0C050;
 constexpr size_t QueueLimit = 512;
 struct alignas(8) Request
 {

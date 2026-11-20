@@ -24,13 +24,13 @@ namespace Game::Patches
 {
 namespace
 {
-constexpr uintptr_t MapAdd = 0x58D1A80;
+constexpr uintptr_t MapAdd = 0x58D3530;
 constexpr uintptr_t MapSparseRemove = 0x1344650;
-constexpr uintptr_t GetController = 0x58EFFD0;
+constexpr uintptr_t GetController = 0x58F1F10;
 constexpr uintptr_t DelegateBroadcast = 0x24E95F0;
-constexpr uintptr_t DeviceCheckSite = 0x590B2AA;
-constexpr uintptr_t SoloLossTest = 0x590B2AF;
-constexpr uintptr_t NeedReconnect = 0x590B2B4;
+constexpr uintptr_t DeviceCheckSite = 0x590D3BA;
+constexpr uintptr_t SoloLossTest = 0x590D3BF;
+constexpr uintptr_t NeedReconnect = 0x590D3C4;
 
 // ULocalCoopSubsystem
 constexpr uintptr_t CoopOnPlayerJoined = 0x38;
