@@ -127,7 +127,7 @@ zieht die Mod in einem Schritt auf den neuen Build um. Entwickelt und getestet w
 
    ```text
    download_depot 3026450 3026451 1832737755528485607
-   download_depot 3026450 3026452 2302428105354984436
+   download_depot 3026450 3026452 4188926129224131155
    ```
 
    Erwartetes Ziel ist `steamapps/content/app_3026450/depot_<Depot-ID>/`. Dieser Weg ist noch nicht ausprobiert; bekannte Manifest-IDs allein
@@ -162,7 +162,7 @@ keine Weitergabe von Spieldateien. Steam-Einstellungen und Downloads werden nich
    Werte in [docs/OFFSETS.md](docs/OFFSETS.md) aktualisieren. Was sich nicht prüfen ließ, als Folgeaufgabe eintragen.
 4. Nach dem Merge stellt jeder seine Entwicklungskopie um (`Freeze-GameBuild.ps1 -Build <neu> -Activate`); ältere Branches brauchen
    bis zu ihrem Rebase die alte Kopie. Spieler mit einem älteren Spiel-Build aktualisieren das Spiel über Steam.
-   Die alte Kopie und der dazu passende Mod-Branch bleiben verfügbar, bis der neue Stand läuft.
+   Die alte Kopie bleibt auf dem eigenen PC liegen, bis der neue Stand läuft.
 
 ## Fehler melden
 

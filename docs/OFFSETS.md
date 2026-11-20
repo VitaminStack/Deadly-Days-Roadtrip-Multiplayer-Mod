@@ -18,10 +18,14 @@ Stand 21.11.2026, Nutzerentscheidung vom selben Tag: Die Mod unterstützt nur no
 `26786272`; `26495302` und `26669225` sind entfernt, ebenso beide Tabellen `RvaMap*.inc`. Auf einem älteren Build bleibt die Mod aus
 (`Unbekannter Spiel-Build`), der Installer lehnt ihn ab.
 
-- **Umgeschrieben:** 217 Adressen in 40 Dateien (`src/`, `research/spikes/a-connect`, `tools/spike`, zwei Tests): 128 über die Tabelle aus
-  `update-basis-26786272` (124 der Mod, 4 des Spikes), 89 weitere aus Kommentaren und Tools mit `tools/rva_map.py` (74 eindeutig, 7 über
-  den Funktionsanfang, 7 über Befehlsfenster der Funktion, 1 vtable) und eine von Hand (Aufruf von `PlayReloadSound` in der Nachladelogik,
-  `0x05A48CC5`). Alte Werte: `git show 87a91a7:src/Game/RvaMap26786272.inc` (Referenz-RVA `26495302` -> `26786272`).
+- **Umgeschrieben:** 155 Adressen in 41 Dateien (`src/`, `research/spikes/a-connect`, `tools/spike`, zwei Tests): 128 über die Tabelle aus
+  `update-basis-26786272` (124 der Mod, 4 des Spikes), 26 weitere aus Kommentaren und Tools mit `tools/rva_map.py` (23 eindeutig, je eine
+  über den Funktionsanfang, über Befehlsfenster der Funktion und als vtable) und eine von Hand (Aufruf von `PlayReloadSound` in der
+  Nachladelogik, `0x05A48CC5`). Die Tabelle (Referenz-RVA `26495302` -> `26786272`) liegt nur im Verlauf des Pull Requests 268, nicht auf
+  `main`: `git fetch origin pull/268/head`, dann `git show 87a91a7:src/Game/RvaMap26786272.inc`.
+- **Gemessene Werte in Kommentaren:** Wo ein Kommentar einen Messwert eines früheren Builds nennt, steht der alte Build weiter dabei
+  (`ItemAbilityPatches.cpp`, Koordinaten des Startrings in `Start-Run.ps1`). Die Kopfzeilen der Werkzeuge unter `tools/spike` nennen jetzt
+  `26786272`, ohne dass jedes einzeln gelaufen ist, siehe „Nicht geprüft“.
 - **Nicht umgeschrieben:** die Markdown-Dateien (diese Datei, `GAME_ANALYSIS.md`, die READMEs unter `src/` und im Spike). Ihre Abschnitte
   sind datierte Befunde mit den Adressen des damaligen Builds; teils stammen sie noch von `26187885`.
 - **Verzweigungen nach Build entfernt:** `TryBuyItem` und `EndTackle` prüfen nur noch die Bytes von `26786272`, `RepresentationItem` ist
@@ -38,7 +42,8 @@ Stand 21.11.2026, Nutzerentscheidung vom selben Tag: Die Mod unterstützt nur no
   - Nur Spike, ohne Mod: beide Instanzen `Patch: aktiv`, Karte und PCG vom Host, keine Zeile `Adresse fehlt` oder `unerwartete Bytes`,
     Inventar gleich.
   - Nur Mod (`-NoSpike`): `Patches: 57 gesetzt`, Lobby, Reise in die Mission, zweieinhalb Minuten, Inventar gleich, kein Absturz.
-- **Nicht geprüft:** die lesenden Python-Werkzeuge unter `tools/spike` einzeln (ihre Feld-Offsets liegen in Klassen, die laut
+- **Nicht geprüft:** die lesenden Python-Werkzeuge unter `tools/spike` einzeln (keines nennt einen Offset in den verschobenen Bereichen
+  von `UInventoryPanel`, `UItemRepresentation`, `URecipePanel` oder deren Blueprints, ihre Feld-Offsets liegen in Klassen, die laut
   SDK-Vergleich unverändert sind; gelaufen sind `ddmem.py`, `inventory.py`, `godmode_state.py` über die Skripte oben), Befehle des Spikes
   außer `!wave`, `!finish`, `!god`, alles Weitere wie in [Build 26786272](#build-26786272-update-basis-26786272) (`update-26786272-run`).
 - **Entwicklungskopien:** Nach dem Merge stellt jeder mit `Freeze-GameBuild.ps1 -Build 26786272 -Activate` um (`wechsel-26786272`).

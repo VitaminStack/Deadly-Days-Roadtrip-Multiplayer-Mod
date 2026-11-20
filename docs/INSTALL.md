@@ -11,8 +11,8 @@ of the game on Steam, and both players need the same mod version.
 - Windows 10 or 11, Deadly Days: Roadtrip installed through Steam.
 - **Game build `26786272` (patch 1.0.3).** The mod always supports only the latest game build; its offsets and patches apply to this
   build alone, so update the game through Steam first. Both players need the same build. So far this build has only been tested on one
-  PC up to the first round end;
-  and names the build it found. A mod that is present anyway disables itself at startup, and the game runs without it.
+  PC up to the first round end; a run over the route map and a session on two PCs are still untested there. On any other build the
+  installer refuses and names the build it found. A mod that is present anyway disables itself at startup, and the game runs without it.
 - The game is closed.
 - No other mod that also places a `version.dll` next to the game exe.
 
