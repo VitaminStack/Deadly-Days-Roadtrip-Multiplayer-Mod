@@ -1,9 +1,9 @@
 // Airdrop-Auswahl für Host und Client ohne Koop-Modus, siehe src/Game/README.md#airdrop-auswahl.
 //
 // Host: Die Kiste läuft wie im Solo-Spiel, öffnet sie der Remote-Spieler, bekommt die Figur des Hosts die Auswahl.
-// UInventoryComponent::SetRewardItems (0x597DC10) zeigt die Choices im nativen Panel; die Mod merkt sie sich als
+// UInventoryComponent::SetRewardItems (0x59808C0) zeigt die Choices im nativen Panel; die Mod merkt sie sich als
 // Sitzung und schickt sie über den Kontrollkanal an den Client. Das Bestätigen des Hosts (InventoryPanel.
-// HandleConfirmButton, 0x5A71900) hält die Mod zurück, bis der Client gewählt hat; so lange bleibt das Spiel pausiert.
+// HandleConfirmButton, 0x5A74D50) hält die Mod zurück, bis der Client gewählt hat; so lange bleibt das Spiel pausiert.
 // Die Wahl des Clients legt der Host neu in dessen repliziertes Inventar.
 //
 // Client: Die Mod legt lokale Instanzen derselben Items an und zeigt sie über SetRewardItems im nativen Panel. Das Panel
@@ -37,22 +37,22 @@ namespace Game::Patches
 {
 namespace
 {
-constexpr uintptr_t SetRewardItems = 0x597DC10;
-constexpr uintptr_t PanelConfirm = 0x5A71900;
-constexpr uintptr_t PanelSetupInventory = 0x5A90940;
+constexpr uintptr_t SetRewardItems = 0x59808C0;
+constexpr uintptr_t PanelConfirm = 0x5A74D50;
+constexpr uintptr_t PanelSetupInventory = 0x5A941D0;
 // UInventoryComponent::CreateItemInstance, nativ. Die UFunction ist BlueprintAuthorityOnly, ProcessEvent überspringt
 // sie beim Client.
-constexpr uintptr_t CreateItemInstance = 0x595DA20;
+constexpr uintptr_t CreateItemInstance = 0x595FB80;
 constexpr uintptr_t MemoryFree = 0x12F85E0;
-// UInventoryComponent::UpgradeItems, Exec-Thunk 0x571E5A0. Rufen InventoryPanel.UpgradeDroppedItem (0x5A9D370) und
-// UpgradeItemToNextLevelAndReEquip (0x5984AF0) direkt (werkbank-client).
-constexpr uintptr_t UpgradeItems = 0x5984CD0;
-// UInventoryComponent::HandleItemSold, hinter dem Exec-Thunk. Ruft ItemRepresentation.ConfirmSell (0x5AA7E50) nach der lokalen
+// UInventoryComponent::UpgradeItems, Exec-Thunk 0x571F300. Rufen InventoryPanel.UpgradeDroppedItem (0x5AA1000) und
+// UpgradeItemToNextLevelAndReEquip (0x59876F0) direkt (werkbank-client).
+constexpr uintptr_t UpgradeItems = 0x59878D0;
+// UInventoryComponent::HandleItemSold, hinter dem Exec-Thunk. Ruft ItemRepresentation.ConfirmSell (0x5AABAC0) nach der lokalen
 // Gutschrift (AbstractCurrency::AddAmount) direkt; nimmt das Item über die Inventar-RPCs heraus (lager-handel-client).
-constexpr uintptr_t HandleItemSold = 0x596BA70;
-// UShopPanelItem::TryBuyItem, hinter dem Exec-Thunk 0x579ADE0 (opt-haendler-client). Prüft den Preis über einen Funktor des
+constexpr uintptr_t HandleItemSold = 0x596E480;
+// UShopPanelItem::TryBuyItem, hinter dem Exec-Thunk 0x579BC90 (opt-haendler-client). Prüft den Preis über einen Funktor des
 // Panels, zieht ihn lokal ab und legt die lokale Instanz des Shops mit AddToInventory ins Inventar des Käufers.
-constexpr uintptr_t TryBuyItem = 0x58CE280;
+constexpr uintptr_t TryBuyItem = 0x58CFD10;
 // UShopPanelItem, aus dem Code von TryBuyItem dieses Builds: ManuallyCallClearAndAdd, CostDisplay, ItemInstance;
 // UCostDisplay: der verlangte Preis (GetActualCost).
 constexpr uintptr_t ShopItemManualAdd = 0x848, ShopItemCostDisplay = 0x850, ShopItemInstance = 0x868;
@@ -1090,15 +1090,10 @@ bool ApplySold(Code::Writer&)
 bool CheckTryBuy()
 {
     static_assert(ShopItemInstance == 0x868, "Prüfbytes unten anpassen");
-    // update-1-0-2-handel: Seit Patch 1.0.2 lädt die Funktion die Instanz nach rax (mov rax,[rcx+ItemInstance]) und kehrt auch ohne
-    // deren ItemData (+0xE0) oder ohne dessen Feld +0xE8 sofort zurück; danach ist sie gleich geblieben. Der Hook hängt am Anfang
-    // und liest dieselben Felder des ShopPanelItem, er braucht keine Änderung.
-    // update-basis-26786272: Auf 26786272 (Patch 1.0.3) sind alle 12 Befehle der Funktion gleich wie auf 26669225.
-    if (Core::ActiveBuild() == 26669225 || Core::ActiveBuild() == 26786272)
-        return Code::Expect(At(TryBuyItem), {0x40, 0x57, 0x48, 0x83, 0xEC, 0x40, 0x48, 0x8B, 0x81, 0x68, 0x08, 0x00, 0x00, 0x48, 0x8B, 0xF9}, // Build 26669225, 26786272
-                            "ShopPanelItem::TryBuyItem (1.0.2)");
-    // Prolog, dann cmp qword ptr [rcx+ItemInstance],0: belegt zugleich den Offset der Instanz.
-    return Code::Expect(At(TryBuyItem), {0x40, 0x57, 0x48, 0x83, 0xEC, 0x40, 0x48, 0x83, 0xB9, 0x68, 0x08, 0x00, 0x00, 0x00, 0x48, 0x8B, 0xF9}, // Build 26495302
+    // Seit Patch 1.0.2 lädt die Funktion die Instanz nach rax (mov rax,[rcx+ItemInstance]) und kehrt auch ohne deren ItemData (+0xE0)
+    // oder ohne dessen Feld +0xE8 sofort zurück. Der Hook hängt am Anfang und liest dieselben Felder des ShopPanelItem.
+    // Prolog, dann mov rax,[rcx+ItemInstance]: belegt zugleich den Offset der Instanz.
+    return Code::Expect(At(TryBuyItem), {0x40, 0x57, 0x48, 0x83, 0xEC, 0x40, 0x48, 0x8B, 0x81, 0x68, 0x08, 0x00, 0x00, 0x48, 0x8B, 0xF9},
                         "ShopPanelItem::TryBuyItem");
 }
 bool ApplyTryBuy(Code::Writer&)
@@ -1128,7 +1123,7 @@ std::span<const Patch> RewardPatches()
     return List;
 }
 
-// rundenende-1-0-2: Rewards::Tick benutzt TryBuyItem nicht (nur Check, Apply und TryBuyHook). Auf 26669225 fehlt diese Adresse;
+// rundenende-1-0-2: Rewards::Tick benutzt TryBuyItem nicht (nur Check, Apply und TryBuyHook). Auf 26669225 fehlte diese Adresse zeitweise;
 // ohne Tick hielt ConfirmHook das Bestätigen des Hosts zurück, und niemand holte es nach: Doppelklick bei jeder Airdrop-Auswahl,
 // am Rundenende blieb das Lager des Hosts offen (Live-Test 16.11.2026).
 std::span<const uintptr_t> RewardTickOptionalSites()

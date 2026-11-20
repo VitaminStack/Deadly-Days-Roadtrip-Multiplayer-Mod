@@ -16,10 +16,10 @@ namespace Game::Patches
 {
 namespace
 {
-constexpr uintptr_t AssignDevice = 0x58DA3E0;      // ULocalCoopSubsystem::AssignPhysicalDevice(DeviceId, PlayerIndex)
-constexpr uintptr_t DraftAssignDevice = 0x58E73B0; // ULocalCoopSubsystem::DraftAssignPhysicalDevice(DeviceId, PlayerIndex)
-constexpr uintptr_t SpawnLocal = 0x5904F90;        // ULocalCoopSubsystem::SpawnLocalPlayer(PlayerIndex)
-constexpr uintptr_t GetController = 0x58EFFD0;     // ULocalCoopSubsystem::GetPlayerController(PlayerIndex)
+constexpr uintptr_t AssignDevice = 0x58DBF90;      // ULocalCoopSubsystem::AssignPhysicalDevice(DeviceId, PlayerIndex)
+constexpr uintptr_t DraftAssignDevice = 0x58E91A0; // ULocalCoopSubsystem::DraftAssignPhysicalDevice(DeviceId, PlayerIndex)
+constexpr uintptr_t SpawnLocal = 0x59070B0;        // ULocalCoopSubsystem::SpawnLocalPlayer(PlayerIndex)
+constexpr uintptr_t GetController = 0x58F1F10;     // ULocalCoopSubsystem::GetPlayerController(PlayerIndex)
 
 using AssignFn = bool(__fastcall*)(uintptr_t, int32_t, int32_t);
 using SpawnFn = uintptr_t(__fastcall*)(uintptr_t, int32_t);

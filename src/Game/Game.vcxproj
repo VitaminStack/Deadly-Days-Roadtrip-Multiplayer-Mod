@@ -122,8 +122,6 @@
     <ClInclude Include="GameThread.h" />
     <ClInclude Include="Memory.h" />
     <ClInclude Include="AddressMap.h" />
-    <None Include="RvaMap26669225.inc" />
-    <None Include="RvaMap26786272.inc" />
     <ClInclude Include="PatchSignatures.h" />
     <None Include="PatchSignatures.inc" />
     <ClInclude Include="Objects.h" />

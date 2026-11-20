@@ -1,6 +1,6 @@
 """Read-only Zeitreihe der Waffen-Darstellung auf Host und Client: hands_compare.py <host-pid> <client-pid> [--seconds N] [--every MS].
 
-Build 26495302, nicht atomar (opt-schuss-animation). Paart die Figuren beider Instanzen ueber ihre Waffenklassen und liest je Probe
+Build 26786272, nicht atomar (opt-schuss-animation). Paart die Figuren beider Instanzen ueber ihre Waffenklassen und liest je Probe
 Ort, Tempo und Wackeln der Figur, Drehung und Blickwinkel der Haende und je Waffe die relative Lage ihrer Komponente, den Weltort
 des Waffen-Actors und dessen Abstand zur Komponente (Rueckstoss, Stich). Gibt je Figur Spannen beider Seiten und die Abweichung aus.
 Schreibt nichts, ruft nichts. Offsets: docs/OFFSETS.md#schuss-animation-opt-schuss-animation.

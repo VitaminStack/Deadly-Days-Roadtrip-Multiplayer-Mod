@@ -1,4 +1,4 @@
-"""Read-only-Pausensnapshot: pause_state.py <pid> [<pid> ...]. Nur Build 26495302.
+"""Read-only-Pausensnapshot: pause_state.py <pid> [<pid> ...]. Nur Build 26786272.
 
 Keine atomare Aufnahme; Vorher/Nachher vergleichen. Felder aus dem Mission-SDK,
 keine Blueprint-Implementierungen oder SDK-Dateien im Repository.

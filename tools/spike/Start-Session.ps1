@@ -46,7 +46,7 @@ param(
     # angenommenen Einladung bei geschlossenem Spiel. Die Mod kommt dafuer in die Steam-Installation (nicht in PinnedGameDir), ohne
     # eigenes -UserDir; Stop-Session.ps1 entfernt sie wieder. Das Skript wartet auf den Prozess, den Steam startet.
     [switch]$SteamLaunch,
-    # Nur auf einem anderen Build als 26495302: Patch-Listen einzeln setzen (DDCOOP_PARTIAL_PATCHES), fuer die Portierung.
+    # Nur auf einem anderen Build als dem unterstuetzten: Patch-Listen einzeln setzen (DDCOOP_PARTIAL_PATCHES), fuer die Portierung.
     [switch]$PartialPatches,
     # Beide Instanzen starten mit einer Kopie des echten Spielstands (nur die .sav der obersten Ebene, gelesen, nie veraendert) statt mit einem
     # leeren: Ein frischer Spielstand zeigt eine karge MetaBase ohne Freischaltungen, etwa ohne Figurenauswahl. Die Kopie liegt unter research\local
@@ -86,7 +86,7 @@ $Timer = [Diagnostics.Stopwatch]::StartNew()
 function Write-Step([string]$Text) { Write-Host ('[{0,4:n0} s] {1}' -f $Timer.Elapsed.TotalSeconds, $Text) }
 Initialize-SessionDir
 Assert-SupportedBuild
-# Der Spike kennt die Adressen von 26495302, 26669225 und 26786272 (Builds.cpp) und prueft alle Patch-Stellen vor dem Setzen,
+# Der Spike kennt die Adressen des unterstuetzten Builds (Builds.cpp) und prueft alle Patch-Stellen vor dem Setzen,
 # siehe research/spikes/a-connect/README.md, Abschnitt Builds. Alle Builds in SupportedBuilds sind damit zugelassen.
 if ($Restart -or $Build) {
     $Stopped = & (Join-Path $PSScriptRoot 'Stop-Session.ps1')
@@ -186,7 +186,7 @@ function Connect-ModTransport([int]$ProcessId) {
     if ($NoSpike) { return }
     Send-GameConsole $ProcessId 'open 127.0.0.1:7778'
 }
-# Die Fixes fuer den Beitritt (Host 0x5901CE8, Client 0x56B16D9) setzt die Mod beim Spielstart, ein Spike ist dafuer nicht noetig.
+# Die Fixes fuer den Beitritt (Host 0x5903C28, Client 0x56B1F99) setzt die Mod beim Spielstart, ein Spike ist dafuer nicht noetig.
 function Join-Lobby([int]$ProcessId, [string]$LobbyId) {
     $State = Join-OverlayLobby $ProcessId $LobbyId
     if ($State.State -ne 'Im Spiel') { throw "Beitritt zur Lobby gescheitert: $($State.Message)" }

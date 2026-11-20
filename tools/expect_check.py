@@ -3,7 +3,7 @@
 Liest Code::Expect(At(X[, Offset]) [+/- n], {Bytes}, "Ort") und ExpectBranch(At(X), CallRel32|JumpRel32, Ziel, "Ort") aus src/Game, rechnet X ueber die Tabelle
 src/Game/RvaMap<build>.inc um (wie Game::AddressMap) und vergleicht mit der Exe. Liest nur lokale Dateien.
 
-  py tools/expect_check.py --exe <exe> --build 26495302 [--file ClientPatches.cpp ...]
+  py tools/expect_check.py --exe <exe> --build 26786272 [--file ClientPatches.cpp ...]
 
 Ausgabe je Pruefung: ok, abweichend (mit gelesenen Bytes), fehlt (Adresse ohne Tabelleneintrag) oder
 uebersprungen (Ausdruck ohne At, etwa lokale Variablen; diese prueft nur das Spiel) oder anderer-build (die Startzeile
@@ -19,7 +19,7 @@ from rva_map import Image, NAMED  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[1]
 GAME = REPO / 'src' / 'Game'
-REFERENCE_BUILD = 26495302
+REFERENCE_BUILD = 26786272
 EXPECT = re.compile(r'Code::Expect\(\s*(?P<site>[^{;]*?)\s*,\s*\{(?P<bytes>[^}]*)\}\s*,\s*(?://[^\n]*\s*)?"(?P<where>[^"]*)"', re.DOTALL)
 SITE = re.compile(r'^(?:Patches::)?At\(\s*(?P<base>\w+)\s*(?:,\s*(?P<offset>\w+)\s*)?\)\s*(?:(?P<sign>[+-])\s*(?P<delta>\w+))?$')
 BRANCH = re.compile(r'ExpectBranch\(\s*(?P<site>[^;]*?)\s*,\s*(?P<op>CallRel32|JumpRel32)\s*,\s*(?P<target>\w+)\s*,\s*"(?P<where>[^"]*)"',

@@ -1,4 +1,4 @@
-// Gemeinsame Schnittstelle der Spike-Dateien. Code- und Datenadressen nennt der Quelltext fuer Build 26495302, Rva() prueft
+// Gemeinsame Schnittstelle der Spike-Dateien. Code- und Datenadressen nennt der Quelltext fuer Build 26786272, Rva() prueft
 // den Build (Builds.cpp).
 #pragma once
 #include <windows.h>
@@ -21,9 +21,9 @@ uintptr_t FindImportSlot(const void* Function);
 
 void TickRemoteP2();
 bool RemoteP2Command(const std::wstring& Command);
-const uintptr_t kGObjects = Rva(0x0AA67B80);
-const uintptr_t kNameBlocks = Rva(0x0A999B40) + 0x10;
-const uintptr_t kGWorld = Rva(0x0AAEA770);
+const uintptr_t kGObjects = Rva(0x0AA6FC80);
+const uintptr_t kNameBlocks = Rva(0x0A9A1C40) + 0x10;
+const uintptr_t kGWorld = Rva(0x0AAF2870);
 constexpr int kProcessEventIndex = 0x4A;
 constexpr uintptr_t kWorldNetDriver = 0x38;
 constexpr uintptr_t kWorldGameMode = 0x1A8;

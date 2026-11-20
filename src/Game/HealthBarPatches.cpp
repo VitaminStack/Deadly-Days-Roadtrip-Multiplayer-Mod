@@ -19,18 +19,18 @@ namespace Game::Patches
 {
 namespace
 {
-constexpr uintptr_t OnRepHealth = 0x57DC810;
-constexpr uintptr_t OnRepMaxHealth = 0x57DCE70;
-constexpr uintptr_t OnRepStamina = 0x57DDE40;
-constexpr uintptr_t OnRepMaxStamina = 0x57DD080;
-constexpr uintptr_t OnRepArmor = 0x57DBA40;
-constexpr uintptr_t OnRepMaxArmor = 0x57DCD60;
+constexpr uintptr_t OnRepHealth = 0x57DD950;
+constexpr uintptr_t OnRepMaxHealth = 0x57DDFB0;
+constexpr uintptr_t OnRepStamina = 0x57DEF80;
+constexpr uintptr_t OnRepMaxStamina = 0x57DE1C0;
+constexpr uintptr_t OnRepArmor = 0x57DCB80;
+constexpr uintptr_t OnRepMaxArmor = 0x57DDEA0;
 // UCommonAttributeSet::PostAttributeChange: Sinkt MaxArmor (oder MaxHealth) unter den aktuellen Wert, setzt dieser Aufruf
 // FGameplayAttribute::SetNumericValueChecked den aktuellen Wert auf das neue Maximum (rcx Attribut, rdx &Wert, r8 Set).
-constexpr uintptr_t ClampToMaxCall = 0x57DF8EB;
-constexpr uintptr_t SetNumericValueChecked = 0x4BDDD80;
+constexpr uintptr_t ClampToMaxCall = 0x57E09DB;
+constexpr uintptr_t SetNumericValueChecked = 0x4BDE5E0;
 // UCommonAttributeSet::GetArmorAttribute, liefert einen Zeiger auf das statische FGameplayAttribute.
-constexpr uintptr_t GetArmorAttribute = 0x57D48A0;
+constexpr uintptr_t GetArmorAttribute = 0x57D59E0;
 // FGameplayAttributeData: VTable, BaseValue, CurrentValue.
 constexpr uintptr_t AttributeCurrentValue = 0xC;
 constexpr uintptr_t MaxHealth = 0x30;

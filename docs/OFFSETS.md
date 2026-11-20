@@ -1,16 +1,48 @@
-# Offsets für Build 26495302
+# Offsets für Build 26786272
 
-Der Quelltext (`src/`, Spike) nennt seit `spiel-update` (09.11.2026) RVAs von Steam-Build `26495302`, Exe `DDSurvivors-Win64-Shipping.exe`.
-Ältere Abschnitte dieser Datei sind vor dem Umstieg entstanden und nennen RVAs von `26187885`, siehe
-[Referenz-Build 26495302](#referenz-build-26495302-spiel-update) für die Umrechnung. Feld-Offsets sind in beiden Builds gleich, außer wo vermerkt.
+Der Quelltext (`src/`, Spike, `tools/spike`) nennt seit `spiel-update-26786272` (21.11.2026) RVAs von Steam-Build `26786272` (Patch 1.0.3),
+Exe `DDSurvivors-Win64-Shipping.exe`; die Mod unterstützt nur diesen Build. **Die Abschnitte dieser Datei sind zu ihrem jeweiligen Stand
+entstanden und nennen die RVAs des damaligen Builds** (`26495302`, davor `26187885`); sie sind nicht umgeschrieben. Umrechnung:
+[Referenz-Build 26786272](#referenz-build-26786272-spiel-update-26786272). Feld-Offsets sind gleich geblieben, außer wo vermerkt.
 Nach einem Spiel-Update müssen sie neu bestimmt werden, siehe [Spiel-Updates](../CONTRIBUTING.md#spiel-updates).
-Für Steam-Build `26669225` (Patch 1.0.2) gibt es seit dem 16.11.2026 eine Umrechnungstabelle, siehe [Build 26669225](#build-26669225-update-basis-1-0-2),
-für `26786272` (Patch 1.0.3) seit dem 20.11.2026, siehe [Build 26786272](#build-26786272-update-basis-26786272).
 Sie sind hier zum Nachschlagen gesammelt, damit niemand sie erneut suchen muss. Wer neue findet, trägt sie hier ein.
 
 RVAs sind relativ zur Image-Base `0x140000000`. Die Patchstellen stehen als Konstanten am Anfang der jeweiligen
 [Spike-Datei](../research/spikes/a-connect/README.md#dateien), ihre Bedeutung in der [Patch-Tabelle](../research/spikes/a-connect/README.md#patches).
 Die Spielfehler-Fixes nutzt auch die Mod, mit denselben Werten am Anfang von `src/Game/*Patches.cpp`, siehe [Patches der Mod](../src/Game/README.md#patches).
+
+## Referenz-Build 26786272 (`spiel-update-26786272`)
+
+Stand 21.11.2026, Nutzerentscheidung vom selben Tag: Die Mod unterstützt nur noch den neuesten Spiel-Build. `Game::AddressMap::ReferenceBuild`,
+`Protocol::GameBuild`, `Core::SupportedBuilds`, `Common.ps1`, `game_build.py`, `expect_check.py`, Spike und Installer kennen nur noch
+`26786272`; `26495302` und `26669225` sind entfernt, ebenso beide Tabellen `RvaMap*.inc`. Auf einem älteren Build bleibt die Mod aus
+(`Unbekannter Spiel-Build`), der Installer lehnt ihn ab.
+
+- **Umgeschrieben:** 217 Adressen in 40 Dateien (`src/`, `research/spikes/a-connect`, `tools/spike`, zwei Tests): 128 über die Tabelle aus
+  `update-basis-26786272` (124 der Mod, 4 des Spikes), 89 weitere aus Kommentaren und Tools mit `tools/rva_map.py` (74 eindeutig, 7 über
+  den Funktionsanfang, 7 über Befehlsfenster der Funktion, 1 vtable) und eine von Hand (Aufruf von `PlayReloadSound` in der Nachladelogik,
+  `0x05A48CC5`). Alte Werte: `git show 87a91a7:src/Game/RvaMap26786272.inc` (Referenz-RVA `26495302` -> `26786272`).
+- **Nicht umgeschrieben:** die Markdown-Dateien (diese Datei, `GAME_ANALYSIS.md`, die READMEs unter `src/` und im Spike). Ihre Abschnitte
+  sind datierte Befunde mit den Adressen des damaligen Builds; teils stammen sie noch von `26187885`.
+- **Verzweigungen nach Build entfernt:** `TryBuyItem` und `EndTackle` prüfen nur noch die Bytes von `26786272`, `RepresentationItem` ist
+  fest `0xA38`.
+- **Signaturen (`signaturen-nachziehen`):** `PatchSignatures.inc` ist geleert und für den einen Build neu erzeugt: 115 Adressen, auch die
+  beiden bisher fehlenden aus `CharacterPatches.cpp`; die Namen kommen jetzt alle vom Werkzeug. `patch_signatures.py check --strict` 115
+  `ok`, `sites` ohne Abweichung (dafür `InventoryPatches.cpp` nachgezogen und `DamageNumbersSites` umbenannt), ein zweites
+  `generate --write` ändert die Datei nicht. `expect_check.py` 101 `ok`, 2 `uebersprungen`.
+- **SdkChecks:** Build gegen das SDK von `26786272` ohne Fehler.
+- **Spieltest** (ein PC, eingefrorene Kopie `26786272`, ohne echte Eingaben, 21.11.2026):
+  - Mod und Spike (`Start-Session.ps1 -Build -Mod -Tunnel Lobby -Map /Game/Maps/DDDynamic_Map`): Host und Client
+    `Signaturen: 115 Adressen geprüft`, `Patches: 57 gesetzt`, `Spiel-Build 26786272`, Gegnerwelle, Inventar gleich,
+    `Test-Godmode.ps1` bestanden, Rundenende bei beiden, kein `[ERROR]`, kein Absturz.
+  - Nur Spike, ohne Mod: beide Instanzen `Patch: aktiv`, Karte und PCG vom Host, keine Zeile `Adresse fehlt` oder `unerwartete Bytes`,
+    Inventar gleich.
+  - Nur Mod (`-NoSpike`): `Patches: 57 gesetzt`, Lobby, Reise in die Mission, zweieinhalb Minuten, Inventar gleich, kein Absturz.
+- **Nicht geprüft:** die lesenden Python-Werkzeuge unter `tools/spike` einzeln (ihre Feld-Offsets liegen in Klassen, die laut
+  SDK-Vergleich unverändert sind; gelaufen sind `ddmem.py`, `inventory.py`, `godmode_state.py` über die Skripte oben), Befehle des Spikes
+  außer `!wave`, `!finish`, `!god`, alles Weitere wie in [Build 26786272](#build-26786272-update-basis-26786272) (`update-26786272-run`).
+- **Entwicklungskopien:** Nach dem Merge stellt jeder mit `Freeze-GameBuild.ps1 -Build 26786272 -Activate` um (`wechsel-26786272`).
+  Branches von vor dem Umstieg brauchen bis zu ihrem Rebase die alte Kopie.
 
 ## Referenz-Build 26495302 (`spiel-update`)
 
@@ -30,7 +62,8 @@ Tabelle selbst ist entfernt; für alte Werte weiter unten: `git show 0cb3d80:src
 
 ## Build 26786272 (`update-basis-26786272`)
 
-Stand 20.11.2026, Patch 1.0.3 vom 19.11.2026 (Version laut `CrashReportClient.ini` des Spiels: `1.0.3-main-10811c16`). `26495302` bleibt
+Zwischenstand vor dem Umstieg (drei Builds parallel, RVAs dieses Abschnitts als Referenz-RVA `26495302` mit Umrechnung), abgelöst durch
+[Referenz-Build 26786272](#referenz-build-26786272-spiel-update-26786272). Stand 20.11.2026, Patch 1.0.3 vom 19.11.2026 (Version laut `CrashReportClient.ini` des Spiels: `1.0.3-main-10811c16`). `26495302` bleibt
 Referenz-Build, `26669225` bleibt unterstützt. Für `26786272` rechnet `Game::AddressMap` die Referenz-RVAs über
 `src/Game/RvaMap26786272.inc` um. Exe: TimeDateStamp `0x260774D7`, SizeOfImage `0x0B750000`; `.text` ist gewachsen
 (`0x0828081C` statt `0x0827BCFC` auf `26669225`). Alles unten ist auf einem PC gemessen, zwei Instanzen, ohne echte Eingaben.

@@ -1,14 +1,12 @@
-"""Liest Speicher einer laufenden Spielinstanz. Globale Adressen je Build, Feld-Offsets aus docs/OFFSETS.md (Build 26495302)."""
+"""Liest Speicher einer laufenden Spielinstanz. Globale Adressen je Build, Feld-Offsets aus docs/OFFSETS.md (Build 26786272)."""
 import ctypes
 import struct
 from ctypes import wintypes as W
 
-GOBJECTS, GNAMES, GWORLD = 0x0AA67B80, 0x0A999B40, 0x0AAEA770
-# TimeDateStamp der Exe -> (GObjects, GNames, GWorld, Groesse von .text), wie src/Game/Offsets.h.
+GOBJECTS, GNAMES, GWORLD = 0x0AA6FC80, 0x0A9A1C40, 0x0AAF2870
+# TimeDateStamp der Exe -> (GObjects, GNames, GWorld, Ende von .text), wie src/Game/Offsets.h.
 BUILDS = {
-    0x65BFBBFB: (GOBJECTS, GNAMES, GWORLD, 0x827C000),  # 26495302
-    0xE9CA3AB7: (0x0AA69B80, 0x0A99BB40, 0x0AAEC770, 0x827C000),  # 26669225, Patch 1.0.2
-    0x260774D7: (0x0AA6FC80, 0x0A9A1C40, 0x0AAF2870, 0x8282000),  # 26786272, Patch 1.0.3
+    0x260774D7: (GOBJECTS, GNAMES, GWORLD, 0x8282000),  # 26786272, Patch 1.0.3
 }
 
 kernel = ctypes.WinDLL('kernel32', use_last_error=True)

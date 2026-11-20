@@ -99,10 +99,10 @@ powershell -ExecutionPolicy Bypass -File tools/Freeze-GameBuild.ps1 -Activate
 ```
 
 - Quelle bleibt `GameDir` aus `config/Local.props`, Standardziel ist `%LOCALAPPDATA%/DDCoop/builds/<Build>`.
-- `-Build <id>` wählt einen der unterstützten Builds aus `SupportedBuilds` in `tools/spike/Common.ps1`, Standard `26495302`. Jeder Build hat
+- `-Build <id>` wählt einen der unterstützten Builds aus `SupportedBuilds` in `tools/spike/Common.ps1`, derzeit nur `26786272`. Jeder Build hat
   seine Hash-Referenz in `game_build.py` und einen eigenen Ordner. Start und Deploy erkennen den Build der aktiven Kopie an ihrem Beleg.
-  Der Spike kennt die Adressen von `26495302` und, über die Tabellen der Mod, von `26669225` und `26786272`; auf einem anderen Build setzt er keine Patches.
-  `-Build 26669225` (Patch 1.0.2) oder `-Build 26786272` (Patch 1.0.3) legt eine weitere Kopie an; ohne `-Activate` bleibt `PinnedGameDir` auf `26495302`. Für Tests auf einem dieser Builds
+  Der Spike kennt nur die Adressen dieses Builds; auf einem anderen setzt er keine Patches.
+  Während eines Umstiegs legt `-Build <neu>` die Kopie des neuen Builds an; ohne `-Activate` bleibt `PinnedGameDir` unverändert. Für Tests auf dem neuen Build
   eine eigene `config/Local.props` im Worktree mit dem anderen `PinnedGameDir` anlegen, nie die gemeinsame Datei umstellen.
 - `-Destination <Ordner>` wählt ein anderes Ziel außerhalb aller `steamapps`-Ordner. Keine Hardlinks, Symlinks oder Junctions.
 - `-Activate` setzt `PinnedGameDir` in der gefundenen lokalen Konfiguration; in Worktrees ohne eigene `Local.props` ist das die gemeinsame Datei.
@@ -113,11 +113,11 @@ powershell -ExecutionPolicy Bypass -File tools/Freeze-GameBuild.ps1 -Activate
 
 ## rva_map.py
 
-Rechnet die Code- und Datenadressen der Mod (RVAs in `src/`) vom Referenz-Build `26495302` auf einen neuen Build um und schreibt die
+Rechnet die Code- und Datenadressen der Mod (RVAs in `src/`) vom Referenz-Build (derzeit `26786272`) auf einen neuen Build um und schreibt die
 Tabelle `src/Game/RvaMap<build>.inc` für `Game::AddressMap`. Braucht `capstone` (`py -m pip install --user capstone`), liest nur die beiden lokalen Exes.
 
 ```bash
-py tools/rva_map.py --old <kopie-26495302>/DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe --new <kopie-neu>/DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe --build <neuer-build> --write
+py tools/rva_map.py --old <kopie-referenz>/DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe --new <kopie-neu>/DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe --build <neuer-build> --write
 ```
 
 - `eindeutig`: Befehlsfolge ab der Adresse mit maskierten Sprung- und RIP-Verschiebungen genau einmal gefunden.
@@ -169,8 +169,8 @@ Start an der erwarteten Stelle (`Game::Signatures`, vor dem ersten Hook). Passt 
 die Patches, die sie in `Patch::Sites` nennen, fallen aus (Log: `Signatur … passt nicht`, `Patches: ausgelassen`). Braucht `capstone`.
 
 ```bash
-py tools/patch_signatures.py generate --exe <kopie-26495302>/DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe --other <kopie-neu>/DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe <neuer-build> --write
-py tools/patch_signatures.py check --exe <kopie>/DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe --build 26495302
+py tools/patch_signatures.py generate --exe <kopie-referenz>/DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe --other <kopie-neu>/DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe <neuer-build> --write
+py tools/patch_signatures.py check --exe <kopie>/DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe --build 26786272
 ```
 
 - `generate`: kürzestes Muster, das in jeder Exe genau einmal an der erwarteten Stelle steht; abweichende Bytes werden Platzhalter, bei

@@ -6,14 +6,13 @@
 
 TEST_CASE("Versionsprüfung kennt nur exakt passende Fingerabdrücke")
 {
-    CHECK(Core::FindSupportedBuild({0x65BFBBFB, 0x0B748000}) == 26495302u);
-    CHECK(Core::FindSupportedBuild({0xE9CA3AB7, 0x0B74A000}) == 26669225u); // Patch 1.0.2
-    CHECK_FALSE(Core::FindSupportedBuild({0xE9CA3AB7, 0x0B748000}));
     CHECK(Core::FindSupportedBuild({0x260774D7, 0x0B750000}) == 26786272u); // Patch 1.0.3
-    CHECK_FALSE(Core::FindSupportedBuild({0x260774D7, 0x0B74A000}));
-    CHECK_FALSE(Core::FindSupportedBuild({0x65BFBBFB, 0x0B748001}));
-    CHECK_FALSE(Core::FindSupportedBuild({0x65BFBBFC, 0x0B748000}));
-    CHECK_FALSE(Core::FindSupportedBuild({0x32C34474, 0x0B742000})); // 26187885, seit spiel-update nicht mehr unterstützt
+    CHECK_FALSE(Core::FindSupportedBuild({0x260774D7, 0x0B750001}));
+    CHECK_FALSE(Core::FindSupportedBuild({0x260774D8, 0x0B750000}));
+    // Nur der neueste Build: 26495302 und 26669225 seit spiel-update-26786272 nicht mehr unterstützt.
+    CHECK_FALSE(Core::FindSupportedBuild({0x65BFBBFB, 0x0B748000}));
+    CHECK_FALSE(Core::FindSupportedBuild({0xE9CA3AB7, 0x0B74A000}));
+    CHECK_FALSE(Core::FindSupportedBuild({0x32C34474, 0x0B742000})); // 26187885
     CHECK_FALSE(Core::FindSupportedBuild({0, 0}));
 }
 

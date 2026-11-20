@@ -50,7 +50,7 @@ namespace Game
 {
 namespace
 {
-// Build 26495302, SDK.
+// Build 26786272, SDK.
 constexpr uintptr_t DataWeaponActor = 0xB0;     // UWeaponData.WeaponActorToSpawn (TSubclassOf<AActor>)
 constexpr uintptr_t DataFireSound = 0xB8;       // UWeaponData.FireWeaponSoundEvent (UFMODEvent*)
 constexpr uintptr_t DataReloadSound = 0xC0;     // UWeaponData.ReloadWeaponSoundEvent (UFMODEvent*)
@@ -95,8 +95,8 @@ struct PendingReload
 
 // AHands::PlayReloadSound, der native Event-Wrapper (Hands, Override). Ohne Blueprint-Überschreibung springt er direkt in die
 // _Implementation und läuft nicht über ProcessEvent (gemessen: 0 Aufrufe im Beobachter bei 18 Nachladesounds des Hosts). Aufrufer
-// ist die Nachladelogik der Waffeninstanz (0x5A45F5C) aus der Feuerschleife der Hände.
-constexpr uintptr_t ReloadSoundEvent = 0x5707870;
+// ist die Nachladelogik der Waffeninstanz (0x5A48CC5) aus der Feuerschleife der Hände.
+constexpr uintptr_t ReloadSoundEvent = 0x5708220;
 using ReloadSoundFn = void(__fastcall*)(uintptr_t Hands, uintptr_t Override);
 ReloadSoundFn OriginalReloadSound = nullptr;
 

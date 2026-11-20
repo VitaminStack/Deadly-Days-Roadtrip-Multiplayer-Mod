@@ -9,7 +9,6 @@
 
 #include "Core/Log.h"
 #include "Core/Hooks.h"
-#include "Core/Version.h"
 #include "Game/Memory.h"
 #include "Game/PatchPolicy.h"
 #include "Game/Objects.h"
@@ -20,28 +19,28 @@ namespace Game::Patches
 {
 namespace
 {
-constexpr uintptr_t InventoryVtable = 0x94BF710;
-constexpr uintptr_t SlotVtable = 0x93A1F98;
-constexpr uintptr_t ItemVtable = 0x94B9A08;
+constexpr uintptr_t InventoryVtable = 0x94C5D00;
+constexpr uintptr_t SlotVtable = 0x93A7EF8;
+constexpr uintptr_t ItemVtable = 0x94BFFF0;
 constexpr uintptr_t SupportedForNetworkingSlot = 0x200;
 constexpr uintptr_t ReadyForReplicationSlot = 0x3D8;
 constexpr uintptr_t DefaultNetworkingSupport = 0x1512430;
-constexpr uintptr_t InventoryReadyForReplication = 0x596D8C0;
+constexpr uintptr_t InventoryReadyForReplication = 0x59702D0;
 constexpr uintptr_t ComponentReplicationFlags = 0x98;
 constexpr uint8_t UseRegisteredSubobjectList = 0x40;
 
 // AItemLoot::Loot bekommt das ILootableInterface-Teilobjekt, nicht den Actor.
 // Auch Blueprint-Aufrufe erreichen diesen virtuellen nativen Pfad.
-constexpr uintptr_t ItemLoot = 0x59AF200;
+constexpr uintptr_t ItemLoot = 0x59B1F50;
 constexpr uintptr_t LootableInterface = 0x2A8;
 using ItemLootFn = void(__fastcall*)(uintptr_t, uintptr_t);
 ItemLootFn OriginalItemLoot = nullptr;
 std::atomic<unsigned> ClientItemLootAttempts = 0;
 
 // opt-schrott-anzeige: AScrapLoot::Loot_Implementation schreibt ScrapAmount ohne Rollenprüfung per AbstractCurrency.AddAmount
-// (0x586B2B0) gut und springt dann in ALootBase::Loot_Implementation (Klang, Delegate). Gleiche Signatur wie ItemLoot.
-constexpr uintptr_t ScrapLoot = 0x59AF660;
-constexpr uintptr_t LootBaseLoot = 0x59AF3F0;
+// (0x586C400) gut und springt dann in ALootBase::Loot_Implementation (Klang, Delegate). Gleiche Signatur wie ItemLoot.
+constexpr uintptr_t ScrapLoot = 0x59B23B0;
+constexpr uintptr_t LootBaseLoot = 0x59B2140;
 ItemLootFn OriginalScrapLoot = nullptr;
 std::atomic<unsigned> ClientScrapLootAttempts = 0;
 
@@ -314,34 +313,27 @@ void TickLootSoundImpl(NetRole Role)
 
 // Der Callback nach der Reise auf Tag 3 gehört nicht zum Inventar: Der Achievement-Detektor legt in BeginPlay einen
 // Timer mit rohem this an und löscht ihn in EndPlay nicht.
-constexpr uintptr_t DetectorVtable = 0x94C6A78;
-constexpr uintptr_t DetectorEndPlay = 0x57D0C60;
+constexpr uintptr_t DetectorVtable = 0x94CD068;
+constexpr uintptr_t DetectorEndPlay = 0x57D1DA0;
 constexpr uintptr_t EndPlaySlot = 0x3F0;
-constexpr uintptr_t ScheduleCall = 0x57CB5A5;
-constexpr uintptr_t SetNextTick = 0x314D6D0;
-constexpr uintptr_t FindTimer = 0x31473C0;
-constexpr uintptr_t ClearTimer = 0x314D2B0;
+constexpr uintptr_t ScheduleCall = 0x57CC665;
+constexpr uintptr_t SetNextTick = 0x314D6A0;
+constexpr uintptr_t FindTimer = 0x3147390;
+constexpr uintptr_t ClearTimer = 0x314D280;
 constexpr uintptr_t DelegateCapturedThis = 0x18;
 
-// Lambda des Kartengenerators: roher Generator bei +18h, &CurrentGenData bei +20h, ruft den Schritt 0x59DDE60 ohne
+// Lambda des Kartengenerators: roher Generator bei +18h, &CurrentGenData bei +20h, ruft den Schritt 0x59E0BE0 ohne
 // Prüfung. Nach der Reise auf Tag 3 feuerte er für den Generator der alten Karte.
-constexpr uintptr_t MapGenLambdaVtable = 0x96191F0;
-constexpr uintptr_t MapGenLambdaExecute = 0x59CFBA0;
-constexpr uintptr_t MapGenLambdaExecuteIfSafe = 0x59CFD50;
+constexpr uintptr_t MapGenLambdaVtable = 0x961FFC0;
+constexpr uintptr_t MapGenLambdaExecute = 0x59D2920;
+constexpr uintptr_t MapGenLambdaExecuteIfSafe = 0x59D2AD0;
 constexpr uintptr_t LambdaGenerator = 0x18;
 
 // lager-absturz-client: Größe eines Item-Widgets (UItemRepresentation) aus der Itemform, Breite und Höhe je 66 px minus 3.
-// Liest ItemInstance (+0xA28), davon ItemData (+0xE0) und dessen Form (+0xE8) ohne Prüfung. Verliert das Widget sein Item, etwa
+// Liest ItemInstance (+0xA38), davon ItemData (+0xE0) und dessen Form (+0xE8) ohne Prüfung. Verliert das Widget sein Item, etwa
 // beim Verbindungsabbau im Lager, stürzte der Client hier ab (Build 26187885, Lesen bei +0x1A). Ohne Item bleibt die alte Größe stehen.
-constexpr uintptr_t RepresentationSize = 0x5ABA0F0;
-// update-basis-26786272: Seit Patch 1.0.3 stehen vor ItemInstance zwei neue Felder (UpgradableMask, GlitterMask, SDK-Vergleich),
-// das Feld liegt dort bei +0xA38. Die Byte-Prüfung in CheckRepresentationSize belegt den Wert je Build.
-constexpr uintptr_t RepresentationItemBefore103 = 0xA28; // Builds 26495302, 26669225
-constexpr uintptr_t RepresentationItemSince103 = 0xA38;  // Build 26786272
-uintptr_t RepresentationItem()
-{
-    return Core::ActiveBuild() == 26786272 ? RepresentationItemSince103 : RepresentationItemBefore103;
-}
+constexpr uintptr_t RepresentationSize = 0x5ABD6C0;
+constexpr uintptr_t RepresentationItem = 0xA38; // UItemRepresentation.ItemInstance (bis Patch 1.0.2 0xA28)
 constexpr uintptr_t ItemInstanceData = 0xE0;
 constexpr uintptr_t ItemDataShape = 0xE8;
 using RepresentationSizeFn = void(__fastcall*)(uintptr_t);
@@ -350,7 +342,7 @@ std::atomic<unsigned> RepresentationSkips = 0;
 
 void __fastcall RepresentationSizeHook(uintptr_t Representation)
 {
-    const uintptr_t Item = Memory::Read<uintptr_t>(Representation + RepresentationItem()).value_or(0);
+    const uintptr_t Item = Memory::Read<uintptr_t>(Representation + RepresentationItem).value_or(0);
     const uintptr_t Data = Item ? Memory::Read<uintptr_t>(Item + ItemInstanceData).value_or(0) : 0;
     const uintptr_t Shape = Data ? Memory::Read<uintptr_t>(Data + ItemDataShape).value_or(0) : 0;
     if (Shape)
@@ -504,22 +496,13 @@ bool ApplyMapGenLambda(Code::Writer&)
            Code::WriteVirtual(At(MapGenLambdaVtable, 8), reinterpret_cast<uintptr_t>(&MapGenLambdaExecuteIfSafeHook));
 }
 
-// Die Funktion prüft zuerst den Slot (+0x30) und liest das Item danach ohne Prüfung (mov rax,[rsi+0A28h] bei +0x41, seit 1.0.3 +0A38h).
-bool CheckRepresentationItem()
-{
-    static_assert(RepresentationItemBefore103 == 0xA28 && RepresentationItemSince103 == 0xA38, "Prüfbytes unten anpassen");
-    if (Core::ActiveBuild() == 26786272)
-        return Code::Expect(At(RepresentationSize, 0x41), {0x48, 0x8B, 0x86, 0x38, 0x0A, 0x00, 0x00}, // Build 26786272
-                            "Größe des Item-Widgets, Item-Feld (1.0.3)");
-    return Code::Expect(At(RepresentationSize, 0x41), {0x48, 0x8B, 0x86, 0x28, 0x0A, 0x00, 0x00}, // Build 26495302, 26669225
-                        "Größe des Item-Widgets, Item-Feld");
-}
-
+// Die Funktion prüft zuerst den Slot (+0x30) und liest das Item danach ohne Prüfung (mov rax,[rsi+0A38h] bei +0x41).
 bool CheckRepresentationSize()
 {
+    static_assert(RepresentationItem == 0xA38, "Prüfbytes unten anpassen");
     return Code::Expect(At(RepresentationSize), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x56, 0x48, 0x83, 0xEC, 0x40, 0x48, 0x83, 0x79, 0x30, 0x00},
                         "Größe des Item-Widgets") &&
-           CheckRepresentationItem();
+           Code::Expect(At(RepresentationSize, 0x41), {0x48, 0x8B, 0x86, 0x38, 0x0A, 0x00, 0x00}, "Größe des Item-Widgets, Item-Feld");
 }
 
 bool ApplyRepresentationSize(Code::Writer&)
@@ -529,8 +512,8 @@ bool ApplyRepresentationSize(Code::Writer&)
 }
 
 // Je Patch die benutzten Adressen der Signaturtabelle, erzeugt von tools/patch_signatures.py sites.
-constexpr uintptr_t ItemLootSites[] = {ItemLoot};
-constexpr uintptr_t ScrapLootSites[] = {ScrapLoot, LootBaseLoot};
+constexpr uintptr_t ItemLootSites[] = {ItemLoot, LootBaseLoot};
+constexpr uintptr_t ScrapLootSites[] = {LootBaseLoot, ScrapLoot};
 constexpr uintptr_t LootBaseSites[] = {LootBaseLoot};
 constexpr uintptr_t RepresentationSizeSites[] = {RepresentationSize};
 constexpr uintptr_t InventorySites[] = {DefaultNetworkingSupport, InventoryReadyForReplication};

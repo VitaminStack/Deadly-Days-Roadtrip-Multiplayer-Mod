@@ -25,10 +25,10 @@ namespace
 // UGameplayCueManager::ExecuteGameplayCue_NonReplicated(AActor* Target, FGameplayTag Tag, const FGameplayCueParameters&),
 // statisch. UGameplayCueFunctionLibrary::ExecuteGameplayCueOnActor ruft es nur für Ziele ohne ASC auf; für Gegner mit ASC
 // verlangt es Autorität, beim Client geschieht dort nichts.
-constexpr uintptr_t ExecuteCueNonReplicated = 0x4BC58D0;
+constexpr uintptr_t ExecuteCueNonReplicated = 0x4BC6130;
 using ExecuteCueFn = void(__fastcall*)(uintptr_t Target, uint64_t Tag, const void* Parameters);
 
-// Build 26495302, SDK.
+// Build 26786272, SDK.
 constexpr uintptr_t StartupAbilities = 0x708;   // ADDCharacterBase, TArray<TSubclassOf<UGameplayAbility>>
 constexpr uintptr_t ChaosDestructionCueTag = 0x3A8; // UEnemyDyingAbility, FGameplayTag (FName)
 constexpr uintptr_t ClassDefaultObject = 0x118; // UClass

@@ -12,35 +12,23 @@ Vertrauensgrad:
 | | |
 |---|---|
 | Steam-AppID | `3026450` |
-| Steam-Build-ID | `26495302` (seit `spiel-update`, 09.11.2026) |
-| Manifest-IDs | Depot `3026451`: `1832737755528485607`, Depot `3026452`: `2302428105354984436` |
-| Exe-Kennung | TimeDateStamp `0x65BFBBFB`, SizeOfImage `0x0B748000` |
+| Steam-Build-ID | `26786272` (Patch 1.0.3 vom 19.11.2026, seit `spiel-update-26786272`, 21.11.2026) |
+| Manifest-IDs | Depot `3026451`: `1832737755528485607`, Depot `3026452`: `4188926129224131155` |
+| Exe-Kennung | TimeDateStamp `0x260774D7`, SizeOfImage `0x0B750000` |
 | Engine-Version | `5.8.1-56057345+++UE5+Release-5.8` |
 | Spiel-Exe | `DDSurvivors/Binaries/Win64/DDSurvivors-Win64-Shipping.exe` (179 MB) |
 
-Parallel dazu in Vorbereitung (`update-basis-1-0-2`, 16.11.2026), noch nicht für die Entwicklung freigegeben:
+Nutzerentscheidung vom 21.11.2026: Die Mod unterstützt immer nur den neuesten Spiel-Build. Frühere Builds, nicht mehr unterstützt:
 
-| | |
-|---|---|
-| Steam-Build-ID | `26669225` (Patch 1.0.2 vom 14.11.2026) |
-| Manifest-IDs | Depot `3026451`: `1832737755528485607` (unverändert, leer), Depot `3026452`: `1284187377913424313` |
-| Exe-Kennung | TimeDateStamp `0xE9CA3AB7`, SizeOfImage `0x0B74A000` |
-| Exe-Version | Datei- und Produktversion `++UE5+Release-5.8-CL-56057345`, in beiden Exes gleich; Engine-Version unverändert |
-| Geändert | Exe, `DDSurvivors-Windows.pak`, `.ucas`, `.utoc`; `global.ucas`/`global.utoc` gleich. 52 Dateien in der eingefrorenen Kopie |
-| Stand der Mod | seit `freigabe-1-0-2` für Spieler geöffnet: Teilinstallation von selbst, 18 von 18 Patch-Listen, 3 einzelne Patches ausgelassen (Blockade, Händlerkauf, Nachladesound; die Lebensleisten des Clients seit `update-1-0-2-lebensleisten` gesetzt); siehe [Freigabe](OFFSETS.md#freigabe-von-build-26669225-für-spieler-freigabe-1-0-2). Im Live-Test am 16.11.2026 kam der Host am ersten Rundenende nicht aus dem Lager, der Run war nicht fortsetzbar; behoben in `rundenende-1-0-2` und auf einem PC bis Tag 3 bestätigt (beide Reihenfolgen). Stände vor diesem Fix sind auf `26669225` nicht spielbar. Offen: Gegenprobe auf zwei PCs mit Lager-Edit des Clients, siehe [Rundenende auf 26669225](OFFSETS.md#rundenende-auf-26669225-rundenende-1-0-2) |
+| Steam-Build-ID | Zeitraum | Exe-Kennung | Manifest Depot `3026452` |
+|---|---|---|---|
+| `26669225` (Patch 1.0.2 vom 14.11.2026) | 16.11. bis 21.11.2026, parallel | TimeDateStamp `0xE9CA3AB7`, SizeOfImage `0x0B74A000` | `1284187377913424313` |
+| `26495302` | 09.11. bis 21.11.2026, Referenz | TimeDateStamp `0x65BFBBFB`, SizeOfImage `0x0B748000` | `2302428105354984436` |
 
-Ebenfalls parallel unterstützt (`update-basis-26786272`, 20.11.2026):
-
-| | |
-|---|---|
-| Steam-Build-ID | `26786272` (Patch 1.0.3 vom 19.11.2026) |
-| Manifest-IDs | Depot `3026451`: `1832737755528485607` (unverändert), Depot `3026452`: `4188926129224131155` |
-| Exe-Kennung | TimeDateStamp `0x260774D7`, SizeOfImage `0x0B750000` |
-| Geändert | Exe, `DDSurvivors-Windows.pak`, `.ucas`, `.utoc` und diesmal auch `global.ucas`/`global.utoc`. 52 Dateien in der eingefrorenen Kopie |
-| Stand der Mod | Teilinstallation von selbst, 18 von 18 Patch-Listen, 0 Patches ausgelassen; auf einem PC bis in die Mission und über ein Rundenende gemessen, Lauf über die Route und zwei PCs offen (`update-26786272-run`); siehe [Offsets](OFFSETS.md#build-26786272-update-basis-26786272) |
-
-Die Mod erkennt alle drei Builds, Referenz und Standard aller Skripte bleibt `26495302`. Die Hash-Referenz der Builds steht in `tools/game_build.py`.
-Den Wechsel der Entwicklungskopien entscheidet das Team (`wechsel-1-0-2`).
+Gegenüber `26669225` hat `26786272` Exe, `DDSurvivors-Windows.pak`, `.ucas`, `.utoc` und `global.ucas`/`global.utoc` geändert; die
+eingefrorene Kopie hat 52 Dateien. Stand der Mod: `Patches: 57 gesetzt`, auf einem PC bis in die Mission und über ein Rundenende gemessen,
+Lauf über die Route und zwei PCs offen (`update-26786272-run`), siehe [Offsets](OFFSETS.md#referenz-build-26786272-spiel-update-26786272).
+Die Hash-Referenz steht in `tools/game_build.py`. Die Entwicklungskopien wechseln nach dem Merge (`wechsel-26786272`).
 
 Build-ID und Manifest-IDs stehen in `steamapps/appmanifest_3026450.acf`. Die Manifest-IDs benennen die gewünschten Depotstände;
 ein erneuter Download über die Steam-Konsole ist für den Vorgänger getestet (07.11.2026): `download_depot 3026450 3026452 7724756528743620812` lieferte

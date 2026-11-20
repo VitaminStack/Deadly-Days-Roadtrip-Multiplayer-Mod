@@ -19,10 +19,10 @@ namespace Game::Patches
 {
 namespace
 {
-constexpr uintptr_t StartMapGeneration = 0x59F44A0;
-constexpr uintptr_t CreateChildActor = 0x288B710;
-constexpr uintptr_t IsChildActorReplicated = 0x289DD60;
-constexpr uintptr_t SetupPcgVolume = 0x59F3470; // UPCGVolumeGenerator, Vtable 0x9566B18 Slot 85: Volume spawnen, Graph wählen
+constexpr uintptr_t StartMapGeneration = 0x59F7220;
+constexpr uintptr_t CreateChildActor = 0x288B6E0;
+constexpr uintptr_t IsChildActorReplicated = 0x289DD30;
+constexpr uintptr_t SetupPcgVolume = 0x59F61F0; // UPCGVolumeGenerator, Vtable 0x956D518 Slot 85: Volume spawnen, Graph wählen
 
 constexpr uintptr_t ObjectOuter = 0x20;
 constexpr uintptr_t ObjectClass = 0x10;

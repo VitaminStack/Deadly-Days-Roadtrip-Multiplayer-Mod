@@ -10,9 +10,9 @@ constexpr uintptr_t kActivePlayers = 0x100;
 constexpr uintptr_t kCoopEnabled = 0x180;
 constexpr uintptr_t kLocalPlayers = 0x38;
 constexpr uintptr_t kGameInstance = 0x228;
-const uintptr_t kMapAdd = Rva(0x58D1A80);
+const uintptr_t kMapAdd = Rva(0x58D3530);
 const uintptr_t kMapSparseRemove = Rva(0x1344650);
-const uintptr_t kGetController = Rva(0x58EFFD0);
+const uintptr_t kGetController = Rva(0x58F1F10);
 bool Enabled = false;
 bool FunctionsReady = false;
 uintptr_t LastWorld = 0, LastRemote = 0;
@@ -98,7 +98,7 @@ bool PatchRemoteDeviceCheck()
     static bool Installed = false;
     if (Installed)
         return true;
-    const uintptr_t Site = Base + Rva(0x590B2AA);
+    const uintptr_t Site = Base + Rva(0x590D3BA);
     if (!Expect(Site, {0x48, 0x85, 0xDB, 0x74, 0x05, 0x40, 0x84, 0xED, 0x74, 0x04}, "RemoteP2 missing device branch"))
         return false;
     struct Writer : CodeWriter
@@ -112,7 +112,7 @@ bool PatchRemoteDeviceCheck()
     if (!Code.Allocate())
         return false;
     uint8_t* Start = Code.Here();
-    EmitRemoteDeviceGuard(Code, reinterpret_cast<uintptr_t>(&HasRemoteP2Device), Base + Rva(0x590B2AF), Base + Rva(0x590B2B4));
+    EmitRemoteDeviceGuard(Code, reinterpret_cast<uintptr_t>(&HasRemoteP2Device), Base + Rva(0x590D3BF), Base + Rva(0x590D3C4));
     WriteJump(Site, Start);
     Installed = true;
     return true;

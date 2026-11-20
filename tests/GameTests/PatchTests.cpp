@@ -263,23 +263,23 @@ TEST_CASE("Signaturen: Tabelle sortiert, eigene Build-Zeile vor der gemeinsamen,
     constexpr Entry Rows[] = {
         {0x10, 0, "AA BB", 0, "Shared"},
         {0x20, 0, "CC", 0, "Both"},
-        {0x20, 26495302, "DD", 0, "Own"},
-        {0x30, 26495302, "EE", 0, "OnlyOwn"},
+        {0x20, 26786272, "DD", 0, "Own"},
+        {0x30, 26786272, "EE", 0, "OnlyOwn"},
     };
     static_assert(Sorted(Rows));
     static_assert(Sorted(Table));
-    CHECK(Find(Rows, 0x10, 26495302) == 0);
-    CHECK(Find(Rows, 0x20, 26495302) == 2);
+    CHECK(Find(Rows, 0x10, 26786272) == 0);
+    CHECK(Find(Rows, 0x20, 26786272) == 2);
     CHECK(Find(Rows, 0x20, 26187885) == 1);
     CHECK(Find(Rows, 0x30, 26187885) == -1);
-    CHECK(Find(Rows, 0x40, 26495302) == -1);
+    CHECK(Find(Rows, 0x40, 26786272) == -1);
     // lager-handel-client: neue Hook-Adresse muss auch unter der zentralen Signaturpruefung liegen.
-    constexpr uint32_t SoldRva = 0x0596BA70;
-    const int SoldReference = Find(Table, SoldRva, 26495302);
+    constexpr uint32_t SoldRva = 0x0596E480;
+    const int SoldReference = Find(Table, SoldRva, 26786272);
     REQUIRE(SoldReference >= 0);
     CHECK(std::strcmp(Table[SoldReference].Name, "HandleItemSold") == 0);
     const uint8_t SoldProlog[] = {0x48, 0x89, 0x5C, 0x24, 0x08, 0x57, 0x48, 0x83,
-                                  0xEC, 0x20, 0x45, 0x33, 0xC0, 0x48, 0x8B, 0xDA};
+                                  0xEC, 0x20, 0x45, 0x33, 0xC0, 0x48, 0x8B, 0xDA, 0x48, 0x8B, 0xF9};
     CHECK(Matches(Table[SoldReference].Pattern, SoldProlog));
     constexpr Entry Duplicate[] = {{0x10, 0, "AA", 0, "a"}, {0x10, 0, "AA", 0, "b"}};
     static_assert(!Sorted(Duplicate));
@@ -328,11 +328,10 @@ TEST_CASE("Patches: Teilinstallation nie im Referenz-Build, auf freigegebenem Bu
     // 26600000 steht für einen künftigen Build ohne Tabelle: nur mit Entwicklerschalter.
     CHECK(PartialInstallAllowed(true, 26600000));
     CHECK_FALSE(PartialInstallAllowed(false, 26600000));
-    CHECK(PartialInstallAllowed(false, 26669225)); // freigegeben, eigene Tabelle
+    CHECK_FALSE(PartialInstallAllowed(false, 26669225)); // früherer Build, keine Tabelle mehr
     CHECK(PartialInstallAllowed(true, 26669225));
-    CHECK(PartialInstallAllowed(false, 26786272)); // Patch 1.0.3, eigene Tabelle
-    CHECK_FALSE(PartialInstallAllowed(true, 26495302));
-    CHECK_FALSE(PartialInstallAllowed(false, 26495302));
+    CHECK_FALSE(PartialInstallAllowed(true, 26786272));
+    CHECK_FALSE(PartialInstallAllowed(false, 26786272));
     CHECK_FALSE(PartialInstallAllowed(true, 0));
 }
 
@@ -344,10 +343,8 @@ TEST_CASE("Patches: Coop auf einem weiteren Build nur mit den Kernlisten")
     CHECK_FALSE(CoopBlocked(State::Partial, 26669225, true));
     CHECK_FALSE(CoopBlocked(State::Active, 26669225, true));
     CHECK_FALSE(CoopBlocked(State::Pending, 26669225, false));
-    CHECK(CoopBlocked(State::Partial, 26786272, false));
-    CHECK_FALSE(CoopBlocked(State::Partial, 26786272, true));
-    CHECK_FALSE(CoopBlocked(State::Inactive, 26495302, false)); // Referenz-Build unverändert
-    CHECK_FALSE(CoopBlocked(State::Partial, 26495302, false));
+    CHECK_FALSE(CoopBlocked(State::Inactive, 26786272, false)); // Referenz-Build unverändert
+    CHECK_FALSE(CoopBlocked(State::Partial, 26786272, false));
     CHECK_FALSE(CoopBlocked(State::Inactive, 0, false));
 }
 

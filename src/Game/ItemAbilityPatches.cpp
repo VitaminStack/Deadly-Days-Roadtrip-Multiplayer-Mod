@@ -48,7 +48,7 @@ constexpr uintptr_t AbilityStartupInputTag = 0x3A0; // UDDGameplayAbility.Startu
 constexpr uintptr_t ClassDefaults = 0x118;     // UClass::ClassDefaultObject
 constexpr uintptr_t AbilityNetExecutionPolicy = 0x198; // UGameplayAbility.NetExecutionPolicy
 constexpr int32_t MaxWrappers = 32;
-// UGameplayAbility.CurrentActorInfo (const FGameplayAbilityActorInfo*, kein Reflexionsfeld). Gemessen auf 26495302; vor jedem
+// UGameplayAbility.CurrentActorInfo (const FGameplayAbilityActorInfo*, kein Reflexionsfeld). Gemessen auf 26495302, im SDK von 26786272 ist die Klasse unverändert; vor jedem
 // Gebrauch gegen den Besitzer der Instanz geprüft, siehe ActorInfoOf.
 constexpr uintptr_t AbilityCurrentActorInfo = 0x328;
 constexpr uintptr_t ActorInfoSize = 0x48, ActorInfoOwner = 0x08, ActorInfoAvatar = 0x10, ActorInfoAbilitySystem = 0x20;

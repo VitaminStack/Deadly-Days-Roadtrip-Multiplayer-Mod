@@ -16,7 +16,6 @@
 
 #include "Core/Hooks.h"
 #include "Core/Log.h"
-#include "Core/Version.h"
 #include "Game/CodeCave.h"
 #include "Game/Memory.h"
 #include "Game/NetworkObjects.h"
@@ -29,12 +28,12 @@ namespace Game::Patches
 {
 namespace
 {
-// Native Implementierungen (Build 26495302), über die Exec-Thunks der UFunctions gefunden, siehe docs/OFFSETS.md.
-constexpr uintptr_t SpawnCircleTelegraph = 0x58908C0;
-constexpr uintptr_t ActivateLineTelegraph = 0x58A3DB0;
-constexpr uintptr_t CalculateLineTelegraphEndPoint = 0x58A9D30;
-constexpr uintptr_t EndTackle = 0x58B1130;
-constexpr uintptr_t ExecuteTackle = 0x58B1F40;
+// Native Implementierungen (Build 26786272), über die Exec-Thunks der UFunctions gefunden, siehe docs/OFFSETS.md.
+constexpr uintptr_t SpawnCircleTelegraph = 0x5891B00;
+constexpr uintptr_t ActivateLineTelegraph = 0x58A5090;
+constexpr uintptr_t CalculateLineTelegraphEndPoint = 0x58AB000;
+constexpr uintptr_t EndTackle = 0x58B25E0;
+constexpr uintptr_t ExecuteTackle = 0x58B33B0;
 
 // UEnemyAttackAbility: Namen der Niagara-Parameter (FName).
 constexpr uintptr_t AbilitySizeName = 0x440;
@@ -46,7 +45,7 @@ constexpr uintptr_t TackleBlocked = 0x268;     // bool aus der Disassembly: gese
 // UActorComponent::OwnerPrivate (ohne Reflexionsdaten), aus der Disassembly von ActivateLineTelegraph.
 constexpr uintptr_t ComponentOwner = 0xA8;
 constexpr uint32_t GarbageOrUnreachable = 0x30;
-// UNiagaraComponent: virtuelle Funktion, mit der ExecuteTackle den Strich ausblendet (Disassembly, `0x58B1F64`).
+// UNiagaraComponent: virtuelle Funktion, mit der ExecuteTackle den Strich ausblendet (Disassembly, `0x58B33D4`).
 constexpr uintptr_t LineHideVirtual = 0xAD0;
 // Größe der Exe im Speicher reicht bis knapp 0xB000000; nur als Plausibilitätsgrenze für den vtable-Eintrag.
 constexpr uintptr_t ImageSpan = 0x10000000;
@@ -577,23 +576,12 @@ void ApplyLine(const EnemyTelegraph& Value, ULONGLONG Now)
     Objects::ProcessEvent(Line->Execution.Object, EndPoint, &Params);
 }
 
-// update-basis-26786272: Seit Patch 1.0.3 braucht EndTackle weniger Stack (sub rsp,28h) und räumt ein neues Feld +0x26C ab; Signatur,
-// TackleBlocked (+0x268) und LineTelegraph bleiben. Der Hook hängt am Anfang und ruft das Original, er braucht keine Änderung.
-bool CheckEndTackle()
-{
-    if (Core::ActiveBuild() == 26786272)
-        return Code::Expect(At(EndTackle), {0x40, 0x53, 0x57, 0x48, 0x83, 0xEC, 0x28, 0x80, 0xB9, 0x69, 0x02, 0x00, 0x00, 0x00}, // Build 26786272
-                            "EndTackle (1.0.3)");
-    return Code::Expect(At(EndTackle), {0x40, 0x53, 0x57, 0x48, 0x83, 0xEC, 0x38}, // Build 26495302, 26669225
-                        "EndTackle");
-}
-
 bool CheckEnemyTelegraphs()
 {
     return Code::Expect(At(SpawnCircleTelegraph), {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x08, 0x48, 0x89, 0x70, 0x18, 0x57}, "SpawnCircleTelegraph") &&
            Code::Expect(At(ActivateLineTelegraph), {0x48, 0x89, 0x5C, 0x24, 0x08, 0x57, 0x48, 0x83, 0xEC, 0x70}, "ActivateLineTelegraph") &&
            Code::Expect(At(CalculateLineTelegraphEndPoint), {0x40, 0x53, 0x48, 0x81, 0xEC, 0xD0, 0x00, 0x00, 0x00}, "CalculateLineTelegraphEndPoint") &&
-           CheckEndTackle() &&
+           Code::Expect(At(EndTackle), {0x40, 0x53, 0x57, 0x48, 0x83, 0xEC, 0x28, 0x80, 0xB9, 0x69, 0x02, 0x00, 0x00, 0x00}, "EndTackle") &&
            Code::Expect(At(ExecuteTackle), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x57, 0x48, 0x83, 0xEC, 0x60}, "ExecuteTackle");
 }
 

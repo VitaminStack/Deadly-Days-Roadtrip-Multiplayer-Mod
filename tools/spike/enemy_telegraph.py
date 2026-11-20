@@ -1,4 +1,4 @@
-"""Lesender Vergleich der Warnanzeigen von Gegnerangriffen zwischen Host und Client, nur Build 26495302.
+"""Lesender Vergleich der Warnanzeigen von Gegnerangriffen zwischen Host und Client, nur Build 26786272.
 
     py tools/spike/enemy_telegraph.py <sekunden> <host_pid> [<client_pid>]
 

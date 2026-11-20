@@ -17,7 +17,7 @@ namespace Game::Patches
 {
 namespace
 {
-// ABP_SpawnAndLeaveBus_C (Build 26495302, SDK).
+// ABP_SpawnAndLeaveBus_C (Build 26786272, SDK).
 constexpr uintptr_t BusPlayersInRange = 0x2D8; // AExtractionPointBase.PlayersInBusRange, TArray
 constexpr uintptr_t BusCountDownWidget = 0x3B8; // UWidgetComponent*
 constexpr uintptr_t BusRequiredTime = 0x420;    // double, Sekunden
