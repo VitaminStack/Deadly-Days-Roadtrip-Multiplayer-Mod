@@ -68,23 +68,24 @@ Referenz-Build, `26669225` bleibt unterstützt. Für `26786272` rechnet `Game::A
   - `UItemRepresentation.ItemInstance` liegt bei `+0xA38` statt `+0xA28` (zwei neue Felder davor, siehe SDK-Vergleich). Das ist der einzige
     fest eingetragene Feld-Offset der Mod, der sich verschoben hat: `RepresentationItem()` in `InventoryPatches.cpp` wählt den Wert je
     Build, `CheckRepresentationItem` belegt ihn je Build mit den Bytes `mov rax,[rsi+0A28h]` bzw. `[rsi+0A38h]`. Ohne die Änderung fiel
-    die ganze Liste Inventory aus (gemessen, erster Spieltest: 17 von 18 Listen, Client-Prozess endete nach gut einer Minute in der Mission
-    ohne Absturzbericht, wie auf `26669225` vor `update-1-0-2-inventar`).
+    die ganze Liste Inventory aus (gemessen, erster Spieltest: 17 von 18 Listen; dass der Client-Prozess dort nach gut einer Minute in
+    der Mission ohne Absturzbericht endete, hängt vermutlich damit zusammen, siehe Spieltest nur mit Mod).
 - **Offline gegen die drei Exes:** `tools/expect_check.py` je Build 101 `ok`, 3 `anderer-build`, 2 `uebersprungen`, keine `abweichend`,
   keine `fehlt`. `tools/patch_signatures.py check` je Build 113 `ok`. Drei Signaturzeilen sind dafür angepasst (`EndTackle`,
   `LootPawnRead`, `LootNoRootTarget`). `expect_check.py` kennt jetzt `// Build <id>, <id>` für Prüfungen, die für mehrere Builds gelten.
 - **SDK-Vergleich** (`py tools/sdk_diff.py`, SDK von `26669225` gegen SDK von `26786272`, dieses am 20.11.2026 per `inject.py` im Host
   in `DDDynamic_Map` erzeugt, 2.494 Dateien): 351 unverändert, nichts verschoben, verschwunden oder mit geänderter Signatur;
-  `UInventoryPanel` wächst von `0xA18` auf `0xA20`, `URecipePanel` von `0x4B0` auf `0x4C0`, `URecipeButton` ist neu (`0x8B0`). Vier Einträge
+  `UInventoryPanel` wächst von `0xA18` auf `0xA20`, `URecipePanel` von `0x4B0` auf `0x4C0`; `URecipeButton` meldet das Werkzeug als neu, im SDK von `26669225` steht die Klasse aber schon (`0x8A0`, jetzt `0x8B0`). Vier Einträge
   `unbekannt` wie bei `26669225` (ordnet das Werkzeug nicht zu). `Engine_classes.hpp`, `Engine_structs.hpp`, `CoreUObject_classes.hpp`,
   `UMG_classes.hpp`, `GameplayAbilities_classes.hpp` und `DDSurvivors_structs.hpp` sind bytegleich. In `DDSurvivors_classes.hpp` haben
-  sich diese nativen Klassen geändert:
+  sich diese nativen Klassen geändert (Feld für Feld aus beiden SDKs verglichen, dazu die davon abgeleiteten Blueprint-Klassen
+  `WP_Inventory_Item_C`, `WP_Inventory_Panel_C`, `WP_RecipeButton_C`, `WP_Recipe_Panel_C`, `WBP_PlayerControlSwapper_C`, `WP_Tooltip_Effect_C`):
 
   | Klasse | Änderung |
   |---|---|
   | `UItemRepresentation` | neu `UpgradableMask` `0xA00`, `GlitterMask` `0xA08` (vorher im Blueprint `WP_Inventory_Item_C`), `DeactivatedIcon` `0xAB0`, `DeactivatedIconMaterial`, `DeactivatedIconMID`, `DeactivatedBackgroundMID`; Felder ab `0xA00` `+0x10`, ab `0xAB0` `+0x30` |
   | `UInventoryPanel` | neu `RecipePanelButtonText` `0x7F8`, Felder dahinter `+0x8`; neue Funktionen `RefreshItemBadgesAfterEffectUpdate`, `CanCraft`, `GetWorkbenchTitle` |
-  | `URecipePanel`, `URecipeButton` | neu `ReadOnlyHint` `0x428`, `RecipePanelTitle` `0x430`; `URecipeButton` als eigene native Klasse |
+  | `URecipePanel`, `URecipeButton` | `URecipePanel`: neu `ReadOnlyHint` `0x428`, `RecipePanelTitle` `0x430`, elf Felder dahinter `+0x10`; `URecipeButton`: Größe `0x8A0` → `0x8B0`, reflektierte Felder unverändert |
   | `UTackleAbilityExecution` | neu `bClampTargetsToBossArena` `0x101`, zwei Bool-Felder dahinter `+1`; neue Funktion `ProjectTackleTarget` |
   | `UMaterialAnimator` | neu `OverrideMaterialInstance` `0x128`, vier Felder dahinter `+0x8` |
   | `UOrbitingItemManager`, `UPlayerControlSwapper` | Größe `+0x8` bzw. `-0x8` |
@@ -111,6 +112,12 @@ Referenz-Build, `26669225` bleibt unterstützt. Für `26786272` rechnet `Game::A
   `Test-Godmode.ps1` bestanden, Desync-Melder `OK Tag, Phase, Spieler, HP, Gegner, Inventar`, Schadenszahlen 194 vom Host gesendet und
   194 beim Client angekommen, `!finish`: Rundenende beim Client geöffnet, Lager bei beiden. Kein `[ERROR]`, kein Absturz.
   `Test-Desync.ps1` lief im laufenden Kampf in den Zeitablauf (Feld Gegner wechselt zwischen offen und OK); nicht weiter untersucht.
+- **Nur mit Mod, wie bei Spielern** (`-Mod -Tunnel Lobby -NoSpike`, ohne `-PartialPatches`, Endstand dieses Branches): `18 von 18 Listen
+  gesetzt, 0 Patches ausgelassen`, Lobby, Reise über den Testkanal in `DDDynamic_Map`, dort dreieinhalb Minuten mit Kampf (65
+  Schadenszahlen gesendet und empfangen) und einer Pause der Weltzeit: beide Instanzen laufen, Inventar gleich, kein `[ERROR]`, kein
+  Absturzordner. Im ersten Lauf ohne die Inventory-Liste endete der Client-Prozess an derselben Stelle (kurz nach der Pause der
+  Weltzeit); damals war zusätzlich Dumper-7 im Host geladen. **[Vermutung]** Ursache war die fehlende Inventory-Liste; mit ihr trat das
+  Ende nicht mehr auf, ein Lauf mit Liste und Dumper fehlt als Gegenprobe.
 - **Gegenprobe:** derselbe Ablauf auf `26669225` (`18 von 18 Listen gesetzt, 0 Patches ausgelassen`) und `26495302`
   (`Patches: 57 gesetzt`), je Inventar gleich, Rundenende bei beiden, kein `[ERROR]`, kein Absturz.
 - **Nicht geprüft:** Lauf über die Routenkarte und mehrere Tage, Händler, Werkbank und Rezept-Panel (dort hat 1.0.3 Klassen geändert),
