@@ -32,3 +32,25 @@ TEST_CASE("Adressen: Tabelle 26669225 ist sortiert und rechnet nur bekannte Eint
     CHECK(Map(26669225, 0x05936BE0) == 0x05937870); // URunPersistencyManager::OnRoundChanged (client-runstand-abbruch)
     CHECK(Map(26669225, 0x0593EBA0) == 0x0593F830); // URunPersistencyManager::ResavePersistable (client-runstand-abbruch)
 }
+
+TEST_CASE("Adressen: Tabelle 26786272 ist sortiert, vollständig und deckt dieselben Adressen wie 26669225")
+{
+    const auto Entries = Table(26786272);
+    REQUIRE_FALSE(Entries.empty());
+    CHECK(Sorted(Entries));
+    CHECK(Known(26786272));
+    for (const Entry& Value : Entries)
+    {
+        CHECK(Value.Mapped != 0);
+        CHECK(Map(26786272, Value.Reference) == Value.Mapped);
+    }
+    // Keine Adresse, die 26669225 kennt, fehlt auf 26786272.
+    for (const Entry& Value : Table(26669225))
+        CHECK(Map(26786272, Value.Reference) != 0);
+    CHECK(Map(26786272, Entries.front().Reference + 1) == 0);
+    CHECK(Map(26786272, 0x058B1130) == 0x058B25E0); // EndTackle, von Hand, Prolog geändert
+    CHECK(Map(26786272, 0x05998D70) == 0x0599B984); // LootPawnRead, von Hand, Funktion umgebaut
+    CHECK(Map(26786272, 0x058CE280) == 0x058CFD10); // TryBuyItem, über 26669225
+    CHECK(Map(26786272, 0x093A1F98) == 0x093A7EF8); // vtable BackpackSlot, von Hand
+    CHECK(Map(26786272, 0x0AA67B80) == 0x0AA6FC80); // GObjects
+}

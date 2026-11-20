@@ -330,6 +330,7 @@ TEST_CASE("Patches: Teilinstallation nie im Referenz-Build, auf freigegebenem Bu
     CHECK_FALSE(PartialInstallAllowed(false, 26600000));
     CHECK(PartialInstallAllowed(false, 26669225)); // freigegeben, eigene Tabelle
     CHECK(PartialInstallAllowed(true, 26669225));
+    CHECK(PartialInstallAllowed(false, 26786272)); // Patch 1.0.3, eigene Tabelle
     CHECK_FALSE(PartialInstallAllowed(true, 26495302));
     CHECK_FALSE(PartialInstallAllowed(false, 26495302));
     CHECK_FALSE(PartialInstallAllowed(true, 0));
@@ -343,6 +344,8 @@ TEST_CASE("Patches: Coop auf einem weiteren Build nur mit den Kernlisten")
     CHECK_FALSE(CoopBlocked(State::Partial, 26669225, true));
     CHECK_FALSE(CoopBlocked(State::Active, 26669225, true));
     CHECK_FALSE(CoopBlocked(State::Pending, 26669225, false));
+    CHECK(CoopBlocked(State::Partial, 26786272, false));
+    CHECK_FALSE(CoopBlocked(State::Partial, 26786272, true));
     CHECK_FALSE(CoopBlocked(State::Inactive, 26495302, false)); // Referenz-Build unverändert
     CHECK_FALSE(CoopBlocked(State::Partial, 26495302, false));
     CHECK_FALSE(CoopBlocked(State::Inactive, 0, false));

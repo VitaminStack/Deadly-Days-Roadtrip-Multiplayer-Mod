@@ -48,7 +48,7 @@
 {0x058A7260, 0, "E8 ?? ?? ?? ?? F3 0F 11 87 14 03 00 00 48 8B CF", 0, "At_58A6060"}, // ClientPatches.cpp
 {0x058A9D30, 0, "40 53 48 81 EC D0 00 00 00 48 8B 81 38 02 00 00", 0, "CalculateLineTelegraphEndPoint"}, // EnemyTelegraphPatches.cpp
 {0x058AB9A0, 0, "48 8B 09 48 8B 01 48 FF A0 E8 04 00 00 CC CC CC E9 ?? ?? ?? ?? CC", 0, "At_58AA5F0"}, // ClientPatches.cpp
-{0x058B1130, 0, "40 53 57 48 83 EC 38 80 B9 69 02 00 00 00", 0, "EndTackle"}, // EnemyTelegraphPatches.cpp
+{0x058B1130, 0, "40 53 57 48 83 EC ?? 80 B9 69 02 00 00 00", 0, "EndTackle"}, // EnemyTelegraphPatches.cpp
 {0x058B1D3E, 0, "E8 ?? ?? ?? ?? F3 0F 11 87 14 03 00 00 40 38 AF 18 03 00 00", 0, "At_58B0F6E"}, // ClientPatches.cpp
 {0x058B1F40, 0, "48 89 5C 24 10 57 48 83 EC 60 0F 29 74 24 50 0F 28 F1 48 8B F9", 0, "ExecuteTackle"}, // EnemyTelegraphPatches.cpp
 {0x058B4D30, 0, "48 89 5C 24 08 57 48 83 EC 40 0F 29 74 24 30 0F 57 F6 48 8B D1", 0, "ExpAggregate"}, // ClientPatches.cpp
@@ -85,8 +85,8 @@
 {0x0597DC10, 0, "48 89 5C 24 18 48 89 54 24 10 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 50 45 8B E8 4C 8B E2", 0, "SetRewardItems"}, // RewardPatches.cpp
 {0x05984CD0, 0, "48 89 5C 24 08 4C 89 4C 24 20 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 50 0F 29 74 24 40 4D 8B E8", 0, "UpgradeItems"}, // RewardPatches.cpp
 {0x05995D30, 0, "48 89 5C 24 18 55 56 57 41 54 41 55 41 56 41 57 48 8D AC 24 F0 FE FF FF 48 81 EC 10 02 00 00 0F 29 B4 24 00 02 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 85 F0 00 00 00 4C 8B EA 48 89 55 C0", 0, "ClearSpawnArea"}, // PlayerPatches.cpp
-{0x05998D70, 0, "48 8B 83 B8 01 00 00 48 85 C0 74 ?? 0F 10 80 10 02 00 00 0F 11 45 E0 F2 0F 10 80 20 02 00 00", 0, "LootPawnRead"}, // PlayerPatches.cpp
-{0x05998D91, 0, "0F 10 05 ?? ?? ?? ?? 0F 11 45 E0 F2 0F 10 05 ?? ?? ?? ?? F2 0F 11 85 B8 00 00 00", 0, "LootNoRootTarget"}, // PlayerPatches.cpp
+{0x05998D70, 0, "48 8B 83 B8 01 00 00 48 85 C0 74 ?? 0F 10 ?? 10 02 00 00 0F 11 ?? ?? F2 0F 10 80 20 02 00 00", 0, "LootPawnRead"}, // PlayerPatches.cpp
+{0x05998D91, 0, "0F 10 05 ?? ?? ?? ?? 0F 11 45 ?? F2 0F 10 05 ?? ?? ?? ?? F2 0F 11 85 ?? 00 00 00", 0, "LootNoRootTarget"}, // PlayerPatches.cpp
 {0x059AF200, 0, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 48 83 EC 30 48 8B F2 48 8B F9 E8 ?? ?? ?? ??", 0, "ItemLoot"}, // InventoryPatches.cpp
 {0x059AF3F0, 0, "48 89 5C 24 10 57 48 83 EC 20 48 8B 92 A8 00 00 00", 0, "LootBaseLoot"}, // InventoryPatches.cpp
 {0x059AF660, 0, "48 89 5C 24 10 48 89 6C 24 18 48 89 74 24 20 57 41 56 41 57 48 83 EC 20 48 8B FA", 0, "ScrapLoot"}, // InventoryPatches.cpp

@@ -1,6 +1,6 @@
 // Adressen je Spiel-Build. Der Quelltext des Spikes nennt RVAs des Referenz-Builds 26495302 (seit spiel-update); fuer 26669225
-// (Patch 1.0.2, update-1-0-2-spike) rechnet Rva() sie ueber die Tabelle der Mod (src/Game/RvaMap26669225.inc, erzeugt von
-// tools/rva_map.py) und die wenigen eigenen Eintraege unten um. Was keine Tabelle kennt, liefert kMissingRva: Die Byte-Pruefung
+// (Patch 1.0.2, update-1-0-2-spike) und 26786272 (Patch 1.0.3, update-basis-26786272) rechnet Rva() sie ueber die Tabelle der Mod
+// (src/Game/RvaMap<build>.inc, erzeugt von tools/rva_map.py) und die wenigen eigenen Eintraege unten um. Was keine Tabelle kennt, liefert kMissingRva: Die Byte-Pruefung
 // (Expect) liest dort nichts Gueltiges und der Patch bleibt aus.
 #include "Spike.h"
 
@@ -13,6 +13,7 @@ namespace
 {
 constexpr uint32_t kReferenceStamp = 0x65BFBBFB; // 26495302
 constexpr uint32_t kStamp26669225 = 0xE9CA3AB7;
+constexpr uint32_t kStamp26786272 = 0x260774D7;
 
 struct Entry
 {
@@ -21,16 +22,26 @@ struct Entry
 };
 
 // Aus der Mod uebernommen, aufsteigend nach Reference.
-const Entry ModTable[] = {
+const Entry ModTable26669225[] = {
 #include "../../../src/Game/RvaMap26669225.inc"
+};
+const Entry ModTable26786272[] = {
+#include "../../../src/Game/RvaMap26786272.inc"
 };
 
 // Nur der Spike braucht diese Stellen (tools/rva_map.py: eindeutig bzw. global). Aufsteigend nach Reference.
-const Entry SpikeTable[] = {
+const Entry SpikeTable26669225[] = {
     {0x02D09D90, 0x02D09D60}, // SerializeNewActor, eindeutig
     {0x02D0A626, 0x02D0A5F6}, // NewActorArchetypeCheck, eindeutig
     {0x04B7D9D0, 0x04B7E190}, // UpdateTag, eindeutig
     {0x0AC680D8, 0x0AC6A0D8}, // Tag State.Invincible, global
+};
+// Je Adresse von 26495302 und von 26669225 aus umgerechnet, beide Wege gleich.
+const Entry SpikeTable26786272[] = {
+    {0x02D09D90, 0x02D09D60}, // SerializeNewActor, eindeutig
+    {0x02D0A626, 0x02D0A5F6}, // NewActorArchetypeCheck, eindeutig
+    {0x04B7D9D0, 0x04B7E230}, // UpdateTag, eindeutig
+    {0x0AC680D8, 0x0AC70218}, // Tag State.Invincible, global
 };
 
 template <size_t N> const Entry* Find(const Entry (&Table)[N], uintptr_t Reference)
@@ -55,20 +66,19 @@ bool IsReferenceBuild()
 
 bool IsSupportedBuild()
 {
-    return IsReferenceBuild() || BuildStamp() == kStamp26669225;
+    return IsReferenceBuild() || BuildStamp() == kStamp26669225 || BuildStamp() == kStamp26786272;
 }
 
 uintptr_t Rva(uintptr_t Reference)
 {
     if (IsReferenceBuild())
         return Reference;
-    if (BuildStamp() != kStamp26669225)
-        return kMissingRva;
-    if (const Entry* Hit = Find(SpikeTable, Reference))
-        return Hit->Mapped;
-    if (const Entry* Hit = Find(ModTable, Reference))
-        return Hit->Mapped;
-    return kMissingRva;
+    const Entry* Hit = nullptr;
+    if (BuildStamp() == kStamp26669225)
+        Hit = Find(SpikeTable26669225, Reference) ? Find(SpikeTable26669225, Reference) : Find(ModTable26669225, Reference);
+    else if (BuildStamp() == kStamp26786272)
+        Hit = Find(SpikeTable26786272, Reference) ? Find(SpikeTable26786272, Reference) : Find(ModTable26786272, Reference);
+    return Hit ? Hit->Mapped : kMissingRva;
 }
 
 // Importeintrag (IAT-Slot) der Exe, der gerade auf Function zeigt. Unabhaengig vom Build.

@@ -2,7 +2,7 @@
 # Standard fuer neue Entwicklungskopien. Alle Builds mit Offsets/Patches in der Mod stehen in SupportedBuilds,
 # gleich gehalten mit tools/game_build.py (REFERENCES) und src/Core/Version.cpp.
 $script:SupportedBuild = '26495302'
-$script:SupportedBuilds = @('26495302', '26669225')
+$script:SupportedBuilds = @('26495302', '26669225', '26786272')
 # Nach Assert-SupportedBuild der tatsaechlich verwendete Build.
 $script:ActiveBuild = $null
 $script:RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path

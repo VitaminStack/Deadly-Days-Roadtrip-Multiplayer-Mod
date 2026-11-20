@@ -16,6 +16,7 @@
 
 #include "Core/Hooks.h"
 #include "Core/Log.h"
+#include "Core/Version.h"
 #include "Game/CodeCave.h"
 #include "Game/Memory.h"
 #include "Game/NetworkObjects.h"
@@ -576,12 +577,23 @@ void ApplyLine(const EnemyTelegraph& Value, ULONGLONG Now)
     Objects::ProcessEvent(Line->Execution.Object, EndPoint, &Params);
 }
 
+// update-basis-26786272: Seit Patch 1.0.3 braucht EndTackle weniger Stack (sub rsp,28h) und räumt ein neues Feld +0x26C ab; Signatur,
+// TackleBlocked (+0x268) und LineTelegraph bleiben. Der Hook hängt am Anfang und ruft das Original, er braucht keine Änderung.
+bool CheckEndTackle()
+{
+    if (Core::ActiveBuild() == 26786272)
+        return Code::Expect(At(EndTackle), {0x40, 0x53, 0x57, 0x48, 0x83, 0xEC, 0x28, 0x80, 0xB9, 0x69, 0x02, 0x00, 0x00, 0x00}, // Build 26786272
+                            "EndTackle (1.0.3)");
+    return Code::Expect(At(EndTackle), {0x40, 0x53, 0x57, 0x48, 0x83, 0xEC, 0x38}, // Build 26495302, 26669225
+                        "EndTackle");
+}
+
 bool CheckEnemyTelegraphs()
 {
     return Code::Expect(At(SpawnCircleTelegraph), {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x08, 0x48, 0x89, 0x70, 0x18, 0x57}, "SpawnCircleTelegraph") &&
            Code::Expect(At(ActivateLineTelegraph), {0x48, 0x89, 0x5C, 0x24, 0x08, 0x57, 0x48, 0x83, 0xEC, 0x70}, "ActivateLineTelegraph") &&
            Code::Expect(At(CalculateLineTelegraphEndPoint), {0x40, 0x53, 0x48, 0x81, 0xEC, 0xD0, 0x00, 0x00, 0x00}, "CalculateLineTelegraphEndPoint") &&
-           Code::Expect(At(EndTackle), {0x40, 0x53, 0x57, 0x48, 0x83, 0xEC, 0x38}, "EndTackle") &&
+           CheckEndTackle() &&
            Code::Expect(At(ExecuteTackle), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x57, 0x48, 0x83, 0xEC, 0x60}, "ExecuteTackle");
 }
 

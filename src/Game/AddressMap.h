@@ -23,11 +23,18 @@ inline constexpr Entry Build26669225[] = {
 #include "Game/RvaMap26669225.inc"
 };
 
+// Patch 1.0.3 (update-basis-26786272), ebenfalls parallel. Alle Adressen umgerechnet, 14 davon von Hand.
+inline constexpr Entry Build26786272[] = {
+#include "Game/RvaMap26786272.inc"
+};
+
 // Tabelle eines Builds, aufsteigend nach Reference. Leer für den Referenz-Build und unbekannte Builds.
 constexpr std::span<const Entry> Table(uint32_t Build)
 {
     if (Build == 26669225)
         return Build26669225;
+    if (Build == 26786272)
+        return Build26786272;
     return {};
 }
 
@@ -57,3 +64,4 @@ constexpr bool Sorted(std::span<const Entry> Entries)
 }
 
 static_assert(Game::AddressMap::Sorted(Game::AddressMap::Build26669225), "RvaMap26669225.inc muss nach Referenz-RVA sortiert sein");
+static_assert(Game::AddressMap::Sorted(Game::AddressMap::Build26786272), "RvaMap26786272.inc muss nach Referenz-RVA sortiert sein");

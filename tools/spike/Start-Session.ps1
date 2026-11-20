@@ -86,7 +86,7 @@ $Timer = [Diagnostics.Stopwatch]::StartNew()
 function Write-Step([string]$Text) { Write-Host ('[{0,4:n0} s] {1}' -f $Timer.Elapsed.TotalSeconds, $Text) }
 Initialize-SessionDir
 Assert-SupportedBuild
-# Der Spike kennt die Adressen von 26495302 und 26669225 (Builds.cpp) und prueft alle Patch-Stellen vor dem Setzen,
+# Der Spike kennt die Adressen von 26495302, 26669225 und 26786272 (Builds.cpp) und prueft alle Patch-Stellen vor dem Setzen,
 # siehe research/spikes/a-connect/README.md, Abschnitt Builds. Alle Builds in SupportedBuilds sind damit zugelassen.
 if ($Restart -or $Build) {
     $Stopped = & (Join-Path $PSScriptRoot 'Stop-Session.ps1')

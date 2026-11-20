@@ -7,7 +7,7 @@ src/Game/RvaMap<build>.inc um (wie Game::AddressMap) und vergleicht mit der Exe.
 
 Ausgabe je Pruefung: ok, abweichend (mit gelesenen Bytes), fehlt (Adresse ohne Tabelleneintrag) oder
 uebersprungen (Ausdruck ohne At, etwa lokale Variablen; diese prueft nur das Spiel) oder anderer-build (die Startzeile
-der Pruefung endet mit "// Build <id>" eines anderen Builds, etwa in einer Verzweigung nach Core::ActiveBuild()).
+der Pruefung endet mit "// Build <id>[, <id> ...]" ohne den geprueften Build, etwa in einer Verzweigung nach Core::ActiveBuild()).
 """
 import argparse
 import re
@@ -91,14 +91,14 @@ def resolve(parsed, names, table):
     return mapped, None
 
 
-BUILD_MARK = re.compile(r'//\s*Build\s+(\d+)\s*$')
+BUILD_MARK = re.compile(r'//\s*Build\s+(\d+(?:\s*,\s*\d+)*)\s*$')
 
 
 def other_build(text, line, build):
     """Wahr, wenn die Startzeile der Pruefung fuer einen anderen Build markiert ist."""
     lines = text.splitlines()
     mark = BUILD_MARK.search(lines[line - 1]) if build is not None and 0 < line <= len(lines) else None
-    return bool(mark) and int(mark.group(1)) != build
+    return bool(mark) and build not in [int(item) for item in mark.group(1).split(',')]
 
 
 def evaluate(image, text, names, table, build=None):
