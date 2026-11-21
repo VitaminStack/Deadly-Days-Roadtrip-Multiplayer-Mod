@@ -1374,3 +1374,19 @@ aus `gegner-alle` (oben); der Rest ist Befund für `tools/spike/boss_hp.py` und 
 | `UDDEnemyAttributeSet` | `Phase` `0x40` (`FGameplayAttributeData`, Wert bei `+0xC`) |
 | Phasenmarken je Boss | SpikeBoss 0,5; Ballerina 0,5; Frankenstein 0,65; BlobBall 0,7; HQ-Endboss 0,8 und 0,4 |
 | `CreateAndStartObjective` (Thunk) | `26669225`: `0x56BAB70`, ruft `0x58DED20`, das ruft `0x163B300` mit einem `FStaticConstructObjectParameters`-artigen Block (Klasse bei `+0x0`, Outer bei `+0x8`); dort liest `+0x163B33F` `[Klasse+0xD8]`. **[Vermutung]** `StaticConstructObject_Internal` und `ClassFlags`, ohne Symbole nicht belegt |
+
+## Spielerliste des Sensenmanns (`opt-host-absturz-trennung`)
+
+Build `26786272`, aus Disassembly und Absturzbericht des Hosts. Die Mod nutzt davon nur `Players` (`src/Game/RemoteP2Patches.cpp`).
+
+| Stelle | RVA | Hinweis |
+|---|---|---|
+| Zeitgeber des `UReaperComponent` | `0x589A650` | kleinster Abstand der Spieler zum Sensenmann; `mov rax,[rcx]` bei `0x589A8A0`, `mov rdx,[rax+1B8h]` bei `0x589A8A3` ohne Nullprüfung, Absturzadresse des Hosts |
+| Weitere Schleifen über `Players` ohne Nullprüfung | `0x5885E50`, `0x58860A6` | nicht als Absturz belegt |
+| Schleifen mit Nullprüfung | `0x5878FF0`, `0x5885980` | `EndPlay` und Entfernen |
+| Figur aus `Players` nehmen | `0x58858F0` | `(this, Controller)`, liest `Controller+0x2E8` (Pawn), ohne Figur sofort zurück; Entfernen über `0x588AB30` |
+
+| Klasse | Feld | Offset |
+|---|---|---|
+| `UReaperComponent` | Reaper, Players (`TArray<ADDCharacter*>`: Daten, Num `+8`, Max `+0xC`) | `0x168`, `0x178` |
+| `AActor` | RootComponent | `0x1B8` |

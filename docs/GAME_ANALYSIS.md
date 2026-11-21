@@ -2909,7 +2909,8 @@ Neue Befunde:
   den Client, neuer Airdrop). Gut 10 s nach dem Absturz meldet er „Verbindung beendet, Grund 4001 Timeout; remote problem“ (10,6 s ohne Empfang),
   entfernt den Remote-Spieler („P2-Bindung entfernt“) und stürzt 4,9 s danach selbst ab. Auch dort blieb der Crash-Reporter gesperrt.
   Absturzdaten des Hosts liegen nicht vor. Es waren also zwei Abstürze nacheinander, der zweite als Folge der Trennung (Vermutung zur
-  Ursache: Abbau der Client-Figur ohne Abmeldung mitten in der Mission).
+  Ursache: Abbau der Client-Figur ohne Abmeldung mitten in der Mission). Nachgestellt und behoben, siehe
+  [Host-Absturz nach hartem Wegfall des Clients](#host-absturz-nach-hartem-wegfall-des-clients-opt-host-absturz-trennung).
 - **Roboterarm beim Client (`client-roboterarm`).** Laut Spieler wirkt der Roboterarm beim Client nicht und die Arme fehlen an der
   Figur. Host-Log: zweimal „Client wählt … (Roboterarm (Legendär)), ins Inventar des Clients gelegt=true“. Client-Log: Item im
   Rucksack, „ApplyAddToBackpackEffect vorgemerkt“, durchgehend „Hände belegt 2, Rucksack braucht 2“. Das Item ist also gebucht, Wirkung
@@ -3016,6 +3017,65 @@ Ausgewertet am 21.11.2026, Build `26786272`: Mod-Logs beider Seiten aus dem Live
   Hände-Prüfung (Annahme: Sie liest dieselben Werte wie `GetFreeHands`). Außerdem nicht geprüft: der Lager-Weg am Rundenende im
   Spiel (nur aus Log und Code), Ablehnung eines Edits (Rücknahme der
   Vorschau nur über das Herausnehmen belegt), höhere Seltenheiten des Arms, zwei PCs.
+
+### Host-Absturz nach hartem Wegfall des Clients (`opt-host-absturz-trennung`)
+
+Stand 21.11.2026, Build `26786272`: Host-Log des Live-Tests, Disassembly der Exe, Test auf einem PC (zwei Instanzen, Lobby, mit
+Spike, ohne echte Eingaben, Client-Prozess der eigenen Sitzung mit `Test-ClientKill.ps1` hart beendet oder selbst abgestürzt).
+
+- **[Belegt, Absturzbericht] Der Host stürzt im Zeitgeber des Sensenmanns ab.** Kontrolllauf ohne Fix (V6 unten):
+  `EXCEPTION_ACCESS_VIOLATION` beim Lesen von `0x1B8`, Aufrufliste `589a8a3 55177d3 315a9a6 2bfc5dd 2a4a49c 4685c64 …`. Dieselbe
+  Liste hatte `karte-nach-labyrinth-absturz` als Nebenbefund notiert.
+- **[Belegt, Disassembly] Ursache.** `0x589A650` ist eine Zeitgeber-Funktion des `UReaperComponent` (Baustein am Sensenmann
+  `BP_ReaperEnemy_C`). Sie läuft über `Players` (`+0x178`, `TArray<ADDCharacter*>`, Anzahl `+0x180`) und sucht den kleinsten Abstand
+  zum Sensenmann: `mov rax,[rcx]` bei `0x589A8A0`, dann `mov rdx,[rax+1B8h]` (`RootComponent`) ohne Prüfung von `rax`. Zwei weitere
+  Schleifen über dieselbe Liste prüfen den Eintrag ebenfalls nicht (`0x5885E50`, `0x58860A6`), zwei prüfen ihn (`0x5878FF0`,
+  `0x5885980`). Die Liste pflegt die Funktion `0x58858F0` (**[Vermutung]** der native Teil von
+  `UReaperComponent.OnPlayerDespawned`, die UFunction gibt es): Sie nimmt die Figur des übergebenen Controllers
+  (`Controller+0x2E8`) heraus und kehrt ohne Figur sofort zurück.
+- **[Belegt, Messung] Bei einer Trennung ohne Abmeldung bleibt die Figur in der Liste.** Mit Fix meldet der Host in jedem Lauf genau
+  einen abgebauten Eintrag, im selben Frame, in dem die Welt nur noch einen Spieler hat. **[Vermutung]** Das Spiel meldet den Wegfall
+  nicht oder erst, wenn der Controller keine Figur mehr hat; welcher der beiden Fälle gilt, wurde nicht gemessen. Die nächste Garbage
+  Collection setzt den Eintrag der zerstörten Figur auf null, der nächste Zeitgeber-Lauf liest dann am Nullzeiger. Darum der Abstand:
+  live 4,9 s nach dem Entfernen, im Kontrolllauf 50,5 s (61,4 s nach dem Kill).
+- **[Belegt] Ohne Sensenmann kein Absturz.** Fünf Läufe ohne Sensenmann, Host jeweils 50 bis 60 s nach dem Kill beobachtet, kein
+  Absturz, kein `[ERROR]` (V1 bis V5). Der Live-Lauf hatte einen Sensenmann: Der Client stürzte dort an dessen `BeginPlay` ab
+  (`karte-nach-labyrinth-absturz`), also stand er beim Host.
+
+  | Lauf | Lage beim Kill | Timeout des Hosts | Host danach |
+  |---|---|---|---|
+  | V1 | Routen-Mission Tag 1, Gegner aktiv | 10,7 s, Grund 5003 | läuft, 60 s beobachtet |
+  | V2 | zwei Airdrops am Boden, Host öffnet 2,5 s nach dem Entfernen die Auswahl | 10,7 s | läuft, Auswahl offen |
+  | V3 | Airdrop entsteht 6 s nach dem Kill und landet nach dem Timeout, Host öffnet die Auswahl 5 s danach (Ablauf wie im Live-Log) | 10,7 s | läuft |
+  | V4 | Kill 3,5 s nach der Ankunft in der Mission, sonst wie V3 | 10,9 s | läuft |
+  | V5 | beide Figuren mit Items des Live-Laufs (Ratte, Schlange, Flummi, Roboterarm, Granate, Feuerschuhe, Jo-Jo, Feuerwerk, Ballonpumpe, MP, Dart, Magnet), 30 s Kampf, sonst wie V3 | 10,9 s | läuft, 60 s beobachtet |
+  | V6, ohne Fix | Sensenmann 12 s vorher ausgelöst (`!shop reaper 3`) | 10,7 s | **Absturz** 61,4 s nach dem Kill, Lesen von `0x1B8` |
+
+  Lokal endet die Verbindung mit Grund 5003 (`Connection dropped`), live über das Relay mit 4001; für den Ablauf im Spiel ist das
+  gleich, beide Male meldet der Host „Verbindung zum Mitspieler verloren“ und die Welt hat danach einen Spieler.
+- **Lokal zuerst:** Nichts wird geteilt, keine Nachricht, keine `ModVersion`-Erhöhung. Der Sensenmann bleibt Sache des Hosts, die
+  Mod pflegt nur dessen eigene Liste nach, wo das Spiel den Wegfall nicht verarbeitet. Kein bestehender Weg wird ersetzt.
+- **Fix** (`src/Game/RemoteP2Patches.cpp`, `TickReaperPlayers`; Regeln `RemoveDeadPlayers` und `PlausibleReaperPlayers` in
+  `RemoteP2Policy.h`, mit Test): Der Host merkt sich die Figur des Remote-Spielers mit Platz und Serial im Objekt-Array. Ist sie
+  abgebaut (Trennung, Timeout, Absturz, auch Tod), geht er im selben Tick einmal über das Objekt-Array und nimmt aus `Players` jedes
+  `UReaperComponent` alle Einträge, die null oder abgebaut sind. Das passiert, bevor die Garbage Collection den Eintrag auf null
+  setzt. Logzeile „Sensenmann: Remote-Figur abgebaut, n Einträge … genommen“. Kein Code-Patch, die Zahl der gesetzten Patches bleibt.
+- **Grenze.** Läuft die Garbage Collection in genau dem Frame, in dem die Figur zerstört wird, und der Zeitgeber vor dem nächsten
+  Tick der Mod, greift der Fix zu spät. **[Vermutung]** Das Fenster ist ein Frame; in den Läufen trat es nicht auf. Eine Nullprüfung
+  an den drei Schleifen wäre der zweite Schutz und ist nicht umgesetzt.
+- **[Belegt, Test] Abnahme mit Fix**, je Lauf Sensenmann beim Host vorhanden, Host mindestens 130 s nach dem Entfernen beobachtet
+  (der Kontrolllauf stürzte nach 50,5 s ab), kein `[ERROR]`:
+
+  | Lauf | Wegfall des Clients | Einträge entfernt | Host danach |
+  |---|---|---|---|
+  | F1 | Client stürzt selbst am Sensenmann ab (`0x348`, wie live), Timeout nach rund 11 s | 1 | läuft, 150 s beobachtet |
+  | F2 | Client tritt der laufenden Mission wieder bei und stürzt 11 s danach wieder am Sensenmann ab | 1 | läuft, 140 s beobachtet |
+  | F3 | Client 6 s nach dem Auslösen des Sensenmanns per Skript hart beendet, Timeout nach 10,5 s | 1 | läuft, 130 s beobachtet |
+  | F4 | neue Sitzung, Client stürzt nach weniger als 6 s selbst am Sensenmann ab | 1 | läuft, 144 s nach dem Entfernen |
+
+- **Offen.** Bestätigung auf zwei PCs über das Internet (Grund 4001). Der Absturz des Clients am Sensenmann selbst gehört zu
+  `karte-nach-labyrinth-absturz`; solange dessen Wächter fehlt, verliert der Host den Client weiter, läuft aber selbst weiter.
+  Testweg: `!shop reaper 3` beim Host, dann `Test-ClientKill.ps1`, siehe [Spielzeit sparen](TESTING.md#spielzeit-sparen).
 
 ### Run-Stand des Clients nach dem Run-Ende (`opt-metabase-inventar`)
 
