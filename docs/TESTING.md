@@ -175,6 +175,16 @@ Send-SpikeCommand <client-pid> '!shop call WP_PauseMenu_C BndEvt__WP_PauseMenu_B
 Send-SpikeCommand <client-pid> '!shop call WP_PauseMenu_C ContinueReturnToMainMenu'
 ```
 
+**Mehrere Tage ohne echte Eingaben** (gemessen am 21.11.2026 auf `26786272`, `boss-karte-absturz`, drei Tage am Stück): Nach der
+Mission `!finish` beim Host, rund 7 s warten, dann die Rundenübersicht beim Client und beim Host schließen
+(`!shop call WP_Round_Stats_C BndEvt__WP_Round_Stats_ContinueButton_K2Node_ComponentBoundEvent_6_OnClickResponse__DelegateSignature`).
+Im Lager je Instanz `!shop panels` senden: Das Spike-Log nennt je Panel Index und Adresse. Bestätigt wird nur das Panel, dessen
+Outer-Kette `WI_BusScreen_C` enthält (Outer bei `+0x20` aus dem Speicher lesen, der Index wechselt je Tag), mit `!shop confirm <n>`,
+erst beim Host, dann beim Client. Danach meldet `Test-RouteMap` die Routenkarte. Den nächsten Knoten trifft `callat <n>` mit
+wechselndem Index (gesehen 0, 1, 7, 9, 15, 16): der Reihe nach senden, bis im Mod-Log des Hosts eine neue Zeile „Reise umgeleitet“
+steht. Das Boss-Profil für den Testschalter heißt
+`/Game/Map_Generation/Blueprints/Fields/MGP_Burger_Boss_Nature.MGP_Burger_Boss_Nature`; damit ist jeder Tag eine Boss-Karte.
+
 Den Run-Stand eines Testordners liest `py tools/spike/run_save.py <UserDir>\Saved\SaveGames_DDCoop\SaveSlot_DDR_0.sav`.
 
 ### Mensch und Skript zusammen
