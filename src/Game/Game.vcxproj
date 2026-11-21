@@ -76,6 +76,8 @@
     <ClCompile Include="BodyPartPatches.cpp" />
     <ClCompile Include="WalkAnimationPatches.cpp" />
     <ClCompile Include="WeaponSoundPatches.cpp" />
+    <ClCompile Include="EnemySoundPatches.cpp" />
+    <ClCompile Include="FmodSound.cpp" />
     <ClCompile Include="DamageNumberPatches.cpp" />
     <ClCompile Include="CharacterPatches.cpp" />
     <ClCompile Include="EnemyTelegraphPatches.cpp" />
@@ -133,6 +135,9 @@
     <ClInclude Include="BossBarAdapter.h" />
     <ClInclude Include="BossBarPolicy.h" />
     <ClInclude Include="BloodPolicy.h" />
+    <ClInclude Include="EnemySoundAdapter.h" />
+    <ClInclude Include="EnemySoundPolicy.h" />
+    <ClInclude Include="FmodSound.h" />
     <ClInclude Include="TutorialAdapter.h" />
     <ClInclude Include="PauseAdapter.h" />
     <ClInclude Include="WorldAdapter.h" />

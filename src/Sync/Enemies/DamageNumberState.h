@@ -8,13 +8,13 @@
 #include "Game/DamageNumberAdapter.h"
 
 // opt-schadenszahlen, Host -> Client: die Treffer eines Takts, für die der Host seinen Schadenszahl-Handler aufgerufen hat.
-// Nutzlast: Anzahl (1, 1 bis 64), je Treffer NetGUID (8), Schaden (float, 4), Flags (1), Ort X, Y, Z (je float, 4), also
-// 1 + 25 * Anzahl Bytes. Ein verlorenes Paket heißt nur fehlende Zahlen, es gibt keine Wiederholung. Siehe
+// Nutzlast: Anzahl (1, 1 bis 64), je Treffer NetGUID (8), Schaden (float, 4), Flags (1), Ort X, Y, Z (je float, 4) und seit
+// opt-gegner-sound (Mod-Version 15) Marken der Mod (1, Bit 0: Einschlagsound), also 1 + 26 * Anzahl Bytes. Ein verlorenes Paket heißt nur fehlende Zahlen, es gibt keine Wiederholung. Siehe
 // docs/CONTROL_PROTOCOL.md, Abschnitt Schadenszahlen.
 namespace Sync::DamageNumbers
 {
 inline constexpr uint16_t HitsType = 0xA00;
-inline constexpr size_t HitBytes = 25;
+inline constexpr size_t HitBytes = 26;
 inline constexpr uint64_t MaxGuid = 0x3FFFFFFFFFFFFFull;
 inline constexpr float MaxDamage = 1.0e9f;
 inline constexpr float MaxCoordinate = 1.0e7f;
@@ -62,6 +62,7 @@ inline std::vector<uint8_t> Encode(std::span<const Game::DamageNumberHit> Hits)
         Put(std::bit_cast<uint32_t>(Hit.X), 4);
         Put(std::bit_cast<uint32_t>(Hit.Y), 4);
         Put(std::bit_cast<uint32_t>(Hit.Z), 4);
+        Put(Hit.Extra, 1);
     }
     return Out;
 }
@@ -86,7 +87,7 @@ inline std::optional<std::vector<Game::DamageNumberHit>> Decode(std::span<const 
     {
         const size_t At = 1 + HitBytes * Index;
         const Game::DamageNumberHit Hit{Get(At, 8), Float(At + 8), static_cast<uint8_t>(Get(At + 12, 1)), Float(At + 13),
-                                        Float(At + 17), Float(At + 21)};
+                                        Float(At + 17), Float(At + 21), static_cast<uint8_t>(Get(At + 25, 1))};
         if (!Valid(Hit))
             return std::nullopt;
         Hits.push_back(Hit);

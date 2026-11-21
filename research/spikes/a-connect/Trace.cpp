@@ -388,6 +388,60 @@ void DropFuel(int Additional)
 }
 }
 
+namespace
+{
+// opt-gegner-sound: "!fx events <Klasse>" zaehlt alle ProcessEvent-Aufrufe an Objekten, die die VTable einer Instanz dieser Klasse
+// teilen (Blueprint-Klassen teilen die ihrer nativen Elternklasse), je Klasse und Funktion. Zeigt, was beim Client ankommt.
+struct EventTable
+{
+    uintptr_t Table = 0;
+    ProcessEventFn Original = nullptr;
+};
+EventTable EventTables[8];
+std::map<std::pair<uintptr_t, uintptr_t>, std::pair<int, std::string>> EventCounts;
+
+void __fastcall CountedEvent(uintptr_t Object, uintptr_t Function, void* Params)
+{
+    const uintptr_t Table = Read<uintptr_t>(Object);
+    ProcessEventFn Original = nullptr;
+    for (const auto& Entry : EventTables)
+        if (Entry.Table == Table)
+            Original = Entry.Original;
+    const uintptr_t Class = Read<uintptr_t>(Object + 0x10);
+    AcquireSRWLockExclusive(&FxLock);
+    auto& Entry = EventCounts[{Class, Function}];
+    if (++Entry.first == 1)
+        Entry.second = NameOf(Class) + "." + NameOf(Function);
+    ReleaseSRWLockExclusive(&FxLock);
+    if (Original)
+        Original(Object, Function, Params);
+}
+
+void WatchEvents(const std::string& ClassName)
+{
+    const uintptr_t Instance = FindInstance(ClassName.c_str());
+    if (!Instance)
+        return Log("Fx-Events: keine Instanz von " + ClassName);
+    const uintptr_t Table = Read<uintptr_t>(Instance);
+    for (auto& Entry : EventTables)
+    {
+        if (Entry.Table == Table)
+            return Log("Fx-Events: " + ClassName + " wird schon gezaehlt");
+        if (Entry.Table)
+            continue;
+        auto* Slot = &reinterpret_cast<ProcessEventFn*>(Table)[kProcessEventIndex];
+        DWORD Old = 0;
+        VirtualProtect(Slot, sizeof(*Slot), PAGE_READWRITE, &Old);
+        Entry.Original = *Slot;
+        Entry.Table = Table;
+        *Slot = CountedEvent;
+        VirtualProtect(Slot, sizeof(*Slot), Old, &Old);
+        return Log("Fx-Events: zaehle ProcessEvent fuer " + ClassName);
+    }
+    Log("Fx-Events: kein freier Platz");
+}
+}
+
 // "!fx" haengt den Zaehler ein, "!fx dump" schreibt alle Zaehler ins Log und setzt sie zurueck,
 // "!fx stack <Text>" zaehlt Sounds mit <Text> im Pfad zusaetzlich je Aufrufkette,
 // "!fx pull <Klassenteil> [Anzahl]" setzt passende Actors zur ersten Spielerfigur (Testhilfe fuer Aufsammelsounds).
@@ -407,6 +461,8 @@ void FxCommand(const std::wstring& Args)
         }
         return PullActors(Rest, Limit);
     }
+    if (Args.rfind(L"events ", 0) == 0)
+        return WatchEvents(std::string(Args.begin() + 7, Args.end()));
     if (FxFunctions.empty())
     {
         InstallFxCounter();
@@ -426,7 +482,11 @@ void FxCommand(const std::wstring& Args)
     AcquireSRWLockExclusive(&FxLock);
     Counts.swap(FxCounts);
     Sounds.swap(SoundCounts);
+    std::map<std::pair<uintptr_t, uintptr_t>, std::pair<int, std::string>> Events;
+    Events.swap(EventCounts);
     ReleaseSRWLockExclusive(&FxLock);
+    for (const auto& [Key, Entry] : Events)
+        Log("Fx " + std::to_string(Entry.first) + " event " + Entry.second);
     Log("Fx-Zaehler: " + std::to_string(Counts.size() + Sounds.size()) + " Eintraege");
     for (const auto& [Path, Starts] : Sounds)
         Log("Fx " + std::to_string(Starts) + " sound " + Path);
