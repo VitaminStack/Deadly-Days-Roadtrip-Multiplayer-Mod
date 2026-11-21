@@ -1,4 +1,6 @@
 #include "Game/DesyncAdapter.h"
+#include "Game/InventoryEditRuntime.h"
+#include "Game/RewardAdapter.h"
 
 #include <cmath>
 #include <map>
@@ -147,6 +149,10 @@ std::optional<DesyncCapture> ReadDesyncCapture()
     std::map<uintptr_t, uint64_t> Guids;
     for (const auto& Entry : *Network) Guids.emplace(Entry.Object, Entry.Guid);
     DesyncCapture Result{*Context};
+    // opt-desync-bearbeitung: Der Client kennt seine Bearbeitung selbst, der Host erfährt sie über das fehlende Stabil-Bit der Probe.
+    if (Context->Role == NetRole::Client)
+        Result.Held = Desync::HeldByEdit(!InventoryEdit::ClientIdle() || InventoryEdit::ClientSettling(),
+                                         Rewards::ClientReadyState().has_value() || Rewards::ClientRoundEnd().has_value());
     auto& Out = Result.Image;
     Out.Known = Desync::Bit(Desync::Day);
     Out.Values[Desync::Day] = static_cast<uint64_t>(Context->Day);
