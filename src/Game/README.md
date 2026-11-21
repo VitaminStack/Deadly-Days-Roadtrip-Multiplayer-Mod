@@ -429,6 +429,15 @@ Im Live-Test am 06.11.2026 wirkten Waffen, die der Client in der Itemauswahl tau
    neu. `RefreshHandsBar` zeichnet den Balken nicht neu (im Spiel geprüft). Verbindlich bleibt der Host: Nach dem Übernehmen kommt
    sein Wert über die Replikation, bei Ablehnung oder Abbruch stellt `RevertClient` den Ausgangswert wieder her. Das Attributset
    gehört dem PlayerState, nicht der Figur.
+4. **Zusätzliche Hände beim Client während der Bearbeitung (`client-roboterarm`).** Der Roboterarm gibt seine Hand als
+   GameplayEffect (`GE_IncreaseHands_C`, `ExtraHands` +1), den nur der Host beim Übernehmen anlegt. Bis dahin hatte der Client
+   keine Hand mehr frei, und das Panel lehnte die Waffe ab, für die der Arm gedacht war. Dieselbe Vorschau rechnet jetzt auch
+   `ExtraHands` vor: Ausgangswert + (Hände, die die Rucksackitems geben, jetzt - beim Start). Die Hände eines Items kommen aus
+   seinen Daten (`HandPreview.h`: nur additive Modifikatoren auf `ExtraHands` mit fester oder über Stufe und Kurve bestimmbarer
+   Größe), gerechnet mit `FloatData.GetContextualValueForRarity` und `DataTableFunctionLibrary.EvaluateCurveTableRow`. Die Länge
+   des Balkens setzt `HandBarDisplay.UpdateMaxHandsBar` aus `GetFreeHands` + belegt. Verbindlich bleibt der Host, wie bei den
+   belegten Händen. Schalter `DDCOOP_HANDS_PREVIEW_NATIVE=1`: ohne diese Vorschau, zum Vergleich. Messung:
+   [Roboterarm beim Client](../../docs/GAME_ANALYSIS.md#roboterarm-beim-client-client-roboterarm).
 
 **Geprüft** (07.11.2026, Build `26187885`, ein PC, Lobby, Godmode, Trace `DDCOOP_TRACE_INVENTORY=1`, vom Nutzer gespielt):
 Waffen ablegen, tauschen und wieder ausrüsten in der Itemauswahl des Clients; der Hände-Balken des Clients folgt sofort
