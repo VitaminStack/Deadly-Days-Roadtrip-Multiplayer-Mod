@@ -66,4 +66,16 @@ inline uint64_t Multiset(std::vector<uint64_t> Values)
     for (const auto Value : Values) Out.Number(Value);
     return Out.Value();
 }
+// Inhaltshash eines Inventar-Items. opt-desync-pivot: Rasterposition (ZeroPivotTile) und Drehung zaehlen nur im Rucksack. Ausserhalb
+// setzt sie das Inventar-Panel beim Ziehen lokal; beim Client-Spieler kommt das nie beim Host an (dort (0, 0)), ohne Folge im Spiel.
+// Ob ein Item im Rucksack liegt und welche Felder es belegt, bleibt im Hash (Flag hier, Felder ueber die BackpackSlots).
+inline uint64_t ItemRecord(std::string_view Path, uint64_t Pivot, uint32_t Turns, bool Broken, bool Backpack, bool Reward, bool Trash)
+{
+    Hash Out;
+    Out.Text(Path);
+    Out.Number(Backpack ? Pivot : 0);
+    Out.Number(Backpack ? Turns : 0);
+    Out.Number((Broken ? 1u : 0u) | (Backpack ? 2u : 0u) | (Reward ? 4u : 0u) | (Trash ? 8u : 0u));
+    return Out.Value();
+}
 }

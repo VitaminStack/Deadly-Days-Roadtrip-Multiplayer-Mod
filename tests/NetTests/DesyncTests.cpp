@@ -329,3 +329,29 @@ TEST_CASE("Desync: verdeckte Gegnerabweichung bleibt fuer das Log zaehlbar, das 
     CHECK(Shadow.Compare(Host, Client, HeldIgnored(0, Both)).Alerts == Bit(Enemies));
     CHECK(Shadow.Compare(Host, Client, HeldIgnored(0, 0)).Alerts == 0);
 }
+
+TEST_CASE("Desync: Rasterposition und Drehung zaehlen nur im Rucksack (opt-desync-pivot)")
+{
+    using Game::Desync::ItemRecord;
+    const auto Tile = [](int32_t X, int32_t Y) { return uint64_t(uint32_t(X)) | (uint64_t(uint32_t(Y)) << 32); };
+    const char* Pistol = "Game/Items/ItemData_Pistol/";
+    // Coop-Test 06.11.2026: Pistole ausserhalb des Rucksacks, Host (0, 0), Client (-19, -2). Kein Unterschied mehr.
+    const auto Host = ItemRecord(Pistol, Tile(0, 0), 0, false, false, false, false);
+    CHECK(Host == ItemRecord(Pistol, Tile(-19, -2), 0, false, false, false, false));
+    CHECK(Host == ItemRecord(Pistol, Tile(3, 4), 2, false, false, false, false));
+    // Alles andere an einem Item ausserhalb des Rucksacks bleibt eine Abweichung.
+    CHECK(Host != ItemRecord("Game/Items/ItemData_Revolver/", Tile(0, 0), 0, false, false, false, false));
+    CHECK(Host != ItemRecord(Pistol, Tile(0, 0), 0, true, false, false, false));
+    CHECK(Host != ItemRecord(Pistol, Tile(0, 0), 0, false, false, true, false));
+    CHECK(Host != ItemRecord(Pistol, Tile(0, 0), 0, false, false, false, true));
+    CHECK(Host != ItemRecord(Pistol, Tile(0, 0), 0, false, true, false, false));
+    // Im Rucksack zaehlen Position und Drehung weiter.
+    const auto Packed = ItemRecord(Pistol, Tile(1, 2), 1, false, true, false, false);
+    CHECK(Packed == ItemRecord(Pistol, Tile(1, 2), 1, false, true, false, false));
+    CHECK(Packed != ItemRecord(Pistol, Tile(2, 2), 1, false, true, false, false));
+    CHECK(Packed != ItemRecord(Pistol, Tile(1, 2), 2, false, true, false, false));
+    // Zwei Inventare, die sich nur in der Lage eines Items im Lager unterscheiden, haben denselben Mengen-Hash.
+    using Game::Desync::Multiset;
+    CHECK(Multiset({Packed, Host}) == Multiset({ItemRecord(Pistol, Tile(7, 7), 3, false, false, false, false), Packed}));
+    CHECK(Multiset({Packed, Host}) != Multiset({Packed, Host, Host}));
+}
