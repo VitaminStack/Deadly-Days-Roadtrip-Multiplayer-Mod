@@ -214,6 +214,41 @@ struct
 std::atomic<uintptr_t> ClientPlaySound = 0;
 bool InLocalLoot = false;
 
+// opt-loot-aufnahme-client: Kopien, deren Aufsammeln der Client lokal beendet hat (FinishedLoot in PatchPolicy.h). Die Aufrufe am
+// Objekt laufen erst im nächsten Takt (TickLootSoundImpl), nicht im Hook: Der Attraktor geht dort gerade seine Liste durch.
+FinishedLoot<Objects::Ref> ClientFinished;
+
+void CallBool(uintptr_t Object, uintptr_t Function, bool Value)
+{
+    if (!Function)
+        return;
+    struct
+    {
+        bool Value;
+    } Params{Value};
+    Objects::ProcessEvent(Object, Function, &Params);
+}
+
+void HideFinishedLoot(const Objects::Ref& Loot, const Objects::Ref& Looter)
+{
+    static const uintptr_t SetHidden = Objects::FindObject("SetActorHiddenInGame", "Actor");
+    static const uintptr_t SetCollision = Objects::FindObject("SetActorEnableCollision", "Actor");
+    static const uintptr_t Remove = Objects::FindObject("RemoveAttractedLoot", "LootAttractor");
+    CallBool(Loot.Object, SetHidden, true);
+    CallBool(Loot.Object, SetCollision, false);
+    if (Remove && Objects::IsLive(Looter))
+    {
+        uintptr_t Param = Loot.Object;
+        Objects::ProcessEvent(Looter.Object, Remove, &Param);
+    }
+}
+
+void ShowFinishedLoot(const Objects::Ref& Loot)
+{
+    static const uintptr_t SetHidden = Objects::FindObject("SetActorHiddenInGame", "Actor");
+    CallBool(Loot.Object, SetHidden, false);
+}
+
 void __fastcall LootBaseHook(uintptr_t Interface, uintptr_t Looter)
 {
     const uintptr_t Actor = Interface >= LootableInterface ? Interface - LootableInterface : 0;
@@ -233,6 +268,11 @@ void __fastcall LootBaseHook(uintptr_t Interface, uintptr_t Looter)
     InLocalLoot = true;
     Base(Interface, Looter);
     InLocalLoot = Outer;
+    // Klang und Delegates sind gelaufen; die Kopie verschwindet im nächsten Takt, statt bis zum Wegnehmen des Hosts an der Figur
+    // zu hängen. Looter ist der ULootAttractor.
+    if (const Objects::Ref Loot = Objects::RefTo(Actor); Loot.Object)
+        ClientFinished.Add(Actor, Loot, Objects::RefTo(Looter), GetTickCount64(), [&](const Objects::Ref& Known)
+                           { return Known.Index == Loot.Index && Known.Serial == Loot.Serial && Objects::IsLive(Known); });
 }
 
 // opt-item-sound: Sammelt beim Host die Client-Figur ein Objekt ein, schickt der Host dem Client LootBase.Client_PlaySound. Der
@@ -292,8 +332,14 @@ void TickLootSoundImpl(NetRole Role)
     {
         LastWorld = World;
         ClientPiles.Clear();
+        ClientFinished.Clear();
     }
     const ULONGLONG Now = GetTickCount64();
+    if (Role == NetRole::Client)
+        ClientFinished.Tick(
+            Now, [](const Objects::Ref& Loot) { return Objects::IsLive(Loot); }, &HideFinishedLoot, &ShowFinishedLoot);
+    else
+        ClientFinished.Clear();
     static ULONGLONG NextResolve = 0;
     if (Role == NetRole::Client && !ClientPlaySound.load(std::memory_order_relaxed) && Now >= NextResolve)
     {
@@ -309,6 +355,11 @@ void TickLootSoundImpl(NetRole Role)
     Core::Log::Info("Loot beim Client: {} Objekte je einmal gespielt, {} Wiederholungen ausgelassen, Client_PlaySound des Hosts {} "
                     "empfangen, davon {} doppelt ausgelassen",
                     LootCount.Played, LootCount.Repeats, LootCount.Rpc, LootCount.RpcDouble);
+    const auto& Done = ClientFinished.Stat();
+    Core::Log::Info("Loot beim Client: {} lokal beendet, {} danach vom Host weggenommen (im Mittel {} ms, höchstens {} ms), {} nach {} ms "
+                    "wieder gezeigt, {} ohne Platz, {} offen",
+                    Done.Finished, Done.Removed, Done.Removed ? Done.WaitSumMs / Done.Removed : 0, Done.WaitMaxMs, Done.Restored,
+                    FinishedLoot<Objects::Ref>::RestoreMs, Done.Refused, ClientFinished.Size());
 }
 
 // Der Callback nach der Reise auf Tag 3 gehört nicht zum Inventar: Der Achievement-Detektor legt in BeginPlay einen

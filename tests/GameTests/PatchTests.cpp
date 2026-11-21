@@ -77,6 +77,97 @@ TEST_CASE("Schrott: ein dauernd berührter Haufen fällt nicht aus der Liste")
     CHECK(Piles.FirstLoot(0x2, ++Now)); // ältester herausgefallen, zählt wieder neu
 }
 
+TEST_CASE("Loot: Client beendet das Aufsammeln lokal, der Host nimmt das Objekt weg")
+{
+    FinishedLoot<int> Loot;
+    int Hidden = 0, Shown = 0;
+    bool Alive = true;
+    const auto Same = [](int) { return true; };
+    const auto Tick = [&](uint64_t Now)
+    { Loot.Tick(Now, [&](int) { return Alive; }, [&](int Object, int Looter) { Hidden += Object == 7 && Looter == 9; }, [&](int) { ++Shown; }); };
+    CHECK(Loot.Add(0x1000, 7, 9, 100, Same));
+    CHECK_FALSE(Loot.Add(0x1000, 7, 9, 116, Same)); // derselbe Haufen im nächsten Takt: kein zweites Mal
+    CHECK(Hidden == 0);                             // nicht im Hook, erst im Takt
+    Tick(116);
+    CHECK(Hidden == 1);
+    for (uint64_t Now = 132; Now < 116 + 400; Now += 16)
+    {
+        CHECK_FALSE(Loot.Add(0x1000, 7, 9, Now, Same));
+        Tick(Now);
+    }
+    CHECK(Hidden == 1); // genau einmal versteckt
+    Alive = false;      // Wegnehmen des Hosts kommt an
+    Tick(516);
+    CHECK(Loot.Size() == 0);
+    CHECK(Shown == 0);
+    CHECK(Loot.Stat().Finished == 1);
+    CHECK(Loot.Stat().Removed == 1);
+    CHECK(Loot.Stat().WaitSumMs == 400);
+    CHECK(Loot.Stat().WaitMaxMs == 400);
+    CHECK(Loot.Stat().Restored == 0);
+}
+
+TEST_CASE("Loot: nimmt der Host das Objekt nicht, zeigt der Client die Kopie einmal wieder")
+{
+    FinishedLoot<int> Loot;
+    int Hidden = 0, Shown = 0;
+    const auto Same = [](int) { return true; };
+    const auto Tick = [&](uint64_t Now) { Loot.Tick(Now, [](int) { return true; }, [&](int, int) { ++Hidden; }, [&](int) { ++Shown; }); };
+    CHECK(Loot.Add(0x1000, 1, 2, 0, Same));
+    Tick(10);
+    Tick(10 + FinishedLoot<int>::RestoreMs - 1);
+    CHECK(Shown == 0);
+    Tick(10 + FinishedLoot<int>::RestoreMs);
+    CHECK(Shown == 1);
+    // Der Host hat das Objekt noch: Ein weiteres Loot versteckt die Kopie nicht erneut, sie pulsiert nicht.
+    for (uint64_t Now = 7000; Now < 30000; Now += 500)
+    {
+        CHECK_FALSE(Loot.Add(0x1000, 1, 2, Now, Same));
+        Tick(Now);
+    }
+    CHECK(Hidden == 1);
+    CHECK(Shown == 1);
+    CHECK(Loot.Stat().Restored == 1);
+    CHECK(Loot.Stat().Removed == 0); // wieder gezeigte zählen nicht als weggenommen
+}
+
+TEST_CASE("Loot: neu vergebene Adresse zählt als neues Objekt, Weltwechsel ruft nichts mehr auf")
+{
+    FinishedLoot<int> Loot;
+    int Hidden = 0, Shown = 0;
+    const auto Tick = [&](uint64_t Now) { Loot.Tick(Now, [](int) { return true; }, [&](int, int) { ++Hidden; }, [&](int) { ++Shown; }); };
+    CHECK(Loot.Add(0x1000, 1, 2, 0, [](int) { return true; }));
+    Tick(10);
+    // Gleiche Adresse, anderes Objekt (alter Eintrag noch nicht ausgeräumt): wird wie ein neues behandelt.
+    CHECK(Loot.Add(0x1000, 3, 2, 20, [](int Known) { return Known == 3; }));
+    Tick(30);
+    CHECK(Hidden == 2);
+    CHECK(Loot.Size() == 1);
+    Loot.Clear();
+    Tick(30 + 2 * FinishedLoot<int>::RestoreMs);
+    CHECK(Shown == 0);
+    CHECK(Hidden == 2);
+}
+
+TEST_CASE("Loot: volle Liste lässt Objekte wie bisher sichtbar und räumt zuerst wieder gezeigte aus")
+{
+    FinishedLoot<int> Loot;
+    int Hidden = 0, Shown = 0;
+    const auto Same = [](int) { return true; };
+    const auto Tick = [&](uint64_t Now) { Loot.Tick(Now, [](int) { return true; }, [&](int, int) { ++Hidden; }, [&](int) { ++Shown; }); };
+    for (uintptr_t Key = 1; Key <= FinishedLoot<int>::Capacity; ++Key)
+        CHECK(Loot.Add(Key, static_cast<int>(Key), 0, 0, Same));
+    CHECK_FALSE(Loot.Add(9999, 9999, 0, 0, Same)); // kein Platz: nicht versteckt, nichts vergessen
+    CHECK(Loot.Stat().Refused == 1);
+    Tick(1);
+    CHECK(Hidden == static_cast<int>(FinishedLoot<int>::Capacity));
+    Tick(1 + FinishedLoot<int>::RestoreMs); // alle wieder gezeigt
+    CHECK(Shown == Hidden);
+    CHECK(Loot.Add(9999, 9999, 0, 7000, Same)); // ein wieder gezeigter Eintrag macht Platz
+    CHECK(Loot.Size() == FinishedLoot<int>::Capacity);
+    CHECK(Loot.Stat().Refused == 1);
+}
+
 namespace
 {
 // Ausführbarer Puffer für erzeugten Code. Es läuft nur eigener Testcode, nie Code aus dem Spiel.
