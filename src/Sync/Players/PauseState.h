@@ -139,7 +139,7 @@ class RemotePauseNotice
 {
 public:
     // Connected: Client mit Verbindung zum Host. WorldPaused: replizierter Pauser gesetzt oder Zeitfaktor 0.
-    // LocalHold: eigenes Pausemenü offen, eigene Zeitanfrage aktiv oder beides nicht lesbar.
+    // LocalHold: eigenes Pausemenü offen, eigene Zeitanfrage aktiv, eigene Auswahl (Airdrop, Belohnung) offen oder nicht lesbar.
     bool Update(bool Connected, bool WorldPaused, bool LocalHold, uint64_t World, uint64_t Now)
     {
         const bool Remote = Connected && World != 0 && WorldPaused && !LocalHold;

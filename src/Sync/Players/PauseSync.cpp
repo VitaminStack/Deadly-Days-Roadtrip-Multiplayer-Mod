@@ -5,6 +5,7 @@
 #include <random>
 #include "Core/Log.h"
 #include "Game/PauseAdapter.h"
+#include "Game/RewardAdapter.h"
 #include "Net/Net.h"
 #include "Sync/ControlDispatch.h"
 #include "Sync/Sync.h"
@@ -150,7 +151,9 @@ void TickClient(Net::Transport& Transport, uint64_t Now)
     const auto Time = Game::Pause::ReadWorldTime();
     const auto Requests = Game::Pause::ActiveTimeRequests();
     const bool WorldPaused = Time && (Time->Pauser || Time->Dilation < 0.01f);
-    const bool LocalHold = !Open || *Open || !Requests || *Requests > 0;
+    // Eine eigene offene Auswahl (Airdrop, Belohnung) zählt wie eine eigene Pause: Der Client sieht sein Panel und muss selbst wählen.
+    const bool OwnChoice = Game::Rewards::ClientReadyState().has_value();
+    const bool LocalHold = !Open || *Open || !Requests || *Requests > 0 || OwnChoice;
     ShowNotice(P.Notice.Update(true, WorldPaused, LocalHold, Game::Pause::WorldKey(), Now));
     const auto Report = P.Reporter->Update(Value, Now);
     if (!Report)
