@@ -2934,10 +2934,10 @@ Ausgewertet am 21.11.2026 aus den Mod-Logs von Host und Client des Live-Tests vo
 vor der des Clients).
 
 - **[Belegt, Log] Alle 38 Meldungen des Hosts fallen in eine offene lokale Bearbeitung des Clients.** Zugeordnet über „Inventar lokal:
-  Bearbeitung beginnt“ bis „Host hat Edit … übernommen“ im Client-Log (52 Bearbeitungen): 24 Meldungen in 10 Airdrop-Auswahlen, 14 im
+  Bearbeitung beginnt“ bis „Host hat Edit … übernommen“ im Client-Log (52 Bearbeitungen): 22 Meldungen in 10 Airdrop-Auswahlen, 16 im
   Lager von 4 Rundenenden. Eine davon (00:13:49) steht 0,5 s nach dem Ende der Sitzung beim Host, der Edit war beim Client noch
-  unbeantwortet. Außerhalb einer Bearbeitung gab es keine Meldung. Von den 38 Zeilen sind 15 Wiederholungen derselben Abweichung im
-  30-s-Takt.
+  unbeantwortet. Außerhalb einer Bearbeitung gab es keine Meldung. 12 der 38 Zeilen wiederholen nur eine
+  schon gemeldete Abweichung im 30-s-Takt.
 - **[Belegt, Log] Inventar (17 Meldungen, 10 Wertepaare):** immer der lokale, noch nicht übernommene Stand des Clients. Nach der
   Übernahme stand jedes Mal wieder „OK“ oder „Abgleich“.
 - **[Belegt, Log] Gegner (31 Meldungen, 12 Pausen): Die Abweichung beginnt mit der Pause, nicht mit dem Edit.** Ein Gegner-Alarm braucht
@@ -2976,11 +2976,11 @@ stünde so weiter im Log. HP, Spieler, Tag und Phase werden auch während der Be
 | Vorher, zwei Revolver über `!give`, `!wave` | „OK“ mit allen sechs Feldern | ebenso |
 | `DD_OpenAirdrop 1`: Auswahl bei beiden offen (11:49:09) | „Abgleich; offen Gegner, Inventar“ | ebenso, dazu „Bearbeitung offen, nicht gewertet: Gegner, Inventar“ |
 | Client `!shop upgrade` (11:49:20, „Aufwertung 1 lokal, 2 Eingaben“), danach 85 s offen | keine Meldung „ABWEICHUNG“ | keine |
-| Auswahl endet (Host reist, 11:50:45) | nach 5 s „OK“ mit allen sechs Feldern | Sperre nach rund 1 s weg, nach 5 s „OK“ |
+| Auswahl endet (Host reist in eine neue Karte, 11:50:45) | nach 5 s „OK“ mit allen sechs Feldern | Zeile „Bearbeitung offen“ nach rund 1 s weg, nach 5 s „OK“ |
 | Echte Abweichung außerhalb einer Bearbeitung (`desync_difference.py`, Broken-Flag eines Client-Items, 14 s) | nach 7 s „ABWEICHUNG Inventar“ mit beiden Prüfsummen, nach dem Rücksetzen „OK“ | „ABWEICHUNG Inventar“, danach „OK“ |
 | Rundenende (`!finish`, 11:52:09), Client noch ohne Änderung | „Abgleich; offen Gegner“ | „nicht gewertet: Gegner“ |
 | Client `!shop upgrade` im Rundenende (11:52:38, „Lager wird lokal bearbeitet“), 95 s offen | „offen Gegner, Inventar“, keine Meldung | „nicht gewertet: Gegner, Inventar“, keine Meldung |
-| Rundenende verlassen (Host reist, Client rollt zurück) | nach 3 s „OK“ | nach 3 s „OK“ |
+| Rundenende verlassen (Host reist in eine neue Karte, Client rollt zurück) | nach 3 s „OK“ | Sperre weg, nach 3 s „OK“ |
 
 In der ganzen Sitzung standen genau zwei Meldungen „ABWEICHUNG“ in jedem Log, beide absichtlich erzeugt (die zweite ist die
 Vorher-Messung zu `opt-desync-pivot`). Kein Absturz, kein `[ERROR]`. Vor der Änderung meldete derselbe Zustand im Live-Test nach 11 bis
@@ -2988,9 +2988,12 @@ Vorher-Messung zu `opt-desync-pivot`). Kein Absturz, kein `[ERROR]`. Vor der Än
 
 **Nicht geprüft:**
 
-- Ende einer Bearbeitung durch Bestätigen mit Übernahme beim Host. Die Airdrop-Auswahl braucht dafür das Ziehen der Wahl, das Lager den
-  Fortsetzen-Knopf der Rundenübersicht; beides ging in dieser Sitzung nicht ohne Eingaben. Beide Bearbeitungen endeten durch die Reise
-  des Hosts. Dass der Host nach dem Ende von vorn zählt, belegen die Messung nach der Reise und die Unit-Tests.
+- **Wiederaufnahme des Vergleichs in derselben Welt.** Beide Bearbeitungen endeten durch die Reise des Hosts. Eine Reise wechselt
+  Welt und NetGUID, der Melder beginnt dann ohnehin neu. Im Spiel belegt ist damit nur, dass die Sperre des Clients mit der Bearbeitung
+  endet und danach wieder verglichen wird; dass der Host nach einer Bearbeitung in derselben Welt von vorn zählt und eine bleibende
+  Abweichung meldet, belegen nur die Unit-Tests. Ein Ende durch Bestätigen mit Übernahme beim Host ging nicht ohne Eingaben: Die
+  Airdrop-Auswahl braucht das Ziehen der Wahl, das Lager den Fortsetzen-Knopf der Rundenübersicht. Der Spike-Befehl dafür (`!shop click
+  ContinueButton`, kein echter Klick) wurde in dieser Sitzung von der Berechtigungsprüfung des Agenten abgelehnt und nicht umgangen.
 - Gegner-Abweichung in einer Pause: Mit `!wave` auf einem PC blieb die Gegnerzahl beider Seiten gleich, die Zeile „Gegner in offener
   Bearbeitung nicht gemeldet“ entstand nicht. Belegt ist dieser Weg nur durch die Unit-Tests.
 - Zwei PCs mit Ping, Werkbank und Händler in der Mission (dort hält nur der lokale Stand zurück, kein Panel-Zustand).
