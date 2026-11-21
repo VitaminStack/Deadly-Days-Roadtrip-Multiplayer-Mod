@@ -2913,7 +2913,8 @@ Neue Befunde:
 - **Roboterarm beim Client (`client-roboterarm`).** Laut Spieler wirkt der Roboterarm beim Client nicht und die Arme fehlen an der
   Figur. Host-Log: zweimal „Client wählt … (Roboterarm (Legendär)), ins Inventar des Clients gelegt=true“. Client-Log: Item im
   Rucksack, „ApplyAddToBackpackEffect vorgemerkt“, durchgehend „Hände belegt 2, Rucksack braucht 2“. Das Item ist also gebucht, Wirkung
-  und Anzeige fehlen.
+  und Anzeige fehlen. Ursache und Korrektur: [Roboterarm beim Client](#roboterarm-beim-client-client-roboterarm) (dem Client
+  fehlte die zusätzliche Hand während der eigenen Bearbeitung).
 - **Endlose Loot-Aufnahme beim Client (`opt-loot-aufnahme-client`).** Laut Spieler nahm der Client Schrott und Benzin aus einem
   gelooteten Auto scheinbar endlos auf. Client-Log am Ende: „Loot beim Client: 680 Objekte je einmal gespielt, 74546 Wiederholungen
   ausgelassen“, in der Spitze rund 12000 Wiederholungen je Minute. Der Schutz spielt den Ton je Objekt einmal, die Aufnahme selbst läuft
@@ -2927,6 +2928,82 @@ Neue Befunde:
 Nicht geprüft: Boss und Boss-Leiste, Abschlusstafel, Werkbank mit Rezept-Panel, Waffensound nach Gehör, Heil- und Wurf-Items des
 Clients, neuer Run mit Level 1 und Rollentausch. Für `update-26786272-run` gilt damit: Route über sieben Karten, Händler-Event,
 Labyrinth-Event und sechs Rundenenden liefen zu zweit, Bosse und der Rest der Abnahme stehen aus.
+
+### Roboterarm beim Client (`client-roboterarm`)
+
+Ausgewertet am 21.11.2026, Build `26786272`: Mod-Logs beider Seiten aus dem Live-Test, SDK, Speicher beider Instanzen (nur gelesen,
+`tools/spike/hand_effects.py`) und ein Test auf einem PC (zwei Instanzen, Lobby, `MGP_Forest`, ohne Maus und Tastatur).
+
+- **[Belegt] Was der Roboterarm nativ tut.** `ItemData_RobotArm` hat genau eine Wirkung: Typ `GameplayEffect`,
+  `GE_IncreaseHands_C`, dazu die Standardwirkung `BP_Effect_RemoveIllegalWeapons_C`. Der Effekt hat einen Modifikator: `ExtraHands`
+  (`UDDCharacterAttributeSet`), additiv, Größe 1,0 mal Kurve `CT_Occupy_Hands` (Zeile `Curve`, Stützpunkte 1 → 1 und 8 → 8). Die
+  Stufe kommt aus `FD_RobotArm_Hands` (`URarityScalingFloatData`, 1,0, ohne Spielerstufe). Ein Arm gibt damit eine Hand, zwei Arme
+  zwei, auch ein kaputter Arm (gemessen mit `!give ItemData_RobotArm broken`). Der Effekt hängt als Rucksackwirkung am
+  `UCharacterEffectManager` der Figur (`EffectedBackpackSpecifications`), `ExtraHands` repliziert über das Attributset des
+  PlayerState.
+- **[Belegt] „Arme an der Figur“ ist die zusätzliche Waffe.** Die Figur bekommt keine eigene Komponente für den Arm
+  (Komponentenbaum beider Figuren mit und ohne Arm gleich bis auf die Waffen). Sichtbar wird der Arm über die Waffe, die man mit der
+  zusätzlichen Hand ausrüstet. Ohne die Hand gibt es keine zweite Waffe und nichts zu sehen.
+- **[Belegt] Host-Seite und Replikation sind in Ordnung.** Legt der Host den Arm für beide Figuren in den Rucksack (`!equip`,
+  derselbe Ablauf wie beim Übernehmen eines Client-Edits), steht `ExtraHands` bei beiden PlayerStates in beiden Prozessen auf 1,
+  `GE_IncreaseHands_C` ist aktiv, eine zweite Waffe (MP) hängt bei beiden Figuren auf beiden Seiten an den Händen. Nach einem
+  Kartenwechsel (`travel`) unverändert. `ApplyAddToBackpackEffect` muss der Host nicht nachholen: `AddToBackpack` ruft es selbst.
+- **[Belegt] Ursache: Dem Client fehlt die Hand während seiner eigenen Bearbeitung.** Der Client verwirft während einer lokalen
+  Bearbeitung alle Wirkungs-RPCs und merkt `ApplyAddToBackpackEffect` nur vor; den Effekt legt erst der Host beim Übernehmen an.
+  `ExtraHands` ändert sich beim Client also erst nach dem Bestätigen. Für belegte Hände gab es seit `waffe-client-auswahl` eine
+  lokale Vorschau, für zusätzliche nicht. Im Live-Test legte der Spieler den Arm im Lager ab (00:20:38) und meldete das Problem
+  43 s später, noch im selben Lager: „Hände belegt 2, Rucksack braucht 2“, keine Hand frei, das Panel lässt keine weitere Waffe zu.
+  Beide Airdrop-Wahlen davor hatten den Arm nur ins Lager gelegt. Der Host übernahm den Lager-Edit um 00:24:50, sieben Sekunden vor
+  der Reise ins Labyrinth; dort gibt es kein Panel, die Hand blieb ungenutzt, danach kam der Absturz.
+- **[Belegt] Vorher, gemessen mit `DDCOOP_HANDS_PREVIEW_NATIVE=1`** (Verhalten vor der Korrektur). Client in offener Airdrop-Auswahl,
+  Pistole ausgerüstet, zwei Hände, eine frei:
+
+  | Schritt beim Client | `GetFreeHands` | `ExtraHands` Client | `ExtraHands` Host |
+  |---|---|---|---|
+  | Auswahl offen | 1 | 0 | 0 |
+  | Arm abgelegt | 1 | 0 | 0 |
+  | Messer abgelegt (Aufruf des Panels ohne dessen Prüfung) | 0 | 0 | 0 |
+  | bestätigt, Host hat übernommen | 1 | 1 | 1 |
+
+- **[Belegt] Nachher, dieselbe Abfolge mit der Korrektur:**
+
+  | Schritt beim Client | `GetFreeHands` | `ExtraHands` Client | `ExtraHands` Host |
+  |---|---|---|---|
+  | Auswahl offen | 1 | 0 | 0 |
+  | Arm abgelegt | 2 | 1 | 0 |
+  | Messer abgelegt | 1 | 1 | 0 |
+  | beides wieder herausgenommen | 1 | 0 | 0 |
+  | beides erneut abgelegt | 1 | 1 | 0 |
+  | bestätigt, Host hat übernommen | 1 | 1 | 1 |
+  | zweite Auswahl, Messer und Arm herausgenommen | 1 | 0 | 1 |
+  | bestätigt | 1 | 0 | 0 |
+
+  Nach jedem Bestätigen `inventory.py` gleich, beim Host für die Client-Figur `Data_Knife` und `Data_Pistol` ausgerüstet, keine
+  Geisterwaffe. Im Fensterbild des Clients ist der Hände-Balken nach dem Ablegen des Arms länger.
+- **Korrektur (nur Client, kein Wire-Format, `ModVersion` bleibt).** Die Hände-Vorschau in `InventoryEdit.cpp` rechnet jetzt auch
+  `ExtraHands` vor: Ausgangswert des Hosts plus (Hände, die die Rucksackitems geben, jetzt minus beim Beginn der Bearbeitung). Die
+  Hände eines Items liest der Client aus dessen Daten und rechnet mit den Funktionen des Spiels
+  (`UFloatData.GetContextualValueForRarity` für die Stufe, `UDataTableFunctionLibrary.EvaluateCurveTableRow` für die Kurve); die
+  Regeln stehen testbar in `HandPreview.h`. Was sich so nicht sicher ausrechnen lässt (berechnete Größen, Stufe von der
+  Spielerstufe abhängig), bekommt keine Vorschau. Die Länge des Balkens setzt `HandBarDisplay.UpdateMaxHandsBar` mit
+  `GetFreeHands` + belegt. Eine Autorität: Der Host legt den Effekt an, nach dem Übernehmen gilt sein replizierter Wert, bei
+  Ablehnung oder Abbruch stellt der Client den Ausgangswert wieder her. Keine neue Nachricht.
+- **Testweg ohne Maus und Tastatur.** `DD_OpenAirdrop 1` (Host, nach `!cheats`) öffnet die Auswahl für den Client. Neue
+  Spike-Befehle in der Instanz des Clients: `!shop place <ItemData>` und `!shop take <ItemData>` rufen die Inventar-Aufrufe des
+  Panels (`SetZeroPivotTile`, `AddToBackpack`, `OccupyBackpackSlots` bzw. `UnoccupyBackpackSlots`, `RemoveFromBackpack`), `!shop
+  choose <n>` nimmt eine Belohnung an, `!shop hands` liest `GetFreeHands`, `ExtraHands` und `OccupiedHands` der eigenen Figur.
+  Danach `!shop confirm 0` bei Client und Host.
+- **Weitere Items mit Wirkung auf Hände** (alle geladenen Item-Daten, `hand_effects.py --items`): 31 Waffen mit
+  `BP_Effect_Occupy_Hands_Reducable_C` (belegte Hände, Vorschau seit `waffe-client-auswahl`), `ItemData_Dumbell` und
+  `ItemData_HandOfBlood` mit `BP_Effect_ReduceWeaponRequiredHands_C`, `ItemData_PlasmaHand` mit
+  `BP_Effect_BuffOtherItems_IgnoreHandRequirements_C`. Nur der Roboterarm ändert `ExtraHands`. **[Vermutung]** Hantel, Hand des
+  Blutes und Plasmahand sind in der offenen Bearbeitung genauso betroffen, falls ihre Wirkung erst mit `ApplyEffect` beim Host
+  entsteht: Die Vorschau fragt zwar `GetHandsRequiredForItem` lokal, die Wirkungen legt beim Client aber niemand an. Der Versuch
+  mit der Hantel scheiterte am Platz im Rucksack (`!shop place` legt nur auf freie Felder, die Hantel passte nicht), eigene
+  Aufgabe `opt-haende-vorschau-items`.
+- **Nicht geprüft:** das Ziehen mit der Maus im Panel des Clients und dessen eigene Hände-Prüfung (Annahme: Sie liest dieselben
+  Werte wie `GetFreeHands`), der Lager-Weg am Rundenende (derselbe Code, `BeginClient`), Ablehnung eines Edits (Rücknahme der
+  Vorschau nur über das Herausnehmen belegt), höhere Seltenheiten des Arms, zwei PCs.
 
 ### Run-Stand des Clients nach dem Run-Ende (`opt-metabase-inventar`)
 
