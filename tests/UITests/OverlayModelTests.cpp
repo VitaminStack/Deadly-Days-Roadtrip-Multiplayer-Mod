@@ -282,6 +282,22 @@ TEST_CASE("Diagnostics remain independent of lobby refreshes and pending actions
     CHECK(View.Diagnostics == "Desync: ABWEICHUNG Inventar");
 }
 
+TEST_CASE("Notice is independent of lobby status and diagnostics, bounded and removable")
+{
+    Core::Dispatcher Dispatcher;
+    UI::OverlayModel Model(Dispatcher);
+    CHECK(Model.Snapshot().Notice.empty());
+    Model.PublishNotice("Der Host hat das Spiel angehalten");
+    Model.Publish(Offline());
+    Model.PublishDiagnostics("Desync: ok");
+    CHECK(Model.Snapshot().Notice == "Der Host hat das Spiel angehalten");
+    CHECK(Model.Snapshot().Diagnostics == "Desync: ok");
+    Model.PublishNotice(std::string(400, 'x'));
+    CHECK(Model.Snapshot().Notice.size() == 256);
+    Model.PublishNotice("");
+    CHECK(Model.Snapshot().Notice.empty());
+}
+
 TEST_CASE("Concurrent diagnostics and lobby producers do not overwrite each other")
 {
     Core::Dispatcher Dispatcher;

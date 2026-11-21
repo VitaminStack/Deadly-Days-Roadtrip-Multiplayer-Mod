@@ -127,6 +127,40 @@ private:
     bool Pending = false;
 };
 
+// Client: Hinweis, solange der Host die Weltzeit anhält (opt-boss-tafel-client). Die Abschlusstafel nach dem Bosstod, das Pausemenü
+// und die Airdrop-Auswahl des Hosts pausieren die Welt; die Pause repliziert nativ zum Client, der ohne Tafel und ohne Erklärung
+// steht. Der Hinweis folgt allein aus dem replizierten Zustand: Welt pausiert, aber weder eigenes Pausemenü noch eigene
+// Zeitanfrage. Der Client fordert dafür keine Zeit an und braucht keine Eingabe, der Host entscheidet weiter allein.
+// Rein: Welt als lokale Kennung, Zeit in ms. Kurze Pausen unter der Wartezeit zeigen nichts, das Ende der Pause, ein
+// Weltwechsel und eine getrennte Verbindung nehmen den Hinweis sofort weg.
+inline constexpr uint64_t RemotePauseNoticeDelayMs = 1000;
+
+class RemotePauseNotice
+{
+public:
+    // Connected: Client mit Verbindung zum Host. WorldPaused: replizierter Pauser gesetzt oder Zeitfaktor 0.
+    // LocalHold: eigenes Pausemenü offen, eigene Zeitanfrage aktiv oder beides nicht lesbar.
+    bool Update(bool Connected, bool WorldPaused, bool LocalHold, uint64_t World, uint64_t Now)
+    {
+        const bool Remote = Connected && World != 0 && WorldPaused && !LocalHold;
+        if (!Remote || World != LastWorld)
+            Waiting = false;
+        LastWorld = World;
+        if (!Remote)
+            return false;
+        if (!Waiting)
+        {
+            Waiting = true;
+            Since = Now;
+        }
+        return Now - Since >= RemotePauseNoticeDelayMs;
+    }
+
+private:
+    uint64_t LastWorld = 0, Since = 0;
+    bool Waiting = false;
+};
+
 // Warum der Host eine Pause des Clients nicht mehr hält.
 enum class Release
 {
