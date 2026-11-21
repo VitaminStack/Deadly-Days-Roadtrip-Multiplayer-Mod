@@ -2597,7 +2597,9 @@ wieder beigetreten.
   eben angelegte Objective nicht mehr findet (`S.Ours` wird 0). Das zweite `CreateAndStartObjective` mit `OnObjectiveStarted` an
   die Anzeigen stürzt ab. „Anzeigen 2“ trat nur hier auf (Kartenwechsel 0,8 s vorher), beim Hotjoin war es eine Anzeige ohne
   Absturz; vermutlich war eine Anzeige ein abgebautes Widget der alten Karte, `ScanObjects` prüft nur den Manager-Zeiger. Welche
-  Funktion `0xD8` liest, ist ohne Symbole nicht belegt. Neue Aufgabe `boss-karte-absturz`.
+  Funktion `0xD8` liest, ist ohne Symbole nicht belegt. Neue Aufgabe `boss-karte-absturz`. **Nachtrag 21.11.2026:** Der Absturz
+  kommt aus der Klassensuche beim zweiten Anlegen und ist behoben; warum es das zweite Anlegen gab, bleibt offen, siehe
+  [Absturz beim Betreten der Boss-Karte](#absturz-beim-betreten-der-boss-karte-boss-karte-absturz).
 - **[Belegt] Absturz des Clients in der MetaBase**, rund 4 Minuten nach dem Verbinden: `EXCEPTION_ACCESS_VIOLATION` beim Lesen von
   `0x40`, Stack `+5a1b79c`, `+5a1752b`, `+5500ddd`, `+5a0f3f3`, ohne Mod-Rahmen; im Log davor nur Dodges. Neue Aufgabe
   `opt-metabase-absturz`.
@@ -3686,6 +3688,8 @@ Objectives), Bilder per `Game-Input.ps1 shot`.
   die Klasse nur im Paket `/Game/DDSurvivors/Blueprints/Objectives/DD_BaseBossObjective`; danach liefen auf `26669225` vier und auf
   `26495302` drei Leisten nacheinander ohne Absturz. **[Vermutung]** Das ist auch die Ursache von `boss-karte-absturz` (zweites „lege
   Objective an“ ohne „lokal angelegt“); dessen Abnahme (dreimal Boss-Karte über den normalen Kartenwechsel) ist nicht geprüft.
+  **Nachtrag 21.11.2026:** per Gegenprobe auf `26786272` belegt und die Abnahme gemessen, siehe
+  [Absturz beim Betreten der Boss-Karte](#absturz-beim-betreten-der-boss-karte-boss-karte-absturz).
 - **[Belegt] Ein früheres eigenes Objective sperrte jede weitere Leiste.** Der Adapter merkte sich nur das zuletzt entfernte Objective;
   das vorletzte galt als „fremd“, und `TickBossBar` brach still ab (gemessen: nach SpikeBoss und Ballerina keine Leiste mehr für
   Frankenstein, Lazy und BlobBall). Jetzt merkt er sich alle eigenen Objectives, auch über das Zurücksetzen bei Reisen hinweg.
@@ -3720,6 +3724,67 @@ Objectives), Bilder per `Game-Input.ps1 shot`.
   aus dem Client-Log festhalten.
 - **Nicht geprüft:** zwei PCs, der Boss über die Routenkarte, Join mitten im Kampf, Tod von HQ-Endboss, LazyBoss und BlobBall mit dem
   letzten Stand, Tod der Ballerina auf `26495302`, eine Boss-Leiste nach einer Reise in eine zweite Karte.
+
+### Absturz beim Betreten der Boss-Karte (`boss-karte-absturz`)
+
+Stand 21.11.2026, Build `26786272`, ein PC mit zwei Instanzen (Lobby über den Tunnel der Mod, Godmode), `main` `a2395e2`. Auslöser:
+der Absturz des Clients im [Live-Test vom 13.11. abends](#live-test-auf-zwei-pcs-am-13112026-abends-livetest-1311-abend). Kartenprofil
+`MGP_Burger_Boss_Nature` per `DDCOOP_TEST_MAP_PROFILE`, Run über die echte Route ohne Maus und Tastatur, siehe
+[Gezielt in eine Karte](TESTING.md#gezielt-in-eine-karte). Jeder Tag lädt so die Boss-Karte, der Boss (`BP_SpikeBoss_C`, 80.000 HP)
+repliziert rund eine Sekunde nach der Karte. Werte mit `tools/spike/boss_hp.py`, Bilder per `Game-Input.ps1 shot`. Am Code der Mod
+ändert diese Aufgabe nichts.
+
+- **[Belegt] Ursache des Absturzes ist die Klassensuche, die [`opt-endboss-leiste`](#boss-leiste-aller-bosse-beim-client-opt-endboss-leiste)
+  behoben hat.** Gegenprobe auf `26786272`: derselbe Ablauf mit der alten Zeile `FindObject("DD_BaseBossObjective_C", "")` (nur lokal
+  gebaut, nicht im Repo). Erster Eintritt mit Leiste, beim zweiten Eintritt „Boss erkannt …, lege Objective an“ ohne „lokal angelegt“,
+  dann `EXCEPTION_ACCESS_VIOLATION` beim Lesen von `0xD8`, Stack `+163b33f`, `+58e0221`, `+56bad7b`, `+1527c28`, `+160c55b`, darüber
+  Rahmen aus `DDCoop.dll`. Das ist das Bild vom 13.11. (`26495302`: `+163b33f`, `+58de4b1`, `+56ba4bb`, `+1527c28`, `+160c55b`); die
+  mittleren Adressen verschieben sich je Build, siehe [Offsets](OFFSETS.md#boss-leiste-aller-bosse-opt-endboss-leiste). Der Absturz
+  braucht nur ein zweites Anlegen im selben Prozess: Das erste Objective bleibt als Objekt liegen, die Suche ohne Paket findet es statt
+  der Klasse.
+- **[Belegt] Abnahme mit dem Stand von `main`:** Der Client betrat die Boss-Karte dreimal über den normalen Kartenwechsel im selben
+  Prozess (MetaBase → Boss-Karte, dann zweimal Mission → Rundenende → Routenkarte → Boss-Karte). Je Eintritt genau eine Zeile „lege
+  Objective an“ und eine „lokal angelegt (Maximum 80000, Anzeigen 2)“, 1,0 bis 1,6 s nach dem Weltwechsel, dazu „erste Werte 80000 von
+  80000“. Im ganzen Log drei von drei, kein Absturzbericht, beide Prozesse liefen weiter. Die Leiste zeigte „Besiege den Boss!“ mit
+  80.000/80.000 und nach `!shop trigger` und `!bossdmg 30000` 50.000/80.000, Boss-HP bei Host und Client gleich (geprüft in den
+  Eintritten 1 und 2, Bild im Eintritt 3 vor dem Schaden). Vor dem zweiten und dritten Anlegen steht „Boss weg, Leiste entfernt“ für den
+  Boss der alten Karte.
+- **[Belegt] Dasselbe mit simulierter Latenz** (`-NetProfile Internet`, 120 ms ± 30, 2 % Verlust): drei Eintritte in einem Prozess,
+  drei von drei Anlagen, 1,1 bis 1,9 s nach dem Weltwechsel, Leiste nach dem Testschaden in allen drei Eintritten 50.000/80.000, kein
+  Absturz.
+- **[Belegt] „Anzeigen 2“ ist beim Kartenwechsel der Normalfall,** auch aus der MetaBase: In allen sieben Eintritten (drei, drei mit
+  Latenz, einer in der Gegenprobe) meldete der Adapter zwei Anzeigen mit Objective-Manager. Minuten nach dem Eintritt hielt nur noch
+  eine `WI_ObjectiveDisplay_C` einen Manager (Outer `WP_UI_C` an der GameInstance); die einzige weitere Instanz war die Vorlage im
+  `WidgetTree` der Klasse `WP_UI_C`, ohne Manager. **[Folgerung, zum Zeitpunkt des Anlegens nicht gelesen]** Die zweite Anzeige ist
+  die der alten Welt, die kurz nach der Reise noch im Objekt-Array steht; der Adapter meldet das neue Objective dann auch ihr. Das
+  blieb in allen sieben Eintritten ohne Folgen.
+- **[Belegt] Die Objectives des Clients bleiben liegen.** `DDObjectiveSubsystem` gibt es einmal an der GameInstance, jedes angelegte
+  `DD_BaseBossObjective_C` hängt daran und stand nach zwei weiteren Reisen noch im Objekt-Array (drei Objectives nach drei Eintritten,
+  auch beim Host). Der Adapter merkt sie sich als eigene und legt je Boss ein neues an.
+- **Offen: warum am 13.11. schon eine Sekunde nach dem ersten Anlegen ein zweites kam.** Im damaligen Code geht das nur, wenn die Suche
+  das eben angelegte Objective nicht mehr findet. Das ließ sich nicht nachstellen: Hier blieb jedes Objective erhalten, mit und ohne
+  Latenz. **[Vermutung]** Über das Internet lief am 13.11. etwas in anderer Reihenfolge ab (etwa ein Aufräumen des Subsystems beim
+  Missionsstart nach dem Anlegen). Mit dem heutigen Code endet auch dieser Fall nicht im Absturz, sondern mit einem zweiten Objective
+  und zwei Zeilen „lokal angelegt“; gemessen ist das nur mittelbar, über das zweite Anlegen nach jeder Reise.
+- **Nebenbefund Testwerkzeug:** Liefen mehrere Worktrees mit `Start-Session.ps1 -Mod -Wait` hintereinander, startete die eigene
+  Sitzung dreimal ohne Mod: `DDCoop.dll` war in keiner der beiden Instanzen geladen, im Spielordner lag nur noch `DDCoop\logs`, das
+  Skript brach mit „Testkanal … antwortet nicht“ ab. Ein erneuter Start half jeweils. Umgekehrt fand das eigene `Stop-Session.ps1`
+  beim Entfernen der Mod schon das Spiel der nächsten Sitzung vor („The game is running“). **[Vermutung]** `Stop-Session.ps1` beendet
+  die Instanzen, wartet sechs Sekunden und entfernt erst dann die Mod; in der Zeit gilt die Sperre als frei, und das Entfernen trifft
+  die Mod der nächsten Sitzung. Der Ablauf ist nicht nachgemessen.
+  - **[Belegt, ohne Spiel]** Der Ablauf steht so im Skript, und `tests/test_session_lock.py` stellt ihn mit einer Kopie der Skripte und
+    einer Attrappe für `Deploy-Mod.ps1` nach: Mit dem alten `Stop-Session.ps1` galt die Sperre beim Entfernen der Mod schon als frei
+    (`Active: False`), und es entfernte die Mod auch dann, wenn eine fremde Sitzung die Sperre hielt. Eine wartende Sitzung fragt alle
+    fünf Sekunden nach, bekommt die Sperre also innerhalb der sechs Sekunden; ob ihr Bauen und Installieren auch noch davor fertig
+    wird, hängt von der Bauzeit ab.
+  - **Behoben:** `Stop-Session.ps1` setzt die Sperre vor dem Beenden der Instanzen auf den Zustand „Sitzung startet“ mit dem eigenen
+    Prozess (`Enter-StopLock` in `Common.ps1`) und gibt sie erst nach dem Entfernen frei. Hält eine fremde Sitzung die Sperre, bleibt
+    die Mod liegen und gehört ihr. Ältere Skripte in anderen Worktrees achten diesen Zustand schon.
+  - **[Folgerung]** Dass genau dieser Wettlauf die drei Starts ohne Mod verursacht hat, ist nicht gemessen. **Nicht geprüft:** eine
+    echte Übergabe zwischen zwei Worktrees mit Spiel. Der Schutz wirkt erst, wenn der Worktree der endenden Sitzung den Stand hat.
+- **Nicht geprüft:** zwei PCs und echtes Internet, ein Run über acht Tage bis zum echten Boss-Knoten (hier Tag 1 bis 3 mit
+  Testschalter), andere Bosse als der SpikeBoss und die Karten `MGP_Burger_Boss_City` und `MGP_HQ8_Boss`, Bosstod und Sieg, ein
+  Wiederbeitritt in die Boss-Karte, Spielton.
 
 ### Host-Absturz beim Rundenstart (`host-absturz-start`)
 
