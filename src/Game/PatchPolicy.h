@@ -79,6 +79,150 @@ private:
     size_t Count = 0;
 };
 
+// opt-loot-aufnahme-client: Uhr, die nur läuft, solange die Weltzeit läuft. Bei offenem Airdrop-Panel oder Rundenende steht die
+// Welt, der Host kann dann kein Loot wegnehmen; die Frist von FinishedLoot darf in der Zeit nicht ablaufen. Ein einzelner Schritt
+// zählt höchstens MaxStepMs, damit ein Hänger oder Ladebild nicht als Spielzeit gilt.
+class WorldRunClock
+{
+public:
+    static constexpr uint64_t MaxStepMs = 250;
+
+    uint64_t Advance(uint64_t NowMs, bool WorldPaused)
+    {
+        if (Started && !WorldPaused && NowMs > LastMs)
+            RunMs += NowMs - LastMs < MaxStepMs ? NowMs - LastMs : MaxStepMs;
+        LastMs = NowMs;
+        Started = true;
+        return RunMs;
+    }
+    uint64_t Now() const { return RunMs; }
+
+private:
+    uint64_t RunMs = 0, LastMs = 0;
+    bool Started = false;
+};
+
+// opt-loot-aufnahme-client: Die Kopie eines Loot-Objekts bleibt beim Client nach dem Aufsammeln an der Figur hängen, bis der Host
+// sein Objekt wegnimmt. Der Ort repliziert nach dem Spawn nicht, der Host hat sein Objekt also oft woanders und nimmt es später
+// oder gar nicht; solange zappelt die Kopie an der Figur und der Attraktor ruft Loot jeden Takt. Der Client beendet das Aufsammeln
+// darum selbst, rein in der Darstellung: Nach dem ersten Loot wird die Kopie im nächsten Takt versteckt und aus dem Anziehen
+// genommen (Hide). Nimmt der Host sein Objekt weg, verschwindet die Kopie wie bisher. Bleibt das länger als RestoreMs aus, hat der
+// Host das Objekt noch: Die Kopie wird einmal wieder gezeigt (Show) und danach nicht erneut versteckt, damit sie nicht pulsiert.
+// Die Zeiten kommen von WorldRunClock, zählen also nur laufende Weltzeit.
+// Gebucht wird weiter nur beim Host. Handle ist beim Spiel ein Objects::Ref, im Test eine Zahl.
+template <class Handle> class FinishedLoot
+{
+public:
+    static constexpr size_t Capacity = 128;
+    static constexpr uint64_t RestoreMs = 6000;
+
+    struct Counters
+    {
+        unsigned Finished = 0;  // lokal beendet (versteckt)
+        unsigned Removed = 0;   // danach vom Host weggenommen
+        unsigned Restored = 0;  // nach RestoreMs wieder gezeigt, der Host hatte das Objekt noch
+        unsigned Refused = 0;   // kein Platz, Objekt bleibt wie vor dem Fix sichtbar
+        uint64_t WaitSumMs = 0; // Zeit vom Verstecken bis zum Wegnehmen
+        uint64_t WaitMaxMs = 0;
+    };
+
+    // Beim ersten Loot eines Objekts. Same(Handle) sagt, ob ein schon gemerkter Eintrag mit diesem Schlüssel noch dasselbe Objekt
+    // ist (die Adresse kann nach dem Abbau neu vergeben sein). false: schon gemerkt oder kein Platz.
+    template <class SameFn> bool Add(uintptr_t Key, const Handle& Loot, const Handle& Looter, uint64_t NowMs, SameFn&& Same)
+    {
+        for (size_t i = 0; i < Count; ++i)
+            if (Entries[i].Key == Key)
+            {
+                if (Same(Entries[i].Loot))
+                    return false;
+                Entries[i] = {Key, Loot, Looter, NowMs, State::Pending};
+                return true;
+            }
+        if (Count == Capacity && !DropOneRestored())
+        {
+            ++Stats.Refused;
+            return false;
+        }
+        Entries[Count++] = {Key, Loot, Looter, NowMs, State::Pending};
+        return true;
+    }
+
+    // Jeden Takt. Live(Loot): Objekt gibt es noch. Hide(Loot, Looter) versteckt und beendet das Anziehen, Show(Loot) zeigt wieder.
+    template <class LiveFn, class HideFn, class ShowFn> void Tick(uint64_t NowMs, LiveFn&& Live, HideFn&& Hide, ShowFn&& Show)
+    {
+        for (size_t i = 0; i < Count;)
+        {
+            Entry& Item = Entries[i];
+            if (!Live(Item.Loot))
+            {
+                if (Item.Phase == State::Hidden)
+                {
+                    const uint64_t Wait = NowMs - Item.SinceMs;
+                    ++Stats.Removed;
+                    Stats.WaitSumMs += Wait;
+                    if (Wait > Stats.WaitMaxMs)
+                        Stats.WaitMaxMs = Wait;
+                }
+                Entries[i] = Entries[--Count];
+                continue;
+            }
+            if (Item.Phase == State::Pending)
+            {
+                Hide(Item.Loot, Item.Looter);
+                Item.Phase = State::Hidden;
+                Item.SinceMs = NowMs;
+                ++Stats.Finished;
+            }
+            else if (Item.Phase == State::Hidden && NowMs - Item.SinceMs >= RestoreMs)
+            {
+                Show(Item.Loot);
+                Item.Phase = State::Restored;
+                ++Stats.Restored;
+            }
+            ++i;
+        }
+    }
+
+    // Weltwechsel: Die Objekte der alten Welt sind weg, nichts mehr an ihnen aufrufen.
+    void Clear() { Count = 0; }
+    size_t Size() const { return Count; }
+    const Counters& Stat() const { return Stats; }
+    // Summe der Zähler, um Änderungen für das Log zu erkennen.
+    unsigned Events() const { return Stats.Finished + Stats.Removed + Stats.Restored + Stats.Refused; }
+
+private:
+    enum class State : uint8_t
+    {
+        Pending,
+        Hidden,
+        Restored
+    };
+    struct Entry
+    {
+        uintptr_t Key;
+        Handle Loot;
+        Handle Looter;
+        uint64_t SinceMs;
+        State Phase;
+    };
+
+    // Wieder gezeigte Einträge sind sichtbar und brauchen den Platz nur, um nicht erneut versteckt zu werden.
+    bool DropOneRestored()
+    {
+        for (size_t i = 0; i < Count; ++i)
+            if (Entries[i].Phase == State::Restored)
+            {
+                Entries[i] = Entries[--Count];
+                return true;
+            }
+        return false;
+    }
+
+    Entry Entries[Capacity]{};
+    size_t Count = 0;
+    Counters Stats;
+};
+
 // Nutzervorgabe 06.11.2026: Ein Itemsack zählt wie ein Airdrop für alle. Der Host gibt jedem anderen Spieler eine Kopie
 // jedes neuen Items, aber nur, wenn genau ein Inventar beim Aufsammeln etwas bekommen hat.
 constexpr bool ShareItemLoot(NetRole WorldRole, size_t Inventories, size_t GainedInventories)

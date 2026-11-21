@@ -20,6 +20,7 @@ Einzige Schicht mit Spielzugriff. Enthält Adapter auf Spielklassen und später 
 | `TelemetryAdapter.h` | Schaltet im Mod-Betrieb Balance-Telemetrie und automatische Berichte über beschädigte Spielstände ab und sperrt die Telemetrie-Adresse über `Core::ReportHosts` |
 | `SaveRedirect.h` / `SavePaths.h` | Trennt die Spielstände: Datei-APIs von Windows leiten alles unter `Saved\SaveGames` nach `Saved\SaveGames_DDCoop` um, ohne Spiel-Offsets; reine Pfadlogik in `SavePaths.h`, ohne Spiel getestet. Siehe [Spielstände](../../docs/GAME_ANALYSIS.md#spielstände-der-mod-mod-saves) |
 | `Patches.h` | Die Spielfehler-Fixes für eine Mission zu zweit, siehe [Patches](#patches) |
+| `FmodSound.h` | Startet einen FMOD-Sound lokal über `FMODBlueprintStatics.PlayEventAtLocation`, am Actor oder an einem Weltort |
 | `CodeCave.h` | Werkzeuge für Patches mitten in Funktionen: Code-Höhle nahe der Exe, Bytes prüfen, Sprünge und vtable-Einträge schreiben |
 | `LocalDevicePolicy.h` | Reine Regeln für `LocalDevicePatches.cpp`: welche Gerätezuordnung und welcher lokale Spawn im Netzwerkspiel abgelehnt wird, ohne Spiel getestet |
 | `RemoteP2Policy.h` | Reine Logik für den Remote-Spieler als P2: `ActivePlayers`-Map prüfen und aufräumen, Geräte-Wächter, ohne Spiel getestet |
@@ -429,6 +430,15 @@ Im Live-Test am 06.11.2026 wirkten Waffen, die der Client in der Itemauswahl tau
    neu. `RefreshHandsBar` zeichnet den Balken nicht neu (im Spiel geprüft). Verbindlich bleibt der Host: Nach dem Übernehmen kommt
    sein Wert über die Replikation, bei Ablehnung oder Abbruch stellt `RevertClient` den Ausgangswert wieder her. Das Attributset
    gehört dem PlayerState, nicht der Figur.
+4. **Zusätzliche Hände beim Client während der Bearbeitung (`client-roboterarm`).** Der Roboterarm gibt seine Hand als
+   GameplayEffect (`GE_IncreaseHands_C`, `ExtraHands` +1), den nur der Host beim Übernehmen anlegt. Bis dahin hatte der Client
+   keine Hand mehr frei, und das Panel lehnte die Waffe ab, für die der Arm gedacht war. Dieselbe Vorschau rechnet jetzt auch
+   `ExtraHands` vor: Ausgangswert + (Hände, die die Rucksackitems geben, jetzt - beim Start). Die Hände eines Items kommen aus
+   seinen Daten (`HandPreview.h`: nur additive Modifikatoren auf `ExtraHands` mit fester oder über Stufe und Kurve bestimmbarer
+   Größe), gerechnet mit `FloatData.GetContextualValueForRarity` und `DataTableFunctionLibrary.EvaluateCurveTableRow`. Die Länge
+   des Balkens setzt `HandBarDisplay.UpdateMaxHandsBar` aus `GetFreeHands` + belegt. Verbindlich bleibt der Host, wie bei den
+   belegten Händen. Schalter `DDCOOP_HANDS_PREVIEW_NATIVE=1`: ohne diese Vorschau, zum Vergleich. Messung:
+   [Roboterarm beim Client](../../docs/GAME_ANALYSIS.md#roboterarm-beim-client-client-roboterarm).
 
 **Geprüft** (07.11.2026, Build `26187885`, ein PC, Lobby, Godmode, Trace `DDCOOP_TRACE_INVENTORY=1`, vom Nutzer gespielt):
 Waffen ablegen, tauschen und wieder ausrüsten in der Itemauswahl des Clients; der Hände-Balken des Clients folgt sofort

@@ -303,6 +303,56 @@ unverändert (`wechsel-1-0-2` bleibt offen).
 - **Widerspruch zu `update-startpruefung`:** Die Aufgabe verlangt, dass eine Teilinstallation nicht als erfolgreicher Start gilt. Auf
   `26669225` ist sie jetzt der Normalfall; das ist dort beim Umsetzen zu entscheiden.
 
+## Dumper-7 liest hinter das Image-Ende (`dumper7-image-ende`)
+
+Stand 21.11.2026. Der Absturz des Dumpers auf `26669225` (siehe oben, bisher **[Vermutung]**) ist jetzt **belegt** und behoben.
+
+- **Ursache:** `PlatformWindows::FindStringInRange` liest jede Bytefolge `48 8D` / `4C 8D` in `.text` als `lea`, rechnet das Ziel aus
+  und prüft nur dessen **erstes** Byte (`IsAddressInProcessRange`, lesbare Sektion oder `IsBadReadPtr`). Danach vergleicht `wcsncmp` ab
+  dort. In der Exe von `26669225` zeigt eine solche Bytefolge bei RVA `0x6E757B8` (mitten in einem anderen Befehl) auf `0xB749FFF`, das
+  letzte Byte des Images (SizeOfImage `0xB74A000`). Schon das erste 2-Byte-Zeichen reicht damit ein Byte über das Image hinaus.
+  Jede Suche, die diese Stelle erreicht, bevor sie einen Treffer hat, stürzt ab, wenn die Seite dahinter frei ist.
+- **Zählung über die Exes** (alle `lea`-Kandidaten in ausführbaren Sektionen mit Ziel im Image, je rund 1,19 Millionen): Ziel in den
+  letzten `0x41` Byte des Images hat nur `26669225` (genau der eine Kandidat). `26187885`, `26495302` und `26786272` haben keinen. Das
+  erklärt, warum der Absturz nur auf `26669225` auftrat. **[Vermutung]** Auf `26786272` trifft der Fehler den unveränderten Dumper
+  nicht: Die Zählung erfasst nur Ziele im Image der Exe (der Dumper nimmt auch Ziele in anderen geladenen Modulen an), und der Stand
+  `2570b5b` lief dort nie im Spiel. Der Fehler kann mit jedem neuen Build wiederkommen.
+- **Fix:** Vor dem Vergleich prüft die neue Hilfsfunktion `IsRangeReadable` das erste **und** das letzte Byte des gelesenen Bereichs
+  (Länge der gesuchten Zeichenkette samt Abschluss, mindestens 8 Byte für die Zeigerprüfung `bCheckIfLeaIsStrPtr`); dasselbe für den
+  Zeiger, den diese Variante danach liest. Der 32-Bit-Zweig (`push`) ist nicht angefasst. Der Fix liegt als
+  [`tools/dumper7/image-ende.patch`](../tools/dumper7/image-ende.patch) im Repo; `Build-Dumper7.ps1` wendet ihn auf seine Baukopie an,
+  solange der Fork ihn nicht enthält. **Das Submodul zeigt unverändert auf `2570b5b`**, in den Fork ist nichts gepusht.
+- **Nachweis ohne Spiel:** Ein kleines Testprogramm (nicht im Repo) blendet die Exe nur als Image ein (`LoadLibraryEx` mit
+  `DONT_RESOLVE_DLL_REFERENCES`, kein Code der Exe läuft) und ruft `FindByStringInAllSections` aus dem Quelltext des Dumpers auf, einmal
+  aus dem Stand `2570b5b`, einmal mit Patch:
+
+  | Exe | `2570b5b` | mit Patch |
+  |---|---|---|
+  | `26495302` | `L"Accessed None"` → `0x160C0F2`, `L"ByteProperty"` → `0x1442B61`; `L" Bone: "` und `L"Failed to find function %s in %s"` ohne Treffer, kein Fehler | dieselben Treffer, kein Fehler |
+  | `26669225` | dieselben beiden Treffer; die drei Suchen ohne frühen Treffer enden mit **Zugriffsfehler beim Lesen von Image+`0xB74A000`** (erstes Byte hinter dem Image) | dieselben Treffer, die drei Suchen laufen durch, kein Fehler |
+  | `26786272` | dieselben Treffer, kein Fehler | dieselben Treffer, kein Fehler |
+
+  Die Fehleradresse passt zum Absturzbericht vom 16.11. (Seitenanfang `…A000` direkt hinter dem Image). Im Spiel lag der Absturz in der
+  Suche nach `ByteProperty` für GNames: `FindFNameGetNamesOrGNames_Windows` setzt hinter jedem Treffer neu an, bis einer das gesuchte
+  Aufrufmuster hat. `.text` enthält drei Verweise auf `L"ByteProperty"` (`0x1442B61`, `0x14B921F`, `0x6006A90`), alle vor `0x6E757B8`;
+  passt keiner, läuft die Suche über die Stelle. **[Vermutung]** Genau das war am 16.11. der Fall; nachgestellt ist nur die Suche selbst.
+- **Kosten:** Ein voller Suchlauf über `.text` ohne Treffer dauert im Testprogramm 2,5 s statt 1,5 s. Der frühere lokale Fix (zweites
+  `IsBadReadPtr`, also `VirtualQuery` je Kandidat) brauchte für den ganzen Dump rund zehn Minuten.
+- **Spieltest 21.11.2026** (ein PC, eingefrorene Kopie `26786272`, `Start-Session.ps1 -Build -Mod -Tunnel Lobby -Map
+  /Game/Maps/DDDynamic_Map`, ohne echte Eingaben): `Build-Dumper7.ps1` ohne lokale Änderung gebaut (Submodul `2570b5b` plus Patch,
+  15 s), DLL per `inject.py` in den Host geladen, beide Instanzen mit 2 Spielern in der Mission. Dumper nach 6 s wieder entladen,
+  2.504 Dateien (die SDK-Dateien entstanden in rund 4 s), Host und Client liefen weiter, `Get-Status.ps1`: keine Abstürze. Gegen das
+  SDK desselben Builds vom 20.11. (früherer lokaler Fix, rund zehn Minuten): `Basic.hpp` (GObjects `0x0AA6FC80`, GNames `0x0A9A1C40`,
+  GWorld `0x0AAF2870`, ProcessEvent `0x0160C220`), `Engine_classes.hpp` und `DDSurvivors_classes.hpp` sind bytegleich. Neu ist nur
+  `GE_MetaBaseSpeed_classes.hpp` (am 20.11. nicht geladenes Blueprint). 119 Dateien unterscheiden sich: `Assertions.inl` (im alten SDK
+  von Hand nachgearbeitet) und Dateien von Blueprint-Klassen (`BP_*`, `WP_*`, `WB_*`, `OptionsMenu` und ähnliche); nicht einzeln
+  ausgewertet. **Nicht geprüft:** der unveränderte Stand `2570b5b` im Spiel auf `26786272` (keine Gegenprobe).
+- **Offen, braucht einen Menschen:** den Commit in den Fork `VitaminStack/Dumper-7` übernehmen (derselbe Inhalt wie der Patch), danach
+  das Submodul auf den neuen Stand stellen und `image-ende.patch` samt dem Schritt im Skript entfernen. Bis dahin baut das Skript den
+  Fix über den Patch ein.
+- **Nicht geprüft:** ein Dump im Spiel auf `26669225` (der Build wird seit `spiel-update-26786272` nicht mehr gestartet), der
+  32-Bit-Zweig, andere Spiele.
+
 ## Lebensleisten auf 26669225 (`update-1-0-2-lebensleisten`)
 
 Stand 16.11.2026. `HealthBarPatches.cpp` ist unverändert, nur `RvaMap26669225.inc` bekam drei Zeilen `// von Hand`.
@@ -1273,11 +1323,27 @@ Build `26495302`, Disassembly, siehe [Aufsammelsound](GAME_ANALYSIS.md#aufsammel
 
 | Stelle | Wert |
 |---|---|
-| `ALootBase::Loot_Implementation` | `0x59AF3F0(LootableInterface, Looter)`, Actor = Interface − `0x2A8`; ruft das Ereignis `Client_PlaySound` (`0x572F970`, Aufruf `0x59AF417`) und gibt das Objekt an den Pool zurück |
+| `ALootBase::Loot_Implementation` | `0x59AF3F0(LootableInterface, Looter)`, Actor = Interface − `0x2A8`; ruft das Ereignis `Client_PlaySound` (`0x572F970`, Aufruf `0x59AF417`) und gibt das Objekt an den Pool zurück (Pool-Rückgabe korrigiert, siehe `opt-loot-aufnahme-client` unten) |
 | `AItemLoot::Loot_Implementation` | `0x59AF200`, ruft zuerst die Basis `0x59AF3F0` |
 | `0x59AF480` | ruft zuerst die Basis `0x59AF3F0`, dann `0x5834880` mit einem Wert aus `this+0x28`; **Vermutung:** `AFuelLoot::Loot_Implementation` (Tank) |
 | `LootBase.Client_PlaySound` | NetClient-RPC, beim Client vom Netz über `exe+299CFFB` (ProcessEvent), lokal aus `0x59AF417` |
 | `LootBlueprintFunctionLibrary.DropRequiredFuel` | Parameter 0x30 Byte: `World` `0x0`, `FuelClass` `0x8`, `Location` `0x10`, `Radius` `0x28`, `AdditionalFuel` `0x2C` (Spike-Testhilfe `!fx fuel`) |
+
+## Loot-Aufnahme beim Client (`opt-loot-aufnahme-client`)
+
+Build `26786272`, Reflexion zur Laufzeit (nur gelesen) und Disassembly, siehe
+[Loot-Aufnahme beim Client](GAME_ANALYSIS.md#loot-aufnahme-beim-client-opt-loot-aufnahme-client).
+
+| Stelle | Wert |
+|---|---|
+| `ALootBase` | `LootClaimer` `0x2B8`, `InitialLootabilityDelay` `0x2C8` (float, bei Schrott, Benzin und Power-up 0,5), Größe `0x2D0`; `ILootableInterface` bei `+0x2A8` |
+| `AScrapLoot.ScrapAmount`, `APowerUpLoot.CantBeLootedCooldown` | `0x2D0`, `0x2EC` |
+| `ULootAttractor` | `RadiusBuffFactor` `0xC0`, `AttractionRadius` `0xC4` (500), `StopAttractionTags` `0xD0`, `AttractedLoot` `0x100` (80 Byte), Größe `0x170`; je Spielerfigur einer, beim Client auch an der Figur des Mitspielers |
+| `LootAttractor.RemoveAttractedLoot`, `AddAttractedLoot` | UFunctions, ein Parameter (Objektzeiger, 8 Byte), nativ `0x5736920`, `0x57321b0` |
+| `ALootBase::Loot_Implementation` | `0x59B2140(LootableInterface, Looter)`: virtueller Aufruf Slot `+0x4E0` am Actor (`0x25F50A0`) mit `Looter+0xA8`, Ereignis `Client_PlaySound` (`0x57306A0`), dann GameState (`World+0x1B0`), Klassenprüfung und Aufruf `0x24E95F0` an `GameState[+0x3B0]+0xD0` mit dem Actor. **Vermutung:** Besitzer setzen und ein Delegate oder eine Sammelliste; wo der Host das Objekt wegnimmt, ist nicht belegt |
+| Actor-Flagbyte `+0x58` der Loot-Objekte | `0x60`. **Vermutung:** Bit `0x10` ist `bReplicateMovement` und aus. Belegt ist, dass der Ort nach dem Spawn nicht repliziert |
+| Zerstörtes Objekt bis zur nächsten GC | Objekt-Flags (`+0x08`) `0x40000000`, Flags im Objekt-Array `0x00200000` |
+| `ALootSpot` | `LootSpawnRadius` `0x2E8` (float, 300 an `BP_EnvironmentObjectLootspot_C`), `MinSpawns`/`MaxSpawns` `0x318`/`0x31C`; `SpawnLoot` hat einen Parameter (8 Byte) |
 
 ## Waffensounds (`opt-waffen-sound`)
 
@@ -1312,6 +1378,26 @@ Felder aus dem SDK beider Builds (`26495302`, `26669225`, gleich), eines ohne Re
 | `DDGameplayAbilityWithState.SetupAbility` | Parameter `0x150`: `ActorInfo` `0x00` (`0x48`), `Spec` `0x48` (`0x108`) |
 | `UGA_DelayedHeal_C` | `CachedCharacter` `0x3B0`, `CachedAbilityComponent` `0x3B8`, `CachedCommonAttributes` `0x4E0`, `OldHealth` `0x4E8`, `PulsesRemaining` `0x4F0` |
 | `UItemShapeDefinition` | `Tiles` `0x28` (`TArray<FIntVector2>`), genutzt von `!equip` |
+
+## Roboterarm (`client-roboterarm`)
+
+Felder aus dem SDK von Build `26786272`, im Spiel gelesen. Keine Code-Stelle, kein Patch der Exe.
+
+| Stelle | Wert |
+|---|---|
+| `UDDCharacterAttributeSet` | `ExtraHands` `0x100`, `OccupiedHands` `0x110` (`FGameplayAttributeData`: `BaseValue` `+0x8`, `CurrentValue` `+0xC`), Outer ist der PlayerState |
+| `UInventoryItemInstance` | `ItemData` `0xE0`, `Broken` `0x110`, `Rarity` `0x118`, `IsInBackpack` `0x180`, `IsInStash` `0x181`, `IsReward` `0x182` |
+| `FItemEffectWrapperBase` | `ForceGameplayEffectLevel` `0x28`, `ForceScalingGameplayEffectLevel` `0x29`, `GameplayEffectLevel` `0x2C`, `ScalingGameplayEffectLevel` (`UFloatData*`) `0x30`; `Type` 1 ist `GameplayEffect` |
+| `URarityScalingFloatData` | `RarityMappings` `0x40`, `UsePlayerLevelScaling` `0x50` |
+| `UGameplayEffect` | `Modifiers` `0x428` (`TArray<FGameplayModifierInfo>`, Element `0x338`) |
+| `FGameplayModifierInfo` | `Attribute.AttributeName` (FString) `0x00`, `ModifierOp` `0x38` (0 additiv), `ModifierMagnitude` `0x40`: `MagnitudeCalculationType` `+0x0` (0 ScalableFloat), `ScalableFloatMagnitude.Value` `+0x8`, `.Curve.CurveTable` `+0x10`, `.Curve.RowName` `+0x18` |
+| `UAbilitySystemComponent` | `ActiveGameplayEffects.GameplayEffects_Internal` `0x8D8 + 0x130` (`TArray<FActiveGameplayEffect>`, Element `0x328`, `Spec.Def` `+0x20`, `bIsInhibited` `+0x29C`); beim Client nur für den eigenen PlayerState gefüllt |
+| `UCharacterEffectManager` | `EffectedSpecifications` `0xC0`, `EffectedBackpackSpecifications` `0xD0` (`FEffectedSpecification`, Element `0xF0`: `ItemInstance` `0x00`, `EffectWrapper` `0x08`, `EffectedItem` `0xB8`), `Character` `0xE0` |
+| `APlayerState` | `PlayerId` `0x2AC`, `PawnPrivate` `0x320` |
+| `UHandBarDisplay` | `CachedCharacter` `0x348`; `UpdateCurrentHandsBar(int32)`, `UpdateMaxHandsBar(int32)` |
+| `InventoryEffectHelperLibrary.GetFreeHands` | Exec-Thunk `0x57105B0`, Implementierung `0x5968520` (liest `ExtraHands` `+0x100` und `OccupiedHands` `+0x110` des Attributsets), weiterer direkter Aufrufer `0x5A40C2E`; Parameter `0x10`: `Character` `0x00`, `ReturnValue` (int32) `0x08` |
+| `FloatData.GetContextualValueForRarity` | Parameter `0x10`: `Rarity` `0x00`, `PlayerLevel` `0x08`, `ReturnValue` (float) `0x0C` |
+| `DataTableFunctionLibrary.EvaluateCurveTableRow` | Parameter `0x30`: `CurveTable` `0x00`, `RowName` `0x08`, `InXY` `0x10`, `OutResult` `0x14` (0 gefunden), `OutXY` `0x18`, `ContextString` `0x20` |
 
 ## Zeitanfragen und Weltzeit (`boss-client-einfrieren`)
 
@@ -1383,3 +1469,5 @@ Referenz-Build; die Adressen stehen direkt hier und in `src/Game/ClientPatches.c
 | `AReaperSpawner` | SpawnAfterMinutes (Float, 12), ReaperEnemyType, PlayerLocations | `0x4A8`, `0x4F8`, `0x518` |
 | `AReaperSpawner` | ShouldSpawnReaper, WasReaperSpawned (aus den Exec-Funktionen `0x5795DB0`, `0x579C4A0`) | `0x528`, `0x529` |
 | `UEventMapSetupGenerator` | DisableReaperSpawning | `0x29` |
+| Dieselbe Aufrufkette je Build (Absturz-Stack, `boss-karte-absturz`) | `26495302`: `+163b33f`, `+58de4b1`, `+56ba4bb`; `26669225`: `+163b33f`, `+58deda1`, `+56bac4b`; `26786272` (21.11.2026): `+163b33f`, `+58e0221`, `+56bad7b`. Darüber auf `26495302` und `26786272` `+1527c28`, `+160c55b` und die Rahmen der Mod (für `26669225` sind nur die ersten drei notiert) |
+| Outer und Flags (`26786272`, gemessen) | `DDObjectiveSubsystem` einmal, Outer `GI_DDMissionGameInstance_C`; jedes `DD_BaseBossObjective_C` hat das Subsystem als Outer und bleibt über Reisen liegen; `WI_ObjectiveDisplay_C` der laufenden Welt hat Outer `WidgetTree` < `WP_UI_C` < GameInstance, `ObjectiveManager` `0x378` gesetzt; die Vorlage im `WidgetTree` der Klasse `WP_UI_C` (Flags `0x280008`) hat keinen Manager |

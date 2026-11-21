@@ -377,6 +377,9 @@ void ScrapCommand(const std::wstring& Args)
 //   !shop callat <n> <Klasse> <Funktion>   dasselbe nur an der n-ten Instanz, etwa OnChoose an einem Routenknoten
 //   !shop upgrade      zwei gleiche Items des eigenen Inventars ueber UInventoryComponent.UpgradeItems zur naechsten Seltenheit
 //   !shop repair       erstes kaputtes Item des eigenen Inventars wie der Reparieren-Knopf (Preis lokal abziehen, RepairItem)
+//   !shop place <ItemData>   eigenes Item mit den Aufrufen des Panels in den Rucksack legen, "take" nimmt es heraus
+//   !shop choose <n>   n-te Belohnung der offenen Auswahl annehmen
+//   !shop hands        freie Haende der eigenen Figur (GetFreeHands), ExtraHands, OccupiedHands
 namespace
 {
 bool IsClass(uintptr_t Object, const char* ClassName)
@@ -834,6 +837,130 @@ void ShopCommand(const std::wstring& Args)
         uint8_t Params[0x100]{};
         Call(Objects[Index], Function, Params);
         Log("Shop: " + ClassName + "." + FunctionName + " an Instanz " + std::to_string(Index) + " gerufen");
+    }
+    else if (Action == "hands")
+    {
+        // Testhilfe (client-roboterarm): "!shop hands" liest fuer die eigene Figur, was das Panel fuer die Haende sieht:
+        // InventoryEffectHelperLibrary.GetFreeHands, dazu ExtraHands und OccupiedHands (UDDCharacterAttributeSet +0x100/+0x110,
+        // aktueller Wert +0xC) des eigenen PlayerState. Schreibt nichts.
+        const uintptr_t Free = FindObject("GetFreeHands", "InventoryEffectHelperLibrary");
+        const uintptr_t Library = FindObject("Default__InventoryEffectHelperLibrary", nullptr);
+        const uintptr_t State = Controller ? Read<uintptr_t>(Controller + 0x2B0) : 0;
+        uintptr_t Set = 0;
+        for (const uintptr_t Object : InstancesOf("DDCharacterAttributeSet"))
+            if (State && Read<uintptr_t>(Object + 0x20) == State)
+                Set = Object;
+        struct
+        {
+            uintptr_t Character;
+            int32_t ReturnValue;
+            uint8_t Pad[4];
+        } Params{Pawn, -1, {}};
+        if (Free && Library && Pawn)
+            Call(Library, Free, &Params);
+        Log("Shop: Haende frei " + std::to_string(Params.ReturnValue) + ", ExtraHands " + (Set ? std::to_string(Read<float>(Set + 0x10C)) : std::string("?")) +
+            ", OccupiedHands " + (Set ? std::to_string(Read<float>(Set + 0x11C)) : std::string("?")));
+    }
+    else if (Action == "choose")
+    {
+        // Testhilfe (client-roboterarm): "!shop choose <n>" nimmt die n-te Belohnung der offenen Auswahl an, wie das Ablegen im
+        // Lager des Panels: UpdateIsReward(false) am n-ten eigenen Item mit IsReward (+0x182). Danach gilt "!shop confirm".
+        const uintptr_t Update = FindObject("UpdateIsReward", "InventoryItemInstance");
+        int At = 0;
+        for (const uintptr_t Item : Update ? ItemsOf(LocalInventory()) : std::vector<uintptr_t>{})
+        {
+            if (!Read<uint8_t>(Item + 0x182) || At++ != Index)
+                continue;
+            uint8_t Params[8]{};
+            Call(Item, Update, Params);
+            Log("Shop: Belohnung " + std::to_string(Index) + " gewaehlt, " + ItemText(Item));
+            return;
+        }
+        Log("Shop: Belohnung " + std::to_string(Index) + " nicht gefunden");
+    }
+    else if (Action == "place" || Action == "take")
+    {
+        // Testhilfe (client-roboterarm): "!shop place <ItemData>" legt das erste eigene Item dieser Daten ausserhalb des Rucksacks
+        // mit den Aufrufen des Panels in den Rucksack (SetZeroPivotTile, AddToBackpack samt ApplyAddToBackpackEffect,
+        // OccupyBackpackSlots), ohne Drehung auf das erste freie passende Feld. "!shop take <ItemData>" nimmt es wieder heraus
+        // (UnoccupyBackpackSlots, RemoveFromBackpack mit ForceRemoveAllEffects). Beim Client laufen die Aufrufe wie die des Panels
+        // durch die Mod: in einer Bearbeitung lokal, sonst als RPC zum Host. Die Haende-Pruefung des Panels entfaellt dabei.
+        const std::string DataName = Space == std::string::npos ? std::string{} : Text.substr(Space + 1);
+        const uintptr_t Inventory = LocalInventory();
+        const bool Place = Action == "place";
+        uintptr_t Item = 0;
+        for (const uintptr_t Candidate : ItemsOf(Inventory))
+            if (!Item && NameOf(Read<uintptr_t>(Candidate + 0xE0)) == DataName && (Read<uint8_t>(Candidate + 0x180) != 0) != Place)
+                Item = Candidate;
+        const uintptr_t SetPivot = FindObject("SetZeroPivotTile", "InventoryItemInstance"), Add = FindObject("AddToBackpack", "InventoryComponent");
+        const uintptr_t Occupy = FindObject("OccupyBackpackSlots", "InventoryComponent");
+        const uintptr_t Unoccupy = FindObject("UnoccupyBackpackSlots", "InventoryComponent"), Remove = FindObject("RemoveFromBackpack", "InventoryComponent");
+        if (!Item || !SetPivot || !Add || !Occupy || !Unoccupy || !Remove)
+        {
+            Log("Shop: " + DataName + (Place ? " nicht ausserhalb" : " nicht innerhalb") + " des eigenen Rucksacks oder Funktion fehlt");
+            return;
+        }
+        if (!Place)
+        {
+            uintptr_t Subject = Item;
+            Call(Inventory, Unoccupy, &Subject);
+            struct
+            {
+                uintptr_t Item;
+                uint8_t Style, Pad[7];
+            } Out{Item, 0, {}};
+            Call(Inventory, Remove, &Out);
+            Log("Shop: " + DataName + " aus dem Rucksack genommen");
+            return;
+        }
+        struct Array
+        {
+            uintptr_t Data;
+            int32_t Count, Max;
+        };
+        const Array Slots = Read<Array>(Inventory + 0x100);
+        const uintptr_t Shape = Read<uintptr_t>(Read<uintptr_t>(Item + 0xE0) + 0xE8);
+        const Array Tiles = Shape ? Read<Array>(Shape + 0x28) : Array{};
+        std::vector<uintptr_t> Target;
+        int32_t Pivot[2]{};
+        for (int32_t k = 0; k < Slots.Count && Target.empty() && Tiles.Count > 0 && Tiles.Count <= 16; ++k)
+        {
+            const uintptr_t Start = Read<uintptr_t>(Slots.Data + 8 * k);
+            if (!Start)
+                continue;
+            Pivot[0] = Read<int32_t>(Start + 0x28) - Read<int32_t>(Tiles.Data);
+            Pivot[1] = Read<int32_t>(Start + 0x2C) - Read<int32_t>(Tiles.Data + 4);
+            for (int32_t t = 0; t < Tiles.Count; ++t)
+            {
+                uintptr_t Found = 0;
+                for (int32_t s = 0; s < Slots.Count && !Found; ++s)
+                    if (const uintptr_t Slot = Read<uintptr_t>(Slots.Data + 8 * s);
+                        Slot && Read<int32_t>(Slot + 0x28) == Pivot[0] + Read<int32_t>(Tiles.Data + 8 * t) &&
+                        Read<int32_t>(Slot + 0x2C) == Pivot[1] + Read<int32_t>(Tiles.Data + 8 * t + 4) && !Read<uintptr_t>(Slot + 0x30))
+                        Found = Slot;
+                if (!Found)
+                {
+                    Target.clear();
+                    break;
+                }
+                Target.push_back(Found);
+            }
+        }
+        if (Target.empty())
+        {
+            Log("Shop: kein freier Platz fuer " + DataName);
+            return;
+        }
+        Call(Item, SetPivot, Pivot);
+        uintptr_t Subject = Item;
+        Call(Inventory, Add, &Subject); // ruft ApplyAddToBackpackEffect selbst
+        struct
+        {
+            uintptr_t Item;
+            Array Slots;
+        } In{Item, {reinterpret_cast<uintptr_t>(Target.data()), static_cast<int32_t>(Target.size()), static_cast<int32_t>(Target.size())}};
+        Call(Inventory, Occupy, &In);
+        Log("Shop: " + DataName + " wie im Panel in den Rucksack gelegt, Pivot (" + std::to_string(Pivot[0]) + ", " + std::to_string(Pivot[1]) + ")");
     }
     else
         Log("Shop: unbekannt, siehe Kommentar in Cheats.cpp");
