@@ -535,6 +535,24 @@ void ShopCommand(const std::wstring& Args)
         }
         Log("Shop: TriggerBossfight an " + std::to_string(Trigger ? Points.size() : 0) + " Spawnpunkt(en)");
     }
+    else if (Action == "reaper")
+    {
+        // "!shop reaper [Sekunden]" (karte-nach-labyrinth-absturz), nur beim Host sinnvoll: stellt den nativen Zeitgeber des
+        // AReaperSpawner neu, wie der im Shipping-Build gesperrte Konsolenbefehl SetSpawnReaperAfterMinutes. Der Sensenmann kommt
+        // danach ueber den normalen Weg des Spiels. Nur Build 26786272: Funktion 0x58CC8B0, ShouldSpawn +0x528, Timer +0x538.
+        const float Minutes = (Index > 0 ? static_cast<float>(Index) : 3.f) / 60.f;
+        using SetTimerFn = void(__fastcall*)(uintptr_t, float, bool);
+        int Set = 0;
+        for (const uintptr_t Spawner : InstancesOf("ReaperSpawner"))
+        {
+            if (!Read<uintptr_t>(Spawner + 0x538))
+                continue; // Vorlage ohne laufenden Zeitgeber
+            *reinterpret_cast<uint8_t*>(Spawner + 0x528) = 1;
+            reinterpret_cast<SetTimerFn>(Base + 0x58CC8B0)(Spawner, Minutes, false);
+            ++Set;
+        }
+        Log("Shop: Sensenmann-Zeitgeber an " + std::to_string(Set) + " Spawnern auf " + std::to_string(Minutes * 60.f) + " s gestellt");
+    }
     else if (Action == "away")
     {
         Vec To = LocationOf(Pawn);

@@ -110,6 +110,29 @@ static_assert(sizeof(ActivePlayersMap) == 0x50);
 static_assert(offsetof(ActivePlayersMap, NumFree) == 0x34);
 static_assert(offsetof(ActivePlayersMap, HashSize) == 0x48);
 
+// opt-host-absturz-trennung: UReaperComponent::Players (TArray<ADDCharacter*>) behält die Figur eines Spielers, der ohne
+// Abmeldung verschwindet. Die nächste Garbage Collection setzt den Eintrag auf null, und der Zeitgeber des Sensenmanns
+// (0x589A650) liest danach RootComponent (+0x1B8) am Nullzeiger. Nur plausible Listen anfassen: Vorlagen und fremde
+// Objekte mit anderem Layout bleiben unberührt.
+constexpr bool PlausibleReaperPlayers(uintptr_t Data, int32_t Num, int32_t Max)
+{
+    return Data != 0 && Num > 0 && Num <= 8 && Max >= Num && Max <= 64;
+}
+
+// Nimmt alle Einträge heraus, die Dead meldet, Reihenfolge der übrigen bleibt. Liefert die Zahl der entfernten und setzt Num.
+template <class DeadT> constexpr int32_t RemoveDeadPlayers(uintptr_t* Data, int32_t& Num, DeadT Dead)
+{
+    int32_t Kept = 0;
+    for (int32_t i = 0; i < Num; ++i)
+        if (!Dead(Data[i]))
+            Data[Kept++] = Data[i];
+    const int32_t Removed = Num - Kept;
+    for (int32_t i = Kept; i < Num; ++i)
+        Data[i] = 0;
+    Num = Kept;
+    return Removed;
+}
+
 // Ersetzt im Reconnect-Update nur die Prüfung auf ein fehlendes lokales P2-Gerät. Die P1-Geräteprüfung davor und die
 // Prüfung auf Verlust des Solo-Controllers danach laufen weiter. An der Stelle sind alle flüchtigen Register und XMM-Register
 // tot, RDI ist das Subsystem. Predicate ist bool __fastcall(uintptr_t Subsystem).

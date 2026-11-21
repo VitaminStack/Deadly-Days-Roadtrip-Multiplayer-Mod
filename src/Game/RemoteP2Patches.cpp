@@ -339,6 +339,60 @@ bool FilterRemotePoiOverlap(uintptr_t Function, void* Params)
     return true;
 }
 
+namespace
+{
+// UReaperComponent::Players, TArray<ADDCharacter*>: Daten, Num, Max.
+constexpr uintptr_t ReaperPlayers = 0x178;
+
+struct
+{
+    uintptr_t World = 0;
+    Objects::Ref Pawn;
+} ReaperWatch;
+
+// Einmal über das Objekt-Array, nur wenn die gemerkte Remote-Figur abgebaut wurde.
+void CleanReaperPlayers()
+{
+    int32_t Components = 0, Removed = 0;
+    for (int32_t i = 0, Count = Objects::Count(); i < Count; ++i)
+    {
+        const uintptr_t Component = Objects::At(i);
+        if (!Component || !IsA(Component, "ReaperComponent") || !Alive(Component))
+            continue;
+        const uintptr_t Data = Pointer(Component + ReaperPlayers);
+        auto* Num = reinterpret_cast<int32_t*>(Component + ReaperPlayers + 8);
+        const int32_t Max = Memory::Read<int32_t>(Component + ReaperPlayers + 12).value_or(0);
+        if (!PlausibleReaperPlayers(Data, Memory::Read<int32_t>(Component + ReaperPlayers + 8).value_or(0), Max))
+            continue;
+        ++Components;
+        Removed += RemoveDeadPlayers(reinterpret_cast<uintptr_t*>(Data), *Num,
+                                     [](uintptr_t Player) { return !Player || !Objects::IsLive(Objects::RefTo(Player)); });
+    }
+    Core::Log::Info("Sensenmann: Remote-Figur abgebaut, {} Eintrag/Einträge aus der Spielerliste von {} Sensenmann-Baustein(en) genommen",
+                    Removed, Components);
+}
+
+// Host: Die Figur des Remote-Spielers merken. Ist sie abgebaut (Trennung ohne Abmeldung, Timeout, Tod), sofort aus der
+// Spielerliste jedes Sensenmanns nehmen, bevor die Garbage Collection den Eintrag auf null setzt.
+void TickReaperPlayers()
+{
+    const uintptr_t World = CurrentWorld();
+    if (World != ReaperWatch.World)
+        ReaperWatch = {World, {}}; // neue Welt: Figuren und Sensenmann der alten sind weg
+    if (!World)
+        return;
+    if (ReaperWatch.Pawn.Object && !Objects::IsLive(ReaperWatch.Pawn))
+    {
+        ReaperWatch.Pawn = {};
+        CleanReaperPlayers();
+    }
+    const Roster R = CurrentRoster(false);
+    const uintptr_t Pawn = R.Remote ? Pointer(R.Remote + ControllerPawn) : 0;
+    if (Pawn && Pawn != ReaperWatch.Pawn.Object)
+        ReaperWatch.Pawn = Objects::RefTo(Pawn);
+}
+}
+
 bool RemoteP2Bound()
 {
     uintptr_t Coop = 0, Host = 0, Remote = 0;
@@ -350,6 +404,7 @@ void TickRemoteP2(NetRole Role)
     if (Role != NetRole::Host)
         return;
     ResolvePoiNames();
+    TickReaperPlayers();
     if (Bound.Failed)
         return;
     const Roster R = CurrentRoster();
