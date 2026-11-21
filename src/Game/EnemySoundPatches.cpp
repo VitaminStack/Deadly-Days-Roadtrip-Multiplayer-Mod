@@ -1,9 +1,8 @@
-// opt-gegner-sound, siehe EnemySoundAdapter.h. Kein Code-Patch und kein Hook: ein Beobachter am vorhandenen ProcessEvent-Hook,
-// ein Takt und Aufrufe aus DamageNumberPatches.cpp. Schaden, Treffer und Angriff entscheidet weiter der Host.
+// opt-gegner-sound, siehe EnemySoundAdapter.h. Kein Code-Patch, kein Hook und kein ProcessEvent-Beobachter: ein Takt und Aufrufe
+// aus DamageNumberPatches.cpp. Schaden, Treffer und Angriff entscheidet weiter der Host.
 // Befund: docs/GAME_ANALYSIS.md#gegner-sounds-beim-client-opt-gegner-sound
 #include <windows.h>
 
-#include <atomic>
 #include <unordered_map>
 #include <vector>
 
@@ -40,13 +39,8 @@ struct Jumper
     ULONGLONG LastSound = 0;
 };
 
-// Vom Beobachter gelesen (läuft nach jedem ProcessEvent, auch außerhalb des Game Threads).
-std::atomic<int32_t> BeginPlayName = -1;
-std::atomic<int32_t> ImpactFlagOffset = -1;
-std::atomic<bool> ClientActive = false;
-std::atomic<DWORD> GameThreadId = 0;
-
-// Ab hier nur Game Thread.
+// Nur Game Thread.
+int32_t ImpactFlagOffset = -1;
 int32_t ImpactEventOffset = -1, ModeOffset = -1;
 Objects::Ref ImpactEvent, AttackEvent;
 std::vector<Jumper> Jumpers;
@@ -54,20 +48,20 @@ enum class ActorKind : uint8_t { Other, Jumper, Projectile };
 std::unordered_map<uintptr_t, ActorKind> ActorKinds;
 uintptr_t LastWorld = 0;
 ULONGLONG NextRefresh = 0, NextResolve = 0, NextLog = 0;
-bool Observing = false, ReportedNoSlot = false;
 int PlayedThisTick = 0;
 struct Counters
 {
-    uint64_t Impacts = 0, ImpactsAtTarget = 0, ImpactsSilent = 0, Muted = 0, Spawned = 0, Jumps = 0, Attacks = 0, AttacksSilent = 0;
+    uint64_t Impacts = 0, ImpactsAtTarget = 0, ImpactsSilent = 0, Muted = 0, Jumps = 0, Attacks = 0, AttacksSilent = 0;
     bool operator==(const Counters&) const = default;
 } Count, Logged;
 
 // Replizierte Projektile des Clients lösen ihren Einschlagsound nur aus, wenn sie den Gegner vor dem Abbau selbst berühren.
 // Den Sound spielt der Client für die Treffer des Hosts, der eigene wäre ein Doppel. Der Client hat keine eigenen Projektile
-// (kein Pool, alle repliziert), darum ohne Blick auf die Rolle: Beim ReceiveBeginPlay steht sie noch nicht verlässlich fest.
+// (kein Pool, alle repliziert), darum ohne Blick auf die Rolle. Abgeschaltet wird beim Abgleich der Actor-Liste alle 250 ms; ein
+// Beobachter für ReceiveBeginPlay sah im Spieltest kein einziges Projektil und ist wieder entfernt.
 void MuteProjectile(uintptr_t Projectile)
 {
-    const int32_t Offset = ImpactFlagOffset.load(std::memory_order_relaxed);
+    const int32_t Offset = ImpactFlagOffset;
     if (Offset < 0 || !Memory::Read<uint8_t>(Projectile + Offset).value_or(0))
         return;
     const uint8_t Off = 0;
@@ -75,23 +69,9 @@ void MuteProjectile(uintptr_t Projectile)
         ++Count.Muted;
 }
 
-void ObserveBeginPlay(uintptr_t Object, uintptr_t Function, void*)
-{
-    // Schneller Weg: ein Namensvergleich. ReceiveBeginPlay hat je Blueprint-Klasse eine eigene UFunction, aber denselben Namen.
-    if (!Function || !ClientActive.load(std::memory_order_relaxed))
-        return;
-    const int32_t Name = BeginPlayName.load(std::memory_order_relaxed);
-    if (Name < 0 || Memory::Read<int32_t>(Function + Offsets::UObject::Name).value_or(-1) != Name)
-        return;
-    if (GetCurrentThreadId() != GameThreadId.load(std::memory_order_relaxed) || !Object || !Objects::IsA(Object, "Projectile"))
-        return;
-    ++Count.Spawned;
-    MuteProjectile(Object);
-}
-
 bool Resolve(ULONGLONG Now)
 {
-    if (ImpactEventOffset >= 0 && ModeOffset >= 0 && BeginPlayName.load(std::memory_order_relaxed) >= 0)
+    if (ImpactFlagOffset >= 0 && ImpactEventOffset >= 0 && ModeOffset >= 0)
         return true;
     if (Now < NextResolve)
         return false;
@@ -99,14 +79,12 @@ bool Resolve(ULONGLONG Now)
     const auto Flag = Reflection::Property(UseImpactSounds);
     const auto Event = Reflection::Property(HitImpactSoundEvent);
     const auto Mode = Reflection::Property(ReplicatedMovementMode);
-    const uintptr_t BeginPlay = Objects::FindObject("ReceiveBeginPlay", "Actor");
-    if (!Flag || Flag->BoolMask != 0xFF || !Event || !Mode || !BeginPlay)
+    if (!Flag || Flag->BoolMask != 0xFF || !Event || !Mode)
         return false;
-    ImpactFlagOffset.store(Flag->Offset, std::memory_order_relaxed);
+    ImpactFlagOffset = Flag->Offset;
     ImpactEventOffset = Event->Offset;
     ModeOffset = Mode->Offset;
-    BeginPlayName.store(Memory::Read<int32_t>(BeginPlay + Offsets::UObject::Name).value_or(-1), std::memory_order_relaxed);
-    return BeginPlayName.load(std::memory_order_relaxed) >= 0;
+    return true;
 }
 
 uintptr_t ImpactSoundEvent()
@@ -132,8 +110,7 @@ uintptr_t AttackSoundEvent(ULONGLONG Now)
     return AttackEvent.Object;
 }
 
-// Liste der Sprunggegner der Welt neu aufbauen, bekannte behalten ihren beobachteten Zustand. Dabei auch Projektile
-// stummschalten, die schon vor dem Beobachter da waren (Beitritt).
+// Liste der Sprunggegner der Welt neu aufbauen, bekannte behalten ihren beobachteten Zustand. Dabei die Projektile stummschalten.
 void RefreshJumpers(uintptr_t World)
 {
     const uintptr_t Level = Memory::ReadPointer(World + Offsets::UWorld::PersistentLevel).value_or(0);
@@ -171,16 +148,15 @@ void LogCounters(ULONGLONG Now)
         return;
     NextLog = Now + 10000;
     Logged = Count;
-    Core::Log::Info("Gegnersound Client: Einschlagsounds {} (am Ziel {}, ohne Sound {}), eigene Projektilsounds abgeschaltet {} "
-                    "(neue Projektile {}), Sprünge gesehen {}, Angriffssounds {} (ohne Sound {})", Count.Impacts,
-                    Count.ImpactsAtTarget, Count.ImpactsSilent, Count.Muted, Count.Spawned, Count.Jumps, Count.Attacks,
-                    Count.AttacksSilent);
+    Core::Log::Info("Gegnersound Client: Einschlagsounds {} (am Ziel {}, ohne Sound {}), eigene Projektilsounds abgeschaltet {}, "
+                    "Sprünge gesehen {}, Angriffssounds {} (ohne Sound {})", Count.Impacts, Count.ImpactsAtTarget,
+                    Count.ImpactsSilent, Count.Muted, Count.Jumps, Count.Attacks, Count.AttacksSilent);
 }
 }
 
 bool ProjectileUsesImpactSound(uintptr_t Causer)
 {
-    const int32_t Flag = ImpactFlagOffset.load(std::memory_order_relaxed);
+    const int32_t Flag = ImpactFlagOffset;
     if (!Causer || Flag < 0 || ImpactEventOffset < 0 || !Objects::IsA(Causer, "Projectile"))
         return false;
     return Memory::Read<uint8_t>(Causer + Flag).value_or(0) != 0 && Memory::ReadPointer(Causer + ImpactEventOffset).value_or(0) != 0;
@@ -209,7 +185,6 @@ namespace Patches
 {
 void TickEnemySounds(NetRole Role)
 {
-    GameThreadId.store(GetCurrentThreadId(), std::memory_order_relaxed);
     PlayedThisTick = 0;
     const ULONGLONG Now = GetTickCount64();
     const uintptr_t World = CurrentWorld();
@@ -221,19 +196,9 @@ void TickEnemySounds(NetRole Role)
         LastWorld = World;
         NextRefresh = 0;
     }
-    // Der Host braucht nur die Feld-Offsets (ProjectileUsesImpactSound), der Client zusätzlich Beobachter und Takt.
+    // Der Host braucht nur die Feld-Offsets (ProjectileUsesImpactSound), der Client zusätzlich den Takt.
     const bool Resolved = World && Role != NetRole::Standalone && Resolve(Now);
     const bool Client = Resolved && Role == NetRole::Client;
-    if (Client && !Observing)
-    {
-        Observing = AddEventObserver(&ObserveBeginPlay);
-        if (!Observing && !ReportedNoSlot)
-        {
-            ReportedNoSlot = true;
-            Core::Log::Warn("Gegnersound: kein freier ProcessEvent-Beobachter, eigene Projektilsounds des Clients bleiben an");
-        }
-    }
-    ClientActive.store(Client, std::memory_order_relaxed);
     if (!Client)
         return;
     if (Now >= NextRefresh)

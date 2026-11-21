@@ -284,7 +284,7 @@ void Tick()
     { const GameThread::SlowScope Watch("Laufanimation"); TickWalkAnimation(Role, Second); }
     if (ListOn(Widget) && ListOn(WeaponSound))
         { const GameThread::SlowScope Watch("Waffensound"); TickWeaponSounds(Role); }
-    if (ListOn(Widget) && ListOn(DamageNumber))
+    if (ListOn(DamageNumber))
         { const GameThread::SlowScope Watch("Gegnersound"); TickEnemySounds(Role); }
     if (ListOn(Map))
         { const GameThread::SlowScope Watch("Karte"); TickMap(Role, Second); }

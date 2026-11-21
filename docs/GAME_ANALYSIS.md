@@ -3393,7 +3393,7 @@ die Routenkarte ohne Maus und Tastatur (Spike-Befehle wie in [Gezielt in eine Ka
     `bUseImpactSounds` und gesetztem `HitImpactSoundEvent` ist und das Ziel ein Gegner, je Projektil und Takt einmal
     (Flächenschaden). Der Client spielt dafür den `HitImpactSoundEvent` der Grundklasse `BP_Projectile_C` am Ziel, ohne Ziel am
     gemeldeten Ort. Damit nichts doppelt läuft, schaltet er `bUseImpactSounds` an seinen replizierten Projektilen ab (beim
-    `ReceiveBeginPlay` und einmal je Welt für schon vorhandene). Mod-Version 15, Format in
+    Abgleich der Actor-Liste alle 250 ms). Mod-Version 15, Format in
     [CONTROL_PROTOCOL.md](CONTROL_PROTOCOL.md#schadenszahlen-mod-kompatibilität-12).
   - Angriff, rein lokal: Der Client beobachtet je Takt `ReplicatedMovementMode` seiner `BP_StandardEnemy_C` und spielt
     `StandardEnemyAttack` (über den Pfad geladen) am Gegner, wenn ein schon beobachteter Gegner vom Boden in `MOVE_Falling` wechselt.
@@ -3405,6 +3405,22 @@ die Routenkarte ohne Maus und Tastatur (Spike-Befehle wie in [Gezielt in eine Ka
   - Grenzen: Die Marke nennt den Sound nicht, ein Projektil mit anderem Einschlagsound klänge beim Client wie die Grundklasse (heute
     gibt es keins). Der Angriffssound hängt am Sprung, nicht an der Fähigkeit: Ein Standardgegner, den etwas anderes in die Luft
     wirft, klingt beim Client ebenfalls, und der Zeitpunkt ist der des replizierten Sprungs.
+- **Fehlversuch.** Ein Beobachter für `ReceiveBeginPlay` sollte neue Projektile des Clients sofort stummschalten. Er sah im
+  Spieltest kein einziges (0 bei 9 abgeschalteten Projektilen) und ist wieder entfernt; der Abgleich alle 250 ms reicht.
+- **[Belegt, ein PC] Nachher.** Gemessen am 21.11.2026 mit einem lokalen Sammelstand aus den drei Zweigen `opt-gegner-sound`, `opt-airdrop-sound` und `opt-bedrohung-sound` (nicht gepusht), ein PC, Host und Client über den Spike, echter Run an Tag 1 ohne Maus und Tastatur, Ton der Spielprozesse aus, **gezählt, nicht gehört**, je Prozess über die ganze Mission (etwa 2,5 Minuten, davon 60 s mit
+  `DD_SetThreatLevel 10`), Host / Client:
+
+  | Sound | Vorher (60 s, Bedrohung 10) | Nachher |
+  |---|---|---|
+  | `zombie_Hurt` | 234 / 3 | 298 / 283 |
+  | `StandardEnemyAttack` | 378 / 0 | 513 / 484 |
+
+  Von den 283 Treffersounds des Clients kamen 280 aus der Mod und 3 noch aus eigenen Projektilen (Aufrufkette über `exe+5A1CE59`),
+  also höchstens 3 Doppel; der Host markierte 289 seiner 298 Sounds. **Vermutung** zu den 9 ohne Marke: Treffer, für die der Host
+  den Schadenszahl-Handler nicht aufruft. Im Mod-Log des Clients: 288 Einschlagsounds, alle am Ziel, 506 Sprünge gesehen und
+  gespielt (Log 10 s nach der Zählung). Der gemessene Stand hatte den Beobachter noch, der nie auslöste; der abgegebene Stand ist
+  ohne ihn neu gebaut und nur mit den Unit-Tests geprüft. Keine Absturzberichte.
+- **Nicht geprüft:** andere Waffen als die Pistole, Projektile mit Flächenschaden, Bosse, zwei PCs mit echtem Ping, gehört.
 
 ### Absturz beim Bestätigen im Lager (`lager-bestaetigen-absturz`)
 
