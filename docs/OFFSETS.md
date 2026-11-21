@@ -1373,7 +1373,7 @@ Referenz-Build; die Adressen stehen direkt hier und in `src/Game/ClientPatches.c
 | `AActor::BeginPlay` (Komponenten) | `0x25DDAD0` | `call [rax+3E8h]` bei `0x25DDC95` |
 | `AReaperSpawner`, Zeitgeber stellen | `0x58CC8B0` | `(this, float Minuten, bool ab Kartenstart)`, Timer-Handle `+0x538`, Startzeit `+0x530` |
 | `AReaperSpawner`, Start nach dem Laden | `0x58BD820` | stellt den Zeitgeber auf `SpawnAfterMinutes`, wenn `+0x528` gesetzt ist |
-| `AReaperSpawner`, Sensenmann erzeugen | `0x58C9E20` | nur mit `+0x528`, setzt `+0x529` |
+| `AReaperSpawner`, Sensenmann erzeugen | `0x58C9E20` | nur mit `+0x528`, setzt `+0x529`, ohne Autoritätsprüfung; Hook der Mod, beim Client ohne Wirkung |
 | Konsolenbefehle registrieren | `0x58A8B70` | `SpawnReaper`, `SetSpawnReaperAfterMinutes`, `KillReaper`; im Shipping-Build ohne Wirkung (gemessen) |
 
 | Klasse | Feld | Offset |

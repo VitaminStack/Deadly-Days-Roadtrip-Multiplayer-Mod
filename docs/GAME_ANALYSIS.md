@@ -2961,7 +2961,11 @@ Instanzen, Lobby, mit Spike, ohne echte Eingaben).
 - **[Belegt, Messung] So entsteht der Sensenmann.** Jede Missionskarte hat einen `BP_ReaperSpawner_C` (`AReaperSpawner`), bei Host
   und Client. `SpawnAfterMinutes` ist 12; nach dem Laden stellt `0x58BD820` den Zeitgeber, wenn `ShouldSpawnReaper` (`+0x528`)
   gesetzt ist. Im Labyrinth-Event ist das Feld 0 (`DisableReaperSpawning` des `EventMapSetupGenerator`), in den normalen Karten 1.
-  Beim Client läuft derselbe Zeitgeber, erzeugt aber nichts (kein Sensenmann beim Client vor dem des Hosts gemessen).
+  Beim Client läuft derselbe Zeitgeber.
+- **[Belegt, Messung] Der Spawner des Clients erzeugte einen eigenen Sensenmann.** Zeitgeber beim Client auf 3 s gestellt (mit Wächter,
+  ohne den zweiten Patch): Nach 7 s stand beim Client ein `BP_ReaperEnemy_C` mit Rolle 3 (Authority), `WasReaperSpawned` 1; der Host
+  hatte keinen. `0x58C9E20` prüft die Autorität nicht. Nach 12 Minuten hätte der Client also einen zweiten, nur lokalen Sensenmann
+  neben dem replizierten des Hosts; ohne Wächter stürzte er schon an diesem ab (`BeginPlay` ohne GameMode).
 - **[Offen] Warum der Sensenmann im Live-Test schon 3,6 s nach der Ankunft kam.** Im Test stand der Spawner nach der Reise aus dem
   Labyrinth auf beiden Seiten auf 12 Minuten, in 36 s und in drei weiteren Karten kam kein Sensenmann von selbst. **[Vermutung]**
   Im Live-Lauf (Host-Level 49, siebte Karte) lief das Karten-Ereignis `OME_EarlyReaper` (`UMapEvent_EarlyReaper`,
@@ -2979,8 +2983,13 @@ Instanzen, Lobby, mit Spike, ohne echte Eingaben).
 - **Fix** (`src/Game/ClientPatches.cpp`, Patch „Sensenmann ohne GameMode“, Regel `EmitReaperGameModeGuard` in `PatchPolicy.h`, mit
   Test): Sprung bei `0x5872149` in einen Wächter. Er schreibt das Feld wie das Original und springt ohne GameMode hinter beide
   Bindungen (`0x587219B`), sonst zurück nach `0x5872150`. `EndPlay` (`0x5878ED0`) prüft das Feld selbst, die übrigen Funktionen des
-  Bausteins lesen es nicht. Kein Hook, keine Nachricht, keine `ModVersion`-Erhöhung. Die Mod setzt damit 58 Patches.
-- **[Belegt, Test] Abnahme mit Wächter**, eine Sitzung, `Patches: 58 gesetzt`, kein `[ERROR]` bei Host und Client:
+  Bausteins lesen es nicht. Keine Nachricht, keine `ModVersion`-Erhöhung.
+  Zweiter Patch „Sensenmann erzeugt nur der Host“ (Regel `ReaperMaySpawn`, mit Test): Hook auf `0x58C9E20`, beim Netz-Client kehrt
+  er sofort zurück, Host und Einzelspieler laufen unverändert. Die Mod setzt damit 59 Patches. Folge beim Client: `OnReaperSpawned`
+  des Spawners (Ansage, Ton, Tagesuhr, Ausweitung der Spawn-Biome) läuft dort nicht mehr lokal. **[Vermutung]** Dem Client fehlen
+  Ansage und Uhr-Wechsel; nicht geprüft, siehe `opt-sensenmann-ansage-client`.
+- **[Belegt, Test] Abnahme mit Wächter**, eine Sitzung, `Patches: 58 gesetzt` (Stand vor dem zweiten Patch), kein `[ERROR]` bei
+  Host und Client:
 
   | Lauf | Reise | Sensenmann beim Client | Danach |
   |---|---|---|---|
@@ -2990,6 +2999,10 @@ Instanzen, Lobby, mit Spike, ohne echte Eingaben).
 
   Die Weiterreise zerstört den Sensenmann beim Client, damit lief auch `EndPlay` dreimal. Im Lauf 3 fand das Testskript den Knoten
   erst im zweiten Anlauf; die Sitzung blieb so lange im Labyrinth.
+- **[Belegt, Test] Endstand mit beiden Patches**, eigene Sitzung, `Patches: 59 gesetzt`, normale Karte (`MGP_City_LittleIndia`):
+  Zeitgeber beim Client auf 3 s, Log „Sensenmann: Spawn beim Client unterdrückt, der Host entscheidet“, 12 s danach kein
+  `ReaperComponent` beim Client. Danach Zeitgeber beim Host: Sensenmann beim Client mit Rolle 1, 25 s gelebt, Tagesende und Reise
+  nach `MGP_Industrial`, kein Absturz, kein `[ERROR]`. Die Reise Labyrinth → normale Karte ist mit dem Endstand nicht erneut gefahren.
 - **Testwege:** `DDCOOP_TEST_MAP_PROFILE_EVERY=2` (Event und normale Karte im Wechsel) und `!shop reaper`, siehe
   [Testen](TESTING.md#gezielt-in-eine-karte). Die Konsolenbefehle `SpawnReaper` und `SetSpawnReaperAfterMinutes` wirkten im
   Shipping-Build nicht, weder über den Testkanal noch über den Spike.
