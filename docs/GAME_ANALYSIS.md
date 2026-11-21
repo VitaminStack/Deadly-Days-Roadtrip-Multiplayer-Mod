@@ -2874,6 +2874,60 @@ gibt keinen Fix.
     wieder greifen. Eine Wartezeit beim Host vor dem Busplatz wäre die zweite Möglichkeit, verzögert aber beide Spieler und hängt an der
     Ladezeit des Clients. Beides muss normale Karten, Join, Reconnect und Travel unverändert lassen.
 
+### Live-Test auf zwei PCs am 21.11.2026 (`livetest-2111`)
+
+Zwei PCs über das Internet (Relay), Build `26786272` (Patch 1.0.3), Mod-Stand `8c313b7` mit 57 gesetzten Patches. Erster Lauf zu zweit
+auf diesem Build. Belege: Mod-Logs von Client und Host, Bilder aus dem Client-Fenster, Rückmeldungen des Spielers am Client. Logzeiten
+unten sind die des Clients, die Uhr des Hosts geht etwa 1 s nach.
+
+- **Verlauf.** Rund 38 Minuten ab der MetaBase bis Host-Level 49 über sieben Karten (`MGP_Mountains_Nature`, `MGP_Mountains_Roadstops`,
+  `MGP_Sands_Camping`, `MGP_Sands_Nature`, `MGP_MerchantEvent`, `MGP_LabyrinthEvent`, `MGP_Forest`), sechs Rundenenden. Kein `[ERROR]`
+  in beiden Logs bis zum Absturz.
+- **Edits des Clients.** 52 Edits vom Host übernommen (45 bestätigte Airdrop-Auswahlen, dazu Lager), jeweils nach 0,3 bis 0,6 s, keine
+  Ablehnung, keine Rücknahme. Eine absichtliche Ablehnung (`lager-edit-ablehnung`) wurde nicht ausgelöst.
+- **Labyrinth-Event (`labyrinth-event-client`).** Der Client übernahm die Host-Karte nach 47 ms, der Busplatz kam 0,64 s danach. Im Bild
+  bei Kartenzeit 00:07 stehen beide Figuren auf dem Labyrinthboden zwischen den Wänden, der Client fiel nicht. Die Runde endete nach
+  1:45 min ohne Fehler. Ein Lauf, also noch keine Abnahme.
+- **Rüstung des Astronauten (`opt-astronaut-ruestung`).** Im selben Bild direkt nach dem Kartenwechsel: drei Rüstungspunkte im HUD des
+  Clients und die Rüstungsleiste über seiner Figur. Lebens- und Rüstungsleiste beider Figuren waren zu Kartenbeginn sichtbar.
+- **Zähler des Clients.** 8267 Gegnertode mit 8267 Tod-Effekten; Schadenszahlen 15938 empfangen, 15934 an den Handler (4 ohne bekanntes
+  Ziel), keine fehlende Nachricht.
+- **Bestätigen am Rundenende.** Im Host-Log steht je Rundenende ein Klick des Hosts („Host bereit, wartet auf den Client“), danach
+  „Bestätigen nachgeholt (Client bereit)“. Ein doppeltes Bestätigen ist im Log nicht zu erkennen; die Bestätigung durch den Spieler am
+  Host steht aus.
+
+Neue Befunde:
+
+- **Absturz des Clients nach dem Labyrinth (`karte-nach-labyrinth-absturz`).** 00:27:30, 3,6 s nach der Reise aus dem Labyrinth-Event
+  nach `MGP_Forest`: `EXCEPTION_ACCESS_VIOLATION` beim Lesen von `0x348`. Die Aufrufliste hat 26 Rahmen, alle in der Spiel-Exe, keiner
+  in `DDCoop.dll`; oberste RVAs `0x15C0407`, `0x469869D`, `0x5872172`, `0x25DDC9B`, `0x2D8CDBC`, `0x5803507`, `0x25E1B8D`. Davor: Karte
+  nach 328 ms übernommen, 1001 replizierte Child Actors unterdrückt, „fremde Figur hing (ohne Bewegungsmodus), Ort und Modus 3 aus der
+  Replikation gesetzt“, gemeinsame Kamera gesetzt, Busplatz, Zerfall-Cues für sieben Gegnerklassen. Die neue Karte trug denselben Seed
+  wie das Labyrinth. Der Crash-Reporter blieb gesperrt, der Bericht liegt nur lokal. Ursache offen; `0x348` ist ein Feldzugriff auf
+  einen Nullzeiger.
+- **Absturz des Hosts nach der Trennung (`opt-host-absturz-trennung`).** Der Host lief nach dem Absturz des Clients weiter (Schrott an
+  den Client, neuer Airdrop). Gut 10 s nach dem Absturz meldet er „Verbindung beendet, Grund 4001 Timeout; remote problem“ (10,6 s ohne Empfang),
+  entfernt den Remote-Spieler („P2-Bindung entfernt“) und stürzt 4,9 s danach selbst ab. Auch dort blieb der Crash-Reporter gesperrt.
+  Absturzdaten des Hosts liegen nicht vor. Es waren also zwei Abstürze nacheinander, der zweite als Folge der Trennung (Vermutung zur
+  Ursache: Abbau der Client-Figur ohne Abmeldung mitten in der Mission).
+- **Roboterarm beim Client (`client-roboterarm`).** Laut Spieler wirkt der Roboterarm beim Client nicht und die Arme fehlen an der
+  Figur. Host-Log: zweimal „Client wählt … (Roboterarm (Legendär)), ins Inventar des Clients gelegt=true“. Client-Log: Item im
+  Rucksack, „ApplyAddToBackpackEffect vorgemerkt“, durchgehend „Hände belegt 2, Rucksack braucht 2“. Das Item ist also gebucht, Wirkung
+  und Anzeige fehlen.
+- **Endlose Loot-Aufnahme beim Client (`opt-loot-aufnahme-client`).** Laut Spieler nahm der Client Schrott und Benzin aus einem
+  gelooteten Auto scheinbar endlos auf. Client-Log am Ende: „Loot beim Client: 680 Objekte je einmal gespielt, 74546 Wiederholungen
+  ausgelassen“, in der Spitze rund 12000 Wiederholungen je Minute. Der Schutz spielt den Ton je Objekt einmal, die Aufnahme selbst läuft
+  mehrfach. Der Schrott-Stand folgte 269-mal dem Host in Schritten von 1 bis 2, eine Doppelbuchung ist nicht belegt. Der Benzin-Stand
+  wurde nicht verglichen, der Host loggt dazu nichts.
+- **Fehlalarm des Desync-Melders in offenen Bearbeitungen (`opt-desync-bearbeitung`).** 39 Meldungen „ABWEICHUNG“ beim Client und 38
+  beim Host (Inventar, Gegner oder beides), beim Client jeweils während eines offenen Airdrop-Panels mit lokaler, noch unbestätigter
+  Aufwertung und angehaltener Weltzeit. Nach jedem Bestätigen übernahm der Host den Edit. Die Meldungen des Hosts sind den Bearbeitungen
+  noch nicht einzeln zugeordnet.
+
+Nicht geprüft: Boss und Boss-Leiste, Abschlusstafel, Werkbank mit Rezept-Panel, Waffensound nach Gehör, Heil- und Wurf-Items des
+Clients, neuer Run mit Level 1 und Rollentausch. Für `update-26786272-run` gilt damit: Route über sieben Karten, Händler-Event,
+Labyrinth-Event und sechs Rundenenden liefen zu zweit, Bosse und der Rest der Abnahme stehen aus.
+
 ### Run-Stand des Clients nach dem Run-Ende (`opt-metabase-inventar`)
 
 Ausgewertet am 14.11.2026, Build `26495302`: Disassembly der Exe, Mod-Logs beider Live-Tage (13.11. abends Host, 14.11. Client, beide
