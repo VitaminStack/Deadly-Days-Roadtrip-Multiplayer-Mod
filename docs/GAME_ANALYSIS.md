@@ -529,7 +529,8 @@ Dauersound. Gemessen auf einem PC mit dem Spike-Zähler `!fx` aus `vfx-sound` (j
   minutenlang (3886 Starts in einer Minute), beim Host nicht. Aufrufkette: Blueprint-Thunk von `Loot` (`exe+57346B0`, ruft
   `Loot_Implementation` über das Interface) → `ScrapLootHook` → `ALootBase::Loot_Implementation` → Blueprint-Ereignis (`0x572F970`) →
   FMOD-Start.
-- **[Belegt, Disassembly]** `ALootBase::Loot_Implementation` ruft nach dem Blueprint-Ereignis die Rückgabe an den Pool. Beim Host
+- **[Belegt, Disassembly; am 21.11.2026 korrigiert, siehe [Loot-Aufnahme](#loot-aufnahme-beim-client-opt-loot-aufnahme-client)]**
+  `ALootBase::Loot_Implementation` ruft nach dem Blueprint-Ereignis die Rückgabe an den Pool. Beim Host
   verschwindet der Haufen damit, beim Client bleibt seine Kopie an der Figur hängen: Im Speicher lagen zwei `BP_ScrapLoot_C` des
   Clients fast auf der Position der Client-Figur, beim Host nicht. Der Blueprint ruft `Loot` darum jeden Takt erneut. Der Haufen fliegt
   dabei zur Figur, sein Ort ändert sich jeden Takt.
@@ -555,7 +556,7 @@ an der ersten Spielerfigur auf: fehlender Tank plus `n`), die Figuren standen st
 
 - **[Belegt, Disassembly] Derselbe Weg wie Schrott.** `FuelLoot.Loot`, `ItemLoot.Loot` (`0x59AF200`) und `ScrapLoot.Loot` springen alle in
   `ALootBase::Loot_Implementation` (`0x59AF3F0`): Claimer setzen, Blueprint-Ereignis `Client_PlaySound` (Aufruf `0x59AF417`, NetClient-RPC),
-  Rückgabe an den Pool. Der Fix aus `opt-levelup-sound` saß nur im Schrott-Hook, Benzin und Power-ups liefen ungebremst, Itemsäcke beim
+  Rückgabe an den Pool (korrigiert unter [Loot-Aufnahme](#loot-aufnahme-beim-client-opt-loot-aufnahme-client)). Der Fix aus `opt-levelup-sound` saß nur im Schrott-Hook, Benzin und Power-ups liefen ungebremst, Itemsäcke beim
   Client gar nicht (der Vergabe-Hook kehrte vorher zurück).
 - **[Belegt] Zwei Fehler beim Benzin**, Messung mit dem Einmal-Schutz an der Basis, aber noch ohne den zweiten Teil: 15 Kanister je Abwurf,
   Host 7, Client 23 `Collect_fuel`. Aufrufketten (`!fx stack Collect`): beim Client 15 über `exe+59AF41C` (lokales `Loot_Implementation`)
@@ -600,7 +601,7 @@ Maus- oder Tastatureingabe, Ton der Spielprozesse aus.
   Mitspielers. Er zieht die replizierte Kopie eines Loot-Objekts an und ruft `Loot`, sobald sie an der Figur ist. Beim Client nimmt das
   die Kopie nicht weg; das tut erst das Wegnehmen des Hosts. Bis dahin liegt die Kopie an der Figur, ihr Ort springt jeden Takt um bis
   zu 20 Einheiten und `Loot` läuft jeden Takt erneut (gemessen 16 Kanister, 299 Wiederholungen).
-- **[Belegt] Der Ort repliziert nach dem Spawn nicht.** `bReplicateMovement` ist an Loot-Objekten aus (Actor-Flagbyte `0x60`). Der Host
+- **[Belegt] Der Ort repliziert nach dem Spawn nicht.** Vermutlich ist `bReplicateMovement` aus (Actor-Flagbyte `0x60`). Der Host
   streut und bewegt sein Objekt, der Client behält den Spawn-Ort: Kanister aus `DropRequiredFuel` lagen beim Host im Umkreis von 150 um
   die Figur, beim Client alle auf dem Punkt der Figur; Schrott aus Gegnern rund 40 Einheiten versetzt; ein Power-up 110 bis 360, ein anderes
   rund 900 Einheiten. Drei weit entfernte Kanister des Hosts gab es beim Client gar nicht.
@@ -619,27 +620,33 @@ Maus- oder Tastatureingabe, Ton der Spielprozesse aus.
 - **Umsetzung** (`InventoryPatches.cpp`, Klasse `FinishedLoot` in `PatchPolicy.h`, mit Tests): Der Client beendet das Aufsammeln selbst,
   nur in der Darstellung. Nach dem ersten `Loot` einer Kopie (Klang und Delegates laufen wie bisher einmal) versteckt er sie im nächsten
   Takt, schaltet ihre Kollision ab und nimmt sie mit `LootAttractor.RemoveAttractedLoot` aus dem Anziehen. Nimmt der Host sein Objekt
-  weg, verschwindet die Kopie wie bisher. Bleibt das 6 s aus, hat der Host das Objekt noch: Die Kopie wird einmal wieder gezeigt, ohne
+  weg, verschwindet die Kopie wie bisher. Bleibt das 6 s laufende Weltzeit aus, hat der Host das Objekt noch: Die Kopie wird einmal wieder gezeigt, ohne
   Kollision, und nicht erneut versteckt. Gemerkt wird sie mit Platz und Serial im Objekt-Array, beim Weltwechsel wird die Liste ohne
   Aufrufe geleert.
 - **Antworten zum Pfad:** Lokal bleiben Anziehen, Klang und jetzt auch das Ende des Aufsammelns. Geteilt wird nichts Neues, keine
   Nachricht, keine `ModVersion`-Erhöhung. Es bucht weiter nur der Host (Schrott über `0x309`, Tank und Items repliziert), der Client
   bucht nichts vor, also gibt es keine zweite Buchung. Das Verstecken ist die lokale Vorhersage; bestätigt wird sie durch das Wegnehmen
   des Hosts, zurückgenommen durch das Wieder-Zeigen nach 6 s. Host und Einzelspieler unverändert.
-- **[Belegt, ein PC] Nachher**, gleiche Schritte, mit 60 ms je Richtung:
-  - 18 Kanister: 18 lokal beendet, 18 Wiederholungen (eine je Objekt, der Takt bis zum Verstecken; vorher rund 18 je Objekt), alle 18
-    vom Host weggenommen, im Mittel nach 325 ms, höchstens 359 ms. Nichts wieder gezeigt.
-  - Zwei Schrott-Kopien, die der Host nicht hat: 2 Wiederholungen insgesamt statt 5070 bis 7317 je Minute. Die Kopien waren 3 s nach
-    dem Aufsammeln versteckt, 16 s danach wieder sichtbar und lagen über zwei Minuten still am selben Ort. Log: „2 lokal beendet, 0
-    danach vom Host weggenommen, 2 nach 6000 ms wieder gezeigt“.
-  - Zwei Schrotthaufen aus Gegnern im selben Lauf: vom Host weggenommen nach im Mittel 859 ms. Keine Absturzberichte.
+- **[Belegt, ein PC] Nachher**, mit 60 ms je Richtung. Die Vorher-Werte oben für Kanister stammen aus einer Sitzung ohne Netzprofil,
+  die für hängende Kopien aus einer mit demselben Profil.
+  - 18 Kanister (Stand vor der Uhr für laufende Weltzeit, sonst gleich): 18 lokal beendet, 18 Wiederholungen (eine je Objekt, der Takt
+    bis zum Verstecken; vorher rund 18 je Objekt), alle 18 vom Host weggenommen, im Mittel nach 325 ms, höchstens 359 ms.
+  - Endstand, ein Lauf: 10 Objekte lokal beendet (8 Schrotthaufen aus Gegnern, 2 nur beim Client an die Figur gesetzte Kopien), 21
+    Wiederholungen insgesamt. Die 8 nahm der Host weg, im Mittel nach 593 ms, höchstens 906 ms. Die 2 Kopien, die der Host nicht hat:
+    3 s nach dem Aufsammeln versteckt, 13 s danach wieder sichtbar, „2 nach 6000 ms wieder gezeigt“, danach keine weiteren Aufrufe;
+    vorher 5070 bis 7317 Wiederholungen je Minute.
+  - Pause: eine Kopie lokal beendet, 1 s später Rundenende mit angehaltener Weltzeit. Nach 20 s und beim Beenden der Sitzung war sie
+    weiter versteckt, der Zähler „wieder gezeigt“ blieb bei 2. Die Frist zählt nur laufende Weltzeit (`WorldRunClock`).
+  - Kein `[ERROR]` im Mod-Log des Clients, keine Absturzberichte.
 - **Grenze.** Eine wieder gezeigte Kopie liegt dort, wo der Client sie aufgesammelt hat, nicht am Ort des Hosts, und der Client kann
   sie nicht noch einmal aufsammeln. Sie verschwindet, sobald beim Host eine Figur das echte Objekt nimmt. Lehnt der Host ein Objekt
   ab, das der Client lokal aufsammelt (etwa ein Power-up mit Sperrzeit), ist dessen Kopie beim Client 6 s unsichtbar. Der Zähler
   „wieder gezeigt“ im Mod-Log zeigt im nächsten Test zu zweit, ob das vorkommt. Kommt es oft vor, braucht es einen Weg beim Host (er
   sammelt für die Client-Figur ein oder der Ort repliziert); das wäre eine eigene Aufgabe.
-- **Nicht geprüft:** zwei PCs, eine echte Lootstelle (Auto), Itemsäcke und Power-ups mit dem neuen Pfad, das Bild nach Augenschein
-  (gemessen sind Zähler, Flags und Orte).
+- **Nicht geprüft:** zwei PCs, eine echte Lootstelle (Auto), Itemsäcke und Power-ups mit dem neuen Pfad (im Lauf erschien kein
+  Power-up), das Bild nach Augenschein (gemessen sind Zähler, Flags und Orte). Risiko bei Power-ups: Nimmt der Host eines nicht durch
+  Zerstören weg, sondern versteckt es nur (`BlockAutoDestroyOnLoot` deutet auf Sonderfälle), zeigt der Client dessen Kopie nach 6 s
+  wieder.
 
 ### Blut beim Client (`opt-blut`)
 
