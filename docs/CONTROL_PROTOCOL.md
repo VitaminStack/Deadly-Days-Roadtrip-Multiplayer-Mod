@@ -5,6 +5,24 @@ gemeinsamen Steam-Socket. Der Inhalt eines UE-Pakets bleibt unverändert; nur au
 dem Steam-Weg wird er eingerahmt. Alte Mod-Versionen ohne Rahmen sind inkompatibel
 und werden nicht still als Spielpakete akzeptiert.
 
+## Belegte Nachrichtentypen
+
+Eine Familie je Thema, Typen innerhalb der Familie fortlaufend. Wer einen Typ oder eine Familie neu belegt, trägt sie hier ein, bevor der Code entsteht. Zwei parallele PRs mit derselben Nummer stoßen so in dieser Tabelle zusammen statt erst im Spiel. Mit jeder Änderung an Typ, Länge oder Bedeutung steigt `ModVersion` in `Net/Protocol.h`.
+
+| Familie | Typen | Code |
+|---|---|---|
+| `0x100` Fortschritt | `0x100` Abo, `0x101` Bild, `0x102` Orbs | `Sync/ProgressState.h` |
+| `0x200` Desync-Melder | `0x200` Probe, `0x201` Ergebnis | `Sync/DesyncState.h` |
+| `0x300` Inventar | `0x300` Angebot, `0x303` Edit, `0x304` Ergebnis, `0x305` Bereit, `0x306`/`0x307` Rundenende, `0x308` Seltenheit, `0x309` Schrott (`0x301`/`0x302` stillgelegt) | `Sync/Inventory/RewardState.h` |
+| `0x400` Karte | `0x400` Karte, `0x401` Rundenende | `Sync/World/MapState.h` |
+| `0x500` Bewegung | `0x500` Dodge-Richtung | `Sync/MovementState.h` |
+| `0x600` Entwickler | `0x600` Anfrage | `Sync/DevState.h` |
+| `0x700` Pause | `0x700` Pausemenü | `Sync/Players/PauseState.h` |
+| `0x800` Figur | `0x800` Charakterwahl | `Sync/Players/CharacterState.h` |
+| `0x900` Warnanzeigen | `0x900` Anzeige | `Sync/Enemies/TelegraphState.h` |
+| `0xA00` Schadenszahlen | `0xA00` Treffer | `Sync/Enemies/DamageNumberState.h` |
+| `0xB00` Waffensound | `0xB00` Nachladen | `Sync/Combat/WeaponSoundState.h` |
+
 ## Handshake
 
 Beide Seiten senden nach Steam-Verbindungsaufbau zuerst zuverlässig ihre

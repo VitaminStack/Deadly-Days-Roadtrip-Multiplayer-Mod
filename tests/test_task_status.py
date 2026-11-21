@@ -292,6 +292,20 @@ class PairReservationTests(unittest.TestCase):
         self.assertIn('keine Aufgabe "zu zweit"', self.claim('solo', 'host'))
         self.assertIn('Rolle muss host oder client sein', self.claim('pair', 'beide'))
 
+    def test_cleanup_removes_only_safe_worktrees(self):
+        merged = {'a': {'number': 1, 'state': 'MERGED', 'isDraft': False}}
+        closed = {'a': {'number': 2, 'state': 'CLOSED', 'isDraft': False}}
+        opened = {'a': {'number': 3, 'state': 'OPEN', 'isDraft': True}}
+        verdict = tasks.worktree_verdict
+        self.assertTrue(verdict('task/a', False, False, set(), merged)[0])
+        self.assertFalse(verdict('task/a', True, True, set(), merged)[0])
+        self.assertFalse(verdict('task/a', False, False, {'a'}, merged)[0])
+        self.assertFalse(verdict('task/a', False, False, set(), closed)[0])
+        self.assertFalse(verdict('task/a', False, True, set(), opened)[0])
+        self.assertFalse(verdict('task/a', False, False, set(), {})[0])
+        self.assertTrue(verdict(None, False, True, set(), {})[0])
+        self.assertFalse(verdict(None, False, False, set(), {})[0])
+
     def test_status_shows_both_roles(self):
         parsed = source.parse(todo(self.ROWS))
         with patch.object(tasks, 'claim_info', return_value=('anna', 0)):

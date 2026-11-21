@@ -24,7 +24,7 @@ Projektstand vom **18.11.2026**; die aktuellen Aufgaben, Abhängigkeiten und Abn
 
 **Prüfgrenze.** Dieser Stand fasst die Spieltestberichte bis zum Live-Test vom 17.11.2026 zusammen, er ist kein neuer Spieltest.
 
-**Bisherige Befunde (datierte Momentaufnahmen, teilweise inzwischen überholt):**
+**Bisherige Befunde (datierte Momentaufnahmen, teilweise inzwischen überholt; abgeschlossen am 22.11.2026, neue Ergebnisse stehen nur unter [Erledigt](../TODO.md#erledigt)):**
 
 - `client-roboterarm`, 21.11.2026 (Bestätigungstest ausstehend): Der Roboterarm wirkte beim Client nicht (Live-Test 21.11.). Ursache: Seine zusätzliche Hand entsteht als Effekt erst, wenn der Host den Edit übernimmt; in der offenen Bearbeitung hatte der Client keine Hand frei und konnte die zweite Waffe nicht ablegen. Die Hände-Vorschau des Clients rechnet die zusätzliche Hand jetzt aus den Item-Daten vor, [Messung](GAME_ANALYSIS.md#roboterarm-beim-client-client-roboterarm). Belegt auf einem PC über die Inventar-Aufrufe des Panels; das Ziehen mit der Maus im Panel des Clients steht aus.
 - `client-runstand-abbruch`, 18.11.2026: Wer im Coop Client war, behielt den Run des Hosts im eigenen Spielstand, wenn er den Run vor dessen Ende verließ (Pausemenü, Absturz, Host beendet); ein danach selbst gehosteter Run übernahm daraus das Level. Der Netz-Client schreibt jetzt gar keinen eigenen Run-Stand mehr, ein eigener offener Run bleibt dabei erhalten. Auf einem PC auf `26495302` und `26669225` gemessen, der Rollentausch auf zwei PCs steht als Live-Bestätigung aus. Inventar und Level nach einem Wiederbeitritt bleiben bei `reconnect`. [Befund](GAME_ANALYSIS.md#run-stand-des-clients-beim-verlassen-client-runstand-abbruch)
@@ -431,4 +431,4 @@ Gate G1 ist mit Weg A und gezielten Sync-Ergänzungen abgeschlossen. Ein Wechsel
 
 ## Pflege
 
-Wer eine Aufgabe abschließt, ändert hier die Farbe des Knotens. Die Zählung im [README](../README.md#fortschritt) erzeugt `py tools/task_status.py update`. Aufgaben ohne eigenen Knoten gehören zum thematisch passenden Knoten. Die Wellen fassen Aufgaben mit gleichen Voraussetzungen zusammen, verbindlich ist die Spalte „Braucht“ in `TODO.md`.
+Wer eine Aufgabe abschließt, ändert hier die Farbe des Knotens und ergänzt sonst nichts, insbesondere keine Einträge unter „Bisherige Befunde“ (Nutzervorgabe vom 22.11.2026, jeder Eintrag dort erzeugte einen Merge-Konflikt). Die Zählung im [README](../README.md#fortschritt) erzeugt `py tools/task_status.py update`. Aufgaben ohne eigenen Knoten gehören zum thematisch passenden Knoten. Die Wellen fassen Aufgaben mit gleichen Voraussetzungen zusammen, verbindlich ist die Spalte „Braucht“ in `TODO.md`.

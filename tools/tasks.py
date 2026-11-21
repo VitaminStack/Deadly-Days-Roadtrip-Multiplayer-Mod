@@ -10,6 +10,7 @@
   Statt Kennungen: --all (ausser pending); aktive fremde Aufgaben werden dabei ausgelassen.
   py tools/tasks.py claim <kennung> <name> [<rolle>]   Reservieren: Worktree, Branch, Push, Draft-PR
   py tools/tasks.py release <kennung> [<rolle>]        Reservierung aufgeben: Draft-PR schliessen, Branch loeschen
+  py tools/tasks.py cleanup [--apply]                 Verwaiste Worktrees/Branches zeigen; --apply entfernt sichere lokale Worktrees
   py tools/tasks.py show <kennung>                     Nur diese Aufgabe: Text, Braucht, Bearbeitung, Status
   py tools/tasks.py done <kennung> "<ergebnis>"        Im eigenen Worktree: Zeile nach Erledigt, Status erneuern, pruefen
 
@@ -313,6 +314,79 @@ def cmd_release(kennung, role=None):
             print(f'Worktree {path} hat Aenderungen und bleibt erhalten.')
 
 
+def worktree_verdict(branch, dirty, in_main, branches, prs):
+    """(entfernen, Grund) fuer einen lokalen Worktree. Entfernt wird nur, was sicher auf GitHub oder in main liegt."""
+    if dirty:
+        return False, 'ungesicherte Aenderungen'
+    if branch and branch.startswith('task/'):
+        name = branch[5:]
+        pr = (prs or {}).get(name)
+        if name in branches:
+            return False, 'Branch auf origin noch vorhanden'
+        if pr is None:
+            return (True, 'Stand in main') if in_main else (False, 'kein PR bekannt')
+        if pr['state'] != 'MERGED':
+            return False, f"PR #{pr['number']} {pr['state'].lower()}, nicht gemergt"
+        return True, f"PR #{pr['number']} {pr['state'].lower()}, Branch auf origin geloescht"
+    return (True, 'Stand in main') if in_main else (False, 'Stand nicht in main')
+
+
+def local_worktrees(root):
+    """(Pfad, Branch oder None) aller Worktrees unter .worktrees/ und .claude/worktrees/."""
+    out = git('-C', root, 'worktree', 'list', '--porcelain').stdout
+    bases = [os.path.normcase(os.path.join(root, d)) for d in ('.worktrees', os.path.join('.claude', 'worktrees'))]
+    found = []
+    for block in out.strip().split('\n\n'):
+        path = branch = None
+        for line in block.splitlines():
+            if line.startswith('worktree '):
+                path = os.path.normpath(line[9:])
+            elif line.startswith('branch refs/heads/'):
+                branch = line[18:]
+        if path and any(os.path.normcase(path).startswith(base + os.sep) for base in bases):
+            found.append((path, branch))
+    return found
+
+
+def cmd_cleanup(apply=False):
+    """Verwaiste Worktrees und Branches auflisten; mit --apply nur sichere lokale Worktrees entfernen."""
+    git('fetch', '-q', '--prune', 'origin')
+    root = repo_root()
+    branches, prs, tasks = remote_branches(), pull_requests(), todo_tasks()
+    if prs is None:
+        sys.exit('GitHub CLI fehlt oder ist nicht angemeldet. Ohne PR-Status wird nichts bewertet.')
+    own = os.path.normcase(os.path.normpath(str(worktree_root())))
+    print('Lokale Worktrees')
+    for path, branch in local_worktrees(root):
+        if os.path.normcase(path) == own:
+            continue
+        dirty = bool(git('-C', path, 'status', '--porcelain', check=False).stdout.strip())
+        in_main = git('-C', path, 'merge-base', '--is-ancestor', 'HEAD', 'origin/main', check=False).returncode == 0
+        remove, reason = worktree_verdict(branch, dirty, in_main, branches, prs)
+        label = f"{os.path.relpath(path, root)} [{branch or 'detached'}]"
+        if remove and apply:
+            if git('-C', root, 'worktree', 'remove', path, check=False).returncode == 0:
+                if branch:
+                    git('-C', root, 'branch', '-D', branch, check=False)
+                print(f'  entfernt   {label}: {reason}')
+            else:
+                print(f'  bleibt     {label}: git worktree remove fehlgeschlagen')
+        else:
+            print(f"  {'verwaist' if remove else 'bleibt':<10} {label}: {reason}")
+    print('\nBranches auf origin ohne offenen PR (nur nach Rueckfrage loeschen: git push origin --delete task/<name>)')
+    for name in sorted(branches):
+        pr = prs.get(name)
+        kennung, _ = split_branch(name)
+        task = tasks.get(kennung)
+        if pr and pr['state'] == 'OPEN':
+            continue
+        state = f"PR #{pr['number']} {pr['state'].lower()}" if pr else 'kein PR'
+        done = ', Aufgabe erledigt' if task and task.done else ''
+        print(f'  task/{name}: {state}{done}')
+    if not apply:
+        print('\nMit "tasks.py cleanup --apply" werden nur die als verwaist markierten lokalen Worktrees entfernt.')
+
+
 def worktree_root():
     return Path(git('rev-parse', '--show-toplevel').stdout.strip())
 
@@ -453,6 +527,8 @@ def main():
             cmd_claim(*args[1:])
         elif args[:1] == ['release'] and len(args) in (2, 3):
             cmd_release(*args[1:])
+        elif args in (['cleanup'], ['cleanup', '--apply']):
+            cmd_cleanup(apply=len(args) == 2)
         else:
             sys.exit(__doc__)
     except ValueError as error:

@@ -470,3 +470,5 @@ Damit niemand dieselbe Arbeit wiederholt, gehört jedes Ergebnis ins Repo, auch 
 | Patch, Testablauf, gescheiterte Ansätze | README des Spikes |
 | Erledigte oder neue Aufgaben | [TODO.md](../TODO.md) |
 | Rohdaten | `research/local/`, wird nicht committet |
+
+Ein Befund bekommt eine eigene Überschrift mit der Kennung im passenden Thema, nicht am Dateiende und nicht in einem fremden Abschnitt. In Live-Test-Berichten und Abschnitten anderer Aufgaben höchstens eine Zeile mit Link ergänzen. Dasselbe Ergebnis nicht zusätzlich in [ROADMAP.md](ROADMAP.md) wiederholen; dort nur Knoten umfärben. So berühren parallele PRs verschiedene Stellen und mergen ohne Konflikt.
