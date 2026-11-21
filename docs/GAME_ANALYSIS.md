@@ -3683,6 +3683,16 @@ repliziert rund eine Sekunde nach der Karte. Werte mit `tools/spike/boss_hp.py`,
   beim Entfernen der Mod schon das Spiel der nächsten Sitzung vor („The game is running“). **[Vermutung]** `Stop-Session.ps1` beendet
   die Instanzen, wartet sechs Sekunden und entfernt erst dann die Mod; in der Zeit gilt die Sperre als frei, und das Entfernen trifft
   die Mod der nächsten Sitzung. Der Ablauf ist nicht nachgemessen.
+  - **[Belegt, ohne Spiel]** Der Ablauf steht so im Skript, und `tests/test_session_lock.py` stellt ihn mit einer Kopie der Skripte und
+    einer Attrappe für `Deploy-Mod.ps1` nach: Mit dem alten `Stop-Session.ps1` galt die Sperre beim Entfernen der Mod schon als frei
+    (`Active: False`), und es entfernte die Mod auch dann, wenn eine fremde Sitzung die Sperre hielt. Eine wartende Sitzung fragt alle
+    fünf Sekunden nach, bekommt die Sperre also innerhalb der sechs Sekunden; ob ihr Bauen und Installieren auch noch davor fertig
+    wird, hängt von der Bauzeit ab.
+  - **Behoben:** `Stop-Session.ps1` setzt die Sperre vor dem Beenden der Instanzen auf den Zustand „Sitzung startet“ mit dem eigenen
+    Prozess (`Enter-StopLock` in `Common.ps1`) und gibt sie erst nach dem Entfernen frei. Hält eine fremde Sitzung die Sperre, bleibt
+    die Mod liegen und gehört ihr. Ältere Skripte in anderen Worktrees achten diesen Zustand schon.
+  - **[Folgerung]** Dass genau dieser Wettlauf die drei Starts ohne Mod verursacht hat, ist nicht gemessen. **Nicht geprüft:** eine
+    echte Übergabe zwischen zwei Worktrees mit Spiel. Der Schutz wirkt erst, wenn der Worktree der endenden Sitzung den Stand hat.
 - **Nicht geprüft:** zwei PCs und echtes Internet, ein Run über acht Tage bis zum echten Boss-Knoten (hier Tag 1 bis 3 mit
   Testschalter), andere Bosse als der SpikeBoss und die Karten `MGP_Burger_Boss_City` und `MGP_HQ8_Boss`, Bosstod und Sieg, ein
   Wiederbeitritt in die Boss-Karte, Spielton.
