@@ -306,6 +306,25 @@ class PairReservationTests(unittest.TestCase):
         self.assertTrue(verdict(None, False, True, set(), {})[0])
         self.assertFalse(verdict(None, False, False, set(), {})[0])
 
+    def test_merge_order_prefers_unblocking_and_few_conflicts(self):
+        # Stand = Menge gemergter PRs; 'hub' kollidiert mit allen, 'late' nur nach 'x'.
+        clash = {frozenset({'hub', 'x'}), frozenset({'hub', 'y'}), frozenset({'late', 'x'})}
+
+        def merge(state, name):
+            merged = set() if state == 'origin/main' else set(state)
+            if any(frozenset({name, m}) in clash for m in merged):
+                return ['TODO.md'], None
+            return [], tuple(sorted(merged | {name}))
+
+        pairs = {'hub': {'x', 'y'}, 'x': {'hub', 'late'}, 'y': {'hub'}, 'late': {'x'}, 'key': set()}
+        rank = {n: (0, 2, i) for i, n in enumerate(['hub', 'x', 'y', 'late', 'key'])}
+        order, rest = tasks.merge_order(['hub', 'x', 'y', 'late', 'key'], merge, {'key': ['run']}, rank, pairs, {})
+        self.assertEqual(order[0], 'key')
+        self.assertNotIn('hub', order[:2])
+        self.assertEqual(set(order) | set(rest), {'hub', 'x', 'y', 'late', 'key'})
+        order, _ = tasks.merge_order(['b', 'a'], lambda s, n: ([], (s, n)), {}, {'a': (1,), 'b': (0,)}, {}, {'b': ['a']})
+        self.assertEqual(order, ['a', 'b'])
+
     def test_status_shows_both_roles(self):
         parsed = source.parse(todo(self.ROWS))
         with patch.object(tasks, 'claim_info', return_value=('anna', 0)):
