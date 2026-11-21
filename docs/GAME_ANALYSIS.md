@@ -2931,13 +2931,14 @@ Labyrinth-Event und sechs Rundenenden liefen zu zweit, Bosse und der Rest der Ab
 ### Desync-Melder in offenen Bearbeitungen (`opt-desync-bearbeitung`)
 
 Ausgewertet am 21.11.2026 aus den Mod-Logs von Host und Client des Live-Tests vom selben Tag (Build `26786272`, Uhr des Hosts rund 1 s
-vor der des Clients).
+hinter der des Clients).
 
 - **[Belegt, Log] Alle 38 Meldungen des Hosts fallen in eine offene lokale Bearbeitung des Clients.** Zugeordnet über „Inventar lokal:
   Bearbeitung beginnt“ bis „Host hat Edit … übernommen“ im Client-Log (52 Bearbeitungen): 22 Meldungen in 10 Airdrop-Auswahlen, 16 im
-  Lager von 4 Rundenenden. Eine davon (00:13:49) steht 0,5 s nach dem Ende der Sitzung beim Host, der Edit war beim Client noch
-  unbeantwortet. Außerhalb einer Bearbeitung gab es keine Meldung. 12 der 38 Zeilen wiederholen nur eine
-  schon gemeldete Abweichung im 30-s-Takt.
+  Lager von 4 Rundenenden. 37 liegen zwischen Beginn und Übernahme. Eine (00:13:49 beim Host) steht
+  rund 0,5 s nach der Übernahme: Es ist der Text des noch stehenden Gegner-Alarms aus derselben Auswahl, nachdem das Inventar wieder
+  passte; 0,8 s später war er aufgehoben. Außerhalb einer Bearbeitung entstand keine Abweichung. 9 der 38 Zeilen wiederholen nur eine
+  schon gemeldete Abweichung im 30-s-Takt, 3 weitere sind derselbe Alarm mit geändertem Text, nachdem ein Feld wegfiel.
 - **[Belegt, Log] Inventar (17 Meldungen, 10 Wertepaare):** immer der lokale, noch nicht übernommene Stand des Clients. Nach der
   Übernahme stand jedes Mal wieder „OK“ oder „Abgleich“.
 - **[Belegt, Log] Gegner (31 Meldungen, 12 Pausen): Die Abweichung beginnt mit der Pause, nicht mit dem Edit.** Ein Gegner-Alarm braucht
