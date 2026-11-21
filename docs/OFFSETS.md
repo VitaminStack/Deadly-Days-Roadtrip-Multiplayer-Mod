@@ -1360,21 +1360,6 @@ Die Felder `0x48`, `0x50`, `0x58`, `0x68` und `0x7C` gelten nach der Kontrolle a
 und `WP_Round_Stats`) auch auf `26669225`. Ein verwaister Eintrag erscheint in `pause_state.py` mit dem Namen des Objekts, das den
 Platz im Objekt-Array inzwischen belegt (gesehen: eine `Function`, ein `BorderSlot`).
 
-## Boss-Leiste aller Bosse (`opt-endboss-leiste`)
-
-Per Reflexion im laufenden Spiel gelesen, auf beiden Builds (`26495302`, `26669225`) gleich. Die Mod nutzt davon nur die bisherigen Felder
-aus `gegner-alle` (oben); der Rest ist Befund für `tools/spike/boss_hp.py` und spätere Arbeit an der Phasenanzeige.
-
-| Stelle | Wert |
-|---|---|
-| `UDDObjective` | `OnProgressChanged` `0x28`, `TargetValue` `0x68`, `CurrentValue` `0x70` (int64), `CachedWorld` `0x78` |
-| `UDDBossObjective` | `TrackedBosses` `0xA0`, `WeakBossComponent` `0xB0`, `PhaseMarkers` `0xB8` (`TArray<float>`, Anteil am Maximum), `bUseAlternateBar` `0xC8`, `MaxHealth` `0xD0`; UFunction `OnPhaseChanged(LastPhase, NewPhase)` |
-| `UDDObjectiveSubsystem` | `CurrentObjective` `0x60`, `ObjectiveInstances` `0x68`, `ObjectiveTypeToInstanceMap` `0x78` |
-| `UBossComponent` | `OnNextPhase` `0xC0`, `HealthCeilValue` `0xE0`, `EnemyBase` `0x118`, `BossAIController` `0x180` (nur Host), `PhasePercentages` `0x220` (`TArray<float>`) |
-| `UDDEnemyAttributeSet` | `Phase` `0x40` (`FGameplayAttributeData`, Wert bei `+0xC`) |
-| Phasenmarken je Boss | SpikeBoss 0,5; Ballerina 0,5; Frankenstein 0,65; BlobBall 0,7; HQ-Endboss 0,8 und 0,4 |
-| `CreateAndStartObjective` (Thunk) | `26669225`: `0x56BAB70`, ruft `0x58DED20`, das ruft `0x163B300` mit einem `FStaticConstructObjectParameters`-artigen Block (Klasse bei `+0x0`, Outer bei `+0x8`); dort liest `+0x163B33F` `[Klasse+0xD8]`. **[Vermutung]** `StaticConstructObject_Internal` und `ClassFlags`, ohne Symbole nicht belegt |
-
 ## Phasenbezogene Boss-Leiste (`opt-boss-phasenleiste`)
 
 Build `26786272`, per Reflexion und Disassembly im laufenden Spiel gelesen (21.11.2026). Die Mod löst die reflektierten Felder zur
@@ -1392,3 +1377,18 @@ Laufzeit auf; fest sind nur die mit „fest“ markierten Stellen.
 | `AEnemyBase` | `MySpawner` `0x878`, `Type` `0x9B0` (beide beim Client leer) |
 | `UAbilitySystemComponent` | `ActiveGameplayEffects` `0x8D8` (beim Client leer), `GameplayTagCountContainer` `0xF18` (0xF0); darin die eigenen Tags als `TArray<FGameplayTag>` bei `+0xC8` (fest), also `0xFE0` |
 | Einträge der Tabelle | `spike`/`SpikeBoss`, `Franky`/`FrankensteinBoss`, `BlobBall`/`BlobBallBoss`, `ballerina`/`BallerinaBoss`, `laz`/`LazyBoss`, `Endboss`/`HQBoss` (Klasse `BP_HQ_Endboss_C`); Spawnpunkte `BP_<Typ>SpawnPoint_C` unter `/Game/DDSurvivors/Blueprints/Enemies/Bosses/` |
+
+## Boss-Leiste aller Bosse (`opt-endboss-leiste`)
+
+Per Reflexion im laufenden Spiel gelesen, auf beiden Builds (`26495302`, `26669225`) gleich. Die Mod nutzt davon nur die bisherigen Felder
+aus `gegner-alle` (oben); der Rest ist Befund für `tools/spike/boss_hp.py` und spätere Arbeit an der Phasenanzeige.
+
+| Stelle | Wert |
+|---|---|
+| `UDDObjective` | `OnProgressChanged` `0x28`, `TargetValue` `0x68`, `CurrentValue` `0x70` (int64), `CachedWorld` `0x78` |
+| `UDDBossObjective` | `TrackedBosses` `0xA0`, `WeakBossComponent` `0xB0`, `PhaseMarkers` `0xB8` (`TArray<float>`, Anteil am Maximum), `bUseAlternateBar` `0xC8`, `MaxHealth` `0xD0`; UFunction `OnPhaseChanged(LastPhase, NewPhase)` |
+| `UDDObjectiveSubsystem` | `CurrentObjective` `0x60`, `ObjectiveInstances` `0x68`, `ObjectiveTypeToInstanceMap` `0x78` |
+| `UBossComponent` | `OnNextPhase` `0xC0`, `HealthCeilValue` `0xE0`, `EnemyBase` `0x118`, `BossAIController` `0x180` (nur Host), `PhasePercentages` `0x220` (`TArray<float>`) |
+| `UDDEnemyAttributeSet` | `Phase` `0x40` (`FGameplayAttributeData`, Wert bei `+0xC`) |
+| Phasenmarken je Boss | SpikeBoss 0,5; Ballerina 0,5; Frankenstein 0,65; BlobBall 0,7; HQ-Endboss 0,8 und 0,4 |
+| `CreateAndStartObjective` (Thunk) | `26669225`: `0x56BAB70`, ruft `0x58DED20`, das ruft `0x163B300` mit einem `FStaticConstructObjectParameters`-artigen Block (Klasse bei `+0x0`, Outer bei `+0x8`); dort liest `+0x163B33F` `[Klasse+0xD8]`. **[Vermutung]** `StaticConstructObject_Internal` und `ClassFlags`, ohne Symbole nicht belegt |

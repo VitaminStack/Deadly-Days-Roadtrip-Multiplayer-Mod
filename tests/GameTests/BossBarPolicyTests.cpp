@@ -74,7 +74,7 @@ TEST_CASE("Boss bar updates only on changed values")
 }
 
 // Phasenbezogene Leiste (opt-boss-phasenleiste). Werte des Hosts vom 21.11.2026: Ballerina 299.775 HP zeigt 149.775, bei 298.650 HP
-// steht 148.650/150.000 Ã¼ber der Leiste.
+// steht 148.650/150.000 über der Leiste.
 TEST_CASE("Boss bar shows the health above the phase floor like the host")
 {
     const auto First = Game::PhaseOf(299775, 300000, {0.5f});
@@ -109,7 +109,7 @@ TEST_CASE("Boss bar derives later phases from health alone, as after a join mid-
 
 TEST_CASE("Boss bar never drops below one at a phase mark")
 {
-    // Genau auf der Marke lÃ¤uft schon die nÃ¤chste Phase, der Wert ist die volle nÃ¤chste Phase und nie 0.
+    // Genau auf der Marke läuft schon die nächste Phase, der Wert ist die volle nächste Phase und nie 0.
     const auto AtMark = Game::PhaseOf(150000, 300000, {0.5f});
     CHECK(AtMark.Phase == 2);
     CHECK(AtMark.Value == 150000);
@@ -151,7 +151,7 @@ TEST_CASE("Boss bar ignores unusable phase marks")
     CHECK(None.Phase == 1);
     CHECK(None.Value == 49135);
     CHECK(None.Span == 80000);
-    // Nicht fallend, auÃŸerhalb von 0 bis 1 oder NaN: Ã¼bergehen statt einen Nenner von 0 oder einen negativen Wert zu bilden.
+    // Nicht fallend, außerhalb von 0 bis 1 oder NaN: übergehen statt einen Nenner von 0 oder einen negativen Wert zu bilden.
     const auto Odd = Game::PhaseOf(200000, 300000, {0.0f, 1.0f, 1.5f, -0.2f, 0.5f, 0.5f, 0.7f});
     CHECK(Odd.Phase == 1);
     CHECK(Odd.Value == 50000);
@@ -167,7 +167,7 @@ TEST_CASE("Boss bar keeps the tracked boss and prefers a damaged one")
     CHECK(Game::PickBoss(Bosses, 0x300) == Game::NoBoss);
     CHECK(Game::PickBoss({{0x100, 5000000, 5000000}}, 0) == 0);
     CHECK(Game::PickBoss({}, 0) == Game::NoBoss);
-    // LazyBoss bleibt bei 0 HP stehen (18.11.2026): keine neue Leiste fÃ¼r ihn, ein lebender zweiter Boss bekommt sie.
+    // LazyBoss bleibt bei 0 HP stehen (18.11.2026): keine neue Leiste für ihn, ein lebender zweiter Boss bekommt sie.
     CHECK(Game::PickBoss({{0x100, 0, 370000}}, 0) == Game::NoBoss);
     CHECK(Game::PickBoss({{0x100, 0, 370000}, {0x200, 250000, 250000}}, 0) == 1);
 }
