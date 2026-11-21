@@ -25,6 +25,19 @@ constexpr unsigned ConfirmationsFor(unsigned Field)
     return Field == Game::Desync::Enemies ? EnemyConfirmations : Confirmations;
 }
 
+// opt-desync-bearbeitung: Solange der Client selbst bearbeitet (Game::Desync::HeldByEdit), meldet er die betroffenen Felder in
+// seiner Probe nicht als stabil. Das Format bleibt gleich, der Host braucht den Zustand nicht zu kennen: Ohne Stabil-Bit beider
+// Seiten vergleicht Monitor::Compare das Feld nicht und setzt die Bestaetigungen zurueck.
+constexpr uint8_t StableWhileEditing(uint8_t Stable, uint8_t Held)
+{
+    return static_cast<uint8_t>(Stable & ~Held);
+}
+// Ausnahmen fuer die Schattenzaehlung des Clients: nur zurueckgehaltene Felder, die trotzdem ins Log gehoeren.
+constexpr uint8_t HeldIgnored(uint8_t Exclusions, uint8_t Held)
+{
+    return static_cast<uint8_t>((Exclusions | ~(Held & Game::Desync::HeldLogged)) & All);
+}
+
 // Kleine absolute Messung. Echo-Kennungen binden die Antwort an genau eine lokale Probe.
 struct Packet
 {
