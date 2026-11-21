@@ -41,6 +41,9 @@
 {0x0584F082, 0, "48 8B C8 48 8B 00 FF 90 30 03 00 00 8B E8", 0, "RunEndLocalPlayerSite"}, // PlayerPatches.cpp
 {0x0584F090, 0, "48 8B BE E8 00 00 00 8B D5 48 8B CF", 0, "RunEndContinue"}, // PlayerPatches.cpp
 {0x0585BFF0, 0, "40 53 48 83 EC 60 48 8B D9 E8 ?? ?? ?? ?? 48 8B 83 D8 00 00 00 45 33 C9", 0, "CameraFollowTick"}, // PlayerPatches.cpp
+{0x05872149, 0, "48 89 9F 88 01 00 00 48 8D 15 ?? ?? ?? ?? 48 8D 4D 40", 0, "ReaperGameModeStore"}, // ClientPatches.cpp
+{0x05872150, 0, "48 8D 15 ?? ?? ?? ?? 48 8D 4D 40 E8 ?? ?? ?? ?? 48 8D 8B 40 03 00 00", 0, "ReaperBindContinue"}, // ClientPatches.cpp
+{0x0587219B, 0, "48 8B 87 B0 00 00 00 48 85 C0 75 ?? 48 8B CF E8 ?? ?? ?? ?? 48 8B C8 E8 ?? ?? ?? ?? 48 8D 0D ?? ?? ?? ?? 48 89 4D F0 44 89 65 F8 0F 28 45 F0 66 0F 7F 45 F0", 0, "ReaperBindSkip"}, // ClientPatches.cpp
 {0x05891B00, 0, "48 8B C4 48 89 58 08 48 89 70 18 57 48 81 EC 00 01 00 00 0F 29 70 E8", 0, "SpawnCircleTelegraph"}, // EnemyTelegraphPatches.cpp
 {0x058A5090, 0, "48 89 5C 24 08 57 48 83 EC 70 48 8B D9 B2 01 48 8B 89 38 02 00 00", 0, "ActivateLineTelegraph"}, // EnemyTelegraphPatches.cpp
 {0x058A7736, 0, "0F 84 ?? ?? ?? ?? 80 3D ?? ?? ?? ?? 00 48 89 74 24 50 74 ??", 0, "SneakSameTarget"}, // ClientPatches.cpp

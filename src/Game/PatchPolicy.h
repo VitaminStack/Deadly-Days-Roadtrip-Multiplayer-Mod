@@ -492,4 +492,17 @@ template <typename WriterT> void EmitRestrictorGuard(WriterT& Code, uintptr_t Sk
     Code.Emit({0xE9}); // jmp Continue
     Code.EmitRel(Continue);
 }
+
+// UReaperComponent::BeginPlay merkt sich den GameMode (RBX) in +188h und bindet danach OnNewPlayerSpawned und
+// OnPlayerDespawned an GameMode+340h/+350h ohne Null-Prüfung. Der Client hat keinen GameMode: das Feld wie im Original
+// schreiben, ohne GameMode beide Bindungen auslassen (Skip), sonst weiter bei Continue. EndPlay prüft das Feld selbst.
+template <typename WriterT> void EmitReaperGameModeGuard(WriterT& Code, uintptr_t Skip, uintptr_t Continue)
+{
+    Code.Emit({0x48, 0x89, 0x9F, 0x88, 0x01, 0x00, 0x00}); // mov [rdi+188h],rbx
+    Code.Emit({0x48, 0x85, 0xDB});                         // test rbx,rbx
+    Code.Emit({0x0F, 0x84});                               // je Skip
+    Code.EmitRel(Skip);
+    Code.Emit({0xE9}); // jmp Continue
+    Code.EmitRel(Continue);
+}
 }
