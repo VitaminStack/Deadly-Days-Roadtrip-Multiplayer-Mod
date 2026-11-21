@@ -155,8 +155,8 @@ normale Karte lässt sich in einer Sitzung mehrmals fahren (`karte-nach-labyrint
 
 **Sensenmann gezielt auslösen** (mit Spike, nur Host): `Send-SpikeCommand <host-pid> '!shop reaper 3'` stellt den nativen
 Zeitgeber des `AReaperSpawner` auf 3 s. Die Konsolenbefehle des Spiels dafür (`SpawnReaper`, `SetSpawnReaperAfterMinutes`,
-`KillReaper`) wirken im Shipping-Build nicht. Der Sensenmann erscheint fern der Spieler; beim Client kam er in den Messungen 15 bis
-30 s später an (Netzrelevanz).
+`KillReaper`) wirken im Shipping-Build nicht. Beim Client kam der Sensenmann in den Messungen rund 30 s nach dem Befehl an (Vermutung: Er
+erscheint fern der Spieler und wird erst mit der Netzrelevanz repliziert).
 
 **Rundenende ohne echte Eingaben** (mit Spike): `!finish` beim Host, dann bei beiden `!shop click ContinueButton`, dann
 `!shop confirm 0` und `!shop confirm 1` erst beim Host, danach beim Client. Für den nächsten Knoten `!shop callat <n> …` wie unten

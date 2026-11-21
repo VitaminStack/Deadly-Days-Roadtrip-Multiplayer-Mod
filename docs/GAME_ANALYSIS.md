@@ -641,7 +641,9 @@ Ort gepaart, 50 ms), Disassembly der Exe.
   `PlayerAnimationVelocityProvider` sind auf beiden Seiten gleich registriert.
 - **Gescheitert:** Beim Client nur `+0x7E0` auf das Blueprint-Mesh oder nur `Hands+0x320` auf die Figur setzen (von außen geschrieben). Die
   Ansicht blieb starr. Der halbe Zustand von `+0x7E0` brachte den Client danach zum Absturz (`EXCEPTION_ACCESS_VIOLATION` beim Lesen von
-  `0x348`, Stack `0x5870F52` ← `0x58025F7`). Beide Felder bleiben deshalb unberührt.
+  `0x348`, Stack `0x5870F52` ← `0x58025F7`). Beide Felder bleiben deshalb unberührt. **[Vermutung, Nachtrag 21.11.2026]** Dieser
+  Absturz war vermutlich ebenfalls der Sensenmann (gleiche Leseadresse, Rücksprung des Aufrufs `0x5870F4D`), nicht der halbe
+  Zustand, siehe [Client-Absturz am Sensenmann](#client-absturz-am-sensenmann-karte-nach-labyrinth-absturz).
 - **Umsetzung** (`src/Game/FacingPatches.cpp`, `TickFacing`, Regeln `FacingYawFromQuat` und `FacingNeedsWrite` in `PatchPolicy.h`, mit
   Tests): Nur beim Client und nur für Figuren ohne Autorität trägt die Mod je Takt den Welt-Gierwinkel des replizierten Hände-Actors
   (Quaternion von `RootComponent.ComponentToWorld`) in `Hands+0x31C` ein, wenn er sich um mehr als 0,01° ändert. Das native Mesh wählt daraus
@@ -2947,8 +2949,8 @@ Instanzen, Lobby, mit Spike, ohne echte Eingaben).
   | `0x469869D` | Delegat binden (`0x46985F0`, `AddDynamic`) |
   | `0x5872172` | `UReaperComponent::BeginPlay` (`0x5871F20`), Rücksprung hinter der Bindung von `OnNewPlayerSpawned` |
   | `0x25DDC9B` | `AActor::BeginPlay` (`0x25DDAD0`), `call [rax+3E8h]` je Komponente |
-  | `0x5803507` | `BeginPlay` des Gegner-Actors (`0x58034F0`) |
-  | `0x25E1B8D`, `0x2996997` bis `0x299D3AF` | Actor aus der Replikation angelegt, darunter Netztreiber, Welt-Tick und Engine-Schleife |
+  | `0x5803507` | Funktion `0x58034F0`, ruft `0x25DDAD0`; **[Vermutung]** `BeginPlay` des Gegner-Actors |
+  | `0x25E1B8D`, `0x2996997` bis `0x299D3AF` | nicht disassembliert; **[Belegt, Test]** dieselben Rahmen entstehen, wenn der replizierte Sensenmann beim Client ankommt (Nachstellung unten), also der Weg vom Netztreiber zum neuen Actor |
 
   `BeginPlay` castet `World->AuthorityGameMode` auf `ADDMissionGameMode`, legt das Ergebnis in `+0x188` ab (`0x5872149`) und bindet
   ohne Nullprüfung an `GameMode+0x340` (`OnNewPlayerSpawned`) und `GameMode+0x350` (`OnPlayerDespawned`). Der Client hat keinen
@@ -2974,8 +2976,13 @@ Instanzen, Lobby, mit Spike, ohne echte Eingaben).
 - **[Belegt, Test] Nachgestellt ohne Wächter.** Run über die Routenkarte, erste Karte Labyrinth (Testschalter), Tagesende, nächster
   Knoten `MGP_Forest_Campgrounds`, dann der Zeitgeber des Spawners beim Host auf 3 s (`!shop reaper`). Rund 30 s danach, als der
   Sensenmann beim Client ankam, stürzte der Client ab: `EXCEPTION_ACCESS_VIOLATION` beim Lesen von `0x348`, Aufrufliste `15c0407
-  469869d 5872172 25ddc9b 2d8cdbc 5803507 25e1b8d 2996997 …`, dieselben Rahmen wie im Live-Bericht. Der Host stürzte danach
-  ebenfalls ab (wie live, `opt-host-absturz-trennung`).
+  469869d 5872172 25ddc9b 2d8cdbc 5803507 25e1b8d 2996997 …`, dieselben Rahmen wie im Live-Bericht.
+- **[Belegt, Absturzbericht] Nebenbefund für `opt-host-absturz-trennung`: Auch der Absturz des Hosts danach kommt vom Sensenmann.**
+  Im Nachstelllauf stürzte der Host nach dem Verlust des Clients ab, wie live: Lesen von `0x1B8`, Aufrufliste `589a8a3 55177d3
+  315a9a6 2bfc5dd …`. `0x589A8A3` liegt in `0x589A650`, einer Zeitgeber-Funktion des `UReaperComponent`: Sie geht über `Players`
+  (`+0x178`) und liest je Figur `+0x1B8` (`RootComponent`) ohne Nullprüfung. **[Vermutung]** Nach der Trennung steht dort die
+  zerstörte Client-Figur als null, weil sie ohne Abmeldung verschwand. Der Live-Absturz des Hosts (4,9 s nach dem Entfernen des
+  Clients, Sensenmann vorhanden) passt dazu, Host-Daten von damals fehlen. Hier nicht behoben, das gehört zur genannten Aufgabe.
 - **Lokal zuerst:** Der Baustein bleibt beim Client ganz lokal (Ton nach Abstand, Farbwechsel, Tempo-Übergang). Geteilt wird
   nichts Neues, der Sensenmann repliziert wie jeder Gegner, der Host entscheidet weiter allein über Spawn, Bewegung und Schaden.
   Ersetzt wird kein Weg. Die beiden ausgelassenen Bindungen melden dem Baustein neue und entfernte Spielerfiguren; beim Host laufen
