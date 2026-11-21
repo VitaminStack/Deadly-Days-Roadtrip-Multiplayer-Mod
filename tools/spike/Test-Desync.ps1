@@ -15,7 +15,7 @@ function Read-Diagnostics {
     @($H, $C)
 }
 function Test-BothOk($Texts) {
-    $Texts.Count -eq 2 -and @($Texts | Where-Object { $_ -notmatch '^Desync: OK Tag, Phase, Spieler, HP, Inventar\r?\nAusgenommen: Gegner$' }).Count -eq 0
+    $Texts.Count -eq 2 -and @($Texts | Where-Object { $_ -notmatch '^Desync: OK Tag, Phase, Spieler, HP, Gegner, Inventar\r?\nAusgenommen: -$' }).Count -eq 0
 }
 Wait-Condition { Test-BothOk (Read-Diagnostics) } 'alle sechs Diagnosefelder auf beiden Seiten gleich' 60 @($HostId, $ClientId) 1000
 Write-Output "Desync: Gleichheitsmessung fuer $Seconds s gestartet"

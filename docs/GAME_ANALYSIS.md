@@ -2999,6 +2999,21 @@ Vorher-Messung zu `opt-desync-pivot`). Kein Absturz, kein `[ERROR]`. Vor der Än
 Seit `gegnertyp` ist die Gegnerzahl im Abgleich, das Skript wartet deshalb vergeblich auf „beide OK“. Gemessen wurde hier mit
 `desync_difference.py` und den Mod-Logs.
 
+### Rasterposition außerhalb des Rucksacks im Desync-Melder (`opt-desync-pivot`)
+
+- **[Belegt, frühere Befunde]** Das Inventar-Panel setzt Rasterposition (`ZeroPivotTile`) und Drehung eines Items beim Ziehen lokal,
+  auch wenn es außerhalb des Rucksacks liegt. Beim Host-Spieler repliziert das zum Client, beim Client-Spieler bleibt es beim Host auf
+  dem alten Stand (Coop-Test 06.11.2026: Pistole, Host `(0, 0)`, Client `(-19, -2)`; `livetest-1311`: vier Meldungen nach einem Edit,
+  der ein Item aus dem Rucksack nahm; 14.11.2026: dauerhafte Meldung nach einem übernommenen Lager-Edit). Im Spiel hat die Lage
+  außerhalb des Rucksacks keine Folge, der Melder meldete aber dauerhaft „ABWEICHUNG Inventar“ und verdeckte so echte Inventarfehler.
+- **Änderung.** Der Item-Hash des Inventar-Messfelds (`ItemRecord` in `src/Game/DesyncSnapshot.h`) nimmt Rasterposition und Drehung nur
+  noch bei Items mit `IsInBackpack`. Die Drehung gehört dazu, weil das Panel sie mit der Position zusammen lokal setzt. Datenpfad,
+  Broken, Reward, Trash und das Rucksack-Flag selbst zählen weiter, ebenso die belegten Rucksackfelder über die `BackpackSlots`. Das
+  Nachrichtenformat ist unverändert, `ModVersion` bleibt. Grenze: Mischen zwei PCs den alten und den neuen Stand, meldet der Melder
+  für Items außerhalb des Rucksacks mit Position ungleich `(0, 0)` wieder eine Abweichung.
+
+MESSUNG_B
+
 ### Run-Stand des Clients nach dem Run-Ende (`opt-metabase-inventar`)
 
 Ausgewertet am 14.11.2026, Build `26495302`: Disassembly der Exe, Mod-Logs beider Live-Tage (13.11. abends Host, 14.11. Client, beide
