@@ -2953,10 +2953,16 @@ Ausgewertet am 21.11.2026, Build `26786272`: Mod-Logs beider Seiten aus dem Live
 - **[Belegt] Ursache: Dem Client fehlt die Hand während seiner eigenen Bearbeitung.** Der Client verwirft während einer lokalen
   Bearbeitung alle Wirkungs-RPCs und merkt `ApplyAddToBackpackEffect` nur vor; den Effekt legt erst der Host beim Übernehmen an.
   `ExtraHands` ändert sich beim Client also erst nach dem Bestätigen. Für belegte Hände gab es seit `waffe-client-auswahl` eine
-  lokale Vorschau, für zusätzliche nicht. Im Live-Test legte der Spieler den Arm im Lager ab (00:20:38) und meldete das Problem
-  43 s später, noch im selben Lager: „Hände belegt 2, Rucksack braucht 2“, keine Hand frei, das Panel lässt keine weitere Waffe zu.
+  lokale Vorschau, für zusätzliche nicht. Im Live-Test begann die Lager-Bearbeitung um 00:20:20 („Bearbeitung beginnt“, „Hände
+  belegt 2, Rucksack braucht 2“, „Lager: Zug im Rucksack beim Client“), der Spieler legte den Arm um 00:20:38 und erneut um
+  00:21:02 ab und meldete das Problem in derselben Minute (01:21 Ortszeit), noch im selben Lager: keine Hand frei, das Panel lässt
+  keine weitere Waffe zu. Der Lager-Weg läuft damit über dieselbe Bearbeitung (`BeginClient`) wie die Airdrop-Auswahl.
   Beide Airdrop-Wahlen davor hatten den Arm nur ins Lager gelegt. Der Host übernahm den Lager-Edit um 00:24:50, sieben Sekunden vor
   der Reise ins Labyrinth; dort gibt es kein Panel, die Hand blieb ungenutzt, danach kam der Absturz.
+- **[Belegt] Was „freie Hände“ liest (Disassembly).** `InventoryEffectHelperLibrary.GetFreeHands` (Implementierung `0x5968520`)
+  holt das Attributset der Figur und rechnet `ExtraHands` (aktueller Wert) + Konstante − `OccupiedHands` (aktueller Wert). Genau
+  diese beiden Werte schreibt die Vorschau. Ob die Hände-Prüfung des Panels diese Funktion ruft, ist nicht belegt: Ihr einziger
+  direkter nativer Aufrufer liegt bei `0x5A40C2E` im Bereich der Inventar-Oberfläche, Aufrufe aus Blueprints sind so nicht zu sehen.
 - **[Belegt] Vorher, gemessen mit `DDCOOP_HANDS_PREVIEW_NATIVE=1`** (Verhalten vor der Korrektur). Client in offener Airdrop-Auswahl,
   Pistole ausgerüstet, zwei Hände, eine frei:
 
@@ -2981,7 +2987,8 @@ Ausgewertet am 21.11.2026, Build `26786272`: Mod-Logs beider Seiten aus dem Live
   | bestätigt | 1 | 0 | 0 |
 
   Nach jedem Bestätigen `inventory.py` gleich, beim Host für die Client-Figur `Data_Knife` und `Data_Pistol` ausgerüstet, keine
-  Geisterwaffe. Im Fensterbild des Clients ist der Hände-Balken nach dem Ablegen des Arms länger.
+  Geisterwaffe. Im Fensterbild des Clients ist der Hände-Balken nach dem Ablegen des Arms länger als bei offener Auswahl davor
+  (ein Bildpaar aus einer dritten Auswahl, 800 × 450).
 - **Korrektur (nur Client, kein Wire-Format, `ModVersion` bleibt).** Die Hände-Vorschau in `InventoryEdit.cpp` rechnet jetzt auch
   `ExtraHands` vor: Ausgangswert des Hosts plus (Hände, die die Rucksackitems geben, jetzt minus beim Beginn der Bearbeitung). Die
   Hände eines Items liest der Client aus dessen Daten und rechnet mit den Funktionen des Spiels
@@ -2998,13 +3005,16 @@ Ausgewertet am 21.11.2026, Build `26786272`: Mod-Logs beider Seiten aus dem Live
 - **Weitere Items mit Wirkung auf Hände** (alle geladenen Item-Daten, `hand_effects.py --items`): 31 Waffen mit
   `BP_Effect_Occupy_Hands_Reducable_C` (belegte Hände, Vorschau seit `waffe-client-auswahl`), `ItemData_Dumbell` und
   `ItemData_HandOfBlood` mit `BP_Effect_ReduceWeaponRequiredHands_C`, `ItemData_PlasmaHand` mit
-  `BP_Effect_BuffOtherItems_IgnoreHandRequirements_C`. Nur der Roboterarm ändert `ExtraHands`. **[Vermutung]** Hantel, Hand des
+  `BP_Effect_BuffOtherItems_IgnoreHandRequirements_C`. In dieser Liste ändert nur der Roboterarm `ExtraHands`; sie umfasst nur
+  Item-Daten, die in der Mission geladen waren, und nur Wirkungen, deren Klassenname „Hand“ enthält. Die Vorschau selbst sucht
+  nicht nach Namen, sondern nach Modifikatoren auf das Attribut. **[Vermutung]** Hantel, Hand des
   Blutes und Plasmahand sind in der offenen Bearbeitung genauso betroffen, falls ihre Wirkung erst mit `ApplyEffect` beim Host
   entsteht: Die Vorschau fragt zwar `GetHandsRequiredForItem` lokal, die Wirkungen legt beim Client aber niemand an. Der Versuch
   mit der Hantel scheiterte am Platz im Rucksack (`!shop place` legt nur auf freie Felder, die Hantel passte nicht), eigene
   Aufgabe `opt-haende-vorschau-items`.
-- **Nicht geprüft:** das Ziehen mit der Maus im Panel des Clients und dessen eigene Hände-Prüfung (Annahme: Sie liest dieselben
-  Werte wie `GetFreeHands`), der Lager-Weg am Rundenende (derselbe Code, `BeginClient`), Ablehnung eines Edits (Rücknahme der
+- **Nicht geprüft, darum Bestätigungstest ausstehend:** das Ziehen mit der Maus im Panel des Clients und dessen eigene
+  Hände-Prüfung (Annahme: Sie liest dieselben Werte wie `GetFreeHands`). Außerdem nicht geprüft: der Lager-Weg am Rundenende im
+  Spiel (nur aus Log und Code), Ablehnung eines Edits (Rücknahme der
   Vorschau nur über das Herausnehmen belegt), höhere Seltenheiten des Arms, zwei PCs.
 
 ### Run-Stand des Clients nach dem Run-Ende (`opt-metabase-inventar`)

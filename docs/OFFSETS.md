@@ -1329,7 +1329,7 @@ Felder aus dem SDK von Build `26786272`, im Spiel gelesen. Keine Code-Stelle, ke
 | `UCharacterEffectManager` | `EffectedSpecifications` `0xC0`, `EffectedBackpackSpecifications` `0xD0` (`FEffectedSpecification`, Element `0xF0`: `ItemInstance` `0x00`, `EffectWrapper` `0x08`, `EffectedItem` `0xB8`), `Character` `0xE0` |
 | `APlayerState` | `PlayerId` `0x2AC`, `PawnPrivate` `0x320` |
 | `UHandBarDisplay` | `CachedCharacter` `0x348`; `UpdateCurrentHandsBar(int32)`, `UpdateMaxHandsBar(int32)` |
-| `InventoryEffectHelperLibrary.GetFreeHands` | Parameter `0x10`: `Character` `0x00`, `ReturnValue` (int32) `0x08` |
+| `InventoryEffectHelperLibrary.GetFreeHands` | Exec-Thunk `0x57105B0`, Implementierung `0x5968520` (liest `ExtraHands` `+0x100` und `OccupiedHands` `+0x110` des Attributsets), weiterer direkter Aufrufer `0x5A40C2E`; Parameter `0x10`: `Character` `0x00`, `ReturnValue` (int32) `0x08` |
 | `FloatData.GetContextualValueForRarity` | Parameter `0x10`: `Rarity` `0x00`, `PlayerLevel` `0x08`, `ReturnValue` (float) `0x0C` |
 | `DataTableFunctionLibrary.EvaluateCurveTableRow` | Parameter `0x30`: `CurveTable` `0x00`, `RowName` `0x08`, `InXY` `0x10`, `OutResult` `0x14` (0 gefunden), `OutXY` `0x18`, `ContextString` `0x20` |
 
