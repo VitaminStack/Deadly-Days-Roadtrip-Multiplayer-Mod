@@ -469,8 +469,8 @@ powershell -ExecutionPolicy Bypass -File tools/spike/Disassemble.ps1 0x59635E0 0
 
 Nach dem Beenden gibt Windows `spike.dll` erst nach ein paar Sekunden frei, `Stop-Session.ps1` wartet deshalb 6 Sekunden.
 Die Sperre hält es so lange selbst und gibt sie erst nach dem Entfernen der Mod frei, damit eine mit `-Wait` wartende Sitzung ihre
-Mod nicht dazwischen installiert. Startet eine Sitzung trotzdem ohne Mod („Testkanal … antwortet nicht“), stammt die vorige Sitzung
-meist aus einem Worktree mit älterem Skript; dann neu starten.
+Mod nicht dazwischen installiert. Startet eine Sitzung trotzdem ohne Mod („Testkanal … antwortet nicht“), kann die vorige Sitzung
+aus einem Worktree mit älterem Skript stammen (Vermutung); dann neu starten.
 
 ## Ergebnisse festhalten
 

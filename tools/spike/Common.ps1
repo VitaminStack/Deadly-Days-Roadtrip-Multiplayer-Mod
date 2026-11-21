@@ -150,8 +150,16 @@ function Enter-StopLock {
             # Die aktive Sperre loescht kein Wartender. Ersetzen in einem Schritt, damit er nie eine halbe Datei liest.
             $Temp = "$script:LockFile.$PID"
             Write-SessionLock 0 0 | Set-Content $Temp -Encoding ascii
-            [IO.File]::Replace($Temp, $script:LockFile, [NullString]::Value)
-            return $true
+            try {
+                [IO.File]::Replace($Temp, $script:LockFile, [NullString]::Value)
+                return $true
+            }
+            catch {
+                # Ein Wartender liest die Datei gerade. Ohne Wechsel bliebe die Sperre nach dem Beenden frei, also noch einmal.
+                Remove-Item $Temp -Force -ErrorAction SilentlyContinue
+                Start-Sleep -Milliseconds 100
+                continue
+            }
         }
         if (Test-Path $script:LockFile) { Remove-Item $script:LockFile -Force -ErrorAction SilentlyContinue }
         try {
