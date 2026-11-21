@@ -62,6 +62,7 @@
 {0x058C0BA0, 0, "40 53 48 83 EC 70 48 8B D9 E8 ?? ?? ?? ?? 0F 57 C9 4C 8D 4C 24 20", 0, "UpdateBounds"}, // ExpPatches.cpp
 {0x058C0C90, 0, "48 89 5C 24 18 55 56 57 48 83 EC 30 FF 41 5C", 0, "ReceiveExpImpl"}, // ExpPatches.cpp
 {0x058C3590, 0, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 56 41 57 48 83 EC 40 0F 29 74 24 30", 0, "SpawnRequest"}, // ExpPatches.cpp
+{0x058C9E20, 0, "48 8B C4 48 89 58 10 48 89 70 18 48 89 78 20 55 41 54 41 55 41 56 41 57 48 8D A8 78 FE FF FF 48 81 EC 60 02 00 00 0F 29 70 C8", 0, "ReaperSpawn"}, // ClientPatches.cpp
 {0x058CFD10, 0, "40 57 48 83 EC 40 48 8B 81 68 08 00 00", 0, "TryBuyItem"}, // RewardPatches.cpp
 {0x058D0FC7, 0, "49 8B 86 E8 02 00 00 48 89 44 24 58 80 3D ?? ?? ?? ?? 00", 0, "SpawnerPlayerRead"}, // PlayerPatches.cpp
 {0x058D14B7, 0, "32 DB C7 45 48 00 00 00 00 48 8B 4D 40", 0, "SpawnerNoPlayerExit"}, // PlayerPatches.cpp

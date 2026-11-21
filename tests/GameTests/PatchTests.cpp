@@ -682,6 +682,12 @@ TEST_CASE("Patches: Sensenmann-Wächter bindet ohne GameMode nicht (karte-nach-l
     CHECK(*reinterpret_cast<const void**>(Component + 0x188) == nullptr);
 }
 
+TEST_CASE("Sensenmann erzeugt nur der Host (karte-nach-labyrinth-absturz)")
+{
+    CHECK(ReaperMaySpawn(false));    // Host und Einzelspieler
+    CHECK_FALSE(ReaperMaySpawn(true)); // Netz-Client: kein zweiter, lokaler Sensenmann
+}
+
 TEST_CASE("Bewegung: Tempo der eigenen Figur folgt dem Attribut (tod-client)")
 {
     // Erster Wert wird übernommen, auch volles Tempo.

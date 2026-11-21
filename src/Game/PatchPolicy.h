@@ -210,6 +210,13 @@ constexpr bool BusTakeOffMayDecide(bool IsNetClient)
     return !IsNetClient;
 }
 
+// Den Sensenmann erzeugt nur der Host. Der AReaperSpawner des Clients hat denselben Zeitgeber und legte ohne Autoritätsprüfung
+// einen zweiten, nur lokalen Sensenmann an (karte-nach-labyrinth-absturz). Der des Hosts kommt über die Replikation.
+constexpr bool ReaperMaySpawn(bool IsNetClient)
+{
+    return !IsNetClient;
+}
+
 // opt-busbalken: Der Client zeigt die Abfahrt, wenn der Tank voll ist und alle Figuren im Busbereich stehen, wie die Bedingungen
 // des Hosts. Ohne Figuren oder Tank gibt es keine Abfahrt.
 constexpr bool BusBarActive(bool FuelFull, int32_t PlayersInRange, int32_t Players)

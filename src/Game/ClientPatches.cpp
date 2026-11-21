@@ -46,6 +46,7 @@ constexpr uintptr_t RunSaveResave = 0x5940CB0;       // URunPersistencyManager::
 constexpr uintptr_t ReaperGameModeStore = 0x5872149;
 constexpr uintptr_t ReaperBindContinue = 0x5872150;
 constexpr uintptr_t ReaperBindSkip = 0x587219B;
+constexpr uintptr_t ReaperSpawn = 0x58C9E20; // AReaperSpawner: Sensenmann erzeugen (Ablauf des Zeitgebers)
 constexpr uint32_t RfBeginDestroyed = 0x8000, RfFinishDestroyed = 0x10000; // EObjectFlags
 
 constexpr uintptr_t CharacterAttributeSet = 0x7D8;
@@ -91,6 +92,22 @@ bool __fastcall CanBusTakeOffHook(uintptr_t ExtractionPoint, uint8_t* OutReason)
         return false;
     }
     return OriginalCanBusTakeOff(ExtractionPoint, OutReason);
+}
+
+using ReaperSpawnFn = void(__fastcall*)(uintptr_t);
+ReaperSpawnFn OriginalReaperSpawn = nullptr;
+std::atomic<int> ReaperSpawnSkipped = 0;
+
+// AReaperSpawner, Ablauf des Zeitgebers: erzeugt den Sensenmann und stellt bei Misserfolg einen neuen Versuch. Beim Client
+// nichts davon, sonst stünde dort ein zweiter Sensenmann, den der Host nicht kennt.
+void __fastcall ReaperSpawnHook(uintptr_t Spawner)
+{
+    if (!ReaperMaySpawn(CurrentRole() == NetRole::Client))
+    {
+        NoteOnce(ReaperSpawnSkipped, "Sensenmann: Spawn beim Client unterdrückt, der Host entscheidet");
+        return;
+    }
+    OriginalReaperSpawn(Spawner);
 }
 
 using FinishMissionFn = void(__fastcall*)(uintptr_t, bool);
@@ -472,8 +489,21 @@ bool ApplyReaper(Code::Writer& Code)
     return !Code.Failed() && Code::WriteJump(At(ReaperGameModeStore), Guard);
 }
 
+bool CheckReaperSpawn()
+{
+    return Code::Expect(At(ReaperSpawn), {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x10, 0x48, 0x89, 0x70, 0x18}, "in ReaperSpawner, Sensenmann erzeugen") &&
+           Code::Expect(At(ReaperSpawn) + 0x4C, {0x80, 0xB9, 0x28, 0x05, 0x00, 0x00, 0x00}, "ReaperSpawner, ShouldSpawnReaper");
+}
+
+bool ApplyReaperSpawn(Code::Writer&)
+{
+    return Core::Hooks::Install(reinterpret_cast<void*>(At(ReaperSpawn)), reinterpret_cast<void*>(&ReaperSpawnHook),
+                                reinterpret_cast<void**>(&OriginalReaperSpawn));
+}
+
 // Je Patch die benutzten Adressen der Signaturtabelle, erzeugt von tools/patch_signatures.py sites.
 constexpr uintptr_t ReaperSites[] = {ReaperGameModeStore, ReaperBindContinue, ReaperBindSkip};
+constexpr uintptr_t ReaperSpawnSites[] = {ReaperSpawn};
 constexpr uintptr_t ClientRefreshSites[] = {ClientRefreshCallSite, ClientRefreshFunction};
 constexpr uintptr_t AttributeTickSites[] = {AttributeLookupFunction, AttributeLookupCallSite, AttributeTickExit};
 constexpr uintptr_t AttributeLookupSites[] = {AttributeLookupFunction};
@@ -504,6 +534,7 @@ const Patch List[] = {
     {"Niederlage entscheidet der Host", &CheckRunLoss, &ApplyRunLoss, RunLossSites},
     {"Run-Stand gehört dem Host", &CheckRunSave, &ApplyRunSave, RunSaveSites},
     {"Sensenmann ohne GameMode", &CheckReaper, &ApplyReaper, ReaperSites},
+    {"Sensenmann erzeugt nur der Host", &CheckReaperSpawn, &ApplyReaperSpawn, ReaperSpawnSites},
 };
 }
 
