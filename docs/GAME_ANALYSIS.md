@@ -584,6 +584,63 @@ an der ersten Spielerfigur auf: fehlender Tank plus `n`), die Figuren standen st
 - **Nicht geprüft:** Schrott (in einer direkt gestarteten Mission fiel keiner), Itemsäcke und Power-ups im Spiel (`DD_OpenAllLootSpots` brachte
   in so einer Mission keine Objekte), zwei PCs mit echtem Ping, gehört.
 
+#### Loot-Aufnahme beim Client (`opt-loot-aufnahme-client`)
+
+Gemeldet im [Live-Test vom 21.11.](#live-test-auf-zwei-pcs-am-21112026-livetest-2111): Schrott und Benzin aus einem gelooteten Auto nahm
+der Client scheinbar endlos auf. Untersucht am 21.11.2026, Build `26786272`: Logs beider Seiten aus dem Live-Test, Disassembly, Reflexion
+und Speicher beider Instanzen zur Laufzeit (nur gelesen), zwei Instanzen auf einem PC über die Lobby, Mod mit Spike, `-Godmode`, Profil
+`MGP_Mountains_Roadstops` über `DDCOOP_TEST_MAP_PROFILE`, dazu `-NetProfile Internet` (gemessen 60 ms je Richtung, 2 % Verlust). Keine
+Maus- oder Tastatureingabe, Ton der Spielprozesse aus.
+
+- **[Belegt, Log] Der Zähler allein ist nicht der Fehler.** „Wiederholungen ausgelassen“ zählt Aufrufe von `Loot`, die der Schutz aus
+  `opt-item-sound` stumm hält. Auffällig ist das Verhältnis je Objekt: rund 18 auf einem PC ohne Latenz, im Live-Test im Mittel 110 und
+  in zwei Minuten (Karte `MGP_Mountains_Roadstops`) über 300, also rund 200 Aufrufe je Sekunde. Der Host buchte in diesen Minuten normal
+  weiter, die Pausen der Airdrop-Panels erklären die Spitzen nicht (spätere, längere Pausen haben wenige Wiederholungen).
+- **[Belegt] Wer ruft auf.** Jede Spielerfigur hat einen `LootAttractor` (Radius 500), beim Client auch die Kopie der Figur des
+  Mitspielers. Er zieht die replizierte Kopie eines Loot-Objekts an und ruft `Loot`, sobald sie an der Figur ist. Beim Client nimmt das
+  die Kopie nicht weg; das tut erst das Wegnehmen des Hosts. Bis dahin liegt die Kopie an der Figur, ihr Ort springt jeden Takt um bis
+  zu 20 Einheiten und `Loot` läuft jeden Takt erneut (gemessen 16 Kanister, 299 Wiederholungen).
+- **[Belegt] Der Ort repliziert nach dem Spawn nicht.** `bReplicateMovement` ist an Loot-Objekten aus (Actor-Flagbyte `0x60`). Der Host
+  streut und bewegt sein Objekt, der Client behält den Spawn-Ort: Kanister aus `DropRequiredFuel` lagen beim Host im Umkreis von 150 um
+  die Figur, beim Client alle auf dem Punkt der Figur; Schrott aus Gegnern rund 40 Einheiten versetzt; ein Power-up 110 bis 360, ein anderes
+  rund 900 Einheiten. Drei weit entfernte Kanister des Hosts gab es beim Client gar nicht.
+- **[Belegt] Folge: Der Client sammelt Kopien auf, die der Host noch nicht oder gar nicht hat.** Zwei Schrott-Kopien nur beim Client an
+  die Figur gesetzt (`!fx pull Scrap 2`, die Objekte des Hosts lagen über 1000 Einheiten entfernt): Die Kopien blieben über zwei Minuten
+  an der Figur, der Zähler stieg um 5070 und 7317 je Minute (zwei Objekte, 60 Bilder je Sekunde). Das ist das Bild aus dem Live-Test.
+  Auch ohne Versatz dauert es beim Host länger: Sein Objekt muss erst zur Figur fliegen (Wegnehmen von Schrott aus Gegnern im Mittel
+  0,86 s nach dem Aufsammeln beim Client, höchstens 0,94 s, Kanister 0,33 s).
+- **Vermutung, nicht belegt:** Beim Auto streut der Host die Objekte um die Lootstelle (`LootSpawnRadius` 300), der Client hat alle am
+  Spawn-Ort neben seiner Figur und sammelt sie sofort auf. Läuft die Figur weiter, fliegen die Objekte des Hosts hinterher oder bleiben
+  liegen, und die Kopien hängen so lange an der Client-Figur. Eine Lootstelle ließ sich auf einem PC ohne Eingaben nicht auslösen.
+- **[Belegt, Disassembly] Korrektur zu den Abschnitten oben.** `ALootBase::Loot_Implementation` (`0x59B2140`) enthält keine erkennbare
+  Rückgabe an den Pool: virtueller Aufruf Slot `+0x4E0` mit `Looter+0xA8`, Ereignis `Client_PlaySound`, dann ein Aufruf an einem Objekt
+  des GameState. Wo der Host das Objekt wegnimmt, ist offen. Belegt ist nur, dass die Kopie des Clients mit dem Objekt des Hosts
+  zerstört wird.
+- **Umsetzung** (`InventoryPatches.cpp`, Klasse `FinishedLoot` in `PatchPolicy.h`, mit Tests): Der Client beendet das Aufsammeln selbst,
+  nur in der Darstellung. Nach dem ersten `Loot` einer Kopie (Klang und Delegates laufen wie bisher einmal) versteckt er sie im nächsten
+  Takt, schaltet ihre Kollision ab und nimmt sie mit `LootAttractor.RemoveAttractedLoot` aus dem Anziehen. Nimmt der Host sein Objekt
+  weg, verschwindet die Kopie wie bisher. Bleibt das 6 s aus, hat der Host das Objekt noch: Die Kopie wird einmal wieder gezeigt, ohne
+  Kollision, und nicht erneut versteckt. Gemerkt wird sie mit Platz und Serial im Objekt-Array, beim Weltwechsel wird die Liste ohne
+  Aufrufe geleert.
+- **Antworten zum Pfad:** Lokal bleiben Anziehen, Klang und jetzt auch das Ende des Aufsammelns. Geteilt wird nichts Neues, keine
+  Nachricht, keine `ModVersion`-Erhöhung. Es bucht weiter nur der Host (Schrott über `0x309`, Tank und Items repliziert), der Client
+  bucht nichts vor, also gibt es keine zweite Buchung. Das Verstecken ist die lokale Vorhersage; bestätigt wird sie durch das Wegnehmen
+  des Hosts, zurückgenommen durch das Wieder-Zeigen nach 6 s. Host und Einzelspieler unverändert.
+- **[Belegt, ein PC] Nachher**, gleiche Schritte, mit 60 ms je Richtung:
+  - 18 Kanister: 18 lokal beendet, 18 Wiederholungen (eine je Objekt, der Takt bis zum Verstecken; vorher rund 18 je Objekt), alle 18
+    vom Host weggenommen, im Mittel nach 325 ms, höchstens 359 ms. Nichts wieder gezeigt.
+  - Zwei Schrott-Kopien, die der Host nicht hat: 2 Wiederholungen insgesamt statt 5070 bis 7317 je Minute. Die Kopien waren 3 s nach
+    dem Aufsammeln versteckt, 16 s danach wieder sichtbar und lagen über zwei Minuten still am selben Ort. Log: „2 lokal beendet, 0
+    danach vom Host weggenommen, 2 nach 6000 ms wieder gezeigt“.
+  - Zwei Schrotthaufen aus Gegnern im selben Lauf: vom Host weggenommen nach im Mittel 859 ms. Keine Absturzberichte.
+- **Grenze.** Eine wieder gezeigte Kopie liegt dort, wo der Client sie aufgesammelt hat, nicht am Ort des Hosts, und der Client kann
+  sie nicht noch einmal aufsammeln. Sie verschwindet, sobald beim Host eine Figur das echte Objekt nimmt. Lehnt der Host ein Objekt
+  ab, das der Client lokal aufsammelt (etwa ein Power-up mit Sperrzeit), ist dessen Kopie beim Client 6 s unsichtbar. Der Zähler
+  „wieder gezeigt“ im Mod-Log zeigt im nächsten Test zu zweit, ob das vorkommt. Kommt es oft vor, braucht es einen Weg beim Host (er
+  sammelt für die Client-Figur ein oder der Ort repliziert); das wäre eine eigene Aufgabe.
+- **Nicht geprüft:** zwei PCs, eine echte Lootstelle (Auto), Itemsäcke und Power-ups mit dem neuen Pfad, das Bild nach Augenschein
+  (gemessen sind Zähler, Flags und Orte).
+
 ### Blut beim Client (`opt-blut`)
 
 Stand 11.11.2026, Build `26495302`. Statische Disassembly der Exe (`tools/spike/Disassemble.ps1`), dazu zwei Instanzen auf einem PC über
@@ -2920,6 +2977,7 @@ Neue Befunde:
   ausgelassen“, in der Spitze rund 12000 Wiederholungen je Minute. Der Schutz spielt den Ton je Objekt einmal, die Aufnahme selbst läuft
   mehrfach. Der Schrott-Stand folgte 269-mal dem Host in Schritten von 1 bis 2, eine Doppelbuchung ist nicht belegt. Der Benzin-Stand
   wurde nicht verglichen, der Host loggt dazu nichts.
+  Ursache und Fix unter [Loot-Aufnahme beim Client](#loot-aufnahme-beim-client-opt-loot-aufnahme-client).
 - **Fehlalarm des Desync-Melders in offenen Bearbeitungen (`opt-desync-bearbeitung`).** 39 Meldungen „ABWEICHUNG“ beim Client und 38
   beim Host (Inventar, Gegner oder beides), beim Client jeweils während eines offenen Airdrop-Panels mit lokaler, noch unbestätigter
   Aufwertung und angehaltener Weltzeit. Nach jedem Bestätigen übernahm der Host den Edit. Die Meldungen des Hosts sind den Bearbeitungen

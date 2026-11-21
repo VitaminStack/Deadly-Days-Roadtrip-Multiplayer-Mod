@@ -196,7 +196,7 @@ bool ApplyItemLoot(Code::Writer&)
 // opt-schrott-anzeige: Der Client sammelt replizierte Schrotthaufen mit seinem lokalen Attraktor ein und buchte sie bisher selbst,
 // teils mehrfach, bis das Zerstören des Hosts ankam. Der Host korrigierte das alle 0,5 s (Anzeige sprang). Jetzt bucht nur der Host,
 // der Client bekommt den Stand über 0x309 (ApplyScrap). Klang und Delegates der Basis laufen beim Client weiter lokal.
-// opt-levelup-sound, opt-item-sound: ALootBase::Loot_Implementation (Klang, Delegates, Rückgabe an den Pool) ist die gemeinsame
+// opt-levelup-sound, opt-item-sound: ALootBase::Loot_Implementation (Klang, Delegates) ist die gemeinsame
 // Basis von Schrott, Benzin, Itemsack und Power-up. Beim Client verschwindet das Objekt dadurch nicht, erst das Zerstören des Hosts
 // nimmt es weg. Bis dahin hängt es an der Figur und der Blueprint ruft Loot jeden Takt erneut: ScrapPickup lief 65- bis 170-mal je
 // Sekunde, Benzin stotterte beim Einsammeln. Der Client lässt die Basis darum je Objekt nur einmal laufen (LootedPiles), gleich

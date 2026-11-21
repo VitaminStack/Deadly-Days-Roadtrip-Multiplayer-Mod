@@ -1279,6 +1279,22 @@ Build `26495302`, Disassembly, siehe [Aufsammelsound](GAME_ANALYSIS.md#aufsammel
 | `LootBase.Client_PlaySound` | NetClient-RPC, beim Client vom Netz über `exe+299CFFB` (ProcessEvent), lokal aus `0x59AF417` |
 | `LootBlueprintFunctionLibrary.DropRequiredFuel` | Parameter 0x30 Byte: `World` `0x0`, `FuelClass` `0x8`, `Location` `0x10`, `Radius` `0x28`, `AdditionalFuel` `0x2C` (Spike-Testhilfe `!fx fuel`) |
 
+## Loot-Aufnahme beim Client (`opt-loot-aufnahme-client`)
+
+Build `26786272`, Reflexion zur Laufzeit (nur gelesen) und Disassembly, siehe
+[Loot-Aufnahme beim Client](GAME_ANALYSIS.md#loot-aufnahme-beim-client-opt-loot-aufnahme-client).
+
+| Stelle | Wert |
+|---|---|
+| `ALootBase` | `LootClaimer` `0x2B8`, `InitialLootabilityDelay` `0x2C8` (float, bei Schrott, Benzin und Power-up 0,5), Größe `0x2D0`; `ILootableInterface` bei `+0x2A8` |
+| `AScrapLoot.ScrapAmount`, `APowerUpLoot.CantBeLootedCooldown` | `0x2D0`, `0x2EC` |
+| `ULootAttractor` | `RadiusBuffFactor` `0xC0`, `AttractionRadius` `0xC4` (500), `StopAttractionTags` `0xD0`, `AttractedLoot` `0x100` (80 Byte), Größe `0x170`; je Spielerfigur einer, beim Client auch an der Figur des Mitspielers |
+| `LootAttractor.RemoveAttractedLoot`, `AddAttractedLoot` | UFunctions, ein Parameter (Objektzeiger, 8 Byte), nativ `0x5736920`, `0x57321b0` |
+| `ALootBase::Loot_Implementation` | `0x59B2140(LootableInterface, Looter)`: virtueller Aufruf Slot `+0x4E0` am Actor (`0x25F50A0`) mit `Looter+0xA8`, Ereignis `Client_PlaySound` (`0x57306A0`), dann GameState (`World+0x1B0`), Klassenprüfung und Aufruf `0x24E95F0` an `GameState[+0x3B0]+0xD0` mit dem Actor. **Vermutung:** Besitzer setzen und ein Delegate oder eine Sammelliste; wo der Host das Objekt wegnimmt, ist nicht belegt |
+| Actor-Flagbyte `+0x58` der Loot-Objekte | `0x60`: `bReplicateMovement` (`0x10`) ist aus, der Ort repliziert nach dem Spawn nicht |
+| Zerstörtes Objekt bis zur nächsten GC | Objekt-Flags (`+0x08`) `0x40000000`, Flags im Objekt-Array `0x00200000` |
+| `ALootSpot` | `LootSpawnRadius` `0x2E8` (float, 300 an `BP_EnvironmentObjectLootspot_C`), `MinSpawns`/`MaxSpawns` `0x318`/`0x31C`; `SpawnLoot` hat einen Parameter (8 Byte) |
+
 ## Waffensounds (`opt-waffen-sound`)
 
 Build `26495302`, SDK und Disassembly, siehe [Waffensounds beim Client](GAME_ANALYSIS.md#waffensounds-beim-client-opt-waffen-sound).
