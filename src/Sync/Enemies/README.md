@@ -149,7 +149,7 @@ Grenzen und Stolpersteine:
 
 ## Gegner-Sounds (`opt-gegner-sound`, 21.11.2026)
 
-Kein neuer Nachrichtentyp. `DamageNumberState.h` trägt je Treffer ein Byte Marken der Mod (Bit 0: Einschlagsound, Mod-Version 15).
+Kein neuer Nachrichtentyp. `DamageNumberState.h` trägt je Treffer ein Byte Marken der Mod (Bit 0: Einschlagsound, Mod-Version 16).
 
 | Frage | Antwort |
 |---|---|

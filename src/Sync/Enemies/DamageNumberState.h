@@ -9,7 +9,7 @@
 
 // opt-schadenszahlen, Host -> Client: die Treffer eines Takts, für die der Host seinen Schadenszahl-Handler aufgerufen hat.
 // Nutzlast: Anzahl (1, 1 bis 64), je Treffer NetGUID (8), Schaden (float, 4), Flags (1), Ort X, Y, Z (je float, 4) und seit
-// opt-gegner-sound (Mod-Version 15) Marken der Mod (1, Bit 0: Einschlagsound), also 1 + 26 * Anzahl Bytes. Ein verlorenes Paket heißt nur fehlende Zahlen, es gibt keine Wiederholung. Siehe
+// opt-gegner-sound (Mod-Version 16) Marken der Mod (1, Bit 0: Einschlagsound), also 1 + 26 * Anzahl Bytes. Ein verlorenes Paket heißt nur fehlende Zahlen, es gibt keine Wiederholung. Siehe
 // docs/CONTROL_PROTOCOL.md, Abschnitt Schadenszahlen.
 namespace Sync::DamageNumbers
 {

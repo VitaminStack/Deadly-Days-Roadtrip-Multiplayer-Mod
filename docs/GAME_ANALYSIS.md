@@ -3487,7 +3487,7 @@ die Routenkarte ohne Maus und Tastatur (Spike-Befehle wie in [Gezielt in eine Ka
     `bUseImpactSounds` und gesetztem `HitImpactSoundEvent` ist und das Ziel ein Gegner, je Projektil und Takt einmal
     (Flächenschaden). Der Client spielt dafür den `HitImpactSoundEvent` der Grundklasse `BP_Projectile_C` am Ziel, ohne Ziel am
     gemeldeten Ort. Damit nichts doppelt läuft, schaltet er `bUseImpactSounds` an seinen replizierten Projektilen ab (beim
-    Abgleich der Actor-Liste alle 250 ms). Mod-Version 15, Format in
+    Abgleich der Actor-Liste alle 250 ms). Mod-Version 16, Format in
     [CONTROL_PROTOCOL.md](CONTROL_PROTOCOL.md#schadenszahlen-mod-kompatibilität-12).
   - Angriff, rein lokal: Der Client beobachtet je Takt `ReplicatedMovementMode` seiner `BP_StandardEnemy_C` und spielt
     `StandardEnemyAttack` (über den Pfad geladen) am Gegner, wenn ein schon beobachteter Gegner vom Boden in `MOVE_Falling` wechselt.
