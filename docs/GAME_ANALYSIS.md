@@ -3034,13 +3034,15 @@ Spike, ohne echte Eingaben, Client-Prozess der eigenen Sitzung mit `Test-ClientK
   `UReaperComponent.OnPlayerDespawned`, die UFunction gibt es): Sie nimmt die Figur des übergebenen Controllers
   (`Controller+0x2E8`) heraus und kehrt ohne Figur sofort zurück.
 - **[Belegt, Messung] Bei einer Trennung ohne Abmeldung bleibt die Figur in der Liste.** Mit Fix meldet der Host in jedem Lauf genau
-  einen abgebauten Eintrag, im selben Frame, in dem die Welt nur noch einen Spieler hat. **[Vermutung]** Das Spiel meldet den Wegfall
-  nicht oder erst, wenn der Controller keine Figur mehr hat; welcher der beiden Fälle gilt, wurde nicht gemessen. Die nächste Garbage
-  Collection setzt den Eintrag der zerstörten Figur auf null, der nächste Zeitgeber-Lauf liest dann am Nullzeiger. Darum der Abstand:
-  live 4,9 s nach dem Entfernen, im Kontrolllauf 50,5 s (61,4 s nach dem Kill).
-- **[Belegt] Ohne Sensenmann kein Absturz.** Fünf Läufe ohne Sensenmann, Host jeweils 50 bis 60 s nach dem Kill beobachtet, kein
-  Absturz, kein `[ERROR]` (V1 bis V5). Der Live-Lauf hatte einen Sensenmann: Der Client stürzte dort an dessen `BeginPlay` ab
-  (`karte-nach-labyrinth-absturz`), also stand er beim Host.
+  einen abgebauten Eintrag, laut Log 9 bis 10 ms nach „Welt: … 1 Spieler“. **[Vermutung]** Das Spiel meldet den Wegfall
+  nicht oder erst, wenn der Controller keine Figur mehr hat; welcher der beiden Fälle gilt, wurde nicht gemessen. **[Vermutung]** Die
+  nächste Garbage Collection setzt den Eintrag der zerstörten Figur auf null, der nächste Zeitgeber-Lauf liest dann am Nullzeiger;
+  gemessen ist nur das Lesen von `0x1B8` an dieser Stelle. Das würde den wechselnden Abstand erklären: live 4,9 s nach dem Entfernen,
+  im Kontrolllauf 50,5 s (61,4 s nach dem Kill).
+- **[Belegt] Ohne Sensenmann kein Absturz.** Fünf Läufe ohne Sensenmann, Host jeweils 50 bis 60 s nach dem Entfernen des Clients
+  beobachtet, kein Absturz, kein `[ERROR]` (V1 bis V5). Der Live-Lauf hatte einen Sensenmann: Der Client stürzte dort an dessen
+  `BeginPlay` ab (`karte-nach-labyrinth-absturz`), also stand er beim Host. **[Vermutung]** Der Live-Absturz des Hosts hatte dieselbe
+  Ursache: Ablauf und Lage passen, eine Aufrufliste des Hosts von damals gibt es nicht.
 
   | Lauf | Lage beim Kill | Timeout des Hosts | Host danach |
   |---|---|---|---|
@@ -3049,7 +3051,7 @@ Spike, ohne echte Eingaben, Client-Prozess der eigenen Sitzung mit `Test-ClientK
   | V3 | Airdrop entsteht 6 s nach dem Kill und landet nach dem Timeout, Host öffnet die Auswahl 5 s danach (Ablauf wie im Live-Log) | 10,7 s | läuft |
   | V4 | Kill 3,5 s nach der Ankunft in der Mission, sonst wie V3 | 10,9 s | läuft |
   | V5 | beide Figuren mit Items des Live-Laufs (Ratte, Schlange, Flummi, Roboterarm, Granate, Feuerschuhe, Jo-Jo, Feuerwerk, Ballonpumpe, MP, Dart, Magnet), 30 s Kampf, sonst wie V3 | 10,9 s | läuft, 60 s beobachtet |
-  | V6, ohne Fix | Sensenmann 12 s vorher ausgelöst (`!shop reaper 3`) | 10,7 s | **Absturz** 61,4 s nach dem Kill, Lesen von `0x1B8` |
+  | V6, ohne Fix | Sensenmann 12 s vorher ausgelöst (`!shop reaper 3`), Client per Skript beendet | 10,7 s | **Absturz** 61,4 s nach dem Kill, Lesen von `0x1B8` |
 
   Lokal endet die Verbindung mit Grund 5003 (`Connection dropped`), live über das Relay mit 4001; für den Ablauf im Spiel ist das
   gleich, beide Male meldet der Host „Verbindung zum Mitspieler verloren“ und die Welt hat danach einen Spieler.
@@ -3058,20 +3060,21 @@ Spike, ohne echte Eingaben, Client-Prozess der eigenen Sitzung mit `Test-ClientK
 - **Fix** (`src/Game/RemoteP2Patches.cpp`, `TickReaperPlayers`; Regeln `RemoveDeadPlayers` und `PlausibleReaperPlayers` in
   `RemoteP2Policy.h`, mit Test): Der Host merkt sich die Figur des Remote-Spielers mit Platz und Serial im Objekt-Array. Ist sie
   abgebaut (Trennung, Timeout, Absturz, auch Tod), geht er im selben Tick einmal über das Objekt-Array und nimmt aus `Players` jedes
-  `UReaperComponent` alle Einträge, die null oder abgebaut sind. Das passiert, bevor die Garbage Collection den Eintrag auf null
-  setzt. Logzeile „Sensenmann: Remote-Figur abgebaut, n Einträge … genommen“. Kein Code-Patch, die Zahl der gesetzten Patches bleibt.
+  `UReaperComponent` alle Einträge, die null oder abgebaut sind, also vor der nächsten Garbage Collection. Logzeile „Sensenmann: Remote-Figur abgebaut, n Einträge … genommen“. Kein Code-Patch, die Zahl der gesetzten Patches bleibt.
 - **Grenze.** Läuft die Garbage Collection in genau dem Frame, in dem die Figur zerstört wird, und der Zeitgeber vor dem nächsten
   Tick der Mod, greift der Fix zu spät. **[Vermutung]** Das Fenster ist ein Frame; in den Läufen trat es nicht auf. Eine Nullprüfung
   an den drei Schleifen wäre der zweite Schutz und ist nicht umgesetzt.
 - **[Belegt, Test] Abnahme mit Fix**, je Lauf Sensenmann beim Host vorhanden, Host mindestens 130 s nach dem Entfernen beobachtet
-  (der Kontrolllauf stürzte nach 50,5 s ab), kein `[ERROR]`:
+  (der Kontrolllauf stürzte nach 50,5 s ab), kein `[ERROR]`. In F1, F2 und F4 stürzte der Client selbst am Sensenmann ab, bevor das
+  Skript ihn beenden konnte; für den Host ist beides ein Prozessende ohne Abmeldung:
 
   | Lauf | Wegfall des Clients | Einträge entfernt | Host danach |
   |---|---|---|---|
-  | F1 | Client stürzt selbst am Sensenmann ab (`0x348`, wie live), Timeout nach rund 11 s | 1 | läuft, 150 s beobachtet |
-  | F2 | Client tritt der laufenden Mission wieder bei und stürzt 11 s danach wieder am Sensenmann ab | 1 | läuft, 140 s beobachtet |
+  | F1 | Client stürzt selbst am Sensenmann ab (`0x348`, wie live), Zeit bis zum Timeout nicht gemessen | 1 | läuft, 150 s beobachtet |
+  | F2 | Client tritt der laufenden Mission wieder bei und stürzt gleich beim Beitritt wieder am Sensenmann ab; der Host hatte ihn 11 s als zweiten Spieler | 1 | läuft, 140 s beobachtet |
   | F3 | Client 6 s nach dem Auslösen des Sensenmanns per Skript hart beendet, Timeout nach 10,5 s | 1 | läuft, 130 s beobachtet |
   | F4 | neue Sitzung, Client stürzt nach weniger als 6 s selbst am Sensenmann ab | 1 | läuft, 144 s nach dem Entfernen |
+  | F5 | Gegenprobe zur Reihenfolge: Client ohne Sensenmann per Skript hart beendet (Timeout 10,5 s), Sensenmann erst 3 s nach dem Entfernen ausgelöst | 0 (noch kein Sensenmann) | läuft, 170 s beobachtet, Sensenmann steht beim Host |
 
 - **Offen.** Bestätigung auf zwei PCs über das Internet (Grund 4001). Der Absturz des Clients am Sensenmann selbst gehört zu
   `karte-nach-labyrinth-absturz`; solange dessen Wächter fehlt, verliert der Host den Client weiter, läuft aber selbst weiter.
