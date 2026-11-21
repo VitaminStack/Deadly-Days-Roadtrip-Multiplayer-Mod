@@ -47,6 +47,10 @@ struct Runtime
     std::optional<Game::DesyncCapture> Capture;
     Stability LocalStability;
     uint8_t Stable = 0;
+    // opt-desync-bearbeitung, nur Client: wegen eigener Bearbeitung zurueckgehaltene Felder. RawStable ist die Stabilitaet ohne
+    // diese Sperre; HeldMonitor zaehlt damit weiter, was ohne Sperre ein Alarm waere, nur fuer das Log.
+    uint8_t Held = 0, RawStable = 0, SentHeld = 0, SentRawStable = 0, HeldAlerts = 0;
+    Monitor HeldMonitor;
     Monitor HostMonitor;
     ReplyGate Gate;
     Packet Sent;
@@ -79,6 +83,7 @@ struct Runtime
         else if (Required && View.Comparable == Required && !View.Different) Text = "Desync: OK " + Fields(Required);
         else Text = "Desync: Abgleich; offen " + Fields(static_cast<uint8_t>((Required & ~View.Comparable) | View.Different));
         Text += "\nAusgenommen: " + Fields(Exclusions);
+        if (Held) Text += "\nBearbeitung offen, nicht gewertet: " + Fields(Held);
         Publish(std::move(Text), Now);
     }
 };
@@ -122,6 +127,7 @@ void TickDesync(std::span<const Net::ControlMessage> Messages)
         R.Capture.reset(); R.LocalStability = {}; R.Stable = 0; R.HostMonitor = {};
         R.RemoteRun = R.RemoteNonce = R.RemoteSequence = R.NextCapture = R.NextProbe = R.LastReply = 0;
         R.View = {}; R.LastAlerts = 0;
+        R.Held = R.RawStable = R.SentHeld = R.SentRawStable = R.HeldAlerts = 0; R.HeldMonitor = {};
         HostExclusions = Ignored;
         R.Gate.Bind(Peer, R.Run, R.Nonce, Active ? Context->StateGuid : 0);
     }
@@ -137,7 +143,11 @@ void TickDesync(std::span<const Net::ControlMessage> Messages)
         if (R.Capture && (R.Capture->Context.LocalWorld != World || R.Capture->Context.LocalState != State ||
             R.Capture->Context.StateGuid != Guid || R.Capture->Context.Day != Day)) R.Capture.reset();
         const auto Image = R.Capture ? R.Capture->Image : Sample{};
-        R.Stable = R.LocalStability.Update(Image, Now);
+        R.RawStable = R.LocalStability.Update(Image, Now);
+        // Waehrend einer eigenen Bearbeitung meldet der Client Inventar und Gegner nicht als stabil. Der Host vergleicht sie dann
+        // nicht und verwirft seine Bestaetigungen; nach der Bearbeitung zaehlt er wieder von vorn. Keine neue Nachricht.
+        R.Held = R.Capture ? R.Capture->Held : 0;
+        R.Stable = StableWhileEditing(R.RawStable, R.Held);
         R.HostMonitor.Invalidate(R.Stable);
         R.View.Comparable &= R.Stable; R.View.Different &= R.Stable; R.View.Alerts &= R.Stable;
     }
@@ -189,6 +199,15 @@ void TickDesync(std::span<const Net::ControlMessage> Messages)
             }
             R.View.Alerts = P->Alerts & R.View.Different;
             R.LastReply = Now;
+            // Was die Sperre verdeckt, bleibt im Log: ein bleibender Unterschied der Gegnerzahl, den die Bearbeitung nicht erklaert.
+            auto Raw = R.Sent;
+            Raw.Stable = R.SentRawStable;
+            const auto Hidden = R.HeldMonitor.Compare(*P, Raw, HeldIgnored(HostExclusions, R.SentHeld)).Alerts;
+            for (unsigned i = 0; i < Count; ++i)
+                if (Hidden & ~R.HeldAlerts & Bit(i))
+                    Core::Log::Info("Desync: {} in offener Bearbeitung nicht gemeldet, host={:016x} client={:016x}",
+                                    Game::Desync::Names[i], P->Image.Values[i], Raw.Image.Values[i]);
+            R.HeldAlerts = Hidden;
         }
     }
     if (Role == Game::NetRole::Client && Now >= R.NextProbe && !R.Gate.Waiting(Now))
@@ -198,6 +217,7 @@ void TickDesync(std::span<const Net::ControlMessage> Messages)
         if (Transport->SendControl(Peer, {R.Run, R.Nonce, R.Sequence, Probe, Encode(P)}))
         {
             R.Sent = P;
+            R.SentHeld = R.Held; R.SentRawStable = R.RawStable;
             R.Gate.Sent(R.Sequence, Now);
         }
     }
