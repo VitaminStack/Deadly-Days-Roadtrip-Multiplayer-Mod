@@ -529,7 +529,8 @@ Dauersound. Gemessen auf einem PC mit dem Spike-Zähler `!fx` aus `vfx-sound` (j
   minutenlang (3886 Starts in einer Minute), beim Host nicht. Aufrufkette: Blueprint-Thunk von `Loot` (`exe+57346B0`, ruft
   `Loot_Implementation` über das Interface) → `ScrapLootHook` → `ALootBase::Loot_Implementation` → Blueprint-Ereignis (`0x572F970`) →
   FMOD-Start.
-- **[Belegt, Disassembly]** `ALootBase::Loot_Implementation` ruft nach dem Blueprint-Ereignis die Rückgabe an den Pool. Beim Host
+- **[Belegt, Disassembly; am 21.11.2026 korrigiert, siehe [Loot-Aufnahme](#loot-aufnahme-beim-client-opt-loot-aufnahme-client)]**
+  `ALootBase::Loot_Implementation` ruft nach dem Blueprint-Ereignis die Rückgabe an den Pool. Beim Host
   verschwindet der Haufen damit, beim Client bleibt seine Kopie an der Figur hängen: Im Speicher lagen zwei `BP_ScrapLoot_C` des
   Clients fast auf der Position der Client-Figur, beim Host nicht. Der Blueprint ruft `Loot` darum jeden Takt erneut. Der Haufen fliegt
   dabei zur Figur, sein Ort ändert sich jeden Takt.
@@ -555,7 +556,7 @@ an der ersten Spielerfigur auf: fehlender Tank plus `n`), die Figuren standen st
 
 - **[Belegt, Disassembly] Derselbe Weg wie Schrott.** `FuelLoot.Loot`, `ItemLoot.Loot` (`0x59AF200`) und `ScrapLoot.Loot` springen alle in
   `ALootBase::Loot_Implementation` (`0x59AF3F0`): Claimer setzen, Blueprint-Ereignis `Client_PlaySound` (Aufruf `0x59AF417`, NetClient-RPC),
-  Rückgabe an den Pool. Der Fix aus `opt-levelup-sound` saß nur im Schrott-Hook, Benzin und Power-ups liefen ungebremst, Itemsäcke beim
+  Rückgabe an den Pool (korrigiert unter [Loot-Aufnahme](#loot-aufnahme-beim-client-opt-loot-aufnahme-client)). Der Fix aus `opt-levelup-sound` saß nur im Schrott-Hook, Benzin und Power-ups liefen ungebremst, Itemsäcke beim
   Client gar nicht (der Vergabe-Hook kehrte vorher zurück).
 - **[Belegt] Zwei Fehler beim Benzin**, Messung mit dem Einmal-Schutz an der Basis, aber noch ohne den zweiten Teil: 15 Kanister je Abwurf,
   Host 7, Client 23 `Collect_fuel`. Aufrufketten (`!fx stack Collect`): beim Client 15 über `exe+59AF41C` (lokales `Loot_Implementation`)
@@ -583,6 +584,70 @@ an der ersten Spielerfigur auf: fehlender Tank plus `n`), die Figuren standen st
   war schon abgebaut. Einmal in fünf Läufen mit vollem Tank, nicht nachgestellt. Absturzbericht nicht verschickt.
 - **Nicht geprüft:** Schrott (in einer direkt gestarteten Mission fiel keiner), Itemsäcke und Power-ups im Spiel (`DD_OpenAllLootSpots` brachte
   in so einer Mission keine Objekte), zwei PCs mit echtem Ping, gehört.
+
+#### Loot-Aufnahme beim Client (`opt-loot-aufnahme-client`)
+
+Gemeldet im [Live-Test vom 21.11.](#live-test-auf-zwei-pcs-am-21112026-livetest-2111): Schrott und Benzin aus einem gelooteten Auto nahm
+der Client scheinbar endlos auf. Untersucht am 21.11.2026, Build `26786272`: Logs beider Seiten aus dem Live-Test, Disassembly, Reflexion
+und Speicher beider Instanzen zur Laufzeit (nur gelesen), zwei Instanzen auf einem PC über die Lobby, Mod mit Spike, `-Godmode`, Profil
+`MGP_Mountains_Roadstops` über `DDCOOP_TEST_MAP_PROFILE`, dazu `-NetProfile Internet` (gemessen 60 ms je Richtung, 2 % Verlust). Keine
+Maus- oder Tastatureingabe, Ton der Spielprozesse aus.
+
+- **[Belegt, Log] Der Zähler allein ist nicht der Fehler.** „Wiederholungen ausgelassen“ zählt Aufrufe von `Loot`, die der Schutz aus
+  `opt-item-sound` stumm hält. Auffällig ist das Verhältnis je Objekt: rund 18 auf einem PC ohne Latenz, im Live-Test im Mittel 110 und
+  in zwei Minuten (Karte `MGP_Mountains_Roadstops`) über 300, also rund 200 Aufrufe je Sekunde. Der Host buchte in diesen Minuten normal
+  weiter, die Pausen der Airdrop-Panels erklären die Spitzen nicht (spätere, längere Pausen haben wenige Wiederholungen).
+- **[Belegt] Wer ruft auf.** Jede Spielerfigur hat einen `LootAttractor` (Radius 500), beim Client auch die Kopie der Figur des
+  Mitspielers. Er zieht die replizierte Kopie eines Loot-Objekts an und ruft `Loot`, sobald sie an der Figur ist. Beim Client nimmt das
+  die Kopie nicht weg; das tut erst das Wegnehmen des Hosts. Bis dahin liegt die Kopie an der Figur, ihr Ort springt jeden Takt um bis
+  zu 20 Einheiten und `Loot` läuft jeden Takt erneut (gemessen 16 Kanister, 299 Wiederholungen).
+- **[Belegt] Der Ort repliziert nach dem Spawn nicht.** Vermutlich ist `bReplicateMovement` aus (Actor-Flagbyte `0x60`). Der Host
+  streut und bewegt sein Objekt, der Client behält den Spawn-Ort: Kanister aus `DropRequiredFuel` lagen beim Host im Umkreis von 150 um
+  die Figur, beim Client alle auf dem Punkt der Figur; Schrott aus Gegnern rund 40 Einheiten versetzt; ein Power-up 110 bis 360, ein anderes
+  rund 900 Einheiten. Drei weit entfernte Kanister des Hosts gab es beim Client gar nicht.
+- **[Belegt] Folge: Der Client sammelt Kopien auf, die der Host noch nicht oder gar nicht hat.** Zwei Schrott-Kopien nur beim Client an
+  die Figur gesetzt (`!fx pull Scrap 2`, die Objekte des Hosts lagen über 1000 Einheiten entfernt): Die Kopien blieben über zwei Minuten
+  an der Figur, der Zähler stieg um 5070 und 7317 je Minute (zwei Objekte, 60 Bilder je Sekunde). Das ist das Bild aus dem Live-Test.
+  Auch ohne Versatz dauert es beim Host länger: Sein Objekt muss erst zur Figur fliegen (Wegnehmen von Schrott aus Gegnern im Mittel
+  0,86 s nach dem Aufsammeln beim Client, höchstens 0,94 s, Kanister 0,33 s).
+- **Vermutung, nicht belegt:** Beim Auto streut der Host die Objekte um die Lootstelle (`LootSpawnRadius` 300), der Client hat alle am
+  Spawn-Ort neben seiner Figur und sammelt sie sofort auf. Läuft die Figur weiter, fliegen die Objekte des Hosts hinterher oder bleiben
+  liegen, und die Kopien hängen so lange an der Client-Figur. Eine Lootstelle ließ sich auf einem PC ohne Eingaben nicht auslösen.
+- **[Belegt, Disassembly] Korrektur zu den Abschnitten oben.** `ALootBase::Loot_Implementation` (`0x59B2140`) enthält keine erkennbare
+  Rückgabe an den Pool: virtueller Aufruf Slot `+0x4E0` mit `Looter+0xA8`, Ereignis `Client_PlaySound`, dann ein Aufruf an einem Objekt
+  des GameState. Wo der Host das Objekt wegnimmt, ist offen. Belegt ist nur, dass die Kopie des Clients mit dem Objekt des Hosts
+  zerstört wird.
+- **Umsetzung** (`InventoryPatches.cpp`, Klasse `FinishedLoot` in `PatchPolicy.h`, mit Tests): Der Client beendet das Aufsammeln selbst,
+  nur in der Darstellung. Nach dem ersten `Loot` einer Kopie (Klang und Delegates laufen wie bisher einmal) versteckt er sie im nächsten
+  Takt, schaltet ihre Kollision ab und nimmt sie mit `LootAttractor.RemoveAttractedLoot` aus dem Anziehen. Nimmt der Host sein Objekt
+  weg, verschwindet die Kopie wie bisher. Bleibt das 6 s laufende Weltzeit aus, hat der Host das Objekt noch: Die Kopie wird einmal wieder gezeigt, ohne
+  Kollision, und nicht erneut versteckt. Gemerkt wird sie mit Platz und Serial im Objekt-Array, beim Weltwechsel wird die Liste ohne
+  Aufrufe geleert.
+- **Antworten zum Pfad:** Lokal bleiben Anziehen, Klang und jetzt auch das Ende des Aufsammelns. Geteilt wird nichts Neues, keine
+  Nachricht, keine `ModVersion`-Erhöhung. Es bucht weiter nur der Host (Schrott über `0x309`, Tank und Items repliziert), der Client
+  bucht nichts vor, also gibt es keine zweite Buchung. Das Verstecken ist die lokale Vorhersage; bestätigt wird sie durch das Wegnehmen
+  des Hosts, zurückgenommen durch das Wieder-Zeigen nach 6 s. Host und Einzelspieler unverändert.
+- **[Belegt, ein PC] Nachher**, mit 60 ms je Richtung. Die Vorher-Werte oben für Kanister stammen aus einer Sitzung ohne Netzprofil,
+  die für hängende Kopien aus einer mit demselben Profil.
+  - 18 Kanister (Stand vor der Uhr für laufende Weltzeit, sonst gleich): 18 lokal beendet, 18 Wiederholungen (eine je Objekt, der Takt
+    bis zum Verstecken; vorher rund 18 je Objekt), alle 18 vom Host weggenommen, im Mittel nach 325 ms, höchstens 359 ms.
+  - Endstand, ein Lauf: 10 Objekte lokal beendet (8 Schrotthaufen aus Gegnern, 2 nur beim Client an die Figur gesetzte Kopien), 21
+    Wiederholungen insgesamt. Die 8 nahm der Host weg, im Mittel nach 593 ms, höchstens 906 ms. Die 2 Kopien, die der Host nicht hat:
+    3 s nach dem Aufsammeln versteckt, 13 s danach wieder sichtbar, „2 nach 6000 ms wieder gezeigt“, danach keine weiteren Aufrufe;
+    vorher 5070 bis 7317 Wiederholungen je Minute.
+  - Pause: eine Kopie lokal beendet, 1 s später Rundenende mit angehaltener Weltzeit. Nach 20 s und beim Beenden der Sitzung (rund
+    30 s nach Beginn der Pause) war sie weiter versteckt (Hidden-Flag gelesen). Eine Logzeile mit den Zählern fiel nicht mehr in
+    diese Zeit. Die Frist zählt nur laufende Weltzeit (`WorldRunClock`).
+  - Kein `[ERROR]` im Mod-Log des Clients, keine Absturzberichte.
+- **Grenze.** Eine wieder gezeigte Kopie liegt dort, wo der Client sie aufgesammelt hat, nicht am Ort des Hosts, und der Client kann
+  sie nicht noch einmal aufsammeln. Sie verschwindet, sobald beim Host eine Figur das echte Objekt nimmt. Lehnt der Host ein Objekt
+  ab, das der Client lokal aufsammelt (etwa ein Power-up mit Sperrzeit), ist dessen Kopie beim Client 6 s unsichtbar. Der Zähler
+  „wieder gezeigt“ im Mod-Log zeigt im nächsten Test zu zweit, ob das vorkommt. Kommt es oft vor, braucht es einen Weg beim Host (er
+  sammelt für die Client-Figur ein oder der Ort repliziert); das wäre eine eigene Aufgabe.
+- **Nicht geprüft:** zwei PCs, eine echte Lootstelle (Auto), Itemsäcke und Power-ups mit dem neuen Pfad (im Lauf erschien kein
+  Power-up), das Bild nach Augenschein (gemessen sind Zähler, Flags und Orte). Risiko bei Power-ups: Nimmt der Host eines nicht durch
+  Zerstören weg, sondern versteckt es nur (`BlockAutoDestroyOnLoot` deutet auf Sonderfälle), zeigt der Client dessen Kopie nach 6 s
+  wieder.
 
 ### Blut beim Client (`opt-blut`)
 
@@ -2597,7 +2662,9 @@ wieder beigetreten.
   eben angelegte Objective nicht mehr findet (`S.Ours` wird 0). Das zweite `CreateAndStartObjective` mit `OnObjectiveStarted` an
   die Anzeigen stürzt ab. „Anzeigen 2“ trat nur hier auf (Kartenwechsel 0,8 s vorher), beim Hotjoin war es eine Anzeige ohne
   Absturz; vermutlich war eine Anzeige ein abgebautes Widget der alten Karte, `ScanObjects` prüft nur den Manager-Zeiger. Welche
-  Funktion `0xD8` liest, ist ohne Symbole nicht belegt. Neue Aufgabe `boss-karte-absturz`.
+  Funktion `0xD8` liest, ist ohne Symbole nicht belegt. Neue Aufgabe `boss-karte-absturz`. **Nachtrag 21.11.2026:** Der Absturz
+  kommt aus der Klassensuche beim zweiten Anlegen und ist behoben; warum es das zweite Anlegen gab, bleibt offen, siehe
+  [Absturz beim Betreten der Boss-Karte](#absturz-beim-betreten-der-boss-karte-boss-karte-absturz).
 - **[Belegt] Absturz des Clients in der MetaBase**, rund 4 Minuten nach dem Verbinden: `EXCEPTION_ACCESS_VIOLATION` beim Lesen von
   `0x40`, Stack `+5a1b79c`, `+5a1752b`, `+5500ddd`, `+5a0f3f3`, ohne Mod-Rahmen; im Log davor nur Dodges. Neue Aufgabe
   `opt-metabase-absturz`.
@@ -2920,6 +2987,7 @@ Neue Befunde:
   ausgelassen“, in der Spitze rund 12000 Wiederholungen je Minute. Der Schutz spielt den Ton je Objekt einmal, die Aufnahme selbst läuft
   mehrfach. Der Schrott-Stand folgte 269-mal dem Host in Schritten von 1 bis 2, eine Doppelbuchung ist nicht belegt. Der Benzin-Stand
   wurde nicht verglichen, der Host loggt dazu nichts.
+  Ursache und Fix unter [Loot-Aufnahme beim Client](#loot-aufnahme-beim-client-opt-loot-aufnahme-client).
 - **Fehlalarm des Desync-Melders in offenen Bearbeitungen (`opt-desync-bearbeitung`).** 39 Meldungen „ABWEICHUNG“ beim Client und 38
   beim Host (Inventar, Gegner oder beides), beim Client jeweils während eines offenen Airdrop-Panels mit lokaler, noch unbestätigter
   Aufwertung und angehaltener Weltzeit. Nach jedem Bestätigen übernahm der Host den Edit. Die Meldungen des Hosts sind den Bearbeitungen
@@ -3313,6 +3381,32 @@ Sounds selbst, die Zahlen sind also das, was Host und Client hören würden. Je 
 - **Nebenbefund.** In einem Lauf stürzten Client und Host ohne Spike-Adressen im Stapel ab (Client `exe+15C0407` nach 757 s, Host
   `exe+5899663` 10 Minuten später, während er auf den Client wartete). Nicht nachgestellt, Ursache offen. Zwei frühere Abstürze kamen
   vom Zähler selbst (Pfad einer schon entladenen Sound-Beschreibung gelesen) und sind behoben.
+
+#### Landesound des Airdrops beim Client (`opt-airdrop-sound`)
+
+Untersucht am 21.11.2026, Build `26786272`, ein PC, `Start-Session.ps1 -Build -Mod -Tunnel Lobby -Godmode`, echter Run an Tag 1 über
+die Routenkarte ohne Maus und Tastatur, Kisten über `DD_CheatAddExperience` (in einem echten Run landet je Stufe eine Kiste, in einer
+direkt geladenen Karte nicht). Ton der Spielprozesse aus, **gezählt, nicht gehört** (`!fx`, `!fx events BP_Airdrop_Lootable_C`).
+
+- **[Belegt] Wer den Sound startet.** `PlayEventAtLocation <- BP_Airdrop_Lootable_C.ExecuteUbergraph_BP_Airdrop_Lootable`, also der
+  Graph der Kiste beim Host, nach `StartFallDown` in einer verzögerten Fortsetzung. Gemessen mit Proben alle 20 ms: Die Kiste
+  erscheint (schon am Boden, der Fall ist eine Skelettanimation), **2,5 s später** startet `PlaceAirdrop`, weitere 2,0 s später wird
+  sie bereit (`LootableReady`). Fünf Kisten in zwei Schüben, jedes Mal dieselben Abstände.
+- **[Belegt] Warum der Client ihn nicht hört.** Die Kiste repliziert von sich aus nicht; die Mod schaltet die Replikation beim Host
+  bis zu 1 s nach dem Erscheinen ein (`PrepareAirdropReplication`). Der unzuverlässige Multicast `StartFallDown` ist dann schon
+  gelaufen, der Graph der Kopie beim Client läuft nie: Dort kommen an der Kiste nur `OnRep_ReplicateMovement` und die Aufrufe der Mod
+  an. `Airdrop_beep` (C++, an der Figur) und `airdrop_openCrate` laufen auf beiden Seiten. Vorher in 60 s: `PlaceAirdrop` 2 / 0.
+- **Umsetzung, rein lokal, ohne neue Nachricht** (`src/Game/AirdropAdapter.cpp`, Regel `AirdropLandingSound` in `AirdropPolicy.h`
+  mit Tests): Der Host schickt im Fortschrittsbild schon je Kiste die Position ihrer Fallanimation und ob sie bereit ist
+  (`AirdropView` aus `airdrop-auswahl`). Der Client spielt `PlaceAirdrop` an seiner Kopie genau einmal, sobald die Position 2,5 s
+  erreicht. Eine Kiste, die er zum ersten Mal schon gelandet oder bereit sieht (Beitritt, Reise, spät repliziert), bleibt stumm.
+  Kommt keine Animationsposition an, spielt der Sound ersatzweise beim Bereitwerden. Den Graphen der Kiste führt der Client
+  weiterhin nicht aus (er enthält auch Spielwirkungen). Die 2,5 s sind gemessen, nicht aus dem Blueprint gelesen.
+- **[Belegt, ein PC] Nachher.** Gemessen am 21.11.2026 mit einem lokalen Sammelstand aus den drei Zweigen `opt-gegner-sound`, `opt-airdrop-sound` und `opt-bedrohung-sound` (nicht gepusht), ein PC, Host und Client über den Spike, echter Run an Tag 1 ohne Maus und Tastatur, Ton der Spielprozesse aus, **gezählt, nicht gehört**: in zwei Missionen `PlaceAirdrop` 2 / 2 und 4 / 4 (vorher 2 / 0). Der Client
+  startete den Sound bei Animationsposition 2,50 bis 2,71 s (sechs Kisten, alle über die Animation, keine über den Ersatzweg),
+  `Airdrop_beep` blieb gleich (2 / 2, 4 / 4). Keine Absturzberichte.
+- **Nicht geprüft:** Beitritt oder Reise mit liegenden Kisten im Spiel (nur als Unit-Test), der Ersatzweg ohne
+  Animationsposition, zwei PCs mit echtem Ping, gehört.
 
 #### Waffensounds beim Client (`opt-waffen-sound`)
 
@@ -3744,6 +3838,8 @@ Objectives), Bilder per `Game-Input.ps1 shot`.
   die Klasse nur im Paket `/Game/DDSurvivors/Blueprints/Objectives/DD_BaseBossObjective`; danach liefen auf `26669225` vier und auf
   `26495302` drei Leisten nacheinander ohne Absturz. **[Vermutung]** Das ist auch die Ursache von `boss-karte-absturz` (zweites „lege
   Objective an“ ohne „lokal angelegt“); dessen Abnahme (dreimal Boss-Karte über den normalen Kartenwechsel) ist nicht geprüft.
+  **Nachtrag 21.11.2026:** per Gegenprobe auf `26786272` belegt und die Abnahme gemessen, siehe
+  [Absturz beim Betreten der Boss-Karte](#absturz-beim-betreten-der-boss-karte-boss-karte-absturz).
 - **[Belegt] Ein früheres eigenes Objective sperrte jede weitere Leiste.** Der Adapter merkte sich nur das zuletzt entfernte Objective;
   das vorletzte galt als „fremd“, und `TickBossBar` brach still ab (gemessen: nach SpikeBoss und Ballerina keine Leiste mehr für
   Frankenstein, Lazy und BlobBall). Jetzt merkt er sich alle eigenen Objectives, auch über das Zurücksetzen bei Reisen hinweg.
@@ -3778,6 +3874,67 @@ Objectives), Bilder per `Game-Input.ps1 shot`.
   aus dem Client-Log festhalten.
 - **Nicht geprüft:** zwei PCs, der Boss über die Routenkarte, Join mitten im Kampf, Tod von HQ-Endboss, LazyBoss und BlobBall mit dem
   letzten Stand, Tod der Ballerina auf `26495302`, eine Boss-Leiste nach einer Reise in eine zweite Karte.
+
+### Absturz beim Betreten der Boss-Karte (`boss-karte-absturz`)
+
+Stand 21.11.2026, Build `26786272`, ein PC mit zwei Instanzen (Lobby über den Tunnel der Mod, Godmode), `main` `a2395e2`. Auslöser:
+der Absturz des Clients im [Live-Test vom 13.11. abends](#live-test-auf-zwei-pcs-am-13112026-abends-livetest-1311-abend). Kartenprofil
+`MGP_Burger_Boss_Nature` per `DDCOOP_TEST_MAP_PROFILE`, Run über die echte Route ohne Maus und Tastatur, siehe
+[Gezielt in eine Karte](TESTING.md#gezielt-in-eine-karte). Jeder Tag lädt so die Boss-Karte, der Boss (`BP_SpikeBoss_C`, 80.000 HP)
+repliziert rund eine Sekunde nach der Karte. Werte mit `tools/spike/boss_hp.py`, Bilder per `Game-Input.ps1 shot`. Am Code der Mod
+ändert diese Aufgabe nichts.
+
+- **[Belegt] Ursache des Absturzes ist die Klassensuche, die [`opt-endboss-leiste`](#boss-leiste-aller-bosse-beim-client-opt-endboss-leiste)
+  behoben hat.** Gegenprobe auf `26786272`: derselbe Ablauf mit der alten Zeile `FindObject("DD_BaseBossObjective_C", "")` (nur lokal
+  gebaut, nicht im Repo). Erster Eintritt mit Leiste, beim zweiten Eintritt „Boss erkannt …, lege Objective an“ ohne „lokal angelegt“,
+  dann `EXCEPTION_ACCESS_VIOLATION` beim Lesen von `0xD8`, Stack `+163b33f`, `+58e0221`, `+56bad7b`, `+1527c28`, `+160c55b`, darüber
+  Rahmen aus `DDCoop.dll`. Das ist das Bild vom 13.11. (`26495302`: `+163b33f`, `+58de4b1`, `+56ba4bb`, `+1527c28`, `+160c55b`); die
+  mittleren Adressen verschieben sich je Build, siehe [Offsets](OFFSETS.md#boss-leiste-aller-bosse-opt-endboss-leiste). Der Absturz
+  braucht nur ein zweites Anlegen im selben Prozess: Das erste Objective bleibt als Objekt liegen, die Suche ohne Paket findet es statt
+  der Klasse.
+- **[Belegt] Abnahme mit dem Stand von `main`:** Der Client betrat die Boss-Karte dreimal über den normalen Kartenwechsel im selben
+  Prozess (MetaBase → Boss-Karte, dann zweimal Mission → Rundenende → Routenkarte → Boss-Karte). Je Eintritt genau eine Zeile „lege
+  Objective an“ und eine „lokal angelegt (Maximum 80000, Anzeigen 2)“, 1,0 bis 1,6 s nach dem Weltwechsel, dazu „erste Werte 80000 von
+  80000“. Im ganzen Log drei von drei, kein Absturzbericht, beide Prozesse liefen weiter. Die Leiste zeigte „Besiege den Boss!“ mit
+  80.000/80.000 und nach `!shop trigger` und `!bossdmg 30000` 50.000/80.000, Boss-HP bei Host und Client gleich (geprüft in den
+  Eintritten 1 und 2, Bild im Eintritt 3 vor dem Schaden). Vor dem zweiten und dritten Anlegen steht „Boss weg, Leiste entfernt“ für den
+  Boss der alten Karte.
+- **[Belegt] Dasselbe mit simulierter Latenz** (`-NetProfile Internet`, 120 ms ± 30, 2 % Verlust): drei Eintritte in einem Prozess,
+  drei von drei Anlagen, 1,1 bis 1,9 s nach dem Weltwechsel, Leiste nach dem Testschaden in allen drei Eintritten 50.000/80.000, kein
+  Absturz.
+- **[Belegt] „Anzeigen 2“ ist beim Kartenwechsel der Normalfall,** auch aus der MetaBase: In allen sieben Eintritten (drei, drei mit
+  Latenz, einer in der Gegenprobe) meldete der Adapter zwei Anzeigen mit Objective-Manager. Minuten nach dem Eintritt hielt nur noch
+  eine `WI_ObjectiveDisplay_C` einen Manager (Outer `WP_UI_C` an der GameInstance); die einzige weitere Instanz war die Vorlage im
+  `WidgetTree` der Klasse `WP_UI_C`, ohne Manager. **[Folgerung, zum Zeitpunkt des Anlegens nicht gelesen]** Die zweite Anzeige ist
+  die der alten Welt, die kurz nach der Reise noch im Objekt-Array steht; der Adapter meldet das neue Objective dann auch ihr. Das
+  blieb in allen sieben Eintritten ohne Folgen.
+- **[Belegt] Die Objectives des Clients bleiben liegen.** `DDObjectiveSubsystem` gibt es einmal an der GameInstance, jedes angelegte
+  `DD_BaseBossObjective_C` hängt daran und stand nach zwei weiteren Reisen noch im Objekt-Array (drei Objectives nach drei Eintritten,
+  auch beim Host). Der Adapter merkt sie sich als eigene und legt je Boss ein neues an.
+- **Offen: warum am 13.11. schon eine Sekunde nach dem ersten Anlegen ein zweites kam.** Im damaligen Code geht das nur, wenn die Suche
+  das eben angelegte Objective nicht mehr findet. Das ließ sich nicht nachstellen: Hier blieb jedes Objective erhalten, mit und ohne
+  Latenz. **[Vermutung]** Über das Internet lief am 13.11. etwas in anderer Reihenfolge ab (etwa ein Aufräumen des Subsystems beim
+  Missionsstart nach dem Anlegen). Mit dem heutigen Code endet auch dieser Fall nicht im Absturz, sondern mit einem zweiten Objective
+  und zwei Zeilen „lokal angelegt“; gemessen ist das nur mittelbar, über das zweite Anlegen nach jeder Reise.
+- **Nebenbefund Testwerkzeug:** Liefen mehrere Worktrees mit `Start-Session.ps1 -Mod -Wait` hintereinander, startete die eigene
+  Sitzung dreimal ohne Mod: `DDCoop.dll` war in keiner der beiden Instanzen geladen, im Spielordner lag nur noch `DDCoop\logs`, das
+  Skript brach mit „Testkanal … antwortet nicht“ ab. Ein erneuter Start half jeweils. Umgekehrt fand das eigene `Stop-Session.ps1`
+  beim Entfernen der Mod schon das Spiel der nächsten Sitzung vor („The game is running“). **[Vermutung]** `Stop-Session.ps1` beendet
+  die Instanzen, wartet sechs Sekunden und entfernt erst dann die Mod; in der Zeit gilt die Sperre als frei, und das Entfernen trifft
+  die Mod der nächsten Sitzung. Der Ablauf ist nicht nachgemessen.
+  - **[Belegt, ohne Spiel]** Der Ablauf steht so im Skript, und `tests/test_session_lock.py` stellt ihn mit einer Kopie der Skripte und
+    einer Attrappe für `Deploy-Mod.ps1` nach: Mit dem alten `Stop-Session.ps1` galt die Sperre beim Entfernen der Mod schon als frei
+    (`Active: False`), und es entfernte die Mod auch dann, wenn eine fremde Sitzung die Sperre hielt. Eine wartende Sitzung fragt alle
+    fünf Sekunden nach, bekommt die Sperre also innerhalb der sechs Sekunden; ob ihr Bauen und Installieren auch noch davor fertig
+    wird, hängt von der Bauzeit ab.
+  - **Behoben:** `Stop-Session.ps1` setzt die Sperre vor dem Beenden der Instanzen auf den Zustand „Sitzung startet“ mit dem eigenen
+    Prozess (`Enter-StopLock` in `Common.ps1`) und gibt sie erst nach dem Entfernen frei. Hält eine fremde Sitzung die Sperre, bleibt
+    die Mod liegen und gehört ihr. Ältere Skripte in anderen Worktrees achten diesen Zustand schon.
+  - **[Folgerung]** Dass genau dieser Wettlauf die drei Starts ohne Mod verursacht hat, ist nicht gemessen. **Nicht geprüft:** eine
+    echte Übergabe zwischen zwei Worktrees mit Spiel. Der Schutz wirkt erst, wenn der Worktree der endenden Sitzung den Stand hat.
+- **Nicht geprüft:** zwei PCs und echtes Internet, ein Run über acht Tage bis zum echten Boss-Knoten (hier Tag 1 bis 3 mit
+  Testschalter), andere Bosse als der SpikeBoss und die Karten `MGP_Burger_Boss_City` und `MGP_HQ8_Boss`, Bosstod und Sieg, ein
+  Wiederbeitritt in die Boss-Karte, Spielton.
 
 ### Host-Absturz beim Rundenstart (`host-absturz-start`)
 

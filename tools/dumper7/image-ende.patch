@@ -1,0 +1,40 @@
+diff --git a/Dumper/Platform/Private/PlatformWindows.cpp b/Dumper/Platform/Private/PlatformWindows.cpp
+index 2a232a3..823213c 100644
+--- a/Dumper/Platform/Private/PlatformWindows.cpp
++++ b/Dumper/Platform/Private/PlatformWindows.cpp
+@@ -333,2 +333,17 @@ namespace
+ 	}
++
++	/*
++	* Checks whether both the first and the last byte of a range are readable. That covers the whole range as long as it is
++	* smaller than a page. Without the check on the last byte, a pointer into the last bytes of the image passes and the
++	* following string comparison reads beyond the end of the image.
++	*/
++	bool IsRangeReadable(const uintptr_t Address, const size_t NumBytes)
++	{
++		auto IsReadable = [](const uintptr_t Addr) -> bool
++		{
++			return PlatformWindows::IsAddressInProcessRange(Addr) && (IsInAnySection(Addr, IMAGE_SCN_MEM_READ) || !PlatformWindows::IsBadReadPtr(Addr));
++		};
++
++		return NumBytes > 0 && IsReadable(Address) && IsReadable(Address + NumBytes - 1);
++	}
+ }
+@@ -805,9 +820,8 @@ inline void* PlatformWindows::FindStringInRange(const CharType* RefStr, const ui
+ 
+-			if (!IsAddressInProcessRange(StrPtr))
+-				continue;
++			// The comparison below reads up to RefStrLen characters, and the pointer check afterwards reads 8 bytes.
++			const size_t RefStrSizeBytes = static_cast<size_t>(RefStrLen) * sizeof(CharType);
+ 
+-			if (!IsInAnySection(StrPtr, IMAGE_SCN_MEM_READ) && IsBadReadPtr(StrPtr))
++			if (!IsRangeReadable(StrPtr, RefStrSizeBytes > sizeof(void*) ? RefStrSizeBytes : sizeof(void*)))
+ 				continue;
+ 
+-
+ 			if (StrnCmpHelper(RefStr, reinterpret_cast<const CharType*>(StrPtr), RefStrLen))
+@@ -819,3 +833,3 @@ inline void* PlatformWindows::FindStringInRange(const CharType* RefStr, const ui
+ 
+-				if (!IsAddressInProcessRange(StrPtrContentFirst8Bytes))
++				if (!IsRangeReadable(reinterpret_cast<uintptr_t>(StrPtrContentFirst8Bytes), RefStrSizeBytes))
+ 					continue;

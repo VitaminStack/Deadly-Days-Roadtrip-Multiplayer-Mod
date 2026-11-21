@@ -7,6 +7,8 @@
 #include <set>
 #include "Core/Dispatcher.h"
 #include "Core/Log.h"
+#include "Game/AirdropPolicy.h"
+#include "Game/FmodSound.h"
 #include "Game/Memory.h"
 #include "Game/NetworkObjects.h"
 #include "Game/Objects.h"
@@ -61,6 +63,25 @@ bool SingleAnimation(uintptr_t Mesh)
 {
     uint8_t Mode = 255;
     return Call(Mesh, "SkeletalMeshComponent", "GetAnimationMode", &Mode) && Mode == 1;
+}
+
+// opt-airdrop-sound: Der Sound steht als Literal im Graphen von BP_Airdrop_Lootable_C, darum über seinen Pfad.
+constexpr std::string_view LandingSoundPath = "/Game/FMOD/Events/SFX/Environment_FX/PlaceAirdrop.PlaceAirdrop";
+
+void PlayLandingSound(uintptr_t Crate, const AirdropView& Value)
+{
+    static Objects::Ref Event;
+    static unsigned Played = 0, Silent = 0;
+    if (!Objects::IsLive(Event))
+    {
+        const uintptr_t Loaded = Objects::LoadAsset(LandingSoundPath);
+        Event = Loaded && Objects::IsA(Loaded, "FMODEvent") ? Objects::RefTo(Loaded) : Objects::Ref{};
+    }
+    const bool Ok = Event.Object && FmodSound::PlayAtActor(Crate, Event.Object);
+    ++(Ok ? Played : Silent);
+    Core::Log::Info("Airdrop-Landesound: Client {} (Animation {}, Position {:.2f}, bereit {}), bisher gespielt {}, ohne Sound {}",
+                    Ok ? "spielt PlaceAirdrop lokal" : "konnte PlaceAirdrop nicht starten", Value.HasAnimation, Value.Position,
+                    Value.Ready, Played, Silent);
 }
 }
 
@@ -139,9 +160,11 @@ unsigned ShowAirdropViews(const std::vector<AirdropView>& Values, uint64_t Local
         return 0;
     static uint64_t Generation = 0;
     static std::set<uint64_t> Controlled;
+    static std::map<uint64_t, AirdropLanding> Landings;
     if (Generation != LocalGeneration)
     {
         Controlled.clear();
+        Landings.clear();
         Generation = LocalGeneration;
     }
     std::set<uint64_t> Present;
@@ -189,6 +212,9 @@ unsigned ShowAirdropViews(const std::vector<AirdropView>& Values, uint64_t Local
                 struct Params { float Position; bool FireNotifies = false; uint8_t Pad[3]{}; } Position{Value.Position};
                 Call(Mesh, "SkeletalMeshComponent", "SetPosition", &Position); // Keine Animation-Notifies nachspielen.
             }
+            // opt-airdrop-sound: erst nach dem Abgleich, damit die Kopie am Ort der Kiste steht und sichtbar ist.
+            if (AirdropLandingSound(Landings[Value.Guid], Value.Ready, Value.HasAnimation, Value.Position) && !Value.Hidden)
+                PlayLandingSound(Entry.Object, Value);
             ++Shown;
             break;
         }
