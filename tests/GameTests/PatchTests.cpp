@@ -131,6 +131,42 @@ TEST_CASE("Loot: nimmt der Host das Objekt nicht, zeigt der Client die Kopie ein
     CHECK(Loot.Stat().Removed == 0); // wieder gezeigte zählen nicht als weggenommen
 }
 
+TEST_CASE("Loot: bei stehender Weltzeit läuft die Frist nicht ab")
+{
+    WorldRunClock Clock;
+    FinishedLoot<int> Loot;
+    int Shown = 0;
+    const auto Tick = [&](uint64_t Now, bool Paused)
+    { Loot.Tick(Clock.Advance(Now, Paused), [](int) { return true; }, [](int, int) {}, [&](int) { ++Shown; }); };
+    Tick(1000, false);
+    CHECK(Loot.Add(0x1000, 1, 2, Clock.Now(), [](int) { return true; }));
+    Tick(1016, false); // versteckt
+    // Airdrop-Panel 30 s offen: Der Host kann nichts wegnehmen, die Kopie bleibt versteckt.
+    for (uint64_t Now = 1032; Now < 31000; Now += 16)
+        Tick(Now, true);
+    CHECK(Shown == 0);
+    // Danach zählt wieder jede laufende Millisekunde bis zur Frist.
+    uint64_t Now = 31000;
+    for (; Clock.Now() < 16 + FinishedLoot<int>::RestoreMs - 16; Now += 16)
+        Tick(Now, false);
+    CHECK(Shown == 0);
+    Tick(Now, false);
+    Tick(Now + 16, false);
+    CHECK(Shown == 1);
+}
+
+TEST_CASE("Loot: Uhr der laufenden Weltzeit zählt Hänger nur begrenzt")
+{
+    WorldRunClock Clock;
+    CHECK(Clock.Advance(5000, false) == 0); // erster Aufruf setzt nur den Anfang
+    CHECK(Clock.Advance(5016, false) == 16);
+    CHECK(Clock.Advance(9000, true) == 16);  // Pause zählt nicht
+    CHECK(Clock.Advance(9016, false) == 32); // Schritt nach der Pause zählt normal
+    CHECK(Clock.Advance(60000, false) == 32 + WorldRunClock::MaxStepMs); // Ladebild oder Hänger
+    CHECK(Clock.Advance(59000, false) == 32 + WorldRunClock::MaxStepMs); // Zeit läuft nie zurück
+    CHECK(Clock.Now() == 32 + WorldRunClock::MaxStepMs);
+}
+
 TEST_CASE("Loot: neu vergebene Adresse zählt als neues Objekt, Weltwechsel ruft nichts mehr auf")
 {
     FinishedLoot<int> Loot;

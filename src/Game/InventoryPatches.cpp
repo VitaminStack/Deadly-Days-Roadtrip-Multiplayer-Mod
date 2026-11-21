@@ -14,6 +14,7 @@
 #include "Game/Objects.h"
 #include "Game/Offsets.h"
 #include "Game/PatchRuntime.h"
+#include "Game/PauseAdapter.h"
 
 namespace Game::Patches
 {
@@ -217,6 +218,7 @@ bool InLocalLoot = false;
 // opt-loot-aufnahme-client: Kopien, deren Aufsammeln der Client lokal beendet hat (FinishedLoot in PatchPolicy.h). Die Aufrufe am
 // Objekt laufen erst im nächsten Takt (TickLootSoundImpl), nicht im Hook: Der Attraktor geht dort gerade seine Liste durch.
 FinishedLoot<Objects::Ref> ClientFinished;
+WorldRunClock LootClock;
 
 void CallBool(uintptr_t Object, uintptr_t Function, bool Value)
 {
@@ -271,7 +273,7 @@ void __fastcall LootBaseHook(uintptr_t Interface, uintptr_t Looter)
     // Klang und Delegates sind gelaufen; die Kopie verschwindet im nächsten Takt, statt bis zum Wegnehmen des Hosts an der Figur
     // zu hängen. Looter ist der ULootAttractor.
     if (const Objects::Ref Loot = Objects::RefTo(Actor); Loot.Object)
-        ClientFinished.Add(Actor, Loot, Objects::RefTo(Looter), GetTickCount64(), [&](const Objects::Ref& Known)
+        ClientFinished.Add(Actor, Loot, Objects::RefTo(Looter), LootClock.Now(), [&](const Objects::Ref& Known)
                            { return Known.Index == Loot.Index && Known.Serial == Loot.Serial && Objects::IsLive(Known); });
 }
 
@@ -335,9 +337,12 @@ void TickLootSoundImpl(NetRole Role)
         ClientFinished.Clear();
     }
     const ULONGLONG Now = GetTickCount64();
+    // Steht die Weltzeit (Airdrop-Panel, Rundenende), nimmt der Host nichts weg; die Frist läuft dann nicht.
+    const auto Time = Pause::ReadWorldTime();
+    const uint64_t RunNow = LootClock.Advance(Now, !Time || Time->Pauser || Time->Dilation < 0.01f);
     if (Role == NetRole::Client)
         ClientFinished.Tick(
-            Now, [](const Objects::Ref& Loot) { return Objects::IsLive(Loot); }, &HideFinishedLoot, &ShowFinishedLoot);
+            RunNow, [](const Objects::Ref& Loot) { return Objects::IsLive(Loot); }, &HideFinishedLoot, &ShowFinishedLoot);
     else
         ClientFinished.Clear();
     static ULONGLONG NextResolve = 0;
@@ -349,14 +354,14 @@ void TickLootSoundImpl(NetRole Role)
     if (Now < NextSummary)
         return;
     NextSummary = Now + 60000;
-    if (LootCount.Sum() == Logged)
+    if (LootCount.Sum() + ClientFinished.Events() == Logged)
         return;
-    Logged = LootCount.Sum();
+    Logged = LootCount.Sum() + ClientFinished.Events();
     Core::Log::Info("Loot beim Client: {} Objekte je einmal gespielt, {} Wiederholungen ausgelassen, Client_PlaySound des Hosts {} "
                     "empfangen, davon {} doppelt ausgelassen",
                     LootCount.Played, LootCount.Repeats, LootCount.Rpc, LootCount.RpcDouble);
     const auto& Done = ClientFinished.Stat();
-    Core::Log::Info("Loot beim Client: {} lokal beendet, {} danach vom Host weggenommen (im Mittel {} ms, höchstens {} ms), {} nach {} ms "
+    Core::Log::Info("Loot beim Client: {} lokal beendet, {} danach vom Host weggenommen (im Mittel {} ms, höchstens {} ms laufende Weltzeit), {} nach {} ms "
                     "wieder gezeigt, {} ohne Platz, {} offen",
                     Done.Finished, Done.Removed, Done.Removed ? Done.WaitSumMs / Done.Removed : 0, Done.WaitMaxMs, Done.Restored,
                     FinishedLoot<Objects::Ref>::RestoreMs, Done.Refused, ClientFinished.Size());
