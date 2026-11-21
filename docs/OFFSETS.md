@@ -257,54 +257,6 @@ SizeOfImage `0x0B74A000`, `.text` gleich groß (`0x827C000`). Die Portierung der
   `Signaturen: 106 Adressen geprüft`, `Patches: 54 gesetzt`, `Spiel-Build 26495302`, beide mit 2 Spielern in `DDDynamic_Map`, kein `[ERROR]`,
   kein Absturz, auch nach dem SDK-Dump im Host. Dreimal gelaufen, zuletzt mit dem Endstand dieses Branches.
 
-### Dumper-7 liest hinter das Image-Ende (`dumper7-image-ende`)
-
-Stand 21.11.2026. Der Absturz des Dumpers auf `26669225` (siehe oben, bisher **[Vermutung]**) ist jetzt **belegt** und behoben.
-
-- **Ursache:** `PlatformWindows::FindStringInRange` liest jede Bytefolge `48 8D` / `4C 8D` in `.text` als `lea`, rechnet das Ziel aus
-  und prüft nur dessen **erstes** Byte (`IsAddressInProcessRange`, lesbare Sektion oder `IsBadReadPtr`). Danach vergleicht `wcsncmp` ab
-  dort. In der Exe von `26669225` zeigt eine solche Bytefolge bei RVA `0x6E757B8` (mitten in einem anderen Befehl) auf `0xB749FFF`, das
-  letzte Byte des Images (SizeOfImage `0xB74A000`). Schon das erste 2-Byte-Zeichen reicht damit ein Byte über das Image hinaus.
-  Jede Suche, die diese Stelle erreicht, bevor sie einen Treffer hat, stürzt ab, wenn die Seite dahinter frei ist.
-- **Zählung über die Exes** (alle `lea`-Kandidaten in ausführbaren Sektionen mit Ziel im Image, je rund 1,19 Millionen): Ziel in den
-  letzten `0x41` Byte des Images hat nur `26669225` (genau der eine Kandidat). `26187885`, `26495302` und `26786272` haben keinen. Das
-  erklärt, warum der Absturz nur auf `26669225` auftrat, und heißt: **Auf `26786272` trifft der Fehler den unveränderten Dumper nicht.**
-  Er kann mit jedem neuen Build wiederkommen.
-- **Fix:** Vor dem Vergleich prüft die neue Hilfsfunktion `IsRangeReadable` das erste **und** das letzte Byte des gelesenen Bereichs
-  (Länge der gesuchten Zeichenkette samt Abschluss, mindestens 8 Byte für die Zeigerprüfung `bCheckIfLeaIsStrPtr`); dasselbe für den
-  Zeiger, den diese Variante danach liest. Der 32-Bit-Zweig (`push`) ist nicht angefasst. Der Fix liegt als
-  [`tools/dumper7/image-ende.patch`](../tools/dumper7/image-ende.patch) im Repo; `Build-Dumper7.ps1` wendet ihn auf seine Baukopie an,
-  solange der Fork ihn nicht enthält. **Das Submodul zeigt unverändert auf `2570b5b`**, in den Fork ist nichts gepusht.
-- **Nachweis ohne Spiel:** Ein kleines Testprogramm (nicht im Repo) blendet die Exe nur als Image ein (`LoadLibraryEx` mit
-  `DONT_RESOLVE_DLL_REFERENCES`, kein Code der Exe läuft) und ruft `FindByStringInAllSections` aus dem Quelltext des Dumpers auf, einmal
-  aus dem Stand `2570b5b`, einmal mit Patch:
-
-  | Exe | `2570b5b` | mit Patch |
-  |---|---|---|
-  | `26495302` | `L"Accessed None"` → `0x160C0F2`, `L"ByteProperty"` → `0x1442B61`; `L" Bone: "` und `L"Failed to find function %s in %s"` ohne Treffer, kein Fehler | dieselben Treffer, kein Fehler |
-  | `26669225` | dieselben beiden Treffer; die drei Suchen ohne frühen Treffer enden mit **Zugriffsfehler beim Lesen von Image+`0xB74A000`** (erstes Byte hinter dem Image) | dieselben Treffer, die drei Suchen laufen durch, kein Fehler |
-  | `26786272` | dieselben Treffer, kein Fehler | dieselben Treffer, kein Fehler |
-
-  Die Fehleradresse passt zum Absturzbericht vom 16.11. (Seitenanfang `…A000` direkt hinter dem Image). Im Spiel lag der Absturz in der
-  Suche nach `ByteProperty` für GNames: `FindFNameGetNamesOrGNames_Windows` setzt hinter jedem Treffer neu an, bis einer das gesuchte
-  Aufrufmuster hat. `.text` enthält drei Verweise auf `L"ByteProperty"` (`0x1442B61`, `0x14B921F`, `0x6006A90`), alle vor `0x6E757B8`;
-  passt keiner, läuft die Suche über die Stelle. **[Vermutung]** Genau das war am 16.11. der Fall; nachgestellt ist nur die Suche selbst.
-- **Kosten:** Ein voller Suchlauf über `.text` ohne Treffer dauert im Testprogramm 2,5 s statt 1,5 s. Der frühere lokale Fix (zweites
-  `IsBadReadPtr`, also `VirtualQuery` je Kandidat) brauchte für den ganzen Dump rund zehn Minuten.
-- **Spieltest 21.11.2026** (ein PC, eingefrorene Kopie `26786272`, `Start-Session.ps1 -Build -Mod -Tunnel Lobby -Map
-  /Game/Maps/DDDynamic_Map`, ohne echte Eingaben): `Build-Dumper7.ps1` ohne lokale Änderung gebaut (Submodul `2570b5b` plus Patch,
-  15 s), DLL per `inject.py` in den Host geladen, beide Instanzen mit 2 Spielern in der Mission. Dumper nach 6 s wieder entladen,
-  2.504 Dateien (die SDK-Dateien entstanden in rund 4 s), Host und Client liefen weiter, `Get-Status.ps1`: keine Abstürze. Gegen das
-  SDK desselben Builds vom 20.11. (früherer lokaler Fix, rund zehn Minuten): gleiche Dateizahl; `Basic.hpp` (GObjects `0x0AA6FC80`,
-  GNames `0x0A9A1C40`, GWorld `0x0AAF2870`, ProcessEvent `0x0160C220`), `Engine_classes.hpp` und `DDSurvivors_classes.hpp` bytegleich.
-  119 Dateien unterscheiden sich, in der Stichprobe Blueprint-Dateien; nicht einzeln ausgewertet. **Nicht geprüft:** der unveränderte
-  Stand `2570b5b` im Spiel auf `26786272` (keine Gegenprobe; laut Zählung oben dort ohnehin nicht betroffen).
-- **Offen, braucht einen Menschen:** den Commit in den Fork `VitaminStack/Dumper-7` übernehmen (derselbe Inhalt wie der Patch), danach
-  das Submodul auf den neuen Stand stellen und `image-ende.patch` samt dem Schritt im Skript entfernen. Bis dahin baut das Skript den
-  Fix über den Patch ein.
-- **Nicht geprüft:** ein Dump im Spiel auf `26669225` (der Build wird seit `spiel-update-26786272` nicht mehr gestartet), der
-  32-Bit-Zweig, andere Spiele.
-
 ## Freigabe von Build 26669225 für Spieler (`freigabe-1-0-2`)
 
 Nutzerentscheidung vom 16.11.2026: Das Update 1.0.2 ist für das Projekt nicht ausschlaggebend, `26669225` wird für Spieler geöffnet,
@@ -350,6 +302,56 @@ unverändert (`wechsel-1-0-2` bleibt offen).
   kein Fehler im Mod-Log.
 - **Widerspruch zu `update-startpruefung`:** Die Aufgabe verlangt, dass eine Teilinstallation nicht als erfolgreicher Start gilt. Auf
   `26669225` ist sie jetzt der Normalfall; das ist dort beim Umsetzen zu entscheiden.
+
+## Dumper-7 liest hinter das Image-Ende (`dumper7-image-ende`)
+
+Stand 21.11.2026. Der Absturz des Dumpers auf `26669225` (siehe oben, bisher **[Vermutung]**) ist jetzt **belegt** und behoben.
+
+- **Ursache:** `PlatformWindows::FindStringInRange` liest jede Bytefolge `48 8D` / `4C 8D` in `.text` als `lea`, rechnet das Ziel aus
+  und prüft nur dessen **erstes** Byte (`IsAddressInProcessRange`, lesbare Sektion oder `IsBadReadPtr`). Danach vergleicht `wcsncmp` ab
+  dort. In der Exe von `26669225` zeigt eine solche Bytefolge bei RVA `0x6E757B8` (mitten in einem anderen Befehl) auf `0xB749FFF`, das
+  letzte Byte des Images (SizeOfImage `0xB74A000`). Schon das erste 2-Byte-Zeichen reicht damit ein Byte über das Image hinaus.
+  Jede Suche, die diese Stelle erreicht, bevor sie einen Treffer hat, stürzt ab, wenn die Seite dahinter frei ist.
+- **Zählung über die Exes** (alle `lea`-Kandidaten in ausführbaren Sektionen mit Ziel im Image, je rund 1,19 Millionen): Ziel in den
+  letzten `0x41` Byte des Images hat nur `26669225` (genau der eine Kandidat). `26187885`, `26495302` und `26786272` haben keinen. Das
+  erklärt, warum der Absturz nur auf `26669225` auftrat. **[Vermutung]** Auf `26786272` trifft der Fehler den unveränderten Dumper
+  nicht: Die Zählung erfasst nur Ziele im Image der Exe (der Dumper nimmt auch Ziele in anderen geladenen Modulen an), und der Stand
+  `2570b5b` lief dort nie im Spiel. Der Fehler kann mit jedem neuen Build wiederkommen.
+- **Fix:** Vor dem Vergleich prüft die neue Hilfsfunktion `IsRangeReadable` das erste **und** das letzte Byte des gelesenen Bereichs
+  (Länge der gesuchten Zeichenkette samt Abschluss, mindestens 8 Byte für die Zeigerprüfung `bCheckIfLeaIsStrPtr`); dasselbe für den
+  Zeiger, den diese Variante danach liest. Der 32-Bit-Zweig (`push`) ist nicht angefasst. Der Fix liegt als
+  [`tools/dumper7/image-ende.patch`](../tools/dumper7/image-ende.patch) im Repo; `Build-Dumper7.ps1` wendet ihn auf seine Baukopie an,
+  solange der Fork ihn nicht enthält. **Das Submodul zeigt unverändert auf `2570b5b`**, in den Fork ist nichts gepusht.
+- **Nachweis ohne Spiel:** Ein kleines Testprogramm (nicht im Repo) blendet die Exe nur als Image ein (`LoadLibraryEx` mit
+  `DONT_RESOLVE_DLL_REFERENCES`, kein Code der Exe läuft) und ruft `FindByStringInAllSections` aus dem Quelltext des Dumpers auf, einmal
+  aus dem Stand `2570b5b`, einmal mit Patch:
+
+  | Exe | `2570b5b` | mit Patch |
+  |---|---|---|
+  | `26495302` | `L"Accessed None"` → `0x160C0F2`, `L"ByteProperty"` → `0x1442B61`; `L" Bone: "` und `L"Failed to find function %s in %s"` ohne Treffer, kein Fehler | dieselben Treffer, kein Fehler |
+  | `26669225` | dieselben beiden Treffer; die drei Suchen ohne frühen Treffer enden mit **Zugriffsfehler beim Lesen von Image+`0xB74A000`** (erstes Byte hinter dem Image) | dieselben Treffer, die drei Suchen laufen durch, kein Fehler |
+  | `26786272` | dieselben Treffer, kein Fehler | dieselben Treffer, kein Fehler |
+
+  Die Fehleradresse passt zum Absturzbericht vom 16.11. (Seitenanfang `…A000` direkt hinter dem Image). Im Spiel lag der Absturz in der
+  Suche nach `ByteProperty` für GNames: `FindFNameGetNamesOrGNames_Windows` setzt hinter jedem Treffer neu an, bis einer das gesuchte
+  Aufrufmuster hat. `.text` enthält drei Verweise auf `L"ByteProperty"` (`0x1442B61`, `0x14B921F`, `0x6006A90`), alle vor `0x6E757B8`;
+  passt keiner, läuft die Suche über die Stelle. **[Vermutung]** Genau das war am 16.11. der Fall; nachgestellt ist nur die Suche selbst.
+- **Kosten:** Ein voller Suchlauf über `.text` ohne Treffer dauert im Testprogramm 2,5 s statt 1,5 s. Der frühere lokale Fix (zweites
+  `IsBadReadPtr`, also `VirtualQuery` je Kandidat) brauchte für den ganzen Dump rund zehn Minuten.
+- **Spieltest 21.11.2026** (ein PC, eingefrorene Kopie `26786272`, `Start-Session.ps1 -Build -Mod -Tunnel Lobby -Map
+  /Game/Maps/DDDynamic_Map`, ohne echte Eingaben): `Build-Dumper7.ps1` ohne lokale Änderung gebaut (Submodul `2570b5b` plus Patch,
+  15 s), DLL per `inject.py` in den Host geladen, beide Instanzen mit 2 Spielern in der Mission. Dumper nach 6 s wieder entladen,
+  2.504 Dateien (die SDK-Dateien entstanden in rund 4 s), Host und Client liefen weiter, `Get-Status.ps1`: keine Abstürze. Gegen das
+  SDK desselben Builds vom 20.11. (früherer lokaler Fix, rund zehn Minuten): `Basic.hpp` (GObjects `0x0AA6FC80`, GNames `0x0A9A1C40`,
+  GWorld `0x0AAF2870`, ProcessEvent `0x0160C220`), `Engine_classes.hpp` und `DDSurvivors_classes.hpp` sind bytegleich. Neu ist nur
+  `GE_MetaBaseSpeed_classes.hpp` (am 20.11. nicht geladenes Blueprint). 119 Dateien unterscheiden sich: `Assertions.inl` (im alten SDK
+  von Hand nachgearbeitet) und Dateien von Blueprint-Klassen (`BP_*`, `WP_*`, `WB_*`, `OptionsMenu` und ähnliche); nicht einzeln
+  ausgewertet. **Nicht geprüft:** der unveränderte Stand `2570b5b` im Spiel auf `26786272` (keine Gegenprobe).
+- **Offen, braucht einen Menschen:** den Commit in den Fork `VitaminStack/Dumper-7` übernehmen (derselbe Inhalt wie der Patch), danach
+  das Submodul auf den neuen Stand stellen und `image-ende.patch` samt dem Schritt im Skript entfernen. Bis dahin baut das Skript den
+  Fix über den Patch ein.
+- **Nicht geprüft:** ein Dump im Spiel auf `26669225` (der Build wird seit `spiel-update-26786272` nicht mehr gestartet), der
+  32-Bit-Zweig, andere Spiele.
 
 ## Lebensleisten auf 26669225 (`update-1-0-2-lebensleisten`)
 
