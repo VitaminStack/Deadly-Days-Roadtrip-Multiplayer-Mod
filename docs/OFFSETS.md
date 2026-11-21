@@ -1354,3 +1354,32 @@ aus `gegner-alle` (oben); der Rest ist Befund für `tools/spike/boss_hp.py` und 
 | `UDDEnemyAttributeSet` | `Phase` `0x40` (`FGameplayAttributeData`, Wert bei `+0xC`) |
 | Phasenmarken je Boss | SpikeBoss 0,5; Ballerina 0,5; Frankenstein 0,65; BlobBall 0,7; HQ-Endboss 0,8 und 0,4 |
 | `CreateAndStartObjective` (Thunk) | `26669225`: `0x56BAB70`, ruft `0x58DED20`, das ruft `0x163B300` mit einem `FStaticConstructObjectParameters`-artigen Block (Klasse bei `+0x0`, Outer bei `+0x8`); dort liest `+0x163B33F` `[Klasse+0xD8]`. **[Vermutung]** `StaticConstructObject_Internal` und `ClassFlags`, ohne Symbole nicht belegt |
+
+## Sensenmann (`karte-nach-labyrinth-absturz`)
+
+Build `26786272`, aus Disassembly, SDK und Absturzbericht. Eine Tabelle `RvaMap26786272.inc` gibt es nicht mehr, `26786272` ist der
+Referenz-Build; die Adressen stehen direkt hier und in `src/Game/ClientPatches.cpp`.
+
+| Stelle | RVA | Hinweis |
+|---|---|---|
+| `UReaperComponent::BeginPlay` | `0x5871F20` | Vtable-Slot 125 (`+0x3E8`), Eintrag bei Datei-Offset `0x95A51D0` |
+| GameMode merken | `0x5872149` | `mov [rdi+188h],rbx`, Sprung der Mod in den Wächter |
+| Bindung `OnNewPlayerSpawned` | `0x5872160` bis `0x587216D` | `lea rcx,[rbx+340h]`, `call 0x46985F0`; Rücksprung `0x5872172` steht in der Aufrufliste |
+| Bindung `OnPlayerDespawned` | `0x587218F` | `lea rcx,[rbx+350h]` |
+| Weiter mit GameMode | `0x5872150` | Ziel des Wächters, wenn `rbx` gesetzt ist |
+| Hinter beiden Bindungen | `0x587219B` | Ziel des Wächters ohne GameMode: Zeitgeber für den Ton (`+0x210`), Konsolenbefehl (`+0x208`) |
+| `UReaperComponent::EndPlay` | `0x5878ED0` | Vtable-Slot 126, prüft `GameMode` selbst (`test r14,r14` bei `0x5879073`) |
+| Delegat binden (`AddDynamic`) | `0x46985F0` | ruft `0x15C03F0`; dort `cmp [rcx+8],edi` bei `0x15C0407`, Absturzadresse |
+| `AActor::BeginPlay` (Komponenten) | `0x25DDAD0` | `call [rax+3E8h]` bei `0x25DDC95` |
+| `AReaperSpawner`, Zeitgeber stellen | `0x58CC8B0` | `(this, float Minuten, bool ab Kartenstart)`, Timer-Handle `+0x538`, Startzeit `+0x530` |
+| `AReaperSpawner`, Start nach dem Laden | `0x58BD820` | stellt den Zeitgeber auf `SpawnAfterMinutes`, wenn `+0x528` gesetzt ist |
+| `AReaperSpawner`, Sensenmann erzeugen | `0x58C9E20` | nur mit `+0x528`, setzt `+0x529`, ohne Autoritätsprüfung; Hook der Mod, beim Client ohne Wirkung |
+| Konsolenbefehle registrieren | `0x58A8B70` | `SpawnReaper`, `SetSpawnReaperAfterMinutes`, `KillReaper`; im Shipping-Build ohne Wirkung (gemessen) |
+
+| Klasse | Feld | Offset |
+|---|---|---|
+| `UReaperComponent` | Reaper (`AEnemyBase`), ReaperASC, Players, GameMode, PlayerCameraWorldSubsystem | `0x168`, `0x170`, `0x178`, `0x188`, `0x190` |
+| `ADDMissionGameMode` | OnNewPlayerSpawned, OnPlayerDespawned (Delegatlisten) | `0x340`, `0x350` |
+| `AReaperSpawner` | SpawnAfterMinutes (Float, 12), ReaperEnemyType, PlayerLocations | `0x4A8`, `0x4F8`, `0x518` |
+| `AReaperSpawner` | ShouldSpawnReaper, WasReaperSpawned (aus den Exec-Funktionen `0x5795DB0`, `0x579C4A0`) | `0x528`, `0x529` |
+| `UEventMapSetupGenerator` | DisableReaperSpawning | `0x29` |
