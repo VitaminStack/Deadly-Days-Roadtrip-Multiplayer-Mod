@@ -33,6 +33,7 @@
     <ClCompile Include="TelemetryAdapterTests.cpp" />
     <ClCompile Include="BossBarPolicyTests.cpp" />
     <ClCompile Include="BloodPolicyTests.cpp" />
+    <ClCompile Include="HandPreviewTests.cpp" />
     <ClCompile Include="ItemAbilityPolicyTests.cpp" />
     <ClCompile Include="TutorialAdapterTests.cpp" />
     <ClCompile Include="WorldAdapterTests.cpp" />

@@ -8,10 +8,14 @@
 #include <algorithm>
 #include <cstring>
 #include <mutex>
+#include <optional>
 #include <string>
+#include <tuple>
 #include <unordered_map>
+#include <vector>
 
 #include "Core/Log.h"
+#include "Game/HandPreview.h"
 #include "Game/InventoryEditRuntime.h"
 #include "Game/Memory.h"
 #include "Game/Objects.h"
@@ -593,12 +597,30 @@ bool Apply(uintptr_t Inventory, const std::vector<uintptr_t>& Items, const std::
 // lokal nach: Ausgangswert + (Hände der Rucksackitems jetzt - beim Start). Verbindlich bleibt der Host: Nach dem Übernehmen
 // kommt sein Wert über die native Replikation, bei Ablehnung stellt RevertClient den Ausgangswert wieder her.
 constexpr uintptr_t AttributeOccupiedHands = 0x110, AttributeBase = 0x8, AttributeCurrent = 0xC;
+// client-roboterarm: Zusätzliche Hände (UDDCharacterAttributeSet.ExtraHands) rechnet der Client genauso vor. Der Roboterarm gibt
+// sie als GameplayEffect, den nur der Host beim Übernehmen anlegt; ohne Vorschau lehnt das Panel die Waffe ab, für die der
+// Spieler den Arm in derselben Bearbeitung abgelegt hat. Quelle sind die Item-Daten, siehe HandPreview.h.
+constexpr uintptr_t AttributeExtraHands = 0x100;
+constexpr uintptr_t ItemRarity = 0x118; // UInventoryItemInstance.Rarity
+// FItemEffectWrapper: Type, GameplayEffect, ForceGameplayEffectLevel, ForceScalingGameplayEffectLevel, GameplayEffectLevel,
+// ScalingGameplayEffectLevel (UFloatData).
+constexpr uintptr_t DataEffectWrappers = 0x118, WrapperSize = 0xB0, WrapperType = 0x00, WrapperEffect = 0x20;
+constexpr uintptr_t WrapperForceLevel = 0x28, WrapperForceScalingLevel = 0x29, WrapperLevel = 0x2C, WrapperScalingLevel = 0x30;
+constexpr uint8_t WrapperTypeGameplayEffect = 1; // EItemEffectType
+constexpr uintptr_t ScalingUsesPlayerLevel = 0x50; // URarityScalingFloatData.UsePlayerLevelScaling
+constexpr uintptr_t ClassDefaultObject = 0x118;
+// UGameplayEffect.Modifiers, FGameplayModifierInfo: Attribute.AttributeName (FString), ModifierOp, ModifierMagnitude mit
+// MagnitudeCalculationType, ScalableFloatMagnitude.Value und .Curve (CurveTable, RowName).
+constexpr uintptr_t EffectModifiers = 0x428, ModifierSize = 0x338, ModifierOp = 0x38, ModifierCalculation = 0x40;
+constexpr uintptr_t ModifierValue = 0x48, ModifierCurveTable = 0x50, ModifierCurveRow = 0x58;
+constexpr int32_t MaxWrappers = 32, MaxModifiers = 16;
 
 struct
 {
     uintptr_t Character = 0, Set = 0;
     float Base = 0, Current = 0;
     int32_t Start = 0;
+    float ExtraBase = 0, ExtraCurrent = 0, ExtraStart = 0;
 } Hands;
 
 // Das Attributset der Figur gehört dem PlayerState, nicht der Figur. AController.PlayerState / .Pawn.
@@ -641,34 +663,192 @@ int32_t HandsInBackpack(uintptr_t Inventory, uintptr_t Character)
     return Total;
 }
 
+bool ExtraHandsPreviewOff()
+{
+    // Diagnose: Mit DDCOOP_HANDS_PREVIEW_NATIVE=1 bleibt ExtraHands beim Client bis zur Antwort des Hosts, zum Vergleich vorher/nachher.
+    static const bool Off = []
+    {
+        char Value[4]{};
+        return GetEnvironmentVariableA("DDCOOP_HANDS_PREVIEW_NATIVE", Value, sizeof(Value)) == 1 && Value[0] == '1';
+    }();
+    return Off;
+}
+
+// Stufe des Effekts aus den Item-Daten, mit den Funktionen des Spiels (UFloatData.GetContextualValueForRarity).
+std::optional<float> EffectLevelOf(uintptr_t Wrapper, uintptr_t Rarity)
+{
+    const bool ForceScaling = Memory::Read<uint8_t>(Wrapper + WrapperForceScalingLevel).value_or(0) != 0;
+    const bool ForceFixed = Memory::Read<uint8_t>(Wrapper + WrapperForceLevel).value_or(0) != 0;
+    std::optional<float> Scaling;
+    static uintptr_t ForRarity = 0;
+    if (const uintptr_t Data = Pointer(Wrapper + WrapperScalingLevel);
+        ForceScaling && Data && Objects::IsA(Data, "FloatData") && Function(ForRarity, "GetContextualValueForRarity", "FloatData") &&
+        // Werte, die an der Spielerstufe hängen, kennt nur der Host sicher.
+        !(Objects::IsA(Data, "RarityScalingFloatData") && Memory::Read<uint8_t>(Data + ScalingUsesPlayerLevel).value_or(1)))
+    {
+        struct
+        {
+            uintptr_t Rarity;
+            int32_t PlayerLevel;
+            float ReturnValue;
+        } Params{Rarity, 1, 0};
+        static_assert(sizeof(Params) == 0x10);
+        Objects::ProcessEvent(Data, ForRarity, &Params);
+        Scaling = Params.ReturnValue;
+    }
+    return HandPreview::EffectLevel(ForceScaling, Scaling, ForceFixed, Memory::Read<int32_t>(Wrapper + WrapperLevel).value_or(0));
+}
+
+// Wert der Kurve des Modifikators für die Stufe (UDataTableFunctionLibrary.EvaluateCurveTableRow), 1 ohne Kurve.
+std::optional<float> CurveFactor(uintptr_t Modifier, std::optional<float> Level)
+{
+    const uintptr_t Table = Pointer(Modifier + ModifierCurveTable);
+    if (!Table)
+        return 1.0f;
+    static uintptr_t Evaluate = 0, Library = 0;
+    if (!Level || !Objects::IsA(Table, "CurveTable") || !Function(Evaluate, "EvaluateCurveTableRow", "DataTableFunctionLibrary") ||
+        !Function(Library, "Default__DataTableFunctionLibrary", ""))
+        return std::nullopt;
+    struct
+    {
+        uintptr_t Table;
+        uint64_t Row; // FName
+        float In;
+        uint8_t Result, Pad[3];
+        float Out;
+        uint8_t Pad2[4];
+        Array Context; // FString, leer
+    } Params{Table, Memory::Read<uint64_t>(Modifier + ModifierCurveRow).value_or(0), *Level, 1, {}, 0, {}, {}};
+    static_assert(sizeof(Params) == 0x30);
+    Objects::ProcessEvent(Library, Evaluate, &Params);
+    return Params.Result == 0 ? std::optional<float>(Params.Out) : std::nullopt; // EEvaluateCurveTableResult::RowFound
+}
+
+// Hände, die die Wirkungen dieses Items sicher geben. Je Item-Daten und Seltenheit einmal gelesen; die Assets bleiben geladen.
+float ExtraHandsOfItem(uintptr_t Item)
+{
+    const uintptr_t Data = Pointer(Item + ItemData), Rarity = Pointer(Item + ItemRarity);
+    if (!Data)
+        return 0;
+    static std::vector<std::tuple<uintptr_t, uintptr_t, float>> Known;
+    for (const auto& [KnownData, KnownRarity, Granted] : Known)
+        if (KnownData == Data && KnownRarity == Rarity)
+            return Granted;
+    float Total = 0;
+    const uintptr_t Wrappers = Pointer(Data + DataEffectWrappers);
+    const int32_t Count = Memory::Read<int32_t>(Data + DataEffectWrappers + 8).value_or(0);
+    for (int32_t i = 0; Wrappers && i < Count && Count <= MaxWrappers; ++i)
+    {
+        const uintptr_t Wrapper = Wrappers + i * WrapperSize;
+        const uintptr_t Class = Pointer(Wrapper + WrapperEffect);
+        if (Memory::Read<uint8_t>(Wrapper + WrapperType).value_or(0xFF) != WrapperTypeGameplayEffect || !Class || !Objects::IsA(Class, "Class"))
+            continue;
+        const uintptr_t Default = Pointer(Class + ClassDefaultObject);
+        if (!Default || !Objects::IsA(Default, "GameplayEffect"))
+            continue;
+        const uintptr_t Modifiers = Pointer(Default + EffectModifiers);
+        const int32_t ModifierCount = Memory::Read<int32_t>(Default + EffectModifiers + 8).value_or(0);
+        for (int32_t k = 0; Modifiers && k < ModifierCount && ModifierCount <= MaxModifiers; ++k)
+        {
+            const uintptr_t Modifier = Modifiers + k * ModifierSize;
+            // FString: Zeiger auf UTF-16 und Länge mit Nullzeichen. Attributnamen sind ASCII.
+            const uintptr_t Text = Pointer(Modifier);
+            const int32_t Length = Memory::Read<int32_t>(Modifier + 8).value_or(0);
+            std::string Name;
+            for (int32_t c = 0; Text && c + 1 < Length && Length <= 64; ++c)
+                Name.push_back(static_cast<char>(Memory::Read<uint16_t>(Text + c * 2).value_or(0)));
+            if (Name != "ExtraHands")
+                continue;
+            Total += HandPreview::ExtraHandsOfModifier(Name, Memory::Read<uint8_t>(Modifier + ModifierOp).value_or(0xFF),
+                                                       Memory::Read<uint8_t>(Modifier + ModifierCalculation).value_or(0xFF),
+                                                       Memory::Read<float>(Modifier + ModifierValue).value_or(0),
+                                                       CurveFactor(Modifier, EffectLevelOf(Wrapper, Rarity)));
+        }
+    }
+    if (Total > 0)
+        Core::Log::Info("Inventar lokal: {} ({}) gibt {} zusätzliche Hand/Hände (aus den Item-Daten)", Memory::NameOf(Data),
+                        Rarity ? Memory::NameOf(Rarity) : std::string("-"), Total);
+    if (Known.size() < 256)
+        Known.emplace_back(Data, Rarity, Total);
+    return Total;
+}
+
+float ExtraHandsInBackpack(uintptr_t Inventory)
+{
+    float Total = 0;
+    for (const uintptr_t Item : ItemsOf(Inventory))
+        if (Alive(Item) && Memory::Read<uint8_t>(Item + ItemInBackpack).value_or(0))
+            Total += ExtraHandsOfItem(Item);
+    return Total;
+}
+
 // Anzeige setzen. Kein OnRep_OccupiedHands: Das ließe das ASC den Wert aus seinen Modifikatoren neu berechnen und die Vorschau
 // sofort überschreiben. RefreshHandsBar zeichnet den Balken nicht neu (im Spiel geprüft), darum UpdateCurrentHandsBar mit dem
 // Wert, den sonst die Attributänderung liefert. Der Client zeigt den Balken HandBarSinglePlayer mit CachedCharacter = eigene Figur.
-void ShowHands(int32_t Occupied)
+// MaxHands >= 0 setzt zuerst die Länge des Balkens (UpdateMaxHandsBar), wenn sich die zusätzlichen Hände geändert haben.
+void ShowHands(int32_t Occupied, int32_t MaxHands = -1)
 {
     constexpr uintptr_t HandBarCharacter = 0x348; // UHandBarDisplay.CachedCharacter
-    static uintptr_t Update = 0;
-    if (!Function(Update, "UpdateCurrentHandsBar", "HandBarDisplay"))
+    static uintptr_t Update = 0, UpdateMax = 0;
+    if (!Function(Update, "UpdateCurrentHandsBar", "HandBarDisplay") || !Function(UpdateMax, "UpdateMaxHandsBar", "HandBarDisplay"))
         return;
     for (int32_t i = 0, Count = Objects::Count(); i < Count; ++i)
         if (const uintptr_t Object = Objects::At(i); Object && Pointer(Object + HandBarCharacter) == Hands.Character &&
                                                      Objects::IsA(Object, "HandBarDisplay") && Alive(Object))
         {
+            if (MaxHands >= 0)
+            {
+                int32_t Limit = MaxHands;
+                Objects::ProcessEvent(Object, UpdateMax, &Limit);
+            }
             int32_t Params = Occupied;
             Objects::ProcessEvent(Object, Update, &Params);
         }
 }
 
-void WriteHands(float Base, float Current)
+// Freie Hände, wie sie das Spiel für die Figur rechnet (InventoryEffectHelperLibrary.GetFreeHands), -1 ohne Funktion.
+int32_t FreeHands(uintptr_t Character)
+{
+    static uintptr_t Free = 0, Library = 0;
+    if (!Character || !Function(Free, "GetFreeHands", "InventoryEffectHelperLibrary") ||
+        !Function(Library, "Default__InventoryEffectHelperLibrary", ""))
+        return -1;
+    struct
+    {
+        uintptr_t Character;
+        int32_t ReturnValue;
+        uint8_t Pad[4];
+    } Params{Character, -1, {}};
+    static_assert(sizeof(Params) == 0x10);
+    Objects::ProcessEvent(Library, Free, &Params);
+    return Params.ReturnValue;
+}
+
+void WriteHands(float Base, float Current, float ExtraBase, float ExtraCurrent)
 {
     const float OldBase = Memory::Read<float>(Hands.Set + AttributeOccupiedHands + AttributeBase).value_or(0);
     const float OldCurrent = Memory::Read<float>(Hands.Set + AttributeOccupiedHands + AttributeCurrent).value_or(0);
-    if (OldBase == Base && OldCurrent == Current)
+    const float OldExtraBase = Memory::Read<float>(Hands.Set + AttributeExtraHands + AttributeBase).value_or(0);
+    const float OldExtra = Memory::Read<float>(Hands.Set + AttributeExtraHands + AttributeCurrent).value_or(0);
+    const bool Occupied = OldBase != Base || OldCurrent != Current, Extra = OldExtraBase != ExtraBase || OldExtra != ExtraCurrent;
+    if (!Occupied && !Extra)
         return;
     Memory::WriteBytes(Hands.Set + AttributeOccupiedHands + AttributeBase, &Base, sizeof(Base));
     Memory::WriteBytes(Hands.Set + AttributeOccupiedHands + AttributeCurrent, &Current, sizeof(Current));
-    ShowHands(static_cast<int32_t>(Current));
-    Core::Log::Info("Inventar lokal: Hände-Vorschau {} statt {}", Current, OldCurrent);
+    int32_t MaxHands = -1;
+    if (Extra)
+    {
+        Memory::WriteBytes(Hands.Set + AttributeExtraHands + AttributeBase, &ExtraBase, sizeof(ExtraBase));
+        Memory::WriteBytes(Hands.Set + AttributeExtraHands + AttributeCurrent, &ExtraCurrent, sizeof(ExtraCurrent));
+        // Länge des Balkens aus der Rechnung des Spiels: frei + belegt.
+        const int32_t Free = FreeHands(Hands.Character);
+        if (Free >= 0)
+            MaxHands = Free + static_cast<int32_t>(Current);
+        Core::Log::Info("Inventar lokal: Hände-Vorschau zusätzlich {} statt {}, frei {}", ExtraCurrent, OldExtra, Free);
+    }
+    ShowHands(static_cast<int32_t>(Current), MaxHands);
+    if (Occupied)
+        Core::Log::Info("Inventar lokal: Hände-Vorschau {} statt {}", Current, OldCurrent);
 }
 
 void BeginHands(uintptr_t Inventory, uintptr_t Controller)
@@ -685,7 +865,11 @@ void BeginHands(uintptr_t Inventory, uintptr_t Controller)
     Hands.Base = Memory::Read<float>(Hands.Set + AttributeOccupiedHands + AttributeBase).value_or(0);
     Hands.Current = Memory::Read<float>(Hands.Set + AttributeOccupiedHands + AttributeCurrent).value_or(0);
     Hands.Start = HandsInBackpack(Inventory, Character);
-    Core::Log::Info("Inventar lokal: Hände belegt {}, Rucksack braucht {}", Hands.Current, Hands.Start);
+    Hands.ExtraBase = Memory::Read<float>(Hands.Set + AttributeExtraHands + AttributeBase).value_or(0);
+    Hands.ExtraCurrent = Memory::Read<float>(Hands.Set + AttributeExtraHands + AttributeCurrent).value_or(0);
+    Hands.ExtraStart = ExtraHandsInBackpack(Inventory);
+    Core::Log::Info("Inventar lokal: Hände belegt {}, Rucksack braucht {}, zusätzlich {} (Rucksack gibt {}), frei {}", Hands.Current, Hands.Start,
+                    Hands.ExtraCurrent, Hands.ExtraStart, FreeHands(Character));
 }
 
 void PreviewHands()
@@ -693,14 +877,18 @@ void PreviewHands()
     if (!Hands.Set || !Alive(Hands.Set) || !Alive(Hands.Character))
         return;
     const float Delta = static_cast<float>(HandsInBackpack(Session.Inventory, Hands.Character) - Hands.Start);
-    WriteHands(Hands.Base, std::max(0.0f, Hands.Current + Delta));
+    const float Extra = ExtraHandsPreviewOff()
+                            ? Hands.ExtraCurrent
+                            : HandPreview::Preview(Hands.ExtraCurrent, Hands.ExtraStart, ExtraHandsInBackpack(Session.Inventory));
+    // Basis und aktueller Wert gehen gemeinsam: Der Effekt des Hosts ändert nur den aktuellen Wert, die Basis bleibt.
+    WriteHands(Hands.Base, std::max(0.0f, Hands.Current + Delta), Hands.ExtraBase, Extra);
 }
 
 // Ablehnung oder Abbruch: Ausgangswert wieder setzen. Nach dem Übernehmen nichts schreiben, dann gilt der replizierte Wert.
 void EndHands(bool Restore)
 {
     if (Restore && Hands.Set && Alive(Hands.Set))
-        WriteHands(Hands.Base, Hands.Current);
+        WriteHands(Hands.Base, Hands.Current, Hands.ExtraBase, Hands.ExtraCurrent);
     Hands = {};
 }
 
