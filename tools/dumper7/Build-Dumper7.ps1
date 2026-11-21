@@ -1,6 +1,8 @@
 # Baut Dumper-7 im getesteten Stand fuer UE 5.8 aus dem Submodul third_party\Dumper-7.
 # Das Submodul zeigt auf den Fork mit dem FFieldClass-Fix. Gebaut wird eine Kopie in research\local\dumper7,
 # damit die Einstellungen unten das Submodul nicht veraendern.
+# Auf die Kopie kommt image-ende.patch (Zeichenkettensuche liest nicht mehr hinter das Image-Ende), solange der Fork
+# den Fix nicht selbst enthaelt; ist er dort schon enthalten, wird der Patch uebersprungen.
 param(
     # Wohin Dumper-7 das SDK schreibt. Standard ist der von Dumper-7.
     [string]$OutputDir = 'C:/Dumper-7'
@@ -20,6 +22,15 @@ if ($LASTEXITCODE -ne 0) { throw 'Submodul third_party/Dumper-7 konnte nicht gel
 # Immer frisch aus dem Submodul, damit alle denselben Stand bauen.
 if (Test-Path $Source) { Remove-Item -Recurse -Force $Source }
 Copy-Item -Recurse (Join-Path $Submodule 'Dumper') (Join-Path $Source 'Dumper')
+
+# Fix aus dumper7-image-ende, bis der Fork ihn enthaelt. git apply rechnet die Zeilenenden der Kopie selbst um.
+$Patch = Join-Path $PSScriptRoot 'image-ende.patch'
+$Relative = 'research/local/dumper7'
+$Patched = Join-Path $Source 'Dumper\Platform\Private\PlatformWindows.cpp'
+if (-not [IO.File]::ReadAllText($Patched).Contains('IsRangeReadable')) {
+    git -C $script:RepoRoot apply "--directory=$Relative" $Patch
+    if ($LASTEXITCODE -ne 0) { throw 'image-ende.patch passt nicht auf den Stand des Submoduls.' }
+}
 
 # Ausgabeordner und automatisches Entladen nach dem Dump, sonst wartet Dumper-7 auf F6.
 $Settings = Join-Path $Source 'Dumper\Settings.h'
