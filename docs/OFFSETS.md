@@ -291,8 +291,14 @@ Stand 21.11.2026. Der Absturz des Dumpers auf `26669225` (siehe oben, bisher **[
   passt keiner, läuft die Suche über die Stelle. **[Vermutung]** Genau das war am 16.11. der Fall; nachgestellt ist nur die Suche selbst.
 - **Kosten:** Ein voller Suchlauf über `.text` ohne Treffer dauert im Testprogramm 2,5 s statt 1,5 s. Der frühere lokale Fix (zweites
   `IsBadReadPtr`, also `VirtualQuery` je Kandidat) brauchte für den ganzen Dump rund zehn Minuten.
-- **Spieltest: noch nicht gelaufen.** `Build-Dumper7.ps1` baut die DLL mit Patch ohne lokale Änderung (15 s). Ein Dump im Host einer
-  Sitzung auf `26786272` mit dieser DLL steht aus (die Sitzung war hinter einer fremden eingereiht und wurde nicht mehr gestartet).
+- **Spieltest 21.11.2026** (ein PC, eingefrorene Kopie `26786272`, `Start-Session.ps1 -Build -Mod -Tunnel Lobby -Map
+  /Game/Maps/DDDynamic_Map`, ohne echte Eingaben): `Build-Dumper7.ps1` ohne lokale Änderung gebaut (Submodul `2570b5b` plus Patch,
+  15 s), DLL per `inject.py` in den Host geladen, beide Instanzen mit 2 Spielern in der Mission. Dumper nach 6 s wieder entladen,
+  2.504 Dateien (die SDK-Dateien entstanden in rund 4 s), Host und Client liefen weiter, `Get-Status.ps1`: keine Abstürze. Gegen das
+  SDK desselben Builds vom 20.11. (früherer lokaler Fix, rund zehn Minuten): gleiche Dateizahl; `Basic.hpp` (GObjects `0x0AA6FC80`,
+  GNames `0x0A9A1C40`, GWorld `0x0AAF2870`, ProcessEvent `0x0160C220`), `Engine_classes.hpp` und `DDSurvivors_classes.hpp` bytegleich.
+  119 Dateien unterscheiden sich, in der Stichprobe Blueprint-Dateien; nicht einzeln ausgewertet. **Nicht geprüft:** der unveränderte
+  Stand `2570b5b` im Spiel auf `26786272` (keine Gegenprobe; laut Zählung oben dort ohnehin nicht betroffen).
 - **Offen, braucht einen Menschen:** den Commit in den Fork `VitaminStack/Dumper-7` übernehmen (derselbe Inhalt wie der Patch), danach
   das Submodul auf den neuen Stand stellen und `image-ende.patch` samt dem Schritt im Skript entfernen. Bis dahin baut das Skript den
   Fix über den Patch ein.
