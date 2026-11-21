@@ -3370,7 +3370,7 @@ die Routenkarte ohne Maus und Tastatur (Spike-Befehle wie in [Gezielt in eine Ka
   `!fx stack`: `exe+5A1CE59` ← `exe+5773311` (Ereignis `Projectile.OnValidOverlap`) ← `ProcessEvent`. Die native Trefferbehandlung
   des Projektils (Funktion ab `0x5A1C310`) startet bei `bUseImpactSounds` (`+0x3C1`) den `HitImpactSoundEvent` (`+0x3C8`) über
   `PlayEventAtLocation` am Ort des Projektils (Aufruf `0x5A1CE54`), außer das getroffene Objekt gehört zu einer ausgenommenen Klasse.
-  Alle 13 geladenen Projektilklassen mit Einschlagsound tragen dort `zombie_Hurt`.
+  Alle 12 geladenen Projektilklassen mit gesetztem Einschlagsound tragen dort `zombie_Hurt`.
 - **[Belegt] Warum er beim Client fast fehlt.** Die Projektile replizieren, und auch die Kopie des Clients ruft bei einer eigenen
   Überlappung `OnOverlapBegin` und spielt dann denselben Sound. Sie berührt den Gegner aber nur selten selbst, bevor der Host sie
   abbaut oder in den Pool zurücknimmt: In 120 s an Tag 1 beim Host 40 Schüsse, 40 gültige Überlappungen, 35 Sounds, beim Client 23
