@@ -3316,6 +3316,32 @@ Sounds selbst, die Zahlen sind also das, was Host und Client hören würden. Je 
   `exe+5899663` 10 Minuten später, während er auf den Client wartete). Nicht nachgestellt, Ursache offen. Zwei frühere Abstürze kamen
   vom Zähler selbst (Pfad einer schon entladenen Sound-Beschreibung gelesen) und sind behoben.
 
+#### Landesound des Airdrops beim Client (`opt-airdrop-sound`)
+
+Untersucht am 21.11.2026, Build `26786272`, ein PC, `Start-Session.ps1 -Build -Mod -Tunnel Lobby -Godmode`, echter Run an Tag 1 über
+die Routenkarte ohne Maus und Tastatur, Kisten über `DD_CheatAddExperience` (in einem echten Run landet je Stufe eine Kiste, in einer
+direkt geladenen Karte nicht). Ton der Spielprozesse aus, **gezählt, nicht gehört** (`!fx`, `!fx events BP_Airdrop_Lootable_C`).
+
+- **[Belegt] Wer den Sound startet.** `PlayEventAtLocation <- BP_Airdrop_Lootable_C.ExecuteUbergraph_BP_Airdrop_Lootable`, also der
+  Graph der Kiste beim Host, nach `StartFallDown` in einer verzögerten Fortsetzung. Gemessen mit Proben alle 20 ms: Die Kiste
+  erscheint (schon am Boden, der Fall ist eine Skelettanimation), **2,5 s später** startet `PlaceAirdrop`, weitere 2,0 s später wird
+  sie bereit (`LootableReady`). Fünf Kisten in zwei Schüben, jedes Mal dieselben Abstände.
+- **[Belegt] Warum der Client ihn nicht hört.** Die Kiste repliziert von sich aus nicht; die Mod schaltet die Replikation beim Host
+  bis zu 1 s nach dem Erscheinen ein (`PrepareAirdropReplication`). Der unzuverlässige Multicast `StartFallDown` ist dann schon
+  gelaufen, der Graph der Kopie beim Client läuft nie: Dort kommen an der Kiste nur `OnRep_ReplicateMovement` und die Aufrufe der Mod
+  an. `Airdrop_beep` (C++, an der Figur) und `airdrop_openCrate` laufen auf beiden Seiten. Vorher in 60 s: `PlaceAirdrop` 2 / 0.
+- **Umsetzung, rein lokal, ohne neue Nachricht** (`src/Game/AirdropAdapter.cpp`, Regel `AirdropLandingSound` in `AirdropPolicy.h`
+  mit Tests): Der Host schickt im Fortschrittsbild schon je Kiste die Position ihrer Fallanimation und ob sie bereit ist
+  (`AirdropView` aus `airdrop-auswahl`). Der Client spielt `PlaceAirdrop` an seiner Kopie genau einmal, sobald die Position 2,5 s
+  erreicht. Eine Kiste, die er zum ersten Mal schon gelandet oder bereit sieht (Beitritt, Reise, spät repliziert), bleibt stumm.
+  Kommt keine Animationsposition an, spielt der Sound ersatzweise beim Bereitwerden. Den Graphen der Kiste führt der Client
+  weiterhin nicht aus (er enthält auch Spielwirkungen). Die 2,5 s sind gemessen, nicht aus dem Blueprint gelesen.
+- **[Belegt, ein PC] Nachher.** Gemessen am 21.11.2026 mit einem lokalen Sammelstand aus den drei Zweigen `opt-gegner-sound`, `opt-airdrop-sound` und `opt-bedrohung-sound` (nicht gepusht), ein PC, Host und Client über den Spike, echter Run an Tag 1 ohne Maus und Tastatur, Ton der Spielprozesse aus, **gezählt, nicht gehört**: in zwei Missionen `PlaceAirdrop` 2 / 2 und 4 / 4 (vorher 2 / 0). Der Client
+  startete den Sound bei Animationsposition 2,50 bis 2,71 s (sechs Kisten, alle über die Animation, keine über den Ersatzweg),
+  `Airdrop_beep` blieb gleich (2 / 2, 4 / 4). Keine Absturzberichte.
+- **Nicht geprüft:** Beitritt oder Reise mit liegenden Kisten im Spiel (nur als Unit-Test), der Ersatzweg ohne
+  Animationsposition, zwei PCs mit echtem Ping, gehört.
+
 #### Waffensounds beim Client (`opt-waffen-sound`)
 
 Untersucht am 13.11.2026, Build `26495302`, ein PC, Disassembly und SDK, gemessen mit `!fx` (Ton der Spielprozesse aus, **gezählt,
