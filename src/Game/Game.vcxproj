@@ -71,13 +71,13 @@
     <ClCompile Include="MapPatches.cpp" />
     <ClCompile Include="BusBarPatches.cpp" />
     <ClCompile Include="FacingPatches.cpp" />
+    <ClCompile Include="FmodSound.cpp" />
     <ClCompile Include="LootBarPatches.cpp" />
     <ClCompile Include="BloodPatches.cpp" />
     <ClCompile Include="BodyPartPatches.cpp" />
     <ClCompile Include="WalkAnimationPatches.cpp" />
     <ClCompile Include="WeaponSoundPatches.cpp" />
     <ClCompile Include="EnemySoundPatches.cpp" />
-    <ClCompile Include="FmodSound.cpp" />
     <ClCompile Include="DamageNumberPatches.cpp" />
     <ClCompile Include="CharacterPatches.cpp" />
     <ClCompile Include="EnemyTelegraphPatches.cpp" />
@@ -128,6 +128,7 @@
     <ClInclude Include="PatchSignatures.h" />
     <None Include="PatchSignatures.inc" />
     <ClInclude Include="Objects.h" />
+    <ClInclude Include="FmodSound.h" />
     <ClInclude Include="Offsets.h" />
     <ClInclude Include="SavePaths.h" />
     <ClInclude Include="SaveRedirect.h" />
@@ -137,7 +138,6 @@
     <ClInclude Include="BloodPolicy.h" />
     <ClInclude Include="EnemySoundAdapter.h" />
     <ClInclude Include="EnemySoundPolicy.h" />
-    <ClInclude Include="FmodSound.h" />
     <ClInclude Include="TutorialAdapter.h" />
     <ClInclude Include="PauseAdapter.h" />
     <ClInclude Include="WorldAdapter.h" />
