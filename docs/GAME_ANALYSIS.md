@@ -3000,7 +3000,7 @@ Vorher-Messung zu `opt-desync-pivot`). Kein Absturz, kein `[ERROR]`. Vor der Än
 
 **Nebenbefund:** `tools/spike/Test-Desync.ps1` erwartet noch den alten Text „OK Tag, Phase, Spieler, HP, Inventar / Ausgenommen: Gegner“.
 Seit `gegnertyp` ist die Gegnerzahl im Abgleich, das Skript wartet deshalb vergeblich auf „beide OK“. Gemessen wurde hier mit
-`desync_difference.py` und den Mod-Logs.
+`desync_difference.py` und den Mod-Logs. Mit `opt-desync-pivot` ist das Skript angepasst.
 
 ### Rasterposition außerhalb des Rucksacks im Desync-Melder (`opt-desync-pivot`)
 
@@ -3015,7 +3015,21 @@ Seit `gegnertyp` ist die Gegnerzahl im Abgleich, das Skript wartet deshalb verge
   Nachrichtenformat ist unverändert, `ModVersion` bleibt. Grenze: Mischen zwei PCs den alten und den neuen Stand, meldet der Melder
   für Items außerhalb des Rucksacks mit Position ungleich `(0, 0)` wieder eine Abweichung.
 
-MESSUNG_B
+**[Belegt, Messung] 21.11.2026, ein PC, Host und Client, Build `26786272`** (`Start-Session.ps1 -Build -Mod -Tunnel Lobby -Map
+/Game/Maps/DDDynamic_Map -Godmode`, keine Eingaben). `desync_difference.py --field pivot` verschiebt beim Client die Rasterposition
+des ersten Items außerhalb des Rucksacks um `(-19, -2)` (hier ein Revolver aus `!give`) und setzt sie danach zurück:
+
+| Stand | Pivot verschoben | Broken-Flag eines Client-Items gekippt |
+|---|---|---|
+| Vorher (Stand von `opt-desync-bearbeitung`), 16 s | nach rund 7 s bei beiden „ABWEICHUNG Inventar“, nach dem Rücksetzen „OK“ | – |
+| Mit der Änderung, 20 s | durchgehend „OK“ mit allen sechs Feldern bei beiden | nach rund 7 s bei beiden „ABWEICHUNG Inventar“, danach „OK“ |
+
+`Test-Desync.ps1 -Seconds 10` lief danach durch (10 Messungen ohne Fehlalarm, Abweichung auf beiden Seiten erkannt und wieder OK). Das
+Skript erwartete noch den Statustext mit ausgenommener Gegnerzahl und ist auf die sechs Felder angepasst. Unit-Test in
+`tests/NetTests/DesyncTests.cpp`.
+
+**Nicht geprüft:** der Weg über das echte Panel (Item im Lager ziehen, Edit bestätigen) und zwei PCs. Die Verschiebung kam hier aus
+dem Testhelfer, nicht aus dem Panel; der Wert entspricht dem Befund vom 06.11.2026.
 
 ### Run-Stand des Clients nach dem Run-Ende (`opt-metabase-inventar`)
 
@@ -3531,7 +3545,7 @@ Lokaler Test am 09.11.2026 (Build 26495302, `Start-Session.ps1 -Role Both -Mod -
 - **[Belegt] Nachtest.** Reparatur und Aufwertung im selben Edit: „Aufwertung 1 geprüft (Ablegen)“, „1 von 1 verkauft, 1 von 1 repariert“,
   „vollständig=true“, danach `Desync: OK … Inventar`. Am nächsten Tag hatte der Client die aufgewertete Waffe. Eine spätere kurze
   `ABWEICHUNG Inventar` fiel in eine offene Airdrop-Auswahl: Beim Client standen die drei lokalen Wahlinstanzen (`IsReward`) im Inventar.
-- **Abgegrenzt.** Der dauerhafte Fehlalarm durch die Rasterposition von Items außerhalb des Rucksacks bleibt bei `opt-desync-pivot`.
+- **Abgegrenzt.** Der dauerhafte Fehlalarm durch die Rasterposition von Items außerhalb des Rucksacks ist mit `opt-desync-pivot` behoben.
 
 ### Sekündlicher Ruckler beim Host (`host-lagspike`)
 
@@ -3819,7 +3833,7 @@ bis zum Bestätigen den Stand von deren Beginn.
 **2. Dauerhafte Abweichung nach einer Ablehnung [Belegt, Log; Ursache abgeleitet, ohne Gegenprobe].** **Grenze vorweg:** Behoben ist
 nur der Weg über eine Ablehnung. Übernimmt der Host einen Edit, in dem der Client ein Item im Lager verschoben hat, bleibt dieselbe
 Abweichung (Pivot außerhalb des Rucksacks) bis Spielende; auch eine Bearbeitung nach einer Ablehnung kann den Melder so wieder rot
-machen. Das ist `opt-desync-pivot` und als nächster Schritt nötig, damit der Melder echte Inventarfehler nicht verdeckt. Nach „Host hat Edit abgelehnt“ meldete das
+machen. Das war `opt-desync-pivot`; seit dem 21.11.2026 zählt der Melder Position und Drehung außerhalb des Rucksacks nicht mehr. Nach „Host hat Edit abgelehnt“ meldete das
 Zurückrollen `vollständig=true` (nach einem zweiten Durchgang), der Desync-Melder aber bei beiden „ABWEICHUNG Inventar“ bis Spielende.
 Felder, Seltenheit, Schrott und Rucksackfelder waren gleich. Der Melder (`InventoryHash` in `DesyncAdapter.cpp`) zählt Pivot und Drehung
 jedes Items, auch außerhalb des Rucksacks. Feuerzeug, Ratte und Revolver legte der Client während der Bearbeitung in den Rucksack (je rund
