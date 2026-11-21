@@ -1279,6 +1279,18 @@ Build `26495302`, Disassembly, siehe [Aufsammelsound](GAME_ANALYSIS.md#aufsammel
 | `LootBase.Client_PlaySound` | NetClient-RPC, beim Client vom Netz über `exe+299CFFB` (ProcessEvent), lokal aus `0x59AF417` |
 | `LootBlueprintFunctionLibrary.DropRequiredFuel` | Parameter 0x30 Byte: `World` `0x0`, `FuelClass` `0x8`, `Location` `0x10`, `Radius` `0x28`, `AdditionalFuel` `0x2C` (Spike-Testhilfe `!fx fuel`) |
 
+## Bedrohungsstufe (`opt-bedrohung-sound`)
+
+Build `26786272`, Speicher gelesen und Reflexion zur Laufzeit, siehe [Bedrohungsstufe beim Client](GAME_ANALYSIS.md#bedrohungsstufe-beim-client-opt-bedrohung-sound).
+Die Mod nutzt davon nur die Funktionen, die Offsets sind Belege.
+
+| Was | Wert |
+|---|---|
+| `UThreatLevel` (Komponente am GameState, 0x1C0) | `OnThreatLevelChanged` `0xC0`, `OnThreatLevelFreezeChanged` `0xD0`; Stufe ohne Reflexionsdaten bei `0x1B8` (`int32`, beim Client −1) |
+| `ThreatLevel.GetCurrentThreatLevel` | native Funktion, Rückgabe `int32` |
+| `WBP_Stopwatch_C.CustomEvent` | Blueprint-Ereignis `(int32 Old, int32 New)`, 8 Bytes Parameter, an `OnThreatLevelChanged` gebunden |
+| `WBP_Stopwatch_C.ThreatLevel`, `DangerLevel_Bind` | `0x430` (Komponente), `0x3D8` (`FString`, Zahl unter der Uhr) |
+
 ## Waffensounds (`opt-waffen-sound`)
 
 Build `26495302`, SDK und Disassembly, siehe [Waffensounds beim Client](GAME_ANALYSIS.md#waffensounds-beim-client-opt-waffen-sound).

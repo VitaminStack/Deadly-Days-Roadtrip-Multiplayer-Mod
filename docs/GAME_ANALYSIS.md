@@ -3272,6 +3272,40 @@ ohne Maus und Tastatur über die Spike-Befehle `!shop …` und den Trace `DDCOOP
 - **[Belegt] Die lokalen SDK-Dumps stammen noch von Build `26187885`.** Funktionsadressen daraus gelten für `26495302` nicht; die
   Adressen hier stammen aus den Namenstabellen der Exe dieses Builds.
 
+### Bedrohungsstufe beim Client (`opt-bedrohung-sound`)
+
+Untersucht am 21.11.2026, Build `26786272`, ein PC, `Start-Session.ps1 -Build -Mod -Tunnel Lobby -Godmode`, echter Run an Tag 1 über
+die Routenkarte ohne Maus und Tastatur, Stufen über `DD_SetThreatLevel`. Ton der Spielprozesse aus, **gezählt, nicht gehört**
+(`!fx`, `!fx events WBP_Stopwatch_C`), Speicher nur gelesen.
+
+- **[Belegt] Wer den Sound startet.** `PlayEvent2D <- WBP_Stopwatch_C.ExecuteUbergraph_WBP_Stopwatch`. Die Stoppuhr bindet ihr
+  Blueprint-Ereignis `CustomEvent(Old, New)` (zwei `int32`) an `ThreatLevel.OnThreatLevelChanged`. Beim Host kam das Ereignis je
+  gesetzter Stufe einmal an (5 Aufrufe), `UI_ThreatIncrease` lief 2-mal; **Vermutung:** nur bei einem Anstieg.
+- **[Belegt] Die Stufe repliziert nicht.** Die Komponente `ThreatLevel` am GameState hat kein Feld für die Stufe in der Reflexion
+  (nur `GetCurrentThreatLevel`). Im Speicher steht sie beim Host bei `+0x1B8` (4, später 10), beim Client an derselben Stelle −1.
+  Der Delegate ist beim Client gebunden, feuert aber nie: Stoppuhr-Ereignisse beim Client 0, `UI_ThreatIncrease` 2 / 0, und die Zahl
+  unter der Stoppuhr zeigte beim Host „4“, beim Client „0“. Das korrigiert die frühere Annahme „die Komponente `ThreatLevel`
+  repliziert“ aus [Tagesablauf](#tagesablauf-und-missionsziele-tagesablauf): Die Komponente repliziert, ihr Wert nicht.
+- **Umsetzung** (`src/Game/ThreatAdapter.cpp`, Regeln in `ThreatPolicy.h`, Format in `src/Sync/World/ThreatState.h`, mit Tests):
+  Neue Nachricht `0xC00` (Mod-Version 15) mit der Stufe als Stand. Der Host liest sie viermal je Sekunde über
+  `ThreatLevel.GetCurrentThreatLevel` und sendet bei jeder Änderung und alle 2 s. Der Client ruft damit `CustomEvent(Old, New)`
+  seiner eigenen Stoppuhr auf: Zahl, Animation und Sound entstehen nativ. Der erste Stand einer Welt läuft als `(N, N)`, setzt also
+  nur die Zahl. Format in [CONTROL_PROTOCOL.md](CONTROL_PROTOCOL.md#bedrohungsstufe-mod-kompatibilität-15).
+- **Antworten zum neuen Pfad.** Lokal bleiben Zahl, Animation und Sound der Stoppuhr. Geteilt wird nur die Stufe, weil sie beim
+  Client aus nichts Repliziertem folgt. Es entscheidet der Host (seine Komponente steuert die Gefahr); die Komponente des Clients
+  wird nicht beschrieben, es gibt keine zweite Autorität. Kein bestehender Weg wird ersetzt. Verlust, Join und eine Stoppuhr, die noch
+  fehlt, fängt die Wiederholung alle 2 s ab; ungültige Werte verwirft der Client; der Weltwechsel vergisst den gezeigten Stand.
+- **[Belegt, ein PC] Nachher.** Gemessen am 21.11.2026 mit einem lokalen Sammelstand aus den drei Zweigen `opt-gegner-sound`, `opt-airdrop-sound` und `opt-bedrohung-sound` (nicht gepusht), ein PC, Host und Client über den Spike, echter Run an Tag 1 ohne Maus und Tastatur, Ton der Spielprozesse aus, **gezählt, nicht gehört**, Stufen über `DD_SetThreatLevel` (3, 5, 7, 10, dann 4 und 6): `UI_ThreatIncrease`
+  je Abschnitt 2 / 2, 1 / 1 und 1 / 1, in einer zweiten Mission 2 / 2 (vorher 2 / 0). Der erste Stand je Welt (`0 auf 0`) und das
+  Sinken von 10 auf 4 liefen beim Client durch die Stoppuhr, ohne Sound, wie beim Host. Dass je Anstieg nicht immer ein Sound
+  kommt (beim Host 5 Anstiege, 4 Sounds), ist auf beiden Seiten gleich; **Vermutung:** Die Stoppuhr spielt nicht, solange
+  ihre Animation noch läuft. Im Mod-Log „Bedrohung Client: Stoppuhr von 4 auf 6“. Der Aufruf kostete beim Client einmal je Änderung
+  rund 10 ms (Suche der Stoppuhr). Keine Absturzberichte.
+- **Nicht geprüft:** die Zahl unter der Stoppuhr im Bild (nur der Aufruf mit dem Wert ist belegt), Stufen aus dem normalen
+  Zeitablauf statt aus dem Cheat, Paketverlust und später Beitritt im Spiel (nur als Unit-Test), zwei PCs, gehört.
+- **Grenzen.** Gehen Zwischenstände verloren, hört der Client einen Sprung als einen Sound. Die Routenkarte und andere Anzeigen
+  der Gefahr beim Client (`opt-routenkarte`) ändert das nicht.
+
 ### Sound und Effekte beim Client (`vfx-sound`)
 
 Gemessen am 11.11.2026, Build `26495302`, Mod-Stand `main` `3e7379e` (Mod-Version 12), ein PC, `Start-Session.ps1 -Mod -Tunnel Lobby
