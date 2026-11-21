@@ -3663,11 +3663,12 @@ repliziert rund eine Sekunde nach der Karte. Werte mit `tools/spike/boss_hp.py`,
 - **[Belegt] Dasselbe mit simulierter Latenz** (`-NetProfile Internet`, 120 ms ± 30, 2 % Verlust): drei Eintritte in einem Prozess,
   drei von drei Anlagen, 1,1 bis 1,9 s nach dem Weltwechsel, Leiste nach dem Testschaden in allen drei Eintritten 50.000/80.000, kein
   Absturz.
-- **[Belegt] „Anzeigen 2“ ist beim Kartenwechsel der Normalfall,** auch aus der MetaBase. Direkt nach der Reise hat noch die Anzeige
-  der alten Welt einen Objective-Manager; Minuten später hält nur noch eine `WI_ObjectiveDisplay_C` einen (Outer `WP_UI_C` an der
-  GameInstance), die dritte Instanz ist die Vorlage im `WidgetTree` der Klasse `WP_UI_C` ohne Manager. **[Folgerung]** Der Adapter
-  meldet das neue Objective also auch der Anzeige der alten Welt. In sieben Eintritten (drei, drei mit Latenz, einer in der
-  Gegenprobe) blieb das ohne Folgen.
+- **[Belegt] „Anzeigen 2“ ist beim Kartenwechsel der Normalfall,** auch aus der MetaBase: In allen sieben Eintritten (drei, drei mit
+  Latenz, einer in der Gegenprobe) meldete der Adapter zwei Anzeigen mit Objective-Manager. Minuten nach dem Eintritt hielt nur noch
+  eine `WI_ObjectiveDisplay_C` einen Manager (Outer `WP_UI_C` an der GameInstance); die einzige weitere Instanz war die Vorlage im
+  `WidgetTree` der Klasse `WP_UI_C`, ohne Manager. **[Folgerung, zum Zeitpunkt des Anlegens nicht gelesen]** Die zweite Anzeige ist
+  die der alten Welt, die kurz nach der Reise noch im Objekt-Array steht; der Adapter meldet das neue Objective dann auch ihr. Das
+  blieb in allen sieben Eintritten ohne Folgen.
 - **[Belegt] Die Objectives des Clients bleiben liegen.** `DDObjectiveSubsystem` gibt es einmal an der GameInstance, jedes angelegte
   `DD_BaseBossObjective_C` hängt daran und stand nach zwei weiteren Reisen noch im Objekt-Array (drei Objectives nach drei Eintritten,
   auch beim Host). Der Adapter merkt sie sich als eigene und legt je Boss ein neues an.
@@ -3676,9 +3677,12 @@ repliziert rund eine Sekunde nach der Karte. Werte mit `tools/spike/boss_hp.py`,
   Latenz. **[Vermutung]** Über das Internet lief am 13.11. etwas in anderer Reihenfolge ab (etwa ein Aufräumen des Subsystems beim
   Missionsstart nach dem Anlegen). Mit dem heutigen Code endet auch dieser Fall nicht im Absturz, sondern mit einem zweiten Objective
   und zwei Zeilen „lokal angelegt“; gemessen ist das nur mittelbar, über das zweite Anlegen nach jeder Reise.
-- **Nebenbefund Testwerkzeug:** `Stop-Session.ps1` wartet nach dem Beenden der eigenen Instanzen sechs Sekunden und nimmt erst dann
-  die Mod aus der Spielkopie. In der Zeit gilt die Sperre als frei; eine wartende Sitzung aus einem anderen Worktree installiert ihre
-  Mod, und das Entfernen trifft sie. Dreimal startete so eine Sitzung ohne Mod („Testkanal … antwortet nicht“), ein Neustart half.
+- **Nebenbefund Testwerkzeug:** Liefen mehrere Worktrees mit `Start-Session.ps1 -Mod -Wait` hintereinander, startete die eigene
+  Sitzung dreimal ohne Mod: `DDCoop.dll` war in keiner der beiden Instanzen geladen, im Spielordner lag nur noch `DDCoop\logs`, das
+  Skript brach mit „Testkanal … antwortet nicht“ ab. Ein erneuter Start half jeweils. Umgekehrt fand das eigene `Stop-Session.ps1`
+  beim Entfernen der Mod schon das Spiel der nächsten Sitzung vor („The game is running“). **[Vermutung]** `Stop-Session.ps1` beendet
+  die Instanzen, wartet sechs Sekunden und entfernt erst dann die Mod; in der Zeit gilt die Sperre als frei, und das Entfernen trifft
+  die Mod der nächsten Sitzung. Der Ablauf ist nicht nachgemessen.
 - **Nicht geprüft:** zwei PCs und echtes Internet, ein Run über acht Tage bis zum echten Boss-Knoten (hier Tag 1 bis 3 mit
   Testschalter), andere Bosse als der SpikeBoss und die Karten `MGP_Burger_Boss_City` und `MGP_HQ8_Boss`, Bosstod und Sieg, ein
   Wiederbeitritt in die Boss-Karte, Spielton.
