@@ -2941,9 +2941,11 @@ Ausgewertet am 21.11.2026, Build `26786272`: Mod-Logs beider Seiten aus dem Live
   zwei, auch ein kaputter Arm (gemessen mit `!give ItemData_RobotArm broken`). Der Effekt hängt als Rucksackwirkung am
   `UCharacterEffectManager` der Figur (`EffectedBackpackSpecifications`), `ExtraHands` repliziert über das Attributset des
   PlayerState.
-- **[Belegt] „Arme an der Figur“ ist die zusätzliche Waffe.** Die Figur bekommt keine eigene Komponente für den Arm
-  (Komponentenbaum beider Figuren mit und ohne Arm gleich bis auf die Waffen). Sichtbar wird der Arm über die Waffe, die man mit der
-  zusätzlichen Hand ausrüstet. Ohne die Hand gibt es keine zweite Waffe und nichts zu sehen.
+- **[Belegt] „Arme an der Figur“ ist die zusätzliche Waffe.** Der Arm selbst hängt der Figur nichts an: Der Komponentenbaum
+  beider Figuren (19 Komponenten samt angehängter Actors) ist in beiden Prozessen mit und ohne Arm gleich
+  (`hand_effects.py --figure`, leeres Inventar gegen Arm im Rucksack). Erst die Waffe, die man mit der zusätzlichen Hand ausrüstet,
+  kommt dazu (Messer: Waffen-Actor an den Händen, bei beiden Figuren auf beiden Seiten). Ohne die Hand gibt es keine zweite Waffe
+  und nichts zu sehen. Nicht verglichen: Material oder Sprite vorhandener Komponenten.
 - **[Belegt] Host-Seite und Replikation sind in Ordnung.** Legt der Host den Arm für beide Figuren in den Rucksack (`!equip`,
   derselbe Ablauf wie beim Übernehmen eines Client-Edits), steht `ExtraHands` bei beiden PlayerStates in beiden Prozessen auf 1,
   `GE_IncreaseHands_C` ist aktiv, eine zweite Waffe (MP) hängt bei beiden Figuren auf beiden Seiten an den Händen. Nach einem
