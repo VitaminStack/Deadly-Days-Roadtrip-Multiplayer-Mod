@@ -79,7 +79,7 @@ uintptr_t RecordWorld = 0;
 // Zähler für den Spieltest, alle 10 Sekunden ins Log, wenn sich etwas geändert hat.
 struct Counters
 {
-    uint64_t Calls = 0, Recorded = 0, Overflow = 0, NoGuid = 0, Taken = 0, Sent = 0, Remote = 0, SameTick = 0, Impact = 0; // Host
+    uint64_t Calls = 0, Recorded = 0, Overflow = 0, NoGuid = 0, Taken = 0, Sent = 0, Remote = 0, SameTick = 0, Impact = 0, ImpactRepeat = 0; // Host
     uint64_t SendFailed = 0, NoPeer = 0, EncodeFailed = 0, NoTarget = 0; // Host
     uint64_t Received = 0, Shown = 0, Unknown = 0, Dying = 0, NoController = 0; // Client
     uint64_t Bundled = 0, DecodeFailed = 0, RevisionGap = 0, WrongRole = 0; // Client
@@ -97,9 +97,9 @@ void LogCounters(bool Host)
     if (Host)
         Core::Log::Info("Schadenszahlen Host: Handler {} (fremder Controller {}, ohne Ziel {}), gemerkt {} (gleiches Ziel und Schaden "
                         "im Takt {}), übergeben {}, gesendet {}, Senden abgelehnt {}, ohne Mitspieler {}, Paket ungültig {}, "
-                        "ohne NetGUID {}, Puffer voll {}, mit Einschlagsound {}", Count.Calls, Count.Remote, Count.NoTarget, Count.Recorded,
+                        "ohne NetGUID {}, Puffer voll {}, mit Einschlagsound {} (dasselbe Projektil im Takt erneut {})", Count.Calls, Count.Remote, Count.NoTarget, Count.Recorded,
                         Count.SameTick, Count.Taken, Count.Sent, Count.SendFailed, Count.NoPeer, Count.EncodeFailed, Count.NoGuid,
-                        Count.Overflow, Count.Impact);
+                        Count.Overflow, Count.Impact, Count.ImpactRepeat);
     else
         Core::Log::Info("Schadenszahlen Client: empfangen {} (davon im Sammelabruf {}), an Handler {}, Ziel unbekannt {}, "
                         "Ziel stirbt {}, ohne Controller {}, falsche Rolle {}, Nachricht unlesbar {}, Nachrichten fehlen {}",
@@ -176,6 +176,8 @@ void Record(const uint8_t* Info)
         bool Marked = false;
         for (size_t i = 0; i < RingCount && !Marked; ++i)
             Marked = Ring[i].ImpactCauser == Projectile;
+        if (Marked)
+            ++Count.ImpactRepeat;
         const bool Sounding = !Marked && ProjectileUsesImpactSound(Projectile);
         if (ImpactSoundReported(Sounding && Objects::IsA(Object, "EnemyBase"), Sounding, Sounding, Sounding, Marked))
         {

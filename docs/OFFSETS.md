@@ -1279,6 +1279,19 @@ Build `26495302`, Disassembly, siehe [Aufsammelsound](GAME_ANALYSIS.md#aufsammel
 | `LootBase.Client_PlaySound` | NetClient-RPC, beim Client vom Netz über `exe+299CFFB` (ProcessEvent), lokal aus `0x59AF417` |
 | `LootBlueprintFunctionLibrary.DropRequiredFuel` | Parameter 0x30 Byte: `World` `0x0`, `FuelClass` `0x8`, `Location` `0x10`, `Radius` `0x28`, `AdditionalFuel` `0x2C` (Spike-Testhilfe `!fx fuel`) |
 
+## Gegner-Sounds (`opt-gegner-sound`)
+
+Build `26786272`, Disassembly und Reflexion zur Laufzeit, siehe [Gegner-Sounds beim Client](GAME_ANALYSIS.md#gegner-sounds-beim-client-opt-gegner-sound).
+Die Mod liest die Felder über `Reflection::Property`, die Offsets stehen hier nur als Beleg.
+
+| Was | Wert |
+|---|---|
+| Native Trefferbehandlung des Projektils (hinter `Projectile.OnValidOverlap`) | Funktion ab `0x5A1C310`; Einschlagsound über `PlayEventAtLocation` (`0x47B9D90`) bei `0x5A1CE54` |
+| `AProjectile.bUseImpactSounds`, `UseRandomSoundFromArray` | `0x3C1`, `0x3C2` (bool) |
+| `AProjectile.HitImpactSoundEvent`, `ImpactSoundEvents` | `0x3C8` (`UFMODEvent*`), `0x3D0` (Array) |
+| `ACharacter.ReplicatedMovementMode` | `0x472` (gepackt: unter 16 untere drei Bits der Modus, 3 = `MOVE_Falling`) |
+| `FDamageInformation.DamageCauser` | `0x1C` (`TWeakObjectPtr`), beim Projektiltreffer das Projektil |
+
 ## Waffensounds (`opt-waffen-sound`)
 
 Build `26495302`, SDK und Disassembly, siehe [Waffensounds beim Client](GAME_ANALYSIS.md#waffensounds-beim-client-opt-waffen-sound).

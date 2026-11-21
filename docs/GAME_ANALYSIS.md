@@ -3359,6 +3359,53 @@ Gegner über `!wave`, die Figuren standen und feuerten von selbst. Keine Maus- o
   Absturzberichte.- **Nicht geprüft:** Schrotflinte und andere Waffen (`!give` legt sie nur in den Rucksack, ausgerüstet blieb die Pistole), Nahkampf,
   Drohnen (`ProjectileAmmoBasedDroneAttackComponent` hat einen eigenen `FireWeaponSoundEvent`), zwei PCs mit echtem Ping, gehört.
 
+#### Gegner-Sounds beim Client (`opt-gegner-sound`)
+
+Untersucht am 21.11.2026, Build `26786272`, ein PC, `Start-Session.ps1 -Build -Mod -Tunnel Lobby -Godmode`, echter Run an Tag 1 über
+die Routenkarte ohne Maus und Tastatur (Spike-Befehle wie in [Gezielt in eine Karte](TESTING.md#gezielt-in-eine-karte)), Gegner über
+`DD_SetThreatLevel 10`. Ton der Spielprozesse aus, **gezählt, nicht gehört**: `!fx` je Prozess, dazu der neue Spike-Befehl
+`!fx events <Klasse>`, der alle `ProcessEvent`-Aufrufe an Objekten einer Klasse zählt (was beim Client überhaupt ankommt).
+
+- **[Belegt, Disassembly] `zombie_Hurt` ist kein Sound des Gegners, sondern der Einschlagsound des Projektils.** Aufrufkette mit
+  `!fx stack`: `exe+5A1CE59` ← `exe+5773311` (Ereignis `Projectile.OnValidOverlap`) ← `ProcessEvent`. Die native Trefferbehandlung
+  des Projektils (Funktion ab `0x5A1C310`) startet bei `bUseImpactSounds` (`+0x3C1`) den `HitImpactSoundEvent` (`+0x3C8`) über
+  `PlayEventAtLocation` am Ort des Projektils (Aufruf `0x5A1CE54`), außer das getroffene Objekt gehört zu einer ausgenommenen Klasse.
+  Alle 13 geladenen Projektilklassen mit Einschlagsound tragen dort `zombie_Hurt`.
+- **[Belegt] Warum er beim Client fast fehlt.** Die Projektile replizieren, und auch die Kopie des Clients ruft bei einer eigenen
+  Überlappung `OnOverlapBegin` und spielt dann denselben Sound. Sie berührt den Gegner aber nur selten selbst, bevor der Host sie
+  abbaut oder in den Pool zurücknimmt: In 120 s an Tag 1 beim Host 40 Schüsse, 40 gültige Überlappungen, 35 Sounds, beim Client 23
+  Überlappungen, 14 gültige, 13 Sounds. Bei vielen Gegnern (Bedrohung 10, 60 s) 234 zu 3. Am Gegner selbst kommt je Treffer kein
+  Ereignis an (`!fx events BP_StandardEnemy_C`: nur `OnRep_ReplicatedMovement`), seine HP replizieren nicht.
+- **[Belegt] Vorhandenes Signal je Treffer:** die Schadenszahl-Nachricht `0xA00` aus `opt-schadenszahlen` (Host 1377 gemeldet,
+  Client 1377 empfangen). Sie kommt aber für jeden Schaden, auch für Flächen- und Dauerschaden ohne Sound (Endboss-Karte: 52
+  Zahlen bei 14 Einschlagsounds). `FDamageInformation.DamageCauser` (`+0x1C`) nennt beim Host das Projektil.
+- **[Belegt] `StandardEnemyAttack`** startet der Blueprint der Fähigkeit `GA_SmallJumpAttack_C` (`PlayEventAtLocation <-
+  GA_SmallJumpAttack_C.ExecuteUbergraph_GA_SmallJumpAttack`, 378 in 60 s bei Bedrohung 10, Client 0). Die Fähigkeit läuft nur beim
+  Host, ihre Klasse und das Sound-Objekt sind beim Client nicht einmal geladen. Beim Host gehören dazu 367 `OnLaunched` an
+  `BP_StandardEnemy_C`, beim Client kommt davon kein Ereignis an. Der Sprung selbst repliziert aber:
+  `ACharacter.ReplicatedMovementMode` steht beim Client während des Sprungs auf 3 (`MOVE_Falling`), sonst auf 10 oder 1
+  (30 Proben je Gegner über 2 s: Host 68 von 3150 in der Luft, Client 94 von 3150).
+- **Nebenbefunde, nicht behoben:** `JumpZombie_Jetpack` (`GA_JumpyJetpackAttack_C`, 15 zu 0) und `zombie_fire_Igniting` (2 zu 0)
+  fehlen beim Client ebenfalls, dazu die Angriffssounds der Bosse (`GA_StompAttack_C`, `GA_NewVacuumAttack_C`, `Impact_Grenade`
+  948 zu 0 auf der Endboss-Karte). Sie kommen aus Fähigkeiten, die nur beim Host laufen.
+- **Umsetzung** (`src/Game/EnemySoundPatches.cpp`, Regeln in `EnemySoundPolicy.h` mit Tests, `FmodSound.h`):
+  - Treffer: Der Host markiert in `0xA00` je Treffer ein neues Byte (Bit 0: Einschlagsound), wenn der Verursacher ein Projektil mit
+    `bUseImpactSounds` und gesetztem `HitImpactSoundEvent` ist und das Ziel ein Gegner, je Projektil und Takt einmal
+    (Flächenschaden). Der Client spielt dafür den `HitImpactSoundEvent` der Grundklasse `BP_Projectile_C` am Ziel, ohne Ziel am
+    gemeldeten Ort. Damit nichts doppelt läuft, schaltet er `bUseImpactSounds` an seinen replizierten Projektilen ab (beim
+    `ReceiveBeginPlay` und einmal je Welt für schon vorhandene). Mod-Version 15, Format in
+    [CONTROL_PROTOCOL.md](CONTROL_PROTOCOL.md#schadenszahlen-mod-kompatibilität-12).
+  - Angriff, rein lokal: Der Client beobachtet je Takt `ReplicatedMovementMode` seiner `BP_StandardEnemy_C` und spielt
+    `StandardEnemyAttack` (über den Pfad geladen) am Gegner, wenn ein schon beobachteter Gegner vom Boden in `MOVE_Falling` wechselt.
+    Höchstens 12 Gegner-Sounds je Takt, je Gegner 300 ms Ruhe.
+  - Antworten zum Sync-Pfad: Lokal bleiben Auswahl, Ort und Abspielen der Sounds, der Angriffssound ganz. Geteilt wird nur ein Bit
+    je ohnehin gemeldetem Treffer, weil die Kopie des Projektils beim Client den Treffer nicht verlässlich selbst sieht. Es
+    entscheidet der Host (sein Projektil trifft). Wiederverwendet wird `0xA00`, keine neue Nachricht. Ein verlorenes Paket kostet
+    Sounds, keine Wiederholung; nach Join oder Travel gibt es nichts nachzuholen.
+  - Grenzen: Die Marke nennt den Sound nicht, ein Projektil mit anderem Einschlagsound klänge beim Client wie die Grundklasse (heute
+    gibt es keins). Der Angriffssound hängt am Sprung, nicht an der Fähigkeit: Ein Standardgegner, den etwas anderes in die Luft
+    wirft, klingt beim Client ebenfalls, und der Zeitpunkt ist der des replizierten Sprungs.
+
 ### Absturz beim Bestätigen im Lager (`lager-bestaetigen-absturz`)
 
 Ausgewertet am 10.11.2026 aus Mod-Log und Minidump des Clients vom [Live-Test](#live-test-auf-zwei-pcs-am-10112026-livetest-1011),

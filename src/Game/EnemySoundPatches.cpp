@@ -30,7 +30,6 @@ constexpr std::string_view JumpingEnemyClass = "BP_StandardEnemy_C";
 constexpr std::string_view AttackSoundPath = "/Game/FMOD/Events/SFX/Character_FX/Zombies/StandardEnemyAttack.StandardEnemyAttack";
 // Alle geladenen Projektilklassen mit Einschlagsound nutzen dasselbe Ereignis, der Client nimmt es von der Grundklasse.
 constexpr std::string_view ProjectileDefaults = "Default__BP_Projectile_C";
-constexpr uintptr_t ActorRole = 0x168; // AActor.Role, 3 = Authority (wie AirdropAdapter.cpp)
 constexpr ULONGLONG ListRefreshMs = 250;
 
 struct Jumper
@@ -51,25 +50,25 @@ std::atomic<DWORD> GameThreadId = 0;
 int32_t ImpactEventOffset = -1, ModeOffset = -1;
 Objects::Ref ImpactEvent, AttackEvent;
 std::vector<Jumper> Jumpers;
-std::unordered_map<uintptr_t, bool> JumperClasses;
+enum class ActorKind : uint8_t { Other, Jumper, Projectile };
+std::unordered_map<uintptr_t, ActorKind> ActorKinds;
 uintptr_t LastWorld = 0;
 ULONGLONG NextRefresh = 0, NextResolve = 0, NextLog = 0;
 bool Observing = false, ReportedNoSlot = false;
 int PlayedThisTick = 0;
 struct Counters
 {
-    uint64_t Impacts = 0, ImpactsAtTarget = 0, ImpactsSilent = 0, Muted = 0, Jumps = 0, Attacks = 0, AttacksSilent = 0;
+    uint64_t Impacts = 0, ImpactsAtTarget = 0, ImpactsSilent = 0, Muted = 0, Spawned = 0, Jumps = 0, Attacks = 0, AttacksSilent = 0;
     bool operator==(const Counters&) const = default;
 } Count, Logged;
 
 // Replizierte Projektile des Clients lösen ihren Einschlagsound nur aus, wenn sie den Gegner vor dem Abbau selbst berühren.
-// Den Sound spielt der Client für die Treffer des Hosts, der eigene wäre ein Doppel.
+// Den Sound spielt der Client für die Treffer des Hosts, der eigene wäre ein Doppel. Der Client hat keine eigenen Projektile
+// (kein Pool, alle repliziert), darum ohne Blick auf die Rolle: Beim ReceiveBeginPlay steht sie noch nicht verlässlich fest.
 void MuteProjectile(uintptr_t Projectile)
 {
     const int32_t Offset = ImpactFlagOffset.load(std::memory_order_relaxed);
-    if (Offset < 0 || Memory::Read<uint8_t>(Projectile + ActorRole).value_or(3) == 3)
-        return;
-    if (!Memory::Read<uint8_t>(Projectile + Offset).value_or(0))
+    if (Offset < 0 || !Memory::Read<uint8_t>(Projectile + Offset).value_or(0))
         return;
     const uint8_t Off = 0;
     if (Memory::WriteBytes(Projectile + Offset, &Off, 1))
@@ -86,6 +85,7 @@ void ObserveBeginPlay(uintptr_t Object, uintptr_t Function, void*)
         return;
     if (GetCurrentThreadId() != GameThreadId.load(std::memory_order_relaxed) || !Object || !Objects::IsA(Object, "Projectile"))
         return;
+    ++Count.Spawned;
     MuteProjectile(Object);
 }
 
@@ -144,14 +144,14 @@ void RefreshJumpers(uintptr_t World)
         const uintptr_t Class = Memory::ReadPointer(Actor + Offsets::UObject::Class).value_or(0);
         if (!Class)
             return;
-        auto Known = JumperClasses.find(Class);
-        if (Known == JumperClasses.end())
-        {
-            if (Objects::IsA(Actor, "Projectile"))
-                MuteProjectile(Actor);
-            Known = JumperClasses.emplace(Class, Objects::IsA(Actor, JumpingEnemyClass)).first;
-        }
-        if (!Known->second)
+        auto Known = ActorKinds.find(Class);
+        if (Known == ActorKinds.end())
+            Known = ActorKinds.emplace(Class, Objects::IsA(Actor, JumpingEnemyClass) ? ActorKind::Jumper
+                                              : Objects::IsA(Actor, "Projectile")    ? ActorKind::Projectile
+                                                                                      : ActorKind::Other).first;
+        if (Known->second == ActorKind::Projectile)
+            MuteProjectile(Actor);
+        if (Known->second != ActorKind::Jumper)
             return;
         for (const auto& Old : Jumpers)
             if (Old.Enemy.Object == Actor && Objects::IsLive(Old.Enemy))
@@ -171,9 +171,10 @@ void LogCounters(ULONGLONG Now)
         return;
     NextLog = Now + 10000;
     Logged = Count;
-    Core::Log::Info("Gegnersound Client: Einschlagsounds {} (am Ziel {}, ohne Sound {}), eigene Projektilsounds abgeschaltet {}, "
-                    "Sprünge gesehen {}, Angriffssounds {} (ohne Sound {})", Count.Impacts, Count.ImpactsAtTarget,
-                    Count.ImpactsSilent, Count.Muted, Count.Jumps, Count.Attacks, Count.AttacksSilent);
+    Core::Log::Info("Gegnersound Client: Einschlagsounds {} (am Ziel {}, ohne Sound {}), eigene Projektilsounds abgeschaltet {} "
+                    "(neue Projektile {}), Sprünge gesehen {}, Angriffssounds {} (ohne Sound {})", Count.Impacts,
+                    Count.ImpactsAtTarget, Count.ImpactsSilent, Count.Muted, Count.Spawned, Count.Jumps, Count.Attacks,
+                    Count.AttacksSilent);
 }
 }
 
@@ -215,7 +216,7 @@ void TickEnemySounds(NetRole Role)
     if (World != LastWorld)
     {
         Jumpers.clear();
-        JumperClasses.clear();
+        ActorKinds.clear();
         ImpactEvent = AttackEvent = {};
         LastWorld = World;
         NextRefresh = 0;
