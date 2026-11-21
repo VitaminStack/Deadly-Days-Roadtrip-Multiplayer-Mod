@@ -21,6 +21,7 @@ Einzige Schicht mit Spielzugriff. Enthält Adapter auf Spielklassen und später 
 | `TelemetryAdapter.h` | Schaltet im Mod-Betrieb Balance-Telemetrie und automatische Berichte über beschädigte Spielstände ab und sperrt die Telemetrie-Adresse über `Core::ReportHosts` |
 | `SaveRedirect.h` / `SavePaths.h` | Trennt die Spielstände: Datei-APIs von Windows leiten alles unter `Saved\SaveGames` nach `Saved\SaveGames_DDCoop` um, ohne Spiel-Offsets; reine Pfadlogik in `SavePaths.h`, ohne Spiel getestet. Siehe [Spielstände](../../docs/GAME_ANALYSIS.md#spielstände-der-mod-mod-saves) |
 | `Patches.h` | Die Spielfehler-Fixes für eine Mission zu zweit, siehe [Patches](#patches) |
+| `FmodSound.h` | Startet einen FMOD-Sound lokal über `FMODBlueprintStatics.PlayEventAtLocation`, am Actor oder an einem Weltort |
 | `CodeCave.h` | Werkzeuge für Patches mitten in Funktionen: Code-Höhle nahe der Exe, Bytes prüfen, Sprünge und vtable-Einträge schreiben |
 | `LocalDevicePolicy.h` | Reine Regeln für `LocalDevicePatches.cpp`: welche Gerätezuordnung und welcher lokale Spawn im Netzwerkspiel abgelehnt wird, ohne Spiel getestet |
 | `RemoteP2Policy.h` | Reine Logik für den Remote-Spieler als P2: `ActivePlayers`-Map prüfen und aufräumen, Geräte-Wächter, ohne Spiel getestet |
