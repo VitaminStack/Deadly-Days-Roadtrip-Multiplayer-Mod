@@ -21,6 +21,8 @@ PRIOS = ('P0', 'P1', 'P2')
 MODES = ('parallel', 'zentral', 'zu zweit', 'Team')
 PLAYTIMES = ('keine', 'wenig', 'mittel', 'viel')
 PHASES = tuple(str(n) for n in range(7))
+GATE_PHASES = PHASES[:6]
+OPTIONAL_PHASE = 'Optional'
 FREE_START = '<!-- frei:start -->'
 FREE_END = '<!-- frei:end -->'
 ID_PATTERN = r'[a-z0-9][a-z0-9-]*'
@@ -175,6 +177,11 @@ def blockers(task, tasks):
     return [n for n in task.needs if not tasks[n].done]
 
 
+def deferred(task, tasks):
+    """Optionale Aufgaben warten, bis Phase 0 bis 5 erledigt sind, also der Run zu zweit laeuft."""
+    return task.phase == OPTIONAL_PHASE and any(not t.done for t in tasks.values() if t.phase in GATE_PHASES)
+
+
 def phase_counts(tasks):
     counts = {int(p): [0, 0] for p in PHASES}
     for task in tasks.values():
@@ -200,6 +207,8 @@ def free_block(todo, tasks):
     ready = [t for t in tasks.values() if not t.done and not blockers(t, tasks)]
     order = {p: i for i, p in enumerate(PHASES + tuple(EXTRA_SECTIONS.values()))}
     ready.sort(key=lambda t: (PRIOS.index(t.prio), order[t.phase], t.name))
+    held = [t for t in ready if not t.confirmation and deferred(t, tasks)]
+    ready = [t for t in ready if t not in held]
     work = [t for t in ready if t.mode != 'Team' and not t.confirmation]
     team = [t for t in ready if t.mode == 'Team' and not t.confirmation]
     lines = ['| Kennung | Prio | Phase | Bearbeitung | Spielzeit |', '|---|---|---|---|---|']
@@ -209,6 +218,10 @@ def free_block(todo, tasks):
         lines.append('| – | | | | |')
     lines.append('')
     lines.append('**Wartet auf das Team:** ' + (', '.join(f'`{t.name}`' for t in team) if team else 'nichts') + '.')
+    if held:
+        lines.append('')
+        lines.append(f'**Zurückgestellt, bis Phase 0 bis 5 erledigt sind:** {len(held)} Aufgaben unter '
+                     f'[Optionale Optimierungen](#{anchors[OPTIONAL_PHASE]}).')
     pending = [t for t in tasks.values() if t.confirmation]
     lines.append('')
     lines.append('**Bestätigungstest ausstehend (nicht in Arbeit):** ' +

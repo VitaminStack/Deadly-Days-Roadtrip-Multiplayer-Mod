@@ -101,6 +101,17 @@ class DerivedTests(unittest.TestCase):
         self.assertNotIn('`waits`', block)
         self.assertIn('**Wartet auf das Team:** `vote`.', block)
 
+    def test_optional_waits_until_phases_0_to_5_are_done(self):
+        optional = '## Optionale Optimierungen\n' + OPEN + '| `opt-x` | P2 | Text | – | parallel | wenig |\n'
+        text = todo('| `run` | P0 | Text | – | zentral | viel |\n', extra=optional)
+        block = source.free_block(text, source.parse(text))
+        self.assertNotIn('`opt-x`', block)
+        self.assertIn('**Zurückgestellt, bis Phase 0 bis 5 erledigt sind:** 1 Aufgaben', block)
+        text = todo(extra=optional)
+        block = source.free_block(text, source.parse(text))
+        self.assertIn('| `opt-x` | P2', block)
+        self.assertNotIn('Zurückgestellt', block)
+
     def test_update_todo_is_idempotent_and_keeps_crlf(self):
         text = todo('| `a` | P0 | Text | – | parallel | wenig |\n').replace('\n', '\r\n')
         parsed = source.parse(text)
@@ -193,6 +204,17 @@ class ReservationTests(unittest.TestCase):
             with self.subTest(state=state):
                 message = self.claim('open', prs={'open': {'number': 8, 'state': state, 'isDraft': False}})
                 self.assertIn('Keine neue Reservierung', message)
+
+    def test_optional_task_cannot_be_claimed_while_run_is_open(self):
+        text = todo(self.ROWS, extra='## Optionale Optimierungen\n' + OPEN + '| `opt-x` | P2 | Text | – | parallel | wenig |\n')
+        parsed = source.parse(text)
+        self.assertEqual(tasks.status('opt-x', set(), None, parsed), tasks.DEFERRED)
+        with patch.object(tasks, 'git'), patch.object(tasks, 'todo_text', return_value=text),                 patch.object(tasks, 'remote_branches', return_value=set()),                 patch.object(tasks, 'pull_requests', return_value=None):
+            with self.assertRaises(SystemExit) as raised:
+                tasks.cmd_claim('opt-x', 'test')
+        self.assertIn('zurückgestellt', str(raised.exception))
+        pr = {'opt-x': {'number': 9, 'state': 'OPEN', 'isDraft': False}}
+        self.assertEqual(tasks.status('opt-x', set(), pr, parsed), 'PR #9 wartet auf Review')
 
     def test_status_values(self):
         parsed = source.parse(todo(self.ROWS))

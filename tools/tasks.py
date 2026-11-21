@@ -33,13 +33,14 @@ import time
 from pathlib import Path
 
 if __package__:
-    from .task_status import blockers, confirmation_update, mark_done, parse, regenerate
+    from .task_status import blockers, confirmation_update, deferred, mark_done, parse, regenerate
 else:
-    from task_status import blockers, confirmation_update, mark_done, parse, regenerate
+    from task_status import blockers, confirmation_update, deferred, mark_done, parse, regenerate
 
 STALE_DAYS = 3
 ROLES = ('host', 'client')
 PAIR_MODE = 'zu zweit'
+DEFERRED = 'zurückgestellt bis Phase 0 bis 5 erledigt'
 
 
 def run(*args, check=True):
@@ -171,6 +172,8 @@ def status(kennung, branches, prs, tasks):
     waiting = blockers(task, tasks)
     if waiting:
         return 'blockiert, braucht ' + ', '.join(waiting)
+    if deferred(task, tasks):
+        return DEFERRED
     return 'frei'
 
 
@@ -252,6 +255,9 @@ def cmd_claim(kennung, name, role=None):
         sys.exit(f'{kennung} entscheidet das Team. Keine Reservierung.')
     elif blockers(task, tasks):
         sys.exit(f'{kennung} ist blockiert, erst erledigen: ' + ', '.join(blockers(task, tasks)))
+    elif deferred(task, tasks):
+        sys.exit(f'{kennung}: optional, {DEFERRED}. Erst den Run zu zweit spielbar machen; '
+                 'vorziehen nur, wenn das Team die Zeile in eine Phase oder nach Wartung verschiebt.')
 
     root = repo_root()
     branch = f'task/{branch_name(kennung, role)}'

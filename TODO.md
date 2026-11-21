@@ -4,7 +4,7 @@ Diese Datei ist die einzige Aufgabenliste des Projekts. **Jede Aufgabe steht gen
 
 Den Überblick als Graph zeigt [docs/ROADMAP.md](docs/ROADMAP.md), den Fortschritt je Phase das [README](README.md#fortschritt).
 
-**Fokus: erst spielbar.** Vorrang hat, dass zwei Spieler einen Run durchspielen können. Kleine Fehler, die das nicht verhindern, kommen unter [Optionale Optimierungen](#optionale-optimierungen) und warten, bis der Run zu zweit läuft.
+**Fokus: erst spielbar.** Vorrang hat, dass zwei Spieler einen Run durchspielen können. Aufgaben unter [Optionale Optimierungen](#optionale-optimierungen) warten, bis Phase 0 bis 5 erledigt sind; `tasks.py` zeigt sie bis dahin als `zurückgestellt`. Neue Kennungen nur für Funde oder Reste, die den Run zu zweit verhindern, siehe [Fokus in CLAUDE.md](CLAUDE.md#fokus).
 
 ## So liest man die Tabellen
 
@@ -24,6 +24,7 @@ Daraus ergibt sich der Status, den `py tools/tasks.py list` anzeigt:
 | frei | Alle Voraussetzungen erledigt, niemand hat reserviert. Darf genommen werden |
 | reserviert, in Arbeit | Branch oder Draft-PR existiert. Nicht nehmen |
 | blockiert | Mindestens eine Kennung aus „Braucht“ ist offen. `tasks.py claim` lehnt ab |
+| zurückgestellt | Optionale Aufgabe, solange eine Aufgabe aus Phase 0 bis 5 offen ist. `tasks.py claim` lehnt ab |
 | Team | Entscheidet das Team, `tasks.py claim` lehnt ab |
 | erledigt | Steht unter [Erledigt](#erledigt). Nie erneut reservieren, auch wenn der Branch gelöscht ist oder die GitHub CLI fehlt |
 
@@ -39,34 +40,11 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `update-26786272-run` | P1 | [Wartung](#wartung) | zentral | viel |
 | `dumper7-image-ende` | P2 | [Wartung](#wartung) | parallel | wenig |
 | `inventar-patchnotes-1-0-2` | P2 | [Wartung](#wartung) | parallel | wenig |
-| `opt-airdrop-sound` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
-| `opt-bedrohung-sound` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
-| `opt-boss-phasenleiste` | P2 | [Optional](#optionale-optimierungen) | parallel | mittel |
-| `opt-boss-tafel-client` | P2 | [Optional](#optionale-optimierungen) | parallel | mittel |
-| `opt-client-takt` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
-| `opt-dash-aufprall` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
-| `opt-desync-bearbeitung` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
-| `opt-desync-pivot` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
-| `opt-ergebnis-werte` | P2 | [Optional](#optionale-optimierungen) | parallel | mittel |
-| `opt-gegner-sound` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
-| `opt-gegner-spawnverzug` | P2 | [Optional](#optionale-optimierungen) | parallel | mittel |
-| `opt-gegnerzahl` | P2 | [Optional](#optionale-optimierungen) | parallel | mittel |
-| `opt-giftwolke-live` | P2 | [Optional](#optionale-optimierungen) | zu zweit | mittel |
-| `opt-haende-vorschau-items` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
-| `opt-highway-ziel` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
-| `opt-host-absturz-trennung` | P2 | [Optional](#optionale-optimierungen) | parallel | mittel |
-| `opt-host-bewegung` | P2 | [Optional](#optionale-optimierungen) | parallel | mittel |
-| `opt-itemsack-flug` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
-| `opt-kopierladen` | P2 | [Optional](#optionale-optimierungen) | parallel | mittel |
-| `opt-loot-aufnahme-client` | P2 | [Optional](#optionale-optimierungen) | parallel | mittel |
-| `opt-portraet` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
-| `opt-rundenstempel` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
-| `opt-schuss-animation` | P2 | [Optional](#optionale-optimierungen) | parallel | mittel |
-| `opt-tempo-upgrades` | P2 | [Optional](#optionale-optimierungen) | parallel | mittel |
-| `opt-waffen-hover` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
-| `opt-zonenziel-anzeige` | P2 | [Optional](#optionale-optimierungen) | parallel | wenig |
+| `opt-portraet` | P2 | [Wartung](#wartung) | parallel | wenig |
 
 **Wartet auf das Team:** `spawn-nach-kartenaufbau`, `wechsel-26786272`.
+
+**Zurückgestellt, bis Phase 0 bis 5 erledigt sind:** 25 Aufgaben unter [Optionale Optimierungen](#optionale-optimierungen).
 
 **Bestätigungstest ausstehend (nicht in Arbeit):** `lager-edit-ablehnung`, `boss-client-einfrieren`, `client-roboterarm`, `opt-metabase-inventar`, `labyrinth-event-client`, `update-1-0-2-lebensleisten`, `update-1-0-2-waffensound`, `update-1-0-2-spike`, `weekly-sperre`, `opt-blut`, `opt-werkbank-station`, `opt-airdrop-edit-ungueltig`, `opt-airdrop-uebertrag`, `opt-endboss-leiste`.
 <!-- frei:end -->
@@ -158,7 +136,7 @@ Ein-PC-Beleg abschließt, trägt sie hier ein. Nutzerentscheidung vom 13.11.2026
 
 1. Ergebnis und Testgrenzen in der Doku festhalten, auch gescheiterte Versuche, siehe [Ergebnisse festhalten](docs/TESTING.md#ergebnisse-festhalten).
 2. Nur bei erfüllter Abnahme („Fertig, wenn“): die Zeile aus der Phasentabelle löschen und unter [Erledigt](#erledigt) alphabetisch einfügen, als `` | `kennung` | Phase | Ergebnis in einem Satz mit Link | ``. Die Phase ist eine Ziffer von 0 bis 6, `Wartung`, `Optional` oder `Coop` (für [Real Coop logic](#real-coop-logic)).
-3. Teilergebnis: Die Zeile bleibt offen. Den Text auf den Rest kürzen oder den Rest als neue Kennung in dieselbe Phase eintragen und die alte Zeile nach „Erledigt“ verschieben. Wer eine neue Kennung anlegt, trägt sie bei allen Aufgaben, die darauf warten, unter „Braucht“ ein.
+3. Teilergebnis: Verhindert der Rest den Run zu zweit, bleibt die Zeile offen: den Text auf den Rest kürzen oder den Rest als neue Kennung in dieselbe Phase eintragen und die alte Zeile nach „Erledigt“ verschieben. Sonst die Zeile nach „Erledigt“ verschieben und den Rest als Grenze im Ergebnis nennen, ohne neue Kennung. Wer eine neue Kennung anlegt, trägt sie bei allen Aufgaben, die darauf warten, unter „Braucht“ ein.
    Ist die Abnahme nur auf einem PC belegt, obwohl sie zu zweit live gilt, zusätzlich eine Zeile unter [Live-Bestätigung ausstehend](#live-bestätigung-ausstehend) eintragen.
 4. `py tools/task_status.py update` ausführen. Das erneuert „Wo kann ich anfangen?“ und den Fortschritt im README. Danach muss `py tools/task_status.py check` bestehen.
 5. In [docs/ROADMAP.md](docs/ROADMAP.md) den Knoten umfärben, wenn es einen gibt.
@@ -231,10 +209,11 @@ Zählt nicht zum Fortschritt.
 | `update-1-0-2-spike` | P2 | **Bestätigungstest ausstehend:** Spike erkennt 26669225 und rechnet ueber die Tabelle der Mod um; auf 26669225 mit Mod bis DDDynamic_Map, !give, Inventarvergleich, Godmode und !finish ohne Absturz, Gegenprobe auf 26495302 (ein PC, 17.11.2026). Offen: Run-Route.ps1 -Days 2 auf 26669225 (braucht echte Eingaben) **Aufgabe und Abnahme:** Spike (`research/spikes/a-connect/Builds.cpp`) auf `26669225` lauffähig machen: Build am TimeDateStamp `0xE9CA3AB7` erkennen und eigene Adressen sowie die Tabelle der Mod umrechnen wie bei `spike-build-26495302`; bis dahin startet `Start-Session.ps1` auf `26669225` nur mit `-NoSpike`. **Fertig, wenn** `Start-Session.ps1 -Build -Mod` auf `26669225` mit Spike bis `DDDynamic_Map` läuft und `Run-Route.ps1 -Days 2` sauber ist | `update-basis-1-0-2` | parallel | mittel |
 | `update-26786272-run` | P1 | Rest aus `update-basis-26786272`: Auf Build `26786272` (Patch 1.0.3) ist die Mod bisher nur auf einem PC bis in die Mission und über ein Rundenende gemessen (57 Patches gesetzt). Offen: `Run-Route.ps1 -Days 2` bzw. Lauf über die Routenkarte, Händler, Werkbank und Rezept-Panel (1.0.3 ändert `URecipePanel`, `URecipeButton`, `UInventoryPanel` und `UItemRepresentation`), Aufwertung und Verkauf im Lager beim Client, ein Boss, Sitzung nur mit Mod (`-NoSpike`) über mehrere Tage. Dabei prüfen, ob die neue Item-Abschaltung (`IsItemSwitchingOffItem`, `DeactivatedIcon`; Zweck ist eine Vermutung) beim Client stimmt. Fehler als eigene Aufgaben eintragen. **Fertig, wenn** ein Lauf über mindestens zwei Tage mit Händler und Werkbank auf `26786272` ohne Absturz und ohne Inventar-Abweichung belegt ist, erst auf einem PC, dann einmal auf zwei PCs (zweite Person hilft beim Test). Ordner `src/Game`. **Einstieg:** [Build 26786272](docs/OFFSETS.md#build-26786272-update-basis-26786272) | – | zentral | viel |
 | `wechsel-26786272` | P1 | Folge von `spiel-update-26786272` (Nutzerentscheidung vom 21.11.2026: nur noch der neueste Spiel-Build): Sobald der Umstieg auf `main` liegt, stellt jede Person ihre Entwicklungskopie mit `Freeze-GameBuild.ps1 -Build 26786272 -Activate` um; offene Branches von vor dem Umstieg werden vorher auf `main` gezogen oder nutzen bis dahin die alte Kopie. **Fertig, wenn** alle Entwicklungskopien auf `26786272` stehen und `Start-Session.ps1` auf `main` bei allen startet. **Einstieg:** [Referenz-Build 26786272](docs/OFFSETS.md#referenz-build-26786272-spiel-update-26786272) | – | Team | keine |
+| `opt-portraet` | P2 | Nutzerentscheidung vom 11.11.2026: vorgezogen, wartet nicht auf `integration-run`, Test auf einem PC. Host zeigt an Tag 2 ein anderes Figurenporträt | – | parallel | wenig |
 
 ## Optionale Optimierungen
 
-Bekannte kleine Fehler, die die Spielbarkeit nicht verhindern. Sie warten auf `integration-run`. Rückt ein Punkt die Spielbarkeit doch in Gefahr, wandert er mit P0 oder P1 in die passende Phase. Zählt nicht zum Fortschritt.
+Bekannte kleine Fehler, die die Spielbarkeit nicht verhindern. Sie warten, bis Phase 0 bis 5 erledigt sind; bis dahin zeigt `tasks.py` sie als `zurückgestellt` und `claim` lehnt sie ab. Rückt ein Punkt die Spielbarkeit doch in Gefahr, wandert er mit P0 oder P1 in die passende Phase; zieht der Mensch einen Punkt vor, wandert er nach [Wartung](#wartung). Neue Zeilen kommen hier nur auf Anweisung des Menschen dazu. Eine optionale Aufgabe, die `tests reopen` wieder öffnet, ist danach ebenfalls zurückgestellt. Zählt nicht zum Fortschritt.
 
 Auch die zukünftige Update-Verwaltung bleibt vorerst optional: Wir erzwingen Build `26495302` und entwickeln auf diesem Stand. Die Aufgaben `update-startpruefung`, `update-releasefeed` und `update-autoupdater` sind keine Voraussetzung für den aktuellen Release und ändern weder die Build-Sperre noch die Teamentscheidung über neue Spielversionen. Erst lokale Prüfung, dann Update-Angebot, zuletzt optional automatische Installation.
 
@@ -256,7 +235,6 @@ Auch die zukünftige Update-Verwaltung bleibt vorerst optional: Wir erzwingen Bu
 | `opt-ergebnis-werte` | P2 | Nutzerentscheidung vom 11.11.2026: vorgezogen, wartet nicht auf `integration-run`, Test auf einem PC. Der Ergebnisbildschirm des Clients am Run-Ende zeigt nur Nullen, die Run-Statistik des Hosts wird nicht repliziert (`run-ende`, 10.11.2026). **Fertig, wenn** der Client dieselbe Wertung sieht wie der Host, ohne dass sich sein Meta-Stand ändert. Ordner `src/Game`. **Einstieg:** [Run-Ende](docs/GAME_ANALYSIS.md#run-ende-bei-host-und-client-run-ende) | – | parallel | mittel |
 | `opt-rundenstempel` | P2 | Nutzerentscheidung vom 11.11.2026: vorgezogen, wartet nicht auf `integration-run`, Test auf einem PC. Die Rundenübersicht des Clients stempelt das geschaffte Level nicht ab (Live-Test 10.11.2026), vermutlich wie `opt-routenkarte` mangels Run-Info des Hosts. Mit `opt-routenkarte` zusammen lösen. **Fertig, wenn** der Client am Rundenende denselben Stempel sieht wie der Host. Ordner `src/Game`. **Einstieg:** [Live-Test 10.11.](docs/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-10112026-livetest-1011) | – | parallel | wenig |
 | `opt-client-visuell` | P2 | Feinschliff der Client-Darstellung aus `client-visuell`. **Bereits in `kampf` umgesetzt und auf einem PC geprüft:** Die Größe der getesteten `BP_Projectile_C` kommt trotz nicht repliziertem `BulletSize` über die Root-Skalierung (`RelativeScale3D`) an; neue Pool-Actors werden je Tick statt erst nach bis zu 1 s erfasst ([Nachweis](docs/GAME_ANALYSIS.md#kampf-beim-client-kampf), [PR #114](https://github.com/VitaminStack/Deadly-Days-Roadtrip-Multiplayer-Mod/pull/114)). **Offen:** Größen-Upgrades und andere Projektilklassen sind nicht geprüft; Treffer- und Partikeleffekte fehlen (siehe `opt-blut`), ebenso die XP-Ball-Randfälle Einsammeln durch den Client im Einzelfall, Kartenwechsel im Flug und verlorene Nachrichten. **Einstieg:** [Client-Darstellung](research/spikes/client-visuell/README.md) | `integration-run` | parallel | mittel |
-| `opt-portraet` | P2 | Nutzerentscheidung vom 11.11.2026: vorgezogen, wartet nicht auf `integration-run`, Test auf einem PC. Host zeigt an Tag 2 ein anderes Figurenporträt | – | parallel | wenig |
 | `opt-gegner-sound` | P2 | Gefunden in `vfx-sound` (11.11.2026, ein PC, gezählt): Beim Client fehlen Treffersounds der Gegner fast ganz (`zombie_Hurt` 154 zu 4 je Minute) und der Angriffssound (`StandardEnemyAttack` aus `GA_SmallJumpAttack`, 52 zu 0). Lokal zuerst: Treffer aus sinkender replizierter Gesundheit wie bei `opt-schadenszahlen`, Angriff aus der replizierten Fähigkeit oder Animation; mit den Treffereffekten aus `opt-blut` abstimmen. **Fertig, wenn** der Client Treffer- und Angriffssounds in etwa so oft startet wie der Host, ohne Doppel. Ordner `src/Sync/Enemies`. **Einstieg:** [Sound und Effekte beim Client](docs/GAME_ANALYSIS.md#sound-und-effekte-beim-client-vfx-sound) | – | parallel | wenig |
 | `opt-airdrop-sound` | P2 | Gefunden in `vfx-sound` (11.11.2026, ein PC, gezählt, dreimal): Der Landesound des Airdrops (`PlaceAirdrop` aus dem Blueprint `BP_Airdrop_Lootable_C`) läuft nur beim Host; Piepen und Öffnen laufen bei beiden. **Fertig, wenn** der Client bei jeder Landung `PlaceAirdrop` einmal startet. Ordner `src/Game`. **Einstieg:** [Sound und Effekte beim Client](docs/GAME_ANALYSIS.md#sound-und-effekte-beim-client-vfx-sound) | – | parallel | wenig |
 | `opt-bedrohung-sound` | P2 | Gefunden in `vfx-sound` (11.11.2026, ein PC, gezählt, zweimal): Steigt die Bedrohungsstufe, spielt die Stoppuhr (`WBP_Stopwatch_C`) `UI_ThreatIncrease` nur beim Host. **Fertig, wenn** der Client den Sound bei jeder Stufe einmal startet wie der Host. Ordner `src/Game`. **Einstieg:** [Sound und Effekte beim Client](docs/GAME_ANALYSIS.md#sound-und-effekte-beim-client-vfx-sound) | – | parallel | wenig |
@@ -433,6 +411,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `powerup-duplikat` | 1 | Lokale Kopie von `BP_ChaosDestructable_PowerUp_C` beim Client unterdrückt, siehe [PowerUp-Objekte](docs/GAME_ANALYSIS.md#doppelte-powerup-objekte-powerup-duplikat) |
 | `protokoll` | 3 | Handshake mit Spiel-Build, Mod-Version und Rolle sowie zuverlässiger Kontrollkanal im selben Steam-Socket wie die UE-Pakete, Nachrichten mit Run-ID, Epoche und Revision nach dem Vertrag; 24 Net-Tests, im Spiel bis Tag 1 mit XP-Anzeige darüber geprüft. Der Internet-Test mit zwei Konten gehört zu `lobby-live` bzw. `integration-g2`, siehe [Kontrollkanal](docs/CONTROL_PROTOCOL.md) |
 | `reflexion-felder` | Wartung | Helfer Game::Reflection löst FProperty und UFunction zur Laufzeit auf; TutorialAdapter und TelemetryAdapter umgestellt, Laufzeitwerte gleich SDK, Spieltest mit und ohne Spike sauber |
+| `regeln-aufgabenflut` | Wartung | Optionale Aufgaben sind bis zum Abschluss von Phase 0 bis 5 zurückgestellt (`tasks.py` zeigt `zurückgestellt`, `claim` lehnt ab), neue Kennungen nur noch für Funde, die den Run zu zweit verhindern; Funde mit derselben Ursache im selben PR beheben, siehe [Fokus](CLAUDE.md#fokus) |
 | `release-paket-pruefung` | Wartung | Release-ZIP wird aus dem ohnehin vorhandenen Windows-Release-Build erstellt und gegen Dateiliste, sichere Pfade, x64-PE-Header und SHA256SUMS.txt geprüft; Python-Negativtests und CI bestanden (PR #183). |
 | `remote-p2` | 1 | Phase-1-Frage geklärt: Host-P2 über schwache `ActivePlayers`, native Coop-Aktivierung, gezielten P2-Geräte-Guard und Join-Meldung ohne zweiten `LocalPlayer`; Laufzeit-/UI-Gegenproben zeigen, dass der lokale Lager-Handoff den geplanten Kontrollkanal braucht. Produktionsanbindung und UI-Sync bleiben eigene Aufgaben, [Nachweise und Grenzen](research/spikes/a-connect/RemoteP2.md) |
 | `remote-spieler` | 4 | Host trägt den Remote-Spieler dauerhaft als P2 in die Coop-Logik ein, ohne zweiten LocalPlayer und vorerst ohne Koop-Modus, siehe [Remote-Spieler als P2](src/Game/README.md#remote-spieler-als-p2) |

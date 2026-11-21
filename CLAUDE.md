@@ -4,8 +4,19 @@ Online-Coop-Mod für Deadly Days: Roadtrip, unterstützter Build `26786272` (imm
 
 ## Fokus
 
-Erst spielbar: Vorrang hat, dass zwei Spieler einen Run durchspielen können. Kleine Fehler, die das nicht verhindern, kommen nur unter
-[Optionale Optimierungen](TODO.md#optionale-optimierungen) und werden nicht behoben.
+Erst spielbar: Vorrang hat, dass zwei Spieler einen Run durchspielen können. Aufgaben unter
+[Optionale Optimierungen](TODO.md#optionale-optimierungen) warten, bis Phase 0 bis 5 erledigt sind; bis dahin zeigt
+`tasks.py` sie als `zurückgestellt` und `claim` lehnt sie ab. Vorziehen entscheidet der Mensch, indem die Zeile in eine
+Phase oder nach Wartung wandert.
+
+**Weniger neue Aufgaben** (Nutzervorgabe vom 21.11.2026, bisher entstand mehr Arbeit, als erledigt wurde):
+
+- Einen Fund mit derselben Ursache oder in denselben Dateien wie die eigene Aufgabe im selben PR beheben, ohne neue
+  Kennung. Vorher mit `py tools/tasks.py list` prüfen, dass keine Kennung, Reservierung oder offener PR ihn schon abdeckt.
+- Eine neue Kennung nur für einen Fund oder Rest, der den Run zu zweit verhindert (P0 oder P1 in der passenden Phase),
+  oder auf Anweisung des Menschen.
+- Alles andere bekommt keine Zeile in `TODO.md`: Fund und Messung stehen im Befund der eigenen Doku und in der
+  PR-Beschreibung, ein Rest der eigenen Aufgabe als Grenze im Ergebnis. Keine gemeinsame Sammelliste anlegen.
 
 ## Verbindliches Architekturprinzip: lokal zuerst, minimal synchronisieren
 
@@ -48,7 +59,7 @@ Die native Replikationsgrundlage aus Gate G1 und die gemeinsame Kamera bleiben b
 
 Bei Bearbeitung „zu zweit“ (Test auf zwei PCs) reserviert jede Person nur ihre Rolle: `claim <kennung> <name> host` oder `client`, ein freier Rest steht dann als `client frei` oder `host frei` in der Liste, siehe [Test auf zwei PCs](docs/TESTING.md#test-auf-zwei-pcs).
 
-Nie von Hand reservieren und nie eine Entwicklungsaufgabe übernehmen, die nicht `frei` ist. **Bestätigungstest ausstehend** ist ein eigener Wartezustand, nicht „in Arbeit“ und nicht erledigt: solche Tests mit `py tools/tasks.py tests plan` bündeln, ohne die getesteten Aufgaben neu zu reservieren. Teststände und belegte Ergebnisse im eigenen Wartungs-Worktree über `tests update` bzw. `tests pass` aktualisieren; aktive fremde Aufgaben bleiben ausgeschlossen. Siehe [Bestätigungstests](tools/README.md#bestätigungstests). Steht dort „erst nachfragen“, den Menschen zur Reservierung oder dem gemergten Teilstand fragen. Neue Arbeit bekommt vorher eine eigene Zeile mit Kennung in der passenden Phase.
+Nie von Hand reservieren und nie eine Entwicklungsaufgabe übernehmen, die nicht `frei` ist. **Bestätigungstest ausstehend** ist ein eigener Wartezustand, nicht „in Arbeit“ und nicht erledigt: solche Tests mit `py tools/tasks.py tests plan` bündeln, ohne die getesteten Aufgaben neu zu reservieren. Teststände und belegte Ergebnisse im eigenen Wartungs-Worktree über `tests update` bzw. `tests pass` aktualisieren; aktive fremde Aufgaben bleiben ausgeschlossen. Siehe [Bestätigungstests](tools/README.md#bestätigungstests). Steht dort „erst nachfragen“, den Menschen zur Reservierung oder dem gemergten Teilstand fragen. Neue Arbeit bekommt vorher eine eigene Zeile mit Kennung in der passenden Phase, nur in den Grenzen unter [Fokus](#fokus).
 
 Worktrees liegen immer unter `.worktrees/` im Repo-Ordner, keine neuen Ordner daneben anlegen. Im eigenen Worktree arbeiten, nie im Hauptordner oder im Worktree eines anderen Agenten. Wer die Reservierung aufgibt, ruft `py tools/tasks.py release <kennung>` auf. Das schließt den Draft-PR und löscht den Branch.
 
