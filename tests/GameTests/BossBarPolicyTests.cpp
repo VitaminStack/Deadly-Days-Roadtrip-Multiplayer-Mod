@@ -82,3 +82,29 @@ TEST_CASE("Boss bar keeps the tracked boss and prefers a damaged one")
     CHECK(Game::PickBoss({{0x100, 0, 370000}}, 0) == Game::NoBoss);
     CHECK(Game::PickBoss({{0x100, 0, 370000}, {0x200, 250000, 250000}}, 0) == 1);
 }
+
+// Reise von einer Boss-Karte in die nächste (boss-karte-absturz, gemessen 21.11.2026): Der Boss der alten Karte ist weg, der neue
+// schon repliziert. Erst wird die alte Leiste entfernt, einen Takt später entsteht genau eine neue, danach kein weiteres Anlegen.
+TEST_CASE("Boss bar after travel removes the old bar first, then creates exactly one")
+{
+    const std::vector<Game::BossCandidate> NewMap{{0x200, 80000, 80000}};
+    CHECK(Game::PickBoss(NewMap, 0x100) == Game::NoBoss);
+    Game::BossBarState State;
+    State.Client = true;
+    State.HasObjective = true;
+    State.Shown = true;
+    State.SettleTicks = Game::BossBarSettleTicks;
+    CHECK(Game::DecideBossBar(State) == Game::BossBarStep::Remove);
+
+    const size_t Picked = Game::PickBoss(NewMap, 0);
+    REQUIRE(Picked == 0);
+    State = Fight();
+    State.Health = NewMap[Picked].Health;
+    CHECK(Game::DecideBossBar(State) == Game::BossBarStep::Create);
+    State.HasObjective = true;
+    State.Shown = true;
+    CHECK(Game::PickBoss(NewMap, 0x200) == 0);
+    CHECK(Game::DecideBossBar(State) == Game::BossBarStep::Settle);
+    State.SettleTicks = Game::BossBarSettleTicks;
+    CHECK(Game::DecideBossBar(State) == Game::BossBarStep::Sync);
+}
