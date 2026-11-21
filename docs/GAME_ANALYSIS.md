@@ -3712,7 +3712,11 @@ Offsets: [Phasenbezogene Boss-Leiste](OFFSETS.md#phasenbezogene-boss-leiste-opt-
 
   Bilder beider Fenster: Ballerina Phase 1 „59.967/150.000“, Phase 2 „120.000/150.000“ bei Host und Client. In Phase 2 zeigt der
   Host also die HP über dem Umfang der Phase, nicht über dem Maximum. Vor dem Kampf zeigt der Client keine Leiste mehr (Log
-  „Boss-Leiste: wartet, Boss da, Kampf läuft noch nicht (State.Pause)“), sie entstand bei Ballerina und Frankenstein je 9 s nach dem Trigger (Zeit der Logzeilen). Ob der Host sein HUD im selben Moment wieder zeigt, ist nicht auf die Sekunde verglichen.
+  „Boss-Leiste: wartet, Boss da, Kampf läuft noch nicht (State.Pause)“), sie entstand bei Ballerina und Frankenstein je 9 s nach dem Erscheinen des Bosses (Zeit der Logzeilen).
+  Bildfolge beim SpikeBoss ab `!shop trigger`: Host nach 3,7 s noch Intro-Kamera, nach 4,9 s Leiste (grau, unverwundbar), nach 6,0 s
+  rot; Client nach 5,4 s ohne Leiste, nach 6,5 s mit Leiste (angelegt 5,2 s nach dem Trigger). Der Client folgt dem Host also um
+  rund eine Sekunde (Sekundentakt des Adapters). Die graue Stufe zeigt er nicht, und bis zum ersten Wert steht rund 3 s „0/0“ über
+  seiner Leiste (Wartezeit nach dem Anlegen aus `gegner-alle`, nicht verkürzt).
 - **Nebenbefunde.** Das Laden der Spawnpunkt-Klasse verlängert das Anlegen von rund 17 auf rund 40 ms, einmal je Boss. Der
   Sekundentakt der Leiste meldet bei vielen Gegnern rund 8 ms („Takt: Boss-Leiste hielt den Frame … auf“), das stand schon vor dieser
   Änderung im Log (Lauf mit `main`). Der Host zeigt unter der Leiste einen zweiten, kleinen Balken, der beim Client fehlt (nicht
