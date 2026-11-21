@@ -1267,18 +1267,6 @@ Build `26495302`, Disassembly und Klassenregistrierung, 13.11.2026. Siehe
 | Wetter mit Kamera-Folger | `BP_Rain_C` unter `/Game/RetroParticles/Particles/Systems/WeatherEffects/BP_Rain`, dazu `BP_Snow_C`, `BP_BaseWeatherEffect_C` |
 | Client-Absturz bei der dritten Reise (eigener Fehler) | RIP `0x163B33F` lesend an `0xD8`, Aufrufer `0x58DE4B1` |
 
-## Aufsammelsound (`opt-item-sound`)
-
-Build `26495302`, Disassembly, siehe [Aufsammelsound](GAME_ANALYSIS.md#aufsammelsound-von-benzin-und-items-beim-client-opt-item-sound).
-
-| Stelle | Wert |
-|---|---|
-| `ALootBase::Loot_Implementation` | `0x59AF3F0(LootableInterface, Looter)`, Actor = Interface − `0x2A8`; ruft das Ereignis `Client_PlaySound` (`0x572F970`, Aufruf `0x59AF417`) und gibt das Objekt an den Pool zurück |
-| `AItemLoot::Loot_Implementation` | `0x59AF200`, ruft zuerst die Basis `0x59AF3F0` |
-| `0x59AF480` | ruft zuerst die Basis `0x59AF3F0`, dann `0x5834880` mit einem Wert aus `this+0x28`; **Vermutung:** `AFuelLoot::Loot_Implementation` (Tank) |
-| `LootBase.Client_PlaySound` | NetClient-RPC, beim Client vom Netz über `exe+299CFFB` (ProcessEvent), lokal aus `0x59AF417` |
-| `LootBlueprintFunctionLibrary.DropRequiredFuel` | Parameter 0x30 Byte: `World` `0x0`, `FuelClass` `0x8`, `Location` `0x10`, `Radius` `0x28`, `AdditionalFuel` `0x2C` (Spike-Testhilfe `!fx fuel`) |
-
 ## Bedrohungsstufe (`opt-bedrohung-sound`)
 
 Build `26786272`, Speicher gelesen und Reflexion zur Laufzeit, siehe [Bedrohungsstufe beim Client](GAME_ANALYSIS.md#bedrohungsstufe-beim-client-opt-bedrohung-sound).
@@ -1290,6 +1278,18 @@ Die Mod nutzt davon nur die Funktionen, die Offsets sind Belege.
 | `ThreatLevel.GetCurrentThreatLevel` | native Funktion, Rückgabe `int32` |
 | `WBP_Stopwatch_C.CustomEvent` | Blueprint-Ereignis `(int32 Old, int32 New)`, 8 Bytes Parameter, an `OnThreatLevelChanged` gebunden |
 | `WBP_Stopwatch_C.ThreatLevel`, `DangerLevel_Bind` | `0x430` (Komponente), `0x3D8` (`FString`, Zahl unter der Uhr) |
+
+## Aufsammelsound (`opt-item-sound`)
+
+Build `26495302`, Disassembly, siehe [Aufsammelsound](GAME_ANALYSIS.md#aufsammelsound-von-benzin-und-items-beim-client-opt-item-sound).
+
+| Stelle | Wert |
+|---|---|
+| `ALootBase::Loot_Implementation` | `0x59AF3F0(LootableInterface, Looter)`, Actor = Interface − `0x2A8`; ruft das Ereignis `Client_PlaySound` (`0x572F970`, Aufruf `0x59AF417`) und gibt das Objekt an den Pool zurück |
+| `AItemLoot::Loot_Implementation` | `0x59AF200`, ruft zuerst die Basis `0x59AF3F0` |
+| `0x59AF480` | ruft zuerst die Basis `0x59AF3F0`, dann `0x5834880` mit einem Wert aus `this+0x28`; **Vermutung:** `AFuelLoot::Loot_Implementation` (Tank) |
+| `LootBase.Client_PlaySound` | NetClient-RPC, beim Client vom Netz über `exe+299CFFB` (ProcessEvent), lokal aus `0x59AF417` |
+| `LootBlueprintFunctionLibrary.DropRequiredFuel` | Parameter 0x30 Byte: `World` `0x0`, `FuelClass` `0x8`, `Location` `0x10`, `Radius` `0x28`, `AdditionalFuel` `0x2C` (Spike-Testhilfe `!fx fuel`) |
 
 ## Waffensounds (`opt-waffen-sound`)
 

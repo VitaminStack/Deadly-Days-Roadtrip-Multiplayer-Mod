@@ -3285,7 +3285,7 @@ die Routenkarte ohne Maus und Tastatur, Stufen über `DD_SetThreatLevel`. Ton de
   (nur `GetCurrentThreatLevel`). Im Speicher steht sie beim Host bei `+0x1B8` (4, später 10), beim Client an derselben Stelle −1.
   Der Delegate ist beim Client gebunden, feuert aber nie: Stoppuhr-Ereignisse beim Client 0, `UI_ThreatIncrease` 2 / 0, und die Zahl
   unter der Stoppuhr zeigte beim Host „4“, beim Client „0“. Das korrigiert die frühere Annahme „die Komponente `ThreatLevel`
-  repliziert“ aus [Tagesablauf](#tagesablauf-und-missionsziele-tagesablauf): Die Komponente repliziert, ihr Wert nicht.
+  repliziert“ aus [Tagesablauf](#tagesablauf-tag-uhr-tank-nacht-und-ziele-tagesablauf): Die Komponente repliziert, ihr Wert nicht.
 - **Umsetzung** (`src/Game/ThreatAdapter.cpp`, Regeln in `ThreatPolicy.h`, Format in `src/Sync/World/ThreatState.h`, mit Tests):
   Neue Nachricht `0xC00` (Mod-Version 15) mit der Stufe als Stand. Der Host liest sie viermal je Sekunde über
   `ThreatLevel.GetCurrentThreatLevel` und sendet bei jeder Änderung und alle 2 s. Der Client ruft damit `CustomEvent(Old, New)`
