@@ -94,7 +94,7 @@ powershell -ExecutionPolicy Bypass -File tools/spike/Test-Desync.ps1
 ```
 
 Das Skript verlangt zu Beginn und vor der Abweichungsprobe auf beiden Seiten alle
-fünf aktiven Felder als OK und misst mindestens 600 Sekunden ohne Alarm. Mindestens
+sechs aktiven Felder als OK und misst mindestens 600 Sekunden ohne Alarm. Mindestens
 90 Prozent der Messungen müssen vollständig vergleichbar sein; Zustandswechsel
 dürfen höchstens 60 Sekunden am Stück im Stabilisierungsstatus bleiben. Solche
 Fenster und der tatsächliche Abdeckungsanteil stehen im Bericht, sie werden nicht
