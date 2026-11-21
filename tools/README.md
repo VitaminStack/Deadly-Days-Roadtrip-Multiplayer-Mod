@@ -85,6 +85,7 @@ powershell -ExecutionPolicy Bypass -File tools/dumper7/Build-Dumper7.ps1 -Output
 ```
 
 - Baut aus dem Submodul `third_party/Dumper-7` (eigener Fork, upstream `2c1eae3` plus Fix) und lädt es bei Bedarf nach. Gebaut wird eine Kopie in `research/local/dumper7/`, das Submodul bleibt unverändert.
+- Wendet auf die Kopie `tools/dumper7/image-ende.patch` an: Die Zeichenkettensuche prüft auch das Ende des verglichenen Bereichs und liest nicht mehr hinter das Image-Ende (Absturz auf `26669225`, siehe [Offsets](../docs/OFFSETS.md#dumper-7-liest-hinter-das-image-ende-dumper7-image-ende)). Enthält der Fork den Fix selbst, überspringt das Skript den Patch.
 - `-OutputDir` ist der Ordner für das SDK, Standard `C:/Dumper-7`. Dumper-7 entlädt sich nach dem Dump selbst.
 - Ergebnis ist `research/local/dumper7/out/Dumper-7.dll`. In den Host einer laufenden Mission laden: `py tools/spike/inject.py <host-pid> <dll>`.
 

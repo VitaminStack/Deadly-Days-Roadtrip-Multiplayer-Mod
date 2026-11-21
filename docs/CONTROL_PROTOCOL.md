@@ -22,6 +22,7 @@ Eine Familie je Thema, Typen innerhalb der Familie fortlaufend. Wer einen Typ od
 | `0x900` Warnanzeigen | `0x900` Anzeige | `Sync/Enemies/TelegraphState.h` |
 | `0xA00` Schadenszahlen | `0xA00` Treffer | `Sync/Enemies/DamageNumberState.h` |
 | `0xB00` Waffensound | `0xB00` Nachladen | `Sync/Combat/WeaponSoundState.h` |
+| `0xC00` Bedrohung | `0xC00` Stufe (`opt-bedrohung-sound`, PR offen) | `Sync/World/ThreatState.h` |
 
 ## Handshake
 

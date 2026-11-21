@@ -71,6 +71,7 @@
     <ClCompile Include="MapPatches.cpp" />
     <ClCompile Include="BusBarPatches.cpp" />
     <ClCompile Include="FacingPatches.cpp" />
+    <ClCompile Include="FmodSound.cpp" />
     <ClCompile Include="LootBarPatches.cpp" />
     <ClCompile Include="BloodPatches.cpp" />
     <ClCompile Include="BodyPartPatches.cpp" />
@@ -126,6 +127,7 @@
     <ClInclude Include="PatchSignatures.h" />
     <None Include="PatchSignatures.inc" />
     <ClInclude Include="Objects.h" />
+    <ClInclude Include="FmodSound.h" />
     <ClInclude Include="Offsets.h" />
     <ClInclude Include="SavePaths.h" />
     <ClInclude Include="SaveRedirect.h" />
