@@ -133,10 +133,11 @@ def snapshot(pid, items=False, figure=False):
                 row['effects'].append(name + (' (gehemmt)' if (game.read(at + ACTIVE_EFFECT_INHIBITED, 1) or b'\0')[0] else ''))
         result['players'].append(row)
     for manager in managers:
-        character = game.ptr(manager + MANAGER_CHARACTER)
         owner = game.ptr(manager + OUTER)
         if game.ptr(owner + OUTER) != level:
             continue
+        # Character setzt nur der Host, und erst mit der ersten Wirkung; sonst die Figur des PlayerState.
+        character = game.ptr(manager + MANAGER_CHARACTER) or game.ptr(owner + PLAYER_PAWN)
         row = {'character': game.name(character) if character else None, 'owner': game.name(owner),
                'role': (game.read(owner + ROLE, 1) or b'\0')[0],
                'specs': specs(game, manager + MANAGER_SPECS), 'backpack_specs': specs(game, manager + MANAGER_BACKPACK_SPECS)}
