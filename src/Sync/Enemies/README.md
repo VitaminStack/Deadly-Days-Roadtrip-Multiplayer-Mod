@@ -138,7 +138,10 @@ Grenzen und Stolpersteine:
   40.455/80.000 und 39.900/80.000, nach dem Tod „Boss weg, Leiste entfernt“, beide Instanzen laufen weiter. **Ohne `-Tunnel Lobby`** stürzt der Client in
   der Mod-Sitzung ab (Client erzeugt nach 60 s eine eigene Karte), unabhängig von der Boss-Leiste.
 - Phasenmarken: Das Objective des Clients hat die Marken aus der Blueprint-Klasse, ob sie in Phase 2 wie beim Host aussehen, ist nicht verglichen.
-- Nicht gemessen: Join mitten im Kampf, Travel mit Boss.
+- Nicht gemessen: Join mitten im Kampf.
+- Reise von Boss-Karte zu Boss-Karte (21.11.2026, `boss-karte-absturz`, `26786272`): je Eintritt wird die alte Leiste entfernt und genau
+  ein Objective angelegt, dreimal in einem Prozess ohne Absturz, auch mit simulierter Latenz. Befund:
+  [Absturz beim Betreten der Boss-Karte](../../../docs/GAME_ANALYSIS.md#absturz-beim-betreten-der-boss-karte-boss-karte-absturz).
 - Alle Bosse, mehrere nacheinander und gleichzeitig (18.11.2026, `opt-endboss-leiste`): Klassensuche nur im Paket (sonst Absturz beim zweiten
   Anlegen), alle eigenen Objectives gemerkt, Leiste bleibt bei ihrem Boss, Bosse mit 0 HP zählen nicht. Abweichende Phasenzahl über der Leiste:
   `opt-boss-phasenleiste`. Befund: [Boss-Leiste aller Bosse](../../../docs/GAME_ANALYSIS.md#boss-leiste-aller-bosse-beim-client-opt-endboss-leiste).
