@@ -44,6 +44,18 @@ nicht geraten. Damit kann die Inventarprüfung offen bleiben; das ist kein OK.
   Peer, lokale Run-ID/Nonce, Probensequenz, NetGUID, Host-Run/Epoche/Revision und
   lokale Antwortfrist. Lokale Änderungen seit der Probe sperren das betreffende
   Feld in der Anzeige. Alte oder doppelte Antworten ändern keinen Wasserstand.
+- **Offene Bearbeitung des Clients (`opt-desync-bearbeitung`).** Solange der Client selbst bearbeitet, meldet er die
+  betroffenen Felder in seiner Probe nicht als stabil. Der Host vergleicht sie dann nicht und verwirft seine
+  Bestätigungen, nach der Bearbeitung zählt er von vorn. Keine neue Nachricht, das Format der Probe ist unverändert.
+  - Inventar und Gegner: lokaler, noch nicht übernommener Stand (Bearbeitung offen, Edit unbeantwortet, Zurückrollen,
+    lokale Instanzen bis höchstens 3 s nach der Übernahme).
+  - Nur Gegner: Airdrop-Auswahl oder Lager des Rundenendes ist beim Client offen, ohne dass er etwas geändert hat. Die
+    Weltzeit steht, die Gegnerzahl bleibt auf dem Stand vom Pausenbeginn.
+  - Anzeige beim Client: dritte Zeile „Bearbeitung offen, nicht gewertet: …“. Der Host zeigt die Felder als „offen“.
+  - Ein Unterschied der Gegnerzahl, der ohne die Sperre ein Alarm wäre, steht einmal als Info im Log des Clients
+    („Gegner in offener Bearbeitung nicht gemeldet, host=… client=…“). HP, Spieler, Tag und Phase werden weiter gemeldet.
+  - Grenze: Pausen ohne Panel des Clients (Pausemenü, Panel nur beim Host) sperren nichts.
+  [Befund und Messung](GAME_ANALYSIS.md#desync-melder-in-offenen-bearbeitungen-opt-desync-bearbeitung)
 - Welt/State/NetGUID/Tag/Peer/Rolle-Wechsel löschen Messung, Stabilität und Alarme.
   Ohne frische Gegenmessung nach zehn Sekunden kein OK und kein alter Alarm.
 - Abweichungen mit Hashwerten im Host-Log, Zusammenfassung auf beiden Seiten im
