@@ -1361,6 +1361,26 @@ Felder aus dem SDK beider Builds (`26495302`, `26669225`, gleich), eines ohne Re
 | `UGA_DelayedHeal_C` | `CachedCharacter` `0x3B0`, `CachedAbilityComponent` `0x3B8`, `CachedCommonAttributes` `0x4E0`, `OldHealth` `0x4E8`, `PulsesRemaining` `0x4F0` |
 | `UItemShapeDefinition` | `Tiles` `0x28` (`TArray<FIntVector2>`), genutzt von `!equip` |
 
+## Roboterarm (`client-roboterarm`)
+
+Felder aus dem SDK von Build `26786272`, im Spiel gelesen. Keine Code-Stelle, kein Patch der Exe.
+
+| Stelle | Wert |
+|---|---|
+| `UDDCharacterAttributeSet` | `ExtraHands` `0x100`, `OccupiedHands` `0x110` (`FGameplayAttributeData`: `BaseValue` `+0x8`, `CurrentValue` `+0xC`), Outer ist der PlayerState |
+| `UInventoryItemInstance` | `ItemData` `0xE0`, `Broken` `0x110`, `Rarity` `0x118`, `IsInBackpack` `0x180`, `IsInStash` `0x181`, `IsReward` `0x182` |
+| `FItemEffectWrapperBase` | `ForceGameplayEffectLevel` `0x28`, `ForceScalingGameplayEffectLevel` `0x29`, `GameplayEffectLevel` `0x2C`, `ScalingGameplayEffectLevel` (`UFloatData*`) `0x30`; `Type` 1 ist `GameplayEffect` |
+| `URarityScalingFloatData` | `RarityMappings` `0x40`, `UsePlayerLevelScaling` `0x50` |
+| `UGameplayEffect` | `Modifiers` `0x428` (`TArray<FGameplayModifierInfo>`, Element `0x338`) |
+| `FGameplayModifierInfo` | `Attribute.AttributeName` (FString) `0x00`, `ModifierOp` `0x38` (0 additiv), `ModifierMagnitude` `0x40`: `MagnitudeCalculationType` `+0x0` (0 ScalableFloat), `ScalableFloatMagnitude.Value` `+0x8`, `.Curve.CurveTable` `+0x10`, `.Curve.RowName` `+0x18` |
+| `UAbilitySystemComponent` | `ActiveGameplayEffects.GameplayEffects_Internal` `0x8D8 + 0x130` (`TArray<FActiveGameplayEffect>`, Element `0x328`, `Spec.Def` `+0x20`, `bIsInhibited` `+0x29C`); beim Client nur für den eigenen PlayerState gefüllt |
+| `UCharacterEffectManager` | `EffectedSpecifications` `0xC0`, `EffectedBackpackSpecifications` `0xD0` (`FEffectedSpecification`, Element `0xF0`: `ItemInstance` `0x00`, `EffectWrapper` `0x08`, `EffectedItem` `0xB8`), `Character` `0xE0` |
+| `APlayerState` | `PlayerId` `0x2AC`, `PawnPrivate` `0x320` |
+| `UHandBarDisplay` | `CachedCharacter` `0x348`; `UpdateCurrentHandsBar(int32)`, `UpdateMaxHandsBar(int32)` |
+| `InventoryEffectHelperLibrary.GetFreeHands` | Exec-Thunk `0x57105B0`, Implementierung `0x5968520` (liest `ExtraHands` `+0x100` und `OccupiedHands` `+0x110` des Attributsets), weiterer direkter Aufrufer `0x5A40C2E`; Parameter `0x10`: `Character` `0x00`, `ReturnValue` (int32) `0x08` |
+| `FloatData.GetContextualValueForRarity` | Parameter `0x10`: `Rarity` `0x00`, `PlayerLevel` `0x08`, `ReturnValue` (float) `0x0C` |
+| `DataTableFunctionLibrary.EvaluateCurveTableRow` | Parameter `0x30`: `CurveTable` `0x00`, `RowName` `0x08`, `InXY` `0x10`, `OutResult` `0x14` (0 gefunden), `OutXY` `0x18`, `ContextString` `0x20` |
+
 ## Zeitanfragen und Weltzeit (`boss-client-einfrieren`)
 
 Build `26495302`, Disassembly und Speicherlesen am 19.11.2026. Ablauf siehe
