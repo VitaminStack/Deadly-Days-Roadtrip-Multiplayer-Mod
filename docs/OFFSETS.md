@@ -257,6 +257,48 @@ SizeOfImage `0x0B74A000`, `.text` gleich groß (`0x827C000`). Die Portierung der
   `Signaturen: 106 Adressen geprüft`, `Patches: 54 gesetzt`, `Spiel-Build 26495302`, beide mit 2 Spielern in `DDDynamic_Map`, kein `[ERROR]`,
   kein Absturz, auch nach dem SDK-Dump im Host. Dreimal gelaufen, zuletzt mit dem Endstand dieses Branches.
 
+### Dumper-7 liest hinter das Image-Ende (`dumper7-image-ende`)
+
+Stand 21.11.2026. Der Absturz des Dumpers auf `26669225` (siehe oben, bisher **[Vermutung]**) ist jetzt **belegt** und behoben.
+
+- **Ursache:** `PlatformWindows::FindStringInRange` liest jede Bytefolge `48 8D` / `4C 8D` in `.text` als `lea`, rechnet das Ziel aus
+  und prüft nur dessen **erstes** Byte (`IsAddressInProcessRange`, lesbare Sektion oder `IsBadReadPtr`). Danach vergleicht `wcsncmp` ab
+  dort. In der Exe von `26669225` zeigt eine solche Bytefolge bei RVA `0x6E757B8` (mitten in einem anderen Befehl) auf `0xB749FFF`, das
+  letzte Byte des Images (SizeOfImage `0xB74A000`). Schon das erste 2-Byte-Zeichen reicht damit ein Byte über das Image hinaus.
+  Jede Suche, die diese Stelle erreicht, bevor sie einen Treffer hat, stürzt ab, wenn die Seite dahinter frei ist.
+- **Zählung über die Exes** (alle `lea`-Kandidaten in ausführbaren Sektionen mit Ziel im Image, je rund 1,19 Millionen): Ziel in den
+  letzten `0x41` Byte des Images hat nur `26669225` (genau der eine Kandidat). `26187885`, `26495302` und `26786272` haben keinen. Das
+  erklärt, warum der Absturz nur auf `26669225` auftrat, und heißt: **Auf `26786272` trifft der Fehler den unveränderten Dumper nicht.**
+  Er kann mit jedem neuen Build wiederkommen.
+- **Fix:** Vor dem Vergleich prüft die neue Hilfsfunktion `IsRangeReadable` das erste **und** das letzte Byte des gelesenen Bereichs
+  (Länge der gesuchten Zeichenkette samt Abschluss, mindestens 8 Byte für die Zeigerprüfung `bCheckIfLeaIsStrPtr`); dasselbe für den
+  Zeiger, den diese Variante danach liest. Der 32-Bit-Zweig (`push`) ist nicht angefasst. Der Fix liegt als
+  [`tools/dumper7/image-ende.patch`](../tools/dumper7/image-ende.patch) im Repo; `Build-Dumper7.ps1` wendet ihn auf seine Baukopie an,
+  solange der Fork ihn nicht enthält. **Das Submodul zeigt unverändert auf `2570b5b`**, in den Fork ist nichts gepusht.
+- **Nachweis ohne Spiel:** Ein kleines Testprogramm (nicht im Repo) blendet die Exe nur als Image ein (`LoadLibraryEx` mit
+  `DONT_RESOLVE_DLL_REFERENCES`, kein Code der Exe läuft) und ruft `FindByStringInAllSections` aus dem Quelltext des Dumpers auf, einmal
+  aus dem Stand `2570b5b`, einmal mit Patch:
+
+  | Exe | `2570b5b` | mit Patch |
+  |---|---|---|
+  | `26495302` | `L"Accessed None"` → `0x160C0F2`, `L"ByteProperty"` → `0x1442B61`; `L" Bone: "` und `L"Failed to find function %s in %s"` ohne Treffer, kein Fehler | dieselben Treffer, kein Fehler |
+  | `26669225` | dieselben beiden Treffer; die drei Suchen ohne frühen Treffer enden mit **Zugriffsfehler beim Lesen von Image+`0xB74A000`** (erstes Byte hinter dem Image) | dieselben Treffer, die drei Suchen laufen durch, kein Fehler |
+  | `26786272` | dieselben Treffer, kein Fehler | dieselben Treffer, kein Fehler |
+
+  Die Fehleradresse passt zum Absturzbericht vom 16.11. (Seitenanfang `…A000` direkt hinter dem Image). Im Spiel lag der Absturz in der
+  Suche nach `ByteProperty` für GNames: `FindFNameGetNamesOrGNames_Windows` setzt hinter jedem Treffer neu an, bis einer das gesuchte
+  Aufrufmuster hat. `.text` enthält drei Verweise auf `L"ByteProperty"` (`0x1442B61`, `0x14B921F`, `0x6006A90`), alle vor `0x6E757B8`;
+  passt keiner, läuft die Suche über die Stelle. **[Vermutung]** Genau das war am 16.11. der Fall; nachgestellt ist nur die Suche selbst.
+- **Kosten:** Ein voller Suchlauf über `.text` ohne Treffer dauert im Testprogramm 2,5 s statt 1,5 s. Der frühere lokale Fix (zweites
+  `IsBadReadPtr`, also `VirtualQuery` je Kandidat) brauchte für den ganzen Dump rund zehn Minuten.
+- **Spieltest: noch nicht gelaufen.** `Build-Dumper7.ps1` baut die DLL mit Patch ohne lokale Änderung (15 s). Ein Dump im Host einer
+  Sitzung auf `26786272` mit dieser DLL steht aus (die Sitzung war hinter einer fremden eingereiht und wurde nicht mehr gestartet).
+- **Offen, braucht einen Menschen:** den Commit in den Fork `VitaminStack/Dumper-7` übernehmen (derselbe Inhalt wie der Patch), danach
+  das Submodul auf den neuen Stand stellen und `image-ende.patch` samt dem Schritt im Skript entfernen. Bis dahin baut das Skript den
+  Fix über den Patch ein.
+- **Nicht geprüft:** ein Dump im Spiel auf `26669225` (der Build wird seit `spiel-update-26786272` nicht mehr gestartet), der
+  32-Bit-Zweig, andere Spiele.
+
 ## Freigabe von Build 26669225 für Spieler (`freigabe-1-0-2`)
 
 Nutzerentscheidung vom 16.11.2026: Das Update 1.0.2 ist für das Projekt nicht ausschlaggebend, `26669225` wird für Spieler geöffnet,
