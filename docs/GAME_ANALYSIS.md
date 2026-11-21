@@ -635,8 +635,9 @@ Maus- oder Tastatureingabe, Ton der Spielprozesse aus.
     Wiederholungen insgesamt. Die 8 nahm der Host weg, im Mittel nach 593 ms, höchstens 906 ms. Die 2 Kopien, die der Host nicht hat:
     3 s nach dem Aufsammeln versteckt, 13 s danach wieder sichtbar, „2 nach 6000 ms wieder gezeigt“, danach keine weiteren Aufrufe;
     vorher 5070 bis 7317 Wiederholungen je Minute.
-  - Pause: eine Kopie lokal beendet, 1 s später Rundenende mit angehaltener Weltzeit. Nach 20 s und beim Beenden der Sitzung war sie
-    weiter versteckt, der Zähler „wieder gezeigt“ blieb bei 2. Die Frist zählt nur laufende Weltzeit (`WorldRunClock`).
+  - Pause: eine Kopie lokal beendet, 1 s später Rundenende mit angehaltener Weltzeit. Nach 20 s und beim Beenden der Sitzung (rund
+    30 s nach Beginn der Pause) war sie weiter versteckt (Hidden-Flag gelesen). Eine Logzeile mit den Zählern fiel nicht mehr in
+    diese Zeit. Die Frist zählt nur laufende Weltzeit (`WorldRunClock`).
   - Kein `[ERROR]` im Mod-Log des Clients, keine Absturzberichte.
 - **Grenze.** Eine wieder gezeigte Kopie liegt dort, wo der Client sie aufgesammelt hat, nicht am Ort des Hosts, und der Client kann
   sie nicht noch einmal aufsammeln. Sie verschwindet, sobald beim Host eine Figur das echte Objekt nimmt. Lehnt der Host ein Objekt
