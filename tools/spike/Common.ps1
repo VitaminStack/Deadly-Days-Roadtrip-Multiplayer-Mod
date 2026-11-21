@@ -10,6 +10,8 @@ $script:SessionDir = Join-Path $script:RepoRoot 'research\local\session'
 $script:CommandDir = Join-Path $env:TEMP 'ddspike'
 $script:LockFile = Join-Path $script:CommandDir 'session.lock'
 $script:GameProcess = 'DDSurvivors-Win64-Shipping'
+# Nur Tests setzen einen anderen Prozessnamen (tests\test_session_lock.py), damit sie ohne Spiel laufen.
+if ($env:DDCOOP_TEST_GAME_PROCESS) { $script:GameProcess = $env:DDCOOP_TEST_GAME_PROCESS }
 
 # In einem Git-Worktree fehlt die lokale Datei, dann gilt die aus dem Hauptordner.
 function Find-LocalProps {
@@ -133,6 +135,41 @@ function Enter-SessionLock([int]$WaitSeconds = 0) {
             if (-not $Announced) { Write-Output "Warte auf die Sitzung aus $($Lock.Owner) ..."; $Announced = $true }
             Start-Sleep -Seconds 5
         }
+    }
+}
+
+# Fuer Stop-Session.ps1: haelt die Sperre ueber das Beenden der Instanzen und das Entfernen der Mod. Ohne das gilt die Sperre
+# ab dem Beenden als frei, eine wartende Sitzung installiert ihre Mod und das spaetere Entfernen nimmt sie ihr wieder weg.
+# Liefert $false, wenn eine fremde Sitzung die Sperre haelt. Dann gehoert die Mod im Spielordner ihr.
+function Enter-StopLock {
+    while ($true) {
+        $Lock = $null
+        try { $Lock = Get-Content $script:LockFile -Raw -ErrorAction Stop | ConvertFrom-Json } catch {}
+        if ($Lock -and (Test-LockActive $Lock)) {
+            if ($Lock.Owner -ne $script:RepoRoot) { return $false }
+            # Die aktive Sperre loescht kein Wartender. Ersetzen in einem Schritt, damit er nie eine halbe Datei liest.
+            $Temp = "$script:LockFile.$PID"
+            Write-SessionLock 0 0 | Set-Content $Temp -Encoding ascii
+            try {
+                [IO.File]::Replace($Temp, $script:LockFile, [NullString]::Value)
+                return $true
+            }
+            catch {
+                # Ein Wartender liest die Datei gerade. Ohne Wechsel bliebe die Sperre nach dem Beenden frei, also noch einmal.
+                Remove-Item $Temp -Force -ErrorAction SilentlyContinue
+                Start-Sleep -Milliseconds 100
+                continue
+            }
+        }
+        if (Test-Path $script:LockFile) { Remove-Item $script:LockFile -Force -ErrorAction SilentlyContinue }
+        try {
+            $Bytes = [Text.Encoding]::ASCII.GetBytes((Write-SessionLock 0 0))
+            $Stream = [IO.File]::Open($script:LockFile, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write)
+            $Stream.Write($Bytes, 0, $Bytes.Length)
+            $Stream.Close()
+            return $true
+        }
+        catch [Management.Automation.MethodInvocationException] { continue }
     }
 }
 
