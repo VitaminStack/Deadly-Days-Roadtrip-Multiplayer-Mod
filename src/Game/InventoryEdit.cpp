@@ -279,7 +279,7 @@ Loose ReadLoose(uintptr_t Item, const std::vector<uintptr_t>& Now)
 // lager-edit-stabil: Beim Zurückrollen Pivot und Drehung der Ausgangs-Items, die außerhalb des Rucksacks liegen, auf den Stand beim
 // Beginn. Der Host hat sie nie geändert; so ist der Ausgangsstand auch für den Desync-Melder vollständig. Drehung über das native
 // SetTurns (keine Netzfunktion), der Pivot direkt: SetZeroPivotTile ist ein Server-RPC. Nach einem übernommenen Edit bleibt die Lage
-// im Lager, wie der Spieler sie gelegt hat; diese Abweichung ist der bekannte Fehlalarm aus opt-desync-pivot.
+// im Lager, wie der Spieler sie gelegt hat; der Desync-Melder zählt sie seit opt-desync-pivot außerhalb des Rucksacks nicht mehr.
 void RestoreLoose(const char* When)
 {
     static uintptr_t SetTurns = 0;
