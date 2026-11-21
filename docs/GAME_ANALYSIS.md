@@ -3721,6 +3721,60 @@ Objectives), Bilder per `Game-Input.ps1 shot`.
 - **Nicht geprüft:** zwei PCs, der Boss über die Routenkarte, Join mitten im Kampf, Tod von HQ-Endboss, LazyBoss und BlobBall mit dem
   letzten Stand, Tod der Ballerina auf `26495302`, eine Boss-Leiste nach einer Reise in eine zweite Karte.
 
+### Phasen und Kampfstart der Boss-Leiste beim Client (`opt-boss-phasenleiste`)
+
+Stand 21.11.2026, Build `26786272`, ein PC mit zwei Instanzen (Mod und Spike, Lobby über den Tunnel der Mod, Godmode), Kartenprofil
+`MGP_Burger_Boss_Nature` per `DDCOOP_TEST_MAP_PROFILE` und `-Map /Game/Maps/DDDynamic_Map`. Alles ohne Maus und Tastatur: Kampf mit
+`!shop trigger`, weitere Bosse mit `!bossfight <Name>`, Schaden mit `!bossdmg`, Werte aus dem Speicher beider Instanzen
+(`tools/spike/boss_hp.py` zeigt jetzt Wert und Kennzeichen des Objectives und die Tags je Boss), Bilder per `Game-Input.ps1 shot`.
+Offsets: [Phasenbezogene Boss-Leiste](OFFSETS.md#phasenbezogene-boss-leiste-opt-boss-phasenleiste).
+
+- **[Belegt] Der Befund.** Ballerina in Phase 1, dasselbe Bild beider Fenster: Host „148.650/150.000“, Client „298.650/300.000“.
+  Beim SpikeBoss zeigen beide die vollen HP. `bUseAlternateBar` ist bei beiden Bossen gesetzt und nicht der Unterschied; die
+  Vermutung aus `opt-endboss-leiste` (Rechnung über die `BossComponent` mit Zustand nur beim Host) trifft nicht zu.
+- **[Belegt, Disassembly] Ursache.** `BossfightSpawnPoint::StartBossObjective` legt das Objective ohne Autostart an, kopiert sein Feld
+  `IsObjectivePhaseBased` in ein nicht reflektiertes Byte des Objectives (`+0x98`), meldet dann den Boss an und startet es. Gemessen:
+  Host-Objective der Ballerina und des Frankenstein `1`, des SpikeBoss `0`; das vom Client angelegte Objective hatte immer `0`. Mit
+  dem Kennzeichen führt der Host im Objective die HP über der Untergrenze der laufenden Phase (`CurrentValue` 149.775 bei 299.775
+  HP, `MaxHealth` bleibt 300.000), und die Anzeige rechnet den Nenner selbst aus den Marken.
+- **[Belegt] Woher der Client das Kennzeichen bekommt.** Er hat keinen Spawnpunkt und keine Spawnpunkt-Klasse geladen, und
+  `EnemyBase.Type` ist bei ihm leer (repliziert nicht). Die Tabelle `DA_BossSpawnLookup` und alle sechs `EnemyType`-Assets der
+  Bosse sind bei ihm aber geladen. Jeder Eintrag (`FBossSpawnInfo`) nennt `BossEnemyType` und `SpawnPointClass`; der `EnemyType`
+  nennt in `EnemyBlueprint` die Klasse des Bosses. Der Client sucht so zur Klasse des replizierten Bosses die Spawnpunkt-Klasse,
+  lädt sie (nur die Klasse, kein Actor) und liest `IsObjectivePhaseBased` aus ihrem Vorgabeobjekt.
+- **Umsetzung (`BossBarAdapter.cpp`, `BossBarPolicy.h`), alles lokal, keine Nachricht, kein Wire-Format.** Beim Anlegen setzt der
+  Client das Kennzeichen wie der Host vor `AddBossEnemy`. Bei phasenbezogenen Bossen setzt er als Wert die HP über der Untergrenze
+  der Phase (`PhaseOf`), die Phase folgt allein aus den replizierten HP und den `PhaseMarkers` des Objectives. Steht der Boss genau
+  auf einer Marke, läuft schon die nächste Phase (der Host hält die HP beim Wechsel an der Marke fest), der Wert ist darum nie unter
+  1. Findet der Client keinen Eintrag, bleibt es bei der Leiste über die vollen HP.
+- **[Belegt] Kampfstart.** Der Boss trägt vor dem Kampf bei Host und Client die Tags `State.Pause`, `State.Invincible` und
+  `GameplayCue.State.Invincible` (das ASC repliziert die Tags, aktive Effekte beim Client 0). 2 s nach `TriggerBossfight` kommt
+  `State.AnimationInProgress` dazu, nach 6 s sind `State.Pause` und `State.Invincible` weg. Der Host legt sein Objective mit
+  `TriggerBossfight` an, zeigt während der Intro-Kamera aber kein HUD. Der Client legt die Leiste jetzt erst an, wenn `State.Pause`
+  fehlt oder der Boss schon Schaden hat (`BossFightStarted`); sind die Tags nicht lesbar, wie bisher sofort. Eine bestehende Leiste
+  bleibt. Netz-RPCs gibt es an Boss, `BossComponent`, Spawnpunkt und GameState keine; `Actor.Children` des Bosses wechselt beim
+  Trigger nur wegen eines Projektils (`BP_BarrageProjectile_C`).
+- **[Belegt] Nachmessung, Wert des Objectives bei Host und Client je Schritt gleich** (Client folgt im Sekundentakt):
+
+  | Boss | Kennzeichen | Schritte (HP → Wert bei Host und Client) |
+  |---|---|---|
+  | SpikeBoss (0,5) | nein | 80.000 → 80.000; 50.000 → 50.000; 40.000 → 40.000; Tod, Leiste entfernt |
+  | Ballerina (0,5) | ja | 299.998 → 149.998; 269.968 → 119.968; 209.965 → 59.965; 179.965 → 29.965; 150.000 → 150.000; 120.000 → 120.000; Tod, Leiste entfernt |
+  | Frankenstein (0,65) | ja | 120.000 → 42.000; 89.992 → 11.992; 78.000 → 78.000; 48.000 → 48.000 |
+
+  Bilder beider Fenster: Ballerina Phase 1 „59.967/150.000“, Phase 2 „120.000/150.000“ bei Host und Client. In Phase 2 zeigt der
+  Host also die HP über dem Umfang der Phase, nicht über dem Maximum. Vor dem Kampf zeigt der Client keine Leiste mehr (Log
+  „Boss-Leiste: wartet, Boss da, Kampf läuft noch nicht (State.Pause)“), sie entstand bei Ballerina und Frankenstein je 9 s nach dem Trigger (Zeit der Logzeilen). Ob der Host sein HUD im selben Moment wieder zeigt, ist nicht auf die Sekunde verglichen.
+- **Nebenbefunde.** Das Laden der Spawnpunkt-Klasse verlängert das Anlegen von rund 17 auf rund 40 ms, einmal je Boss. Der
+  Sekundentakt der Leiste meldet bei vielen Gegnern rund 8 ms („Takt: Boss-Leiste hielt den Frame … auf“), das stand schon vor dieser
+  Änderung im Log (Lauf mit `main`). Der Host zeigt unter der Leiste einen zweiten, kleinen Balken, der beim Client fehlt (nicht
+  untersucht). Ein Byte bei `+0xD8` des Objectives ist beim Host im Kampf 0, beim Client 1 (Bedeutung offen, kein sichtbarer
+  Unterschied). `!bossdmg` traf bisher auch zerstörte Bosse, die im Objekt-Array stehen bleiben, und Schaden während eines
+  Phasenwechsels verfällt; der Befehl überspringt zerstörte Bosse jetzt.
+- **Nicht geprüft:** zwei PCs, der Boss über die Routenkarte, Beitritt mitten im Kampf (nur Unit-Tests: Phase aus den HP),
+  BlobBall, LazyBoss und HQ-Endboss (zwei Marken, nur Unit-Tests), ein Boss ohne `State.Pause` vor dem Kampf, Latenzprofil,
+  Spielton (keine Audiositzung der Spielprozesse gefunden, nichts stummzuschalten).
+
 ### Host-Absturz beim Rundenstart (`host-absturz-start`)
 
 Stand 13.11.2026, Build `26495302`. Auslöser: Live-Test auf zwei PCs über das Internet am Abend des 13.11.2026 (Mod-Version 13,

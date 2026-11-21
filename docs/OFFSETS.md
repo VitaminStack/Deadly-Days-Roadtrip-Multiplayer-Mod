@@ -1374,3 +1374,21 @@ aus `gegner-alle` (oben); der Rest ist Befund für `tools/spike/boss_hp.py` und 
 | `UDDEnemyAttributeSet` | `Phase` `0x40` (`FGameplayAttributeData`, Wert bei `+0xC`) |
 | Phasenmarken je Boss | SpikeBoss 0,5; Ballerina 0,5; Frankenstein 0,65; BlobBall 0,7; HQ-Endboss 0,8 und 0,4 |
 | `CreateAndStartObjective` (Thunk) | `26669225`: `0x56BAB70`, ruft `0x58DED20`, das ruft `0x163B300` mit einem `FStaticConstructObjectParameters`-artigen Block (Klasse bei `+0x0`, Outer bei `+0x8`); dort liest `+0x163B33F` `[Klasse+0xD8]`. **[Vermutung]** `StaticConstructObject_Internal` und `ClassFlags`, ohne Symbole nicht belegt |
+
+## Phasenbezogene Boss-Leiste (`opt-boss-phasenleiste`)
+
+Build `26786272`, per Reflexion und Disassembly im laufenden Spiel gelesen (21.11.2026). Die Mod löst die reflektierten Felder zur
+Laufzeit auf; fest sind nur die mit „fest“ markierten Stellen.
+
+| Stelle | Wert |
+|---|---|
+| `UDDBossObjective` phasenbezogen | `+0x98`, ein Byte, nicht reflektiert (fest). Geschrieben von `StartBossObjective` |
+| `BossfightSpawnPoint::StartBossObjective` | Thunk `0x566B060`, Rumpf `0x58CBAC0`: Objective anlegen (`0x58E0190`, ohne Autostart), bei `0x58CBC2D` `[Spawnpunkt+0x528]` nach `[Objective+0x98]`, dann `AddBossEnemy` nativ (`0x5A06B90`) mit `SpawnedBoss` und Anmelden am Subsystem (`0x5907F70`) |
+| `ABossfightSpawnPoint` | `SpawnedBoss` `0x498`, `BossComponent` `0x4A0`, `BossEnemyType` `0x520`, `IsObjectivePhaseBased` `0x528`, `BossObjectiveClass` `0x530`, `CurrentBossObjective` `0x550` |
+| `UBossSpawnLookup` (`DA_BossSpawnLookup`) | `BossSpawnInfos` `0x28` (`TArray<FBossSpawnInfo>`) |
+| `FBossSpawnInfo` (0x68, fest) | `BossID` `0x0`, `IsEndBoss` `0x8`, `BossEnemyType` `0x10` (Soft-Verweis), `SpawnPointClass` `0x38` (Soft-Klasse), `OptionalContentLocker` `0x60` |
+| Soft-Verweis (0x28, fest) | Paketname `+0x8`, Assetname `+0x10` (je `FName`) |
+| `UEnemyType` | `EnemyBlueprint` `0x128` (Soft-Klasse), `IsBoss` `0x1D2` |
+| `AEnemyBase` | `MySpawner` `0x878`, `Type` `0x9B0` (beide beim Client leer) |
+| `UAbilitySystemComponent` | `ActiveGameplayEffects` `0x8D8` (beim Client leer), `GameplayTagCountContainer` `0xF18` (0xF0); darin die eigenen Tags als `TArray<FGameplayTag>` bei `+0xC8` (fest), also `0xFE0` |
+| Einträge der Tabelle | `spike`/`SpikeBoss`, `Franky`/`FrankensteinBoss`, `BlobBall`/`BlobBallBoss`, `ballerina`/`BallerinaBoss`, `laz`/`LazyBoss`, `Endboss`/`HQBoss` (Klasse `BP_HQ_Endboss_C`); Spawnpunkte `BP_<Typ>SpawnPoint_C` unter `/Game/DDSurvivors/Blueprints/Enemies/Bosses/` |

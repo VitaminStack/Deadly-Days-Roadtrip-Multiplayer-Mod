@@ -142,4 +142,11 @@ Grenzen und Stolpersteine:
 - Alle Bosse, mehrere nacheinander und gleichzeitig (18.11.2026, `opt-endboss-leiste`): Klassensuche nur im Paket (sonst Absturz beim zweiten
   Anlegen), alle eigenen Objectives gemerkt, Leiste bleibt bei ihrem Boss, Bosse mit 0 HP zählen nicht. Abweichende Phasenzahl über der Leiste:
   `opt-boss-phasenleiste`. Befund: [Boss-Leiste aller Bosse](../../../docs/GAME_ANALYSIS.md#boss-leiste-aller-bosse-beim-client-opt-endboss-leiste).
+- Phasen und Kampfstart (21.11.2026, `opt-boss-phasenleiste`): Der Host schreibt `IsObjectivePhaseBased` seines Spawnpunkts in das
+  Objective und führt dann nur die HP der laufenden Phase. Der Client liest dasselbe aus `DA_BossSpawnLookup` (Boss-Klasse über
+  `EnemyType.EnemyBlueprint`, Vorgabe der Spawnpunkt-Klasse), setzt das Kennzeichen vor `AddBossEnemy` und rechnet den Wert aus den
+  replizierten HP (`PhaseOf`). Die Leiste entsteht erst, wenn das replizierte Tag `State.Pause` des Bosses fehlt
+  (`BossFightStarted`). Lokal bleibt alles, geteilt wird nichts Neues, der Host entscheidet weiter über Schaden und Phase.
+  Neuaufbau (Beitritt, Reise): Phase und Start folgen aus HP und Tags, getestet in `BossBarPolicyTests.cpp`. Befund:
+  [Phasen und Kampfstart](../../../docs/GAME_ANALYSIS.md#phasen-und-kampfstart-der-boss-leiste-beim-client-opt-boss-phasenleiste).
 - Ein `BossfightSpawnPoint` ohne Host-Kontext zu erzeugen stürzt den Client ab (Lesezugriff `0x308` in `0x58BC184`), der Spawnpunkt gehört nur zum Host.
