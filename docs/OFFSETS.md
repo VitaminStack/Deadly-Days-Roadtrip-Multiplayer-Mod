@@ -1486,6 +1486,24 @@ Die Felder `0x48`, `0x50`, `0x58`, `0x68` und `0x7C` gelten nach der Kontrolle a
 und `WP_Round_Stats`) auch auf `26669225`. Ein verwaister Eintrag erscheint in `pause_state.py` mit dem Namen des Objekts, das den
 Platz im Objekt-Array inzwischen belegt (gesehen: eine `Function`, ein `BorderSlot`).
 
+## Phasenbezogene Boss-Leiste (`opt-boss-phasenleiste`)
+
+Build `26786272`, per Reflexion und Disassembly im laufenden Spiel gelesen (21.11.2026). Die Mod löst die reflektierten Felder zur
+Laufzeit auf; fest sind nur die mit „fest“ markierten Stellen.
+
+| Stelle | Wert |
+|---|---|
+| `UDDBossObjective` phasenbezogen | `+0x98`, ein Byte, nicht reflektiert (fest). Geschrieben von `StartBossObjective` |
+| `BossfightSpawnPoint::StartBossObjective` | Thunk `0x566B060`, Rumpf `0x58CBAC0`: Objective anlegen (`0x58E0190`, ohne Autostart), bei `0x58CBC2D` `[Spawnpunkt+0x528]` nach `[Objective+0x98]`, dann `AddBossEnemy` nativ (`0x5A06B90`) mit `SpawnedBoss` und Anmelden am Subsystem (`0x5907F70`) |
+| `ABossfightSpawnPoint` | `SpawnedBoss` `0x498`, `BossComponent` `0x4A0`, `BossEnemyType` `0x520`, `IsObjectivePhaseBased` `0x528`, `BossObjectiveClass` `0x530`, `CurrentBossObjective` `0x550` |
+| `UBossSpawnLookup` (`DA_BossSpawnLookup`) | `BossSpawnInfos` `0x28` (`TArray<FBossSpawnInfo>`) |
+| `FBossSpawnInfo` (0x68, fest) | `BossID` `0x0`, `IsEndBoss` `0x8`, `BossEnemyType` `0x10` (Soft-Verweis), `SpawnPointClass` `0x38` (Soft-Klasse), `OptionalContentLocker` `0x60` |
+| Soft-Verweis (0x28, fest) | Paketname `+0x8`, Assetname `+0x10` (je `FName`) |
+| `UEnemyType` | `EnemyBlueprint` `0x128` (Soft-Klasse), `IsBoss` `0x1D2` |
+| `AEnemyBase` | `MySpawner` `0x878`, `Type` `0x9B0` (beide beim Client leer) |
+| `UAbilitySystemComponent` | `ActiveGameplayEffects` `0x8D8` (beim Client leer), `GameplayTagCountContainer` `0xF18` (0xF0); darin die eigenen Tags als `TArray<FGameplayTag>` bei `+0xC8` (fest), also `0xFE0` |
+| Einträge der Tabelle | `spike`/`SpikeBoss`, `Franky`/`FrankensteinBoss`, `BlobBall`/`BlobBallBoss`, `ballerina`/`BallerinaBoss`, `laz`/`LazyBoss`, `Endboss`/`HQBoss` (Klasse `BP_HQ_Endboss_C`); Spawnpunkte `BP_<Typ>SpawnPoint_C` unter `/Game/DDSurvivors/Blueprints/Enemies/Bosses/` |
+
 ## Boss-Leiste aller Bosse (`opt-endboss-leiste`)
 
 Per Reflexion im laufenden Spiel gelesen, auf beiden Builds (`26495302`, `26669225`) gleich. Die Mod nutzt davon nur die bisherigen Felder
