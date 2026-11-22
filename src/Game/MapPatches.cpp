@@ -377,6 +377,18 @@ void ApplyTestProfile(uintptr_t Generator)
     }();
     if (Path.empty() || !ReadOr<uintptr_t>(Generator + GeneratorProfile))
         return;
+    // DDCOOP_TEST_MAP_PROFILE_EVERY=<n>: nur jede n-te Missionskarte des Prozesses ab der ersten, dazwischen das Profil des
+    // Routenknotens. Mit 2 wechseln Karten-Event und normale Karte, so lässt sich die Reise aus dem Event in eine normale Karte
+    // mehrmals in einer Sitzung nachstellen (karte-nach-labyrinth-absturz).
+    static const int Every = []
+    {
+        char Value[16]{};
+        const DWORD Length = GetEnvironmentVariableA("DDCOOP_TEST_MAP_PROFILE_EVERY", Value, sizeof(Value));
+        return Length > 0 && Length < sizeof(Value) ? atoi(Value) : 1;
+    }();
+    static int Maps = 0;
+    if (Every > 1 && Maps++ % Every != 0)
+        return;
     const uintptr_t Profile = FindProfile(Path);
     Core::Log::Warn("Karte: Testschalter DDCOOP_TEST_MAP_PROFILE, Profil {} {}", Path, Profile ? "gesetzt" : "nicht ladbar");
     if (!Profile)
