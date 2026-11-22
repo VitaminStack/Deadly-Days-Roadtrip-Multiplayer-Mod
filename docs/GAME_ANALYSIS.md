@@ -2983,7 +2983,8 @@ Neue Befunde:
   den Client, neuer Airdrop). Gut 10 s nach dem Absturz meldet er „Verbindung beendet, Grund 4001 Timeout; remote problem“ (10,6 s ohne Empfang),
   entfernt den Remote-Spieler („P2-Bindung entfernt“) und stürzt 4,9 s danach selbst ab. Auch dort blieb der Crash-Reporter gesperrt.
   Absturzdaten des Hosts liegen nicht vor. Es waren also zwei Abstürze nacheinander, der zweite als Folge der Trennung (Vermutung zur
-  Ursache: Abbau der Client-Figur ohne Abmeldung mitten in der Mission).
+  Ursache: Abbau der Client-Figur ohne Abmeldung mitten in der Mission). Nachgestellt und behoben, siehe
+  [Host-Absturz nach hartem Wegfall des Clients](#host-absturz-nach-hartem-wegfall-des-clients-opt-host-absturz-trennung).
 - **Roboterarm beim Client (`client-roboterarm`).** Laut Spieler wirkt der Roboterarm beim Client nicht und die Arme fehlen an der
   Figur. Host-Log: zweimal „Client wählt … (Roboterarm (Legendär)), ins Inventar des Clients gelegt=true“. Client-Log: Item im
   Rucksack, „ApplyAddToBackpackEffect vorgemerkt“, durchgehend „Hände belegt 2, Rucksack braucht 2“. Das Item ist also gebucht, Wirkung
@@ -2997,12 +2998,116 @@ Neue Befunde:
   Ursache und Fix unter [Loot-Aufnahme beim Client](#loot-aufnahme-beim-client-opt-loot-aufnahme-client).
 - **Fehlalarm des Desync-Melders in offenen Bearbeitungen (`opt-desync-bearbeitung`).** 39 Meldungen „ABWEICHUNG“ beim Client und 38
   beim Host (Inventar, Gegner oder beides), beim Client jeweils während eines offenen Airdrop-Panels mit lokaler, noch unbestätigter
-  Aufwertung und angehaltener Weltzeit. Nach jedem Bestätigen übernahm der Host den Edit. Die Meldungen des Hosts sind den Bearbeitungen
-  noch nicht einzeln zugeordnet.
+  Aufwertung und angehaltener Weltzeit. Nach jedem Bestätigen übernahm der Host den Edit. Einzeln zugeordnet und behoben unter
+  [Desync-Melder in offenen Bearbeitungen](#desync-melder-in-offenen-bearbeitungen-opt-desync-bearbeitung).
 
 Nicht geprüft: Boss und Boss-Leiste, Abschlusstafel, Werkbank mit Rezept-Panel, Waffensound nach Gehör, Heil- und Wurf-Items des
 Clients, neuer Run mit Level 1 und Rollentausch. Für `update-26786272-run` gilt damit: Route über sieben Karten, Händler-Event,
 Labyrinth-Event und sechs Rundenenden liefen zu zweit, Bosse und der Rest der Abnahme stehen aus.
+
+### Desync-Melder in offenen Bearbeitungen (`opt-desync-bearbeitung`)
+
+Ausgewertet am 21.11.2026 aus den Mod-Logs von Host und Client des Live-Tests vom selben Tag (Build `26786272`, Uhr des Hosts rund 1 s
+hinter der des Clients).
+
+- **[Belegt, Log] Alle 38 Meldungen des Hosts fallen in eine offene lokale Bearbeitung des Clients.** Zugeordnet über „Inventar lokal:
+  Bearbeitung beginnt“ bis „Host hat Edit … übernommen“ im Client-Log (52 Bearbeitungen): 22 Meldungen in 10 Airdrop-Auswahlen, 16 im
+  Lager von 4 Rundenenden. 37 liegen zwischen Beginn und Übernahme. Eine (00:13:49 beim Host) steht
+  rund 0,5 s nach der Übernahme: Es ist der Text des noch stehenden Gegner-Alarms aus derselben Auswahl, nachdem das Inventar wieder
+  passte; 0,8 s später war er aufgehoben. Außerhalb einer Bearbeitung entstand keine Abweichung. 9 der 38 Zeilen wiederholen nur eine
+  schon gemeldete Abweichung im 30-s-Takt, 3 weitere sind derselbe Alarm mit geändertem Text, nachdem ein Feld wegfiel.
+- **[Belegt, Log] Inventar (17 Meldungen, 10 Wertepaare):** immer der lokale, noch nicht übernommene Stand des Clients. Nach der
+  Übernahme stand jedes Mal wieder „OK“ oder „Abgleich“.
+- **[Belegt, Log] Gegner (31 Meldungen, 12 Pausen): Die Abweichung beginnt mit der Pause, nicht mit dem Edit.** Ein Gegner-Alarm braucht
+  2 s Ruhe und acht gleiche Proben (rund 16 s). Zurückgerechnet lag der Beginn −1,3 bis +2,9 s am Pausenbeginn (Öffnen der Auswahl oder
+  Rundenende). Im Lager begann die Bearbeitung erst 5,6 bis 8,6 s nach dem Rundenende, also danach. Der Host zählte 1 bis 3 sichtbare
+  Gegner mehr als der Client (etwa 227 zu 226, 238 zu 235, 265 zu 263), und das Wertepaar blieb über die ganze Pause gleich, im längsten
+  Fall 4 min. 12 von 15 Pausen ab 18 s lösten den Alarm aus, 3 nicht (Rundenende 91 s, Auswahl 56 s und 32 s). **Vermutung:** Bei
+  Pausenbeginn noch nicht replizierte Gegner kommen beim Client erst nach der Pause an; im laufenden Spiel holt er binnen rund 8 s auf
+  (`opt-gegner-spawnverzug`).
+- **[Belegt, Log] Eine Abweichung erklärt die Pause nicht: Labyrinth-Event, 00:27:01, Host 101, Client 2 sichtbare Gegner.** Sie fällt
+  ins Lager des Rundenendes (Bearbeitung seit 10 s offen), begann aber wie die anderen mit der Pause. Während der ganzen Karte (1:45 min)
+  stand das Feld auf „offen Gegner“, ein Gleichstand ist nicht belegt. Das ist wahrscheinlich ein echter Unterschied der Gegnerzahl im
+  Labyrinth (**Vermutung**, Ursache offen, eigene Aufgabe `opt-gegnerzahl-labyrinth`). Eine Folge im Spiel ist nicht belegt, die Runde endete normal.
+
+**Änderung.** Der Client kennt seine Bearbeitung selbst, und die Probe trägt schon je Feld ein Stabil-Bit. Solange er bearbeitet, meldet
+er Inventar und Gegner nicht als stabil; der Host vergleicht sie dann nicht und verwirft seine Bestätigungen. Keine neue Nachricht, kein
+neues Format, `ModVersion` bleibt. Der Host braucht den Zustand nicht zu kennen (vom Lager-Edit erfährt er ohnehin erst beim Bestätigen).
+
+| Zustand beim Client | Zurückgehalten |
+|---|---|
+| Lokaler Stand: Bearbeitung offen, Edit unbeantwortet, Zurückrollen, lokale Instanzen nach der Übernahme (höchstens 3 s) | Inventar, Gegner |
+| Airdrop-Auswahl oder Lager des Rundenendes offen, noch nichts geändert | Gegner |
+
+Das zweite gilt, weil die Gegner-Abweichung mit der Pause beginnt: Mit der Bearbeitung allein wäre der Alarm im Lager nur ausgeblieben,
+wenn der Spieler vor der achten Probe etwas zieht. Das Inventar bleibt im Lager ohne Änderung im Abgleich, damit eine dauerhafte
+Abweichung nach einer Ablehnung (`lager-edit-ablehnung`) sichtbar bleibt. Was die Sperre bei der Gegnerzahl verdeckt, zählt der Client
+weiter und schreibt es einmal als Info ins Log („Gegner in offener Bearbeitung nicht gemeldet, host=… client=…“); der Fall 101 zu 2
+stünde so weiter im Log. HP, Spieler, Tag und Phase werden auch während der Bearbeitung gemeldet. Code: `HeldByEdit` in
+`src/Game/DesyncSnapshot.h`, `StableWhileEditing` in `src/Sync/DesyncState.h`, Unit-Tests in `tests/NetTests/DesyncTests.cpp`.
+
+**[Belegt, Messung] 21.11.2026, ein PC, Host und Client, Build `26786272`** (`Start-Session.ps1 -Build -Mod -Tunnel Lobby -Map
+/Game/Maps/DDDynamic_Map -Godmode`, nur Spike-Befehle, Konsole und Testkanal, keine Maus- oder Tastatureingaben; Zeiten aus den Mod-Logs):
+
+| Schritt | Host | Client |
+|---|---|---|
+| Vorher, zwei Revolver über `!give`, `!wave` | „OK“ mit allen sechs Feldern | ebenso |
+| `DD_OpenAirdrop 1`: Auswahl bei beiden offen (11:49:09) | „Abgleich; offen Gegner, Inventar“ | ebenso, dazu „Bearbeitung offen, nicht gewertet: Gegner, Inventar“ |
+| Client `!shop upgrade` (11:49:20, „Aufwertung 1 lokal, 2 Eingaben“), danach 85 s offen | keine Meldung „ABWEICHUNG“ | keine |
+| Auswahl endet (Host reist in eine neue Karte, 11:50:45) | nach 5 s „OK“ mit allen sechs Feldern | Zeile „Bearbeitung offen“ nach rund 1 s weg, nach 5 s „OK“ |
+| Echte Abweichung außerhalb einer Bearbeitung (`desync_difference.py`, Broken-Flag eines Client-Items, 14 s) | nach 7 s „ABWEICHUNG Inventar“ mit beiden Prüfsummen, nach dem Rücksetzen „OK“ | „ABWEICHUNG Inventar“, danach „OK“ |
+| Rundenende (`!finish`, 11:52:09), Client noch ohne Änderung | „Abgleich; offen Gegner“ | „nicht gewertet: Gegner“ |
+| Client `!shop upgrade` im Rundenende (11:52:38, „Lager wird lokal bearbeitet“), 95 s offen | „offen Gegner, Inventar“, keine Meldung | „nicht gewertet: Gegner, Inventar“, keine Meldung |
+| Rundenende verlassen (Host reist in eine neue Karte, Client rollt zurück) | nach 3 s „OK“ | Sperre weg, nach 3 s „OK“ |
+
+In der ganzen Sitzung standen genau zwei Meldungen „ABWEICHUNG“ in jedem Log, beide absichtlich erzeugt (die zweite ist die
+Vorher-Messung zu `opt-desync-pivot`). Kein Absturz, kein `[ERROR]`. Vor der Änderung meldete derselbe Zustand im Live-Test nach 11 bis
+17 s „ABWEICHUNG Inventar“.
+
+**Nicht geprüft:**
+
+- **Wiederaufnahme des Vergleichs in derselben Welt.** Beide Bearbeitungen endeten durch die Reise des Hosts. Eine Reise wechselt
+  Welt und NetGUID, der Melder beginnt dann ohnehin neu. Im Spiel belegt ist damit nur, dass die Sperre des Clients mit der Bearbeitung
+  endet und danach wieder verglichen wird; dass der Host nach einer Bearbeitung in derselben Welt von vorn zählt und eine bleibende
+  Abweichung meldet, belegen nur die Unit-Tests. Ein Ende durch Bestätigen mit Übernahme beim Host ging nicht ohne Eingaben: Die
+  Airdrop-Auswahl braucht das Ziehen der Wahl, das Lager den Fortsetzen-Knopf der Rundenübersicht. Der Spike-Befehl dafür (`!shop click
+  ContinueButton`, kein echter Klick) wurde in dieser Sitzung von der Berechtigungsprüfung des Agenten abgelehnt und nicht umgangen.
+- Gegner-Abweichung in einer Pause: Mit `!wave` auf einem PC blieb die Gegnerzahl beider Seiten gleich, die Zeile „Gegner in offener
+  Bearbeitung nicht gemeldet“ entstand nicht. Belegt ist dieser Weg nur durch die Unit-Tests.
+- Zwei PCs mit Ping, Werkbank und Händler in der Mission (dort hält nur der lokale Stand zurück, kein Panel-Zustand).
+
+**Nebenbefund:** `tools/spike/Test-Desync.ps1` erwartet noch den alten Text „OK Tag, Phase, Spieler, HP, Inventar / Ausgenommen: Gegner“.
+Seit `gegnertyp` ist die Gegnerzahl im Abgleich, das Skript wartet deshalb vergeblich auf „beide OK“. Gemessen wurde hier mit
+`desync_difference.py` und den Mod-Logs. Mit `opt-desync-pivot` ist das Skript angepasst.
+
+### Rasterposition außerhalb des Rucksacks im Desync-Melder (`opt-desync-pivot`)
+
+- **[Belegt, frühere Befunde]** Das Inventar-Panel setzt Rasterposition (`ZeroPivotTile`) und Drehung eines Items beim Ziehen lokal,
+  auch wenn es außerhalb des Rucksacks liegt. Beim Host-Spieler repliziert das zum Client, beim Client-Spieler bleibt es beim Host auf
+  dem alten Stand (Coop-Test 06.11.2026: Pistole, Host `(0, 0)`, Client `(-19, -2)`; `livetest-1311`: vier Meldungen nach einem Edit,
+  der ein Item aus dem Rucksack nahm; 14.11.2026: dauerhafte Meldung nach einem übernommenen Lager-Edit). Im Spiel hat die Lage
+  außerhalb des Rucksacks keine Folge, der Melder meldete aber dauerhaft „ABWEICHUNG Inventar“ und verdeckte so echte Inventarfehler.
+- **Änderung.** Der Item-Hash des Inventar-Messfelds (`ItemRecord` in `src/Game/DesyncSnapshot.h`) nimmt Rasterposition und Drehung nur
+  noch bei Items mit `IsInBackpack`. Die Drehung gehört dazu, weil das Panel sie mit der Position zusammen lokal setzt. Datenpfad,
+  Broken, Reward, Trash und das Rucksack-Flag selbst zählen weiter, ebenso die belegten Rucksackfelder über die `BackpackSlots`. Das
+  Nachrichtenformat ist unverändert, `ModVersion` bleibt. Grenze: Mischen zwei PCs den alten und den neuen Stand, meldet der Melder
+  für Items außerhalb des Rucksacks mit Position ungleich `(0, 0)` wieder eine Abweichung.
+
+**[Belegt, Messung] 21.11.2026, ein PC, Host und Client, Build `26786272`** (`Start-Session.ps1 -Build -Mod -Tunnel Lobby -Map
+/Game/Maps/DDDynamic_Map -Godmode`, keine Eingaben). `desync_difference.py --field pivot` verschiebt beim Client die Rasterposition
+des ersten Items außerhalb des Rucksacks um `(-19, -2)` (hier ein Revolver aus `!give`) und setzt sie danach zurück:
+
+| Stand | Pivot verschoben | Broken-Flag eines Client-Items gekippt |
+|---|---|---|
+| Vorher (Stand von `opt-desync-bearbeitung`), 16 s | nach rund 7 s bei beiden „ABWEICHUNG Inventar“, nach dem Rücksetzen „OK“ | – |
+| Mit der Änderung, 20 s | durchgehend „OK“ mit allen sechs Feldern bei beiden | nach rund 7 s bei beiden „ABWEICHUNG Inventar“, danach „OK“ |
+
+`Test-Desync.ps1 -Seconds 10` lief danach durch (10 Messungen ohne Fehlalarm, Abweichung auf beiden Seiten erkannt und wieder OK). Das
+Skript erwartete noch den Statustext mit ausgenommener Gegnerzahl und ist auf die sechs Felder angepasst. Unit-Test in
+`tests/NetTests/DesyncTests.cpp`.
+
+**Nicht geprüft:** der Weg über das echte Panel (Item im Lager ziehen, Edit bestätigen) und zwei PCs. Die Verschiebung kam hier aus
+dem Testhelfer, nicht aus dem Panel; der Wert entspricht dem Befund vom 06.11.2026.
 
 ### Client-Absturz am Sensenmann (`karte-nach-labyrinth-absturz`)
 
@@ -3173,6 +3278,68 @@ Ausgewertet am 21.11.2026, Build `26786272`: Mod-Logs beider Seiten aus dem Live
   Hände-Prüfung (Annahme: Sie liest dieselben Werte wie `GetFreeHands`). Außerdem nicht geprüft: der Lager-Weg am Rundenende im
   Spiel (nur aus Log und Code), Ablehnung eines Edits (Rücknahme der
   Vorschau nur über das Herausnehmen belegt), höhere Seltenheiten des Arms, zwei PCs.
+
+### Host-Absturz nach hartem Wegfall des Clients (`opt-host-absturz-trennung`)
+
+Stand 21.11.2026, Build `26786272`: Host-Log des Live-Tests, Disassembly der Exe, Test auf einem PC (zwei Instanzen, Lobby, mit
+Spike, ohne echte Eingaben, Client-Prozess der eigenen Sitzung mit `Test-ClientKill.ps1` hart beendet oder selbst abgestürzt).
+
+- **[Belegt, Absturzbericht] Der Host stürzt im Zeitgeber des Sensenmanns ab.** Kontrolllauf ohne Fix (V6 unten):
+  `EXCEPTION_ACCESS_VIOLATION` beim Lesen von `0x1B8`, Aufrufliste `589a8a3 55177d3 315a9a6 2bfc5dd 2a4a49c 4685c64 …`. Dieselbe
+  Liste hatte `karte-nach-labyrinth-absturz` als Nebenbefund notiert.
+- **[Belegt, Disassembly] Ursache.** `0x589A650` ist eine Zeitgeber-Funktion des `UReaperComponent` (Baustein am Sensenmann
+  `BP_ReaperEnemy_C`). Sie läuft über `Players` (`+0x178`, `TArray<ADDCharacter*>`, Anzahl `+0x180`) und sucht den kleinsten Abstand
+  zum Sensenmann: `mov rax,[rcx]` bei `0x589A8A0`, dann `mov rdx,[rax+1B8h]` (`RootComponent`) ohne Prüfung von `rax`. Zwei weitere
+  Schleifen über dieselbe Liste prüfen den Eintrag ebenfalls nicht (`0x5885E50`, `0x58860A6`), zwei prüfen ihn (`0x5878FF0`,
+  `0x5885980`). Die Liste pflegt die Funktion `0x58858F0` (**[Vermutung]** der native Teil von
+  `UReaperComponent.OnPlayerDespawned`, die UFunction gibt es): Sie nimmt die Figur des übergebenen Controllers
+  (`Controller+0x2E8`) heraus und kehrt ohne Figur sofort zurück.
+- **[Belegt, Messung] Bei einer Trennung ohne Abmeldung bleibt die Figur in der Liste.** Mit Fix meldet der Host in jedem Lauf genau
+  einen abgebauten Eintrag, laut Log 9 bis 10 ms nach „Welt: … 1 Spieler“. **[Vermutung]** Das Spiel meldet den Wegfall
+  nicht oder erst, wenn der Controller keine Figur mehr hat; welcher der beiden Fälle gilt, wurde nicht gemessen. **[Vermutung]** Die
+  nächste Garbage Collection setzt den Eintrag der zerstörten Figur auf null, der nächste Zeitgeber-Lauf liest dann am Nullzeiger;
+  gemessen ist nur das Lesen von `0x1B8` an dieser Stelle. Das würde den wechselnden Abstand erklären: live 4,9 s nach dem Entfernen,
+  im Kontrolllauf 50,5 s (61,4 s nach dem Kill).
+- **[Belegt] Ohne Sensenmann kein Absturz.** Fünf Läufe ohne Sensenmann, Host jeweils 50 bis 60 s nach dem Entfernen des Clients
+  beobachtet, kein Absturz, kein `[ERROR]` (V1 bis V5). Der Live-Lauf hatte einen Sensenmann: Der Client stürzte dort an dessen
+  `BeginPlay` ab (`karte-nach-labyrinth-absturz`), also stand er beim Host. **[Vermutung]** Der Live-Absturz des Hosts hatte dieselbe
+  Ursache: Ablauf und Lage passen, eine Aufrufliste des Hosts von damals gibt es nicht.
+
+  | Lauf | Lage beim Kill | Timeout des Hosts | Host danach |
+  |---|---|---|---|
+  | V1 | Routen-Mission Tag 1, Gegner aktiv | 10,7 s, Grund 5003 | läuft, 60 s beobachtet |
+  | V2 | zwei Airdrops am Boden, Host öffnet 2,5 s nach dem Entfernen die Auswahl | 10,7 s | läuft, Auswahl offen |
+  | V3 | Airdrop entsteht 6 s nach dem Kill und landet nach dem Timeout, Host öffnet die Auswahl 5 s danach (Ablauf wie im Live-Log) | 10,7 s | läuft |
+  | V4 | Kill 3,5 s nach der Ankunft in der Mission, sonst wie V3 | 10,9 s | läuft |
+  | V5 | beide Figuren mit Items des Live-Laufs (Ratte, Schlange, Flummi, Roboterarm, Granate, Feuerschuhe, Jo-Jo, Feuerwerk, Ballonpumpe, MP, Dart, Magnet), 30 s Kampf, sonst wie V3 | 10,9 s | läuft, 60 s beobachtet |
+  | V6, ohne Fix | Sensenmann 12 s vorher ausgelöst (`!shop reaper 3`), Client per Skript beendet | 10,7 s | **Absturz** 61,4 s nach dem Kill, Lesen von `0x1B8` |
+
+  Lokal endet die Verbindung mit Grund 5003 (`Connection dropped`), live über das Relay mit 4001; für den Ablauf im Spiel ist das
+  gleich, beide Male meldet der Host „Verbindung zum Mitspieler verloren“ und die Welt hat danach einen Spieler.
+- **Lokal zuerst:** Nichts wird geteilt, keine Nachricht, keine `ModVersion`-Erhöhung. Der Sensenmann bleibt Sache des Hosts, die
+  Mod pflegt nur dessen eigene Liste nach, wo das Spiel den Wegfall nicht verarbeitet. Kein bestehender Weg wird ersetzt.
+- **Fix** (`src/Game/RemoteP2Patches.cpp`, `TickReaperPlayers`; Regeln `RemoveDeadPlayers` und `PlausibleReaperPlayers` in
+  `RemoteP2Policy.h`, mit Test): Der Host merkt sich die Figur des Remote-Spielers mit Platz und Serial im Objekt-Array. Ist sie
+  abgebaut (Trennung, Timeout, Absturz, auch Tod), geht er im selben Tick einmal über das Objekt-Array und nimmt aus `Players` jedes
+  `UReaperComponent` alle Einträge, die null oder abgebaut sind, also vor der nächsten Garbage Collection. Logzeile „Sensenmann: Remote-Figur abgebaut, n Einträge … genommen“. Kein Code-Patch, die Zahl der gesetzten Patches bleibt.
+- **Grenze.** Läuft die Garbage Collection in genau dem Frame, in dem die Figur zerstört wird, und der Zeitgeber vor dem nächsten
+  Tick der Mod, greift der Fix zu spät. **[Vermutung]** Das Fenster ist ein Frame; in den Läufen trat es nicht auf. Eine Nullprüfung
+  an den drei Schleifen wäre der zweite Schutz und ist nicht umgesetzt.
+- **[Belegt, Test] Abnahme mit Fix**, je Lauf Sensenmann beim Host vorhanden, Host mindestens 130 s nach dem Entfernen beobachtet
+  (der Kontrolllauf stürzte nach 50,5 s ab), kein `[ERROR]`. In F1, F2 und F4 stürzte der Client selbst am Sensenmann ab, bevor das
+  Skript ihn beenden konnte; für den Host ist beides ein Prozessende ohne Abmeldung:
+
+  | Lauf | Wegfall des Clients | Einträge entfernt | Host danach |
+  |---|---|---|---|
+  | F1 | Client stürzt selbst am Sensenmann ab (`0x348`, wie live), Zeit bis zum Timeout nicht gemessen | 1 | läuft, 150 s beobachtet |
+  | F2 | Client tritt der laufenden Mission wieder bei und stürzt gleich beim Beitritt wieder am Sensenmann ab; der Host hatte ihn 11 s als zweiten Spieler | 1 | läuft, 140 s beobachtet |
+  | F3 | Client 6 s nach dem Auslösen des Sensenmanns per Skript hart beendet, Timeout nach 10,5 s | 1 | läuft, 130 s beobachtet |
+  | F4 | neue Sitzung, Client stürzt nach weniger als 6 s selbst am Sensenmann ab | 1 | läuft, 144 s nach dem Entfernen |
+  | F5 | Gegenprobe zur Reihenfolge: Client ohne Sensenmann per Skript hart beendet (Timeout 10,5 s), Sensenmann erst 3 s nach dem Entfernen ausgelöst | 0 (noch kein Sensenmann) | läuft, 170 s beobachtet, Sensenmann steht beim Host |
+
+- **Offen.** Bestätigung auf zwei PCs über das Internet (Grund 4001). Der Absturz des Clients am Sensenmann selbst gehört zu
+  `karte-nach-labyrinth-absturz`; solange dessen Wächter fehlt, verliert der Host den Client weiter, läuft aber selbst weiter.
+  Testweg: `!shop reaper 3` beim Host, dann `Test-ClientKill.ps1`, siehe [Spielzeit sparen](TESTING.md#spielzeit-sparen).
 
 ### Run-Stand des Clients nach dem Run-Ende (`opt-metabase-inventar`)
 
@@ -3576,6 +3743,69 @@ Gegner über `!wave`, die Figuren standen und feuerten von selbst. Keine Maus- o
   Absturzberichte.- **Nicht geprüft:** Schrotflinte und andere Waffen (`!give` legt sie nur in den Rucksack, ausgerüstet blieb die Pistole), Nahkampf,
   Drohnen (`ProjectileAmmoBasedDroneAttackComponent` hat einen eigenen `FireWeaponSoundEvent`), zwei PCs mit echtem Ping, gehört.
 
+#### Gegner-Sounds beim Client (`opt-gegner-sound`)
+
+Untersucht am 21.11.2026, Build `26786272`, ein PC, `Start-Session.ps1 -Build -Mod -Tunnel Lobby -Godmode`, echter Run an Tag 1 über
+die Routenkarte ohne Maus und Tastatur (Spike-Befehle wie in [Gezielt in eine Karte](TESTING.md#gezielt-in-eine-karte)), Gegner über
+`DD_SetThreatLevel 10`. Ton der Spielprozesse aus, **gezählt, nicht gehört**: `!fx` je Prozess, dazu der neue Spike-Befehl
+`!fx events <Klasse>`, der alle `ProcessEvent`-Aufrufe an Objekten einer Klasse zählt (was beim Client überhaupt ankommt).
+
+- **[Belegt, Disassembly] `zombie_Hurt` ist kein Sound des Gegners, sondern der Einschlagsound des Projektils.** Aufrufkette mit
+  `!fx stack`: `exe+5A1CE59` ← `exe+5773311` (Ereignis `Projectile.OnValidOverlap`) ← `ProcessEvent`. Die native Trefferbehandlung
+  des Projektils (Funktion ab `0x5A1C310`) startet bei `bUseImpactSounds` (`+0x3C1`) den `HitImpactSoundEvent` (`+0x3C8`) über
+  `PlayEventAtLocation` am Ort des Projektils (Aufruf `0x5A1CE54`), außer das getroffene Objekt gehört zu einer ausgenommenen Klasse.
+  Alle 12 geladenen Projektilklassen mit gesetztem Einschlagsound tragen dort `zombie_Hurt`.
+- **[Belegt] Warum er beim Client fast fehlt.** Die Projektile replizieren, und auch die Kopie des Clients ruft bei einer eigenen
+  Überlappung `OnOverlapBegin` und spielt dann denselben Sound. Sie berührt den Gegner aber nur selten selbst, bevor der Host sie
+  abbaut oder in den Pool zurücknimmt: In 120 s an Tag 1 beim Host 40 Schüsse, 40 gültige Überlappungen, 35 Sounds, beim Client 23
+  Überlappungen, 14 gültige, 13 Sounds. Bei vielen Gegnern (Bedrohung 10, 60 s) 234 zu 3. Am Gegner selbst kommt je Treffer kein
+  Ereignis an (`!fx events BP_StandardEnemy_C`: nur `OnRep_ReplicatedMovement`), seine HP replizieren nicht.
+- **[Belegt] Vorhandenes Signal je Treffer:** die Schadenszahl-Nachricht `0xA00` aus `opt-schadenszahlen` (Host 1377 gemeldet,
+  Client 1377 empfangen). Sie kommt aber für jeden Schaden, auch für Flächen- und Dauerschaden ohne Sound (Endboss-Karte: 52
+  Zahlen bei 14 Einschlagsounds). `FDamageInformation.DamageCauser` (`+0x1C`) nennt beim Host das Projektil.
+- **[Belegt] `StandardEnemyAttack`** startet der Blueprint der Fähigkeit `GA_SmallJumpAttack_C` (`PlayEventAtLocation <-
+  GA_SmallJumpAttack_C.ExecuteUbergraph_GA_SmallJumpAttack`, 378 in 60 s bei Bedrohung 10, Client 0). Die Fähigkeit läuft nur beim
+  Host, ihre Klasse und das Sound-Objekt sind beim Client nicht einmal geladen. Beim Host gehören dazu 367 `OnLaunched` an
+  `BP_StandardEnemy_C`, beim Client kommt davon kein Ereignis an. Der Sprung selbst repliziert aber:
+  `ACharacter.ReplicatedMovementMode` steht beim Client während des Sprungs auf 3 (`MOVE_Falling`), sonst auf 10 oder 1
+  (30 Proben je Gegner über 2 s: Host 68 von 3150 in der Luft, Client 94 von 3150).
+- **Nebenbefunde, nicht behoben:** `JumpZombie_Jetpack` (`GA_JumpyJetpackAttack_C`, 15 zu 0) und `zombie_fire_Igniting` (2 zu 0)
+  fehlen beim Client ebenfalls, dazu die Angriffssounds der Bosse (`GA_StompAttack_C`, `GA_NewVacuumAttack_C`, `Impact_Grenade`
+  948 zu 0 auf der Endboss-Karte). Sie kommen aus Fähigkeiten, die nur beim Host laufen.
+- **Umsetzung** (`src/Game/EnemySoundPatches.cpp`, Regeln in `EnemySoundPolicy.h` mit Tests, `FmodSound.h`):
+  - Treffer: Der Host markiert in `0xA00` je Treffer ein neues Byte (Bit 0: Einschlagsound), wenn der Verursacher ein Projektil mit
+    `bUseImpactSounds` und gesetztem `HitImpactSoundEvent` ist und das Ziel ein Gegner, je Projektil und Takt einmal
+    (Flächenschaden). Der Client spielt dafür den `HitImpactSoundEvent` der Grundklasse `BP_Projectile_C` am Ziel, ohne Ziel am
+    gemeldeten Ort. Damit nichts doppelt läuft, schaltet er `bUseImpactSounds` an seinen replizierten Projektilen ab (beim
+    Abgleich der Actor-Liste alle 250 ms). Mod-Version 16, Format in
+    [CONTROL_PROTOCOL.md](CONTROL_PROTOCOL.md#schadenszahlen-mod-kompatibilität-12).
+  - Angriff, rein lokal: Der Client beobachtet je Takt `ReplicatedMovementMode` seiner `BP_StandardEnemy_C` und spielt
+    `StandardEnemyAttack` (über den Pfad geladen) am Gegner, wenn ein schon beobachteter Gegner vom Boden in `MOVE_Falling` wechselt.
+    Höchstens 12 Gegner-Sounds je Takt, je Gegner 300 ms Ruhe.
+  - Antworten zum Sync-Pfad: Lokal bleiben Auswahl, Ort und Abspielen der Sounds, der Angriffssound ganz. Geteilt wird nur ein Bit
+    je ohnehin gemeldetem Treffer, weil die Kopie des Projektils beim Client den Treffer nicht verlässlich selbst sieht. Es
+    entscheidet der Host (sein Projektil trifft). Wiederverwendet wird `0xA00`, keine neue Nachricht. Ein verlorenes Paket kostet
+    Sounds, keine Wiederholung; nach Join oder Travel gibt es nichts nachzuholen.
+  - Grenzen: Die Marke nennt den Sound nicht, ein Projektil mit anderem Einschlagsound klänge beim Client wie die Grundklasse (heute
+    gibt es keins). Der Angriffssound hängt am Sprung, nicht an der Fähigkeit: Ein Standardgegner, den etwas anderes in die Luft
+    wirft, klingt beim Client ebenfalls, und der Zeitpunkt ist der des replizierten Sprungs.
+- **Fehlversuch.** Ein Beobachter für `ReceiveBeginPlay` sollte neue Projektile des Clients sofort stummschalten. Er sah im
+  Spieltest kein einziges (0 bei 9 abgeschalteten Projektilen) und ist wieder entfernt; der Abgleich alle 250 ms reicht.
+- **[Belegt, ein PC] Nachher.** Gemessen am 21.11.2026 mit einem lokalen Sammelstand aus den drei Zweigen `opt-gegner-sound`, `opt-airdrop-sound` und `opt-bedrohung-sound` (nicht gepusht), ein PC, Host und Client über den Spike, echter Run an Tag 1 ohne Maus und Tastatur, Ton der Spielprozesse aus, **gezählt, nicht gehört**, je Prozess über die ganze Mission (etwa 2,5 Minuten, davon 60 s mit
+  `DD_SetThreatLevel 10`), Host / Client:
+
+  | Sound | Vorher (60 s, Bedrohung 10) | Nachher |
+  |---|---|---|
+  | `zombie_Hurt` | 234 / 3 | 298 / 283 |
+  | `StandardEnemyAttack` | 378 / 0 | 513 / 484 |
+
+  Von den 283 Treffersounds des Clients kamen 280 aus der Mod und 3 noch aus eigenen Projektilen (Aufrufkette über `exe+5A1CE59`),
+  also höchstens 3 Doppel; der Host markierte 289 seiner 298 Sounds. **Vermutung** zu den 9 ohne Marke: Treffer, für die der Host
+  den Schadenszahl-Handler nicht aufruft. Im Mod-Log des Clients: 288 Einschlagsounds, alle am Ziel, 506 Sprünge gesehen und
+  gespielt (Log 10 s nach der Zählung). Der gemessene Stand hatte den Beobachter noch, der nie auslöste; der abgegebene Stand ist
+  ohne ihn neu gebaut und nur mit den Unit-Tests geprüft. Keine Absturzberichte.
+- **Nicht geprüft:** andere Waffen als die Pistole, Projektile mit Flächenschaden, Bosse, zwei PCs mit echtem Ping, gehört.
+
 ### Absturz beim Bestätigen im Lager (`lager-bestaetigen-absturz`)
 
 Ausgewertet am 10.11.2026 aus Mod-Log und Minidump des Clients vom [Live-Test](#live-test-auf-zwei-pcs-am-10112026-livetest-1011),
@@ -3748,7 +3978,7 @@ Lokaler Test am 09.11.2026 (Build 26495302, `Start-Session.ps1 -Role Both -Mod -
 - **[Belegt] Nachtest.** Reparatur und Aufwertung im selben Edit: „Aufwertung 1 geprüft (Ablegen)“, „1 von 1 verkauft, 1 von 1 repariert“,
   „vollständig=true“, danach `Desync: OK … Inventar`. Am nächsten Tag hatte der Client die aufgewertete Waffe. Eine spätere kurze
   `ABWEICHUNG Inventar` fiel in eine offene Airdrop-Auswahl: Beim Client standen die drei lokalen Wahlinstanzen (`IsReward`) im Inventar.
-- **Abgegrenzt.** Der dauerhafte Fehlalarm durch die Rasterposition von Items außerhalb des Rucksacks bleibt bei `opt-desync-pivot`.
+- **Abgegrenzt.** Der dauerhafte Fehlalarm durch die Rasterposition von Items außerhalb des Rucksacks ist mit `opt-desync-pivot` behoben.
 
 ### Sekündlicher Ruckler beim Host (`host-lagspike`)
 
@@ -3821,6 +4051,47 @@ Offsets: [Boss-Parzelle](OFFSETS.md#boss-parzelle-endboss-spawn). Lesewerkzeug: 
   Schließen der Tafel endet; ob am 13.11. mehr dahintersteckte, ist offen (Bestätigungstest ausstehend).
 - **Nicht geprüft:** zwei PCs, die Karten `MGP_Burger_Boss_City` und `MGP_HQ8_Boss` (HQ-Endboss nach drei Bossen,
   `NumBossesBeforeEndBoss` 3), ein echter Kampf ohne `!bossdmg`, eine Niederlage im Bosskampf und der Endlosmodus.
+
+### Hinweis beim Client, wenn der Host die Welt anhält (`opt-boss-tafel-client`)
+
+Stand 21.11.2026, Build `26786272`, ein PC mit zwei Instanzen (Mod und Spike, Lobby über den Tunnel der Mod, Godmode), Kartenprofil
+`MGP_Burger_Boss_Nature`, alles ohne Maus und Tastatur. Werte mit `tools/spike/pause_state.py`, das Hinweisfenster über die
+Fensterliste des Client-Prozesses (Klasse `DDCoop.Notice`, Bild per `PrintWindow` nur aus diesem Fenster).
+
+- **[Belegt] Zustand des Clients während der Tafel.** Der Host hält eine Zeitanfrage (`WP_EndGameUnlockSummaryPanel_C`,
+  Priorität 1000, Pause), sein `PauserPlayerState` repliziert. Der Client hat dabei 0 Zeitanfragen, kein offenes Pausemenü und keine
+  UI-Sitzung. Derselbe Zustand entsteht bei jeder Pause, die nur der Host hält (geprüft mit dem Konsolenbefehl `pause` beim Host).
+- **[Belegt] Die Tafel öffnet beim Einsammeln, nicht beim Tod.** Der tote Boss lässt `BP_StoryItem_BASE_C` (und `BP_MemoDrop_C`)
+  fallen. Stand die Host-Figur abseits, kam in zwei geprüften Läufen bis 12 s nach dem Tod keine Tafel und keine Pause; nach
+  `!shop to <x> <y>` auf den Ort des Teils öffnete sie innerhalb von 7 s (ein Lauf). **[Vermutung]** Die Angabe „rund 3 s nach dem
+  Bosstod“ unten galt für eine Figur neben dem Boss, die das Teil gleich einsammelt.
+- **Warum nicht die Tafel selbst.** Der Client hat eine eigene Instanz, aber sie ist nicht anzeigbar, ohne dass er eigene Autorität
+  bekäme: Die Klasse pausiert, solange sie offen ist (`pause_while_open`), sie bräuchte also eine eigene Zeitanfrage des Clients und
+  fünf- bis sechsmal „Fortsetzen“ von ihm, und ihr Inhalt (`DisplaySummary`, 168 Byte Parameter) kommt aus dem Fortschritt des
+  Hosts. Ein natives HUD-Element für freien Text fand sich nicht: `TimedMessagePopup.SetMessage(Text, Dauer)` gibt es nur im
+  Inventar-Panel (`UpperWarningMessage`, `LowerWarningMessage`), `PopupSubsystem` und `NewUnlockMessageSubsystem` öffnen Panels mit
+  Knöpfen.
+- **Umsetzung, alles lokal, keine Nachricht, kein Wire-Format.** `Sync::Pause::RemotePauseNotice` (`PauseState.h`) entscheidet
+  allein aus dem replizierten Zustand: Welt pausiert (Pauser gesetzt oder Zeitfaktor 0), aber weder eigenes Pausemenü noch eigene
+  Zeitanfrage (`Game::Pause::ActiveTimeRequests`, nur gelesen) noch eine eigene offene Auswahl (Airdrop oder Belohnung, die die Mod
+  dem Client selbst zeigt, `Game::Rewards::ClientReadyState`); dort sieht der Client sein Panel und muss selbst wählen. Nach 1 s zeigt das Overlay der Mod „Der Host hat das Spiel
+  angehalten“ in einem eigenen kleinen Fenster oben in der Mitte des Spielbilds (`src/UI`, unabhängig von F8, nie aktivierbar,
+  Klicks gehen ans Spiel). Der Client fordert keine Zeit an und drückt nichts; Ende der Pause, Weltwechsel und Trennung nehmen den
+  Hinweis sofort weg. Der Hinweis gilt für jede Pause des Hosts (Tafel, Pausemenü, Airdrop-Auswahl), nicht nur für den Boss.
+- **[Belegt] Messung.** Tafel offen: Hinweis beim Client sichtbar (325 × 37 bei 237/90 im Spielbild 800 × 450, Text wie oben),
+  beim Host nie; Client durchgehend 0 Zeitanfragen; das Hinweisfenster war nie im Vordergrund. Nach sechsmal „Fortsetzen“ beim Host
+  (Knopf-Ereignis per `!shop call`) Pauser bei beiden leer und Hinweis weg. Log des Clients: „Pause: Hinweis beim Client, der Host
+  hält die Weltzeit an“ 1,0 s nach „Weltzeit angehalten“, „Hinweis beim Client weg“ im selben Takt wie „Weltzeit läuft“. Dasselbe
+  mit `pause` in der Konsole des Hosts. Keine Abstürze.
+- **Grenzen.** Der Hinweis ist ein Fenster über dem Spiel, kein HUD-Element: nur im Fenster- und randlosen Modus, nicht im
+  exklusiven Vollbild, und nicht mit `overlay_enabled=false`. Ein Bild des Spielfensters (`PrintWindow`) enthält ihn nicht. Er sagt
+  nicht, warum der Host pausiert.
+- **[Belegt] Level-up pausiert nicht.** Drei Level-ups in Folge (Dev-Knopf „Spawn XP“ beim Client per Fensternachricht, Level 4
+  bis 7): bei Host und Client kein Pauser, keine Zeitanfrage, keine UI-Sitzung, kein Hinweis.
+- **Nicht geprüft:** zwei PCs, die Tafel über die echte Route, eigenes Pausemenü des Clients während einer Host-Pause und
+  Weltwechsel (beides nur Unit-Tests), eine offene Airdrop-Auswahl des Clients (Bedingung nur im Code, die Auswahl lässt sich ohne
+  Eingabe nicht öffnen), Pausemenü und Airdrop-Auswahl des Hosts (nur `pause` in der Konsole), andere
+  Bildschirmskalierung, Spielton (keine Audiositzung gefunden).
 
 ### Stillstand des Clients nach dem Bosstod (`boss-client-einfrieren`)
 
@@ -4157,7 +4428,7 @@ bis zum Bestätigen den Stand von deren Beginn.
 **2. Dauerhafte Abweichung nach einer Ablehnung [Belegt, Log; Ursache abgeleitet, ohne Gegenprobe].** **Grenze vorweg:** Behoben ist
 nur der Weg über eine Ablehnung. Übernimmt der Host einen Edit, in dem der Client ein Item im Lager verschoben hat, bleibt dieselbe
 Abweichung (Pivot außerhalb des Rucksacks) bis Spielende; auch eine Bearbeitung nach einer Ablehnung kann den Melder so wieder rot
-machen. Das ist `opt-desync-pivot` und als nächster Schritt nötig, damit der Melder echte Inventarfehler nicht verdeckt. Nach „Host hat Edit abgelehnt“ meldete das
+machen. Das war `opt-desync-pivot`; seit dem 21.11.2026 zählt der Melder Position und Drehung außerhalb des Rucksacks nicht mehr. Nach „Host hat Edit abgelehnt“ meldete das
 Zurückrollen `vollständig=true` (nach einem zweiten Durchgang), der Desync-Melder aber bei beiden „ABWEICHUNG Inventar“ bis Spielende.
 Felder, Seltenheit, Schrott und Rucksackfelder waren gleich. Der Melder (`InventoryHash` in `DesyncAdapter.cpp`) zählt Pivot und Drehung
 jedes Items, auch außerhalb des Rucksacks. Feuerzeug, Ratte und Revolver legte der Client während der Bearbeitung in den Rucksack (je rund

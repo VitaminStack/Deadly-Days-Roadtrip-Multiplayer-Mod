@@ -23,6 +23,8 @@
 namespace
 {
 constexpr wchar_t WindowClass[] = L"DDCoop.Overlay";
+// Hinweis über dem Spielbild (opt-boss-tafel-client): eigenes kleines Fenster ohne Rahmen, nie aktivierbar, Klicks gehen durch.
+constexpr wchar_t NoticeClass[] = L"DDCoop.Notice";
 constexpr int CreateId = 101, JoinId = 102, InviteId = 103, LeaveId = 104, LobbyId = 105, CopyId = 106, TabId = 107, DevXpId = 110, DevTankId = 111, DevGodId = 112, DevZombiesId = 113, DevItemId = 114;
 constexpr int TabHeight = 34;
 std::mutex Lifecycle;
@@ -41,6 +43,10 @@ struct WindowState
     ULONGLONG CopiedAt = 0;
     int Dpi = 0;
     HFONT Font = nullptr;
+    HWND Notice = nullptr;
+    std::wstring NoticeText;
+    HFONT NoticeFont = nullptr;
+    int NoticeDpi = 0;
 };
 
 std::wstring Widen(const std::string& Text)
@@ -230,16 +236,104 @@ void UpdateControls(WindowState& State)
     Text(State.Copy, Copied ? L"Kopiert" : L"Lobby-ID kopieren");
 }
 
+LRESULT CALLBACK NoticeProc(HWND Window, UINT Message, WPARAM WParam, LPARAM LParam)
+{
+    const auto* State = reinterpret_cast<const WindowState*>(GetWindowLongPtrW(Window, GWLP_USERDATA));
+    switch (Message)
+    {
+    case WM_NCHITTEST:
+        return HTTRANSPARENT;
+    case WM_MOUSEACTIVATE:
+        return MA_NOACTIVATE;
+    case WM_ERASEBKGND:
+        return 1;
+    case WM_PAINT:
+    {
+        PAINTSTRUCT Paint{};
+        const HDC Dc = BeginPaint(Window, &Paint);
+        RECT Area{};
+        GetClientRect(Window, &Area);
+        const HBRUSH Back = CreateSolidBrush(RGB(24, 24, 28));
+        FillRect(Dc, &Area, Back);
+        DeleteObject(Back);
+        if (State)
+        {
+            SetBkMode(Dc, TRANSPARENT);
+            SetTextColor(Dc, RGB(255, 255, 255));
+            const HGDIOBJ Old = State->NoticeFont ? SelectObject(Dc, State->NoticeFont) : nullptr;
+            DrawTextW(Dc, State->NoticeText.c_str(), -1, &Area, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+            if (Old)
+                SelectObject(Dc, Old);
+        }
+        EndPaint(Window, &Paint);
+        return 0;
+    }
+    }
+    return DefWindowProcW(Window, Message, WParam, LParam);
+}
+
+// Zeigt den Hinweis oben in der Mitte des Spielbilds, unabhängig vom Statusfenster. Ohne Spielfenster, bei minimiertem Spiel
+// oder ohne Text bleibt er verborgen. Nie mit Fokus: SWP_NOACTIVATE, WS_EX_NOACTIVATE, Klicks gehen ans Spiel.
+void RefreshNotice(WindowState& State, HWND Owner)
+{
+    if (!State.Notice)
+        return;
+    const std::wstring Text = Widen(UI::Overlay().Snapshot().Notice);
+    if (!Owner || IsIconic(Owner) || Text.empty())
+    {
+        if (IsWindowVisible(State.Notice))
+            ShowWindow(State.Notice, SW_HIDE);
+        return;
+    }
+    if (GetWindowLongPtrW(State.Notice, GWLP_HWNDPARENT) != reinterpret_cast<LONG_PTR>(Owner))
+        SetWindowLongPtrW(State.Notice, GWLP_HWNDPARENT, reinterpret_cast<LONG_PTR>(Owner));
+    const int Dpi = GetDpiForWindow(Owner) ? static_cast<int>(GetDpiForWindow(Owner)) : 96;
+    if (Dpi != State.NoticeDpi || !State.NoticeFont)
+    {
+        if (State.NoticeFont)
+            DeleteObject(State.NoticeFont);
+        State.NoticeFont = CreateFontW(-MulDiv(13, Dpi, 72), 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+            OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
+        State.NoticeDpi = Dpi;
+        State.NoticeText.clear();
+    }
+    RECT Bounds{};
+    GetClientRect(Owner, &Bounds);
+    if (Text != State.NoticeText)
+    {
+        State.NoticeText = Text;
+        SetWindowTextW(State.Notice, Text.c_str());
+        InvalidateRect(State.Notice, nullptr, TRUE);
+    }
+    SIZE Extent{};
+    const HDC Dc = GetDC(State.Notice);
+    const HGDIOBJ Old = State.NoticeFont ? SelectObject(Dc, State.NoticeFont) : nullptr;
+    GetTextExtentPoint32W(Dc, Text.c_str(), static_cast<int>(Text.size()), &Extent);
+    if (Old)
+        SelectObject(Dc, Old);
+    ReleaseDC(State.Notice, Dc);
+    const int Width = Extent.cx + MulDiv(32, Dpi, 96), Height = Extent.cy + MulDiv(14, Dpi, 96);
+    // Unter dem Ziel-Banner des Spiels (obere Mitte), rund ein Fünftel der Bildhöhe von oben.
+    POINT Origin{ (Bounds.right - Width) / 2, Bounds.bottom / 5 };
+    ClientToScreen(Owner, &Origin);
+    SetWindowPos(State.Notice, nullptr, Origin.x, Origin.y, Width, Height,
+        SWP_NOACTIVATE | SWP_NOZORDER | SWP_SHOWWINDOW | SWP_NOOWNERZORDER);
+}
+
 void Refresh(WindowState& State, HWND Window)
 {
     if (Stopping.load())
     {
+        if (State.Notice)
+            DestroyWindow(State.Notice);
+        State.Notice = nullptr;
         DestroyWindow(Window);
         return;
     }
     UpdateControls(State);
     HWND Owner = nullptr;
     EnumWindows(FindOwner, reinterpret_cast<LPARAM>(&Owner));
+    RefreshNotice(State, Owner);
     if (Owner != State.Owner)
     {
         State.Owner = Owner;
@@ -420,6 +514,22 @@ DWORD RunWindow()
     const std::wstring Title = ModName() + L" - Status (F8)";
     HWND Window = CreateWindowExW(WS_EX_TOOLWINDOW, WindowClass, Title.c_str(),
         WS_POPUP | WS_CAPTION | WS_SYSMENU, 0, 0, 460, 340, nullptr, nullptr, Class.hInstance, &State);
+    WNDCLASSW Notice{};
+    Notice.lpfnWndProc = NoticeProc;
+    Notice.hInstance = Class.hInstance;
+    Notice.lpszClassName = NoticeClass;
+    if (Window && RegisterClassW(&Notice))
+    {
+        State.Notice = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT | WS_EX_LAYERED, NoticeClass, L"",
+            WS_POPUP, 0, 0, 10, 10, nullptr, nullptr, Class.hInstance, nullptr);
+        if (State.Notice)
+        {
+            SetWindowLongPtrW(State.Notice, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(&State));
+            SetLayeredWindowAttributes(State.Notice, 0, 230, LWA_ALPHA);
+        }
+        else
+            Core::Log::Error("Overlay: Hinweisfenster konnte nicht erstellt werden: {}", GetLastError());
+    }
     if (Window)
     {
         Core::Log::Info("Overlay bereit, F8 im Spielfenster zum Anzeigen");
@@ -437,8 +547,13 @@ DWORD RunWindow()
     }
     else
         Core::Log::Error("Overlay-Fenster konnte nicht erstellt werden: {}", GetLastError());
+    if (State.Notice && IsWindow(State.Notice))
+        DestroyWindow(State.Notice);
+    if (State.NoticeFont)
+        DeleteObject(State.NoticeFont);
     if (State.Font)
         DeleteObject(State.Font);
+    UnregisterClassW(NoticeClass, Class.hInstance);
     UnregisterClassW(WindowClass, Class.hInstance);
     return Window ? 0 : 1;
 }

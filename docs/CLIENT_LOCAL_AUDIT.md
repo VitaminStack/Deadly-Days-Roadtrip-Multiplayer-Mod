@@ -216,6 +216,8 @@ vergleichen und ausstehende Vorschau getrennt kennzeichnen. Kein legitimes Previ
 falsches Inventar werten; echte Feldabweichungen nicht durch pauschales Ausschließen verdecken.
 **Abnahme:** offene Vorschau ohne Fehlalarm, absichtlich falscher bestätigter Slot mit Alarm,
 Ablehnung/Travel/Disconnect. **Zuständig:** `opt-desync-pivot` und `werkbank-client`, mit vorhandener Diagnose.
+**Stand 21.11.2026:** Offene Vorschau ohne Fehlalarm über `opt-desync-bearbeitung`, Position und Drehung außerhalb des Rucksacks
+nicht mehr im Messfeld über `opt-desync-pivot`, [Befunde](GAME_ANALYSIS.md#desync-melder-in-offenen-bearbeitungen-opt-desync-bearbeitung).
 
 ## Keine unnötigen Umbauten
 

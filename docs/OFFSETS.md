@@ -1389,6 +1389,19 @@ Build `26495302`, Disassembly, siehe [Aufsammelsound](GAME_ANALYSIS.md#aufsammel
 | `LootBase.Client_PlaySound` | NetClient-RPC, beim Client vom Netz über `exe+299CFFB` (ProcessEvent), lokal aus `0x59AF417` |
 | `LootBlueprintFunctionLibrary.DropRequiredFuel` | Parameter 0x30 Byte: `World` `0x0`, `FuelClass` `0x8`, `Location` `0x10`, `Radius` `0x28`, `AdditionalFuel` `0x2C` (Spike-Testhilfe `!fx fuel`) |
 
+## Gegner-Sounds (`opt-gegner-sound`)
+
+Build `26786272`, Disassembly und Reflexion zur Laufzeit, siehe [Gegner-Sounds beim Client](GAME_ANALYSIS.md#gegner-sounds-beim-client-opt-gegner-sound).
+Die Mod liest die Felder über `Reflection::Property`, die Offsets stehen hier nur als Beleg.
+
+| Was | Wert |
+|---|---|
+| Native Trefferbehandlung des Projektils (hinter `Projectile.OnValidOverlap`) | Funktion ab `0x5A1C310`; Einschlagsound über `PlayEventAtLocation` (`0x47B9D90`) bei `0x5A1CE54` |
+| `AProjectile.bUseImpactSounds`, `UseRandomSoundFromArray` | `0x3C1`, `0x3C2` (bool) |
+| `AProjectile.HitImpactSoundEvent`, `ImpactSoundEvents` | `0x3C8` (`UFMODEvent*`), `0x3D0` (Array) |
+| `ACharacter.ReplicatedMovementMode` | `0x472` (gepackt: unter 16 untere drei Bits der Modus, 3 = `MOVE_Falling`) |
+| `FDamageInformation.DamageCauser` | `0x1C` (`TWeakObjectPtr`), beim Projektiltreffer das Projektil |
+
 ## Loot-Aufnahme beim Client (`opt-loot-aufnahme-client`)
 
 Build `26786272`, Reflexion zur Laufzeit (nur gelesen) und Disassembly, siehe
@@ -1518,6 +1531,22 @@ aus `gegner-alle` (oben); der Rest ist Befund für `tools/spike/boss_hp.py` und 
 | `UDDEnemyAttributeSet` | `Phase` `0x40` (`FGameplayAttributeData`, Wert bei `+0xC`) |
 | Phasenmarken je Boss | SpikeBoss 0,5; Ballerina 0,5; Frankenstein 0,65; BlobBall 0,7; HQ-Endboss 0,8 und 0,4 |
 | `CreateAndStartObjective` (Thunk) | `26669225`: `0x56BAB70`, ruft `0x58DED20`, das ruft `0x163B300` mit einem `FStaticConstructObjectParameters`-artigen Block (Klasse bei `+0x0`, Outer bei `+0x8`); dort liest `+0x163B33F` `[Klasse+0xD8]`. **[Vermutung]** `StaticConstructObject_Internal` und `ClassFlags`, ohne Symbole nicht belegt |
+
+## Spielerliste des Sensenmanns (`opt-host-absturz-trennung`)
+
+Build `26786272`, aus Disassembly und Absturzbericht des Hosts. Die Mod nutzt davon nur `Players` (`src/Game/RemoteP2Patches.cpp`).
+
+| Stelle | RVA | Hinweis |
+|---|---|---|
+| Zeitgeber des `UReaperComponent` | `0x589A650` | kleinster Abstand der Spieler zum Sensenmann; `mov rax,[rcx]` bei `0x589A8A0`, `mov rdx,[rax+1B8h]` bei `0x589A8A3` ohne Nullprüfung, Absturzadresse des Hosts |
+| Weitere Schleifen über `Players` ohne Nullprüfung | `0x5885E50`, `0x58860A6` | nicht als Absturz belegt |
+| Schleifen mit Nullprüfung | `0x5878FF0`, `0x5885980` | `EndPlay` und Entfernen |
+| Figur aus `Players` nehmen | `0x58858F0` | `(this, Controller)`, liest `Controller+0x2E8` (Pawn), ohne Figur sofort zurück; Entfernen über `0x588AB30` |
+
+| Klasse | Feld | Offset |
+|---|---|---|
+| `UReaperComponent` | Reaper, Players (`TArray<ADDCharacter*>`: Daten, Num `+8`, Max `+0xC`) | `0x168`, `0x178` |
+| `AActor` | RootComponent | `0x1B8` |
 
 ## Sensenmann (`karte-nach-labyrinth-absturz`)
 

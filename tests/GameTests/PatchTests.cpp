@@ -720,6 +720,27 @@ TEST_CASE("RemoteP2: Beitrittsmeldung nur einmal je Welt und Controller")
     CHECK_FALSE(SameRemoteNotification(100, {10, 21}, 100, {10, 20}));
 }
 
+TEST_CASE("RemoteP2: abgebaute Figuren verlassen die Spielerliste des Sensenmanns")
+{
+    const auto Dead = [](uintptr_t Player) { return Player == 0 || Player == 0x2000; };
+    uintptr_t Players[4] = {0x1000, 0x2000, 0, 0x3000};
+    int32_t Num = 4;
+    CHECK(RemoveDeadPlayers(Players, Num, Dead) == 2);
+    CHECK((Num == 2 && Players[0] == 0x1000 && Players[1] == 0x3000 && Players[2] == 0 && Players[3] == 0));
+    CHECK(RemoveDeadPlayers(Players, Num, Dead) == 0);
+    CHECK(Num == 2);
+    uintptr_t OnlyRemote[1] = {0x2000};
+    Num = 1;
+    CHECK((RemoveDeadPlayers(OnlyRemote, Num, Dead) == 1 && Num == 0 && OnlyRemote[0] == 0));
+
+    CHECK(PlausibleReaperPlayers(0x1000, 2, 4));
+    CHECK_FALSE(PlausibleReaperPlayers(0, 2, 4));      // Vorlage ohne Liste
+    CHECK_FALSE(PlausibleReaperPlayers(0x1000, 0, 4)); // leer: nichts zu tun
+    CHECK_FALSE(PlausibleReaperPlayers(0x1000, 5, 4)); // Num über Max: fremdes Layout
+    CHECK_FALSE(PlausibleReaperPlayers(0x1000, 9, 16));
+    CHECK_FALSE(PlausibleReaperPlayers(0x1000, -1, 4));
+}
+
 TEST_CASE("RemoteP2: Geräte-Wächter im erzeugten Code nimmt nur die lokale P2-Pflicht aus")
 {
     ExecutableBuffer Memory;

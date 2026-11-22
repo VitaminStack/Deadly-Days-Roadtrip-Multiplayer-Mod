@@ -25,6 +25,7 @@ Einzige Schicht mit Spielzugriff. Enthält Adapter auf Spielklassen und später 
 | `CodeCave.h` | Werkzeuge für Patches mitten in Funktionen: Code-Höhle nahe der Exe, Bytes prüfen, Sprünge und vtable-Einträge schreiben |
 | `LocalDevicePolicy.h` | Reine Regeln für `LocalDevicePatches.cpp`: welche Gerätezuordnung und welcher lokale Spawn im Netzwerkspiel abgelehnt wird, ohne Spiel getestet |
 | `RemoteP2Policy.h` | Reine Logik für den Remote-Spieler als P2: `ActivePlayers`-Map prüfen und aufräumen, Geräte-Wächter, ohne Spiel getestet |
+| `EnemySoundAdapter.h` / `EnemySoundPolicy.h` | `opt-gegner-sound`: Treffer- und Angriffssound der Gegner beim Client (`EnemySoundPatches.cpp`), reine Regeln ohne Spiel getestet. Siehe [Gegner-Sounds](../../docs/GAME_ANALYSIS.md#gegner-sounds-beim-client-opt-gegner-sound) |
 | `PatchPolicy.h` | Reine Regeln der Patches (SpawnedPlayers-Menge, Wächter-Code, Reise, Busplatz), ohne Spiel getestet |
 
 ## Game Thread
@@ -127,6 +128,10 @@ die Airdrop-Auswahl wartet auf den Claim von P2. Gelöst wurde beides ohne Koop-
 - Mit Koop-Modus (Gegenprobe): Grüne P2-Markierung über der Client-Figur, kein Controller-Fenster. `Test-NetEnd.ps1 -Cases b,d`: Bindung
   beim Verlassen und beim harten Abbruch entfernt (`aktiv=1`, `reconnect=0`), nach dem Neubeitritt neu gesetzt. Das Lager am Ende von
   Tag 1 hing mit beiden Rucksäcken bei „Bestätigen & Wechseln“, deshalb der Standard aus.
+- Wegfall ohne Abmeldung (`opt-host-absturz-trennung`): Der Host merkt sich die Figur des Remote-Spielers. Ist sie abgebaut, nimmt
+  `TickReaperPlayers` sie im selben Tick aus `UReaperComponent::Players`, sonst liest der Zeitgeber des Sensenmanns nach der
+  nächsten Garbage Collection am Nullzeiger und der Host stürzt ab. Belege und Läufe:
+  [Host-Absturz nach hartem Wegfall des Clients](../../docs/GAME_ANALYSIS.md#host-absturz-nach-hartem-wegfall-des-clients-opt-host-absturz-trennung).
 
 **Geprüft** (04.11.2026, Build `26187885`, `Start-Session.ps1 -Build -Mod`, Seed `20795`): MetaBase, dann Tag 1 bis 5 über die echte Route,
 danach Niederlage und „Zurück zur Basis“. Kein Absturz, die Inventare waren nach jedem Wechsel gleich. `SpawnedPlayers` kam bei jedem Wechsel

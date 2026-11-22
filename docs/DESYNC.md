@@ -17,7 +17,10 @@ der Adapter nur Speicher. Er läuft ausschließlich auf dem Game Thread.
 | Inventar | Replizierte Items und BackpackSlots je Spieler | Kein Stash, Buff-/Effektzustand, Rarität oder nicht replizierte ItemInstanceId |
 
 Items enthalten den vollständigen Asset-Pfad von ItemData, Pivot, Drehung und die
-Flags Broken/IsInBackpack/IsReward/IsTrash. Slots enthalten Koordinaten und den
+Flags Broken/IsInBackpack/IsReward/IsTrash. Pivot und Drehung zählen nur bei Items
+im Rucksack (`opt-desync-pivot`): Außerhalb setzt sie das Panel beim Ziehen lokal,
+beim Client-Spieler kommt das nie beim Host an,
+[Befund](GAME_ANALYSIS.md#rasterposition-außerhalb-des-rucksacks-im-desync-melder-opt-desync-pivot). Slots enthalten Koordinaten und den
 Inhaltshash ihres Occupier. FNV-1a über explizite Little-Endian-Zahlen und
 längenmarkierte UTF-8-Namen, danach sortierte Multiset-Hashes: Reihenfolge ist
 egal, doppelte Inhalte bleiben erhalten. Keine Prozessadressen, lokalen
@@ -44,6 +47,18 @@ nicht geraten. Damit kann die Inventarprüfung offen bleiben; das ist kein OK.
   Peer, lokale Run-ID/Nonce, Probensequenz, NetGUID, Host-Run/Epoche/Revision und
   lokale Antwortfrist. Lokale Änderungen seit der Probe sperren das betreffende
   Feld in der Anzeige. Alte oder doppelte Antworten ändern keinen Wasserstand.
+- **Offene Bearbeitung des Clients (`opt-desync-bearbeitung`).** Solange der Client selbst bearbeitet, meldet er die
+  betroffenen Felder in seiner Probe nicht als stabil. Der Host vergleicht sie dann nicht und verwirft seine
+  Bestätigungen, nach der Bearbeitung zählt er von vorn. Keine neue Nachricht, das Format der Probe ist unverändert.
+  - Inventar und Gegner: lokaler, noch nicht übernommener Stand (Bearbeitung offen, Edit unbeantwortet, Zurückrollen,
+    lokale Instanzen bis höchstens 3 s nach der Übernahme).
+  - Nur Gegner: Airdrop-Auswahl oder Lager des Rundenendes ist beim Client offen, ohne dass er etwas geändert hat. Die
+    Weltzeit steht, die Gegnerzahl bleibt auf dem Stand vom Pausenbeginn.
+  - Anzeige beim Client: dritte Zeile „Bearbeitung offen, nicht gewertet: …“. Der Host zeigt die Felder als „offen“.
+  - Ein Unterschied der Gegnerzahl, der ohne die Sperre ein Alarm wäre, steht einmal als Info im Log des Clients
+    („Gegner in offener Bearbeitung nicht gemeldet, host=… client=…“). HP, Spieler, Tag und Phase werden weiter gemeldet.
+  - Grenze: Pausen ohne Panel des Clients (Pausemenü, Panel nur beim Host) sperren nichts.
+  [Befund und Messung](GAME_ANALYSIS.md#desync-melder-in-offenen-bearbeitungen-opt-desync-bearbeitung)
 - Welt/State/NetGUID/Tag/Peer/Rolle-Wechsel löschen Messung, Stabilität und Alarme.
   Ohne frische Gegenmessung nach zehn Sekunden kein OK und kein alter Alarm.
 - Abweichungen mit Hashwerten im Host-Log, Zusammenfassung auf beiden Seiten im
@@ -79,7 +94,7 @@ powershell -ExecutionPolicy Bypass -File tools/spike/Test-Desync.ps1
 ```
 
 Das Skript verlangt zu Beginn und vor der Abweichungsprobe auf beiden Seiten alle
-fünf aktiven Felder als OK und misst mindestens 600 Sekunden ohne Alarm. Mindestens
+sechs aktiven Felder als OK und misst mindestens 600 Sekunden ohne Alarm. Mindestens
 90 Prozent der Messungen müssen vollständig vergleichbar sein; Zustandswechsel
 dürfen höchstens 60 Sekunden am Stück im Stabilisierungsstatus bleiben. Solche
 Fenster und der tatsächliche Abdeckungsanteil stehen im Bericht, sie werden nicht
