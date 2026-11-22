@@ -6,6 +6,8 @@
 #include "Sync/MovementState.h"
 #include "Sync/Enemies/TelegraphState.h"
 #include "Sync/Combat/WeaponSoundState.h"
+#include "Sync/World/ThreatState.h"
+#include "Game/ThreatAdapter.h"
 #include "Game/GameThread.h"
 #include "Game/PatchRuntime.h"
 #include "Net/Net.h"
@@ -154,6 +156,45 @@ void TickWeaponSounds(Net::Transport& Transport)
         if (const auto Sounds = WeaponSounds::Decode(Message.Value.Payload))
             Game::PlayReloadSounds(*Sounds);
 }
+
+// opt-bedrohung-sound: Die Bedrohungsstufe repliziert nicht. Der Host schickt sie als Stand (bei Änderung und alle 2 s), der
+// Client ruft damit das native Ereignis seiner Stoppuhr auf. Format in World/ThreatState.h.
+void TickThreat(Net::Transport& Transport)
+{
+    if (Transport.Stats().IsHost)
+    {
+        static bool Sent = false;
+        static int32_t LastLevel = 0;
+        static uint64_t LastMs = 0, Revision = 0;
+        const auto Level = Game::ReadHostThreatLevel();
+        if (!Level)
+        {
+            Sent = false; // neue Welt oder keine Mission: den nächsten Stand sofort senden
+            return;
+        }
+        const uint64_t Now = static_cast<uint64_t>(
+            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
+        if (!Game::ThreatSendDue(Sent, LastLevel, *Level, LastMs, Now))
+            return;
+        const auto Payload = Threat::Encode(*Level);
+        bool Any = false;
+        if (!Payload.empty())
+            for (const uint64_t Peer : Transport.ControlPeers())
+                Any |= Transport.SendControl(Peer, {1, 1, ++Revision, Threat::LevelType, Payload});
+        // Ohne angenommenen Versand (kein Mitspieler, Warteschlange voll) gilt der Stand als nicht gesendet.
+        Sent = Any;
+        LastLevel = *Level;
+        LastMs = Now;
+        return;
+    }
+    // Nur der neueste Stand zählt.
+    std::optional<int32_t> Latest;
+    for (const auto& Message : Transport.TakeControlMessages(Threat::LevelType))
+        if (const auto Level = Threat::Decode(Message.Value.Payload))
+            Latest = Level;
+    if (Latest)
+        Game::ShowThreatLevel(*Latest);
+}
 }
 
 namespace
@@ -242,6 +283,11 @@ void Start(const Core::Config& Config, DiagnosticSink Diagnostics)
         }
         else
             Game::TakeReloadSounds();
+        if (Transport)
+        {
+            const Game::GameThread::SlowScope Watch("Sync-Bedrohung");
+            TickThreat(*Transport);
+        }
         {
             const Game::GameThread::SlowScope Watch("Sync-Dev");
             TickDev(Transport.get()); // Also handles offline/standalone dev actions.
