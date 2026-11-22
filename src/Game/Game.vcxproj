@@ -86,6 +86,7 @@
     <ClCompile Include="SaveRedirect.cpp" />
     <ClCompile Include="SdkChecks.cpp" />
     <ClCompile Include="TelemetryAdapter.cpp" />
+    <ClCompile Include="ThreatAdapter.cpp" />
     <ClCompile Include="BossBarAdapter.cpp" />
     <ClCompile Include="TutorialAdapter.cpp" />
     <ClCompile Include="PauseAdapter.cpp" />
@@ -133,6 +134,8 @@
     <ClInclude Include="SavePaths.h" />
     <ClInclude Include="SaveRedirect.h" />
     <ClInclude Include="TelemetryAdapter.h" />
+    <ClInclude Include="ThreatAdapter.h" />
+    <ClInclude Include="ThreatPolicy.h" />
     <ClInclude Include="BossBarAdapter.h" />
     <ClInclude Include="BossBarPolicy.h" />
     <ClInclude Include="BloodPolicy.h" />
