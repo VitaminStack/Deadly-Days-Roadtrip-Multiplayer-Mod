@@ -106,13 +106,10 @@ std::optional<uint64_t> InventoryHash(uintptr_t State)
                    Trash = Memory::Read<uint8_t>(Item + 0x184);
         if (!Path || !Pivot || !Turns || !Broken || !Backpack || !Reward || !Trash ||
             *Broken > 1 || *Backpack > 1 || *Reward > 1 || *Trash > 1) return std::nullopt;
-        Desync::Hash Hash;
-        Hash.Text(*Path);
-        Hash.Number(*Pivot);
-        Hash.Number(static_cast<uint32_t>(*Turns));
-        Hash.Number(*Broken | (*Backpack << 1) | (*Reward << 2) | (*Trash << 3));
-        ItemHashes.emplace(Item, Hash.Value());
-        Records.push_back(Hash.Value());
+        const auto Record = Desync::ItemRecord(*Path, *Pivot, static_cast<uint32_t>(*Turns), *Broken != 0, *Backpack != 0,
+                                               *Reward != 0, *Trash != 0);
+        ItemHashes.emplace(Item, Record);
+        Records.push_back(Record);
     }
     std::set<uintptr_t> SeenSlots;
     std::set<uint64_t> Coordinates;
