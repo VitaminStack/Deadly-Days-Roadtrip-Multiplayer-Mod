@@ -706,7 +706,9 @@ Ort gepaart, 50 ms), Disassembly der Exe.
   `PlayerAnimationVelocityProvider` sind auf beiden Seiten gleich registriert.
 - **Gescheitert:** Beim Client nur `+0x7E0` auf das Blueprint-Mesh oder nur `Hands+0x320` auf die Figur setzen (von außen geschrieben). Die
   Ansicht blieb starr. Der halbe Zustand von `+0x7E0` brachte den Client danach zum Absturz (`EXCEPTION_ACCESS_VIOLATION` beim Lesen von
-  `0x348`, Stack `0x5870F52` ← `0x58025F7`). Beide Felder bleiben deshalb unberührt.
+  `0x348`, Stack `0x5870F52` ← `0x58025F7`). Beide Felder bleiben deshalb unberührt. **[Vermutung, Nachtrag 21.11.2026]** Dieser
+  Absturz war vermutlich ebenfalls der Sensenmann (gleiche Leseadresse, Rücksprung des Aufrufs `0x5870F4D`), nicht der halbe
+  Zustand, siehe [Client-Absturz am Sensenmann](#client-absturz-am-sensenmann-karte-nach-labyrinth-absturz).
 - **Umsetzung** (`src/Game/FacingPatches.cpp`, `TickFacing`, Regeln `FacingYawFromQuat` und `FacingNeedsWrite` in `PatchPolicy.h`, mit
   Tests): Nur beim Client und nur für Figuren ohne Autorität trägt die Mod je Takt den Welt-Gierwinkel des replizierten Hände-Actors
   (Quaternion von `RootComponent.ComponentToWorld`) in `Hands+0x31C` ein, wenn er sich um mehr als 0,01° ändert. Das native Mesh wählt daraus
@@ -1619,6 +1621,9 @@ dasselbe Tempo. Eine volle Sperre wäre eine Abweichung vom Spiel.
   liest beim Start `ADDMissionGameMode` (`+0x188`) und bindet ohne Nullprüfung `OnNewPlayerSpawned` (`+0x340`); den GameMode gibt
   es beim Client nicht. Der Host stürzte 22 s später ab, nachdem der Client weg war. **Vermutung:** Der Sensenmann erscheint nach
   einer festen Zeit (`MinutesUntilReaper`), jeder Client stürzt dann ab. Das ist eine eigene Aufgabe.
+  **Nachtrag 21.11.2026:** belegt und behoben in
+  [Client-Absturz am Sensenmann](#client-absturz-am-sensenmann-karte-nach-labyrinth-absturz); die feste Zeit ist
+  `SpawnAfterMinutes` 12 des `AReaperSpawner`.
 - **Nicht geprüft:** zwei PCs über das Internet, Tod in Bosskämpfen, Wiederbelebung über Items (`ItemEffectReviveAndDestroy`),
   Tod des Hosts bei lebendem Client mit Wiederbelebung durch den Client, mehr als ein Client.
 
@@ -2972,6 +2977,8 @@ Neue Befunde:
   Replikation gesetzt“, gemeinsame Kamera gesetzt, Busplatz, Zerfall-Cues für sieben Gegnerklassen. Die neue Karte trug denselben Seed
   wie das Labyrinth. Der Crash-Reporter blieb gesperrt, der Bericht liegt nur lokal. Ursache offen; `0x348` ist ein Feldzugriff auf
   einen Nullzeiger.
+  **Nachtrag:** Ursache belegt und behoben, es ist der Sensenmann des Hosts beim Client, siehe
+  [Client-Absturz am Sensenmann](#client-absturz-am-sensenmann-karte-nach-labyrinth-absturz).
 - **Absturz des Hosts nach der Trennung (`opt-host-absturz-trennung`).** Der Host lief nach dem Absturz des Clients weiter (Schrott an
   den Client, neuer Airdrop). Gut 10 s nach dem Absturz meldet er „Verbindung beendet, Grund 4001 Timeout; remote problem“ (10,6 s ohne Empfang),
   entfernt den Remote-Spieler („P2-Bindung entfernt“) und stürzt 4,9 s danach selbst ab. Auch dort blieb der Crash-Reporter gesperrt.
@@ -2996,6 +3003,88 @@ Neue Befunde:
 Nicht geprüft: Boss und Boss-Leiste, Abschlusstafel, Werkbank mit Rezept-Panel, Waffensound nach Gehör, Heil- und Wurf-Items des
 Clients, neuer Run mit Level 1 und Rollentausch. Für `update-26786272-run` gilt damit: Route über sieben Karten, Händler-Event,
 Labyrinth-Event und sechs Rundenenden liefen zu zweit, Bosse und der Rest der Abnahme stehen aus.
+
+### Client-Absturz am Sensenmann (`karte-nach-labyrinth-absturz`)
+
+Stand 21.11.2026, Build `26786272`: Absturzbericht und Logs des Live-Tests, Disassembly der Exe, SDK, Test auf einem PC (zwei
+Instanzen, Lobby, mit Spike, ohne echte Eingaben).
+
+- **[Belegt, Disassembly] Die Aufrufliste gehört zum Sensenmann, nicht zur Karte.** Aufgelöst gegen die Exe von `26786272`
+  (eine `RvaMap26786272.inc` gibt es nicht mehr, der Build ist die Referenz):
+
+  | RVA | Stelle |
+  |---|---|
+  | `0x15C0407` | `cmp [rcx+8],edi` in `0x15C03F0`, erste Zeile der Delegatliste; `rcx` ist `0x340`, daher Lesen von `0x348` |
+  | `0x469869D` | Delegat binden (`0x46985F0`, `AddDynamic`) |
+  | `0x5872172` | `UReaperComponent::BeginPlay` (`0x5871F20`), Rücksprung hinter der Bindung von `OnNewPlayerSpawned` |
+  | `0x25DDC9B` | `AActor::BeginPlay` (`0x25DDAD0`), `call [rax+3E8h]` je Komponente |
+  | `0x5803507` | Funktion `0x58034F0`, ruft `0x25DDAD0`; **[Vermutung]** `BeginPlay` des Gegner-Actors |
+  | `0x25E1B8D`, `0x2996997` bis `0x299D3AF` | nicht disassembliert; **[Belegt, Test]** dieselben Rahmen entstehen, wenn der replizierte Sensenmann beim Client ankommt (Nachstellung unten), also der Weg vom Netztreiber zum neuen Actor |
+
+  `BeginPlay` castet `World->AuthorityGameMode` auf `ADDMissionGameMode`, legt das Ergebnis in `+0x188` ab (`0x5872149`) und bindet
+  ohne Nullprüfung an `GameMode+0x340` (`OnNewPlayerSpawned`) und `GameMode+0x350` (`OnPlayerDespawned`). Der Client hat keinen
+  GameMode. Der Sensenmann (`BP_ReaperEnemy_C` mit `UReaperComponent`) ist ein replizierter Gegner des Hosts; sobald er beim Client
+  ankommt, stürzt dieser ab. Das ist der Fehler, der am 14.11. als „Sensenmann-Fehler“ notiert wurde (siehe
+  [Tod des Clients](#tod-des-clients-tod-client)), damals ohne eigene Aufgabe.
+- **[Belegt] Seed, hängende Figur und Child Actors sind nicht die Ursache.** Keiner dieser Wege steht in der Aufrufliste. Dass die
+  Karte nach dem Labyrinth denselben Seed trägt, trat im Test ebenfalls einmal auf (`MGP_City_LittleItaly` nach dem Labyrinth) und
+  blieb ohne Folgen.
+- **[Belegt, Messung] So entsteht der Sensenmann.** Jede Missionskarte hat einen `BP_ReaperSpawner_C` (`AReaperSpawner`), bei Host
+  und Client. `SpawnAfterMinutes` ist 12; nach dem Laden stellt `0x58BD820` den Zeitgeber, wenn `ShouldSpawnReaper` (`+0x528`)
+  gesetzt ist. Im Labyrinth-Event ist das Feld 0 (`DisableReaperSpawning` des `EventMapSetupGenerator`), in den normalen Karten 1.
+  Beim Client läuft derselbe Zeitgeber.
+- **[Belegt, Messung] Der Spawner des Clients erzeugte einen eigenen Sensenmann.** Zeitgeber beim Client auf 3 s gestellt (mit Wächter,
+  ohne den zweiten Patch): Nach 7 s stand beim Client ein `BP_ReaperEnemy_C` mit Rolle 3 (Authority), `WasReaperSpawned` 1; der Host
+  hatte keinen. `0x58C9E20` prüft die Autorität nicht. Nach 12 Minuten hätte der Client also einen zweiten, nur lokalen Sensenmann
+  neben dem replizierten des Hosts; ohne Wächter stürzte er schon an diesem ab (`BeginPlay` ohne GameMode).
+- **[Offen] Warum der Sensenmann im Live-Test schon 3,6 s nach der Ankunft kam.** Im Test stand der Spawner nach der Reise aus dem
+  Labyrinth auf beiden Seiten auf 12 Minuten, in 36 s und in drei weiteren Karten kam kein Sensenmann von selbst. **[Vermutung]**
+  Im Live-Lauf (Host-Level 49, siebte Karte) lief das Karten-Ereignis `OME_EarlyReaper` (`UMapEvent_EarlyReaper`,
+  `MinutesUntilReaper`) oder ein Schwierigkeits-Modifikator. Daten des Hosts dazu gibt es nicht. Für den Fehler ist es gleich: Jede
+  Karte, in der der Sensenmann erscheint, führte zum Absturz, spätestens nach 12 Minuten (so am 14.11.).
+- **[Belegt, Test] Nachgestellt ohne Wächter.** Run über die Routenkarte, erste Karte Labyrinth (Testschalter), Tagesende, nächster
+  Knoten `MGP_Forest_Campgrounds`, dann der Zeitgeber des Spawners beim Host auf 3 s (`!shop reaper`). Rund 30 s danach, als der
+  Sensenmann beim Client ankam, stürzte der Client ab: `EXCEPTION_ACCESS_VIOLATION` beim Lesen von `0x348`, Aufrufliste `15c0407
+  469869d 5872172 25ddc9b 2d8cdbc 5803507 25e1b8d 2996997 …`, dieselben Rahmen wie im Live-Bericht.
+- **[Belegt, Absturzbericht] Nebenbefund für `opt-host-absturz-trennung`: Auch der Absturz des Hosts danach kommt vom Sensenmann.**
+  Im Nachstelllauf stürzte der Host nach dem Verlust des Clients ab, wie live: Lesen von `0x1B8`, Aufrufliste `589a8a3 55177d3
+  315a9a6 2bfc5dd …`. `0x589A8A3` liegt in `0x589A650`, einer Zeitgeber-Funktion des `UReaperComponent`: Sie geht über `Players`
+  (`+0x178`) und liest je Figur `+0x1B8` (`RootComponent`) ohne Nullprüfung. **[Vermutung]** Nach der Trennung steht dort die
+  zerstörte Client-Figur als null, weil sie ohne Abmeldung verschwand. Der Live-Absturz des Hosts (4,9 s nach dem Entfernen des
+  Clients, Sensenmann vorhanden) passt dazu, Host-Daten von damals fehlen. Hier nicht behoben, das gehört zur genannten Aufgabe.
+- **Lokal zuerst:** Der Baustein bleibt beim Client ganz lokal (Ton nach Abstand, Farbwechsel, Tempo-Übergang). Geteilt wird
+  nichts Neues, der Sensenmann repliziert wie jeder Gegner, der Host entscheidet weiter allein über Spawn, Bewegung und Schaden.
+  Ersetzt wird kein Weg. Die beiden ausgelassenen Bindungen melden dem Baustein neue und entfernte Spielerfiguren; beim Host laufen
+  sie unverändert. Beim Client liest `BeginPlay` die vorhandenen Figuren weiter selbst ein (`0x5B11480`).
+- **Fix** (`src/Game/ClientPatches.cpp`, Patch „Sensenmann ohne GameMode“, Regel `EmitReaperGameModeGuard` in `PatchPolicy.h`, mit
+  Test): Sprung bei `0x5872149` in einen Wächter. Er schreibt das Feld wie das Original und springt ohne GameMode hinter beide
+  Bindungen (`0x587219B`), sonst zurück nach `0x5872150`. `EndPlay` (`0x5878ED0`) prüft das Feld selbst, die übrigen Funktionen des
+  Bausteins lesen es nicht. Keine Nachricht, keine `ModVersion`-Erhöhung.
+  Zweiter Patch „Sensenmann erzeugt nur der Host“ (Regel `ReaperMaySpawn`, mit Test): Hook auf `0x58C9E20`, beim Netz-Client kehrt
+  er sofort zurück, Host und Einzelspieler laufen unverändert. Die Mod setzt damit 59 Patches. Folge beim Client: `OnReaperSpawned`
+  des Spawners (Ansage, Ton, Tagesuhr, Ausweitung der Spawn-Biome) läuft dort nicht mehr lokal. **[Vermutung]** Dem Client fehlen
+  Ansage und Uhr-Wechsel; nicht geprüft, siehe `opt-sensenmann-ansage-client`.
+- **[Belegt, Test] Abnahme mit Wächter**, eine Sitzung, `Patches: 58 gesetzt` (Stand vor dem zweiten Patch), kein `[ERROR]` bei
+  Host und Client:
+
+  | Lauf | Reise | Sensenmann beim Client | Danach |
+  |---|---|---|---|
+  | 1 | Labyrinth → `MGP_Gated_Modern` | `ReaperComponent` an `BP_ReaperEnemy_C`, Rolle 1, `GameMode` leer | 25 s gelebt, Reise ins nächste Labyrinth, kein Absturz |
+  | 2 | Labyrinth → `MGP_Forest_Roadstops` | ebenso | 25 s gelebt, Reise ins nächste Labyrinth, kein Absturz |
+  | 3 | Labyrinth → `MGP_City_LittleItaly` | ebenso | 25 s gelebt, Reise ins nächste Labyrinth, kein Absturz |
+
+  Die Weiterreise zerstört den Sensenmann beim Client, damit lief auch `EndPlay` dreimal. Im Lauf 3 fand das Testskript den Knoten
+  erst im zweiten Anlauf; die Sitzung blieb so lange im Labyrinth.
+- **[Belegt, Test] Endstand mit beiden Patches**, eigene Sitzung, `Patches: 59 gesetzt`, normale Karte (`MGP_City_LittleIndia`):
+  Zeitgeber beim Client auf 3 s, Log „Sensenmann: Spawn beim Client unterdrückt, der Host entscheidet“, 12 s danach kein
+  `ReaperComponent` beim Client. Danach Zeitgeber beim Host: Sensenmann beim Client mit Rolle 1, 25 s gelebt, Tagesende und Reise
+  nach `MGP_Industrial`, kein Absturz, kein `[ERROR]`. Die Reise Labyrinth → normale Karte ist mit dem Endstand nicht erneut gefahren.
+- **Testwege:** `DDCOOP_TEST_MAP_PROFILE_EVERY=2` (Event und normale Karte im Wechsel) und `!shop reaper`, siehe
+  [Testen](TESTING.md#gezielt-in-eine-karte). Die Konsolenbefehle `SpawnReaper` und `SetSpawnReaperAfterMinutes` wirkten im
+  Shipping-Build nicht, weder über den Testkanal noch über den Spike.
+- **Nicht geprüft:** zwei PCs über das Internet; der Sensenmann nach den natürlichen 12 Minuten; Ton und Farbwechsel beim Client
+  nach Gehör und Bild; Kampf gegen den Sensenmann und sein Tod; Tod eines Spielers durch ihn; die Mod ohne Spike. Adressen stehen in
+  [OFFSETS](OFFSETS.md#sensenmann-karte-nach-labyrinth-absturz).
 
 ### Roboterarm beim Client (`client-roboterarm`)
 
