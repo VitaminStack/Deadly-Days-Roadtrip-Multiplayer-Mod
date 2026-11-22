@@ -153,3 +153,17 @@ Grenzen und Stolpersteine:
   Neuaufbau (Beitritt, Reise): Phase und Start folgen aus HP und Tags, getestet in `BossBarPolicyTests.cpp`. Befund:
   [Phasen und Kampfstart](../../../docs/GAME_ANALYSIS.md#phasen-und-kampfstart-der-boss-leiste-beim-client-opt-boss-phasenleiste).
 - Ein `BossfightSpawnPoint` ohne Host-Kontext zu erzeugen stürzt den Client ab (Lesezugriff `0x308` in `0x58BC184`), der Spawnpunkt gehört nur zum Host.
+
+## Gegner-Sounds (`opt-gegner-sound`, 21.11.2026)
+
+Kein neuer Nachrichtentyp. `DamageNumberState.h` trägt je Treffer ein Byte Marken der Mod (Bit 0: Einschlagsound, Mod-Version 16).
+
+| Frage | Antwort |
+|---|---|
+| Was bleibt lokal? | Sound-Objekt, Ort und Abspielen. Der Angriffssound ganz: Der Client leitet ihn aus dem replizierten Sprung ab (`ReplicatedMovementMode`) |
+| Was wird geteilt und warum? | Ein Bit je ohnehin gemeldetem Treffer: „hier hat ein Projektil seinen Einschlagsound gespielt“. Die Kopie des Projektils beim Client sieht den Treffer nur selten selbst (13 von 35) |
+| Wer entscheidet? | Der Host, sein Projektil trifft |
+| Welcher Weg wird genutzt? | `0xA00` aus `opt-schadenszahlen`, keine neue Nachricht, kein neuer Hook |
+| Ablehnung, Wiederholung, Neuaufbau | Wie `0xA00`: Verlust heißt fehlende Sounds, kein Nachholen nach Join oder Travel. Unbekannte Bits ignoriert der Client |
+
+Code in `src/Game/EnemySoundPatches.cpp`, [Befund](../../../docs/GAME_ANALYSIS.md#gegner-sounds-beim-client-opt-gegner-sound).

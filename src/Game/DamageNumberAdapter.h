@@ -16,8 +16,13 @@ struct DamageNumberHit
     float Damage = 0;
     uint8_t Flags = 0; // FDamageInformation.DamageFlags (Crit, Blocked, ...)
     float X = 0, Y = 0, Z = 0; // Ort des Ziels beim Host, für einen späteren Ersatz, wenn das Ziel beim Client schon weg ist
+    uint8_t Extra = 0; // Marken der Mod, siehe DamageHitImpactSound; unbekannte Bits ignoriert der Client
     bool operator==(const DamageNumberHit&) const = default;
 };
+
+// opt-gegner-sound: Der Host hat für diesen Treffer den Einschlagsound des Projektils gespielt (zombie_Hurt), der Client spielt
+// ihn lokal nach, siehe EnemySoundAdapter.h.
+inline constexpr uint8_t DamageHitImpactSound = 0x01;
 
 inline constexpr size_t MaxDamageNumberHits = 64;
 

@@ -316,9 +316,15 @@ Schaden bekam, denn die HP normaler Gegner replizieren nicht. Der Host entscheid
 
 `0xA00` Host an Client, je Takt mit mindestens einem Treffer: Anzahl (1, 1 bis 64), je Treffer NetGUID des getroffenen Actors (8,
 ungleich 0, höchstens 54 Bit), Schaden (float, 4, 0 bis 1e9), `DamageFlags` (1) und Ort des Ziels beim Host (X, Y, Z als float, je 4,
-Betrag höchstens 1e7), also genau 1 + 25 × Anzahl Bytes. NaN, Unendlich und andere Längen werden abgelehnt. Der Client holt `0xA00` in
+Betrag höchstens 1e7) und seit Mod-Version 16 ein Byte Marken der Mod, also genau 1 + 26 × Anzahl Bytes. NaN, Unendlich und andere Längen werden abgelehnt. Der Client holt `0xA00` in
 jedem Takt ab und ruft für jedes noch lebende, auflösbare Ziel den nativen Handler seines eigenen Controllers. Ein verlorenes Paket
 heißt nur fehlende Zahlen, keine Wiederholung, keine Antwort.
+
+Seit `opt-gegner-sound` (21.11.2026, **Mod-Version 16**, weil sich die Länge je Treffer ändert) trägt jeder Treffer am Ende ein Byte
+Marken der Mod. Bit 0 heißt: Für diesen Treffer hat beim Host ein Projektil seinen Einschlagsound gespielt (`zombie_Hurt`). Der
+Client spielt ihn dann lokal am Ziel, ohne Ziel am gemeldeten Ort, auch wenn er keine Zahl zeigt. Die übrigen Bits sind 0 und werden
+ignoriert. Lokal bleiben Sound-Objekt, Ort und Abspielen, es entscheidet der Host (sein Projektil trifft), keine Wiederholung.
+Befund in [Gegner-Sounds beim Client](GAME_ANALYSIS.md#gegner-sounds-beim-client-opt-gegner-sound).
 
 Seit `opt-schadenszahlen-verlust` (13.11.2026, Format und Mod-Version unverändert) wertet der Client `0xA00` auch im Sammelabruf alle
 250 ms aus: Eine Nachricht, die nach dem eigenen Abruf im selben Takt ankam, nahm sonst der Sammelabruf mit, und dort verfiel sie

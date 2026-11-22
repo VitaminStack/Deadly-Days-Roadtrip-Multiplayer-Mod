@@ -3680,6 +3680,69 @@ Gegner über `!wave`, die Figuren standen und feuerten von selbst. Keine Maus- o
   Absturzberichte.- **Nicht geprüft:** Schrotflinte und andere Waffen (`!give` legt sie nur in den Rucksack, ausgerüstet blieb die Pistole), Nahkampf,
   Drohnen (`ProjectileAmmoBasedDroneAttackComponent` hat einen eigenen `FireWeaponSoundEvent`), zwei PCs mit echtem Ping, gehört.
 
+#### Gegner-Sounds beim Client (`opt-gegner-sound`)
+
+Untersucht am 21.11.2026, Build `26786272`, ein PC, `Start-Session.ps1 -Build -Mod -Tunnel Lobby -Godmode`, echter Run an Tag 1 über
+die Routenkarte ohne Maus und Tastatur (Spike-Befehle wie in [Gezielt in eine Karte](TESTING.md#gezielt-in-eine-karte)), Gegner über
+`DD_SetThreatLevel 10`. Ton der Spielprozesse aus, **gezählt, nicht gehört**: `!fx` je Prozess, dazu der neue Spike-Befehl
+`!fx events <Klasse>`, der alle `ProcessEvent`-Aufrufe an Objekten einer Klasse zählt (was beim Client überhaupt ankommt).
+
+- **[Belegt, Disassembly] `zombie_Hurt` ist kein Sound des Gegners, sondern der Einschlagsound des Projektils.** Aufrufkette mit
+  `!fx stack`: `exe+5A1CE59` ← `exe+5773311` (Ereignis `Projectile.OnValidOverlap`) ← `ProcessEvent`. Die native Trefferbehandlung
+  des Projektils (Funktion ab `0x5A1C310`) startet bei `bUseImpactSounds` (`+0x3C1`) den `HitImpactSoundEvent` (`+0x3C8`) über
+  `PlayEventAtLocation` am Ort des Projektils (Aufruf `0x5A1CE54`), außer das getroffene Objekt gehört zu einer ausgenommenen Klasse.
+  Alle 12 geladenen Projektilklassen mit gesetztem Einschlagsound tragen dort `zombie_Hurt`.
+- **[Belegt] Warum er beim Client fast fehlt.** Die Projektile replizieren, und auch die Kopie des Clients ruft bei einer eigenen
+  Überlappung `OnOverlapBegin` und spielt dann denselben Sound. Sie berührt den Gegner aber nur selten selbst, bevor der Host sie
+  abbaut oder in den Pool zurücknimmt: In 120 s an Tag 1 beim Host 40 Schüsse, 40 gültige Überlappungen, 35 Sounds, beim Client 23
+  Überlappungen, 14 gültige, 13 Sounds. Bei vielen Gegnern (Bedrohung 10, 60 s) 234 zu 3. Am Gegner selbst kommt je Treffer kein
+  Ereignis an (`!fx events BP_StandardEnemy_C`: nur `OnRep_ReplicatedMovement`), seine HP replizieren nicht.
+- **[Belegt] Vorhandenes Signal je Treffer:** die Schadenszahl-Nachricht `0xA00` aus `opt-schadenszahlen` (Host 1377 gemeldet,
+  Client 1377 empfangen). Sie kommt aber für jeden Schaden, auch für Flächen- und Dauerschaden ohne Sound (Endboss-Karte: 52
+  Zahlen bei 14 Einschlagsounds). `FDamageInformation.DamageCauser` (`+0x1C`) nennt beim Host das Projektil.
+- **[Belegt] `StandardEnemyAttack`** startet der Blueprint der Fähigkeit `GA_SmallJumpAttack_C` (`PlayEventAtLocation <-
+  GA_SmallJumpAttack_C.ExecuteUbergraph_GA_SmallJumpAttack`, 378 in 60 s bei Bedrohung 10, Client 0). Die Fähigkeit läuft nur beim
+  Host, ihre Klasse und das Sound-Objekt sind beim Client nicht einmal geladen. Beim Host gehören dazu 367 `OnLaunched` an
+  `BP_StandardEnemy_C`, beim Client kommt davon kein Ereignis an. Der Sprung selbst repliziert aber:
+  `ACharacter.ReplicatedMovementMode` steht beim Client während des Sprungs auf 3 (`MOVE_Falling`), sonst auf 10 oder 1
+  (30 Proben je Gegner über 2 s: Host 68 von 3150 in der Luft, Client 94 von 3150).
+- **Nebenbefunde, nicht behoben:** `JumpZombie_Jetpack` (`GA_JumpyJetpackAttack_C`, 15 zu 0) und `zombie_fire_Igniting` (2 zu 0)
+  fehlen beim Client ebenfalls, dazu die Angriffssounds der Bosse (`GA_StompAttack_C`, `GA_NewVacuumAttack_C`, `Impact_Grenade`
+  948 zu 0 auf der Endboss-Karte). Sie kommen aus Fähigkeiten, die nur beim Host laufen.
+- **Umsetzung** (`src/Game/EnemySoundPatches.cpp`, Regeln in `EnemySoundPolicy.h` mit Tests, `FmodSound.h`):
+  - Treffer: Der Host markiert in `0xA00` je Treffer ein neues Byte (Bit 0: Einschlagsound), wenn der Verursacher ein Projektil mit
+    `bUseImpactSounds` und gesetztem `HitImpactSoundEvent` ist und das Ziel ein Gegner, je Projektil und Takt einmal
+    (Flächenschaden). Der Client spielt dafür den `HitImpactSoundEvent` der Grundklasse `BP_Projectile_C` am Ziel, ohne Ziel am
+    gemeldeten Ort. Damit nichts doppelt läuft, schaltet er `bUseImpactSounds` an seinen replizierten Projektilen ab (beim
+    Abgleich der Actor-Liste alle 250 ms). Mod-Version 16, Format in
+    [CONTROL_PROTOCOL.md](CONTROL_PROTOCOL.md#schadenszahlen-mod-kompatibilität-12).
+  - Angriff, rein lokal: Der Client beobachtet je Takt `ReplicatedMovementMode` seiner `BP_StandardEnemy_C` und spielt
+    `StandardEnemyAttack` (über den Pfad geladen) am Gegner, wenn ein schon beobachteter Gegner vom Boden in `MOVE_Falling` wechselt.
+    Höchstens 12 Gegner-Sounds je Takt, je Gegner 300 ms Ruhe.
+  - Antworten zum Sync-Pfad: Lokal bleiben Auswahl, Ort und Abspielen der Sounds, der Angriffssound ganz. Geteilt wird nur ein Bit
+    je ohnehin gemeldetem Treffer, weil die Kopie des Projektils beim Client den Treffer nicht verlässlich selbst sieht. Es
+    entscheidet der Host (sein Projektil trifft). Wiederverwendet wird `0xA00`, keine neue Nachricht. Ein verlorenes Paket kostet
+    Sounds, keine Wiederholung; nach Join oder Travel gibt es nichts nachzuholen.
+  - Grenzen: Die Marke nennt den Sound nicht, ein Projektil mit anderem Einschlagsound klänge beim Client wie die Grundklasse (heute
+    gibt es keins). Der Angriffssound hängt am Sprung, nicht an der Fähigkeit: Ein Standardgegner, den etwas anderes in die Luft
+    wirft, klingt beim Client ebenfalls, und der Zeitpunkt ist der des replizierten Sprungs.
+- **Fehlversuch.** Ein Beobachter für `ReceiveBeginPlay` sollte neue Projektile des Clients sofort stummschalten. Er sah im
+  Spieltest kein einziges (0 bei 9 abgeschalteten Projektilen) und ist wieder entfernt; der Abgleich alle 250 ms reicht.
+- **[Belegt, ein PC] Nachher.** Gemessen am 21.11.2026 mit einem lokalen Sammelstand aus den drei Zweigen `opt-gegner-sound`, `opt-airdrop-sound` und `opt-bedrohung-sound` (nicht gepusht), ein PC, Host und Client über den Spike, echter Run an Tag 1 ohne Maus und Tastatur, Ton der Spielprozesse aus, **gezählt, nicht gehört**, je Prozess über die ganze Mission (etwa 2,5 Minuten, davon 60 s mit
+  `DD_SetThreatLevel 10`), Host / Client:
+
+  | Sound | Vorher (60 s, Bedrohung 10) | Nachher |
+  |---|---|---|
+  | `zombie_Hurt` | 234 / 3 | 298 / 283 |
+  | `StandardEnemyAttack` | 378 / 0 | 513 / 484 |
+
+  Von den 283 Treffersounds des Clients kamen 280 aus der Mod und 3 noch aus eigenen Projektilen (Aufrufkette über `exe+5A1CE59`),
+  also höchstens 3 Doppel; der Host markierte 289 seiner 298 Sounds. **Vermutung** zu den 9 ohne Marke: Treffer, für die der Host
+  den Schadenszahl-Handler nicht aufruft. Im Mod-Log des Clients: 288 Einschlagsounds, alle am Ziel, 506 Sprünge gesehen und
+  gespielt (Log 10 s nach der Zählung). Der gemessene Stand hatte den Beobachter noch, der nie auslöste; der abgegebene Stand ist
+  ohne ihn neu gebaut und nur mit den Unit-Tests geprüft. Keine Absturzberichte.
+- **Nicht geprüft:** andere Waffen als die Pistole, Projektile mit Flächenschaden, Bosse, zwei PCs mit echtem Ping, gehört.
+
 ### Absturz beim Bestätigen im Lager (`lager-bestaetigen-absturz`)
 
 Ausgewertet am 10.11.2026 aus Mod-Log und Minidump des Clients vom [Live-Test](#live-test-auf-zwei-pcs-am-10112026-livetest-1011),
@@ -3925,6 +3988,47 @@ Offsets: [Boss-Parzelle](OFFSETS.md#boss-parzelle-endboss-spawn). Lesewerkzeug: 
   Schließen der Tafel endet; ob am 13.11. mehr dahintersteckte, ist offen (Bestätigungstest ausstehend).
 - **Nicht geprüft:** zwei PCs, die Karten `MGP_Burger_Boss_City` und `MGP_HQ8_Boss` (HQ-Endboss nach drei Bossen,
   `NumBossesBeforeEndBoss` 3), ein echter Kampf ohne `!bossdmg`, eine Niederlage im Bosskampf und der Endlosmodus.
+
+### Hinweis beim Client, wenn der Host die Welt anhält (`opt-boss-tafel-client`)
+
+Stand 21.11.2026, Build `26786272`, ein PC mit zwei Instanzen (Mod und Spike, Lobby über den Tunnel der Mod, Godmode), Kartenprofil
+`MGP_Burger_Boss_Nature`, alles ohne Maus und Tastatur. Werte mit `tools/spike/pause_state.py`, das Hinweisfenster über die
+Fensterliste des Client-Prozesses (Klasse `DDCoop.Notice`, Bild per `PrintWindow` nur aus diesem Fenster).
+
+- **[Belegt] Zustand des Clients während der Tafel.** Der Host hält eine Zeitanfrage (`WP_EndGameUnlockSummaryPanel_C`,
+  Priorität 1000, Pause), sein `PauserPlayerState` repliziert. Der Client hat dabei 0 Zeitanfragen, kein offenes Pausemenü und keine
+  UI-Sitzung. Derselbe Zustand entsteht bei jeder Pause, die nur der Host hält (geprüft mit dem Konsolenbefehl `pause` beim Host).
+- **[Belegt] Die Tafel öffnet beim Einsammeln, nicht beim Tod.** Der tote Boss lässt `BP_StoryItem_BASE_C` (und `BP_MemoDrop_C`)
+  fallen. Stand die Host-Figur abseits, kam in zwei geprüften Läufen bis 12 s nach dem Tod keine Tafel und keine Pause; nach
+  `!shop to <x> <y>` auf den Ort des Teils öffnete sie innerhalb von 7 s (ein Lauf). **[Vermutung]** Die Angabe „rund 3 s nach dem
+  Bosstod“ unten galt für eine Figur neben dem Boss, die das Teil gleich einsammelt.
+- **Warum nicht die Tafel selbst.** Der Client hat eine eigene Instanz, aber sie ist nicht anzeigbar, ohne dass er eigene Autorität
+  bekäme: Die Klasse pausiert, solange sie offen ist (`pause_while_open`), sie bräuchte also eine eigene Zeitanfrage des Clients und
+  fünf- bis sechsmal „Fortsetzen“ von ihm, und ihr Inhalt (`DisplaySummary`, 168 Byte Parameter) kommt aus dem Fortschritt des
+  Hosts. Ein natives HUD-Element für freien Text fand sich nicht: `TimedMessagePopup.SetMessage(Text, Dauer)` gibt es nur im
+  Inventar-Panel (`UpperWarningMessage`, `LowerWarningMessage`), `PopupSubsystem` und `NewUnlockMessageSubsystem` öffnen Panels mit
+  Knöpfen.
+- **Umsetzung, alles lokal, keine Nachricht, kein Wire-Format.** `Sync::Pause::RemotePauseNotice` (`PauseState.h`) entscheidet
+  allein aus dem replizierten Zustand: Welt pausiert (Pauser gesetzt oder Zeitfaktor 0), aber weder eigenes Pausemenü noch eigene
+  Zeitanfrage (`Game::Pause::ActiveTimeRequests`, nur gelesen) noch eine eigene offene Auswahl (Airdrop oder Belohnung, die die Mod
+  dem Client selbst zeigt, `Game::Rewards::ClientReadyState`); dort sieht der Client sein Panel und muss selbst wählen. Nach 1 s zeigt das Overlay der Mod „Der Host hat das Spiel
+  angehalten“ in einem eigenen kleinen Fenster oben in der Mitte des Spielbilds (`src/UI`, unabhängig von F8, nie aktivierbar,
+  Klicks gehen ans Spiel). Der Client fordert keine Zeit an und drückt nichts; Ende der Pause, Weltwechsel und Trennung nehmen den
+  Hinweis sofort weg. Der Hinweis gilt für jede Pause des Hosts (Tafel, Pausemenü, Airdrop-Auswahl), nicht nur für den Boss.
+- **[Belegt] Messung.** Tafel offen: Hinweis beim Client sichtbar (325 × 37 bei 237/90 im Spielbild 800 × 450, Text wie oben),
+  beim Host nie; Client durchgehend 0 Zeitanfragen; das Hinweisfenster war nie im Vordergrund. Nach sechsmal „Fortsetzen“ beim Host
+  (Knopf-Ereignis per `!shop call`) Pauser bei beiden leer und Hinweis weg. Log des Clients: „Pause: Hinweis beim Client, der Host
+  hält die Weltzeit an“ 1,0 s nach „Weltzeit angehalten“, „Hinweis beim Client weg“ im selben Takt wie „Weltzeit läuft“. Dasselbe
+  mit `pause` in der Konsole des Hosts. Keine Abstürze.
+- **Grenzen.** Der Hinweis ist ein Fenster über dem Spiel, kein HUD-Element: nur im Fenster- und randlosen Modus, nicht im
+  exklusiven Vollbild, und nicht mit `overlay_enabled=false`. Ein Bild des Spielfensters (`PrintWindow`) enthält ihn nicht. Er sagt
+  nicht, warum der Host pausiert.
+- **[Belegt] Level-up pausiert nicht.** Drei Level-ups in Folge (Dev-Knopf „Spawn XP“ beim Client per Fensternachricht, Level 4
+  bis 7): bei Host und Client kein Pauser, keine Zeitanfrage, keine UI-Sitzung, kein Hinweis.
+- **Nicht geprüft:** zwei PCs, die Tafel über die echte Route, eigenes Pausemenü des Clients während einer Host-Pause und
+  Weltwechsel (beides nur Unit-Tests), eine offene Airdrop-Auswahl des Clients (Bedingung nur im Code, die Auswahl lässt sich ohne
+  Eingabe nicht öffnen), Pausemenü und Airdrop-Auswahl des Hosts (nur `pause` in der Konsole), andere
+  Bildschirmskalierung, Spielton (keine Audiositzung gefunden).
 
 ### Stillstand des Clients nach dem Bosstod (`boss-client-einfrieren`)
 
