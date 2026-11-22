@@ -706,7 +706,9 @@ Ort gepaart, 50 ms), Disassembly der Exe.
   `PlayerAnimationVelocityProvider` sind auf beiden Seiten gleich registriert.
 - **Gescheitert:** Beim Client nur `+0x7E0` auf das Blueprint-Mesh oder nur `Hands+0x320` auf die Figur setzen (von außen geschrieben). Die
   Ansicht blieb starr. Der halbe Zustand von `+0x7E0` brachte den Client danach zum Absturz (`EXCEPTION_ACCESS_VIOLATION` beim Lesen von
-  `0x348`, Stack `0x5870F52` ← `0x58025F7`). Beide Felder bleiben deshalb unberührt.
+  `0x348`, Stack `0x5870F52` ← `0x58025F7`). Beide Felder bleiben deshalb unberührt. **[Vermutung, Nachtrag 21.11.2026]** Dieser
+  Absturz war vermutlich ebenfalls der Sensenmann (gleiche Leseadresse, Rücksprung des Aufrufs `0x5870F4D`), nicht der halbe
+  Zustand, siehe [Client-Absturz am Sensenmann](#client-absturz-am-sensenmann-karte-nach-labyrinth-absturz).
 - **Umsetzung** (`src/Game/FacingPatches.cpp`, `TickFacing`, Regeln `FacingYawFromQuat` und `FacingNeedsWrite` in `PatchPolicy.h`, mit
   Tests): Nur beim Client und nur für Figuren ohne Autorität trägt die Mod je Takt den Welt-Gierwinkel des replizierten Hände-Actors
   (Quaternion von `RootComponent.ComponentToWorld`) in `Hands+0x31C` ein, wenn er sich um mehr als 0,01° ändert. Das native Mesh wählt daraus
@@ -1619,6 +1621,9 @@ dasselbe Tempo. Eine volle Sperre wäre eine Abweichung vom Spiel.
   liest beim Start `ADDMissionGameMode` (`+0x188`) und bindet ohne Nullprüfung `OnNewPlayerSpawned` (`+0x340`); den GameMode gibt
   es beim Client nicht. Der Host stürzte 22 s später ab, nachdem der Client weg war. **Vermutung:** Der Sensenmann erscheint nach
   einer festen Zeit (`MinutesUntilReaper`), jeder Client stürzt dann ab. Das ist eine eigene Aufgabe.
+  **Nachtrag 21.11.2026:** belegt und behoben in
+  [Client-Absturz am Sensenmann](#client-absturz-am-sensenmann-karte-nach-labyrinth-absturz); die feste Zeit ist
+  `SpawnAfterMinutes` 12 des `AReaperSpawner`.
 - **Nicht geprüft:** zwei PCs über das Internet, Tod in Bosskämpfen, Wiederbelebung über Items (`ItemEffectReviveAndDestroy`),
   Tod des Hosts bei lebendem Client mit Wiederbelebung durch den Client, mehr als ein Client.
 
@@ -2972,6 +2977,8 @@ Neue Befunde:
   Replikation gesetzt“, gemeinsame Kamera gesetzt, Busplatz, Zerfall-Cues für sieben Gegnerklassen. Die neue Karte trug denselben Seed
   wie das Labyrinth. Der Crash-Reporter blieb gesperrt, der Bericht liegt nur lokal. Ursache offen; `0x348` ist ein Feldzugriff auf
   einen Nullzeiger.
+  **Nachtrag:** Ursache belegt und behoben, es ist der Sensenmann des Hosts beim Client, siehe
+  [Client-Absturz am Sensenmann](#client-absturz-am-sensenmann-karte-nach-labyrinth-absturz).
 - **Absturz des Hosts nach der Trennung (`opt-host-absturz-trennung`).** Der Host lief nach dem Absturz des Clients weiter (Schrott an
   den Client, neuer Airdrop). Gut 10 s nach dem Absturz meldet er „Verbindung beendet, Grund 4001 Timeout; remote problem“ (10,6 s ohne Empfang),
   entfernt den Remote-Spieler („P2-Bindung entfernt“) und stürzt 4,9 s danach selbst ab. Auch dort blieb der Crash-Reporter gesperrt.
@@ -3100,6 +3107,88 @@ Skript erwartete noch den Statustext mit ausgenommener Gegnerzahl und ist auf di
 
 **Nicht geprüft:** der Weg über das echte Panel (Item im Lager ziehen, Edit bestätigen) und zwei PCs. Die Verschiebung kam hier aus
 dem Testhelfer, nicht aus dem Panel; der Wert entspricht dem Befund vom 06.11.2026.
+
+### Client-Absturz am Sensenmann (`karte-nach-labyrinth-absturz`)
+
+Stand 21.11.2026, Build `26786272`: Absturzbericht und Logs des Live-Tests, Disassembly der Exe, SDK, Test auf einem PC (zwei
+Instanzen, Lobby, mit Spike, ohne echte Eingaben).
+
+- **[Belegt, Disassembly] Die Aufrufliste gehört zum Sensenmann, nicht zur Karte.** Aufgelöst gegen die Exe von `26786272`
+  (eine `RvaMap26786272.inc` gibt es nicht mehr, der Build ist die Referenz):
+
+  | RVA | Stelle |
+  |---|---|
+  | `0x15C0407` | `cmp [rcx+8],edi` in `0x15C03F0`, erste Zeile der Delegatliste; `rcx` ist `0x340`, daher Lesen von `0x348` |
+  | `0x469869D` | Delegat binden (`0x46985F0`, `AddDynamic`) |
+  | `0x5872172` | `UReaperComponent::BeginPlay` (`0x5871F20`), Rücksprung hinter der Bindung von `OnNewPlayerSpawned` |
+  | `0x25DDC9B` | `AActor::BeginPlay` (`0x25DDAD0`), `call [rax+3E8h]` je Komponente |
+  | `0x5803507` | Funktion `0x58034F0`, ruft `0x25DDAD0`; **[Vermutung]** `BeginPlay` des Gegner-Actors |
+  | `0x25E1B8D`, `0x2996997` bis `0x299D3AF` | nicht disassembliert; **[Belegt, Test]** dieselben Rahmen entstehen, wenn der replizierte Sensenmann beim Client ankommt (Nachstellung unten), also der Weg vom Netztreiber zum neuen Actor |
+
+  `BeginPlay` castet `World->AuthorityGameMode` auf `ADDMissionGameMode`, legt das Ergebnis in `+0x188` ab (`0x5872149`) und bindet
+  ohne Nullprüfung an `GameMode+0x340` (`OnNewPlayerSpawned`) und `GameMode+0x350` (`OnPlayerDespawned`). Der Client hat keinen
+  GameMode. Der Sensenmann (`BP_ReaperEnemy_C` mit `UReaperComponent`) ist ein replizierter Gegner des Hosts; sobald er beim Client
+  ankommt, stürzt dieser ab. Das ist der Fehler, der am 14.11. als „Sensenmann-Fehler“ notiert wurde (siehe
+  [Tod des Clients](#tod-des-clients-tod-client)), damals ohne eigene Aufgabe.
+- **[Belegt] Seed, hängende Figur und Child Actors sind nicht die Ursache.** Keiner dieser Wege steht in der Aufrufliste. Dass die
+  Karte nach dem Labyrinth denselben Seed trägt, trat im Test ebenfalls einmal auf (`MGP_City_LittleItaly` nach dem Labyrinth) und
+  blieb ohne Folgen.
+- **[Belegt, Messung] So entsteht der Sensenmann.** Jede Missionskarte hat einen `BP_ReaperSpawner_C` (`AReaperSpawner`), bei Host
+  und Client. `SpawnAfterMinutes` ist 12; nach dem Laden stellt `0x58BD820` den Zeitgeber, wenn `ShouldSpawnReaper` (`+0x528`)
+  gesetzt ist. Im Labyrinth-Event ist das Feld 0 (`DisableReaperSpawning` des `EventMapSetupGenerator`), in den normalen Karten 1.
+  Beim Client läuft derselbe Zeitgeber.
+- **[Belegt, Messung] Der Spawner des Clients erzeugte einen eigenen Sensenmann.** Zeitgeber beim Client auf 3 s gestellt (mit Wächter,
+  ohne den zweiten Patch): Nach 7 s stand beim Client ein `BP_ReaperEnemy_C` mit Rolle 3 (Authority), `WasReaperSpawned` 1; der Host
+  hatte keinen. `0x58C9E20` prüft die Autorität nicht. Nach 12 Minuten hätte der Client also einen zweiten, nur lokalen Sensenmann
+  neben dem replizierten des Hosts; ohne Wächter stürzte er schon an diesem ab (`BeginPlay` ohne GameMode).
+- **[Offen] Warum der Sensenmann im Live-Test schon 3,6 s nach der Ankunft kam.** Im Test stand der Spawner nach der Reise aus dem
+  Labyrinth auf beiden Seiten auf 12 Minuten, in 36 s und in drei weiteren Karten kam kein Sensenmann von selbst. **[Vermutung]**
+  Im Live-Lauf (Host-Level 49, siebte Karte) lief das Karten-Ereignis `OME_EarlyReaper` (`UMapEvent_EarlyReaper`,
+  `MinutesUntilReaper`) oder ein Schwierigkeits-Modifikator. Daten des Hosts dazu gibt es nicht. Für den Fehler ist es gleich: Jede
+  Karte, in der der Sensenmann erscheint, führte zum Absturz, spätestens nach 12 Minuten (so am 14.11.).
+- **[Belegt, Test] Nachgestellt ohne Wächter.** Run über die Routenkarte, erste Karte Labyrinth (Testschalter), Tagesende, nächster
+  Knoten `MGP_Forest_Campgrounds`, dann der Zeitgeber des Spawners beim Host auf 3 s (`!shop reaper`). Rund 30 s danach, als der
+  Sensenmann beim Client ankam, stürzte der Client ab: `EXCEPTION_ACCESS_VIOLATION` beim Lesen von `0x348`, Aufrufliste `15c0407
+  469869d 5872172 25ddc9b 2d8cdbc 5803507 25e1b8d 2996997 …`, dieselben Rahmen wie im Live-Bericht.
+- **[Belegt, Absturzbericht] Nebenbefund für `opt-host-absturz-trennung`: Auch der Absturz des Hosts danach kommt vom Sensenmann.**
+  Im Nachstelllauf stürzte der Host nach dem Verlust des Clients ab, wie live: Lesen von `0x1B8`, Aufrufliste `589a8a3 55177d3
+  315a9a6 2bfc5dd …`. `0x589A8A3` liegt in `0x589A650`, einer Zeitgeber-Funktion des `UReaperComponent`: Sie geht über `Players`
+  (`+0x178`) und liest je Figur `+0x1B8` (`RootComponent`) ohne Nullprüfung. **[Vermutung]** Nach der Trennung steht dort die
+  zerstörte Client-Figur als null, weil sie ohne Abmeldung verschwand. Der Live-Absturz des Hosts (4,9 s nach dem Entfernen des
+  Clients, Sensenmann vorhanden) passt dazu, Host-Daten von damals fehlen. Hier nicht behoben, das gehört zur genannten Aufgabe.
+- **Lokal zuerst:** Der Baustein bleibt beim Client ganz lokal (Ton nach Abstand, Farbwechsel, Tempo-Übergang). Geteilt wird
+  nichts Neues, der Sensenmann repliziert wie jeder Gegner, der Host entscheidet weiter allein über Spawn, Bewegung und Schaden.
+  Ersetzt wird kein Weg. Die beiden ausgelassenen Bindungen melden dem Baustein neue und entfernte Spielerfiguren; beim Host laufen
+  sie unverändert. Beim Client liest `BeginPlay` die vorhandenen Figuren weiter selbst ein (`0x5B11480`).
+- **Fix** (`src/Game/ClientPatches.cpp`, Patch „Sensenmann ohne GameMode“, Regel `EmitReaperGameModeGuard` in `PatchPolicy.h`, mit
+  Test): Sprung bei `0x5872149` in einen Wächter. Er schreibt das Feld wie das Original und springt ohne GameMode hinter beide
+  Bindungen (`0x587219B`), sonst zurück nach `0x5872150`. `EndPlay` (`0x5878ED0`) prüft das Feld selbst, die übrigen Funktionen des
+  Bausteins lesen es nicht. Keine Nachricht, keine `ModVersion`-Erhöhung.
+  Zweiter Patch „Sensenmann erzeugt nur der Host“ (Regel `ReaperMaySpawn`, mit Test): Hook auf `0x58C9E20`, beim Netz-Client kehrt
+  er sofort zurück, Host und Einzelspieler laufen unverändert. Die Mod setzt damit 59 Patches. Folge beim Client: `OnReaperSpawned`
+  des Spawners (Ansage, Ton, Tagesuhr, Ausweitung der Spawn-Biome) läuft dort nicht mehr lokal. **[Vermutung]** Dem Client fehlen
+  Ansage und Uhr-Wechsel; nicht geprüft, siehe `opt-sensenmann-ansage-client`.
+- **[Belegt, Test] Abnahme mit Wächter**, eine Sitzung, `Patches: 58 gesetzt` (Stand vor dem zweiten Patch), kein `[ERROR]` bei
+  Host und Client:
+
+  | Lauf | Reise | Sensenmann beim Client | Danach |
+  |---|---|---|---|
+  | 1 | Labyrinth → `MGP_Gated_Modern` | `ReaperComponent` an `BP_ReaperEnemy_C`, Rolle 1, `GameMode` leer | 25 s gelebt, Reise ins nächste Labyrinth, kein Absturz |
+  | 2 | Labyrinth → `MGP_Forest_Roadstops` | ebenso | 25 s gelebt, Reise ins nächste Labyrinth, kein Absturz |
+  | 3 | Labyrinth → `MGP_City_LittleItaly` | ebenso | 25 s gelebt, Reise ins nächste Labyrinth, kein Absturz |
+
+  Die Weiterreise zerstört den Sensenmann beim Client, damit lief auch `EndPlay` dreimal. Im Lauf 3 fand das Testskript den Knoten
+  erst im zweiten Anlauf; die Sitzung blieb so lange im Labyrinth.
+- **[Belegt, Test] Endstand mit beiden Patches**, eigene Sitzung, `Patches: 59 gesetzt`, normale Karte (`MGP_City_LittleIndia`):
+  Zeitgeber beim Client auf 3 s, Log „Sensenmann: Spawn beim Client unterdrückt, der Host entscheidet“, 12 s danach kein
+  `ReaperComponent` beim Client. Danach Zeitgeber beim Host: Sensenmann beim Client mit Rolle 1, 25 s gelebt, Tagesende und Reise
+  nach `MGP_Industrial`, kein Absturz, kein `[ERROR]`. Die Reise Labyrinth → normale Karte ist mit dem Endstand nicht erneut gefahren.
+- **Testwege:** `DDCOOP_TEST_MAP_PROFILE_EVERY=2` (Event und normale Karte im Wechsel) und `!shop reaper`, siehe
+  [Testen](TESTING.md#gezielt-in-eine-karte). Die Konsolenbefehle `SpawnReaper` und `SetSpawnReaperAfterMinutes` wirkten im
+  Shipping-Build nicht, weder über den Testkanal noch über den Spike.
+- **Nicht geprüft:** zwei PCs über das Internet; der Sensenmann nach den natürlichen 12 Minuten; Ton und Farbwechsel beim Client
+  nach Gehör und Bild; Kampf gegen den Sensenmann und sein Tod; Tod eines Spielers durch ihn; die Mod ohne Spike. Adressen stehen in
+  [OFFSETS](OFFSETS.md#sensenmann-karte-nach-labyrinth-absturz).
 
 ### Roboterarm beim Client (`client-roboterarm`)
 
@@ -3443,6 +3532,40 @@ ohne Maus und Tastatur über die Spike-Befehle `!shop …` und den Trace `DDCOOP
   auch ein Rahmen der Mod. Beide Berichte blieben lokal.
 - **[Belegt] Die lokalen SDK-Dumps stammen noch von Build `26187885`.** Funktionsadressen daraus gelten für `26495302` nicht; die
   Adressen hier stammen aus den Namenstabellen der Exe dieses Builds.
+
+### Bedrohungsstufe beim Client (`opt-bedrohung-sound`)
+
+Untersucht am 21.11.2026, Build `26786272`, ein PC, `Start-Session.ps1 -Build -Mod -Tunnel Lobby -Godmode`, echter Run an Tag 1 über
+die Routenkarte ohne Maus und Tastatur, Stufen über `DD_SetThreatLevel`. Ton der Spielprozesse aus, **gezählt, nicht gehört**
+(`!fx`, `!fx events WBP_Stopwatch_C`), Speicher nur gelesen.
+
+- **[Belegt] Wer den Sound startet.** `PlayEvent2D <- WBP_Stopwatch_C.ExecuteUbergraph_WBP_Stopwatch`. Die Stoppuhr bindet ihr
+  Blueprint-Ereignis `CustomEvent(Old, New)` (zwei `int32`) an `ThreatLevel.OnThreatLevelChanged`. Beim Host kam das Ereignis je
+  gesetzter Stufe einmal an (5 Aufrufe), `UI_ThreatIncrease` lief 2-mal; **Vermutung:** nur bei einem Anstieg.
+- **[Belegt] Die Stufe repliziert nicht.** Die Komponente `ThreatLevel` am GameState hat kein Feld für die Stufe in der Reflexion
+  (nur `GetCurrentThreatLevel`). Im Speicher steht sie beim Host bei `+0x1B8` (4, später 10), beim Client an derselben Stelle −1.
+  Der Delegate ist beim Client gebunden, feuert aber nie: Stoppuhr-Ereignisse beim Client 0, `UI_ThreatIncrease` 2 / 0, und die Zahl
+  unter der Stoppuhr zeigte beim Host „4“, beim Client „0“. Das korrigiert die frühere Annahme „die Komponente `ThreatLevel`
+  repliziert“ aus [Tagesablauf](#tagesablauf-tag-uhr-tank-nacht-und-ziele-tagesablauf): Die Komponente repliziert, ihr Wert nicht.
+- **Umsetzung** (`src/Game/ThreatAdapter.cpp`, Regeln in `ThreatPolicy.h`, Format in `src/Sync/World/ThreatState.h`, mit Tests):
+  Neue Nachricht `0xC00` (Mod-Version 15) mit der Stufe als Stand. Der Host liest sie viermal je Sekunde über
+  `ThreatLevel.GetCurrentThreatLevel` und sendet bei jeder Änderung und alle 2 s. Der Client ruft damit `CustomEvent(Old, New)`
+  seiner eigenen Stoppuhr auf: Zahl, Animation und Sound entstehen nativ. Der erste Stand einer Welt läuft als `(N, N)`, setzt also
+  nur die Zahl. Format in [CONTROL_PROTOCOL.md](CONTROL_PROTOCOL.md#bedrohungsstufe-mod-kompatibilität-15).
+- **Antworten zum neuen Pfad.** Lokal bleiben Zahl, Animation und Sound der Stoppuhr. Geteilt wird nur die Stufe, weil sie beim
+  Client aus nichts Repliziertem folgt. Es entscheidet der Host (seine Komponente steuert die Gefahr); die Komponente des Clients
+  wird nicht beschrieben, es gibt keine zweite Autorität. Kein bestehender Weg wird ersetzt. Verlust, Join und eine Stoppuhr, die noch
+  fehlt, fängt die Wiederholung alle 2 s ab; ungültige Werte verwirft der Client; der Weltwechsel vergisst den gezeigten Stand.
+- **[Belegt, ein PC] Nachher.** Gemessen am 21.11.2026 mit einem lokalen Sammelstand aus den drei Zweigen `opt-gegner-sound`, `opt-airdrop-sound` und `opt-bedrohung-sound` (nicht gepusht), ein PC, Host und Client über den Spike, echter Run an Tag 1 ohne Maus und Tastatur, Ton der Spielprozesse aus, **gezählt, nicht gehört**, Stufen über `DD_SetThreatLevel` (3, 5, 7, 10, dann 4 und 6): `UI_ThreatIncrease`
+  je Abschnitt 2 / 2, 1 / 1 und 1 / 1, in einer zweiten Mission 2 / 2 (vorher 2 / 0). Der erste Stand je Welt (`0 auf 0`) und das
+  Sinken von 10 auf 4 liefen beim Client durch die Stoppuhr, ohne Sound, wie beim Host. Dass je Anstieg nicht immer ein Sound
+  kommt (beim Host 5 Anstiege, 4 Sounds), ist auf beiden Seiten gleich; **Vermutung:** Die Stoppuhr spielt nicht, solange
+  ihre Animation noch läuft. Im Mod-Log „Bedrohung Client: Stoppuhr von 4 auf 6“. Der Aufruf kostete beim Client einmal je Änderung
+  rund 10 ms (Suche der Stoppuhr). Keine Absturzberichte.
+- **Nicht geprüft:** die Zahl unter der Stoppuhr im Bild (nur der Aufruf mit dem Wert ist belegt), Stufen aus dem normalen
+  Zeitablauf statt aus dem Cheat, Paketverlust und später Beitritt im Spiel (nur als Unit-Test), zwei PCs, gehört.
+- **Grenzen.** Gehen Zwischenstände verloren, hört der Client einen Sprung als einen Sound. Die Routenkarte und andere Anzeigen
+  der Gefahr beim Client (`opt-routenkarte`) ändert das nicht.
 
 ### Sound und Effekte beim Client (`vfx-sound`)
 
@@ -3866,6 +3989,64 @@ alles ohne Maus und Tastatur: Run-Start und Routenknoten wie in [Gezielt in eine
 - **Nicht geprüft:** zwei PCs, ein Run über acht Tage bis zum echten Boss-Knoten, Bosstod mit Tafel auf `26669225` (dort kam die
   Airdrop-Auswahl dazwischen), ein Fall, in dem die verwaiste Anfrage den Client sichtbar festhält, die Rückkehr in die MetaBase
   nach dem Run-Ende, Latenzprofil, Spielton (nicht stummgeschaltet, kein Ton geprüft).
+
+### Phasen und Kampfstart der Boss-Leiste beim Client (`opt-boss-phasenleiste`)
+
+Stand 21.11.2026, Build `26786272`, ein PC mit zwei Instanzen (Mod und Spike, Lobby über den Tunnel der Mod, Godmode), Kartenprofil
+`MGP_Burger_Boss_Nature` per `DDCOOP_TEST_MAP_PROFILE` und `-Map /Game/Maps/DDDynamic_Map`. Alles ohne Maus und Tastatur: Kampf mit
+`!shop trigger`, weitere Bosse mit `!bossfight <Name>`, Schaden mit `!bossdmg`, Werte aus dem Speicher beider Instanzen
+(`tools/spike/boss_hp.py` zeigt jetzt Wert und Kennzeichen des Objectives und die Tags je Boss), Bilder per `Game-Input.ps1 shot`.
+Offsets: [Phasenbezogene Boss-Leiste](OFFSETS.md#phasenbezogene-boss-leiste-opt-boss-phasenleiste).
+
+- **[Belegt] Der Befund.** Ballerina in Phase 1, dasselbe Bild beider Fenster: Host „148.650/150.000“, Client „298.650/300.000“.
+  Beim SpikeBoss zeigen beide die vollen HP. `bUseAlternateBar` ist bei beiden Bossen gesetzt und nicht der Unterschied; die
+  Vermutung aus `opt-endboss-leiste` (Rechnung über die `BossComponent` mit Zustand nur beim Host) trifft nicht zu.
+- **[Belegt, Disassembly] Ursache.** `BossfightSpawnPoint::StartBossObjective` legt das Objective ohne Autostart an, kopiert sein Feld
+  `IsObjectivePhaseBased` in ein nicht reflektiertes Byte des Objectives (`+0x98`), meldet dann den Boss an und startet es. Gemessen:
+  Host-Objective der Ballerina und des Frankenstein `1`, des SpikeBoss `0`; das vom Client angelegte Objective hatte immer `0`. Mit
+  dem Kennzeichen führt der Host im Objective die HP über der Untergrenze der laufenden Phase (`CurrentValue` 149.775 bei 299.775
+  HP, `MaxHealth` bleibt 300.000), und die Anzeige rechnet den Nenner selbst aus den Marken.
+- **[Belegt] Woher der Client das Kennzeichen bekommt.** Er hat keinen Spawnpunkt und keine Spawnpunkt-Klasse geladen, und
+  `EnemyBase.Type` ist bei ihm leer (repliziert nicht). Die Tabelle `DA_BossSpawnLookup` und alle sechs `EnemyType`-Assets der
+  Bosse sind bei ihm aber geladen. Jeder Eintrag (`FBossSpawnInfo`) nennt `BossEnemyType` und `SpawnPointClass`; der `EnemyType`
+  nennt in `EnemyBlueprint` die Klasse des Bosses. Der Client sucht so zur Klasse des replizierten Bosses die Spawnpunkt-Klasse,
+  lädt sie (nur die Klasse, kein Actor) und liest `IsObjectivePhaseBased` aus ihrem Vorgabeobjekt.
+- **Umsetzung (`BossBarAdapter.cpp`, `BossBarPolicy.h`), alles lokal, keine Nachricht, kein Wire-Format.** Beim Anlegen setzt der
+  Client das Kennzeichen wie der Host vor `AddBossEnemy`. Bei phasenbezogenen Bossen setzt er als Wert die HP über der Untergrenze
+  der Phase (`PhaseOf`), die Phase folgt allein aus den replizierten HP und den `PhaseMarkers` des Objectives. Steht der Boss genau
+  auf einer Marke, läuft schon die nächste Phase (der Host hält die HP beim Wechsel an der Marke fest), der Wert ist darum nie unter
+  1. Findet der Client keinen Eintrag, bleibt es bei der Leiste über die vollen HP.
+- **[Belegt] Kampfstart.** Der Boss trägt vor dem Kampf bei Host und Client die Tags `State.Pause`, `State.Invincible` und
+  `GameplayCue.State.Invincible` (das ASC repliziert die Tags, aktive Effekte beim Client 0). 2 s nach `TriggerBossfight` kommt
+  `State.AnimationInProgress` dazu, nach 6 s sind `State.Pause` und `State.Invincible` weg. Der Host legt sein Objective mit
+  `TriggerBossfight` an, zeigt während der Intro-Kamera aber kein HUD. Der Client legt die Leiste jetzt erst an, wenn `State.Pause`
+  fehlt oder der Boss schon Schaden hat (`BossFightStarted`); sind die Tags nicht lesbar, wie bisher sofort. Eine bestehende Leiste
+  bleibt. Netz-RPCs gibt es an Boss, `BossComponent`, Spawnpunkt und GameState keine; `Actor.Children` des Bosses wechselt beim
+  Trigger nur wegen eines Projektils (`BP_BarrageProjectile_C`).
+- **[Belegt] Nachmessung, Wert des Objectives bei Host und Client je Schritt gleich** (Client folgt im Sekundentakt):
+
+  | Boss | Kennzeichen | Schritte (HP → Wert bei Host und Client) |
+  |---|---|---|
+  | SpikeBoss (0,5) | nein | 80.000 → 80.000; 50.000 → 50.000; 40.000 → 40.000; Tod, Leiste entfernt |
+  | Ballerina (0,5) | ja | 299.998 → 149.998; 269.968 → 119.968; 209.965 → 59.965; 179.965 → 29.965; 150.000 → 150.000; 120.000 → 120.000; Tod, Leiste entfernt |
+  | Frankenstein (0,65) | ja | 120.000 → 42.000; 89.992 → 11.992; 78.000 → 78.000; 48.000 → 48.000 |
+
+  Bilder beider Fenster: Ballerina Phase 1 „59.967/150.000“, Phase 2 „120.000/150.000“ bei Host und Client. In Phase 2 zeigt der
+  Host also die HP über dem Umfang der Phase, nicht über dem Maximum. Vor dem Kampf zeigt der Client keine Leiste mehr (Log
+  „Boss-Leiste: wartet, Boss da, Kampf läuft noch nicht (State.Pause)“), sie entstand bei Ballerina und Frankenstein je 9 s nach dem Erscheinen des Bosses (Zeit der Logzeilen).
+  Bildfolge beim SpikeBoss ab `!shop trigger`: Host nach 3,7 s noch Intro-Kamera, nach 4,9 s Leiste (grau, unverwundbar), nach 6,0 s
+  rot; Client nach 5,4 s ohne Leiste, nach 6,5 s mit Leiste (angelegt 5,2 s nach dem Trigger). Der Client folgt dem Host also um
+  rund eine Sekunde (Sekundentakt des Adapters). Die graue Stufe zeigt er nicht, und bis zum ersten Wert steht rund 3 s „0/0“ über
+  seiner Leiste (Wartezeit nach dem Anlegen aus `gegner-alle`, nicht verkürzt).
+- **Nebenbefunde.** Das Laden der Spawnpunkt-Klasse verlängert das Anlegen von rund 17 auf rund 40 ms, einmal je Boss. Der
+  Sekundentakt der Leiste meldet bei vielen Gegnern rund 8 ms („Takt: Boss-Leiste hielt den Frame … auf“), das stand schon vor dieser
+  Änderung im Log (Lauf mit `main`). Der Host zeigt unter der Leiste einen zweiten, kleinen Balken, der beim Client fehlt (nicht
+  untersucht). Ein Byte bei `+0xD8` des Objectives ist beim Host im Kampf 0, beim Client 1 (Bedeutung offen, kein sichtbarer
+  Unterschied). `!bossdmg` traf bisher auch zerstörte Bosse, die im Objekt-Array stehen bleiben, und Schaden während eines
+  Phasenwechsels verfällt; der Befehl überspringt zerstörte Bosse jetzt.
+- **Nicht geprüft:** zwei PCs, der Boss über die Routenkarte, Beitritt mitten im Kampf (nur Unit-Tests: Phase aus den HP),
+  BlobBall, LazyBoss und HQ-Endboss (zwei Marken, nur Unit-Tests), ein Boss ohne `State.Pause` vor dem Kampf, Latenzprofil,
+  Spielton (keine Audiositzung der Spielprozesse gefunden, nichts stummzuschalten).
 
 ### Boss-Leiste aller Bosse beim Client (`opt-endboss-leiste`)
 
