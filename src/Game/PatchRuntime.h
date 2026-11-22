@@ -85,6 +85,8 @@ void TickLootSound(NetRole Role);
 bool FilterLootSoundEvent(uintptr_t Object, uintptr_t Function);
 // opt-waffen-sound, Client: Schusssound lokal aus dem replizierten Multicast der Waffe.
 void TickWeaponSounds(NetRole Role);
+// opt-gegner-sound: Host löst die Projektilfelder für die Treffermarke auf, Client spielt Treffer- und Angriffssounds lokal.
+void TickEnemySounds(NetRole Role);
 void TickWidgets(NetRole Role);
 void TickProjectiles(NetRole Role, bool Second);
 // client-items-wirkung, Host: Item-Fähigkeiten (Granate, Heil-Kit) laufen beim Host für alle Figuren (ItemAbilityPatches.cpp).
