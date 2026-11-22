@@ -16,6 +16,16 @@ inline constexpr std::array<std::string_view, Count> Names{"Tag", "Phase", "Spie
 // EObjectFlags, NICHT die internen GUObjectArray-Flags: 0x00200000 ist LoadCompleted.
 inline constexpr uint32_t ExcludedObjectFlags = 0x30u | 0x8000u | 0x10000u | 0x40000000u;
 constexpr bool LiveObjectFlags(uint32_t Flags) { return !(Flags & ExcludedObjectFlags); }
+// opt-desync-bearbeitung: Felder, die der Client nicht als stabil meldet, solange er selbst bearbeitet. LocalEdit: sein Inventar
+// trägt einen lokalen, vom Host noch nicht übernommenen Stand (Bearbeitung offen, Edit unbeantwortet, Zurückrollen oder lokale
+// Instanzen nach der Übernahme). Panel: Airdrop-Auswahl oder Lager des Rundenendes ist bei ihm offen, die Weltzeit steht. Die
+// Gegnerzahl friert dann mit dem Stand ein, der bei Pausenbeginn repliziert war (Live-Test 21.11.2026), und kann nicht aufholen.
+constexpr uint8_t HeldByEdit(bool LocalEdit, bool Panel)
+{
+    return static_cast<uint8_t>((LocalEdit ? Bit(Inventory) : 0) | (LocalEdit || Panel ? Bit(Enemies) : 0));
+}
+// Zurückgehaltene Felder, deren bleibender Unterschied trotzdem ins Log gehört: Die Bearbeitung erklärt ihn nicht selbst.
+inline constexpr uint8_t HeldLogged = Bit(Enemies);
 struct Sample
 {
     uint8_t Known = 0;

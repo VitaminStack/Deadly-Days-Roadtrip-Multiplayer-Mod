@@ -2997,12 +2997,87 @@ Neue Befunde:
   Ursache und Fix unter [Loot-Aufnahme beim Client](#loot-aufnahme-beim-client-opt-loot-aufnahme-client).
 - **Fehlalarm des Desync-Melders in offenen Bearbeitungen (`opt-desync-bearbeitung`).** 39 Meldungen „ABWEICHUNG“ beim Client und 38
   beim Host (Inventar, Gegner oder beides), beim Client jeweils während eines offenen Airdrop-Panels mit lokaler, noch unbestätigter
-  Aufwertung und angehaltener Weltzeit. Nach jedem Bestätigen übernahm der Host den Edit. Die Meldungen des Hosts sind den Bearbeitungen
-  noch nicht einzeln zugeordnet.
+  Aufwertung und angehaltener Weltzeit. Nach jedem Bestätigen übernahm der Host den Edit. Einzeln zugeordnet und behoben unter
+  [Desync-Melder in offenen Bearbeitungen](#desync-melder-in-offenen-bearbeitungen-opt-desync-bearbeitung).
 
 Nicht geprüft: Boss und Boss-Leiste, Abschlusstafel, Werkbank mit Rezept-Panel, Waffensound nach Gehör, Heil- und Wurf-Items des
 Clients, neuer Run mit Level 1 und Rollentausch. Für `update-26786272-run` gilt damit: Route über sieben Karten, Händler-Event,
 Labyrinth-Event und sechs Rundenenden liefen zu zweit, Bosse und der Rest der Abnahme stehen aus.
+
+### Desync-Melder in offenen Bearbeitungen (`opt-desync-bearbeitung`)
+
+Ausgewertet am 21.11.2026 aus den Mod-Logs von Host und Client des Live-Tests vom selben Tag (Build `26786272`, Uhr des Hosts rund 1 s
+hinter der des Clients).
+
+- **[Belegt, Log] Alle 38 Meldungen des Hosts fallen in eine offene lokale Bearbeitung des Clients.** Zugeordnet über „Inventar lokal:
+  Bearbeitung beginnt“ bis „Host hat Edit … übernommen“ im Client-Log (52 Bearbeitungen): 22 Meldungen in 10 Airdrop-Auswahlen, 16 im
+  Lager von 4 Rundenenden. 37 liegen zwischen Beginn und Übernahme. Eine (00:13:49 beim Host) steht
+  rund 0,5 s nach der Übernahme: Es ist der Text des noch stehenden Gegner-Alarms aus derselben Auswahl, nachdem das Inventar wieder
+  passte; 0,8 s später war er aufgehoben. Außerhalb einer Bearbeitung entstand keine Abweichung. 9 der 38 Zeilen wiederholen nur eine
+  schon gemeldete Abweichung im 30-s-Takt, 3 weitere sind derselbe Alarm mit geändertem Text, nachdem ein Feld wegfiel.
+- **[Belegt, Log] Inventar (17 Meldungen, 10 Wertepaare):** immer der lokale, noch nicht übernommene Stand des Clients. Nach der
+  Übernahme stand jedes Mal wieder „OK“ oder „Abgleich“.
+- **[Belegt, Log] Gegner (31 Meldungen, 12 Pausen): Die Abweichung beginnt mit der Pause, nicht mit dem Edit.** Ein Gegner-Alarm braucht
+  2 s Ruhe und acht gleiche Proben (rund 16 s). Zurückgerechnet lag der Beginn −1,3 bis +2,9 s am Pausenbeginn (Öffnen der Auswahl oder
+  Rundenende). Im Lager begann die Bearbeitung erst 5,6 bis 8,6 s nach dem Rundenende, also danach. Der Host zählte 1 bis 3 sichtbare
+  Gegner mehr als der Client (etwa 227 zu 226, 238 zu 235, 265 zu 263), und das Wertepaar blieb über die ganze Pause gleich, im längsten
+  Fall 4 min. 12 von 15 Pausen ab 18 s lösten den Alarm aus, 3 nicht (Rundenende 91 s, Auswahl 56 s und 32 s). **Vermutung:** Bei
+  Pausenbeginn noch nicht replizierte Gegner kommen beim Client erst nach der Pause an; im laufenden Spiel holt er binnen rund 8 s auf
+  (`opt-gegner-spawnverzug`).
+- **[Belegt, Log] Eine Abweichung erklärt die Pause nicht: Labyrinth-Event, 00:27:01, Host 101, Client 2 sichtbare Gegner.** Sie fällt
+  ins Lager des Rundenendes (Bearbeitung seit 10 s offen), begann aber wie die anderen mit der Pause. Während der ganzen Karte (1:45 min)
+  stand das Feld auf „offen Gegner“, ein Gleichstand ist nicht belegt. Das ist wahrscheinlich ein echter Unterschied der Gegnerzahl im
+  Labyrinth (**Vermutung**, Ursache offen, eigene Aufgabe `opt-gegnerzahl-labyrinth`). Eine Folge im Spiel ist nicht belegt, die Runde endete normal.
+
+**Änderung.** Der Client kennt seine Bearbeitung selbst, und die Probe trägt schon je Feld ein Stabil-Bit. Solange er bearbeitet, meldet
+er Inventar und Gegner nicht als stabil; der Host vergleicht sie dann nicht und verwirft seine Bestätigungen. Keine neue Nachricht, kein
+neues Format, `ModVersion` bleibt. Der Host braucht den Zustand nicht zu kennen (vom Lager-Edit erfährt er ohnehin erst beim Bestätigen).
+
+| Zustand beim Client | Zurückgehalten |
+|---|---|
+| Lokaler Stand: Bearbeitung offen, Edit unbeantwortet, Zurückrollen, lokale Instanzen nach der Übernahme (höchstens 3 s) | Inventar, Gegner |
+| Airdrop-Auswahl oder Lager des Rundenendes offen, noch nichts geändert | Gegner |
+
+Das zweite gilt, weil die Gegner-Abweichung mit der Pause beginnt: Mit der Bearbeitung allein wäre der Alarm im Lager nur ausgeblieben,
+wenn der Spieler vor der achten Probe etwas zieht. Das Inventar bleibt im Lager ohne Änderung im Abgleich, damit eine dauerhafte
+Abweichung nach einer Ablehnung (`lager-edit-ablehnung`) sichtbar bleibt. Was die Sperre bei der Gegnerzahl verdeckt, zählt der Client
+weiter und schreibt es einmal als Info ins Log („Gegner in offener Bearbeitung nicht gemeldet, host=… client=…“); der Fall 101 zu 2
+stünde so weiter im Log. HP, Spieler, Tag und Phase werden auch während der Bearbeitung gemeldet. Code: `HeldByEdit` in
+`src/Game/DesyncSnapshot.h`, `StableWhileEditing` in `src/Sync/DesyncState.h`, Unit-Tests in `tests/NetTests/DesyncTests.cpp`.
+
+**[Belegt, Messung] 21.11.2026, ein PC, Host und Client, Build `26786272`** (`Start-Session.ps1 -Build -Mod -Tunnel Lobby -Map
+/Game/Maps/DDDynamic_Map -Godmode`, nur Spike-Befehle, Konsole und Testkanal, keine Maus- oder Tastatureingaben; Zeiten aus den Mod-Logs):
+
+| Schritt | Host | Client |
+|---|---|---|
+| Vorher, zwei Revolver über `!give`, `!wave` | „OK“ mit allen sechs Feldern | ebenso |
+| `DD_OpenAirdrop 1`: Auswahl bei beiden offen (11:49:09) | „Abgleich; offen Gegner, Inventar“ | ebenso, dazu „Bearbeitung offen, nicht gewertet: Gegner, Inventar“ |
+| Client `!shop upgrade` (11:49:20, „Aufwertung 1 lokal, 2 Eingaben“), danach 85 s offen | keine Meldung „ABWEICHUNG“ | keine |
+| Auswahl endet (Host reist in eine neue Karte, 11:50:45) | nach 5 s „OK“ mit allen sechs Feldern | Zeile „Bearbeitung offen“ nach rund 1 s weg, nach 5 s „OK“ |
+| Echte Abweichung außerhalb einer Bearbeitung (`desync_difference.py`, Broken-Flag eines Client-Items, 14 s) | nach 7 s „ABWEICHUNG Inventar“ mit beiden Prüfsummen, nach dem Rücksetzen „OK“ | „ABWEICHUNG Inventar“, danach „OK“ |
+| Rundenende (`!finish`, 11:52:09), Client noch ohne Änderung | „Abgleich; offen Gegner“ | „nicht gewertet: Gegner“ |
+| Client `!shop upgrade` im Rundenende (11:52:38, „Lager wird lokal bearbeitet“), 95 s offen | „offen Gegner, Inventar“, keine Meldung | „nicht gewertet: Gegner, Inventar“, keine Meldung |
+| Rundenende verlassen (Host reist in eine neue Karte, Client rollt zurück) | nach 3 s „OK“ | Sperre weg, nach 3 s „OK“ |
+
+In der ganzen Sitzung standen genau zwei Meldungen „ABWEICHUNG“ in jedem Log, beide absichtlich erzeugt (die zweite ist die
+Vorher-Messung zu `opt-desync-pivot`). Kein Absturz, kein `[ERROR]`. Vor der Änderung meldete derselbe Zustand im Live-Test nach 11 bis
+17 s „ABWEICHUNG Inventar“.
+
+**Nicht geprüft:**
+
+- **Wiederaufnahme des Vergleichs in derselben Welt.** Beide Bearbeitungen endeten durch die Reise des Hosts. Eine Reise wechselt
+  Welt und NetGUID, der Melder beginnt dann ohnehin neu. Im Spiel belegt ist damit nur, dass die Sperre des Clients mit der Bearbeitung
+  endet und danach wieder verglichen wird; dass der Host nach einer Bearbeitung in derselben Welt von vorn zählt und eine bleibende
+  Abweichung meldet, belegen nur die Unit-Tests. Ein Ende durch Bestätigen mit Übernahme beim Host ging nicht ohne Eingaben: Die
+  Airdrop-Auswahl braucht das Ziehen der Wahl, das Lager den Fortsetzen-Knopf der Rundenübersicht. Der Spike-Befehl dafür (`!shop click
+  ContinueButton`, kein echter Klick) wurde in dieser Sitzung von der Berechtigungsprüfung des Agenten abgelehnt und nicht umgangen.
+- Gegner-Abweichung in einer Pause: Mit `!wave` auf einem PC blieb die Gegnerzahl beider Seiten gleich, die Zeile „Gegner in offener
+  Bearbeitung nicht gemeldet“ entstand nicht. Belegt ist dieser Weg nur durch die Unit-Tests.
+- Zwei PCs mit Ping, Werkbank und Händler in der Mission (dort hält nur der lokale Stand zurück, kein Panel-Zustand).
+
+**Nebenbefund:** `tools/spike/Test-Desync.ps1` erwartet noch den alten Text „OK Tag, Phase, Spieler, HP, Inventar / Ausgenommen: Gegner“.
+Seit `gegnertyp` ist die Gegnerzahl im Abgleich, das Skript wartet deshalb vergeblich auf „beide OK“. Gemessen wurde hier mit
+`desync_difference.py` und den Mod-Logs.
 
 ### Client-Absturz am Sensenmann (`karte-nach-labyrinth-absturz`)
 
