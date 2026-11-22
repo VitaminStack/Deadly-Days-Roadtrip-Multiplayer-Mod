@@ -31,6 +31,7 @@ std::mutex Lifecycle;
 HANDLE Thread = nullptr;
 std::atomic<bool> Stopping = false;
 std::atomic<bool> Visible = false;
+std::atomic<uint32_t> Marks = 0;
 
 struct WindowState
 {
@@ -39,6 +40,7 @@ struct WindowState
     HWND Create = nullptr, Join = nullptr, Invite = nullptr, Leave = nullptr, Lobby = nullptr, Copy = nullptr;
     HWND Tab = nullptr, DevXp = nullptr, DevTank = nullptr, DevGod = nullptr, DevZombies = nullptr, DevItem = nullptr, DevInfo = nullptr;
     bool KeyDown = false;
+    bool MarkDown = false;
     uint32_t HotkeysDown = 0;
     ULONGLONG CopiedAt = 0;
     int Dpi = 0;
@@ -346,6 +348,15 @@ void Refresh(WindowState& State, HWND Window)
     if (Focused && Down && !State.KeyDown)
         UI::SetVisible(!Visible.load());
     State.KeyDown = Down;
+    // live-protokoll: F9 setzt eine Testermarke im eigenen Log (Zustandszeile dieser Seite zum Zeitpunkt eines Fundes). Kurzer Ton als
+    // Bestätigung, das Overlay bleibt unberührt.
+    const bool MarkNow = (GetAsyncKeyState(VK_F9) & 0x8000) != 0;
+    if (Focused && MarkNow && !State.MarkDown)
+    {
+        Marks.fetch_add(1);
+        MessageBeep(MB_OK);
+    }
+    State.MarkDown = MarkNow;
     // Dev-Hotkeys Numpad 1 bis 5 (Wert wie UI::DevButton), nur mit Fokus auf Spiel oder Overlay, auch bei verstecktem Overlay.
     // Der Zeiger liegt dann ueber dem Spielbild, so trifft Spawn Zombies den Cursorpunkt. Bei ausgeschaltetem NumLock
     // meldet Windows andere Tasten, dann wirken sie nicht.
@@ -573,6 +584,11 @@ OverlayModel& Overlay()
 {
     static OverlayModel Model;
     return Model;
+}
+
+uint32_t TakeMarks()
+{
+    return Marks.exchange(0);
 }
 
 void Start()

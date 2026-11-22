@@ -25,6 +25,7 @@
   <Import Project="..\Common.props" />
   <ItemGroup>
     <ClCompile Include="Sync.cpp" />
+    <ClCompile Include="SessionLog.cpp" />
     <ClCompile Include="ProgressSync.cpp" />
     <ClCompile Include="DesyncSync.cpp" />
     <ClCompile Include="Inventory\RewardSync.cpp" />
@@ -34,6 +35,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Sync.h" />
+    <ClInclude Include="SessionLogState.h" />
     <ClInclude Include="DevState.h" />
     <ClInclude Include="MovementState.h" />
     <ClInclude Include="Enemies\TelegraphState.h" />

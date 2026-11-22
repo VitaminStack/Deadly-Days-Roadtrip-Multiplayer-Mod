@@ -138,6 +138,8 @@ void ApplyRarities(const std::vector<RarityEntry>& Entries);
 // Nur der Host bucht ihn; der Client zeigt den Stand des Hosts, damit sein natives Panel Reparaturen richtig freigibt.
 // Host: eigener Kontostand, nullopt ohne Mission oder Konto.
 std::optional<int32_t> HostScrap();
+// live-protokoll: eigener Kontostand auf beiden Seiten, nur für das Log. nullopt ohne Mission oder Konto.
+std::optional<int32_t> LocalScrap();
 // Client: Kontostand des Hosts übernehmen (natives AddAmount mit dem Unterschied, damit die Anzeige folgt). Nicht während einer
 // lokalen Bearbeitung oder solange ein Edit unbeantwortet ist; dann gilt die lokale Vorschau des Panels.
 void ApplyScrap(int32_t Amount);

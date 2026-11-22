@@ -2369,6 +2369,12 @@ std::optional<int32_t> HostScrap()
     return ScrapAmount(ScrapWallet());
 }
 
+std::optional<int32_t> LocalScrap()
+{
+    using namespace Game::Patches;
+    return ScrapAmount(ScrapWallet());
+}
+
 void ApplyScrap(int32_t Amount)
 {
     using namespace Game::Patches;
