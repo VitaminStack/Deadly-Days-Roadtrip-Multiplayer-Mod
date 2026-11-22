@@ -24,7 +24,7 @@ Projektstand vom **18.11.2026**; die aktuellen Aufgaben, Abhängigkeiten und Abn
 
 **Prüfgrenze.** Dieser Stand fasst die Spieltestberichte bis zum Live-Test vom 17.11.2026 zusammen, er ist kein neuer Spieltest.
 
-**Bisherige Befunde (datierte Momentaufnahmen, teilweise inzwischen überholt):**
+**Bisherige Befunde (datierte Momentaufnahmen, teilweise inzwischen überholt; abgeschlossen am 22.11.2026, neue Ergebnisse stehen nur unter [Erledigt](../TODO.md#erledigt)):**
 
 - `inventar-patchnotes-1-0-2`, 21.11.2026: Patchnotes 1.0.2 und 1.0.3 gegen die sieben Patches der Liste Inventory geprüft. Alle bleiben nötig, keiner wurde entfernt: Die gepatchten Funktionen und vtable-Einträge sind in den Exes von `26495302`, `26669225` und `26786272` unverändert (in 1.0.3 nur der Feld-Offset des Item-Widgets). Die Inventar-Punkte der Patchnotes (Absturz nach Aufwerten/Verkaufen, Belohnungskisten, Item-Vorschau) haben kein Gegenstück in `InventoryPatches.cpp`. Offline-Vergleich ohne Spieltest, siehe [Offsets](OFFSETS.md#inventar-patches-gegen-die-patchnotes-102-und-103-inventar-patchnotes-1-0-2).
 - `boss-karte-absturz`, 21.11.2026: Der Absturz des Clients beim Betreten der Boss-Karte (13.11.) kam aus der Klassensuche beim zweiten Anlegen der Boss-Leiste und ist seit `opt-endboss-leiste` behoben. Belegt per Gegenprobe auf `26786272` (alte Suchzeile: Absturz beim zweiten Eintritt, gleiche Signatur). Mit `main` betrat der Client die Boss-Karte dreimal über die Routenkarte in einem Prozess, je ein Objective und korrekte Leiste, auch mit simulierter Latenz. Offen bleibt, warum es am 13.11. schon nach einer Sekunde ein zweites Anlegen gab; zwei PCs sind nicht geprüft. [Befund](GAME_ANALYSIS.md#absturz-beim-betreten-der-boss-karte-boss-karte-absturz)
@@ -443,4 +443,4 @@ Gate G1 ist mit Weg A und gezielten Sync-Ergänzungen abgeschlossen. Ein Wechsel
 
 ## Pflege
 
-Wer eine Aufgabe abschließt, ändert hier die Farbe des Knotens. Die Zählung im [README](../README.md#fortschritt) erzeugt `py tools/task_status.py update`. Aufgaben ohne eigenen Knoten gehören zum thematisch passenden Knoten. Die Wellen fassen Aufgaben mit gleichen Voraussetzungen zusammen, verbindlich ist die Spalte „Braucht“ in `TODO.md`.
+Wer eine Aufgabe abschließt, ändert hier die Farbe des Knotens und ergänzt sonst nichts, insbesondere keine Einträge unter „Bisherige Befunde“ (Nutzervorgabe vom 22.11.2026, jeder Eintrag dort erzeugte einen Merge-Konflikt). Die Zählung im [README](../README.md#fortschritt) erzeugt `py tools/task_status.py update`. Aufgaben ohne eigenen Knoten gehören zum thematisch passenden Knoten. Die Wellen fassen Aufgaben mit gleichen Voraussetzungen zusammen, verbindlich ist die Spalte „Braucht“ in `TODO.md`.

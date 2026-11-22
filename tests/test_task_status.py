@@ -101,6 +101,17 @@ class DerivedTests(unittest.TestCase):
         self.assertNotIn('`waits`', block)
         self.assertIn('**Wartet auf das Team:** `vote`.', block)
 
+    def test_optional_waits_until_phases_0_to_5_are_done(self):
+        optional = '## Optionale Optimierungen\n' + OPEN + '| `opt-x` | P2 | Text | – | parallel | wenig |\n'
+        text = todo('| `run` | P0 | Text | – | zentral | viel |\n', extra=optional)
+        block = source.free_block(text, source.parse(text))
+        self.assertNotIn('`opt-x`', block)
+        self.assertIn('**Zurückgestellt, bis Phase 0 bis 5 erledigt sind:** 1 Aufgaben', block)
+        text = todo(extra=optional)
+        block = source.free_block(text, source.parse(text))
+        self.assertIn('| `opt-x` | P2', block)
+        self.assertNotIn('Zurückgestellt', block)
+
     def test_update_todo_is_idempotent_and_keeps_crlf(self):
         text = todo('| `a` | P0 | Text | – | parallel | wenig |\n').replace('\n', '\r\n')
         parsed = source.parse(text)
@@ -194,6 +205,17 @@ class ReservationTests(unittest.TestCase):
                 message = self.claim('open', prs={'open': {'number': 8, 'state': state, 'isDraft': False}})
                 self.assertIn('Keine neue Reservierung', message)
 
+    def test_optional_task_cannot_be_claimed_while_run_is_open(self):
+        text = todo(self.ROWS, extra='## Optionale Optimierungen\n' + OPEN + '| `opt-x` | P2 | Text | – | parallel | wenig |\n')
+        parsed = source.parse(text)
+        self.assertEqual(tasks.status('opt-x', set(), None, parsed), tasks.DEFERRED)
+        with patch.object(tasks, 'git'), patch.object(tasks, 'todo_text', return_value=text),                 patch.object(tasks, 'remote_branches', return_value=set()),                 patch.object(tasks, 'pull_requests', return_value=None):
+            with self.assertRaises(SystemExit) as raised:
+                tasks.cmd_claim('opt-x', 'test')
+        self.assertIn('zurückgestellt', str(raised.exception))
+        pr = {'opt-x': {'number': 9, 'state': 'OPEN', 'isDraft': False}}
+        self.assertEqual(tasks.status('opt-x', set(), pr, parsed), 'PR #9 wartet auf Review')
+
     def test_status_values(self):
         parsed = source.parse(todo(self.ROWS))
         self.assertEqual(tasks.status('base1', set(), None, parsed), 'erledigt')
@@ -269,6 +291,39 @@ class PairReservationTests(unittest.TestCase):
     def test_role_only_for_pair_tasks(self):
         self.assertIn('keine Aufgabe "zu zweit"', self.claim('solo', 'host'))
         self.assertIn('Rolle muss host oder client sein', self.claim('pair', 'beide'))
+
+    def test_cleanup_removes_only_safe_worktrees(self):
+        merged = {'a': {'number': 1, 'state': 'MERGED', 'isDraft': False}}
+        closed = {'a': {'number': 2, 'state': 'CLOSED', 'isDraft': False}}
+        opened = {'a': {'number': 3, 'state': 'OPEN', 'isDraft': True}}
+        verdict = tasks.worktree_verdict
+        self.assertTrue(verdict('task/a', False, False, set(), merged)[0])
+        self.assertFalse(verdict('task/a', True, True, set(), merged)[0])
+        self.assertFalse(verdict('task/a', False, False, {'a'}, merged)[0])
+        self.assertFalse(verdict('task/a', False, False, set(), closed)[0])
+        self.assertFalse(verdict('task/a', False, True, set(), opened)[0])
+        self.assertFalse(verdict('task/a', False, False, set(), {})[0])
+        self.assertTrue(verdict(None, False, True, set(), {})[0])
+        self.assertFalse(verdict(None, False, False, set(), {})[0])
+
+    def test_merge_order_prefers_unblocking_and_few_conflicts(self):
+        # Stand = Menge gemergter PRs; 'hub' kollidiert mit allen, 'late' nur nach 'x'.
+        clash = {frozenset({'hub', 'x'}), frozenset({'hub', 'y'}), frozenset({'late', 'x'})}
+
+        def merge(state, name):
+            merged = set() if state == 'origin/main' else set(state)
+            if any(frozenset({name, m}) in clash for m in merged):
+                return ['TODO.md'], None
+            return [], tuple(sorted(merged | {name}))
+
+        pairs = {'hub': {'x', 'y'}, 'x': {'hub', 'late'}, 'y': {'hub'}, 'late': {'x'}, 'key': set()}
+        rank = {n: (0, 2, i) for i, n in enumerate(['hub', 'x', 'y', 'late', 'key'])}
+        order, rest = tasks.merge_order(['hub', 'x', 'y', 'late', 'key'], merge, {'key': ['run']}, rank, pairs, {})
+        self.assertEqual(order[0], 'key')
+        self.assertNotIn('hub', order[:2])
+        self.assertEqual(set(order) | set(rest), {'hub', 'x', 'y', 'late', 'key'})
+        order, _ = tasks.merge_order(['b', 'a'], lambda s, n: ([], (s, n)), {}, {'a': (1,), 'b': (0,)}, {}, {'b': ['a']})
+        self.assertEqual(order, ['a', 'b'])
 
     def test_status_shows_both_roles(self):
         parsed = source.parse(todo(self.ROWS))

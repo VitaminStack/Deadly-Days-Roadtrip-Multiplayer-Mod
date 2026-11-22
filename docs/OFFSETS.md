@@ -487,8 +487,8 @@ Gegenprobe auf zwei PCs mit Airdrop und einem Lager-Edit mit Aufwertung und Verk
 - **Rundenende ohne Spike und ohne Eingabe:** Stehen beide Figuren am Bus (Ankunft), beendet ein voller Tank die Runde sofort. „Full
   Tank“ des Dev-Tabs lässt sich als Fensternachricht an das Overlay schicken (`[DDCoopOverlay]::Click(<Overlay>, 111)` aus
   `Common.ps1`, Godmode `112`). Eine Direktreise mit `Send-GameTravel` in `DDDynamic_Map` landet dagegen in `MGP_HQ8_Boss` ohne Bus.
-- **Derselbe Mechanismus, nicht Teil dieser Aufgabe:** Auch die Ticks der Listen HealthBar (Busbalken) und WeaponSound bleiben auf
-  `26669225` aus, bis `update-1-0-2-lebensleisten` und `update-1-0-2-waffensound` ihre Adressen nachtragen. Ein hängender Ablauf ist
+- **Derselbe Mechanismus, nicht Teil dieser Aufgabe:** Auch die Ticks der Listen HealthBar (Busbalken) und WeaponSound blieben auf
+  `26669225` aus, solange ihre Adressen fehlten (nachgetragen in `update-1-0-2-lebensleisten` und `update-1-0-2-waffensound`). Ein hängender Ablauf ist
   dort nicht belegt.
 
 ## Build 26495302 (`update-basis`)

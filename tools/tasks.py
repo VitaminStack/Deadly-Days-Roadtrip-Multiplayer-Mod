@@ -10,6 +10,8 @@
   Statt Kennungen: --all (ausser pending); aktive fremde Aufgaben werden dabei ausgelassen.
   py tools/tasks.py claim <kennung> <name> [<rolle>]   Reservieren: Worktree, Branch, Push, Draft-PR
   py tools/tasks.py release <kennung> [<rolle>]        Reservierung aufgeben: Draft-PR schliessen, Branch loeschen
+  py tools/tasks.py merge-plan                         Empfohlene Reihenfolge fuer offene PRs, ohne etwas zu mergen
+  py tools/tasks.py cleanup [--apply]                 Verwaiste Worktrees/Branches zeigen; --apply entfernt sichere lokale Worktrees
   py tools/tasks.py show <kennung>                     Nur diese Aufgabe: Text, Braucht, Bearbeitung, Status
   py tools/tasks.py done <kennung> "<ergebnis>"        Im eigenen Worktree: Zeile nach Erledigt, Status erneuern, pruefen
 
@@ -33,13 +35,14 @@ import time
 from pathlib import Path
 
 if __package__:
-    from .task_status import blockers, confirmation_update, mark_done, parse, regenerate
+    from .task_status import PHASES, PRIOS, EXTRA_SECTIONS, blockers, confirmation_update, deferred, mark_done, parse, regenerate
 else:
-    from task_status import blockers, confirmation_update, mark_done, parse, regenerate
+    from task_status import PHASES, PRIOS, EXTRA_SECTIONS, blockers, confirmation_update, deferred, mark_done, parse, regenerate
 
 STALE_DAYS = 3
 ROLES = ('host', 'client')
 PAIR_MODE = 'zu zweit'
+DEFERRED = 'zurückgestellt bis Phase 0 bis 5 erledigt'
 
 
 def run(*args, check=True):
@@ -171,6 +174,8 @@ def status(kennung, branches, prs, tasks):
     waiting = blockers(task, tasks)
     if waiting:
         return 'blockiert, braucht ' + ', '.join(waiting)
+    if deferred(task, tasks):
+        return DEFERRED
     return 'frei'
 
 
@@ -252,6 +257,9 @@ def cmd_claim(kennung, name, role=None):
         sys.exit(f'{kennung} entscheidet das Team. Keine Reservierung.')
     elif blockers(task, tasks):
         sys.exit(f'{kennung} ist blockiert, erst erledigen: ' + ', '.join(blockers(task, tasks)))
+    elif deferred(task, tasks):
+        sys.exit(f'{kennung}: optional, {DEFERRED}. Erst den Run zu zweit spielbar machen; '
+                 'vorziehen nur, wenn das Team die Zeile in eine Phase oder nach Wartung verschiebt.')
 
     root = repo_root()
     branch = f'task/{branch_name(kennung, role)}'
@@ -305,6 +313,172 @@ def cmd_release(kennung, role=None):
             git('-C', root, 'branch', '-D', f'task/{name}', check=False)
         else:
             print(f'Worktree {path} hat Aenderungen und bleibt erhalten.')
+
+
+def worktree_verdict(branch, dirty, in_main, branches, prs):
+    """(entfernen, Grund) fuer einen lokalen Worktree. Entfernt wird nur, was sicher auf GitHub oder in main liegt."""
+    if dirty:
+        return False, 'ungesicherte Aenderungen'
+    if branch and branch.startswith('task/'):
+        name = branch[5:]
+        pr = (prs or {}).get(name)
+        if name in branches:
+            return False, 'Branch auf origin noch vorhanden'
+        if pr is None:
+            return (True, 'Stand in main') if in_main else (False, 'kein PR bekannt')
+        if pr['state'] != 'MERGED':
+            return False, f"PR #{pr['number']} {pr['state'].lower()}, nicht gemergt"
+        return True, f"PR #{pr['number']} {pr['state'].lower()}, Branch auf origin geloescht"
+    return (True, 'Stand in main') if in_main else (False, 'Stand nicht in main')
+
+
+def local_worktrees(root):
+    """(Pfad, Branch oder None) aller Worktrees unter .worktrees/ und .claude/worktrees/."""
+    out = git('-C', root, 'worktree', 'list', '--porcelain').stdout
+    bases = [os.path.normcase(os.path.join(root, d)) for d in ('.worktrees', os.path.join('.claude', 'worktrees'))]
+    found = []
+    for block in out.strip().split('\n\n'):
+        path = branch = None
+        for line in block.splitlines():
+            if line.startswith('worktree '):
+                path = os.path.normpath(line[9:])
+            elif line.startswith('branch refs/heads/'):
+                branch = line[18:]
+        if path and any(os.path.normcase(path).startswith(base + os.sep) for base in bases):
+            found.append((path, branch))
+    return found
+
+
+def cmd_cleanup(apply=False):
+    """Verwaiste Worktrees und Branches auflisten; mit --apply nur sichere lokale Worktrees entfernen."""
+    git('fetch', '-q', '--prune', 'origin')
+    root = repo_root()
+    branches, prs, tasks = remote_branches(), pull_requests(), todo_tasks()
+    if prs is None:
+        sys.exit('GitHub CLI fehlt oder ist nicht angemeldet. Ohne PR-Status wird nichts bewertet.')
+    own = os.path.normcase(os.path.normpath(str(worktree_root())))
+    print('Lokale Worktrees')
+    for path, branch in local_worktrees(root):
+        if os.path.normcase(path) == own:
+            continue
+        dirty = bool(git('-C', path, 'status', '--porcelain', check=False).stdout.strip())
+        in_main = git('-C', path, 'merge-base', '--is-ancestor', 'HEAD', 'origin/main', check=False).returncode == 0
+        remove, reason = worktree_verdict(branch, dirty, in_main, branches, prs)
+        label = f"{os.path.relpath(path, root)} [{branch or 'detached'}]"
+        if remove and apply:
+            if git('-C', root, 'worktree', 'remove', path, check=False).returncode == 0:
+                if branch:
+                    git('-C', root, 'branch', '-D', branch, check=False)
+                print(f'  entfernt   {label}: {reason}')
+            else:
+                print(f'  bleibt     {label}: git worktree remove fehlgeschlagen')
+        else:
+            print(f"  {'verwaist' if remove else 'bleibt':<10} {label}: {reason}")
+    print('\nBranches auf origin ohne offenen PR (nur nach Rueckfrage loeschen: git push origin --delete task/<name>)')
+    for name in sorted(branches):
+        pr = prs.get(name)
+        kennung, _ = split_branch(name)
+        task = tasks.get(kennung)
+        if pr and pr['state'] == 'OPEN':
+            continue
+        state = f"PR #{pr['number']} {pr['state'].lower()}" if pr else 'kein PR'
+        done = ', Aufgabe erledigt' if task and task.done else ''
+        print(f'  task/{name}: {state}{done}')
+    if not apply:
+        print('\nMit "tasks.py cleanup --apply" werden nur die als verwaist markierten lokalen Worktrees entfernt.')
+
+
+SECTION_ORDER = PHASES + tuple(EXTRA_SECTIONS.values())
+PRIO_ORDER = PRIOS
+
+
+def merge_order(names, merge, unblocks, rank, pair_conflicts, before):
+    """Gierige Merge-Reihenfolge: je Schritt der beste PR, der sauber auf den bisherigen Stand passt.
+
+    merge(stand, name) -> (Konfliktdateien, neuer Stand). Vorrang: macht eine offene Aufgabe frei, dann wenige
+    Konflikte mit den uebrigen PRs (wer mit vielen kollidiert, kommt spaeter und zieht einmal nach), dann Phase,
+    Prio und Nummer. before[name] sind PRs, auf deren Branch dieser aufbaut; sie kommen zuerst.
+    Rueckgabe: Reihenfolge und {name: Konfliktdateien} fuer die PRs, die erst nachziehen muessen."""
+    state, order, left = 'origin/main', [], list(names)
+    while left:
+        ready = [n for n in left if not any(b in left for b in before.get(n, ()))]
+        results = {n: merge(state, n) for n in ready}
+        clean = [n for n in ready if not results[n][0]]
+        if not clean:
+            break
+        best = min(clean, key=lambda n: (not unblocks.get(n), len(pair_conflicts.get(n, set()) & set(left)), rank[n]))
+        order.append(best)
+        state = results[best][1]
+        left.remove(best)
+    return order, {n: merge(state, n)[0] for n in left}
+
+
+def merge_into(state, branch):
+    """Merge ohne Arbeitskopie und ohne Ref: (Konfliktdateien, neuer Commit oder None)."""
+    result = git('merge-tree', '--write-tree', '--name-only', state, branch, check=False)
+    lines = result.stdout.splitlines()
+    if result.returncode == 1:
+        end = lines.index('') if '' in lines else len(lines)
+        return lines[1:end] or ['?'], None
+    if result.returncode != 0:
+        sys.exit(f'git merge-tree {state} {branch} fehlgeschlagen:\n{result.stderr.strip()}')
+    commit = git('commit-tree', lines[0], '-p', state, '-p', branch, '-m', 'merge-plan').stdout.strip()
+    return [], commit
+
+
+def cmd_merge_plan():
+    """Empfohlene Reihenfolge fuer offene, fertige PRs von task/-Branches."""
+    git('fetch', '-q', '--prune', 'origin')
+    tasks, branches, prs = todo_tasks(), remote_branches(), pull_requests()
+    if prs is None:
+        sys.exit('GitHub CLI fehlt oder ist nicht angemeldet. Ohne PR-Status keine Reihenfolge.')
+    names = sorted(n for n, pr in prs.items() if pr['state'] == 'OPEN' and not pr['isDraft'] and n in branches)
+    if not names:
+        print('Keine offenen PRs, die auf Review warten.')
+        return
+    ref = {n: f'origin/task/{n}' for n in names}
+    cache = {}
+
+    def merge(state, name):
+        if (state, name) not in cache:
+            cache[(state, name)] = merge_into(state, ref[name])
+        return cache[(state, name)]
+
+    open_tasks = [t for t in tasks.values() if not t.done]
+    unblocks = {n: [t.name for t in open_tasks if split_branch(n)[0] in t.needs] for n in names}
+
+    def rank(name):
+        task = tasks.get(split_branch(name)[0])
+        if task is None:
+            return (len(SECTION_ORDER), len(PRIO_ORDER), prs[name]['number'])
+        prio = PRIO_ORDER.index(task.prio) if task.prio in PRIO_ORDER else len(PRIO_ORDER)
+        return (SECTION_ORDER.index(task.phase), prio, prs[name]['number'])
+
+    pair_conflicts = {n: set() for n in names}
+    for a in names:
+        files, state = merge('origin/main', a)
+        if files:
+            continue
+        for b in names:
+            if b != a and merge(state, b)[0]:
+                pair_conflicts[a].add(b)
+    before = {b: [a for a in names if a != b and
+                  git('merge-base', '--is-ancestor', ref[a], ref[b], check=False).returncode == 0 and
+                  git('merge-base', '--is-ancestor', ref[a], 'origin/main', check=False).returncode != 0]
+              for b in names}
+    order, rest = merge_order(names, merge, unblocks, {n: rank(n) for n in names}, pair_conflicts, before)
+    print('Merge-Reihenfolge (offene PRs ausser Entwuerfen; nach jedem Merge neu aufrufen)')
+    for index, name in enumerate(order, 1):
+        notes = []
+        if unblocks[name]:
+            notes.append('macht frei: ' + ', '.join(unblocks[name]))
+        if before[name]:
+            notes.append('baut auf ' + ', '.join(f"#{prs[a]['number']}" for a in before[name]))
+        print(f"  {index:>2}. #{prs[name]['number']:<4} {name:<30} {'; '.join(notes)}")
+    if rest:
+        print('\nErst nachziehen (main einmergen, py tools/task_status.py update), Konflikt mit dem Stand davor:')
+        for name, files in rest.items():
+            print(f"      #{prs[name]['number']:<4} {name:<30} {', '.join(files)}")
 
 
 def worktree_root():
@@ -447,6 +621,10 @@ def main():
             cmd_claim(*args[1:])
         elif args[:1] == ['release'] and len(args) in (2, 3):
             cmd_release(*args[1:])
+        elif args == ['merge-plan']:
+            cmd_merge_plan()
+        elif args in (['cleanup'], ['cleanup', '--apply']):
+            cmd_cleanup(apply=len(args) == 2)
         else:
             sys.exit(__doc__)
     except ValueError as error:

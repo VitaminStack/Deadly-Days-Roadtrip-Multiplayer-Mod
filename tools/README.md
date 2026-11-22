@@ -8,15 +8,17 @@ Reserviert Aufgaben aus [TODO.md](../TODO.md#wo-kann-ich-anfangen), damit nieman
 
 | Befehl | Aufgabe |
 |---|---|
-| `py tools/tasks.py list` | Offene Aufgaben aus `TODO.md` auf `origin/main` mit Status: frei, blockiert, Team, reserviert, Review |
+| `py tools/tasks.py list` | Offene Aufgaben aus `TODO.md` auf `origin/main` mit Status: frei, blockiert, zurückgestellt, Team, reserviert, Review |
 | `py tools/tasks.py list --active` | Nur aktive Entwicklungsreservierungen/PRs, ohne ausstehende Bestätigungstests |
 | `py tools/tasks.py claim <kennung> <name>` | Worktree, Branch `task/<kennung>`, Push und Draft-PR |
 | `py tools/tasks.py claim <kennung> <name> host\|client` | Bei Aufgaben „zu zweit“ nur eine Rolle: Branch `task/<kennung>/<rolle>`, Worktree `.worktrees/<kennung>-<rolle>`, siehe [Test auf zwei PCs](../docs/TESTING.md#test-auf-zwei-pcs) |
 | `py tools/tasks.py release <kennung> [<rolle>]` | Draft-PR schließen, Branch löschen, sauberen Worktree entfernen |
 | `py tools/tasks.py show <kennung>` | Nur diese Aufgabe: Phase, Status, Braucht, Bearbeitung, Abnahme. Spart das Lesen der ganzen `TODO.md` |
 | `py tools/tasks.py done <kennung> "<Ergebnis>"` | Auf `task/<kennung>`: Zeile alphabetisch nach „Erledigt“ verschieben, `task_status.py update` und `check` |
+| `py tools/tasks.py merge-plan` | Empfohlene Merge-Reihenfolge für offene PRs (ohne Entwürfe), merget nichts. Rechnet die Merges mit `git merge-tree` nach: zuerst PRs, die eine offene Aufgabe freimachen, dann solche mit wenigen Konflikten gegen die übrigen PRs, dann Phase, Prio und Nummer; ein PR, der auf einem anderen aufbaut, kommt danach. PRs, die gegen den Stand davor kollidieren, stehen mit ihren Dateien unter „Erst nachziehen“. Nach jedem Merge neu aufrufen, Laufzeit etwa eine halbe Minute bei 14 PRs |
+| `py tools/tasks.py cleanup [--apply]` | Zeigt lokale Worktrees unter `.worktrees/` und `.claude/worktrees/`, deren PR gemergt und Branch gelöscht ist (oder deren Stand in `main` liegt), und Branches auf origin ohne offenen PR. `--apply` entfernt nur saubere lokale Worktrees dieser Art samt lokalem Branch, nie Branches auf origin |
 
-Erledigte, blockierte und Team-Aufgaben sind nicht reservierbar, auch ohne `gh`. Offene Aufgaben werden nicht allein wegen eines gemergten Teil-PRs abgeschlossen. Kurze Wartung ohne Eintrag in `TODO.md` ist weiterhin reservierbar.
+Erledigte, blockierte, zurückgestellte und Team-Aufgaben sind nicht reservierbar, auch ohne `gh`. Zurückgestellt sind optionale Aufgaben, solange eine Aufgabe aus Phase 0 bis 5 offen ist; offene PRs und Bestätigungstests optionaler Aufgaben laufen normal weiter. Offene Aufgaben werden nicht allein wegen eines gemergten Teil-PRs abgeschlossen. Kurze Wartung ohne Eintrag in `TODO.md` ist weiterhin reservierbar.
 
 ### Bestätigungstests
 

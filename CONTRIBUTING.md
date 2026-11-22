@@ -35,7 +35,7 @@ Die Bereiche zeigen, welche Ordner zusammengehören. Feste Personen je Bereich u
 Jede Aufgabe hat in [TODO.md](TODO.md) eine Kennung, eine Zeile in der Tabelle ihrer Phase und unter „Braucht“ ihre Voraussetzungen. Nehmen darf man nur, was dort `frei` ist, siehe [Wo kann ich anfangen?](TODO.md#wo-kann-ich-anfangen). Reserviert ist, was einen Branch `task/<kennung>` auf GitHub hat.
 Der erste Push gewinnt, ein zweiter wird abgelehnt. Das gilt für Menschen und KI-Agenten, die genauen Befehle stehen in [CLAUDE.md](CLAUDE.md#vor-dem-start).
 
-`py tools/tasks.py list` zeigt jede offene Kennung mit Status: frei, blockiert, Team, reserviert, in Arbeit oder PR wartet auf Review. Blockierte und Team-Aufgaben lehnt `claim` ab.
+`py tools/tasks.py list` zeigt jede offene Kennung mit Status: frei, blockiert, zurückgestellt, Team, reserviert, in Arbeit oder PR wartet auf Review. Blockierte, zurückgestellte und Team-Aufgaben lehnt `claim` ab.
 `py tools/tasks.py claim <kennung> <name>` reserviert und öffnet gleich einen Draft-PR `[WIP] <kennung>`. Wer gerade woran arbeitet,
 steht deshalb auf GitHub unter „Pull requests“. **Erledigt** ist, was in `TODO.md` auf `origin/main` unter [Erledigt](TODO.md#erledigt) steht, auch ohne GitHub CLI und nach dem Löschen eines Branches. Für ergänzende Review-/PR-Informationen braucht das Skript die angemeldete [GitHub CLI](https://cli.github.com/) (`gh auth login`); ohne sie bleiben diese Informationen unbekannt, der TODO-Abschluss bleibt erhalten. Ein gemergter PR bei noch offener Aufgabe verlangt Klärung statt automatischer Freigabe.
 Wer über einen Fork arbeitet, kann so nicht reservieren und legt stattdessen ein Issue an.
