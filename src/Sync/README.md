@@ -13,6 +13,7 @@ Geplante Unterordner, jeweils mit eigener Zuständigkeit:
 | Ordner | Inhalt |
 |---|---|
 | `Players/` | Beitritt, Bewegung, Status der Spieler. Pausemenü des Clients beim Host (`PauseState.h`, `PauseSync.cpp`, `pausen-sync`); Hinweis beim Client, solange nur der Host die Weltzeit hält (`RemotePauseNotice`, `opt-boss-tafel-client`, lokal aus dem replizierten Zustand, keine Nachricht) |
+| `World/ThreatState.h` | Bedrohungsstufe des Hosts als Stand für den Client (Nachricht `0xC00`, `opt-bedrohung-sound`) |
 | `Combat/` | Waffen, Projektile, Treffer, Fähigkeiten. Nachladesound des Hosts für den Client (`WeaponSoundState.h`, Nachricht `0xB00`, `opt-waffen-sound`) |
 | `Enemies/` | Spawn, Position und Tod der Gegner, Bosse. Ein Gegnertyp läuft nativ, ohne eigenen Code, siehe [Enemies](Enemies/README.md) |
 | `World/` | Karte, Tageszyklus, Missionen, Loot |

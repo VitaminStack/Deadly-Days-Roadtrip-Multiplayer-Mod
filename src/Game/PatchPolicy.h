@@ -354,6 +354,13 @@ constexpr bool BusTakeOffMayDecide(bool IsNetClient)
     return !IsNetClient;
 }
 
+// Den Sensenmann erzeugt nur der Host. Der AReaperSpawner des Clients hat denselben Zeitgeber und legte ohne Autoritätsprüfung
+// einen zweiten, nur lokalen Sensenmann an (karte-nach-labyrinth-absturz). Der des Hosts kommt über die Replikation.
+constexpr bool ReaperMaySpawn(bool IsNetClient)
+{
+    return !IsNetClient;
+}
+
 // opt-busbalken: Der Client zeigt die Abfahrt, wenn der Tank voll ist und alle Figuren im Busbereich stehen, wie die Bedingungen
 // des Hosts. Ohne Figuren oder Tank gibt es keine Abfahrt.
 constexpr bool BusBarActive(bool FuelFull, int32_t PlayersInRange, int32_t Players)
@@ -632,6 +639,19 @@ template <typename WriterT> void EmitRestrictorGuard(WriterT& Code, uintptr_t Sk
     Code.EmitRel(Skip);
     Code.Emit({0x83, 0xB8, 0xC8, 0x02, 0x00, 0x00, 0x01}); // cmp dword [rax+2C8h],1
     Code.Emit({0x0F, 0x8E});                               // jle Skip
+    Code.EmitRel(Skip);
+    Code.Emit({0xE9}); // jmp Continue
+    Code.EmitRel(Continue);
+}
+
+// UReaperComponent::BeginPlay merkt sich den GameMode (RBX) in +188h und bindet danach OnNewPlayerSpawned und
+// OnPlayerDespawned an GameMode+340h/+350h ohne Null-Prüfung. Der Client hat keinen GameMode: das Feld wie im Original
+// schreiben, ohne GameMode beide Bindungen auslassen (Skip), sonst weiter bei Continue. EndPlay prüft das Feld selbst.
+template <typename WriterT> void EmitReaperGameModeGuard(WriterT& Code, uintptr_t Skip, uintptr_t Continue)
+{
+    Code.Emit({0x48, 0x89, 0x9F, 0x88, 0x01, 0x00, 0x00}); // mov [rdi+188h],rbx
+    Code.Emit({0x48, 0x85, 0xDB});                         // test rbx,rbx
+    Code.Emit({0x0F, 0x84});                               // je Skip
     Code.EmitRel(Skip);
     Code.Emit({0xE9}); // jmp Continue
     Code.EmitRel(Continue);

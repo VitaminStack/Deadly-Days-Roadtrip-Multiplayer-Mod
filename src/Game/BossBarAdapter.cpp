@@ -36,6 +36,27 @@ constexpr Reflection::FieldSpec ObjectiveMaxHealth{Package, "DDBossObjective", "
 constexpr Reflection::FieldSpec WidgetManager{Package, "DDObjectiveWidget", "ObjectiveManager", "ObjectProperty", 8};
 constexpr Reflection::FieldSpec AttributeMaxHealth{Package, "CommonAttributeSet", "MaxHealth", "StructProperty", 16};
 constexpr Reflection::FieldSpec AttributeHealth{Package, "CommonAttributeSet", "Health", "StructProperty", 16};
+// Phasenbezogene Leiste (opt-boss-phasenleiste), siehe docs/OFFSETS.md.
+constexpr Reflection::FieldSpec ObjectiveMarkers{Package, "DDBossObjective", "PhaseMarkers", "ArrayProperty", 16};
+constexpr Reflection::FieldSpec TypeBlueprint{Package, "EnemyType", "EnemyBlueprint", "SoftClassProperty", 0x28};
+constexpr Reflection::FieldSpec LookupInfos{Package, "BossSpawnLookup", "BossSpawnInfos", "ArrayProperty", 16};
+constexpr Reflection::FieldSpec SpawnPhaseBased{Package, "BossfightSpawnPoint", "IsObjectivePhaseBased", "BoolProperty", 1};
+// FBossSpawnInfo (0x68): BossEnemyType und SpawnPointClass sind Soft-Verweise, der Pfad (Paket, Asset als FName) steht 8 Byte hinter
+// dem Anfang. Per Reflexion im Spiel gelesen, Build 26786272.
+constexpr uintptr_t SpawnInfoSize = 0x68;
+constexpr uintptr_t SpawnInfoEnemyType = 0x10;
+constexpr uintptr_t SpawnInfoPointClass = 0x38;
+constexpr uintptr_t SoftPathPackage = 0x8;
+constexpr uintptr_t SoftPathAsset = 0x10;
+// UDDBossObjective, nicht reflektiert: BossfightSpawnPoint::StartBossObjective kopiert IsObjectivePhaseBased hierher, bevor es den
+// Boss anmeldet (Disassembly 0x58CBC2D). Die Anzeige liest es beim Start.
+constexpr uintptr_t ObjectivePhaseBased = 0x98;
+// Tags des Bosses: UAbilitySystemComponent.GameplayTagCountContainer (reflektiert), darin die Liste der eigenen Tags
+// (ExplicitTags.GameplayTags, TArray<FGameplayTag>) bei +0xC8. Die Tags replizieren zum Client (gemessen 21.11.2026).
+constexpr Reflection::FieldSpec AbilityTags{"/Script/GameplayAbilities", "AbilitySystemComponent", "GameplayTagCountContainer",
+                                            "StructProperty", 0xF0};
+constexpr uintptr_t TagContainerExplicit = 0xC8;
+constexpr std::string_view PausedTag = "State.Pause";
 
 enum class Kind
 {
@@ -43,7 +64,8 @@ enum class Kind
     Boss,
     Objective,
     Widget,
-    AttributeSet
+    AttributeSet,
+    Abilities
 };
 
 // Rolle einer Klasse über ihre Oberklassen, je Klasse einmal berechnet; es sind viele Objekte, aber wenige Klassen.
@@ -66,6 +88,8 @@ Kind KindOf(uintptr_t Class)
             Result = Kind::Widget;
         else if (Name == "CommonAttributeSet")
             Result = Kind::AttributeSet;
+        else if (Name == "AbilitySystemComponent")
+            Result = Kind::Abilities;
         Enemy = Enemy || Name == "EnemyBase";
         Walk = Memory::ReadPointer(Walk + Offsets::UStruct::SuperStruct).value_or(0);
     }
@@ -87,6 +111,7 @@ struct Scan
     uintptr_t Objective = 0;
     std::vector<uintptr_t> Widgets;                    // nur Anzeigen mit Objective-Manager
     std::vector<std::pair<uintptr_t, uintptr_t>> Sets; // (Outer, CommonAttributeSet)
+    std::vector<std::pair<uintptr_t, uintptr_t>> Abilities; // (Outer, AbilitySystemComponent)
 };
 
 // Alle je von uns angelegten Objectives. Das Spiel entfernt sie beim Client nie (das Subsystem der GameInstance hält sie), und sie
@@ -132,6 +157,10 @@ Scan ScanObjects(uintptr_t Current, uintptr_t WidgetManagerOffset)
             if (const auto Outer = Memory::ReadPointer(Object + Offsets::UObject::Outer))
                 Result.Sets.emplace_back(*Outer, Object);
             break;
+        case Kind::Abilities:
+            if (const auto Outer = Memory::ReadPointer(Object + Offsets::UObject::Outer))
+                Result.Abilities.emplace_back(*Outer, Object);
+            break;
         default:
             break;
         }
@@ -162,6 +191,118 @@ bool ReadBossHealth(const Scan& Found, uintptr_t Boss, uintptr_t HealthOffset, u
     return BestMax > 1;
 }
 
+// Ob der Host die Leiste dieses Bosses phasenbezogen führt. Der Client hat keinen Spawnpunkt, und der Typ des Bosses (EnemyBase.Type)
+// repliziert nicht. Die Datentabelle DA_BossSpawnLookup ist aber auch bei ihm geladen: Sie nennt je Boss den EnemyType, dessen
+// EnemyBlueprint die Klasse des Bosses ist, und die Spawnpunkt-Klasse, deren Vorgabe der Host ins Objective schreibt. Je Boss-Klasse
+// einmal ermittelt. Ohne Ergebnis bleibt es bei der Leiste über die vollen HP.
+bool ResolvePhaseBased(uintptr_t Boss)
+{
+    static std::unordered_map<std::string, bool> Known;
+    const auto InfosField = Reflection::Property(LookupInfos);
+    const auto PhaseField = Reflection::Property(SpawnPhaseBased);
+    const auto BlueprintField = Reflection::Property(TypeBlueprint);
+    const auto Class = Memory::ReadPointer(Boss + Offsets::UObject::Class);
+    const std::string ClassName = Class ? Memory::NameOf(*Class) : std::string();
+    if (ClassName.empty() || !InfosField || !PhaseField || !BlueprintField)
+        return false;
+    if (const auto Hit = Known.find(ClassName); Hit != Known.end())
+        return Hit->second;
+    const uintptr_t Lookup = Objects::FindInstance("BossSpawnLookup");
+    const uintptr_t Data = Lookup ? Memory::ReadPointer(Lookup + InfosField->Offset).value_or(0) : 0;
+    const int32_t Count = Lookup ? Memory::Read<int32_t>(Lookup + InfosField->Offset + 8).value_or(0) : 0;
+    if (!Data || Count <= 0 || Count > 64)
+    {
+        // Die Tabelle kann noch fehlen; nicht merken, beim nächsten Anlegen neu versuchen.
+        Core::Log::Warn("Boss-Leiste: Tabelle der Boss-Spawnpunkte nicht lesbar, Leiste über die vollen HP");
+        return false;
+    }
+    const auto SoftName = [](uintptr_t Soft, uintptr_t Part) {
+        const auto Index = Memory::Read<int32_t>(Soft + Part);
+        return Index ? Memory::NameFromIndex(*Index) : std::string();
+    };
+    bool Result = false;
+    std::string Found = "kein Eintrag";
+    for (int32_t i = 0; i < Count; ++i)
+    {
+        const uintptr_t Info = Data + static_cast<uintptr_t>(i) * SpawnInfoSize;
+        const std::string TypePackage = SoftName(Info + SpawnInfoEnemyType, SoftPathPackage);
+        const std::string TypeAsset = SoftName(Info + SpawnInfoEnemyType, SoftPathAsset);
+        if (TypePackage.empty() || TypeAsset.empty())
+            continue;
+        uintptr_t Type = Objects::FindObject(TypeAsset, TypePackage);
+        if (!Type)
+            Type = Objects::LoadAsset(TypePackage + "." + TypeAsset);
+        if (!Type || !Objects::IsA(Type, "EnemyType") || SoftName(Type + BlueprintField->Offset, SoftPathAsset) != ClassName)
+            continue;
+        const std::string PointPackage = SoftName(Info + SpawnInfoPointClass, SoftPathPackage);
+        const std::string PointAsset = SoftName(Info + SpawnInfoPointClass, SoftPathAsset);
+        if (PointPackage.empty() || PointAsset.empty())
+        {
+            Found = TypeAsset + " ohne Spawnpunkt-Klasse";
+            break;
+        }
+        uintptr_t PointClass = Objects::FindObject(PointAsset, PointPackage);
+        if (!PointClass)
+            PointClass = Objects::LoadAsset(PointPackage + "." + PointAsset);
+        const uintptr_t Defaults = PointClass ? Objects::FindNamed("Default__" + PointAsset) : 0;
+        const auto Flag = Defaults && Objects::IsA(Defaults, "BossfightSpawnPoint")
+                              ? Memory::Read<uint8_t>(Defaults + PhaseField->Offset)
+                              : std::nullopt;
+        if (!Flag)
+        {
+            Found = PointAsset + " nicht ladbar";
+            break;
+        }
+        Result = (*Flag & PhaseField->BoolMask) != 0;
+        Found = PointAsset;
+        break;
+    }
+    Known[ClassName] = Result;
+    Core::Log::Info("Boss-Leiste: {} ist {} (Spawnpunkt {})", ClassName, Result ? "phasenbezogen" : "nicht phasenbezogen", Found);
+    return Result;
+}
+
+// Ob der Boss das Tag State.Pause trägt: 1 ja, 0 nein, -1 nicht lesbar. Siehe BossFightStarted.
+int ReadPaused(const Scan& Found, uintptr_t Boss)
+{
+    const auto Field = Reflection::Property(AbilityTags);
+    if (!Field)
+        return -1;
+    for (const auto& [Outer, Component] : Found.Abilities)
+    {
+        if (Outer != Boss)
+            continue;
+        const uintptr_t List = Component + Field->Offset + TagContainerExplicit;
+        const uintptr_t Data = Memory::ReadPointer(List).value_or(0);
+        const auto Count = Memory::Read<int32_t>(List + 8);
+        if (!Count || *Count < 0 || *Count > 256 || (*Count > 0 && !Data))
+            return -1;
+        for (int32_t i = 0; i < *Count; ++i)
+        {
+            const auto Index = Memory::Read<int32_t>(Data + static_cast<uintptr_t>(i) * 8);
+            if (!Index)
+                return -1;
+            if (Memory::NameFromIndex(*Index) == PausedTag)
+                return 1;
+        }
+        return 0;
+    }
+    return -1;
+}
+
+// PhaseMarkers des Objectives: Anteile am Maximum, an denen eine Phase endet.
+std::vector<float> ReadMarkers(uintptr_t Objective)
+{
+    std::vector<float> Result;
+    const auto Field = Reflection::Property(ObjectiveMarkers);
+    const uintptr_t Data = Field ? Memory::ReadPointer(Objective + Field->Offset).value_or(0) : 0;
+    const int32_t Count = Field ? Memory::Read<int32_t>(Objective + Field->Offset + 8).value_or(0) : 0;
+    for (int32_t i = 0; Data && i < Count && i < 16; ++i)
+        if (const auto Value = Memory::Read<float>(Data + static_cast<uintptr_t>(i) * sizeof(float)))
+            Result.push_back(*Value);
+    return Result;
+}
+
 // Diagnose (opt-endboss-leiste): warum gerade keine Leiste entsteht, nur bei Wechsel gemeldet, nicht je Tick.
 void NoteWait(std::string_view Reason)
 {
@@ -190,6 +331,8 @@ struct State
     int SettleTicks = 0;
     int64_t LastHealth = -1, LastMax = -1;
     bool Failed = false;   // Anlegen ist gescheitert, einmal melden
+    bool PhaseBased = false; // Leiste zeigt wie beim Host nur die HP der laufenden Phase
+    int Phase = 0;           // zuletzt gezeigte Phase, 0 vor dem ersten Wert
 } S;
 
 bool Create(const Scan& Found, uintptr_t MaxOffset, int64_t Max)
@@ -237,6 +380,10 @@ bool Create(const Scan& Found, uintptr_t MaxOffset, int64_t Max)
         bool Result;
         uint8_t Pad[7];
     } AddParams{Found.Boss, false, {}};
+    // Wie der Host: erst das Kennzeichen, dann den Boss anmelden.
+    const bool PhaseBased = ResolvePhaseBased(Found.Boss);
+    const uint8_t PhaseFlag = PhaseBased ? 1 : 0;
+    Memory::WriteBytes(Objective + ObjectivePhaseBased, &PhaseFlag, sizeof(PhaseFlag));
     Objects::ProcessEvent(Objective, AddBoss, &AddParams);
     Memory::WriteBytes(Objective + MaxOffset, &Max, sizeof(Max));
     struct
@@ -251,7 +398,10 @@ bool Create(const Scan& Found, uintptr_t MaxOffset, int64_t Max)
     S.SettleTicks = 0;
     S.LastHealth = S.LastMax = -1;
     S.Failed = false;
-    Core::Log::Info("Boss-Leiste: lokal angelegt (Maximum {}, Anzeigen {})", Max, Found.Widgets.size());
+    S.PhaseBased = PhaseBased;
+    S.Phase = 0;
+    Core::Log::Info("Boss-Leiste: lokal angelegt (Maximum {}, Anzeigen {}{})", Max, Found.Widgets.size(),
+                    PhaseBased ? ", phasenbezogen" : "");
     return true;
 }
 }
@@ -315,6 +465,11 @@ void TickBossBar()
     BossBarState Input;
     Input.Client = true;
     Input.LiveBoss = Found.Boss != 0;
+    // Nur vor dem Anlegen gebraucht: Der Host zeigt die Leiste erst, wenn der Kampf läuft.
+    const int Paused = Found.Boss && !S.Ours ? ReadPaused(Found, Found.Boss) : -1;
+    Input.Started = BossFightStarted(Paused, Health, Max);
+    if (Found.Boss && !S.Ours && !Input.Started)
+        NoteWait("Boss da, Kampf läuft noch nicht (State.Pause)");
     Input.HasObjective = S.Ours != 0;
     Input.Shown = S.Ours != 0;
     Input.SettleTicks = S.SettleTicks;
@@ -348,7 +503,10 @@ void TickBossBar()
         break;
     case BossBarStep::Sync:
     {
-        if (!BossBarNeedsUpdate(S.LastHealth, S.LastMax, Health, Max))
+        BossPhaseView View{1, Health, Max};
+        if (S.PhaseBased)
+            View = PhaseOf(Health, Max, ReadMarkers(S.Ours));
+        if (!BossBarNeedsUpdate(S.LastHealth, S.LastMax, View.Value, Max))
             break;
         const uintptr_t SetProgress = Reflection::Function(Package, "DDObjective", "SetCurrentProgressCounter");
         if (!SetProgress)
@@ -357,11 +515,14 @@ void TickBossBar()
         struct
         {
             int64_t Progress;
-        } Params{Health};
+        } Params{View.Value};
         Objects::ProcessEvent(S.Ours, SetProgress, &Params);
         if (S.LastHealth < 0)
             Core::Log::Info("Boss-Leiste: erste Werte {} von {}", Health, Max);
-        S.LastHealth = Health;
+        if (S.PhaseBased && View.Phase != S.Phase)
+            Core::Log::Info("Boss-Leiste: Phase {}, {} von {} (HP {} von {})", View.Phase, View.Value, View.Span, Health, Max);
+        S.Phase = View.Phase;
+        S.LastHealth = View.Value;
         S.LastMax = Max;
         break;
     }
