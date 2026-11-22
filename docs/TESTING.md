@@ -152,6 +152,19 @@ Seit `labyrinth-event-client` übernimmt der Schalter auch die Kartengröße des
 die Größe des Profils“). Vorher kam sie vom Routenknoten oder von `-Map`. Für Event-Profile mit fester Größe ist das nötig: Das
 Labyrinth braucht 13 × 9 Kacheln, sonst setzt der Generator nur Ersatzkacheln (Pflaster) und es entsteht gar kein Labyrinth.
 
+Mit `DDCOOP_TEST_MAP_PROFILE_EVERY=2` gilt das Profil nur für jede zweite Missionskarte des Prozesses, beginnend mit der ersten;
+dazwischen kommt das Profil des Routenknotens. So wechseln Karten-Event und normale Karte, und die Reise aus einem Event in eine
+normale Karte lässt sich in einer Sitzung mehrmals fahren (`karte-nach-labyrinth-absturz`).
+
+**Sensenmann gezielt auslösen** (mit Spike, nur Host): `Send-SpikeCommand <host-pid> '!shop reaper 3'` stellt den nativen
+Zeitgeber des `AReaperSpawner` auf 3 s. Die Konsolenbefehle des Spiels dafür (`SpawnReaper`, `SetSpawnReaperAfterMinutes`,
+`KillReaper`) wirken im Shipping-Build nicht. Beim Client kam der Sensenmann in den Messungen rund 30 s nach dem Befehl an (Vermutung: Er
+erscheint fern der Spieler und wird erst mit der Netzrelevanz repliziert).
+
+**Rundenende ohne echte Eingaben** (mit Spike): `!finish` beim Host, dann bei beiden `!shop click ContinueButton`, dann
+`!shop confirm 0` und `!shop confirm 1` erst beim Host, danach beim Client. Für den nächsten Knoten `!shop callat <n> …` wie unten
+der Reihe nach probieren, bis im Host-Log „Reise umgeleitet“ steht (gemessen: Index 14 und 16 nach Tag 1).
+
 **Routenknoten ohne echte Eingaben** (mit Spike, gemessen auf beiden Builds am 17.11.2026). Damit stehen Biom, PCG-Graph und Tags
 wie in einem echten Run zur Verfügung, ohne Klicks und Tasten:
 

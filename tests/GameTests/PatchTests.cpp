@@ -801,6 +801,41 @@ TEST_CASE("Patches: Restrictor-Wächter bremst ohne GameState nicht und stürzt 
     }
 }
 
+TEST_CASE("Patches: Sensenmann-Wächter bindet ohne GameMode nicht (karte-nach-labyrinth-absturz)")
+{
+    ExecutableBuffer Memory;
+    REQUIRE(Memory.Data);
+    Code::Writer Code(Memory.Data, 4096);
+    // Nachbau der Stelle: RDI Komponente, RBX GameMode. Skip ist der Code hinter beiden Bindungen, Continue bindet wie das
+    // Original über GameMode+348h (Num der Delegatliste von OnNewPlayerSpawned).
+    const auto Skip = reinterpret_cast<uintptr_t>(Code.Here());
+    Code.Emit({0x31, 0xC0, 0x5F, 0x5B, 0xC3}); // xor eax,eax; pop rdi; pop rbx; ret
+    const auto Continue = reinterpret_cast<uintptr_t>(Code.Here());
+    Code.Emit({0x8B, 0x83, 0x48, 0x03, 0x00, 0x00, 0x5F, 0x5B, 0xC3}); // mov eax,[rbx+348h]; pop rdi; pop rbx; ret
+    using GuardFn = int(__fastcall*)(void*, const void*);
+    const auto Guard = reinterpret_cast<GuardFn>(Code.Here());
+    Code.Emit({0x53, 0x57, 0x48, 0x89, 0xCF, 0x48, 0x89, 0xD3}); // push rbx; push rdi; mov rdi,rcx; mov rbx,rdx
+    EmitReaperGameModeGuard(Code, Skip, Continue);
+    REQUIRE_FALSE(Code.Failed());
+    Memory.Flush();
+
+    alignas(8) uint8_t Component[0x200]{};
+    alignas(8) uint8_t GameMode[0x360]{};
+    *reinterpret_cast<int32_t*>(GameMode + 0x348) = 7;
+    // Host: Feld gesetzt, Bindungen laufen.
+    CHECK(Guard(Component, GameMode) == 7);
+    CHECK(*reinterpret_cast<const void**>(Component + 0x188) == GameMode);
+    // Client: Feld wie im Original geleert, Bindungen ausgelassen (früher Lesefehler an 0x348).
+    CHECK(Guard(Component, nullptr) == 0);
+    CHECK(*reinterpret_cast<const void**>(Component + 0x188) == nullptr);
+}
+
+TEST_CASE("Sensenmann erzeugt nur der Host (karte-nach-labyrinth-absturz)")
+{
+    CHECK(ReaperMaySpawn(false));    // Host und Einzelspieler
+    CHECK_FALSE(ReaperMaySpawn(true)); // Netz-Client: kein zweiter, lokaler Sensenmann
+}
+
 TEST_CASE("Bewegung: Tempo der eigenen Figur folgt dem Attribut (tod-client)")
 {
     // Erster Wert wird übernommen, auch volles Tempo.
