@@ -44,6 +44,7 @@
     <ClInclude Include="ControlDispatch.h" />
     <ClInclude Include="Inventory\RewardState.h" />
     <ClInclude Include="World\MapState.h" />
+    <ClInclude Include="World\ThreatState.h" />
     <ClInclude Include="Players\CharacterState.h" />
     <ClInclude Include="Players\PauseState.h" />
   </ItemGroup>

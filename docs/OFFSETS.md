@@ -257,6 +257,54 @@ SizeOfImage `0x0B74A000`, `.text` gleich groß (`0x827C000`). Die Portierung der
   `Signaturen: 106 Adressen geprüft`, `Patches: 54 gesetzt`, `Spiel-Build 26495302`, beide mit 2 Spielern in `DDDynamic_Map`, kein `[ERROR]`,
   kein Absturz, auch nach dem SDK-Dump im Host. Dreimal gelaufen, zuletzt mit dem Endstand dieses Branches.
 
+### Inventar-Patches gegen die Patchnotes 1.0.2 und 1.0.3 (`inventar-patchnotes-1-0-2`)
+
+Stand 21.11.2026. Ergebnis: **Alle sieben Patches der Liste Inventory bleiben nötig, keiner wird durch Patch 1.0.2 oder 1.0.3 überflüssig,
+keiner wurde entfernt.** Quelle der Patchnotes: Steam-Ankündigungen „Patch 1.0.2“ (14.11.2026) und „Patch 1.0.3“ (19.11.2026).
+
+**Verfahren (offline, kein Spieltest):** Die Exes der eingefrorenen Kopien `26495302` (1.0.1), `26669225` (1.0.2) und `26786272` (1.0.3)
+verglichen. Je gepatchter Stelle die ganze Funktion ab ihrem Anfang bis zum Füllbyte disassembliert (Capstone), Sprung-/Aufrufziele und
+RIP-relative Verschiebungen maskiert, Befehlsfolge verglichen; dazu die gepatchten vtable-Einträge aus `.rdata` gelesen. Adressen der alten
+Builds aus den Tabellen `RvaMap26669225.inc` und `RvaMap26786272.inc` (Verlauf, siehe [Referenz-Build](#referenz-build-26786272-spiel-update-26786272)).
+**Grenze:** „gleich“ heißt, die gepatchte Funktion selbst ist unverändert. Aufrufer und aufgerufene Funktionen sind damit nicht verglichen
+(Ausnahme: der Schritt des Kartengenerators). Ob der Auslöser eines Absturzes an anderer Stelle weggefallen ist, belegt das nicht.
+
+| Patch (Name in `List`) | Stelle, RVA `26495302` / `26669225` / `26786272` | Vergleich | Ergebnis |
+|---|---|---|---|
+| Itemsack-Vergabe nur beim Host, für alle Spieler | `AItemLoot::Loot` `0x59AF200` / `0x59AFFC0` / `0x59B1F50` | 135 Befehle, in allen drei gleich | weiter nötig: Coop-Regel der Mod (wer vergibt), kein Spielfehler; das Spiel prüft die Rolle weiter nicht |
+| Schrott beim Aufsammeln nur beim Host buchen | `AScrapLoot::Loot` `0x59AF660` / `0x59B0420` / `0x59B23B0` | 100 Befehle, gleich | weiter nötig: Coop-Regel, weiter keine Rollenprüfung vor `AddAmount` |
+| Aufsammelklang beim Client je Objekt einmal | `ALootBase::Loot` `0x59AF3F0` / `0x59B01B0` / `0x59B2140` | 35 Befehle, gleich | weiter nötig: Coop-Folge (Objekt bleibt beim Client bis zum Zerstören des Hosts) |
+| Item-Widget ohne Item: Größe nicht setzen | Größe des Item-Widgets `0x5ABA0F0` / `0x5ABAFC0` / `0x5ABD6C0` | 43 Befehle; 1.0.2 gleich, 1.0.3 nur Feld-Offset `+0xA28` → `+0xA38` | weiter nötig: `ItemInstance`, `ItemData` (`+0xE0`) und Form (`+0xE8`) werden weiter ohne Prüfung gelesen |
+| Inventar-Unterobjekte replizieren | vtable-Einträge `+0x200` von `BackpackSlot` und Item, `+0x3D8` des Inventars | zeigen in allen drei Builds auf `DefaultNetworkingSupport` `0x1512430` (2 Befehle, gleich) bzw. `ReadyForReplication` des Inventars (`0x596D8C0` / `0x596E670` / `0x59702D0`, Sprung auf dieselbe Engine-Funktion) | weiter nötig: Das Spiel überschreibt `IsSupportedForNetworking` für beide Klassen weiter nicht |
+| Timer des Achievement-Detektors beim EndPlay löschen | `EndPlay` des Detektors `0x57D0C60` / `0x57D1470` / `0x57D1DA0` (vtable `+0x3F0`), Timer-Anlage in der Funktion um `ScheduleCall` (`0x57CB400` / `0x57CBB80` / `0x57CC4C0`) | 15 bzw. 139 Befehle, gleich; `SetTimerForNextTick`, `FindTimer`, `ClearTimer` gleich | weiter nötig: `EndPlay` löscht den Timer weiter nicht. Die Achievement-Fixes aus 1.0.2 (Memos, Bombe) haben diese beiden Funktionen nicht geändert |
+| Kartengenerator-Schritt nur für die aktuelle Welt | Lambda `Execute` `0x59CFBA0` / `0x59D0960` / `0x59D2920`, `ExecuteIfSafe` `0x59CFD50` / `0x59D0B10` / `0x59D2AD0`, Schritt `0x59DDE60` / `0x59DEC20` / `0x59E0BE0` | 3, 7 und 237 Befehle, gleich | weiter nötig: Das Lambda ruft den Schritt weiter mit rohem Generator ohne Prüfung |
+
+**Die drei Punkte der Patchnotes 1.0.2:**
+
+- *Absturz nach dem Schließen des Inventars, wenn eine Waffe aufgewertet oder verkauft wurde:* kein Gegenstück in `InventoryPatches.cpp`.
+  Kein Patch der Liste greift beim Schließen, Aufwerten oder Verkaufen ein. Welche Funktion das Spiel dafür geändert hat, ist nicht
+  bestimmt. Verkauf und Bestätigen gehören zu `RewardPatches.cpp` (dort `TryBuyItem` mit geändertem Anfang, siehe Tabelle oben,
+  `update-1-0-2-handel`) und sind nicht Teil dieser Aufgabe.
+- *Seltene Abstürze bei Belohnungskisten, Händlern, Rezepten und Item-Vorschau:* Der einzige thematisch nahe Patch ist „Item-Widget ohne
+  Item“. Seine Funktion ist in 1.0.2 unverändert, der Fix des Spiels liegt also nicht dort. **[Vermutung]** Der Fix betrifft einen anderen
+  Weg (Vorschau/Tooltip); der Fall der Mod (Widget verliert sein Item beim Verbindungsabbau im Lager) ist ein Coop-Fall, den das Spiel
+  allein nicht hat.
+- *Absturz beim Schließen einer Twitch-Kisten-Abstimmung ohne Serververbindung:* kein Gegenstück in der Mod.
+
+**Patchnotes 1.0.3, soweit Inventar:** deaktivierte Items mit rotem Abzeichen, Rezeptliste im Pausen-Inventar und bei Kisten, weniger
+Ruckeln und Speicherzuwachs im Inventar, Absturz bei vielen Kisten hintereinander mit großem Rucksack, Hammer-Aufwertung und
+Werkbank-Zutaten. Kein Gegenstück in `InventoryPatches.cpp`; die einzige Folge an einer Patch-Stelle ist der verschobene Feld-Offset
+`UItemRepresentation.ItemInstance` (`0xA38`, in `update-basis-26786272` nachgezogen).
+
+**Laufzeit:** `tools/expect_check.py --file InventoryPatches.cpp` auf `26786272`: 10 `ok`, keine Abweichung (die vtables prüft nur das
+Spiel). In den Mod-Logs der Live-Tests vom 17.11. (`26669225`) und 21.11.2026 (`26786272`) steht je Instanz „klassische Replikation der
+Unterobjekte bereit“, beim Client die Zeilen der Itemsack-, Schrott- und Klang-Regel; die Schutzzeilen „Item-Widget ohne …“ und
+„Kartengenerator: Schritt für eine alte Welt ausgelassen“ kommen in beiden nicht vor. Diese beiden Schutzpfade wurden dort also nicht
+ausgelöst; dass sie nötig bleiben, stützt sich auf den unveränderten Code, nicht auf einen neuen Absturz ohne Patch.
+
+**Nicht geprüft:** Ein Lauf ohne einzelne Patches (Gegenprobe im Spiel) und die Funktionen, die das Spiel für die drei Punkte tatsächlich
+geändert hat.
+
 ## Freigabe von Build 26669225 für Spieler (`freigabe-1-0-2`)
 
 Nutzerentscheidung vom 16.11.2026: Das Update 1.0.2 ist für das Projekt nicht ausschlaggebend, `26669225` wird für Spieler geöffnet,
@@ -1317,6 +1365,18 @@ Build `26495302`, Disassembly und Klassenregistrierung, 13.11.2026. Siehe
 | Wetter mit Kamera-Folger | `BP_Rain_C` unter `/Game/RetroParticles/Particles/Systems/WeatherEffects/BP_Rain`, dazu `BP_Snow_C`, `BP_BaseWeatherEffect_C` |
 | Client-Absturz bei der dritten Reise (eigener Fehler) | RIP `0x163B33F` lesend an `0xD8`, Aufrufer `0x58DE4B1` |
 
+## Bedrohungsstufe (`opt-bedrohung-sound`)
+
+Build `26786272`, Speicher gelesen und Reflexion zur Laufzeit, siehe [Bedrohungsstufe beim Client](GAME_ANALYSIS.md#bedrohungsstufe-beim-client-opt-bedrohung-sound).
+Die Mod nutzt davon nur die Funktionen, die Offsets sind Belege.
+
+| Was | Wert |
+|---|---|
+| `UThreatLevel` (Komponente am GameState, 0x1C0) | `OnThreatLevelChanged` `0xC0`, `OnThreatLevelFreezeChanged` `0xD0`; Stufe ohne Reflexionsdaten bei `0x1B8` (`int32`, beim Client −1) |
+| `ThreatLevel.GetCurrentThreatLevel` | native Funktion, Rückgabe `int32` |
+| `WBP_Stopwatch_C.CustomEvent` | Blueprint-Ereignis `(int32 Old, int32 New)`, 8 Bytes Parameter, an `OnThreatLevelChanged` gebunden |
+| `WBP_Stopwatch_C.ThreatLevel`, `DangerLevel_Bind` | `0x430` (Komponente), `0x3D8` (`FString`, Zahl unter der Uhr) |
+
 ## Aufsammelsound (`opt-item-sound`)
 
 Build `26495302`, Disassembly, siehe [Aufsammelsound](GAME_ANALYSIS.md#aufsammelsound-von-benzin-und-items-beim-client-opt-item-sound).
@@ -1425,6 +1485,24 @@ ruft `ClearAllRequests` und liest die Felder über Namen (Reflection), die RVAs 
 Die Felder `0x48`, `0x50`, `0x58`, `0x68` und `0x7C` gelten nach der Kontrolle am Rundenende (je zwei Anfragen, `GS_DDMissionState_C`
 und `WP_Round_Stats`) auch auf `26669225`. Ein verwaister Eintrag erscheint in `pause_state.py` mit dem Namen des Objekts, das den
 Platz im Objekt-Array inzwischen belegt (gesehen: eine `Function`, ein `BorderSlot`).
+
+## Phasenbezogene Boss-Leiste (`opt-boss-phasenleiste`)
+
+Build `26786272`, per Reflexion und Disassembly im laufenden Spiel gelesen (21.11.2026). Die Mod löst die reflektierten Felder zur
+Laufzeit auf; fest sind nur die mit „fest“ markierten Stellen.
+
+| Stelle | Wert |
+|---|---|
+| `UDDBossObjective` phasenbezogen | `+0x98`, ein Byte, nicht reflektiert (fest). Geschrieben von `StartBossObjective` |
+| `BossfightSpawnPoint::StartBossObjective` | Thunk `0x566B060`, Rumpf `0x58CBAC0`: Objective anlegen (`0x58E0190`, ohne Autostart), bei `0x58CBC2D` `[Spawnpunkt+0x528]` nach `[Objective+0x98]`, dann `AddBossEnemy` nativ (`0x5A06B90`) mit `SpawnedBoss` und Anmelden am Subsystem (`0x5907F70`) |
+| `ABossfightSpawnPoint` | `SpawnedBoss` `0x498`, `BossComponent` `0x4A0`, `BossEnemyType` `0x520`, `IsObjectivePhaseBased` `0x528`, `BossObjectiveClass` `0x530`, `CurrentBossObjective` `0x550` |
+| `UBossSpawnLookup` (`DA_BossSpawnLookup`) | `BossSpawnInfos` `0x28` (`TArray<FBossSpawnInfo>`) |
+| `FBossSpawnInfo` (0x68, fest) | `BossID` `0x0`, `IsEndBoss` `0x8`, `BossEnemyType` `0x10` (Soft-Verweis), `SpawnPointClass` `0x38` (Soft-Klasse), `OptionalContentLocker` `0x60` |
+| Soft-Verweis (0x28, fest) | Paketname `+0x8`, Assetname `+0x10` (je `FName`) |
+| `UEnemyType` | `EnemyBlueprint` `0x128` (Soft-Klasse), `IsBoss` `0x1D2` |
+| `AEnemyBase` | `MySpawner` `0x878`, `Type` `0x9B0` (beide beim Client leer) |
+| `UAbilitySystemComponent` | `ActiveGameplayEffects` `0x8D8` (beim Client leer), `GameplayTagCountContainer` `0xF18` (0xF0); darin die eigenen Tags als `TArray<FGameplayTag>` bei `+0xC8` (fest), also `0xFE0` |
+| Einträge der Tabelle | `spike`/`SpikeBoss`, `Franky`/`FrankensteinBoss`, `BlobBall`/`BlobBallBoss`, `ballerina`/`BallerinaBoss`, `laz`/`LazyBoss`, `Endboss`/`HQBoss` (Klasse `BP_HQ_Endboss_C`); Spawnpunkte `BP_<Typ>SpawnPoint_C` unter `/Game/DDSurvivors/Blueprints/Enemies/Bosses/` |
 
 ## Boss-Leiste aller Bosse (`opt-endboss-leiste`)
 

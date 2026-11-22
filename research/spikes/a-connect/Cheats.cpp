@@ -1084,7 +1084,8 @@ void BossDamageCommand(const std::wstring& Args)
         for (uintptr_t Class = Read<uintptr_t>(Object + 0x10); Class; Class = Read<uintptr_t>(Class + 0x40))
         {
             const std::string Name = NameOf(Class);
-            if (!Boss && Name == "BP_BossEnemy_C")
+            // Zerstoerte Bosse bleiben im Objekt-Array stehen; ohne die Pruefung traf der Schaden einen toten Boss (0x5D, Bit 0x02).
+            if (!Boss && Name == "BP_BossEnemy_C" && (Read<uint8_t>(Object + 0x5D) & 0x02) == 0)
                 Boss = Object;
             if (!Controller && Name == "DDPlayerController")
                 Controller = Object;

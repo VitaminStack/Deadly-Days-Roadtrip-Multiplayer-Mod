@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <vector>
@@ -24,6 +25,7 @@ struct BossBarState
 {
     bool Client = false;        // nur beim Client, der Host hat sein eigenes Objective
     bool LiveBoss = false;      // ein repliziertes, nicht zerstörtes BP_BossEnemy_C
+    bool Started = true;        // der Kampf läuft, siehe BossFightStarted
     bool HasObjective = false;  // unser Objective existiert schon
     bool Shown = false;         // die Anzeige zeigt es gerade
     int SettleTicks = 0;        // Ticks seit dem Anlegen
@@ -38,17 +40,66 @@ inline BossBarStep DecideBossBar(const BossBarState& State)
     if (!State.Client)
         return BossBarStep::None;
     if (!State.HasObjective)
-        return State.LiveBoss ? BossBarStep::Create : BossBarStep::None;
+        return State.LiveBoss && State.Started ? BossBarStep::Create : BossBarStep::None;
     const bool Readable = State.LiveBoss && State.Health >= 1 && State.MaxHealth > 1;
     if (!Readable)
         return State.Shown ? BossBarStep::Remove : BossBarStep::None;
     return State.SettleTicks < BossBarSettleTicks ? BossBarStep::Settle : BossBarStep::Sync;
 }
 
+// Ob der Kampf läuft (opt-boss-phasenleiste). Der Host legt sein Objective erst mit TriggerBossfight an, der Boss ist beim Client
+// aber schon vorher repliziert. Vor dem Kampf trägt der Boss das replizierte Tag State.Pause; es fällt nach dem Intro weg, dann zeigt
+// auch der Host die Leiste (während der Intro-Kamera hat er kein HUD). Paused 1: Tag da, 0: Tag fehlt, -1: Tags nicht lesbar. Nicht
+// lesbar zählt wie gestartet, sonst gäbe es gar keine Leiste. Ein Boss mit Schaden kämpft schon (TriggerBossfightWhenBossDamaged,
+// Beitritt mitten im Kampf während einer späteren Pause). Eine bestehende Leiste bleibt, das Tag sperrt nur das Anlegen.
+inline bool BossFightStarted(int Paused, int64_t Health, int64_t MaxHealth)
+{
+    return Paused != 1 || (MaxHealth > 1 && Health >= 1 && Health < MaxHealth);
+}
+
 // Jeder SetCurrentProgressCounter sendet OnProgressChanged an die Anzeige, darum nur bei geänderten Werten.
 inline bool BossBarNeedsUpdate(int64_t LastHealth, int64_t LastMax, int64_t Health, int64_t MaxHealth)
 {
     return Health != LastHealth || MaxHealth != LastMax;
+}
+
+// Phasenbezogene Leiste (opt-boss-phasenleiste). Der Host zeigt bei Bossen, deren Spawnpunkt IsObjectivePhaseBased setzt, nur die
+// HP der laufenden Phase: Wert = HP minus Untergrenze der Phase. Die Marken sind Anteile am Maximum (PhaseMarkers des Objectives,
+// etwa 0,5 oder 0,8 und 0,4). Die Phase folgt allein aus den replizierten HP, damit auch ein Beitritt mitten im Kampf stimmt.
+struct BossPhaseView
+{
+    int Phase = 1;      // 1 = erste Phase
+    int64_t Value = 0;  // Wert für das Objective, HP über der Untergrenze der Phase
+    int64_t Span = 0;   // HP-Umfang der Phase, der Nenner der Anzeige
+};
+
+// Steht der Boss genau auf einer Marke, läuft schon die nächste Phase: Der Host hält die HP beim Phasenwechsel an der Marke fest
+// (gemessen: SpikeBoss bleibt nach 50.000 Schaden bei 40.000 von 80.000). Der Wert ist darum bei HP ab 1 nie unter 1; ein Wert
+// unter 1 würde das Objective abschließen und den Client abstürzen lassen. Ungültige Marken (nicht fallend, außerhalb von 0 bis 1)
+// werden übergangen, ohne Marken ist es eine einzige Phase über die vollen HP.
+inline BossPhaseView PhaseOf(int64_t Health, int64_t MaxHealth, const std::vector<float>& Markers)
+{
+    BossPhaseView View;
+    int64_t Upper = MaxHealth;
+    for (const float Marker : Markers)
+    {
+        if (!(Marker > 0.0f && Marker < 1.0f))
+            continue;
+        const auto Lower = std::llround(static_cast<double>(MaxHealth) * static_cast<double>(Marker));
+        if (Lower <= 0 || Lower >= Upper)
+            continue;
+        if (Health > Lower)
+        {
+            View.Value = Health - Lower;
+            View.Span = Upper - Lower;
+            return View;
+        }
+        Upper = Lower;
+        ++View.Phase;
+    }
+    View.Value = Health;
+    View.Span = Upper;
+    return View;
 }
 
 // Ein Boss, den der Client sieht, mit seinen replizierten Lebenspunkten (opt-endboss-leiste).
