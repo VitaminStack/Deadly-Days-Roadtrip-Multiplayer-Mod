@@ -25,6 +25,7 @@ Einzige Schicht mit Spielzugriff. Enthält Adapter auf Spielklassen und später 
 | `CodeCave.h` | Werkzeuge für Patches mitten in Funktionen: Code-Höhle nahe der Exe, Bytes prüfen, Sprünge und vtable-Einträge schreiben |
 | `LocalDevicePolicy.h` | Reine Regeln für `LocalDevicePatches.cpp`: welche Gerätezuordnung und welcher lokale Spawn im Netzwerkspiel abgelehnt wird, ohne Spiel getestet |
 | `RemoteP2Policy.h` | Reine Logik für den Remote-Spieler als P2: `ActivePlayers`-Map prüfen und aufräumen, Geräte-Wächter, ohne Spiel getestet |
+| `EnemySoundAdapter.h` / `EnemySoundPolicy.h` | `opt-gegner-sound`: Treffer- und Angriffssound der Gegner beim Client (`EnemySoundPatches.cpp`), reine Regeln ohne Spiel getestet. Siehe [Gegner-Sounds](../../docs/GAME_ANALYSIS.md#gegner-sounds-beim-client-opt-gegner-sound) |
 | `PatchPolicy.h` | Reine Regeln der Patches (SpawnedPlayers-Menge, Wächter-Code, Reise, Busplatz), ohne Spiel getestet |
 
 ## Game Thread

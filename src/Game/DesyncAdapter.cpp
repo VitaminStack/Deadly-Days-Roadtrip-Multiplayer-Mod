@@ -1,4 +1,6 @@
 #include "Game/DesyncAdapter.h"
+#include "Game/InventoryEditRuntime.h"
+#include "Game/RewardAdapter.h"
 
 #include <cmath>
 #include <map>
@@ -104,13 +106,10 @@ std::optional<uint64_t> InventoryHash(uintptr_t State)
                    Trash = Memory::Read<uint8_t>(Item + 0x184);
         if (!Path || !Pivot || !Turns || !Broken || !Backpack || !Reward || !Trash ||
             *Broken > 1 || *Backpack > 1 || *Reward > 1 || *Trash > 1) return std::nullopt;
-        Desync::Hash Hash;
-        Hash.Text(*Path);
-        Hash.Number(*Pivot);
-        Hash.Number(static_cast<uint32_t>(*Turns));
-        Hash.Number(*Broken | (*Backpack << 1) | (*Reward << 2) | (*Trash << 3));
-        ItemHashes.emplace(Item, Hash.Value());
-        Records.push_back(Hash.Value());
+        const auto Record = Desync::ItemRecord(*Path, *Pivot, static_cast<uint32_t>(*Turns), *Broken != 0, *Backpack != 0,
+                                               *Reward != 0, *Trash != 0);
+        ItemHashes.emplace(Item, Record);
+        Records.push_back(Record);
     }
     std::set<uintptr_t> SeenSlots;
     std::set<uint64_t> Coordinates;
@@ -147,6 +146,10 @@ std::optional<DesyncCapture> ReadDesyncCapture()
     std::map<uintptr_t, uint64_t> Guids;
     for (const auto& Entry : *Network) Guids.emplace(Entry.Object, Entry.Guid);
     DesyncCapture Result{*Context};
+    // opt-desync-bearbeitung: Der Client kennt seine Bearbeitung selbst, der Host erfährt sie über das fehlende Stabil-Bit der Probe.
+    if (Context->Role == NetRole::Client)
+        Result.Held = Desync::HeldByEdit(!InventoryEdit::ClientIdle() || InventoryEdit::ClientSettling(),
+                                         Rewards::ClientReadyState().has_value() || Rewards::ClientRoundEnd().has_value());
     auto& Out = Result.Image;
     Out.Known = Desync::Bit(Desync::Day);
     Out.Values[Desync::Day] = static_cast<uint64_t>(Context->Day);

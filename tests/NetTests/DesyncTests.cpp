@@ -259,3 +259,99 @@ TEST_CASE("Desync: Gegnerzahl ist standardmaessig im Abgleich, Wellen bestaetige
     CHECK(Step(45, 46).Alerts == Bit(Game::Desync::Enemies));
     CHECK(Step(45, 45).Alerts == 0);
 }
+
+TEST_CASE("Desync: offene Bearbeitung des Clients haelt Inventar und Gegner zurueck (opt-desync-bearbeitung)")
+{
+    using namespace Game::Desync;
+    const uint8_t Both = Bit(Enemies) | Bit(Inventory);
+    CHECK(HeldByEdit(false, false) == 0);
+    CHECK(HeldByEdit(true, false) == Both);  // lokaler, unbestaetigter Stand
+    CHECK(HeldByEdit(false, true) == Bit(Enemies)); // Panel offen, Welt steht, Inventar noch unveraendert
+    CHECK(HeldByEdit(true, true) == Both);
+    CHECK(StableWhileEditing(All, 0) == All);
+    CHECK(StableWhileEditing(All, Both) == (All & ~Both));
+
+    Monitor M;
+    auto Host = Example(), Client = Host;
+    Client.Image.Values[Inventory] ^= 1; // lokale Aufwertung
+    Client.Image.Values[Enemies] -= 1;   // bei Pausenbeginn eingefrorene Gegnerzahl
+    const auto Send = [&](uint8_t Held)
+    {
+        auto P = Client;
+        P.Stable = StableWhileEditing(Client.Stable, Held);
+        REQUIRE(Decode(Encode(P))); // gleiches Format, gueltige Probe
+        return M.Compare(Host, P, 0);
+    };
+    // Waehrend der Bearbeitung: beliebig lange kein Alarm, die Felder sind nicht vergleichbar.
+    for (unsigned i = 0; i < 4 * EnemyConfirmations; ++i)
+    {
+        const auto C = Send(Both);
+        CHECK(C.Alerts == 0);
+        CHECK(C.Different == 0);
+        CHECK(C.Comparable == (All & ~Both));
+    }
+    // Andere Felder werden waehrend der Bearbeitung weiter gemeldet.
+    Client.Image.Values[Health] ^= 1;
+    for (unsigned i = 1; i < Confirmations; ++i) CHECK(Send(Both).Alerts == 0);
+    CHECK(Send(Both).Alerts == Bit(Health));
+    Client.Image.Values[Health] = Host.Image.Values[Health];
+    // Kurz vor dem Alarm beginnt die Bearbeitung: Die Bestaetigungen verfallen, danach zaehlt der Host von vorn.
+    Monitor Fresh;
+    M = Fresh;
+    for (unsigned i = 1; i < Confirmations; ++i) CHECK(Send(0).Alerts == 0);
+    CHECK(Send(Both).Alerts == 0);
+    for (unsigned i = 1; i < Confirmations; ++i) CHECK(Send(0).Alerts == 0);
+    CHECK(Send(0).Alerts == Bit(Inventory));
+    // Nach der Bearbeitung wird wieder verglichen: Eine bleibende Abweichung wird gemeldet, eine behobene nicht.
+    M = Fresh;
+    for (unsigned i = 0; i < 5; ++i) Send(Both);
+    for (unsigned i = 1; i < EnemyConfirmations; ++i) CHECK((Send(0).Alerts & Bit(Enemies)) == 0);
+    CHECK(Send(0).Alerts == Both);
+    Client = Host;
+    const auto Equal = Send(0);
+    CHECK(Equal.Alerts == 0);
+    CHECK(Equal.Comparable == All);
+}
+
+TEST_CASE("Desync: verdeckte Gegnerabweichung bleibt fuer das Log zaehlbar, das bearbeitete Inventar nicht (opt-desync-bearbeitung)")
+{
+    using namespace Game::Desync;
+    const uint8_t Both = Bit(Enemies) | Bit(Inventory);
+    CHECK(HeldIgnored(0, 0) == All);                                  // ohne Bearbeitung zaehlt der Schatten nichts
+    CHECK(HeldIgnored(0, Both) == (All & ~Bit(Enemies)));             // nur die Gegnerzahl
+    CHECK(HeldIgnored(Bit(Enemies), Both) == All);                    // Ausnahme des Hosts gilt weiter
+    Monitor Shadow;
+    auto Host = Example(), Client = Host;
+    Client.Image.Values[Inventory] ^= 1;
+    Client.Image.Values[Enemies] = 2;
+    Host.Image.Values[Enemies] = 101;
+    for (unsigned i = 1; i < EnemyConfirmations; ++i) CHECK(Shadow.Compare(Host, Client, HeldIgnored(0, Both)).Alerts == 0);
+    CHECK(Shadow.Compare(Host, Client, HeldIgnored(0, Both)).Alerts == Bit(Enemies));
+    CHECK(Shadow.Compare(Host, Client, HeldIgnored(0, 0)).Alerts == 0);
+}
+
+TEST_CASE("Desync: Rasterposition und Drehung zaehlen nur im Rucksack (opt-desync-pivot)")
+{
+    using Game::Desync::ItemRecord;
+    const auto Tile = [](int32_t X, int32_t Y) { return uint64_t(uint32_t(X)) | (uint64_t(uint32_t(Y)) << 32); };
+    const char* Pistol = "Game/Items/ItemData_Pistol/";
+    // Coop-Test 06.11.2026: Pistole ausserhalb des Rucksacks, Host (0, 0), Client (-19, -2). Kein Unterschied mehr.
+    const auto Host = ItemRecord(Pistol, Tile(0, 0), 0, false, false, false, false);
+    CHECK(Host == ItemRecord(Pistol, Tile(-19, -2), 0, false, false, false, false));
+    CHECK(Host == ItemRecord(Pistol, Tile(3, 4), 2, false, false, false, false));
+    // Alles andere an einem Item ausserhalb des Rucksacks bleibt eine Abweichung.
+    CHECK(Host != ItemRecord("Game/Items/ItemData_Revolver/", Tile(0, 0), 0, false, false, false, false));
+    CHECK(Host != ItemRecord(Pistol, Tile(0, 0), 0, true, false, false, false));
+    CHECK(Host != ItemRecord(Pistol, Tile(0, 0), 0, false, false, true, false));
+    CHECK(Host != ItemRecord(Pistol, Tile(0, 0), 0, false, false, false, true));
+    CHECK(Host != ItemRecord(Pistol, Tile(0, 0), 0, false, true, false, false));
+    // Im Rucksack zaehlen Position und Drehung weiter.
+    const auto Packed = ItemRecord(Pistol, Tile(1, 2), 1, false, true, false, false);
+    CHECK(Packed == ItemRecord(Pistol, Tile(1, 2), 1, false, true, false, false));
+    CHECK(Packed != ItemRecord(Pistol, Tile(2, 2), 1, false, true, false, false));
+    CHECK(Packed != ItemRecord(Pistol, Tile(1, 2), 2, false, true, false, false));
+    // Zwei Inventare, die sich nur in der Lage eines Items im Lager unterscheiden, haben denselben Mengen-Hash.
+    using Game::Desync::Multiset;
+    CHECK(Multiset({Packed, Host}) == Multiset({ItemRecord(Pistol, Tile(7, 7), 3, false, false, false, false), Packed}));
+    CHECK(Multiset({Packed, Host}) != Multiset({Packed, Host, Host}));
+}

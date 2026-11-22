@@ -6,15 +6,21 @@
 using namespace Sync::DamageNumbers;
 using Game::DamageNumberHit;
 
-TEST_CASE("Schadenszahlen: Anzahl plus 25 Byte je Treffer, verlustfrei")
+TEST_CASE("Schadenszahlen: Anzahl plus 26 Byte je Treffer, verlustfrei")
 {
-    const std::vector<DamageNumberHit> Hits = {{0x1234567890ABull, 12.5f, 3, -100.f, 2500.25f, 90.f}, {2, 0.f, 0, 0.f, 0.f, 0.f}};
+    const std::vector<DamageNumberHit> Hits = {{0x1234567890ABull, 12.5f, 3, -100.f, 2500.25f, 90.f, Game::DamageHitImpactSound},
+                                               {2, 0.f, 0, 0.f, 0.f, 0.f}};
+    CHECK(HitBytes == 26);
     const auto Bytes = Encode(Hits);
     REQUIRE(Bytes.size() == 1 + HitBytes * Hits.size());
     CHECK(Bytes[0] == 2);
     const auto Back = Decode(Bytes);
     REQUIRE(Back);
     CHECK(*Back == Hits);
+    // opt-gegner-sound: Die Marke „Einschlagsound“ steht im letzten Byte des Treffers.
+    CHECK(Bytes[HitBytes] == Game::DamageHitImpactSound);
+    CHECK(Bytes[2 * HitBytes] == 0);
+    CHECK((*Back)[0].Extra == Game::DamageHitImpactSound);
 }
 
 TEST_CASE("Schadenszahlen: Grenzen der Liste")

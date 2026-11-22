@@ -20,6 +20,10 @@ bool HoldForRemote(bool Hold);
 // Anfragen (dann kein Aufruf), nullopt, solange der Manager nicht erreichbar ist.
 std::optional<int32_t> ClearTimeRequests();
 
+// Zahl der Zeitanfragen im UTimescaleManager dieser Instanz, etwa von einem eigenen Panel. nullopt, solange der Manager nicht
+// erreichbar ist. Nur lesen, kein Aufruf ins Spiel.
+std::optional<int32_t> ActiveTimeRequests();
+
 // Lokale Kennung der aktuellen Welt, 0 ohne. Nur zum Vergleich, nie übertragen.
 uint64_t WorldKey();
 

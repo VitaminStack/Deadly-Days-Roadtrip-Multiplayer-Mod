@@ -68,6 +68,7 @@ void Start()
     Mod::Lobby::Install();
     Mod::Control::Install();
     Sync::BindDevSource([] { return UI::Overlay().TakeDevRequests(); });
+    Sync::BindNoticeSink([](std::string Text) { UI::Overlay().PublishNotice(std::move(Text)); });
     Sync::Start(Config, [](std::string Text) { UI::Overlay().PublishDiagnostics(std::move(Text)); });
     Started = true;
     Game::Start();

@@ -154,28 +154,46 @@ bool HoldForRemote(bool Hold)
     return true;
 }
 
+namespace
+{
+// Der Manager ist ein Subsystem der GameInstance und überlebt die Reise; nach dem ersten Fund reicht der gemerkte Zeiger.
+uintptr_t TimescaleManager()
+{
+    static uintptr_t Known = 0;
+    if (Known && Patches::IsA(Known, "TimescaleManager"))
+        return Known;
+    const uintptr_t Manager = LocalPauseManager();
+    const auto TimescaleField = Reflection::Property(ManagerTimescale);
+    const uintptr_t Timescale = Manager && TimescaleField ? Pointer(Manager + TimescaleField->Offset) : 0;
+    if (!Timescale || !Patches::IsA(Timescale, "TimescaleManager"))
+        return 0;
+    Known = Timescale;
+    return Timescale;
+}
+
+std::optional<int32_t> RequestsOf(uintptr_t Timescale)
+{
+    const auto Count = Memory::Read<int32_t>(Timescale + TimescaleRequestCount);
+    const auto Free = Memory::Read<int32_t>(Timescale + TimescaleRequestFree);
+    if (!Count || !Free || *Free < 0 || *Count < *Free || *Count > 4096)
+        return std::nullopt;
+    return *Count - *Free;
+}
+}
+
+std::optional<int32_t> ActiveTimeRequests()
+{
+    const uintptr_t Timescale = TimescaleManager();
+    return Timescale ? RequestsOf(Timescale) : std::nullopt;
+}
+
 std::optional<int32_t> ClearTimeRequests()
 {
-    // Der Manager ist ein Subsystem der GameInstance und überlebt die Reise; nach dem ersten Fund reicht der gemerkte Zeiger.
-    static uintptr_t Known = 0;
-    uintptr_t Timescale = Known && Patches::IsA(Known, "TimescaleManager") ? Known : 0;
+    const uintptr_t Timescale = TimescaleManager();
     if (!Timescale)
-    {
-        const uintptr_t Manager = LocalPauseManager();
-        const auto TimescaleField = Reflection::Property(ManagerTimescale);
-        Timescale = Manager && TimescaleField ? Pointer(Manager + TimescaleField->Offset) : 0;
-        if (!Timescale || !Patches::IsA(Timescale, "TimescaleManager"))
-            return std::nullopt;
-        Known = Timescale;
-    }
+        return std::nullopt;
     const uintptr_t Clear = Reflection::Function(TimescalePackage, "TimescaleManager", "ClearAllRequests");
-    const auto Active = [&]() -> std::optional<int32_t> {
-        const auto Count = Memory::Read<int32_t>(Timescale + TimescaleRequestCount);
-        const auto Free = Memory::Read<int32_t>(Timescale + TimescaleRequestFree);
-        if (!Count || !Free || *Free < 0 || *Count < *Free || *Count > 4096)
-            return std::nullopt;
-        return *Count - *Free;
-    };
+    const auto Active = [&] { return RequestsOf(Timescale); };
     const auto Before = Active();
     if (!Clear || !Before)
         return std::nullopt;

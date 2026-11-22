@@ -155,6 +155,59 @@ TEST_CASE("Pause: Client räumt Zeitanfragen einmal je Reise ab, nicht in der er
     CHECK_FALSE(Cleanup.Due(World + 2, 70));
 }
 
+// opt-boss-tafel-client: Die Abschlusstafel des Hosts pausiert die Welt (Pauser repliziert), der Client hat dabei keine eigene
+// Zeitanfrage und kein offenes Pausemenü (gemessen 19.11. und 21.11.2026).
+TEST_CASE("Pause: Hinweis beim Client, solange nur der Host die Welt anhält")
+{
+    RemotePauseNotice Notice;
+    CHECK_FALSE(Notice.Update(true, false, false, World, 0));  // Welt läuft
+    CHECK_FALSE(Notice.Update(true, true, false, World, 100)); // Pause beginnt, Wartezeit
+    CHECK_FALSE(Notice.Update(true, true, false, World, 100 + RemotePauseNoticeDelayMs - 1));
+    CHECK(Notice.Update(true, true, false, World, 100 + RemotePauseNoticeDelayMs));
+    CHECK(Notice.Update(true, true, false, World, 60000)); // bleibt, solange der Host die Tafel offen hat
+    CHECK_FALSE(Notice.Update(true, false, false, World, 60100)); // Host hat geschlossen: sofort weg
+    // Die nächste Pause wartet wieder.
+    CHECK_FALSE(Notice.Update(true, true, false, World, 60200));
+    CHECK(Notice.Update(true, true, false, World, 60200 + RemotePauseNoticeDelayMs));
+}
+
+TEST_CASE("Pause: kein Hinweis bei eigener Pause, kurzer Pause, ohne Verbindung oder ohne Welt")
+{
+    RemotePauseNotice Notice;
+    // Eigenes Pausemenü oder eigene Zeitanfrage (etwa Rundenübersicht): Der Client sieht selbst, warum die Welt steht.
+    CHECK_FALSE(Notice.Update(true, true, true, World, 0));
+    CHECK_FALSE(Notice.Update(true, true, true, World, 5000));
+    // Schließt der Client sein Menü, während der Host weiter pausiert, beginnt die Wartezeit erst dann.
+    CHECK_FALSE(Notice.Update(true, true, false, World, 5100));
+    CHECK(Notice.Update(true, true, false, World, 5100 + RemotePauseNoticeDelayMs));
+    // Öffnet er es wieder, ist der Hinweis sofort weg.
+    CHECK_FALSE(Notice.Update(true, true, true, World, 7000));
+    // Kurze Pause unter der Wartezeit zeigt nichts.
+    RemotePauseNotice Short;
+    CHECK_FALSE(Short.Update(true, true, false, World, 0));
+    CHECK_FALSE(Short.Update(true, false, false, World, 500));
+    CHECK_FALSE(Short.Update(true, true, false, World, 900));
+    CHECK_FALSE(Short.Update(true, true, false, World, 1500)); // zählt ab 900, nicht ab 0
+    // Host oder getrennt, und Welt nicht lesbar.
+    RemotePauseNotice Off;
+    CHECK_FALSE(Off.Update(false, true, false, World, 0));
+    CHECK_FALSE(Off.Update(false, true, false, World, 9000));
+    CHECK_FALSE(Off.Update(true, true, false, 0, 9000));
+    CHECK_FALSE(Off.Update(true, true, false, 0, 19000));
+}
+
+TEST_CASE("Pause: Weltwechsel und Trennung nehmen den Hinweis weg")
+{
+    RemotePauseNotice Notice;
+    CHECK_FALSE(Notice.Update(true, true, false, World, 0));
+    CHECK(Notice.Update(true, true, false, World, RemotePauseNoticeDelayMs));
+    // Neue Welt, dort steht die Zeit ebenfalls (Laden): Wartezeit beginnt neu.
+    CHECK_FALSE(Notice.Update(true, true, false, World + 1, RemotePauseNoticeDelayMs + 10));
+    CHECK(Notice.Update(true, true, false, World + 1, 2 * RemotePauseNoticeDelayMs + 10));
+    CHECK_FALSE(Notice.Update(false, true, false, World + 1, 2 * RemotePauseNoticeDelayMs + 20)); // Verbindung weg
+    CHECK_FALSE(Notice.Update(true, true, false, World + 1, 2 * RemotePauseNoticeDelayMs + 30));  // wieder da: neu warten
+}
+
 TEST_CASE("Pause: Abräumen gibt nach 30 s ohne Manager auf, eine nicht lesbare Welt ist kein Wechsel")
 {
     TravelCleanup Cleanup;
