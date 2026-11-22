@@ -18,6 +18,17 @@ BOOL CALLBACK FindOverlay(HWND Window, LPARAM Result)
     return TRUE;
 }
 
+BOOL CALLBACK FindNotice(HWND Window, LPARAM Result)
+{
+    DWORD Process = 0;
+    GetWindowThreadProcessId(Window, &Process);
+    wchar_t Class[64]{};
+    GetClassNameW(Window, Class, 64);
+    if (Process == GetCurrentProcessId() && std::wstring(Class) == L"DDCoop.Notice")
+        *reinterpret_cast<HWND*>(Result) = Window;
+    return TRUE;
+}
+
 HWND WaitForOverlay()
 {
     for (int i = 0; i < 100; ++i)
@@ -132,11 +143,30 @@ TEST_CASE("Native overlay lifecycle works without game SDK, Steam, focus changes
     UI::Overlay().Publish(Status);
     SendMessageW(Window, WM_TIMER, 1, 0);
     CHECK(IsWindowEnabled(GetDlgItem(Window, 106)));
+    // Hinweisfenster (opt-boss-tafel-client): nie aktivierbar, Klicks gehen durch, ohne Spielfenster bleibt es verborgen.
+    HWND Notice = nullptr;
+    EnumWindows(FindNotice, reinterpret_cast<LPARAM>(&Notice));
+    REQUIRE(Notice != nullptr);
+    const LONG_PTR NoticeStyle = GetWindowLongPtrW(Notice, GWL_EXSTYLE);
+    CHECK((NoticeStyle & WS_EX_NOACTIVATE) != 0);
+    CHECK((NoticeStyle & WS_EX_TRANSPARENT) != 0);
+    CHECK((NoticeStyle & WS_EX_TOOLWINDOW) != 0);
+    CHECK(SendMessageW(Notice, WM_NCHITTEST, 0, 0) == HTTRANSPARENT);
+    CHECK(SendMessageW(Notice, WM_MOUSEACTIVATE, 0, 0) == MA_NOACTIVATE);
+    const HWND ForegroundBefore = GetForegroundWindow();
+    UI::Overlay().PublishNotice("Der Host hat das Spiel angehalten");
+    SendMessageW(Window, WM_TIMER, 1, 0);
+    CHECK_FALSE(IsWindowVisible(Notice)); // Der Testprozess hat kein Spielfenster.
+    CHECK(GetForegroundWindow() == ForegroundBefore);
+    UI::Overlay().PublishNotice("");
+    SendMessageW(Window, WM_TIMER, 1, 0);
+    CHECK_FALSE(IsWindowVisible(Notice));
     UI::Overlay().Bind({});
     SendMessageW(Window, WM_CLOSE, 0, 0);
     CHECK(IsWindow(Window)); // Closing hides, does not stop the game's message loop.
     UI::Stop();
     CHECK_FALSE(IsWindow(Window));
+    CHECK_FALSE(IsWindow(Notice));
     UI::Stop();
     UI::Start();
     REQUIRE(WaitForOverlay() != nullptr);

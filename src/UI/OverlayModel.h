@@ -42,6 +42,8 @@ struct OverlaySnapshot
     bool HasBackend = false;
     bool Pending = false;
     std::string Diagnostics = "Desync: wartet auf Kontrollkanal/Missionswelt";
+    // Hinweis über dem Spielbild, unabhängig von F8. Leer: kein Hinweis.
+    std::string Notice;
 };
 
 // No SDK or engine pointers. Producer publishes copied values; actions only run in Dispatcher::Drain.
@@ -53,6 +55,8 @@ public:
     void Bind(ActionHandler Handler);
     void Publish(OverlayStatus Status);
     void PublishDiagnostics(std::string Text);
+    // Thread-sicher, höchstens 256 Bytes. Der Hinweis hängt weder an Lobby-Updates noch an der Sichtbarkeit des Statusfensters.
+    void PublishNotice(std::string Text);
     OverlaySnapshot Snapshot() const;
     bool Submit(LobbyRequest Request);
     // Dev-Tab: merkt sich den Knopf (Bit 1 << Wert), nur im Zustand Playing. Gelesen wird im Game-Thread-Takt.

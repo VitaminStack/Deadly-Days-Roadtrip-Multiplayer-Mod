@@ -3885,6 +3885,47 @@ Offsets: [Boss-Parzelle](OFFSETS.md#boss-parzelle-endboss-spawn). Lesewerkzeug: 
 - **Nicht geprüft:** zwei PCs, die Karten `MGP_Burger_Boss_City` und `MGP_HQ8_Boss` (HQ-Endboss nach drei Bossen,
   `NumBossesBeforeEndBoss` 3), ein echter Kampf ohne `!bossdmg`, eine Niederlage im Bosskampf und der Endlosmodus.
 
+### Hinweis beim Client, wenn der Host die Welt anhält (`opt-boss-tafel-client`)
+
+Stand 21.11.2026, Build `26786272`, ein PC mit zwei Instanzen (Mod und Spike, Lobby über den Tunnel der Mod, Godmode), Kartenprofil
+`MGP_Burger_Boss_Nature`, alles ohne Maus und Tastatur. Werte mit `tools/spike/pause_state.py`, das Hinweisfenster über die
+Fensterliste des Client-Prozesses (Klasse `DDCoop.Notice`, Bild per `PrintWindow` nur aus diesem Fenster).
+
+- **[Belegt] Zustand des Clients während der Tafel.** Der Host hält eine Zeitanfrage (`WP_EndGameUnlockSummaryPanel_C`,
+  Priorität 1000, Pause), sein `PauserPlayerState` repliziert. Der Client hat dabei 0 Zeitanfragen, kein offenes Pausemenü und keine
+  UI-Sitzung. Derselbe Zustand entsteht bei jeder Pause, die nur der Host hält (geprüft mit dem Konsolenbefehl `pause` beim Host).
+- **[Belegt] Die Tafel öffnet beim Einsammeln, nicht beim Tod.** Der tote Boss lässt `BP_StoryItem_BASE_C` (und `BP_MemoDrop_C`)
+  fallen. Stand die Host-Figur abseits, kam in zwei geprüften Läufen bis 12 s nach dem Tod keine Tafel und keine Pause; nach
+  `!shop to <x> <y>` auf den Ort des Teils öffnete sie innerhalb von 7 s (ein Lauf). **[Vermutung]** Die Angabe „rund 3 s nach dem
+  Bosstod“ unten galt für eine Figur neben dem Boss, die das Teil gleich einsammelt.
+- **Warum nicht die Tafel selbst.** Der Client hat eine eigene Instanz, aber sie ist nicht anzeigbar, ohne dass er eigene Autorität
+  bekäme: Die Klasse pausiert, solange sie offen ist (`pause_while_open`), sie bräuchte also eine eigene Zeitanfrage des Clients und
+  fünf- bis sechsmal „Fortsetzen“ von ihm, und ihr Inhalt (`DisplaySummary`, 168 Byte Parameter) kommt aus dem Fortschritt des
+  Hosts. Ein natives HUD-Element für freien Text fand sich nicht: `TimedMessagePopup.SetMessage(Text, Dauer)` gibt es nur im
+  Inventar-Panel (`UpperWarningMessage`, `LowerWarningMessage`), `PopupSubsystem` und `NewUnlockMessageSubsystem` öffnen Panels mit
+  Knöpfen.
+- **Umsetzung, alles lokal, keine Nachricht, kein Wire-Format.** `Sync::Pause::RemotePauseNotice` (`PauseState.h`) entscheidet
+  allein aus dem replizierten Zustand: Welt pausiert (Pauser gesetzt oder Zeitfaktor 0), aber weder eigenes Pausemenü noch eigene
+  Zeitanfrage (`Game::Pause::ActiveTimeRequests`, nur gelesen) noch eine eigene offene Auswahl (Airdrop oder Belohnung, die die Mod
+  dem Client selbst zeigt, `Game::Rewards::ClientReadyState`); dort sieht der Client sein Panel und muss selbst wählen. Nach 1 s zeigt das Overlay der Mod „Der Host hat das Spiel
+  angehalten“ in einem eigenen kleinen Fenster oben in der Mitte des Spielbilds (`src/UI`, unabhängig von F8, nie aktivierbar,
+  Klicks gehen ans Spiel). Der Client fordert keine Zeit an und drückt nichts; Ende der Pause, Weltwechsel und Trennung nehmen den
+  Hinweis sofort weg. Der Hinweis gilt für jede Pause des Hosts (Tafel, Pausemenü, Airdrop-Auswahl), nicht nur für den Boss.
+- **[Belegt] Messung.** Tafel offen: Hinweis beim Client sichtbar (325 × 37 bei 237/90 im Spielbild 800 × 450, Text wie oben),
+  beim Host nie; Client durchgehend 0 Zeitanfragen; das Hinweisfenster war nie im Vordergrund. Nach sechsmal „Fortsetzen“ beim Host
+  (Knopf-Ereignis per `!shop call`) Pauser bei beiden leer und Hinweis weg. Log des Clients: „Pause: Hinweis beim Client, der Host
+  hält die Weltzeit an“ 1,0 s nach „Weltzeit angehalten“, „Hinweis beim Client weg“ im selben Takt wie „Weltzeit läuft“. Dasselbe
+  mit `pause` in der Konsole des Hosts. Keine Abstürze.
+- **Grenzen.** Der Hinweis ist ein Fenster über dem Spiel, kein HUD-Element: nur im Fenster- und randlosen Modus, nicht im
+  exklusiven Vollbild, und nicht mit `overlay_enabled=false`. Ein Bild des Spielfensters (`PrintWindow`) enthält ihn nicht. Er sagt
+  nicht, warum der Host pausiert.
+- **[Belegt] Level-up pausiert nicht.** Drei Level-ups in Folge (Dev-Knopf „Spawn XP“ beim Client per Fensternachricht, Level 4
+  bis 7): bei Host und Client kein Pauser, keine Zeitanfrage, keine UI-Sitzung, kein Hinweis.
+- **Nicht geprüft:** zwei PCs, die Tafel über die echte Route, eigenes Pausemenü des Clients während einer Host-Pause und
+  Weltwechsel (beides nur Unit-Tests), eine offene Airdrop-Auswahl des Clients (Bedingung nur im Code, die Auswahl lässt sich ohne
+  Eingabe nicht öffnen), Pausemenü und Airdrop-Auswahl des Hosts (nur `pause` in der Konsole), andere
+  Bildschirmskalierung, Spielton (keine Audiositzung gefunden).
+
 ### Stillstand des Clients nach dem Bosstod (`boss-client-einfrieren`)
 
 Stand 19.11.2026, ein PC mit zwei Instanzen (Lobby über den Tunnel der Mod, Godmode), beide Builds (`26495302`, `26669225` über eine

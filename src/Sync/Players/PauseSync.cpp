@@ -5,8 +5,10 @@
 #include <random>
 #include "Core/Log.h"
 #include "Game/PauseAdapter.h"
+#include "Game/RewardAdapter.h"
 #include "Net/Net.h"
 #include "Sync/ControlDispatch.h"
+#include "Sync/Sync.h"
 
 // Pausemenü des Clients beim Host (pausen-sync), Ablauf in PauseState.h.
 namespace Sync
@@ -18,6 +20,9 @@ uint64_t NowMs()
     return static_cast<uint64_t>(
         std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
 }
+
+std::function<void(std::string)> NoticeSink;
+constexpr const char* RemotePauseText = "Der Host hat das Spiel angehalten";
 
 uint64_t RandomId()
 {
@@ -49,6 +54,8 @@ struct
     std::optional<Pause::ClientReporter> Reporter;
     std::optional<bool> LastOpen;
     Pause::TravelCleanup Cleanup;
+    Pause::RemotePauseNotice Notice;
+    bool NoticeShown = false;
     // Beide: zuletzt geloggter Zustand der Weltzeit, für den Nachweis gleicher Weltzeit im Log.
     std::optional<bool> WorldPaused;
 } P;
@@ -71,6 +78,17 @@ void LogTime(const char* What)
         Core::Log::Info("Pause: {}, Weltzeit {} Pauser {}", What, Time->Dilation, Time->Pauser);
     else
         Core::Log::Info("Pause: {}", What);
+}
+
+// Hinweis beim Client an- oder abschalten, nur bei Wechsel.
+void ShowNotice(bool Show)
+{
+    if (Show == P.NoticeShown)
+        return;
+    P.NoticeShown = Show;
+    if (NoticeSink)
+        NoticeSink(Show ? RemotePauseText : "");
+    LogTime(Show ? "Hinweis beim Client, der Host hält die Weltzeit an" : "Hinweis beim Client weg");
 }
 
 void TickHost(std::span<const Net::ControlMessage> Messages, uint64_t Now)
@@ -129,6 +147,14 @@ void TickClient(Net::Transport& Transport, uint64_t Now)
         LogTime(*Open ? "Pausemenü beim Client offen" : "Pausemenü beim Client geschlossen");
     if (Open)
         P.LastOpen = Open;
+    // Hinweis, solange nur der Host die Welt anhält. Nicht lesbar zählt wie eigene Pause: lieber kein Hinweis als ein falscher.
+    const auto Time = Game::Pause::ReadWorldTime();
+    const auto Requests = Game::Pause::ActiveTimeRequests();
+    const bool WorldPaused = Time && (Time->Pauser || Time->Dilation < 0.01f);
+    // Eine eigene offene Auswahl (Airdrop, Belohnung) zählt wie eine eigene Pause: Der Client sieht sein Panel und muss selbst wählen.
+    const bool OwnChoice = Game::Rewards::ClientReadyState().has_value();
+    const bool LocalHold = !Open || *Open || !Requests || *Requests > 0 || OwnChoice;
+    ShowNotice(P.Notice.Update(true, WorldPaused, LocalHold, Game::Pause::WorldKey(), Now));
     const auto Report = P.Reporter->Update(Value, Now);
     if (!Report)
         return;
@@ -159,5 +185,13 @@ void TickPause(std::span<const Net::ControlMessage> Messages)
         TickHost(Host ? Messages : std::span<const Net::ControlMessage>{}, Now);
     else if (Transport && Peer)
         TickClient(*Transport, Now);
+    // Kein Client mit Verbindung mehr: Der Hinweis darf nicht stehen bleiben.
+    if (Host || !Transport || !Peer)
+        ShowNotice(P.Notice.Update(false, false, false, 0, Now));
+}
+
+void BindNoticeSink(std::function<void(std::string)> Sink)
+{
+    NoticeSink = std::move(Sink);
 }
 }
