@@ -17,6 +17,7 @@
 namespace Sync
 {
 void ConfigureDesync(const Core::Config& Config, DiagnosticSink Diagnostics);
+void TickSessionLog(Net::Transport* Transport);
 
 namespace
 {
@@ -309,6 +310,10 @@ void Start(const Core::Config& Config, DiagnosticSink Diagnostics)
             ReceiveTelegraphs(Messages);
             const Game::GameThread::SlowScope Watch("Sync-Schadenszahlen");
             ReceiveDamageNumbers(Messages, true);
+        }
+        {
+            const Game::GameThread::SlowScope Watch("Sync-Protokoll");
+            TickSessionLog(Transport.get());
         }
         DispatchControls(Messages, Timed("Sync-Fortschritt", TickProgress), Timed("Sync-Desync", TickDesync),
                          Timed("Sync-Belohnung", TickReward), Timed("Sync-Karte", TickMap), Timed("Sync-Pause", TickPause),

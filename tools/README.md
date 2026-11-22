@@ -306,6 +306,7 @@ Bauen und Testen des Spikes, die Anleitung steht in [docs/TESTING.md](../docs/TE
 | `guidcache.py` | NetGUID-Cache einer Instanz mit Pfad, Zustand und Flags, filterbar nach Pfad |
 | `pause_state.py` | Pausen, Zeitrequests und UI-Sitzungen je Instanz |
 | `blueprint_refs.py` | Referenzen geladener Blueprints, kein Decompiler |
+| `Collect-Logs.ps1` | Packt nach einem Live-Test Mod-Logs, Absturzberichte und Absturzereignisse der letzten Stunden (`-Hours`, Standard 12) in ein Zip unter `research/local/livetest` |
 | `crashes.py` | Absturzberichte der Testinstanzen mit RVAs, filterbar mit `--latest`, `--role` und `--session` |
 | `gamethread.py` | Wo der Game Thread bei einem Hänger steht |
 | `callers.py` | Direkte Aufrufer einer Funktion in der Exe |

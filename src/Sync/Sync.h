@@ -12,5 +12,7 @@ using DiagnosticSink = std::function<void(std::string)>;
 void BindDevSource(std::function<uint32_t()> Source);
 // Hinweistext für den Spieler, leer nimmt ihn weg. Bisher nur: Der Host hält die Weltzeit an (opt-boss-tafel-client).
 void BindNoticeSink(std::function<void(std::string)> Sink);
+// live-protokoll: liefert die seit dem letzten Aufruf gesetzten Testermarken (F9), die Zahl der Drücke.
+void BindMarkSource(std::function<uint32_t()> Source);
 void Start(const Core::Config& Config = {}, DiagnosticSink Diagnostics = {});
 }

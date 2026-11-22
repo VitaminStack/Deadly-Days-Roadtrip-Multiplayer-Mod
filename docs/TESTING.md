@@ -470,6 +470,23 @@ Ohne Tunnel verbindet `-Role Client -Peer <Adresse>:7777` direkt, dafür muss de
   Auf zwei PCs vergleicht man Inventare und Zustand über Bildschirmfotos (`Game-Input.ps1 <Rolle> shot`) und die Logs.
 - Stürzt eine Seite ab, wertet sie `crashes.py --session` auf ihrem eigenen PC aus und schickt das Ergebnis der anderen.
 
+### Live-Protokoll (live-protokoll)
+
+Damit sich Probleme eines Live-Tests im Nachhinein zuordnen lassen, schreiben beide Seiten seit dem 22.11.2026 zusätzlich (nur lokal,
+keine Nachricht, kein Format):
+
+- `Mod gestartet, Mod-Version N, Spiel-Build B` beim Start.
+- `Zustand (Weltwechsel|Takt): …` bei jedem Kartenwechsel und alle 60 s: Rolle, Karte, Spielerzahl, Zeitfaktor und Pause,
+  Zeitanfragen des `UTimescaleManager`, eigener Schrott, Tank (aktuell/Maximum), Ping, Verbindungen und abgelehnte
+  Kontrollnachrichten. Beide Logs nebeneinander zeigen, wann Tank, Schrott oder Zeitanfragen auseinanderlaufen. Der Client liest
+  Tank und Schrott erst, wenn der GameState der Mission repliziert ist; bis dahin `-`.
+- `MARKE n: …` mit derselben Zustandszeile, wenn der Tester **F9** drückt (Spiel- oder Overlay-Fenster im Vordergrund, kurzer Ton).
+
+Nach dem Test packt `tools/spike/Collect-Logs.ps1` Mod-Logs, Absturzberichte der Testinstanzen und Absturzereignisse ohne Bericht
+(Windows-Ereignis 1000) in ein Zip unter `research/local/livetest`. So fehlen die Absturzdaten des Hosts nicht mehr, die sonst auf
+seinem PC unter `Saved/Crashes` liegen bleiben. Beleg 22.11.2026, ein PC, zwei Instanzen, `26786272`: Zeilen auf beiden Seiten bei
+Hauptmenü, MetaBase und Mission, eine Zeile je Minute, Marke über F9 beim Client. Checkliste: [Live-Test](LIVETEST_CHECKLISTE.md).
+
 ## Abstürze auswerten
 
 ```bash

@@ -12,6 +12,7 @@
 #include "Game/PatchPolicy.h"
 #include "Game/PatchRuntime.h"
 #include "Game/Reflection.h"
+#include "Game/SessionProbe.h"
 
 namespace Game::Patches
 {
@@ -162,5 +163,33 @@ void TickBusBar(NetRole Role)
     if (Active || B.Shown)
         SetProgress(Widget, Required > 0 ? Elapsed / Required : 0.0);
     B.Elapsed = Elapsed;
+}
+}
+
+namespace Game::Probe
+{
+// live-protokoll: Tank für die Zustandszeile, auf beiden Seiten. Eigener Zeiger, damit der Busbalken des Clients unberührt bleibt.
+std::optional<Fuel> ReadFuel()
+{
+    using namespace Game::Patches;
+    static uintptr_t State = 0, Meter = 0;
+    const uintptr_t World = CurrentWorld();
+    const uintptr_t Now = World ? Pointer(World + Offsets::UWorld::GameState) : 0;
+    if (!Now || !Objects::IsA(Now, "DDMissionGameState"))
+        return std::nullopt;
+    if (Now != State || !Alive(Meter))
+    {
+        State = Now;
+        Meter = 0;
+        for (int32_t i = 0, Count = Objects::Count(); i < Count && !Meter; ++i)
+            if (const uintptr_t Object = Objects::At(i);
+                Object && Pointer(Object + Offsets::UObject::Outer) == Now && Objects::IsA(Object, "FuelMeter"))
+                Meter = Object;
+    }
+    const auto Max = Meter ? Memory::Read<float>(Meter + FuelMax) : std::nullopt;
+    const auto Current = Meter ? Memory::Read<float>(Meter + FuelCurrent) : std::nullopt;
+    if (!Max || !Current)
+        return std::nullopt;
+    return Fuel{*Current, *Max};
 }
 }

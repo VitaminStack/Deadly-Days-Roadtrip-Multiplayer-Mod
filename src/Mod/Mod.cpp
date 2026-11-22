@@ -18,6 +18,7 @@
 #include "Game/Patches.h"
 #include "Game/SaveRedirect.h"
 #include "Net/Net.h"
+#include "Net/Protocol.h"
 #include "Sync/Sync.h"
 #include "UI/UI.h"
 
@@ -68,13 +69,14 @@ void Start()
     Mod::Lobby::Install();
     Mod::Control::Install();
     Sync::BindDevSource([] { return UI::Overlay().TakeDevRequests(); });
+    Sync::BindMarkSource([] { return UI::TakeMarks(); });
     Sync::BindNoticeSink([](std::string Text) { UI::Overlay().PublishNotice(std::move(Text)); });
     Sync::Start(Config, [](std::string Text) { UI::Overlay().PublishDiagnostics(std::move(Text)); });
     Started = true;
     Game::Start();
     Net::Start();
     UI::Start();
-    Core::Log::Info("Mod gestartet, Spiel-Build {}", *Build);
+    Core::Log::Info("Mod gestartet, Mod-Version {}, Spiel-Build {}", Net::Protocol::ModVersion, *Build);
 }
 }
 
