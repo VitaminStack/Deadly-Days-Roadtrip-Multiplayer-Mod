@@ -16,6 +16,7 @@ struct OverlayModel::SharedState
     bool Pending = false;
     uint32_t DevMask = 0;
     std::string Diagnostics = "Desync: wartet auf Kontrollkanal/Missionswelt";
+    std::string Notice;
 };
 
 OverlayModel::OverlayModel(Core::Dispatcher& InDispatcher)
@@ -43,7 +44,13 @@ void OverlayModel::Publish(OverlayStatus Status)
 OverlaySnapshot OverlayModel::Snapshot() const
 {
     const std::lock_guard Lock(State->Mutex);
-    return { State->Status, static_cast<bool>(State->Handler), State->Pending, State->Diagnostics };
+    return { State->Status, static_cast<bool>(State->Handler), State->Pending, State->Diagnostics, State->Notice };
+}
+
+void OverlayModel::PublishNotice(std::string Text)
+{
+    const std::lock_guard Lock(State->Mutex);
+    State->Notice = Text.substr(0, 256);
 }
 
 void OverlayModel::PublishDiagnostics(std::string Text)

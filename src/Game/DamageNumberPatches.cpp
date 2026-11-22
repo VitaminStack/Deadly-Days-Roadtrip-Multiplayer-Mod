@@ -16,6 +16,8 @@
 #include "Core/Log.h"
 #include "Game/CodeCave.h"
 #include "Game/DamageNumberAdapter.h"
+#include "Game/EnemySoundAdapter.h"
+#include "Game/EnemySoundPolicy.h"
 #include "Game/Memory.h"
 #include "Game/NetworkObjects.h"
 #include "Game/Objects.h"
@@ -36,6 +38,7 @@ constexpr uintptr_t MemoryFree = 0x12F85E0;          // FMemory::Free, Hash von 
 constexpr uintptr_t InfoDamage = 0x00;
 constexpr uintptr_t InfoDamagedActor = 0x04;
 constexpr uintptr_t InfoDamagedAvatar = 0x0C;
+constexpr uintptr_t InfoDamageCauser = 0x1C; // TWeakObjectPtr, beim Projektiltreffer das Projektil
 constexpr uintptr_t InfoFlags = 0x48;
 constexpr uintptr_t InfoTagMap = 0x50;
 constexpr uintptr_t InfoTagHash = 0x90;
@@ -64,6 +67,7 @@ struct Pending
     float Damage = 0;
     uint8_t Flags = 0;
     float X = 0, Y = 0, Z = 0;
+    uintptr_t ImpactCauser = 0; // opt-gegner-sound: Projektil, das für diesen Treffer seinen Einschlagsound gespielt hat
 };
 
 // Nur Game Thread: Der Handler läuft im Schadensweg der Engine auf dem Game Thread, Take aus dem Sync-Takt ebenso.
@@ -75,7 +79,7 @@ uintptr_t RecordWorld = 0;
 // Zähler für den Spieltest, alle 10 Sekunden ins Log, wenn sich etwas geändert hat.
 struct Counters
 {
-    uint64_t Calls = 0, Recorded = 0, Overflow = 0, NoGuid = 0, Taken = 0, Sent = 0, Remote = 0, SameTick = 0; // Host
+    uint64_t Calls = 0, Recorded = 0, Overflow = 0, NoGuid = 0, Taken = 0, Sent = 0, Remote = 0, SameTick = 0, Impact = 0, ImpactRepeat = 0; // Host
     uint64_t SendFailed = 0, NoPeer = 0, EncodeFailed = 0, NoTarget = 0; // Host
     uint64_t Received = 0, Shown = 0, Unknown = 0, Dying = 0, NoController = 0; // Client
     uint64_t Bundled = 0, DecodeFailed = 0, RevisionGap = 0, WrongRole = 0; // Client
@@ -93,8 +97,9 @@ void LogCounters(bool Host)
     if (Host)
         Core::Log::Info("Schadenszahlen Host: Handler {} (fremder Controller {}, ohne Ziel {}), gemerkt {} (gleiches Ziel und Schaden "
                         "im Takt {}), übergeben {}, gesendet {}, Senden abgelehnt {}, ohne Mitspieler {}, Paket ungültig {}, "
-                        "ohne NetGUID {}, Puffer voll {}", Count.Calls, Count.Remote, Count.NoTarget, Count.Recorded, Count.SameTick,
-                        Count.Taken, Count.Sent, Count.SendFailed, Count.NoPeer, Count.EncodeFailed, Count.NoGuid, Count.Overflow);
+                        "ohne NetGUID {}, Puffer voll {}, mit Einschlagsound {} (dasselbe Projektil im Takt erneut {})", Count.Calls, Count.Remote, Count.NoTarget, Count.Recorded,
+                        Count.SameTick, Count.Taken, Count.Sent, Count.SendFailed, Count.NoPeer, Count.EncodeFailed, Count.NoGuid,
+                        Count.Overflow, Count.Impact, Count.ImpactRepeat);
     else
         Core::Log::Info("Schadenszahlen Client: empfangen {} (davon im Sammelabruf {}), an Handler {}, Ziel unbekannt {}, "
                         "Ziel stirbt {}, ohne Controller {}, falsche Rolle {}, Nachricht unlesbar {}, Nachrichten fehlen {}",
@@ -163,6 +168,22 @@ void Record(const uint8_t* Info)
         Entry.X = static_cast<float>((*Location)[0]);
         Entry.Y = static_cast<float>((*Location)[1]);
         Entry.Z = static_cast<float>((*Location)[2]);
+    }
+    // opt-gegner-sound: Treffer eines Projektils mit Einschlagsound markieren, je Projektil und Takt einmal (Flächenschaden).
+    const auto Causer = Memory::Read<std::array<int32_t, 2>>(reinterpret_cast<uintptr_t>(Info) + InfoDamageCauser);
+    if (const uintptr_t Projectile = Causer ? ResolveWeak((*Causer)[0], (*Causer)[1]) : 0)
+    {
+        bool Marked = false;
+        for (size_t i = 0; i < RingCount && !Marked; ++i)
+            Marked = Ring[i].ImpactCauser == Projectile;
+        if (Marked)
+            ++Count.ImpactRepeat;
+        const bool Sounding = !Marked && ProjectileUsesImpactSound(Projectile);
+        if (ImpactSoundReported(Sounding && Objects::IsA(Object, "EnemyBase"), Sounding, Sounding, Sounding, Marked))
+        {
+            Entry.ImpactCauser = Projectile;
+            ++Count.Impact;
+        }
     }
     // Diagnose: Läuft der Handler für einen Treffer zweimal (zwei Aufrufstellen im Schadenspfad), sähe der Client ihn doppelt.
     for (size_t i = 0; i < RingCount; ++i)
@@ -251,7 +272,8 @@ std::vector<DamageNumberHit> TakeDamageNumberHits()
                 ++Count.Overflow;
                 continue;
             }
-            Hits.push_back({Guid->second, Entry.Damage, Entry.Flags, Entry.X, Entry.Y, Entry.Z});
+            Hits.push_back({Guid->second, Entry.Damage, Entry.Flags, Entry.X, Entry.Y, Entry.Z,
+                            static_cast<uint8_t>(Entry.ImpactCauser ? DamageHitImpactSound : 0)});
         }
         RingCount = 0;
         Count.Taken += Hits.size();
@@ -289,7 +311,7 @@ void ShowDamageNumbers(std::span<const DamageNumberHit> Hits, bool Bundled)
     const uintptr_t Controller = Hits.empty() ? 0 : LocalController();
     if (!Hits.empty() && !Controller)
         Count.NoController += Hits.size();
-    if (Controller)
+    if (!Hits.empty())
     {
         std::unordered_map<uint64_t, uintptr_t> Objects;
         if (const auto Entries = ReadNetworkObjects())
@@ -298,13 +320,21 @@ void ShowDamageNumbers(std::span<const DamageNumberHit> Hits, bool Bundled)
         for (const auto& Hit : Hits)
         {
             const auto Found = Objects.find(Hit.Guid);
-            if (Found == Objects.end())
+            int32_t Index = -1, Serial = 0;
+            const bool Known = Found != Objects.end();
+            const bool Alive = Known && Usable(Found->second, Index, Serial);
+            // opt-gegner-sound: Der Sound hängt nicht an der Zahl; ohne Ziel spielt er am gemeldeten Ort des Hosts.
+            if (Hit.Extra & DamageHitImpactSound)
+                PlayEnemyImpactSound(Alive ? Found->second : 0, Controller ? Controller : Patches::CurrentWorld(), Hit.X, Hit.Y,
+                                     Hit.Z);
+            if (!Controller)
+                continue;
+            if (!Known)
             {
                 ++Count.Unknown;
                 continue;
             }
-            int32_t Index = -1, Serial = 0;
-            if (!Usable(Found->second, Index, Serial))
+            if (!Alive)
             {
                 ++Count.Dying;
                 continue;
