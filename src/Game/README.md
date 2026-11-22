@@ -17,6 +17,7 @@ Einzige Schicht mit Spielzugriff. Enthält Adapter auf Spielklassen und später 
 | `DesyncAdapter.h` / `DesyncSnapshot.h` | Lesende Diagnosebilder, kanonische HP-/Inventar-Hashes, explizit unbekannte Felder; [Messumfang und offene Abnahme](../../docs/DESYNC.md) |
 | `Objects.h` | Suche im Objekt-Array (`FindInstance`, `FindObject`, `IsA`) und Aufruf über `ProcessEvent` |
 | `TutorialAdapter.h` | Schaltet die Tutorial-Hinweise als Host und Client ab, Prüfung einmal je Sekunde |
+| `ThreatAdapter.h` / `ThreatPolicy.h` | `opt-bedrohung-sound`: Host liest die Bedrohungsstufe, Client zeigt sie über das Ereignis seiner Stoppuhr (Zahl, Animation, Sound nativ); reine Regeln ohne Spiel getestet. Siehe [Bedrohungsstufe](../../docs/GAME_ANALYSIS.md#bedrohungsstufe-beim-client-opt-bedrohung-sound) |
 | `TelemetryAdapter.h` | Schaltet im Mod-Betrieb Balance-Telemetrie und automatische Berichte über beschädigte Spielstände ab und sperrt die Telemetrie-Adresse über `Core::ReportHosts` |
 | `SaveRedirect.h` / `SavePaths.h` | Trennt die Spielstände: Datei-APIs von Windows leiten alles unter `Saved\SaveGames` nach `Saved\SaveGames_DDCoop` um, ohne Spiel-Offsets; reine Pfadlogik in `SavePaths.h`, ohne Spiel getestet. Siehe [Spielstände](../../docs/GAME_ANALYSIS.md#spielstände-der-mod-mod-saves) |
 | `Patches.h` | Die Spielfehler-Fixes für eine Mission zu zweit, siehe [Patches](#patches) |

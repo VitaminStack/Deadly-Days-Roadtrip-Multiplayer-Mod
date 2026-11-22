@@ -343,6 +343,20 @@ Hände wann nachladen und mit welchem Sound. Munition und Nachladezeit entscheid
 Länge 0 heißt Standardsound der Hände. Der Client holt `0xB00` in jedem Takt ab. Unbekannte Hände werden übersprungen, ein
 unbekannter Name spielt den Standardsound. Ein verlorenes Paket heißt nur ein fehlender Sound, keine Wiederholung, keine Antwort.
 
+## Bedrohungsstufe (Mod-Kompatibilität 15)
+
+Aufgabe `opt-bedrohung-sound`, Befund in [Bedrohungsstufe beim Client](GAME_ANALYSIS.md#bedrohungsstufe-beim-client-opt-bedrohung-sound),
+Code in `src/Game/ThreatAdapter.cpp` und `src/Sync/World/ThreatState.h`. Mod-Version 15, weil ein Client mit älterer Version die
+Nachricht nicht kennt. Die Stufe der Komponente `ThreatLevel` repliziert nicht (beim Client −1), ihr Delegate feuert nur beim Host.
+Lokal bleiben Zahl, Animation und Sound: Der Client ruft das Ereignis `CustomEvent(Old, New)` seiner eigenen Stoppuhr
+(`WBP_Stopwatch_C`) auf. Geteilt wird nur die Stufe. Es entscheidet der Host; die Komponente des Clients wird nicht beschrieben.
+
+`0xC00` Host an Client, in einer Mission bei jeder Änderung und als Wiederholung alle 2 s: Stufe (`int32`, Little-Endian, 0 bis
+100000), genau 4 Bytes. Andere Längen und Werte werden abgelehnt. Der Client holt `0xC00` in jedem Takt ab und nimmt den neuesten
+Stand. Der erste Stand einer Welt läuft als `(N, N)` und setzt nur die Zahl, jede spätere Änderung als `(alt, neu)`; ein
+unveränderter Stand tut nichts. Fehlt die Stoppuhr noch, bleibt der Stand offen, die Wiederholung holt ihn nach, ebenso ein
+verlorenes Paket und einen späten Beitritt. Keine Antwort.
+
 ## Bisher geprüft (05.11.2026, Kontrollkanal vor Diagnoseerweiterung)
 
 - Build und alle Tests bestanden, darunter 24 Net-Testfälle: binäre UE-Pakete in
