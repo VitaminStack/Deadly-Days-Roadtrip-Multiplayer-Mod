@@ -348,7 +348,7 @@ void Refresh(WindowState& State, HWND Window)
     if (Focused && Down && !State.KeyDown)
         UI::SetVisible(!Visible.load());
     State.KeyDown = Down;
-    // live-protokoll: F9 setzt eine Testermarke im Log (Zustandszeile beider Seiten zum Zeitpunkt eines Fundes). Kurzer Ton als
+    // live-protokoll: F9 setzt eine Testermarke im eigenen Log (Zustandszeile dieser Seite zum Zeitpunkt eines Fundes). Kurzer Ton als
     // Bestätigung, das Overlay bleibt unberührt.
     const bool MarkNow = (GetAsyncKeyState(VK_F9) & 0x8000) != 0;
     if (Focused && MarkNow && !State.MarkDown)

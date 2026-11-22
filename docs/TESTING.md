@@ -481,6 +481,7 @@ keine Nachricht, kein Format):
   Kontrollnachrichten. Beide Logs nebeneinander zeigen, wann Tank, Schrott oder Zeitanfragen auseinanderlaufen. Der Client liest
   Tank und Schrott erst, wenn der GameState der Mission repliziert ist; bis dahin `-`.
 - `MARKE n: …` mit derselben Zustandszeile, wenn der Tester **F9** drückt (Spiel- oder Overlay-Fenster im Vordergrund, kurzer Ton).
+  Nur im eigenen Log; für einen Vergleich drücken beide. Die Zeiten im Log sind UTC.
 
 Nach dem Test packt `tools/spike/Collect-Logs.ps1` Mod-Logs, Absturzberichte der Testinstanzen und Absturzereignisse ohne Bericht
 (Windows-Ereignis 1000) in ein Zip unter `research/local/livetest`. So fehlen die Absturzdaten des Hosts nicht mehr, die sonst auf

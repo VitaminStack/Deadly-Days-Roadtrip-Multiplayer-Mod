@@ -8,8 +8,14 @@ Logzeile den Punkt belegt. Abgehakt wird erst nach der Auswertung der Logs; bis 
 Allgemeiner Ablauf: [Test auf zwei PCs](TESTING.md#test-auf-zwei-pcs). SteamIDs, Lobby-IDs und Logs nie ins Repo.
 
 **Grundregel:** Fällt etwas auf, sofort **F9** drücken (Spiel- oder Overlay-Fenster im Vordergrund, kurzer Ton). Das schreibt
-`MARKE n` mit dem Zustand beider Seiten ins eigene Log. Uhrzeit und Nummer der Marke im Chat nennen, ein Satz reicht. Bilder nur,
-wenn sich etwas nicht in Worten sagen lässt.
+`MARKE n` mit dem eigenen Zustand ins eigene Log, nicht in das der Gegenseite. Darum „F9“ im Chat rufen, dann drückt auch die
+andere Person, und beide notieren ihre Markennummer mit einem Satz. Die Markennummer ist der Bezug, nicht die Uhrzeit: Das Log
+schreibt UTC. Bilder nur, wenn sich etwas nicht in Worten sagen lässt. F9 ist im Spiel nach bisherigem Stand frei; löst es dort
+etwas aus, bitte melden.
+
+**Werte vergleichen:** Wo unten „gleich“ steht, drücken beide F9, und zwar außerhalb einer offenen Bearbeitung (Airdrop-Auswahl,
+Lager, Station). Während einer Bearbeitung zeigt der Client seine lokale Vorschau, und die Taktzeilen beider Seiten liegen bis zu
+60 s auseinander.
 
 ## Vor dem Termin, beide
 
@@ -38,12 +44,12 @@ wenn sich etwas nicht in Worten sagen lässt.
 |---|---|---|---|
 | Client läuft und sprintet | Laufanimation der Client-Figur passt beim Host zum Tempo; Ausdauerbalken beim Client wie beim Host | – | `opt-laufanimation-client`, `opt-ausdauerbalken` |
 | Beide laufen und zielen | Beim Client schauen beide Figuren in Lauf- und Zielrichtung | – | `opt-blickrichtung-client` |
-| Beide schießen und laden nach | Client hört Schuss- und Nachladesound **beider** Figuren | `Schadenszahlen Client: empfangen …` | `opt-waffen-sound`, `update-26786272-run` |
-| Gegner treffen | Client sieht Schadenszahlen eigener und fremder Treffer, Blut-Treffereffekte, Lebensleisten nach Schaden | – | `opt-schadenszahlen`, `opt-blut`, `update-26786272-run` |
+| Beide schießen und laden nach | Client hört Schuss- und Nachladesound **beider** Figuren | – | `opt-waffen-sound`, `update-26786272-run` |
+| Gegner treffen | Client sieht Schadenszahlen eigener und fremder Treffer, Blut-Treffereffekte, Lebensleisten nach Schaden | `Schadenszahlen Client: empfangen …` | `opt-schadenszahlen`, `opt-blut`, `update-26786272-run` |
 | Gegner greifen an | Client hört Treffer- und Angriffssounds etwa so oft wie der Host, ohne Doppel | – | `opt-gegner-sound` |
 | Bedrohungsstufe steigt | Client hört je Stufe einen Ton, Zahl unter der Stoppuhr wie beim Host | – | `opt-bedrohung-sound` |
-| Client sammelt Benzin, Schrott, Items | Je Objekt ein Sound; Schrottanzeige springt nicht | `Schrott=` in `Zustand` gleich auf beiden Seiten | `opt-item-sound`, `opt-schrott-anzeige` |
-| Client plündert ein Auto, nimmt Power-ups und Itemsäcke | Schrott und Benzin wie beim Host | `Tank=` und `Schrott=` gleich; Zähler „wieder gezeigt“ | `opt-loot-aufnahme-client` |
+| Client sammelt Benzin, Schrott, Items | Je Objekt ein Sound; Schrottanzeige springt nicht | beide F9: `Schrott=` gleich | `opt-item-sound`, `opt-schrott-anzeige` |
+| Client plündert ein Auto, nimmt Power-ups und Itemsäcke | Schrott und Benzin wie beim Host | beide F9: `Tank=` und `Schrott=` gleich; Zähler `wieder gezeigt` | `opt-loot-aufnahme-client` |
 | Level-up, danach Level-up-Kiste im Endbildschirm | Kein Schrott-Dauersound beim Client, Kiste ohne Soundfehler | – | `opt-levelup-sound` |
 | Ein abgeschaltetes Item (graues Symbol) | Beim Client gleich abgeschaltet wie beim Host | – | `update-26786272-run` |
 
@@ -53,26 +59,28 @@ wenn sich etwas nicht in Worten sagen lässt.
 |---|---|---|---|
 | Airdrop landet | Client hört den Landesound einmal, passend zum Aufschlag | – | `opt-airdrop-sound` |
 | Client legt die Belohnung auf ein gleiches Item (Aufwertung), bestätigt | Kein Klon, verbrauchte Items weg | **keine** Zeile `erneut aufgenommen, wieder entfernt` | `opt-airdrop-edit-ungueltig` |
-| Client zieht den Roboterarm und eine weitere Waffe in **einer** Bearbeitung in den Rucksack | Beide Seiten zeigen beide Waffen an der Figur | `Edit … übernommen, vollständig=true` (Host) | `client-roboterarm` |
-| Eine Kiste bleibt am Rundenende liegen | Im nächsten Level kommen wieder Airdrops | Host-Queue im Host-Log | `opt-airdrop-uebertrag` |
+| Client zieht den Roboterarm und eine weitere Waffe in **einer** Bearbeitung in den Rucksack | Beide Seiten zeigen beide Waffen an der Figur | Host: `Inventar lokal: Edit … übernommen, … vollständig=true` | `client-roboterarm` |
+| Eine Kiste bleibt am Rundenende liegen | Im nächsten Level kommen wieder Airdrops | Host: `Reward-Queue …` und `RewardQueue des … weitergeschaltet` | `opt-airdrop-uebertrag` |
 
 ## Rundenende und Lager
 
 | Tester tut | Muss sehen oder hören | Log belegt | Aufgabe |
 |---|---|---|---|
-| Tank voll, beide am Bus | Ladebalken der Abfahrt beim Client wie beim Host | `Busbalken: Abfahrt beim Client abgeleitet`; `Tank=120/120` | `opt-busbalken` |
+| Tank voll, beide am Bus | Ladebalken der Abfahrt beim Client wie beim Host | `Busbalken: Abfahrt beim Client abgeleitet`; `Tank=` aktuell gleich Maximum | `opt-busbalken` |
 | Client repariert ein kaputtes Item, legt es in den Rucksack, bestätigt | Am nächsten Tag ausgerüstet | – | `lager-handel-client` |
-| Client wertet auf und verkauft im Lager | Schrott beider Seiten gleich | `Schrott=` gleich | `update-26786272-run` |
-| **Ablehnung:** Client legt eine Reparatur an, nicht bestätigen. Host: `Send-Command.ps1 Host '!scrap -9999'`. Client bestätigt | Knopf geht aus, Ausgangsstand vollständig, neu bearbeiten und bestätigen geht, Host reist nicht allein weiter | `Host hat Edit … abgelehnt: …`, `Lager: Edit abgelehnt, Bereit zurückgenommen` | `lager-edit-ablehnung` |
+| Client wertet auf und verkauft im Lager | Schrott beider Seiten gleich | nach dem Bestätigen beide F9: `Schrott=` gleich | `update-26786272-run` |
+| **Ablehnung:** Client legt eine Reparatur an, nicht bestätigen. Host: `Send-Command.ps1 Host '!scrap -9999'`. Client bestätigt | Knopf geht aus, Ausgangsstand vollständig, neu bearbeiten und bestätigen geht, Host reist nicht allein weiter | Client: `Inventar lokal: Host hat Edit … abgelehnt: …`, `Lager: Edit abgelehnt, Bereit zurückgenommen` | `lager-edit-ablehnung` |
 
-Kaputtes Item für die Ablehnung: Host gibt vorher `Send-Command.ps1 Host '!give ItemData_Pistol broken'`.
+Kaputtes Item für die Ablehnung: Host gibt vorher `Send-Command.ps1 Host '!give ItemData_Pistol broken'`. Der Schalter
+`DDCOOP_TEST_SKIP_SCRAP_CHECK` lässt nur die **erste** fehlgeschlagene Vorprüfung des Clients in der Sitzung aus; danach prüft er
+wieder selbst. Den Ablauf also einmal und ohne vorherigen Fehlversuch spielen.
 
 ## Händler und Werkbank (Tag 2)
 
 | Tester tut | Muss sehen oder hören | Log belegt | Aufgabe |
 |---|---|---|---|
-| Client kauft beim Händler | Item im Rucksack, Schrott gleich | `Schrott=` gleich | `update-26786272-run` |
-| Client wertet über das **Rezept-Panel der Werkbank** auf | Aufwertung bleibt, Host bucht sie | `Edit … übernommen` (Host) | `opt-werkbank-station`, `update-26786272-run` |
+| Client kauft beim Händler | Item im Rucksack, Schrott gleich | nach dem Verlassen beide F9: `Schrott=` gleich | `update-26786272-run` |
+| Client wertet über das **Rezept-Panel der Werkbank** auf | Aufwertung bleibt, Host bucht sie | Host: `Inventar lokal: Edit … übernommen` | `opt-werkbank-station`, `update-26786272-run` |
 
 ## Labyrinth (wenn es auf der Route liegt)
 
@@ -103,7 +111,7 @@ Boss über die Routenkarte erreichen, nicht per Befehl.
 
 | Tester tut | Muss sehen oder hören | Log belegt | Aufgabe |
 |---|---|---|---|
-| Früherer Client hostet einen neuen Run | Level 1 und Startinventar bei beiden, MetaBase-Items passen | `Zustand` zeigt neue Rolle | `client-runstand-abbruch`, `opt-metabase-inventar` |
+| Früherer Client hostet einen neuen Run | Level 1 und Startinventar bei beiden, MetaBase-Items passen | `Zustand` zeigt neue Rolle; beim neuen Client `XP-Anzeige: Host-Level 1`. Das Startinventar steht nicht im Log, darum ein Bild des Rucksacks beider Seiten | `client-runstand-abbruch`, `opt-metabase-inventar` |
 | Mehrere Tage nur mit Mod | Kein Absturz | – | `update-26786272-run` |
 | Absichtlich verlieren | Niederlage beim Client nativ, neuer Run in derselben Sitzung geht | – | `run-ende` |
 | Ein eigener offener Run des Clients | lässt sich danach fortsetzen | – | `client-runstand-abbruch` |
@@ -111,10 +119,11 @@ Boss über die Routenkarte erreichen, nicht per Befehl.
 ## Nach dem Test, beide
 
 - [ ] `powershell -ExecutionPolicy Bypass -File tools/spike/Stop-Session.ps1`
+- [ ] Nach einem Absturz oder vor dem Neustart für Run 2 ist nichts zu sichern: Logs und Absturzberichte bleiben liegen.
 - [ ] `powershell -ExecutionPolicy Bypass -File tools/spike/Collect-Logs.ps1` packt Mod-Logs, Absturzberichte und Absturzereignisse
       der letzten 12 Stunden in ein Zip unter `research/local/livetest`. **Beide Zips** schicken, auch das des Hosts.
-- [ ] Liste der Marken (Uhrzeit, Nummer, ein Satz) dazulegen. Die Logs schreiben die Uhrzeit des eigenen PCs; die Uhren beider
-      PCs können um eine Sekunde abweichen.
+- [ ] Liste der Marken (Nummer, ein Satz) dazulegen. Die Logs schreiben UTC; die Uhren beider PCs können um etwa eine Sekunde
+      abweichen.
 
 ## Zeilen, nach denen die Auswertung sucht
 
@@ -122,12 +131,13 @@ Boss über die Routenkarte erreichen, nicht per Befehl.
 |---|---|---|
 | `Mod gestartet, Mod-Version N, Spiel-Build B` | beide | Stand der Instanz |
 | `Zustand (Weltwechsel\|Takt): Rolle=… Karte=… Spieler=… Zeitfaktor=… Pause=… Zeitanfragen=… Schrott=… Tank=… Ping=… Verbindungen=… Kontrolle-abgelehnt=…` | beide | Zustand bei jedem Kartenwechsel und alle 60 s; beide Logs nebeneinander zeigen, wo Tank, Schrott oder Zeitanfragen auseinanderlaufen. `-` heißt unbekannt, etwa vor dem Laden der Mission |
-| `MARKE n: Tester hat F9 gedrückt, …` | beide | Zeitpunkt eines Fundes mit Zustand |
+| `MARKE n: Tester hat F9 gedrückt, …` | je Seite | Zeitpunkt eines Fundes mit dem Zustand dieser Seite |
+| `XP-Anzeige: Host-Level N` | Client | Level des Hosts, auch zu Beginn eines neuen Runs |
 | `Busbalken: Abfahrt beim Client abgeleitet` | Client | Busbalken gestartet |
 | `Boss-Leiste: lokal angelegt` | Client | Boss-Leiste je Eintritt |
-| `Host hat Edit … abgelehnt: <Grund>` | Client | Ablehnung mit Grund |
+| `Inventar lokal: Host hat Edit … abgelehnt: <Grund>` | Client | Ablehnung mit Grund |
 | `Lager: Schrott reicht nach dem Stand des Hosts … nicht` | Client | Vorprüfung des Clients |
-| `Edit … übernommen, vollständig=true` | Host | Bearbeitung des Clients gebucht |
+| `Inventar lokal: Edit … übernommen, … vollständig=true` | Host | Bearbeitung des Clients gebucht |
 | `teilweise übernommen` | Client | Host hat nur einen Teil geschafft |
 | `danach abweichend: … (ist/soll)` | beide | Item passt nach Übernahme oder Rücknahme nicht |
 | `erneut aufgenommen, wieder entfernt` | Client | Klon einer aufgewerteten Belohnung |
