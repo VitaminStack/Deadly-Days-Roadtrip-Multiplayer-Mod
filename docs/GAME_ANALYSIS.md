@@ -1905,19 +1905,24 @@ Offsets: [HUD-Porträt](OFFSETS.md#hud-porträt-opt-portraet).
   `PlayerColorDeveloperSettings.AllPlayerColors`. Auf diesem Build gibt es also keine violette Spielerfarbe; geladen war in allen
   Messungen nur Blau.
 - **[Belegt]** Der Patch „Spielerindex ohne LocalPlayer“ (`PlayerPatches.cpp`) gibt für jeden Controller ohne `LocalPlayer` Index 1
-  zurück. Nach jeder Reise in eine neue Mission bleibt beim Host das alte `WP_PlayerOverlay_C` noch 15 bis 40 s im Speicher, sein
-  Controller hat dann keinen `Player` mehr; beim Client verschwindet es nach rund 12 s.
+  zurück; der Spike vom 02.11.2026 hatte denselben Rückfall. Beim Host lag an Tag 2, 3 und 4 kurz nach der Ankunft noch das alte
+  `WP_PlayerOverlay_C` des Vortags im Speicher, sein Controller ohne `Player`, an Tag 1 nicht. Einmal gemessen (Übergang zu Tag 3)
+  lebte es beim Host rund 42 s, beim Client rund 12 s.
 - **Messung:** MetaBase, Tag 1, 2, 3 und 4, beide Instanzen. Das Porträt im HUD zeigte auf beiden Seiten immer den eigenen Controller
-  (`LocalPlayer`), die Figur `sps_char_survivor_idle` (beide `CD_Survivor`) und Blau. Beim Übergang zu Tag 3 sekündlich gelesen und
-  alle 9 s ein Bild per `PrintWindow`: keine Änderung, kein sichtbares zweites Porträt. Gegenprobe an Tag 4 kurz nach der Ankunft:
-  `RefreshPortrait` an allen 19 Porträts des Hosts per Spike, auch am alten Overlay ohne `Player`: alles blieb Blau und Survivor.
-  Keine Absturzberichte.
+  (`LocalPlayer`), die Figur `sps_char_survivor_idle` (beide `CD_Survivor`) und Blau. Beim Übergang zu Tag 3 je Instanz rund alle
+  1,6 s gelesen und alle 9 s ein Bild des Hosts per `PrintWindow`: keine Änderung im Speicher, in allen zehn Missionsbildern dasselbe
+  Porträt unten in der Mitte, kein zweites. Bilder beider Seiten an Tag 2 und Tag 4 zeigen dasselbe Porträt. Gegenprobe an Tag 4
+  kurz nach der Ankunft: `RefreshPortrait` an allen 19 Porträts des Hosts per Spike, auch am alten Overlay ohne `Player`. Nichts
+  änderte sich; ob der Graph für das alte Overlay überhaupt lief, zeigt das nicht, die Probe ist darum ohne Aussage. Keine
+  Absturzberichte.
 - **Ergebnis:** Die Abweichung ist auf `26786272` mit der Mod nicht reproduzierbar. Eine Ursache ist nicht belegt, darum gibt es
-  keinen Codewechsel in `src`. Die alte violette Leiste passt zu keiner Spielerfarbe dieses Builds (Vermutung: anderer Build, oder
-  Materialvorgabe ohne gesetzte Farbe). Was lokal bleibt: alles, das Porträt leitet sich nativ aus dem eigenen Controller und der
-  Figur ab und braucht keine Nachricht.
-- **Nicht geprüft:** verschiedene Figuren auf beiden Seiten (beide Seiten hatten `CD_Survivor`, eine falsche Figur wäre nur über den
-  Controller aufgefallen), zwei PCs, erneuter Beitritt, mehr als vier Tage, Release ohne Spike.
+  keinen Codewechsel in `src`. Die alte violette Leiste passt zu keiner Spielerfarbe dieses Builds. **[Vermutung]** Möglicher Weg
+  damals: Ein Porträt, dessen Controller keinen `LocalPlayer` hat (altes Overlay oder Remote-Controller), bekommt über den Rückfall
+  Index 1; die Farbe käme dann von P2 oder, ohne gesetzte Farbe, aus der Vorgabe des Materials. Was lokal bleibt: alles, das
+  Porträt leitet sich nativ aus dem eigenen Controller und der Figur ab und braucht keine Nachricht.
+- **Nicht geprüft:** verschiedene Figuren auf beiden Seiten (beide hatten `CD_Survivor`, eine falsche Figur wäre nur über den
+  Controller aufgefallen; die Meldung vom 02.11. lief ebenfalls mit frischem Spielstand, `-RealSave` gibt es erst seit 10.11.), zwei
+  PCs, erneuter Beitritt, mehr als vier Tage, Release ohne Spike.
 
 ## Run-Ablauf
 
