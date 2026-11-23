@@ -1578,3 +1578,18 @@ Referenz-Build; die Adressen stehen direkt hier und in `src/Game/ClientPatches.c
 | `UEventMapSetupGenerator` | DisableReaperSpawning | `0x29` |
 | Dieselbe Aufrufkette je Build (Absturz-Stack, `boss-karte-absturz`) | `26495302`: `+163b33f`, `+58de4b1`, `+56ba4bb`; `26669225`: `+163b33f`, `+58deda1`, `+56bac4b`; `26786272` (21.11.2026): `+163b33f`, `+58e0221`, `+56bad7b`. Darüber auf `26495302` und `26786272` `+1527c28`, `+160c55b` und die Rahmen der Mod (für `26669225` sind nur die ersten drei notiert) |
 | Outer und Flags (`26786272`, gemessen) | `DDObjectiveSubsystem` einmal, Outer `GI_DDMissionGameInstance_C`; jedes `DD_BaseBossObjective_C` hat das Subsystem als Outer und bleibt über Reisen liegen; `WI_ObjectiveDisplay_C` der laufenden Welt hat Outer `WidgetTree` < `WP_UI_C` < GameInstance, `ObjectiveManager` `0x378` gesetzt; die Vorlage im `WidgetTree` der Klasse `WP_UI_C` (Flags `0x280008`) hat keinen Manager |
+
+## HUD-Porträt (`opt-portraet`)
+
+Build `26786272`, SDK und Speicherlesen. Lesewerkzeug `tools/spike/portraits.py`, Befund unter
+[HUD-Porträt](GAME_ANALYSIS.md#hud-porträt-opt-portraet). Die Mod nutzt keinen dieser Werte.
+
+| Klasse | Feld | Offset |
+|---|---|---|
+| `WP_PlayerPortrait_C` | ColorableBackground, BlinkingChar, Player_Controller, FlipIfPlayer2, IndexFindAttempts | `0x330`, `0x340`, `0x348`, `0x350`, `0x354` |
+| `WP_PlayerOverlay_C` | WP_PlayerPortrait | `0x340` |
+| `UImage` | Brush (`FSlateBrush`, ResourceObject `+0x38`), ColorAndOpacity | `0x180`, `0x240` |
+| `UMaterialInstance` | Parent, VectorParameterValues (Element `0x30`, Wert `+0x10`), TextureParameterValues (Element `0x28`, Wert `+0x10`) | `0x170`, `0x200`, `0x220` |
+| `APlayerController` | Player (`LocalPlayer` oder Netzverbindung) | `0x348` |
+| `UPlayerColorDeveloperSettings` | AllPlayerColors (`TArray<TSoftObjectPtr>`, Element `0x28`: Blau, Grün) | `0x38` |
+| `UPlayerColorDefinition` | PrimaryColor, ShadowColor | `0x28`, `0x38` |
