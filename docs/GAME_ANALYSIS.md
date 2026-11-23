@@ -1888,6 +1888,37 @@ Stand: Disassembly und Laufzeit-Speicher, Build `26187885`, SDK aus einer direkt
 - Beim Client ist die eigene Figur lokaler Spieler 0, er hält sich also für P1. Die Felder für P1 und P2 (`CoopP1Field`, `P2Backpack`) müssen beim Client daher umgedreht oder von der Mod gesetzt werden.
 - Die Figuren- und Haustierwahl des Clients braucht einen eigenen Sync. Ohne lokalen Spieler beim Host bekommt P2 nur die Standardfigur.
 
+### HUD-Porträt (`opt-portraet`)
+
+Stand 23.11.2026, Build `26786272`, Mod mit Spike, ein PC, zwei Instanzen über die Lobby der Mod, frischer Test-Spielstand.
+Auslöser: Am 02.11.2026 (Build `26187885`, nur Spike, vor `remote-spieler` und `charakter-wahl`) zeigte der Host an Tag 2 ein
+anderes Figurenporträt mit violetter Leiste. Lesewerkzeug: `py tools/spike/portraits.py [--overlay] <pid> [<pid>]`,
+Offsets: [HUD-Porträt](OFFSETS.md#hud-porträt-opt-portraet).
+
+- **[Belegt, SDK und Bytecode-Aufrufliste]** Das Porträt im Spieler-HUD ist `WP_PlayerPortrait_C` in `WP_PlayerOverlay_C`. Es hält
+  `Player_Controller`, `FlipIfPlayer2` und `IndexFindAttempts`. Sein Ubergraph ruft `LocalCoopSubsystem.GetPlayerIndex`,
+  `GetPlayerColor`, `Controller.K2_GetPawn`, `Image.GetDynamicMaterial`, `SetVectorParameterValue` und `SetRenderScale`. Die
+  Hintergrundfarbe ist der Parameter `Color` des Materials `M_hud_player_bg`, die Figur die Textur des Materials
+  `M_CharacterPortrait_Master`. Der Bytecode-Audit las den Ubergraph nicht vollständig (`complete: false`), welche Aufrufe die
+  Figur-Textur setzen, ist darum nicht belegt (Vermutung: aus der Figur des Controllers).
+- **[Belegt]** Die Spielerfarben sind `DA_PlayerColor_Blue` (P1) und `DA_PlayerColor_Green` (P2) aus
+  `PlayerColorDeveloperSettings.AllPlayerColors`. Auf diesem Build gibt es also keine violette Spielerfarbe; geladen war in allen
+  Messungen nur Blau.
+- **[Belegt]** Der Patch „Spielerindex ohne LocalPlayer“ (`PlayerPatches.cpp`) gibt für jeden Controller ohne `LocalPlayer` Index 1
+  zurück. Nach jeder Reise in eine neue Mission bleibt beim Host das alte `WP_PlayerOverlay_C` noch 15 bis 40 s im Speicher, sein
+  Controller hat dann keinen `Player` mehr; beim Client verschwindet es nach rund 12 s.
+- **Messung:** MetaBase, Tag 1, 2, 3 und 4, beide Instanzen. Das Porträt im HUD zeigte auf beiden Seiten immer den eigenen Controller
+  (`LocalPlayer`), die Figur `sps_char_survivor_idle` (beide `CD_Survivor`) und Blau. Beim Übergang zu Tag 3 sekündlich gelesen und
+  alle 9 s ein Bild per `PrintWindow`: keine Änderung, kein sichtbares zweites Porträt. Gegenprobe an Tag 4 kurz nach der Ankunft:
+  `RefreshPortrait` an allen 19 Porträts des Hosts per Spike, auch am alten Overlay ohne `Player`: alles blieb Blau und Survivor.
+  Keine Absturzberichte.
+- **Ergebnis:** Die Abweichung ist auf `26786272` mit der Mod nicht reproduzierbar. Eine Ursache ist nicht belegt, darum gibt es
+  keinen Codewechsel in `src`. Die alte violette Leiste passt zu keiner Spielerfarbe dieses Builds (Vermutung: anderer Build, oder
+  Materialvorgabe ohne gesetzte Farbe). Was lokal bleibt: alles, das Porträt leitet sich nativ aus dem eigenen Controller und der
+  Figur ab und braucht keine Nachricht.
+- **Nicht geprüft:** verschiedene Figuren auf beiden Seiten (beide Seiten hatten `CD_Survivor`, eine falsche Figur wäre nur über den
+  Controller aufgefallen), zwei PCs, erneuter Beitritt, mehr als vier Tage, Release ohne Spike.
+
 ## Run-Ablauf
 
 Stand: Laufzeit-Trace und Disassembly, Build `26187885`. Der Ablauf gilt für zwei Instanzen mit dem [Spike](../research/spikes/a-connect/README.md). Ohne dessen Patches stürzt der Host schon beim Spawn ab.
