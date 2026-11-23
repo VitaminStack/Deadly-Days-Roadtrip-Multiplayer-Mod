@@ -4505,35 +4505,36 @@ Händler und im Lager. `Run-Route.ps1` selbst lief nicht, es klickt die Knoten m
 | Schritt | Ergebnis |
 |---|---|
 | MetaBase, Tag 1 (Knoten 0, Händler-Event), Tag 2 (Knoten 16), Tag 3 (Knoten 12, Händler-Event), Tag 4 (Knoten 17) | `check_round.py` je Ankunft sauber, 2/2 Spieler und Figuren auf beiden Seiten, Kacheln 20/20, 106/106, 20/20, 115/115 |
-| Inventar an zwölf Messpunkten (Ankunft, nach Kauf, nach Werkbank, vor und nach jedem Rundenende) | `inventory.py` jedes Mal vollständig und gleich, mit einer Ausnahme während der offenen Werkbank-Bearbeitung (gewollt, erst das Bestätigen bucht) |
+| Inventar an zwölf Messpunkten (jede Ankunft, nach Kauf, `!give` und Werkbank, vor jedem Rundenende, nach dem Lager an Tag 3; auf der Routenkarte nach Tag 1 und 2 nicht) | `inventory.py` jedes Mal vollständig und gleich, mit einer Ausnahme während der offenen Werkbank-Bearbeitung (gewollt, erst das Bestätigen bucht) |
 | Client kauft beim Händler (Tag 1 Revolver und Rucksack, Tag 3 Medikit, Klick-Ereignis des Angebots) | Host prüft und bucht je Edit („Handel: Kauf … geprüft“, „gebucht … 1 von 1 gekauft“), Schrott 200 → 178 → 156, an Tag 3 144 → 120 |
 | Client wertet an der Werkbank auf (zwei Revolver, Zurück-Knopf des Händlers öffnet das Inventar-Panel, dort `UpgradeItems`, dann Bestätigen dieses Panels) | Client „Aufwertung 1 lokal“, beim Schließen Edit mit 1 Aufwertung; Host „Aufwertung 1 des Edits … beim Host, Ausgabe true“, `vollständig=true`, Inventare gleich |
 | Client repariert ein Messer (12) und wertet zwei Pistolen im Lager auf | Ein Edit beim Bestätigen; Host „1 Reparaturen … Schrott 156 wird 144“, „1 Eingabe(n) … vorher aus dem Rucksack genommen“, Aufwertung beim Host, `vollständig=true`, „Bestätigen nachgeholt (alle bereit)“ |
 | Drei Rundenenden mit Bestätigen erst beim Host, dann beim Client | Jedes Mal Routenkarte bei beiden, nächste Reise angenommen |
 | Nachladen und Schüsse, 45 s ohne Godmode an Tag 2 (`!fx`, `!fx dump`) | `weapon_Reload` 4 beim Host und 4 beim Client, `weapon_Pistol` 59 zu 58 |
-| Lebensleisten | Hook läuft beim Client („Lebensleisten: erster Broadcast beim Client, 1 Empfänger“); im Bild nach 45 s ohne Godmode stehen Lebens- und Rüstungsleiste beider Figuren bei Host und Client gleich |
+| Lebensleisten | Hook läuft beim Client („Lebensleisten: erster Broadcast beim Client, 1 Empfänger“); im Bild nach 45 s ohne Godmode zeigen Host und Client über beiden Figuren dieselben zwei Leisten. Ob Schaden ankam und die Leisten ihn zeigen, belegt das nicht (kein Vergleichsbild, Lebenswerte nicht gelesen) |
 | Logs und Abstürze | Kein `[ERROR]`, keine Meldung „ABWEICHUNG“ des Desync-Melders, keine Absturzberichte |
 
-Keine Bruchstelle durch den Build-Wechsel gefunden, darum keine Codeänderung. Befunde:
+In diesem Ablauf zeigte sich keine Bruchstelle durch den Build-Wechsel, darum keine Codeänderung. Befunde:
 
 - **[Belegt, Messung] Tank im Händler-Event beim Client doppelt.** `day_state.py` meldet an Tag 1 und Tag 3 (beide Händler-Event) durchgehend
   `FuelMeter.CurrentFuel` Host 120, Client 240 bei `MaxRequiredFuel` 120. Auf den normalen Karten (Tag 2 und 4) stand der Tank auf beiden
   Seiten gleich bei 0, die Abweichung endet also mit der Karte. **[Vermutung]** Das Händler-Event füllt den Tank beim Betreten auf jeder
-  Seite selbst, und beim Client kommt der replizierte Wert des Hosts dazu. Das Verlassen des Events lief normal. Kein Run-Hindernis, darum
+  Seite selbst, und beim Client kommt der replizierte Wert des Hosts dazu. Ob das mit 1.0.3 neu ist und ob es vom Spiel oder von der
+  Mod kommt, ist nicht geprüft. Das Verlassen des Events lief hier und im Test auf zwei PCs vom 21.11. normal. Kein Run-Hindernis, darum
   ohne eigene Aufgabe. Ob die Tankanzeige im HUD des Clients 240 zeigt, ist nicht angesehen.
 - **[Belegt, Messung] Geldbörse für Meta-Währung ab Tag 2 verschieden** (Host 1, Client 0). Das ist gewollt: `MetaCurrencyWallet`
   repliziert nicht, und die Profilwährung des Clients bleibt unverändert, siehe
   [Sync-Bedarf](SYNC_REQUIREMENTS.md).
 - **[Belegt, Messung, nur über den Testbefehl erreichbar] Aufwertung ohne offenes Panel geht verloren.** Ein erstes `!shop upgrade` rief
   `UpgradeItems` beim Client, nachdem das Händler-Panel nach dem Kauf keine Bearbeitung mehr offen hatte („Aufwertung beim Client ohne
-  offenes Panel … keine Bearbeitung“). Die Eingaben gingen nativ an den Host, die Ausgabe verwarf er („AddToInventory ohne Item vom
-  Client verworfen“): beide Revolver weg, kein seltener Revolver, Inventare aber gleich. Im Spiel ruft nur das Rezept-Panel im offenen
+  offenes Panel … keine Bearbeitung“). Die Eingaben gingen nativ an den Host, die Ausgabe verwarf er 34 ms danach („AddToInventory ohne
+  Item vom Client verworfen“, die einzige solche Zeile der Sitzung): beide Revolver weg, kein seltener Revolver, Inventare aber gleich. Im Spiel ruft nur das Rezept-Panel im offenen
   Inventar-Panel `UpgradeItems`, wie schon in [Händler und Werkbank](#händler-und-werkbank-im-händler-event-opt-haendler-client-opt-werkbank-station)
   beschrieben; mit offenem Panel stimmte alles (Tabelle oben).
 
 **Nicht geprüft, braucht echte Eingabe oder zwei PCs:** `Run-Route.ps1 -Days 2` selbst (klickt mit der Maus), das Rezept-Panel mit
 Ziehen und Klicken von Hand, Verkaufen im Lager (Maustaste halten; `UItemRepresentation.ConfirmSell` an einer unbestimmten Instanz zu rufen
-war zu unsicher), Nachladesound nach Gehör, eine Sitzung nur mit Mod (`-NoSpike`) über mehrere Tage (ohne Spike kein `!finish`), die
+war zu unsicher), Lebensleisten nach Schaden, Nachladesound nach Gehör, eine Sitzung nur mit Mod (`-NoSpike`) über mehrere Tage (ohne Spike kein `!finish`), die
 Item-Abschaltung von 1.0.3 (`IsItemSwitchingOffItem`; welches Item ein anderes abschaltet, ist nicht bekannt) und der Lauf auf zwei PCs.
 Bosse auf diesem Build: drei Boss-Tage am Stück unter [Absturz beim Betreten der Boss-Karte](#absturz-beim-betreten-der-boss-karte-boss-karte-absturz),
 Route über sieben Karten mit Händler- und Labyrinth-Event zu zweit im [Live-Test vom 21.11.](#live-test-auf-zwei-pcs-am-21112026-livetest-2111).
