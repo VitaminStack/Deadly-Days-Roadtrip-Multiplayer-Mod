@@ -315,7 +315,7 @@ Diese Punkte gehören zu Thema 6, sie stoppen die Technik nicht:
 - Tutorial-Hinweise laufen auf beiden Seiten getrennt.
 - Die direkt geladene Mission startet keine Gegner von selbst. Über das Spielmenü gestartet tut sie das.
 - Der Client stürzte einmal bei `0x5A17ACC` ab (Lesen von `0x2C8`). Das war kein Tick: Der Bewegungs-Restrictor der Kamera hatte keinen `MissionGameState` und stürzt bei der ersten Bewegungseingabe ab. Mit dem Feld auf null nachgestellt, siehe [Restrictor](../../../docs/GAME_ANALYSIS.md#client-absturz-im-restrictor-tick-absturz).
-- An Tag 2 zeigt der Host ein anderes Figurenporträt mit violetter Leiste. Die Ursache ist offen.
+- An Tag 2 zeigte der Host ein anderes Figurenporträt mit violetter Leiste. Auf `26786272` mit der Mod nicht reproduzierbar, siehe [HUD-Porträt](../../../docs/GAME_ANALYSIS.md#hud-porträt-opt-portraet).
 - Ob die Figuren automatisch feuern, ist unklar. Die Host-Figur schoss, ohne dass ihr Fenster Eingaben bekam.
 
 ## Inventar: Ursache, Teilfix und verbleibende Grenze
