@@ -200,6 +200,10 @@ erst beim Host, dann beim Client. Danach meldet `Test-RouteMap` die Routenkarte.
 wechselndem Index (gesehen 0, 1, 7, 9, 15, 16): der Reihe nach senden, bis im Mod-Log des Hosts eine neue Zeile „Reise umgeleitet“
 steht. Das Boss-Profil für den Testschalter heißt
 `/Game/Map_Generation/Blueprints/Fields/MGP_Burger_Boss_Nature.MGP_Burger_Boss_Nature`; damit ist jeder Tag eine Boss-Karte.
+Einen Händler-Besuch beendet der Client ohne Eingaben über den Zurück-Knopf
+(`!shop call WI_MerchantPanel_C BndEvt__WI_MerchantPanel_WP_Button_With_Glyph_1_K2Node_ComponentBoundEvent_0_OnClickResponse__DelegateSignature`)
+und `!shop confirm <n>` am Panel, dessen Outer-Kette `WI_MerchantPanel_C` enthält; dazwischen läuft `!shop upgrade` wie an der Werkbank
+(gemessen am 23.11.2026, `update-26786272-run`).
 
 Den Run-Stand eines Testordners liest `py tools/spike/run_save.py <UserDir>\Saved\SaveGames_DDCoop\SaveSlot_DDR_0.sav`.
 

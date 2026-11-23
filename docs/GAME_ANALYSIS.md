@@ -27,7 +27,7 @@ Nutzerentscheidung vom 21.11.2026: Die Mod unterstützt immer nur den neuesten S
 
 Gegenüber `26669225` hat `26786272` Exe, `DDSurvivors-Windows.pak`, `.ucas`, `.utoc` und `global.ucas`/`global.utoc` geändert; die
 eingefrorene Kopie hat 52 Dateien. Stand der Mod: `Patches: 57 gesetzt`, auf einem PC bis in die Mission und über ein Rundenende gemessen,
-Lauf über die Route und zwei PCs offen (`update-26786272-run`), siehe [Offsets](OFFSETS.md#referenz-build-26786272-spiel-update-26786272).
+Lauf über vier Tage mit Händler und Werkbank auf einem PC belegt, zwei PCs offen, siehe [Run-Ablauf](#run-ablauf-auf-build-26786272-update-26786272-run) und [Offsets](OFFSETS.md#referenz-build-26786272-spiel-update-26786272).
 Die Hash-Referenz steht in `tools/game_build.py`. Die Entwicklungskopien wechseln nach dem Merge (`wechsel-26786272`).
 
 Build-ID und Manifest-IDs stehen in `steamapps/appmanifest_3026450.acf`. Die Manifest-IDs benennen die gewünschten Depotstände;
@@ -4491,6 +4491,52 @@ Kaputte Items und Revolver über `!give`, Schrott über `!scrap`, Rundenende üb
 **Nicht geprüft:** Ausgeben des Hosts über sein natives Panel (im Test `!scrap`, derselbe Weg über `AddAmount` und `0x309`), echtes Ziehen im
 Panel und zwei PCs mit Ping. Ob die dauerhafte Abweichung ohne die Korrektur im selben Ablauf bestehen bliebe, ist nicht gegengeprüft; die
 Ursache ist aus dem Log vom 14.11. abgeleitet. Der Fall „Host bestätigt, nachdem der Client wieder bearbeitet“ lief nicht.
+
+### Run-Ablauf auf Build 26786272 (`update-26786272-run`)
+
+**[Belegt, Messung] 23.11.2026, ein PC, Host und Client, Build `26786272` (Patch 1.0.3), `main` `3adf005`, `Patches: 59 gesetzt` auf
+beiden Seiten.** `Start-Session.ps1 -Build -Mod -Tunnel Lobby -Godmode` mit `DDCOOP_TEST_MAP_PROFILE` = `MGP_MerchantEvent` und
+`DDCOOP_TEST_MAP_PROFILE_EVERY=2`: Tag 1 und 3 sind das Händler-Event, Tag 2 und 4 kommen vom Profil des Routenknotens. Bedient ohne Maus
+und Tastatur, nur über Spike-Befehle wie unter [Mehrere Tage ohne echte Eingaben](TESTING.md#gezielt-in-eine-karte): Run-Start über den
+Startring, Knoten über `!shop callat`, Rundenende über `!finish`, Rundenübersicht und `!shop confirm` am Panel unter `WI_BusScreen_C`.
+Nach jeder Ankunft `check_round.py --wait --settle 10`, `inventory.py` und `day_state.py`, dazu `inventory.py` nach jedem Schritt im
+Händler und im Lager. `Run-Route.ps1` selbst lief nicht, es klickt die Knoten mit der echten Maus.
+
+| Schritt | Ergebnis |
+|---|---|
+| MetaBase, Tag 1 (Knoten 0, Händler-Event), Tag 2 (Knoten 16), Tag 3 (Knoten 12, Händler-Event), Tag 4 (Knoten 17) | `check_round.py` je Ankunft sauber, 2/2 Spieler und Figuren auf beiden Seiten, Kacheln 20/20, 106/106, 20/20, 115/115 |
+| Inventar an zwölf Messpunkten (Ankunft, nach Kauf, nach Werkbank, vor und nach jedem Rundenende) | `inventory.py` jedes Mal vollständig und gleich, mit einer Ausnahme während der offenen Werkbank-Bearbeitung (gewollt, erst das Bestätigen bucht) |
+| Client kauft beim Händler (Tag 1 Revolver und Rucksack, Tag 3 Medikit, Klick-Ereignis des Angebots) | Host prüft und bucht je Edit („Handel: Kauf … geprüft“, „gebucht … 1 von 1 gekauft“), Schrott 200 → 178 → 156, an Tag 3 144 → 120 |
+| Client wertet an der Werkbank auf (zwei Revolver, Zurück-Knopf des Händlers öffnet das Inventar-Panel, dort `UpgradeItems`, dann Bestätigen dieses Panels) | Client „Aufwertung 1 lokal“, beim Schließen Edit mit 1 Aufwertung; Host „Aufwertung 1 des Edits … beim Host, Ausgabe true“, `vollständig=true`, Inventare gleich |
+| Client repariert ein Messer (12) und wertet zwei Pistolen im Lager auf | Ein Edit beim Bestätigen; Host „1 Reparaturen … Schrott 156 wird 144“, „1 Eingabe(n) … vorher aus dem Rucksack genommen“, Aufwertung beim Host, `vollständig=true`, „Bestätigen nachgeholt (alle bereit)“ |
+| Drei Rundenenden mit Bestätigen erst beim Host, dann beim Client | Jedes Mal Routenkarte bei beiden, nächste Reise angenommen |
+| Nachladen und Schüsse, 45 s ohne Godmode an Tag 2 (`!fx`, `!fx dump`) | `weapon_Reload` 4 beim Host und 4 beim Client, `weapon_Pistol` 59 zu 58 |
+| Lebensleisten | Hook läuft beim Client („Lebensleisten: erster Broadcast beim Client, 1 Empfänger“); im Bild nach 45 s ohne Godmode stehen Lebens- und Rüstungsleiste beider Figuren bei Host und Client gleich |
+| Logs und Abstürze | Kein `[ERROR]`, keine Meldung „ABWEICHUNG“ des Desync-Melders, keine Absturzberichte |
+
+Keine Bruchstelle durch den Build-Wechsel gefunden, darum keine Codeänderung. Befunde:
+
+- **[Belegt, Messung] Tank im Händler-Event beim Client doppelt.** `day_state.py` meldet an Tag 1 und Tag 3 (beide Händler-Event) durchgehend
+  `FuelMeter.CurrentFuel` Host 120, Client 240 bei `MaxRequiredFuel` 120. Auf den normalen Karten (Tag 2 und 4) stand der Tank auf beiden
+  Seiten gleich bei 0, die Abweichung endet also mit der Karte. **[Vermutung]** Das Händler-Event füllt den Tank beim Betreten auf jeder
+  Seite selbst, und beim Client kommt der replizierte Wert des Hosts dazu. Das Verlassen des Events lief normal. Kein Run-Hindernis, darum
+  ohne eigene Aufgabe. Ob die Tankanzeige im HUD des Clients 240 zeigt, ist nicht angesehen.
+- **[Belegt, Messung] Geldbörse für Meta-Währung ab Tag 2 verschieden** (Host 1, Client 0). Das ist gewollt: `MetaCurrencyWallet`
+  repliziert nicht, und die Profilwährung des Clients bleibt unverändert, siehe
+  [Sync-Bedarf](SYNC_REQUIREMENTS.md).
+- **[Belegt, Messung, nur über den Testbefehl erreichbar] Aufwertung ohne offenes Panel geht verloren.** Ein erstes `!shop upgrade` rief
+  `UpgradeItems` beim Client, nachdem das Händler-Panel nach dem Kauf keine Bearbeitung mehr offen hatte („Aufwertung beim Client ohne
+  offenes Panel … keine Bearbeitung“). Die Eingaben gingen nativ an den Host, die Ausgabe verwarf er („AddToInventory ohne Item vom
+  Client verworfen“): beide Revolver weg, kein seltener Revolver, Inventare aber gleich. Im Spiel ruft nur das Rezept-Panel im offenen
+  Inventar-Panel `UpgradeItems`, wie schon in [Händler und Werkbank](#händler-und-werkbank-im-händler-event-opt-haendler-client-opt-werkbank-station)
+  beschrieben; mit offenem Panel stimmte alles (Tabelle oben).
+
+**Nicht geprüft, braucht echte Eingabe oder zwei PCs:** `Run-Route.ps1 -Days 2` selbst (klickt mit der Maus), das Rezept-Panel mit
+Ziehen und Klicken von Hand, Verkaufen im Lager (Maustaste halten; `UItemRepresentation.ConfirmSell` an einer unbestimmten Instanz zu rufen
+war zu unsicher), Nachladesound nach Gehör, eine Sitzung nur mit Mod (`-NoSpike`) über mehrere Tage (ohne Spike kein `!finish`), die
+Item-Abschaltung von 1.0.3 (`IsItemSwitchingOffItem`; welches Item ein anderes abschaltet, ist nicht bekannt) und der Lauf auf zwei PCs.
+Bosse auf diesem Build: drei Boss-Tage am Stück unter [Absturz beim Betreten der Boss-Karte](#absturz-beim-betreten-der-boss-karte-boss-karte-absturz),
+Route über sieben Karten mit Händler- und Labyrinth-Event zu zweit im [Live-Test vom 21.11.](#live-test-auf-zwei-pcs-am-21112026-livetest-2111).
 
 ## Systeme, die die Mod respektieren muss
 
