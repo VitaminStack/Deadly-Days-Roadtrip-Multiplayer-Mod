@@ -76,6 +76,18 @@ Lokale, netzwerkfreie Prüfung im aktuellen Checkout. `TODO.md` ist die einzige 
 
 Geprüft wird: eindeutige Kennungen, bekannte Kennungen und keine Kreise unter „Braucht“, gültige Werte für Prio, Bearbeitung und Spielzeit, alphabetische Tabelle „Erledigt“, keine alten Checkboxen. Außerdem durchsucht `check` alle versionierten Markdown-Dateien (ohne `third_party/`) nach Ankündigungen wie „kommt mit `x`“, „folgt erst in `x`“ oder „bis `x`“, obwohl `x` schon erledigt ist, und nennt Datei und Zeile; `update` zeigt dieselbe Liste nur an. Nicht gemeldet werden offene oder unbekannte Kennungen, die Aufgabenzeilen in `TODO.md` und gemergte Stände wie „bis `x` (#131)“. Wer eine Aufgabe abschließt, passt solche Sätze in derselben Änderung an. Die CI und `Build-Mod.ps1 -Test` führen `check` aus. Der Fortschritt zählt je Phase die erledigten gegen alle Aufgaben, ohne Wartung, optionale Optimierungen und Real Coop logic.
 
+## doc_check.py
+
+Hält die Doku so klein und verlinkt, dass Agenten sie gezielt lesen können. Läuft in der CI (`docs.yml`).
+
+| Befehl | Zweck |
+|---|---|
+| `py tools/doc_check.py check` | Größengrenzen und relative Links samt Anker aller versionierten Markdown-Dateien prüfen, bei Meldungen Fehlercode |
+| `py tools/doc_check.py sizes` | Die 20 größten Markdown-Dateien mit Bytes |
+
+Standardgrenze 60 000 Bytes. Größere Dateien stehen mit ihrer heutigen Größe in `LIMITS`. Diese Werte dürfen nur sinken.
+Dateien unter `docs/archive/` haben keine Grenze, ihre Links werden trotzdem geprüft.
+
 ## dumper7/
 
 Baut Dumper-7 im getesteten Stand für UE 5.8, damit alle dasselbe SDK erzeugen. Hintergrund in [SDK-Erzeugung unter UE 5.8](../docs/GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58).

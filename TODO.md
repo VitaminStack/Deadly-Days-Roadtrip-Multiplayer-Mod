@@ -2,7 +2,7 @@
 
 Diese Datei ist die einzige Aufgabenliste des Projekts. **Jede Aufgabe steht genau einmal:** offen in der Tabelle ihrer Phase, erledigt in der Tabelle [Erledigt](#erledigt). Einen zweiten Status gibt es nicht. `py tools/task_status.py check` prüft das Format, die Abhängigkeiten und den Fortschritt im README, die CI ebenso.
 
-Den Überblick als Graph zeigt [docs/ROADMAP.md](docs/ROADMAP.md), den Fortschritt je Phase das [README](README.md#fortschritt).
+Den Überblick als Graph zeigt [docs/ROADMAP.md](docs/ROADMAP.md), den Fortschritt je Phase das [README](README.md#progress).
 
 **Fokus: erst spielbar.** Vorrang hat, dass zwei Spieler einen Run durchspielen können. Aufgaben unter [Optionale Optimierungen](#optionale-optimierungen) warten, bis Phase 0 bis 5 erledigt sind; `tasks.py` zeigt sie bis dahin als `zurückgestellt`. Neue Kennungen nur für Funde oder Reste, die den Run zu zweit verhindern, siehe [Fokus in CLAUDE.md](CLAUDE.md#fokus).
 
