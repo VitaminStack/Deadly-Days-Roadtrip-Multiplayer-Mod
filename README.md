@@ -4,7 +4,7 @@ Fan mod that adds real online co-op to **Deadly Days: Roadtrip**. The game itsel
 online currently means Steam Remote Play, where the host streams the picture. With this mod every player runs the game on
 their own PC.
 
-**Status (18 Nov 2026):** Mod version 1.0, experimental, no public download yet. On 17 Nov 2026 two PCs in separate households played a run over the internet on game build `26669225` (patch 1.0.2) through to the final victory: eleven round ends, no crash ([test report](docs/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-17112026-livetest-1711)). Since 21 Nov 2026 the mod supports only the latest game build, currently `26786272` (patch 1.0.3); on that build it has so far only been tested on one PC. Gate G2 passed on 7 Nov 2026 ([test report](docs/GAME_ANALYSIS.md#gate-g2-auf-zwei-pcs-am-07112026-integration-g2)). Still open before a release: the formal complete-run acceptance `integration-run`, the labyrinth event on the client and rejoining a running run (see [Phase 5](TODO.md#phase-5--vollständiger-run)).
+**Status (24 Nov 2026):** Release 1.0, experimental, [download on the releases page](https://github.com/VitaminStack/Deadly-Days-Roadtrip-Multiplayer-Mod/releases/latest). On 17 Nov 2026 two PCs in separate households played a run over the internet through to the final victory without a crash ([test report](docs/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-17112026-livetest-1711)); on 24 Nov 2026 a run on the supported game build `26786272` (patch 1.0.3) went through 14 maps up to the HQ map ([test report](docs/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-24112026-livetest-2411)). Known issues: a client crash at an airdrop selection, a rare drop of the client and rejoining without a game restart, see [known issues](docs/INSTALL.md#known-issues-in-10).
 
 **Contributing:** Anyone can help, no invitation needed: C++, reverse engineering, testing with two players, or docs.
 Start with [For new contributors](#for-new-contributors), free tasks are listed under [Where can I start?](TODO.md#wo-kann-ich-anfangen). Docs and the task list are written in German, but issues and pull requests in English are welcome. Fork the repo and open a pull request; for bigger changes please open an issue first.
@@ -39,9 +39,9 @@ Done means listed under "Erledigt" in `TODO.md`. **Fully completed phases are hi
 | [2](TODO.md#phase-2--fundament) | Stable mod foundation | 5 of 5 | ███████████ |
 | [3](TODO.md#phase-3--session-und-verbindung) | Connecting via Steam | 10 of 10 | ███████████ |
 | [4](TODO.md#phase-4--vertical-slice) | Playable slice | 16 of 16 | ███████████ |
-| [5](TODO.md#phase-5--vollständiger-run) | Complete run for two | 48 of 56 | █████████░░ |
+| [5](TODO.md#phase-5--vollständiger-run) | Complete run for two | 49 of 56 | ██████████░ |
 | [6](TODO.md#phase-6--release) | Release | 9 of 10 | ██████████░ |
-| **Total** | | **138 of 147** | ██████████░ |
+| **Total** | | **139 of 147** | ██████████░ |
 
 </details>
 
@@ -50,7 +50,7 @@ Done means listed under "Erledigt" in `TODO.md`. **Fully completed phases are hi
 
 ## Install (players)
 
-No public release yet. Once there is one, the package `DDCoop-<version>.zip` is installed by extracting it and double-clicking `Install.cmd`; see the [installation guide](docs/INSTALL.md) (requirements, uninstall, error messages, antivirus notes).
+Download `DDCoop-<version>.zip` from the [releases page](https://github.com/VitaminStack/Deadly-Days-Roadtrip-Multiplayer-Mod/releases/latest), extract it and double-click `Install.cmd`. How to host and join, known issues, uninstall, error messages and antivirus notes are in the [installation guide](docs/INSTALL.md).
 
 ## Where to find what
 

@@ -409,7 +409,7 @@ flowchart TD
     IG --> G2{{"Gate G2"}}:::done
     PR --> W4["Welle 4<br/>fortschritt, werkbank-client,<br/>pausen-sync, tagesablauf,<br/>run-ende, vfx-sound"]:::open
     G2 --> W4
-    W4 --> IR["integration-run"]:::central
+    W4 --> IR["integration-run"]:::done
     W5 --> IR
     RV["Vorbeugung<br/>ohne-spike, latenz-test"]:::done --> IG
     PR --> DS["desync-melder"]:::done --> IG

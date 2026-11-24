@@ -18,6 +18,42 @@ Install
    If the game is elsewhere:  Install.cmd -GameDir "D:\Games\Deadly Days Roadtrip"
 3. Start the game normally from Steam.
 
+Playing together
+----------------
+Both players install the same mod version. The mod adds a small window,
+shown and hidden with F8 while the game has focus. Its buttons are in
+German. Play in windowed or borderless mode; exclusive fullscreen hides
+the window.
+Host:
+1. Start the game and go to the base (MetaBase).
+2. Press F8, click "Lobby erstellen" (create lobby).
+3. Click "Freunde einladen" (invite friends) and invite your friend in
+   the Steam overlay. Or click "Lobby-ID kopieren" (copy lobby ID) and
+   send the number to your friend.
+4. Once your friend is in, start the run as usual.
+Client (second player):
+- Accept the Steam invite; Steam starts the game if it is closed. Or
+- start the game, press F8, paste the lobby ID into the field and click
+  "Beitreten" (join).
+"Verlassen" (leave) ends the session. Only Steam friends can join.
+Do not use the "Dev" tab in a real run: its buttons and the keys
+Numpad 1 to 5 (NumLock on) spawn XP, items and zombies.
+
+Known issues in 1.0
+-------------------
+- The client can crash when an airdrop selection opens. Restart the
+  game and rejoin the running run (invite or lobby ID).
+- The host can drop the client mid-run with "Mitspieler ist nicht mehr
+  in der Lobby". Rejoin after restarting the game.
+- Rejoining without restarting the game shows no map and the client
+  falls through the world. Always restart the game before rejoining.
+- After a rejoin the client's inventory from the run is gone.
+- The client's level display is sometimes too low; recipes at the
+  workbench can be rejected; power-ups have no effect for the client.
+Logs for bug reports: DDSurvivors\Binaries\Win64\DDCoop\logs in the
+game folder. The F8 window shows "DDCoop v16"; 16 is the network
+version of release 1.0, both players must show the same number.
+
 Remove
 ------
 Double-click Uninstall.cmd. Logs and settings stay in the DDCoop folder
