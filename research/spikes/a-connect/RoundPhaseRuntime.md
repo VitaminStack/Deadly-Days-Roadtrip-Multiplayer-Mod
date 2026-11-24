@@ -42,7 +42,7 @@ powershell -NoProfile -File tests/Run-RoundPhase.ps1
 powershell -NoProfile -File tests/Run-RoundPhaseRuntime.ps1
 ```
 
-Ohne Spiel geprüft (C++20 `/W4 /WX`): Codec und Empfänger, Transport zwischen zwei eigenen Testprozessen und der echte Adapter aus `Mission.cpp` mit eigenen Speicherpuffern. Der Adaptertest deckt Hostquellen samt Objektfilter, Lager nur nach Rundenende, „Zurück“ auf der Route, Grund aus `TriggerEndRound`, Client-Bindung, `DisableInput`/`EnableInput` auf Controller und Figur, Nachrichtenfilter, Hostverlust und `!phase stop/auto` ab. Er schreibt `round-host.txt`, also nicht während einer Spielsitzung laufen lassen.
+Ohne Spiel geprüft (C++20 `/W4 /WX`): Codec und Empfänger sowie Transport zwischen zwei eigenen Testprozessen. Der frühere Adaptertest (`tests/round_phase_adapter.cpp`, echter Adapter aus `Mission.cpp` mit eigenen Speicherpuffern) linkte seit #126 nicht mehr, weil `Mission.cpp` `Spike::ModOwnsPatches` und `Spike::Rva` braucht, und wurde beim Aufräumen von `tests` entfernt. Den Adapter decken nur noch die Spielprüfungen unten ab.
 
 Im Spiel, nur über `Start-Session.ps1 -Build -Godmode`, Host und Client auf einem PC, Seed `20795`, echte Route (`Start-Run.ps1`, `Travel-Day.ps1`):
 

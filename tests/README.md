@@ -5,15 +5,19 @@ Tests für Code ohne SDK-Abhängigkeit. Sie laufen bei jedem Pull Request in Git
 | Was | Wo | Lokal starten |
 |---|---|---|
 | C++-Tests mit doctest | `tests/CoreTests` | `bin\Release\CoreTests.exe` nach dem Bauen der Solution |
+| Adressen, Patches, Reflexion und Spiel-Adapter ohne Spiel | `tests/GameTests` | `bin\Release\GameTests.exe`, auch Teil von `Build-Mod.ps1 -Test` und CI; ohne Spiel/SDK |
 | Overlay-Modell und nativer Fenster-Lebenszyklus | `tests/UITests` | `bin\Release\UITests.exe`, auch Teil von `Build-Mod.ps1 -Test` und CI; ohne Spiel/SDK |
 | Transport-Tunnel mit nachgebautem Steam | `tests/NetTests` | `bin\Release\NetTests.exe`, auch Teil von `Build-Mod.ps1 -Test` und CI; ohne Spiel/Steam |
 | Python-Tests | `tests/test_*.py` | `py -B -m unittest discover -s tests` |
+| Spike-Kerne mit MSVC `/W4 /WX`, in CI | `Run-BlockadeAuthority.ps1`, `Run-RemoteP2.ps1` | `powershell -File tests/<Skript>.ps1` |
+| Spike-Kerne, nur von Hand | `Run-AttributeReadiness.ps1`, `Run-RoundPhase.ps1`, `Run-RoundPhaseRuntime.ps1`, `Run-SpawnedPlayers.ps1` | `powershell -File tests/<Skript>.ps1`; laufen weder in CI noch in `Build-Mod.ps1 -Test` |
+| CI-Compiler-Cache-Fallback, in CI | `Test-CiCompilerArgs.ps1` | `powershell -File tests/Test-CiCompilerArgs.ps1` |
 
 `test_module_boundaries.py` prüft die [Modulgrenzen](../docs/ARCHITECTURE.md#module) an den Includes. Ein neuer Ordner unter `src/` braucht dort einen Eintrag.
 
 ## CI
 
-`.github/workflows/ci.yml` baut die Solution in Debug und Release und führt danach die C++-Tests aus. Python-Tests und die beiden `Run-*.ps1` hängen nicht von der Konfiguration ab und laufen einmal im Job `scripts`, parallel zum Build. Ändert ein PR nur `*.md` oder `docs/`, baut die CI nicht: Der Job `changes` erkennt das, und `build-and-test` überspringt alle Schritte und meldet Erfolg, damit die Pflichtprüfungen der Branch-Regel auch bei Doku-PRs vorliegen. Scheitert die Erkennung, wird gebaut; `.github/workflows/docs.yml` prüft `TODO.md`, README-Fortschritt und Fortschrittsbild bei jeder Änderung. Ein neuer Push auf denselben PR bricht den laufenden Lauf ab.
+`.github/workflows/ci.yml` baut die Solution in Debug und Release und führt danach die C++-Tests aus. Python-Tests, `Test-CiCompilerArgs.ps1`, `Run-BlockadeAuthority.ps1` und `Run-RemoteP2.ps1` hängen nicht von der Konfiguration ab und laufen einmal im Job `scripts`, parallel zum Build. Ändert ein PR nur `*.md` oder `docs/`, baut die CI nicht: Der Job `changes` erkennt das, und `build-and-test` überspringt alle Schritte und meldet Erfolg, damit die Pflichtprüfungen der Branch-Regel auch bei Doku-PRs vorliegen. Scheitert die Erkennung, wird gebaut; `.github/workflows/docs.yml` prüft `TODO.md`, README-Fortschritt und Fortschrittsbild bei jeder Änderung. Ein neuer Push auf denselben PR bricht den laufenden Lauf ab.
 
 Der Build läuft über ccache (Cache je Konfiguration in `actions/cache`) und mit MultiToolTask, also je Quelldatei ein Compileraufruf und mehrere parallel. Dafür schaltet `/p:DdcoopCompilerCache=true` in `src/Common.props` auf `/Z7` und eine Objektdatei je Quelle; lokale Builds bleiben bei `/Zi`. Neue Projekte erben das über `Common.props`. Die Statistik am Ende des Build-Schritts zeigt Treffer und Fehlschläge.
 
