@@ -30,6 +30,9 @@ LIMITS = {
     'docs/OFFSETS.md': 99_000,
     'src/Game/README.md': 81_000,
 }
+# Verschachtelte CLAUDE.md laedt Claude Code bei jeder Arbeit im Ordner, sie bleiben darum sehr kurz.
+for _module in ('src/Core', 'src/Game', 'src/Mod', 'src/Net', 'src/Sync', 'src/UI', 'tools'):
+    LIMITS[f'{_module}/CLAUDE.md'] = 3_000
 EXCLUDED = ('docs/archive/',)
 ARCHIVE_DIR = 'docs/archive/'
 ARCHIVE_BANNER = '> **Archiv.** Historischer Stand, nicht aktuell. Gilt nur, wenn eine aktuelle Doku darauf verweist.'
