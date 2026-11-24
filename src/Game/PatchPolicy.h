@@ -656,4 +656,62 @@ template <typename WriterT> void EmitReaperGameModeGuard(WriterT& Code, uintptr_
     Code.Emit({0xE9}); // jmp Continue
     Code.EmitRel(Continue);
 }
+
+// airdrop-dodge-absturz, airdrop-auswahl-absturz: InventoryPanel.SetupInventory und ForceUpdateFromComponent lesen das Inventar
+// des Panels (+0x370) ohne Prüfung. Ohne Panel oder Inventar gibt es nichts aufzubauen; der Aufruf entfällt, ein späterer mit
+// Inventar baut das Panel auf.
+constexpr bool PanelMayRebuild(uintptr_t Panel, uintptr_t Inventory)
+{
+    return Panel != 0 && Inventory != 0;
+}
+
+// Panels, deren Aufbau ohne Inventar ausgelassen wurde. Skip meldet den ersten Ausfall je Panel (für das Log), Rebuilt genau
+// einmal, wenn dasselbe Panel danach mit Inventar aufgebaut wird. Der Schlüssel ist die Adresse; ein später an derselben
+// Adresse neu angelegtes Panel kann eine Meldung erben, das betrifft nur das Log.
+class PanelsWithoutInventory
+{
+public:
+    static constexpr size_t Capacity = 16;
+
+    bool Skip(uintptr_t Panel)
+    {
+        if (!Panel)
+            return Total++ == 0;
+        ++Total;
+        for (size_t i = 0; i < Count; ++i)
+            if (Panels[i] == Panel)
+                return false;
+        if (Count < Capacity)
+            Panels[Count++] = Panel;
+        else
+        {
+            for (size_t i = 1; i < Capacity; ++i)
+                Panels[i - 1] = Panels[i];
+            Panels[Capacity - 1] = Panel;
+        }
+        return true;
+    }
+
+    bool Rebuilt(uintptr_t Panel)
+    {
+        for (size_t i = 0; i < Count; ++i)
+        {
+            if (Panels[i] != Panel)
+                continue;
+            for (size_t k = i + 1; k < Count; ++k)
+                Panels[k - 1] = Panels[k];
+            --Count;
+            return true;
+        }
+        return false;
+    }
+
+    size_t Waiting() const { return Count; }
+    uint64_t Skipped() const { return Total; }
+
+private:
+    uintptr_t Panels[Capacity]{};
+    size_t Count = 0;
+    uint64_t Total = 0;
+};
 }

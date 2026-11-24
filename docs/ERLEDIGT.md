@@ -8,6 +8,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 
 | Kennung | Phase | Ergebnis |
 |---|---|---|
+| `airdrop-auswahl-absturz` | Problem | Absturzstelle belegt: `InventoryPanel::ForceUpdateFromComponent` liest nach dem ausgelassenen `SetupInventory` selbst das fehlende Inventar. Beide lassen den Aufbau ohne Inventar jetzt aus, das Log nennt das Panel und meldet den späteren Aufbau. Warum das Panel ohne Inventar kam, ist offen, siehe [Fallakte](faelle/airdrop-auswahl-absturz.md). Bestätigungstest ausstehend, siehe unten. |
 | `airdrop-belohnung-aufwertung` | 5 | Live-Test 17.11.2026 auf zwei PCs, Build 26669225: zehnmal Belohnung als Eingabe einer Aufwertung, Eingabe mit Drehung 0, 1 und 3, jedes Mal ohne Rücknahme übernommen (Checkliste Teil D), [Live-Test 17.11.](archive/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-17112026-livetest-1711) |
 | `airdrop-dodge-absturz` | 5 | Nach Entscheidung des Nutzers abgeschlossen: zwei PCs, Build 26495302, 5 statt 10 Airdrop-Dodges auf beiden Seiten ohne Absturz, Ausnahmefall SetupInventory nicht ausgelöst, keine Aufrufer-RVA, siehe [Live-Test 07.11.](archive/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-07112026-livetest-0711) |
 | `airdrop-rucksack` | 5 | Wahl und Ablage des Clients kommen beim Host im Rucksack an, keine Auto-Bestätigung beim Drag, Client-Anzeige aus replizierten Pivot-Feldern; Live-Rest in `airdrop-rucksack-live`, siehe [Airdrop-Auswahl](../src/Game/README.md#airdrop-auswahl) |
@@ -237,6 +238,7 @@ Spicker für Live-Sitzungen: was bei erledigten Aufgaben noch im Spiel zu prüfe
 
 | Kennung | Im Spiel prüfen |
 |---|---|
+| `airdrop-auswahl-absturz` | Fix integriert (ForceUpdateFromComponent und SetupInventory ohne Inventar ausgelassen), Tests grün, Sitzung zu zweit auf einem PC startet mit 60 Patches. Offen: auf einem PC mit zwei Instanzen nach Händler-Event mit Kauf die erste Airdrop-Auswahl der nächsten Karte beim Client öffnen; kein Absturz, Auswahl normal aufgebaut, bei 'ohne Inventar ausgelassen' Objektname und Zustand des Panels festhalten (Ursache klären) |
 | `boss-karte-absturz` | Client betritt die Boss-Karte am Ende der Route ohne Absturz; im Client-Log genau eine Zeile „Boss-Leiste: lokal angelegt“ je Eintritt, die Leiste folgt den Boss-HP. |
 | `charakter-wahl` | Jeder wählt in der MetaBase eine andere Figur; beide sehen die Wahl des anderen, auch nach der Reise und mit Startausrüstung im Run. |
 | `client-runstand-abbruch` | Nach einem gemeinsamen Run (Client verlässt über das Pausemenü oder der Host beendet) hostet der frühere Client: neuer Run mit Level 1 und Startausrüstung; ein eigener offener Run des Clients lässt sich danach fortsetzen. |

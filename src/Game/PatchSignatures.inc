@@ -113,6 +113,7 @@
 {0x05A25B30, 0, "48 8B C4 48 89 58 18 55 56 57 41 54 41 55 41 56 41 57 48 8D A8 C8 FE FF FF 48 81 EC 00 02 00 00 0F 29 70 B8 0F 29 78 A8 44 0F 29 40 98 44 0F 29 48 88 44 0F 29 90 78 FF FF FF 44 0F 29 98 68 FF FF FF 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 85 90 00 00 00 4C 8B F2 48 8B F1 F6 81 38 03 00 00 02 0F 84 ?? ?? ?? ??", 0, "DamageHandler"}, // DamageNumberPatches.cpp
 {0x05A49F40, 0, "48 89 5C 24 08 57 48 83 EC 20 80 B9 18 03 00 00 00", 0, "OpenChoices"}, // AirdropPatches.cpp
 {0x05A4A3D0, 0, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 48 89 7C 24 20 41 54 41 56 41 57 48 83 EC 30 4C 8B E2 48 8B E9 80 B9 A8 02 00 00 00 0F 85 ?? ?? ?? ??", 0, "OpenCrate"}, // AirdropPatches.cpp
+{0x05A70050, 0, "48 89 5C 24 08 48 89 74 24 10 48 89 7C 24 18 55 41 54 41 55 41 56 41 57 48 8D 6C 24 C9 48 81 EC B0 00 00 00 48 8B F9 E8 ?? ?? ?? ??", 0, "PanelForceUpdate"}, // RewardPatches.cpp
 {0x05A74D50, 0, "48 89 5C 24 18 55 56 57 48 83 EC 40 48 8B F9", 0, "PanelConfirm"}, // RewardPatches.cpp
 {0x05A7B75B, 0, "E8 ?? ?? ?? ?? 48 8B 4D 10 48 33 CC E8 ?? ?? ?? ?? 4C 8D 9C 24 30 01 00 00 49 8B 5B 38", 0, "ClientRefreshCallSite"}, // ClientPatches.cpp
 {0x05A941D0, 0, "48 89 5C 24 10 48 89 74 24 18 48 89 7C 24 20 55 41 54 41 55 41 56 41 57 48 8D 6C 24 B0 48 81 EC 50 01 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 40 48 8B F9 C6 81 00 09 00 00 01 E8 ?? ?? ?? ??", 0, "ClientRefreshFunction"}, // ClientPatches.cpp

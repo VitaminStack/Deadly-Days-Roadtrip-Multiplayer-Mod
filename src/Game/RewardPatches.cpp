@@ -40,6 +40,9 @@ namespace
 constexpr uintptr_t SetRewardItems = 0x59808C0;
 constexpr uintptr_t PanelConfirm = 0x5A74D50;
 constexpr uintptr_t PanelSetupInventory = 0x5A941D0;
+// InventoryPanel::ForceUpdateFromComponent, nativ (Exec-Thunk 0x570E5B0, sechs direkte Aufrufer). Ruft SetupInventory und liest
+// danach selbst das Inventar des Panels (airdrop-auswahl-absturz).
+constexpr uintptr_t PanelForceUpdate = 0x5A70050;
 // UInventoryComponent::CreateItemInstance, nativ. Die UFunction ist BlueprintAuthorityOnly, ProcessEvent überspringt
 // sie beim Client.
 constexpr uintptr_t CreateItemInstance = 0x595FB80;
@@ -100,6 +103,7 @@ using SoldFn = void(__fastcall*)(uintptr_t, uintptr_t);
 SetRewardsFn OriginalSetRewards = nullptr;
 ConfirmFn OriginalConfirm = nullptr;
 ConfirmFn OriginalSetupInventory = nullptr;
+ConfirmFn OriginalForceUpdate = nullptr;
 UpgradeFn OriginalUpgrade = nullptr;
 SoldFn OriginalSold = nullptr;
 ConfirmFn OriginalTryBuy = nullptr; // UShopPanelItem::TryBuyItem(this)
@@ -1016,20 +1020,48 @@ void RestoreBackpackVisuals(uintptr_t Panel)
 // airdrop-dodge-absturz: SetupInventory liest das Inventar des Panels (+0x370) ohne Prüfung, und keiner der acht nativen Aufrufer
 // prüft es vorher, darunter Ereignis-Handler. Dodgte der Client in einen Airdrop, kam der Aufruf manchmal ohne Inventar und
 // stürzte ab. Ohne Inventar gibt es nichts aufzubauen; der nächste Aufruf mit Inventar holt es nach. Der Aufrufer steht im Log.
-std::atomic<unsigned> SetupWithoutInventory = 0;
+// airdrop-auswahl-absturz: ForceUpdateFromComponent ruft SetupInventory und reicht danach selbst das Inventar an
+// InventoryComponent::GetItems (0x59660C0) weiter, das [Inventar+0x108] liest; ohne Inventar der Absturz beim Lesen von 0x108.
+// Darum entfällt auch dieser Aufruf ganz. Das Log nennt Panel, Klasse, Zustand und Aufrufer, einmal je Panel, und meldet, wenn
+// dasselbe Panel später mit Inventar aufgebaut wird.
+Game::Patches::PanelsWithoutInventory SkippedPanels;
+
+uintptr_t PanelInventoryOf(uintptr_t Panel)
+{
+    constexpr uintptr_t PanelInventory = 0x370;
+    return Panel ? Memory::Read<uintptr_t>(Panel + PanelInventory).value_or(0) : 0;
+}
+
+bool PanelReady(uintptr_t Panel, const char* What, uintptr_t Caller)
+{
+    if (Game::Patches::PanelMayRebuild(Panel, PanelInventoryOf(Panel)))
+    {
+        if (SkippedPanels.Rebuilt(Panel))
+            Core::Log::Info("Inventar: {} baut Panel {:#x} jetzt mit Inventar auf ({} Panel(s) warten noch)", What, Panel,
+                            SkippedPanels.Waiting());
+        return true;
+    }
+    if (SkippedPanels.Skip(Panel))
+        Core::Log::Warn("Inventar: {} ohne Inventar ausgelassen, Panel {:#x} {} ({}, {}), Aufrufer {:#x}, bisher {} ausgelassen", What,
+                        Panel, Panel ? Memory::NameOf(Panel) : std::string("-"), Panel && Objects::IsA(Panel, "InventoryPanel") ? "InventoryPanel" : "andere Klasse",
+                        Panel && PanelOpen(Panel) ? "offen" : "geschlossen",
+                        Caller - reinterpret_cast<uintptr_t>(GetModuleHandleW(nullptr)), SkippedPanels.Skipped());
+    return false;
+}
 
 void __fastcall SetupInventoryHook(uintptr_t Panel)
 {
-    constexpr uintptr_t PanelInventory = 0x370;
-    if (!Panel || !Memory::Read<uintptr_t>(Panel + PanelInventory).value_or(0))
-    {
-        if (SetupWithoutInventory.fetch_add(1) < 10)
-            Core::Log::Warn("Inventar: SetupInventory ohne Inventar ausgelassen, Panel {:#x}, Aufrufer {:#x}", Panel,
-                            reinterpret_cast<uintptr_t>(_ReturnAddress()) - reinterpret_cast<uintptr_t>(GetModuleHandleW(nullptr)));
+    if (!PanelReady(Panel, "SetupInventory", reinterpret_cast<uintptr_t>(_ReturnAddress())))
         return;
-    }
     OriginalSetupInventory(Panel);
     RestoreBackpackVisuals(Panel);
+}
+
+void __fastcall ForceUpdateHook(uintptr_t Panel)
+{
+    if (!PanelReady(Panel, "ForceUpdateFromComponent", reinterpret_cast<uintptr_t>(_ReturnAddress())))
+        return;
+    OriginalForceUpdate(Panel);
 }
 
 bool CheckSetRewards()
@@ -1066,6 +1098,20 @@ bool ApplySetupInventory(Code::Writer&)
 {
     return Core::Hooks::Install(reinterpret_cast<void*>(At(PanelSetupInventory)), reinterpret_cast<void*>(&SetupInventoryHook),
                                 reinterpret_cast<void**>(&OriginalSetupInventory));
+}
+bool CheckForceUpdate()
+{
+    // Prolog bis mov rdi,rcx; call SetupInventory; mov rdx,[rdi+370h]: belegt zugleich den Lesezugriff hinter dem Aufruf.
+    return Code::Expect(At(PanelForceUpdate), {0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x74, 0x24, 0x10, 0x48, 0x89, 0x7C, 0x24, 0x18},
+                        "InventoryPanel::ForceUpdateFromComponent") &&
+           Code::Expect(At(PanelForceUpdate, 0x24), {0x48, 0x8B, 0xF9, 0xE8}, "InventoryPanel::ForceUpdateFromComponent, Aufruf") &&
+           Code::Expect(At(PanelForceUpdate, 0x2C), {0x48, 0x8B, 0x97, 0x70, 0x03, 0x00, 0x00},
+                        "InventoryPanel::ForceUpdateFromComponent, Inventar");
+}
+bool ApplyForceUpdate(Code::Writer&)
+{
+    return Core::Hooks::Install(reinterpret_cast<void*>(At(PanelForceUpdate)), reinterpret_cast<void*>(&ForceUpdateHook),
+                                reinterpret_cast<void**>(&OriginalForceUpdate));
 }
 bool CheckUpgrade()
 {
@@ -1108,6 +1154,7 @@ constexpr uintptr_t SoldSites[] = {HandleItemSold};
 constexpr uintptr_t TryBuySites[] = {TryBuyItem};
 constexpr uintptr_t ConfirmSites[] = {MemoryFree, CreateItemInstance, PanelConfirm};
 constexpr uintptr_t SetupInventorySites[] = {PanelSetupInventory};
+constexpr uintptr_t ForceUpdateSites[] = {PanelForceUpdate};
 const Patch List[] = {
     {"Airdrop-Auswahl: Choices des Hosts mitlesen", CheckSetRewards, ApplySetRewards, SetRewardsSites},
     {"Aufwerten beim Client nur in lokaler Bearbeitung, Host übernimmt", CheckUpgrade, ApplyUpgrade, UpgradeSites},
@@ -1115,6 +1162,7 @@ const Patch List[] = {
     {"Kaufen beim Händler nur in lokaler Bearbeitung, Host legt an und bucht", CheckTryBuy, ApplyTryBuy, TryBuySites},
     {"Airdrop-Auswahl: Bestätigen bis zur Wahl des Partners halten", CheckConfirm, ApplyConfirm, ConfirmSites},
     {"Airdrop-Auswahl: Rucksack-Anzeige aus replizierten Feldern aufbauen", CheckSetupInventory, ApplySetupInventory, SetupInventorySites},
+    {"Inventar-Panel: Aktualisieren ohne Inventar auslassen", CheckForceUpdate, ApplyForceUpdate, ForceUpdateSites},
 };
 }
 

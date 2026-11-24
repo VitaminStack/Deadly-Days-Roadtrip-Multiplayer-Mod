@@ -1257,3 +1257,42 @@ TEST_CASE("opt-station-zug: erster Zug des Clients beginnt eine Bearbeitung, im 
     CHECK(ClientMoveBegins(false, true, false, 7, 0, false, true) == ClientMove::Native);
     CHECK(ClientMoveBegins(false, false, true, 0, 0, false, true) == ClientMove::Native);
 }
+
+TEST_CASE("airdrop-auswahl-absturz: Panel-Aufbau nur mit Panel und Inventar")
+{
+    using Game::Patches::PanelMayRebuild;
+    CHECK(PanelMayRebuild(0x1000, 0x2000));
+    CHECK_FALSE(PanelMayRebuild(0x1000, 0));
+    CHECK_FALSE(PanelMayRebuild(0, 0x2000));
+    CHECK_FALSE(PanelMayRebuild(0, 0));
+}
+
+TEST_CASE("airdrop-auswahl-absturz: Ausfall je Panel einmal gemeldet, Aufbau mit Inventar danach einmal")
+{
+    Game::Patches::PanelsWithoutInventory Panels;
+    // Live-Test 24.11.: SetupInventory aus dem Blueprint, dann ForceUpdateFromComponent, beide am selben Panel ohne Inventar.
+    CHECK(Panels.Skip(0x1000));
+    CHECK_FALSE(Panels.Skip(0x1000));
+    CHECK(Panels.Waiting() == 1);
+    CHECK(Panels.Skipped() == 2);
+    CHECK_FALSE(Panels.Rebuilt(0x2000));
+    CHECK(Panels.Rebuilt(0x1000));
+    CHECK_FALSE(Panels.Rebuilt(0x1000));
+    CHECK(Panels.Waiting() == 0);
+    // Fehlt das Inventar später erneut, gilt das wieder als neuer Ausfall.
+    CHECK(Panels.Skip(0x1000));
+}
+
+TEST_CASE("airdrop-auswahl-absturz: ohne Panel nur die erste Meldung, volle Liste verdrängt das älteste Panel")
+{
+    using Game::Patches::PanelsWithoutInventory;
+    PanelsWithoutInventory Panels;
+    CHECK(Panels.Skip(0));
+    CHECK_FALSE(Panels.Skip(0));
+    CHECK(Panels.Waiting() == 0);
+    for (uintptr_t i = 1; i <= PanelsWithoutInventory::Capacity + 1; ++i)
+        CHECK(Panels.Skip(i * 0x100));
+    CHECK(Panels.Waiting() == PanelsWithoutInventory::Capacity);
+    CHECK_FALSE(Panels.Rebuilt(0x100));
+    CHECK(Panels.Rebuilt((PanelsWithoutInventory::Capacity + 1) * 0x100));
+}
