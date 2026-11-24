@@ -364,7 +364,7 @@ Manches lässt sich auf einem PC nicht prüfen: Steam lehnt P2P zum eigenen Kont
 Dafür laufen Host und Client auf zwei PCs mit zwei Steam-Konten, je PC nur eine Instanz. Solche Aufgaben haben in
 [TODO.md](../TODO.md) die Bearbeitung **zu zweit**, etwa `tunnel-p2p`.
 Solche Tests lassen sich in einem gemeinsamen Termin bündeln. Als Planungshilfe dienen die Hinweise unter
-[Live-Sitzungen zu zweit](../TODO.md#live-sitzungen-zu-zweit).
+[Live-Sitzungen zu zweit](PROZESS.md#live-sitzungen-zu-zweit).
 
 ### Reservieren zu zweit
 

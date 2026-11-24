@@ -30,6 +30,7 @@ OPTIONAL_PHASE = 'Optional'
 FREE_START = '<!-- frei:start -->'
 FREE_END = '<!-- frei:end -->'
 ID_PATTERN = r'[a-z0-9][a-z0-9-]*'
+MAX_TASK_TEXT = 800
 CONFIRMATION_PREFIX = '**Bestätigungstest ausstehend:** '
 CONFIRMATION_TASK = ' **Aufgabe und Abnahme:** '
 
@@ -106,6 +107,9 @@ def parse(todo):
             if len(row) != 6:
                 raise ValueError(f'{where}: {name} braucht 6 Spalten')
             _, prio, text, needs, mode, playtime = row
+            if len(text) > MAX_TASK_TEXT:
+                raise ValueError(f'{where}: {name}: Aufgabentext über {MAX_TASK_TEXT} Zeichen, '
+                                 f'Details in docs/faelle/{name}.md')
             if prio not in PRIOS:
                 raise ValueError(f'{where}: {name}: Prio muss P0, P1 oder P2 sein')
             if mode not in MODES:

@@ -46,7 +46,7 @@ Wer beide PCs selbst bedient, reserviert ohne Rolle. Ablauf und Abschluss stehen
 
 ### Aufgabe abschließen und Fortschritt pflegen
 
-Die Schritte stehen in [Aufgabe abschließen](TODO.md#aufgabe-abschließen). Kurz:
+Die Schritte stehen in [Aufgabe abschließen](docs/PROZESS.md#aufgabe-abschließen). Kurz:
 
 1. Ergebnis und Testgrenzen in der Doku festhalten. Erledigte Analyse ist nicht automatisch fertige Umsetzung.
 2. Nur bei erfüllter Abnahme die Zeile aus der Phasentabelle nach [Erledigt](docs/ERLEDIGT.md#erledigt) verschieben, alphabetisch, mit einem Satz Ergebnis. Neue Aufgaben bekommen eine Zeile in ihrer Phase mit „Braucht“.

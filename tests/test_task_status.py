@@ -42,6 +42,12 @@ class ParseTests(unittest.TestCase):
         for name in ('crash-reporter', 'overlay', 'deploy', 'ci', 'grundgeruest', 'testumgebung'):
             self.assertTrue(parsed[name].done, name)
 
+    def test_long_open_task_text_rejected(self):
+        with self.assertRaisesRegex(ValueError, 'über 800 Zeichen'):
+            source.parse(todo('| `a` | P0 | ' + 'x' * 801 + ' | – | parallel | wenig |\n'))
+        source.parse(todo('| `a` | P0 | ' + 'x' * 800 + ' | – | parallel | wenig |\n',
+                          done_rows='| `z` | 1 | ' + 'y' * 2000 + ' |'))
+
     def test_open_and_done_rows(self):
         parsed = source.parse(todo('| `a` | P0 | Text | `base1` | parallel | wenig |\n'))
         self.assertFalse(parsed['a'].done)
