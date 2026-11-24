@@ -114,6 +114,17 @@ class DocCheckTests(unittest.TestCase):
         self.assertEqual((self.root / 'docs/archive/G.md').read_text(encoding='utf-8'),
                          '[s](../../src/A.cpp) [o](../OFFSETS.md#x) [h](#here) [g](../G.md#gone) [w](https://a.b)\n## Here\n')
 
+    def test_finished_plan_must_be_archived(self):
+        self.write('docs/superpowers/plans/x.md', '# Plan\n')
+        self.write('TODO.md', '| `andere` | P1 | Text | – | zentral | wenig |\n')
+        self.assertEqual(doc_check.check_plans(self.root),
+                         ['docs/superpowers/plans/x.md: Arbeitsplan nach Abschluss archivieren oder löschen'])
+
+    def test_plan_allowed_while_task_open(self):
+        self.write('docs/superpowers/plans/x.md', '# Plan\n')
+        self.write('TODO.md', '| `projekt-aufraeumen` | P1 | Text | – | zentral | wenig |\n')
+        self.assertEqual(doc_check.check_plans(self.root), [])
+
     def test_real_documents_pass(self):
         root = Path(__file__).resolve().parents[1]
         self.assertEqual(doc_check.run_checks(root), [])

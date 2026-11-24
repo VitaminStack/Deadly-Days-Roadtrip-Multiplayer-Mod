@@ -198,10 +198,30 @@ def rebase_links(root, name, origin):
     return edit_links(root, name, change)
 
 
+PLAN_DIR = 'docs/superpowers/'
+PLAN_TASK = 'projekt-aufraeumen'
+
+
+def check_plans(root):
+    """Arbeitspläne unter docs/superpowers/ dürfen nur liegen, solange ihre Aufgabe in TODO.md offen ist.
+
+    Sonst liest sie ein Agent später als gültige Anleitung. Nach Abschluss ins Archiv verschieben oder löschen.
+    """
+    root = Path(root)
+    todo = root / 'TODO.md'
+    if todo.is_file() and f'| `{PLAN_TASK}` |' in todo.read_bytes().decode('utf-8'):
+        return []
+    folder = root / PLAN_DIR
+    if not folder.is_dir():
+        return []
+    return sorted(f'{p.relative_to(root).as_posix()}: Arbeitsplan nach Abschluss archivieren oder löschen'
+                  for p in folder.rglob('*') if p.is_file())
+
+
 def run_checks(root):
     root = Path(root)
     files = [n for n in markdown_files(root) if (root / n).is_file()]
-    return check_sizes(root, files) + check_archive(root, files) + check_links(root, files)
+    return check_sizes(root, files) + check_archive(root, files) + check_plans(root) + check_links(root, files)
 
 
 def main(argv):

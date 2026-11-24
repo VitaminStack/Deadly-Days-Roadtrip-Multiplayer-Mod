@@ -91,7 +91,7 @@ Hält die Doku so klein und verlinkt, dass Agenten sie gezielt lesen können. L�
 | `py tools/doc_check.py rebase <datei> <herkunft>` | Links in `<datei>` anpassen, deren Text wortgleich aus `<herkunft>` stammt |
 
 Standardgrenze 60 000 Bytes. Größere Dateien stehen mit ihrer heutigen Größe in `LIMITS`. Diese Werte dürfen nur sinken.
-Dateien unter `docs/archive/` haben keine Grenze, beginnen aber mit dem Archiv-Banner (`ARCHIVE_BANNER`); ihre Links werden trotzdem geprüft.
+Arbeitspläne unter `docs/superpowers/` meldet `check`, sobald ihre Aufgabe (`projekt-aufraeumen`) nicht mehr in `TODO.md` offen ist: dann ins Archiv verschieben oder löschen. Dateien unter `docs/archive/` haben keine Grenze, beginnen aber mit dem Archiv-Banner (`ARCHIVE_BANNER`); ihre Links werden trotzdem geprüft.
 
 ## log_summary.py
 
