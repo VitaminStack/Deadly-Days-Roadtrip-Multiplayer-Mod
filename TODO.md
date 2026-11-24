@@ -36,15 +36,12 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | Kennung | Prio | Phase | Bearbeitung | Spielzeit |
 |---|---|---|---|---|
 | `integration-run` | P0 | [5](#phase-5--vollständiger-run) | zentral | viel |
-| `opt-portraet` | P2 | [Wartung](#wartung) | parallel | wenig |
-| `update-26786272-run` | P1 | [Wartung](#wartung) | zentral | viel |
 
 **Wartet auf das Team:** `spawn-nach-kartenaufbau`, `wechsel-26786272`, `dumper7-image-ende`.
 
 **Zurückgestellt, bis Phase 0 bis 5 erledigt sind:** 18 Aufgaben unter [Optionale Optimierungen](#optionale-optimierungen).
 
-**Bestätigungstest ausstehend (nicht in Arbeit):** `lager-edit-ablehnung`, `boss-client-einfrieren`, `client-roboterarm`, `opt-metabase-inventar`, `labyrinth-event-client`, `update-26786272-run`, `weekly-sperre`, `opt-blut`, `opt-werkbank-station`, `opt-airdrop-edit-ungueltig`, `opt-airdrop-uebertrag`, `opt-boss-phasenleiste`, `opt-boss-tafel-client`, `opt-loot-aufnahme-client`, `opt-endboss-leiste`.
-**Bestätigungstest ausstehend (nicht in Arbeit):** `lager-edit-ablehnung`, `boss-client-einfrieren`, `client-roboterarm`, `opt-metabase-inventar`, `labyrinth-event-client`, `opt-portraet`, `weekly-sperre`, `opt-blut`, `opt-werkbank-station`, `opt-airdrop-edit-ungueltig`, `opt-airdrop-uebertrag`, `opt-boss-phasenleiste`, `opt-boss-tafel-client`, `opt-loot-aufnahme-client`, `opt-endboss-leiste`.
+**Bestätigungstest ausstehend (nicht in Arbeit):** `lager-edit-ablehnung`, `boss-client-einfrieren`, `client-roboterarm`, `opt-metabase-inventar`, `labyrinth-event-client`, `update-26786272-run`, `opt-portraet`, `weekly-sperre`, `opt-blut`, `opt-werkbank-station`, `opt-airdrop-edit-ungueltig`, `opt-airdrop-uebertrag`, `opt-boss-phasenleiste`, `opt-boss-tafel-client`, `opt-loot-aufnahme-client`, `opt-endboss-leiste`.
 <!-- frei:end -->
 
 **Nicht erneut machen.** Das ist erledigt und dokumentiert:
