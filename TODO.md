@@ -92,28 +92,28 @@ Neue Funktionen, Feinschliff und Release. Je Aufgabe steht hier nur eine Kurzfas
 
 | Kennung | Prio | Aufgabe | Bearbeitung | Spielzeit |
 |---|---|---|---|---|
-| `dumper7-image-ende` | P2 | Prüfen, ob `tools/dumper7/image-ende.patch` noch nötig ist (der Fehler trat nur auf `26669225` auf): SDK auf `26786272` ohne Patch erzeugen. **Fertig, wenn** der Patch entfällt oder der Fix im Fork `VitaminStack/Dumper-7` liegt und das Submodul umgestellt ist. | parallel | wenig |
-| `verbesserungen-sichten` | P1 | Jede Verbesserung samt `docs/OPTIONEN.md` von veralteten Vorgaben, alten Builds und Erledigtem befreien. **Fertig, wenn** jede Zeile einen aktuellen Fehler oder Wunsch mit prüfbarem „Fertig, wenn“ beschreibt. | zentral | keine |
-| `doku-rest-ist-zustand` | P2 | Übrige Doku unter `docs/` und `src/Net/README.md` auf den Ist-Zustand bringen. **Fertig, wenn** dort keine datierten Befunde und alten Builds mehr stehen. | parallel | keine |
-| `research-archivieren` | P2 | Erledigte Ordner unter `research/spikes/` (außer `a-connect`) archivieren. **Fertig, wenn** dort nur noch genutzte Werkzeuge liegen. | parallel | keine |
-| `ps-skripte-pruefen` | P2 | PSScriptAnalyzer für alle `*.ps1` in die CI aufnehmen, Funde beheben. **Fertig, wenn** der CI-Schritt grün ist. | parallel | keine |
 | `aufgaben-werkzeuge-entschlacken` | P1 | Nach dem Merge von #292 die tote Logik in `tools/tasks.py` und `tools/task_status.py` entfernen: Phasen, „Braucht“, zurückgestellt, Merge-Plan nach Abhängigkeiten, alte Bestätigungszeilen; prüfen, ob `claim` mit Worktree, Draft-PR und `gh` noch nötig ist. **Fertig, wenn** der Code nur noch die flache Liste kennt und alle Tests grün sind. | zentral | keine |
-| `prozess-neu-schreiben` | P1 | `docs/PROZESS.md` neu schreiben: ein Ablauf ohne Doppelungen. **Fertig, wenn** die Datei unter 6 KB liegt und `doc_check.py` diese Grenze prüft. | zentral | keine |
-| `themen-fuellen` | P2 | Die Themen-Dateien unter `docs/themen/` auf einen vollständigen Ist-Zustand bringen. **Fertig, wenn** jede Themen-Datei ihr Gebiet ohne Archiv erklärt. | parallel | keine |
-| `offsets-alte-rvas` | P2 | In `docs/OFFSETS.md` die Tabellen mit RVAs alter Builds auf `26786272` umrechnen (`tools/rva_map.py`) oder ins Archiv verschieben. **Fertig, wenn** die Datei nur Werte für den unterstützten Build enthält. | parallel | wenig |
-| `game-readme-kuerzen` | P2 | `src/Game/README.md` aufteilen: Die Patch-Tabelle deckt nur 12 von rund 40 Dateien ab. **Fertig, wenn** die Datei unter 60 KB liegt und jede `*Patches.cpp` beschreibt. | parallel | keine |
-| `game-ordner` | P2 | `src/Game` (109 Dateien flach) nach Fachgebiet in Unterordner teilen und `RewardPatches.cpp` (2400 Zeilen) aufteilen. **Fertig, wenn** Ordner den Themen entsprechen und die CI grün ist. | zentral | wenig |
-| `spike-abloesen` | P2 | Testbefehle des Spikes (`!finish`, Godmode, `!wave`, Seed) in den Testkanal der Mod übernehmen, danach `research/spikes/a-connect` löschen und `tools/spike/` in `tools/test/` umbenennen. **Fertig, wenn** alle Testskripte ohne Spike laufen. | zentral | mittel |
-| `werkzeuge-windows-pruefen` | P2 | `Collect-Logs.ps1` (Kurzfassung) und die Projekt-Skills auf Windows prüfen. **Fertig, wenn** `*.summary.txt` entstehen und die Skills laden. | parallel | wenig |
 | `coop-inventar-ablauf` | P1 | Alle Inventarabläufe auf das geteilte Inventar umstellen: Airdrop-Wahl, Itemsäcke, Werkbank, Lager mit Verkauf und Reparatur, Rundenende mit … | zentral | viel |
 | `coop-inventar-analyse` | P1 | Das native geteilte Koop-Inventar ohne Mod untersuchen, Referenz ist lokaler Koop mit zwei Controllern auf einem PC: Aufbau des gemeinsamen Rucksacks … | parallel | mittel |
 | `coop-inventar-konzept` | P1 | Konzept für das geteilte Inventar online, ausgelegt auf zwei bis vier Spieler. | zentral | keine |
 | `coop-inventar-zwei` | P1 | Geteiltes Inventar für zwei Spieler online nach dem Konzept: ein gemeinsamer Rucksack mit einem Bereich je Spieler, beide sehen dasselbe Raster … | zentral | viel |
 | `coop-modus-wahl` | P1 | Der Host wählt vor dem Run zwischen den Modi Eigene Inventare und Geteiltes Inventar, etwa in Lobby oder MetaBase. | parallel | mittel |
+| `prozess-neu-schreiben` | P1 | `docs/PROZESS.md` neu schreiben: ein Ablauf ohne Doppelungen. **Fertig, wenn** die Datei unter 6 KB liegt und `doc_check.py` diese Grenze prüft. | zentral | keine |
+| `verbesserungen-sichten` | P1 | Jede Verbesserung samt `docs/OPTIONEN.md` von veralteten Vorgaben, alten Builds und Erledigtem befreien. **Fertig, wenn** jede Zeile einen aktuellen Fehler oder Wunsch mit prüfbarem „Fertig, wenn“ beschreibt. | zentral | keine |
 | `coop-inventar-vier` | P2 | Geteiltes Inventar auf drei und vier Spieler erweitern. Die nativen Typen kennen nur P1 und P2, darum eigene Bereichszuordnung je Spieler-Slot nach … | zentral | viel |
 | `coop-spielstand` | P2 | Der Host speichert einen Coop-Run und setzt ihn später mit demselben Client fort. | parallel | viel |
+| `doku-rest-ist-zustand` | P2 | Übrige Doku unter `docs/` und `src/Net/README.md` auf den Ist-Zustand bringen. **Fertig, wenn** dort keine datierten Befunde und alten Builds mehr stehen. | parallel | keine |
+| `dumper7-image-ende` | P2 | Prüfen, ob `tools/dumper7/image-ende.patch` noch nötig ist (der Fehler trat nur auf `26669225` auf): SDK auf `26786272` ohne Patch erzeugen. **Fertig, wenn** der Patch entfällt oder der Fix im Fork `VitaminStack/Dumper-7` liegt und das Submodul umgestellt ist. | parallel | wenig |
+| `game-ordner` | P2 | `src/Game` (109 Dateien flach) nach Fachgebiet in Unterordner teilen und `RewardPatches.cpp` (2400 Zeilen) aufteilen. **Fertig, wenn** Ordner den Themen entsprechen und die CI grün ist. | zentral | wenig |
+| `game-readme-kuerzen` | P2 | `src/Game/README.md` aufteilen: Die Patch-Tabelle deckt nur 12 von rund 40 Dateien ab. **Fertig, wenn** die Datei unter 60 KB liegt und jede `*Patches.cpp` beschreibt. | parallel | keine |
+| `offsets-alte-rvas` | P2 | In `docs/OFFSETS.md` die Tabellen mit RVAs alter Builds auf `26786272` umrechnen (`tools/rva_map.py`) oder ins Archiv verschieben. **Fertig, wenn** die Datei nur Werte für den unterstützten Build enthält. | parallel | wenig |
 | `opt-client-takt` | P2 | Beim Client halten die Widget-Suche der … | parallel | wenig |
+| `ps-skripte-pruefen` | P2 | PSScriptAnalyzer für alle `*.ps1` in die CI aufnehmen, Funde beheben. **Fertig, wenn** der CI-Schritt grün ist. | parallel | keine |
+| `research-archivieren` | P2 | Erledigte Ordner unter `research/spikes/` (außer `a-connect`) archivieren. **Fertig, wenn** dort nur noch genutzte Werkzeuge liegen. | parallel | keine |
+| `spike-abloesen` | P2 | Testbefehle des Spikes (`!finish`, Godmode, `!wave`, Seed) in den Testkanal der Mod übernehmen, danach `research/spikes/a-connect` löschen und `tools/spike/` in `tools/test/` umbenennen. **Fertig, wenn** alle Testskripte ohne Spike laufen. | zentral | mittel |
 | `sync-aufraeumen` | P2 | Nach dem ersten kompletten Run alle Patches, Hooks und Kontrollkanal-Nachrichten durchgehen: Was deckt inzwischen native Replikation oder lokale … | zentral | mittel |
+| `themen-fuellen` | P2 | Die Themen-Dateien unter `docs/themen/` auf einen vollständigen Ist-Zustand bringen. **Fertig, wenn** jede Themen-Datei ihr Gebiet ohne Archiv erklärt. | parallel | keine |
 | `update-autoupdater` | P2 | Später optionales automatisches Mod-Update auf dem Releasefeed aufbauen, nur nach ausdrücklicher Aktivierung. | zentral | wenig |
 | `update-releasefeed` | P2 | Vertrauenswürdig prüfbare Release-/Kompatibilitätsinformationen anbieten: signierte Metadaten mit Mod-Version, unterstützten … | zentral | keine |
 | `update-startpruefung` | P2 | Mod-/Spiel-Kompatibilität vor dem Laden prüfen: gemeinsame Quelle für Mod-Version, Protokollversion, unterstützte Game-Builds, Kompatibilitätsprofil … | zentral | wenig |
+| `werkzeuge-windows-pruefen` | P2 | `Collect-Logs.ps1` (Kurzfassung) und die Projekt-Skills auf Windows prüfen. **Fertig, wenn** `*.summary.txt` entstehen und die Skills laden. | parallel | wenig |
