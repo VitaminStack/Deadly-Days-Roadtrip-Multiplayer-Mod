@@ -54,7 +54,7 @@ die beiden wie in den bisherigen Terminen.
 1. Alle Bestätigungstests aus `py tools/tasks.py tests plan` in einem Lauf. Neue Aufgaben mit Live-Rest dort ergänzen statt einen
    eigenen Termin anzusetzen.
 2. Die Punkte aus [Live-Bestätigung ausstehend](#live-bestätigung-ausstehend) nebenbei im selben Lauf prüfen.
-3. `rundenende-1-0-2`, Gegenprobe auf `26669225`: Host bestätigt jede Airdrop-Auswahl und das Lager am Rundenende mit einem Klick, auch nach einem Lager-Edit des Clients mit Aufwertung und Verkauf; Host-Log aufheben. Auf einem PC bestanden, siehe [Rundenende auf 26669225](OFFSETS.md#rundenende-auf-26669225-rundenende-1-0-2).
+3. `rundenende-1-0-2`, Gegenprobe auf `26669225`: Host bestätigt jede Airdrop-Auswahl und das Lager am Rundenende mit einem Klick, auch nach einem Lager-Edit des Clients mit Aufwertung und Verkauf; Host-Log aufheben. Auf einem PC bestanden, siehe [Rundenende auf 26669225](archive/OFFSETS-ALTE-BUILDS.md#rundenende-auf-26669225-rundenende-1-0-2).
 4. `integration-run`: kompletter Run über das Internet, Phase 5, sobald die Voraussetzungen erledigt sind.
 5. `release`: Abschlusstest vor der Veröffentlichung.
 
