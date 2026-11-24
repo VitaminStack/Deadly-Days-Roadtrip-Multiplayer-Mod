@@ -3,7 +3,9 @@ from contextlib import redirect_stdout
 from io import StringIO
 import os
 from pathlib import Path
+import subprocess
 import tempfile
+from types import SimpleNamespace
 import unittest
 import xml.etree.ElementTree as ET
 from unittest.mock import call, patch
@@ -30,7 +32,7 @@ def todo(phase1_rows='', done_rows='', extra=''):
 
 class ParseTests(unittest.TestCase):
     def test_real_documents_are_consistent(self):
-        text = (ROOT / 'TODO.md').read_text(encoding='utf-8')
+        text = source.read_local(ROOT)
         readme = (ROOT / 'README.md').read_text(encoding='utf-8')
         parsed = source.parse(text)
         self.assertEqual(source.update_todo(text, parsed), text)
@@ -543,10 +545,11 @@ class ReferenceTests(unittest.TestCase):
     def test_task_rows_in_todo_are_ignored(self):
         row = '| `x` | P0 | Rest kommt mit `base1` | – | parallel | wenig |'
         self.assertEqual(source.stale_references(self.tasks, {'TODO.md': row}), [])
+        self.assertEqual(source.stale_references(self.tasks, {source.DONE_FILE: row}), [])
         self.assertEqual(len(source.stale_references(self.tasks, {'TODO.md': 'Fließtext: kommt mit `base1`.'})), 1)
 
     def test_real_documents_have_no_stale_references(self):
-        parsed = source.parse((ROOT / 'TODO.md').read_text(encoding='utf-8'))
+        parsed = source.parse(source.read_local(ROOT))
         self.assertEqual(source.check_references(ROOT, parsed), [])
 
     def test_markdown_files_skip_foreign_and_local_folders(self):
@@ -612,3 +615,62 @@ class MarkDoneTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class DoneFileTests(unittest.TestCase):
+    """Erledigte Aufgaben stehen in docs/ERLEDIGT.md, die Werkzeuge arbeiten auf beiden Dateien zusammen."""
+    OLD = todo('| `frei-a` | P0 | Text | – | parallel | wenig |\n') + '## Risiken\n\nText\n'
+
+    def test_split_and_combine_roundtrip(self):
+        todo_part, done_part = source.split(self.OLD)
+        self.assertNotIn('## Erledigt', todo_part)
+        self.assertIn('## Risiken', todo_part)
+        self.assertTrue(done_part.startswith(source.DONE_TITLE))
+        self.assertIn('## Erledigt', done_part)
+        combined = source.combine(todo_part, done_part)
+        self.assertEqual(source.parse(combined), source.parse(self.OLD))
+        self.assertEqual(source.split(combined), (todo_part, done_part))
+
+    def test_split_keeps_line_endings_per_file(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / 'docs').mkdir()
+            todo_part, done_part = source.split(self.OLD)
+            (root / 'TODO.md').write_bytes(todo_part.replace('\n', '\r\n').encode('utf-8'))
+            (root / source.DONE_FILE).write_bytes(done_part.encode('utf-8'))
+            text = source.read_local(root)
+            source.write_local(root, source.mark_done(text, 'frei-a', 'Ergebnis.'))
+            todo_bytes, done_bytes = (root / 'TODO.md').read_bytes(), (root / source.DONE_FILE).read_bytes()
+            self.assertIn(b'\r\n', todo_bytes)
+            self.assertNotIn(b'\n', todo_bytes.replace(b'\r\n', b''))
+            self.assertNotIn(b'\r', done_bytes)
+
+    def test_mark_done_moves_row_into_done_file(self):
+        todo_part, done_part = source.split(source.mark_done(source.combine(*source.split(self.OLD)), 'frei-a', 'Ergebnis.'))
+        self.assertNotIn('`frei-a`', todo_part)
+        self.assertIn('| `frei-a` | 1 | Ergebnis. |', done_part)
+
+    def test_missing_done_file_reads_as_empty(self):
+        def git(*args, check=True):
+            if args[-1].endswith(source.DONE_FILE):
+                raise subprocess.CalledProcessError(128, 'git')
+            return SimpleNamespace(stdout=self.OLD)
+        with patch.object(tasks, 'git', side_effect=git):
+            self.assertEqual(tasks.todo_text(), self.OLD)
+
+    def test_todo_text_combines_both_files(self):
+        todo_part, done_part = source.split(self.OLD)
+        files = {'origin/main:TODO.md': todo_part, f'origin/main:{source.DONE_FILE}': done_part}
+        with patch.object(tasks, 'git', side_effect=lambda *a, check=True: SimpleNamespace(stdout=files[a[-1]])):
+            self.assertEqual(tasks.todo_text(), source.combine(todo_part, done_part))
+
+    def test_check_all_reads_done_file_for_dependencies(self):
+        old = todo('| `frei-a` | P0 | Text | `base1` | parallel | wenig |\n')
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / 'docs/assets').mkdir(parents=True)
+            source.write_local(root, old)
+            (root / 'README.md').write_text('', encoding='utf-8')
+            with self.assertRaisesRegex(ValueError, 'README'):
+                source.check_all(root, check=True)  # Abhaengigkeit base1 aufgeloest, erst das leere README stoert
+

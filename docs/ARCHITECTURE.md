@@ -118,7 +118,7 @@ Details, Fehlversuche und Belege stehen im [Nachtrag](../research/spikes/andockp
 
 ## Synchronisierung: zwei Wege
 
-**Gate G1 ist am 04.11.2026 durch den Nutzer entschieden:** Weg A (native UE-Replikation) ist die verbindliche Grundlage. Ein eigener Kontroll-/Sync-Kanal ergänzt XP, Währungen, Rewards, Pausen und UI, die das Spiel nicht ausreichend repliziert. Diese Ergänzungen machen die Architektur zum unten beschriebenen Hybrid; sie ersetzen nicht die native Replikation durch Weg B. Siehe [Entscheidungen](#entscheidungen) und [TODO.md](../TODO.md#erledigt).
+**Gate G1 ist am 04.11.2026 durch den Nutzer entschieden:** Weg A (native UE-Replikation) ist die verbindliche Grundlage. Ein eigener Kontroll-/Sync-Kanal ergänzt XP, Währungen, Rewards, Pausen und UI, die das Spiel nicht ausreichend repliziert. Diese Ergänzungen machen die Architektur zum unten beschriebenen Hybrid; sie ersetzen nicht die native Replikation durch Weg B. Siehe [Entscheidungen](#entscheidungen) und [TODO.md](ERLEDIGT.md#erledigt).
 
 ### Weg A: Native UE-Replikation (festgelegt)
 

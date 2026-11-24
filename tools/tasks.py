@@ -36,9 +36,9 @@ import time
 from pathlib import Path
 
 if __package__:
-    from .task_status import PHASES, PRIOS, EXTRA_SECTIONS, blockers, confirmation_update, deferred, mark_done, parse, regenerate
+    from .task_status import PHASES, PRIOS, EXTRA_SECTIONS, blockers, confirmation_update, deferred, mark_done, parse, regenerate, combine, read_local, write_local, DONE_FILE
 else:
-    from task_status import PHASES, PRIOS, EXTRA_SECTIONS, blockers, confirmation_update, deferred, mark_done, parse, regenerate
+    from task_status import PHASES, PRIOS, EXTRA_SECTIONS, blockers, confirmation_update, deferred, mark_done, parse, regenerate, combine, read_local, write_local, DONE_FILE
 
 STALE_DAYS = 3
 ROLES = ('host', 'client')
@@ -64,7 +64,13 @@ def repo_root():
 
 
 def todo_text():
-    return git('show', 'origin/main:TODO.md').stdout
+    """TODO.md und docs/ERLEDIGT.md von origin/main als ein Text; fehlt ERLEDIGT.md dort noch, nur TODO.md."""
+    todo = git('show', 'origin/main:TODO.md').stdout
+    try:
+        done = git('show', f'origin/main:{DONE_FILE}').stdout
+    except subprocess.CalledProcessError:
+        done = ''
+    return combine(todo, done)
 
 
 def plain(text):
@@ -230,7 +236,7 @@ def cmd_list(active_only=False, short=False):
         for task in pending:
             print(f'  {task.name:<20} {status(task.name, branches, prs, tasks):<44} {plain(task.confirmation)}')
     done = sum(task.done for task in tasks.values())
-    print(f'\nErledigt: {done} Aufgaben, siehe TODO.md#erledigt')
+    print(f'\nErledigt: {done} Aufgaben, siehe {DONE_FILE}')
     extra = sorted({split_branch(name)[0] for name in branches} - set(tasks))
     if extra and not active_only:
         print('\nBranches ohne Kennung in TODO.md')
@@ -516,7 +522,7 @@ def cmd_show(kennung):
     tasks, source = todo_tasks(), 'origin/main'
     if kennung not in tasks:
         # Neu angelegte Aufgaben stehen erst im eigenen Branch.
-        tasks, source = parse((worktree_root() / 'TODO.md').read_text(encoding='utf-8')), 'lokaler TODO.md'
+        tasks, source = parse(read_local(worktree_root())), 'lokaler TODO.md'
     task = tasks.get(kennung)
     if task is None:
         sys.exit(f'{kennung} steht weder auf origin/main noch im lokalen TODO.md.')
@@ -532,9 +538,7 @@ def cmd_done(kennung, result):
     branch = git('rev-parse', '--abbrev-ref', 'HEAD').stdout.strip()
     if branch.split('/')[:2] != ['task', kennung]:
         sys.exit(f'Nur im eigenen Worktree auf task/{kennung}, hier ist {branch}.')
-    path = root / 'TODO.md'
-    text = path.read_bytes().decode('utf-8')
-    path.write_bytes(mark_done(text, kennung, result).encode('utf-8'))
+    write_local(root, mark_done(read_local(root), kennung, result))
     stale = regenerate(root)
     if regenerate(root, check=True):
         sys.exit('task_status check schlaegt nach dem Erneuern fehl.')
@@ -564,8 +568,7 @@ def cmd_tests(args):
     if reading and prs is None:
         print('Hinweis: PR-Status unbekannt; Verfuegbarkeit vor dem Termin erneut pruefen.')
     root = worktree_root()
-    path = root / 'TODO.md'
-    todo = path.read_bytes().decode('utf-8') if not reading or options.local else todo_text()
+    todo = read_local(root) if not reading or options.local else todo_text()
     selected_tasks = parse(todo)
     own_branch = None if reading else git('rev-parse', '--abbrev-ref', 'HEAD').stdout.strip()
     if not reading and not own_branch.startswith('task/'):
@@ -607,7 +610,7 @@ def cmd_tests(args):
     elif available:
         # Erst alle Kennungen pruefen, dann einmal schreiben; nie einen halben Batch bei falschen Kennungen anwenden.
         updated = confirmation_update(todo, available, options.action, options.note)
-        path.write_bytes(updated.encode('utf-8'))
+        write_local(root, updated)
         regenerate(root)
         if regenerate(root, check=True):
             sys.exit('task_status check schlaegt nach dem Erneuern fehl.')

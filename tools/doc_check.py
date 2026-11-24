@@ -26,7 +26,7 @@ DEFAULT_LIMIT = 60_000
 # setzt ihre Datei auf die neue Groesse (auf 1000 aufgerundet) oder entfernt den Eintrag.
 LIMITS = {
     'CLAUDE.md': 10_000,
-    'TODO.md': 120_000,
+    'TODO.md': 66_000,
     'docs/GAME_ANALYSIS.md': 545_000,
     'docs/OFFSETS.md': 156_000,
     'docs/ROADMAP.md': 99_000,

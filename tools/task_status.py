@@ -5,7 +5,8 @@
 
 Zum Abschliessen einer Aufgabe gibt es "py tools/tasks.py done <kennung> <ergebnis>", das mark_done nutzt.
 
-Jede Aufgabe steht genau einmal in TODO.md: offen in der Tabelle ihrer Phase, erledigt in der Tabelle "Erledigt".
+Jede Aufgabe steht genau einmal: offen in TODO.md in der Tabelle ihrer Phase, erledigt in docs/ERLEDIGT.md.
+Die Werkzeuge lesen beide Dateien als einen Text (combine) und schreiben sie getrennt zurueck (split).
 """
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -16,6 +17,9 @@ import sys
 OPEN_HEADER = '| Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |'
 DONE_HEADER = '| Kennung | Phase | Ergebnis |'
 DONE_SECTION = 'Erledigt'
+DONE_FILE = 'docs/ERLEDIGT.md'
+DONE_TITLE = '# Erledigte Aufgaben'
+DONE_PREAMBLE = DONE_TITLE + '\n\nAbgeschlossene Kennungen mit Ergebnis, nie erneut reservieren. Neue Zeilen setzt `py tools/tasks.py done`.\n\n'
 EXTRA_SECTIONS = {'Wartung': 'Wartung', 'Optionale Optimierungen': 'Optional', 'Real Coop logic': 'Coop'}
 PRIOS = ('P0', 'P1', 'P2')
 MODES = ('parallel', 'zentral', 'zu zweit', 'Team')
@@ -408,6 +412,58 @@ FUTURE_REFERENCE = re.compile(
 SKIPPED_DIRS = ('third_party/', 'research/local/', '.worktrees/', '.claude/')
 
 
+def combine(todo, done):
+    """Ein Text aus TODO.md und docs/ERLEDIGT.md, wie ihn parse, mark_done und update_todo erwarten."""
+    if not done:
+        return todo
+    if not todo.endswith('\n'):
+        todo += '\n'
+    return todo + done
+
+
+def split(text):
+    """(TODO.md, docs/ERLEDIGT.md) aus dem kombinierten Text.
+
+    Steht der Abschnitt "Erledigt" noch in TODO.md (alter Stand), wird er herausgeschnitten und bekommt den Vorspann.
+    """
+    lines = text.splitlines(keepends=True)
+    for index, line in enumerate(lines):
+        if line.rstrip('\r\n') == DONE_TITLE:
+            return ''.join(lines[:index]), ''.join(lines[index:])
+    start = next((i for i, line in enumerate(lines) if line.rstrip('\r\n') == f'## {DONE_SECTION}'), None)
+    if start is None:
+        return text, ''
+    end = next((i for i in range(start + 1, len(lines)) if lines[i].startswith('## ')), len(lines))
+    newline = '\r\n' if lines[start].endswith('\r\n') else '\n'
+    section = ''.join(lines[start:end]).rstrip('\r\n') + newline
+    return ''.join(lines[:start] + lines[end:]), DONE_PREAMBLE.replace('\n', newline) + section
+
+
+def newline_of(path, default='\n'):
+    if not path.exists():
+        return default
+    return '\r\n' if b'\r\n' in path.read_bytes() else '\n'
+
+
+def read_local(root):
+    """Kombinierter Text aus TODO.md und docs/ERLEDIGT.md im Arbeitsordner; fehlt ERLEDIGT.md, nur TODO.md."""
+    root = Path(root)
+    todo = (root / 'TODO.md').read_bytes().decode('utf-8')
+    done_path = root / DONE_FILE
+    return combine(todo, done_path.read_bytes().decode('utf-8') if done_path.exists() else '')
+
+
+def write_local(root, text):
+    """Schreibt den kombinierten Text getrennt zurueck, jede Datei im Zeilenende ihres bisherigen Stands."""
+    root = Path(root)
+    for name, part in zip(('TODO.md', DONE_FILE), split(text)):
+        path = root / name
+        newline = newline_of(path)
+        part = part.replace('\r\n', '\n').replace('\n', newline)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(part.encode('utf-8'))
+
+
 def markdown_files(root):
     """Versionierte Markdown-Dateien; ohne Git alle .md ausser Fremd- und lokalen Ordnern."""
     import subprocess
@@ -429,7 +485,7 @@ def stale_references(tasks, documents):
     found = []
     for path, text in documents.items():
         for number, line in enumerate(text.splitlines(), 1):
-            if path == 'TODO.md' and line.startswith('| `'):
+            if path in ('TODO.md', DONE_FILE) and line.startswith('| `'):
                 continue
             for match in FUTURE_REFERENCE.finditer(line):
                 name = match[1] or match[2]
@@ -447,22 +503,34 @@ def check_references(root, tasks):
 
 def regenerate(root, check=False):
     """Erneuert die abgeleiteten Abschnitte. Liefert die veralteten Dateien; mit check wird nichts geschrieben."""
-    todo_path, readme_path = root / 'TODO.md', root / 'README.md'
+    readme_path = root / 'README.md'
     svg_path = root / 'docs/assets/progress.svg'
-    todo = todo_path.read_bytes().decode('utf-8')
+    text = read_local(root)
     readme = readme_path.read_bytes().decode('utf-8')
-    tasks = parse(todo)
-    expected_todo = update_todo(todo, tasks)
+    tasks = parse(text)
+    expected_text = update_todo(text, tasks)
     expected_readme = update_readme(tasks, readme)
     expected_svg = progress_svg(tasks, expected_readme)
-    outputs = ((todo_path, todo, expected_todo), (readme_path, readme, expected_readme),
-               (svg_path, svg_path.read_text(encoding='utf-8') if svg_path.exists() else '', expected_svg))
-    stale = [p for p, old, new in outputs if old != new]
+    stale = []
+    if expected_text != text:
+        stale += [root / name for name, old, new in zip(('TODO.md', DONE_FILE), split(text), split(expected_text))
+                  if old != new]
+    others = ((readme_path, readme, expected_readme),
+              (svg_path, svg_path.read_text(encoding='utf-8') if svg_path.exists() else '', expected_svg))
+    stale += [p for p, old, new in others if old != new]
     if stale and not check:
-        for path, _, new in outputs:
+        if expected_text != text:
+            write_local(root, expected_text)
+        for path, _, new in others:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(new.encode('utf-8'))
     return stale
+
+
+def check_all(root, check):
+    """(veraltete Dateien, veraltete Querverweise). Wirft ValueError bei ungueltigen Aufgabentabellen."""
+    references = check_references(root, parse(read_local(root)))
+    return regenerate(root, check=check), references
 
 
 def main():
@@ -471,8 +539,7 @@ def main():
     sys.stdout.reconfigure(encoding='utf-8')
     root = Path(__file__).resolve().parents[1]
     try:
-        stale = regenerate(root, check=sys.argv[1] == 'check')
-        references = check_references(root, parse(root.joinpath('TODO.md').read_bytes().decode('utf-8')))
+        stale, references = check_all(root, check=sys.argv[1] == 'check')
     except ValueError as error:
         sys.exit(f'TODO.md ungueltig: {error}')
     if references:

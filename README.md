@@ -24,7 +24,7 @@ As of 18 Nov 2026.
 
 Tasks are counted per phase from [TODO.md](TODO.md), excluding maintenance, optional optimizations and Real Coop logic.
 
-Done means listed under "Erledigt" in `TODO.md`. **Fully completed phases are highlighted green.** `py tools/task_status.py update` refreshes the graphic and the text table; `py tools/task_status.py check` and CI prevent mismatches. Claims and PRs do not change completion status.
+Done means listed under "Erledigt" in `docs/ERLEDIGT.md`. **Fully completed phases are highlighted green.** `py tools/task_status.py update` refreshes the graphic and the text table; `py tools/task_status.py check` and CI prevent mismatches. Claims and PRs do not change completion status.
 
 ![Project progress per phase; fully completed phases are highlighted green.](docs/assets/progress.svg)
 
