@@ -36,9 +36,9 @@ ID_PATTERN = r'[a-z0-9][a-z0-9-]*'
 MAX_TASK_TEXT = 800
 # Bestaetigungstests sind nur Info: Die Aufgabe ist erledigt, der offene Test steht in docs/ERLEDIGT.md.
 INFO_SECTION = 'Bestätigungstests ausstehend'
-INFO_HEADER = '| Kennung | Stand und offene Prüfung |'
-INFO_INTRO = ('Nur zur Nachverfolgung: Diese Aufgaben sind erledigt, ihre Prüfung im Spiel oder zu zweit steht aus. '
-              'Sie blockieren nichts. Pflege mit `py tools/tasks.py tests update|pass|reopen`.')
+INFO_HEADER = '| Kennung | Im Spiel prüfen |'
+INFO_INTRO = ('Spicker für Live-Sitzungen: was bei erledigten Aufgaben noch im Spiel zu prüfen ist, ohne Datum und Vorgeschichte. '
+              'Nur Info, blockiert nichts. Pflege mit `py tools/tasks.py tests update|pass|reopen`.')
 CONFIRMATION_PREFIX = '**Bestätigungstest ausstehend:** '
 CONFIRMATION_TASK = ' **Aufgabe und Abnahme:** '
 

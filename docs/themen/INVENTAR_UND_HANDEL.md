@@ -27,7 +27,7 @@ Mehr: [src/Game/README.md](../../src/Game/README.md).
 ## Offene Fehler
 
 - [airdrop-auswahl-absturz](../faelle/airdrop-auswahl-absturz.md): Client stürzt bei Airdrop-Auswahl ohne Inventar ab.
-- [lager-edit-ablehnung](../faelle/lager-edit-ablehnung.md) und [opt-metabase-inventar](../faelle/opt-metabase-inventar.md): Bestätigungstests.
+- Was im Spiel noch zu prüfen ist: [Spicker](../ERLEDIGT.md#bestätigungstests-ausstehend), etwa `lager-edit-ablehnung` und `opt-metabase-inventar`.
 
 ## Historie
 

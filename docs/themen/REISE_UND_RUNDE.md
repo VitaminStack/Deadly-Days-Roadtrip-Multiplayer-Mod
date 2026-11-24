@@ -24,7 +24,7 @@ Gilt für Build `26786272`. Datierte Befunde und Messungen stehen im [Archiv](..
 ## Offene Fehler
 
 - [wiedereintritt-karte](../faelle/wiedereintritt-karte.md): Client baut beim Wiederbeitritt keine Karte.
-- [labyrinth-event-client](../faelle/labyrinth-event-client.md): Bestätigungstest im Labyrinth-Event.
+- Was im Spiel noch zu prüfen ist: [Spicker](../ERLEDIGT.md#bestätigungstests-ausstehend), etwa `labyrinth-event-client`.
 - [spawn-nach-kartenaufbau](../faelle/spawn-nach-kartenaufbau.md): Spawn vor dem Kartenaufbau des Clients.
 
 ## Historie

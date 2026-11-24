@@ -129,6 +129,7 @@ Wiederkehrende Abläufe liegen als Skills unter `.claude/skills/`. Claude Code l
 - Eine Sitzung pro Aufgabe. Breite Suchen übernimmt ein Explore-Subagent, der nur das Ergebnis zurückgibt.
 - Dateien über 60 KB, das Archiv und `docs/ERLEDIGT.md` nie ganz lesen, nur per `grep -n` und Abschnitt.
 - Neue Doku-Zeilen: ein Satz pro Zeile, keine Zeile über 400 Zeichen.
+- Bei jedem Release wandert `docs/ERLEDIGT.md` als `docs/archive/ERLEDIGT-<version>.md` ins Archiv; die neue Datei behält nur den Abschnitt „Bestätigungstests ausstehend“.
 
 ## Fokus
 

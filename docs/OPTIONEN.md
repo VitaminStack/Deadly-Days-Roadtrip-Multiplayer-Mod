@@ -98,10 +98,6 @@ Gefunden im Live-Test am 13.11.2026 abends (zwei PCs, Build `26495302`): In der 
 
 Gefunden im Live-Test am 13.11.2026 abends (zwei PCs, Build `26495302`): Itemsäcke aus Containern werden beim Client erst direkt an der Figur sichtbar, der Ausstoß fehlt. **Fertig, wenn** der Client die Säcke wie der Host aus dem Container fliegen sieht. Ordner `src/Game`. **Einstieg:** [Live-Test 13.11. abends](archive/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-13112026-abends-livetest-1311-abend)
 
-## `opt-metabase-absturz`
-
-Gefunden im Live-Test am 13.11.2026 abends (zwei PCs, Build `26495302`): Der Client stürzte rund 4 Minuten nach dem Verbinden in der MetaBase ab (`EXCEPTION_ACCESS_VIOLATION` beim Lesen von `0x40`, Stack `+5a1b79c`, `+5a1752b`, `+5500ddd`, `+5a0f3f3`, ohne Mod-Rahmen), erneuter Beitritt ging. Einmalig. **Fertig, wenn** die Stelle zugeordnet ist und der Befund behoben oder als nicht nachstellbar festgehalten ist. **Einstieg:** `py tools/spike/crashes.py`
-
 ## `opt-boss-phasenleiste`
 
 **Bestätigungstest ausstehend:** Live-Test 24.11.2026, zwei PCs: nur der Lazy-Boss, nicht phasenbezogen, Leiste korrekt. Offen wie bisher: phasenbezogene Bosse zu zweit, Beitritt mitten im Kampf, BlobBall, HQ-Endboss, [Live-Test 24.11.](archive/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-24112026-livetest-2411) **Aufgabe und Abnahme:** Gefunden am 18.11.2026 in `opt-endboss-leiste` (ein PC, beide Builds): Der Host zeigt bei Ballerina, Frankenstein, BlobBall und HQ-Endboss in der ersten Phase nur die HP über der Phasenmarke (etwa 47.363/150.000), der Client die vollen HP (197.363/300.000); beim SpikeBoss zeigen beide die vollen HP. Außerdem erscheint die Leiste beim Client schon vor dem Kampfstart. Vermutung: Der Host rechnet über die `BossComponent` mit Zustand, den nur er hat. **Fertig, wenn** Zahl und Nenner der Client-Leiste in jeder Phase und der Zeitpunkt des Erscheinens dem Host entsprechen, ohne eigene Nachricht, sofern nicht belegt nötig. Ordner `src/Game`. **Einstieg:** [Boss-Leiste aller Bosse](archive/GAME_ANALYSIS.md#boss-leiste-aller-bosse-beim-client-opt-endboss-leiste)
@@ -129,14 +125,6 @@ Zurückgestellt aus `routenkarte-client` (09.11.2026): Der Client sieht dieselbe
 ## `opt-kameras`
 
 Getrennte Kameras je Spieler ermöglichen: Bewegungsbegrenzung anpassen, Sichtbereiche für das Gegner-Spawning synchronisieren oder die Spawn-Logik ersetzen, Gegnerverteilung prüfen. Keine Voraussetzung für die gemeinsame Kamera, siehe [Kamera](themen/SPIELER_UND_KAMERA.md)
-
-## `opt-trennen-absturz`
-
-Client stürzt beim `disconnect` aus der Mission manchmal mit „uobject leaks (world leaks)“ ab (`ReferenceChainSearch.cpp` Zeile 2061), einmal in zwei Versuchen nach „Verlassen“ des Clients. Der Client wollte ohnehin gehen, der Host spielt weiter. Ursache klären, etwa mit einem Build, der die Referenzkette loggt. **Einstieg:** [Im Spiel (05.11.2026)](../src/Net/README.md#im-spiel-05112026)
-
-## `opt-beitritt-absturz`
-
-Host stürzt beim Lobby-Beitritt des Clients manchmal ab (`EXCEPTION_ACCESS_VIOLATION` an Adresse 0, Stack beginnt `5901ce8 2a8bfc4 2a8be06 2a7bb50`), einmal in zwei Starts mit `Start-Session.ps1 -Mod -Tunnel Lobby` am 05.11.2026. Ein zweiter Start lief durch. Ursache klären, etwa Stack gegen den Mod-Tunnel und das Overlay prüfen. **Einstieg:** `py tools/spike/crashes.py`
 
 ## `sync-aufraeumen`
 

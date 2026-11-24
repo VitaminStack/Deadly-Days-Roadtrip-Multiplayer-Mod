@@ -24,11 +24,11 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `coop-inventar-zwei` | P1 | [Verbesserung](#verbesserungen) | zentral | viel |
 | `coop-modus-wahl` | P1 | [Verbesserung](#verbesserungen) | parallel | mittel |
 | `prozess-neu-schreiben` | P1 | [Verbesserung](#verbesserungen) | zentral | keine |
-| `opt-beitritt-absturz` | P2 | [Problem](#probleme) | parallel | mittel |
-| `opt-metabase-absturz` | P2 | [Problem](#probleme) | parallel | mittel |
-| `opt-trennen-absturz` | P2 | [Problem](#probleme) | parallel | mittel |
+| `verbesserungen-sichten` | P1 | [Verbesserung](#verbesserungen) | zentral | keine |
 | `coop-inventar-vier` | P2 | [Verbesserung](#verbesserungen) | zentral | viel |
 | `coop-spielstand` | P2 | [Verbesserung](#verbesserungen) | parallel | viel |
+| `doku-rest-ist-zustand` | P2 | [Verbesserung](#verbesserungen) | parallel | keine |
+| `dumper7-image-ende` | P2 | [Verbesserung](#verbesserungen) | parallel | wenig |
 | `game-ordner` | P2 | [Verbesserung](#verbesserungen) | zentral | wenig |
 | `game-readme-kuerzen` | P2 | [Verbesserung](#verbesserungen) | parallel | keine |
 | `mehr-spieler` | P2 | [Verbesserung](#verbesserungen) | parallel | viel |
@@ -55,7 +55,9 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `opt-tempo-upgrades` | P2 | [Verbesserung](#verbesserungen) | parallel | mittel |
 | `opt-waffen-hover` | P2 | [Verbesserung](#verbesserungen) | parallel | wenig |
 | `opt-zonenziel-anzeige` | P2 | [Verbesserung](#verbesserungen) | parallel | wenig |
+| `ps-skripte-pruefen` | P2 | [Verbesserung](#verbesserungen) | parallel | keine |
 | `reconnect` | P2 | [Verbesserung](#verbesserungen) | parallel | viel |
+| `research-archivieren` | P2 | [Verbesserung](#verbesserungen) | parallel | keine |
 | `spike-abloesen` | P2 | [Verbesserung](#verbesserungen) | zentral | mittel |
 | `sync-aufraeumen` | P2 | [Verbesserung](#verbesserungen) | zentral | mittel |
 | `themen-fuellen` | P2 | [Verbesserung](#verbesserungen) | parallel | keine |
@@ -64,7 +66,7 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `update-startpruefung` | P2 | [Verbesserung](#verbesserungen) | zentral | wenig |
 | `werkzeuge-windows-pruefen` | P2 | [Verbesserung](#verbesserungen) | parallel | wenig |
 
-**Wartet auf das Team:** `spawn-nach-kartenaufbau`, `wechsel-26786272`, `dumper7-image-ende`.
+**Wartet auf das Team:** `spawn-nach-kartenaufbau`, `wechsel-26786272`.
 
 **Bestätigungstests ausstehend (nur Info, blockiert nichts):** 32, siehe [docs/ERLEDIGT.md](docs/ERLEDIGT.md#bestätigungstests-ausstehend).
 <!-- frei:end -->
@@ -79,10 +81,6 @@ Fehler im Spiel oder in den Werkzeugen. Ein offener Fehler hat eine Fallakte unt
 | `lobby-rauswurf` | P1 | Host trennt einen gesunden Client mit Grund 1005 („nicht mehr in der Lobby“). **Fertig, wenn** die Ursache belegt ist und ein verbundener Client nicht mehr wegen einer kurz leeren Mitgliederliste getrennt wird, ohne die Sperre gegen Fremde aufzugeben. Ordner `src/Net`. **Einstieg** [Fallakte](docs/faelle/lobby-rauswurf.md) | parallel | mittel |
 | `spawn-nach-kartenaufbau` | P1 | **Nur wenn der Live-Test die Theorie bestätigt:** Host setzt die Figuren an den Bus, bevor der Client seine Karte gebaut hat. **Fertig, wenn** der Client nach jedem Zonenstart auf dem Boden steht, auch bei langsamem Kartenaufbau, und Join, Reconnect und Travel unverändert laufen. Ordner `src/Game`. **Einstieg** [Fallakte](docs/faelle/spawn-nach-kartenaufbau.md) | Team | mittel |
 | `wiedereintritt-karte` | P1 | Client baut beim Wiederbeitritt in die laufende Mission keine Karte und fällt durch. **Fertig, wenn** er ohne Neustart derselben Mission wieder beitreten kann und die Karte des Hosts aufbaut, mit Unit-Test, belegt auf einem PC mit zwei Instanzen. Ordner `src/Game`. **Einstieg** [Fallakte](docs/faelle/wiedereintritt-karte.md) | parallel | wenig |
-| `dumper7-image-ende` | P2 | Rest, braucht einen Menschen mit Schreibrecht im Fork `VitaminStack/Dumper-7`: Der Fix gegen das Lesen hinter das Image-Ende (`FindStringInRange`, Absturz auf `26669225`) ist belegt und wird von `Build-Dumper7.ps1` als `tools/dumper7/image-ende.patch` auf die Baukopie angewendet; Dump auf `26786272` ohne lokale Änderung bestanden (21.11.2026). Offen: denselben Commit in den Fork übernehmen, Submodul `third_party/Dumper-7` umstellen, Patch und Skriptschritt entfernen, einmal bauen. **Fertig, wenn** das Submodul den Fix enthält und `Build-Dumper7.ps1` ohne den Patch ein SDK erzeugt. **Einstieg:** [Offsets](docs/OFFSETS.md#dumper-7-liest-hinter-das-image-ende-dumper7-image-ende) | Team | wenig |
-| `opt-beitritt-absturz` | P2 | Host stürzt beim Lobby-Beitritt des Clients manchmal ab (`EXCEPTION_ACCESS_VIOLATION` an Adresse 0, Stack beginnt `5901ce8 2a8bfc4 2a8be06 2a7bb50`) … | parallel | mittel |
-| `opt-metabase-absturz` | P2 | Der Client stürzte rund 4 Minuten nach dem Verbinden in der MetaBase ab … | parallel | mittel |
-| `opt-trennen-absturz` | P2 | Client stürzt beim `disconnect` aus der Mission manchmal mit „uobject leaks (world leaks)“ ab (`ReferenceChainSearch.cpp` Zeile 2061), einmal in zwei … | parallel | mittel |
 
 ## Verbesserungen
 
@@ -90,14 +88,19 @@ Neue Funktionen, Feinschliff und Release. Je Aufgabe steht hier nur eine Kurzfas
 
 | Kennung | Prio | Aufgabe | Bearbeitung | Spielzeit |
 |---|---|---|---|---|
-| `aufgaben-werkzeuge-entschlacken` | P1 | Nach dem Merge von #292 die tote Logik in `tools/tasks.py` und `tools/task_status.py` entfernen: Phasen, „Braucht“, zurückgestellt, Merge-Plan nach Abhängigkeiten, alte Bestätigungszeilen. **Fertig, wenn** der Code nur noch die flache Liste kennt und alle Tests grün sind. | zentral | keine |
-| `prozess-neu-schreiben` | P1 | `docs/PROZESS.md` (heute verschobene Altabschnitte) neu schreiben: ein Ablauf, keine Doppelungen oder Widersprüche. **Fertig, wenn** die Datei unter 6 KB liegt und `doc_check.py` diese Grenze prüft. | zentral | keine |
+| `dumper7-image-ende` | P2 | Prüfen, ob `tools/dumper7/image-ende.patch` noch nötig ist (der Fehler trat nur auf `26669225` auf): SDK auf `26786272` ohne Patch erzeugen. **Fertig, wenn** der Patch entfällt oder der Fix im Fork `VitaminStack/Dumper-7` liegt und das Submodul umgestellt ist. | parallel | wenig |
+| `verbesserungen-sichten` | P1 | Jede Verbesserung samt `docs/OPTIONEN.md` von veralteten Vorgaben, alten Builds und Erledigtem befreien. **Fertig, wenn** jede Zeile einen aktuellen Fehler oder Wunsch mit prüfbarem „Fertig, wenn“ beschreibt. | zentral | keine |
+| `doku-rest-ist-zustand` | P2 | Übrige Doku unter `docs/` und `src/Net/README.md` auf den Ist-Zustand bringen. **Fertig, wenn** dort keine datierten Befunde und alten Builds mehr stehen. | parallel | keine |
+| `research-archivieren` | P2 | Erledigte Ordner unter `research/spikes/` (außer `a-connect`) archivieren. **Fertig, wenn** dort nur noch genutzte Werkzeuge liegen. | parallel | keine |
+| `ps-skripte-pruefen` | P2 | PSScriptAnalyzer für alle `*.ps1` in die CI aufnehmen, Funde beheben. **Fertig, wenn** der CI-Schritt grün ist. | parallel | keine |
+| `aufgaben-werkzeuge-entschlacken` | P1 | Nach dem Merge von #292 die tote Logik in `tools/tasks.py` und `tools/task_status.py` entfernen: Phasen, „Braucht“, zurückgestellt, Merge-Plan nach Abhängigkeiten, alte Bestätigungszeilen; prüfen, ob `claim` mit Worktree, Draft-PR und `gh` noch nötig ist. **Fertig, wenn** der Code nur noch die flache Liste kennt und alle Tests grün sind. | zentral | keine |
+| `prozess-neu-schreiben` | P1 | `docs/PROZESS.md` neu schreiben: ein Ablauf ohne Doppelungen. **Fertig, wenn** die Datei unter 6 KB liegt und `doc_check.py` diese Grenze prüft. | zentral | keine |
 | `themen-fuellen` | P2 | Die Themen-Dateien unter `docs/themen/` auf einen vollständigen Ist-Zustand bringen. **Fertig, wenn** jede Themen-Datei ihr Gebiet ohne Archiv erklärt. | parallel | keine |
 | `offsets-alte-rvas` | P2 | In `docs/OFFSETS.md` die Tabellen mit RVAs alter Builds auf `26786272` umrechnen (`tools/rva_map.py`) oder ins Archiv verschieben. **Fertig, wenn** die Datei nur Werte für den unterstützten Build enthält. | parallel | wenig |
 | `game-readme-kuerzen` | P2 | `src/Game/README.md` aufteilen: Die Patch-Tabelle deckt nur 12 von rund 40 Dateien ab. **Fertig, wenn** die Datei unter 60 KB liegt und jede `*Patches.cpp` beschreibt. | parallel | keine |
 | `game-ordner` | P2 | `src/Game` (109 Dateien flach) nach Fachgebiet in Unterordner teilen und `RewardPatches.cpp` (2400 Zeilen) aufteilen. **Fertig, wenn** Ordner den Themen entsprechen und die CI grün ist. | zentral | wenig |
-| `spike-abloesen` | P2 | Testbefehle des Spikes (`!finish`, Godmode, `!wave`, Seed) in den Testkanal der Mod übernehmen, danach `research/spikes/a-connect` löschen. **Fertig, wenn** alle Testskripte ohne Spike laufen. | zentral | mittel |
-| `werkzeuge-windows-pruefen` | P2 | Die Kurzfassung in `tools/spike/Collect-Logs.ps1` und die Projekt-Skills unter `.claude/skills/` auf Windows prüfen, beides ist ungetestet. **Fertig, wenn** `*.summary.txt` entstehen und die Skills laden. | parallel | wenig |
+| `spike-abloesen` | P2 | Testbefehle des Spikes (`!finish`, Godmode, `!wave`, Seed) in den Testkanal der Mod übernehmen, danach `research/spikes/a-connect` löschen und `tools/spike/` in `tools/test/` umbenennen. **Fertig, wenn** alle Testskripte ohne Spike laufen. | zentral | mittel |
+| `werkzeuge-windows-pruefen` | P2 | `Collect-Logs.ps1` (Kurzfassung) und die Projekt-Skills auf Windows prüfen. **Fertig, wenn** `*.summary.txt` entstehen und die Skills laden. | parallel | wenig |
 | `release` | P0 | Versionierung, Abschlusstest und Veröffentlichung. Ein Stand, eine Freigabe | zentral | wenig |
 | `coop-inventar-ablauf` | P1 | Alle Inventarabläufe auf das geteilte Inventar umstellen: Airdrop-Wahl, Itemsäcke, Werkbank, Lager mit Verkauf und Reparatur, Rundenende mit … | zentral | viel |
 | `coop-inventar-analyse` | P1 | Das native geteilte Koop-Inventar ohne Mod untersuchen, Referenz ist lokaler Koop mit zwei Controllern auf einem PC: Aufbau des gemeinsamen Rucksacks … | parallel | mittel |

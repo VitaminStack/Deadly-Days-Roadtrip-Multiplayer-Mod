@@ -84,10 +84,10 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `karte-nach-labyrinth-absturz` | 5 | Ursache war der Sensenmann des Hosts beim Client: `UReaperComponent::BeginPlay` band ohne GameMode (Lesen von `0x348`); Wächter dort, und nur der Host erzeugt den Sensenmann. Nachgestellt, dann dreimal Labyrinth → normale Karte mit Sensenmann beim Client ohne Absturz, siehe [Befund](archive/GAME_ANALYSIS.md#client-absturz-am-sensenmann-karte-nach-labyrinth-absturz) |
 | `karte-tunnel` | Wartung | Gleiche Karte auf zwei PCs: im Live-Test am 06.11.2026 standen beide Figuren auf dem Boden (gemeldet), die Karte kommt seit `missionsstart` über den Kontrollkanal der Mod, siehe [Host-Karte über den Tunnel](../research/spikes/a-connect/README.md#host-karte-über-den-tunnel-karte-tunnel) |
 | `karten-erzeugung` | 1 | Gleicher Run-Seed und gleiche Mission ergeben dieselbe Karte, siehe [Karte und Seed](archive/GAME_ANALYSIS.md#karte-und-seed) |
-| `labyrinth-event-client` | 5 | Im Event `MGP_LabyrinthEvent` fällt der Client durch die Karte, im Bild ist alles schwarz bis auf die eigene Figur. [Details](faelle/labyrinth-event-client.md) Bestätigungstest ausstehend, siehe unten. |
+| `labyrinth-event-client` | 5 | Im Event `MGP_LabyrinthEvent` fällt der Client durch die Karte, im Bild ist alles schwarz bis auf die eigene Figur. Bestätigungstest ausstehend, siehe unten. |
 | `lager-absturz-client` | 5 | Zwei PCs, Build 26495302, Mod main 49e0194, nur Mod: Beitritt ohne Host-Absturz, drei Rundenenden ohne Absturz, Host wartet bei hart beendetem Client, Host beendet im Lager und Client landet im Hauptmenü, siehe [Live-Test 07.11.](archive/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-07112026-livetest-0711) |
 | `lager-bestaetigen-absturz` | 5 | Live-Test 13.11.2026 auf zwei PCs: zehn Rundenenden, der Client bestätigte jedes Mal im Lager, kein Absturz, siehe [Live-Test 13.11.](archive/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-13112026-livetest-1311) |
-| `lager-edit-ablehnung` | 5 | Ein großer Lager-Edit des Clients (6 Verkäufe, 1 Reparatur, 2 Aufwertungen, 4 neue Felder) wurde vom Host abgelehnt; danach stellte der Client seinen Ausgangsstand nur unvollständig her (Revolver abweichend), angebaute … [Details](faelle/lager-edit-ablehnung.md) Bestätigungstest ausstehend, siehe unten. |
+| `lager-edit-ablehnung` | 5 | Ein großer Lager-Edit des Clients (6 Verkäufe, 1 Reparatur, 2 Aufwertungen, 4 neue Felder) wurde vom Host abgelehnt; danach stellte der Client seinen Ausgangsstand nur unvollständig her (Revolver abweichend), angebaute … Bestätigungstest ausstehend, siehe unten. |
 | `lager-edit-stabil` | 5 | Ein PC, 14.11.2026: Client sieht den Schrott des Hosts während der Lager-Bearbeitung und bestätigt bei Fehlbetrag nicht, erzwungene Ablehnung endet mit Desync OK, Aufwertung nach dem Bereit beginnt eine neue Bearbeitung, siehe [Bericht](archive/GAME_ANALYSIS.md#lager-edit-des-clients-stabiler-lager-edit-stabil) |
 | `lager-handel-client` | 5 | Ausrüsten nach Reparatur am 13.11.2026 auf einem PC belegt (Host bucht 1 von 1 repariert, Inventare gleich, Pistole im Rucksack der Client-Figur); Verkauf und Reparatur zuvor auf zwei PCs, siehe [Bericht](archive/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-13112026-livetest-1311) |
 | `last` | 1 | Spike D: bei rund 85 Gegnern 47 KB/s vom Host, beide Instanzen 60 fps, nur Loopback, siehe [Last](archive/GAME_ANALYSIS.md#last-spike-d-last) |
@@ -138,7 +138,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `opt-levelup-sound` | Optional | Der gemeldete Sound-Fehler war der Schrott-Dauersound: Der Client spielt ScrapPickup je Haufen einmal statt bis zu 170-mal je Sekunde, gezählt auf einem PC, siehe [Schrott-Dauersound](archive/GAME_ANALYSIS.md#schrott-dauersound-beim-client-opt-levelup-sound) |
 | `opt-loot-aufnahme-client` | Optional | Schrott und Benzin aus einem gelooteten Auto nimmt der Client scheinbar endlos auf, die Aufnahme wiederholt sich … Bestätigungstest ausstehend, siehe unten. |
 | `opt-lootbalken` | Optional | Client sieht den Lootbalken wie der Host, aus dem replizierten Fortschritt, keine neue Nachricht; Loot bleibt beim Host |
-| `opt-metabase-inventar` | 5 | Nach dem Sieg haben beide Spieler ihre Run-Items in der MetaBase noch. Am 14.11. begann der nächste Run beim neuen Host mit Level 35 statt 1, das Spiel skaliert die Gegner danach. [Details](faelle/opt-metabase-inventar.md) Bestätigungstest ausstehend, siehe unten. |
+| `opt-metabase-inventar` | 5 | Nach dem Sieg haben beide Spieler ihre Run-Items in der MetaBase noch. Am 14.11. begann der nächste Run beim neuen Host mit Level 35 statt 1, das Spiel skaliert die Gegner danach. Bestätigungstest ausstehend, siehe unten. |
 | `opt-portraet` | Wartung | Test auf einem PC ([E-05](ENTSCHEIDUNGEN.md#e-05-einzelne-optionen-vorgezogen)). Host zeigt an Tag 2 ein anderes Figurenporträt Bestätigungstest ausstehend, siehe unten. |
 | `opt-rucksack-ueberlappung` | Optional | Nutzerentscheidung vom 21.11.2026: Bestätigungstest gestrichen, keine gezielte Prüfung mehr. Stand: zweiter Fix aus #244, im Live-Test 17.11.2026 (Lager-Edits bis 28 Items, Stations-Zug mit 6 neuen Feldern) und im Live-Test 21.11.2026 (52 Edits des Clients) keine Überlappung gemeldet |
 | `opt-schadenszahlen` | Optional | Client sieht Schadenszahlen eigener und fremder Treffer: Host meldet jeden Aufruf seines nativen Handlers über 0xA00 (Mod-Version 12), Client ruft denselben Handler seines Controllers; Spieltest auf einem PC Host 174 / Client 175 Aufrufe, Zahlen im Client-Fenster, auch nach Kartenwechsel, keine doppelt |
@@ -211,7 +211,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `update-1-0-2-lebensleisten` | Wartung | Entfallen am 22.11.2026: Build `26669225` wird seit `spiel-update-26786272` nicht mehr unterstützt, der offene Bestätigungstest ist auf diesem Build nicht mehr möglich; der Punkt (Lebensleisten nach Schaden) wird in `update-26786272-run` auf `26786272` mitgeprüft |
 | `update-1-0-2-spike` | Wartung | Entfallen am 22.11.2026: Build `26669225` wird seit `spiel-update-26786272` nicht mehr unterstützt, der offene Bestätigungstest ist auf diesem Build nicht mehr möglich; der Punkt (`Run-Route.ps1 -Days 2` mit Spike) wird in `update-26786272-run` auf `26786272` mitgeprüft |
 | `update-1-0-2-waffensound` | Wartung | Entfallen am 22.11.2026: Build `26669225` wird seit `spiel-update-26786272` nicht mehr unterstützt, der offene Bestätigungstest ist auf diesem Build nicht mehr möglich; der Punkt (Nachladesound beider Figuren hörbar) wird in `update-26786272-run` auf `26786272` mitgeprüft |
-| `update-26786272-run` | Wartung | Rest aus `update-basis-26786272`: Auf Build `26786272` (Patch 1.0.3) ist die Mod bisher nur auf einem PC bis in die Mission und über ein Rundenende gemessen (57 Patches gesetzt). Offen: `Run-Route.ps1 -Days 2` bzw. [Details](faelle/update-26786272-run.md) Bestätigungstest ausstehend, siehe unten. |
+| `update-26786272-run` | Wartung | Rest aus `update-basis-26786272`: Auf Build `26786272` (Patch 1.0.3) ist die Mod bisher nur auf einem PC bis in die Mission und über ein Rundenende gemessen (57 Patches gesetzt). Offen: `Run-Route.ps1 -Days 2` bzw. Bestätigungstest ausstehend, siehe unten. |
 | `update-basis` | Wartung | Builds 26187885 und 26495302 parallel, Adressen je Build über AddressMap und tools/rva_map.py, Teilinstallation mit -PartialPatches, siehe [Offsets](archive/OFFSETS-ALTE-BUILDS.md#build-26495302-update-basis) |
 | `update-basis-1-0-2` | Wartung | Build 26669225 (Patch 1.0.2) parallel zu 26495302: eingefrorene Kopie, Fingerabdruck, RvaMap26669225.inc (109 von 117 Adressen), SDK-Vergleich ohne Verschiebung, Mod startet mit 17 von 18 Listen, Folgeaufgaben update-1-0-2-*, siehe [Offsets](archive/OFFSETS-ALTE-BUILDS.md#build-26669225-update-basis-1-0-2) |
 | `update-basis-26786272` | Wartung | Build 26786272 (Patch 1.0.3) parallel zu 26495302 und 26669225: eingefrorene Kopie, Fingerabdruck, RvaMap26786272.inc mit allen 124 Adressen (14 von Hand), drei geänderte Patch-Stellen angepasst, SDK-Vergleich, Installer und Spike erweitert; ein PC: 18 von 18 Listen, Mission, Rundenende, Gegenprobe auf beiden alten Builds; Rest in update-26786272-run, siehe [Offsets](archive/OFFSETS-ALTE-BUILDS.md#build-26786272-update-basis-26786272) |
@@ -233,39 +233,39 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 
 ## Bestätigungstests ausstehend
 
-Nur zur Nachverfolgung: Diese Aufgaben sind erledigt, ihre Prüfung im Spiel oder zu zweit steht aus. Sie blockieren nichts. Pflege mit `py tools/tasks.py tests update|pass|reopen`.
+Spicker für Live-Sitzungen: was bei erledigten Aufgaben noch im Spiel zu prüfen ist, ohne Datum und Vorgeschichte. Nur Info, blockiert nichts. Pflege mit `py tools/tasks.py tests update|pass|reopen`.
 
-| Kennung | Stand und offene Prüfung |
+| Kennung | Im Spiel prüfen |
 |---|---|
-| `boss-karte-absturz` | Belegt: 21.11., ein PC, `26786272`, Routenkarte mit Testschalter, auch mit simulierter Latenz. Prüfen: Client betritt die Boss-Karte am Ende der Route ohne Absturz; im Client-Log genau eine Zeile „Boss-Leiste: lokal angelegt“ je Eintritt, Leiste folgt den Boss-HP |
-| `charakter-wahl` | Belegt: 10.11., ein PC. Prüfen: Jeder wählt in der MetaBase eine andere Figur, beide sehen die Wahl des anderen; nach Reise und Startausrüstung im Run |
-| `client-runstand-abbruch` | Belegt: 18.11., ein PC, `26495302` und `26669225`. Prüfen: Nach einem gemeinsamen Run (Client verlässt ihn über das Pausemenü oder der Host beendet) hostet der frühere Client: neuer Run mit Level 1 und Startausrüstung; ein eigener offener Run des Clients lässt sich danach fortsetzen |
-| `labyrinth-event-client` | zweiter Lauf ohne Fallen (Karte nach 187 ms, beide Figuren im Gang), Weiterreise ohne Absturz. Offen: ein weiterer Lauf ohne Fallen, [Live-Test 24.11.](archive/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-24112026-livetest-2411) [Fallakte](faelle/labyrinth-event-client.md) |
-| `lager-edit-ablehnung` | 56 Edits des Clients, keine Ablehnung, auch bei gleichzeitigem Schrottverbrauch des Hosts. Offen: absichtliche Ablehnung nach Checkliste Teil C, [Live-Test 17.11.](archive/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-17112026-livetest-1711) [Fallakte](faelle/lager-edit-ablehnung.md) |
-| `lager-handel-client` | Belegt: Verkauf/Reparatur 13.11. zwei PCs, Ausrüsten 13.11. ein PC. Prüfen: Client repariert im Lager ein kaputtes Item, legt es in den Rucksack, bestätigt; am nächsten Tag ausgerüstet |
-| `opt-airdrop-edit-ungueltig` | Klon-Schutz aus #230/#246: eine als Aufwertungseingabe verbrauchte Belohnung gilt als gewählt. |
-| `opt-airdrop-sound` | Belegt: 21.11., ein PC. Prüfen: Client hört bei jeder Airdrop-Landung den Landesound einmal, passend zum Aufschlag |
-| `opt-airdrop-uebertrag` | Nach liegen gebliebener Kiste am Rundenende kamen im nächsten Level wieder Airdrops und ließen sich öffnen. |
-| `opt-ausdauerbalken` | Belegt: ein PC. Prüfen: Client sieht den Ausdauerbalken des Hosts beim Sprinten wie der Host |
-| `opt-bedrohung-sound` | Belegt: 21.11., ein PC. Prüfen: Client hört den Sound bei jeder steigenden Bedrohungsstufe einmal, Zahl unter der Stoppuhr wie beim Host |
-| `opt-blickrichtung-client` | Belegt: ein PC. Prüfen: Beide Figuren schauen beim Client in Lauf- und Zielrichtung |
-| `opt-blut` | Tod-Effekte beim Client vollständig (356 von 356, 364 von 364), kein Absturz. |
-| `opt-boss-phasenleiste` | Nur der Lazy-Boss, nicht phasenbezogen, Leiste korrekt. Offen wie bisher: phasenbezogene Bosse zu zweit, Beitritt mitten im Kampf, BlobBall … |
-| `opt-boss-tafel-client` | Hinweis beim Client, solange der Host nach dem Boss pausiert, weg nach dem Fortsetzen. |
-| `opt-busbalken` | Belegt: ein PC; 13.11. abends zwei PCs einmal fehlend gemeldet, später im Log abgeleitet. Prüfen: Ladebalken der Busabfahrt beim Client wie beim Host, bei jedem vollen Tank |
-| `opt-charakter-takt` | Belegt: 11.11., ein PC. Prüfen: Keine Zeile „Takt: Charakterwahl“, Wahl bleibt nach Reise und erneutem Beitritt |
-| `opt-endboss-leiste` | Lazy-Boss über die Route, Leiste beim Client ab Kampfbeginn bis zum Tod. Offen: Tod von HQ und BlobBall zu zweit, Live-Test 24.11. |
-| `opt-gegner-sound` | Belegt: 21.11., ein PC. Prüfen: Client hört Treffer- und Angriffssounds der Gegner etwa so oft wie der Host, ohne Doppel |
-| `opt-item-sound` | Belegt: ein PC. Prüfen: Client hört Aufsammelsounds (Benzin, Schrott, Items) je Objekt einmal |
-| `opt-laufanimation-client` | Belegt: ein PC. Prüfen: Laufanimation der Client-Figur beim Host passt zum Tempo |
-| `opt-levelup-sound` | Belegt: ein PC. Prüfen: Kein Schrott-Dauersound beim Client, Level-up-Kiste im Endbildschirm ohne Soundfehler |
-| `opt-loot-aufnahme-client` | Loot beim Client je Objekt einmal, 0 nach 6000 ms wieder gezeigt; Power-ups (Energy Drink, Level-Up) wirken beim Client laut Spieler nicht, ohne … |
-| `opt-metabase-inventar` | Sieg, Ergebnisbildschirm beim Client, eigener Run-Stand geleert, Host danach Level 1. Offen: neuer Run mit Level 1 und Startinventar bei beiden, Rollentausch, MetaBase-Items … [Fallakte](faelle/opt-metabase-inventar.md) |
-| `opt-portraet` | Live-Test 24.11.2026, zwei PCs, Sheriff und Astronaut: beim Client durchgehend die eigene Figur, nur im ersten Bild nach einem Kartenwechsel kurz eine andere. Offen: Porträt beim Host, [Live-Test 24.11.](archive/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-24112026-livetest-2411) |
-| `opt-schadenszahlen` | Belegt: ein PC. Prüfen: Client sieht Schadenszahlen eigener und fremder Treffer |
-| `opt-schrott-anzeige` | Belegt: ein PC, zwei Tage. Prüfen: Schrottanzeige des Clients springt beim Aufsammeln nicht |
-| `opt-waffen-sound` | Belegt: ein PC. Prüfen: Client hört Schuss- und Nachladesounds beider Figuren |
-| `opt-werkbank-station` | Zusammenlegen im Lager übernommen, ein Rezept (Molotov) lehnt der Host ab (passt zu keinem der 20 Rezepte) und verwirft damit den ganzen Edit. |
-| `run-ende` | Belegt: ein PC; Sieg und Rückkehr 13.11. abends zwei PCs. Prüfen: Niederlage beim Client nativ, neuer Run in derselben Sitzung |
-| `update-26786272-run` | Run über 14 Karten bis zur HQ-Karte mit Händler, Labyrinth, Kopierladen und Boss, Händlerkäufe und Lager übernommen; Rezept an der Werkbank abgelehnt. [Fallakte](faelle/update-26786272-run.md) |
-| `weekly-sperre` | Umsetzung mit #188 gemergt: ddrweekly.deadlydays.com in Core::ReportHosts gesperrt, Unit-Tests bestehen. |
+| `boss-karte-absturz` | Client betritt die Boss-Karte am Ende der Route ohne Absturz; im Client-Log genau eine Zeile „Boss-Leiste: lokal angelegt“ je Eintritt, die Leiste folgt den Boss-HP. |
+| `charakter-wahl` | Jeder wählt in der MetaBase eine andere Figur; beide sehen die Wahl des anderen, auch nach der Reise und mit Startausrüstung im Run. |
+| `client-runstand-abbruch` | Nach einem gemeinsamen Run (Client verlässt über das Pausemenü oder der Host beendet) hostet der frühere Client: neuer Run mit Level 1 und Startausrüstung; ein eigener offener Run des Clients lässt sich danach fortsetzen. |
+| `labyrinth-event-client` | Labyrinth-Event ohne Fallen: beide Figuren stehen im Gang, Weiterreise ohne Absturz. |
+| `lager-edit-ablehnung` | Absichtliche Ablehnung eines Lager-Edits nach Teil C der [Checkliste](LIVETEST_CHECKLISTE.md): Client nimmt die Änderung zurück, Bestand bei beiden gleich. |
+| `lager-handel-client` | Client repariert im Lager ein kaputtes Item, legt es in den Rucksack und bestätigt; am nächsten Tag ist es ausgerüstet. |
+| `opt-airdrop-edit-ungueltig` | Eine Airdrop-Belohnung als Eingabe einer Aufwertung verbrauchen: kein Klon der Eingabe sichtbar, im Client-Log kein „erneut aufgenommen, wieder entfernt“. |
+| `opt-airdrop-sound` | Client hört bei jeder Airdrop-Landung den Landesound einmal, passend zum Aufschlag. |
+| `opt-airdrop-uebertrag` | Airdrop-Kiste am Rundenende liegen lassen: im nächsten Level kommen wieder Airdrops und lassen sich öffnen, das Host-Log zeigt die Warteschlange passend. |
+| `opt-ausdauerbalken` | Client sieht den Ausdauerbalken des Hosts beim Sprinten wie der Host. |
+| `opt-bedrohung-sound` | Client hört bei jeder steigenden Bedrohungsstufe den Sound einmal, die Zahl unter der Stoppuhr ist wie beim Host. |
+| `opt-blickrichtung-client` | Beide Figuren schauen beim Client in Lauf- und Zielrichtung. |
+| `opt-blut` | Treffereffekte (Blut bei Treffern, nicht nur beim Tod) erscheinen beim Client wie beim Host. |
+| `opt-boss-phasenleiste` | Phasenbezogene Bosse zu zweit: die Leiste beim Client zeigt nur die laufende Phase, auch nach Beitritt mitten im Kampf; BlobBall und HQ-Endboss. |
+| `opt-boss-tafel-client` | Hält der Host nach dem Boss an, sieht der Client den Hinweis; das eigene Pausemenü des Clients funktioniert während der Host-Pause, auch im Vollbild. |
+| `opt-busbalken` | Ladebalken der Busabfahrt beim Client wie beim Host, bei jedem vollen Tank. |
+| `opt-charakter-takt` | Im Client-Log keine Zeile „Takt: Charakterwahl“; die Figurenwahl bleibt nach Reise und erneutem Beitritt. |
+| `opt-endboss-leiste` | Tod von HQ-Boss und BlobBall zu zweit: die Leiste beim Client läuft ab Kampfbeginn bis zum Tod. |
+| `opt-gegner-sound` | Client hört Treffer- und Angriffssounds der Gegner etwa so oft wie der Host, ohne Doppel. |
+| `opt-item-sound` | Client hört Aufsammelsounds (Benzin, Schrott, Items) je Objekt einmal. |
+| `opt-laufanimation-client` | Die Laufanimation der Client-Figur passt beim Host zum Tempo. |
+| `opt-levelup-sound` | Kein Schrott-Dauersound beim Client; die Level-up-Kiste im Endbildschirm spielt ohne Soundfehler. |
+| `opt-loot-aufnahme-client` | Automatisches Looten (Benzinstand bei beiden vergleichen), Power-ups wie Energy Drink und Level-Up wirken beim Client, Itemsäcke werden je einmal aufgenommen. |
+| `opt-metabase-inventar` | Nach einem Sieg: neuer Run mit Level 1 und Startinventar bei beiden, danach Rollentausch; MetaBase-Items bleiben korrekt. |
+| `opt-portraet` | Das HUD-Porträt zeigt auch beim Host die eigene Figur, auch nach einem Kartenwechsel. |
+| `opt-schadenszahlen` | Client sieht Schadenszahlen eigener und fremder Treffer. |
+| `opt-schrott-anzeige` | Die Schrottanzeige des Clients springt beim Aufsammeln nicht. |
+| `opt-waffen-sound` | Client hört Schuss- und Nachladesounds beider Figuren. |
+| `opt-werkbank-station` | Eine Rezept-Aufwertung des Clients an der Werkbank wird beim Host gebucht. |
+| `run-ende` | Niederlage beim Client läuft nativ ab, danach startet ein neuer Run in derselben Sitzung. |
+| `update-26786272-run` | Ganzer Run mit `Run-Route.ps1`, Rezept-Panel an der Werkbank, Abschalten einzelner Items. |
+| `weekly-sperre` | Solo mit Mod: Weekly-Eintrag im Hauptmenü anklicken, das Menü bleibt bedienbar, das Log zeigt keine Auflösung von ddrweekly.deadlydays.com; ohne Mod unverändert. |
