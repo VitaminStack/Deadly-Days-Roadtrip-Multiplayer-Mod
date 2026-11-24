@@ -20,9 +20,9 @@ The [roadmap graph](docs/ROADMAP.md) shows what is still open.
 
 ## Progress
 
-As of 18 Nov 2026.
+**All phases are complete** (24 Nov 2026, release 1.0). Open work is no longer planned in phases: [TODO.md](TODO.md) lists problems and improvements without dependencies.
 
-Tasks are counted per phase from [TODO.md](TODO.md), excluding maintenance, optional optimizations and Real Coop logic.
+Tasks are counted per phase from [docs/ERLEDIGT.md](docs/ERLEDIGT.md), excluding maintenance, optional optimizations and Real Coop logic.
 
 Done means listed under "Erledigt" in `docs/ERLEDIGT.md`. **Fully completed phases are highlighted green.** `py tools/task_status.py update` refreshes the graphic and the text table; `py tools/task_status.py check` and CI prevent mismatches. Claims and PRs do not change completion status.
 
@@ -34,14 +34,14 @@ Done means listed under "Erledigt" in `docs/ERLEDIGT.md`. **Fully completed phas
 
 | Phase | Goal | Done | Progress |
 |---|---|---|---|
-| [0](TODO.md#phase-0--projekt-setup) | Same toolchain for everyone | 11 of 11 | ███████████ |
-| [1](TODO.md#phase-1--analyse-und-spikes) | Facts for gate G1 | 39 of 39 | ███████████ |
-| [2](TODO.md#phase-2--fundament) | Stable mod foundation | 5 of 5 | ███████████ |
-| [3](TODO.md#phase-3--session-und-verbindung) | Connecting via Steam | 10 of 10 | ███████████ |
-| [4](TODO.md#phase-4--vertical-slice) | Playable slice | 16 of 16 | ███████████ |
-| [5](TODO.md#phase-5--vollständiger-run) | Complete run for two | 52 of 56 | ██████████░ |
-| [6](TODO.md#phase-6--release) | Release | 9 of 10 | ██████████░ |
-| **Total** | | **142 of 147** | ███████████ |
+| [0](docs/ROADMAP.md#gesamtweg) | Same toolchain for everyone | 11 of 11 | ███████████ |
+| [1](docs/ROADMAP.md#gesamtweg) | Facts for gate G1 | 39 of 39 | ███████████ |
+| [2](docs/ROADMAP.md#gesamtweg) | Stable mod foundation | 5 of 5 | ███████████ |
+| [3](docs/ROADMAP.md#gesamtweg) | Connecting via Steam | 10 of 10 | ███████████ |
+| [4](docs/ROADMAP.md#gesamtweg) | Playable slice | 16 of 16 | ███████████ |
+| [5](docs/ROADMAP.md#gesamtweg) | Complete run for two | 52 of 52 | ███████████ |
+| [6](docs/ROADMAP.md#gesamtweg) | Release | 9 of 9 | ███████████ |
+| **Total** | | **142 of 142** | ███████████ |
 
 </details>
 

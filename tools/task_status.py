@@ -20,6 +20,9 @@ DONE_SECTION = 'Erledigt'
 DONE_FILE = 'docs/ERLEDIGT.md'
 DONE_TITLE = '# Erledigte Aufgaben'
 DONE_PREAMBLE = DONE_TITLE + '\n\nAbgeschlossene Kennungen mit Ergebnis, nie erneut reservieren. Neue Zeilen setzt `py tools/tasks.py done`.\n\n'
+# Alle Phasen sind abgeschlossen. Offene Arbeit steht flach unter Probleme oder Verbesserungen, ohne Abhaengigkeiten.
+LIST_HEADER = '| Kennung | Prio | Aufgabe | Bearbeitung | Spielzeit |'
+LIST_SECTIONS = {'Probleme': 'Problem', 'Verbesserungen': 'Verbesserung'}
 EXTRA_SECTIONS = {'Wartung': 'Wartung', 'Optionale Optimierungen': 'Optional', 'Real Coop logic': 'Coop'}
 PRIOS = ('P0', 'P1', 'P2')
 MODES = ('parallel', 'zentral', 'zu zweit', 'Team')
@@ -83,14 +86,16 @@ def parse(todo):
         if line.startswith('## '):
             section = line[3:].strip()
             match = re.match(r'^Phase ([0-6]) – ', section)
-            phase = match[1] if match else EXTRA_SECTIONS.get(section)
+            phase = match[1] if match else EXTRA_SECTIONS.get(section) or LIST_SECTIONS.get(section)
             if phase is not None:
                 sections[phase] = section
             table = None
             continue
         if line.startswith('| Kennung |'):
-            if line == OPEN_HEADER and phase is not None:
+            if line == OPEN_HEADER and phase is not None and section not in LIST_SECTIONS:
                 table = 'open'
+            elif line == LIST_HEADER and section in LIST_SECTIONS:
+                table = 'list'
             elif line == DONE_HEADER and section == DONE_SECTION:
                 table = 'done'
             elif line == INFO_HEADER and section == INFO_SECTION:
@@ -117,10 +122,16 @@ def parse(todo):
             continue
         if name in tasks:
             raise ValueError(f'{where}: Kennung {name} steht mehrfach in TODO.md')
-        if table == 'open':
-            if len(row) != 6:
+        if table in ('open', 'list'):
+            if table == 'list':
+                if len(row) != 5:
+                    raise ValueError(f'{where}: {name} braucht 5 Spalten')
+                _, prio, text, mode, playtime = row
+                needs = '–'
+            elif len(row) != 6:
                 raise ValueError(f'{where}: {name} braucht 6 Spalten')
-            _, prio, text, needs, mode, playtime = row
+            else:
+                _, prio, text, needs, mode, playtime = row
             if prio not in PRIOS:
                 raise ValueError(f'{where}: {name}: Prio muss P0, P1 oder P2 sein')
             if mode not in MODES:
@@ -134,19 +145,16 @@ def parse(todo):
                 if not all(re.fullmatch(rf'`{ID_PATTERN}`', n) for n in need_list):
                     raise ValueError(f'{where}: {name}: Braucht ist "–" oder eine Liste wie `a`, `b`')
                 need_list = [n.strip('`') for n in need_list]
-            if text.startswith(CONFIRMATION_PREFIX):
-                raise ValueError(f'{where}: {name}: Bestätigungstests stehen als Info in docs/ERLEDIGT.md, nicht als offene Zeile')
-            tasks[name] = Task(name, phase, section, False, text, prio, need_list, mode, playtime)
+            # Alter Stand (etwa origin/main vor dem Umbau): offene Zeile mit Bestaetigungstest lesen, check lehnt sie ab.
+            confirmation = text[len(CONFIRMATION_PREFIX):].partition(CONFIRMATION_TASK)[0] if text.startswith(CONFIRMATION_PREFIX) else ''
+            tasks[name] = Task(name, phase, section, False, text, prio, need_list, mode, playtime, confirmation)
         else:
             if len(row) != 3:
                 raise ValueError(f'{where}: {name} braucht 3 Spalten')
             _, done_phase, text = row
-            if done_phase not in PHASES + tuple(EXTRA_SECTIONS.values()):
-                raise ValueError(f'{where}: {name}: Phase muss 0 bis 6, Wartung, Optional oder Coop sein')
+            if done_phase not in PHASES + tuple(EXTRA_SECTIONS.values()) + tuple(LIST_SECTIONS.values()):
+                raise ValueError(f'{where}: {name}: Phase muss 0 bis 6, Wartung, Optional, Coop, Problem oder Verbesserung sein')
             tasks[name] = Task(name, done_phase, DONE_SECTION, True, text)
-    missing = [p for p in PHASES if p not in sections]
-    if missing:
-        raise ValueError('Phasen fehlen in TODO.md: ' + ', '.join(missing))
     validate_graph(tasks)
     validate_done_order(todo)
     return tasks
@@ -217,11 +225,11 @@ def free_block(todo, tasks):
         if line.startswith('## '):
             heading = line[3:].strip()
             match = re.match(r'^Phase ([0-6]) – ', heading)
-            key = match[1] if match else EXTRA_SECTIONS.get(heading)
+            key = match[1] if match else EXTRA_SECTIONS.get(heading) or LIST_SECTIONS.get(heading)
             if key:
                 anchors[key] = slug(heading)
     ready = [t for t in tasks.values() if not t.done and not blockers(t, tasks)]
-    order = {p: i for i, p in enumerate(PHASES + tuple(EXTRA_SECTIONS.values()))}
+    order = {p: i for i, p in enumerate(PHASES + tuple(EXTRA_SECTIONS.values()) + tuple(LIST_SECTIONS.values()))}
     ready.sort(key=lambda t: (PRIOS.index(t.prio), order[t.phase], t.name))
     held = [t for t in ready if deferred(t, tasks)]
     ready = [t for t in ready if t not in held]
@@ -265,7 +273,7 @@ def update_readme(tasks, readme):
     seen = set()
     lines = []
     for line in readme.splitlines(keepends=True):
-        match = re.match(r'^\| \[([0-6])\]\(TODO.md#phase-', line)
+        match = re.match(r'^\| \[([0-6])\]\(', line)
         key = int(match[1]) if match else 'total' if line.startswith('| **Total** |') else None
         if key is not None:
             if key in seen:
@@ -291,7 +299,7 @@ def progress_svg(tasks, readme):
     counts = phase_counts(tasks)
     rows = []
     for line in readme.splitlines():
-        match = re.match(r'^\| \[([0-6])\]\(TODO.md#phase-', line)
+        match = re.match(r'^\| \[([0-6])\]\(', line)
         if match:
             phase = int(match[1])
             rows.append((str(phase), cells(line)[1], *counts[phase]))
@@ -574,6 +582,15 @@ def regenerate(root, check=False):
     return stale
 
 
+def check_flat_list(tasks):
+    """Offene Aufgaben stehen nur unter Probleme oder Verbesserungen und haben keine Abhaengigkeiten."""
+    for task in tasks.values():
+        if not task.done and task.confirmation:
+            raise ValueError(f'{task.name}: Bestätigungstests stehen als Info in docs/ERLEDIGT.md, nicht als offene Zeile')
+        if not task.done and (task.phase not in LIST_SECTIONS.values() or task.needs):
+            raise ValueError(f'{task.name}: offene Aufgaben stehen unter Probleme oder Verbesserungen, ohne Braucht')
+
+
 def check_text_lengths(tasks):
     """Offene Aufgabenzeilen bleiben kurz, Details stehen in der Fallakte. Nur beim Pruefen, nicht beim Lesen."""
     for task in tasks.values():
@@ -585,6 +602,7 @@ def check_all(root, check):
     """(veraltete Dateien, veraltete Querverweise). Wirft ValueError bei ungueltigen Aufgabentabellen."""
     tasks = parse(read_local(root))
     check_text_lengths(tasks)
+    check_flat_list(tasks)
     references = check_references(root, tasks)
     return regenerate(root, check=check), references
 

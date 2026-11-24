@@ -16,6 +16,9 @@ from tools import tasks
 ROOT = Path(__file__).resolve().parents[1]
 OPEN = source.OPEN_HEADER + '\n|---|---|---|---|---|---|\n'
 DONE = '## Erledigt\n' + source.DONE_HEADER + '\n|---|---|---|\n'
+FLAT = ('<!-- frei:start -->\n<!-- frei:end -->\n## Probleme\n' + source.LIST_HEADER + '\n|---|---|---|---|---|\n{problems}'
+        '## Verbesserungen\n' + source.LIST_HEADER + '\n|---|---|---|---|---|\n{ideas}'
+        + DONE + '\n'.join(f'| `base{p}` | {p} | Ergebnis |' for p in range(7)) + '\n')
 
 
 def todo(phase1_rows='', done_rows='', extra=''):
@@ -95,9 +98,30 @@ class ParseTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'alphabetisch'):
             source.parse(text)
 
-    def test_missing_phase_rejected(self):
-        with self.assertRaisesRegex(ValueError, 'Phasen fehlen'):
-            source.parse(todo().replace('## Phase 3 – Test\n', ''))
+    def test_phase_sections_optional(self):
+        # Alle Phasen sind abgeschlossen; ihre Aufgaben stehen nur noch in docs/ERLEDIGT.md.
+        parsed = source.parse(todo().replace('## Phase 3 – Test\n', ''))
+        self.assertTrue(parsed['base3'].done)
+
+    def test_flat_list_rows_have_no_dependencies(self):
+        text = FLAT.format(problems='| `bug` | P1 | Absturz | parallel | wenig |\n',
+                           ideas='| `idee` | P2 | Besser | parallel | keine |\n')
+        parsed = source.parse(text)
+        self.assertEqual((parsed['bug'].phase, parsed['bug'].needs, parsed['bug'].done), ('Problem', [], False))
+        self.assertEqual(parsed['idee'].phase, 'Verbesserung')
+        source.check_flat_list(parsed)
+        self.assertEqual(source.phase_counts(parsed), {p: [1, 1] for p in range(7)})
+
+    def test_flat_list_done_row_keeps_section_as_phase(self):
+        text = FLAT.format(problems='| `bug` | P1 | Absturz | parallel | wenig |\n', ideas='')
+        parsed = source.parse(source.mark_done(text, 'bug', 'Behoben.'))
+        self.assertTrue(parsed['bug'].done)
+        self.assertEqual(parsed['bug'].phase, 'Problem')
+
+    def test_check_flat_list_rejects_phases_and_dependencies(self):
+        for rows in ('| `a` | P1 | Text | – | parallel | wenig |\n', '| `a` | P1 | Text | `base1` | parallel | wenig |\n'):
+            with self.subTest(rows=rows), self.assertRaisesRegex(ValueError, 'Probleme oder Verbesserungen'):
+                source.check_flat_list(source.parse(todo(rows)))
 
     def test_wrong_table_header_rejected(self):
         with self.assertRaisesRegex(ValueError, 'Kopf'):
@@ -255,7 +279,7 @@ class ReservationTests(unittest.TestCase):
         self.assertIn('frei', next(line for line in lines if line.strip().startswith('open ')))
         self.assertIn('Team', next(line for line in lines if line.strip().startswith('vote ')))
 
-    def test_list_short_has_no_descriptions_and_collapses_optional(self):
+    def test_list_short_has_no_descriptions_and_lists_all_open(self):
         extra = ('## Optionale Optimierungen\n' + OPEN + '| `opt-x` | P2 | Langer Text | – | parallel | wenig |\n'
                  '## Real Coop logic\n' + OPEN + '| `coop-x` | P2 | Text | – | parallel | wenig |\n')
         text = todo(self.ROWS.replace('| `vote` | P0 | Text |', '| `vote` | P0 | ' + 'Sehr lang ' * 20 + '|'), extra=extra)
@@ -266,8 +290,8 @@ class ReservationTests(unittest.TestCase):
         lines = out.getvalue().splitlines()
         self.assertTrue(any(line.split() == ['open', 'frei'] for line in lines))
         self.assertTrue(all(len(line) <= 80 for line in lines))
-        self.assertFalse(any('Sehr lang' in line or 'opt-x' in line for line in lines))
-        self.assertIn('Optional und Coop: 2 Aufgaben (tasks.py list)', lines)
+        self.assertFalse(any('Sehr lang' in line for line in lines))
+        self.assertTrue(any(line.split()[:1] == ['opt-x'] for line in lines))  # Status hier zurueckgestellt (alte Phasen offen)
         self.assertIn('Bestätigungstests: 0 (tasks.py tests list)', lines)
 
 
@@ -443,8 +467,10 @@ class ConfirmationTests(unittest.TestCase):
 
     def test_open_row_with_confirmation_marker_rejected(self):
         row = '| `a` | P1 | ' + source.CONFIRMATION_PREFIX + 'Stand' + source.CONFIRMATION_TASK + 'Text | – | parallel | wenig |\n'
+        parsed = source.parse(todo(row))  # Lesen bleibt tolerant fuer einen aelteren Stand von origin/main
+        self.assertEqual(parsed['a'].confirmation, 'Stand')
         with self.assertRaisesRegex(ValueError, 'docs/ERLEDIGT.md'):
-            source.parse(todo(row))
+            source.check_flat_list(parsed)
 
     def test_info_row_for_open_task_rejected(self):
         text = todo(self.ROWS) + '## ' + source.INFO_SECTION + '\n' + source.INFO_HEADER + '\n|---|---|\n| `first` | x |\n'
@@ -657,12 +683,13 @@ class DoneFileTests(unittest.TestCase):
             self.assertEqual(tasks.todo_text(), source.combine(todo_part, done_part))
 
     def test_check_all_reads_done_file_for_dependencies(self):
-        old = todo('| `frei-a` | P0 | Text | `base1` | parallel | wenig |\n')
+        # Ohne docs/ERLEDIGT.md fehlten die erledigten Phasen und phase_counts scheiterte vor der README-Pruefung.
+        old = FLAT.format(problems='| `frei-a` | P0 | Text | parallel | wenig |\n', ideas='')
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             (root / 'docs/assets').mkdir(parents=True)
             source.write_local(root, old)
             (root / 'README.md').write_text('', encoding='utf-8')
             with self.assertRaisesRegex(ValueError, 'README'):
-                source.check_all(root, check=True)  # Abhaengigkeit base1 aufgeloest, erst das leere README stoert
+                source.check_all(root, check=True)  # erledigte Phasen gelesen, erst das leere README stoert
 

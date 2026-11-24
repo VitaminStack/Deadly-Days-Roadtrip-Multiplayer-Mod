@@ -168,7 +168,7 @@ unveränderte Treffer/HP. **Zuständig:** `kampf`, `vfx-sound`, `opt-client-visu
 
 **Quellen:** [MovementPatches.cpp](../src/Game/MovementPatches.cpp), `RestoreDashSettings`
 liest Klassen-Defaults, `FollowReplicatedLocation` extrapoliert bereits lokal;
-[TODO](../TODO.md#optionale-optimierungen), gemeldete fehlende Tempo-Upgrades.
+[TODO](../TODO.md#verbesserungen), gemeldete fehlende Tempo-Upgrades.
 
 **Ziel:** Spielwirksame bestätigte Bewegungsparameter müssen den lokalen nativen Bewegungspfad
 erreichen. Defaults dürfen nicht unbemerkt bestätigte Modifikatoren ersetzen; ob der aktuelle

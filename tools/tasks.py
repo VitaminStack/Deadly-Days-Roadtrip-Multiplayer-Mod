@@ -197,13 +197,10 @@ def active_work(kennung, branches, prs, own_branch=None):
 
 
 def cmd_list_short(tasks, branches, prs):
-    """Eine Zeile je offener Aufgabe aus Phasen und Wartung, Optionen und Bestaetigungstests nur gezaehlt."""
-    collapsed = ('Optional', 'Coop')
+    """Eine Zeile je offener Aufgabe (Kennung und Status), Bestaetigungstests nur gezaehlt."""
     for kennung, task in tasks.items():
-        if not (task.done or task.confirmation or task.phase in collapsed):
+        if not task.done:
             print(f'  {kennung} {status(kennung, branches, prs, tasks)}'[:80])
-    later = sum(not t.done and not t.confirmation and t.phase in collapsed for t in tasks.values())
-    print(f'Optional und Coop: {later} Aufgaben (tasks.py list)')
     print(f'Bestätigungstests: {sum(bool(t.confirmation) for t in tasks.values())} (tasks.py tests list)')
 
 

@@ -14,8 +14,8 @@ Das Archiv ist Geschichte, nicht Ist-Zustand.
 
 ## Fokus
 
-Erst spielbar: Vorrang hat, dass zwei Spieler einen Run durchspielen können ([E-09](docs/ENTSCHEIDUNGEN.md#e-09-erst-spielbar)).
-Neue Kennungen nur für Funde, die den Run zu zweit verhindern (P0/P1), oder auf Anweisung; denselben Fund im selben PR beheben ([E-08](docs/ENTSCHEIDUNGEN.md#e-08-weniger-neue-aufgaben)).
+Alle Phasen sind abgeschlossen. `TODO.md` listet alle Probleme und Verbesserungen, ohne Abhängigkeiten ([E-13](docs/ENTSCHEIDUNGEN.md#e-13-phasen-abgeschlossen-flache-aufgabenliste)).
+Probleme, die den Run zu zweit stören, vor Verbesserungen; einen Fund mit derselben Ursache im selben PR beheben.
 Einzelheiten: [Fokus](docs/PROZESS.md#fokus).
 
 ## Architektur: lokal zuerst, minimal synchronisieren

@@ -22,7 +22,7 @@ flowchart TD
 
     subgraph C["Fertigstellen"]
         direction LR
-        P5["Phase 5<br/>Vollständiger Run"]:::open --> P6["Phase 6<br/>Release"]:::open --> Z(["Mod fertig und nutzbar"]):::goal
+        P5["Phase 5<br/>Vollständiger Run"]:::done --> P6["Phase 6<br/>Release"]:::done --> Z(["Mod fertig und nutzbar"]):::goal
     end
 
     A --> B --> C
@@ -36,10 +36,8 @@ flowchart TD
 
 ## Stand
 
-- Der Run zu zweit über das Internet ist spielbar: `integration-run` ist erledigt, der Stand erscheint als Release 1.0.
-- Offene Fehler aus dem Live-Test vom 24.11.2026 (P1, Phase 5): `airdrop-auswahl-absturz`, `lobby-rauswurf`, `wiedereintritt-karte`, `spawn-nach-kartenaufbau` (nur bei bestätigter Theorie). Je eine Fallakte unter [docs/faelle/](faelle/).
-- Bestätigungstests in Phase 5: `lager-edit-ablehnung`, `opt-metabase-inventar`, `labyrinth-event-client`.
-- Danach `release` (Phase 6). Optionale Aufgaben warten, bis Phase 0 bis 5 erledigt sind.
+- Alle Phasen sind abgeschlossen ([E-13](ENTSCHEIDUNGEN.md#e-13-phasen-abgeschlossen-flache-aufgabenliste)), der Run zu zweit über das Internet ist spielbar, Release 1.0 ([E-10](ENTSCHEIDUNGEN.md#e-10-release-10)).
+- Offene Arbeit steht ohne Phasen und Abhängigkeiten in [TODO.md](../TODO.md): [Probleme](../TODO.md#probleme) zuerst, dann [Verbesserungen](../TODO.md#verbesserungen).
 - Den Fortschritt je Phase zeigt das [README](../README.md#progress), die aktuelle Liste `py tools/tasks.py list --short`.
 
 ## Risiken
@@ -79,5 +77,5 @@ Gate G1 ist mit Weg A und gezielten Sync-Ergänzungen abgeschlossen. Ein Wechsel
 
 ## Pflege
 
-Die Phasenknoten werden umgefärbt, wenn eine Phase erledigt ist. Der Abschnitt „Stand“ wird ersetzt, nicht ergänzt.
+Der Abschnitt „Stand“ wird ersetzt, nicht ergänzt.
 Einzelne Aufgaben und Befunde stehen nicht hier, sondern in [TODO.md](../TODO.md), [docs/ERLEDIGT.md](ERLEDIGT.md) und den Fallakten.

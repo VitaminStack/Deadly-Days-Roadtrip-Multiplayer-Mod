@@ -122,7 +122,7 @@ Stand 16.11.2026, Patch 1.0.2 vom 14.11.2026. `26495302` bleibt Referenz-Build (
 `$SupportedBuild`, `game_build.BUILD`). `26669225` läuft parallel: Für ihn rechnet `Game::AddressMap` die Referenz-RVAs über
 `src/Game/RvaMap26669225.inc` um, erzeugt mit [`tools/rva_map.py`](../../tools/README.md#rva_mappy). Exe: TimeDateStamp `0xE9CA3AB7`,
 SizeOfImage `0x0B74A000`, `.text` gleich groß (`0x827C000`). Die Portierung der offenen Adressen ist je Patch-Datei aufgeteilt, siehe
-[Wartung](../../TODO.md#wartung) (`update-1-0-2-*`).
+[Wartung](../../TODO.md) (`update-1-0-2-*`).
 
 | | 26495302 | 26669225 | Beleg |
 |---|---|---|---|

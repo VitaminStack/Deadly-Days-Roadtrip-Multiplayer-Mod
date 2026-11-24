@@ -49,13 +49,13 @@ Eine neue Entscheidung bekommt die nächste freie Nummer; ersetzt sie eine älte
 
 - **Datum:** 21.11.2026.
 - **Entscheidung:** Neue Kennungen nur für Funde, die den Run zu zweit verhindern (P0/P1), oder auf Anweisung. Funde mit derselben Ursache im selben PR beheben.
-- **Folge:** Regel „Fokus“ in [CLAUDE.md](../CLAUDE.md).
+- **Folge:** Ersetzt durch E-13: Jedes Problem und jede Verbesserung bekommt eine Zeile in `TODO.md`.
 
 ## E-09: Erst spielbar
 
 - **Datum:** nicht festgehalten, gültig seit spätestens 21.11.2026.
 - **Entscheidung:** Vorrang hat, dass zwei Spieler einen Run durchspielen können. Optionale Aufgaben warten, bis Phase 0 bis 5 erledigt sind.
-- **Folge:** `tasks.py` zeigt Optionen als `zurückgestellt`, `claim` lehnt sie ab.
+- **Folge:** Ersetzt durch E-13: Alle Phasen sind abgeschlossen, es gibt keine zurückgestellten Aufgaben mehr.
 
 ## E-10: Release 1.0
 
@@ -74,3 +74,9 @@ Eine neue Entscheidung bekommt die nächste freie Nummer; ersetzt sie eine älte
 - **Datum:** 24.11.2026.
 - **Entscheidung:** Ausstehende Bestätigungstests halten nur fest, was noch zu prüfen ist. Sie verhindern keine andere Arbeit und haben keine Obergrenze.
 - **Folge:** Die Aufgabe gilt als erledigt; der offene Test steht unter [Bestätigungstests ausstehend](ERLEDIGT.md#bestätigungstests-ausstehend). Ersetzt die Obergrenze aus `projekt-aufraeumen`.
+
+## E-13: Phasen abgeschlossen, flache Aufgabenliste
+
+- **Datum:** 24.11.2026.
+- **Entscheidung:** Alle Projektphasen gelten als abgeschlossen, der Fortschritt im README ist voll. `TODO.md` listet künftig nur Probleme und Verbesserungen; Aufgaben hängen nicht mehr voneinander ab (keine Spalte „Braucht“).
+- **Folge:** `task_status.py check` lehnt offene Aufgaben in Phasen oder mit Abhängigkeiten ab. Ersetzt E-09.

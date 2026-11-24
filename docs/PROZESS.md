@@ -4,23 +4,22 @@ Wie Aufgaben gelesen, getestet und abgeschlossen werden. Die Aufgaben selbst ste
 
 ## So liest man die Tabellen
 
+`TODO.md` hat zwei Tabellen: **Probleme** (Fehler) und **Verbesserungen**. Phasen und Abhängigkeiten gibt es nicht mehr ([E-13](ENTSCHEIDUNGEN.md#e-13-phasen-abgeschlossen-flache-aufgabenliste)).
+
 | Spalte | Bedeutung |
 |---|---|
 | **Kennung** | Eindeutiger Name, zugleich Branch `task/<kennung>` und Worktree `.worktrees/<kennung>` |
-| **Prio** | **P0** blockiert andere Aufgaben oder den Run, **P1** nötig für das nächste Gate oder den Release, **P2** wichtig, aber später |
+| **Prio** | **P0** stört den Run zu zweit oder den Release, **P1** wichtig, **P2** später |
 | **Aufgabe** | Was zu tun ist, **Fertig, wenn** nennt die Abnahme, **Einstieg** die Unterlagen |
-| **Braucht** | Kennungen, die vorher erledigt sein müssen. `–` heißt keine Voraussetzung |
-| **Bearbeitung** | **parallel**: läuft neben anderen Aufgaben. **zentral**: legt gemeinsame Schnittstellen fest oder lässt sich nur als Ganzes testen, immer nur eine Person, nie aufteilen. **zu zweit**: Test auf zwei PCs, zwei Personen dürfen je eine Rolle `host` oder `client` reservieren, siehe [Test auf zwei PCs](TESTING.md#test-auf-zwei-pcs). **Team**: Entscheidung oder Abnahme durch die Menschen im Team, keine Reservierung |
+| **Bearbeitung** | **parallel**: läuft neben anderen Aufgaben. **zentral**: legt gemeinsame Schnittstellen fest, immer nur eine Person, nie aufteilen. **zu zweit**: Test auf zwei PCs, je eine Rolle. **Team**: Entscheidung des Teams |
 | **Spielzeit** | Wie sehr die Aufgabe Testsitzungen braucht: keine, wenig, mittel, viel. Pro PC läuft nur eine Sitzung |
 
 Daraus ergibt sich der Status, den `py tools/tasks.py list` anzeigt:
 
 | Status | Bedeutung |
 |---|---|
-| frei | Alle Voraussetzungen erledigt, niemand hat reserviert. Darf genommen werden |
+| frei | Niemand hat reserviert. Darf genommen werden |
 | reserviert, in Arbeit | Branch oder Draft-PR existiert. Nicht nehmen |
-| blockiert | Mindestens eine Kennung aus „Braucht“ ist offen. `tasks.py claim` lehnt ab |
-| zurückgestellt | Optionale Aufgabe, solange eine Aufgabe aus Phase 0 bis 5 offen ist. `tasks.py claim` lehnt ab |
 | Team | Entscheidet das Team, `tasks.py claim` lehnt ab |
 | erledigt | Steht unter [Erledigt](ERLEDIGT.md#erledigt). Nie erneut reservieren, auch wenn der Branch gelöscht ist oder die GitHub CLI fehlt |
 
@@ -87,8 +86,8 @@ Offene Prüfungen erledigter Aufgaben stehen als Info unter [Bestätigungstests 
 ## Aufgabe abschließen
 
 1. Ergebnis und Testgrenzen in der Doku festhalten, auch gescheiterte Versuche, siehe [Ergebnisse festhalten](TESTING.md#ergebnisse-festhalten).
-2. Nur bei erfüllter Abnahme („Fertig, wenn“): die Zeile aus der Phasentabelle löschen und unter [Erledigt](ERLEDIGT.md#erledigt) alphabetisch einfügen, als `` | `kennung` | Phase | Ergebnis in einem Satz mit Link | ``. Die Phase ist eine Ziffer von 0 bis 6, `Wartung`, `Optional` oder `Coop` (für [Real Coop logic](../TODO.md#real-coop-logic)).
-3. Teilergebnis: Verhindert der Rest den Run zu zweit, bleibt die Zeile offen: den Text auf den Rest kürzen oder den Rest als neue Kennung in dieselbe Phase eintragen und die alte Zeile nach „Erledigt“ ([docs/ERLEDIGT.md](ERLEDIGT.md)) verschieben. Sonst die Zeile nach „Erledigt“ verschieben und den Rest als Grenze im Ergebnis nennen, ohne neue Kennung. Wer eine neue Kennung anlegt, trägt sie bei allen Aufgaben, die darauf warten, unter „Braucht“ ein.
+2. Nur bei erfüllter Abnahme („Fertig, wenn“): die Zeile aus ihrer Tabelle löschen und unter [Erledigt](ERLEDIGT.md#erledigt) alphabetisch einfügen, als `` | `kennung` | Phase | Ergebnis in einem Satz mit Link | ``. Die Phase ist eine Ziffer von 0 bis 6, `Wartung`, `Optional` oder `Coop` (für [Real Coop logic](../TODO.md#verbesserungen)).
+3. Teilergebnis: Verhindert der Rest den Run zu zweit, bleibt die Zeile offen: den Text auf den Rest kürzen oder den Rest als neue Kennung unter Probleme oder Verbesserungen eintragen und die alte Zeile nach „Erledigt“ ([docs/ERLEDIGT.md](ERLEDIGT.md)) verschieben. Sonst die Zeile nach „Erledigt“ verschieben und den Rest als Grenze im Ergebnis nennen, ohne neue Kennung. Wer eine neue Kennung anlegt, trägt sie bei allen Aufgaben, die darauf warten, unter „Braucht“ ein.
    Ist die Abnahme nur auf einem PC belegt, obwohl sie zu zweit live gilt, zusätzlich eine Zeile unter [Live-Bestätigung ausstehend](#live-bestätigung-ausstehend) eintragen.
 4. `py tools/task_status.py update` ausführen. Das erneuert „Wo kann ich anfangen?“ und den Fortschritt im README. Danach muss `py tools/task_status.py check` bestehen.
 5. [docs/ROADMAP.md](ROADMAP.md) nur ändern, wenn eine ganze Phase erledigt ist (Knoten umfärben, Abschnitt „Stand“ ersetzen).
@@ -133,24 +132,16 @@ Wiederkehrende Abläufe liegen als Skills unter `.claude/skills/`. Claude Code l
 
 ## Fokus
 
-Erst spielbar: Vorrang hat, dass zwei Spieler einen Run durchspielen können. Aufgaben unter
-[Optionale Optimierungen](../TODO.md#optionale-optimierungen) warten, bis Phase 0 bis 5 erledigt sind; bis dahin zeigt
-`tasks.py` sie als `zurückgestellt` und `claim` lehnt sie ab. Vorziehen entscheidet der Mensch, indem die Zeile in eine
-Phase oder nach Wartung wandert.
+Probleme, die den Run zu zweit stören, gehen vor Verbesserungen, innerhalb nach Prio ([E-13](ENTSCHEIDUNGEN.md#e-13-phasen-abgeschlossen-flache-aufgabenliste)).
 
-**Weniger neue Aufgaben** (Nutzervorgabe vom 21.11.2026, bisher entstand mehr Arbeit, als erledigt wurde):
-
-- Einen Fund mit derselben Ursache oder in denselben Dateien wie die eigene Aufgabe im selben PR beheben, ohne neue
-  Kennung. Vorher mit `py tools/tasks.py list` prüfen, dass keine Kennung, Reservierung oder offener PR ihn schon abdeckt.
-- Eine neue Kennung nur für einen Fund oder Rest, der den Run zu zweit verhindert (P0 oder P1 in der passenden Phase),
-  oder auf Anweisung des Menschen.
-- Alles andere bekommt keine Zeile in `TODO.md`: Fund und Messung stehen im Befund der eigenen Doku und in der
-  PR-Beschreibung, ein Rest der eigenen Aufgabe als Grenze im Ergebnis. Keine gemeinsame Sammelliste anlegen.
+- Jedes gefundene Problem und jede sinnvolle Verbesserung bekommt eine Zeile in `TODO.md` unter „Probleme“ oder „Verbesserungen“, vorher mit `py tools/tasks.py list` prüfen, dass es sie noch nicht gibt.
+- Einen Fund mit derselben Ursache oder in denselben Dateien wie die eigene Aufgabe im selben PR beheben, dann ohne eigene Zeile.
+- Keine Abhängigkeiten zwischen Aufgaben: Wer etwas braucht, das noch fehlt, schreibt es in den Aufgabentext.
 
 ## Vor dem Start
 
-1. [Wo kann ich anfangen?](../TODO.md#wo-kann-ich-anfangen) lesen, dazu [Nicht erneut machen](#nicht-erneut-machen). Jede Aufgabe nennt unter „Braucht“ ihre Voraussetzungen und unter „Bearbeitung“, ob sie parallel läuft, zentral ist (nie aufteilen) oder das Team entscheidet.
-2. Status aller Aufgaben ansehen, Einzelheiten einer Aufgabe mit `py tools/tasks.py show <kennung>` statt der ganzen `TODO.md`. Nur Aufgaben mit Status `frei` nehmen, `blockiert` und `Team` lehnt das Skript ab:
+1. [Wo kann ich anfangen?](../TODO.md#wo-kann-ich-anfangen) lesen, dazu [Nicht erneut machen](#nicht-erneut-machen). Jede Aufgabe nennt unter „Bearbeitung“, ob sie parallel läuft, zentral ist (nie aufteilen) oder das Team entscheidet.
+2. Status aller Aufgaben ansehen, Einzelheiten einer Aufgabe mit `py tools/tasks.py show <kennung>` statt der ganzen `TODO.md`. Nur Aufgaben mit Status `frei` nehmen, `Team` lehnt das Skript ab:
 
    ```bash
    py tools/tasks.py list

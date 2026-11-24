@@ -8,18 +8,18 @@ Reserviert Aufgaben aus [TODO.md](../TODO.md#wo-kann-ich-anfangen), damit nieman
 
 | Befehl | Aufgabe |
 |---|---|
-| `py tools/tasks.py list` | Offene Aufgaben aus `TODO.md` auf `origin/main` mit Status: frei, blockiert, zurückgestellt, Team, reserviert, Review |
+| `py tools/tasks.py list` | Offene Aufgaben aus `TODO.md` auf `origin/main` mit Status: frei, Team, reserviert, Review |
 | `py tools/tasks.py list --short` | Kurz für den Einstieg: je offene Aufgabe aus Phasen und Wartung Kennung und Status, Optionen und Bestätigungstests nur gezählt |
 | `py tools/tasks.py list --active` | Nur aktive Entwicklungsreservierungen/PRs, ohne ausstehende Bestätigungstests |
 | `py tools/tasks.py claim <kennung> <name>` | Worktree, Branch `task/<kennung>`, Push und Draft-PR |
 | `py tools/tasks.py claim <kennung> <name> host\|client` | Bei Aufgaben „zu zweit“ nur eine Rolle: Branch `task/<kennung>/<rolle>`, Worktree `.worktrees/<kennung>-<rolle>`, siehe [Test auf zwei PCs](../docs/TESTING.md#test-auf-zwei-pcs) |
 | `py tools/tasks.py release <kennung> [<rolle>]` | Draft-PR schließen, Branch löschen, sauberen Worktree entfernen |
-| `py tools/tasks.py show <kennung>` | Nur diese Aufgabe: Phase, Status, Braucht, Bearbeitung, Abnahme. Spart das Lesen der ganzen `TODO.md` |
+| `py tools/tasks.py show <kennung>` | Nur diese Aufgabe: Tabelle, Status, Bearbeitung, Abnahme. Spart das Lesen der ganzen `TODO.md` |
 | `py tools/tasks.py done <kennung> "<Ergebnis>"` | Auf `task/<kennung>`: Zeile alphabetisch nach „Erledigt“ in `docs/ERLEDIGT.md` verschieben, `task_status.py update` und `check` |
 | `py tools/tasks.py merge-plan` | Empfohlene Merge-Reihenfolge für offene PRs (ohne Entwürfe), merget nichts. Rechnet die Merges mit `git merge-tree` nach: zuerst PRs, die eine offene Aufgabe freimachen, dann solche mit wenigen Konflikten gegen die übrigen PRs, dann Phase, Prio und Nummer; ein PR, der auf einem anderen aufbaut, kommt danach. PRs, die gegen den Stand davor kollidieren, stehen mit ihren Dateien unter „Erst nachziehen“. Nach jedem Merge neu aufrufen, Laufzeit etwa eine halbe Minute bei 14 PRs |
 | `py tools/tasks.py cleanup [--apply]` | Zeigt lokale Worktrees unter `.worktrees/` und `.claude/worktrees/`, deren PR gemergt und Branch gelöscht ist (oder deren Stand in `main` liegt), und Branches auf origin ohne offenen PR. `--apply` entfernt nur saubere lokale Worktrees dieser Art samt lokalem Branch, nie Branches auf origin |
 
-Erledigte, blockierte, zurückgestellte und Team-Aufgaben sind nicht reservierbar, auch ohne `gh`. Zurückgestellt sind optionale Aufgaben, solange eine Aufgabe aus Phase 0 bis 5 offen ist; offene PRs und Bestätigungstests optionaler Aufgaben laufen normal weiter. Offene Aufgaben werden nicht allein wegen eines gemergten Teil-PRs abgeschlossen. Kurze Wartung ohne Eintrag in `TODO.md` ist weiterhin reservierbar.
+Erledigte und Team-Aufgaben sind nicht reservierbar, auch ohne `gh`. Offene Aufgaben stehen flach unter „Probleme“ oder „Verbesserungen“ und hängen nicht voneinander ab.
 
 ### Bestätigungstests
 
@@ -68,10 +68,10 @@ Lokale, netzwerkfreie Prüfung im aktuellen Checkout. `TODO.md` ist die einzige 
 
 | Befehl | Aufgabe |
 |---|---|
-| `py tools/task_status.py check` | Tabellen, Kennungen, „Braucht“, erzeugte Abschnitte und veraltete Querverweise prüfen, bei Abweichung Fehlercode |
+| `py tools/task_status.py check` | Tabellen, Kennungen, keine Abhängigkeiten, erzeugte Abschnitte und veraltete Querverweise prüfen, bei Abweichung Fehlercode |
 | `py tools/task_status.py update` | „Wo kann ich anfangen?“ in `TODO.md` sowie Zahlen und Balken im README neu erzeugen |
 
-Geprüft wird: eindeutige Kennungen, bekannte Kennungen und keine Kreise unter „Braucht“, gültige Werte für Prio, Bearbeitung und Spielzeit, alphabetische Tabelle „Erledigt“ in `docs/ERLEDIGT.md`, keine alten Checkboxen. Außerdem durchsucht `check` alle versionierten Markdown-Dateien (ohne `third_party/`) nach Ankündigungen wie „kommt mit `x`“, „folgt erst in `x`“ oder „bis `x`“, obwohl `x` schon erledigt ist, und nennt Datei und Zeile; `update` zeigt dieselbe Liste nur an. Nicht gemeldet werden offene oder unbekannte Kennungen, die Aufgabenzeilen in `TODO.md` und gemergte Stände wie „bis `x` (#131)“. Wer eine Aufgabe abschließt, passt solche Sätze in derselben Änderung an. Die CI und `Build-Mod.ps1 -Test` führen `check` aus. Der Fortschritt zählt je Phase die erledigten gegen alle Aufgaben, ohne Wartung, optionale Optimierungen und Real Coop logic.
+Geprüft wird: eindeutige Kennungen, offene Aufgaben nur unter „Probleme“ oder „Verbesserungen“ und ohne Abhängigkeiten, Aufgabentext höchstens 800 Zeichen, gültige Werte für Prio, Bearbeitung und Spielzeit, alphabetische Tabelle „Erledigt“ in `docs/ERLEDIGT.md`, keine alten Checkboxen. Außerdem durchsucht `check` alle versionierten Markdown-Dateien (ohne `third_party/`) nach Ankündigungen wie „kommt mit `x`“, „folgt erst in `x`“ oder „bis `x`“, obwohl `x` schon erledigt ist, und nennt Datei und Zeile; `update` zeigt dieselbe Liste nur an. Nicht gemeldet werden offene oder unbekannte Kennungen, die Aufgabenzeilen in `TODO.md` und gemergte Stände wie „bis `x` (#131)“. Wer eine Aufgabe abschließt, passt solche Sätze in derselben Änderung an. Die CI und `Build-Mod.ps1 -Test` führen `check` aus. Der Fortschritt zählt je Phase die erledigten gegen alle Aufgaben, ohne Wartung, optionale Optimierungen und Real Coop logic.
 
 ## doc_check.py
 
