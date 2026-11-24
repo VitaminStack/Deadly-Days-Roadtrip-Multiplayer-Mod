@@ -33,7 +33,7 @@ Die Bereiche zeigen, welche Ordner zusammengehören. Feste Personen je Bereich u
 ### Aufgaben reservieren
 
 Jede Aufgabe hat in [TODO.md](TODO.md) eine Kennung, eine Zeile in der Tabelle ihrer Phase und unter „Braucht“ ihre Voraussetzungen. Nehmen darf man nur, was dort `frei` ist, siehe [Wo kann ich anfangen?](TODO.md#wo-kann-ich-anfangen). Reserviert ist, was einen Branch `task/<kennung>` auf GitHub hat.
-Der erste Push gewinnt, ein zweiter wird abgelehnt. Das gilt für Menschen und KI-Agenten, die genauen Befehle stehen in [CLAUDE.md](CLAUDE.md#vor-dem-start).
+Der erste Push gewinnt, ein zweiter wird abgelehnt. Das gilt für Menschen und KI-Agenten, die genauen Befehle stehen in [CLAUDE.md](docs/PROZESS.md#vor-dem-start).
 
 `py tools/tasks.py list` zeigt jede offene Kennung mit Status: frei, blockiert, zurückgestellt, Team, reserviert, in Arbeit oder PR wartet auf Review. Blockierte, zurückgestellte und Team-Aufgaben lehnt `claim` ab.
 `py tools/tasks.py claim <kennung> <name>` reserviert und öffnet gleich einen Draft-PR `[WIP] <kennung>`. Wer gerade woran arbeitet,

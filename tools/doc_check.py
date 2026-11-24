@@ -25,7 +25,7 @@ DEFAULT_LIMIT = 60_000
 # Obergrenzen in Bytes fuer Dateien ueber DEFAULT_LIMIT. Nur absenken, nie anheben: Jede Aufraeum-Aufgabe
 # setzt ihre Datei auf die neue Groesse (auf 1000 aufgerundet) oder entfernt den Eintrag.
 LIMITS = {
-    'CLAUDE.md': 10_000,
+    'CLAUDE.md': 4_000,
     'TODO.md': 28_000,
     'docs/OFFSETS.md': 99_000,
     'src/Game/README.md': 81_000,

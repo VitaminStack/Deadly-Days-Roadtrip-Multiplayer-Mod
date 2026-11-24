@@ -4,7 +4,7 @@ Diese Datei ist die einzige Aufgabenliste des Projekts. **Jede Aufgabe steht gen
 
 Wie man die Tabellen liest, Fallakten anlegt und Aufgaben abschließt, steht in [docs/PROZESS.md](docs/PROZESS.md). Den Überblick als Graph zeigt [docs/ROADMAP.md](docs/ROADMAP.md), den Fortschritt je Phase das [README](README.md#progress).
 
-**Fokus: erst spielbar.** Vorrang hat, dass zwei Spieler einen Run durchspielen können. Aufgaben unter [Optionale Optimierungen](#optionale-optimierungen) warten, bis Phase 0 bis 5 erledigt sind; `tasks.py` zeigt sie bis dahin als `zurückgestellt`. Neue Kennungen nur für Funde oder Reste, die den Run zu zweit verhindern, siehe [Fokus in CLAUDE.md](CLAUDE.md#fokus).
+**Fokus: erst spielbar.** Vorrang hat, dass zwei Spieler einen Run durchspielen können. Aufgaben unter [Optionale Optimierungen](#optionale-optimierungen) warten, bis Phase 0 bis 5 erledigt sind; `tasks.py` zeigt sie bis dahin als `zurückgestellt`. Neue Kennungen nur für Funde oder Reste, die den Run zu zweit verhindern, siehe [Fokus in CLAUDE.md](docs/PROZESS.md#fokus).
 
 ## Wo kann ich anfangen?
 
@@ -163,7 +163,7 @@ Auch die zukünftige Update-Verwaltung bleibt vorerst optional: Unterstützt wir
 
 Je Aufgabe steht hier nur eine Kurzfassung, die vollständige Beschreibung unter ihrer Kennung in [docs/OPTIONEN.md](docs/OPTIONEN.md).
 
-Ausbau nach Release 1.0 hin zur echten Koop-Logik des Spiels, als zweiter wählbarer Multiplayer-Modus. Release 1.0 hat den Modus **Eigene Inventare**: Jeder Spieler hat ein vollständig eigenes Inventar ([Inventar lokal bearbeiten](src/Game/README.md#inventar-lokal-bearbeiten)). Dieser Modus bleibt erhalten. Neu kommt der Modus **Geteiltes Inventar** wie im nativen Koop: Die Spieler teilen sich einen Rucksack, Jeder behält seinen eigenen Bereich, Unterstützungs-Items wirken aber über die Bereichsgrenze und verstärken auch Waffen der Mitspieler. Das erlaubt gemeinsame Builds. Der Host wählt den Modus vor dem Run, je nachdem welche Inventarverwaltung die Gruppe bevorzugt. Ziel sind bis zu vier Spieler, darum keine neue Logik fest auf P1 und P2 auslegen. Es gilt das [Architekturprinzip](CLAUDE.md#verbindliches-architekturprinzip-lokal-zuerst-minimal-synchronisieren): Der Host bucht das gemeinsame Inventar, Anzeige und Wirkungsberechnung laufen lokal aus bestätigten Daten. Zählt nicht zum Fortschritt.
+Ausbau nach Release 1.0 hin zur echten Koop-Logik des Spiels, als zweiter wählbarer Multiplayer-Modus. Release 1.0 hat den Modus **Eigene Inventare**: Jeder Spieler hat ein vollständig eigenes Inventar ([Inventar lokal bearbeiten](src/Game/README.md#inventar-lokal-bearbeiten)). Dieser Modus bleibt erhalten. Neu kommt der Modus **Geteiltes Inventar** wie im nativen Koop: Die Spieler teilen sich einen Rucksack, Jeder behält seinen eigenen Bereich, Unterstützungs-Items wirken aber über die Bereichsgrenze und verstärken auch Waffen der Mitspieler. Das erlaubt gemeinsame Builds. Der Host wählt den Modus vor dem Run, je nachdem welche Inventarverwaltung die Gruppe bevorzugt. Ziel sind bis zu vier Spieler, darum keine neue Logik fest auf P1 und P2 auslegen. Es gilt das [Architekturprinzip](docs/ARCHITECTURE.md#verbindliches-architekturprinzip-lokal-zuerst-minimal-synchronisieren): Der Host bucht das gemeinsame Inventar, Anzeige und Wirkungsberechnung laufen lokal aus bestätigten Daten. Zählt nicht zum Fortschritt.
 
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|

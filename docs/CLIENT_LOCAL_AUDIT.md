@@ -7,7 +7,7 @@ Basiscommit `066fdba`, unterstützter Spiel-Build `26187885`.
 
 Möglichst viel vorhandene Logik beim Client nutzen und nur das für Multiplayer nötige Minimum
 teilen. Das soll Fehler und Entwicklungsaufwand reduzieren. Die verbindliche Regel steht in
-[CLAUDE.md](../CLAUDE.md#verbindliches-architekturprinzip-lokal-zuerst-minimal-synchronisieren)
+[CLAUDE.md](ARCHITECTURE.md#verbindliches-architekturprinzip-lokal-zuerst-minimal-synchronisieren)
 und [Architektur](ARCHITECTURE.md#projektweite-nutzervorgabe-vom-05112026).
 
 **Dies ist ein Quellcode-/Dokumentationsaudit, kein Laufzeittest und keine Umsetzung der Empfehlungen.**
