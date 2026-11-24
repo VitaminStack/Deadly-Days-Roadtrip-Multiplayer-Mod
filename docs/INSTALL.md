@@ -10,8 +10,8 @@ of the game on Steam, and both players need the same mod version.
 
 - Windows 10 or 11, Deadly Days: Roadtrip installed through Steam.
 - **Game build `26786272` (patch 1.0.3).** The mod always supports only the latest game build; its offsets and patches apply to this
-  build alone, so update the game through Steam first. Both players need the same build. So far this build has only been tested on one
-  PC up to the first round end; a run over the route map and a session on two PCs are still untested there. On any other build the
+  build alone, so update the game through Steam first. Both players need the same build. On 24 Nov 2026 two PCs played a run over
+  the internet on this build through 14 maps up to the HQ map, see [known issues](#known-issues-in-10). On any other build the
   installer refuses and names the build it found. A mod that is present anyway disables itself at startup, and the game runs without it.
 - The game is closed.
 - No other mod that also places a `version.dll` next to the game exe.
@@ -29,6 +29,40 @@ Install.cmd -GameDir "D:\SteamLibrary\steamapps\common\Deadly Days Roadtrip"
 ```
 
 A new mod version is installed the same way and replaces the old one. Settings in `ddcoop.ini` are kept.
+
+## Playing together
+
+Both players install the same mod version. `F8` shows or hides the mod window while the game has focus; it shows `DDCoop v16`
+(16 is the network version of release 1.0, both players must show the same number). Its buttons are in German. Play in windowed or
+borderless mode, exclusive fullscreen hides the window.
+
+**Host**
+
+1. Start the game and walk into the base (MetaBase).
+2. Press `F8` and click **Lobby erstellen** (create lobby).
+3. Click **Freunde einladen** (invite friends) and invite your friend in the Steam overlay. Alternatively click **Lobby-ID kopieren**
+   (copy lobby ID) and send the number to your friend.
+4. Once your friend is in, start the run as usual.
+
+**Client (second player)**
+
+- Accept the Steam invite. If the game is closed, Steam starts it and the mod joins once the first world has loaded.
+- Or start the game, press `F8`, paste the lobby ID into the field and click **Beitreten** (join).
+
+**Verlassen** (leave) ends the session. Only Steam friends of the host can join, and only with the same mod version.
+Do not use the **Dev** tab in a real run: its buttons and the keys Numpad 1 to 5 (NumLock on) spawn XP, items and zombies.
+
+## Known issues in 1.0
+
+Found in the live test on 24 Nov 2026 ([report, German](GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-24112026-livetest-2411)):
+
+- The client can crash when an airdrop selection opens. Restart the game and rejoin the running run.
+- The host can drop the client mid-run with „Mitspieler ist nicht mehr in der Lobby“ (reason 1005) although the connection is fine.
+- Rejoining without restarting the game builds no map, the client falls through the world. Always restart the game before rejoining.
+- After a rejoin the client's inventory from the run is gone.
+- The client's level display is sometimes too low, recipes at the workbench can be rejected, power-ups have no effect for the client.
+
+Logs for bug reports are in `DDSurvivors\Binaries\Win64\DDCoop\logs` in the game folder.
 
 ## Remove
 
