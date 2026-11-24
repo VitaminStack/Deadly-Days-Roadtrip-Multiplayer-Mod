@@ -59,6 +59,61 @@ class DocCheckTests(unittest.TestCase):
         self.assertEqual(doc_check.check_sizes(self.root, files, {'TODO.md': 15_000}),
                          ['TODO.md: 16000 Bytes > Grenze 15000', 'a.md: 70000 Bytes > Grenze 60000'])
 
+    def test_archive_files_need_banner(self):
+        self.write('docs/archive/a.md', '# Alt\n')
+        self.write('docs/archive/b.md', doc_check.ARCHIVE_BANNER + '\n\n# Alt\n')
+        self.write('docs/c.md', '# Aktuell\n')
+        files = ['docs/archive/a.md', 'docs/archive/b.md', 'docs/c.md']
+        self.assertEqual(doc_check.check_archive(self.root, files), ['docs/archive/a.md: Archiv-Banner fehlt'])
+
+    def test_rewrite_links_relative_per_source(self):
+        self.write('docs/X.md', '[a](GAME_ANALYSIS.md#k) [s](OFFSETS.md)\n')
+        self.write('src/Game/README.md', '[b](../../docs/GAME_ANALYSIS.md)\n')
+        files = ['docs/X.md', 'src/Game/README.md']
+        count = doc_check.rewrite_links(self.root, files, 'docs/GAME_ANALYSIS.md', 'docs/archive/GAME_ANALYSIS.md')
+        self.assertEqual(count, 2)
+        self.assertEqual((self.root / 'docs/X.md').read_text(encoding='utf-8'),
+                         '[a](archive/GAME_ANALYSIS.md#k) [s](OFFSETS.md)\n')
+        self.assertEqual((self.root / 'src/Game/README.md').read_text(encoding='utf-8'),
+                         '[b](../../docs/archive/GAME_ANALYSIS.md)\n')
+
+    def test_rewrite_links_inside_moved_target_and_same_file(self):
+        self.write('docs/archive/A.md', '[i](#k) [o](../OFFSETS.md#x)\n')
+        count = doc_check.rewrite_links(self.root, ['docs/archive/A.md'], 'docs/OFFSETS.md', 'docs/archive/OFFSETS.md',
+                                        {'x'})
+        self.assertEqual(count, 1)
+        self.assertEqual((self.root / 'docs/archive/A.md').read_text(encoding='utf-8'), '[i](#k) [o](OFFSETS.md#x)\n')
+
+    def test_rewrite_same_file_anchor_links_when_section_moves_out(self):
+        self.write('TODO.md', '[e](#erledigt) [p](#phase)\n')
+        count = doc_check.rewrite_links(self.root, ['TODO.md'], 'TODO.md', 'docs/ERLEDIGT.md', {'erledigt'})
+        self.assertEqual(count, 1)
+        self.assertEqual((self.root / 'TODO.md').read_text(encoding='utf-8'), '[e](docs/ERLEDIGT.md#erledigt) [p](#phase)\n')
+
+    def test_rewrite_only_selected_anchors_and_idempotent(self):
+        self.write('docs/a.md', '[a](OFFSETS.md#alt) [b](OFFSETS.md#neu)\n')
+        args = (self.root, ['docs/a.md'], 'docs/OFFSETS.md', 'docs/archive/OFFSETS.md', {'alt'})
+        self.assertEqual(doc_check.rewrite_links(*args), 1)
+        self.assertEqual(doc_check.rewrite_links(*args), 0)
+        self.assertEqual((self.root / 'docs/a.md').read_text(encoding='utf-8'),
+                         '[a](archive/OFFSETS.md#alt) [b](OFFSETS.md#neu)\n')
+
+    def test_rewrite_keeps_crlf_and_code_fences(self):
+        self.write('docs/a.md', '[a](OFFSETS.md)\r\n```\n[c](OFFSETS.md)\n```\r\n')
+        doc_check.rewrite_links(self.root, ['docs/a.md'], 'docs/OFFSETS.md', 'docs/archive/OFFSETS.md')
+        self.assertEqual((self.root / 'docs/a.md').read_bytes(),
+                         b'[a](archive/OFFSETS.md)\r\n```\n[c](OFFSETS.md)\n```\r\n')
+
+    def test_rebase_links_of_moved_text(self):
+        self.write('src/A.cpp', '')
+        self.write('docs/OFFSETS.md', '## X\n')
+        self.write('docs/G.md', '## Gone\n')
+        self.write('docs/archive/G.md', '[s](../src/A.cpp) [o](OFFSETS.md#x) [h](#here) [g](#gone) [w](https://a.b)\n## Here\n')
+        count = doc_check.rebase_links(self.root, 'docs/archive/G.md', 'docs/G.md')
+        self.assertEqual(count, 3)
+        self.assertEqual((self.root / 'docs/archive/G.md').read_text(encoding='utf-8'),
+                         '[s](../../src/A.cpp) [o](../OFFSETS.md#x) [h](#here) [g](../G.md#gone) [w](https://a.b)\n## Here\n')
+
     def test_real_documents_pass(self):
         root = Path(__file__).resolve().parents[1]
         self.assertEqual(doc_check.run_checks(root), [])

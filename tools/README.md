@@ -84,9 +84,11 @@ Hält die Doku so klein und verlinkt, dass Agenten sie gezielt lesen können. L�
 |---|---|
 | `py tools/doc_check.py check` | Größengrenzen und relative Links samt Anker aller versionierten Markdown-Dateien prüfen, bei Meldungen Fehlercode |
 | `py tools/doc_check.py sizes` | Die 20 größten Markdown-Dateien mit Bytes |
+| `py tools/doc_check.py move <alt> <neu> [--anchors=a,b]` | Nach dem Verschieben: Links auf `<alt>` (nur diese Anker) auf `<neu>` umschreiben. Ohne `--anchors` auch die Links der verschobenen Datei selbst anpassen |
+| `py tools/doc_check.py rebase <datei> <herkunft>` | Links in `<datei>` anpassen, deren Text wortgleich aus `<herkunft>` stammt |
 
 Standardgrenze 60 000 Bytes. Größere Dateien stehen mit ihrer heutigen Größe in `LIMITS`. Diese Werte dürfen nur sinken.
-Dateien unter `docs/archive/` haben keine Grenze, ihre Links werden trotzdem geprüft.
+Dateien unter `docs/archive/` haben keine Grenze, beginnen aber mit dem Archiv-Banner (`ARCHIVE_BANNER`); ihre Links werden trotzdem geprüft.
 
 ## dumper7/
 

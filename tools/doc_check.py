@@ -2,11 +2,17 @@
 
   py tools/doc_check.py check    Groessen und Links pruefen, Exit 1 bei Meldungen
   py tools/doc_check.py sizes    Die 20 groessten Markdown-Dateien mit Bytes
+  py tools/doc_check.py move <alt> <neu> [--anchors=a,b]
+                                 Links auf <alt> (nur diese Anker) auf <neu> umschreiben. Ohne --anchors wurde die
+                                 ganze Datei verschoben (vorher git mv), dann werden auch ihre eigenen Links angepasst.
+  py tools/doc_check.py rebase <datei> <herkunft>
+                                 Links in <datei> anpassen, deren Text wortgleich aus <herkunft> stammt
 
 Die Grenzen in LIMITS duerfen nur sinken. Sie halten die Doku klein genug, dass Agenten sie gezielt lesen koennen.
 """
 from pathlib import Path
 from urllib.parse import unquote
+import os
 import re
 import sys
 
@@ -27,8 +33,10 @@ LIMITS = {
     'src/Game/README.md': 81_000,
 }
 EXCLUDED = ('docs/archive/',)
+ARCHIVE_DIR = 'docs/archive/'
+ARCHIVE_BANNER = '> **Archiv.** Historischer Stand, nicht aktuell. Gilt nur, wenn eine aktuelle Doku darauf verweist.'
 
-LINK = re.compile(r'\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)')
+LINK = re.compile(r'(\[[^\]]*\]\()([^)\s]+)((?:\s+"[^"]*")?\))')
 CODE_SPAN = re.compile(r'`[^`]*`')
 HTML_ANCHOR = re.compile(r'<a\s+(?:id|name)="([^"]+)"')
 HEADING = re.compile(r'^(#{1,6})\s+(.*?)\s*#*\s*$')
@@ -80,7 +88,7 @@ def check_links(root, files):
         source = root / name
         text = source.read_bytes().decode('utf-8')
         for number, line in outside_fences(text):
-            for target in LINK.findall(CODE_SPAN.sub('', line)):
+            for _, target, _ in LINK.findall(CODE_SPAN.sub('', line)):
                 if '://' in target or target.startswith('mailto:'):
                     continue
                 path_part, _, anchor = target.partition('#')
@@ -106,10 +114,93 @@ def check_sizes(root, files, limits=None):
     return sorted(found)
 
 
+def check_archive(root, files):
+    """Meldungen fuer Archivdateien, deren erste Zeile nicht das Archiv-Banner ist."""
+    found = []
+    for name in files:
+        if name.startswith(ARCHIVE_DIR):
+            first = (Path(root) / name).read_bytes().decode('utf-8').splitlines()[:1]
+            if first != [ARCHIVE_BANNER]:
+                found.append(f'{name}: Archiv-Banner fehlt')
+    return sorted(found)
+
+
+def relative(target, start_dir):
+    return Path(os.path.relpath(target, start_dir)).as_posix()
+
+
+def edit_links(root, name, change):
+    """Ruft change(ziel_ohne_anker, anker) fuer jeden relativen Link ausserhalb von Codebloecken auf.
+
+    change liefert den neuen Linktext oder None. Schreibt die Datei nur bei Aenderung, Zeilenenden bleiben.
+    Liefert die Zahl der geaenderten Links.
+    """
+    path = Path(root) / name
+    text = path.read_bytes().decode('utf-8')
+    lines = text.splitlines(keepends=True)
+    keep = {number for number, _ in outside_fences(text)}
+    count = 0
+
+    def replace(match):
+        nonlocal count
+        target = match[2]
+        if '://' in target or target.startswith('mailto:'):
+            return match[0]
+        path_part, _, anchor = target.partition('#')
+        new = change(path_part, anchor)
+        if new is None or new == target:
+            return match[0]
+        count += 1
+        return match[1] + new + match[3]
+
+    for index, line in enumerate(lines):
+        if index + 1 in keep:
+            spans = [m.span() for m in CODE_SPAN.finditer(line)]
+            lines[index] = LINK.sub(lambda m: m[0] if any(a <= m.start() < b for a, b in spans) else replace(m), line)
+    if count:
+        path.write_bytes(''.join(lines).encode('utf-8'))
+    return count
+
+
+def rewrite_links(root, files, old, new, only_anchors=None):
+    """Schreibt relative Links auf die Repo-Datei old auf new um, nur fuer only_anchors, wenn gesetzt."""
+    root = Path(root).resolve()
+    old_path, new_path = (root / old).resolve(), (root / new).resolve()
+    total = 0
+    for name in files:
+        source = (root / name).resolve()
+
+        def change(path_part, anchor, source=source):
+            target = (source.parent / unquote(path_part)).resolve() if path_part else source
+            if target != old_path or (only_anchors is not None and unquote(anchor) not in only_anchors):
+                return None
+            link = '' if new_path == source else relative(new_path, source.parent)
+            return link + (f'#{anchor}' if anchor else '')
+        total += edit_links(root, name, change)
+    return total
+
+
+def rebase_links(root, name, origin):
+    """Passt die Links in name an, deren Text wortgleich aus origin stammt. Liefert die Zahl der Aenderungen."""
+    root = Path(root).resolve()
+    source, origin_path = (root / name).resolve(), (root / origin).resolve()
+    own = {a.lower() for a in anchors(source.read_bytes().decode('utf-8'))}
+
+    def change(path_part, anchor):
+        if not path_part:
+            if unquote(anchor).lower() in own:
+                return None
+            return relative(origin_path, source.parent) + f'#{anchor}'
+        target = (origin_path.parent / unquote(path_part)).resolve()
+        link = '' if target == source else relative(target, source.parent)
+        return link + (f'#{anchor}' if anchor else '')
+    return edit_links(root, name, change)
+
+
 def run_checks(root):
     root = Path(root)
     files = [n for n in markdown_files(root) if (root / n).is_file()]
-    return check_sizes(root, files) + check_links(root, files)
+    return check_sizes(root, files) + check_archive(root, files) + check_links(root, files)
 
 
 def main(argv):
@@ -122,6 +213,24 @@ def main(argv):
         files = [n for n in markdown_files(root) if (root / n).is_file()]
         for name in sorted(files, key=lambda n: -(root / n).stat().st_size)[:20]:
             print(f'{(root / name).stat().st_size:>9} {name}')
+        return 0
+    if len(argv) in (3, 4) and argv[0] == 'move':
+        anchors_arg = None
+        if len(argv) == 4:
+            if not argv[3].startswith('--anchors='):
+                print(__doc__.strip())
+                return 2
+            anchors_arg = {a for a in argv[3].split('=', 1)[1].split(',') if a}
+        files = [n for n in markdown_files(root) if (root / n).is_file()]
+        if argv[2] not in files and (root / argv[2]).is_file():
+            files.append(argv[2])
+        count = rewrite_links(root, files, argv[1], argv[2], anchors_arg)
+        if anchors_arg is None and (root / argv[2]).is_file():
+            count += rebase_links(root, argv[2], argv[1])
+        print(f'{count} Links angepasst.')
+        return 0
+    if len(argv) == 3 and argv[0] == 'rebase':
+        print(f'{rebase_links(root, argv[1], argv[2])} Links angepasst.')
         return 0
     print(__doc__.strip())
     return 2
