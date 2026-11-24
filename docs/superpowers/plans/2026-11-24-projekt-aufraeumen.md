@@ -2,7 +2,8 @@
 
 > **Für ausführende Agenten:** Pflicht-Skill: superpowers:subagent-driven-development (empfohlen) oder
 > superpowers:executing-plans, Aufgabe für Aufgabe. Schritte haben Checkboxen (`- [ ]`) zum Abhaken.
-> Nach Abschluss aller Aufgaben wird diese Datei gelöscht; das Ergebnis steht dann in `docs/ERLEDIGT.md`.
+> **Lebensdauer:** Dieser Plan ist ein Arbeitsdokument. Aufgabe 18 verschiebt ihn nach `docs/archive/` und löscht
+> `docs/superpowers/`, damit er später nicht als gültige Anleitung gelesen wird. Das Ergebnis steht dann in `docs/ERLEDIGT.md`.
 
 **Ziel:** Kontext je Aufgabe verkleinern und die Doku auf den Ist-Zustand reduzieren, damit Agenten nicht
 aus veralteten Befunden halluzinieren und die offenen Fehler der Phase 5 gezielt behoben werden.
@@ -645,6 +646,26 @@ danach nummerierte Schritte mit Befehlen. Die Schritte verlinken auf bestehende 
 - [ ] **Schritt 4: Prüfen.** `git grep -n 'spikes/a-connect'` liefert nur Treffer unter `docs/archive/`.
   Windows-CI (`ci.yml`) baut und alle Testprogramme laufen. Ein Spieltest wie Aufgabe 16, Schritt 2 läuft ohne Absturz.
 - [ ] **Schritt 5:** Commit `"Remove spike from main (tag spike-final)"`.
+
+### Aufgabe 18: Plan abschließen und archivieren
+
+**Braucht:** Aufgaben 1 bis 17 erledigt oder per Entscheidung des Menschen ausgelassen.
+
+**Dateien:** Verschieben `docs/superpowers/plans/2026-11-24-projekt-aufraeumen.md` → `docs/archive/PLAN-PROJEKT-AUFRAEUMEN.md`.
+Löschen: Ordner `docs/superpowers/`, `docs/faelle/projekt-aufraeumen-spike.md`. Ändern `TODO.md`, `docs/ERLEDIGT.md`.
+Ändern `tools/doc_check.py`, `tests/test_doc_check.py`.
+
+**Schnittstellen:** `check_plans(root: Path) -> list[str]` meldet jede Datei unter `docs/superpowers/` als
+`"<pfad>: Arbeitsplan nach Abschluss archivieren oder löschen"`. `check` ruft es nur auf, wenn `TODO.md` die Kennung `projekt-aufraeumen` nicht mehr als offen führt.
+So kann kein abgeschlossener Plan liegen bleiben.
+
+- [ ] **Schritt 1: Fehlschlagender Test** `test_finished_plan_must_be_archived`: temporärer Ordner mit `docs/superpowers/plans/x.md`, erwartet die Meldung oben.
+- [ ] **Schritt 2–4:** fehlschlagen lassen, umsetzen, bestehen lassen.
+- [ ] **Schritt 5: Archivieren.** `git mv` der Plandatei ins Archiv, Archiv-Banner als erste Zeile, Checkboxen bleiben wie abgehakt.
+  `docs/superpowers/` und die Spike-Fallakte löschen. Links mit `doc_check.py move` umschreiben.
+- [ ] **Schritt 6: Abschließen.** `python3 -B tools/tasks.py done projekt-aufraeumen "<Ergebnis in einem Satz mit Link auf den archivierten Plan>"`,
+  sonst von Hand wie in `docs/PROZESS.md`. Alle drei Prüfbefehle bestehen.
+- [ ] **Schritt 7:** Commit `"Archive cleanup plan and close projekt-aufraeumen"`.
 
 ---
 
