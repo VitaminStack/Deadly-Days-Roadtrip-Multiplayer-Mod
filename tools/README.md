@@ -9,6 +9,7 @@ Reserviert Aufgaben aus [TODO.md](../TODO.md#wo-kann-ich-anfangen), damit nieman
 | Befehl | Aufgabe |
 |---|---|
 | `py tools/tasks.py list` | Offene Aufgaben aus `TODO.md` auf `origin/main` mit Status: frei, blockiert, zurückgestellt, Team, reserviert, Review |
+| `py tools/tasks.py list --short` | Kurz für den Einstieg: je offene Aufgabe aus Phasen und Wartung Kennung und Status, Optionen und Bestätigungstests nur gezählt |
 | `py tools/tasks.py list --active` | Nur aktive Entwicklungsreservierungen/PRs, ohne ausstehende Bestätigungstests |
 | `py tools/tasks.py claim <kennung> <name>` | Worktree, Branch `task/<kennung>`, Push und Draft-PR |
 | `py tools/tasks.py claim <kennung> <name> host\|client` | Bei Aufgaben „zu zweit“ nur eine Rolle: Branch `task/<kennung>/<rolle>`, Worktree `.worktrees/<kennung>-<rolle>`, siehe [Test auf zwei PCs](../docs/TESTING.md#test-auf-zwei-pcs) |

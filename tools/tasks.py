@@ -2,6 +2,7 @@
 
   py tools/tasks.py list                              Offene Kennungen mit Status
   py tools/tasks.py list --active                     Nur aktiv reservierte Entwicklungsaufgaben
+  py tools/tasks.py list --short                      Kurz: Kennung und Status, Optionen und Tests nur gezaehlt
   py tools/tasks.py tests [list|plan] [<kennung> ...]  Bestaetigungstests getrennt anzeigen oder buendeln
   py tools/tasks.py tests pending <kennung> --note "Stand"   Auf Bestaetigungstest setzen
   py tools/tasks.py tests update <kennungen> --note "Stand"  Teststand aktualisieren
@@ -192,10 +193,24 @@ def active_work(kennung, branches, prs, own_branch=None):
     return False
 
 
-def cmd_list(active_only=False):
+def cmd_list_short(tasks, branches, prs):
+    """Eine Zeile je offener Aufgabe aus Phasen und Wartung, Optionen und Bestaetigungstests nur gezaehlt."""
+    collapsed = ('Optional', 'Coop')
+    for kennung, task in tasks.items():
+        if not (task.done or task.confirmation or task.phase in collapsed):
+            print(f'  {kennung} {status(kennung, branches, prs, tasks)}'[:80])
+    later = sum(not t.done and not t.confirmation and t.phase in collapsed for t in tasks.values())
+    print(f'Optional und Coop: {later} Aufgaben (tasks.py list)')
+    print(f'Bestätigungstests: {sum(bool(t.confirmation) for t in tasks.values())} (tasks.py tests list)')
+
+
+def cmd_list(active_only=False, short=False):
     git('fetch', '-q', '--prune', 'origin')
     tasks = todo_tasks()
     branches, prs = remote_branches(), pull_requests()
+    if short:
+        cmd_list_short(tasks, branches, prs)
+        return
     if prs is None:
         print('Hinweis: GitHub CLI fehlt oder ist nicht angemeldet. Abschluss aus TODO.md, '
               'Reservierungen aus Branches; PR-Status unbekannt.')
@@ -611,6 +626,8 @@ def main():
             cmd_list()
         elif args == ['list', '--active']:
             cmd_list(active_only=True)
+        elif args == ['list', '--short']:
+            cmd_list(short=True)
         elif args[:1] == ['tests']:
             cmd_tests(args[1:])
         elif args[:1] == ['show'] and len(args) == 2:

@@ -238,6 +238,21 @@ class ReservationTests(unittest.TestCase):
         self.assertIn('frei', next(line for line in lines if line.strip().startswith('open ')))
         self.assertIn('Team', next(line for line in lines if line.strip().startswith('vote ')))
 
+    def test_list_short_has_no_descriptions_and_collapses_optional(self):
+        extra = ('## Optionale Optimierungen\n' + OPEN + '| `opt-x` | P2 | Langer Text | – | parallel | wenig |\n'
+                 '## Real Coop logic\n' + OPEN + '| `coop-x` | P2 | Text | – | parallel | wenig |\n')
+        text = todo(self.ROWS.replace('| `vote` | P0 | Text |', '| `vote` | P0 | ' + 'Sehr lang ' * 20 + '|'), extra=extra)
+        with patch.object(tasks, 'git'), patch.object(tasks, 'todo_text', return_value=text), \
+                patch.object(tasks, 'remote_branches', return_value=set()), \
+                patch.object(tasks, 'pull_requests', return_value=None), redirect_stdout(StringIO()) as out:
+            tasks.cmd_list(short=True)
+        lines = out.getvalue().splitlines()
+        self.assertTrue(any(line.split() == ['open', 'frei'] for line in lines))
+        self.assertTrue(all(len(line) <= 80 for line in lines))
+        self.assertFalse(any('Sehr lang' in line or 'opt-x' in line for line in lines))
+        self.assertIn('Optional und Coop: 2 Aufgaben (tasks.py list)', lines)
+        self.assertIn('Bestätigungstests: 0 (tasks.py tests list)', lines)
+
 
 class PairReservationTests(unittest.TestCase):
     """Aufgaben "zu zweit": je eine Person als host und als client, Branch task/<kennung>/<rolle>."""
