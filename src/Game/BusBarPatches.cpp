@@ -2,7 +2,7 @@
 // (Host); ElapsedTime, tankFull und der Fortschritt des Widgets replizieren nicht, und CanBusTakeOff ist beim Client gesperrt
 // (ClientPatches.cpp). Lokal zuerst: Der Client leitet Start und Abbruch aus replizierten Daten ab, Tank voll und alle Figuren im
 // Busbereich (PlayersInBusRange), und treibt den nativen Balken (SetVisibility des CountDownWidget, UpdateBusProgress). Die
-// Abfahrt selbst und das Rundenende entscheidet weiter der Host. Befund: docs/GAME_ANALYSIS.md#busbalken-beim-client-opt-busbalken
+// Abfahrt selbst und das Rundenende entscheidet weiter der Host. Befund: docs/archive/GAME_ANALYSIS.md#busbalken-beim-client-opt-busbalken
 #include <windows.h>
 
 #include "Core/Log.h"

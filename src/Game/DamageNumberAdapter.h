@@ -7,7 +7,7 @@
 // DDPlayerController (Schaden, Ziel, Flags), dort entstehen Timer, Pool-Actor und ShowDamageText. Gegner-HP repliziert nicht
 // (0/0 beim Client), es gibt also kein natives Signal. Der Host meldet je Handler-Aufruf Ziel (NetGUID), Betrag und Flags,
 // der Client ruft damit denselben nativen Handler seines eigenen Controllers auf: eigene Einstellung, Position, Pool und Anzeige
-// bleiben lokal. Befund: docs/GAME_ANALYSIS.md#schadenszahlen-beim-client-opt-schadenszahlen. Nur Game Thread.
+// bleiben lokal. Befund: docs/archive/GAME_ANALYSIS.md#schadenszahlen-beim-client-opt-schadenszahlen. Nur Game Thread.
 namespace Game
 {
 struct DamageNumberHit

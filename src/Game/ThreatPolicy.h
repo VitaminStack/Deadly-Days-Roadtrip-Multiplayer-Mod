@@ -3,7 +3,7 @@
 #include <cstdint>
 
 // opt-bedrohung-sound: Regeln für die Bedrohungsstufe beim Client, ohne Spielzugriff und damit testbar.
-// Befund: docs/GAME_ANALYSIS.md#bedrohungsstufe-beim-client-opt-bedrohung-sound
+// Befund: docs/archive/GAME_ANALYSIS.md#bedrohungsstufe-beim-client-opt-bedrohung-sound
 namespace Game
 {
 inline constexpr int32_t ThreatLevelMax = 100000;

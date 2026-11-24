@@ -4,7 +4,7 @@
 // Einstiege lehnen das deshalb im Netzwerkspiel ab, mit dem nativen Fehlerergebnis (false bzw. kein Controller), das die
 // Aufrufer schon behandeln: ApplyDeviceAssignmentDraftAndJoin stellt dann den alten Stand wieder her.
 // Was lokal bleibt: alles andere, Index 0 und das Lösen einer Zuordnung (-1). Ohne Netzwerk ändert sich nichts.
-// Nichts wird übertragen. Regeln in LocalDevicePolicy.h, Befund in docs/GAME_ANALYSIS.md#eingaben-getrennt-eingaben.
+// Nichts wird übertragen. Regeln in LocalDevicePolicy.h, Befund in docs/archive/GAME_ANALYSIS.md#eingaben-getrennt-eingaben.
 #include <atomic>
 
 #include "Core/Hooks.h"

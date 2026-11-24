@@ -1,4 +1,4 @@
-// Client: Reparaturen nach dem Dodge (GA_Dash), Befund in docs/GAME_ANALYSIS.md, Abschnitt Dodge beim Client.
+// Client: Reparaturen nach dem Dodge (GA_Dash), Befund in docs/archive/GAME_ANALYSIS.md, Abschnitt Dodge beim Client.
 //
 // 1. Eigene Figur: GA_Dash setzt GroundFriction 0 und GravityScale 20 und stellt beides am Ende zurück. Beim Client fehlt das
 //    Zurückstellen manchmal, die Figur rutscht danach nach jedem Dodge sekundenlang ohne Reibung. Hängen die Dodge-Werte

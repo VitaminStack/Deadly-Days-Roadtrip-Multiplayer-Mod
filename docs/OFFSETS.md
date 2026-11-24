@@ -26,7 +26,7 @@ Stand 21.11.2026, Nutzerentscheidung vom selben Tag: Die Mod unterstützt nur no
 - **Gemessene Werte in Kommentaren:** Wo ein Kommentar einen Messwert eines früheren Builds nennt, steht der alte Build weiter dabei
   (`ItemAbilityPatches.cpp`, Koordinaten des Startrings in `Start-Run.ps1`). Die Kopfzeilen der Werkzeuge unter `tools/spike` nennen jetzt
   `26786272`, ohne dass jedes einzeln gelaufen ist, siehe „Nicht geprüft“.
-- **Nicht umgeschrieben:** die Markdown-Dateien (diese Datei, `GAME_ANALYSIS.md`, die READMEs unter `src/` und im Spike). Ihre Abschnitte
+- **Nicht umgeschrieben:** die Markdown-Dateien (diese Datei, `archive/GAME_ANALYSIS.md`, die READMEs unter `src/` und im Spike). Ihre Abschnitte
   sind datierte Befunde mit den Adressen des damaligen Builds; teils stammen sie noch von `26187885`.
 - **Verzweigungen nach Build entfernt:** `TryBuyItem` und `EndTackle` prüfen nur noch die Bytes von `26786272`, `RepresentationItem` ist
   fest `0xA38`.
@@ -177,7 +177,7 @@ Ablauf siehe [Trennen ins Hauptmenü](archive/GAME_ANALYSIS.md#trennen-ins-haupt
 
 ### Kamera
 
-Ablauf siehe [Kamera und Sichtbereich](archive/GAME_ANALYSIS.md#kamera-und-sichtbereich).
+Ablauf siehe [Kamera und Sichtbereich](themen/SPIELER_UND_KAMERA.md).
 
 | Funktion | RVA | Hinweis |
 |---|---|---|

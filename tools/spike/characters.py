@@ -2,7 +2,7 @@
 
 Zeigt je Instanz die Figuren des CharacterSelectionManager (CharacterDefinitions), seine Wahl je Spielerindex (SelectedCharacters)
 und je BP_DD_Character die angewendete Definition der Komponente CharacterDefinitionApplier. Schreibt nichts, ruft nichts.
-Offsets: docs/GAME_ANALYSIS.md#charakterwahl-in-der-metabase-charakter-wahl (SDK, Build 26786272)."""
+Offsets: docs/archive/GAME_ANALYSIS.md#charakterwahl-in-der-metabase-charakter-wahl (SDK, Build 26786272)."""
 import struct
 import sys
 

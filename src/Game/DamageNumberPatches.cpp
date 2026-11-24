@@ -4,7 +4,7 @@
 // Schadensweg nie, Gegner-HP repliziert dort nicht (0/0). Der Host merkt sich darum je Handler-Aufruf Ziel, Betrag und Flags
 // (Hook, nur Host), Sync schickt sie als 0xA00, und der Client ruft denselben Handler an seinem eigenen Controller auf. Damit
 // entscheiden beim Client seine eigene Einstellung, die nativen Filter, Ort, Timer und Pool. Schaden und HP bleiben beim Host.
-// Befund: docs/GAME_ANALYSIS.md#schadenszahlen-beim-client-opt-schadenszahlen
+// Befund: docs/archive/GAME_ANALYSIS.md#schadenszahlen-beim-client-opt-schadenszahlen
 #include <windows.h>
 
 #include <array>

@@ -516,10 +516,10 @@ Damit niemand dieselbe Arbeit wiederholt, gehört jedes Ergebnis ins Repo, auch 
 
 | Was | Wohin |
 |---|---|
-| Wissen über das Spiel | [GAME_ANALYSIS.md](archive/GAME_ANALYSIS.md) |
+| Wissen über das Spiel | [Themen](themen/README.md), Befunde im [Archiv](archive/GAME_ANALYSIS.md) |
 | Neue Offsets und RVAs | [OFFSETS.md](OFFSETS.md) |
-| Patch, Testablauf, gescheiterte Ansätze | README des Spikes |
+| Patch, Testablauf, gescheiterte Ansätze | PR-Beschreibung, Fallakte unter `docs/faelle/` |
 | Erledigte oder neue Aufgaben | [ERLEDIGT.md](ERLEDIGT.md), [TODO.md](../TODO.md) |
 | Rohdaten | `research/local/`, wird nicht committet |
 
-Ein Befund bekommt eine eigene Überschrift mit der Kennung im passenden Thema, nicht am Dateiende und nicht in einem fremden Abschnitt. In Live-Test-Berichten und Abschnitten anderer Aufgaben höchstens eine Zeile mit Link ergänzen. Dasselbe Ergebnis nicht zusätzlich in [ROADMAP.md](ROADMAP.md) wiederholen; dort nur Knoten umfärben. So berühren parallele PRs verschiedene Stellen und mergen ohne Konflikt.
+Ein Befund ändert den Ist-Zustand in der passenden Datei unter [docs/themen/](themen/README.md): ersetzen, nicht anhängen, keine datierte Überschrift. Messungen, Logauszüge und gescheiterte Versuche stehen in der PR-Beschreibung und, solange der Fehler offen ist, in der Fallakte unter `docs/faelle/`, siehe [Regeln für Doku und Abschluss](PROZESS.md#regeln-für-doku-und-abschluss). Das Archiv unter `docs/archive/` wird nicht ergänzt.

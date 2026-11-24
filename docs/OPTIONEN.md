@@ -128,7 +128,7 @@ Zurückgestellt aus `routenkarte-client` (09.11.2026): Der Client sieht dieselbe
 
 ## `opt-kameras`
 
-Getrennte Kameras je Spieler ermöglichen: Bewegungsbegrenzung anpassen, Sichtbereiche für das Gegner-Spawning synchronisieren oder die Spawn-Logik ersetzen, Gegnerverteilung prüfen. Keine Voraussetzung für die gemeinsame Kamera, siehe [Kamera](archive/GAME_ANALYSIS.md#kamera-und-sichtbereich)
+Getrennte Kameras je Spieler ermöglichen: Bewegungsbegrenzung anpassen, Sichtbereiche für das Gegner-Spawning synchronisieren oder die Spawn-Logik ersetzen, Gegnerverteilung prüfen. Keine Voraussetzung für die gemeinsame Kamera, siehe [Kamera](themen/SPIELER_UND_KAMERA.md)
 
 ## `opt-trennen-absturz`
 

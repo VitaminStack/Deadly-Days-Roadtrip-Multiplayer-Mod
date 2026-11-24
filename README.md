@@ -58,7 +58,7 @@ Download `DDCoop-<version>.zip` from the [releases page](https://github.com/Vita
 |---|---|
 | [TODO.md](TODO.md) | Roadmap, phases, gates and open tasks |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Graph: what is still open until the mod is finished |
-| [docs/GAME_ANALYSIS.md](docs/archive/GAME_ANALYSIS.md) | What we know about the game, with evidence and confidence |
+| [docs/themen/](docs/themen/README.md) | Current state per topic (network, players, travel, inventory, enemies, visuals), with code and tests; dated findings in `docs/archive/` |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Technical options, decisions, module boundaries |
 | [docs/OFFSETS.md](docs/OFFSETS.md) | Offsets and function addresses of the supported build |
 | [docs/SETUP.md](docs/SETUP.md) | Setting up the development environment |
@@ -97,7 +97,7 @@ writing into the same files (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 
 Nobody has to repeat the analysis so far. Results, offsets, patches and test scripts are in the repo.
 
-1. Install the game in Steam and bring it to the [supported version](docs/archive/GAME_ANALYSIS.md#unterstützte-spielversion).
+1. Install the game in Steam and bring it to the [supported version](docs/themen/SPIEL_UND_SDK.md).
 2. Work through [docs/SETUP.md](docs/SETUP.md): set up, check with `tools/Test-Setup.ps1`, build the solution, run the tests.
 3. Start a test session as described in [docs/TESTING.md](docs/TESTING.md); then the current state runs on your machine.
 4. Read [CONTRIBUTING.md](CONTRIBUTING.md) and pick a task from [Where can I start?](TODO.md#wo-kann-ich-anfangen).

@@ -1,6 +1,6 @@
 // opt-gegner-sound, siehe EnemySoundAdapter.h. Kein Code-Patch, kein Hook und kein ProcessEvent-Beobachter: ein Takt und Aufrufe
 // aus DamageNumberPatches.cpp. Schaden, Treffer und Angriff entscheidet weiter der Host.
-// Befund: docs/GAME_ANALYSIS.md#gegner-sounds-beim-client-opt-gegner-sound
+// Befund: docs/archive/GAME_ANALYSIS.md#gegner-sounds-beim-client-opt-gegner-sound
 #include <windows.h>
 
 #include <unordered_map>

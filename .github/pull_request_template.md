@@ -15,5 +15,5 @@
 - [ ] SDK-Zugriffe nur in `src/Game`
 - [ ] Protokollversion erhöht, falls das Netzwerkprotokoll geändert wurde
 - [ ] Keine Spieldateien, SDK-Dateien oder persönlichen Pfade enthalten
-- [ ] `docs/GAME_ANALYSIS.md` ergänzt, falls es neue Erkenntnisse gibt
+- [ ] Ist-Zustand in `docs/themen/` angepasst (ersetzt, nicht angehängt), Befunde stehen in dieser Beschreibung oder der Fallakte
 - [ ] Eigene Zeilen in `TODO.md` angepasst, bei fertiger Aufgabe auch `docs/ROADMAP.md` und Fortschritt im README

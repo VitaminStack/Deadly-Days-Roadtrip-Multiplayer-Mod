@@ -2,7 +2,7 @@
 
 Je BP_DD_Character_C: Rolle, Tempo der Bewegungskomponente, DirectionalCharacterMesh (Modus, UseHandsDirection, Hands,
 Fallback-Ziel, Rohbytes des internen Zustands), Drehung von Mesh, RotationProxy und Haenden. Schreibt nichts, ruft nichts.
-Offsets: docs/OFFSETS.md und SDK (Abschnitt opt-blickrichtung-client in docs/GAME_ANALYSIS.md)."""
+Offsets: docs/OFFSETS.md und SDK (Abschnitt opt-blickrichtung-client in docs/archive/GAME_ANALYSIS.md)."""
 import argparse
 import math
 import struct

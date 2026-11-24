@@ -8,7 +8,7 @@
 #include "Game/DashAdapter.h"
 
 // Reine Regeln der Bewegungs-Reparaturen beim Client, ohne Spielzugriff, damit tests/GameTests sie prüfen kann. Befund:
-// docs/GAME_ANALYSIS.md, Abschnitt Dodge beim Client (`bewegung`).
+// docs/archive/GAME_ANALYSIS.md, Abschnitt Dodge beim Client (`bewegung`).
 namespace Game::Patches
 {
 // GA_Dash setzt für die Dauer des Dodges GroundFriction 0 und GravityScale 20 und stellt beides am Ende zurück.

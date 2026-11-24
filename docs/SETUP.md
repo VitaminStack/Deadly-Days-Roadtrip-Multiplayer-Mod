@@ -24,7 +24,7 @@ Danach lässt sich die Mod bauen, testen und im Spiel starten. Das dauert wenige
 
 1. Repo mit Submodulen klonen: `git clone --recurse-submodules <url>`. Wer schon ohne geklont hat: `git submodule update --init`.
 2. `config/Local.props.example` nach `config/Local.props` kopieren und `GameDir` eintragen. Die Datei bleibt lokal. Worktrees unter `.worktrees/` nutzen die aus dem Hauptordner.
-3. Spiel auf die [unterstützte Version](archive/GAME_ANALYSIS.md#unterstützte-spielversion) bringen und eine [eingefrorene Entwicklungskopie](#gleiche-build-id-im-team) aktivieren.
+3. Spiel auf die [unterstützte Version](themen/SPIEL_UND_SDK.md) bringen und eine [eingefrorene Entwicklungskopie](#gleiche-build-id-im-team) aktivieren.
 4. Einrichtung prüfen. Das Skript ändert nichts und nennt, was fehlt:
 
    ```bash
@@ -98,7 +98,7 @@ Es wird aus dem Spiel erzeugt und liegt außerhalb des Repos, zum Beispiel unter
 Alle im Team müssen ein SDK **desselben Spiel-Builds** verwenden.
 
 > **Wichtig:** Dumper-7 braucht für UE 5.8 einen Fix und das SDK eine kleine Nacharbeit,
-> siehe [SDK-Erzeugung unter UE 5.8](archive/GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58).
+> siehe [SDK-Erzeugung unter UE 5.8](themen/SPIEL_UND_SDK.md).
 > Der getestete Stand mit Fix liegt als Submodul unter `third_party/Dumper-7`. Gebaut wird er mit [`tools/dumper7/Build-Dumper7.ps1`](../tools/README.md#dumper7), kein eigener Patch nötig.
 
 Das Repo ist öffentlich, darum wird das SDK nicht darüber verteilt. Alle erzeugen es selbst aus der eigenen Spielkopie.

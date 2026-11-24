@@ -3,7 +3,7 @@
 #include <cstdint>
 
 // opt-gegner-sound: Regeln für Treffer- und Angriffssounds der Gegner beim Client, ohne Spielzugriff und damit testbar.
-// Befund: docs/GAME_ANALYSIS.md#gegner-sounds-beim-client-opt-gegner-sound
+// Befund: docs/archive/GAME_ANALYSIS.md#gegner-sounds-beim-client-opt-gegner-sound
 namespace Game
 {
 // Obergrenze je Mod-Tick gegen Wellenlast; überzählige Sounds bleiben aus (rein kosmetisch).

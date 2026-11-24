@@ -31,8 +31,8 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 
 - Iris oder klassisch: klassische Replikation, siehe [Spike](research/spikes/a-connect/README.md#ergebnis)
 - Verbindung, Spawn, Bewegung und Schießen laufen mit den Patches, siehe [Spike](research/spikes/a-connect/README.md#patches)
-- Weg vom Menü in die Mission und über die Route bis Tag 4, siehe [Run-Ablauf](docs/archive/GAME_ANALYSIS.md#run-ablauf) und [Testen](docs/TESTING.md#fester-routenlauf)
-- Coop-Ablauf, Karten-Erzeugung, Gegner-Pooling, Kamera, Pausen und Sync-Bedarf sind analysiert, siehe [Spielanalyse](docs/archive/GAME_ANALYSIS.md) und [Sync-Bedarf](docs/SYNC_REQUIREMENTS.md)
+- Weg vom Menü in die Mission und über die Route bis Tag 4, siehe [Run-Ablauf](docs/themen/REISE_UND_RUNDE.md) und [Testen](docs/TESTING.md#fester-routenlauf)
+- Coop-Ablauf, Karten-Erzeugung, Gegner-Pooling, Kamera, Pausen und Sync-Bedarf sind analysiert, siehe [Spielanalyse](docs/themen/README.md) und [Sync-Bedarf](docs/SYNC_REQUIREMENTS.md)
 - Weitere Einzelprüfungen in den Inventar-Schleifen: Nach jeder stürzt der Client an der nächsten Stelle ab
 - Eine höhere `NetPriority` des `GameState` hilft nicht gegen den HUD-Hänger, `OnRep_Slots` zurückzuhalten hilft nicht beim Inventar
 - Gegen fehlende PlayerStates keine Klassen im RootSet pinnen oder Read-only-Zeitstempel blind zurücksetzen. Der abgeschlossene `guidcache`-Fix erhält gezielt nachladbare Pfadidentitäten und prüft den Cache-eigenen Driver auch bei nullem `GWorld`. Eine `servertravel`-Schleife ersetzt den echten Routenlauf nicht; [Nachweise und akzeptierter Abschluss](docs/archive/GAME_ANALYSIS.md#abschluss-und-akzeptierter-testumfang-guidcache). Run/Endlos bis Tag 13 mit zwei Biomwechseln ist vorerst ausreichend abgesichert; nur neue konkrete Fehler bekommen ein neues TODO.

@@ -2,7 +2,7 @@
 // vom UPlayerAnimationVelocityProvider. Der liefert ohne Schalter das CMC-Tempo der Figur, und das bleibt beim Host für die
 // Client-Figur fast 0, weil der Host ihre Position nur übernimmt (bewegung). Lokal zuerst: Der Host schaltet den nativen Modus
 // „manuell“ des Providers ein, der das Tempo selbst aus der Ortsänderung misst. Keine Nachricht, kein Hook, Ort und CMC bleiben
-// unberührt. Befund: docs/GAME_ANALYSIS.md#laufanimation-beim-client-opt-laufanimation-client
+// unberührt. Befund: docs/archive/GAME_ANALYSIS.md#laufanimation-beim-client-opt-laufanimation-client
 #include <windows.h>
 
 #include <cstddef>

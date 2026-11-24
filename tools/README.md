@@ -93,7 +93,7 @@ Dateien unter `docs/archive/` haben keine Grenze, beginnen aber mit dem Archiv-B
 
 ## dumper7/
 
-Baut Dumper-7 im getesteten Stand für UE 5.8, damit alle dasselbe SDK erzeugen. Hintergrund in [SDK-Erzeugung unter UE 5.8](../docs/archive/GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58).
+Baut Dumper-7 im getesteten Stand für UE 5.8, damit alle dasselbe SDK erzeugen. Hintergrund in [SDK-Erzeugung unter UE 5.8](../docs/themen/SPIEL_UND_SDK.md).
 
 ```bash
 powershell -ExecutionPolicy Bypass -File tools/dumper7/Build-Dumper7.ps1 -OutputDir C:/Dumper-7
