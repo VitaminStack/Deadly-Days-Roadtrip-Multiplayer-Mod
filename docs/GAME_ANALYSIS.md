@@ -2751,7 +2751,7 @@ und keinem ausgelassenen Patch. Zwei Haushalte, Route über ein Relay. Ausgewert
 Spielfenster des Clients und Meldungen des Client-Spielers; das Host-Log liegt nicht vor. Uhrzeiten aus dem Log, eine Stunde
 hinter der Ortszeit. Ablauf: Fortsetzung des Runs vom 16.11. ab Host-Level 10, rund 50 Minuten, elf Rundenenden, darunter ein
 Händler-Event, `MGP_LabyrinthEvent` und die Boss-Karte `MGP_Burger_Boss_Nature`, Sieg. Kein Absturz. Nach dem Test gilt dieser
-Stand als **Mod-Version 1.0** (Nutzerentscheidung, siehe [Roadmap](ROADMAP.md#stand-und-nächste-schritte)).
+Stand als **Mod-Version 1.0** (Nutzerentscheidung, siehe [Roadmap](archive/ROADMAP.md#stand-und-nächste-schritte)).
 
 - **[Belegt] Bestätigt:**
   - Beitritt und Wiederbeitritt per Steam-Einladung ohne Absturz des Hosts (`update-1-0-2-client`).

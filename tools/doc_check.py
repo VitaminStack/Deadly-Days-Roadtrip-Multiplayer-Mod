@@ -29,7 +29,6 @@ LIMITS = {
     'TODO.md': 28_000,
     'docs/GAME_ANALYSIS.md': 545_000,
     'docs/OFFSETS.md': 99_000,
-    'docs/ROADMAP.md': 100_000,
     'src/Game/README.md': 81_000,
 }
 EXCLUDED = ('docs/archive/',)

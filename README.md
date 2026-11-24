@@ -46,7 +46,7 @@ Done means listed under "Erledigt" in `docs/ERLEDIGT.md`. **Fully completed phas
 </details>
 
 `src/` holds the loader, core, the Steam network layer, an in-game tested [mod overlay](src/UI/README.md) and the
-[game adapter layer](src/Game/README.md) with the co-op patches. Tasks differ in size, so the numbers say little about the remaining time. Status, bottlenecks and next steps are in the [roadmap](docs/ROADMAP.md#stand-und-nächste-schritte).
+[game adapter layer](src/Game/README.md) with the co-op patches. Tasks differ in size, so the numbers say little about the remaining time. Status, bottlenecks and next steps are in the [roadmap](docs/ROADMAP.md#stand).
 
 ## Install (players)
 

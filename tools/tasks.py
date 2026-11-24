@@ -543,7 +543,7 @@ def cmd_done(kennung, result):
     if regenerate(root, check=True):
         sys.exit('task_status check schlaegt nach dem Erneuern fehl.')
     print(f'{kennung} steht unter Erledigt. Erneuert: ' + (', '.join(p.name for p in stale) or 'nichts weiter'))
-    print('Weiter: docs/ROADMAP.md anpassen, committen, PR fertigstellen.')
+    print('Weiter: committen, PR fertigstellen.')
 
 
 def cmd_tests(args):
