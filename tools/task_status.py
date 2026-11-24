@@ -31,6 +31,8 @@ FREE_START = '<!-- frei:start -->'
 FREE_END = '<!-- frei:end -->'
 ID_PATTERN = r'[a-z0-9][a-z0-9-]*'
 MAX_TASK_TEXT = 800
+# Hoechstens so viele Bestaetigungstests offen; neue nimmt tests pending erst an, wenn welche abgeschlossen sind.
+MAX_PENDING = 3
 CONFIRMATION_PREFIX = '**Bestätigungstest ausstehend:** '
 CONFIRMATION_TASK = ' **Aufgabe und Abnahme:** '
 
@@ -382,6 +384,11 @@ def confirmation_update(todo, names, action, note):
             waiting = [n for n in blockers(task, tasks) if action != 'pass' or n not in names]
             if waiting:
                 raise ValueError(f'{name}: blockiert, braucht ' + ', '.join(waiting))
+    if action == 'pending':
+        open_tests = {n for n, t in tasks.items() if t.confirmation} | set(names)
+        if len(open_tests) > MAX_PENDING:
+            raise ValueError(f'Mehr als {MAX_PENDING} Bestätigungstests offen ({len(open_tests)}): '
+                             'erst bestehende mit tests pass oder reopen abschließen')
     if action == 'pass':
         for name in names:
             todo = mark_done(todo, name, note)

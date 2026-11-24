@@ -23,6 +23,8 @@ Erledigte, blockierte, zurückgestellte und Team-Aufgaben sind nicht reservierba
 
 ### Bestätigungstests
 
+Höchstens 3 Bestätigungstests sind offen (`MAX_PENDING` in `task_status.py`): `tests pending` lehnt weitere ab, bis bestehende mit `tests pass` oder `tests reopen` abgeschlossen sind.
+
 **Bestätigungstest ausstehend** ist ein eigener Status: nicht „in Arbeit“, nicht frei zur
 erneuten Entwicklungsreservierung und nicht erledigt. Die offene Aufgabe bleibt in ihrer
 Phase, mit ursprünglicher Abnahme und Abhängigkeiten; abhängige Aufgaben und Fortschrittsbalken

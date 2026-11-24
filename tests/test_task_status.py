@@ -372,6 +372,14 @@ class ConfirmationTests(unittest.TestCase):
     def pending(self):
         return source.confirmation_update(todo(self.ROWS), ['first', 'second'], 'pending', 'Test auf zwei PCs steht aus')
 
+    def test_pending_action_rejected_when_limit_reached(self):
+        rows = ''.join(f'| `t{i}` | P1 | Text | – | parallel | wenig |\n' for i in range(5))
+        text = source.confirmation_update(todo(rows), ['t0', 't1'], 'pending', 'Stand')
+        text = source.confirmation_update(text, ['t2'], 'pending', 'Stand')
+        with self.assertRaisesRegex(ValueError, 'Mehr als 3 Bestätigungstests offen'):
+            source.confirmation_update(text, ['t3'], 'pending', 'Stand')
+        source.confirmation_update(text, ['t0'], 'update', 'Neuer Stand')  # bestehende bleiben bearbeitbar
+
     def test_pending_keeps_requirements_phase_and_not_done(self):
         parsed = source.parse(self.pending())
         self.assertFalse(parsed['first'].done)
