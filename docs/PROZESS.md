@@ -123,6 +123,14 @@ Sie wird mit der Abnahme gelöscht, das Ergebnis kommt als ein Satz nach [docs/E
 ## Abnahme
 ```
 
+## Projekt-Skills
+
+Wiederkehrende Abläufe liegen als Skills unter `.claude/skills/`. Claude Code lädt sie nur, wenn sie passen:
+
+- `fehler-untersuchen`: Fallakte, Belege, Log-Kurzfassung, Regressionstest.
+- `live-test-auswerten`: Logs sammeln, Bestätigungstests abschließen, Ist-Zustand anpassen.
+- `patch-anlegen`: Prüfliste, Policy mit Test, Hook, Prüfbytes, Offsets, Kontrollnachricht.
+
 ## Regeln für Doku und Abschluss
 
 - Doku beschreibt den Ist-Zustand auf dem unterstützten Build: ersetzen statt anhängen, keine datierten Befundabschnitte.
