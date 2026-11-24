@@ -969,6 +969,40 @@ TEST_CASE("Karte: Client wartet auf die Werte des Hosts, aber nicht ewig")
     CHECK(ClientMapStart(true, false, 0, HostGraphWaitMs) == MapStart::HostValues);
 }
 
+TEST_CASE("Karte: Wiederbeitritt übernimmt dieselbe Host-Karte noch einmal (wiedereintritt-karte)")
+{
+    ClientMapLedger Ledger;
+    CHECK(Ledger.Fresh(7, false));
+    Ledger.Use(7);
+    // Reise ohne Trennung: alte Werte sind verbraucht, bis die neue Id kommt. Nur ein Neuversuch nimmt sie noch einmal.
+    CHECK_FALSE(Ledger.Fresh(7, false));
+    CHECK(Ledger.Fresh(7, true));
+    CHECK(Ledger.Fresh(9, false));
+    // Trennung und Wiederbeitritt in dieselbe laufende Mission: der Host schickt wieder Id 7.
+    Ledger.ConnectionChanged();
+    CHECK(Ledger.Fresh(7, false));
+    Ledger.Use(7);
+    CHECK_FALSE(Ledger.Fresh(7, false));
+    // Ein Wechsel ohne neue Erzeugung ändert die verbaute Id nicht, das Rundenende passt weiter zur Karte.
+    Ledger.ConnectionChanged();
+    CHECK(Ledger.UsedId == 7);
+}
+
+TEST_CASE("Karte: Rundenende gilt je verbauter Karte, auch nach Wiederbeitritt")
+{
+    ClientMapLedger Ledger;
+    Ledger.Use(7);
+    CHECK_FALSE(Ledger.Followed(3));
+    Ledger.Follow(3);
+    CHECK(Ledger.Followed(3));
+    // Verbindung wechselt, Karte bleibt: nicht noch einmal öffnen.
+    Ledger.ConnectionChanged();
+    CHECK(Ledger.Followed(3));
+    // Wiederbeitritt baut die Karte neu: dasselbe Ende des Hosts öffnet die Übersicht wieder.
+    Ledger.Use(7);
+    CHECK_FALSE(Ledger.Followed(3));
+}
+
 TEST_CASE("Itemsack zählt beim Host für alle Spieler")
 {
     CHECK(ShareItemLoot(NetRole::Host, 2, 1));

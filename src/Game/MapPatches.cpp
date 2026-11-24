@@ -77,7 +77,7 @@ struct
     // Client
     std::optional<Map::HostMap> Received;
     ULONGLONG ReceivedAt = 0;
-    uint64_t UsedId = 0; // jede Erzeugung des Hosts nur einmal übernehmen, außer bei einem neuen Versuch in derselben Welt
+    ClientMapLedger Used; // jede Erzeugung des Hosts nur einmal übernehmen, außer bei Neuversuch oder Wiederbeitritt
     uintptr_t UsedWorld = 0;
     uintptr_t PendingGenerator = 0, PendingWorld = 0;
     ULONGLONG PendingSince = 0;
@@ -88,7 +88,6 @@ struct
     std::optional<Map::RoundEnd> Ended;
     uintptr_t EndedWorld = 0;
     std::optional<Map::RoundEnd> HostEnd;
-    uint64_t FollowedEnd = 0;
     uintptr_t FollowedWorld = 0; // Welt, in der der Client Rundenübersicht und Lager geöffnet hat, 0 ohne
     uintptr_t LossPanelWorld = 0; // run-ende, Client: Welt, in der die Niederlage noch angezeigt werden muss, 0 ohne
     int LossPanelAttempts = 0;
@@ -270,10 +269,11 @@ void PublishHostGraph(uintptr_t PcgGenerator)
 // ---- Client ----
 
 // Neue Werte, oder dieselben noch einmal, wenn das Spiel die Erzeugung in derselben Welt neu versucht
-// (StartMapGenerationWithRetryAttempts, TryToRegenerate). Sonst wartete der Client 60 s und baute eine eigene Karte.
+// (StartMapGenerationWithRetryAttempts, TryToRegenerate) oder der Client nach einer Trennung derselben Mission wieder beitritt.
+// Sonst wartete der Client 60 s und baute eine eigene Karte.
 bool FreshValues(uintptr_t Generator)
 {
-    return S.Received && (S.Received->Id != S.UsedId || (CurrentWorld() == S.UsedWorld && Generator == S.Generator));
+    return S.Received && S.Used.Fresh(S.Received->Id, CurrentWorld() == S.UsedWorld && Generator == S.Generator);
 }
 
 // Falsch, wenn die Werte unbrauchbar sind. Dann erzeugt der Client wie ohne Patch, statt endlos zu warten.
@@ -319,7 +319,7 @@ bool TryStartClient(uintptr_t Generator, ULONGLONG Since)
         Core::Log::Error("Karte: nach {} s keine Werte vom Host, Client erzeugt eine eigene Karte", HostMapWaitMs / 1000);
         break;
     case MapStart::HostValues:
-        S.UsedId = S.Received->Id;
+        S.Used.Use(S.Received->Id);
         S.UsedWorld = CurrentWorld();
         if (ApplyHostMap(Generator, *S.Received))
             Core::Log::Info("Karte: Client übernimmt {} {} nach {} ms", S.Received->Seed, S.Received->Profile, Now - Since);
@@ -331,7 +331,7 @@ bool TryStartClient(uintptr_t Generator, ULONGLONG Since)
 
 void ApplyHostGraph(uintptr_t PcgGenerator)
 {
-    if (!S.Received || S.Received->Id != S.UsedId || S.Received->GraphState == Map::Graph::Unknown)
+    if (!S.Received || S.Received->Id != S.Used.UsedId || S.Received->GraphState == Map::Graph::Unknown)
     {
         Core::Log::Warn("Karte: PCG-Graph des Hosts fehlt noch, Vegetation fehlt beim Client");
         return;
@@ -623,10 +623,10 @@ void FollowRoundEnd()
 {
     if (!S.HostEnd)
         return;
-    const uint64_t ClientMapId = S.UsedWorld == CurrentWorld() ? S.UsedId : 0;
-    if (!ClientMayFollowRoundEnd(S.HostEnd->MapId, ClientMapId, S.FollowedEnd == S.HostEnd->Id))
+    const uint64_t ClientMapId = S.UsedWorld == CurrentWorld() ? S.Used.UsedId : 0;
+    if (!ClientMayFollowRoundEnd(S.HostEnd->MapId, ClientMapId, S.Used.Followed(S.HostEnd->Id)))
         return;
-    S.FollowedEnd = S.HostEnd->Id;
+    S.Used.Follow(S.HostEnd->Id);
     S.FollowedWorld = 0;
     // run-ende: Der Bildschirm kommt aus dem nativen Rundenende, das Umschalten folgt im nächsten Sekundentakt, wenn die Übersicht
     // offen ist. Eine Niederlage hat kein Lager, darum bleibt FollowedWorld dort leer und Bestätigen unberührt. Ein Sieg behält das
@@ -660,7 +660,7 @@ void TickMap(NetRole Role, bool Second)
         S.Ended.reset();
     // bestaetigen-rundenende: Bestätigen im Lager wartet auf alle, solange beide in diesem Rundenende sind.
     if (Role == NetRole::Client)
-        Rewards::SetRoundEnd(S.FollowedWorld && S.FollowedWorld == CurrentWorld() ? S.FollowedEnd : 0);
+        Rewards::SetRoundEnd(S.FollowedWorld && S.FollowedWorld == CurrentWorld() ? S.Used.FollowedEnd : 0);
     else
         Rewards::SetRoundEnd(Role == NetRole::Host && S.Ended && S.Ended->Outcome != Map::RunOutcome::Lost && S.EndedWorld == CurrentWorld()
                                  ? S.Ended->Id
@@ -710,6 +710,12 @@ void SetHostRoundEnd(std::optional<RoundEnd> Value)
 {
     using namespace Patches;
     S.HostEnd = Value;
+}
+
+void NoteConnectionChanged()
+{
+    using namespace Patches;
+    S.Used.ConnectionChanged();
 }
 
 void SetHostMap(std::optional<HostMap> Value)

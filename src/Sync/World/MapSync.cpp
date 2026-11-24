@@ -105,6 +105,7 @@ void TickMap(std::span<const Net::ControlMessage> Messages)
         M.SentEnd.reset();
         if (!Host)
         {
+            Game::Map::NoteConnectionChanged();
             Game::Map::SetHostMap(std::nullopt);
             Game::Map::SetHostRoundEnd(std::nullopt);
         }
