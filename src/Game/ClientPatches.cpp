@@ -12,6 +12,7 @@
 #include "Game/PatchPolicy.h"
 #include "Game/PatchRuntime.h"
 #include "Game/Reflection.h"
+#include "Game/RewardAdapter.h"
 
 namespace Game::Patches
 {
@@ -185,6 +186,9 @@ bool RunSaveNative()
 
 void __fastcall RunSaveRoundChangedHook(uintptr_t Manager, uint8_t Reason)
 {
+    // wiedereintritt-inventar: Sieg oder Niederlage beendet den Run, ein gemerktes Inventar gehört nicht in den nächsten.
+    if (Reason == RoundChangeWin || Reason == RoundChangeLose)
+        Game::Rewards::ForgetRejoin("Run-Ende");
     if (RunSaveChangeAllowed(CurrentRole() == NetRole::Client) || RunSaveNative())
         return OriginalRunSaveRoundChanged(Manager, Reason);
     if (RunSaveRoundSkipped.fetch_add(1) < 20)

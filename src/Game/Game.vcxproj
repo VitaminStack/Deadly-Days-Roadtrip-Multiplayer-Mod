@@ -103,6 +103,7 @@
     <ClInclude Include="DayView.h" />
     <ClInclude Include="DesyncAdapter.h" />
     <ClInclude Include="DesyncSnapshot.h" />
+    <ClInclude Include="RejoinPolicy.h" />
     <ClInclude Include="AirdropAdapter.h" />
     <ClInclude Include="Reflection.h" />
     <ClInclude Include="RewardAdapter.h" />

@@ -448,6 +448,22 @@ TEST_CASE("Kontrollkanal funktioniert ohne Spieladresse und bleibt von UDP getre
     REQUIRE(WaitFor([&] { return !Host.ControlPeers().empty(); }));
     CHECK(Host.ControlPeers()[0] != HostPeer);
     CHECK(Client.TakeControlMessages().empty());
+    // wiedereintritt-inventar: Der Peer ist je Verbindung neu, das Konto dahinter bleibt.
+    CHECK(Host.PeerAccount(Host.ControlPeers()[0]) == kClientId);
+    CHECK(Host.PeerAccount(HostPeer) == 0);
+}
+
+TEST_CASE("wiedereintritt-inventar: Verbindung über 127.0.0.1 zählt als festes Testkonto")
+{
+    auto Network = std::make_shared<FakeSteamNetwork>();
+    const auto Options = TestPorts(47960);
+    GameSocket HostGame(Options.GamePort);
+    Transport Host(Network->Account(kHostId), Options);
+    Transport Client(Network->Account(kClientId), Options);
+    REQUIRE(Host.StartHost());
+    REQUIRE(Client.StartLoopbackClient());
+    REQUIRE(WaitFor([&] { return Host.ControlPeers().size() == 1; }));
+    CHECK(Host.PeerAccount(Host.ControlPeers()[0]) == Transport::LoopbackAccount);
 }
 
 TEST_CASE("Falscher Build oder Mod darf keine Spielpakete weiterleiten")

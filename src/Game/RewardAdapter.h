@@ -140,6 +140,12 @@ void ApplyRarities(const std::vector<RarityEntry>& Entries);
 std::optional<int32_t> HostScrap();
 // live-protokoll: eigener Kontostand auf beiden Seiten, nur für das Log. nullopt ohne Mission oder Konto.
 std::optional<int32_t> LocalScrap();
+// wiedereintritt-inventar, Host, je Takt aus RewardSync: Peer ist die Steam-Identität des Clients am Kontrollkanal, 0 ohne. Der Host
+// merkt sich das Inventar des Clients und gibt es nach einer Trennung dem neuen PlayerState desselben Kontos zurück (RejoinPolicy.h).
+void TickRejoin(uint64_t Peer);
+// Gemerkte Inventare verwerfen (Run-Ende, keine Sitzung als Host).
+void ForgetRejoin(const char* Why);
+
 // Client: Kontostand des Hosts übernehmen (natives AddAmount mit dem Unterschied, damit die Anzeige folgt). Nicht während einer
 // lokalen Bearbeitung oder solange ein Edit unbeantwortet ist; dann gilt die lokale Vorschau des Panels.
 void ApplyScrap(int32_t Amount);
