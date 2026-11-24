@@ -290,6 +290,8 @@ Abnahme bleibt in `virenscanner` bzw. `release` offen.
 Bauen und Testen des Spikes, die Anleitung steht in [docs/TESTING.md](../docs/TESTING.md). Laufzeitdateien landen in
 `research/local/session/` und werden nicht committet. Die Python-Skripte brauchen nur die Standardbibliothek.
 
+Übersicht aller Proben mit je einem Satz: `py tools/spike/probe.py list`, Aufruf per Name: `py tools/spike/probe.py <name> [args]`. Jede Probe braucht einen Modul-Docstring (prüft `tests/test_probe.py`).
+
 | Skript | Aufgabe |
 |---|---|
 | `Build-Spike.ps1` | Baut `spike.dll` |
