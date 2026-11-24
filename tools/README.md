@@ -23,13 +23,7 @@ Erledigte, blockierte, zurückgestellte und Team-Aufgaben sind nicht reservierba
 
 ### Bestätigungstests
 
-Höchstens 3 Bestätigungstests sind offen (`MAX_PENDING` in `task_status.py`): `tests pending` lehnt weitere ab, bis bestehende mit `tests pass` oder `tests reopen` abgeschlossen sind.
-
-**Bestätigungstest ausstehend** ist ein eigener Status: nicht „in Arbeit“, nicht frei zur
-erneuten Entwicklungsreservierung und nicht erledigt. Die offene Aufgabe bleibt in ihrer
-Phase, mit ursprünglicher Abnahme und Abhängigkeiten; abhängige Aufgaben und Fortschrittsbalken
-warten weiter auf das tatsächliche Bestehen. In `TODO.md` steht der Status ausdrücklich im
-Aufgabentext, nicht nur in einer PR-Beschreibung oder einem Branch.
+Bestätigungstests sind nur Info ([E-12](../docs/ENTSCHEIDUNGEN.md#e-12-bestätigungstests-sind-nur-info)): `tests pending <kennung> --note "<was noch zu prüfen ist>"` schließt die Aufgabe ab (Ergebnis = Aufgabentext) und legt eine Zeile unter [Bestätigungstests ausstehend](../docs/ERLEDIGT.md#bestätigungstests-ausstehend) an. Abhängige Aufgaben sind damit frei. `tests update` ändert den Stand, `tests pass` und `tests reopen` entfernen die Zeile und hängen „Bestätigt: …“ bzw. „Bestätigungstest fehlgeschlagen: …“ an das Ergebnis; bei einem Fehlschlag bekommt der Rest eine neue Kennung. Keine Obergrenze.
 
 ```bash
 py tools/tasks.py tests pending dodge-client-live --note "Diagnose integriert, zehn Dodges auf zwei PCs noch offen"

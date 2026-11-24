@@ -68,3 +68,9 @@ Eine neue Entscheidung bekommt die nächste freie Nummer; ersetzt sie eine älte
 - **Datum:** 24.11.2026.
 - **Entscheidung:** Doku auf den Ist-Zustand reduzieren, Geschichte ins Archiv, Aufgabenprozess verschlanken (`projekt-aufraeumen`).
 - **Folge:** [Prozess](PROZESS.md#regeln-für-doku-und-abschluss), Archiv unter `docs/archive/`.
+
+## E-12: Bestätigungstests sind nur Info
+
+- **Datum:** 24.11.2026.
+- **Entscheidung:** Ausstehende Bestätigungstests halten nur fest, was noch zu prüfen ist. Sie verhindern keine andere Arbeit und haben keine Obergrenze.
+- **Folge:** Die Aufgabe gilt als erledigt; der offene Test steht unter [Bestätigungstests ausstehend](ERLEDIGT.md#bestätigungstests-ausstehend). Ersetzt die Obergrenze aus `projekt-aufraeumen`.

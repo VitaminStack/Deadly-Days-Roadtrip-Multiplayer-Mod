@@ -229,7 +229,7 @@ def cmd_list(active_only=False, short=False):
         print(f'  {kennung:<20} {status(kennung, branches, prs, tasks):<44} {plain(task.text)[:70]}')
     pending = [t for t in tasks.values() if t.confirmation]
     if pending and not active_only:
-        print('\nBestätigungstests ausstehend (nicht in Arbeit)')
+        print('\nBestätigungstests ausstehend (nur Info, erledigt, blockieren nichts)')
         for task in pending:
             print(f'  {task.name:<20} {status(task.name, branches, prs, tasks):<44} {plain(task.confirmation)}')
     done = sum(task.done for task in tasks.values())
@@ -252,9 +252,6 @@ def cmd_claim(kennung, name, role=None):
     task = tasks.get(kennung)
     if task and task.done:
         sys.exit(f'{kennung} ist laut TODO.md erledigt. Keine neue Reservierung.')
-    if task and task.confirmation:
-        sys.exit(f'{kennung}: Bestätigungstest ausstehend, nicht in Arbeit. Mit "tasks.py tests" planen/aktualisieren; '
-                 'bei fehlgeschlagener Abnahme erst mit "tests reopen" wieder oeffnen.')
     if role and (task is None or task.mode != PAIR_MODE):
         sys.exit(f'{kennung} ist keine Aufgabe "{PAIR_MODE}". Ohne Rolle reservieren.')
     pr = prs.get(kennung) if prs else None
@@ -574,7 +571,7 @@ def cmd_tests(args):
     available, excluded = [], []
     for name in names:
         task = selected_tasks.get(name)
-        if task is None or task.done or (options.action != 'pending' and not task.confirmation):
+        if task is None or (task.done if options.action == 'pending' else not task.confirmation):
             sys.exit(f'{name}: kein passender offener Bestaetigungstest')
         reason = ('aktive fremde Arbeit' if active_work(name, branches, prs, own_branch) else
                   'blockiert, braucht ' + ', '.join(blockers(task, selected_tasks)) if blockers(task, selected_tasks) and
@@ -585,18 +582,8 @@ def cmd_tests(args):
             excluded.append(f'{name}: {reason}')
         else:
             available.append(name)
-    if options.all and options.action == 'pass':
-        # Ein Batch darf gemeinsam Abhaengigkeiten abschliessen. Fehlt ein benoetigter Test (etwa weil aktiv
-        # reserviert), dessen ganze abhaengige Kette ebenfalls auslassen, nicht einen halben Abschluss versuchen.
-        while True:
-            blocked = [name for name in available if any(n not in available for n in blockers(selected_tasks[name], selected_tasks))]
-            if not blocked:
-                break
-            for name in blocked:
-                available.remove(name)
-                excluded.append(f'{name}: blockiert, braucht ' + ', '.join(blockers(selected_tasks[name], selected_tasks)))
     if reading:
-        print('Bestätigungstests ausstehend (nicht in Arbeit; kein Spielstart)')
+        print('Bestätigungstests ausstehend (nur Info, blockieren nichts; kein Spielstart)')
         for name in available:
             task = selected_tasks[name]
             if options.action == 'plan':

@@ -374,6 +374,7 @@ class PairReservationTests(unittest.TestCase):
 
 
 class ConfirmationTests(unittest.TestCase):
+    """Bestaetigungstests sind nur Info: die Aufgabe gilt als erledigt, der offene Test steht in docs/ERLEDIGT.md."""
     ROWS = ('| `first` | P1 | Zehn Dodges mit Ausdauer pruefen | – | parallel | wenig |\n'
             '| `second` | P1 | Gleiche Karte pruefen | – | zu zweit | wenig |\n'
             '| `blocked` | P1 | Wartet | `first` | parallel | wenig |\n')
@@ -381,94 +382,80 @@ class ConfirmationTests(unittest.TestCase):
     def pending(self):
         return source.confirmation_update(todo(self.ROWS), ['first', 'second'], 'pending', 'Test auf zwei PCs steht aus')
 
-    def test_pending_action_rejected_when_limit_reached(self):
-        rows = ''.join(f'| `t{i}` | P1 | Text | – | parallel | wenig |\n' for i in range(5))
-        text = source.confirmation_update(todo(rows), ['t0', 't1'], 'pending', 'Stand')
-        text = source.confirmation_update(text, ['t2'], 'pending', 'Stand')
-        with self.assertRaisesRegex(ValueError, 'Mehr als 3 Bestätigungstests offen'):
-            source.confirmation_update(text, ['t3'], 'pending', 'Stand')
-        source.confirmation_update(text, ['t0'], 'update', 'Neuer Stand')  # bestehende bleiben bearbeitbar
-
-    def test_pending_keeps_requirements_phase_and_not_done(self):
+    def test_pending_marks_done_and_unblocks_dependents(self):
         parsed = source.parse(self.pending())
-        self.assertFalse(parsed['first'].done)
+        self.assertTrue(parsed['first'].done)
         self.assertEqual(parsed['first'].phase, '1')
         self.assertEqual(parsed['first'].confirmation, 'Test auf zwei PCs steht aus')
-        self.assertIn('Zehn Dodges mit Ausdauer pruefen', parsed['first'].text)
-        self.assertEqual(source.blockers(parsed['blocked'], parsed), ['first'])
-        self.assertEqual(source.phase_counts(parsed)[1], [1, 4])
+        self.assertEqual(source.blockers(parsed['blocked'], parsed), [])
+        self.assertEqual(tasks.status('first', set(), None, parsed), 'erledigt')
 
-    def test_pending_is_separate_from_free_and_active_even_with_old_branch_or_pr(self):
+    def test_pending_is_info_in_done_file_not_open_row(self):
+        todo_part, done_part = source.split(self.pending())
+        self.assertFalse(any(line.startswith('| `first` |') for line in todo_part.splitlines()))
+        self.assertNotIn(source.INFO_SECTION, todo_part)
+        self.assertIn('## ' + source.INFO_SECTION, done_part)
+        self.assertIn('| `first` | Test auf zwei PCs steht aus |', done_part)
+
+    def test_no_limit_for_pending_tests(self):
+        rows = ''.join(f'| `t{i}` | P1 | Text | – | parallel | wenig |\n' for i in range(6))
+        parsed = source.parse(source.confirmation_update(todo(rows), [f't{i}' for i in range(6)], 'pending', 'Stand'))
+        self.assertEqual(sum(bool(t.confirmation) for t in parsed.values()), 6)
+
+    def test_free_block_counts_pending_as_info(self):
         text = self.pending()
-        parsed = source.parse(text)
-        block = source.free_block(text, parsed)
-        self.assertNotIn('| `first` |', block)
-        self.assertIn('Bestätigungstest ausstehend (nicht in Arbeit)', block)
-        self.assertEqual(tasks.status('first', {'first'}, None, parsed), 'Bestätigungstest ausstehend')
-        prs = {'first': {'state': 'OPEN', 'number': 5, 'isDraft': True}}
-        self.assertEqual(tasks.status('first', {'first'}, prs, parsed), 'Bestätigungstest ausstehend')
-        with patch.object(tasks, 'git'), patch.object(tasks, 'todo_text', return_value=text), \
-                patch.object(tasks, 'remote_branches', return_value={'first'}), \
-                patch.object(tasks, 'pull_requests', return_value=prs), redirect_stdout(StringIO()) as out:
-            tasks.cmd_list(active_only=True)
-        self.assertNotIn('first', out.getvalue())
+        block = source.free_block(text, source.parse(text))
+        self.assertIn('| `blocked` |', block)
+        self.assertIn('Bestätigungstests ausstehend (nur Info, blockiert nichts):** 2', block)
 
-    def test_pending_cannot_be_claimed_even_without_github(self):
-        with patch.object(tasks, 'git') as git, patch.object(tasks, 'todo_text', return_value=self.pending()), \
-                patch.object(tasks, 'remote_branches', return_value=set()), \
-                patch.object(tasks, 'pull_requests', return_value=None):
-            with self.assertRaisesRegex(SystemExit, 'Bestätigungstest ausstehend'):
-                tasks.cmd_claim('first', 'tester')
-            self.assertEqual(git.call_args_list, [call('fetch', '-q', '--prune', 'origin')])
-
-    def test_update_batch_preserves_original_text_and_does_not_stack_markers(self):
+    def test_update_replaces_note(self):
         once = source.confirmation_update(self.pending(), ['first', 'second'], 'update', 'Termin verschoben')
         twice = source.confirmation_update(once, ['second'], 'update', 'Tag 2 noch offen')
         parsed = source.parse(twice)
         self.assertEqual(parsed['first'].confirmation, 'Termin verschoben')
         self.assertEqual(parsed['second'].confirmation, 'Tag 2 noch offen')
-        self.assertEqual(parsed['second'].text.count(source.CONFIRMATION_TASK), 1)
-        self.assertIn('Gleiche Karte pruefen', parsed['second'].text)
         self.assertNotIn('Test auf zwei PCs steht aus', twice)
 
-    def test_pass_batch_marks_done_only_with_explicit_result(self):
+    def test_pass_removes_info_and_records_result(self):
         parsed = source.parse(source.confirmation_update(self.pending(), ['second', 'first'], 'pass',
                                                         'Auf zwei PCs bestanden, siehe [Bericht](docs/TESTING.md)'))
         for name in ('first', 'second'):
             self.assertTrue(parsed[name].done)
-            self.assertIn('Bericht', parsed[name].text)
-        self.assertEqual(source.blockers(parsed['blocked'], parsed), [])
+            self.assertFalse(parsed[name].confirmation)
+            self.assertIn('Bestätigt: Auf zwei PCs bestanden', parsed[name].text)
 
-    def test_reopen_restores_development_and_retains_failed_test_note(self):
+    def test_reopen_removes_info_and_records_failure(self):
         parsed = source.parse(source.confirmation_update(self.pending(), ['first'], 'reopen', 'Client rutscht weiter'))
-        self.assertFalse(parsed['first'].done)
+        self.assertTrue(parsed['first'].done)
         self.assertFalse(parsed['first'].confirmation)
-        self.assertIn('Zehn Dodges mit Ausdauer pruefen', parsed['first'].text)
-        self.assertIn('Client rutscht weiter', parsed['first'].text)
+        self.assertIn('Bestätigungstest fehlgeschlagen: Client rutscht weiter', parsed['first'].text)
         self.assertTrue(parsed['second'].confirmation)
 
-    def test_batch_rejects_invalid_done_duplicate_and_unmarked_ids(self):
+    def test_batch_rejects_invalid_ids_and_notes(self):
         for names, action, note in ((['first', 'missing'], 'update', 'x'), (['first', 'base1'], 'update', 'x'),
                                     (['first', 'first'], 'update', 'x'), (['blocked'], 'update', 'x'),
                                     (['first'], 'update', ' '), (['first'], 'pass', 'a|b'),
-                                    (['first'], 'update', 'a\nb'), (['first'], 'update', source.CONFIRMATION_TASK),
-                                    ([], 'update', 'x')):
+                                    (['first'], 'update', 'a\nb'), (['first'], 'pending', 'x'), ([], 'update', 'x')):
             with self.subTest(names=names, action=action, note=note), self.assertRaises(ValueError):
                 source.confirmation_update(self.pending(), names, action, note)
         with self.assertRaisesRegex(ValueError, 'blockiert'):
-            source.confirmation_update(self.pending(), ['blocked'], 'pending', 'x')
+            source.confirmation_update(todo(self.ROWS), ['blocked'], 'pending', 'x')
 
-    def test_malformed_confirmation_rejected(self):
-        row = '| `a` | P1 | ' + source.CONFIRMATION_PREFIX + 'ohne Abnahme | – | parallel | wenig |\n'
-        with self.assertRaisesRegex(ValueError, 'Bestaetigungstest braucht'):
+    def test_open_row_with_confirmation_marker_rejected(self):
+        row = '| `a` | P1 | ' + source.CONFIRMATION_PREFIX + 'Stand' + source.CONFIRMATION_TASK + 'Text | – | parallel | wenig |\n'
+        with self.assertRaisesRegex(ValueError, 'docs/ERLEDIGT.md'):
             source.parse(todo(row))
 
-    def test_crlf_and_generated_free_list_are_preserved(self):
+    def test_info_row_for_open_task_rejected(self):
+        text = todo(self.ROWS) + '## ' + source.INFO_SECTION + '\n' + source.INFO_HEADER + '\n|---|---|\n| `first` | x |\n'
+        with self.assertRaisesRegex(ValueError, 'nicht erledigt'):
+            source.parse(text)
+
+    def test_crlf_is_preserved(self):
         text = source.update_todo(todo(self.ROWS), source.parse(todo(self.ROWS))).replace('\n', '\r\n')
         updated = source.confirmation_update(text, ['first'], 'pending', 'offen')
         self.assertNotIn('\n', updated.replace('\r\n', ''))
         self.assertEqual(source.parse(updated)['first'].confirmation, 'offen')
-        self.assertIn('| `first` | P1 | [1]', updated) # Liste erneuert erst regenerate
 
     def test_active_work_protects_roles_and_unknown_github_state(self):
         self.assertTrue(tasks.active_work('first', {'first/host'}, None))
@@ -487,57 +474,38 @@ class ConfirmationTests(unittest.TestCase):
             tasks.cmd_tests(args)
         return out.getvalue()
 
+    def make_root(self, directory):
+        root = Path(directory)
+        source.write_local(root, self.pending())
+        return root
+
     def test_plan_and_all_update_exclude_active_foreign_work(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            path = root / 'TODO.md'
-            path.write_text(self.pending(), encoding='utf-8')
+            root = self.make_root(directory)
             output = self.run_command(root, ['plan'], {'first/client'})
             self.assertIn('Ausgeschlossen: first: aktive fremde Arbeit', output)
             self.assertIn('Gleiche Karte pruefen', output)
             output = self.run_command(root, ['update', '--all', '--note', 'Neuer Termin'], {'first/client'})
-            parsed = source.parse(path.read_text(encoding='utf-8'))
+            parsed = source.parse(source.read_local(root))
             self.assertEqual(parsed['first'].confirmation, 'Test auf zwei PCs steht aus')
             self.assertEqual(parsed['second'].confirmation, 'Neuer Termin')
             self.assertIn('Ausgeschlossen: first', output)
 
     def test_explicit_busy_batch_fails_without_partial_write(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            path = root / 'TODO.md'
-            path.write_text(self.pending(), encoding='utf-8')
-            before = path.read_bytes()
+            root = self.make_root(directory)
+            before = source.read_local(root)
             with self.assertRaisesRegex(SystemExit, 'Gesamter Batch unveraendert'):
                 self.run_command(root, ['update', 'second', 'first', '--note', 'x'], {'first'})
-            self.assertEqual(path.read_bytes(), before)
+            self.assertEqual(source.read_local(root), before)
             with self.assertRaisesRegex(ValueError, 'ohne'):
                 self.run_command(root, ['update', 'second', '--note', 'x|y'])
-            self.assertEqual(path.read_bytes(), before)
-
-    def test_pass_batch_can_complete_dependencies_together_but_not_without_them(self):
-        text = self.pending()
-        # Ein bereits vorbereiteter Test kann spaeter einen noch offenen Bestaetigungstest als Voraussetzung haben.
-        text = text.replace('Gleiche Karte pruefen | – |', 'Gleiche Karte pruefen | `first` |')
-        with self.assertRaisesRegex(ValueError, 'blockiert'):
-            source.confirmation_update(text, ['second'], 'pass', 'Bericht')
-        parsed = source.parse(source.confirmation_update(text, ['second', 'first'], 'pass', 'Bericht'))
-        self.assertTrue(parsed['first'].done and parsed['second'].done)
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            path = root / 'TODO.md'
-            path.write_text(text, encoding='utf-8')
-            before = path.read_bytes()
-            output = self.run_command(root, ['pass', '--all', '--note', 'Bericht'], {'first'})
-            self.assertEqual(path.read_bytes(), before)
-            self.assertIn('Ausgeschlossen: first: aktive fremde Arbeit', output)
-            self.assertIn('Ausgeschlossen: second: blockiert', output)
+            self.assertEqual(source.read_local(root), before)
 
     def test_mutations_fail_closed_without_pr_status_and_on_main(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            path = root / 'TODO.md'
-            path.write_text(self.pending(), encoding='utf-8')
-            before = path.read_bytes()
+            root = self.make_root(directory)
+            before = source.read_local(root)
             for prs, branch, message in ((None, 'task/tests', 'PR-Status unbekannt'), ({}, 'main', 'nie auf main')):
                 with self.subTest(prs=prs, branch=branch), patch.object(tasks, 'git') as git, \
                         patch.object(tasks, 'remote_branches', return_value=set()), \
@@ -546,7 +514,7 @@ class ConfirmationTests(unittest.TestCase):
                         self.assertRaisesRegex(SystemExit, message):
                     git.return_value.stdout = branch
                     tasks.cmd_tests(['update', '--all', '--note', 'x'])
-                self.assertEqual(path.read_bytes(), before)
+                self.assertEqual(source.read_local(root), before)
 
 
 class ReferenceTests(unittest.TestCase):

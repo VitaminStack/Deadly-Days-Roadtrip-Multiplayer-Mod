@@ -24,20 +24,35 @@ Daraus ergibt sich der Status, den `py tools/tasks.py list` anzeigt:
 | Team | Entscheidet das Team, `tasks.py claim` lehnt ab |
 | erledigt | Steht unter [Erledigt](ERLEDIGT.md#erledigt). Nie erneut reservieren, auch wenn der Branch gelöscht ist oder die GitHub CLI fehlt |
 
+## Nicht erneut machen
+
+Das ist erledigt und dokumentiert:
+
+- Iris oder klassisch: klassische Replikation, siehe [Spike](../research/spikes/a-connect/README.md#ergebnis)
+- Verbindung, Spawn, Bewegung und Schießen laufen mit den Patches, siehe [Spike](../research/spikes/a-connect/README.md#patches)
+- Weg vom Menü in die Mission und über die Route bis Tag 4, siehe [Run-Ablauf](themen/REISE_UND_RUNDE.md) und [Testen](TESTING.md#fester-routenlauf)
+- Coop-Ablauf, Karten-Erzeugung, Gegner-Pooling, Kamera, Pausen und Sync-Bedarf sind analysiert, siehe [Spielanalyse](themen/README.md) und [Sync-Bedarf](SYNC_REQUIREMENTS.md)
+- Weitere Einzelprüfungen in den Inventar-Schleifen: Nach jeder stürzt der Client an der nächsten Stelle ab
+- Eine höhere `NetPriority` des `GameState` hilft nicht gegen den HUD-Hänger, `OnRep_Slots` zurückzuhalten hilft nicht beim Inventar
+- Gegen fehlende PlayerStates keine Klassen im RootSet pinnen oder Read-only-Zeitstempel blind zurücksetzen. Der abgeschlossene `guidcache`-Fix erhält gezielt nachladbare Pfadidentitäten und prüft den Cache-eigenen Driver auch bei nullem `GWorld`. Eine `servertravel`-Schleife ersetzt den echten Routenlauf nicht; [Nachweise und akzeptierter Abschluss](archive/GAME_ANALYSIS.md#abschluss-und-akzeptierter-testumfang-guidcache). Run/Endlos bis Tag 13 mit zwei Biomwechseln ist vorerst ausreichend abgesichert; nur neue konkrete Fehler bekommen ein neues TODO.
+- Pause ab Tag 2 und fehlende Client-Figur am Bus sind im Spike behoben. Bei seltsamem Laden zuerst `Run-Route.ps1` und `check_round.py` prüfen, siehe [Pausierte Welt und Busplatz](archive/GAME_ANALYSIS.md#pausierte-welt-und-busplatz-testumgebung)
+
+## Gemeinsame Dateien
+
+Diese Dateien nutzen alle. Sie bleiben klein und ändern sich nur in kurzen eigenen PRs:
+
+- `research/spikes/a-connect/Spike.h` und `Main.cpp`
+- Öffentliche Schnittstellen in `src/Core` und `src/Net`
+- Protokollversion und Nachrichtenformat, nur über `protokoll`
+
 ## Live-Sitzungen zu zweit
 
 Manche Abnahmen brauchen zwei Menschen gleichzeitig: zwei Steam-Konten, zwei PCs, echtes Internet. Solche Termine sind knapp.
 Es bietet sich an, diese Prüfungen zu sammeln und **in einer Sitzung nacheinander abzuarbeiten**, statt für jede Aufgabe einen
 eigenen Termin anzusetzen. Die Liste unten ist eine Planungshilfe, keine zusätzliche Pflicht oder neue Freigaberegel.
 
-**Bestätigungstest ausstehend** zählt nicht als „in Arbeit“ und nicht als erledigt. Solche
-Aufgaben stehen separat in `tasks.py list`, bleiben aber bis zur echten Abnahme offen.
-Mit `py tools/tasks.py tests plan` die verfügbaren Tests samt Abnahmen für einen Termin bündeln;
-aktive fremde Aufgaben werden ausgeschlossen. `tests update <kennungen> --note "Stand"`
-aktualisiert mehrere Teststände, `tests pass <kennungen> --note "Ergebnis mit Beleg"` schließt
-sie erst nach bestandenem Test ab. Ohne Kennung geht `update --all` für alle verfügbaren
-Bestätigungstests. Keine neue Reservierung je Test, Änderungen nur im eigenen Wartungs-Worktree
-über einen PR. [Befehle und Grenzen](../tools/README.md#bestätigungstests).
+**Bestätigungstest ausstehend** ist nur Info ([E-12](ENTSCHEIDUNGEN.md#e-12-bestätigungstests-sind-nur-info)): Die Aufgabe ist erledigt, die offene Prüfung steht unter [Bestätigungstests ausstehend](ERLEDIGT.md#bestätigungstests-ausstehend) und blockiert nichts.
+Mit `py tools/tasks.py tests plan` lassen sich die Prüfungen für einen Termin bündeln, `tests update|pass|reopen` pflegt sie.
 
 - **Offene Tests sammeln.** Bleibt nur noch ein Test zu zweit, kann er nach [Aufgabe abschließen](#aufgabe-abschließen), Punkt 3,
   als eigene Kennung weitergeführt und hier ergänzt werden. Bestehende Abnahmen und Abhängigkeiten bleiben dabei erhalten.
@@ -67,32 +82,7 @@ mit Bearbeitung „zu zweit“ und Abnahmen, die ausdrücklich zwei PCs oder das
 
 ## Live-Bestätigung ausstehend
 
-Erledigte Aufgaben, deren Abnahme bisher nur auf einem PC (zwei Instanzen) belegt ist. Sie bleiben unter [Erledigt](ERLEDIGT.md#erledigt)
-und zählen als abgeschlossen. In der nächsten Live-Sitzung zu zweit mit Analyse nebenbei prüfen, siehe
-[Live-Sitzungen zu zweit](#live-sitzungen-zu-zweit). Bestätigt: Zeile löschen, Ergebnis im Bericht der Sitzung festhalten.
-Fällt ein Punkt durch: neue Aufgabe in der passenden Phase anlegen und die Zeile löschen. Wer eine Aufgabe nur mit
-Ein-PC-Beleg abschließt, trägt sie hier ein ([E-06](ENTSCHEIDUNGEN.md#e-06-abschluss-mit-ein-pc-beleg)).
-
-| Aufgabe | Belegt | In der Live-Sitzung prüfen |
-|---|---|---|
-| `boss-karte-absturz` | 21.11., ein PC, `26786272`, Routenkarte mit Testschalter, auch mit simulierter Latenz | Client betritt die Boss-Karte am Ende der Route ohne Absturz; im Client-Log genau eine Zeile „Boss-Leiste: lokal angelegt“ je Eintritt, Leiste folgt den Boss-HP |
-| `charakter-wahl` | 10.11., ein PC | Jeder wählt in der MetaBase eine andere Figur, beide sehen die Wahl des anderen; nach Reise und Startausrüstung im Run |
-| `client-runstand-abbruch` | 18.11., ein PC, `26495302` und `26669225` | Nach einem gemeinsamen Run (Client verlässt ihn über das Pausemenü oder der Host beendet) hostet der frühere Client: neuer Run mit Level 1 und Startausrüstung; ein eigener offener Run des Clients lässt sich danach fortsetzen |
-| `lager-handel-client` | Verkauf/Reparatur 13.11. zwei PCs, Ausrüsten 13.11. ein PC | Client repariert im Lager ein kaputtes Item, legt es in den Rucksack, bestätigt; am nächsten Tag ausgerüstet |
-| `opt-ausdauerbalken` | ein PC | Client sieht den Ausdauerbalken des Hosts beim Sprinten wie der Host |
-| `opt-blickrichtung-client` | ein PC | Beide Figuren schauen beim Client in Lauf- und Zielrichtung |
-| `opt-busbalken` | ein PC; 13.11. abends zwei PCs einmal fehlend gemeldet, später im Log abgeleitet | Ladebalken der Busabfahrt beim Client wie beim Host, bei jedem vollen Tank |
-| `opt-charakter-takt` | 11.11., ein PC | Keine Zeile „Takt: Charakterwahl“, Wahl bleibt nach Reise und erneutem Beitritt |
-| `opt-item-sound` | ein PC | Client hört Aufsammelsounds (Benzin, Schrott, Items) je Objekt einmal |
-| `opt-laufanimation-client` | ein PC | Laufanimation der Client-Figur beim Host passt zum Tempo |
-| `opt-levelup-sound` | ein PC | Kein Schrott-Dauersound beim Client, Level-up-Kiste im Endbildschirm ohne Soundfehler |
-| `opt-schadenszahlen` | ein PC | Client sieht Schadenszahlen eigener und fremder Treffer |
-| `opt-schrott-anzeige` | ein PC, zwei Tage | Schrottanzeige des Clients springt beim Aufsammeln nicht |
-| `opt-gegner-sound` | 21.11., ein PC | Client hört Treffer- und Angriffssounds der Gegner etwa so oft wie der Host, ohne Doppel |
-| `opt-bedrohung-sound` | 21.11., ein PC | Client hört den Sound bei jeder steigenden Bedrohungsstufe einmal, Zahl unter der Stoppuhr wie beim Host |
-| `opt-airdrop-sound` | 21.11., ein PC | Client hört bei jeder Airdrop-Landung den Landesound einmal, passend zum Aufschlag |
-| `opt-waffen-sound` | ein PC | Client hört Schuss- und Nachladesounds beider Figuren |
-| `run-ende` | ein PC; Sieg und Rückkehr 13.11. abends zwei PCs | Niederlage beim Client nativ, neuer Run in derselben Sitzung |
+Offene Prüfungen erledigter Aufgaben stehen als Info unter [Bestätigungstests ausstehend](ERLEDIGT.md#bestätigungstests-ausstehend). Sie blockieren nichts ([E-12](ENTSCHEIDUNGEN.md#e-12-bestätigungstests-sind-nur-info)). In der nächsten Live-Sitzung prüfen und mit `py tools/tasks.py tests pass|reopen` abschließen.
 
 ## Aufgabe abschließen
 
@@ -136,7 +126,7 @@ Wiederkehrende Abläufe liegen als Skills unter `.claude/skills/`. Claude Code l
 - Doku beschreibt den Ist-Zustand auf dem unterstützten Build: ersetzen statt anhängen, keine datierten Befundabschnitte.
 - Befunde und Messungen gehören in die PR-Beschreibung und die Fallakte, nicht in Themen-Doku.
 - Jeder behobene Absturz bekommt einen Unit-Test der zuständigen Policy oder ein Szenario für `Run-Route.ps1`.
-- Höchstens 3 Bestätigungstests stehen offen.
+- Bestätigungstests sind nur Info und blockieren nichts.
 - Eine Sitzung pro Aufgabe. Breite Suchen übernimmt ein Explore-Subagent, der nur das Ergebnis zurückgibt.
 - Dateien über 60 KB, das Archiv und `docs/ERLEDIGT.md` nie ganz lesen, nur per `grep -n` und Abschnitt.
 - Neue Doku-Zeilen: ein Satz pro Zeile, keine Zeile über 400 Zeichen.
@@ -159,7 +149,7 @@ Phase oder nach Wartung wandert.
 
 ## Vor dem Start
 
-1. [Wo kann ich anfangen?](../TODO.md#wo-kann-ich-anfangen) lesen, auch die Liste „Nicht erneut machen“. Jede Aufgabe nennt unter „Braucht“ ihre Voraussetzungen und unter „Bearbeitung“, ob sie parallel läuft, zentral ist (nie aufteilen) oder das Team entscheidet.
+1. [Wo kann ich anfangen?](../TODO.md#wo-kann-ich-anfangen) lesen, dazu [Nicht erneut machen](#nicht-erneut-machen). Jede Aufgabe nennt unter „Braucht“ ihre Voraussetzungen und unter „Bearbeitung“, ob sie parallel läuft, zentral ist (nie aufteilen) oder das Team entscheidet.
 2. Status aller Aufgaben ansehen, Einzelheiten einer Aufgabe mit `py tools/tasks.py show <kennung>` statt der ganzen `TODO.md`. Nur Aufgaben mit Status `frei` nehmen, `blockiert` und `Team` lehnt das Skript ab:
 
    ```bash
@@ -174,7 +164,7 @@ Phase oder nach Wartung wandert.
 
 Bei Bearbeitung „zu zweit“ (Test auf zwei PCs) reserviert jede Person nur ihre Rolle: `claim <kennung> <name> host` oder `client`, ein freier Rest steht dann als `client frei` oder `host frei` in der Liste, siehe [Test auf zwei PCs](TESTING.md#test-auf-zwei-pcs).
 
-Nie von Hand reservieren und nie eine Entwicklungsaufgabe übernehmen, die nicht `frei` ist. **Bestätigungstest ausstehend** ist ein eigener Wartezustand, nicht „in Arbeit“ und nicht erledigt: solche Tests mit `py tools/tasks.py tests plan` bündeln, ohne die getesteten Aufgaben neu zu reservieren. Teststände und belegte Ergebnisse im eigenen Wartungs-Worktree über `tests update` bzw. `tests pass` aktualisieren; aktive fremde Aufgaben bleiben ausgeschlossen. Siehe [Bestätigungstests](../tools/README.md#bestätigungstests). Steht dort „erst nachfragen“, den Menschen zur Reservierung oder dem gemergten Teilstand fragen. Neue Arbeit bekommt vorher eine eigene Zeile mit Kennung in der passenden Phase, nur in den Grenzen unter [Fokus](#fokus).
+Nie von Hand reservieren und nie eine Entwicklungsaufgabe übernehmen, die nicht `frei` ist. **Bestätigungstest ausstehend** ist nur Info ([E-12](ENTSCHEIDUNGEN.md#e-12-bestätigungstests-sind-nur-info)): Die Aufgabe ist erledigt, die offene Prüfung steht unter [Bestätigungstests ausstehend](ERLEDIGT.md#bestätigungstests-ausstehend) und blockiert nichts. Siehe [Bestätigungstests](../tools/README.md#bestätigungstests). Steht dort „erst nachfragen“, den Menschen zur Reservierung oder dem gemergten Teilstand fragen. Neue Arbeit bekommt vorher eine eigene Zeile mit Kennung in der passenden Phase, nur in den Grenzen unter [Fokus](#fokus).
 
 Worktrees liegen immer unter `.worktrees/` im Repo-Ordner, keine neuen Ordner daneben anlegen. Im eigenen Worktree arbeiten, nie im Hauptordner oder im Worktree eines anderen Agenten. Wer die Reservierung aufgibt, ruft `py tools/tasks.py release <kennung>` auf. Das schließt den Draft-PR und löscht den Branch.
 

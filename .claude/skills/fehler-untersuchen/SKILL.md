@@ -13,4 +13,4 @@ description: Use when investigating a crash or wrong behaviour of a task in this
    Ein behobener Absturz bekommt immer einen Regressionstest oder ein festes Szenario für `tools/spike/Run-Route.ps1`.
 6. Nach jedem Schritt „Nächster Schritt“ in der Fallakte ersetzen, nicht anhängen.
 7. Abnahme erfüllt: Themen-Datei auf den neuen Ist-Zustand bringen, Fallakte löschen, `py tools/tasks.py done <kennung> "<ein Satz>"`. Messungen in die PR-Beschreibung.
-   Fehlt nur noch die Prüfung zu zweit: `py tools/tasks.py tests pending <kennung> --note "<Stand>"` (höchstens 3 offen).
+   Fehlt nur noch die Prüfung zu zweit: `py tools/tasks.py tests pending <kennung> --note "<Stand>"`. Das schließt die Aufgabe ab; der Test bleibt nur als Info.

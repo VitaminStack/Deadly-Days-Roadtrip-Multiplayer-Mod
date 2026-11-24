@@ -39,9 +39,9 @@ Done means listed under "Erledigt" in `docs/ERLEDIGT.md`. **Fully completed phas
 | [2](TODO.md#phase-2--fundament) | Stable mod foundation | 5 of 5 | ███████████ |
 | [3](TODO.md#phase-3--session-und-verbindung) | Connecting via Steam | 10 of 10 | ███████████ |
 | [4](TODO.md#phase-4--vertical-slice) | Playable slice | 16 of 16 | ███████████ |
-| [5](TODO.md#phase-5--vollständiger-run) | Complete run for two | 49 of 56 | ██████████░ |
+| [5](TODO.md#phase-5--vollständiger-run) | Complete run for two | 52 of 56 | ██████████░ |
 | [6](TODO.md#phase-6--release) | Release | 9 of 10 | ██████████░ |
-| **Total** | | **139 of 147** | ██████████░ |
+| **Total** | | **142 of 147** | ███████████ |
 
 </details>
 
