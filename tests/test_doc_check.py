@@ -51,6 +51,11 @@ class DocCheckTests(unittest.TestCase):
         self.write('docs/Mit Leerzeichen.md', '')
         self.assertEqual(doc_check.check_links(self.root, ['docs/a.md']), [])
 
+    def test_size_ignores_crlf(self):
+        # Windows-Checkout mit CRLF darf nicht groesser zaehlen als der Stand im Repo
+        self.write('a.md', 'x\r\n' * 20_000)
+        self.assertEqual(doc_check.check_sizes(self.root, ['a.md'], {'a.md': 40_000}), [])
+
     def test_size_limits_default_override_and_archive(self):
         self.write('a.md', 'x' * 70_000)
         self.write('TODO.md', 'x' * 16_000)

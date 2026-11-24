@@ -102,13 +102,14 @@ def check_links(root, files):
 
 
 def check_sizes(root, files, limits=None):
-    """Meldungen fuer Dateien ueber ihrer Grenze; Dateien unter EXCLUDED sind ausgenommen."""
+    """Meldungen fuer Dateien ueber ihrer Grenze (Bytes mit LF gezaehlt); Dateien unter EXCLUDED sind ausgenommen."""
     limits = LIMITS if limits is None else limits
     found = []
     for name in files:
         if name.startswith(EXCLUDED):
             continue
-        size = (Path(root) / name).stat().st_size
+        data = (Path(root) / name).read_bytes()
+        size = len(data) - data.count(b'\r\n')  # wie im Repo mit LF, auch in einem Windows-Checkout
         limit = limits.get(name, DEFAULT_LIMIT)
         if size > limit:
             found.append(f'{name}: {size} Bytes > Grenze {limit}')
