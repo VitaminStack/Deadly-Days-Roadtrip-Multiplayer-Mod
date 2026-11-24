@@ -40,10 +40,11 @@ Tests: `tests/GameTests/PatchTests.cpp`, „Wiederbeitritt übernimmt dieselbe H
 
 ## Offen
 
-- Inventar des Clients nach dem Wiederbeitritt wiederherstellen (neue Host-Funktion, Entscheidung bei der Hauptsitzung).
+- Inventar des Clients nach dem Wiederbeitritt wiederherstellen: eigene Aufgabe [wiedereintritt-inventar](wiedereintritt-inventar.md).
 - Wiederbeitritt während der Rundenübersicht des Hosts ist nur im Unit-Test geprüft, nicht im Spiel.
 
 ## Abnahme
 
-Der Client kann ohne Neustart derselben laufenden Mission wieder beitreten, baut die Karte des Hosts auf und hat Inventar und Level wie vor der Trennung.
+Der Client kann ohne Neustart derselben laufenden Mission wieder beitreten, baut die Karte des Hosts auf und hat das Level wie vor der Trennung.
+Das Inventar ist [wiedereintritt-inventar](wiedereintritt-inventar.md) (Nutzerentscheidung vom 24.11.2026).
 Mit Unit-Test, belegt auf einem PC mit zwei Instanzen.
