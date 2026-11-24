@@ -13,6 +13,11 @@ New-Item -ItemType Directory -Force -Path (Join-Path $Target 'logs'), (Join-Path
 $LogDir = Join-Path (Split-Path (Get-GameExe)) 'DDCoop\logs'
 $Logs = @(Get-ChildItem -LiteralPath $LogDir -Filter 'ddcoop-*.log' -ErrorAction SilentlyContinue | Where-Object LastWriteTime -ge $Since)
 $Logs | Copy-Item -Destination (Join-Path $Target 'logs')
+# Kurzfassung je Log fuer die Auswertung: zuerst *.summary.txt lesen, das volle Log nur abschnittsweise.
+foreach ($Log in $Logs) {
+    $Copy = Join-Path (Join-Path $Target 'logs') $Log.Name
+    & py -B (Join-Path $script:RepoRoot 'tools\log_summary.py') $Copy | Out-File -Encoding utf8 "$Copy.summary.txt"
+}
 
 $Crashes = @(Get-ChildItem -Path (Join-Path $script:SessionDir 'ud_*\Saved\Crashes\*') -Directory -ErrorAction SilentlyContinue |
     Where-Object LastWriteTime -ge $Since)

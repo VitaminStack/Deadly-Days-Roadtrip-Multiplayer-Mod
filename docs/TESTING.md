@@ -98,6 +98,7 @@ Pro PC läuft nur eine Sitzung, Spielzeit ist der Engpass. Darum:
 - **Nur neu starten, was nötig ist.** `Restart-Instance.ps1` startet nur den Client neu (etwa 20 s). `-Build` nur, wenn sich der Spike geändert hat.
   Hält der Host direkt nach dem Beenden noch die alte Verbindung („Der Host hat schon einen Mitspieler“), erstellt er eine neue Lobby und
   der Client tritt ihr bei, das macht das Skript selbst.
+- **Logs zuerst kurz lesen.** `Collect-Logs.ps1` legt je Mod-Log eine `*.summary.txt` an (`py tools/log_summary.py <log>`): Warnungen, Fehler, Abstürze und Patch-Listen. Zuerst sie lesen, das volle Log nur abschnittsweise.
 - **Kurz ausgeben.** `Start-Session.ps1`, `Restart-Instance.ps1`, `Get-Status.ps1`, `Start-Run.ps1` und `Travel-Day.ps1` kennen `-Brief`:
   eine Zeile je Instanz (Karte, Spieler, Rolle), eine für Inventar und eine für Abstürze. Volle Ausgabe und Bilder nur ansehen, wenn
   etwas nicht stimmt. `Travel-Day.ps1` wartet auf die neue Karte mit beiden Spielern statt fest 35 s, meist reichen 10 s.

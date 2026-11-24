@@ -93,6 +93,10 @@ Hält die Doku so klein und verlinkt, dass Agenten sie gezielt lesen können. L�
 Standardgrenze 60 000 Bytes. Größere Dateien stehen mit ihrer heutigen Größe in `LIMITS`. Diese Werte dürfen nur sinken.
 Dateien unter `docs/archive/` haben keine Grenze, beginnen aber mit dem Archiv-Banner (`ARCHIVE_BANNER`); ihre Links werden trotzdem geprüft.
 
+## log_summary.py
+
+`py tools/log_summary.py <log> [--limit N]` kürzt ein Mod-Log auf Warnungen, Fehler, Abstürze, gesetzte und ausgelassene Patch-Listen sowie erste und letzte Zeile; gleiche Nachrichten hintereinander werden zu einer Zeile mit `(×n)`. `spike/Collect-Logs.ps1` legt die Kurzfassung je Log als `*.summary.txt` ab.
+
 ## dumper7/
 
 Baut Dumper-7 im getesteten Stand für UE 5.8, damit alle dasselbe SDK erzeugen. Hintergrund in [SDK-Erzeugung unter UE 5.8](../docs/themen/SPIEL_UND_SDK.md).
