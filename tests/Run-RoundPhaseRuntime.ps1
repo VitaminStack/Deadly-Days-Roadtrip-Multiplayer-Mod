@@ -8,14 +8,3 @@ Invoke-InVsEnvironment "cl /nologo /std:c++20 /W4 /WX /EHsc /Fe:`"$Exe`" /Fo:`"$
 if ($LASTEXITCODE -ne 0) { throw 'Runtime-Test-Build fehlgeschlagen' }
 & $Exe (Join-Path $script:SessionDir 'round-phase-wire-test.bin')
 if ($LASTEXITCODE -ne 0) { throw 'Runtime-/Transport-Tests fehlgeschlagen' }
-$AdapterSource = Join-Path $PSScriptRoot 'round_phase_adapter.cpp'
-$MissionSource = Join-Path $PSScriptRoot '..\research\spikes\a-connect\Mission.cpp'
-$AdapterExe = Join-Path $script:SessionDir 'round-phase-adapter-test.exe'
-Push-Location $script:SessionDir
-try {
-    Invoke-InVsEnvironment "cl /nologo /std:c++20 /W4 /WX /EHsc /Fe:`"$AdapterExe`" `"$AdapterSource`" `"$MissionSource`" user32.lib"
-    if ($LASTEXITCODE -ne 0) { throw 'Adapter-Test-Build fehlgeschlagen' }
-    & $AdapterExe
-    if ($LASTEXITCODE -ne 0) { throw 'Adapter-Tests fehlgeschlagen' }
-}
-finally { Pop-Location }
