@@ -104,7 +104,7 @@ Git-Historie, auch wenn es später gelöscht wird.
 
 ## Spiel-Updates
 
-Das Spiel wird noch aktiv gepatcht, und jedes Update kann Offsets und Klassen ändern. Nutzerentscheidung vom 21.11.2026:
+Das Spiel wird noch aktiv gepatcht, und jedes Update kann Offsets und Klassen ändern. Entscheidung [E-07](docs/ENTSCHEIDUNGEN.md#e-07-nur-der-neueste-spiel-build):
 **Die Mod unterstützt immer nur den neuesten Spiel-Build.** Ältere Builds werden nicht parallel weitergeführt; nach einem Update
 zieht die Mod in einem Schritt auf den neuen Build um. Entwickelt und getestet wird weiter aus einer eingefrorenen Kopie des
 [unterstützten Builds](docs/themen/SPIEL_UND_SDK.md), damit ein Steam-Update nicht mitten in die Arbeit fällt.

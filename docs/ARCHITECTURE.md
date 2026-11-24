@@ -252,7 +252,7 @@ Client-Anzeige darf keine `AddExperience`-/`AddAmount`-Replays und keine normale
 Speicher-/Erfolgsroutinen ausloesen. Item-/Session-IDs, Run-Epoche, Revisionen und
 Anfrage-Deduplizierung sind verbindliche Anforderungen an die Umsetzung.
 Die Netzwerk-Transportbindung, XP-Einheit und gemeinsame Kontozuordnung sind
-noch zu klaeren. Fuer Meta-Fortschritt gilt seit der Nutzervorgabe vom 06.11.2026
+noch zu klaeren. Fuer Meta-Fortschritt gilt seit [E-02](ENTSCHEIDUNGEN.md#e-02-meta-fortschritt-des-hosts-gilt)
 der Stand des Hosts fuer beide Spieler im gemeinsamen Run, ohne dauerhafte
 Meta-Gutschrift oder Profiluebernahme beim Client. Entscheidung und noch offene
 Umsetzung: [Meta-Fortschritt des Hosts](SYNC_REQUIREMENTS.md#nutzervorgabe-meta-fortschritt-des-hosts-06112026).

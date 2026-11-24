@@ -71,7 +71,7 @@ Erledigte Aufgaben, deren Abnahme bisher nur auf einem PC (zwei Instanzen) beleg
 und zählen als abgeschlossen. In der nächsten Live-Sitzung zu zweit mit Analyse nebenbei prüfen, siehe
 [Live-Sitzungen zu zweit](#live-sitzungen-zu-zweit). Bestätigt: Zeile löschen, Ergebnis im Bericht der Sitzung festhalten.
 Fällt ein Punkt durch: neue Aufgabe in der passenden Phase anlegen und die Zeile löschen. Wer eine Aufgabe nur mit
-Ein-PC-Beleg abschließt, trägt sie hier ein. Nutzerentscheidung vom 13.11.2026.
+Ein-PC-Beleg abschließt, trägt sie hier ein ([E-06](ENTSCHEIDUNGEN.md#e-06-abschluss-mit-ein-pc-beleg)).
 
 | Aufgabe | Belegt | In der Live-Sitzung prüfen |
 |---|---|---|
