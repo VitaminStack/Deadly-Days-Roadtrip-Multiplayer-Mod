@@ -2982,6 +2982,75 @@ gibt keinen Fix.
     wieder greifen. Eine Wartezeit beim Host vor dem Busplatz wäre die zweite Möglichkeit, verzögert aber beide Spieler und hängt an der
     Ladezeit des Clients. Beides muss normale Karten, Join, Reconnect und Travel unverändert lassen.
 
+### Live-Test auf zwei PCs am 24.11.2026 (`livetest-2411`)
+
+Zwei PCs über das Internet (Relay), Build `26786272` (Patch 1.0.3), Mod-Stand `391cc9f` (Mod-Version 16), Spieler am Client, Host
+extern. Belege: Mod-Logs von Client und Host, Bilder aus dem Client-Fenster (PrintWindow), ein Bild vom Host, Rückmeldungen der Spieler.
+Logzeiten unten sind die des Clients, die Uhr des Hosts geht etwa 3,5 s vor.
+
+- **Verlauf.** Rund 57 Minuten. Ein erster Run brach nach dem Rauswurf unten ab; der zweite lief ab 14:20 über 14 Karten bis zur
+  HQ-Karte, darunter `MGP_MerchantEvent` (zweimal), `MGP_LabyrinthEvent`, `MGP_CopyShopEvent` und `MGP_Burger_Boss_Nature`, Host-Level
+  bis 42. Der Host beendete um 15:12 ohne Fehler ins Hauptmenü. Jede Karte übernahm der Client nach 0 bis 1,3 s, mit Busplatz.
+- **Labyrinth-Event (`labyrinth-event-client`).** Zweiter Lauf ohne Fallen: Karte nach 187 ms, im Bild bei Kartenzeit 00:10 stehen beide
+  Figuren im Gang. Die Weiterreise nach `MGP_City` (gleicher Seed) lief ohne Absturz, das Log läuft über 12 s danach weiter
+  (am 21.11. Absturz nach 3,6 s). Erster Live-Beleg für den Fix aus `karte-nach-labyrinth-absturz`.
+- **Boss (`boss-client-einfrieren`, `opt-endboss-leiste`, `boss-karte-absturz`).** Boss-Karte über die Route ohne Absturz. „Boss-Leiste:
+  wartet, Boss da, Kampf läuft noch nicht“, mit Kampfbeginn angelegt (`BP_LazyBoss_C`, nicht phasenbezogen, Maximum 1960000), im Bild
+  beim Client sichtbar, „Boss weg, Leiste entfernt“ beim Tod. Danach zeigte der Client den Hinweis, solange der Host die Abschlusstafel
+  offen hatte (`opt-boss-tafel-client`), spielte weiter, und die nächste Karte lief normal; Zeitanfragen des Clients nur bei offener
+  Airdrop-Auswahl.
+- **Roboterarm (`client-roboterarm`).** Lager-Bearbeitung mit Roboterarm: „Hände-Vorschau 3 statt 1“, Host übernimmt nach 0,4 s, laut
+  Spieler wirkt der Arm.
+- **Absturz des Clients, Host läuft weiter (`opt-host-absturz-trennung`).** Nach dem Client-Absturz unten trennt der Host nach 10,7 s
+  ohne Empfang („Grund 4001 Timeout“), baut die Figur ab und läuft weiter. Am 21.11. stürzte er 4,9 s danach ab.
+- **Händler.** Fünf Käufe des Clients an `MGP_MerchantEvent`, jeder nach 0,3 bis 0,8 s vom Host übernommen. Lager-Bearbeitungen mit
+  Zusammenlegen, Verkauf und Reparatur wurden übernommen.
+- **Hot Join mit frisch gestartetem Spiel.** Nach dem Absturz und Neustart trat der Client der laufenden Mission bei; die Karte kam
+  sofort, beide Figuren waren da.
+
+Neue Befunde, die den Run zu zweit aufhalten:
+
+- **Rauswurf mitten im Run (`lobby-rauswurf`).** 14:18:08, Tag 1, Ping 64 ms, Abgleich 3 s vorher in Ordnung: Der Host trennt den Client
+  mit Grund 1005 („Mitspieler ist nicht mehr in der Lobby“). Der Host gleicht die Steam-Lobby-Mitglieder laufend ab
+  (`Session::SyncLobbyMembers`) und trennt ein Konto, das länger als `RevokeAfterMs` (10 s) fehlt. Der Client verließ die Lobby laut
+  seinem Log nicht. Keines der beiden Logs zeigt Mitgliederzahl oder Lobby-Ereignis; Ursache offen (Vermutung: Steam meldet die
+  Mitgliedschaft kurz leer, während P2P gesund ist).
+- **Kein Kartenaufbau beim Wiedereintritt ohne Neustart (`wiedereintritt-karte`).** Nach dem Rauswurf trat der Client derselben
+  laufenden Mission im selben Spielprozess wieder bei: „Werte vom Host“ kamen, aber kein „Client übernimmt“, keine Karte, die Figur fiel
+  durch. Dreimal gleich. Ursache im Code: `FreshValues` in `src/Game/MapPatches.cpp` nimmt Werte nur bei neuer Id oder gleicher Welt;
+  die Id der laufenden Host-Karte ist schon als `UsedId` verbraucht, die Welt aber neu. `UsedId` wird beim Verbindungsende nicht
+  zurückgesetzt. Ein Neustart des Spiels umgeht es (belegt um 14:49).
+- **Absturz bei einer Airdrop-Auswahl ohne Inventar (`airdrop-auswahl-absturz`).** 14:49:09, Karte nach einem Händler-Halt: Auswahl
+  mit 3 Belohnungen, zweimal „SetupInventory ohne Inventar ausgelassen“ (Aufrufer `0x1527C28` und `0x5A7007C`), 0,3 s später
+  `EXCEPTION_ACCESS_VIOLATION` beim Lesen von `0x108`. Oben in der Aufrufliste `0x596BF0F`, `0x59660D5`, **`0x5A7008C`** (direkt hinter dem
+  ausgelassenen Aufruf), weiter unten `0x1527C28`. Der Schutz aus `airdrop-dodge-absturz` (`SetupInventoryHook` in
+  `src/Game/RewardPatches.cpp`) lässt den einen Aufruf aus, der Aufrufer liest danach selbst das fehlende Inventar. Crash-Reporter
+  gesperrt, Bericht nur lokal.
+
+Weitere Befunde (keine eigene Kennung, siehe Fokus in `CLAUDE.md`):
+
+- **Rezept an der Werkbank (`opt-werkbank-station`).** Host: „Aufwertung 3 zu ItemData_Molotov passt weder zum Ablegen noch zu einem der
+  20 Rezepte“, der ganze Edit (Verkäufe, zwei gültige Seltenheits-Aufwertungen) wurde abgelehnt und beim Client zurückgesetzt. Vorher
+  verwarf der Client selbst eine Bearbeitung, weil eine Rezept-Ausgabe verkauft wurde („Aufwertung: Ausgabe verkauft“). Ein dritter
+  Versuch mit Molotov scheiterte mit „passt nicht in den Rucksack des Clients“; danach überlappten sich im Rucksack des Clients die
+  zwei zuvor beim Händler gekauften Items. Ohne Rezept übernahm der Host. Das Molotov hat im Client-Log keine Seltenheit (Vermutung:
+  Eingaben oder Seltenheit passen nicht zum Rezept-Datensatz des Hosts).
+- **Level-Anzeige des Clients.** Mehrfach zu niedrig: HUD 5 bei Host-Level 8, 10 bei 16, 2 bei 40, 15 bei 42; dazwischen auch richtig
+  (13 bei 13 direkt nach einem Kartenwechsel). `ShowSharedProgress` (`src/Game/ProgressAdapter.cpp`) ruft `UpdateLevel` nur, wenn sich das
+  Host-Level ändert (`Ref.Level`); Vermutung: Das Spiel schreibt zwischendurch das lokale Level des Clients ins HUD.
+- **Power-ups.** Energy Drink und einsammelbares Level-Up wirken beim Client laut Spieler nicht; keine Tempo-Änderung, kein Levelsprung
+  im Log. Weder Client- noch Host-Log nennen das Aufsammeln eines Power-ups durch den Client. Aufsammeln allgemein: 0 Objekte „nach
+  6000 ms wieder gezeigt“ (`opt-loot-aufnahme-client`).
+- **Bus-Pin.** Beim Host steht unter beiden Figuren der gelbe Bus-Pin (Bild vom Host, Tank nicht voll), beim Client fehlt er.
+- **Kopierladen (`opt-kopierladen`).** Wie am 13.11.: keine Bearbeitung, der Schrott-Abzug wird vom Host zurückgesetzt, die kopierte
+  SMG ist nach dem Rundenende weg.
+- **Hot Join.** Inventar der Client-Figur aus dem Run weg (Abgleich meldet beide Seiten gleich), kein Astronautenanzug, Rüstung 0; der
+  Host wendet den Charakter danach 8 s lang jede Sekunde neu an. Die Schrottanzeige im Airdrop-Panel zeigte bis zum nächsten
+  Rundenende 140000 statt rund 230. Gehört zu `reconnect`. Laut Spieler wäre ein Spawn bei der Figur des Hosts besser als am Bus.
+- **Ton.** Im Bosskampf fiel beim Client der Ton aus, obwohl das Mod-Log weiter Sounds zählt (über 8000 Einschläge mit Sound).
+- **Porträt (`opt-portraet`).** Beim Client durchgehend die eigene Figur, nur im ersten Bild direkt nach einem Kartenwechsel kurz eine
+  andere; die Seite des Hosts ist nicht geprüft.
+
 ### Live-Test auf zwei PCs am 21.11.2026 (`livetest-2111`)
 
 Zwei PCs über das Internet (Relay), Build `26786272` (Patch 1.0.3), Mod-Stand `8c313b7` mit 57 gesetzten Patches. Erster Lauf zu zweit
