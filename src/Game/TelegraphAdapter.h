@@ -6,7 +6,7 @@
 // opt-gegner-indikatoren: Warnanzeigen der Gegnerangriffe (Telegraphs) beim Client. Die Angriffsfähigkeiten der Gegner
 // laufen nur beim Host, ihre Niagara-Anzeigen entstehen dort lokal und replizieren nicht. Der Host meldet je Anzeige nur den
 // Auslöser, der Client zeigt dasselbe Niagara-System selbst an. Schaden, Ziel und Zeitpunkt entscheidet weiter der Host.
-// Befund: docs/GAME_ANALYSIS.md, Abschnitt „Warnanzeigen der Gegner beim Client“. Nur Game Thread.
+// Befund: docs/archive/GAME_ANALYSIS.md, Abschnitt „Warnanzeigen der Gegner beim Client“. Nur Game Thread.
 namespace Game
 {
 enum class TelegraphKind : uint8_t

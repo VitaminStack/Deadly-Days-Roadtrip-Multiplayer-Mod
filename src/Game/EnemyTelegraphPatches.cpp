@@ -5,7 +5,7 @@
 //   Parametern über UNiagaraFunctionLibrary::SpawnSystemAtLocation.
 // - Strich (UTackleAbilityExecution, Sprinter): die eigene Komponente des Gegners beim Client, über ihre nativen Funktionen
 //   ActivateLineTelegraph und CalculateLineTelegraphEndPoint; Farbwechsel und Länge rechnet sie selbst. Aus: Deactivate.
-// Schaden, Ziel, Zeitpunkt und Sprint bleiben beim Host. Befund: docs/GAME_ANALYSIS.md#warnanzeigen-der-gegner-beim-client-opt-gegner-indikatoren
+// Schaden, Ziel, Zeitpunkt und Sprint bleiben beim Host. Befund: docs/archive/GAME_ANALYSIS.md#warnanzeigen-der-gegner-beim-client-opt-gegner-indikatoren
 #include <windows.h>
 
 #include <array>

@@ -7,7 +7,7 @@ Basiscommit `066fdba`, unterstützter Spiel-Build `26187885`.
 
 Möglichst viel vorhandene Logik beim Client nutzen und nur das für Multiplayer nötige Minimum
 teilen. Das soll Fehler und Entwicklungsaufwand reduzieren. Die verbindliche Regel steht in
-[CLAUDE.md](../CLAUDE.md#verbindliches-architekturprinzip-lokal-zuerst-minimal-synchronisieren)
+[CLAUDE.md](ARCHITECTURE.md#verbindliches-architekturprinzip-lokal-zuerst-minimal-synchronisieren)
 und [Architektur](ARCHITECTURE.md#projektweite-nutzervorgabe-vom-05112026).
 
 **Dies ist ein Quellcode-/Dokumentationsaudit, kein Laufzeittest und keine Umsetzung der Empfehlungen.**
@@ -154,12 +154,12 @@ unveränderte Treffer/HP. **Zuständig:** `kampf`, `vfx-sound`, `opt-client-visu
   **Stand 11.11.2026 (`opt-schadenszahlen`):** Für normale Gegner trägt das nicht, ihre HP sind beim Client 0/0 und
   `OnRep_Health` meldet keine Treffer. Die Schadenszahlen kommen darum über die kleine Nachricht `0xA00` mit Ziel und Betrag,
   angezeigt vom nativen Handler des Client-Controllers, siehe
-  [Schadenszahlen beim Client](GAME_ANALYSIS.md#schadenszahlen-beim-client-opt-schadenszahlen).
+  [Schadenszahlen beim Client](archive/GAME_ANALYSIS.md#schadenszahlen-beim-client-opt-schadenszahlen).
 - **Tote Gegner sofort ausblenden.** Beim Client bleiben sie rund 15 s als Objekte stehen. Bei HP 0 lokal
   verstecken und Kollision lösen, das Zerstören bleibt Sache der Replikation. **Zuständig:** `gegnertyp`, `opt-gegnerzahl`.
   **Ergebnis `gegnertyp` (06.11.2026): nicht nötig.** Die stehenden Objekte haben schon `bActorIsBeingDestroyed`, sind aus
   `Level->Actors` entfernt und unsichtbar; der Host behält seine genauso bis zur Garbage Collection. Gegner-HP repliziert beim
-  Client gar nicht (dort 0/0), ein HP-0-Auslöser wäre also falsch. [Befund](GAME_ANALYSIS.md#ein-gegnertyp-synchron-gegnertyp)
+  Client gar nicht (dort 0/0), ein HP-0-Auslöser wäre also falsch. [Befund](archive/GAME_ANALYSIS.md#ein-gegnertyp-synchron-gegnertyp)
 - **Eigene Schüsse sofort anzeigen.** Eine rein kosmetische Vorhersage des eigenen Projektils beim Client, bis das
   replizierte eintrifft. Nur, wenn der Latenztest (`-NetProfile Internet`) die Verzögerung als störend zeigt;
   Treffer bleiben beim Host. **Zuständig:** `opt-client-visuell`.
@@ -168,7 +168,7 @@ unveränderte Treffer/HP. **Zuständig:** `kampf`, `vfx-sound`, `opt-client-visu
 
 **Quellen:** [MovementPatches.cpp](../src/Game/MovementPatches.cpp), `RestoreDashSettings`
 liest Klassen-Defaults, `FollowReplicatedLocation` extrapoliert bereits lokal;
-[TODO](../TODO.md#optionale-optimierungen), gemeldete fehlende Tempo-Upgrades.
+[TODO](../TODO.md#verbesserungen), gemeldete fehlende Tempo-Upgrades.
 
 **Ziel:** Spielwirksame bestätigte Bewegungsparameter müssen den lokalen nativen Bewegungspfad
 erreichen. Defaults dürfen nicht unbemerkt bestätigte Modifikatoren ersetzen; ob der aktuelle
@@ -217,7 +217,7 @@ falsches Inventar werten; echte Feldabweichungen nicht durch pauschales Ausschli
 **Abnahme:** offene Vorschau ohne Fehlalarm, absichtlich falscher bestätigter Slot mit Alarm,
 Ablehnung/Travel/Disconnect. **Zuständig:** `opt-desync-pivot` und `werkbank-client`, mit vorhandener Diagnose.
 **Stand 21.11.2026:** Offene Vorschau ohne Fehlalarm über `opt-desync-bearbeitung`, Position und Drehung außerhalb des Rucksacks
-nicht mehr im Messfeld über `opt-desync-pivot`, [Befunde](GAME_ANALYSIS.md#desync-melder-in-offenen-bearbeitungen-opt-desync-bearbeitung).
+nicht mehr im Messfeld über `opt-desync-pivot`, [Befunde](archive/GAME_ANALYSIS.md#desync-melder-in-offenen-bearbeitungen-opt-desync-bearbeitung).
 
 ## Keine unnötigen Umbauten
 

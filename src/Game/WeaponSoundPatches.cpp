@@ -10,7 +10,7 @@
 // Nachladen: läuft in derselben Feuerschleife, ohne repliziertes Signal. Der Host meldet jeden Aufruf von AHands.PlayReloadSound
 // (0xB00, WeaponSoundAdapter.h), der Client ruft die native Funktion an seinen eigenen Händen auf.
 //
-// Zielwahl, Schuss, Munition und Schaden bleiben beim Host. Befund: docs/GAME_ANALYSIS.md#waffensounds-beim-client-opt-waffen-sound
+// Zielwahl, Schuss, Munition und Schaden bleiben beim Host. Befund: docs/archive/GAME_ANALYSIS.md#waffensounds-beim-client-opt-waffen-sound
 #include <windows.h>
 
 #include <array>

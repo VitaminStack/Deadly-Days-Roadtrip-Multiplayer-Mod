@@ -4,7 +4,7 @@ Zeigt je WP_PlayerPortrait_C die Outer-Kette, den Controller (lokal mit LocalPla
 IndexFindAttempts, das Bild der Figur (Textur des Materials an BlinkingChar) und den farbigen Hintergrund
 (Vektorparameter `Color` des Materials an ColorableBackground) samt Zuordnung zur Spielerfarbe P1 (Blau) oder P2 (Gruen).
 Mit --overlay nur die Porträts im Spieler-HUD (WP_PlayerOverlay_C). Schreibt nichts, ruft nichts.
-Befund und Offsets: docs/GAME_ANALYSIS.md#hud-porträt-opt-portraet."""
+Befund und Offsets: docs/archive/GAME_ANALYSIS.md#hud-porträt-opt-portraet."""
 import struct
 import sys
 

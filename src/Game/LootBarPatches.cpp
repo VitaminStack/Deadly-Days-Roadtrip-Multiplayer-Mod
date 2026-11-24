@@ -1,7 +1,7 @@
 // opt-lootbalken, Client: Fortschrittsbalken beim Durchsuchen von Lootstellen. Progress und IsLooting von
 // BP_EnvironmentObjectLootspot replizieren, aber nur der Host bringt den Wert ins Widget. Lokal zuerst: Der Client reicht den
 // replizierten Wert an das native Blueprint „Update Progress Indicator“ weiter. Kein eigener Timer, keine Nachricht, kein neuer Hook,
-// Loot-Vergabe und Ende bleiben beim Host. Befund: docs/GAME_ANALYSIS.md#lootbalken-beim-client-opt-lootbalken
+// Loot-Vergabe und Ende bleiben beim Host. Befund: docs/archive/GAME_ANALYSIS.md#lootbalken-beim-client-opt-lootbalken
 #include <windows.h>
 
 #include <array>

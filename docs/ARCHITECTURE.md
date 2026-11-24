@@ -1,6 +1,6 @@
 # Architektur
 
-Grundlage sind die Fakten aus [GAME_ANALYSIS.md](GAME_ANALYSIS.md). Dieses Dokument enthält
+Grundlage sind die Fakten aus den [Themen](themen/README.md). Dieses Dokument enthält
 Zielarchitektur und datierte historische Untersuchungen; deren damalige Testgrenzen bleiben erhalten.
 `src/` enthält inzwischen produktive Adapter, Patches und Kontroll-Sync, nicht nur ein Grundgerüst.
 
@@ -36,7 +36,7 @@ geprüft werden; voneinander unabhängige Gewinnerzeugung/Verbrauch ist keine Vo
 Snapshots für Join, Travel, Reconnect und Reparatur sind notwendig und kein Verstoß gegen „minimal“.
 Gleicher Seed allein beweist keine deterministische Spielwirkung oder gleiche Kollision.
 
-Prüfliste für neue Änderungen steht in [CLAUDE.md](../CLAUDE.md#verbindliches-architekturprinzip-lokal-zuerst-minimal-synchronisieren).
+Prüfliste für neue Änderungen steht in [CLAUDE.md](#verbindliches-architekturprinzip-lokal-zuerst-minimal-synchronisieren).
 Der [projektweite Quellcode-Audit](CLIENT_LOCAL_AUDIT.md) nennt konkrete Fundstellen,
 bestehende Aufgaben und Testbedingungen. Die Umsetzung bleibt bei diesen Aufgaben; kein Big-Bang-Umbau.
 
@@ -118,7 +118,7 @@ Details, Fehlversuche und Belege stehen im [Nachtrag](../research/spikes/andockp
 
 ## Synchronisierung: zwei Wege
 
-**Gate G1 ist am 04.11.2026 durch den Nutzer entschieden:** Weg A (native UE-Replikation) ist die verbindliche Grundlage. Ein eigener Kontroll-/Sync-Kanal ergänzt XP, Währungen, Rewards, Pausen und UI, die das Spiel nicht ausreichend repliziert. Diese Ergänzungen machen die Architektur zum unten beschriebenen Hybrid; sie ersetzen nicht die native Replikation durch Weg B. Siehe [Entscheidungen](#entscheidungen) und [TODO.md](../TODO.md#erledigt).
+**Gate G1 ist am 04.11.2026 durch den Nutzer entschieden:** Weg A (native UE-Replikation) ist die verbindliche Grundlage. Ein eigener Kontroll-/Sync-Kanal ergänzt XP, Währungen, Rewards, Pausen und UI, die das Spiel nicht ausreichend repliziert. Diese Ergänzungen machen die Architektur zum unten beschriebenen Hybrid; sie ersetzen nicht die native Replikation durch Weg B. Siehe [Entscheidungen](#entscheidungen) und [TODO.md](ERLEDIGT.md#erledigt).
 
 ### Weg A: Native UE-Replikation (festgelegt)
 
@@ -252,7 +252,7 @@ Client-Anzeige darf keine `AddExperience`-/`AddAmount`-Replays und keine normale
 Speicher-/Erfolgsroutinen ausloesen. Item-/Session-IDs, Run-Epoche, Revisionen und
 Anfrage-Deduplizierung sind verbindliche Anforderungen an die Umsetzung.
 Die Netzwerk-Transportbindung, XP-Einheit und gemeinsame Kontozuordnung sind
-noch zu klaeren. Fuer Meta-Fortschritt gilt seit der Nutzervorgabe vom 06.11.2026
+noch zu klaeren. Fuer Meta-Fortschritt gilt seit [E-02](ENTSCHEIDUNGEN.md#e-02-meta-fortschritt-des-hosts-gilt)
 der Stand des Hosts fuer beide Spieler im gemeinsamen Run, ohne dauerhafte
 Meta-Gutschrift oder Profiluebernahme beim Client. Entscheidung und noch offene
 Umsetzung: [Meta-Fortschritt des Hosts](SYNC_REQUIREMENTS.md#nutzervorgabe-meta-fortschritt-des-hosts-06112026).
@@ -299,3 +299,27 @@ Jede größere Technikentscheidung bekommt hier eine Zeile.
 | 02.11.2026 | Build-Erkennung über den PE-Header der Exe | Steht im Speicher, das Steam-Manifest müsste die Mod erst suchen | Festgelegt |
 | 02.11.2026 | MinHook für Hooks, als Quellkopie im Repo | Klein, passt zu C++20, Klonen und CI brauchen keinen Zusatzschritt | Festgelegt |
 | 04.11.2026 | Gate G1: Weg A als Grundlage, eigener Kontroll-/Sync-Kanal für XP, Währungen, Rewards, Pausen und UI (gezielter Hybrid) | Spikes A/B funktionieren, Loopback-Last ist tragbar, Run-/Endlos-Stand akzeptiert; deutlich weniger Eigenbau als Weg B | Vom Nutzer verbindlich bestätigt; `gate-g1` abgeschlossen |
+
+## Verbindliches Architekturprinzip: lokal zuerst, minimal synchronisieren
+
+Nutzervorgabe vom 05.11.2026, projektweit: **Möglichst viel vorhandene Logik und Darstellung lokal
+beim Client ausführen und nur das für Multiplayer notwendige Minimum zwischen Host und Clients teilen.**
+Ziel sind weniger Sonderfälle, Fehler und Entwicklungsaufwand, nicht bloß möglichst wenige Bytes.
+
+- Native lokale Abläufe wiederverwenden: UI, Drag/Rotation, Platzierungsvorschau, Layout, Kamera,
+  Animation, VFX/Sound und aus bestätigten Daten ableitbare Zustände brauchen keinen Host-Fernsteuerpfad.
+- Pro gemeinsamem Spielzustand genau eine verbindliche Zuständigkeit behalten. Vergabe/Verbrauch,
+  gemeinsame XP/Währungen, Schaden, Gegner und Weltfortschritt nicht unabhängig auf beiden Seiten buchen.
+  Lokale Vorhersage/Vorprüfung ist erlaubt, ein bestätigtes Ergebnis muss sie abgleichen oder zurücknehmen.
+- Zuerst vorhandene native Replikation nutzen. Eigene Nachrichten nur für nachgewiesene Lücken;
+  keine parallele zweite Autorität oder zweite Replikation desselben Zustands aufbauen.
+- Zusammengehörige Änderungen als einen fachlichen Vorgang behandeln, etwa Itemwahl, Rucksackverbrauch
+  und neue Felder. Stabile IDs, Sitzung/Revision und Bestätigung statt Objektzeigern oder Widgetzuständen.
+- Unveränderte ableitbare Anzeige nicht ständig übertragen. Änderungen/Ereignisse und nötige
+  Start-/Wiederherstellungsbilder reichen, sofern Verlust, Join, Travel und Reconnect abgesichert bleiben.
+- Vor jedem neuen Sync-/Hook-Pfad festhalten: Was bleibt lokal? Was muss geteilt werden und warum?
+  Wer entscheidet? Welcher bestehende Weg wird wiederverwendet/ersetzt? Wie werden Ablehnung,
+  Wiederholung und Zustandsneuaufbau getestet? Kein breiter Umbau ohne belegten Nutzen.
+
+Grenzen und priorisierte Fundstellen: [Client-lokal-Audit](CLIENT_LOCAL_AUDIT.md).
+Die native Replikationsgrundlage aus Gate G1 und die gemeinsame Kamera bleiben bestehen.

@@ -2,6 +2,7 @@
 
   py tools/tasks.py list                              Offene Kennungen mit Status
   py tools/tasks.py list --active                     Nur aktiv reservierte Entwicklungsaufgaben
+  py tools/tasks.py list --short                      Kurz: Kennung und Status, Optionen und Tests nur gezaehlt
   py tools/tasks.py tests [list|plan] [<kennung> ...]  Bestaetigungstests getrennt anzeigen oder buendeln
   py tools/tasks.py tests pending <kennung> --note "Stand"   Auf Bestaetigungstest setzen
   py tools/tasks.py tests update <kennungen> --note "Stand"  Teststand aktualisieren
@@ -35,9 +36,9 @@ import time
 from pathlib import Path
 
 if __package__:
-    from .task_status import PHASES, PRIOS, EXTRA_SECTIONS, blockers, confirmation_update, deferred, mark_done, parse, regenerate
+    from .task_status import PHASES, PRIOS, EXTRA_SECTIONS, blockers, confirmation_update, deferred, mark_done, parse, regenerate, combine, read_local, write_local, DONE_FILE
 else:
-    from task_status import PHASES, PRIOS, EXTRA_SECTIONS, blockers, confirmation_update, deferred, mark_done, parse, regenerate
+    from task_status import PHASES, PRIOS, EXTRA_SECTIONS, blockers, confirmation_update, deferred, mark_done, parse, regenerate, combine, read_local, write_local, DONE_FILE
 
 STALE_DAYS = 3
 ROLES = ('host', 'client')
@@ -63,7 +64,10 @@ def repo_root():
 
 
 def todo_text():
-    return git('show', 'origin/main:TODO.md').stdout
+    """TODO.md und docs/ERLEDIGT.md von origin/main als ein Text; fehlt ERLEDIGT.md dort noch, nur TODO.md."""
+    todo = git('show', 'origin/main:TODO.md').stdout
+    shown = git('show', f'origin/main:{DONE_FILE}', check=False)
+    return combine(todo, shown.stdout if shown.returncode == 0 else '')
 
 
 def plain(text):
@@ -192,10 +196,21 @@ def active_work(kennung, branches, prs, own_branch=None):
     return False
 
 
-def cmd_list(active_only=False):
+def cmd_list_short(tasks, branches, prs):
+    """Eine Zeile je offener Aufgabe (Kennung und Status), Bestaetigungstests nur gezaehlt."""
+    for kennung, task in tasks.items():
+        if not task.done:
+            print(f'  {kennung} {status(kennung, branches, prs, tasks)}'[:80])
+    print(f'Bestätigungstests: {sum(bool(t.confirmation) for t in tasks.values())} (tasks.py tests list)')
+
+
+def cmd_list(active_only=False, short=False):
     git('fetch', '-q', '--prune', 'origin')
     tasks = todo_tasks()
     branches, prs = remote_branches(), pull_requests()
+    if short:
+        cmd_list_short(tasks, branches, prs)
+        return
     if prs is None:
         print('Hinweis: GitHub CLI fehlt oder ist nicht angemeldet. Abschluss aus TODO.md, '
               'Reservierungen aus Branches; PR-Status unbekannt.')
@@ -211,11 +226,11 @@ def cmd_list(active_only=False):
         print(f'  {kennung:<20} {status(kennung, branches, prs, tasks):<44} {plain(task.text)[:70]}')
     pending = [t for t in tasks.values() if t.confirmation]
     if pending and not active_only:
-        print('\nBestätigungstests ausstehend (nicht in Arbeit)')
+        print('\nBestätigungstests ausstehend (nur Info, erledigt, blockieren nichts)')
         for task in pending:
             print(f'  {task.name:<20} {status(task.name, branches, prs, tasks):<44} {plain(task.confirmation)}')
     done = sum(task.done for task in tasks.values())
-    print(f'\nErledigt: {done} Aufgaben, siehe TODO.md#erledigt')
+    print(f'\nErledigt: {done} Aufgaben, siehe {DONE_FILE}')
     extra = sorted({split_branch(name)[0] for name in branches} - set(tasks))
     if extra and not active_only:
         print('\nBranches ohne Kennung in TODO.md')
@@ -234,9 +249,6 @@ def cmd_claim(kennung, name, role=None):
     task = tasks.get(kennung)
     if task and task.done:
         sys.exit(f'{kennung} ist laut TODO.md erledigt. Keine neue Reservierung.')
-    if task and task.confirmation:
-        sys.exit(f'{kennung}: Bestätigungstest ausstehend, nicht in Arbeit. Mit "tasks.py tests" planen/aktualisieren; '
-                 'bei fehlgeschlagener Abnahme erst mit "tests reopen" wieder oeffnen.')
     if role and (task is None or task.mode != PAIR_MODE):
         sys.exit(f'{kennung} ist keine Aufgabe "{PAIR_MODE}". Ohne Rolle reservieren.')
     pr = prs.get(kennung) if prs else None
@@ -501,7 +513,7 @@ def cmd_show(kennung):
     tasks, source = todo_tasks(), 'origin/main'
     if kennung not in tasks:
         # Neu angelegte Aufgaben stehen erst im eigenen Branch.
-        tasks, source = parse((worktree_root() / 'TODO.md').read_text(encoding='utf-8')), 'lokaler TODO.md'
+        tasks, source = parse(read_local(worktree_root())), 'lokaler TODO.md'
     task = tasks.get(kennung)
     if task is None:
         sys.exit(f'{kennung} steht weder auf origin/main noch im lokalen TODO.md.')
@@ -517,14 +529,12 @@ def cmd_done(kennung, result):
     branch = git('rev-parse', '--abbrev-ref', 'HEAD').stdout.strip()
     if branch.split('/')[:2] != ['task', kennung]:
         sys.exit(f'Nur im eigenen Worktree auf task/{kennung}, hier ist {branch}.')
-    path = root / 'TODO.md'
-    text = path.read_bytes().decode('utf-8')
-    path.write_bytes(mark_done(text, kennung, result).encode('utf-8'))
+    write_local(root, mark_done(read_local(root), kennung, result))
     stale = regenerate(root)
     if regenerate(root, check=True):
         sys.exit('task_status check schlaegt nach dem Erneuern fehl.')
     print(f'{kennung} steht unter Erledigt. Erneuert: ' + (', '.join(p.name for p in stale) or 'nichts weiter'))
-    print('Weiter: docs/ROADMAP.md anpassen, committen, PR fertigstellen.')
+    print('Weiter: committen, PR fertigstellen.')
 
 
 def cmd_tests(args):
@@ -549,8 +559,7 @@ def cmd_tests(args):
     if reading and prs is None:
         print('Hinweis: PR-Status unbekannt; Verfuegbarkeit vor dem Termin erneut pruefen.')
     root = worktree_root()
-    path = root / 'TODO.md'
-    todo = path.read_bytes().decode('utf-8') if not reading or options.local else todo_text()
+    todo = read_local(root) if not reading or options.local else todo_text()
     selected_tasks = parse(todo)
     own_branch = None if reading else git('rev-parse', '--abbrev-ref', 'HEAD').stdout.strip()
     if not reading and not own_branch.startswith('task/'):
@@ -559,7 +568,7 @@ def cmd_tests(args):
     available, excluded = [], []
     for name in names:
         task = selected_tasks.get(name)
-        if task is None or task.done or (options.action != 'pending' and not task.confirmation):
+        if task is None or (task.done if options.action == 'pending' else not task.confirmation):
             sys.exit(f'{name}: kein passender offener Bestaetigungstest')
         reason = ('aktive fremde Arbeit' if active_work(name, branches, prs, own_branch) else
                   'blockiert, braucht ' + ', '.join(blockers(task, selected_tasks)) if blockers(task, selected_tasks) and
@@ -570,18 +579,8 @@ def cmd_tests(args):
             excluded.append(f'{name}: {reason}')
         else:
             available.append(name)
-    if options.all and options.action == 'pass':
-        # Ein Batch darf gemeinsam Abhaengigkeiten abschliessen. Fehlt ein benoetigter Test (etwa weil aktiv
-        # reserviert), dessen ganze abhaengige Kette ebenfalls auslassen, nicht einen halben Abschluss versuchen.
-        while True:
-            blocked = [name for name in available if any(n not in available for n in blockers(selected_tasks[name], selected_tasks))]
-            if not blocked:
-                break
-            for name in blocked:
-                available.remove(name)
-                excluded.append(f'{name}: blockiert, braucht ' + ', '.join(blockers(selected_tasks[name], selected_tasks)))
     if reading:
-        print('Bestätigungstests ausstehend (nicht in Arbeit; kein Spielstart)')
+        print('Bestätigungstests ausstehend (nur Info, blockieren nichts; kein Spielstart)')
         for name in available:
             task = selected_tasks[name]
             if options.action == 'plan':
@@ -592,7 +591,7 @@ def cmd_tests(args):
     elif available:
         # Erst alle Kennungen pruefen, dann einmal schreiben; nie einen halben Batch bei falschen Kennungen anwenden.
         updated = confirmation_update(todo, available, options.action, options.note)
-        path.write_bytes(updated.encode('utf-8'))
+        write_local(root, updated)
         regenerate(root)
         if regenerate(root, check=True):
             sys.exit('task_status check schlaegt nach dem Erneuern fehl.')
@@ -611,6 +610,8 @@ def main():
             cmd_list()
         elif args == ['list', '--active']:
             cmd_list(active_only=True)
+        elif args == ['list', '--short']:
+            cmd_list(short=True)
         elif args[:1] == ['tests']:
             cmd_tests(args[1:])
         elif args[:1] == ['show'] and len(args) == 2:

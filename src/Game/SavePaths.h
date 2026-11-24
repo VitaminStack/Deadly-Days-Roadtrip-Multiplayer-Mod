@@ -1,7 +1,7 @@
 #pragma once
 
 // Reine Pfadlogik der Spielstand-Umleitung (mod-saves), ohne Windows- und Spielaufrufe, damit sie testbar bleibt.
-// Alles unter <Saved>\SaveGames geht mit der Mod nach <Saved>\SaveGames_DDCoop, siehe docs/GAME_ANALYSIS.md.
+// Alles unter <Saved>\SaveGames geht mit der Mod nach <Saved>\SaveGames_DDCoop, siehe docs/archive/GAME_ANALYSIS.md.
 #include <cwctype>
 #include <optional>
 #include <string>

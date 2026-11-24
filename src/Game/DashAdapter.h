@@ -2,7 +2,7 @@
 #include <cstdint>
 #include <vector>
 
-// Laufrichtung des Clients für seinen Dodge (GA_Dash) beim Host, Befund in docs/GAME_ANALYSIS.md, Abschnitt
+// Laufrichtung des Clients für seinen Dodge (GA_Dash) beim Host, Befund in docs/archive/GAME_ANALYSIS.md, Abschnitt
 // `dodge-client-live`. Die Engine repliziert die Eingabe nicht; der Host sah die Client-Figur ohne Tempo und Beschleunigung.
 // Der Client meldet je eigener Aktivierung die Eingabe, die sein GA_Dash liest. Zugeordnet wird über den
 // Vorhersageschlüssel der Aktivierung, den Client und Host gleich sehen. Nur Game Thread.

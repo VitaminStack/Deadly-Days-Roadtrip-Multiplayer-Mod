@@ -1,7 +1,7 @@
 # Checkliste Live-Test zu zweit (zwei PCs)
 
 Stand 22.11.2026, Spiel-Build `26786272`, Mod-Version **16**. Die Liste bündelt alle offenen Bestätigungstests
-(`py tools/tasks.py tests plan`) und die Zeilen unter [Live-Bestätigung ausstehend](../TODO.md#live-bestätigung-ausstehend) in
+(`py tools/tasks.py tests plan`) und die Zeilen unter [Live-Bestätigung ausstehend](PROZESS.md#live-bestätigung-ausstehend) in
 der Reihenfolge, in der sie in einem Run vorkommen. Je Punkt steht, was der Tester tut, was er sehen oder hören muss und welche
 Logzeile den Punkt belegt. Abgehakt wird erst nach der Auswertung der Logs; bis dahin bleibt die Aufgabe in `tests plan`.
 

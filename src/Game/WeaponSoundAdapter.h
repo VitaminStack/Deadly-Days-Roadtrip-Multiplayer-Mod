@@ -8,7 +8,7 @@
 // (AHands::FireIfPossible), die WeaponInstance repliziert nicht, der Client sieht davon nichts. Der Host meldet darum jeden Aufruf
 // von AHands.PlayReloadSound mit den Händen (NetGUID) und dem Namen des Sounds, der Client ruft damit dieselbe native Funktion an
 // seinen eigenen replizierten Händen auf: Ort, Standardsound und Abspielen bleiben lokal. Der Schusssound braucht keine Nachricht,
-// siehe WeaponSoundPatches.cpp. Befund: docs/GAME_ANALYSIS.md#waffensounds-beim-client-opt-waffen-sound. Nur Game Thread.
+// siehe WeaponSoundPatches.cpp. Befund: docs/archive/GAME_ANALYSIS.md#waffensounds-beim-client-opt-waffen-sound. Nur Game Thread.
 namespace Game
 {
 struct ReloadSound

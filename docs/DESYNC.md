@@ -13,14 +13,14 @@ der Adapter nur Speicher. Er läuft ausschließlich auf dem Game Thread.
 | Phase | 0 = laufend, 1 = pausiert (`TimeDilation`/`PauserPlayerState`) | Keine Unterscheidung von Lager, Route oder Rundenübersicht |
 | Spieler | Anzahl gültiger `DDPlayerState`s im PlayerArray | Höchstens zwei; fehlende NetGUIDs machen das Feld unbekannt |
 | HP | NetGUID, aktuelle/maximale HP je Spieler, auf Zehntel gerundet | Keine vollständigen Attribute/Buffs |
-| Gegner | Sichtbare `EnemyBase`-Actors in `Level->Actors` des PersistentLevel, ohne gerade zerstörte | Keine Streaming-Level; seit `gegnertyp` im Abgleich, bei Wellen kurz „offen Gegner“, [Befund](GAME_ANALYSIS.md#ein-gegnertyp-synchron-gegnertyp) |
+| Gegner | Sichtbare `EnemyBase`-Actors in `Level->Actors` des PersistentLevel, ohne gerade zerstörte | Keine Streaming-Level; seit `gegnertyp` im Abgleich, bei Wellen kurz „offen Gegner“, [Befund](archive/GAME_ANALYSIS.md#ein-gegnertyp-synchron-gegnertyp) |
 | Inventar | Replizierte Items und BackpackSlots je Spieler | Kein Stash, Buff-/Effektzustand, Rarität oder nicht replizierte ItemInstanceId |
 
 Items enthalten den vollständigen Asset-Pfad von ItemData, Pivot, Drehung und die
 Flags Broken/IsInBackpack/IsReward/IsTrash. Pivot und Drehung zählen nur bei Items
 im Rucksack (`opt-desync-pivot`): Außerhalb setzt sie das Panel beim Ziehen lokal,
 beim Client-Spieler kommt das nie beim Host an,
-[Befund](GAME_ANALYSIS.md#rasterposition-außerhalb-des-rucksacks-im-desync-melder-opt-desync-pivot). Slots enthalten Koordinaten und den
+[Befund](archive/GAME_ANALYSIS.md#rasterposition-außerhalb-des-rucksacks-im-desync-melder-opt-desync-pivot). Slots enthalten Koordinaten und den
 Inhaltshash ihres Occupier. FNV-1a über explizite Little-Endian-Zahlen und
 längenmarkierte UTF-8-Namen, danach sortierte Multiset-Hashes: Reihenfolge ist
 egal, doppelte Inhalte bleiben erhalten. Keine Prozessadressen, lokalen
@@ -58,7 +58,7 @@ nicht geraten. Damit kann die Inventarprüfung offen bleiben; das ist kein OK.
   - Ein Unterschied der Gegnerzahl, der ohne die Sperre ein Alarm wäre, steht einmal als Info im Log des Clients
     („Gegner in offener Bearbeitung nicht gemeldet, host=… client=…“). HP, Spieler, Tag und Phase werden weiter gemeldet.
   - Grenze: Pausen ohne Panel des Clients (Pausemenü, Panel nur beim Host) sperren nichts.
-  [Befund und Messung](GAME_ANALYSIS.md#desync-melder-in-offenen-bearbeitungen-opt-desync-bearbeitung)
+  [Befund und Messung](archive/GAME_ANALYSIS.md#desync-melder-in-offenen-bearbeitungen-opt-desync-bearbeitung)
 - Welt/State/NetGUID/Tag/Peer/Rolle-Wechsel löschen Messung, Stabilität und Alarme.
   Ohne frische Gegenmessung nach zehn Sekunden kein OK und kein alter Alarm.
 - Abweichungen mit Hashwerten im Host-Log, Zusammenfassung auf beiden Seiten im

@@ -3,7 +3,7 @@
 // den Server-RPC ADDCharacter.ProxyRotateTowards, also nur beim Host. Beim Client bleibt der Winkel 0, beide Figuren zeigen dauerhaft
 // den Rücken. Die Drehung des Hände-Actors repliziert aber nativ. Lokal zuerst: Der Client trägt den Gierwinkel dieser replizierten
 // Drehung als Winkel ein, das native Mesh rechnet daraus die Ansicht wie beim Host. Keine Nachricht, kein Hook, kein Aufruf; Ziel-
-// wahl, Schüsse und Schaden bleiben beim Host. Befund: docs/GAME_ANALYSIS.md#blickrichtung-beim-client-opt-blickrichtung-client
+// wahl, Schüsse und Schaden bleiben beim Host. Befund: docs/archive/GAME_ANALYSIS.md#blickrichtung-beim-client-opt-blickrichtung-client
 #include <windows.h>
 
 #include <array>

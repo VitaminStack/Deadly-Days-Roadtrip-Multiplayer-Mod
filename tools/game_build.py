@@ -12,7 +12,7 @@ import tempfile
 RECEIPT = '.ddcoop-build.json'
 # Standard fuer Skripte ohne --build. Weitere unterstuetzte Builds stehen in REFERENCES.
 BUILD = '26786272'
-# Lokal belegte Referenzen je Build aus docs/GAME_ANALYSIS.md, keine Versionsangabe aus einer editierbaren ACF.
+# Lokal belegte Referenzen je Build aus docs/archive/GAME_ANALYSIS.md, keine Versionsangabe aus einer editierbaren ACF.
 REFERENCES = {
   # update-basis-26786272, 20.11.2026: Patch 1.0.3 vom 19.11.2026, Depot 3026452 Manifest 4188926129224131155. Auch global.* geaendert.
   '26786272': {

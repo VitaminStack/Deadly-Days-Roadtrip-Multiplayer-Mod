@@ -5,7 +5,7 @@
 #include <span>
 
 // Code- und Datenadressen je Spiel-Build. Der Quelltext nennt alle RVAs des Referenz-Builds, des einzigen unterstützten Builds
-// (Nutzerentscheidung vom 21.11.2026: nur noch der neueste Spiel-Build). Während eines Umstiegs kann eine von tools/rva_map.py
+// (Entscheidung E-07 in docs/ENTSCHEIDUNGEN.md: nur noch der neueste Spiel-Build). Während eines Umstiegs kann eine von tools/rva_map.py
 // erzeugte Tabelle RvaMap<build>.inc einen weiteren Build umrechnen (in Table eintragen). Fehlt eine Adresse, ist das Ergebnis 0:
 // Die Byte-Prüfungen der Patches schlagen dann fehl und keine Patch-Liste wird halb gesetzt.
 // constexpr, damit SdkChecks.cpp die Werte beim Bauen gegen das SDK des Builds prüfen kann.

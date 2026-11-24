@@ -3,7 +3,7 @@
 // und zerlegt den Gegner in Chaos-Bruchstücke. Die Ability läuft nur beim Host, der Cue repliziert nicht. Lokal zuerst: Beim
 // Client kommt der zuverlässige Multicast DDCharacterBase.Multi_OnDie an; die Mod führt dann denselben Cue lokal und nicht
 // repliziert aus (UGameplayCueManager::ExecuteGameplayCue_NonReplicated). Keine Nachricht, kein neuer Hook, Tod, XP und Drops
-// bleiben beim Host. Befund: docs/GAME_ANALYSIS.md#körperteile-beim-client-opt-koerperteile
+// bleiben beim Host. Befund: docs/archive/GAME_ANALYSIS.md#körperteile-beim-client-opt-koerperteile
 #include <windows.h>
 
 #include <array>

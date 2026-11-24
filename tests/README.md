@@ -9,8 +9,7 @@ Tests für Code ohne SDK-Abhängigkeit. Sie laufen bei jedem Pull Request in Git
 | Overlay-Modell und nativer Fenster-Lebenszyklus | `tests/UITests` | `bin\Release\UITests.exe`, auch Teil von `Build-Mod.ps1 -Test` und CI; ohne Spiel/SDK |
 | Transport-Tunnel mit nachgebautem Steam | `tests/NetTests` | `bin\Release\NetTests.exe`, auch Teil von `Build-Mod.ps1 -Test` und CI; ohne Spiel/Steam |
 | Python-Tests | `tests/test_*.py` | `py -B -m unittest discover -s tests` |
-| Spike-Kerne mit MSVC `/W4 /WX`, in CI | `Run-BlockadeAuthority.ps1`, `Run-RemoteP2.ps1` | `powershell -File tests/<Skript>.ps1` |
-| Spike-Kerne, nur von Hand | `Run-AttributeReadiness.ps1`, `Run-RoundPhase.ps1`, `Run-RoundPhaseRuntime.ps1`, `Run-SpawnedPlayers.ps1` | `powershell -File tests/<Skript>.ps1`; laufen weder in CI noch in `Build-Mod.ps1 -Test` |
+| Spike-Kerne mit MSVC `/W4 /WX`, in CI | `Run-BlockadeAuthority.ps1`, `Run-RemoteP2.ps1`, `Run-AttributeReadiness.ps1`, `Run-RoundPhase.ps1`, `Run-RoundPhaseRuntime.ps1`, `Run-SpawnedPlayers.ps1` | `powershell -File tests/<Skript>.ps1`; der Spike ist nur noch Testwerkzeug, seine Kerne bleiben geprüft, solange er im Repo liegt |
 | CI-Compiler-Cache-Fallback, in CI | `Test-CiCompilerArgs.ps1` | `powershell -File tests/Test-CiCompilerArgs.ps1` |
 
 `test_module_boundaries.py` prüft die [Modulgrenzen](../docs/ARCHITECTURE.md#module) an den Includes. Ein neuer Ordner unter `src/` braucht dort einen Eintrag.

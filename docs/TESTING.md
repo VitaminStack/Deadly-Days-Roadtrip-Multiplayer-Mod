@@ -72,8 +72,7 @@ also nur `-Tunnel Lobby` und die MetaBase als Ziel, kein `-Godmode`, kein fester
 in der ersten Mission. Ein frischer Test-Spielstand fährt nach „So wird gespielt“ ohne Routenkarte direkt los, sonst sucht das Skript den
 Knoten für Tag 1 in der linken Spalte. `Send-SpikeCommand` bricht in so einer Sitzung mit einer klaren Meldung ab.
 
-Erwartet ist heute Exitcode 1 mit „Figur nicht am Bus“ und verschiedenen Kachelzahlen: Die Karte vom Host gibt es nur im Spike,
-siehe [Ohne Spike](../src/Game/README.md#ohne-spike). Abstürze enden wie sonst mit Exitcode 2.
+Ohne `!finish` endet der Tag nur durch Spielen: im Host-Fenster den Tag zu Ende spielen, zum Bus, dann Rundenübersicht, Lager und Routenkarte. Am 24.11.2026 auf `26786272` (ein PC) lief das bis Tag 2 ohne Absturz, mit Rundenübersicht, Lager und Routenkarte beim Client, siehe [Spike](../src/Game/README.md#spike).
 
 ### Mod-Overlay prüfen
 
@@ -98,6 +97,7 @@ Pro PC läuft nur eine Sitzung, Spielzeit ist der Engpass. Darum:
 - **Nur neu starten, was nötig ist.** `Restart-Instance.ps1` startet nur den Client neu (etwa 20 s). `-Build` nur, wenn sich der Spike geändert hat.
   Hält der Host direkt nach dem Beenden noch die alte Verbindung („Der Host hat schon einen Mitspieler“), erstellt er eine neue Lobby und
   der Client tritt ihr bei, das macht das Skript selbst.
+- **Logs zuerst kurz lesen.** `Collect-Logs.ps1` legt je Mod-Log eine `*.summary.txt` an (`py tools/log_summary.py <log>`): Warnungen, Fehler, Abstürze und Patch-Listen. Zuerst sie lesen, das volle Log nur abschnittsweise.
 - **Kurz ausgeben.** `Start-Session.ps1`, `Restart-Instance.ps1`, `Get-Status.ps1`, `Start-Run.ps1` und `Travel-Day.ps1` kennen `-Brief`:
   eine Zeile je Instanz (Karte, Spieler, Rolle), eine für Inventar und eine für Abstürze. Volle Ausgabe und Bilder nur ansehen, wenn
   etwas nicht stimmt. `Travel-Day.ps1` wartet auf die neue Karte mit beiden Spielern statt fest 35 s, meist reichen 10 s.
@@ -326,10 +326,10 @@ Von Hand geht es so:
 
 In einem frischen `UserDir` kommen vorher Tutorial-Dialoge („Fortsetzen“ unter der Sprechblase) und die Seite „So wird gespielt“ (Knopf bei (398, 417)).
 Danach öffnet sich direkt die Routenkarte, die Knoten für Tag 1 liegen in der linken Spalte, etwa bei (62, 113).
-Für eine reproduzierbare Karte vor dem Öffnen der Routenkarte `Send-Command.ps1 Host 'DD_SetCurrentRunSeed <n>'` senden, siehe [Karte und Seed](GAME_ANALYSIS.md#karte-und-seed).
+Für eine reproduzierbare Karte vor dem Öffnen der Routenkarte `Send-Command.ps1 Host 'DD_SetCurrentRunSeed <n>'` senden, siehe [Karte und Seed](archive/GAME_ANALYSIS.md#karte-und-seed).
 
 Das Pausemenü (`Esc`) hat „Zurück zum Hauptmenü“ bei (396, 266). Mit `!finish` endet die Mission beim Host, danach kommt die Routenkarte für Tag 2.
-Über die echte Route laden Tag 1 bis 4 sauber, an Tag 5 stürzt der Client ab, siehe [Pausierte Welt und Busplatz](GAME_ANALYSIS.md#pausierte-welt-und-busplatz-testumgebung). Eine `servertravel`-Schleife ersetzt die echte Route dabei nicht.
+Über die echte Route laden Tag 1 bis 4 sauber, an Tag 5 stürzt der Client ab, siehe [Pausierte Welt und Busplatz](archive/GAME_ANALYSIS.md#pausierte-welt-und-busplatz-testumgebung). Eine `servertravel`-Schleife ersetzt die echte Route dabei nicht.
 
 ### Latenz simulieren
 
@@ -364,7 +364,7 @@ Manches lässt sich auf einem PC nicht prüfen: Steam lehnt P2P zum eigenen Kont
 Dafür laufen Host und Client auf zwei PCs mit zwei Steam-Konten, je PC nur eine Instanz. Solche Aufgaben haben in
 [TODO.md](../TODO.md) die Bearbeitung **zu zweit**, etwa `tunnel-p2p`.
 Solche Tests lassen sich in einem gemeinsamen Termin bündeln. Als Planungshilfe dienen die Hinweise unter
-[Live-Sitzungen zu zweit](../TODO.md#live-sitzungen-zu-zweit).
+[Live-Sitzungen zu zweit](PROZESS.md#live-sitzungen-zu-zweit).
 
 ### Reservieren zu zweit
 
@@ -448,8 +448,8 @@ powershell -ExecutionPolicy Bypass -File tools/spike/Start-Session.ps1 -Build -M
 Die Lobby-ID gehört zu keinem Konto, verfällt mit der Lobby und kommt trotzdem nicht ins Repo. Beide brauchen denselben Stand von
 `main` und denselben Build. Der Spike läuft auf beiden Builds; `-NoSpike` bleibt für Läufe wie im Release. Bei unvollständiger Portierung eines neuen Builds kommt
 `-PartialPatches`; ohne Spike gibt es keine Konsolenbefehle wie `!finish`. Ein Rundenende geht dann über vollen Tank und Busflucht,
-den Tank füllt `py tools/spike/fuel.py <host-pid> --fill`. Ohne Eingabe geht es mit „Full Tank“ des Dev-Tabs, solange beide Figuren am Bus stehen, siehe [Rundenende auf 26669225](OFFSETS.md#rundenende-auf-26669225-rundenende-1-0-2). Ablauf und Ergebnisse eines solchen Termins:
-[Live-Test 07.11.](GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-07112026-livetest-0711).
+den Tank füllt `py tools/spike/fuel.py <host-pid> --fill`. Ohne Eingabe geht es mit „Full Tank“ des Dev-Tabs, solange beide Figuren am Bus stehen, siehe [Rundenende auf 26669225](archive/OFFSETS-ALTE-BUILDS.md#rundenende-auf-26669225-rundenende-1-0-2). Ablauf und Ergebnisse eines solchen Termins:
+[Live-Test 07.11.](archive/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-07112026-livetest-0711).
 
 ### Von Hand oder in Teilen
 
@@ -516,10 +516,10 @@ Damit niemand dieselbe Arbeit wiederholt, gehört jedes Ergebnis ins Repo, auch 
 
 | Was | Wohin |
 |---|---|
-| Wissen über das Spiel | [GAME_ANALYSIS.md](GAME_ANALYSIS.md) |
+| Wissen über das Spiel | [Themen](themen/README.md), Befunde im [Archiv](archive/GAME_ANALYSIS.md) |
 | Neue Offsets und RVAs | [OFFSETS.md](OFFSETS.md) |
-| Patch, Testablauf, gescheiterte Ansätze | README des Spikes |
-| Erledigte oder neue Aufgaben | [TODO.md](../TODO.md) |
+| Patch, Testablauf, gescheiterte Ansätze | PR-Beschreibung, Fallakte unter `docs/faelle/` |
+| Erledigte oder neue Aufgaben | [ERLEDIGT.md](ERLEDIGT.md), [TODO.md](../TODO.md) |
 | Rohdaten | `research/local/`, wird nicht committet |
 
-Ein Befund bekommt eine eigene Überschrift mit der Kennung im passenden Thema, nicht am Dateiende und nicht in einem fremden Abschnitt. In Live-Test-Berichten und Abschnitten anderer Aufgaben höchstens eine Zeile mit Link ergänzen. Dasselbe Ergebnis nicht zusätzlich in [ROADMAP.md](ROADMAP.md) wiederholen; dort nur Knoten umfärben. So berühren parallele PRs verschiedene Stellen und mergen ohne Konflikt.
+Ein Befund ändert den Ist-Zustand in der passenden Datei unter [docs/themen/](themen/README.md): ersetzen, nicht anhängen, keine datierte Überschrift. Messungen, Logauszüge und gescheiterte Versuche stehen in der PR-Beschreibung und, solange der Fehler offen ist, in der Fallakte unter `docs/faelle/`, siehe [Regeln für Doku und Abschluss](PROZESS.md#regeln-für-doku-und-abschluss). Das Archiv unter `docs/archive/` wird nicht ergänzt.

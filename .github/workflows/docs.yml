@@ -24,3 +24,9 @@ jobs:
 
       - name: Tests der Fortschrittspruefung
         run: python3 -B -m unittest tests.test_task_status
+
+      - name: Doku-Groessen und Links pruefen
+        run: python3 -B tools/doc_check.py check
+
+      - name: Tests der Doku-Pruefung
+        run: python3 -B -m unittest tests.test_doc_check

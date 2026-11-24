@@ -4,7 +4,7 @@ Fan mod that adds real online co-op to **Deadly Days: Roadtrip**. The game itsel
 online currently means Steam Remote Play, where the host streams the picture. With this mod every player runs the game on
 their own PC.
 
-**Status (24 Nov 2026):** Release 1.0, experimental, [download on the releases page](https://github.com/VitaminStack/Deadly-Days-Roadtrip-Multiplayer-Mod/releases/latest). On 17 Nov 2026 two PCs in separate households played a run over the internet through to the final victory without a crash ([test report](docs/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-17112026-livetest-1711)); on 24 Nov 2026 a run on the supported game build `26786272` (patch 1.0.3) went through 14 maps up to the HQ map ([test report](docs/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-24112026-livetest-2411)). Known issues: a client crash at an airdrop selection, a rare drop of the client and rejoining without a game restart, see [known issues](docs/INSTALL.md#known-issues-in-10).
+**Status (24 Nov 2026):** Release 1.0, experimental, [download on the releases page](https://github.com/VitaminStack/Deadly-Days-Roadtrip-Multiplayer-Mod/releases/latest). On 17 Nov 2026 two PCs in separate households played a run over the internet through to the final victory without a crash ([test report](docs/archive/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-17112026-livetest-1711)); on 24 Nov 2026 a run on the supported game build `26786272` (patch 1.0.3) went through 14 maps up to the HQ map ([test report](docs/archive/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-24112026-livetest-2411)). Known issues: a client crash at an airdrop selection, a rare drop of the client and rejoining without a game restart, see [known issues](docs/INSTALL.md#known-issues-in-10).
 
 **Contributing:** Anyone can help, no invitation needed: C++, reverse engineering, testing with two players, or docs.
 Start with [For new contributors](#for-new-contributors), free tasks are listed under [Where can I start?](TODO.md#wo-kann-ich-anfangen). Docs and the task list are written in German, but issues and pull requests in English are welcome. Fork the repo and open a pull request; for bigger changes please open an issue first.
@@ -20,11 +20,11 @@ The [roadmap graph](docs/ROADMAP.md) shows what is still open.
 
 ## Progress
 
-As of 18 Nov 2026.
+**All phases are complete** (24 Nov 2026, release 1.0). Open work is no longer planned in phases: [TODO.md](TODO.md) lists problems and improvements without dependencies.
 
-Tasks are counted per phase from [TODO.md](TODO.md), excluding maintenance, optional optimizations and Real Coop logic.
+Tasks are counted per phase from [docs/ERLEDIGT.md](docs/ERLEDIGT.md), excluding maintenance, optional optimizations and Real Coop logic.
 
-Done means listed under "Erledigt" in `TODO.md`. **Fully completed phases are highlighted green.** `py tools/task_status.py update` refreshes the graphic and the text table; `py tools/task_status.py check` and CI prevent mismatches. Claims and PRs do not change completion status.
+Done means listed under "Erledigt" in `docs/ERLEDIGT.md`. **Fully completed phases are highlighted green.** `py tools/task_status.py update` refreshes the graphic and the text table; `py tools/task_status.py check` and CI prevent mismatches. Claims and PRs do not change completion status.
 
 ![Project progress per phase; fully completed phases are highlighted green.](docs/assets/progress.svg)
 
@@ -34,19 +34,19 @@ Done means listed under "Erledigt" in `TODO.md`. **Fully completed phases are hi
 
 | Phase | Goal | Done | Progress |
 |---|---|---|---|
-| [0](TODO.md#phase-0--projekt-setup) | Same toolchain for everyone | 11 of 11 | ███████████ |
-| [1](TODO.md#phase-1--analyse-und-spikes) | Facts for gate G1 | 39 of 39 | ███████████ |
-| [2](TODO.md#phase-2--fundament) | Stable mod foundation | 5 of 5 | ███████████ |
-| [3](TODO.md#phase-3--session-und-verbindung) | Connecting via Steam | 10 of 10 | ███████████ |
-| [4](TODO.md#phase-4--vertical-slice) | Playable slice | 16 of 16 | ███████████ |
-| [5](TODO.md#phase-5--vollständiger-run) | Complete run for two | 49 of 56 | ██████████░ |
-| [6](TODO.md#phase-6--release) | Release | 9 of 10 | ██████████░ |
-| **Total** | | **139 of 147** | ██████████░ |
+| [0](docs/ROADMAP.md#gesamtweg) | Same toolchain for everyone | 11 of 11 | ███████████ |
+| [1](docs/ROADMAP.md#gesamtweg) | Facts for gate G1 | 39 of 39 | ███████████ |
+| [2](docs/ROADMAP.md#gesamtweg) | Stable mod foundation | 5 of 5 | ███████████ |
+| [3](docs/ROADMAP.md#gesamtweg) | Connecting via Steam | 10 of 10 | ███████████ |
+| [4](docs/ROADMAP.md#gesamtweg) | Playable slice | 16 of 16 | ███████████ |
+| [5](docs/ROADMAP.md#gesamtweg) | Complete run for two | 52 of 52 | ███████████ |
+| [6](docs/ROADMAP.md#gesamtweg) | Release | 9 of 9 | ███████████ |
+| **Total** | | **142 of 142** | ███████████ |
 
 </details>
 
 `src/` holds the loader, core, the Steam network layer, an in-game tested [mod overlay](src/UI/README.md) and the
-[game adapter layer](src/Game/README.md) with the co-op patches. Tasks differ in size, so the numbers say little about the remaining time. Status, bottlenecks and next steps are in the [roadmap](docs/ROADMAP.md#stand-und-nächste-schritte).
+[game adapter layer](src/Game/README.md) with the co-op patches. Tasks differ in size, so the numbers say little about the remaining time. Status, bottlenecks and next steps are in the [roadmap](docs/ROADMAP.md#stand).
 
 ## Install (players)
 
@@ -58,7 +58,7 @@ Download `DDCoop-<version>.zip` from the [releases page](https://github.com/Vita
 |---|---|
 | [TODO.md](TODO.md) | Roadmap, phases, gates and open tasks |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Graph: what is still open until the mod is finished |
-| [docs/GAME_ANALYSIS.md](docs/GAME_ANALYSIS.md) | What we know about the game, with evidence and confidence |
+| [docs/themen/](docs/themen/README.md) | Current state per topic (network, players, travel, inventory, enemies, visuals), with code and tests; dated findings in `docs/archive/` |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Technical options, decisions, module boundaries |
 | [docs/OFFSETS.md](docs/OFFSETS.md) | Offsets and function addresses of the supported build |
 | [docs/SETUP.md](docs/SETUP.md) | Setting up the development environment |
@@ -97,7 +97,7 @@ writing into the same files (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 
 Nobody has to repeat the analysis so far. Results, offsets, patches and test scripts are in the repo.
 
-1. Install the game in Steam and bring it to the [supported version](docs/GAME_ANALYSIS.md#unterstützte-spielversion).
+1. Install the game in Steam and bring it to the [supported version](docs/themen/SPIEL_UND_SDK.md).
 2. Work through [docs/SETUP.md](docs/SETUP.md): set up, check with `tools/Test-Setup.ps1`, build the solution, run the tests.
 3. Start a test session as described in [docs/TESTING.md](docs/TESTING.md); then the current state runs on your machine.
 4. Read [CONTRIBUTING.md](CONTRIBUTING.md) and pick a task from [Where can I start?](TODO.md#wo-kann-ich-anfangen).

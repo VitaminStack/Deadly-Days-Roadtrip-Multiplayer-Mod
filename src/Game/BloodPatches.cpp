@@ -2,7 +2,7 @@
 // AEnemyBase::ActivateDeathVFX, die Ability läuft nur bei ihm. Der Host sendet aber für jeden Tod den nativen zuverlässigen
 // Multicast DDCharacterBase.Multi_OnDie, der beim Client heute in einem leeren Blueprint-Ereignis endet. Lokal zuerst: Kommt er
 // für einen Gegner an, ruft der Client dessen natives ActivateDeathVFX selbst auf. Keine Nachricht, kein neuer Hook, Schaden, Tod
-// und Drops bleiben beim Host. Befund: docs/GAME_ANALYSIS.md#blut-beim-client-opt-blut
+// und Drops bleiben beim Host. Befund: docs/archive/GAME_ANALYSIS.md#blut-beim-client-opt-blut
 #include <windows.h>
 
 #include <array>

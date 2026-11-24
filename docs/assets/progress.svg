@@ -58,34 +58,34 @@
       <text x="846" y="274">Completed</text>
     </g>
     <g id="phase-5">
-      <rect y="292" width="1000" height="48" fill="#ffffff"/>
+      <rect y="292" width="1000" height="48" fill="#dcfce7"/>
       <path d="M0 340H1000" stroke="#d1d5db"/>
       <text x="20" y="322">5</text>
       <text x="125" y="322">Complete run for two</text>
-      <text x="490" y="322">49 of 56</text>
+      <text x="490" y="322">52 of 52</text>
       <rect x="630" y="307" width="200" height="18" rx="4" fill="#e5e7eb"/>
-      <rect x="630" y="307" width="175" height="18" rx="4" fill="#64748b"/>
-      <text x="846" y="322">87 %</text>
+      <rect x="630" y="307" width="200" height="18" rx="4" fill="#15803d"/>
+      <text x="846" y="322">Completed</text>
     </g>
     <g id="phase-6">
-      <rect y="340" width="1000" height="48" fill="#ffffff"/>
+      <rect y="340" width="1000" height="48" fill="#dcfce7"/>
       <path d="M0 388H1000" stroke="#d1d5db"/>
       <text x="20" y="370">6</text>
       <text x="125" y="370">Release</text>
-      <text x="490" y="370">9 of 10</text>
+      <text x="490" y="370">9 of 9</text>
       <rect x="630" y="355" width="200" height="18" rx="4" fill="#e5e7eb"/>
-      <rect x="630" y="355" width="180" height="18" rx="4" fill="#64748b"/>
-      <text x="846" y="370">90 %</text>
+      <rect x="630" y="355" width="200" height="18" rx="4" fill="#15803d"/>
+      <text x="846" y="370">Completed</text>
     </g>
     <g id="phase-total">
-      <rect y="388" width="1000" height="48" fill="#f3f4f6"/>
+      <rect y="388" width="1000" height="48" fill="#dcfce7"/>
       <path d="M0 436H1000" stroke="#d1d5db"/>
       <text x="20" y="418">Total</text>
       <text x="125" y="418"></text>
-      <text x="490" y="418">139 of 147</text>
+      <text x="490" y="418">142 of 142</text>
       <rect x="630" y="403" width="200" height="18" rx="4" fill="#e5e7eb"/>
-      <rect x="630" y="403" width="189" height="18" rx="4" fill="#64748b"/>
-      <text x="846" y="418">94 %</text>
+      <rect x="630" y="403" width="200" height="18" rx="4" fill="#15803d"/>
+      <text x="846" y="418">Completed</text>
     </g>
   </g>
 </svg>

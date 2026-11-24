@@ -9,7 +9,7 @@
 #include "Game/WorldAdapter.h"
 
 // Reine Logik der Patches, ohne Spielzugriff, damit tests/GameTests sie prüfen kann. Herkunft der Regeln: Spike-Dateien
-// unter research/spikes/a-connect, Belege in docs/GAME_ANALYSIS.md.
+// unter research/spikes/a-connect, Belege in docs/archive/GAME_ANALYSIS.md.
 namespace Game::Patches
 {
 // Client-Proxies haben keine ItemData; auch lokale Authority-Kopien dürfen keine Items vergeben.

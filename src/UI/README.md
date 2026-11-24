@@ -18,7 +18,7 @@ Spielfenster, ist nie aktivierbar (`WS_EX_NOACTIVATE`, `SWP_NOACTIVATE`), lässt
 und verschwindet bei minimiertem Spiel. Thread-sicher, höchstens 256 Bytes, keine Engine-Aufrufe. Einziger Nutzer ist bisher `Sync`
 (`BindNoticeSink` in `src/Mod`): „Der Host hat das Spiel angehalten“, solange nur der Host die Weltzeit hält, etwa bei der
 Abschlusstafel nach dem Bosstod. Grenzen wie beim Statusfenster: kein exklusives Vollbild, aus mit `overlay_enabled=false`.
-[Befund und Messung](../../docs/GAME_ANALYSIS.md#hinweis-beim-client-wenn-der-host-die-welt-anhält-opt-boss-tafel-client).
+[Befund und Messung](../../docs/archive/GAME_ANALYSIS.md#hinweis-beim-client-wenn-der-host-die-welt-anhält-opt-boss-tafel-client).
 
 ## Konfiguration
 

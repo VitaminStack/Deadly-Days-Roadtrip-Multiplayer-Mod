@@ -4,7 +4,7 @@ Build 26786272, nicht atomar. Liest je BP_DD_Character der aktuellen Welt Rolle,
 (UWobbleAnimationComponent, ADDCharacter+0x780) und den Zustand des UPlayerAnimationVelocityProvider (BP_DD_Character_C+0x910) als Rohbytes.
 Schreibt nichts, ruft nichts. Ergebnis je Figur: Tempo, Fortschritt des Wackelns (bewegt er sich?), Override-Werte,
 und welche Bytes von Provider und Wobble-Zustand sich im Messfenster geaendert haben.
-Offsets: docs/GAME_ANALYSIS.md#laufanimation-beim-client-opt-laufanimation-client."""
+Offsets: docs/archive/GAME_ANALYSIS.md#laufanimation-beim-client-opt-laufanimation-client."""
 import argparse
 import math
 import struct

@@ -17,15 +17,15 @@ Einzige Schicht mit Spielzugriff. Enthält Adapter auf Spielklassen und später 
 | `DesyncAdapter.h` / `DesyncSnapshot.h` | Lesende Diagnosebilder, kanonische HP-/Inventar-Hashes, explizit unbekannte Felder; [Messumfang und offene Abnahme](../../docs/DESYNC.md) |
 | `Objects.h` | Suche im Objekt-Array (`FindInstance`, `FindObject`, `IsA`) und Aufruf über `ProcessEvent` |
 | `TutorialAdapter.h` | Schaltet die Tutorial-Hinweise als Host und Client ab, Prüfung einmal je Sekunde |
-| `ThreatAdapter.h` / `ThreatPolicy.h` | `opt-bedrohung-sound`: Host liest die Bedrohungsstufe, Client zeigt sie über das Ereignis seiner Stoppuhr (Zahl, Animation, Sound nativ); reine Regeln ohne Spiel getestet. Siehe [Bedrohungsstufe](../../docs/GAME_ANALYSIS.md#bedrohungsstufe-beim-client-opt-bedrohung-sound) |
+| `ThreatAdapter.h` / `ThreatPolicy.h` | `opt-bedrohung-sound`: Host liest die Bedrohungsstufe, Client zeigt sie über das Ereignis seiner Stoppuhr (Zahl, Animation, Sound nativ); reine Regeln ohne Spiel getestet. Siehe [Bedrohungsstufe](../../docs/archive/GAME_ANALYSIS.md#bedrohungsstufe-beim-client-opt-bedrohung-sound) |
 | `TelemetryAdapter.h` | Schaltet im Mod-Betrieb Balance-Telemetrie und automatische Berichte über beschädigte Spielstände ab und sperrt die Telemetrie-Adresse über `Core::ReportHosts` |
-| `SaveRedirect.h` / `SavePaths.h` | Trennt die Spielstände: Datei-APIs von Windows leiten alles unter `Saved\SaveGames` nach `Saved\SaveGames_DDCoop` um, ohne Spiel-Offsets; reine Pfadlogik in `SavePaths.h`, ohne Spiel getestet. Siehe [Spielstände](../../docs/GAME_ANALYSIS.md#spielstände-der-mod-mod-saves) |
+| `SaveRedirect.h` / `SavePaths.h` | Trennt die Spielstände: Datei-APIs von Windows leiten alles unter `Saved\SaveGames` nach `Saved\SaveGames_DDCoop` um, ohne Spiel-Offsets; reine Pfadlogik in `SavePaths.h`, ohne Spiel getestet. Siehe [Spielstände](../../docs/archive/GAME_ANALYSIS.md#spielstände-der-mod-mod-saves) |
 | `Patches.h` | Die Spielfehler-Fixes für eine Mission zu zweit, siehe [Patches](#patches) |
 | `FmodSound.h` | Startet einen FMOD-Sound lokal über `FMODBlueprintStatics.PlayEventAtLocation`, am Actor oder an einem Weltort |
 | `CodeCave.h` | Werkzeuge für Patches mitten in Funktionen: Code-Höhle nahe der Exe, Bytes prüfen, Sprünge und vtable-Einträge schreiben |
 | `LocalDevicePolicy.h` | Reine Regeln für `LocalDevicePatches.cpp`: welche Gerätezuordnung und welcher lokale Spawn im Netzwerkspiel abgelehnt wird, ohne Spiel getestet |
 | `RemoteP2Policy.h` | Reine Logik für den Remote-Spieler als P2: `ActivePlayers`-Map prüfen und aufräumen, Geräte-Wächter, ohne Spiel getestet |
-| `EnemySoundAdapter.h` / `EnemySoundPolicy.h` | `opt-gegner-sound`: Treffer- und Angriffssound der Gegner beim Client (`EnemySoundPatches.cpp`), reine Regeln ohne Spiel getestet. Siehe [Gegner-Sounds](../../docs/GAME_ANALYSIS.md#gegner-sounds-beim-client-opt-gegner-sound) |
+| `EnemySoundAdapter.h` / `EnemySoundPolicy.h` | `opt-gegner-sound`: Treffer- und Angriffssound der Gegner beim Client (`EnemySoundPatches.cpp`), reine Regeln ohne Spiel getestet. Siehe [Gegner-Sounds](../../docs/archive/GAME_ANALYSIS.md#gegner-sounds-beim-client-opt-gegner-sound) |
 | `PatchPolicy.h` | Reine Regeln der Patches (SpawnedPlayers-Menge, Wächter-Code, Reise, Busplatz), ohne Spiel getestet |
 
 ## Game Thread
@@ -88,17 +88,17 @@ bei allen Patches oder keinem.
 | Datei | Seite | Inhalt |
 |---|---|---|
 | `PlayerPatches.cpp` | Host | Spawn und Spielerindex ohne `LocalPlayer`, Loot- und Gegner-Spawner ohne Spieler, `SpawnedPlayers` bei Registrierung und Controller-Tausch, Abgleich je Sekunde als Rückfall, Client-Position annehmen, Busplatz schont alle Spielerfiguren, Run-Ende ohne `LocalPlayer` |
-| `ClientPatches.cpp` | Client | Refresh, Attribut-Tick, AttributeSet-Suche, Kartengenerator-Schritt, Figurenkomponente und ThreatLevel ohne Host-Objekte; Exp-Aggregation wartet auf AttributeSets; Blockaden nur beim Host; NetGUID-Pfade bleiben; SneakApproach wartet auf Mesh und PlayerState; keine lokale PowerUp-Kopie; `UReaperComponent.BeginPlay` bindet ohne GameMode nicht und der `AReaperSpawner` des Clients erzeugt keinen eigenen Sensenmann (Sensenmann des Hosts beim Client, [Befund](../../docs/GAME_ANALYSIS.md#client-absturz-am-sensenmann-karte-nach-labyrinth-absturz)); Niederlage entscheidet der Host (`run-ende`), Client schaltet seine Rundenübersicht auf das Run-Ende um; der Run-Stand gehört dem Host, ein Netz-Client führt `URunPersistencyManager.OnRoundChanged` und `ResavePersistable` nicht aus (`client-runstand-abbruch`) |
-| `MovementPatches.cpp` | beide | Client: eigene Figur übernimmt das Lauftempo aus dem replizierten Attribut `MovementSpeed` und dodgt bei HP 0 nicht ([Tod des Clients](../../docs/GAME_ANALYSIS.md#tod-des-clients-tod-client)), eigene Figur bekommt nach haengendem Dodge Reibung und Schwerkraft zurueck, fremde Figur folgt dem replizierten Ort bei unbekannter Unterlage oder fehlendem Modus. Host: Richtung des Client-Dodges aus der Meldung des Clients (`0x500`, Schlüssel der Aktivierung), Schätzung nur als Rückfall; [Dodge](../../docs/GAME_ANALYSIS.md#dodge-des-clients-beim-host-ausweichen-client), [Zwei-PC-Befund und Fix](../../docs/GAME_ANALYSIS.md#dodge-im-zwei-pc-test-dodge-client-live) |
-| `CameraPatches.cpp` | Client | Kamera-Spieler aus der `PlayerArray` statt aus dem GameMode, Bodenfix, gemeinsame Kamera als ViewTarget je Sekunde; Bewegungs-Restrictor ohne GameState stürzt nicht ab und bekommt ihn nachgetragen, siehe [Restrictor](../../docs/GAME_ANALYSIS.md#client-absturz-im-restrictor-tick-absturz) |
+| `ClientPatches.cpp` | Client | Refresh, Attribut-Tick, AttributeSet-Suche, Kartengenerator-Schritt, Figurenkomponente und ThreatLevel ohne Host-Objekte; Exp-Aggregation wartet auf AttributeSets; Blockaden nur beim Host; NetGUID-Pfade bleiben; SneakApproach wartet auf Mesh und PlayerState; keine lokale PowerUp-Kopie; `UReaperComponent.BeginPlay` bindet ohne GameMode nicht und der `AReaperSpawner` des Clients erzeugt keinen eigenen Sensenmann (Sensenmann des Hosts beim Client, [Befund](../../docs/archive/GAME_ANALYSIS.md#client-absturz-am-sensenmann-karte-nach-labyrinth-absturz)); Niederlage entscheidet der Host (`run-ende`), Client schaltet seine Rundenübersicht auf das Run-Ende um; der Run-Stand gehört dem Host, ein Netz-Client führt `URunPersistencyManager.OnRoundChanged` und `ResavePersistable` nicht aus (`client-runstand-abbruch`) |
+| `MovementPatches.cpp` | beide | Client: eigene Figur übernimmt das Lauftempo aus dem replizierten Attribut `MovementSpeed` und dodgt bei HP 0 nicht ([Tod des Clients](../../docs/archive/GAME_ANALYSIS.md#tod-des-clients-tod-client)), eigene Figur bekommt nach haengendem Dodge Reibung und Schwerkraft zurueck, fremde Figur folgt dem replizierten Ort bei unbekannter Unterlage oder fehlendem Modus. Host: Richtung des Client-Dodges aus der Meldung des Clients (`0x500`, Schlüssel der Aktivierung), Schätzung nur als Rückfall; [Dodge](../../docs/archive/GAME_ANALYSIS.md#dodge-des-clients-beim-host-ausweichen-client), [Zwei-PC-Befund und Fix](../../docs/archive/GAME_ANALYSIS.md#dodge-im-zwei-pc-test-dodge-client-live) |
+| `CameraPatches.cpp` | Client | Kamera-Spieler aus der `PlayerArray` statt aus dem GameMode, Bodenfix, gemeinsame Kamera als ViewTarget je Sekunde; Bewegungs-Restrictor ohne GameState stürzt nicht ab und bekommt ihn nachgetragen, siehe [Restrictor](../../docs/archive/GAME_ANALYSIS.md#client-absturz-im-restrictor-tick-absturz) |
 | `InventoryPatches.cpp` | beide | Inventar-Unterobjekte über den klassischen Replikationspfad, Timer des Achievement-Detektors beim `EndPlay` löschen, Kartengenerator-Schritt nur für die aktuelle Welt; [Itemsack-Vergabe](../../research/spikes/itemsack-absturz/README.md) nur auf Authority außerhalb einer Client-Welt, beim Host [für alle Spieler](#itemsack-für-alle-spieler); abschaltbare Inventar-Diagnose in `RewardPatches.cpp` |
-| `MapPatches.cpp` | beide | Gleiche Karte: Der Host meldet Seed, Profil, Größe, Tags und PCG-Graph seiner Erzeugung, der Kontrollkanal bringt sie zum Client (`Sync/World/MapSync.cpp`), dessen Erzeugung wartet darauf; lokale Kopien replizierter Child Actors unterdrückt, gleiche Seeds der PCG-Instanzen. Siehe [Gleiche Karte in der Mod](../../docs/GAME_ANALYSIS.md#gleiche-karte-in-der-mod-missionsstart) |
+| `MapPatches.cpp` | beide | Gleiche Karte: Der Host meldet Seed, Profil, Größe, Tags und PCG-Graph seiner Erzeugung, der Kontrollkanal bringt sie zum Client (`Sync/World/MapSync.cpp`), dessen Erzeugung wartet darauf; lokale Kopien replizierter Child Actors unterdrückt, gleiche Seeds der PCG-Instanzen. Siehe [Gleiche Karte in der Mod](../../docs/archive/GAME_ANALYSIS.md#gleiche-karte-in-der-mod-missionsstart) |
 | `TravelPatches.cpp` | Host | Reise ins Spiel wird `servertravel`, vorher Zeitanfragen abräumen; allein und ins Hauptmenü reist das Spiel wie gewohnt |
 | `WidgetPatches.cpp` | Client | `WP_UI` wartet auf den GameState; Beobachter nach jedem `ProcessEvent` |
 | `RemoteP2Patches.cpp` | Host | Remote-Spieler als P2 in `ActivePlayers` des Coop-Subsystems, ohne zweiten `LocalPlayer`; beim Verlassen nur die eigene Bindung entfernen; lokale P2-Gerätepflicht nur bei vollständiger Bindung ausnehmen. Koop-Modus erst nach `AllowRemoteCoop()`, siehe [Remote-Spieler](#remote-spieler-als-p2) |
 | `HealthBarPatches.cpp` | Client | Lebensleisten nach repliziertem `OnRep_Health` und `OnRep_MaxHealth` |
-| `EnemyTelegraphPatches.cpp` | beide | Warnanzeigen der Gegnerangriffe: Host meldet Kreise (`SpawnCircleTelegraph`) und Sprint-Striche (`UTackleAbilityExecution`) über `0x900`, der Client zeigt dasselbe Niagara-System bzw. treibt die eigene Komponente des Gegners; siehe [Warnanzeigen](../../docs/GAME_ANALYSIS.md#warnanzeigen-der-gegner-beim-client-opt-gegner-indikatoren) |
-| `LocalDevicePatches.cpp` | beide | Im Netzwerkspiel bleiben lokale Geräte bei Spieler 0: keine Gerätezuordnung oder kein Entwurf für P2, kein zweiter `LocalPlayer`; ohne Netzwerk unverändert, siehe [Eingaben getrennt](../../docs/GAME_ANALYSIS.md#eingaben-getrennt-eingaben) |
+| `EnemyTelegraphPatches.cpp` | beide | Warnanzeigen der Gegnerangriffe: Host meldet Kreise (`SpawnCircleTelegraph`) und Sprint-Striche (`UTackleAbilityExecution`) über `0x900`, der Client zeigt dasselbe Niagara-System bzw. treibt die eigene Komponente des Gegners; siehe [Warnanzeigen](../../docs/archive/GAME_ANALYSIS.md#warnanzeigen-der-gegner-beim-client-opt-gegner-indikatoren) |
+| `LocalDevicePatches.cpp` | beide | Im Netzwerkspiel bleiben lokale Geräte bei Spieler 0: keine Gerätezuordnung oder kein Entwurf für P2, kein zweiter `LocalPlayer`; ohne Netzwerk unverändert, siehe [Eingaben getrennt](../../docs/archive/GAME_ANALYSIS.md#eingaben-getrennt-eingaben) |
 
 **Alle oder keiner.** `Patches::Install` läuft in `Game::Start` vor dem ersten Takt. Es prüft zuerst jede Stelle (Bytes, vtable-Einträge)
 und setzt erst dann alle Patches. Passt eine Stelle nicht, setzt es keinen und protokolliert die Stelle; das Spiel läuft dann wie ohne Mod.
@@ -131,7 +131,7 @@ die Airdrop-Auswahl wartet auf den Claim von P2. Gelöst wurde beides ohne Koop-
 - Wegfall ohne Abmeldung (`opt-host-absturz-trennung`): Der Host merkt sich die Figur des Remote-Spielers. Ist sie abgebaut, nimmt
   `TickReaperPlayers` sie im selben Tick aus `UReaperComponent::Players`, sonst liest der Zeitgeber des Sensenmanns nach der
   nächsten Garbage Collection am Nullzeiger und der Host stürzt ab. Belege und Läufe:
-  [Host-Absturz nach hartem Wegfall des Clients](../../docs/GAME_ANALYSIS.md#host-absturz-nach-hartem-wegfall-des-clients-opt-host-absturz-trennung).
+  [Host-Absturz nach hartem Wegfall des Clients](../../docs/archive/GAME_ANALYSIS.md#host-absturz-nach-hartem-wegfall-des-clients-opt-host-absturz-trennung).
 
 **Geprüft** (04.11.2026, Build `26187885`, `Start-Session.ps1 -Build -Mod`, Seed `20795`): MetaBase, dann Tag 1 bis 5 über die echte Route,
 danach Niederlage und „Zurück zur Basis“. Kein Absturz, die Inventare waren nach jedem Wechsel gleich. `SpawnedPlayers` kam bei jedem Wechsel
@@ -293,7 +293,7 @@ in [Kontrollkanal](../../docs/CONTROL_PROTOCOL.md#lager-am-rundenende-mod-kompat
   Welt dieselbe sein (`HeldObjectLive`, `MayReplayHeldConfirm` in `PatchPolicy.h`, mit Tests). Sonst verwirft die Mod das Bestätigen
   mit „Lager: Welt gewechselt“ oder „Panel weg“; der Client folgt ohnehin der Reise des Hosts. Vorher prüfte `Alive` nur Flags am
   alten Speicher, ein nach der Reise freigegebenes Panel bestand das, siehe
-  [Befund](../../docs/GAME_ANALYSIS.md#absturz-beim-bestätigen-im-lager-lager-bestaetigen-absturz).
+  [Befund](../../docs/archive/GAME_ANALYSIS.md#absturz-beim-bestätigen-im-lager-lager-bestaetigen-absturz).
 
 **Geprüft** (06.11.2026, Build `26187885`, ein PC, Lobby, Godmode, Rundenende per `!finish`): Zwei Rundenenden hintereinander.
 Tag 1 Host zuerst: Knopf des Hosts gelb, der Host blieb 23 s im Lager, bis der Client bestätigte, dann beide weiter
@@ -444,7 +444,7 @@ Im Live-Test am 06.11.2026 wirkten Waffen, die der Client in der Itemauswahl tau
    Größe), gerechnet mit `FloatData.GetContextualValueForRarity` und `DataTableFunctionLibrary.EvaluateCurveTableRow`. Die Länge
    des Balkens setzt `HandBarDisplay.UpdateMaxHandsBar` aus `GetFreeHands` + belegt. Verbindlich bleibt der Host, wie bei den
    belegten Händen. Schalter `DDCOOP_HANDS_PREVIEW_NATIVE=1`: ohne diese Vorschau, zum Vergleich. Messung:
-   [Roboterarm beim Client](../../docs/GAME_ANALYSIS.md#roboterarm-beim-client-client-roboterarm).
+   [Roboterarm beim Client](../../docs/archive/GAME_ANALYSIS.md#roboterarm-beim-client-client-roboterarm).
 
 **Geprüft** (07.11.2026, Build `26187885`, ein PC, Lobby, Godmode, Trace `DDCOOP_TRACE_INVENTORY=1`, vom Nutzer gespielt):
 Waffen ablegen, tauschen und wieder ausrüsten in der Itemauswahl des Clients; der Hände-Balken des Clients folgt sofort
@@ -482,7 +482,7 @@ beiden Pistolen. Der Host wertete im selben Lauf seine eigenen Pistolen ohne Feh
   oder der einer Zutat). Dann ruft er `UpgradeItems` selbst am Clientinventar auf und setzt die Ausgaben wie jedes andere Item des Edits.
   Die Eingaben entfernt `UpgradeItems`, nicht der Plan. Liegt eine Eingabe beim Host noch im Rucksack, nimmt er sie vorher nativ heraus
   (`opt-schuss-animation`): Sonst blieb ihre Waffe als Geisterwaffe an den Händen der Client-Figur, siehe
-  [Befund](../../docs/GAME_ANALYSIS.md#schuss-animation-und-geisterwaffen-opt-schuss-animation). Im Spiel noch nicht bestätigt.
+  [Befund](../../docs/archive/GAME_ANALYSIS.md#schuss-animation-und-geisterwaffen-opt-schuss-animation). Im Spiel noch nicht bestätigt.
 - **Ablehnung und Abbruch:** Wie beim Edit: Der Client rollt zurück, die lokalen Ausgaben kommen wieder heraus. Verlässt der Client das
   Lager ohne Bestätigen (neues Rundenende), rollt er ebenso zurück. Bis zur Antwort bleibt sein Bestätigen im Lager zurückgehalten, und er
   meldet sich erst danach bereit, damit der Host nicht vor der Übernahme reist.
@@ -570,7 +570,7 @@ Airdrop-Panel, Verkaufen mehrerer Items auf einmal (`SellStashItems`) und `FreeR
 ### Stations-Bearbeitung beim Client
 
 Aufgabe `opt-werkbank-station`, Code in `RewardPatches.cpp` (`BeginPanelEdit`, `Station`, `TickStation`). Befund in
-[Händler und Werkbank im Händler-Event](../../docs/GAME_ANALYSIS.md#händler-und-werkbank-im-händler-event-opt-haendler-client-opt-werkbank-station).
+[Händler und Werkbank im Händler-Event](../../docs/archive/GAME_ANALYSIS.md#händler-und-werkbank-im-händler-event-opt-haendler-client-opt-werkbank-station).
 
 **Befund vorher:** `werkbank-client` und `lager-handel-client` beginnen eine lokale Bearbeitung nur im Lager am Rundenende. Das
 Inventar-Panel geht aber auch mitten in einer Mission auf, etwa im Händler-Event. Dort lief eine Aufwertung des Clients „außerhalb einer
@@ -617,7 +617,7 @@ Tests in `tests/GameTests/PatchTests.cpp`).
 **Befund vorher:** Eine [Stations-Bearbeitung](#stations-bearbeitung-beim-client) begann nur mit einer Aufwertung, einem Verkauf, einer
 Reparatur oder einem Kauf. Ablegen, Drehen und Herausnehmen davor liefen als native Server-RPCs. Im Lager ist gemessen, dass solche
 Züge beim Host ohne Pivot und Drehung ankommen
-([Rucksack-Überlappung](../../docs/GAME_ANALYSIS.md#rucksack-überlappung-beim-client-opt-rucksack-ueberlappung)); für die Station ist
+([Rucksack-Überlappung](../../docs/archive/GAME_ANALYSIS.md#rucksack-überlappung-beim-client-opt-rucksack-ueberlappung)); für die Station ist
 das aus demselben Code geschlossen, dort nicht eigens gemessen.
 
 - **Lokal beim Client:** Der erste Inventar-RPC am eigenen Inventar (Ablegen, Feldbelegung, Pivot, Lagerflags, Entfernen) beginnt
@@ -745,38 +745,13 @@ und ohne eigene Nachricht:
 Beim Client läuft nichts Neues: Projektile, HP und Lebensleisten kommen über die vorhandene Replikation. Vergleich mit dem Verhalten des
 Spiels über `DDCOOP_ITEM_ABILITIES_NATIVE=1`. `DDCOOP_TRACE_INVENTORY=1` protokolliert jetzt auch `SetupAbility`, `K2_ActivateAbility` und
 die übrigen Ereignisse der `GA_`-Klassen. Messung und Grenzen:
-[Heil- und Wurf-Items beim Client](../../docs/GAME_ANALYSIS.md#heil--und-wurf-items-beim-client-client-items-wirkung).
+[Heil- und Wurf-Items beim Client](../../docs/archive/GAME_ANALYSIS.md#heil--und-wurf-items-beim-client-client-items-wirkung).
 
-## Ohne Spike
 
-Im Release gibt es keinen Spike. Stand `ohne-spike` (05.11.2026, Build `26187885`): Die Mod läuft allein, Lobby-Beitritt, MetaBase und
-Mission an Tag 1 ohne Absturz, geprüft mit `Start-Session.ps1 -NoSpike` und `Run-Route.ps1 -Start -NoSpike -Days 1 -StayLast`,
-siehe [Nur Mod, ohne Spike](../../docs/TESTING.md#nur-mod-ohne-spike). Der Absturz beim Beitritt ohne Spike (Host `0x5901CE8`,
-Client `0x56B16D9`) stammte aus der Zeit vor `patches`, heute setzt die Mod beide Fixes beim Spielstart.
+## Spike
 
-**Für den Betrieb nötig, aber nur im Spike.** Das läuft dort über Dateien in `%TEMP%\ddspike`, also nur auf einem PC. In die Mod
-gehört es mit Übertragung über den [Kontrollkanal](../../docs/CONTROL_PROTOCOL.md), das ist Arbeit der genannten Aufgaben, nicht ein
-Kopieren des Spike-Codes.
-
-| Spike-Datei | Eingriff | Ohne ihn | Aufgabe |
-|---|---|---|---|
-| `Mission.cpp`, `RoundPhase*.h`, Beobachter in `Widgets.cpp` | Rundenübersicht, Lager und Routenkarte des Hosts beim Client mit Anzeige und Eingabesperre | Client bleibt in der Missionsansicht, während der Host im Lager oder auf der Routenkarte ist | `pausen-sync`, `tagesablauf` |
-
-**Schon in der Mod**, der Spike lässt seine Fassung aus, sobald `DDCoopPatchState` 1 meldet: `Players.cpp`, `Client.cpp`, `Camera.cpp`,
-`Inventory.cpp`, `Travel.cpp`, `Widgets.cpp` (HUD wartet auf den GameState), `MapObjects.cpp` (PowerUp-Kiste), Busplatz aus `TestEnv.cpp`,
-`HealthBars.cpp`, `RunEnd.cpp`, `MapGen.cpp` und `Pcg.cpp` (Werte über den Kontrollkanal statt über Dateien). Dazu ohne Gegenstück im Spike-Schalter: Sperre des Crash-Reporters (`Core/CrashReports`) und
-Tutorial-Hinweise (`TutorialAdapter`, im Spike `Cheats.cpp`). `Tunnel.cpp` ersetzt der Transport aus `src/Net`.
-
-**Nur Testhilfe oder Messung**, kommt nicht in die Mod: Befehlsdatei und Konsolenbefehle (`Main.cpp`, etwa `open`, `servertravel`,
-`DD_SetCurrentRunSeed`; Ersatz mit Antworten ist der Testkanal `src/Mod/Control.cpp`, Aufgabe `mod-steuerung`), `Cheats.cpp` (CheatManager, `!load`), Godmode, `!finish` und `!round`
-aus `Mission.cpp`, `!wave`, `Trace.cpp`, `Load.cpp`, `Hits.cpp`, Diagnose-Log aus `TestEnv.cpp`, die `RemoteP2.cpp`-Probe und die
-zweite Sperre des Crash-Reporters in `CrashReports.cpp`.
-
-**Geprüft** (05.11.2026, ein PC, zwei Läufe): `spike.dll` war in keiner Instanz geladen, `DDCoop.dll` in beiden, je 30 Patches gesetzt.
-Lobby-Beitritt in rund 4 s, beide in der MetaBase mit 2 Spielern. Im ersten Lauf ging der Host über `Game-Input.ps1` und den Startring in die Mission,
-im zweiten über `Run-Route.ps1`. In beiden Läufen reisten beide Instanzen nach `DDDynamic_Map`. Im Mod-Log griffen Reise, Busplatz,
-Controller-Tausch, Client-Position, Kamera und PowerUp. Bewegung des Clients kam beim Host an (270 Einheiten in 1,5 s, gleiche Position
-auf beiden Seiten). Im zweiten Lauf starben beide Figuren ohne Eingabe nach gut 3 Minuten. Der Host zeigte „Du bist gestorben“, der
-Client blieb in der Missionsansicht (fehlende Rundenphase, siehe oben). Nach „Zurück zur Basis“ waren beide wieder in der MetaBase. Kein
-Absturz, keine Absturzberichte. Nicht geprüft: die Knotensuche auf der
-Routenkarte, weil beide Test-Spielstände ohne Routenkarte in den ersten Run fuhren.
+Die Mod braucht den Spike im Spiel nicht. Spieltest ohne Spike am 24.11.2026 auf Build `26786272`, ein PC, zwei Instanzen:
+Tag 1 bis zum Rundenende, Rundenübersicht, Lager und Routenkarte beim Client, Reise an Tag 2, kein Absturz.
+Der Spike (`research/spikes/a-connect`) bleibt nur als Testwerkzeug für Befehle wie `!finish`, Godmode, `!wave` und feste Seeds, die `Travel-Day.ps1`, `Run-Route.ps1` und die `Test-*.ps1` nutzen.
+Seine eigenen Fassungen der Spielfehler-Fixes lässt er aus, sobald die Mod läuft. Neue Fixes gehören nur in die Mod.
+Früherer Stand: [Archiv](../../docs/archive/OHNE-SPIKE.md).

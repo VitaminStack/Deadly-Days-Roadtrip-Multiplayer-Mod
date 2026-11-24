@@ -140,7 +140,7 @@ function Get-TransportArgument([string]$Name) {
 # Fensterursprung auf einem anderen Monitor: DDCOOP_WIN_ORIGIN="X,Y" (virtuelle Desktop-Koordinaten), Standard 0,0.
 $script:OriginX, $script:OriginY = if ($env:DDCOOP_WIN_ORIGIN) { $env:DDCOOP_WIN_ORIGIN -split ',' | ForEach-Object { [int]$_ } } else { 0, 0 }
 # Legt den Spielstand des Testordners neu an: Das Spiel liest unter -UserDir aus Saved\SaveGames, die Mod kopiert daraus beim ersten Start
-# nach Saved\SaveGames_DDCoop (siehe docs\GAME_ANALYSIS.md, mod-saves). Geloescht wird nur unter research\local\session.
+# nach Saved\SaveGames_DDCoop (siehe docs\archive\GAME_ANALYSIS.md, mod-saves). Geloescht wird nur unter research\local\session.
 function Initialize-RealSave([string]$UserDir) {
     $Source = Join-Path $env:LOCALAPPDATA 'DDSurvivors\Saved\SaveGames'
     if (-not (Test-Path -LiteralPath $Source -PathType Container)) { throw "-RealSave: Spielstand nicht gefunden: $Source" }

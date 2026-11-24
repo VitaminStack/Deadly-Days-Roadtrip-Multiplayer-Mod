@@ -285,7 +285,7 @@ weil eine Gegenseite mit der alten Länge von 16 Bytes die Nachricht verwerfen w
 
 ## Dodge-Richtung (Mod-Kompatibilität 8)
 
-Aufgabe `dodge-client-live`, Befund in [Dodge im Zwei-PC-Test](GAME_ANALYSIS.md#dodge-im-zwei-pc-test-dodge-client-live), Code in
+Aufgabe `dodge-client-live`, Befund in [Dodge im Zwei-PC-Test](archive/GAME_ANALYSIS.md#dodge-im-zwei-pc-test-dodge-client-live), Code in
 `src/Game/MovementPatches.cpp` und `src/Sync/MovementState.h`. Mod-Version 8, weil ein Host ohne diese Nachricht wieder die
 geschätzte Richtung nähme.
 
@@ -313,7 +313,7 @@ Pausen des Hosts brauchen keine Nachricht, sie replizieren nativ. Keine Antwort 
 ## Warnanzeigen der Gegner (Mod-Kompatibilität 11)
 
 Aufgabe `opt-gegner-indikatoren`, Code in `src/Game/EnemyTelegraphPatches.cpp` und `src/Sync/Enemies/TelegraphState.h`, Befund in
-[Warnanzeigen der Gegner](GAME_ANALYSIS.md#warnanzeigen-der-gegner-beim-client-opt-gegner-indikatoren). Mod-Version 11, weil ein
+[Warnanzeigen der Gegner](archive/GAME_ANALYSIS.md#warnanzeigen-der-gegner-beim-client-opt-gegner-indikatoren). Mod-Version 11, weil ein
 Client mit Version 10 die Anzeigen nicht kennt und ein Host mit Version 10 sie nicht schickt. Die Angriffsfähigkeiten laufen nur beim
 Host, ihre Niagara-Anzeigen replizieren nicht. Lokal bleibt die ganze Darstellung beim Client: dasselbe Niagara-System, Farbwechsel,
 Länge und Ende des Strichs. Geteilt wird nur der Auslöser je Anzeige. Der Host entscheidet über Angriff, Ziel, Zeitpunkt und Schaden.
@@ -328,7 +328,7 @@ der Weltwechsel vergisst alles. Keine Antwort, keine Wiederholung, kein Nachhole
 
 ## Schadenszahlen (Mod-Kompatibilität 12)
 
-Aufgabe `opt-schadenszahlen`, Befund in [Schadenszahlen beim Client](GAME_ANALYSIS.md#schadenszahlen-beim-client-opt-schadenszahlen),
+Aufgabe `opt-schadenszahlen`, Befund in [Schadenszahlen beim Client](archive/GAME_ANALYSIS.md#schadenszahlen-beim-client-opt-schadenszahlen),
 Code in `src/Game/DamageNumberPatches.cpp` und `src/Sync/Enemies/DamageNumberState.h`. Mod-Version 12 (11 und `0x900` belegt `opt-gegner-indikatoren`), weil ein Client mit älterer Version
 die Nachricht nicht kennt. Lokal bleiben Einstellung, Ort, Timer, Pool und Anzeige der Zahl. Geteilt wird nur, welcher Actor wie viel
 Schaden bekam, denn die HP normaler Gegner replizieren nicht. Der Host entscheidet, sein nativer Schadenspfad ruft den Handler auf.
@@ -343,7 +343,7 @@ Seit `opt-gegner-sound` (21.11.2026, **Mod-Version 16**, weil sich die Länge je
 Marken der Mod. Bit 0 heißt: Für diesen Treffer hat beim Host ein Projektil seinen Einschlagsound gespielt (`zombie_Hurt`). Der
 Client spielt ihn dann lokal am Ziel, ohne Ziel am gemeldeten Ort, auch wenn er keine Zahl zeigt. Die übrigen Bits sind 0 und werden
 ignoriert. Lokal bleiben Sound-Objekt, Ort und Abspielen, es entscheidet der Host (sein Projektil trifft), keine Wiederholung.
-Befund in [Gegner-Sounds beim Client](GAME_ANALYSIS.md#gegner-sounds-beim-client-opt-gegner-sound).
+Befund in [Gegner-Sounds beim Client](archive/GAME_ANALYSIS.md#gegner-sounds-beim-client-opt-gegner-sound).
 
 Seit `opt-schadenszahlen-verlust` (13.11.2026, Format und Mod-Version unverändert) wertet der Client `0xA00` auch im Sammelabruf alle
 250 ms aus: Eine Nachricht, die nach dem eigenen Abruf im selben Takt ankam, nahm sonst der Sammelabruf mit, und dort verfiel sie
@@ -352,11 +352,11 @@ Nachricht um 1 hoch; der Client zählt daran fehlende Nachrichten, er fordert ni
 „gesendet“ (nur von `SendControl` angenommene), „Senden abgelehnt“, „ohne Mitspieler“, „Paket ungültig“; beim Client „im
 Sammelabruf“, „Nachricht unlesbar“, „Nachrichten fehlen“, „falsche Rolle“. Die Transport-Zeile nennt den höchsten Füllstand beider
 Warteschlangen des Kontrollkanals (Grenze 128) und wegen voller Warteschlange abgelehnte Nachrichten. Befund in
-[GAME_ANALYSIS.md](GAME_ANALYSIS.md#verlorene-schadenszahlen-opt-schadenszahlen-verlust).
+[GAME_ANALYSIS.md](archive/GAME_ANALYSIS.md#verlorene-schadenszahlen-opt-schadenszahlen-verlust).
 
 ## Nachladesound (Mod-Kompatibilität 13)
 
-Aufgabe `opt-waffen-sound`, Befund in [Waffensounds beim Client](GAME_ANALYSIS.md#waffensounds-beim-client-opt-waffen-sound), Code in
+Aufgabe `opt-waffen-sound`, Befund in [Waffensounds beim Client](archive/GAME_ANALYSIS.md#waffensounds-beim-client-opt-waffen-sound), Code in
 `src/Game/WeaponSoundPatches.cpp` und `src/Sync/Combat/WeaponSoundState.h`. Mod-Version 13, weil ein Client mit älterer Version die
 Nachricht nicht kennt. Der Schusssound braucht keine Nachricht, der Client leitet ihn aus dem nativen Multicast der Waffe ab. Das
 Nachladen läuft nur in der Feuerschleife der Hände beim Host und hinterlässt beim Client kein repliziertes Signal. Lokal bleiben Ort,
@@ -370,7 +370,7 @@ unbekannter Name spielt den Standardsound. Ein verlorenes Paket heißt nur ein f
 
 ## Bedrohungsstufe (Mod-Kompatibilität 15)
 
-Aufgabe `opt-bedrohung-sound`, Befund in [Bedrohungsstufe beim Client](GAME_ANALYSIS.md#bedrohungsstufe-beim-client-opt-bedrohung-sound),
+Aufgabe `opt-bedrohung-sound`, Befund in [Bedrohungsstufe beim Client](archive/GAME_ANALYSIS.md#bedrohungsstufe-beim-client-opt-bedrohung-sound),
 Code in `src/Game/ThreatAdapter.cpp` und `src/Sync/World/ThreatState.h`. Mod-Version 15, weil ein Client mit älterer Version die
 Nachricht nicht kennt. Die Stufe der Komponente `ThreatLevel` repliziert nicht (beim Client −1), ihr Delegate feuert nur beim Host.
 Lokal bleiben Zahl, Animation und Sound: Der Client ruft das Ereignis `CustomEvent(Old, New)` seiner eigenen Stoppuhr

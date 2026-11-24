@@ -5,7 +5,8 @@
 
 Zum Abschliessen einer Aufgabe gibt es "py tools/tasks.py done <kennung> <ergebnis>", das mark_done nutzt.
 
-Jede Aufgabe steht genau einmal in TODO.md: offen in der Tabelle ihrer Phase, erledigt in der Tabelle "Erledigt".
+Jede Aufgabe steht genau einmal: offen in TODO.md in der Tabelle ihrer Phase, erledigt in docs/ERLEDIGT.md.
+Die Werkzeuge lesen beide Dateien als einen Text (combine) und schreiben sie getrennt zurueck (split).
 """
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -16,6 +17,12 @@ import sys
 OPEN_HEADER = '| Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |'
 DONE_HEADER = '| Kennung | Phase | Ergebnis |'
 DONE_SECTION = 'Erledigt'
+DONE_FILE = 'docs/ERLEDIGT.md'
+DONE_TITLE = '# Erledigte Aufgaben'
+DONE_PREAMBLE = DONE_TITLE + '\n\nAbgeschlossene Kennungen mit Ergebnis, nie erneut reservieren. Neue Zeilen setzt `py tools/tasks.py done`.\n\n'
+# Alle Phasen sind abgeschlossen. Offene Arbeit steht flach unter Probleme oder Verbesserungen, ohne Abhaengigkeiten.
+LIST_HEADER = '| Kennung | Prio | Aufgabe | Bearbeitung | Spielzeit |'
+LIST_SECTIONS = {'Probleme': 'Problem', 'Verbesserungen': 'Verbesserung'}
 EXTRA_SECTIONS = {'Wartung': 'Wartung', 'Optionale Optimierungen': 'Optional', 'Real Coop logic': 'Coop'}
 PRIOS = ('P0', 'P1', 'P2')
 MODES = ('parallel', 'zentral', 'zu zweit', 'Team')
@@ -26,6 +33,12 @@ OPTIONAL_PHASE = 'Optional'
 FREE_START = '<!-- frei:start -->'
 FREE_END = '<!-- frei:end -->'
 ID_PATTERN = r'[a-z0-9][a-z0-9-]*'
+MAX_TASK_TEXT = 800
+# Bestaetigungstests sind nur Info: Die Aufgabe ist erledigt, der offene Test steht in docs/ERLEDIGT.md.
+INFO_SECTION = 'Bestätigungstests ausstehend'
+INFO_HEADER = '| Kennung | Im Spiel prüfen |'
+INFO_INTRO = ('Spicker für Live-Sitzungen: was bei erledigten Aufgaben noch im Spiel zu prüfen ist, ohne Datum und Vorgeschichte. '
+              'Nur Info, blockiert nichts. Pflege mit `py tools/tasks.py tests update|pass|reopen`.')
 CONFIRMATION_PREFIX = '**Bestätigungstest ausstehend:** '
 CONFIRMATION_TASK = ' **Aufgabe und Abnahme:** '
 
@@ -73,16 +86,20 @@ def parse(todo):
         if line.startswith('## '):
             section = line[3:].strip()
             match = re.match(r'^Phase ([0-6]) – ', section)
-            phase = match[1] if match else EXTRA_SECTIONS.get(section)
+            phase = match[1] if match else EXTRA_SECTIONS.get(section) or LIST_SECTIONS.get(section)
             if phase is not None:
                 sections[phase] = section
             table = None
             continue
         if line.startswith('| Kennung |'):
-            if line == OPEN_HEADER and phase is not None:
+            if line == OPEN_HEADER and phase is not None and section not in LIST_SECTIONS:
                 table = 'open'
+            elif line == LIST_HEADER and section in LIST_SECTIONS:
+                table = 'list'
             elif line == DONE_HEADER and section == DONE_SECTION:
                 table = 'done'
+            elif line == INFO_HEADER and section == INFO_SECTION:
+                table = 'info'
             else:
                 raise ValueError(f'{where}: Aufgabentabelle mit falschem Kopf oder im falschen Abschnitt')
             continue
@@ -96,12 +113,25 @@ def parse(todo):
         if not match:
             raise ValueError(f'{where}: Kennung fehlt oder ist ungueltig')
         name = match[1]
+        if table == 'info':
+            if len(row) != 2:
+                raise ValueError(f'{where}: {name} braucht 2 Spalten')
+            if name not in tasks or not tasks[name].done:
+                raise ValueError(f'{where}: {name}: Bestätigungstest für eine nicht erledigte Aufgabe')
+            tasks[name].confirmation = row[1]
+            continue
         if name in tasks:
             raise ValueError(f'{where}: Kennung {name} steht mehrfach in TODO.md')
-        if table == 'open':
-            if len(row) != 6:
+        if table in ('open', 'list'):
+            if table == 'list':
+                if len(row) != 5:
+                    raise ValueError(f'{where}: {name} braucht 5 Spalten')
+                _, prio, text, mode, playtime = row
+                needs = '–'
+            elif len(row) != 6:
                 raise ValueError(f'{where}: {name} braucht 6 Spalten')
-            _, prio, text, needs, mode, playtime = row
+            else:
+                _, prio, text, needs, mode, playtime = row
             if prio not in PRIOS:
                 raise ValueError(f'{where}: {name}: Prio muss P0, P1 oder P2 sein')
             if mode not in MODES:
@@ -115,22 +145,16 @@ def parse(todo):
                 if not all(re.fullmatch(rf'`{ID_PATTERN}`', n) for n in need_list):
                     raise ValueError(f'{where}: {name}: Braucht ist "–" oder eine Liste wie `a`, `b`')
                 need_list = [n.strip('`') for n in need_list]
-            confirmation = ''
-            if text.startswith(CONFIRMATION_PREFIX):
-                confirmation, separator, original = text[len(CONFIRMATION_PREFIX):].partition(CONFIRMATION_TASK)
-                if not confirmation.strip() or not separator or not original.strip():
-                    raise ValueError(f'{where}: {name}: Bestaetigungstest braucht Stand sowie Aufgabe und Abnahme')
+            # Alter Stand (etwa origin/main vor dem Umbau): offene Zeile mit Bestaetigungstest lesen, check lehnt sie ab.
+            confirmation = text[len(CONFIRMATION_PREFIX):].partition(CONFIRMATION_TASK)[0] if text.startswith(CONFIRMATION_PREFIX) else ''
             tasks[name] = Task(name, phase, section, False, text, prio, need_list, mode, playtime, confirmation)
         else:
             if len(row) != 3:
                 raise ValueError(f'{where}: {name} braucht 3 Spalten')
             _, done_phase, text = row
-            if done_phase not in PHASES + tuple(EXTRA_SECTIONS.values()):
-                raise ValueError(f'{where}: {name}: Phase muss 0 bis 6, Wartung, Optional oder Coop sein')
+            if done_phase not in PHASES + tuple(EXTRA_SECTIONS.values()) + tuple(LIST_SECTIONS.values()):
+                raise ValueError(f'{where}: {name}: Phase muss 0 bis 6, Wartung, Optional, Coop, Problem oder Verbesserung sein')
             tasks[name] = Task(name, done_phase, DONE_SECTION, True, text)
-    missing = [p for p in PHASES if p not in sections]
-    if missing:
-        raise ValueError('Phasen fehlen in TODO.md: ' + ', '.join(missing))
     validate_graph(tasks)
     validate_done_order(todo)
     return tasks
@@ -201,16 +225,16 @@ def free_block(todo, tasks):
         if line.startswith('## '):
             heading = line[3:].strip()
             match = re.match(r'^Phase ([0-6]) – ', heading)
-            key = match[1] if match else EXTRA_SECTIONS.get(heading)
+            key = match[1] if match else EXTRA_SECTIONS.get(heading) or LIST_SECTIONS.get(heading)
             if key:
                 anchors[key] = slug(heading)
     ready = [t for t in tasks.values() if not t.done and not blockers(t, tasks)]
-    order = {p: i for i, p in enumerate(PHASES + tuple(EXTRA_SECTIONS.values()))}
+    order = {p: i for i, p in enumerate(PHASES + tuple(EXTRA_SECTIONS.values()) + tuple(LIST_SECTIONS.values()))}
     ready.sort(key=lambda t: (PRIOS.index(t.prio), order[t.phase], t.name))
-    held = [t for t in ready if not t.confirmation and deferred(t, tasks)]
+    held = [t for t in ready if deferred(t, tasks)]
     ready = [t for t in ready if t not in held]
-    work = [t for t in ready if t.mode != 'Team' and not t.confirmation]
-    team = [t for t in ready if t.mode == 'Team' and not t.confirmation]
+    work = [t for t in ready if t.mode != 'Team']
+    team = [t for t in ready if t.mode == 'Team']
     lines = ['| Kennung | Prio | Phase | Bearbeitung | Spielzeit |', '|---|---|---|---|---|']
     for t in work:
         lines.append(f'| `{t.name}` | {t.prio} | [{t.phase}](#{anchors[t.phase]}) | {t.mode} | {t.playtime} |')
@@ -224,8 +248,8 @@ def free_block(todo, tasks):
                      f'[Optionale Optimierungen](#{anchors[OPTIONAL_PHASE]}).')
     pending = [t for t in tasks.values() if t.confirmation]
     lines.append('')
-    lines.append('**Bestätigungstest ausstehend (nicht in Arbeit):** ' +
-                 (', '.join(f'`{t.name}`' for t in pending) if pending else 'nichts') + '.')
+    lines.append(f'**Bestätigungstests ausstehend (nur Info, blockiert nichts):** {len(pending)}, siehe '
+                 f'[docs/ERLEDIGT.md](docs/ERLEDIGT.md#{slug(INFO_SECTION)}).')
     return '\n'.join(lines)
 
 
@@ -249,7 +273,7 @@ def update_readme(tasks, readme):
     seen = set()
     lines = []
     for line in readme.splitlines(keepends=True):
-        match = re.match(r'^\| \[([0-6])\]\(TODO.md#phase-', line)
+        match = re.match(r'^\| \[([0-6])\]\(', line)
         key = int(match[1]) if match else 'total' if line.startswith('| **Total** |') else None
         if key is not None:
             if key in seen:
@@ -275,7 +299,7 @@ def progress_svg(tasks, readme):
     counts = phase_counts(tasks)
     rows = []
     for line in readme.splitlines():
-        match = re.match(r'^\| \[([0-6])\]\(TODO.md#phase-', line)
+        match = re.match(r'^\| \[([0-6])\]\(', line)
         if match:
             phase = int(match[1])
             rows.append((str(phase), cells(line)[1], *counts[phase]))
@@ -352,8 +376,57 @@ def mark_done(todo, name, result):
     return newline.join(lines)
 
 
+def set_info(text, name, note):
+    """Setzt (note) oder entfernt (None) die Info-Zeile von name im Abschnitt Bestaetigungstests ausstehend."""
+    newline = '\r\n' if '\r\n' in text else '\n'
+    lines = text.splitlines()
+    rows, section, start = {}, '', None
+    for index, line in enumerate(lines):
+        if line.startswith('## '):
+            section = line[3:].strip()
+            if section == INFO_SECTION:
+                start = index
+        elif section == INFO_SECTION:
+            match = re.match(rf'^\| `({ID_PATTERN})` \|', line)
+            if match:
+                rows[match[1]] = index
+    if note is None:
+        if name in rows:
+            del lines[rows[name]]
+    elif name in rows:
+        lines[rows[name]] = f'| `{name}` | {note} |'
+    else:
+        if start is None:
+            while lines and not lines[-1].strip():
+                lines.pop()
+            lines += ['', f'## {INFO_SECTION}', '', INFO_INTRO, '', INFO_HEADER, '|---|---|']
+            start = len(lines) - 3
+        names = sorted(list(rows) + [name])
+        after = names.index(name)
+        if after < len(rows):
+            insert_at = rows[sorted(rows)[after]]
+        else:
+            insert_at = max(rows.values()) + 1 if rows else start + 5
+        lines.insert(insert_at, f'| `{name}` | {note} |')
+    return newline.join(lines) + (newline if text.endswith(('\n', '\r')) else '')
+
+
+def append_result(text, name, suffix):
+    """Haengt suffix an das Ergebnis der erledigten Zeile von name."""
+    lines = text.splitlines(keepends=True)
+    section = ''
+    for index, line in enumerate(lines):
+        if line.startswith('## '):
+            section = line[3:].strip()
+        elif section == DONE_SECTION and line.startswith(f'| `{name}` |'):
+            body = line.rstrip('\r\n')
+            lines[index] = body[:-1].rstrip() + f' {suffix} |' + line[len(body):]
+            return ''.join(lines)
+    raise ValueError(f'{name}: keine Zeile unter Erledigt')
+
+
 def confirmation_update(todo, names, action, note):
-    """Batch nur im Speicher validieren; Abnahme bleibt beim Warten offen und blockiert Abhaengigkeiten."""
+    """Bestaetigungstests als Info pflegen. pending schliesst die Aufgabe ab, damit sie nichts blockiert."""
     if action not in ('pending', 'update', 'pass', 'reopen'):
         raise ValueError('Unbekannte Bestaetigungstest-Aktion')
     if not names or len(names) != len(set(names)):
@@ -364,48 +437,86 @@ def confirmation_update(todo, names, action, note):
     tasks = parse(todo)
     for name in names:
         task = tasks.get(name)
-        if task is None or task.done:
-            raise ValueError(f'{name}: keine offene Aufgabe')
-        if task.mode == 'Team':
-            raise ValueError(f'{name}: Teamentscheidung, kein Bestaetigungstest')
-        if action != 'pending' and not task.confirmation:
-            raise ValueError(f'{name}: kein ausstehender Bestaetigungstest')
-        if action in ('pending', 'pass'):
-            waiting = [n for n in blockers(task, tasks) if action != 'pass' or n not in names]
+        if action == 'pending':
+            if task is None or task.done:
+                raise ValueError(f'{name}: keine offene Aufgabe')
+            if task.mode == 'Team':
+                raise ValueError(f'{name}: Teamentscheidung, kein Bestaetigungstest')
+            waiting = blockers(task, tasks)
             if waiting:
                 raise ValueError(f'{name}: blockiert, braucht ' + ', '.join(waiting))
-    if action == 'pass':
-        for name in names:
-            todo = mark_done(todo, name, note)
-        return todo
-    replacements = {}
+        elif task is None or not task.confirmation:
+            raise ValueError(f'{name}: kein ausstehender Bestaetigungstest')
     for name in names:
-        task = tasks[name]
-        original = task.text.partition(CONFIRMATION_TASK)[2] if task.confirmation else task.text
-        text = (f'{original} **Letzter Bestätigungstest:** {note}' if action == 'reopen' else
-                f'{CONFIRMATION_PREFIX}{note}{CONFIRMATION_TASK}{original}')
-        replacements[name] = f'| `{name}` | {task.prio} | {text} | ' + (
-            ', '.join(f'`{n}`' for n in task.needs) or '–') + f' | {task.mode} | {task.playtime} |'
-    in_free = False
-    lines = []
-    for line in todo.splitlines(keepends=True):
-        if line.rstrip('\r\n') == FREE_START:
-            in_free = True
-        elif line.rstrip('\r\n') == FREE_END:
-            in_free = False
-        match = re.match(rf'^\| `({ID_PATTERN})` \|', line) if not in_free else None
-        if match and match[1] in replacements:
-            line = replacements[match[1]] + line[len(line.rstrip('\r\n')):]
-        lines.append(line)
-    result = ''.join(lines)
-    parse(result)
-    return result
+        if action == 'pending':
+            todo = mark_done(todo, name, f'{tasks[name].text} Bestätigungstest ausstehend, siehe unten.')
+            todo = set_info(todo, name, note)
+        elif action == 'update':
+            todo = set_info(todo, name, note)
+        else:
+            label = 'Bestätigt' if action == 'pass' else 'Bestätigungstest fehlgeschlagen'
+            todo = append_result(set_info(todo, name, None), name, f'{label}: {note}')
+    parse(todo)
+    return todo
 
 
 FUTURE_REFERENCE = re.compile(
     rf'\b(?:folgt|folgen|kommt|kommen)(?: erst| später| noch| dann)? (?:mit|in|über|durch) `({ID_PATTERN})`'
     rf'|\bbis `({ID_PATTERN})`(?! \(#)')
 SKIPPED_DIRS = ('third_party/', 'research/local/', '.worktrees/', '.claude/')
+
+
+def combine(todo, done):
+    """Ein Text aus TODO.md und docs/ERLEDIGT.md, wie ihn parse, mark_done und update_todo erwarten."""
+    if not done:
+        return todo
+    if not todo.endswith('\n'):
+        todo += '\n'
+    return todo + done
+
+
+def split(text):
+    """(TODO.md, docs/ERLEDIGT.md) aus dem kombinierten Text.
+
+    Steht der Abschnitt "Erledigt" noch in TODO.md (alter Stand), wird er herausgeschnitten und bekommt den Vorspann.
+    """
+    lines = text.splitlines(keepends=True)
+    for index, line in enumerate(lines):
+        if line.rstrip('\r\n') == DONE_TITLE:
+            return ''.join(lines[:index]), ''.join(lines[index:])
+    start = next((i for i, line in enumerate(lines) if line.rstrip('\r\n') == f'## {DONE_SECTION}'), None)
+    if start is None:
+        return text, ''
+    end = next((i for i in range(start + 1, len(lines)) if lines[i].startswith('## ')
+                and lines[i].rstrip('\r\n') != f'## {INFO_SECTION}'), len(lines))
+    newline = '\r\n' if lines[start].endswith('\r\n') else '\n'
+    section = ''.join(lines[start:end]).rstrip('\r\n') + newline
+    return ''.join(lines[:start] + lines[end:]), DONE_PREAMBLE.replace('\n', newline) + section
+
+
+def newline_of(path, default='\n'):
+    if not path.exists():
+        return default
+    return '\r\n' if b'\r\n' in path.read_bytes() else '\n'
+
+
+def read_local(root):
+    """Kombinierter Text aus TODO.md und docs/ERLEDIGT.md im Arbeitsordner; fehlt ERLEDIGT.md, nur TODO.md."""
+    root = Path(root)
+    todo = (root / 'TODO.md').read_bytes().decode('utf-8')
+    done_path = root / DONE_FILE
+    return combine(todo, done_path.read_bytes().decode('utf-8') if done_path.exists() else '')
+
+
+def write_local(root, text):
+    """Schreibt den kombinierten Text getrennt zurueck, jede Datei im Zeilenende ihres bisherigen Stands."""
+    root = Path(root)
+    for name, part in zip(('TODO.md', DONE_FILE), split(text)):
+        path = root / name
+        newline = newline_of(path)
+        part = part.replace('\r\n', '\n').replace('\n', newline)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(part.encode('utf-8'))
 
 
 def markdown_files(root):
@@ -429,7 +540,7 @@ def stale_references(tasks, documents):
     found = []
     for path, text in documents.items():
         for number, line in enumerate(text.splitlines(), 1):
-            if path == 'TODO.md' and line.startswith('| `'):
+            if path in ('TODO.md', DONE_FILE) and line.startswith('| `'):
                 continue
             for match in FUTURE_REFERENCE.finditer(line):
                 name = match[1] or match[2]
@@ -447,22 +558,53 @@ def check_references(root, tasks):
 
 def regenerate(root, check=False):
     """Erneuert die abgeleiteten Abschnitte. Liefert die veralteten Dateien; mit check wird nichts geschrieben."""
-    todo_path, readme_path = root / 'TODO.md', root / 'README.md'
+    readme_path = root / 'README.md'
     svg_path = root / 'docs/assets/progress.svg'
-    todo = todo_path.read_bytes().decode('utf-8')
+    text = read_local(root)
     readme = readme_path.read_bytes().decode('utf-8')
-    tasks = parse(todo)
-    expected_todo = update_todo(todo, tasks)
+    tasks = parse(text)
+    expected_text = update_todo(text, tasks)
     expected_readme = update_readme(tasks, readme)
     expected_svg = progress_svg(tasks, expected_readme)
-    outputs = ((todo_path, todo, expected_todo), (readme_path, readme, expected_readme),
-               (svg_path, svg_path.read_text(encoding='utf-8') if svg_path.exists() else '', expected_svg))
-    stale = [p for p, old, new in outputs if old != new]
+    stale = []
+    if expected_text != text:
+        stale += [root / name for name, old, new in zip(('TODO.md', DONE_FILE), split(text), split(expected_text))
+                  if old != new]
+    others = ((readme_path, readme, expected_readme),
+              (svg_path, svg_path.read_text(encoding='utf-8') if svg_path.exists() else '', expected_svg))
+    stale += [p for p, old, new in others if old != new]
     if stale and not check:
-        for path, _, new in outputs:
+        if expected_text != text:
+            write_local(root, expected_text)
+        for path, _, new in others:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(new.encode('utf-8'))
     return stale
+
+
+def check_flat_list(tasks):
+    """Offene Aufgaben stehen nur unter Probleme oder Verbesserungen und haben keine Abhaengigkeiten."""
+    for task in tasks.values():
+        if not task.done and task.confirmation:
+            raise ValueError(f'{task.name}: Bestätigungstests stehen als Info in docs/ERLEDIGT.md, nicht als offene Zeile')
+        if not task.done and (task.phase not in LIST_SECTIONS.values() or task.needs):
+            raise ValueError(f'{task.name}: offene Aufgaben stehen unter Probleme oder Verbesserungen, ohne Braucht')
+
+
+def check_text_lengths(tasks):
+    """Offene Aufgabenzeilen bleiben kurz, Details stehen in der Fallakte. Nur beim Pruefen, nicht beim Lesen."""
+    for task in tasks.values():
+        if not task.done and len(task.text) > MAX_TASK_TEXT:
+            raise ValueError(f'{task.name}: Aufgabentext über {MAX_TASK_TEXT} Zeichen, Details in docs/faelle/{task.name}.md')
+
+
+def check_all(root, check):
+    """(veraltete Dateien, veraltete Querverweise). Wirft ValueError bei ungueltigen Aufgabentabellen."""
+    tasks = parse(read_local(root))
+    check_text_lengths(tasks)
+    check_flat_list(tasks)
+    references = check_references(root, tasks)
+    return regenerate(root, check=check), references
 
 
 def main():
@@ -471,8 +613,7 @@ def main():
     sys.stdout.reconfigure(encoding='utf-8')
     root = Path(__file__).resolve().parents[1]
     try:
-        stale = regenerate(root, check=sys.argv[1] == 'check')
-        references = check_references(root, parse(root.joinpath('TODO.md').read_bytes().decode('utf-8')))
+        stale, references = check_all(root, check=sys.argv[1] == 'check')
     except ValueError as error:
         sys.exit(f'TODO.md ungueltig: {error}')
     if references:
