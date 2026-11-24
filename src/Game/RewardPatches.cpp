@@ -31,6 +31,7 @@
 #include "Game/PatchPolicy.h"
 #include "Game/PatchRuntime.h"
 #include "Game/Reflection.h"
+#include "Game/RejoinPolicy.h"
 #include "Game/RewardAdapter.h"
 
 namespace Game::Patches
@@ -2461,5 +2462,252 @@ void ApplyScrap(int32_t Amount)
         return;
     AddScrap(Wallet, Amount - *Have);
     Core::Log::Info("Schrott: Stand des Hosts übernommen, {} statt {}", ScrapAmount(Wallet).value_or(-1), *Have);
+}
+}
+
+// wiedereintritt-inventar, Host: Inventar eines Clients über Trennung und Wiederbeitritt behalten (RejoinPolicy.h). Das Bild liest
+// der Host aus dem replizierten Inventar des Clients; zurück kommt es mit denselben nativen Funktionen wie ein Edit des Clients
+// (CreateAndAddItem, InventoryEdit::Apply, RefreshEffects) und repliziert wie jede Vergabe. Keine Nachricht, kein Stand beim Client.
+namespace Game::Rewards
+{
+namespace
+{
+using namespace Game::Patches;
+
+Game::Rejoin::Ledger RejoinLedger;
+ULONGLONG RejoinNextRead = 0;
+uintptr_t RejoinCache = 0;
+
+uint64_t InventoryIdentity(uintptr_t Inventory)
+{
+    const Game::Objects::Ref Held = Game::Objects::RefTo(Inventory);
+    if (!Held.Object)
+        return 0;
+    return ((static_cast<uint64_t>(static_cast<uint32_t>(Held.Index)) << 32) ^ Held.Object ^ Held.Serial) | 1;
+}
+
+std::optional<Game::Rejoin::Snapshot> ReadSnapshot(uintptr_t Inventory)
+{
+    if (!Alive(Inventory))
+        return std::nullopt;
+    Game::Rejoin::Snapshot Result;
+    const std::vector<Game::InventoryEdit::SlotInfo> Slots = Game::InventoryEdit::SlotsOf(Inventory);
+    for (const auto& Slot : Slots)
+        Result.Slots.push_back(Slot.At);
+    std::sort(Result.Slots.begin(), Result.Slots.end());
+    for (const uintptr_t Item : Game::InventoryEdit::ItemsOf(Inventory))
+    {
+        // Belohnungen einer offenen Auswahl gehören nicht zum Inventar.
+        if (!Alive(Item) || Memory::Read<uint8_t>(Item + ItemIsReward).value_or(0))
+            continue;
+        const uintptr_t Data = Pointer(Item + ItemData), Rarity = Pointer(Item + ItemRarity);
+        if (!Data)
+            return std::nullopt;
+        const Game::InventoryEdit::ItemState State = Game::InventoryEdit::ReadItem(Item, Slots, 0);
+        Game::Rejoin::SavedItem Saved;
+        Saved.Data = Memory::NameOf(Data);
+        Saved.Rarity = Rarity ? Memory::NameOf(Rarity) : std::string{};
+        Saved.Broken = State.Broken;
+        Saved.InBackpack = State.InBackpack;
+        Saved.Trash = State.Trash;
+        Saved.Turns = State.Turns;
+        Saved.Pivot = State.Pivot;
+        Saved.Tiles = State.Tiles;
+        Result.Items.push_back(std::move(Saved));
+    }
+    return Result;
+}
+
+// CreateAndAddItem wie ClaimForClient, aber mit dem gemerkten Zustand (kaputt) und ohne Neu-Markierung.
+uintptr_t CreateSaved(uintptr_t Inventory, uintptr_t Data, uintptr_t Rarity, bool Broken)
+{
+    static uintptr_t Create = 0;
+    if (!Inventory || !Data || !Function(Create, "CreateAndAddItem", "InventoryComponent"))
+        return 0;
+    struct
+    {
+        uintptr_t Data, Rarity;
+        bool Broken, FlagAsNew, SystemAdd;
+        uint8_t Pad;
+        int32_t Position;
+        bool AllowP2Reserve;
+        uint8_t Pad2[7];
+        uintptr_t Result;
+    } Add{Data, Rarity, Broken, false, true, 0, -1, false, {}, 0};
+    static_assert(sizeof(Add) == 0x28);
+    Objects::ProcessEvent(Inventory, Create, &Add);
+    return Add.Result;
+}
+
+Game::InventoryEdit::ItemState Gone(Game::InventoryEdit::ItemState State)
+{
+    State.Present = false;
+    State.InBackpack = State.Trash = false;
+    State.Tiles.clear();
+    State.RemoveContext = 0; // GeneralRemove
+    return State;
+}
+
+// Ersetzt das Inventar durch das gemerkte Bild. Erst alle gemerkten Items anlegen; gelingt das nicht, kommen die neuen wieder heraus
+// und das Startinventar bleibt. Dann ein Plan wie bei einem Edit: alte Items heraus, Felder angleichen, gemerkte Items ablegen.
+bool RestoreSnapshot(uintptr_t Inventory, const Game::Rejoin::Snapshot& Saved)
+{
+    using Game::InventoryEdit::ItemState;
+    using Game::InventoryEdit::Tile;
+    std::vector<Game::Rewards::ChoiceItem> Names;
+    for (const auto& Item : Saved.Items)
+        Names.push_back({{}, Item.Data, Item.Rarity, false});
+    const auto Resolved = ResolveChoices(Names);
+    for (size_t i = 0; i < Saved.Items.size(); ++i)
+        if (!Resolved[i].first || (!Saved.Items[i].Rarity.empty() && !Resolved[i].second))
+        {
+            Core::Log::Warn("Wiedereintritt: gemerktes Item {} {} beim Host unbekannt, Startinventar bleibt", Saved.Items[i].Data, Saved.Items[i].Rarity);
+            return false;
+        }
+    const std::vector<uintptr_t> Old = Game::InventoryEdit::ItemsOf(Inventory);
+    std::vector<uintptr_t> Created;
+    for (size_t i = 0; i < Saved.Items.size(); ++i)
+    {
+        const uintptr_t Item = CreateSaved(Inventory, Resolved[i].first, Resolved[i].second, Saved.Items[i].Broken);
+        if (!Item)
+            break;
+        Created.push_back(Item);
+    }
+    const std::vector<Game::InventoryEdit::SlotInfo> Slots = Game::InventoryEdit::SlotsOf(Inventory);
+    std::vector<uintptr_t> Items;
+    std::vector<ItemState> Current, Target;
+    auto Add = [&](uintptr_t Item)
+    {
+        Items.push_back(Item);
+        Current.push_back(Game::InventoryEdit::ReadItem(Item, Slots, static_cast<uint16_t>(Items.size() - 1)));
+        Current.back().Present = true;
+    };
+    if (Created.size() != Saved.Items.size())
+    {
+        Core::Log::Warn("Wiedereintritt: nur {} von {} gemerkten Items angelegt, Startinventar bleibt", Created.size(), Saved.Items.size());
+        for (const uintptr_t Item : Created)
+        {
+            Add(Item);
+            Target.push_back(Gone(Current.back()));
+        }
+        Game::InventoryEdit::Apply(Inventory, Items, Current, Target, {}, {}, false);
+        return false;
+    }
+    for (const uintptr_t Item : Old)
+        if (Alive(Item))
+        {
+            Add(Item);
+            Target.push_back(Gone(Current.back()));
+        }
+    for (size_t i = 0; i < Created.size(); ++i)
+    {
+        const auto& Want = Saved.Items[i];
+        Add(Created[i]);
+        ItemState Goal = Current.back();
+        Goal.Broken = Want.Broken;
+        Goal.Trash = Want.Trash;
+        Goal.InBackpack = Want.InBackpack;
+        if (Want.InBackpack)
+        {
+            Goal.Turns = Want.Turns;
+            Goal.Pivot = Want.Pivot;
+            Goal.Tiles = Want.Tiles;
+        }
+        else
+        {
+            // Außerhalb des Rucksacks zählen Pivot und Drehung nicht (opt-desync-pivot), es bleibt der Stand von CreateAndAddItem.
+            Goal.Tiles.clear();
+            if (Current.back().InBackpack)
+                Goal.Turns = 0, Goal.Pivot = Tile{};
+        }
+        Target.push_back(std::move(Goal));
+    }
+    std::vector<Tile> Have;
+    for (const auto& Slot : Slots)
+        Have.push_back(Slot.At);
+    const auto [Create, DestroyTiles] = Game::Rejoin::SlotChanges(Have, Saved.Slots);
+    std::vector<uintptr_t> Destroy;
+    for (const auto& Slot : Slots)
+        if (std::find(DestroyTiles.begin(), DestroyTiles.end(), Slot.At) != DestroyTiles.end())
+            Destroy.push_back(Slot.Slot);
+    const bool Ok = Game::InventoryEdit::Apply(Inventory, Items, Current, Target, Create, Destroy, false);
+    Game::InventoryEdit::RefreshEffects(Inventory);
+    Core::Log::Info("Wiedereintritt: Inventar des Clients wiederhergestellt, {} Items und {} Felder statt {} und {} ({} Felder neu, {} abgebaut), "
+                    "vollständig={}",
+                    Saved.Items.size(), Saved.Slots.size(), Old.size(), Have.size(), Create.size(), Destroy.size(), Ok);
+    return true;
+}
+
+// Nur zum Test auf einem PC: DDCOOP_TEST_REJOIN_SEED=1 gibt dem Client einmal je Prozess zwei Items ins Lager und zwei Rucksackfelder,
+// damit sein Inventar vom Startinventar abweicht. Ohne echte Eingaben ginge das sonst nur über eine Airdrop-Auswahl.
+void SeedForTest(uintptr_t Inventory)
+{
+    static const bool Enabled = []
+    {
+        char Value[4]{};
+        return GetEnvironmentVariableA("DDCOOP_TEST_REJOIN_SEED", Value, sizeof(Value)) == 1 && Value[0] == '1';
+    }();
+    static bool Done = false;
+    static ULONGLONG Since = 0;
+    if (!Enabled || Done || !Alive(Inventory))
+        return;
+    const ULONGLONG Now = GetTickCount64();
+    if (!Since)
+        Since = Now;
+    if (Now - Since < 15000)
+        return;
+    Done = true;
+    const std::vector<uintptr_t> Items = Game::InventoryEdit::ItemsOf(Inventory);
+    const std::vector<Game::InventoryEdit::SlotInfo> Slots = Game::InventoryEdit::SlotsOf(Inventory);
+    if (Items.empty() || Slots.empty())
+        return;
+    unsigned Added = 0;
+    for (int i = 0; i < 2; ++i)
+        Added += CreateSaved(Inventory, Pointer(Items[0] + ItemData), Pointer(Items[0] + ItemRarity), i == 1) != 0;
+    int32_t MaxX = Slots[0].At.first;
+    for (const auto& Slot : Slots)
+        MaxX = std::max(MaxX, Slot.At.first);
+    const std::vector<Game::InventoryEdit::Tile> Create{{MaxX + 1, Slots[0].At.second}, {MaxX + 2, Slots[0].At.second}};
+    Game::InventoryEdit::Apply(Inventory, {}, {}, {}, Create, {}, false);
+    Core::Log::Warn("Wiedereintritt: Testschalter DDCOOP_TEST_REJOIN_SEED, Client bekommt {} Items ins Lager und 2 Felder", Added);
+}
+}
+
+void TickRejoin(uint64_t Peer)
+{
+    using namespace Game::Patches;
+    if (CurrentRole() != NetRole::Host)
+    {
+        ForgetRejoin("nicht Host");
+        return;
+    }
+    const ULONGLONG Now = GetTickCount64();
+    if (Now < RejoinNextRead)
+        return;
+    RejoinNextRead = Now + 500;
+    uintptr_t Coop = 0, HostController = 0, Remote = 0;
+    const uintptr_t Inventory = Peer && ScrapWallet() && BoundRemoteP2(Coop, HostController, Remote) ? CachedInventory(RejoinCache, Remote) : 0;
+    const uint64_t Identity = Inventory ? InventoryIdentity(Inventory) : 0;
+    const std::optional<Game::Rejoin::Snapshot> Snapshot = Identity ? ReadSnapshot(Inventory) : std::nullopt;
+    const bool HadLeft = RejoinLedger.HasLeft(Peer);
+    const bool Busy = Host.Active || End.Id != 0;
+    static uint64_t LastPeer = 0;
+    const auto Restore = RejoinLedger.Tick(Peer, Identity, Snapshot, Busy, Now);
+    if (LastPeer && LastPeer != Peer && RejoinLedger.HasLeft(LastPeer))
+        if (const auto Kept = RejoinLedger.Saved(LastPeer))
+            Core::Log::Info("Wiedereintritt: Client getrennt, Host merkt sich sein Inventar ({} Items, {} Felder)", Kept->Items.size(), Kept->Slots.size());
+    LastPeer = Peer;
+    if (Peer && HadLeft && !RejoinLedger.HasLeft(Peer) && !Restore)
+        Core::Log::Info("Wiedereintritt: Client wieder verbunden, Inventar unverändert da");
+    if (Restore)
+        RejoinLedger.Done(Alive(Inventory) && Identity == Restore->Inventory && RestoreSnapshot(Inventory, Restore->Saved));
+    else if (Identity)
+        SeedForTest(Inventory);
+}
+
+void ForgetRejoin(const char* Why)
+{
+    if (RejoinLedger.Forget())
+        Core::Log::Info("Wiedereintritt: gemerkte Inventare verworfen ({})", Why);
 }
 }

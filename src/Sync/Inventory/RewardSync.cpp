@@ -386,6 +386,11 @@ void TickReward(std::span<const Net::ControlMessage> Messages)
         Game::Rewards::AbortClientEdit();
     }
     Game::Rewards::SetRemoteReady(Host && Peer);
+    // wiedereintritt-inventar: auch ohne Peer, dann merkt der Host die Trennung. Ohne Sitzung als Host gibt es nichts zurückzugeben.
+    if (Host)
+        Game::Rewards::TickRejoin(Peer);
+    else
+        Game::Rewards::ForgetRejoin(Transport ? "nicht Host" : "keine Sitzung");
     if (!Transport || !Peer)
     {
         // Ohne Gegenseite wartet niemand im Lager: Host vergisst den Client, der Client löst sein Bestätigen aus.
