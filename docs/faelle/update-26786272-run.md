@@ -2,7 +2,7 @@
 
 ## Bestätigungstest (Stand)
 
-Live-Test 24.11.2026, zwei PCs: Run über 14 Karten bis zur HQ-Karte mit Händler, Labyrinth, Kopierladen und Boss, Händlerkäufe und Lager übernommen; Rezept an der Werkbank abgelehnt. Offen: Run-Route.ps1 selbst, Rezept-Panel, Item-Abschaltung, [Live-Test 24.11.](../GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-24112026-livetest-2411)
+Live-Test 24.11.2026, zwei PCs: Run über 14 Karten bis zur HQ-Karte mit Händler, Labyrinth, Kopierladen und Boss, Händlerkäufe und Lager übernommen; Rezept an der Werkbank abgelehnt. Offen: Run-Route.ps1 selbst, Rezept-Panel, Item-Abschaltung, [Live-Test 24.11.](../archive/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-24112026-livetest-2411)
 
 ## Aufgabe und Abnahme
 

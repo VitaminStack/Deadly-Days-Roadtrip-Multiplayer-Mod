@@ -89,7 +89,7 @@ Referenz-Build, `26669225` bleibt unterstützt. Für `26786272` rechnet `Game::A
   Mod nicht auf. **[Vermutung]** `IsItemSwitchingOffItem` und die `Deactivated…`-Felder gehören zu einer neuen Mechanik, bei der ein Item
   ein anderes abschaltet; ob sie beim Client richtig ankommt, ist nicht geprüft (`update-26786272-run`).
 - **SdkChecks:** `SdkChecks.cpp` baut gegen das SDK von `26786272` ohne Fehler (nach der üblichen
-  [Nacharbeit](../GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58) an `Assertions.inl`); `Offsets.h` gilt damit für alle drei Builds. Grenze wie
+  [Nacharbeit](GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58) an `Assertions.inl`); `Offsets.h` gilt damit für alle drei Builds. Grenze wie
   immer: Offsets, die nur als Zahl im Code stehen, erfasst das nicht. Die 238 fest eingetragenen Werte in `src/` sind deshalb gegen die
   Liste der geänderten Klassen oben abgeglichen, nicht einzeln gemessen.
 - **Dumper-7 auf `26786272`:** Dump mit dem Stand des Submoduls plus lokalem Fix aus `dumper7-image-ende` (nicht im Repo). Mit dem Fix
@@ -162,7 +162,7 @@ SizeOfImage `0x0B74A000`, `.text` gleich groß (`0x827C000`). Die Portierung der
   `BP_DD_Character_parameters`, `OptionsMenu`, `BP_ManagerBoss_Stage*`, `WBP_AchievementNotification`); nicht einzeln ausgewertet,
   die von der Mod genutzten Blueprint-Felder deckt `sdk_diff.py` ab.
 - **SdkChecks:** `SdkChecks.cpp` baut gegen beide SDKs ohne Fehler (nach der üblichen
-  [Nacharbeit](../GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58) an `Assertions.inl`); `Offsets.h` gilt damit für beide Builds. Grenze wie
+  [Nacharbeit](GAME_ANALYSIS.md#sdk-erzeugung-unter-ue-58) an `Assertions.inl`); `Offsets.h` gilt damit für beide Builds. Grenze wie
   immer: Offsets, die nur als Zahl im Code stehen, und nicht reflektierte Felder erfasst weder der Vergleich noch der Build.
 - **Geänderter Quelltext:** `PlayerPatches.cpp` prüfte den Kamera-Folger mit `At(CameraFollowTick + 0x0E)`; die Summe steht in keiner
   Tabelle, darum fiel auf `26669225` die ganze Liste Player aus und der Host stürzte beim Beitritt des Clients an `0x5905A88` ab
@@ -338,7 +338,7 @@ Stand 16.11.2026. `HealthBarPatches.cpp` ist unverändert, nur `RvaMap26669225.i
   nicht an, ohne Spike gibt es keinen Schadensbefehl) und der echte Weg in die erste Karte über die Routenkarte, er braucht Eingaben.
   Der Live-Befund vom 16.11.2026 („Lebens- und Rüstungsleiste des Clients in der ersten Karte lange leer und schwarz") ließ sich mit
   der direkten Reise auch ohne den Patch nicht nachstellen; dort waren die Leisten von Beginn an gefüllt. **[Vermutung]** Er folgt aus
-  dem fehlenden Patch wie in [hp-leisten](../GAME_ANALYSIS.md#lebensleisten-beim-client-hp-leisten) (Leiste entsteht vor der Replikation
+  dem fehlenden Patch wie in [hp-leisten](GAME_ANALYSIS.md#lebensleisten-beim-client-hp-leisten) (Leiste entsteht vor der Replikation
   und bleibt ohne Broadcast auf 0 %). Für die Rüstung gab es damals keinen Hook, nachgetragen in [Rüstung](../OFFSETS.md#rüstung-opt-astronaut-ruestung).
 - **Regression `26495302`:** `Start-Session.ps1 -Build -Mod -Tunnel Lobby -Map /Game/Maps/DDDynamic_Map`: beide `Signaturen: 106 Adressen
   geprüft`, `Patches: 54 gesetzt`, Broadcast beim Client, Leisten gefüllt, kein Absturz.

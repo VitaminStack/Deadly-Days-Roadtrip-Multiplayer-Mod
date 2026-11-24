@@ -4,7 +4,7 @@ Fan mod that adds real online co-op to **Deadly Days: Roadtrip**. The game itsel
 online currently means Steam Remote Play, where the host streams the picture. With this mod every player runs the game on
 their own PC.
 
-**Status (24 Nov 2026):** Release 1.0, experimental, [download on the releases page](https://github.com/VitaminStack/Deadly-Days-Roadtrip-Multiplayer-Mod/releases/latest). On 17 Nov 2026 two PCs in separate households played a run over the internet through to the final victory without a crash ([test report](docs/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-17112026-livetest-1711)); on 24 Nov 2026 a run on the supported game build `26786272` (patch 1.0.3) went through 14 maps up to the HQ map ([test report](docs/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-24112026-livetest-2411)). Known issues: a client crash at an airdrop selection, a rare drop of the client and rejoining without a game restart, see [known issues](docs/INSTALL.md#known-issues-in-10).
+**Status (24 Nov 2026):** Release 1.0, experimental, [download on the releases page](https://github.com/VitaminStack/Deadly-Days-Roadtrip-Multiplayer-Mod/releases/latest). On 17 Nov 2026 two PCs in separate households played a run over the internet through to the final victory without a crash ([test report](docs/archive/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-17112026-livetest-1711)); on 24 Nov 2026 a run on the supported game build `26786272` (patch 1.0.3) went through 14 maps up to the HQ map ([test report](docs/archive/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-24112026-livetest-2411)). Known issues: a client crash at an airdrop selection, a rare drop of the client and rejoining without a game restart, see [known issues](docs/INSTALL.md#known-issues-in-10).
 
 **Contributing:** Anyone can help, no invitation needed: C++, reverse engineering, testing with two players, or docs.
 Start with [For new contributors](#for-new-contributors), free tasks are listed under [Where can I start?](TODO.md#wo-kann-ich-anfangen). Docs and the task list are written in German, but issues and pull requests in English are welcome. Fork the repo and open a pull request; for bigger changes please open an issue first.
@@ -58,7 +58,7 @@ Download `DDCoop-<version>.zip` from the [releases page](https://github.com/Vita
 |---|---|
 | [TODO.md](TODO.md) | Roadmap, phases, gates and open tasks |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Graph: what is still open until the mod is finished |
-| [docs/GAME_ANALYSIS.md](docs/GAME_ANALYSIS.md) | What we know about the game, with evidence and confidence |
+| [docs/GAME_ANALYSIS.md](docs/archive/GAME_ANALYSIS.md) | What we know about the game, with evidence and confidence |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Technical options, decisions, module boundaries |
 | [docs/OFFSETS.md](docs/OFFSETS.md) | Offsets and function addresses of the supported build |
 | [docs/SETUP.md](docs/SETUP.md) | Setting up the development environment |
@@ -97,7 +97,7 @@ writing into the same files (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 
 Nobody has to repeat the analysis so far. Results, offsets, patches and test scripts are in the repo.
 
-1. Install the game in Steam and bring it to the [supported version](docs/GAME_ANALYSIS.md#unterstützte-spielversion).
+1. Install the game in Steam and bring it to the [supported version](docs/archive/GAME_ANALYSIS.md#unterstützte-spielversion).
 2. Work through [docs/SETUP.md](docs/SETUP.md): set up, check with `tools/Test-Setup.ps1`, build the solution, run the tests.
 3. Start a test session as described in [docs/TESTING.md](docs/TESTING.md); then the current state runs on your machine.
 4. Read [CONTRIBUTING.md](CONTRIBUTING.md) and pick a task from [Where can I start?](TODO.md#wo-kann-ich-anfangen).

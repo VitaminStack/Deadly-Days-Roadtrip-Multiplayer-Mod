@@ -2,7 +2,7 @@
 
 Aufgabe `sync-bedarf`, Build `26187885`. **Architekturentwurf, keine Implementierung.**
 Grundlage: Mission-SDK aus der eigenen Spielkopie und die bereits dokumentierte
-[Replikationsmessung](GAME_ANALYSIS.md#replikation-zur-laufzeit). SDK-Header zeigen
+[Replikationsmessung](archive/GAME_ANALYSIS.md#replikation-zur-laufzeit). SDK-Header zeigen
 Schnittstellen und reflektierte Felder, nicht die gesamte native Implementierung.
 
 ## Befunde und festgelegter Weg pro Komponente

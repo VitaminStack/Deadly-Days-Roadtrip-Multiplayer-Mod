@@ -5,7 +5,7 @@ Diese Aufgabe gilt nur, wenn der Live-Test die Theorie bestätigt; sonst entfäl
 ## Reproduktion
 
 Labyrinth-Event, zwei PCs: Der Client fällt nach dem Zonenstart durch die Karte.
-Herkunft: [Labyrinth-Event beim Client](../GAME_ANALYSIS.md#labyrinth-event-beim-client-labyrinth-event-client), Aufgabe `labyrinth-event-client`.
+Herkunft: [Labyrinth-Event beim Client](../archive/GAME_ANALYSIS.md#labyrinth-event-beim-client-labyrinth-event-client), Aufgabe `labyrinth-event-client`.
 
 ## Belege
 

@@ -166,7 +166,7 @@ Fremde Änderungen an den Einsprungbytes müssen weiterhin zur Ablehnung führen
 
 ### Trennen
 
-Ablauf siehe [Trennen ins Hauptmenü](GAME_ANALYSIS.md#trennen-ins-hauptmenü-trennen).
+Ablauf siehe [Trennen ins Hauptmenü](archive/GAME_ANALYSIS.md#trennen-ins-hauptmenü-trennen).
 
 | Funktion | RVA | Hinweis |
 |---|---|---|
@@ -177,7 +177,7 @@ Ablauf siehe [Trennen ins Hauptmenü](GAME_ANALYSIS.md#trennen-ins-hauptmenü-tr
 
 ### Kamera
 
-Ablauf siehe [Kamera und Sichtbereich](GAME_ANALYSIS.md#kamera-und-sichtbereich).
+Ablauf siehe [Kamera und Sichtbereich](archive/GAME_ANALYSIS.md#kamera-und-sichtbereich).
 
 | Funktion | RVA | Hinweis |
 |---|---|---|
@@ -190,7 +190,7 @@ Ablauf siehe [Kamera und Sichtbereich](GAME_ANALYSIS.md#kamera-und-sichtbereich)
 
 ### Gegner
 
-Ablauf siehe [Gegner-Spawning und Pooling](GAME_ANALYSIS.md#gegner-spawning-und-pooling).
+Ablauf siehe [Gegner-Spawning und Pooling](archive/GAME_ANALYSIS.md#gegner-spawning-und-pooling).
 
 | Funktion | RVA | Hinweis |
 |---|---|---|
@@ -207,7 +207,7 @@ Ablauf siehe [Gegner-Spawning und Pooling](GAME_ANALYSIS.md#gegner-spawning-und-
 
 ### Karte
 
-Ablauf siehe [Karte und Seed](GAME_ANALYSIS.md#karte-und-seed).
+Ablauf siehe [Karte und Seed](archive/GAME_ANALYSIS.md#karte-und-seed).
 
 | Funktion | RVA | Hinweis |
 |---|---|---|
@@ -231,7 +231,7 @@ Ablauf siehe [Karte und Seed](GAME_ANALYSIS.md#karte-und-seed).
 
 ### Airdrop-Auswahl
 
-Aufgabe `airdrop-auswahl`, Ablauf in [Airdrop-Auswahl](GAME_ANALYSIS.md#airdrop-auswahl-für-beide-spieler-airdrop-auswahl).
+Aufgabe `airdrop-auswahl`, Ablauf in [Airdrop-Auswahl](archive/GAME_ANALYSIS.md#airdrop-auswahl-für-beide-spieler-airdrop-auswahl).
 
 | Funktion oder Feld | RVA oder Offset | Hinweis |
 |---|---|---|
@@ -283,7 +283,7 @@ Aufgabe `airdrop-auswahl`, Ablauf in [Airdrop-Auswahl](GAME_ANALYSIS.md#airdrop-
 
 ### Coop
 
-Funktionen von `ULocalCoopSubsystem` und ihre Aufrufer, Ablauf siehe [Coop-Ablauf](GAME_ANALYSIS.md#coop-ablauf).
+Funktionen von `ULocalCoopSubsystem` und ihre Aufrufer, Ablauf siehe [Coop-Ablauf](archive/GAME_ANALYSIS.md#coop-ablauf).
 
 | Funktion | RVA | Hinweis |
 |---|---|---|
@@ -332,7 +332,7 @@ Ablauf siehe [Crash-Reporter](../research/spikes/a-connect/README.md#sperre-in-m
 
 ### Laden, Zeitanfragen und Busplatz (`testumgebung`)
 
-Ablauf siehe [Pausierte Welt und Busplatz](GAME_ANALYSIS.md#pausierte-welt-und-busplatz-testumgebung).
+Ablauf siehe [Pausierte Welt und Busplatz](archive/GAME_ANALYSIS.md#pausierte-welt-und-busplatz-testumgebung).
 
 | Funktion | RVA | Hinweis |
 |---|---|---|
@@ -552,7 +552,7 @@ Projektile: `AProjectile.OnTakeFromPool_BP` läuft bei jeder Pool-Entnahme über
 auch ohne Blueprint-Implementierung. Daran schaltet der Host `Actor.SetReplicateMovement(true)`
 einmal je Actor ein. Keine neue RVA. **Korrektur 05.11.2026 (`kampf`):** Beim Host wurde der Aufruf über
 ProcessEvent nie gesehen. Der Host erfasst neue Projektile stattdessen am Ende von `Level->Actors`, siehe
-[Kampf beim Client](GAME_ANALYSIS.md#kampf-beim-client-kampf).
+[Kampf beim Client](archive/GAME_ANALYSIS.md#kampf-beim-client-kampf).
 
 Arraygrößen sind gespeicherte CPU-Daten, keine lebenden GPU-Partikelzahlen.
 [Beobachtungen und verworfener Schalterversuch](../research/spikes/client-visuell/README.md).
@@ -674,7 +674,7 @@ Build `26495302`, Exec-Thunks `0x56C6000` und `0x56C54E0`, im Spieltest vom 10.1
 
 Stand 18.11.2026, beide Builds offline aus der Exe gelesen: `OnRep_*` über die Exec-Thunks der `FNameNativePtrPair`-Tabelle (gleiche Tabelle
 wie `OnRep_Health`), Feld-Offsets aus den Eigenschaftsparametern der Reflection (`FPropertyParamsBase`, Wort `ArrayDim | Offset << 16`).
-Felder und Delegates sind auf beiden Builds gleich. Befund in [Rüstung beim Client](GAME_ANALYSIS.md#rüstung-beim-client-opt-astronaut-ruestung).
+Felder und Delegates sind auf beiden Builds gleich. Befund in [Rüstung beim Client](archive/GAME_ANALYSIS.md#rüstung-beim-client-opt-astronaut-ruestung).
 
 | Stelle | 26495302 | 26669225 |
 |---|---|---|
@@ -699,7 +699,7 @@ aus der Reflection (`ActiveGameplayEffect`, `PropertiesSize`) im laufenden Spiel
 
 ## Schadenszahlen (`opt-schadenszahlen`)
 
-Build `26495302`, Disassembly und Live-Speicher, Befund in [Schadenszahlen beim Client](GAME_ANALYSIS.md#schadenszahlen-beim-client-opt-schadenszahlen).
+Build `26495302`, Disassembly und Live-Speicher, Befund in [Schadenszahlen beim Client](archive/GAME_ANALYSIS.md#schadenszahlen-beim-client-opt-schadenszahlen).
 
 | Stelle | Wert |
 |---|---|
@@ -721,10 +721,10 @@ Feldoffsets aus dem SDK, Aufrufe per `ProcessEvent`. Im Spieltest vom 09.11.2026
 | `AEnemyBase` | `Type` (`UEnemyType*`) `0x9B0` |
 | `UInventoryItemData` | `MinimumItemRarity` `0xF0`, `IsBag` `0x178`, `IsHiddenItem` `0x190` |
 | `ALootSpot` | `ItemLootTemplate` `0x2E0` |
-| `BP_EnvironmentObjectLootspot_C` | `Widget` `0x3A8`, `Progress` `0x3C0` (double, Net), `IsLooting` `0x3C8` (RepNotify); Funktion `Update Progress Indicator(double)` mit Leerzeichen im Namen ([Lootbalken](GAME_ANALYSIS.md#lootbalken-beim-client-opt-lootbalken)) |
+| `BP_EnvironmentObjectLootspot_C` | `Widget` `0x3A8`, `Progress` `0x3C0` (double, Net), `IsLooting` `0x3C8` (RepNotify); Funktion `Update Progress Indicator(double)` mit Leerzeichen im Namen ([Lootbalken](archive/GAME_ANALYSIS.md#lootbalken-beim-client-opt-lootbalken)) |
 | `UAbstractProgressWidget` | `Progress` `0x328` |
 | `UObject` | `InternalIndex` `0x0C` |
-| `UGameplayCueManager::ExecuteGameplayCue_NonReplicated` | `0x4BC58D0`, statisch (Ziel, Tag als FName in einem Register, Parameter); ohne Rollenprüfung ([Körperteile](GAME_ANALYSIS.md#körperteile-beim-client-opt-koerperteile)) |
+| `UGameplayCueManager::ExecuteGameplayCue_NonReplicated` | `0x4BC58D0`, statisch (Ziel, Tag als FName in einem Register, Parameter); ohne Rollenprüfung ([Körperteile](archive/GAME_ANALYSIS.md#körperteile-beim-client-opt-koerperteile)) |
 | `UGameplayCueFunctionLibrary::ExecuteGameplayCueOnActor` | Exec `0x4BE04C0`; mit ASC nur bei `AActor::Role` `0x168` = Autorität |
 | `ADDCharacterBase` | `StartupAbilities` `0x708` (TArray) |
 | `UEnemyDyingAbility` | `ChaosDestructionCueTag` `0x3A8` (FGameplayTag), `DestroyDelay` `0x3B0` |
@@ -735,7 +735,7 @@ Feldoffsets aus dem SDK, Aufrufe per `ProcessEvent`. Im Spieltest vom 09.11.2026
 
 ## Blickrichtung (`opt-blickrichtung-client`)
 
-Build `26495302`, SDK und Disassembly, im Spieltest vom 11.11.2026 belegt ([Blickrichtung](GAME_ANALYSIS.md#blickrichtung-beim-client-opt-blickrichtung-client)).
+Build `26495302`, SDK und Disassembly, im Spieltest vom 11.11.2026 belegt ([Blickrichtung](archive/GAME_ANALYSIS.md#blickrichtung-beim-client-opt-blickrichtung-client)).
 
 | Stelle | Wert |
 |---|---|
@@ -751,7 +751,7 @@ Build `26495302`, SDK und Disassembly, im Spieltest vom 11.11.2026 belegt ([Blic
 
 ## Laufanimation (`opt-laufanimation-client`)
 
-Build `26495302`, [Befund](GAME_ANALYSIS.md#laufanimation-beim-client-opt-laufanimation-client).
+Build `26495302`, [Befund](archive/GAME_ANALYSIS.md#laufanimation-beim-client-opt-laufanimation-client).
 
 | Stelle | Wert |
 |---|---|
@@ -764,7 +764,7 @@ Build `26495302`, [Befund](GAME_ANALYSIS.md#laufanimation-beim-client-opt-laufan
 
 ## Schuss-Animation (`opt-schuss-animation`)
 
-Build `26495302`, SDK, im Spieltest vom 13.11.2026 gelesen ([Befund](GAME_ANALYSIS.md#schuss-animation-und-geisterwaffen-opt-schuss-animation)).
+Build `26495302`, SDK, im Spieltest vom 13.11.2026 gelesen ([Befund](archive/GAME_ANALYSIS.md#schuss-animation-und-geisterwaffen-opt-schuss-animation)).
 Das SDK stammt vom Vorgänger-Build; die Werte unten lieferten im Spiel plausible Listen, Klassen und Namen.
 
 | Stelle | Wert |
@@ -794,7 +794,7 @@ Build `26495302`, Disassembly und SDK, im Spieltest vom 10.11.2026 belegt.
 ## Warnanzeigen der Gegner (`opt-gegner-indikatoren`)
 
 Build `26495302`, Disassembly der Exec-Thunks (`UFunction::ExecFunction` `+0xD8`) und SDK. Im Spieltest vom 11.11.2026 belegt, siehe
-[Warnanzeigen der Gegner](GAME_ANALYSIS.md#warnanzeigen-der-gegner-beim-client-opt-gegner-indikatoren).
+[Warnanzeigen der Gegner](archive/GAME_ANALYSIS.md#warnanzeigen-der-gegner-beim-client-opt-gegner-indikatoren).
 
 | Stelle | Wert |
 |---|---|
@@ -814,7 +814,7 @@ Build `26495302`, Disassembly der Exec-Thunks (`UFunction::ExecFunction` `+0xD8`
 
 Build `26495302`, im laufenden Spiel gemessen (Tag-8-Karte `MGP_Burger_Boss_Nature`, `BP_Parcel_BurgerBoss_01_C`) und per Frida
 beobachtet, 13.11.2026. Der BossSelector liegt gegenüber dem SDK verschoben. Siehe
-[Boss erscheint nicht](GAME_ANALYSIS.md#endboss-erscheint-nicht-endboss-spawn).
+[Boss erscheint nicht](archive/GAME_ANALYSIS.md#endboss-erscheint-nicht-endboss-spawn).
 
 | Stelle | Wert |
 |---|---|
@@ -830,7 +830,7 @@ beobachtet, 13.11.2026. Der BossSelector liegt gegenüber dem SDK verschoben. Si
 ## Kamera-Folger und Controller-Liste (`host-absturz-start`)
 
 Build `26495302`, Disassembly und Klassenregistrierung, 13.11.2026. Siehe
-[Host-Absturz beim Rundenstart](GAME_ANALYSIS.md#host-absturz-beim-rundenstart-host-absturz-start).
+[Host-Absturz beim Rundenstart](archive/GAME_ANALYSIS.md#host-absturz-beim-rundenstart-host-absturz-start).
 
 | Stelle | Wert |
 |---|---|
@@ -846,7 +846,7 @@ Build `26495302`, Disassembly und Klassenregistrierung, 13.11.2026. Siehe
 
 ## Bedrohungsstufe (`opt-bedrohung-sound`)
 
-Build `26786272`, Speicher gelesen und Reflexion zur Laufzeit, siehe [Bedrohungsstufe beim Client](GAME_ANALYSIS.md#bedrohungsstufe-beim-client-opt-bedrohung-sound).
+Build `26786272`, Speicher gelesen und Reflexion zur Laufzeit, siehe [Bedrohungsstufe beim Client](archive/GAME_ANALYSIS.md#bedrohungsstufe-beim-client-opt-bedrohung-sound).
 Die Mod nutzt davon nur die Funktionen, die Offsets sind Belege.
 
 | Was | Wert |
@@ -858,7 +858,7 @@ Die Mod nutzt davon nur die Funktionen, die Offsets sind Belege.
 
 ## Aufsammelsound (`opt-item-sound`)
 
-Build `26495302`, Disassembly, siehe [Aufsammelsound](GAME_ANALYSIS.md#aufsammelsound-von-benzin-und-items-beim-client-opt-item-sound).
+Build `26495302`, Disassembly, siehe [Aufsammelsound](archive/GAME_ANALYSIS.md#aufsammelsound-von-benzin-und-items-beim-client-opt-item-sound).
 
 | Stelle | Wert |
 |---|---|
@@ -870,7 +870,7 @@ Build `26495302`, Disassembly, siehe [Aufsammelsound](GAME_ANALYSIS.md#aufsammel
 
 ## Gegner-Sounds (`opt-gegner-sound`)
 
-Build `26786272`, Disassembly und Reflexion zur Laufzeit, siehe [Gegner-Sounds beim Client](GAME_ANALYSIS.md#gegner-sounds-beim-client-opt-gegner-sound).
+Build `26786272`, Disassembly und Reflexion zur Laufzeit, siehe [Gegner-Sounds beim Client](archive/GAME_ANALYSIS.md#gegner-sounds-beim-client-opt-gegner-sound).
 Die Mod liest die Felder über `Reflection::Property`, die Offsets stehen hier nur als Beleg.
 
 | Was | Wert |
@@ -884,7 +884,7 @@ Die Mod liest die Felder über `Reflection::Property`, die Offsets stehen hier n
 ## Loot-Aufnahme beim Client (`opt-loot-aufnahme-client`)
 
 Build `26786272`, Reflexion zur Laufzeit (nur gelesen) und Disassembly, siehe
-[Loot-Aufnahme beim Client](GAME_ANALYSIS.md#loot-aufnahme-beim-client-opt-loot-aufnahme-client).
+[Loot-Aufnahme beim Client](archive/GAME_ANALYSIS.md#loot-aufnahme-beim-client-opt-loot-aufnahme-client).
 
 | Stelle | Wert |
 |---|---|
@@ -899,7 +899,7 @@ Build `26786272`, Reflexion zur Laufzeit (nur gelesen) und Disassembly, siehe
 
 ## Waffensounds (`opt-waffen-sound`)
 
-Build `26495302`, SDK und Disassembly, siehe [Waffensounds beim Client](GAME_ANALYSIS.md#waffensounds-beim-client-opt-waffen-sound).
+Build `26495302`, SDK und Disassembly, siehe [Waffensounds beim Client](archive/GAME_ANALYSIS.md#waffensounds-beim-client-opt-waffen-sound).
 Die Mod hängt nur am Event-Wrapper von `PlayReloadSound` (Host), sonst nutzt sie die Felder und reflektierten Funktionen.
 
 | Stelle | Wert |
@@ -954,7 +954,7 @@ Felder aus dem SDK von Build `26786272`, im Spiel gelesen. Keine Code-Stelle, ke
 ## Zeitanfragen und Weltzeit (`boss-client-einfrieren`)
 
 Build `26495302`, Disassembly und Speicherlesen am 19.11.2026. Ablauf siehe
-[Stillstand des Clients nach dem Bosstod](GAME_ANALYSIS.md#stillstand-des-clients-nach-dem-bosstod-boss-client-einfrieren). Die Mod
+[Stillstand des Clients nach dem Bosstod](archive/GAME_ANALYSIS.md#stillstand-des-clients-nach-dem-bosstod-boss-client-einfrieren). Die Mod
 ruft `ClearAllRequests` und liest die Felder über Namen (Reflection), die RVAs dienen nur der Analyse.
 
 | Funktion | RVA | Hinweis |
@@ -1061,7 +1061,7 @@ Referenz-Build; die Adressen stehen direkt hier und in `src/Game/ClientPatches.c
 ## HUD-Porträt (`opt-portraet`)
 
 Build `26786272`, SDK und Speicherlesen. Lesewerkzeug `tools/spike/portraits.py`, Befund unter
-[HUD-Porträt](GAME_ANALYSIS.md#hud-porträt-opt-portraet). Die Mod nutzt keinen dieser Werte.
+[HUD-Porträt](archive/GAME_ANALYSIS.md#hud-porträt-opt-portraet). Die Mod nutzt keinen dieser Werte.
 
 | Klasse | Feld | Offset |
 |---|---|---|

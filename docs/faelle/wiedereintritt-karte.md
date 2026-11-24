@@ -7,7 +7,7 @@ Er baut keine Karte und fällt durch, dreimal gleich. Ein Neustart des Spiels um
 
 ## Belege
 
-- [Belegt] „Werte vom Host“ kommen an, „Client übernimmt“ fehlt ([Live-Test 24.11.](../GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-24112026-livetest-2411)).
+- [Belegt] „Werte vom Host“ kommen an, „Client übernimmt“ fehlt ([Live-Test 24.11.](../archive/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-24112026-livetest-2411)).
 - [Belegt] `FreshValues` in `src/Game/MapPatches.cpp` nimmt die Werte nur bei neuer Id oder gleicher Welt.
   Die Id der laufenden Host-Karte ist schon als `UsedId` verbraucht, die Welt ist neu.
   `UsedId` wird beim Verbindungsende nicht zurückgesetzt.

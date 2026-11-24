@@ -19,7 +19,7 @@ zeigt sie lokal mit dem nativen System bzw. der eigenen `UTackleAbilityExecution
 
 Nicht repliziert und darum hier nicht nachgebaut: Gegner-HP beim Client (dort 0/0) und die gepoolten Tod-Effekte
 (`EnemyChaosDestructionProxyActor`, Schadenszahlen), siehe `opt-blut` und `vfx-sound`. Bosse und weitere Gegnertypen prüft
-`gegner-alle`. [Befund und Messwerte](../../../docs/GAME_ANALYSIS.md#ein-gegnertyp-synchron-gegnertyp)
+`gegner-alle`. [Befund und Messwerte](../../../docs/archive/GAME_ANALYSIS.md#ein-gegnertyp-synchron-gegnertyp)
 
 ## Schadenszahlen (`opt-schadenszahlen`, 11.11.2026)
 
@@ -35,7 +35,7 @@ Erster eigener Code im Ordner: `DamageNumberState.h` (Nachricht `0xA00`, Host an
 | Welcher Weg wird genutzt? | Kontrollkanal wie `0x500`, je Takt abgeholt und zusätzlich im Sammelabruf alle 250 ms ausgewertet (`opt-schadenszahlen-verlust`); NetGUIDs aus dem vorhandenen Objektabgleich |
 | Ablehnung, Wiederholung, Neuaufbau | Ungültige Pakete und unbekannte oder sterbende Ziele verwirft der Client und zählt sie. Kein Wiederholen, ein Verlust heißt nur fehlende Zahlen; fehlende Nachrichten zählt der Client an der Revision des Hosts. Beim Weltwechsel leert der Host seinen Puffer |
 
-[Befund](../../../docs/GAME_ANALYSIS.md#schadenszahlen-beim-client-opt-schadenszahlen), Format in
+[Befund](../../../docs/archive/GAME_ANALYSIS.md#schadenszahlen-beim-client-opt-schadenszahlen), Format in
 [CONTROL_PROTOCOL.md](../../../docs/CONTROL_PROTOCOL.md#schadenszahlen-mod-kompatibilität-12).
 
 ## Inventur Bosse (`gegner-alle`, 07.11.2026, nur statisch, noch nicht im Spiel belegt)
@@ -141,17 +141,17 @@ Grenzen und Stolpersteine:
 - Nicht gemessen: Join mitten im Kampf.
 - Reise von Boss-Karte zu Boss-Karte (21.11.2026, `boss-karte-absturz`, `26786272`): je Eintritt wird die alte Leiste entfernt und genau
   ein Objective angelegt, dreimal in einem Prozess ohne Absturz, auch mit simulierter Latenz. Befund:
-  [Absturz beim Betreten der Boss-Karte](../../../docs/GAME_ANALYSIS.md#absturz-beim-betreten-der-boss-karte-boss-karte-absturz).
+  [Absturz beim Betreten der Boss-Karte](../../../docs/archive/GAME_ANALYSIS.md#absturz-beim-betreten-der-boss-karte-boss-karte-absturz).
 - Alle Bosse, mehrere nacheinander und gleichzeitig (18.11.2026, `opt-endboss-leiste`): Klassensuche nur im Paket (sonst Absturz beim zweiten
   Anlegen), alle eigenen Objectives gemerkt, Leiste bleibt bei ihrem Boss, Bosse mit 0 HP zählen nicht. Abweichende Phasenzahl über der Leiste:
-  `opt-boss-phasenleiste`. Befund: [Boss-Leiste aller Bosse](../../../docs/GAME_ANALYSIS.md#boss-leiste-aller-bosse-beim-client-opt-endboss-leiste).
+  `opt-boss-phasenleiste`. Befund: [Boss-Leiste aller Bosse](../../../docs/archive/GAME_ANALYSIS.md#boss-leiste-aller-bosse-beim-client-opt-endboss-leiste).
 - Phasen und Kampfstart (21.11.2026, `opt-boss-phasenleiste`): Der Host schreibt `IsObjectivePhaseBased` seines Spawnpunkts in das
   Objective und führt dann nur die HP der laufenden Phase. Der Client liest dasselbe aus `DA_BossSpawnLookup` (Boss-Klasse über
   `EnemyType.EnemyBlueprint`, Vorgabe der Spawnpunkt-Klasse), setzt das Kennzeichen vor `AddBossEnemy` und rechnet den Wert aus den
   replizierten HP (`PhaseOf`). Die Leiste entsteht erst, wenn das replizierte Tag `State.Pause` des Bosses fehlt
   (`BossFightStarted`). Lokal bleibt alles, geteilt wird nichts Neues, der Host entscheidet weiter über Schaden und Phase.
   Neuaufbau (Beitritt, Reise): Phase und Start folgen aus HP und Tags, getestet in `BossBarPolicyTests.cpp`. Befund:
-  [Phasen und Kampfstart](../../../docs/GAME_ANALYSIS.md#phasen-und-kampfstart-der-boss-leiste-beim-client-opt-boss-phasenleiste).
+  [Phasen und Kampfstart](../../../docs/archive/GAME_ANALYSIS.md#phasen-und-kampfstart-der-boss-leiste-beim-client-opt-boss-phasenleiste).
 - Ein `BossfightSpawnPoint` ohne Host-Kontext zu erzeugen stürzt den Client ab (Lesezugriff `0x308` in `0x58BC184`), der Spawnpunkt gehört nur zum Host.
 
 ## Gegner-Sounds (`opt-gegner-sound`, 21.11.2026)
@@ -166,4 +166,4 @@ Kein neuer Nachrichtentyp. `DamageNumberState.h` trägt je Treffer ein Byte Mark
 | Welcher Weg wird genutzt? | `0xA00` aus `opt-schadenszahlen`, keine neue Nachricht, kein neuer Hook |
 | Ablehnung, Wiederholung, Neuaufbau | Wie `0xA00`: Verlust heißt fehlende Sounds, kein Nachholen nach Join oder Travel. Unbekannte Bits ignoriert der Client |
 
-Code in `src/Game/EnemySoundPatches.cpp`, [Befund](../../../docs/GAME_ANALYSIS.md#gegner-sounds-beim-client-opt-gegner-sound).
+Code in `src/Game/EnemySoundPatches.cpp`, [Befund](../../../docs/archive/GAME_ANALYSIS.md#gegner-sounds-beim-client-opt-gegner-sound).

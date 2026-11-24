@@ -7,7 +7,7 @@ Nicht gezielt nachstellbar, solange die Logs keine Lobby-Ereignisse zeigen.
 
 ## Belege
 
-- [Belegt] Die Verbindung war gesund: Ping 64 ms, Abgleich 3 s vorher in Ordnung ([Live-Test 24.11.](../GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-24112026-livetest-2411)).
+- [Belegt] Die Verbindung war gesund: Ping 64 ms, Abgleich 3 s vorher in Ordnung ([Live-Test 24.11.](../archive/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-24112026-livetest-2411)).
 - [Belegt] Der Host trennt ein Konto, das länger als `RevokeAfterMs` (10 s) in seiner Steam-Lobby fehlt (`Session::SyncLobbyMembers` in `src/Net/Session.cpp`, aus `lobby-auth`).
 - [Belegt] Der Client verließ die Lobby laut Log nicht. Keines der Logs zeigt Mitgliederzahl oder Lobby-Ereignis.
 

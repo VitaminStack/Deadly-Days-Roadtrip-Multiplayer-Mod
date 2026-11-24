@@ -1,6 +1,6 @@
 # Architektur
 
-Grundlage sind die Fakten aus [GAME_ANALYSIS.md](GAME_ANALYSIS.md). Dieses Dokument enthält
+Grundlage sind die Fakten aus [GAME_ANALYSIS.md](archive/GAME_ANALYSIS.md). Dieses Dokument enthält
 Zielarchitektur und datierte historische Untersuchungen; deren damalige Testgrenzen bleiben erhalten.
 `src/` enthält inzwischen produktive Adapter, Patches und Kontroll-Sync, nicht nur ein Grundgerüst.
 

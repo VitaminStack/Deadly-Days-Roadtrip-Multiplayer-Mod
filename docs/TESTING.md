@@ -326,10 +326,10 @@ Von Hand geht es so:
 
 In einem frischen `UserDir` kommen vorher Tutorial-Dialoge („Fortsetzen“ unter der Sprechblase) und die Seite „So wird gespielt“ (Knopf bei (398, 417)).
 Danach öffnet sich direkt die Routenkarte, die Knoten für Tag 1 liegen in der linken Spalte, etwa bei (62, 113).
-Für eine reproduzierbare Karte vor dem Öffnen der Routenkarte `Send-Command.ps1 Host 'DD_SetCurrentRunSeed <n>'` senden, siehe [Karte und Seed](GAME_ANALYSIS.md#karte-und-seed).
+Für eine reproduzierbare Karte vor dem Öffnen der Routenkarte `Send-Command.ps1 Host 'DD_SetCurrentRunSeed <n>'` senden, siehe [Karte und Seed](archive/GAME_ANALYSIS.md#karte-und-seed).
 
 Das Pausemenü (`Esc`) hat „Zurück zum Hauptmenü“ bei (396, 266). Mit `!finish` endet die Mission beim Host, danach kommt die Routenkarte für Tag 2.
-Über die echte Route laden Tag 1 bis 4 sauber, an Tag 5 stürzt der Client ab, siehe [Pausierte Welt und Busplatz](GAME_ANALYSIS.md#pausierte-welt-und-busplatz-testumgebung). Eine `servertravel`-Schleife ersetzt die echte Route dabei nicht.
+Über die echte Route laden Tag 1 bis 4 sauber, an Tag 5 stürzt der Client ab, siehe [Pausierte Welt und Busplatz](archive/GAME_ANALYSIS.md#pausierte-welt-und-busplatz-testumgebung). Eine `servertravel`-Schleife ersetzt die echte Route dabei nicht.
 
 ### Latenz simulieren
 
@@ -449,7 +449,7 @@ Die Lobby-ID gehört zu keinem Konto, verfällt mit der Lobby und kommt trotzdem
 `main` und denselben Build. Der Spike läuft auf beiden Builds; `-NoSpike` bleibt für Läufe wie im Release. Bei unvollständiger Portierung eines neuen Builds kommt
 `-PartialPatches`; ohne Spike gibt es keine Konsolenbefehle wie `!finish`. Ein Rundenende geht dann über vollen Tank und Busflucht,
 den Tank füllt `py tools/spike/fuel.py <host-pid> --fill`. Ohne Eingabe geht es mit „Full Tank“ des Dev-Tabs, solange beide Figuren am Bus stehen, siehe [Rundenende auf 26669225](archive/OFFSETS-ALTE-BUILDS.md#rundenende-auf-26669225-rundenende-1-0-2). Ablauf und Ergebnisse eines solchen Termins:
-[Live-Test 07.11.](GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-07112026-livetest-0711).
+[Live-Test 07.11.](archive/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-07112026-livetest-0711).
 
 ### Von Hand oder in Teilen
 
@@ -516,7 +516,7 @@ Damit niemand dieselbe Arbeit wiederholt, gehört jedes Ergebnis ins Repo, auch 
 
 | Was | Wohin |
 |---|---|
-| Wissen über das Spiel | [GAME_ANALYSIS.md](GAME_ANALYSIS.md) |
+| Wissen über das Spiel | [GAME_ANALYSIS.md](archive/GAME_ANALYSIS.md) |
 | Neue Offsets und RVAs | [OFFSETS.md](OFFSETS.md) |
 | Patch, Testablauf, gescheiterte Ansätze | README des Spikes |
 | Erledigte oder neue Aufgaben | [ERLEDIGT.md](ERLEDIGT.md), [TODO.md](../TODO.md) |

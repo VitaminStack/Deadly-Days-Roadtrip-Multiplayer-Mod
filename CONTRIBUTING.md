@@ -107,7 +107,7 @@ Git-Historie, auch wenn es später gelöscht wird.
 Das Spiel wird noch aktiv gepatcht, und jedes Update kann Offsets und Klassen ändern. Nutzerentscheidung vom 21.11.2026:
 **Die Mod unterstützt immer nur den neuesten Spiel-Build.** Ältere Builds werden nicht parallel weitergeführt; nach einem Update
 zieht die Mod in einem Schritt auf den neuen Build um. Entwickelt und getestet wird weiter aus einer eingefrorenen Kopie des
-[unterstützten Builds](docs/GAME_ANALYSIS.md#unterstützte-spielversion), damit ein Steam-Update nicht mitten in die Arbeit fällt.
+[unterstützten Builds](docs/archive/GAME_ANALYSIS.md#unterstützte-spielversion), damit ein Steam-Update nicht mitten in die Arbeit fällt.
 
 ### Auf dem unterstützten Build bleiben
 
@@ -123,7 +123,7 @@ zieht die Mod in einem Schritt auf den neuen Build um. Entwickelt und getestet w
    manifestbasierte Startweg aus Kompatibilitätsgründen erhalten; dieser ist **nicht eingefroren**.
 4. Die Entwicklungskopie privat sichern, nicht nur die Exe. Wer den Stand noch nicht besitzt, muss zuerst eine eigene passende Spielkopie beschaffen.
    Ein Download über die Steam-Konsole kommt infrage (`steam://open/console`), mit den Manifest-IDs aus der
-   [Spielversion](docs/GAME_ANALYSIS.md#unterstützte-spielversion):
+   [Spielversion](docs/archive/GAME_ANALYSIS.md#unterstützte-spielversion):
 
    ```text
    download_depot 3026450 3026451 1832737755528485607
@@ -158,7 +158,7 @@ keine Weitergabe von Spieldateien. Steam-Einstellungen und Downloads werden nich
      `Protocol::GameBuild`, `$SupportedBuild`/`$SupportedBuilds` (`tools/spike/Common.ps1`), `game_build.BUILD`, `REFERENCE_BUILD`
      (`tools/expect_check.py`), Stempel im Spike (`Builds.cpp`) und in `tools/spike/ddmem.py`, `$SupportedBuilds` im Installer;
      `tests/test_installer.py` meldet, wenn die Listen auseinanderlaufen. Den alten Build dabei überall entfernen.
-3. Im selben PR Build-ID, Exe-Kennung und Manifest-IDs in [docs/GAME_ANALYSIS.md](docs/GAME_ANALYSIS.md#unterstützte-spielversion) und die
+3. Im selben PR Build-ID, Exe-Kennung und Manifest-IDs in [docs/GAME_ANALYSIS.md](docs/archive/GAME_ANALYSIS.md#unterstützte-spielversion) und die
    Werte in [docs/OFFSETS.md](docs/OFFSETS.md) aktualisieren. Was sich nicht prüfen ließ, als Folgeaufgabe eintragen.
 4. Nach dem Merge stellt jeder seine Entwicklungskopie um (`Freeze-GameBuild.ps1 -Build <neu> -Activate`); ältere Branches brauchen
    bis zu ihrem Rebase die alte Kopie. Spieler mit einem älteren Spiel-Build aktualisieren das Spiel über Steam.

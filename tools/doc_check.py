@@ -27,7 +27,6 @@ DEFAULT_LIMIT = 60_000
 LIMITS = {
     'CLAUDE.md': 10_000,
     'TODO.md': 28_000,
-    'docs/GAME_ANALYSIS.md': 545_000,
     'docs/OFFSETS.md': 99_000,
     'src/Game/README.md': 81_000,
 }

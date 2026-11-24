@@ -1,3 +1,5 @@
+> **Archiv.** Historischer Stand, nicht aktuell. Gilt nur, wenn eine aktuelle Doku darauf verweist.
+
 # Spielanalyse
 
 Stand: 02.11.2026. Neue Erkenntnisse bitte hier ergänzen, ausführliche Notizen gehören nach `research/`.
@@ -27,14 +29,14 @@ Nutzerentscheidung vom 21.11.2026: Die Mod unterstützt immer nur den neuesten S
 
 Gegenüber `26669225` hat `26786272` Exe, `DDSurvivors-Windows.pak`, `.ucas`, `.utoc` und `global.ucas`/`global.utoc` geändert; die
 eingefrorene Kopie hat 52 Dateien. Stand der Mod: `Patches: 57 gesetzt`, auf einem PC bis in die Mission und über ein Rundenende gemessen,
-Lauf über vier Tage mit Händler und Werkbank auf einem PC belegt, zwei PCs offen, siehe [Run-Ablauf](#run-ablauf-auf-build-26786272-update-26786272-run) und [Offsets](OFFSETS.md#referenz-build-26786272-spiel-update-26786272).
+Lauf über vier Tage mit Händler und Werkbank auf einem PC belegt, zwei PCs offen, siehe [Run-Ablauf](#run-ablauf-auf-build-26786272-update-26786272-run) und [Offsets](../OFFSETS.md#referenz-build-26786272-spiel-update-26786272).
 Die Hash-Referenz steht in `tools/game_build.py`. Die Entwicklungskopien wechseln nach dem Merge (`wechsel-26786272`).
 
 Build-ID und Manifest-IDs stehen in `steamapps/appmanifest_3026450.acf`. Die Manifest-IDs benennen die gewünschten Depotstände;
 ein erneuter Download über die Steam-Konsole ist für den Vorgänger getestet (07.11.2026): `download_depot 3026450 3026452 7724756528743620812` lieferte
 alle 52 Dateien von `26187885`, die Prüfsummen passten; Depot `3026451` hatte beim Update auf `26495302` denselben Stand. `26187885` war bis
 `spiel-update` (09.11.2026) unterstützt, seitdem verlangen Mod, Skripte und Installer ihn nicht mehr. Bei einem Spiel-Update gilt die
-[Update-Regel](../CONTRIBUTING.md#spiel-updates): einfrieren und nur bei Bedarf nachziehen.
+[Update-Regel](../../CONTRIBUTING.md#spiel-updates): einfrieren und nur bei Bedarf nachziehen.
 
 ### Gemeinsame Build-ID (`build-id`)
 
@@ -82,7 +84,7 @@ zur Steam-Installation. Steam aktualisiert weiterhin seine eigene Installation, 
 
 **Grenzen:** Das Team kann nach der [Valve-Dokumentation zu Branches](https://partner.steamgames.com/doc/store/application/branches) keinen
 eigenen Steam-Altversions-Zweig bereitstellen. Deshalb wird ein solcher Zweig nicht vorausgesetzt. Die technische Build-Trennung ist belegt;
-jedes Teammitglied richtet sie aus seiner eigenen lizenzierten Kopie ein, siehe [Einrichtung](SETUP.md#gleiche-build-id-im-team).
+jedes Teammitglied richtet sie aus seiner eigenen lizenzierten Kopie ein, siehe [Einrichtung](../SETUP.md#gleiche-build-id-im-team).
 Nicht getestet: zwei PCs/Konten, Depot-Redownload oder Start nach einem künftigen Steam-/Backendwechsel. Keine DRM-Umgehung und keine Garantie
 gegen Änderungen am Steam-Dienst; diese können einen eigenen Anpassungsfall ergeben, aktualisieren aber nicht automatisch die eingefrorenen Dateien.
 
@@ -102,7 +104,7 @@ vollständiges SDK für Build `26187885` erzeugt (02.11.2026), die Dateien `Basi
   (über das Menü gestartet) vollständig durch: 2.636 SDK-Dateien, `FFieldClass` wie oben, `UInViewportMovementRestrictor`,
   `UInventoryItemInstance` und `UInventoryComponent` gleich zum SDK vom 02.11. Der Host lief weiter. Diese Variante ist Commit
   `1aae006`. Sie liegt auf `main` des eigenen Forks [`VitaminStack/Dumper-7`](https://github.com/VitaminStack/Dumper-7) (Merge `2570b5b`,
-  Dateistand gleich `1aae006`), eingebunden als Submodul `third_party/Dumper-7`, gebaut wird sie mit [`Build-Dumper7.ps1`](../tools/README.md#dumper7).
+  Dateistand gleich `1aae006`), eingebunden als Submodul `third_party/Dumper-7`, gebaut wird sie mit [`Build-Dumper7.ps1`](../../tools/README.md#dumper7).
   Nicht geprüft: Kompilieren dieses SDK, andere Engine-Versionen.
 - **Upstream:** Der Fehler ist bei Dumper-7 als Issue #544 bekannt, offen ist dort PR #576 (nicht von uns getestet). Entschieden am
   03.11.2026: Wir reichen nichts upstream ein, der Fork bleibt dauerhaft die Quelle für die Mod. Neue Upstream-Stände werden nur bei
@@ -122,7 +124,7 @@ vollständiges SDK für Build `26187885` erzeugt (02.11.2026), die Dateien `Basi
 
 ### Boss-Dump (`boss-dump`)
 
-Stand: 03.11.2026, Build `26187885`, Dumper-7 aus [`Build-Dumper7.ps1`](../tools/README.md#dumper7) (Submodul `1aae006`), Testsitzung mit Spike.
+Stand: 03.11.2026, Build `26187885`, Dumper-7 aus [`Build-Dumper7.ps1`](../../tools/README.md#dumper7) (Submodul `1aae006`), Testsitzung mit Spike.
 
 **Ergebnis:** Ein SDK mit allen sechs Bossen: 2.571 Dateien, 90.209 Objekte, 973 Blueprint-Klassen. Der Dump vom 02.11. aus der direkt geladenen Mission hatte 2.353 Dateien, 77.805 Objekte und 868 Blueprint-Klassen. Neu sind 112 Pakete, darunter:
 
@@ -178,13 +180,13 @@ Aufgabe `andockpunkte`, Build `26187885`, 02.11.2026:
   `GetFileVersionInfoW`, `GetFileVersionInfoSizeW` und `VerQueryValueW`.
   `XINPUT1_4.dll` ist dagegen ein Delay-Import.
 - **[Belegt, statisch]** Die drei Byte-Signaturen des
-  [Audits](../research/spikes/andockpunkte/audit.py) treffen in ausführbaren
+  [Audits](../../research/spikes/andockpunkte/audit.py) treffen in ausführbaren
   Sektionen jeweils genau die bereits bekannten RVAs für `ProcessEvent`,
   `SetClientTravel` und `SeamlessTravelToLevel`. Keine neue Semantik/ABI hergeleitet.
 - **[Hypothese]** `version.dll` eignet sich als Mod-Loader im Spiel. Ein isoliertes
   Windows-Testprogramm lädt den Proxy und erhält gültige Daten über alle drei
   Exporte; das ist kein Test mit der Spiel-Exe. Fehlversuch und Grenzen stehen in
-  der [Versuchsbeschreibung](../research/spikes/andockpunkte/README.md).
+  der [Versuchsbeschreibung](../../research/spikes/andockpunkte/README.md).
 - **[Belegt, nachgeholter Spieltest]** Vollständiger VERSION-Proxy mit 17 Exporten
   lädt in beiden Spielinstanzen; beide erreichen `DDDynamic_Map`. Die drei
   Signaturen treffen auch im geladenen Code eindeutig. Der temporäre
@@ -194,7 +196,7 @@ Aufgabe `andockpunkte`, Build `26187885`, 02.11.2026:
   eine vorhandene Mod. Diese Dateien wurden nicht verändert. Ein genehmigter
   eigener VERSION-Hardlink wurde nur während des Tests benutzt und danach
   entfernt. Der Drei-Export-Proxy bestand nur isoliert, im Spiel nicht; siehe
-  [End-to-End-Nachtrag](../research/spikes/andockpunkte/README.md#nachtrag-vollstaendiger-exportproxy-und-end-to-end-test).
+  [End-to-End-Nachtrag](../../research/spikes/andockpunkte/README.md#nachtrag-vollstaendiger-exportproxy-und-end-to-end-test).
 
 ### Vorhandene Netzwerkbefunde
 
@@ -239,7 +241,7 @@ Oodle komprimiert.
 
 ### Verbindungstest
 
-Details stehen in [Spike A und B](../research/spikes/a-connect/README.md).
+Details stehen in [Spike A und B](../../research/spikes/a-connect/README.md).
 
 - **[Belegt]** Native Verbindung funktioniert: Zwei Instanzen auf einem PC verbinden sich über den `IpNetDriver`, auch unter demselben Steam-Konto.
 - **[Belegt]** `servertravel` nimmt den Client in eine andere Karte mit. Der normale Kartenwechsel über das Menü behält den Netzwerktreiber, lässt den Client aber zurück.
@@ -296,7 +298,7 @@ Replikationen ein, siehe `ProjectilePatches.cpp`:
   Danach meldete das Log nur noch „neu sofort“, der Sekunden-Abgleich fand nichts mehr.
 - **[Belegt] Größe beim Client:** 40 s Abtastung je rund 30 ms. Fliegende Projektile hatten beim Host und beim Client
   dieselbe Skalierung `(0.75, 0.75, 1)`, versteckte im Pool beide `(1, 1, 1)`. Der Client ruft `SetBulletSize` nicht auf
-  ([Blueprint-Probe](../research/spikes/blueprint-logik/README.md#konkrete-befunde)), der Wechsel kommt also aus der
+  ([Blueprint-Probe](../../research/spikes/blueprint-logik/README.md#konkrete-befunde)), der Wechsel kommt also aus der
   Replikation. Vorher blieb der Client bei `(1, 1, 1)`.
 - **[Belegt] Treffer:** Der Treffer-Zähler des Spikes (`OnEnemyHit` beim Host) zählte nach rund 4 Minuten 90 Treffer, Client 43
   (32 Kills), Host 47 (12 Kills), je 25 Schaden.
@@ -396,7 +398,7 @@ Rüstung des Clients wird nach dem Missionswechsel wie beim Host zurückgesetzt 
 - **[Belegt, Disassembly und Reflection-Daten]** Die Rüstung liegt im selben `UCommonAttributeSet` wie das Leben (`MaxArmor` `+0x190`,
   `OnMaxArmorChanged` `+0x1A0`, `Armor` `+0x1B0`, `OnArmorChanged` `+0x1C0`, `ArmorCap` `+0x1D0`), nicht im abgeleiteten Charakter-Set.
   `OnRep_Armor` und `OnRep_MaxArmor` sind wie `OnRep_Health` gebaut: nur `SetBaseAttributeValueFromReplication`, kein Broadcast.
-  Adressen beider Builds in [OFFSETS.md](OFFSETS.md#rüstung-opt-astronaut-ruestung).
+  Adressen beider Builds in [OFFSETS.md](../OFFSETS.md#rüstung-opt-astronaut-ruestung).
 - **[Belegt, Live-Speicher]** Einziger Empfänger von `OnArmorChanged` und `OnMaxArmorChanged` ist auf beiden Seiten die Leiste über der
   Figur (`WP_World_Player_HealthBar_C`, `CREATEDELEGATE_PROXYFUNCTION`). Kein Spielablauf hört zu. Die große HUD-Leiste unten hat einen
   anderen Weg; **[Vermutung]** einen Hörer am ASC (zweiter Satz Delegates `+0x40` bis `+0x90` in einer anderen Klasse).
@@ -440,7 +442,7 @@ Rüstung des Clients wird nach dem Missionswechsel wie beim Host zurückgesetzt 
   dem Zeiger aus `GetArmorAttribute`) entfällt der Aufruf, sonst läuft das Original; Host, Einzelspiel und `MaxHealth` bleiben unverändert.
   Die Mod schreibt kein Attribut. Lokal bleibt alles andere (OnRep, Effekte, Anzeige); geteilt wird nichts Neues, der Host entscheidet
   weiter allein, auch über eine echte Senkung des Maximums, deren geklemmtes Ergebnis er repliziert. Keine Nachricht, keine
-  Protokolländerung. Adressen in [OFFSETS.md](OFFSETS.md#rüstung-opt-astronaut-ruestung), Zuordnung `26669225` in `RvaMap26669225.inc`
+  Protokolländerung. Adressen in [OFFSETS.md](../OFFSETS.md#rüstung-opt-astronaut-ruestung), Zuordnung `26669225` in `RvaMap26669225.inc`
   und `AddressMapTests`.
 - **[Belegt, Test 19.11.2026]** Ein PC, zwei Instanzen über die Lobby, `-Godmode`, `MGP_Forest`, je Build eine Sitzung mit drei Reisen.
   Vor jeder Reise beim Host `!cheats`, `!god off`, `DD_DamagePlayerAtIndex 5 1`, `!god on`: beide Seiten 2/2. Nach jeder Reise beide
@@ -748,7 +750,7 @@ Gemeldet war im [Live-Test 10.11.](#live-test-auf-zwei-pcs-am-10112026-livetest-
 - **[Belegt, Disassembly]** `GetVelocity` liefert bei gesetztem Schalter `+0xC0` ein selbst gemessenes Tempo (`+0xC8`), sonst das
   Tempo des Actors (CMC). `SetManualTrackingActive` setzt den Schalter und merkt den aktuellen Ort. Nativ lesen den Provider nur das
   Richtungs-Mesh und das Wackeln, reine Darstellung; den Schalter setzt nativ niemand außer dem Blueprint-Aufruf, und weder `GA_Dash`
-  noch `BP_DD_Character_C` rufen ihn (Bytecode). Standard bei allen Figuren: aus. Offsets in [OFFSETS.md](OFFSETS.md#laufanimation-opt-laufanimation-client).
+  noch `BP_DD_Character_C` rufen ihn (Bytecode). Standard bei allen Figuren: aus. Offsets in [OFFSETS.md](../OFFSETS.md#laufanimation-opt-laufanimation-client).
 - **[Belegt, Messung vor der Änderung, MetaBase]** 2,5 s Laufen: Client-Figur beim Client CMC-Tempo bis 630, `Progress` 0 bis 0,98;
   Host-Figur beim Host und beim Client ebenso. **Client-Figur beim Host:** CMC-Tempo höchstens 24, `Progress` nur 0,07 bis 0,11. Ursache:
   Der Host übernimmt die Client-Position (`bewegung`, `UCharacterMovementComponent+0x579`), sein CMC-Tempo für diese Figur bleibt fast 0.
@@ -787,7 +789,7 @@ Leveln liegen bei der Client-Figur mehrere Waffen übereinander, die Figur gleit
   `InnerRotationContainer` an (`CreateWeaponRanged`/`CreateWeaponMelee`, Liste `ChildActorComponents`), der Child Actor ist die Waffe
   (`AWeapon`, etwa `BP_Pistol_C`, `BP_MeleeWeapon_Stab_Base_C`). Komponente und Waffen-Actor replizieren nativ, samt relativer Lage
   und Drehung der Komponente. Beim Client sind `ChildActorComponents`, `CurrentRangedWeapons`, `CurrentMeleeWeapons` und
-  `EquippedWeapons` leer, die Komponenten hängen trotzdem am Container. Offsets in [OFFSETS.md](OFFSETS.md#schuss-animation-opt-schuss-animation).
+  `EquippedWeapons` leer, die Komponenten hängen trotzdem am Container. Offsets in [OFFSETS.md](../OFFSETS.md#schuss-animation-opt-schuss-animation).
 - **[Belegt, Messung] Die Darstellung selbst ist beim Client in Ordnung.** Mit 1 bis 4 Waffen je Figur (Pistole, Revolver,
   Schrotflinte, MP, zwei Messer) stimmen relative Lage, Weltort und Drehung jeder Waffe bei Host und Client überein: Abweichung im
   Median 0, im Stehen, beim Laufen in vier Richtungen und im Kampf; Ausreißer (bis 200 Einheiten, 160°) nur kurz, wenn eine Waffe um
@@ -884,10 +886,10 @@ fehlen die Warnanzeigen sprintender und spuckender Zombies.
   (`0x58A9D30`) setzt den Endpunkt aus Ziel und Anteil und wechselt ab `SwitchTelegraphColorPercentage` einmal auf `LockTelegraphColor`.
   Beide schreiben nur in die Komponente selbst, keine Spielwerte. `ExecuteTackle` (`0x58B1F40`) blendet den Strich zuerst aus.
   `ActivateLineTelegraph` hat keine direkten Aufrufer, es läuft nur aus dem Blueprint der Fähigkeit.
-- **Folgerung:** Die Fähigkeiten laufen nur beim Host (KI nur dort, siehe [Bosse](../src/Sync/Enemies/README.md)), also entstehen die
+- **Folgerung:** Die Fähigkeiten laufen nur beim Host (KI nur dort, siehe [Bosse](../../src/Sync/Enemies/README.md)), also entstehen die
   Anzeigen nur dort. Eine native Replikation des Auslösers gibt es nicht, darum eine kleine Nachricht (nachgewiesene Lücke).
 - **Umsetzung** (`EnemyTelegraphPatches.cpp`, Format `Sync/Enemies/TelegraphState.h`, Nachricht `0x900`, Mod-Version 11, siehe
-  [Kontrollkanal](CONTROL_PROTOCOL.md#warnanzeigen-der-gegner-mod-kompatibilität-11)): Hooks auf die fünf nativen Funktionen melden nur
+  [Kontrollkanal](../CONTROL_PROTOCOL.md#warnanzeigen-der-gegner-mod-kompatibilität-11)): Hooks auf die fünf nativen Funktionen melden nur
   beim Host. Kreis: Systempfad, Ort, Zeiten, Parameternamen; der Client spawnt dasselbe System über `SpawnSystemAtLocation` und setzt die
   Parameter mit `SetVariableFloat`. Strich: NetGUID des Gegners, an, Stand (höchstens alle 50 ms) und aus; der Client ruft an seiner
   eigenen `UTackleAbilityExecution` des Gegners dieselben nativen Funktionen und blendet wie `ExecuteTackle` über die
@@ -931,7 +933,7 @@ fehlen die Warnanzeigen sprintender und spuckender Zombies.
 
 ### Schadenszahlen beim Client (`opt-schadenszahlen`)
 
-Stand 11.11.2026, Build `26495302`, zwei Instanzen auf einem PC über die Lobby, Mod mit Spike, `-Godmode`, Gegner per `!wave`, Speicher nur gelesen. Offsets in [OFFSETS.md](OFFSETS.md#schadenszahlen-opt-schadenszahlen), Nachricht in [CONTROL_PROTOCOL.md](CONTROL_PROTOCOL.md#schadenszahlen-mod-kompatibilität-12).
+Stand 11.11.2026, Build `26495302`, zwei Instanzen auf einem PC über die Lobby, Mod mit Spike, `-Godmode`, Gegner per `!wave`, Speicher nur gelesen. Offsets in [OFFSETS.md](../OFFSETS.md#schadenszahlen-opt-schadenszahlen), Nachricht in [CONTROL_PROTOCOL.md](../CONTROL_PROTOCOL.md#schadenszahlen-mod-kompatibilität-12).
 
 - **[Belegt, Live-Messung vor der Änderung]** Normale Gegner haben beim Client `CommonAttributeSet` Health und MaxHealth 0/0 (19 von 19), beim Host 50/50. Beim Client gab es keinen `DamageNumberActor`, beim Host einen. Ohne HP gibt es beim Client kein natives Signal für einen Treffer. Boss-HP replizieren dagegen (siehe `gegner-alle`).
 - **[Belegt, Disassembly]** Der Schadenspfad ruft beim Host den Handler `0x5A22DB0(Controller, FDamageInformation*)` des `ADDPlayerController` auf, an zwei Stellen: `0x5816538` mit dem Controller des Pawns des Verursachers, `0x5816C42` in einer anderen Funktion mit dem Controller des Pawns oder ersatzweise dem ersten Player-Controller. Der Handler prüft, ob der Controller lokal ist, die Einstellung `EnableDamageNumbers` (`+0x950`), ob das Ziel lebt, und Tags. Dann setzt er einen Timer, der `BP_FloatingText_C` (`DamageNumberClass` `+0x940`) aus dem `PoolManager` holt und `ShowDamageText` aufruft.
@@ -1054,7 +1056,7 @@ Aufgabe `sync-bedarf`, lokales Mission-SDK von Build `26187885`:
 - **[Hypothese]** Die ueber GameState und PlayerState erreichbaren Run-Konten sind
   gemeinsam. Getter und Shared-Kontexthelfer reichen nicht als Identitaetsbeweis.
 - Vorgeschlagene Sync-Wege und verbleibende Fragen stehen in
-  [SYNC_REQUIREMENTS.md](SYNC_REQUIREMENTS.md). Kein neuer Laufzeit-Sync-Nachweis.
+  [SYNC_REQUIREMENTS.md](../SYNC_REQUIREMENTS.md). Kein neuer Laufzeit-Sync-Nachweis.
 
 ### Karte und Seed
 
@@ -1065,7 +1067,7 @@ Aufgabe `sync-bedarf`, lokales Mission-SDK von Build `26187885`:
   (`CycleTimeBudget`) und kann neu versuchen (`RetryAttemptsRemaining`).
 - ~~**[Hypothese]** Derselbe Seed ergibt dieselbe Karte.~~ Belegt, siehe unten.
 
-**Wer die Erzeugung startet** (Disassembly und Laufzeit, Build `26187885`, RVAs in [Offsets](OFFSETS.md#karte))
+**Wer die Erzeugung startet** (Disassembly und Laufzeit, Build `26187885`, RVAs in [Offsets](../OFFSETS.md#karte))
 
 - **[Belegt]** Der Starter ist die Komponente `MapGenProfileInjectorAndBuildTrigger` am `BP_MapGenerator_C` der Karte. Ihre virtuelle Funktion in VTable-Slot 125, vermutlich `BeginPlay`, ruft den Aufbau `0x58F7710` auf.
   Weder Komponente noch Generator replizieren. Sie laufen also auf jeder Seite für sich, auch beim Client.
@@ -1150,7 +1152,7 @@ Stand: Spike `MapGen.cpp`, mehrere Läufe über das Spielmenü am 03.11.2026, Bu
 - **[Belegt]** Ist das Profil beim Client nicht geladen, lädt der Spike es wie der Starter des Spiels über einen Soft-Verweis: `MakeSoftObjectPath`, `Conv_SoftObjPathToSoftObjRef` und `LoadAsset_Blocking` der `KismetSystemLibrary`.
 - **[Belegt]** Tags gehen als Namen über, der FName-Index gilt nur je Prozess. Beim Client entsteht der Tag über `Conv_StringToName` und `BlueprintGameplayTagLibrary.AddGameplayTag`, so legt das Spiel den Speicher selbst an.
 - **Spike-Ersatz für den Kontrollkanal:** Der Host schreibt die Werte in `mapgen.txt` im Befehlsordner des Spikes, der Client auf demselben PC liest sie. Kommt der Client vorher an, wartet seine Erzeugung und startet aus dem Sekunden-Tick.
-- **Über das Netz (`karte-tunnel`):** Mit dem Steam-Tunnel schickt der Host-Tunnel jede neue Fassung von `mapgen.txt` zuverlässig an den Client-Tunnel, der sie bei sich ablegt, siehe [Steam-Tunnel](../research/spikes/a-connect/README.md#spike-e-steam-tunnel-tunnel).
+- **Über das Netz (`karte-tunnel`):** Mit dem Steam-Tunnel schickt der Host-Tunnel jede neue Fassung von `mapgen.txt` zuverlässig an den Client-Tunnel, der sie bei sich ablegt, siehe [Steam-Tunnel](../../research/spikes/a-connect/README.md#spike-e-steam-tunnel-tunnel).
   - **[Belegt]** Ohne das blieb der Client beim Test auf zwei PCs (04.11.2026) bei `MapGen: Client wartet auf die Host-Karte` stehen. Er erzeugte keine Karte, und die Figuren fielen in der Mission durch den Boden. Der Tunnel-Bericht war trotzdem grün, weil er nur Verbindung, Ping und Absturzfreiheit prüft.
   - **[Belegt]** Auf einem PC mit `-Tunnel Ip` kam die Karte über den Tunnel an (`Tunnel: Host-Karte empfangen`), der Client übernahm Seed und Profil, Inventare an Tag 1 gleich, 0 verworfene Pakete.
   - Ohne Tunnel, also bei direkter Verbindung über `-Peer <Adresse>:7777`, geht die Karte weiterhin nur auf einem PC. Das löst der Kontrollkanal (`protokoll`).
@@ -1191,7 +1193,7 @@ Stand: Blueprint-Referenzen, Disassembly und drei Spieltests am 03.11.2026, Buil
 | Mit Patch, Mission über das Menü, danach Bewegung | 14 Kisten, 14 PowerUps, nichts unterdrückt | 1 Kiste, 1 repliziertes PowerUp, 1 lokale Kopie unterdrückt |
 | Mit Patch, zweiter Lauf mit Bewegung und `servertravel` | 4 Kisten, 4 PowerUps, nichts unterdrückt | 3 Kisten, 4 replizierte PowerUps, 7 lokale Kopien unterdrückt, kein lokales Exemplar |
 
-Im ersten Lauf mit Patch stürzte beim `servertravel` erst der Host bei `0x57CC398` und dann der Client bei `0x57D080C` ab. Das sind die bekannten Abstürze der Weiterreise, siehe [Inventar](../research/spikes/a-connect/README.md#inventar-ursache-teilfix-und-verbleibende-grenze). Im zweiten Lauf mit gleichem Ablauf trat kein Absturz auf. Ein Zusammenhang mit dem Patch ist deshalb nicht erkennbar, aber auch nicht ausgeschlossen.
+Im ersten Lauf mit Patch stürzte beim `servertravel` erst der Host bei `0x57CC398` und dann der Client bei `0x57D080C` ab. Das sind die bekannten Abstürze der Weiterreise, siehe [Inventar](../../research/spikes/a-connect/README.md#inventar-ursache-teilfix-und-verbleibende-grenze). Im zweiten Lauf mit gleichem Ablauf trat kein Absturz auf. Ein Zusammenhang mit dem Patch ist deshalb nicht erkennbar, aber auch nicht ausgeschlossen.
 
 Nicht getestet: Zerbrechen einer Kiste und was der Client dabei sieht, das Einsammeln des PowerUps durch den Client, Kisten aus anderen Quellen (`BP_PowerUpCrateSpawner_C`, Airdrops). Ob die Client-Kiste ohne `DestructablePowerUp` etwas anders darstellt, ist offen (**[Vermutung]**: nein, Schaden und Zerbrechen laufen nur beim Host).
 
@@ -1271,7 +1273,7 @@ Stand 05.11.2026, Build `26187885`, ein PC, zwei Instanzen, Lobby und Tunnel der
   `ADDMissionGameState::SetFreezeTime`. Coop-UI-Sitzungen tragen dazu `bBlocksGameplay`.
 - **[Hypothese, durch neue Messung eingeschränkt]** Die Requestverwaltung des TimescaleManagers ist lokal; daraus folgt nicht, dass ihre Weltwirkung lokal bleibt. `TimeDilation`, `CinematicTimeDilation` und `PauserPlayerState` sind im Engine-SDK als Netzwerk-Properties markiert.
 - **[Belegt, SDK und Laufzeit]** Aufgabe `pausen`: In einer direkt geladenen Mission mit aktivem Tutorialdialog hatte nur der Host einen `DialogComponent`-Zeitrequest und eine blockierende Coop-UI-Sitzung. Auf beiden Seiten waren aber `TimeDilation` etwa `0.0001` und ein `PauserPlayerState` vorhanden. Client-UI-Sitzung und Weltpause sind daher getrennt zu betrachten; die genaue Aufrufkette wurde nicht nachgewiesen.
-- **[Belegt, Default-Objekte]** Das native und Blueprint-Inventarpanel haben `bCoopBlocksGameplay=true`, aber `PauseGameWhileOpen=false`. Der eine Schalter ersetzt nicht den anderen. Der Inventar-Methodentest fand keinen Animationscontainer; `RequestLevelUp` kehrte ohne neue nachweisbare Sitzung zurück. Normaler Level-up und Inventarablauf bleiben offen, siehe [Versuche](../research/spikes/pausen/README.md).
+- **[Belegt, Default-Objekte]** Das native und Blueprint-Inventarpanel haben `bCoopBlocksGameplay=true`, aber `PauseGameWhileOpen=false`. Der eine Schalter ersetzt nicht den anderen. Der Inventar-Methodentest fand keinen Animationscontainer; `RequestLevelUp` kehrte ohne neue nachweisbare Sitzung zurück. Normaler Level-up und Inventarablauf bleiben offen, siehe [Versuche](../../research/spikes/pausen/README.md).
 
 **Nachtrag `pausen`, 03.11.2026 (Build `26187885`):**
 
@@ -1279,11 +1281,11 @@ Stand 05.11.2026, Build `26187885`, ein PC, zwei Instanzen, Lobby und Tunnel der
 - **[Belegt]** Host-Pause: Faktor etwa `0.0001` und Pauser auf beiden Seiten. Client-Pause: nur Client-Faktor etwa `0.0001`, kein Pauser, Host bleibt bei Faktor 1. UI-Sitzungen werden in keinem der beiden Wege auf die Gegenseite uebertragen.
 - **[Belegt]** Bei gleichzeitig offenen Pausemenues stellt Host-Fortsetzen den Client-Weltfaktor auf 1, obwohl dessen lokale blockierende Sitzung noch offen ist. Replizierte Weltpause ersetzt daher keine abgestimmte Verwaltung von Pausengruenden.
 - **[Belegt, kontrollierter Aufnahmeweg]** 200 testweise am Host-Pawn erzeugte XP werden aufgenommen: Host Level 1 / 0.10 → Level 2 / 0.547264; Client bleibt Level 1 / 0. Vorher/nachher kein Request, keine UI-Sitzung, Faktor 1 und kein Pauser auf beiden Seiten. Keine anhaltende Level-up-Pause oder Upgradeauswahl in diesem Ablauf; kurze Effekte zwischen Snapshots nicht ausgeschlossen. Kein Nachweis eines bestimmten Gegnertods.
-- **[Folgerung fuer die Umsetzung]** Client meldet Pausen-/UI-Wuensche an den Host; Host bestaetigt Gruende und gemeinsamen Weltzustand. Session-/Parent-IDs und blockierende Gruende getrennt von Weltzeit und XP/Level uebertragen. Disconnect-/Travel-Bereinigung bleibt Implementierungsarbeit. Details und abgegrenzte Fehlversuche im [Nachtrag](../research/spikes/pausen/README.md#nachtrag-03112026-isolierte-ablaeufe).
+- **[Folgerung fuer die Umsetzung]** Client meldet Pausen-/UI-Wuensche an den Host; Host bestaetigt Gruende und gemeinsamen Weltzustand. Session-/Parent-IDs und blockierende Gruende getrennt von Weltzeit und XP/Level uebertragen. Disconnect-/Travel-Bereinigung bleibt Implementierungsarbeit. Details und abgegrenzte Fehlversuche im [Nachtrag](../../research/spikes/pausen/README.md#nachtrag-03112026-isolierte-ablaeufe).
 
 ### Gegner-Spawning und Pooling
 
-Stand: Disassembly und Laufzeit-Messung, Build `26187885`. Mission über das Spielmenü, Host und Client mit dem Spike, Gegner aller 15 bis 18 Sekunden aus dem Speicher beider Seiten gezählt. RVAs in [Offsets](OFFSETS.md#gegner).
+Stand: Disassembly und Laufzeit-Messung, Build `26187885`. Mission über das Spielmenü, Host und Client mit dem Spike, Gegner aller 15 bis 18 Sekunden aus dem Speicher beider Seiten gezählt. RVAs in [Offsets](../OFFSETS.md#gegner).
 
 **Zwei getrennte Mechanismen**
 
@@ -1347,7 +1349,7 @@ Objektliste je Sekunde neu) und dem Desync-Melder.
 
 ## Kamera und Sichtbereich
 
-Stand: Disassembly und Laufzeit, Build `26187885`. Mission über das Spielmenü mit dem Spike, Werte aus dem Speicher beider Instanzen. RVAs in [Offsets](OFFSETS.md#kamera).
+Stand: Disassembly und Laufzeit, Build `26187885`. Mission über das Spielmenü mit dem Spike, Werte aus dem Speicher beider Instanzen. RVAs in [Offsets](../OFFSETS.md#kamera).
 
 **Was `AllPlayerFramingCamera` macht**
 
@@ -1555,7 +1557,7 @@ löste ein Testskript aus (Richtungstaste halten, dann Leertaste).
   „vorher“. Das betrifft beim Client die eigene Figur und beim Host seine Kopie der Client-Figur.
 
 **Fix (lokal zuerst, minimal geteilt):** Der Client meldet je eigener Aktivierung genau die Eingabe, die sein `GA_Dash`
-liest, mit dem Vorhersageschlüssel (`0x500`, [Protokoll](CONTROL_PROTOCOL.md#dodge-richtung-mod-kompatibilität-8)). Der
+liest, mit dem Vorhersageschlüssel (`0x500`, [Protokoll](../CONTROL_PROTOCOL.md#dodge-richtung-mod-kompatibilität-8)). Der
 Host trägt sie vor dem nativen Start ein; ist die Meldung noch unterwegs, hält er die Aktivierung höchstens 250 ms an.
 Die Schätzung bleibt nur Rückfall. Kosten, Schub, Ende und Ausdauer bleiben nativ beim Host. Der Client setzt die
 Dodge-Werte sofort zurück, sobald kein eigener Dodge mehr läuft, und vor jedem neuen Dodge; der Host seine Kopie der
@@ -1666,7 +1668,7 @@ Folgerung für die Mod: Den Absturz verhindert, wer beim Client `MissionGameStat
 - **[Belegt]** Host-Airdrop zur Laufzeit nicht repliziert, kein zugehoeriger Client-Actor. Fall-Callback erreicht latente Fortsetzung/Sound; Oeffnungs-Callback erreicht Authority=true und einmal `OpenAirdropChoices`. Kein erfolgreicher Reward-Claim damit bewiesen.
 - **[Belegt]** Frischer Explosions-Testeffekt: ApplyToSelf=false ohne native Eigenaenderung; true erreicht Add-/RemoveImpactActor. Fremditempfad erreicht dieselben Itemaenderungen. Beim Host und bei explizitem lokalem Client-Aufruf belegt, also keine reine kosmetische Wirkung.
 - **[Belegt, kontrollierter Projektiltest]** Lokales SetBulletSize(2) aendert Skala 1/1/1 zu 1.5/1.5/1. Nur Host SetBulletSize(3): Host 2.25/2.25/1, Client weiterhin 1/1/1 ohne entsprechenden Callback. Nicht-Net-BulletSize und Actor-Replikation ersetzen keinen geprueften Groessensync.
-- **[Belegt, lokale Ereignisse]** HUD-OnSecondChanged tritt auf beiden Seiten auf. Das Feld intseconds blieb bei explizitem Callback unveraendert; kein nachgewiesener visueller Setter. Alle Beobachtungen und Grenzen im [Ereignis-Nachtrag](../research/spikes/blueprint-logik/README.md#nachtrag-03112026-grenzpruefung-und-ereignistests). Die folgende Tabelle beschreibt den frueheren Referenzscan.
+- **[Belegt, lokale Ereignisse]** HUD-OnSecondChanged tritt auf beiden Seiten auf. Das Feld intseconds blieb bei explizitem Callback unveraendert; kein nachgewiesener visueller Setter. Alle Beobachtungen und Grenzen im [Ereignis-Nachtrag](../../research/spikes/blueprint-logik/README.md#nachtrag-03112026-grenzpruefung-und-ereignistests). Die folgende Tabelle beschreibt den frueheren Referenzscan.
 
 Mission-SDK und lesende Pruefung geladener Klassen/Scriptreferenzen, Build `26187885`:
 
@@ -1685,7 +1687,7 @@ Mission-SDK und lesende Pruefung geladener Klassen/Scriptreferenzen, Build `2618
   Add/RemoveImpactActor. Kisten-/Airdrop-Graphen referenzieren sowohl Spielwirkungen
   als auch Sound/Animation/Effekte. Das ist noch kein Kontrollflussbeweis.
 - Eigene Verhaltensbeschreibungen, Sync-Folgerungen, Fehlansaetze und Grenzen:
-  [Blueprint-Untersuchung](../research/spikes/blueprint-logik/README.md).
+  [Blueprint-Untersuchung](../../research/spikes/blueprint-logik/README.md).
   Kein vollstaendiger Audit, keine neuen Treffer-/Event-Laufzeittests.
 
 ### Lokale Coop-Schnittstellen
@@ -1716,10 +1718,10 @@ Stand 04.11.2026, Build `26187885`, nur Spike und Loopback. Die frühere Hypothe
 
 **Zusätzlich nötig und beobachtet:** Die native Prüfung eines lokalen P2-Geräts öffnet sonst ein blockierendes Controller-Beitrittsfenster. Ein auf den vollständigen aktuellen Listen-Host-Roster begrenzter Guard bei `0x59072AA` umgeht nur diese lokale P2-Gerätepflicht; P1-Geräteprüfung und Solo-Verlustpfad bleiben erhalten. Eine getrennt gesendete native `OnPlayerJoined`-Meldung aktualisiert die P2-Darstellung. Ein eigener veralteter Map-Eintrag wird bei fehlendem Remote-Roster mit dem nativen SparseArray-Entferner aufgeräumt und beim erneuten Beitritt ersetzt.
 
-**Keine vollständige Coop-UI:** Rundenstatistik und Lager zeigen beim Host beide Spieler, die lokale Kontrollübergabe im Lager blockiert aber weiterhin. Der Client bleibt lokal Index 0; Host-Coop-Zustand/Router werden nicht repliziert. Netzwerk-P2 muss deshalb von lokaler Geräteidentität getrennt werden; UI-Anfragen und Ergebnisse brauchen den geplanten Kontrollkanal. Die Aufgaben `remote-spieler`, `eingaben`, `inventar-sync` und `inventar-ui` bleiben offen. Die Phase-1-Frage nach Tragfähigkeit und nötigen Patches ist beantwortet; kein neuer Vollrun-/Internet-Nachweis. [Probe, Gegenversuche, Tests und Übernahmegrenzen](../research/spikes/a-connect/RemoteP2.md).
+**Keine vollständige Coop-UI:** Rundenstatistik und Lager zeigen beim Host beide Spieler, die lokale Kontrollübergabe im Lager blockiert aber weiterhin. Der Client bleibt lokal Index 0; Host-Coop-Zustand/Router werden nicht repliziert. Netzwerk-P2 muss deshalb von lokaler Geräteidentität getrennt werden; UI-Anfragen und Ergebnisse brauchen den geplanten Kontrollkanal. Die Aufgaben `remote-spieler`, `eingaben`, `inventar-sync` und `inventar-ui` bleiben offen. Die Phase-1-Frage nach Tragfähigkeit und nötigen Patches ist beantwortet; kein neuer Vollrun-/Internet-Nachweis. [Probe, Gegenversuche, Tests und Übernahmegrenzen](../../research/spikes/a-connect/RemoteP2.md).
 
 **In der Mod (`remote-spieler`, 05.11.2026):** Die Bindung läuft jetzt ohne Befehl in `src/Game/RemoteP2Patches.cpp`, siehe
-[Remote-Spieler als P2](../src/Game/README.md#remote-spieler-als-p2).
+[Remote-Spieler als P2](../../src/Game/README.md#remote-spieler-als-p2).
 
 - **[Belegt]** Ohne `bCoopEnabled` genügen die `ActivePlayers`-Einträge: `GetPlayerController(1)` liefert den Remote-Controller,
   `GetActivePlayerCount()` 2. Lager, Routenkarte und ein Level-up-Airdrop laufen dabei wie ohne Mod.
@@ -1840,7 +1842,7 @@ und `ausweichen-client` bleiben unberührt.
 
 ### Coop-Ablauf
 
-Stand: Disassembly und Laufzeit-Speicher, Build `26187885`, SDK aus einer direkt geladenen Mission (02.11.2026). Die RVAs stehen in [Offsets](OFFSETS.md#coop).
+Stand: Disassembly und Laufzeit-Speicher, Build `26187885`, SDK aus einer direkt geladenen Mission (02.11.2026). Die RVAs stehen in [Offsets](../OFFSETS.md#coop).
 
 **Wie P2 entsteht**
 
@@ -1893,7 +1895,7 @@ Stand: Disassembly und Laufzeit-Speicher, Build `26187885`, SDK aus einer direkt
 Stand 23.11.2026, Build `26786272`, Mod mit Spike, ein PC, zwei Instanzen über die Lobby der Mod, frischer Test-Spielstand.
 Auslöser: Am 02.11.2026 (Build `26187885`, nur Spike, vor `remote-spieler` und `charakter-wahl`) zeigte der Host an Tag 2 ein
 anderes Figurenporträt mit violetter Leiste. Lesewerkzeug: `py tools/spike/portraits.py [--overlay] <pid> [<pid>]`,
-Offsets: [HUD-Porträt](OFFSETS.md#hud-porträt-opt-portraet).
+Offsets: [HUD-Porträt](../OFFSETS.md#hud-porträt-opt-portraet).
 
 - **[Belegt, SDK und Bytecode-Aufrufliste]** Das Porträt im Spieler-HUD ist `WP_PlayerPortrait_C` in `WP_PlayerOverlay_C`. Es hält
   `Player_Controller`, `FlipIfPlayer2` und `IndexFindAttempts`. Sein Ubergraph ruft `LocalCoopSubsystem.GetPlayerIndex`,
@@ -1926,7 +1928,7 @@ Offsets: [HUD-Porträt](OFFSETS.md#hud-porträt-opt-portraet).
 
 ## Run-Ablauf
 
-Stand: Laufzeit-Trace und Disassembly, Build `26187885`. Der Ablauf gilt für zwei Instanzen mit dem [Spike](../research/spikes/a-connect/README.md). Ohne dessen Patches stürzt der Host schon beim Spawn ab.
+Stand: Laufzeit-Trace und Disassembly, Build `26187885`. Der Ablauf gilt für zwei Instanzen mit dem [Spike](../../research/spikes/a-connect/README.md). Ohne dessen Patches stürzt der Host schon beim Spawn ab.
 
 ### Wege zwischen den Karten
 
@@ -1952,7 +1954,7 @@ Stand 04.11.2026, Build `26187885`. Zwei Instanzen auf einem PC mit `Start-Sessi
 - **[Belegt] Absturz ohne Patch:** Nach dem Klick stürzte der Host ab: `EXCEPTION_ACCESS_VIOLATION reading address 0x0` bei `0x584CD85`. Der Handler `0x584CD20` läuft beim Run-Ende für jeden Controller, ausgelöst über eine Delegate-Kette aus dem Inventarbereich (`0x5956E00`, `0x596DA03`). Er prüft den Besitzer bei `this+0xA8` auf die Controller-Klasse, ruft `APlayerController::GetLocalPlayer` (`0x2E706D0`) und ohne Nullprüfung `+0x330` auf dem Ergebnis auf. Der Remote-Controller hat keinen `LocalPlayer`. Das ist dieselbe Annahme wie bei den Spawn-Patches.
 - **Spike-Patch** (`RunEnd.cpp`): Ohne `LocalPlayer` gilt wie im Spieler-Index-Helfer Index 1 (P2), danach läuft die Funktion normal weiter.
 - **[Belegt] Mit Patch:** kein Absturz. Beide stehen mit 2 Spielern und vollen HP in der `MetaBase`, beide Controller werden getauscht (`source=swap`). Danach startete ein neuer Run mit `Start-Run.ps1` über Routenkarte bis in die Mission an Tag 1, mit vollständigen und gleichen Inventaren.
-- **Nebenbefund:** In der `MetaBase` zeigt der Client seinen eigenen Meta-Stand (andere Zähler und Gebäude als der Host). Seit der [Nutzerentscheidung vom 06.11.2026](SYNC_REQUIREMENTS.md#nutzervorgabe-meta-fortschritt-des-hosts-06112026) soll fuer den gemeinsamen Run der Host-Stand gelten; die technische Umsetzung ist damit noch nicht belegt.
+- **Nebenbefund:** In der `MetaBase` zeigt der Client seinen eigenen Meta-Stand (andere Zähler und Gebäude als der Host). Seit der [Nutzerentscheidung vom 06.11.2026](../SYNC_REQUIREMENTS.md#nutzervorgabe-meta-fortschritt-des-hosts-06112026) soll fuer den gemeinsamen Run der Host-Stand gelten; die technische Umsetzung ist damit noch nicht belegt.
 - **Nicht geprüft:** Niederlage an späteren Tagen oder in Bosskämpfen, nur ein Spieler tot (der andere lebt weiter), Niederlage über das Internet. Je Variante ein Lauf.
 
 ### Run-Ende bei Host und Client (`run-ende`)
@@ -1966,21 +1968,21 @@ Stand 10.11.2026, Build `26495302`, ein PC, Mod mit Spike über die Lobby, zwei 
 | Abbruch | Pausemenü, „Zurück zum Hauptmenü“. Einen eigenen Menüpunkt zum Aufgeben gibt es nicht | Hauptmenü | Hauptmenü, Sitzung beendet | unverändert (`trennen`, `net-fehler`) |
 
 - **[Belegt] Ursache der Lücke:** Bei einer Niederlage läuft `FinishMission` nicht, also meldete der Host nichts über `0x401`.
-- **Lokal zuerst:** Lokal bleibt die native Übersicht des Clients, geöffnet wie bei jedem Rundenende mit `FinishMission` (`rundenende-client`). Geteilt wird nur der Ausgang als ein Byte in `0x401`, siehe [Kontrollkanal](CONTROL_PROTOCOL.md#rundenende-rundenende-client). Der Host entscheidet, keine zweite Autorität. Auch die Rückkehr wählt nur der Host, der Client folgt über `servertravel` (`ClientMayStartTravel`).
+- **Lokal zuerst:** Lokal bleibt die native Übersicht des Clients, geöffnet wie bei jedem Rundenende mit `FinishMission` (`rundenende-client`). Geteilt wird nur der Ausgang als ein Byte in `0x401`, siehe [Kontrollkanal](../CONTROL_PROTOCOL.md#rundenende-rundenende-client). Der Host entscheidet, keine zweite Autorität. Auch die Rückkehr wählt nur der Host, der Client folgt über `servertravel` (`ClientMayStartTravel`).
 - **[Belegt, gescheitert] `TriggerEndRound(Lose)` beim Client:** Es öffnete keinen Bildschirm, und sein Meta-Stand im Mod-Ordner änderte sich. Darum sperrt `RunLossAllowed` eine Niederlage beim Client jetzt ganz.
 - **[Belegt, gescheitert] Umschalten auf jeder Instanz der Klasse:** `RefreshAsGameOver` auf der Vorlage im `WidgetTree` des Pakets stürzte ab (Lesen `0x110`, keine Besitzer-Instanz). Es gelten nur Instanzen, die über ihre Outer an der `DDMissionGameInstance` hängen.
 - **[Belegt] Darstellung:** Nach `FinishMission` schaltet die Mod die Übersicht einmal um: `RefreshAsGameOver` (nur Niederlage), `SetNegativeText` oder `SetPositiveText`, Überschrift tauschen, `PlayRunFinishedAnimation`. Das Spiel blendet die Knöpfe nach der Animation wieder ein, darum blendet die Mod sie bei einer Niederlage jede Sekunde erneut aus.
 - **[Belegt] Lauf auf dem Endstand:** Frische Testordner. Niederlage an Tag 1, beide in der `MetaBase`. Neuer Run in derselben Sitzung, Rundenende und Lager bei beiden, Reise nach Tag 2: Inventare `complete` und `equal`, Desync-Melder OK. Sieg, beide in der `MetaBase`. Danach Abbruch über das Pausemenü, beide im Hauptmenü. Kein Absturz.
-- **[Belegt] Spielstände:** Die vier normalen Spielstände im Testordner blieben über Niederlage, zweiten Run und Sieg Byte für Byte gleich. `Management_SaveSlot_0.sav` des Clients im Mod-Ordner blieb gleich, beim Host änderte er sich. Ein Client bekommt also keine Meta-Gutschrift, siehe [Nutzervorgabe](SYNC_REQUIREMENTS.md#nutzervorgabe-meta-fortschritt-des-hosts-06112026). Der Run-Slot des Clients wird weiter nur im Mod-Ordner geschrieben.
+- **[Belegt] Spielstände:** Die vier normalen Spielstände im Testordner blieben über Niederlage, zweiten Run und Sieg Byte für Byte gleich. `Management_SaveSlot_0.sav` des Clients im Mod-Ordner blieb gleich, beim Host änderte er sich. Ein Client bekommt also keine Meta-Gutschrift, siehe [Nutzervorgabe](../SYNC_REQUIREMENTS.md#nutzervorgabe-meta-fortschritt-des-hosts-06112026). Der Run-Slot des Clients wird weiter nur im Mod-Ordner geschrieben.
 - **Grenzen:** Die Werte der Wertung sieht der Client als Nullen, weil die Run-Statistik nicht repliziert wird (`opt-ergebnis-werte`). Am Sieg-Bildschirm führt „Fortsetzen“ beim Client wie bisher ins Lager. Der Host entscheidet trotzdem über die Reise.
-- **Nicht geprüft:** Zwei PCs und Internet, ein ausgespielter Endbosskampf, Niederlage im Bosskampf, Endlosmodus nach dem neuen Sieg-Bildschirm. Der Endlosmodus-Pfad des Clients ist bis auf die Überschrift unverändert ([`dauerlauf`](../research/spikes/dauerlauf/README.md)).
+- **Nicht geprüft:** Zwei PCs und Internet, ein ausgespielter Endbosskampf, Niederlage im Bosskampf, Endlosmodus nach dem neuen Sieg-Bildschirm. Der Endlosmodus-Pfad des Clients ist bis auf die Überschrift unverändert ([`dauerlauf`](../../research/spikes/dauerlauf/README.md)).
 - **Testhinweis:** Nach einer Niederlage und nach dem Fokuswechsel zwischen den Fenstern ging der erste Klick auf einen Knopf der Übersicht verloren, der zweite wirkte. Das betrifft `Complete-RoundEnd` beim ersten Rundenende nach einer Niederlage. Mit `-RealSave` fand `Start-Run.ps1` die Routenkarte nicht.
 
 ### Trennen ins Hauptmenü (`trennen`)
 
 Stand: Disassembly und zwei Spieltests am 02.11.2026, Build `26187885`.
 
-- **[Belegt]** Der Client-Absturz bei `0x5975A6A` ist eine Folge der fehlenden Inventar-Items, keine eigene Ursache beim Trennen. Er trat nur in Builds ohne den [Inventar-Teilfix](../research/spikes/a-connect/README.md#inventar-ursache-teilfix-und-verbleibende-grenze) auf.
+- **[Belegt]** Der Client-Absturz bei `0x5975A6A` ist eine Folge der fehlenden Inventar-Items, keine eigene Ursache beim Trennen. Er trat nur in Builds ohne den [Inventar-Teilfix](../../research/spikes/a-connect/README.md#inventar-ursache-teilfix-und-verbleibende-grenze) auf.
 - **[Belegt]** Aufrufkette laut Absturzbericht: Der Client bekommt die Trennung und baut seine Welt ab. Dabei ruft `AActor::EndPlay` (`0x25E3350`) für jede gestartete Komponente `EndPlay` auf (Vtable `+0x3F0`). `UInventoryComponent::EndPlay` (`0x595BBD0`) läuft über `MyItems` (`+0x120`) und ruft für jedes Item `0x5975A40` auf.
 - **[Belegt]** `0x5975A40` geht durch `UInventoryItemInstance::StateObjectLookup` (`TMap` bei `+0x318`) und ruft für jedes Zustandsobjekt die virtuelle Funktion `+0x2A0` und `0x572FBE0` auf. Eine Null-Prüfung des Items fehlt. Die erste Anweisung liest `Item+0x340`, die Bitanzahl der Belegungsbits der Map. Bei einem Null-Item ergibt das genau den gemeldeten Lesefehler an Adresse `0x340`.
 - **[Belegt]** Dieselbe Schleife steckt in `RemoveAllItemEffects` (`0x5971BB0`). Das ruft unter anderem `LoadMapByInformation` (`0x5B11170`) für jeden Spieler auf. Fehlende Items können also auch dort abstürzen.
@@ -1997,7 +1999,7 @@ Nicht getestet: Trennen an Tag 2 oder später, Trennen aus der `MetaBase`, Abbru
 ### Was beim Kartenwechsel passiert
 
 - **Controller:** Die Engine ersetzt beide Controller. In `SpawnedPlayers` bleibt der alte Remote-Controller stehen, der neue kommt nie hinein. Nach der Garbage Collection steht dort `null`, und der Gegner-Spawner wählt daraus zufällig ein Ziel. Das erklärt einen nur manchmal auftretenden Host-Absturz.
-  `spawnedplayers`, 03.11.2026: Der Spike entfernt jetzt alte/null/doppelte belegte Einträge unter Erhalt von Hash und SparseArray-Buchhaltung und fügt aktuelle Controller über den nativen TSet-Helfer ein. Allokationsbits statt Zeiger-Sentinel; Prüfung im Game-Thread-Sekundentick. Das lesende `players.py` prüft Belegung, Pointer-Hash, Hash-Ketten und exakte PlayerArray-Übereinstimmung. Zwei direkte Missionstravels mit dem isolierten Fix waren konsistent; der bekannte Host-Callback `0x57CC398` trat beim folgenden Wechsel weiterhin auf. Einzelheiten und Testgrenzen im [Spike](../research/spikes/a-connect/README.md#spawnedplayers-echte-mengeneinträge-spawnedplayers).
+  `spawnedplayers`, 03.11.2026: Der Spike entfernt jetzt alte/null/doppelte belegte Einträge unter Erhalt von Hash und SparseArray-Buchhaltung und fügt aktuelle Controller über den nativen TSet-Helfer ein. Allokationsbits statt Zeiger-Sentinel; Prüfung im Game-Thread-Sekundentick. Das lesende `players.py` prüft Belegung, Pointer-Hash, Hash-Ketten und exakte PlayerArray-Übereinstimmung. Zwei direkte Missionstravels mit dem isolierten Fix waren konsistent; der bekannte Host-Callback `0x57CC398` trat beim folgenden Wechsel weiterhin auf. Einzelheiten und Testgrenzen im [Spike](../../research/spikes/a-connect/README.md#spawnedplayers-echte-mengeneinträge-spawnedplayers).
 - **HUD:** Ab dem zweiten Wechsel wird die HUD des Clients gebaut, bevor der neue `GameState` da ist. `WP_UI` wartet in `PreConstruct` in einer Blueprint-Schleife auf ihn. Diese Schleife läuft auf dem Game Thread, der den `GameState` erst empfangen müsste, der Client hängt also für immer. Eine höhere `NetPriority` des `GameState` half nicht.
 - **Inventar:** Die Unterobjekte fehlen schon an Tag 1 dauerhaft, nicht erst kurz beim zweiten Wechsel. Ursache und Teilfix siehe unten. `OnRep_Slots` zurückzuhalten half nicht.
 
@@ -2162,7 +2164,7 @@ Die Mod macht dasselbe in `src/Game/TutorialAdapter.cpp` (`tutorial-aus`): Als H
 Stand 05.11.2026, Build `26187885`, ein PC, Mod mit Spike über die Lobby, Seed `20795`, Tag 1.
 
 - **Rundenende:** Eine Runde endet regulär, wenn der Tank voll ist und die Spieler mit dem Bus flüchten (Nutzerangabe). Der Absturz
-  „rund 12,5 Minuten nach Missionsstart“ aus dem [Desync-Lauf](DESYNC.md#langzeitmessung-im-spiel-05112026-nach-merge-von-main) lag
+  „rund 12,5 Minuten nach Missionsstart“ aus dem [Desync-Lauf](../DESYNC.md#langzeitmessung-im-spiel-05112026-nach-merge-von-main) lag
   davor und war deshalb kein Rundenende.
 - **[Belegt] Rundenende über den Bus:** Tank beim Host per Speicherschreiben auf 118 von 120 (`UFuelMeter.CurrentFuel` am
   `GS_DDMissionState_C`, `+0xF8`), der Client übernahm den Wert über die Replikation. Der Nutzer sammelte einen Kanister (128) und flüchtete
@@ -2222,7 +2224,7 @@ Stand 06.11.2026, Build `26187885`, ein PC, Mod mit Spike über die Lobby, Godmo
 
 - **Ablauf:** Was lokal bleibt: Rundenübersicht, Lager, Routenkarte und das Ordnen des eigenen Inventars, alles mit dem nativen
   `FinishMission` des Clients. Geteilt wird nur, dass der Host die Runde beendet hat: `FinishMissionHook` merkt sich beim Host das
-  Ende der aktuellen Welt, der Kontrollkanal bringt es als `0x401` zum Client, siehe [Kontrollkanal](CONTROL_PROTOCOL.md#rundenende-rundenende-client).
+  Ende der aktuellen Welt, der Kontrollkanal bringt es als `0x401` zum Client, siehe [Kontrollkanal](../CONTROL_PROTOCOL.md#rundenende-rundenende-client).
   Der Client ruft `FinishMission(false)` einmal selbst auf, vorbei an der Sperre aus `bus-ende`, nur wenn die Karten-Id zu seiner
   übernommenen Karte passt (`ClientMayFollowRoundEnd`). Das Ziel wählt weiter nur der Host: `SeamlessTravelToLevel` reist beim
   Client nicht mehr, außer ins Hauptmenü (`ClientMayStartTravel`). Die Inventaränderungen im Lager laufen über die nativen Server-RPCs,
@@ -2262,7 +2264,7 @@ repliziert nativ, die Mod braucht dafür keinen neuen Sync-Pfad und keine neue N
 - **[Belegt] Ankunft Tag 1 (10.11., nach Merge von main bis #203):** Tag, Uhr, Tank, Nacht und alle Wallets gleich.
 - **[Belegt] Missionsziele:** An Tag 1 gibt es auf keiner Seite eine `DDObjective`-Instanz. Das Ziel „Tank füllen“ ist die Tankanzeige
   selbst, die über `FuelMeter` repliziert. Boss-Ziele legt das Spiel nur beim Host an, die Mod baut die Leiste beim Client nach,
-  siehe [Bosse](../src/Sync/Enemies/README.md).
+  siehe [Bosse](../../src/Sync/Enemies/README.md).
 - **[Belegt] Nur beim Host:** `ThreatLevel.GameMode`, `.GameState` und `.FreezeThreatLevelManager` (samt Unterobjekt) setzt nur der
   Server, der die Gefahr steuert. Beim Client null, kein Fehler. `day_state.py` blendet sie aus.
 - **[Belegt] Schrott, 08.11., vor `lager-handel-client`:** `ScrapWalletComponent.CurrencyAmount` beim Host 1/2, beim Client 46/92. Der
@@ -2270,7 +2272,7 @@ repliziert nativ, die Mod braucht dafür keinen neuen Sync-Pfad und keine neue N
   später im Tag nicht erneut gemessen. `day_state.py` meldet eine Abweichung wieder als Fehler.
 - **Nicht mit `-DayState` gemessen:** Tag 2 bis 5, Biomwechsel nach Tag 4 und Endlosmodus. Der Lauf vom 10.11. wurde nach Tag 1 auf
   Anweisung des Nutzers beendet, der den Test als erfolgreich abgenommen hat. Reise und Rundenende über mehrere Tage sind aus anderen
-  Läufen belegt ([`dauerlauf`](../research/spikes/dauerlauf/README.md), 12 Tage mit Endboss und Endlosmodus ohne Absturz; `spiel-update`, `Run-Route.ps1 -Days 2` sauber); `DayNum` vergleicht
+  Läufen belegt ([`dauerlauf`](../../research/spikes/dauerlauf/README.md), 12 Tage mit Endboss und Endlosmodus ohne Absturz; `spiel-update`, `Run-Route.ps1 -Days 2` sauber); `DayNum` vergleicht
   der Desync-Melder ohnehin laufend.
 - **Abgegrenzt:** Run-Info, Routenkarte und Gefahrenstufen-Anzeige des Clients liegen bei `opt-routenkarte`.
 
@@ -2317,7 +2319,7 @@ Anzahl `+0x2B8`, `CurrentMissionIndex` `+0x2C0`, `IsEndOfMissionChain` `+0x2C8`,
 **Nachtrag 09.11.2026, zurückgestellt als `opt-routenkarte`:** Build `26495302`, ein PC, Mod mit Spike über die Lobby, Godmode,
 Seed `20795`, frischer Spielstand (Tag 1 startet ohne Routenkarte). Kein Code geändert, nur gelesen und disassembliert. Auf
 Wunsch des Nutzers verwaltet im ersten Release nur der Host die Routenkarte; der Client bekommt währenddessen Pause und
-Eingabesperre (Sperre und volle Karte beim Client laufen später gemeinsam unter [`opt-routenkarte`](../TODO.md#optionale-optimierungen)).
+Eingabesperre (Sperre und volle Karte beim Client laufen später gemeinsam unter [`opt-routenkarte`](../../TODO.md#optionale-optimierungen)).
 
 - **[Belegt] Offsets gelten auch auf `26495302`:** `FCurrentRunInfo` an `GameInstance+0x2A0` wie oben. Host nach Tag 1: Seed 20795,
   `RouteMissionStructureIdentifier` `(0, 1)`, Kette 1, Index 0, Ende der Kette, `ChosenMissionIndexes` `[2]`,
@@ -2355,7 +2357,7 @@ Stand 06.11.2026, Build `26187885`, ein PC, Mod mit Spike über die Lobby, Godmo
 - **[Belegt] Im Lager keine sichtbare Replikation:** Nach der Übernahme eines Edits mit Aufwertungen kamen die neuen Items des Hosts beim
   Client weder im Lager noch auf der Routenkarte an, er behielt seine lokalen Ausgaben. Nach der Reise in den nächsten Tag standen die
   replizierten Objekte in der Reihenfolge des Hosts da, die lokalen waren weg. Passt zu `rundenende-client`. Ablauf in
-  [Werkbank und Aufwerten beim Client](../src/Game/README.md#werkbank-und-aufwerten-beim-client).
+  [Werkbank und Aufwerten beim Client](../../src/Game/README.md#werkbank-und-aufwerten-beim-client).
 
 ### Rundenende: Befund und offene Phasenübertragung (`rundenende`)
 
@@ -2372,14 +2374,14 @@ Build `26187885`, ein PC, zwei Loopback-Instanzen, getrennte Test-Spielstände u
 
 Die Aufgabe bleibt ungelöst. Getestet sind Beobachtung, Befehlsgrenzen sowie Codec-/Empfängerregeln an künstlichen Nachrichten, **nicht** eine synchronisierte Endphase, wirksame Client-Eingabesperre, echter Spätbeitritt/Netzwerktransport, Internet oder vollständiger Run. Keine erneute lokale Ausführung der Host-Persistenz und keine Panelpräsenz als Phasensignal. Initialisierungs-/Tick-Anschluss in `Mission.cpp` und gemeinsame Schnittstellen bleiben ein eigener Integrationsschritt.
 
-**Nachtrag 03.11.2026, ohne Spielbetrieb:** Ein lokaler Adapter in `Mission.cpp` ergänzt den Modellkern um einen monotonen Host-Publisher, atomaren 48-Byte-Dateitransport, Heartbeat/Timeout und Client-Textausgabe/Win32-Nachrichtenfilter. Die tatsächliche Adapterimplementierung wurde gegen eigene Speicherpuffer geprüft, der Dateitransport zwischen zwei eigenen fensterlosen Testprozessen; C++20 `/W4 /WX` und vollständiger Spike-DLL-Build bestanden. `Main.cpp` verbindet Befehl/Tick/Filter, Host-`!finish`/`!round` liefern ihre Aufrufe; bis zur expliziten Diagnosebindung bleibt der Adapter inaktiv. Der globale Beobachter für normale Menü-/Busereignisse ist noch nicht eingehängt, Host-Rundenendeaufrufe sind noch nicht im Spiel beobachtet; Lager/Route werden ausschließlich manuell diagnostisch markiert. Keine automatische Panelerkennung behauptet, kein vollständiger UE-/Gamepad-Inputschutz, kein Internetkanal und kein P0-Abschluss. Siehe [konkrete Integration, Tests und verbleibende Nachweise](../research/spikes/a-connect/RoundPhaseRuntime.md).
+**Nachtrag 03.11.2026, ohne Spielbetrieb:** Ein lokaler Adapter in `Mission.cpp` ergänzt den Modellkern um einen monotonen Host-Publisher, atomaren 48-Byte-Dateitransport, Heartbeat/Timeout und Client-Textausgabe/Win32-Nachrichtenfilter. Die tatsächliche Adapterimplementierung wurde gegen eigene Speicherpuffer geprüft, der Dateitransport zwischen zwei eigenen fensterlosen Testprozessen; C++20 `/W4 /WX` und vollständiger Spike-DLL-Build bestanden. `Main.cpp` verbindet Befehl/Tick/Filter, Host-`!finish`/`!round` liefern ihre Aufrufe; bis zur expliziten Diagnosebindung bleibt der Adapter inaktiv. Der globale Beobachter für normale Menü-/Busereignisse ist noch nicht eingehängt, Host-Rundenendeaufrufe sind noch nicht im Spiel beobachtet; Lager/Route werden ausschließlich manuell diagnostisch markiert. Keine automatische Panelerkennung behauptet, kein vollständiger UE-/Gamepad-Inputschutz, kein Internetkanal und kein P0-Abschluss. Siehe [konkrete Integration, Tests und verbleibende Nachweise](../../research/spikes/a-connect/RoundPhaseRuntime.md).
 
 **Abschluss `phasenadapter`, 04.11.2026:** Die Phase läuft jetzt automatisch vom Host zum Client. Damit ist die Aufgabe für einen PC gelöst.
 
 - **[Belegt] Hostquellen:** Jedes Panel meldet sich über `AbstractPanel.OnOpenStateChanged(bOpen)`, das durch `ProcessEvent` läuft. Rundenübersicht ist `WP_Round_Stats_C`, Lager `WP_Inventory_Panel_C`, Routenkarte `WI_MissionChoicePanel_C`, auch die erste Route in der MetaBase. Dazu kommen `FinishMission` und `TriggerEndRound`, beide ebenfalls über `ProcessEvent`. Das Inventar-Panel öffnet sich auch bei der Belohnungsauswahl mitten in der Mission und gilt deshalb nur nach einem Rundenende als Lager.
 - **[Belegt] Eingabesperre:** `AActor::DisableInput(PC)` auf Controller und Figur des Clients nimmt beide aus dem Input-Stack. Nur damit bewegte sich die Client-Figur bei gedrückter Taste nicht, Esc öffnete kein Pausenmenü. Ohne Sperre ging beides. Der Fensterfilter kommt dazu, lässt aber Loslassen-Nachrichten durch.
 - **[Belegt] Lauf:** Erste Route und Rundenende an Tag 1, 2 und 3, beim Client jeweils dieselbe Folge wie beim Host, danach in der neuen Welt wieder frei. Fällt der Host weg, gibt der Client nach 5 s frei.
-- **Offen, mit eigener Aufgabe:** Transport über das Netz (`transport`, `protokoll`). Natürliches Tagesende und Gamepad sind nicht im Spiel geprüft, siehe [Grenzen](../research/spikes/a-connect/RoundPhaseRuntime.md#grenzen).
+- **Offen, mit eigener Aufgabe:** Transport über das Netz (`transport`, `protokoll`). Natürliches Tagesende und Gamepad sind nicht im Spiel geprüft, siehe [Grenzen](../../research/spikes/a-connect/RoundPhaseRuntime.md#grenzen).
 
 **Karte:** Im echten Ablauf erzeugt der Host 144 bis 167 `MapTile`, der Client bleibt bei 17 und zeigt eine andere Karte. Die Figur des Clients startet deshalb weit vom Bus entfernt, weil seine Position beim Host übernommen wird. Das ist der Einstieg in Thema 3.
 
@@ -2427,7 +2429,7 @@ sind das Mod-Log und der Speicher des Hosts, nur lesend; das Client-Log lag bei 
   [Trennen](#trennen-ins-hauptmenü-trennen), wo ein fehlendes Item in `EndPlay` abstürzte.
   **[Belegt, Disassembly]** `0x5AB5120` ist eine `void`-Funktion, die nur die Größe des Widgets aus der Itemform setzt (je 66 px minus
   3), neun direkte Aufrufer. `lager-absturz-client` überspringt sie ohne Item, und der Host wartet bei stummem Client bis zum
-  Verbindungsabbau, siehe [Lager am Rundenende](../src/Game/README.md).
+  Verbindungsabbau, siehe [Lager am Rundenende](../../src/Game/README.md).
 
 ### Live-Test auf zwei PCs am 07.11.2026 (`livetest-0711`)
 
@@ -2451,7 +2453,7 @@ Ausgewertet: Mod-Logs beider Seiten, Overlay-Verlauf, `crashes.py` beider Seiten
 - **[Belegt] Inventar kurz abweichend.** Der Desync-Melder meldete dreimal `ABWEICHUNG Inventar`, jeweils während einer Airdrop-Auswahl
   oder beim Umlegen im Lager, und war nach etwa 10 s wieder `OK`. Keine dauerhafte Abweichung wie am 06.11.
 - **[Gemeldet] Verkaufen und Reparieren im Lager gehen beim Client nicht**, beim Host schon. Items verschieben geht. Am Rundenende lassen
-  sich beim Client nicht reparierte Items nicht ausrüsten. Offen, ob das Spiel kaputte Items auch beim Host sperrt. Neue Aufgabe `lager-handel-client`. **Nachtrag (`lager-handel-client`):** Behoben, das Spiel sperrt kaputte Items auch beim Host; siehe [Verkaufen und Reparieren beim Client](../src/Game/README.md#verkaufen-und-reparieren-beim-client).
+  sich beim Client nicht reparierte Items nicht ausrüsten. Offen, ob das Spiel kaputte Items auch beim Host sperrt. Neue Aufgabe `lager-handel-client`. **Nachtrag (`lager-handel-client`):** Behoben, das Spiel sperrt kaputte Items auch beim Host; siehe [Verkaufen und Reparieren beim Client](../../src/Game/README.md#verkaufen-und-reparieren-beim-client).
 - **[Belegt] Client im Lager hart beendet.** 11:43:41 Prozess des Clients beendet. Der Host erkannte den stummen Client um 11:43:50 und
   wartete; auch nach seinem eigenen Bestätigen (11:43:56) meldete er nicht „alle bereit“. Beim Verbindungsabbau (Timeout 11:43:58,
   Grund 4001) löste der Host die P2-Bindung und holte sein Bestätigen nach („Client nicht mehr im Lager“), reiste aber nicht ab: Laut
@@ -2751,7 +2753,7 @@ und keinem ausgelassenen Patch. Zwei Haushalte, Route über ein Relay. Ausgewert
 Spielfenster des Clients und Meldungen des Client-Spielers; das Host-Log liegt nicht vor. Uhrzeiten aus dem Log, eine Stunde
 hinter der Ortszeit. Ablauf: Fortsetzung des Runs vom 16.11. ab Host-Level 10, rund 50 Minuten, elf Rundenenden, darunter ein
 Händler-Event, `MGP_LabyrinthEvent` und die Boss-Karte `MGP_Burger_Boss_Nature`, Sieg. Kein Absturz. Nach dem Test gilt dieser
-Stand als **Mod-Version 1.0** (Nutzerentscheidung, siehe [Roadmap](archive/ROADMAP.md#stand-und-nächste-schritte)).
+Stand als **Mod-Version 1.0** (Nutzerentscheidung, siehe [Roadmap](ROADMAP.md#stand-und-nächste-schritte)).
 
 - **[Belegt] Bestätigt:**
   - Beitritt und Wiederbeitritt per Steam-Einladung ohne Absturz des Hosts (`update-1-0-2-client`).
@@ -2898,9 +2900,9 @@ gibt keinen Fix.
 
   Die ersten beiden Tests dieses Tages (direkte Reise auf beiden Builds) zeigten daher kein Labyrinth. Die dort gezählten 350 Filler
   waren Vorlagen in den Blueprint-Klassen, keine erzeugten Kacheln. Seit dieser Aufgabe setzt der Schalter auch die Größe des Profils,
-  siehe [Testen](TESTING.md#gezielt-in-eine-karte).
+  siehe [Testen](../TESTING.md#gezielt-in-eine-karte).
 - **[Belegt] Mit Größe und Routenknoten entspricht das Client-Log dem Live-Log.** Ablauf: Start über die Routenkarte ohne echte Eingaben
-  (Teleport in den Startring, Knopf und Knoten per ProcessEvent, siehe [Testen](TESTING.md#gezielt-in-eine-karte)), Tag 1 mit
+  (Teleport in den Startring, Knopf und Knoten per ProcessEvent, siehe [Testen](../TESTING.md#gezielt-in-eine-karte)), Tag 1 mit
   Labyrinth-Profil. Das Client-Log zeigt dieselben Zeilen wie live:
   - „Client übernimmt … PCG-Graph `PCG_ForestSpawner_v2`“;
   - „replizierte Child Actors unterdrückt: 1“;
@@ -3290,11 +3292,11 @@ Instanzen, Lobby, mit Spike, ohne echte Eingaben).
   `ReaperComponent` beim Client. Danach Zeitgeber beim Host: Sensenmann beim Client mit Rolle 1, 25 s gelebt, Tagesende und Reise
   nach `MGP_Industrial`, kein Absturz, kein `[ERROR]`. Die Reise Labyrinth → normale Karte ist mit dem Endstand nicht erneut gefahren.
 - **Testwege:** `DDCOOP_TEST_MAP_PROFILE_EVERY=2` (Event und normale Karte im Wechsel) und `!shop reaper`, siehe
-  [Testen](TESTING.md#gezielt-in-eine-karte). Die Konsolenbefehle `SpawnReaper` und `SetSpawnReaperAfterMinutes` wirkten im
+  [Testen](../TESTING.md#gezielt-in-eine-karte). Die Konsolenbefehle `SpawnReaper` und `SetSpawnReaperAfterMinutes` wirkten im
   Shipping-Build nicht, weder über den Testkanal noch über den Spike.
 - **Nicht geprüft:** zwei PCs über das Internet; der Sensenmann nach den natürlichen 12 Minuten; Ton und Farbwechsel beim Client
   nach Gehör und Bild; Kampf gegen den Sensenmann und sein Tod; Tod eines Spielers durch ihn; die Mod ohne Spike. Adressen stehen in
-  [OFFSETS](OFFSETS.md#sensenmann-karte-nach-labyrinth-absturz).
+  [OFFSETS](../OFFSETS.md#sensenmann-karte-nach-labyrinth-absturz).
 
 ### Roboterarm beim Client (`client-roboterarm`)
 
@@ -3444,7 +3446,7 @@ Spike, ohne echte Eingaben, Client-Prozess der eigenen Sitzung mit `Test-ClientK
 
 - **Offen.** Bestätigung auf zwei PCs über das Internet (Grund 4001). Der Absturz des Clients am Sensenmann selbst gehört zu
   `karte-nach-labyrinth-absturz`; solange dessen Wächter fehlt, verliert der Host den Client weiter, läuft aber selbst weiter.
-  Testweg: `!shop reaper 3` beim Host, dann `Test-ClientKill.ps1`, siehe [Spielzeit sparen](TESTING.md#spielzeit-sparen).
+  Testweg: `!shop reaper 3` beim Host, dann `Test-ClientKill.ps1`, siehe [Spielzeit sparen](../TESTING.md#spielzeit-sparen).
 
 ### Run-Stand des Clients nach dem Run-Ende (`opt-metabase-inventar`)
 
@@ -3719,7 +3721,7 @@ die Routenkarte ohne Maus und Tastatur, Stufen über `DD_SetThreatLevel`. Ton de
   Neue Nachricht `0xC00` (Mod-Version 15) mit der Stufe als Stand. Der Host liest sie viermal je Sekunde über
   `ThreatLevel.GetCurrentThreatLevel` und sendet bei jeder Änderung und alle 2 s. Der Client ruft damit `CustomEvent(Old, New)`
   seiner eigenen Stoppuhr auf: Zahl, Animation und Sound entstehen nativ. Der erste Stand einer Welt läuft als `(N, N)`, setzt also
-  nur die Zahl. Format in [CONTROL_PROTOCOL.md](CONTROL_PROTOCOL.md#bedrohungsstufe-mod-kompatibilität-15).
+  nur die Zahl. Format in [CONTROL_PROTOCOL.md](../CONTROL_PROTOCOL.md#bedrohungsstufe-mod-kompatibilität-15).
 - **Antworten zum neuen Pfad.** Lokal bleiben Zahl, Animation und Sound der Stoppuhr. Geteilt wird nur die Stufe, weil sie beim
   Client aus nichts Repliziertem folgt. Es entscheidet der Host (seine Komponente steuert die Gefahr); die Komponente des Clients
   wird nicht beschrieben, es gibt keine zweite Autorität. Kein bestehender Weg wird ersetzt. Verlust, Join und eine Stoppuhr, die noch
@@ -3830,7 +3832,7 @@ Gegner über `!wave`, die Figuren standen und feuerten von selbst. Keine Maus- o
     derselben Waffe unter 10 ms zählen als ein Schuss. Nahkampfwaffen sind ausgenommen (nicht untersucht).
   - Nachladen, neue Nachricht `0xB00` (Mod-Version 13): Der Host hängt am Wrapper `0x5707870` und meldet je Aufruf die Hände (NetGUID) und
     den Namen des Sounds. Der Client ruft `Hands.PlayReloadSound` an seinen eigenen replizierten Händen auf. Format in
-    [CONTROL_PROTOCOL.md](CONTROL_PROTOCOL.md#nachladesound-mod-kompatibilität-13).
+    [CONTROL_PROTOCOL.md](../CONTROL_PROTOCOL.md#nachladesound-mod-kompatibilität-13).
   - Antworten zum neuen Pfad: Lokal bleiben Auswahl, Ort und Abspielen der Sounds. Geteilt wird nur der Nachlade-Zeitpunkt, weil er beim
     Client aus nichts Repliziertem folgt. Zielwahl, Schuss, Munition, Nachladezeit und Schaden entscheidet weiter der Host. Ein verlorenes
     `0xB00` kostet einen Sound, ein verlorener Multicast einen Schuss-Sound, beides ohne Wiederholung. Nach Travel oder Join gibt es nichts
@@ -3851,7 +3853,7 @@ Gegner über `!wave`, die Figuren standen und feuerten von selbst. Keine Maus- o
 #### Gegner-Sounds beim Client (`opt-gegner-sound`)
 
 Untersucht am 21.11.2026, Build `26786272`, ein PC, `Start-Session.ps1 -Build -Mod -Tunnel Lobby -Godmode`, echter Run an Tag 1 über
-die Routenkarte ohne Maus und Tastatur (Spike-Befehle wie in [Gezielt in eine Karte](TESTING.md#gezielt-in-eine-karte)), Gegner über
+die Routenkarte ohne Maus und Tastatur (Spike-Befehle wie in [Gezielt in eine Karte](../TESTING.md#gezielt-in-eine-karte)), Gegner über
 `DD_SetThreatLevel 10`. Ton der Spielprozesse aus, **gezählt, nicht gehört**: `!fx` je Prozess, dazu der neue Spike-Befehl
 `!fx events <Klasse>`, der alle `ProcessEvent`-Aufrufe an Objekten einer Klasse zählt (was beim Client überhaupt ankommt).
 
@@ -3883,7 +3885,7 @@ die Routenkarte ohne Maus und Tastatur (Spike-Befehle wie in [Gezielt in eine Ka
     (Flächenschaden). Der Client spielt dafür den `HitImpactSoundEvent` der Grundklasse `BP_Projectile_C` am Ziel, ohne Ziel am
     gemeldeten Ort. Damit nichts doppelt läuft, schaltet er `bUseImpactSounds` an seinen replizierten Projektilen ab (beim
     Abgleich der Actor-Liste alle 250 ms). Mod-Version 16, Format in
-    [CONTROL_PROTOCOL.md](CONTROL_PROTOCOL.md#schadenszahlen-mod-kompatibilität-12).
+    [CONTROL_PROTOCOL.md](../CONTROL_PROTOCOL.md#schadenszahlen-mod-kompatibilität-12).
   - Angriff, rein lokal: Der Client beobachtet je Takt `ReplicatedMovementMode` seiner `BP_StandardEnemy_C` und spielt
     `StandardEnemyAttack` (über den Pfad geladen) am Gegner, wenn ein schon beobachteter Gegner vom Boden in `MOVE_Falling` wechselt.
     Höchstens 12 Gegner-Sounds je Takt, je Gegner 300 ms Ruhe.
@@ -3931,7 +3933,7 @@ Byte für Byte gleich mit der eingesetzten DLL.
   Objektzeiger). Beides liest den alten Speicher, der Kopf des freigegebenen Panels stand dort noch.
 - **Fix.** Zurückgehaltene Panels und der gelbe Knopf werden mit Platz und Serial im Objekt-Array und der Welt gemerkt. Nachgeholt wird
   nur, wenn der Platz noch auf dasselbe, nicht abgebaute Objekt zeigt und die Welt dieselbe ist, sonst wird das Bestätigen verworfen.
-  Gilt auch für das zurückgehaltene Airdrop-Bestätigen bei Host und Client, siehe [src/Game/README.md](../src/Game/README.md).
+  Gilt auch für das zurückgehaltene Airdrop-Bestätigen bei Host und Client, siehe [src/Game/README.md](../../src/Game/README.md).
 - **[Belegt, ein PC] Nachtest.** `Start-Session.ps1 -Mod -Tunnel Lobby -Godmode`, fünf Rundenenden mit Bestätigen im Lager: Host
   zuerst mit 1 s Abstand, Client zuerst mit 1,5 s, beide gleichzeitig, Client 0,2 s vor dem Host. Kein Absturz, kein Absturzbericht.
   Im letzten Fall reiste der Host 0,1 s nach seinem Bestätigen, das Rundenende des Clients endete vor dem Nachholen, also wieder genau
@@ -4028,7 +4030,7 @@ Route jeweils Steam-Relay `fra`, Ping 32 ms.
 
 - **[Belegt] Beitritt nur über die Einladung bis in die MetaBase.** Zweite Sitzung, Client: „Einladung über Steam angenommen“,
   Lobby betreten, P2P über Relay verbunden, „Protokoll: Build, Mod-Version und Gegenrolle bestaetigt“, Tunnel steht, „Welt: MetaBase,
-  Client, 2 Spieler“, alles binnen 1,6 s. Der Handshake des [Kontrollkanals](CONTROL_PROTOCOL.md) ist damit über das Internet
+  Client, 2 Spieler“, alles binnen 1,6 s. Der Handshake des [Kontrollkanals](../CONTROL_PROTOCOL.md) ist damit über das Internet
   bestätigt; der Desync-Melder meldete 6 s später `OK` für alle Bereiche. Das deckt auch den ersten Fall von `lobby-auth-live`
   (eingeladener Freund verbindet), die Aufgabe bleibt aber wegen der beiden anderen Fälle offen.
 - **[Belegt] Weitere Beitritte.** Zwei Beitritte ohne Einladungsvermerk (Lobby-ID) und einer nach Neustart des Hosts verliefen genauso.
@@ -4121,7 +4123,7 @@ Stand 10.11.2026, Build `26495302`, SDK, Disassembly und Live-Test auf einem PC.
 
 Stand 13.11.2026, Build `26495302`, ein PC mit zwei Instanzen (Lobby über den Tunnel der Mod), Speicherlesen, Frida und Disassembly.
 Auslöser: Im [Live-Test vom 13.11.](#live-test-auf-zwei-pcs-am-13112026-livetest-1311) erschien auf der Boss-Karte `MGP_Burger_Boss_Nature` kein Boss.
-Offsets: [Boss-Parzelle](OFFSETS.md#boss-parzelle-endboss-spawn). Lesewerkzeug: `tools/spike/boss_state.py <pid> [<pid>]`.
+Offsets: [Boss-Parzelle](../OFFSETS.md#boss-parzelle-endboss-spawn). Lesewerkzeug: `tools/spike/boss_state.py <pid> [<pid>]`.
 
 - **[Belegt] Wann und wodurch:** Der Tag-8-Knoten am Ende der Routenkarte lädt `DDDynamic_Map` mit einem Boss-Profil (hier
   `MGP_Burger_Boss_Nature`, Parzelle `BP_Parcel_BurgerBoss_01_C`, Basis `BP_BossParcel_BASE_C`, Klasse `ABossMapTileParcel`). Die
@@ -4202,12 +4204,12 @@ Fensterliste des Client-Prozesses (Klasse `DDCoop.Notice`, Bild per `PrintWindow
 
 Stand 19.11.2026, ein PC mit zwei Instanzen (Lobby über den Tunnel der Mod, Godmode), beide Builds (`26495302`, `26669225` über eine
 Worktree-eigene `config/Local.props`). Kartenprofil `MGP_Burger_Boss_Nature` per `DDCOOP_TEST_MAP_PROFILE`, Run über die echte Route,
-alles ohne Maus und Tastatur: Run-Start und Routenknoten wie in [Gezielt in eine Karte](TESTING.md#gezielt-in-eine-karte), Kampf mit
+alles ohne Maus und Tastatur: Run-Start und Routenknoten wie in [Gezielt in eine Karte](../TESTING.md#gezielt-in-eine-karte), Kampf mit
 `!shop trigger` und `!bossdmg 30000`, Tafel des Hosts über das Knopf-Ereignis
 `BndEvt__WP_EndGameUnlockSummaryPanel_ContinueButton_…` (`!shop call`), Rundenübersicht über
 `BndEvt__WP_Round_Stats_ContinueButton_…`, Lager mit `!shop confirm <n>` am Panel unter `WI_BusScreen_C`. Werte mit
 `tools/spike/pause_state.py`, das jetzt jede Zeitanfrage mit Anfragendem, Priorität und Pause listet. Offsets:
-[Zeitanfragen](OFFSETS.md#zeitanfragen-und-weltzeit-boss-client-einfrieren).
+[Zeitanfragen](../OFFSETS.md#zeitanfragen-und-weltzeit-boss-client-einfrieren).
 
 - **[Belegt] Ursache der Anfragen beim Client.** `FinishMission` legt bei Host und Client je zwei Anfragen an: `GS_DDMissionState_C`
   (Priorität 20, Pause) und `WP_Round_Stats` (Faktor 0, Priorität 0). Der Host räumt sie in der Umleitung der Reise ab („Reise:
@@ -4244,7 +4246,7 @@ alles ohne Maus und Tastatur: Run-Start und Routenknoten wie in [Gezielt in eine
   am Pauser (`pause_state.py`: beim Client gesetzt, nach der Tafel bei beiden leer). Der Client hat eine eigene Instanz der Tafel,
   zeigt sie aber nicht. Das ist dieselbe Regel
   wie bei Pausemenü und Airdrop des Hosts: Der Host entscheidet über die Weltzeit. Die fehlende Tafel beim Client steht als
-  `opt-boss-tafel-client` in der [TODO](../TODO.md).
+  `opt-boss-tafel-client` in der [TODO](../../TODO.md).
 - **[Belegt] Die Missionsuhr bleibt nach dem Bosstod bei beiden stehen** (`SecondsSinceMissionStart` 51 bei Host und Client über
   5 s), auch wenn die Welt wieder läuft. **[Vermutung]** Das ist natives Verhalten der Boss-Karte; ein Vergleich im Einzelspiel fehlt.
 - **Ein dauerhafter Stillstand nur beim Client ließ sich nicht nachstellen.** In drei Bosstoden mit Tafel (Kugeleis direkt per
@@ -4256,7 +4258,7 @@ alles ohne Maus und Tastatur: Run-Start und Routenknoten wie in [Gezielt in eine
 - **Nebenbefunde.** Stirbt der Boss noch im Intro durch sehr hohen Testschaden (`!bossdmg 400000` kurz nach `!shop trigger`), bleibt
   er mit 0 HP stehen und die Tafel erscheint nicht. Öffnet eine Figur beim Bosstod eine Airdrop-Kiste, hält deren Auswahl die Pause;
   sie lässt sich ohne Eingabe nicht abschließen (`!shop confirm`: „Bestätigen ohne Wahl“), zwei Läufe endeten dort. Die Tabelle
-  [Laden, Zeitanfragen und Busplatz](OFFSETS.md#laden-zeitanfragen-und-busplatz-testumgebung) nennt für `ClearAllRequests` und
+  [Laden, Zeitanfragen und Busplatz](../OFFSETS.md#laden-zeitanfragen-und-busplatz-testumgebung) nennt für `ClearAllRequests` und
   `RequestTimescale` Adressen, die auf `26495302` nicht passen (`0x46A5980` liegt mitten in `RemoveRequest`).
 - **Nicht geprüft:** zwei PCs, ein Run über acht Tage bis zum echten Boss-Knoten, Bosstod mit Tafel auf `26669225` (dort kam die
   Airdrop-Auswahl dazwischen), ein Fall, in dem die verwaiste Anfrage den Client sichtbar festhält, die Rückkehr in die MetaBase
@@ -4268,7 +4270,7 @@ Stand 21.11.2026, Build `26786272`, ein PC mit zwei Instanzen (Mod und Spike, Lo
 `MGP_Burger_Boss_Nature` per `DDCOOP_TEST_MAP_PROFILE` und `-Map /Game/Maps/DDDynamic_Map`. Alles ohne Maus und Tastatur: Kampf mit
 `!shop trigger`, weitere Bosse mit `!bossfight <Name>`, Schaden mit `!bossdmg`, Werte aus dem Speicher beider Instanzen
 (`tools/spike/boss_hp.py` zeigt jetzt Wert und Kennzeichen des Objectives und die Tags je Boss), Bilder per `Game-Input.ps1 shot`.
-Offsets: [Phasenbezogene Boss-Leiste](OFFSETS.md#phasenbezogene-boss-leiste-opt-boss-phasenleiste).
+Offsets: [Phasenbezogene Boss-Leiste](../OFFSETS.md#phasenbezogene-boss-leiste-opt-boss-phasenleiste).
 
 - **[Belegt] Der Befund.** Ballerina in Phase 1, dasselbe Bild beider Fenster: Host „148.650/150.000“, Client „298.650/300.000“.
   Beim SpikeBoss zeigen beide die vollen HP. `bUseAlternateBar` ist bei beiden Bossen gesetzt und nicht der Unterschied; die
@@ -4333,7 +4335,7 @@ Objectives), Bilder per `Game-Input.ps1 shot`.
   Jede Objective-Instanz heißt ebenfalls so (nur mit Nummer). Ab dem zweiten Anlegen fand die Suche eine Instanz,
   `CreateAndStartObjective` bekam sie als Klasse und der Client stürzte ab: Lesen von `0xD8`, Stack `+163b33f`, `+58deda1`, `+56bac4b`
   (`26669225`), nachgestellt mit SpikeBoss und danach Ballerina. Derselbe Stack wie bei `boss-karte-absturz` (dort `26495302`,
-  `+163b33f`, `+58de4b1`, `+56ba4bb`), siehe [Offsets](OFFSETS.md#boss-leiste-aller-bosse-opt-endboss-leiste). Jetzt sucht der Adapter
+  `+163b33f`, `+58de4b1`, `+56ba4bb`), siehe [Offsets](../OFFSETS.md#boss-leiste-aller-bosse-opt-endboss-leiste). Jetzt sucht der Adapter
   die Klasse nur im Paket `/Game/DDSurvivors/Blueprints/Objectives/DD_BaseBossObjective`; danach liefen auf `26669225` vier und auf
   `26495302` drei Leisten nacheinander ohne Absturz. **[Vermutung]** Das ist auch die Ursache von `boss-karte-absturz` (zweites „lege
   Objective an“ ohne „lokal angelegt“); dessen Abnahme (dreimal Boss-Karte über den normalen Kartenwechsel) ist nicht geprüft.
@@ -4379,7 +4381,7 @@ Objectives), Bilder per `Game-Input.ps1 shot`.
 Stand 21.11.2026, Build `26786272`, ein PC mit zwei Instanzen (Lobby über den Tunnel der Mod, Godmode), `main` `a2395e2`. Auslöser:
 der Absturz des Clients im [Live-Test vom 13.11. abends](#live-test-auf-zwei-pcs-am-13112026-abends-livetest-1311-abend). Kartenprofil
 `MGP_Burger_Boss_Nature` per `DDCOOP_TEST_MAP_PROFILE`, Run über die echte Route ohne Maus und Tastatur, siehe
-[Gezielt in eine Karte](TESTING.md#gezielt-in-eine-karte). Jeder Tag lädt so die Boss-Karte, der Boss (`BP_SpikeBoss_C`, 80.000 HP)
+[Gezielt in eine Karte](../TESTING.md#gezielt-in-eine-karte). Jeder Tag lädt so die Boss-Karte, der Boss (`BP_SpikeBoss_C`, 80.000 HP)
 repliziert rund eine Sekunde nach der Karte. Werte mit `tools/spike/boss_hp.py`, Bilder per `Game-Input.ps1 shot`. Am Code der Mod
 ändert diese Aufgabe nichts.
 
@@ -4388,7 +4390,7 @@ repliziert rund eine Sekunde nach der Karte. Werte mit `tools/spike/boss_hp.py`,
   gebaut, nicht im Repo). Erster Eintritt mit Leiste, beim zweiten Eintritt „Boss erkannt …, lege Objective an“ ohne „lokal angelegt“,
   dann `EXCEPTION_ACCESS_VIOLATION` beim Lesen von `0xD8`, Stack `+163b33f`, `+58e0221`, `+56bad7b`, `+1527c28`, `+160c55b`, darüber
   Rahmen aus `DDCoop.dll`. Das ist das Bild vom 13.11. (`26495302`: `+163b33f`, `+58de4b1`, `+56ba4bb`, `+1527c28`, `+160c55b`); die
-  mittleren Adressen verschieben sich je Build, siehe [Offsets](OFFSETS.md#boss-leiste-aller-bosse-opt-endboss-leiste). Der Absturz
+  mittleren Adressen verschieben sich je Build, siehe [Offsets](../OFFSETS.md#boss-leiste-aller-bosse-opt-endboss-leiste). Der Absturz
   braucht nur ein zweites Anlegen im selben Prozess: Das erste Objective bleibt als Objekt liegen, die Suche ohne Paket findet es statt
   der Klasse.
 - **[Belegt] Abnahme mit dem Stand von `main`:** Der Client betrat die Boss-Karte dreimal über den normalen Kartenwechsel im selben
@@ -4439,7 +4441,7 @@ repliziert rund eine Sekunde nach der Karte. Werte mit `tools/spike/boss_hp.py`,
 
 Stand 13.11.2026, Build `26495302`. Auslöser: Live-Test auf zwei PCs über das Internet am Abend des 13.11.2026 (Mod-Version 13,
 `main` `82002dc`), dieser PC als Host. Werkzeuge: Mod-Log, Absturzbericht (nur lokal gelesen), Disassembly, Speicherlesen eigener
-Testinstanzen. Offsets: [Kamera-Folger und Controller-Liste](OFFSETS.md#kamera-folger-und-controller-liste-host-absturz-start).
+Testinstanzen. Offsets: [Kamera-Folger und Controller-Liste](../OFFSETS.md#kamera-folger-und-controller-liste-host-absturz-start).
 
 - **[Belegt] Absturz:** 1,4 s nach dem Laden der ersten Missionskarte (`MGP_Residential`, Regen) stürzte der Host mit
   `EXCEPTION_ACCESS_VIOLATION` lesend an `0x1B8` ab, RIP `0x585AEC7`, Aufrufer `0x28138DF` (Komponenten-Tick über die vfunc `+0x400`),
@@ -4602,7 +4604,7 @@ Ursache ist aus dem Log vom 14.11. abgeleitet. Der Fall „Host bestätigt, nach
 **[Belegt, Messung] 23.11.2026, ein PC, Host und Client, Build `26786272` (Patch 1.0.3), `main` `3adf005`, `Patches: 59 gesetzt` auf
 beiden Seiten.** `Start-Session.ps1 -Build -Mod -Tunnel Lobby -Godmode` mit `DDCOOP_TEST_MAP_PROFILE` = `MGP_MerchantEvent` und
 `DDCOOP_TEST_MAP_PROFILE_EVERY=2`: Tag 1 und 3 sind das Händler-Event, Tag 2 und 4 kommen vom Profil des Routenknotens. Bedient ohne Maus
-und Tastatur, nur über Spike-Befehle wie unter [Mehrere Tage ohne echte Eingaben](TESTING.md#gezielt-in-eine-karte): Run-Start über den
+und Tastatur, nur über Spike-Befehle wie unter [Mehrere Tage ohne echte Eingaben](../TESTING.md#gezielt-in-eine-karte): Run-Start über den
 Startring, Knoten über `!shop callat`, Rundenende über `!finish`, Rundenübersicht und `!shop confirm` am Panel unter `WI_BusScreen_C`.
 Nach jeder Ankunft `check_round.py --wait --settle 10`, `inventory.py` und `day_state.py`, dazu `inventory.py` nach jedem Schritt im
 Händler und im Lager. `Run-Route.ps1` selbst lief nicht, es klickt die Knoten mit der echten Maus.
@@ -4629,7 +4631,7 @@ In diesem Ablauf zeigte sich keine Bruchstelle durch den Build-Wechsel, darum ke
   ohne eigene Aufgabe. Ob die Tankanzeige im HUD des Clients 240 zeigt, ist nicht angesehen.
 - **[Belegt, Messung] Geldbörse für Meta-Währung ab Tag 2 verschieden** (Host 1, Client 0). Das ist gewollt: `MetaCurrencyWallet`
   repliziert nicht, und die Profilwährung des Clients bleibt unverändert, siehe
-  [Sync-Bedarf](SYNC_REQUIREMENTS.md).
+  [Sync-Bedarf](../SYNC_REQUIREMENTS.md).
 - **[Belegt, Messung, nur über den Testbefehl erreichbar] Aufwertung ohne offenes Panel geht verloren.** Ein erstes `!shop upgrade` rief
   `UpgradeItems` beim Client, nachdem das Händler-Panel nach dem Kauf keine Bearbeitung mehr offen hatte („Aufwertung beim Client ohne
   offenes Panel … keine Bearbeitung“). Die Eingaben gingen nativ an den Host, die Ausgabe verwarf er 34 ms danach („AddToInventory ohne
@@ -4666,7 +4668,7 @@ Stand 04.11.2026, Build `26187885`, Steamworks-Laufzeit 1.64.
 
 ### Telemetrie und Berichte (`telemetrie-aus`)
 
-Stand 04.11.2026, Build `26187885`. Neben dem Crash-Reporter (siehe [Crash-Reporter](../research/spikes/a-connect/README.md#sperre-in-mod-und-spike-crash-reporter)) schickt das Spiel Daten über das eingebaute libcurl an diese Ziele:
+Stand 04.11.2026, Build `26187885`. Neben dem Crash-Reporter (siehe [Crash-Reporter](../../research/spikes/a-connect/README.md#sperre-in-mod-und-spike-crash-reporter)) schickt das Spiel Daten über das eingebaute libcurl an diese Ziele:
 
 | Weg | Ziel | Schalter |
 |---|---|---|

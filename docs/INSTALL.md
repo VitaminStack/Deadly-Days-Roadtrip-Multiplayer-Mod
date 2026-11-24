@@ -54,7 +54,7 @@ Do not use the **Dev** tab in a real run: its buttons and the keys Numpad 1 to 5
 
 ## Known issues in 1.0
 
-Found in the live test on 24 Nov 2026 ([report, German](GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-24112026-livetest-2411)):
+Found in the live test on 24 Nov 2026 ([report, German](archive/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-24112026-livetest-2411)):
 
 - The client can crash when an airdrop selection opens. Restart the game and rejoin the running run.
 - The host can drop the client mid-run with „Mitspieler ist nicht mehr in der Lobby“ (reason 1005) although the connection is fine.
