@@ -1,3 +1,7 @@
+> **Archiv.** Historischer Stand, nicht aktuell. Gilt nur, wenn eine aktuelle Doku darauf verweist.
+
+> **Abgeschlossen am 24.11.2026.** Abweichungen: Aufgabe 12 ersetzt durch [E-12](../ENTSCHEIDUNGEN.md#e-12-bestätigungstests-sind-nur-info) (Bestätigungstests nur Info), Aufgabe 17 ersetzt durch „Spike bleibt Testwerkzeug“ (Nutzerentscheidung), `TODO.md` 17 KB statt 15 KB. Einzelheiten in der Beschreibung des Pull Requests.
+
 # Projekt aufräumen: Umsetzungsplan
 
 > **Für ausführende Agenten:** Pflicht-Skill: superpowers:subagent-driven-development (empfohlen) oder

@@ -17,7 +17,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `airdrop-auswahl-absturz` | P1 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `lobby-rauswurf` | P1 | [5](#phase-5--vollständiger-run) | parallel | mittel |
 | `wiedereintritt-karte` | P1 | [5](#phase-5--vollständiger-run) | parallel | wenig |
-| `projekt-aufraeumen` | P1 | [Wartung](#wartung) | zentral | wenig |
 | `coop-inventar-analyse` | P1 | [Coop](#real-coop-logic) | parallel | mittel |
 
 **Wartet auf das Team:** `spawn-nach-kartenaufbau`, `wechsel-26786272`, `dumper7-image-ende`.
@@ -82,7 +81,6 @@ Zählt nicht zum Fortschritt.
 | Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |
 |---|---|---|---|---|---|
 | `dumper7-image-ende` | P2 | Rest, braucht einen Menschen mit Schreibrecht im Fork `VitaminStack/Dumper-7`: Der Fix gegen das Lesen hinter das Image-Ende (`FindStringInRange`, Absturz auf `26669225`) ist belegt und wird von `Build-Dumper7.ps1` als `tools/dumper7/image-ende.patch` auf die Baukopie angewendet; Dump auf `26786272` ohne lokale Änderung bestanden (21.11.2026). Offen: denselben Commit in den Fork übernehmen, Submodul `third_party/Dumper-7` umstellen, Patch und Skriptschritt entfernen, einmal bauen. **Fertig, wenn** das Submodul den Fix enthält und `Build-Dumper7.ps1` ohne den Patch ein SDK erzeugt. **Einstieg:** [Offsets](docs/OFFSETS.md#dumper-7-liest-hinter-das-image-ende-dumper7-image-ende) | – | Team | wenig |
-| `projekt-aufraeumen` | P1 | Doku, Aufgabenprozess und Spike nach [Plan](docs/superpowers/plans/2026-11-24-projekt-aufraeumen.md) aufräumen, damit Agenten mit wenig Kontext und ohne veraltete Befunde arbeiten. **Fertig, wenn** alle Aufgaben des Plans erledigt sind und der Plan archiviert ist. | – | zentral | wenig |
 | `wechsel-26786272` | P1 | Folge von `spiel-update-26786272` ([E-07](docs/ENTSCHEIDUNGEN.md#e-07-nur-der-neueste-spiel-build): nur noch der neueste Spiel-Build): Sobald der Umstieg auf `main` liegt, stellt jede Person ihre Entwicklungskopie mit `Freeze-GameBuild.ps1 -Build 26786272 -Activate` um; offene Branches von vor dem Umstieg werden vorher auf `main` gezogen oder nutzen bis dahin die alte Kopie. **Fertig, wenn** alle Entwicklungskopien auf `26786272` stehen und `Start-Session.ps1` auf `main` bei allen startet. **Einstieg:** [Referenz-Build 26786272](docs/OFFSETS.md#referenz-build-26786272-spiel-update-26786272) | – | Team | keine |
 
 ## Optionale Optimierungen
