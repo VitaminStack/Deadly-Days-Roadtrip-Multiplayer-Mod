@@ -4,7 +4,8 @@
 
 Tritt der Client während eines Runs wieder bei, ob ohne Neustart im selben Prozess oder per Hot Join nach einem Neustart, beginnt er mit dem
 Startinventar. Auf einem PC: Sitzung mit `Start-Session.ps1 -Mod -Tunnel Lobby -Map /Game/Maps/DDDynamic_Map -Godmode -Brief`, dann
-`tools/spike/Test-Rejoin.ps1`; vorher braucht der Client ein Inventar, das von der Startausrüstung abweicht.
+`tools/spike/Test-Rejoin.ps1 -SettleSeconds 15`; vorher braucht der Client ein Inventar, das von der Startausrüstung abweicht
+(`DDCOOP_TEST_REJOIN_SEED=1` oder `=2` vor dem Start setzen, siehe Umsetzung).
 
 ## Belege
 
@@ -19,8 +20,9 @@ Startinventar. Auf einem PC: Sitzung mit `Start-Session.ps1 -Mod -Tunnel Lobby -
 - [Belegt, Code] Im Code gibt es keine Wiederherstellung. Der Run-Stand des Hosts enthält die Inventare beider Spieler
   (`Inventory_Player0`, `Inventory_Player1`).
 
-- [Belegt, SDK] Die Astronauten-Rüstung kommt aus der Startausrüstung der Figur (`UPlayerCharacterDefinition.EquippedItemDatas`), liegt also
-  als Item im Inventar. Der Schrott liegt nicht beim Spieler, sondern im gemeinsamen Konto der Mission (`ADDMissionGameState.ScrapWallet`,
+- [Belegt, SDK und Spiel] Der Anzug des Astronauten ist ein Item der Startausrüstung (`UPlayerCharacterDefinition.EquippedItemDatas`,
+  `ItemData_SpaceSuite_Character` mit Seltenheit `Rarity_Character`) und liegt im Rucksack. Er gibt Rüstung 3 (`HealthAttributeSet`
+  Armor 3/3, MaxArmor aktuell 3). Ein Wechsel der Figur mitten im Run (`DD_SetCharacterDefinition`) legt ihn nicht an. Der Schrott liegt nicht beim Spieler, sondern im gemeinsamen Konto der Mission (`ADDMissionGameState.ScrapWallet`,
   im Run-Stand nur `ScrapWallet_Player0`); ihn bucht schon heute nur der Host. Es gibt also keinen Schrott des Clients zum Aufheben.
 - [Belegt, Spiel] Der Peer am Kontrollkanal ist ein Zähler je Verbindung, nicht die Steam-Identität: Nach dem Wiederbeitritt galt der Client
   zuerst als neues Konto. Jetzt nennt `Net::Transport::PeerAccount` die SteamID hinter dem Peer. Auf einem PC verbindet der Client im lokalen
@@ -35,7 +37,15 @@ Startinventar. Auf einem PC: Sitzung mit `Start-Session.ps1 -Mod -Tunnel Lobby -
     Items, Zustände und Felder wie vorher.
   - Hot Join nach Neustart des Clients (`Restart-Instance.ps1`): ebenso, wieder vollständig; Desync-Melder danach „OK“ für alle Felder.
   - Reise ohne Trennung (`servertravel`): neues Inventar übernommen, keine Rückgabe, Inventar unverändert. Kein Absturz.
-- [Vermutung] Die Astronauten-Rüstung kommt mit dem Anzug-Item zurück, im Spiel nur mit der Standardfigur geprüft.
+- [Belegt, Spiel] Am 25.11.2026 ebenso mit `DDCOOP_TEST_REJOIN_SEED=2` (Anzug aus der Startausrüstung von `CD_Astronaut` im Rucksack) und
+  230 Schrott im Konto:
+  - Client verlässt, Host reist (`servertravel`) während der Client weg ist, Client tritt wieder bei: 5 Items mit Seltenheiten
+    (`Pistol/1_Uncommon`, `SpaceSuite_Character/Character`) und 10 Felder zurück; Rüstung des Clients vorher und nachher 3/3 auf beiden
+    Seiten (aus dem Speicher gelesen), Seltenheiten beim Client übernommen, Desync-Melder „OK“. Der Schrott war nach der Test-Reise beim
+    Host 0 (`servertravel` ohne Rundenwechsel) und beim Client ebenso.
+  - Hot Join nach Neustart des Clients ohne Reise: 4 Items mit Anzug zurück, Rucksackfelder auf die Form des Astronauten angeglichen (3 neu,
+    1 abgebaut); Client-Log „Schrott: Stand des Hosts übernommen, 230 statt 0“, Host 230. Im Bild des Clients (PrintWindow) Figur mit
+    Anzug und Rüstung im HUD. Kein Absturz.
 
 ## Prüfliste ([ARCHITECTURE.md](../ARCHITECTURE.md#verbindliches-architekturprinzip-lokal-zuerst-minimal-synchronisieren))
 
@@ -59,9 +69,12 @@ Startinventar. Auf einem PC: Sitzung mit `Start-Session.ps1 -Mod -Tunnel Lobby -
 500 ms liest der Host in einer Mission das Inventar des Clients (Items mit Daten, Seltenheit, kaputt, Rucksack, Papierkorb, Drehung, Pivot,
 Feldern; Rucksackfelder). Nach der Trennung bleibt das Bild stehen. Erscheint für dasselbe Konto ein neues Inventar, wartet der Host 10 s und
 bis es sich 3 s nicht geändert hat (Startausrüstung, Charakterwahl), legt dann alle gemerkten Items an und ersetzt mit einem Plan das
-Startinventar. Fehlt ein Item beim Host, bleibt das Startinventar unverändert. Sieg und Niederlage (`URunPersistencyManager.OnRoundChanged`)
+Startinventar. Fehlt ein Item beim Host, bleibt das Startinventar unverändert. Gelingt danach ein Schritt des Plans nicht (etwa ein Feld),
+gilt der erreichte Stand mit Warnung im Log; ein zweiter Versuch legte die Items doppelt an. Sieg und Niederlage (`URunPersistencyManager.OnRoundChanged`)
 und der Host in MetaBase oder Hauptmenü verwerfen die Bilder. Testschalter `DDCOOP_TEST_REJOIN_SEED=1`: Der Host gibt dem Client einmal je Prozess nach 15 s zwei Items ins Lager
-und zwei Rucksackfelder, damit sich sein Inventar ohne Eingaben vom Startinventar unterscheidet.
+(eines eine Seltenheit höher, eines kaputt), zwei Rucksackfelder und dem Konto 230 Schrott, damit sich der Stand ohne Eingaben vom Start
+unterscheidet; `=2` legt zusätzlich den Anzug des Astronauten in den Rucksack. `Test-Rejoin.ps1 -SettleSeconds 15` wartet lange genug auf
+die Rückgabe.
 
 Nicht enthalten: Powerups (`PowerUpInventory_Player1`), Glücksschutz und die Kistenstufen des Inventars (`levelUpCrateLevels`), Modifikatoren
 und Community-Namen einzelner Items. Vermutung: Powerups gehen beim Wiederbeitritt ebenso verloren, nicht geprüft.
@@ -69,9 +82,10 @@ und Community-Namen einzelner Items. Vermutung: Powerups gehen beim Wiederbeitri
 ## Offen
 
 - Auf zwei PCs mit echter Steam-Identität nicht geprüft (Zeile unter „Live-Bestätigung ausstehend“ sinnvoll).
-- Live-Test 24.11.2026: Nach dem Hot Join zeigte die Schrottanzeige im Airdrop-Panel des Clients bis zum Rundenende 140000 statt rund 230. Der
-  Schrott selbst gehört dem Host (siehe oben); die Anzeige ist nicht untersucht.
-- Powerups, Modifikatoren, Figur Astronaut im Spiel (siehe Umsetzung).
+- Live-Test 24.11.2026: Nach dem Hot Join zeigte die Schrottanzeige im Airdrop-Panel des Clients bis zum Rundenende 140000 statt rund 230. Auf
+  einem PC übernahm der Client nach dem Hot Join den Stand des Hosts (230); das Airdrop-Panel war dabei nicht offen, die Anzeige darin ist
+  nicht untersucht.
+- Powerups und Modifikatoren (siehe Umsetzung).
 
 ## Abnahme
 

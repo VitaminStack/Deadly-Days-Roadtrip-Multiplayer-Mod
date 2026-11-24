@@ -1,11 +1,13 @@
 # Prueft den Wiederbeitritt ohne Neustart (wiedereintritt-karte): Der Client verlaesst die laufende Mission ueber den Testkanal,
 # tritt im selben Prozess der Lobby des Hosts wieder bei und muss die Karte des Hosts uebernehmen. Ohne echte Eingaben.
-#   Test-Rejoin.ps1 [-Rounds 1] [-TimeoutSeconds 90]
+#   Test-Rejoin.ps1 [-Rounds 1] [-TimeoutSeconds 90] [-SettleSeconds 5]
 # Braucht eine laufende Sitzung mit Start-Session.ps1 -Mod -Tunnel Lobby -Map /Game/Maps/DDDynamic_Map. Vor und nach jedem
 # Wiederbeitritt stehen Inventarvergleich (inventory.py) und Get-Status.ps1 -Brief in der Ausgabe. Exitcode 1, wenn eine Runde scheitert.
 param(
     [int]$Rounds = 1,
-    [int]$TimeoutSeconds = 90
+    [int]$TimeoutSeconds = 90,
+    # Wartezeit nach dem Wiederbeitritt vor dem Vergleich. Das Inventar gibt der Host erst nach rund 13 s zurueck (wiedereintritt-inventar).
+    [int]$SettleSeconds = 5
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Common.ps1')
@@ -62,7 +64,7 @@ for ($Round = 1; $Round -le $Rounds; ++$Round) {
     Write-Output ("Runde {0}: {1} nach {2:n1} s: {3}" -f $Round, $(if ($Ok) { 'OK' } else { 'FEHLER' }), $Timer.Elapsed.TotalSeconds, $(if ($Line) { $Line } else { 'keine Kartenzeile' }))
     if (-not $Ok) { ++$Failed; continue }
     Wait-Condition { $S = Get-NetState $ClientId; $S.world -eq $World -and $S.players -eq 2 } 'Client wieder in der Welt des Hosts' 60 @($HostId, $ClientId) 500
-    Start-Sleep -Seconds 5 # Inventar und Fortschritt kommen nach dem Beitritt per Replikation und Snapshot
+    Start-Sleep -Seconds $SettleSeconds # Inventar und Fortschritt kommen nach dem Beitritt per Replikation und Snapshot
     Show-State "Runde $Round nach dem Wiederbeitritt"
 }
 if ($Failed) { exit 1 }

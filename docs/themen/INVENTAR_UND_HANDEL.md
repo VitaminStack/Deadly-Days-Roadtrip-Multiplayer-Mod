@@ -11,7 +11,8 @@ Gilt für Build `26786272`. Datierte Befunde und Messungen stehen im [Archiv](..
 - Ein Desync-Melder vergleicht offene Bearbeitungen mit dem Stand des Hosts.
 - Wiederbeitritt und Hot Join (`wiedereintritt-inventar`): Der Host merkt sich das Inventar des Clients je Steam-Identität und ersetzt nach
   einer Trennung das Startinventar des neuen PlayerState damit, mit denselben nativen Funktionen wie bei einem Edit. Keine Nachricht. Der
-  Schrott ist ein gemeinsames Konto der Mission und bleibt beim Host. Powerups und Item-Modifikatoren sind nicht enthalten
+  Schrott ist ein gemeinsames Konto der Mission und bleibt beim Host; die Rüstung des Astronauten kommt mit dem Anzug-Item zurück. Schlüssel
+  ist das Steam-Konto hinter dem Peer (`Net::Transport::PeerAccount`). Powerups und Item-Modifikatoren sind nicht enthalten
   ([Fallakte](../faelle/wiedereintritt-inventar.md)).
 
 ## Code

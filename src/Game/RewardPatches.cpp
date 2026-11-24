@@ -2481,10 +2481,11 @@ uintptr_t RejoinCache = 0;
 
 uint64_t InventoryIdentity(uintptr_t Inventory)
 {
+    // Platz im Objekt-Array und Adresse; die Serial vergibt die Engine erst bei Bedarf, sie würde dasselbe Inventar später anders nennen.
     const Game::Objects::Ref Held = Game::Objects::RefTo(Inventory);
     if (!Held.Object)
         return 0;
-    return ((static_cast<uint64_t>(static_cast<uint32_t>(Held.Index)) << 32) ^ Held.Object ^ Held.Serial) | 1;
+    return ((static_cast<uint64_t>(static_cast<uint32_t>(Held.Index)) << 32) ^ Held.Object) | 1;
 }
 
 std::optional<Game::Rejoin::Snapshot> ReadSnapshot(uintptr_t Inventory)
@@ -2538,6 +2539,19 @@ uintptr_t CreateSaved(uintptr_t Inventory, uintptr_t Data, uintptr_t Rarity, boo
     static_assert(sizeof(Add) == 0x28);
     Objects::ProcessEvent(Inventory, Create, &Add);
     return Add.Result;
+}
+
+// Für das Log: je Item Daten und Seltenheit ohne Präfix, R im Rucksack, K kaputt.
+std::string Describe(const Game::Rejoin::Snapshot& Saved)
+{
+    std::string Text;
+    for (const auto& Item : Saved.Items)
+    {
+        std::string Data = Item.Data.starts_with("ItemData_") ? Item.Data.substr(9) : Item.Data;
+        std::string Rarity = Item.Rarity.starts_with("Rarity_") ? Item.Rarity.substr(7) : Item.Rarity;
+        Text += (Text.empty() ? "" : ", ") + Data + "/" + Rarity + (Item.InBackpack ? " R" : "") + (Item.Broken ? " K" : "");
+    }
+    return Text;
 }
 
 Game::InventoryEdit::ItemState Gone(Game::InventoryEdit::ItemState State)
@@ -2633,21 +2647,90 @@ bool RestoreSnapshot(uintptr_t Inventory, const Game::Rejoin::Snapshot& Saved)
             Destroy.push_back(Slot.Slot);
     const bool Ok = Game::InventoryEdit::Apply(Inventory, Items, Current, Target, Create, Destroy, false);
     Game::InventoryEdit::RefreshEffects(Inventory);
-    Core::Log::Info("Wiedereintritt: Inventar des Clients wiederhergestellt, {} Items und {} Felder statt {} und {} ({} Felder neu, {} abgebaut), "
-                    "vollständig={}",
-                    Saved.Items.size(), Saved.Slots.size(), Old.size(), Have.size(), Create.size(), Destroy.size(), Ok);
+    // Unvollständig heißt: Die gemerkten Items liegen schon im Inventar, nur ein Schritt (etwa ein Feld) fehlt. Ein zweiter Versuch legte
+    // sie doppelt an; der erreichte Stand gilt, die Abweichung steht davor im Log.
+    if (Ok)
+        Core::Log::Info("Wiedereintritt: Inventar des Clients wiederhergestellt, {} Items und {} Felder statt {} und {} ({} Felder neu, {} "
+                        "abgebaut): {}",
+                        Saved.Items.size(), Saved.Slots.size(), Old.size(), Have.size(), Create.size(), Destroy.size(), Describe(Saved));
+    else
+        Core::Log::Warn("Wiedereintritt: Inventar des Clients nur teilweise wiederhergestellt, {} Items und {} Felder gemerkt: {}", Saved.Items.size(),
+                        Saved.Slots.size(), Describe(Saved));
     return true;
 }
 
+// Nur zum Test, DDCOOP_TEST_REJOIN_SEED=2: Anzug aus der Startausrüstung von CD_Astronaut (EquippedItemDatas) in den Rucksack des
+// Clients, wie ihn ein echter Run-Start legt. FEquippedItemStartDefinition (0x30): ItemData +0, Rarity +0x18, CenterPosition +0x20, Turns +0x28.
+void SeedSuitForTest(uintptr_t Inventory)
+{
+    constexpr size_t EntrySize = 0x30;
+    const auto Equipped = Game::Reflection::Property({"/Script/DDSurvivors", "PlayerCharacterDefinition", "EquippedItemDatas", "ArrayProperty", 16});
+    const auto Shape = Game::Reflection::Property({"/Script/DDSurvivors", "InventoryItemData", "ItemShape", "ObjectProperty", 8});
+    const auto Tiles = Game::Reflection::Property({"/Script/DDSurvivors", "ItemShapeDefinition", "Tiles", "ArrayProperty", 16});
+    uintptr_t Definition = Objects::FindNamed("CD_Astronaut");
+    if (Definition && !Objects::IsA(Definition, "PlayerCharacterDefinition"))
+        Definition = 0;
+    if (!Equipped || !Shape || !Tiles || !Definition)
+    {
+        Core::Log::Warn("Wiedereintritt: Testschalter, Anzug nicht gefunden (Definition {}, Felder {})", Definition != 0, Equipped && Shape && Tiles);
+        return;
+    }
+    const uintptr_t Entries = Pointer(Definition + Equipped->Offset);
+    const int32_t Count = Memory::Read<int32_t>(Definition + Equipped->Offset + 8).value_or(0);
+    for (int32_t i = 0; i < Count && i < 16; ++i)
+    {
+        const uintptr_t Entry = Entries + i * EntrySize;
+        const uintptr_t Data = Pointer(Entry);
+        if (!Data || Memory::NameOf(Data).find("SpaceSuite") == std::string::npos)
+            continue;
+        const int32_t Turns = Memory::Read<int32_t>(Entry + 0x28).value_or(0);
+        const Game::InventoryEdit::Tile Center{Memory::Read<int32_t>(Entry + 0x20).value_or(0), Memory::Read<int32_t>(Entry + 0x24).value_or(0)};
+        const uintptr_t ShapeObject = Pointer(Data + Shape->Offset);
+        const uintptr_t TileData = ShapeObject ? Pointer(ShapeObject + Tiles->Offset) : 0;
+        const int32_t TileCount = ShapeObject ? Memory::Read<int32_t>(ShapeObject + Tiles->Offset + 8).value_or(0) : 0;
+        if (Turns || !TileData || TileCount <= 0 || TileCount > 32)
+        {
+            Core::Log::Warn("Wiedereintritt: Testschalter, Anzug mit Drehung {} und {} Feldern nicht gelegt", Turns, TileCount);
+            return;
+        }
+        std::vector<Game::InventoryEdit::Tile> Want;
+        for (int32_t t = 0; t < TileCount; ++t)
+            Want.push_back({Center.first + Memory::Read<int32_t>(TileData + 8 * t).value_or(0),
+                            Center.second + Memory::Read<int32_t>(TileData + 8 * t + 4).value_or(0)});
+        Want = Game::InventoryEdit::Sorted(std::move(Want));
+        const uintptr_t Item = CreateSaved(Inventory, Data, Pointer(Entry + 0x18), false);
+        if (!Item)
+            return;
+        std::vector<Game::InventoryEdit::Tile> Have;
+        for (const auto& Slot : Game::InventoryEdit::SlotsOf(Inventory))
+            Have.push_back(Slot.At);
+        const auto Create = Game::Rejoin::SlotChanges(Have, Want).first;
+        const auto Slots = Game::InventoryEdit::SlotsOf(Inventory);
+        Game::InventoryEdit::ItemState Current = Game::InventoryEdit::ReadItem(Item, Slots, 0), Target = Current;
+        Target.InBackpack = true;
+        Target.Turns = 0;
+        Target.Pivot = Center;
+        Target.Tiles = Want;
+        const bool Ok = Game::InventoryEdit::Apply(Inventory, {Item}, {Current}, {Target}, Create, {}, false);
+        Game::InventoryEdit::RefreshEffects(Inventory);
+        Core::Log::Warn("Wiedereintritt: Testschalter, Anzug {} in den Rucksack des Clients gelegt={} ({} Felder, {} neu)", Memory::NameOf(Data), Ok,
+                        Want.size(), Create.size());
+        return;
+    }
+    Core::Log::Warn("Wiedereintritt: Testschalter, CD_Astronaut hat keinen Anzug in der Startausrüstung");
+}
+
 // Nur zum Test auf einem PC: DDCOOP_TEST_REJOIN_SEED=1 gibt dem Client einmal je Prozess zwei Items ins Lager und zwei Rucksackfelder,
-// damit sein Inventar vom Startinventar abweicht. Ohne echte Eingaben ginge das sonst nur über eine Airdrop-Auswahl.
+// damit sein Inventar vom Startinventar abweicht, dazu Schrott ins gemeinsame Konto. Ohne echte Eingaben ginge das sonst nur über eine
+// Airdrop-Auswahl. =2 legt zusätzlich den Anzug des Astronauten in den Rucksack (SeedSuitForTest).
 void SeedForTest(uintptr_t Inventory)
 {
-    static const bool Enabled = []
+    static const char Mode = []
     {
         char Value[4]{};
-        return GetEnvironmentVariableA("DDCOOP_TEST_REJOIN_SEED", Value, sizeof(Value)) == 1 && Value[0] == '1';
+        return GetEnvironmentVariableA("DDCOOP_TEST_REJOIN_SEED", Value, sizeof(Value)) == 1 ? Value[0] : '\0';
     }();
+    const bool Enabled = Mode == '1' || Mode == '2';
     static bool Done = false;
     static ULONGLONG Since = 0;
     if (!Enabled || Done || !Alive(Inventory))
@@ -2662,26 +2745,32 @@ void SeedForTest(uintptr_t Inventory)
     const std::vector<Game::InventoryEdit::SlotInfo> Slots = Game::InventoryEdit::SlotsOf(Inventory);
     if (Items.empty() || Slots.empty())
         return;
+    // Ein Item in der nächsthöheren Seltenheit, eines kaputt, dazu Schrott im gemeinsamen Konto.
+    const uintptr_t Rarity = Pointer(Items[0] + ItemRarity);
+    const uintptr_t Better = Rarity ? Pointer(Rarity + RarityNext) : 0;
     unsigned Added = 0;
-    for (int i = 0; i < 2; ++i)
-        Added += CreateSaved(Inventory, Pointer(Items[0] + ItemData), Pointer(Items[0] + ItemRarity), i == 1) != 0;
+    Added += CreateSaved(Inventory, Pointer(Items[0] + ItemData), Better ? Better : Rarity, false) != 0;
+    Added += CreateSaved(Inventory, Pointer(Items[0] + ItemData), Rarity, true) != 0;
+    AddScrap(ScrapWallet(), 230);
     int32_t MaxX = Slots[0].At.first;
     for (const auto& Slot : Slots)
         MaxX = std::max(MaxX, Slot.At.first);
     const std::vector<Game::InventoryEdit::Tile> Create{{MaxX + 1, Slots[0].At.second}, {MaxX + 2, Slots[0].At.second}};
     Game::InventoryEdit::Apply(Inventory, {}, {}, {}, Create, {}, false);
-    Core::Log::Warn("Wiedereintritt: Testschalter DDCOOP_TEST_REJOIN_SEED, Client bekommt {} Items ins Lager und 2 Felder", Added);
+    Core::Log::Warn("Wiedereintritt: Testschalter DDCOOP_TEST_REJOIN_SEED, Client bekommt {} Items ins Lager und 2 Felder, Konto 230 Schrott dazu", Added);
+    if (Mode == '2')
+        SeedSuitForTest(Inventory);
 }
 }
 
 void TickRejoin(uint64_t Peer)
 {
     using namespace Game::Patches;
-    if (CurrentRole() != NetRole::Host)
-    {
+    // Beim Laden einer Karte ist die Rolle kurz unbekannt (allein); dann nur warten. Als Client gibt es nichts zurückzugeben.
+    if (CurrentRole() == NetRole::Client)
         ForgetRejoin("nicht Host");
+    if (CurrentRole() != NetRole::Host)
         return;
-    }
     const ULONGLONG Now = GetTickCount64();
     if (Now < RejoinNextRead)
         return;
@@ -2707,7 +2796,8 @@ void TickRejoin(uint64_t Peer)
     const auto Restore = RejoinLedger.Tick(Peer, Identity, Snapshot, Busy, Now);
     if (LastPeer && LastPeer != Peer && RejoinLedger.HasLeft(LastPeer))
         if (const auto Kept = RejoinLedger.Saved(LastPeer))
-            Core::Log::Info("Wiedereintritt: Client getrennt, Host merkt sich sein Inventar ({} Items, {} Felder)", Kept->Items.size(), Kept->Slots.size());
+            Core::Log::Info("Wiedereintritt: Client getrennt, Host merkt sich sein Inventar ({} Items, {} Felder): {}", Kept->Items.size(),
+                            Kept->Slots.size(), Describe(*Kept));
     LastPeer = Peer;
     if (Peer && HadLeft && !RejoinLedger.HasLeft(Peer) && !Restore)
         Core::Log::Info("Wiedereintritt: Client wieder verbunden, Inventar unverändert da");
