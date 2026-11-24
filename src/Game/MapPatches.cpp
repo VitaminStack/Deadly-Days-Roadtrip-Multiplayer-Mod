@@ -715,7 +715,7 @@ void SetHostRoundEnd(std::optional<RoundEnd> Value)
 void NoteConnectionChanged()
 {
     using namespace Patches;
-    S.Used.ConnectionChanged();
+    S.Used.ConnectionChanged(S.UsedWorld && S.UsedWorld == CurrentWorld());
 }
 
 void SetHostMap(std::optional<HostMap> Value)

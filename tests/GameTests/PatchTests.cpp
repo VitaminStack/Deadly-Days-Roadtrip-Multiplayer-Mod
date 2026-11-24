@@ -978,14 +978,28 @@ TEST_CASE("Karte: Wiederbeitritt übernimmt dieselbe Host-Karte noch einmal (wie
     CHECK_FALSE(Ledger.Fresh(7, false));
     CHECK(Ledger.Fresh(7, true));
     CHECK(Ledger.Fresh(9, false));
-    // Trennung und Wiederbeitritt in dieselbe laufende Mission: der Host schickt wieder Id 7.
-    Ledger.ConnectionChanged();
+    // Trennung und Wiederbeitritt in dieselbe laufende Mission: Die neue Verbindung entsteht im Hauptmenü, der Host schickt wieder Id 7.
+    Ledger.ConnectionChanged(true); // Trennung noch in der Mission
+    CHECK_FALSE(Ledger.Fresh(7, false));
+    Ledger.ConnectionChanged(false); // neuer Beitritt außerhalb der Mission
     CHECK(Ledger.Fresh(7, false));
     Ledger.Use(7);
     CHECK_FALSE(Ledger.Fresh(7, false));
     // Ein Wechsel ohne neue Erzeugung ändert die verbaute Id nicht, das Rundenende passt weiter zur Karte.
-    Ledger.ConnectionChanged();
+    Ledger.ConnectionChanged(false);
     CHECK(Ledger.UsedId == 7);
+}
+
+TEST_CASE("Karte: Kurzer Ausfall des Kontrollkanals in der Mission gibt die Id nicht frei")
+{
+    ClientMapLedger Ledger;
+    Ledger.Use(7);
+    // Peer weg und wieder da, der Client bleibt in der Welt der Karte.
+    Ledger.ConnectionChanged(true);
+    Ledger.ConnectionChanged(true);
+    // Danach reist der Host weiter; kommen beim Client noch die alten Werte an, darf er sie nicht bauen.
+    CHECK_FALSE(Ledger.Fresh(7, false));
+    CHECK(Ledger.Fresh(9, false));
 }
 
 TEST_CASE("Karte: Rundenende gilt je verbauter Karte, auch nach Wiederbeitritt")
@@ -996,7 +1010,7 @@ TEST_CASE("Karte: Rundenende gilt je verbauter Karte, auch nach Wiederbeitritt")
     Ledger.Follow(3);
     CHECK(Ledger.Followed(3));
     // Verbindung wechselt, Karte bleibt: nicht noch einmal öffnen.
-    Ledger.ConnectionChanged();
+    Ledger.ConnectionChanged(true);
     CHECK(Ledger.Followed(3));
     // Wiederbeitritt baut die Karte neu: dasselbe Ende des Hosts öffnet die Übersicht wieder.
     Ledger.Use(7);

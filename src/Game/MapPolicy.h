@@ -50,9 +50,13 @@ struct ClientMapLedger
         ++Uses;
         Reconnected = false;
     }
-    void ConnectionChanged()
+    // InUsedWorld: der Client steht beim Wechsel noch in der Welt der verbauten Karte. Ein kurzer Ausfall des Kontrollkanals in der
+    // Mission gibt die Id nicht frei, sonst baute die nächste Reise die alte Karte. Beim echten Wiederbeitritt kommt die neue
+    // Verbindung im Hauptmenü oder beim Laden zustande, also außerhalb dieser Welt.
+    void ConnectionChanged(bool InUsedWorld)
     {
-        Reconnected = true;
+        if (!InUsedWorld)
+            Reconnected = true;
     }
     // Ein Rundenende gilt nur für die Karte, auf der es nachgezogen wurde. Nach einem Wiederbeitritt mit neu gebauter Karte
     // kommt dasselbe Ende des Hosts noch einmal an und muss die Rundenübersicht wieder öffnen.
