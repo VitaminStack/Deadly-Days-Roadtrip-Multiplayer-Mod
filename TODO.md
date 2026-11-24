@@ -17,17 +17,22 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `airdrop-auswahl-absturz` | P1 | [Problem](#probleme) | parallel | mittel |
 | `lobby-rauswurf` | P1 | [Problem](#probleme) | parallel | mittel |
 | `wiedereintritt-karte` | P1 | [Problem](#probleme) | parallel | wenig |
+| `aufgaben-werkzeuge-entschlacken` | P1 | [Verbesserung](#verbesserungen) | zentral | keine |
 | `coop-inventar-ablauf` | P1 | [Verbesserung](#verbesserungen) | zentral | viel |
 | `coop-inventar-analyse` | P1 | [Verbesserung](#verbesserungen) | parallel | mittel |
 | `coop-inventar-konzept` | P1 | [Verbesserung](#verbesserungen) | zentral | keine |
 | `coop-inventar-zwei` | P1 | [Verbesserung](#verbesserungen) | zentral | viel |
 | `coop-modus-wahl` | P1 | [Verbesserung](#verbesserungen) | parallel | mittel |
+| `prozess-neu-schreiben` | P1 | [Verbesserung](#verbesserungen) | zentral | keine |
 | `opt-beitritt-absturz` | P2 | [Problem](#probleme) | parallel | mittel |
 | `opt-metabase-absturz` | P2 | [Problem](#probleme) | parallel | mittel |
 | `opt-trennen-absturz` | P2 | [Problem](#probleme) | parallel | mittel |
 | `coop-inventar-vier` | P2 | [Verbesserung](#verbesserungen) | zentral | viel |
 | `coop-spielstand` | P2 | [Verbesserung](#verbesserungen) | parallel | viel |
+| `game-ordner` | P2 | [Verbesserung](#verbesserungen) | zentral | wenig |
+| `game-readme-kuerzen` | P2 | [Verbesserung](#verbesserungen) | parallel | keine |
 | `mehr-spieler` | P2 | [Verbesserung](#verbesserungen) | parallel | viel |
+| `offsets-alte-rvas` | P2 | [Verbesserung](#verbesserungen) | parallel | wenig |
 | `opt-client-takt` | P2 | [Verbesserung](#verbesserungen) | parallel | wenig |
 | `opt-client-visuell` | P2 | [Verbesserung](#verbesserungen) | parallel | mittel |
 | `opt-dash-aufprall` | P2 | [Verbesserung](#verbesserungen) | parallel | wenig |
@@ -51,10 +56,13 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `opt-waffen-hover` | P2 | [Verbesserung](#verbesserungen) | parallel | wenig |
 | `opt-zonenziel-anzeige` | P2 | [Verbesserung](#verbesserungen) | parallel | wenig |
 | `reconnect` | P2 | [Verbesserung](#verbesserungen) | parallel | viel |
+| `spike-abloesen` | P2 | [Verbesserung](#verbesserungen) | zentral | mittel |
 | `sync-aufraeumen` | P2 | [Verbesserung](#verbesserungen) | zentral | mittel |
+| `themen-fuellen` | P2 | [Verbesserung](#verbesserungen) | parallel | keine |
 | `update-autoupdater` | P2 | [Verbesserung](#verbesserungen) | zentral | wenig |
 | `update-releasefeed` | P2 | [Verbesserung](#verbesserungen) | zentral | keine |
 | `update-startpruefung` | P2 | [Verbesserung](#verbesserungen) | zentral | wenig |
+| `werkzeuge-windows-pruefen` | P2 | [Verbesserung](#verbesserungen) | parallel | wenig |
 
 **Wartet auf das Team:** `spawn-nach-kartenaufbau`, `wechsel-26786272`, `dumper7-image-ende`.
 
@@ -82,6 +90,14 @@ Neue Funktionen, Feinschliff und Release. Je Aufgabe steht hier nur eine Kurzfas
 
 | Kennung | Prio | Aufgabe | Bearbeitung | Spielzeit |
 |---|---|---|---|---|
+| `aufgaben-werkzeuge-entschlacken` | P1 | Nach dem Merge von #292 die tote Logik in `tools/tasks.py` und `tools/task_status.py` entfernen: Phasen, „Braucht“, zurückgestellt, Merge-Plan nach Abhängigkeiten, alte Bestätigungszeilen. **Fertig, wenn** der Code nur noch die flache Liste kennt und alle Tests grün sind. | zentral | keine |
+| `prozess-neu-schreiben` | P1 | `docs/PROZESS.md` (heute verschobene Altabschnitte) neu schreiben: ein Ablauf, keine Doppelungen oder Widersprüche. **Fertig, wenn** die Datei unter 6 KB liegt und `doc_check.py` diese Grenze prüft. | zentral | keine |
+| `themen-fuellen` | P2 | Die Themen-Dateien unter `docs/themen/` auf einen vollständigen Ist-Zustand bringen. **Fertig, wenn** jede Themen-Datei ihr Gebiet ohne Archiv erklärt. | parallel | keine |
+| `offsets-alte-rvas` | P2 | In `docs/OFFSETS.md` die Tabellen mit RVAs alter Builds auf `26786272` umrechnen (`tools/rva_map.py`) oder ins Archiv verschieben. **Fertig, wenn** die Datei nur Werte für den unterstützten Build enthält. | parallel | wenig |
+| `game-readme-kuerzen` | P2 | `src/Game/README.md` aufteilen: Die Patch-Tabelle deckt nur 12 von rund 40 Dateien ab. **Fertig, wenn** die Datei unter 60 KB liegt und jede `*Patches.cpp` beschreibt. | parallel | keine |
+| `game-ordner` | P2 | `src/Game` (109 Dateien flach) nach Fachgebiet in Unterordner teilen und `RewardPatches.cpp` (2400 Zeilen) aufteilen. **Fertig, wenn** Ordner den Themen entsprechen und die CI grün ist. | zentral | wenig |
+| `spike-abloesen` | P2 | Testbefehle des Spikes (`!finish`, Godmode, `!wave`, Seed) in den Testkanal der Mod übernehmen, danach `research/spikes/a-connect` löschen. **Fertig, wenn** alle Testskripte ohne Spike laufen. | zentral | mittel |
+| `werkzeuge-windows-pruefen` | P2 | Die Kurzfassung in `tools/spike/Collect-Logs.ps1` und die Projekt-Skills unter `.claude/skills/` auf Windows prüfen, beides ist ungetestet. **Fertig, wenn** `*.summary.txt` entstehen und die Skills laden. | parallel | wenig |
 | `release` | P0 | Versionierung, Abschlusstest und Veröffentlichung. Ein Stand, eine Freigabe | zentral | wenig |
 | `coop-inventar-ablauf` | P1 | Alle Inventarabläufe auf das geteilte Inventar umstellen: Airdrop-Wahl, Itemsäcke, Werkbank, Lager mit Verkauf und Reparatur, Rundenende mit … | zentral | viel |
 | `coop-inventar-analyse` | P1 | Das native geteilte Koop-Inventar ohne Mod untersuchen, Referenz ist lokaler Koop mit zwei Controllern auf einem PC: Aufbau des gemeinsamen Rucksacks … | parallel | mittel |
