@@ -72,8 +72,7 @@ also nur `-Tunnel Lobby` und die MetaBase als Ziel, kein `-Godmode`, kein fester
 in der ersten Mission. Ein frischer Test-Spielstand fährt nach „So wird gespielt“ ohne Routenkarte direkt los, sonst sucht das Skript den
 Knoten für Tag 1 in der linken Spalte. `Send-SpikeCommand` bricht in so einer Sitzung mit einer klaren Meldung ab.
 
-Erwartet ist heute Exitcode 1 mit „Figur nicht am Bus“ und verschiedenen Kachelzahlen: Die Karte vom Host gibt es nur im Spike,
-siehe [Ohne Spike](../src/Game/README.md#ohne-spike). Abstürze enden wie sonst mit Exitcode 2.
+Ohne `!finish` endet der Tag nur durch Spielen: im Host-Fenster den Tag zu Ende spielen, zum Bus, dann Rundenübersicht, Lager und Routenkarte. Am 24.11.2026 auf `26786272` (ein PC) lief das bis Tag 2 ohne Absturz, mit Rundenübersicht, Lager und Routenkarte beim Client, siehe [Spike](../src/Game/README.md#spike).
 
 ### Mod-Overlay prüfen
 

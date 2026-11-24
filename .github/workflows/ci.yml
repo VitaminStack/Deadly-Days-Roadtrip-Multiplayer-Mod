@@ -178,3 +178,11 @@ jobs:
       - name: Remote-P2-Map und Geraete-Guard (ohne Spiel und SDK)
         shell: pwsh
         run: ./tests/Run-RemoteP2.ps1
+
+      - name: Spike-Readiness, Rundenphase und SpawnedPlayers (ohne Spiel und SDK)
+        shell: pwsh
+        run: |
+          ./tests/Run-AttributeReadiness.ps1
+          ./tests/Run-RoundPhase.ps1
+          ./tests/Run-RoundPhaseRuntime.ps1
+          ./tests/Run-SpawnedPlayers.ps1

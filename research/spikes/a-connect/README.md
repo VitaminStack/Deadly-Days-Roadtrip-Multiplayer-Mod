@@ -1,5 +1,7 @@
 # Spike A und B: Verbindung und Spieler
 
+> **Heute nur Testwerkzeug.** Die Mod braucht den Spike im Spiel nicht mehr (Spieltest ohne Spike am 24.11.2026, siehe [src/Game/README.md](../../../src/Game/README.md#spike)). Er liefert nur noch Testbefehle wie `!finish`, Godmode, `!wave` und feste Seeds. Neue Spielfehler-Fixes gehören in die Mod. Der Rest dieser Datei ist ein datierter Stand.
+
 Stand: 02.11.2026, Build `26187885`. Wegwerfcode, die Offsets gelten nur für diesen Build.
 
 ## Aufbau

@@ -22,6 +22,6 @@ Begriffe der deutschen Doku und ihre Bezeichner im Spiel oder Code. Jeder Bezeic
 | Rundenende | `TriggerEndRound`, `FinishMission` | Ende einer Mission, entscheidet der Host |
 | Rundenübersicht | `RoundEndPanel`, `WP_Round_Stats_C` | Wertung nach einer Mission oder dem Run |
 | Sensenmann | `UReaperComponent`, `AReaperSpawner` | Gegner, der nach einer festen Missionszeit (`MinutesUntilReaper`) erscheint |
-| Spike | `research/spikes/a-connect` | Frühe Machbarkeits-DLL, wird aus `main` entfernt |
+| Spike | `research/spikes/a-connect` | Frühe Machbarkeits-DLL, heute nur Testwerkzeug (`!finish`, Godmode); die Mod braucht sie im Spiel nicht |
 | Tank | `UFuelMeter`, `FuelCurrent`, `FuelMax` | Treibstoff des Busses als Gruppenwert |
 | Warnanzeige | `Telegraph` | Anzeige eines Gegnerangriffs (Kreis, Sprint-Strich) |
