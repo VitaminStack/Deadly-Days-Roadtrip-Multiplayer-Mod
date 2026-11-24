@@ -6,6 +6,8 @@ Gilt für Build `26786272`. Datierte Befunde und Messungen stehen im [Archiv](..
 
 - Die lokale Reise des Spiels (`SeamlessTravelToLevel`) wird beim Host zu `servertravel`, damit der Client mitkommt. Allein und ins Hauptmenü reist das Spiel wie gewohnt.
 - Beide erzeugen dieselbe Karte: Der Host meldet Seed, Profil, Größe, Tags und PCG-Graph seiner Erzeugung über den Kontrollkanal, die Erzeugung des Clients wartet darauf.
+  Jede Erzeugung übernimmt der Client nur einmal, außer bei einem Neuversuch des Spiels oder nach einem Verbindungswechsel: Tritt er ohne Neustart derselben laufenden Mission wieder bei, baut er dieselbe Karte erneut (`ClientMapLedger`, [wiedereintritt-karte](../faelle/wiedereintritt-karte.md)).
+  Das Inventar des Clients beginnt dabei mit der Startausrüstung, weil der Host einen neuen PlayerState anlegt ([wiedereintritt-inventar](../faelle/wiedereintritt-inventar.md)).
 - Rundenende, Busabfahrt, Tank und Tagesablauf entscheidet der Host. Der Client zeigt Rundenübersicht, Lager und Routenkarte des Hosts mit Eingabesperre.
 - Pausiert der Host die Welt, zeigt der Client einen Hinweis; das Pausemenü des Clients meldet sich beim Host.
 - Beim Run-Ende (Sieg oder Niederlage) kehren beide in die MetaBase zurück; der Client übernimmt keinen fremden Run-Stand in seinen Spielstand.
@@ -15,7 +17,7 @@ Gilt für Build `26786272`. Datierte Befunde und Messungen stehen im [Archiv](..
 | Datei | Aufgabe | Test |
 |---|---|---|
 | `src/Game/TravelPatches.cpp` | Host: Reise als `servertravel`, vorher Zeitanfragen abräumen | `tests/GameTests/PatchTests.cpp` |
-| `src/Game/MapPatches.cpp`, `src/Game/MapPolicy.h`, `src/Sync/World/MapSync.cpp` | Gleiche Karte und Vegetation bei Host und Client | `tests/NetTests/MapTests.cpp` |
+| `src/Game/MapPatches.cpp`, `src/Game/MapPolicy.h`, `src/Sync/World/MapSync.cpp` | Gleiche Karte und Vegetation bei Host und Client, Wiederbeitritt | `tests/NetTests/MapTests.cpp`, `tests/GameTests/PatchTests.cpp` |
 | `src/Game/PauseAdapter.cpp`, `src/Sync/Players/PauseSync.cpp` | Pausen und Pausemenü | `tests/NetTests/PauseTests.cpp` |
 | `src/Game/ProgressAdapter.cpp`, `src/Sync/ProgressSync.cpp`, `src/Game/DayView.cpp` | Rundenphase, Tag und Fortschritt beim Client | `tests/NetTests/ProgressTests.cpp` |
 | `src/Game/WidgetPatches.cpp` | Client: HUD wartet auf den GameState | – |
@@ -23,7 +25,7 @@ Gilt für Build `26786272`. Datierte Befunde und Messungen stehen im [Archiv](..
 
 ## Offene Fehler
 
-- [wiedereintritt-karte](../faelle/wiedereintritt-karte.md): Client baut beim Wiederbeitritt keine Karte.
+- [wiedereintritt-inventar](../faelle/wiedereintritt-inventar.md): Beim Wiederbeitritt beginnt der Client mit dem Startinventar.
 - Was im Spiel noch zu prüfen ist: [Spicker](../ERLEDIGT.md#bestätigungstests-ausstehend), etwa `labyrinth-event-client`.
 - [spawn-nach-kartenaufbau](../faelle/spawn-nach-kartenaufbau.md): Spawn vor dem Kartenaufbau des Clients.
 

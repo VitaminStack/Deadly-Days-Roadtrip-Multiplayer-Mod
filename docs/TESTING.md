@@ -102,7 +102,9 @@ Pro PC läuft nur eine Sitzung, Spielzeit ist der Engpass. Darum:
   eine Zeile je Instanz (Karte, Spieler, Rolle), eine für Inventar und eine für Abstürze. Volle Ausgabe und Bilder nur ansehen, wenn
   etwas nicht stimmt. `Travel-Day.ps1` wartet auf die neue Karte mit beiden Spielern statt fest 35 s, meist reichen 10 s.
 - **Skripte statt Klicks.** `Overlay.ps1` bedient das Overlay, `Watch-Net.ps1` zeigt Meldungen mit Zeit, `Test-NetEnd.ps1` prüft das
-  Sitzungsende in rund einer Minute. `Test-ClientKill.ps1 [-HoldSeconds 130]` beendet den eigenen Client in der Mission hart und
+  Sitzungsende in rund einer Minute. `Test-Rejoin.ps1 [-Rounds 3]` lässt den Client in einer Mission (`-Map /Game/Maps/DDDynamic_Map`)
+  über den Testkanal gehen und im selben Prozess wieder beitreten und prüft, ob er die Karte des Hosts übernimmt (`wiedereintritt-karte`).
+  `Test-ClientKill.ps1 [-HoldSeconds 130]` beendet den eigenen Client in der Mission hart und
   beobachtet den Host (`opt-host-absturz-trennung`); mit Sensenmann vorher beim Host `Send-SpikeCommand <host-pid> '!shop reaper 3'`
   und mindestens 130 s beobachten, der Absturz kam erst mit der nächsten Garbage Collection. Wer eine Prüfung zum zweiten Mal von
   Hand macht, schreibt dafür ein Skript.

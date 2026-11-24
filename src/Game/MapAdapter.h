@@ -35,6 +35,10 @@ std::optional<HostMap> CurrentHostMap();
 // Client: Neueste Werte des Hosts, nullopt, wenn der Host gerade keine Karte hat oder die Verbindung fehlt.
 void SetHostMap(std::optional<HostMap> Value);
 
+// Client: Die Verbindung zum Host hat gewechselt (Trennung oder neuer Beitritt). Danach übernimmt der Client dieselbe Karte des
+// Hosts noch einmal, wenn er der laufenden Mission wieder beitritt (wiedereintritt-karte).
+void NoteConnectionChanged();
+
 // Rundenende des Hosts (rundenende-client). Der Client beendet seine Runde damit lokal und sieht Rundenübersicht und
 // Lager selbst. MapId bindet es an die Karte, die beide gerade spielen, damit kein altes Ende eine neue Mission beendet.
 enum class RunOutcome : uint8_t
