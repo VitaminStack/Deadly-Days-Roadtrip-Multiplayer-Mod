@@ -26,7 +26,7 @@ Mehr: [src/Game/README.md](../../src/Game/README.md).
 
 ## Offene Fehler
 
-- [airdrop-auswahl-absturz](../faelle/airdrop-auswahl-absturz.md): Client stürzt bei Airdrop-Auswahl ohne Inventar ab.
+- [airdrop-auswahl-absturz](../faelle/airdrop-auswahl-absturz.md): Client stürzte bei einer Airdrop-Auswahl ohne Inventar am Panel ab. Inventar-Panels bauen sich ohne Inventar nicht mehr auf (`SetupInventory` und `ForceUpdateFromComponent`); warum das Panel ohne Inventar kam, ist offen.
 - Was im Spiel noch zu prüfen ist: [Spicker](../ERLEDIGT.md#bestätigungstests-ausstehend), etwa `lager-edit-ablehnung` und `opt-metabase-inventar`.
 
 ## Historie

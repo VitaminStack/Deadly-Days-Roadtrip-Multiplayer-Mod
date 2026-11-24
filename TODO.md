@@ -13,7 +13,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 <!-- frei:start -->
 | Kennung | Prio | Phase | Bearbeitung | Spielzeit |
 |---|---|---|---|---|
-| `airdrop-auswahl-absturz` | P1 | [Problem](#probleme) | parallel | mittel |
 | `lobby-rauswurf` | P1 | [Problem](#probleme) | parallel | mittel |
 | `wiedereintritt-karte` | P1 | [Problem](#probleme) | parallel | wenig |
 | `aufgaben-werkzeuge-entschlacken` | P1 | [Verbesserung](#verbesserungen) | zentral | keine |
@@ -58,7 +57,7 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 
 **Wartet auf das Team:** `spawn-nach-kartenaufbau`.
 
-**Bestätigungstests ausstehend (nur Info, blockiert nichts):** 32, siehe [docs/ERLEDIGT.md](docs/ERLEDIGT.md#bestätigungstests-ausstehend).
+**Bestätigungstests ausstehend (nur Info, blockiert nichts):** 33, siehe [docs/ERLEDIGT.md](docs/ERLEDIGT.md#bestätigungstests-ausstehend).
 <!-- frei:end -->
 
 ## Probleme
@@ -67,7 +66,6 @@ Fehler im Spiel oder in den Werkzeugen. Die Beschreibung steht in [docs/OPTIONEN
 
 | Kennung | Prio | Aufgabe | Bearbeitung | Spielzeit |
 |---|---|---|---|---|
-| `airdrop-auswahl-absturz` | P1 | Client stürzt ab, wenn sich eine Airdrop-Auswahl ohne Inventar öffnet. **Fertig, wenn** das nicht mehr abstürzt, die Auswahl danach mit Inventar aufgebaut wird und geklärt ist, warum das Panel ohne Inventar kam (zwei Instanzen auf einem PC). Ordner `src/Game`. **Einstieg** [Fallakte](docs/faelle/airdrop-auswahl-absturz.md) | parallel | mittel |
 | `lobby-rauswurf` | P1 | Host trennt einen gesunden Client mit Grund 1005 („nicht mehr in der Lobby“). **Fertig, wenn** die Ursache belegt ist und ein verbundener Client nicht mehr wegen einer kurz leeren Mitgliederliste getrennt wird, ohne die Sperre gegen Fremde aufzugeben. Ordner `src/Net`. **Einstieg** [Fallakte](docs/faelle/lobby-rauswurf.md) | parallel | mittel |
 | `spawn-nach-kartenaufbau` | P1 | **Nur wenn der Live-Test die Theorie bestätigt:** Host setzt die Figuren an den Bus, bevor der Client seine Karte gebaut hat. **Fertig, wenn** der Client nach jedem Zonenstart auf dem Boden steht, auch bei langsamem Kartenaufbau, und Join, Reconnect und Travel unverändert laufen. Ordner `src/Game`. **Einstieg** [Fallakte](docs/faelle/spawn-nach-kartenaufbau.md) | Team | mittel |
 | `wiedereintritt-karte` | P1 | Client baut beim Wiederbeitritt in die laufende Mission keine Karte und fällt durch. **Fertig, wenn** er ohne Neustart derselben Mission wieder beitreten kann und die Karte des Hosts aufbaut, mit Inventar und Level wie vor der Trennung, mit Unit-Test, belegt auf einem PC mit zwei Instanzen. Ordner `src/Game`. **Einstieg** [Fallakte](docs/faelle/wiedereintritt-karte.md) | parallel | wenig |
