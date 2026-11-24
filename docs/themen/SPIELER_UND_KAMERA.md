@@ -26,7 +26,6 @@ Gilt für Build `26786272`. Datierte Befunde und Messungen stehen im [Archiv](..
 ## Offene Fehler
 
 - [spawn-nach-kartenaufbau](../faelle/spawn-nach-kartenaufbau.md): Host setzt Figuren an den Bus, bevor der Client seine Karte gebaut hat (nur bei bestätigter Theorie).
-- Getrennte Kameras je Spieler sind optional (`opt-kameras`, [Optionen](../OPTIONEN.md#opt-kameras)).
 
 ## Historie
 

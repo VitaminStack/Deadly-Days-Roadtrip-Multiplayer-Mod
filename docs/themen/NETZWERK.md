@@ -24,7 +24,6 @@ Mehr zum Aufbau: [src/Net/README.md](../../src/Net/README.md).
 ## Offene Fehler
 
 - [lobby-rauswurf](../faelle/lobby-rauswurf.md): Host trennt einen gesunden Client wegen „nicht mehr in der Lobby“.
-- Wiederverbinden während eines Runs ist optional (`reconnect`, [Optionen](../OPTIONEN.md#reconnect)).
 
 ## Historie
 

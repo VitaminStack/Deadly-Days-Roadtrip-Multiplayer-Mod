@@ -11,6 +11,7 @@ Er baut keine Karte und fällt durch, dreimal gleich. Ein Neustart des Spiels um
 - [Belegt] `FreshValues` in `src/Game/MapPatches.cpp` nimmt die Werte nur bei neuer Id oder gleicher Welt.
   Die Id der laufenden Host-Karte ist schon als `UsedId` verbraucht, die Welt ist neu.
   `UsedId` wird beim Verbindungsende nicht zurückgesetzt.
+- [Belegt] Aus der früheren Aufgabe `reconnect`: Nach einem Wiederbeitritt in den laufenden Run begann der Client mit Startinventar und Level 1 ([Live-Test 17.11.](../archive/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-17112026-livetest-1711)). Hinweis im Spiel: `OnCoopReconnectRequiredChanged`.
 
 ## Hypothesen
 
@@ -22,5 +23,5 @@ Unit-Test schreiben, der den Wiederbeitritt mit verbrauchter Id und neuer Welt a
 
 ## Abnahme
 
-Der Client kann ohne Neustart derselben laufenden Mission wieder beitreten und baut die Karte des Hosts auf.
+Der Client kann ohne Neustart derselben laufenden Mission wieder beitreten, baut die Karte des Hosts auf und hat Inventar und Level wie vor der Trennung.
 Mit Unit-Test, belegt auf einem PC mit zwei Instanzen.

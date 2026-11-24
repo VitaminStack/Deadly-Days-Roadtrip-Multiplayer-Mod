@@ -7,7 +7,7 @@ Doku auf Deutsch, Code und Bezeichner auf Englisch. Mehrere Agenten arbeiten par
 
 1. `py tools/tasks.py list --short` zeigt die offenen Aufgaben, `py tools/tasks.py show <kennung>` eine davon.
 2. [docs/KONTEXT.md](docs/KONTEXT.md) nennt je Thema die eine Datei mit dem Ist-Zustand, den Code und die Tests. Nur diese lesen.
-3. Ein offener Fehler hat eine Fallakte unter `docs/faelle/`. Sie ist die Arbeitsgrundlage.
+3. Wer einen Fehler bearbeitet, arbeitet mit seiner Fallakte unter `docs/faelle/` und legt sie an, falls sie fehlt.
 
 Große Dateien (über 60 KB), `docs/archive/` und `docs/ERLEDIGT.md` nie ganz lesen, nur per `grep -n` und Abschnitt.
 Das Archiv ist Geschichte, nicht Ist-Zustand.

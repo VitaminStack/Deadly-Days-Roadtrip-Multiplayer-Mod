@@ -23,7 +23,7 @@ Vieles zeigt das Spiel nur dort, wo die Logik läuft, also beim Host. Die Mod sp
 
 ## Offene Fehler
 
-Keine eigene Fallakte. Offene Punkte zur Darstellung stehen unter den Optionen, etwa `opt-client-visuell` und `opt-schuss-animation` in [docs/OPTIONEN.md](../OPTIONEN.md).
+Offene Fehler der Darstellung stehen unter [Probleme](../../TODO.md#probleme), etwa `opt-schuss-animation` und `opt-itemsack-flug`.
 
 ## Historie
 

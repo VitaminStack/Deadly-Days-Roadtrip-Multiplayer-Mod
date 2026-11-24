@@ -1,10 +1,6 @@
-# Optionale und Coop-Aufgaben
+# Aufgaben-Details
 
-Vollständige Beschreibungen der Aufgaben unter „Optionale Optimierungen“ und „Real Coop logic“ in [TODO.md](../TODO.md), dort steht je Aufgabe nur eine Kurzfassung. Wer eine davon nimmt, liest hier nur ihren Abschnitt.
-
-## `reconnect`
-
-Nutzerentscheidung vom 09.11.2026: optional, keine Voraussetzung für den Run. Wiederverbinden während eines Runs, Hinweis: `OnCoopReconnectRequiredChanged`. Ordner `src/Net`, `src/Sync` Live-Test 17.11.2026: Nach Wiederbeitritt in den laufenden Run begann der Client mit Startinventar und Level 1, [Live-Test 17.11.](archive/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-17112026-livetest-1711).
+Vollständige Beschreibungen zu Aufgaben in [TODO.md](../TODO.md), dort steht je Aufgabe nur eine Kurzfassung. Wer eine davon nimmt, liest hier nur ihren Abschnitt.
 
 ## `weekly-sperre`
 
@@ -22,29 +18,13 @@ Gefunden bei `client-roboterarm` (21.11.2026): Hantel (`ItemData_Dumbell`), Hand
 
 Nutzerentscheidung vom 11.11.2026: vorgezogen, wartet nicht auf `integration-run`, Test auf einem PC. Rest aus `host-lagspike` (09.11.2026): Beim Client halten die Widget-Suche der Fortschritts-Anzeige (`ShowSharedProgress`, rund 12 ms) und die Objektsuche der Boss-Leiste (`BossBarAdapter::ScanObjects`, rund 10 ms) einmal pro Sekunde den Frame auf, Log `Takt: …`. Im Spiel nicht mehr spürbar gemeldet. **Fertig, wenn** beim Client kein Sekunden-Abgleich mehr über 8 ms im Log steht
 
-## `opt-host-bewegung`
-
-Nutzerentscheidung vom 11.11.2026: vorgezogen, wartet nicht auf `integration-run`, Test auf einem PC. Klären, warum der Host Remote-Figuren ohne clientautoritative Position fast nicht bewegt. Clientautoritative Position reicht für den Betrieb
-
-## `opt-giftwolke-live`
-
-Nutzerentscheidung vom 13.11.2026: optional, zum Erproben, keine Voraussetzung für Phase 5 oder den Run. Aus `fortschritt`: Alles andere (Loot, XP, Level-ups, Aufwertungen, Item-Effekte, Werteanzeige) ist bestanden, nur die Giftwolke (`BP_Impact_Poison_Cloud_C`, Giftwolken-Itemeffekt über `AreaGameplayEffectImpactActor`) wurde nicht live getestet. **Fertig, wenn** mit einem Giftwolken-Item bei Host und Client die Wolke sichtbar ist und schadet, oder der Befund festgehalten ist. Ordner `src/Sync/Combat`. **Einstieg:** [Giftwolke und Explosion](ARCHITECTURE.md)
-
 ## `opt-tempo-upgrades`
 
-Nutzerentscheidung vom 11.11.2026: vorgezogen, wartet nicht auf `integration-run`, Test auf einem PC. `MovementSpeed` und Beschleunigung: Upgrades kommen beim Client nicht an (Host 819 und 2866, Client 600 und 2048)
-
-## `opt-gegnerzahl`
-
-Nutzerentscheidung vom 11.11.2026: vorgezogen, wartet nicht auf `integration-run`, Test auf einem PC. Gegner-Zähler weichen ab (30 beim Host, 48 beim Client), vermutlich bleiben tote Gegner als Objekte stehen
-
-## `opt-gegnerzahl-labyrinth`
-
-Gefunden bei `opt-desync-bearbeitung` im Log des Live-Tests vom 21.11.2026: Im Labyrinth-Event zählte der Host 101 sichtbare Gegner, der Client 2; während der ganzen Karte stand das Feld auf „offen Gegner“. Eine Folge im Spiel ist nicht belegt. Klären, welche Gegner dem Client fehlen (oder beim Host zu viel zählen) und ob das spielerisch etwas ändert. **Einstieg:** [Befund](archive/GAME_ANALYSIS.md#desync-melder-in-offenen-bearbeitungen-opt-desync-bearbeitung), Karte über `DDCOOP_TEST_MAP_PROFILE`
+Tempo-Upgrades (`MovementSpeed`, Beschleunigung) kommen beim Client nicht an (Host 819 und 2866, Client 600 und 2048). **Fertig, wenn** beide Werte beim Client nach jedem Upgrade denen des Hosts entsprechen.
 
 ## `opt-gegner-spawnverzug`
 
-Nutzerentscheidung vom 11.11.2026: vorgezogen, wartet nicht auf `integration-run`, Test auf einem PC. Unter Wellenlast (`!wave`) erscheinen einzelne neue Gegner beim Client bis rund 8 s später als beim Host, am Bildrand. Ursache (Bandbreite, Priorität, Relevanz) nicht untersucht, [Befund](archive/GAME_ANALYSIS.md#ein-gegnertyp-synchron-gegnertyp)
+Unter Wellenlast (`!wave`) erscheinen neue Gegner beim Client bis rund 8 s später als beim Host. **Fertig, wenn** neue Gegner beim Client höchstens 1 s nach dem Host erscheinen, auch unter Wellenlast.
 
 ## `opt-blut`
 
@@ -61,10 +41,6 @@ Nutzerentscheidung vom 11.11.2026: vorgezogen, wartet nicht auf `integration-run
 ## `opt-rundenstempel`
 
 Nutzerentscheidung vom 11.11.2026: vorgezogen, wartet nicht auf `integration-run`, Test auf einem PC. Die Rundenübersicht des Clients stempelt das geschaffte Level nicht ab (Live-Test 10.11.2026), vermutlich wie `opt-routenkarte` mangels Run-Info des Hosts. Mit `opt-routenkarte` zusammen lösen. **Fertig, wenn** der Client am Rundenende denselben Stempel sieht wie der Host. Ordner `src/Game`. **Einstieg:** [Live-Test 10.11.](archive/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-10112026-livetest-1011)
-
-## `opt-client-visuell`
-
-Feinschliff der Client-Darstellung aus `client-visuell`. **Bereits in `kampf` umgesetzt und auf einem PC geprüft:** Die Größe der getesteten `BP_Projectile_C` kommt trotz nicht repliziertem `BulletSize` über die Root-Skalierung (`RelativeScale3D`) an; neue Pool-Actors werden je Tick statt erst nach bis zu 1 s erfasst ([Nachweis](archive/GAME_ANALYSIS.md#kampf-beim-client-kampf), [PR #114](https://github.com/VitaminStack/Deadly-Days-Roadtrip-Multiplayer-Mod/pull/114)). **Offen:** Größen-Upgrades und andere Projektilklassen sind nicht geprüft; Treffer- und Partikeleffekte fehlen (siehe `opt-blut`), ebenso die XP-Ball-Randfälle Einsammeln durch den Client im Einzelfall, Kartenwechsel im Flug und verlorene Nachrichten. **Einstieg:** [Client-Darstellung](../research/spikes/client-visuell/README.md)
 
 ## `opt-werkbank-station`
 
@@ -122,21 +98,9 @@ Seit `karte-nach-labyrinth-absturz` erzeugt nur der Host den Sensenmann, der Spa
 
 Zurückgestellt aus `routenkarte-client` (09.11.2026): Der Client sieht dieselbe Routenkarte wie der Host (Knoten, Biome, Bus, Tag) und dieselbe Gefahrenstufe im HUD, wählen kann er weiter nicht. Belegt: Die Run-Info der GameInstance repliziert nicht, und `UBusPanel::OpenMapIfRequired` (`0x5AB7090`) befüllt die Karte nur bei `ROLE_Authority` des eigenen Controllers. Weg: Run-Info über den Kontrollkanal, Rollenprüfung beim Client umgehen oder `SetChoices` selbst aufrufen. **Fertig, wenn** der Client nach jedem Rundenende bis Tag 5 über den Biomwechsel nach Tag 4 dieselbe Karte und Gefahrenstufe wie der Host sieht und nicht reisen kann. **Einstieg:** [Routenkarte beim Client](archive/GAME_ANALYSIS.md#routenkarte-beim-client-routenkarte-client)
 
-## `opt-kameras`
-
-Getrennte Kameras je Spieler ermöglichen: Bewegungsbegrenzung anpassen, Sichtbereiche für das Gegner-Spawning synchronisieren oder die Spawn-Logik ersetzen, Gegnerverteilung prüfen. Keine Voraussetzung für die gemeinsame Kamera, siehe [Kamera](themen/SPIELER_UND_KAMERA.md)
-
 ## `sync-aufraeumen`
 
 Nach dem ersten kompletten Run alle Patches, Hooks und Kontrollkanal-Nachrichten durchgehen: Was deckt inzwischen native Replikation oder lokale Spiellogik ab, was synchronisiert doppelt, was ist Spike-Rest? Grundlage ist der [Client-lokal-Audit](CLIENT_LOCAL_AUDIT.md). **Fertig, wenn** im Audit je Patch und Nachricht eine Entscheidung steht, die überflüssigen entfernt sind und ein Routenlauf bis Tag 4 mit Desync-Melder ohne Befund bleibt
-
-## `opt-karte-details`
-
-Mit übertragener Karte stimmen Kacheln, Straßen, Gebäude und PCG-Vegetation, im Spielbild wichen aber einzelne Details ab: ein Baum in anderer Art, ein anderes Dach, ein Pickup nur beim Client. Klären, ob zufällige Varianten einzelner Child Actors (`RandomChildActorSwapWrapper`) dahinterstecken, und sie dann aus der Position würfeln wie die PCG-Seeds. **Einstieg:** [Gleiche Karte in der Mod](archive/GAME_ANALYSIS.md#gleiche-karte-in-der-mod-missionsstart)
-
-## `mehr-spieler`
-
-Mehr als 2 Spieler prüfen. Die Coop-Logik ist fest auf P1 und P2 ausgelegt, daher aufwendig. Analyse, Reihenfolge und Vorbereitung: [Mehr als zwei Spieler](MEHR_SPIELER.md)
 
 ## `coop-spielstand`
 
@@ -156,7 +120,7 @@ Später optionales automatisches Mod-Update auf dem Releasefeed aufbauen, nur na
 
 ## `coop-inventar-analyse`
 
-Das native geteilte Koop-Inventar ohne Mod untersuchen, Referenz ist lokaler Koop mit zwei Controllern auf einem PC: Aufbau des gemeinsamen Rucksacks mit Bereichen je Spieler (`ECoopInventoryLocationType::P1Backpack`/`P2Backpack`, `CoopP1Field`/`CoopP2Field`, `dd.Coop.SplitBackpackView`), Regeln, nach denen Unterstützungs-Items über die Bereichsgrenze auf Waffen wirken, Zuordnung von Waffe zu Figur, Ablauf von Lager, Airdrop-Wahl (`ClaimReward`, `AwaitingClaims`) und Rundenende mit `bCoopEnabled`. Außerdem neu bewerten, warum `inventar-sync` den Weg über `CoopInventoryCoordinatorComponent` verworfen hat und warum das Lager mit Koop-Modus hing. **Fertig, wenn** ein Abschnitt in `docs/GAME_ANALYSIS.md` Datenmodell, Wirkregeln über Bereichsgrenzen, native Andockpunkte und die Grenzen der fest auf zwei Spieler ausgelegten Typen mit Belegt/Hypothese nennt, mit Bildvergleich. **Einstieg:** [Lokale Coop-Schnittstellen](archive/GAME_ANALYSIS.md#lokale-coop-schnittstellen), [Mehr als zwei Spieler](MEHR_SPIELER.md)
+Das native geteilte Koop-Inventar ohne Mod untersuchen, Referenz ist lokaler Koop mit zwei Controllern auf einem PC: Aufbau des gemeinsamen Rucksacks mit Bereichen je Spieler (`ECoopInventoryLocationType::P1Backpack`/`P2Backpack`, `CoopP1Field`/`CoopP2Field`, `dd.Coop.SplitBackpackView`), Regeln, nach denen Unterstützungs-Items über die Bereichsgrenze auf Waffen wirken, Zuordnung von Waffe zu Figur, Ablauf von Lager, Airdrop-Wahl (`ClaimReward`, `AwaitingClaims`) und Rundenende mit `bCoopEnabled`. Außerdem neu bewerten, warum `inventar-sync` den Weg über `CoopInventoryCoordinatorComponent` verworfen hat und warum das Lager mit Koop-Modus hing. **Fertig, wenn** ein Abschnitt in `docs/themen/INVENTAR_UND_HANDEL.md` Datenmodell, Wirkregeln über Bereichsgrenzen, native Andockpunkte und die Grenzen der fest auf zwei Spieler ausgelegten Typen mit Belegt/Hypothese nennt, mit Bildvergleich. **Einstieg:** [Lokale Coop-Schnittstellen](archive/GAME_ANALYSIS.md#lokale-coop-schnittstellen), [Mehr als zwei Spieler](MEHR_SPIELER.md)
 
 ## `coop-inventar-konzept`
 
