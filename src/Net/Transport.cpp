@@ -264,6 +264,7 @@ void Transport::Stop()
     {
         std::lock_guard Guard(ControlLock);
         Peers.clear();
+        PeerAccounts.clear();
         Incoming.clear();
         Outgoing.clear();
     }
@@ -287,6 +288,15 @@ std::vector<uint64_t> Transport::ControlPeers() const
 {
     std::lock_guard Guard(ControlLock);
     return Peers;
+}
+
+uint64_t Transport::PeerAccount(uint64_t Peer) const
+{
+    std::lock_guard Guard(ControlLock);
+    for (const auto& [Known, Account] : PeerAccounts)
+        if (Known == Peer)
+            return Account;
+    return 0;
 }
 
 bool Transport::SendControl(uint64_t Peer, const Protocol::Control& Value)
@@ -511,6 +521,7 @@ void Transport::Close(uint32_t Connection, int32_t Reason)
                 std::lock_guard Guard(ControlLock);
                 const uint64_t Peer = It->Peer;
                 std::erase(Peers, Peer);
+                std::erase_if(PeerAccounts, [Peer](const auto& Item) { return Item.first == Peer; });
                 std::erase_if(Incoming, [Peer](const auto& Item) { return Item.Peer == Peer; });
                 std::erase_if(Outgoing, [Peer](const auto& Item) { return Item.Peer == Peer; });
             }
@@ -677,6 +688,8 @@ bool Transport::ReceiveFrame(Link& Entry, std::span<const uint8_t> Bytes)
         {
             std::lock_guard Guard(ControlLock);
             Peers.push_back(Entry.Peer);
+            // Verbindungen über 127.0.0.1 (nur lokaler Testmodus) haben keine Steam-Identität; sie zählen als ein festes Testkonto.
+            PeerAccounts.emplace_back(Entry.Peer, Entry.SteamId ? Entry.SteamId : LoopbackAccount);
         }
         Core::Log::Info("Protokoll: Build, Mod-Version und Gegenrolle bestaetigt");
         Publish(TransportState::Connected, "Verbunden");

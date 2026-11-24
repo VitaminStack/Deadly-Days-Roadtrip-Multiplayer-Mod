@@ -386,11 +386,10 @@ void TickReward(std::span<const Net::ControlMessage> Messages)
         Game::Rewards::AbortClientEdit();
     }
     Game::Rewards::SetRemoteReady(Host && Peer);
-    // wiedereintritt-inventar: auch ohne Peer, dann merkt der Host die Trennung. Ohne Sitzung als Host gibt es nichts zurückzugeben.
-    if (Host)
-        Game::Rewards::TickRejoin(Peer);
-    else
-        Game::Rewards::ForgetRejoin(Transport ? "nicht Host" : "keine Sitzung");
+    // wiedereintritt-inventar: auch ohne Peer oder Transport, dann merkt der Host die Trennung. Auf einem PC löst Steam die Lobby beim
+    // Verlassen auf und der Host erstellt eine neue; dazwischen gibt es keinen Transport, die Mission läuft aber weiter.
+    // Schlüssel ist das Steam-Konto hinter dem Peer, der Peer selbst ist je Verbindung neu.
+    Game::Rewards::TickRejoin(Host && Peer ? Transport->PeerAccount(Peer) : 0);
     if (!Transport || !Peer)
     {
         // Ohne Gegenseite wartet niemand im Lager: Host vergisst den Client, der Client löst sein Bestätigen aus.

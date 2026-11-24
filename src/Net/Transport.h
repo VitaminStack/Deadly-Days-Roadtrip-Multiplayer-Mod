@@ -127,6 +127,12 @@ public:
     TransportStats Stats() const;
     bool Running() const { return Active; }
     std::vector<uint64_t> ControlPeers() const;
+    // Host, wiedereintritt-inventar: SteamID des Kontos hinter einem Peer, LoopbackAccount für eine Verbindung über 127.0.0.1,
+    // 0 für einen unbekannten Peer. Bleibt über
+    // Trennung und Neustart gleich, anders als der Peer selbst. Nur zum Wiedererkennen beim Host, nie ins Log.
+    uint64_t PeerAccount(uint64_t Peer) const;
+    // Konto einer Verbindung über 127.0.0.1 (lokaler Testmodus, ohne Steam-Identität). Keine gültige SteamID eines Einzelkontos.
+    static constexpr uint64_t LoopbackAccount = 1;
     // Host: SteamIDs der aktuellen Lobby-Mitglieder, vom Game Thread. Erst danach nimmt der Host P2P-Verbindungen an,
     // und nur von diesen Konten. ClearLobbyMembers heißt: keine Lobby, alle P2P-Verbindungen werden abgelehnt.
     void SetLobbyMembers(std::vector<uint64_t> SteamIds);
@@ -199,6 +205,7 @@ private:
     TransportStats Current;
     mutable std::mutex ControlLock;
     std::vector<uint64_t> Peers;
+    std::vector<std::pair<uint64_t, uint64_t>> PeerAccounts; // Peer, SteamID; unter ControlLock wie Peers
     struct PendingControl { uint64_t Peer; std::vector<uint8_t> Bytes; };
     std::vector<PendingControl> Outgoing;
     std::vector<ControlMessage> Incoming;

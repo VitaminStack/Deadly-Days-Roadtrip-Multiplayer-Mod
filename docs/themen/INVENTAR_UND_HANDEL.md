@@ -9,6 +9,10 @@ Gilt für Build `26786272`. Datierte Befunde und Messungen stehen im [Archiv](..
 - Die Airdrop-Auswahl läuft ohne Koop-Modus für beide: Der Host schickt das Sitzungsbild, der Client wählt lokal.
 - Item-Fähigkeiten der Client-Figur (Heil-Kit, Granate, Roboterarm) laufen beim Host, weil das Spiel sie nur für lokal gesteuerte Figuren ausführt.
 - Ein Desync-Melder vergleicht offene Bearbeitungen mit dem Stand des Hosts.
+- Wiederbeitritt und Hot Join (`wiedereintritt-inventar`): Der Host merkt sich das Inventar des Clients je Steam-Identität und ersetzt nach
+  einer Trennung das Startinventar des neuen PlayerState damit, mit denselben nativen Funktionen wie bei einem Edit. Keine Nachricht. Der
+  Schrott ist ein gemeinsames Konto der Mission und bleibt beim Host. Powerups und Item-Modifikatoren sind nicht enthalten
+  ([Fallakte](../faelle/wiedereintritt-inventar.md)).
 
 ## Code
 
@@ -21,6 +25,7 @@ Gilt für Build `26786272`. Datierte Befunde und Messungen stehen im [Archiv](..
 | `src/Game/ItemAbilityPatches.cpp`, `src/Game/ItemAbilityPolicy.h` | Item-Fähigkeiten der Client-Figur beim Host | `tests/GameTests/ItemAbilityPolicyTests.cpp` |
 | `src/Game/HandPreview.h` | Vorschau der Hände | `tests/GameTests/HandPreviewTests.cpp` |
 | `src/Game/DesyncAdapter.cpp`, `src/Sync/DesyncSync.cpp` | Desync-Melder | `tests/NetTests/DesyncTests.cpp` |
+| `src/Game/RejoinPolicy.h`, `TickRejoin` in `src/Game/RewardPatches.cpp` | Inventar des Clients über Trennung und Wiederbeitritt | `tests/GameTests/RejoinPolicyTests.cpp` |
 
 Mehr: [src/Game/README.md](../../src/Game/README.md).
 

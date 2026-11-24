@@ -33,6 +33,7 @@
 #include "Game/Reflection.h"
 #include "Game/RejoinPolicy.h"
 #include "Game/RewardAdapter.h"
+#include "Game/WorldAdapter.h"
 
 namespace Game::Patches
 {
@@ -2685,12 +2686,23 @@ void TickRejoin(uint64_t Peer)
     if (Now < RejoinNextRead)
         return;
     RejoinNextRead = Now + 500;
+    // Zurück in MetaBase oder Hauptmenü ist der Run für diesen Client vorbei, auch ohne Sieg oder Niederlage (Run abgebrochen).
+    if (const auto World = Game::ReadWorld(); World && (World->Map == "MetaBase" || World->Map == "MainMenu"))
+    {
+        ForgetRejoin("Host außerhalb der Mission");
+        return;
+    }
     uintptr_t Coop = 0, HostController = 0, Remote = 0;
     const uintptr_t Inventory = Peer && ScrapWallet() && BoundRemoteP2(Coop, HostController, Remote) ? CachedInventory(RejoinCache, Remote) : 0;
     const uint64_t Identity = Inventory ? InventoryIdentity(Inventory) : 0;
     const std::optional<Game::Rejoin::Snapshot> Snapshot = Identity ? ReadSnapshot(Inventory) : std::nullopt;
     const bool HadLeft = RejoinLedger.HasLeft(Peer);
     const bool Busy = Host.Active || End.Id != 0;
+    static uint64_t LastIdentity = 0;
+    if (Identity != LastIdentity && Identity)
+        Core::Log::Info("Wiedereintritt: Inventar des Clients gefunden ({} Items), Konto {}, beschäftigt={}", Snapshot ? Snapshot->Items.size() : 0,
+                        !RejoinLedger.Saved(Peer) ? "neu" : HadLeft ? "bekannt, war getrennt" : "bekannt", Busy);
+    LastIdentity = Identity ? Identity : LastIdentity;
     static uint64_t LastPeer = 0;
     const auto Restore = RejoinLedger.Tick(Peer, Identity, Snapshot, Busy, Now);
     if (LastPeer && LastPeer != Peer && RejoinLedger.HasLeft(LastPeer))
