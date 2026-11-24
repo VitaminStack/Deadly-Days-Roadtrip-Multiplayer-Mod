@@ -66,11 +66,8 @@ def repo_root():
 def todo_text():
     """TODO.md und docs/ERLEDIGT.md von origin/main als ein Text; fehlt ERLEDIGT.md dort noch, nur TODO.md."""
     todo = git('show', 'origin/main:TODO.md').stdout
-    try:
-        done = git('show', f'origin/main:{DONE_FILE}').stdout
-    except subprocess.CalledProcessError:
-        done = ''
-    return combine(todo, done)
+    shown = git('show', f'origin/main:{DONE_FILE}', check=False)
+    return combine(todo, shown.stdout if shown.returncode == 0 else '')
 
 
 def plain(text):

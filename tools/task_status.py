@@ -109,9 +109,6 @@ def parse(todo):
             if len(row) != 6:
                 raise ValueError(f'{where}: {name} braucht 6 Spalten')
             _, prio, text, needs, mode, playtime = row
-            if len(text) > MAX_TASK_TEXT:
-                raise ValueError(f'{where}: {name}: Aufgabentext über {MAX_TASK_TEXT} Zeichen, '
-                                 f'Details in docs/faelle/{name}.md')
             if prio not in PRIOS:
                 raise ValueError(f'{where}: {name}: Prio muss P0, P1 oder P2 sein')
             if mode not in MODES:
@@ -538,9 +535,18 @@ def regenerate(root, check=False):
     return stale
 
 
+def check_text_lengths(tasks):
+    """Offene Aufgabenzeilen bleiben kurz, Details stehen in der Fallakte. Nur beim Pruefen, nicht beim Lesen."""
+    for task in tasks.values():
+        if not task.done and len(task.text) > MAX_TASK_TEXT:
+            raise ValueError(f'{task.name}: Aufgabentext über {MAX_TASK_TEXT} Zeichen, Details in docs/faelle/{task.name}.md')
+
+
 def check_all(root, check):
     """(veraltete Dateien, veraltete Querverweise). Wirft ValueError bei ungueltigen Aufgabentabellen."""
-    references = check_references(root, parse(read_local(root)))
+    tasks = parse(read_local(root))
+    check_text_lengths(tasks)
+    references = check_references(root, tasks)
     return regenerate(root, check=check), references
 
 

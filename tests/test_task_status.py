@@ -43,10 +43,19 @@ class ParseTests(unittest.TestCase):
             self.assertTrue(parsed[name].done, name)
 
     def test_long_open_task_text_rejected(self):
+        long_text = todo('| `a` | P0 | ' + 'x' * 801 + ' | – | parallel | wenig |\n')
+        parsed = source.parse(long_text)  # Lesen bleibt tolerant, etwa fuer einen aelteren Stand von origin/main
         with self.assertRaisesRegex(ValueError, 'über 800 Zeichen'):
-            source.parse(todo('| `a` | P0 | ' + 'x' * 801 + ' | – | parallel | wenig |\n'))
-        source.parse(todo('| `a` | P0 | ' + 'x' * 800 + ' | – | parallel | wenig |\n',
-                          done_rows='| `z` | 1 | ' + 'y' * 2000 + ' |'))
+            source.check_text_lengths(parsed)
+        source.check_text_lengths(source.parse(todo('| `a` | P0 | ' + 'x' * 800 + ' | – | parallel | wenig |\n',
+                                                    done_rows='| `z` | 1 | ' + 'y' * 2000 + ' |')))
+
+    def test_check_all_rejects_long_rows(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source.write_local(root, todo('| `a` | P0 | ' + 'x' * 801 + ' | – | parallel | wenig |\n'))
+            with self.assertRaisesRegex(ValueError, 'über 800 Zeichen'):
+                source.check_all(root, check=True)
 
     def test_open_and_done_rows(self):
         parsed = source.parse(todo('| `a` | P0 | Text | `base1` | parallel | wenig |\n'))
@@ -665,17 +674,18 @@ class DoneFileTests(unittest.TestCase):
         self.assertIn('| `frei-a` | 1 | Ergebnis. |', done_part)
 
     def test_missing_done_file_reads_as_empty(self):
-        def git(*args, check=True):
+        # Echtes run(): nur subprocess.run ist ersetzt; git show auf eine fehlende Datei endet mit Code 128.
+        def fake_run(args, **kwargs):
             if args[-1].endswith(source.DONE_FILE):
-                raise subprocess.CalledProcessError(128, 'git')
-            return SimpleNamespace(stdout=self.OLD)
-        with patch.object(tasks, 'git', side_effect=git):
+                return subprocess.CompletedProcess(args, 128, '', f"fatal: path '{source.DONE_FILE}' does not exist")
+            return subprocess.CompletedProcess(args, 0, self.OLD, '')
+        with patch.object(tasks.subprocess, 'run', side_effect=fake_run):
             self.assertEqual(tasks.todo_text(), self.OLD)
 
     def test_todo_text_combines_both_files(self):
         todo_part, done_part = source.split(self.OLD)
         files = {'origin/main:TODO.md': todo_part, f'origin/main:{source.DONE_FILE}': done_part}
-        with patch.object(tasks, 'git', side_effect=lambda *a, check=True: SimpleNamespace(stdout=files[a[-1]])):
+        with patch.object(tasks, 'git', side_effect=lambda *a, check=True: SimpleNamespace(stdout=files[a[-1]], returncode=0)):
             self.assertEqual(tasks.todo_text(), source.combine(todo_part, done_part))
 
     def test_check_all_reads_done_file_for_dependencies(self):
