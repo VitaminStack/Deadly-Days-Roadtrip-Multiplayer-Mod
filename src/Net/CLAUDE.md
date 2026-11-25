@@ -11,7 +11,8 @@ Verbindung zwischen Host und Client: Steam-Lobby, Kontrollkanal über Steam Netw
 ## Wo was liegt
 
 - `Transport.cpp`, `SteamSockets.cpp`: Kontrollkanal
-- `Session.cpp`: Sitzung, Lobby-Mitglieder, Zugriffskontrolle (`RevokeAfterMs`)
+- `Session.cpp`: Sitzung, Lobby-Mitglieder, Zugriffskontrolle (`RevokeAfterMs`), Neubeitritt des Clients
+- `LobbyMembership.cpp`: wann eine Lobby-Liste gilt und wann der Host trennt
 - `ControlProtocol.cpp`: Nachrichtenformat
 - `SteamLobbyApi.cpp`: Lobby-Aufrufe
 

@@ -15,15 +15,20 @@ Nicht gezielt nachstellbar. Auf einem PC laufen beide Instanzen unter einem Kont
 - [Belegt, Code vor dem Fix] Eine leere Liste oder eine ohne das eigene Konto galt wie eine gültige Liste ohne den Mitspieler.
   `SteamLobbyApi::Members` ist leer, wenn das eigene Konto nicht in der Lobby geführt wird, und überspringt SteamIDs 0 ohne Hinweis.
 - [Belegt, Code vor dem Fix] Der Client prüfte seine eigene Mitgliedschaft nie und trat nach einem Verlust nicht neu bei.
+- [Belegt, Host-Log 24.11.] In den 10 s vor der Trennung um 14:18:11,9 (Uhr des Hosts) schreibt der Game Thread durchgehend, Abstand höchstens
+  rund 5 s, Abgleich „OK“ noch um 14:18:09. Ein stehender Game Thread scheidet für diesen Fall also aus. Das Client-Log zeigt bis zur Trennung
+  nur normalen Verkehr.
+- [Belegt, ein PC, ein Konto, 25.11.] Verlässt das gemeinsame Konto die Lobby, meldet echtes Steam dem Host eine leere Liste („Mitgliederliste
+  leer statt gültig“), `GetNumLobbyMembers` blieb dabei bei 1. Die Mitgliederzahl muss also nicht sinken, wenn die Liste unbrauchbar wird.
 
 ## Hypothesen
 
-Drei Wege führen im alten Code zum Rauswurf. Welcher es war, ist offen, alle drei sind Vermutung:
+Drei Wege führen im alten Code zum Rauswurf. Für den 24.11. bleiben (a) und (c), welcher es war, ist offen:
 
 - **(a) [Vermutung] Host ohne gültige Liste ≥ 10 s.** Steam liefert dem Host eine leere Liste oder eine ohne sein eigenes Konto, etwa während
   seine Verbindung zu den Steam-Servern neu aufgebaut wird.
-- **(b) [Vermutung] Veraltete Liste.** Eine einzelne Liste ohne den Mitspieler, danach steht der Game Thread (Kartenwechsel, Laden), und die
-  alte Liste altert auf dem Netzwerkthread in die 10 s hinein.
+- **(b) Veraltete Liste, für den 24.11. ausgeschlossen.** Eine einzelne Liste ohne den Mitspieler, danach steht der Game Thread (Kartenwechsel,
+  Laden), und die alte Liste altert auf dem Netzwerkthread in die 10 s hinein. Möglich im Code, beim Rauswurf am 24.11. lief der Game Thread aber.
 - **(c) [Vermutung] Steam nimmt den Client aus der Lobby.** Etwa nach einem kurzen Abriss seiner Verbindung zu den Steam-Servern; P2P über das
   Relay bleibt gesund, die Lobby-Mitgliedschaft kommt aber nicht von selbst zurück.
 
@@ -48,7 +53,7 @@ Live-Test auf zwei PCs (`py tools/tasks.py tests`), Logs beider Seiten mit `Coll
 
 | Weg | Host-Log | Client-Log |
 |---|---|---|
-| (a) | `Lobby (Host): Mitgliederliste leer` oder `… eigenes Konto fehlt statt gültig`, `Transport: Lobby-Liste unbrauchbar (…), Frist für den Mitspieler steht` | nichts Auffälliges |
+| (a) | `Lobby (Host): Mitgliederliste leer` oder `… eigenes Konto fehlt statt gültig`, `Transport: Lobby-Liste unbrauchbar (…), Frist für den Mitspieler steht`; die Mitgliederzahl kann gleich bleiben | nichts Auffälliges |
 | (b) | `Transport: Mitspieler fehlt in der gültigen Lobby-Liste`, kurz darauf `Mitspieler wieder in der Lobby-Liste (…), hat … ms angerechnet gefehlt` mit kleinem Wert, meist um einen Kartenwechsel | nichts Auffälliges |
 | (c) | `Lobby (Host): 1 statt 2 Mitglieder`, `Transport: Mitspieler fehlt in der gültigen Lobby-Liste`, dann `2 statt 1` und `wieder in der Lobby-Liste` unter 10000 ms | `Lobby (Client): eigenes Konto fehlt in der Lobby`, `tritt derselben Lobby neu bei`, `derselben Lobby neu beigetreten`, `eigenes Konto wieder in der Lobby nach … ms` |
 

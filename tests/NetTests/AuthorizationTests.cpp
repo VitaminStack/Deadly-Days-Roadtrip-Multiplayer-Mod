@@ -307,18 +307,18 @@ TEST_CASE("Zugriff: leere oder veraltete Lobby-Listen trennen keinen verbundenen
     SUBCASE("Steam meldet die Liste lange leer oder ohne eigenes Konto")
     {
         // Ein Vielfaches von RevokeAfterMs (200 ms).
-        CHECK_FALSE(FeedUnusableUntil(Host, LobbyListState::Empty, Lost, 800));
-        CHECK_FALSE(FeedUnusableUntil(Host, LobbyListState::OwnMissing, Lost, 800));
+        CHECK_FALSE(FeedUnusableUntil(Host, LobbyListState::Empty, Lost, 500));
+        CHECK_FALSE(FeedUnusableUntil(Host, LobbyListState::OwnMissing, Lost, 500));
         CHECK(Host.Stats().Connections == 1);
         // Danach wieder gültig mit dem Mitspieler: alles gut.
-        CHECK_FALSE(FeedUntil(Host, {kHostId, kFriendId}, Lost, 300));
+        CHECK_FALSE(FeedUntil(Host, {kHostId, kFriendId}, Lost, 100));
     }
     SUBCASE("Eine einzelne alte Liste ohne den Mitspieler altert nicht in eine Trennung")
     {
         // Etwa ein Frame mit Lücke, danach steht der Game Thread beim Laden einer Karte.
         Host.SetLobbyMembers({kHostId});
-        CHECK_FALSE(WaitFor(Lost, 800));
-        CHECK_FALSE(FeedUntil(Host, {kHostId, kFriendId}, Lost, 300));
+        CHECK_FALSE(WaitFor(Lost, 500));
+        CHECK_FALSE(FeedUntil(Host, {kHostId, kFriendId}, Lost, 100));
     }
     SUBCASE("Während die Liste unbrauchbar ist, kommt kein Fremder hinein")
     {

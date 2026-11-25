@@ -402,7 +402,7 @@ TEST_CASE("lobby-rauswurf: Ein gesunder Client bleibt trotz Lücken in der Lobby
     auto Network = std::make_shared<FakeSteamNetwork>();
     TransportOptions Options = SessionPorts(47845);
     Options.AuthorizeWaitMs = 300;
-    Options.RevokeAfterMs = 1500;
+    Options.RevokeAfterMs = 600;
     Player Host(Service, Network, kHostId, kHostId, Options);
     Player Client(Service, Network, kClientId, kClientId, Options);
     SessionTimeouts Fast;
@@ -422,15 +422,15 @@ TEST_CASE("lobby-rauswurf: Ein gesunder Client bleibt trotz Lücken in der Lobby
     SUBCASE("Host bekommt lange keine Mitgliederliste von Steam")
     {
         Service->Blind.insert(kHostId);
-        CHECK_FALSE(TickUntil({&Host.Run, &Client.Run}, Dropped, 3000));
+        CHECK_FALSE(TickUntil({&Host.Run, &Client.Run}, Dropped, 1500));
         Service->Blind.erase(kHostId);
-        CHECK_FALSE(TickUntil({&Host.Run, &Client.Run}, Dropped, 300));
+        CHECK_FALSE(TickUntil({&Host.Run, &Client.Run}, Dropped, 100));
         CHECK(Host.Run.Status().Phase == SessionPhase::Playing);
     }
     SUBCASE("Steam nimmt den Client aus der Lobby, er tritt neu bei")
     {
         Service->Leave(kClientId, Lobby);
-        CHECK_FALSE(TickUntil({&Host.Run, &Client.Run}, Dropped, 3000));
+        CHECK_FALSE(TickUntil({&Host.Run, &Client.Run}, Dropped, 1500));
         CHECK(Service->Joins == JoinsBefore + 1);
         CHECK(Service->Lobbies[Lobby].Members.count(kClientId) == 1);
         CHECK(Host.Run.Status().Phase == SessionPhase::Playing);
@@ -447,7 +447,7 @@ TEST_CASE("lobby-rauswurf: Ein gesunder Client bleibt trotz Lücken in der Lobby
     {
         Client.Run.Leave();
         CHECK(TickUntil({&Host.Run, &Client.Run}, [&] { return Host.Run.Status().Phase == SessionPhase::Hosting; }));
-        TickUntil({&Host.Run, &Client.Run}, [] { return false; }, 400);
+        TickUntil({&Host.Run, &Client.Run}, [] { return false; }, 300);
         CHECK(Service->Joins == JoinsBefore);
         CHECK(Service->Lobbies[Lobby].Members.count(kClientId) == 0);
     }
