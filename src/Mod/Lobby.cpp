@@ -220,6 +220,9 @@ bool TryLoad(LobbyState& Lobby)
     Options.AllowLoopback = Narrow(GetCommandLineW()).find("-ddcoop_localtest") != std::string::npos;
     if (Options.AllowLoopback)
         Core::Log::Warn("Sitzung: lokaler Testmodus (-ddcoop_localtest), Host nimmt auch 127.0.0.1 ohne Steam-Identität an");
+    // Mehr als ein Client vorerst nur im lokalen Test, solange nicht jede Sync-Familie je Peer arbeitet (MEHR_SPIELER.md).
+    if (Options.AllowLoopback)
+        Options.MaxClients = 3;
     Lobby.Session = std::make_unique<Net::Session>(
         Api, [Sockets, Options] { return std::make_shared<Net::Transport>(Sockets, Options); },
         Net::SessionHooks{BecomeListenServer, ConnectToLocalPort, Disconnect, GameConnectedToHost, GameHosting}, Options);

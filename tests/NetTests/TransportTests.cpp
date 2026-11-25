@@ -3,8 +3,10 @@
 
 #include <doctest.h>
 
+#include <algorithm>
 #include <chrono>
 #include <functional>
+#include <memory>
 #include <string>
 #include <thread>
 
@@ -338,6 +340,87 @@ TEST_CASE("Ein zweiter Client wird mit Grund abgewiesen, der erste bleibt verbun
     std::this_thread::sleep_for(std::chrono::milliseconds(30));
     CHECK(First.Stats().State == TransportState::Connected);
     CHECK(Host.Stats().Connections == 1);
+}
+
+TEST_CASE("Mit MaxClients nimmt der Host mehrere Clients an, jeder mit eigenem Port")
+{
+    auto Network = std::make_shared<FakeSteamNetwork>();
+    TransportOptions Options = TestPorts(48100);
+    Options.MaxClients = 3;
+    Transport Host(Network->Account(kHostId), Options);
+    REQUIRE(Host.StartHost());
+    std::vector<std::unique_ptr<Transport>> Clients;
+    for (uint16_t i = 0; i < 4; ++i)
+    {
+        TransportOptions Own = Options;
+        Own.ClientPort = static_cast<uint16_t>(Options.ClientPort + 3 + i);
+        Clients.push_back(std::make_unique<Transport>(Network->Account(kClientId + i), Own));
+    }
+    for (size_t i = 0; i < 3; ++i)
+    {
+        REQUIRE(Clients[i]->StartClient(kHostId));
+        REQUIRE(WaitFor([&] { return Host.Stats().Connections == i + 1; }));
+    }
+    REQUIRE(WaitFor([&] { return Host.ControlPeers().size() == 3; }));
+    const auto Peers = Host.ControlPeers();
+    std::vector<uint16_t> Ports;
+    std::vector<uint64_t> Accounts;
+    for (const uint64_t Peer : Peers)
+    {
+        Ports.push_back(Host.PeerGamePort(Peer));
+        Accounts.push_back(Host.PeerAccount(Peer));
+    }
+    std::sort(Ports.begin(), Ports.end());
+    std::sort(Accounts.begin(), Accounts.end());
+    CHECK(Ports[0] != 0);
+    CHECK(std::adjacent_find(Ports.begin(), Ports.end()) == Ports.end());
+    CHECK(Accounts == std::vector<uint64_t>{kClientId, kClientId + 1, kClientId + 2});
+
+    // Der vierte Client bekommt Busy, die anderen bleiben verbunden.
+    REQUIRE(Clients[3]->StartClient(kHostId));
+    REQUIRE(WaitFor([&] { return Clients[3]->Stats().State == TransportState::Failed; }));
+    CHECK(Clients[3]->Stats().Message == "Die Sitzung des Hosts ist voll");
+
+    // Geht einer, bleibt der Host mit den übrigen verbunden.
+    Clients[0]->Stop();
+    REQUIRE(WaitFor([&] { return Host.ControlPeers().size() == 2; }));
+    CHECK(Host.Stats().State == TransportState::Connected);
+    CHECK(Clients[1]->Stats().State == TransportState::Connected);
+    CHECK(Clients[2]->Stats().State == TransportState::Connected);
+}
+
+TEST_CASE("Mehrere Testclients über 127.0.0.1 bekommen getrennte Testkonten")
+{
+    auto Network = std::make_shared<FakeSteamNetwork>();
+    TransportOptions Options = TestPorts(48110);
+    Options.MaxClients = 3;
+    GameSocket HostGame(Options.GamePort);
+    TransportOptions SecondPorts = Options;
+    SecondPorts.ClientPort = static_cast<uint16_t>(Options.ClientPort + 3);
+    Transport Host(Network->Account(kHostId), Options);
+    Transport First(Network->Account(kClientId), Options);
+    Transport Second(Network->Account(kClientId), SecondPorts);
+    REQUIRE(Host.StartHost());
+    REQUIRE(First.StartLoopbackClient());
+    REQUIRE(WaitFor([&] { return Host.ControlPeers().size() == 1; }));
+    REQUIRE(Second.StartLoopbackClient());
+    REQUIRE(WaitFor([&] { return Host.ControlPeers().size() == 2; }));
+    std::vector<uint64_t> Accounts;
+    for (const uint64_t Peer : Host.ControlPeers())
+        Accounts.push_back(Host.PeerAccount(Peer));
+    std::sort(Accounts.begin(), Accounts.end());
+    CHECK(Accounts == std::vector<uint64_t>{Transport::LoopbackAccount, Transport::LoopbackAccount + 1});
+    // Geht der erste, behält der zweite sein Konto; ein neuer bekommt das kleinste freie.
+    First.Stop();
+    REQUIRE(WaitFor([&] { return Host.ControlPeers().size() == 1; }));
+    CHECK(Host.PeerAccount(Host.ControlPeers()[0]) == Transport::LoopbackAccount + 1);
+    REQUIRE(First.StartLoopbackClient());
+    REQUIRE(WaitFor([&] { return Host.ControlPeers().size() == 2; }));
+    Accounts.clear();
+    for (const uint64_t Peer : Host.ControlPeers())
+        Accounts.push_back(Host.PeerAccount(Peer));
+    std::sort(Accounts.begin(), Accounts.end());
+    CHECK(Accounts == std::vector<uint64_t>{Transport::LoopbackAccount, Transport::LoopbackAccount + 1});
 }
 
 TEST_CASE("Meldungen zum Ende einer Verbindung")

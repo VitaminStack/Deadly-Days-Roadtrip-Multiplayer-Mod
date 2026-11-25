@@ -407,10 +407,10 @@ void Transport::Refuse(SteamConnection Connection, int32_t Reason, const std::st
 
 void Transport::AcceptIncoming(SteamConnection Connection, uint64_t SteamId)
 {
-    if (!Links->empty())
+    if (Links->size() >= Options.MaxClients)
     {
-        Refuse(Connection, EndReason::Busy, "es gibt schon einen Mitspieler");
-        return; // Genau ein Remote-Spieler. Kein frei behaupteter Spielerindex.
+        Refuse(Connection, EndReason::Busy, "die Sitzung ist voll");
+        return; // Kein frei behaupteter Spielerindex.
     }
     if (!Sockets->Accept(Connection))
     {

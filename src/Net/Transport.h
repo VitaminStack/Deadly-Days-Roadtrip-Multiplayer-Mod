@@ -46,6 +46,8 @@ struct TransportOptions
     // Sitzungen. Nur mit -ddcoop_localtest oder dem Testschalter -ddcoop_transport.
     bool AllowLoopback = false;
     PeerPolicy Peers = PeerPolicy::Lobby;
+    // Höchstzahl gleichzeitiger Clients beim Host, jeder weitere bekommt Busy. Höchstens Session::kMaxMembers - 1.
+    unsigned MaxClients = 1;
     // Kommt die Verbindung, bevor Steam dem Host den Beitritt zur Lobby meldet, wartet der Host höchstens so lange.
     unsigned AuthorizeWaitMs = 5000;
     // Fehlt ein verbundener Mitspieler so lange in gültigen Lobby-Listen, trennt der Host ihn. Siehe LobbyMembership.h.
