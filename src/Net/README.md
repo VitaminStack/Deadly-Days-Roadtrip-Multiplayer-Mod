@@ -171,7 +171,8 @@ entscheidet der Host vorher, noch vor `AcceptConnection`:
 3. **Kurz warten, nie freigeben:** Meldet Steam den Beitritt erst nach dem Verbindungsversuch, wartet die Verbindung bis zu
    `AuthorizeWaitMs` (5 s) unangenommen. Sie belegt keinen Platz und keinen UDP-Port. Höchstens vier warten gleichzeitig, ein
    Konto nur einmal; danach Ablehnung mit Grund 1005.
-4. **Platz:** Erst ein berechtigtes Konto bekommt den einzigen Remote-Platz, ein zweites bekommt `Busy` (1004).
+4. **Platz:** Erst ein berechtigtes Konto bekommt einen der drei Remote-Plätze (`TransportOptions::MaxClients`), ein vierter
+   Client bekommt `Busy` (1004). Mehrere Spieler: [Bis zu vier Spieler](../../docs/MEHR_SPIELER.md).
 5. **Bindung an die Verbindung:** Die SteamID hängt am `Link`. Der Host trennt mit 1005 erst, wenn das Konto in neuen,
    gültigen Listen mindestens `RevokeAfterMs` (10 s) lang und mindestens `RevokeMinMisses` (3) mal hintereinander fehlt
    (`Judge` in `LobbyMembership.cpp`). Je Liste zählen höchstens 1 s, eine unbrauchbare Liste hält die Frist an. So trennen
@@ -193,6 +194,7 @@ Lobby-Liste`, `Lobby-Liste unbrauchbar …` und vor einer Trennung `Mitspieler f
 | Schalter | Wirkung |
 |---|---|
 | `-ddcoop_localtest` | Host der Lobby nimmt zusätzlich 127.0.0.1 ohne Steam-Identität an, Warnung im Log |
+| `-ddcoop_clientport=<Port>` | Client: UDP-Port, an dem das eigene Spiel den Tunnel erreicht, statt 7778; für mehrere Clients auf einem PC (`Start-Session.ps1 -Clients`) |
 
 Geprüft in `AuthorizationTests.cpp` und `SessionTests.cpp` mit nachgebautem Steam: Mitglied verbindet, Fremder, fehlende
 Identität, keine Lobby, verspätete Mitgliedschaft, Fremder vor dem Freund, zweites Mitglied, Verlassen der Lobby, erneuter
@@ -214,7 +216,7 @@ Erstellen und Beitreten wieder möglich, der Client trennt sein Spiel mit `disco
 | Host verlässt die Sitzung (`HostLeft`) | Der Host hat die Sitzung verlassen | – |
 | Client verlässt die Sitzung (`ClientLeft`) | – | Der Mitspieler hat die Sitzung verlassen |
 | Handshake abgelehnt (`Rejected`) | Der Host hat die Verbindung abgelehnt (andere Mod-Version oder anderer Spiel-Build) | Der Mitspieler hat die Verbindung abgelehnt |
-| Host hat schon einen Mitspieler (`Busy`) | Der Host hat schon einen Mitspieler | – |
+| Sitzung des Hosts voll (`Busy`) | Die Sitzung des Hosts ist voll | – |
 | Gegenseite schließt ohne eigenen Grund, etwa beim Beenden des Spiels | Der Host hat die Verbindung beendet | Der Mitspieler hat die Verbindung beendet |
 | Steam gibt nach seinem Zeitlimit auf (`ProblemDetectedLocally`) | Verbindung zum Host verloren, vor dem Aufbau: Host nicht erreichbar | Verbindung zum Mitspieler verloren |
 
@@ -255,7 +257,7 @@ nicht), obwohl der Host noch „Lobby offen“ zeigt. Vermutlich verlässt mit d
 löst sie auf. Mit zwei Konten bleibt der Host Mitglied; das gehört zu `lobby-live`. Neuer Beitritt nach a) mit frisch erstellter
 Lobby klappt.
 
-Nicht geprüft: Zeitlimits Lobby, Connect und GameJoin im Spiel (nur in `SessionTests`), `Busy` mit einem zweiten Client,
+Nicht geprüft: Zeitlimits Lobby, Connect und GameJoin im Spiel (nur in `SessionTests`), `Busy` mit einem vierten Client,
 Gegenprobe über das Internet (Live-Sitzung zu zweit).
 
 ## Tests

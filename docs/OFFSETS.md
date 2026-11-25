@@ -411,6 +411,7 @@ Was die Mod nutzt, steht zusätzlich in `src/Game/Offsets.h` und wird dort beim 
 | `AGameStateBase` | PlayerArray | `0x2C0` |
 | `UNetDriver` | ServerConnection, ClientConnections | `0x100`, `0x108` |
 | `UNetDriver` | bClampListenServerTickRate (Bit 0), NetServerMaxTickRate, MaxNetTickRate, MaxInternetClientRate, MaxClientRate | `0xAC`, `0xB0`, `0xD0`, `0xD4`, `0xD8` |
+| `UNetConnection` | RemoteAddr, `sockaddr_in` bei `+0x8` ([MEHR_SPIELER](MEHR_SPIELER.md)) | `0x170` |
 | `UPlayer` (auch `UNetConnection`) | CurrentNetSpeed, ConfiguredInternetSpeed, ConfiguredLanSpeed | `0x38`, `0x3C`, `0x40` |
 | `UTutorialStateSubsystem` | SkipTutorialFlag | `0xB8` |
 | `UDDBalanceTelemetrySettings` | bEnabled, ServerBaseURL, bAttachSaveFile | `0x38`, `0x40`, `0x60` |
@@ -421,7 +422,7 @@ Was die Mod nutzt, steht zusätzlich in `src/Game/Offsets.h` und wird dort beim 
 | Controller-TSet | Allokationsbits / sekundäre Bits / Bitanzahl | Inline `+0x10`, Zeiger `+0x20`, Anzahl `+0x28` |
 | Controller-TSet | FirstFree / NumFree / Hash | `+0x30` / `+0x34`; Inline-Hash `+0x38`, sekundär `+0x40`, Größe `+0x48` |
 | Controller-TSet | Nativer Add-Helfer (RVA) | `0x57BD5E0`, `(Set*, int32* ResultIndex, Controller* const*, bool* AlreadyPresent)` |
-| `ADDMissionGameMode` | Nativer Controller-Registrierungsweg (RVA) | `0x58FB020`, `(GameMode*, Controller*)`; TSet-Add bei `0x58FB11D`, danach Broadcast bei `0x58FB133`. Spike hängt **nach** der Originalfunktion an; kein erneuter Registrierungsaufruf. Statisch belegt, Travel-Abdeckung des Hooks noch zu messen. |
+| `ADDMissionGameMode` | Nativer Controller-Registrierungsweg (RVA) | `0x58FB020`, `(GameMode*, Controller*)`; TSet-Add bei `0x58FB11D`, danach Broadcast bei `0x58FB133`. Hook hängt **nach** dem Original an, ohne erneuten Registrierungsaufruf. Travel-Abdeckung offen. |
 | Controller-TSet | Nativer SparseArray-RemoveAt-Helfer (RVA) | `0x12D6BA0`, `(Set*, int32 Index, int32 Count)`; Hash vorher aushängen |
 | TSet | Data, Num, FirstFree, NumFree, Element-Stride | `+0`, `+8`, `+0x30`, `+0x34`, `0x10` |
 | GameInstance | PendingGameStateComponentTravelStates, LastRoundChangeReason | `0x248`, `0x299` |

@@ -9,6 +9,7 @@
 #include "Game/Objects.h"
 #include "Game/Offsets.h"
 #include "Game/PatchRuntime.h"
+#include "Game/RemoteP2Policy.h"
 
 #ifdef DDCOOP_WITH_SDK
 #pragma warning(push, 0)
@@ -123,7 +124,7 @@ unsigned ShowSharedProgress(const SharedProgress& Value)
     const uintptr_t SetPercent = NativeFunction("SetPercent", "ProgressBar", PercentFunction);
     if (!UpdateLevel)
         UpdateLevel = Objects::FindObject("UpdateLevel", "WP_PlayerOverlay_C");
-    if (!Players || Count < 1 || Count > 2 || !SetPercent || !UpdateLevel)
+    if (!Players || Count < 1 || Count > MaxPlayers || !SetPercent || !UpdateLevel)
         return 0;
     if (std::chrono::steady_clock::now() >= NextScan)
     {

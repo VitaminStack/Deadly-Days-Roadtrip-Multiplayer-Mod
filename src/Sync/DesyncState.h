@@ -2,6 +2,7 @@
 
 #include <optional>
 #include "Game/DesyncSnapshot.h"
+#include "Game/RemoteP2Policy.h"
 #include "Net/Protocol.h"
 
 namespace Sync::Desync
@@ -55,7 +56,7 @@ inline bool Valid(const Packet& P)
         if (!(P.Image.Known & Bit(i)) && P.Image.Values[i]) return false;
     return (!(P.Image.Known & Bit(Game::Desync::Day)) || P.Image.Values[Game::Desync::Day] <= 100000) &&
            (!(P.Image.Known & Bit(Game::Desync::Phase)) || P.Image.Values[Game::Desync::Phase] <= 1) &&
-           (!(P.Image.Known & Bit(Game::Desync::Players)) || P.Image.Values[Game::Desync::Players] <= 2) &&
+           (!(P.Image.Known & Bit(Game::Desync::Players)) || P.Image.Values[Game::Desync::Players] <= Game::MaxPlayers) &&
            (!(P.Image.Known & Bit(Game::Desync::Enemies)) || P.Image.Values[Game::Desync::Enemies] <= 20000);
 }
 inline std::vector<uint8_t> Encode(const Packet& P)

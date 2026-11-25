@@ -7,7 +7,7 @@ New-Item -ItemType Directory -Force -Path $script:CommandDir | Out-Null
 $Held = Enter-StopLock
 if (Test-OwnSessionRunning) {
     $Session = Get-Content $File -Raw | ConvertFrom-Json
-    foreach ($ProcessId in $Session.Host, $Session.Client) {
+    foreach ($ProcessId in @($Session.Host, $Session.Client) + @($Session.Extra | Where-Object { $_ })) {
         if (Test-GameProcess $ProcessId) { Stop-Process -Id $ProcessId -Force }
     }
     # Windows gibt spike.dll erst nach ein paar Sekunden frei.

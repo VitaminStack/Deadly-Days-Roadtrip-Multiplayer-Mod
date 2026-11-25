@@ -6,7 +6,7 @@ Zielarchitektur und datierte historische Untersuchungen; deren damalige Testgren
 
 ## Zielbild
 
-- **2 Spieler** online. Mehr ist aufwendig, weil die Coop-Logik fest auf P1 und P2 ausgelegt ist, siehe [Mehr als zwei Spieler (Analyse)](MEHR_SPIELER.md).
+- **Bis zu 4 Spieler** online, jeder mit eigenem Inventar. Die Coop-Logik kennt nur P1 und P2, der dritte und vierte Spieler sind Netzwerkspieler ohne Koop-Platz, siehe [Bis zu vier Spieler](MEHR_SPIELER.md).
 - **Lokal zuerst, minimal synchronisieren:** Der Client nutzt möglichst viel vorhandene lokale Logik;
   nur notwendige Multiplayer-Aktionen und gemeinsame Zustände werden übertragen.
 - **Eindeutige Spielautorität:** Der Host bestätigt gemeinsame Spielwirkungen; lokale UI,
@@ -294,7 +294,8 @@ Jede größere Technikentscheidung bekommt hier eine Zeile.
 | 02.11.2026 | Mod als native C++-DLL | Volle Kontrolle, UE4SS für 5.8 unbestätigt | Festgelegt |
 | 02.11.2026 | SDK nur im Modul `Game` | Spiel-Updates bleiben beherrschbar | Festgelegt |
 | 02.11.2026 | Weg A vor Weg B testen | RPCs sprechen dafür, ist deutlich weniger Arbeit | Durch G1-Entscheidung vom 04.11.2026 abgelöst |
-| 02.11.2026 | Ziel sind 2 Spieler | Coop-Logik fest auf P1 und P2 | Festgelegt |
+| 02.11.2026 | Ziel sind 2 Spieler | Coop-Logik fest auf P1 und P2 | Abgelöst am 25.11.2026 |
+| 25.11.2026 | Bis zu 4 Spieler, P3 und P4 als Netzwerkspieler ohne Koop-Platz | Sync je Peer, Zuordnung über den Tunnel-Port, siehe [Bis zu vier Spieler](MEHR_SPIELER.md) | Festgelegt |
 | 02.11.2026 | `version.dll` als Proxy, Mod in eigener `DDCoop.dll` | Der Proxy bleibt klein, die Modulgrenzen gelten | Vorläufig bis zum Spieltest |
 | 02.11.2026 | Build-Erkennung über den PE-Header der Exe | Steht im Speicher, das Steam-Manifest müsste die Mod erst suchen | Festgelegt |
 | 02.11.2026 | MinHook für Hooks, als Quellkopie im Repo | Klein, passt zu C++20, Klonen und CI brauchen keinen Zusatzschritt | Festgelegt |

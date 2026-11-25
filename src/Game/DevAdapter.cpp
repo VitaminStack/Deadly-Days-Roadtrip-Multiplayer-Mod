@@ -42,20 +42,24 @@ uintptr_t MissionState()
     return State && Objects::IsA(State, "DDMissionGameState") ? State : 0;
 }
 
-// Figur des Spielers (0 Host, 1 Client) ueber die PlayerArray des Missions-GameState, 0 ohne Figur.
-uintptr_t PlayerPawn(int Player)
+// Figur des Controllers, 0 steht für den eigenen lokalen Spieler. 0 ohne Figur.
+uintptr_t PlayerPawn(uintptr_t Controller)
 {
-    const uintptr_t State = MissionState();
-    const uintptr_t Players = State ? Memory::ReadPointer(State + Offsets::AGameStateBase::PlayerArray).value_or(0) : 0;
-    const int32_t Count = State ? Memory::Read<int32_t>(State + Offsets::AGameStateBase::PlayerArray + 8).value_or(0) : 0;
-    if (!Players || Player < 0 || Player >= Count || Count > 2)
-        return false;
+    const uintptr_t World = Patches::CurrentWorld();
+    if (!World || !MissionState())
+        return 0;
+    if (!Controller)
+    {
+        struct { uintptr_t WorldContext; int32_t PlayerIndex; uint32_t Padding; uintptr_t ReturnValue; } Get{World, 0, 0, 0};
+        if (!Call(Objects::FindNamed("Default__GameplayStatics"), "GameplayStatics", "GetPlayerController", &Get))
+            return 0;
+        Controller = Get.ReturnValue;
+    }
     uintptr_t Pawn = 0;
-    return Call(Memory::ReadPointer(Players + 8 * Player).value_or(0), "PlayerState", "GetPawn", &Pawn) &&
-        Objects::IsA(Pawn, "DDCharacter") ? Pawn : 0;
+    return Call(Controller, "Controller", "K2_GetPawn", &Pawn) && Objects::IsA(Pawn, "DDCharacter") ? Pawn : 0;
 }
 
-bool SpawnXp(int Player)
+bool SpawnXp(uintptr_t Player)
 {
     const uintptr_t Pawn = PlayerPawn(Player);
     Vector Position{};
@@ -68,7 +72,7 @@ bool SpawnXp(int Player)
 }
 
 // Der Schalter wechselt bei jedem Aufruf (Exec-Funktion der Figur, im Spike als Testhilfe belegt, docs/OFFSETS.md).
-bool ToggleGodmode(int Player)
+bool ToggleGodmode(uintptr_t Player)
 {
     return Call(PlayerPawn(Player), "DDCharacter", "DD_ToggleInvincible", nullptr);
 }
@@ -170,7 +174,7 @@ uintptr_t ItemLootTemplate()
 }
 
 // Ein Itemsack mit einem zufaelligen Item neben der Figur. Das Aufsammeln laeuft ueber den vorhandenen Lootpfad.
-bool SpawnRandomItem(int Player)
+bool SpawnRandomItem(uintptr_t Player)
 {
     const uintptr_t Pawn = PlayerPawn(Player);
     Vector Position{};
@@ -233,7 +237,7 @@ std::optional<DevPosition> CursorGroundPosition()
     return Last;
 }
 
-bool RunDevAction(DevAction Action, int Player, std::optional<DevPosition> Target)
+bool RunDevAction(DevAction Action, uintptr_t Player, std::optional<DevPosition> Target)
 {
     if (!Core::GameThread().IsDrainThread() || Patches::CurrentRole() == NetRole::Client || !MissionState())
         return false;
@@ -246,7 +250,8 @@ bool RunDevAction(DevAction Action, int Player, std::optional<DevPosition> Targe
     case DevAction::SpawnZombies: Done = SpawnZombies(Target); break;
     case DevAction::SpawnRandomItem: Done = SpawnRandomItem(Player); break;
     }
-    Core::Log::Info("Dev: Aktion {} fuer Spieler {} {}", static_cast<int>(Action), Player, Done ? "ausgefuehrt" : "fehlgeschlagen");
+    Core::Log::Info("Dev: Aktion {} fuer {} {}", static_cast<int>(Action), Player ? "einen Client" : "den eigenen Spieler",
+                    Done ? "ausgefuehrt" : "fehlgeschlagen");
     return Done;
 }
 }

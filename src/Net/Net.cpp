@@ -56,6 +56,8 @@ void StartTransport(TransportRequest Request)
     }
     TransportOptions Options;
     Options.Sim = NetSimFromCommandLine(GetCommandLineW());
+    if (const auto Port = ParseClientPort(GetCommandLineW()))
+        Options.ClientPort = *Port;
     // Testschalter ohne Lobby: 127.0.0.1 offen und jedes von Steam bestätigte Konto per P2P. Nie in normalen Sitzungen.
     Options.AllowLoopback = true;
     Options.Peers = PeerPolicy::AnyAccount;

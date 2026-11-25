@@ -125,6 +125,7 @@
     <ClInclude Include="PatchRuntime.h" />
     <ClInclude Include="Patches.h" />
     <ClInclude Include="RemoteP2Policy.h" />
+    <ClInclude Include="RemotePlayers.h" />
     <ClInclude Include="GameThread.h" />
     <ClInclude Include="Memory.h" />
     <ClInclude Include="AddressMap.h" />

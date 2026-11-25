@@ -2,11 +2,86 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <span>
+#include <vector>
 
 // Reine Logik für den Remote-Spieler als P2, ohne Spielzugriff, damit tests/GameTests sie prüfen kann. Herkunft:
 // Spike-Probe research/spikes/a-connect/RemoteP2.cpp, Belege in research/spikes/a-connect/RemoteP2.md.
+namespace Game
+{
+// Host: ein Peer des Kontrollkanals mit dem lokalen UDP-Port seines Tunnel-Links, 0 ohne Tunnel (docs/MEHR_SPIELER.md).
+struct PeerLink
+{
+    uint64_t Peer = 0;
+    uint16_t GamePort = 0;
+};
+
+// Höchstens so viele Spieler gleichzeitig: Host und drei Clients, wie die Steam-Lobby (Session::kMaxMembers).
+inline constexpr int32_t MaxPlayers = 4;
+}
+
 namespace Game::Patches
 {
+// Ein Remote-Controller des Hosts mit dem Port aus der Gegenadresse seiner Verbindung (TunnelPort), 0 wenn unbekannt.
+struct RemoteSlot
+{
+    uintptr_t Controller = 0;
+    uint16_t Port = 0;
+};
+
+struct PeerController
+{
+    uint64_t Peer = 0;
+    uintptr_t Controller = 0;
+};
+
+// sockaddr_in aus FInternetAddrBSD: Familie (little endian), Port (big endian), IPv4-Adresse. Nur eine Verbindung über den
+// Tunnel der Mod (AF_INET, 127.0.0.1) liefert ihren Port, sonst 0.
+constexpr uint16_t TunnelPort(const uint8_t (&Address)[8])
+{
+    const uint16_t Family = static_cast<uint16_t>(Address[0] | Address[1] << 8);
+    if (Family != 2 || Address[4] != 127 || Address[5] != 0 || Address[6] != 0 || Address[7] != 1)
+        return 0;
+    return static_cast<uint16_t>(Address[2] << 8 | Address[3]);
+}
+
+// Ordnet Peers ihren Controllern zu: über einen Port, den genau ein Remote trägt. Ohne Port nur, wenn es genau einen Link
+// und genau einen Remote gibt. Sonst bleibt der Peer offen, die Mod rät nie. Reihenfolge der Links bleibt.
+inline std::vector<PeerController> MatchPeers(std::span<const PeerLink> Links, std::span<const RemoteSlot> Remotes)
+{
+    std::vector<PeerController> Result;
+    if (Links.size() == 1 && Remotes.size() == 1 && (!Links[0].GamePort || !Remotes[0].Port || Links[0].GamePort == Remotes[0].Port))
+    {
+        Result.push_back({Links[0].Peer, Remotes[0].Controller});
+        return Result;
+    }
+    for (const PeerLink& Link : Links)
+    {
+        if (!Link.GamePort)
+            continue;
+        uintptr_t Found = 0;
+        int Matches = 0;
+        for (const RemoteSlot& Remote : Remotes)
+            if (Remote.Port == Link.GamePort)
+            {
+                Found = Remote.Controller;
+                ++Matches;
+            }
+        if (Matches == 1)
+            Result.push_back({Link.Peer, Found});
+    }
+    return Result;
+}
+
+// Welcher Remote als P2 in ActivePlayers steht: der bisherige, solange er da ist, sonst der erste der PlayerArray.
+constexpr uintptr_t ChooseP2(uintptr_t Current, std::span<const uintptr_t> Remotes)
+{
+    for (const uintptr_t Remote : Remotes)
+        if (Remote == Current)
+            return Current;
+    return Remotes.empty() ? 0 : Remotes[0];
+}
+
 // Schwacher UObject-Verweis (FWeakObjectPtr): Platz im Objekt-Array und dessen Seriennummer.
 struct WeakController
 {

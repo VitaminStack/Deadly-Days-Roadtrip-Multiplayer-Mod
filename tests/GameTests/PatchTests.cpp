@@ -720,6 +720,53 @@ TEST_CASE("RemoteP2: Beitrittsmeldung nur einmal je Welt und Controller")
     CHECK_FALSE(SameRemoteNotification(100, {10, 21}, 100, {10, 20}));
 }
 
+TEST_CASE("Mehrere Spieler: Port eines Tunnel-Links aus der Gegenadresse")
+{
+    const uint8_t Tunnel[8] = {2, 0, 0x1E, 0x61, 127, 0, 0, 1}; // AF_INET, Port 7777 (big endian), 127.0.0.1
+    CHECK(TunnelPort(Tunnel) == 7777);
+    const uint8_t Ipv6[8] = {23, 0, 0x1E, 0x61, 127, 0, 0, 1};
+    CHECK(TunnelPort(Ipv6) == 0);
+    const uint8_t Lan[8] = {2, 0, 0x1E, 0x61, 192, 168, 0, 2}; // ohne Tunnel: Spiel-Socket des Clients, kein Link
+    CHECK(TunnelPort(Lan) == 0);
+    const uint8_t NoPort[8] = {2, 0, 0, 0, 127, 0, 0, 1};
+    CHECK(TunnelPort(NoPort) == 0);
+}
+
+TEST_CASE("Mehrere Spieler: Peer und Controller nur über einen eindeutigen Port, sonst ein Paar allein")
+{
+    const PeerLink Links[] = {{11, 50001}, {12, 50002}, {13, 50003}};
+    const RemoteSlot Remotes[] = {{0xB000, 50002}, {0xA000, 50001}, {0xC000, 0}};
+    const auto Pairs = MatchPeers(Links, Remotes);
+    REQUIRE(Pairs.size() == 2);
+    CHECK((Pairs[0].Peer == 11 && Pairs[0].Controller == 0xA000));
+    CHECK((Pairs[1].Peer == 12 && Pairs[1].Controller == 0xB000));
+    // Peer 13 ohne passenden Port bleibt offen, auch wenn nur noch ein Controller übrig ist: nie raten.
+
+    // Ein Link und ein Remote ohne lesbaren Port: das einzige Paar (Zweierlauf ohne Tunnel).
+    const PeerLink One[] = {{11, 0}};
+    const RemoteSlot OneRemote[] = {{0xA000, 0}};
+    const auto Single = MatchPeers(One, OneRemote);
+    REQUIRE(Single.size() == 1);
+    CHECK((Single[0].Peer == 11 && Single[0].Controller == 0xA000));
+    // Zwei Remotes, ein Link ohne Port: kein Paar.
+    const RemoteSlot TwoRemotes[] = {{0xA000, 0}, {0xB000, 0}};
+    CHECK(MatchPeers(One, TwoRemotes).empty());
+    // Zwei Remotes mit demselben Port (Layout falsch gelesen): keiner bekommt den Peer.
+    const PeerLink Link1[] = {{11, 50001}};
+    const RemoteSlot SamePort[] = {{0xA000, 50001}, {0xB000, 50001}};
+    CHECK(MatchPeers(Link1, SamePort).empty());
+    CHECK(MatchPeers({}, OneRemote).empty());
+}
+
+TEST_CASE("Mehrere Spieler: P2 bleibt beim zuerst gebundenen Remote, solange er da ist")
+{
+    const uintptr_t Remotes[] = {0xA000, 0xB000, 0xC000};
+    CHECK(ChooseP2(0, Remotes) == 0xA000);
+    CHECK(ChooseP2(0xB000, Remotes) == 0xB000);
+    CHECK(ChooseP2(0xD000, Remotes) == 0xA000); // gebundener P2 gegangen: nächster Remote
+    CHECK(ChooseP2(0xA000, {}) == 0);
+}
+
 TEST_CASE("RemoteP2: abgebaute Figuren verlassen die Spielerliste des Sensenmanns")
 {
     const auto Dead = [](uintptr_t Player) { return Player == 0 || Player == 0x2000; };

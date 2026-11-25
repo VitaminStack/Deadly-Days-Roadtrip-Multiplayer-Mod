@@ -164,6 +164,8 @@ TEST_CASE("Zugriff: Fremder Versuch vor dem Freund belegt keinen Platz")
     TransportOptions Options = LobbyPorts(47980);
     // Lang genug, dass der Freund sicher verbindet, solange der Fremde noch wartet.
     Options.AuthorizeWaitMs = 800;
+    // Ein einziger Platz: Nur so zeigt der Test, dass der Fremde ihn nicht belegt.
+    Options.MaxClients = 1;
     Transport Host(Network->Account(kHostId), Options);
     REQUIRE(Host.StartHost());
     Host.SetLobbyMembers({kHostId, kFriendId});
@@ -179,14 +181,14 @@ TEST_CASE("Zugriff: Fremder Versuch vor dem Freund belegt keinen Platz")
     CHECK(Stranger.Stats().Message == kNotMember);
     CHECK(Friend.Stats().State == TransportState::Connected);
 
-    SUBCASE("Ein zweites Mitglied bekommt Busy, nicht den Platz")
+    SUBCASE("Ein weiteres Mitglied bekommt Busy, nicht den Platz")
     {
         constexpr uint64_t kSecondFriend = 6004;
         Host.SetLobbyMembers({kHostId, kFriendId, kSecondFriend});
         Transport Second(Network->Account(kSecondFriend), OtherClient(Options, 20));
         REQUIRE(Second.StartClient(kHostId));
         REQUIRE(WaitFor([&] { return Second.Stats().State == TransportState::Failed; }));
-        CHECK(Second.Stats().Message == "Der Host hat schon einen Mitspieler");
+        CHECK(Second.Stats().Message == "Die Sitzung des Hosts ist voll");
         CHECK(Friend.Stats().State == TransportState::Connected);
     }
 }

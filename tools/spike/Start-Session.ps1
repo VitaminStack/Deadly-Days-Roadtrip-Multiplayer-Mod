@@ -28,6 +28,9 @@ param(
     # Both: Host und Client auf diesem PC. Host oder Client: nur diese Instanz, die Gegenseite laeuft auf einem anderen PC.
     [ValidateSet('Both', 'Host', 'Client')]
     [string]$Role = 'Both',
+    # Nur -Role Both -Mod -Tunnel Lobby: so viele Client-Instanzen auf diesem PC (bis zu drei), jede mit eigenem Tunnel-Port ab 7778.
+    [ValidateRange(1, 3)]
+    [int]$Clients = 1,
     # Nur mit -Role Client: SteamID64 des Hosts bei -Tunnel P2p, sonst Adresse:Port fuer eine direkte Verbindung.
     [string]$Peer,
     # Nur mit -Role Host oder Client: so lange auf die Gegenseite warten.
@@ -66,6 +69,7 @@ if ($SteamLaunch) {
 else { Remove-Item Env:DDCOOP_STEAM_INSTALL -ErrorAction SilentlyContinue }
 if ($Role -eq 'Client' -and -not $Peer -and -not $SteamLaunch) { throw '-Role Client braucht -Peer: SteamID64 des Hosts (mit -Tunnel P2p) oder Adresse:Port.' }
 if ($Role -ne 'Client' -and $Peer) { throw '-Peer gilt nur mit -Role Client.' }
+if ($Clients -gt 1 -and ($Role -ne 'Both' -or -not $Mod -or $Tunnel -ne 'Lobby')) { throw '-Clients ueber 1 braucht -Role Both -Mod -Tunnel Lobby.' }
 if ($Role -ne 'Both' -and $Tunnel -eq 'Ip') { throw '-Tunnel Ip verbindet nur auf einem PC. Fuer zwei PCs -Tunnel P2p verwenden.' }
 if ($Tunnel -in 'Mod', 'Lobby' -and -not $Mod) { throw "-Tunnel $Tunnel braucht -Mod." }
 # Mit der Mod kommt die Host-Karte ueber ihren Kontrollkanal (missionsstart), nicht ueber die Datei des Spikes.
@@ -154,10 +158,12 @@ function Initialize-RealSave([string]$UserDir) {
     New-Item -ItemType Directory -Force -Path $Target | Out-Null
     Get-ChildItem -LiteralPath $Source -Filter '*.sav' -File | Copy-Item -Destination $Target
 }
-function Start-Instance([string]$Name, [int]$X) {
+function Start-Instance([string]$Name, [int]$X, [int]$Y = 0, [int]$ClientPort = 0) {
     $UserDir = Join-Path $script:SessionDir "ud_$Name"
     if ($RealSave) { Initialize-RealSave $UserDir }
-    $Arguments = @('-windowed', '-ResX=800', '-ResY=450', "-WinX=$($X + $script:OriginX)", "-WinY=$script:OriginY", '-nosplash', "-UserDir=`"$UserDir`"") + (Get-TransportArgument $Name)
+    $Arguments = @('-windowed', '-ResX=800', '-ResY=450', "-WinX=$($X + $script:OriginX)", "-WinY=$($Y + $script:OriginY)", '-nosplash', "-UserDir=`"$UserDir`"") + (Get-TransportArgument $Name)
+    # Weitere Clients auf diesem PC brauchen je einen eigenen Tunnel-Port, siehe src\Net\README.md.
+    if ($ClientPort) { $Arguments += "-ddcoop_clientport=$ClientPort" }
     if ($NetSim) { $Arguments += "-ddcoop_netsim=$NetSim" }
     # Testkanal der Mod (Pipe mit Antworten), siehe Common.ps1 Test-ModControl.
     if ($Mod) { $Arguments += '-ddcoop_control' }
@@ -232,16 +238,23 @@ if ($SteamLaunch) {
 }
 $Client = if ($SteamLaunch) { $Client }
 elseif ($Role -ne 'Host') { Start-Instance 'client' $(if ($Role -eq 'Both') { 820 } else { 0 }) }
-$Local = @($GameHost, $Client) | Where-Object { $_ }
+# Weitere Clients (-Clients): eigene Testordner ud_client2 und ud_client3, Tunnel-Port 7779 und 7780.
+$Extra = @(if ($Clients -gt 1) { foreach ($Index in 2..$Clients) { $Slot = Get-WindowSlot $Index; Start-Instance "client$Index" $Slot.X $Slot.Y (7777 + $Index) } })
+$ExtraIds = @($Extra | ForEach-Object { $_.Id })
+$Local = @($GameHost, $Client) + $Extra | Where-Object { $_ }
 $LocalIds = @($Local | ForEach-Object { $_.Id })
 # Die Rolle, die auf einem anderen PC laeuft, steht mit Prozess-ID 0 in der Sitzung.
 $HostId = if ($GameHost) { $GameHost.Id } else { 0 }
 $ClientId = if ($Client) { $Client.Id } else { 0 }
-@{ Host = $HostId; Client = $ClientId; Role = $Role; Guard = $Guard.Id; Mod = [bool]$Mod; Control = [bool]($Mod -and -not $SteamLaunch); SteamInstall = [bool]$SteamLaunch; Tunnel = $Tunnel; NetSim = $NetSim; NoSpike = [bool]$NoSpike; Map = $Map; Started = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() } | ConvertTo-Json |
+@{ Host = $HostId; Client = $ClientId; Role = $Role; Guard = $Guard.Id; Mod = [bool]$Mod; Control = [bool]($Mod -and -not $SteamLaunch); SteamInstall = [bool]$SteamLaunch; Tunnel = $Tunnel; NetSim = $NetSim; NoSpike = [bool]$NoSpike; Map = $Map; Extra = $ExtraIds; Started = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() } | ConvertTo-Json |
     Set-Content (Join-Path $script:SessionDir 'session.json') -Encoding ascii
-Write-SessionLock $HostId $ClientId | Set-Content $script:LockFile -Encoding ascii
+Write-SessionLock $HostId $ClientId $ExtraIds | Set-Content $script:LockFile -Encoding ascii
 
-function Move-SessionWindows { if ($GameHost) { Move-GameWindow $GameHost.Id 0 }; if ($Client) { Move-GameWindow $Client.Id $(if ($Role -eq 'Both') { 820 } else { 0 }) } }
+function Move-SessionWindows {
+    if ($GameHost) { Move-GameWindow $GameHost.Id 0 }
+    if ($Client) { Move-GameWindow $Client.Id $(if ($Role -eq 'Both') { 820 } else { 0 }) }
+    for ($Index = 0; $Index -lt $Extra.Count; ++$Index) { $Slot = Get-WindowSlot ($Index + 2); Move-GameWindow $Extra[$Index].Id $Slot.X $Slot.Y }
+}
 # Beim Start ueber Steam tritt die Mod schon im Hauptmenue bei, das Hauptmenue ist dann oft nicht mehr zu sehen.
 if (-not $SteamLaunch) {
     foreach ($Instance in $Local) { Wait-MainMenu $Instance.Id $MenuTimeoutSeconds }
@@ -264,7 +277,9 @@ if ($Godmode) {
     Start-Sleep -Seconds 1
 }
 
-$HostHasClient = { (Get-NetState $GameHost.Id).clients -ge 1 }
+$HostHasClient = { (Get-NetState $GameHost.Id).clients -ge $Clients }
+# Jede Instanz sieht Host und alle Clients.
+$AllPlayers = $Clients + 1
 
 if ($GameHost -and $Tunnel -notin 'Lobby') {
     Send-GameConsole $GameHost.Id 'open /Game/Maps/MainMenu?listen'
@@ -285,6 +300,7 @@ if ($Role -eq 'Both') {
     }
     elseif ($Tunnel -eq 'Lobby') {
         Join-Lobby $Client.Id $LobbyId
+        foreach ($Instance in $Extra) { Join-Lobby $Instance.Id $LobbyId }
     }
     else {
         Send-SpikeCommand $GameHost.Id '!tunnel host'
@@ -294,7 +310,9 @@ if ($Role -eq 'Both') {
         Send-GameConsole $Client.Id 'open 127.0.0.1:7778'
     }
     Wait-Condition $HostHasClient 'Client beim Host angekommen' 120 $LocalIds
-    Wait-Condition { (Get-NetState $Client.Id).players -ge 2 } 'Client sieht beide Spieler' 60 $LocalIds
+    foreach ($Instance in @($Client) + $Extra) {
+        Wait-Condition { (Get-NetState $Instance.Id).players -ge $AllPlayers } "Client $($Instance.Id) sieht alle $AllPlayers Spieler" 60 $LocalIds
+    }
     Write-Step 'verbunden'
     Move-SessionWindows
 }
@@ -361,10 +379,12 @@ if ($GameHost -and (Get-NetState $GameHost.Id).world -ne $Target) {
     Send-GameTravel $GameHost.Id $Map
     Wait-Condition {
         $HostState = Get-NetState $GameHost.Id
-        if ($HostState.world -ne $Target -or $HostState.players -lt 2) { return $false }
-        if (-not $Client) { return $true }
-        $ClientState = Get-NetState $Client.Id
-        $ClientState.world -eq $Target -and $ClientState.players -ge 2
+        if ($HostState.world -ne $Target -or $HostState.players -lt $AllPlayers) { return $false }
+        foreach ($Instance in @($Client) + $Extra | Where-Object { $_ }) {
+            $ClientState = Get-NetState $Instance.Id
+            if ($ClientState.world -ne $Target -or $ClientState.players -lt $AllPlayers) { return $false }
+        }
+        $true
     } "Reise nach $Target" $TravelTimeoutSeconds $LocalIds
     Write-Step "in $Target"
     Move-SessionWindows
@@ -379,16 +399,17 @@ if ($NoSpike) {
     if ($Brief) {
         if ($GameHost) { Format-NetBrief $GameHost.Id 'Host' }
         if ($Client) { Format-NetBrief $Client.Id 'Client' }
+        foreach ($Instance in $Extra) { Format-NetBrief $Instance.Id 'Client' }
     }
     else { & py (Join-Path $PSScriptRoot 'netstate.py') $LocalIds }
     Write-Step 'Sitzung bereit, ohne Spike'
     if (-not $Brief) { Write-Output "Logs: $(($Local | ForEach-Object { Join-Path (Split-Path $Exe) "DDCoop\logs\ddcoop-$($_.Id).log" }) -join ' und ')" }
     return
 }
-if ($Client) {
-    Send-SpikeCommand $Client.Id '!cam'
+foreach ($Instance in @($Client) + $Extra | Where-Object { $_ }) {
+    Send-SpikeCommand $Instance.Id '!cam'
     Start-Sleep -Milliseconds 800
-    Send-SpikeCommand $Client.Id '!trace'
+    Send-SpikeCommand $Instance.Id '!trace'
 }
 if ($GameHost) { Send-SpikeCommand $GameHost.Id '!trace' }
 Start-Sleep -Milliseconds 800
@@ -397,7 +418,7 @@ if ($GameHost) {
     Start-Sleep -Milliseconds 800
     Send-SpikeCommand $GameHost.Id '!flow'
 }
-if ($Client) { Send-SpikeCommand $Client.Id '!flow' }
+foreach ($Instance in @($Client) + $Extra | Where-Object { $_ }) { Send-SpikeCommand $Instance.Id '!flow' }
 Start-Sleep -Milliseconds 800
 if ($GameHost) {
     Send-SpikeCommand $GameHost.Id '!arm'
@@ -406,6 +427,7 @@ if ($GameHost) {
 if ($Brief) {
     if ($GameHost) { Format-NetBrief $GameHost.Id 'Host' }
     if ($Client) { Format-NetBrief $Client.Id 'Client' }
+    foreach ($Instance in $Extra) { Format-NetBrief $Instance.Id 'Client' }
     Write-Step 'Sitzung bereit'
     return
 }

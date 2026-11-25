@@ -10,8 +10,11 @@
 #include "Game/ThreatAdapter.h"
 #include "Game/GameThread.h"
 #include "Game/PatchRuntime.h"
+#include "Game/RemotePlayers.h"
 #include "Net/Net.h"
+#include <algorithm>
 #include <chrono>
+#include <map>
 #include <span>
 
 namespace Sync
@@ -23,7 +26,18 @@ namespace
 {
 std::function<uint32_t()> DevSource;
 
-// Dev-Tab: Der Host fuehrt eigene Knoepfe direkt aus, Anfragen des Clients nach Eingang fuer dessen Figur.
+// Host: Game ordnet jedem Peer des Kontrollkanals seinen Controller zu, über den Port seines Tunnel-Links
+// (docs/MEHR_SPIELER.md). Jeden Takt vor den Familien, die Liste ändert sich mit jedem Beitritt und jeder Trennung.
+void UpdatePeerLinks(Net::Transport* Transport)
+{
+    std::vector<Game::PeerLink> Links;
+    if (Transport && Transport->Stats().IsHost)
+        for (const uint64_t Peer : Transport->ControlPeers())
+            Links.push_back({Peer, Transport->PeerGamePort(Peer)});
+    Game::SetPeerLinks(Links);
+}
+
+// Dev-Tab: Der Host fuehrt eigene Knoepfe direkt aus, Anfragen eines Clients nach Eingang fuer dessen Figur.
 void TickDev(Net::Transport* Transport)
 {
     const uint32_t Pressed = DevSource ? DevSource() : 0;
@@ -31,7 +45,14 @@ void TickDev(Net::Transport* Transport)
     {
         for (const auto& Message : Transport->TakeControlMessages(Dev::Request))
             if (const auto Request = Dev::Decode(Message.Value.Payload))
-                Game::RunDevAction(Request->Action, 1, Request->Target);
+            {
+                // Ohne zugeordneten Controller keine Figur raten; Gegner und Tank brauchen keine.
+                const uintptr_t Controller = Game::PeerController(Message.Peer);
+                if (Controller || Request->Action == Game::DevAction::SpawnZombies || Request->Action == Game::DevAction::FullTank)
+                    Game::RunDevAction(Request->Action, Controller, Request->Target);
+                else
+                    Core::Log::Warn("Dev: Anfrage eines Clients ohne zugeordnete Figur verworfen");
+            }
     }
     // Jeden Takt, damit beim Klick im Overlay der letzte Cursorpunkt ueber dem Spielbild bereitliegt.
     const auto Cursor = Game::CursorGroundPosition();
@@ -69,7 +90,7 @@ void TickMovement(Net::Transport& Transport)
     {
         for (const auto& Message : Transport.TakeControlMessages(Movement::DashInput))
             if (const auto Value = Movement::Decode(Message.Value.Payload))
-                Game::ReceiveDashInput(*Value);
+                Game::ReceiveDashInput(Game::PeerController(Message.Peer), *Value);
         return;
     }
     const auto Inputs = Game::TakeDashInputs();
@@ -119,7 +140,9 @@ void TickDamageNumbers(Net::Transport& Transport)
             return;
         const auto Payload = DamageNumbers::Encode(Hits);
         const auto Peers = Transport.ControlPeers();
-        static uint64_t Revision = 0;
+        // Je Client eine eigene Revision: Jeder Client sieht nur seine Nachrichten und erkennt an Lücken echte Verluste.
+        static std::map<uint64_t, uint64_t> Revisions;
+        std::erase_if(Revisions, [&Peers](const auto& Entry) { return std::find(Peers.begin(), Peers.end(), Entry.first) == Peers.end(); });
         if (Payload.empty())
             Game::NoteDamageNumbers(Note::EncodeFailed, Hits.size());
         else if (Peers.empty())
@@ -127,7 +150,8 @@ void TickDamageNumbers(Net::Transport& Transport)
         else
             for (const uint64_t Peer : Peers)
             {
-                // Die Revision zählt nur angenommene Nachrichten, damit der Client an Lücken echte Verluste erkennt.
+                // Die Revision zählt nur angenommene Nachrichten.
+                uint64_t& Revision = Revisions[Peer];
                 const bool Ok = Transport.SendControl(Peer, {1, 1, Revision + 1, DamageNumbers::HitsType, Payload});
                 Revision += Ok;
                 Game::NoteDamageNumbers(Ok ? Note::Sent : Note::SendFailed, Hits.size());
@@ -260,6 +284,7 @@ void Start(const Core::Config& Config, DiagnosticSink Diagnostics)
     {
         using Clock = std::chrono::steady_clock;
         const auto Transport = Net::CurrentTransport();
+        UpdatePeerLinks(Transport.get());
         if (Transport)
         {
             const Game::GameThread::SlowScope Watch("Sync-Bewegung");

@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <map>
 #include <optional>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -53,18 +54,23 @@ struct Restore
 //   wieder da, altes Inventar       -> kurzer Ausfall des Kontrollkanals, kein Restore
 //   neues Inventar ohne Trennung    -> Reise oder neuer Tag: das Spiel trägt das Inventar selbst hinüber, kein Restore
 // So bucht nichts doppelt: Jedes neue Inventar bekommt höchstens einen Restore, und nur nach einer beobachteten Trennung.
+// Mehrere Clients haben je ein Konto und damit je einen eigenen Eintrag.
 class Ledger
 {
 public:
-    // Key: Steam-Identität des Peers, 0 ohne Peer. Inventory: Kennung des Client-Inventars beim Host, 0 ohne. Now: sein Bild, nullopt
-    // wenn nicht lesbar. Busy: gerade keine Ersetzung (offene Airdrop-Auswahl, Edit des Clients). Gibt höchstens einmal je neuem
-    // Inventar einen Restore zurück; danach muss Done folgen.
+    // Je Takt vor Tick: Steam-Identitäten aller verbundenen Clients. Wer fehlt, gilt als getrennt.
+    void Connected(std::span<const uint64_t> Keys)
+    {
+        for (auto& [Key, R] : Records)
+            if (std::find(Keys.begin(), Keys.end(), Key) == Keys.end())
+                R.Left = true;
+    }
+
+    // Je verbundenem Client. Key: seine Steam-Identität, 0 ohne. Inventory: Kennung seines Inventars beim Host, 0 ohne. Now: sein
+    // Bild, nullopt wenn nicht lesbar. Busy: gerade keine Ersetzung (offene Airdrop-Auswahl, Edit des Clients). Gibt höchstens einmal
+    // je neuem Inventar einen Restore zurück; danach muss Done für denselben Key folgen.
     std::optional<Restore> Tick(uint64_t Key, uint64_t Inventory, const std::optional<Snapshot>& Now, bool Busy, uint64_t NowMs)
     {
-        if (Key != Current && Current)
-            if (const auto It = Records.find(Current); It != Records.end())
-                It->second.Left = true;
-        Current = Key;
         if (!Key || !Inventory || !Now)
             return std::nullopt;
         Record& R = Records[Key];
@@ -110,9 +116,9 @@ public:
 
     // Ergebnis des letzten Restore. Gelungen: das neue Inventar gilt, das Bild folgt ihm wieder. Fehlgeschlagen: das Bild bleibt
     // eingefroren, dieses Inventar bekommt keinen zweiten Versuch (nichts doppelt), ein späterer Wiederbeitritt versucht es erneut.
-    void Done(bool Ok)
+    void Done(uint64_t Key, bool Ok)
     {
-        const auto It = Records.find(Current);
+        const auto It = Records.find(Key);
         if (It == Records.end() || !It->second.Restoring)
             return;
         Record& R = It->second;
@@ -136,7 +142,6 @@ public:
     {
         const bool Had = !Records.empty();
         Records.clear();
-        Current = 0;
         return Had;
     }
 
@@ -174,7 +179,6 @@ private:
     }
 
     std::map<uint64_t, Record> Records;
-    uint64_t Current = 0;
 };
 
 // Rucksackfelder für den Restore: anzulegen sind die gemerkten, die fehlen; abzubauen die vorhandenen, die das Bild nicht kennt.

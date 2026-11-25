@@ -223,6 +223,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `update-welt` | Wartung | Live-Test 09.11.2026, ein PC, Build 26495302, -Mod -Tunnel Lobby -NoSpike, 44 Patches: XP-Baelle beim Client sichtbar (Log 'XP-Baelle: 1 Host-Ausstoss(e) angezeigt', 5x, leicht verzoegert), Client-Dash am Kamerarand bleibt in der gemeinsamen Kamera, kein Absturz. |
 | `versions-meldung` | Wartung | Abgelehnte erste Nachricht nennt den Grund mit beiden Werten (alte Mod, Protokoll, Build, Mod-Version, Rolle), siehe [Handshake](CONTROL_PROTOCOL.md#handshake) |
 | `vfx-sound` | 5 | Sound und Effekte Host gegen Client gezählt (Spike-Befehl !fx), vier belegte Lücken als opt-waffen-sound, opt-gegner-sound, opt-airdrop-sound, opt-bedrohung-sound angelegt, der Schrott-Dauersound war der in opt-levelup-sound gemeldete Fehler, siehe [Sound und Effekte beim Client](archive/GAME_ANALYSIS.md#sound-und-effekte-beim-client-vfx-sound) |
+| `vier-spieler` | Verbesserung | Host und drei Clients in MetaBase und Mission, jeder Peer seinem Controller zugeordnet, siehe [Bis zu vier Spieler](MEHR_SPIELER.md). |
 | `virenscanner` | 6 | Defender 1.463.207.0 meldet das Paket nicht; Umgang mit Fehlalarmen und Proton (nicht unterstützt) in INSTALL.md und LIESMICH.txt |
 | `waffe-client-auswahl` | 5 | Client-Waffen wirken sofort: Entfernstil wie das Panel, Host frischt Wirkungen nach dem Edit auf, Client zeigt Waffenslots lokal vor |
 | `wechsel-1-0-2` | Wartung | Entfällt: Nutzerentscheidung vom 21.11.2026, die Entwicklungskopien wechseln direkt auf 26786272, siehe `wechsel-26786272` |

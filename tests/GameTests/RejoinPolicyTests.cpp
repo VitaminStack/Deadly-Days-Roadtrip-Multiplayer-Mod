@@ -26,13 +26,22 @@ Snapshot Start()
     return S;
 }
 
-// Der Client spielt mit OldInventory, trennt sich und kommt mit NewInventory (Startinventar) zurück; Zeit ab T.
+// Der Client spielt mit OldInventory, trennt sich und kommt mit NewInventory (Startinventar) zurück; Zeit ab T. Nur Key ist verbunden.
 std::optional<Restore> Rejoin(Ledger& L, uint64_t Key, uint64_t Inventory, uint64_t& T)
 {
     std::optional<Restore> Result;
+    const uint64_t Keys[] = {Key};
     for (uint64_t Waited = 0; Waited <= SettleMs + StableMs && !Result; Waited += 500)
+    {
+        L.Connected(Keys);
         Result = L.Tick(Key, Inventory, Start(), false, T += 500);
+    }
     return Result;
+}
+
+void Disconnect(Ledger& L)
+{
+    L.Connected(std::span<const uint64_t>{});
 }
 }
 
@@ -43,7 +52,7 @@ TEST_CASE("wiedereintritt-inventar: Host gibt dem neuen PlayerState nach einer T
     CHECK_FALSE(L.Tick(Alice, OldInventory, Start(), false, T));
     CHECK_FALSE(L.Tick(Alice, OldInventory, Played(), false, T += 500)); // erspieltes Inventar wird nachgeführt
     CHECK(L.Saved(Alice) == Played());
-    CHECK_FALSE(L.Tick(0, 0, std::nullopt, false, T += 500)); // Trennung
+    Disconnect(L); // Trennung
     CHECK(L.HasLeft(Alice));
     CHECK(L.Saved(Alice) == Played());
 
@@ -54,7 +63,7 @@ TEST_CASE("wiedereintritt-inventar: Host gibt dem neuen PlayerState nach einer T
     REQUIRE(R);
     CHECK(R->Inventory == NewInventory);
     CHECK(R->Saved == Played());
-    L.Done(true);
+    L.Done(Alice, true);
     CHECK_FALSE(L.HasLeft(Alice));
     // Kein zweiter Restore für dasselbe Inventar, das Bild folgt ihm wieder.
     for (int i = 0; i < 40; ++i)
@@ -75,7 +84,7 @@ TEST_CASE("wiedereintritt-inventar: Reise, neuer Tag und kurzer Ausfall des Kont
     CHECK(L.Saved(Alice) == Start());
     // Kurzer Ausfall des Kontrollkanals, dasselbe Inventar lebt weiter.
     L.Tick(Alice, NewInventory, Played(), false, T += 500);
-    L.Tick(0, 0, std::nullopt, false, T += 500);
+    Disconnect(L);
     CHECK(L.HasLeft(Alice));
     CHECK_FALSE(Rejoin(L, Alice, NewInventory, T));
     CHECK_FALSE(L.HasLeft(Alice));
@@ -86,11 +95,11 @@ TEST_CASE("wiedereintritt-inventar: Schlüssel ist die Steam-Identität, ein and
     Ledger L;
     uint64_t T = 0;
     L.Tick(Alice, OldInventory, Played(), false, T += 500);
-    L.Tick(0, 0, std::nullopt, false, T += 500);
+    Disconnect(L);
     // Bob tritt bei: kein Restore, sein Inventar wird eigens gemerkt.
     CHECK_FALSE(Rejoin(L, Bob, NewInventory, T));
     CHECK(L.Saved(Bob) == Start());
-    // Alice kommt nach Bob wieder (Wechsel des Peers zählt als Trennung von Bob).
+    // Alice kommt nach Bob wieder, Bob ist nicht mehr verbunden.
     const auto R = Rejoin(L, Alice, ThirdInventory, T);
     REQUIRE(R);
     CHECK(R->Saved == Played());
@@ -104,7 +113,7 @@ TEST_CASE("wiedereintritt-inventar: offene Auswahl verschiebt, Fehlschlag bucht 
     Ledger L;
     uint64_t T = 0;
     L.Tick(Alice, OldInventory, Played(), false, T += 500);
-    L.Tick(0, 0, std::nullopt, false, T += 500);
+    Disconnect(L);
     // Während einer Airdrop-Auswahl oder im Lager kein Ersetzen.
     for (int i = 0; i < 40; ++i)
         CHECK_FALSE(L.Tick(Alice, NewInventory, Start(), true, T += 500));
@@ -116,22 +125,51 @@ TEST_CASE("wiedereintritt-inventar: offene Auswahl verschiebt, Fehlschlag bucht 
     auto R = L.Tick(Alice, NewInventory, Growing, false, T += 500);
     REQUIRE(R);
     // Fehlgeschlagen: dieses Inventar nie wieder, Bild bleibt eingefroren für den nächsten Wiederbeitritt.
-    L.Done(false);
+    L.Done(Alice, false);
     for (int i = 0; i < 40; ++i)
         CHECK_FALSE(L.Tick(Alice, NewInventory, Start(), false, T += 500));
     CHECK(L.Saved(Alice) == Played());
-    L.Tick(0, 0, std::nullopt, false, T += 500);
+    Disconnect(L);
     R = Rejoin(L, Alice, ThirdInventory, T);
     REQUIRE(R);
     CHECK(R->Saved == Played());
-    L.Done(true);
+    L.Done(Alice, true);
 
     // Run-Ende: nichts mehr zurückgeben.
-    L.Tick(0, 0, std::nullopt, false, T += 500);
+    Disconnect(L);
     CHECK(L.Forget());
     CHECK_FALSE(L.Forget());
     CHECK_FALSE(Rejoin(L, Alice, NewInventory + 100, T));
     CHECK(L.Saved(Alice) == Start());
+}
+
+TEST_CASE("wiedereintritt-inventar: mehrere Clients, nur wer sich getrennt hat, bekommt sein Inventar zurück")
+{
+    Ledger L;
+    uint64_t T = 0;
+    const uint64_t Both[] = {Alice, Bob}, OnlyBob[] = {Bob};
+    L.Connected(Both);
+    L.Tick(Alice, OldInventory, Played(), false, T += 500);
+    L.Tick(Bob, ThirdInventory, Start(), false, T += 500);
+    L.Connected(OnlyBob); // Alice trennt sich, Bob spielt weiter
+    CHECK(L.HasLeft(Alice));
+    CHECK_FALSE(L.HasLeft(Bob));
+    L.Tick(Bob, ThirdInventory, Played(), false, T += 500);
+    CHECK(L.Saved(Bob) == Played());
+    std::optional<Restore> R;
+    for (uint64_t Waited = 0; Waited <= SettleMs + StableMs && !R; Waited += 500)
+    {
+        L.Connected(Both);
+        CHECK_FALSE(L.Tick(Bob, ThirdInventory, Played(), false, T += 500));
+        R = L.Tick(Alice, NewInventory, Start(), false, T);
+    }
+    REQUIRE(R);
+    CHECK(R->Inventory == NewInventory);
+    CHECK(R->Saved == Played());
+    L.Done(Bob, false); // kein offener Restore für Bob, ohne Wirkung
+    L.Done(Alice, true);
+    CHECK_FALSE(L.HasLeft(Alice));
+    CHECK_FALSE(L.HasLeft(Bob));
 }
 
 TEST_CASE("wiedereintritt-inventar: leeres Bild eines abgebauten Inventars überschreibt das volle nicht")

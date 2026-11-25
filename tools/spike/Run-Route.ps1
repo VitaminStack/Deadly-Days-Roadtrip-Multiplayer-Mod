@@ -61,7 +61,8 @@ function Save-Shots([string]$Name) {
 # Startet die Pruefung im Hintergrund, damit sie die Ladezeit ab dem Klick misst, waehrend hier Bilder entstehen.
 function Start-Check([string]$Label, [string[]]$Extra) {
     $Out = Join-Path $RunDir "$Label.json"
-    $Arguments = @("`"$Check`"", $Session.Host, $Session.Client, '--label', $Label, '--log', "`"$Log`"") + $Extra
+    $Players = 2 + @($Session.Extra | Where-Object { $_ }).Count
+    $Arguments = @("`"$Check`"", $Session.Host, $Session.Client, '--label', $Label, '--log', "`"$Log`"", '--players', $Players) + $Extra
     $Process = Start-Process py -ArgumentList $Arguments -RedirectStandardOutput $Out -NoNewWindow -PassThru
     $null = $Process.Handle # Ohne fruehen Zugriff auf das Handle liefert ExitCode spaeter nichts.
     $Process
@@ -141,7 +142,7 @@ for ($Day = 1; $Day -le $Days; $Day++) {
         Save-Shots "tag$Day-laden-${Second}s"
     }
     Invoke-Check "tag$Day" @() $Pending
-    if ($Godmode -and $WithSpike) { foreach ($Id in $Session.Host, $Session.Client) { Send-SpikeCommand $Id '!god on' } }
+    if ($Godmode -and $WithSpike) { foreach ($Id in @($Session.Host, $Session.Client) + @($Session.Extra | Where-Object { $_ })) { Send-SpikeCommand $Id '!god on' } }
     Save-Shots "tag$Day"
     Invoke-DayState "tag$Day-ankunft"
     if ($DayState -and $DaySeconds -gt 0) {

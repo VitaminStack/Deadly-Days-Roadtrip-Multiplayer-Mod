@@ -44,6 +44,8 @@ powershell -ExecutionPolicy Bypass -File tools/spike/Start-Session.ps1 -Mod -Tun
 Beide Instanzen starten gleichzeitig ohne Lobby-Schalter, der Host mit `-ddcoop_localtest`: Nur damit nimmt er den Client
 unter demselben Konto über 127.0.0.1 an, siehe [Zugriffskontrolle](../src/Net/README.md#zugriffskontrolle-lobby-auth). Sobald der Spike geladen ist, erstellt der Host die Lobby über
 das Overlay der Mod und wird selbst Listen-Server in der MetaBase, der Client tritt ebenso mit der Lobby-ID bei (`Overlay.ps1`).
+Mit `-Clients 2` oder `-Clients 3` starten weitere Clients mit eigenem Testordner und Tunnel-Port (`-ddcoop_clientport`), siehe
+[Bis zu vier Spieler](MEHR_SPIELER.md#test-mit-mehreren-instanzen). `Run-Route.ps1` läuft auch mit diesen Sitzungen.
 Die Abstürze beim Beitritt ohne Spike (Host `0x5901CE8`, Client `0x56B16D9`, 04.11.2026) verhindert inzwischen die Mod selbst,
 siehe [Nur Mod, ohne Spike](#nur-mod-ohne-spike). Die Schalter `-ddcoop_lobby` und `-ddcoop_lobby_delay` der Mod gibt es weiter, das Skript braucht sie nicht.
 Auf zwei PCs: Host mit `-Role Host -Tunnel Lobby`, die Ausgabe nennt die Lobby-ID, Client mit `-Role Client -Tunnel Lobby -Peer <Lobby-ID>`.
@@ -95,7 +97,7 @@ Pro PC läuft nur eine Sitzung, Spielzeit ist der Engpass. Darum:
   fahren, die Sitzung dabei weiterverwenden statt sie je Prüfung neu zu starten.
 - **Warten statt abbrechen.** `Start-Session.ps1 -Wait 1800` reiht sich hinter eine fremde Sitzung ein und startet, sobald sie endet.
 - **Nur neu starten, was nötig ist.** `Restart-Instance.ps1` startet nur den Client neu (etwa 20 s). `-Build` nur, wenn sich der Spike geändert hat.
-  Hält der Host direkt nach dem Beenden noch die alte Verbindung („Der Host hat schon einen Mitspieler“), erstellt er eine neue Lobby und
+  Hält der Host direkt nach dem Beenden noch die alte Verbindung („Die Sitzung des Hosts ist voll“), erstellt er eine neue Lobby und
   der Client tritt ihr bei, das macht das Skript selbst.
 - **Logs zuerst kurz lesen.** `Collect-Logs.ps1` legt je Mod-Log eine `*.summary.txt` an (`py tools/log_summary.py <log>`): Warnungen, Fehler, Abstürze und Patch-Listen. Zuerst sie lesen, das volle Log nur abschnittsweise.
 - **Kurz ausgeben.** `Start-Session.ps1`, `Restart-Instance.ps1`, `Get-Status.ps1`, `Start-Run.ps1` und `Travel-Day.ps1` kennen `-Brief`:

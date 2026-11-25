@@ -35,7 +35,7 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `opt-tempo-upgrades` | P2 | [Problem](#probleme) | parallel | mittel |
 | `opt-waffen-hover` | P2 | [Problem](#probleme) | parallel | wenig |
 | `opt-zonenziel-anzeige` | P2 | [Problem](#probleme) | parallel | wenig |
-| `coop-inventar-vier` | P2 | [Verbesserung](#verbesserungen) | zentral | viel |
+| `coop-inventar-geteilt` | P2 | [Verbesserung](#verbesserungen) | zentral | viel |
 | `coop-spielstand` | P2 | [Verbesserung](#verbesserungen) | parallel | viel |
 | `doku-rest-ist-zustand` | P2 | [Verbesserung](#verbesserungen) | parallel | keine |
 | `dumper7-image-ende` | P2 | [Verbesserung](#verbesserungen) | parallel | wenig |
@@ -91,10 +91,10 @@ Neue Funktionen, Feinschliff und Release. Je Aufgabe steht hier nur eine Kurzfas
 | `coop-inventar-analyse` | P1 | Das native geteilte Koop-Inventar ohne Mod untersuchen, Referenz ist lokaler Koop mit zwei Controllern auf einem PC: Aufbau des gemeinsamen Rucksacks … | parallel | mittel |
 | `coop-inventar-konzept` | P1 | Konzept für das geteilte Inventar online, ausgelegt auf zwei bis vier Spieler. | zentral | keine |
 | `coop-inventar-zwei` | P1 | Geteiltes Inventar für zwei Spieler online nach dem Konzept: ein gemeinsamer Rucksack mit einem Bereich je Spieler, beide sehen dasselbe Raster … | zentral | viel |
-| `coop-modus-wahl` | P1 | Der Host wählt vor dem Run zwischen den Modi Eigene Inventare und Geteiltes Inventar, etwa in Lobby oder MetaBase. | parallel | mittel |
+| `coop-modus-wahl` | P1 | Der Host wählt vor dem Hosten der Lobby zwischen den Modi Eigene Inventare und Geteiltes Inventar (`coop-inventar-geteilt`). | parallel | mittel |
 | `prozess-neu-schreiben` | P1 | `docs/PROZESS.md` neu schreiben: ein Ablauf ohne Doppelungen. **Fertig, wenn** die Datei unter 6 KB liegt und `doc_check.py` diese Grenze prüft. | zentral | keine |
 | `verbesserungen-sichten` | P1 | Jede Verbesserung samt `docs/OPTIONEN.md` von veralteten Vorgaben, alten Builds und Erledigtem befreien. **Fertig, wenn** jede Zeile einen aktuellen Fehler oder Wunsch mit prüfbarem „Fertig, wenn“ beschreibt. | zentral | keine |
-| `coop-inventar-vier` | P2 | Geteiltes Inventar auf drei und vier Spieler erweitern. Die nativen Typen kennen nur P1 und P2, darum eigene Bereichszuordnung je Spieler-Slot nach … | zentral | viel |
+| `coop-inventar-geteilt` | P2 | „Seperate new shared Inventory Logic like real coop“: eine neue, getrennte Logik für ein geteiltes Inventar wie im lokalen Koop, für zwei bis vier Spieler, als eigener Pfad neben der bisherigen Logik (Eigene Inventare). Der Host wählt vor dem Hosten der Lobby, welche Logik gilt. | zentral | viel |
 | `coop-spielstand` | P2 | Der Host speichert einen Coop-Run und setzt ihn später mit demselben Client fort. | parallel | viel |
 | `doku-rest-ist-zustand` | P2 | Übrige Doku unter `docs/` und `src/Net/README.md` auf den Ist-Zustand bringen. **Fertig, wenn** dort keine datierten Befunde und alten Builds mehr stehen. | parallel | keine |
 | `dumper7-image-ende` | P2 | Prüfen, ob `tools/dumper7/image-ende.patch` noch nötig ist (der Fehler trat nur auf `26669225` auf): SDK auf `26786272` ohne Patch erzeugen. **Fertig, wenn** der Patch entfällt oder der Fix im Fork `VitaminStack/Dumper-7` liegt und das Submodul umgestellt ist. | parallel | wenig |

@@ -97,6 +97,17 @@ inline constexpr uintptr_t ServerConnection = 0x100;
 inline constexpr uintptr_t ClientConnections = 0x108;
 }
 
+// Nicht im SDK, darum ohne Prüfung in SdkChecks.cpp; Beleg in docs/OFFSETS.md.
+namespace UNetConnection
+{
+inline constexpr uintptr_t RemoteAddr = 0x170; // TSharedPtr<FInternetAddr>, Objektzeiger zuerst
+}
+
+namespace FInternetAddrBSD
+{
+inline constexpr uintptr_t Addr = 0x8; // sockaddr_in
+}
+
 namespace AGameStateBase
 {
 inline constexpr uintptr_t PlayerArray = 0x2C0;

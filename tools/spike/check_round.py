@@ -219,18 +219,18 @@ def save_state(state):
         json.dump(state, handle)
 
 
-def evaluate(host, client, previous, expected_world):
+def evaluate(host, client, previous, expected_world, expected_players=2):
     problems = []
     for name, report in (('host', host), ('client', client)):
         if report['world'] != expected_world:
             problems.append(f'{name}: World {report["world"]}')
-        if report['player_array'] != 2 or not report['player_array_valid']:
+        if report['player_array'] != expected_players or not report['player_array_valid']:
             problems.append(f'{name}: PlayerArray {report["player_array"]}')
-        if report['player_states'] != 2:
+        if report['player_states'] != expected_players:
             problems.append(f'{name}: {report["player_states"]} PlayerStates in der World')
         if report['paused_by']:
             problems.append(f'{name}: Welt pausiert von {report["paused_by"][0]}')
-        if len(report['characters']) != 2:
+        if len(report['characters']) != expected_players:
             problems.append(f'{name}: {len(report["characters"])} Figuren')
     if expected_world == MISSION_WORLD and not host['buses']:
         problems.append('host: kein Bus gefunden')
@@ -292,6 +292,7 @@ def main():
     parser.add_argument('--log')
     parser.add_argument('--world', default=MISSION_WORLD, help='erwartete World, Standard DDDynamic_Map')
     parser.add_argument('--reset', action='store_true', help='Vergleichsstand der letzten Pruefung verwerfen')
+    parser.add_argument('--players', type=int, default=2, help='erwartete Spielerzahl, mit Start-Session.ps1 -Clients mehr als 2')
     parser.add_argument('--local-position', action='store_true', help='nur die Position der Host-Figur ausgeben, x y z')
     args = parser.parse_args()
     if args.local_position:
@@ -312,7 +313,8 @@ def main():
         previous = {}
     result = {'label': args.label, 'time': time.strftime('%Y-%m-%d %H:%M:%S')}
     if args.wait:
-        result['load_seconds'] = wait_new_world(args.host, args.client, previous.get('worlds', {}), args.timeout, args.world)
+        result['load_seconds'] = wait_new_world(args.host, args.client, previous.get('worlds', {}), args.timeout, args.world,
+                                                 args.players)
         time.sleep(args.settle)
     games = [alive(args.host), alive(args.client)]
     if None in games:
@@ -323,7 +325,7 @@ def main():
     host = instance_report(games[0], f'{args.host}.log')
     client = instance_report(games[1], f'{args.client}.log')
     result.update(host=host, client=client)
-    result['problems'] = evaluate(host, client, previous, args.world)
+    result['problems'] = evaluate(host, client, previous, args.world, args.players)
     result['ok'] = not result['problems']
     save_state({'pids': [args.host, args.client], 'worlds': {'0': host['world_ptr'], '1': client['world_ptr']},
                 'guid_entries': client.get('guid_entries', 0), 'new_actor_failed': client['new_actor_failed'] or 0})

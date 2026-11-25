@@ -18,7 +18,7 @@ Eine Familie je Thema, Typen innerhalb der Familie fortlaufend. Wer einen Typ od
 | `0x500` Bewegung | `0x500` Dodge-Richtung | `Sync/MovementState.h` |
 | `0x600` Entwickler | `0x600` Anfrage | `Sync/DevState.h` |
 | `0x700` Pause | `0x700` Pausemenü | `Sync/Players/PauseState.h` |
-| `0x800` Figur | `0x800` Charakterwahl | `Sync/Players/CharacterState.h` |
+| `0x800` Figur | `0x800` Charakterwahl als Liste (Spielerkennung, Name), seit `ModVersion` 17 | `Sync/Players/CharacterState.h` |
 | `0x900` Warnanzeigen | `0x900` Anzeige | `Sync/Enemies/TelegraphState.h` |
 | `0xA00` Schadenszahlen | `0xA00` Treffer | `Sync/Enemies/DamageNumberState.h` |
 | `0xB00` Waffensound | `0xB00` Nachladen | `Sync/Combat/WeaponSoundState.h` |
@@ -65,9 +65,9 @@ Client-Anfragen. Der Transport erfindet keine Gameplay-Semantik.
 ## Benutzung und Lebensdauer
 
 - `CurrentTransport()->ControlPeers()` liefert ausschließlich bestätigte lokale
-  Verbindungstoken. Der Host lässt genau einen Remote-Spieler zu. Ein Client kann
-  keine Spielerkennung im Envelope behaupten; die Spielzuordnung muss der Host
-  aus diesem Token ableiten. Steam authentifiziert P2P-Verbindungen; Loopback ist
+  Verbindungstoken. Der Host lässt bis zu drei Remote-Spieler zu. Ein Client kann
+  keine Spielerkennung im Envelope behaupten; die Spielzuordnung leitet der Host
+  aus diesem Token ab (`Game/RemotePlayers.h`, `docs/MEHR_SPIELER.md`). Steam authentifiziert P2P-Verbindungen; Loopback ist
   nur der lokale Zwei-Instanzen-Test und kein Identitätsnachweis zweier Menschen.
 - `SendControl(peer, value)` kopiert in eine begrenzte Queue. `false` bedeutet
   **nicht angenommen** (etwa Disconnect oder volle Queue). Der Aufrufer muss den
@@ -136,7 +136,7 @@ abgelehnt. Code in `src/Sync/Inventory`, Envelope-Run je Prozess, Epoche 1, Revi
 | 0 | 8 | Sitzung, Zähler der Mod beim Host, 0 = keine offene Auswahl |
 | 8 | 8 | Revision, Prüfsumme der aktuellen Choices, ungleich 0 bei offener Sitzung |
 | 16 | 4 | Airdrop-Stufe |
-| 20 | 1 | Bits: 0 Client hat gewählt, 1 Host hat gewählt, 2 Host wartet auf den Client |
+| 20 | 1 | Bits: 0 dieser Client hat gewählt, 1 Host hat gewählt, 2 Host wartet (siehe [Mehrere Clients](#mehrere-clients-mod-kompatibilität-17)) |
 | 21 | 1 | Anzahl Choices, höchstens 4, ohne Sitzung 0 |
 | 22 | … | je Choice: 1 Byte beschädigt (0 oder 1), dann lesbarer Name, Objektname der `UInventoryItemData` und der `URarity`, je 1 Byte Länge und höchstens 120 Byte UTF-8 |
 
@@ -381,6 +381,19 @@ Lokal bleiben Zahl, Animation und Sound: Der Client ruft das Ereignis `CustomEve
 Stand. Der erste Stand einer Welt läuft als `(N, N)` und setzt nur die Zahl, jede spätere Änderung als `(alt, neu)`; ein
 unveränderter Stand tut nichts. Fehlt die Stoppuhr noch, bleibt der Stand offen, die Wiederholung holt ihn nach, ebenso ein
 verlorenes Paket und einen späten Beitritt. Keine Antwort.
+
+## Mehrere Clients (Mod-Kompatibilität 17)
+
+Aufgabe `vier-spieler`, Überblick in [Bis zu vier Spieler](MEHR_SPIELER.md). Der Host lässt bis zu drei Clients zu und führt jede
+Familie mit Zustand je Peer. Die Formate der Inventar-Nachrichten bleiben, ihre Bits gelten je Empfänger:
+
+- `0x300` Bit 0 und 3 betreffen den empfangenden Client. Bit 2 „Host wartet“ heißt: Der Host ist bereit, und jeder andere Client, der
+  einer Figur zugeordnet ist, hat gewählt oder ist für diese Revision bereit. Erst dann löst der Client sein Bestätigen aus. Der Host
+  holt sein Bestätigen nach, wenn jeder zugeordnete Client gewählt hat oder keiner mehr verbunden ist.
+- `0x307` Bit 1 betrifft den empfangenden Client. Bit 0 „Host bereit“ heißt: Der Host hat bestätigt, und kein anderer Client im
+  Lager dieses Rundenendes wartet noch.
+- `0x800` wechselt auf eine Liste mit Spielerkennung, siehe [Belegte Nachrichtentypen](#belegte-nachrichtentypen) und
+  `Sync/Players/CharacterState.h`. Ein Client mit Version 16 schickte nur den Namen; darum Version 17.
 
 ## Bisher geprüft (05.11.2026, Kontrollkanal vor Diagnoseerweiterung)
 

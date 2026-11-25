@@ -147,7 +147,7 @@ normalen Einzelspieler-Panel.
 
 - **Host:** `RewardChest.OpenAirdropChoices` gibt eine vom Remote-Spieler geöffnete Kiste an die Figur des Hosts (`RewardCharacter`).
   Der Hook auf `InventoryComponent.SetRewardItems` liest die Choices mit, `RewardSync` schickt sie als Sitzungsbild. Drückt der Host
-  „Bestätigen“, hält der Hook auf `InventoryPanel.HandleConfirmButton` das Bestätigen zurück, bis der Client gewählt hat. Die Wahl des
+  „Bestätigen“, hält der Hook auf `InventoryPanel.HandleConfirmButton` das Bestätigen zurück, bis jeder Client mit zugeordnetem Controller gewählt hat. Die Wahl eines
   Clients kommt seit `inventar-lokal` als Teil eines Inventar-Edits (`0x303`), siehe [Inventar lokal bearbeiten](#inventar-lokal-bearbeiten).
 - **Client:** Die Mod legt lokale Anzeige-Instanzen über den nativen `CreateItemInstance` an (die UFunction ist `BlueprintAuthorityOnly`,
   über `ProcessEvent` liefert sie beim Client nichts) und öffnet das native Panel mit `SetRewardItems`. Solange es offen ist, laufen
@@ -243,7 +243,8 @@ Stand im Code:
   pausiert, und `TickHost` holt es nach, sobald die Wahl des Clients da ist. Bestätigt der Client zuerst, schließt sein Panel sofort
   lokal (`ClientConfirm`), das Spiel läuft weiter, sobald der Host bestätigt. Es gibt keine gelbe Markierung und keine Anzeige, wer schon
   bestätigt hat. Der Client sieht nach seinem Bestätigen nur das pausierte Spiel.
-- **Nur ein Client:** `RemoteReady`, `Host.ClientPick` und `ClientPending` gibt es je einmal, gewartet wird nur auf P2.
+- **Mehrere Clients:** Wahl und Bereit führt der Host je Peer (`Host.Clients`), gewartet wird auf jeden Client mit zugeordnetem
+  Controller, siehe [Bis zu vier Spieler](../../docs/MEHR_SPIELER.md#airdrop-auswahl-und-lager).
 - **Rundenende, fehlt:** Zum Zeitpunkt der Prüfung sah der Client Rundenübersicht und Lager noch nicht; das liefert inzwischen
   `rundenende-client`, das gemeinsame Bestätigen dort folgt als `bestaetigen-rundenende`. Das native „Bestätigen & Wechseln“ des
   Koop-Modus wartet zwar auf P2, hängt aber mit dem Remote-Spieler, darum bleibt der Koop-Modus aus.
@@ -266,7 +267,7 @@ Stand im Code:
 **Geprüft** (06.11.2026, Build `26187885`, ein PC, Lobby, Godmode, `tools/spike/guided/bestaetigen-alle.txt`): Zwei Airdrops, einmal
 Host zuerst, einmal Client zuerst. Beide Knöpfe gelb, das Spiel blieb pausiert, bis beide bestätigt hatten, danach schlossen beide
 Panels ohne weiteren Klick (`Bestätigen des Hosts nachgeholt (Versuch 1)`), Edits übernommen, darunter einer mit 3 neuen Feldern. Der
-Nutzer bestätigte den Ablauf. Nicht geprüft: Reroll während eines Bereit, mehr als ein Client (es gibt nur P2). Das Rundenende mit
+Nutzer bestätigte den Ablauf. Nicht geprüft: Reroll während eines Bereit, mehr als ein Client im Spiel. Das Rundenende mit
 Lager folgt als `bestaetigen-rundenende`, sobald `rundenende-client` dem Client das Lager zeigt.
 
 **Lager am Rundenende (`bestaetigen-rundenende`, 06.11.2026).** Dasselbe Verfahren für das Lager nach der Rundenübersicht. Das
@@ -278,8 +279,8 @@ in [Kontrollkanal](../../docs/CONTROL_PROTOCOL.md#lager-am-rundenende-mod-kompat
   `rundenende-client` beim Client lokal.
 - **Geteilt:** Der Client meldet sein Rundenende (`Game::Map::RoundEnd::Id`, nur wenn er es selbst geöffnet hat) und sein Bereit
   (`0x306`), der Host seinen Stand (`0x307`: Host bereit, Bereit des Clients).
-- **Entscheidet:** Der Host. Er wartet nur, wenn ein Client mit der Mod verbunden ist, dasselbe Rundenende geöffnet hat und noch
-  nicht bereit ist. Sind beide bereit, holen beide ihr Bestätigen einmal nativ nach, der Host kommt zur Routenkarte und wählt den Tag.
+- **Entscheidet:** Der Host. Er wartet nur, solange ein Client mit der Mod verbunden ist, dasselbe Rundenende geöffnet hat und noch
+  nicht bereit ist; den Stand führt er je Peer (`End.Clients`). Sind alle bereit, holen beide ihr Bestätigen einmal nativ nach, der Host kommt zur Routenkarte und wählt den Tag.
   Ist der Client schon bereit, läuft das Bestätigen des Hosts sofort.
 - **Nie hängen:** Hat der Client die Runde nicht nachgezogen (andere Karte, kein GameState), wartet niemand. Trennt sich der Client,
   kommt 2 s lang keine Meldung von ihm oder fehlt ihm 5 s lang ein Stand des Hosts, holt die wartende Seite ihr Bestätigen nach. Die
