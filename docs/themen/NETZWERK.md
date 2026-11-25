@@ -6,7 +6,8 @@ Gilt für Build `26786272`. Datierte Befunde und Messungen stehen im [Archiv](..
 
 - Zwei eigene Spielinstanzen verbinden sich über eine Steam-Lobby. Der Host ist Listen-Server, das Spiel repliziert klassisch (nicht Iris).
 - Neben der nativen Replikation gibt es einen eigenen Kontrollkanal über Steam Networking Sockets für nachgewiesene Lücken. Nachrichtentypen: [Kontrollprotokoll](../CONTROL_PROTOCOL.md).
-- Der Host lässt nur Konten aus seiner Lobby zu und trennt ein Konto, das länger als `RevokeAfterMs` (10 s) in der Lobby fehlt (`lobby-auth`).
+- Der Host lässt nur Konten aus seiner Lobby zu (`lobby-auth`). Ein verbundenes Konto trennt er mit 1005 erst, wenn es in neuen, gültigen Listen (eigenes Konto drin, vollständig) mindestens `RevokeAfterMs` (10 s) und dreimal hintereinander fehlt. Leere oder veraltete Listen halten die Frist an (`lobby-rauswurf`).
+- Fehlt beim Client das eigene Konto 2 s in der Lobby, tritt er derselben Lobby neu bei. Beide Seiten loggen Lobby-Änderungen und den Grund vor einer Trennung, ohne IDs.
 - Steam initialisiert das Spiel erst nach dem Laden der Mod; Transport und Lobby warten darauf.
 
 ## Code
@@ -14,7 +15,8 @@ Gilt für Build `26786272`. Datierte Befunde und Messungen stehen im [Archiv](..
 | Datei | Aufgabe | Test |
 |---|---|---|
 | `src/Net/Transport.cpp`, `src/Net/SteamSockets.cpp` | Kontrollkanal über Steam Networking Sockets | `tests/NetTests/TransportTests.cpp`, `tests/NetTests/NetSimTests.cpp` |
-| `src/Net/Session.cpp` | Sitzung, Lobby-Mitglieder, Zugriffskontrolle | `tests/NetTests/SessionTests.cpp`, `tests/NetTests/AuthorizationTests.cpp` |
+| `src/Net/Session.cpp` | Sitzung, Lobby-Mitglieder, Zugriffskontrolle, Neubeitritt | `tests/NetTests/SessionTests.cpp`, `tests/NetTests/AuthorizationTests.cpp` |
+| `src/Net/LobbyMembership.cpp` | Wann eine Lobby-Liste gilt und wann der Host trennt | `tests/NetTests/LobbyMembershipTests.cpp` |
 | `src/Net/ControlProtocol.cpp` | Format der Kontrollnachrichten, `ModVersion` | `tests/NetTests/ControlProtocolTests.cpp`, `tests/NetTests/ProtocolTests.cpp` |
 | `src/Net/SteamLobbyApi.cpp`, `src/Mod/Lobby.cpp` | Steam-Lobby erstellen und beitreten | `tests/NetTests/SessionTests.cpp` |
 | `src/Sync/SessionLog.cpp` | Zustandszeile und Testermarken im Log | `tests/NetTests/SessionLogTests.cpp` |
@@ -23,7 +25,7 @@ Mehr zum Aufbau: [src/Net/README.md](../../src/Net/README.md).
 
 ## Offene Fehler
 
-- [lobby-rauswurf](../faelle/lobby-rauswurf.md): Host trennt einen gesunden Client wegen „nicht mehr in der Lobby“.
+- [lobby-rauswurf](../faelle/lobby-rauswurf.md): Host trennt einen gesunden Client wegen „nicht mehr in der Lobby“. Fix und Logzeilen sind drin, die Ursache belegt erst der nächste Live-Test auf zwei PCs (Vermutung: Steam nimmt den Client aus der Lobby oder liefert dem Host keine gültige Liste).
 
 ## Historie
 
