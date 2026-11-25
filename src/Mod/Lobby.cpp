@@ -213,6 +213,9 @@ bool TryLoad(LobbyState& Lobby)
     Sockets->InitRelayNetworkAccess();
     Net::TransportOptions Options;
     Options.Sim = Net::NetSimFromCommandLine(GetCommandLineW());
+    // Mehrere Client-Instanzen auf einem PC brauchen je einen eigenen Port für das Spiel (nur Test).
+    if (const auto Port = Net::ParseClientPort(GetCommandLineW()))
+        Options.ClientPort = *Port;
     // Zwei Instanzen unter einem Konto auf einem PC brauchen 127.0.0.1 ohne Steam-Identität. Nur ausdrücklich im Test.
     Options.AllowLoopback = Narrow(GetCommandLineW()).find("-ddcoop_localtest") != std::string::npos;
     if (Options.AllowLoopback)

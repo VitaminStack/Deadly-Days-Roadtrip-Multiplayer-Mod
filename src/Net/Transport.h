@@ -134,8 +134,12 @@ public:
     // 0 für einen unbekannten Peer. Bleibt über
     // Trennung und Neustart gleich, anders als der Peer selbst. Nur zum Wiedererkennen beim Host, nie ins Log.
     uint64_t PeerAccount(uint64_t Peer) const;
-    // Konto einer Verbindung über 127.0.0.1 (lokaler Testmodus, ohne Steam-Identität). Keine gültige SteamID eines Einzelkontos.
+    // Erstes Testkonto einer Verbindung über 127.0.0.1 (lokaler Testmodus, ohne Steam-Identität), weitere gleichzeitige Verbindungen
+    // zählen hoch. Keine gültige SteamID eines Einzelkontos.
     static constexpr uint64_t LoopbackAccount = 1;
+    // Host: lokaler UDP-Port, von dem der Tunnel die Spielpakete dieses Peers an den Listen-Server schickt, 0 für einen unbekannten
+    // Peer. Das Spiel sieht ihn als Gegenadresse der Verbindung; so findet Sync den Controller des Peers. Siehe docs/MEHR_SPIELER.md.
+    uint16_t PeerGamePort(uint64_t Peer) const;
     // Host: SteamIDs der aktuellen Lobby-Mitglieder, vom Game Thread. Erst danach nimmt der Host P2P-Verbindungen an,
     // und nur von diesen Konten. ClearLobbyMembers heißt: keine Lobby, alle P2P-Verbindungen werden abgelehnt.
     // Jeder Aufruf ist eine neue Liste; nur neue Listen bringen die Frist eines fehlenden Mitspielers voran.
@@ -216,7 +220,13 @@ private:
     TransportStats Current;
     mutable std::mutex ControlLock;
     std::vector<uint64_t> Peers;
-    std::vector<std::pair<uint64_t, uint64_t>> PeerAccounts; // Peer, SteamID; unter ControlLock wie Peers
+    struct PeerInfo
+    {
+        uint64_t Peer = 0, Account = 0;
+        uint16_t GamePort = 0;
+        bool Loopback = false;
+    };
+    std::vector<PeerInfo> PeerAccounts; // unter ControlLock wie Peers
     struct PendingControl { uint64_t Peer; std::vector<uint8_t> Bytes; };
     std::vector<PendingControl> Outgoing;
     std::vector<ControlMessage> Incoming;
@@ -237,4 +247,7 @@ struct TransportRequest
 };
 
 std::optional<TransportRequest> ParseTransportRequest(std::wstring_view CommandLine);
+// Testschalter -ddcoop_clientport=<Port>: UDP-Port, an dem das Client-Spiel den Tunnel erreicht, statt TransportOptions::ClientPort.
+// Nur für mehrere Client-Instanzen auf einem PC; nullopt ohne Schalter oder mit ungültigem Wert (0, über 65535, keine Zahl).
+std::optional<uint16_t> ParseClientPort(std::wstring_view CommandLine);
 }

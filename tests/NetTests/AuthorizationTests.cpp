@@ -186,7 +186,7 @@ TEST_CASE("Zugriff: Fremder Versuch vor dem Freund belegt keinen Platz")
         Transport Second(Network->Account(kSecondFriend), OtherClient(Options, 20));
         REQUIRE(Second.StartClient(kHostId));
         REQUIRE(WaitFor([&] { return Second.Stats().State == TransportState::Failed; }));
-        CHECK(Second.Stats().Message == "Der Host hat schon einen Mitspieler");
+        CHECK(Second.Stats().Message == "Die Sitzung des Hosts ist voll");
         CHECK(Friend.Stats().State == TransportState::Connected);
     }
 }

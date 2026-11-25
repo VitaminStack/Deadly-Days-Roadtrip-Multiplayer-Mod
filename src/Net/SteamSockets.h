@@ -34,7 +34,7 @@ constexpr int32_t HostLeft = 1001;
 constexpr int32_t ClientLeft = 1002;
 // Build, Mod-Version oder Rolle passen nicht, oder der Handshake kam nicht rechtzeitig.
 constexpr int32_t Rejected = 1003;
-// Der Host hat schon einen Mitspieler.
+// Die Sitzung des Hosts ist voll.
 constexpr int32_t Busy = 1004;
 // Das Konto ist kein Mitglied der Lobby des Hosts, oder Steam hat keine Identität bestätigt.
 constexpr int32_t NotAuthorized = 1005;

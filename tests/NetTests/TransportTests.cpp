@@ -138,6 +138,13 @@ TEST_CASE("Testschalter aus der Kommandozeile")
 
     CHECK_FALSE(ParseTransportRequest(L"game.exe -ddcoop_transport=").has_value());
     CHECK_FALSE(ParseTransportRequest(L"game.exe -ddcoop_transport=gast").has_value());
+
+    CHECK_FALSE(ParseClientPort(L"game.exe -windowed").has_value());
+    CHECK(ParseClientPort(L"game.exe -ddcoop_clientport=7780 -nosplash") == uint16_t{7780});
+    CHECK_FALSE(ParseClientPort(L"game.exe -ddcoop_clientport=0").has_value());
+    CHECK_FALSE(ParseClientPort(L"game.exe -ddcoop_clientport=65536").has_value());
+    CHECK_FALSE(ParseClientPort(L"game.exe -ddcoop_clientport=77a").has_value());
+    CHECK_FALSE(ParseClientPort(L"game.exe -ddcoop_clientport=").has_value());
     CHECK_FALSE(ParseTransportRequest(L"game.exe -ddcoop_transport=0").has_value());
     CHECK_FALSE(ParseTransportRequest(L"game.exe -ddcoop_transport=123456789012345678901").has_value());
 }
@@ -327,7 +334,7 @@ TEST_CASE("Ein zweiter Client wird mit Grund abgewiesen, der erste bleibt verbun
     REQUIRE(WaitFor([&] { return Host.Stats().Connections == 1; }));
     REQUIRE(Second.StartClient(kHostId));
     REQUIRE(WaitFor([&] { return Second.Stats().State == TransportState::Failed; }));
-    CHECK(Second.Stats().Message == "Der Host hat schon einen Mitspieler");
+    CHECK(Second.Stats().Message == "Die Sitzung des Hosts ist voll");
     std::this_thread::sleep_for(std::chrono::milliseconds(30));
     CHECK(First.Stats().State == TransportState::Connected);
     CHECK(Host.Stats().Connections == 1);
@@ -338,7 +345,7 @@ TEST_CASE("Meldungen zum Ende einer Verbindung")
     using State = SteamConnectionState;
     CHECK(EndMessage(false, State::ClosedByPeer, EndReason::HostLeft, true) == "Der Host hat die Sitzung verlassen");
     CHECK(EndMessage(true, State::ClosedByPeer, EndReason::ClientLeft, true) == "Der Mitspieler hat die Sitzung verlassen");
-    CHECK(EndMessage(false, State::ClosedByPeer, EndReason::Busy, false) == "Der Host hat schon einen Mitspieler");
+    CHECK(EndMessage(false, State::ClosedByPeer, EndReason::Busy, false) == "Die Sitzung des Hosts ist voll");
     CHECK(EndMessage(false, State::ClosedByPeer, EndReason::Rejected, true) ==
           "Der Host hat die Verbindung abgelehnt (andere Mod-Version oder anderer Spiel-Build)");
     CHECK(EndMessage(true, State::ClosedByPeer, EndReason::Rejected, true) == "Der Mitspieler hat die Verbindung abgelehnt");
@@ -464,6 +471,9 @@ TEST_CASE("wiedereintritt-inventar: Verbindung über 127.0.0.1 zählt als festes
     REQUIRE(Client.StartLoopbackClient());
     REQUIRE(WaitFor([&] { return Host.ControlPeers().size() == 1; }));
     CHECK(Host.PeerAccount(Host.ControlPeers()[0]) == Transport::LoopbackAccount);
+    // Port des Link-Sockets, über den der Host das Spiel des Clients anspricht.
+    CHECK(Host.PeerGamePort(Host.ControlPeers()[0]) != 0);
+    CHECK(Host.PeerGamePort(0) == 0);
 }
 
 TEST_CASE("Falscher Build oder Mod darf keine Spielpakete weiterleiten")

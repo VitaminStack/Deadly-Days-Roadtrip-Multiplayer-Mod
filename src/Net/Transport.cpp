@@ -53,6 +53,16 @@ sockaddr_in LoopbackUdp(uint16_t Port)
     return Address;
 }
 
+// Lokaler Port eines gebundenen UDP-Sockets, 0 bei Fehler.
+uint16_t LocalPort(SOCKET Socket)
+{
+    sockaddr_in Address{};
+    int Size = sizeof(Address);
+    if (Socket == INVALID_SOCKET || getsockname(Socket, reinterpret_cast<sockaddr*>(&Address), &Size) != 0)
+        return 0;
+    return ntohs(Address.sin_port);
+}
+
 SOCKET OpenUdp(uint16_t Port)
 {
     const SOCKET Socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
@@ -89,7 +99,7 @@ std::string EndMessage(bool Host, SteamConnectionState State, int32_t Reason, bo
             return Host ? "Der Mitspieler hat die Verbindung abgelehnt"
                         : "Der Host hat die Verbindung abgelehnt (andere Mod-Version oder anderer Spiel-Build)";
         case EndReason::Busy:
-            return "Der Host hat schon einen Mitspieler";
+            return "Die Sitzung des Hosts ist voll";
         case EndReason::NotAuthorized:
             return Host ? "Der Mitspieler ist nicht mehr in der Lobby"
                         : "Der Host hat die Verbindung abgelehnt: nicht Mitglied seiner Lobby";
@@ -296,9 +306,18 @@ std::vector<uint64_t> Transport::ControlPeers() const
 uint64_t Transport::PeerAccount(uint64_t Peer) const
 {
     std::lock_guard Guard(ControlLock);
-    for (const auto& [Known, Account] : PeerAccounts)
-        if (Known == Peer)
-            return Account;
+    for (const PeerInfo& Known : PeerAccounts)
+        if (Known.Peer == Peer)
+            return Known.Account;
+    return 0;
+}
+
+uint16_t Transport::PeerGamePort(uint64_t Peer) const
+{
+    std::lock_guard Guard(ControlLock);
+    for (const PeerInfo& Known : PeerAccounts)
+        if (Known.Peer == Peer)
+            return Known.GamePort;
     return 0;
 }
 
@@ -582,7 +601,7 @@ void Transport::Close(uint32_t Connection, int32_t Reason)
                 std::lock_guard Guard(ControlLock);
                 const uint64_t Peer = It->Peer;
                 std::erase(Peers, Peer);
-                std::erase_if(PeerAccounts, [Peer](const auto& Item) { return Item.first == Peer; });
+                std::erase_if(PeerAccounts, [Peer](const PeerInfo& Item) { return Item.Peer == Peer; });
                 std::erase_if(Incoming, [Peer](const auto& Item) { return Item.Peer == Peer; });
                 std::erase_if(Outgoing, [Peer](const auto& Item) { return Item.Peer == Peer; });
             }
@@ -734,7 +753,14 @@ void Transport::Reject(Link& Entry, const std::string& Reason)
 {
     Entry.Rejected = true;
     Core::Log::Warn("Protokoll: {}", Reason);
-    Publish(Role == Mode::Host ? TransportState::Listening : TransportState::Failed, Reason);
+    if (Role != Mode::Host)
+    {
+        Publish(TransportState::Failed, Reason);
+        return;
+    }
+    // Andere verbundene Clients bleiben verbunden, der Host meldet nur ohne sie wieder Listening.
+    const bool AnyConnected = std::any_of(Links->begin(), Links->end(), [](const Link& Other) { return Other.Ready && !Other.Rejected; });
+    Publish(AnyConnected ? TransportState::Connected : TransportState::Listening, AnyConnected ? "Verbunden" : Reason);
 }
 
 bool Transport::ReceiveFrame(Link& Entry, std::span<const uint8_t> Bytes)
@@ -750,8 +776,14 @@ bool Transport::ReceiveFrame(Link& Entry, std::span<const uint8_t> Bytes)
         {
             std::lock_guard Guard(ControlLock);
             Peers.push_back(Entry.Peer);
-            // Verbindungen über 127.0.0.1 (nur lokaler Testmodus) haben keine Steam-Identität; sie zählen als ein festes Testkonto.
-            PeerAccounts.emplace_back(Entry.Peer, Entry.SteamId ? Entry.SteamId : LoopbackAccount);
+            // Verbindungen über 127.0.0.1 (nur lokaler Testmodus) haben keine Steam-Identität. Jede bekommt das kleinste freie
+            // Testkonto ab LoopbackAccount: Ein einzelner Testclient behält es über Trennung und Neubeitritt, mehrere bleiben getrennt.
+            uint64_t Account = Entry.SteamId;
+            if (!Account)
+                for (Account = LoopbackAccount; std::any_of(PeerAccounts.begin(), PeerAccounts.end(),
+                                                            [Account](const PeerInfo& Item) { return Item.Loopback && Item.Account == Account; });)
+                    ++Account;
+            PeerAccounts.push_back({Entry.Peer, Account, LocalPort(Entry.Udp), Entry.SteamId == 0});
         }
         Core::Log::Info("Protokoll: Build, Mod-Version und Gegenrolle bestaetigt");
         Publish(TransportState::Connected, "Verbunden");
@@ -932,5 +964,21 @@ std::optional<TransportRequest> ParseTransportRequest(std::wstring_view CommandL
             return std::nullopt;
     }
     return Request;
+}
+
+std::optional<uint16_t> ParseClientPort(std::wstring_view CommandLine)
+{
+    constexpr std::wstring_view Key = L"-ddcoop_clientport=";
+    const size_t At = CommandLine.find(Key);
+    if (At == std::wstring_view::npos)
+        return std::nullopt;
+    std::wstring_view Value = CommandLine.substr(At + Key.size());
+    Value = Value.substr(0, Value.find_first_of(L" \t\""));
+    if (Value.empty() || Value.size() > 5 || Value.find_first_not_of(L"0123456789") != std::wstring_view::npos)
+        return std::nullopt;
+    const unsigned long Port = std::wcstoul(std::wstring(Value).c_str(), nullptr, 10);
+    if (!Port || Port > 65535)
+        return std::nullopt;
+    return static_cast<uint16_t>(Port);
 }
 }

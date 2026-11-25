@@ -214,7 +214,7 @@ Erstellen und Beitreten wieder möglich, der Client trennt sein Spiel mit `disco
 | Host verlässt die Sitzung (`HostLeft`) | Der Host hat die Sitzung verlassen | – |
 | Client verlässt die Sitzung (`ClientLeft`) | – | Der Mitspieler hat die Sitzung verlassen |
 | Handshake abgelehnt (`Rejected`) | Der Host hat die Verbindung abgelehnt (andere Mod-Version oder anderer Spiel-Build) | Der Mitspieler hat die Verbindung abgelehnt |
-| Host hat schon einen Mitspieler (`Busy`) | Der Host hat schon einen Mitspieler | – |
+| Sitzung des Hosts voll (`Busy`) | Die Sitzung des Hosts ist voll | – |
 | Gegenseite schließt ohne eigenen Grund, etwa beim Beenden des Spiels | Der Host hat die Verbindung beendet | Der Mitspieler hat die Verbindung beendet |
 | Steam gibt nach seinem Zeitlimit auf (`ProblemDetectedLocally`) | Verbindung zum Host verloren, vor dem Aufbau: Host nicht erreichbar | Verbindung zum Mitspieler verloren |
 

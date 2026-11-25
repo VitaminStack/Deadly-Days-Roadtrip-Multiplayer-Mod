@@ -98,18 +98,19 @@ function Test-OwnSessionRunning {
     $File = Join-Path $script:SessionDir 'session.json'
     if (-not (Test-Path $File)) { return $false }
     $Session = Get-Content $File -Raw | ConvertFrom-Json
-    (Test-GameProcess $Session.Host) -or (Test-GameProcess $Session.Client)
+    (Test-GameProcess $Session.Host) -or (Test-GameProcess $Session.Client) -or [bool](@($Session.Extra) | Where-Object { $_ -and (Test-GameProcess $_) })
 }
 
 # Eine Testsitzung pro PC: Sie belegt Port 7777, Fenster, Maus und Tastatur. Die Sperre gilt ueber alle Klone und Worktrees.
 function Test-LockActive($Lock) {
     # Beide 0: Die Sitzung startet noch. Nur eine 0: Test auf zwei PCs, die andere Rolle laeuft woanders.
     if ($Lock.Host -eq 0 -and $Lock.Client -eq 0) { return [bool](Get-Process -Id $Lock.Starter -ErrorAction SilentlyContinue) }
-    (Test-GameProcess $Lock.Host) -or (Test-GameProcess $Lock.Client)
+    (Test-GameProcess $Lock.Host) -or (Test-GameProcess $Lock.Client) -or [bool](@($Lock.Extra) | Where-Object { $_ -and (Test-GameProcess $_) })
 }
 
-function Write-SessionLock([int]$HostId, [int]$ClientId) {
-    @{ Owner = $script:RepoRoot; Starter = $PID; Host = $HostId; Client = $ClientId } | ConvertTo-Json
+# Extra: weitere Client-Instanzen dieses PCs (Start-Session.ps1 -Clients).
+function Write-SessionLock([int]$HostId, [int]$ClientId, [int[]]$ExtraIds = @()) {
+    @{ Owner = $script:RepoRoot; Starter = $PID; Host = $HostId; Client = $ClientId; Extra = @($ExtraIds) } | ConvertTo-Json
 }
 
 # Mit WaitSeconds > 0 wartet der Aufruf, bis eine fremde Sitzung endet, statt abzubrechen. Fremde Instanzen bleiben unberuehrt.
@@ -538,7 +539,7 @@ function Format-NetSimBrief([int]$ProcessId, [string]$Role) {
 # Fensterursprung fuer Testsitzungen auf einem anderen Monitor: DDCOOP_WIN_ORIGIN="X,Y" in virtuellen Desktop-Koordinaten.
 # Das Spiel zentriert sein Fenster nach dem Laden auf dem Hauptmonitor, darum setzt Move-GameWindow es nach jedem Schritt zurueck.
 # Ohne die Variable aendert sich nichts. Host liegt bei +0, der Client bei +820 (Zwei-Instanzen-Test auf einem PC).
-function Move-GameWindow([int]$ProcessId, [int]$OffsetX = 0) {
+function Move-GameWindow([int]$ProcessId, [int]$OffsetX = 0, [int]$OffsetY = 0) {
     if (-not $env:DDCOOP_WIN_ORIGIN) { return }
     if (-not ('SpikeWindowPlacer' -as [type])) {
         Add-Type @"
@@ -551,5 +552,5 @@ public static class SpikeWindowPlacer {
     }
     $Origin = $env:DDCOOP_WIN_ORIGIN -split ',' | ForEach-Object { [int]$_ }
     $Window = (Get-Process -Id $ProcessId -ErrorAction SilentlyContinue).MainWindowHandle
-    if ($Window -and $Window -ne [IntPtr]::Zero) { [SpikeWindowPlacer]::Place($Window, $Origin[0] + $OffsetX, $Origin[1]) }
+    if ($Window -and $Window -ne [IntPtr]::Zero) { [SpikeWindowPlacer]::Place($Window, $Origin[0] + $OffsetX, $Origin[1] + $OffsetY) }
 }
