@@ -15,7 +15,7 @@ The [roadmap graph](docs/ROADMAP.md) shows what is still open.
 |---|---|
 | Game | Deadly Days: Roadtrip (Steam AppID `3026450`) |
 | Engine | Unreal Engine 5.8, internal project name `DDSurvivors` |
-| Target | 2 players online, host-authoritative, each with their own game copy |
+| Target | Up to 4 players online, host-authoritative, each with their own game copy |
 | Tech | Native C++ DLL (Dumper-7 SDK + hooks), see [architecture](docs/ARCHITECTURE.md) |
 
 ## Progress
