@@ -16,6 +16,7 @@
 #include <windows.h>
 
 #include <cstddef>
+#include <map>
 #include <vector>
 
 #include "Core/Log.h"
@@ -394,8 +395,9 @@ namespace
 {
 // Client: eigene Aktivierungen, die der Sync-Takt an den Host schickt.
 std::vector<DashInput> OutgoingInputs;
-// Host: gemeldete Eingaben und angehaltene Aktivierungen des Clients.
-DashInputBook ReportedInputs;
+// Host: gemeldete Eingaben je Remote-Controller und angehaltene Aktivierungen der Clients. Jeder Client zählt seine
+// Vorhersageschlüssel selbst, darum gilt ein Schlüssel nur zusammen mit dem Controller.
+std::map<uintptr_t, DashInputBook> ReportedInputs;
 struct HeldDash
 {
     uintptr_t Ability = 0;
@@ -460,7 +462,7 @@ void TickHeldDashes(uint64_t Now)
             HeldDashes.erase(HeldDashes.begin() + i);
             continue;
         }
-        const auto Reported = ReportedInputs.Take(Held.Key, Now);
+        const auto Reported = ReportedInputs[RemoteController(Held.Character)].Take(Held.Key, Now);
         if (!Reported && Now - Held.Since < DashWaitMs)
         {
             ++i;
@@ -494,10 +496,10 @@ std::vector<DashInput> TakeOwnDashInputs()
     return Result;
 }
 
-void ReceiveReportedDashInput(const DashInput& Value)
+void ReceiveReportedDashInput(uintptr_t Controller, const DashInput& Value)
 {
-    if (CurrentRole() == NetRole::Host)
-        ReportedInputs.Add(Value, GetTickCount64());
+    if (CurrentRole() == NetRole::Host && Controller)
+        ReportedInputs[Controller].Add(Value, GetTickCount64());
 }
 
 bool PrepareRemoteDash(uintptr_t Object, uintptr_t Function)
@@ -554,7 +556,7 @@ bool PrepareRemoteDash(uintptr_t Object, uintptr_t Function)
     if (!Controller)
         return false; // Eigene Figur des Hosts: Eingabe ist lokal.
     const uint64_t Now = GetTickCount64();
-    if (const auto Reported = ReportedInputs.Take(Key, Now))
+    if (const auto Reported = ReportedInputs[Controller].Take(Key, Now))
     {
         WriteControllerInput(Controller, {Reported->X, Reported->Y});
         Core::Log::Info("Bewegung: Client-Dodge (Schluessel {}) mit gemeldeter Richtung ({:.2f},{:.2f})", Key, Reported->X, Reported->Y);
@@ -609,8 +611,8 @@ std::vector<DashInput> TakeDashInputs()
     return Patches::TakeOwnDashInputs();
 }
 
-void ReceiveDashInput(const DashInput& Value)
+void ReceiveDashInput(uintptr_t Controller, const DashInput& Value)
 {
-    Patches::ReceiveReportedDashInput(Value);
+    Patches::ReceiveReportedDashInput(Controller, Value);
 }
 }

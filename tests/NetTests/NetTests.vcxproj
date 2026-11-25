@@ -42,6 +42,7 @@
     <ClCompile Include="WeaponSoundTests.cpp" />
     <ClCompile Include="PauseTests.cpp" />
     <ClCompile Include="ControlProtocolTests.cpp" />
+    <ClCompile Include="CharacterTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="FakeSteam.h" />

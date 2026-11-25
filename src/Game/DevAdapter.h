@@ -18,9 +18,9 @@ inline constexpr uint8_t LastDevAction = static_cast<uint8_t>(DevAction::SpawnRa
 
 struct DevPosition { double X, Y, Z; };
 
-// Wahr, wenn die Aktion beim Host ausgefuehrt wurde. Player: 0 Host-Figur, 1 Client-Figur.
+// Wahr, wenn die Aktion beim Host ausgefuehrt wurde. Player: Controller des Clients (Game/RemotePlayers.h), 0 die eigene Figur.
 // Target: Weltpunkt fuer SpawnZombies, von der drueckenden Seite ueber CursorGroundPosition bestimmt.
-bool RunDevAction(DevAction Action, int Player, std::optional<DevPosition> Target = {});
+bool RunDevAction(DevAction Action, uintptr_t Player, std::optional<DevPosition> Target = {});
 
 // Lokal auf jeder Seite: Bodenpunkt unter dem Mauszeiger auf Hoehe der eigenen Figur. Merkt sich den letzten
 // gueltigen Wert, denn beim Klick im Overlay liegt der Zeiger nicht mehr ueber dem Spielbild. Jeden Takt aufrufen.

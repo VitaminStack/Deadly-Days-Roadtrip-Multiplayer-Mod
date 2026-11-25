@@ -47,7 +47,8 @@ TEST_CASE("Desync: festes Little-Endian-Format, exakte Laenge und semantische Gr
     Bad = P; Bad.StateGuid = 0x40000000000000ull; CHECK(Encode(Bad).empty());
     Bad = P; Bad.Image.Values[Game::Desync::Day] = 100001; CHECK(Encode(Bad).empty());
     Bad = P; Bad.Image.Values[Game::Desync::Phase] = 2; CHECK(Encode(Bad).empty());
-    Bad = P; Bad.Image.Values[Game::Desync::Players] = 3; CHECK(Encode(Bad).empty());
+    Bad = P; Bad.Image.Values[Game::Desync::Players] = 5; CHECK(Encode(Bad).empty());
+    Bad = P; Bad.Image.Values[Game::Desync::Players] = 4; CHECK_FALSE(Encode(Bad).empty()); // vier Spieler
     Bad = P; Bad.Image.Values[Game::Desync::Enemies] = 20001; CHECK(Encode(Bad).empty());
     Bad = P; Bad.Image.Known = 0; CHECK(Encode(Bad).empty());
     Bad = P; Bad.Ignored = Bad.Alerts = Bit(Game::Desync::Inventory); CHECK(Encode(Bad).empty());

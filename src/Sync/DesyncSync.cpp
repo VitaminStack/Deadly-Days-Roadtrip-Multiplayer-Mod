@@ -1,8 +1,10 @@
 #include "Sync/DesyncState.h"
 #include "Sync/ControlDispatch.h"
 
+#include <algorithm>
 #include <chrono>
 #include <format>
+#include <map>
 #include <random>
 #include "Core/Config.h"
 #include "Core/Log.h"
@@ -36,6 +38,15 @@ std::string Fields(uint8_t Mask)
         if (Mask & Bit(i)) { if (!Text.empty()) Text += ", "; Text += Game::Desync::Names[i]; }
     return Text.empty() ? "-" : Text;
 }
+// Host: Stand je Client, denn jeder Client probt mit eigenem Lauf und eigener Folge.
+struct RemoteProbe
+{
+    uint64_t RemoteRun = 0, RemoteNonce = 0, RemoteSequence = 0, LastReply = 0;
+    Monitor HostMonitor;
+    Comparison View;
+    uint8_t LastAlerts = 0;
+};
+
 struct Runtime
 {
     const uint64_t Run = NewRun();
@@ -57,6 +68,23 @@ struct Runtime
     Comparison View;
     std::string LastText;
     uint8_t LastAlerts = 0;
+    std::map<uint64_t, RemoteProbe> Remotes; // nur Host
+
+    // Host: Anzeige aus allen Clients. OK nur, wenn jeder Client frisch und gleich ist; jede Abweichung zählt.
+    void Combine()
+    {
+        View = {};
+        LastReply = 0;
+        bool First = true;
+        for (const auto& [RemotePeer, Remote] : Remotes)
+        {
+            View.Comparable = First ? Remote.View.Comparable : static_cast<uint8_t>(View.Comparable & Remote.View.Comparable);
+            View.Different |= Remote.View.Different;
+            View.Alerts |= Remote.View.Alerts;
+            LastReply = First ? Remote.LastReply : std::min(LastReply, Remote.LastReply);
+            First = false;
+        }
+    }
 
     void Publish(std::string Text, uint64_t Now)
     {
@@ -112,8 +140,10 @@ void TickDesync(std::span<const Net::ControlMessage> Messages)
     const auto Transport = Net::CurrentTransport();
     const auto Context = Game::ReadProgressContext();
     const auto Peers = Transport ? Transport->ControlPeers() : std::vector<uint64_t>{};
-    const uint64_t Peer = Peers.size() == 1 ? Peers[0] : 0;
-    const bool Active = Context && Peer && Transport &&
+    const bool IsHost = Transport && Transport->Stats().IsHost;
+    // Client: der eine Peer des Hosts. Host: jeder Client für sich, siehe Remotes.
+    const uint64_t Peer = !IsHost && Peers.size() == 1 ? Peers[0] : 0;
+    const bool Active = Context && (Peer || (IsHost && !Peers.empty())) && Transport &&
         ((Context->Role == Game::NetRole::Host && Transport->Stats().IsHost) ||
          (Context->Role == Game::NetRole::Client && !Transport->Stats().IsHost));
     const uint64_t World = Active ? Context->LocalWorld : 0, State = Active ? Context->LocalState : 0;
@@ -128,6 +158,7 @@ void TickDesync(std::span<const Net::ControlMessage> Messages)
         R.RemoteRun = R.RemoteNonce = R.RemoteSequence = R.NextCapture = R.NextProbe = R.LastReply = 0;
         R.View = {}; R.LastAlerts = 0;
         R.Held = R.RawStable = R.SentHeld = R.SentRawStable = R.HeldAlerts = 0; R.HeldMonitor = {};
+        R.Remotes.clear();
         HostExclusions = Ignored;
         R.Gate.Bind(Peer, R.Run, R.Nonce, Active ? Context->StateGuid : 0);
     }
@@ -150,7 +181,14 @@ void TickDesync(std::span<const Net::ControlMessage> Messages)
         R.Stable = StableWhileEditing(R.RawStable, R.Held);
         R.HostMonitor.Invalidate(R.Stable);
         R.View.Comparable &= R.Stable; R.View.Different &= R.Stable; R.View.Alerts &= R.Stable;
+        for (auto& [RemotePeer, Remote] : R.Remotes)
+        {
+            Remote.HostMonitor.Invalidate(R.Stable);
+            Remote.View.Comparable &= R.Stable; Remote.View.Different &= R.Stable; Remote.View.Alerts &= R.Stable;
+        }
     }
+    // Host: Stand getrennter Clients verwerfen, die übrigen behalten ihren.
+    std::erase_if(R.Remotes, [&Peers](const auto& Entry) { return std::find(Peers.begin(), Peers.end(), Entry.first) == Peers.end(); });
     if (!R.Capture)
     {
         R.View = {}; R.LastReply = 0;
@@ -160,31 +198,34 @@ void TickDesync(std::span<const Net::ControlMessage> Messages)
     for (const auto& Message : Messages)
     {
         const auto& E = Message.Value;
-        if (Message.Peer != Peer || (E.Type != Probe && E.Type != Result)) continue;
+        const bool Known = Role == Game::NetRole::Host ? std::find(Peers.begin(), Peers.end(), Message.Peer) != Peers.end() : Message.Peer == Peer;
+        if (!Known || (E.Type != Probe && E.Type != Result)) continue;
         const auto P = Decode(E.Payload);
         if (!P || P->StateGuid != Context->StateGuid) continue;
         if (Role == Game::NetRole::Host)
         {
+            auto& Remote = R.Remotes[Message.Peer];
             if (E.Type != Probe || P->Ignored || P->Alerts || E.Run != P->ClientRun || E.Epoch != P->Nonce || E.Revision != P->Sequence ||
-                (R.RemoteRun && R.RemoteRun != P->ClientRun) || P->Nonce < R.RemoteNonce ||
-                (P->Nonce == R.RemoteNonce && P->Sequence <= R.RemoteSequence)) continue;
+                (Remote.RemoteRun && Remote.RemoteRun != P->ClientRun) || P->Nonce < Remote.RemoteNonce ||
+                (P->Nonce == Remote.RemoteNonce && P->Sequence <= Remote.RemoteSequence)) continue;
             // Proben nicht schneller als alle zwei Sekunden werten; Duplikate/Spam bestaetigen keinen Alarm.
-            if (R.LastReply && Now - R.LastReply < IntervalMs - 250) continue;
-            if (P->Nonce != R.RemoteNonce || P->Sequence != R.RemoteSequence + 1 ||
-                (R.LastReply && Now - R.LastReply > FreshMs)) R.HostMonitor = {};
-            R.RemoteRun = P->ClientRun; R.RemoteNonce = P->Nonce; R.RemoteSequence = P->Sequence;
+            if (Remote.LastReply && Now - Remote.LastReply < IntervalMs - 250) continue;
+            if (P->Nonce != Remote.RemoteNonce || P->Sequence != Remote.RemoteSequence + 1 ||
+                (Remote.LastReply && Now - Remote.LastReply > FreshMs)) Remote.HostMonitor = {};
+            Remote.RemoteRun = P->ClientRun; Remote.RemoteNonce = P->Nonce; Remote.RemoteSequence = P->Sequence;
             Packet Reply{P->ClientRun, P->Nonce, P->Sequence, Context->StateGuid, R.Capture->Image, R.Stable, Ignored};
-            R.View = R.HostMonitor.Compare(Reply, *P, Ignored);
-            Reply.Alerts = R.View.Alerts;
+            Remote.View = Remote.HostMonitor.Compare(Reply, *P, Ignored);
+            Reply.Alerts = Remote.View.Alerts;
             const auto Payload = Encode(Reply);
-            if (!Payload.empty()) Transport->SendControl(Peer, {R.Run, R.Nonce, ++R.ReplyRevision, Result, Payload});
-            R.LastReply = Now;
-            if (R.View.Alerts != R.LastAlerts)
+            if (!Payload.empty()) Transport->SendControl(Message.Peer, {R.Run, R.Nonce, ++R.ReplyRevision, Result, Payload});
+            Remote.LastReply = Now;
+            if (Remote.View.Alerts != Remote.LastAlerts)
             {
                 for (unsigned i = 0; i < Count; ++i)
-                    if (R.View.Alerts & Bit(i))
-                        Core::Log::Warn("Desync: {} host={:016x} client={:016x}", Game::Desync::Names[i], Reply.Image.Values[i], P->Image.Values[i]);
-                R.LastAlerts = R.View.Alerts;
+                    if (Remote.View.Alerts & Bit(i))
+                        Core::Log::Warn("Desync: {} host={:016x} client={:016x} (Peer {:x})", Game::Desync::Names[i], Reply.Image.Values[i],
+                                        P->Image.Values[i], Message.Peer);
+                Remote.LastAlerts = Remote.View.Alerts;
             }
         }
         else if (E.Type == Result && R.Gate.Accept(Peer, E, *P, Now))
@@ -221,6 +262,8 @@ void TickDesync(std::span<const Net::ControlMessage> Messages)
             R.Gate.Sent(R.Sequence, Now);
         }
     }
+    if (Role == Game::NetRole::Host)
+        R.Combine();
     R.Describe(Role == Game::NetRole::Host ? Ignored : HostExclusions, Now);
 }
 }

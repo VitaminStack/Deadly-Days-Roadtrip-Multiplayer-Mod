@@ -17,6 +17,7 @@ struct DashInput
 
 // Client: seit dem letzten Aufruf gestartete eigene Dodges mit ihrer Eingabe, höchstens 16, ältere verfallen.
 std::vector<DashInput> TakeDashInputs();
-// Host: Eingabe des Clients für seine Aktivierung. Wartet die Aktivierung schon, läuft sie im nächsten Tick weiter.
-void ReceiveDashInput(const DashInput& Value);
+// Host: Eingabe eines Clients für seine Aktivierung, Controller aus Game/RemotePlayers.h (0: verworfen). Wartet die
+// Aktivierung schon, läuft sie im nächsten Tick weiter.
+void ReceiveDashInput(uintptr_t Controller, const DashInput& Value);
 }

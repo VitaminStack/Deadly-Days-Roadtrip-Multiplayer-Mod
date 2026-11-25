@@ -1,7 +1,9 @@
 #include "Sync/Players/PauseState.h"
 
+#include <algorithm>
 #include <chrono>
 #include <format>
+#include <map>
 #include <random>
 #include "Core/Log.h"
 #include "Game/PauseAdapter.h"
@@ -44,10 +46,10 @@ const char* Describe(Pause::Release Why)
 
 struct
 {
-    uint64_t Peer = 0, Run = 0, Revision = 0;
+    uint64_t Peer = 0, Run = 0, Revision = 0; // Peer: beim Client der Host
     bool Host = false;
-    // Host
-    Pause::HostHold Hold;
+    // Host: eine Pause je Client, die Welt steht, solange einer hält.
+    std::map<uint64_t, Pause::HostHold> Holds;
     bool Applied = false;
     uint64_t NextRetry = 0;
     // Client
@@ -91,21 +93,30 @@ void ShowNotice(bool Show)
     LogTime(Show ? "Hinweis beim Client, der Host hält die Weltzeit an" : "Hinweis beim Client weg");
 }
 
-void TickHost(std::span<const Net::ControlMessage> Messages, uint64_t Now)
+void TickHost(std::span<const Net::ControlMessage> Messages, std::span<const uint64_t> Peers, uint64_t Now)
 {
+    const auto Present = [Peers](uint64_t Peer) { return std::find(Peers.begin(), Peers.end(), Peer) != Peers.end(); };
     for (const auto& Message : Messages)
     {
-        if (Message.Peer != P.Peer || Message.Value.Type != Pause::ClientPauseType)
+        if (!Present(Message.Peer) || Message.Value.Type != Pause::ClientPauseType)
             continue;
         if (const auto Value = Pause::Decode(Message.Value.Payload))
-            P.Hold.Receive(*Value, Now);
+            P.Holds[Message.Peer].Receive(*Value, Now);
         else
             Core::Log::Warn("Pause: unlesbare Meldung vom Client verworfen");
     }
-    P.Hold.Tick(P.Peer, Game::Pause::WorldKey(), Now);
-    if (const auto Why = P.Hold.TakeRelease(); Why != Pause::Release::None && P.Applied)
-        Core::Log::Info("Pause: Freigabe, {}", Describe(Why));
-    const bool Want = P.Hold.Held();
+    bool Want = false;
+    const uint64_t World = Game::Pause::WorldKey();
+    for (auto It = P.Holds.begin(); It != P.Holds.end();)
+    {
+        // Ein getrennter Client gibt seine Pause frei (Peer 0), dann fällt sein Eintrag weg.
+        const bool Here = Present(It->first);
+        It->second.Tick(Here ? It->first : 0, World, Now);
+        if (const auto Why = It->second.TakeRelease(); Why != Pause::Release::None && P.Applied)
+            Core::Log::Info("Pause: Freigabe, {} (Peer {:x})", Describe(Why), It->first);
+        Want |= It->second.Held();
+        It = Here ? std::next(It) : P.Holds.erase(It);
+    }
     if (Want == P.Applied || (Want && Now < P.NextRetry))
         return;
     if (Game::Pause::HoldForRemote(Want))
@@ -168,8 +179,8 @@ void TickPause(std::span<const Net::ControlMessage> Messages)
 {
     const auto Transport = Net::CurrentTransport();
     const auto Peers = Transport ? Transport->ControlPeers() : std::vector<uint64_t>{};
-    const uint64_t Peer = Peers.size() == 1 ? Peers[0] : 0;
     const bool Host = Transport && Transport->Stats().IsHost;
+    const uint64_t Peer = !Host && Peers.size() == 1 ? Peers[0] : 0;
     const uint64_t Now = NowMs();
     if (Peer != P.Peer || Host != P.Host)
     {
@@ -178,11 +189,11 @@ void TickPause(std::span<const Net::ControlMessage> Messages)
         if (P.Reporter)
             P.Reporter->Reset();
     }
-    if (Transport && Peer)
+    if (Transport && (Peer || (Host && !Peers.empty())))
         LogWorldChange();
     // Der Host gibt auch ohne Verbindung frei; der Tick läuft deshalb immer, solange er etwas hält.
     if (Host || P.Applied)
-        TickHost(Host ? Messages : std::span<const Net::ControlMessage>{}, Now);
+        TickHost(Host ? Messages : std::span<const Net::ControlMessage>{}, Host ? std::span<const uint64_t>(Peers) : std::span<const uint64_t>{}, Now);
     else if (Transport && Peer)
         TickClient(*Transport, Now);
     // Kein Client mit Verbindung mehr: Der Hinweis darf nicht stehen bleiben.

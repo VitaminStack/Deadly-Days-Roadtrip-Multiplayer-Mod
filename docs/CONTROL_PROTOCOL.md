@@ -18,7 +18,7 @@ Eine Familie je Thema, Typen innerhalb der Familie fortlaufend. Wer einen Typ od
 | `0x500` Bewegung | `0x500` Dodge-Richtung | `Sync/MovementState.h` |
 | `0x600` Entwickler | `0x600` Anfrage | `Sync/DevState.h` |
 | `0x700` Pause | `0x700` Pausemenü | `Sync/Players/PauseState.h` |
-| `0x800` Figur | `0x800` Charakterwahl | `Sync/Players/CharacterState.h` |
+| `0x800` Figur | `0x800` Charakterwahl als Liste (Spielerkennung, Name), seit `ModVersion` 17 | `Sync/Players/CharacterState.h` |
 | `0x900` Warnanzeigen | `0x900` Anzeige | `Sync/Enemies/TelegraphState.h` |
 | `0xA00` Schadenszahlen | `0xA00` Treffer | `Sync/Enemies/DamageNumberState.h` |
 | `0xB00` Waffensound | `0xB00` Nachladen | `Sync/Combat/WeaponSoundState.h` |
@@ -65,9 +65,9 @@ Client-Anfragen. Der Transport erfindet keine Gameplay-Semantik.
 ## Benutzung und Lebensdauer
 
 - `CurrentTransport()->ControlPeers()` liefert ausschließlich bestätigte lokale
-  Verbindungstoken. Der Host lässt genau einen Remote-Spieler zu. Ein Client kann
-  keine Spielerkennung im Envelope behaupten; die Spielzuordnung muss der Host
-  aus diesem Token ableiten. Steam authentifiziert P2P-Verbindungen; Loopback ist
+  Verbindungstoken. Der Host lässt bis zu drei Remote-Spieler zu. Ein Client kann
+  keine Spielerkennung im Envelope behaupten; die Spielzuordnung leitet der Host
+  aus diesem Token ab (`Game/RemotePlayers.h`, `docs/MEHR_SPIELER.md`). Steam authentifiziert P2P-Verbindungen; Loopback ist
   nur der lokale Zwei-Instanzen-Test und kein Identitätsnachweis zweier Menschen.
 - `SendControl(peer, value)` kopiert in eine begrenzte Queue. `false` bedeutet
   **nicht angenommen** (etwa Disconnect oder volle Queue). Der Aufrufer muss den

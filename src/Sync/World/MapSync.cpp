@@ -1,6 +1,8 @@
 #include "Sync/World/MapState.h"
 
+#include <algorithm>
 #include <chrono>
+#include <map>
 #include <random>
 #include "Core/Log.h"
 #include "Net/Net.h"
@@ -11,14 +13,20 @@ namespace Sync
 {
 namespace
 {
+// Host: gesendeter Stand je Client, damit ein neuer Client die Karte sofort bekommt und die übrigen nur bei Änderung.
+struct Sent
+{
+    std::optional<std::optional<Game::Map::HostMap>> Map;
+    uint64_t NextResend = 0;
+    std::optional<std::optional<Game::Map::RoundEnd>> End;
+    uint64_t NextEndResend = 0;
+};
+
 struct
 {
-    uint64_t Run = 0, Revision = 0, Peer = 0;
-    // Host
-    std::optional<std::optional<Game::Map::HostMap>> Sent;
-    uint64_t NextResend = 0;
-    std::optional<std::optional<Game::Map::RoundEnd>> SentEnd;
-    uint64_t NextEndResend = 0;
+    uint64_t Run = 0, Revision = 0;
+    uint64_t Peer = 0; // Client: der Host
+    std::map<uint64_t, Sent> Peers; // Host
 } M;
 
 uint64_t NowMs()
@@ -28,35 +36,35 @@ uint64_t NowMs()
 }
 
 // Rundenende wie die Karte: bei Änderung sofort, sonst jede Sekunde, damit ein verlorenes Paket nachkommt.
-void TickHostRoundEnd(Net::Transport& Transport)
+void TickHostRoundEnd(Net::Transport& Transport, uint64_t Peer, Sent& State)
 {
     const auto End = Game::Map::CurrentRoundEnd();
     const uint64_t Now = NowMs();
-    if (M.SentEnd && *M.SentEnd == End && Now < M.NextEndResend)
+    if (State.End && *State.End == End && Now < State.NextEndResend)
         return;
     auto Payload = MapWire::EncodeRoundEnd(End);
     if (Payload.empty() || !M.Run)
         return;
-    if (!Transport.SendControl(M.Peer, {M.Run, 1, ++M.Revision, MapWire::RoundEndType, std::move(Payload)}))
+    if (!Transport.SendControl(Peer, {M.Run, 1, ++M.Revision, MapWire::RoundEndType, std::move(Payload)}))
         return;
-    if (End && (!M.SentEnd || *M.SentEnd != End))
-        Core::Log::Info("Rundenende: an den Client gesendet");
-    M.SentEnd = End;
-    M.NextEndResend = Now + 1000;
+    if (End && (!State.End || *State.End != End))
+        Core::Log::Info("Rundenende: an den Client gesendet (Peer {:x})", Peer);
+    State.End = End;
+    State.NextEndResend = Now + 1000;
 }
 
-void TickHost(Net::Transport& Transport)
+void TickHost(Net::Transport& Transport, uint64_t Peer, Sent& State)
 {
     const auto Map = Game::Map::CurrentHostMap();
     const uint64_t Now = NowMs();
-    if (M.Sent && *M.Sent == Map && Now < M.NextResend)
+    if (State.Map && *State.Map == Map && Now < State.NextResend)
         return;
     auto Payload = MapWire::Encode(Map);
     if (Payload.empty())
     {
         Core::Log::Error("Karte: Werte des Hosts nicht übertragbar (zu lang oder unvollständig)");
-        M.Sent = Map;
-        M.NextResend = Now + 10000;
+        State.Map = Map;
+        State.NextResend = Now + 10000;
         return;
     }
     if (!M.Run)
@@ -64,12 +72,12 @@ void TickHost(Net::Transport& Transport)
         std::random_device Random;
         M.Run = ((uint64_t(Random()) << 32) | Random()) | 1;
     }
-    if (!Transport.SendControl(M.Peer, {M.Run, 1, ++M.Revision, MapWire::HostMapType, std::move(Payload)}))
+    if (!Transport.SendControl(Peer, {M.Run, 1, ++M.Revision, MapWire::HostMapType, std::move(Payload)}))
         return;
-    if (Map && (!M.Sent || !*M.Sent || (*M.Sent)->Id != Map->Id || (*M.Sent)->GraphState != Map->GraphState))
-        Core::Log::Info("Karte: Werte {} {} an den Client gesendet", Map->Seed, Map->Profile);
-    M.Sent = Map;
-    M.NextResend = Now + 1000;
+    if (Map && (!State.Map || !*State.Map || (*State.Map)->Id != Map->Id || (*State.Map)->GraphState != Map->GraphState))
+        Core::Log::Info("Karte: Werte {} {} an den Client gesendet (Peer {:x})", Map->Seed, Map->Profile, Peer);
+    State.Map = Map;
+    State.NextResend = Now + 1000;
 }
 
 void TickClient(std::span<const Net::ControlMessage> Messages)
@@ -96,28 +104,29 @@ void TickMap(std::span<const Net::ControlMessage> Messages)
 {
     const auto Transport = Net::CurrentTransport();
     const auto Peers = Transport ? Transport->ControlPeers() : std::vector<uint64_t>{};
-    const uint64_t Peer = Peers.size() == 1 ? Peers[0] : 0;
     const bool Host = Transport && Transport->Stats().IsHost;
+    if (Host)
+    {
+        // Jeder Client bekommt dieselbe Karte; getrennte Clients verlieren ihren Stand, neue starten leer.
+        std::erase_if(M.Peers, [&Peers](const auto& Entry) { return std::find(Peers.begin(), Peers.end(), Entry.first) == Peers.end(); });
+        for (const uint64_t Peer : Peers)
+        {
+            Sent& State = M.Peers[Peer];
+            TickHost(*Transport, Peer, State);
+            TickHostRoundEnd(*Transport, Peer, State);
+        }
+        return;
+    }
+    M.Peers.clear();
+    const uint64_t Peer = Peers.size() == 1 ? Peers[0] : 0;
     if (Peer != M.Peer)
     {
         M.Peer = Peer;
-        M.Sent.reset();
-        M.SentEnd.reset();
-        if (!Host)
-        {
-            Game::Map::NoteConnectionChanged();
-            Game::Map::SetHostMap(std::nullopt);
-            Game::Map::SetHostRoundEnd(std::nullopt);
-        }
+        Game::Map::NoteConnectionChanged();
+        Game::Map::SetHostMap(std::nullopt);
+        Game::Map::SetHostRoundEnd(std::nullopt);
     }
-    if (!Transport || !Peer)
-        return;
-    if (Host)
-    {
-        TickHost(*Transport);
-        TickHostRoundEnd(*Transport);
-    }
-    else
+    if (Transport && Peer)
         TickClient(Messages);
 }
 }

@@ -5,10 +5,11 @@
 // Beide trugen darum die eigene Wahl der jeweiligen Seite. CharacterSelectionChanged erreicht eine solche Figur nie.
 //
 // Was lokal bleibt: Auswahlpanel, Wahl im eigenen CharacterSelectionManager, Optik der eigenen Figur, alles nativ.
-// Geteilt wird nur der Name der eigenen Definition (Sync/Players/CharacterSync.cpp). Jede Seite entscheidet über ihre eigene
-// Figur; die Spielwerte der Client-Figur rechnet wie bisher der Host, jetzt mit der Definition des Clients.
+// Geteilt wird nur der Name der eigenen Definition je PlayerId (Sync/Players/CharacterSync.cpp). Jede Seite entscheidet über
+// ihre eigene Figur; die Spielwerte der Client-Figuren rechnet wie bisher der Host, mit der Definition jedes Clients.
 // Anwenden: dieselbe interne Funktion, die CharacterSelectionChanged aufruft. ApplyInitialCharacterDefinition einer
 // Remote-Figur nimmt beim Spawn gleich die Wahl der Gegenseite, ein Sekunden-Abgleich folgt Änderungen in der MetaBase.
+#include <map>
 #include <optional>
 #include <string>
 #include <utility>
@@ -44,6 +45,9 @@ constexpr Reflection::FieldSpec AppliedSpec{"/Script/DDSurvivors", "CharacterDef
 constexpr Reflection::FieldSpec ApplierSpec{"/Script/DDSurvivors", "DDCharacter", "CharacterDefinitionApplier", "ObjectProperty", 8};
 constexpr Reflection::FieldSpec DefinitionsSpec{"/Script/DDSurvivors", "CharacterSelectionManager", "CharacterDefinitions",
                                                 "ArrayProperty", 0x10};
+// Repliziert, auf allen Seiten gleich: ordnet die Wahl der Figur zu.
+constexpr Reflection::FieldSpec PlayerIdSpec{"/Script/Engine", "PlayerState", "PlayerId", "IntProperty", 4};
+constexpr uintptr_t PlayerStateOwner = 0x158; // AActor.Owner des PlayerState: sein Controller
 
 using ApplyInitialFn = void(__fastcall*)(uintptr_t);
 using ApplyDefinitionFn = void(__fastcall*)(uintptr_t, uintptr_t);
@@ -51,7 +55,7 @@ ApplyInitialFn OriginalApplyInitial = nullptr;
 
 struct
 {
-    std::optional<std::string> Peer;
+    std::map<int32_t, std::string> Choices; // PlayerId der anderen Spieler, gewählter Name
     uintptr_t Manager = 0;
     uintptr_t Pawn = 0, Applier = 0;
     uint64_t Applied = 0;
@@ -112,21 +116,39 @@ bool Networked()
     return CurrentRole() != NetRole::Standalone;
 }
 
+std::optional<int32_t> PlayerIdOfState(uintptr_t PlayerState)
+{
+    const auto Field = Reflection::Property(PlayerIdSpec);
+    if (!Field || !Alive(PlayerState))
+        return std::nullopt;
+    return Memory::Read<int32_t>(PlayerState + Field->Offset);
+}
+
+// Gewünschter Name für die Remote-Figur, über die PlayerId ihres PlayerState. nullptr ohne Wahl.
+const std::string* WantedFor(uintptr_t Pawn)
+{
+    const auto Id = PlayerIdOfState(Pointer(Pawn + PawnPlayerState));
+    const auto Found = Id ? C.Choices.find(*Id) : C.Choices.end();
+    return Found == C.Choices.end() ? nullptr : &Found->second;
+}
+
 void Apply(uintptr_t Applier, uintptr_t Definition, const char* Why)
 {
     reinterpret_cast<ApplyDefinitionFn>(At(ApplyDefinition))(Applier, Definition);
     if (++C.Applied <= 20)
-        Core::Log::Info("Charakterwahl: {} der Gegenseite angewendet ({})", Memory::NameOf(Definition), Why);
+        Core::Log::Info("Charakterwahl: {} eines anderen Spielers angewendet ({})", Memory::NameOf(Definition), Why);
 }
 
 void __fastcall ApplyInitialHook(uintptr_t Applier)
 {
-    if (Networked() && C.Peer && RemoteFigure(Pointer(Applier + ComponentOwner)))
-        if (const uintptr_t Wanted = Definition(*C.Peer))
-        {
-            Apply(Applier, Wanted, "beim Spawn");
-            return;
-        }
+    const uintptr_t Pawn = Pointer(Applier + ComponentOwner);
+    if (Networked() && !C.Choices.empty() && RemoteFigure(Pawn))
+        if (const std::string* Name = WantedFor(Pawn))
+            if (const uintptr_t Wanted = Definition(*Name))
+            {
+                Apply(Applier, Wanted, "beim Spawn");
+                return;
+            }
     OriginalApplyInitial(Applier);
 }
 
@@ -160,18 +182,16 @@ uintptr_t ApplierOf(uintptr_t Pawn)
     return C.Applier;
 }
 
-uintptr_t FindRemoteFigure()
+template <class VisitT> void ForEachRemoteFigure(VisitT Visit)
 {
     const uintptr_t World = CurrentWorld();
     const uintptr_t Level = World ? Pointer(World + Offsets::UWorld::PersistentLevel) : 0;
-    uintptr_t Found = 0;
     if (Level)
         Objects::ForEachLevelActor(Level, [&](uintptr_t Actor)
         {
-            if (!Found && RemoteFigure(Actor))
-                Found = Actor;
+            if (RemoteFigure(Actor))
+                Visit(Actor);
         });
-    return Found;
 }
 
 bool CheckApplyInitial()
@@ -201,14 +221,17 @@ std::span<const Patch> CharacterPatches()
 // Sekunden-Abgleich: Änderungen der Gegenseite in der MetaBase und Figuren, die vor der ersten Nachricht entstanden.
 void TickCharacters(NetRole Role, bool Second)
 {
-    if (!Second || Role == NetRole::Standalone || !C.Peer)
+    if (!Second || Role == NetRole::Standalone || C.Choices.empty())
         return;
-    const uintptr_t Pawn = FindRemoteFigure();
-    const uintptr_t Applier = Pawn ? ApplierOf(Pawn) : 0;
-    if (!Applier || AppliedName(Applier) == *C.Peer)
-        return;
-    if (const uintptr_t Wanted = Definition(*C.Peer))
-        Apply(Applier, Wanted, "Änderung");
+    ForEachRemoteFigure([](uintptr_t Pawn)
+    {
+        const std::string* Name = WantedFor(Pawn);
+        const uintptr_t Applier = Name ? ApplierOf(Pawn) : 0;
+        if (!Applier || AppliedName(Applier) == *Name)
+            return;
+        if (const uintptr_t Wanted = Definition(*Name))
+            Apply(Applier, Wanted, "Änderung");
+    });
 }
 }
 
@@ -232,12 +255,40 @@ std::optional<std::string> OwnChoice()
     return Memory::NameOf(Params.ReturnValue);
 }
 
-void SetPeerChoice(std::optional<std::string> Name)
+std::optional<int32_t> PlayerIdOf(uintptr_t Controller)
 {
-    if (Patches::C.Peer == Name)
+    if (!Patches::Alive(Controller))
+        return std::nullopt;
+    const auto Field = Reflection::Property({"/Script/Engine", "Controller", "PlayerState", "ObjectProperty", 8});
+    return Field ? Patches::PlayerIdOfState(Patches::Pointer(Controller + Field->Offset)) : std::nullopt;
+}
+
+std::optional<int32_t> LocalPlayerId()
+{
+    const uintptr_t World = Patches::CurrentWorld();
+    const uintptr_t State = World ? Patches::Pointer(World + Offsets::UWorld::GameState) : 0;
+    const uintptr_t Array = State ? Patches::Pointer(State + Offsets::AGameStateBase::PlayerArray) : 0;
+    const int32_t Count = State ? Memory::Read<int32_t>(State + Offsets::AGameStateBase::PlayerArray + 8).value_or(0) : 0;
+    for (int32_t i = 0; Array && i < Count && i < 16; ++i)
+    {
+        const uintptr_t PlayerState = Patches::Pointer(Array + 8 * i);
+        const uintptr_t Controller = PlayerState ? Patches::Pointer(PlayerState + Patches::PlayerStateOwner) : 0;
+        if (Controller && Objects::IsA(Patches::Pointer(Controller + Patches::ControllerPlayer), "LocalPlayer"))
+            return Patches::PlayerIdOfState(PlayerState);
+    }
+    return std::nullopt;
+}
+
+void SetPeerChoices(std::span<const PlayerChoice> Choices)
+{
+    std::map<int32_t, std::string> Next;
+    for (const auto& Choice : Choices)
+        Next[Choice.PlayerId] = Choice.Name;
+    if (Patches::C.Choices == Next)
         return;
-    if (Name)
-        Core::Log::Info("Charakterwahl: Gegenseite wählt {}", *Name);
-    Patches::C.Peer = std::move(Name);
+    for (const auto& [Id, Name] : Next)
+        if (const auto Old = Patches::C.Choices.find(Id); Old == Patches::C.Choices.end() || Old->second != Name)
+            Core::Log::Info("Charakterwahl: Spieler {} wählt {}", Id, Name);
+    Patches::C.Choices = std::move(Next);
 }
 }
