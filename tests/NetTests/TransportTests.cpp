@@ -322,10 +322,11 @@ TEST_CASE("Host antwortet nie: Abbruch vor dem Aufbau heißt Host nicht erreichb
     CHECK(Client.Stats().Message == "Host nicht erreichbar");
 }
 
-TEST_CASE("Ein zweiter Client wird mit Grund abgewiesen, der erste bleibt verbunden")
+TEST_CASE("Ein Client über MaxClients wird mit Grund abgewiesen, der erste bleibt verbunden")
 {
     auto Network = std::make_shared<FakeSteamNetwork>();
-    const TransportOptions Options = TestPorts(47890);
+    TransportOptions Options = TestPorts(47890);
+    Options.MaxClients = 1;
     TransportOptions SecondPorts = Options;
     SecondPorts.ClientPort = static_cast<uint16_t>(Options.ClientPort + 3);
     Transport Host(Network->Account(kHostId), Options);
@@ -345,8 +346,8 @@ TEST_CASE("Ein zweiter Client wird mit Grund abgewiesen, der erste bleibt verbun
 TEST_CASE("Mit MaxClients nimmt der Host mehrere Clients an, jeder mit eigenem Port")
 {
     auto Network = std::make_shared<FakeSteamNetwork>();
-    TransportOptions Options = TestPorts(48100);
-    Options.MaxClients = 3;
+    const TransportOptions Options = TestPorts(48100);
+    CHECK(Options.MaxClients == 3); // Standard: Host und drei Clients
     Transport Host(Network->Account(kHostId), Options);
     REQUIRE(Host.StartHost());
     std::vector<std::unique_ptr<Transport>> Clients;

@@ -11,6 +11,7 @@
 #include "Game/Objects.h"
 #include "Game/Offsets.h"
 #include "Game/PatchRuntime.h"
+#include "Game/RemoteP2Policy.h"
 
 #ifdef DDCOOP_WITH_SDK
 #pragma warning(push, 0)
@@ -162,7 +163,7 @@ std::optional<DesyncCapture> ReadDesyncCapture()
         Out.Known |= Desync::Bit(Desync::Phase);
         Out.Values[Desync::Phase] = (*Pauser || *Dilation < 0.01f) ? 1 : 0;
     }
-    const auto Players = Pointers(State + Offsets::AGameStateBase::PlayerArray, 2);
+    const auto Players = Pointers(State + Offsets::AGameStateBase::PlayerArray, MaxPlayers);
     if (Players && !Players->empty())
     {
         bool HealthKnown = true, InventoryKnown = true, RosterKnown = true;
