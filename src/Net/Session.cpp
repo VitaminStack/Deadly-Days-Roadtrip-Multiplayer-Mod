@@ -104,6 +104,7 @@ void Session::Leave()
     HostGameSeen = false;
     HostGameMissingSince.reset();
     HostNotice.clear();
+    ResetLobbyWatch();
     CloseLobby();
     Current = {};
     Current.Message = "Sitzung verlassen";
@@ -131,6 +132,7 @@ void Session::Fail(std::string Message)
     HostGameSeen = false;
     HostGameMissingSince.reset();
     HostNotice.clear();
+    ResetLobbyWatch();
     CloseLobby();
     const bool WasHost = Current.IsHost;
     Current = {};
@@ -163,12 +165,123 @@ void Session::StartTransportClient(uint64_t Owner)
 }
 
 // Host: Nur wer laut Steam gerade in der eigenen Lobby ist, darf sich per P2P verbinden. Die Liste kommt jeden Tick
-// frisch von Steam, verlässt jemand die Lobby, verliert er die Berechtigung.
+// frisch von Steam, verlässt jemand die Lobby, verliert er die Berechtigung. Eine leere, unvollständige oder Liste ohne
+// das eigene Konto belastet niemanden (lobby-rauswurf).
 void Session::SyncLobbyMembers()
 {
     if (!Tunnel || !Current.IsHost || !Current.Lobby)
         return;
-    Tunnel->SetLobbyMembers(Api->Members(Current.Lobby));
+    std::vector<uint64_t> Members = Api->Members(Current.Lobby);
+    const LobbyListState State = ClassifyLobbyList(Members, Api->MemberCount(Current.Lobby), Api->OwnSteamId());
+    if (State == LobbyListState::Valid)
+        Tunnel->SetLobbyMembers(std::move(Members));
+    else
+        Tunnel->SetLobbyListUnusable(State);
+}
+
+void Session::ResetLobbyWatch()
+{
+    // Ein laufender Neubeitritt darf die beendete Sitzung nicht wieder in die Lobby bringen.
+    if (Watched.RejoinCall)
+    {
+        AbandonedRejoin = Watched.RejoinCall;
+        AbandonedLobby = Current.Lobby;
+    }
+    Watched = {};
+}
+
+// lobby-rauswurf: Steam-Lobby so loggen, dass ein Rauswurf mit Grund 1005 erklärbar wird. Nur Änderungen, keine IDs:
+// Mitgliederzahl, Zustand der Liste, Besitzer, beim Client die eigene Mitgliedschaft.
+void Session::WatchLobby()
+{
+    if (!Current.Lobby)
+        return;
+    const auto Now = Clock::now();
+    const std::vector<uint64_t> Members = Api->Members(Current.Lobby);
+    const int Count = Api->MemberCount(Current.Lobby);
+    const uint64_t Own = Api->OwnSteamId();
+    const LobbyListState State = ClassifyLobbyList(Members, Count, Own);
+    const char* Role = Current.IsHost ? "Host" : "Client";
+    if (Count != Watched.Count)
+    {
+        if (Watched.Count < 0)
+            Core::Log::Info("Lobby ({}): {} Mitglieder", Role, Count);
+        else
+            Core::Log::Info("Lobby ({}): {} statt {} Mitglieder", Role, Count, Watched.Count);
+        Watched.Count = Count;
+    }
+    if (State != Watched.State)
+    {
+        if (!Watched.State)
+            Core::Log::Info("Lobby ({}): Mitgliederliste {}, {} SteamIDs", Role, ToString(State), Members.size());
+        else
+            Core::Log::Info("Lobby ({}): Mitgliederliste {} statt {} nach {} ms, {} SteamIDs", Role, ToString(State),
+                            ToString(*Watched.State),
+                            std::chrono::duration_cast<std::chrono::milliseconds>(Now - Watched.StateSince).count(),
+                            Members.size());
+        Watched.State = State;
+        Watched.StateSince = Now;
+    }
+    const uint64_t Owner = Api->LobbyOwner(Current.Lobby);
+    const int OwnerSelf = !Owner ? -1 : Owner == Own ? 1 : 0;
+    if (OwnerSelf != Watched.OwnerSelf)
+    {
+        Core::Log::Info("Lobby ({}): Besitzer {}", Role,
+                        OwnerSelf == 1 ? "ist das eigene Konto" : OwnerSelf == 0 ? "ist ein anderes Konto" : "unbekannt");
+        Watched.OwnerSelf = OwnerSelf;
+    }
+    if (Current.IsHost)
+        return;
+
+    // Client: Steam kann das Konto aus der Lobby nehmen, ohne dass die Sitzung sie verlassen hat. Der Host trennt dann nach
+    // RevokeAfterMs mit Grund 1005. Darum tritt der Client derselben Lobby neu bei (Vermutung zur Ursache, siehe Fallakte).
+    const bool OwnPresent = State == LobbyListState::Valid || State == LobbyListState::Incomplete;
+    if (OwnPresent)
+    {
+        if (Watched.OwnMissingSince)
+            Core::Log::Info("Lobby (Client): eigenes Konto wieder in der Lobby nach {} ms",
+                            std::chrono::duration_cast<std::chrono::milliseconds>(Now - *Watched.OwnMissingSince).count());
+        Watched.OwnMissingSince.reset();
+        Watched.RejoinGaveUp = false;
+    }
+    else if (!Watched.OwnMissingSince)
+    {
+        Watched.OwnMissingSince = Now;
+        Core::Log::Warn("Lobby (Client): eigenes Konto fehlt in der Lobby (Liste {}, {} Mitglieder laut Steam), "
+                        "Sitzung hat sie nicht verlassen",
+                        ToString(State), Count);
+    }
+    RejoinLobby();
+}
+
+void Session::RejoinLobby()
+{
+    const auto Now = Clock::now();
+    if (Watched.RejoinCall)
+    {
+        const auto Entered = Api->PollEntered(Watched.RejoinCall);
+        if (!Entered)
+            return;
+        Watched.RejoinCall = 0;
+        if (Entered->Ok)
+            Core::Log::Info("Lobby (Client): derselben Lobby neu beigetreten");
+        else
+        {
+            // 2: k_EChatRoomEnterResponseDoesntExist. Dann bleibt nur der Tunnel, der Host meldet sein Ende selbst.
+            Watched.RejoinGaveUp = Entered->Response == 2;
+            Core::Log::Warn("Lobby (Client): Neubeitritt abgelehnt (Antwort {}){}", Entered->Response,
+                            Watched.RejoinGaveUp ? ", Lobby gibt es nicht mehr" : "");
+        }
+        return;
+    }
+    if (!Watched.OwnMissingSince || Watched.RejoinGaveUp || Now - *Watched.OwnMissingSince < Timeouts.RejoinLobby ||
+        Now < Watched.NextRejoin)
+        return;
+    Watched.NextRejoin = Now + Timeouts.RejoinRetry;
+    Watched.RejoinCall = Api->JoinLobby(Current.Lobby);
+    Core::Log::Warn("Lobby (Client): eigenes Konto fehlt seit {} ms, tritt derselben Lobby neu bei{}",
+                    std::chrono::duration_cast<std::chrono::milliseconds>(Now - *Watched.OwnMissingSince).count(),
+                    Watched.RejoinCall ? "" : ", Steam lehnt den Aufruf ab");
 }
 
 bool Session::Expired(std::chrono::milliseconds Limit) const
@@ -244,6 +357,15 @@ void Session::WatchHostGame()
 
 void Session::Tick()
 {
+    if (AbandonedRejoin)
+    {
+        if (const auto Entered = Api->PollEntered(AbandonedRejoin))
+        {
+            if (Entered->Ok && AbandonedLobby != Current.Lobby)
+                Api->LeaveLobby(AbandonedLobby);
+            AbandonedRejoin = 0;
+        }
+    }
     for (const uint64_t Requested : Api->TakeJoinRequests())
     {
         if (Requested == Current.Lobby && Current.Phase != SessionPhase::Failed)
@@ -332,6 +454,7 @@ void Session::Tick()
         {
             if (Current.IsHost)
                 SyncLobbyMembers();
+            WatchLobby();
             const TransportStats Stats = Tunnel->Stats();
             Current.PingMs = Stats.PingMs;
             Current.Route = Stats.Route;

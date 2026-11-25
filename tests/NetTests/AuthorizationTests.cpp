@@ -53,6 +53,24 @@ bool WaitFor(const std::function<bool()>& Condition, int Milliseconds = 3000)
 }
 
 constexpr const char* kNotMember = "Der Host hat die Verbindung abgelehnt: nicht Mitglied seiner Lobby";
+
+// Wie die Sitzung je Frame: Jeder Aufruf ist eine neue Liste von Steam. Nur neue Listen bringen eine Trennung voran.
+bool FeedUntil(Transport& Host, const std::vector<uint64_t>& Members, const std::function<bool()>& Condition,
+               int Milliseconds = 3000)
+{
+    return WaitFor([&] {
+        Host.SetLobbyMembers(Members);
+        return Condition();
+    }, Milliseconds);
+}
+
+bool FeedUnusableUntil(Transport& Host, LobbyListState State, const std::function<bool()>& Condition, int Milliseconds)
+{
+    return WaitFor([&] {
+        Host.SetLobbyListUnusable(State);
+        return Condition();
+    }, Milliseconds);
+}
 }
 
 TEST_CASE("Zugriff: Mitglied der Lobby verbindet sich, Fremde nicht")
@@ -192,8 +210,7 @@ TEST_CASE("Zugriff: Verlässt der Mitspieler die Lobby, verliert er den Platz; n
         std::this_thread::sleep_for(std::chrono::milliseconds(300));
         CHECK(Friend.Stats().State == TransportState::Connected);
 
-        Host.SetLobbyMembers({kHostId});
-        REQUIRE(WaitFor([&] { return Friend.Stats().State == TransportState::Failed; }));
+        REQUIRE(FeedUntil(Host, {kHostId}, [&] { return Friend.Stats().State == TransportState::Failed; }));
         CHECK(Friend.Stats().Message == kNotMember);
         CHECK(WaitFor([&] { return Host.Stats().State == TransportState::Listening && Host.Stats().Connections == 0; }));
         CHECK(Host.ControlPeers().empty());
@@ -273,4 +290,49 @@ TEST_CASE("Zugriff: nur einzelne Konten im öffentlichen Steam-Universum zählen
     // Lobby (Kontotyp 8, Chat).
     CHECK_FALSE(IsIndividualSteamId(109775240000000001ull));
     CHECK(EndMessage(false, SteamConnectionState::ClosedByPeer, EndReason::NotAuthorized, false) == kNotMember);
+}
+
+TEST_CASE("Zugriff: leere oder veraltete Lobby-Listen trennen keinen verbundenen Mitspieler (lobby-rauswurf)")
+{
+    auto Network = std::make_shared<FakeSteamNetwork>();
+    TransportOptions Options = LobbyPorts(48030);
+    Transport Host(Network->Account(kHostId), Options);
+    REQUIRE(Host.StartHost());
+    Host.SetLobbyMembers({kHostId, kFriendId});
+    Transport Friend(Network->Account(kFriendId), Options);
+    REQUIRE(Friend.StartClient(kHostId));
+    REQUIRE(WaitFor([&] { return Friend.Stats().State == TransportState::Connected && Host.Stats().Connections == 1; }));
+    const auto Lost = [&] { return Friend.Stats().State != TransportState::Connected; };
+
+    SUBCASE("Steam meldet die Liste lange leer oder ohne eigenes Konto")
+    {
+        // Ein Vielfaches von RevokeAfterMs (200 ms).
+        CHECK_FALSE(FeedUnusableUntil(Host, LobbyListState::Empty, Lost, 800));
+        CHECK_FALSE(FeedUnusableUntil(Host, LobbyListState::OwnMissing, Lost, 800));
+        CHECK(Host.Stats().Connections == 1);
+        // Danach wieder gültig mit dem Mitspieler: alles gut.
+        CHECK_FALSE(FeedUntil(Host, {kHostId, kFriendId}, Lost, 300));
+    }
+    SUBCASE("Eine einzelne alte Liste ohne den Mitspieler altert nicht in eine Trennung")
+    {
+        // Etwa ein Frame mit Lücke, danach steht der Game Thread beim Laden einer Karte.
+        Host.SetLobbyMembers({kHostId});
+        CHECK_FALSE(WaitFor(Lost, 800));
+        CHECK_FALSE(FeedUntil(Host, {kHostId, kFriendId}, Lost, 300));
+    }
+    SUBCASE("Während die Liste unbrauchbar ist, kommt kein Fremder hinein")
+    {
+        Transport Stranger(Network->Account(kStrangerId), OtherClient(Options, 10));
+        REQUIRE(Stranger.StartClient(kHostId));
+        CHECK(FeedUnusableUntil(Host, LobbyListState::Empty, [&] { return Stranger.Stats().State == TransportState::Failed; },
+                                3000));
+        CHECK(Stranger.Stats().Message == kNotMember);
+        CHECK(Friend.Stats().State == TransportState::Connected);
+        CHECK(Host.Stats().Connections == 1);
+    }
+    SUBCASE("Fehlt der Mitspieler dauerhaft in gültigen Listen, trennt der Host weiter")
+    {
+        REQUIRE(FeedUntil(Host, {kHostId}, [&] { return Friend.Stats().State == TransportState::Failed; }));
+        CHECK(Friend.Stats().Message == kNotMember);
+    }
 }
