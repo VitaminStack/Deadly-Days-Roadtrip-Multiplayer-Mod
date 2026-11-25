@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <map>
 #include <optional>
 #include <set>
 #include <string>
@@ -32,6 +33,7 @@
 #include "Game/PatchRuntime.h"
 #include "Game/Reflection.h"
 #include "Game/RejoinPolicy.h"
+#include "Game/RemotePlayers.h"
 #include "Game/RewardAdapter.h"
 #include "Game/WorldAdapter.h"
 
@@ -110,7 +112,24 @@ UpgradeFn OriginalUpgrade = nullptr;
 SoldFn OriginalSold = nullptr;
 ConfirmFn OriginalTryBuy = nullptr; // UShopPanelItem::TryBuyItem(this)
 
+// Host: mindestens ein Client mit der Mod verbunden. Für ProcessEvent-Filter; die Peers selbst stehen in RemotePeers.
 std::atomic<bool> RemoteReady = false;
+// Host: verbundene Client-Peers des Kontrollkanals (SetRemotePeers), nur Game Thread.
+std::vector<uint64_t> RemotePeers;
+
+// Host: Stand eines Clients in der Auswahl.
+struct ClientSeat
+{
+    std::optional<uint32_t> Pick;
+    bool Ready = false; // Bestätigen gedrückt (bestaetigen-alle), für ReadyRevision
+    uint64_t ReadyRevision = 0;
+};
+
+// Host: Stand eines Clients am Rundenende aus 0x306.
+struct RoundEndSeat
+{
+    uint64_t In = 0, Ready = 0; // Rundenende, in dessen Lager er ist, und das, für das er bereit ist
+};
 
 // Host: aktuelle Auswahl.
 struct
@@ -122,12 +141,10 @@ struct
     std::vector<Game::Rewards::ChoiceItem> Choices;
     std::vector<std::pair<uintptr_t, uintptr_t>> Data; // ItemData, Rarity je Choice
     int32_t Level = 0;
-    std::optional<uint32_t> ClientPick;
+    std::map<uint64_t, ClientSeat> Clients; // je Client-Peer
     uintptr_t HeldPanel = 0;
     Game::Objects::Ref HeldRef; // HeldPanel im Objekt-Array, dazu die Welt beim Zurückhalten
     uintptr_t HeldWorld = 0;
-    bool ClientReady = false; // Client hat Bestätigen gedrückt (bestaetigen-alle), für ReadyRevision
-    uint64_t ReadyRevision = 0;
     int ReplayCount = 0;        // Versuche, das zurückgehaltene Bestätigen nachzuholen
     ULONGLONG NextReplay = 0;
 } Host;
@@ -151,9 +168,50 @@ struct
     uintptr_t HeldPanel = 0;  // zurückgehaltenes Bestätigen
     Game::Objects::Ref HeldRef; // dasselbe Panel im Objekt-Array, dazu die Welt beim Zurückhalten
     uintptr_t HeldWorld = 0;
-    uint64_t ClientIn = 0, ClientReady = 0; // Host: Stand des Clients aus 0x306
+    std::map<uint64_t, RoundEndSeat> Clients; // Host: je Client-Peer
     uint64_t HostStatusId = 0; // Client: Rundenende im frischen Stand des Hosts, 0 ohne
 } End;
+
+// Host: Clients, die an der Auswahl teilnehmen: verbunden und einer Figur zugeordnet (Game/RemotePlayers.h). Ohne Figur (lädt noch,
+// Reise) kann ein Client nichts wählen; auf ihn wartet niemand.
+std::vector<uint64_t> SeatedClients()
+{
+    std::vector<uint64_t> Result;
+    for (const uint64_t Peer : RemotePeers)
+        if (::Game::PeerController(Peer))
+            Result.push_back(Peer);
+    return Result;
+}
+
+bool Picked(uint64_t Peer)
+{
+    const auto It = Host.Clients.find(Peer);
+    return It != Host.Clients.end() && It->second.Pick.has_value();
+}
+
+// Host: Clients der Auswahl, deren Wahl noch fehlt.
+size_t MissingPicks()
+{
+    const auto Seated = SeatedClients();
+    return static_cast<size_t>(std::count_if(Seated.begin(), Seated.end(), [](uint64_t Peer) { return !Picked(Peer); }));
+}
+
+// Host, bestaetigen-alle: gewählt oder für diese Revision bereit.
+bool Settled(uint64_t Peer, uint64_t Expected)
+{
+    const auto It = Host.Clients.find(Peer);
+    return It != Host.Clients.end() && (It->second.Pick || (It->second.Ready && It->second.ReadyRevision == Expected));
+}
+
+// Host, bestaetigen-rundenende: Ein verbundener Client im Lager dieses Rundenendes, der noch nicht bereit ist, hält das Bestätigen
+// des Hosts. Except nimmt einen Client aus (sein eigener Stand für 0x307).
+bool RoundEndHeld(uint64_t Except = 0)
+{
+    return std::any_of(RemotePeers.begin(), RemotePeers.end(), [Except](uint64_t Peer) {
+        const auto It = End.Clients.find(Peer);
+        return Peer != Except && It != End.Clients.end() && HostHoldsRoundEndConfirm(End.Id, End.Done, true, It->second.In, It->second.Ready);
+    });
+}
 // Client: gesendeter Edit bis zur Antwort des Hosts.
 std::optional<Game::InventoryEdit::Edit> ClientPending;
 // Client, werkbank-client: Die erste Aufwertung im Lager hat eine lokale Bearbeitung begonnen, sie endet mit dem Bestätigen.
@@ -464,8 +522,8 @@ void EndHostSession(const char* Why)
     if (!Host.Active)
         return;
     ClearReadyTint();
-    if (!Host.ClientPick && RemoteReady.load())
-        Core::Log::Warn("Airdrop-Auswahl: Sitzung {} endet ohne Wahl des Clients ({})", Host.Session, Why);
+    if (const size_t Missing = MissingPicks(); Missing && RemoteReady.load())
+        Core::Log::Warn("Airdrop-Auswahl: Sitzung {} endet ohne Wahl von {} Client(s) ({})", Host.Session, Missing, Why);
     else
         Core::Log::Info("Airdrop-Auswahl: Sitzung {} beendet ({})", Host.Session, Why);
     const uint64_t Last = Host.Session;
@@ -544,13 +602,16 @@ bool HoldRoundEndConfirm(uintptr_t Panel)
     if (End.HeldPanel == Panel)
         return true; // schon bereit, weitere Klicks ändern nichts
     // Ein offener Edit des Clients (Aufwertung im Lager) hält sein Bestätigen bis zur Antwort des Hosts zurück.
-    const bool Hold = Role == NetRole::Host ? HostHoldsRoundEndConfirm(End.Id, End.Done, RemoteReady.load(), End.ClientIn, End.ClientReady)
+    const bool Hold = Role == NetRole::Host ? RoundEndHeld()
                                             : ClientHoldsRoundEndConfirm(End.Id, End.Done, End.HostStatusId) || ClientPending.has_value();
     if (!Hold)
     {
         End.Done = End.Id;
         // Beim Host heißt nicht zurückgehalten auch: Client nicht verbunden oder nicht im Lager. Dann nicht „alle bereit“.
-        const bool Alone = Role == NetRole::Host && (!RemoteReady.load() || End.ClientIn != End.Id);
+        const bool Alone = Role == NetRole::Host && std::none_of(RemotePeers.begin(), RemotePeers.end(), [](uint64_t Peer) {
+                               const auto It = End.Clients.find(Peer);
+                               return It != End.Clients.end() && It->second.In == End.Id;
+                           });
         Core::Log::Info("Lager: {} bestätigt, {}", Role == NetRole::Host ? "Host" : "Client", Alone ? "ohne Client im Lager" : "alle bereit");
         return false;
     }
@@ -558,7 +619,7 @@ bool HoldRoundEndConfirm(uintptr_t Panel)
     End.HeldRef = Objects::RefTo(Panel);
     End.HeldWorld = CurrentWorld();
     SetReadyTint(Panel, true);
-    Core::Log::Info("Lager: {} bereit, wartet auf {}", Role == NetRole::Host ? "Host" : "Client", Role == NetRole::Host ? "den Client" : "den Host");
+    Core::Log::Info("Lager: {} bereit, wartet auf {}", Role == NetRole::Host ? "Host" : "Client", Role == NetRole::Host ? "die Clients" : "den Host");
     return true;
 }
 
@@ -608,11 +669,11 @@ void __fastcall ConfirmHook(uintptr_t Panel)
     }
     if (CurrentRole() == NetRole::Client && ClientConfirm(Panel))
         return;
-    if (CurrentRole() == NetRole::Host && Host.Active && !Host.ClientPick && RemoteReady.load())
+    if (CurrentRole() == NetRole::Host && Host.Active && MissingPicks() && RemoteReady.load())
     {
         if (Host.HeldPanel == Panel || Memory::Read<uint8_t>(Panel + PanelIsDragging).value_or(1))
             return;
-        Core::Log::Info("Bestätigen: Host bereit, wartet auf den Client (bereit={})", Host.ClientReady);
+        Core::Log::Info("Bestätigen: Host bereit, wartet auf {} Client(s)", MissingPicks());
         Host.HeldPanel = Panel;
         Host.HeldRef = Objects::RefTo(Panel);
         Host.HeldWorld = CurrentWorld();
@@ -1212,8 +1273,8 @@ bool ClientTradeRpc(uintptr_t Object, uintptr_t Function)
     static uintptr_t Repair = 0;
     if (!Function || Function != Function_(Repair, "RepairItem") || HostApplyingEdit)
         return false;
-    uintptr_t Coop = 0, HostController = 0, Remote = 0;
-    if (!BoundRemoteP2(Coop, HostController, Remote) || Object != InventoryOfController(Remote))
+    const auto Remotes = ::Game::RemoteControllers();
+    if (std::none_of(Remotes.begin(), Remotes.end(), [Object](uintptr_t Remote) { return Object == InventoryOfController(Remote); }))
         return false;
     Core::Log::Warn("Reparatur: RepairItem direkt vom Client verworfen, Reparaturen kommen im Edit");
     return true;
@@ -1362,11 +1423,13 @@ void TraceInventoryEvent(uintptr_t Object, uintptr_t Function, void* Params)
 
 uintptr_t RewardCharacter(uintptr_t Character)
 {
-    uintptr_t Coop = 0, HostController = 0, Remote = 0;
-    if (CurrentRole() != NetRole::Host || !RemoteReady.load() || !BoundRemoteP2(Coop, HostController, Remote))
+    if (CurrentRole() != NetRole::Host || !RemoteReady.load() || !Character)
         return Character;
-    const uintptr_t RemotePawn = Pointer(Remote + ControllerPawn), HostPawn = Pointer(HostController + ControllerPawn);
-    if (Character != RemotePawn || !HostPawn)
+    const uintptr_t HostController = LocalController();
+    const uintptr_t HostPawn = HostController ? Pointer(HostController + ControllerPawn) : 0;
+    const auto Remotes = ::Game::RemoteControllers();
+    if (!HostPawn || Character == HostPawn ||
+        std::none_of(Remotes.begin(), Remotes.end(), [Character](uintptr_t Remote) { return Pointer(Remote + ControllerPawn) == Character; }))
         return Character;
     Core::Log::Info("Airdrop-Auswahl: Kiste vom Remote-Spieler geöffnet, Auswahl über die Figur des Hosts");
     return HostPawn;
@@ -1466,13 +1529,22 @@ namespace Game::Rewards
 {
 using namespace Game::Patches;
 
-void SetRemoteReady(bool Ready)
+void SetRemotePeers(std::span<const uint64_t> Peers)
 {
+    const bool Ready = !Peers.empty();
     if (RemoteReady.exchange(Ready) != Ready)
-        Core::Log::Info("Airdrop-Auswahl: Client mit Mod {}", Ready ? "verbunden, Airdrop-Auswahl für beide" : "fehlt, Auswahl nur beim Host");
+        Core::Log::Info("Airdrop-Auswahl: Client mit Mod {}", Ready ? "verbunden, Airdrop-Auswahl für alle" : "fehlt, Auswahl nur beim Host");
+    if (Peers.size() != RemotePeers.size() && Ready)
+        Core::Log::Info("Airdrop-Auswahl: {} Client(s) mit Mod verbunden", Peers.size());
+    RemotePeers.assign(Peers.begin(), Peers.end());
+    const auto Gone = [](const auto& Entry) { return std::find(RemotePeers.begin(), RemotePeers.end(), Entry.first) == RemotePeers.end(); };
+    if (std::any_of(End.Clients.begin(), End.Clients.end(), [&](const auto& Entry) { return Gone(Entry) && Entry.second.In; }))
+        Core::Log::Info("Lager: getrennter Client gilt nicht mehr als im Lager");
+    std::erase_if(Host.Clients, Gone);
+    std::erase_if(End.Clients, Gone);
 }
 
-std::optional<Offer> ReadOffer()
+std::optional<Offer> ReadOffer(uint64_t Peer)
 {
     if (CurrentRole() != NetRole::Host || !Host.Active)
         return std::nullopt;
@@ -1481,27 +1553,34 @@ std::optional<Offer> ReadOffer()
     Result.Revision = Revision(Host.Items);
     Result.Level = Host.Level;
     Result.Choices = Host.Choices;
-    Result.ClientClaimed = Host.ClientPick.has_value();
+    Result.ClientClaimed = Picked(Peer);
     Result.HostClaimed = false;
-    Result.HostWaiting = Host.HeldPanel != 0;
-    Result.ClientReady = Host.ClientReady && Host.ReadyRevision == Result.Revision;
+    // bestaetigen-alle: Der Client löst sein Bestätigen erst aus, wenn der Host und alle anderen Clients bereit sind.
+    const auto Seated = SeatedClients();
+    Result.HostWaiting = Host.HeldPanel != 0 && std::all_of(Seated.begin(), Seated.end(), [&](uint64_t Other) {
+                             return Other == Peer || Settled(Other, Result.Revision);
+                         });
+    const auto It = Host.Clients.find(Peer);
+    Result.ClientReady = It != Host.Clients.end() && It->second.Ready && It->second.ReadyRevision == Result.Revision;
     return Result;
 }
 
-void SetClientReady(uint64_t Session, uint64_t Expected, bool Ready)
+void SetClientReady(uint64_t Peer, uint64_t Session, uint64_t Expected, bool Ready)
 {
-    if (CurrentRole() != NetRole::Host || !Host.Active || Session != Host.Session || Host.ClientPick)
+    if (CurrentRole() != NetRole::Host || !Host.Active || Session != Host.Session || Picked(Peer))
         return;
-    if (Host.ClientReady != Ready || Host.ReadyRevision != Expected)
+    ClientSeat& Seat = Host.Clients[Peer];
+    if (Seat.Ready != Ready || Seat.ReadyRevision != Expected)
         Core::Log::Info("Bestätigen: Client {} (Sitzung {}, Host bereit={})", Ready ? "bereit" : "nicht mehr bereit", Session, Host.HeldPanel != 0);
-    Host.ClientReady = Ready;
-    Host.ReadyRevision = Expected;
+    Seat.Ready = Ready;
+    Seat.ReadyRevision = Expected;
 }
 
-// Host: Wahl des Clients in sein Inventar legen (CreateAndAddItem), das Item repliziert. 0, wenn sie nicht passt.
-uintptr_t ClaimForClient(uintptr_t Inventory, uint64_t SessionId, uint64_t Expected, uint32_t Index)
+// Host: Wahl eines Clients in sein Inventar legen (CreateAndAddItem), das Item repliziert. 0, wenn sie nicht passt. Jeder Client
+// wählt aus denselben Choices, jede Wahl wird neu angelegt.
+uintptr_t ClaimForClient(uint64_t Peer, uintptr_t Inventory, uint64_t SessionId, uint64_t Expected, uint32_t Index)
 {
-    if (CurrentRole() != NetRole::Host || !Host.Active || SessionId != Host.Session || Host.ClientPick || Revision(Host.Items) != Expected ||
+    if (CurrentRole() != NetRole::Host || !Host.Active || SessionId != Host.Session || Picked(Peer) || Revision(Host.Items) != Expected ||
         Index >= Host.Data.size() || !Host.Data[Index].first)
         return 0;
     static uintptr_t Create = 0;
@@ -1521,7 +1600,7 @@ uintptr_t ClaimForClient(uintptr_t Inventory, uint64_t SessionId, uint64_t Expec
     Objects::ProcessEvent(Inventory, Create, &Add);
     Core::Log::Info("Airdrop-Auswahl: Client wählt {} ({}), ins Inventar des Clients gelegt={}", Index, Host.Choices[Index].Name, Add.Result != 0);
     if (Add.Result)
-        Host.ClientPick = Index;
+        Host.Clients[Peer].Pick = Index;
     return Add.Result;
 }
 
@@ -1696,7 +1775,7 @@ uintptr_t UpgradeForClient(uintptr_t Inventory, std::vector<uintptr_t> Inputs, u
     return Params.Result;
 }
 
-Game::InventoryEdit::Verdict ApplyClientEdit(const Game::InventoryEdit::Edit& Value)
+Game::InventoryEdit::Verdict ApplyClientEdit(uint64_t Peer, const Game::InventoryEdit::Edit& Value)
 {
     using namespace Game::InventoryEdit;
     if (CurrentRole() != NetRole::Host)
@@ -1706,14 +1785,14 @@ Game::InventoryEdit::Verdict ApplyClientEdit(const Game::InventoryEdit::Edit& Va
         Core::Log::Warn("Inventar lokal: Edit {} ungültig, abgelehnt", Value.Id);
         return Rejected(EditReason::Malformed);
     }
-    uintptr_t Coop = 0, HostController = 0, Remote = 0;
-    const uintptr_t Inventory = BoundRemoteP2(Coop, HostController, Remote) ? InventoryOfController(Remote) : 0;
+    const uintptr_t HostController = LocalController();
+    const uintptr_t Inventory = InventoryOfController(::Game::PeerController(Peer));
     if (!Inventory)
     {
         Core::Log::Warn("Inventar lokal: Inventar des Clients nicht gefunden, Edit {} abgelehnt", Value.Id);
         return Rejected(EditReason::NoInventory);
     }
-    if (Value.Choice && (!Host.Active || Value.Session != Host.Session || Host.ClientPick || Revision(Host.Items) != Value.Revision ||
+    if (Value.Choice && (!Host.Active || Value.Session != Host.Session || Picked(Peer) || Revision(Host.Items) != Value.Revision ||
                          *Value.Choice >= Host.Data.size()))
     {
         Core::Log::Warn("Inventar lokal: Edit {} mit Wahl {} passt nicht zur Sitzung {}, abgelehnt", Value.Id, *Value.Choice, Host.Session);
@@ -1874,7 +1953,7 @@ Game::InventoryEdit::Verdict ApplyClientEdit(const Game::InventoryEdit::Edit& Va
     }
     if (ChoiceAt < Value.Items.size())
     {
-        Resolved[ChoiceAt] = ClaimForClient(Inventory, Value.Session, Value.Revision, *Value.Choice);
+        Resolved[ChoiceAt] = ClaimForClient(Peer, Inventory, Value.Session, Value.Revision, *Value.Choice);
         if (!Resolved[ChoiceAt])
         {
             Core::Log::Warn("Inventar lokal: Wahl {} des Edits {} nicht angelegt, abgelehnt", *Value.Choice, Value.Id);
@@ -2045,24 +2124,20 @@ void AdvanceQueues()
     if (Now < Next)
         return;
     Next = Now + 1000;
-    uintptr_t Coop = 0, HostController = 0, Remote = 0;
-    if (!BoundRemoteP2(Coop, HostController, Remote))
-    {
-        HostController = LocalController();
-        Remote = 0;
-    }
+    std::vector<uintptr_t> Controllers{LocalController()};
+    for (const uintptr_t Remote : ::Game::RemoteControllers())
+        Controllers.push_back(Remote);
     struct Seen
     {
         uintptr_t World = 0, Pawn = 0, Queue = 0;
         int Busy = -1, Current = -1;
     };
-    static Seen Last[2];
+    static Seen Last[::Game::MaxPlayers];
     static uintptr_t Open = 0;
     const uintptr_t World = CurrentWorld();
-    const uintptr_t Controllers[2] = {HostController, Remote};
-    for (int i = 0; i < 2; ++i)
+    for (size_t i = 0; i < Controllers.size() && i < std::size(Last); ++i)
     {
-        const char* Who = i ? "Remote-Spieler" : "Host";
+        const std::string Who = i ? "Remote-Spieler " + std::to_string(i) : std::string("Host");
         const uintptr_t Pawn = Controllers[i] ? Pointer(Controllers[i] + ControllerPawn) : 0;
         const uintptr_t Queue = Alive(Pawn) && Objects::IsA(Pawn, "DDCharacter") ? Pointer(Pawn + CharacterRewardQueue) : 0;
         if (!Alive(Queue) || !Objects::IsA(Queue, "RewardQueueComponent"))
@@ -2105,9 +2180,9 @@ void Tick()
         Station = {};
     if (CurrentRole() != NetRole::Host)
         return;
-    // Lager am Rundenende: nachholen, sobald der Client bereit oder nicht mehr verbunden ist.
-    if (End.HeldPanel && (End.ClientReady == End.Id || !RemoteReady.load() || End.ClientIn != End.Id))
-        ReleaseRoundEndConfirm(End.ClientReady == End.Id ? "Client bereit" : "Client nicht mehr im Lager");
+    // Lager am Rundenende: nachholen, sobald jeder Client bereit, nicht mehr im Lager oder nicht mehr verbunden ist.
+    if (End.HeldPanel && !RoundEndHeld())
+        ReleaseRoundEndConfirm("alle Clients bereit oder nicht mehr im Lager");
     if (!Host.Active)
     {
         AdvanceQueues();
@@ -2118,12 +2193,12 @@ void Tick()
         EndHostSession("Inventar weg");
         return;
     }
-    // Zurückgehaltenes Bestätigen nachholen, sobald der Client gewählt hat oder nicht mehr verbunden ist.
+    // Zurückgehaltenes Bestätigen nachholen, sobald jeder Client gewählt hat oder nicht mehr verbunden ist.
     // HandleConfirmButton ignoriert den Aufruf während eines Drags (+0x790) oder ohne Koop-Autorität. Dann wäre der
     // Klick verloren und der Host müsste erneut bestätigen. Deshalb nicht im Drag nachholen und, solange die Sitzung
     // offen bleibt, alle 500 ms erneut, höchstens zehnmal.
     const auto SessionOpen = [] { return std::any_of(Host.Items.begin(), Host.Items.end(), [](uintptr_t Item) { return IsReward(Item) && InInventory(Host.Inventory, Item); }); };
-    if (Host.HeldPanel && (Host.ClientPick || !RemoteReady.load()))
+    if (Host.HeldPanel && (!MissingPicks() || !RemoteReady.load()))
     {
         const uintptr_t Panel = Host.HeldPanel;
         const ULONGLONG Now = GetTickCount64();
@@ -2307,24 +2382,27 @@ void SetRoundEnd(uint64_t Id)
     }
 }
 
-void SetRoundEndClient(uint64_t Id, bool Ready)
+void SetRoundEndClient(uint64_t Peer, uint64_t Id, bool Ready)
 {
-    if (CurrentRole() != NetRole::Host)
+    if (CurrentRole() != NetRole::Host || std::find(RemotePeers.begin(), RemotePeers.end(), Peer) == RemotePeers.end())
         return;
-    if (!Id && End.ClientIn)
+    RoundEndSeat& Seat = End.Clients[Peer];
+    if (!Id && Seat.In)
         Core::Log::Info("Lager: Client meldet sich nicht mehr aus dem Lager");
-    else if (Id && (End.ClientIn != Id || (Ready && End.ClientReady != Id)))
+    else if (Id && (Seat.In != Id || (Ready && Seat.Ready != Id)))
         Core::Log::Info("Lager: Client {} (eigenes Rundenende {})", Ready ? "bereit" : "im Lager", Id == End.Id ? "passt" : "passt nicht");
-    End.ClientIn = Id;
+    Seat.In = Id;
     if (Ready)
-        End.ClientReady = Id;
+        Seat.Ready = Id;
 }
 
-RoundEndState HostRoundEnd()
+RoundEndState HostRoundEnd(uint64_t Peer)
 {
     if (CurrentRole() != NetRole::Host || !End.Id)
         return {};
-    return {End.Id, End.HeldPanel != 0 || End.Done == End.Id, End.ClientReady == End.Id};
+    // Für diesen Client ist der Host erst bereit, wenn auch kein anderer Client im Lager mehr wartet; sonst bestätigte er vor ihnen.
+    const auto It = End.Clients.find(Peer);
+    return {End.Id, End.Done == End.Id || (End.HeldPanel != 0 && !RoundEndHeld(Peer)), It != End.Clients.end() && It->second.Ready == End.Id};
 }
 
 std::optional<RoundEndOwn> ClientRoundEnd()
@@ -2359,11 +2437,12 @@ uintptr_t CachedInventory(uintptr_t& Cache, uintptr_t Controller)
 }
 }
 
-std::vector<RarityEntry> ClientRarities()
+std::vector<RarityEntry> ClientRarities(uint64_t Peer)
 {
-    static uintptr_t Cache = 0;
-    uintptr_t Coop = 0, HostController = 0, Remote = 0;
-    const uintptr_t Inventory = CurrentRole() == NetRole::Host && BoundRemoteP2(Coop, HostController, Remote) ? CachedInventory(Cache, Remote) : 0;
+    static std::map<uint64_t, uintptr_t> Cache;
+    std::erase_if(Cache, [](const auto& Entry) { return std::find(RemotePeers.begin(), RemotePeers.end(), Entry.first) == RemotePeers.end(); });
+    const uintptr_t Controller = CurrentRole() == NetRole::Host ? ::Game::PeerController(Peer) : 0;
+    const uintptr_t Inventory = Controller ? CachedInventory(Cache[Peer], Controller) : 0;
     std::vector<RarityEntry> Result;
     const std::vector<uintptr_t> Items = Inventory ? Game::InventoryEdit::ItemsOf(Inventory) : std::vector<uintptr_t>{};
     for (size_t i = 0; i < Items.size() && i < 96; ++i)
@@ -2477,7 +2556,7 @@ using namespace Game::Patches;
 
 Game::Rejoin::Ledger RejoinLedger;
 ULONGLONG RejoinNextRead = 0;
-uintptr_t RejoinCache = 0;
+std::map<uint64_t, uintptr_t> RejoinCache; // je Konto
 
 uint64_t InventoryIdentity(uintptr_t Inventory)
 {
@@ -2763,7 +2842,7 @@ void SeedForTest(uintptr_t Inventory)
 }
 }
 
-void TickRejoin(uint64_t Peer)
+void TickRejoin(std::span<const RemoteAccount> Clients)
 {
     using namespace Game::Patches;
     // Beim Laden einer Karte ist die Rolle kurz unbekannt (allein); dann nur warten. Als Client gibt es nichts zurückzugeben.
@@ -2781,30 +2860,47 @@ void TickRejoin(uint64_t Peer)
         ForgetRejoin("Host außerhalb der Mission");
         return;
     }
-    uintptr_t Coop = 0, HostController = 0, Remote = 0;
-    const uintptr_t Inventory = Peer && ScrapWallet() && BoundRemoteP2(Coop, HostController, Remote) ? CachedInventory(RejoinCache, Remote) : 0;
-    const uint64_t Identity = Inventory ? InventoryIdentity(Inventory) : 0;
-    const std::optional<Game::Rejoin::Snapshot> Snapshot = Identity ? ReadSnapshot(Inventory) : std::nullopt;
-    const bool HadLeft = RejoinLedger.HasLeft(Peer);
+    // Schlüssel ist das Steam-Konto hinter dem Peer, der Peer selbst ist je Verbindung neu.
+    std::vector<uint64_t> Accounts;
+    for (const RemoteAccount& Client : Clients)
+        if (Client.Account)
+            Accounts.push_back(Client.Account);
+    const auto Absent = [&Accounts](uint64_t Account) { return std::find(Accounts.begin(), Accounts.end(), Account) == Accounts.end(); };
+    RejoinLedger.Connected(Accounts);
+    static std::vector<uint64_t> LastAccounts;
+    for (const uint64_t Account : LastAccounts)
+        if (Absent(Account) && RejoinLedger.HasLeft(Account))
+            if (const auto Kept = RejoinLedger.Saved(Account))
+                Core::Log::Info("Wiedereintritt: Client getrennt, Host merkt sich sein Inventar ({} Items, {} Felder): {}", Kept->Items.size(),
+                                Kept->Slots.size(), Describe(*Kept));
+    LastAccounts = Accounts;
+    std::erase_if(RejoinCache, [&Absent](const auto& Entry) { return Absent(Entry.first); });
+    const bool Wallet = ScrapWallet() != 0;
     const bool Busy = Host.Active || End.Id != 0;
-    static uint64_t LastIdentity = 0;
-    if (Identity != LastIdentity && Identity)
-        Core::Log::Info("Wiedereintritt: Inventar des Clients gefunden ({} Items), Konto {}, beschäftigt={}", Snapshot ? Snapshot->Items.size() : 0,
-                        !RejoinLedger.Saved(Peer) ? "neu" : HadLeft ? "bekannt, war getrennt" : "bekannt", Busy);
-    LastIdentity = Identity ? Identity : LastIdentity;
-    static uint64_t LastPeer = 0;
-    const auto Restore = RejoinLedger.Tick(Peer, Identity, Snapshot, Busy, Now);
-    if (LastPeer && LastPeer != Peer && RejoinLedger.HasLeft(LastPeer))
-        if (const auto Kept = RejoinLedger.Saved(LastPeer))
-            Core::Log::Info("Wiedereintritt: Client getrennt, Host merkt sich sein Inventar ({} Items, {} Felder): {}", Kept->Items.size(),
-                            Kept->Slots.size(), Describe(*Kept));
-    LastPeer = Peer;
-    if (Peer && HadLeft && !RejoinLedger.HasLeft(Peer) && !Restore)
-        Core::Log::Info("Wiedereintritt: Client wieder verbunden, Inventar unverändert da");
-    if (Restore)
-        RejoinLedger.Done(Alive(Inventory) && Identity == Restore->Inventory && RestoreSnapshot(Inventory, Restore->Saved));
-    else if (Identity)
-        SeedForTest(Inventory);
+    static std::map<uint64_t, uint64_t> LastIdentity;
+    for (const RemoteAccount& Client : Clients)
+    {
+        if (!Client.Account)
+            continue;
+        const uint64_t Account = Client.Account;
+        const uintptr_t Controller = Wallet ? ::Game::PeerController(Client.Peer) : 0;
+        const uintptr_t Inventory = Controller ? CachedInventory(RejoinCache[Account], Controller) : 0;
+        const uint64_t Identity = Inventory ? InventoryIdentity(Inventory) : 0;
+        const std::optional<Game::Rejoin::Snapshot> Snapshot = Identity ? ReadSnapshot(Inventory) : std::nullopt;
+        const bool HadLeft = RejoinLedger.HasLeft(Account);
+        if (Identity && Identity != LastIdentity[Account])
+            Core::Log::Info("Wiedereintritt: Inventar des Clients gefunden ({} Items), Konto {}, beschäftigt={}", Snapshot ? Snapshot->Items.size() : 0,
+                            !RejoinLedger.Saved(Account) ? "neu" : HadLeft ? "bekannt, war getrennt" : "bekannt", Busy);
+        if (Identity)
+            LastIdentity[Account] = Identity;
+        const auto Restore = RejoinLedger.Tick(Account, Identity, Snapshot, Busy, Now);
+        if (HadLeft && !RejoinLedger.HasLeft(Account) && !Restore)
+            Core::Log::Info("Wiedereintritt: Client wieder verbunden, Inventar unverändert da");
+        if (Restore)
+            RejoinLedger.Done(Account, Alive(Inventory) && Identity == Restore->Inventory && RestoreSnapshot(Inventory, Restore->Saved));
+        else if (Identity)
+            SeedForTest(Inventory);
+    }
 }
 
 void ForgetRejoin(const char* Why)

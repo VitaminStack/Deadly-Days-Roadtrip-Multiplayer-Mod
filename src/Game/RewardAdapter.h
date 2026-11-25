@@ -2,12 +2,13 @@
 
 #include <cstdint>
 #include <optional>
+#include <span>
 #include <string>
 #include <vector>
 
 #include "Game/InventoryEditPlan.h"
 
-// Airdrop-Auswahl für beide Spieler (airdrop-auswahl), nur beim Host. Die native Koop-Reward-Sitzung des
+// Airdrop-Auswahl für alle Spieler (airdrop-auswahl), nur beim Host. Die native Koop-Reward-Sitzung des
 // UCoopInventoryCoordinatorComponent wartet auf einen Claim je Spieler und hält so lange die Pause. Die Mod setzt den
 // Koop-Modus nur für die Dauer dieser Sitzung, der Client wählt über den Kontrollkanal, der Host ruft ClaimReward(1, …).
 // Alles nur auf dem Game Thread.
@@ -29,9 +30,10 @@ struct Offer
     std::vector<ChoiceItem> Choices;
     bool ClientClaimed = false;
     bool HostClaimed = false;
-    // Der Host hat bestätigt, die Mod hält sein Bestätigen bis zur Wahl des Clients zurück.
+    // Der Host hat bestätigt und jeder andere Client hat gewählt oder ist bereit; die Mod hält das Bestätigen des Hosts bis zur Wahl
+    // aller Clients zurück.
     bool HostWaiting = false;
-    // Der Client hat für diese Revision Bestätigen gedrückt (bestaetigen-alle).
+    // Dieser Client hat für diese Revision Bestätigen gedrückt (bestaetigen-alle).
     bool ClientReady = false;
 };
 
@@ -42,8 +44,8 @@ struct ReadyState
     bool Ready = false;
 };
 
-// Host: Bereit des Clients übernehmen. Ohne Wirkung, wenn die Sitzung nicht offen ist.
-void SetClientReady(uint64_t Session, uint64_t Revision, bool Ready);
+// Host: Bereit eines Clients übernehmen, Peer des Kontrollkanals. Ohne Wirkung, wenn die Sitzung nicht offen ist.
+void SetClientReady(uint64_t Peer, uint64_t Session, uint64_t Revision, bool Ready);
 
 // Client: Bereit-Stand der angezeigten Auswahl, nullopt ohne Auswahl oder nach dem Bestätigen.
 std::optional<ReadyState> ClientReadyState();
@@ -52,17 +54,18 @@ std::optional<ReadyState> ClientReadyState();
 // geht danach wie bisher an den Host. Fehlt die Wahl, nimmt sie das Bereit zurück.
 void FinishClientIfAllReady(bool AllReady);
 
-// Host: Ein Client mit der Mod ist über den Kontrollkanal verbunden. Nur dann setzt die Mod beim Öffnen einer Kiste
-// den Koop-Modus. Sonst bleibt alles wie ohne Mod.
-void SetRemoteReady(bool Ready);
+// Host, je Takt: Peers aller Clients mit der Mod am Kontrollkanal, leer ohne. Nur mit mindestens einem hält die Mod das Bestätigen
+// des Hosts zurück; sonst bleibt alles wie ohne Mod. Getrennte Clients verlieren ihren Stand in Auswahl und Lager.
+void SetRemotePeers(std::span<const uint64_t> Peers);
 
-// Host: Aktuelle Sitzung, nullopt ohne aktive Sitzung der Mod.
-std::optional<Offer> ReadOffer();
+// Host: Aktuelle Sitzung aus Sicht des Clients Peer, nullopt ohne aktive Sitzung der Mod.
+std::optional<Offer> ReadOffer(uint64_t Peer);
 
-// Host: Edit des Clients übernehmen (inventar-lokal): gewählte Belohnung anlegen, geänderte Items und neue Felder mit den
-// nativen Funktionen setzen. Falsch, wenn er nicht passt; dann bleibt das Inventar des Clients unverändert.
+// Host: Edit des Clients Peer übernehmen (inventar-lokal): gewählte Belohnung anlegen, geänderte Items und neue Felder mit den
+// nativen Funktionen setzen. Ziel ist das Inventar zum Controller des Peers (Game/RemotePlayers.h). Falsch, wenn er nicht passt;
+// dann bleibt das Inventar des Clients unverändert.
 // lager-edit-ablehnung: Das Urteil nennt den Grund einer Ablehnung und ob eine Übernahme vollständig war.
-Game::InventoryEdit::Verdict ApplyClientEdit(const Game::InventoryEdit::Edit& Value);
+Game::InventoryEdit::Verdict ApplyClientEdit(uint64_t Peer, const Game::InventoryEdit::Edit& Value);
 
 // Host: Aufräumen je Takt: zurückgehaltenes Bestätigen nachholen, Koop-Modus nach der Sitzung zurücksetzen, die Wahl
 // des Clients in sein Inventar legen.
@@ -87,22 +90,22 @@ void ResolveClientEdit(uint64_t Id, const Game::InventoryEdit::Verdict& Verdict)
 void AbortClientEdit();
 
 // Lager am Rundenende (bestaetigen-rundenende). Bestätigen im Lager markiert wie beim Airdrop nur bereit (Knopf gelb); erst wenn
-// Host und Client bereit sind, laufen beide nativen Bestätigen und der Host kommt zur Routenkarte. Ids sind
+// der Host und alle Clients im Lager bereit sind, laufen die nativen Bestätigen und der Host kommt zur Routenkarte. Ids sind
 // Game::Map::RoundEnd::Id, 0 heißt kein Rundenende.
 
 // Beide, je Takt aus den Kartenpatches: Host sein eigenes Rundenende in dieser Welt, Client das selbst geöffnete.
 void SetRoundEnd(uint64_t Id);
 
-// Host: Stand des Clients aus 0x306.
-void SetRoundEndClient(uint64_t Id, bool Ready);
+// Host: Stand des Clients Peer aus 0x306.
+void SetRoundEndClient(uint64_t Peer, uint64_t Id, bool Ready);
 
-// Stand des Hosts für den Client (0x307).
+// Stand des Hosts für einen Client (0x307). HostReady erst, wenn der Host und alle anderen Clients im Lager bereit sind.
 struct RoundEndState
 {
     uint64_t Id = 0;
     bool HostReady = false, ClientReady = false;
 };
-RoundEndState HostRoundEnd();
+RoundEndState HostRoundEnd(uint64_t Peer);
 
 // Client: eigenes Rundenende und Bereit für 0x306, nullopt ohne Rundenende.
 struct RoundEndOwn
@@ -127,8 +130,8 @@ struct RarityEntry
     bool operator==(const RarityEntry&) const = default;
 };
 
-// Host: Seltenheiten der Items im Inventar des Clients, leer ohne gebundenen Client.
-std::vector<RarityEntry> ClientRarities();
+// Host: Seltenheiten der Items im Inventar des Clients Peer, leer ohne zugeordneten Controller.
+std::vector<RarityEntry> ClientRarities(uint64_t Peer);
 
 // Client: Seltenheiten des Hosts auf die replizierten Items des eigenen Inventars legen. Nur Items, deren Daten an diesem
 // Platz übereinstimmen; während einer lokalen Bearbeitung nicht.
@@ -140,9 +143,14 @@ void ApplyRarities(const std::vector<RarityEntry>& Entries);
 std::optional<int32_t> HostScrap();
 // live-protokoll: eigener Kontostand auf beiden Seiten, nur für das Log. nullopt ohne Mission oder Konto.
 std::optional<int32_t> LocalScrap();
-// wiedereintritt-inventar, Host, je Takt aus RewardSync: Peer ist die Steam-Identität des Clients am Kontrollkanal, 0 ohne. Der Host
-// merkt sich das Inventar des Clients und gibt es nach einer Trennung dem neuen PlayerState desselben Kontos zurück (RejoinPolicy.h).
-void TickRejoin(uint64_t Peer);
+// wiedereintritt-inventar, Host, je Takt aus RewardSync: alle verbundenen Clients mit Peer und Steam-Identität (Account, 0 ohne). Der
+// Host merkt sich das Inventar jedes Clients und gibt es nach einer Trennung dem neuen PlayerState desselben Kontos zurück
+// (RejoinPolicy.h).
+struct RemoteAccount
+{
+    uint64_t Peer = 0, Account = 0;
+};
+void TickRejoin(std::span<const RemoteAccount> Clients);
 // Gemerkte Inventare verwerfen (Run-Ende, keine Sitzung als Host).
 void ForgetRejoin(const char* Why);
 
