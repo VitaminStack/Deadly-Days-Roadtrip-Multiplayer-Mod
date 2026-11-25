@@ -10,6 +10,7 @@
 #include <thread>
 #include <vector>
 
+#include "Net/LobbyMembership.h"
 #include "Net/NetSim.h"
 #include "Net/SteamSockets.h"
 #include "Net/Protocol.h"
@@ -47,8 +48,10 @@ struct TransportOptions
     PeerPolicy Peers = PeerPolicy::Lobby;
     // Kommt die Verbindung, bevor Steam dem Host den Beitritt zur Lobby meldet, wartet der Host höchstens so lange.
     unsigned AuthorizeWaitMs = 5000;
-    // Fehlt ein verbundener Mitspieler so lange in der Lobby, trennt der Host ihn.
+    // Fehlt ein verbundener Mitspieler so lange in gültigen Lobby-Listen, trennt der Host ihn. Siehe LobbyMembership.h.
     unsigned RevokeAfterMs = 10000;
+    // Und mindestens so oft hintereinander in einer gültigen Liste.
+    unsigned RevokeMinMisses = 3;
     int VirtualPort = 0;
     // Abstand der Statistikzeilen im Log.
     unsigned StatsIntervalMs = 30000;
@@ -135,7 +138,11 @@ public:
     static constexpr uint64_t LoopbackAccount = 1;
     // Host: SteamIDs der aktuellen Lobby-Mitglieder, vom Game Thread. Erst danach nimmt der Host P2P-Verbindungen an,
     // und nur von diesen Konten. ClearLobbyMembers heißt: keine Lobby, alle P2P-Verbindungen werden abgelehnt.
+    // Jeder Aufruf ist eine neue Liste; nur neue Listen bringen die Frist eines fehlenden Mitspielers voran.
     void SetLobbyMembers(std::vector<uint64_t> SteamIds);
+    // Host, lobby-rauswurf: Die Liste von Steam ist gerade unbrauchbar (leer, ohne eigenes Konto, unvollständig). Neue
+    // Verbindungen warten und werden abgelehnt, verbundene Mitspieler behalten ihren Platz, ihre Frist steht.
+    void SetLobbyListUnusable(LobbyListState State);
     void ClearLobbyMembers();
     // Nur bereits gepruefte Verbindung; false bei Disconnect, vollem Puffer oder falschem Format.
     bool SendControl(uint64_t Peer, const Protocol::Control& Value);
@@ -198,6 +205,10 @@ private:
     mutable std::mutex AuthLock;
     bool LobbyKnown = false;
     std::vector<uint64_t> LobbyMembers;
+    // Nummer, Zustand und Zeit der letzten Liste, unter AuthLock.
+    uint64_t LobbySequence = 0;
+    LobbyListState LobbyState = LobbyListState::Empty;
+    uint64_t LobbyAtMs = 0;
     std::unique_ptr<std::vector<Link>> Links;
     uint64_t ClosedPacketsTo = 0, ClosedPacketsFrom = 0, ClosedBytesTo = 0, ClosedBytesFrom = 0, ClosedDropped = 0;
 

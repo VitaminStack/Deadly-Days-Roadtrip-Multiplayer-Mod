@@ -83,6 +83,10 @@ struct SessionTimeouts
     std::chrono::milliseconds HostGameLost{2000};
     // Host: Nach dem Erstellen wird das Spiel nicht Listen-Server.
     std::chrono::milliseconds HostListen{60000};
+    // Client, lobby-rauswurf: Fehlt das eigene Konto so lange in der Lobby, obwohl die Sitzung läuft, tritt der Client
+    // derselben Lobby neu bei, bevor der Host ihn nach RevokeAfterMs trennt. Danach höchstens alle RejoinRetry.
+    std::chrono::milliseconds RejoinLobby{2000};
+    std::chrono::milliseconds RejoinRetry{5000};
 };
 
 // Erzeugt den Transport. Austauschbar für Tests.
@@ -116,6 +120,9 @@ private:
     void StartTransportClient(uint64_t Owner);
     void CloseLobby();
     void SyncLobbyMembers();
+    void WatchLobby();
+    void RejoinLobby();
+    void ResetLobbyWatch();
     void WatchGame();
     void WatchHostGame();
     bool Expired(std::chrono::milliseconds Limit) const;
@@ -141,5 +148,22 @@ private:
     std::optional<Clock::time_point> HostGameMissingSince;
     // Host: Grund, warum der letzte Mitspieler gegangen ist, bis ein neuer kommt.
     std::string HostNotice;
+    // lobby-rauswurf: zuletzt geloggter Stand der Lobby, Logzeilen nur bei Änderungen.
+    struct LobbyWatch
+    {
+        int Count = -1;
+        std::optional<LobbyListState> State;
+        Clock::time_point StateSince{};
+        // 1 eigenes Konto ist Besitzer, 0 ein anderes, -1 unbekannt (noch nicht gelesen oder Steam meldet keinen).
+        int OwnerSelf = -2;
+        // Client: seit wann das eigene Konto fehlt, laufender und nächster Neubeitritt.
+        std::optional<Clock::time_point> OwnMissingSince;
+        SteamApiCall RejoinCall = 0;
+        Clock::time_point NextRejoin{};
+        bool RejoinGaveUp = false;
+    } Watched;
+    // Ein Neubeitritt, dessen Sitzung inzwischen endete. Kommt er doch noch an, verlässt die Sitzung die Lobby wieder.
+    SteamApiCall AbandonedRejoin = 0;
+    uint64_t AbandonedLobby = 0;
 };
 }

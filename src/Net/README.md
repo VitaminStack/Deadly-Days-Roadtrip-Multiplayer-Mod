@@ -164,17 +164,27 @@ entscheidet der Host vorher, noch vor `AcceptConnection`:
    SteamID und einem einzelnen Konto im öffentlichen Universum (`IsIndividualSteamId`). Eine SteamID aus Paketen oder dem
    Handshake zählt nie. Ohne bestätigte Identität: abgelehnt.
 2. **Lobby-Mitglied:** Die Sitzung liest jeden Tick die Mitglieder der eigenen Lobby (`SteamLobbyApi::Members`, über
-   `GetLobbyMemberByIndex`) und gibt sie mit `Transport::SetLobbyMembers` an den Netzwerkthread. Ohne Lobby wird jede
-   P2P-Verbindung abgelehnt, das eigene Konto ebenso.
+   `GetLobbyMemberByIndex`) und gibt sie mit `Transport::SetLobbyMembers` an den Netzwerkthread. Gültig ist eine Liste nur mit
+   dem eigenen Konto und so vielen SteamIDs, wie `GetNumLobbyMembers` nennt (`ClassifyLobbyList`). Eine leere, unvollständige
+   oder Liste ohne eigenes Konto geht als `SetLobbyListUnusable` hinüber: Neue Verbindungen warten und werden abgelehnt.
+   Ohne Lobby wird jede P2P-Verbindung abgelehnt, das eigene Konto ebenso.
 3. **Kurz warten, nie freigeben:** Meldet Steam den Beitritt erst nach dem Verbindungsversuch, wartet die Verbindung bis zu
    `AuthorizeWaitMs` (5 s) unangenommen. Sie belegt keinen Platz und keinen UDP-Port. Höchstens vier warten gleichzeitig, ein
    Konto nur einmal; danach Ablehnung mit Grund 1005.
 4. **Platz:** Erst ein berechtigtes Konto bekommt den einzigen Remote-Platz, ein zweites bekommt `Busy` (1004).
-5. **Bindung an die Verbindung:** Die SteamID hängt am `Link`. Fehlt das Konto länger als `RevokeAfterMs` (10 s) in der
-   Lobby, trennt der Host mit 1005. Jede neue Verbindung wird neu geprüft.
+5. **Bindung an die Verbindung:** Die SteamID hängt am `Link`. Der Host trennt mit 1005 erst, wenn das Konto in neuen,
+   gültigen Listen mindestens `RevokeAfterMs` (10 s) lang und mindestens `RevokeMinMisses` (3) mal hintereinander fehlt
+   (`Judge` in `LobbyMembership.cpp`). Je Liste zählen höchstens 1 s, eine unbrauchbare Liste hält die Frist an. So trennen
+   weder eine kurz leere Liste noch ein stehender Game Thread mit alter Liste (`lobby-rauswurf`). Jede neue Verbindung wird
+   neu geprüft.
+6. **Neubeitritt des Clients:** Fehlt das eigene Konto beim Client 2 s in der Lobby, obwohl die Sitzung läuft, tritt er
+   derselben Lobby neu bei (`Session::RejoinLobby`, höchstens alle 5 s, Schluss bei „Lobby gibt es nicht“). Ein Fremder kann
+   das nicht nutzen: Steam lässt nur Freunde in die Lobby, und die Mitgliedschaft prüft der Host weiter selbst.
 
 Der Client sieht bei 1005 „Der Host hat die Verbindung abgelehnt: nicht Mitglied seiner Lobby“. Logs nennen nur den Grund,
-keine SteamID und keine Adresse.
+keine SteamID und keine Adresse. Bei Änderungen loggen beide Seiten `Lobby (Host|Client): …` (Mitgliederzahl, Zustand der Liste,
+Besitzer, beim Client das eigene Konto und Neubeitritte), der Host-Transport `Transport: Mitspieler fehlt …`, `… wieder in der
+Lobby-Liste`, `Lobby-Liste unbrauchbar …` und vor einer Trennung `Mitspieler fehlt seit … ms in … gültigen Lobby-Listen …`.
 
 **127.0.0.1 nur im Testmodus:** Dort prüft Steam keine Identität. Der Host lauscht darauf nur mit `-ddcoop_localtest`
 (zwei Instanzen unter einem Konto, setzt `Start-Session.ps1 -Tunnel Lobby` ohne `-Role` selbst) oder mit dem Testschalter
@@ -186,7 +196,7 @@ keine SteamID und keine Adresse.
 
 Geprüft in `AuthorizationTests.cpp` und `SessionTests.cpp` mit nachgebautem Steam: Mitglied verbindet, Fremder, fehlende
 Identität, keine Lobby, verspätete Mitgliedschaft, Fremder vor dem Freund, zweites Mitglied, Verlassen der Lobby, erneuter
-Beitritt, falsche Mod-Version, 127.0.0.1 mit und ohne Testmodus, viele Fremdversuche. Im Spiel am 05.11.2026 mit
+Beitritt, leere und veraltete Listen, Fremder bei unbrauchbarer Liste, Neubeitritt des Clients (dazu `LobbyMembershipTests.cpp`), falsche Mod-Version, 127.0.0.1 mit und ohne Testmodus, viele Fremdversuche. Im Spiel am 05.11.2026 mit
 `Start-Session.ps1 -Mod -Tunnel Lobby -NoSpike`: Host meldet den Testmodus, nimmt den Client über 127.0.0.1 an, beide in der
 MetaBase. Mit getrennten Steam-Konten auf zwei PCs am 07.11.2026 bestätigt: Mitglied verbindet, Konto außerhalb der Lobby bekommt 1005
 und keinen Platz, nach dem Verlassen gibt der Host den Platz frei, siehe [Lobby-Abnahme](../../docs/archive/GAME_ANALYSIS.md#lobby-abnahme-auf-zwei-pcs-am-07112026-lobby-auth-live-lobby-live-rest).

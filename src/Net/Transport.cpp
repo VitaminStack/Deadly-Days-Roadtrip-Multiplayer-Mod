@@ -27,8 +27,11 @@ struct Transport::Link
     uint64_t Peer = 0;
     // Von Steam bestätigtes Konto der Gegenseite beim Host, 0 über 127.0.0.1.
     uint64_t SteamId = 0;
-    // Seit wann das Konto in der Lobby fehlt, 0 solange es Mitglied ist.
-    uint64_t MissingSince = 0;
+    // Bewertung der Lobby-Listen für dieses Konto, siehe LobbyMembership.h.
+    MemberWatch Membership;
+    MemberVerdict LastVerdict = MemberVerdict::Present;
+    // Letzter Empfang von Steam, GetTickCount64.
+    uint64_t LastReceiveMs = 0;
     ULONGLONG HandshakeStarted = 0;
     uint64_t PacketsToSteam = 0, BytesToSteam = 0, PacketsFromSteam = 0, BytesFromSteam = 0, Dropped = 0;
     // Nur mit TransportOptions::Sim, ausgehende Richtung.
@@ -323,6 +326,19 @@ void Transport::SetLobbyMembers(std::vector<uint64_t> SteamIds)
     std::lock_guard Guard(AuthLock);
     LobbyKnown = true;
     LobbyMembers = std::move(SteamIds);
+    LobbyState = LobbyListState::Valid;
+    ++LobbySequence;
+    LobbyAtMs = GetTickCount64();
+}
+
+void Transport::SetLobbyListUnusable(LobbyListState State)
+{
+    std::lock_guard Guard(AuthLock);
+    LobbyKnown = true;
+    LobbyMembers.clear();
+    LobbyState = State == LobbyListState::Valid ? LobbyListState::Empty : State;
+    ++LobbySequence;
+    LobbyAtMs = GetTickCount64();
 }
 
 void Transport::ClearLobbyMembers()
@@ -330,6 +346,9 @@ void Transport::ClearLobbyMembers()
     std::lock_guard Guard(AuthLock);
     LobbyKnown = false;
     LobbyMembers.clear();
+    LobbyState = LobbyListState::Empty;
+    ++LobbySequence;
+    LobbyAtMs = 0;
 }
 
 // Zugriffskontrolle vor Accept. Der Versions-Handshake danach prüft nur die Kompatibilität, nie die Berechtigung.
@@ -355,7 +374,8 @@ Transport::Admission Transport::Admit(uint64_t SteamId, std::string& Why) const
     }
     if (std::find(LobbyMembers.begin(), LobbyMembers.end(), SteamId) != LobbyMembers.end())
         return Admission::Accept;
-    Why = "von einem Konto außerhalb der Lobby";
+    Why = LobbyState == LobbyListState::Valid ? "von einem Konto außerhalb der Lobby"
+                                              : "während die Lobby-Liste unbrauchbar ist";
     return Admission::Wait;
 }
 
@@ -450,28 +470,69 @@ void Transport::CheckPending()
     }
 }
 
-// Verlässt ein verbundenes Konto die Lobby, verliert es die Berechtigung. Kurze Lücken in der Mitgliederliste von Steam
-// trennen niemanden.
+// Verlässt ein verbundenes Konto die Lobby, verliert es die Berechtigung. Getrennt wird erst, wenn das Konto lange genug und
+// mehrmals hintereinander in gültigen Listen fehlt; leere oder veraltete Listen und ein stehender Game Thread trennen
+// niemanden (lobby-rauswurf, LobbyMembership.h). Logzeilen nur bei Änderungen, ohne IDs.
 void Transport::CheckMembership()
 {
     if (Options.Peers != PeerPolicy::Lobby)
         return;
     const uint64_t Now = GetTickCount64();
+    uint64_t Sequence = 0, AtMs = 0;
+    LobbyListState State = LobbyListState::Empty;
+    std::vector<uint64_t> Members;
+    {
+        std::lock_guard Guard(AuthLock);
+        if (!LobbyKnown)
+            return;
+        Sequence = LobbySequence;
+        State = LobbyState;
+        AtMs = LobbyAtMs;
+        Members = LobbyMembers;
+    }
+    const size_t Count = Members.size();
+    const MembershipRules Rules{Options.RevokeAfterMs, Options.RevokeMinMisses};
     std::vector<uint32_t> Revoked;
     for (Link& Entry : *Links)
     {
         if (!Entry.SteamId || Entry.Rejected)
             continue;
-        std::string Why;
-        if (Admit(Entry.SteamId, Why) == Admission::Accept)
-        {
-            Entry.MissingSince = 0;
+        const bool Contains = std::find(Members.begin(), Members.end(), Entry.SteamId) != Members.end();
+        const uint64_t MissedBefore = Entry.Membership.MissingMs;
+        const MemberVerdict Verdict = Judge(Entry.Membership, Rules, Sequence, State, Contains, Now);
+        const MemberVerdict Last = Entry.LastVerdict;
+        Entry.LastVerdict = Verdict;
+        if (Verdict == Last)
             continue;
-        }
-        if (!Entry.MissingSince)
-            Entry.MissingSince = Now;
-        else if (Now - Entry.MissingSince >= Options.RevokeAfterMs)
+        const uint64_t Received = Entry.LastReceiveMs ? Now - Entry.LastReceiveMs : 0;
+        switch (Verdict)
+        {
+        case MemberVerdict::Present:
+            Core::Log::Info("Transport: Mitspieler wieder in der Lobby-Liste ({} Mitglieder), hat {} ms angerechnet gefehlt",
+                            Count, MissedBefore);
+            break;
+        case MemberVerdict::Missing:
+            if (Last == MemberVerdict::Present)
+                Core::Log::Warn("Transport: Mitspieler fehlt in der gültigen Lobby-Liste ({} Mitglieder), trennt nach {} ms, "
+                                "letzter Empfang vor {} ms",
+                                Count, Options.RevokeAfterMs, Received);
+            else
+                Core::Log::Info("Transport: Lobby-Liste wieder gültig ({} Mitglieder), Mitspieler fehlt weiter, {} ms angerechnet",
+                                Count, Entry.Membership.MissingMs);
+            break;
+        case MemberVerdict::Paused:
+            Core::Log::Warn("Transport: Lobby-Liste unbrauchbar ({}), Frist für den Mitspieler steht bei {} ms, letzter "
+                            "Empfang vor {} ms",
+                            ToString(State), Entry.Membership.MissingMs, Received);
+            break;
+        case MemberVerdict::Revoke:
+            Core::Log::Warn("Transport: Mitspieler fehlt seit {} ms in {} gültigen Lobby-Listen hintereinander (zuletzt {} "
+                            "Mitglieder, Liste vor {} ms, letzter Empfang vor {} ms), trenne mit Grund {}",
+                            Entry.Membership.MissingMs, Entry.Membership.Misses, Count, AtMs ? Now - AtMs : 0, Received,
+                            EndReason::NotAuthorized);
             Revoked.push_back(Entry.Connection);
+            break;
+        }
     }
     for (const uint32_t Connection : Revoked)
     {
@@ -630,6 +691,7 @@ void Transport::Pump(Link& Entry)
     if (!Entry.Connected || Entry.Rejected)
         return; // Accept kann vor dem folgenden Connected-Callback schon Nachrichten bereitstellen.
     Sockets->Receive(Entry.Connection, 64, [this, &Entry](std::span<const uint8_t> Message) {
+        Entry.LastReceiveMs = GetTickCount64();
         if (!Entry.Rejected && !ReceiveFrame(Entry, Message))
             Reject(Entry, Protocol::Explain(Message, Options.Identity));
     });

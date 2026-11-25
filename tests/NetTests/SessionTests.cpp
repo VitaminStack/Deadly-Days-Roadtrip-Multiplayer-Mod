@@ -46,6 +46,11 @@ struct FakeLobbyService
     // Steam antwortet nicht auf Erstellen oder Beitreten.
     bool NoAnswer = false;
     int InviteDialogs = 0;
+    // lobby-rauswurf: Steam liefert diesem Konto gerade keine Mitgliederliste, etwa ohne Verbindung zu den Steam-Servern.
+    std::set<uint64_t> Blind;
+    // Steam lässt dieses Konto nicht mehr in die Lobby.
+    std::set<uint64_t> RefuseJoin;
+    int Joins = 0;
 
     void Leave(uint64_t Account, uint64_t Id)
     {
@@ -94,7 +99,7 @@ public:
     std::vector<uint64_t> Members(uint64_t Lobby) override
     {
         const auto Found = Service->Lobbies.find(Lobby);
-        if (Found == Service->Lobbies.end() || !Found->second.Members.count(Account))
+        if (Found == Service->Lobbies.end() || !Found->second.Members.count(Account) || Service->Blind.count(Account))
             return {};
         return {Found->second.Members.begin(), Found->second.Members.end()};
     }
@@ -147,6 +152,9 @@ public:
         auto Target = Service->Lobbies.find(Lobby);
         if (Target == Service->Lobbies.end())
             return LobbyEnteredResult{false, Lobby, 2};
+        if (Service->RefuseJoin.count(Account))
+            return LobbyEnteredResult{false, Lobby, 5};
+        ++Service->Joins;
         Target->second.Members.insert(Account);
         return LobbyEnteredResult{true, Lobby, 1};
     }
@@ -371,6 +379,7 @@ TEST_CASE("Host nimmt nur Mitglieder seiner Lobby an")
 
     SUBCASE("Verlässt der Mitspieler die Lobby, trennt der Host ihn")
     {
+        Service->RefuseJoin.insert(kClientId);
         Service->Leave(kClientId, Lobby);
         REQUIRE(TickUntil({&Host.Run, &Client.Run}, [&] { return Client.Run.Status().Phase == SessionPhase::Failed; }));
         CHECK(Client.Run.Status().Message == "Der Host hat die Verbindung abgelehnt: nicht Mitglied seiner Lobby");
@@ -384,6 +393,63 @@ TEST_CASE("Host nimmt nur Mitglieder seiner Lobby an")
         CHECK(TickUntil({&Host.Run, &Client.Run}, [&] {
             return Client.Run.Status().Phase == SessionPhase::Playing && Host.Run.Status().Phase == SessionPhase::Playing;
         }));
+    }
+}
+
+TEST_CASE("lobby-rauswurf: Ein gesunder Client bleibt trotz Lücken in der Lobby verbunden")
+{
+    auto Service = std::make_shared<FakeLobbyService>();
+    auto Network = std::make_shared<FakeSteamNetwork>();
+    TransportOptions Options = SessionPorts(47845);
+    Options.AuthorizeWaitMs = 300;
+    Options.RevokeAfterMs = 600;
+    Player Host(Service, Network, kHostId, kHostId, Options);
+    Player Client(Service, Network, kClientId, kClientId, Options);
+    SessionTimeouts Fast;
+    Fast.RejoinLobby = std::chrono::milliseconds(100);
+    Fast.RejoinRetry = std::chrono::milliseconds(200);
+    Client.Run.SetTimeouts(Fast);
+    REQUIRE(Host.Run.Create());
+    REQUIRE(TickUntil({&Host.Run}, [&] { return Host.Run.Status().Phase == SessionPhase::Hosting; }));
+    const uint64_t Lobby = Host.Run.Status().Lobby;
+    REQUIRE(Client.Run.Join(Lobby));
+    REQUIRE(TickUntil({&Host.Run, &Client.Run}, [&] {
+        return Client.Run.Status().Phase == SessionPhase::Playing && Host.Run.Status().Phase == SessionPhase::Playing;
+    }));
+    const int JoinsBefore = Service->Joins;
+    const auto Dropped = [&] { return Client.Run.Status().Phase != SessionPhase::Playing; };
+
+    SUBCASE("Host bekommt lange keine Mitgliederliste von Steam")
+    {
+        Service->Blind.insert(kHostId);
+        CHECK_FALSE(TickUntil({&Host.Run, &Client.Run}, Dropped, 1500));
+        Service->Blind.erase(kHostId);
+        CHECK_FALSE(TickUntil({&Host.Run, &Client.Run}, Dropped, 100));
+        CHECK(Host.Run.Status().Phase == SessionPhase::Playing);
+    }
+    SUBCASE("Steam nimmt den Client aus der Lobby, er tritt neu bei")
+    {
+        Service->Leave(kClientId, Lobby);
+        CHECK_FALSE(TickUntil({&Host.Run, &Client.Run}, Dropped, 1500));
+        CHECK(Service->Joins == JoinsBefore + 1);
+        CHECK(Service->Lobbies[Lobby].Members.count(kClientId) == 1);
+        CHECK(Host.Run.Status().Phase == SessionPhase::Playing);
+    }
+    SUBCASE("Darf der Client nicht zurück, trennt der Host nach der Frist")
+    {
+        Service->RefuseJoin.insert(kClientId);
+        Service->Leave(kClientId, Lobby);
+        REQUIRE(TickUntil({&Host.Run, &Client.Run}, [&] { return Client.Run.Status().Phase == SessionPhase::Failed; }, 5000));
+        CHECK(Client.Run.Status().Message == "Der Host hat die Verbindung abgelehnt: nicht Mitglied seiner Lobby");
+        CHECK(Service->Joins == JoinsBefore);
+    }
+    SUBCASE("Verlässt der Client die Sitzung, tritt er nicht neu bei")
+    {
+        Client.Run.Leave();
+        CHECK(TickUntil({&Host.Run, &Client.Run}, [&] { return Host.Run.Status().Phase == SessionPhase::Hosting; }));
+        TickUntil({&Host.Run, &Client.Run}, [] { return false; }, 300);
+        CHECK(Service->Joins == JoinsBefore);
+        CHECK(Service->Lobbies[Lobby].Members.count(kClientId) == 0);
     }
 }
 
