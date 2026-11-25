@@ -1,7 +1,7 @@
 # Bis zu vier Spieler
 
 Ist-Zustand für bis zu vier Spieler (Host und drei Clients) auf Build `26786272`, Aufgabe `vier-spieler`.
-Jeder Spieler hat sein eigenes Inventar; ein geteiltes Inventar für drei und vier Spieler ist `coop-inventar-vier`.
+Jeder Spieler hat sein eigenes Inventar; ein geteiltes Inventar wie im lokalen Koop ist `coop-inventar-geteilt`.
 
 **Markierung:** **Belegt** heißt durch Code, Test oder Messung gedeckt, **Vermutung** heißt abgeleitet und nicht geprüft.
 
