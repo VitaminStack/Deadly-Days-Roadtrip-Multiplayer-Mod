@@ -45,7 +45,7 @@ Beide Instanzen starten gleichzeitig ohne Lobby-Schalter, der Host mit `-ddcoop_
 unter demselben Konto über 127.0.0.1 an, siehe [Zugriffskontrolle](../src/Net/README.md#zugriffskontrolle-lobby-auth). Sobald der Spike geladen ist, erstellt der Host die Lobby über
 das Overlay der Mod und wird selbst Listen-Server in der MetaBase, der Client tritt ebenso mit der Lobby-ID bei (`Overlay.ps1`).
 Mit `-Clients 2` oder `-Clients 3` starten weitere Clients mit eigenem Testordner und Tunnel-Port (`-ddcoop_clientport`), siehe
-[Bis zu vier Spieler](MEHR_SPIELER.md#test-mit-mehreren-instanzen).
+[Bis zu vier Spieler](MEHR_SPIELER.md#test-mit-mehreren-instanzen). `Run-Route.ps1` läuft auch mit diesen Sitzungen.
 Die Abstürze beim Beitritt ohne Spike (Host `0x5901CE8`, Client `0x56B16D9`, 04.11.2026) verhindert inzwischen die Mod selbst,
 siehe [Nur Mod, ohne Spike](#nur-mod-ohne-spike). Die Schalter `-ddcoop_lobby` und `-ddcoop_lobby_delay` der Mod gibt es weiter, das Skript braucht sie nicht.
 Auf zwei PCs: Host mit `-Role Host -Tunnel Lobby`, die Ausgabe nennt die Lobby-ID, Client mit `-Role Client -Tunnel Lobby -Peer <Lobby-ID>`.

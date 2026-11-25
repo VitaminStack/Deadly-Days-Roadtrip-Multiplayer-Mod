@@ -25,6 +25,14 @@ class RoundAcceptanceTests(unittest.TestCase):
         client['guid_entries'] = 80
         self.assertEqual(NAMESPACE['evaluate'](host, client, {'guid_entries': 100}, 'base'), [])
 
+    def test_player_count_follows_expected_players(self):
+        host, client = report(), report()
+        for side in host, client:
+            side.update(player_array=4, player_states=4, characters=[{'position': None}] * 4)
+        self.assertEqual(NAMESPACE['evaluate'](host, client, {}, 'base', 4), [])
+        failures = NAMESPACE['evaluate'](host, client, {}, 'base')
+        self.assertIn('host: PlayerArray 4', failures)
+
     def test_required_identity_loss_still_fails(self):
         host, client = report(), report()
         client['guid_player'] = ['0x127']

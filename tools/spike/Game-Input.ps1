@@ -1,4 +1,4 @@
-# Bedient nur die beiden Testinstanzen: Bild aus dem Spielfenster, Klick oder Taste. Andere Fenster werden weder gelesen noch angefasst.
+# Bedient nur die Testinstanzen (Client2 und Client3 mit Start-Session.ps1 -Clients): Bild aus dem Spielfenster, Klick oder Taste. Andere Fenster werden weder gelesen noch angefasst.
 #   Game-Input.ps1 Host shot [datei.png]     Bild des Fensterinhalts, ohne Bildschirmaufnahme des Desktops
 #   Game-Input.ps1 Host click <x> <y>        Klick in Fensterkoordinaten (800 x 450)
 #   Game-Input.ps1 Host key <taste> [sek]    Taste druecken oder halten, etwa A, Esc, Enter oder einen VK-Code
@@ -7,7 +7,7 @@
 #   Game-Input.ps1 Host hold <x> <y> [left|right] [sek]  Maustaste halten, im Lager links reparieren, rechts verkaufen
 # Klick und Taste holen das Fenster kurz nach vorn und bewegen die Maus, waehrenddessen nicht selbst tippen.
 param(
-    [Parameter(Mandatory)][ValidateSet('Host', 'Client')][string]$Role,
+    [Parameter(Mandatory)][ValidateSet('Host', 'Client', 'Client2', 'Client3')][string]$Role,
     [Parameter(Mandatory)][ValidateSet('shot', 'click', 'key', 'pixel', 'drag', 'hold')][string]$Action,
     [string]$Arg1,
     [string]$Arg2,
@@ -122,7 +122,8 @@ function ConvertTo-VirtualKey([string]$Name) {
 
 $ProcessId = Get-RolePid $Role
 if (-not (Test-GameProcess $ProcessId)) { throw "$Role ($ProcessId) laeuft nicht." }
-Move-GameWindow $ProcessId $(if ($Role -eq 'Client') { 820 } else { 0 })
+$Slot = Get-RoleSlot $Role
+Move-GameWindow $ProcessId $Slot.X $Slot.Y
 $Window = (Get-Process -Id $ProcessId).MainWindowHandle
 switch ($Action) {
     'shot' {

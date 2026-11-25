@@ -180,9 +180,12 @@ function Exit-SessionLock {
     if ($Lock.Owner -eq $script:RepoRoot) { Remove-Item $script:LockFile -Force }
 }
 
+# Rollen: Host, Client und die weiteren Clients Client2, Client3 (Start-Session.ps1 -Clients).
 function Get-RolePid([string]$Role) {
     $Session = Get-Session
-    $ProcessId = if ($Role -eq 'Host') { [int]$Session.Host } else { [int]$Session.Client }
+    $ProcessId = if ($Role -eq 'Host') { [int]$Session.Host }
+        elseif ($Role -match '^Client(\d)$') { [int]@($Session.Extra)[[int]$Matches[1] - 2] }
+        else { [int]$Session.Client }
     if (-not $ProcessId) { throw "$Role laeuft nicht auf diesem PC (Test auf zwei PCs, Sitzung mit -Role $($Session.Role))." }
     $ProcessId
 }
@@ -191,6 +194,15 @@ function Get-RolePid([string]$Role) {
 function Get-LocalRoles {
     $Session = Get-Session
     @('Host', 'Client') | Where-Object { [int]$Session.$_ }
+    $Extra = @($Session.Extra | Where-Object { $_ })
+    for ($Index = 0; $Index -lt $Extra.Count; ++$Index) { "Client$($Index + 2)" }
+}
+
+# Fensterplatz je Instanz: Host oben links, erster Client rechts daneben, weitere Clients in der Reihe darunter.
+function Get-WindowSlot([int]$Index) { @{ X = ($Index % 2) * 820; Y = [math]::Floor($Index / 2) * 490 } }
+function Get-RoleSlot([string]$Role) {
+    $Index = if ($Role -eq 'Host') { 0 } elseif ($Role -match '^Client(\d)$') { [int]$Matches[1] } else { 1 }
+    Get-WindowSlot $Index
 }
 
 # Der Spike liest die Befehlsdatei einmal pro Sekunde. Ein zweiter Befehl darf sie erst ersetzen, wenn der erste abgeholt ist,

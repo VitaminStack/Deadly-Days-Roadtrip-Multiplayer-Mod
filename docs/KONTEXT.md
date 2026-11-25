@@ -5,6 +5,7 @@ Je Thema die Datei mit dem Ist-Zustand, der Code und die Tests. Wer an einem The
 | Thema | Ist-Zustand | Code | Tests | Offene Fälle |
 |---|---|---|---|---|
 | Netzwerk, Lobby, Verbindung | [NETZWERK](themen/NETZWERK.md) | `src/Net`, `src/Mod/Lobby.cpp` | `tests/NetTests` | [lobby-rauswurf](faelle/lobby-rauswurf.md) |
+| Mehrere Spieler (bis zu vier) | [MEHR_SPIELER](MEHR_SPIELER.md) | `src/Game/RemotePlayers.h`, `RemoteP2Policy.h`, `src/Sync` | `tests/GameTests/PatchTests.cpp`, `tests/NetTests/TransportTests.cpp` | – |
 | Spieler, Bewegung, Kamera | [SPIELER_UND_KAMERA](themen/SPIELER_UND_KAMERA.md) | `src/Game/PlayerPatches.cpp`, `CameraPatches.cpp`, `MovementPatches.cpp` | `tests/GameTests/PatchTests.cpp` | [spawn-nach-kartenaufbau](faelle/spawn-nach-kartenaufbau.md) |
 | Reise, Karte, Runde | [REISE_UND_RUNDE](themen/REISE_UND_RUNDE.md) | `src/Game/MapPatches.cpp`, `TravelPatches.cpp`, `src/Sync/World` | `tests/NetTests/MapTests.cpp`, `ProgressTests.cpp` | [wiedereintritt-karte](faelle/wiedereintritt-karte.md) |
 | Inventar, Lager, Airdrop, Handel | [INVENTAR_UND_HANDEL](themen/INVENTAR_UND_HANDEL.md) | `src/Game/InventoryEdit.cpp`, `RewardPatches.cpp`, `src/Sync/Inventory` | `tests/GameTests/InventoryEditTests.cpp`, `tests/NetTests/RewardTests.cpp` | [airdrop-auswahl-absturz](faelle/airdrop-auswahl-absturz.md) |

@@ -30,7 +30,7 @@ Jeder Spieler hat sein eigenes Inventar; ein geteiltes Inventar für drei und vi
 
 Jeder Link des Host-Tunnels hat einen eigenen UDP-Socket auf `127.0.0.1` mit freiem Port, von dem er die Pakete an den Listen-Server (`7777`) schickt.
 Die `UIpConnection` des Hosts hält die Gegenadresse in `RemoteAddr` (`TSharedPtr<FInternetAddr>` an `+0x170`), die `sockaddr_in` liegt im `FInternetAddrBSD` ab `+0x8` ([OFFSETS](OFFSETS.md)).
-Messung mit zwei Instanzen über den Tunnel der Mod: Der Port dort war genau der des Link-Sockets im Host-Prozess (Belegt).
+Messung über den Tunnel der Mod mit zwei, drei und vier Instanzen auf einem PC: Der Port dort war genau der des Link-Sockets im Host-Prozess, jeder Peer wurde genau einem Remote-Controller zugeordnet, auch nach der Reise in die Mission (Belegt). Dass es der richtige ist, folgt aus dem Aufbau: Die Pakete dieses Controllers kommen nur vom Socket dieses Links.
 
 `Net` darf `Game` nicht einbinden. Darum liefert `Transport::PeerGamePort` je Peer den Port, `Sync` gibt `Game::SetPeerLinks` die Liste einmal je Takt vor allen Familien, und `Game/RemotePlayers.h` beantwortet `PeerController`, `ControllerPeer` und `RemoteControllers`.
 Zugeordnet wird nur über einen eindeutigen Port (`MatchPeers` in `RemoteP2Policy.h`); ohne lesbaren Port nur dann, wenn genau ein Link und genau ein Remote-Controller da sind.
@@ -63,8 +63,13 @@ Wiedereintritt (`RejoinPolicy.h`) führt je Steam-Konto einen Eintrag; wer in `L
 
 `Start-Session.ps1 -Mod -Tunnel Lobby -Clients <2|3>` startet bis zu drei Clients auf einem PC, jeder mit eigenem Testordner und Tunnel-Port (`-ddcoop_clientport`, 7779 und 7780).
 Alle Instanzen laufen unter einem Steam-Konto über den Loopback-Testmodus (`-ddcoop_localtest`); jeder Loopback-Link bekommt ein eigenes Pseudokonto.
+Die weiteren Clients heißen in den Skripten `Client2` und `Client3` (`Game-Input.ps1`, `Get-Status.ps1`). `Run-Route.ps1` prüft mit `check_round.py --players` die Spielerzahl der Sitzung und bestätigt das Lager bei allen Instanzen.
+
+Geprüft am 25.11.2026 auf einem PC mit Host und drei Clients (`Run-Route.ps1 -Days 2 -Godmode`): MetaBase, Tag 1, Rundenende, Lager, Tag 2, ohne Abweichung und ohne Absturz.
+Der Host wartete im Lager auf jeden der drei Clients und holte sein Bestätigen erst nach dem letzten Bereit nach.
 
 ## Grenzen
 
 - P3 und P4 zeigt das Spiel als P2 (Farbe, Porträt); nicht geprüft.
-- Mit drei und vier Clients nur auf einem PC geprüft, nicht über das Internet.
+- Mit drei und vier Spielern nur auf einem PC geprüft, nicht über das Internet.
+- Die Airdrop-Wahl mit mehreren Clients ist nur durch Tests gedeckt. Im Spiel ist sie nicht geprüft, denn der Routenlauf öffnet keine Kiste.

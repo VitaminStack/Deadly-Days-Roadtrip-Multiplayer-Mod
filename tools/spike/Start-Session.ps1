@@ -158,8 +158,6 @@ function Initialize-RealSave([string]$UserDir) {
     New-Item -ItemType Directory -Force -Path $Target | Out-Null
     Get-ChildItem -LiteralPath $Source -Filter '*.sav' -File | Copy-Item -Destination $Target
 }
-# Fensterplatz je Instanz: Host oben links, erster Client rechts daneben, weitere Clients in der Reihe darunter.
-function Get-WindowSlot([int]$Index) { @{ X = ($Index % 2) * 820; Y = [math]::Floor($Index / 2) * 490 } }
 function Start-Instance([string]$Name, [int]$X, [int]$Y = 0, [int]$ClientPort = 0) {
     $UserDir = Join-Path $script:SessionDir "ud_$Name"
     if ($RealSave) { Initialize-RealSave $UserDir }
