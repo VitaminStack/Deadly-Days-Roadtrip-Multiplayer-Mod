@@ -10,6 +10,7 @@
 #include "Game/ThreatAdapter.h"
 #include "Game/GameThread.h"
 #include "Game/PatchRuntime.h"
+#include "Game/RemotePlayers.h"
 #include "Net/Net.h"
 #include <chrono>
 #include <span>
@@ -22,6 +23,17 @@ void TickSessionLog(Net::Transport* Transport);
 namespace
 {
 std::function<uint32_t()> DevSource;
+
+// Host: Game ordnet jedem Peer des Kontrollkanals seinen Controller zu, über den Port seines Tunnel-Links
+// (docs/MEHR_SPIELER.md). Jeden Takt vor den Familien, die Liste ändert sich mit jedem Beitritt und jeder Trennung.
+void UpdatePeerLinks(Net::Transport* Transport)
+{
+    std::vector<Game::PeerLink> Links;
+    if (Transport && Transport->Stats().IsHost)
+        for (const uint64_t Peer : Transport->ControlPeers())
+            Links.push_back({Peer, Transport->PeerGamePort(Peer)});
+    Game::SetPeerLinks(Links);
+}
 
 // Dev-Tab: Der Host fuehrt eigene Knoepfe direkt aus, Anfragen des Clients nach Eingang fuer dessen Figur.
 void TickDev(Net::Transport* Transport)
@@ -260,6 +272,7 @@ void Start(const Core::Config& Config, DiagnosticSink Diagnostics)
     {
         using Clock = std::chrono::steady_clock;
         const auto Transport = Net::CurrentTransport();
+        UpdatePeerLinks(Transport.get());
         if (Transport)
         {
             const Game::GameThread::SlowScope Watch("Sync-Bewegung");

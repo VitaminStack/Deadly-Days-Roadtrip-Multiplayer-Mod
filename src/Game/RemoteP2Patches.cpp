@@ -1,7 +1,8 @@
 // Host: den Remote-Spieler als P2 in die native Coop-Logik eintragen, ohne zweiten LocalPlayer. Aus der Spike-Probe
 // research/spikes/a-connect/RemoteP2.cpp, Ablauf und Gegenproben in research/spikes/a-connect/RemoteP2.md.
 //
-// Ablauf je Frame beim Listen-Host mit genau einem lokalen und einem Remote-Spieler:
+// Ablauf je Frame beim Listen-Host mit genau einem lokalen und bis zu drei Remote-Spielern. P2 ist der zuerst gebundene
+// Remote, solange er da ist; weitere Remotes bleiben Netzwerkspieler ohne Koop-Platz (docs/MEHR_SPIELER.md):
 // 1. ActivePlayers[0/1] auf die aktuellen Controller setzen (natives TMap-Add, schwache Verweise).
 // 2. Nur wenn AllowRemoteCoop() gerufen wurde: SetCoopEnabled(true) über ProcessEvent und einmal je Welt und Controller
 //    die native Beitrittsmeldung OnPlayerJoined(1, Controller). Standard ist aus: Mit Koop-Modus hängen Lager und
@@ -10,6 +11,7 @@
 // P2-Gerätepflicht aus, solange diese Bindung vollständig ist.
 #include <windows.h>
 
+#include <algorithm>
 #include <atomic>
 #include <string>
 
@@ -19,6 +21,7 @@
 #include "Game/Offsets.h"
 #include "Game/PatchRuntime.h"
 #include "Game/RemoteP2Policy.h"
+#include "Game/RemotePlayers.h"
 
 namespace Game::Patches
 {
@@ -55,7 +58,12 @@ using BroadcastFn = void(__fastcall*)(uintptr_t, void*);
 
 struct Roster
 {
-    uintptr_t World = 0, Coop = 0, Host = 0, Remote = 0;
+    uintptr_t World = 0, Coop = 0, Host = 0;
+    uintptr_t Remote = 0; // P2, siehe ChooseP2
+    uintptr_t Remotes[MaxPlayers - 1]{};
+    int32_t RemoteCount = 0;
+
+    std::span<const uintptr_t> RemoteList() const { return {Remotes, static_cast<size_t>(RemoteCount)}; }
 };
 
 struct Binding
@@ -105,8 +113,8 @@ bool WeakFor(uintptr_t Object, WeakController& Weak)
     return Weak.Serial > 0;
 }
 
-// Nur der Listen-Host mit genau einem LocalPlayer und höchstens zwei aktuellen Controllern in dieser Welt. Während Reise
-// und erster Replikation bleibt das Ergebnis leer, dann ändert die Mod nichts.
+// Nur der Listen-Host mit genau einem LocalPlayer und höchstens MaxPlayers aktuellen Controllern in dieser Welt. Während
+// Reise und erster Replikation bleibt das Ergebnis leer, dann ändert die Mod nichts.
 Roster CurrentRoster(bool WithCoop = true)
 {
     Roster Result;
@@ -119,7 +127,7 @@ Roster CurrentRoster(bool WithCoop = true)
     const uintptr_t GameState = Pointer(Result.World + Offsets::UWorld::GameState);
     const uintptr_t States = GameState ? Pointer(GameState + Offsets::AGameStateBase::PlayerArray) : 0;
     const int32_t Count = GameState ? Memory::Read<int32_t>(GameState + Offsets::AGameStateBase::PlayerArray + 8).value_or(0) : 0;
-    if (!States || Count < 1 || Count > 2)
+    if (!States || Count < 1 || Count > MaxPlayers)
         return {};
     const uintptr_t Level = Pointer(Result.World + Offsets::UWorld::PersistentLevel);
     for (int32_t i = 0; i < Count; ++i)
@@ -129,13 +137,48 @@ Roster CurrentRoster(bool WithCoop = true)
         if (!Alive(Controller) || !IsA(Controller, "DDPlayerController") || Pointer(Controller + Offsets::UObject::Outer) != Level)
             return {};
         if (Pointer(Controller + ControllerNetConnection))
-            Result.Remote = Controller;
+        {
+            if (Result.RemoteCount == MaxPlayers - 1)
+                return {};
+            Result.Remotes[Result.RemoteCount++] = Controller;
+        }
         else if (IsA(Pointer(Controller + ControllerPlayer), "LocalPlayer"))
             Result.Host = Controller;
     }
+    Result.Remote = ChooseP2(Bound.Remote, Result.RemoteList());
     if (WithCoop)
         Result.Coop = CoopSubsystem(Instance);
     return Result;
+}
+
+// Port aus der Gegenadresse der Verbindung des Remote-Controllers, 0 wenn nicht lesbar oder kein Tunnel-Link.
+uint16_t RemotePort(uintptr_t Controller)
+{
+    const uintptr_t Connection = Pointer(Controller + ControllerNetConnection);
+    const uintptr_t Address = Connection ? Pointer(Connection + Offsets::UNetConnection::RemoteAddr) : 0;
+    uint8_t Raw[8]{};
+    return Address && Memory::ReadBytes(Address + Offsets::FInternetAddrBSD::Addr, Raw, sizeof(Raw)) ? TunnelPort(Raw) : 0;
+}
+
+std::vector<PeerLink> Links;
+std::vector<PeerController> LoggedPairs;
+
+std::vector<PeerController> CurrentPeers()
+{
+    const Roster R = CurrentRoster(false);
+    RemoteSlot Slots[MaxPlayers - 1]{};
+    for (int32_t i = 0; i < R.RemoteCount; ++i)
+        Slots[i] = {R.Remotes[i], RemotePort(R.Remotes[i])};
+    auto Pairs = MatchPeers(Links, std::span<const RemoteSlot>(Slots, static_cast<size_t>(R.RemoteCount)));
+    const bool Changed = Pairs.size() != LoggedPairs.size() ||
+                         !std::equal(Pairs.begin(), Pairs.end(), LoggedPairs.begin(),
+                                     [](const PeerController& A, const PeerController& B) { return A.Peer == B.Peer && A.Controller == B.Controller; });
+    if (Changed)
+    {
+        LoggedPairs = Pairs;
+        Core::Log::Info("Mehrere Spieler: {} von {} Peer(s) einem der {} Remote-Controller zugeordnet", Pairs.size(), Links.size(), R.RemoteCount);
+    }
+    return Pairs;
 }
 
 // Aus dem Reconnect-Update des Spiels, also auf dem Game Thread.
@@ -331,7 +374,8 @@ bool FilterRemotePoiOverlap(uintptr_t Function, void* Params)
         return false;
     const Roster R = CurrentRoster(false);
     const uintptr_t Actor = Pointer(reinterpret_cast<uintptr_t>(Params) + OverlapOtherActor);
-    if (!R.Remote || !Actor || Actor != Pointer(R.Remote + ControllerPawn))
+    const auto Remotes = R.RemoteList();
+    if (!Actor || std::none_of(Remotes.begin(), Remotes.end(), [Actor](uintptr_t Remote) { return Actor == Pointer(Remote + ControllerPawn); }))
         return false;
     if (++RemotePoiSkips <= 20)
         Core::Log::Info("MetaBase: POI-{} der Remote-Figur beim Host übergangen ({}. Mal)", Name == Enter ? "Betreten" : "Verlassen",
@@ -347,10 +391,10 @@ constexpr uintptr_t ReaperPlayers = 0x178;
 struct
 {
     uintptr_t World = 0;
-    Objects::Ref Pawn;
+    Objects::Ref Pawns[MaxPlayers - 1];
 } ReaperWatch;
 
-// Einmal über das Objekt-Array, nur wenn die gemerkte Remote-Figur abgebaut wurde.
+// Einmal über das Objekt-Array, nur wenn eine gemerkte Remote-Figur abgebaut wurde.
 void CleanReaperPlayers()
 {
     int32_t Components = 0, Removed = 0;
@@ -372,7 +416,7 @@ void CleanReaperPlayers()
                     Removed, Components);
 }
 
-// Host: Die Figur des Remote-Spielers merken. Ist sie abgebaut (Trennung ohne Abmeldung, Timeout, Tod), sofort aus der
+// Host: Die Figuren aller Remote-Spieler merken. Ist eine abgebaut (Trennung ohne Abmeldung, Timeout, Tod), sofort aus der
 // Spielerliste jedes Sensenmanns nehmen, bevor die Garbage Collection den Eintrag auf null setzt.
 void TickReaperPlayers()
 {
@@ -381,18 +425,68 @@ void TickReaperPlayers()
         ReaperWatch = {World, {}}; // neue Welt: Figuren und Sensenmann der alten sind weg
     if (!World)
         return;
-    if (ReaperWatch.Pawn.Object && !Objects::IsLive(ReaperWatch.Pawn))
-    {
-        ReaperWatch.Pawn = {};
+    bool Lost = false;
+    for (Objects::Ref& Pawn : ReaperWatch.Pawns)
+        if (Pawn.Object && !Objects::IsLive(Pawn))
+        {
+            Pawn = {};
+            Lost = true;
+        }
+    if (Lost)
         CleanReaperPlayers();
-    }
+    // Jede lebende Remote-Figur in einem Platz merken; ersetzte Figuren bleiben beobachtet, bis sie abgebaut sind.
     const Roster R = CurrentRoster(false);
-    const uintptr_t Pawn = R.Remote ? Pointer(R.Remote + ControllerPawn) : 0;
-    if (Pawn && Pawn != ReaperWatch.Pawn.Object)
-        ReaperWatch.Pawn = Objects::RefTo(Pawn);
+    for (const uintptr_t Remote : R.RemoteList())
+    {
+        const uintptr_t Pawn = Pointer(Remote + ControllerPawn);
+        if (!Pawn || std::any_of(std::begin(ReaperWatch.Pawns), std::end(ReaperWatch.Pawns),
+                                 [Pawn](const Objects::Ref& Held) { return Held.Object == Pawn; }))
+            continue;
+        for (Objects::Ref& Free : ReaperWatch.Pawns)
+            if (!Free.Object)
+            {
+                Free = Objects::RefTo(Pawn);
+                break;
+            }
+    }
 }
 }
 
+}
+
+namespace Game
+{
+void SetPeerLinks(std::span<const PeerLink> Value)
+{
+    Patches::Links.assign(Value.begin(), Value.end());
+}
+
+uintptr_t PeerController(uint64_t Peer)
+{
+    for (const auto& Pair : Patches::CurrentPeers())
+        if (Pair.Peer == Peer)
+            return Pair.Controller;
+    return 0;
+}
+
+uint64_t ControllerPeer(uintptr_t Controller)
+{
+    for (const auto& Pair : Patches::CurrentPeers())
+        if (Pair.Controller == Controller)
+            return Pair.Peer;
+    return 0;
+}
+
+std::vector<uintptr_t> RemoteControllers()
+{
+    const auto R = Patches::CurrentRoster(false);
+    const auto List = R.RemoteList();
+    return {List.begin(), List.end()};
+}
+}
+
+namespace Game::Patches
+{
 bool RemoteP2Bound()
 {
     uintptr_t Coop = 0, Host = 0, Remote = 0;
