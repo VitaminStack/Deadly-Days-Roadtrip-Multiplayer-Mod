@@ -60,7 +60,7 @@ Lager, Station). Während einer Bearbeitung zeigt der Client seine lokale Vorsch
 | Airdrop landet | Client hört den Landesound einmal, passend zum Aufschlag | – | `opt-airdrop-sound` |
 | Client legt die Belohnung auf ein gleiches Item (Aufwertung), bestätigt | Kein Klon, verbrauchte Items weg | **keine** Zeile `erneut aufgenommen, wieder entfernt` | `opt-airdrop-edit-ungueltig` |
 | Client zieht den Roboterarm und eine weitere Waffe in **einer** Bearbeitung in den Rucksack | Beide Seiten zeigen beide Waffen an der Figur | Host: `Inventar lokal: Edit … übernommen, … vollständig=true` | `client-roboterarm` |
-| Eine Kiste bleibt am Rundenende liegen | Im nächsten Level kommen wieder Airdrops | Host: `Reward-Queue …` und `RewardQueue des … weitergeschaltet` | `opt-airdrop-uebertrag` |
+| Eine Kiste bleibt am Rundenende liegen | Sie wird wie solo zu Beginn der nächsten Zone neu abgeworfen, danach kommen die weiteren Airdrops | Host: `Reward-Queue …` und `RewardQueue des … weitergeschaltet` | `opt-airdrop-uebertrag` |
 
 ## Rundenende und Lager
 
