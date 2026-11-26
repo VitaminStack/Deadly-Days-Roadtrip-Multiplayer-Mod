@@ -736,7 +736,9 @@ Aufgabe `opt-kopierladen`, baut auf dem [Kauf beim Händler](#kaufen-beim-händl
 - **Keine Bearbeitung möglich:** Wartet noch ein Edit auf Antwort oder ist sein Stand noch nicht repliziert (`ClientSettling`), kopiert der
   Client nicht, statt eine Kopie anzulegen, die es nur bei ihm gäbe: Warnung im Log, Anzeige geleert und „Item auswählen“ wieder frei wie beim
   nativen Fehlschlag. Ebenso, wenn das Original erst in der laufenden Bearbeitung entstanden ist.
-- **Diagnose:** Logzeilen `Station: Kopie …`, `Handel: Kopie …`, `Kopie beim Client verworfen`. Testhilfe `!shop copy <ItemData>`.
+- **Diagnose:** `Station: Kopie …`, `Handel: Kopie …`, `Kopie beim Client verworfen`. Testhilfe `!shop copy <ItemData>`.
+
+**Nicht im Spiel geprüft:** „Kopie verworfen“ und Aufwerten von Original und Kopie in einem Edit (nur Unit-Tests), zwei PCs.
 
 ### Itemsack für alle Spieler
 
