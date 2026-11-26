@@ -9,9 +9,7 @@ Gilt für Build `26786272`. Datierte Befunde und Messungen stehen im [Archiv](..
 - Lokale Eingabegeräte bleiben im Netzwerkspiel beim eigenen Spieler; ohne Netzwerk bleibt das Spiel unverändert.
 - Beide sehen eine gemeinsame Kamera. Der Client nimmt die Kamera-Spieler aus der `PlayerArray` statt aus dem GameMode.
 - Nach dem Dodge (`GA_Dash`) repariert die Mod beim Client Reibung und Schwerkraft; die Figur des Clients dodgt bei HP 0 nicht.
-- Lauftempo und Beschleunigung: Das Spiel setzt `MaxWalkSpeed` (gleich dem Attribut `MovementSpeed`) und `MaxAcceleration` (3,5-faches Attribut) nur beim Host. Beim Client übernimmt die Mod beide Werte bei jeder Änderung des replizierten Attributs, für die eigene und für fremde Figuren. Upgrades, Items, Trefferbremse und Kriechen im Tod bucht weiter nur der Host, es gibt keine eigene Nachricht. Lesewerkzeug: `tools/spike/movement_speed.py`.
-- Der Energy Drink (`BP_PowerupStamina_EnergyDrink`) wirkt über `GE_IncreaseStaminaRegen` auf die Ausdauer, nicht auf das Tempo. Ob er beim Client wirkt, ist nicht geprüft.
-- Die Figurenwahl der MetaBase geht in beide Richtungen; der Host spielt mit der Definition des Clients.
+- Lauftempo und Beschleunigung: Das Spiel setzt `MaxWalkSpeed` (gleich dem Attribut `MovementSpeed`) und `MaxAcceleration` (3,5-faches Attribut) nur beim Host. Beim Client übernimmt die Mod beide Werte bei jeder Änderung des replizierten Attributs, für die eigene und für fremde Figuren. Upgrades, Items, Trefferbremse und Kriechen im Tod bucht weiter nur der Host, es gibt keine eigene Nachricht. Lesewerkzeug: `tools/spike/movement_speed.py`.- Die Figurenwahl der MetaBase geht in beide Richtungen; der Host spielt mit der Definition des Clients.
 
 ## Code
 
