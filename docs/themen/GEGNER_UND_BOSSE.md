@@ -26,7 +26,7 @@ Mehr: [src/Sync/Enemies/README.md](../../src/Sync/Enemies/README.md).
 
 ## Offene Fehler
 
-[opt-sensenmann-ansage-client](../faelle/opt-sensenmann-ansage-client.md). Bestätigungstests stehen bei `opt-boss-phasenleiste`, `opt-boss-tafel-client` und `opt-endboss-leiste` in [TODO.md](../../TODO.md).
+Keine eigene Fallakte. Bestätigungstests stehen bei `opt-boss-phasenleiste`, `opt-boss-tafel-client` und `opt-endboss-leiste` in [TODO.md](../../TODO.md), bei `opt-sensenmann-ansage-client` unter [Bestätigungstests ausstehend](../ERLEDIGT.md#bestätigungstests-ausstehend).
 
 ## Historie
 

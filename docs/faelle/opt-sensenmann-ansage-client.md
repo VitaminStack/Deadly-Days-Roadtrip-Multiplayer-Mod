@@ -28,9 +28,10 @@ Ohne Fix steht beim Client der Sensenmann, `WasReaperSpawned` bleibt 0, die Stop
 - [Belegt, Spiel] Ohne Ansage (zweite Sitzung, als der Adapter den Sensenmann wegen des Klassen-Caches unten nicht erkannte, also wie
   ohne Fix): Sensenmann beim Client 50 s lang mit Rolle 1, `WasReaperSpawned` des Client-Spawners 0, Stoppuhr `IsReaperActive` 0;
   beim Host beide 1. Ein Lauf mit dem Stand von `main` ist nicht gefahren.
-- [Belegt, Spiel] In `DDDynamic_Map` (Start über `-Map`) kam der Sensenmann des Hosts beim Client unter 1 s nach seinem Erscheinen beim
-  Host an. Die rund 30 s aus `karte-nach-labyrinth-absturz` stammen aus Karten über die Routenkarte; **[Vermutung]** dort erscheint er
-  fern der Spieler und repliziert erst mit der Netzrelevanz. Die Ansage beim Client hängt am Ankommen und kommt dann entsprechend später.
+- [Belegt, Spiel] Der Sensenmann des Hosts kommt beim Client ohne merkliche Verzögerung an: in `DDDynamic_Map` (Start über `-Map`) unter
+  1 s, auf einer Karte über die Routenkarte (`MGP_City_LittleIndia`, Tag 1) unter 0,5 s nach seinem Erscheinen beim Host. Die rund 30 s
+  aus `karte-nach-labyrinth-absturz` waren ab dem Befehl gemessen, ohne Zeitpunkt beim Host. Eine eigene Nachricht für die Ansage ist
+  darum nicht nötig.
 
 ## Prüfliste ([ARCHITECTURE.md](../ARCHITECTURE.md#verbindliches-architekturprinzip-lokal-zuerst-minimal-synchronisieren))
 
@@ -68,8 +69,11 @@ ohne Maus und Tastatur. `Patches: 62 gesetzt` bei beiden, kein `[ERROR]`, keine 
 | Reise des Hosts (`travel`) in eine neue Missionskarte | neuer Spawner mit `WasReaperSpawned` 0, kein Sensenmann, keine Ansage |
 | `!shop reaper 3` beim Host auf der neuen Karte | Ansage beim Client 3,4 s nach dem Befehl, einmal; Bilder (PrintWindow) 5,5 s danach: Sprechblase „Was war das? Zeit zu verschwinden, aber sofort.“ und Stoppuhr mit Sensenmann bei Host und Client gleich |
 | erste Sitzung, Sperre beim Client zweimal von Hand auf 0 | je genau eine weitere Ansage, Blase nach 4,5 s im Bild |
+| dritte Sitzung, MetaBase → Routenknoten Tag 1 (`MGP_City_LittleIndia`), `!shop reaper 3` beim Host | Ansage beim Client 3,6 s nach dem Befehl, Sensenmann beim Client unter 0,5 s nach dem Host; `!fx dump`: `reaper_spawned` genau einmal beim Host und einmal beim Client |
+| Wiedereintritt (`Test-Rejoin.ps1`) mit stehendem Sensenmann | Client verlässt die Mission und tritt der neuen Lobby des Hosts bei (das Skript meldete Zeitablauf, der Beitritt kam danach); als der Sensenmann bei ihm ankam, genau eine Ansage |
 
-Der Takt hält den Frame einmal je Ansage rund 10 bis 15 ms auf (Suche der eigenen Sprechblasen-Komponente im Objekt-Array).
+Der Takt hält den Frame einmal je Ansage rund 10 bis 15 ms auf (Suche der eigenen Sprechblasen-Komponente im Objekt-Array). Danach sucht
+er in dieser Welt nicht mehr.
 
-Nicht geprüft: Ton nach Gehör (Instanzen stumm, Log „Ton ja“), zwei PCs über das Internet, der Sensenmann nach den natürlichen
-12 Minuten auf einer Karte der Routenkarte, Beitritt des Clients in eine Karte mit Sensenmann, drei oder vier Spieler.
+Nicht geprüft: Ton nach Gehör (Instanzen stumm; belegt über `!fx` und „Ton ja“), zwei PCs über das Internet, der Sensenmann nach den
+natürlichen 12 Minuten, drei oder vier Spieler.
