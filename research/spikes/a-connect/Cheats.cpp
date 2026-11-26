@@ -379,7 +379,8 @@ void ScrapCommand(const std::wstring& Args)
 //   !shop repair       erstes kaputtes Item des eigenen Inventars wie der Reparieren-Knopf (Preis lokal abziehen, RepairItem)
 //   !shop place <ItemData>   eigenes Item mit den Aufrufen des Panels in den Rucksack legen, "take" nimmt es heraus
 //   !shop choose <n>   n-te Belohnung der offenen Auswahl annehmen
-//   !shop hands        freie Haende der eigenen Figur (GetFreeHands), ExtraHands, OccupiedHands
+//   !shop copy <ItemData>   im offenen Kopierladen-Panel ein eigenes Item auswaehlen und kopieren (zweimal senden, siehe unten)
+//   !shop hands       freie Haende der eigenen Figur (GetFreeHands), ExtraHands, OccupiedHands
 namespace
 {
 bool IsClass(uintptr_t Object, const char* ClassName)
@@ -837,6 +838,59 @@ void ShopCommand(const std::wstring& Args)
         uint8_t Params[0x100]{};
         Call(Objects[Index], Function, Params);
         Log("Shop: " + ClassName + "." + FunctionName + " an Instanz " + std::to_string(Index) + " gerufen");
+    }
+    else if (Action == "copy")
+    {
+        // Testhilfe (opt-kopierladen): "!shop copy <ItemData>" bedient das offene Kopierladen-Panel (WI_CopyShopPanel_C) ueber die
+        // Ereignisse von Knopf und Klick. Wartet das Panel noch nicht auf eine Auswahl, drueckt es "Item auswaehlen" (Befehl danach
+        // wiederholen), sonst TriggerClickEvent am Bild des ersten eigenen Items mit diesen Daten und dann "Item kopieren". UCopyShopPanel:
+        // InventoryPanel +0x368, ItemToCopy +0x388, Preis +0x398 (aus dem Code von SetPriceForItem), WaitingForItemSelection +0x3A8;
+        // UItemRepresentation: ItemInstance +0xA38,
+        // InventoryComponent +0xA50, ParentInventoryPanel +0xB40. Vorher die Figur auf den POI stellen ("!shop go 0" oder "!shop to") und den
+        // Dialog weiterschalten ("!shop call WBP_DialogOverlayWidget_C StopCurrentSpeech").
+        const std::string DataName = Space == std::string::npos ? std::string{} : Text.substr(Space + 1);
+        const std::vector<uintptr_t> Panels = InstancesOf("CopyShopPanel");
+        const uintptr_t Inventory = LocalInventory();
+        if (Panels.empty() || !Inventory)
+        {
+            Log("Shop: kein Kopierladen-Panel oder kein eigenes Inventar");
+            return;
+        }
+        const uintptr_t Panel = Panels.front();
+        const auto Event = [&](const char* Name)
+        {
+            uintptr_t Function = 0;
+            for (uintptr_t Class = Read<uintptr_t>(Panel + 0x10); Class && !Function; Class = Read<uintptr_t>(Class + 0x40))
+                Function = FindObject(Name, NameOf(Class).c_str());
+            uint8_t Params[0x40]{};
+            if (Function)
+                Call(Panel, Function, Params);
+            return Function != 0;
+        };
+        uintptr_t Picked = 0;
+        for (const uintptr_t Rep : InstancesOf("ItemRepresentation"))
+        {
+            const uintptr_t Item = Read<uintptr_t>(Rep + 0xA38);
+            if (!Picked && Item && Read<uintptr_t>(Rep + 0xA50) == Inventory && Read<uintptr_t>(Rep + 0xB40) == Read<uintptr_t>(Panel + 0x368) &&
+                NameOf(Read<uintptr_t>(Item + 0xE0)) == DataName)
+                Picked = Rep;
+        }
+        if (!Picked || !Read<uint8_t>(Panel + 0x3A8))
+        {
+            const bool Opened = Event("BndEvt__WI_CopyShopPanel_SelectItemButton_K2Node_ComponentBoundEvent_0_OnClickResponse__DelegateSignature");
+            Log(std::string("Shop: ") + DataName + (Picked ? "" : " nicht im Auswahl-Panel,") + " Auswahl " +
+                (Opened ? "geoeffnet, Befehl wiederholen" : "nicht gefunden"));
+            return;
+        }
+        const uintptr_t Click = FindObject("TriggerClickEvent", "ItemRepresentation");
+        if (Click)
+            Call(Picked, Click, nullptr);
+        const uintptr_t Chosen = Read<uintptr_t>(Panel + 0x388);
+        Log("Shop: Kopie von " + (Chosen ? ItemText(Chosen) : std::string("nichts")) + " fuer " + std::to_string(Read<int32_t>(Panel + 0x398)));
+        if (!Chosen)
+            return;
+        Log(std::string("Shop: Item kopieren ") +
+            (Event("BndEvt__WI_CopyShopPanel_CopyItemButton_K2Node_ComponentBoundEvent_2_OnClickResponse__DelegateSignature") ? "gedrueckt" : "nicht gefunden"));
     }
     else if (Action == "hands")
     {

@@ -197,7 +197,8 @@ inline std::optional<std::string> GetName(std::span<const uint8_t> In, size_t& A
 // Feld 8 Byte, dann Anzahl Items (1) und je Item 21 Byte plus 8 je belegtem Feld. Seit Mod-Version 7 (werkbank-client) danach
 // Anzahl Aufwertungen (1), je Aufwertung Anzahl Eingaben (1), je Eingabe 2 Byte, Name der Ausgabedaten und der Seltenheit
 // (Länge 1, UTF-8) und die Ausgabe als Item. Seit Mod-Version 13 (opt-haendler-client) danach Anzahl Käufe (1), je Kauf Name der
-// Daten und der Seltenheit, Preis (4) und das gekaufte Item.
+// Daten und der Seltenheit, Preis (4) und das gekaufte Item. Seit Mod-Version 18 (opt-kopierladen) danach Anzahl Kopien (1), je Kopie
+// Quelle des Originals (2), Preis (4) und die Kopie als Item.
 inline std::vector<uint8_t> Encode(const Game::InventoryEdit::Edit& Value)
 {
     if (!Value.Id || !Game::InventoryEdit::WellFormed(Value))
@@ -228,6 +229,13 @@ inline std::vector<uint8_t> Encode(const Game::InventoryEdit::Edit& Value)
     {
         Detail::PutName(Out, Next.Data);
         Detail::PutName(Out, Next.Rarity);
+        Detail::Put(Out, static_cast<uint32_t>(Next.Cost), 4);
+        Detail::PutItem(Out, Next.Output);
+    }
+    Out.push_back(static_cast<uint8_t>(Value.Copies.size()));
+    for (const auto& Next : Value.Copies)
+    {
+        Detail::Put(Out, Next.Original, 2);
         Detail::Put(Out, static_cast<uint32_t>(Next.Cost), 4);
         Detail::PutItem(Out, Next.Output);
     }
@@ -300,6 +308,23 @@ inline std::optional<Game::InventoryEdit::Edit> DecodeEdit(std::span<const uint8
         Next.Rarity = std::move(*Rarity);
         Next.Output = std::move(*Output);
         Value.Purchases.push_back(std::move(Next));
+    }
+    if (At >= In.size() || In[At] > MaxCopies)
+        return std::nullopt;
+    const uint8_t Copies = In[At++];
+    for (uint8_t i = 0; i < Copies; ++i)
+    {
+        if (At + 6 > In.size())
+            return std::nullopt;
+        Copy Next;
+        Next.Original = static_cast<uint16_t>(Detail::Get(In, At, 2));
+        Next.Cost = static_cast<int32_t>(Detail::Get(In, At + 2, 4));
+        At += 6;
+        auto Output = Detail::GetItem(In, At);
+        if (!Output)
+            return std::nullopt;
+        Next.Output = std::move(*Output);
+        Value.Copies.push_back(std::move(Next));
     }
     if (At != In.size() || !Value.Id || !WellFormed(Value))
         return std::nullopt;

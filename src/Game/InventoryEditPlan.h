@@ -54,6 +54,20 @@ constexpr bool IsPurchaseSource(uint16_t Source)
     return Source >= PurchaseSourceBase && Source < UpgradeSourceBase;
 }
 
+// opt-kopierladen: Die k-te Kopie im Kopierladen hat Source CopySourceBase + k, unter den Käufen. Items des Ausgangsbilds liegen darunter.
+inline constexpr uint16_t CopySourceBase = 0xFD00;
+inline constexpr size_t MaxCopies = 8;
+
+constexpr uint16_t CopySource(size_t K)
+{
+    return static_cast<uint16_t>(CopySourceBase + K);
+}
+
+constexpr bool IsCopySource(uint16_t Source)
+{
+    return Source >= CopySourceBase && Source < PurchaseSourceBase;
+}
+
 // Zustand eines Items. Source ist der Index im Ausgangsstand (MyItems in replizierter Reihenfolge), DataHash die
 // Prüfsumme des Objektnamens seiner UInventoryItemData. Tiles sind die belegten Rucksackfelder, sortiert.
 struct ItemState
@@ -92,6 +106,17 @@ struct Purchase
     bool operator==(const Purchase&) const = default;
 };
 
+// Eine Kopie im Kopierladen (UCopyShopPanel::FinalizeCopyItem): Original ist die Source eines Items des Ausgangsbilds, Cost der Preis,
+// den das Panel des Clients verlangt hat, Output der Endstand der Kopie mit der Prüfsumme der Daten des Originals. Der Host kopiert seine
+// eigene Instanz des Originals (Daten, Seltenheit, Zustand) und bucht den Preis.
+struct Copy
+{
+    uint16_t Original = 0;
+    int32_t Cost = 0;
+    ItemState Output;
+    bool operator==(const Copy&) const = default;
+};
+
 struct Edit
 {
     uint64_t Id = 0;
@@ -101,6 +126,7 @@ struct Edit
     std::vector<Tile> NewSlots;
     std::vector<Upgrade> Upgrades;      // in der Reihenfolge, in der sie liefen
     std::vector<Purchase> Purchases;    // Käufe beim Händler (opt-haendler-client)
+    std::vector<Copy> Copies;           // Kopien im Kopierladen (opt-kopierladen)
     bool operator==(const Edit&) const = default;
 };
 
@@ -123,6 +149,7 @@ enum class EditReason : uint8_t
     Upgrade,         // eine Aufwertung besteht die Prüfung nicht
     ChoiceCreate,    // gewählte Belohnung ließ sich nicht anlegen
     Incomplete,      // übernommen, aber nicht jeder Schritt gelang
+    CopyOriginal,    // Original einer Kopie gibt es beim Host nicht (opt-kopierladen, seit Mod-Version 18)
     Count,
 };
 
@@ -142,7 +169,8 @@ constexpr const char* ReasonText(uint8_t Reason)
                                      "Schrott reicht nicht oder Preis ungültig",
                                      "eine Aufwertung besteht die Prüfung des Hosts nicht",
                                      "gewählte Belohnung ließ sich nicht anlegen",
-                                     "nicht jeder Schritt gelang"};
+                                     "nicht jeder Schritt gelang",
+                                     "Original einer Kopie gibt es beim Host nicht"};
     static_assert(sizeof(Texts) / sizeof(Texts[0]) == static_cast<size_t>(EditReason::Count));
     return Reason < static_cast<uint8_t>(EditReason::Count) ? Texts[Reason] : "unbekannter Grund";
 }
@@ -206,7 +234,7 @@ inline bool IsRepair(const ItemState& Before, const ItemState& After)
 // Host: Schrott nach Verkäufen und Reparaturen eines Edits. Erst alle Verkäufe gutschreiben, dann jede Reparatur abziehen; so
 // ist die Reihenfolge des Clients egal, denn er konnte nur mit genug Schrott reparieren. Leer, wenn ein Preis ungültig ist oder
 // der Schrott für eine Reparatur nicht reicht.
-// opt-haendler-client: Käufe zählen wie Reparaturen, sie kosten nach den Verkäufen.
+// opt-haendler-client: Käufe zählen wie Reparaturen, sie kosten nach den Verkäufen. opt-kopierladen: Kopien ebenso, sie stehen bei den Käufen.
 inline std::optional<int64_t> TradeBalance(int64_t Wallet, const std::vector<int32_t>& SellPrices, const std::vector<int32_t>& RepairPrices,
                                            const std::vector<int32_t>& BuyPrices = {})
 {
@@ -326,7 +354,7 @@ inline Edit Diff(const std::vector<ItemState>& Base, const std::vector<ItemState
 inline const char* Malformed(const Edit& Value)
 {
     if (Value.Items.size() > MaxItems || Value.NewSlots.size() > MaxNewSlots || Value.Choice.value_or(uint8_t{0}) >= 8 ||
-        Value.Upgrades.size() > MaxUpgrades || Value.Purchases.size() > MaxPurchases)
+        Value.Upgrades.size() > MaxUpgrades || Value.Purchases.size() > MaxPurchases || Value.Copies.size() > MaxCopies)
         return "Grenze überschritten";
     std::set<uint16_t> Sources;
     std::set<Tile> Used;
@@ -346,8 +374,8 @@ inline const char* Malformed(const Edit& Value)
     };
     for (const ItemState& Item : Value.Items)
     {
-        if (Item.Source >= PurchaseSourceBase && Item.Source != ChoiceSource)
-            return "Item mit Quelle einer Aufwertung oder eines Kaufs";
+        if (Item.Source >= CopySourceBase && Item.Source != ChoiceSource)
+            return "Item mit Quelle einer Aufwertung, eines Kaufs oder einer Kopie";
         if (!Sources.insert(Item.Source).second)
             return "Quelle doppelt";
         if (const char* Why = Placement(Item))
@@ -373,6 +401,24 @@ inline const char* Malformed(const Edit& Value)
             return "Kauf: Item kaputt oder verkauft";
         if (Next.Output.RemoveContext > MaxRemoveContext || (Next.Output.Present && Next.Output.RemoveContext != 0))
             return "Kauf: Entfernen-Kontext ungültig";
+        if (const char* Why = Placement(Next.Output))
+            return Why;
+    }
+    // opt-kopierladen: Das Original ist ein Item des Ausgangsbilds. Die Kopie darf kaputt sein, die native Kopie übernimmt den Zustand.
+    for (size_t K = 0; K < Value.Copies.size(); ++K)
+    {
+        const Copy& Next = Value.Copies[K];
+        if (Next.Original >= CopySourceBase || Next.Cost < 0 || Next.Cost > MaxPrice)
+            return "Kopie: Original oder Preis ungültig";
+        if (Next.Output.Source != CopySource(K) || !Next.Output.DataHash)
+            return "Kopie: Item passt nicht";
+        const auto Same = std::find_if(Value.Items.begin(), Value.Items.end(), [&](const ItemState& Item) { return Item.Source == Next.Original; });
+        if (Same != Value.Items.end() && Same->DataHash != Next.Output.DataHash)
+            return "Kopie: Daten weichen vom Original ab";
+        if (IsSold(Next.Output))
+            return "Kopie: Item verkauft";
+        if (Next.Output.RemoveContext > MaxRemoveContext || (Next.Output.Present && Next.Output.RemoveContext != 0))
+            return "Kopie: Entfernen-Kontext ungültig";
         if (const char* Why = Placement(Next.Output))
             return Why;
     }
@@ -402,6 +448,15 @@ inline const char* Malformed(const Edit& Value)
                     return "Aufwertung: gekauftes Item noch vorhanden";
                 continue;
             }
+            if (IsCopySource(Input))
+            {
+                const size_t From = Input - CopySourceBase;
+                if (From >= Value.Copies.size())
+                    return "Aufwertung: Eingabe aus unbekannter Kopie";
+                if (Value.Copies[From].Output.Present)
+                    return "Aufwertung: kopiertes Item noch vorhanden";
+                continue;
+            }
             if (Input >= UpgradeSourceBase && Input != ChoiceSource)
             {
                 const size_t From = Input - UpgradeSourceBase;
@@ -424,6 +479,9 @@ inline const char* Malformed(const Edit& Value)
     for (size_t K = 0; K < Value.Purchases.size(); ++K)
         if (!Value.Purchases[K].Output.Present && !Consumed.contains(PurchaseSource(K)))
             return "Kauf: Item verschwunden ohne Aufwertung";
+    for (size_t K = 0; K < Value.Copies.size(); ++K)
+        if (!Value.Copies[K].Output.Present && !Consumed.contains(CopySource(K)))
+            return "Kopie: Item verschwunden ohne Aufwertung";
     return nullptr;
 }
 
@@ -513,7 +571,8 @@ inline bool Fits(const Edit& Value, const std::vector<Tile>& Slots, const std::v
     };
     return std::all_of(Value.Items.begin(), Value.Items.end(), Ok) &&
            std::all_of(Value.Upgrades.begin(), Value.Upgrades.end(), [&](const Upgrade& Next) { return Ok(Next.Output); }) &&
-           std::all_of(Value.Purchases.begin(), Value.Purchases.end(), [&](const Purchase& Next) { return Ok(Next.Output); });
+           std::all_of(Value.Purchases.begin(), Value.Purchases.end(), [&](const Purchase& Next) { return Ok(Next.Output); }) &&
+           std::all_of(Value.Copies.begin(), Value.Copies.end(), [&](const Copy& Next) { return Ok(Next.Output); });
 }
 
 enum class StepKind : uint8_t

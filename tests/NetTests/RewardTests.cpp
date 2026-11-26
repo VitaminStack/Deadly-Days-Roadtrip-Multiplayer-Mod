@@ -134,7 +134,7 @@ TEST_CASE("Inventory edit round-trips with choice, new slots and removed items")
 {
     const auto Value = SampleEdit();
     const auto Bytes = Encode(Value);
-    REQUIRE(Bytes.size() == 26 + 2 * 8 + 1 + 3 * 21 + 3 * 8 + 1 + 1);
+    REQUIRE(Bytes.size() == 26 + 2 * 8 + 1 + 3 * 21 + 3 * 8 + 1 + 1 + 1);
     const auto Back = DecodeEdit(Bytes);
     REQUIRE(Back);
     CHECK(*Back == Value);
@@ -185,7 +185,7 @@ TEST_CASE("Inventory edit carries upgrades with inputs, names and output")
     Next.Output = {UpgradeSource(0), NameHash(Next.Data), true, 0, true, false, 1, {0, 0}, {{0, 0}, {0, 1}}};
     Value.Upgrades = {Next};
     const auto Bytes = Encode(Value);
-    REQUIRE(Bytes.size() == 26 + 1 + 2 * 21 + 1 + 1 + 2 * 2 + 1 + 15 + 1 + 15 + 21 + 2 * 8 + 1);
+    REQUIRE(Bytes.size() == 26 + 1 + 2 * 21 + 1 + 1 + 2 * 2 + 1 + 15 + 1 + 15 + 21 + 2 * 8 + 1 + 1);
     const auto Back = DecodeEdit(Bytes);
     REQUIRE(Back);
     CHECK(*Back == Value);
@@ -322,7 +322,7 @@ TEST_CASE("Inventory edit carries purchases with names, cost and output")
     Next.Output = {PurchaseSource(0), NameHash(Next.Data), true, 0, true, false, 1, {0, 0}, {{0, 0}, {0, 1}}};
     Value.Purchases = {Next};
     const auto Bytes = Encode(Value);
-    REQUIRE(Bytes.size() == 26 + 1 + 1 + 1 + 1 + 15 + 1 + 15 + 4 + 21 + 2 * 8);
+    REQUIRE(Bytes.size() == 26 + 1 + 1 + 1 + 1 + 15 + 1 + 15 + 4 + 21 + 2 * 8 + 1);
     const auto Back = DecodeEdit(Bytes);
     REQUIRE(Back);
     CHECK(*Back == Value);
@@ -334,9 +334,48 @@ TEST_CASE("Inventory edit carries purchases with names, cost and output")
     auto TooMany = Bytes;
     TooMany[26 + 1 + 1] = static_cast<uint8_t>(MaxPurchases + 1);
     CHECK_FALSE(DecodeEdit(TooMany));
-    // Ein Edit im Format vor Mod-Version 13 (ohne Anzahl der Käufe) ist ungültig.
+    // Ein Edit im Format vor Mod-Version 13 (ohne Anzahl der Käufe und Kopien) ist ungültig.
     Edit Old;
     Old.Id = 79;
+    Old.Items = {{0, 5, true, 0, false, true, 0, {}, {}}};
+    auto OldBytes = Encode(Old);
+    REQUIRE(!OldBytes.empty());
+    OldBytes.resize(OldBytes.size() - 2);
+    CHECK_FALSE(DecodeEdit(OldBytes));
+}
+
+TEST_CASE("opt-kopierladen: Edit trägt Kopien mit Original, Preis und Kopie")
+{
+    using namespace Game::InventoryEdit;
+    Edit Value;
+    Value.Id = 80;
+    Copy Next;
+    Next.Original = 3;
+    Next.Cost = 26;
+    Next.Output = {CopySource(0), NameHash("ItemData_Pistol"), true, 0, false, false, 0, {}, {}, false, true}; // kaputt wie das Original
+    Value.Copies = {Next};
+    const auto Bytes = Encode(Value);
+    REQUIRE(Bytes.size() == 26 + 1 + 1 + 1 + 1 + 2 + 4 + 21);
+    const auto Back = DecodeEdit(Bytes);
+    REQUIRE(Back);
+    CHECK(*Back == Value);
+    CHECK_FALSE(DecodeEdit(std::span(Bytes).first(Bytes.size() - 1)));
+    auto Longer = Bytes;
+    Longer.push_back(0);
+    CHECK_FALSE(DecodeEdit(Longer));
+
+    auto Negative = Value;
+    Negative.Copies[0].Cost = -5;
+    CHECK(Encode(Negative).empty());
+    auto NotBase = Value;
+    NotBase.Copies[0].Original = PurchaseSource(0);
+    CHECK(Encode(NotBase).empty());
+    auto TooMany = Bytes;
+    TooMany[26 + 1 + 1 + 1] = static_cast<uint8_t>(MaxCopies + 1);
+    CHECK_FALSE(DecodeEdit(TooMany));
+    // Ein Edit im Format vor Mod-Version 18 (ohne Anzahl der Kopien) ist ungültig.
+    Edit Old;
+    Old.Id = 81;
     Old.Items = {{0, 5, true, 0, false, true, 0, {}, {}}};
     auto OldBytes = Encode(Old);
     REQUIRE(!OldBytes.empty());

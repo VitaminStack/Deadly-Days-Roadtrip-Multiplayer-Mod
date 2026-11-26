@@ -1370,6 +1370,20 @@ TEST_CASE("opt-station-zug: erster Zug des Clients beginnt eine Bearbeitung, im 
     CHECK(ClientMoveBegins(false, false, true, 0, 0, false, true) == ClientMove::Native);
 }
 
+TEST_CASE("opt-kopierladen: Kopie des Clients nur in einer Bearbeitung, sonst gar nicht")
+{
+    // Host und fremdes Inventar: nativ wie im Solo-Spiel.
+    CHECK(ClientCopyStep(false, true, false, false) == ClientCopy::Native);
+    CHECK(ClientCopyStep(false, true, true, true) == ClientCopy::Native);
+    CHECK(ClientCopyStep(true, false, true, true) == ClientCopy::Native);
+    // Eigenes Inventar in einer Bearbeitung, Original aus dem Ausgangsbild: lokal kopieren und im Edit melden.
+    CHECK(ClientCopyStep(true, true, true, true) == ClientCopy::Record);
+    // Keine Bearbeitung (Edit unbeantwortet, Stand noch nicht repliziert) oder Original erst in der Bearbeitung entstanden: nicht kopieren.
+    CHECK(ClientCopyStep(true, true, false, true) == ClientCopy::Refuse);
+    CHECK(ClientCopyStep(true, true, true, false) == ClientCopy::Refuse);
+    CHECK(ClientCopyStep(true, true, false, false) == ClientCopy::Refuse);
+}
+
 TEST_CASE("airdrop-auswahl-absturz: Panel-Aufbau nur mit Panel und Inventar")
 {
     using Game::Patches::PanelMayRebuild;

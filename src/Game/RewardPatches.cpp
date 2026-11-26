@@ -64,6 +64,11 @@ constexpr uintptr_t TryBuyItem = 0x58CFD10;
 // UCostDisplay: der verlangte Preis (GetActualCost).
 constexpr uintptr_t ShopItemManualAdd = 0x848, ShopItemCostDisplay = 0x850, ShopItemInstance = 0x868;
 constexpr uintptr_t CostDisplayActual = 0x384;
+// UCopyShopPanel::FinalizeCopyItem, hinter dem Exec-Thunk 0x568D800 (opt-kopierladen). Legt mit CreateItemInstanceCopy eine Kopie von
+// ItemToCopy an, ruft AddToInventory an ItemInventory und zieht den Preis lokal ab (AbstractCurrency::AddAmount). Ab +0xBB liest es den
+// Preis, den SetPriceForItem gesetzt hat; das Feld ist nicht reflektiert.
+constexpr uintptr_t FinalizeCopyItem = 0x58B4250;
+constexpr uintptr_t CopyShopPrice = 0x398;
 // ADDMissionGameState.ScrapWallet, UAbstractCurrency.CurrencyAmount
 constexpr uintptr_t GameStateScrapWallet = 0x3C0;
 constexpr uintptr_t CurrencyAmount = 0x100;
@@ -111,6 +116,7 @@ ConfirmFn OriginalForceUpdate = nullptr;
 UpgradeFn OriginalUpgrade = nullptr;
 SoldFn OriginalSold = nullptr;
 ConfirmFn OriginalTryBuy = nullptr; // UShopPanelItem::TryBuyItem(this)
+ConfirmFn OriginalFinalizeCopy = nullptr; // UCopyShopPanel::FinalizeCopyItem(this)
 
 // Host: mindestens ein Client mit der Mod verbunden. Für ProcessEvent-Filter; die Peers selbst stehen in RemotePeers.
 std::atomic<bool> RemoteReady = false;
@@ -1000,6 +1006,71 @@ void __fastcall TryBuyHook(uintptr_t ShopItem)
         FinishStation("Kauf");
 }
 
+// opt-kopierladen: Panel nach einer verweigerten Kopie wie beim nativen Fehlschlag von FinalizeCopyItem: Anzeige leeren
+// (SetDisplayItem(nullptr)) und den Knopf „Item auswählen“ wieder freigeben, den HandleCopyItem gesperrt hat.
+void ResetCopyPanel(uintptr_t Panel)
+{
+    constexpr Reflection::FieldSpec SelectSpec{"/Script/DDSurvivors", "CopyShopPanel", "SelectItemButton", "ObjectProperty", 8};
+    static uintptr_t SetDisplay = 0, SetEnabled = 0;
+    if (Function(SetDisplay, "SetDisplayItem", "CopyShopPanel"))
+    {
+        uintptr_t Params = 0;
+        Objects::ProcessEvent(Panel, SetDisplay, &Params);
+    }
+    const auto Field = Reflection::Property(SelectSpec);
+    const uintptr_t Select = Field ? Pointer(Panel + Field->Offset) : 0;
+    if (Alive(Select) && Function(SetEnabled, "SetIsEnabled", "Widget"))
+    {
+        uint8_t Params[8]{1};
+        Objects::ProcessEvent(Select, SetEnabled, Params);
+    }
+}
+
+// opt-kopierladen: FinalizeCopyItem beim Client. Nativ legt es die Kopie lokal an und schickt AddToInventory mit dieser Instanz als
+// Server-RPC: Beim Host kam ein Nullzeiger an, keine Kopie, kein Schrott gebucht (Live-Test 24.11.2026). Jetzt läuft die Kopie für das
+// eigene Inventar nur in einer lokalen Bearbeitung (wie ein Kauf ohne offenes Inventar-Panel): Die Kopie liegt lokal im Inventar, der
+// Edit meldet Original und Preis, der Host kopiert seine eigene Instanz und bucht. Der lokale Abzug ist nur Vorschau. Kommt keine
+// Bearbeitung zustande, kopiert der Client nicht (ClientCopyStep).
+void __fastcall FinalizeCopyHook(uintptr_t Panel)
+{
+    if (CurrentRole() != NetRole::Client)
+        return OriginalFinalizeCopy(Panel);
+    constexpr Reflection::FieldSpec ItemSpec{"/Script/DDSurvivors", "CopyShopPanel", "ItemToCopy", "ObjectProperty", 8};
+    constexpr Reflection::FieldSpec InventorySpec{"/Script/DDSurvivors", "CopyShopPanel", "ItemInventory", "ObjectProperty", 8};
+    const auto ItemField = Reflection::Property(ItemSpec);
+    const auto InventoryField = Reflection::Property(InventorySpec);
+    const uintptr_t Original = ItemField ? Pointer(Panel + ItemField->Offset) : 0;
+    const uintptr_t Inventory = InventoryField ? Pointer(Panel + InventoryField->Offset) : 0;
+    const int32_t Cost = Memory::Read<int32_t>(Panel + CopyShopPrice).value_or(-1);
+    const bool Own = Alive(Original) && Inventory && Inventory == InventoryOfController(LocalController());
+    if (Own)
+        BeginPanelEdit(Inventory, "Kopie", true);
+    switch (ClientCopyStep(true, Own, Game::InventoryEdit::ClientEditingInventory(Inventory), Game::InventoryEdit::ClientBaseItem(Original)))
+    {
+    case ClientCopy::Native:
+        return OriginalFinalizeCopy(Panel);
+    case ClientCopy::Refuse:
+        Core::Log::Warn("Kopie beim Client verworfen ({}, Preis {}): keine Bearbeitung möglich oder Original erst in der Bearbeitung entstanden",
+                        Alive(Original) ? Memory::NameOf(Pointer(Original + ItemData)) : std::string("?"), Cost);
+        ResetCopyPanel(Panel);
+        return;
+    case ClientCopy::Record:
+        break;
+    }
+    const std::vector<uintptr_t> Before = Game::InventoryEdit::ItemsOf(Inventory);
+    OriginalFinalizeCopy(Panel);
+    uintptr_t Made = 0;
+    for (const uintptr_t Item : Game::InventoryEdit::ItemsOf(Inventory))
+        if (!Made && std::find(Before.begin(), Before.end(), Item) == Before.end())
+            Made = Item;
+    if (Made)
+        Game::InventoryEdit::RecordCopy(Made, Original, Cost);
+    else
+        Core::Log::Info("Kopie beim Client nicht zustande gekommen ({}, Preis {})", Memory::NameOf(Pointer(Original + ItemData)), Cost);
+    if (Station.Active && !AnyStationPanelOpen(Station.Panels))
+        FinishStation("Kopie");
+}
+
 // CachedBackpackLocalPosition (+0x150) ist NICHT repliziert. Die echte Instanz
 // aus dem Host-Inventar kommt daher mit (0, 0), obwohl ZeroPivotTile und Slots
 // korrekt replizieren. SetupInventory zeichnet sonst Revolver und Pistole
@@ -1210,11 +1281,27 @@ bool ApplyTryBuy(Code::Writer&)
     return Core::Hooks::Install(reinterpret_cast<void*>(At(TryBuyItem)), reinterpret_cast<void*>(&TryBuyHook),
                                 reinterpret_cast<void**>(&OriginalTryBuy));
 }
+bool CheckFinalizeCopy()
+{
+    static_assert(CopyShopPrice == 0x398, "Prüfbytes unten anpassen");
+    // Prolog, dann mov rdx,[rcx+0x388] (ItemToCopy, reflektiert); ab +0xBB mov edx,[rdi+CopyShopPrice] und neg edx vor AddAmount:
+    // belegt den nicht reflektierten Preis.
+    return Code::Expect(At(FinalizeCopyItem), {0x48, 0x89, 0x74, 0x24, 0x18, 0x57, 0x48, 0x83, 0xEC, 0x30, 0x48, 0x8B, 0x91, 0x88, 0x03, 0x00, 0x00},
+                        "CopyShopPanel::FinalizeCopyItem") &&
+           Code::Expect(At(FinalizeCopyItem, 0xBB), {0x8B, 0x97, 0x98, 0x03, 0x00, 0x00, 0x48, 0x8B, 0xC8, 0xF7, 0xDA},
+                        "CopyShopPanel::FinalizeCopyItem Preis");
+}
+bool ApplyFinalizeCopy(Code::Writer&)
+{
+    return Core::Hooks::Install(reinterpret_cast<void*>(At(FinalizeCopyItem)), reinterpret_cast<void*>(&FinalizeCopyHook),
+                                reinterpret_cast<void**>(&OriginalFinalizeCopy));
+}
 // Je Patch die benutzten Adressen der Signaturtabelle, erzeugt von tools/patch_signatures.py sites.
 constexpr uintptr_t SetRewardsSites[] = {MemoryFree, SetRewardItems};
 constexpr uintptr_t UpgradeSites[] = {UpgradeItems};
 constexpr uintptr_t SoldSites[] = {HandleItemSold};
 constexpr uintptr_t TryBuySites[] = {TryBuyItem};
+constexpr uintptr_t FinalizeCopySites[] = {FinalizeCopyItem};
 constexpr uintptr_t ConfirmSites[] = {MemoryFree, CreateItemInstance, PanelConfirm};
 constexpr uintptr_t SetupInventorySites[] = {PanelSetupInventory};
 constexpr uintptr_t ForceUpdateSites[] = {PanelForceUpdate};
@@ -1223,6 +1310,7 @@ const Patch List[] = {
     {"Aufwerten beim Client nur in lokaler Bearbeitung, Host übernimmt", CheckUpgrade, ApplyUpgrade, UpgradeSites},
     {"Verkaufen beim Client nur in lokaler Bearbeitung, Host bucht", CheckSold, ApplySold, SoldSites},
     {"Kaufen beim Händler nur in lokaler Bearbeitung, Host legt an und bucht", CheckTryBuy, ApplyTryBuy, TryBuySites},
+    {"Kopieren im Kopierladen nur in lokaler Bearbeitung, Host kopiert und bucht", CheckFinalizeCopy, ApplyFinalizeCopy, FinalizeCopySites},
     {"Airdrop-Auswahl: Bestätigen bis zur Wahl des Partners halten", CheckConfirm, ApplyConfirm, ConfirmSites},
     {"Airdrop-Auswahl: Rucksack-Anzeige aus replizierten Feldern aufbauen", CheckSetupInventory, ApplySetupInventory, SetupInventorySites},
     {"Inventar-Panel: Aktualisieren ohne Inventar auslassen", CheckForceUpdate, ApplyForceUpdate, ForceUpdateSites},
@@ -1625,6 +1713,43 @@ uintptr_t CreateForClient(uintptr_t Inventory, uintptr_t Data, uintptr_t Rarity)
     return Add.Result;
 }
 
+// opt-kopierladen, Host: Kopie eines Items des Clients wie FinalizeCopyItem: InventoryEffectHelperLibrary.CreateItemInstanceCopy
+// (Daten, Seltenheit und Zustand des Originals, als neu markiert), dann AddToInventory ins Inventar des Clients; die Kopie repliziert wie
+// jede Vergabe.
+uintptr_t CopyForClient(uintptr_t Controller, uintptr_t Inventory, uintptr_t Original)
+{
+    static uintptr_t Copy = 0, Add = 0, Library = 0;
+    if (!Library)
+        Library = Objects::FindObject("Default__InventoryEffectHelperLibrary", "");
+    if (!Inventory || !Alive(Original) || !Library || !Function(Copy, "CreateItemInstanceCopy", "InventoryEffectHelperLibrary") ||
+        !Function(Add, "AddToInventory", "InventoryComponent"))
+        return 0;
+    struct
+    {
+        uintptr_t Controller, Item;
+        bool FlagAsNew;
+        uint8_t Pad[7];
+        uintptr_t Result;
+    } Made{Controller, Original, true, {}, 0};
+    static_assert(sizeof(Made) == 0x20);
+    Objects::ProcessEvent(Library, Copy, &Made);
+    if (!Made.Result)
+        return 0;
+    struct
+    {
+        uintptr_t Item;
+        bool SystemAdd;
+        uint8_t Pad[3];
+        int32_t Position;
+        bool AllowP2Reserve;
+        uint8_t Pad2[7];
+    } Params{Made.Result, false, {}, -1, false, {}};
+    static_assert(sizeof(Params) == 0x18);
+    Objects::ProcessEvent(Inventory, Add, &Params);
+    const std::vector<uintptr_t> Items = Game::InventoryEdit::ItemsOf(Inventory);
+    return std::find(Items.begin(), Items.end(), Made.Result) != Items.end() ? Made.Result : 0;
+}
+
 // werkbank-client, Host: Art eines Items aus seinen Datenobjekten.
 Game::InventoryEdit::ItemKind KindOf(uintptr_t Data, uintptr_t Rarity)
 {
@@ -1899,13 +2024,38 @@ Game::InventoryEdit::Verdict ApplyClientEdit(uint64_t Peer, const Game::Inventor
                             Next.Cost, Sell, PurchaseFloor(Sell));
         }
     }
-    const bool Trades = !Sells.empty() || !Repairs.empty() || !Value.Purchases.empty();
+    // opt-kopierladen: Originale der Kopien im Inventar des Clients, über Quelle und Prüfsumme wie die Items des Edits. Den Preis rechnet
+    // das Panel des Clients; ohne Panel lässt er sich beim Host nicht nachrechnen, geprüft wird nur der Schrott.
+    std::vector<uintptr_t> Originals;
+    for (size_t K = 0; K < Value.Copies.size(); ++K)
+    {
+        const Copy& Next = Value.Copies[K];
+        uintptr_t Found = 0;
+        for (size_t i = 0; i < Value.Items.size() && !Found; ++i)
+            if (i != ChoiceAt && Value.Items[i].Source == Next.Original)
+                Found = Resolved[i];
+        if (!Found && Next.Original < Items.size() && DataHashOf(Items[Next.Original]) == Next.Output.DataHash)
+            Found = Items[Next.Original];
+        for (const uintptr_t Candidate : Items)
+            if (!Found && DataHashOf(Candidate) == Next.Output.DataHash)
+                Found = Candidate;
+        if (!Found)
+        {
+            Core::Log::Warn("Inventar lokal: Original {} der Kopie {} des Edits {} nicht im Inventar des Clients, abgelehnt", Next.Original, K + 1, Value.Id);
+            return Rejected(EditReason::CopyOriginal);
+        }
+        Originals.push_back(Found);
+        Core::Log::Info("Handel: Kopie {} geprüft, {} für {}", K + 1, Memory::NameOf(Pointer(Found + ItemData)), Next.Cost);
+    }
+    const bool Trades = !Sells.empty() || !Repairs.empty() || !Value.Purchases.empty() || !Value.Copies.empty();
     const uintptr_t Wallet = Trades ? ScrapWallet() : 0;
     if (Trades)
     {
         const std::optional<int32_t> Have = ScrapAmount(Wallet);
         std::vector<int32_t> SellPrices, RepairPrices, BuyPrices;
         for (const Purchase& Next : Value.Purchases)
+            BuyPrices.push_back(Next.Cost);
+        for (const Copy& Next : Value.Copies)
             BuyPrices.push_back(Next.Cost);
         for (const Trade& Next : Sells)
             SellPrices.push_back(Next.Price);
@@ -1914,11 +2064,11 @@ Game::InventoryEdit::Verdict ApplyClientEdit(uint64_t Peer, const Game::Inventor
         const auto After = Have ? TradeBalance(*Have, SellPrices, RepairPrices, BuyPrices) : std::nullopt;
         if (!After)
         {
-            Core::Log::Warn("Inventar lokal: Edit {} mit {} Verkäufen, {} Reparaturen und {} Käufen abgelehnt, Schrott {} reicht nicht oder Preis ungültig",
+            Core::Log::Warn("Inventar lokal: Edit {} mit {} Verkäufen, {} Reparaturen und {} Käufen oder Kopien abgelehnt, Schrott {} reicht nicht oder Preis ungültig",
                             Value.Id, Sells.size(), Repairs.size(), BuyPrices.size(), Have ? std::to_string(*Have) : std::string("ohne Konto"));
             return Rejected(EditReason::Scrap);
         }
-        Core::Log::Info("Handel: Edit {} geprüft, {} Verkäufe, {} Reparaturen, {} Käufe, Schrott {} wird {}", Value.Id, Sells.size(), Repairs.size(),
+        Core::Log::Info("Handel: Edit {} geprüft, {} Verkäufe, {} Reparaturen, {} Käufe und Kopien, Schrott {} wird {}", Value.Id, Sells.size(), Repairs.size(),
                         BuyPrices.size(), *Have, *After);
     }
     // werkbank-client: Aufwertungen vollständig prüfen, bevor sich etwas ändert.
@@ -1935,6 +2085,11 @@ Game::InventoryEdit::Verdict ApplyClientEdit(uint64_t Peer, const Game::Inventor
         Kinds[ChoiceSource] = {KindOf(Host.Data[*Value.Choice].first, Host.Data[*Value.Choice].second), NextRarityOf(Host.Data[*Value.Choice].second)};
     for (size_t K = 0; K < Wares.size(); ++K)
         Kinds[PurchaseSource(K)] = {KindOf(Wares[K].first, Wares[K].second), NextRarityOf(Wares[K].second)};
+    for (size_t K = 0; K < Originals.size(); ++K)
+    {
+        const uintptr_t Rarity = Pointer(Originals[K] + ItemRarity);
+        Kinds[CopySource(K)] = {KindOf(Pointer(Originals[K] + ItemData), Rarity), NextRarityOf(Rarity)};
+    }
     std::vector<std::pair<uintptr_t, uintptr_t>> Outputs;
     // Die native Prüfung sieht reparierte Eingaben nur repariert: Kaputt-Flag für die Prüfung kurz löschen, danach zurück.
     const auto SetBroken = [&](uint8_t Flag)
@@ -1973,6 +2128,23 @@ Game::InventoryEdit::Verdict ApplyClientEdit(uint64_t Peer, const Game::Inventor
         Core::Log::Info("Handel: Kauf {} des Edits {} beim Host, {} angelegt={}", K + 1, Value.Id, Value.Purchases[K].Data, Bought.back() != 0);
         if (Bought.back())
             Live[PurchaseSource(K)] = Bought.back();
+        else
+            Ok = false;
+    }
+    // opt-kopierladen: Kopien aus den Instanzen des Hosts, vor Reparaturen, Aufwertungen und Verkäufen, die das Original ändern können.
+    std::vector<uintptr_t> Copied;
+    for (size_t K = 0; K < Originals.size(); ++K)
+    {
+        Copied.push_back(CopyForClient(::Game::PeerController(Peer), Inventory, Originals[K]));
+        Core::Log::Info("Handel: Kopie {} des Edits {} beim Host, {} angelegt={}", K + 1, Value.Id, Memory::NameOf(Pointer(Originals[K] + ItemData)),
+                        Copied.back() != 0);
+        if (Copied.back())
+        {
+            Live[CopySource(K)] = Copied.back();
+            if (IsBroken(Copied.back()) != Value.Copies[K].Output.Broken)
+                Core::Log::Warn("Handel: Kopie {} ist beim Host {}, beim Client {}", K + 1, IsBroken(Copied.back()) ? "kaputt" : "heil",
+                                Value.Copies[K].Output.Broken ? "kaputt" : "heil");
+        }
         else
             Ok = false;
     }
@@ -2062,6 +2234,13 @@ Game::InventoryEdit::Verdict ApplyClientEdit(uint64_t Peer, const Game::Inventor
             Targets.push_back(Bought[K]);
             Goal.push_back(Value.Purchases[K].Output);
         }
+    for (size_t K = 0; K < Copied.size(); ++K)
+        if (Copied[K] && !Consumed.contains(CopySource(K)))
+        {
+            Targets.push_back(Copied[K]);
+            Goal.push_back(Value.Copies[K].Output);
+            Goal.back().Broken = IsBroken(Copied[K]); // den Zustand gibt die Kopie des Hosts vor, eine Reparatur gibt es hier nicht
+        }
     const std::vector<SlotInfo> Now = SlotsOf(Inventory);
     std::vector<ItemState> Current;
     for (size_t i = 0; i < Targets.size(); ++i)
@@ -2074,12 +2253,18 @@ Game::InventoryEdit::Verdict ApplyClientEdit(uint64_t Peer, const Game::Inventor
     {
         const std::vector<uintptr_t> After = ItemsOf(Inventory);
         int64_t Delta = 0;
-        unsigned Sold = 0, Repaired = 0, Purchased = 0;
+        unsigned Sold = 0, Repaired = 0, Purchased = 0, Duplicated = 0;
         for (size_t K = 0; K < Bought.size(); ++K)
             if (Bought[K])
             {
                 Delta -= Value.Purchases[K].Cost;
                 ++Purchased;
+            }
+        for (size_t K = 0; K < Copied.size(); ++K)
+            if (Copied[K])
+            {
+                Delta -= Value.Copies[K].Cost;
+                ++Duplicated;
             }
         for (const Trade& Next : Sells)
             if (std::find(After.begin(), After.end(), Next.Item) == After.end())
@@ -2095,17 +2280,18 @@ Game::InventoryEdit::Verdict ApplyClientEdit(uint64_t Peer, const Game::Inventor
             }
         const int32_t Before = ScrapAmount(Wallet).value_or(0);
         AddScrap(Wallet, static_cast<int32_t>(Delta));
-        Core::Log::Info("Handel: Edit {} gebucht, {} von {} verkauft, {} von {} repariert, {} von {} gekauft, Schrott {} zu {}", Value.Id, Sold,
-                        Sells.size(), Repaired, Repairs.size(), Purchased, Bought.size(), Before, ScrapAmount(Wallet).value_or(0));
-        Ok = Ok && Sold == Sells.size() && Repaired == Repairs.size() && Purchased == Bought.size();
+        Core::Log::Info("Handel: Edit {} gebucht, {} von {} verkauft, {} von {} repariert, {} von {} gekauft, {} von {} kopiert, Schrott {} zu {}",
+                        Value.Id, Sold, Sells.size(), Repaired, Repairs.size(), Purchased, Bought.size(), Duplicated, Copied.size(), Before,
+                        ScrapAmount(Wallet).value_or(0));
+        Ok = Ok && Sold == Sells.size() && Repaired == Repairs.size() && Purchased == Bought.size() && Duplicated == Copied.size();
     }
     // waffe-client-auswahl: das native Ablegen frischt danach die Wirkungen beider Figuren auf. Ohne das bleibt eine
     // neue Waffe bis zum nächsten Levelaufstieg wirkungslos und eine entfernte wirkt weiter.
     RefreshEffects(Inventory);
     if (const uintptr_t HostInventory = InventoryOfController(HostController); HostInventory && HostInventory != Inventory)
         RefreshEffects(HostInventory);
-    Core::Log::Info("Inventar lokal: Edit {} übernommen, {} Items, {} neue Felder, {} Aufwertungen, {} Käufe, vollständig={}", Value.Id, Targets.size(),
-                    Create.size(), Made.size(), Bought.size(), Ok);
+    Core::Log::Info("Inventar lokal: Edit {} übernommen, {} Items, {} neue Felder, {} Aufwertungen, {} Käufe, {} Kopien, vollständig={}", Value.Id,
+                    Targets.size(), Create.size(), Made.size(), Bought.size(), Copied.size(), Ok);
     return Applied(Ok);
 }
 

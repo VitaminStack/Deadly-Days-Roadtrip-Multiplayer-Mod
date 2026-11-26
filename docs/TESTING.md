@@ -209,6 +209,13 @@ Einen Händler-Besuch beendet der Client ohne Eingaben über den Zurück-Knopf
 und `!shop confirm <n>` am Panel, dessen Outer-Kette `WI_MerchantPanel_C` enthält; dazwischen läuft `!shop upgrade` wie an der Werkbank
 (gemessen am 23.11.2026, `update-26786272-run`).
 
+**Kopierladen ohne Eingaben** (gemessen am 26.11.2026 auf `26786272`, `opt-kopierladen`): Profil
+`/Game/Map_Generation/Blueprints/MapEvents/MGP_CopyShopEvent.MGP_CopyShopEvent`. `!shop go 0` erreicht den POI nicht, die Tür blockiert;
+erst `!shop to 2300 4700` vor den Laden, dann den Dialog mit `!shop call WBP_DialogOverlayWidget_C StopCurrentSpeech` weiterschalten, bis
+er weg ist, danach `!shop to 2686 4755` und `!shop to 2703 4868`; das Panel geht auf. `!shop copy <ItemData>` zweimal senden: Das erste
+öffnet die Auswahl, das zweite wählt das Item und drückt „Item kopieren“. Jede Instanz hat ihren eigenen POI; nach einer Kopie ist er weg,
+für die nächste Kopie neu in die Karte reisen. Die Koordinaten gelten für dieses Profil, bei anderer Lage `!shop poi` lesen.
+
 Den Run-Stand eines Testordners liest `py tools/spike/run_save.py <UserDir>\Saved\SaveGames_DDCoop\SaveSlot_DDR_0.sav`.
 
 ### Mensch und Skript zusammen
