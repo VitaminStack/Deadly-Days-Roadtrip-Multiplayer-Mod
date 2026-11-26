@@ -46,6 +46,8 @@ std::span<const Patch> MapPatches();
 // opt-ergebnis-werte, in der Liste Map: Werte der Rundenübersicht lesen und setzen (RoundStatsAdapter.h). TickMap kommt ohne
 // diese Stellen aus, darum zählen sie dort als TickOptional.
 Patch RoundStatsPatch();
+// opt-rundenstempel, ebenfalls in der Liste Map: Tagesstempel der Rundenübersicht beim Client wie beim Host (RoundStatsAdapter.h).
+Patch RoundStampsPatch();
 std::span<const uintptr_t> RoundStatsTickOptionalSites();
 std::span<const Patch> LocalDevicePatches();
 std::span<const Patch> CharacterPatches();

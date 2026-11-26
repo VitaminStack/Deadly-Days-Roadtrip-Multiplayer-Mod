@@ -25,6 +25,13 @@ namespace
 const Snapshot* HeldHost = nullptr; // nur Game Thread, siehe HoldForRoundChange
 int Reapplied = 0;
 uintptr_t RunEndedWorld = 0; // Client: Welt, in der der Host den Run beendet hat, siehe NoteRunEnded
+Objects::Ref FollowedWorld;  // Client: Welt, in der er einem Rundenende des Hosts folgt, siehe NoteRoundEndFollowed
+bool FollowedLost = false;
+
+bool FollowsHostEndHere()
+{
+    return FollowedWorld.Object && FollowedWorld.Object == Game::Patches::CurrentWorld() && Objects::IsLive(FollowedWorld);
+}
 }
 }
 
@@ -44,6 +51,10 @@ constexpr uintptr_t WasFinalMission = 0x590D930;   // UDDGameStatsSubsystem::Was
 constexpr uintptr_t GenerateStats = 0x5AE3510;     // URoundEndPanel::GenerateStats
 // In GenerateStats: Summen aller Tage, wenn WasFinalMission oder alle Figuren tot sind, sonst der Tag aus TimeIdentifier.
 constexpr uintptr_t GenerateStatsFinalCall = 0x5AE367D;
+// opt-rundenstempel, in GenerateStats: Merker „alle Figuren tot“ (mov [rsp+41h],bl; mov rcx,r13, Sprungziel der Figurenschleife)
+// und Vergleich CurrentMissionIndex gegen CachedCurrentMissionIndex der Route (cmp edx,ecx; setne r12b), danach je ein Aufruf.
+constexpr uintptr_t StampAllDeadStore = 0x5AE3676;
+constexpr uintptr_t StampEventCompare = 0x5AE3D84;
 
 bool CheckRoundStats()
 {
@@ -102,11 +113,67 @@ bool ApplyRoundStats(Code::Writer& Code)
     return true;
 }
 
+bool CheckRoundStamps()
+{
+    return Code::Expect(At(StampAllDeadStore), {0x88, 0x5C, 0x24, 0x41, 0x49, 0x8B, 0xCD}, "Merker alle tot in GenerateStats") &&
+           Code::Expect(At(StampEventCompare), {0x3B, 0xD1, 0x41, 0x0F, 0x95, 0xC4, 0x49, 0x8B, 0xCE}, "Routenvergleich in GenerateStats");
+}
+
+// Beide Stellen stehen direkt vor einem Aufruf: flüchtige Register und Flags sind dort frei, rsp ist 16-Byte-ausgerichtet
+// (fünf push nach dem Eintritt, sub rsp,220h). Die Höhle ruft die Regel mit dem Wert des Spiels in ecx und schreibt das Ergebnis
+// an dessen Stelle.
+uint8_t __fastcall AllDeadForPanel(uint8_t Native)
+{
+    return RoundStats::PanelAllDead(Native != 0, CurrentRole() == NetRole::Client, RoundStats::FollowsHostEndHere(), RoundStats::FollowedLost);
+}
+
+uint8_t __fastcall EventStampForPanel(uint8_t Native)
+{
+    return RoundStats::PanelEventStamp(Native != 0, CurrentRole() == NetRole::Client, RoundStats::FollowsHostEndHere());
+}
+
+void EmitRuleCall(Code::Writer& Code, uintptr_t Rule)
+{
+    Code.Emit({0x48, 0x83, 0xEC, 0x20}); // sub rsp,20h
+    Code.Emit({0x48, 0xB8});             // mov rax,Rule
+    const uint8_t* Bytes = reinterpret_cast<const uint8_t*>(&Rule);
+    Code.Emit({Bytes[0], Bytes[1], Bytes[2], Bytes[3], Bytes[4], Bytes[5], Bytes[6], Bytes[7]});
+    Code.Emit({0xFF, 0xD0});             // call rax
+    Code.Emit({0x48, 0x83, 0xC4, 0x20}); // add rsp,20h
+}
+
+bool ApplyRoundStamps(Code::Writer& Code)
+{
+    // Alle tot: bl geht in die Regel, das Ergebnis zurück in bl und den Merker, danach weiter beim Aufruf von WasFinalMission.
+    uint8_t* DeadCave = Code.Here();
+    Code.Emit({0x0F, 0xB6, 0xCB}); // movzx ecx,bl
+    EmitRuleCall(Code, reinterpret_cast<uintptr_t>(&AllDeadForPanel));
+    Code.Emit({0x88, 0xC3});                   // mov bl,al
+    Code.Emit({0x88, 0x5C, 0x24, 0x41});       // mov [rsp+41h],bl
+    Code.Emit({0x49, 0x8B, 0xCD});             // mov rcx,r13
+    Code.Emit({0xE9});
+    Code.EmitRel(At(StampAllDeadStore) + 7);
+    // Event: Ergebnis des Vergleichs in die Regel, r12 ist vorher genullt (xor r12d,r12d), setne setzt nur r12b.
+    uint8_t* EventCave = Code.Here();
+    Code.Emit({0x3B, 0xD1});             // cmp edx,ecx
+    Code.Emit({0x0F, 0x95, 0xC1});       // setne cl
+    Code.Emit({0x0F, 0xB6, 0xC9});       // movzx ecx,cl
+    EmitRuleCall(Code, reinterpret_cast<uintptr_t>(&EventStampForPanel));
+    Code.Emit({0x44, 0x0F, 0xB6, 0xE0}); // movzx r12d,al
+    Code.Emit({0xE9});
+    Code.EmitRel(At(StampEventCompare) + 6);
+    return !Code.Failed() && Code::WriteJump(At(StampAllDeadStore), DeadCave) && Code::WriteJump(At(StampEventCompare), EventCave);
+}
+
+// TickMap braucht keine der Stellen.
+constexpr uintptr_t PanelTickOptional[] = {StatIncrement, StatFind, PlayerFindOrAdd, IncrementImpl, IncrementPlayer, GetGameStatImpl, RoundChanged, RoundChangedThunk, WasFinalMission, GenerateStats, GenerateStatsFinalCall, StampAllDeadStore, StampEventCompare};
 // Je Patch die benutzten Adressen der Signaturtabelle, erzeugt von tools/patch_signatures.py sites.
-constexpr uintptr_t RoundStatsSites[] = {StatIncrement, StatFind, PlayerFindOrAdd, IncrementImpl, IncrementPlayer, GetGameStatImpl, RoundChanged, RoundChangedThunk, WasFinalMission, GenerateStats, GenerateStatsFinalCall};
-// Steht in der Liste Map (MapPatches.cpp), hier nur für die Werkzeuge der Signaturtabelle.
+constexpr uintptr_t RoundStatsSites[] = {RoundChangedThunk, PlayerFindOrAdd, StatFind, GetGameStatImpl, IncrementImpl, IncrementPlayer, StatIncrement, RoundChanged, WasFinalMission, GenerateStats, GenerateStatsFinalCall};
+constexpr uintptr_t RoundStampsSites[] = {WasFinalMission, GenerateStats, StampAllDeadStore, StampEventCompare};
+// Stehen in der Liste Map (MapPatches.cpp), hier nur für die Werkzeuge der Signaturtabelle.
 const Patch List[] = {
     {"Werte der Rundenübersicht vom Host", &CheckRoundStats, &ApplyRoundStats, RoundStatsSites},
+    {"Tagesstempel der Rundenübersicht beim Client", &CheckRoundStamps, &ApplyRoundStamps, RoundStampsSites},
 };
 }
 
@@ -115,9 +182,14 @@ Patch RoundStatsPatch()
     return List[0];
 }
 
+Patch RoundStampsPatch()
+{
+    return List[1];
+}
+
 std::span<const uintptr_t> RoundStatsTickOptionalSites()
 {
-    return RoundStatsSites;
+    return PanelTickOptional;
 }
 }
 
@@ -276,6 +348,13 @@ void HoldForRoundChange(const Snapshot* Host)
 void NoteRunEnded(uintptr_t World)
 {
     RunEndedWorld = World;
+}
+
+void NoteRoundEndFollowed(bool HostLost)
+{
+    const uintptr_t World = Game::Patches::CurrentWorld();
+    FollowedWorld = World ? Objects::RefTo(World) : Objects::Ref{};
+    FollowedLost = HostLost;
 }
 
 int TakeReapplied()
