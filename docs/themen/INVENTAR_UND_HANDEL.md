@@ -5,7 +5,10 @@ Gilt für Build `26786272`. Datierte Befunde und Messungen stehen im [Archiv](..
 ## Überblick
 
 - Inventar-Unterobjekte laufen über den klassischen Replikationspfad.
-- Der Client bearbeitet sein Inventar lokal mit den nativen Abläufen. Beim Bestätigen schickt er einen Edit, den der Host als einzige Autorität übernimmt oder ablehnt (Airdrop-Auswahl, Lager, Händler, Werkbank).
+- Der Client bearbeitet sein Inventar lokal mit den nativen Abläufen. Beim Bestätigen schickt er einen Edit, den der Host als einzige Autorität übernimmt oder ablehnt (Airdrop-Auswahl, Lager, Händler, Werkbank, Kopierladen).
+- Kopierladen (`opt-kopierladen`): Eine Kopie des Clients geht sofort als Edit an den Host. Der Host kopiert seine eigene Instanz des Originals
+  (Daten, Seltenheit, Zustand), legt sie im Inventar des Clients ab und bucht den Preis des Panels; die Kopie repliziert wie jede Vergabe
+  ([Kopierladen beim Client](../../src/Game/README.md#kopierladen-beim-client)).
 - Die Airdrop-Auswahl läuft ohne Koop-Modus für beide: Der Host schickt das Sitzungsbild, der Client wählt lokal.
 - Item-Fähigkeiten der Client-Figur (Heil-Kit, Granate, Roboterarm) laufen beim Host, weil das Spiel sie nur für lokal gesteuerte Figuren ausführt.
 - Ein Desync-Melder vergleicht offene Bearbeitungen mit dem Stand des Hosts.
@@ -21,7 +24,8 @@ Gilt für Build `26786272`. Datierte Befunde und Messungen stehen im [Archiv](..
 |---|---|---|
 | `src/Game/InventoryPatches.cpp` | Inventar-Unterobjekte, Lebensdauer-Fixes, Itemsack-Vergabe | `tests/GameTests/PatchTests.cpp` |
 | `src/Game/InventoryEdit.cpp`, `src/Game/InventoryEditPlan.h`, `src/Game/InventoryEditRuntime.h` | Lokale Inventarbearbeitung des Clients | `tests/GameTests/InventoryEditTests.cpp` |
-| `src/Game/RewardPatches.cpp`, `src/Game/RewardAdapter.h`, `src/Sync/Inventory/RewardSync.cpp` | Airdrop-Auswahl, Lager, Händler, Edits und Ablehnung | `tests/NetTests/RewardTests.cpp` |
+| `src/Game/RewardPatches.cpp`, `src/Game/RewardAdapter.h`, `src/Sync/Inventory/RewardSync.cpp` | Airdrop-Auswahl, Lager, Händler, Kopierladen, Edits und Ablehnung | `tests/NetTests/RewardTests.cpp` |
+| `src/Game/PatchPolicy.h` (`ClientCopyStep`) | Kopierladen: wann der Client lokal kopiert | `tests/GameTests/PatchTests.cpp` |
 | `src/Game/AirdropPatches.cpp`, `src/Game/AirdropAdapter.cpp`, `src/Game/AirdropPolicy.h` | Airdrop-Kisten | `tests/GameTests/AirdropTests.cpp` |
 | `src/Game/ItemAbilityPatches.cpp`, `src/Game/ItemAbilityPolicy.h` | Item-Fähigkeiten der Client-Figur beim Host | `tests/GameTests/ItemAbilityPolicyTests.cpp` |
 | `src/Game/HandPreview.h` | Vorschau der Hände | `tests/GameTests/HandPreviewTests.cpp` |
@@ -33,6 +37,7 @@ Mehr: [src/Game/README.md](../../src/Game/README.md).
 ## Offene Fehler
 
 - [airdrop-auswahl-absturz](../faelle/airdrop-auswahl-absturz.md): Client stürzte bei einer Airdrop-Auswahl ohne Inventar am Panel ab. Inventar-Panels bauen sich ohne Inventar nicht mehr auf (`SetupInventory` und `ForceUpdateFromComponent`); warum das Panel ohne Inventar kam, ist offen.
+- [opt-kopierladen](../faelle/opt-kopierladen.md): Kopie des Clients im Kopierladen ging verloren. Jetzt als Edit beim Host gebucht.
 - Was im Spiel noch zu prüfen ist: [Spicker](../ERLEDIGT.md#bestätigungstests-ausstehend), etwa `lager-edit-ablehnung` und `opt-metabase-inventar`.
 
 ## Historie

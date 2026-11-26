@@ -465,6 +465,113 @@ TEST_CASE("opt-haendler-client: Käufe kosten nach den Verkäufen, zusammen mit 
     CHECK_FALSE(TradeBalance(2000000, {}, {}, {MaxPrice + 1}));
 }
 
+namespace
+{
+// opt-kopierladen: k-te Kopie des Ausgangs-Items Original, im Lager oder auf Tiles.
+Copy Copied(size_t K, uint16_t Original, int32_t Cost, std::vector<Tile> Tiles = {})
+{
+    Copy Next;
+    Next.Original = Original;
+    Next.Cost = Cost;
+    Next.Output = Tiles.empty() ? Stored(CopySource(K)) : Placed(CopySource(K), std::move(Tiles));
+    Next.Output.DataHash = 100 + Original; // Daten des Originals
+    return Next;
+}
+}
+
+TEST_CASE("opt-kopierladen: Kopie im Edit mit eigener Quelle, kaputt erlaubt, Original aus dem Ausgangsbild")
+{
+    Edit Value;
+    Value.Id = 1;
+    Value.Copies = {Copied(0, 2, 11)};
+    CHECK(WellFormed(Value));
+    CHECK(IsCopySource(CopySource(0)));
+    CHECK_FALSE(IsCopySource(PurchaseSource(0)));
+    CHECK_FALSE(IsCopySource(UpgradeSource(0)));
+    CHECK_FALSE(IsCopySource(ChoiceSource));
+    CHECK_FALSE(IsPurchaseSource(CopySource(0)));
+    CHECK(Fits(Value, {}, {}));
+
+    // Die native Kopie übernimmt den Zustand des Originals: eine kaputte Kopie ist gültig, anders als ein Kauf.
+    auto Broken = Value;
+    Broken.Copies[0].Output.Broken = true;
+    CHECK(WellFormed(Broken));
+    // Im Rucksack: Felder zählen wie bei jedem Item.
+    auto Worn = Value;
+    Worn.Copies[0] = Copied(0, 2, 11, {{0, 0}});
+    CHECK(WellFormed(Worn));
+    CHECK(Fits(Worn, {{0, 0}}, {}));
+    CHECK_FALSE(Fits(Worn, {{0, 0}}, {{0, 0}}));
+    auto Overlap = Worn;
+    Overlap.Items.push_back(Placed(0, {{0, 0}}));
+    CHECK_FALSE(WellFormed(Overlap));
+    // Das Original steht im Edit mit anderen Daten: ungültig. Mit denselben Daten (etwa verschoben) gültig.
+    auto Moved = Value;
+    Moved.Items.push_back(Placed(2, {{1, 0}}));
+    CHECK(WellFormed(Moved));
+    auto OtherData = Moved;
+    OtherData.Items.back().DataHash = 999;
+    CHECK_FALSE(WellFormed(OtherData));
+
+    auto WrongSource = Value;
+    WrongSource.Copies[0].Output.Source = CopySource(1);
+    CHECK_FALSE(WellFormed(WrongSource));
+    auto NoHash = Value;
+    NoHash.Copies[0].Output.DataHash = 0;
+    CHECK_FALSE(WellFormed(NoHash));
+    for (const uint16_t Original : {CopySource(0), PurchaseSource(0), UpgradeSource(0), ChoiceSource})
+    {
+        auto NotBase = Value;
+        NotBase.Copies[0].Original = Original;
+        CHECK_FALSE(WellFormed(NotBase)); // nur ein Item des Ausgangsbilds lässt sich kopieren
+    }
+    auto Negative = Value;
+    Negative.Copies[0].Cost = -1;
+    CHECK_FALSE(WellFormed(Negative));
+    auto TooDear = Value;
+    TooDear.Copies[0].Cost = MaxPrice + 1;
+    CHECK_FALSE(WellFormed(TooDear));
+    auto Vanished = Value;
+    Vanished.Copies[0].Output = Gone(Vanished.Copies[0].Output, 0);
+    CHECK_FALSE(WellFormed(Vanished)); // kopiert und weg, ohne Aufwertung
+    auto Sold = Value;
+    Sold.Copies[0].Output = Gone(Sold.Copies[0].Output, SoldForScrap);
+    CHECK_FALSE(WellFormed(Sold));
+    auto ItemWithCopySource = Value;
+    ItemWithCopySource.Items.push_back(Stored(CopySource(0)));
+    CHECK_FALSE(WellFormed(ItemWithCopySource));
+    auto TooMany = Value;
+    TooMany.Copies.clear();
+    for (size_t K = 0; K <= MaxCopies; ++K)
+        TooMany.Copies.push_back(Copied(K, 2, 1));
+    CHECK_FALSE(WellFormed(TooMany));
+}
+
+TEST_CASE("opt-kopierladen: Original und Kopie zusammen aufgewertet")
+{
+    Edit Value;
+    Value.Id = 1;
+    Value.Items = {Gone(Stored(2))};
+    Value.Copies = {Copied(0, 2, 11)};
+    Value.Copies[0].Output = Gone(Value.Copies[0].Output);
+    Upgrade Next;
+    Next.Inputs = {2, CopySource(0)};
+    Next.Data = "ItemData_SMG";
+    Next.Rarity = "Rarity_2_Rare";
+    Next.Output = Placed(UpgradeSource(0), {{0, 0}});
+    Next.Output.DataHash = NameHash(Next.Data);
+    Value.Upgrades = {Next};
+    CHECK(WellFormed(Value));
+    CHECK(ConsumedSources(Value) == std::set<uint16_t>{2, CopySource(0)});
+
+    auto StillThere = Value;
+    StillThere.Copies[0] = Copied(0, 2, 11);
+    CHECK_FALSE(WellFormed(StillThere)); // verbraucht und zugleich vorhanden
+    auto Unknown = Value;
+    Unknown.Upgrades[0].Inputs = {2, CopySource(1)};
+    CHECK_FALSE(WellFormed(Unknown));
+}
+
 TEST_CASE("opt-haendler-client: Untergrenze des Kaufpreises lässt Rabatte bis 75 % zu")
 {
     CHECK(PurchaseFloor(12) == 3);

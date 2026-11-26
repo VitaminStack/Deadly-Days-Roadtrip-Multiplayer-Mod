@@ -56,6 +56,7 @@
 {0x058B25E0, 0, "40 53 57 48 83 EC 28 80 B9 69 02 00 00 00", 0, "EndTackle"}, // EnemyTelegraphPatches.cpp
 {0x058B31AE, 0, "E8 ?? ?? ?? ?? F3 0F 11 87 14 03 00 00 40 38 AF 18 03 00 00", 0, "At_58B31AE"}, // ClientPatches.cpp
 {0x058B33B0, 0, "48 89 5C 24 10 57 48 83 EC 60 0F 29 74 24 50 0F 28 F1 48 8B F9", 0, "ExecuteTackle"}, // EnemyTelegraphPatches.cpp
+{0x058B4250, 0, "48 89 74 24 18 57 48 83 EC 30 48 8B 91 88 03 00 00", 0, "FinalizeCopyItem"}, // RewardPatches.cpp
 {0x058B61A0, 0, "48 89 5C 24 08 57 48 83 EC 40 0F 29 74 24 30 0F 57 F6 48 8B D1", 0, "ExpAggregate"}, // ClientPatches.cpp
 {0x058B61DB, 0, "48 8B 89 D8 07 00 00 48 83 E9 80 E8 ?? ?? ?? ??", 0, "At_58B61DB"}, // ClientPatches.cpp
 {0x058BD200, 0, "40 53 48 81 EC B0 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 84 24 A0 00 00 00 48 8B D9 48 8B 81 B0 00 00 00 48 85 C0", 0, "BlockadeLoadingFinished"}, // ClientPatches.cpp

@@ -209,6 +209,12 @@ struct
         int32_t Cost = 0;
     };
     std::vector<Bought> Purchases; // lokal gekaufte Items (opt-haendler-client)
+    struct Copied
+    {
+        uintptr_t Item = 0, Original = 0;
+        int32_t Cost = 0;
+    };
+    std::vector<Copied> Copies; // lokal kopierte Items (opt-kopierladen)
     unsigned Logged = 0;
     uint64_t NextId = 0;
 } Session;
@@ -242,9 +248,14 @@ bool IsPurchase(uintptr_t Item)
     return Item && std::any_of(Session.Purchases.begin(), Session.Purchases.end(), [&](const auto& Next) { return Next.Item == Item; });
 }
 
+bool IsCopy(uintptr_t Item)
+{
+    return Item && std::any_of(Session.Copies.begin(), Session.Copies.end(), [&](const auto& Next) { return Next.Item == Item; });
+}
+
 bool BelongsToSession(uintptr_t Item)
 {
-    return Contains(Session.Items, Item) || Contains(Session.Choices, Item) || IsUpgradeOutput(Item) || IsPurchase(Item) ||
+    return Contains(Session.Items, Item) || Contains(Session.Choices, Item) || IsUpgradeOutput(Item) || IsPurchase(Item) || IsCopy(Item) ||
            Contains(ItemsOf(Session.Inventory), Item);
 }
 
@@ -1000,6 +1011,19 @@ void RecordPurchase(uintptr_t Item, uintptr_t Data, uintptr_t Rarity, int32_t Co
                     Cost);
 }
 
+bool ClientBaseItem(uintptr_t Item)
+{
+    return Session.State == Phase::Editing && Contains(Session.Items, Item);
+}
+
+void RecordCopy(uintptr_t Item, uintptr_t Original, int32_t Cost)
+{
+    if (Session.State != Phase::Editing || !Item || IsCopy(Item) || !Contains(Session.Items, Original))
+        return;
+    Session.Copies.push_back({Item, Original, Cost});
+    Core::Log::Info("Inventar lokal: Kopie {} lokal, {} für {}", Session.Copies.size(), ItemLabel(Item), Cost);
+}
+
 namespace
 {
 bool FinishReverted = false;
@@ -1064,11 +1088,11 @@ std::optional<Edit> FinishClient(uint64_t SessionId, uint64_t Revision, std::opt
         if (IsConsumedInput(ChoiceItem))
             Core::Log::Info("Inventar lokal: Belohnung {} ist Eingabe einer Aufwertung, vorhanden {}", *Choice, Final.back().Present);
     }
-    // opt-station-zug: Ein Item, das seit Beginn der Bearbeitung dazugekommen ist und weder Belohnung, Ausgabe einer Aufwertung noch
-    // Kauf ist, steht nicht im Edit. Lokal entstanden (etwa im Kopierladen, opt-kopierladen) fehlt es beim Host; vom Host
-    // repliziert (etwa ein Itemsack) ist es dort schon vorhanden. Die Zeile unterscheidet das nicht.
+    // opt-station-zug: Ein Item, das seit Beginn der Bearbeitung dazugekommen ist und weder Belohnung, Ausgabe einer Aufwertung, Kauf
+    // noch Kopie ist, steht nicht im Edit. Lokal entstanden fehlt es beim Host; vom Host repliziert (etwa ein Itemsack) ist es dort
+    // schon vorhanden. Die Zeile unterscheidet das nicht.
     for (const uintptr_t Item : Now)
-        if (!Contains(Session.Items, Item) && !Contains(Session.Choices, Item) && !IsUpgradeOutput(Item) && !IsPurchase(Item))
+        if (!Contains(Session.Items, Item) && !Contains(Session.Choices, Item) && !IsUpgradeOutput(Item) && !IsPurchase(Item) && !IsCopy(Item))
             Core::Log::Warn("Inventar lokal: {} kam während der Bearbeitung dazu und steht nicht im Edit", ItemLabel(Item));
     std::vector<Tile> FinalSlots;
     for (const SlotInfo& Slot : Slots)
@@ -1099,6 +1123,18 @@ std::optional<Edit> FinishClient(uint64_t SessionId, uint64_t Revision, std::opt
         SourceOf.emplace(Bought.Item, PurchaseSource(K));
         Result.Purchases.push_back(std::move(Next));
     }
+    // opt-kopierladen: die Kopie mit eigener Quelle, Original als Quelle im Ausgangsbild, Prüfsumme der Daten des Originals.
+    for (size_t K = 0; K < Session.Copies.size() && K < MaxCopies; ++K)
+    {
+        const auto& Made = Session.Copies[K];
+        Copy Next;
+        Next.Original = SourceOf.at(Made.Original);
+        Next.Cost = Made.Cost;
+        Next.Output = FinalState(Made.Item, Now, Slots, CopySource(K));
+        Next.Output.DataHash = Session.States[Next.Original].DataHash;
+        SourceOf.emplace(Made.Item, CopySource(K));
+        Result.Copies.push_back(std::move(Next));
+    }
     for (size_t K = 0; K < Session.Upgrades.size(); ++K)
     {
         const auto& Recorded = Session.Upgrades[K];
@@ -1124,13 +1160,13 @@ std::optional<Edit> FinishClient(uint64_t SessionId, uint64_t Revision, std::opt
     }
     if (const char* Why = Malformed(Result))
     {
-        Core::Log::Warn("Inventar lokal: Edit mit {} Items, {} Aufwertungen und {} Käufen ungültig ({}), Bearbeitung zurückgenommen",
-                        Result.Items.size(), Result.Upgrades.size(), Result.Purchases.size(), Why);
+        Core::Log::Warn("Inventar lokal: Edit mit {} Items, {} Aufwertungen, {} Käufen und {} Kopien ungültig ({}), Bearbeitung zurückgenommen",
+                        Result.Items.size(), Result.Upgrades.size(), Result.Purchases.size(), Result.Copies.size(), Why);
         RevertClient("Edit ungültig");
         FinishReverted = true;
         return std::nullopt;
     }
-    if (Result.Items.empty() && Result.NewSlots.empty() && Result.Purchases.empty())
+    if (Result.Items.empty() && Result.NewSlots.empty() && Result.Purchases.empty() && Result.Copies.empty())
     {
         Core::Log::Info("Inventar lokal: Bearbeitung ohne Änderung beendet");
         Session.State = Phase::Idle;
@@ -1140,8 +1176,8 @@ std::optional<Edit> FinishClient(uint64_t SessionId, uint64_t Revision, std::opt
         Session.NextId = (uint64_t(GetTickCount64()) << 16) | 1;
     Result.Id = ++Session.NextId;
     Session.State = Phase::Committed;
-    Core::Log::Info("Inventar lokal: Edit {} mit {} Items, {} neuen Feldern, {} Aufwertungen, {} Käufen{}", Result.Id, Result.Items.size(),
-                    Result.NewSlots.size(), Result.Upgrades.size(), Result.Purchases.size(),
+    Core::Log::Info("Inventar lokal: Edit {} mit {} Items, {} neuen Feldern, {} Aufwertungen, {} Käufen, {} Kopien{}", Result.Id, Result.Items.size(),
+                    Result.NewSlots.size(), Result.Upgrades.size(), Result.Purchases.size(), Result.Copies.size(),
                     Result.Choice ? ", Belohnung " + std::to_string(*Result.Choice) : std::string{});
     for (const ItemState& Item : Result.Items)
         Core::Log::Info("Inventar lokal:   Quelle {} vorhanden {} Rucksack {} Drehung {} Pivot ({}, {}) {} Felder{}{}", Item.Source, Item.Present,
@@ -1185,6 +1221,8 @@ void RevertClient(const char* Why)
         for (const auto& Next : Session.Upgrades)
             Local.push_back(Next.Output);
         for (const auto& Next : Session.Purchases)
+            Local.push_back(Next.Item);
+        for (const auto& Next : Session.Copies)
             Local.push_back(Next.Item);
         for (const uintptr_t Choice : Local)
             if (Alive(Choice) && Contains(Now, Choice) && std::count(Items.begin(), Items.end(), Choice) == 0)
@@ -1232,12 +1270,15 @@ void ForgetClient()
             Settling.Items.push_back(Next.Output);
         for (const auto& Next : Session.Purchases)
             Settling.Items.push_back(Next.Item);
+        for (const auto& Next : Session.Copies)
+            Settling.Items.push_back(Next.Item);
     }
     Session.State = Phase::Idle;
     Session.Items.clear();
     Session.Choices.clear();
     Session.Upgrades.clear();
     Session.Purchases.clear();
+    Session.Copies.clear();
     EndHands(false);
 }
 
