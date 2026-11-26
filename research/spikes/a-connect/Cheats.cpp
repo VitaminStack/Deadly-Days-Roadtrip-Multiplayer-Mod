@@ -842,9 +842,10 @@ void ShopCommand(const std::wstring& Args)
     else if (Action == "copy")
     {
         // Testhilfe (opt-kopierladen): "!shop copy <ItemData>" bedient das offene Kopierladen-Panel (WI_CopyShopPanel_C) ueber die
-        // Ereignisse von Knopf und Klick. Ohne Bild dieses Items im Auswahl-Panel drueckt es "Item auswaehlen" (Befehl danach wiederholen),
-        // sonst TriggerClickEvent am Bild des ersten eigenen Items mit diesen Daten und dann "Item kopieren". UCopyShopPanel: InventoryPanel
-        // +0x368, ItemToCopy +0x388, Preis +0x398 (aus dem Code von SetPriceForItem); UItemRepresentation: ItemInstance +0xA38,
+        // Ereignisse von Knopf und Klick. Wartet das Panel noch nicht auf eine Auswahl, drueckt es "Item auswaehlen" (Befehl danach
+        // wiederholen), sonst TriggerClickEvent am Bild des ersten eigenen Items mit diesen Daten und dann "Item kopieren". UCopyShopPanel:
+        // InventoryPanel +0x368, ItemToCopy +0x388, Preis +0x398 (aus dem Code von SetPriceForItem), WaitingForItemSelection +0x3A8;
+        // UItemRepresentation: ItemInstance +0xA38,
         // InventoryComponent +0xA50, ParentInventoryPanel +0xB40. Vorher die Figur auf den POI stellen ("!shop go 0" oder "!shop to") und den
         // Dialog weiterschalten ("!shop call WBP_DialogOverlayWidget_C StopCurrentSpeech").
         const std::string DataName = Space == std::string::npos ? std::string{} : Text.substr(Space + 1);
@@ -874,10 +875,11 @@ void ShopCommand(const std::wstring& Args)
                 NameOf(Read<uintptr_t>(Item + 0xE0)) == DataName)
                 Picked = Rep;
         }
-        if (!Picked)
+        if (!Picked || !Read<uint8_t>(Panel + 0x3A8))
         {
             const bool Opened = Event("BndEvt__WI_CopyShopPanel_SelectItemButton_K2Node_ComponentBoundEvent_0_OnClickResponse__DelegateSignature");
-            Log(std::string("Shop: ") + DataName + " nicht im Auswahl-Panel, Auswahl " + (Opened ? "geoeffnet, Befehl wiederholen" : "nicht gefunden"));
+            Log(std::string("Shop: ") + DataName + (Picked ? "" : " nicht im Auswahl-Panel,") + " Auswahl " +
+                (Opened ? "geoeffnet, Befehl wiederholen" : "nicht gefunden"));
             return;
         }
         const uintptr_t Click = FindObject("TriggerClickEvent", "ItemRepresentation");
