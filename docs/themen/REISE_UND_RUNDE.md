@@ -10,6 +10,11 @@ Gilt für Build `26786272`. Datierte Befunde und Messungen stehen im [Archiv](..
   Das Inventar des Clients beginnt dabei mit der Startausrüstung, weil der Host einen neuen PlayerState anlegt ([wiedereintritt-inventar](../faelle/wiedereintritt-inventar.md)).
 - Rundenende, Busabfahrt, Tank und Tagesablauf entscheidet der Host. Der Client zeigt Rundenübersicht, Lager und Routenkarte des Hosts mit Eingabesperre.
   Die Werte der Rundenübersicht und der Wertung bucht nur der Host. Der Client übernimmt sie vor dem Öffnen der Übersicht (`0x402`, [opt-ergebnis-werte](../faelle/opt-ergebnis-werte.md)).
+- Die Routenkarte des Clients zeigt dieselben Knoten, Biome, Linien, Bus und Tag wie die des Hosts; wählen kann nur der Host. Die
+  Run-Info der GameInstance repliziert nicht. Der Host meldet Seed, Wahl und Fortschritt seiner Route (`0x403`), der Client baut die
+  Missionsstruktur daraus selbst und setzt die Route direkt vor dem Nachziehen des Tagesendes. Nach dem Weltwechsel steht wieder seine
+  eigene Run-Info in der GameInstance ([opt-routenkarte](../faelle/opt-routenkarte.md)). Die Gefahrenstufe unter der Stoppuhr setzt
+  beim Client die Haupt-UI mit der Stufe aus `0xC00` (`ThreatAdapter.cpp`).
 - Pausiert der Host die Welt, zeigt der Client einen Hinweis; das Pausemenü des Clients meldet sich beim Host.
 - Beim Run-Ende (Sieg oder Niederlage) kehren beide in die MetaBase zurück; der Client übernimmt keinen fremden Run-Stand in seinen Spielstand.
 
@@ -22,6 +27,7 @@ Gilt für Build `26786272`. Datierte Befunde und Messungen stehen im [Archiv](..
 | `src/Game/PauseAdapter.cpp`, `src/Sync/Players/PauseSync.cpp` | Pausen und Pausemenü | `tests/NetTests/PauseTests.cpp` |
 | `src/Game/ProgressAdapter.cpp`, `src/Sync/ProgressSync.cpp`, `src/Game/DayView.cpp` | Rundenphase, Tag und Fortschritt beim Client | `tests/NetTests/ProgressTests.cpp` |
 | `src/Game/RoundStatsPatches.cpp`, `src/Game/RoundStatsPolicy.h`, `src/Sync/World/MapSync.cpp` | Werte der Rundenübersicht: Host liest, Client übernimmt sie vor dem Rundenende | `tests/GameTests/RoundStatsTests.cpp`, `tests/NetTests/MapTests.cpp` |
+| `src/Game/RouteMapPatches.cpp`, `src/Game/RouteMapPolicy.h`, `src/Sync/World/RouteSync.cpp` | Routenkarte des Hosts beim Client, Knotenwahl beim Client gesperrt | `tests/GameTests/RouteMapTests.cpp`, `tests/NetTests/RouteTests.cpp` |
 | `src/Game/WidgetPatches.cpp` | Client: HUD wartet auf den GameState | – |
 | `src/Game/WorldAdapter.cpp` | Zugriff auf Welt und GameState | `tests/GameTests/WorldAdapterTests.cpp` |
 

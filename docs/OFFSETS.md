@@ -1038,19 +1038,20 @@ Build `26786272`, SDK und Speicherlesen. Lesewerkzeug `tools/spike/portraits.py`
 
 ## Routenkarte (`opt-routenkarte`)
 
-Reflexion und Disassembly am 26.11.2026, Ablauf in der [Fallakte](faelle/opt-routenkarte.md). Die Mod löst die Felder über die
-Reflexion auf (auch Strukturen), die Tabelle hält die gemessenen Werte fest.
+Reflexion und Disassembly am 26.11.2026, [Fallakte](faelle/opt-routenkarte.md). Die Mod löst die Felder per Reflexion auf.
 
 | Stelle | RVA oder Offset | Hinweis |
 |---|---|---|
 | `FCurrentRunInfo` (`0xE8`) | Seed `+0`, PermanentThreatLevelIncrease `+4`, CurrentRoute `+8`, PreviousRoute `+0x48`, ChosenMissionIndexes `+0x88`, ForcingCategoryProgressSnapshot `+0x98` | in der GameInstance bei `0x2A0` |
-| `FRoute` (`0x40`) | RouteMissionStructureIdentifier `+0` (Gruppe, Route je int32), MissionChain `+8` (`FRouteMission` je `0x290`, Biom `+0x1A8`), CurrentMissionIndex `+0x18`, CachedCurrentMissionIndex `+0x1C`, IsEndOfMissionChain `+0x20`, bIsSpecialRun `+0x21`, SpecialRunId `+0x24`, Position `+0x2C`, LinkedNextMissionIndexes `+0x30` | Ohne Missionen steht in PreviousRoute keine gültige Kennung |
+| `FRoute` (`0x40`) | RouteMissionStructureIdentifier `+0` (Gruppe, Route je int32), MissionChain `+8` (`FRouteMission` je `0x290`, Biom `+0x1A8`), CurrentMissionIndex `+0x18`, CachedCurrentMissionIndex `+0x1C`, IsEndOfMissionChain `+0x20`, bIsSpecialRun `+0x21`, SpecialRunId `+0x24`, Position `+0x2C`, LinkedNextMissionIndexes `+0x30` | PreviousRoute ohne Missionen: Kennung ungültig |
 | `UMissionGenerationSubsystem` | CachedMissionStructure `+0x30` (`FPossibleMissionGroup` je `0x20`: Day `+0`, Biome `+8`, PossibleRoutes `+0x10` als `FRoute`) | `CurrentRoute` ist eine Kopie von `Struktur[Gruppe].PossibleRoutes[Route]` |
 | `UBusPanel` | MissionChoicesPanel `+0x330`, MissionChoiceBackButton `+0x338`, Merker „Karte überspringen“ `+0x358` | |
 | `UBusPanel::OpenPanel`, `OpenMapIfRequired` | `0x5ABA540`, `0x5ABA2D0` | Exec-Thunks `0x5698120`, `0x5698100`. Rollenprüfung in OpenPanel bei `0x5ABA627` (vtable `+0x2C8`, `cmp byte ptr [rax+168h], 3`, `jne` bei `0x5ABA63A`) |
 | `UMissionChoicePanel::SetChoices` | `0x5AC0820` | Exec-Thunk `0x57553C0`; liest Seed, CurrentRoute und ChosenMissionIndexes der GameInstance |
 | `UMissionGenerationSubsystem::GetMissionStructure` | `0x58EFD10` | `(Subsystem, TArray* Out, int32 Tag)`, baut den Cache bei jedem Aufruf neu |
-| Route setzen (Klick auf einen Knoten) | `0x59056C0` | `(GameInstance, const FRoute&)`: PreviousRoute = CurrentRoute, CurrentRoute = neu; Aufrufer `0x5B1B2C3`, `0x5B1B58F` |
+| Route setzen | `0x59056C0` | `(GameInstance, const FRoute&)`: PreviousRoute = CurrentRoute, CurrentRoute = neu |
+| `LoadMapByInformation`, `LoadNonMissionMap` | `0x5B1B260`, `0x5B1B4F0` | Route setzen, reisen: Klick auf Knoten bzw. ins Hauptmenü |
+| `WP_UI_C.OnThreatLevelChanged_Event` | `(Old, New)` je int32 | setzt die Zahl unter der Stoppuhr |
 | `FRoute::operator=`, Abbau `FRoute`, Abbau `FPossibleMissionGroup` | `0x57487D0`, `0x56ADFB0`, `0x56ADF20` | Abbau je `(Data, Num)` |
 | `SetCurrentRunSeed` (hinter `DD_SetCurrentRunSeed`), `FMemory::Realloc` | `0x58E5030`, `0x1304360` | SetCurrentRunSeed leert den Struktur-Cache und setzt `+0x2A0` |
 

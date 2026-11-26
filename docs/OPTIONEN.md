@@ -92,7 +92,7 @@ Seit `karte-nach-labyrinth-absturz` erzeugt nur der Host den Sensenmann, der Spa
 
 ## `opt-routenkarte`
 
-Zurückgestellt aus `routenkarte-client` (09.11.2026): Der Client sieht dieselbe Routenkarte wie der Host (Knoten, Biome, Bus, Tag) und dieselbe Gefahrenstufe im HUD, wählen kann er weiter nicht. Belegt: Die Run-Info der GameInstance repliziert nicht, und `UBusPanel::OpenMapIfRequired` (`0x5AB7090`) befüllt die Karte nur bei `ROLE_Authority` des eigenen Controllers. Weg: Run-Info über den Kontrollkanal, Rollenprüfung beim Client umgehen oder `SetChoices` selbst aufrufen. **Fertig, wenn** der Client nach jedem Rundenende bis Tag 5 über den Biomwechsel nach Tag 4 dieselbe Karte und Gefahrenstufe wie der Host sieht und nicht reisen kann. **Einstieg:** [Routenkarte beim Client](archive/GAME_ANALYSIS.md#routenkarte-beim-client-routenkarte-client)
+Zurückgestellt aus `routenkarte-client` (09.11.2026): Der Client sieht dieselbe Routenkarte wie der Host (Knoten, Biome, Bus, Tag) und dieselbe Gefahrenstufe im HUD, wählen kann er weiter nicht. Belegt: Die Run-Info der GameInstance repliziert nicht, und `UBusPanel::OpenMapIfRequired` (`0x5AB7090`) befüllt die Karte nur bei `ROLE_Authority` des eigenen Controllers. Weg: Run-Info über den Kontrollkanal, Rollenprüfung beim Client umgehen oder `SetChoices` selbst aufrufen. **Fertig, wenn** der Client nach jedem Rundenende bis Tag 5 über den Biomwechsel nach Tag 4 dieselbe Karte und Gefahrenstufe wie der Host sieht und nicht reisen kann. **Einstieg:** [Routenkarte beim Client](archive/GAME_ANALYSIS.md#routenkarte-beim-client-routenkarte-client), Umsetzung in der Fallakte [opt-routenkarte](faelle/opt-routenkarte.md) (die Rollenprüfung sitzt in `UBusPanel::OpenPanel`)
 
 ## `sync-aufraeumen`
 
