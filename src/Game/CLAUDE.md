@@ -16,7 +16,7 @@ Zugriff auf das Spiel: Adapter lesen, Patches und Hooks greifen ein. Gilt nur f√
 - Karte, Reise, Runde: `MapPatches`, `TravelPatches`, `PauseAdapter`, `ProgressAdapter`, `WidgetPatches`
 - Inventar und Handel: `InventoryPatches`, `InventoryEdit*`, `RewardPatches`, `Airdrop*`, `ItemAbilityPatches`
 - Gegner und Bosse: `EnemyTelegraphPatches`, `DamageNumberPatches`, `BossBarAdapter`, `ThreatAdapter`, `ProjectilePatches`
-- Darstellung: `HealthBar`, `BusBar`, `LootBar`, `Blood`, `BodyPart`, `Exp`, `Facing`, `WalkAnimation`, `WeaponSound`
+- Darstellung: `HealthBar`, `BusBar`, `LootBar`, `Blood`, `BodyPart`, `Exp`, `Facing`, `WalkAnimation`, `WeaponSound`, `ZoneGoalAdapter`
 - Grundlagen: `Reflection`, `Memory`, `Objects`, `Offsets.h`, `AddressMap.h`, `GameThread`, `Patches.cpp` (Reihenfolge der Listen)
 
 ## Tests
