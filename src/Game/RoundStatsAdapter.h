@@ -26,4 +26,8 @@ int TakeReapplied();
 // Client: Der Host hat den Run in dieser Welt beendet (Sieg oder Niederlage). Bis zum Weltwechsel zeigt die Rundenübersicht dann
 // wie beim Host die Summen aller Tage statt des letzten Tags. 0 hebt es auf.
 void NoteRunEnded(uintptr_t World);
+
+// opt-rundenstempel, Client: Folgt in der aktuellen Welt einem Rundenende des Hosts, vor dem Öffnen der Übersicht. Bis zum
+// Weltwechsel stempelt GenerateStats den Tag (nie ein Event) und den Fehlschlag genau bei HostLost (RoundStatsPolicy.h).
+void NoteRoundEndFollowed(bool HostLost);
 }

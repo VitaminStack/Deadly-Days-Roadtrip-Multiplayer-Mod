@@ -21,6 +21,10 @@ constexpr std::string_view Package = "/Script/DDSurvivors";
 // Das Ereignis, das der Blueprint der Stoppuhr an ThreatLevel.OnThreatLevelChanged bindet (Old, New, je int32).
 constexpr std::string_view StopwatchClass = "WBP_Stopwatch_C";
 constexpr std::string_view StopwatchEvent = "CustomEvent";
+// opt-routenkarte: Die Zahl unter der Stoppuhr setzt nicht die Stoppuhr selbst, sondern die Haupt-UI über ihr Ereignis am selben
+// Delegate (gleiche Parameter). Ohne diesen Aufruf zeigte der Client 0, der Host 7 oder 9.
+constexpr std::string_view UiClass = "WP_UI_C";
+constexpr std::string_view UiEvent = "OnThreatLevelChanged_Event";
 constexpr ULONGLONG ReadEveryMs = 250, SearchEveryMs = 2000;
 
 struct ThreatParams
@@ -61,8 +65,67 @@ uintptr_t FindComponent(uintptr_t World, uintptr_t Class)
 // ---- Client ----
 uintptr_t ClientWorld = 0;
 ThreatShown Shown;
-bool ReportedLayout = false;
+bool ReportedLayout = false, ReportedUi = false;
 unsigned Calls = 0, Raises = 0;
+Objects::Ref Ui;       // Haupt-UI, der die Zahl zuletzt gegeben wurde
+int32_t UiLevel = -1;  // dort gezeigte Stufe, -1 ohne
+
+bool InViewport(uintptr_t Widget)
+{
+    static const uintptr_t Function = Reflection::Function("/Script/UMG", "UserWidget", "IsInViewport");
+    if (!Function || !Widget)
+        return false;
+    alignas(16) uint8_t Result[16]{};
+    Objects::ProcessEvent(Widget, Function, Result);
+    return Result[0] != 0;
+}
+
+// Die Haupt-UI der aktuellen Welt: Instanz von WP_UI_C im Viewport. Direkt nach der Reise lebt die der alten Welt noch.
+uintptr_t FindUi(uintptr_t Class)
+{
+    const int32_t Total = Objects::Count();
+    for (int32_t Index = 0; Index < Total; ++Index)
+    {
+        const uintptr_t Object = Objects::At(Index);
+        if (Object && Memory::ReadPointer(Object + Offsets::UObject::Class).value_or(0) == Class && InViewport(Object))
+            return Object;
+    }
+    return 0;
+}
+
+// opt-routenkarte: Die Zahl unter der Stoppuhr setzt die Haupt-UI über ihr Ereignis am Delegate. Sie bekommt jeden Stand, auch einen
+// unveränderten, sobald sie neu ist (Reise, Beitritt) oder ihn noch nicht hat. Gemessen: Ohne das zeigte der Client am Tagesstart 0.
+void ShowOnUi(int32_t Level)
+{
+    const uintptr_t Function = Objects::FindObject(UiEvent, UiClass);
+    const uintptr_t Class = Function ? Memory::ReadPointer(Function + Offsets::UObject::Outer).value_or(0) : 0;
+    if (!Class || Memory::Read<int32_t>(Function + Offsets::UStruct::PropertiesSize).value_or(0) != sizeof(ThreatParams))
+    {
+        if (!ReportedUi)
+        {
+            ReportedUi = true;
+            Core::Log::Warn("Bedrohung Client: Ereignis der Haupt-UI fehlt oder hat ein anderes Layout, Zahl unter der Stoppuhr bleibt");
+        }
+        return;
+    }
+    const bool Current = Objects::IsLive(Ui) && InViewport(Ui.Object);
+    const UiThreatUpdate Update = UiThreatLevelChange(Current, Current ? UiLevel : -1, Level);
+    if (!Update.Call)
+        return;
+    if (Update.Search)
+    {
+        const uintptr_t Found = FindUi(Class);
+        if (!Found)
+            return; // noch keine Haupt-UI: Der Host wiederholt den Stand.
+        Ui = Objects::RefTo(Found);
+        UiLevel = -1;
+    }
+    ThreatParams Params{Update.Old, Update.New};
+    Objects::ProcessEvent(Ui.Object, Function, &Params);
+    if (UiLevel < 0)
+        Core::Log::Info("Bedrohung Client: Haupt-UI zeigt Stufe {}", Level);
+    UiLevel = Level;
+}
 }
 
 std::optional<int32_t> ReadHostThreatLevel()
@@ -121,6 +184,8 @@ void ShowThreatLevel(int32_t Level)
         Shown = {};
     }
     const ThreatEvent Event = ThreatLevelChange(Shown, Level);
+    if (World && ThreatLevelValid(Level))
+        ShowOnUi(Level);
     if (!World || !Event.Call)
         return;
     const uintptr_t Widget = Objects::FindInstance(StopwatchClass);

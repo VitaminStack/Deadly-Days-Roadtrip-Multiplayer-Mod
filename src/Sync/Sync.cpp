@@ -388,7 +388,7 @@ void Start(const Core::Config& Config, DiagnosticSink Diagnostics)
             TickSessionLog(Transport.get());
         }
         DispatchControls(Messages, Timed("Sync-Fortschritt", TickProgress), Timed("Sync-Desync", TickDesync),
-                         Timed("Sync-Belohnung", TickReward), Timed("Sync-Karte", TickMap), Timed("Sync-Pause", TickPause),
+                         Timed("Sync-Belohnung", TickReward), Timed("Sync-Karte", TickMap), Timed("Sync-Routenkarte", TickRoute), Timed("Sync-Pause", TickPause),
                          Timed("Sync-Charakter", TickCharacter));
     }, "Sync");
 }

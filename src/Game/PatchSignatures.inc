@@ -5,6 +5,7 @@
 {0x012BC260, 0, "48 89 5C 24 08 57 48 83 EC 30 33 FF 48 8D 41 0C 48 8B D9 89 79 08 39 38 74 ?? 4C 8B C9 48 89 44 24 28 B9 14 00 00 00", 0, "DamageInfoMapDestruct"}, // DamageNumberPatches.cpp
 {0x012D6D80, 0, "40 53 48 8B 19 48 8B C1 4C 63 CA 45 85 C0 0F 84 ?? ?? ?? ?? 4D 8B D1 48 89 7C 24 10 41 8B C9 49 C1 E2 04 41 BB 01 00 00 00 41 D3 C3", 0, "ControllerSparseRemove"}, // PlayerPatches.cpp
 {0x012F85E0, 0, "48 85 C9 74 ?? 53 48 83 EC 20 48 8B D9 48 8B 0D ?? ?? ?? ??", 0, "FreeArray"}, // ClientPatches.cpp
+{0x01304360, 0, "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 48 8B F1 41 8B D8 48 8B 0D ?? ?? ?? ?? 48 8B FA", 0, "MemoryRealloc"}, // RouteMapPatches.cpp
 {0x01344650, 0, "45 85 C0 0F 84 ?? ?? ?? ?? 48 89 5C 24 10 57 48 8B 39 48 8B C1 4C 63 D2 41 BB 01 00 00 00 41 8B CA 48 89 74 24 10 41 D3 C3 41 8B D8 4B 8D 0C 92 4C 8D 04 8F 83 78 34 00 74 ??", 0, "MapSparseRemove"}, // RemoteP2Patches.cpp
 {0x01512430, 0, "48 8B 01 48 FF A0 F8 01 00 00 CC CC CC CC CC CC 40 53 48 83 EC 40 0F 10 02 33 C0", 0, "DefaultNetworkingSupport"}, // InventoryPatches.cpp
 {0x024E95F0, 0, "4C 8B DC 53 55 56 57 41 56 48 81 EC A0 00 00 00 48 8B 05 ?? ?? ?? ??", 0, "RegistrationBroadcast"}, // PlayerPatches.cpp
@@ -22,8 +23,11 @@
 {0x04BDE5E0, 0, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 56 41 57 48 83 EC 30 0F 29 74 24 20 4D 8B F0 4C 8B FA 48 8B E9 E8 ?? ?? ?? ??", 0, "SetNumericValueChecked"}, // HealthBarPatches.cpp
 {0x05659A70, 0, "48 89 5C 24 10 48 89 4C 24 08 57 48 83 EC 20 48 8B D9 48 8D 54 24 30", 0, "DamageInfoConstruct"}, // DamageNumberPatches.cpp
 {0x05667FB5, 0, "48 FF A0 68 07 00 00 CC 48 8B 42 20 45 33 C0 48 85 C0 41 0F 95 C0 4C 03 C0 4C 89 42 20 E9 ?? ?? ?? ?? CC CC CC", 29, "At_5667FB5"}, // ClientPatches.cpp
+{0x056ADF20, 0, "85 D2 74 ?? 48 89 5C 24 08 57 48 83 EC 20 8B FA 48 8D 59 10 8B 53 08 48 8B 0B E8 ?? ?? ?? ?? 90 48 8B 0B 48 85 C9 74 ?? E8 ?? ?? ?? ?? 90 48 83 C3 20 83 EF 01 75 ?? 48 8B 5C 24 30 48 83 C4 20 5F C3 CC", 0, "DestructGroups"}, // RouteMapPatches.cpp
+{0x056ADFB0, 0, "85 D2 74 ?? 48 89 5C 24 08 57 48 83 EC 20 8B FA 48 8D 59 08 48 8B 4B 28", 0, "DestructRoutes"}, // RouteMapPatches.cpp
 {0x056C6B4B, 0, "48 8B CF E8 ?? ?? ?? ?? 48 8B 5C 24 30 48 83 C4 20 5F C3 CC CC CC CC CC 48 8B 42 20 45 33 C0 48 85 C0 41 0F 95 C0 4C 03 C0 4C 89 42 20 E9 ?? ?? ?? ?? CC CC CC CC CC CC 48 89 5C 24 08 48 89 74 24 18 57 48 83 EC 20 33 FF 48 8B DA 89 7C 24 38 48 8B F1", 3, "RoundChangedThunk"}, // RoundStatsPatches.cpp
 {0x05708220, 0, "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 48 8B FA 48 8B D9 48 8B 15 ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8B C8 48 8B F0 E8 ?? ?? ?? ?? 4C 8B 0B 48 8B CB F6 80 D8 00 00 00 80 75 ?? 4C 8D 44 24 40 48 89 7C 24 40 48 8B D6 41 FF 91 50 02 00 00 48 8B 5C 24 30 48 8B 74 24 38 48 83 C4 20 5F C3 48 8B D7 48 8B 5C 24 30 48 8B 74 24 38 48 83 C4 20 5F 49 FF A1 40 07 00 00 CC CC CC CC CC CC CC CC 40 53 48 83 EC 20 48 89 54 24 30 48 8B D9 48 8B 15 ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8B 13 4C 8D 44 24 30 48 8B CB 4C 8B 8A 50 02 00 00", 0, "ReloadSoundEvent"}, // WeaponSoundPatches.cpp
+{0x057487D0, 0, "48 89 5C 24 10 48 89 74 24 18 48 89 7C 24 20 41 56 48 83 EC 40 48 8B 02 4C 8D 72 08 48 8D 71 08", 0, "RouteAssign"}, // RouteMapPatches.cpp
 {0x057BED90, 0, "40 53 56 57 41 55 48 83 EC 38 48 89 6C 24 68", 0, "ControllerSetAdd"}, // PlayerPatches.cpp
 {0x057CC665, 0, "E8 ?? ?? ?? ?? 90 0F B6 45 37 48 8D 15 ?? ?? ?? ?? 48 8B 14 C2 48 8D 05 ?? ?? ?? ?? 48 3B D0 75 ?? 48 83 7D 07 00 74 ?? 48 8B 45 2F 48 8D 4D 17 48 85 C0 48 0F 45 C8 48 8B 01 FF 50 10 90 EB ?? 48 8D 4D 07 FF D2 90 48 83 7D D7 00 74 ?? 48 8B 45 FF 48 8D 4D E7 48 85 C0 48 0F 45 C8 48 8B 01 FF 50 10 90 48 8B 4D 47 48 33 CC E8 ?? ?? ?? ?? 4C 8D 9C 24 C0 00 00 00 49 8B 5B 18 49 8B 7B 20 49 8B E3 5D C3 CC CC CC CC CC CC 48 89 5C 24 10 48 89 6C 24 20 56", 0, "ScheduleCall"}, // InventoryPatches.cpp
 {0x057D1DA0, 0, "40 53 48 83 EC 20 48 8B D9 E8 ?? ?? ?? ?? 48 8B 8B D8 00 00 00 48 85 C9 74 ?? 48 83 C1 60", 0, "DetectorEndPlay"}, // InventoryPatches.cpp
@@ -75,6 +79,7 @@
 {0x058EBFD0, 0, "4C 89 44 24 18 53 48 83 EC 50 0F B6 DA", 0, "StatFind"}, // RoundStatsPatches.cpp
 {0x058EC080, 0, "48 89 5C 24 20 55 56 57 48 83 EC 30 80 B9 10 04 00 00 00", 0, "FinishMission"}, // ClientPatches.cpp
 {0x058EF260, 0, "48 83 EC 28 48 81 C1 98 01 00 00 E8 ?? ?? ?? ??", 0, "GetGameStatImpl"}, // RoundStatsPatches.cpp
+{0x058EFD10, 0, "48 8B C4 48 89 58 20 48 89 50 10 55 56 57 41 54 41 55 41 56 41 57 48 8D A8 88 FB FF FF 48 81 EC 40 05 00 00", 0, "GetMissionStructure"}, // RouteMapPatches.cpp
 {0x058F1F10, 0, "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 8B 81 08 01 00 00 48 8B D9", 0, "GetController"}, // LocalDevicePatches.cpp
 {0x058F4420, 0, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 48 83 EC 30 48 8B E9 49 8B F9 48 81 C1 98 01 00 00", 0, "IncrementImpl"}, // RoundStatsPatches.cpp
 {0x058F4520, 0, "85 D2 78 ?? 48 89 5C 24 08 48 89 74 24 18", 0, "IncrementPlayer"}, // RoundStatsPatches.cpp
@@ -83,6 +88,7 @@
 {0x058FF2E0, 0, "48 89 5C 24 18 48 89 74 24 20 57 48 83 EC 20 48 8B DA 48 8B F1 48 85 D2 74 ?? 33 C9 E8 ?? ?? ?? ?? 48 8B 53 10 4C 8D 40 30 48 63 40 38 3B 42 38 7F ?? 48 8B C8 48 8B 42 30 4C 39 04 C8 75 ?? 4C 8B D3 EB ?? 45 33 D2 48 B9 CD 8C 55 ED D7 AF 51 FF 4C 89 54 24 38", 0, "RegisterController"}, // PlayerPatches.cpp
 {0x058FF3DD, 0, "E8 ?? ?? ?? ?? 48 8D 8E 40 03 00 00 48 89 5C 24 30", 0, "At_58FF3DD"}, // PlayerPatches.cpp
 {0x058FF3F3, 0, "E8 ?? ?? ?? ?? 48 8B 5C 24 40 48 8B 74 24 48 48 83 C4 20 5F C3 CC CC CC CC CC CC CC CC 48 89 5C 24 10 48 89 74 24 18 4C 89 74 24 20 55 48 8B EC 48 83 EC 70 8B 51 48 48 8D 71 48 4C 8D 71 38 48 8B D9", 0, "At_58FF3F3"}, // PlayerPatches.cpp
+{0x059056C0, 0, "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 8B 02 48 8B DA 48 8B F1 39 81 A8 02 00 00", 0, "SetCurrentRoute"}, // RouteMapPatches.cpp
 {0x05906F08, 0, "48 8B 08 48 8B 91 30 03 00 00 48 8B C8 FF D2 8B D0 48 8B CB", 0, "SpawnNullSite"}, // PlayerPatches.cpp
 {0x05907073, 0, "4C 8B C5 48 8B D7 48 8B CE E8 ?? ?? ?? ?? 48 8B 8C 24 D0 00 00 00 48 33 CC", 0, "SpawnSkipTarget"}, // PlayerPatches.cpp
 {0x059070B0, 0, "89 54 24 10 55 53 56 57 41 56 48 8B EC 48 83 EC 40", 0, "SpawnLocal"}, // LocalDevicePatches.cpp
@@ -127,9 +133,14 @@
 {0x05A74D50, 0, "48 89 5C 24 18 55 56 57 48 83 EC 40 48 8B F9", 0, "PanelConfirm"}, // RewardPatches.cpp
 {0x05A7B75B, 0, "E8 ?? ?? ?? ?? 48 8B 4D 10 48 33 CC E8 ?? ?? ?? ?? 4C 8D 9C 24 30 01 00 00 49 8B 5B 38", 0, "ClientRefreshCallSite"}, // ClientPatches.cpp
 {0x05A941D0, 0, "48 89 5C 24 10 48 89 74 24 18 48 89 7C 24 20 55 41 54 41 55 41 56 41 57 48 8D 6C 24 B0 48 81 EC 50 01 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 40 48 8B F9 C6 81 00 09 00 00 01 E8 ?? ?? ?? ??", 0, "ClientRefreshFunction"}, // ClientPatches.cpp
+{0x05ABA540, 0, "48 89 5C 24 10 48 89 6C 24 18 56 57 41 56 48 81 EC 80 00 00 00 48 8B F9 83 B9 5C 03 00 00 FF", 0, "OpenPanel"}, // RouteMapPatches.cpp
+{0x05ABA627, 0, "48 8B 07 48 8B CF FF 90 C8 02 00 00 80 B8 68 01 00 00 03", 0, "OpenPanelRoleCheck"}, // RouteMapPatches.cpp
 {0x05ABD6C0, 0, "48 89 5C 24 10 56 48 83 EC 40 48 83 79 30 00", 0, "RepresentationSize"}, // InventoryPatches.cpp
 {0x05AE3510, 0, "48 8B C4 48 89 58 10 48 89 70 18 48 89 78 20 55 41 54 41 55 41 56 41 57 48 8D A8 B8 FE FF FF 48 81 EC 20 02 00 00 0F 29 70 C8 0F 29 78 B8 44 0F 29 40 A8 44 0F 29 48 98 4C 8B F1", 0, "GenerateStats"}, // RoundStatsPatches.cpp
+{0x05AE3676, 0, "88 5C 24 41 49 8B CD E8 ?? ?? ?? ??", 0, "StampAllDeadStore"}, // RoundStatsPatches.cpp
 {0x05AE367D, 0, "E8 ?? ?? ?? ?? 84 C0 75 ?? 84 DB 75 ?? 88 44 24 40", 0, "GenerateStatsFinalCall"}, // RoundStatsPatches.cpp
+{0x05AE3D84, 0, "3B D1 41 0F 95 C4 49 8B CE", 0, "StampEventCompare"}, // RoundStatsPatches.cpp
 {0x05B0C050, 0, "4C 8B DC 55 53 56 57 41 56 49 8D 6B A8 48 81 EC 30 01 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 A0 4D 8B F1", 0, "LocalViewportCorners"}, // ExpPatches.cpp
 {0x05B11480, 0, "48 89 5C 24 18 48 89 74 24 20 55 57 41 54 41 56 41 57 48 8D 6C 24 F0 48 81 EC 10 01 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 00 48 8B DA 48 8B F1 48 89 4C 24 30 45 33 F6", 0, "GetPlayerCharacters"}, // ClientPatches.cpp
 {0x05B14115, 0, "48 8B 08 48 8B 91 30 03 00 00 48 8B C8 48 83 C4 28 48 FF E2 CC", 0, "PlayerIndexNullSite"}, // PlayerPatches.cpp
+{0x05B1B260, 0, "48 89 5C 24 18 48 89 74 24 20 48 89 54 24 10 55 57 41 55", 0, "LoadMapByInformation"}, // RouteMapPatches.cpp

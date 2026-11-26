@@ -46,6 +46,8 @@ std::span<const Patch> MapPatches();
 // opt-ergebnis-werte, in der Liste Map: Werte der Rundenübersicht lesen und setzen (RoundStatsAdapter.h). TickMap kommt ohne
 // diese Stellen aus, darum zählen sie dort als TickOptional.
 Patch RoundStatsPatch();
+// opt-rundenstempel, ebenfalls in der Liste Map: Tagesstempel der Rundenübersicht beim Client wie beim Host (RoundStatsAdapter.h).
+Patch RoundStampsPatch();
 std::span<const uintptr_t> RoundStatsTickOptionalSites();
 std::span<const Patch> LocalDevicePatches();
 std::span<const Patch> CharacterPatches();
@@ -56,6 +58,8 @@ std::span<const Patch> EnemyTelegraphPatches();
 std::span<const Patch> DamageNumberPatches();
 // opt-waffen-sound: Host meldet seine Nachladesounds, Client startet Schuss- und Nachladesound lokal (WeaponSoundAdapter.h).
 std::span<const Patch> WeaponSoundPatches();
+// opt-routenkarte: Routenkarte des Hosts beim Client (RouteMapAdapter.h).
+std::span<const Patch> RouteMapPatches();
 // Host: Figur, die bei RewardChest.OpenAirdropChoices die native Auswahl bekommt (die des Hosts statt des Remote-P2).
 uintptr_t RewardCharacter(uintptr_t Character);
 // Client: Wahr, wenn ProcessEvent einen Server-RPC mit einer lokalen Anzeige-Instanz der Airdrop-Auswahl nicht senden soll.

@@ -14,7 +14,7 @@ Eine Familie je Thema, Typen innerhalb der Familie fortlaufend. Wer einen Typ od
 | `0x100` Fortschritt | `0x100` Abo, `0x101` Bild, `0x102` Orbs | `Sync/ProgressState.h` |
 | `0x200` Desync-Melder | `0x200` Probe, `0x201` Ergebnis | `Sync/DesyncState.h` |
 | `0x300` Inventar | `0x300` Angebot, `0x303` Edit, `0x304` Ergebnis, `0x305` Bereit, `0x306`/`0x307` Rundenende, `0x308` Seltenheit, `0x309` Schrott (`0x301`/`0x302` stillgelegt); `0x303` mit Kopien seit `ModVersion` 18 | `Sync/Inventory/RewardState.h` |
-| `0x400` Karte | `0x400` Karte, `0x401` Rundenende, `0x402` Rundenwerte (seit `ModVersion` 19) | `Sync/World/MapState.h` |
+| `0x400` Karte | `0x400` Karte, `0x401` Rundenende, `0x402` Rundenwerte (seit `ModVersion` 19), `0x403` Route (seit `ModVersion` 20) | `Sync/World/MapState.h`, `Sync/World/RouteState.h` |
 | `0x500` Bewegung | `0x500` Dodge-Richtung | `Sync/MovementState.h` |
 | `0x600` Entwickler | `0x600` Anfrage | `Sync/DevState.h` |
 | `0x700` Pause | `0x700` Pausemenü | `Sync/Players/PauseState.h` |
@@ -300,6 +300,22 @@ Nachricht einmal je Rundenende und Client, sofort, und wiederholt sie nur, wenn 
 die Rundenübersicht erst, wenn die Werte zu diesem Ende da sind, höchstens 2 s nach dem Rundenende, und übernimmt sie einmal je Ende.
 Eine falsche Länge, eine Tageskennung oder ein Wert außerhalb der Bereiche und doppelte Schlüssel machen die Nachricht ungültig.
 
+## Route (Mod-Kompatibilität 20)
+
+Aufgabe `opt-routenkarte`, Fallakte [opt-routenkarte](faelle/opt-routenkarte.md), Code in `src/Game/RouteMapPatches.cpp` und
+`src/Sync/World/RouteSync.cpp`. Mod-Version 20, weil ein Client mit älterer Version die Route nicht kennt und weiter eine leere
+Routenkarte zeigt. Lokal bleiben Missionsstruktur, Biome, Knoten, Ereignisse und die ganze Karte beim Client: Er baut sie aus dem
+Seed selbst. Geteilt werden nur Seed, Wahl und Fortschritt der Route. Die Route wählt allein der Host.
+
+`0x403` Host an Client, Little-Endian: Karten-Id der Mission (`HostMap::Id`, 8, nie 0), Run-Seed (`CurrentRunSeed`, int32 4),
+Gefahrenzuschlag (`PermanentThreatLevelIncrease`, 4, 0 bis 100000), aktuelle Route als Kennung Gruppe und Route (je int32 4, 0 bis 63
+und 0 bis 15), `CurrentMissionIndex` und `CachedCurrentMissionIndex` (je int32 4, -1 bis 64), `IsEndOfMissionChain` (1: 0 oder 1),
+vorige Route als Kennung (je int32 4, beide -1 ohne), Anzahl der Wahl (1, höchstens 64) und je Wahl die Knotenposition
+(`ChosenMissionIndexes`, 1 Byte, 0 bis 32). Genau 42 Bytes plus Anzahl. Der Host liest den Stand in der Mission vor seinem Rundenende,
+höchstens einmal je Sekunde, und schickt ihn je Client bei Änderung, sonst alle 5 s. Der Client übernimmt ihn einmal je Tagesende,
+direkt bevor er das Rundenende `0x401` derselben Karte nachzieht, nie am Run-Ende. Eine falsche Länge, ein Wert außerhalb der
+Bereiche oder eine halbe Kennung machen die Nachricht ungültig.
+
 ## Dodge-Richtung (Mod-Kompatibilität 8)
 
 Aufgabe `dodge-client-live`, Befund in [Dodge im Zwei-PC-Test](archive/GAME_ANALYSIS.md#dodge-im-zwei-pc-test-dodge-client-live), Code in
@@ -391,12 +407,14 @@ Aufgabe `opt-bedrohung-sound`, Befund in [Bedrohungsstufe beim Client](archive/G
 Code in `src/Game/ThreatAdapter.cpp` und `src/Sync/World/ThreatState.h`. Mod-Version 15, weil ein Client mit älterer Version die
 Nachricht nicht kennt. Die Stufe der Komponente `ThreatLevel` repliziert nicht (beim Client −1), ihr Delegate feuert nur beim Host.
 Lokal bleiben Zahl, Animation und Sound: Der Client ruft das Ereignis `CustomEvent(Old, New)` seiner eigenen Stoppuhr
-(`WBP_Stopwatch_C`) auf. Geteilt wird nur die Stufe. Es entscheidet der Host; die Komponente des Clients wird nicht beschrieben.
+(`WBP_Stopwatch_C`, Animation und Sound) und das Ereignis `OnThreatLevelChanged_Event(Old, New)` seiner Haupt-UI (`WP_UI_C`, die
+Zahl, seit `opt-routenkarte`) auf. Geteilt wird nur die Stufe. Es entscheidet der Host; die Komponente des Clients wird nicht beschrieben.
 
 `0xC00` Host an Client, in einer Mission bei jeder Änderung und als Wiederholung alle 2 s: Stufe (`int32`, Little-Endian, 0 bis
 100000), genau 4 Bytes. Andere Längen und Werte werden abgelehnt. Der Client holt `0xC00` in jedem Takt ab und nimmt den neuesten
 Stand. Der erste Stand einer Welt läuft als `(N, N)` und setzt nur die Zahl, jede spätere Änderung als `(alt, neu)`; ein
-unveränderter Stand tut nichts. Fehlt die Stoppuhr noch, bleibt der Stand offen, die Wiederholung holt ihn nach, ebenso ein
+unveränderter Stand tut nichts. Die Haupt-UI bekommt jeden Stand, den sie noch nicht zeigt, auch einen unveränderten, sobald sie
+nach Reise oder Beitritt neu im Viewport ist. Fehlt die Stoppuhr noch, bleibt der Stand offen, die Wiederholung holt ihn nach, ebenso ein
 verlorenes Paket und einen späten Beitritt. Keine Antwort.
 
 ## Zonenziel (Mod-Kompatibilität 21)
