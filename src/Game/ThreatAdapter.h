@@ -5,8 +5,8 @@
 
 // opt-bedrohung-sound: Bedrohungsstufe beim Client. Die Stufe lebt in der Komponente ThreatLevel des GameState, hat kein
 // repliziertes Feld (beim Client -1) und ihr Delegate OnThreatLevelChanged feuert nur beim Host. Darum bleibt die Zahl unter der
-// Stoppuhr beim Client auf 0 und `UI_ThreatIncrease` aus. Der Host meldet die Stufe (0xC00), der Client ruft damit dasselbe
-// Ereignis seiner eigenen Stoppuhr (WBP_Stopwatch_C) auf: Zahl, Animation und Sound bleiben lokal und nativ.
+// Stoppuhr beim Client auf 0 und `UI_ThreatIncrease` aus. Der Host meldet die Stufe (0xC00), der Client ruft damit dieselben
+// Ereignisse seiner Stoppuhr (WBP_Stopwatch_C: Animation und Sound) und seiner Haupt-UI (WP_UI_C: die Zahl) auf, lokal und nativ.
 // Befund: docs/archive/GAME_ANALYSIS.md#bedrohungsstufe-beim-client-opt-bedrohung-sound. Nur Game Thread.
 namespace Game
 {

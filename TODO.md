@@ -26,7 +26,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `opt-haende-vorschau-items` | P2 | [Problem](#probleme) | parallel | wenig |
 | `opt-highway-ziel` | P2 | [Problem](#probleme) | parallel | wenig |
 | `opt-itemsack-flug` | P2 | [Problem](#probleme) | parallel | wenig |
-| `opt-routenkarte` | P2 | [Problem](#probleme) | parallel | mittel |
 | `opt-schuss-animation` | P2 | [Problem](#probleme) | parallel | mittel |
 | `opt-waffen-hover` | P2 | [Problem](#probleme) | parallel | wenig |
 | `opt-zonenziel-anzeige` | P2 | [Problem](#probleme) | parallel | wenig |
@@ -50,7 +49,7 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 
 **Wartet auf das Team:** `spawn-nach-kartenaufbau`.
 
-**Bestätigungstests ausstehend (nur Info, blockiert nichts):** 41, siehe [docs/ERLEDIGT.md](docs/ERLEDIGT.md#bestätigungstests-ausstehend).
+**Bestätigungstests ausstehend (nur Info, blockiert nichts):** 43, siehe [docs/ERLEDIGT.md](docs/ERLEDIGT.md#bestätigungstests-ausstehend).
 <!-- frei:end -->
 
 ## Probleme
@@ -65,7 +64,6 @@ Fehler im Spiel oder in den Werkzeugen. Die Beschreibung steht in [docs/OPTIONEN
 | `opt-haende-vorschau-items` | P2 | Hantel (`ItemData_Dumbell`), Hand des Blutes (`ItemData_HandOfBlood`) und Plasmahand (`ItemData_PlasmaHand`) senken über Standardwirkungen die Hände … | parallel | wenig |
 | `opt-highway-ziel` | P2 | Im Event „Räume den Highway!“ erschien kein Benzin, das Ziel verlangte einen Abschluss (2/10). Erst ohne Mod klären, wie das Event endet. | parallel | wenig |
 | `opt-itemsack-flug` | P2 | Itemsäcke aus Containern werden beim Client erst direkt an der Figur sichtbar, der Ausstoß fehlt. | parallel | wenig |
-| `opt-routenkarte` | P2 | Der Client sieht dieselbe Routenkarte wie der Host (Knoten, Biome, Bus, Tag) und dieselbe Gefahrenstufe im HUD, wählen kann er weiter nicht. | parallel | mittel |
 | `opt-schuss-animation` | P2 | In höheren Leveln ist die Schuss-Animation der Client-Figur beim Client kaputt (Waffen übereinander), und die Figur gleitet über den Boden. | parallel | mittel |
 | `opt-waffen-hover` | P2 | Beim Client hebt das Inventar beim Überfahren einer Waffe mit der Maus die Items … | parallel | wenig |
 | `opt-zonenziel-anzeige` | P2 | In der Zone „Töte die Titanen“ sieht der Client die Fortschrittsanzeige des Zonenziels nicht. | parallel | wenig |

@@ -30,31 +30,13 @@ Stand 21.11.2026. Der Absturz des Dumpers auf `26669225` (siehe oben, bisher **[
   Zeiger, den diese Variante danach liest. Der 32-Bit-Zweig (`push`) ist nicht angefasst. Der Fix liegt als
   [`tools/dumper7/image-ende.patch`](../tools/dumper7/image-ende.patch) im Repo; `Build-Dumper7.ps1` wendet ihn auf seine Baukopie an,
   solange der Fork ihn nicht enthält. **Das Submodul zeigt unverändert auf `2570b5b`**, in den Fork ist nichts gepusht.
-- **Nachweis ohne Spiel:** Ein kleines Testprogramm (nicht im Repo) blendet die Exe nur als Image ein (`LoadLibraryEx` mit
-  `DONT_RESOLVE_DLL_REFERENCES`, kein Code der Exe läuft) und ruft `FindByStringInAllSections` aus dem Quelltext des Dumpers auf, einmal
-  aus dem Stand `2570b5b`, einmal mit Patch:
-
-  | Exe | `2570b5b` | mit Patch |
-  |---|---|---|
-  | `26495302` | `L"Accessed None"` → `0x160C0F2`, `L"ByteProperty"` → `0x1442B61`; `L" Bone: "` und `L"Failed to find function %s in %s"` ohne Treffer, kein Fehler | dieselben Treffer, kein Fehler |
-  | `26669225` | dieselben beiden Treffer; die drei Suchen ohne frühen Treffer enden mit **Zugriffsfehler beim Lesen von Image+`0xB74A000`** (erstes Byte hinter dem Image) | dieselben Treffer, die drei Suchen laufen durch, kein Fehler |
-  | `26786272` | dieselben Treffer, kein Fehler | dieselben Treffer, kein Fehler |
-
-  Die Fehleradresse passt zum Absturzbericht vom 16.11. (Seitenanfang `…A000` direkt hinter dem Image). Im Spiel lag der Absturz in der
-  Suche nach `ByteProperty` für GNames: `FindFNameGetNamesOrGNames_Windows` setzt hinter jedem Treffer neu an, bis einer das gesuchte
-  Aufrufmuster hat. `.text` enthält drei Verweise auf `L"ByteProperty"` (`0x1442B61`, `0x14B921F`, `0x6006A90`), alle vor `0x6E757B8`;
-  passt keiner, läuft die Suche über die Stelle. **[Vermutung]** Genau das war am 16.11. der Fall; nachgestellt ist nur die Suche selbst.
-- **Kosten:** Ein voller Suchlauf über `.text` ohne Treffer dauert im Testprogramm 2,5 s statt 1,5 s. Der frühere lokale Fix (zweites
-  `IsBadReadPtr`, also `VirtualQuery` je Kandidat) brauchte für den ganzen Dump rund zehn Minuten.
-- **Spieltest 21.11.2026** (ein PC, eingefrorene Kopie `26786272`, `Start-Session.ps1 -Build -Mod -Tunnel Lobby -Map
-  /Game/Maps/DDDynamic_Map`, ohne echte Eingaben): `Build-Dumper7.ps1` ohne lokale Änderung gebaut (Submodul `2570b5b` plus Patch,
-  15 s), DLL per `inject.py` in den Host geladen, beide Instanzen mit 2 Spielern in der Mission. Dumper nach 6 s wieder entladen,
-  2.504 Dateien (die SDK-Dateien entstanden in rund 4 s), Host und Client liefen weiter, `Get-Status.ps1`: keine Abstürze. Gegen das
-  SDK desselben Builds vom 20.11. (früherer lokaler Fix, rund zehn Minuten): `Basic.hpp` (GObjects `0x0AA6FC80`, GNames `0x0A9A1C40`,
-  GWorld `0x0AAF2870`, ProcessEvent `0x0160C220`), `Engine_classes.hpp` und `DDSurvivors_classes.hpp` sind bytegleich. Neu ist nur
-  `GE_MetaBaseSpeed_classes.hpp` (am 20.11. nicht geladenes Blueprint). 119 Dateien unterscheiden sich: `Assertions.inl` (im alten SDK
-  von Hand nachgearbeitet) und Dateien von Blueprint-Klassen (`BP_*`, `WP_*`, `WB_*`, `OptionsMenu` und ähnliche); nicht einzeln
-  ausgewertet. **Nicht geprüft:** der unveränderte Stand `2570b5b` im Spiel auf `26786272` (keine Gegenprobe).
+- **Nachweis:** Ein Testprogramm (nicht im Repo) blendet die Exe nur als Image ein und ruft `FindByStringInAllSections` des Dumpers
+  auf. Auf `26669225` enden Suchen ohne frühen Treffer mit Stand `2570b5b` mit Zugriffsfehler bei Image+`0xB74A000`, mit Patch nicht;
+  `26495302` und `26786272` liefern mit und ohne Patch dieselben Treffer ohne Fehler. **[Vermutung]** Am 16.11. lief die Suche nach
+  `L"ByteProperty"` für GNames über die Stelle. Ein voller Suchlauf ohne Treffer dauert mit Patch 2,5 s statt 1,5 s.
+- **Spieltest 21.11.2026** (ein PC, `26786272`): Dumper mit Patch in den Host geladen, SDK in rund 4 s, Host und Client liefen weiter.
+  `Basic.hpp`, `Engine_classes.hpp` und `DDSurvivors_classes.hpp` sind bytegleich zum SDK vom 20.11. **Nicht geprüft:** `2570b5b`
+  ohne Patch im Spiel auf `26786272`.
 - **Offen, braucht einen Menschen:** den Commit in den Fork `VitaminStack/Dumper-7` übernehmen (derselbe Inhalt wie der Patch), danach
   das Submodul auf den neuen Stand stellen und `image-ende.patch` samt dem Schritt im Skript entfernen. Bis dahin baut das Skript den
   Fix über den Patch ein.
@@ -387,9 +369,9 @@ Was die Mod nutzt, steht zusätzlich in `src/Game/Offsets.h` und wird dort beim 
 | Controller-TSet | Nativer SparseArray-RemoveAt-Helfer (RVA) | `0x12D6BA0`, `(Set*, int32 Index, int32 Count)`; Hash vorher aushängen |
 | TSet | Data, Num, FirstFree, NumFree, Element-Stride | `+0`, `+8`, `+0x30`, `+0x34`, `0x10` |
 | GameInstance | PendingGameStateComponentTravelStates, LastRoundChangeReason | `0x248`, `0x299` |
-| GameInstance | CurrentRunInfo (Seed +0, CurrentRoute +8) | `0x2A0` |
-| GameInstance / `FRoute` | `CurrentRoute.MissionChain` (TArray), Num; CurrentMissionIndex | `0x2B0`, `0x2B8`; `0x2C0` |
-| GameInstance / `FCurrentRunInfo` | IsEndOfMissionChain, ChosenMissionIndexes (TArray) | `0x2C8`, `0x328` |
+| GameInstance | CurrentRunInfo (`FCurrentRunInfo`, `0xE8` Byte), Felder siehe [Routenkarte](#routenkarte-opt-routenkarte) | `0x2A0` |
+| GameInstance / `FRoute` | `CurrentRoute.MissionChain` (TArray), Num; CurrentMissionIndex; CachedCurrentMissionIndex | `0x2B0`, `0x2B8`; `0x2C0`; `0x2C4` |
+| GameInstance / `FCurrentRunInfo` | IsEndOfMissionChain, PreviousRoute, ChosenMissionIndexes (TArray) | `0x2C8`, `0x2E8`, `0x328` |
 | `ADDMissionGameState` | SecondsSinceMissionStart, DayNum | `0x38C`, `0x390` |
 | `UAbstractPanel` | AnimationContainer | `0x330`; im `rundenende`-Test nicht als zuverlässiger Phasenindikator lesbar |
 | `UPanelAnimationContainer` | IsOpen | `0x328`; nur lokaler Containerzustand, keine Netz-/Sichtbarkeitszusage |
@@ -1040,6 +1022,25 @@ Build `26786272`, SDK und Speicherlesen. Lesewerkzeug `tools/spike/portraits.py`
 | `APlayerController` | Player (`LocalPlayer` oder Netzverbindung) | `0x348` |
 | `UPlayerColorDeveloperSettings` | AllPlayerColors (`TArray<TSoftObjectPtr>`, Element `0x28`: Blau, Grün) | `0x38` |
 | `UPlayerColorDefinition` | PrimaryColor, ShadowColor | `0x28`, `0x38` |
+
+## Routenkarte (`opt-routenkarte`)
+
+Reflexion und Disassembly am 26.11.2026, [Fallakte](faelle/opt-routenkarte.md). Die Mod löst die Felder per Reflexion auf.
+
+| Stelle | RVA oder Offset | Hinweis |
+|---|---|---|
+| `FCurrentRunInfo` (`0xE8`) | Seed `+0`, PermanentThreatLevelIncrease `+4`, CurrentRoute `+8`, PreviousRoute `+0x48`, ChosenMissionIndexes `+0x88`, ForcingCategoryProgressSnapshot `+0x98` | in der GameInstance bei `0x2A0` |
+| `FRoute` (`0x40`) | RouteMissionStructureIdentifier `+0` (Gruppe, Route je int32), MissionChain `+8` (`FRouteMission` je `0x290`, Biom `+0x1A8`), CurrentMissionIndex `+0x18`, CachedCurrentMissionIndex `+0x1C`, IsEndOfMissionChain `+0x20`, bIsSpecialRun `+0x21`, SpecialRunId `+0x24`, Position `+0x2C`, LinkedNextMissionIndexes `+0x30` | PreviousRoute ohne Missionen: Kennung ungültig |
+| `UMissionGenerationSubsystem` | CachedMissionStructure `+0x30` (`FPossibleMissionGroup` je `0x20`: Day `+0`, Biome `+8`, PossibleRoutes `+0x10` als `FRoute`) | `CurrentRoute` ist eine Kopie von `Struktur[Gruppe].PossibleRoutes[Route]` |
+| `UBusPanel` | MissionChoicesPanel `+0x330`, MissionChoiceBackButton `+0x338`, Merker „Karte überspringen“ `+0x358` | |
+| `UBusPanel::OpenPanel`, `OpenMapIfRequired` | `0x5ABA540`, `0x5ABA2D0` | Exec-Thunks `0x5698120`, `0x5698100`. Rollenprüfung in OpenPanel bei `0x5ABA627` (vtable `+0x2C8`, `cmp byte ptr [rax+168h], 3`, `jne` bei `0x5ABA63A`) |
+| `UMissionChoicePanel::SetChoices` | `0x5AC0820` | Exec-Thunk `0x57553C0`; liest Seed, CurrentRoute und ChosenMissionIndexes der GameInstance |
+| `UMissionGenerationSubsystem::GetMissionStructure` | `0x58EFD10` | `(Subsystem, TArray* Out, int32 Tag)`, baut den Cache bei jedem Aufruf neu |
+| Route setzen | `0x59056C0` | `(GameInstance, const FRoute&)`: PreviousRoute = CurrentRoute, CurrentRoute = neu |
+| `LoadMapByInformation`, `LoadNonMissionMap` | `0x5B1B260`, `0x5B1B4F0` | Route setzen, reisen: Klick auf Knoten bzw. ins Hauptmenü |
+| `WP_UI_C.OnThreatLevelChanged_Event` | `(Old, New)` je int32 | setzt die Zahl unter der Stoppuhr |
+| `FRoute::operator=`, Abbau `FRoute`, Abbau `FPossibleMissionGroup` | `0x57487D0`, `0x56ADFB0`, `0x56ADF20` | Abbau je `(Data, Num)` |
+| `SetCurrentRunSeed` (hinter `DD_SetCurrentRunSeed`), `FMemory::Realloc` | `0x58E5030`, `0x1304360` | SetCurrentRunSeed leert den Struktur-Cache und setzt `+0x2A0` |
 
 ## Werte der Rundenübersicht (`opt-ergebnis-werte`)
 

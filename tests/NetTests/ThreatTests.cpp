@@ -51,3 +51,15 @@ TEST_CASE("Bedrohungsstufe: fehlt die Stoppuhr, bleibt der Stand offen und die W
     CHECK(ThreatLevelChange(Shown, 6).Call);
     CHECK(ThreatLevelChange(Shown, 6).Call);
 }
+
+TEST_CASE("Bedrohung: die Haupt-UI bekommt jeden Stand, den sie noch nicht zeigt, auch nach der Reise")
+{
+    using Game::UiThreatLevelChange;
+    using Game::UiThreatUpdate;
+    CHECK(UiThreatLevelChange(false, -1, 3) == UiThreatUpdate{true, true, 3, 3});  // neue Welt: Haupt-UI suchen, nur die Zahl
+    CHECK(UiThreatLevelChange(false, 3, 3) == UiThreatUpdate{true, true, 3, 3});   // alte UI weg, unveränderter Stand: trotzdem zeigen
+    CHECK(UiThreatLevelChange(true, 3, 3) == UiThreatUpdate{});                     // Wiederholung des Hosts
+    CHECK(UiThreatLevelChange(true, 3, 5) == UiThreatUpdate{true, false, 3, 5});   // Anstieg wie beim Host
+    CHECK(UiThreatLevelChange(true, -1, 5) == UiThreatUpdate{true, false, 5, 5});  // gefunden, aber noch nichts gezeigt
+    CHECK(UiThreatLevelChange(true, 3, -1) == UiThreatUpdate{});                    // ungültiger Stand
+}

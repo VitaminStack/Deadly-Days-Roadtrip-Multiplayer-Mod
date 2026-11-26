@@ -136,11 +136,18 @@ std::mutex CacheMutex;
 std::map<Key, std::optional<Field>> Fields;
 std::map<Key, uintptr_t> Functions;
 
-// Native Klassen leben bis zum Ende des Spiels, ein einmal gefundener Klassenzeiger bleibt gültig.
+// Native Klassen und Strukturen leben bis zum Ende des Spiels, ein einmal gefundener Zeiger bleibt gültig. Felder gibt es in
+// beiden (UClass und UScriptStruct erben von UStruct), Funktionen nur in Klassen.
 uintptr_t FindClass(std::string_view Package, std::string_view Class)
 {
     const uintptr_t Object = Objects::FindObject(Class, Package);
     return Object && Objects::IsA(Object, "Class") ? Object : 0;
+}
+
+uintptr_t FindStruct(std::string_view Package, std::string_view Name)
+{
+    const uintptr_t Object = Objects::FindObject(Name, Package);
+    return Object && (Objects::IsA(Object, "Class") || Objects::IsA(Object, "ScriptStruct")) ? Object : 0;
 }
 }
 
@@ -153,7 +160,7 @@ std::optional<Field> Property(const FieldSpec& Spec)
             return It->second;
     }
     // Fehlt die Klasse noch (früher Start), nichts cachen: der nächste Aufruf sucht neu.
-    const uintptr_t Class = FindClass(Spec.Package, Spec.Class);
+    const uintptr_t Class = FindStruct(Spec.Package, Spec.Class);
     if (!Class)
         return std::nullopt;
     FieldError Error = FieldError::None;

@@ -40,6 +40,7 @@
     <ClCompile Include="WorldAdapterTests.cpp" />
     <ClCompile Include="RejoinPolicyTests.cpp" />
     <ClCompile Include="RoundStatsTests.cpp" />
+    <ClCompile Include="RouteMapTests.cpp" />
     <ClCompile Include="ReaperAnnouncementPolicyTests.cpp" />
   </ItemGroup>
   <ItemGroup>
