@@ -69,7 +69,7 @@ Schreibende Zugriffe und Hooks folgen demselben Muster, siehe [Patches](#patches
 Die Fixes, ohne die keine Mission zu zweit läuft, kommen aus dem Spike (Aufgabe `patches`). Herkunft und Belege jeder Stelle stehen in
 der [Patch-Tabelle des Spikes](../../research/spikes/a-connect/README.md#patches). Die RVAs stehen als Konstanten am Anfang der jeweiligen Datei.
 
-Alle RVAs im Quelltext gelten für den Referenz-Build `26786272` (Patch 1.0.3, seit `spiel-update-26786272`, vorher `26495302`, siehe
+Alle RVAs im Quelltext gelten für den Referenz-Build `26786272` (Patch 1.0.3, seit `spiel-update-26786272`, siehe
 [Offsets](../../docs/archive/OFFSETS-ALTE-BUILDS.md#referenz-build-26786272-spiel-update-26786272)). Die Mod unterstützt nur diesen Build. `At(Rva)` und
 `Memory::Rva` liefern die RVA dort unverändert; auf jedem anderen Build liefern sie 0 und protokollieren das einmal, die Byte-Prüfungen
 schlagen dann fehl und kein Patch wird gesetzt. `AddressMap` kann während eines Umstiegs eine Tabelle `RvaMap<build>.inc` aus
@@ -637,8 +637,8 @@ das aus demselben Code geschlossen, dort nicht eigens gemessen.
   bleibt nativ und steht je Funktion einmal im Log (`… außerhalb einer Bearbeitung geht nativ an den Host`). Erst mit diesen Zeilen aus
   einem Live-Test lässt sich entscheiden, ob solche Aufrufe verworfen werden können. Eine Aufwertung ohne Bearbeitung läuft wie bisher
   nativ.
-- **Nicht abgedeckt:** Der Kopierladen (`opt-kopierladen`), Automaten und der dubiose Händler. Ein Item, das lokal entsteht und weder
-  Belohnung, Ausgabe einer Aufwertung noch Kauf ist, kennt der Edit nicht; `FinishClient` nennt jedes während der Bearbeitung
+- **Nicht abgedeckt:** Automaten und der dubiose Händler. Ein Item, das lokal entsteht und weder
+  Belohnung, Ausgabe einer Aufwertung, Kauf noch Kopie ([Kopierladen](#kopierladen-beim-client)) ist, kennt der Edit nicht; `FinishClient` nennt jedes während der Bearbeitung
   dazugekommene Item im Log (`… kam während der Bearbeitung dazu und steht nicht im Edit`). Die Zeile trifft auch ein Item, das der
   Host in dieser Zeit repliziert hat.
 - **Kosten:** Das eigene Inventar wird gemerkt statt je Aufruf im Objekt-Array gesucht; ein gescheiterter Versuch an einer Station
@@ -712,6 +712,33 @@ des Zurück-Knopfs, `HandleConfirmButton`, `UpgradeItems`). Dazu Unit-Tests (`te
 PCs mit echtem Ping, ein echter Run mit Händler-Knoten. Die Wartezeit bis zur Replikation (`ClientSettling`) griff in keinem Lauf, die
 Replikation war jedes Mal schneller als der nächste Kauf; der Zweig ist also nur gelesen, nicht im Spiel gesehen. Bekannt: Direkt nach der Übernahme zeigt der Client für einen Augenblick noch
 den alten Schrott des Hosts, bevor der neue Stand kommt.
+
+### Kopierladen beim Client
+
+Aufgabe `opt-kopierladen`, baut auf dem [Kauf beim Händler](#kaufen-beim-händler) auf. Code in `RewardPatches.cpp` (`FinalizeCopyHook`,
+`CopyForClient`, Host-Prüfung und Buchung), `InventoryEdit.cpp` (`RecordCopy`, Kopien im Edit), `InventoryEditPlan.h` und `PatchPolicy.h`
+(`ClientCopyStep`, reine Logik mit Tests) und `src/Sync/Inventory/RewardState.h`. Format in
+[Kontrollkanal](../../docs/CONTROL_PROTOCOL.md#kopierladen-mod-kompatibilität-18), Befund in der [Fallakte](../../docs/faelle/opt-kopierladen.md).
+
+- **Lokal beim Client:** Das native Panel `WI_CopyShopPanel_C` mit Auswahl, Preis und Scan-Animation. „Item kopieren“ ruft `HandleCopyItem`,
+  danach `FinalizeCopyItem`; nur dieses ist gehookt. Für das eigene Inventar läuft es in einer kurzen Stations-Bearbeitung (wie ein Kauf ohne
+  offenes Inventar-Panel): Die native Kopie kommt lokal ins Inventar (`AddToInventory` läuft in der Bearbeitung lokal), der lokale Abzug ist
+  nur Vorschau, der Edit geht sofort an den Host. Ist ein Inventar-Panel offen, läuft die Bearbeitung bis zu dessen Schließen weiter; Original
+  und Kopie lassen sich dann im selben Edit aufwerten.
+- **Geteilt:** Der Edit `0x303` trägt je Kopie die Quelle des Originals, den Preis des Panels und den Endstand der Kopie. Den Schrott schickt
+  der Host wie bisher (`0x309`).
+- **Entscheidet:** Der Host. Er sucht das Original über Quelle und Prüfsumme im Inventar des Clients, prüft den Schrott (Kopien kosten wie
+  Käufe), kopiert seine eigene Instanz mit `InventoryEffectHelperLibrary.CreateItemInstanceCopy` (Daten, Seltenheit und Zustand, auch
+  kaputt), legt sie mit `AddToInventory` ab und bucht einmal. Den Preis rechnet nur das Panel; der Host übernimmt ihn, das ist eine bewusste
+  Grenze wie beim Kauf.
+- **Ablehnung:** Der Client rollt zurück, die lokale Kopie verschwindet, das Original bleibt, den Schrott gleicht der nächste Stand des Hosts
+  an. Der POI des Kopierladens ist nach einer Kopie beim Client weg (`DestroyCopyShopPoi`), auch nach einer Ablehnung.
+- **Keine Bearbeitung möglich:** Wartet noch ein Edit auf Antwort oder ist sein Stand noch nicht repliziert (`ClientSettling`), kopiert der
+  Client nicht, statt eine Kopie anzulegen, die es nur bei ihm gäbe: Warnung im Log, Anzeige geleert und „Item auswählen“ wieder frei wie beim
+  nativen Fehlschlag. Ebenso, wenn das Original erst in der laufenden Bearbeitung entstanden ist.
+- **Diagnose:** `Station: Kopie …`, `Handel: Kopie …`, `Kopie beim Client verworfen`. Testhilfe `!shop copy <ItemData>`.
+
+**Nicht im Spiel geprüft:** „Kopie verworfen“ und Aufwerten von Original und Kopie in einem Edit (nur Unit-Tests), zwei PCs.
 
 ### Itemsack für alle Spieler
 

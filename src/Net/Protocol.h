@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <cstdint>
 #include <optional>
@@ -10,9 +10,9 @@
 namespace Net::Protocol
 {
 inline constexpr uint16_t Version = 1;
-// Standard der Identität ohne erkannten Build; zur Laufzeit setzt Transport Core::ActiveBuild().
+// Standard der IdentitÃ¤t ohne erkannten Build; zur Laufzeit setzt Transport Core::ActiveBuild().
 inline constexpr uint32_t GameBuild = 26786272;
-inline constexpr uint32_t ModVersion = 18;
+inline constexpr uint32_t ModVersion = 19;
 inline constexpr size_t MaxPayload = 64 * 1024;
 enum class Kind : uint8_t { Hello = 1, Game = 2, Control = 3 };
 struct Frame
@@ -39,9 +39,9 @@ std::vector<uint8_t> Encode(Kind Type, std::span<const uint8_t> Payload);
 std::optional<Frame> Decode(std::span<const uint8_t> Bytes);
 std::vector<uint8_t> Hello(Identity Value);
 bool Matches(std::span<const uint8_t> Bytes, Identity Local);
-// Lesbarer Grund, warum eine empfangene Nachricht abgelehnt wird, für Log und Overlay. Unterscheidet eine Mod ohne dieses
+// Lesbarer Grund, warum eine empfangene Nachricht abgelehnt wird, fÃ¼r Log und Overlay. Unterscheidet eine Mod ohne dieses
 // Protokoll, eine andere Protokollversion, einen anderen Spiel-Build, eine andere Mod-Version und dieselbe Rolle auf beiden
-// Seiten von kaputten Daten. Bytes ist die ganze Nachricht, Local die eigene Identität.
+// Seiten von kaputten Daten. Bytes ist die ganze Nachricht, Local die eigene IdentitÃ¤t.
 std::string Explain(std::span<const uint8_t> Bytes, Identity Local);
 std::vector<uint8_t> EncodeControl(const Control& Value);
 std::optional<Control> DecodeControl(std::span<const uint8_t> Bytes);

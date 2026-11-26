@@ -903,6 +903,23 @@ TEST_CASE("Bewegung: Tempo der eigenen Figur folgt dem Attribut (tod-client)")
     CHECK_FALSE(WalkSpeedToApply(std::nullopt, std::numeric_limits<float>::quiet_NaN(), 630.f));
 }
 
+TEST_CASE("Bewegung: Beschleunigung folgt dem Tempo wie beim Host (opt-tempo-upgrades)")
+{
+    // Gemessen beim Host: Grundtempo 630 mit 2205, nach Upgrade 819 mit 2866,5, schwere Stiefel 611,1 mit 2138,9.
+    CHECK(WalkSettingsFor(630.f).WalkSpeed == 630.f);
+    CHECK(WalkSettingsFor(630.f).Acceleration == doctest::Approx(2205.f));
+    CHECK(WalkSettingsFor(819.f).WalkSpeed == 819.f);
+    CHECK(WalkSettingsFor(819.f).Acceleration == doctest::Approx(2866.5f));
+    CHECK(WalkSettingsFor(611.1f).Acceleration == doctest::Approx(2138.85f));
+    // Kriechtempo im Tod und Stillstand.
+    CHECK(WalkSettingsFor(63.f).Acceleration == doctest::Approx(220.5f));
+    CHECK(WalkSettingsFor(0.f).Acceleration == 0.f);
+    // Der Startwert des Clients (600, 2048) ist nicht die Regel des Spiels: 600 ergäbe 2100.
+    CHECK(WalkSettingsFor(600.f).Acceleration != doctest::Approx(2048.f));
+    // Ungültiges Attribut: WalkSpeedToApply liefert nichts, es wird also auch keine Beschleunigung geschrieben.
+    CHECK_FALSE(WalkSpeedToApply(std::nullopt, 0.f, 0.f));
+}
+
 TEST_CASE("Bewegung: tote eigene Figur dodgt beim Client nicht (tod-client)")
 {
     CHECK(OwnDashBlockedByDeath(0.f, 100.f));
@@ -1351,6 +1368,20 @@ TEST_CASE("opt-station-zug: erster Zug des Clients beginnt eine Bearbeitung, im 
     CHECK(ClientMoveBegins(true, false, false, 0, 0, false, true) == ClientMove::Native);
     CHECK(ClientMoveBegins(false, true, false, 7, 0, false, true) == ClientMove::Native);
     CHECK(ClientMoveBegins(false, false, true, 0, 0, false, true) == ClientMove::Native);
+}
+
+TEST_CASE("opt-kopierladen: Kopie des Clients nur in einer Bearbeitung, sonst gar nicht")
+{
+    // Host und fremdes Inventar: nativ wie im Solo-Spiel.
+    CHECK(ClientCopyStep(false, true, false, false) == ClientCopy::Native);
+    CHECK(ClientCopyStep(false, true, true, true) == ClientCopy::Native);
+    CHECK(ClientCopyStep(true, false, true, true) == ClientCopy::Native);
+    // Eigenes Inventar in einer Bearbeitung, Original aus dem Ausgangsbild: lokal kopieren und im Edit melden.
+    CHECK(ClientCopyStep(true, true, true, true) == ClientCopy::Record);
+    // Keine Bearbeitung (Edit unbeantwortet, Stand noch nicht repliziert) oder Original erst in der Bearbeitung entstanden: nicht kopieren.
+    CHECK(ClientCopyStep(true, true, false, true) == ClientCopy::Refuse);
+    CHECK(ClientCopyStep(true, true, true, false) == ClientCopy::Refuse);
+    CHECK(ClientCopyStep(true, true, false, false) == ClientCopy::Refuse);
 }
 
 TEST_CASE("airdrop-auswahl-absturz: Panel-Aufbau nur mit Panel und Inventar")

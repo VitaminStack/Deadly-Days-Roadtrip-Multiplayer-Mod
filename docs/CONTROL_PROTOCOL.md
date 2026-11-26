@@ -13,8 +13,8 @@ Eine Familie je Thema, Typen innerhalb der Familie fortlaufend. Wer einen Typ od
 |---|---|---|
 | `0x100` Fortschritt | `0x100` Abo, `0x101` Bild, `0x102` Orbs | `Sync/ProgressState.h` |
 | `0x200` Desync-Melder | `0x200` Probe, `0x201` Ergebnis | `Sync/DesyncState.h` |
-| `0x300` Inventar | `0x300` Angebot, `0x303` Edit, `0x304` Ergebnis, `0x305` Bereit, `0x306`/`0x307` Rundenende, `0x308` Seltenheit, `0x309` Schrott (`0x301`/`0x302` stillgelegt) | `Sync/Inventory/RewardState.h` |
-| `0x400` Karte | `0x400` Karte, `0x401` Rundenende, `0x402` Rundenwerte (seit `ModVersion` 18) | `Sync/World/MapState.h` |
+| `0x300` Inventar | `0x300` Angebot, `0x303` Edit, `0x304` Ergebnis, `0x305` Bereit, `0x306`/`0x307` Rundenende, `0x308` Seltenheit, `0x309` Schrott (`0x301`/`0x302` stillgelegt); `0x303` mit Kopien seit `ModVersion` 18 | `Sync/Inventory/RewardState.h` |
+| `0x400` Karte | `0x400` Karte, `0x401` Rundenende, `0x402` Rundenwerte (seit `ModVersion` 19) | `Sync/World/MapState.h` |
 | `0x500` Bewegung | `0x500` Dodge-Richtung | `Sync/MovementState.h` |
 | `0x600` Entwickler | `0x600` Anfrage | `Sync/DevState.h` |
 | `0x700` Pause | `0x700` Pausemenü | `Sync/Players/PauseState.h` |
@@ -283,11 +283,11 @@ abgelehnt. Der Host schickt die Nachricht bei jeder Änderung und sonst jede Sek
 Runde nur, wenn die Karten-Id zu der Karte passt, die er in dieser Welt vom Host übernommen hat, und jede Id nur einmal. Mod-Version 10,
 weil eine Gegenseite mit der alten Länge von 16 Bytes die Nachricht verwerfen würde.
 
-## Rundenwerte (Mod-Kompatibilität 18)
+## Rundenwerte (Mod-Kompatibilität 19)
 
 Aufgabe `opt-ergebnis-werte`, Fallakte [opt-ergebnis-werte](faelle/opt-ergebnis-werte.md), Code in `src/Game/RoundStatsPatches.cpp` und
-`src/Sync/World/MapSync.cpp`. Mod-Version 18, weil ein Client mit Version 17 die Werte verwirft und weiter Nullen zeigt und ein Host
-mit Version 17 sie nicht schickt. Lokal bleiben Rundenübersicht, Wertung und Animationen beim Client. Geteilt werden nur die Werte,
+`src/Sync/World/MapSync.cpp`. Mod-Version 19, weil ein Client mit älterer Version die Werte verwirft und weiter Nullen zeigt und ein Host
+mit älterer Version sie nicht schickt. Lokal bleiben Rundenübersicht, Wertung und Animationen beim Client. Geteilt werden nur die Werte,
 die die Übersicht liest. Gebucht werden sie allein beim Host, der Client übernimmt sie nur zur Anzeige.
 
 `0x402` Host an Client, vor dem `0x401` desselben Rundenendes: Id des Rundenendes (8, wie in `0x401`), bekannt (1: 0 oder 1),
@@ -410,6 +410,25 @@ Familie mit Zustand je Peer. Die Formate der Inventar-Nachrichten bleiben, ihre 
   Lager dieses Rundenendes wartet noch.
 - `0x800` wechselt auf eine Liste mit Spielerkennung, siehe [Belegte Nachrichtentypen](#belegte-nachrichtentypen) und
   `Sync/Players/CharacterState.h`. Ein Client mit Version 16 schickte nur den Namen; darum Version 17.
+
+## Kopierladen (Mod-Kompatibilität 18)
+
+Aufgabe `opt-kopierladen`, Ablauf in [Kopierladen beim Client](../src/Game/README.md#kopierladen-beim-client). Mod-Version 18, weil `0x303`
+ein neues Feld am Ende hat und ein Host mit Version 17 jeden Edit ablehnen würde.
+
+`0x303` Edit bekommt hinter den Käufen:
+
+| Bytes | Inhalt |
+|---:|---|
+| 1 | Anzahl Kopien, höchstens 8 |
+| je Kopie | Quelle des Originals (2, ein Item des Ausgangsbilds), Preis (4, int32, 0 bis 1 000 000), die Kopie als Item wie oben |
+
+Die Kopie `k` hat die Quelle `0xFD00 + k` und die Prüfsumme der Daten des Originals; Items des Ausgangsbilds haben damit Quellen unter
+`0xFD00`. Eine Kopie darf kaputt sein (die native Kopie übernimmt den Zustand), ist entweder vorhanden oder Eingabe einer Aufwertung und
+lässt sich im selben Edit nicht verkaufen. Der Host sucht das Original über Quelle und Prüfsumme im Inventar des Clients und lehnt ab, wenn
+es fehlt oder sein Schrott nicht reicht (Kopien kosten wie Käufe, nach den Verkäufen). Den Preis rechnet das Panel des Clients; der Host
+übernimmt ihn, weil sich die Formel nicht ohne das Panel nachrechnen lässt. Er kopiert seine eigene Instanz mit
+`InventoryEffectHelperLibrary.CreateItemInstanceCopy`, legt sie mit `AddToInventory` ab und bucht nach der Übernahme einmal, nur für angelegte Kopien.
 
 ## Bisher geprüft (05.11.2026, Kontrollkanal vor Diagnoseerweiterung)
 

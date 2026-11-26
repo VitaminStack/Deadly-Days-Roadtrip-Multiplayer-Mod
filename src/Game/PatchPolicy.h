@@ -525,6 +525,25 @@ constexpr ClientMove ClientMoveBegins(bool Editing, bool Pending, bool OfferShow
     return InMission ? ClientMove::BeginStation : ClientMove::Native;
 }
 
+// opt-kopierladen: Client, UCopyShopPanel::FinalizeCopyItem. Nativ legt es die Kopie lokal an, schickt AddToInventory mit dieser Instanz
+// als Server-RPC (beim Host ein Nullzeiger, verworfen) und zieht den Preis lokal ab. Für das eigene Inventar läuft es darum nur in einer
+// lokalen Bearbeitung, deren Edit die Kopie meldet (Record). Kommt keine Bearbeitung zustande (ein Edit wartet auf Antwort, der Stand des
+// letzten Edits ist noch nicht repliziert) oder ist das Original kein Item des Ausgangsbilds, kopiert der Client nicht (Refuse), statt eine
+// Kopie anzulegen, die es nur bei ihm gäbe. Beim Host und für ein fremdes Inventar bleibt es nativ.
+enum class ClientCopy : uint8_t
+{
+    Native, // nativ ausführen
+    Record, // lokal ausführen, Kopie im Edit melden
+    Refuse, // nicht kopieren, Panel wie beim nativen Fehlschlag zurücksetzen
+};
+
+constexpr ClientCopy ClientCopyStep(bool Client, bool OwnInventory, bool Editing, bool OriginalInBase)
+{
+    if (!Client || !OwnInventory)
+        return ClientCopy::Native;
+    return Editing && OriginalInBase ? ClientCopy::Record : ClientCopy::Refuse;
+}
+
 // lager-edit-stabil: Client hat im Lager bestätigt und wartet auf den Host (Bestätigen gehalten, Knopf gelb). Wertet er danach auf,
 // verkauft oder repariert er (Explicit, nur echte Spielerzüge, kein Ziehen), nimmt das sein Bereit zurück und beginnt eine neue
 // Bearbeitung. Vorher lief eine solche Aufwertung nativ am Host vorbei (Live-Test 14.11.2026, Mod-Version 13): Der Host verlor die

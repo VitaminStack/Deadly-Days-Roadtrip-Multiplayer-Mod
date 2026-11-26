@@ -30,8 +30,8 @@ Mission spielen, `!finish` beim Host, Werte beider Seiten mit `tools/spike/round
 
 - **Lokal bleibt** die ganze Übersicht beim Client: Öffnen über das native Rundenende, `GenerateStats`, Wertung, Animationen, Knöpfe.
 - **Geteilt wird** nur, was die Übersicht liest: Tageskennung und alle Werte des Hosts, gesamt und je Spieler, als Vollbild aller
-  Tage. Neue Nachricht `0x402` vor dem `0x401` desselben Rundenendes ([Kontrollkanal](../CONTROL_PROTOCOL.md#rundenwerte-mod-kompatibilität-18)),
-  `ModVersion` 18. Jeder Client (bis zu drei) bekommt dasselbe Bild.
+  Tage. Neue Nachricht `0x402` vor dem `0x401` desselben Rundenendes ([Kontrollkanal](../CONTROL_PROTOCOL.md#rundenwerte-mod-kompatibilität-19)),
+  `ModVersion` 19. Jeder Client (bis zu drei) bekommt dasselbe Bild.
 - **Es entscheidet** der Host: Er bucht, der Client übernimmt nur, direkt vor `FollowHostRoundEnd`. Er schreibt über die nativen
   Helfer zum Suchen und Anlegen, nicht über `IncrementGameStat`, damit beim Client keine Erfolge, Ziele oder Item-Effekte auslösen.
   Werte, die der Host nicht hat, werden 0. Ein Hook auf `OnRoundChanged` setzt den Stand nach der eigenen Tagesend-Buchung des

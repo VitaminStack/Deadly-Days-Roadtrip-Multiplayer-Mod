@@ -13,6 +13,8 @@
 //    Ortsänderung lag im Spiel in beide Richtungen daneben (dodge-client-live). Darum meldet der Client je eigenem Dodge
 //    die Eingabe, die sein GA_Dash gelesen hat, mit dem Vorhersageschlüssel der Aktivierung. Der Host trägt sie direkt
 //    vor dem Start ein; ist sie noch nicht da, hält er die Aktivierung kurz an. Die Schätzung bleibt nur Rückfall.
+// 4. Alle Figuren beim Client: MaxWalkSpeed und MaxAcceleration folgen dem replizierten Tempo-Attribut wie beim Host
+//    (`tod-client`, `opt-tempo-upgrades`).
 #include <windows.h>
 
 #include <cstddef>
@@ -33,6 +35,7 @@
 #include <SDK/DDSurvivors_classes.hpp>
 #pragma warning(pop)
 static_assert(offsetof(SDK::UCharacterMovementComponent, MaxWalkSpeed) == 0x288);
+static_assert(offsetof(SDK::UCharacterMovementComponent, MaxAcceleration) == 0x29C);
 static_assert(offsetof(SDK::ADDCharacterBase, CommonAttributeSet) == 0x700);
 static_assert(offsetof(SDK::UCommonAttributeSet, MovementSpeed) == 0xE8);
 static_assert(offsetof(SDK::UCommonAttributeSet, Health) == 0xA0);
@@ -72,6 +75,7 @@ constexpr uintptr_t AbilityIsActive = 0x388; // UGameplayAbility.bIsActive
 constexpr uintptr_t DashTaskOffset = 0x400;     // GA_Dash_C.DashTask, erst nach dem Start gesetzt
 constexpr uintptr_t RootMotionDuration = 0xEC;  // UAbilityTask_ApplyRootMotionConstantForce.Duration (float, s)
 constexpr uintptr_t MovementMaxWalkSpeed = 0x288;           // UCharacterMovementComponent.MaxWalkSpeed (float)
+constexpr uintptr_t MovementMaxAcceleration = 0x29C;        // UCharacterMovementComponent.MaxAcceleration (float)
 constexpr uintptr_t CharacterCommonAttributeSet = 0x700;    // ADDCharacterBase.CommonAttributeSet
 constexpr uintptr_t AttributeMovementSpeed = 0xE8;          // UCommonAttributeSet.MovementSpeed (FGameplayAttributeData)
 constexpr uintptr_t AttributeHealth = 0xA0, AttributeMaxHealth = 0x30; // UCommonAttributeSet, FGameplayAttributeData
@@ -315,24 +319,31 @@ bool OwnFigureDead(uintptr_t Character)
     return Health && MaxHealth && OwnDashBlockedByDeath(*Health, *MaxHealth);
 }
 
-// Eigene Figur beim Client: MaxWalkSpeed folgt dem replizierten Tempo-Attribut, wie beim Host über
-// OnMovementSpeedChanged_Server. So kriecht ein toter Client mit dem Tempo, das der Host vorgibt, und läuft nach der
-// Wiederbelebung wieder normal. Tod und Wiederbelebung entscheidet weiter allein der Host.
-void SyncOwnWalkSpeed(Figure& Entry, uintptr_t Component)
+// Figur beim Client: MaxWalkSpeed und MaxAcceleration folgen dem replizierten Tempo-Attribut, wie beim Host über
+// OnMovementSpeedChanged_Server. So kriecht ein toter Client mit dem Tempo, das der Host vorgibt, läuft nach der
+// Wiederbelebung wieder normal und trägt Upgrades, Items und Trefferbremse mit. Das Attribut bucht weiter allein der Host.
+void SyncWalkSettings(Figure& Entry, uintptr_t Component, const char* Whose)
 {
     const uintptr_t Attributes = Memory::ReadPointer(Entry.Character + CharacterCommonAttributeSet).value_or(0);
     const auto Base = Attributes ? Memory::Read<float>(Attributes + AttributeMovementSpeed + AttributeBaseValue) : std::nullopt;
     const auto Current = Attributes ? Memory::Read<float>(Attributes + AttributeMovementSpeed + AttributeCurrentValue) : std::nullopt;
-    const auto Old = Memory::Read<float>(Component + MovementMaxWalkSpeed);
-    if (!Base || !Current || !Old)
+    const auto OldSpeed = Memory::Read<float>(Component + MovementMaxWalkSpeed);
+    const auto OldAcceleration = Memory::Read<float>(Component + MovementMaxAcceleration);
+    if (!Base || !Current || !OldSpeed || !OldAcceleration)
         return;
     const auto Speed = WalkSpeedToApply(Entry.WalkSpeedAttribute, *Base, *Current);
-    if (!Speed || !Memory::WriteBytes(Component + MovementMaxWalkSpeed, &*Speed, sizeof(float)))
+    if (!Speed)
+        return;
+    const WalkSettings Settings = WalkSettingsFor(*Speed);
+    if (!Memory::WriteBytes(Component + MovementMaxWalkSpeed, &Settings.WalkSpeed, sizeof(float)) ||
+        !Memory::WriteBytes(Component + MovementMaxAcceleration, &Settings.Acceleration, sizeof(float)))
         return;
     Entry.WalkSpeedAttribute = *Speed;
     if (++Entry.WalkSpeedChanges <= WalkSpeedLogLimit)
-        Core::Log::Info("Bewegung: Tempo der eigenen Figur aus dem Attribut übernommen, {:.0f} statt {:.0f} (Basis {:.0f}){}",
-                        *Speed, *Old, *Base, Entry.WalkSpeedChanges == WalkSpeedLogLimit ? ", weitere Änderungen ohne Log" : "");
+        Core::Log::Info("Bewegung: Tempo der {} Figur aus dem Attribut übernommen, {:.0f} statt {:.0f}, Beschleunigung {:.0f} statt "
+                        "{:.0f} (Basis {:.0f}){}",
+                        Whose, Settings.WalkSpeed, *OldSpeed, Settings.Acceleration, *OldAcceleration, *Base,
+                        Entry.WalkSpeedChanges == WalkSpeedLogLimit ? ", weitere Änderungen ohne Log" : "");
 }
 
 void CheckFigure(Figure& Entry, uint64_t Now)
@@ -343,6 +354,7 @@ void CheckFigure(Figure& Entry, uint64_t Now)
         return;
     if (*Role == RoleSimulatedProxy)
     {
+        SyncWalkSettings(Entry, Component, "fremden");
         const uint8_t Mode = Memory::Read<uint8_t>(Component + MovementMode).value_or(1);
         const uint8_t Packed = Memory::Read<uint8_t>(Entry.Character + CharacterReplicatedMovementMode).value_or(0);
         const uintptr_t Root = Memory::ReadPointer(Entry.Character + ActorRootComponent).value_or(0);
@@ -377,7 +389,7 @@ void CheckFigure(Figure& Entry, uint64_t Now)
         return;
     }
     if (*Role == RoleAutonomousProxy)
-        SyncOwnWalkSpeed(Entry, Component);
+        SyncWalkSettings(Entry, Component, "eigenen");
     const float Friction = Memory::Read<float>(Component + MovementGroundFriction).value_or(1.f);
     const float Gravity = Memory::Read<float>(Component + MovementGravityScale).value_or(1.f);
     if (DashSettingsLeft(Friction, Gravity) && !OwnDashRunning(Now) && RestoreDashSettings(Component))

@@ -236,7 +236,8 @@ Aufgabe `airdrop-auswahl`, Ablauf in [Airdrop-Auswahl](archive/GAME_ANALYSIS.md#
 | `FRecipeTableRow` `OutputItem`, `OutputRarityOverride`, `RequiredItems` | `+0x18`, `+0x20`, `+0x28` | `RequiredItems` je `0x10`: Item, RequiredRarityOverride; Tabelle `DT_RecipeTable` |
 | `InventoryPanel.WorkbenchUnlock` | `+0x4D0` | `OnetimeUnlock_Workbench` |
 | `InventoryComponent::HandleItemSold` | `0x5967900` (`26495302`: `0x596BA70`), Exec-Thunk `0x57128B0` | `(this, Item)`, nativ; `RemoveFromBackpack`, `UnoccupyBackpackSlots`, `RemoveFromInventory(SoldForScrap)`, `RefreshItemEffects` (`lager-handel-client`) |
-| `ShopPanelItem::TryBuyItem` (`opt-haendler-client`) | `26495302`: `0x58CE280`, Exec-Thunk `0x579ADE0` | `(this)`, nativ; Preis aus `CostDisplay` (`+0x850`, Wert `+0x384`), zahlt lokal über einen Funktor des Panels, dann `AddToInventory` mit `ItemInstance` (`+0x868`); `ManuallyCallClearAndAdd` `+0x848`. Offsets aus dem Code dieses Builds |
+| `ShopPanelItem::TryBuyItem` (`opt-haendler-client`) | `0x58CFD10` | `(this)`, nativ; Preis aus `CostDisplay` (`+0x850`, Wert `+0x384`), zahlt lokal, dann `AddToInventory` mit `ItemInstance` (`+0x868`); `ManuallyCallClearAndAdd` `+0x848` |
+| `CopyShopPanel::FinalizeCopyItem` | `0x58B4250` | `opt-kopierladen`; Preis `+0x398` (int32, nicht reflektiert) |
 | `InventoryPanel.ConfirmAllStagedIngredients` | `26495302`: `0x5A5F060`, Exec-Thunk `0x570B460` | Rezept bestätigen, ruft `UpgradeItems` (`opt-werkbank-station`); nicht gepatcht |
 | `ItemRepresentation.ConfirmSell`, `.ConfirmRepair` | `0x5AA2F60`, `0x5AA2DB0` (`26495302`: `0x5AA7E50`, `0x5AA7CA0`) | buchen Schrott lokal über `AddAmount`, dann `HandleItemSold` bzw. Server-RPC `RepairItem` |
 | `ADDMissionGameState.ScrapWallet`, `UAbstractCurrency.CurrencyAmount` | `+0x3C0`, `+0x100` | nicht repliziert; `AddAmount` begrenzt auf 0 bis INT32_MAX und löst `OnCurrencyChanged` aus |
@@ -359,15 +360,13 @@ Was die Mod nutzt, steht zusätzlich in `src/Game/Offsets.h` und wird dort beim 
 | `ACharacter` | CharacterMovement, BasedMovement, ReplicatedMovement-Block | `0x330`, `0x340`, `0x398` |
 | `ACharacter` (Spiel) | AttributeSet | `0x7D8` |
 | `ADDCharacterBase` | CommonAttributeSet | `0x700` |
-| `UCommonAttributeSet` | Health (`FGameplayAttributeData`, CurrentValue bei `+0xC`) | `0xA0` |
-| `UCommonAttributeSet` | MovementSpeed (`FGameplayAttributeData`, BaseValue `+0x8`, CurrentValue `+0xC`; `tod-client`) | `0xE8` |
+| `UCommonAttributeSet` | Health, MovementSpeed (`FGameplayAttributeData`, BaseValue `+0x8`, CurrentValue `+0xC`) | `0xA0`, `0xE8` |
 | `UCommonAttributeSet` | MaxHealth, OnMaxHealthChanged, OnHealthChanged (Multicast, Einträge je `0x10`: schwacher Zeiger, `FName`) | `0x30`, `0x40`, `0xC0` |
 | `UDDCharacterAttributeSet` (Outer ist der PlayerState) | ExtraHands, OccupiedHands (`FGameplayAttributeData`, CurrentValue bei `+0xC`) | `0x100`, `0x110` |
 | `UHandBarDisplay` | PlayerIndex, CachedCharacter | `0x328`, `0x348` |
 | `FDamageInformation` | Damage, DamagedActor, InstigatedBy, DamageCauser (je `TWeakObjectPtr`) | `0x00`, `0x04`, `0x14`, `0x1C` |
 | `FBasedMovementInfo` | MovementBase, Location | `0x10`, `0x18` |
-| `UCharacterMovementComponent` | Velocity, MovementMode, MaxWalkSpeed | `0xD8`, `0x241`, `0x288` |
-| `UCharacterMovementComponent` | MaxAcceleration, Acceleration | `0x29C`, `0x338` |
+| `UCharacterMovementComponent` | Velocity, MovementMode, MaxWalkSpeed, MaxAcceleration, Acceleration; Handler `0x5819000` setzt MaxWalkSpeed = MovementSpeed und MaxAcceleration × 3,5 (`0x8A1E460`) | `0xD8`, `0x241`, `0x288`, `0x29C`, `0x338` |
 | `UCharacterMovementComponent` | Flags: Bit 1 `bIgnoreClientMovementErrorChecksAndCorrection`, Bit 3 `bServerAcceptClientAuthoritativePosition` | `0x579` |
 | `UWorld` | PersistentLevel, NetDriver, GameMode, GameState, GameInstance | `0x30`, `0x38`, `0x1A8`, `0x1B0`, `0x228` |
 | `AGameStateBase` | PlayerArray | `0x2C0` |

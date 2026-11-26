@@ -48,6 +48,11 @@ bool ClientConsumedInput(uintptr_t Item);
 // Client, opt-haendler-client: Ein Kauf beim Händler lief während der Bearbeitung lokal. Item ist die lokale Instanz aus dem Shop,
 // Data und Rarity ihre Objekte, Cost der Preis des Panels. Der Edit meldet den Kauf, der Host legt das Item selbst an und bucht.
 void RecordPurchase(uintptr_t Item, uintptr_t Data, uintptr_t Rarity, int32_t Cost);
+// Client, opt-kopierladen: Item lag beim Beginn der laufenden Bearbeitung im Inventar (Ausgangsbild). Nur so ein Item lässt sich kopieren.
+bool ClientBaseItem(uintptr_t Item);
+// Client, opt-kopierladen: Im Kopierladen lief während der Bearbeitung eine Kopie lokal. Item ist die lokale Kopie, Original ein Item des
+// Ausgangsbilds, Cost der Preis des Panels. Der Edit meldet die Kopie, der Host kopiert seine eigene Instanz und bucht.
+void RecordCopy(uintptr_t Item, uintptr_t Original, int32_t Cost);
 // Client: Endstand nach dem nativen Bestätigen. ChoiceItem ist die gewählte Anzeige-Instanz oder 0. Ohne Änderung nullopt,
 // die Bearbeitung ist dann beendet; sonst bleibt der Ausgangsstand bis zur Antwort des Hosts gemerkt.
 std::optional<Edit> FinishClient(uint64_t Session, uint64_t Revision, std::optional<uint8_t> Choice, uintptr_t ChoiceItem);

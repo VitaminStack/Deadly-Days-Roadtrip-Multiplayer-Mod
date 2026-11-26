@@ -20,7 +20,7 @@ Nutzerentscheidung vom 11.11.2026: vorgezogen, wartet nicht auf `integration-run
 
 ## `opt-tempo-upgrades`
 
-Tempo-Upgrades (`MovementSpeed`, Beschleunigung) kommen beim Client nicht an (Host 819 und 2866, Client 600 und 2048). **Fertig, wenn** beide Werte beim Client nach jedem Upgrade denen des Hosts entsprechen.
+**Bestätigungstest ausstehend:** Der Client übernimmt `MaxWalkSpeed` und `MaxAcceleration` (3,5-faches Tempo) aus dem replizierten Attribut, für eigene und fremde Figuren. Gemessen auf einem PC mit `tools/spike/movement_speed.py`, mit gesetztem Attribut (`DD_SetAttribute`) und mit Item-Effekt (`ItemData_HeavyBoots`), mit einem und mit drei Clients. Offen: ein echtes Tempo-Upgrade (Meta oder Level-up) im Run und ein Test auf zwei PCs. **Aufgabe und Abnahme:** Tempo-Upgrades (`MovementSpeed`, Beschleunigung) kommen beim Client nicht an (Host 819 und 2866, Client 600 und 2048). **Fertig, wenn** beide Werte beim Client nach jedem Upgrade denen des Hosts entsprechen.
 
 ## `opt-gegner-spawnverzug`
 
@@ -61,10 +61,6 @@ Gefunden im Live-Test am 13.11.2026 (zwei PCs, Build `26495302`): Im Event „R�
 ## `opt-schuss-animation`
 
 Gefunden im Live-Test am 13.11.2026 (zwei PCs, Build `26495302`): In höheren Leveln ist die Schuss-Animation der Client-Figur beim Client kaputt (Waffen übereinander), und die Figur gleitet über den Boden. **Fertig, wenn** die Client-Figur mit mehreren Waffen wie beim Host schießt und läuft. Ordner `src/Game`. **Einstieg:** [Live-Test 13.11.](archive/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-13112026-livetest-1311) **Letzter Bestätigungstest:** Live-Test 13.11.2026 abends nicht bestanden: Die Client-Figur gleitet beim Client weiter ohne richtige Laufanimation; hands.py nicht gelaufen. [Live-Test 13.11. abends](archive/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-13112026-abends-livetest-1311-abend)
-
-## `opt-kopierladen`
-
-Gefunden im Live-Test am 13.11.2026 abends (zwei PCs, Build `26495302`): Im Event `MGP_CopyShopEvent` kopiert der Client ein Item nur lokal. Es entsteht keine Bearbeitung und kein Edit, die Kopie kommt nicht ins Lager, der lokal abgezogene Schrott wird vom Host zurückgesetzt. Wie `opt-werkbank-station` den Vorgang als Edit an den Host geben. **Fertig, wenn** eine Kopie des Clients beim Host gebucht wird, das Item bei beiden im Lager liegt und der Schrott bei beiden gleich ist. Ordner `src/Game`. **Einstieg:** [Live-Test 13.11. abends](archive/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-13112026-abends-livetest-1311-abend)
 
 ## `opt-zonenziel-anzeige`
 

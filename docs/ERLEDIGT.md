@@ -136,6 +136,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `opt-host-absturz-trennung` | Optional | Der Host stürzte nach dem harten Wegfall des Clients im Zeitgeber des Sensenmanns ab (abgebaute Client-Figur blieb in dessen Spielerliste, nach der Garbage Collection Lesen am Nullzeiger); der Host nimmt die Figur jetzt sofort aus der Liste, vier Läufe mit Sensenmann ohne Absturz, Kontrolllauf ohne Fix mit Absturz, siehe [Host-Absturz nach hartem Wegfall des Clients](archive/GAME_ANALYSIS.md#host-absturz-nach-hartem-wegfall-des-clients-opt-host-absturz-trennung) |
 | `opt-item-sound` | Optional | Client spielt Aufsammelsounds je Objekt einmal: Schutz an LootBase.Loot fuer alle Unterklassen, doppeltes Client_PlaySound des Hosts gefiltert; ein PC: 72 Benzin-Sounds fuer 72 Kanister |
 | `opt-koerperteile` | Optional | Client sieht den Chaos-Zerfall sterbender Gegner wie der Host (nativer Cue lokal nach Multi_OnDie); Fleisch und Knochen kommen mit opt-blut |
+| `opt-kopierladen` | Problem | Eine Kopie des Clients im Kopierladen geht sofort als Edit an den Host, der seine eigene Instanz kopiert (auch kaputt), im Lager des Clients ablegt und den Preis einmal bucht (Mod-Version 18); auf einem PC geprüft: Übernahme, Ablehnung, Wiederbeitritt und Lager gleich ([Fallakte](faelle/opt-kopierladen.md)). |
 | `opt-ladezeit-messung` | Wartung | check_round.py --wait trennt Prozessende von World 0 beim Laden und wartet auf alle Spieler im GameState; Run-Route.ps1 startet die Messung vor dem Klick. Routenlauf ohne Spike auf 26495302: load_seconds 1,0 s statt leer bzw. 0,0 |
 | `opt-laufanimation-client` | Optional | Host misst das Tempo der Client-Figur fuer ihre Laufanimation nativ aus ihrem Ort (SetManualTrackingActive), ein PC gemessen |
 | `opt-levelup-sound` | Optional | Der gemeldete Sound-Fehler war der Schrott-Dauersound: Der Client spielt ScrapPickup je Haufen einmal statt bis zu 170-mal je Sekunde, gezählt auf einem PC, siehe [Schrott-Dauersound](archive/GAME_ANALYSIS.md#schrott-dauersound-beim-client-opt-levelup-sound) |
@@ -148,6 +149,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `opt-schadenszahlen-verlust` | Optional | Ursache behoben: 0xA00 verfiel im Sammelabruf, jetzt dort ausgewertet; Zähler für Senden, Dekodieren, Revisionen und Kontrollkanal; Ein-PC-Lauf 438/438 |
 | `opt-schrott-anzeige` | Optional | Schrott aus Haufen bucht nur der Host, der Client übernimmt den Stand über 0x309; Anzeige springt nicht mehr (Test auf einem PC, zwei Tage) |
 | `opt-station-zug` | Optional | Live-Test 17.11.2026 auf zwei PCs, Build 26669225: Rucksackteil im Händler-Event mit Drehung 3 abgelegt, 6 neue Felder, Host übernahm, Desync-Melder danach OK einschließlich Inventar (Beleg Desync-Melder statt inventory.py), [Live-Test 17.11.](archive/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-17112026-livetest-1711) |
+| `opt-tempo-upgrades` | Problem | Tempo-Upgrades (`MovementSpeed`, Beschleunigung) kommen beim Client nicht an (Host 819 und 2866, Client 600 und 2048). **Fertig, wenn** beide Werte beim Client nach jedem Upgrade denen des Hosts entsprechen. Bestätigungstest ausstehend, siehe unten. |
 | `opt-waffen-sound` | Optional | Client hört Schuss- und Nachladesounds beider Figuren: Schuss lokal aus dem Multicast TriggerWeaponShotFX, Nachladen über 0xB00 (Mod-Version 13); ein PC, Pistole: 112/112 und 108/108 Schüsse, 8/8 und 10/10 Nachladen je 90 s |
 | `opt-werkbank-station` | Optional | Die Werkbank im Händler-Event wertet beim Client nur lokal auf … Bestätigungstest ausstehend, siehe unten. |
 | `overlay` | 2 | F8-Overlay mit Status und Debug-Anzeige, sichtbare Host-/Client-Abnahme bestanden, siehe [UI](../src/UI/README.md#sichtbare-spielabnahme-03112026) |
@@ -272,6 +274,7 @@ Spicker für Live-Sitzungen: was bei erledigten Aufgaben noch im Spiel zu prüfe
 | `opt-portraet` | Das HUD-Porträt zeigt auch beim Host die eigene Figur, auch nach einem Kartenwechsel. |
 | `opt-schadenszahlen` | Client sieht Schadenszahlen eigener und fremder Treffer. |
 | `opt-schrott-anzeige` | Die Schrottanzeige des Clients springt beim Aufsammeln nicht. |
+| `opt-tempo-upgrades` | Echtes Tempo-Upgrade (Meta oder Level-up) im Run und Test auf zwei PCs; gemessen auf einem PC mit gesetztem Attribut und Item-Effekt, 1 und 3 Clients |
 | `opt-waffen-sound` | Client hört Schuss- und Nachladesounds beider Figuren. |
 | `opt-werkbank-station` | Eine Rezept-Aufwertung des Clients an der Werkbank wird beim Host gebucht. |
 | `run-ende` | Niederlage beim Client läuft nativ ab, danach startet ein neuer Run in derselben Sitzung. |
