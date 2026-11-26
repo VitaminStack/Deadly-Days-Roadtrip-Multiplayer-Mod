@@ -397,15 +397,13 @@ Was die Mod nutzt, steht zusätzlich in `src/Game/Offsets.h` und wird dort beim 
 | `ACharacter` | CharacterMovement, BasedMovement, ReplicatedMovement-Block | `0x330`, `0x340`, `0x398` |
 | `ACharacter` (Spiel) | AttributeSet | `0x7D8` |
 | `ADDCharacterBase` | CommonAttributeSet | `0x700` |
-| `UCommonAttributeSet` | Health (`FGameplayAttributeData`, CurrentValue bei `+0xC`) | `0xA0` |
-| `UCommonAttributeSet` | MovementSpeed (`FGameplayAttributeData`, BaseValue `+0x8`, CurrentValue `+0xC`; `tod-client`) | `0xE8` |
+| `UCommonAttributeSet` | Health, MovementSpeed (`FGameplayAttributeData`, BaseValue `+0x8`, CurrentValue `+0xC`) | `0xA0`, `0xE8` |
 | `UCommonAttributeSet` | MaxHealth, OnMaxHealthChanged, OnHealthChanged (Multicast, Einträge je `0x10`: schwacher Zeiger, `FName`) | `0x30`, `0x40`, `0xC0` |
 | `UDDCharacterAttributeSet` (Outer ist der PlayerState) | ExtraHands, OccupiedHands (`FGameplayAttributeData`, CurrentValue bei `+0xC`) | `0x100`, `0x110` |
 | `UHandBarDisplay` | PlayerIndex, CachedCharacter | `0x328`, `0x348` |
 | `FDamageInformation` | Damage, DamagedActor, InstigatedBy, DamageCauser (je `TWeakObjectPtr`) | `0x00`, `0x04`, `0x14`, `0x1C` |
 | `FBasedMovementInfo` | MovementBase, Location | `0x10`, `0x18` |
-| `UCharacterMovementComponent` | Velocity, MovementMode, MaxWalkSpeed | `0xD8`, `0x241`, `0x288` |
-| `UCharacterMovementComponent` | MaxAcceleration, Acceleration | `0x29C`, `0x338` |
+| `UCharacterMovementComponent` | Velocity, MovementMode, MaxWalkSpeed, MaxAcceleration, Acceleration; Handler `0x5819000` setzt MaxWalkSpeed = MovementSpeed und MaxAcceleration × 3,5 (`0x8A1E460`) | `0xD8`, `0x241`, `0x288`, `0x29C`, `0x338` |
 | `UCharacterMovementComponent` | Flags: Bit 1 `bIgnoreClientMovementErrorChecksAndCorrection`, Bit 3 `bServerAcceptClientAuthoritativePosition` | `0x579` |
 | `UWorld` | PersistentLevel, NetDriver, GameMode, GameState, GameInstance | `0x30`, `0x38`, `0x1A8`, `0x1B0`, `0x228` |
 | `AGameStateBase` | PlayerArray | `0x2C0` |

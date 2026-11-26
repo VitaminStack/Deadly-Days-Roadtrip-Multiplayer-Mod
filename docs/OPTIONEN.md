@@ -20,7 +20,7 @@ Nutzerentscheidung vom 11.11.2026: vorgezogen, wartet nicht auf `integration-run
 
 ## `opt-tempo-upgrades`
 
-Tempo-Upgrades (`MovementSpeed`, Beschleunigung) kommen beim Client nicht an (Host 819 und 2866, Client 600 und 2048). **Fertig, wenn** beide Werte beim Client nach jedem Upgrade denen des Hosts entsprechen.
+**Bestätigungstest ausstehend:** Der Client übernimmt `MaxWalkSpeed` und `MaxAcceleration` (3,5-faches Tempo) aus dem replizierten Attribut, für eigene und fremde Figuren. Gemessen auf einem PC mit `tools/spike/movement_speed.py`, mit gesetztem Attribut (`DD_SetAttribute`) und mit Item-Effekt (`ItemData_HeavyBoots`), mit einem und mit drei Clients. Offen: ein echtes Tempo-Upgrade (Meta oder Level-up) im Run und ein Test auf zwei PCs. **Aufgabe und Abnahme:** Tempo-Upgrades (`MovementSpeed`, Beschleunigung) kommen beim Client nicht an (Host 819 und 2866, Client 600 und 2048). **Fertig, wenn** beide Werte beim Client nach jedem Upgrade denen des Hosts entsprechen.
 
 ## `opt-gegner-spawnverzug`
 
