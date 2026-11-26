@@ -582,9 +582,9 @@ constexpr Reflection::FieldSpec StandardHeading{GamePackage, "RoundEndPanel", "S
 constexpr Reflection::FieldSpec FinishedHeading{GamePackage, "RoundEndPanel", "RunFinishedHeading", "ObjectProperty", 8};
 constexpr uint8_t SlateCollapsed = 1, SlateSelfHitTestInvisible = 4; // ESlateVisibility
 
-// opt-ergebnis-werte: Knopf „Zurück zur Basis“ des Blueprints. Mit der Tageskennung des Hosts hält das Spiel den Client am Sieg für das
+// opt-ergebnis-werte: Knopf „Zurück zur Basis“ des Blueprints (Feldname mit Bindestrich, das SDK schreibt „SizeBox_BackToBase“). Mit der Tageskennung des Hosts hält das Spiel den Client am Sieg für das
 // Ende der Route und zeigt ihn samt Endlosmodus; beide lassen den Client allein handeln. Er bekommt wie bisher nur „Fortsetzen“.
-constexpr Reflection::FieldSpec BackToBaseBox{"/Game/DDSurvivors/Widgets/WP_Round_Stats", "WP_Round_Stats_C", "SizeBox_BackToBase",
+constexpr Reflection::FieldSpec BackToBaseBox{"/Game/DDSurvivors/Widgets/WP_Round_Stats", "WP_Round_Stats_C", "SizeBox-BackToBase",
                                               "ObjectProperty", 8};
 constexpr Reflection::FieldSpec WidgetVisibility{"/Script/UMG", "Widget", "Visibility", "EnumProperty", 1};
 constexpr uint8_t SlateHidden = 2;
