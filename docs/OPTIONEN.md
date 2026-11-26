@@ -62,10 +62,6 @@ Gefunden im Live-Test am 13.11.2026 (zwei PCs, Build `26495302`): Im Event „R�
 
 Gefunden im Live-Test am 13.11.2026 (zwei PCs, Build `26495302`): In höheren Leveln ist die Schuss-Animation der Client-Figur beim Client kaputt (Waffen übereinander), und die Figur gleitet über den Boden. **Fertig, wenn** die Client-Figur mit mehreren Waffen wie beim Host schießt und läuft. Ordner `src/Game`. **Einstieg:** [Live-Test 13.11.](archive/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-13112026-livetest-1311) **Letzter Bestätigungstest:** Live-Test 13.11.2026 abends nicht bestanden: Die Client-Figur gleitet beim Client weiter ohne richtige Laufanimation; hands.py nicht gelaufen. [Live-Test 13.11. abends](archive/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-13112026-abends-livetest-1311-abend)
 
-## `opt-zonenziel-anzeige`
-
-Gefunden im Live-Test am 13.11.2026 abends (zwei PCs, Build `26495302`): In der Zone „Töte die Titanen“ sieht der Client die Fortschrittsanzeige des Zonenziels nicht. Lokal zuerst: die native Anzeige aus replizierten Daten befüllen. **Fertig, wenn** der Client den Fortschritt des Zonenziels wie der Host sieht. Ordner `src/Game`. **Einstieg:** [Live-Test 13.11. abends](archive/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-13112026-abends-livetest-1311-abend)
-
 ## `opt-itemsack-flug`
 
 Gefunden im Live-Test am 13.11.2026 abends (zwei PCs, Build `26495302`): Itemsäcke aus Containern werden beim Client erst direkt an der Figur sichtbar, der Ausstoß fehlt. **Fertig, wenn** der Client die Säcke wie der Host aus dem Container fliegen sieht. Ordner `src/Game`. **Einstieg:** [Live-Test 13.11. abends](archive/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-13112026-abends-livetest-1311-abend)
