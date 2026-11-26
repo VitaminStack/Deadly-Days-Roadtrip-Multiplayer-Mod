@@ -102,6 +102,6 @@ TEST_CASE("Routenkarte: nach dem Weltwechsel gilt wieder die eigene Run-Info")
 
 TEST_CASE("Routenkarte: einen Knoten wählt nur der Host")
 {
-    CHECK(ClientMaySetRoute(false));
-    CHECK_FALSE(ClientMaySetRoute(true));
+    CHECK(ClientMayChooseRoute(false));
+    CHECK_FALSE(ClientMayChooseRoute(true));
 }

@@ -141,3 +141,4 @@
 {0x05B0C050, 0, "4C 8B DC 55 53 56 57 41 56 49 8D 6B A8 48 81 EC 30 01 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 A0 4D 8B F1", 0, "LocalViewportCorners"}, // ExpPatches.cpp
 {0x05B11480, 0, "48 89 5C 24 18 48 89 74 24 20 55 57 41 54 41 56 41 57 48 8D 6C 24 F0 48 81 EC 10 01 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 00 48 8B DA 48 8B F1 48 89 4C 24 30 45 33 F6", 0, "GetPlayerCharacters"}, // ClientPatches.cpp
 {0x05B14115, 0, "48 8B 08 48 8B 91 30 03 00 00 48 8B C8 48 83 C4 28 48 FF E2 CC", 0, "PlayerIndexNullSite"}, // PlayerPatches.cpp
+{0x05B1B260, 0, "48 89 5C 24 18 48 89 74 24 20 48 89 54 24 10 55 57 41 55", 0, "LoadMapByInformation"}, // RouteMapPatches.cpp

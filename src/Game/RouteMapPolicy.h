@@ -89,8 +89,8 @@ constexpr bool ShouldRestore(uintptr_t AppliedWorld, uintptr_t World)
     return AppliedWorld != 0 && AppliedWorld != World;
 }
 
-// Client: Wahl über einen Knoten der Karte. Die Route wählt der Host, die Reise sperrt ClientMayStartTravel.
-constexpr bool ClientMaySetRoute(bool IsNetClient)
+// Client: Wahl über einen Knoten der Karte (LoadMapByInformation setzt Route und Wahl, dann reist es). Die Route wählt der Host.
+constexpr bool ClientMayChooseRoute(bool IsNetClient)
 {
     return !IsNetClient;
 }

@@ -29,7 +29,8 @@ constexpr uintptr_t GetMissionStructure = 0x58EFD10; // UMissionGenerationSubsys
 constexpr uintptr_t DestructGroups = 0x56ADF20;      // FPossibleMissionGroup-Elemente abbauen (Data, Num)
 constexpr uintptr_t DestructRoutes = 0x56ADFB0;      // FRoute-Elemente abbauen (Data, Num)
 constexpr uintptr_t RouteAssign = 0x57487D0;         // FRoute::operator=
-constexpr uintptr_t SetCurrentRoute = 0x59056C0;     // UDDMissionGameInstance: PreviousRoute = CurrentRoute, CurrentRoute = neu
+constexpr uintptr_t SetCurrentRoute = 0x59056C0;     // UDDMissionGameInstance: PreviousRoute = CurrentRoute, CurrentRoute = neu (nur geprüft)
+constexpr uintptr_t LoadMapByInformation = 0x5B1B260; // Klick auf einen Knoten: Route und Wahl setzen, dann reisen
 constexpr uintptr_t MemoryRealloc = 0x1304360;       // FMemory::Realloc(Original, Bytes, Alignment)
 constexpr uintptr_t MemoryFree = 0x12F85E0;          // FMemory::Free
 
@@ -39,14 +40,14 @@ constexpr uint8_t RoleAuthority = 3;
 constexpr size_t RouteSize = 0x40, GroupSize = 0x20; // FRoute, FPossibleMissionGroup (gemessen, Feldgrenzen über die Reflexion)
 
 using OpenPanelFn = void(__fastcall*)(uintptr_t);
-using SetCurrentRouteFn = void(__fastcall*)(uintptr_t, const void*);
+using LoadMapFn = void(__fastcall*)(uintptr_t, const void*);
 using GetMissionStructureFn = void*(__fastcall*)(uintptr_t, void*, int32_t);
 using DestructFn = void(__fastcall*)(void*, int32_t);
 using RouteAssignFn = void*(__fastcall*)(void*, const void*);
 using ReallocFn = void*(__fastcall*)(void*, size_t, uint32_t);
 using FreeFn = void(__fastcall*)(void*);
 OpenPanelFn OriginalOpenPanel = nullptr;
-SetCurrentRouteFn OriginalSetCurrentRoute = nullptr;
+LoadMapFn OriginalLoadMap = nullptr;
 bool RouteMapReady = false;
 
 struct ScriptArray
@@ -312,12 +313,12 @@ void __fastcall OpenPanelHook(uintptr_t Panel)
         Core::Log::Info("Routenkarte: Karte des Hosts beim Client befüllt");
 }
 
-// Ein Klick auf einen Knoten setzt die Route der GameInstance, danach sperrt ClientMayStartTravel die Reise. Die Route bleibt die
-// des Hosts.
-void __fastcall SetCurrentRouteHook(uintptr_t Instance, const void* Route)
+// Ein Klick auf einen Knoten setzt Route und Wahl der GameInstance und reist. Beim Client nichts davon: Die Route wählt der Host,
+// die Reise sperrte ohnehin ClientMayStartTravel. Die Rückkehr ins Hauptmenü (LoadNonMissionMap) bleibt unberührt.
+void __fastcall LoadMapHook(uintptr_t WorldContext, const void* Information)
 {
-    if (RouteMap::ClientMaySetRoute(CurrentRole() == NetRole::Client))
-        return OriginalSetCurrentRoute(Instance, Route);
+    if (RouteMap::ClientMayChooseRoute(CurrentRole() == NetRole::Client))
+        return OriginalLoadMap(WorldContext, Information);
     if (S.BlockedChoices++ < 5)
         Core::Log::Info("Routenkarte: Wahl eines Knotens beim Client ignoriert, die Route wählt der Host");
 }
@@ -336,6 +337,9 @@ bool CheckRouteMap()
            Code::Expect(At(RouteAssign), {0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18, 0x48, 0x89, 0x7C, 0x24}, "FRoute::operator=") &&
            Code::Expect(At(SetCurrentRoute), {0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x74, 0x24, 0x10, 0x57, 0x48, 0x83, 0xEC}, "Route setzen") &&
            ExpectBranch(At(SetCurrentRoute, 0x50), CallRel32, RouteAssign, "operator= in Route setzen") &&
+           Code::Expect(At(LoadMapByInformation), {0x48, 0x89, 0x5C, 0x24, 0x18, 0x48, 0x89, 0x74, 0x24, 0x20, 0x48, 0x89, 0x54, 0x24, 0x10, 0x55},
+                        "LoadMapByInformation") &&
+           ExpectBranch(At(LoadMapByInformation, 0x63), CallRel32, SetCurrentRoute, "Route setzen in LoadMapByInformation") &&
            ExpectBranch(At(DestructGroups, 0x1A), CallRel32, DestructRoutes, "Routen in Missionsgruppen abbauen") &&
            Code::Expect(At(MemoryRealloc), {0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x74, 0x24, 0x10, 0x57, 0x48, 0x83, 0xEC}, "FMemory::Realloc") &&
            Code::Expect(At(MemoryFree), {0x48, 0x85, 0xC9, 0x74, 0x2E, 0x53, 0x48, 0x83, 0xEC, 0x20}, "FMemory::Free");
@@ -345,14 +349,14 @@ bool ApplyRouteMap(Code::Writer&)
 {
     RouteMapReady = Core::Hooks::Install(reinterpret_cast<void*>(At(OpenPanel)), reinterpret_cast<void*>(&OpenPanelHook),
                                          reinterpret_cast<void**>(&OriginalOpenPanel)) &&
-                    Core::Hooks::Install(reinterpret_cast<void*>(At(SetCurrentRoute)), reinterpret_cast<void*>(&SetCurrentRouteHook),
-                                         reinterpret_cast<void**>(&OriginalSetCurrentRoute));
+                    Core::Hooks::Install(reinterpret_cast<void*>(At(LoadMapByInformation)), reinterpret_cast<void*>(&LoadMapHook),
+                                         reinterpret_cast<void**>(&OriginalLoadMap));
     return RouteMapReady;
 }
 
 // Je Patch die benutzten Adressen der Signaturtabelle, erzeugt von tools/patch_signatures.py sites.
 constexpr uintptr_t RouteMapSites[] = {OpenPanel, OpenPanelRoleCheck, GetMissionStructure, DestructGroups, DestructRoutes,
-                                       RouteAssign, SetCurrentRoute, MemoryRealloc, MemoryFree};
+                                       RouteAssign, SetCurrentRoute, LoadMapByInformation, MemoryRealloc, MemoryFree};
 const Patch List[] = {
     {"Routenkarte des Hosts beim Client", &CheckRouteMap, &ApplyRouteMap, RouteMapSites},
 };
