@@ -11,4 +11,6 @@ namespace Game::FmodSound
 bool PlayAtActor(uintptr_t Actor, uintptr_t Event);
 // An einem Weltort ohne Drehung. WorldContext ist ein beliebiges Objekt der Welt.
 bool PlayAtLocation(uintptr_t WorldContext, uintptr_t Event, double X, double Y, double Z);
+// Ohne Ort (UFMODBlueprintStatics::PlayEvent2D), wie die Ansage des Sensenmanns beim Host (opt-sensenmann-ansage-client).
+bool Play2D(uintptr_t WorldContext, uintptr_t Event);
 }
