@@ -21,6 +21,10 @@ constexpr std::string_view Package = "/Script/DDSurvivors";
 // Das Ereignis, das der Blueprint der Stoppuhr an ThreatLevel.OnThreatLevelChanged bindet (Old, New, je int32).
 constexpr std::string_view StopwatchClass = "WBP_Stopwatch_C";
 constexpr std::string_view StopwatchEvent = "CustomEvent";
+// opt-routenkarte: Die Zahl unter der Stoppuhr setzt nicht die Stoppuhr selbst, sondern die Haupt-UI über ihr Ereignis am selben
+// Delegate (gleiche Parameter). Ohne diesen Aufruf zeigte der Client 0, der Host 7 oder 9.
+constexpr std::string_view UiClass = "WP_UI_C";
+constexpr std::string_view UiEvent = "OnThreatLevelChanged_Event";
 constexpr ULONGLONG ReadEveryMs = 250, SearchEveryMs = 2000;
 
 struct ThreatParams
@@ -61,7 +65,7 @@ uintptr_t FindComponent(uintptr_t World, uintptr_t Class)
 // ---- Client ----
 uintptr_t ClientWorld = 0;
 ThreatShown Shown;
-bool ReportedLayout = false;
+bool ReportedLayout = false, ReportedUi = false;
 unsigned Calls = 0, Raises = 0;
 }
 
@@ -138,6 +142,18 @@ void ShowThreatLevel(int32_t Level)
     }
     ThreatParams Params{Event.Old, Event.New};
     Objects::ProcessEvent(Widget, Function, &Params);
+    const uintptr_t Ui = Objects::FindInstance(UiClass);
+    const uintptr_t UiFunction = Ui ? Objects::FindObject(UiEvent, UiClass) : 0;
+    if (UiFunction && Memory::Read<int32_t>(UiFunction + Offsets::UStruct::PropertiesSize).value_or(0) == sizeof(ThreatParams))
+    {
+        ThreatParams UiParams{Event.Old, Event.New};
+        Objects::ProcessEvent(Ui, UiFunction, &UiParams);
+    }
+    else if (!ReportedUi)
+    {
+        ReportedUi = true;
+        Core::Log::Warn("Bedrohung Client: Ereignis der Haupt-UI fehlt oder hat ein anderes Layout, Zahl unter der Stoppuhr bleibt");
+    }
     Shown = {true, Level};
     ++Calls;
     if (Event.New > Event.Old)
