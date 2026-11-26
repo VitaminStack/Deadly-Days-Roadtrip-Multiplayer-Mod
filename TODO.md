@@ -22,7 +22,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `prozess-neu-schreiben` | P1 | [Verbesserung](#verbesserungen) | zentral | keine |
 | `verbesserungen-sichten` | P1 | [Verbesserung](#verbesserungen) | zentral | keine |
 | `opt-dash-aufprall` | P2 | [Problem](#probleme) | parallel | wenig |
-| `opt-ergebnis-werte` | P2 | [Problem](#probleme) | parallel | mittel |
 | `opt-gegner-spawnverzug` | P2 | [Problem](#probleme) | parallel | mittel |
 | `opt-haende-vorschau-items` | P2 | [Problem](#probleme) | parallel | wenig |
 | `opt-highway-ziel` | P2 | [Problem](#probleme) | parallel | wenig |
@@ -66,7 +65,6 @@ Fehler im Spiel oder in den Werkzeugen. Die Beschreibung steht in [docs/OPTIONEN
 |---|---|---|---|---|
 | `spawn-nach-kartenaufbau` | P1 | **Nur wenn der Live-Test die Theorie bestätigt:** Host setzt die Figuren an den Bus, bevor der Client seine Karte gebaut hat. **Fertig, wenn** der Client nach jedem Zonenstart auf dem Boden steht, auch bei langsamem Kartenaufbau, und Join, Reconnect und Travel unverändert laufen. Ordner `src/Game`. **Einstieg** [Fallakte](docs/faelle/spawn-nach-kartenaufbau.md) | Team | mittel |
 | `opt-dash-aufprall` | P2 | Prallt der Client mit dem Dash gegen ein Objekt, hört er kein Geräusch … | parallel | wenig |
-| `opt-ergebnis-werte` | P2 | Der Ergebnisbildschirm des Clients am Run-Ende zeigt nur Nullen, die Run-Statistik … | parallel | mittel |
 | `opt-gegner-spawnverzug` | P2 | Unter Wellenlast (`!wave`) erscheinen neue Gegner beim Client bis rund 8 s später als beim Host. **Fertig, wenn** neue Gegner beim Client höchstens 1 s nach dem Host erscheinen, auch unter Wellenlast. | parallel | mittel |
 | `opt-haende-vorschau-items` | P2 | Hantel (`ItemData_Dumbell`), Hand des Blutes (`ItemData_HandOfBlood`) und Plasmahand (`ItemData_PlasmaHand`) senken über Standardwirkungen die Hände … | parallel | wenig |
 | `opt-highway-ziel` | P2 | Im Event „Räume den Highway!“ erschien kein Benzin, das Ziel verlangte einen Abschluss (2/10). Erst ohne Mod klären, wie das Event endet. | parallel | wenig |
