@@ -8,15 +8,18 @@ zwei Instanzen: Mission spielen, `!finish` beim Host, die Übersicht beider Seit
 
 ## Belege
 
-- [Belegt, Disassembly 26786272] Die Übersicht (`URoundEndPanel.GenerateStats`) und die Wertung (Ratables wie Kills, Nachtminuten)
-  lesen beim Öffnen die Werte des `UDDGameStatsSubsystem`: gesamt eine `TMultiMap<FMissionTimeIdentifier, FGameStat>` bei `+0x198`, je
-  Spieler eine `TMap<int32, gleicher Container>` bei `+0x1E8`. `GetGameStat` sucht dort. Layout in
+- [Belegt, Disassembly 26786272] Das `UDDGameStatsSubsystem` führt die Werte gesamt in einer `TMultiMap<FMissionTimeIdentifier, FGameStat>`
+  bei `+0x198` und je Spieler in einer `TMap<int32, gleicher Container>` bei `+0x1E8`. `GetGameStat` sucht dort. Layout in
   [OFFSETS.md](../OFFSETS.md#werte-der-rundenübersicht-opt-ergebnis-werte).
+- [Vermutung] Die Übersicht (`URoundEndPanel.GenerateStats`) und die Wertung (Ratables wie Kills, Nachtminuten) lesen beim Öffnen
+  diese Werte. Disassembliert sind nur `GetGameStat`, `IncrementGameStat` und ihre Helfer.
 - [Belegt, Disassembly] Gebucht wird über `IncrementGameStat`: erst der Gesamtwert, dann eine Meldung (Vermutung:
   `ExecuteStatNotification`, daran hängen Erfolge, `DDStatBasedObjective` und `ItemEffectGameStats`), dann der Wert je Spieler.
   `MaxThreatLevel` und `DPS` nehmen das Maximum, die übrigen Typen die Summe.
-- [Belegt] Das Subsystem ist ein `GameInstanceSubsystem`, nicht repliziert. Jede Instanz zählt nur, was bei ihr selbst gebucht wird.
-  Die Treffer auf Gegner (`OnEnemyHit`) und Kills entstehen beim Host, dort laufen Schaden und Gegner.
+- [Belegt, SDK] Das Subsystem ist ein `GameInstanceSubsystem` ohne Replikation. Jede Instanz zählt nur, was bei ihr selbst gebucht wird.
+  [Vermutung] Treffer (`OnEnemyHit`) und Kills bucht nur der Host, dort laufen Schaden und Gegner.
+- [Belegt, Speicher] Tag und Teilmission können -1 sein: Eine laufende Instanz meldete die Tageskennung `CurrentGameData.TimeIdentifier`
+  als 1.-1. Die Regeln lassen darum -1 zu.
 - Messung im Spiel: siehe unten.
 
 ## Fix (PR `task/opt-ergebnis-werte`)
