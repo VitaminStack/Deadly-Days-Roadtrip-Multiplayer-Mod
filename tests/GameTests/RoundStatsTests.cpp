@@ -128,3 +128,10 @@ TEST_CASE("Rundenwerte: Kopf und Element des Containers wie im Spiel")
     std::memcpy(Element + 16, &Value, 8);
     CHECK(DecodeStatElement(Element, 2) == Entry{4, 1, DamageDealt, 2, Value});
 }
+
+TEST_CASE("Rundenwerte: am Run-Ende zeigt die Übersicht die Summen aller Tage")
+{
+    CHECK(PanelShowsRunTotals(true, false));   // letzte Mission, wie im Spiel
+    CHECK(PanelShowsRunTotals(false, true));   // Client: Host hat den Run in dieser Welt beendet
+    CHECK_FALSE(PanelShowsRunTotals(false, false)); // Tagesende: nur der Tag
+}

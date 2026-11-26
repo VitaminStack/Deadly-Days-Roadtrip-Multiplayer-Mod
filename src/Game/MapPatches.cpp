@@ -96,6 +96,7 @@ struct
     bool RunWon = false;
     // opt-ergebnis-werte, Client: letzte Werte des Hosts und seit wann auf die Werte zu HostEnd gewartet wird.
     std::optional<Map::RoundStatsImage> HostStats;
+    uintptr_t RunEndedWorld = 0; // Welt, in der der Host den Run beendet hat, 0 ohne
     uint64_t StatsWaitEnd = 0;
     ULONGLONG StatsWaitSince = 0;
     // Beide: PCG-Volume, dessen Instanzen noch einen festen Seed brauchen
@@ -662,6 +663,9 @@ void FollowRoundEnd()
     // offen ist. Eine Niederlage hat kein Lager, darum bleibt FollowedWorld dort leer und Bestätigen unberührt. Ein Sieg behält das
     // Lager, falls der Host den Endlosmodus startet.
     const Map::RunOutcome Outcome = S.HostEnd->Outcome;
+    // Am Run-Ende zeigt die Übersicht wie beim Host die Summen aller Tage, bis der Client die Welt verlässt (TickMap).
+    S.RunEndedWorld = Outcome != Map::RunOutcome::None ? CurrentWorld() : 0;
+    RoundStats::NoteRunEnded(S.RunEndedWorld);
     RoundStats::HoldForRoundChange(HostStats ? &*HostStats : nullptr);
     const bool Followed = FollowHostRoundEnd();
     RoundStats::HoldForRoundChange(nullptr);
@@ -690,6 +694,11 @@ void TickMap(NetRole Role, bool Second)
 {
     if (Role == NetRole::Client)
     {
+        if (S.RunEndedWorld && S.RunEndedWorld != CurrentWorld())
+        {
+            S.RunEndedWorld = 0;
+            RoundStats::NoteRunEnded(0);
+        }
         FollowRoundEnd();
         TickLossPanel(Second);
     }

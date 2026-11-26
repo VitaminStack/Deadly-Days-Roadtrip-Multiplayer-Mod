@@ -118,6 +118,14 @@ constexpr bool ClientMayOpenRoundEnd(uint64_t EndId, uint64_t StatsEndId, uint64
     return !EndId || StatsEndId == EndId || WaitedMs >= MaxWaitMs;
 }
 
+// Rundenübersicht (URoundEndPanel::GenerateStats): Summen aller Tage statt des letzten Tags, wenn das Spiel die letzte Mission
+// meldet oder (nur beim Client) der Host den Run in dieser Welt beendet hat. Beim Host bleibt es beim Spiel: Seine Niederlage
+// erkennt GenerateStats selbst daran, dass alle Figuren tot sind.
+constexpr bool PanelShowsRunTotals(bool FinalMission, bool ClientRunEnded)
+{
+    return FinalMission || ClientRunEnded;
+}
+
 // TSet/TMap des Spiels (TSparseArray mit Belegungsbits, Hash), 0x50 Byte. Wie ControllerSet in PatchPolicy.h, aber nur gelesen,
 // darum Adressen statt Zeiger. Gesamtwerte: Element 0x20 Byte (FMissionTimeIdentifier, FGameStat). Je Spieler: Element 0x60
 // Byte (int32 Spielerindex, bei +8 derselbe Container).

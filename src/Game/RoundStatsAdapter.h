@@ -22,4 +22,8 @@ std::optional<size_t> ApplyHost(const Snapshot& Host);
 void HoldForRoundChange(const Snapshot* Host);
 // Wie oft der Hook seit dem letzten Aufruf nachgesetzt hat.
 int TakeReapplied();
+
+// Client: Der Host hat den Run in dieser Welt beendet (Sieg oder Niederlage). Bis zum Weltwechsel zeigt die Rundenübersicht dann
+// wie beim Host die Summen aller Tage statt des letzten Tags. 0 hebt es auf.
+void NoteRunEnded(uintptr_t World);
 }

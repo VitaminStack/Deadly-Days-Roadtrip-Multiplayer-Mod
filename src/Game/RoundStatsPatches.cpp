@@ -24,6 +24,7 @@ namespace
 {
 const Snapshot* HeldHost = nullptr; // nur Game Thread, siehe HoldForRoundChange
 int Reapplied = 0;
+uintptr_t RunEndedWorld = 0; // Client: Welt, in der der Host den Run beendet hat, siehe NoteRunEnded
 }
 }
 
@@ -39,6 +40,10 @@ constexpr uintptr_t IncrementPlayer = 0x58F4520;  // dessen Teil je Spieler
 constexpr uintptr_t GetGameStatImpl = 0x58EF260;  // UDDGameStatsSubsystem::GetGameStat
 constexpr uintptr_t RoundChanged = 0x58FC4B0;     // UDDGameStatsSubsystem::OnRoundChanged(Reason): StopTracking, dann Sieg und Ratables
 constexpr uintptr_t RoundChangedThunk = 0x56C6B4B; // Aufruf im Exec-Thunk, dem einzigen Aufrufer
+constexpr uintptr_t WasFinalMission = 0x590D930;   // UDDGameStatsSubsystem::WasFinalMission
+constexpr uintptr_t GenerateStats = 0x5AE3510;     // URoundEndPanel::GenerateStats
+// In GenerateStats: Summen aller Tage, wenn WasFinalMission oder alle Figuren tot sind, sonst der Tag aus TimeIdentifier.
+constexpr uintptr_t GenerateStatsFinalCall = 0x5AE367D;
 
 bool CheckRoundStats()
 {
@@ -51,7 +56,11 @@ bool CheckRoundStats()
            ExpectBranch(At(IncrementPlayer, 0x4C), CallRel32, PlayerFindOrAdd, "Spieler-Container in IncrementGameStat") &&
            ExpectBranch(At(IncrementPlayer, 0x60), CallRel32, StatIncrement, "Spielerwert in IncrementGameStat") &&
            ExpectBranch(At(GetGameStatImpl, 0x0B), CallRel32, StatFind, "Suche in GetGameStat") &&
-           ExpectBranch(At(RoundChangedThunk), CallRel32, RoundChanged, "OnRoundChanged im Exec-Thunk");
+           ExpectBranch(At(RoundChangedThunk), CallRel32, RoundChanged, "OnRoundChanged im Exec-Thunk") &&
+           Code::Expect(At(WasFinalMission), {0x48, 0x83, 0xEC, 0x38, 0x48, 0x8D, 0x44, 0x24, 0x48}, "WasFinalMission") &&
+           Code::Expect(At(GenerateStats), {0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x10, 0x48, 0x89, 0x70, 0x18}, "GenerateStats") &&
+           Code::Expect(At(GenerateStatsFinalCall, 5), {0x84, 0xC0, 0x75}, "Prüfung nach WasFinalMission in GenerateStats") &&
+           ExpectBranch(At(GenerateStatsFinalCall), CallRel32, WasFinalMission, "WasFinalMission in GenerateStats");
 }
 
 std::atomic<bool> RoundStatsReady = false;
@@ -67,17 +76,33 @@ void __fastcall RoundChangedHook(uintptr_t Subsystem, uint8_t Reason)
         ++RoundStats::Reapplied;
 }
 
-bool ApplyRoundStats(Code::Writer&)
+// Nur der Aufruf in GenerateStats: Beim Client entscheidet der Host über das Run-Ende. Seine Übersicht zeigt dann die Summen aller
+// Tage (bei der Niederlage, weil alle Figuren tot sind), die des Clients sähe nur den letzten Tag, weil dort nicht alle Figuren tot
+// gemeldet sind. Ratables und der Exec-Thunk rufen WasFinalMission unverändert.
+using WasFinalFn = bool(__fastcall*)(uintptr_t);
+bool __fastcall WasFinalForPanel(uintptr_t Subsystem)
 {
+    const bool Final = reinterpret_cast<WasFinalFn>(At(WasFinalMission))(Subsystem);
+    return RoundStats::PanelShowsRunTotals(Final, RoundStats::RunEndedWorld && RoundStats::RunEndedWorld == CurrentWorld());
+}
+
+bool ApplyRoundStats(Code::Writer& Code)
+{
+    // Der CALL bleibt, nur sein Ziel ändert sich. So stimmt die Rücksprungadresse.
+    uint8_t* Stub = Code.EmitAbsoluteJump(reinterpret_cast<uintptr_t>(&WasFinalForPanel));
+    const auto Delta = Code::Rel32(At(GenerateStatsFinalCall) + 5, reinterpret_cast<uintptr_t>(Stub));
+    if (Code.Failed() || !Delta)
+        return false;
     if (!Core::Hooks::Install(reinterpret_cast<void*>(At(RoundChanged)), reinterpret_cast<void*>(&RoundChangedHook),
-                              reinterpret_cast<void**>(&OriginalRoundChanged)))
+                              reinterpret_cast<void**>(&OriginalRoundChanged)) ||
+        !Code::WriteCode(At(GenerateStatsFinalCall) + 1, &*Delta, sizeof(*Delta)))
         return false;
     RoundStatsReady = true;
     return true;
 }
 
 // Je Patch die benutzten Adressen der Signaturtabelle, erzeugt von tools/patch_signatures.py sites.
-constexpr uintptr_t RoundStatsSites[] = {StatIncrement, StatFind, PlayerFindOrAdd, IncrementImpl, IncrementPlayer, GetGameStatImpl, RoundChanged, RoundChangedThunk};
+constexpr uintptr_t RoundStatsSites[] = {StatIncrement, StatFind, PlayerFindOrAdd, IncrementImpl, IncrementPlayer, GetGameStatImpl, RoundChanged, RoundChangedThunk, WasFinalMission, GenerateStats, GenerateStatsFinalCall};
 // Steht in der Liste Map (MapPatches.cpp), hier nur für die Werkzeuge der Signaturtabelle.
 const Patch List[] = {
     {"Werte der Rundenübersicht vom Host", &CheckRoundStats, &ApplyRoundStats, RoundStatsSites},
@@ -234,6 +259,11 @@ std::optional<size_t> ApplyHost(const Snapshot& Host)
 void HoldForRoundChange(const Snapshot* Host)
 {
     HeldHost = Host;
+}
+
+void NoteRunEnded(uintptr_t World)
+{
+    RunEndedWorld = World;
 }
 
 int TakeReapplied()

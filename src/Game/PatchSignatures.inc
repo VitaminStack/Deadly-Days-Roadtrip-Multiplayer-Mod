@@ -89,6 +89,7 @@
 {0x0590D3BA, 0, "48 85 DB 74 ?? 40 84 ED 74 ?? B0 01 EB ??", 0, "DeviceCheckSite"}, // RemoteP2Patches.cpp
 {0x0590D3BF, 0, "40 84 ED 74 ?? B0 01 EB ?? 32 C0 44 3A F0", 0, "SoloLossTest"}, // RemoteP2Patches.cpp
 {0x0590D3C4, 0, "B0 01 EB ?? 32 C0 44 3A F0 0F 84 ?? ?? ?? ?? 88 87 89 01 00 00", 0, "NeedReconnect"}, // RemoteP2Patches.cpp
+{0x0590D930, 0, "48 83 EC 38 48 8D 44 24 48 48 89 44 24 28 48 8D 54 24 20 48 8D 05 ?? ?? ?? ?? 48 89 44 24 20 E8 ?? ?? ?? ?? 48 83 C4 38 C3 CC CC CC CC CC CC CC 40 53 48 83 EC 20 48 8B D9 E8 ?? ?? ?? ?? 80 BB 10 04 00 00 00 74 ?? F3 0F 10 83 88 03 00 00 F2 0F 10 88 68 08 00 00", 0, "WasFinalMission"}, // RoundStatsPatches.cpp
 {0x05938CF0, 0, "40 57 48 83 EC 20 48 8B F9 80 FA 01", 0, "RunSaveRoundChanged"}, // ClientPatches.cpp
 {0x05940CB0, 0, "40 53 48 83 EC 20 48 83 3A 00 48 8B D9 74 ?? 48 8B 4A 08", 0, "RunSaveResave"}, // ClientPatches.cpp
 {0x05943B53, 0, "74 ?? 8B 41 64 44 8B D7 39 41 38", 0, "ThreatFreezeBranch"}, // ClientPatches.cpp
@@ -126,6 +127,8 @@
 {0x05A7B75B, 0, "E8 ?? ?? ?? ?? 48 8B 4D 10 48 33 CC E8 ?? ?? ?? ?? 4C 8D 9C 24 30 01 00 00 49 8B 5B 38", 0, "ClientRefreshCallSite"}, // ClientPatches.cpp
 {0x05A941D0, 0, "48 89 5C 24 10 48 89 74 24 18 48 89 7C 24 20 55 41 54 41 55 41 56 41 57 48 8D 6C 24 B0 48 81 EC 50 01 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 40 48 8B F9 C6 81 00 09 00 00 01 E8 ?? ?? ?? ??", 0, "ClientRefreshFunction"}, // ClientPatches.cpp
 {0x05ABD6C0, 0, "48 89 5C 24 10 56 48 83 EC 40 48 83 79 30 00", 0, "RepresentationSize"}, // InventoryPatches.cpp
+{0x05AE3510, 0, "48 8B C4 48 89 58 10 48 89 70 18 48 89 78 20 55 41 54 41 55 41 56 41 57 48 8D A8 B8 FE FF FF 48 81 EC 20 02 00 00 0F 29 70 C8 0F 29 78 B8 44 0F 29 40 A8 44 0F 29 48 98 4C 8B F1", 0, "GenerateStats"}, // RoundStatsPatches.cpp
+{0x05AE367D, 0, "E8 ?? ?? ?? ?? 84 C0 75 ?? 84 DB 75 ?? 88 44 24 40", 0, "GenerateStatsFinalCall"}, // RoundStatsPatches.cpp
 {0x05B0C050, 0, "4C 8B DC 55 53 56 57 41 56 49 8D 6B A8 48 81 EC 30 01 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 A0 4D 8B F1", 0, "LocalViewportCorners"}, // ExpPatches.cpp
 {0x05B11480, 0, "48 89 5C 24 18 48 89 74 24 20 55 57 41 54 41 56 41 57 48 8D 6C 24 F0 48 81 EC 10 01 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 00 48 8B DA 48 8B F1 48 89 4C 24 30 45 33 F6", 0, "GetPlayerCharacters"}, // ClientPatches.cpp
 {0x05B14115, 0, "48 8B 08 48 8B 91 30 03 00 00 48 8B C8 48 83 C4 28 48 FF E2 CC", 0, "PlayerIndexNullSite"}, // PlayerPatches.cpp
