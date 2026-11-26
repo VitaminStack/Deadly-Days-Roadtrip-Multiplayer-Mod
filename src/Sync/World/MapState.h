@@ -145,7 +145,7 @@ inline std::optional<std::optional<Game::Map::RoundEnd>> DecodeRoundEnd(std::spa
 }
 
 // opt-ergebnis-werte: Werte der Rundenübersicht des Hosts, vor dem Rundenende 0x401 desselben Endes. Id des Rundenendes (8),
-// bekannt (1: 0 oder 1), Anzahl (2), je Wert Tag (4), Teilmission (1), Typ (1), Spieler (1, 0xFF gesamt), Wert (8). Unbekannt
+// bekannt (1: 0 oder 1), Anzahl (2), je Wert Tag (4), Teilmission (int8, 1), Typ (1), Spieler (1, 0xFF gesamt), Wert (8). Unbekannt
 // heißt ohne Werte. Jeder Schlüssel aus Spieler, Tag, Teilmission und Typ nur einmal.
 inline constexpr uint16_t RoundStatsType = 0x402;
 inline constexpr size_t RoundStatsHeader = 11, RoundStatsEntry = 15;
@@ -167,7 +167,7 @@ inline std::vector<uint8_t> EncodeRoundStats(const Game::Map::RoundStatsImage& V
     for (const auto& Entry : Value.Entries)
     {
         Detail::Put(Out, static_cast<uint32_t>(Entry.Day), 4);
-        Out.push_back(static_cast<uint8_t>(Entry.SubMission));
+        Out.push_back(static_cast<uint8_t>(static_cast<int8_t>(Entry.SubMission)));
         Out.push_back(Entry.Type);
         Out.push_back(static_cast<uint8_t>(static_cast<int8_t>(Entry.Player)));
         Detail::Put(Out, static_cast<uint64_t>(Entry.Value), 8);
@@ -184,7 +184,7 @@ inline std::optional<Game::Map::RoundStatsImage> DecodeRoundStats(std::span<cons
         return std::nullopt;
     Game::Map::RoundStatsImage Value{Detail::Get(In, 0, 8), In[8] == 1};
     for (size_t At = RoundStatsHeader; At < In.size(); At += RoundStatsEntry)
-        Value.Entries.push_back({static_cast<int32_t>(Detail::Get(In, At, 4)), In[At + 4], In[At + 5],
+        Value.Entries.push_back({static_cast<int32_t>(Detail::Get(In, At, 4)), static_cast<int8_t>(In[At + 4]), In[At + 5],
                                  static_cast<int8_t>(In[At + 6]), static_cast<int64_t>(Detail::Get(In, At + 7, 8))});
     return Valid(Value) ? std::optional(std::move(Value)) : std::nullopt;
 }

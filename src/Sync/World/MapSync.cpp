@@ -20,8 +20,7 @@ struct Sent
     uint64_t NextResend = 0;
     std::optional<std::optional<Game::Map::RoundEnd>> End;
     uint64_t NextEndResend = 0;
-    std::optional<Game::Map::RoundStatsImage> Stats;
-    uint64_t NextStatsSend = 0;
+    std::optional<Game::Map::RoundStatsImage> Stats; // zuletzt angenommenes Bild, eins je Rundenende
 };
 
 struct
@@ -37,13 +36,11 @@ uint64_t NowMs()
         std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
 }
 
-// opt-ergebnis-werte: Werte der Rundenübersicht vor dem Rundenende desselben Endes, auf demselben zuverlässigen Weg. Ein neues Ende
-// sofort, geänderte Werte höchstens jede Sekunde; gleiche Werte nicht noch einmal, sie sind bis zu 45 KB groß.
+// opt-ergebnis-werte: Werte der Rundenübersicht vor dem Rundenende desselben Endes, auf demselben zuverlässigen Weg. Einmal je
+// Ende, bis das Senden angenommen ist: Der Client übernimmt sie nur einmal, direkt vor dem Öffnen der Übersicht.
 void TickHostRoundStats(Net::Transport& Transport, uint64_t Peer, Sent& State, const std::optional<Game::Map::RoundStatsImage>& Stats)
 {
-    const uint64_t Now = NowMs();
-    if (!Stats || !M.Run || (State.Stats && *State.Stats == *Stats) ||
-        (State.Stats && State.Stats->EndId == Stats->EndId && Now < State.NextStatsSend))
+    if (!Stats || !M.Run || (State.Stats && State.Stats->EndId == Stats->EndId))
         return;
     auto Payload = MapWire::EncodeRoundStats(*Stats);
     if (Payload.empty())
@@ -54,11 +51,9 @@ void TickHostRoundStats(Net::Transport& Transport, uint64_t Peer, Sent& State, c
     }
     if (!Transport.SendControl(Peer, {M.Run, 1, ++M.Revision, MapWire::RoundStatsType, std::move(Payload)}))
         return;
-    if (!State.Stats || State.Stats->EndId != Stats->EndId)
-        Core::Log::Info("Rundenwerte: {} Werte{} an den Client gesendet (Peer {:x})", Stats->Entries.size(),
-                        Stats->Known ? "" : " (eigene unlesbar)", Peer);
+    Core::Log::Info("Rundenwerte: {} Werte{} an den Client gesendet (Peer {:x})", Stats->Entries.size(), Stats->Known ? "" : " (eigene unlesbar)",
+                    Peer);
     State.Stats = Stats;
-    State.NextStatsSend = Now + 1000;
 }
 
 // Rundenende wie die Karte: bei Änderung sofort, sonst jede Sekunde, damit ein verlorenes Paket nachkommt.
@@ -142,9 +137,14 @@ void TickMap(std::span<const Net::ControlMessage> Messages)
     {
         // Jeder Client bekommt dieselbe Karte; getrennte Clients verlieren ihren Stand, neue starten leer.
         std::erase_if(M.Peers, [&Peers](const auto& Entry) { return std::find(Peers.begin(), Peers.end(), Entry.first) == Peers.end(); });
-        // Einmal je Takt lesen, für alle Clients dieselben Werte.
+        // Nur lesen, solange ein Client die Werte zu diesem Ende noch nicht hat; dann für alle Clients dieselben.
+        const auto End = Game::Map::CurrentRoundEnd();
+        const bool Needed = End && std::any_of(Peers.begin(), Peers.end(), [&End](uint64_t Peer) {
+            const auto Found = M.Peers.find(Peer);
+            return Found == M.Peers.end() || !Found->second.Stats || Found->second.Stats->EndId != End->Id;
+        });
         std::optional<Game::Map::RoundStatsImage> Stats;
-        if (!Peers.empty())
+        if (Needed)
             Stats = Game::Map::CurrentRoundStats();
         for (const uint64_t Peer : Peers)
         {

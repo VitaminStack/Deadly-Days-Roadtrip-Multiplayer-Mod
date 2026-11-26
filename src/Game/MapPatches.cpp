@@ -744,8 +744,15 @@ std::optional<RoundStatsImage> CurrentRoundStats()
     RoundStatsImage Image{End->Id};
     if (auto Values = RoundStats::ReadLocal())
     {
+        const size_t Read = Values->size();
         Image.Known = true;
         Image.Entries = RoundStats::Limit(std::move(*Values));
+        // Einmal je Rundenende: was nicht ins Bild passt oder ungültig ist, sieht der Client nicht.
+        static uint64_t Logged = 0;
+        if (Logged != End->Id && Read != Image.Entries.size())
+            Core::Log::Warn("Rundenwerte: {} von {} eigenen Werten nicht übertragbar (ungültig oder über {})", Read - Image.Entries.size(),
+                            Read, RoundStats::MaxEntries);
+        Logged = End->Id;
     }
     return Image;
 }

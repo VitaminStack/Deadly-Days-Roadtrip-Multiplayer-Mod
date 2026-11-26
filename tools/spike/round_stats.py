@@ -13,7 +13,7 @@ from ddmem import Game
 
 TYPES = ['MaxThreatLevel', 'Duration', 'Kills', 'DamageDealt', 'DPS', 'LevelUps', 'ItemsLooted', 'HealthPercentage',
          'NightSeconds', 'HitCount', 'DamagePerHit']
-GLOBAL_OFFSET, PLAYER_OFFSET = 0x198, 0x1E8
+GLOBAL_OFFSET, PLAYER_OFFSET, TIME_OFFSET = 0x198, 0x1E8, 0xD0  # TIME: CurrentGameData.TimeIdentifier
 FLAG_CLASS_DEFAULT_OBJECT = 0x10
 
 
@@ -74,7 +74,8 @@ def read_stats(pid):
     subsystem = find_subsystem(game)
     if not subsystem:
         return None
-    stats = {'global': container(game, game.read(subsystem + GLOBAL_OFFSET, 0x50)), 'players': {}}
+    time = struct.unpack('<ii', game.read(subsystem + TIME_OFFSET, 8) or b'\0' * 8)
+    stats = {'global': container(game, game.read(subsystem + GLOBAL_OFFSET, 0x50)), 'players': {}, 'time': time}
     for element in elements(game, game.read(subsystem + PLAYER_OFFSET, 0x50), 0x60):
         # Schluessel int32, der Container des Spielers liegt im Element bei +8.
         stats['players'][struct.unpack_from('<i', element, 0)[0]] = container(game, element[8:0x58])
@@ -100,6 +101,8 @@ def main(argv):
         print('kein DDGameStatsSubsystem gefunden')
         return 2
     differences = 0
+    print('Tageskennung ' + ' | '.join(f'{s["time"][0]}.{s["time"][1]}' for s in sides))
+    differences += len({s['time'] for s in sides}) > 1
     scopes = [('gesamt', [side['global'] for side in sides])]
     players = sorted(set().union(*[side['players'].keys() for side in sides]))
     scopes += [(f'P{p}', [side['players'].get(p, {}) for side in sides]) for p in players]

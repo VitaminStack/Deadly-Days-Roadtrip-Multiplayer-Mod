@@ -147,7 +147,7 @@ TEST_CASE("Rundenwerte: Werte des Hosts kommen unverändert an, gesamt und je Sp
     using Game::RoundStats::Entry;
     Game::Map::RoundStatsImage Image{0xABCDEF0123456789ull, true};
     Image.Entries = {Entry{1, 0, 2, Game::RoundStats::GlobalPlayer, 57}, Entry{1, 0, 2, 0, 40}, Entry{1, 0, 2, 3, 17},
-                     Entry{8, 255, 10, 1, -3}, Entry{100000, 0, 3, 7, 0x7FFFFFFFFFFFFFFFll}};
+                     Entry{8, 127, 10, 1, -3}, Entry{1, -1, 2, 2, 5}, Entry{-1, -1, 1, -1, 6}, Entry{100000, 0, 3, 7, 0x7FFFFFFFFFFFFFFFll}};
     const auto Bytes = EncodeRoundStats(Image);
     REQUIRE(Bytes.size() == RoundStatsHeader + Image.Entries.size() * RoundStatsEntry);
     const auto Back = DecodeRoundStats(Bytes);

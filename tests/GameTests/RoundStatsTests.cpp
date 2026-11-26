@@ -30,6 +30,17 @@ TEST_CASE("Rundenwerte: eigene Werte, die der Host nicht hat, werden 0")
     CHECK(Writes[1] == Entry{3, 0, Kills, GlobalPlayer, 0});
 }
 
+TEST_CASE("Rundenwerte: hat der Host gekürzt, bleiben eigene Werte vor seinem ältesten Tag")
+{
+    std::vector<Entry> Host;
+    for (size_t i = 0; i < MaxEntries; ++i)
+        Host.push_back({static_cast<int32_t>(10 + i / TypeCount), 0, static_cast<uint8_t>(i % TypeCount), GlobalPlayer, 1});
+    const std::vector<Entry> Local = {{2, 0, Kills, GlobalPlayer, 9}, {500, 0, Kills, 1, 4}};
+    const auto Writes = PlanWrites(Local, Host);
+    CHECK(std::find(Writes.begin(), Writes.end(), Entry{2, 0, Kills, GlobalPlayer, 0}) == Writes.end());
+    CHECK(std::find(Writes.begin(), Writes.end(), Entry{500, 0, Kills, 1, 0}) != Writes.end());
+}
+
 TEST_CASE("Rundenwerte: gleiche Stände brauchen keine Schreibzugriffe")
 {
     const std::vector<Entry> Same = {{1, 0, Kills, GlobalPlayer, 4}, {2, 1, 0, 0, 3}};
@@ -49,7 +60,9 @@ TEST_CASE("Rundenwerte: unbekannte Typen, Spieler und Tage sind ungültig")
     CHECK_FALSE(Valid(Entry{1, 0, TypeCount, GlobalPlayer, 0}));
     CHECK_FALSE(Valid(Entry{1, 0, Kills, -2, 0}));
     CHECK_FALSE(Valid(Entry{1, 0, Kills, MaxPlayer + 1, 0}));
-    CHECK_FALSE(Valid(Entry{-1, 0, Kills, GlobalPlayer, 0}));
+    CHECK(Valid(Entry{1, -1, Kills, GlobalPlayer, 0}));
+    CHECK_FALSE(Valid(Entry{-2, 0, Kills, GlobalPlayer, 0}));
+    CHECK_FALSE(Valid(Entry{1, -2, Kills, GlobalPlayer, 0}));
     CHECK_FALSE(Valid(Entry{1, MaxSubMission + 1, Kills, GlobalPlayer, 0}));
 }
 

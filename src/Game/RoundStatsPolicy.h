@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <map>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 // opt-ergebnis-werte: Werte der Rundenübersicht. Das Spiel führt sie im UDDGameStatsSubsystem je Tag (FMissionTimeIdentifier)
@@ -16,7 +17,8 @@ namespace Game::RoundStats
 inline constexpr int32_t GlobalPlayer = -1; // Gesamtwert, sonst Spielerindex des Spiels
 inline constexpr int32_t MaxPlayer = 7;
 inline constexpr uint8_t TypeCount = 11; // EGameStatType ohne __COUNT
-inline constexpr int32_t MaxDay = 100000, MaxSubMission = 255;
+// Tag und Teilmission -1 kommen vor (gesehen: Tageskennung 1.-1 beim Client), die Teilmission geht als int8 über den Draht.
+inline constexpr int32_t MinDay = -1, MaxDay = 100000, MinSubMission = -1, MaxSubMission = 127;
 inline constexpr size_t MaxEntries = 3000;
 
 struct Entry
@@ -30,7 +32,7 @@ struct Entry
 
 inline bool Valid(const Entry& Value)
 {
-    return Value.Type < TypeCount && Value.Day >= 0 && Value.Day <= MaxDay && Value.SubMission >= 0 && Value.SubMission <= MaxSubMission &&
+    return Value.Type < TypeCount && Value.Day >= MinDay && Value.Day <= MaxDay && Value.SubMission >= MinSubMission && Value.SubMission <= MaxSubMission &&
            Value.Player >= GlobalPlayer && Value.Player <= MaxPlayer;
 }
 
@@ -67,9 +69,14 @@ inline std::vector<Entry> Limit(std::vector<Entry> Values)
 
 // Client: Was zu schreiben ist, damit der lokale Stand dem des Hosts gleicht. Jeder Wert des Hosts, der lokal fehlt oder anders
 // ist, und 0 für lokale Werte, die der Host nicht hat (etwa aus einem früheren Run oder eigener Zählung). Entfernen kann die Mod
-// Einträge nicht, eine 0 zeigt die Übersicht wie einen fehlenden Wert.
+// Einträge nicht, eine 0 zeigt die Übersicht wie einen fehlenden Wert. Hat der Host gekürzt (Limit, volle MaxEntries), bleiben
+// lokale Werte vor seinem ältesten Tag stehen: Über diese Tage sagt das Bild nichts.
 inline std::vector<Entry> PlanWrites(const std::vector<Entry>& Local, const std::vector<Entry>& Host)
 {
+    const bool Complete = Host.size() < MaxEntries;
+    auto Oldest = std::make_pair(MaxDay + 1, 0);
+    for (const auto& Value : Host)
+        Oldest = std::min(Oldest, std::make_pair(Value.Day, Value.SubMission));
     std::map<decltype(Key(Entry{})), int64_t> Have;
     for (const auto& Value : Local)
         Have[Key(Value)] = Value.Value;
@@ -83,7 +90,7 @@ inline std::vector<Entry> PlanWrites(const std::vector<Entry>& Local, const std:
             Writes.push_back(Value);
     }
     for (const auto& Value : Local)
-        if (!FromHost.contains(Key(Value)) && Value.Value != 0)
+        if (!FromHost.contains(Key(Value)) && Value.Value != 0 && (Complete || std::make_pair(Value.Day, Value.SubMission) >= Oldest))
             Writes.push_back({Value.Day, Value.SubMission, Value.Type, Value.Player, 0});
     return Writes;
 }
