@@ -146,3 +146,9 @@ TEST_CASE("Rundenwerte: Werte nach der Tageskennung des Hosts stammen aus einem 
     CHECK(StaleRun(Snapshot{2, 1, {}}, 2, 0));    // eigene Tageskennung danach, Teilmission zählt mit
     CHECK_FALSE(StaleRun(Snapshot{0, 0, {}}, 1, 0)); // frischer Client
 }
+
+TEST_CASE("Rundenwerte: beim Sieg behält der Client seine Tageskennung, sonst übernimmt er die des Hosts")
+{
+    CHECK(ClientTakesHostDay(false)); // Tagesende und Niederlage: sonst zeigt die Übersicht Tag 0
+    CHECK_FALSE(ClientTakesHostDay(true)); // Sieg: sonst böte der Blueprint Rückkehr und Endlosmodus statt Fortsetzen
+}

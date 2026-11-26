@@ -645,11 +645,12 @@ void FollowRoundEnd()
         return;
     // Gehalten wird der Stand bis nach FollowHostRoundEnd: Dort bucht das Spiel am Tagesende selbst, danach setzt der Hook ihn erneut.
     std::optional<RoundStats::Snapshot> HostStats;
+    const bool WriteTime = RoundStats::ClientTakesHostDay(S.HostEnd->Outcome == Map::RunOutcome::Won);
     if (StatsEnd != S.HostEnd->Id)
         Core::Log::Warn("Rundenwerte: keine Werte des Hosts nach {} ms, Client zeigt die eigenen", Now - S.StatsWaitSince);
     else if (!S.HostStats->Known)
         Core::Log::Warn("Rundenwerte: Host konnte seine Werte nicht lesen, Client zeigt die eigenen");
-    else if (const auto Written = RoundStats::ApplyHost(S.HostStats->Values))
+    else if (const auto Written = RoundStats::ApplyHost(S.HostStats->Values, WriteTime))
     {
         Core::Log::Info("Rundenwerte: Tag {}.{} und {} Werte des Hosts übernommen, {} davon geschrieben", S.HostStats->Values.Day,
                         S.HostStats->Values.SubMission, S.HostStats->Values.Entries.size(), *Written);
@@ -666,7 +667,7 @@ void FollowRoundEnd()
     // Am Run-Ende zeigt die Übersicht wie beim Host die Summen aller Tage, bis der Client die Welt verlässt (TickMap).
     S.RunEndedWorld = Outcome != Map::RunOutcome::None ? CurrentWorld() : 0;
     RoundStats::NoteRunEnded(S.RunEndedWorld);
-    RoundStats::HoldForRoundChange(HostStats ? &*HostStats : nullptr);
+    RoundStats::HoldForRoundChange(HostStats ? &*HostStats : nullptr, WriteTime);
     const bool Followed = FollowHostRoundEnd();
     RoundStats::HoldForRoundChange(nullptr);
     if (const int Reapplied = RoundStats::TakeReapplied())
@@ -692,13 +693,14 @@ void FollowRoundEnd()
 
 void TickMap(NetRole Role, bool Second)
 {
+    // Merker des Run-Endes in jeder Rolle löschen, sobald die Welt wechselt: Eine neue Welt kann dieselbe Adresse bekommen.
+    if (S.RunEndedWorld && (S.RunEndedWorld != CurrentWorld() || Role != NetRole::Client))
+    {
+        S.RunEndedWorld = 0;
+        RoundStats::NoteRunEnded(0);
+    }
     if (Role == NetRole::Client)
     {
-        if (S.RunEndedWorld && S.RunEndedWorld != CurrentWorld())
-        {
-            S.RunEndedWorld = 0;
-            RoundStats::NoteRunEnded(0);
-        }
         FollowRoundEnd();
         TickLossPanel(Second);
     }

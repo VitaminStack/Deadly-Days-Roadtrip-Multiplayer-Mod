@@ -130,6 +130,15 @@ inline bool StaleRun(const Snapshot& Local, int32_t HostDay, int32_t HostSubMiss
                        [&Host](const Entry& Value) { return std::make_pair(Value.Day, Value.SubMission) > Host; });
 }
 
+// Client: Übernimmt er auch die Tageskennung des Hosts? Am Tagesende und bei der Niederlage ja, sonst zeigt die Übersicht Tag 0.
+// Beim Sieg nicht: Mit dem letzten Tag hielte WasFinalMission den Client für das Ende der Route, und der Blueprint böte ihm
+// „Zurück zur Basis“ und „Endlosen Modus starten“ an, die ihn allein reisen lassen. Mit der eigenen Tageskennung bleibt
+// „Fortsetzen“ ins Lager wie bisher; die Summen kommen am Run-Ende ohnehin aus allen Tagen (PanelShowsRunTotals).
+constexpr bool ClientTakesHostDay(bool RunWon)
+{
+    return !RunWon;
+}
+
 // Rundenübersicht (URoundEndPanel::GenerateStats): Summen aller Tage statt des letzten Tags, wenn das Spiel die letzte Mission
 // meldet oder (nur beim Client) der Host den Run in dieser Welt beendet hat. Beim Host bleibt es beim Spiel: Seine Niederlage
 // erkennt GenerateStats selbst daran, dass alle Figuren tot sind.

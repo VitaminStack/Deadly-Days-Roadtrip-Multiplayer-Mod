@@ -23,6 +23,7 @@ namespace Game::RoundStats
 namespace
 {
 const Snapshot* HeldHost = nullptr; // nur Game Thread, siehe HoldForRoundChange
+bool HeldWriteTime = true;
 int Reapplied = 0;
 uintptr_t RunEndedWorld = 0; // Client: Welt, in der der Host den Run beendet hat, siehe NoteRunEnded
 }
@@ -72,7 +73,7 @@ RoundChangedFn OriginalRoundChanged = nullptr;
 void __fastcall RoundChangedHook(uintptr_t Subsystem, uint8_t Reason)
 {
     OriginalRoundChanged(Subsystem, Reason);
-    if (RoundStats::HeldHost && RoundStats::ApplyHost(*RoundStats::HeldHost))
+    if (RoundStats::HeldHost && RoundStats::ApplyHost(*RoundStats::HeldHost, RoundStats::HeldWriteTime))
         ++RoundStats::Reapplied;
 }
 
@@ -83,7 +84,8 @@ using WasFinalFn = bool(__fastcall*)(uintptr_t);
 bool __fastcall WasFinalForPanel(uintptr_t Subsystem)
 {
     const bool Final = reinterpret_cast<WasFinalFn>(At(WasFinalMission))(Subsystem);
-    return RoundStats::PanelShowsRunTotals(Final, RoundStats::RunEndedWorld && RoundStats::RunEndedWorld == CurrentWorld());
+    return RoundStats::PanelShowsRunTotals(
+        Final, CurrentRole() == NetRole::Client && RoundStats::RunEndedWorld && RoundStats::RunEndedWorld == CurrentWorld());
 }
 
 bool ApplyRoundStats(Code::Writer& Code)
@@ -226,7 +228,7 @@ std::optional<Snapshot> ReadLocal()
     return Value;
 }
 
-std::optional<size_t> ApplyHost(const Snapshot& Host)
+std::optional<size_t> ApplyHost(const Snapshot& Host, bool WriteTime)
 {
     auto Local = ReadLocal();
     if (Local && StaleRun(*Local, Host.Day, Host.SubMission))
@@ -250,7 +252,7 @@ std::optional<size_t> ApplyHost(const Snapshot& Host)
     if (!Increment || !Find || !PlayerContainer)
         return std::nullopt;
     const uint64_t Time = PackDay(Host.Day, Host.SubMission);
-    if (!Memory::WriteBytes(Data, &Time, sizeof(Time)))
+    if (WriteTime && !Memory::WriteBytes(Data, &Time, sizeof(Time)))
         return std::nullopt;
     size_t Written = 0;
     for (const Entry& Value : PlanWrites(Local->Entries, Host.Entries))
@@ -267,9 +269,10 @@ std::optional<size_t> ApplyHost(const Snapshot& Host)
     return Written;
 }
 
-void HoldForRoundChange(const Snapshot* Host)
+void HoldForRoundChange(const Snapshot* Host, bool WriteTime)
 {
     HeldHost = Host;
+    HeldWriteTime = WriteTime;
 }
 
 void NoteRunEnded(uintptr_t World)
