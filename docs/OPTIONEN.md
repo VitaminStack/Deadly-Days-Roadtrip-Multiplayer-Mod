@@ -52,7 +52,7 @@ Nutzerentscheidung vom 11.11.2026: vorgezogen, wartet nicht auf `integration-run
 
 ## `opt-airdrop-uebertrag`
 
-**Bestätigungstest ausstehend:** Live-Test 17.11.2026: nach liegen gebliebener Kiste am Rundenende kamen im nächsten Level wieder Airdrops und ließen sich öffnen. Offen: Host-Queue im Host-Log gegenprüfen, [Live-Test 17.11.](archive/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-17112026-livetest-1711) **Aufgabe und Abnahme:** Gefunden im Live-Test am 13.11.2026 (zwei PCs, Build `26495302`): Bleibt ein Airdrop in einem Level liegen, erscheint im nächsten Level keiner mehr (gemeldet). Vermutung: Die Reward-Queue bleibt auf der alten Kiste stehen. **Fertig, wenn** nach einem liegen gelassenen Airdrop im nächsten Level wieder Airdrops kommen und sich öffnen lassen. Ordner `src/Game`. **Einstieg:** [Live-Test 13.11.](archive/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-13112026-livetest-1311)
+**Stand:** Live-Test 26.11.2026 (zwei PCs): Neue Airdrops kommen im nächsten Level und lassen sich öffnen, beide Queues starten je Karte leer. Die liegen gelassene Kiste (Stufe 15) wurde aber nicht nachgeworfen, die erste Landung war Stufe 16. Solo ohne Mod wirft das Spiel eine liegen gelassene Kiste zu Beginn der nächsten Zone neu ab (Tester bestätigt). **Aufgabe und Abnahme:** Gefunden im Live-Test am 13.11.2026: Bleibt ein Airdrop in einem Level liegen, fehlt er im nächsten Level. **Fertig, wenn** eine liegen gelassene Kiste zu zweit wie solo zu Beginn der nächsten Zone neu abgeworfen wird und sich öffnen lässt, und danach die weiteren Airdrops normal kommen. Ordner `src/Game`. **Einstieg:** [Live-Test 13.11.](archive/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-13112026-livetest-1311)
 
 ## `opt-highway-ziel`
 

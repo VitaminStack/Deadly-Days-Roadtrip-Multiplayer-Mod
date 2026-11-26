@@ -48,7 +48,7 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 
 **Wartet auf das Team:** `spawn-nach-kartenaufbau`.
 
-**Bestätigungstests ausstehend (nur Info, blockiert nichts):** 42, siehe [docs/ERLEDIGT.md](docs/ERLEDIGT.md#bestätigungstests-ausstehend).
+**Bestätigungstests ausstehend (nur Info, blockiert nichts):** 41, siehe [docs/ERLEDIGT.md](docs/ERLEDIGT.md#bestätigungstests-ausstehend).
 <!-- frei:end -->
 
 ## Probleme
