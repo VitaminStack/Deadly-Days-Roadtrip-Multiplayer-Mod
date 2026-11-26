@@ -144,7 +144,7 @@ keine Weitergabe von Spieldateien. Steam-Einstellungen und Downloads werden nich
 1. Wer es bemerkt, meldet es im Team mit der neuen Build-ID und legt die zentrale Aufgabe `spiel-update-<build>` an. Die Steam-Installation
    darf aktuell werden. Bis der Umstieg gemergt ist, laufen Spieltests weiter auf der eingefrorenen Kopie des bisherigen Builds.
 2. Der Umstieg ist **eine** zentrale Aufgabe, kein paralleler Betrieb zweier Builds (Vorbild: `update-basis-26786272` mit
-   `spiel-update-26786272`, [Offsets](docs/OFFSETS.md#referenz-build-26786272-spiel-update-26786272)):
+   `spiel-update-26786272`, [Offsets](docs/archive/OFFSETS-ALTE-BUILDS.md#referenz-build-26786272-spiel-update-26786272)):
    - Hash-Referenz des neuen Builds in `tools/game_build.py` eintragen, `Freeze-GameBuild.ps1 -Build <neu>` ohne `-Activate`, eigene
      `config/Local.props` im Worktree mit dem neuen `PinnedGameDir`.
    - `py tools/rva_map.py --old <exe alt> --new <exe neu> --build <neu>` zeigt, welche Adressen sich automatisch umrechnen lassen; den Rest

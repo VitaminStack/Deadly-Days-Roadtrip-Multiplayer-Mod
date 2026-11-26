@@ -187,7 +187,7 @@ bool Install()
     const std::array<PatchList, ListCount> Lists = {{
         {"Player", PlayerPatches()}, {"Client", ClientPatches()}, {"Camera", CameraPatches()}, {"Inventory", InventoryPatches()},
         {"Travel", TravelPatches()}, {"Widget", WidgetPatches()}, {"HealthBar", HealthBarPatches()}, {"Airdrop", AirdropPatches()},
-        {"Exp", ExpPatches()}, {"RemoteP2", RemoteP2Patches()}, {"Reward", RewardPatches(), RewardTickOptionalSites()}, {"Map", MapPatches()},
+        {"Exp", ExpPatches()}, {"RemoteP2", RemoteP2Patches()}, {"Reward", RewardPatches(), RewardTickOptionalSites()}, {"Map", MapPatches(), RoundStatsTickOptionalSites()},
         {"LocalDevice", LocalDevicePatches()}, {"Character", CharacterPatches()}, {"BodyPart", BodyPartPatches()}, {"EnemyTelegraph", EnemyTelegraphPatches()}, {"DamageNumber", DamageNumberPatches()}, {"WeaponSound", WeaponSoundPatches()},
     }};
     std::vector<Patch> All;

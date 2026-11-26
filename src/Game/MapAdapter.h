@@ -5,6 +5,8 @@
 #include <string>
 #include <vector>
 
+#include "Game/RoundStatsPolicy.h"
+
 // Gleiche Karte bei Host und Client (missionsstart). Die Karte entsteht beim Client lokal aus Seed, Profil, Größe und Tags,
 // die Vegetation aus einem PCG-Graphen. Ohne die Werte des Hosts erzeugt der Client eine andere Karte, und die Figuren
 // stehen nicht zusammen oder fallen durch den Boden. Der Host liest die Werte bei seiner Erzeugung, der Kontrollkanal
@@ -61,4 +63,21 @@ std::optional<RoundEnd> CurrentRoundEnd();
 
 // Client: Neuestes Rundenende des Hosts, nullopt ohne oder ohne Verbindung.
 void SetHostRoundEnd(std::optional<RoundEnd> Value);
+
+// opt-ergebnis-werte: Werte der Rundenübersicht des Hosts zu einem Rundenende. Known falsch heißt: Der Host konnte seine Werte
+// nicht lesen, der Client öffnet die Übersicht dann ohne Wartezeit mit den eigenen.
+struct RoundStatsImage
+{
+    uint64_t EndId = 0; // RoundEnd::Id, nie 0
+    bool Known = false;
+    RoundStats::Snapshot Values; // Tageskennung und Werte des Hosts, leer bei Known falsch
+    bool operator==(const RoundStatsImage&) const = default;
+};
+
+// Host: eigene Werte zum Rundenende der aktuellen Welt, nullopt ohne Rundenende.
+std::optional<RoundStatsImage> CurrentRoundStats();
+
+// Client: Neueste Werte des Hosts, nullopt ohne Verbindung. Übernommen werden sie einmal je Rundenende, direkt bevor der Client es
+// nachzieht.
+void SetHostRoundStats(std::optional<RoundStatsImage> Value);
 }

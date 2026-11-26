@@ -4,6 +4,44 @@
 
 Abschnitte aus [OFFSETS.md](../OFFSETS.md), die nur für Builds vor `26786272` gelten oder den Umstieg dokumentieren. Werte hier nicht für den unterstützten Build verwenden.
 
+## Referenz-Build 26786272 (`spiel-update-26786272`)
+
+Stand 21.11.2026, Nutzerentscheidung vom selben Tag: Die Mod unterstützt nur noch den neuesten Spiel-Build. `Game::AddressMap::ReferenceBuild`,
+`Protocol::GameBuild`, `Core::SupportedBuilds`, `Common.ps1`, `game_build.py`, `expect_check.py`, Spike und Installer kennen nur noch
+`26786272`; `26495302` und `26669225` sind entfernt, ebenso beide Tabellen `RvaMap*.inc`. Auf einem älteren Build bleibt die Mod aus
+(`Unbekannter Spiel-Build`), der Installer lehnt ihn ab.
+
+- **Umgeschrieben:** 155 Adressen in 41 Dateien (`src/`, `research/spikes/a-connect`, `tools/spike`, zwei Tests): 128 über die Tabelle aus
+  `update-basis-26786272` (124 der Mod, 4 des Spikes), 26 weitere aus Kommentaren und Tools mit `tools/rva_map.py` (23 eindeutig, je eine
+  über den Funktionsanfang, über Befehlsfenster der Funktion und als vtable) und eine von Hand (Aufruf von `PlayReloadSound` in der
+  Nachladelogik, `0x05A48CC5`). Die Tabelle (Referenz-RVA `26495302` -> `26786272`) liegt nur im Verlauf des Pull Requests 268, nicht auf
+  `main`: `git fetch origin pull/268/head`, dann `git show 87a91a7:src/Game/RvaMap26786272.inc`.
+- **Gemessene Werte in Kommentaren:** Wo ein Kommentar einen Messwert eines früheren Builds nennt, steht der alte Build weiter dabei
+  (`ItemAbilityPatches.cpp`, Koordinaten des Startrings in `Start-Run.ps1`). Die Kopfzeilen der Werkzeuge unter `tools/spike` nennen jetzt
+  `26786272`, ohne dass jedes einzeln gelaufen ist, siehe „Nicht geprüft“.
+- **Nicht umgeschrieben:** die Markdown-Dateien (diese Datei, `archive/GAME_ANALYSIS.md`, die READMEs unter `src/` und im Spike). Ihre Abschnitte
+  sind datierte Befunde mit den Adressen des damaligen Builds; teils stammen sie noch von `26187885`.
+- **Verzweigungen nach Build entfernt:** `TryBuyItem` und `EndTackle` prüfen nur noch die Bytes von `26786272`, `RepresentationItem` ist
+  fest `0xA38`.
+- **Signaturen (`signaturen-nachziehen`):** `PatchSignatures.inc` ist geleert und für den einen Build neu erzeugt: 115 Adressen, auch die
+  beiden bisher fehlenden aus `CharacterPatches.cpp`; die Namen kommen jetzt alle vom Werkzeug. `patch_signatures.py check --strict` 115
+  `ok`, `sites` ohne Abweichung (dafür `InventoryPatches.cpp` nachgezogen und `DamageNumbersSites` umbenannt), ein zweites
+  `generate --write` ändert die Datei nicht. `expect_check.py` 101 `ok`, 2 `uebersprungen`.
+- **SdkChecks:** Build gegen das SDK von `26786272` ohne Fehler.
+- **Spieltest** (ein PC, eingefrorene Kopie `26786272`, ohne echte Eingaben, 21.11.2026):
+  - Mod und Spike (`Start-Session.ps1 -Build -Mod -Tunnel Lobby -Map /Game/Maps/DDDynamic_Map`): Host und Client
+    `Signaturen: 115 Adressen geprüft`, `Patches: 57 gesetzt`, `Spiel-Build 26786272`, Gegnerwelle, Inventar gleich,
+    `Test-Godmode.ps1` bestanden, Rundenende bei beiden, kein `[ERROR]`, kein Absturz.
+  - Nur Spike, ohne Mod: beide Instanzen `Patch: aktiv`, Karte und PCG vom Host, keine Zeile `Adresse fehlt` oder `unerwartete Bytes`,
+    Inventar gleich.
+  - Nur Mod (`-NoSpike`): `Patches: 57 gesetzt`, Lobby, Reise in die Mission, zweieinhalb Minuten, Inventar gleich, kein Absturz.
+- **Nicht geprüft:** die lesenden Python-Werkzeuge unter `tools/spike` einzeln (keines nennt einen Offset in den verschobenen Bereichen
+  von `UInventoryPanel`, `UItemRepresentation`, `URecipePanel` oder deren Blueprints, ihre Feld-Offsets liegen in Klassen, die laut
+  SDK-Vergleich unverändert sind; gelaufen sind `ddmem.py`, `inventory.py`, `godmode_state.py` über die Skripte oben), Befehle des Spikes
+  außer `!wave`, `!finish`, `!god`, alles Weitere wie in [Build 26786272](#build-26786272-update-basis-26786272) (`update-26786272-run`).
+- **Entwicklungskopien:** Nach dem Merge stellt jeder mit `Freeze-GameBuild.ps1 -Build 26786272 -Activate` um (`wechsel-26786272`).
+  Branches von vor dem Umstieg brauchen bis zu ihrem Rebase die alte Kopie.
+
 ## Referenz-Build 26495302 (`spiel-update`)
 
 Stand 09.11.2026. `Game::AddressMap::ReferenceBuild` ist `26495302`, `Core::SupportedBuilds`, `Common.ps1`, `game_build.py` und der
@@ -23,7 +61,7 @@ Tabelle selbst ist entfernt; für alte Werte weiter unten: `git show 0cb3d80:src
 ## Build 26786272 (`update-basis-26786272`)
 
 Zwischenstand vor dem Umstieg (drei Builds parallel, RVAs dieses Abschnitts als Referenz-RVA `26495302` mit Umrechnung), abgelöst durch
-[Referenz-Build 26786272](../OFFSETS.md#referenz-build-26786272-spiel-update-26786272). Stand 20.11.2026, Patch 1.0.3 vom 19.11.2026 (Version laut `CrashReportClient.ini` des Spiels: `1.0.3-main-10811c16`). `26495302` bleibt
+[Referenz-Build 26786272](#referenz-build-26786272-spiel-update-26786272). Stand 20.11.2026, Patch 1.0.3 vom 19.11.2026 (Version laut `CrashReportClient.ini` des Spiels: `1.0.3-main-10811c16`). `26495302` bleibt
 Referenz-Build, `26669225` bleibt unterstützt. Für `26786272` rechnet `Game::AddressMap` die Referenz-RVAs über
 `src/Game/RvaMap26786272.inc` um. Exe: TimeDateStamp `0x260774D7`, SizeOfImage `0x0B750000`; `.text` ist gewachsen
 (`0x0828081C` statt `0x0827BCFC` auf `26669225`). Alles unten ist auf einem PC gemessen, zwei Instanzen, ohne echte Eingaben.
@@ -220,7 +258,7 @@ keiner wurde entfernt.** Quelle der Patchnotes: Steam-Ankündigungen „Patch 1.
 **Verfahren (offline, kein Spieltest):** Die Exes der eingefrorenen Kopien `26495302` (1.0.1), `26669225` (1.0.2) und `26786272` (1.0.3)
 verglichen. Je gepatchter Stelle die ganze Funktion ab ihrem Anfang bis zum Füllbyte disassembliert (Capstone), Sprung-/Aufrufziele und
 RIP-relative Verschiebungen maskiert, Befehlsfolge verglichen; dazu die gepatchten vtable-Einträge aus `.rdata` gelesen. Adressen der alten
-Builds aus den Tabellen `RvaMap26669225.inc` und `RvaMap26786272.inc` (Verlauf, siehe [Referenz-Build](../OFFSETS.md#referenz-build-26786272-spiel-update-26786272)).
+Builds aus den Tabellen `RvaMap26669225.inc` und `RvaMap26786272.inc` (Verlauf, siehe [Referenz-Build](#referenz-build-26786272-spiel-update-26786272)).
 **Grenze:** „gleich“ heißt, die gepatchte Funktion selbst ist unverändert. Aufrufer und aufgerufene Funktionen sind damit nicht verglichen
 (Ausnahme: der Schritt des Kartengenerators). Ob der Auslöser eines Absturzes an anderer Stelle weggefallen ist, belegt das nicht.
 

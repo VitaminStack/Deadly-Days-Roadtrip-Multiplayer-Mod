@@ -14,6 +14,7 @@
 #include "Game/Objects.h"
 #include "Game/PatchRuntime.h"
 #include "Game/RewardAdapter.h"
+#include "Game/RoundStatsAdapter.h"
 
 namespace Game::Patches
 {
@@ -93,6 +94,12 @@ struct
     int LossPanelAttempts = 0;
     bool LossPanelShown = false;
     bool RunWon = false;
+    bool WinContinueLogged = false;
+    // opt-ergebnis-werte, Client: letzte Werte des Hosts und seit wann auf die Werte zu HostEnd gewartet wird.
+    std::optional<Map::RoundStatsImage> HostStats;
+    uintptr_t RunEndedWorld = 0; // Welt, in der der Host den Run beendet hat, 0 ohne
+    uint64_t StatsWaitEnd = 0;
+    ULONGLONG StatsWaitSince = 0;
     // Beide: PCG-Volume, dessen Instanzen noch einen festen Seed brauchen
     uintptr_t PcgWorld = 0;
     ULONGLONG PcgSince = 0;
@@ -552,6 +559,7 @@ bool ApplyMap(Code::Writer&)
 constexpr uintptr_t MapSites[] = {CreateChildActor, IsChildActorReplicated, SetupPcgVolume, StartMapGeneration};
 const Patch List[] = {
     {"Gleiche Karte und Vegetation beim Client", &CheckMap, &ApplyMap, MapSites},
+    RoundStatsPatch(),
 };
 }
 
@@ -598,7 +606,15 @@ void TickLossPanel(bool Second)
         return;
     if (S.LossPanelShown)
     {
-        KeepRunLossButtonsHidden();
+        // opt-ergebnis-werte: Beim Sieg bleibt es bei „Fortsetzen“ ins Lager, auch wenn das Spiel nach der Animation die Knöpfe des
+        // Run-Endes zeigt (Tageskennung des Hosts, siehe RoundStatsAdapter.h).
+        if (!S.RunWon)
+            KeepRunLossButtonsHidden();
+        else if (KeepRunWinContinueOnly() && !S.WinContinueLogged)
+        {
+            S.WinContinueLogged = true;
+            Core::Log::Info("Run-Ende: Client behält am Sieg „Fortsetzen“, Rückkehr und Endlosmodus entscheidet der Host");
+        }
         return;
     }
     if (!ShouldRetryLossPanel(S.LossPanelAttempts, 5))
@@ -611,11 +627,9 @@ void TickLossPanel(bool Second)
     if (!ShowRunEndPanel(S.RunWon))
         return;
     Core::Log::Info("Run-Ende: Client zeigt den Ergebnisbildschirm ({})", S.RunWon ? "Sieg" : "Niederlage");
-    // Beim Sieg bleiben die Knöpfe nativ, nur die Niederlage hält sie ausgeblendet.
-    if (S.RunWon)
-        S.LossPanelWorld = 0;
-    else
-        S.LossPanelShown = true;
+    // Niederlage: Knöpfe ausgeblendet. Sieg: nur „Fortsetzen“. Beides hält der Sekundentakt, bis die Welt wechselt.
+    S.LossPanelShown = true;
+    S.WinContinueLogged = false;
 }
 
 // Client: Das Rundenende des Hosts einmal lokal nachziehen, sobald es zur gespielten Karte passt.
@@ -626,13 +640,47 @@ void FollowRoundEnd()
     const uint64_t ClientMapId = S.UsedWorld == CurrentWorld() ? S.Used.UsedId : 0;
     if (!ClientMayFollowRoundEnd(S.HostEnd->MapId, ClientMapId, S.Used.Followed(S.HostEnd->Id)))
         return;
+    // opt-ergebnis-werte: Die Übersicht liest beim Öffnen die Werte des Subsystems, darum vorher die des Hosts übernehmen.
+    const ULONGLONG Now = GetTickCount64();
+    if (S.StatsWaitEnd != S.HostEnd->Id)
+    {
+        S.StatsWaitEnd = S.HostEnd->Id;
+        S.StatsWaitSince = Now;
+    }
+    const uint64_t StatsEnd = S.HostStats ? S.HostStats->EndId : 0;
+    if (!RoundStats::ClientMayOpenRoundEnd(S.HostEnd->Id, StatsEnd, Now - S.StatsWaitSince))
+        return;
+    // Gehalten wird der Stand bis nach FollowHostRoundEnd: Dort bucht das Spiel am Tagesende selbst, danach setzt der Hook ihn erneut.
+    std::optional<RoundStats::Snapshot> HostStats;
+    if (StatsEnd != S.HostEnd->Id)
+        Core::Log::Warn("Rundenwerte: keine Werte des Hosts nach {} ms, Client zeigt die eigenen", Now - S.StatsWaitSince);
+    else if (!S.HostStats->Known)
+        Core::Log::Warn("Rundenwerte: Host konnte seine Werte nicht lesen, Client zeigt die eigenen");
+    else if (const auto Written = RoundStats::ApplyHost(S.HostStats->Values))
+    {
+        Core::Log::Info("Rundenwerte: Tag {}.{} und {} Werte des Hosts übernommen, {} davon geschrieben", S.HostStats->Values.Day,
+                        S.HostStats->Values.SubMission, S.HostStats->Values.Entries.size(), *Written);
+        HostStats = S.HostStats->Values;
+    }
+    else
+        Core::Log::Warn("Rundenwerte: eigene Werte nicht lesbar, Client zeigt sie unverändert");
     S.Used.Follow(S.HostEnd->Id);
     S.FollowedWorld = 0;
     // run-ende: Der Bildschirm kommt aus dem nativen Rundenende, das Umschalten folgt im nächsten Sekundentakt, wenn die Übersicht
     // offen ist. Eine Niederlage hat kein Lager, darum bleibt FollowedWorld dort leer und Bestätigen unberührt. Ein Sieg behält das
     // Lager, falls der Host den Endlosmodus startet.
     const Map::RunOutcome Outcome = S.HostEnd->Outcome;
-    if (!FollowHostRoundEnd())
+    // Am Run-Ende zeigt die Übersicht wie beim Host die Summen aller Tage, bis der Client die Welt verlässt (TickMap).
+    S.RunEndedWorld = Outcome != Map::RunOutcome::None ? CurrentWorld() : 0;
+    RoundStats::NoteRunEnded(S.RunEndedWorld);
+    RoundStats::HoldForRoundChange(HostStats ? &*HostStats : nullptr);
+    const bool Followed = FollowHostRoundEnd();
+    RoundStats::HoldForRoundChange(nullptr);
+    if (const int Reapplied = RoundStats::TakeReapplied())
+        Core::Log::Info("Rundenwerte: nach der eigenen Tagesend-Buchung {}-mal erneut gesetzt", Reapplied);
+    else if (HostStats && Followed)
+        Core::Log::Warn("Rundenwerte: keine eigene Tagesend-Buchung gesehen, Werte nur vorher gesetzt");
+    if (!Followed)
     {
         Core::Log::Warn("Rundenende: Client ohne Missions-GameState, folgt nur der Reise");
         return;
@@ -651,6 +699,12 @@ void FollowRoundEnd()
 
 void TickMap(NetRole Role, bool Second)
 {
+    // Merker des Run-Endes in jeder Rolle löschen, sobald die Welt wechselt: Eine neue Welt kann dieselbe Adresse bekommen.
+    if (S.RunEndedWorld && (S.RunEndedWorld != CurrentWorld() || Role != NetRole::Client))
+    {
+        S.RunEndedWorld = 0;
+        RoundStats::NoteRunEnded(0);
+    }
     if (Role == NetRole::Client)
     {
         FollowRoundEnd();
@@ -710,6 +764,36 @@ void SetHostRoundEnd(std::optional<RoundEnd> Value)
 {
     using namespace Patches;
     S.HostEnd = Value;
+}
+
+std::optional<RoundStatsImage> CurrentRoundStats()
+{
+    const auto End = CurrentRoundEnd();
+    if (!End)
+        return std::nullopt;
+    RoundStatsImage Image{End->Id};
+    auto Values = RoundStats::ReadLocal();
+    static uint64_t Logged = 0; // einmal je Rundenende
+    if (Values && RoundStats::ValidTime(Values->Day, Values->SubMission))
+    {
+        const size_t Read = Values->Entries.size();
+        Image.Known = true;
+        Image.Values = {Values->Day, Values->SubMission, RoundStats::Limit(std::move(Values->Entries))};
+        // Was nicht ins Bild passt oder ungültig ist, sieht der Client nicht.
+        if (Logged != End->Id && Read != Image.Values.Entries.size())
+            Core::Log::Warn("Rundenwerte: {} von {} eigenen Werten nicht übertragbar (ungültig oder über {})",
+                            Read - Image.Values.Entries.size(), Read, RoundStats::MaxEntries);
+    }
+    else if (Logged != End->Id && Values)
+        Core::Log::Warn("Rundenwerte: eigene Tageskennung {}.{} nicht übertragbar", Values->Day, Values->SubMission);
+    Logged = End->Id;
+    return Image;
+}
+
+void SetHostRoundStats(std::optional<RoundStatsImage> Value)
+{
+    using namespace Patches;
+    S.HostStats = std::move(Value);
 }
 
 void NoteConnectionChanged()
