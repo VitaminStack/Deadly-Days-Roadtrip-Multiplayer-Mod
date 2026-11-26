@@ -23,8 +23,8 @@ ohne Eingaben in rund 80 s, danach verschwindet die Leiste des Hosts.
   `BlockadeEventComponent`) stehen auf beiden Seiten, beim Client lokal aus der eigenen Kartenerzeugung (Rolle Authority, nicht
   repliziert). Beim Client ist `ObjectiveClass` gesetzt (`BP_KillTitansObjective_C`), `ObjectiveInstance`, `CachedSpawner` und
   `TitanEnemies` sind leer: Die Komponente startet Ziel und Titanen nur beim Host.
-- [Belegt, Spiel] Die zehn Titanen sind replizierte `BP_StandardEnemy_C`. Das Merkmal „Titan“ (`GA_TitanAbility_C`) gibt es nur beim
-  Host, der Client kann Titanen darum nicht von anderen Gegnern unterscheiden und Tode nicht selbst zählen.
+- [Belegt, Spiel] Die zehn Titanen sind replizierte `BP_StandardEnemy_C`. Instanzen von `GA_TitanAbility_C` gibt es nur beim Host.
+  [Vermutung] Der Client kann Titanen darum nicht sicher von anderen Gegnern unterscheiden; replizierte Tags wurden nicht geprüft.
 - [Belegt, Spiel] Abschluss beim Host: `CurrentObjective` wird leer, die Leiste verschwindet, das Objekt bleibt im Subsystem liegen
   und steht wieder auf 0 von 10.
 - [Vermutung] Ziele außerhalb der Blockade-Zonen (HQ-Karten, etwa `DD_CollectKeycardObjective`) legt ebenfalls nur der Host an.
@@ -33,18 +33,19 @@ ohne Eingaben in rund 80 s, danach verschwindet die Leiste des Hosts.
 ## Ursache
 
 Das Zonenziel ist ein Objekt des `DDObjectiveSubsystem` der GameInstance. Die Zonen-Komponente legt es nur beim Host an, es
-repliziert nicht, und der Zähler hängt an den Gegner-Spawnern des Hosts. Der Client hat darum nichts, was seine Anzeige zeigen könnte.
+repliziert nicht. Der Client hat darum nichts, was seine Anzeige zeigen könnte. [Vermutung] Gezählt wird über die Gegner-Spawner des
+Hosts (`CachedSpawner` der Komponente ist nur dort gesetzt).
 
 ## Prüfliste ([ARCHITECTURE.md](../ARCHITECTURE.md#verbindliches-architekturprinzip-lokal-zuerst-minimal-synchronisieren))
 
 - **Was bleibt lokal?** Die Klasse des Ziels (aus `BlockadeEventComponent.ObjectiveClass` der eigenen Karte), Beschreibung, Leiste und
   Anzeige (`WI_ObjectiveDisplay_C`). Der Client legt ein eigenes Objekt über `CreateAndStartObjective` ohne Autostart an und meldet es
   seiner Anzeige mit `OnObjectiveStarted`.
-- **Was wird geteilt und warum?** Nur der Stand: Ziel läuft, Ist, Soll. Der Client kann ihn nicht ableiten, weil er Titanen nicht
-  erkennt und ein Beitritt mitten in der Zone frühere Tode nicht kennt. Neue Nachricht `0xD00`, darum `ModVersion` 21
+- **Was wird geteilt und warum?** Nur der Stand: Ziel läuft, Ist, Soll. Der Client kann ihn nicht ableiten: Ein Beitritt mitten in der
+  Zone kennt frühere Tode nicht, und Titanen sind für ihn nicht sicher erkennbar. Neue Nachricht `0xD00`, darum `ModVersion` 21
   ([Kontrollkanal](../CONTROL_PROTOCOL.md#zonenziel-mod-kompatibilität-21)).
-- **Wer entscheidet?** Der Host. Das Objekt des Clients wird nie gestartet (`StartTracking` bleibt aus), zählt nicht selbst und
-  bekommt nie das Soll gesetzt; Abschluss, Belohnung und Folgen der Zone laufen nur beim Host.
+- **Wer entscheidet?** Der Host. Das Objekt des Clients wird nie gestartet (`StartTracking` bleibt aus), zählt nicht selbst, und
+  sein Ist erreicht nie das Soll; Abschluss, Belohnung und Folgen der Zone laufen nur beim Host.
 - **Welcher Weg wird wiederverwendet?** Das Muster der Bedrohungsstufe (`0xC00`): Stand statt Ereignis, bei Änderung und alle 2 s,
   an jeden Client. Die Leiste entsteht wie die Boss-Leiste, mit denselben Schutzregeln (nur Anzeigen mit Subsystem, Wartezeit vor
   dem ersten Wert).
@@ -64,6 +65,11 @@ repliziert nicht, und der Zähler hängt an den Gegner-Spawnern des Hosts. Der C
   sofort mit dem Stand des Hosts (Bild „7/10“), lief bis 9 mit und verschwand mit dem Abschluss.
 - `MGP_HighwayBlockage`: Der Client legt `BP_HighwayDestroyObjective_C` an und zeigt „0 von 10“ wie der Host. Fortschritt und
   Abschluss dort nicht gefahren (die Trümmer brauchen Eingaben).
+- Abreise bei stehender Leiste, drei Instanzen (`-Clients 2`, `DDCOOP_TEST_MAP_PROFILE_EVERY=2`): Beide Clients zeigten die Leiste, mit
+  der Reise in eine normale Karte verschwand sie („Leiste entfernt (Weltwechsel)“), der Host hatte dort kein laufendes Ziel, die
+  Clients suchten nicht weiter. In der nächsten Titanen-Zone entstand sie bei beiden neu.
+- Verbindungsende bei stehender Leiste (`Test-Rejoin.ps1` und der dabei getrennte zweite Client): „Leiste entfernt (keine
+  Verbindung)“, nach dem Wiederbeitritt im selben Prozess neu „lokal angelegt, 7 von 10“. 140 s danach beobachtet, kein Absturz.
 - Das Anlegen sucht einmal im Objekt-Array und hielt den Frame dabei 9 bis 12 ms auf (einmal je Zone).
 - Keine Absturzberichte.
 
@@ -71,6 +77,6 @@ repliziert nicht, und der Zähler hängt an den Gegner-Spawnern des Hosts. Der C
 
 - Test auf zwei PCs, siehe [Bestätigungstests](../ERLEDIGT.md#bestätigungstests-ausstehend).
 - Nicht geprüft: `MGP_LabyrinthEvent` (hat mit `LabyrinthBlockadeEventComponent` dieselbe Basis, [Vermutung] gleicher Weg), ein Boss
-  in einer Blockade-Zone, drei Clients.
+  in einer Blockade-Zone, Niederlage und Rundenende bei stehender Leiste.
 - Ziele der HQ-Karten: Der Host meldet auch deren Stand, dem Client fehlt die Klasse; sein Log sagt dann „Host meldet ein Ziel, die
   Karte des Clients nennt keine Klasse dafuer“. Eigene Aufgabe, falls das im Spiel auffällt.
