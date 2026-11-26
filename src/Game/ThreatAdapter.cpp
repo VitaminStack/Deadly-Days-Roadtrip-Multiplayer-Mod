@@ -109,9 +109,10 @@ void ShowOnUi(int32_t Level)
         return;
     }
     const bool Current = Objects::IsLive(Ui) && InViewport(Ui.Object);
-    if (Current && UiLevel == Level)
+    const UiThreatUpdate Update = UiThreatLevelChange(Current, Current ? UiLevel : -1, Level);
+    if (!Update.Call)
         return;
-    if (!Current)
+    if (Update.Search)
     {
         const uintptr_t Found = FindUi(Class);
         if (!Found)
@@ -119,7 +120,7 @@ void ShowOnUi(int32_t Level)
         Ui = Objects::RefTo(Found);
         UiLevel = -1;
     }
-    ThreatParams Params{UiLevel < 0 ? Level : UiLevel, Level};
+    ThreatParams Params{Update.Old, Update.New};
     Objects::ProcessEvent(Ui.Object, Function, &Params);
     if (UiLevel < 0)
         Core::Log::Info("Bedrohung Client: Haupt-UI zeigt Stufe {}", Level);

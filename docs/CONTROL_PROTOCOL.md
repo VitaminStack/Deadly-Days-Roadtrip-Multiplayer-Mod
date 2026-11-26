@@ -406,12 +406,14 @@ Aufgabe `opt-bedrohung-sound`, Befund in [Bedrohungsstufe beim Client](archive/G
 Code in `src/Game/ThreatAdapter.cpp` und `src/Sync/World/ThreatState.h`. Mod-Version 15, weil ein Client mit älterer Version die
 Nachricht nicht kennt. Die Stufe der Komponente `ThreatLevel` repliziert nicht (beim Client −1), ihr Delegate feuert nur beim Host.
 Lokal bleiben Zahl, Animation und Sound: Der Client ruft das Ereignis `CustomEvent(Old, New)` seiner eigenen Stoppuhr
-(`WBP_Stopwatch_C`) auf. Geteilt wird nur die Stufe. Es entscheidet der Host; die Komponente des Clients wird nicht beschrieben.
+(`WBP_Stopwatch_C`, Animation und Sound) und das Ereignis `OnThreatLevelChanged_Event(Old, New)` seiner Haupt-UI (`WP_UI_C`, die
+Zahl, seit `opt-routenkarte`) auf. Geteilt wird nur die Stufe. Es entscheidet der Host; die Komponente des Clients wird nicht beschrieben.
 
 `0xC00` Host an Client, in einer Mission bei jeder Änderung und als Wiederholung alle 2 s: Stufe (`int32`, Little-Endian, 0 bis
 100000), genau 4 Bytes. Andere Längen und Werte werden abgelehnt. Der Client holt `0xC00` in jedem Takt ab und nimmt den neuesten
 Stand. Der erste Stand einer Welt läuft als `(N, N)` und setzt nur die Zahl, jede spätere Änderung als `(alt, neu)`; ein
-unveränderter Stand tut nichts. Fehlt die Stoppuhr noch, bleibt der Stand offen, die Wiederholung holt ihn nach, ebenso ein
+unveränderter Stand tut nichts. Die Haupt-UI bekommt jeden Stand, den sie noch nicht zeigt, auch einen unveränderten, sobald sie
+nach Reise oder Beitritt neu im Viewport ist. Fehlt die Stoppuhr noch, bleibt der Stand offen, die Wiederholung holt ihn nach, ebenso ein
 verlorenes Paket und einen späten Beitritt. Keine Antwort.
 
 ## Mehrere Clients (Mod-Kompatibilität 17)

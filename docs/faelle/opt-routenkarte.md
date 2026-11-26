@@ -52,6 +52,7 @@ mit dem Rezept „Mehrere Tage ohne echte Eingaben“ aus [TESTING.md](../TESTIN
   den Sieg selbst buchen.
 - **Wiederverwendet** werden der Weg des Rundenendes (`FollowRoundEnd` in `MapPatches.cpp`) und die Karten-Id aus `0x400`.
 - **Regeln** in `src/Game/RouteMapPolicy.h`, getestet in `tests/GameTests/RouteMapTests.cpp`; Format in `tests/NetTests/RouteTests.cpp`.
+  Die Regel für die Haupt-UI steht in `src/Game/ThreatPolicy.h` (`UiThreatLevelChange`), getestet in `tests/NetTests/ThreatTests.cpp`.
   Die nativen Stellen sind der Patch „Routenkarte des Hosts beim Client“ der eigenen Liste `RouteMap`; fehlt eine, bleibt die Karte
   des Clients leer wie bisher.
 

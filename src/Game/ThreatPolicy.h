@@ -49,4 +49,25 @@ constexpr ThreatEvent ThreatLevelChange(const ThreatShown& Shown, int32_t Level)
         return {};
     return {true, Shown.Level, Level};
 }
+
+// opt-routenkarte: Die Zahl unter der Stoppuhr setzt die Haupt-UI (WP_UI_C) über ihr Ereignis am selben Delegate. Sie bekommt jeden
+// Stand, den sie noch nicht zeigt, auch einen unveränderten: Nach Reise oder Beitritt ist sie neu, der erste Stand ging womöglich
+// an die UI der alten Welt. Current: die gemerkte UI lebt und ist im Viewport. Shown: dort gezeigte Stufe, -1 ohne. Search: eine
+// neue Haupt-UI suchen, die dann (Level, Level) bekommt.
+struct UiThreatUpdate
+{
+    bool Call = false;
+    bool Search = false;
+    int32_t Old = 0, New = 0;
+    constexpr bool operator==(const UiThreatUpdate&) const = default;
+};
+
+constexpr UiThreatUpdate UiThreatLevelChange(bool Current, int32_t Shown, int32_t Level)
+{
+    if (!ThreatLevelValid(Level) || (Current && Shown == Level))
+        return {};
+    if (!Current || Shown < 0)
+        return {true, !Current, Level, Level};
+    return {true, false, Shown, Level};
+}
 }
