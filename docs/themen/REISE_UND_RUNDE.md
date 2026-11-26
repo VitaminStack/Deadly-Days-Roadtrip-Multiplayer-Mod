@@ -9,7 +9,7 @@ Gilt für Build `26786272`. Datierte Befunde und Messungen stehen im [Archiv](..
   Jede Erzeugung übernimmt der Client nur einmal, außer bei einem Neuversuch des Spiels oder nach einem Verbindungswechsel: Tritt er ohne Neustart derselben laufenden Mission wieder bei, baut er dieselbe Karte erneut (`ClientMapLedger`, [wiedereintritt-karte](../faelle/wiedereintritt-karte.md)).
   Das Inventar des Clients beginnt dabei mit der Startausrüstung, weil der Host einen neuen PlayerState anlegt ([wiedereintritt-inventar](../faelle/wiedereintritt-inventar.md)).
 - Rundenende, Busabfahrt, Tank und Tagesablauf entscheidet der Host. Der Client zeigt Rundenübersicht, Lager und Routenkarte des Hosts mit Eingabesperre.
-  Die Werte der Rundenübersicht und der Wertung bucht nur der Host. Der Client übernimmt sie vor dem Öffnen der Übersicht (`0x402`, [opt-ergebnis-werte](../faelle/opt-ergebnis-werte.md)).
+  Die Werte der Rundenübersicht und der Wertung bucht nur der Host. Der Client übernimmt sie vor dem Öffnen der Übersicht (`0x402`, [opt-ergebnis-werte](../faelle/opt-ergebnis-werte.md)). Die Tagesstempel setzt er wie der Host: Tag statt Event, Fehlschlag genau bei Niederlage des Hosts ([opt-rundenstempel](../faelle/opt-rundenstempel.md)).
 - Pausiert der Host die Welt, zeigt der Client einen Hinweis; das Pausemenü des Clients meldet sich beim Host.
 - Beim Run-Ende (Sieg oder Niederlage) kehren beide in die MetaBase zurück; der Client übernimmt keinen fremden Run-Stand in seinen Spielstand.
 
@@ -21,7 +21,7 @@ Gilt für Build `26786272`. Datierte Befunde und Messungen stehen im [Archiv](..
 | `src/Game/MapPatches.cpp`, `src/Game/MapPolicy.h`, `src/Sync/World/MapSync.cpp` | Gleiche Karte und Vegetation bei Host und Client, Wiederbeitritt | `tests/NetTests/MapTests.cpp`, `tests/GameTests/PatchTests.cpp` |
 | `src/Game/PauseAdapter.cpp`, `src/Sync/Players/PauseSync.cpp` | Pausen und Pausemenü | `tests/NetTests/PauseTests.cpp` |
 | `src/Game/ProgressAdapter.cpp`, `src/Sync/ProgressSync.cpp`, `src/Game/DayView.cpp` | Rundenphase, Tag und Fortschritt beim Client | `tests/NetTests/ProgressTests.cpp` |
-| `src/Game/RoundStatsPatches.cpp`, `src/Game/RoundStatsPolicy.h`, `src/Sync/World/MapSync.cpp` | Werte der Rundenübersicht: Host liest, Client übernimmt sie vor dem Rundenende | `tests/GameTests/RoundStatsTests.cpp`, `tests/NetTests/MapTests.cpp` |
+| `src/Game/RoundStatsPatches.cpp`, `src/Game/RoundStatsPolicy.h`, `src/Sync/World/MapSync.cpp` | Werte der Rundenübersicht: Host liest, Client übernimmt sie vor dem Rundenende; Tagesstempel des Clients | `tests/GameTests/RoundStatsTests.cpp`, `tests/NetTests/MapTests.cpp` |
 | `src/Game/WidgetPatches.cpp` | Client: HUD wartet auf den GameState | – |
 | `src/Game/WorldAdapter.cpp` | Zugriff auf Welt und GameState | `tests/GameTests/WorldAdapterTests.cpp` |
 
