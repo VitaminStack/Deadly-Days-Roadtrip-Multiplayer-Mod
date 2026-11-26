@@ -49,7 +49,7 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 
 **Wartet auf das Team:** `spawn-nach-kartenaufbau`.
 
-**Bestätigungstests ausstehend (nur Info, blockiert nichts):** 40, siehe [docs/ERLEDIGT.md](docs/ERLEDIGT.md#bestätigungstests-ausstehend).
+**Bestätigungstests ausstehend (nur Info, blockiert nichts):** 39, siehe [docs/ERLEDIGT.md](docs/ERLEDIGT.md#bestätigungstests-ausstehend).
 <!-- frei:end -->
 
 ## Probleme
@@ -58,7 +58,7 @@ Fehler im Spiel oder in den Werkzeugen. Die Beschreibung steht in [docs/OPTIONEN
 
 | Kennung | Prio | Aufgabe | Bearbeitung | Spielzeit |
 |---|---|---|---|---|
-| `niederlage-metabase` | P0 | Nach einer Niederlage zu zweit behalten Host und Client ihr Run-Inventar, der Client hängt in der MetaBase und trennt mit Grund 1003, weil seine Kontrollschlange vollläuft. **Fertig, wenn** nach einer Niederlage beide wie solo in die MetaBase zurückkehren, der Client bedienbar und verbunden bleibt und der nächste Run bei beiden mit Startausrüstung beginnt. Ordner `src/Game`, `src/Net`. **Einstieg** [Fallakte](docs/faelle/niederlage-metabase.md) | parallel | mittel |
+| `niederlage-metabase` | P0 | Nach einer Niederlage zu zweit behalten Host und Client ihr Run-Inventar, der Client verarbeitet in der MetaBase nichts mehr, folgt nicht in den nächsten Run und trennt mit Grund 1003. **Fertig, wenn** nach einer Niederlage beide wie solo in die MetaBase zurückkehren, der Client bedienbar und verbunden bleibt und der nächste Run bei beiden mit Startausrüstung beginnt. Ordner `src/Game`, `src/Net`. **Einstieg** [Fallakte](docs/faelle/niederlage-metabase.md) | parallel | mittel |
 | `spawn-nach-kartenaufbau` | P1 | **Nur wenn der Live-Test die Theorie bestätigt:** Host setzt die Figuren an den Bus, bevor der Client seine Karte gebaut hat. **Fertig, wenn** der Client nach jedem Zonenstart auf dem Boden steht, auch bei langsamem Kartenaufbau, und Join, Reconnect und Travel unverändert laufen. Ordner `src/Game`. **Einstieg** [Fallakte](docs/faelle/spawn-nach-kartenaufbau.md) | Team | mittel |
 | `opt-dash-aufprall` | P2 | Prallt der Client mit dem Dash gegen ein Objekt, hört er kein Geräusch … | parallel | wenig |
 | `opt-gegner-spawnverzug` | P2 | Unter Wellenlast (`!wave`) erscheinen neue Gegner beim Client bis rund 8 s später als beim Host. **Fertig, wenn** neue Gegner beim Client höchstens 1 s nach dem Host erscheinen, auch unter Wellenlast. | parallel | mittel |
