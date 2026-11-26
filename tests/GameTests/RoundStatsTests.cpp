@@ -136,6 +136,27 @@ TEST_CASE("Rundenwerte: am Run-Ende zeigt die Übersicht die Summen aller Tage")
     CHECK_FALSE(PanelShowsRunTotals(false, false)); // Tagesende: nur der Tag
 }
 
+TEST_CASE("Rundenstempel: der Client stempelt nach einem Rundenende des Hosts den Tag, nie ein Event")
+{
+    CHECK_FALSE(PanelEventStamp(true, true, true));  // Client, eigene Route -1/0 nach dem ersten Rundenende
+    CHECK_FALSE(PanelEventStamp(false, true, true)); // Client ab Tag 2: 0/0, bleibt Tagesstempel
+    CHECK(PanelEventStamp(true, false, true));       // Host: Entscheidung des Spiels
+    CHECK_FALSE(PanelEventStamp(false, false, true));
+    CHECK(PanelEventStamp(true, false, false));      // Solo
+    CHECK(PanelEventStamp(true, true, false));       // Client ohne Rundenende des Hosts in dieser Welt: Spiel
+}
+
+TEST_CASE("Rundenstempel: alle tot heißt beim Client Niederlage des Hosts")
+{
+    CHECK(PanelAllDead(false, true, true, true));        // Niederlage: Figuren des Clients gelten nicht als tot
+    CHECK_FALSE(PanelAllDead(true, true, true, false));  // Tagesende des Hosts: Siegstempel, auch wenn lokal alle tot wirken
+    CHECK_FALSE(PanelAllDead(false, true, true, false));
+    CHECK(PanelAllDead(true, false, true, false));       // Host: Wert des Spiels
+    CHECK_FALSE(PanelAllDead(false, false, true, true));
+    CHECK(PanelAllDead(true, false, false, false));      // Solo
+    CHECK_FALSE(PanelAllDead(false, true, false, true)); // Client ohne Rundenende des Hosts in dieser Welt: Spiel
+}
+
 TEST_CASE("Rundenwerte: Werte nach der Tageskennung des Hosts stammen aus einem früheren Run")
 {
     Snapshot Local{8, 0, {{1, 0, Kills, GlobalPlayer, 11}, {8, 0, Kills, GlobalPlayer, 1}}};

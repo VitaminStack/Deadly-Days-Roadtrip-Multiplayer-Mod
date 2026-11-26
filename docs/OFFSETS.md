@@ -1053,3 +1053,6 @@ Disassembly und Speicherlesen, Ablauf in der [Fallakte](faelle/opt-ergebnis-wert
 | `GetGameStat`, `IncrementGameStat`, dessen Teil je Spieler | `0x58EF260`, `0x58F4420`, `0x58F4520` | Increment meldet danach über `0x58FD520` (Vermutung: `ExecuteStatNotification`) |
 | `OnRoundChanged`, `StopTracking`, `StartNewDay`, `OnRunStarted` | `0x58FC4B0`, `0x5909010`, `0x5907E70`, `0x5900A00` | Tagesend-Buchung; Tag `+0xD0` hochzählen; alles leeren |
 | `GenerateStats`, Aufruf von `WasFinalMission` (`0x590D930`) darin | `0x5AE3510`, `0x5AE367D` | Summen aller Tage bei letzter Mission oder allen Figuren tot |
+| Stempel in `GenerateStats`: Merker alle tot, Routenvergleich (`opt-rundenstempel`) | `0x5AE3676` (`[rsp+41h]`), `0x5AE3D84` | Current ≠ Cached: Event-Stempel (`0x5AD6CD0`) statt `SetupDayStamp` (`0x5AFE0E0`, Tag 0-basiert) |
+| `TriggerEndRound`, Ende | `0x5909FE0`, `0x590A1E4` | Cached = Current, Current = clamp(Current+1, 0, Kette-1). GI: Current `0x2C0`, Cached `0x2C4` |
+| `WP_Round_Stats_C` Day8Stamp…Day1Stamp; `URoundEndSticker` Sticker, Event, Restbilder | `0x4D8`…`0x510`; `0x328`, `0x330`, `0x360` | Bilder aus Figur 0 des `CharacterSelectionManager` (`+0x120` der Definition) |
