@@ -228,7 +228,18 @@ std::optional<Snapshot> ReadLocal()
 
 std::optional<size_t> ApplyHost(const Snapshot& Host)
 {
-    const auto Local = ReadLocal();
+    auto Local = ReadLocal();
+    if (Local && StaleRun(*Local, Host.Day, Host.SubMission))
+    {
+        // Wie beim Host zu Beginn eines Runs: leert CurrentGameData, beide Container und das Siegflag.
+        static const uintptr_t RunStarted = Reflection::Function("/Script/DDSurvivors", "DDGameStatsSubsystem", "OnRunStarted");
+        if (!RunStarted)
+            return std::nullopt;
+        Core::Log::Info("Rundenwerte: eigener Stand bis Tag {}.{} stammt aus einem früheren Run, Subsystem zurückgesetzt", Local->Day,
+                        Local->SubMission);
+        Objects::ProcessEvent(Held.Object, RunStarted, nullptr);
+        Local = ReadLocal();
+    }
     const uintptr_t Data = GameData();
     const uintptr_t Global = GlobalContainer(Data);
     if (!Local || !Global || !ValidTime(Host.Day, Host.SubMission))

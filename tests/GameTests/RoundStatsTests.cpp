@@ -135,3 +135,14 @@ TEST_CASE("Rundenwerte: am Run-Ende zeigt die Übersicht die Summen aller Tage")
     CHECK(PanelShowsRunTotals(false, true));   // Client: Host hat den Run in dieser Welt beendet
     CHECK_FALSE(PanelShowsRunTotals(false, false)); // Tagesende: nur der Tag
 }
+
+TEST_CASE("Rundenwerte: Werte nach der Tageskennung des Hosts stammen aus einem früheren Run")
+{
+    Snapshot Local{8, 0, {{1, 0, Kills, GlobalPlayer, 11}, {8, 0, Kills, GlobalPlayer, 1}}};
+    CHECK(StaleRun(Local, 1, 0));                 // neuer Run beim Host, Client steht noch auf Tag 8
+    CHECK_FALSE(StaleRun(Local, 8, 0));           // derselbe Stand
+    CHECK_FALSE(StaleRun(Local, 9, 0));           // nächster Tag
+    CHECK(StaleRun(Snapshot{0, 0, {{3, 0, Kills, 0, 2}}}, 2, 0)); // nur ein Spielerwert liegt danach
+    CHECK(StaleRun(Snapshot{2, 1, {}}, 2, 0));    // eigene Tageskennung danach, Teilmission zählt mit
+    CHECK_FALSE(StaleRun(Snapshot{0, 0, {}}, 1, 0)); // frischer Client
+}

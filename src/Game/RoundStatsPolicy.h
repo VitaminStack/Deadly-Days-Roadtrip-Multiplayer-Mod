@@ -118,6 +118,18 @@ constexpr bool ClientMayOpenRoundEnd(uint64_t EndId, uint64_t StatsEndId, uint64
     return !EndId || StatsEndId == EndId || WaitedMs >= MaxWaitMs;
 }
 
+// Client: Stammt der eigene Stand aus einem früheren Run? Der Client startet nie selbst einen Run (OnRunStarted läuft nur beim
+// Host), sein Subsystem behielte sonst die Tage des letzten Runs. Erkennbar an Werten nach der Tageskennung des Hosts, oder an
+// einer eigenen Tageskennung danach. Dann setzt der Client sein Subsystem zurück, bevor er den Stand des Hosts übernimmt.
+inline bool StaleRun(const Snapshot& Local, int32_t HostDay, int32_t HostSubMission)
+{
+    const auto Host = std::make_pair(HostDay, HostSubMission);
+    if (std::make_pair(Local.Day, Local.SubMission) > Host)
+        return true;
+    return std::any_of(Local.Entries.begin(), Local.Entries.end(),
+                       [&Host](const Entry& Value) { return std::make_pair(Value.Day, Value.SubMission) > Host; });
+}
+
 // Rundenübersicht (URoundEndPanel::GenerateStats): Summen aller Tage statt des letzten Tags, wenn das Spiel die letzte Mission
 // meldet oder (nur beim Client) der Host den Run in dieser Welt beendet hat. Beim Host bleibt es beim Spiel: Seine Niederlage
 // erkennt GenerateStats selbst daran, dass alle Figuren tot sind.
