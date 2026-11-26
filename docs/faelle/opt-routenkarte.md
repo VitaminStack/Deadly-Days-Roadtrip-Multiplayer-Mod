@@ -42,10 +42,12 @@ mit dem Rezept „Mehrere Tage ohne echte Eingaben“ aus [TESTING.md](../TESTIN
   läuft beim Client nicht bis `LoadMapByInformation`: keine Route, keine Reise. Das Panel graut die Knoten danach aus wie beim Host
   nach seiner Wahl, und der Blueprint hängt vorher einen Eintrag an `ChosenMissionIndexes` an; den überschreibt die nächste Übernahme
   oder die Rückstellung.
-- **Gefahrenstufe im HUD:** Der Client ruft mit der Stufe aus `0xC00` zusätzlich `WP_UI_C.OnThreatLevelChanged_Event` auf
-  (`src/Game/ThreatAdapter.cpp`). Kein neues Format.
+- **Gefahrenstufe im HUD:** Der Client gibt die Stufe aus `0xC00` zusätzlich an `WP_UI_C.OnThreatLevelChanged_Event`
+  (`src/Game/ThreatAdapter.cpp`). Das gilt für jeden Stand, auch einen unveränderten, sobald die Haupt-UI neu ist oder ihn noch nicht
+  hat; als Haupt-UI zählt die Instanz im Viewport. Direkt nach der Reise lebt noch die UI der alten Welt; der erste Stand
+  `(N, N)` landete dort, und der Client zeigte am Tagesstart 0 (gemessen an Tag 2: Host 3, Clients 0). Kein neues Format.
 - **Eigene Run-Info:** Vor der ersten Übernahme sichert der Client Seed, Zuschlag, Wahl und beide Routen. Sobald die Welt wechselt
-  (Reise, Hauptmenü, Trennung), stellt er sie zurück. Der Run-Stand des Clients bleibt ohnehin gesperrt (`RunSaveChangeAllowed`).
+  (Reise, Hauptmenü, Trennung), stellt er sie zurück, über die gemerkte GameInstance (beim Weltwechsel ist die Welt kurz 0). Der Run-Stand des Clients bleibt ohnehin gesperrt (`RunSaveChangeAllowed`).
 - **Run-Ende:** Am Sieg und an der Niederlage übernimmt der Client nichts. Mit der vollen Route würde sein lokales `FinishMission`
   den Sieg selbst buchen.
 - **Wiederverwendet** werden der Weg des Rundenendes (`FollowRoundEnd` in `MapPatches.cpp`) und die Karten-Id aus `0x400`.
@@ -75,5 +77,9 @@ mit dem Rezept „Mehrere Tage ohne echte Eingaben“ aus [TESTING.md](../TESTIN
 - In jeder Mission stand beim Client wieder seine eigene Run-Info (eigener Seed, leere Route), `check_round.py` sauber an allen Tagen.
   Verlassen über das Pausemenü bei offener Karte: Client im Hauptmenü mit eigenem Seed und leerer Route, Log „eigene Run-Info
   zurückgestellt“. `run_save.py`: Run-Stand des Clients leer. Keine Absturzberichte.
-- Nicht geprüft: zwei PCs, mehr als ein Client, Wiederbeitritt während der Karte, Run-Ende (dort übernimmt der Client nichts, nur
-  Unit-Test), Bossknoten am Ende der Route und Endlosmodus.
+- Zweite Sitzung mit Host und zwei Clients (`-Clients 2`), Tag 1 bis 3: Beide Clients zeigen nach Tag 1 und 2 die Karte des Hosts
+  (höchstens 0,45 % abweichende Bildpunkte, im Bild gleich) und dieselbe Run-Info. Die Gefahrenstufe am natürlichen Tagesstart, ohne
+  Cheat: Tag 2 bei allen dreien 2, Tag 3 bei allen dreien 4 (Log „Haupt-UI zeigt Stufe“ rund 2 s nach der Reise).
+- Nicht geprüft: zwei PCs, Wiederbeitritt während der Karte, Run-Ende (dort übernimmt der Client nichts, nur Unit-Test), Bossknoten
+  am Ende der Route, Endlosmodus. Ebenso das erneute Öffnen der Karte nach einem Klick des Clients: „Zurück“ ließ sich über den
+  Spike nicht auslösen. Der Client schreibt dafür die Wahl beim Öffnen aus dem übernommenen Stand neu.

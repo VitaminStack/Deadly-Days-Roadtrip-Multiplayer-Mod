@@ -14,7 +14,7 @@ Gilt für Build `26786272`. Datierte Befunde und Messungen stehen im [Archiv](..
   Run-Info der GameInstance repliziert nicht. Der Host meldet Seed, Wahl und Fortschritt seiner Route (`0x403`), der Client baut die
   Missionsstruktur daraus selbst und setzt die Route direkt vor dem Nachziehen des Tagesendes. Nach dem Weltwechsel steht wieder seine
   eigene Run-Info in der GameInstance ([opt-routenkarte](../faelle/opt-routenkarte.md)). Die Gefahrenstufe unter der Stoppuhr setzt
-  beim Client die Haupt-UI mit der Stufe aus `0xC00` (`ThreatAdapter.cpp`).
+  beim Client die Haupt-UI mit der Stufe aus `0xC00`, auch nach jeder Reise neu (`ThreatAdapter.cpp`).
 - Pausiert der Host die Welt, zeigt der Client einen Hinweis; das Pausemenü des Clients meldet sich beim Host.
 - Beim Run-Ende (Sieg oder Niederlage) kehren beide in die MetaBase zurück; der Client übernimmt keinen fremden Run-Stand in seinen Spielstand.
 
