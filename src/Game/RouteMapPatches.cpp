@@ -194,7 +194,8 @@ struct
     std::optional<RouteMap::HostRoute> Host; // Client: zuletzt vom Host
     uint64_t AppliedEnd = 0;                 // Client: zuletzt übernommenes Rundenende
     uintptr_t AppliedWorld = 0;              // Client: Welt mit übernommener Route, 0 ohne
-    uintptr_t AppliedInstance = 0;
+    Objects::Ref AppliedInstance;            // Client: GameInstance mit übernommener Route, gilt über den Weltwechsel hinaus
+    std::vector<int32_t> AppliedChosen;      // Client: übernommene Wahl, falls ein Klick sie verlängert hat
     Own Saved;
     int PanelFills = 0, BlockedChoices = 0;
 } S; // nur Game Thread
@@ -203,9 +204,12 @@ void RestoreOwn(const char* Why)
 {
     if (!S.AppliedWorld)
         return;
+    // Nicht über die aktuelle Welt: Beim Weltwechsel ist sie kurz 0, die GameInstance aber dieselbe.
     const auto L = ResolveLayout();
-    const uintptr_t Instance = GameInstance();
-    if (L && Instance && Instance == S.AppliedInstance)
+    const uintptr_t Instance = Objects::IsLive(S.AppliedInstance) && IsA(S.AppliedInstance.Object, "DDMissionGameInstance")
+                                   ? S.AppliedInstance.Object
+                                   : 0;
+    if (L && Instance)
     {
         const uintptr_t Info = Instance + L->RunInfo;
         Write<int32_t>(Info + L->Seed, S.Saved.Seed);
@@ -216,12 +220,13 @@ void RestoreOwn(const char* Why)
         Core::Log::Info("Routenkarte: eigene Run-Info zurückgestellt ({})", Why);
     }
     else
-        Core::Log::Warn("Routenkarte: GameInstance gewechselt, eigene Run-Info nicht zurückgestellt ({})", Why);
+        Core::Log::Warn("Routenkarte: GameInstance abgebaut, eigene Run-Info nicht zurückgestellt ({})", Why);
     Release(S.Saved.Current);
     Release(S.Saved.Previous);
     S.Saved = {};
     S.AppliedWorld = 0;
-    S.AppliedInstance = 0;
+    S.AppliedInstance = {};
+    S.AppliedChosen.clear();
 }
 
 // Eintrag Ident der Missionsstruktur, 0 ohne.
@@ -254,8 +259,9 @@ bool ApplyHost(const RouteMap::HostRoute& Host)
         S.Saved.Chosen = ReadInts(Info + L->Chosen);
         Hold(S.Saved.Current, Info + L->Current);
         Hold(S.Saved.Previous, Info + L->Previous);
-        S.AppliedInstance = Instance;
+        S.AppliedInstance = Objects::RefTo(Instance);
     }
+    S.AppliedChosen = Host.Chosen;
     S.AppliedWorld = CurrentWorld();
     Write<int32_t>(Info + L->Seed, Host.Seed);
     Write<int32_t>(Info + L->Threat, Host.ThreatIncrease);
@@ -306,6 +312,11 @@ void __fastcall OpenPanelHook(uintptr_t Panel)
     const auto Role = Controller ? Memory::Read<uint8_t>(Controller + ActorRole) : std::nullopt;
     if (!Role)
         return OriginalOpenPanel(Panel);
+    // Ein Klick des Clients hängt vorher im Blueprint einen Eintrag an die Wahl an. Beim erneuten Öffnen gilt wieder die des Hosts.
+    const auto L = ResolveLayout();
+    const uintptr_t Instance = Objects::IsLive(S.AppliedInstance) ? S.AppliedInstance.Object : 0;
+    if (L && Instance && ReadInts(Instance + L->RunInfo + L->Chosen) != S.AppliedChosen)
+        WriteInts(Instance + L->RunInfo + L->Chosen, S.AppliedChosen);
     Write<uint8_t>(Controller + ActorRole, RoleAuthority);
     OriginalOpenPanel(Panel);
     Write<uint8_t>(Controller + ActorRole, *Role);
