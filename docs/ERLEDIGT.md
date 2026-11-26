@@ -249,7 +249,7 @@ Spicker für Live-Sitzungen: was bei erledigten Aufgaben noch im Spiel zu prüfe
 
 | Kennung | Im Spiel prüfen |
 |---|---|
-| `airdrop-auswahl-absturz` | Fix integriert (ForceUpdateFromComponent und SetupInventory ohne Inventar ausgelassen), Tests grün, Sitzung zu zweit auf einem PC startet mit 60 Patches. Offen: auf einem PC mit zwei Instanzen nach Händler-Event mit Kauf die erste Airdrop-Auswahl der nächsten Karte beim Client öffnen; kein Absturz, Auswahl normal aufgebaut, bei 'ohne Inventar ausgelassen' Objektname und Zustand des Panels festhalten (Ursache klären) |
+| `airdrop-auswahl-absturz` | Live-Test 26.11.2026 auf zwei PCs: Client kaufte beim Händler eine Batterie, die erste Airdrop-Auswahl der nächsten Karte (Forest_Roadstops, Stufe 20) lief ohne Absturz, Client wählte, Host buchte; im Client-Log kein 'ohne Inventar'. Der Auslöser kam also nicht wieder, offen bleibt der Fall mit 'ohne Inventar ausgelassen' |
 | `boss-karte-absturz` | Client betritt die Boss-Karte am Ende der Route ohne Absturz; im Client-Log genau eine Zeile „Boss-Leiste: lokal angelegt“ je Eintritt, die Leiste folgt den Boss-HP. |
 | `charakter-wahl` | Jeder wählt in der MetaBase eine andere Figur; beide sehen die Wahl des anderen, auch nach der Reise und mit Startausrüstung im Run. |
 | `client-runstand-abbruch` | Nach einem gemeinsamen Run (Client verlässt über das Pausemenü oder der Host beendet) hostet der frühere Client: neuer Run mit Level 1 und Startausrüstung; ein eigener offener Run des Clients lässt sich danach fortsetzen. |
@@ -268,14 +268,14 @@ Spicker für Live-Sitzungen: was bei erledigten Aufgaben noch im Spiel zu prüfe
 | `opt-busbalken` | Ladebalken der Busabfahrt beim Client wie beim Host, bei jedem vollen Tank. |
 | `opt-charakter-takt` | Im Client-Log keine Zeile „Takt: Charakterwahl“; die Figurenwahl bleibt nach Reise und erneutem Beitritt. |
 | `opt-endboss-leiste` | Tod von HQ-Boss und BlobBall zu zweit: die Leiste beim Client läuft ab Kampfbeginn bis zum Tod. |
-| `opt-ergebnis-werte` | Rundenübersicht nach jedem Tag und Ergebnisbildschirm am Run-Ende: Der Client zeigt dieselben Werte, Summen und dieselbe Wertung wie der Host, sein Meta-Stand bleibt unverändert. Bisher nur auf einem PC mit zwei Clients gemessen. |
+| `opt-ergebnis-werte` | Live-Test 26.11.2026 auf zwei PCs: Client übernahm an 5 Tagen Tag und Werte des Hosts, am Run-Ende (Niederlage) 44 Werte und den Ergebnisbildschirm. Offen: Sichtvergleich der Summen und Wertung, Meta-Stand des Clients (Lauf endete mit niederlage-metabase) |
 | `opt-gegner-sound` | Client hört Treffer- und Angriffssounds der Gegner etwa so oft wie der Host, ohne Doppel. |
 | `opt-item-sound` | Client hört Aufsammelsounds (Benzin, Schrott, Items) je Objekt einmal. |
 | `opt-kopierladen` | Client kopiert im Kopierladen ein Item und bestätigt: Original und Kopie bleiben beim Client, der Preis wird einmal gebucht, der Bestand passt bei beiden, auch nach dem nächsten Tag. Bisher nur auf einem PC geprüft. |
 | `opt-levelup-sound` | Kein Schrott-Dauersound beim Client; die Level-up-Kiste im Endbildschirm spielt ohne Soundfehler. |
 | `opt-loot-aufnahme-client` | Automatisches Looten (Benzinstand bei beiden vergleichen), Power-ups wie Energy Drink und Level-Up wirken beim Client, Itemsäcke werden je einmal aufgenommen. |
 | `opt-metabase-inventar` | Nach einem Sieg: neuer Run mit Level 1 und Startinventar bei beiden, danach Rollentausch; MetaBase-Items bleiben korrekt. |
-| `opt-routenkarte` | Zwei PCs, Host und ein oder mehr Clients, bis über einen Biomwechsel: Routenkarte des Clients nach jedem Tagesende wie beim Host (Knoten, Biome, Linien, Bus, Tag), ein Klick des Clients auf einen Knoten wählt nichts; Gefahrenstufe unter der Stoppuhr wie beim Host; Wiederbeitritt während der offenen Karte; danach Solo-Run des Clients mit eigenem Stand. |
+| `opt-routenkarte` | Live-Test 26.11.2026 auf zwei PCs: Client übernahm an 4 Tagen die Route des Hosts ('Karte des Hosts beim Client befüllt'), ein Klick auf einen Knoten wurde ignoriert. Offen: Biomwechsel, Wiederbeitritt bei offener Karte, Solo-Run danach, Sichtvergleich |
 | `opt-rundenstempel` | Fix integriert: Client stempelt nach dem Rundenende des Hosts den Tag (nie Event) und den Fehlschlag genau bei Niederlage des Hosts; ein PC mit zwei Clients für Tag 1, Tag 2 und Niederlagen geprüft. Offen: zwei PCs, Sieg, Stempelbild bei anderer Figur des Clients, Event-Tag des Hosts (nach Merge von opt-routenkarte neu prüfen), doppelter Fehlschlag-Ton beim Client durch RefreshAsGameOver |
 | `opt-schadenszahlen` | Client sieht Schadenszahlen eigener und fremder Treffer. |
 | `opt-schrott-anzeige` | Die Schrottanzeige des Clients springt beim Aufsammeln nicht. |
