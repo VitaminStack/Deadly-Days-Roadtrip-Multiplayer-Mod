@@ -67,10 +67,16 @@
 {0x058D0FC7, 0, "49 8B 86 E8 02 00 00 48 89 44 24 58 80 3D ?? ?? ?? ?? 00", 0, "SpawnerPlayerRead"}, // PlayerPatches.cpp
 {0x058D14B7, 0, "32 DB C7 45 48 00 00 00 00 48 8B 4D 40", 0, "SpawnerNoPlayerExit"}, // PlayerPatches.cpp
 {0x058D3530, 0, "48 89 5C 24 10 48 89 6C 24 18 48 89 74 24 20 57 41 56 41 57 48 83 EC 30 4C 8B F2 49 8B D8 48 8D 54 24 20 48 8B F1 E8 ?? ?? ?? ?? 48 8B 7C 24 28 48 85 FF 74 ?? 41 8B 06 89 07 48 8B 03 48 89 47 04 C7 47 0C FF FF FF FF 8B 46 08 2B 46 34 44 8B 7C 24 20 8B 2F", 0, "MapAdd"}, // RemoteP2Patches.cpp
+{0x058D56F0, 0, "5F C3 CC 40 53 48 83 EC 30 8B 41 08 4D 8B D0 48 8B D9 44 8B DA 3B 41 34 74 ?? 4C 8B 49 40 48 8D 41 38 8B 49 48 4D 85 C9 4C 0F 44 C8 FF C9 49 23 CB 41 8B 04 89 83 F8 FF 74 ?? 41 8B 10 4C 8B 03 0F 1F 00 48 98 48 8D 04 40 48 C1 E0 05 49 03 C0 39 10 74 ?? 8B 40 58 83 F8 FF", 3, "PlayerFindOrAdd"}, // RoundStatsPatches.cpp
 {0x058DBF90, 0, "48 89 5C 24 08 48 89 74 24 10 55 57 41 54 41 56 41 57 48 8B EC 48 83 EC 70 41 8B F0 8B DA 4C 8B F1", 0, "AssignDevice"}, // LocalDevicePatches.cpp
 {0x058E91A0, 0, "80 B9 88 01 00 00 00 74 ?? 41 8D 40 01", 0, "DraftAssignDevice"}, // LocalDevicePatches.cpp
+{0x058EBFD0, 0, "4C 89 44 24 18 53 48 83 EC 50 0F B6 DA", 0, "StatFind"}, // RoundStatsPatches.cpp
 {0x058EC080, 0, "48 89 5C 24 20 55 56 57 48 83 EC 30 80 B9 10 04 00 00 00", 0, "FinishMission"}, // ClientPatches.cpp
+{0x058EF260, 0, "48 83 EC 28 48 81 C1 98 01 00 00 E8 ?? ?? ?? ??", 0, "GetGameStatImpl"}, // RoundStatsPatches.cpp
 {0x058F1F10, 0, "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 8B 81 08 01 00 00 48 8B D9", 0, "GetController"}, // LocalDevicePatches.cpp
+{0x058F4420, 0, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 48 83 EC 30 48 8B E9 49 8B F9 48 81 C1 98 01 00 00", 0, "IncrementImpl"}, // RoundStatsPatches.cpp
+{0x058F4520, 0, "85 D2 78 ?? 48 89 5C 24 08 48 89 74 24 18", 0, "IncrementPlayer"}, // RoundStatsPatches.cpp
+{0x058F45A0, 0, "4C 8B DC 49 89 5B 10 4D 89 43 18 55 56 57 48 83 EC 60 48 8B 05 ?? ?? ?? ??", 0, "StatIncrement"}, // RoundStatsPatches.cpp
 {0x058FF2E0, 0, "48 89 5C 24 18 48 89 74 24 20 57 48 83 EC 20 48 8B DA 48 8B F1 48 85 D2 74 ?? 33 C9 E8 ?? ?? ?? ?? 48 8B 53 10 4C 8D 40 30 48 63 40 38 3B 42 38 7F ?? 48 8B C8 48 8B 42 30 4C 39 04 C8 75 ?? 4C 8B D3 EB ?? 45 33 D2 48 B9 CD 8C 55 ED D7 AF 51 FF 4C 89 54 24 38", 0, "RegisterController"}, // PlayerPatches.cpp
 {0x058FF3DD, 0, "E8 ?? ?? ?? ?? 48 8D 8E 40 03 00 00 48 89 5C 24 30", 0, "At_58FF3DD"}, // PlayerPatches.cpp
 {0x058FF3F3, 0, "E8 ?? ?? ?? ?? 48 8B 5C 24 40 48 8B 74 24 48 48 83 C4 20 5F C3 CC CC CC CC CC CC CC CC 48 89 5C 24 10 48 89 74 24 18 4C 89 74 24 20 55 48 8B EC 48 83 EC 70 8B 51 48 48 8D 71 48 4C 8D 71 38 48 8B D9", 0, "At_58FF3F3"}, // PlayerPatches.cpp

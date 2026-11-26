@@ -141,3 +141,61 @@ TEST_CASE("Rundenende: halbe oder falsch lange Nachrichten werden abgelehnt")
     HalfZero[8] = 1;
     CHECK_FALSE(DecodeRoundEnd(HalfZero).has_value());
 }
+
+TEST_CASE("Rundenwerte: Werte des Hosts kommen unverändert an, gesamt und je Spieler")
+{
+    using Game::RoundStats::Entry;
+    Game::Map::RoundStatsImage Image{0xABCDEF0123456789ull, true};
+    Image.Entries = {Entry{1, 0, 2, Game::RoundStats::GlobalPlayer, 57}, Entry{1, 0, 2, 0, 40}, Entry{1, 0, 2, 3, 17},
+                     Entry{8, 255, 10, 1, -3}, Entry{100000, 0, 3, 7, 0x7FFFFFFFFFFFFFFFll}};
+    const auto Bytes = EncodeRoundStats(Image);
+    REQUIRE(Bytes.size() == RoundStatsHeader + Image.Entries.size() * RoundStatsEntry);
+    const auto Back = DecodeRoundStats(Bytes);
+    REQUIRE(Back.has_value());
+    CHECK(*Back == Image);
+}
+
+TEST_CASE("Rundenwerte: unlesbare Werte des Hosts sind eine kurze Nachricht ohne Einträge")
+{
+    const Game::Map::RoundStatsImage Unknown{5, false};
+    const auto Bytes = EncodeRoundStats(Unknown);
+    CHECK(Bytes.size() == RoundStatsHeader);
+    REQUIRE(DecodeRoundStats(Bytes).has_value());
+    CHECK(*DecodeRoundStats(Bytes) == Unknown);
+    Game::Map::RoundStatsImage UnknownWithValues{5, false, {Game::RoundStats::Entry{1, 0, 2, -1, 3}}};
+    CHECK(EncodeRoundStats(UnknownWithValues).empty());
+}
+
+TEST_CASE("Rundenwerte: kaputte Nachrichten werden abgelehnt")
+{
+    using Game::RoundStats::Entry;
+    CHECK(EncodeRoundStats(Game::Map::RoundStatsImage{0, true}).empty()); // ohne Rundenende
+    CHECK(EncodeRoundStats(Game::Map::RoundStatsImage{5, true, {Entry{1, 0, 11, -1, 3}}}).empty()); // Typ außerhalb
+    CHECK(EncodeRoundStats(Game::Map::RoundStatsImage{5, true, {Entry{1, 0, 2, -1, 3}, Entry{1, 0, 2, -1, 4}}}).empty());
+    auto Bytes = EncodeRoundStats(Game::Map::RoundStatsImage{5, true, {Entry{1, 0, 2, -1, 3}}});
+    REQUIRE_FALSE(Bytes.empty());
+    auto Short = Bytes;
+    Short.pop_back();
+    CHECK_FALSE(DecodeRoundStats(Short).has_value());
+    auto BadKnown = Bytes;
+    BadKnown[8] = 2;
+    CHECK_FALSE(DecodeRoundStats(BadKnown).has_value());
+    auto BadPlayer = Bytes;
+    BadPlayer[RoundStatsHeader + 6] = 0xFE; // Spieler -2
+    CHECK_FALSE(DecodeRoundStats(BadPlayer).has_value());
+    auto BadCount = Bytes;
+    BadCount[9] = 2;
+    CHECK_FALSE(DecodeRoundStats(BadCount).has_value());
+}
+
+TEST_CASE("Rundenwerte: die größte erlaubte Nachricht passt in den Kontrollkanal")
+{
+    Game::Map::RoundStatsImage Image{9, true};
+    for (size_t i = 0; i < Game::RoundStats::MaxEntries; ++i)
+        Image.Entries.push_back({static_cast<int32_t>(i / 11), 0, static_cast<uint8_t>(i % 11), Game::RoundStats::GlobalPlayer, 1});
+    const auto Bytes = EncodeRoundStats(Image);
+    REQUIRE_FALSE(Bytes.empty());
+    CHECK(Bytes.size() <= 65536 - 26); // Nutzlast ohne die Control-Kennungen und den Typ
+    Image.Entries.push_back({999, 0, 0, Game::RoundStats::GlobalPlayer, 1});
+    CHECK(EncodeRoundStats(Image).empty());
+}

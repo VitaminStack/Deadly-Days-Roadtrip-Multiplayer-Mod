@@ -20,6 +20,8 @@ struct Sent
     uint64_t NextResend = 0;
     std::optional<std::optional<Game::Map::RoundEnd>> End;
     uint64_t NextEndResend = 0;
+    std::optional<Game::Map::RoundStatsImage> Stats;
+    uint64_t NextStatsSend = 0;
 };
 
 struct
@@ -33,6 +35,30 @@ uint64_t NowMs()
 {
     return static_cast<uint64_t>(
         std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
+}
+
+// opt-ergebnis-werte: Werte der Rundenübersicht vor dem Rundenende desselben Endes, auf demselben zuverlässigen Weg. Ein neues Ende
+// sofort, geänderte Werte höchstens jede Sekunde; gleiche Werte nicht noch einmal, sie sind bis zu 45 KB groß.
+void TickHostRoundStats(Net::Transport& Transport, uint64_t Peer, Sent& State, const std::optional<Game::Map::RoundStatsImage>& Stats)
+{
+    const uint64_t Now = NowMs();
+    if (!Stats || !M.Run || (State.Stats && *State.Stats == *Stats) ||
+        (State.Stats && State.Stats->EndId == Stats->EndId && Now < State.NextStatsSend))
+        return;
+    auto Payload = MapWire::EncodeRoundStats(*Stats);
+    if (Payload.empty())
+    {
+        Core::Log::Error("Rundenwerte: nicht übertragbar ({} Werte)", Stats->Entries.size());
+        State.Stats = Stats;
+        return;
+    }
+    if (!Transport.SendControl(Peer, {M.Run, 1, ++M.Revision, MapWire::RoundStatsType, std::move(Payload)}))
+        return;
+    if (!State.Stats || State.Stats->EndId != Stats->EndId)
+        Core::Log::Info("Rundenwerte: {} Werte{} an den Client gesendet (Peer {:x})", Stats->Entries.size(),
+                        Stats->Known ? "" : " (eigene unlesbar)", Peer);
+    State.Stats = Stats;
+    State.NextStatsSend = Now + 1000;
 }
 
 // Rundenende wie die Karte: bei Änderung sofort, sonst jede Sekunde, damit ein verlorenes Paket nachkommt.
@@ -83,7 +109,14 @@ void TickHost(Net::Transport& Transport, uint64_t Peer, Sent& State)
 void TickClient(std::span<const Net::ControlMessage> Messages)
 {
     for (const auto& Message : Messages)
-        if (Message.Peer == M.Peer && Message.Value.Type == MapWire::RoundEndType)
+        if (Message.Peer == M.Peer && Message.Value.Type == MapWire::RoundStatsType)
+        {
+            if (auto Stats = MapWire::DecodeRoundStats(Message.Value.Payload))
+                Game::Map::SetHostRoundStats(std::move(*Stats));
+            else
+                Core::Log::Warn("Rundenwerte: unlesbare Nachricht vom Host verworfen");
+        }
+        else if (Message.Peer == M.Peer && Message.Value.Type == MapWire::RoundEndType)
         {
             if (auto End = MapWire::DecodeRoundEnd(Message.Value.Payload))
                 Game::Map::SetHostRoundEnd(*End);
@@ -109,10 +142,15 @@ void TickMap(std::span<const Net::ControlMessage> Messages)
     {
         // Jeder Client bekommt dieselbe Karte; getrennte Clients verlieren ihren Stand, neue starten leer.
         std::erase_if(M.Peers, [&Peers](const auto& Entry) { return std::find(Peers.begin(), Peers.end(), Entry.first) == Peers.end(); });
+        // Einmal je Takt lesen, für alle Clients dieselben Werte.
+        std::optional<Game::Map::RoundStatsImage> Stats;
+        if (!Peers.empty())
+            Stats = Game::Map::CurrentRoundStats();
         for (const uint64_t Peer : Peers)
         {
             Sent& State = M.Peers[Peer];
             TickHost(*Transport, Peer, State);
+            TickHostRoundStats(*Transport, Peer, State, Stats);
             TickHostRoundEnd(*Transport, Peer, State);
         }
         return;
@@ -125,6 +163,7 @@ void TickMap(std::span<const Net::ControlMessage> Messages)
         Game::Map::NoteConnectionChanged();
         Game::Map::SetHostMap(std::nullopt);
         Game::Map::SetHostRoundEnd(std::nullopt);
+        Game::Map::SetHostRoundStats(std::nullopt);
     }
     if (Transport && Peer)
         TickClient(Messages);

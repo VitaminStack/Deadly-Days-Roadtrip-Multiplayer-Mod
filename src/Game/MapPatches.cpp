@@ -14,6 +14,7 @@
 #include "Game/Objects.h"
 #include "Game/PatchRuntime.h"
 #include "Game/RewardAdapter.h"
+#include "Game/RoundStatsAdapter.h"
 
 namespace Game::Patches
 {
@@ -93,6 +94,10 @@ struct
     int LossPanelAttempts = 0;
     bool LossPanelShown = false;
     bool RunWon = false;
+    // opt-ergebnis-werte, Client: letzte Werte des Hosts und seit wann auf die Werte zu HostEnd gewartet wird.
+    std::optional<Map::RoundStatsImage> HostStats;
+    uint64_t StatsWaitEnd = 0;
+    ULONGLONG StatsWaitSince = 0;
     // Beide: PCG-Volume, dessen Instanzen noch einen festen Seed brauchen
     uintptr_t PcgWorld = 0;
     ULONGLONG PcgSince = 0;
@@ -552,6 +557,7 @@ bool ApplyMap(Code::Writer&)
 constexpr uintptr_t MapSites[] = {CreateChildActor, IsChildActorReplicated, SetupPcgVolume, StartMapGeneration};
 const Patch List[] = {
     {"Gleiche Karte und Vegetation beim Client", &CheckMap, &ApplyMap, MapSites},
+    RoundStatsPatch(),
 };
 }
 
@@ -626,6 +632,24 @@ void FollowRoundEnd()
     const uint64_t ClientMapId = S.UsedWorld == CurrentWorld() ? S.Used.UsedId : 0;
     if (!ClientMayFollowRoundEnd(S.HostEnd->MapId, ClientMapId, S.Used.Followed(S.HostEnd->Id)))
         return;
+    // opt-ergebnis-werte: Die Übersicht liest beim Öffnen die Werte des Subsystems, darum vorher die des Hosts übernehmen.
+    const ULONGLONG Now = GetTickCount64();
+    if (S.StatsWaitEnd != S.HostEnd->Id)
+    {
+        S.StatsWaitEnd = S.HostEnd->Id;
+        S.StatsWaitSince = Now;
+    }
+    const uint64_t StatsEnd = S.HostStats ? S.HostStats->EndId : 0;
+    if (!RoundStats::ClientMayOpenRoundEnd(S.HostEnd->Id, StatsEnd, Now - S.StatsWaitSince))
+        return;
+    if (StatsEnd != S.HostEnd->Id)
+        Core::Log::Warn("Rundenwerte: keine Werte des Hosts nach {} ms, Client zeigt die eigenen", Now - S.StatsWaitSince);
+    else if (!S.HostStats->Known)
+        Core::Log::Warn("Rundenwerte: Host konnte seine Werte nicht lesen, Client zeigt die eigenen");
+    else if (const auto Written = RoundStats::ApplyHost(S.HostStats->Entries))
+        Core::Log::Info("Rundenwerte: {} Werte des Hosts übernommen, {} davon geschrieben", S.HostStats->Entries.size(), *Written);
+    else
+        Core::Log::Warn("Rundenwerte: eigene Werte nicht lesbar, Client zeigt sie unverändert");
     S.Used.Follow(S.HostEnd->Id);
     S.FollowedWorld = 0;
     // run-ende: Der Bildschirm kommt aus dem nativen Rundenende, das Umschalten folgt im nächsten Sekundentakt, wenn die Übersicht
@@ -710,6 +734,26 @@ void SetHostRoundEnd(std::optional<RoundEnd> Value)
 {
     using namespace Patches;
     S.HostEnd = Value;
+}
+
+std::optional<RoundStatsImage> CurrentRoundStats()
+{
+    const auto End = CurrentRoundEnd();
+    if (!End)
+        return std::nullopt;
+    RoundStatsImage Image{End->Id};
+    if (auto Values = RoundStats::ReadLocal())
+    {
+        Image.Known = true;
+        Image.Entries = RoundStats::Limit(std::move(*Values));
+    }
+    return Image;
+}
+
+void SetHostRoundStats(std::optional<RoundStatsImage> Value)
+{
+    using namespace Patches;
+    S.HostStats = std::move(Value);
 }
 
 void NoteConnectionChanged()
