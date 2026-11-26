@@ -80,9 +80,9 @@ struct Layout
 
 std::optional<Layout> ResolveLayout()
 {
+    // Gefundene Felder cacht die Reflexion selbst, fehlende meldet sie einmal. Ohne Ergebnis bleibt der Adapter aus.
     static std::optional<Layout> Cached;
-    static bool Failed = false;
-    if (Cached || Failed)
+    if (Cached)
         return Cached;
     const Reflection::FieldSpec* Specs[] = {&RunInfoField, &SeedField,  &ThreatField, &CurrentField, &PreviousField,  &ChosenField,         &IdentField,
                                             &ChainField,   &IndexField, &CachedField, &EndField,     &StructureField, &PossibleRoutesField};
@@ -91,10 +91,7 @@ std::optional<Layout> ResolveLayout()
     {
         const auto Field = Reflection::Property(*Specs[Index]);
         if (!Field)
-        {
-            Failed = true; // Reflection meldet den Grund einmal
             return std::nullopt;
-        }
         Offsets[Index] = Field->Offset;
     }
     Cached = Layout{Offsets[0], Offsets[1], Offsets[2], Offsets[3], Offsets[4], Offsets[5], Offsets[6],

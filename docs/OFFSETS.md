@@ -387,9 +387,9 @@ Was die Mod nutzt, steht zusätzlich in `src/Game/Offsets.h` und wird dort beim 
 | Controller-TSet | Nativer SparseArray-RemoveAt-Helfer (RVA) | `0x12D6BA0`, `(Set*, int32 Index, int32 Count)`; Hash vorher aushängen |
 | TSet | Data, Num, FirstFree, NumFree, Element-Stride | `+0`, `+8`, `+0x30`, `+0x34`, `0x10` |
 | GameInstance | PendingGameStateComponentTravelStates, LastRoundChangeReason | `0x248`, `0x299` |
-| GameInstance | CurrentRunInfo (Seed +0, CurrentRoute +8) | `0x2A0` |
-| GameInstance / `FRoute` | `CurrentRoute.MissionChain` (TArray), Num; CurrentMissionIndex | `0x2B0`, `0x2B8`; `0x2C0` |
-| GameInstance / `FCurrentRunInfo` | IsEndOfMissionChain, ChosenMissionIndexes (TArray) | `0x2C8`, `0x328` |
+| GameInstance | CurrentRunInfo (`FCurrentRunInfo`, `0xE8` Byte), Felder siehe [Routenkarte](#routenkarte-opt-routenkarte) | `0x2A0` |
+| GameInstance / `FRoute` | `CurrentRoute.MissionChain` (TArray), Num; CurrentMissionIndex; CachedCurrentMissionIndex | `0x2B0`, `0x2B8`; `0x2C0`; `0x2C4` |
+| GameInstance / `FCurrentRunInfo` | IsEndOfMissionChain, PreviousRoute, ChosenMissionIndexes (TArray) | `0x2C8`, `0x2E8`, `0x328` |
 | `ADDMissionGameState` | SecondsSinceMissionStart, DayNum | `0x38C`, `0x390` |
 | `UAbstractPanel` | AnimationContainer | `0x330`; im `rundenende`-Test nicht als zuverlässiger Phasenindikator lesbar |
 | `UPanelAnimationContainer` | IsOpen | `0x328`; nur lokaler Containerzustand, keine Netz-/Sichtbarkeitszusage |
@@ -1035,6 +1035,24 @@ Build `26786272`, SDK und Speicherlesen. Lesewerkzeug `tools/spike/portraits.py`
 | `APlayerController` | Player (`LocalPlayer` oder Netzverbindung) | `0x348` |
 | `UPlayerColorDeveloperSettings` | AllPlayerColors (`TArray<TSoftObjectPtr>`, Element `0x28`: Blau, Grün) | `0x38` |
 | `UPlayerColorDefinition` | PrimaryColor, ShadowColor | `0x28`, `0x38` |
+
+## Routenkarte (`opt-routenkarte`)
+
+Reflexion und Disassembly am 26.11.2026, Ablauf in der [Fallakte](faelle/opt-routenkarte.md). Die Mod löst die Felder über die
+Reflexion auf (auch Strukturen), die Tabelle hält die gemessenen Werte fest.
+
+| Stelle | RVA oder Offset | Hinweis |
+|---|---|---|
+| `FCurrentRunInfo` (`0xE8`) | Seed `+0`, PermanentThreatLevelIncrease `+4`, CurrentRoute `+8`, PreviousRoute `+0x48`, ChosenMissionIndexes `+0x88`, ForcingCategoryProgressSnapshot `+0x98` | in der GameInstance bei `0x2A0` |
+| `FRoute` (`0x40`) | RouteMissionStructureIdentifier `+0` (Gruppe, Route je int32), MissionChain `+8` (`FRouteMission` je `0x290`, Biom `+0x1A8`), CurrentMissionIndex `+0x18`, CachedCurrentMissionIndex `+0x1C`, IsEndOfMissionChain `+0x20`, bIsSpecialRun `+0x21`, SpecialRunId `+0x24`, Position `+0x2C`, LinkedNextMissionIndexes `+0x30` | Ohne Missionen steht in PreviousRoute keine gültige Kennung |
+| `UMissionGenerationSubsystem` | CachedMissionStructure `+0x30` (`FPossibleMissionGroup` je `0x20`: Day `+0`, Biome `+8`, PossibleRoutes `+0x10` als `FRoute`) | `CurrentRoute` ist eine Kopie von `Struktur[Gruppe].PossibleRoutes[Route]` |
+| `UBusPanel` | MissionChoicesPanel `+0x330`, MissionChoiceBackButton `+0x338`, Merker „Karte überspringen“ `+0x358` | |
+| `UBusPanel::OpenPanel`, `OpenMapIfRequired` | `0x5ABA540`, `0x5ABA2D0` | Exec-Thunks `0x5698120`, `0x5698100`. Rollenprüfung in OpenPanel bei `0x5ABA627` (vtable `+0x2C8`, `cmp byte ptr [rax+168h], 3`, `jne` bei `0x5ABA63A`) |
+| `UMissionChoicePanel::SetChoices` | `0x5AC0820` | Exec-Thunk `0x57553C0`; liest Seed, CurrentRoute und ChosenMissionIndexes der GameInstance |
+| `UMissionGenerationSubsystem::GetMissionStructure` | `0x58EFD10` | `(Subsystem, TArray* Out, int32 Tag)`, baut den Cache bei jedem Aufruf neu |
+| Route setzen (Klick auf einen Knoten) | `0x59056C0` | `(GameInstance, const FRoute&)`: PreviousRoute = CurrentRoute, CurrentRoute = neu; Aufrufer `0x5B1B2C3`, `0x5B1B58F` |
+| `FRoute::operator=`, Abbau `FRoute`, Abbau `FPossibleMissionGroup` | `0x57487D0`, `0x56ADFB0`, `0x56ADF20` | Abbau je `(Data, Num)` |
+| `SetCurrentRunSeed` (hinter `DD_SetCurrentRunSeed`), `FMemory::Realloc` | `0x58E5030`, `0x1304360` | SetCurrentRunSeed leert den Struktur-Cache und setzt `+0x2A0` |
 
 ## Werte der Rundenübersicht (`opt-ergebnis-werte`)
 
