@@ -121,6 +121,9 @@ bool FollowHostRoundEnd();
 bool ShowRunEndPanel(bool Won);
 // run-ende, Client: Das Spiel zeigt die Knöpfe der Übersicht nach ihrer Animation wieder an, darum solange erneut ausblenden.
 void KeepRunLossButtonsHidden();
+// opt-ergebnis-werte, Client am Sieg: Zeigt der Blueprint „Zurück zur Basis“ und Endlosmodus, auf „Fortsetzen“ zurückstellen. Wahr,
+// wenn umgestellt wurde. Nur Game Thread.
+bool KeepRunWinContinueOnly();
 
 // Diagnose für inventar-transaktion: Mit der Umgebungsvariable DDCOOP_TRACE_INVENTORY=1 protokolliert jeder Aufruf einer
 // Inventar-, Item-, Rucksackfeld- oder Inventar-Panel-Funktion eine Logzeile. Sonst ohne Wirkung.

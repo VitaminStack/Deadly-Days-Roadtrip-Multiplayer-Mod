@@ -23,7 +23,6 @@ namespace Game::RoundStats
 namespace
 {
 const Snapshot* HeldHost = nullptr; // nur Game Thread, siehe HoldForRoundChange
-bool HeldWriteTime = true;
 int Reapplied = 0;
 uintptr_t RunEndedWorld = 0; // Client: Welt, in der der Host den Run beendet hat, siehe NoteRunEnded
 }
@@ -73,7 +72,7 @@ RoundChangedFn OriginalRoundChanged = nullptr;
 void __fastcall RoundChangedHook(uintptr_t Subsystem, uint8_t Reason)
 {
     OriginalRoundChanged(Subsystem, Reason);
-    if (RoundStats::HeldHost && RoundStats::ApplyHost(*RoundStats::HeldHost, RoundStats::HeldWriteTime))
+    if (RoundStats::HeldHost && RoundStats::ApplyHost(*RoundStats::HeldHost))
         ++RoundStats::Reapplied;
 }
 
@@ -228,7 +227,7 @@ std::optional<Snapshot> ReadLocal()
     return Value;
 }
 
-std::optional<size_t> ApplyHost(const Snapshot& Host, bool WriteTime)
+std::optional<size_t> ApplyHost(const Snapshot& Host)
 {
     auto Local = ReadLocal();
     if (Local && StaleRun(*Local, Host.Day, Host.SubMission))
@@ -252,7 +251,7 @@ std::optional<size_t> ApplyHost(const Snapshot& Host, bool WriteTime)
     if (!Increment || !Find || !PlayerContainer)
         return std::nullopt;
     const uint64_t Time = PackDay(Host.Day, Host.SubMission);
-    if (WriteTime && !Memory::WriteBytes(Data, &Time, sizeof(Time)))
+    if (!Memory::WriteBytes(Data, &Time, sizeof(Time)))
         return std::nullopt;
     size_t Written = 0;
     for (const Entry& Value : PlanWrites(Local->Entries, Host.Entries))
@@ -269,10 +268,9 @@ std::optional<size_t> ApplyHost(const Snapshot& Host, bool WriteTime)
     return Written;
 }
 
-void HoldForRoundChange(const Snapshot* Host, bool WriteTime)
+void HoldForRoundChange(const Snapshot* Host)
 {
     HeldHost = Host;
-    HeldWriteTime = WriteTime;
 }
 
 void NoteRunEnded(uintptr_t World)

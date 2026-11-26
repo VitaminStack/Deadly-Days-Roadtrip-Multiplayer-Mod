@@ -13,13 +13,13 @@ namespace Game::RoundStats
 // Speicher nicht plausibel ist.
 std::optional<Snapshot> ReadLocal();
 
-// Client: Werte und, mit WriteTime, die Tageskennung auf die des Hosts setzen, ohne Benachrichtigungen des Spiels (keine Erfolge,
+// Client: Tageskennung und Werte auf die des Hosts setzen, ohne Benachrichtigungen des Spiels (keine Erfolge,
 // Ziele oder Item-Effekte). Liefert die Zahl geschriebener Werte, nullopt, wenn nichts geschrieben werden konnte.
-std::optional<size_t> ApplyHost(const Snapshot& Host, bool WriteTime);
+std::optional<size_t> ApplyHost(const Snapshot& Host);
 
 // Client: Solange Host gesetzt ist, setzt der Hook auf UDDGameStatsSubsystem::OnRoundChanged die Werte nach der eigenen
 // Tagesend-Buchung des Spiels (StopTracking: Dauer, DPS, Leben) noch einmal. nullptr beendet das. Der Zeiger muss so lange gelten.
-void HoldForRoundChange(const Snapshot* Host, bool WriteTime = true);
+void HoldForRoundChange(const Snapshot* Host);
 // Wie oft der Hook seit dem letzten Aufruf nachgesetzt hat.
 int TakeReapplied();
 

@@ -582,11 +582,18 @@ constexpr Reflection::FieldSpec StandardHeading{GamePackage, "RoundEndPanel", "S
 constexpr Reflection::FieldSpec FinishedHeading{GamePackage, "RoundEndPanel", "RunFinishedHeading", "ObjectProperty", 8};
 constexpr uint8_t SlateCollapsed = 1, SlateSelfHitTestInvisible = 4; // ESlateVisibility
 
+// opt-ergebnis-werte: Knopf „Zurück zur Basis“ des Blueprints. Mit der Tageskennung des Hosts hält das Spiel den Client am Sieg für das
+// Ende der Route und zeigt ihn samt Endlosmodus; beide lassen den Client allein handeln. Er bekommt wie bisher nur „Fortsetzen“.
+constexpr Reflection::FieldSpec BackToBaseBox{"/Game/DDSurvivors/Widgets/WP_Round_Stats", "WP_Round_Stats_C", "SizeBox_BackToBase",
+                                              "ObjectProperty", 8};
+constexpr Reflection::FieldSpec WidgetVisibility{"/Script/UMG", "Widget", "Visibility", "EnumProperty", 1};
+constexpr uint8_t SlateHidden = 2;
+
 struct
 {
     int32_t Index = -1;
     uintptr_t Object = 0;
-} LossPanel; // nur Game Thread
+} LossPanel, WinPanel; // nur Game Thread
 
 void SetWidgetVisibility(uintptr_t Panel, const Reflection::FieldSpec& Spec, uint8_t Visibility)
 {
@@ -621,6 +628,23 @@ void KeepRunLossButtonsHidden()
         HideLossPanelButtons(LossPanel.Object);
 }
 
+bool KeepRunWinContinueOnly()
+{
+    static const uintptr_t SetContinue = Objects::FindObject("SetContinueButton", "WP_Round_Stats_C");
+    if (!SetContinue || !WinPanel.Object || Objects::At(WinPanel.Index) != WinPanel.Object)
+        return false;
+    const auto Box = Reflection::Property(BackToBaseBox);
+    const auto Visibility = Reflection::Property(WidgetVisibility);
+    const uintptr_t Widget = Box ? Memory::ReadPointer(WinPanel.Object + Box->Offset).value_or(0) : 0;
+    if (!Widget || !Visibility)
+        return false;
+    const uint8_t Shown = Memory::Read<uint8_t>(Widget + Visibility->Offset).value_or(SlateCollapsed);
+    if (Shown == SlateCollapsed || Shown == SlateHidden)
+        return false;
+    Objects::ProcessEvent(WinPanel.Object, SetContinue, nullptr);
+    return true;
+}
+
 bool ShowRunEndPanel(bool Won)
 {
     static const uintptr_t Refresh = Objects::FindObject("RefreshAsGameOver", "RoundEndPanel");
@@ -630,6 +654,7 @@ bool ShowRunEndPanel(bool Won)
     if (!Refresh || !NegativeText || !PositiveText)
         return false;
     LossPanel = {};
+    WinPanel = {};
     int Panels = 0;
     const int32_t Count = Objects::Count();
     for (int32_t Index = 0; Index < Count; ++Index)
@@ -662,6 +687,11 @@ bool ShowRunEndPanel(bool Won)
             HideLossPanelButtons(Object);
             LossPanel.Index = Index;
             LossPanel.Object = Object;
+        }
+        else
+        {
+            WinPanel.Index = Index;
+            WinPanel.Object = Object;
         }
         ++Panels;
     }

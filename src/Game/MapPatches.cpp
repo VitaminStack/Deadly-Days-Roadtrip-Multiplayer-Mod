@@ -94,6 +94,7 @@ struct
     int LossPanelAttempts = 0;
     bool LossPanelShown = false;
     bool RunWon = false;
+    bool WinContinueLogged = false;
     // opt-ergebnis-werte, Client: letzte Werte des Hosts und seit wann auf die Werte zu HostEnd gewartet wird.
     std::optional<Map::RoundStatsImage> HostStats;
     uintptr_t RunEndedWorld = 0; // Welt, in der der Host den Run beendet hat, 0 ohne
@@ -605,7 +606,15 @@ void TickLossPanel(bool Second)
         return;
     if (S.LossPanelShown)
     {
-        KeepRunLossButtonsHidden();
+        // opt-ergebnis-werte: Beim Sieg bleibt es bei „Fortsetzen“ ins Lager, auch wenn das Spiel nach der Animation die Knöpfe des
+        // Run-Endes zeigt (Tageskennung des Hosts, siehe RoundStatsAdapter.h).
+        if (!S.RunWon)
+            KeepRunLossButtonsHidden();
+        else if (KeepRunWinContinueOnly() && !S.WinContinueLogged)
+        {
+            S.WinContinueLogged = true;
+            Core::Log::Info("Run-Ende: Client behält am Sieg „Fortsetzen“, Rückkehr und Endlosmodus entscheidet der Host");
+        }
         return;
     }
     if (!ShouldRetryLossPanel(S.LossPanelAttempts, 5))
@@ -618,11 +627,9 @@ void TickLossPanel(bool Second)
     if (!ShowRunEndPanel(S.RunWon))
         return;
     Core::Log::Info("Run-Ende: Client zeigt den Ergebnisbildschirm ({})", S.RunWon ? "Sieg" : "Niederlage");
-    // Beim Sieg bleiben die Knöpfe nativ, nur die Niederlage hält sie ausgeblendet.
-    if (S.RunWon)
-        S.LossPanelWorld = 0;
-    else
-        S.LossPanelShown = true;
+    // Niederlage: Knöpfe ausgeblendet. Sieg: nur „Fortsetzen“. Beides hält der Sekundentakt, bis die Welt wechselt.
+    S.LossPanelShown = true;
+    S.WinContinueLogged = false;
 }
 
 // Client: Das Rundenende des Hosts einmal lokal nachziehen, sobald es zur gespielten Karte passt.
@@ -645,12 +652,11 @@ void FollowRoundEnd()
         return;
     // Gehalten wird der Stand bis nach FollowHostRoundEnd: Dort bucht das Spiel am Tagesende selbst, danach setzt der Hook ihn erneut.
     std::optional<RoundStats::Snapshot> HostStats;
-    const bool WriteTime = RoundStats::ClientTakesHostDay(S.HostEnd->Outcome == Map::RunOutcome::Won);
     if (StatsEnd != S.HostEnd->Id)
         Core::Log::Warn("Rundenwerte: keine Werte des Hosts nach {} ms, Client zeigt die eigenen", Now - S.StatsWaitSince);
     else if (!S.HostStats->Known)
         Core::Log::Warn("Rundenwerte: Host konnte seine Werte nicht lesen, Client zeigt die eigenen");
-    else if (const auto Written = RoundStats::ApplyHost(S.HostStats->Values, WriteTime))
+    else if (const auto Written = RoundStats::ApplyHost(S.HostStats->Values))
     {
         Core::Log::Info("Rundenwerte: Tag {}.{} und {} Werte des Hosts übernommen, {} davon geschrieben", S.HostStats->Values.Day,
                         S.HostStats->Values.SubMission, S.HostStats->Values.Entries.size(), *Written);
@@ -667,7 +673,7 @@ void FollowRoundEnd()
     // Am Run-Ende zeigt die Übersicht wie beim Host die Summen aller Tage, bis der Client die Welt verlässt (TickMap).
     S.RunEndedWorld = Outcome != Map::RunOutcome::None ? CurrentWorld() : 0;
     RoundStats::NoteRunEnded(S.RunEndedWorld);
-    RoundStats::HoldForRoundChange(HostStats ? &*HostStats : nullptr, WriteTime);
+    RoundStats::HoldForRoundChange(HostStats ? &*HostStats : nullptr);
     const bool Followed = FollowHostRoundEnd();
     RoundStats::HoldForRoundChange(nullptr);
     if (const int Reapplied = RoundStats::TakeReapplied())
