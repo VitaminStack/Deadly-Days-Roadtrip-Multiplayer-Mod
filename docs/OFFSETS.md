@@ -1074,3 +1074,15 @@ Build `26786272`, SDK und Speicherlesen. Lesewerkzeug `tools/spike/portraits.py`
 | `APlayerController` | Player (`LocalPlayer` oder Netzverbindung) | `0x348` |
 | `UPlayerColorDeveloperSettings` | AllPlayerColors (`TArray<TSoftObjectPtr>`, Element `0x28`: Blau, Grün) | `0x38` |
 | `UPlayerColorDefinition` | PrimaryColor, ShadowColor | `0x28`, `0x38` |
+
+## Lauftempo (`opt-tempo-upgrades`)
+
+Build `26786272`, statisch aus der Exe und im Spiel gemessen. Lesewerkzeug `tools/spike/movement_speed.py`.
+Die Mod schreibt beim Client `MaxWalkSpeed` und `MaxAcceleration` aus dem Attribut, die RVAs ruft sie nicht auf.
+
+| Stelle | Inhalt | Wert |
+|---|---|---|
+| `ADDCharacterBase::OnMovementSpeedChanged_Server` | Nativer Handler, setzt `MaxWalkSpeed` = Attribut und `MaxAcceleration` = Attribut × Faktor | RVA `0x5819000`, Exec-Thunk `0x56C44E0` |
+| Faktor der Beschleunigung | `float` 3,5 | RVA `0x8A1E460` |
+| `UCharacterMovementComponent` | MaxWalkSpeed, MaxAcceleration | `0x288`, `0x29C` |
+| `UCommonAttributeSet` | MovementSpeed (BaseValue `+0x8`, CurrentValue `+0xC`) | `0xE8` |
