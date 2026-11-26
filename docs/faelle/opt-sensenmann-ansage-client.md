@@ -18,9 +18,19 @@ Ohne Fix steht beim Client der Sensenmann, `WasReaperSpawned` bleibt 0, die Stop
   (0,5, 0,75), `TweenTime` 0,5, `TweenType` 8, kein Tween. Sprecher ist der `SpeakerDefinition` der Sprechblase
   (`USpeechBubbleWidgetComponent.SpeechBubbleWidget` → `UCharacterSpeechBubble.SpeakerDefinition`) der ersten Spielerfigur ohne ein
   bestimmtes Gameplay-Tag. **[Vermutung]** Das Tag ist der Tod der Figur.
-- [Belegt, SDK] Empfänger von `OnReaperSpawned` laut SDK: `WBP_Stopwatch_C.OnReaperSpawned` (Stoppuhr: `ReaperAlert`, `ReaperColor`,
-  `IsReaperActive`) und `UEnemyBiomeSpawnExpansionComponent::HandleReaperSpawned` (Spawn-Biome, Sache des Hosts).
-  `WBP_DayClock_C` bindet `OnReaperSpawned` nicht.
+- [Belegt, SDK und Spiel] Empfänger von `OnReaperSpawned`: `WBP_Stopwatch_C.OnReaperSpawned` (Stoppuhr: `ReaperAlert`, `ReaperColor`,
+  `IsReaperActive`) und `UEnemyBiomeSpawnExpansionComponent::HandleReaperSpawned` (Spawn-Biome, Sache des Hosts). Gemessen sind beide
+  auch beim Client gebunden, ein nativer Broadcast dort würde also die Biom-Ausweitung mit auslösen. `WBP_DayClock_C` bindet
+  `OnReaperSpawned` nicht.
+- [Belegt, Spiel] Die Sprechdefinition `Speech_ReaperSpawned` (Kennung `ReaperSpawned`) hat `PlayFrequency` Unlimited, `Delay` 4,5 s
+  und `duration` 4 s: Die Blase erscheint 4,5 s nach dem Aufruf. Haben beide Spieler dieselbe Figur, steht sie an beiden Figuren, beim
+  Host nativ genauso.
+- [Belegt, Spiel] Ohne Ansage (zweite Sitzung, als der Adapter den Sensenmann wegen des Klassen-Caches unten nicht erkannte, also wie
+  ohne Fix): Sensenmann beim Client 50 s lang mit Rolle 1, `WasReaperSpawned` des Client-Spawners 0, Stoppuhr `IsReaperActive` 0;
+  beim Host beide 1. Ein Lauf mit dem Stand von `main` ist nicht gefahren.
+- [Belegt, Spiel] In `DDDynamic_Map` (Start über `-Map`) kam der Sensenmann des Hosts beim Client unter 1 s nach seinem Erscheinen beim
+  Host an. Die rund 30 s aus `karte-nach-labyrinth-absturz` stammen aus Karten über die Routenkarte; **[Vermutung]** dort erscheint er
+  fern der Spieler und repliziert erst mit der Netzrelevanz. Die Ansage beim Client hängt am Ankommen und kommt dann entsprechend später.
 
 ## Prüfliste ([ARCHITECTURE.md](../ARCHITECTURE.md#verbindliches-architekturprinzip-lokal-zuerst-minimal-synchronisieren))
 
@@ -41,6 +51,25 @@ Ohne Fix steht beim Client der Sensenmann, `WasReaperSpawned` bleibt 0, die Stop
 setzt der Client `WasReaperSpawned`, ruft die Empfänger von `OnReaperSpawned` außer der Biom-Ausweitung, spielt den Ton 2D und startet die
 Sprechblase mit dem Sprecher der eigenen Figur. Logzeile „Sensenmann: beim Client angekommen, Ansage lokal …“.
 
+Der Adapter erkennt Spawner und Sensenmann mit `Objects::IsA`. Ein eigener Cache nur nach Klassenadresse verpasste im ersten Spieltest
+den Sensenmann (Sensenmann beim Client 50 s da, keine Ansage): Seine Klasse lädt beim Client erst mit ihm. **[Vermutung]** Sie lag auf
+der Adresse einer schon gemerkten, inzwischen freigegebenen Klasse; `Objects::IsA` prüft dafür den Namen mit. `EnemySoundPatches.cpp`
+hat denselben Cache nach Adresse (`ActorKinds`), nicht geändert.
+
 ## Spieltest
 
-Ausstehend.
+26.11.2026, ein PC, zwei Instanzen, Build `26786272`, `Start-Session.ps1 -Build -Mod -Tunnel Lobby -Map /Game/Maps/DDDynamic_Map -Godmode`,
+ohne Maus und Tastatur. `Patches: 62 gesetzt` bei beiden, kein `[ERROR]`, keine Absturzberichte.
+
+| Schritt | Ergebnis |
+|---|---|
+| `!shop reaper 3` nur beim Client | „Spawn beim Client unterdrückt“, kein Sensenmann, keine Ansage, `WasReaperSpawned` bleibt 0 |
+| `!shop reaper 3` beim Host | Host erzeugt den Sensenmann 3,0 bis 3,6 s nach dem Befehl; Client-Log 3,5 s nach dem Befehl „Ansage lokal: Empfänger [WBP_Stopwatch_C.OnReaperSpawned], ausgelassen [EnemyBiomeSpawnExpansionComponent.HandleReaperSpawned], Ton ja, Sprechblase ja“; `WasReaperSpawned` 1, Stoppuhr `IsReaperActive` 1 bei beiden |
+| Reise des Hosts (`travel`) in eine neue Missionskarte | neuer Spawner mit `WasReaperSpawned` 0, kein Sensenmann, keine Ansage |
+| `!shop reaper 3` beim Host auf der neuen Karte | Ansage beim Client 3,4 s nach dem Befehl, einmal; Bilder (PrintWindow) 5,5 s danach: Sprechblase „Was war das? Zeit zu verschwinden, aber sofort.“ und Stoppuhr mit Sensenmann bei Host und Client gleich |
+| erste Sitzung, Sperre beim Client zweimal von Hand auf 0 | je genau eine weitere Ansage, Blase nach 4,5 s im Bild |
+
+Der Takt hält den Frame einmal je Ansage rund 10 bis 15 ms auf (Suche der eigenen Sprechblasen-Komponente im Objekt-Array).
+
+Nicht geprüft: Ton nach Gehör (Instanzen stumm, Log „Ton ja“), zwei PCs über das Internet, der Sensenmann nach den natürlichen
+12 Minuten auf einer Karte der Routenkarte, Beitritt des Clients in eine Karte mit Sensenmann, drei oder vier Spieler.

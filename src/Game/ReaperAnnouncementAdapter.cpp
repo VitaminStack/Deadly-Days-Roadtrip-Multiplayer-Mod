@@ -9,7 +9,6 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
-#include <unordered_map>
 #include <vector>
 
 #include "Core/Log.h"
@@ -90,16 +89,6 @@ struct ScriptDelegate
     uint64_t FunctionName;
 };
 static_assert(sizeof(ScriptDelegate) == 16);
-
-enum class ActorKind : uint8_t
-{
-    Other,
-    Spawner,
-    Reaper
-};
-
-// Nur Game Thread.
-std::unordered_map<uintptr_t, ActorKind> ActorKinds;
 
 uintptr_t Pointer(uintptr_t Address)
 {
@@ -245,19 +234,17 @@ void TickReaperAnnouncement()
         return;
     uintptr_t Spawner = 0;
     bool Reaper = false;
+    // Objects::IsA merkt sich das Ergebnis je Klasse und erkennt eine wiederverwendete Klassenadresse am Namen. Ein eigener Cache nur
+    // nach Adresse verpasste im Spieltest den Sensenmann: Seine Klasse lädt beim Client erst mit ihm und lag auf der Adresse einer
+    // schon gemerkten anderen Klasse.
     Objects::ForEachLevelActor(Level, [&](uintptr_t Actor)
     {
-        const uintptr_t Class = Pointer(Actor + Offsets::UObject::Class);
-        if (!Class || (Memory::Read<uint8_t>(Actor + ActorDestroyFlags).value_or(0x02) & 0x02))
+        if (Memory::Read<uint8_t>(Actor + ActorDestroyFlags).value_or(0x02) & 0x02)
             return;
-        auto Known = ActorKinds.find(Class);
-        if (Known == ActorKinds.end())
-            Known = ActorKinds.emplace(Class, Objects::IsA(Actor, SpawnerClass)       ? ActorKind::Spawner
-                                              : Objects::IsA(Actor, ReaperEnemyClass) ? ActorKind::Reaper
-                                                                                      : ActorKind::Other).first;
-        if (Known->second == ActorKind::Spawner && !Spawner)
+        if (!Spawner && Objects::IsA(Actor, SpawnerClass))
             Spawner = Actor;
-        Reaper = Reaper || Known->second == ActorKind::Reaper;
+        else if (!Reaper && Objects::IsA(Actor, ReaperEnemyClass))
+            Reaper = true;
     });
     const bool Was = Spawner && Memory::Read<uint8_t>(Spawner + Offsets::AReaperSpawner::WasReaperSpawned).value_or(1) != 0;
     if (ReaperAnnouncementDue(true, Spawner != 0, Was, Reaper))
