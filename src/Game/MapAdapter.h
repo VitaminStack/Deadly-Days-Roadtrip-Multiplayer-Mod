@@ -70,7 +70,7 @@ struct RoundStatsImage
 {
     uint64_t EndId = 0; // RoundEnd::Id, nie 0
     bool Known = false;
-    std::vector<RoundStats::Entry> Entries;
+    RoundStats::Snapshot Values; // Tageskennung und Werte des Hosts, leer bei Known falsch
     bool operator==(const RoundStatsImage&) const = default;
 };
 

@@ -642,12 +642,18 @@ void FollowRoundEnd()
     const uint64_t StatsEnd = S.HostStats ? S.HostStats->EndId : 0;
     if (!RoundStats::ClientMayOpenRoundEnd(S.HostEnd->Id, StatsEnd, Now - S.StatsWaitSince))
         return;
+    // Gehalten wird der Stand bis nach FollowHostRoundEnd: Dort bucht das Spiel am Tagesende selbst, danach setzt der Hook ihn erneut.
+    std::optional<RoundStats::Snapshot> HostStats;
     if (StatsEnd != S.HostEnd->Id)
         Core::Log::Warn("Rundenwerte: keine Werte des Hosts nach {} ms, Client zeigt die eigenen", Now - S.StatsWaitSince);
     else if (!S.HostStats->Known)
         Core::Log::Warn("Rundenwerte: Host konnte seine Werte nicht lesen, Client zeigt die eigenen");
-    else if (const auto Written = RoundStats::ApplyHost(S.HostStats->Entries))
-        Core::Log::Info("Rundenwerte: {} Werte des Hosts übernommen, {} davon geschrieben", S.HostStats->Entries.size(), *Written);
+    else if (const auto Written = RoundStats::ApplyHost(S.HostStats->Values))
+    {
+        Core::Log::Info("Rundenwerte: Tag {}.{} und {} Werte des Hosts übernommen, {} davon geschrieben", S.HostStats->Values.Day,
+                        S.HostStats->Values.SubMission, S.HostStats->Values.Entries.size(), *Written);
+        HostStats = S.HostStats->Values;
+    }
     else
         Core::Log::Warn("Rundenwerte: eigene Werte nicht lesbar, Client zeigt sie unverändert");
     S.Used.Follow(S.HostEnd->Id);
@@ -656,7 +662,14 @@ void FollowRoundEnd()
     // offen ist. Eine Niederlage hat kein Lager, darum bleibt FollowedWorld dort leer und Bestätigen unberührt. Ein Sieg behält das
     // Lager, falls der Host den Endlosmodus startet.
     const Map::RunOutcome Outcome = S.HostEnd->Outcome;
-    if (!FollowHostRoundEnd())
+    RoundStats::HoldForRoundChange(HostStats ? &*HostStats : nullptr);
+    const bool Followed = FollowHostRoundEnd();
+    RoundStats::HoldForRoundChange(nullptr);
+    if (const int Reapplied = RoundStats::TakeReapplied())
+        Core::Log::Info("Rundenwerte: nach der eigenen Tagesend-Buchung {}-mal erneut gesetzt", Reapplied);
+    else if (HostStats && Followed)
+        Core::Log::Warn("Rundenwerte: keine eigene Tagesend-Buchung gesehen, Werte nur vorher gesetzt");
+    if (!Followed)
     {
         Core::Log::Warn("Rundenende: Client ohne Missions-GameState, folgt nur der Reise");
         return;
@@ -742,18 +755,21 @@ std::optional<RoundStatsImage> CurrentRoundStats()
     if (!End)
         return std::nullopt;
     RoundStatsImage Image{End->Id};
-    if (auto Values = RoundStats::ReadLocal())
+    auto Values = RoundStats::ReadLocal();
+    static uint64_t Logged = 0; // einmal je Rundenende
+    if (Values && RoundStats::ValidTime(Values->Day, Values->SubMission))
     {
-        const size_t Read = Values->size();
+        const size_t Read = Values->Entries.size();
         Image.Known = true;
-        Image.Entries = RoundStats::Limit(std::move(*Values));
-        // Einmal je Rundenende: was nicht ins Bild passt oder ungültig ist, sieht der Client nicht.
-        static uint64_t Logged = 0;
-        if (Logged != End->Id && Read != Image.Entries.size())
-            Core::Log::Warn("Rundenwerte: {} von {} eigenen Werten nicht übertragbar (ungültig oder über {})", Read - Image.Entries.size(),
-                            Read, RoundStats::MaxEntries);
-        Logged = End->Id;
+        Image.Values = {Values->Day, Values->SubMission, RoundStats::Limit(std::move(Values->Entries))};
+        // Was nicht ins Bild passt oder ungültig ist, sieht der Client nicht.
+        if (Logged != End->Id && Read != Image.Values.Entries.size())
+            Core::Log::Warn("Rundenwerte: {} von {} eigenen Werten nicht übertragbar (ungültig oder über {})",
+                            Read - Image.Values.Entries.size(), Read, RoundStats::MaxEntries);
     }
+    else if (Logged != End->Id && Values)
+        Core::Log::Warn("Rundenwerte: eigene Tageskennung {}.{} nicht übertragbar", Values->Day, Values->SubMission);
+    Logged = End->Id;
     return Image;
 }
 

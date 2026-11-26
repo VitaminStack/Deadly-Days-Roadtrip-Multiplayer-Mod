@@ -45,13 +45,13 @@ void TickHostRoundStats(Net::Transport& Transport, uint64_t Peer, Sent& State, c
     auto Payload = MapWire::EncodeRoundStats(*Stats);
     if (Payload.empty())
     {
-        Core::Log::Error("Rundenwerte: nicht übertragbar ({} Werte)", Stats->Entries.size());
+        Core::Log::Error("Rundenwerte: nicht übertragbar ({} Werte)", Stats->Values.Entries.size());
         State.Stats = Stats;
         return;
     }
     if (!Transport.SendControl(Peer, {M.Run, 1, ++M.Revision, MapWire::RoundStatsType, std::move(Payload)}))
         return;
-    Core::Log::Info("Rundenwerte: {} Werte{} an den Client gesendet (Peer {:x})", Stats->Entries.size(), Stats->Known ? "" : " (eigene unlesbar)",
+    Core::Log::Info("Rundenwerte: {} Werte{} an den Client gesendet (Peer {:x})", Stats->Values.Entries.size(), Stats->Known ? "" : " (eigene unlesbar)",
                     Peer);
     State.Stats = Stats;
 }

@@ -41,6 +41,20 @@ inline auto Key(const Entry& Value)
     return std::make_tuple(Value.Player, Value.Day, Value.SubMission, Value.Type);
 }
 
+// Stand eines Subsystems: aktuelle Tageskennung (CurrentGameData.TimeIdentifier) und alle Werte. Die Übersicht zeigt den Tag der
+// Tageskennung und vergleicht mit dem Vortag; ohne die des Hosts zeigt der Client Tag 0.
+struct Snapshot
+{
+    int32_t Day = 0, SubMission = 0;
+    std::vector<Entry> Entries;
+    bool operator==(const Snapshot&) const = default;
+};
+
+constexpr bool ValidTime(int32_t Day, int32_t SubMission)
+{
+    return Day >= MinDay && Day <= MaxDay && SubMission >= MinSubMission && SubMission <= MaxSubMission;
+}
+
 // Gültig und jeder Schlüssel (Spieler, Tag, Teilmission, Typ) nur einmal.
 inline bool Valid(const std::vector<Entry>& Values)
 {
