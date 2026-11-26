@@ -25,8 +25,10 @@ abends: Der Stempel erscheint falsch oder ohne Animation. Nachstellen auf einem 
 - [Belegt, Spiel] Niederlage an Tag 3 (`DD_DamagePlayerAtIndex` beim Host): Der Host stempelt Tag 3 mit `died`, der Client mit dem
   Siegstempel `survivor`. Beim Client gelten die Figuren für `GenerateStats` nicht als tot (wie in opt-ergebnis-werte). Die
   Übersicht blättert bei beiden sofort auf die Wertung, der Unterschied liegt im Stempel und im Ton.
-- [Belegt, Disassembly] `0x5AFE9F0` (Killer-Feld) läuft nur, wenn alle tot sind. Ohne Einträge in seiner Liste springt es ans
-  Ende, ein ungültiger Zeiger führt auf denselben Ausgang. Damit ist es beim Client mit dessen eigenen Daten sicher aufrufbar.
+- [Belegt, Disassembly] `0x5AFE9F0` (Killer-Feld) läuft nur, wenn alle tot sind, mit dem Fix also auch beim Client. Ohne Einträge
+  in seiner Liste springt es ans Ende. Der Killer liegt als Weak-Pointer vor, die erste Auflösung prüft ihn, spätere lesen denselben.
+  [Belegt, Spiel] Bei einer Niederlage durch Gegner lief es beim Client ohne Absturz durch. Das Killer-Feld blieb dort leer,
+  der Host zeigte „Getötet durch Normalo“.
 - Vor `opt-ergebnis-werte` stand die Tageskennung des Clients auf 0. Dann läuft die Schleife gar nicht, es gibt keinen Stempel. Das
   war der Stand im Live-Test vom 10.11.
 
@@ -59,6 +61,8 @@ abends: Der Stempel erscheint falsch oder ohne Animation. Nachstellen auf einem 
   „Du bist gestorben“ wie beim Host, die Knöpfe des Clients bleiben wie in opt-ergebnis-werte verborgen.
 - Niederlage an Tag 1 mit frischem Client-Prozess (Host und ein Client, Route des Clients `-1/0`): Client stempelt `died` wie der
   Host, `round_stats.py` „gleich“.
+- Niederlage durch Gegner an Tag 1 (frische Prozesse, Waffen mit `!shop take` abgelegt, `!wave`): Client stempelt `died` wie der
+  Host, Werte und Wertung gleich, kein Absturz.
 - `Management_SaveSlot_0.sav` der Clients blieb über Tag 2 bis zur Niederlage und über die Niederlage an Tag 1 Byte für Byte gleich.
 
 ## Grenzen
@@ -67,8 +71,12 @@ abends: Der Stempel erscheint falsch oder ohne Animation. Nachstellen auf einem 
   Ergebnisbildschirm (`ShowRunEndPanel`, run-ende) ruft `RefreshAsGameOver` (`0x5AF28A0`), und das ruft `GenerateStats` noch einmal
   ([Belegt, Disassembly]). Vor diesem Fix waren es zwei Siegtöne (aus dem Ablauf abgeleitet, nicht gemessen). Gehört zum Umschalten,
   nicht zum Stempel.
+- **Killer-Feld** fehlt beim Client weiter (wie in opt-ergebnis-werte), die Daten dafür hat nur der Host.
+- **Sieg** mit dem Fix nicht gespielt. Am Sieg sind nicht alle tot, der Merker bleibt wie beim Host aus.
 - **Event-Stempel:** Der Client stempelt immer den Tag. Zeigt der Host einen Event-Stempel (Route mit mehr als einer Mission), sieht
   der Client den Tagesstempel. Nicht gemessen: Wann der Host so eine Route hat, ist offen. Die Bilder dafür kommen aus einem
   Subsystem (`0x582F670`, `0x58EFD10`), das der Client nicht gefüllt hat (Vermutung). Gehört zur Run-Info (`opt-routenkarte`).
+  `opt-routenkarte` schreibt die Route des Hosts vor dem Rundenende des Clients. Sind beide auf main, kann die Regel „kein Event
+  beim Client“ eine dann richtige Entscheidung des Spiels verdecken: neu prüfen.
 - **Bild des Stempels:** Beide Seiten nehmen die Figur mit Index 0 ihres eigenen `CharacterSelectionManager`. Im Test hatten Host und
   Client dieselbe Standardfigur. Wählt der Client eine andere Figur, sieht er vermutlich deren Stempel. Nicht gemessen.
