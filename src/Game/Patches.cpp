@@ -18,6 +18,7 @@
 #include "Game/PatchRuntime.h"
 #include "Game/PatchSignatures.h"
 #include "Game/RewardAdapter.h"
+#include "Game/RouteMapAdapter.h"
 
 namespace Game::Patches
 {
@@ -27,7 +28,7 @@ std::atomic<State> Current = State::Pending;
 Code::Writer Caves;
 
 // Reihenfolge wie bisher in Install. Ticks fragen über ListOn nach, ob ihre Liste steht.
-enum ListIndex : size_t { Player, Client, Camera, Inventory, Travel, Widget, HealthBar, Airdrop, Exp, RemoteP2, Reward, Map, LocalDevice, Character, BodyPart, EnemyTelegraph, DamageNumber, WeaponSound, ListCount };
+enum ListIndex : size_t { Player, Client, Camera, Inventory, Travel, Widget, HealthBar, Airdrop, Exp, RemoteP2, Reward, Map, LocalDevice, Character, BodyPart, EnemyTelegraph, DamageNumber, WeaponSound, RouteMap, ListCount };
 std::array<bool, ListCount> Enabled{};
 bool PartialMode = false;
 bool CoreListsSet = false; // Player und Client gesetzt, siehe CoopBlocked
@@ -189,6 +190,7 @@ bool Install()
         {"Travel", TravelPatches()}, {"Widget", WidgetPatches()}, {"HealthBar", HealthBarPatches()}, {"Airdrop", AirdropPatches()},
         {"Exp", ExpPatches()}, {"RemoteP2", RemoteP2Patches()}, {"Reward", RewardPatches(), RewardTickOptionalSites()}, {"Map", MapPatches(), RoundStatsTickOptionalSites()},
         {"LocalDevice", LocalDevicePatches()}, {"Character", CharacterPatches()}, {"BodyPart", BodyPartPatches()}, {"EnemyTelegraph", EnemyTelegraphPatches()}, {"DamageNumber", DamageNumberPatches()}, {"WeaponSound", WeaponSoundPatches()},
+        {"RouteMap", RouteMapPatches()},
     }};
     std::vector<Patch> All;
     for (const PatchList& List : Lists)
@@ -288,6 +290,8 @@ void Tick()
         { const GameThread::SlowScope Watch("Gegnersound"); TickEnemySounds(Role); }
     if (ListOn(Map))
         { const GameThread::SlowScope Watch("Karte"); TickMap(Role, Second); }
+    if (ListOn(RouteMap))
+        { const GameThread::SlowScope Watch("Routenkarte"); ::Game::RouteMap::Tick(); }
     if (ListOn(Character))
         { const GameThread::SlowScope Watch("Charakterwahl"); TickCharacters(Role, Second); }
     if (ListOn(EnemyTelegraph))

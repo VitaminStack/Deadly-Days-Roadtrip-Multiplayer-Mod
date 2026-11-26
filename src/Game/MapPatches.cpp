@@ -15,6 +15,7 @@
 #include "Game/PatchRuntime.h"
 #include "Game/RewardAdapter.h"
 #include "Game/RoundStatsAdapter.h"
+#include "Game/RouteMapAdapter.h"
 
 namespace Game::Patches
 {
@@ -674,6 +675,8 @@ void FollowRoundEnd()
     S.RunEndedWorld = Outcome != Map::RunOutcome::None ? CurrentWorld() : 0;
     RoundStats::NoteRunEnded(S.RunEndedWorld);
     RoundStats::HoldForRoundChange(HostStats ? &*HostStats : nullptr);
+    // opt-routenkarte: Route des Hosts vor dem lokalen FinishMission, das sie wie beim Host weiterführt und die Karte öffnet.
+    ::Game::RouteMap::ApplyBeforeRoundEnd(S.HostEnd->MapId, S.HostEnd->Id, Outcome == Map::RunOutcome::None);
     const bool Followed = FollowHostRoundEnd();
     RoundStats::HoldForRoundChange(nullptr);
     if (const int Reapplied = RoundStats::TakeReapplied())

@@ -50,6 +50,7 @@
     <ClCompile Include="Reflection.cpp" />
     <ClCompile Include="RewardPatches.cpp" />
     <ClCompile Include="RoundStatsPatches.cpp" />
+    <ClCompile Include="RouteMapPatches.cpp" />
     <ClCompile Include="InventoryEdit.cpp" />
     <ClCompile Include="ExpPatches.cpp" />
     <ClCompile Include="ItemAbilityPatches.cpp" />
@@ -128,6 +129,8 @@
     <ClInclude Include="RemoteP2Policy.h" />
     <ClInclude Include="RoundStatsAdapter.h" />
     <ClInclude Include="RoundStatsPolicy.h" />
+    <ClInclude Include="RouteMapAdapter.h" />
+    <ClInclude Include="RouteMapPolicy.h" />
     <ClInclude Include="RemotePlayers.h" />
     <ClInclude Include="GameThread.h" />
     <ClInclude Include="Memory.h" />

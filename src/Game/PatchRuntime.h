@@ -56,6 +56,8 @@ std::span<const Patch> EnemyTelegraphPatches();
 std::span<const Patch> DamageNumberPatches();
 // opt-waffen-sound: Host meldet seine Nachladesounds, Client startet Schuss- und Nachladesound lokal (WeaponSoundAdapter.h).
 std::span<const Patch> WeaponSoundPatches();
+// opt-routenkarte: Routenkarte des Hosts beim Client (RouteMapAdapter.h).
+std::span<const Patch> RouteMapPatches();
 // Host: Figur, die bei RewardChest.OpenAirdropChoices die native Auswahl bekommt (die des Hosts statt des Remote-P2).
 uintptr_t RewardCharacter(uintptr_t Character);
 // Client: Wahr, wenn ProcessEvent einen Server-RPC mit einer lokalen Anzeige-Instanz der Airdrop-Auswahl nicht senden soll.

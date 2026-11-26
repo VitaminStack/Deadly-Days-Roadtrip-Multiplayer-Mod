@@ -15,7 +15,7 @@ namespace Game::Reflection
 struct FieldSpec
 {
     std::string_view Package; // etwa "/Script/DDSurvivors"
-    std::string_view Class;   // ohne Präfix, etwa "TutorialStateSubsystem"
+    std::string_view Class;   // ohne Präfix, etwa "TutorialStateSubsystem"; für Property auch eine Struktur wie "CurrentRunInfo"
     std::string_view Name;
     std::string_view Type;
     int32_t Size;
