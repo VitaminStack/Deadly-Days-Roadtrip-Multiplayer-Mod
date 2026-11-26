@@ -29,7 +29,7 @@ Nutzerentscheidung vom 21.11.2026: Die Mod unterstützt immer nur den neuesten S
 
 Gegenüber `26669225` hat `26786272` Exe, `DDSurvivors-Windows.pak`, `.ucas`, `.utoc` und `global.ucas`/`global.utoc` geändert; die
 eingefrorene Kopie hat 52 Dateien. Stand der Mod: `Patches: 57 gesetzt`, auf einem PC bis in die Mission und über ein Rundenende gemessen,
-Lauf über vier Tage mit Händler und Werkbank auf einem PC belegt, zwei PCs offen, siehe [Run-Ablauf](#run-ablauf-auf-build-26786272-update-26786272-run) und [Offsets](../OFFSETS.md#referenz-build-26786272-spiel-update-26786272).
+Lauf über vier Tage mit Händler und Werkbank auf einem PC belegt, zwei PCs offen, siehe [Run-Ablauf](#run-ablauf-auf-build-26786272-update-26786272-run) und [Offsets](OFFSETS-ALTE-BUILDS.md#referenz-build-26786272-spiel-update-26786272).
 Die Hash-Referenz steht in `tools/game_build.py`. Die Entwicklungskopien wechseln nach dem Merge (`wechsel-26786272`).
 
 Build-ID und Manifest-IDs stehen in `steamapps/appmanifest_3026450.acf`. Die Manifest-IDs benennen die gewünschten Depotstände;

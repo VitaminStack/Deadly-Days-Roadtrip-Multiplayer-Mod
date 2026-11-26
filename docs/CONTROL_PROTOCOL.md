@@ -14,7 +14,7 @@ Eine Familie je Thema, Typen innerhalb der Familie fortlaufend. Wer einen Typ od
 | `0x100` Fortschritt | `0x100` Abo, `0x101` Bild, `0x102` Orbs | `Sync/ProgressState.h` |
 | `0x200` Desync-Melder | `0x200` Probe, `0x201` Ergebnis | `Sync/DesyncState.h` |
 | `0x300` Inventar | `0x300` Angebot, `0x303` Edit, `0x304` Ergebnis, `0x305` Bereit, `0x306`/`0x307` Rundenende, `0x308` Seltenheit, `0x309` Schrott (`0x301`/`0x302` stillgelegt) | `Sync/Inventory/RewardState.h` |
-| `0x400` Karte | `0x400` Karte, `0x401` Rundenende | `Sync/World/MapState.h` |
+| `0x400` Karte | `0x400` Karte, `0x401` Rundenende, `0x402` Rundenwerte (seit `ModVersion` 18) | `Sync/World/MapState.h` |
 | `0x500` Bewegung | `0x500` Dodge-Richtung | `Sync/MovementState.h` |
 | `0x600` Entwickler | `0x600` Anfrage | `Sync/DevState.h` |
 | `0x700` Pause | `0x700` Pausemenü | `Sync/Players/PauseState.h` |
@@ -282,6 +282,21 @@ Warnung. Ein unbekannter Stand oder Grund macht die Nachricht ungültig. Kodieru
 abgelehnt. Der Host schickt die Nachricht bei jeder Änderung und sonst jede Sekunde, bis er die Welt verlässt. Der Client beendet seine
 Runde nur, wenn die Karten-Id zu der Karte passt, die er in dieser Welt vom Host übernommen hat, und jede Id nur einmal. Mod-Version 10,
 weil eine Gegenseite mit der alten Länge von 16 Bytes die Nachricht verwerfen würde.
+
+## Rundenwerte (Mod-Kompatibilität 18)
+
+Aufgabe `opt-ergebnis-werte`, Fallakte [opt-ergebnis-werte](faelle/opt-ergebnis-werte.md), Code in `src/Game/RoundStatsPatches.cpp` und
+`src/Sync/World/MapSync.cpp`. Mod-Version 18, weil ein Client mit Version 17 die Werte verwirft und weiter Nullen zeigt und ein Host
+mit Version 17 sie nicht schickt. Lokal bleiben Rundenübersicht, Wertung und Animationen beim Client. Geteilt werden nur die Werte,
+die die Übersicht liest. Gebucht werden sie allein beim Host, der Client übernimmt sie nur zur Anzeige.
+
+`0x402` Host an Client, vor dem `0x401` desselben Rundenendes: Id des Rundenendes (8, wie in `0x401`), bekannt (1: 0 oder 1), Anzahl
+(2, höchstens 3000), je Wert Tag (4), Teilmission (1), Typ (`EGameStatType`, 1, kleiner 11), Spieler (1, `0xFF` gesamt, sonst
+Spielerindex bis 7) und Wert (int64, 8). Jeder Schlüssel aus Spieler, Tag, Teilmission und Typ kommt nur einmal vor. Unbekannt heißt:
+Der Host konnte seine Werte nicht lesen, dann ohne Einträge. Bei mehr als 3000 Werten bleiben die jüngsten Tage. Der Host schickt die
+Nachricht bei jedem neuen Rundenende sofort und bei geänderten Werten höchstens jede Sekunde, gleiche Werte nicht noch einmal. Der
+Client öffnet die Rundenübersicht erst, wenn die Werte zu diesem Ende da sind, höchstens 2 s nach dem Rundenende, und übernimmt sie
+einmal je Ende. Eine falsche Länge, ein unbekannter Typ oder Spieler und doppelte Schlüssel machen die Nachricht ungültig.
 
 ## Dodge-Richtung (Mod-Kompatibilität 8)
 

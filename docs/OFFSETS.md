@@ -3,51 +3,13 @@
 Der Quelltext (`src/`, Spike, `tools/spike`) nennt seit `spiel-update-26786272` (21.11.2026) RVAs von Steam-Build `26786272` (Patch 1.0.3),
 Exe `DDSurvivors-Win64-Shipping.exe`; die Mod unterstützt nur diesen Build. **Die Abschnitte dieser Datei sind zu ihrem jeweiligen Stand
 entstanden und nennen die RVAs des damaligen Builds** (`26495302`, davor `26187885`); sie sind nicht umgeschrieben. Umrechnung:
-[Referenz-Build 26786272](#referenz-build-26786272-spiel-update-26786272). Feld-Offsets sind gleich geblieben, außer wo vermerkt.
+[Referenz-Build 26786272](archive/OFFSETS-ALTE-BUILDS.md#referenz-build-26786272-spiel-update-26786272). Feld-Offsets sind gleich geblieben, außer wo vermerkt.
 Nach einem Spiel-Update müssen sie neu bestimmt werden, siehe [Spiel-Updates](../CONTRIBUTING.md#spiel-updates).
 Sie sind hier zum Nachschlagen gesammelt, damit niemand sie erneut suchen muss. Wer neue findet, trägt sie hier ein.
 
 RVAs sind relativ zur Image-Base `0x140000000`. Die Patchstellen stehen als Konstanten am Anfang der jeweiligen
 [Spike-Datei](../research/spikes/a-connect/README.md#dateien), ihre Bedeutung in der [Patch-Tabelle](../research/spikes/a-connect/README.md#patches).
 Die Spielfehler-Fixes nutzt auch die Mod, mit denselben Werten am Anfang von `src/Game/*Patches.cpp`, siehe [Patches der Mod](../src/Game/README.md#patches).
-
-## Referenz-Build 26786272 (`spiel-update-26786272`)
-
-Stand 21.11.2026, Nutzerentscheidung vom selben Tag: Die Mod unterstützt nur noch den neuesten Spiel-Build. `Game::AddressMap::ReferenceBuild`,
-`Protocol::GameBuild`, `Core::SupportedBuilds`, `Common.ps1`, `game_build.py`, `expect_check.py`, Spike und Installer kennen nur noch
-`26786272`; `26495302` und `26669225` sind entfernt, ebenso beide Tabellen `RvaMap*.inc`. Auf einem älteren Build bleibt die Mod aus
-(`Unbekannter Spiel-Build`), der Installer lehnt ihn ab.
-
-- **Umgeschrieben:** 155 Adressen in 41 Dateien (`src/`, `research/spikes/a-connect`, `tools/spike`, zwei Tests): 128 über die Tabelle aus
-  `update-basis-26786272` (124 der Mod, 4 des Spikes), 26 weitere aus Kommentaren und Tools mit `tools/rva_map.py` (23 eindeutig, je eine
-  über den Funktionsanfang, über Befehlsfenster der Funktion und als vtable) und eine von Hand (Aufruf von `PlayReloadSound` in der
-  Nachladelogik, `0x05A48CC5`). Die Tabelle (Referenz-RVA `26495302` -> `26786272`) liegt nur im Verlauf des Pull Requests 268, nicht auf
-  `main`: `git fetch origin pull/268/head`, dann `git show 87a91a7:src/Game/RvaMap26786272.inc`.
-- **Gemessene Werte in Kommentaren:** Wo ein Kommentar einen Messwert eines früheren Builds nennt, steht der alte Build weiter dabei
-  (`ItemAbilityPatches.cpp`, Koordinaten des Startrings in `Start-Run.ps1`). Die Kopfzeilen der Werkzeuge unter `tools/spike` nennen jetzt
-  `26786272`, ohne dass jedes einzeln gelaufen ist, siehe „Nicht geprüft“.
-- **Nicht umgeschrieben:** die Markdown-Dateien (diese Datei, `archive/GAME_ANALYSIS.md`, die READMEs unter `src/` und im Spike). Ihre Abschnitte
-  sind datierte Befunde mit den Adressen des damaligen Builds; teils stammen sie noch von `26187885`.
-- **Verzweigungen nach Build entfernt:** `TryBuyItem` und `EndTackle` prüfen nur noch die Bytes von `26786272`, `RepresentationItem` ist
-  fest `0xA38`.
-- **Signaturen (`signaturen-nachziehen`):** `PatchSignatures.inc` ist geleert und für den einen Build neu erzeugt: 115 Adressen, auch die
-  beiden bisher fehlenden aus `CharacterPatches.cpp`; die Namen kommen jetzt alle vom Werkzeug. `patch_signatures.py check --strict` 115
-  `ok`, `sites` ohne Abweichung (dafür `InventoryPatches.cpp` nachgezogen und `DamageNumbersSites` umbenannt), ein zweites
-  `generate --write` ändert die Datei nicht. `expect_check.py` 101 `ok`, 2 `uebersprungen`.
-- **SdkChecks:** Build gegen das SDK von `26786272` ohne Fehler.
-- **Spieltest** (ein PC, eingefrorene Kopie `26786272`, ohne echte Eingaben, 21.11.2026):
-  - Mod und Spike (`Start-Session.ps1 -Build -Mod -Tunnel Lobby -Map /Game/Maps/DDDynamic_Map`): Host und Client
-    `Signaturen: 115 Adressen geprüft`, `Patches: 57 gesetzt`, `Spiel-Build 26786272`, Gegnerwelle, Inventar gleich,
-    `Test-Godmode.ps1` bestanden, Rundenende bei beiden, kein `[ERROR]`, kein Absturz.
-  - Nur Spike, ohne Mod: beide Instanzen `Patch: aktiv`, Karte und PCG vom Host, keine Zeile `Adresse fehlt` oder `unerwartete Bytes`,
-    Inventar gleich.
-  - Nur Mod (`-NoSpike`): `Patches: 57 gesetzt`, Lobby, Reise in die Mission, zweieinhalb Minuten, Inventar gleich, kein Absturz.
-- **Nicht geprüft:** die lesenden Python-Werkzeuge unter `tools/spike` einzeln (keines nennt einen Offset in den verschobenen Bereichen
-  von `UInventoryPanel`, `UItemRepresentation`, `URecipePanel` oder deren Blueprints, ihre Feld-Offsets liegen in Klassen, die laut
-  SDK-Vergleich unverändert sind; gelaufen sind `ddmem.py`, `inventory.py`, `godmode_state.py` über die Skripte oben), Befehle des Spikes
-  außer `!wave`, `!finish`, `!god`, alles Weitere wie in [Build 26786272](archive/OFFSETS-ALTE-BUILDS.md#build-26786272-update-basis-26786272) (`update-26786272-run`).
-- **Entwicklungskopien:** Nach dem Merge stellt jeder mit `Freeze-GameBuild.ps1 -Build 26786272 -Activate` um (`wechsel-26786272`).
-  Branches von vor dem Umstieg brauchen bis zu ihrem Rebase die alte Kopie.
 
 ## Dumper-7 liest hinter das Image-Ende (`dumper7-image-ende`)
 
@@ -1074,3 +1036,14 @@ Build `26786272`, SDK und Speicherlesen. Lesewerkzeug `tools/spike/portraits.py`
 | `APlayerController` | Player (`LocalPlayer` oder Netzverbindung) | `0x348` |
 | `UPlayerColorDeveloperSettings` | AllPlayerColors (`TArray<TSoftObjectPtr>`, Element `0x28`: Blau, Grün) | `0x38` |
 | `UPlayerColorDefinition` | PrimaryColor, ShadowColor | `0x28`, `0x38` |
+
+## Werte der Rundenübersicht (`opt-ergebnis-werte`)
+
+Disassembly und Speicherlesen, Ablauf in der [Fallakte](faelle/opt-ergebnis-werte.md). Die Mod rechnet die Container über `CurrentGameData` (`0xD0`, `0xC8` Byte).
+
+| Stelle | RVA oder Offset | Hinweis |
+|---|---|---|
+| Gesamtwerte im `UDDGameStatsSubsystem` | `0x198` | `TMultiMap<FMissionTimeIdentifier, FGameStat>`, Element `0x20`: Tag, Teilmission, Typ `+8`, Wert `+0x10` |
+| Werte je Spieler | `0x1E8` | `TMap<int32, Container>`, Element `0x60`, Container `+8` |
+| Suchen, Erhöhen (Typ 0 und 4: Maximum), Spieler-Container | `0x58EBFD0`, `0x58F45A0`, `0x58D56F0` | `(Container, Typ, Tag)`, `(Container, Typ, Tag, Erhöhung)`, `(Map, Index, Index*)` |
+| `GetGameStat`, `IncrementGameStat`, dessen Teil je Spieler | `0x58EF260`, `0x58F4420`, `0x58F4520` | Increment meldet danach über `0x58FD520` (Vermutung: `ExecuteStatNotification`) |

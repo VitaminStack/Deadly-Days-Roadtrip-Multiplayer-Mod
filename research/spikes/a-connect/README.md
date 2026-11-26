@@ -17,7 +17,7 @@ Gebaut und gestartet wird über die Skripte in `tools/spike/`, die auch den Cras
 ## Builds
 
 Der Quelltext nennt seit `spiel-update-26786272` (21.11.2026) Code- und Datenadressen von `26786272` (Patch 1.0.3), die Abschnitte unten
-mit älterem Stand die von `26495302` oder `26187885` ([Umrechnung](../../../docs/OFFSETS.md#referenz-build-26786272-spiel-update-26786272)).
+mit älterem Stand die von `26495302` oder `26187885` ([Umrechnung](../../../docs/archive/OFFSETS-ALTE-BUILDS.md#referenz-build-26786272-spiel-update-26786272)).
 `Rva()` in `Builds.cpp` liefert sie auf diesem Build unverändert (erkannt am TimeDateStamp `0x260774D7`), auf jedem anderen Build `kMissingRva`.
 Neue Adressen immer als `Rva(0x…)` schreiben, relative Sprünge mit `ExpectBranch` prüfen, Importeinträge mit `FindImportSlot` suchen.
 

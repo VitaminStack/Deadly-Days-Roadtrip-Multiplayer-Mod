@@ -70,7 +70,7 @@ Die Fixes, ohne die keine Mission zu zweit läuft, kommen aus dem Spike (Aufgabe
 der [Patch-Tabelle des Spikes](../../research/spikes/a-connect/README.md#patches). Die RVAs stehen als Konstanten am Anfang der jeweiligen Datei.
 
 Alle RVAs im Quelltext gelten für den Referenz-Build `26786272` (Patch 1.0.3, seit `spiel-update-26786272`, vorher `26495302`, siehe
-[Offsets](../../docs/OFFSETS.md#referenz-build-26786272-spiel-update-26786272)). Die Mod unterstützt nur diesen Build. `At(Rva)` und
+[Offsets](../../docs/archive/OFFSETS-ALTE-BUILDS.md#referenz-build-26786272-spiel-update-26786272)). Die Mod unterstützt nur diesen Build. `At(Rva)` und
 `Memory::Rva` liefern die RVA dort unverändert; auf jedem anderen Build liefern sie 0 und protokollieren das einmal, die Byte-Prüfungen
 schlagen dann fehl und kein Patch wird gesetzt. `AddressMap` kann während eines Umstiegs eine Tabelle `RvaMap<build>.inc` aus
 [`tools/rva_map.py`](../../tools/README.md#rva_mappy) aufnehmen; gemergt wird nur der umgeschriebene Quelltext. Feld-Offsets (`Offsets.h`
