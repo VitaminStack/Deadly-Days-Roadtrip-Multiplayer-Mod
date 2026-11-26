@@ -145,6 +145,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `opt-metabase-inventar` | 5 | Nach dem Sieg haben beide Spieler ihre Run-Items in der MetaBase noch. Am 14.11. begann der nächste Run beim neuen Host mit Level 35 statt 1, das Spiel skaliert die Gegner danach. Bestätigungstest ausstehend, siehe unten. |
 | `opt-portraet` | Wartung | Test auf einem PC ([E-05](ENTSCHEIDUNGEN.md#e-05-einzelne-optionen-vorgezogen)). Host zeigt an Tag 2 ein anderes Figurenporträt Bestätigungstest ausstehend, siehe unten. |
 | `opt-rucksack-ueberlappung` | Optional | Nutzerentscheidung vom 21.11.2026: Bestätigungstest gestrichen, keine gezielte Prüfung mehr. Stand: zweiter Fix aus #244, im Live-Test 17.11.2026 (Lager-Edits bis 28 Items, Stations-Zug mit 6 neuen Feldern) und im Live-Test 21.11.2026 (52 Edits des Clients) keine Überlappung gemeldet |
+| `opt-rundenstempel` | Problem | Die Rundenübersicht des Clients stempelt das geschaffte Level nicht ab … Bestätigungstest ausstehend, siehe unten. |
 | `opt-schadenszahlen` | Optional | Client sieht Schadenszahlen eigener und fremder Treffer: Host meldet jeden Aufruf seines nativen Handlers über 0xA00 (Mod-Version 12), Client ruft denselben Handler seines Controllers; Spieltest auf einem PC Host 174 / Client 175 Aufrufe, Zahlen im Client-Fenster, auch nach Kartenwechsel, keine doppelt |
 | `opt-schadenszahlen-verlust` | Optional | Ursache behoben: 0xA00 verfiel im Sammelabruf, jetzt dort ausgewertet; Zähler für Senden, Dekodieren, Revisionen und Kontrollkanal; Ein-PC-Lauf 438/438 |
 | `opt-schrott-anzeige` | Optional | Schrott aus Haufen bucht nur der Host, der Client übernimmt den Stand über 0x309; Anzeige springt nicht mehr (Test auf einem PC, zwei Tage) |
@@ -274,6 +275,7 @@ Spicker für Live-Sitzungen: was bei erledigten Aufgaben noch im Spiel zu prüfe
 | `opt-loot-aufnahme-client` | Automatisches Looten (Benzinstand bei beiden vergleichen), Power-ups wie Energy Drink und Level-Up wirken beim Client, Itemsäcke werden je einmal aufgenommen. |
 | `opt-metabase-inventar` | Nach einem Sieg: neuer Run mit Level 1 und Startinventar bei beiden, danach Rollentausch; MetaBase-Items bleiben korrekt. |
 | `opt-portraet` | Das HUD-Porträt zeigt auch beim Host die eigene Figur, auch nach einem Kartenwechsel. |
+| `opt-rundenstempel` | Fix integriert: Client stempelt nach dem Rundenende des Hosts den Tag (nie Event) und den Fehlschlag genau bei Niederlage des Hosts; ein PC mit zwei Clients für Tag 1, Tag 2 und Niederlagen geprüft. Offen: zwei PCs, Sieg, Stempelbild bei anderer Figur des Clients, Event-Tag des Hosts (nach Merge von opt-routenkarte neu prüfen), doppelter Fehlschlag-Ton beim Client durch RefreshAsGameOver |
 | `opt-schadenszahlen` | Client sieht Schadenszahlen eigener und fremder Treffer. |
 | `opt-schrott-anzeige` | Die Schrottanzeige des Clients springt beim Aufsammeln nicht. |
 | `opt-tempo-upgrades` | Echtes Tempo-Upgrade (Meta oder Level-up) im Run und Test auf zwei PCs; gemessen auf einem PC mit gesetztem Attribut und Item-Effekt, 1 und 3 Clients |
