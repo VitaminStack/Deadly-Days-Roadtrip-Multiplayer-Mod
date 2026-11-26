@@ -30,31 +30,13 @@ Stand 21.11.2026. Der Absturz des Dumpers auf `26669225` (siehe oben, bisher **[
   Zeiger, den diese Variante danach liest. Der 32-Bit-Zweig (`push`) ist nicht angefasst. Der Fix liegt als
   [`tools/dumper7/image-ende.patch`](../tools/dumper7/image-ende.patch) im Repo; `Build-Dumper7.ps1` wendet ihn auf seine Baukopie an,
   solange der Fork ihn nicht enthält. **Das Submodul zeigt unverändert auf `2570b5b`**, in den Fork ist nichts gepusht.
-- **Nachweis ohne Spiel:** Ein kleines Testprogramm (nicht im Repo) blendet die Exe nur als Image ein (`LoadLibraryEx` mit
-  `DONT_RESOLVE_DLL_REFERENCES`, kein Code der Exe läuft) und ruft `FindByStringInAllSections` aus dem Quelltext des Dumpers auf, einmal
-  aus dem Stand `2570b5b`, einmal mit Patch:
-
-  | Exe | `2570b5b` | mit Patch |
-  |---|---|---|
-  | `26495302` | `L"Accessed None"` → `0x160C0F2`, `L"ByteProperty"` → `0x1442B61`; `L" Bone: "` und `L"Failed to find function %s in %s"` ohne Treffer, kein Fehler | dieselben Treffer, kein Fehler |
-  | `26669225` | dieselben beiden Treffer; die drei Suchen ohne frühen Treffer enden mit **Zugriffsfehler beim Lesen von Image+`0xB74A000`** (erstes Byte hinter dem Image) | dieselben Treffer, die drei Suchen laufen durch, kein Fehler |
-  | `26786272` | dieselben Treffer, kein Fehler | dieselben Treffer, kein Fehler |
-
-  Die Fehleradresse passt zum Absturzbericht vom 16.11. (Seitenanfang `…A000` direkt hinter dem Image). Im Spiel lag der Absturz in der
-  Suche nach `ByteProperty` für GNames: `FindFNameGetNamesOrGNames_Windows` setzt hinter jedem Treffer neu an, bis einer das gesuchte
-  Aufrufmuster hat. `.text` enthält drei Verweise auf `L"ByteProperty"` (`0x1442B61`, `0x14B921F`, `0x6006A90`), alle vor `0x6E757B8`;
-  passt keiner, läuft die Suche über die Stelle. **[Vermutung]** Genau das war am 16.11. der Fall; nachgestellt ist nur die Suche selbst.
-- **Kosten:** Ein voller Suchlauf über `.text` ohne Treffer dauert im Testprogramm 2,5 s statt 1,5 s. Der frühere lokale Fix (zweites
-  `IsBadReadPtr`, also `VirtualQuery` je Kandidat) brauchte für den ganzen Dump rund zehn Minuten.
-- **Spieltest 21.11.2026** (ein PC, eingefrorene Kopie `26786272`, `Start-Session.ps1 -Build -Mod -Tunnel Lobby -Map
-  /Game/Maps/DDDynamic_Map`, ohne echte Eingaben): `Build-Dumper7.ps1` ohne lokale Änderung gebaut (Submodul `2570b5b` plus Patch,
-  15 s), DLL per `inject.py` in den Host geladen, beide Instanzen mit 2 Spielern in der Mission. Dumper nach 6 s wieder entladen,
-  2.504 Dateien (die SDK-Dateien entstanden in rund 4 s), Host und Client liefen weiter, `Get-Status.ps1`: keine Abstürze. Gegen das
-  SDK desselben Builds vom 20.11. (früherer lokaler Fix, rund zehn Minuten): `Basic.hpp` (GObjects `0x0AA6FC80`, GNames `0x0A9A1C40`,
-  GWorld `0x0AAF2870`, ProcessEvent `0x0160C220`), `Engine_classes.hpp` und `DDSurvivors_classes.hpp` sind bytegleich. Neu ist nur
-  `GE_MetaBaseSpeed_classes.hpp` (am 20.11. nicht geladenes Blueprint). 119 Dateien unterscheiden sich: `Assertions.inl` (im alten SDK
-  von Hand nachgearbeitet) und Dateien von Blueprint-Klassen (`BP_*`, `WP_*`, `WB_*`, `OptionsMenu` und ähnliche); nicht einzeln
-  ausgewertet. **Nicht geprüft:** der unveränderte Stand `2570b5b` im Spiel auf `26786272` (keine Gegenprobe).
+- **Nachweis:** Ein Testprogramm (nicht im Repo) blendet die Exe nur als Image ein und ruft `FindByStringInAllSections` des Dumpers
+  auf. Auf `26669225` enden Suchen ohne frühen Treffer mit Stand `2570b5b` mit Zugriffsfehler bei Image+`0xB74A000`, mit Patch nicht;
+  `26495302` und `26786272` liefern mit und ohne Patch dieselben Treffer ohne Fehler. **[Vermutung]** Am 16.11. lief die Suche nach
+  `L"ByteProperty"` für GNames über die Stelle. Ein voller Suchlauf ohne Treffer dauert mit Patch 2,5 s statt 1,5 s.
+- **Spieltest 21.11.2026** (ein PC, `26786272`): Dumper mit Patch in den Host geladen, SDK in rund 4 s, Host und Client liefen weiter.
+  `Basic.hpp`, `Engine_classes.hpp` und `DDSurvivors_classes.hpp` sind bytegleich zum SDK vom 20.11. **Nicht geprüft:** `2570b5b`
+  ohne Patch im Spiel auf `26786272`.
 - **Offen, braucht einen Menschen:** den Commit in den Fork `VitaminStack/Dumper-7` übernehmen (derselbe Inhalt wie der Patch), danach
   das Submodul auf den neuen Stand stellen und `image-ende.patch` samt dem Schritt im Skript entfernen. Bis dahin baut das Skript den
   Fix über den Patch ein.
@@ -1072,3 +1054,6 @@ Disassembly und Speicherlesen, Ablauf in der [Fallakte](faelle/opt-ergebnis-wert
 | `GetGameStat`, `IncrementGameStat`, dessen Teil je Spieler | `0x58EF260`, `0x58F4420`, `0x58F4520` | Increment meldet danach über `0x58FD520` (Vermutung: `ExecuteStatNotification`) |
 | `OnRoundChanged`, `StopTracking`, `StartNewDay`, `OnRunStarted` | `0x58FC4B0`, `0x5909010`, `0x5907E70`, `0x5900A00` | Tagesend-Buchung; Tag `+0xD0` hochzählen; alles leeren |
 | `GenerateStats`, Aufruf von `WasFinalMission` (`0x590D930`) darin | `0x5AE3510`, `0x5AE367D` | Summen aller Tage bei letzter Mission oder allen Figuren tot |
+| Stempel in `GenerateStats`: Merker alle tot, Routenvergleich (`opt-rundenstempel`) | `0x5AE3676` (`[rsp+41h]`), `0x5AE3D84` | Current ≠ Cached: Event-Stempel (`0x5AD6CD0`) statt `SetupDayStamp` (`0x5AFE0E0`, Tag 0-basiert) |
+| `TriggerEndRound`, Ende | `0x5909FE0`, `0x590A1E4` | Cached = Current, Current = clamp(Current+1, 0, Kette-1). GI: Current `0x2C0`, Cached `0x2C4` |
+| `WP_Round_Stats_C` Day8Stamp…Day1Stamp; `URoundEndSticker` Sticker, Event, Restbilder | `0x4D8`…`0x510`; `0x328`, `0x330`, `0x360` | Bilder aus Figur 0 des `CharacterSelectionManager` (`+0x120` der Definition) |

@@ -312,6 +312,7 @@ Bauen und Testen des Spikes, die Anleitung steht in [docs/TESTING.md](../docs/TE
 | `Run-Route.ps1` | Fester Routenlauf mit Seed `20795` über mehrere Tage, nach jedem Wechsel `check_round.py`, Bilder während und nach dem Laden unter `research/local/session/runs/`. Mit `-Start -NetProfile Internet` in einer Lobby-Sitzung mit simulierter Latenz, mit `-Start -NoSpike -Days 1 -StayLast` nur mit der Mod |
 | `check_round.py` | Prüft nach einem Kartenwechsel World, `PlayerArray`, PlayerStates, Figuren am Bus, gleiche Positionen bei Host und Client, NetGUIDs und `NewActor failed`. Mit `--wait` misst `load_seconds` ab dem Aufruf, bis beide die neue World mit allen Spielern im GameState haben; World 0 beim Laden gilt nicht als beendet, leer heißt Instanz beendet oder Zeit abgelaufen |
 | `round_stats.py` | Liest die Werte der Rundenübersicht (`DDGameStatsSubsystem`, gesamt und je Spieler) aus Host und Client und vergleicht sie je Tag und Typ: `round_stats.py <host-pid> <client-pid>`, Exitcode 0 gleich, 1 Abweichung (`opt-ergebnis-werte`) |
+| `round_stamps.py` | Liest je Instanz die Tagesstempel der offenen Rundenübersicht (Sichtbarkeit, Bild, Animation), dazu Tageskennung, Routenindizes der GameInstance und Figurenwahl: `round_stamps.py <pid> [<pid> ...]` (`opt-rundenstempel`) |
 | `Focus-Window.ps1` | Holt ein Spielfenster nach vorn |
 | `Disassemble.ps1` | Zeigt einen RVA-Bereich der Exe |
 | `CrashGuard.ps1` | Crash-Schutz, wird von `Start-Session.ps1` gestartet |

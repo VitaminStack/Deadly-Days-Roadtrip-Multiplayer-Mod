@@ -561,6 +561,7 @@ constexpr uintptr_t MapSites[] = {CreateChildActor, IsChildActorReplicated, Setu
 const Patch List[] = {
     {"Gleiche Karte und Vegetation beim Client", &CheckMap, &ApplyMap, MapSites},
     RoundStatsPatch(),
+    RoundStampsPatch(),
 };
 }
 
@@ -666,6 +667,7 @@ void FollowRoundEnd()
     else
         Core::Log::Warn("Rundenwerte: eigene Werte nicht lesbar, Client zeigt sie unverändert");
     S.Used.Follow(S.HostEnd->Id);
+    RoundStats::NoteRoundEndFollowed(S.HostEnd->Outcome == Map::RunOutcome::Lost); // opt-rundenstempel
     S.FollowedWorld = 0;
     // run-ende: Der Bildschirm kommt aus dem nativen Rundenende, das Umschalten folgt im nächsten Sekundentakt, wenn die Übersicht
     // offen ist. Eine Niederlage hat kein Lager, darum bleibt FollowedWorld dort leer und Bestätigen unberührt. Ein Sieg behält das

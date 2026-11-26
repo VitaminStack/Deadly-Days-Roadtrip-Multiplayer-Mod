@@ -138,6 +138,22 @@ constexpr bool PanelShowsRunTotals(bool FinalMission, bool ClientRunEnded)
     return FinalMission || ClientRunEnded;
 }
 
+// opt-rundenstempel: Tagesstempel der Rundenübersicht. GenerateStats stempelt den aktuellen Tag nach zwei lokalen Merkern:
+// - Event-Stempel statt Tagesstempel, wenn CurrentMissionIndex und CachedCurrentMissionIndex der Route verschieden sind. Der Client
+//   hat keine eigene Route; nach seinem ersten Rundenende steht dort -1/0, also Event-Weg ohne Bilder: kein Stempel an Tag 1.
+// - Fehlschlag-Stempel, wenn alle Figuren tot sind. Beim Client sind sie es bei der Niederlage des Hosts nicht: Siegstempel.
+// Folgt der Client in dieser Welt einem Rundenende des Hosts, gilt darum: kein Event-Stempel, tot genau bei Niederlage des Hosts.
+// Host und Solo behalten den Wert des Spiels.
+constexpr bool PanelEventStamp(bool Native, bool Client, bool FollowedHostEnd)
+{
+    return Client && FollowedHostEnd ? false : Native;
+}
+
+constexpr bool PanelAllDead(bool Native, bool Client, bool FollowedHostEnd, bool HostLost)
+{
+    return Client && FollowedHostEnd ? HostLost : Native;
+}
+
 // TSet/TMap des Spiels (TSparseArray mit Belegungsbits, Hash), 0x50 Byte. Wie ControllerSet in PatchPolicy.h, aber nur gelesen,
 // darum Adressen statt Zeiger. Gesamtwerte: Element 0x20 Byte (FMissionTimeIdentifier, FGameStat). Je Spieler: Element 0x60
 // Byte (int32 Spielerindex, bei +8 derselbe Container).

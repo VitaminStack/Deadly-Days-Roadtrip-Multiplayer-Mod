@@ -137,7 +137,9 @@
 {0x05ABA627, 0, "48 8B 07 48 8B CF FF 90 C8 02 00 00 80 B8 68 01 00 00 03", 0, "OpenPanelRoleCheck"}, // RouteMapPatches.cpp
 {0x05ABD6C0, 0, "48 89 5C 24 10 56 48 83 EC 40 48 83 79 30 00", 0, "RepresentationSize"}, // InventoryPatches.cpp
 {0x05AE3510, 0, "48 8B C4 48 89 58 10 48 89 70 18 48 89 78 20 55 41 54 41 55 41 56 41 57 48 8D A8 B8 FE FF FF 48 81 EC 20 02 00 00 0F 29 70 C8 0F 29 78 B8 44 0F 29 40 A8 44 0F 29 48 98 4C 8B F1", 0, "GenerateStats"}, // RoundStatsPatches.cpp
+{0x05AE3676, 0, "88 5C 24 41 49 8B CD E8 ?? ?? ?? ??", 0, "StampAllDeadStore"}, // RoundStatsPatches.cpp
 {0x05AE367D, 0, "E8 ?? ?? ?? ?? 84 C0 75 ?? 84 DB 75 ?? 88 44 24 40", 0, "GenerateStatsFinalCall"}, // RoundStatsPatches.cpp
+{0x05AE3D84, 0, "3B D1 41 0F 95 C4 49 8B CE", 0, "StampEventCompare"}, // RoundStatsPatches.cpp
 {0x05B0C050, 0, "4C 8B DC 55 53 56 57 41 56 49 8D 6B A8 48 81 EC 30 01 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 A0 4D 8B F1", 0, "LocalViewportCorners"}, // ExpPatches.cpp
 {0x05B11480, 0, "48 89 5C 24 18 48 89 74 24 20 55 57 41 54 41 56 41 57 48 8D 6C 24 F0 48 81 EC 10 01 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 00 48 8B DA 48 8B F1 48 89 4C 24 30 45 33 F6", 0, "GetPlayerCharacters"}, // ClientPatches.cpp
 {0x05B14115, 0, "48 8B 08 48 8B 91 30 03 00 00 48 8B C8 48 83 C4 28 48 FF E2 CC", 0, "PlayerIndexNullSite"}, // PlayerPatches.cpp
