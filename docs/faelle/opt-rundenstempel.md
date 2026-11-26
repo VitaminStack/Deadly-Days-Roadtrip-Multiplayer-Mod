@@ -57,7 +57,9 @@ abends: Der Stempel erscheint falsch oder ohne Animation. Nachstellen auf einem 
 - Tagesende 2: Tag 1 und 2 gestempelt bei allen drei, je ein `meta_stickerGood`, `round_stats.py` „gleich“ für beide Clients.
 - Niederlage an Tag 3 (Tod aller drei über `DD_DamagePlayerAtIndex`): Alle drei stempeln Tag 3 mit `died`. Wertung (2), Werte und
   „Du bist gestorben“ wie beim Host, die Knöpfe des Clients bleiben wie in opt-ergebnis-werte verborgen.
-- `Management_SaveSlot_0.sav` beider Clients blieb über Tag 2 bis zur Niederlage Byte für Byte gleich.
+- Niederlage an Tag 1 mit frischem Client-Prozess (Host und ein Client, Route des Clients `-1/0`): Client stempelt `died` wie der
+  Host, `round_stats.py` „gleich“.
+- `Management_SaveSlot_0.sav` der Clients blieb über Tag 2 bis zur Niederlage und über die Niederlage an Tag 1 Byte für Byte gleich.
 
 ## Grenzen
 
