@@ -38,6 +38,7 @@
     <ClCompile Include="SessionLogTests.cpp" />
     <ClCompile Include="LobbyMembershipTests.cpp" />
     <ClCompile Include="ThreatTests.cpp" />
+    <ClCompile Include="ZoneGoalTests.cpp" />
     <ClCompile Include="DamageNumberTests.cpp" />
     <ClCompile Include="WeaponSoundTests.cpp" />
     <ClCompile Include="PauseTests.cpp" />

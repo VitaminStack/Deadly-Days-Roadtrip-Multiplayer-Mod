@@ -89,6 +89,7 @@
     <ClCompile Include="TelemetryAdapter.cpp" />
     <ClCompile Include="ThreatAdapter.cpp" />
     <ClCompile Include="BossBarAdapter.cpp" />
+    <ClCompile Include="ZoneGoalAdapter.cpp" />
     <ClCompile Include="TutorialAdapter.cpp" />
     <ClCompile Include="PauseAdapter.cpp" />
     <ClCompile Include="WorldAdapter.cpp" />
@@ -144,6 +145,8 @@
     <ClInclude Include="ThreatPolicy.h" />
     <ClInclude Include="BossBarAdapter.h" />
     <ClInclude Include="BossBarPolicy.h" />
+    <ClInclude Include="ZoneGoalAdapter.h" />
+    <ClInclude Include="ZoneGoalPolicy.h" />
     <ClInclude Include="BloodPolicy.h" />
     <ClInclude Include="EnemySoundAdapter.h" />
     <ClInclude Include="EnemySoundPolicy.h" />
