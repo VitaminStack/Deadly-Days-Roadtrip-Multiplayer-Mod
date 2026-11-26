@@ -8,6 +8,7 @@ Gilt für Build `26786272`. Datierte Befunde und Messungen stehen im [Archiv](..
 - Was beim Host nur lokal entsteht, zeigt der Client nach: Warnanzeigen der Angriffe (Kreise und Sprint-Striche), Schadenszahlen, Gegner-Sounds, Bedrohungsstufe.
 - Boss-Leisten: Der Client zeigt wie der Host nur die HP der laufenden Phase und erst ab Kampfbeginn, umgesetzt für alle Bosse. Zu zweit bestätigt ist bisher nur der Lazy-Boss.
 - Hält der Host die Weltzeit an (etwa nach dem Bosstod), zeigt der Client nach 1 s den Hinweis „Der Host hat das Spiel angehalten“.
+- Den Sensenmann erzeugt nur der Host. Kommt er beim Client an, holt dieser Ansage, Ton und Stoppuhr lokal nach, ohne Nachricht; die Ausweitung der Spawn-Biome bleibt beim Host ([Fallakte](../faelle/opt-sensenmann-ansage-client.md)).
 
 ## Code
 
@@ -19,12 +20,13 @@ Gilt für Build `26786272`. Datierte Befunde und Messungen stehen im [Archiv](..
 | `src/Game/ThreatAdapter.cpp`, `src/Game/ThreatPolicy.h` | Bedrohungsstufe | `tests/NetTests/ThreatTests.cpp` (Nachricht `ThreatState`) |
 | `src/Game/BossBarAdapter.cpp`, `src/Game/BossBarPolicy.h` | Boss-Leiste | `tests/GameTests/BossBarPolicyTests.cpp` |
 | `src/Game/ProjectilePatches.cpp` | Projektile aus dem Pool beim Client sichtbar | – |
+| `src/Game/ReaperAnnouncementAdapter.cpp`, `src/Game/ReaperAnnouncementPolicy.h` | Ansage des Sensenmanns beim Client | `tests/GameTests/ReaperAnnouncementPolicyTests.cpp` |
 
 Mehr: [src/Sync/Enemies/README.md](../../src/Sync/Enemies/README.md).
 
 ## Offene Fehler
 
-Keine eigene Fallakte. Bestätigungstests stehen bei `opt-boss-phasenleiste`, `opt-boss-tafel-client` und `opt-endboss-leiste` in [TODO.md](../../TODO.md).
+Keine eigene Fallakte. Bestätigungstests stehen bei `opt-boss-phasenleiste`, `opt-boss-tafel-client` und `opt-endboss-leiste` in [TODO.md](../../TODO.md), bei `opt-sensenmann-ansage-client` unter [Bestätigungstests ausstehend](../ERLEDIGT.md#bestätigungstests-ausstehend).
 
 ## Historie
 

@@ -5,6 +5,7 @@
 #include "Game/Patches.h"
 #include "Game/TelemetryAdapter.h"
 #include "Game/BossBarAdapter.h"
+#include "Game/ReaperAnnouncementAdapter.h"
 #include "Game/TutorialAdapter.h"
 #include "Game/WorldAdapter.h"
 
@@ -22,6 +23,7 @@ void Start()
     GameThread::AddTick(TickWorld, "Welt");
     GameThread::AddTick(TickTutorials, "Tutorial");
     GameThread::AddTick(TickBossBar, "Boss-Leiste");
+    GameThread::AddTick(TickReaperAnnouncement, "Sensenmann-Ansage");
     GameThread::AddTick(TickTelemetry, "Telemetrie");
     GameThread::AddTick(Patches::Tick, "Patches");
     GameThread::Start();
