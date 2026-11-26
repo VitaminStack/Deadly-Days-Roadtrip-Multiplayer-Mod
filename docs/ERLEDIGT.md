@@ -276,8 +276,8 @@ Spicker für Live-Sitzungen: was bei erledigten Aufgaben noch im Spiel zu prüfe
 | `opt-metabase-inventar` | Nach einem Sieg: neuer Run mit Level 1 und Startinventar bei beiden, danach Rollentausch; MetaBase-Items bleiben korrekt. |
 | `opt-portraet` | Das HUD-Porträt zeigt auch beim Host die eigene Figur, auch nach einem Kartenwechsel. |
 | `opt-schadenszahlen` | Client sieht Schadenszahlen eigener und fremder Treffer. |
-| `opt-sensenmann-ansage-client` | Zwei PCs, Sensenmann nach den natürlichen 12 Minuten: Client sieht Sprechblase und Stoppuhr wie der Host und hört den Ton einmal; im Client-Log genau eine Zeile „Sensenmann: beim Client angekommen, Ansage lokal …“ je Karte. |
 | `opt-schrott-anzeige` | Die Schrottanzeige des Clients springt beim Aufsammeln nicht. |
+| `opt-sensenmann-ansage-client` | Zwei PCs, Sensenmann nach den natürlichen 12 Minuten: Client sieht zeitgleich mit dem Host die Sprechblase (an der eigenen Figur, auch bei verschiedenen Figuren) und die Stoppuhr mit Sensenmann und hört den Ton einmal; im Client-Log genau eine Zeile „Sensenmann: beim Client angekommen, Ansage lokal …“ je Karte. |
 | `opt-tempo-upgrades` | Echtes Tempo-Upgrade (Meta oder Level-up) im Run und Test auf zwei PCs; gemessen auf einem PC mit gesetztem Attribut und Item-Effekt, 1 und 3 Clients |
 | `opt-waffen-sound` | Client hört Schuss- und Nachladesounds beider Figuren. |
 | `opt-werkbank-station` | Eine Rezept-Aufwertung des Clients an der Werkbank wird beim Host gebucht. |

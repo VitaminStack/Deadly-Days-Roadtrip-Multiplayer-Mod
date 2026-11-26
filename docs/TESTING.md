@@ -162,7 +162,7 @@ normale Karte lässt sich in einer Sitzung mehrmals fahren (`karte-nach-labyrint
 
 **Sensenmann gezielt auslösen** (mit Spike, nur Host): `Send-SpikeCommand <host-pid> '!shop reaper 3'` stellt den nativen
 Zeitgeber des `AReaperSpawner` auf 3 s. Die Konsolenbefehle des Spiels dafür (`SpawnReaper`, `SetSpawnReaperAfterMinutes`,
-`KillReaper`) wirken im Shipping-Build nicht. Der Host erzeugt ihn rund 3 bis 6 s nach dem Befehl, beim Client kommt er unter 1 s danach an (gemessen in
+`KillReaper`) wirken im Shipping-Build nicht. Die Ansage beim Client kam 3,4 bis 3,6 s nach dem Befehl, der Sensenmann dort unter 1 s nach dem Host (gemessen in
 `DDDynamic_Map` und `MGP_City_LittleIndia`, `opt-sensenmann-ansage-client`). Die Karte braucht `ShouldSpawnReaper`; den setzt der Befehl selbst,
 wenn der Spawner einen laufenden Zeitgeber hat. `py tools/spike/reaper_state.py <host-pid> <client-pid> --watch 90` zeigt je Seite Spawner (`WasReaperSpawned`, Empfänger von `OnReaperSpawned`), Sensenmann und Stoppuhr mit Zeit je Änderung (`opt-sensenmann-ansage-client`).
 
