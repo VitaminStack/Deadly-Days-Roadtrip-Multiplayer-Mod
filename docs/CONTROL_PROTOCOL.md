@@ -290,13 +290,14 @@ Aufgabe `opt-ergebnis-werte`, Fallakte [opt-ergebnis-werte](faelle/opt-ergebnis-
 mit Version 17 sie nicht schickt. Lokal bleiben Rundenübersicht, Wertung und Animationen beim Client. Geteilt werden nur die Werte,
 die die Übersicht liest. Gebucht werden sie allein beim Host, der Client übernimmt sie nur zur Anzeige.
 
-`0x402` Host an Client, vor dem `0x401` desselben Rundenendes: Id des Rundenendes (8, wie in `0x401`), bekannt (1: 0 oder 1), Anzahl
-(2, höchstens 3000), je Wert Tag (4, ab -1), Teilmission (int8, -1 bis 127), Typ (`EGameStatType`, 1, kleiner 11), Spieler (1, `0xFF` gesamt, sonst
-Spielerindex bis 7) und Wert (int64, 8). Jeder Schlüssel aus Spieler, Tag, Teilmission und Typ kommt nur einmal vor. Unbekannt heißt:
-Der Host konnte seine Werte nicht lesen, dann ohne Einträge. Bei mehr als 3000 Werten bleiben die jüngsten Tage. Der Host schickt die
-Nachricht einmal je Rundenende und Client, sofort, und wiederholt sie nur, wenn das Senden nicht angenommen wurde. Der
-Client öffnet die Rundenübersicht erst, wenn die Werte zu diesem Ende da sind, höchstens 2 s nach dem Rundenende, und übernimmt sie
-einmal je Ende. Eine falsche Länge, ein unbekannter Typ oder Spieler und doppelte Schlüssel machen die Nachricht ungültig.
+`0x402` Host an Client, vor dem `0x401` desselben Rundenendes: Id des Rundenendes (8, wie in `0x401`), bekannt (1: 0 oder 1),
+Tageskennung des Hosts (`CurrentGameData.TimeIdentifier`: Tag 4, Teilmission int8 1), Anzahl (2, höchstens 3000), je Wert Tag (4, ab
+-1), Teilmission (int8, -1 bis 127), Typ (`EGameStatType`, 1, kleiner 11), Spieler (1, `0xFF` gesamt, sonst Spielerindex bis 7) und
+Wert (int64, 8). Jeder Schlüssel aus Spieler, Tag, Teilmission und Typ kommt nur einmal vor. Unbekannt heißt: Der Host konnte seine
+Werte nicht lesen, dann Tageskennung 0.0 ohne Einträge. Bei mehr als 3000 Werten bleiben die jüngsten Tage. Der Host schickt die
+Nachricht einmal je Rundenende und Client, sofort, und wiederholt sie nur, wenn das Senden nicht angenommen wurde. Der Client öffnet
+die Rundenübersicht erst, wenn die Werte zu diesem Ende da sind, höchstens 2 s nach dem Rundenende, und übernimmt sie einmal je Ende.
+Eine falsche Länge, eine Tageskennung oder ein Wert außerhalb der Bereiche und doppelte Schlüssel machen die Nachricht ungültig.
 
 ## Dodge-Richtung (Mod-Kompatibilität 8)
 

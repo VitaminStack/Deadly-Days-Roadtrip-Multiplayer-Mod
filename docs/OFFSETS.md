@@ -1039,7 +1039,7 @@ Build `26786272`, SDK und Speicherlesen. Lesewerkzeug `tools/spike/portraits.py`
 
 ## Werte der Rundenübersicht (`opt-ergebnis-werte`)
 
-Disassembly und Speicherlesen, Ablauf in der [Fallakte](faelle/opt-ergebnis-werte.md). Die Mod rechnet die Container über `CurrentGameData` (`0xD0`, `0xC8` Byte).
+Disassembly und Speicherlesen, Ablauf in der [Fallakte](faelle/opt-ergebnis-werte.md). Die Mod rechnet die Container über `CurrentGameData` (`0xD0`, `0xC8` Byte, zuerst `TimeIdentifier`).
 
 | Stelle | RVA oder Offset | Hinweis |
 |---|---|---|
@@ -1047,3 +1047,5 @@ Disassembly und Speicherlesen, Ablauf in der [Fallakte](faelle/opt-ergebnis-wert
 | Werte je Spieler | `0x1E8` | `TMap<int32, Container>`, Element `0x60`, Container `+8` |
 | Suchen, Erhöhen (Typ 0 und 4: Maximum), Spieler-Container | `0x58EBFD0`, `0x58F45A0`, `0x58D56F0` | `(Container, Typ, Tag)`, `(Container, Typ, Tag, Erhöhung)`, `(Map, Index, Index*)` |
 | `GetGameStat`, `IncrementGameStat`, dessen Teil je Spieler | `0x58EF260`, `0x58F4420`, `0x58F4520` | Increment meldet danach über `0x58FD520` (Vermutung: `ExecuteStatNotification`) |
+| `OnRoundChanged`, `StopTracking`, `StartNewDay`, `OnRunStarted` | `0x58FC4B0`, `0x5909010`, `0x5907E70`, `0x5900A00` | Tagesend-Buchung; Tag `+0xD0` hochzählen; alles leeren |
+| `GenerateStats`, Aufruf von `WasFinalMission` (`0x590D930`) darin | `0x5AE3510`, `0x5AE367D` | Summen aller Tage bei letzter Mission oder allen Figuren tot |
