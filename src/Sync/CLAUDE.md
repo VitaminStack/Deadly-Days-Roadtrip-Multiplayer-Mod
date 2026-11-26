@@ -12,7 +12,7 @@ Legt fest, was zwischen Host und Client abgeglichen wird. Darf einbinden: `Core`
 
 - `Inventory/`: Airdrop-Auswahl und Inventar-Edits (`RewardSync.cpp`)
 - `Players/`: Figurenwahl, Pausen
-- `World/`: Karte, Bedrohungsstufe
+- `World/`: Karte, Bedrohungsstufe, Zonenziel
 - `Enemies/`, `Combat/`: Warnanzeigen, Schadenszahlen, Waffensounds
 - `ProgressSync.cpp`, `DesyncSync.cpp`, `SessionLog.cpp`: Fortschritt, Desync-Melder, Log-Zustandszeile
 

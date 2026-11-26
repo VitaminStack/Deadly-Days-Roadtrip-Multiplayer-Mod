@@ -8,6 +8,8 @@
 #include "Sync/Combat/WeaponSoundState.h"
 #include "Sync/World/ThreatState.h"
 #include "Game/ThreatAdapter.h"
+#include "Sync/World/ZoneGoalState.h"
+#include "Game/ZoneGoalAdapter.h"
 #include "Game/GameThread.h"
 #include "Game/PatchRuntime.h"
 #include "Game/RemotePlayers.h"
@@ -220,6 +222,44 @@ void TickThreat(Net::Transport& Transport)
     if (Latest)
         Game::ShowThreatLevel(*Latest);
 }
+
+// opt-zonenziel-anzeige: Das Zonenziel (etwa „Töte die Titanen“) legt nur der Host an, es repliziert nicht. Der Host schickt
+// den Stand (bei Änderung und alle 2 s), der Client zeigt ihn in der nativen Leiste. Format in World/ZoneGoalState.h.
+void TickZoneGoal(Net::Transport& Transport)
+{
+    if (Transport.Stats().IsHost)
+    {
+        static Game::ZoneGoalSent Sent;
+        static std::vector<uint64_t> Peers;
+        static uint64_t Revision = 0;
+        const auto View = Game::ReadHostZoneGoal();
+        const auto Now = Transport.ControlPeers();
+        if (!View || Now != Peers)
+        {
+            // Neue Welt, keine Welt oder ein neuer Mitspieler: den nächsten Stand sofort senden.
+            Sent = {};
+            Peers = Now;
+        }
+        if (!View)
+            return;
+        const uint64_t NowMs = static_cast<uint64_t>(
+            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
+        if (!Game::ZoneGoalSendDue(Sent, *View, NowMs))
+            return;
+        const auto Payload = ZoneGoal::Encode(*View);
+        bool Any = false;
+        if (!Payload.empty())
+            for (const uint64_t Peer : Now)
+                Any |= Transport.SendControl(Peer, {1, 1, ++Revision, ZoneGoal::StateType, Payload});
+        Sent = Game::ZoneGoalAfterSend(Sent, *View, NowMs, Any);
+        return;
+    }
+    // Nur der neueste Stand zählt.
+    for (const auto& Message : Transport.TakeControlMessages(ZoneGoal::StateType))
+        if (const auto View = ZoneGoal::Decode(Message.Value.Payload))
+            Game::SetHostZoneGoal(*View);
+    Game::TickZoneGoalDisplay();
+}
 }
 
 namespace
@@ -314,6 +354,13 @@ void Start(const Core::Config& Config, DiagnosticSink Diagnostics)
             const Game::GameThread::SlowScope Watch("Sync-Bedrohung");
             TickThreat(*Transport);
         }
+        if (Transport)
+        {
+            const Game::GameThread::SlowScope Watch("Sync-Zonenziel");
+            TickZoneGoal(*Transport);
+        }
+        else
+            Game::ResetZoneGoal();
         {
             const Game::GameThread::SlowScope Watch("Sync-Dev");
             TickDev(Transport.get()); // Also handles offline/standalone dev actions.

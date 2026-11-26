@@ -951,6 +951,7 @@ aus `gegner-alle` (oben); der Rest ist Befund für `tools/spike/boss_hp.py` und 
 | `UDDObjective` | `OnProgressChanged` `0x28`, `TargetValue` `0x68`, `CurrentValue` `0x70` (int64), `CachedWorld` `0x78` |
 | `UDDBossObjective` | `TrackedBosses` `0xA0`, `WeakBossComponent` `0xB0`, `PhaseMarkers` `0xB8` (`TArray<float>`, Anteil am Maximum), `bUseAlternateBar` `0xC8`, `MaxHealth` `0xD0`; UFunction `OnPhaseChanged(LastPhase, NewPhase)` |
 | `UDDObjectiveSubsystem` | `CurrentObjective` `0x60`, `ObjectiveInstances` `0x68`, `ObjectiveTypeToInstanceMap` `0x78` |
+| `UBlockadeEventComponent` (`26786272`, per Reflexion) | `ObjectiveClass` `0xC8`, `ObjectiveSubsystem` `0x100`, `ObjectiveInstance` `0x108` (nur beim Host gesetzt), `CachedSpawner` `0x128`; `UDDObjectiveWidget.CurrentObjective` `0x380` |
 | `UBossComponent` | `OnNextPhase` `0xC0`, `HealthCeilValue` `0xE0`, `EnemyBase` `0x118`, `BossAIController` `0x180` (nur Host), `PhasePercentages` `0x220` (`TArray<float>`) |
 | `UDDEnemyAttributeSet` | `Phase` `0x40` (`FGameplayAttributeData`, Wert bei `+0xC`) |
 | Phasenmarken je Boss | SpikeBoss 0,5; Ballerina 0,5; Frankenstein 0,65; BlobBall 0,7; HQ-Endboss 0,8 und 0,4 |

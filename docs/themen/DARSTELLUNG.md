@@ -9,6 +9,7 @@ Vieles zeigt das Spiel nur dort, wo die Logik läuft, also beim Host. Die Mod sp
 - Lebens-, Ausdauer-, Rüstungs-, Bus- und Lootbalken aus replizierten Werten.
 - Blut, Fleisch und Körperteile beim Tod eines Gegners, XP-Bälle, Schuss- und Nachladesound, Aufsammelsound.
 - Blickrichtung und Laufanimation der Figuren, HUD-Porträt der eigenen Figur.
+- Zonenziel der Blockade-Zonen (etwa „Töte alle Titanen!“): Der Host meldet den Stand (`0xD00`), der Client zeigt ihn in der nativen Leiste. Auf einem PC geprüft für die Titanen-Zone, [Fallakte](../faelle/opt-zonenziel-anzeige.md).
 
 ## Code
 
@@ -20,6 +21,7 @@ Vieles zeigt das Spiel nur dort, wo die Logik läuft, also beim Host. Die Mod sp
 | `src/Game/ExpPatches.cpp`, `src/Game/ExpBounds.h` | XP-Bälle | `tests/GameTests/ExpBoundsTests.cpp` |
 | `src/Game/WeaponSoundPatches.cpp`, `src/Game/FmodSound.cpp` | Waffensounds | `tests/NetTests/WeaponSoundTests.cpp` |
 | `src/Game/FacingPatches.cpp`, `src/Game/WalkAnimationPatches.cpp` | Blickrichtung und Laufanimation | `tests/GameTests/PatchTests.cpp` |
+| `src/Game/ZoneGoalAdapter.cpp`, `src/Game/ZoneGoalPolicy.h`, `src/Sync/World/ZoneGoalState.h` | Zonenziel | `tests/GameTests/ZoneGoalPolicyTests.cpp`, `tests/NetTests/ZoneGoalTests.cpp` |
 
 ## Offene Fehler
 

@@ -155,6 +155,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `opt-tempo-upgrades` | Problem | Tempo-Upgrades (`MovementSpeed`, Beschleunigung) kommen beim Client nicht an (Host 819 und 2866, Client 600 und 2048). **Fertig, wenn** beide Werte beim Client nach jedem Upgrade denen des Hosts entsprechen. Bestätigungstest ausstehend, siehe unten. |
 | `opt-waffen-sound` | Optional | Client hört Schuss- und Nachladesounds beider Figuren: Schuss lokal aus dem Multicast TriggerWeaponShotFX, Nachladen über 0xB00 (Mod-Version 13); ein PC, Pistole: 112/112 und 108/108 Schüsse, 8/8 und 10/10 Nachladen je 90 s |
 | `opt-werkbank-station` | Optional | Die Werkbank im Händler-Event wertet beim Client nur lokal auf … Bestätigungstest ausstehend, siehe unten. |
+| `opt-zonenziel-anzeige` | Problem | Der Host meldet den Stand des Zonenziels (0xD00, Mod-Version 21), der Client zeigt ihn in der nativen Leiste mit einem eigenen Objekt der Klasse aus seiner Zonen-Komponente; auf einem PC geprüft: Titanen-Zone von 0 bis 9 und Abschluss, zweite Reise, Beitritt mitten in der Zone mit simulierter Latenz ([Fallakte](faelle/opt-zonenziel-anzeige.md)). Bestätigungstest ausstehend, siehe unten. |
 | `overlay` | 2 | F8-Overlay mit Status und Debug-Anzeige, sichtbare Host-/Client-Abnahme bestanden, siehe [UI](../src/UI/README.md#sichtbare-spielabnahme-03112026) |
 | `overlay-fokus` | 3 | F8-Overlay bleibt beim Fokuswechsel sichtbar, Knopf „Lobby-ID kopieren“, siehe [UI](../src/UI/README.md#stand-overlay) |
 | `patch-regression` | Wartung | Statischer Check der Game-Patchlisten, Callbacks, Site-Arrays, Code-RVAs und Signaturtabelle mit gezielten Negativtests ergänzt; Python- und C++-CI ohne Spiel erfolgreich (PR #184). |
@@ -285,6 +286,7 @@ Spicker für Live-Sitzungen: was bei erledigten Aufgaben noch im Spiel zu prüfe
 | `opt-tempo-upgrades` | Echtes Tempo-Upgrade (Meta oder Level-up) im Run und Test auf zwei PCs; gemessen auf einem PC mit gesetztem Attribut und Item-Effekt, 1 und 3 Clients |
 | `opt-waffen-sound` | Client hört Schuss- und Nachladesounds beider Figuren. |
 | `opt-werkbank-station` | Eine Rezept-Aufwertung des Clients an der Werkbank wird beim Host gebucht. |
+| `opt-zonenziel-anzeige` | In einer Zone mit Zonenziel (etwa „Töte alle Titanen!“) zeigt der Client dieselbe Leiste und denselben Stand wie der Host, bis sie beim Abschluss bei beiden verschwindet. Bisher nur auf einem PC geprüft. |
 | `run-ende` | Niederlage beim Client läuft nativ ab, danach startet ein neuer Run in derselben Sitzung. |
 | `update-26786272-run` | Ganzer Run mit `Run-Route.ps1`, Rezept-Panel an der Werkbank, Abschalten einzelner Items. |
 | `vier-spieler` | Mit drei oder vier Spielern auf mehreren PCs: jeder tritt bei, wählt eine eigene Figur, hat ein eigenes Inventar; der Host bestätigt Airdrop und Lager erst, wenn alle gewählt haben. Bisher nur auf einem PC belegt. |

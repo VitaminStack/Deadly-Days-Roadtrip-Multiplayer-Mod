@@ -23,6 +23,7 @@ Eine Familie je Thema, Typen innerhalb der Familie fortlaufend. Wer einen Typ od
 | `0xA00` Schadenszahlen | `0xA00` Treffer | `Sync/Enemies/DamageNumberState.h` |
 | `0xB00` Waffensound | `0xB00` Nachladen | `Sync/Combat/WeaponSoundState.h` |
 | `0xC00` Bedrohung | `0xC00` Stufe (`opt-bedrohung-sound`, PR offen) | `Sync/World/ThreatState.h` |
+| `0xD00` Zonenziel | `0xD00` Stand (seit `ModVersion` 21) | `Sync/World/ZoneGoalState.h` |
 
 ## Handshake
 
@@ -415,6 +416,23 @@ Stand. Der erste Stand einer Welt läuft als `(N, N)` und setzt nur die Zahl, je
 unveränderter Stand tut nichts. Die Haupt-UI bekommt jeden Stand, den sie noch nicht zeigt, auch einen unveränderten, sobald sie
 nach Reise oder Beitritt neu im Viewport ist. Fehlt die Stoppuhr noch, bleibt der Stand offen, die Wiederholung holt ihn nach, ebenso ein
 verlorenes Paket und einen späten Beitritt. Keine Antwort.
+
+## Zonenziel (Mod-Kompatibilität 21)
+
+Aufgabe `opt-zonenziel-anzeige`, Befund in der [Fallakte](faelle/opt-zonenziel-anzeige.md), Code in `src/Game/ZoneGoalAdapter.cpp`
+und `src/Sync/World/ZoneGoalState.h`. Mod-Version 21, weil ein Client mit älterer Version die Nachricht nicht kennt. Das Ziel einer
+Zone (etwa „Töte die Titanen“) ist ein Objekt des `DDObjectiveSubsystem` der GameInstance des Hosts und repliziert nicht. Lokal
+bleiben Klasse, Beschreibung und Leiste: Der Client liest die Klasse aus der Zonen-Komponente seiner eigenen Karte, legt ein
+eigenes Objekt an und meldet es seiner Anzeige. Geteilt wird nur der Stand. Es zählt und entscheidet der Host; das Objekt des
+Clients zählt nicht selbst und erreicht nie das Soll.
+
+`0xD00` Host an alle Clients, bei jeder Änderung und als Wiederholung alle 2 s, genau 9 Bytes, Little-Endian: Marken (1, Bit 0 =
+Ziel läuft, übrige Bits 0), Ist (`uint32`), Soll (`uint32`, 1 bis 1000000). Ohne laufendes Ziel sind Ist und Soll 0; diesen
+Stand wiederholt der Host dreimal und schweigt dann bis zur nächsten Änderung, einer neuen Welt oder einem neuen Mitspieler.
+Boss-Ziele meldet er nicht, deren Leiste baut der Client aus den replizierten Boss-HP. Andere Längen und Werte werden abgelehnt.
+Der Client holt `0xD00` in jedem Takt ab und nimmt den neuesten Stand; er gilt für die Welt, in der er ankam, ein Weltwechsel
+verwirft ihn. Die Leiste steht nur bei laufendem Ziel mit Ist unter Soll, sonst entfernt der Client sie. Ein verlorenes Paket,
+einen späten Beitritt und die Reise holt die Wiederholung nach. Keine Antwort.
 
 ## Mehrere Clients (Mod-Kompatibilität 17)
 

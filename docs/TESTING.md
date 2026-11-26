@@ -160,6 +160,12 @@ Mit `DDCOOP_TEST_MAP_PROFILE_EVERY=2` gilt das Profil nur für jede zweite Missi
 dazwischen kommt das Profil des Routenknotens. So wechseln Karten-Event und normale Karte, und die Reise aus einem Event in eine
 normale Karte lässt sich in einer Sitzung mehrmals fahren (`karte-nach-labyrinth-absturz`).
 
+**Blockade-Zonen ohne Eingaben** (gemessen am 26.11.2026 auf `26786272`, `opt-zonenziel-anzeige`): Profil
+`/Game/Map_Generation/Blueprints/MapEvents/TitanBlockage/MGP_TitanBlockage.MGP_TitanBlockage` („Töte alle Titanen!“, 10 Titanen). Mit
+`-Godmode` sterben sie ohne Eingaben in rund 80 s, dann schließt der Host das Ziel ab; für den nächsten Durchlauf neu in die Karte
+reisen. `…/MapEvents/HighwayBlockage/MGP_HighwayBlockage.MGP_HighwayBlockage` zeigt das Ziel der Autobahn-Blockade, Fortschritt braucht
+dort Eingaben. Ziele beider Seiten nennt die Anfrage `day` (`day_state.py`).
+
 **Sensenmann gezielt auslösen** (mit Spike, nur Host): `Send-SpikeCommand <host-pid> '!shop reaper 3'` stellt den nativen
 Zeitgeber des `AReaperSpawner` auf 3 s. Die Konsolenbefehle des Spiels dafür (`SpawnReaper`, `SetSpawnReaperAfterMinutes`,
 `KillReaper`) wirken im Shipping-Build nicht. Die Ansage beim Client kam 3,4 bis 3,6 s nach dem Befehl, der Sensenmann dort unter 1 s nach dem Host (gemessen in
