@@ -38,6 +38,11 @@ Mission spielen, `!finish` beim Host, Werte beider Seiten mit `tools/spike/round
   Clients noch einmal. Enthält der Stand des Clients Tage nach der Tageskennung des Hosts (früherer Run), ruft er zuerst `OnRunStarted`.
 - **Run-Ende:** Nur der Aufruf von `WasFinalMission` in `GenerateStats` ist umgeleitet. Hat der Host den Run in dieser Welt beendet,
   liefert er beim Client wahr, die Übersicht zeigt dann wie beim Host die Summen. Ratables und Blueprints rufen `WasFinalMission` unverändert.
+- **Sieg:** Mit der Tageskennung des Hosts hält der Blueprint auch den Client für das Ende der Route. Dann zeigt er die Wertung wie
+  beim Host, aber auch „Zurück zur Basis“ und „Endlosen Modus starten“. Gemessen ließ „Zurück zur Basis“ den Client allein in seine
+  MetaBase reisen und die Sitzung verlassen. Der Endlosmodus öffnete seinen Bestätigungsdialog. Ohne die Tageskennung fehlte dagegen
+  die Wertung. Darum setzt die Mod im Sekundentakt `SetContinueButton` und blendet `SizeBox-Endlessmode` aus, solange einer der
+  beiden sichtbar ist (Feldnamen mit Bindestrich, das SDK schreibt Unterstriche). „Fortsetzen“ führt wie vor dem Fix ins Lager.
 - **Wiederverwendet** wird der Weg des Rundenendes (`MapSync.cpp`, `FollowRoundEnd` in `MapPatches.cpp`). Kommen keine Werte, öffnet
   der Client nach 2 s mit den eigenen und schreibt eine Warnung.
 - **Regeln** in `src/Game/RoundStatsPolicy.h` (Schreibplan, früherer Run, Summen am Run-Ende, Grenze von 3000 Werten, Warten),
@@ -50,13 +55,15 @@ Mission spielen, `!finish` beim Host, Werte beider Seiten mit `tools/spike/round
 - Tag 1, Tag 2, Niederlage an Tag 1 (Tod aller drei über `DD_DamagePlayerAtIndex`), Sieg über `DD_SetCurrentDay 8`: `round_stats.py` meldet bei allen drei dieselbe
   Tageskennung und dieselben Werte („gleich“). Die Bilder beider Clients zeigen dieselbe Übersicht wie der Host: Überschrift, Werte,
   Vortagsdifferenzen, an Tag 2 die Tagesstempel, am Run-Ende Summen mit „Gesamt/Max/Durchschnitt“ und dieselbe Wertung (Niederlage
-  1 und 2, Sieg 42 mit „Runde gewonnen“).
+  1 und 2, Sieg 42 mit „Runde gewonnen“). Am Sieg hat der Client nur „Fortsetzen“. Es führte ihn ins Lager, die Rückkehr des
+  Hosts nahm alle drei in die MetaBase mit.
 - `Management_SaveSlot_0.sav` beider Clients blieb über Niederlage, Sieg und Rückkehr zur Basis Byte für Byte gleich, beim Host
   änderte er sich. Der Run-Slot der Clients blieb leer (`run_save.py`).
 - Früherer Run: Beim Client die Tageskennung in der Mission auf 8.0 gesetzt (Test, Speicher der eigenen Instanz). Am Rundenende
   „stammt aus einem früheren Run, Subsystem zurückgesetzt“, danach gleiche Werte. Ein echter zweiter Run im selben Prozess lief nicht:
   Mit dem Fortschritt nach dem Sieg fanden die Spike-Befehle die Routenknoten der MetaBase nicht mehr.
-- `Signaturen: 131 Adressen geprüft`, `Patches: 61 gesetzt` bei allen drei, kein Absturz durch den Fix.
+- `Signaturen: 131 Adressen geprüft`, `Patches: 61 gesetzt` bei allen drei, kein Absturz durch den Fix. Tagesende und Niederlage
+  liefen zuletzt auf dem Stand vor der Knopfregel am Sieg (betrifft nur den Sieg), der Sieg auf dem Endstand.
 - **Testhinweis:** `!shop call WP_Round_Stats_C …BackToBaseButton…` stürzt den Host ab (Lesen `0x110`): Der Spike ruft `ReturnFromRun`
   auch an der Vorlage ohne Besitzer. `!shop callat <n>` mit der Instanz, deren Outer-Kette an der GameInstance hängt, geht.
 
@@ -67,4 +74,5 @@ Mission spielen, `!finish` beim Host, Werte beider Seiten mit `tools/spike/round
 - Der Tagesstempel des ersten Tags fehlte beim Client am Tagesende 1, an Tag 2 standen beide. Nicht weiter untersucht.
 - Werte je Spieler: In allen Läufen führte auch der Host keine (nur Gesamtwerte). Der Weg ist da, aber im Spiel nicht geprüft. Die
   Übersicht hat nur Felder für P1 und P2.
-- Nicht geprüft: zwei PCs, Endlosmodus, Bosskampf, Wiedereintritt mitten in der Runde.
+- Endlosmodus nach einem Sieg: Der Client folgt nur über „Fortsetzen“ und die Reise des Hosts, nicht geprüft.
+- Nicht geprüft: zwei PCs, Bosskampf, Wiedereintritt mitten in der Runde.
