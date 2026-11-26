@@ -8,8 +8,8 @@ Gilt für Build `26786272`. Datierte Befunde und Messungen stehen im [Archiv](..
 - Der Host spawnt den entfernten Spieler, hält ihn in `SpawnedPlayers`, übernimmt seine Position und verliert ihn weder am Busplatz noch beim Run-Ende.
 - Lokale Eingabegeräte bleiben im Netzwerkspiel beim eigenen Spieler; ohne Netzwerk bleibt das Spiel unverändert.
 - Beide sehen eine gemeinsame Kamera. Der Client nimmt die Kamera-Spieler aus der `PlayerArray` statt aus dem GameMode.
-- Nach dem Dodge (`GA_Dash`) repariert die Mod beim Client Reibung, Schwerkraft und Lauftempo; die Figur des Clients dodgt bei HP 0 nicht.
-- Die Figurenwahl der MetaBase geht in beide Richtungen; der Host spielt mit der Definition des Clients.
+- Nach dem Dodge (`GA_Dash`) repariert die Mod beim Client Reibung und Schwerkraft; die Figur des Clients dodgt bei HP 0 nicht.
+- Lauftempo und Beschleunigung: Das Spiel setzt `MaxWalkSpeed` (gleich dem Attribut `MovementSpeed`) und `MaxAcceleration` (3,5-faches Attribut) nur beim Host. Beim Client übernimmt die Mod beide Werte bei jeder Änderung des replizierten Attributs, für die eigene und für fremde Figuren. Upgrades, Items, Trefferbremse und Kriechen im Tod bucht weiter nur der Host, es gibt keine eigene Nachricht. Lesewerkzeug: `tools/spike/movement_speed.py`.- Die Figurenwahl der MetaBase geht in beide Richtungen; der Host spielt mit der Definition des Clients.
 
 ## Code
 
@@ -19,7 +19,7 @@ Gilt für Build `26786272`. Datierte Befunde und Messungen stehen im [Archiv](..
 | `src/Game/RemoteP2Patches.cpp`, `src/Game/RemoteP2Policy.h` | Host: entfernter Spieler als P2 | `tests/GameTests/PatchTests.cpp` |
 | `src/Game/LocalDevicePatches.cpp`, `src/Game/LocalDevicePolicy.h` | Lokale Geräte bleiben bei Spieler 0 | `tests/GameTests/PatchTests.cpp` |
 | `src/Game/CameraPatches.cpp` | Gemeinsame Kamera, Bewegungs-Restrictor ohne GameState | `tests/GameTests/PatchTests.cpp` (nur Restrictor) |
-| `src/Game/MovementPatches.cpp`, `src/Game/MovementPolicy.h`, `src/Game/DashAdapter.h` | Dodge-Reparaturen, Lauftempo, fremde Figur folgt repliziertem Ort | `tests/GameTests/PatchTests.cpp`, `tests/NetTests/MovementTests.cpp` |
+| `src/Game/MovementPatches.cpp`, `src/Game/MovementPolicy.h`, `src/Game/DashAdapter.h` | Dodge-Reparaturen, Lauftempo und Beschleunigung aus dem Attribut, fremde Figur folgt repliziertem Ort | `tests/GameTests/PatchTests.cpp`, `tests/NetTests/MovementTests.cpp` |
 | `src/Game/CharacterPatches.cpp`, `src/Sync/Players/CharacterSync.cpp` | Figurenwahl in beide Richtungen | – |
 | `src/Game/ClientPatches.cpp` | Client: Stellen, die Host-Objekte erwarten | `tests/GameTests/PatchTests.cpp` |
 

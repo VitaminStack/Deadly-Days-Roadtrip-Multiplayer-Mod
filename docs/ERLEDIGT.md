@@ -148,6 +148,7 @@ Alphabetisch sortiert. Details stehen in der verlinkten Doku.
 | `opt-schadenszahlen-verlust` | Optional | Ursache behoben: 0xA00 verfiel im Sammelabruf, jetzt dort ausgewertet; Zähler für Senden, Dekodieren, Revisionen und Kontrollkanal; Ein-PC-Lauf 438/438 |
 | `opt-schrott-anzeige` | Optional | Schrott aus Haufen bucht nur der Host, der Client übernimmt den Stand über 0x309; Anzeige springt nicht mehr (Test auf einem PC, zwei Tage) |
 | `opt-station-zug` | Optional | Live-Test 17.11.2026 auf zwei PCs, Build 26669225: Rucksackteil im Händler-Event mit Drehung 3 abgelegt, 6 neue Felder, Host übernahm, Desync-Melder danach OK einschließlich Inventar (Beleg Desync-Melder statt inventory.py), [Live-Test 17.11.](archive/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-17112026-livetest-1711) |
+| `opt-tempo-upgrades` | Problem | Tempo-Upgrades (`MovementSpeed`, Beschleunigung) kommen beim Client nicht an (Host 819 und 2866, Client 600 und 2048). **Fertig, wenn** beide Werte beim Client nach jedem Upgrade denen des Hosts entsprechen. Bestätigungstest ausstehend, siehe unten. |
 | `opt-waffen-sound` | Optional | Client hört Schuss- und Nachladesounds beider Figuren: Schuss lokal aus dem Multicast TriggerWeaponShotFX, Nachladen über 0xB00 (Mod-Version 13); ein PC, Pistole: 112/112 und 108/108 Schüsse, 8/8 und 10/10 Nachladen je 90 s |
 | `opt-werkbank-station` | Optional | Die Werkbank im Händler-Event wertet beim Client nur lokal auf … Bestätigungstest ausstehend, siehe unten. |
 | `overlay` | 2 | F8-Overlay mit Status und Debug-Anzeige, sichtbare Host-/Client-Abnahme bestanden, siehe [UI](../src/UI/README.md#sichtbare-spielabnahme-03112026) |
@@ -272,6 +273,7 @@ Spicker für Live-Sitzungen: was bei erledigten Aufgaben noch im Spiel zu prüfe
 | `opt-portraet` | Das HUD-Porträt zeigt auch beim Host die eigene Figur, auch nach einem Kartenwechsel. |
 | `opt-schadenszahlen` | Client sieht Schadenszahlen eigener und fremder Treffer. |
 | `opt-schrott-anzeige` | Die Schrottanzeige des Clients springt beim Aufsammeln nicht. |
+| `opt-tempo-upgrades` | Echtes Tempo-Upgrade (Meta oder Level-up) im Run und Test auf zwei PCs; gemessen auf einem PC mit gesetztem Attribut und Item-Effekt, 1 und 3 Clients |
 | `opt-waffen-sound` | Client hört Schuss- und Nachladesounds beider Figuren. |
 | `opt-werkbank-station` | Eine Rezept-Aufwertung des Clients an der Werkbank wird beim Host gebucht. |
 | `run-ende` | Niederlage beim Client läuft nativ ab, danach startet ein neuer Run in derselben Sitzung. |

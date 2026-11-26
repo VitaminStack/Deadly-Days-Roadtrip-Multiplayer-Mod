@@ -21,11 +21,26 @@ constexpr bool DashSettingsLeft(float GroundFriction, float GravityScale)
     return GroundFriction == DashFriction && GravityScale > DashGravity - 0.5f && GravityScale < DashGravity + 0.5f;
 }
 
-// Lauftempo der eigenen Figur beim Client (`tod-client`). Das Spiel setzt MaxWalkSpeed nur beim Host aus dem replizierten
-// Attribut UCommonAttributeSet.MovementSpeed (OnMovementSpeedChanged_Server). Beim Client kommt das Attribut an, die
-// Bewegungskomponente bleibt aber auf ihrem Startwert: Ein toter Client kroch beim Host mit Tempo 63, lief bei sich mit 600
-// weiter, und der Host übernahm seine Position. Der Client übernimmt darum jede Änderung des Attributs wie der Host.
+// Lauftempo der Figuren beim Client (`tod-client`, `opt-tempo-upgrades`). Das Spiel setzt die Bewegungskomponente nur beim
+// Host aus dem replizierten Attribut UCommonAttributeSet.MovementSpeed (ADDCharacterBase::OnMovementSpeedChanged_Server):
+// MaxWalkSpeed gleich dem Attribut, MaxAcceleration das 3,5-Fache. Beim Client kommt das Attribut an, die Komponente bleibt
+// aber auf ihren Startwerten 600 und 2048: Ein toter Client kroch beim Host mit Tempo 63, lief bei sich mit 600 weiter, und
+// der Host übernahm seine Position; nach Tempo-Upgrades beschleunigte er langsamer als der Host. Der Client übernimmt darum
+// jede Änderung des Attributs wie der Host, für alle Figuren.
 inline constexpr float WalkSpeedLimit = 10000.f;
+inline constexpr float AccelerationPerWalkSpeed = 3.5f;
+
+struct WalkSettings
+{
+    float WalkSpeed = 0.f;
+    float Acceleration = 0.f;
+};
+
+// Beide Werte so, wie sie der native Handler beim Host aus dem Attribut setzt.
+constexpr WalkSettings WalkSettingsFor(float Speed)
+{
+    return {Speed, Speed * AccelerationPerWalkSpeed};
+}
 
 // Nur ein initialisiertes, plausibles Attribut gilt. NaN fällt durch jeden Vergleich.
 constexpr bool WalkSpeedAttributeValid(float BaseValue, float CurrentValue)

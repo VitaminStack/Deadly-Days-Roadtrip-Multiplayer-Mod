@@ -31,7 +31,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `opt-rundenstempel` | P2 | [Problem](#probleme) | parallel | wenig |
 | `opt-schuss-animation` | P2 | [Problem](#probleme) | parallel | mittel |
 | `opt-sensenmann-ansage-client` | P2 | [Problem](#probleme) | parallel | mittel |
-| `opt-tempo-upgrades` | P2 | [Problem](#probleme) | parallel | mittel |
 | `opt-waffen-hover` | P2 | [Problem](#probleme) | parallel | wenig |
 | `opt-zonenziel-anzeige` | P2 | [Problem](#probleme) | parallel | wenig |
 | `coop-inventar-geteilt` | P2 | [Verbesserung](#verbesserungen) | zentral | viel |
@@ -54,7 +53,7 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 
 **Wartet auf das Team:** `spawn-nach-kartenaufbau`.
 
-**Bestätigungstests ausstehend (nur Info, blockiert nichts):** 34, siehe [docs/ERLEDIGT.md](docs/ERLEDIGT.md#bestätigungstests-ausstehend).
+**Bestätigungstests ausstehend (nur Info, blockiert nichts):** 35, siehe [docs/ERLEDIGT.md](docs/ERLEDIGT.md#bestätigungstests-ausstehend).
 <!-- frei:end -->
 
 ## Probleme
@@ -74,7 +73,6 @@ Fehler im Spiel oder in den Werkzeugen. Die Beschreibung steht in [docs/OPTIONEN
 | `opt-rundenstempel` | P2 | Die Rundenübersicht des Clients stempelt das geschaffte Level nicht ab … | parallel | wenig |
 | `opt-schuss-animation` | P2 | In höheren Leveln ist die Schuss-Animation der Client-Figur beim Client kaputt (Waffen übereinander), und die Figur gleitet über den Boden. | parallel | mittel |
 | `opt-sensenmann-ansage-client` | P2 | Seit `karte-nach-labyrinth-absturz` erzeugt nur der Host den Sensenmann, der Spawner des Clients kehrt vor `OnReaperSpawned` zurück. | parallel | mittel |
-| `opt-tempo-upgrades` | P2 | Tempo-Upgrades (`MovementSpeed`, Beschleunigung) kommen beim Client nicht an (Host 819 und 2866, Client 600 und 2048). **Fertig, wenn** beide Werte beim Client nach jedem Upgrade denen des Hosts entsprechen. | parallel | mittel |
 | `opt-waffen-hover` | P2 | Beim Client hebt das Inventar beim Überfahren einer Waffe mit der Maus die Items … | parallel | wenig |
 | `opt-zonenziel-anzeige` | P2 | In der Zone „Töte die Titanen“ sieht der Client die Fortschrittsanzeige des Zonenziels nicht. | parallel | wenig |
 
