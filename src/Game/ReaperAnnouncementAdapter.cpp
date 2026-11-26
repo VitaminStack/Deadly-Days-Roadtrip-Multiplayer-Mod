@@ -37,13 +37,13 @@ constexpr Reflection::FieldSpec SpawnedSpeech{Package, "ReaperSpawner", "ReaperS
 constexpr Reflection::FieldSpec SpawnedSound{Package, "ReaperSpawner", "ReaperSpawnedSoundEvent", "ObjectProperty", 8};
 constexpr Reflection::FieldSpec BubbleWidget{Package, "SpeechBubbleWidgetComponent", "SpeechBubbleWidget", "ObjectProperty", 8};
 constexpr Reflection::FieldSpec BubbleSpeaker{Package, "CharacterSpeechBubble", "SpeakerDefinition", "ObjectProperty", 8};
+constexpr Reflection::FieldSpec LocalPlayers{"/Script/Engine", "GameInstance", "LocalPlayers", "ArrayProperty", 16};
+constexpr Reflection::FieldSpec PlayerController{"/Script/Engine", "Player", "PlayerController", "ObjectProperty", 8};
+constexpr Reflection::FieldSpec ControllerPawn{"/Script/Engine", "Controller", "Pawn", "ObjectProperty", 8};
+// Klasse des Sensenmanns im Spiel gemessen (nicht im SDK-Dump, die Blueprint-Klasse lädt erst mit ihm).
 constexpr std::string_view ReaperEnemyClass = "BP_ReaperEnemy_C";
 constexpr std::string_view SpawnerClass = "ReaperSpawner";
 constexpr std::string_view SpeechSubsystemClass = "CharacterSpeechSubSystem";
-// UGameInstance.LocalPlayers, UPlayer.PlayerController, AController.Pawn wie in RewardPatches.cpp.
-constexpr uintptr_t GameInstanceLocalPlayers = 0x38;
-constexpr uintptr_t PlayerController = 0x30;
-constexpr uintptr_t ControllerPawn = 0x2E8;
 constexpr uintptr_t ActorDestroyFlags = 0x5D; // Bit 1: bActorIsBeingDestroyed
 constexpr uint32_t NonInstanceFlags = 0x30;   // Klassen-Default- und Archetyp-Objekt
 constexpr int32_t MaxReceivers = 32;
@@ -159,10 +159,16 @@ uintptr_t LocalSpeaker(uintptr_t World)
 {
     const auto WidgetField = Reflection::Property(BubbleWidget);
     const auto SpeakerField = Reflection::Property(BubbleSpeaker);
+    const auto PlayersField = Reflection::Property(LocalPlayers);
+    const auto ControllerField = Reflection::Property(PlayerController);
+    const auto PawnField = Reflection::Property(ControllerPawn);
+    if (!WidgetField || !SpeakerField || !PlayersField || !ControllerField || !PawnField)
+        return 0;
     const uintptr_t Instance = Pointer(World + Offsets::UWorld::OwningGameInstance);
-    const uintptr_t Controller = Pointer(Pointer(Pointer(Instance ? Instance + GameInstanceLocalPlayers : 0)) + PlayerController);
-    const uintptr_t Pawn = Pointer(Controller ? Controller + ControllerPawn : 0);
-    if (!WidgetField || !SpeakerField || !Pawn)
+    const uintptr_t Player = Pointer(Pointer(Instance ? Instance + PlayersField->Offset : 0));
+    const uintptr_t Controller = Pointer(Player ? Player + ControllerField->Offset : 0);
+    const uintptr_t Pawn = Pointer(Controller ? Controller + PawnField->Offset : 0);
+    if (!Pawn)
         return 0;
     const int32_t Total = Objects::Count();
     for (int32_t i = 0; i < Total; ++i)
@@ -232,6 +238,12 @@ void TickReaperAnnouncement()
     const uintptr_t Level = Pointer(World ? World + Offsets::UWorld::PersistentLevel : 0);
     if (!Level)
         return;
+    // Ist der Spawner dieser Welt schon gemeldet, bleibt die Suche über alle Actors aus, bis eine neue Welt kommt.
+    static uintptr_t AnnouncedWorld = 0;
+    static Objects::Ref AnnouncedSpawner;
+    if (World == AnnouncedWorld && Objects::IsLive(AnnouncedSpawner) &&
+        Memory::Read<uint8_t>(AnnouncedSpawner.Object + Offsets::AReaperSpawner::WasReaperSpawned).value_or(0) != 0)
+        return;
     uintptr_t Spawner = 0;
     bool Reaper = false;
     // Objects::IsA merkt sich das Ergebnis je Klasse und erkennt eine wiederverwendete Klassenadresse am Namen. Ein eigener Cache nur
@@ -249,5 +261,10 @@ void TickReaperAnnouncement()
     const bool Was = Spawner && Memory::Read<uint8_t>(Spawner + Offsets::AReaperSpawner::WasReaperSpawned).value_or(1) != 0;
     if (ReaperAnnouncementDue(true, Spawner != 0, Was, Reaper))
         Announce(World, Spawner);
+    if (Spawner && Memory::Read<uint8_t>(Spawner + Offsets::AReaperSpawner::WasReaperSpawned).value_or(0) != 0)
+    {
+        AnnouncedWorld = World;
+        AnnouncedSpawner = Objects::RefTo(Spawner);
+    }
 }
 }
