@@ -1010,13 +1010,18 @@ Referenz-Build; die Adressen stehen direkt hier und in `src/Game/ClientPatches.c
 | `AReaperSpawner`, Start nach dem Laden | `0x58BD820` | stellt den Zeitgeber auf `SpawnAfterMinutes`, wenn `+0x528` gesetzt ist |
 | `AReaperSpawner`, Sensenmann erzeugen | `0x58C9E20` | nur mit `+0x528`, setzt `+0x529`, ohne Autoritätsprüfung; Hook der Mod, beim Client ohne Wirkung |
 | Konsolenbefehle registrieren | `0x58A8B70` | `SpawnReaper`, `SetSpawnReaperAfterMinutes`, `KillReaper`; im Shipping-Build ohne Wirkung (gemessen) |
+| Nach dem Erzeugen (`opt-sensenmann-ansage-client`) | `0x58CA1EF` bis `0x58CA3D7` | `reaper+0x878` = Spawner, Broadcast `OnReaperSpawned` (`0x24E95F0`), Ton (`0x47B9D20`), Sprechblase (`0x5A53780`), dann `+0x529` = 1 |
+| `UFMODBlueprintStatics::PlayEvent2D` | `0x47B9D20` | Einheits-Transformation aus `.rdata`, dann `PlayEventAtLocation`; die Mod ruft die UFunction `PlayEvent2D` |
+| `UCharacterSpeechSubSystem::TriggerSpeechDefinition` | `0x5A53780` | `FAdditionalSpeechData` des Sensenmanns: `UseAbsolutePosition` 1, `ScreenLocation` (-1, -1) aus `0x839B830`, `ScreenPercentages` (0,5, 0,75) aus `0x8A52A40`, `TweenTime` 0,5, `TweenType` 8 |
 
 | Klasse | Feld | Offset |
 |---|---|---|
 | `UReaperComponent` | Reaper (`AEnemyBase`), ReaperASC, Players, GameMode, PlayerCameraWorldSubsystem | `0x168`, `0x170`, `0x178`, `0x188`, `0x190` |
 | `ADDMissionGameMode` | OnNewPlayerSpawned, OnPlayerDespawned (Delegatlisten) | `0x340`, `0x350` |
 | `AReaperSpawner` | SpawnAfterMinutes (Float, 12), ReaperEnemyType, PlayerLocations | `0x4A8`, `0x4F8`, `0x518` |
-| `AReaperSpawner` | ShouldSpawnReaper, WasReaperSpawned (aus den Exec-Funktionen `0x5795DB0`, `0x579C4A0`) | `0x528`, `0x529` |
+| `AReaperSpawner` | ShouldSpawnReaper, WasReaperSpawned (aus den Exec-Funktionen `0x5795DB0`, `0x579C4A0`) | `0x528`, `0x529`; `0x529` in `Offsets.h` (`AReaperSpawner::WasReaperSpawned`), nicht reflektiert |
+| `AReaperSpawner` | OnReaperSpawned, ReaperSpawnedSpeech, ReaperSpawnedSoundEvent (reflektiert, die Mod liest sie über `Reflection`) | `0x498`, `0x4F0`, `0x500` |
+| `WBP_Stopwatch_C` | IsReaperActive (nur Lesewerkzeug `tools/spike/reaper_state.py`) | `0x484` |
 | `UEventMapSetupGenerator` | DisableReaperSpawning | `0x29` |
 | Dieselbe Aufrufkette je Build (Absturz-Stack, `boss-karte-absturz`) | `26495302`: `+163b33f`, `+58de4b1`, `+56ba4bb`; `26669225`: `+163b33f`, `+58deda1`, `+56bac4b`; `26786272` (21.11.2026): `+163b33f`, `+58e0221`, `+56bad7b`. Darüber auf `26495302` und `26786272` `+1527c28`, `+160c55b` und die Rahmen der Mod (für `26669225` sind nur die ersten drei notiert) |
 | Outer und Flags (`26786272`, gemessen) | `DDObjectiveSubsystem` einmal, Outer `GI_DDMissionGameInstance_C`; jedes `DD_BaseBossObjective_C` hat das Subsystem als Outer und bleibt über Reisen liegen; `WI_ObjectiveDisplay_C` der laufenden Welt hat Outer `WidgetTree` < `WP_UI_C` < GameInstance, `ObjectiveManager` `0x378` gesetzt; die Vorlage im `WidgetTree` der Klasse `WP_UI_C` (Flags `0x280008`) hat keinen Manager |
