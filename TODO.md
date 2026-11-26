@@ -28,7 +28,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `opt-itemsack-flug` | P2 | [Problem](#probleme) | parallel | wenig |
 | `opt-routenkarte` | P2 | [Problem](#probleme) | parallel | mittel |
 | `opt-schuss-animation` | P2 | [Problem](#probleme) | parallel | mittel |
-| `opt-sensenmann-ansage-client` | P2 | [Problem](#probleme) | parallel | mittel |
 | `opt-waffen-hover` | P2 | [Problem](#probleme) | parallel | wenig |
 | `opt-zonenziel-anzeige` | P2 | [Problem](#probleme) | parallel | wenig |
 | `coop-inventar-geteilt` | P2 | [Verbesserung](#verbesserungen) | zentral | viel |
@@ -68,7 +67,6 @@ Fehler im Spiel oder in den Werkzeugen. Die Beschreibung steht in [docs/OPTIONEN
 | `opt-itemsack-flug` | P2 | Itemsäcke aus Containern werden beim Client erst direkt an der Figur sichtbar, der Ausstoß fehlt. | parallel | wenig |
 | `opt-routenkarte` | P2 | Der Client sieht dieselbe Routenkarte wie der Host (Knoten, Biome, Bus, Tag) und dieselbe Gefahrenstufe im HUD, wählen kann er weiter nicht. | parallel | mittel |
 | `opt-schuss-animation` | P2 | In höheren Leveln ist die Schuss-Animation der Client-Figur beim Client kaputt (Waffen übereinander), und die Figur gleitet über den Boden. | parallel | mittel |
-| `opt-sensenmann-ansage-client` | P2 | Seit `karte-nach-labyrinth-absturz` erzeugt nur der Host den Sensenmann, der Spawner des Clients kehrt vor `OnReaperSpawned` zurück. | parallel | mittel |
 | `opt-waffen-hover` | P2 | Beim Client hebt das Inventar beim Überfahren einer Waffe mit der Maus die Items … | parallel | wenig |
 | `opt-zonenziel-anzeige` | P2 | In der Zone „Töte die Titanen“ sieht der Client die Fortschrittsanzeige des Zonenziels nicht. | parallel | wenig |
 

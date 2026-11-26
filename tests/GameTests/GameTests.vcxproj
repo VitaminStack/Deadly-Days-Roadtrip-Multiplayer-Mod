@@ -40,6 +40,7 @@
     <ClCompile Include="WorldAdapterTests.cpp" />
     <ClCompile Include="RejoinPolicyTests.cpp" />
     <ClCompile Include="RoundStatsTests.cpp" />
+    <ClCompile Include="ReaperAnnouncementPolicyTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Game\Game.vcxproj"><Project>{6E1A5C10-2B7D-4E5C-9A11-0C1F3B7A1003}</Project></ProjectReference>

@@ -15,6 +15,8 @@ static_assert(offsetof(SDK::AActor, RootComponent) == 0x1B8);
 static_assert(offsetof(SDK::Params::FMODBlueprintStatics_PlayEventAtLocation, Location) == 0x10);
 static_assert(offsetof(SDK::Params::FMODBlueprintStatics_PlayEventAtLocation, bAutoPlay) == 0x70);
 static_assert(sizeof(SDK::Params::FMODBlueprintStatics_PlayEventAtLocation) == 0x80);
+static_assert(offsetof(SDK::Params::FMODBlueprintStatics_PlayEvent2D, bAutoPlay) == 0x10);
+static_assert(sizeof(SDK::Params::FMODBlueprintStatics_PlayEvent2D) == 0x20);
 #endif
 
 namespace Game::FmodSound
@@ -73,6 +75,28 @@ bool PlayAtLocation(uintptr_t WorldContext, uintptr_t Event, double X, double Y,
     static_assert(sizeof(Transform) == TransformSize);
     std::memcpy(Params.Location, Transform, TransformSize);
     Objects::ProcessEvent(PlayDefaults, PlayFunction, &Params);
+    return true;
+}
+
+bool Play2D(uintptr_t WorldContext, uintptr_t Event)
+{
+    // UFMODBlueprintStatics::PlayEvent2D(WorldContextObject, Event, bAutoPlay)
+    struct Play2DParams
+    {
+        uintptr_t WorldContextObject = 0;
+        uintptr_t Event = 0;
+        bool AutoPlay = true;
+        uint8_t Pad[7]{};
+        uintptr_t ReturnValue = 0;
+    };
+    static_assert(sizeof(Play2DParams) == 0x20 && offsetof(Play2DParams, AutoPlay) == 0x10);
+    static uintptr_t Function = 0;
+    if (!Function)
+        Function = Objects::FindObject("PlayEvent2D", "FMODBlueprintStatics");
+    if (!Event || !WorldContext || !Function || !Resolve())
+        return false;
+    Play2DParams Params{WorldContext, Event};
+    Objects::ProcessEvent(PlayDefaults, Function, &Params);
     return true;
 }
 }
