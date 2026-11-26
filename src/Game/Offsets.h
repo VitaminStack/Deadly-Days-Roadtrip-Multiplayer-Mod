@@ -113,5 +113,11 @@ namespace AGameStateBase
 inline constexpr uintptr_t PlayerArray = 0x2C0;
 }
 
+// Nicht reflektiert (Pad hinter PlayerLocations), darum ohne Prüfung in SdkChecks.cpp; Beleg in docs/OFFSETS.md.
+namespace AReaperSpawner
+{
+inline constexpr uintptr_t WasReaperSpawned = 0x529; // bool, setzt die Spawn-Funktion 0x58C9E20 nach dem Erzeugen
+}
+
 // Felder von Spielklassen löst Game/Reflection.h zur Laufzeit auf, sie stehen deshalb nicht mehr hier.
 }
