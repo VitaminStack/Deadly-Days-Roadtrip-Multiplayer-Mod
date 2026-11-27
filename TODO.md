@@ -13,7 +13,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 <!-- frei:start -->
 | Kennung | Prio | Phase | Bearbeitung | Spielzeit |
 |---|---|---|---|---|
-| `client-haenger-nach-niederlage` | P1 | [Problem](#probleme) | parallel | mittel |
 | `aufgaben-werkzeuge-entschlacken` | P1 | [Verbesserung](#verbesserungen) | zentral | keine |
 | `coop-inventar-ablauf` | P1 | [Verbesserung](#verbesserungen) | zentral | viel |
 | `coop-inventar-analyse` | P1 | [Verbesserung](#verbesserungen) | parallel | mittel |
@@ -27,6 +26,7 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 | `opt-haende-vorschau-items` | P2 | [Problem](#probleme) | parallel | wenig |
 | `opt-highway-ziel` | P2 | [Problem](#probleme) | parallel | wenig |
 | `opt-itemsack-flug` | P2 | [Problem](#probleme) | parallel | wenig |
+| `opt-powerups-client` | P2 | [Problem](#probleme) | parallel | wenig |
 | `opt-schuss-animation` | P2 | [Problem](#probleme) | parallel | mittel |
 | `opt-waffen-hover` | P2 | [Problem](#probleme) | parallel | wenig |
 | `coop-inventar-geteilt` | P2 | [Verbesserung](#verbesserungen) | zentral | viel |
@@ -49,7 +49,7 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen, oben steh
 
 **Wartet auf das Team:** `spawn-nach-kartenaufbau`.
 
-**Bestätigungstests ausstehend (nur Info, blockiert nichts):** 38, siehe [docs/ERLEDIGT.md](docs/ERLEDIGT.md#bestätigungstests-ausstehend).
+**Bestätigungstests ausstehend (nur Info, blockiert nichts):** 39, siehe [docs/ERLEDIGT.md](docs/ERLEDIGT.md#bestätigungstests-ausstehend).
 <!-- frei:end -->
 
 ## Probleme
@@ -58,13 +58,13 @@ Fehler im Spiel oder in den Werkzeugen. Die Beschreibung steht in [docs/OPTIONEN
 
 | Kennung | Prio | Aufgabe | Bearbeitung | Spielzeit |
 |---|---|---|---|---|
-| `client-haenger-nach-niederlage` | P1 | Nach der Niederlage hängt der Client beim Ankommen in der MetaBase (Live-Test 26.11., zwei PCs), der Spielthread steht, er folgt nicht in den nächsten Run und trennt mit Grund 1003. Host und Client behalten ihr Run-Inventar. **Fertig, wenn** der Client nach Niederlage und Sieg in der MetaBase bedienbar ankommt, beide nur das Inventar wie solo behalten und ein neuer Run bei beiden mit Startausrüstung startet. Ordner `src/Game`, `src/Net`. **Einstieg** [Fallakte](docs/faelle/client-haenger-nach-niederlage.md) | parallel | mittel |
 | `spawn-nach-kartenaufbau` | P1 | **Nur wenn der Live-Test die Theorie bestätigt:** Host setzt die Figuren an den Bus, bevor der Client seine Karte gebaut hat. **Fertig, wenn** der Client nach jedem Zonenstart auf dem Boden steht, auch bei langsamem Kartenaufbau, und Join, Reconnect und Travel unverändert laufen. Ordner `src/Game`. **Einstieg** [Fallakte](docs/faelle/spawn-nach-kartenaufbau.md) | Team | mittel |
 | `opt-dash-aufprall` | P2 | Prallt der Client mit dem Dash gegen ein Objekt, hört er kein Geräusch … | parallel | wenig |
 | `opt-gegner-spawnverzug` | P2 | Unter Wellenlast (`!wave`) erscheinen neue Gegner beim Client bis rund 8 s später als beim Host. **Fertig, wenn** neue Gegner beim Client höchstens 1 s nach dem Host erscheinen, auch unter Wellenlast. | parallel | mittel |
 | `opt-haende-vorschau-items` | P2 | Hantel (`ItemData_Dumbell`), Hand des Blutes (`ItemData_HandOfBlood`) und Plasmahand (`ItemData_PlasmaHand`) senken über Standardwirkungen die Hände … | parallel | wenig |
 | `opt-highway-ziel` | P2 | Im Event „Räume den Highway!“ erschien kein Benzin, das Ziel verlangte einen Abschluss (2/10). Erst ohne Mod klären, wie das Event endet. | parallel | wenig |
 | `opt-itemsack-flug` | P2 | Itemsäcke aus Containern werden beim Client erst direkt an der Figur sichtbar, der Ausstoß fehlt. | parallel | wenig |
+| `opt-powerups-client` | P2 | Dosenessen und Staubsauger wirken beim Client nicht, beim Host schon (Live-Test 26.11.). **Fertig, wenn** Power-ups auf die Figur des Clients wie beim Host wirken. **Einstieg** [Fallakte](docs/faelle/opt-powerups-client.md) | parallel | wenig |
 | `opt-schuss-animation` | P2 | In höheren Leveln ist die Schuss-Animation der Client-Figur beim Client kaputt (Waffen übereinander), und die Figur gleitet über den Boden. | parallel | mittel |
 | `opt-waffen-hover` | P2 | Beim Client hebt das Inventar beim Überfahren einer Waffe mit der Maus die Items … | parallel | wenig |
 

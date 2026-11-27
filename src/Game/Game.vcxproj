@@ -59,6 +59,7 @@
     <ClCompile Include="ConsoleAdapter.cpp" />
     <ClCompile Include="DevAdapter.cpp" />
     <ClCompile Include="GameThread.cpp" />
+    <ClCompile Include="StallCapture.cpp" />
     <ClCompile Include="HealthBarPatches.cpp" />
     <ClCompile Include="InventoryPatches.cpp" />
     <ClCompile Include="Memory.cpp" />
@@ -135,6 +136,8 @@
     <ClInclude Include="RouteMapPolicy.h" />
     <ClInclude Include="RemotePlayers.h" />
     <ClInclude Include="GameThread.h" />
+    <ClInclude Include="StallCapture.h" />
+    <ClInclude Include="StallPolicy.h" />
     <ClInclude Include="Memory.h" />
     <ClInclude Include="AddressMap.h" />
     <ClInclude Include="PatchSignatures.h" />

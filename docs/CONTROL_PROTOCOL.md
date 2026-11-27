@@ -384,7 +384,9 @@ ungezählt. Das gilt für jeden Typ, der einzeln abgeholt wird (`0x900` macht es
 Nachricht um 1 hoch; der Client zählt daran fehlende Nachrichten, er fordert nichts nach. Zähler im Mod-Log: beim Host „übergeben“,
 „gesendet“ (nur von `SendControl` angenommene), „Senden abgelehnt“, „ohne Mitspieler“, „Paket ungültig“; beim Client „im
 Sammelabruf“, „Nachricht unlesbar“, „Nachrichten fehlen“, „falsche Rolle“. Die Transport-Zeile nennt den höchsten Füllstand beider
-Warteschlangen des Kontrollkanals (Grenze 128) und wegen voller Warteschlange abgelehnte Nachrichten. Befund in
+Warteschlangen des Kontrollkanals (Grenze 128) und wegen voller Warteschlange abgelehnte Nachrichten. Läuft die Eingangsschlange
+voll, weil das Spiel nicht abholt, trennt die Seite mit „Kontrollnachrichten stauen sich (128 warten), das Spiel holt sie nicht ab“,
+nicht mehr mit „Ungueltige oder unerwartete Kontrollnachricht“ (`client-haenger-nach-niederlage`). Befund in
 [GAME_ANALYSIS.md](archive/GAME_ANALYSIS.md#verlorene-schadenszahlen-opt-schadenszahlen-verlust).
 
 ## Nachladesound (Mod-Kompatibilität 13)

@@ -85,6 +85,12 @@ bool IsEnd(SteamConnectionState State)
 }
 }
 
+std::string ControlQueueFullMessage(size_t Limit)
+{
+    return "Kontrollnachrichten stauen sich (" + std::to_string(Limit) +
+           " warten), das Spiel holt sie nicht ab. Vermutlich steht der Spielthread, siehe Zeilen \"Spielthread\" im Log";
+}
+
 std::string EndMessage(bool Host, SteamConnectionState State, int32_t Reason, bool WasConnected)
 {
     if (State == SteamConnectionState::ClosedByPeer)
@@ -800,12 +806,19 @@ bool Transport::ReceiveFrame(Link& Entry, std::span<const uint8_t> Bytes)
         auto Value = Protocol::DecodeControl(Frame->Payload);
         if (!Value)
             return false;
-        std::lock_guard Guard(ControlLock);
-        if (Incoming.size() >= MaxControlQueue)
-            return false; // Nicht still einen verlaesslichen Zustand verlieren.
-        Incoming.push_back({Entry.Peer, std::move(*Value)});
-        if (Incoming.size() > ControlInPeak)
-            ControlInPeak = Incoming.size();
+        {
+            std::lock_guard Guard(ControlLock);
+            if (Incoming.size() < MaxControlQueue)
+            {
+                Incoming.push_back({Entry.Peer, std::move(*Value)});
+                if (Incoming.size() > ControlInPeak)
+                    ControlInPeak = Incoming.size();
+                return true;
+            }
+        }
+        // Nicht still einen verlaesslichen Zustand verlieren. Eine volle Schlange heisst: Das Spiel holt nicht ab, die Nachricht
+        // selbst ist in Ordnung (client-haenger-nach-niederlage). Reject ausserhalb von ControlLock.
+        Reject(Entry, ControlQueueFullMessage(MaxControlQueue));
         return true;
     }
     if (Frame->Payload.empty() || Frame->Payload.size() > 4096)

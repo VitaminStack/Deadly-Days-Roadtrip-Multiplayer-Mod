@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <atomic>
 #include <exception>
+#include <format>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -13,6 +14,8 @@
 
 #include "Core/Dispatcher.h"
 #include "Core/Log.h"
+#include "Game/StallCapture.h"
+#include "Game/StallPolicy.h"
 
 namespace Game::GameThread
 {
@@ -37,6 +40,17 @@ std::atomic<WNDPROC> Original = nullptr;
 std::atomic<bool> Attached = false;
 std::atomic<UINT> IntervalMs = 16;
 bool Running = false; // Nur auf dem Game Thread benutzt.
+
+// client-haenger-nach-niederlage: Wächter. Der Takt meldet sich mit Zeit und Thread, ein eigener Thread prüft.
+std::atomic<uint64_t> LastTickMs = 0;
+std::atomic<DWORD> TickThreadId = 0;
+std::jthread Watchdog;
+std::mutex StallLock;
+Stall::Settings StallLimits;
+std::string StallReport;
+std::atomic<int> StallSampleCount = 0;
+// Innerster offener SlowScope auf dem Game Thread, nullptr außerhalb der Mod. Namen sind Literale.
+std::atomic<const char*> CurrentScope = nullptr;
 
 UINT StartMessage()
 {
@@ -104,6 +118,8 @@ LRESULT CALLBACK WndProc(HWND Hwnd, UINT Message, WPARAM WParam, LPARAM LParam)
             }
             RunTicks();
             Running = false;
+            TickThreadId = GetCurrentThreadId();
+            LastTickMs = GetTickCount64();
         }
         return 0;
     }
@@ -143,6 +159,46 @@ BOOL CALLBACK FindGameWindow(HWND Candidate, LPARAM Result)
     return TRUE;
 }
 
+void Watch(std::stop_token Stop)
+{
+    Stall::State State;
+    while (!Stop.stop_requested())
+    {
+        Sleep(250);
+        Stall::Settings Limits;
+        {
+            const std::scoped_lock Lock(StallLock);
+            Limits = StallLimits;
+        }
+        const uint64_t Last = Attached ? LastTickMs.load() : 0;
+        const uint64_t Now = GetTickCount64();
+        switch (Stall::Next(State, Now, Last, Limits))
+        {
+        case Stall::Action::Sample:
+        {
+            // Nur lesen und kurz anhalten, nie etwas am Spiel ändern. Der Spielthread läuft gleich weiter.
+            const char* Scope = CurrentScope.load();
+            const std::string Text = std::format("Spielthread: seit {:.1f} s kein Takt der Mod, Probe {}/{}, {}: {}", (Now - Last) / 1000.0,
+                                                 State.Samples, Limits.MaxSamples,
+                                                 Scope ? std::string("im Abschnitt ") + Scope : std::string("außerhalb der Mod-Ticks"),
+                                                 Stall::DescribeSample(Stall::CaptureStack(TickThreadId)));
+            Core::Log::Write(Core::Log::Level::Warn, Text);
+            {
+                const std::scoped_lock Lock(StallLock);
+                StallReport = Text;
+            }
+            ++StallSampleCount;
+            break;
+        }
+        case Stall::Action::Recovered:
+            Core::Log::Info("Spielthread: Takt der Mod läuft wieder");
+            break;
+        case Stall::Action::None:
+            break;
+        }
+    }
+}
+
 void Find(std::stop_token Stop)
 {
     while (!Stop.stop_requested())
@@ -177,6 +233,8 @@ void Start(std::chrono::milliseconds Interval)
     StartMessage();
     StopMessage();
     Finder = std::jthread(Find);
+    if (!Watchdog.joinable())
+        Watchdog = std::jthread(Watch);
 }
 
 void Stop()
@@ -193,6 +251,30 @@ void Stop()
     }
     // Original bleibt gesetzt: Hängt die Prozedur noch als Weiterleitung, braucht sie das Ziel weiter.
     Finder = {};
+    if (Watchdog.joinable())
+    {
+        Watchdog.request_stop();
+        Watchdog.join();
+    }
+    Watchdog = {};
+    LastTickMs = 0;
+}
+
+void SetStallSettings(const Stall::Settings& Value)
+{
+    const std::scoped_lock Lock(StallLock);
+    StallLimits = Value;
+}
+
+int StallSamples()
+{
+    return StallSampleCount;
+}
+
+std::string LastStallReport()
+{
+    const std::scoped_lock Lock(StallLock);
+    return StallReport;
 }
 
 bool IsAttached()
@@ -227,12 +309,13 @@ double ToMs(long long Elapsed)
 }
 }
 
-SlowScope::SlowScope(const char* Label) : Name(Label), Start(Counter())
+SlowScope::SlowScope(const char* Label) : Name(Label), Outer(CurrentScope.exchange(Label)), Start(Counter())
 {
 }
 
 SlowScope::~SlowScope()
 {
+    CurrentScope = Outer;
     const double Ms = ToMs(Counter() - Start);
     if (Ms < kSlowMs)
         return;

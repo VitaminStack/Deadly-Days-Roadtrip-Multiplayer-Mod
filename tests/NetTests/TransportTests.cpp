@@ -703,3 +703,25 @@ TEST_CASE("Kontrollkanal zählt Füllstand und wegen voller Warteschlange abgele
     REQUIRE(WaitFor([&] { return Client.Stats().ControlInPeak >= 1; }));
     CHECK(Client.Stats().ControlInPeak <= 128);
 }
+
+TEST_CASE("client-haenger-nach-niederlage: Volle Eingangsschlange trennt mit eigenem Grund, nicht als ungültige Nachricht")
+{
+    auto Network = std::make_shared<FakeSteamNetwork>();
+    const auto Options = TestPorts(47806);
+    GameSocket HostGame(Options.GamePort);
+    Transport Host(Network->Account(kHostId), Options);
+    Transport Client(Network->Account(kClientId), Options);
+    REQUIRE(Host.StartHost());
+    REQUIRE(Client.StartClient(kHostId));
+    REQUIRE(WaitFor([&] { return Host.ControlPeers().size() == 1 && Client.Stats().State == TransportState::Connected; }));
+    const auto Peer = Host.ControlPeers()[0];
+    // Der Client holt nie ab, wie bei stehendem Spielthread. Der Host sendet über mehrere Runden seines Netzwerkthreads.
+    uint64_t Revision = 0;
+    REQUIRE(WaitFor([&] {
+        for (int i = 0; i < 64; ++i)
+            Host.SendControl(Peer, {1, 1, ++Revision, 0xA00, {1}});
+        return Client.Stats().State == TransportState::Failed;
+    }));
+    CHECK(Client.Stats().Message == ControlQueueFullMessage(128));
+    CHECK(Client.Stats().Message.find("Ungueltige") == std::string::npos);
+}
