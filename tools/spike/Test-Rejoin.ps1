@@ -41,7 +41,7 @@ function Get-LogCount { if (Test-Path $ClientLog) { @(Get-Content -Encoding UTF8
 function Find-MapLine([int]$From) {
     if (-not (Test-Path $ClientLog)) { return $null }
     @(Get-Content -Encoding UTF8 $ClientLog) | Select-Object -Skip $From |
-        Where-Object { $_ -match 'Karte: Client .bernimmt \d|Client erzeugt eine eigene Karte' } | Select-Object -First 1
+        Where-Object { $_ -match 'Karte: Client .bernimmt -?\d|Client erzeugt eine eigene Karte' } | Select-Object -First 1
 }
 
 $Failed = 0

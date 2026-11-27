@@ -90,6 +90,7 @@ struct
     uintptr_t Generator = 0, GeneratorWorld = 0; // laufende eigene Erzeugung, nur dann Child Actors unterdrücken
     ULONGLONG GeneratorSince = 0;
     int Suppressed = 0;
+    uintptr_t FigureWaitWorld = 0; // busplatz-vor-figur: Welt, in der der Client auf seine eigene Figur wartet oder wartete
     // Rundenende (rundenende-client). Host: eigenes Ende in EndedWorld. Client: letztes Ende des Hosts und das zuletzt
     // nachgezogene.
     std::optional<Map::RoundEnd> Ended;
@@ -332,6 +333,42 @@ ULONGLONG TestClientMapDelay()
     return Delay;
 }
 
+// Testhilfe (busplatz-vor-figur): DDCOOP_TEST_CLIENT_FIGURE_WAIT_OFF=1 lässt den Client nicht auf seine eigene Figur warten,
+// für den Gegentest. Ohne die Variable wartet er.
+bool TestFigureWaitOff()
+{
+    static const bool Off = []
+    {
+        char Value[4]{};
+        return GetEnvironmentVariableA("DDCOOP_TEST_CLIENT_FIGURE_WAIT_OFF", Value, sizeof(Value)) == 1 && Value[0] == '1';
+    }();
+    return Off;
+}
+
+// Eigene Figur des Clients in der PlayerArray: ein PlayerState, dessen Pawn eine Spielerfigur mit der Rolle AutonomousProxy ist.
+// So findet auch der Busplatz der Erzeugung die Figuren (PlayerPatches.cpp, ClearSpawnAreaHook).
+bool OwnFigureInPlayerArray()
+{
+    static constexpr Reflection::FieldSpec PawnField{"/Script/Engine", "PlayerState", "PawnPrivate", "ObjectProperty", 8};
+    constexpr uint8_t AutonomousProxy = 2;
+    const auto Pawn = Reflection::Property(PawnField);
+    const uintptr_t World = CurrentWorld();
+    const uintptr_t GameState = World ? ReadOr<uintptr_t>(World + Offsets::UWorld::GameState) : 0;
+    if (!Pawn || !GameState)
+        return false;
+    const uintptr_t States = ReadOr<uintptr_t>(GameState + Offsets::AGameStateBase::PlayerArray);
+    const int32_t Count = ReadOr<int32_t>(GameState + Offsets::AGameStateBase::PlayerArray + 8);
+    for (int32_t Index = 0; States && Index < Count && Index < 16; ++Index)
+    {
+        const uintptr_t State = ReadOr<uintptr_t>(States + 8 * Index);
+        const uintptr_t Figure = State ? ReadOr<uintptr_t>(State + Pawn->Offset) : 0;
+        if (Figure && Memory::NameOf(ReadOr<uintptr_t>(Figure + ObjectClass)) == "BP_DD_Character_C" &&
+            ReadOr<uint8_t>(Figure + ActorRole) == AutonomousProxy)
+            return true;
+    }
+    return false;
+}
+
 // Falsch, solange der Client warten soll.
 bool TryStartClient(uintptr_t Generator, ULONGLONG Since)
 {
@@ -340,7 +377,27 @@ bool TryStartClient(uintptr_t Generator, ULONGLONG Since)
         return false;
     const bool Fresh = FreshValues(Generator);
     const bool GraphKnown = Fresh && S.Received->GraphState != Map::Graph::Unknown;
-    switch (ClientMapStart(Fresh, GraphKnown, Now - Since, Fresh ? Now - S.ReceivedAt : 0))
+    const MapStart Start = ClientMapStart(Fresh, GraphKnown, Now - Since, Fresh ? Now - S.ReceivedAt : 0);
+    if (Start != MapStart::Wait && !TestFigureWaitOff())
+    {
+        const bool Ready = OwnFigureInPlayerArray();
+        const bool Waited = S.FigureWaitWorld == CurrentWorld();
+        if (WaitForOwnFigure(Ready, Now - Since))
+        {
+            if (!Waited)
+                Core::Log::Warn("Karte: Client wartet auf seine eigene Figur, sonst fehlt sein Busplatz");
+            S.FigureWaitWorld = CurrentWorld();
+            return false;
+        }
+        if (Waited && Ready)
+            Core::Log::Info("Karte: eigene Figur nach {} ms da, Client erzeugt", Now - Since);
+        else if (!Ready)
+            Core::Log::Warn("Karte: nach {} ms keine eigene Figur, Client erzeugt ohne sie, sein Busplatz fehlt", Now - Since);
+        S.FigureWaitWorld = 0;
+    }
+    else if (Start != MapStart::Wait && !OwnFigureInPlayerArray())
+        Core::Log::Warn("Karte: Testschalter DDCOOP_TEST_CLIENT_FIGURE_WAIT_OFF, Client erzeugt ohne eigene Figur");
+    switch (Start)
     {
     case MapStart::Wait:
         return false;
@@ -407,7 +464,7 @@ struct
     uintptr_t World = 0;
     ULONGLONG Since = 0, HeightLoggedAt = 0;
     uintptr_t Figure = 0;
-    bool GenerationDone = false, Missing = false, Known = false;
+    bool GenerationDone = false, Missing = false, Known = false, BusPlaced = false;
     uint8_t Mode = 0xFF;
     double X = 0, Y = 0, Z = 0, LoggedZ = 0;
 } Trace;
@@ -492,6 +549,8 @@ void TraceSpawn(NetRole Role)
     {
         Trace.GenerationDone = true;
         Core::Log::Info("Spawn-Messung: Client-Erzeugung fertig, Welt seit {} ms, Dauer {} ms", Age, Now - S.GeneratorSince);
+        if (!Trace.BusPlaced)
+            Core::Log::Warn("Spawn-Messung: Client-Erzeugung fertig ohne Busplatz des Clients, eigene Figur und Bus stehen nicht am Busort");
     }
     const auto Movement = Reflection::Property(CharacterMovementField);
     const auto ModeField = Reflection::Property(MovementModeField);
@@ -734,6 +793,8 @@ void NoteBusPlacement()
     const uintptr_t World = CurrentWorld();
     const auto At = ActorPosition(FindTracedFigure(NetRole::Client));
     const ULONGLONG Age = Trace.World == World ? GetTickCount64() - Trace.Since : 0;
+    if (Trace.World == World)
+        Trace.BusPlaced = true;
     if (!At)
         Core::Log::Warn("Spawn-Messung: Busplatz des Clients ohne eigene Figur, Welt seit {} ms, Erzeugung {}", Age,
                         GenerationText(NetRole::Client, World));

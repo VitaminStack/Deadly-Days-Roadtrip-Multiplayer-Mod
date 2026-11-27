@@ -368,6 +368,7 @@ void __fastcall ClearSpawnAreaHook(const ActorArray* Keep, uintptr_t Context)
 {
     const uintptr_t World = CurrentWorld();
     const uintptr_t GameState = World ? Memory::ReadPointer(World + Offsets::UWorld::GameState).value_or(0) : 0;
+    NoteBusKeep(Keep && Keep->Num > 0 && Keep->Num <= 60 ? Keep->Data : nullptr, Keep ? Keep->Num : -1, GameState != 0);
     if (!Keep || Keep->Num <= 0 || Keep->Num > 60 || !Keep->Data || !GameState)
     {
         OriginalClearSpawnArea(Keep, Context);
