@@ -51,6 +51,7 @@
     <ClInclude Include="World\ThreatState.h" />
     <ClInclude Include="Players\CharacterState.h" />
     <ClInclude Include="Players\PauseState.h" />
+    <ClInclude Include="Players\PowerUpState.h" />
     <ClInclude Include="World\ZoneGoalState.h" />
   </ItemGroup>
   <ItemGroup>

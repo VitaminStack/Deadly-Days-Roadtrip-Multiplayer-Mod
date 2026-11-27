@@ -111,6 +111,7 @@
 {0x0599B9A5, 0, "0F 10 05 ?? ?? ?? ?? 0F 11 45 20 F2 0F 10 05 ?? ?? ?? ?? F2 0F 11 85 B0 00 00 00", 0, "LootNoRootTarget"}, // PlayerPatches.cpp
 {0x059B1F50, 0, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 48 83 EC 30 48 8B F2 48 8B F9 E8 ?? ?? ?? ??", 0, "ItemLoot"}, // InventoryPatches.cpp
 {0x059B2140, 0, "48 89 5C 24 10 57 48 83 EC 20 48 8B 92 A8 00 00 00", 0, "LootBaseLoot"}, // InventoryPatches.cpp
+{0x059B2250, 0, "48 85 D2 0F 84 ?? ?? ?? ?? 48 89 5C 24 18 56 48 83 EC 20 48 89 7C 24 38", 0, "PowerUpLoot"}, // InventoryPatches.cpp
 {0x059B23B0, 0, "48 89 5C 24 10 48 89 6C 24 18 48 89 74 24 20 57 41 56 41 57 48 83 EC 20 48 8B FA", 0, "ScrapLoot"}, // InventoryPatches.cpp
 {0x059BED47, 0, "E8 ?? ?? ?? ?? 49 89 86 58 01 00 00 48 85 C0", 0, "AttributeLookupCallSite"}, // ClientPatches.cpp
 {0x059BF4BA, 0, "48 8B 8D A0 00 00 00 48 33 CC E8 ?? ?? ?? ?? 4C 8D 9C 24 58 02 00 00 41 0F 28 73 E8 41 0F 28 7B D8 45 0F 28 43 C8 45 0F 28 4B B8 45 0F 28 53 A8 45 0F 28 5B 98 45 0F 28 63 88 45 0F 28 AB 78 FF FF FF 45 0F 28 B3 68 FF FF FF 45 0F 28 BB 58 FF FF FF 49 8B E3 41 5F 41 5E 41 5D 41 5C 5F 5E 5B 5D C3 CC CC CC CC 48 89 5C 24 10 48 89 6C 24 18 56 57", 0, "AttributeTickExit"}, // ClientPatches.cpp
@@ -127,6 +128,7 @@
 {0x05A1E779, 0, "80 3D ?? ?? ?? ?? 00 48 89 5C 24 70 48 8B 9A E8 02 00 00", 0, "RestrictorContinue"}, // CameraPatches.cpp
 {0x05A1E828, 0, "48 8B 6C 24 78 48 8B B4 24 80 00 00 00 48 83 C4 60 5F C3 CC CC CC CC CC 48 89 5C 24 18 48 89 6C 24 20", 0, "RestrictorSkip"}, // CameraPatches.cpp
 {0x05A25B30, 0, "48 8B C4 48 89 58 18 55 56 57 41 54 41 55 41 56 41 57 48 8D A8 C8 FE FF FF 48 81 EC 00 02 00 00 0F 29 70 B8 0F 29 78 A8 44 0F 29 40 98 44 0F 29 48 88 44 0F 29 90 78 FF FF FF 44 0F 29 98 68 FF FF FF 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 85 90 00 00 00 4C 8B F2 48 8B F1 F6 81 38 03 00 00 02 0F 84 ?? ?? ?? ??", 0, "DamageHandler"}, // DamageNumberPatches.cpp
+{0x05A288B0, 0, "48 8B C4 48 89 58 10 48 89 70 18 48 89 78 20 55 41 54 41 55 41 56 41 57 48 8D A8 88 FE FF FF 48 81 EC 50 02 00 00 0F 29 70 C8 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 85 38 01 00 00 0F B6 FA", 0, "TryActivateSlot"}, // PowerUpPatches.cpp
 {0x05A49F40, 0, "48 89 5C 24 08 57 48 83 EC 20 80 B9 18 03 00 00 00", 0, "OpenChoices"}, // AirdropPatches.cpp
 {0x05A4A3D0, 0, "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 48 89 7C 24 20 41 54 41 56 41 57 48 83 EC 30 4C 8B E2 48 8B E9 80 B9 A8 02 00 00 00 0F 85 ?? ?? ?? ??", 0, "OpenCrate"}, // AirdropPatches.cpp
 {0x05A70050, 0, "48 89 5C 24 08 48 89 74 24 10 48 89 7C 24 18 55 41 54 41 55 41 56 41 57 48 8D 6C 24 C9 48 81 EC B0 00 00 00 48 8B F9 E8 ?? ?? ?? ??", 0, "PanelForceUpdate"}, // RewardPatches.cpp
