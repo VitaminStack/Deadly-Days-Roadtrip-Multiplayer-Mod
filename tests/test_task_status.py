@@ -277,16 +277,32 @@ class ReservationTests(unittest.TestCase):
         message = self.claim('open', prs={'open': {'number': 8, 'state': 'OPEN', 'isDraft': False}})
         self.assertIn('Keine neue Reservierung', message)
 
+    def test_merged_leftover_compares_branch_tip_with_merged_head(self):
+        pr = {'number': 8, 'state': 'MERGED', 'isDraft': False, 'headRefOid': 'abc123'}
+        for tip, expected in (('abc123\n', True), ('def456\n', False), ('', False)):
+            with self.subTest(tip=tip), patch.object(tasks, 'git', return_value=SimpleNamespace(stdout=tip)):
+                self.assertEqual(tasks.merged_leftover('open', pr), expected)
+        with patch.object(tasks, 'git', return_value=SimpleNamespace(stdout='abc123\n')):
+            self.assertFalse(tasks.merged_leftover('open', {'number': 8, 'state': 'MERGED'}))  # Stand des PRs unbekannt
+
     def test_merged_pr_does_not_lock_open_task(self):
         """Erledigtes ist nur Info: Ein gemergter PR sperrt die offene Aufgabe nicht."""
         merged = {'open': {'number': 8, 'state': 'MERGED', 'isDraft': False}}
         parsed = source.parse(todo(self.ROWS))
         self.assertEqual(tasks.status('open', set(), merged, parsed), 'frei (früherer PR #8 gemergt)')
-        self.assertEqual(tasks.status('open', {'open'}, merged, parsed), 'frei (früherer PR #8 gemergt)')
-        # Liegt der alte Branch noch auf origin, ist nur der Name belegt; die Meldung sagt, wie man ihn freimacht.
-        message = self.claim('open', branches={'open'}, prs=merged)
+        # Der alte Branch liegt unveraendert auf origin: nur der Name ist belegt, die Meldung sagt, wie man ihn freimacht.
+        with patch.object(tasks, 'merged_leftover', return_value=True):
+            self.assertEqual(tasks.status('open', {'open'}, merged, parsed), 'frei (früherer PR #8 gemergt)')
+            message = self.claim('open', branches={'open'}, prs=merged)
         self.assertIn('git push origin --delete task/open', message)
         self.assertNotIn('nachfragen', message)
+        # Auf dem Branch liegen neue Commits (etwa nach einem Teil-PR): Das ist eine Reservierung, kein Rest.
+        with patch.object(tasks, 'merged_leftover', return_value=False), \
+                patch.object(tasks, 'claim_info', return_value=('other-agent', 0)):
+            self.assertEqual(tasks.status('open', {'open'}, merged, parsed), 'reserviert (other-agent)')
+            message = self.claim('open', branches={'open'}, prs=merged)
+        self.assertIn('existiert schon', message)
+        self.assertNotIn('--delete', message)
         # Ohne alten Branch laeuft die Reservierung durch.
         text = todo(self.ROWS)
         done = SimpleNamespace(returncode=0, stdout='https://example.invalid/pr/9\n')

@@ -105,7 +105,7 @@ def pull_requests():
     """Kennung -> neuester PR, oder None ohne angemeldete GitHub CLI."""
     try:
         result = run('gh', 'pr', 'list', '--state', 'all', '--limit', '500',
-                     '--json', 'number,headRefName,state,isDraft', check=False)
+                     '--json', 'number,headRefName,headRefOid,state,isDraft', check=False)
     except FileNotFoundError:
         return None
     if result.returncode != 0:
@@ -116,6 +116,16 @@ def pull_requests():
         if name.startswith('task/') and pr['number'] > prs.get(name[5:], {}).get('number', 0):
             prs[name[5:]] = pr
     return prs
+
+
+def merged_leftover(name, pr):
+    """True, wenn task/<name> auf origin genau der gemergte Stand von pr ist.
+
+    Liegen neue Commits darauf, arbeitet dort jemand weiter (etwa nach einem Teil-PR): Dann ist der Branch eine
+    Reservierung und darf nicht als Rest geloescht werden. Ohne bekannten Stand des PRs gilt er ebenfalls als lebendig.
+    """
+    head = git('rev-parse', '--verify', '-q', f'origin/task/{name}', check=False).stdout
+    return isinstance(head, str) and bool(head.strip()) and head.strip() == pr.get('headRefOid')
 
 
 def claim_info(name):
@@ -164,8 +174,11 @@ def status(kennung, branches, prs, tasks):
     if pr and pr['state'] == 'OPEN':
         who, _ = claim_info(kennung) if kennung in branches else ('?', 0)
         return f"in Arbeit, Draft-PR #{pr['number']} ({who})" if pr['isDraft'] else f"PR #{pr['number']} wartet auf Review"
-    merged = f" (früherer PR #{pr['number']} gemergt)" if pr and pr['state'] == 'MERGED' else ''
-    # Ein gemergter PR ist nur Info. Sein alter Branch zaehlt nicht als Reservierung.
+    # Ein gemergter PR ist nur Info und sperrt nichts. Sein unveraenderter alter Branch zaehlt nicht als Reservierung,
+    # ein Branch mit neuen Commits danach schon.
+    merged = ''
+    if pr and pr['state'] == 'MERGED' and (kennung not in branches or merged_leftover(kennung, pr)):
+        merged = f" (früherer PR #{pr['number']} gemergt)"
     if kennung in branches and not merged:
         who, days = claim_info(kennung)
         stale = f', seit {days:.0f} Tagen ohne Commit, erst nachfragen' if days >= STALE_DAYS else ''
@@ -254,7 +267,7 @@ def cmd_claim(kennung, name, role=None):
     if pr and pr['state'] == 'OPEN':
         sys.exit(f'{kennung}: {status(kennung, branches, prs, tasks)}. Keine neue Reservierung.')
     if kennung in branches:
-        if pr and pr['state'] == 'MERGED':
+        if pr and pr['state'] == 'MERGED' and merged_leftover(kennung, pr):
             # Ein gemergter PR sperrt die offene Aufgabe nicht, nur der Branchname ist noch belegt.
             sys.exit(f"task/{kennung} liegt noch auf origin, sein PR #{pr['number']} ist gemergt. Den alten Branch "
                      f'loeschen (git push origin --delete task/{kennung}), dann erneut reservieren.')

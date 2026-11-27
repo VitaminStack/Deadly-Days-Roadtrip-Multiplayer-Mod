@@ -20,7 +20,7 @@ Reserviert Aufgaben aus [TODO.md](../TODO.md#wo-kann-ich-anfangen), damit nieman
 | `py tools/tasks.py cleanup [--apply]` | Zeigt lokale Worktrees unter `.worktrees/` und `.claude/worktrees/`, deren PR gemergt und Branch gelöscht ist (oder deren Stand in `main` liegt), und Branches auf origin ohne offenen PR. `--apply` entfernt nur saubere lokale Worktrees dieser Art samt lokalem Branch, nie Branches auf origin |
 
 Erledigte und Team-Aufgaben sind nicht reservierbar, auch ohne `gh`. Offene Aufgaben stehen flach unter „Probleme“ oder „Verbesserungen“ und hängen nicht voneinander ab: Die Werkzeuge kennen keine Spalte „Braucht“ und keinen Status „blockiert“ oder „zurückgestellt“.
-Erledigtes ist nur Info: Ein gemergter PR sperrt eine offene Aufgabe nicht, sie zeigt `frei (früherer PR #n gemergt)`. Liegt sein alter Branch noch auf origin, nennt `claim` den Befehl zum Löschen.
+Erledigtes ist nur Info: Ein gemergter PR sperrt eine offene Aufgabe nicht, sie zeigt `frei (früherer PR #n gemergt)`. Liegt sein alter Branch unverändert noch auf origin, nennt `claim` den Befehl zum Löschen; liegen neue Commits darauf, gilt er weiter als Reservierung.
 
 ### Bestätigungstests
 

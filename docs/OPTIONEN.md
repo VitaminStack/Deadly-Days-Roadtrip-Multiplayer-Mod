@@ -54,7 +54,7 @@ Vorhandenes, etwa ein Konzept oder eine Moduswahl, übernimmt und prüft sie.
 - Unterstützungs-Items wirken über die Bereichsgrenze auf Waffen des Mitspielers; die Hervorhebung beim Überfahren zeigt auch diese Wirkungen.
 - Der Host bucht, der Client bearbeitet lokal und bekommt Bestätigung oder Rücknahme.
 - Alle Inventarabläufe laufen im geteilten Inventar: Airdrop-Wahl, Itemsäcke, Werkbank, Lager mit Verkauf und Reparatur, Rundenende mit Bestätigen.
-- Der Modus Eigene Inventare bleibt unverändert nutzbar; beide Modi teilen sich vorhandene Pfade, wo das Konzept es vorsieht.
+- Der Modus Eigene Inventare bleibt unverändert nutzbar; beide Modi teilen sich vorhandene Pfade, wo es keine doppelte Buchung erzeugt.
 
 **Fertig, wenn** auf zwei PCs ein Run von Tag 1 bis Tag 4 im Modus Geteiltes Inventar ohne Absturz und ohne Desync-Befund läuft, ein Unterstützungs-Item im Bereich von Spieler A die Waffe von Spieler B nachweislich verstärkt, die Waffenwerte bei beiden gleich sind und ein Run bis Tag 2 im Modus Eigene Inventare weiter wie in Release 1.0 läuft.
 Ordner `src/Game`, `src/Sync`.
