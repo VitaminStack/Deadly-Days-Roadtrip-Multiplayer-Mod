@@ -6,12 +6,13 @@
 #include <string>
 
 #include "Core/Dispatcher.h"
+#include "Net/CoopMode.h"
 
 namespace UI
 {
 enum class SessionState { Unavailable, Offline, Connecting, Lobby, Playing, Failed };
 enum class SessionRole { None, Host, Client };
-enum class LobbyAction { Create, Join, Invite, Leave };
+enum class LobbyAction { Create, Join, Invite, Leave, SetMode };
 // Dev-Tab (Entwicklerwerkzeug, vor dem Release entfernen). Werte entsprechen Game::DevAction.
 enum class DevButton : uint8_t { SpawnXp = 1, FullTank = 2, ToggleGodmode = 3, SpawnZombies = 4, SpawnRandomItem = 5 };
 
@@ -28,12 +29,19 @@ struct OverlayStatus
     bool CanJoin = false;
     bool CanInvite = false;
     bool CanLeave = false;
+    // coop-modus-wahl: Modus der Sitzung oder die Wahl für die nächste Lobby; fest, solange die Sitzung läuft. Wählen nur, wenn
+    // CanChooseMode (ohne Sitzung, außerhalb eines Runs).
+    Net::CoopMode Mode = Net::CoopMode::Own;
+    bool ModeLocked = false;
+    bool CanChooseMode = false;
 };
 
 struct LobbyRequest
 {
     LobbyAction Action;
     uint64_t LobbyId = 0;
+    // Nur für SetMode.
+    Net::CoopMode Mode = Net::CoopMode::Own;
 };
 
 struct OverlaySnapshot

@@ -346,3 +346,29 @@ TEST_CASE("Dev buttons stay available in solo and multiplayer and are taken once
     CHECK(Model.RequestDev(UI::DevButton::SpawnRandomItem));
     CHECK(Model.TakeDevRequests() == ((1u << 4) | (1u << 5)));
 }
+
+TEST_CASE("Coop mode is chosen only without a session and outside a run, never while locked")
+{
+    UI::OverlaySnapshot View;
+    View.HasBackend = true;
+    View.Status = Offline();
+    const UI::LobbyRequest Shared{ UI::LobbyAction::SetMode, 0, Net::CoopMode::Shared };
+    // Lobby.cpp clears CanChooseMode outside main menu and MetaBase or without a world.
+    CHECK_FALSE(UI::OverlayModel::CanSubmit(View, Shared));
+    View.Status.CanChooseMode = true;
+    CHECK(UI::OverlayModel::CanSubmit(View, Shared));
+    View.Status.State = UI::SessionState::Failed;
+    CHECK(UI::OverlayModel::CanSubmit(View, Shared));
+    for (const auto State : { UI::SessionState::Connecting, UI::SessionState::Lobby, UI::SessionState::Playing,
+                              UI::SessionState::Unavailable })
+    {
+        View.Status.State = State;
+        CHECK_FALSE(UI::OverlayModel::CanSubmit(View, Shared));
+    }
+    View.Status.State = UI::SessionState::Offline;
+    View.Status.ModeLocked = true;
+    CHECK_FALSE(UI::OverlayModel::CanSubmit(View, Shared));
+    View.Status.ModeLocked = false;
+    View.Pending = true;
+    CHECK_FALSE(UI::OverlayModel::CanSubmit(View, Shared));
+}

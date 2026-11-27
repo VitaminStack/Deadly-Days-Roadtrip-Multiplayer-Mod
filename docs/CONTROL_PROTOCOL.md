@@ -26,6 +26,9 @@ Eine Familie je Thema, Typen innerhalb der Familie fortlaufend. Wer einen Typ od
 | `0xD00` Zonenziel | `0xD00` Stand (seit `ModVersion` 21) | `Sync/World/ZoneGoalState.h` |
 | `0xE00` Power-ups | `0xE00` Slot-Stand, `0xE01` Auslösen (seit `ModVersion` 22) | `Sync/Players/PowerUpState.h` |
 
+Lobby-Daten der Steam-Lobby, nur der Host schreibt sie: `ddcoop` (Mod-Version) und `ddcoop_mode` (Koop-Modus, seit `ModVersion` 23),
+siehe [Koop-Modus](#koop-modus-mod-kompatibilität-23). Ein neuer Schlüssel oder Wert gehört ebenfalls in diese Liste.
+
 ## Handshake
 
 Beide Seiten senden nach Steam-Verbindungsaufbau zuerst zuverlässig ihre
@@ -489,6 +492,21 @@ lässt sich im selben Edit nicht verkaufen. Der Host sucht das Original über Qu
 es fehlt oder sein Schrott nicht reicht (Kopien kosten wie Käufe, nach den Verkäufen). Den Preis rechnet das Panel des Clients; der Host
 übernimmt ihn, weil sich die Formel nicht ohne das Panel nachrechnen lässt. Er kopiert seine eigene Instanz mit
 `InventoryEffectHelperLibrary.CreateItemInstanceCopy`, legt sie mit `AddToInventory` ab und bucht nach der Übernahme einmal, nur für angelegte Kopien.
+
+## Koop-Modus (Mod-Kompatibilität 23)
+
+Aufgabe `coop-modus-wahl`, Code in `src/Net/CoopMode.h`, `src/Net/Session.cpp` und `src/Mod/Lobby.cpp`. Mod-Version 23, weil ein
+Client mit älterer Version den Modus nicht liest und im falschen Modus spielen würde. Keine Kontrollnachricht: Der Modus steht in den
+Lobby-Daten, die nur der Besitzer der Lobby schreiben kann, und kommt mit jedem Beitritt und Neubeitritt mit.
+
+- `ddcoop` = Mod-Version als Dezimalzahl (`Net::Protocol::ModVersion`, seit 23; bis 22 stand dort fest `1`). Der Client vergleicht
+  sie zuerst. Ohne Wert: „Die Lobby gehört nicht zur Coop-Mod“, anderer Wert: „Andere Mod-Version beim Host“. Der Hello-Handshake
+  prüft danach weiter Build und Mod-Version.
+- `ddcoop_mode` = `own` (Eigene Inventare) oder `shared` (Geteiltes Inventar). Der Host schreibt ihn direkt nach dem Erstellen der
+  Lobby, zusammen mit `ddcoop`. Fehlt er oder hat er einen anderen Wert, bricht der Client den Beitritt mit „Unbekannter Koop-Modus
+  beim Host“ ab und verlässt die Lobby, statt einen Modus anzunehmen.
+- Der Modus ist ab „Lobby erstellen“ bis zum Ende der Sitzung fest. Wählen geht nur ohne Sitzung und außerhalb eines Runs
+  (Hauptmenü oder MetaBase).
 
 ## Bisher geprüft (05.11.2026, Kontrollkanal vor Diagnoseerweiterung)
 

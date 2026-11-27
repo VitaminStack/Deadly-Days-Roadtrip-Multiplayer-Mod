@@ -25,6 +25,13 @@ TEST_CASE("Testkanal: Befehle werden zerlegt")
     CHECK(ParseCommand("lobby create")->Kind == CommandKind::LobbyCreate);
     CHECK(ParseCommand("lobby invite")->Kind == CommandKind::LobbyInvite);
     CHECK(ParseCommand("lobby leave")->Kind == CommandKind::LobbyLeave);
+    for (const char* Mode : {"own", "shared"})
+    {
+        const auto Chosen = ParseCommand(std::string("lobby mode ") + Mode);
+        REQUIRE(Chosen);
+        CHECK(Chosen->Kind == CommandKind::LobbyMode);
+        CHECK(Chosen->Text == Mode);
+    }
 
     const auto Join = ParseCommand("lobby join 109775241234567890");
     REQUIRE(Join);
@@ -49,7 +56,10 @@ TEST_CASE("Testkanal: ungültige Anfragen werden abgelehnt")
     CHECK(ErrorOf("dance") == "unbekannter Befehl");
     CHECK(ErrorOf("state now") == "state hat keine Argumente");
     CHECK(ErrorOf("console") == "console braucht einen Befehl");
-    CHECK(ErrorOf("lobby") == "lobby kennt create, join, invite und leave");
+    CHECK(ErrorOf("lobby") == "lobby kennt create, join, invite, leave und mode");
+    CHECK(ErrorOf("lobby mode") == "lobby mode braucht own oder shared");
+    CHECK(ErrorOf("lobby mode both") == "lobby mode braucht own oder shared");
+    CHECK(ErrorOf("lobby mode Shared") == "lobby mode braucht own oder shared");
     CHECK(ErrorOf("lobby create now") == "lobby create, invite und leave haben keine Argumente");
     CHECK(ErrorOf("lobby join") == "lobby join braucht eine Lobby-ID");
     CHECK(ErrorOf("lobby join abc") == "lobby join braucht eine Lobby-ID");

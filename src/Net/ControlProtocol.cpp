@@ -1,5 +1,7 @@
 #include "Net/ControlProtocol.h"
 
+#include "Net/CoopMode.h"
+
 #include <charconv>
 #include <format>
 
@@ -114,7 +116,15 @@ std::optional<Command> ParseCommand(std::string_view Line, std::string* Error)
             Result.Lobby = Id;
             return Result;
         }
-        return Fail(Error, "lobby kennt create, join, invite und leave");
+        if (Action == "mode")
+        {
+            if (!ParseCoopMode(Argument))
+                return Fail(Error, "lobby mode braucht own oder shared");
+            Result.Kind = CommandKind::LobbyMode;
+            Result.Text = std::string(Argument);
+            return Result;
+        }
+        return Fail(Error, "lobby kennt create, join, invite, leave und mode");
     }
     return Fail(Error, "unbekannter Befehl");
 }

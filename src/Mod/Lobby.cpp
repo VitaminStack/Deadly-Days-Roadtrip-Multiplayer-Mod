@@ -14,6 +14,8 @@
 #include "Game/GameThread.h"
 #include "Game/Patches.h"
 #include "Game/WorldAdapter.h"
+#include "Net/CoopMode.h"
+#include "Net/Protocol.h"
 #include "Net/Session.h"
 #include "Net/SteamLobbyApi.h"
 #include "Net/SteamSockets.h"
@@ -141,6 +143,40 @@ std::optional<bool> GameHosting()
     return std::nullopt;
 }
 
+// coop-modus-wahl: Warum der Koop-Modus gerade nicht wählbar ist, leer wenn er es ist. Fest ist er während einer Sitzung und
+// während eines Runs: Wer mitten im Run die Lobby verlässt und neu erstellt, behält den Modus, mit dem der Run begann. Ein Run
+// läuft außerhalb von Hauptmenü und MetaBase (wie TickRejoin in Game/RewardPatches.cpp). Ohne lesbare Welt, etwa beim Laden, nicht.
+std::string ModeBlocker(const Net::SessionStatus& Status)
+{
+    if (Status.Phase != Net::SessionPhase::Idle && Status.Phase != Net::SessionPhase::Failed)
+        return "Koop-Modus gilt bis zum Ende der Sitzung";
+    const auto World = Game::ReadWorld();
+    if (!World)
+        return "Koop-Modus erst wählbar, wenn die Welt geladen ist";
+    if (World->Map != "MainMenu" && World->Map != "MetaBase")
+        return "Koop-Modus gilt bis zum Ende des Runs, wählbar im Hauptmenü oder in der MetaBase";
+    return {};
+}
+
+// Gleicher Weg für Overlay und Testkanal.
+bool ChooseMode(Net::CoopMode Mode, std::string* Reason = nullptr)
+{
+    auto& Lobby = State();
+    if (!Lobby.Session)
+        return false;
+    std::string Blocker = ModeBlocker(Lobby.Session->Status());
+    if (Blocker.empty() && !Lobby.Session->SetCoopMode(Mode))
+        Blocker = "Koop-Modus gilt bis zum Ende der Sitzung";
+    if (!Blocker.empty())
+    {
+        Core::Log::Warn("Lobby: Koop-Modus {} abgelehnt, {}", Net::ToLobbyValue(Mode), Blocker);
+        if (Reason)
+            *Reason = Blocker;
+        return false;
+    }
+    return true;
+}
+
 UI::OverlayStatus ToOverlay(const Net::SessionStatus& Status)
 {
     UI::OverlayStatus Result;
@@ -169,6 +205,9 @@ UI::OverlayStatus ToOverlay(const Net::SessionStatus& Status)
         Result.Message = "Diese Spielversion wird noch nicht unterstützt, Coop gesperrt";
     Result.CanInvite = Status.CanInvite;
     Result.CanLeave = Status.CanLeave;
+    Result.Mode = Status.Mode;
+    Result.ModeLocked = Status.ModeLocked;
+    Result.CanChooseMode = ModeBlocker(Status).empty();
     return Result;
 }
 
@@ -191,6 +230,7 @@ void OnAction(UI::LobbyRequest Request)
             Core::Log::Warn("Lobby: Einladen nicht möglich, Steam-Overlay aus?");
         break;
     case UI::LobbyAction::Leave: Lobby.Session->Leave(); break;
+    case UI::LobbyAction::SetMode: ChooseMode(Request.Mode); break;
     }
     Lobby.NextPublish = {};
 }
@@ -222,7 +262,9 @@ bool TryLoad(LobbyState& Lobby)
         Core::Log::Warn("Sitzung: lokaler Testmodus (-ddcoop_localtest), Host nimmt auch 127.0.0.1 ohne Steam-Identität an");
     Lobby.Session = std::make_unique<Net::Session>(
         Api, [Sockets, Options] { return std::make_shared<Net::Transport>(Sockets, Options); },
-        Net::SessionHooks{BecomeListenServer, ConnectToLocalPort, Disconnect, GameConnectedToHost, GameHosting}, Options);
+        Net::SessionHooks{BecomeListenServer, ConnectToLocalPort, Disconnect, GameConnectedToHost, GameHosting}, Options,
+        // Lobby-Daten ddcoop: die echte Mod-Version, damit eine andere Version schon am Beitritt scheitert (seit Mod-Version 23).
+        std::to_string(Net::Protocol::ModVersion));
     if (const uint64_t Invited = Net::ParseConnectLobby(Api->LaunchCommandLine()); Invited && !Lobby.StartJoin)
     {
         Lobby.StartJoin = Invited;
@@ -293,10 +335,12 @@ std::string DescribeState()
     constexpr const char* kStates[] = {"unavailable", "offline", "connecting", "lobby", "playing", "failed"};
     const auto Overlay = ToOverlay(Status);
     return Fields + std::format(",\"state\":\"{}\",\"session\":{},\"lobby\":{},\"members\":{},\"ping\":{},\"message\":{},"
-                                "\"canCreate\":{},\"canJoin\":{},\"canInvite\":{},\"canLeave\":{}",
+                                "\"canCreate\":{},\"canJoin\":{},\"canInvite\":{},\"canLeave\":{},"
+                                "\"coopMode\":\"{}\",\"coopModeLocked\":{},\"canChooseMode\":{}",
                                 kStates[static_cast<int>(Overlay.State)], JsonString(Net::ToString(Status.Phase)), JsonString(Status.Lobby ? std::to_string(Status.Lobby) : ""),
                                 Status.Members, Status.PingMs, JsonString(Status.Message), Status.CanCreate, Status.CanJoin,
-                                Status.CanInvite, Status.CanLeave);
+                                Status.CanInvite, Status.CanLeave, Net::ToLobbyValue(Status.Mode), Status.ModeLocked,
+                                Overlay.CanChooseMode);
 }
 
 std::string Done(bool Accepted, const char* Rejected)
@@ -337,6 +381,14 @@ std::string Execute(const Net::Control::Command& Command)
     case CommandKind::LobbyJoin: return Done(Lobby.Session->Join(Command.Lobby), "Beitreten nicht möglich");
     case CommandKind::LobbyInvite: return Done(Lobby.Session->Invite(), "Einladen nicht möglich");
     case CommandKind::LobbyLeave: Lobby.Session->Leave(); return Net::Control::OkReply(DescribeState());
+    case CommandKind::LobbyMode:
+    {
+        const auto Mode = Net::ParseCoopMode(Command.Text);
+        std::string Reason = "unbekannter Koop-Modus";
+        if (!Mode || !ChooseMode(*Mode, &Reason))
+            return Net::Control::ErrorReply(Reason);
+        return Net::Control::OkReply(DescribeState());
+    }
     default: return Net::Control::ErrorReply("unbekannter Befehl");
     }
 }

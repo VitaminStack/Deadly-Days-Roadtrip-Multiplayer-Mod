@@ -75,6 +75,7 @@ bool OverlayModel::CanSubmit(const OverlaySnapshot& View, LobbyRequest Request)
     case LobbyAction::Leave:
         return (Status.State == SessionState::Lobby || Status.State == SessionState::Playing ||
             Status.State == SessionState::Connecting) && Status.CanLeave;
+    case LobbyAction::SetMode: return Idle && Status.CanChooseMode && !Status.ModeLocked;
     }
     return false;
 }

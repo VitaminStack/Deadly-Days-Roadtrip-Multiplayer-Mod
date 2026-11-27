@@ -486,11 +486,36 @@ TEST_CASE("Beitritt scheitert sauber")
         CHECK(Client.Run.Status().Message == "Die Lobby gehört nicht zur Coop-Mod");
         CHECK(Service->Lobbies[Lobby].Members.size() == 1);
     }
+    SUBCASE("Lobby ohne oder mit unbekanntem Koop-Modus")
+    {
+        // coop-modus-wahl: Kein Modus wird angenommen, der Client verlässt die Lobby wieder.
+        const uint64_t Lobby = 779;
+        Service->Lobbies[Lobby] = {kHostId, {kHostId}, {{std::string(Session::kModKey), "1"}}};
+        SUBCASE("ohne Wert") {}
+        SUBCASE("unbekannter Wert") { Service->Lobbies[Lobby].Data[std::string(Session::kModeKey)] = "both"; }
+        REQUIRE(Client.Run.Join(Lobby));
+        REQUIRE(TickUntil({&Client.Run}, [&] { return Client.Run.Status().Phase == SessionPhase::Failed; }));
+        CHECK(Client.Run.Status().Message == "Unbekannter Koop-Modus beim Host");
+        CHECK(Service->Lobbies[Lobby].Members.size() == 1);
+        CHECK(Client.Game.Connects.empty());
+        CHECK_FALSE(Client.Run.Status().ModeLocked);
+    }
+    SUBCASE("Andere Mod-Version wird vor dem Koop-Modus gemeldet")
+    {
+        // Ein Host mit Mod-Version 22 schrieb fest "1" und keinen Modus. Der Client nennt die Version, nicht den Modus.
+        Player Current(Service, Network, kClientId, kClientId, Options, "23");
+        const uint64_t Lobby = 780;
+        Service->Lobbies[Lobby] = {kHostId, {kHostId}, {{std::string(Session::kModKey), "1"}}};
+        REQUIRE(Current.Run.Join(Lobby));
+        REQUIRE(TickUntil({&Current.Run}, [&] { return Current.Run.Status().Phase == SessionPhase::Failed; }));
+        CHECK(Current.Run.Status().Message == "Andere Mod-Version beim Host");
+        CHECK(Service->Lobbies[Lobby].Members.size() == 1);
+    }
     SUBCASE("Host antwortet nicht")
     {
         Network->RejectConnectionsTo(kHostId);
         const uint64_t Lobby = 778;
-        Service->Lobbies[Lobby] = {kHostId, {kHostId}, {{std::string(Session::kModKey), "1"}}};
+        Service->Lobbies[Lobby] = {kHostId, {kHostId}, {{std::string(Session::kModKey), "1"}, {std::string(Session::kModeKey), "own"}}};
         REQUIRE(Client.Run.Join(Lobby));
         REQUIRE(TickUntil({&Client.Run}, [&] { return Client.Run.Status().Phase == SessionPhase::Failed; }));
         CHECK(Client.Game.Connects.empty());
@@ -781,4 +806,57 @@ TEST_CASE("Host schließt die Lobby, wenn sein Spiel im Hauptmenü steht")
         TickUntil({&Host.Run}, [] { return false; }, 400);
         CHECK(Host.Run.Status().Phase == SessionPhase::Hosting);
     }
+}
+
+TEST_CASE("Koop-Modus: Host wählt vor der Lobby, Client übernimmt ihn, fest bis zum Ende der Sitzung")
+{
+    auto Service = std::make_shared<FakeLobbyService>();
+    auto Network = std::make_shared<FakeSteamNetwork>();
+    const TransportOptions Options = SessionPorts(47925);
+    Player Host(Service, Network, kHostId, kHostId, Options);
+    Player Client(Service, Network, kClientId, kClientId, Options);
+
+    // Standard bleibt Eigene Inventare.
+    CHECK(Host.Run.Status().Mode == CoopMode::Own);
+    CHECK_FALSE(Host.Run.Status().ModeLocked);
+    // Beide Modi nacheinander, je mit frischer Sitzung.
+    CoopMode Chosen = CoopMode::Own;
+    SUBCASE("Eigene Inventare") {}
+    SUBCASE("Geteiltes Inventar") { Chosen = CoopMode::Shared; }
+
+    REQUIRE(Host.Run.SetCoopMode(Chosen));
+    CHECK(Host.Run.Status().Mode == Chosen);
+
+    REQUIRE(Host.Run.Create());
+    REQUIRE(TickUntil({&Host.Run}, [&] { return Host.Run.Status().Phase == SessionPhase::Hosting; }));
+    const uint64_t Lobby = Host.Run.Status().Lobby;
+    CHECK(Service->Lobbies[Lobby].Data[std::string(Session::kModeKey)] == ToLobbyValue(Chosen));
+    CHECK(Host.Run.Status().Mode == Chosen);
+    CHECK(Host.Run.Status().ModeLocked);
+
+    REQUIRE(Client.Run.Join(Lobby));
+    REQUIRE(TickUntil({&Host.Run, &Client.Run}, [&] {
+        return Client.Run.Status().Phase == SessionPhase::Playing && Host.Run.Status().Phase == SessionPhase::Playing;
+    }));
+    CHECK(Client.Run.Status().Mode == Chosen);
+    CHECK(Client.Run.Status().ModeLocked);
+
+    // Im laufenden Run wechselt der Modus weder beim Host noch beim Client, auch nicht in den Lobby-Daten.
+    const CoopMode Other = Chosen == CoopMode::Own ? CoopMode::Shared : CoopMode::Own;
+    CHECK_FALSE(Host.Run.SetCoopMode(Other));
+    CHECK_FALSE(Client.Run.SetCoopMode(Other));
+    TickUntil({&Host.Run, &Client.Run}, [] { return false; }, 100);
+    CHECK(Host.Run.Status().Mode == Chosen);
+    CHECK(Client.Run.Status().Mode == Chosen);
+    CHECK(Service->Lobbies[Lobby].Data[std::string(Session::kModeKey)] == ToLobbyValue(Chosen));
+
+    // Nach dem Verlassen ist der Modus wieder frei und gilt für die nächste Lobby.
+    Client.Run.Leave();
+    Host.Run.Leave();
+    CHECK_FALSE(Host.Run.Status().ModeLocked);
+    CHECK(Host.Run.Status().Mode == Chosen);
+    REQUIRE(Host.Run.SetCoopMode(Other));
+    REQUIRE(Host.Run.Create());
+    REQUIRE(TickUntil({&Host.Run}, [&] { return Host.Run.Status().Phase == SessionPhase::Hosting; }));
+    CHECK(Service->Lobbies[Host.Run.Status().Lobby].Data[std::string(Session::kModeKey)] == ToLobbyValue(Other));
 }

@@ -5,10 +5,12 @@
 #   Overlay.ps1 Client join [<id>]    Beitreten, ohne ID der Lobby des Hosts dieser Sitzung
 #   Overlay.ps1 Client leave          Verlassen
 #   Overlay.ps1 Host invite           Freundesliste im Steam-Overlay oeffnen
+#   Overlay.ps1 Host mode -Mode Shared  Koop-Modus fuer die naechste Lobby (nur ohne Sitzung, ausserhalb eines Runs), ueber den Testkanal
 param(
     [Parameter(Mandatory)][ValidateSet('Host', 'Client')][string]$Role,
-    [Parameter(Mandatory)][ValidateSet('status', 'create', 'join', 'leave', 'invite')][string]$Action,
+    [Parameter(Mandatory)][ValidateSet('status', 'create', 'join', 'leave', 'invite', 'mode')][string]$Action,
     [string]$LobbyId,
+    [ValidateSet('Own', 'Shared')][string]$Mode,
     [switch]$Json
 )
 $ErrorActionPreference = 'Stop'
@@ -29,4 +31,11 @@ switch ($Action) {
     }
     'leave' { Invoke-OverlayAction $ProcessId Leave; 'Verlassen ausgeloest' }
     'invite' { Invoke-OverlayAction $ProcessId Invite; 'Einladen ausgeloest' }
+    'mode' {
+        if (-not $Mode) { throw 'mode braucht -Mode Own oder Shared.' }
+        if (-not (Test-ModControl)) { throw 'mode braucht den Testkanal der Mod (-Mod).' }
+        # Lehnt die Mod ab (Sitzung oder Run laeuft), bricht Send-ModControl mit ihrem Grund ab.
+        $Reply = Send-ModControl $ProcessId "lobby mode $($Mode.ToLower())"
+        "Koop-Modus: $($Reply.coopMode), fest: $($Reply.coopModeLocked)"
+    }
 }

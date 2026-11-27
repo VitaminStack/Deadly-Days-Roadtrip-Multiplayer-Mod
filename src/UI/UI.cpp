@@ -25,7 +25,7 @@ namespace
 constexpr wchar_t WindowClass[] = L"DDCoop.Overlay";
 // Hinweis über dem Spielbild (opt-boss-tafel-client): eigenes kleines Fenster ohne Rahmen, nie aktivierbar, Klicks gehen durch.
 constexpr wchar_t NoticeClass[] = L"DDCoop.Notice";
-constexpr int CreateId = 101, JoinId = 102, InviteId = 103, LeaveId = 104, LobbyId = 105, CopyId = 106, TabId = 107, DevXpId = 110, DevTankId = 111, DevGodId = 112, DevZombiesId = 113, DevItemId = 114;
+constexpr int CreateId = 101, JoinId = 102, InviteId = 103, LeaveId = 104, LobbyId = 105, CopyId = 106, TabId = 107, ModeId = 108, DevXpId = 110, DevTankId = 111, DevGodId = 112, DevZombiesId = 113, DevItemId = 114;
 constexpr int TabHeight = 34;
 std::mutex Lifecycle;
 HANDLE Thread = nullptr;
@@ -37,7 +37,7 @@ struct WindowState
 {
     HWND Owner = nullptr;
     HWND Status = nullptr, Message = nullptr, Debug = nullptr, Hint = nullptr, Diagnostics = nullptr;
-    HWND Create = nullptr, Join = nullptr, Invite = nullptr, Leave = nullptr, Lobby = nullptr, Copy = nullptr;
+    HWND Create = nullptr, Join = nullptr, Invite = nullptr, Leave = nullptr, Lobby = nullptr, Copy = nullptr, Mode = nullptr;
     HWND Tab = nullptr, DevXp = nullptr, DevTank = nullptr, DevGod = nullptr, DevZombies = nullptr, DevItem = nullptr, DevInfo = nullptr;
     bool KeyDown = false;
     bool MarkDown = false;
@@ -145,16 +145,18 @@ void Layout(WindowState& State, HWND Window, int Dpi)
     Place(State.DevInfo, 12, 222, 416, 64);
     Place(State.Status, 12, 10, 416, 24);
     Place(State.Message, 12, 36, 416, 46);
-    Place(State.Create, 12, 88, 128, 30);
-    Place(State.Invite, 148, 88, 144, 30);
-    Place(State.Leave, 300, 88, 128, 30);
-    Place(State.Lobby, 12, 128, 272, 28);
-    Place(State.Join, 292, 128, 136, 28);
-    Place(State.Debug, 12, 166, 416, 64);
-    Place(State.Copy, 12, 234, 160, 28);
-    Place(State.Diagnostics, 12, 270, 416, 64);
-    Place(State.Hint, 12, 342, 416, 44);
-    RECT Rect{ 0, 0, Scale(440), Scale(396 + TabHeight) };
+    // Höhe einer Dropdown-Liste schließt die aufgeklappte Liste ein.
+    Place(State.Mode, 12, 88, 416, 120);
+    Place(State.Create, 12, 124, 128, 30);
+    Place(State.Invite, 148, 124, 144, 30);
+    Place(State.Leave, 300, 124, 128, 30);
+    Place(State.Lobby, 12, 164, 272, 28);
+    Place(State.Join, 292, 164, 136, 28);
+    Place(State.Debug, 12, 202, 416, 64);
+    Place(State.Copy, 12, 270, 160, 28);
+    Place(State.Diagnostics, 12, 306, 416, 64);
+    Place(State.Hint, 12, 378, 416, 44);
+    RECT Rect{ 0, 0, Scale(440), Scale(432 + TabHeight) };
     AdjustWindowRectExForDpi(&Rect, WS_POPUP | WS_CAPTION | WS_SYSMENU, FALSE, WS_EX_TOOLWINDOW, static_cast<UINT>(Dpi));
     SetWindowPos(Window, nullptr, 0, 0, Rect.right - Rect.left, Rect.bottom - Rect.top,
         SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
@@ -199,7 +201,7 @@ void ShowTab(WindowState& State)
 {
     const bool Dev = TabCtrl_GetCurSel(State.Tab) == 1;
     for (HWND Item : { State.Status, State.Message, State.Debug, State.Hint, State.Diagnostics, State.Create, State.Invite,
-                       State.Leave, State.Lobby, State.Join, State.Copy })
+                       State.Leave, State.Lobby, State.Join, State.Copy, State.Mode })
         ShowWindow(Item, Dev ? SW_HIDE : SW_SHOW);
     for (HWND Item : { State.DevXp, State.DevTank, State.DevGod, State.DevZombies, State.DevItem, State.DevInfo })
         ShowWindow(Item, Dev ? SW_SHOW : SW_HIDE);
@@ -227,6 +229,12 @@ void UpdateControls(WindowState& State)
     EnableWindow(State.Invite, UI::OverlayModel::CanSubmit(View, { UI::LobbyAction::Invite }));
     EnableWindow(State.Leave, UI::OverlayModel::CanSubmit(View, { UI::LobbyAction::Leave }));
     EnableWindow(State.Copy, Status.LobbyId != 0);
+    // coop-modus-wahl: zeigt den Modus der Sitzung (Host und Client) oder die Wahl für die nächste Lobby. Wählbar nur ohne Sitzung
+    // und außerhalb eines Runs; die aufgeklappte Liste wird nicht überschrieben.
+    const int Selected = Status.Mode == Net::CoopMode::Shared ? 1 : 0;
+    if (!SendMessageW(State.Mode, CB_GETDROPPEDSTATE, 0, 0) && SendMessageW(State.Mode, CB_GETCURSEL, 0, 0) != Selected)
+        SendMessageW(State.Mode, CB_SETCURSEL, static_cast<WPARAM>(Selected), 0);
+    EnableWindow(State.Mode, UI::OverlayModel::CanSubmit(View, { UI::LobbyAction::SetMode, 0, Status.Mode }));
     const bool Dev = UI::OverlayModel::CanDev(View);
     EnableWindow(State.DevXp, Dev);
     EnableWindow(State.DevTank, Dev);
@@ -431,6 +439,12 @@ LRESULT CALLBACK WindowProc(HWND Window, UINT Message, WPARAM WParam, LPARAM LPa
             State->DevInfo = Control(Window, L"BUTTON", L"", BS_GROUPBOX);
             for (HWND Button : { State->DevXp, State->DevTank, State->DevGod, State->DevZombies, State->DevItem })
                 EnableWindow(Button, FALSE);
+            // Zuletzt angelegt: tools/spike/Common.ps1 liest die Texte der Steuerelemente in Anlagereihenfolge.
+            State->Mode = Control(Window, L"COMBOBOX", L"", CBS_DROPDOWNLIST | WS_TABSTOP | WS_VSCROLL, ModeId);
+            SendMessageW(State->Mode, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"Inventar: Eigene Inventare (Standard)"));
+            SendMessageW(State->Mode, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"Inventar: Geteiltes Inventar"));
+            SendMessageW(State->Mode, CB_SETCURSEL, 0, 0);
+            EnableWindow(State->Mode, FALSE);
             {
                 INITCOMMONCONTROLSEX Common{ sizeof(Common), ICC_TAB_CLASSES };
                 InitCommonControlsEx(&Common);
@@ -456,6 +470,13 @@ LRESULT CALLBACK WindowProc(HWND Window, UINT Message, WPARAM WParam, LPARAM LPa
                 ShowTab(*State);
             return 0;
         case WM_COMMAND:
+            if (LOWORD(WParam) == ModeId && HIWORD(WParam) == CBN_SELCHANGE)
+            {
+                const auto Picked = SendMessageW(State->Mode, CB_GETCURSEL, 0, 0);
+                UI::Overlay().Submit({ UI::LobbyAction::SetMode, 0, Picked == 1 ? Net::CoopMode::Shared : Net::CoopMode::Own });
+                UpdateControls(*State);
+                return 0;
+            }
             if (HIWORD(WParam) == BN_CLICKED)
             {
                 switch (LOWORD(WParam))

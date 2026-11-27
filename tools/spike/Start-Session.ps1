@@ -54,7 +54,11 @@ param(
     # Beide Instanzen starten mit einer Kopie des echten Spielstands (nur die .sav der obersten Ebene, gelesen, nie veraendert) statt mit einem
     # leeren: Ein frischer Spielstand zeigt eine karge MetaBase ohne Freischaltungen, etwa ohne Figurenauswahl. Die Kopie liegt unter research\local
     # und wird bei jedem Start neu angelegt, auch die Mod-Staende SaveGames_DDCoop der Testordner. Nicht mit Tests, die einen frischen Stand erwarten.
-    [switch]$RealSave
+    [switch]$RealSave,
+    # Nur -Mod -Tunnel Lobby mit Host: Koop-Modus, den der Host vor dem Erstellen der Lobby waehlt (coop-modus-wahl), ueber den
+    # Testkanal wie die Auswahl im Overlay. Ohne Angabe bleibt die Wahl der Instanz, beim Start Eigene Inventare.
+    [ValidateSet('Own', 'Shared')]
+    [string]$CoopMode
 )
 $ErrorActionPreference = 'Stop'
 # Start-Process vererbt die Umgebung an die Instanzen.
@@ -288,8 +292,8 @@ if ($GameHost -and $Tunnel -notin 'Lobby') {
 }
 $LobbyId = $null
 if ($GameHost -and $Tunnel -eq 'Lobby') {
-    $LobbyId = New-OverlayLobby $GameHost.Id
-    Write-Output "Lobby erstellt: $LobbyId"
+    $LobbyId = New-OverlayLobby $GameHost.Id 30 $CoopMode
+    Write-Output "Lobby erstellt: $LobbyId$(if ($CoopMode) { " (Koop-Modus $($CoopMode.ToLower()))" })"
 }
 if ($Role -eq 'Both') {
     if ($Tunnel -eq 'None') {

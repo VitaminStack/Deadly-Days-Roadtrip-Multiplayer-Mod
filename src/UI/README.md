@@ -10,6 +10,13 @@ Das Fenster zeigt dauerhaft die geladene Mod-Version in der Statuszeile (`DDCoop
 
 **Grenze:** Das ist ein einfaches, überlagertes Windows-Fenster für Fenster-/randlosen Betrieb, kein in den D3D-Framebuffer gezeichnetes HUD. Exklusives Vollbild ist nicht unterstützt. F8 wird nicht aus der Spieleingabe entfernt. Das Overlay pausiert das Spiel nicht und ersetzt keine Gameplay-Eingabesperre bei Inventar-/Reward-Dialogen.
 
+## Koop-Modus (`coop-modus-wahl`)
+
+Über „Lobby erstellen“ steht die Auswahl „Inventar: Eigene Inventare (Standard)“ oder „Inventar: Geteiltes Inventar“ (Steuerelement
+108, zuletzt angelegt, damit die Textreihenfolge für `tools/spike/Common.ps1` bleibt). Sie schickt `LobbyAction::SetMode` an den Game
+Thread und ist nur wählbar, wenn `OverlayStatus::CanChooseMode` gilt (keine Sitzung, Hauptmenü oder MetaBase, entschieden in
+`src/Mod/Lobby.cpp`). In einer Sitzung zeigt sie bei Host und Client den festen Modus der Lobby und ist gesperrt.
+
 ## Hinweis über dem Spielbild (`opt-boss-tafel-client`)
 
 `OverlayModel::PublishNotice(Text)` zeigt eine Zeile in einem zweiten, kleinen Fenster (Klasse `DDCoop.Notice`) oben in der Mitte des

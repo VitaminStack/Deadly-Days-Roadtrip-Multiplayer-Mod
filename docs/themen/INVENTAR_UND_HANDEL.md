@@ -4,6 +4,12 @@ Gilt für Build `26786272`. Datierte Befunde und Messungen stehen im [Archiv](..
 
 ## Überblick
 
+- Koop-Modus (`coop-modus-wahl`): Der Host wählt im Overlay (F8) über „Lobby erstellen“ zwischen „Eigene Inventare“ (Standard) und
+  „Geteiltes Inventar“. Der Modus steht in den Lobby-Daten (`ddcoop_mode`), jeder Client liest ihn beim Beitritt; Host und Client
+  zeigen ihn im Overlay und schreiben ihn ins Log. Fest ist er ab „Lobby erstellen“ bis zum Ende der Sitzung und während eines Runs
+  (außerhalb von Hauptmenü und MetaBase). **Ist-Zustand:** Ein geteiltes Inventar gibt es noch nicht, im Modus „Geteiltes Inventar“
+  hat weiter jeder Spieler sein eigenes Inventar wie unten beschrieben. Der Modus steht nicht im Spielstand; der Host wählt ihn nach
+  einem Neustart neu ([Kontrollprotokoll](../CONTROL_PROTOCOL.md#koop-modus-mod-kompatibilität-23)).
 - Inventar-Unterobjekte laufen über den klassischen Replikationspfad.
 - Der Client bearbeitet sein Inventar lokal mit den nativen Abläufen. Beim Bestätigen schickt er einen Edit, den der Host als einzige Autorität übernimmt oder ablehnt (Airdrop-Auswahl, Lager, Händler, Werkbank, Kopierladen).
 - Kopierladen (`opt-kopierladen`): Eine Kopie des Clients geht sofort als Edit an den Host. Der Host kopiert seine eigene Instanz des Originals
@@ -25,6 +31,7 @@ Gilt für Build `26786272`. Datierte Befunde und Messungen stehen im [Archiv](..
 
 | Datei | Aufgabe | Test |
 |---|---|---|
+| `src/Net/CoopMode.h`, `src/Net/Session.cpp`, `ModeBlocker` in `src/Mod/Lobby.cpp`, Auswahl in `src/UI/UI.cpp` | Koop-Modus wählen, in den Lobby-Daten übertragen, sperren | `tests/NetTests/SessionTests.cpp`, `tests/UITests/OverlayModelTests.cpp`, `tests/UITests/WindowTests.cpp` |
 | `src/Game/InventoryPatches.cpp` | Inventar-Unterobjekte, Lebensdauer-Fixes, Itemsack-Vergabe | `tests/GameTests/PatchTests.cpp` |
 | `src/Game/InventoryEdit.cpp`, `src/Game/InventoryEditPlan.h`, `src/Game/InventoryEditRuntime.h` | Lokale Inventarbearbeitung des Clients | `tests/GameTests/InventoryEditTests.cpp` |
 | `src/Game/RewardPatches.cpp`, `src/Game/RewardAdapter.h`, `src/Sync/Inventory/RewardSync.cpp` | Airdrop-Auswahl, Lager, Händler, Kopierladen, Edits und Ablehnung | `tests/NetTests/RewardTests.cpp` |
