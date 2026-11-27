@@ -1,6 +1,6 @@
 # spawn-nach-kartenaufbau: Host setzt Figuren an den Bus, bevor der Client seine Karte gebaut hat
 
-Diese Aufgabe gilt nur, wenn der Live-Test die Theorie bestätigt; sonst entfällt sie. Entscheidung: Team.
+Die Ursache ist eine Vermutung. Die Aufgabe prüft sie selbst und schließt auch ab, wenn die Messung sie widerlegt.
 
 ## Reproduktion
 
@@ -21,9 +21,12 @@ Herkunft: [Labyrinth-Event beim Client](../archive/GAME_ANALYSIS.md#labyrinth-ev
 
 ## Nächster Schritt
 
-Theorie im nächsten Live-Test prüfen (siehe Bestätigungstest von `labyrinth-event-client`).
+Zeitpunkte messen: Busplatz beim Host gegen das Ende der Kartenerzeugung beim Client (`ClientGenerationActive()`), zuerst auf einem PC mit zwei Instanzen im Labyrinth-Event.
+[Vermutung] Ein PC stellt den Fall nach, wenn der Kartenaufbau des Clients künstlich verzögert wird; belegt ist das nicht.
+Stellt ein PC den Fall nicht nach, dieselben Logzeilen in einem Run auf zwei PCs auswerten.
 
 ## Abnahme
 
 Der Client steht im Labyrinth-Event und auf allen anderen Karten nach dem Zonenstart auf dem Boden, auch mit langsamem Kartenaufbau beim Client.
 Join, Reconnect und Travel laufen unverändert.
+Oder: Die Vermutung ist mit Messung widerlegt; dann schließt die Aufgabe mit diesem Beleg.

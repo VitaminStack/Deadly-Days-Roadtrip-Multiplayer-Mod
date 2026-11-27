@@ -7,19 +7,20 @@
   py tools/tasks.py tests pending <kennung> --note "Stand"   Auf Bestaetigungstest setzen
   py tools/tasks.py tests update <kennungen> --note "Stand"  Teststand aktualisieren
   py tools/tasks.py tests pass <kennungen> --note "Beleg"    Nach echter Abnahme abschliessen
-  py tools/tasks.py tests reopen <kennungen> --note "Befund" Zurueck zur Entwicklungsaufgabe
+  py tools/tasks.py tests reopen <kennungen> --note "Befund" Fehlschlag am Ergebnis vermerken, Info-Zeile entfernen
   Statt Kennungen: --all (ausser pending); aktive fremde Aufgaben werden dabei ausgelassen.
   py tools/tasks.py claim <kennung> <name> [<rolle>]   Reservieren: Worktree, Branch, Push, Draft-PR
   py tools/tasks.py release <kennung> [<rolle>]        Reservierung aufgeben: Draft-PR schliessen, Branch loeschen
   py tools/tasks.py merge-plan                         Empfohlene Reihenfolge fuer offene PRs, ohne etwas zu mergen
   py tools/tasks.py cleanup [--apply]                 Verwaiste Worktrees/Branches zeigen; --apply entfernt sichere lokale Worktrees
-  py tools/tasks.py show <kennung>                     Nur diese Aufgabe: Text, Braucht, Bearbeitung, Status
+  py tools/tasks.py show <kennung>                     Nur diese Aufgabe: Text, Bearbeitung, Status
   py tools/tasks.py done <kennung> "<ergebnis>"        Im eigenen Worktree: Zeile nach Erledigt, Status erneuern, pruefen
 
 show und done ersparen das Lesen der ganzen TODO.md. done nur bei erfuellter Abnahme, das Ergebnis ist ein Satz mit Link.
 
-Quelle der Kennungen, Abhaengigkeiten und Abschluesse ist TODO.md auf origin/main. Branches task/<kennung>
-und Pull Requests ergaenzen nur Reservierung und Review. Blockierte und Team-Aufgaben lassen sich nicht reservieren.
+Quelle der Kennungen und Abschluesse ist TODO.md auf origin/main. Branches task/<kennung> und offene Pull Requests
+ergaenzen nur Reservierung und Review. Aufgaben haengen nicht voneinander ab; nur Team-Aufgaben lassen sich nicht
+reservieren. Erledigtes ist nur Info: Ein gemergter PR oder ein ausstehender Bestaetigungstest sperrt nichts.
 
 Aufgaben mit Bearbeitung "zu zweit" (Test auf zwei PCs) duerfen zwei Personen nehmen, je eine Rolle host oder client:
 Branch task/<kennung>/<rolle>, Worktree .worktrees/<kennung>-<rolle>. Ohne Rolle nimmt eine Person beide Seiten.
@@ -36,14 +37,13 @@ import time
 from pathlib import Path
 
 if __package__:
-    from .task_status import PHASES, PRIOS, EXTRA_SECTIONS, blockers, confirmation_update, deferred, mark_done, parse, regenerate, combine, read_local, write_local, DONE_FILE, work_order, SECTION_RANK
+    from .task_status import confirmation_update, mark_done, parse, regenerate, combine, read_local, write_local, DONE_FILE, work_order, SECTION_RANK
 else:
-    from task_status import PHASES, PRIOS, EXTRA_SECTIONS, blockers, confirmation_update, deferred, mark_done, parse, regenerate, combine, read_local, write_local, DONE_FILE, work_order, SECTION_RANK
+    from task_status import confirmation_update, mark_done, parse, regenerate, combine, read_local, write_local, DONE_FILE, work_order, SECTION_RANK
 
 STALE_DAYS = 3
 ROLES = ('host', 'client')
 PAIR_MODE = 'zu zweit'
-DEFERRED = 'zurückgestellt bis Phase 0 bis 5 erledigt'
 
 
 def run(*args, check=True):
@@ -157,17 +157,16 @@ def status(kennung, branches, prs, tasks):
     if task and task.done:
         return 'erledigt' + (' (Branch noch vorhanden)' if kennung in branches or roles else '')
     if task and task.confirmation:
-        waiting = blockers(task, tasks)
-        return 'Bestätigungstest ausstehend' + (', braucht ' + ', '.join(waiting) if waiting else '')
+        return 'Bestätigungstest ausstehend'
     if roles:
         return pair_status(kennung, branches, prs)
     pr = prs.get(kennung) if prs else None
     if pr and pr['state'] == 'OPEN':
         who, _ = claim_info(kennung) if kennung in branches else ('?', 0)
         return f"in Arbeit, Draft-PR #{pr['number']} ({who})" if pr['isDraft'] else f"PR #{pr['number']} wartet auf Review"
-    if pr and pr['state'] == 'MERGED':
-        return f"erst nachfragen: PR #{pr['number']} gemergt, Aufgabe noch offen"
-    if kennung in branches:
+    merged = f" (früherer PR #{pr['number']} gemergt)" if pr and pr['state'] == 'MERGED' else ''
+    # Ein gemergter PR ist nur Info. Sein alter Branch zaehlt nicht als Reservierung.
+    if kennung in branches and not merged:
         who, days = claim_info(kennung)
         stale = f', seit {days:.0f} Tagen ohne Commit, erst nachfragen' if days >= STALE_DAYS else ''
         return f'reserviert ({who}{stale})'
@@ -175,12 +174,7 @@ def status(kennung, branches, prs, tasks):
         return 'nicht in TODO.md'
     if task.mode == 'Team':
         return 'Team'
-    waiting = blockers(task, tasks)
-    if waiting:
-        return 'blockiert, braucht ' + ', '.join(waiting)
-    if deferred(task, tasks):
-        return DEFERRED
-    return 'frei'
+    return 'frei' + merged
 
 
 def active_work(kennung, branches, prs, own_branch=None):
@@ -257,26 +251,25 @@ def cmd_claim(kennung, name, role=None):
     if role and (task is None or task.mode != PAIR_MODE):
         sys.exit(f'{kennung} ist keine Aufgabe "{PAIR_MODE}". Ohne Rolle reservieren.')
     pr = prs.get(kennung) if prs else None
-    if pr and pr['state'] in ('OPEN', 'MERGED'):
+    if pr and pr['state'] == 'OPEN':
         sys.exit(f'{kennung}: {status(kennung, branches, prs, tasks)}. Keine neue Reservierung.')
     if kennung in branches:
+        if pr and pr['state'] == 'MERGED':
+            # Ein gemergter PR sperrt die offene Aufgabe nicht, nur der Branchname ist noch belegt.
+            sys.exit(f"task/{kennung} liegt noch auf origin, sein PR #{pr['number']} ist gemergt. Den alten Branch "
+                     f'loeschen (git push origin --delete task/{kennung}), dann erneut reservieren.')
         sys.exit(f'task/{kennung} existiert schon: {status(kennung, branches, prs, tasks)}. Andere Aufgabe waehlen.')
     taken = role_branches(kennung, branches)
     if role is None and taken:
         sys.exit(f'{kennung}: {status(kennung, branches, prs, tasks)}. Nur die freie Rolle reservieren.')
     if role:
         own_pr = prs.get(branch_name(kennung, role)) if prs else None
-        if role in taken or (own_pr and own_pr['state'] in ('OPEN', 'MERGED')):
+        if role in taken or (own_pr and own_pr['state'] == 'OPEN'):
             sys.exit(f'{kennung}: {status(kennung, branches, prs, tasks)}. Rolle {role} ist vergeben.')
     if task is None:
         print(f'Hinweis: {kennung} steht nicht in TODO.md. Nur fuer kurze Wartung ohne eigene Aufgabe.')
     elif task.mode == 'Team':
         sys.exit(f'{kennung} entscheidet das Team. Keine Reservierung.')
-    elif blockers(task, tasks):
-        sys.exit(f'{kennung} ist blockiert, erst erledigen: ' + ', '.join(blockers(task, tasks)))
-    elif deferred(task, tasks):
-        sys.exit(f'{kennung}: optional, {DEFERRED}. Erst den Run zu zweit spielbar machen; '
-                 'vorziehen nur, wenn das Team die Zeile in eine Phase oder nach Wartung verschiebt.')
 
     root = repo_root()
     branch = f'task/{branch_name(kennung, role)}'
@@ -405,16 +398,12 @@ def cmd_cleanup(apply=False):
         print('\nMit "tasks.py cleanup --apply" werden nur die als verwaist markierten lokalen Worktrees entfernt.')
 
 
-SECTION_ORDER = PHASES + tuple(EXTRA_SECTIONS.values())
-PRIO_ORDER = PRIOS
-
-
-def merge_order(names, merge, unblocks, rank, pair_conflicts, before):
+def merge_order(names, merge, rank, pair_conflicts, before):
     """Gierige Merge-Reihenfolge: je Schritt der beste PR, der sauber auf den bisherigen Stand passt.
 
-    merge(stand, name) -> (Konfliktdateien, neuer Stand). Vorrang: macht eine offene Aufgabe frei, dann wenige
-    Konflikte mit den uebrigen PRs (wer mit vielen kollidiert, kommt spaeter und zieht einmal nach), dann Phase,
-    Prio und Nummer. before[name] sind PRs, auf deren Branch dieser aufbaut; sie kommen zuerst.
+    merge(stand, name) -> (Konfliktdateien, neuer Stand). Vorrang: wenige Konflikte mit den uebrigen PRs (wer mit
+    vielen kollidiert, kommt spaeter und zieht einmal nach), dann die Bearbeitungsreihenfolge der Aufgabe und die
+    Nummer. before[name] sind PRs, auf deren Branch dieser aufbaut; sie kommen zuerst.
     Rueckgabe: Reihenfolge und {name: Konfliktdateien} fuer die PRs, die erst nachziehen muessen."""
     state, order, left = 'origin/main', [], list(names)
     while left:
@@ -423,7 +412,7 @@ def merge_order(names, merge, unblocks, rank, pair_conflicts, before):
         clean = [n for n in ready if not results[n][0]]
         if not clean:
             break
-        best = min(clean, key=lambda n: (not unblocks.get(n), len(pair_conflicts.get(n, set()) & set(left)), rank[n]))
+        best = min(clean, key=lambda n: (len(pair_conflicts.get(n, set()) & set(left)), rank[n]))
         order.append(best)
         state = results[best][1]
         left.remove(best)
@@ -461,15 +450,12 @@ def cmd_merge_plan():
             cache[(state, name)] = merge_into(state, ref[name])
         return cache[(state, name)]
 
-    open_tasks = [t for t in tasks.values() if not t.done]
-    unblocks = {n: [t.name for t in open_tasks if split_branch(n)[0] in t.needs] for n in names}
-
     def rank(name):
+        """Offene Aufgaben in Bearbeitungsreihenfolge, danach PRs ohne offene Aufgabe nach Nummer."""
         task = tasks.get(split_branch(name)[0])
-        if task is None:
-            return (len(SECTION_ORDER), len(PRIO_ORDER), prs[name]['number'])
-        prio = PRIO_ORDER.index(task.prio) if task.prio in PRIO_ORDER else len(PRIO_ORDER)
-        return (SECTION_ORDER.index(task.phase), prio, prs[name]['number'])
+        if task is None or task.done:
+            return (1, prs[name]['number'])
+        return (0,) + work_order(task)[:4] + (prs[name]['number'],)
 
     pair_conflicts = {n: set() for n in names}
     for a in names:
@@ -483,12 +469,10 @@ def cmd_merge_plan():
                   git('merge-base', '--is-ancestor', ref[a], ref[b], check=False).returncode == 0 and
                   git('merge-base', '--is-ancestor', ref[a], 'origin/main', check=False).returncode != 0]
               for b in names}
-    order, rest = merge_order(names, merge, unblocks, {n: rank(n) for n in names}, pair_conflicts, before)
+    order, rest = merge_order(names, merge, {n: rank(n) for n in names}, pair_conflicts, before)
     print('Merge-Reihenfolge (offene PRs ausser Entwuerfen; nach jedem Merge neu aufrufen)')
     for index, name in enumerate(order, 1):
         notes = []
-        if unblocks[name]:
-            notes.append('macht frei: ' + ', '.join(unblocks[name]))
         if before[name]:
             notes.append('baut auf ' + ', '.join(f"#{prs[a]['number']}" for a in before[name]))
         print(f"  {index:>2}. #{prs[name]['number']:<4} {name:<30} {'; '.join(notes)}")
@@ -508,9 +492,8 @@ def describe(task, tasks, state):
         return re.sub(r'\[([^\]]*)\]\(([^)]*)\)', r'\1 (\2)', text).replace('**', '')
     if task.done:
         return [f'{task.name}: erledigt (Phase {task.phase})', linked(task.text)]
-    needs = ', '.join(f"{n} ({'erledigt' if tasks[n].done else 'offen'})" for n in task.needs) or '–'
     return [f'{task.name}: {task.prio}, {task.section}, {task.mode}, Spielzeit {task.playtime}',
-            f'Status: {state}', f'Braucht: {needs}', linked(task.text)]
+            f'Status: {state}', linked(task.text)]
 
 
 def cmd_show(kennung):
@@ -575,9 +558,7 @@ def cmd_tests(args):
         task = selected_tasks.get(name)
         if task is None or (task.done if options.action == 'pending' else not task.confirmation):
             sys.exit(f'{name}: kein passender offener Bestaetigungstest')
-        reason = ('aktive fremde Arbeit' if active_work(name, branches, prs, own_branch) else
-                  'blockiert, braucht ' + ', '.join(blockers(task, selected_tasks)) if blockers(task, selected_tasks) and
-                  (reading or options.action == 'pending') else '')
+        reason = 'aktive fremde Arbeit' if active_work(name, branches, prs, own_branch) else ''
         if reason:
             if options.names and not reading:
                 sys.exit(f'{name}: {reason}. Gesamter Batch unveraendert.')

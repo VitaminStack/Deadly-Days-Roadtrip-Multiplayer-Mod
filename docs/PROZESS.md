@@ -4,21 +4,21 @@ Wie Aufgaben gelesen, getestet und abgeschlossen werden. Die Aufgaben selbst ste
 
 ## So liest man die Tabellen
 
-`TODO.md` hat zwei Tabellen: **Probleme** (Fehler) und **Verbesserungen**. Phasen und Abhängigkeiten gibt es nicht mehr ([E-13](ENTSCHEIDUNGEN.md#e-13-phasen-abgeschlossen-flache-aufgabenliste)).
+`TODO.md` hat zwei Tabellen: **Probleme** (Fehler) und **Verbesserungen**. Phasen und Abhängigkeiten gibt es nicht ([E-13](ENTSCHEIDUNGEN.md#e-13-phasen-abgeschlossen-flache-aufgabenliste)): Jede Aufgabe ist für sich startbar und abschließbar.
 
 | Spalte | Bedeutung |
 |---|---|
 | **Kennung** | Eindeutiger Name, zugleich Branch `task/<kennung>` und Worktree `.worktrees/<kennung>` |
 | **Prio** | **P0** stört den Run zu zweit oder den Release, **P1** wichtig, **P2** später |
 | **Aufgabe** | Was zu tun ist, **Fertig, wenn** nennt die Abnahme, **Einstieg** die Unterlagen |
-| **Bearbeitung** | **parallel**: läuft neben anderen Aufgaben. **zentral**: legt gemeinsame Schnittstellen fest, immer nur eine Person, nie aufteilen. **zu zweit**: Test auf zwei PCs, je eine Rolle. **Team**: Entscheidung des Teams |
+| **Bearbeitung** | **parallel**: läuft neben anderen Aufgaben. **zentral**: legt gemeinsame Schnittstellen fest, immer nur eine Person, nie aufteilen. **zu zweit**: Test auf zwei PCs, je eine Rolle. **Team**: Entscheidung des Teams, nie als Sperre wegen einer anderen Aufgabe |
 | **Spielzeit** | Wie sehr die Aufgabe Testsitzungen braucht: keine, wenig, mittel, viel. Pro PC läuft nur eine Sitzung |
 
 Daraus ergibt sich der Status, den `py tools/tasks.py list` anzeigt:
 
 | Status | Bedeutung |
 |---|---|
-| frei | Niemand hat reserviert. Darf genommen werden |
+| frei | Niemand hat reserviert. Darf genommen werden, auch wenn ein früherer PR der Aufgabe schon gemergt ist |
 | reserviert, in Arbeit | Branch oder Draft-PR existiert. Nicht nehmen |
 | Team | Entscheidet das Team, `tasks.py claim` lehnt ab |
 | erledigt | Steht unter [Erledigt](ERLEDIGT.md#erledigt). Nie erneut reservieren, auch wenn der Branch gelöscht ist oder die GitHub CLI fehlt |
@@ -54,7 +54,7 @@ eigenen Termin anzusetzen. Die Liste unten ist eine Planungshilfe, keine zusätz
 Mit `py tools/tasks.py tests plan` lassen sich die Prüfungen für einen Termin bündeln, `tests update|pass|reopen` pflegt sie.
 
 - **Offene Tests sammeln.** Bleibt nur noch ein Test zu zweit, kann er nach [Aufgabe abschließen](#aufgabe-abschließen), Punkt 3,
-  als eigene Kennung weitergeführt und hier ergänzt werden. Bestehende Abnahmen und Abhängigkeiten bleiben dabei erhalten.
+  als eigene Kennung weitergeführt und hier ergänzt werden. Bestehende Abnahmen bleiben dabei erhalten.
 - **Gemeinsam vorbereiten.** Ein gemeinsamer Stand auf `main` und derselbe Build erleichtern den Termin. Ablauf und Aufbau stehen
   in [Testen](TESTING.md#test-auf-zwei-pcs). Nach dem Verbinden lassen sich passende Punkte oft ohne Neustart kombinieren.
 - **Hinweis zur Reservierung.** `host` und `client` sind nur für Aufgaben mit Bearbeitung „zu zweit“ vorgesehen. Zentrale Aufgaben
@@ -79,13 +79,13 @@ mit Bearbeitung „zu zweit“ und Abnahmen, die ausdrücklich zwei PCs oder das
 
 ## Live-Bestätigung ausstehend
 
-Offene Prüfungen erledigter Aufgaben stehen als Info unter [Bestätigungstests ausstehend](ERLEDIGT.md#bestätigungstests-ausstehend). Sie blockieren nichts ([E-12](ENTSCHEIDUNGEN.md#e-12-bestätigungstests-sind-nur-info)). In der nächsten Live-Sitzung prüfen und mit `py tools/tasks.py tests pass|reopen` abschließen.
+Offene Prüfungen erledigter Aufgaben stehen als Info unter [Bestätigungstests ausstehend](ERLEDIGT.md#bestätigungstests-ausstehend). Sie blockieren und reservieren nichts und erzeugen keine Arbeit ([E-12](ENTSCHEIDUNGEN.md#e-12-bestätigungstests-sind-nur-info)). Wer ohnehin live spielt, kann sie nebenbei prüfen und mit `py tools/tasks.py tests pass|reopen` nachtragen.
 
 ## Aufgabe abschließen
 
 1. Ergebnis und Testgrenzen in der Doku festhalten, auch gescheiterte Versuche, siehe [Ergebnisse festhalten](TESTING.md#ergebnisse-festhalten).
 2. Nur bei erfüllter Abnahme („Fertig, wenn“): die Zeile aus ihrer Tabelle löschen und unter [Erledigt](ERLEDIGT.md#erledigt) alphabetisch einfügen, als `` | `kennung` | Phase | Ergebnis in einem Satz mit Link | ``. Die Phase ist eine Ziffer von 0 bis 6, `Wartung`, `Optional` oder `Coop` (für [Real Coop logic](../TODO.md#verbesserungen)).
-3. Teilergebnis: Verhindert der Rest den Run zu zweit, bleibt die Zeile offen: den Text auf den Rest kürzen oder den Rest als neue Kennung unter Probleme oder Verbesserungen eintragen und die alte Zeile nach „Erledigt“ ([docs/ERLEDIGT.md](ERLEDIGT.md)) verschieben. Sonst die Zeile nach „Erledigt“ verschieben und den Rest als Grenze im Ergebnis nennen, ohne neue Kennung. Wer eine neue Kennung anlegt, trägt sie bei allen Aufgaben, die darauf warten, unter „Braucht“ ein.
+3. Teilergebnis: Verhindert der Rest den Run zu zweit, bleibt die Zeile offen: den Text auf den Rest kürzen oder den Rest als neue Kennung unter Probleme oder Verbesserungen eintragen und die alte Zeile nach „Erledigt“ ([docs/ERLEDIGT.md](ERLEDIGT.md)) verschieben. Sonst die Zeile nach „Erledigt“ verschieben und den Rest als Grenze im Ergebnis nennen, ohne neue Kennung.
    Ist die Abnahme nur auf einem PC belegt, obwohl sie zu zweit live gilt, zusätzlich eine Zeile unter [Live-Bestätigung ausstehend](#live-bestätigung-ausstehend) eintragen.
 4. `py tools/task_status.py update` ausführen. Das erneuert „Wo kann ich anfangen?“ und den Fortschritt im README. Danach muss `py tools/task_status.py check` bestehen.
 5. [docs/ROADMAP.md](ROADMAP.md) nur ändern, wenn eine ganze Phase erledigt ist (Knoten umfärben, Abschnitt „Stand“ ersetzen).
@@ -138,7 +138,11 @@ Die oberste freie Zeile ist die nächste sinnvolle Aufgabe; Aufgaben mit „para
 - Jedes gefundene Problem und jede sinnvolle Verbesserung bekommt eine Zeile in `TODO.md` unter „Probleme“ oder „Verbesserungen“, vorher mit `py tools/tasks.py list` prüfen, dass es sie noch nicht gibt.
 - Überschneidet sich ein Fund mit einer offenen Zeile, deren Text erweitern statt eine zweite Zeile anzulegen.
 - Einen Fund mit derselben Ursache oder in denselben Dateien wie die eigene Aufgabe im selben PR beheben, dann ohne eigene Zeile.
-- Keine Abhängigkeiten zwischen Aufgaben: Wer etwas braucht, das noch fehlt, schreibt es in den Aufgabentext.
+- Keine Abhängigkeiten zwischen Aufgaben ([E-13](ENTSCHEIDUNGEN.md#e-13-phasen-abgeschlossen-flache-aufgabenliste)): Keine Aufgabe verlangt oder erzwingt eine andere.
+  Fehlt etwas, das eine andere Aufgabe bauen sollte, baut man es in der eigenen Aufgabe selbst; die andere Aufgabe übernimmt und prüft es später höchstens.
+  Kein „nach X“ oder „wartet auf“ im Aufgabentext und keine Bearbeitung „Team“ oder „zentral“ als Sperre.
+- Was fertig ist, ist fertig und dient nur noch als Info für später ([E-12](ENTSCHEIDUNGEN.md#e-12-bestätigungstests-sind-nur-info)).
+  Erledigtes blockiert und reserviert nichts und erzeugt keine Arbeit, auch mit ausstehendem Bestätigungstest oder gemergtem Teil-PR.
 
 ## Vor dem Start
 
@@ -157,7 +161,7 @@ Die oberste freie Zeile ist die nächste sinnvolle Aufgabe; Aufgaben mit „para
 
 Bei Bearbeitung „zu zweit“ (Test auf zwei PCs) reserviert jede Person nur ihre Rolle: `claim <kennung> <name> host` oder `client`, ein freier Rest steht dann als `client frei` oder `host frei` in der Liste, siehe [Test auf zwei PCs](TESTING.md#test-auf-zwei-pcs).
 
-Nie von Hand reservieren und nie eine Entwicklungsaufgabe übernehmen, die nicht `frei` ist. **Bestätigungstest ausstehend** ist nur Info ([E-12](ENTSCHEIDUNGEN.md#e-12-bestätigungstests-sind-nur-info)): Die Aufgabe ist erledigt, die offene Prüfung steht unter [Bestätigungstests ausstehend](ERLEDIGT.md#bestätigungstests-ausstehend) und blockiert nichts. Siehe [Bestätigungstests](../tools/README.md#bestätigungstests). Steht dort „erst nachfragen“, den Menschen zur Reservierung oder dem gemergten Teilstand fragen. Neue Arbeit bekommt vorher eine eigene Zeile mit Kennung in der passenden Phase, nur in den Grenzen unter [Fokus](#fokus).
+Nie von Hand reservieren und nie eine Entwicklungsaufgabe übernehmen, die nicht `frei` ist. **Bestätigungstest ausstehend** ist nur Info ([E-12](ENTSCHEIDUNGEN.md#e-12-bestätigungstests-sind-nur-info)): Die Aufgabe ist erledigt, die offene Prüfung steht unter [Bestätigungstests ausstehend](ERLEDIGT.md#bestätigungstests-ausstehend) und blockiert nichts. Siehe [Bestätigungstests](../tools/README.md#bestätigungstests). Ein gemergter PR sperrt eine offene Aufgabe nicht; „erst nachfragen“ steht nur noch bei einer Reservierung, die seit Tagen ohne Commit ist. Neue Arbeit bekommt vorher eine eigene Zeile mit Kennung unter „Probleme“ oder „Verbesserungen“, nur in den Grenzen unter [Fokus](#fokus).
 
 Worktrees liegen immer unter `.worktrees/` im Repo-Ordner, keine neuen Ordner daneben anlegen. Im eigenen Worktree arbeiten, nie im Hauptordner oder im Worktree eines anderen Agenten. Wer die Reservierung aufgibt, ruft `py tools/tasks.py release <kennung>` auf. Das schließt den Draft-PR und löscht den Branch.
 

@@ -23,7 +23,8 @@ Ordner `src/Game`.
 
 ## `coop-inventar-konzept`
 
-Enthält die frühere Aufgabe `coop-inventar-analyse`: erst untersuchen, dann das Konzept schreiben.
+Enthält die frühere Aufgabe `coop-inventar-analyse`: untersuchen und das Konzept schreiben.
+Keine andere Aufgabe wartet auf das Konzept. Was `coop-inventar-zwei`, `coop-modus-wahl` oder `coop-inventar-geteilt` schon gebaut oder festgelegt haben, übernimmt und prüft es.
 
 Untersuchen, ohne Mod, Referenz ist lokaler Koop mit zwei Controllern auf einem PC:
 
@@ -45,10 +46,12 @@ Im Konzept klären, ausgelegt auf zwei bis vier Spieler:
 
 ## `coop-inventar-zwei`
 
-Enthält die frühere Aufgabe `coop-inventar-ablauf`. Vom Menschen zur Bearbeitung freigegeben; braucht das Konzept aus `coop-inventar-konzept`.
+Enthält die frühere Aufgabe `coop-inventar-ablauf`.
+Fehlende Festlegungen (Datenmodell, wer bucht, Umschalter zwischen den Modi) trifft die Aufgabe selbst und hält sie in `docs/themen/INVENTAR_UND_HANDEL.md` fest.
+Vorhandenes, etwa ein Konzept oder eine Moduswahl, übernimmt und prüft sie.
 
 - Ein gemeinsamer Rucksack mit einem Bereich je Spieler, beide sehen dasselbe Raster.
-- Unterstützungs-Items wirken über die Bereichsgrenze auf Waffen des Mitspielers; die Hervorhebung beim Überfahren zeigt auch diese Wirkungen (mit `opt-waffen-hover` abstimmen).
+- Unterstützungs-Items wirken über die Bereichsgrenze auf Waffen des Mitspielers; die Hervorhebung beim Überfahren zeigt auch diese Wirkungen.
 - Der Host bucht, der Client bearbeitet lokal und bekommt Bestätigung oder Rücknahme.
 - Alle Inventarabläufe laufen im geteilten Inventar: Airdrop-Wahl, Itemsäcke, Werkbank, Lager mit Verkauf und Reparatur, Rundenende mit Bestätigen.
 - Der Modus Eigene Inventare bleibt unverändert nutzbar; beide Modi teilen sich vorhandene Pfade, wo das Konzept es vorsieht.
@@ -58,14 +61,16 @@ Ordner `src/Game`, `src/Sync`.
 
 ## `coop-modus-wahl`
 
-Wartet auf die Freigabe von `coop-inventar-konzept` durch das Team (dort wird festgelegt, wo der Modus gewählt und festgehalten wird), darum Bearbeitung „Team“; danach auf parallel stellen.
+Wo der Modus gewählt und festgehalten wird, legt die Aufgabe selbst fest, solange es dazu nichts gibt.
+Gibt es das geteilte Inventar noch nicht, überträgt und zeigt sie nur den Modus; was er im Inventar bewirkt, gehört nicht zu dieser Aufgabe.
+Vorhandenes, etwa einen Umschalter aus `coop-inventar-zwei`, übernimmt und prüft sie.
 
 - Der Host wählt vor dem Hosten der Lobby zwischen den Modi Eigene Inventare und Geteiltes Inventar.
 - Der Modus geht beim Beitritt an alle Clients, gilt für den ganzen Run und lässt sich währenddessen nicht wechseln; Standard bleibt Eigene Inventare.
 - Clients ohne passende Mod-Version lehnen ab, statt im falschen Modus zu spielen.
-- Mit `coop-spielstand` abstimmen: Ein gespeicherter Run behält seinen Modus.
+- Der Modus wird so festgehalten, dass ein gespeicherter Run ihn behalten kann.
 
-**Fertig, wenn** auf zwei PCs beide Modi nacheinander wählbar sind, jeder Run im gewählten Modus läuft, der Client den Modus des Hosts sieht und ein Client mit unpassender Mod-Version ablehnt.
+**Fertig, wenn** auf zwei PCs beide Modi nacheinander wählbar sind, Host und Client denselben Modus anzeigen und im Log führen, er sich im Run nicht wechseln lässt und ein Client mit unpassender Mod-Version ablehnt.
 
 ## `coop-inventar-geteilt`
 
@@ -73,8 +78,8 @@ Wunsch des Nutzers im Wortlaut: „Seperate new shared Inventory Logic like real
 Gemeint ist eine neue Inventarlogik, getrennt von der bisherigen, die wie der lokale Koop des Spiels einen gemeinsamen Rucksack mit einem Bereich je Spieler zeigt, für zwei bis vier Spieler.
 Die bisherige Logik (jeder Spieler hat sein eigenes Inventar, Release 1.0 und `vier-spieler`) bleibt unverändert und Standard; die neue bekommt eigene Pfade statt Sonderfällen in der alten.
 
-Den Weg dorthin tragen `coop-inventar-konzept`, `coop-inventar-zwei` (zwei Spieler samt allen Abläufen) und `coop-modus-wahl` (Wahl vor dem Hosten).
-Diese Zeile ist der Rest: der Ausbau auf drei und vier Spieler.
+Diese Zeile deckt drei und vier Spieler ab; zwei Spieler samt allen Abläufen beschreibt `coop-inventar-zwei`, die Wahl vor dem Hosten `coop-modus-wahl`.
+Sie wartet auf keine davon: Gibt es das geteilte Inventar für zwei Spieler noch nicht, baut sie die nötige Grundlage selbst, Vorhandenes übernimmt und prüft sie.
 
 - Die nativen Typen kennen nur P1 und P2 (`ECoopInventoryLocationType`), darum eine eigene Bereichszuordnung je Spieler-Slot.
 - Unterstützungs-Items wirken über alle Bereichsgrenzen, jeder Spieler sieht alle Bereiche.
@@ -93,4 +98,6 @@ Vertrauenswürdig prüfbare Release-/Kompatibilitätsinformationen anbieten: sig
 
 ## `update-autoupdater`
 
-Später optionales automatisches Mod-Update auf dem Releasefeed aufbauen, nur nach ausdrücklicher Aktivierung. **Fertig, wenn** ein für den vorhandenen Game-Build freigegebenes Paket zunächst separat heruntergeladen, anhand signierter Metadaten und Hashes geprüft und ausschließlich bei beendetem Spiel transaktional installiert wird; Archive dürfen keine fremden Pfade überschreiben. Abbruch, beschädigter Download, Dateisperren und Installationsfehler lassen das alte vollständige Paket erhalten oder stellen es wieder her. Vorversion und Rückkehrmöglichkeit bleiben verfügbar, Konfiguration und Saves bleiben erhalten; Save-Kompatibilität vor Rückkehr prüfen. Keine Game-Updates, keine Änderung eingefrorener Spielkopien und kein Austausch geladener DLLs. Tests für Fehlerfälle, Wiederanlauf und Rückkehr dokumentieren
+Optionales automatisches Mod-Update, nur nach ausdrücklicher Aktivierung.
+Fehlen die signierten Release-Metadaten noch, baut die Aufgabe den benötigten Teil selbst; Vorhandenes aus `update-releasefeed` übernimmt und prüft sie.
+**Fertig, wenn** ein für den vorhandenen Game-Build freigegebenes Paket zunächst separat heruntergeladen, anhand signierter Metadaten und Hashes geprüft und ausschließlich bei beendetem Spiel transaktional installiert wird; Archive dürfen keine fremden Pfade überschreiben. Abbruch, beschädigter Download, Dateisperren und Installationsfehler lassen das alte vollständige Paket erhalten oder stellen es wieder her. Vorversion und Rückkehrmöglichkeit bleiben verfügbar, Konfiguration und Saves bleiben erhalten; Save-Kompatibilität vor Rückkehr prüfen. Keine Game-Updates, keine Änderung eingefrorener Spielkopien und kein Austausch geladener DLLs. Tests für Fehlerfälle, Wiederanlauf und Rückkehr dokumentieren
