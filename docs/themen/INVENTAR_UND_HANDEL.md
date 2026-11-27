@@ -11,6 +11,9 @@ Gilt für Build `26786272`. Datierte Befunde und Messungen stehen im [Archiv](..
   ([Kopierladen beim Client](../../src/Game/README.md#kopierladen-beim-client)).
 - Die Airdrop-Auswahl läuft ohne Koop-Modus für beide: Der Host schickt das Sitzungsbild, der Client wählt lokal.
 - Item-Fähigkeiten der Client-Figur (Heil-Kit, Granate, Roboterarm) laufen beim Host, weil das Spiel sie nur für lokal gesteuerte Figuren ausführt.
+- Power-ups (`opt-powerups-client`): Die Slots aller Figuren füllt und löst der Host aus, Power-up-Fähigkeiten (Dosenessen, Level-Up) stellt
+  er vorher auf `ServerOnly`. Der Client bucht beim Aufsammeln nichts, zeigt den Slot-Stand des Hosts (`0xE00`) und meldet das Auslösen
+  eines eigenen Slots (`0xE01`); Taste, Klang und Anzeige bleiben lokal ([Kontrollprotokoll](../CONTROL_PROTOCOL.md#power-ups-mod-kompatibilität-22)).
 - Ein Desync-Melder vergleicht offene Bearbeitungen mit dem Stand des Hosts.
 - Wiederbeitritt und Hot Join (`wiedereintritt-inventar`): Der Host merkt sich das Inventar des Clients je Steam-Identität und ersetzt nach
   einer Trennung das Startinventar des neuen PlayerState damit, mit denselben nativen Funktionen wie bei einem Edit. Keine Nachricht. Der
@@ -28,6 +31,7 @@ Gilt für Build `26786272`. Datierte Befunde und Messungen stehen im [Archiv](..
 | `src/Game/PatchPolicy.h` (`ClientCopyStep`) | Kopierladen: wann der Client lokal kopiert | `tests/GameTests/PatchTests.cpp` |
 | `src/Game/AirdropPatches.cpp`, `src/Game/AirdropAdapter.cpp`, `src/Game/AirdropPolicy.h` | Airdrop-Kisten | `tests/GameTests/AirdropTests.cpp` |
 | `src/Game/ItemAbilityPatches.cpp`, `src/Game/ItemAbilityPolicy.h` | Item-Fähigkeiten der Client-Figur beim Host | `tests/GameTests/ItemAbilityPolicyTests.cpp` |
+| `src/Game/PowerUpPatches.cpp`, `src/Game/PowerUpPolicy.h`, `src/Sync/Players/PowerUpState.h` | Power-up-Slots der Client-Figur beim Host, Aufsammeln beim Client nur angezeigt | `tests/GameTests/PowerUpPolicyTests.cpp`, `tests/NetTests/PowerUpTests.cpp` |
 | `src/Game/HandPreview.h` | Vorschau der Hände | `tests/GameTests/HandPreviewTests.cpp` |
 | `src/Game/DesyncAdapter.cpp`, `src/Sync/DesyncSync.cpp` | Desync-Melder | `tests/NetTests/DesyncTests.cpp` |
 | `src/Game/RejoinPolicy.h`, `TickRejoin` in `src/Game/RewardPatches.cpp` | Inventar des Clients über Trennung und Wiederbeitritt | `tests/GameTests/RejoinPolicyTests.cpp` |

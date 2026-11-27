@@ -24,6 +24,7 @@ Eine Familie je Thema, Typen innerhalb der Familie fortlaufend. Wer einen Typ od
 | `0xB00` Waffensound | `0xB00` Nachladen | `Sync/Combat/WeaponSoundState.h` |
 | `0xC00` Bedrohung | `0xC00` Stufe (`opt-bedrohung-sound`, PR offen) | `Sync/World/ThreatState.h` |
 | `0xD00` Zonenziel | `0xD00` Stand (seit `ModVersion` 21) | `Sync/World/ZoneGoalState.h` |
+| `0xE00` Power-ups | `0xE00` Slot-Stand, `0xE01` Auslösen (seit `ModVersion` 22) | `Sync/Players/PowerUpState.h` |
 
 ## Handshake
 
@@ -435,6 +436,27 @@ Boss-Ziele meldet er nicht, deren Leiste baut der Client aus den replizierten Bo
 Der Client holt `0xD00` in jedem Takt ab und nimmt den neuesten Stand; er gilt für die Welt, in der er ankam, ein Weltwechsel
 verwirft ihn. Die Leiste steht nur bei laufendem Ziel mit Ist unter Soll, sonst entfernt der Client sie. Ein verlorenes Paket,
 einen späten Beitritt und die Reise holt die Wiederholung nach. Keine Antwort.
+
+## Power-ups (Mod-Kompatibilität 22)
+
+Aufgabe `opt-powerups-client`, Befund in der [Fallakte](faelle/opt-powerups-client.md), Code in `src/Game/PowerUpPatches.cpp`,
+`src/Game/PowerUpPolicy.h` und `src/Sync/Players/PowerUpState.h`. Mod-Version 22, weil ein Host mit älterer Version das Auslösen des
+Clients nicht kennt und ein älterer Client Power-ups weiter selbst bucht. Das Power-up-Inventar am PlayerState und seine Slots
+replizieren nicht, und `UPowerupSlot::TryActivateSlot` wirkt ohne RPC. Lokal bleiben Taste, automatisches Benutzen, Klang, Anzeige und
+das Leeren des Slots beim Client. Geteilt wird nur der Slot-Stand und das Auslösen. Es bucht der Host: Er füllt die Slots aller Figuren
+beim Aufsammeln, löst sie aus und stellt Power-up-Fähigkeiten vorher auf `ServerOnly`. Leben, Stufe und Effekte replizieren nativ.
+
+`0xE00` Host an jeden Client, bei jeder Änderung und als Wiederholung alle 2 s, Little-Endian: bestätigte Nummer (`uint32`, höchste
+verarbeitete `0xE01` dieses Clients), Anzahl (1, höchstens 8), je verbrauchbarem Slot der Figur des Empfängers Stufe (`uint16`),
+Namenslänge (1, 1 bis 64) und Name der `PowerupDefinition` (Buchstaben, Ziffern, Unterstrich). Andere Längen und Zeichen werden
+abgelehnt. Der Client nimmt den neuesten Stand und gleicht seine verbrauchbaren Slots mit `TryAddPowerup` und `TryRemovePowerup` an.
+Slots aus Items (nicht verbrauchbar) bleiben unberührt.
+
+`0xE01` Client an Host, je lokal ausgelöstem verbrauchbarem Slot der eigenen Figur: Nummer (`uint32`, ab 1, steigend), Namenslänge
+und Name wie oben. Der Host verarbeitet jede Nummer einmal, löst den ersten verbrauchbaren Slot mit diesem Namen an der Figur des
+Clients aus und bestätigt die Nummer im nächsten `0xE00`. Hat die Figur keinen solchen Slot oder läuft die Abklingzeit, bleibt es bei
+der Bestätigung; der folgende Stand legt dem Client einen noch vollen Slot zurück. Bis zur Bestätigung, höchstens 5 s, zählt ein
+gemeldeter Slot beim Client als verbraucht, damit ein älterer Stand ihn nicht zurücklegt. Eine neue Welt verwirft offene Meldungen.
 
 ## Mehrere Clients (Mod-Kompatibilität 17)
 

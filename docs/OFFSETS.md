@@ -835,6 +835,7 @@ Build `26786272`, Reflexion zur Laufzeit (nur gelesen) und Disassembly, siehe
 |---|---|
 | `ALootBase` | `LootClaimer` `0x2B8`, `InitialLootabilityDelay` `0x2C8` (float, bei Schrott, Benzin und Power-up 0,5), Größe `0x2D0`; `ILootableInterface` bei `+0x2A8` |
 | `AScrapLoot.ScrapAmount`, `APowerUpLoot.CantBeLootedCooldown` | `0x2D0`, `0x2EC` |
+| Power-ups (`opt-powerups-client`) | `APowerUpLoot::Loot_Implementation` `0x59B2250`, `UPowerupSlot::TryActivateSlot` `0x5A288B0`; Felder per Reflexion |
 | `ULootAttractor` | `RadiusBuffFactor` `0xC0`, `AttractionRadius` `0xC4` (500), `StopAttractionTags` `0xD0`, `AttractedLoot` `0x100` (80 Byte), Größe `0x170`; je Spielerfigur einer, beim Client auch an der Figur des Mitspielers |
 | `LootAttractor.RemoveAttractedLoot`, `AddAttractedLoot` | UFunctions, ein Parameter (Objektzeiger, 8 Byte), nativ `0x5736920`, `0x57321b0` |
 | `ALootBase::Loot_Implementation` | `0x59B2140(LootableInterface, Looter)`: virtueller Aufruf Slot `+0x4E0` am Actor (`0x25F50A0`) mit `Looter+0xA8`, Ereignis `Client_PlaySound` (`0x57306A0`), dann GameState (`World+0x1B0`), Klassenprüfung und Aufruf `0x24E95F0` an `GameState[+0x3B0]+0xD0` mit dem Actor. **Vermutung:** Besitzer setzen und ein Delegate oder eine Sammelliste; wo der Host das Objekt wegnimmt, ist nicht belegt |

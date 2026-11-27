@@ -15,6 +15,7 @@
 #include "Game/Offsets.h"
 #include "Game/PatchRuntime.h"
 #include "Game/PauseAdapter.h"
+#include "Game/PowerUpPolicy.h"
 
 namespace Game::Patches
 {
@@ -44,6 +45,12 @@ constexpr uintptr_t ScrapLoot = 0x59B23B0;
 constexpr uintptr_t LootBaseLoot = 0x59B2140;
 ItemLootFn OriginalScrapLoot = nullptr;
 std::atomic<unsigned> ClientScrapLootAttempts = 0;
+
+// opt-powerups-client: APowerUpLoot::Loot_Implementation legt das Power-up ohne Rollenprüfung in einen Slot des Power-up-Inventars
+// der Figur oder löst es sofort aus (UPowerupSlot::TryActivateSlot), dann die Basis. Gleiche Signatur wie ItemLoot.
+constexpr uintptr_t PowerUpLoot = 0x59B2250;
+ItemLootFn OriginalPowerUpLoot = nullptr;
+std::atomic<unsigned> ClientPowerUpLootAttempts = 0;
 
 // UInventoryComponent.MyItems, UInventoryItemInstance.ItemData/Broken/Rarity, UInventoryComponent.OwningPlayerState
 constexpr uintptr_t InventoryItems = 0x120;
@@ -297,6 +304,30 @@ void __fastcall ScrapLootHook(uintptr_t Interface, uintptr_t Looter)
     if (ClientScrapLootAttempts.fetch_add(1) < 3)
         Core::Log::Info("Schrott: Aufsammeln beim Client nur angezeigt, der Host bucht");
     LootBaseHook(Interface, Looter);
+}
+
+// opt-powerups-client: Die Slots der Figuren führt der Host, der Client zeigt seinen Stand (PowerUpPatches.cpp). Beim Client
+// füllte das lokale Aufsammeln einen zweiten, eigenen Slot und löste Sofortwirkungen ohne Autorität aus. Jetzt laufen dort nur
+// Klang und Darstellung der Basis wie beim Schrott.
+void __fastcall PowerUpLootHook(uintptr_t Interface, uintptr_t Looter)
+{
+    if (PowerUp::LootMayBook(CurrentRole()))
+        return OriginalPowerUpLoot(Interface, Looter);
+    if (ClientPowerUpLootAttempts.fetch_add(1) < 3)
+        Core::Log::Info("Power-up: Aufsammeln beim Client nur angezeigt, der Host bucht");
+    LootBaseHook(Interface, Looter);
+}
+
+bool CheckPowerUpLoot()
+{
+    return Code::Expect(At(PowerUpLoot), {0x48, 0x85, 0xD2, 0x0F, 0x84},
+                        "PowerUpLoot.Loot");
+}
+
+bool ApplyPowerUpLoot(Code::Writer&)
+{
+    return Core::Hooks::Install(reinterpret_cast<void*>(At(PowerUpLoot)), reinterpret_cast<void*>(&PowerUpLootHook),
+                                reinterpret_cast<void**>(&OriginalPowerUpLoot));
 }
 
 bool CheckScrapLoot()
@@ -570,6 +601,7 @@ bool ApplyRepresentationSize(Code::Writer&)
 // Je Patch die benutzten Adressen der Signaturtabelle, erzeugt von tools/patch_signatures.py sites.
 constexpr uintptr_t ItemLootSites[] = {ItemLoot, LootBaseLoot};
 constexpr uintptr_t ScrapLootSites[] = {LootBaseLoot, ScrapLoot};
+constexpr uintptr_t PowerUpLootSites[] = {LootBaseLoot, PowerUpLoot};
 constexpr uintptr_t LootBaseSites[] = {LootBaseLoot};
 constexpr uintptr_t RepresentationSizeSites[] = {RepresentationSize};
 constexpr uintptr_t InventorySites[] = {DefaultNetworkingSupport, InventoryReadyForReplication};
@@ -578,6 +610,8 @@ constexpr uintptr_t MapGenLambdaSites[] = {MapGenLambdaExecute, MapGenLambdaExec
 const Patch List[] = {
     {"Itemsack-Vergabe nur beim Host, für alle Spieler", &CheckItemLoot, &ApplyItemLoot, ItemLootSites},
     {"Schrott beim Aufsammeln nur beim Host buchen", &CheckScrapLoot, &ApplyScrapLoot, ScrapLootSites},
+    {"Power-ups beim Aufsammeln nur beim Host buchen", &CheckPowerUpLoot, &ApplyPowerUpLoot, PowerUpLootSites},
+    PowerUpSlotPatch(),
     {"Aufsammelklang beim Client je Objekt einmal", &CheckLootBase, &ApplyLootBase, LootBaseSites},
     {"Item-Widget ohne Item: Größe nicht setzen", &CheckRepresentationSize, &ApplyRepresentationSize, RepresentationSizeSites},
     {"Inventar-Unterobjekte replizieren", &CheckInventory, &ApplyInventory, InventorySites},

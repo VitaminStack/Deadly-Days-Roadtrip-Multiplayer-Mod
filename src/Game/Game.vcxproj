@@ -50,6 +50,7 @@
     <ClCompile Include="Reflection.cpp" />
     <ClCompile Include="RewardPatches.cpp" />
     <ClCompile Include="RoundStatsPatches.cpp" />
+    <ClCompile Include="PowerUpPatches.cpp" />
     <ClCompile Include="RouteMapPatches.cpp" />
     <ClCompile Include="InventoryEdit.cpp" />
     <ClCompile Include="ExpPatches.cpp" />
@@ -153,6 +154,8 @@
     <ClInclude Include="BossBarAdapter.h" />
     <ClInclude Include="BossBarPolicy.h" />
     <ClInclude Include="ZoneGoalAdapter.h" />
+    <ClInclude Include="PowerUpAdapter.h" />
+    <ClInclude Include="PowerUpPolicy.h" />
     <ClInclude Include="ZoneGoalPolicy.h" />
     <ClInclude Include="ReaperAnnouncementAdapter.h" />
     <ClInclude Include="ReaperAnnouncementPolicy.h" />
