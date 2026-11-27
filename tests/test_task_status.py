@@ -53,6 +53,14 @@ class ParseTests(unittest.TestCase):
         source.check_text_lengths(source.parse(todo('| `a` | P0 | ' + 'x' * 800 + ' | – | parallel | wenig |\n',
                                                     done_rows='| `z` | 1 | ' + 'y' * 2000 + ' |')))
 
+    def test_open_task_needs_acceptance(self):
+        missing = FLAT.format(problems='| `bug` | P1 | Absturz beim Start | parallel | wenig |\n', ideas='')
+        with self.assertRaisesRegex(ValueError, 'bug: Aufgabentext braucht eine Abnahme'):
+            source.check_acceptance(source.parse(missing))
+        # Erledigte Zeilen und Zeilen mit Abnahme bleiben gueltig.
+        source.check_acceptance(source.parse(FLAT.format(
+            problems='| `bug` | P1 | Absturz beim Start. **Fertig, wenn** der Start zehnmal gelingt. | parallel | wenig |\n', ideas='')))
+
     def test_check_all_rejects_long_rows(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
@@ -141,6 +149,41 @@ class DerivedTests(unittest.TestCase):
         self.assertTrue(lines[3].startswith('| `ready` | P1'))
         self.assertNotIn('`waits`', block)
         self.assertIn('**Wartet auf das Team:** `vote`.', block)
+
+    WORK_ORDER = FLAT.format(
+        problems=('| `bug-spaet` | P2 | Text | parallel | mittel |\n'
+                  '| `bug-kurz` | P2 | Text | parallel | wenig |\n'
+                  '| `bug-wichtig` | P1 | Text | zentral | viel |\n'),
+        ideas=('| `idee-zentral` | P1 | Text | zentral | keine |\n'
+               '| `idee-viel` | P1 | Text | parallel | viel |\n'
+               '| `idee-b` | P1 | Text | parallel | keine |\n'
+               '| `idee-a` | P1 | Text | parallel | keine |\n'
+               '| `idee-zwei` | P1 | Text | zu zweit | keine |\n'
+               '| `idee-team` | P1 | Text | Team | keine |\n'))
+    EXPECTED_ORDER = ['bug-wichtig', 'idee-a', 'idee-b', 'idee-zwei', 'idee-zentral', 'idee-viel', 'bug-kurz', 'bug-spaet']
+
+    def test_free_block_orders_by_prio_section_playtime_mode(self):
+        """Prio, Probleme vor Verbesserungen, wenig Spielzeit vor viel, parallel vor zentral, dann Kennung."""
+        block = source.free_block(self.WORK_ORDER, source.parse(self.WORK_ORDER))
+        names = [line.split('`')[1] for line in block.splitlines()[2:] if line.startswith('| `')]
+        self.assertEqual(names, self.EXPECTED_ORDER)
+        self.assertIn('**Wartet auf das Team:** `idee-team`.', block)
+
+    def test_list_uses_the_same_order(self):
+        with (patch.object(tasks, 'git'), patch.object(tasks, 'todo_text', return_value=self.WORK_ORDER),
+              patch.object(tasks, 'remote_branches', return_value=set()),
+              patch.object(tasks, 'pull_requests', return_value=None)):
+            with redirect_stdout(StringIO()) as short:
+                tasks.cmd_list(short=True)
+            with redirect_stdout(StringIO()) as full:
+                tasks.cmd_list()
+        listed = [line.split()[0] for line in short.getvalue().splitlines() if line.startswith('  ')]
+        self.assertEqual([n for n in listed if n != 'idee-team'], self.EXPECTED_ORDER)
+        self.assertEqual(listed[5], 'idee-team')  # Team zuletzt innerhalb gleicher Prio und Spielzeit
+        rows = [line.split()[0] for line in full.getvalue().splitlines() if line.startswith('  ')]
+        # Je Abschnitt, darin dieselbe Reihenfolge.
+        self.assertEqual(rows, ['bug-wichtig', 'bug-kurz', 'bug-spaet',
+                                'idee-a', 'idee-b', 'idee-zwei', 'idee-zentral', 'idee-team', 'idee-viel'])
 
     def test_optional_waits_until_phases_0_to_5_are_done(self):
         optional = '## Optionale Optimierungen\n' + OPEN + '| `opt-x` | P2 | Text | – | parallel | wenig |\n'
@@ -684,7 +727,7 @@ class DoneFileTests(unittest.TestCase):
 
     def test_check_all_reads_done_file_for_dependencies(self):
         # Ohne docs/ERLEDIGT.md fehlten die erledigten Phasen und phase_counts scheiterte vor der README-Pruefung.
-        old = FLAT.format(problems='| `frei-a` | P0 | Text | parallel | wenig |\n', ideas='')
+        old = FLAT.format(problems='| `frei-a` | P0 | Text. **Fertig, wenn** es läuft. | parallel | wenig |\n', ideas='')
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             (root / 'docs/assets').mkdir(parents=True)
