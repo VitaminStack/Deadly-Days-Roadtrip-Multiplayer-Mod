@@ -13,7 +13,8 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen. Die obers
 <!-- frei:start -->
 | Kennung | Prio | Phase | Bearbeitung | Spielzeit |
 |---|---|---|---|---|
-| `spawn-nach-kartenaufbau` | P1 | [Problem](#probleme) | parallel | mittel |
+| `busplatz-ohne-boden` | P1 | [Problem](#probleme) | parallel | mittel |
+| `busplatz-vor-figur` | P1 | [Problem](#probleme) | parallel | mittel |
 | `aufgaben-werkzeuge-entschlacken` | P1 | [Verbesserung](#verbesserungen) | zentral | keine |
 | `prozess-neu-schreiben` | P1 | [Verbesserung](#verbesserungen) | zentral | keine |
 | `coop-modus-wahl` | P1 | [Verbesserung](#verbesserungen) | parallel | mittel |
@@ -45,7 +46,7 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen. Die obers
 
 **Wartet auf das Team:** nichts.
 
-**Bestätigungstests ausstehend (nur Info, blockiert nichts):** 40, siehe [docs/ERLEDIGT.md](docs/ERLEDIGT.md#bestätigungstests-ausstehend).
+**Bestätigungstests ausstehend (nur Info, blockiert nichts):** 41, siehe [docs/ERLEDIGT.md](docs/ERLEDIGT.md#bestätigungstests-ausstehend).
 <!-- frei:end -->
 
 ## Probleme
@@ -54,7 +55,8 @@ Fehler im Spiel oder in den Werkzeugen. Jede Zeile nennt ihre Abnahme („Fertig
 
 | Kennung | Prio | Aufgabe | Bearbeitung | Spielzeit |
 |---|---|---|---|---|
-| `spawn-nach-kartenaufbau` | P1 | Vermutung: Der Host setzt die Figuren an den Bus, bevor der Client seine Karte gebaut hat; im Labyrinth-Event fiel der Client darum durch die Karte. Die Aufgabe prüft die Vermutung zuerst selbst: Zeitpunkte von Busplatz und Ende der Kartenerzeugung des Clients messen. **Fertig, wenn** die Vermutung mit Messung belegt und behoben ist (der Client steht nach jedem Zonenstart auf dem Boden, auch bei langsamem Kartenaufbau, und Join, Reconnect und Travel laufen unverändert) oder mit Messung widerlegt ist. Ordner `src/Game`. **Einstieg** [Fallakte](docs/faelle/spawn-nach-kartenaufbau.md) | parallel | mittel |
+| `busplatz-vor-figur` | P1 | Vermutung: Im Labyrinth-Event läuft der Busplatz des Clients in seiner eigenen Kartenerzeugung, bevor seine eigene Figur da ist; sie bleibt am Startpunkt ohne Boden und fällt durch die Karte. Die Aufgabe prüft die Vermutung zuerst selbst, mit den Logzeilen `Spawn-Messung` (Busplatz des Clients „ohne eigene Figur“ oder Figur noch am Startpunkt). **Fertig, wenn** die Vermutung mit Messung belegt und behoben ist (die eigene Figur des Clients kommt nach jedem Zonenstart an den Bus, auch wenn sie nach seinem Busplatz eintrifft, und Join, Reconnect und Travel laufen unverändert) oder mit Messung widerlegt ist. Ordner `src/Game`. **Einstieg** [Fallakte](docs/faelle/busplatz-vor-figur.md) | parallel | mittel |
+| `busplatz-ohne-boden` | P1 | Vermutung: Beim Busplatz des Clients hat der Boden unter dem Bus noch keine Kollision; die Figur steht dort einige Millisekunden im Fallmodus und fällt im Labyrinth-Event durch die Karte. Die Aufgabe prüft die Vermutung zuerst selbst: Kollision am Busort und Figur-Z in den ersten Frames nach `Busplatz … (Client)` messen. **Fertig, wenn** die Vermutung mit Messung belegt und behoben ist (die Client-Figur steht nach jedem Zonenstart auf dem Boden, auch wenn der Boden am Bus spät kommt, und Join, Reconnect und Travel laufen unverändert) oder mit Messung widerlegt ist. Ordner `src/Game`. **Einstieg** [Fallakte](docs/faelle/busplatz-ohne-boden.md) | parallel | mittel |
 | `opt-dash-aufprall` | P2 | Prallt der Client mit dem Dash gegen ein Objekt, hört er kein Geräusch. Vermutung: Der Host führt den Dodge des Clients aus, Aufprall und Sound laufen nur dort. **Fertig, wenn** der Client beim Aufprall seines Dashes denselben Sound hört wie der Host bei seinem eigenen, genau einmal, auf einem PC mit zwei Instanzen belegt. **Einstieg** [Client-Darstellung](docs/archive/GAME_ANALYSIS.md#client-darstellung-im-live-spiel-am-07112026-todo-client-optik) | parallel | wenig |
 | `opt-haende-vorschau-items` | P2 | Hantel (`ItemData_Dumbell`), Hand des Blutes (`ItemData_HandOfBlood`) und Plasmahand (`ItemData_PlasmaHand`) senken die Hände, die eine Waffe braucht. Der Client legt Wirkungen in einer lokalen Bearbeitung nicht an; Vermutung: Sein Panel lässt darum eine Waffe nicht zu, die erst mit einem dieser Items passt. **Fertig, wenn** gemessen ist, ob `GetHandsRequiredForItem` beim Client in der offenen Bearbeitung dem Wert des Hosts nach dem Übernehmen folgt, und eine Abweichung behoben ist. **Einstieg** [Roboterarm beim Client](docs/archive/GAME_ANALYSIS.md#roboterarm-beim-client-client-roboterarm), Testweg `!shop place` | parallel | wenig |
 | `opt-highway-ziel` | P2 | Im Event „Räume den Highway!“ erschien kein Benzin, das Ziel verlangte einen Abschluss (2/10). **Fertig, wenn** im Vergleich ohne Mod belegt ist, ob das natives Verhalten ist, und mit Mod das Ziel bei Host und Client gleich zählt und die Runde regulär endet. **Einstieg** [Live-Test 13.11.](docs/archive/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-13112026-livetest-1311) | parallel | wenig |
