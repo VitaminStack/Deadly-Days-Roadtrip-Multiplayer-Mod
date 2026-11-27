@@ -835,28 +835,13 @@ Build `26786272`, Reflexion zur Laufzeit (nur gelesen) und Disassembly, siehe
 |---|---|
 | `ALootBase` | `LootClaimer` `0x2B8`, `InitialLootabilityDelay` `0x2C8` (float, bei Schrott, Benzin und Power-up 0,5), Größe `0x2D0`; `ILootableInterface` bei `+0x2A8` |
 | `AScrapLoot.ScrapAmount`, `APowerUpLoot.CantBeLootedCooldown` | `0x2D0`, `0x2EC` |
+| Power-ups (`opt-powerups-client`) | `APowerUpLoot::Loot_Implementation` `0x59B2250`, `UPowerupSlot::TryActivateSlot` `0x5A288B0`; Felder per Reflexion |
 | `ULootAttractor` | `RadiusBuffFactor` `0xC0`, `AttractionRadius` `0xC4` (500), `StopAttractionTags` `0xD0`, `AttractedLoot` `0x100` (80 Byte), Größe `0x170`; je Spielerfigur einer, beim Client auch an der Figur des Mitspielers |
 | `LootAttractor.RemoveAttractedLoot`, `AddAttractedLoot` | UFunctions, ein Parameter (Objektzeiger, 8 Byte), nativ `0x5736920`, `0x57321b0` |
 | `ALootBase::Loot_Implementation` | `0x59B2140(LootableInterface, Looter)`: virtueller Aufruf Slot `+0x4E0` am Actor (`0x25F50A0`) mit `Looter+0xA8`, Ereignis `Client_PlaySound` (`0x57306A0`), dann GameState (`World+0x1B0`), Klassenprüfung und Aufruf `0x24E95F0` an `GameState[+0x3B0]+0xD0` mit dem Actor. **Vermutung:** Besitzer setzen und ein Delegate oder eine Sammelliste; wo der Host das Objekt wegnimmt, ist nicht belegt |
 | Actor-Flagbyte `+0x58` der Loot-Objekte | `0x60`. **Vermutung:** Bit `0x10` ist `bReplicateMovement` und aus. Belegt ist, dass der Ort nach dem Spawn nicht repliziert |
 | Zerstörtes Objekt bis zur nächsten GC | Objekt-Flags (`+0x08`) `0x40000000`, Flags im Objekt-Array `0x00200000` |
 | `ALootSpot` | `LootSpawnRadius` `0x2E8` (float, 300 an `BP_EnvironmentObjectLootspot_C`), `MinSpawns`/`MaxSpawns` `0x318`/`0x31C`; `SpawnLoot` hat einen Parameter (8 Byte) |
-
-## Power-ups (`opt-powerups-client`)
-
-Build `26786272`, SDK des Builds, Reflexion zur Laufzeit und Disassembly, siehe [Fallakte](faelle/opt-powerups-client.md).
-Felder liest die Mod über `Reflection::Property`, fest sind nur die Code-Adressen und der Klassen-Default.
-
-| Stelle | Wert |
-|---|---|
-| `APowerUpLoot::Loot_Implementation` | `0x59B2250(LootableInterface, Looter)`: Inventar über Figur, PlayerState und `ADDPlayerState.ActivePowerupInventory` (`0x388`); mit `CanBeImmediatelyActivated` (`0x576B660`) sofort über einen temporären Slot (`0x5A297F0`), sonst `HasFreeSlot` (`0x5A16F50`) und `TryAddPowerup` (`0x5A29140`), dann die Basis `0x59B2140`. Hook beim Client |
-| `APowerUpLoot::CanBeLooted_Implementation` | `0x59984F0`: Mindestzeit seit dem Spawn, dann Sofortwirkung oder freier Slot |
-| `UPowerupSlot::TryActivateSlot` | `0x5A288B0(Slot, bool FailIfUsingGamepad)`: Effekt der Definition über `ApplyGameplayEffectSpecToSelf` (vtable `+0x6B8`) oder Fähigkeit über `GiveAbilityAndActivateOnce` (`0x4BCC150`), Klang, leert einen verbrauchbaren Slot (`SetEquippedPowerupDefinition` `0x5A23440`). Hook in `PowerUpPatches.cpp` |
-| `APowerUpLoot` | `bAutoDestroy` `0x2D8`, `PowerupDefinition` `0x2E0`, `bTryImmediateActivation` `0x2E8` |
-| `UActivePowerupInventory` | `PowerupSlots` `0x138` (TArray), `OwnerCharacter` `0x170`, `LootAttractor` `0x1A8`; Outer ist der PlayerState |
-| `UPowerupSlot` | `EquippedPowerupDefinition` `0x48`, `bConsumable` `0x68`, `PowerLevel` `0x6C`; Outer ist das Inventar |
-| `UPowerupDefinition` | `PowerupEffect` `0x48`, `PowerupAbility` `0x50`, `AbilityEquippedByItem` `0x58`, `CanBeAutoUsed` `0x59` |
-| `UGameplayAbility.NetExecutionPolicy` | `0x198` am Klassen-Default; `GA_PowerUp_Heal_C` und `GA_PowerUp_LevelUp_C` sind `LocalPredicted` (0) |
 
 ## Waffensounds (`opt-waffen-sound`)
 

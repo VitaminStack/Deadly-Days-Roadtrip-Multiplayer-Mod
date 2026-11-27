@@ -321,6 +321,7 @@ Bauen und Testen des Spikes, die Anleitung steht in [docs/TESTING.md](../docs/TE
 | `enemy_sync.py` | Spawn und Tod der Gegner beider Seiten: Tode je Seite, Zuordnung über die Position, Verzögerung beim Client, `py tools/spike/enemy_sync.py <s> <host> <client>` |
 | `players.py` | `SpawnedPlayers` und `PlayerArray` beim Host |
 | `inventory.py` | Vergleicht die Inventare von Host und Client |
+| `powerups.py` | Power-ups je Figur: Leben, Ausdauer, Regeneration, Loot-Radius, Slots, Fähigkeitsinstanzen und Power-ups in der Welt; `--defs` listet die geladenen Definitionen mit Fähigkeit, Effekt und Ausführungsrichtlinie (`opt-powerups-client`) |
 | `run_save.py` | Liest nur lesend den Run-Stand aus `SaveSlot_DDR_0.sav`: Zustand (`leer`, `BeginOfDay`, `EndOfDay`), Zeitstempel, Komponenten, Level und Items je Spieler, SHA-256 über den Abschnitt; `--json` gibt den Inhalt aus |
 | `fuel.py` | Liest den Tank, `--fill` füllt ihn beim Host fast voll, damit ein Kanister das echte Rundenende auslöst |
 | `guidcache.py` | NetGUID-Cache einer Instanz mit Pfad, Zustand und Flags, filterbar nach Pfad |
