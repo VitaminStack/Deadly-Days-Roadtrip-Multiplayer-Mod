@@ -132,7 +132,7 @@ Wiederkehrende Abläufe liegen als Skills unter `.claude/skills/`. Claude Code l
 ## Fokus
 
 Abschließen statt erweitern: Die Liste soll kleiner werden ([E-13](ENTSCHEIDUNGEN.md#e-13-phasen-abgeschlossen-flache-aufgabenliste)).
-[Wo kann ich anfangen?](../TODO.md#wo-kann-ich-anfangen) und `py tools/tasks.py list` zeigen die Reihenfolge: nach Prio, bei gleicher Prio Probleme vor Verbesserungen, dann wenig Spielzeit vor viel und parallel vor zentral.
+[Wo kann ich anfangen?](../TODO.md#wo-kann-ich-anfangen) und `py tools/tasks.py list --short` zeigen die Reihenfolge (`list` je Abschnitt): nach Prio, bei gleicher Prio Probleme vor Verbesserungen, dann wenig Spielzeit vor viel und parallel vor zentral.
 Die oberste freie Zeile ist die nächste sinnvolle Aufgabe; Aufgaben mit „parallel“ laufen in mehreren Sitzungen gleichzeitig.
 
 - Jedes gefundene Problem und jede sinnvolle Verbesserung bekommt eine Zeile in `TODO.md` unter „Probleme“ oder „Verbesserungen“, vorher mit `py tools/tasks.py list` prüfen, dass es sie noch nicht gibt.

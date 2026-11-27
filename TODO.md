@@ -8,7 +8,7 @@ Wie man die Tabellen liest, Fallakten anlegt und Aufgaben abschließt, was nicht
 
 ## Wo kann ich anfangen?
 
-Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen. Die oberste freie Zeile ist die nächste sinnvolle Aufgabe; Zeilen mit „parallel“ können mehrere Sitzungen gleichzeitig nehmen. Ob jemand eine Aufgabe schon reserviert hat, zeigt nur `py tools/tasks.py list` in derselben Reihenfolge.
+Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen. Die oberste freie Zeile ist die nächste sinnvolle Aufgabe; Zeilen mit „parallel“ können mehrere Sitzungen gleichzeitig nehmen. Ob jemand eine Aufgabe schon reserviert hat, zeigt nur `py tools/tasks.py list`; `list --short` hat dieselbe Reihenfolge, `list` wendet sie je Abschnitt an.
 
 <!-- frei:start -->
 | Kennung | Prio | Phase | Bearbeitung | Spielzeit |
