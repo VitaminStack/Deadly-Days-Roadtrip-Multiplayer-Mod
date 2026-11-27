@@ -70,13 +70,18 @@ Zwei Instanzen wie unter Reproduktion, Client-Figur 2000 Einheiten neben der Hos
 | Staubsauger, Slot beim Client ausgelöst | Loot-Radius 450 → 450000 für 5 s | gleichzeitig 450 → 450000 für 5 s |
 | Energy Drink, Slot beim Client ausgelöst | Regeneration 1,5 → 155 | 1,5 → 155 |
 | Level-Up | Stufe 5 → 6 | Anzeige `Host-Level 6` |
-| Dynamit, Slot beim Client ausgelöst | Slot der Client-Figur ausgelöst und leer | Slot leer |
+| Dosenessen bei vollem Leben, Slot beim Client ausgelöst | Slot gefüllt, nach Schaden 60 → 80 | 60 → 80 |
+| Dynamit, Slot beim Client ausgelöst | `GA_PowerupExplosive_C` am PlayerState der Client-Figur | Slot leer |
 
 - Slots: Der Host-Slot der Client-Figur füllt sich beim Aufsammeln, der Client übernimmt ihn rund 50 ms später; löst der Host ihn selbst
   aus, nimmt der Client ihn wieder aus seinem Slot. Schrott danach auf beiden Seiten 14.
+- Vergleich mit `DDCOOP_POWERUPS_NATIVE=1` (Verhalten des Spiels): Dynamit vom Client ausgelöst ergibt keine `GA_PowerupExplosive_C`, der
+  Dynamit bleibt im Host-Slot der Client-Figur, der Staubsauger danach bleibt liegen (Radius 450).
+- Taste und automatisches Benutzen rufen denselben gehookten `TryActivateSlot` (Aufrufer `0x5A16890` mit Slot-Index aus der Eingabe und
+  `0x5A283EC`, Schleife über Slots mit `CanBeAutoUsed`). Im Test lief der Aufruf über `!shop powerup try`, nicht über die echte Taste.
 - Gegenprobe Host-Figur: Staubsauger aus ihrem Slot wirkt wie vorher (450000), der Client sieht es an der Mitspieler-Figur.
 - Keine Warnung zu Power-ups, kein Absturz. Nicht geprüft: echte Taste, automatisches Benutzen, Power-ups aus Items (Schnellkochtopf,
-  Kriegstrommel, Teleporter), mehrere Clients, die Explosion des Dynamits in der Welt.
+  Kriegstrommel, Teleporter), mehrere Clients, explodierende Gegner in der Welt.
 
 ## Nächster Schritt
 
