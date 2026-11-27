@@ -29,9 +29,11 @@ hält die Mod die Figur nicht, dann fällt sie durch.
   | Zone 1 | `MGP_LabyrinthEvent` | Z 0, `Road_tile_24x24_base27` von `BP_Labyrinth_Entrance_C` | Modus 3, Z 50, Tempo Z −254 | Frame 2 (+125 ms) Modus 1, Z 90 |
   | Zone 2 | `MGP_Gated_Toscana` | Z 10, `Road_tile_24x24_pedest` von `BP_Street_Narrow_2_Curve_C` | Modus 1, Z 50 | Frame 3 (+188 ms) Z 100 |
   | Zone 3 | `MGP_LabyrinthEvent` | Z 0, wie Zone 1 | Modus 3, Z 50 | Frame 2 (+109 ms) Modus 1, Z 90 |
-  | Zweite Sitzung, Zone 1 und 3 | `MGP_LabyrinthEvent` | Z 0, wie Zone 1 | Modus 3, Z 50 | Modus 1, Z 90 |
-  | Zweite Sitzung, Zone 2 | normale Karte | Boden | Modus 3, Z 50 | Modus 1 |
-  | Wiederbeitritt kurz nach dem Zonenstart, zweimal | `MGP_LabyrinthEvent` | Z 0, wie Zone 1 | Modus 0, Z 50 | Frame 4 (+156 ms) Modus 1, Z 90 |
+  | Zweite Sitzung, Zone 1 | `MGP_LabyrinthEvent` | Z 0, wie Zone 1 | Modus 3, Z 50 | Frame 2 (+94 ms) Modus 1, Z 90 |
+  | Zweite Sitzung, Zone 2 | `MGP_City_Chinatown` | Z 10, `Road_tile_24x24_pedest` von `BP_Street_Large_2_Straight_C` | Modus 3, Z 50 | Frame 3 (+79 ms) Modus 1, Z 100 |
+  | Zweite Sitzung, Zone 3 | `MGP_LabyrinthEvent` | Z 0, wie Zone 1 | Modus 3, Z 50 | Frame 2 (+140 ms) Modus 1, Z 90 |
+  | Wiederbeitritt kurz nach Zone 1 | `MGP_LabyrinthEvent` | Z 0, wie Zone 1 | Modus 0, Z 50 | Frame 4 (+156 ms) Modus 1, Z 90 |
+  | Wiederbeitritt kurz nach Zone 3 | `MGP_LabyrinthEvent` | Z 0, wie Zone 1 | Modus 0, Z 50 | Frame 7 (+250 ms) Modus 1, Z 90 |
 
   Die Kapsel hat die halbe Höhe 88. Bei Z 50 steckt sie 38 im Boden, die Bewegung schiebt sie im nächsten Frame auf Z 90.
 - [Belegt, Testschalter] Kommt der Boden 1,5 s spät (Kollision der Kachel unter dem Bus aus und wieder an) und hält die Mod nicht,
@@ -48,10 +50,13 @@ hält die Mod die Figur nicht, dann fällt sie durch.
 - [Belegt, Randbefund für `busplatz-vor-figur`] Bei diesen beiden Wiederbeitritten war die Erzeugung des Clients fertig (Profil schon
   geladen, `übernimmt … nach 0 ms`), bevor seine eigene Figur da war. Ein Busplatz des Clients kam dann gar nicht, auch keine Zeile
   `Busplatz … (Client)`. Die Figur fiel am Startpunkt `(3467, -399)` endlos (nach 17 s Z −56408). Das Halten greift dort nicht, weil
-  es erst am Busplatz beginnt. Der Code dieses Falls ist unverändert; auf main nicht gezielt nachgestellt.
+  es erst am Busplatz beginnt. Auf main (`f0f317d`) genauso nachgestellt: Von zwei Wiederbeitritten 20 s und rund 2 min nach dem
+  Zonenstart kam beim zweiten die Figur erst 650 ms nach dem Ende der Erzeugung, ein Busplatz des Clients fehlte, sie fiel endlos.
+  Beim ersten war sie vor dem Busplatz da und stand.
 - [Belegt, ungeklärt] Einmal blieb ein Wiederbeitritt hängen, nach 30 min in einer Labyrinth-Zone: Der Client stand in der
   Missionswelt mit 0 Spielern, ohne GameState und ohne Kartenerzeugung. Die Bodenprüfung lief dabei nicht, denn ohne Erzeugung gibt es
-  keinen Busplatz. Ein Wiederbeitritt mit main nach demselben Ablauf (zwei Rundenenden) lief einmal durch. Ursache offen.
+  keinen Busplatz. Ein Wiederbeitritt mit main nach zwei Rundenenden lief einmal durch; 30 min Wartezeit wurden auf main nicht
+  nachgestellt. Ursache offen.
 
 ## Hypothesen
 
