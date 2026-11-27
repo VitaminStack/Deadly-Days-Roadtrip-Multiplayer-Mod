@@ -18,7 +18,7 @@ struct FieldSpec
     std::string_view Class;   // ohne Präfix, etwa "TutorialStateSubsystem"; für Property auch eine Struktur wie "CurrentRunInfo"
     std::string_view Name;
     std::string_view Type;
-    int32_t Size;
+    int32_t Size; // 0 nur für StructProperty: jede Größe, das Ergebnis nennt sie
 };
 
 // Aufgelöstes Feld. Für BoolProperty steht in BoolMask die Bitmaske, 0xFF heißt ganzes Byte (natives bool).
@@ -59,4 +59,8 @@ std::optional<Field> Property(const FieldSpec& Spec);
 
 // UFunction Name in Class (Paket wie bei FieldSpec), gecacht. 0, wenn sie fehlt; dann eine Logmeldung.
 uintptr_t Function(std::string_view Package, std::string_view Class, std::string_view Name);
+
+// Parameter einer UFunction (sie ist ein UStruct, die Parameter sind ihre Felder), ungecacht; Package und Class der Spec
+// bleiben unbenutzt. Leer mit einer Logmeldung, wenn er fehlt oder nicht passt. Nur Game Thread.
+std::optional<Field> Parameter(uintptr_t Function, const FieldSpec& Spec);
 }

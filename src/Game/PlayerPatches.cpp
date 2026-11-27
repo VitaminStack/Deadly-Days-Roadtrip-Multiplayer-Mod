@@ -388,7 +388,9 @@ void __fastcall ClearSpawnAreaHook(const ActorArray* Keep, uintptr_t Context)
     Core::Log::Info("Busplatz: {} geschont, {} Spielerfiguren ergänzt ({})", Keep->Num, Added,
                     CurrentRole() == NetRole::Client ? "Client" : "Host");
     NoteBusPlacement();
+    NoteBusFloor(false);
     OriginalClearSpawnArea(&Extended, Context);
+    NoteBusFloor(true);
 }
 
 bool CheckRemoteSpawn()

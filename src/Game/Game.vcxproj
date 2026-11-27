@@ -73,6 +73,7 @@
     <ClCompile Include="PlayerPatches.cpp" />
     <ClCompile Include="RemoteP2Patches.cpp" />
     <ClCompile Include="MapPatches.cpp" />
+    <ClCompile Include="BusFloorPatches.cpp" />
     <ClCompile Include="BusBarPatches.cpp" />
     <ClCompile Include="FacingPatches.cpp" />
     <ClCompile Include="FmodSound.cpp" />
@@ -128,6 +129,7 @@
     <ClInclude Include="DamageNumberAdapter.h" />
     <ClInclude Include="DevAdapter.h" />
     <ClInclude Include="PatchPolicy.h" />
+    <ClInclude Include="BusFloorPolicy.h" />
     <ClInclude Include="PatchRuntime.h" />
     <ClInclude Include="Patches.h" />
     <ClInclude Include="RemoteP2Policy.h" />

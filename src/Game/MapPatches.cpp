@@ -913,6 +913,7 @@ void TickMap(NetRole Role, bool Second)
             S.PendingGenerator = 0;
     }
     TraceSpawn(Role);
+    TickBusFloor(Role);
     if (Second)
         SeedPcgInstances();
     if (Second && Role == NetRole::Host)
