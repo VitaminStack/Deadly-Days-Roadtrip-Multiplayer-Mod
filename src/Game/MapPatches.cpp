@@ -346,7 +346,8 @@ bool TestFigureWaitOff()
 }
 
 // Eigene Figur des Clients in der PlayerArray: ein PlayerState, dessen Pawn eine Spielerfigur mit der Rolle AutonomousProxy ist.
-// So findet auch der Busplatz der Erzeugung die Figuren (PlayerPatches.cpp, ClearSpawnAreaHook).
+// Ob der Busplatz der Erzeugung seine Figur genau so findet, ist eine Vermutung (die Freiräumung in PlayerPatches.cpp liest die
+// PlayerArray); belegt ist nur, dass er mit dieser Bedingung in jedem gemessenen Wiederbeitritt lief.
 bool OwnFigureInPlayerArray()
 {
     static constexpr Reflection::FieldSpec PawnField{"/Script/Engine", "PlayerState", "PawnPrivate", "ObjectProperty", 8};
@@ -550,7 +551,7 @@ void TraceSpawn(NetRole Role)
         Trace.GenerationDone = true;
         Core::Log::Info("Spawn-Messung: Client-Erzeugung fertig, Welt seit {} ms, Dauer {} ms", Age, Now - S.GeneratorSince);
         if (!Trace.BusPlaced)
-            Core::Log::Warn("Spawn-Messung: Client-Erzeugung fertig ohne Busplatz des Clients, eigene Figur und Bus stehen nicht am Busort");
+            Core::Log::Warn("Spawn-Messung: Client-Erzeugung fertig ohne Busplatz des Clients");
     }
     const auto Movement = Reflection::Property(CharacterMovementField);
     const auto ModeField = Reflection::Property(MovementModeField);
@@ -643,7 +644,8 @@ void __fastcall StartMapGenerationHook(uintptr_t Generator)
     S.PendingSince = GetTickCount64();
     if (TestClientMapDelay())
         Core::Log::Warn("Karte: Testschalter DDCOOP_TEST_CLIENT_MAP_DELAY_MS, Client erzeugt frühestens nach {} ms", TestClientMapDelay());
-    Core::Log::Info("Karte: Client wartet auf die Host-Karte");
+    if (S.FigureWaitWorld != CurrentWorld())
+        Core::Log::Info("Karte: Client wartet auf die Host-Karte");
 }
 
 // Die Engine erzeugt replizierte Child Actors nur, wenn der Besitzer Autorität hat. Beim Client sind die erzeugten

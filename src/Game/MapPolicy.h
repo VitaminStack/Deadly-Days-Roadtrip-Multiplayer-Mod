@@ -29,9 +29,9 @@ inline MapStart ClientMapStart(bool HasValues, bool GraphKnown, uint64_t WaitedM
 }
 
 // busplatz-vor-figur: Den Busplatz in seiner Erzeugung (eigene Figur und Bus an den Busort, Freiräumung) setzt der Client nur,
-// wenn seine eigene Figur beim Start schon in der PlayerArray steht. Sonst fällt der ganze Busplatz aus, die Figur bleibt am
-// Startpunkt ohne Boden und fällt endlos. Beim Wiederbeitritt sind die Werte des Hosts oft vor ihr da (gemessen bis 650 ms).
-// Darum so lange auf sie warten, ab dem Aufruf von StartMapGeneration; danach erzeugen wie bisher.
+// wenn seine eigene Figur da ist, sobald dieser Schritt läuft. Sonst fällt der ganze Busplatz aus, die Figur bleibt am Startpunkt
+// und fällt im Labyrinth endlos. Beim Wiederbeitritt sind die Werte des Hosts oft vor ihr da (gemessen bis 860 ms). Darum
+// wartet der Client vor dem Start auf sie, höchstens so lange ab dem Aufruf von StartMapGeneration; danach erzeugt er wie bisher.
 inline constexpr uint64_t ClientFigureWaitMs = 10000;
 
 inline bool WaitForOwnFigure(bool FigureReady, uint64_t WaitedMs)
