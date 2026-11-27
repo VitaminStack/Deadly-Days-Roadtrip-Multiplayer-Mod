@@ -367,6 +367,7 @@ void ScrapCommand(const std::wstring& Args)
 //   !shop go <n>       eigene Figur auf POI n stellen (K2_TeleportTo), das Betreten oeffnet das Panel
 //   !shop away         eigene Figur 3000 Einheiten wegstellen, das Verlassen schliesst das Panel
 //   !shop to <x> <y>   eigene Figur auf Weltkoordinaten stellen, etwa in die Startzone einer Boss-Arena (opt-endboss-leiste)
+//   !shop powerup ...  Power-up an eine Figur legen oder ihren Slot aktivieren (nur Host, opt-powerups-client), siehe PowerUpCommand
 //   !shop trigger      TriggerBossfight(1 s) am vorhandenen BossfightSpawnPoint, wie das Betreten der Startzone (nur Host)
 //   !shop list         Angebote aller Haendler-Panels mit Preis, dazu das eigene Inventar
 //   !shop buy <n>      UShopPanelItem.TryBuyItem am Angebot n
@@ -480,6 +481,8 @@ std::string ItemText(uintptr_t Item)
 }
 }
 
+void PowerUpCommand(const std::wstring& Args);
+
 void ShopCommand(const std::wstring& Args)
 {
     const std::string Text(Args.begin(), Args.end());
@@ -488,6 +491,8 @@ void ShopCommand(const std::wstring& Args)
     const int Index = Space == std::string::npos ? -1 : atoi(Text.c_str() + Space + 1);
     const uintptr_t Controller = LocalController();
     const uintptr_t Pawn = Controller ? Read<uintptr_t>(Controller + 0x2E8) : 0;
+    if (Action == "powerup")
+        return PowerUpCommand(Space == std::string::npos ? std::wstring() : Args.substr(Space + 1));
     if (Action == "poi" || Action == "go")
     {
         const std::vector<uintptr_t> Pois = InstancesOf("MetaBasePoi");
@@ -1543,6 +1548,133 @@ void BossBarCommand(const std::wstring& Args)
 }
 
 // Laedt ein Asset ueber seinen Pfad, etwa "/Game/.../BP_X.BP_X_C". Dumper-7 erfasst danach auch diese Klasse.
+// Testhilfe (opt-powerups-client): Host legt ein Power-up an die Figur eines Spielers, "!shop powerup BP_PowerUpHealth_C [Index]
+// [Abstand]". Index zaehlt im PlayerArray des GameState (Standard 0), Abstand in Einheiten neben der Figur (Standard 120), der
+// Attraktor der Figur sammelt es dann ein wie ein Power-up aus der Kiste. Statt des Klassennamens geht auch ein voller Pfad
+// (/Game/....BP_X_C), dann laedt der Befehl die Klasse. Nur beim Host, die Replikation macht das Spiel.
+void PowerUpCommand(const std::wstring& Args)
+{
+    const std::string Text(Args.begin(), Args.end());
+    // "!shop powerup use <Index> [Slot]": ActivePowerupInventory.ActivateSlot an der Figur des Spielers, wie die Taste des Spielers.
+    if (Text.rfind("use ", 0) == 0 || Text.rfind("try ", 0) == 0)
+    {
+        const int Index = atoi(Text.c_str() + 4);
+        const char* SlotText = strchr(Text.c_str() + 4, ' ');
+        int32_t Slot = SlotText ? atoi(SlotText + 1) : 0;
+        const uintptr_t World = Read<uintptr_t>(Base + kGWorld);
+        const uintptr_t State = World ? Read<uintptr_t>(World + kWorldGameState) : 0;
+        const uintptr_t Players = State ? Read<uintptr_t>(State + kGameStatePlayerArray) : 0;
+        const int32_t Count = State ? Read<int32_t>(State + kGameStatePlayerArray + 8) : 0;
+        const uintptr_t Player = Players && Index >= 0 && Index < Count && Count <= 16 ? Read<uintptr_t>(Players + Index * 8) : 0;
+        const uintptr_t Inventory = Player ? Read<uintptr_t>(Player + 0x388) : 0; // ADDPlayerState -> UActivePowerupInventory
+        const uintptr_t Activate = FindObject("ActivateSlot", "ActivePowerupInventory");
+        if (!Inventory || !Activate || NameOf(Read<uintptr_t>(Inventory + 0x10)) != "ActivePowerupInventory")
+        {
+            Log("PowerUp: kein Power-up-Inventar fuer Spieler " + std::to_string(Index));
+            return;
+        }
+        // "!shop powerup try <Index> [Slot]": UPowerupSlot.TryActivateSlot(false) direkt am Slot, wie die Sofortwirkung des Spiels.
+        if (Text.rfind("try ", 0) == 0)
+        {
+            const uintptr_t Slots = Read<uintptr_t>(Inventory + 0x138); // UActivePowerupInventory.PowerupSlots
+            const int32_t SlotCount = Read<int32_t>(Inventory + 0x140);
+            const uintptr_t Try = FindObject("TryActivateSlot", "PowerupSlot");
+            const uintptr_t Target = Slots && Slot >= 0 && Slot < SlotCount ? Read<uintptr_t>(Slots + Slot * 8) : 0;
+            if (!Target || !Try)
+            {
+                Log("PowerUp: Slot " + std::to_string(Slot) + " von Spieler " + std::to_string(Index) + " fehlt");
+                return;
+            }
+            struct { bool FailIfUsingGamepad; } TryParams{false};
+            Read<ProcessEventFn*>(Target)[kProcessEventIndex](Target, Try, &TryParams);
+            Log("PowerUp: TryActivateSlot an Slot " + std::to_string(Slot) + " von Spieler " + std::to_string(Index));
+            return;
+        }
+        Read<ProcessEventFn*>(Inventory)[kProcessEventIndex](Inventory, Activate, &Slot);
+        Log("PowerUp: Slot " + std::to_string(Slot) + " von Spieler " + std::to_string(Index) + " aktiviert");
+        return;
+    }
+    const size_t Space = Text.find(' ');
+    const std::string ClassName = Text.substr(0, Space);
+    int Index = 0;
+    double Distance = 120.0;
+    if (Space != std::string::npos)
+    {
+        const char* Rest = Text.c_str() + Space + 1;
+        Index = atoi(Rest);
+        if (const char* Next = strchr(Rest, ' '))
+            Distance = atof(Next + 1);
+    }
+    const uintptr_t World = Read<uintptr_t>(Base + kGWorld);
+    const uintptr_t Statics = FindObject("Default__GameplayStatics", nullptr);
+    const uintptr_t Begin = FindObject("BeginDeferredActorSpawnFromClass", "GameplayStatics");
+    const uintptr_t Finish = FindObject("FinishSpawningActor", "GameplayStatics");
+    const uintptr_t GetLocation = FindObject("K2_GetActorLocation", "Actor");
+    uintptr_t Class = ClassName.rfind("/", 0) == 0 ? LoadObjectByPath(ClassName) : FindObject(ClassName.c_str(), nullptr);
+    const uintptr_t State = World ? Read<uintptr_t>(World + kWorldGameState) : 0;
+    const uintptr_t Players = State ? Read<uintptr_t>(State + kGameStatePlayerArray) : 0;
+    const int32_t Count = State ? Read<int32_t>(State + kGameStatePlayerArray + 8) : 0;
+    if (!World || !Read<uintptr_t>(World + kWorldGameMode) || !Statics || !Begin || !Finish || !GetLocation || !Class)
+    {
+        Log("PowerUp: " + ClassName + " nicht moeglich (Host " + std::to_string(World && Read<uintptr_t>(World + kWorldGameMode)) +
+            ", Klasse " + std::to_string(Class != 0) + ")");
+        return;
+    }
+    const uintptr_t Player = Players && Index >= 0 && Index < Count && Count <= 16 ? Read<uintptr_t>(Players + Index * 8) : 0;
+    const uintptr_t Pawn = Player ? Read<uintptr_t>(Player + 0x320) : 0;
+    if (!Pawn)
+    {
+        Log("PowerUp: keine Figur fuer Spieler " + std::to_string(Index) + " von " + std::to_string(Count));
+        return;
+    }
+    struct { double X, Y, Z; } Location{};
+    Read<ProcessEventFn*>(Pawn)[kProcessEventIndex](Pawn, GetLocation, &Location);
+    struct Transform
+    {
+        double Rotation[4];
+        double Translation[3];
+        double Pad0;
+        double Scale[3];
+        double Pad1;
+    };
+    static_assert(sizeof(Transform) == 0x60);
+    Transform Where{};
+    Where.Rotation[3] = 1.0;
+    Where.Translation[0] = Location.X + Distance;
+    Where.Translation[1] = Location.Y;
+    Where.Translation[2] = Location.Z;
+    Where.Scale[0] = Where.Scale[1] = Where.Scale[2] = 1.0;
+    struct
+    {
+        uintptr_t WorldContext, ActorClass;
+        Transform Spawn;
+        uint8_t Collision, Pad[7];
+        uintptr_t Owner;
+        uint8_t ScaleMethod, Pad2[7];
+        uintptr_t Result;
+    } BeginParams{World, Class, Where, 1, {}, 0, 0, {}, 0};
+    static_assert(sizeof(BeginParams) == 0x90);
+    Read<ProcessEventFn*>(Statics)[kProcessEventIndex](Statics, Begin, &BeginParams);
+    if (!BeginParams.Result)
+    {
+        Log("PowerUp: " + ClassName + " nicht entstanden");
+        return;
+    }
+    struct
+    {
+        uintptr_t Actor, Pad;
+        Transform Spawn;
+        uint8_t ScaleMethod, Pad2[7];
+        uintptr_t Result;
+    } FinishParams{BeginParams.Result, 0, Where, 0, {}, 0};
+    static_assert(sizeof(FinishParams) == 0x80);
+    Read<ProcessEventFn*>(Statics)[kProcessEventIndex](Statics, Finish, &FinishParams);
+    char Line[160];
+    sprintf_s(Line, "PowerUp: %s an Spieler %d gelegt (Figur %s, %.0f %.0f %.0f)", NameOf(Class).c_str(), Index,
+              NameOf(Pawn).c_str(), Where.Translation[0], Where.Translation[1], Where.Translation[2]);
+    Log(Line);
+}
+
 void LoadAssetCommand(const std::wstring& Path)
 {
     const std::string Narrow(Path.begin(), Path.end());

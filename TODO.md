@@ -21,7 +21,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen. Die obers
 | `opt-haende-vorschau-items` | P2 | [Problem](#probleme) | parallel | wenig |
 | `opt-highway-ziel` | P2 | [Problem](#probleme) | parallel | wenig |
 | `opt-itemsack-flug` | P2 | [Problem](#probleme) | parallel | wenig |
-| `opt-powerups-client` | P2 | [Problem](#probleme) | parallel | wenig |
 | `opt-waffen-hover` | P2 | [Problem](#probleme) | parallel | wenig |
 | `opt-gegner-spawnverzug` | P2 | [Problem](#probleme) | parallel | mittel |
 | `opt-schuss-animation` | P2 | [Problem](#probleme) | parallel | mittel |
@@ -43,7 +42,7 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen. Die obers
 
 **Wartet auf das Team:** `spawn-nach-kartenaufbau`, `coop-modus-wahl`, `coop-inventar-geteilt`.
 
-**Bestätigungstests ausstehend (nur Info, blockiert nichts):** 39, siehe [docs/ERLEDIGT.md](docs/ERLEDIGT.md#bestätigungstests-ausstehend).
+**Bestätigungstests ausstehend (nur Info, blockiert nichts):** 40, siehe [docs/ERLEDIGT.md](docs/ERLEDIGT.md#bestätigungstests-ausstehend).
 <!-- frei:end -->
 
 ## Probleme
@@ -57,7 +56,6 @@ Fehler im Spiel oder in den Werkzeugen. Jede Zeile nennt ihre Abnahme („Fertig
 | `opt-haende-vorschau-items` | P2 | Hantel (`ItemData_Dumbell`), Hand des Blutes (`ItemData_HandOfBlood`) und Plasmahand (`ItemData_PlasmaHand`) senken die Hände, die eine Waffe braucht. Der Client legt Wirkungen in einer lokalen Bearbeitung nicht an; Vermutung: Sein Panel lässt darum eine Waffe nicht zu, die erst mit einem dieser Items passt. **Fertig, wenn** gemessen ist, ob `GetHandsRequiredForItem` beim Client in der offenen Bearbeitung dem Wert des Hosts nach dem Übernehmen folgt, und eine Abweichung behoben ist. **Einstieg** [Roboterarm beim Client](docs/archive/GAME_ANALYSIS.md#roboterarm-beim-client-client-roboterarm), Testweg `!shop place` | parallel | wenig |
 | `opt-highway-ziel` | P2 | Im Event „Räume den Highway!“ erschien kein Benzin, das Ziel verlangte einen Abschluss (2/10). **Fertig, wenn** im Vergleich ohne Mod belegt ist, ob das natives Verhalten ist, und mit Mod das Ziel bei Host und Client gleich zählt und die Runde regulär endet. **Einstieg** [Live-Test 13.11.](docs/archive/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-13112026-livetest-1311) | parallel | wenig |
 | `opt-itemsack-flug` | P2 | Itemsäcke aus Containern werden beim Client erst direkt an der Figur sichtbar, der Ausstoß fehlt. **Fertig, wenn** der Client die Säcke wie der Host aus dem Container fliegen sieht, auf einem PC mit zwei Instanzen im Bildvergleich belegt. **Einstieg** [Live-Test 13.11. abends](docs/archive/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-13112026-abends-livetest-1311-abend) | parallel | wenig |
-| `opt-powerups-client` | P2 | Dosenessen und Staubsauger wirken beim Client nicht, beim Host schon (Live-Test 26.11.). **Fertig, wenn** Power-ups auf die Figur des Clients wie beim Host wirken. **Einstieg** [Fallakte](docs/faelle/opt-powerups-client.md) | parallel | wenig |
 | `opt-waffen-hover` | P2 | Beim Client hebt das Inventar beim Überfahren einer Waffe mit der Maus die Items nicht hervor, die auf die Waffe wirken; beim Host schon. Lokal lösen: die native Hervorhebung aus den replizierten Inventardaten anzeigen, keine neue Nachricht. **Fertig, wenn** der Client beim Überfahren dieselben Items hervorgehoben sieht wie der Host, auf einem PC im Bildvergleich belegt. | parallel | wenig |
 | `opt-gegner-spawnverzug` | P2 | Unter Wellenlast (`!wave`) erscheinen neue Gegner beim Client bis rund 8 s später als beim Host. **Fertig, wenn** ein Lesevergleich beider Instanzen (etwa `tools/spike/enemy_sync.py`) unter Wellenlast für neue Gegner höchstens 1 s Verzug beim Client misst. | parallel | mittel |
 | `opt-schuss-animation` | P2 | Die Client-Figur gleitet ohne Laufanimation: beim Host starr (Tester im Live-Test 26.11., Bestätigungstest von `opt-laufanimation-client` durchgefallen), beim Client zuletzt am 13.11. gemeldet. Gegen die Geisterwaffen („Waffen übereinander“) ist #224 gemergt, auf einem PC gemessen, live nicht bestätigt. **Fertig, wenn** die Ursache des Gleitens belegt ist (auf einem PC nachgestellt oder im Log eines Live-Tests gemessen) und die Client-Figur danach bei Host und Client durchgehend mit Laufanimation läuft und keine Waffen übereinander trägt. **Einstieg** [Details](docs/OPTIONEN.md#opt-schuss-animation) | parallel | mittel |

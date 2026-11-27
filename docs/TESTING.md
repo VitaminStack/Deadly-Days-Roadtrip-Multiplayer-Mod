@@ -223,6 +223,11 @@ er weg ist, danach `!shop to 2686 4755` und `!shop to 2703 4868`; das Panel geht
 öffnet die Auswahl, das zweite wählt das Item und drückt „Item kopieren“. Jede Instanz hat ihren eigenen POI; nach einer Kopie ist er weg,
 für die nächste Kopie neu in die Karte reisen. Die Koordinaten gelten für dieses Profil, bei anderer Lage `!shop poi` lesen.
 
+**Power-ups ohne Eingaben** (gemessen am 27.11.2026 auf `26786272`, `opt-powerups-client`): Die Client-Figur zuerst mit `!shop to <x> <y>`
+beim Client weit von der Host-Figur wegstellen, beide stehen sonst am selben Ort. Beim Host legt `!shop powerup <Klasse> <Index> 200` ein
+Power-up an die Figur (Index im PlayerArray, die Client-Figur war 1), beim Client löst `!shop powerup try 0` den eigenen Slot aus wie die
+Taste. `py tools/spike/powerups.py <host-pid> <client-pid>` zeigt Leben, Regeneration, Loot-Radius und Slots; der Staubsauger wirkt nur 5 s.
+
 Den Run-Stand eines Testordners liest `py tools/spike/run_save.py <UserDir>\Saved\SaveGames_DDCoop\SaveSlot_DDR_0.sav`.
 
 ### Mensch und Skript zusammen

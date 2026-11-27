@@ -10,6 +10,8 @@
 #include "Game/ThreatAdapter.h"
 #include "Sync/World/ZoneGoalState.h"
 #include "Game/ZoneGoalAdapter.h"
+#include "Sync/Players/PowerUpState.h"
+#include "Game/PowerUpAdapter.h"
 #include "Game/GameThread.h"
 #include "Game/PatchRuntime.h"
 #include "Game/RemotePlayers.h"
@@ -17,7 +19,10 @@
 #include <algorithm>
 #include <chrono>
 #include <map>
+#include <optional>
 #include <span>
+#include <string>
+#include <vector>
 
 namespace Sync
 {
@@ -260,6 +265,102 @@ void TickZoneGoal(Net::Transport& Transport)
             Game::SetHostZoneGoal(*View);
     Game::TickZoneGoalDisplay();
 }
+
+// opt-powerups-client: Host meldet jedem Client den Slot-Stand seiner Figur (0xE00) und löst die Slots aus, deren Auslösen der
+// Client meldet (0xE01). Der Client meldet eigenes Auslösen und gleicht seine Slots an den Stand des Hosts an.
+std::map<uint64_t, uint32_t> PowerUpAcked; // Host: höchste verarbeitete Nummer je Client
+Game::PowerUp::Requests PowerUpOpen;      // Client: gemeldet, noch nicht bestätigt
+
+uint64_t SteadyMs()
+{
+    return static_cast<uint64_t>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
+}
+
+// Aus dem eigenen Abruf je Takt und aus dem Sammelabruf alle 250 ms: Eine Meldung, die nach dem eigenen Abruf im selben Takt
+// ankam, ginge sonst verloren (wie opt-schadenszahlen-verlust).
+void ReceivePowerUps(bool Host, std::span<const Net::ControlMessage> Messages)
+{
+    std::optional<PowerUps::State> Latest;
+    for (const auto& Message : Messages)
+    {
+        if (Host && Message.Value.Type == PowerUps::ActivateType)
+        {
+            const auto Value = PowerUps::DecodeActivation(Message.Value.Payload);
+            if (!Value)
+            {
+                Core::Log::Warn("Power-up: ungültige Meldung eines Clients verworfen");
+                continue;
+            }
+            uint32_t& Last = PowerUpAcked[Message.Peer];
+            if (Value->Sequence <= Last)
+                continue;
+            Last = Value->Sequence;
+            if (const uintptr_t Controller = Game::PeerController(Message.Peer))
+                Game::ActivatePowerUp(Controller, Value->Definition);
+            else
+                Core::Log::Warn("Power-up: Meldung eines Clients ohne zugeordnete Figur verworfen");
+        }
+        else if (!Host && Message.Value.Type == PowerUps::StateType)
+        {
+            // Nur der neueste Stand zählt.
+            if (auto Value = PowerUps::DecodeState(Message.Value.Payload))
+                Latest = std::move(Value);
+        }
+    }
+    if (!Latest)
+        return;
+    PowerUpOpen.Acknowledge(Latest->Acked);
+    PowerUpOpen.Expire(SteadyMs());
+    Game::ApplyHostPowerUps(Latest->Slots, PowerUpOpen.Pending());
+}
+
+// Jeder Takt.
+void TickPowerUps(Net::Transport& Transport)
+{
+    const uint64_t NowMs = SteadyMs();
+    static uintptr_t World = 0;
+    const uintptr_t NowWorld = Game::PowerUpWorld();
+    const bool NewWorld = NowWorld != World;
+    World = NowWorld;
+    static uint64_t Revision = 0;
+    const bool Host = Transport.Stats().IsHost;
+    if (Host)
+    {
+        static std::map<uint64_t, Game::PowerUp::Sent> Sent;
+        const auto Peers = Transport.ControlPeers();
+        std::erase_if(PowerUpAcked, [&Peers](const auto& Entry) { return std::find(Peers.begin(), Peers.end(), Entry.first) == Peers.end(); });
+        if (NewWorld)
+            Sent.clear();
+        ReceivePowerUps(true, Transport.TakeControlMessages(PowerUps::ActivateType));
+        for (const uint64_t Peer : Peers)
+        {
+            const auto Slots = Game::ReadPowerUps(Game::PeerController(Peer));
+            if (!Slots)
+                continue;
+            const uint32_t PeerAcked = PowerUpAcked.count(Peer) ? PowerUpAcked[Peer] : 0;
+            Game::PowerUp::Sent& Last = Sent[Peer];
+            if (!Game::PowerUp::SendDue(Last, *Slots, PeerAcked, NowMs))
+                continue;
+            const auto Payload = PowerUps::Encode(PowerUps::State{PeerAcked, *Slots});
+            if (!Payload.empty() && Transport.SendControl(Peer, {1, 1, ++Revision, PowerUps::StateType, Payload}))
+                Last = {true, *Slots, PeerAcked, NowMs};
+        }
+        return;
+    }
+    if (NewWorld)
+        PowerUpOpen.Clear();
+    const auto Activations = Game::TakePowerUpActivations();
+    const auto Peers = Activations.empty() ? std::vector<uint64_t>{} : Transport.ControlPeers();
+    for (const std::string& Name : Activations)
+    {
+        const uint32_t Sequence = Peers.size() == 1 ? PowerUpOpen.Add(Name, NowMs) : 0;
+        const auto Payload = Sequence ? PowerUps::Encode(PowerUps::Activation{Sequence, Name}) : std::vector<uint8_t>{};
+        if (Payload.empty() || !Transport.SendControl(Peers[0], {1, 1, ++Revision, PowerUps::ActivateType, Payload}))
+            Core::Log::Warn("Power-up: Auslösen von {} nicht an den Host gemeldet", Name);
+    }
+    ReceivePowerUps(false, Transport.TakeControlMessages(PowerUps::StateType));
+}
 }
 
 namespace
@@ -359,6 +460,11 @@ void Start(const Core::Config& Config, DiagnosticSink Diagnostics)
             const Game::GameThread::SlowScope Watch("Sync-Zonenziel");
             TickZoneGoal(*Transport);
         }
+        if (Transport)
+        {
+            const Game::GameThread::SlowScope Watch("Sync-Power-ups");
+            TickPowerUps(*Transport);
+        }
         else
             Game::ResetZoneGoal();
         {
@@ -377,6 +483,11 @@ void Start(const Core::Config& Config, DiagnosticSink Diagnostics)
                 Family(Batch);
             };
         };
+        if (Transport)
+        {
+            const Game::GameThread::SlowScope Watch("Sync-Power-ups");
+            ReceivePowerUps(Transport->Stats().IsHost, Messages);
+        }
         if (Transport && !Transport->Stats().IsHost)
         {
             ReceiveTelegraphs(Messages);

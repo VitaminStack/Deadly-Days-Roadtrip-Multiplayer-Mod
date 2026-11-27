@@ -33,6 +33,8 @@ std::span<const Patch> PlayerPatches();
 std::span<const Patch> ClientPatches();
 std::span<const Patch> CameraPatches();
 std::span<const Patch> InventoryPatches();
+// opt-powerups-client, in der Liste Inventory: Power-up-Slots löst der Host aus (PowerUpAdapter.h).
+Patch PowerUpSlotPatch();
 std::span<const Patch> TravelPatches();
 std::span<const Patch> WidgetPatches();
 std::span<const Patch> HealthBarPatches();

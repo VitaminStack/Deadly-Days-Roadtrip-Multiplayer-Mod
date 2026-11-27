@@ -33,6 +33,7 @@
     <ClCompile Include="SavePathsTests.cpp" />
     <ClCompile Include="TelemetryAdapterTests.cpp" />
     <ClCompile Include="BossBarPolicyTests.cpp" />
+    <ClCompile Include="PowerUpPolicyTests.cpp" />
     <ClCompile Include="ZoneGoalPolicyTests.cpp" />
     <ClCompile Include="BloodPolicyTests.cpp" />
     <ClCompile Include="EnemySoundPolicyTests.cpp" />
