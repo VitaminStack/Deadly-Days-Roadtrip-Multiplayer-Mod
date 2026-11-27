@@ -37,7 +37,6 @@ constexpr Reflection::FieldSpec HalfHeightField{"/Script/Engine", "CapsuleCompon
 constexpr Reflection::FieldSpec RadiusField{"/Script/Engine", "CapsuleComponent", "CapsuleRadius", "FloatProperty", 4};
 constexpr Reflection::FieldSpec MovementModeField{"/Script/Engine", "CharacterMovementComponent", "MovementMode", "ByteProperty", 1};
 constexpr Reflection::FieldSpec VelocityField{"/Script/Engine", "MovementComponent", "Velocity", "StructProperty", 24};
-constexpr Reflection::FieldSpec FloorDistField{"/Script/Engine", "FindFloorResult", "FloorDist", "FloatProperty", 4};
 constexpr Reflection::FieldSpec FloorHitField{"/Script/Engine", "FindFloorResult", "HitResult", "StructProperty", 0};
 constexpr Reflection::FieldSpec ImpactPointField{"/Script/Engine", "HitResult", "ImpactPoint", "StructProperty", 24};
 constexpr Reflection::FieldSpec HitComponentField{"/Script/Engine", "HitResult", "Component", "WeakObjectProperty", 8};
@@ -70,7 +69,7 @@ int32_t ParamsSize(uintptr_t Function)
 struct ProbeLayout
 {
     uintptr_t Function = 0;
-    int32_t Location = 0, Line = 0, Sweep = 0, Radius = 0, Result = 0, FloorDist = 0, Impact = 0, Component = 0;
+    int32_t Location = 0, Line = 0, Sweep = 0, Radius = 0, Result = 0, Impact = 0, Component = 0;
 };
 
 const std::optional<ProbeLayout>& FloorProbeLayout()
@@ -88,19 +87,18 @@ const std::optional<ProbeLayout>& FloorProbeLayout()
         const auto Sweep = Param("SweepDistance", "FloatProperty", 4);
         const auto Radius = Param("SweepRadius", "FloatProperty", 4);
         const auto Result = Param("FloorResult", "StructProperty", 0);
-        const auto FloorDist = Reflection::Property(FloorDistField);
         const auto Hit = Reflection::Property(FloorHitField);
         const auto Impact = Reflection::Property(ImpactPointField);
         const auto Component = Reflection::Property(HitComponentField);
         const int32_t Size = ParamsSize(L.Function);
-        if (!Location || !Line || !Sweep || !Radius || !Result || !FloorDist || !Hit || !Impact || !Component || Size <= 0 ||
+        if (!Location || !Line || !Sweep || !Radius || !Result || !Hit || !Impact || !Component || Size <= 0 ||
             Size > static_cast<int32_t>(ParamsCapacity))
         {
             Core::Log::Error("Busboden: Bodenprüfung ohne passendes Layout, Busplatz bleibt wie ohne Mod");
             return std::nullopt;
         }
         L.Location = Location->Offset, L.Line = Line->Offset, L.Sweep = Sweep->Offset, L.Radius = Radius->Offset;
-        L.Result = Result->Offset, L.FloorDist = Result->Offset + FloorDist->Offset;
+        L.Result = Result->Offset;
         L.Impact = Result->Offset + Hit->Offset + Impact->Offset, L.Component = Result->Offset + Hit->Offset + Component->Offset;
         return L;
     }();
@@ -112,7 +110,6 @@ struct Floor
     bool Valid = false; // Prüfung lief
     bool Hit = false;
     double ImpactZ = 0;
-    float FloorDist = 0;
     uintptr_t Component = 0;
 };
 
@@ -144,7 +141,6 @@ Floor ProbeFloor(uintptr_t Movement, const Vector& Bus)
     Result.Component = Resolve(P.Get<uint64_t>(L->Component));
     Result.Hit = Result.Component != 0;
     Result.ImpactZ = P.Get<Vector>(L->Impact).Z;
-    Result.FloorDist = P.Get<float>(L->FloorDist);
     return Result;
 }
 
@@ -201,7 +197,7 @@ std::string FloorText(const Floor& F)
         return "nicht geprüft";
     if (!F.Hit)
         return "kein Boden";
-    return std::format("Boden bei Z {:.0f} ({:.0f} unter der Kapsel, {})", F.ImpactZ, F.FloorDist, OwnerText(F.Component));
+    return std::format("Boden bei Z {:.0f} ({})", F.ImpactZ, OwnerText(F.Component));
 }
 
 // ---- Testschalter ----
@@ -311,9 +307,12 @@ struct
     uintptr_t Movement = 0;
     Vector Bus;
     ULONGLONG Since = 0;
-    bool Tracing = false, Deciding = false, Holding = false;
+    bool Tracing = false, Deciding = false, Holding = false, LastHit = false;
+    uint8_t LastMode = 0xFF;
     int Frames = 0, Steady = 0;
 } Bus;
+
+constexpr int BusFloorEveryFrames = 10;
 
 uintptr_t OwnFigure()
 {
@@ -461,10 +460,17 @@ void TickBusFloor(NetRole Role)
         return;
     const uint8_t Mode = ModeOf(Bus.Movement);
     Bus.Steady = Mode == ModeWalking && F.Hit ? Bus.Steady + 1 : 0;
-    const auto At = ActorLocation(Bus.Figure.Object);
-    Core::Log::Info("Busboden: Frame {}, +{} ms, Modus {}, Z {:.0f}, Tempo Z {:.0f}, {}", ++Bus.Frames, Now - Bus.Since, Mode, At ? At->Z : 0,
-                    VelocityOf(Bus.Movement).Z, FloorText(F));
-    if (BusFloorTraceOver(Bus.Steady, Now - Bus.Since))
+    const bool Over = BusFloorTraceOver(Bus.Steady, Now - Bus.Since);
+    // Jeder der ersten Frames, danach nur bei Änderung von Modus oder Boden und am Ende.
+    const bool Changed = Mode != Bus.LastMode || F.Hit != Bus.LastHit;
+    Bus.LastMode = Mode, Bus.LastHit = F.Hit;
+    if (++Bus.Frames <= BusFloorEveryFrames || Changed || Over)
+    {
+        const auto At = ActorLocation(Bus.Figure.Object);
+        Core::Log::Info("Busboden: Frame {}, +{} ms, Modus {}, Z {:.0f}, Tempo Z {:.0f}, {}", Bus.Frames, Now - Bus.Since, Mode, At ? At->Z : 0,
+                        VelocityOf(Bus.Movement).Z, FloorText(F));
+    }
+    if (Over)
         Bus.Tracing = false;
 }
 }
