@@ -5,7 +5,7 @@ description: Use when investigating a crash or wrong behaviour of a task in this
 
 # Fehler untersuchen
 
-1. `py tools/tasks.py show <kennung>` lesen. Fallakte `docs/faelle/<kennung>.md` öffnen; fehlt sie, nach der Vorlage in `docs/PROZESS.md` (Abschnitt „Vorlagen“) anlegen.
+1. `py tools/tasks.py show <kennung>` lesen. Fallakte `docs/faelle/<kennung>.md` öffnen; fehlt sie, nach der Vorlage in `docs/PROZESS.md` (Abschnitt „Fallakten“) anlegen.
 2. Ist-Zustand nur aus der Themen-Datei laut `docs/KONTEXT.md` und dem Code nehmen. Das Archiv `docs/archive/` nur per `grep -n` für die Anker, die die Fallakte nennt.
 3. Logs zuerst als Kurzfassung: `py tools/log_summary.py <log>` (oder die `*.summary.txt` aus `Collect-Logs.ps1`). Das volle Log nur abschnittsweise.
 4. Jede Aussage in der Fallakte markieren: `[Belegt]` mit Logauszug oder Messung auf Build `26786272`, `[Vermutung]` mit Prüfidee, `[Widerlegt]` wenn geprüft und falsch.

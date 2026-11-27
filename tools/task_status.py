@@ -23,7 +23,7 @@ DONE_TITLE = '# Erledigte Aufgaben'
 LIST_HEADER = '| Kennung | Prio | Aufgabe | Bearbeitung | Spielzeit |'
 LIST_SECTIONS = {'Probleme': 'Problem', 'Verbesserungen': 'Verbesserung'}
 PRIOS = ('P0', 'P1', 'P2')
-MODES = ('parallel', 'zentral', 'zu zweit', 'Team')
+MODES = ('parallel', 'zentral', 'zu zweit')
 PLAYTIMES = ('keine', 'wenig', 'mittel', 'viel')
 # Spalte Phase unter Erledigt: Ziffern und Namen aus der Zeit der Phasen; done schreibt Problem oder Verbesserung.
 DONE_PHASES = tuple(str(n) for n in range(7)) + ('Wartung', 'Optional') + tuple(LIST_SECTIONS.values())
@@ -120,7 +120,7 @@ def parse(todo):
             if prio not in PRIOS:
                 raise ValueError(f'{where}: {name}: Prio muss P0, P1 oder P2 sein')
             if mode not in MODES:
-                raise ValueError(f'{where}: {name}: Bearbeitung muss parallel, zentral, zu zweit oder Team sein')
+                raise ValueError(f'{where}: {name}: Bearbeitung muss parallel, zentral oder zu zweit sein')
             if playtime not in PLAYTIMES:
                 raise ValueError(f'{where}: {name}: Spielzeit muss keine, wenig, mittel oder viel sein')
             tasks[name] = Task(name, kind, section, False, text, prio, mode, playtime)
@@ -151,7 +151,7 @@ def validate_done_order(todo):
 
 SECTION_RANK = {kind: i for i, kind in enumerate(LIST_SECTIONS.values())}
 # Wer neben anderen laufen kann, steht vor Aufgaben, die gemeinsame Schnittstellen festlegen oder zwei PCs brauchen.
-MODE_ORDER = {'parallel': 0, 'zu zweit': 1, 'zentral': 2, 'Team': 3}
+MODE_ORDER = {'parallel': 0, 'zu zweit': 1, 'zentral': 2}
 
 
 def work_order(task):
@@ -170,15 +170,11 @@ def free_block(tasks):
     Die Spalte heisst weiter "Phase", damit parallele Branches denselben Block erzeugen; sie verlinkt den Abschnitt.
     """
     ready = sorted((t for t in tasks.values() if not t.done), key=work_order)
-    work = [t for t in ready if t.mode != 'Team']
-    team = [t for t in ready if t.mode == 'Team']
     lines = ['| Kennung | Prio | Phase | Bearbeitung | Spielzeit |', '|---|---|---|---|---|']
-    for t in work:
+    for t in ready:
         lines.append(f'| `{t.name}` | {t.prio} | [{t.phase}](#{slug(t.section)}) | {t.mode} | {t.playtime} |')
-    if not work:
+    if not ready:
         lines.append('| – | | | | |')
-    lines.append('')
-    lines.append('**Wartet auf das Team:** ' + (', '.join(f'`{t.name}`' for t in team) if team else 'nichts') + '.')
     pending = [t for t in tasks.values() if t.confirmation]
     lines.append('')
     lines.append(f'**Bestätigungstests ausstehend (nur Info, blockiert nichts):** {len(pending)}, siehe '
@@ -305,8 +301,6 @@ def confirmation_update(todo, names, action, note):
         if action == 'pending':
             if task is None or task.done:
                 raise ValueError(f'{name}: keine offene Aufgabe')
-            if task.mode == 'Team':
-                raise ValueError(f'{name}: Teamentscheidung, kein Bestaetigungstest')
         elif task is None or not task.confirmation:
             raise ValueError(f'{name}: kein ausstehender Bestaetigungstest')
     for name in names:

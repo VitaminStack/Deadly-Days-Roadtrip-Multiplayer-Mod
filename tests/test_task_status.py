@@ -123,17 +123,16 @@ class ParseTests(unittest.TestCase):
 
 
 class DerivedTests(unittest.TestCase):
-    def test_free_block_lists_every_open_task_and_team(self):
+    def test_free_block_lists_every_open_task(self):
         rows = ('| `ready` | P1 | Text | parallel | wenig |\n'
-                '| `first` | P0 | Text | zentral | viel |\n'
-                '| `vote` | P0 | Text | Team | keine |\n')
+                '| `first` | P0 | Text | zentral | viel |\n')
         text = todo(rows)
         block = source.free_block(source.parse(text))
         lines = block.splitlines()
         self.assertTrue(lines[2].startswith('| `first` | P0'))
         self.assertTrue(lines[3].startswith('| `ready` | P1'))
         self.assertNotIn('Zurückgestellt', block)
-        self.assertIn('**Wartet auf das Team:** `vote`.', block)
+        self.assertNotIn('Team', block)
 
     WORK_ORDER = FLAT.format(
         problems=('| `bug-spaet` | P2 | Text | parallel | mittel |\n'
@@ -143,8 +142,7 @@ class DerivedTests(unittest.TestCase):
                '| `idee-viel` | P1 | Text | parallel | viel |\n'
                '| `idee-b` | P1 | Text | parallel | keine |\n'
                '| `idee-a` | P1 | Text | parallel | keine |\n'
-               '| `idee-zwei` | P1 | Text | zu zweit | keine |\n'
-               '| `idee-team` | P1 | Text | Team | keine |\n'))
+               '| `idee-zwei` | P1 | Text | zu zweit | keine |\n'))
     EXPECTED_ORDER = ['bug-wichtig', 'idee-a', 'idee-b', 'idee-zwei', 'idee-zentral', 'idee-viel', 'bug-kurz', 'bug-spaet']
 
     def test_free_block_orders_by_prio_section_playtime_mode(self):
@@ -152,7 +150,6 @@ class DerivedTests(unittest.TestCase):
         block = source.free_block(source.parse(self.WORK_ORDER))
         names = [line.split('`')[1] for line in block.splitlines()[2:] if line.startswith('| `')]
         self.assertEqual(names, self.EXPECTED_ORDER)
-        self.assertIn('**Wartet auf das Team:** `idee-team`.', block)
 
     def test_list_uses_the_same_order(self):
         with (patch.object(tasks, 'git'), patch.object(tasks, 'todo_text', return_value=self.WORK_ORDER),
@@ -163,12 +160,11 @@ class DerivedTests(unittest.TestCase):
             with redirect_stdout(StringIO()) as full:
                 tasks.cmd_list()
         listed = [line.split()[0] for line in short.getvalue().splitlines() if line.startswith('  ')]
-        self.assertEqual([n for n in listed if n != 'idee-team'], self.EXPECTED_ORDER)
-        self.assertEqual(listed[5], 'idee-team')  # Team zuletzt innerhalb gleicher Prio und Spielzeit
+        self.assertEqual(listed, self.EXPECTED_ORDER)
         rows = [line.split()[0] for line in full.getvalue().splitlines() if line.startswith('  ')]
         # Je Abschnitt, darin dieselbe Reihenfolge.
         self.assertEqual(rows, ['bug-wichtig', 'bug-kurz', 'bug-spaet',
-                                'idee-a', 'idee-b', 'idee-zwei', 'idee-zentral', 'idee-team', 'idee-viel'])
+                                'idee-a', 'idee-b', 'idee-zwei', 'idee-zentral', 'idee-viel'])
 
     def test_update_todo_is_idempotent_and_keeps_crlf(self):
         text = todo('| `a` | P0 | Text | parallel | wenig |\n').replace('\n', '\r\n')
@@ -184,7 +180,7 @@ class DerivedTests(unittest.TestCase):
 class ReservationTests(unittest.TestCase):
     ROWS = ('| `open` | P0 | Text | parallel | wenig |\n'
             '| `other` | P0 | Text | parallel | wenig |\n'
-            '| `vote` | P0 | Text | Team | keine |\n')
+            '| `vote` | P0 | Text | zentral | keine |\n')
 
     def claim(self, name, branches=frozenset(), prs=None):
         text = todo(self.ROWS)
@@ -200,8 +196,10 @@ class ReservationTests(unittest.TestCase):
     def test_done_task_cannot_be_claimed(self):
         self.assertIn('erledigt', self.claim('base1'))
 
-    def test_team_task_cannot_be_claimed(self):
-        self.assertIn('Team', self.claim('vote'))
+    def test_team_mode_is_a_format_error(self):
+        """Jede offene Aufgabe ist reservierbar; die fruehere Bearbeitung Team gibt es nicht mehr."""
+        with self.assertRaisesRegex(ValueError, 'parallel, zentral oder zu zweit'):
+            source.parse(todo('| `vote` | P0 | Text | Team | keine |\n'))
 
     def test_existing_branch_prevents_claim_without_github(self):
         self.assertIn('reserviert', self.claim('open', branches={'open'}))
@@ -252,7 +250,7 @@ class ReservationTests(unittest.TestCase):
         self.assertEqual(tasks.status('base1', set(), None, parsed), 'erledigt')
         self.assertEqual(tasks.status('open', set(), None, parsed), 'frei')
         self.assertEqual(tasks.status('other', set(), None, parsed), 'frei')
-        self.assertEqual(tasks.status('vote', set(), None, parsed), 'Team')
+        self.assertEqual(tasks.status('vote', set(), None, parsed), 'frei')
         self.assertEqual(tasks.status('missing', set(), None, parsed), 'nicht in TODO.md')
 
     def test_list_without_github_hides_done_and_shows_status(self):
@@ -265,7 +263,7 @@ class ReservationTests(unittest.TestCase):
         self.assertFalse(any(line.strip().startswith('base1 ') for line in lines))
         self.assertIn('frei', next(line for line in lines if line.strip().startswith('other ')))
         self.assertIn('frei', next(line for line in lines if line.strip().startswith('open ')))
-        self.assertIn('Team', next(line for line in lines if line.strip().startswith('vote ')))
+        self.assertIn('frei', next(line for line in lines if line.strip().startswith('vote ')))
 
     def test_list_short_has_no_descriptions_and_lists_all_open(self):
         extra = OPEN + '| `idee-x` | P2 | Langer Text | parallel | wenig |\n'

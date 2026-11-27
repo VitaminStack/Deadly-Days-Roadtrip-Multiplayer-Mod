@@ -19,8 +19,8 @@
 show und done ersparen das Lesen der ganzen TODO.md. done nur bei erfuellter Abnahme, das Ergebnis ist ein Satz mit Link.
 
 Quelle der Kennungen und Abschluesse ist TODO.md auf origin/main. Branches task/<kennung> und offene Pull Requests
-ergaenzen nur Reservierung und Review. Aufgaben haengen nicht voneinander ab; nur Team-Aufgaben lassen sich nicht
-reservieren. Erledigtes ist nur Info: Ein gemergter PR oder ein ausstehender Bestaetigungstest sperrt nichts.
+ergaenzen nur Reservierung und Review. Aufgaben haengen nicht voneinander ab, jede offene Aufgabe ist reservierbar.
+Erledigtes ist nur Info: Ein gemergter PR oder ein ausstehender Bestaetigungstest sperrt nichts.
 
 Aufgaben mit Bearbeitung "zu zweit" (Test auf zwei PCs) duerfen zwei Personen nehmen, je eine Rolle host oder client:
 Branch task/<kennung>/<rolle>, Worktree .worktrees/<kennung>-<rolle>. Ohne Rolle nimmt eine Person beide Seiten.
@@ -181,8 +181,6 @@ def status(kennung, branches, prs, tasks):
         return f'reserviert ({who}{stale})'
     if task is None:
         return 'nicht in TODO.md'
-    if task.mode == 'Team':
-        return 'Team'
     return 'frei' + merged
 
 
@@ -275,8 +273,6 @@ def cmd_claim(kennung, name, role=None):
             sys.exit(f'{kennung}: {status(kennung, branches, prs, tasks)}. Rolle {role} ist vergeben.')
     if task is None:
         print(f'Hinweis: {kennung} steht nicht in TODO.md. Nur fuer kurze Wartung ohne eigene Aufgabe.')
-    elif task.mode == 'Team':
-        sys.exit(f'{kennung} entscheidet das Team. Keine Reservierung.')
 
     root = repo_root()
     branch = f'task/{branch_name(kennung, role)}'

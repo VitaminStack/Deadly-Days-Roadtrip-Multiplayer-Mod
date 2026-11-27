@@ -407,8 +407,8 @@ nicht vergleichbar wären. Den Test über echtes Internet zwischen zwei Haushalt
 Manches lässt sich auf einem PC nicht prüfen: Steam lehnt P2P zum eigenen Konto ab, siehe [Steam-Tunnel](../research/spikes/a-connect/README.md#spike-e-steam-tunnel-tunnel).
 Dafür laufen Host und Client auf zwei PCs mit zwei Steam-Konten, je PC nur eine Instanz. Solche Aufgaben haben in
 [TODO.md](../TODO.md) die Bearbeitung **zu zweit**, etwa `tunnel-p2p`.
-Solche Tests lassen sich in einem gemeinsamen Termin bündeln. Als Planungshilfe dienen die Hinweise unter
-[Live-Sitzungen zu zweit](PROZESS.md#live-sitzungen-zu-zweit).
+Solche Termine sind knapp: Alle offenen Prüfungen aus `py tools/tasks.py tests plan` und der [Checkliste](LIVETEST_CHECKLISTE.md) in einem Lauf bündeln,
+offene [Probleme](../TODO.md#probleme) mit Spielzeit nebenbei nachstellen. Das ist eine Planungshilfe, keine Pflicht.
 
 ### Reservieren zu zweit
 

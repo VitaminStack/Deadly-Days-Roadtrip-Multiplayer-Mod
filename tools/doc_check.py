@@ -28,6 +28,7 @@ LIMITS = {
     'CLAUDE.md': 4_000,
     'TODO.md': 24_000,  # angehoben auf Wunsch des Nutzers (24.11.2026), sonst nur absenken
     'docs/OFFSETS.md': 99_000,
+    'docs/PROZESS.md': 6_000,  # Ablauf jeder Aufgabe, wird in jeder Sitzung gelesen
     'src/Game/README.md': 81_000,
 }
 # Verschachtelte CLAUDE.md laedt Claude Code bei jeder Arbeit im Ordner, sie bleiben darum sehr kurz.
