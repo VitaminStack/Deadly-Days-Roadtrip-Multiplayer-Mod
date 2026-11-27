@@ -45,7 +45,7 @@ Im Konzept klären, ausgelegt auf zwei bis vier Spieler:
 
 ## `coop-inventar-zwei`
 
-Enthält die frühere Aufgabe `coop-inventar-ablauf`. Wartet auf die Freigabe von `coop-inventar-konzept` durch das Team, darum Bearbeitung „Team“; danach auf zentral stellen.
+Enthält die frühere Aufgabe `coop-inventar-ablauf`. Vom Menschen zur Bearbeitung freigegeben; braucht das Konzept aus `coop-inventar-konzept`.
 
 - Ein gemeinsamer Rucksack mit einem Bereich je Spieler, beide sehen dasselbe Raster.
 - Unterstützungs-Items wirken über die Bereichsgrenze auf Waffen des Mitspielers; die Hervorhebung beim Überfahren zeigt auch diese Wirkungen (mit `opt-waffen-hover` abstimmen).
