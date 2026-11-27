@@ -1,6 +1,6 @@
 # Arbeitsprozess
 
-Ablauf einer Aufgabe von der Wahl bis zum Merge. Befehle und Status der Werkzeuge stehen in [tools/README.md](../tools/README.md#taskspy).
+Ablauf einer Aufgabe bis zum Merge. Befehle und Status: [tools/README.md](../tools/README.md#taskspy).
 
 ## Fokus
 
@@ -16,16 +16,16 @@ Abschließen statt erweitern: Die Liste soll kleiner werden.
 
 ## Nicht erneut machen
 
-- Iris oder klassisch: klassisch. Verbindung, Spawn, Bewegung und Schießen laufen mit den [Patches](../research/spikes/a-connect/README.md#patches).
-- Coop-Ablauf, Kartenerzeugung, Gegner-Pooling, Kamera und Pausen: [Spielanalyse](themen/README.md), [Sync-Bedarf](SYNC_REQUIREMENTS.md).
-- Einzelprüfungen in den Inventar-Schleifen, höhere `NetPriority` des `GameState`, `OnRep_Slots` zurückhalten.
-- Gegen fehlende PlayerStates Klassen pinnen oder Zeitstempel zurücksetzen, siehe [guidcache](archive/GAME_ANALYSIS.md#abschluss-und-akzeptierter-testumfang-guidcache).
-- Bei seltsamem Laden zuerst `Run-Route.ps1` und `check_round.py` prüfen, siehe [Pausierte Welt und Busplatz](archive/GAME_ANALYSIS.md#pausierte-welt-und-busplatz-testumgebung).
+- Belegt: klassische Replikation statt Iris; Verbindung, Spawn, Bewegung und Schießen laufen mit den [Patches](../research/spikes/a-connect/README.md#patches).
+- Belegt: Run bis Tag 13 mit Biomwechseln, Pause ab Tag 2 und Client-Figur am Bus, siehe [Busplatz](archive/GAME_ANALYSIS.md#pausierte-welt-und-busplatz-testumgebung).
+- Analysiert: Coop-Ablauf, Karten, Gegner-Pooling, Kamera, Pausen, siehe [Spielanalyse](themen/README.md) und [Sync-Bedarf](SYNC_REQUIREMENTS.md).
+- Hilft nicht: Einzelprüfungen in den Inventar-Schleifen, höhere `NetPriority` des `GameState`, `OnRep_Slots` zurückhalten.
+- Hilft nicht: Klassen pinnen oder Zeitstempel zurücksetzen ([guidcache](archive/GAME_ANALYSIS.md#abschluss-und-akzeptierter-testumfang-guidcache)), `servertravel` statt Routenlauf.
 
 ## Vor dem Start
 
 1. `py tools/tasks.py show <kennung>` statt der ganzen `TODO.md` lesen. Nur `frei` nehmen.
-2. `py tools/tasks.py claim <kennung> <name>` legt Worktree `.worktrees/<kennung>`, Branch `task/<kennung>` und Draft-PR an. Lehnt es ab, eine andere Aufgabe wählen.
+2. `py tools/tasks.py claim <kennung> <name>` legt Worktree `.worktrees/<kennung>`, Branch `task/<kennung>` und Draft-PR an. Lehnt es ab, eine andere wählen.
 3. Bei „zu zweit“ reserviert jede Person ihre Rolle `host` oder `client`, siehe [Test auf zwei PCs](TESTING.md#test-auf-zwei-pcs).
 
 Nie von Hand reservieren, nur im eigenen Worktree arbeiten. Aufgeben: `py tools/tasks.py release <kennung>`.
@@ -36,8 +36,9 @@ Nie von Hand reservieren, nur im eigenen Worktree arbeiten. Aufgeben: `py tools/
 - Im Spike nur die Datei des eigenen Themas ändern, siehe [Spike-README](../research/spikes/a-connect/README.md#dateien).
 - `Spike.h`, `Main.cpp`, die öffentlichen Schnittstellen in `src/Core` und `src/Net` und das Protokoll ändern sich nur in kurzen eigenen PRs.
 - Ist `ModVersion` auf `main` seit dem Abzweig gestiegen, vor dem Merge darüber erhöhen.
-- Breite Suchen übernimmt ein Explore-Subagent.
-- Wiederkehrende Abläufe liegen als Skills unter `.claude/skills/`: `fehler-untersuchen`, `live-test-auswerten`, `patch-anlegen`.
+- Breite Suchen macht ein Explore-Subagent.
+- Bei seltsamem Laden zuerst `Run-Route.ps1` und `check_round.py` prüfen.
+- Skills unter `.claude/skills/`: `fehler-untersuchen`, `live-test-auswerten`, `patch-anlegen`.
 
 ## Abschluss
 

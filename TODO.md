@@ -5,6 +5,7 @@ Die einzige Liste offener Arbeit: **Probleme** (Fehler) und **Verbesserungen**. 
 Wie man eine Aufgabe wählt, bearbeitet und abschließt, wie eine Fallakte aussieht und was nicht erneut gemacht werden soll, steht in [docs/PROZESS.md](docs/PROZESS.md). Risiken stehen in der [Roadmap](docs/ROADMAP.md#risiken).
 
 **Fokus:** Abschließen statt erweitern. Reihenfolge: nach Prio, bei gleicher Prio Probleme vor Verbesserungen, dann wenig Spielzeit vor viel und parallel vor zentral.
+**Prio:** P0 stört den Run zu zweit oder den Release, P1 ist wichtig, P2 kommt später.
 
 ## Wo kann ich anfangen?
 
