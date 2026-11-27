@@ -506,7 +506,7 @@ Lobby-Daten, die nur der Besitzer der Lobby schreiben kann, und kommt mit jedem 
   Lobby, zusammen mit `ddcoop`. Fehlt er oder hat er einen anderen Wert, bricht der Client den Beitritt mit „Unbekannter Koop-Modus
   beim Host“ ab und verlässt die Lobby, statt einen Modus anzunehmen.
 - Der Modus ist ab „Lobby erstellen“ bis zum Ende der Sitzung fest. Wählen geht nur ohne Sitzung und außerhalb eines Runs
-  (Hauptmenü oder MetaBase).
+  (Hauptmenü oder MetaBase). Er steht nicht im Spielstand; ein nach dem Hauptmenü fortgesetzter Run behält ihn darum nicht.
 
 ## Bisher geprüft (05.11.2026, Kontrollkanal vor Diagnoseerweiterung)
 
