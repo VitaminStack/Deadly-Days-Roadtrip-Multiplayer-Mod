@@ -64,6 +64,15 @@ class DocCheckTests(unittest.TestCase):
         self.assertEqual(doc_check.check_sizes(self.root, files, {'TODO.md': 15_000}),
                          ['TODO.md: 16000 Bytes > Grenze 15000', 'a.md: 70000 Bytes > Grenze 60000'])
 
+    def test_prozess_limit_is_6000_bytes(self):
+        """docs/PROZESS.md liest jede Sitzung: Die Standardgrenzen melden sie ab 6001 Bytes (LF gezaehlt)."""
+        self.assertEqual(doc_check.LIMITS['docs/PROZESS.md'], 6_000)
+        name = 'docs/PROZESS.md'
+        self.write(name, 'ä' * 3_000)  # 6000 Bytes in UTF-8
+        self.assertEqual(doc_check.check_sizes(self.root, [name]), [])
+        self.write(name, 'ä' * 2_999 + 'x\r\n' + 'x')  # CRLF zaehlt wie LF: 5998 + 2 + 1 = 6001 Bytes
+        self.assertEqual(doc_check.check_sizes(self.root, [name]), [f'{name}: 6001 Bytes > Grenze 6000'])
+
     def test_archive_files_need_banner(self):
         self.write('docs/archive/a.md', '# Alt\n')
         self.write('docs/archive/b.md', doc_check.ARCHIVE_BANNER + '\n\n# Alt\n')

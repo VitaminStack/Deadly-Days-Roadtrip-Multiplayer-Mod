@@ -2,9 +2,10 @@
 
 Die einzige Liste offener Arbeit: **Probleme** (Fehler) und **Verbesserungen**. Alle Projektphasen sind abgeschlossen ([E-13](docs/ENTSCHEIDUNGEN.md#e-13-phasen-abgeschlossen-flache-aufgabenliste)). Jede Aufgabe ist für sich startbar und abschließbar: Fehlt etwas, das eine andere Aufgabe bauen sollte, baut man es in der eigenen Aufgabe selbst. Erledigtes steht in [docs/ERLEDIGT.md](docs/ERLEDIGT.md), dort auch die [ausstehenden Bestätigungstests](docs/ERLEDIGT.md#bestätigungstests-ausstehend) (nur Info). `py tools/task_status.py check` prüft das Format.
 
-Wie man die Tabellen liest, Fallakten anlegt und Aufgaben abschließt, was nicht erneut gemacht werden soll und welche Dateien alle teilen, steht in [docs/PROZESS.md](docs/PROZESS.md). Risiken stehen in der [Roadmap](docs/ROADMAP.md#risiken).
+Wie man eine Aufgabe wählt, bearbeitet und abschließt, wie eine Fallakte aussieht und was nicht erneut gemacht werden soll, steht in [docs/PROZESS.md](docs/PROZESS.md). Risiken stehen in der [Roadmap](docs/ROADMAP.md#risiken).
 
 **Fokus:** Abschließen statt erweitern. Reihenfolge: nach Prio, bei gleicher Prio Probleme vor Verbesserungen, dann wenig Spielzeit vor viel und parallel vor zentral.
+**Prio:** P0 stört den Run zu zweit oder den Release, P1 ist wichtig, P2 kommt später.
 
 ## Wo kann ich anfangen?
 
@@ -13,7 +14,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen. Die obers
 <!-- frei:start -->
 | Kennung | Prio | Phase | Bearbeitung | Spielzeit |
 |---|---|---|---|---|
-| `prozess-neu-schreiben` | P1 | [Verbesserung](#verbesserungen) | zentral | keine |
 | `coop-modus-wahl` | P1 | [Verbesserung](#verbesserungen) | parallel | mittel |
 | `coop-inventar-konzept` | P1 | [Verbesserung](#verbesserungen) | zentral | mittel |
 | `coop-inventar-zwei` | P1 | [Verbesserung](#verbesserungen) | zentral | viel |
@@ -41,8 +41,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen. Die obers
 | `coop-spielstand` | P2 | [Verbesserung](#verbesserungen) | parallel | viel |
 | `coop-inventar-geteilt` | P2 | [Verbesserung](#verbesserungen) | zentral | viel |
 
-**Wartet auf das Team:** nichts.
-
 **Bestätigungstests ausstehend (nur Info, blockiert nichts):** 43, siehe [docs/ERLEDIGT.md](docs/ERLEDIGT.md#bestätigungstests-ausstehend).
 <!-- frei:end -->
 
@@ -66,7 +64,6 @@ Neue Funktionen, Feinschliff und Release. Jede Zeile nennt ihre Abnahme („Fert
 
 | Kennung | Prio | Aufgabe | Bearbeitung | Spielzeit |
 |---|---|---|---|---|
-| `prozess-neu-schreiben` | P1 | `docs/PROZESS.md` (rund 17 KB) neu schreiben: ein Ablauf ohne Doppelungen und ohne Reste der Phasen. **Fertig, wenn** die Datei unter 6 KB liegt und `doc_check.py` diese Grenze prüft. | zentral | keine |
 | `coop-inventar-konzept` | P1 | Das native geteilte Koop-Inventar ohne Mod untersuchen (lokaler Koop mit zwei Controllern auf einem PC) und daraus das Konzept für das geteilte Inventar online für zwei bis vier Spieler schreiben. Was andere Aufgaben schon gebaut oder festgelegt haben, übernimmt und prüft das Konzept. **Fertig, wenn** `docs/themen/INVENTAR_UND_HANDEL.md` Datenmodell, Wirkregeln über Bereichsgrenzen und native Andockpunkte mit Belegt/Vermutung nennt, das Konzept in `docs/` die Fragen des Architekturprinzips beantwortet und das Team es freigegeben hat. **Einstieg** [Details](docs/OPTIONEN.md#coop-inventar-konzept) | zentral | mittel |
 | `coop-modus-wahl` | P1 | Der Host wählt vor dem Hosten der Lobby zwischen Eigene Inventare (Standard) und Geteiltes Inventar; der Modus geht beim Beitritt an alle Clients und gilt für den ganzen Run. Gibt es das geteilte Inventar noch nicht, überträgt und zeigt die Aufgabe nur den Modus. Vorhandenes übernimmt und prüft sie. **Fertig, wenn** auf zwei PCs beide Modi nacheinander wählbar sind, Host und Client denselben Modus anzeigen und im Log führen, er sich im Run nicht wechseln lässt und ein Client mit unpassender Mod-Version ablehnt. **Einstieg** [Details](docs/OPTIONEN.md#coop-modus-wahl) | parallel | mittel |
 | `coop-inventar-zwei` | P1 | Geteiltes Inventar für zwei Spieler online: ein gemeinsamer Rucksack mit einem Bereich je Spieler, samt Airdrop-Wahl, Itemsäcken, Werkbank, Lager und Rundenende. Fehlende Festlegungen (Datenmodell, wer bucht, Umschalter zwischen den Modi) trifft die Aufgabe selbst und hält sie in `docs/themen/INVENTAR_UND_HANDEL.md` fest. Vorhandenes übernimmt und prüft sie. **Fertig, wenn** auf zwei PCs ein Run von Tag 1 bis Tag 4 im geteilten Inventar ohne Absturz und ohne Desync-Befund läuft, ein Unterstützungs-Item im Bereich von Spieler A die Waffe von Spieler B bei beiden mit gleichen Werten verstärkt und ein Run bis Tag 2 mit eigenen Inventaren wie in Release 1.0 läuft. **Einstieg** [Details](docs/OPTIONEN.md#coop-inventar-zwei) | zentral | viel |

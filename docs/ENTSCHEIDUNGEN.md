@@ -36,8 +36,8 @@ Eine neue Entscheidung bekommt die nächste freie Nummer; ersetzt sie eine älte
 ## E-06: Abschluss mit Ein-PC-Beleg
 
 - **Datum:** 13.11.2026.
-- **Entscheidung:** Eine Aufgabe darf mit Beleg auf einem PC (zwei Instanzen) abgeschlossen werden; die Prüfung zu zweit steht dann unter „Live-Bestätigung ausstehend“.
-- **Folge:** [Live-Bestätigung ausstehend](PROZESS.md#live-bestätigung-ausstehend).
+- **Entscheidung:** Eine Aufgabe darf mit Beleg auf einem PC (zwei Instanzen) abgeschlossen werden; die Prüfung zu zweit steht dann unter „Bestätigungstests ausstehend“.
+- **Folge:** [Bestätigungstests ausstehend](ERLEDIGT.md#bestätigungstests-ausstehend), nur Info nach E-12.
 
 ## E-07: Nur der neueste Spiel-Build
 
@@ -49,7 +49,7 @@ Eine neue Entscheidung bekommt die nächste freie Nummer; ersetzt sie eine älte
 
 - **Datum:** 21.11.2026.
 - **Entscheidung:** Neue Kennungen nur für Funde, die den Run zu zweit verhindern (P0/P1), oder auf Anweisung. Funde mit derselben Ursache im selben PR beheben.
-- **Folge:** Ersetzt durch E-13: Jedes Problem und jede Verbesserung bekommt eine Zeile in `TODO.md`.
+- **Folge:** Gilt seit 27.11.2026 wieder, auch nach E-13. Andere Funde gehören in die PR-Beschreibung, siehe [Fokus](PROZESS.md#fokus).
 
 ## E-09: Erst spielbar
 

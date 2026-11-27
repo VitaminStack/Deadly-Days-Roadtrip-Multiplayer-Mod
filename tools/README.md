@@ -8,7 +8,7 @@ Reserviert Aufgaben aus [TODO.md](../TODO.md#wo-kann-ich-anfangen), damit nieman
 
 | Befehl | Aufgabe |
 |---|---|
-| `py tools/tasks.py list` | Offene Aufgaben aus `TODO.md` auf `origin/main` mit Status: frei, Team, reserviert, Review; je Abschnitt in der [Bearbeitungsreihenfolge](#task_statuspy) |
+| `py tools/tasks.py list` | Offene Aufgaben aus `TODO.md` auf `origin/main` mit Status: frei, reserviert, Review; je Abschnitt in der [Bearbeitungsreihenfolge](#task_statuspy) |
 | `py tools/tasks.py list --short` | Kurz für den Einstieg: je offene Aufgabe Kennung und Status in der Bearbeitungsreihenfolge, Bestätigungstests nur gezählt |
 | `py tools/tasks.py list --active` | Nur aktive Entwicklungsreservierungen/PRs, ohne ausstehende Bestätigungstests |
 | `py tools/tasks.py claim <kennung> <name>` | Worktree, Branch `task/<kennung>`, Push und Draft-PR |
@@ -19,7 +19,7 @@ Reserviert Aufgaben aus [TODO.md](../TODO.md#wo-kann-ich-anfangen), damit nieman
 | `py tools/tasks.py merge-plan` | Empfohlene Merge-Reihenfolge für offene PRs (ohne Entwürfe), merget nichts. Rechnet die Merges mit `git merge-tree` nach: zuerst PRs mit wenigen Konflikten gegen die übrigen PRs, dann die Bearbeitungsreihenfolge der Aufgabe und die Nummer; ein PR, der auf einem anderen aufbaut, kommt danach. PRs, die gegen den Stand davor kollidieren, stehen mit ihren Dateien unter „Erst nachziehen“. Nach jedem Merge neu aufrufen, Laufzeit etwa eine halbe Minute bei 14 PRs |
 | `py tools/tasks.py cleanup [--apply]` | Zeigt lokale Worktrees unter `.worktrees/` und `.claude/worktrees/`, deren PR gemergt und Branch gelöscht ist (oder deren Stand in `main` liegt), und Branches auf origin ohne offenen PR. `--apply` entfernt nur saubere lokale Worktrees dieser Art samt lokalem Branch, nie Branches auf origin |
 
-Erledigte und Team-Aufgaben sind nicht reservierbar, auch ohne `gh`. Offene Aufgaben stehen flach unter „Probleme“ oder „Verbesserungen“ und hängen nicht voneinander ab. Andere Abschnitte mit offenen Aufgaben (Phasen, Wartung, Optionen) kennen die Werkzeuge nicht, ebenso keine Spalte „Braucht“ und keinen Status „blockiert“ oder „zurückgestellt“.
+Erledigte Aufgaben sind nicht reservierbar, auch ohne `gh`; jede offene Aufgabe ist reservierbar. Offene Aufgaben stehen flach unter „Probleme“ oder „Verbesserungen“ und hängen nicht voneinander ab. Andere Abschnitte mit offenen Aufgaben (Phasen, Wartung, Optionen) kennen die Werkzeuge nicht, ebenso keine Spalte „Braucht“ und keinen Status „blockiert“ oder „zurückgestellt“.
 `claim` legt Worktree, Branch und Draft-PR in einem Schritt an, weil parallele Sitzungen Reservierungen nur an Branch und PR auf GitHub erkennen. Ohne `gh` gilt die Reservierung über den Branch, den Draft-PR öffnet man dann von Hand.
 Erledigtes ist nur Info: Ein gemergter PR sperrt eine offene Aufgabe nicht, sie zeigt `frei (früherer PR #n gemergt)`. Liegt sein alter Branch unverändert noch auf origin, nennt `claim` den Befehl zum Löschen; liegen neue Commits darauf, gilt er weiter als Reservierung.
 
@@ -73,7 +73,7 @@ Lokale, netzwerkfreie Prüfung im aktuellen Checkout. Aufgabenquelle sind `TODO.
 | `py tools/task_status.py check` | Tabellen, Kennungen, Abnahme je Aufgabe, erzeugte Abschnitte und veraltete Querverweise prüfen, bei Abweichung Fehlercode |
 | `py tools/task_status.py update` | „Wo kann ich anfangen?“ in `TODO.md` neu erzeugen |
 
-Bearbeitungsreihenfolge (`work_order`, auch für `tasks.py list`): nach Prio, bei gleicher Prio Probleme vor Verbesserungen, dann wenig Spielzeit vor viel, parallel vor zu zweit vor zentral, zuletzt die Kennung. Aufgaben mit Bearbeitung „Team“ stehen nicht in der Liste, sondern unter „Wartet auf das Team“.
+Bearbeitungsreihenfolge (`work_order`, auch für `tasks.py list`): nach Prio, bei gleicher Prio Probleme vor Verbesserungen, dann wenig Spielzeit vor viel, parallel vor zu zweit vor zentral, zuletzt die Kennung.
 
 Geprüft wird: eindeutige Kennungen, offene Aufgaben nur unter „Probleme“ oder „Verbesserungen“, Aufgabentext höchstens 800 Zeichen und mit einer Abnahme („**Fertig, wenn**“), gültige Werte für Prio, Bearbeitung und Spielzeit, alphabetische Tabelle „Erledigt“ in `docs/ERLEDIGT.md` mit der Phase 0 bis 6, `Wartung` oder `Optional` aus der Zeit der Phasen oder `Problem` bzw. `Verbesserung` (schreibt `done`). Außerdem durchsucht `check` alle versionierten Markdown-Dateien (ohne `third_party/`) nach Ankündigungen wie „kommt mit `x`“, „folgt erst in `x`“ oder „bis `x`“, obwohl `x` schon erledigt ist, und nennt Datei und Zeile; `update` zeigt dieselbe Liste nur an. Nicht gemeldet werden offene oder unbekannte Kennungen, die Aufgabenzeilen in `TODO.md` und gemergte Stände wie „bis `x` (#131)“. Wer eine Aufgabe abschließt, passt solche Sätze in derselben Änderung an. Die CI und `Build-Mod.ps1 -Test` führen `check` aus.
 
@@ -89,6 +89,7 @@ Hält die Doku so klein und verlinkt, dass Agenten sie gezielt lesen können. L�
 | `py tools/doc_check.py rebase <datei> <herkunft>` | Links in `<datei>` anpassen, deren Text wortgleich aus `<herkunft>` stammt |
 
 Standardgrenze 60 000 Bytes. Größere Dateien stehen mit ihrer heutigen Größe in `LIMITS`. Diese Werte dürfen nur sinken.
+Kleinere Grenzen halten Dateien kurz, die jede Sitzung liest: die `CLAUDE.md`-Dateien und `docs/PROZESS.md` (6 000 Bytes).
 Arbeitspläne unter `docs/superpowers/` meldet `check`, sobald ihre Aufgabe (`projekt-aufraeumen`) nicht mehr in `TODO.md` offen ist: dann ins Archiv verschieben oder löschen. Dateien unter `docs/archive/` haben keine Grenze, beginnen aber mit dem Archiv-Banner (`ARCHIVE_BANNER`); ihre Links werden trotzdem geprüft.
 
 ## log_summary.py

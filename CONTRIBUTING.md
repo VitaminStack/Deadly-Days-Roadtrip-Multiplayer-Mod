@@ -33,9 +33,9 @@ Die Bereiche zeigen, welche Ordner zusammengehören. Feste Personen je Bereich u
 ### Aufgaben reservieren
 
 Jede Aufgabe hat in [TODO.md](TODO.md) eine Kennung, eine Zeile unter „Probleme“ oder „Verbesserungen“; Abhängigkeiten zwischen Aufgaben gibt es nicht: Fehlt etwas, das eine andere Aufgabe bauen sollte, baut man es in der eigenen Aufgabe selbst. Nehmen darf man nur, was dort `frei` ist, siehe [Wo kann ich anfangen?](TODO.md#wo-kann-ich-anfangen). Reserviert ist, was einen Branch `task/<kennung>` auf GitHub hat.
-Der erste Push gewinnt, ein zweiter wird abgelehnt. Das gilt für Menschen und KI-Agenten, die genauen Befehle stehen in [CLAUDE.md](docs/PROZESS.md#vor-dem-start).
+Der erste Push gewinnt, ein zweiter wird abgelehnt. Das gilt für Menschen und KI-Agenten, die genauen Befehle stehen in [Vor dem Start](docs/PROZESS.md#vor-dem-start).
 
-`py tools/tasks.py list` zeigt jede offene Kennung mit Status: frei, Team, reserviert, in Arbeit oder PR wartet auf Review. Team-Aufgaben lehnt `claim` ab.
+`py tools/tasks.py list` zeigt jede offene Kennung mit Status: frei, reserviert, in Arbeit oder PR wartet auf Review.
 `py tools/tasks.py claim <kennung> <name>` reserviert und öffnet gleich einen Draft-PR `[WIP] <kennung>`. Wer gerade woran arbeitet,
 steht deshalb auf GitHub unter „Pull requests“. **Erledigt** ist, was auf `origin/main` unter [Erledigt](docs/ERLEDIGT.md#erledigt) steht, auch ohne GitHub CLI und nach dem Löschen eines Branches. Für ergänzende Review-/PR-Informationen braucht das Skript die angemeldete [GitHub CLI](https://cli.github.com/) (`gh auth login`); ohne sie bleiben diese Informationen unbekannt, der TODO-Abschluss bleibt erhalten. Ein gemergter PR sperrt eine noch offene Aufgabe nicht.
 Wer über einen Fork arbeitet, kann so nicht reservieren und legt stattdessen ein Issue an.
@@ -46,11 +46,11 @@ Wer beide PCs selbst bedient, reserviert ohne Rolle. Ablauf und Abschluss stehen
 
 ### Aufgabe abschließen und Fortschritt pflegen
 
-Die Schritte stehen in [Aufgabe abschließen](docs/PROZESS.md#aufgabe-abschließen). Kurz:
+Die Schritte stehen in [Abschluss](docs/PROZESS.md#abschluss). Kurz:
 
 1. Ergebnis und Testgrenzen in der Doku festhalten. Erledigte Analyse ist nicht automatisch fertige Umsetzung.
 2. Nur bei erfüllter Abnahme die Zeile aus ihrer Tabelle nach [Erledigt](docs/ERLEDIGT.md#erledigt) verschieben, alphabetisch, mit einem Satz Ergebnis. Neue Aufgaben bekommen eine Zeile unter „Probleme“ oder „Verbesserungen“ mit „Fertig, wenn“.
-3. `py tools/task_status.py update` erneuert „Wo kann ich anfangen?“ und die Fortschrittstabelle im README. Zahlen nicht von Hand schätzen.
+3. `py tools/task_status.py update` erneuert „Wo kann ich anfangen?“. Den Block nicht von Hand ändern.
 4. `py tools/task_status.py check` und `py -B -m unittest discover -s tests` ausführen. Die CI erkennt doppelte Kennungen, fehlende Abnahmen, falsche Werte und veraltete erzeugte Abschnitte. Erst nach dem Merge zeigt `tasks.py list` den neuen Stand von `origin/main`.
 
 ### Branches
