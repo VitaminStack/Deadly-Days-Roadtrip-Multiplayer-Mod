@@ -27,7 +27,6 @@ Einzige Schicht mit Spielzugriff. Enthält Adapter auf Spielklassen und später 
 | `RemoteP2Policy.h` | Reine Logik für den Remote-Spieler als P2: `ActivePlayers`-Map prüfen und aufräumen, Geräte-Wächter, ohne Spiel getestet |
 | `EnemySoundAdapter.h` / `EnemySoundPolicy.h` | `opt-gegner-sound`: Treffer- und Angriffssound der Gegner beim Client (`EnemySoundPatches.cpp`), reine Regeln ohne Spiel getestet. Siehe [Gegner-Sounds](../../docs/archive/GAME_ANALYSIS.md#gegner-sounds-beim-client-opt-gegner-sound) |
 | `PatchPolicy.h` | Reine Regeln der Patches (SpawnedPlayers-Menge, Wächter-Code, Reise, Busplatz), ohne Spiel getestet |
-| `BusFloorPatches.cpp` / `BusFloorPolicy.h` | `busplatz-ohne-boden`, Client: Boden am eigenen Busplatz prüfen wie die Bewegung der Figur (`K2_ComputeFloorDist`), `Busboden: …` ins Log, eigene Figur ohne Boden bis zu 5 s am Busort halten; gerufen aus der Freiräumung (`PlayerPatches.cpp`) und dem Karten-Tick, Regeln ohne Spiel getestet |
 
 ## Game Thread
 
