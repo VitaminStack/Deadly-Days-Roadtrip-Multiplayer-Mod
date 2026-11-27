@@ -1033,6 +1033,16 @@ TEST_CASE("Karte: Client wartet auf die Werte des Hosts, aber nicht ewig")
     CHECK(ClientMapStart(true, false, 0, HostGraphWaitMs) == MapStart::HostValues);
 }
 
+TEST_CASE("Karte: Client erzeugt erst mit eigener Figur, aber nicht ewig (busplatz-vor-figur)")
+{
+    CHECK(WaitForOwnFigure(false, 0));
+    CHECK(WaitForOwnFigure(false, ClientFigureWaitMs - 1));
+    CHECK_FALSE(WaitForOwnFigure(false, ClientFigureWaitMs));
+    CHECK_FALSE(WaitForOwnFigure(true, 0));
+    // Ohne Werte des Hosts erzeugt der Client erst nach HostMapWaitMs eine eigene Karte, dann wartet er nicht mehr.
+    CHECK(HostMapWaitMs >= ClientFigureWaitMs);
+}
+
 TEST_CASE("Karte: Wiederbeitritt übernimmt dieselbe Host-Karte noch einmal (wiedereintritt-karte)")
 {
     ClientMapLedger Ledger;

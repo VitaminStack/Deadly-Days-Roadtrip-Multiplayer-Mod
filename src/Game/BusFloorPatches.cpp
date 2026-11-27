@@ -328,6 +328,21 @@ uintptr_t OwnFigure()
     return Found;
 }
 
+// Bus der aktuellen Welt: BP_SpawnAndLeaveBus_C mit Countdown-Widget (die gleichnamige Vorlage hat keines, BusBarPatches.cpp).
+constexpr uintptr_t BusCountDownWidget = 0x3B8;
+uintptr_t FindBus()
+{
+    const uintptr_t World = CurrentWorld();
+    const uintptr_t Level = World ? Memory::ReadPointer(World + Offsets::UWorld::PersistentLevel).value_or(0) : 0;
+    uintptr_t Found = 0;
+    Objects::ForEachLevelActor(Level, [&](uintptr_t Object)
+    {
+        if (!Found && Objects::IsA(Object, "BP_SpawnAndLeaveBus_C") && Memory::ReadPointer(Object + BusCountDownWidget).value_or(0))
+            Found = Object;
+    });
+    return Found;
+}
+
 uintptr_t MovementOf(uintptr_t Figure)
 {
     const auto Field = Reflection::Property(CharacterMovementField);
@@ -399,6 +414,22 @@ bool Decide(const Floor& F, ULONGLONG Now)
         Core::Log::Warn("Busboden: nach {} ms kein Boden am Bus, eigene Figur losgelassen wie ohne Mod", Now - Bus.Since);
     return false;
 }
+}
+
+void NoteBusKeep(const uintptr_t* Keep, int32_t Num, bool GameState)
+{
+    if (CurrentRole() != NetRole::Client)
+        return;
+    std::string Text;
+    for (int32_t Index = 0; Keep && Index < std::min(Num, 8); ++Index)
+    {
+        const auto At = ActorLocation(Keep[Index]);
+        Text += std::format("{}{} ({:.0f}, {:.0f}, {:.0f})", Index ? ", " : "", Memory::NameOf(Memory::ReadPointer(Keep[Index] + ObjectClass).value_or(0)),
+                            At ? At->X : 0, At ? At->Y : 0, At ? At->Z : 0);
+    }
+    const auto BusAt = ActorLocation(FindBus());
+    Core::Log::Info("Busort: Freiräumung des Clients, {} geschont{}: {}; Bus {}", Num, GameState ? "" : ", ohne GameState", Text.empty() ? "-" : Text,
+                    BusAt ? std::format("bei ({:.0f}, {:.0f}, {:.0f})", BusAt->X, BusAt->Y, BusAt->Z) : std::string("nicht gefunden"));
 }
 
 void NoteBusFloor(bool AfterClear)

@@ -28,6 +28,17 @@ inline MapStart ClientMapStart(bool HasValues, bool GraphKnown, uint64_t WaitedM
     return WaitedMs >= HostMapWaitMs ? MapStart::Own : MapStart::Wait;
 }
 
+// busplatz-vor-figur: Den Busplatz in seiner Erzeugung (eigene Figur und Bus an den Busort, Freiräumung) setzt der Client nur,
+// wenn seine eigene Figur da ist, sobald dieser Schritt läuft. Sonst fällt der ganze Busplatz aus, die Figur bleibt am Startpunkt
+// und fällt im Labyrinth endlos. Beim Wiederbeitritt sind die Werte des Hosts oft vor ihr da (gemessen bis 860 ms). Darum
+// wartet der Client vor dem Start auf sie, höchstens so lange ab dem Aufruf von StartMapGeneration; danach erzeugt er wie bisher.
+inline constexpr uint64_t ClientFigureWaitMs = 10000;
+
+inline bool WaitForOwnFigure(bool FigureReady, uint64_t WaitedMs)
+{
+    return !FigureReady && WaitedMs < ClientFigureWaitMs;
+}
+
 // Client: welche Erzeugung des Hosts schon verbaut und welches Rundenende schon nachgezogen ist. Jede Erzeugung nur einmal
 // übernehmen, sonst baute der Client nach einer Reise die alte Karte, bevor die neuen Werte da sind. Nach einem Verbindungswechsel
 // (wiedereintritt-karte) gilt das nicht: Der Client tritt derselben laufenden Mission in einer neuen Welt bei, und der Host

@@ -173,6 +173,14 @@ Testschalter …`. Die Mod hält die eigene Figur dann am Busort, bis Boden da i
 schaltet das Halten für den Gegentest ab; mit 1500 ms fällt die Figur dann durch die Karte. Der Host ignoriert beide Schalter. Die
 Zeilen `Busboden: …` zeigen beim Client in jeder Zone Boden, Ort, Modus und Fallgeschwindigkeit am Busplatz und in den Frames danach.
 
+Der Client beginnt seine Kartenerzeugung erst, wenn seine eigene Figur in der PlayerArray steht, höchstens 10 s nach dem Aufruf des
+Spiels (`busplatz-vor-figur`). Log: `Karte: Client wartet auf seine eigene Figur …`, dann `Karte: eigene Figur nach … ms da`. Beim
+Wiederbeitritt kommt das fast immer vor, beim Zonenstart nach einer Reise auf einem PC nie. `DDCOOP_TEST_CLIENT_FIGURE_WAIT_OFF=1`
+schaltet das Warten für den Gegentest ab. Dann fehlt beim Wiederbeitritt der Busplatz des Clients
+(`Spawn-Messung: Client-Erzeugung fertig ohne Busplatz des Clients`), und die Figur fällt am Startpunkt endlos. Nachstellen: Zone
+betreten, mindestens 15 s warten, `Test-Rejoin.ps1 -Rounds 5`. Die Zeilen `Busort: Freiräumung des Clients …` nennen bei jedem
+Busplatz des Clients Schonliste und Ort des Busses. Der Host ignoriert den Schalter.
+
 **Blockade-Zonen ohne Eingaben** (gemessen am 26.11.2026 auf `26786272`, `opt-zonenziel-anzeige`): Profil
 `/Game/Map_Generation/Blueprints/MapEvents/TitanBlockage/MGP_TitanBlockage.MGP_TitanBlockage` („Töte alle Titanen!“, 10 Titanen). Mit
 `-Godmode` sterben sie ohne Eingaben in rund 80 s, dann schließt der Host das Ziel ab; für den nächsten Durchlauf neu in die Karte

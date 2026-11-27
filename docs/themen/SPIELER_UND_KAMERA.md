@@ -6,7 +6,7 @@ Gilt für Build `26786272`. Datierte Befunde und Messungen stehen im [Archiv](..
 
 - Das Spiel kennt nur lokales Coop mit zwei `LocalPlayer`. Die Mod trägt den entfernten Spieler beim Host als P2 in die native Coop-Logik ein, ohne zweiten `LocalPlayer`.
 - Der Host spawnt den entfernten Spieler, hält ihn in `SpawnedPlayers`, übernimmt seine Position und verliert ihn weder am Busplatz noch beim Run-Ende.
-- An den Bus setzt der Client seine eigene Figur selbst, in seiner eigenen Kartenerzeugung; der Busplatz des Hosts bewegt sie nicht. Die Zeilen `Spawn-Messung` im Log zeigen das in den ersten 30 s jeder Missionswelt. Fehlt am Busort noch der Boden (Bodenprüfung der Bewegung, `K2_ComputeFloorDist`), hält die Mod die eigene Figur dort, bis er da ist, höchstens 5 s; im Log `Busboden: …`.
+- An den Bus setzt der Client seine eigene Figur selbst, in seiner eigenen Kartenerzeugung; der Busplatz des Hosts bewegt sie nicht. Die Zeilen `Spawn-Messung` im Log zeigen das in den ersten 30 s jeder Missionswelt. Dieser Busplatz läuft nur, wenn die eigene Figur da ist, sobald die Erzeugung ihn erreicht; sonst bleiben Figur und Bus fern vom Busort. Darum wartet der Client mit seiner Erzeugung auf die eigene Figur, höchstens 10 s (beim Wiederbeitritt rund 0,5 bis 0,9 s). Fehlt am Busort noch der Boden (Bodenprüfung der Bewegung, `K2_ComputeFloorDist`), hält die Mod die eigene Figur dort, bis er da ist, höchstens 5 s; im Log `Busboden: …`.
 - Lokale Eingabegeräte bleiben im Netzwerkspiel beim eigenen Spieler; ohne Netzwerk bleibt das Spiel unverändert.
 - Beide sehen eine gemeinsame Kamera. Der Client nimmt die Kamera-Spieler aus der `PlayerArray` statt aus dem GameMode.
 - Nach dem Dodge (`GA_Dash`) repariert die Mod beim Client Reibung und Schwerkraft; die Figur des Clients dodgt bei HP 0 nicht.
@@ -18,6 +18,7 @@ Gilt für Build `26786272`. Datierte Befunde und Messungen stehen im [Archiv](..
 |---|---|---|
 | `src/Game/PlayerPatches.cpp` | Host: Spawn, Spielerindex, `SpawnedPlayers`, Position, Busplatz, Run-Ende | `tests/GameTests/PatchTests.cpp` |
 | `src/Game/BusFloorPatches.cpp`, `src/Game/BusFloorPolicy.h` | Client: Boden am eigenen Busplatz prüfen, Figur ohne Boden am Busort halten | `tests/GameTests/BusFloorPolicyTests.cpp` |
+| `src/Game/MapPatches.cpp`, `src/Game/MapPolicy.h` | Client: Erzeugung wartet auf die eigene Figur, damit sein Busplatz läuft | `tests/GameTests/PatchTests.cpp` |
 | `src/Game/RemoteP2Patches.cpp`, `src/Game/RemoteP2Policy.h` | Host: entfernter Spieler als P2 | `tests/GameTests/PatchTests.cpp` |
 | `src/Game/LocalDevicePatches.cpp`, `src/Game/LocalDevicePolicy.h` | Lokale Geräte bleiben bei Spieler 0 | `tests/GameTests/PatchTests.cpp` |
 | `src/Game/CameraPatches.cpp` | Gemeinsame Kamera, Bewegungs-Restrictor ohne GameState | `tests/GameTests/PatchTests.cpp` (nur Restrictor) |
@@ -27,7 +28,7 @@ Gilt für Build `26786272`. Datierte Befunde und Messungen stehen im [Archiv](..
 
 ## Offene Fehler
 
-- Client fällt live im Labyrinth-Event durch die Karte, Ursache offen. Die Vermutung „Host setzt die Figuren zu früh an den Bus“ ist widerlegt, siehe [spawn-nach-kartenaufbau](../faelle/spawn-nach-kartenaufbau.md). Offen sind zwei Vermutungen: [busplatz-vor-figur](../faelle/busplatz-vor-figur.md) (Busplatz des Clients vor seiner eigenen Figur) und [busplatz-ohne-boden](../faelle/busplatz-ohne-boden.md) (Boden am Bus noch ohne Kollision; auf einem PC nie gesehen, mit Testschalter nachgestellt, die Mod hält die Figur jetzt bis zum Boden).
+- Client fällt live im Labyrinth-Event durch die Karte, Ursache offen. Die Vermutung „Host setzt die Figuren zu früh an den Bus“ ist widerlegt, siehe [spawn-nach-kartenaufbau](../faelle/spawn-nach-kartenaufbau.md). Bearbeitet sind zwei Ursachen: [busplatz-vor-figur](../faelle/busplatz-vor-figur.md) (Erzeugung des Clients vor seiner eigenen Figur; beim Wiederbeitritt belegt und behoben, beim Zonenstart über zwei PCs weiter Vermutung) und [busplatz-ohne-boden](../faelle/busplatz-ohne-boden.md) (Boden am Bus noch ohne Kollision; auf einem PC nie gesehen, mit Testschalter nachgestellt, die Mod hält die Figur jetzt bis zum Boden).
 
 ## Historie
 

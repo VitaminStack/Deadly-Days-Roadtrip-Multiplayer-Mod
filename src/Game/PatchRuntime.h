@@ -116,6 +116,8 @@ void NoteBusPlacement();
 // busplatz-ohne-boden, Client, aus der Freiräumung am Busplatz, vor (false) und nach (true) dem Original: Boden am Busort
 // prüfen, ins Log schreiben und die eigene Figur halten, solange dort kein Boden ist (BusFloorPatches.cpp).
 void NoteBusFloor(bool AfterClear);
+// busplatz-vor-figur, Client, aus der Freiräumung am Busplatz vor jeder Prüfung: Schonliste und Bus ins Log. Num -1 ohne Liste.
+void NoteBusKeep(const uintptr_t* Keep, int32_t Num, bool GameState);
 // busplatz-ohne-boden, Client, jeden Frame: Messung, Halten und Loslassen nach dem Busplatz, Testschalter für späten Boden.
 void TickBusFloor(NetRole Role);
 void TickCharacters(NetRole Role, bool Second);
