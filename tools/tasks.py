@@ -36,9 +36,9 @@ import time
 from pathlib import Path
 
 if __package__:
-    from .task_status import PHASES, PRIOS, EXTRA_SECTIONS, blockers, confirmation_update, deferred, mark_done, parse, regenerate, combine, read_local, write_local, DONE_FILE
+    from .task_status import PHASES, PRIOS, EXTRA_SECTIONS, blockers, confirmation_update, deferred, mark_done, parse, regenerate, combine, read_local, write_local, DONE_FILE, work_order, SECTION_RANK
 else:
-    from task_status import PHASES, PRIOS, EXTRA_SECTIONS, blockers, confirmation_update, deferred, mark_done, parse, regenerate, combine, read_local, write_local, DONE_FILE
+    from task_status import PHASES, PRIOS, EXTRA_SECTIONS, blockers, confirmation_update, deferred, mark_done, parse, regenerate, combine, read_local, write_local, DONE_FILE, work_order, SECTION_RANK
 
 STALE_DAYS = 3
 ROLES = ('host', 'client')
@@ -196,11 +196,15 @@ def active_work(kennung, branches, prs, own_branch=None):
     return False
 
 
+def open_in_work_order(tasks):
+    """Offene Aufgaben in der Reihenfolge von "Wo kann ich anfangen?", das Sinnvollste zuerst."""
+    return sorted((t for t in tasks.values() if not t.done), key=work_order)
+
+
 def cmd_list_short(tasks, branches, prs):
     """Eine Zeile je offener Aufgabe (Kennung und Status), Bestaetigungstests nur gezaehlt."""
-    for kennung, task in tasks.items():
-        if not task.done:
-            print(f'  {kennung} {status(kennung, branches, prs, tasks)}'[:80])
+    for task in open_in_work_order(tasks):
+        print(f'  {task.name} {status(task.name, branches, prs, tasks)}'[:80])
     print(f'Bestätigungstests: {sum(bool(t.confirmation) for t in tasks.values())} (tasks.py tests list)')
 
 
@@ -215,8 +219,9 @@ def cmd_list(active_only=False, short=False):
         print('Hinweis: GitHub CLI fehlt oder ist nicht angemeldet. Abschluss aus TODO.md, '
               'Reservierungen aus Branches; PR-Status unbekannt.')
     section = None
-    for kennung, task in tasks.items():
-        if task.done or task.confirmation:
+    for task in sorted(open_in_work_order(tasks), key=lambda t: SECTION_RANK[t.phase]):  # je Abschnitt, darin Bearbeitungsreihenfolge
+        kennung = task.name
+        if task.confirmation:
             continue
         if active_only and not active_work(kennung, branches, prs):
             continue

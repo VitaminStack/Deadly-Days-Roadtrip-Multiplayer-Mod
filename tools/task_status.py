@@ -1,6 +1,6 @@
 """Liest die Aufgabentabellen aus TODO.md, prueft sie und erzeugt die abgeleiteten Abschnitte.
 
-  py tools/task_status.py check    Format, Abhaengigkeiten, erzeugte Abschnitte und veraltete Querverweise pruefen
+  py tools/task_status.py check    Format, Abhaengigkeiten, Abnahme je Aufgabe, erzeugte Abschnitte und veraltete Querverweise pruefen
   py tools/task_status.py update   "Jetzt bearbeitbar" in TODO.md und den Fortschritt im README neu erzeugen
 
 Zum Abschliessen einer Aufgabe gibt es "py tools/tasks.py done <kennung> <ergebnis>", das mark_done nutzt.
@@ -34,6 +34,7 @@ FREE_START = '<!-- frei:start -->'
 FREE_END = '<!-- frei:end -->'
 ID_PATTERN = r'[a-z0-9][a-z0-9-]*'
 MAX_TASK_TEXT = 800
+ACCEPTANCE_MARK = '**Fertig, wenn**'
 # Bestaetigungstests sind nur Info: Die Aufgabe ist erledigt, der offene Test steht in docs/ERLEDIGT.md.
 INFO_SECTION = 'Bestätigungstests ausstehend'
 INFO_HEADER = '| Kennung | Im Spiel prüfen |'
@@ -218,6 +219,21 @@ def phase_counts(tasks):
     return counts
 
 
+SECTION_RANK = {p: i for i, p in enumerate(PHASES + tuple(EXTRA_SECTIONS.values()) + tuple(LIST_SECTIONS.values()))}
+# Wer neben anderen laufen kann, steht vor Aufgaben, die gemeinsame Schnittstellen festlegen oder zwei PCs brauchen.
+MODE_ORDER = {'parallel': 0, 'zu zweit': 1, 'zentral': 2, 'Team': 3}
+
+
+def work_order(task):
+    """Sortierschluessel der Bearbeitungsreihenfolge fuer "Wo kann ich anfangen?" und tasks.py list.
+
+    Prio, dann Probleme vor Verbesserungen, dann schnell Abschliessbares zuerst: wenig Spielzeit vor viel,
+    parallel vor zentral. Die Kennung haelt die Reihenfolge stabil.
+    """
+    return (PRIOS.index(task.prio), SECTION_RANK[task.phase], PLAYTIMES.index(task.playtime),
+            MODE_ORDER[task.mode], task.name)
+
+
 def free_block(todo, tasks):
     """Inhalt zwischen den frei-Markern: offene Aufgaben, deren Voraussetzungen erledigt sind."""
     anchors = {}
@@ -228,9 +244,7 @@ def free_block(todo, tasks):
             key = match[1] if match else EXTRA_SECTIONS.get(heading) or LIST_SECTIONS.get(heading)
             if key:
                 anchors[key] = slug(heading)
-    ready = [t for t in tasks.values() if not t.done and not blockers(t, tasks)]
-    order = {p: i for i, p in enumerate(PHASES + tuple(EXTRA_SECTIONS.values()) + tuple(LIST_SECTIONS.values()))}
-    ready.sort(key=lambda t: (PRIOS.index(t.prio), order[t.phase], t.name))
+    ready = sorted((t for t in tasks.values() if not t.done and not blockers(t, tasks)), key=work_order)
     held = [t for t in ready if deferred(t, tasks)]
     ready = [t for t in ready if t not in held]
     work = [t for t in ready if t.mode != 'Team']
@@ -598,10 +612,18 @@ def check_text_lengths(tasks):
             raise ValueError(f'{task.name}: Aufgabentext über {MAX_TASK_TEXT} Zeichen, Details in docs/faelle/{task.name}.md')
 
 
+def check_acceptance(tasks):
+    """Jede offene Aufgabe nennt in ihrer Zeile, woran man ihren Abschluss prueft."""
+    for task in tasks.values():
+        if not task.done and ACCEPTANCE_MARK not in task.text:
+            raise ValueError(f'{task.name}: Aufgabentext braucht eine Abnahme mit {ACCEPTANCE_MARK}')
+
+
 def check_all(root, check):
     """(veraltete Dateien, veraltete Querverweise). Wirft ValueError bei ungueltigen Aufgabentabellen."""
     tasks = parse(read_local(root))
     check_text_lengths(tasks)
+    check_acceptance(tasks)
     check_flat_list(tasks)
     references = check_references(root, tasks)
     return regenerate(root, check=check), references
