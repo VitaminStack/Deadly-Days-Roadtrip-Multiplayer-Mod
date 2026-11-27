@@ -1,14 +1,15 @@
 # Aufgaben-Details
 
 Langtexte zu offenen Aufgaben in [TODO.md](../TODO.md), deren Zeile nicht alles fasst. Aufgaben ohne Abschnitt sind in ihrer Zeile vollständig beschrieben.
+Die Zeile ist die Kurzfassung: Nennt der Abschnitt mehr Bedingungen unter „Fertig, wenn“, gilt der Abschnitt.
 Wer eine Aufgabe nimmt, liest hier nur ihren Abschnitt; mit dem Abschluss der Aufgabe wird er gelöscht.
 
 ## `opt-schuss-animation`
 
 Gemeldet im Live-Test am 13.11.2026: Bei der Client-Figur liegen mehrere Waffen übereinander, und die Figur gleitet über den Boden.
 
-- [Belegt] Die übereinander liegenden Waffen waren Geisterwaffen aus dem Host-Zustand nach einer Aufwertung im Client-Edit, behoben mit #224, siehe [Schuss-Animation und Geisterwaffen](archive/GAME_ANALYSIS.md#schuss-animation-und-geisterwaffen-opt-schuss-animation).
-- [Belegt, Live-Test 26.11.2026, zwei PCs] Die Client-Figur gleitet beim Host starr, die Laufanimation blitzt nur einzelne Frames auf.
+- [Belegt, ein PC] Die übereinander liegenden Waffen waren Geisterwaffen aus dem Host-Zustand nach einer Aufwertung im Client-Edit; dagegen ist #224 gemergt, live nicht bestätigt (`tools/spike/hands.py` lief im Live-Test nicht), siehe [Schuss-Animation und Geisterwaffen](archive/GAME_ANALYSIS.md#schuss-animation-und-geisterwaffen-opt-schuss-animation).
+- [Gemeldet, Tester, Live-Test 26.11.2026, zwei PCs] Die Client-Figur gleitet beim Host starr, die Laufanimation blitzt nur einzelne Frames auf.
 - [Belegt, Host-Log] Je Welt steht dort „Tempo der Client-Figur misst der Host aus ihrem Ort“; die Messung aus `opt-laufanimation-client` greift also an.
 - [Gemeldet, Live-Test 13.11.2026 abends] Die Client-Figur glitt auch beim Client ohne richtige Laufanimation.
 - [Belegt] Auf einem PC lief das Wackeln (`WobbleAnimation.Progress`) auf beiden Seiten, auch mit `-NetProfile Internet`; `tools/spike/walk_animation.py` stellt den Fehler also nicht nach, siehe [Laufanimation beim Client](archive/GAME_ANALYSIS.md#laufanimation-beim-client-opt-laufanimation-client).
@@ -16,7 +17,7 @@ Gemeldet im Live-Test am 13.11.2026: Bei der Client-Figur liegen mehrere Waffen 
 - [Vermutung] Dieselbe Ursache hat das zeitweise Rucken der gemeinsamen Kamera des Hosts, das nur auftritt, wenn sich Figuren bewegen.
 - Prüfidee: Positionssprünge der Client-Figur im Host-Log protokollieren und mit dem gemessenen Tempo vergleichen.
 
-**Fertig, wenn** die Ursache belegt ist (auf einem PC nachgestellt oder im Log eines Live-Tests gemessen) und die Client-Figur danach bei Host und Client durchgehend mit Laufanimation läuft.
+**Fertig, wenn** die Ursache des Gleitens belegt ist (auf einem PC nachgestellt oder im Log eines Live-Tests gemessen) und die Client-Figur danach bei Host und Client durchgehend mit Laufanimation läuft und keine Waffen übereinander trägt.
 Die Messung mit `walk_animation.py` auf einem PC allein genügt nicht, sie bestand schon vor dem Live-Test.
 Ordner `src/Game`.
 
