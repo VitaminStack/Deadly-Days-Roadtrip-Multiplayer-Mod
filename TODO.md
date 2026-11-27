@@ -13,7 +13,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen. Die obers
 <!-- frei:start -->
 | Kennung | Prio | Phase | Bearbeitung | Spielzeit |
 |---|---|---|---|---|
-| `aufgaben-werkzeuge-entschlacken` | P1 | [Verbesserung](#verbesserungen) | zentral | keine |
 | `prozess-neu-schreiben` | P1 | [Verbesserung](#verbesserungen) | zentral | keine |
 | `coop-modus-wahl` | P1 | [Verbesserung](#verbesserungen) | parallel | mittel |
 | `coop-inventar-konzept` | P1 | [Verbesserung](#verbesserungen) | zentral | mittel |
@@ -67,7 +66,6 @@ Neue Funktionen, Feinschliff und Release. Jede Zeile nennt ihre Abnahme („Fert
 
 | Kennung | Prio | Aufgabe | Bearbeitung | Spielzeit |
 |---|---|---|---|---|
-| `aufgaben-werkzeuge-entschlacken` | P1 | Reste der alten Aufgabenlogik in `tools/tasks.py` und `tools/task_status.py` entfernen: offene Tabellen in Phasen- und Optionen-Abschnitten und das Lesen alter Bestätigungszeilen; entscheiden, ob `claim` mit Worktree, Draft-PR und `gh` bleibt. **Fertig, wenn** der Code offene Aufgaben nur noch unter Probleme und Verbesserungen kennt, `tools/README.md` dazu passt und alle Tests grün sind. | zentral | keine |
 | `prozess-neu-schreiben` | P1 | `docs/PROZESS.md` (rund 17 KB) neu schreiben: ein Ablauf ohne Doppelungen und ohne Reste der Phasen. **Fertig, wenn** die Datei unter 6 KB liegt und `doc_check.py` diese Grenze prüft. | zentral | keine |
 | `coop-inventar-konzept` | P1 | Das native geteilte Koop-Inventar ohne Mod untersuchen (lokaler Koop mit zwei Controllern auf einem PC) und daraus das Konzept für das geteilte Inventar online für zwei bis vier Spieler schreiben. Was andere Aufgaben schon gebaut oder festgelegt haben, übernimmt und prüft das Konzept. **Fertig, wenn** `docs/themen/INVENTAR_UND_HANDEL.md` Datenmodell, Wirkregeln über Bereichsgrenzen und native Andockpunkte mit Belegt/Vermutung nennt, das Konzept in `docs/` die Fragen des Architekturprinzips beantwortet und das Team es freigegeben hat. **Einstieg** [Details](docs/OPTIONEN.md#coop-inventar-konzept) | zentral | mittel |
 | `coop-modus-wahl` | P1 | Der Host wählt vor dem Hosten der Lobby zwischen Eigene Inventare (Standard) und Geteiltes Inventar; der Modus geht beim Beitritt an alle Clients und gilt für den ganzen Run. Gibt es das geteilte Inventar noch nicht, überträgt und zeigt die Aufgabe nur den Modus. Vorhandenes übernimmt und prüft sie. **Fertig, wenn** auf zwei PCs beide Modi nacheinander wählbar sind, Host und Client denselben Modus anzeigen und im Log führen, er sich im Run nicht wechseln lässt und ein Client mit unpassender Mod-Version ablehnt. **Einstieg** [Details](docs/OPTIONEN.md#coop-modus-wahl) | parallel | mittel |

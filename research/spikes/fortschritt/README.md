@@ -25,7 +25,7 @@ Spielaktionen macht der Mensch, Messungen der Agent per Skript.
 ## Abnahme
 
 `fortschritt` ist fertig, wenn Schritt 3 und 4 ohne Abweichung und ohne Absturz laufen.
-Abweichungen bekommen eine neue Kennung in `TODO.md`, kleine Darstellungsfehler unter Optionale Optimierungen.
+Abweichungen bekommen eine neue Kennung in `TODO.md`, kleine Darstellungsfehler unter Verbesserungen.
 
 ## Ergebnisse
 

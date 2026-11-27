@@ -1,7 +1,7 @@
-"""Liest die Aufgabentabellen aus TODO.md, prueft sie und erzeugt die abgeleiteten Abschnitte.
+"""Liest die Aufgabentabellen aus TODO.md und docs/ERLEDIGT.md, prueft sie und erzeugt "Wo kann ich anfangen?".
 
-  py tools/task_status.py check    Format, Abnahme je Aufgabe, erzeugte Abschnitte und veraltete Querverweise pruefen
-  py tools/task_status.py update   "Jetzt bearbeitbar" in TODO.md und den Fortschritt im README neu erzeugen
+  py tools/task_status.py check    Format, Abnahme je Aufgabe, erzeugten Abschnitt und veraltete Querverweise pruefen
+  py tools/task_status.py update   "Wo kann ich anfangen?" in TODO.md neu erzeugen
 
 Zum Abschliessen einer Aufgabe gibt es "py tools/tasks.py done <kennung> <ergebnis>", das mark_done nutzt.
 
@@ -12,7 +12,6 @@ Die Werkzeuge lesen beide Dateien als einen Text (combine) und schreiben sie get
 """
 from dataclasses import dataclass
 from pathlib import Path
-from html import escape
 import re
 import sys
 
@@ -20,16 +19,14 @@ DONE_HEADER = '| Kennung | Phase | Ergebnis |'
 DONE_SECTION = 'Erledigt'
 DONE_FILE = 'docs/ERLEDIGT.md'
 DONE_TITLE = '# Erledigte Aufgaben'
-DONE_PREAMBLE = DONE_TITLE + '\n\nAbgeschlossene Kennungen mit Ergebnis, nie erneut reservieren. Neue Zeilen setzt `py tools/tasks.py done`.\n\n'
-# Alle Phasen sind abgeschlossen. Offene Arbeit steht flach unter Probleme oder Verbesserungen; jede Aufgabe ist fuer
-# sich startbar und abschliessbar.
+# Offene Arbeit steht flach unter Probleme oder Verbesserungen; jede Aufgabe ist fuer sich startbar und abschliessbar.
 LIST_HEADER = '| Kennung | Prio | Aufgabe | Bearbeitung | Spielzeit |'
 LIST_SECTIONS = {'Probleme': 'Problem', 'Verbesserungen': 'Verbesserung'}
-EXTRA_SECTIONS = {'Wartung': 'Wartung', 'Optionale Optimierungen': 'Optional', 'Real Coop logic': 'Coop'}
 PRIOS = ('P0', 'P1', 'P2')
 MODES = ('parallel', 'zentral', 'zu zweit', 'Team')
 PLAYTIMES = ('keine', 'wenig', 'mittel', 'viel')
-PHASES = tuple(str(n) for n in range(7))
+# Spalte Phase unter Erledigt: Ziffern und Namen aus der Zeit der Phasen; done schreibt Problem oder Verbesserung.
+DONE_PHASES = tuple(str(n) for n in range(7)) + ('Wartung', 'Optional') + tuple(LIST_SECTIONS.values())
 FREE_START = '<!-- frei:start -->'
 FREE_END = '<!-- frei:end -->'
 ID_PATTERN = r'[a-z0-9][a-z0-9-]*'
@@ -40,8 +37,6 @@ INFO_SECTION = 'Bestätigungstests ausstehend'
 INFO_HEADER = '| Kennung | Im Spiel prüfen |'
 INFO_INTRO = ('Spicker für Live-Sitzungen: was bei erledigten Aufgaben noch im Spiel zu prüfen ist, ohne Datum und Vorgeschichte. '
               'Nur Info, blockiert nichts. Pflege mit `py tools/tasks.py tests update|pass|reopen`.')
-CONFIRMATION_PREFIX = '**Bestätigungstest ausstehend:** '
-CONFIRMATION_TASK = ' **Aufgabe und Abnahme:** '
 
 
 @dataclass
@@ -68,9 +63,12 @@ def cells(line):
 
 
 def parse(todo):
-    """Kennung -> Task. Wirft ValueError bei jedem Formatfehler."""
-    tasks, sections = {}, {}
-    section, phase, table, in_free = '', None, None, False
+    """Kennung -> Task. Wirft ValueError bei jedem Formatfehler.
+
+    Offene Tabellen gibt es nur unter Probleme und Verbesserungen, ein Aufgabenkopf in einem anderen Abschnitt ist ein Fehler.
+    """
+    tasks = {}
+    section, kind, table, in_free = '', None, None, False
     for number, line in enumerate(todo.splitlines(), 1):
         where = f'TODO.md Zeile {number}'
         if line == FREE_START:
@@ -81,18 +79,13 @@ def parse(todo):
             continue
         if in_free:
             continue
-        if re.match(r'^- \[[ xX]\] ', line) or '<!-- tasks:' in line:
-            raise ValueError(f'{where}: Checkboxen und tasks-Marker gibt es nicht mehr, Aufgaben stehen in Tabellen')
         if line.startswith('## '):
             section = line[3:].strip()
-            match = re.match(r'^Phase ([0-6]) – ', section)
-            phase = match[1] if match else EXTRA_SECTIONS.get(section) or LIST_SECTIONS.get(section)
-            if phase is not None:
-                sections[phase] = section
+            kind = LIST_SECTIONS.get(section)
             table = None
             continue
         if line.startswith('| Kennung |'):
-            if line == LIST_HEADER and phase is not None:
+            if line == LIST_HEADER and kind is not None:
                 table = 'open'
             elif line == DONE_HEADER and section == DONE_SECTION:
                 table = 'done'
@@ -130,15 +123,13 @@ def parse(todo):
                 raise ValueError(f'{where}: {name}: Bearbeitung muss parallel, zentral, zu zweit oder Team sein')
             if playtime not in PLAYTIMES:
                 raise ValueError(f'{where}: {name}: Spielzeit muss keine, wenig, mittel oder viel sein')
-            # Alter Stand (etwa origin/main vor dem Umbau): offene Zeile mit Bestaetigungstest lesen, check lehnt sie ab.
-            confirmation = text[len(CONFIRMATION_PREFIX):].partition(CONFIRMATION_TASK)[0] if text.startswith(CONFIRMATION_PREFIX) else ''
-            tasks[name] = Task(name, phase, section, False, text, prio, mode, playtime, confirmation)
+            tasks[name] = Task(name, kind, section, False, text, prio, mode, playtime)
         else:
             if len(row) != 3:
                 raise ValueError(f'{where}: {name} braucht 3 Spalten')
             _, done_phase, text = row
-            if done_phase not in PHASES + tuple(EXTRA_SECTIONS.values()) + tuple(LIST_SECTIONS.values()):
-                raise ValueError(f'{where}: {name}: Phase muss 0 bis 6, Wartung, Optional, Coop, Problem oder Verbesserung sein')
+            if done_phase not in DONE_PHASES:
+                raise ValueError(f'{where}: {name}: Phase muss 0 bis 6, Wartung, Optional, Problem oder Verbesserung sein')
             tasks[name] = Task(name, done_phase, DONE_SECTION, True, text)
     validate_done_order(todo)
     return tasks
@@ -158,19 +149,7 @@ def validate_done_order(todo):
         raise ValueError(f'Erledigt ist nicht alphabetisch sortiert, zuerst falsch: {wrong}')
 
 
-def phase_counts(tasks):
-    counts = {int(p): [0, 0] for p in PHASES}
-    for task in tasks.values():
-        if task.phase in PHASES:
-            counts[int(task.phase)][0] += task.done
-            counts[int(task.phase)][1] += 1
-    empty = [str(p) for p, (_, total) in counts.items() if total == 0]
-    if empty:
-        raise ValueError('Phasen ohne Aufgaben: ' + ', '.join(empty))
-    return counts
-
-
-SECTION_RANK = {p: i for i, p in enumerate(PHASES + tuple(EXTRA_SECTIONS.values()) + tuple(LIST_SECTIONS.values()))}
+SECTION_RANK = {kind: i for i, kind in enumerate(LIST_SECTIONS.values())}
 # Wer neben anderen laufen kann, steht vor Aufgaben, die gemeinsame Schnittstellen festlegen oder zwei PCs brauchen.
 MODE_ORDER = {'parallel': 0, 'zu zweit': 1, 'zentral': 2, 'Team': 3}
 
@@ -185,22 +164,17 @@ def work_order(task):
             MODE_ORDER[task.mode], task.name)
 
 
-def free_block(todo, tasks):
-    """Inhalt zwischen den frei-Markern: alle offenen Aufgaben in Bearbeitungsreihenfolge."""
-    anchors = {}
-    for line in todo.splitlines():
-        if line.startswith('## '):
-            heading = line[3:].strip()
-            match = re.match(r'^Phase ([0-6]) – ', heading)
-            key = match[1] if match else EXTRA_SECTIONS.get(heading) or LIST_SECTIONS.get(heading)
-            if key:
-                anchors[key] = slug(heading)
+def free_block(tasks):
+    """Inhalt zwischen den frei-Markern: alle offenen Aufgaben in Bearbeitungsreihenfolge.
+
+    Die Spalte heisst weiter "Phase", damit parallele Branches denselben Block erzeugen; sie verlinkt den Abschnitt.
+    """
     ready = sorted((t for t in tasks.values() if not t.done), key=work_order)
     work = [t for t in ready if t.mode != 'Team']
     team = [t for t in ready if t.mode == 'Team']
     lines = ['| Kennung | Prio | Phase | Bearbeitung | Spielzeit |', '|---|---|---|---|---|']
     for t in work:
-        lines.append(f'| `{t.name}` | {t.prio} | [{t.phase}](#{anchors[t.phase]}) | {t.mode} | {t.playtime} |')
+        lines.append(f'| `{t.name}` | {t.prio} | [{t.phase}](#{slug(t.section)}) | {t.mode} | {t.playtime} |')
     if not work:
         lines.append('| – | | | | |')
     lines.append('')
@@ -217,76 +191,8 @@ def update_todo(todo, tasks):
     if start < 0 or end < start or todo.count(FREE_START) != 1 or todo.count(FREE_END) != 1:
         raise ValueError('TODO.md braucht genau einen Block zwischen <!-- frei:start --> und <!-- frei:end -->')
     newline = '\r\n' if '\r\n' in todo else '\n'
-    block = free_block(todo, tasks).replace('\n', newline)
+    block = free_block(tasks).replace('\n', newline)
     return todo[:start + len(FREE_START)] + newline + block + newline + todo[end:]
-
-
-def progress_bar(done, total):
-    filled = (done * 11 + total // 2) // total
-    return '█' * filled + '░' * (11 - filled)
-
-
-def update_readme(tasks, readme):
-    counts = phase_counts(tasks)
-    counts['total'] = [sum(v[0] for v in counts.values()), sum(v[1] for v in counts.values())]
-    seen = set()
-    lines = []
-    for line in readme.splitlines(keepends=True):
-        match = re.match(r'^\| \[([0-6])\]\(', line)
-        key = int(match[1]) if match else 'total' if line.startswith('| **Total** |') else None
-        if key is not None:
-            if key in seen:
-                raise ValueError('Doppelte README-Fortschrittszeile')
-            seen.add(key)
-            row = line.rstrip('\r\n').split('|')
-            if len(row) != 6:
-                raise ValueError('Unerwartetes README-Tabellenformat')
-            done, total = counts[key]
-            value = f'{done} of {total}'
-            row[3] = f' **{value}** ' if key == 'total' else f' {value} '
-            row[4] = f' {progress_bar(done, total)} '
-            line = '|'.join(row) + line[len(line.rstrip('\r\n')):]
-        lines.append(line)
-    if seen != set(counts):
-        raise ValueError('README-Fortschrittstabelle unvollstaendig')
-    return ''.join(lines)
-
-
-def progress_svg(tasks, readme):
-    """GitHub entfernt Tabellen-CSS; eine lokale SVG kann ganze abgeschlossene Zeilen gruen hinterlegen."""
-    readme = update_readme(tasks, readme)
-    counts = phase_counts(tasks)
-    rows = []
-    for line in readme.splitlines():
-        match = re.match(r'^\| \[([0-6])\]\(', line)
-        if match:
-            phase = int(match[1])
-            rows.append((str(phase), cells(line)[1], *counts[phase]))
-    rows.append(('Total', '', sum(v[0] for v in counts.values()), sum(v[1] for v in counts.values())))
-    height = 52 + 48 * len(rows)
-    svg = [f'<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="{height}" viewBox="0 0 1000 {height}" role="img" aria-labelledby="title desc">',
-           '  <title id="title">Project progress per phase</title>',
-           '  <desc id="desc">Fully completed phases have a green background. The linked text table is in the README.</desc>',
-           '  <g font-family="Segoe UI, sans-serif" font-size="16" fill="#111827">',
-           '    <rect width="1000" height="52" fill="#1f2937"/>']
-    for x, label in ((20, 'Phase'), (125, 'Goal'), (490, 'Done'), (630, 'Progress')):
-        svg.append(f'    <text x="{x}" y="33" fill="#ffffff" font-weight="600">{label}</text>')
-    for index, (phase, goal, done, total) in enumerate(rows):
-        y = 52 + index * 48
-        complete = done == total
-        background = '#dcfce7' if complete else '#f3f4f6' if phase == 'Total' else '#ffffff'
-        bar = '#15803d' if complete else '#64748b'
-        status = 'Completed' if complete else f'{done * 100 // total} %'
-        svg += [f'    <g id="phase-{phase.lower()}">',
-                f'      <rect y="{y}" width="1000" height="48" fill="{background}"/>',
-                f'      <path d="M0 {y + 48}H1000" stroke="#d1d5db"/>']
-        for x, label in ((20, phase), (125, goal), (490, f'{done} of {total}')):
-            svg.append(f'      <text x="{x}" y="{y + 30}">{escape(label)}</text>')
-        svg.append(f'      <rect x="630" y="{y + 15}" width="200" height="18" rx="4" fill="#e5e7eb"/>')
-        if done:
-            svg.append(f'      <rect x="630" y="{y + 15}" width="{200 * done // total}" height="18" rx="4" fill="{bar}"/>')
-        svg += [f'      <text x="846" y="{y + 30}">{status}</text>', '    </g>']
-    return '\n'.join(svg + ['  </g>', '</svg>', ''])
 
 
 def mark_done(todo, name, result):
@@ -391,8 +297,8 @@ def confirmation_update(todo, names, action, note):
     if not names or len(names) != len(set(names)):
         raise ValueError('Mindestens eine Kennung, keine doppelten Kennungen')
     note = note.strip()
-    if not note or any(c in note for c in ('|', '\n', '\r', CONFIRMATION_PREFIX.strip(), CONFIRMATION_TASK.strip())):
-        raise ValueError('Stand/Ergebnis ist ein Satz ohne |, Zeilenumbruch oder Statusmarker')
+    if not note or any(c in note for c in ('|', '\n', '\r')):
+        raise ValueError('Stand/Ergebnis ist ein Satz ohne | und ohne Zeilenumbruch')
     tasks = parse(todo)
     for name in names:
         task = tasks.get(name)
@@ -424,30 +330,18 @@ SKIPPED_DIRS = ('third_party/', 'research/local/', '.worktrees/', '.claude/')
 
 def combine(todo, done):
     """Ein Text aus TODO.md und docs/ERLEDIGT.md, wie ihn parse, mark_done und update_todo erwarten."""
-    if not done:
-        return todo
     if not todo.endswith('\n'):
         todo += '\n'
     return todo + done
 
 
 def split(text):
-    """(TODO.md, docs/ERLEDIGT.md) aus dem kombinierten Text.
-
-    Steht der Abschnitt "Erledigt" noch in TODO.md (alter Stand), wird er herausgeschnitten und bekommt den Vorspann.
-    """
+    """(TODO.md, docs/ERLEDIGT.md) aus dem kombinierten Text, getrennt an der Titelzeile von docs/ERLEDIGT.md."""
     lines = text.splitlines(keepends=True)
     for index, line in enumerate(lines):
         if line.rstrip('\r\n') == DONE_TITLE:
             return ''.join(lines[:index]), ''.join(lines[index:])
-    start = next((i for i, line in enumerate(lines) if line.rstrip('\r\n') == f'## {DONE_SECTION}'), None)
-    if start is None:
-        return text, ''
-    end = next((i for i in range(start + 1, len(lines)) if lines[i].startswith('## ')
-                and lines[i].rstrip('\r\n') != f'## {INFO_SECTION}'), len(lines))
-    newline = '\r\n' if lines[start].endswith('\r\n') else '\n'
-    section = ''.join(lines[start:end]).rstrip('\r\n') + newline
-    return ''.join(lines[:start] + lines[end:]), DONE_PREAMBLE.replace('\n', newline) + section
+    raise ValueError(f'Titel "{DONE_TITLE}" von {DONE_FILE} fehlt')
 
 
 def newline_of(path, default='\n'):
@@ -457,11 +351,9 @@ def newline_of(path, default='\n'):
 
 
 def read_local(root):
-    """Kombinierter Text aus TODO.md und docs/ERLEDIGT.md im Arbeitsordner; fehlt ERLEDIGT.md, nur TODO.md."""
+    """Kombinierter Text aus TODO.md und docs/ERLEDIGT.md im Arbeitsordner."""
     root = Path(root)
-    todo = (root / 'TODO.md').read_bytes().decode('utf-8')
-    done_path = root / DONE_FILE
-    return combine(todo, done_path.read_bytes().decode('utf-8') if done_path.exists() else '')
+    return combine(*((root / name).read_bytes().decode('utf-8') for name in ('TODO.md', DONE_FILE)))
 
 
 def write_local(root, text):
@@ -513,38 +405,13 @@ def check_references(root, tasks):
 
 
 def regenerate(root, check=False):
-    """Erneuert die abgeleiteten Abschnitte. Liefert die veralteten Dateien; mit check wird nichts geschrieben."""
-    readme_path = root / 'README.md'
-    svg_path = root / 'docs/assets/progress.svg'
+    """Erneuert "Wo kann ich anfangen?". Liefert die veralteten Dateien; mit check wird nichts geschrieben."""
     text = read_local(root)
-    readme = readme_path.read_bytes().decode('utf-8')
-    tasks = parse(text)
-    expected_text = update_todo(text, tasks)
-    expected_readme = update_readme(tasks, readme)
-    expected_svg = progress_svg(tasks, expected_readme)
-    stale = []
-    if expected_text != text:
-        stale += [root / name for name, old, new in zip(('TODO.md', DONE_FILE), split(text), split(expected_text))
-                  if old != new]
-    others = ((readme_path, readme, expected_readme),
-              (svg_path, svg_path.read_text(encoding='utf-8') if svg_path.exists() else '', expected_svg))
-    stale += [p for p, old, new in others if old != new]
+    expected = update_todo(text, parse(text))
+    stale = [root / name for name, old, new in zip(('TODO.md', DONE_FILE), split(text), split(expected)) if old != new]
     if stale and not check:
-        if expected_text != text:
-            write_local(root, expected_text)
-        for path, _, new in others:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(new.encode('utf-8'))
+        write_local(root, expected)
     return stale
-
-
-def check_flat_list(tasks):
-    """Offene Aufgaben stehen nur unter Probleme oder Verbesserungen."""
-    for task in tasks.values():
-        if not task.done and task.confirmation:
-            raise ValueError(f'{task.name}: Bestätigungstests stehen als Info in docs/ERLEDIGT.md, nicht als offene Zeile')
-        if not task.done and task.phase not in LIST_SECTIONS.values():
-            raise ValueError(f'{task.name}: offene Aufgaben stehen unter Probleme oder Verbesserungen')
 
 
 def check_text_lengths(tasks):
@@ -566,7 +433,6 @@ def check_all(root, check):
     tasks = parse(read_local(root))
     check_text_lengths(tasks)
     check_acceptance(tasks)
-    check_flat_list(tasks)
     references = check_references(root, tasks)
     return regenerate(root, check=check), references
 
@@ -586,7 +452,7 @@ def main():
         if sys.argv[1] == 'check':
             sys.exit('Querverweise anpassen, siehe oben.')
     if not stale:
-        print('TODO.md, README-Fortschritt und SVG sind konsistent.')
+        print('TODO.md und docs/ERLEDIGT.md sind konsistent.')
     elif sys.argv[1] == 'check':
         sys.exit('Veraltet: ' + ', '.join(p.name for p in stale) + '. py tools/task_status.py update ausfuehren.')
     else:

@@ -9,7 +9,7 @@ Reserviert Aufgaben aus [TODO.md](../TODO.md#wo-kann-ich-anfangen), damit nieman
 | Befehl | Aufgabe |
 |---|---|
 | `py tools/tasks.py list` | Offene Aufgaben aus `TODO.md` auf `origin/main` mit Status: frei, Team, reserviert, Review; je Abschnitt in der [Bearbeitungsreihenfolge](#task_statuspy) |
-| `py tools/tasks.py list --short` | Kurz für den Einstieg: je offene Aufgabe aus Phasen und Wartung Kennung und Status, Optionen und Bestätigungstests nur gezählt |
+| `py tools/tasks.py list --short` | Kurz für den Einstieg: je offene Aufgabe Kennung und Status in der Bearbeitungsreihenfolge, Bestätigungstests nur gezählt |
 | `py tools/tasks.py list --active` | Nur aktive Entwicklungsreservierungen/PRs, ohne ausstehende Bestätigungstests |
 | `py tools/tasks.py claim <kennung> <name>` | Worktree, Branch `task/<kennung>`, Push und Draft-PR |
 | `py tools/tasks.py claim <kennung> <name> host\|client` | Bei Aufgaben „zu zweit“ nur eine Rolle: Branch `task/<kennung>/<rolle>`, Worktree `.worktrees/<kennung>-<rolle>`, siehe [Test auf zwei PCs](../docs/TESTING.md#test-auf-zwei-pcs) |
@@ -19,7 +19,8 @@ Reserviert Aufgaben aus [TODO.md](../TODO.md#wo-kann-ich-anfangen), damit nieman
 | `py tools/tasks.py merge-plan` | Empfohlene Merge-Reihenfolge für offene PRs (ohne Entwürfe), merget nichts. Rechnet die Merges mit `git merge-tree` nach: zuerst PRs mit wenigen Konflikten gegen die übrigen PRs, dann die Bearbeitungsreihenfolge der Aufgabe und die Nummer; ein PR, der auf einem anderen aufbaut, kommt danach. PRs, die gegen den Stand davor kollidieren, stehen mit ihren Dateien unter „Erst nachziehen“. Nach jedem Merge neu aufrufen, Laufzeit etwa eine halbe Minute bei 14 PRs |
 | `py tools/tasks.py cleanup [--apply]` | Zeigt lokale Worktrees unter `.worktrees/` und `.claude/worktrees/`, deren PR gemergt und Branch gelöscht ist (oder deren Stand in `main` liegt), und Branches auf origin ohne offenen PR. `--apply` entfernt nur saubere lokale Worktrees dieser Art samt lokalem Branch, nie Branches auf origin |
 
-Erledigte und Team-Aufgaben sind nicht reservierbar, auch ohne `gh`. Offene Aufgaben stehen flach unter „Probleme“ oder „Verbesserungen“ und hängen nicht voneinander ab: Die Werkzeuge kennen keine Spalte „Braucht“ und keinen Status „blockiert“ oder „zurückgestellt“.
+Erledigte und Team-Aufgaben sind nicht reservierbar, auch ohne `gh`. Offene Aufgaben stehen flach unter „Probleme“ oder „Verbesserungen“ und hängen nicht voneinander ab. Andere Abschnitte mit offenen Aufgaben (Phasen, Wartung, Optionen) kennen die Werkzeuge nicht, ebenso keine Spalte „Braucht“ und keinen Status „blockiert“ oder „zurückgestellt“.
+`claim` legt Worktree, Branch und Draft-PR in einem Schritt an, weil parallele Sitzungen Reservierungen nur an Branch und PR auf GitHub erkennen. Ohne `gh` gilt die Reservierung über den Branch, den Draft-PR öffnet man dann von Hand.
 Erledigtes ist nur Info: Ein gemergter PR sperrt eine offene Aufgabe nicht, sie zeigt `frei (früherer PR #n gemergt)`. Liegt sein alter Branch unverändert noch auf origin, nennt `claim` den Befehl zum Löschen; liegen neue Commits darauf, gilt er weiter als Reservierung.
 
 ### Bestätigungstests
@@ -49,8 +50,8 @@ Bericht abgeschlossen werden. Der Bericht muss für jede Kennung das Ergebnis be
 py tools/tasks.py tests pass dodge-client-live karte-tunnel --note "Beide Abnahmen bestanden, siehe [Bericht](docs/TESTING.md)"
 ```
 
-Das Beispiel zeigt die Syntax, keinen tatsächlich bestandenen Test. `pass` verschiebt die
-gewählten Aufgaben alphabetisch nach „Erledigt“ und erneuert den Fortschritt. Ein Teiltest,
+Das Beispiel zeigt die Syntax, keinen tatsächlich bestandenen Test. `pass` entfernt die
+Info-Zeilen der gewählten Aufgaben und hängt den Beleg an ihr Ergebnis unter „Erledigt“. Ein Teiltest,
 eine Diagnose oder ein verschobener Termin bekommt nur `update`, niemals `pass`. Scheitert
 eine Abnahme, vermerkt `tests reopen <kennung> --note "Befund"` den Fehlschlag am Ergebnis und
 entfernt die Info-Zeile; die Aufgabe bleibt unter „Erledigt“ und sperrt nichts.
@@ -65,16 +66,16 @@ vor dem Schreiben ab. Alle Änderungen bleiben lokal bis Commit und Merge.
 
 ## task_status.py
 
-Lokale, netzwerkfreie Prüfung im aktuellen Checkout. `TODO.md` ist die einzige Aufgabenquelle, „Wo kann ich anfangen?“ und der Fortschritt im README sind daraus erzeugt.
+Lokale, netzwerkfreie Prüfung im aktuellen Checkout. Aufgabenquelle sind `TODO.md` (offen) und `docs/ERLEDIGT.md` (erledigt), „Wo kann ich anfangen?“ ist daraus erzeugt. Die Fortschrittstabelle der Phasen im README und `docs/assets/progress.svg` sind fest, seit alle Phasen abgeschlossen sind; kein Werkzeug erzeugt sie mehr.
 
 | Befehl | Aufgabe |
 |---|---|
 | `py tools/task_status.py check` | Tabellen, Kennungen, Abnahme je Aufgabe, erzeugte Abschnitte und veraltete Querverweise prüfen, bei Abweichung Fehlercode |
-| `py tools/task_status.py update` | „Wo kann ich anfangen?“ in `TODO.md` sowie Zahlen und Balken im README neu erzeugen |
+| `py tools/task_status.py update` | „Wo kann ich anfangen?“ in `TODO.md` neu erzeugen |
 
 Bearbeitungsreihenfolge (`work_order`, auch für `tasks.py list`): nach Prio, bei gleicher Prio Probleme vor Verbesserungen, dann wenig Spielzeit vor viel, parallel vor zu zweit vor zentral, zuletzt die Kennung. Aufgaben mit Bearbeitung „Team“ stehen nicht in der Liste, sondern unter „Wartet auf das Team“.
 
-Geprüft wird: eindeutige Kennungen, offene Aufgaben nur unter „Probleme“ oder „Verbesserungen“, Aufgabentext höchstens 800 Zeichen und mit einer Abnahme („**Fertig, wenn**“), gültige Werte für Prio, Bearbeitung und Spielzeit, alphabetische Tabelle „Erledigt“ in `docs/ERLEDIGT.md`, keine alten Checkboxen. Außerdem durchsucht `check` alle versionierten Markdown-Dateien (ohne `third_party/`) nach Ankündigungen wie „kommt mit `x`“, „folgt erst in `x`“ oder „bis `x`“, obwohl `x` schon erledigt ist, und nennt Datei und Zeile; `update` zeigt dieselbe Liste nur an. Nicht gemeldet werden offene oder unbekannte Kennungen, die Aufgabenzeilen in `TODO.md` und gemergte Stände wie „bis `x` (#131)“. Wer eine Aufgabe abschließt, passt solche Sätze in derselben Änderung an. Die CI und `Build-Mod.ps1 -Test` führen `check` aus. Der Fortschritt zählt je Phase die erledigten gegen alle Aufgaben, ohne Wartung, optionale Optimierungen und Real Coop logic.
+Geprüft wird: eindeutige Kennungen, offene Aufgaben nur unter „Probleme“ oder „Verbesserungen“, Aufgabentext höchstens 800 Zeichen und mit einer Abnahme („**Fertig, wenn**“), gültige Werte für Prio, Bearbeitung und Spielzeit, alphabetische Tabelle „Erledigt“ in `docs/ERLEDIGT.md` mit der Phase 0 bis 6, `Wartung` oder `Optional` aus der Zeit der Phasen oder `Problem` bzw. `Verbesserung` (schreibt `done`). Außerdem durchsucht `check` alle versionierten Markdown-Dateien (ohne `third_party/`) nach Ankündigungen wie „kommt mit `x`“, „folgt erst in `x`“ oder „bis `x`“, obwohl `x` schon erledigt ist, und nennt Datei und Zeile; `update` zeigt dieselbe Liste nur an. Nicht gemeldet werden offene oder unbekannte Kennungen, die Aufgabenzeilen in `TODO.md` und gemergte Stände wie „bis `x` (#131)“. Wer eine Aufgabe abschließt, passt solche Sätze in derselben Änderung an. Die CI und `Build-Mod.ps1 -Test` führen `check` aus.
 
 ## doc_check.py
 
