@@ -34,7 +34,8 @@ std::string LastStallReport();
 void AddTick(Tick Callback, const char* Name = "Tick");
 
 // Misst einen Abschnitt auf dem Game Thread. Dauert er länger als ein paar Millisekunden, steht er mit Namen und Dauer
-// im Log, je Name höchstens alle paar Sekunden. Name muss ein String-Literal sein.
+// im Log, je Name höchstens alle paar Sekunden. Name muss ein String-Literal sein. Der innerste offene Abschnitt steht auch in
+// den Proben des Wächters ("im Abschnitt …"), so zeigt das Log den Ort in der Mod auch ohne Symbole.
 class SlowScope
 {
 public:
@@ -45,6 +46,7 @@ public:
 
 private:
     const char* Name;
+    const char* Outer;
     long long Start;
 };
 }

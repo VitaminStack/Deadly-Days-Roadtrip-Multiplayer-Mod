@@ -84,10 +84,15 @@ TEST_CASE("Pump drains the dispatcher and runs ticks on the window thread, then 
 
     std::atomic<DWORD> TickThread = 0;
     std::atomic<int> Ticks = 0;
+    std::atomic<bool> BlockTick = false;
     Game::GameThread::AddTick([&] {
         TickThread = GetCurrentThreadId();
         ++Ticks;
     });
+    Game::GameThread::AddTick([&] {
+        if (BlockTick.exchange(false))
+            Sleep(1500); // steht mitten in einem Tick der Mod
+    }, "Testabschnitt");
     Game::GameThread::Start(std::chrono::milliseconds(5));
     REQUIRE(WaitFor([] { return Game::GameThread::IsAttached(); }));
     CHECK(GetWindowLongPtrW(Game.Handle(), GWLP_WNDPROC) != Before);
@@ -107,9 +112,18 @@ TEST_CASE("Pump drains the dispatcher and runs ticks on the window thread, then 
     const std::string Report = Game::GameThread::LastStallReport();
     INFO(Report);
     CHECK(Report.find("GameTests.exe+0x") != std::string::npos);
+    CHECK(Report.find("außerhalb der Mod-Ticks") != std::string::npos);
     CHECK(Report.find(":\\") == std::string::npos); // keine lokalen Pfade
     const int TicksBefore = Ticks;
     REQUIRE(WaitFor([&] { return Ticks > TicksBefore + 2; }));
+
+    // Steht er in einem Tick, nennt die Probe dessen Namen, auch ohne Symbole der DLL.
+    const int SamplesInTick = Game::GameThread::StallSamples();
+    BlockTick = true;
+    REQUIRE(WaitFor([&] { return Game::GameThread::StallSamples() > SamplesInTick; }));
+    CHECK(Game::GameThread::LastStallReport().find("im Abschnitt Testabschnitt") != std::string::npos);
+    const int TicksAfterBlock = Ticks;
+    REQUIRE(WaitFor([&] { return Ticks > TicksAfterBlock + 2; }));
     Game::GameThread::SetStallSettings({});
 
     Game::GameThread::Stop();

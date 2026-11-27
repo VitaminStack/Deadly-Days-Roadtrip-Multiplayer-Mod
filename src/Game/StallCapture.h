@@ -20,7 +20,7 @@ struct StackSample
 };
 
 // Hält den Thread kurz an und kopiert Register und bis zu StackBytes Stapel. Danach Abwicklung auf der Kopie.
-StackSample CaptureStack(unsigned long ThreadId, size_t StackBytes = 0x10000, size_t MaxFrames = 32, size_t MaxFunctions = 8);
+StackSample CaptureStack(unsigned long ThreadId, size_t StackBytes = 0x40000, size_t MaxFrames = 64, size_t MaxFunctions = 16);
 
 // "Modul+0xRVA" ohne Pfad, sonst die Adresse. Logs dürfen keine lokalen Pfade enthalten.
 std::string DescribeAddress(uint64_t Address);

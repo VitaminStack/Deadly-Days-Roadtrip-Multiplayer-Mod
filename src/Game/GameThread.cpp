@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <atomic>
 #include <exception>
+#include <format>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -48,6 +49,8 @@ std::mutex StallLock;
 Stall::Settings StallLimits;
 std::string StallReport;
 std::atomic<int> StallSampleCount = 0;
+// Innerster offener SlowScope auf dem Game Thread, nullptr außerhalb der Mod. Namen sind Literale.
+std::atomic<const char*> CurrentScope = nullptr;
 
 UINT StartMessage()
 {
@@ -174,9 +177,12 @@ void Watch(std::stop_token Stop)
         case Stall::Action::Sample:
         {
             // Nur lesen und kurz anhalten, nie etwas am Spiel ändern. Der Spielthread läuft gleich weiter.
-            const std::string Text = Stall::DescribeSample(Stall::CaptureStack(TickThreadId));
-            Core::Log::Warn("Spielthread: seit {:.1f} s kein Takt der Mod, Probe {}/{}: {}", (Now - Last) / 1000.0, State.Samples,
-                            Limits.MaxSamples, Text);
+            const char* Scope = CurrentScope.load();
+            const std::string Text = std::format("Spielthread: seit {:.1f} s kein Takt der Mod, Probe {}/{}, {}: {}", (Now - Last) / 1000.0,
+                                                 State.Samples, Limits.MaxSamples,
+                                                 Scope ? std::string("im Abschnitt ") + Scope : std::string("außerhalb der Mod-Ticks"),
+                                                 Stall::DescribeSample(Stall::CaptureStack(TickThreadId)));
+            Core::Log::Write(Core::Log::Level::Warn, Text);
             {
                 const std::scoped_lock Lock(StallLock);
                 StallReport = Text;
@@ -303,12 +309,13 @@ double ToMs(long long Elapsed)
 }
 }
 
-SlowScope::SlowScope(const char* Label) : Name(Label), Start(Counter())
+SlowScope::SlowScope(const char* Label) : Name(Label), Outer(CurrentScope.exchange(Label)), Start(Counter())
 {
 }
 
 SlowScope::~SlowScope()
 {
+    CurrentScope = Outer;
     const double Ms = ToMs(Counter() - Start);
     if (Ms < kSlowMs)
         return;

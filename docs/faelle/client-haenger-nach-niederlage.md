@@ -10,12 +10,13 @@ um). Nach dem Ergebnisbildschirm reisen beide in die MetaBase. Der Client reagie
 Tester fliegt er nach dem Run-Ende raus und landet nicht in der MetaBase. Host und Client behielten laut Tester ihr Inventar aus dem
 Run. Der Host startete gleich den nächsten Run.
 
-Auf einem PC mit zwei Instanzen nicht nachgestellt (27.11.2026, vier Läufe, siehe Belege). Niederlage ohne echte Eingaben:
+Auf einem PC mit zwei Instanzen nicht nachgestellt (27.11.2026, fünf Läufe, siehe Belege). Niederlage ohne echte Eingaben:
 beim Host `!cheats`, `DD_DamagePlayerAtIndex 100000 1` und `… 0`; nach rund 30 s „Zurück zur Basis“ mit
 `!shop callat <n> WP_Round_Stats_C BndEvt__WP_Round_Stats_BackToBaseButton_K2Node_ComponentBoundEvent_1_OnClickResponse__DelegateSignature`.
 `<n>` ist die Instanz, deren Outer-Kette an `GI_DDMissionGameInstance_C` hängt; die Vorlage im `WidgetTree` des Pakets zählt mit,
-in einer frischen Sitzung war es 1. Eine falsche Instanz stürzt den Host ab (Lesen `0x110`), das passierte einmal beim Sieg nach
-mehreren Runs in derselben Sitzung. `!round 3` reicht nicht: Der Client zeigt den Ergebnisbildschirm, der Host bleibt in der Mission.
+in einer frischen Sitzung war es 1; vorher Instanzen und Outer-Ketten aus dem Speicher lesen. Einmal stürzte der Host beim Sieg nach mehreren Runs
+in derselben Sitzung mit `callat 1` ab (Lesen `0x110`, wie beim Aufruf an der Vorlage); [Vermutung] falsche Instanz, die Liste wurde
+davor nicht gelesen. `!round 3` reicht nicht: Der Client zeigt den Ergebnisbildschirm, der Host bleibt in der Mission.
 
 ## Belege
 
@@ -40,13 +41,19 @@ mehreren Runs in derselben Sitzung. `!round 3` reicht nicht: Der Client zeigt de
   oder 1002, kein `EXCEPTION` im Log; der Prozess endete gut eine Minute nach dem Hänger.
 - [Belegt, ein PC, 27.11.2026] Kein Hänger in vier Läufen: Niederlage an Tag 1 ohne Items über 127.0.0.1; dieselbe mit
   `-NetProfile Internet`; Tag 5, Bedrohungsstufe 6, Host-Level 8 und drei Minuten Kampf mit Internet-Profil; Sieg an Tag 8
-  (`DD_SetCurrentDay 8`, `!finish`). Jedes Mal kam der Client mit 2 Spielern in der MetaBase an (Spielerzahl 0, 1, 2, nie 2 zu 1),
+  (`DD_SetCurrentDay 8`, `!finish`); Niederlage mit 113 Schrott beim Host (Testinstanz-Speicher gesetzt). Jedes Mal kam der Client mit 2 Spielern in der MetaBase an (Spielerzahl 0, 1, 2, nie 2 zu 1),
   der Takt lief weiter, beide blieben verbunden. Nach der Niederlage startete in derselben Sitzung ein neuer Run, beide nur mit der
-  Pistole (`inventory.py`: vollständig, gleich), der Host verwarf die gemerkten Inventare (`Host außerhalb der Mission`).
+  Pistole (`inventory.py`: vollständig, gleich), der Host verwarf die gemerkten Inventare (`Host außerhalb der Mission`). Vorher
+  hatten beide auch nur die Pistole; dass Run-Items verworfen werden, ist damit nicht gezeigt.
+- [Belegt, ein PC] Schrott in der MetaBase: Der Client behält den letzten Stand des Hosts aus der Mission und schreibt ihn, sobald er ein
+  Konto sieht. Bei mir sah er es erst nach dem Stand 0 des Hosts (Weltwechsel mit `Schrott=-`), live sofort (`Schrott=0`) und schrieb
+  113. Den Pfad gezielt ausgelöst: Host-Schrott in der MetaBase auf 113 gesetzt, Client `Schrott: Stand des Hosts übernommen, 113
+  statt 0`, kein Hänger. Der Schrott-Pfad allein ist es also nicht; die veraltete Anzeige bis zum nächsten Stand bleibt ein Schönheitsfehler.
 - [Belegt, ein PC] Gegenprobe des Wächters: Game Thread des Clients in der MetaBase 15 s von außen angehalten. Nach 8 s
-  `Spielthread: seit 8.0 s kein Takt der Mod, Probe 1/3: …` mit vollständigem Stapel bis `KERNEL32.DLL`, nach 12 s Probe 2, danach
-  `Takt der Mod läuft wieder`. Der Client blieb verbunden. In allen vier Läufen
-  keine Fehlmeldung des Wächters beim Start, Laden und Reisen.
+  `Spielthread: seit 8.0 s kein Takt der Mod, Probe 1/3, …` mit vollständigem Stapel bis `KERNEL32.DLL`, nach 12 s Probe 2, danach
+  `Takt der Mod läuft wieder`. Der Client blieb verbunden. Die Probe nennt den offenen Abschnitt der Mod (`im Abschnitt <Tick>`, im Test belegt)
+  oder `außerhalb der Mod-Ticks` (im Spiel belegt), weil RVAs der DLL ohne passende Symbole nichts sagen. In allen Läufen keine Fehlmeldung des Wächters
+  beim Start, Laden und Reisen.
 
 ## Hypothesen
 
@@ -64,7 +71,7 @@ mehreren Runs in derselben Sitzung. `!round 3` reicht nicht: Der Client zeigt de
 
 ## Nächster Schritt
 
-Live-Test auf zwei PCs mit diesem Stand, Niederlage mit Run-Items an einem späteren Tag. Hängt der Client wieder, stehen die Proben
+Live-Test auf zwei PCs mit diesem Stand, Niederlage mit Run-Items und Schrott an einem späteren Tag. Hängt der Client wieder, stehen die Proben
 im Client-Log; die RVAs der Exe mit `Disassemble.ps1` und die UFunctions ansehen, dann gezielt beheben. Hängt er nicht, das Inventar
 nach der Niederlage in der MetaBase und beim nächsten Run vergleichen. Items über Airdrop-Cheats auf einem PC scheiterten: Die Auswahl
 bleibt nach `!shop choose` und `!shop confirm 0` offen und die Welt pausiert (`airdrop-auswahl-absturz`).
