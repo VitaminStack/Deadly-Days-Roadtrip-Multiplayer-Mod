@@ -94,7 +94,7 @@ Nur die eigenen Zeilen ändern, das hält Konflikte klein. Ein gemergter Teil-PR
 
 ## Vorlagen
 
-**Aufgabenzeile** in `TODO.md`, Spalte „Aufgabe“ höchstens 800 Zeichen (prüft `task_status.py`):
+**Aufgabenzeile** in `TODO.md`, Spalte „Aufgabe“ höchstens 800 Zeichen und mit „Fertig, wenn“ (beides prüft `task_status.py`):
 `<Ziel in einem Satz>. **Fertig, wenn** <ein prüfbarer Satz>. **Einstieg** [Fallakte](docs/faelle/<kennung>.md)`.
 
 **Fallakte** `docs/faelle/<kennung>.md` für einen offenen Fehler, höchstens 15 000 Bytes.
@@ -131,9 +131,12 @@ Wiederkehrende Abläufe liegen als Skills unter `.claude/skills/`. Claude Code l
 
 ## Fokus
 
-Probleme, die den Run zu zweit stören, gehen vor Verbesserungen, innerhalb nach Prio ([E-13](ENTSCHEIDUNGEN.md#e-13-phasen-abgeschlossen-flache-aufgabenliste)).
+Abschließen statt erweitern: Die Liste soll kleiner werden ([E-13](ENTSCHEIDUNGEN.md#e-13-phasen-abgeschlossen-flache-aufgabenliste)).
+[Wo kann ich anfangen?](../TODO.md#wo-kann-ich-anfangen) und `py tools/tasks.py list` zeigen die Reihenfolge: nach Prio, bei gleicher Prio Probleme vor Verbesserungen, dann wenig Spielzeit vor viel und parallel vor zentral.
+Die oberste freie Zeile ist die nächste sinnvolle Aufgabe; Aufgaben mit „parallel“ laufen in mehreren Sitzungen gleichzeitig.
 
 - Jedes gefundene Problem und jede sinnvolle Verbesserung bekommt eine Zeile in `TODO.md` unter „Probleme“ oder „Verbesserungen“, vorher mit `py tools/tasks.py list` prüfen, dass es sie noch nicht gibt.
+- Überschneidet sich ein Fund mit einer offenen Zeile, deren Text erweitern statt eine zweite Zeile anzulegen.
 - Einen Fund mit derselben Ursache oder in denselben Dateien wie die eigene Aufgabe im selben PR beheben, dann ohne eigene Zeile.
 - Keine Abhängigkeiten zwischen Aufgaben: Wer etwas braucht, das noch fehlt, schreibt es in den Aufgabentext.
 

@@ -8,7 +8,7 @@ Reserviert Aufgaben aus [TODO.md](../TODO.md#wo-kann-ich-anfangen), damit nieman
 
 | Befehl | Aufgabe |
 |---|---|
-| `py tools/tasks.py list` | Offene Aufgaben aus `TODO.md` auf `origin/main` mit Status: frei, Team, reserviert, Review |
+| `py tools/tasks.py list` | Offene Aufgaben aus `TODO.md` auf `origin/main` mit Status: frei, Team, reserviert, Review; je Abschnitt in der [Bearbeitungsreihenfolge](#task_statuspy) |
 | `py tools/tasks.py list --short` | Kurz für den Einstieg: je offene Aufgabe aus Phasen und Wartung Kennung und Status, Optionen und Bestätigungstests nur gezählt |
 | `py tools/tasks.py list --active` | Nur aktive Entwicklungsreservierungen/PRs, ohne ausstehende Bestätigungstests |
 | `py tools/tasks.py claim <kennung> <name>` | Worktree, Branch `task/<kennung>`, Push und Draft-PR |
@@ -71,7 +71,9 @@ Lokale, netzwerkfreie Prüfung im aktuellen Checkout. `TODO.md` ist die einzige 
 | `py tools/task_status.py check` | Tabellen, Kennungen, keine Abhängigkeiten, erzeugte Abschnitte und veraltete Querverweise prüfen, bei Abweichung Fehlercode |
 | `py tools/task_status.py update` | „Wo kann ich anfangen?“ in `TODO.md` sowie Zahlen und Balken im README neu erzeugen |
 
-Geprüft wird: eindeutige Kennungen, offene Aufgaben nur unter „Probleme“ oder „Verbesserungen“ und ohne Abhängigkeiten, Aufgabentext höchstens 800 Zeichen, gültige Werte für Prio, Bearbeitung und Spielzeit, alphabetische Tabelle „Erledigt“ in `docs/ERLEDIGT.md`, keine alten Checkboxen. Außerdem durchsucht `check` alle versionierten Markdown-Dateien (ohne `third_party/`) nach Ankündigungen wie „kommt mit `x`“, „folgt erst in `x`“ oder „bis `x`“, obwohl `x` schon erledigt ist, und nennt Datei und Zeile; `update` zeigt dieselbe Liste nur an. Nicht gemeldet werden offene oder unbekannte Kennungen, die Aufgabenzeilen in `TODO.md` und gemergte Stände wie „bis `x` (#131)“. Wer eine Aufgabe abschließt, passt solche Sätze in derselben Änderung an. Die CI und `Build-Mod.ps1 -Test` führen `check` aus. Der Fortschritt zählt je Phase die erledigten gegen alle Aufgaben, ohne Wartung, optionale Optimierungen und Real Coop logic.
+Bearbeitungsreihenfolge (`work_order`, auch für `tasks.py list`): nach Prio, bei gleicher Prio Probleme vor Verbesserungen, dann wenig Spielzeit vor viel, parallel vor zu zweit vor zentral, zuletzt die Kennung. Aufgaben mit Bearbeitung „Team“ stehen nicht in der Liste, sondern unter „Wartet auf das Team“.
+
+Geprüft wird: eindeutige Kennungen, offene Aufgaben nur unter „Probleme“ oder „Verbesserungen“ und ohne Abhängigkeiten, Aufgabentext höchstens 800 Zeichen und mit einer Abnahme („**Fertig, wenn**“), gültige Werte für Prio, Bearbeitung und Spielzeit, alphabetische Tabelle „Erledigt“ in `docs/ERLEDIGT.md`, keine alten Checkboxen. Außerdem durchsucht `check` alle versionierten Markdown-Dateien (ohne `third_party/`) nach Ankündigungen wie „kommt mit `x`“, „folgt erst in `x`“ oder „bis `x`“, obwohl `x` schon erledigt ist, und nennt Datei und Zeile; `update` zeigt dieselbe Liste nur an. Nicht gemeldet werden offene oder unbekannte Kennungen, die Aufgabenzeilen in `TODO.md` und gemergte Stände wie „bis `x` (#131)“. Wer eine Aufgabe abschließt, passt solche Sätze in derselben Änderung an. Die CI und `Build-Mod.ps1 -Test` führen `check` aus. Der Fortschritt zählt je Phase die erledigten gegen alle Aufgaben, ohne Wartung, optionale Optimierungen und Real Coop logic.
 
 ## doc_check.py
 
