@@ -74,9 +74,11 @@ Eine neue Entscheidung bekommt die nächste freie Nummer; ersetzt sie eine älte
 - **Datum:** 24.11.2026.
 - **Entscheidung:** Ausstehende Bestätigungstests halten nur fest, was noch zu prüfen ist. Sie verhindern keine andere Arbeit und haben keine Obergrenze.
 - **Folge:** Die Aufgabe gilt als erledigt; der offene Test steht unter [Bestätigungstests ausstehend](ERLEDIGT.md#bestätigungstests-ausstehend). Ersetzt die Obergrenze aus `projekt-aufraeumen`.
+- **Ergänzung vom 27.11.2026:** Was fertig ist, ist fertig und dient nur noch als Info für später. Erledigtes blockiert und reserviert nichts und erzeugt keine Arbeit, auch mit ausstehendem Bestätigungstest oder gemergtem Teil-PR.
 
 ## E-13: Phasen abgeschlossen, flache Aufgabenliste
 
 - **Datum:** 24.11.2026.
 - **Entscheidung:** Alle Projektphasen gelten als abgeschlossen, der Fortschritt im README ist voll. `TODO.md` listet künftig nur Probleme und Verbesserungen; Aufgaben hängen nicht mehr voneinander ab (keine Spalte „Braucht“).
-- **Folge:** `task_status.py check` lehnt offene Aufgaben in Phasen oder mit Abhängigkeiten ab. Ersetzt E-09.
+- **Folge:** `task_status.py check` lehnt offene Aufgaben in Phasen ab; die Spalte „Braucht“, blockierte und zurückgestellte Aufgaben kennen die Werkzeuge nicht mehr. Ersetzt E-09.
+- **Ergänzung vom 27.11.2026:** Keine Aufgabe verlangt oder erzwingt eine andere. Fehlt eine Struktur, die Aufgabe X bauen sollte und Aufgabe Y braucht, baut Y sie selbst; X prüft das Gebaute später höchstens. So lässt sich jede Aufgabe für sich bearbeiten und abschließen.

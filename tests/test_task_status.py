@@ -1,4 +1,4 @@
-"""Aufgabentabellen in TODO.md, Abhaengigkeiten, Reservierungsschutz und README-Fortschritt."""
+"""Aufgabentabellen in TODO.md, Reservierungsschutz und README-Fortschritt."""
 from contextlib import redirect_stdout
 from io import StringIO
 import os
@@ -14,7 +14,7 @@ from tools import task_status as source
 from tools import tasks
 
 ROOT = Path(__file__).resolve().parents[1]
-OPEN = source.OPEN_HEADER + '\n|---|---|---|---|---|---|\n'
+OPEN = source.LIST_HEADER + '\n|---|---|---|---|---|\n'
 DONE = '## Erledigt\n' + source.DONE_HEADER + '\n|---|---|---|\n'
 FLAT = ('<!-- frei:start -->\n<!-- frei:end -->\n## Probleme\n' + source.LIST_HEADER + '\n|---|---|---|---|---|\n{problems}'
         '## Verbesserungen\n' + source.LIST_HEADER + '\n|---|---|---|---|---|\n{ideas}'
@@ -46,11 +46,11 @@ class ParseTests(unittest.TestCase):
             self.assertTrue(parsed[name].done, name)
 
     def test_long_open_task_text_rejected(self):
-        long_text = todo('| `a` | P0 | ' + 'x' * 801 + ' | – | parallel | wenig |\n')
+        long_text = todo('| `a` | P0 | ' + 'x' * 801 + ' | parallel | wenig |\n')
         parsed = source.parse(long_text)  # Lesen bleibt tolerant, etwa fuer einen aelteren Stand von origin/main
         with self.assertRaisesRegex(ValueError, 'über 800 Zeichen'):
             source.check_text_lengths(parsed)
-        source.check_text_lengths(source.parse(todo('| `a` | P0 | ' + 'x' * 800 + ' | – | parallel | wenig |\n',
+        source.check_text_lengths(source.parse(todo('| `a` | P0 | ' + 'x' * 800 + ' | parallel | wenig |\n',
                                                     done_rows='| `z` | 1 | ' + 'y' * 2000 + ' |')))
 
     def test_open_task_needs_acceptance(self):
@@ -64,14 +64,14 @@ class ParseTests(unittest.TestCase):
     def test_check_all_rejects_long_rows(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
-            source.write_local(root, todo('| `a` | P0 | ' + 'x' * 801 + ' | – | parallel | wenig |\n'))
+            source.write_local(root, todo('| `a` | P0 | ' + 'x' * 801 + ' | parallel | wenig |\n'))
             with self.assertRaisesRegex(ValueError, 'über 800 Zeichen'):
                 source.check_all(root, check=True)
 
     def test_open_and_done_rows(self):
-        parsed = source.parse(todo('| `a` | P0 | Text | `base1` | parallel | wenig |\n'))
+        parsed = source.parse(todo('| `a` | P0 | Text | parallel | wenig |\n'))
         self.assertFalse(parsed['a'].done)
-        self.assertEqual(parsed['a'].needs, ['base1'])
+        self.assertFalse(hasattr(parsed['a'], 'needs'))  # Aufgaben haengen nicht voneinander ab
         self.assertTrue(parsed['base1'].done)
 
     def test_checkbox_and_marker_rejected(self):
@@ -81,25 +81,23 @@ class ParseTests(unittest.TestCase):
 
     def test_duplicate_id_rejected(self):
         with self.assertRaisesRegex(ValueError, 'mehrfach'):
-            source.parse(todo('| `base1` | P0 | Text | – | parallel | wenig |\n'))
-
-    def test_unknown_dependency_rejected(self):
-        with self.assertRaisesRegex(ValueError, 'unbekannte'):
-            source.parse(todo('| `a` | P0 | Text | `nope` | parallel | wenig |\n'))
-
-    def test_cycle_rejected(self):
-        rows = '| `a` | P0 | Text | `b` | parallel | wenig |\n| `b` | P0 | Text | `a` | parallel | wenig |\n'
-        with self.assertRaisesRegex(ValueError, 'Kreis'):
-            source.parse(todo(rows))
+            source.parse(todo('| `base1` | P0 | Text | parallel | wenig |\n'))
 
     def test_invalid_values_rejected(self):
-        for row in ('| `a` | P3 | Text | – | parallel | wenig |\n',
-                    '| `a` | P0 | Text | – | solo | wenig |\n',
-                    '| `a` | P0 | Text | – | parallel | lang |\n',
-                    '| `a` | P0 | Text | b | parallel | wenig |\n',
-                    '| `a` | P0 | Text | – | parallel |\n'):
+        for row in ('| `a` | P3 | Text | parallel | wenig |\n',
+                    '| `a` | P0 | Text | solo | wenig |\n',
+                    '| `a` | P0 | Text | parallel | lang |\n',
+                    '| `a` | P0 | Text | parallel |\n'):
             with self.subTest(row=row), self.assertRaises(ValueError):
                 source.parse(todo(row))
+
+    def test_dependency_column_rejected(self):
+        """Die Spalte "Braucht" gibt es nicht mehr: weder als Tabellenkopf noch als sechste Zelle."""
+        old_header = '| Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |\n|---|---|---|---|---|---|\n'
+        with self.assertRaisesRegex(ValueError, 'Kopf'):
+            source.parse(todo(extra='## Probleme\n' + old_header + '| `a` | P0 | Text | `base1` | parallel | wenig |\n'))
+        with self.assertRaisesRegex(ValueError, '5 Spalten'):
+            source.parse(todo('| `a` | P0 | Text | `base1` | parallel | wenig |\n'))
 
     def test_done_must_be_sorted(self):
         text = todo().replace('| `base0` | 0 |', '| `zzz` | 0 |')
@@ -111,11 +109,11 @@ class ParseTests(unittest.TestCase):
         parsed = source.parse(todo().replace('## Phase 3 – Test\n', ''))
         self.assertTrue(parsed['base3'].done)
 
-    def test_flat_list_rows_have_no_dependencies(self):
+    def test_flat_list_rows(self):
         text = FLAT.format(problems='| `bug` | P1 | Absturz | parallel | wenig |\n',
                            ideas='| `idee` | P2 | Besser | parallel | keine |\n')
         parsed = source.parse(text)
-        self.assertEqual((parsed['bug'].phase, parsed['bug'].needs, parsed['bug'].done), ('Problem', [], False))
+        self.assertEqual((parsed['bug'].phase, parsed['bug'].done), ('Problem', False))
         self.assertEqual(parsed['idee'].phase, 'Verbesserung')
         source.check_flat_list(parsed)
         self.assertEqual(source.phase_counts(parsed), {p: [1, 1] for p in range(7)})
@@ -126,10 +124,9 @@ class ParseTests(unittest.TestCase):
         self.assertTrue(parsed['bug'].done)
         self.assertEqual(parsed['bug'].phase, 'Problem')
 
-    def test_check_flat_list_rejects_phases_and_dependencies(self):
-        for rows in ('| `a` | P1 | Text | – | parallel | wenig |\n', '| `a` | P1 | Text | `base1` | parallel | wenig |\n'):
-            with self.subTest(rows=rows), self.assertRaisesRegex(ValueError, 'Probleme oder Verbesserungen'):
-                source.check_flat_list(source.parse(todo(rows)))
+    def test_check_flat_list_rejects_phases(self):
+        with self.assertRaisesRegex(ValueError, 'Probleme oder Verbesserungen'):
+            source.check_flat_list(source.parse(todo('| `a` | P1 | Text | parallel | wenig |\n')))
 
     def test_wrong_table_header_rejected(self):
         with self.assertRaisesRegex(ValueError, 'Kopf'):
@@ -137,17 +134,16 @@ class ParseTests(unittest.TestCase):
 
 
 class DerivedTests(unittest.TestCase):
-    def test_free_block_lists_unblocked_and_team(self):
-        rows = ('| `ready` | P1 | Text | `base1` | parallel | wenig |\n'
-                '| `first` | P0 | Text | – | zentral | viel |\n'
-                '| `waits` | P0 | Text | `ready` | parallel | wenig |\n'
-                '| `vote` | P0 | Text | – | Team | keine |\n')
+    def test_free_block_lists_every_open_task_and_team(self):
+        rows = ('| `ready` | P1 | Text | parallel | wenig |\n'
+                '| `first` | P0 | Text | zentral | viel |\n'
+                '| `vote` | P0 | Text | Team | keine |\n')
         text = todo(rows)
         block = source.free_block(text, source.parse(text))
         lines = block.splitlines()
         self.assertTrue(lines[2].startswith('| `first` | P0'))
         self.assertTrue(lines[3].startswith('| `ready` | P1'))
-        self.assertNotIn('`waits`', block)
+        self.assertNotIn('Zurückgestellt', block)
         self.assertIn('**Wartet auf das Team:** `vote`.', block)
 
     WORK_ORDER = FLAT.format(
@@ -185,19 +181,16 @@ class DerivedTests(unittest.TestCase):
         self.assertEqual(rows, ['bug-wichtig', 'bug-kurz', 'bug-spaet',
                                 'idee-a', 'idee-b', 'idee-zwei', 'idee-zentral', 'idee-team', 'idee-viel'])
 
-    def test_optional_waits_until_phases_0_to_5_are_done(self):
-        optional = '## Optionale Optimierungen\n' + OPEN + '| `opt-x` | P2 | Text | – | parallel | wenig |\n'
-        text = todo('| `run` | P0 | Text | – | zentral | viel |\n', extra=optional)
-        block = source.free_block(text, source.parse(text))
-        self.assertNotIn('`opt-x`', block)
-        self.assertIn('**Zurückgestellt, bis Phase 0 bis 5 erledigt sind:** 1 Aufgaben', block)
-        text = todo(extra=optional)
+    def test_optional_section_is_listed_like_any_other(self):
+        """Es gibt keine zurueckgestellten Aufgaben: Auch eine offene Zeile unter Optionen steht in der Liste."""
+        optional = '## Optionale Optimierungen\n' + OPEN + '| `opt-x` | P2 | Text | parallel | wenig |\n'
+        text = todo('| `run` | P0 | Text | zentral | viel |\n', extra=optional)
         block = source.free_block(text, source.parse(text))
         self.assertIn('| `opt-x` | P2', block)
         self.assertNotIn('Zurückgestellt', block)
 
     def test_update_todo_is_idempotent_and_keeps_crlf(self):
-        text = todo('| `a` | P0 | Text | – | parallel | wenig |\n').replace('\n', '\r\n')
+        text = todo('| `a` | P0 | Text | parallel | wenig |\n').replace('\n', '\r\n')
         parsed = source.parse(text)
         once = source.update_todo(text, parsed)
         self.assertIn('| `a` | P0 |', once)
@@ -205,9 +198,9 @@ class DerivedTests(unittest.TestCase):
         self.assertEqual(source.update_todo(once, source.parse(once)), once)
 
     def test_progress_counts_phases_only(self):
-        rows = '| `a` | P0 | Text | – | parallel | wenig |\n'
-        extra = '## Optionale Optimierungen\n' + OPEN + '| `o` | P2 | Text | – | parallel | wenig |\n'
-        extra += '## Real Coop logic\n' + OPEN + '| `c` | P2 | Text | – | parallel | wenig |\n'
+        rows = '| `a` | P0 | Text | parallel | wenig |\n'
+        extra = '## Optionale Optimierungen\n' + OPEN + '| `o` | P2 | Text | parallel | wenig |\n'
+        extra += '## Real Coop logic\n' + OPEN + '| `c` | P2 | Text | parallel | wenig |\n'
         parsed = source.parse(todo(rows, extra=extra))
         counts = source.phase_counts(parsed)
         self.assertEqual(counts[1], [1, 2])
@@ -228,7 +221,7 @@ class DerivedTests(unittest.TestCase):
         self.assertEqual(source.progress_bar(7, 8), '██████████░')
 
     def test_svg_only_completed_phases_have_green_background(self):
-        parsed = source.parse(todo('| `a` | P0 | Text | – | parallel | wenig |\n'))
+        parsed = source.parse(todo('| `a` | P0 | Text | parallel | wenig |\n'))
         readme = ''.join(f'| [{p}](TODO.md#phase-{p}) | Ziel & Test | 0 of 9 | x |\n' for p in range(7))
         readme += '| **Total** | | **0 of 99** | x |\n'
         svg = source.progress_svg(parsed, readme)
@@ -256,9 +249,9 @@ class DerivedTests(unittest.TestCase):
 
 
 class ReservationTests(unittest.TestCase):
-    ROWS = ('| `open` | P0 | Text | – | parallel | wenig |\n'
-            '| `blocked` | P0 | Text | `open` | parallel | wenig |\n'
-            '| `vote` | P0 | Text | – | Team | keine |\n')
+    ROWS = ('| `open` | P0 | Text | parallel | wenig |\n'
+            '| `other` | P0 | Text | parallel | wenig |\n'
+            '| `vote` | P0 | Text | Team | keine |\n')
 
     def claim(self, name, branches=frozenset(), prs=None):
         text = todo(self.ROWS)
@@ -274,42 +267,62 @@ class ReservationTests(unittest.TestCase):
     def test_done_task_cannot_be_claimed(self):
         self.assertIn('erledigt', self.claim('base1'))
 
-    def test_blocked_task_cannot_be_claimed(self):
-        self.assertIn('blockiert', self.claim('blocked'))
-
     def test_team_task_cannot_be_claimed(self):
         self.assertIn('Team', self.claim('vote'))
 
     def test_existing_branch_prevents_claim_without_github(self):
         self.assertIn('reserviert', self.claim('open', branches={'open'}))
 
-    def test_open_or_merged_pr_prevents_claim(self):
-        for state in ('OPEN', 'MERGED'):
-            with self.subTest(state=state):
-                message = self.claim('open', prs={'open': {'number': 8, 'state': state, 'isDraft': False}})
-                self.assertIn('Keine neue Reservierung', message)
+    def test_open_pr_prevents_claim(self):
+        message = self.claim('open', prs={'open': {'number': 8, 'state': 'OPEN', 'isDraft': False}})
+        self.assertIn('Keine neue Reservierung', message)
 
-    def test_optional_task_cannot_be_claimed_while_run_is_open(self):
-        text = todo(self.ROWS, extra='## Optionale Optimierungen\n' + OPEN + '| `opt-x` | P2 | Text | – | parallel | wenig |\n')
-        parsed = source.parse(text)
-        self.assertEqual(tasks.status('opt-x', set(), None, parsed), tasks.DEFERRED)
-        with patch.object(tasks, 'git'), patch.object(tasks, 'todo_text', return_value=text),                 patch.object(tasks, 'remote_branches', return_value=set()),                 patch.object(tasks, 'pull_requests', return_value=None):
-            with self.assertRaises(SystemExit) as raised:
-                tasks.cmd_claim('opt-x', 'test')
-        self.assertIn('zurückgestellt', str(raised.exception))
-        pr = {'opt-x': {'number': 9, 'state': 'OPEN', 'isDraft': False}}
-        self.assertEqual(tasks.status('opt-x', set(), pr, parsed), 'PR #9 wartet auf Review')
+    def test_merged_leftover_compares_branch_tip_with_merged_head(self):
+        pr = {'number': 8, 'state': 'MERGED', 'isDraft': False, 'headRefOid': 'abc123'}
+        for tip, expected in (('abc123\n', True), ('def456\n', False), ('', False)):
+            with self.subTest(tip=tip), patch.object(tasks, 'git', return_value=SimpleNamespace(stdout=tip)):
+                self.assertEqual(tasks.merged_leftover('open', pr), expected)
+        with patch.object(tasks, 'git', return_value=SimpleNamespace(stdout='abc123\n')):
+            self.assertFalse(tasks.merged_leftover('open', {'number': 8, 'state': 'MERGED'}))  # Stand des PRs unbekannt
+
+    def test_merged_pr_does_not_lock_open_task(self):
+        """Erledigtes ist nur Info: Ein gemergter PR sperrt die offene Aufgabe nicht."""
+        merged = {'open': {'number': 8, 'state': 'MERGED', 'isDraft': False}}
+        parsed = source.parse(todo(self.ROWS))
+        self.assertEqual(tasks.status('open', set(), merged, parsed), 'frei (früherer PR #8 gemergt)')
+        # Der alte Branch liegt unveraendert auf origin: nur der Name ist belegt, die Meldung sagt, wie man ihn freimacht.
+        with patch.object(tasks, 'merged_leftover', return_value=True):
+            self.assertEqual(tasks.status('open', {'open'}, merged, parsed), 'frei (früherer PR #8 gemergt)')
+            message = self.claim('open', branches={'open'}, prs=merged)
+        self.assertIn('git push origin --delete task/open', message)
+        self.assertNotIn('nachfragen', message)
+        # Auf dem Branch liegen neue Commits (etwa nach einem Teil-PR): Das ist eine Reservierung, kein Rest.
+        with patch.object(tasks, 'merged_leftover', return_value=False), \
+                patch.object(tasks, 'claim_info', return_value=('other-agent', 0)):
+            self.assertEqual(tasks.status('open', {'open'}, merged, parsed), 'reserviert (other-agent)')
+            message = self.claim('open', branches={'open'}, prs=merged)
+        self.assertIn('existiert schon', message)
+        self.assertNotIn('--delete', message)
+        # Ohne alten Branch laeuft die Reservierung durch.
+        text = todo(self.ROWS)
+        done = SimpleNamespace(returncode=0, stdout='https://example.invalid/pr/9\n')
+        with patch.object(tasks, 'git', return_value=done) as git, patch.object(tasks, 'run', return_value=done), \
+                patch.object(tasks, 'todo_text', return_value=text), patch.object(tasks, 'repo_root', return_value='repo'), \
+                patch.object(tasks, 'remote_branches', return_value=set()), \
+                patch.object(tasks, 'pull_requests', return_value=merged), redirect_stdout(StringIO()) as out:
+            tasks.cmd_claim('open', 'test')
+        self.assertIn('Reserviert: task/open', out.getvalue())
+        self.assertTrue(any(c.args[1:4] == ('repo', 'worktree', 'add') for c in git.call_args_list))
 
     def test_status_values(self):
         parsed = source.parse(todo(self.ROWS))
         self.assertEqual(tasks.status('base1', set(), None, parsed), 'erledigt')
         self.assertEqual(tasks.status('open', set(), None, parsed), 'frei')
-        self.assertEqual(tasks.status('blocked', set(), None, parsed), 'blockiert, braucht open')
+        self.assertEqual(tasks.status('other', set(), None, parsed), 'frei')
         self.assertEqual(tasks.status('vote', set(), None, parsed), 'Team')
         self.assertEqual(tasks.status('missing', set(), None, parsed), 'nicht in TODO.md')
 
     def test_list_without_github_hides_done_and_shows_status(self):
-        # Project tasks become unblocked as gates close; test rendering against stable fixture dependencies.
         text = todo(self.ROWS)
         with patch.object(tasks, 'git'), patch.object(tasks, 'todo_text', return_value=text), \
                 patch.object(tasks, 'remote_branches', return_value=set()), \
@@ -317,14 +330,13 @@ class ReservationTests(unittest.TestCase):
             tasks.cmd_list()
         lines = out.getvalue().splitlines()
         self.assertFalse(any(line.strip().startswith('base1 ') for line in lines))
-        row = next(line for line in lines if line.strip().startswith('blocked '))
-        self.assertIn('blockiert', row)
+        self.assertIn('frei', next(line for line in lines if line.strip().startswith('other ')))
         self.assertIn('frei', next(line for line in lines if line.strip().startswith('open ')))
         self.assertIn('Team', next(line for line in lines if line.strip().startswith('vote ')))
 
     def test_list_short_has_no_descriptions_and_lists_all_open(self):
-        extra = ('## Optionale Optimierungen\n' + OPEN + '| `opt-x` | P2 | Langer Text | – | parallel | wenig |\n'
-                 '## Real Coop logic\n' + OPEN + '| `coop-x` | P2 | Text | – | parallel | wenig |\n')
+        extra = ('## Optionale Optimierungen\n' + OPEN + '| `opt-x` | P2 | Langer Text | parallel | wenig |\n'
+                 '## Real Coop logic\n' + OPEN + '| `coop-x` | P2 | Text | parallel | wenig |\n')
         text = todo(self.ROWS.replace('| `vote` | P0 | Text |', '| `vote` | P0 | ' + 'Sehr lang ' * 20 + '|'), extra=extra)
         with patch.object(tasks, 'git'), patch.object(tasks, 'todo_text', return_value=text), \
                 patch.object(tasks, 'remote_branches', return_value=set()), \
@@ -334,14 +346,14 @@ class ReservationTests(unittest.TestCase):
         self.assertTrue(any(line.split() == ['open', 'frei'] for line in lines))
         self.assertTrue(all(len(line) <= 80 for line in lines))
         self.assertFalse(any('Sehr lang' in line for line in lines))
-        self.assertTrue(any(line.split()[:1] == ['opt-x'] for line in lines))  # Status hier zurueckgestellt (alte Phasen offen)
+        self.assertTrue(any(line.split() == ['opt-x', 'frei'] for line in lines))  # zurueckgestellt gibt es nicht mehr
         self.assertIn('Bestätigungstests: 0 (tasks.py tests list)', lines)
 
 
 class PairReservationTests(unittest.TestCase):
     """Aufgaben "zu zweit": je eine Person als host und als client, Branch task/<kennung>/<rolle>."""
-    ROWS = ('| `pair` | P1 | Test auf zwei PCs | – | zu zweit | wenig |\n'
-            '| `solo` | P1 | Text | – | parallel | wenig |\n')
+    ROWS = ('| `pair` | P1 | Test auf zwei PCs | zu zweit | wenig |\n'
+            '| `solo` | P1 | Text | parallel | wenig |\n')
 
     def claim(self, name, role=None, branches=frozenset(), prs=None):
         """Ergebnis of cmd_claim: Abbruchtext oder die Git-Aufrufe einer erfolgreichen Reservierung."""
@@ -405,7 +417,7 @@ class PairReservationTests(unittest.TestCase):
         self.assertTrue(verdict(None, False, True, set(), {})[0])
         self.assertFalse(verdict(None, False, False, set(), {})[0])
 
-    def test_merge_order_prefers_unblocking_and_few_conflicts(self):
+    def test_merge_order_prefers_few_conflicts(self):
         # Stand = Menge gemergter PRs; 'hub' kollidiert mit allen, 'late' nur nach 'x'.
         clash = {frozenset({'hub', 'x'}), frozenset({'hub', 'y'}), frozenset({'late', 'x'})}
 
@@ -417,11 +429,11 @@ class PairReservationTests(unittest.TestCase):
 
         pairs = {'hub': {'x', 'y'}, 'x': {'hub', 'late'}, 'y': {'hub'}, 'late': {'x'}, 'key': set()}
         rank = {n: (0, 2, i) for i, n in enumerate(['hub', 'x', 'y', 'late', 'key'])}
-        order, rest = tasks.merge_order(['hub', 'x', 'y', 'late', 'key'], merge, {'key': ['run']}, rank, pairs, {})
+        order, rest = tasks.merge_order(['hub', 'x', 'y', 'late', 'key'], merge, rank, pairs, {})
         self.assertEqual(order[0], 'key')
         self.assertNotIn('hub', order[:2])
         self.assertEqual(set(order) | set(rest), {'hub', 'x', 'y', 'late', 'key'})
-        order, _ = tasks.merge_order(['b', 'a'], lambda s, n: ([], (s, n)), {}, {'a': (1,), 'b': (0,)}, {}, {'b': ['a']})
+        order, _ = tasks.merge_order(['b', 'a'], lambda s, n: ([], (s, n)), {'a': (1,), 'b': (0,)}, {}, {'b': ['a']})
         self.assertEqual(order, ['a', 'b'])
 
     def test_status_shows_both_roles(self):
@@ -442,19 +454,19 @@ class PairReservationTests(unittest.TestCase):
 
 class ConfirmationTests(unittest.TestCase):
     """Bestaetigungstests sind nur Info: die Aufgabe gilt als erledigt, der offene Test steht in docs/ERLEDIGT.md."""
-    ROWS = ('| `first` | P1 | Zehn Dodges mit Ausdauer pruefen | – | parallel | wenig |\n'
-            '| `second` | P1 | Gleiche Karte pruefen | – | zu zweit | wenig |\n'
-            '| `blocked` | P1 | Wartet | `first` | parallel | wenig |\n')
+    ROWS = ('| `first` | P1 | Zehn Dodges mit Ausdauer pruefen | parallel | wenig |\n'
+            '| `second` | P1 | Gleiche Karte pruefen | zu zweit | wenig |\n'
+            '| `third` | P1 | Noch offen | parallel | wenig |\n')
 
     def pending(self):
         return source.confirmation_update(todo(self.ROWS), ['first', 'second'], 'pending', 'Test auf zwei PCs steht aus')
 
-    def test_pending_marks_done_and_unblocks_dependents(self):
+    def test_pending_marks_done(self):
         parsed = source.parse(self.pending())
         self.assertTrue(parsed['first'].done)
         self.assertEqual(parsed['first'].phase, '1')
         self.assertEqual(parsed['first'].confirmation, 'Test auf zwei PCs steht aus')
-        self.assertEqual(source.blockers(parsed['blocked'], parsed), [])
+        self.assertFalse(parsed['third'].done)
         self.assertEqual(tasks.status('first', set(), None, parsed), 'erledigt')
 
     def test_pending_is_info_in_done_file_not_open_row(self):
@@ -465,14 +477,14 @@ class ConfirmationTests(unittest.TestCase):
         self.assertIn('| `first` | Test auf zwei PCs steht aus |', done_part)
 
     def test_no_limit_for_pending_tests(self):
-        rows = ''.join(f'| `t{i}` | P1 | Text | – | parallel | wenig |\n' for i in range(6))
+        rows = ''.join(f'| `t{i}` | P1 | Text | parallel | wenig |\n' for i in range(6))
         parsed = source.parse(source.confirmation_update(todo(rows), [f't{i}' for i in range(6)], 'pending', 'Stand'))
         self.assertEqual(sum(bool(t.confirmation) for t in parsed.values()), 6)
 
     def test_free_block_counts_pending_as_info(self):
         text = self.pending()
         block = source.free_block(text, source.parse(text))
-        self.assertIn('| `blocked` |', block)
+        self.assertIn('| `third` |', block)
         self.assertIn('Bestätigungstests ausstehend (nur Info, blockiert nichts):** 2', block)
 
     def test_update_replaces_note(self):
@@ -500,16 +512,16 @@ class ConfirmationTests(unittest.TestCase):
 
     def test_batch_rejects_invalid_ids_and_notes(self):
         for names, action, note in ((['first', 'missing'], 'update', 'x'), (['first', 'base1'], 'update', 'x'),
-                                    (['first', 'first'], 'update', 'x'), (['blocked'], 'update', 'x'),
+                                    (['first', 'first'], 'update', 'x'), (['third'], 'update', 'x'),
                                     (['first'], 'update', ' '), (['first'], 'pass', 'a|b'),
                                     (['first'], 'update', 'a\nb'), (['first'], 'pending', 'x'), ([], 'update', 'x')):
             with self.subTest(names=names, action=action, note=note), self.assertRaises(ValueError):
                 source.confirmation_update(self.pending(), names, action, note)
-        with self.assertRaisesRegex(ValueError, 'blockiert'):
-            source.confirmation_update(todo(self.ROWS), ['blocked'], 'pending', 'x')
+        # Jede offene Aufgabe darf fuer sich auf Bestaetigungstest gesetzt werden, nichts haengt an einer anderen.
+        self.assertTrue(source.parse(source.confirmation_update(todo(self.ROWS), ['third'], 'pending', 'x'))['third'].done)
 
     def test_open_row_with_confirmation_marker_rejected(self):
-        row = '| `a` | P1 | ' + source.CONFIRMATION_PREFIX + 'Stand' + source.CONFIRMATION_TASK + 'Text | – | parallel | wenig |\n'
+        row = '| `a` | P1 | ' + source.CONFIRMATION_PREFIX + 'Stand' + source.CONFIRMATION_TASK + 'Text | parallel | wenig |\n'
         parsed = source.parse(todo(row))  # Lesen bleibt tolerant fuer einen aelteren Stand von origin/main
         self.assertEqual(parsed['a'].confirmation, 'Stand')
         with self.assertRaisesRegex(ValueError, 'docs/ERLEDIGT.md'):
@@ -588,7 +600,7 @@ class ConfirmationTests(unittest.TestCase):
 
 class ReferenceTests(unittest.TestCase):
     def setUp(self):
-        self.tasks = source.parse(todo('| `offen` | P0 | Text | – | parallel | wenig |\n'))
+        self.tasks = source.parse(todo('| `offen` | P0 | Text | parallel | wenig |\n'))
 
     def test_done_task_announced_as_future_is_reported(self):
         for sentence in ('Das kommt mit `base1`.', 'Rest folgt erst in `base2`.', 'Absturz bleibt, bis `base3` ihn behebt.'):
@@ -603,7 +615,7 @@ class ReferenceTests(unittest.TestCase):
         self.assertEqual(source.stale_references(self.tasks, {'docs/X.md': text}), [])
 
     def test_task_rows_in_todo_are_ignored(self):
-        row = '| `x` | P0 | Rest kommt mit `base1` | – | parallel | wenig |'
+        row = '| `x` | P0 | Rest kommt mit `base1` | parallel | wenig |'
         self.assertEqual(source.stale_references(self.tasks, {'TODO.md': row}), [])
         self.assertEqual(source.stale_references(self.tasks, {source.DONE_FILE: row}), [])
         self.assertEqual(len(source.stale_references(self.tasks, {'TODO.md': 'Fließtext: kommt mit `base1`.'})), 1)
@@ -619,7 +631,7 @@ class ReferenceTests(unittest.TestCase):
 
 
 class MarkDoneTests(unittest.TestCase):
-    ROW = '| `zeta` | P1 | Text | `base1` | parallel | wenig |\n| `alpha` | P0 | Text | – | parallel | keine |\n'
+    ROW = '| `zeta` | P1 | Text | parallel | wenig |\n| `alpha` | P0 | Text | parallel | keine |\n'
 
     def test_moves_row_alphabetically_with_phase(self):
         text = source.mark_done(todo(self.ROW), 'alpha', 'Fertig, siehe [Doku](docs/x.md)')
@@ -643,8 +655,8 @@ class MarkDoneTests(unittest.TestCase):
 
     def test_mixed_line_endings_find_newly_inserted_task(self):
         text = todo(self.ROW).replace('\n', '\r\n')
-        text = text.replace('| `alpha` | P0 | Text | – | parallel | keine |\r\n',
-                            '| `alpha` | P0 | Text | – | parallel | keine |\n')
+        text = text.replace('| `alpha` | P0 | Text | parallel | keine |\r\n',
+                            '| `alpha` | P0 | Text | parallel | keine |\n')
         done = source.mark_done(text, 'alpha', 'Ergebnis')
         self.assertTrue(source.parse(done)['alpha'].done)
         self.assertNotIn('\n', done.replace('\r\n', ''))
@@ -667,9 +679,10 @@ class MarkDoneTests(unittest.TestCase):
         parsed = source.parse(todo(self.ROW))
         lines = tasks.describe(parsed['zeta'], parsed, 'frei')
         self.assertEqual(lines[0], 'zeta: P1, Phase 1 – Test, parallel, Spielzeit wenig')
-        self.assertEqual(lines[2], 'Braucht: base1 (erledigt)')
+        self.assertEqual(lines[1], 'Status: frei')
+        self.assertFalse(any(line.startswith('Braucht') for line in lines))
         parsed['zeta'].text = 'Siehe [Doku](docs/x.md) **fett**'
-        self.assertEqual(tasks.describe(parsed['zeta'], parsed, 'frei')[3], 'Siehe Doku (docs/x.md) fett')
+        self.assertEqual(tasks.describe(parsed['zeta'], parsed, 'frei')[2], 'Siehe Doku (docs/x.md) fett')
         self.assertEqual(tasks.describe(parsed['base1'], parsed, '')[0], 'base1: erledigt (Phase 1)')
 
 
@@ -679,7 +692,7 @@ if __name__ == '__main__':
 
 class DoneFileTests(unittest.TestCase):
     """Erledigte Aufgaben stehen in docs/ERLEDIGT.md, die Werkzeuge arbeiten auf beiden Dateien zusammen."""
-    OLD = todo('| `frei-a` | P0 | Text | – | parallel | wenig |\n') + '## Risiken\n\nText\n'
+    OLD = todo('| `frei-a` | P0 | Text | parallel | wenig |\n') + '## Risiken\n\nText\n'
 
     def test_split_and_combine_roundtrip(self):
         todo_part, done_part = source.split(self.OLD)

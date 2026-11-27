@@ -1,26 +1,28 @@
 """Liest die Aufgabentabellen aus TODO.md, prueft sie und erzeugt die abgeleiteten Abschnitte.
 
-  py tools/task_status.py check    Format, Abhaengigkeiten, Abnahme je Aufgabe, erzeugte Abschnitte und veraltete Querverweise pruefen
+  py tools/task_status.py check    Format, Abnahme je Aufgabe, erzeugte Abschnitte und veraltete Querverweise pruefen
   py tools/task_status.py update   "Jetzt bearbeitbar" in TODO.md und den Fortschritt im README neu erzeugen
 
 Zum Abschliessen einer Aufgabe gibt es "py tools/tasks.py done <kennung> <ergebnis>", das mark_done nutzt.
 
-Jede Aufgabe steht genau einmal: offen in TODO.md in der Tabelle ihrer Phase, erledigt in docs/ERLEDIGT.md.
+Jede Aufgabe steht genau einmal: offen in TODO.md unter Probleme oder Verbesserungen, erledigt in docs/ERLEDIGT.md.
+Aufgaben haengen nicht voneinander ab: Es gibt keine Spalte "Braucht", keine blockierten und keine zurueckgestellten
+Aufgaben. Erledigtes ist nur Info und sperrt nichts.
 Die Werkzeuge lesen beide Dateien als einen Text (combine) und schreiben sie getrennt zurueck (split).
 """
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from html import escape
 import re
 import sys
 
-OPEN_HEADER = '| Kennung | Prio | Aufgabe | Braucht | Bearbeitung | Spielzeit |'
 DONE_HEADER = '| Kennung | Phase | Ergebnis |'
 DONE_SECTION = 'Erledigt'
 DONE_FILE = 'docs/ERLEDIGT.md'
 DONE_TITLE = '# Erledigte Aufgaben'
 DONE_PREAMBLE = DONE_TITLE + '\n\nAbgeschlossene Kennungen mit Ergebnis, nie erneut reservieren. Neue Zeilen setzt `py tools/tasks.py done`.\n\n'
-# Alle Phasen sind abgeschlossen. Offene Arbeit steht flach unter Probleme oder Verbesserungen, ohne Abhaengigkeiten.
+# Alle Phasen sind abgeschlossen. Offene Arbeit steht flach unter Probleme oder Verbesserungen; jede Aufgabe ist fuer
+# sich startbar und abschliessbar.
 LIST_HEADER = '| Kennung | Prio | Aufgabe | Bearbeitung | Spielzeit |'
 LIST_SECTIONS = {'Probleme': 'Problem', 'Verbesserungen': 'Verbesserung'}
 EXTRA_SECTIONS = {'Wartung': 'Wartung', 'Optionale Optimierungen': 'Optional', 'Real Coop logic': 'Coop'}
@@ -28,8 +30,6 @@ PRIOS = ('P0', 'P1', 'P2')
 MODES = ('parallel', 'zentral', 'zu zweit', 'Team')
 PLAYTIMES = ('keine', 'wenig', 'mittel', 'viel')
 PHASES = tuple(str(n) for n in range(7))
-GATE_PHASES = PHASES[:6]
-OPTIONAL_PHASE = 'Optional'
 FREE_START = '<!-- frei:start -->'
 FREE_END = '<!-- frei:end -->'
 ID_PATTERN = r'[a-z0-9][a-z0-9-]*'
@@ -52,7 +52,6 @@ class Task:
     done: bool
     text: str
     prio: str = ''
-    needs: list = field(default_factory=list)
     mode: str = ''
     playtime: str = ''
     confirmation: str = ''
@@ -93,10 +92,8 @@ def parse(todo):
             table = None
             continue
         if line.startswith('| Kennung |'):
-            if line == OPEN_HEADER and phase is not None and section not in LIST_SECTIONS:
+            if line == LIST_HEADER and phase is not None:
                 table = 'open'
-            elif line == LIST_HEADER and section in LIST_SECTIONS:
-                table = 'list'
             elif line == DONE_HEADER and section == DONE_SECTION:
                 table = 'done'
             elif line == INFO_HEADER and section == INFO_SECTION:
@@ -123,32 +120,19 @@ def parse(todo):
             continue
         if name in tasks:
             raise ValueError(f'{where}: Kennung {name} steht mehrfach in TODO.md')
-        if table in ('open', 'list'):
-            if table == 'list':
-                if len(row) != 5:
-                    raise ValueError(f'{where}: {name} braucht 5 Spalten')
-                _, prio, text, mode, playtime = row
-                needs = '–'
-            elif len(row) != 6:
-                raise ValueError(f'{where}: {name} braucht 6 Spalten')
-            else:
-                _, prio, text, needs, mode, playtime = row
+        if table == 'open':
+            if len(row) != 5:
+                raise ValueError(f'{where}: {name} braucht 5 Spalten')
+            _, prio, text, mode, playtime = row
             if prio not in PRIOS:
                 raise ValueError(f'{where}: {name}: Prio muss P0, P1 oder P2 sein')
             if mode not in MODES:
                 raise ValueError(f'{where}: {name}: Bearbeitung muss parallel, zentral, zu zweit oder Team sein')
             if playtime not in PLAYTIMES:
                 raise ValueError(f'{where}: {name}: Spielzeit muss keine, wenig, mittel oder viel sein')
-            if needs == '–':
-                need_list = []
-            else:
-                need_list = [n.strip() for n in needs.split(',')]
-                if not all(re.fullmatch(rf'`{ID_PATTERN}`', n) for n in need_list):
-                    raise ValueError(f'{where}: {name}: Braucht ist "–" oder eine Liste wie `a`, `b`')
-                need_list = [n.strip('`') for n in need_list]
             # Alter Stand (etwa origin/main vor dem Umbau): offene Zeile mit Bestaetigungstest lesen, check lehnt sie ab.
             confirmation = text[len(CONFIRMATION_PREFIX):].partition(CONFIRMATION_TASK)[0] if text.startswith(CONFIRMATION_PREFIX) else ''
-            tasks[name] = Task(name, phase, section, False, text, prio, need_list, mode, playtime, confirmation)
+            tasks[name] = Task(name, phase, section, False, text, prio, mode, playtime, confirmation)
         else:
             if len(row) != 3:
                 raise ValueError(f'{where}: {name} braucht 3 Spalten')
@@ -156,32 +140,8 @@ def parse(todo):
             if done_phase not in PHASES + tuple(EXTRA_SECTIONS.values()) + tuple(LIST_SECTIONS.values()):
                 raise ValueError(f'{where}: {name}: Phase muss 0 bis 6, Wartung, Optional, Coop, Problem oder Verbesserung sein')
             tasks[name] = Task(name, done_phase, DONE_SECTION, True, text)
-    validate_graph(tasks)
     validate_done_order(todo)
     return tasks
-
-
-def validate_graph(tasks):
-    for task in tasks.values():
-        for need in task.needs:
-            if need not in tasks:
-                raise ValueError(f'{task.name}: braucht unbekannte Kennung {need}')
-            if need == task.name:
-                raise ValueError(f'{task.name}: braucht sich selbst')
-    state = {}
-
-    def visit(name, path):
-        if state.get(name) == 'done':
-            return
-        if state.get(name) == 'active':
-            raise ValueError('Kreis in Braucht: ' + ' -> '.join(path + [name]))
-        state[name] = 'active'
-        for need in tasks[name].needs:
-            visit(need, path + [name])
-        state[name] = 'done'
-
-    for name in tasks:
-        visit(name, [])
 
 
 def validate_done_order(todo):
@@ -196,15 +156,6 @@ def validate_done_order(todo):
     if names != sorted(names):
         wrong = next(a for a, b in zip(names, sorted(names)) if a != b)
         raise ValueError(f'Erledigt ist nicht alphabetisch sortiert, zuerst falsch: {wrong}')
-
-
-def blockers(task, tasks):
-    return [n for n in task.needs if not tasks[n].done]
-
-
-def deferred(task, tasks):
-    """Optionale Aufgaben warten, bis Phase 0 bis 5 erledigt sind, also der Run zu zweit laeuft."""
-    return task.phase == OPTIONAL_PHASE and any(not t.done for t in tasks.values() if t.phase in GATE_PHASES)
 
 
 def phase_counts(tasks):
@@ -235,7 +186,7 @@ def work_order(task):
 
 
 def free_block(todo, tasks):
-    """Inhalt zwischen den frei-Markern: offene Aufgaben, deren Voraussetzungen erledigt sind."""
+    """Inhalt zwischen den frei-Markern: alle offenen Aufgaben in Bearbeitungsreihenfolge."""
     anchors = {}
     for line in todo.splitlines():
         if line.startswith('## '):
@@ -244,9 +195,7 @@ def free_block(todo, tasks):
             key = match[1] if match else EXTRA_SECTIONS.get(heading) or LIST_SECTIONS.get(heading)
             if key:
                 anchors[key] = slug(heading)
-    ready = sorted((t for t in tasks.values() if not t.done and not blockers(t, tasks)), key=work_order)
-    held = [t for t in ready if deferred(t, tasks)]
-    ready = [t for t in ready if t not in held]
+    ready = sorted((t for t in tasks.values() if not t.done), key=work_order)
     work = [t for t in ready if t.mode != 'Team']
     team = [t for t in ready if t.mode == 'Team']
     lines = ['| Kennung | Prio | Phase | Bearbeitung | Spielzeit |', '|---|---|---|---|---|']
@@ -256,10 +205,6 @@ def free_block(todo, tasks):
         lines.append('| – | | | | |')
     lines.append('')
     lines.append('**Wartet auf das Team:** ' + (', '.join(f'`{t.name}`' for t in team) if team else 'nichts') + '.')
-    if held:
-        lines.append('')
-        lines.append(f'**Zurückgestellt, bis Phase 0 bis 5 erledigt sind:** {len(held)} Aufgaben unter '
-                     f'[Optionale Optimierungen](#{anchors[OPTIONAL_PHASE]}).')
     pending = [t for t in tasks.values() if t.confirmation]
     lines.append('')
     lines.append(f'**Bestätigungstests ausstehend (nur Info, blockiert nichts):** {len(pending)}, siehe '
@@ -440,7 +385,7 @@ def append_result(text, name, suffix):
 
 
 def confirmation_update(todo, names, action, note):
-    """Bestaetigungstests als Info pflegen. pending schliesst die Aufgabe ab, damit sie nichts blockiert."""
+    """Bestaetigungstests als Info pflegen. pending schliesst die Aufgabe ab; die offene Pruefung ist nur Info."""
     if action not in ('pending', 'update', 'pass', 'reopen'):
         raise ValueError('Unbekannte Bestaetigungstest-Aktion')
     if not names or len(names) != len(set(names)):
@@ -456,9 +401,6 @@ def confirmation_update(todo, names, action, note):
                 raise ValueError(f'{name}: keine offene Aufgabe')
             if task.mode == 'Team':
                 raise ValueError(f'{name}: Teamentscheidung, kein Bestaetigungstest')
-            waiting = blockers(task, tasks)
-            if waiting:
-                raise ValueError(f'{name}: blockiert, braucht ' + ', '.join(waiting))
         elif task is None or not task.confirmation:
             raise ValueError(f'{name}: kein ausstehender Bestaetigungstest')
     for name in names:
@@ -548,7 +490,7 @@ def stale_references(tasks, documents):
     """Saetze, die eine schon erledigte Aufgabe als kuenftig ankuendigen ("kommt mit `x`", "bis `x`").
 
     documents: Pfad -> Text. Liefert "Pfad:Zeile: `kennung` ist erledigt: Auszug". Die Aufgabenzeilen in TODO.md
-    selbst sind ausgenommen, dort beschreiben Kennungen Abhaengigkeiten und Ergebnisse. "bis `x` (#123)" nennt
+    selbst sind ausgenommen, dort beschreiben Kennungen Herkunft und Ergebnisse. "bis `x` (#123)" nennt
     einen gemergten Stand und zaehlt nicht.
     """
     found = []
@@ -597,12 +539,12 @@ def regenerate(root, check=False):
 
 
 def check_flat_list(tasks):
-    """Offene Aufgaben stehen nur unter Probleme oder Verbesserungen und haben keine Abhaengigkeiten."""
+    """Offene Aufgaben stehen nur unter Probleme oder Verbesserungen."""
     for task in tasks.values():
         if not task.done and task.confirmation:
             raise ValueError(f'{task.name}: Bestätigungstests stehen als Info in docs/ERLEDIGT.md, nicht als offene Zeile')
-        if not task.done and (task.phase not in LIST_SECTIONS.values() or task.needs):
-            raise ValueError(f'{task.name}: offene Aufgaben stehen unter Probleme oder Verbesserungen, ohne Braucht')
+        if not task.done and task.phase not in LIST_SECTIONS.values():
+            raise ValueError(f'{task.name}: offene Aufgaben stehen unter Probleme oder Verbesserungen')
 
 
 def check_text_lengths(tasks):
