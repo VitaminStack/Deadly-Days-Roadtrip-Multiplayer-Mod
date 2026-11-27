@@ -2,6 +2,9 @@
 
 #include <chrono>
 #include <functional>
+#include <string>
+
+#include "Game/StallPolicy.h"
 
 // Takt auf dem Game Thread. Die Mod hängt sich an die Fensterprozedur des Spielfensters (`UnrealWindow`) und setzt
 // dort einen Timer. Unreal pumpt die Fensternachrichten auf dem Game Thread zwischen zwei Frames, deshalb dürfen
@@ -18,6 +21,13 @@ void Stop();
 
 // Wahr, sobald der Takt am Fenster hängt.
 bool IsAttached();
+
+// client-haenger-nach-niederlage: Wächter. Läuft der Takt länger als Settings::AfterMs nicht, schreibt ein eigener Thread
+// Stapelproben des Game Threads ins Log ("Spielthread: …"). Settings für Tests; StallSamples und LastStallReport zählen und
+// zeigen die Proben seit dem Laden.
+void SetStallSettings(const Stall::Settings& Value);
+int StallSamples();
+std::string LastStallReport();
 
 // Registriert einen Tick, der nach Core::GameThread().Drain() in jedem Takt läuft. Vor Start aufrufen.
 // Der Name erscheint im Log, wenn der Tick den Frame spürbar aufhält.

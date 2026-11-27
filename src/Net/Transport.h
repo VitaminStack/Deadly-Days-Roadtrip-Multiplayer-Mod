@@ -104,6 +104,10 @@ std::string_view ToString(TransportState State);
 // Verbindung schon aufgebaut. Unterscheidet bewusstes Verlassen, Ablehnung, Abbruch der Leitung und nie erreichten Host.
 std::string EndMessage(bool Host, SteamConnectionState State, int32_t Reason, bool WasConnected);
 
+// Grund der Trennung, wenn die Eingangsschlange der Kontrollnachrichten voll ist: Die Nachricht ist gültig, das Spiel holt
+// sie nur nicht ab (client-haenger-nach-niederlage). Getrennt von "Ungueltige oder unerwartete Kontrollnachricht".
+std::string ControlQueueFullMessage(size_t Limit);
+
 // Lokales Verbindungstoken, nicht SteamID oder vom Client behaupteter Spielerindex.
 // Nach Disconnect/Neustart niemals wiederverwenden. Spielzuordnung liegt beim Host.
 struct ControlMessage

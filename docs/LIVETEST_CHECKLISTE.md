@@ -142,3 +142,5 @@ Boss über die Routenkarte erreichen, nicht per Befehl.
 | `danach abweichend: … (ist/soll)` | beide | Item passt nach Übernahme oder Rücknahme nicht |
 | `erneut aufgenommen, wieder entfernt` | Client | Klon einer aufgewerteten Belohnung |
 | `Takt: … hielt den Frame … ms auf` | beide | Ruckler, mit früheren Läufen vergleichen |
+| `Spielthread: seit … s kein Takt der Mod, Probe n/3: …` | beide | Game Thread steht, Stapel als Modul+RVA; mit `Spielthread: Takt der Mod läuft wieder` war es nur ein langer Abschnitt |
+| `Kontrollnachrichten stauen sich` | beide | Trennung, weil das Spiel den Kontrollkanal nicht abholt, meist Folge eines stehenden Game Threads |
