@@ -110,6 +110,9 @@ void TickMovement(NetRole Role, bool Second);
 void TickWalkAnimation(NetRole Role, bool Second);
 void TickRemoteP2(NetRole Role);
 void TickMap(NetRole Role, bool Second);
+// spawn-nach-kartenaufbau, Client, aus der Freiräumung am Busplatz: Ort der eigenen Figur ins Log. Der Generator hat sie
+// da schon an den Bus gesetzt, wenn es sie gab.
+void NoteBusPlacement();
 void TickCharacters(NetRole Role, bool Second);
 // opt-gegner-indikatoren, Client: Striche ohne Nachricht und abgelaufene Kreise ausblenden.
 void TickEnemyTelegraphs(NetRole Role);

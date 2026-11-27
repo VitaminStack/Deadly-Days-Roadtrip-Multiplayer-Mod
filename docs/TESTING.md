@@ -160,6 +160,13 @@ Mit `DDCOOP_TEST_MAP_PROFILE_EVERY=2` gilt das Profil nur für jede zweite Missi
 dazwischen kommt das Profil des Routenknotens. So wechseln Karten-Event und normale Karte, und die Reise aus einem Event in eine
 normale Karte lässt sich in einer Sitzung mehrmals fahren (`karte-nach-labyrinth-absturz`).
 
+Mit `DDCOOP_TEST_CLIENT_MAP_DELAY_MS=<ms>` beginnt der Client jede Kartenerzeugung frühestens so viele Millisekunden nach dem Aufruf
+des Spiels, wie ein langsamer Client (`spawn-nach-kartenaufbau`). Log: `Karte: Testschalter DDCOOP_TEST_CLIENT_MAP_DELAY_MS`. Der
+Schalter verschiebt nur den Start der Erzeugung, nicht ihre Dauer und nicht das Eintreffen der eigenen Figur. Der Host ignoriert ihn,
+er darf also für beide Instanzen gesetzt sein. Die Zeilen `Spawn-Messung: …` zeigen in den ersten 30 s jeder Missionswelt Ort und
+Bewegungsmodus der Client-Figur, beim Client auch das Ende seiner Erzeugung und seinen Busplatz. Auf einem PC haben beide Logs
+dieselbe Uhr.
+
 **Blockade-Zonen ohne Eingaben** (gemessen am 26.11.2026 auf `26786272`, `opt-zonenziel-anzeige`): Profil
 `/Game/Map_Generation/Blueprints/MapEvents/TitanBlockage/MGP_TitanBlockage.MGP_TitanBlockage` („Töte alle Titanen!“, 10 Titanen). Mit
 `-Godmode` sterben sie ohne Eingaben in rund 80 s, dann schließt der Host das Ziel ab; für den nächsten Durchlauf neu in die Karte

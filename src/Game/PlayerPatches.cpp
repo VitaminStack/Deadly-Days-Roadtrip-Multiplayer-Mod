@@ -385,7 +385,9 @@ void __fastcall ClearSpawnAreaHook(const ActorArray* Keep, uintptr_t Context)
     size_t Added = 0;
     const size_t Merged = MergeKeepList(Keep->Data, static_cast<size_t>(Keep->Num), Pawns.data(), PawnCount, Buffer.data(), Buffer.size(), Added);
     const ActorArray Extended{Buffer.data(), static_cast<int32_t>(Merged), static_cast<int32_t>(Buffer.size())};
-    Core::Log::Info("Busplatz: {} geschont, {} Spielerfiguren ergänzt", Keep->Num, Added);
+    Core::Log::Info("Busplatz: {} geschont, {} Spielerfiguren ergänzt ({})", Keep->Num, Added,
+                    CurrentRole() == NetRole::Client ? "Client" : "Host");
+    NoteBusPlacement();
     OriginalClearSpawnArea(&Extended, Context);
 }
 

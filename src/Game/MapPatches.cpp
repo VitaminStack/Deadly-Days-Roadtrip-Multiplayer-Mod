@@ -2,6 +2,8 @@
 // kommen hier über den Kontrollkanal (Sync/World/MapSync.cpp) statt über eine Datei.
 #include <windows.h>
 
+#include <algorithm>
+#include <cmath>
 #include <random>
 #include <string>
 
@@ -12,6 +14,8 @@
 #include "Game/PatchPolicy.h"
 #include "Game/Memory.h"
 #include "Game/Objects.h"
+#include "Game/Offsets.h"
+#include "Game/Reflection.h"
 #include "Game/PatchRuntime.h"
 #include "Game/RewardAdapter.h"
 #include "Game/RoundStatsAdapter.h"
@@ -84,6 +88,7 @@ struct
     uintptr_t PendingGenerator = 0, PendingWorld = 0;
     ULONGLONG PendingSince = 0;
     uintptr_t Generator = 0, GeneratorWorld = 0; // laufende eigene Erzeugung, nur dann Child Actors unterdrücken
+    ULONGLONG GeneratorSince = 0;
     int Suppressed = 0;
     // Rundenende (rundenende-client). Host: eigenes Ende in EndedWorld. Client: letztes Ende des Hosts und das zuletzt
     // nachgezogene.
@@ -309,14 +314,30 @@ void StartClientGeneration(uintptr_t Generator)
 {
     S.Generator = Generator;
     S.GeneratorWorld = CurrentWorld();
+    S.GeneratorSince = GetTickCount64();
     S.Suppressed = 0;
     OriginalStartMapGeneration(Generator);
+}
+
+// Testhilfe (spawn-nach-kartenaufbau): Mit DDCOOP_TEST_CLIENT_MAP_DELAY_MS=<ms> beginnt der Client seine Kartenerzeugung
+// frühestens so lange nach dem Aufruf des Spiels, wie bei einem langsamen Client. Ohne die Variable 0, nichts ändert sich.
+ULONGLONG TestClientMapDelay()
+{
+    static const ULONGLONG Delay = []
+    {
+        char Value[16]{};
+        const DWORD Length = GetEnvironmentVariableA("DDCOOP_TEST_CLIENT_MAP_DELAY_MS", Value, sizeof(Value));
+        return Length > 0 && Length < sizeof(Value) ? static_cast<ULONGLONG>(std::max(0, atoi(Value))) : 0ull;
+    }();
+    return Delay;
 }
 
 // Falsch, solange der Client warten soll.
 bool TryStartClient(uintptr_t Generator, ULONGLONG Since)
 {
     const ULONGLONG Now = GetTickCount64();
+    if (Now - Since < TestClientMapDelay())
+        return false;
     const bool Fresh = FreshValues(Generator);
     const bool GraphKnown = Fresh && S.Received->GraphState != Map::Graph::Unknown;
     switch (ClientMapStart(Fresh, GraphKnown, Now - Since, Fresh ? Now - S.ReceivedAt : 0))
@@ -368,6 +389,140 @@ bool ClientGenerationActive()
     const uintptr_t State = ReadOr<uintptr_t>(S.Generator + GeneratorState);
     return State && (ReadOr<uintptr_t>(State + StateCurrentSubGenerator) || ReadOr<int32_t>(State + StateQueuedSubGeneratorsNum) > 0 ||
                      ReadOr<int32_t>(State + StateQueuedPostGeneratorsNum) > 0);
+}
+
+// ---- Spawn-Messung (spawn-nach-kartenaufbau) ----
+
+// Beim Client die eigene Figur, beim Host die des Clients: in den ersten Sekunden jeder Missionswelt Ort und
+// Bewegungsmodus bei Änderung ins Log, dazu das Ende der eigenen Kartenerzeugung des Clients und wo die Figur beim Busplatz
+// stand. Beide Instanzen eines PCs teilen die Uhr des Logs. Nur lesend.
+constexpr Reflection::FieldSpec ActorRemoteRoleField{"/Script/Engine", "Actor", "RemoteRole", "ByteProperty", 1};
+constexpr Reflection::FieldSpec CharacterMovementField{"/Script/Engine", "Character", "CharacterMovement", "ObjectProperty", 8};
+constexpr Reflection::FieldSpec MovementModeField{"/Script/Engine", "CharacterMovementComponent", "MovementMode", "ByteProperty", 1};
+constexpr uint8_t RoleAutonomousProxy = 2;
+constexpr ULONGLONG SpawnTraceMs = 30000;
+
+struct
+{
+    uintptr_t World = 0;
+    ULONGLONG Since = 0, HeightLoggedAt = 0;
+    uintptr_t Figure = 0;
+    bool GenerationDone = false, Missing = false, Known = false;
+    uint8_t Mode = 0xFF;
+    double X = 0, Y = 0, Z = 0, LoggedZ = 0;
+} Trace;
+
+struct Position
+{
+    double X = 0, Y = 0, Z = 0;
+};
+
+std::optional<Position> ActorPosition(uintptr_t Actor)
+{
+    static const uintptr_t Function = Objects::FindObject("K2_GetActorLocation", "Actor");
+    if (!Actor || !Function)
+        return std::nullopt;
+    Position Value;
+    Objects::ProcessEvent(Actor, Function, &Value);
+    return Value;
+}
+
+uintptr_t FindTracedFigure(NetRole Role)
+{
+    const auto RemoteRole = Reflection::Property(ActorRemoteRoleField);
+    const uintptr_t World = CurrentWorld();
+    const uintptr_t Level = World ? ReadOr<uintptr_t>(World + Offsets::UWorld::PersistentLevel) : 0;
+    if (!RemoteRole || !Level)
+        return 0;
+    uintptr_t Found = 0;
+    Objects::ForEachLevelActor(Level, [&](uintptr_t Object)
+    {
+        if (Found || Memory::NameOf(ReadOr<uintptr_t>(Object + ObjectClass)) != "BP_DD_Character_C")
+            return;
+        const uint8_t Own = ReadOr<uint8_t>(Object + (Role == NetRole::Client ? ActorRole : RemoteRole->Offset));
+        if (Own == RoleAutonomousProxy)
+            Found = Object;
+    });
+    return Found;
+}
+
+// Welt mit Kartenerzeugung: beim Client angefragt oder begonnen, beim Host veröffentlicht. MetaBase und Hauptmenü fallen weg.
+bool MissionWorld(NetRole Role, uintptr_t World)
+{
+    if (Role == NetRole::Client)
+        return (S.PendingGenerator && S.PendingWorld == World) || S.GeneratorWorld == World;
+    return S.Published && S.PublishedWorld == World;
+}
+
+const char* GenerationText(NetRole Role, uintptr_t World)
+{
+    if (Role != NetRole::Client)
+        return "Host";
+    if (S.PendingGenerator && S.PendingWorld == World)
+        return "wartet";
+    if (S.GeneratorWorld != World)
+        return "nicht begonnen";
+    return ClientGenerationActive() ? "läuft" : "fertig";
+}
+
+void TraceSpawn(NetRole Role)
+{
+    if (Role == NetRole::Standalone)
+        return;
+    const uintptr_t World = CurrentWorld();
+    const ULONGLONG Now = GetTickCount64();
+    if (World != Trace.World)
+    {
+        Trace = {};
+        Trace.World = World;
+        Trace.Since = Now;
+    }
+    const ULONGLONG Age = Now - Trace.Since;
+    if (!World || Trace.Missing || !MissionWorld(Role, World))
+        return;
+    if (Age > SpawnTraceMs)
+    {
+        if (!Trace.Figure)
+            Core::Log::Warn("Spawn-Messung: keine {} in den ersten {} s der Welt", Role == NetRole::Client ? "eigene Figur" : "Client-Figur",
+                            SpawnTraceMs / 1000);
+        Trace.Missing = true; // auch mit Figur: Messung für diese Welt beendet
+        return;
+    }
+    if (Role == NetRole::Client && !Trace.GenerationDone && S.GeneratorWorld == World && !ClientGenerationActive())
+    {
+        Trace.GenerationDone = true;
+        Core::Log::Info("Spawn-Messung: Client-Erzeugung fertig, Welt seit {} ms, Dauer {} ms", Age, Now - S.GeneratorSince);
+    }
+    const auto Movement = Reflection::Property(CharacterMovementField);
+    const auto ModeField = Reflection::Property(MovementModeField);
+    if (!Movement || !ModeField)
+        return;
+    if (!Trace.Figure || Memory::NameOf(ReadOr<uintptr_t>(Trace.Figure + ObjectClass)) != "BP_DD_Character_C")
+    {
+        Trace.Figure = FindTracedFigure(Role);
+        Trace.Known = false;
+        if (!Trace.Figure)
+            return;
+    }
+    const uintptr_t Component = ReadOr<uintptr_t>(Trace.Figure + Movement->Offset);
+    const auto At = ActorPosition(Trace.Figure);
+    if (!Component || !At)
+        return;
+    const uint8_t Mode = ReadOr<uint8_t>(Component + ModeField->Offset);
+    // Im freien Fall ändert sich nur Z, ein Sprung ist eine Versetzung in der Ebene.
+    const double Planar = Trace.Known ? std::hypot(At->X - Trace.X, At->Y - Trace.Y) : 0;
+    const bool Height = std::abs(At->Z - Trace.LoggedZ) > 200 && Now - Trace.HeightLoggedAt >= 1000;
+    const char* Reason = !Trace.Known ? "gefunden" : Mode != Trace.Mode ? "Modus" : Planar > 300 ? "Sprung" : Height ? "Höhe" : nullptr;
+    Trace.X = At->X, Trace.Y = At->Y, Trace.Z = At->Z;
+    Trace.Mode = Mode;
+    Trace.Known = true;
+    if (!Reason)
+        return;
+    Core::Log::Info("Spawn-Messung: {} {} Modus {} bei ({:.0f}, {:.0f}, {:.0f}), Welt seit {} ms, Erzeugung {}",
+                    Role == NetRole::Client ? "eigene Figur" : "Client-Figur", Reason, Mode, At->X, At->Y, At->Z, Age,
+                    GenerationText(Role, World));
+    Trace.LoggedZ = At->Z;
+    Trace.HeightLoggedAt = Now;
 }
 
 // ---- Hooks ----
@@ -427,6 +582,8 @@ void __fastcall StartMapGenerationHook(uintptr_t Generator)
     S.PendingGenerator = Generator;
     S.PendingWorld = CurrentWorld();
     S.PendingSince = GetTickCount64();
+    if (TestClientMapDelay())
+        Core::Log::Warn("Karte: Testschalter DDCOOP_TEST_CLIENT_MAP_DELAY_MS, Client erzeugt frühestens nach {} ms", TestClientMapDelay());
     Core::Log::Info("Karte: Client wartet auf die Host-Karte");
 }
 
@@ -568,6 +725,21 @@ const Patch List[] = {
 std::span<const Patch> MapPatches()
 {
     return List;
+}
+
+void NoteBusPlacement()
+{
+    if (CurrentRole() != NetRole::Client)
+        return;
+    const uintptr_t World = CurrentWorld();
+    const auto At = ActorPosition(FindTracedFigure(NetRole::Client));
+    const ULONGLONG Age = Trace.World == World ? GetTickCount64() - Trace.Since : 0;
+    if (!At)
+        Core::Log::Warn("Spawn-Messung: Busplatz des Clients ohne eigene Figur, Welt seit {} ms, Erzeugung {}", Age,
+                        GenerationText(NetRole::Client, World));
+    else
+        Core::Log::Info("Spawn-Messung: Busplatz des Clients, eigene Figur bei ({:.0f}, {:.0f}, {:.0f}), Welt seit {} ms", At->X,
+                        At->Y, At->Z, Age);
 }
 
 void NoteHostRoundEnd(bool Lost)
@@ -740,6 +912,7 @@ void TickMap(NetRole Role, bool Second)
         else if (TryStartClient(S.PendingGenerator, S.PendingSince))
             S.PendingGenerator = 0;
     }
+    TraceSpawn(Role);
     if (Second)
         SeedPcgInstances();
     if (Second && Role == NetRole::Host)

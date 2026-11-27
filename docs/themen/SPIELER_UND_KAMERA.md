@@ -6,6 +6,7 @@ Gilt für Build `26786272`. Datierte Befunde und Messungen stehen im [Archiv](..
 
 - Das Spiel kennt nur lokales Coop mit zwei `LocalPlayer`. Die Mod trägt den entfernten Spieler beim Host als P2 in die native Coop-Logik ein, ohne zweiten `LocalPlayer`.
 - Der Host spawnt den entfernten Spieler, hält ihn in `SpawnedPlayers`, übernimmt seine Position und verliert ihn weder am Busplatz noch beim Run-Ende.
+- An den Bus setzt der Client seine eigene Figur selbst, in seiner eigenen Kartenerzeugung; der Busplatz des Hosts bewegt sie nicht. Die Zeilen `Spawn-Messung` im Log zeigen das in den ersten 30 s jeder Missionswelt.
 - Lokale Eingabegeräte bleiben im Netzwerkspiel beim eigenen Spieler; ohne Netzwerk bleibt das Spiel unverändert.
 - Beide sehen eine gemeinsame Kamera. Der Client nimmt die Kamera-Spieler aus der `PlayerArray` statt aus dem GameMode.
 - Nach dem Dodge (`GA_Dash`) repariert die Mod beim Client Reibung und Schwerkraft; die Figur des Clients dodgt bei HP 0 nicht.
@@ -25,7 +26,7 @@ Gilt für Build `26786272`. Datierte Befunde und Messungen stehen im [Archiv](..
 
 ## Offene Fehler
 
-- [spawn-nach-kartenaufbau](../faelle/spawn-nach-kartenaufbau.md): Host setzt Figuren an den Bus, bevor der Client seine Karte gebaut hat (Vermutung, die Aufgabe prüft sie selbst).
+- Client fällt live im Labyrinth-Event durch die Karte, Ursache offen. Die Vermutung „Host setzt die Figuren zu früh an den Bus“ ist widerlegt, siehe [spawn-nach-kartenaufbau](../faelle/spawn-nach-kartenaufbau.md).
 
 ## Historie
 
