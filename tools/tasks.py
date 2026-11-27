@@ -2,7 +2,7 @@
 
   py tools/tasks.py list                              Offene Kennungen mit Status
   py tools/tasks.py list --active                     Nur aktiv reservierte Entwicklungsaufgaben
-  py tools/tasks.py list --short                      Kurz: Kennung und Status, Optionen und Tests nur gezaehlt
+  py tools/tasks.py list --short                      Kurz: Kennung und Status, Bestaetigungstests nur gezaehlt
   py tools/tasks.py tests [list|plan] [<kennung> ...]  Bestaetigungstests getrennt anzeigen oder buendeln
   py tools/tasks.py tests pending <kennung> --note "Stand"   Auf Bestaetigungstest setzen
   py tools/tasks.py tests update <kennungen> --note "Stand"  Teststand aktualisieren
@@ -64,10 +64,8 @@ def repo_root():
 
 
 def todo_text():
-    """TODO.md und docs/ERLEDIGT.md von origin/main als ein Text; fehlt ERLEDIGT.md dort noch, nur TODO.md."""
-    todo = git('show', 'origin/main:TODO.md').stdout
-    shown = git('show', f'origin/main:{DONE_FILE}', check=False)
-    return combine(todo, shown.stdout if shown.returncode == 0 else '')
+    """TODO.md und docs/ERLEDIGT.md von origin/main als ein Text."""
+    return combine(*(git('show', f'origin/main:{name}').stdout for name in ('TODO.md', DONE_FILE)))
 
 
 def plain(text):
@@ -166,8 +164,6 @@ def status(kennung, branches, prs, tasks):
     roles = role_branches(kennung, branches)
     if task and task.done:
         return 'erledigt' + (' (Branch noch vorhanden)' if kennung in branches or roles else '')
-    if task and task.confirmation:
-        return 'Bestätigungstest ausstehend'
     if roles:
         return pair_status(kennung, branches, prs)
     pr = prs.get(kennung) if prs else None
@@ -228,8 +224,6 @@ def cmd_list(active_only=False, short=False):
     section = None
     for task in sorted(open_in_work_order(tasks), key=lambda t: SECTION_RANK[t.phase]):  # je Abschnitt, darin Bearbeitungsreihenfolge
         kennung = task.name
-        if task.confirmation:
-            continue
         if active_only and not active_work(kennung, branches, prs):
             continue
         if task.section != section:

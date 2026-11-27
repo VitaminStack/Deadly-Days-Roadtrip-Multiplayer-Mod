@@ -22,9 +22,7 @@ The [roadmap graph](docs/ROADMAP.md) shows what is still open.
 
 **All phases are complete** (24 Nov 2026, release 1.0). Open work is no longer planned in phases: [TODO.md](TODO.md) lists problems and improvements without dependencies.
 
-Tasks are counted per phase from [docs/ERLEDIGT.md](docs/ERLEDIGT.md), excluding maintenance, optional optimizations and Real Coop logic.
-
-Done means listed under "Erledigt" in `docs/ERLEDIGT.md`. **Fully completed phases are highlighted green.** `py tools/task_status.py update` refreshes the graphic and the text table; `py tools/task_status.py check` and CI prevent mismatches. Claims and PRs do not change completion status.
+The table shows the final count of tasks per phase from [docs/ERLEDIGT.md](docs/ERLEDIGT.md), excluding maintenance and optional optimizations. **Fully completed phases are highlighted green.** Graphic and table are fixed and no longer generated, since new tasks belong to no phase.
 
 ![Project progress per phase; fully completed phases are highlighted green.](docs/assets/progress.svg)
 

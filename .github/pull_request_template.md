@@ -16,4 +16,4 @@
 - [ ] Protokollversion erhöht, falls das Netzwerkprotokoll geändert wurde
 - [ ] Keine Spieldateien, SDK-Dateien oder persönlichen Pfade enthalten
 - [ ] Ist-Zustand in `docs/themen/` angepasst (ersetzt, nicht angehängt), Befunde stehen in dieser Beschreibung oder der Fallakte
-- [ ] Eigene Zeilen in `TODO.md` angepasst, bei fertiger Aufgabe `py tools/tasks.py done` (Fortschritt im README), `docs/ROADMAP.md` nur bei erledigter Phase
+- [ ] Eigene Zeilen in `TODO.md` angepasst, bei fertiger Aufgabe `py tools/tasks.py done`
