@@ -32,7 +32,8 @@ FieldError Check(const Field& Found, const FieldSpec& Spec, int32_t ArrayDim, in
 {
     if (Found.Type != Spec.Type)
         return FieldError::TypeMismatch;
-    if (Found.Size != Spec.Size || ArrayDim != 1 || (Found.Type == "BoolProperty" && Found.BoolMask != 0xFF))
+    const bool AnySize = Spec.Size == 0 && Found.Type == "StructProperty";
+    if ((!AnySize && Found.Size != Spec.Size) || ArrayDim != 1 || (Found.Type == "BoolProperty" && Found.BoolMask != 0xFF))
         return FieldError::SizeMismatch;
     if (Found.Offset < 0 || StructSize <= 0 || Found.Offset > StructSize - Found.Size)
         return FieldError::OutOfBounds;
@@ -172,6 +173,18 @@ std::optional<Field> Property(const FieldSpec& Spec)
                          ToString(Error));
     std::lock_guard Lock(CacheMutex);
     Fields[Id] = Found;
+    return Found;
+}
+
+std::optional<Field> Parameter(uintptr_t Function, const FieldSpec& Spec)
+{
+    if (!Function || !Objects::IsA(Function, "Function"))
+        return std::nullopt;
+    FieldError Error = FieldError::None;
+    auto Found = FindField(Function, Spec, DefaultNames, &Error);
+    if (!Found)
+        Core::Log::Error("Reflexion: Parameter {}.{} ({}, {} Bytes) {}, betroffener Adapter bleibt aus", Memory::NameOf(Function), Spec.Name,
+                         Spec.Type, Spec.Size, ToString(Error));
     return Found;
 }
 

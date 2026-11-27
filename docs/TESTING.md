@@ -167,6 +167,12 @@ er darf also für beide Instanzen gesetzt sein. Die Zeilen `Spawn-Messung: …` 
 Bewegungsmodus der Client-Figur, beim Client auch das Ende seiner Erzeugung und seinen Busplatz. Auf einem PC haben beide Logs
 dieselbe Uhr.
 
+Mit `DDCOOP_TEST_CLIENT_FLOOR_DELAY_MS=<ms>` schaltet der Client bei seinem Busplatz die Kollision der Komponenten unter dem Busort
+ab und nach so vielen Millisekunden wieder ein, wie bei einem Boden, der spät kommt (`busplatz-ohne-boden`). Log: `Busboden:
+Testschalter …`. Die Mod hält die eigene Figur dann am Busort, bis Boden da ist, höchstens 5 s. `DDCOOP_TEST_CLIENT_BUS_HOLD_OFF=1`
+schaltet das Halten für den Gegentest ab; mit 1500 ms fällt die Figur dann durch die Karte. Der Host ignoriert beide Schalter. Die
+Zeilen `Busboden: …` zeigen beim Client in jeder Zone Boden, Ort, Modus und Fallgeschwindigkeit am Busplatz und in den Frames danach.
+
 **Blockade-Zonen ohne Eingaben** (gemessen am 26.11.2026 auf `26786272`, `opt-zonenziel-anzeige`): Profil
 `/Game/Map_Generation/Blueprints/MapEvents/TitanBlockage/MGP_TitanBlockage.MGP_TitanBlockage` („Töte alle Titanen!“, 10 Titanen). Mit
 `-Godmode` sterben sie ohne Eingaben in rund 80 s, dann schließt der Host das Ziel ab; für den nächsten Durchlauf neu in die Karte

@@ -113,6 +113,11 @@ void TickMap(NetRole Role, bool Second);
 // spawn-nach-kartenaufbau, Client, aus der Freiräumung am Busplatz: Ort der eigenen Figur ins Log. Der Generator hat sie
 // da schon an den Bus gesetzt, wenn es sie gab.
 void NoteBusPlacement();
+// busplatz-ohne-boden, Client, aus der Freiräumung am Busplatz, vor (false) und nach (true) dem Original: Boden am Busort
+// prüfen, ins Log schreiben und die eigene Figur halten, solange dort kein Boden ist (BusFloorPatches.cpp).
+void NoteBusFloor(bool AfterClear);
+// busplatz-ohne-boden, Client, jeden Frame: Messung, Halten und Loslassen nach dem Busplatz, Testschalter für späten Boden.
+void TickBusFloor(NetRole Role);
 void TickCharacters(NetRole Role, bool Second);
 // opt-gegner-indikatoren, Client: Striche ohne Nachricht und abgelaufene Kreise ausblenden.
 void TickEnemyTelegraphs(NetRole Role);

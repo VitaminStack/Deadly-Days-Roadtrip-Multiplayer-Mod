@@ -27,6 +27,7 @@
     <ClCompile Include="PatchTests.cpp" />
     <ClCompile Include="AddressMapTests.cpp" />
     <ClCompile Include="ReflectionTests.cpp" />
+    <ClCompile Include="BusFloorPolicyTests.cpp" />
     <ClCompile Include="InventoryEditTests.cpp" />
     <ClCompile Include="AirdropTests.cpp" />
     <ClCompile Include="ExpBoundsTests.cpp" />

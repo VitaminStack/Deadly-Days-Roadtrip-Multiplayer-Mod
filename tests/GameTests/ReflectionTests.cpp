@@ -16,8 +16,9 @@ namespace Offsets = Game::Offsets;
 using Game::Reflection::FieldError;
 using Game::Reflection::FieldSpec;
 
-const std::array<const char*, 12> NameTable = {"None",          "Base",         "Derived",   "IntProperty", "BoolProperty", "StrProperty",
-                                               "SkipFlag",      "Enabled",      "Url",       "Shadowed",    "DoThing",      "Bits"};
+const std::array<const char*, 13> NameTable = {"None",          "Base",         "Derived",   "IntProperty", "BoolProperty", "StrProperty",
+                                               "SkipFlag",      "Enabled",      "Url",       "Shadowed",    "DoThing",      "Bits",
+                                               "StructProperty"};
 
 std::string Names(int32_t Index, int32_t Number)
 {
@@ -160,6 +161,24 @@ TEST_CASE("Reflexion liefert nichts, wenn Feld, Typ, Größe oder Grenze nicht p
     // 0x3E + 4 ragt über die Klassengröße 0x40.
     CHECK_FALSE(Game::Reflection::FindField(Derived.Address(), Spec("Url", "IntProperty", 4), Names, &Error));
     CHECK(Error == FieldError::OutOfBounds);
+}
+
+TEST_CASE("Reflexion nimmt mit Größe 0 eine Struktur jeder Größe, aber nur eine Struktur")
+{
+    Layout L;
+    Block& Int = L.FieldClass("IntProperty");
+    Block& Struct = L.FieldClass("StructProperty");
+    Block& Derived = L.Struct("Derived", 0x140);
+    L.Property(Derived, Struct, "Url", 0x18, 0x100);
+    L.Property(Derived, Int, "SkipFlag", 0x10, 4);
+
+    const auto Url = Game::Reflection::FindField(Derived.Address(), Spec("Url", "StructProperty", 0), Names);
+    REQUIRE(Url);
+    CHECK(Url->Offset == 0x18);
+    CHECK(Url->Size == 0x100);
+    FieldError Error = FieldError::None;
+    CHECK_FALSE(Game::Reflection::FindField(Derived.Address(), Spec("SkipFlag", "IntProperty", 0), Names, &Error));
+    CHECK(Error == FieldError::SizeMismatch);
 }
 
 TEST_CASE("Reflexion nimmt das Feld der Unterklasse vor dem gleichnamigen der Oberklasse")
