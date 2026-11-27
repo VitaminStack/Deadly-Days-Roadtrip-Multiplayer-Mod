@@ -26,7 +26,7 @@ Gilt für Build `26786272`. Datierte Befunde und Messungen stehen im [Archiv](..
 
 ## Offene Fehler
 
-- Client fällt live im Labyrinth-Event durch die Karte, Ursache offen. Die Vermutung „Host setzt die Figuren zu früh an den Bus“ ist widerlegt, siehe [spawn-nach-kartenaufbau](../faelle/spawn-nach-kartenaufbau.md).
+- Client fällt live im Labyrinth-Event durch die Karte, Ursache offen. Die Vermutung „Host setzt die Figuren zu früh an den Bus“ ist widerlegt, siehe [spawn-nach-kartenaufbau](../faelle/spawn-nach-kartenaufbau.md). Offen sind zwei Vermutungen: [busplatz-vor-figur](../faelle/busplatz-vor-figur.md) (Busplatz des Clients vor seiner eigenen Figur) und [busplatz-ohne-boden](../faelle/busplatz-ohne-boden.md) (Boden am Bus noch ohne Kollision).
 
 ## Historie
 

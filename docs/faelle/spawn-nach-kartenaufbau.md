@@ -55,10 +55,10 @@ der Client baut. Rundenende und nächster Knoten wie unter „Rundenende ohne ec
   Sie ist nicht gebaut. Der gemessene Abstand von 0,29 s live sagt über die Client-Figur nichts.
 - [Vermutung, offen] Die umgekehrte Reihenfolge: Der Busplatz des Clients läuft, bevor seine eigene Figur da ist. Dann bliebe sie am
   Startpunkt ohne Boden und fiele. Das Labyrinth erzeugt am schnellsten (0,6 bis 0,9 s, normale Karte 1,7 s). Auf einem PC war die
-  eigene Figur jedes Mal 90 bis 300 ms nach dem Aufruf der Erzeugung da. Der Testschalter kann diese Reihenfolge nicht erzwingen, er
-  verschiebt nur den Start.
+  eigene Figur jedes Mal vor dem eigenen Busplatz da. Der Testschalter kann diese Reihenfolge nicht erzwingen, er verschiebt nur den
+  Start. Eigene Aufgabe: [busplatz-vor-figur](busplatz-vor-figur.md).
 - [Vermutung, offen] Der Boden unter dem Bus hat beim Busplatz des Clients noch keine Kollision. Die Figur steht dort 10 bis 280 ms im
-  Modus 3, bevor sie geht. Nicht gezielt geprüft.
+  Modus 3, bevor sie geht. Nicht gezielt geprüft. Eigene Aufgabe: [busplatz-ohne-boden](busplatz-ohne-boden.md).
 
 ## Nächster Schritt
 
@@ -69,7 +69,7 @@ Im Live-Test auf zwei PCs (Bestätigungstest dieser Aufgabe) im Labyrinth das Cl
 - Fehlt die Figur am Busplatz oder steht sie dort noch am Startpunkt, gilt die erste offene Vermutung.
 - Steht sie am Bus und fällt danach, gilt die zweite.
 
-Für beides gibt es noch keine Aufgabe.
+Die beiden Vermutungen bearbeiten die Aufgaben `busplatz-vor-figur` und `busplatz-ohne-boden`.
 
 ## Abnahme
 
