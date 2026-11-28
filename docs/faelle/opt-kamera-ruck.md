@@ -10,7 +10,25 @@ Meldung des Menschen vom 28.11.2026, Build `26786272`, Seite (Host oder Client) 
 
 ## Belege
 
-Noch keine Messung auf Build `26786272`.
+Messung 28.11.2026, Build `26786272`, ein PC, zwei Instanzen, `-Mod -Tunnel Lobby -Map /Game/Maps/DDDynamic_Map -Godmode`, ohne
+Netzprofil. Probe `tools/spike/camera_jitter.py <host-pid> <client-pid> --csv`, Blickort des lokalen `PlayerCameraManager` und Orte der
+Figuren, rund 170 Bilder/s je Instanz. Figuren per `Game-Input.ps1` (Laufen, `Space` = Dodge).
+
+- [Belegt] Stillstand: Blickort auf beiden Seiten ruhig. Während der Kamera-Berechnung steht `POV.Location` kurz auf (0, 0, 0); die
+  Probe verwirft solche Proben.
+- [Belegt] Laufen des Clients: Blickort folgt auf beiden Seiten gleichmäßig, je 100 ms 6 bis 8 Einheiten, Host und Client höchstens
+  3 Einheiten auseinander.
+- [Belegt] **Dodge des Clients ist ein Sprung in einem Bild**, auf beiden Seiten: Client-Figur beim Host von −731 auf −241 (490
+  Einheiten) zwischen zwei Proben 30 ms auseinander, CMC-Tempo dabei 0; beim Client die eigene Figur 24 ms später ebenso, Tempo 0.
+  Mod-Log Client: `eigener Dodge (Schluessel 3..5) … gemeldet`, dazu einmal `Dodge der eigenen Figur abgebrochen`; Host:
+  `Client-Dodge (Schluessel 3) nach 62 ms … gestartet`. Die eigene Vorhersage des Clients bewegt die Figur also nicht, sie springt erst
+  mit dem Ergebnis des Hosts.
+- [Belegt] Zum Vergleich der **Dodge des Hosts**: Host-Figur über rund 5 Bilder (60 ms) mit Tempo −6500, auf beiden Seiten.
+- [Belegt] Der Blickort glättet beide Dodges ohne Netzprofil: kein Sprung, gleichmäßige Annäherung (+4 bis +10 je 10 ms).
+- [Belegt] Nebenbefund, nativ: Kommt eine Figur dem Bildrand nahe, zoomt die Kamera heraus (`UseZoomOutAtEdge`, Arm 8000 bis 8122) und
+  danach wieder herein. Der Blickort wandert dabei rund 90 Einheiten aus und zurück, ohne dass sich eine Figur so bewegt.
+- [Belegt] Beim Client schaltet `FollowReplicatedLocation` für die Host-Figur in der Testkarte oft um (`folge dem Host-Ort` und
+  `Unterlage … wieder bekannt` im Abstand weniger Sekunden).
 
 ## Hypothesen
 
