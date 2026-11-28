@@ -11,8 +11,10 @@ Meldung des Menschen vom 28.11.2026, Build `26786272`, Seite (Host oder Client) 
 Nachstellen auf einem PC: `Start-Session.ps1 -Mod -Tunnel Lobby -Map /Game/Maps/DDDynamic_Map -Godmode` (mit und ohne
 `-NetProfile Internet`), Figuren per `Game-Input.ps1` (Laufen, `Space` = Dodge), parallel
 `py tools/spike/camera_jitter.py <host-pid> <client-pid> --seconds N --csv <datei>`. Die Probe liest den Blickort des lokalen
-`PlayerCameraManager` und die Orte aller Figuren, rund 170 Bilder/s je Instanz. Welche Figur sich bewegt, an der Rolle prüfen
-(beim Client: 2 eigene, 1 fremde): In der ersten Sitzung trafen die Tasten für „Client“ die Host-Figur.
+`PlayerCameraManager` und die Orte aller Figuren, rund 170 Bilder/s je Instanz, und meldet Rücksprünge und große Einzelschritte
+je Figur. Welche Figur sich bewegt, an der Rolle prüfen (beim Client: 2 eigene, 1 fremde).
+`POV.Location` steht mitten in der Kamera-Berechnung kurz auf Zwischenwerten (0, 0, 0 oder ein wiederkehrender fester Wert); eine
+Umkehr des Blickorts aus einer einzelnen Probe ist darum kein Beleg.
 
 ## Belege
 
@@ -24,11 +26,17 @@ Messungen 28.11.2026, Build `26786272`, ein PC, zwei Instanzen.
 - [Belegt, `-NetProfile Internet`] **Dodge des Clients im Laufen, Kopie beim Host:** Der Host lässt die Client-Figur den Dodge selbst
   ausführen (Tempo −6500) und setzt sie danach auf die verspäteten Orte vom Client zurück. Zweimal von zwei Läufen: Rücksprung
   um 244 Einheiten (von 2376 auf 2620, danach 2536, 2461 … bis 1932) und um 234 Einheiten, dazu weitere Sprünge über 200 Einheiten
-  in einer Dodge-Kette. Beim Client läuft derselbe Dodge glatt über rund 10 Bilder, ohne Rücksprung.
-- [Belegt, ohne Netzprofil] Dodge der Host-Figur durch die stehende Client-Figur: Die Kopie der Client-Figur beim Host wird um
-  259 Einheiten weggeschoben und springt nach 15 ms auf ihren Ort zurück. Beim Client bewegt sie sich nicht.
-- [Belegt, ohne Netzprofil] Dodge der Host-Figur aus dem Stand: Sprung um 493 Einheiten in einem Bild, Tempo 0, auf beiden Seiten.
-  Im Laufen dagegen über rund 5 Bilder mit Tempo −6500. Ob das ohne Mod genauso ist, ist offen.
+  in einer Dodge-Kette. Beim Client läuft derselbe Dodge glatt über rund 10 Bilder, ohne Rücksprung. Zeitlich passend loggt der
+  Host `Client-Dodge (Schluessel 1) mit gemeldeter Richtung (-1.00,-0.00)`; in der Kette danach
+  `Dodge-Werte der Client-Figur beim Host hingen … Reparatur 1`. Ein einzelner `Space` aus dem Stand ergab vier Dodges
+  (Schlüssel 4 bis 7) mit Richtung (0, 0).
+- [Vermutung, ohne Netzprofil] Dodge durch die stehende andere Figur: Die Kopie der stehenden Figur beim Host wird um 259 Einheiten
+  weggeschoben und springt nach 15 ms zurück; Dodge aus dem Stand: Sprung um 493 Einheiten in einem Bild bei Tempo 0. Welche Figur
+  gedasht hat, ist in diesem Lauf unklar (Logs zeigen Client-Dodges mit Schlüssel 1 bis 5, Rollen und Tasten passen nicht
+  zusammen). Prüfidee: Lauf wiederholen, Rolle je Figur vor dem Tastendruck festhalten.
+- [Vermutung] Beim Laufen hält der Host einzelne Bilder an: Lücke bis 56 ms statt rund 6 ms, Schritt 13,6 statt Median 4,8, dazu
+  `Takt: Bewegung hielt den Frame 9.6 ms auf`. Ein solcher Hänger kann als kurzer Ruck wirken. Prüfidee: Lücken des Blickorts
+  mit `Takt:`-Zeilen über mehrere Läufe abgleichen.
 - [Belegt] Der Blickort glättet alle diese Sprünge stark: Auch beim Rücksprung um 244 Einheiten wird sein Schritt je Bild nur kurz
   kleiner (−22, −14, −18), er kehrt nicht um. Auf einem PC also kein sichtbarer Kamerasprung gemessen.
 - [Belegt] Nativ: Kommt eine Figur dem Bildrand nahe, zoomt die Kamera heraus (`UseZoomOutAtEdge`, Arm 8000 bis 8205) und danach
@@ -43,8 +51,9 @@ Messungen 28.11.2026, Build `26786272`, ein PC, zwei Instanzen.
   Latenz läuft die Kopie weiter voraus, der Rücksprung wird größer. Prüfidee: Mensch fragen, auf welcher Seite; Lauf mit
   `-NetProfile Schlecht`; danach zu zweit.
 - [Vermutung] Der Zoom am Bildrand ist der „Zug in eine Richtung und zurück“ beim Laufen. Prüfidee: dasselbe ohne Mod, lokales Coop.
-- [Widerlegt] Vorausrechnen der Host-Figur beim Client (Engine oder `FollowReplicatedLocation`) überschießt: mit `-NetProfile Internet`
-  monoton, kein Rücksprung über 30 Einheiten.
+- [Vermutung, nicht beobachtet] Vorausrechnen der Host-Figur beim Client (Engine oder `FollowReplicatedLocation`) überschießt: in
+  einer Messung mit `-NetProfile Internet` monoton, kein Rücksprung über 30 Einheiten, `FollowReplicatedLocation` dabei die ganze
+  Zeit aktiv. Prüfidee: mit `-NetProfile Schlecht` und mit Unterlage wiederholen.
 
 ## Nächster Schritt
 

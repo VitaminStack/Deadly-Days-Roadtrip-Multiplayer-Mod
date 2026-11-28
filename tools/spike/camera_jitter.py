@@ -1,10 +1,12 @@
 """Read-only Zeitreihe der gemeinsamen Kamera und der Figuren: camera_jitter.py <pid> [<pid> ...] [--seconds N] [--csv DATEI].
 
-Build 26786272, nicht atomar, nicht an Frames gebunden. Liest so schnell wie moeglich je Instanz: Blickort des lokalen
-PlayerCameraManager (ViewTarget.POV.Location, das gezeigte Bild), ViewTarget, Ort des BP_PlayerCameraActor_C, Arm-Laenge und
-je BP_DD_Character_C Rolle, Ort und CMC-Tempo. Gleiche aufeinanderfolgende Proben fallen weg. Meldet Spruenge: Schritte weit
-ueber dem laufenden Tempo und Richtungsumkehr des Blickorts, dazu Spruenge der Figuren im selben Zeitfenster.
-Schreibt nichts, ruft nichts. Offsets: docs/OFFSETS.md (Kamera, Bewegung)."""
+Build 26786272, nicht atomar, nicht an Frames gebunden. Liest so schnell wie moeglich je Instanz den Blickort des lokalen
+PlayerCameraManager (ViewTarget.POV.Location, das gezeigte Bild), ViewTarget, Arm-Laenge und je BP_DD_Character_C Rolle, Ort und
+CMC-Tempo. Gleiche aufeinanderfolgende Proben fallen weg. Meldet je Figur Rueckspruenge (Schritt gegen die letzte Richtung, ab
+--back Einheiten) und Einzelschritte ueber --step Einheiten, je Blickort Bilder, groesste Luecke, groessten Schritt und Umkehr.
+Der Blickort steht mitten in der Kamera-Berechnung kurz auf Zwischenwerten (0, 0, 0 oder ein wiederkehrender Wert); Nullen
+fallen weg, Umkehr nur aus einem einzigen Bild darum mit Vorsicht lesen.
+Schreibt nichts, ruft nichts. Offsets: docs/OFFSETS.md (Kamera, Bewegung). Befund: docs/faelle/opt-kamera-ruck.md."""
 import argparse
 import csv
 import math
@@ -57,68 +59,75 @@ def sample(game, actors):
     row = {
         'pov': vec(game, manager + POV_LOCATION) if manager else NAN3,
         'view_target': game.ptr(manager + VIEW_TARGET) if manager else 0,
-        'camera': vec(game, game.ptr(actors['camera'] + ROOT)) if actors['camera'] else NAN3,
         'arm': struct.unpack('<f', arm_length)[0] if arm_length and len(arm_length) == 4 else math.nan,
         'figures': [],
     }
     for obj in actors['figures']:
         root = game.ptr(obj + ROOT)
+        cmc = game.ptr(obj + CMC)
         row['figures'].append({
             'role': (game.read(obj + ROLE, 1) or b'\0')[0],
             'location': vec(game, root + LOCATION) if root else NAN3,
-            'velocity': vec(game, game.ptr(obj + CMC) + CMC_VELOCITY) if game.ptr(obj + CMC) else NAN3,
+            'velocity': vec(game, cmc + CMC_VELOCITY) if cmc else NAN3,
         })
     return row
 
 
 def key(row):
-    return (row['pov'], row['camera'], tuple(f['location'] for f in row['figures']))
+    return (row['pov'], tuple(f['location'] for f in row['figures']))
 
 
-def planar(a, b):
-    return (b[0] - a[0], b[1] - a[1])
+def distinct(times, points):
+    """Nur Proben, in denen sich der Punkt aendert (je Bild hoechstens eine)."""
+    out = []
+    for t, p in zip(times, points):
+        if not out or out[-1][1] != p:
+            out.append((t, p))
+    return out
 
 
-def length(v):
-    return math.hypot(v[0], v[1])
+def steps(track):
+    return [(t1, (b[0] - a[0], b[1] - a[1]), t1 - t0) for (t0, a), (t1, b) in zip(track, track[1:])]
 
 
-def jumps(times, points, factor, floor):
-    """Schritte, deren Tempo das Mittel der 200 ms davor um factor uebersteigt (mindestens floor), und Richtungsumkehr."""
-    events = []
-    steps = [(times[i], planar(points[i - 1], points[i]), times[i] - times[i - 1]) for i in range(1, len(points))]
-    for i, (t, step, dt) in enumerate(steps):
-        if dt <= 0 or any(math.isnan(x) for x in step):
+def back_jumps(track, limit):
+    """Schritte ab limit Einheiten, die gegen die Richtung des letzten Schritts laufen."""
+    out, last = [], None
+    for t, step, _ in steps(track):
+        size = math.hypot(*step)
+        if size < 1:
             continue
-        speed = length(step) / dt
-        window = [length(s) / d for (tt, s, d) in steps[max(0, i - 200):i] if t - tt <= 0.2 and d > 0]
-        usual = sum(window) / len(window) if window else 0
-        if speed > floor and speed > factor * max(usual, 1):
-            events.append((t, f'Sprung {length(step):.0f} in {dt * 1000:.0f} ms ({speed:.0f}/s, vorher {usual:.0f}/s)'))
-        if i:
-            prev = steps[i - 1][1]
-            if length(prev) > 2 and length(step) > 2 and prev[0] * step[0] + prev[1] * step[1] < -0.5 * length(prev) * length(step):
-                events.append((t, f'Umkehr {length(prev):.0f} dann {length(step):.0f}'))
-    return events
+        if last and size >= limit and (step[0] * last[0] + step[1] * last[1]) < -0.5 * size * math.hypot(*last):
+            out.append((t, size))
+        last = step
+    return out
 
 
-def report(pid, rows, elapsed, factor, floor):
+def report(pid, rows, elapsed, back, big):
     if not rows:
         print(f'Instanz {pid}: keine Proben')
         return
     times = [t for t, _ in rows]
-    print(f'Instanz {pid}: {len(rows)} verschiedene Proben in {elapsed:.1f} s, '
-          f'ViewTargets {len({r["view_target"] for _, r in rows})}, Arm {min(r["arm"] for _, r in rows):.0f}..{max(r["arm"] for _, r in rows):.0f}')
-    tracks = {'Blick': [r['pov'] for _, r in rows], 'Kamera-Actor': [r['camera'] for _, r in rows]}
+    arms = [r['arm'] for _, r in rows]
+    print(f'Instanz {pid}: {len(rows)} Proben in {elapsed:.1f} s, ViewTargets {len({r["view_target"] for _, r in rows})}, '
+          f'Arm {min(arms):.0f}..{max(arms):.0f}')
+    view = distinct(times, [r['pov'] for _, r in rows])
+    view_steps = steps(view)
+    if view_steps:
+        gap = max(view_steps, key=lambda s: s[2])
+        size = sorted(math.hypot(*s[1]) for s in view_steps)
+        print(f'  Blick: {len(view)} Bilder, groesste Luecke {gap[2] * 1000:.0f} ms bei {gap[0]:.3f} s, '
+              f'Schritt median {size[len(size) // 2]:.1f} max {size[-1]:.1f}, Umkehr ab 3: '
+              + (', '.join(f'{t:.3f} s ({s:.0f})' for t, s in back_jumps(view, 3)[:10]) or 'keine'))
     count = min(len(r['figures']) for _, r in rows)
     for i in range(count):
-        tracks[f'Figur {i} Rolle {rows[-1][1]["figures"][i]["role"]}'] = [r['figures'][i]['location'] for _, r in rows]
-    found = {name: jumps(times, points, factor, floor) for name, points in tracks.items()}
-    for name, events in found.items():
-        print(f'  {name}: {len(events)} Ereignisse')
-    for t, text in found['Blick']:
-        near = [f'{name} {e}' for name, events in found.items() if name.startswith('Figur') for tt, e in events if abs(tt - t) <= 0.1]
-        print(f'    {t:7.3f} s Blick {text}' + (f'; Figuren: {"; ".join(near[:3])}' if near else '; keine Figur springt'))
+        track = distinct(times, [(r['figures'][i]['location'][0], r['figures'][i]['location'][1]) for _, r in rows])
+        way = sum(math.hypot(*s[1]) for s in steps(track))
+        jumps = back_jumps(track, back)
+        large = [(t, math.hypot(*s), dt) for t, s, dt in steps(track) if math.hypot(*s) > big]
+        print(f'  Figur {i} Rolle {rows[-1][1]["figures"][i]["role"]}: Weg {way:.0f}, Ruecksprung ab {back:.0f}: '
+              + (', '.join(f'{t:.3f} s ({s:.0f})' for t, s in jumps) or 'keiner')
+              + f'; Schritte ueber {big:.0f}: ' + (', '.join(f'{t:.3f} s ({s:.0f} in {dt * 1000:.0f} ms)' for t, s, dt in large) or 'keine'))
 
 
 def main():
@@ -126,8 +135,8 @@ def main():
     parser.add_argument('pids', type=int, nargs='+')
     parser.add_argument('--seconds', type=float, default=10)
     parser.add_argument('--csv', help='Rohdaten als CSV')
-    parser.add_argument('--factor', type=float, default=3, help='Sprung, wenn Schritt-Tempo das Mittel davor so oft uebersteigt')
-    parser.add_argument('--floor', type=float, default=1500, help='Sprung erst ab diesem Schritt-Tempo (Einheiten/s)')
+    parser.add_argument('--back', type=float, default=30, help='Ruecksprung einer Figur ab so vielen Einheiten')
+    parser.add_argument('--step', type=float, default=150, help='Einzelschritt einer Figur ab so vielen Einheiten melden')
     args = parser.parse_args()
     games = [Game(pid) for pid in args.pids]
     actors = {g.pid: level_actors(g) for g in games}
@@ -148,17 +157,16 @@ def main():
                 rows[g.pid].append((time.perf_counter() - start, row))
     elapsed = time.perf_counter() - start
     for g in games:
-        report(g.pid, rows[g.pid], elapsed, args.factor, args.floor)
+        report(g.pid, rows[g.pid], elapsed, args.back, args.step)
     if args.csv:
         with open(args.csv, 'w', newline='', encoding='utf-8') as handle:
             out = csv.writer(handle)
-            out.writerow(['pid', 't', 'pov_x', 'pov_y', 'pov_z', 'cam_x', 'cam_y', 'arm', 'view_target', 'figure', 'role', 'x', 'y', 'z', 'vx', 'vy'])
+            out.writerow(['pid', 't', 'pov_x', 'pov_y', 'pov_z', 'arm', 'view_target', 'figure', 'role', 'x', 'y', 'z', 'vx', 'vy'])
             for pid, series in rows.items():
                 for t, r in series:
                     for i, f in enumerate(r['figures']):
-                        out.writerow([pid, f'{t:.4f}', *(f'{v:.1f}' for v in r['pov']), f'{r["camera"][0]:.1f}', f'{r["camera"][1]:.1f}',
-                                      f'{r["arm"]:.0f}', hex(r['view_target']), i, f['role'], *(f'{v:.1f}' for v in f['location']),
-                                      f'{f["velocity"][0]:.0f}', f'{f["velocity"][1]:.0f}'])
+                        out.writerow([pid, f'{t:.4f}', *(f'{v:.1f}' for v in r['pov']), f'{r["arm"]:.0f}', hex(r['view_target']), i,
+                                      f['role'], *(f'{v:.1f}' for v in f['location']), f'{f["velocity"][0]:.0f}', f'{f["velocity"][1]:.0f}'])
 
 
 if __name__ == '__main__':
