@@ -14,6 +14,7 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen. Die obers
 <!-- frei:start -->
 | Kennung | Prio | Phase | Bearbeitung | Spielzeit |
 |---|---|---|---|---|
+| `boss-leiste-wiederbeitritt` | P1 | [Problem](#probleme) | parallel | wenig |
 | `coop-modus-wahl` | P1 | [Verbesserung](#verbesserungen) | parallel | mittel |
 | `coop-inventar-konzept` | P1 | [Verbesserung](#verbesserungen) | zentral | mittel |
 | `coop-inventar-zwei` | P1 | [Verbesserung](#verbesserungen) | zentral | viel |
@@ -50,6 +51,7 @@ Fehler im Spiel oder in den Werkzeugen. Jede Zeile nennt ihre Abnahme („Fertig
 
 | Kennung | Prio | Aufgabe | Bearbeitung | Spielzeit |
 |---|---|---|---|---|
+| `boss-leiste-wiederbeitritt` | P1 | Der Client stürzte auf der Boss-Karte `MGP_HQ8_Boss` beim vierten Beitritt im selben Prozess ab, direkt nach „Boss-Leiste: Boss erkannt“ (Lesen 0x0 in `DDObjectiveWidget::OnObjectiveStarted`). P1: Absturz des Clients im Run zu zweit nach einem Wiederbeitritt. **Fertig, wenn** `Test-Rejoin.ps1 -Rounds 5` auf der Boss-Karte ohne Absturz läuft und der Client je Eintritt genau einmal „Boss-Leiste: lokal angelegt“ meldet, auf einem PC mit zwei Instanzen belegt. **Einstieg** [Fallakte](docs/faelle/boss-leiste-wiederbeitritt.md) | parallel | wenig |
 | `opt-dash-aufprall` | P2 | Prallt der Client mit dem Dash gegen ein Objekt, hört er kein Geräusch. Vermutung: Der Host führt den Dodge des Clients aus, Aufprall und Sound laufen nur dort. **Fertig, wenn** der Client beim Aufprall seines Dashes denselben Sound hört wie der Host bei seinem eigenen, genau einmal, auf einem PC mit zwei Instanzen belegt. **Einstieg** [Client-Darstellung](docs/archive/GAME_ANALYSIS.md#client-darstellung-im-live-spiel-am-07112026-todo-client-optik) | parallel | wenig |
 | `opt-haende-vorschau-items` | P2 | Hantel (`ItemData_Dumbell`), Hand des Blutes (`ItemData_HandOfBlood`) und Plasmahand (`ItemData_PlasmaHand`) senken die Hände, die eine Waffe braucht. Der Client legt Wirkungen in einer lokalen Bearbeitung nicht an; Vermutung: Sein Panel lässt darum eine Waffe nicht zu, die erst mit einem dieser Items passt. **Fertig, wenn** gemessen ist, ob `GetHandsRequiredForItem` beim Client in der offenen Bearbeitung dem Wert des Hosts nach dem Übernehmen folgt, und eine Abweichung behoben ist. **Einstieg** [Roboterarm beim Client](docs/archive/GAME_ANALYSIS.md#roboterarm-beim-client-client-roboterarm), Testweg `!shop place` | parallel | wenig |
 | `opt-highway-ziel` | P2 | Im Event „Räume den Highway!“ erschien kein Benzin, das Ziel verlangte einen Abschluss (2/10). **Fertig, wenn** im Vergleich ohne Mod belegt ist, ob das natives Verhalten ist, und mit Mod das Ziel bei Host und Client gleich zählt und die Runde regulär endet. **Einstieg** [Live-Test 13.11.](docs/archive/GAME_ANALYSIS.md#live-test-auf-zwei-pcs-am-13112026-livetest-1311) | parallel | wenig |
