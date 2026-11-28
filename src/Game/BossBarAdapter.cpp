@@ -163,8 +163,7 @@ struct Scan
     uintptr_t Boss = 0;            // davon der für die Leiste gewählte, siehe PickBoss
     uintptr_t Objective = 0;
     std::vector<uintptr_t> Widgets;                    // nur fertig aufgebaute Anzeigen mit Objective-Manager
-    size_t Unbuilt = 0;                                // lebende Anzeigen mit Manager, aber ohne Unteranzeigen, übergangen
-    size_t Dying = 0;                                  // Anzeigen mit Manager, die das Spiel gerade freigibt, übergangen
+    size_t Unbuilt = 0;                                // Anzeigen mit Manager, aber ohne Unteranzeigen, übergangen
     std::vector<std::pair<uintptr_t, uintptr_t>> Sets; // (Outer, CommonAttributeSet)
     std::vector<std::pair<uintptr_t, uintptr_t>> Abilities; // (Outer, AbilitySystemComponent)
 };
@@ -217,14 +216,10 @@ Scan ScanObjects(uintptr_t Current, const WidgetFields& Fields)
         case Kind::Widget:
         {
             // Die zweite Instanz ohne Subsystem stürzt bei OnObjective* ab, eine Anzeige ohne Unteranzeigen bei OnObjectiveStarted.
-            // Eine Anzeige der vorigen Welt, die das Spiel gerade freigibt, steht noch im Objekt-Array.
             const auto Set = [Object](uintptr_t Offset) { return Memory::ReadPointer(Object + Offset).value_or(0) != 0; };
-            const ObjectiveWidgetView View{Set(Fields.Manager), Set(Fields.Description), Set(Fields.ProgressText), Set(Fields.ProgressBar),
-                                           Objects::IsLive({Object, i, 0})};
+            const ObjectiveWidgetView View{Set(Fields.Manager), Set(Fields.Description), Set(Fields.ProgressText), Set(Fields.ProgressBar)};
             if (CanNotifyObjectiveWidget(View))
                 Result.Widgets.push_back(Object);
-            else if (View.Manager && !View.Live)
-                ++Result.Dying;
             else if (View.Manager)
                 ++Result.Unbuilt;
             break;
@@ -580,14 +575,13 @@ void TickBossBar()
             NoteWait(std::format("Boss {} da, HP nicht lesbar ({} Attributsaetze am Boss)", Class ? Memory::NameOf(*Class) : "?", BossSets));
         }
         else if (Found.Widgets.empty())
-            NoteWait(Found.Unbuilt || Found.Dying ? std::format("Boss da, keine fertige Anzeige ({} ohne Unteranzeigen, {} im Abbau)",
-                                                                Found.Unbuilt, Found.Dying)
-                                                  : std::string("Boss da, keine Anzeige mit Subsystem"));
+            NoteWait(Found.Unbuilt ? std::format("Boss da, {} Anzeige(n) mit Subsystem noch ohne Unteranzeigen", Found.Unbuilt)
+                                   : std::string("Boss da, keine Anzeige mit Subsystem"));
         else
         {
             NoteWait({});
-            if (Found.Unbuilt || Found.Dying)
-                Core::Log::Info("Boss-Leiste: Anzeigen uebergangen, {} ohne Unteranzeigen, {} im Abbau", Found.Unbuilt, Found.Dying);
+            if (Found.Unbuilt)
+                Core::Log::Info("Boss-Leiste: {} Anzeige(n) ohne Unteranzeigen uebergangen", Found.Unbuilt);
             Core::Log::Info("Boss-Leiste: Boss erkannt (Maximum {}), lege Objective an", Max);
             Create(Found, MaxOffset, Max);
         }

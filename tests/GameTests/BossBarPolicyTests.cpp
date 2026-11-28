@@ -198,8 +198,7 @@ TEST_CASE("Boss bar after travel removes the old bar first, then creates exactly
     CHECK(Game::DecideBossBar(State) == Game::BossBarStep::Sync);
 }
 
-// boss-leiste-wiederbeitritt: OnObjectiveStarted liest DescriptionText, ProgressText und ProgressBar der Anzeige ohne Prüfung. Beim
-// Wiederbeitritt gab es eine Anzeige mit Manager, aber noch ohne Unteranzeigen, und der Client stürzte ab (Lesen 0x0).
+// boss-leiste-wiederbeitritt: OnObjectiveStarted liest DescriptionText, ProgressText und ProgressBar der Anzeige ohne Prüfung.
 TEST_CASE("Objective widget is only notified when it is fully built")
 {
     Game::ObjectiveWidgetView Widget{true, true, true, true};
@@ -212,15 +211,6 @@ TEST_CASE("Objective widget is only notified when it is fully built")
     CHECK_FALSE(Game::CanNotifyObjectiveWidget(Widget));
     Widget = {true, true, true, false};
     CHECK_FALSE(Game::CanNotifyObjectiveWidget(Widget));
-}
-
-// Eine Anzeige der vorigen Welt, die das Spiel gerade freigibt, hat noch alle Felder, aber ihr CurrentObjective kann schon frei sein.
-TEST_CASE("Objective widget that is being collected is never notified")
-{
-    Game::ObjectiveWidgetView Widget{true, true, true, true, false};
-    CHECK_FALSE(Game::CanNotifyObjectiveWidget(Widget));
-    Widget.Live = true;
-    CHECK(Game::CanNotifyObjectiveWidget(Widget));
 }
 
 // boss-leiste-wiederbeitritt: Nach dem Hauptmenü lag eine andere Klasse an einer gemerkten Adresse. Das eigene Objective galt nicht mehr

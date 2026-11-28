@@ -122,8 +122,9 @@ Weg zum Erfolg, in der Reihenfolge, die nötig war:
    stürzt beim Überschreiten der Marke ab (Nullzeiger in `0x5A9CA03`).
 4. `DDObjective::StartTracking(World)`, danach `DDObjectiveWidget::OnObjectiveStarted(Objective)` an jede fertig aufgebaute Anzeige: mit Subsystem
    (`ObjectiveManager`) und mit `DescriptionText`, `ProgressText` und `ProgressBar`, die `OnObjectiveStarted` ohne Prüfung liest (`CanNotifyObjectiveWidget`).
-   Es gibt zwei Widget-Instanzen, die zweite hat kein Subsystem und stürzt bei jedem Ereignis ab. Beim Wiederbeitritt im selben Prozess gab es kurz
-   eine Anzeige mit Subsystem, aber ohne Unteranzeigen; der Client übergeht sie (Log „Anzeige(n) ohne Unteranzeigen uebergangen“).
+   Es gibt zwei Widget-Instanzen, die zweite hat kein Subsystem und stürzt bei jedem Ereignis ab.
+   Die Rolle einer Klasse (Boss, Objective, Anzeige) merkt sich der Scan je Klassenadresse und prüft einmal je Scan, ob dort noch derselbe
+   Klassenname steht: Nach dem Hauptmenü liegen andere Klassen an alten Adressen (Log „Boss-Leiste: Klasse an … gewechselt“).
 5. Je Sekunde `SetCurrentProgressCounter(Health)`, nur bei Änderung. Nie auf 0 setzen (schließt das Objective ab, dem Client-Subsystem fehlt dafür das
    aktuelle Objective). Drei Ticks nach dem Anlegen warten.
 6. Boss weg: `OnObjectiveRemoved(Objective)` an dieselbe Anzeige.
