@@ -20,7 +20,13 @@ Umkehr des Blickorts aus einer einzelnen Probe ist darum kein Beleg.
 
 ## Belege
 
-Messungen 28.11.2026, Build `26786272`, ein PC, zwei Instanzen.
+Messungen 28.11.2026, Build `26786272`, ein PC, zwei Instanzen. Alle Läufe in `DDDynamic_Map` lagen in der Aufzugkabine, in
+der beide Figuren starten (`BP_Elevator_Tower_C`, Breite 523 Einheiten); nur der letzte Lauf war eine echte Runde.
+
+- [Belegt, echte Runde, `-NetProfile Schlecht`, Godmode] Tag 1 der Route, Laufen und Dash beider Figuren nacheinander, 40 s:
+  Blickort auf beiden Seiten ohne Umkehr (größter Schritt je Bild 42 beim Host, 28 beim Client), Kopie der Client-Figur beim Host
+  folgt dem Client mit Verzug ohne Rücksprung, Kopie der Host-Figur beim Client einmal 52 Einheiten zurück. Der Mensch sah im
+  Fenster nichts Auffälliges. Auf einem PC also nicht nachgestellt.
 
 - [Belegt] Stillstand: Blickort ruhig. Während der Kamera-Berechnung steht `POV.Location` kurz auf (0, 0, 0), die Probe verwirft das.
   Kleine Wackler von etwa ±15 Einheiten bei stehenden Figuren kommen vermutlich vom Kamerawackeln beim Schießen (nicht geprüft).
@@ -39,11 +45,12 @@ Messungen 28.11.2026, Build `26786272`, ein PC, zwei Instanzen.
 - [Vermutung] Beim Laufen hält der Host einzelne Bilder an: Lücke bis 56 ms statt rund 6 ms, Schritt 13,6 statt Median 4,8, dazu
   `Takt: Bewegung hielt den Frame 9.6 ms auf`. Ein solcher Hänger kann als kurzer Ruck wirken. Prüfidee: Lücken des Blickorts
   mit `Takt:`-Zeilen über mehrere Läufe abgleichen.
-- [Belegt, `-NetProfile Schlecht`] **Sprung der stehenden Client-Figur beim Host:** Steht die Client-Figur still (beim Client auf
-  `BP_Elevator_Tower_C`, Ort fest), verliert ihre Kopie beim Host etwa alle 7,5 s die Unterlage (MovementBase leer), rutscht in
+- [Belegt, Testkarte, mit und ohne Netzprofil] **Sprung der stehenden Client-Figur beim Host:** Steht die Client-Figur in der
+  Aufzugkabine still (beim Client auf `BP_Elevator_Tower_C`, Ort fest), verliert ihre Kopie beim Host etwa alle 7,5 s die Unterlage (MovementBase leer), rutscht in
   rund 13 ms um 523 Einheiten in −x (Tempo −22005, auf x −1798,2, jedes Mal derselbe Ort) und steht ein bis drei Bilder später
-  mit Unterlage wieder am Client-Ort. Viermal in 40 s, zweimal in einem Lauf davor, ohne Logzeile. Die Host-Kamera zieht dabei bis
-  rund 70 Einheiten mit und zurück. Beim Client keine Bewegung, sein Blickort ruhig.
+  mit Unterlage wieder am Client-Ort. x −1798 ist die gegenüberliegende Kabinenwand, derselbe Ort auch im Lauf ohne Netzprofil.
+  Viermal in 40 s, im Host-Log ±200 ms keine Zeile dazu. Testkarten-Artefakt, nicht der gemeldete Fehler: Der Mensch sieht im
+  Stand keinen Ruck. Der Blickort des Hosts wackelt schon davor um ±20 bis 30, der des Clients nicht.
 - [Belegt] Der Blickort glättet alle diese Sprünge stark: Auch beim Rücksprung um 244 Einheiten wird sein Schritt je Bild nur kurz
   kleiner (−22, −14, −18), er kehrt nicht um. Auf einem PC also kein sichtbarer Kamerasprung gemessen.
 - [Belegt] Nativ: Kommt eine Figur dem Bildrand nahe, zoomt die Kamera heraus (`UseZoomOutAtEdge`, Arm 8000 bis 8205) und danach
@@ -57,22 +64,25 @@ Messungen 28.11.2026, Build `26786272`, ein PC, zwei Instanzen.
   eigener `GA_Dash` beim Host plus übernommene Client-Orte, `bServerAcceptClientAuthoritativePosition`). Über zwei PCs mit echter
   Latenz läuft die Kopie weiter voraus, der Rücksprung wird größer. Prüfidee: Mensch fragen, auf welcher Seite; Lauf mit
   `-NetProfile Schlecht`; danach zu zweit.
-- [Widerlegt] Der Zoom am Bildrand ist der „Zug in eine Richtung und zurück“ beim Laufen: Laut Mensch tritt der Ruck unabhängig
+- [Widerlegt, nur nach Aussage des Menschen] Der Zoom am Bildrand ist der „Zug in eine Richtung und zurück“ beim Laufen: Laut ihm tritt der Ruck unabhängig
   vom Bildrand auf und nur in echter Sitzung über zwei PCs, der Zoom wäre auch lokal zu sehen.
 - [Vermutung] Ursache hängt an echter Latenz und Schwankung: Pakete kommen gebündelt oder in falscher Reihenfolge, die Kopie der
   fremden Figur springt beim Host (übernommene Client-Orte) oder beim Client (`FollowReplicatedLocation`, Vorausrechnen bis 150 ms,
   Teleport ab 6 m) vor und zurück, die Kamera rahmt beide Figuren und zieht mit. Beim Dash größer, weil Tempo −6500.
-  Prüfidee: `-NetProfile Schlecht` (250 ms ±80, 5 % Verlust), Laufen und Dash beider Figuren, Rücksprünge je Seite.
+  Das Netzprofil der Mod (250 ms ±80, 5 % Verlust) reicht auf einem PC nicht, den Ruck zu zeigen. Was eine echte Sitzung über
+  Steam zusätzlich hat (Paketbündel, schwankender Takt, zwei Rechner mit verschiedener Bildrate), ist offen.
+  Prüfidee: `camera_jitter.py` auf beiden PCs während einer Live-Sitzung, CSV beider Seiten nach Zeit abgleichen.
 - [Vermutung, nicht beobachtet] Vorausrechnen der Host-Figur beim Client (Engine oder `FollowReplicatedLocation`) überschießt: in
   einer Messung mit `-NetProfile Internet` monoton, kein Rücksprung über 30 Einheiten, `FollowReplicatedLocation` dabei die ganze
   Zeit aktiv. Prüfidee: mit `-NetProfile Schlecht` und mit Unterlage wiederholen.
 
 ## Nächster Schritt
 
-Den Menschen fragen, auf welcher Seite er den Sprung sah und ob die Figur mitsprang. Dann `-NetProfile Schlecht` messen und prüfen,
-ob der Host den Dodge der Client-Figur selbst ausführen muss oder nur Kosten buchen und den Schub den Client-Orten überlassen kann.
+Nächste Live-Sitzung auf zwei PCs: auf jedem PC `py tools/spike/camera_jitter.py <pid> --seconds 120 --csv <datei>` laufen
+lassen, während beide laufen und dashen; der Mensch notiert die Uhrzeit, wenn er den Ruck sieht. Dann je Seite Rücksprünge der
+fremden Figur und Umkehr des Blickorts an diesen Zeiten prüfen.
 
 ## Abnahme
 
-Die Kamera folgt auf beiden Seiten beim Laufen und bei Dodge-Ketten beider Figuren ohne Sprung, auch mit `-NetProfile Internet`,
-auf einem PC mit zwei Instanzen gemessen.
+Die Kamera folgt auf beiden Seiten beim Laufen und bei Dodge-Ketten beider Figuren ohne Sprung, in einer Live-Sitzung auf zwei PCs
+gemessen und vom Menschen gesehen.
