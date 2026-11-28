@@ -113,20 +113,24 @@ struct BossCandidate
 inline constexpr size_t NoBoss = static_cast<size_t>(-1);
 
 // Was eine Anzeige (DDObjectiveWidget) gerade hat: Manager (das Subsystem) und die Unteranzeigen, die OnObjectiveStarted ohne Prüfung
-// liest (DescriptionText, ProgressText, ProgressBar; auch der Fortschritt schreibt in ProgressBar).
+// liest (DescriptionText, ProgressText, ProgressBar; auch der Fortschritt schreibt in ProgressBar). Live: weder unerreichbar noch Müll
+// noch im Abbau (Objects::IsLive).
 struct ObjectiveWidgetView
 {
     bool Manager = false;
     bool Description = false;
     bool ProgressText = false;
     bool ProgressBar = false;
+    bool Live = true;
 };
 
-// Nur eine fertig aufgebaute Anzeige bekommt OnObjectiveStarted (boss-leiste-wiederbeitritt). Ohne Manager stürzt die zweite Instanz ab;
-// beim Wiederbeitritt gab es eine Anzeige mit Manager, aber noch ohne Unteranzeigen, und der Client stürzte beim Lesen von 0x0 ab.
+// Nur eine lebende, fertig aufgebaute Anzeige bekommt OnObjectiveStarted (boss-leiste-wiederbeitritt). Ohne Manager stürzt die zweite
+// Instanz ab. Beim Wiederbeitritt im selben Prozess stand noch eine Anzeige der vorigen Welt im Objekt-Array, die das Spiel schrittweise
+// freigibt: einmal ohne Unteranzeigen (Lesen 0x0), einmal mit einem schon freigegebenen CurrentObjective, das OnObjectiveStarted zuerst
+// abmeldet (Lesen freigegebenen Speichers). Beides stürzte den Client ab.
 inline bool CanNotifyObjectiveWidget(const ObjectiveWidgetView& Widget)
 {
-    return Widget.Manager && Widget.Description && Widget.ProgressText && Widget.ProgressBar;
+    return Widget.Live && Widget.Manager && Widget.Description && Widget.ProgressText && Widget.ProgressBar;
 }
 
 // Welcher Boss die Leiste bekommt. Ein schon verfolgter Boss bleibt es, solange er lebt; sonst NoBoss, damit die alte Leiste erst

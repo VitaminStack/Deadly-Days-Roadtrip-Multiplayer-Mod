@@ -213,3 +213,12 @@ TEST_CASE("Objective widget is only notified when it is fully built")
     Widget = {true, true, true, false};
     CHECK_FALSE(Game::CanNotifyObjectiveWidget(Widget));
 }
+
+// Eine Anzeige der vorigen Welt, die das Spiel gerade freigibt, hat noch alle Felder, aber ihr CurrentObjective kann schon frei sein.
+TEST_CASE("Objective widget that is being collected is never notified")
+{
+    Game::ObjectiveWidgetView Widget{true, true, true, true, false};
+    CHECK_FALSE(Game::CanNotifyObjectiveWidget(Widget));
+    Widget.Live = true;
+    CHECK(Game::CanNotifyObjectiveWidget(Widget));
+}
