@@ -197,3 +197,30 @@ TEST_CASE("Boss bar after travel removes the old bar first, then creates exactly
     State.SettleTicks = Game::BossBarSettleTicks;
     CHECK(Game::DecideBossBar(State) == Game::BossBarStep::Sync);
 }
+
+// boss-leiste-wiederbeitritt: OnObjectiveStarted liest DescriptionText, ProgressText und ProgressBar der Anzeige ohne Prüfung.
+TEST_CASE("Objective widget is only notified when it is fully built")
+{
+    Game::ObjectiveWidgetView Widget{true, true, true, true};
+    CHECK(Game::CanNotifyObjectiveWidget(Widget));
+    Widget.Manager = false;
+    CHECK_FALSE(Game::CanNotifyObjectiveWidget(Widget));
+    Widget = {true, false, true, true};
+    CHECK_FALSE(Game::CanNotifyObjectiveWidget(Widget));
+    Widget = {true, true, false, true};
+    CHECK_FALSE(Game::CanNotifyObjectiveWidget(Widget));
+    Widget = {true, true, true, false};
+    CHECK_FALSE(Game::CanNotifyObjectiveWidget(Widget));
+}
+
+// boss-leiste-wiederbeitritt: Nach dem Hauptmenü lag eine andere Klasse an einer gemerkten Adresse. Das eigene Objective galt nicht mehr
+// als Objective (jede Sekunde neu angelegt), die Anzeige nicht mehr als Anzeige, und ein fremdes Objekt bekam OnObjectiveStarted.
+TEST_CASE("Cached class kind is only reused while the same class sits at the address")
+{
+    Game::CachedClassKind Entry{1234, 7};
+    CHECK_FALSE(Game::ClassKindNeedsCheck(Entry, 7));
+    CHECK(Game::ClassKindNeedsCheck(Entry, 8));
+    CHECK(Game::ClassKindStillValid(Entry, 1234));
+    CHECK_FALSE(Game::ClassKindStillValid(Entry, 5678));
+    CHECK_FALSE(Game::ClassKindStillValid(Entry, -1));
+}
