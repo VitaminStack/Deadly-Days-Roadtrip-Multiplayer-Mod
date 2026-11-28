@@ -34,6 +34,10 @@ constexpr uintptr_t AttributeCurrentValue = 0xC; // FGameplayAttributeData: Curr
 
 constexpr Reflection::FieldSpec ObjectiveMaxHealth{Package, "DDBossObjective", "MaxHealth", "Int64Property", 8};
 constexpr Reflection::FieldSpec WidgetManager{Package, "DDObjectiveWidget", "ObjectiveManager", "ObjectProperty", 8};
+// Unteranzeigen, die OnObjectiveStarted ohne Prüfung liest (boss-leiste-wiederbeitritt), siehe CanNotifyObjectiveWidget.
+constexpr Reflection::FieldSpec WidgetDescription{Package, "DDObjectiveWidget", "DescriptionText", "ObjectProperty", 8};
+constexpr Reflection::FieldSpec WidgetProgressText{Package, "DDObjectiveWidget", "ProgressText", "ObjectProperty", 8};
+constexpr Reflection::FieldSpec WidgetProgressBar{Package, "DDObjectiveWidget", "ProgressBar", "ObjectProperty", 8};
 constexpr Reflection::FieldSpec AttributeMaxHealth{Package, "CommonAttributeSet", "MaxHealth", "StructProperty", 16};
 constexpr Reflection::FieldSpec AttributeHealth{Package, "CommonAttributeSet", "Health", "StructProperty", 16};
 // Phasenbezogene Leiste (opt-boss-phasenleiste), siehe docs/OFFSETS.md.
@@ -109,7 +113,8 @@ struct Scan
     std::vector<uintptr_t> Bosses; // lebende BP_BossEnemy_C
     uintptr_t Boss = 0;            // davon der für die Leiste gewählte, siehe PickBoss
     uintptr_t Objective = 0;
-    std::vector<uintptr_t> Widgets;                    // nur Anzeigen mit Objective-Manager
+    std::vector<uintptr_t> Widgets;                    // nur fertig aufgebaute Anzeigen mit Objective-Manager
+    size_t Unbuilt = 0;                                // Anzeigen mit Manager, aber ohne Unteranzeigen, übergangen
     std::vector<std::pair<uintptr_t, uintptr_t>> Sets; // (Outer, CommonAttributeSet)
     std::vector<std::pair<uintptr_t, uintptr_t>> Abilities; // (Outer, AbilitySystemComponent)
 };
@@ -123,7 +128,16 @@ std::unordered_set<uintptr_t>& OwnObjectives()
     return Own;
 }
 
-Scan ScanObjects(uintptr_t Current, uintptr_t WidgetManagerOffset)
+// Felder der Anzeige, per Reflexion aufgelöst.
+struct WidgetFields
+{
+    uintptr_t Manager = 0;
+    uintptr_t Description = 0;
+    uintptr_t ProgressText = 0;
+    uintptr_t ProgressBar = 0;
+};
+
+Scan ScanObjects(uintptr_t Current, const WidgetFields& Fields)
 {
     Scan Result;
     const int32_t Total = Objects::Count();
@@ -149,10 +163,16 @@ Scan ScanObjects(uintptr_t Current, uintptr_t WidgetManagerOffset)
                 Result.Objective = Object;
             break;
         case Kind::Widget:
-            // Die zweite Instanz ohne Subsystem stürzt bei OnObjective* ab.
-            if (Memory::ReadPointer(Object + WidgetManagerOffset))
+        {
+            // Die zweite Instanz ohne Subsystem stürzt bei OnObjective* ab, eine Anzeige ohne Unteranzeigen bei OnObjectiveStarted.
+            const auto Set = [Object](uintptr_t Offset) { return Memory::ReadPointer(Object + Offset).value_or(0) != 0; };
+            const ObjectiveWidgetView View{Set(Fields.Manager), Set(Fields.Description), Set(Fields.ProgressText), Set(Fields.ProgressBar)};
+            if (CanNotifyObjectiveWidget(View))
                 Result.Widgets.push_back(Object);
+            else if (View.Manager)
+                ++Result.Unbuilt;
             break;
+        }
         case Kind::AttributeSet:
             if (const auto Outer = Memory::ReadPointer(Object + Offsets::UObject::Outer))
                 Result.Sets.emplace_back(*Outer, Object);
@@ -424,11 +444,16 @@ void TickBossBar()
     const auto SetMaxField = Reflection::Property(AttributeMaxHealth);
     const auto SetHealthField = Reflection::Property(AttributeHealth);
     const auto ObjectiveMaxField = Reflection::Property(ObjectiveMaxHealth);
-    if (!ManagerField || !SetMaxField || !SetHealthField || !ObjectiveMaxField)
+    const auto DescriptionField = Reflection::Property(WidgetDescription);
+    const auto ProgressTextField = Reflection::Property(WidgetProgressText);
+    const auto ProgressBarField = Reflection::Property(WidgetProgressBar);
+    if (!ManagerField || !SetMaxField || !SetHealthField || !ObjectiveMaxField || !DescriptionField || !ProgressTextField || !ProgressBarField)
         return;
     const auto MaxOffset = static_cast<uintptr_t>(ObjectiveMaxField->Offset);
+    const WidgetFields Fields{static_cast<uintptr_t>(ManagerField->Offset), static_cast<uintptr_t>(DescriptionField->Offset),
+                              static_cast<uintptr_t>(ProgressTextField->Offset), static_cast<uintptr_t>(ProgressBarField->Offset)};
 
-    Scan Found = ScanObjects(S.Ours, static_cast<uintptr_t>(ManagerField->Offset));
+    Scan Found = ScanObjects(S.Ours, Fields);
     // Ein fremdes Objective (etwa vom Spiel selbst angelegt) lassen wir in Ruhe.
     if (Found.Objective && Found.Objective != S.Ours)
     {
@@ -490,10 +515,13 @@ void TickBossBar()
             NoteWait(std::format("Boss {} da, HP nicht lesbar ({} Attributsaetze am Boss)", Class ? Memory::NameOf(*Class) : "?", BossSets));
         }
         else if (Found.Widgets.empty())
-            NoteWait("Boss da, keine Anzeige mit Subsystem");
+            NoteWait(Found.Unbuilt ? std::format("Boss da, {} Anzeige(n) mit Subsystem noch ohne Unteranzeigen", Found.Unbuilt)
+                                   : std::string("Boss da, keine Anzeige mit Subsystem"));
         else
         {
             NoteWait({});
+            if (Found.Unbuilt)
+                Core::Log::Info("Boss-Leiste: {} Anzeige(n) ohne Unteranzeigen uebergangen", Found.Unbuilt);
             Core::Log::Info("Boss-Leiste: Boss erkannt (Maximum {}), lege Objective an", Max);
             Create(Found, MaxOffset, Max);
         }

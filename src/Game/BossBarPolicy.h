@@ -112,6 +112,23 @@ struct BossCandidate
 
 inline constexpr size_t NoBoss = static_cast<size_t>(-1);
 
+// Was eine Anzeige (DDObjectiveWidget) gerade hat: Manager (das Subsystem) und die Unteranzeigen, die OnObjectiveStarted ohne Prüfung
+// liest (DescriptionText, ProgressText, ProgressBar; auch der Fortschritt schreibt in ProgressBar).
+struct ObjectiveWidgetView
+{
+    bool Manager = false;
+    bool Description = false;
+    bool ProgressText = false;
+    bool ProgressBar = false;
+};
+
+// Nur eine fertig aufgebaute Anzeige bekommt OnObjectiveStarted (boss-leiste-wiederbeitritt). Ohne Manager stürzt die zweite Instanz ab;
+// beim Wiederbeitritt gab es eine Anzeige mit Manager, aber noch ohne Unteranzeigen, und der Client stürzte beim Lesen von 0x0 ab.
+inline bool CanNotifyObjectiveWidget(const ObjectiveWidgetView& Widget)
+{
+    return Widget.Manager && Widget.Description && Widget.ProgressText && Widget.ProgressBar;
+}
+
 // Welcher Boss die Leiste bekommt. Ein schon verfolgter Boss bleibt es, solange er lebt; sonst NoBoss, damit die alte Leiste erst
 // entfernt wird. Ohne Leiste zuerst ein lebender Boss mit Schaden (Kampf läuft), sonst der erste lebende. Auf einer HQ-Karte steht der Endboss schon vor
 // dem Kampf da; ein zweiter Boss (etwa per !bossfight) bekäme sonst Werte in die Leiste des ersten.

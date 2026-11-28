@@ -197,3 +197,19 @@ TEST_CASE("Boss bar after travel removes the old bar first, then creates exactly
     State.SettleTicks = Game::BossBarSettleTicks;
     CHECK(Game::DecideBossBar(State) == Game::BossBarStep::Sync);
 }
+
+// boss-leiste-wiederbeitritt: OnObjectiveStarted liest DescriptionText, ProgressText und ProgressBar der Anzeige ohne Prüfung. Beim
+// Wiederbeitritt gab es eine Anzeige mit Manager, aber noch ohne Unteranzeigen, und der Client stürzte ab (Lesen 0x0).
+TEST_CASE("Objective widget is only notified when it is fully built")
+{
+    Game::ObjectiveWidgetView Widget{true, true, true, true};
+    CHECK(Game::CanNotifyObjectiveWidget(Widget));
+    Widget.Manager = false;
+    CHECK_FALSE(Game::CanNotifyObjectiveWidget(Widget));
+    Widget = {true, false, true, true};
+    CHECK_FALSE(Game::CanNotifyObjectiveWidget(Widget));
+    Widget = {true, true, false, true};
+    CHECK_FALSE(Game::CanNotifyObjectiveWidget(Widget));
+    Widget = {true, true, true, false};
+    CHECK_FALSE(Game::CanNotifyObjectiveWidget(Widget));
+}
