@@ -14,7 +14,6 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen. Die obers
 <!-- frei:start -->
 | Kennung | Prio | Phase | Bearbeitung | Spielzeit |
 |---|---|---|---|---|
-| `coop-modus-wahl` | P1 | [Verbesserung](#verbesserungen) | parallel | mittel |
 | `coop-inventar-konzept` | P1 | [Verbesserung](#verbesserungen) | zentral | mittel |
 | `coop-inventar-zwei` | P1 | [Verbesserung](#verbesserungen) | zentral | viel |
 | `opt-dash-aufprall` | P2 | [Problem](#probleme) | parallel | wenig |
@@ -41,7 +40,7 @@ Diese Liste erzeugt `py tools/task_status.py update` aus den Tabellen. Die obers
 | `coop-spielstand` | P2 | [Verbesserung](#verbesserungen) | parallel | viel |
 | `coop-inventar-geteilt` | P2 | [Verbesserung](#verbesserungen) | zentral | viel |
 
-**Bestätigungstests ausstehend (nur Info, blockiert nichts):** 43, siehe [docs/ERLEDIGT.md](docs/ERLEDIGT.md#bestätigungstests-ausstehend).
+**Bestätigungstests ausstehend (nur Info, blockiert nichts):** 44, siehe [docs/ERLEDIGT.md](docs/ERLEDIGT.md#bestätigungstests-ausstehend).
 <!-- frei:end -->
 
 ## Probleme
@@ -65,7 +64,6 @@ Neue Funktionen, Feinschliff und Release. Jede Zeile nennt ihre Abnahme („Fert
 | Kennung | Prio | Aufgabe | Bearbeitung | Spielzeit |
 |---|---|---|---|---|
 | `coop-inventar-konzept` | P1 | Das native geteilte Koop-Inventar ohne Mod untersuchen (lokaler Koop mit zwei Controllern auf einem PC) und daraus das Konzept für das geteilte Inventar online für zwei bis vier Spieler schreiben. Was andere Aufgaben schon gebaut oder festgelegt haben, übernimmt und prüft das Konzept. **Fertig, wenn** `docs/themen/INVENTAR_UND_HANDEL.md` Datenmodell, Wirkregeln über Bereichsgrenzen und native Andockpunkte mit Belegt/Vermutung nennt, das Konzept in `docs/` die Fragen des Architekturprinzips beantwortet und das Team es freigegeben hat. **Einstieg** [Details](docs/OPTIONEN.md#coop-inventar-konzept) | zentral | mittel |
-| `coop-modus-wahl` | P1 | Der Host wählt vor dem Hosten der Lobby zwischen Eigene Inventare (Standard) und Geteiltes Inventar; der Modus geht beim Beitritt an alle Clients und gilt für den ganzen Run. Gibt es das geteilte Inventar noch nicht, überträgt und zeigt die Aufgabe nur den Modus. Vorhandenes übernimmt und prüft sie. **Fertig, wenn** auf zwei PCs beide Modi nacheinander wählbar sind, Host und Client denselben Modus anzeigen und im Log führen, er sich im Run nicht wechseln lässt und ein Client mit unpassender Mod-Version ablehnt. **Einstieg** [Details](docs/OPTIONEN.md#coop-modus-wahl) | parallel | mittel |
 | `coop-inventar-zwei` | P1 | Geteiltes Inventar für zwei Spieler online: ein gemeinsamer Rucksack mit einem Bereich je Spieler, samt Airdrop-Wahl, Itemsäcken, Werkbank, Lager und Rundenende. Fehlende Festlegungen (Datenmodell, wer bucht, Umschalter zwischen den Modi) trifft die Aufgabe selbst und hält sie in `docs/themen/INVENTAR_UND_HANDEL.md` fest. Vorhandenes übernimmt und prüft sie. **Fertig, wenn** auf zwei PCs ein Run von Tag 1 bis Tag 4 im geteilten Inventar ohne Absturz und ohne Desync-Befund läuft, ein Unterstützungs-Item im Bereich von Spieler A die Waffe von Spieler B bei beiden mit gleichen Werten verstärkt und ein Run bis Tag 2 mit eigenen Inventaren wie in Release 1.0 läuft. **Einstieg** [Details](docs/OPTIONEN.md#coop-inventar-zwei) | zentral | viel |
 | `doku-rest-ist-zustand` | P2 | Doku unter `docs/` (ohne `archive/`, `faelle/`, `ERLEDIGT.md`, `ENTSCHEIDUNGEN.md`) und `src/Net/README.md` auf den Ist-Zustand bringen; in `docs/OFFSETS.md` die Tabellen mit RVAs alter Builds ins Archiv verschieben oder mit `tools/rva_map.py` auf `26786272` umrechnen. **Fertig, wenn** dort keine andere Build-ID als `26786272` und kein datierter Befund mehr steht (Datumsangaben nur an Nutzervorgaben) und die Grenze für `docs/OFFSETS.md` in `doc_check.py` gesunken ist. | parallel | keine |
 | `game-readme-kuerzen` | P2 | `src/Game/README.md` (81 KB) aufteilen: 14 der 30 `*Patches.cpp` kommen darin nicht vor. **Fertig, wenn** die Datei unter 60 KB liegt, ihr Eintrag in `LIMITS` von `doc_check.py` entfällt und jede `*Patches.cpp` in einer README unter `src/Game` beschrieben ist. | parallel | keine |

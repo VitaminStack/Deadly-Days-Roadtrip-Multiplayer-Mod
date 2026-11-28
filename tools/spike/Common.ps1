@@ -356,7 +356,7 @@ function Wait-MainMenu([int]$ProcessId, [int]$TimeoutSeconds = 90) {
 }
 
 # Overlay der Mod (Fenster DDCoop.Overlay der Instanz). Knoepfe und Felder wie in src\UI\UI.cpp.
-$script:OverlayIds = @{ Create = 101; Join = 102; Invite = 103; Leave = 104; Lobby = 105 }
+$script:OverlayIds = @{ Create = 101; Join = 102; Invite = 103; Leave = 104; Lobby = 105; Mode = 108 }
 if (-not ('DDCoopOverlay' -as [type])) {
     Add-Type @"
 using System; using System.Text; using System.Collections.Generic; using System.Runtime.InteropServices;
@@ -423,6 +423,9 @@ function Get-OverlayState([int]$ProcessId, [switch]$Window) {
             CanCreate = [bool]$Reply.canCreate
             CanJoin = [bool]$Reply.canJoin
             CanLeave = [bool]$Reply.canLeave
+            # coop-modus-wahl: own oder shared, fest waehrend der Sitzung.
+            CoopMode = [string]$Reply.coopMode
+            CoopModeLocked = [bool]$Reply.coopModeLocked
         }
     }
     $OverlayWindow = Get-OverlayWindow $ProcessId 5
@@ -439,6 +442,9 @@ function Get-OverlayState([int]$ProcessId, [switch]$Window) {
         CanCreate = [DDCoopOverlay]::Enabled($OverlayWindow, $script:OverlayIds.Create)
         CanJoin = [DDCoopOverlay]::Enabled($OverlayWindow, $script:OverlayIds.Join)
         CanLeave = [DDCoopOverlay]::Enabled($OverlayWindow, $script:OverlayIds.Leave)
+        # Auswahl des Koop-Modus, zuletzt angelegt; waehlbar heisst nicht fest.
+        CoopMode = switch -Regex (@($Texts | Where-Object { $_ -like 'Inventar: *' })[0]) { 'Geteilt' { 'shared' } 'Eigene' { 'own' } default { '' } }
+        CoopModeLocked = $null
     }
 }
 
@@ -460,9 +466,14 @@ function Invoke-OverlayAction([int]$ProcessId, [ValidateSet('Create', 'Join', 'I
     [DDCoopOverlay]::Click($Window, $script:OverlayIds[$Action])
 }
 
-# Erstellt beim Host eine Lobby ueber das Overlay und liefert ihre ID.
-function New-OverlayLobby([int]$HostId, [int]$TimeoutSeconds = 30) {
+# Erstellt beim Host eine Lobby ueber das Overlay und liefert ihre ID. Mit -Mode (Own, Shared) waehlt der Host vorher den Koop-Modus
+# ueber den Testkanal, auf demselben Weg wie die Auswahl im Overlay.
+function New-OverlayLobby([int]$HostId, [int]$TimeoutSeconds = 30, [string]$Mode) {
     Wait-Condition { (Get-OverlayState $HostId).CanCreate } 'Overlay des Hosts bereit zum Erstellen' 30 @($HostId) 500
+    if ($Mode) {
+        if (-not (Test-ModControl)) { throw 'Koop-Modus waehlen braucht den Testkanal der Mod (-Mod).' }
+        Send-ModControl $HostId "lobby mode $($Mode.ToLower())" | Out-Null
+    }
     Invoke-OverlayAction $HostId Create
     $script:NewLobby = $null
     Wait-Condition { $script:NewLobby = Get-OverlayState $HostId; $script:NewLobby.LobbyId -and $script:NewLobby.State -ne 'Verbindung wird aufgebaut' } 'Lobby beim Host erstellt' $TimeoutSeconds @($HostId) 500

@@ -55,9 +55,13 @@ bool Session::Create()
     }
     Current.Phase = SessionPhase::CreatingLobby;
     Current.Message = "Lobby wird erstellt";
+    // Ab hier gilt der Modus für die ganze Sitzung.
+    Current.Mode = Preferred;
+    Current.ModeLocked = true;
     StepSince = Clock::now();
     HostNotice.clear();
-    Core::Log::Info("Sitzung: Lobby wird erstellt");
+    Core::Log::Info("Sitzung: Lobby wird erstellt, Koop-Modus {} ({}), fest bis zum Ende der Sitzung", DisplayName(Current.Mode),
+                    ToLobbyValue(Current.Mode));
     Tick();
     return true;
 }
@@ -109,6 +113,20 @@ void Session::Leave()
     Current = {};
     Current.Message = "Sitzung verlassen";
     Core::Log::Info("Sitzung: verlassen");
+}
+
+bool Session::SetCoopMode(CoopMode Mode)
+{
+    if (Current.Phase != SessionPhase::Idle && Current.Phase != SessionPhase::Failed)
+    {
+        Core::Log::Warn("Sitzung: Koop-Modus bleibt {}, Wechsel nur ohne Sitzung", DisplayName(Current.Mode));
+        return false;
+    }
+    if (Preferred != Mode)
+        Core::Log::Info("Sitzung: Koop-Modus für die nächste Lobby: {} ({})", DisplayName(Mode), ToLobbyValue(Mode));
+    Preferred = Mode;
+    Current.Mode = Mode;
+    return true;
 }
 
 void Session::CloseLobby()
@@ -394,6 +412,7 @@ void Session::Tick()
             Current.Lobby = Created->Lobby;
             Current.Phase = SessionPhase::Hosting;
             Api->SetLobbyData(Created->Lobby, std::string(kModKey), ModVersion);
+            Api->SetLobbyData(Created->Lobby, std::string(kModeKey), std::string(ToLobbyValue(Current.Mode)));
             // Die Lobby-ID lebt nur so lange wie die Lobby und gehört zu keinem Konto. Sie steht im Log, damit man
             // ohne Steam-Overlay von Hand beitreten kann.
             Core::Log::Info("Sitzung: Lobby {} erstellt", Created->Lobby);
@@ -432,6 +451,17 @@ void Session::Tick()
                 Fail(Version.empty() ? "Die Lobby gehört nicht zur Coop-Mod" : "Andere Mod-Version beim Host");
                 break;
             }
+            // Erst nach der Version: Eine Lobby mit anderer Mod-Version meldet die Version, nicht den Modus.
+            const auto Mode = ParseCoopMode(Api->LobbyData(Current.Lobby, std::string(kModeKey)));
+            if (!Mode)
+            {
+                Fail("Unbekannter Koop-Modus beim Host");
+                break;
+            }
+            Current.Mode = *Mode;
+            Current.ModeLocked = true;
+            Core::Log::Info("Sitzung: Koop-Modus vom Host: {} ({}), fest bis zum Ende der Sitzung", DisplayName(*Mode),
+                            ToLobbyValue(*Mode));
             const uint64_t Owner = Api->LobbyOwner(Current.Lobby);
             if (!Owner)
             {
@@ -522,6 +552,13 @@ void Session::Tick()
 
 SessionStatus Session::Status() const
 {
-    return Current;
+    SessionStatus Result = Current;
+    // Ohne Sitzung zählt die Wahl für die nächste Lobby, auch direkt nach Verlassen oder Fehler.
+    if (Result.Phase == SessionPhase::Idle || Result.Phase == SessionPhase::Failed)
+    {
+        Result.Mode = Preferred;
+        Result.ModeLocked = false;
+    }
+    return Result;
 }
 }

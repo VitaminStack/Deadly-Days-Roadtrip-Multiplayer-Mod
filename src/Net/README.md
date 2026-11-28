@@ -81,7 +81,11 @@ Client: Einladung annehmen oder Lobby-ID -> Lobby betreten -> Besitzer der Lobby
 
 - `Session` kennt keine Unreal-Objekte. Was im Spiel passieren soll, kommt über `SessionHooks`; `src/Mod/Lobby.cpp` verdrahtet sie
   mit Konsolenbefehlen (`Game::ExecuteConsoleCommand`), dem Overlay (`UI::Overlay`) und dem Game-Thread-Takt.
-- Die Lobby trägt `ddcoop=<Version>` in den Lobby-Daten. Ohne den Wert oder mit anderer Version bricht der Beitritt ab und verlässt die Lobby.
+- Die Lobby trägt `ddcoop=<Mod-Version>` (die Zahl aus `Net::Protocol::ModVersion`, `src/Mod/Lobby.cpp`) und `ddcoop_mode=own|shared`
+  (Koop-Modus) in den Lobby-Daten. Ohne `ddcoop` oder mit anderer Version bricht der Beitritt ab und verlässt die Lobby, danach ebenso
+  ohne gültigen Modus. Der Hello-Handshake prüft die Mod-Version zusätzlich ([Kontrollprotokoll](../../docs/CONTROL_PROTOCOL.md#koop-modus-mod-kompatibilität-23)).
+- Koop-Modus: `Session::SetCoopMode` nimmt die Wahl nur ohne Sitzung an. Ab `Create` ist der Modus fest (`SessionStatus::ModeLocked`),
+  der Client übernimmt ihn beim Beitritt aus den Lobby-Daten. `src/Mod/Lobby.cpp` sperrt die Wahl zusätzlich während eines Runs.
 - Einladungen: „Einladen“ im Overlay öffnet die Freundesliste im Steam-Overlay. Nimmt ein Freund an, während das Spiel läuft,
   kommt `GameLobbyJoinRequested_t`; die laufende Sitzung endet, dann folgt der Beitritt. Bei geschlossenem Spiel startet Steam
   es mit `+connect_lobby <id>`, die Mod tritt bei, sobald die erste Welt geladen ist.

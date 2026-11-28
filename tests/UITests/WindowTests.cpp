@@ -138,6 +138,39 @@ TEST_CASE("Native overlay lifecycle works without game SDK, Steam, focus changes
     SendMessageW(Window, WM_TIMER, 1, 0);
     CHECK_FALSE(IsWindowEnabled(GetDlgItem(Window, 101)));
     CHECK_FALSE(IsWindowVisible(Window));
+    // coop-modus-wahl: Auswahl 108 zeigt den Modus, wählbar nur mit CanChooseMode ohne Sitzung und nur über das Modell.
+    const HWND Mode = GetDlgItem(Window, 108);
+    REQUIRE(Mode != nullptr);
+    CHECK(SendMessageW(Mode, CB_GETCOUNT, 0, 0) == 2);
+    UI::LobbyRequest Picked{ UI::LobbyAction::Create };
+    UI::Overlay().Bind([&](UI::LobbyRequest Request) { Picked = Request; });
+    Status.State = UI::SessionState::Offline;
+    Status.Mode = Net::CoopMode::Own;
+    UI::Overlay().Publish(Status);
+    SendMessageW(Window, WM_TIMER, 1, 0);
+    CHECK_FALSE(IsWindowEnabled(Mode));
+    Status.CanChooseMode = true;
+    UI::Overlay().Publish(Status);
+    SendMessageW(Window, WM_TIMER, 1, 0);
+    CHECK(IsWindowEnabled(Mode));
+    CHECK(SendMessageW(Mode, CB_GETCURSEL, 0, 0) == 0);
+    SendMessageW(Mode, CB_SETCURSEL, 1, 0);
+    SendMessageW(Window, WM_COMMAND, MAKEWPARAM(108, CBN_SELCHANGE), reinterpret_cast<LPARAM>(Mode));
+    CHECK(Core::GameThread().Drain() == 1);
+    CHECK(Picked.Action == UI::LobbyAction::SetMode);
+    CHECK(Picked.Mode == Net::CoopMode::Shared);
+    // Host oder Client in einer Sitzung: Anzeige des festen Modus, keine Auswahl.
+    Status.State = UI::SessionState::Playing;
+    Status.Mode = Net::CoopMode::Shared;
+    Status.ModeLocked = true;
+    UI::Overlay().Publish(Status);
+    SendMessageW(Window, WM_TIMER, 1, 0);
+    CHECK_FALSE(IsWindowEnabled(Mode));
+    CHECK(SendMessageW(Mode, CB_GETCURSEL, 0, 0) == 1);
+    Status = {};
+    Status.State = UI::SessionState::Offline;
+    Status.CanCreate = Status.CanJoin = true;
+    Status.Message = "Lobby test message";
     // Only the enable state; clicking would overwrite the user's clipboard.
     Status.LobbyId = 109775240000000042;
     UI::Overlay().Publish(Status);

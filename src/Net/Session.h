@@ -8,6 +8,7 @@
 #include <string>
 #include <string_view>
 
+#include "Net/CoopMode.h"
 #include "Net/SteamLobbyApi.h"
 #include "Net/Transport.h"
 
@@ -48,6 +49,10 @@ struct SessionStatus
     bool CanJoin = true;
     bool CanInvite = false;
     bool CanLeave = false;
+    // coop-modus-wahl: ohne Sitzung die Wahl für die nächste Lobby, als Host der Modus der eigenen Lobby, als Client der des
+    // Hosts aus den Lobby-Daten. Fest (ModeLocked) ab dem Erstellen beziehungsweise ab dem gelesenen Wert bis zum Ende der Sitzung.
+    CoopMode Mode = CoopMode::Own;
+    bool ModeLocked = false;
 };
 
 // Was das Spiel tun soll. Die Mod verdrahtet sie mit Konsolenbefehlen aus src/Game.
@@ -97,6 +102,8 @@ class Session
 public:
     // Wert in den Lobby-Daten, damit nur Spieler mit der Mod beitreten.
     static constexpr std::string_view kModKey = "ddcoop";
+    // Koop-Modus der Lobby, Werte aus Net::ToLobbyValue.
+    static constexpr std::string_view kModeKey = "ddcoop_mode";
     static constexpr int kMaxMembers = 4;
 
     Session(std::shared_ptr<SteamLobbyApi> Api, TransportFactory MakeTransport, SessionHooks Hooks,
@@ -107,6 +114,8 @@ public:
     bool Join(uint64_t Lobby);
     bool Invite();
     void Leave();
+    // Modus für die nächste Lobby. Nur ohne Sitzung (Idle oder Failed), sonst false und der Modus bleibt.
+    bool SetCoopMode(CoopMode Mode);
     // Fragt Steam und Transport ab, nimmt Einladungen an, stößt die Hooks an.
     void Tick();
 
@@ -132,6 +141,8 @@ private:
     SessionHooks Hooks;
     TransportOptions Options;
     std::string ModVersion;
+    // Wahl für die nächste Lobby, bleibt über Verlassen und Fehler erhalten.
+    CoopMode Preferred = CoopMode::Own;
 
     SessionStatus Current;
     SteamApiCall PendingCall = 0;

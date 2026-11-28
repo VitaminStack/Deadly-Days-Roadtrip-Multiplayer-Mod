@@ -59,19 +59,6 @@ Vorhandenes, etwa ein Konzept oder eine Moduswahl, übernimmt und prüft sie.
 **Fertig, wenn** auf zwei PCs ein Run von Tag 1 bis Tag 4 im Modus Geteiltes Inventar ohne Absturz und ohne Desync-Befund läuft, ein Unterstützungs-Item im Bereich von Spieler A die Waffe von Spieler B nachweislich verstärkt, die Waffenwerte bei beiden gleich sind und ein Run bis Tag 2 im Modus Eigene Inventare weiter wie in Release 1.0 läuft.
 Ordner `src/Game`, `src/Sync`.
 
-## `coop-modus-wahl`
-
-Wo der Modus gewählt und festgehalten wird, legt die Aufgabe selbst fest, solange es dazu nichts gibt.
-Gibt es das geteilte Inventar noch nicht, überträgt und zeigt sie nur den Modus; was er im Inventar bewirkt, gehört nicht zu dieser Aufgabe.
-Vorhandenes, etwa einen Umschalter aus `coop-inventar-zwei`, übernimmt und prüft sie.
-
-- Der Host wählt vor dem Hosten der Lobby zwischen den Modi Eigene Inventare und Geteiltes Inventar.
-- Der Modus geht beim Beitritt an alle Clients, gilt für den ganzen Run und lässt sich währenddessen nicht wechseln; Standard bleibt Eigene Inventare.
-- Clients ohne passende Mod-Version lehnen ab, statt im falschen Modus zu spielen.
-- Der Modus wird so festgehalten, dass ein gespeicherter Run ihn behalten kann.
-
-**Fertig, wenn** auf zwei PCs beide Modi nacheinander wählbar sind, Host und Client denselben Modus anzeigen und im Log führen, er sich im Run nicht wechseln lässt und ein Client mit unpassender Mod-Version ablehnt.
-
 ## `coop-inventar-geteilt`
 
 Wunsch des Nutzers im Wortlaut: „Seperate new shared Inventory Logic like real coop“.

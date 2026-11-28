@@ -44,6 +44,7 @@
     <ClInclude Include="Protocol.h" />
     <ClInclude Include="NetSim.h" />
     <ClInclude Include="ControlProtocol.h" />
+    <ClInclude Include="CoopMode.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

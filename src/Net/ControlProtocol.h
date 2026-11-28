@@ -14,6 +14,7 @@
 //   lobby join <id>       Lobby beitreten
 //   lobby invite          Freunde einladen
 //   lobby leave           Sitzung verlassen
+//   lobby mode own|shared Koop-Modus für die nächste Lobby (wie die Auswahl im Overlay), nur ohne Sitzung und außerhalb eines Runs
 //   console <text>        Konsolenbefehl des Spiels
 //   travel <Karte>        servertravel <Karte>?listen, nur Host
 namespace Net::Control
@@ -26,6 +27,7 @@ enum class CommandKind
     LobbyJoin,
     LobbyInvite,
     LobbyLeave,
+    LobbyMode,
     Console,
     Travel,
 };
@@ -34,7 +36,7 @@ struct Command
 {
     CommandKind Kind = CommandKind::State;
     uint64_t Lobby = 0;
-    // Konsolentext oder Kartenname.
+    // Konsolentext, Kartenname oder Koop-Modus (own, shared).
     std::string Text;
 };
 
