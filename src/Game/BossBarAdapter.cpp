@@ -34,6 +34,11 @@ constexpr uintptr_t AttributeCurrentValue = 0xC; // FGameplayAttributeData: Curr
 
 constexpr Reflection::FieldSpec ObjectiveMaxHealth{Package, "DDBossObjective", "MaxHealth", "Int64Property", 8};
 constexpr Reflection::FieldSpec WidgetManager{Package, "DDObjectiveWidget", "ObjectiveManager", "ObjectProperty", 8};
+// Unteranzeigen, die OnObjectiveStarted ohne Prüfung liest (boss-leiste-wiederbeitritt), siehe CanNotifyObjectiveWidget.
+constexpr Reflection::FieldSpec WidgetDescription{Package, "DDObjectiveWidget", "DescriptionText", "ObjectProperty", 8};
+constexpr Reflection::FieldSpec WidgetProgressText{Package, "DDObjectiveWidget", "ProgressText", "ObjectProperty", 8};
+constexpr Reflection::FieldSpec WidgetProgressBar{Package, "DDObjectiveWidget", "ProgressBar", "ObjectProperty", 8};
+constexpr Reflection::FieldSpec WidgetCurrentObjective{Package, "DDObjectiveWidget", "CurrentObjective", "ObjectProperty", 8};
 constexpr Reflection::FieldSpec AttributeMaxHealth{Package, "CommonAttributeSet", "MaxHealth", "StructProperty", 16};
 constexpr Reflection::FieldSpec AttributeHealth{Package, "CommonAttributeSet", "Health", "StructProperty", 16};
 // Phasenbezogene Leiste (opt-boss-phasenleiste), siehe docs/OFFSETS.md.
@@ -68,12 +73,61 @@ enum class Kind
     Abilities
 };
 
-// Rolle einer Klasse über ihre Oberklassen, je Klasse einmal berechnet; es sind viele Objekte, aber wenige Klassen.
+std::string_view KindName(Kind Value)
+{
+    switch (Value)
+    {
+    case Kind::Boss:
+        return "Boss";
+    case Kind::Objective:
+        return "Objective";
+    case Kind::Widget:
+        return "Anzeige";
+    case Kind::AttributeSet:
+        return "Attributsatz";
+    case Kind::Abilities:
+        return "Fähigkeiten";
+    default:
+        return "anderes";
+    }
+}
+
+struct ClassEntry
+{
+    CachedClassKind Check;
+    Kind Value = Kind::Other;
+};
+
+// Nummer des laufenden Scans für ClassKindNeedsCheck, 0 heißt nie geprüft.
+uint32_t ScanNumber = 0;
+
+Kind ComputeKind(uintptr_t Class);
+
+// Rolle einer Klasse über ihre Oberklassen, je Klasse gemerkt; es sind viele Objekte, aber wenige Klassen. Ein Eintrag gilt nur, solange
+// an der Adresse dieselbe Klasse steht (boss-leiste-wiederbeitritt), geprüft einmal je Scan.
 Kind KindOf(uintptr_t Class)
 {
-    static std::unordered_map<uintptr_t, Kind> Cache;
-    if (const auto Hit = Cache.find(Class); Hit != Cache.end())
-        return Hit->second;
+    static std::unordered_map<uintptr_t, ClassEntry> Cache;
+    auto Hit = Cache.find(Class);
+    if (Hit != Cache.end() && !ClassKindNeedsCheck(Hit->second.Check, ScanNumber))
+        return Hit->second.Value;
+    const int32_t NameNow = Memory::Read<int32_t>(Class + Offsets::UObject::Name).value_or(-1);
+    if (Hit != Cache.end())
+    {
+        Hit->second.Check.CheckedScan = ScanNumber;
+        if (ClassKindStillValid(Hit->second.Check, NameNow))
+            return Hit->second.Value;
+    }
+    const Kind Result = ComputeKind(Class);
+    if (Hit != Cache.end() && (Hit->second.Value != Kind::Other || Result != Kind::Other))
+        Core::Log::Info("Boss-Leiste: Klasse an {:#x} gewechselt, vorher {}, jetzt {} ({})", Class, KindName(Hit->second.Value),
+                        KindName(Result), Memory::NameOf(Class));
+    Cache[Class] = {{NameNow, ScanNumber}, Result};
+    return Result;
+}
+
+Kind ComputeKind(uintptr_t Class)
+{
     Kind Result = Kind::Other;
     bool Enemy = false;
     uintptr_t Walk = Class;
@@ -100,7 +154,6 @@ Kind KindOf(uintptr_t Class)
         if (Name.ends_with("Boss_C"))
             Core::Log::Warn("Boss-Leiste: Klasse {} erbt nicht von BP_BossEnemy_C, keine Leiste", Name);
     }
-    Cache[Class] = Result;
     return Result;
 }
 
@@ -109,7 +162,8 @@ struct Scan
     std::vector<uintptr_t> Bosses; // lebende BP_BossEnemy_C
     uintptr_t Boss = 0;            // davon der für die Leiste gewählte, siehe PickBoss
     uintptr_t Objective = 0;
-    std::vector<uintptr_t> Widgets;                    // nur Anzeigen mit Objective-Manager
+    std::vector<uintptr_t> Widgets;                    // nur fertig aufgebaute Anzeigen mit Objective-Manager
+    size_t Unbuilt = 0;                                // Anzeigen mit Manager, aber ohne Unteranzeigen, übergangen
     std::vector<std::pair<uintptr_t, uintptr_t>> Sets; // (Outer, CommonAttributeSet)
     std::vector<std::pair<uintptr_t, uintptr_t>> Abilities; // (Outer, AbilitySystemComponent)
 };
@@ -123,8 +177,19 @@ std::unordered_set<uintptr_t>& OwnObjectives()
     return Own;
 }
 
-Scan ScanObjects(uintptr_t Current, uintptr_t WidgetManagerOffset)
+// Felder der Anzeige, per Reflexion aufgelöst.
+struct WidgetFields
 {
+    uintptr_t Manager = 0;
+    uintptr_t Description = 0;
+    uintptr_t ProgressText = 0;
+    uintptr_t ProgressBar = 0;
+};
+
+Scan ScanObjects(uintptr_t Current, const WidgetFields& Fields)
+{
+    if (++ScanNumber == 0)
+        ScanNumber = 1;
     Scan Result;
     const int32_t Total = Objects::Count();
     for (int32_t i = 0; i < Total; ++i)
@@ -149,10 +214,16 @@ Scan ScanObjects(uintptr_t Current, uintptr_t WidgetManagerOffset)
                 Result.Objective = Object;
             break;
         case Kind::Widget:
-            // Die zweite Instanz ohne Subsystem stürzt bei OnObjective* ab.
-            if (Memory::ReadPointer(Object + WidgetManagerOffset))
+        {
+            // Die zweite Instanz ohne Subsystem stürzt bei OnObjective* ab, eine Anzeige ohne Unteranzeigen bei OnObjectiveStarted.
+            const auto Set = [Object](uintptr_t Offset) { return Memory::ReadPointer(Object + Offset).value_or(0) != 0; };
+            const ObjectiveWidgetView View{Set(Fields.Manager), Set(Fields.Description), Set(Fields.ProgressText), Set(Fields.ProgressBar)};
+            if (CanNotifyObjectiveWidget(View))
                 Result.Widgets.push_back(Object);
+            else if (View.Manager)
+                ++Result.Unbuilt;
             break;
+        }
         case Kind::AttributeSet:
             if (const auto Outer = Memory::ReadPointer(Object + Offsets::UObject::Outer))
                 Result.Sets.emplace_back(*Outer, Object);
@@ -391,6 +462,15 @@ bool Create(const Scan& Found, uintptr_t MaxOffset, int64_t Max)
         uintptr_t World;
     } StartParams{*World};
     Objects::ProcessEvent(Objective, Start, &StartParams);
+    // Diagnose (boss-leiste-wiederbeitritt): Ziel von OnObjectiveStarted mit frisch gelesener Klasse und bisherigem Objective.
+    const auto CurrentField = Reflection::Property(WidgetCurrentObjective);
+    const uintptr_t CurrentObjectiveOffset = CurrentField ? static_cast<uintptr_t>(CurrentField->Offset) : 0;
+    for (const uintptr_t Widget : Found.Widgets)
+    {
+        const auto WidgetClass = Memory::ReadPointer(Widget + Offsets::UObject::Class);
+        Core::Log::Info("Boss-Leiste: Anzeige {:#x} ({}), bisheriges Objective {:#x}", Widget, WidgetClass ? Memory::NameOf(*WidgetClass) : "?",
+                        CurrentObjectiveOffset ? Memory::ReadPointer(Widget + CurrentObjectiveOffset).value_or(0) : 0);
+    }
     NotifyWidgets(Found, Started, Objective);
     S.Ours = Objective;
     OwnObjectives().insert(Objective);
@@ -424,11 +504,16 @@ void TickBossBar()
     const auto SetMaxField = Reflection::Property(AttributeMaxHealth);
     const auto SetHealthField = Reflection::Property(AttributeHealth);
     const auto ObjectiveMaxField = Reflection::Property(ObjectiveMaxHealth);
-    if (!ManagerField || !SetMaxField || !SetHealthField || !ObjectiveMaxField)
+    const auto DescriptionField = Reflection::Property(WidgetDescription);
+    const auto ProgressTextField = Reflection::Property(WidgetProgressText);
+    const auto ProgressBarField = Reflection::Property(WidgetProgressBar);
+    if (!ManagerField || !SetMaxField || !SetHealthField || !ObjectiveMaxField || !DescriptionField || !ProgressTextField || !ProgressBarField)
         return;
     const auto MaxOffset = static_cast<uintptr_t>(ObjectiveMaxField->Offset);
+    const WidgetFields Fields{static_cast<uintptr_t>(ManagerField->Offset), static_cast<uintptr_t>(DescriptionField->Offset),
+                              static_cast<uintptr_t>(ProgressTextField->Offset), static_cast<uintptr_t>(ProgressBarField->Offset)};
 
-    Scan Found = ScanObjects(S.Ours, static_cast<uintptr_t>(ManagerField->Offset));
+    Scan Found = ScanObjects(S.Ours, Fields);
     // Ein fremdes Objective (etwa vom Spiel selbst angelegt) lassen wir in Ruhe.
     if (Found.Objective && Found.Objective != S.Ours)
     {
@@ -490,10 +575,13 @@ void TickBossBar()
             NoteWait(std::format("Boss {} da, HP nicht lesbar ({} Attributsaetze am Boss)", Class ? Memory::NameOf(*Class) : "?", BossSets));
         }
         else if (Found.Widgets.empty())
-            NoteWait("Boss da, keine Anzeige mit Subsystem");
+            NoteWait(Found.Unbuilt ? std::format("Boss da, {} Anzeige(n) mit Subsystem noch ohne Unteranzeigen", Found.Unbuilt)
+                                   : std::string("Boss da, keine Anzeige mit Subsystem"));
         else
         {
             NoteWait({});
+            if (Found.Unbuilt)
+                Core::Log::Info("Boss-Leiste: {} Anzeige(n) ohne Unteranzeigen uebergangen", Found.Unbuilt);
             Core::Log::Info("Boss-Leiste: Boss erkannt (Maximum {}), lege Objective an", Max);
             Create(Found, MaxOffset, Max);
         }
