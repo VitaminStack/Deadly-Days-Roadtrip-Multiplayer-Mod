@@ -38,6 +38,7 @@ constexpr Reflection::FieldSpec WidgetManager{Package, "DDObjectiveWidget", "Obj
 constexpr Reflection::FieldSpec WidgetDescription{Package, "DDObjectiveWidget", "DescriptionText", "ObjectProperty", 8};
 constexpr Reflection::FieldSpec WidgetProgressText{Package, "DDObjectiveWidget", "ProgressText", "ObjectProperty", 8};
 constexpr Reflection::FieldSpec WidgetProgressBar{Package, "DDObjectiveWidget", "ProgressBar", "ObjectProperty", 8};
+constexpr Reflection::FieldSpec WidgetCurrentObjective{Package, "DDObjectiveWidget", "CurrentObjective", "ObjectProperty", 8};
 constexpr Reflection::FieldSpec AttributeMaxHealth{Package, "CommonAttributeSet", "MaxHealth", "StructProperty", 16};
 constexpr Reflection::FieldSpec AttributeHealth{Package, "CommonAttributeSet", "Health", "StructProperty", 16};
 // Phasenbezogene Leiste (opt-boss-phasenleiste), siehe docs/OFFSETS.md.
@@ -72,12 +73,61 @@ enum class Kind
     Abilities
 };
 
-// Rolle einer Klasse über ihre Oberklassen, je Klasse einmal berechnet; es sind viele Objekte, aber wenige Klassen.
+std::string_view KindName(Kind Value)
+{
+    switch (Value)
+    {
+    case Kind::Boss:
+        return "Boss";
+    case Kind::Objective:
+        return "Objective";
+    case Kind::Widget:
+        return "Anzeige";
+    case Kind::AttributeSet:
+        return "Attributsatz";
+    case Kind::Abilities:
+        return "Fähigkeiten";
+    default:
+        return "anderes";
+    }
+}
+
+struct ClassEntry
+{
+    CachedClassKind Check;
+    Kind Value = Kind::Other;
+};
+
+// Nummer des laufenden Scans für ClassKindNeedsCheck, 0 heißt nie geprüft.
+uint32_t ScanNumber = 0;
+
+Kind ComputeKind(uintptr_t Class);
+
+// Rolle einer Klasse über ihre Oberklassen, je Klasse gemerkt; es sind viele Objekte, aber wenige Klassen. Ein Eintrag gilt nur, solange
+// an der Adresse dieselbe Klasse steht (boss-leiste-wiederbeitritt), geprüft einmal je Scan.
 Kind KindOf(uintptr_t Class)
 {
-    static std::unordered_map<uintptr_t, Kind> Cache;
-    if (const auto Hit = Cache.find(Class); Hit != Cache.end())
-        return Hit->second;
+    static std::unordered_map<uintptr_t, ClassEntry> Cache;
+    auto Hit = Cache.find(Class);
+    if (Hit != Cache.end() && !ClassKindNeedsCheck(Hit->second.Check, ScanNumber))
+        return Hit->second.Value;
+    const int32_t NameNow = Memory::Read<int32_t>(Class + Offsets::UObject::Name).value_or(-1);
+    if (Hit != Cache.end())
+    {
+        Hit->second.Check.CheckedScan = ScanNumber;
+        if (ClassKindStillValid(Hit->second.Check, NameNow))
+            return Hit->second.Value;
+    }
+    const Kind Result = ComputeKind(Class);
+    if (Hit != Cache.end() && (Hit->second.Value != Kind::Other || Result != Kind::Other))
+        Core::Log::Info("Boss-Leiste: Klasse an {:#x} gewechselt, vorher {}, jetzt {} ({})", Class, KindName(Hit->second.Value),
+                        KindName(Result), Memory::NameOf(Class));
+    Cache[Class] = {{NameNow, ScanNumber}, Result};
+    return Result;
+}
+
+Kind ComputeKind(uintptr_t Class)
+{
     Kind Result = Kind::Other;
     bool Enemy = false;
     uintptr_t Walk = Class;
@@ -104,7 +154,6 @@ Kind KindOf(uintptr_t Class)
         if (Name.ends_with("Boss_C"))
             Core::Log::Warn("Boss-Leiste: Klasse {} erbt nicht von BP_BossEnemy_C, keine Leiste", Name);
     }
-    Cache[Class] = Result;
     return Result;
 }
 
@@ -140,6 +189,8 @@ struct WidgetFields
 
 Scan ScanObjects(uintptr_t Current, const WidgetFields& Fields)
 {
+    if (++ScanNumber == 0)
+        ScanNumber = 1;
     Scan Result;
     const int32_t Total = Objects::Count();
     for (int32_t i = 0; i < Total; ++i)
@@ -416,6 +467,15 @@ bool Create(const Scan& Found, uintptr_t MaxOffset, int64_t Max)
         uintptr_t World;
     } StartParams{*World};
     Objects::ProcessEvent(Objective, Start, &StartParams);
+    // Diagnose (boss-leiste-wiederbeitritt): Ziel von OnObjectiveStarted mit frisch gelesener Klasse und bisherigem Objective.
+    const auto CurrentField = Reflection::Property(WidgetCurrentObjective);
+    const uintptr_t CurrentObjectiveOffset = CurrentField ? static_cast<uintptr_t>(CurrentField->Offset) : 0;
+    for (const uintptr_t Widget : Found.Widgets)
+    {
+        const auto WidgetClass = Memory::ReadPointer(Widget + Offsets::UObject::Class);
+        Core::Log::Info("Boss-Leiste: Anzeige {:#x} ({}), bisheriges Objective {:#x}", Widget, WidgetClass ? Memory::NameOf(*WidgetClass) : "?",
+                        CurrentObjectiveOffset ? Memory::ReadPointer(Widget + CurrentObjectiveOffset).value_or(0) : 0);
+    }
     NotifyWidgets(Found, Started, Objective);
     S.Ours = Objective;
     OwnObjectives().insert(Objective);

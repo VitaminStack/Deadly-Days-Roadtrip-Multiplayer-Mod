@@ -112,6 +112,25 @@ struct BossCandidate
 
 inline constexpr size_t NoBoss = static_cast<size_t>(-1);
 
+// Rolle einer Klasse, je Klassenadresse gemerkt (boss-leiste-wiederbeitritt). Im Hauptmenü entlädt das Spiel Blueprint-Klassen, beim
+// Wiederbeitritt liegt eine andere Klasse an einer alten Adresse. Ein Eintrag gilt darum nur, solange dort eine Klasse mit demselben
+// Namensindex steht; geprüft wird das einmal je Scan (CheckedScan), nicht je Objekt.
+struct CachedClassKind
+{
+    int32_t Name = -1;     // FName-Index der Klasse beim Merken
+    uint32_t CheckedScan = 0;
+};
+
+inline bool ClassKindNeedsCheck(const CachedClassKind& Entry, uint32_t Scan)
+{
+    return Entry.CheckedScan != Scan;
+}
+
+inline bool ClassKindStillValid(const CachedClassKind& Entry, int32_t NameNow)
+{
+    return NameNow >= 0 && Entry.Name == NameNow;
+}
+
 // Was eine Anzeige (DDObjectiveWidget) gerade hat: Manager (das Subsystem) und die Unteranzeigen, die OnObjectiveStarted ohne Prüfung
 // liest (DescriptionText, ProgressText, ProgressBar; auch der Fortschritt schreibt in ProgressBar). Live: weder unerreichbar noch Müll
 // noch im Abbau (Objects::IsLive).

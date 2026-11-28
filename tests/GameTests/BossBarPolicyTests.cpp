@@ -222,3 +222,15 @@ TEST_CASE("Objective widget that is being collected is never notified")
     Widget.Live = true;
     CHECK(Game::CanNotifyObjectiveWidget(Widget));
 }
+
+// boss-leiste-wiederbeitritt: Nach dem Hauptmenü lag eine andere Klasse an einer gemerkten Adresse. Das eigene Objective galt nicht mehr
+// als Objective (jede Sekunde neu angelegt), die Anzeige nicht mehr als Anzeige, und ein fremdes Objekt bekam OnObjectiveStarted.
+TEST_CASE("Cached class kind is only reused while the same class sits at the address")
+{
+    Game::CachedClassKind Entry{1234, 7};
+    CHECK_FALSE(Game::ClassKindNeedsCheck(Entry, 7));
+    CHECK(Game::ClassKindNeedsCheck(Entry, 8));
+    CHECK(Game::ClassKindStillValid(Entry, 1234));
+    CHECK_FALSE(Game::ClassKindStillValid(Entry, 5678));
+    CHECK_FALSE(Game::ClassKindStillValid(Entry, -1));
+}
